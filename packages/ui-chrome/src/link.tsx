@@ -13,6 +13,7 @@ interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   activeClassName?: string;
   partiallyActive?: boolean;
   partiallyActiveIgnore?: string[];
+  partiallyActiveMatch?: string[];
   className?: string;
   scroll?: boolean;
   prefetch?: boolean;
@@ -29,6 +30,7 @@ const Link = ({
   activeClassName = "",
   partiallyActive = false,
   partiallyActiveIgnore = [],
+  partiallyActiveMatch = [],
   className,
   ...other
 }: LinkProps) => {
@@ -42,11 +44,18 @@ const Link = ({
   const isActive = useMemo(() => {
     return (
       asPath === linkTo ||
+      partiallyActiveMatch.some((el) => asPath.startsWith(el)) ||
       (partiallyActive &&
         asPath.includes(linkTo) &&
         !partiallyActiveIgnore.filter((el) => asPath.startsWith(el)).length)
     );
-  }, [partiallyActive, asPath, linkTo, partiallyActiveIgnore]);
+  }, [
+    partiallyActive,
+    asPath,
+    linkTo,
+    partiallyActiveIgnore,
+    partiallyActiveMatch,
+  ]);
 
   if (useNextLink) {
     const { scroll, prefetch, ...aProps } = other;

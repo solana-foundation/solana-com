@@ -1,11 +1,16 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import { Link } from "@workspace/i18n/routing";
 import { ArrowLeft, Twitter, Facebook, Linkedin, Send } from "lucide-react";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { reader } from "@/lib/reader";
 import { upgradeMdxComponents } from "@/components/upgrades/mdx-components";
+import { upgradeMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildUpgradeJsonLd } from "@/lib/content-structured-data";
+import { getUpgradeSocialImageUrl } from "@/lib/upgrades/social-image";
+import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
 
 export const revalidate = 300;
 
@@ -17,29 +22,6 @@ const badgeColorMap: Record<string, string> = {
   red: "bg-red-500/10 border-red-500/30 text-red-400",
   purple: "bg-purple-500/10 border-purple-500/30 text-purple-400",
 };
-
-const LOCALES = [
-  "en",
-  "ar",
-  "de",
-  "el",
-  "es",
-  "fi",
-  "fr",
-  "hi",
-  "id",
-  "it",
-  "ja",
-  "ko",
-  "nl",
-  "pl",
-  "pt",
-  "ru",
-  "tr",
-  "uk",
-  "vi",
-  "zh",
-];
 
 function SocialShare({ title, slug }: { title: string; slug: string }) {
   const url = encodeURIComponent(`https://solana.com/upgrades/${slug}`);
@@ -88,10 +70,10 @@ function SocialShare({ title, slug }: { title: string; slug: string }) {
 }
 
 export default async function Page({ params }: Props) {
-  const { slug } = await params;
+  const { locale, slug } = await params;
   const entry = await reader.collections.upgrades.read(slug);
 
-  if (!entry || entry.status !== "published") notFound();
+  if (!isPublishedUpgrade(entry)) notFound();
 
   const rawBody = await entry.body();
   const titleDisplay = String(entry.title);
@@ -105,9 +87,19 @@ export default async function Page({ params }: Props) {
         year: "numeric",
       })
     : null;
+  const structuredData = buildUpgradeJsonLd({
+    slug,
+    locale,
+    title: titleDisplay,
+    description: entry.description ?? entry.subtitle,
+    publishedAt: entry.publishedAt,
+    authorName,
+    image: getUpgradeSocialImageUrl(slug),
+  });
 
   return (
     <div className="bg-black text-white min-h-screen">
+      <JsonLd data={structuredData} />
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
         <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 lg:px-8 py-12 pt-8 md:pt-16">
@@ -199,7 +191,7 @@ export async function generateStaticParams() {
     const published: string[] = [];
     for (const slug of slugs) {
       const entry = await reader.collections.upgrades.read(slug);
-      if (entry?.status === "published") published.push(slug);
+      if (isPublishedUpgrade(entry)) published.push(slug);
     }
     return published.map((slug) => ({ slug }));
   } catch {
@@ -208,31 +200,6 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const entry = await reader.collections.upgrades.read(slug);
-  if (!entry) return {};
-
-  const title = String(entry.title);
-  const description = entry.description ?? undefined;
-  const languages: Record<string, string> = {
-    "x-default": `/upgrades/${slug}`,
-    en: `/upgrades/${slug}`,
-  };
-  for (const locale of LOCALES.filter((l) => l !== "en")) {
-    languages[locale] = `/${locale}/upgrades/${slug}`;
-  }
-
-  return {
-    title,
-    description,
-    alternates: {
-      canonical: `/upgrades/${slug}`,
-      languages,
-    },
-    openGraph: {
-      title,
-      description,
-      type: "article",
-    },
-  };
+  const { slug, locale } = await params;
+  return upgradeMetadata(slug, locale);
 }

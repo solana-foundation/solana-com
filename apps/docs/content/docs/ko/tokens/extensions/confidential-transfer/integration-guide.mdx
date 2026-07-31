@@ -1,0 +1,589 @@
+---
+title: 기밀 전송 통합 가이드
+description:
+  지갑, 탐색기, 거래소 및 기타 애플리케이션에 기밀 전송 익스텐션을 사용하는
+  토큰을 통합하는 방법을 알아보세요.
+---
+
+# Solana에서 기밀 전송 지원하기
+
+## 배경
+
+기밀 전송 익스텐션을 사용하면 Token-2022 민트가 온체인에서 전송 금액과 계정
+잔액을 암호화된 상태로 유지할 수 있습니다. 잔액이 암호화되어 있으므로 이를
+표시하려면 소유자의 복호화 키가 필요하고, 전송 시에는 클라이언트에서 영지식
+증명을 생성해야 합니다.
+
+이 가이드는 민트를 구성하는 발행자가 아닌, 기밀 전송 토큰을 **통합**하는
+팀(지갑, 탐색기, 거래소, 수탁 기관, 인덱서)을 위한 것입니다. 처음부터 기본
+흐름을 구현하는 경우에는 아래에 링크된 단계별 페이지를 참고하세요. 이 가이드는
+이러한 토큰을 원활하게 지원하기 위해 제품에서 수행해야 할 사항에 초점을
+맞춥니다.
+
+계정 주소, 민트, 각 계정의 소유자는 **공개** 상태로 유지됩니다. 금액과 잔액만
+암호화되므로 거래 당사자 정보를 포함한 그 외 모든 정보는 여전히 공개됩니다. 이는
+익명성이 아닌 공개 관찰자로부터의 기밀성을 제공합니다.
+
+### 리소스
+
+- [기밀 전송 개요 및 단계별 가이드](/docs/tokens/extensions/confidential-transfer)
+- [익스텐션 Rust 코드](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` JS 클라이언트](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (명령어, 계정 상태 파싱, 키 도출, 고수준 기밀 전송 헬퍼)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (암호화 프리미티브 및 증명 데이터 생성)
+- [`@solana-program/zk-elgamal-proof` JS 클라이언트](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (증명 검증 명령어)
+- [`spl-token-client` Rust 크레이트](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (Rust의 고수준 엔드투엔드 헬퍼)
+
+## 요약
+
+- 모든 기밀 token account에는 여전히 **공개 잔액**과 암호화된 **대기 중** 및
+  **사용 가능한** 잔액이 있습니다. 토큰은 공개 상태와 기밀 상태 사이를 자유롭게
+  이동할 수 있습니다.
+- 기밀 잔액을 **표시**하려면 소유자의 키가 필요합니다. 권장되는 방법은 소유자의
+  지갑에서 키를 도출하고, AES 키로 사용 가능한 잔액을 복호화(빠름)하며, 필요할
+  때 ElGamal 키로 대기 중인 금액을 복호화하는 것입니다.
+- **기밀 전송**을 수행하려면 클라이언트에서 ZK 증명(동등성, 암호문 유효성,
+  범위)을 생성하고, 일반적으로 임시 **증명 컨텍스트 상태 계정**에 배치한 다음
+  전송을 제출합니다. `@solana-program/token-2022`(JS)와 `spl-token-client`(Rust)
+  모두 증명을 구성하고 트랜잭션 순서를 처리하는 고수준 헬퍼를 제공합니다.
+- 기밀 전송은 현재 여러 개의 종속 트랜잭션에 걸쳐 이루어집니다. 증명이 현재의
+  트랜잭션 크기 제한을 초과하기 때문입니다. 곧 도입될 변경 사항(Agave v4.2와
+  함께 출시되는 트랜잭션 포맷 v1)으로 이 제한이 높아져 기밀 전송을 단일 온체인
+  트랜잭션으로 실행할 수 있을 것으로 기대됩니다.
+- 지원을 전혀 추가하지 않은 지갑도 작동은 합니다. 공개 잔액이 표시되고 일반
+  전송은 계속 작동합니다. 기밀 자금은 소유자의 키를 보유한 기밀 인식
+  클라이언트라면 어디서든 접근할 수 있습니다.
+
+## 용어
+
+- **ElGamal keypair**: 잔액을 암호화하고 ZK 증명을 구성하는 데 사용되는 계정별
+  공개 키 keypair입니다. 공개 키는 계정에 저장됩니다.
+- **AES 키**: 소유자가 이산 로그를 풀지 않고도 일정한 시간 내에 사용 가능한
+  잔액을 읽을 수 있도록 "복호화 가능한 사용 가능 잔액"을 암호화하는 데 사용되는
+  계정별 대칭 키입니다.
+- **대기 중인 잔액(Pending balance)**: 입금 또는 수신 전송을 통해 받은 자금의
+  암호화된 잔액으로, 아직 적용되지 않은 상태입니다. 직접 사용할 수 없습니다.
+- **사용 가능한 잔액(Available balance)**: 전송하거나 출금할 수 있는 암호화된
+  잔액입니다.
+- **적용(Apply)**: 대기 중인 잔액을 사용 가능한 잔액으로 이동시키는 단계입니다.
+- **증명 컨텍스트 상태 계정(Proof context state account)**: 사전 검증된 ZK
+  증명을 보유하는 임시 온체인 계정으로, 기밀 명령어에 의해 참조된 후 rent를
+  회수하기 위해 종료됩니다.
+- **감사자(Auditor)**: 민트에 설정된 선택적 글로벌 ElGamal 키로, 설정된 경우
+  모든 전송 시 지정된 당사자가 복호화할 수 있도록 해당 키로 금액을 추가로
+  암호화합니다.
+
+## 계정 모델 및 잔액
+
+계정이 기밀 전송으로 구성된 경우, `ConfidentialTransferAccount` 확장은 (다른
+필드들 중에서) 다음을 저장합니다:
+
+- `elgamal_pubkey`: 계정의 ElGamal 공개 키.
+- `pending_balance_lo` / `pending_balance_hi`: 대기 중인 잔액의 ElGamal
+  암호문으로, 하위 비트와 상위 비트로 분리됩니다(상위 비트의 복호화는 비용이 더
+  많이 들기 때문에 별도로 유지됩니다).
+- `available_balance`: 사용 가능한 잔액의 ElGamal 암호문.
+- `decryptable_available_balance`: 소유자가 즉시 복호화할 수 있는 동일한 사용
+  가능 잔액의 **AES** 암호문입니다. 이 필드를 표시용으로 사용합니다.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: 계정이 현재
+  수신 기밀 또는 공개 크레딧을 허용하는지 여부.
+- `pending_balance_credit_counter` 및 `maximum_pending_balance_credit_counter`:
+  대기 중인 잔액에 누적된 크레딧 수와 적용이 필요하기 전의 한도.
+
+이러한 필드들은 모두 표준 RPC를 통해 파싱된 계정 상태로 반환됩니다. 누구나
+암호문을 읽을 수 있지만, 키를 보유한 사람만이 실제 금액을 복원할 수 있습니다.
+
+## 키 관리
+
+각 기밀 계정은 두 개의 키를 사용합니다: 암호화 및 증명을 위한 **ElGamal
+keypair**와 빠른 잔액 복호화를 위한 **AES 키**. 이러한 키를 생성하고 저장하는
+방법은 통합 방식에 따라 선택할 수 있습니다. 일반적인 옵션은 다음과 같습니다:
+
+- **지갑 서명에서 파생 (권장 기본값).** 소유자가 표준화된 도메인 분리 메시지에
+  서명하면, 해당 서명으로부터 키가 파생됩니다. 따라서 지갑만으로도 키를 재현할
+  수 있으며 별도로 저장할 필요가 없습니다. seed는 계정별로 결정론적입니다:
+  아래의 JS 헬퍼는 이를 `(owner, mint)` 쌍에 바인딩하며, Rust 예제는 token
+  account 주소를 seed로 사용합니다 (associated token account의 경우 해당 주소
+  자체가 소유자와 민트로부터 파생되므로 동일합니다).
+- **독립적인 키 재료에서 파생.** 패스키, 보안 엔클레이브, 또는 MPC 설정의 경우,
+  WebAuthn PRF 출력 또는 기타 입력 키 재료로부터 키를 파생하여 기밀 키가 계정의
+  서명 키에 종속되지 않도록 합니다. `@solana/zk-sdk`는 이를 위해
+  `ConfidentialKeys.fromIkm` 및 `ConfidentialKeys.fromPrf`를 제공합니다.
+- **직접 생성 및 관리.** 커스터디얼 및 MPC 공급자는 키를 직접 생성하고 다른
+  민감한 키 재료와 동일하게 관리하는 방식을 선호할 수 있습니다.
+
+`@solana-program/token-2022` 클라이언트는 권장 경로를 위한 헬퍼를 제공합니다:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  기밀 키는 복호화 키입니다. 파생 메시지에 서명하는 요청은 사용자 잔액에 대한
+  개인 열람 권한을 부여하는 것과 같으므로 신중하게 처리하십시오. 키는
+  저장하기보다 필요 시 파생하는 방식을 권장합니다. 저장이 필요한 경우(예:
+  커스터디얼 서비스), 서명 키와 동일한 수준의 엄격한 보호 조치를 적용하십시오.
+</Callout>
+
+파생 헬퍼는 직렬화된 키 자료를 반환합니다. 고수준 작업 헬퍼(이후에 설명)는 WASM
+`ElGamalKeypair` 및 `AeKey` 객체를 받으므로, 필요할 때 바이트에서 다시 생성해야
+합니다:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## 계정 생성 및 구성
+
+계정이 기밀 잔액을 보유하려면 `ConfidentialTransferAccount` 확장이 필요하며,
+이로 인해 token account에 약 295바이트가 추가됩니다(추가 rent로 약 0.0015 SOL
+수준). 설정은 두 단계로 이루어집니다: token account 생성 후 확장 구성.
+
+구성 시에는 일반적으로 **계정 소유자**가 서명하고, 계정에 설정되는 ElGamal 공개
+키를 소유하고 있다는 증명을 제공해야 합니다. 지갑이나 거래소는 사용자를 위해
+기본 token account를 생성하고 자금을 공급할 수 있지만, 해당 서명 없이는 사용자를
+대신하여 기밀 확장을 구성할 수 없습니다.
+
+이러한 이유로, 모든 사용자를 위해 기밀 계정을 자동으로 프로비저닝하는 것은
+피하십시오: 추가 rent가 발생하며 여전히 소유자의 개입이 필요합니다. 최초 사용 시
+또는 사용자가 기밀 전송을 선택할 때 구성하십시오.
+
+**ElGamal 레지스트리**는 계정별 소유자 단계를 제거합니다. 사용자는 ElGamal 공개
+키를 한 번 등록하고(등록 시 증명에 서명), 레지스트리 항목은 모든 민트에서
+재사용할 수 있습니다. 이후 제3자는 `ConfigureAccountWithRegistry`를 통해
+사용자의 기밀 계정을 구성할 수 있으며, 구성 시 소유자 서명이나 증명이 필요 없고
+rent를 위한 지불자만 있으면 됩니다. 사용자를 위해 기밀 계정을 원활하게
+프로비저닝하려는 경우 이 방식을 사용하십시오.
+
+<Callout type="info">
+  레지스트리 구성은 현재 Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) 및
+  `spl-elgamal-registry` 프로그램에서 사용할 수 있습니다.
+  `@solana-program/token-2022` JS 클라이언트의 동등한 헬퍼는 아직 제공되지
+  않으므로, 레지스트리 경로가 필요한 JS 통합은 해당 클라이언트의 릴리스를
+  추적하십시오.
+</Callout>
+
+## 잔액 표시
+
+강력한 통합은 표준 토큰 잔액을 사용하여 공개 잔액을 표시하고, 기밀 확장을
+감지하며, 사용자가 키를 잠금 해제한 경우 복호화하여 사용 가능한 잔액을
+표시합니다.
+
+사용 가능한 잔액은 일정한 시간이 소요되는 AES 키를 사용하여
+`decryptable_available_balance`에서 읽는 것이 가장 좋습니다. ElGamal
+`available_balance`를 직접 복호화하려면 이산 로그를 풀어야 하므로 일상적인 표시
+목적으로는 사용하지 않는 것이 좋습니다.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+사용자가 키를 잠금 해제하지 않은 경우, 잔액이 0으로 표시되는 대신 공개 잔액을
+표시하고 기밀 잔액이 존재하지만 잠겨 있음을 안내하세요.
+
+## 전송 수신
+
+입금 및 전송은 **대기 중** 잔액에 기록되며, 적용되기 전까지는 사용할 수
+없습니다. 각 크레딧은 `pending_balance_credit_counter`를 증가시키며,
+`maximum_pending_balance_credit_counter`에 도달하면 소유자가 대기 중인 잔액을
+적용하기 전까지 계정은 더 이상 기밀 크레딧을 받을 수 없습니다.
+
+사용자를 대신하여 자금을 보관하는 통합은 다음을 수행해야 합니다:
+
+- 사용자가 방금 받은 금액이 아직 사용 불가능한 이유를 이해할 수 있도록 대기 중
+  잔액과 사용 가능한 잔액을 별도로 표시합니다.
+- 잔액이 막히지 않도록 적절한 시점(예: 전송 직전)에 사용자를 대신하여 대기 중인
+  잔액을 적용합니다.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+전체 흐름은
+[대기 중 잔액 적용](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+페이지를 참고하세요.
+
+## 전송 발신
+
+기밀 전송에는 클라이언트에서 생성되는 세 가지 영지식 증명이 필요합니다:
+
+- **동등성 증명**: 발신자의 새 잔액 암호문이 발신자가 열 수 있는 새로운
+  커밋먼트와 동일한 값을 암호화한다는 증명.
+- **암호문 유효성 증명**: 전송 금액 암호문이 출처, 수신처 및 (설정된 경우)
+  감사자 키 하에 올바르게 형성되었다는 증명.
+- **범위 증명**: 금액과 발신자의 남은 잔액이 유효한 음이 아닌 정수임을 증명하며,
+  이는 무에서 가치를 발행하는 것을 방지합니다.
+
+이러한 증명들은 현재의 트랜잭션 크기 제한을 초과하여 인라인으로 포함할 수
+없으므로, 일반적인 패턴은 **증명 컨텍스트 상태 계정**을 생성하고, 각 증명을 해당
+계정에 검증한 후, 이전 명령어에서 이를 참조하고, 계정을 닫아 rent를 회수하는
+것입니다. 이 과정은 여러 종속 트랜잭션에 걸쳐 진행됩니다. 트랜잭션 형식 v1(Agave
+v4.2와 함께 출시 예정)은 크기 제한을 높이며, 기밀 이전을 단일 온체인
+트랜잭션으로 실행할 수 있게 되어 이 흐름이 단순화될 것으로 기대됩니다.
+
+증명을 직접 조합할 필요는 없습니다. 두 클라이언트 모두 증명을 빌드하고 제출할
+명령어를 생성하는 고수준 헬퍼를 제공합니다:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+더 세밀한 제어가 필요한 경우, 저수준 빌딩 블록도 사용할 수 있습니다:
+`@solana/zk-sdk`는 각 증명의 데이터 (`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`)를 생성하고, `@solana-program/zk-elgamal-proof`는
+증명 검증 명령어를 제공하며, `@solana-program/token-2022`는
+`confidentialTransfer` 및 컨텍스트 상태 계정 명령어를 제공합니다.
+
+자세한 명령어 순서는
+[토큰 이전](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+페이지를 참조하세요.
+
+## 출금
+
+출금은 기밀 가용 잔액에서 공개 잔액으로 자금을 이동시키며, 이후에는 일반 토큰
+잔액처럼 동작합니다. 출금에도 증명(동등 증명 및 범위 증명)이 필요하며, JS
+클라이언트에서는 `getConfidentialWithdrawInstructionPlan`로, Rust
+클라이언트에서는 `confidential_transfer_withdraw`로 노출됩니다. 전체 금액을
+사용할 수 있도록 먼저 미결 잔액을 적용하세요.
+[토큰 출금](/docs/tokens/extensions/confidential-transfer/withdraw-tokens)을
+참조하세요.
+
+## 관련 기밀 확장 기능
+
+두 가지 선택적 확장 기능이 기밀 이전을 기반으로 구축됩니다. 두 가지 모두 주로
+발행자의 책임이지만, 각각 통합자가 처리해야 할 사항을 변경합니다:
+
+- **기밀 이전 수수료.** 민트가 기밀 이전과
+  [이전 수수료](/docs/tokens/extensions/transfer-fees)를 함께 사용하는 경우,
+  전송은 수수료 포함 이전 경로(Rust 클라이언트의
+  `confidential_transfer_transfer_with_fee`)를 사용하며, 보류된 수수료는 금액과
+  마찬가지로 암호화됩니다. 보류 수수료 수집(수확 및 출금)은 통합자가 아닌 수수료
+  권한의 역할입니다.
+- **기밀 민팅 및 소각.** 이 확장 기능이 있는 민트는 공급량을 기밀로 발행하고
+  소각하며, 이로 인해 공개 입금 및 출금 경로가 비활성화됩니다. 이러한 민트에서는
+  토큰이 공개 잔액과 기밀 잔액 사이를 이동할 수 없으므로, 해당 민트에 대한 입금
+  또는 출금 기능을 노출하지 마세요.
+
+두 가지의 프로토콜 수준 세부 정보는
+[기밀 잔액 문서](https://www.solana-program.com/docs/confidential-balances)를
+참조하세요.
+
+## 기밀 전송 트랜잭션 파싱
+
+익스플로러와 인덱서는 금액을 읽지 않고도 기밀 전송 활동을 인식하고 레이블을
+지정해야 합니다. `@solana-program/token-2022` 클라이언트는 각 Token-2022
+명령어를 분류하기 위한 `identifyToken2022Instruction` 와 계정 및 비밀이 아닌
+필드를 디코딩하기 위한 명령어별 파서(예:
+`parseConfidentialTransferInstruction`)를 제공합니다. 암호화된 금액은 암호문으로
+유지되므로, 바이트를 숫자로 렌더링하지 말고 기밀로 표시하세요.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+계획 시 고려해야 할 인덱싱 제한 사항:
+
+- **기밀 전송에는 금액이 없습니다.** `ConfidentialTransfer` 는 암호화된 금액을
+  포함하므로, 거래량, 흐름, 전송 크기 분석을 해당 데이터에서 계산할 수 없습니다.
+  이러한 전송은 0이나 원시 암호문을 기록하는 대신 기밀로 표시하세요.
+- **잔액 변동 없음.** 기밀 이동은 공개 토큰 잔액을 변경하지 않으므로, 대부분의
+  전송 인덱싱을 구동하는 이전/이후 토큰 잔액 비교로는 이를 포착할 수 없습니다.
+  대기 중인 잔액과 사용 가능한 잔액은 암호문입니다.
+- **입금과 출금은 공개됩니다.** `ConfidentialDeposit` 와 `ConfidentialWithdraw`
+  는 평문 금액을 포함하므로, 기밀 풀 내부의 전송은 알 수 없지만 기밀 풀로의
+  입출금 흐름은 인덱싱할 수 있습니다.
+- **현재 하나의 전송이 여러 트랜잭션에 걸쳐 있습니다.** 증명 컨텍스트 상태
+  계정은 전송 전후에 생성, 사용, 종료되므로, 각 트랜잭션을 개별적으로 처리하지
+  말고 관련 트랜잭션을 연계하세요. 이는 단일 트랜잭션 기밀 전송이 적용되면
+  해소됩니다(위 참조).
+- **감사자 민트는 복호화 가능합니다.** 민트에 전역 감사자가 있고 감사자 키를
+  보유한 경우, 해당 민트의 전송 금액을 복호화할 수 있습니다(아래 참조).
+
+## 감사인 및 컴플라이언스
+
+민트는 **전역 감사인** ElGamal 공개키(pubkey)를 설정할 수 있습니다. 이 키가
+설정되면 모든 기밀 전송에는 감사인 키로 암호화된 금액이 포함되어야 하므로,
+감사인 비밀키를 보유한 자는 해당 민트의 모든 전송 금액을 복호화할 수 있습니다.
+유효성 증명이 감사인 암호문을 포함하므로, 통합자는 전송 경로에서 별도의 작업
+없이 민트 설정에서 감사인 키를 전달하기만 하면 됩니다(상위 수준 헬퍼가 이를
+자동으로 읽습니다).
+
+귀사의 제품이 감사인(예: 규제 발행사 또는 컴플라이언스 제공자)인 경우, 소유자가
+자신의 잔액을 복호화하는 것과 동일한 방식으로 감사인 비밀키를 사용해 전송 금액을
+복호화할 수 있습니다. 소유자는 계정별 키를 공개적으로 노출하지 않고 특정
+당사자에게 선택적으로 공유할 수도 있습니다.
+
+### 트랜잭션 모니터링 (KYT)
+
+트랜잭션 파악(KYT) 및 AML 제공자의 경우, 기밀 전송은 전체 모델이 아닌 관측
+가능한 정보만 변경합니다:
+
+- **주소 및 그래프 분석은 영향을 받지 않습니다.** 발신자, 수신자, 민트, 계정
+  소유자는 공개 상태로 유지되므로 주소 스크리닝, 제재 매칭, 거래 상대방 그래프
+  분석은 일반 토큰과 동일하게 작동합니다.
+- **금액 기반 휴리스틱은 감사인 키가 필요합니다.** 구조화 탐지, 임계값 보고,
+  거래량 기반 위험 점수 산정은 기밀 전송 금액을 자체적으로 읽을 수 없습니다.
+  입출금 금액은 공개 상태로 유지되므로 기밀 풀에 유입·유출되는 자금의 규모는
+  여전히 확인 가능합니다.
+- **커버리지는 감사인 모델에서 제공됩니다.** 전역 감사인을 설정한 민트의 경우,
+  감사인 키를 사용하거나 사용자 또는 발행사로부터 선택적 공개를 받는 제공자가
+  전송 금액을 복원할 수 있습니다. 규제 환경의 발행사는 모니터링이 가능하도록
+  감사인을 설정하거나 선택적 공개를 지원할 계획을 수립해야 합니다.
+
+## 하위 호환성
+
+- confidential token account에는 항상 공개 잔액이 존재합니다. 해당 확장을
+  지원하지 않는 지갑 및 앱도 계속 정상 작동하며 공개 잔액을 표시합니다.
+- 대상 계정이 비기밀 입금을 허용하는 한, 표준 전송은 공개 잔액에 대해 계속
+  작동합니다.
+- 기밀 잔액은 미지원 도구에서는 표시되지 않지만, 자금이 손실되는 것은 아닙니다.
+  기밀 전송을 인식하는 클라이언트라면 소유자의 키를 통해 접근할 수 있습니다.
+- 금액이 암호화되어 있기 때문에, 전송 금액을 읽어 공급량 및 거래량 분석을
+  수행하는 도구는 기밀 활동을 파악할 수 없습니다. 이 점을 고려하여 대시보드와
+  회계 시스템을 설계하십시오.
+
+## 플랫폼별 권장 통합 우선순위
+
+### 일반 요구사항
+
+| 요구사항            | 설명                                                                                                                                                     | 우선순위 |
+| :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| 확장 감지           | 민트 및 계정에서 Confidential Transfer 확장을 인식하고, 공개 전용 모델로 가정하는 대신 이러한 토큰을 명시적으로 처리합니다.                              | **P0**   |
+| 기밀 자금 손실 방지 | 완전한 지원이 없더라도 기밀 잔액이 존재함을 사용자에게 표시하여, 계정이 비어 있다고 오해하지 않도록 합니다.                                              | **P0**   |
+| 안전한 키 관리      | ElGamal 및 AES 키에 대한 키 전략을 선택합니다. 소유자 지갑에서 파생하는 방식이 권장 기본값이며, 키를 저장하는 경우 서명 키와 동일한 수준으로 보호합니다. | **P0**   |
+
+---
+
+### 지갑
+
+| 요구사항                                | 설명                                                                                                       | 우선순위 |
+| :-------------------------------------- | :--------------------------------------------------------------------------------------------------------- | :------- |
+| 공개 잔액 표시                          | 표준 토큰 잔액 조회를 통해 공개 잔액을 항상 표시합니다.                                                    | **P0**   |
+| 사용 가능한 잔액 잠금 해제 및 표시      | 서명을 통해 사용자가 키를 잠금 해제하고, AES 복호화 가능 잔액을 통해 복호화된 사용 가능 잔액을 표시합니다. | **P0**   |
+| 대기 중 잔액과 사용 가능 잔액 구분 표시 | 대기 중 잔액을 별도로 표시하고, 자금 수신 시 적용을 유도하는 안내를 제공합니다.                            | **P1**   |
+| 대기 중 잔액 자동 적용                  | 자금이 묶이지 않도록 적절한 시점(예: 전송 전)에 대기 중 잔액을 자동으로 적용합니다.                        | **P1**   |
+| 기밀 전송 지원                          | 클라이언트 측 증명 생성을 통한 입금, 전송, 출금 흐름을 지원합니다.                                         | **P1**   |
+| 잠금 상태 UX                            | 키가 잠금 해제되지 않은 경우, 0으로 표시하는 대신 기밀 잔액이 존재함을 명확히 안내합니다.                  | **P1**   |
+| 온보딩 / 교육                           | 비공개로 유지되는 항목(금액 및 잔액)과 키 잠금 해제 단계에 대해 사용자가 이해할 수 있도록 안내합니다.      | **P2**   |
+
+---
+
+### 익스플로러 및 인덱서
+
+| 요구 사항                            | 설명                                                                                                       | 우선순위 |
+| :----------------------------------- | :--------------------------------------------------------------------------------------------------------- | :------- |
+| 기밀 계정 및 민트 표시               | 확장 기능을 사용하는 계정과 민트를 명확히 표시하고 공개 잔액을 보여줍니다.                                 | **P0**   |
+| 기밀 명령어 파싱                     | configure, deposit, apply, transfer, withdraw 명령어를 디코딩하고 유형을 표시합니다(금액은 표시하지 않음). | **P0**   |
+| 암호화된 금액을 숫자로 표시하지 않음 | 암호문 필드를 일반 텍스트 잔액처럼 렌더링하지 말고 기밀로 표시합니다.                                      | **P0**   |
+| 공개 입출금 흐름 인덱싱              | 기밀 풀의 입출금 흐름을 추적하기 위해 입금 및 출금 시 평문 금액을 기록합니다.                              | **P1**   |
+| 다중 트랜잭션 전송 연관              | 하나의 기밀 전송을 구성하는 증명 설정, 전송, 정리 트랜잭션을 그룹화합니다.                                 | **P1**   |
+| 감사자 구성 표시                     | 민트에 글로벌 감사자가 구성되어 있는지 여부를 표시합니다.                                                  | **P1**   |
+| 증명 계정 생명주기                   | 증명 컨텍스트 상태 계정의 생성 및 종료를 인식하여 트랜잭션이 이해하기 쉽게 표시되도록 합니다.              | **P2**   |
+
+---
+
+### 거래소 및 수탁자
+
+| 요구 사항                         | 설명                                                                                                                                                 | 우선순위 |
+| :-------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| 공개 및 기밀 상태 추적            | 입금을 처리하고 보유량을 계산할 때 공개 잔액과 기밀 잔액을 모두 고려합니다.                                                                          | **P0**   |
+| 입금 시 대기 중인 잔액 적용       | 기밀 입금이 도착하면 대기 중인 잔액을 적용하여 크레딧된 금액이 정확하도록 합니다.                                                                    | **P0**   |
+| 안전한 키 관리                    | 기밀 자금을 수탁 방식으로 보관하는 경우, ElGamal/AES 키를 서명 키와 동일한 수준의 엄격함으로 관리합니다.                                             | **P0**   |
+| 레지스트리를 통한 계정 프로비저닝 | 사용자를 위한 기밀 계정을 설정하려면 사용자가 ElGamal 키를 한 번 등록하게 하고, 계정별 서명을 요구하는 대신 레지스트리 경로를 통해 프로비저닝합니다. | **P1**   |
+| 사용자 출금                       | 대상 계정 구성에 따라 기밀 또는 공개 출금을 지원합니다.                                                                                              | **P1**   |
+| 컴플라이언스 / 감사자 지원        | 필요한 경우 감사자 키 또는 선택적 공개를 사용하여 보고 의무를 이행합니다.                                                                            | **P1**   |
+| 원시 금액에 대한 내부 회계        | 엣지에서 복호화된 금액을 기준으로 대사하고 저장하며, 암호문을 집계하려 하지 않습니다.                                                                | **P1**   |
+
+---
+
+### 컴플라이언스 및 KYT 제공업체
+
+| 요구사항                     | 설명                                                                                                                    | 우선순위 |
+| :--------------------------- | :---------------------------------------------------------------------------------------------------------------------- | :------- |
+| 주소 및 그래프 스크리닝      | 송신자, 수신자, 발행자 및 소유자를 스크리닝하고 거래 상대방 그래프 분석을 실행합니다. 이 정보는 공개 상태로 유지됩니다. | **P0**   |
+| 공개 입출금 추적             | 기밀 풀의 관찰 가능한 진입 및 출구 지점으로서 평문 입금 및 출금 금액을 모니터링합니다.                                  | **P0**   |
+| 감사자 키를 통한 금액 가시성 | 감사자가 활성화된 발행의 경우, 금액 기반 탐지를 지원하기 위해 감사자 키를 사용하여 전송 금액을 복호화합니다.            | **P1**   |
+| 선택적 공개 접수             | 계정별 키를 통해 사용자 또는 발행자가 공유한 금액 공개를 지원합니다.                                                    | **P2**   |

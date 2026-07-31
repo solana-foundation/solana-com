@@ -1,0 +1,280 @@
+---
+title: Linguaggio e Sintassi
+description: Usa il DSL txtx per descrivere i deployment gestiti da surfpool.
+---
+
+Questa è la documentazione per il linguaggio txtx. I file Runbook che scrivi
+descrivono quali blockchain e reti utilizzare, quali dati recuperare e quali
+transazioni trasmettere. Il linguaggio txtx consente inoltre di definire
+dipendenze tra risorse e creare più costrutti simili a partire da un singolo
+blocco.
+
+## Sintassi
+
+I Runbook contengono una serie di blocchi di codice simili a questo:
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+Ogni blocco ha un tipo di comando (in questo esempio `variable`, `action` e
+`output`), un nome di riferimento (`"query_path"`, `"http_query"` e
+`"status_code"`), e i dati interni del blocco (tutto ciò che si trova tra
+`{ ... }`). Alcuni tipi di comando richiedono inoltre che venga specificato un
+comando (`"std::send_http_request"`). I dati interni del blocco sono determinati
+dal tipo di comando e dal comando specificati.
+
+### Riferimenti ai Comandi
+
+Un comando può fare riferimento agli output di un altro comando per costruire
+una catena di comandi dipendenti. Quando esegui un Runbook, surfpool crea un
+grafo di tutti i comandi per garantire che vengano sempre eseguiti nell'ordine
+corretto. Ciò significa che è necessario evitare cicli di dipendenza durante la
+creazione di un Runbook.
+
+L'output di un altro comando può essere referenziato in un blocco utilizzando
+`command_type.ref_name.output_name`. Ecco alcuni esempi:
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### Funzioni
+
+La [libreria standard](/docs/tools/surfpool/iac/std/functions) fornisce alcune
+funzioni che possono essere scritte inline, anziché scrivere blocchi di comando
+completi con argomenti nominati. Queste funzioni possono essere estese tramite
+addon.
+
+Queste funzioni possono apparire come chiamate di funzione esplicite (es.
+`add_uint(1, 3)`), oppure come operazioni aritmetiche inline (es. `1 + 3`). Le
+funzioni possono fare riferimento agli output di altri comandi, oppure possono
+essere memorizzate in nuovi output di comando. Ecco un esempio con alcune
+funzioni:
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## Input del Manifest e della CLI
+
+Gli input possono essere forniti al Runbook passandoli come input CLI, oppure
+specificandoli in un file manifest `txtx.yml`. Se lo stesso input viene fornito
+sia tramite CLI che in un manifest, l'input CLI avrà la precedenza. Per
+informazioni su come utilizzare la CLI, consulta la
+[documentazione CLI](/docs/tools/surfpool/toolchain/cli). Nel manifest, questi
+input possono essere raggruppati tramite una chiave di ambiente, rendendo
+semplice l'utilizzo dello stesso Runbook in più ambienti.
+
+Ecco un esempio di configurazione con variabili d'ambiente:
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+In qualsiasi file `.tx` caricato da questo runbook, gli input `input.network_id`
+e `input.rpc_api_url` saranno disponibili nello scope globale. Quando la Web UI
+carica questo runbook, il primo elemento di azione ti permetterà di selezionare
+quale ambiente caricare. Selezionando un nuovo ambiente il runbook corrente
+verrà ricaricato con le nuove variabili d'ambiente iniettate nell'esecuzione.
+
+### Gestione dello Stato
+
+Surfpool può gestire lo stato tra le esecuzioni del Runbook. Durante
+l'esecuzione dei deploy di contratti, la gestione dello stato può essere
+utilizzata per rilevare eventuali modifiche al codice del contratto e agli input
+del Runbook, al fine di determinare se il Runbook deve essere rieseguito.
+Surfpool impedirà la riesecuzione di un Runbook se non vi sono modifiche al
+codice del contratto o agli input del Runbook.
+
+Per abilitare la gestione dello stato, fornisci il valore `state` e un
+`location` in cui archiviare il file di stato nel `txtx.yml`:
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## Variabili
+
+Le variabili possono essere utilizzate per memorizzare valori che possono essere
+usati da altri costrutti e modificati dagli utenti nella Web UI. Se il campo
+`editable` della variabile non è specificato o è impostato su `false`, la
+variabile apparirà nella Web UI nella sezione `Variables Review` come valore di
+sola lettura verificabile. Se invece il campo `editable` è impostato su `true`,
+la variabile apparirà come campo modificabile nella Web UI. Il campo facoltativo
+`description` può essere fornito per aggiungere ulteriore contesto alla
+variabile. Ecco un esempio di variabile:
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## Addon e Valori Predefiniti
+
+I blocchi addon consentono di specificare quali addon verranno utilizzati dal
+Runbook. Qualsiasi campo dichiarato all'interno del blocco addon può essere
+referenziato da qualsiasi azione che fa parte di quell'addon. Ciò ti permetterà
+di omettere i campi quando si utilizzano azioni personalizzate da quell'addon.
+L'esempio seguente dichiara l'addon `svm` e imposta i campi `network_id` e
+`rpc_api_url` come valori predefiniti:
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+Con questo valore predefinito aggiunto a un file `.tx`, qualsiasi azione
+dell'addon SVM può omettere sia il campo `network_id` che il campo
+`rpc_api_url`.
+
+## Flussi
+
+I flussi consentono di eseguire un Runbook più volte con input diversi per
+ciascuna esecuzione. Qualsiasi campo specificato nel blocco del flusso può
+essere referenziato da qualsiasi azione che fa parte di quel flusso tramite
+`flow.field_name`. Questo può essere utilizzato in combinazione con il blocco
+`addon` in modi utili:
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## Firmatari
+
+Gli addon possono definire dei firmatari che forniscono vari modi per firmare le
+transazioni quando si utilizza surfpool. Questi firmatari possono essere usati
+per firmare transazioni tramite una mnemonica o una chiave segreta, per chiedere
+agli utenti di collegare il proprio wallet web e firmare nell'interfaccia Web UI
+di Surfpool, per firmare transazioni in modo asincrono tramite enclave sicuro,
+per definire wallet multisig e altro ancora. Ogni implementazione di firmatario
+addon avrà i propri casi d'uso e documentazione.
+
+Ecco un esempio di utilizzo di un firmatario:
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+Questo esempio definisce un firmatario denominato `alice`, che utilizza il
+firmatario `svm::web_wallet`. Questa definizione del firmatario genererà un
+prompt nell'interfaccia Web UI per collegare un wallet, fornire una pubkey
+tramite firma del messaggio e firmare tutte le transazioni utilizzando questo
+wallet come firmatario.
+
+## Azioni
+
+Le azioni sono costrutti multiuso definiti dagli addon e dalla
+[libreria standard](/docs/tools/surfpool/iac/std/actions). Ogni azione definisce
+il proprio insieme di input (alcuni opzionali e alcuni obbligatori) che possono
+essere forniti all'azione, ciò che accade durante ogni chiamata all'azione e
+quali output vengono creati dall'azione, che possono essere referenziati dai
+comandi successivi.
+
+Alcuni esempi di tipi di azioni includono l'esecuzione di richieste HTTP e la
+restituzione del risultato, la codifica dei dati di transazione per
+corrispondere al codec di una determinata chain, la firma di una transazione con
+un wallet e la restituzione dei byte della transazione firmata, oppure la
+trasmissione di una transazione a una rete.
+
+Ecco un esempio di azione:
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## Moduli
+
+Prossimamente.
+
+## Output
+
+Il comando output può essere utilizzato per visualizzare i dati al termine
+dell'esecuzione del runbook. Ecco un esempio del comando output:
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

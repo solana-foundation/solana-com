@@ -1,0 +1,278 @@
+---
+title: トランザクション
+description: トランザクションを処理するためのメソッド
+---
+
+## send_transaction
+
+```rust
+pub fn send_transaction(&mut self, tx: impl Into<VersionedTransaction>) -> Result<TransactionMetadata, FailedTransactionMetadata>
+```
+
+トランザクションを実行し、状態を変更します。
+
+```rust
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+
+match svm.send_transaction(tx) {
+    Ok(meta) => {
+        println!("Success! Signature: {}", meta.signature);
+        println!("Compute units: {}", meta.compute_units_consumed);
+        println!("Fee: {} lamports", meta.fee);
+    }
+    Err(e) => {
+        println!("Failed: {:?}", e.err);
+        println!("Logs: {:?}", e.meta.logs);
+    }
+}
+```
+
+## simulate_transaction
+
+```rust
+pub fn simulate_transaction(&self, tx: impl Into<VersionedTransaction>) -> Result<SimulatedTransactionInfo, FailedTransactionMetadata>
+```
+
+状態を変更せずにトランザクションをシミュレートします。
+
+`SimulatedTransactionInfo` を返します。これには以下が含まれます：
+
+- `meta`: トランザクションのメタデータ（ログ、コンピュートユニット、署名など）
+- `post_accounts`: シミュレーション後のアカウント状態
+
+```rust
+// State before simulation
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate transaction
+let result = svm.simulate_transaction(tx.clone());
+
+// State unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+
+// Check simulation result
+if let Ok(sim_info) = result {
+    println!("Would succeed");
+    println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+    // Can inspect post_accounts to see what would change
+    for (pubkey, account) in sim_info.post_accounts {
+        println!("Account {} would have {} lamports", pubkey, account.lamports());
+    }
+
+    // Safe to send
+    svm.send_transaction(tx).unwrap();
+}
+```
+
+## シミュレーションを使用するタイミング
+
+`simulate_transaction()` の用途：
+
+- 状態を変更せずにトランザクションの有効性をテストする
+- コンピュートユニットの消費量を確認する
+- コミットなしでトランザクションログを検証する
+- エラー処理パスをテストする
+
+```rust
+// Test if transaction would succeed
+let result = svm.simulate_transaction(tx.clone());
+
+match result {
+    Ok(sim_info) => {
+        println!("Would succeed");
+        println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+        // Now execute for real
+        svm.send_transaction(tx).unwrap();
+    }
+    Err(e) => {
+        println!("Would fail: {:?}", e.err);
+        // Don't send transaction
+    }
+}
+```
+
+## エラーケースのテスト
+
+```rust
+// Simulate expected failure
+let result = svm.simulate_transaction(invalid_tx);
+assert!(result.is_err());
+
+match result.unwrap_err().err {
+    TransactionError::InsufficientFundsForFee => {
+        println!("Expected error occurred");
+    }
+    _ => panic!("Unexpected error"),
+}
+```
+
+## 状態は変更されません
+
+```rust
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate multiple times
+for _ in 0..10 {
+    svm.simulate_transaction(tx.clone()).unwrap();
+}
+
+// Balance unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+```
+
+## トランザクションのメタデータ
+
+`send_transaction()` は `TransactionMetadata` を直接返しますが、
+`simulate_transaction()` は `SimulatedTransactionInfo` を返し、これには
+`meta: TransactionMetadata` が含まれます：
+
+```rust
+pub struct TransactionMetadata {
+    pub signature: Signature,
+    pub logs: Vec<String>,
+    pub inner_instructions: InnerInstructionsList,
+    pub compute_units_consumed: u64,
+    pub return_data: TransactionReturnData,
+    pub fee: u64,
+}
+```
+
+### トランザクションデータへのアクセス
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Signature
+println!("Signature: {}", result.signature);
+
+// Logs
+for log in &result.logs {
+    println!("{}", log);
+}
+
+// Compute units
+println!("CU consumed: {}", result.compute_units_consumed);
+
+// Return data
+if let Some(data) = result.return_data.data {
+    println!("Program returned: {:?}", data);
+}
+
+// Inner instructions (CPIs)
+for inner in &result.inner_instructions {
+    println!("CPI: {:?}", inner);
+}
+
+// Transaction fee paid by fee payer
+println!("Fee paid: {} lamports", result.fee);
+```
+
+## get_transaction
+
+```rust
+pub fn get_transaction(&self, signature: &Signature) -> Option<&TransactionResult>
+```
+
+パラメータ
+`TransactionResult = Result<TransactionMetadata, FailedTransactionMetadata>`。
+
+履歴からトランザクションを照会します。`with_transaction_history()`
+の設定が必要です。
+
+```rust
+let mut svm = LiteSVM::default()
+    .with_transaction_history(100);
+
+let result = svm.send_transaction(tx).unwrap();
+let signature = result.signature;
+
+// Query later
+if let Some(tx_result) = svm.get_transaction(&signature) {
+    match tx_result {
+        Ok(meta) => println!("Found: {:?}", meta),
+        Err(e) => println!("Failed: {:?}", e.err),
+    }
+}
+```
+
+## latest_blockhash
+
+```rust
+pub fn latest_blockhash(&self) -> Hash
+```
+
+トランザクション用の現在のブロックハッシュを取得します。
+
+```rust
+let blockhash = svm.latest_blockhash();
+
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    blockhash,
+);
+```
+
+## expire_blockhash
+
+```rust
+pub fn expire_blockhash(&mut self)
+```
+
+現在のブロックハッシュを強制的に期限切れにします。
+
+```rust
+let old_hash = svm.latest_blockhash();
+svm.expire_blockhash();
+let new_hash = svm.latest_blockhash();
+
+assert_ne!(old_hash, new_hash);
+
+// Transactions with old_hash will now fail
+```
+
+## よくあるパターン
+
+### 実行前の検証
+
+```rust
+// Simulate first to check validity
+if svm.simulate_transaction(tx.clone()).is_ok() {
+    // Execute if simulation passes
+    svm.send_transaction(tx).unwrap();
+} else {
+    println!("Transaction would fail, skipping execution");
+}
+```
+
+### コンピュートユニットの追跡
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Assert within budget
+assert!(
+    result.compute_units_consumed < 100_000,
+    "Transaction used too many compute units: {}",
+    result.compute_units_consumed
+);
+```
+
+### トランザクションログの確認
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Check for specific log messages
+assert!(result.logs.iter().any(|log|
+    log.contains("Transfer successful")
+));
+```

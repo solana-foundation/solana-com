@@ -1,0 +1,103 @@
+---
+title: Cross-Program Invocation
+description: Cara menguji program yang memanggil program lain
+---
+
+## Pengujian Lengkap
+
+```rust title="tests/cpi_test.rs"
+use litesvm::LiteSVM;
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+    system_program,
+};
+
+#[test]
+fn test_cross_program_invocation() {
+    let mut svm = LiteSVM::new();
+
+    // Deploy both programs
+    let caller_program = Pubkey::new_unique();
+    let callee_program = Pubkey::new_unique();
+
+    svm.add_program(
+        caller_program,
+        include_bytes!("../target/deploy/caller.so")
+    ).unwrap();
+
+    svm.add_program(
+        callee_program,
+        include_bytes!("../target/deploy/callee.so")
+    ).unwrap();
+
+    // Setup accounts
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+    // Create instruction that will trigger CPI
+    let instruction = Instruction {
+        program_id: caller_program,
+        accounts: vec![
+            AccountMeta::new(payer.pubkey(), true),
+            AccountMeta::new_readonly(callee_program, false),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+        data: vec![1], // Instruction to trigger CPI
+    };
+
+    let tx = Transaction::new_signed_with_payer(
+        &[instruction],
+        Some(&payer.pubkey()),
+        &[&payer],
+        svm.latest_blockhash(),
+    );
+
+    let result = svm.send_transaction(tx).unwrap();
+
+    // Verify both programs were invoked
+    assert!(result.logs.iter().any(|log|
+        log.contains(&format!("Program {} invoke", caller_program))
+    ));
+    assert!(result.logs.iter().any(|log|
+        log.contains(&format!("Program {} invoke", callee_program))
+    ));
+
+    println!("CPI successful!");
+    println!("Logs showing both programs:");
+    for log in &result.logs {
+        if log.contains("invoke") {
+            println!("   {}", log);
+        }
+    }
+}
+```
+
+## Poin-Poin Utama
+
+1. **Beberapa Program**: Deploy semua program yang terlibat dalam rantai Cross
+   Program Invocation
+2. **ID Program**: Masukkan ID program yang dipanggil sebagai akun dalam
+   instruksi
+3. **System Program**: Sering diperlukan untuk operasi Cross Program Invocation
+   (transfer, pembuatan akun, dll.)
+4. **Verifikasi Log**: Periksa log untuk memastikan semua program dalam rantai
+   panggilan telah dieksekusi
+
+Untuk informasi deployment yang lebih lengkap, baca
+[bagian ini](/docs/tools/litesvm/testing-your-program/deploy).
+
+## Memahami Log Cross Program Invocation
+
+Saat Cross Program Invocation terjadi, Anda akan melihat log seperti:
+
+```
+Program A invoke [1]
+Program B invoke [2]
+Program B success
+Program A success
+```
+
+Angka dalam tanda kurung menunjukkan kedalaman pemanggilan.

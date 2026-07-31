@@ -1,0 +1,641 @@
+---
+title: Luottamuksellisen siirron integrointiopas
+description:
+  Opi integroimaan Confidential Transfer -laajennusta käyttävät tokenit
+  lompakkoihin, selaimiin, pörsseihin ja muihin sovelluksiin.
+---
+
+# Luottamuksellisten siirtojen tukeminen Solanassa
+
+## Tausta
+
+Confidential Transfer -laajennus antaa Token-2022-minteille mahdollisuuden pitää
+siirtomäärät ja tilisaldot salattuna ketjussa. Saldot ovat salattuja, joten
+niiden näyttäminen vaatii omistajan salauksen purkamisavaimet, ja lähettäminen
+edellyttää nollatietotodisteiden luomista asiakaspuolella.
+
+Tämä opas on suunnattu tiimeille, jotka **integroivat** luottamuksellisen
+siirron tokeneja (lompakot, selaimet, pörssit, säilytyspalvelut, indeksoijat),
+eikä liikkeeseenlaskijoille, jotka konfiguroivat minttiä. Jos rakennat
+pohjimmaista toimintaketjua tyhjästä, aloita alla linkitetyistä vaiheittaisista
+sivuista; tämä opas keskittyy siihen, mitä tuotteesi tarvitsee näiden tokenien
+hyvään tukemiseen.
+
+Tilin osoitteet, mintti ja jokaisen tilin omistaja pysyvät **julkisina**. Vain
+määrät ja saldot ovat salattuja, joten kaikki muu – mukaan lukien kenen kanssa
+kukin tekee transaktioita – pysyy näkyvissä. Tämä tarjoaa luottamuksellisuuden
+julkisilta tarkkailijoilta, ei anonymiteettiä.
+
+### Resurssit
+
+- [Confidential Transfer -yleiskatsaus ja vaiheittaiset oppaat](/docs/tokens/extensions/confidential-transfer)
+- [Laajennuksen Rust-koodi](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` JS-asiakas](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (ohjeet, token account -tilan jäsentäminen, avainten johtaminen ja korkean
+  tason luottamuksellisen siirron apufunktiot)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (salauksen primitiivit ja todistustietojen luonti)
+- [`@solana-program/zk-elgamal-proof` JS-asiakas](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (todistuksen vahvistusohjeet)
+- [`spl-token-client` Rust-kirjasto](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (korkean tason päästä päähän -apufunktiot Rustissa)
+
+## Lyhyesti
+
+- Jokaisella luottamuksellisella token account -tilillä on edelleen **julkinen
+  saldo** sekä salattu **odottava** ja **käytettävissä oleva** saldo. Token voi
+  liikkua vapaasti julkisen ja luottamuksellisen tilan välillä.
+- **Näyttääksesi** luottamuksellisen saldon tarvitset omistajan avaimet.
+  Suositeltu tapa on johtaa ne omistajan lompakosta, purkaa käytettävissä oleva
+  saldo AES-avaimella (nopea) ja purkaa odottavat määrät ElGamal-avaimella
+  tarvittaessa.
+- **Lähettääksesi** luottamuksellisesti luot ZK-todisteet asiakaspuolella
+  (yhtäläisyys, salatekstin validiteetti, alue), jotka sijoitetaan yleensä
+  väliaikaisiin **todistuskontekstin tila-tileihin**, minkä jälkeen lähetät
+  siirron. Sekä `@solana-program/token-2022` (JS) että `spl-token-client` (Rust)
+  tarjoavat korkean tason apufunktioita, jotka rakentavat todisteet ja
+  järjestävät transaktiot puolestasi.
+- Luottamukselliset siirrot kattavat tällä hetkellä useita riippuvaisia
+  transaktioita, koska todisteet ylittävät nykyisen transaktiokokorajan. Tuleva
+  muutos (transaktioformaatti v1, tulossa Agave v4.2:n myötä) nostaa tätä rajaa
+  ja sen odotetaan mahdollistavan luottamuksellisen siirron suorittamisen
+  yhdessä ketjun transaktiossa.
+- Lompakko, joka ei lisää tukea, toimii silti: se näyttää julkisen saldon ja
+  tavalliset siirrot toimivat normaalisti. Luottamukselliset varat pysyvät
+  saavutettavissa kaikille luottamuksellisista siirroista tietoisille
+  asiakkaille, joilla on omistajan avaimet.
+
+## Termit
+
+- **ElGamal keypair**: tilikohtainen julkisen avaimen keypair, jota käytetään
+  saldojen salaamiseen ja ZK-todisteiden rakentamiseen. Julkinen avain
+  tallennetaan tilille.
+- **AES-avain**: tilikohtainen symmetrinen avain, jota käytetään "salattavissa
+  olevan käytettävissä olevan saldon" salaamiseen, jotta omistaja voi lukea
+  käytettävissä olevan saltonsa vakioajassa ilman diskreettilogaritmin
+  ratkaisemista.
+- **Odottava saldo**: salattu saldo varoista, jotka on vastaanotettu talletusten
+  tai saapuvien siirtojen kautta ja joita ei ole vielä käsitelty. Ei voida
+  käyttää suoraan.
+- **Käytettävissä oleva saldo**: salattu saldo, joka voidaan siirtää tai nostaa.
+- **Käytä**: vaihe, joka siirtää odottavan saldon käytettävissä olevaksi.
+- **Todistekontekstin tilaccount**: tilapäinen ketjussa oleva tili, joka
+  sisältää ennalta varmennetun ZK-todisteen, johon luottamuksellinen ohje
+  viittaa ja joka suljetaan rent:in takaisinperimiseksi.
+- **Tarkastaja**: valinnainen globaali ElGamal-avain mintissä; kun se on
+  asetettu, jokainen siirto salaa lisäksi summansa tällä avaimella, jotta
+  nimetty osapuoli voi purkaa sen salauksen.
+
+## Tilirakenne ja saldot
+
+Kun tili on määritetty luottamuksellisia siirtoja varten,
+`ConfidentialTransferAccount`-laajennus tallentaa (muiden kenttien ohella):
+
+- `elgamal_pubkey`: tilin ElGamal-julkinen avain.
+- `pending_balance_lo` / `pending_balance_hi`: ElGamal-salakirjoitukset
+  odottavasta saldosta, jaettuna mataliin ja korkeisiin bitteihin (korkeiden
+  bittien salauksen purku on kalliimpaa, joten ne pidetään erillään).
+- `available_balance`: ElGamal-salakirjoitus käytettävissä olevasta saldosta.
+- `decryptable_available_balance`: **AES**-salakirjoitus samasta käytettävissä
+  olevasta saldosta, jonka omistaja voi purkaa välittömästi. Tämä on kenttä,
+  jota käytetään näyttämiseen.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: hyväksyykö
+  tili tällä hetkellä saapuvia luottamuksellisia tai julkisia hyvityksiä.
+- `pending_balance_credit_counter` ja `maximum_pending_balance_credit_counter`:
+  kuinka monta hyvitystä on kertynyt odottavaan saldoon ja raja, ennen kuin
+  käyttö vaaditaan.
+
+Kaikki nämä kentät palautetaan jäsennetyssä tilin tilassa tavallisen RPC:n
+kautta. Kuka tahansa voi lukea salakirjoitustekstit, mutta vain avainten
+haltijoilla on pääsy taustalla oleviin summiin.
+
+## Avainten hallinta
+
+Jokainen luottamuksellinen tili käyttää kahta avainta: **ElGamal keypair**
+-avainta salausta ja todistuksia varten sekä **AES-avainta** nopeaan saldon
+purkamiseen. Avainten tuottaminen ja säilyttäminen on integrointivalinta.
+Muutamia yleisiä vaihtoehtoja:
+
+- **Johda lompakkosignatuureista (suositeltu oletusasetus).** Omistaja
+  allekirjoittaa kanonisen, verkkotunnuksesta erotetun viestin, ja avaimet
+  johdetaan kyseisestä signatuurista, joten ne ovat uudelleen tuotettavissa
+  pelkän lompakon avulla eikä niitä tarvitse tallentaa. seed on deterministinen
+  tilikohtaisesti: alla olevat JS-apuohjelmat sitovat sen
+  `(owner, mint)`-pariin, kun taas Rust-esimerkki käyttää seedinä token account
+  -osoitetta (associated token account -tilille nämä ovat vastaavat, koska
+  kyseinen osoite itsessään johdetaan omistajasta ja mintistä).
+- **Johda itsenäisestä avainmateriaalista.** Passkeyjä, suojattuja enklaaveja
+  tai MPC-asetuksia varten johda avaimet WebAuthn PRF -tuloksesta tai muusta
+  syöttöavainmateriaalista, jotta luottamukselliset avaimet eivät ole sidottuja
+  tilin allekirjoitusavaimeen. `@solana/zk-sdk` tarjoaa
+  `ConfidentialKeys.fromIkm`- ja `ConfidentialKeys.fromPrf`-funktiot tähän
+  tarkoitukseen.
+- **Luo ja hallinnoi suoraan.** Säilytyspalvelu- ja MPC-palveluntarjoajat
+  saattavat haluta luoda avaimet ja hallita niitä kuten mitä tahansa muuta
+  arkaluonteista avainmateriaalia.
+
+`@solana-program/token-2022` -asiakas sisältää apuohjelmat suositellulle
+polulle:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Luottamukselliset avaimet ovat salauksen purkuavaimia. Suhtaudu pyyntöön
+  allekirjoittaa johdannainen viesti kuin käyttäjän saldojen yksityisen näkymän
+  avaamiseen. Suosi avainten johtamista tarvittaessa tallentamisen sijaan; jos
+  tallennat ne (esimerkiksi säilytyspalvelussa), suojaa ne yhtä huolellisesti
+  kuin allekirjoitusavaimet.
+</Callout>
+
+Johdannaisapufunktiot palauttavat sarjallistettua avainmateriaalia. Korkean
+tason operaatioapufunktiot (esitetty myöhemmin) ottavat WASM `ElGamalKeypair`-
+ja `AeKey`-objekteja, joten rakenna ne uudelleen tavuista tarvittaessa:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Tilien luominen ja konfigurointi
+
+Ennen kuin tili voi pitää luottamuksellista saldoa, se tarvitsee
+`ConfidentialTransferAccount`-laajennuksen, joka lisää token account -tiliin
+noin 295 tavua (noin 0,0015 SOL ylimääräistä rent-maksua). Käyttöönotto koostuu
+kahdesta vaiheesta: luo token account, sitten konfiguroi laajennus.
+
+Konfigurointi edellyttää normaalisti, että **tilin omistaja** allekirjoittaa ja
+toimittaa todistuksen siitä, että he omistavat tilille asetettavan
+ElGamal-julkisen avaimen. Lompakko tai vaihtopalvelu voi luoda ja rahoittaa
+käyttäjälle pelkän token account -tilin, mutta se ei voi konfiguroida
+luottamuksellista laajennusta käyttäjän puolesta ilman tätä allekirjoitusta.
+
+Tästä syystä vältä luottamuksellisten tilien hiljaista provisiointia kaikille
+käyttäjille: se aiheuttaa ylimääräistä rent-kulua ja edellyttää silti omistajan
+osallistumista. Konfiguroi ensimmäisen käyttökerran yhteydessä tai kun käyttäjä
+ottaa luottamukselliset siirrot käyttöön.
+
+**ElGamal-rekisteri** poistaa tilikohtaisen omistajavaiheen. Käyttäjä rekisteröi
+ElGamal-julkisen avaimensa kerran (allekirjoittamalla todistuksen rekisteröinnin
+yhteydessä), ja rekisterimerkintä on uudelleenkäytettävissä kaikilla minteillä.
+Sen jälkeen kolmas osapuoli voi konfiguroida käyttäjälle luottamuksellisia
+tilejä `ConfigureAccountWithRegistry`-funktiolla, joka ei vaadi omistajan
+allekirjoitusta tai todistusta konfigurointihetkellä – ainoastaan rent-maksajan.
+Tämä on mekanismi, jota kannattaa käyttää, jos haluat provisioida
+luottamuksellisia tilejä käyttäjille sujuvasti.
+
+<Callout type="info">
+  Rekisterikonfigurointi on saatavilla Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) -kirjastossa
+  ja `spl-elgamal-registry`-ohjelmassa tänään. Vastaavia apufunktioita
+  `@solana-program/token-2022` JS -asiakkaassa ei ole vielä saatavilla, joten
+  JS-integraatioiden, jotka tarvitsevat rekisteripolkua, tulisi seurata kyseisen
+  asiakkaan julkaisuja.
+</Callout>
+
+## Saldojen näyttäminen
+
+Kattava integraatio näyttää julkisen saldon käyttäen standardia tokensaldoa,
+havaitsee luottamuksellisen laajennuksen ja, kun käyttäjä on avannut avaimensa,
+purkaa salauksen ja näyttää käytettävissä olevan saldon.
+
+Käytettävissä oleva saldo luetaan parhaiten `decryptable_available_balance`
+-kohteesta AES-avaimella, joka on vakioaikainen. ElGamal `available_balance`:n
+suora salauksen purku edellyttää diskreettilgaritmiongelman ratkaisemista, ja
+sitä tulisi välttää rutiininomaisessa näyttämisessä.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+Kun käyttäjä ei ole avannut avaimiaan, näytä julkinen saldo ja ilmaise, että
+luottamuksellinen saldo on olemassa mutta lukittu – älä näytä nollaa.
+
+## Siirtojen vastaanottaminen
+
+Saapuvat talletukset ja siirrot päätyvät **odottavaan** saldoon eivätkä ole
+käytettävissä ennen kuin ne on käsitelty. Jokainen hyvitys kasvattaa
+`pending_balance_credit_counter` -arvoa; kun se saavuttaa
+`maximum_pending_balance_credit_counter` -rajan, tili ei pysty vastaanottamaan
+lisää luottamuksellisia hyvityksiä ennen kuin omistaja käsittelee odottavan
+saldon.
+
+Käyttäjien puolesta varoja hallitsevien integraatioiden tulisi:
+
+- Näyttää odottava ja käytettävissä oleva saldo erikseen, jotta käyttäjät
+  ymmärtävät, miksi juuri vastaanotettu summa ei ole vielä käytettävissä.
+- Käsitellä odottava saldo käyttäjän puolesta sopivina ajankohtina (esimerkiksi
+  ennen lähetystä), jotta saldot eivät jää jumiin.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Katso
+[Odottavan saldon käsittely](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+-sivulta koko työnkulku.
+
+## Siirtojen lähettäminen
+
+Luottamuksellinen siirto vaatii kolme asiakkaalla luotavaa nollatietotodistetta:
+
+- **Yhtäläisyystodiste** siitä, että lähettäjän uuden saldon salateksti salaa
+  saman arvon kuin tuore sitoumus, jonka lähettäjä voi avata.
+- **Salatekstin voimassaolotodiste** siitä, että siirtomäärän salatekstit ovat
+  hyvin muodostettuja lähde-, kohde- ja (jos asetettu) tilintarkastaja-avainten
+  alla.
+- **Aluerajatodiste** siitä, että summa ja lähettäjän jäljellä oleva saldo ovat
+  kelvollisia ei-negatiivisia kokonaislukuja, mikä estää arvon luomisen
+  tyhjästä.
+
+Nämä todisteet ovat suurempia kuin nykyinen transaktiokokoraja sallii
+sisällyttää suoraan, joten tavallinen käytäntö on luoda **todistekontekstin
+tilit**, vahvistaa jokainen todiste niihin, viitata niihin siirtoinstruktiosta
+ja sulkea ne sitten rent-maksujen takaisinperimiseksi. Tämä kattaa muutaman
+riippuvaisen transaktion. Transaktioformaatti v1 (tulossa Agave v4.2:n myötä)
+nostaa kokorajaa ja sen odotetaan mahdollistavan luottamuksellisen siirron
+suorittamisen yhdessä ketjun sisäisessä transaktiossa, mikä yksinkertaistaa tätä
+prosessia.
+
+Sinun ei tarvitse koota todisteita käsin. Molemmat asiakasohjelmat tarjoavat
+korkean tason apufunktion, joka rakentaa todisteet ja tuottaa lähetettävät
+instruktiot:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Jos tarvitset tarkempaa hallintaa, alemman tason rakennuspalikat ovat myös
+käytettävissä: `@solana/zk-sdk` luo kunkin todisteen tiedot
+(`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`), `@solana-program/zk-elgamal-proof` tarjoaa
+todisteiden vahvistusohjeet ja `@solana-program/token-2022` tarjoaa
+`confidentialTransfer`- ja kontekstitilin instruktiot.
+
+Katso yksityiskohtainen instruktiosekvenssi sivulta
+[Siirrä tokeneita](/docs/tokens/extensions/confidential-transfer/transfer-tokens).
+
+## Nosto
+
+Nosto siirtää varat luottamuksellisesta käytettävissä olevasta saldosta takaisin
+julkiseen saldoon, minkä jälkeen ne toimivat kuten mikä tahansa normaali
+tokenisaldo. Nosto edellyttää myös todisteita (yhtäläisyys- ja
+vaihteluvälitodiste), jotka ovat käytettävissä muodossa
+`getConfidentialWithdrawInstructionPlan` JS-asiakasohjelmassa ja
+`confidential_transfer_withdraw` Rust-asiakasohjelmassa. Käytä ensin mahdollinen
+odottava saldo, jotta koko summa on käytettävissä. Katso
+[Nosta tokeneita](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+
+## Liittyvät luottamukselliset laajennukset
+
+Kaksi valinnaista laajennusta rakentuu luottamuksellisten siirtojen päälle.
+Molemmat ovat pääasiassa liikkeeseenlaskijan vastuulla, mutta kumpikin muuttaa
+jotain, mitä integraattorin tulee huomioida:
+
+- **Luottamukselliset siirtomaksut.** Kun mint yhdistää luottamukselliset
+  siirrot [siirtomaksuun](/docs/tokens/extensions/transfer-fees), lähetykset
+  käyttävät maksullista siirtopolkua (`confidential_transfer_transfer_with_fee`
+  Rust-asiakasohjelmassa), ja pidätetty maksu salataan kuten summakin.
+  Pidätettyjen maksujen kerääminen (keräys ja nosto) on maksuviranomaiselle
+  kuuluva tehtävä, ei integraattorin.
+- **Luottamuksellinen mint ja burn.** Mint, jossa on tämä laajennus, laskee
+  liikkeeseen ja polttaa tarjontaa luottamuksellisesti, mikä poistaa käytöstä
+  julkisen talletus- ja nostopolun. Tokenit eivät voi siirtyä julkisen ja
+  luottamuksellisen saldon välillä tällaisessa mintissä, joten älä näytä
+  talletus- tai nostotoimintoa sille.
+
+Molempien protokollatason yksityiskohdat löytyvät
+[luottamuksellisten saldojen dokumentaatiosta](https://www.solana-program.com/docs/confidential-balances).
+
+## Luottamuksellisten siirtotransaktioiden jäsentäminen
+
+Selainten ja indeksoijien on tunnistettava ja merkittävä luottamuksellinen
+siirtotoiminta ilman, että niillä on pääsyä summiin.
+`@solana-program/token-2022`-asiakas tarjoaa
+`identifyToken2022Instruction`-toiminnon jokaisen Token-2022-käskyn luokitteluun
+sekä käskykohtaiset jäsentimet (esimerkiksi
+`parseConfidentialTransferInstruction`) tilien ja ei-salaisten kenttien
+dekoodaukseen. Salatut summat pysyvät salasteksteinä: näytä ne
+luottamuksellisina sen sijaan, että renderöisit tavut numerona.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+Indeksoinnin rajoitukset, jotka on otettava huomioon:
+
+- **Ei summia luottamuksellisille siirroille.** `ConfidentialTransfer` sisältää
+  salattuja summia, joten volyymi-, virta- ja siirtomääräanalytiikkaa ei voida
+  laskea sen perusteella. Merkitse nämä siirrot luottamuksellisiksi sen sijaan,
+  että tallentaisit nollan tai raakatekstisalaustekstin.
+- **Ei saldomuutoksia.** Luottamukselliset siirrot eivät muuta julkista
+  token-saldoa, joten useimpien siirtoindeksointien pohjana oleva
+  pre/post-token-saldovertailu ei tavoita niitä. Odottavat ja käytettävissä
+  olevat saldot ovat salastekstejä.
+- **Talletukset ja nostot ovat selkotekstissä.** `ConfidentialDeposit` ja
+  `ConfidentialWithdraw` sisältävät selkotekstisummat, joten voit edelleen
+  indeksoida luottamukselliseen pooliin tulevan ja sieltä lähtevän virran,
+  muttei sen sisäisiä siirtoja.
+- **Yksi siirto kattaa tällä hetkellä useita transaktioita.** Todistuskontekstin
+  tilit luodaan, käytetään ja suljetaan siirron ympärillä, joten korreloi
+  toisiinsa liittyvät transaktiot sen sijaan, että käsittelisit jokaisen
+  erikseen. Tämä tiivistyy, kun yksittäistransaktiopohjaiset luottamukselliset
+  siirrot otetaan käyttöön (katso yllä).
+- **Auditoijan mintit ovat purettavissa.** Jos mintillä on globaali auditoija ja
+  sinulla on auditoijan avain, voit purkaa kyseisen mintin siirtosummat (katso
+  alla).
+
+## Tilintarkastajat ja vaatimustenmukaisuus
+
+Rahapaja voi määrittää **globaalin tilintarkastajan** ElGamal pubkey -avaimen.
+Kun se on asetettu, jokaisen luottamuksellisen siirron on sisällettävä
+tilintarkastajan avaimella salattu summa, jotta tilintarkastajan salaisen
+avaimen haltija voi purkaa kyseisen rahapajan kaikkien siirtojen salauksen.
+Voimassaolotodistus kattaa tilintarkastajan salatekstin, joten integraattorina
+sinun ei tarvitse tehdä lähetyspolulla mitään erityistä sen lisäksi, että
+välität tilintarkastajan avaimen rahapajan konfiguraatiosta (korkean tason
+apuohjelmat lukevat sen puolestasi).
+
+Jos tuotteesi on tilintarkastaja (esimerkiksi säännelty liikkeeseenlaskija tai
+vaatimustenmukaisuuspalveluntarjoaja), salaat siirtosummat tilintarkastajan
+salaisella avaimella samalla tavalla kuin omistaja purkaa oman saldонsa
+salauksen. Omistajat voivat myös valikoivasti jakaa tilikohtaiset avaimensa
+tietylle osapuolelle paljastamatta niitä julkisesti.
+
+### Tapahtumien seuranta (KYT)
+
+Tunne-tapahtumasi- ja AML-palveluntarjoajille luottamukselliset siirrot
+muuttavat sen, mitä on havaittavissa, eivät koko mallia:
+
+- **Osoite- ja verkostoanalyysi ei muutu.** Lähettäjät, vastaanottajat,
+  rahapajat ja tiliomistajat pysyvät julkisina, joten osoitteen seulonta,
+  pakotevastaavuus ja vastapuoliverkostoanalyysi toimivat samoin kuin mille
+  tahansa tokenille.
+- **Summaperusteisiin heuristiikkoihin tarvitaan tilintarkastajan avain.**
+  Strukturointi, kynnysraportointi ja volyymipohjaiset riskipisteet eivät pysty
+  yksinään lukemaan luottamuksellisten siirtojen summia. Talletus- ja
+  nostosummat pysyvät selkokielisinä, joten luottamukselliseen pooliin
+  virtaavien ja sieltä poistuvien virtojen suuruus on edelleen nähtävissä.
+- **Kattavuus perustuu tilintarkastajamalliin.** Rahapajat, jotka määrittävät
+  globaalin tilintarkastajan, mahdollistavat palveluntarjoajalle, joka toimii
+  tilintarkastajan avaimella (tai saa valikoivan tiedonluovutuksen käyttäjältä
+  tai liikkeeseenlaskijalta), siirtosummien selvittämisen. Säännellyissä
+  yhteyksissä toimivien liikkeeseenlaskijoiden tulisi suunnitella
+  tilintarkastajan konfigurointi tai valikoivan tiedonluovutuksen tukeminen
+  seurannan mahdollistamiseksi.
+
+## Taaksepäin yhteensopivuus
+
+- Luottamuksellisella token account -tilillä on aina julkinen saldo. Lompakot ja
+  sovellukset, jotka eivät tue laajennusta, toimivat edelleen ja näyttävät
+  julkisen saldon.
+- Vakiosiirrot toimivat edelleen julkiselle saldolle, kunhan kohde sallii
+  ei-luottamukselliset hyvitykset.
+- Luottamukselliset saldot eivät näy tukemattomissa työkaluissa, mutta varat
+  eivät katoa: mikä tahansa luottamuksellisuuden tukeva asiakas voi käyttää
+  niitä omistajan avaimilla.
+- Koska summat ovat salattuja, siirtomääriin perustuvat tarjonta- ja
+  volyymitason analytiikkatyökalut eivät havaitse luottamuksellista toimintaa.
+  Suunnittele kojelauat ja kirjanpito tämä huomioiden.
+
+## Suositellut integraatioprioriteetit alustoittain
+
+### Yleiset vaatimukset
+
+| Vaatimus                                    | Kuvaus                                                                                                                                                                   | Prioriteetti |
+| :------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- |
+| Tunnista laajennus                          | Tunnista Confidential Transfer -laajennus minteissä ja tileissä ja käsittele nämä tokenit eksplisiittisesti sen sijaan, että oletettaisiin vain julkinen malli.          | **P0**       |
+| Älä koskaan menetä luottamuksellisia varoja | Vaikka täysi tuki puuttuisi, ilmaise, että luottamuksellinen saldo on olemassa, jotta käyttäjät eivät oleta tilinsä olevan tyhjä.                                        | **P0**       |
+| Järkevä avaintenhallinta                    | Valitse avainstrategia ElGamal- ja AES-avaimille. Johtaminen omistajan lompakosta on suositeltu oletusarvo; jos tallennat avaimia, suojaa ne kuten allekirjoitusavaimet. | **P0**       |
+
+---
+
+### Lompakot
+
+| Vaatimus                                        | Kuvaus                                                                                                                               | Prioriteetti |
+| :---------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- | :----------- |
+| Näytä julkinen saldo                            | Näytä aina julkinen saldo käyttämällä vakiotokenisaldon lukua.                                                                       | **P0**       |
+| Avaa lukitus ja näytä käytettävissä oleva saldo | Anna käyttäjän avata avaimet allekirjoituksella ja näytä salattu käytettävissä oleva saldo (AES-salauksen purettavan saldon kautta). | **P0**       |
+| Näytä odottava vs. käytettävissä oleva          | Näytä odottavat saldot erikseen ja kehota käyttäjää ottamaan ne käyttöön varojen saapuessa.                                          | **P1**       |
+| Käytä odottavat automaattisesti                 | Käytä odottavat saldot järkevissä tilanteissa (esim. ennen lähetystä), jotta varat eivät jää jumiin.                                 | **P1**       |
+| Lähetä luottamuksellisesti                      | Tue talletus-, siirto- ja nostoprosesseja asiakaspuolen todisteiden generoinnilla.                                                   | **P1**       |
+| Lukitustilan käyttökokemus                      | Kun avaimia ei ole avattu, ilmaise selkeästi, että luottamuksellinen saldo on olemassa sen sijaan, että näytettäisiin nolla.         | **P1**       |
+| Käyttöönotto ja koulutus                        | Auta käyttäjiä ymmärtämään, mitä pysyy yksityisenä (summat ja saldot) ja avainten avausvaiheen merkitys.                             | **P2**       |
+
+---
+
+### Selaimet ja indeksoijat
+
+| Vaatimus                                   | Kuvaus                                                                                                                          | Prioriteetti |
+| :----------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ | :----------- |
+| Merkitse luottamukselliset tilit ja mintit | Merkitse selkeästi laajennusta käyttävät tilit ja mintit sekä näytä julkinen saldo.                                             | **P0**       |
+| Jäsennä luottamukselliset ohjelmat         | Dekoodaa configure-, deposit-, apply-, transfer- ja withdraw-ohjeet ja näytä niiden tyyppi (ei summia).                         | **P0**       |
+| Älä näytä salattuja summia numeroina       | Älä koskaan renderöi salatekstikenttiä kuin ne olisivat selkotekstisaldoja; näytä ne luottamuksellisina.                        | **P0**       |
+| Indeksoi julkiset talletus- ja nostovirrat | Kirjaa selkotekstisummat talletuksissa ja nostoissa seurataksesi luottamukselliseen pooliin tulevia ja sieltä lähteviä virtoja. | **P1**       |
+| Korreloi monen transaktion siirrot         | Ryhmittele todisteiden asetus-, siirto- ja siivoustransaktiot, jotka muodostavat yhden luottamuksellisen siirron.               | **P1**       |
+| Näytä auditoijan konfiguraatio             | Tuo esiin, onko mintille määritetty globaali auditoija.                                                                         | **P1**       |
+| Todistustilin elinkaari                    | Tunnista todistuskontekstin tilatilien luominen ja sulkeminen, jotta transaktiot ovat helposti ymmärrettävissä.                 | **P2**       |
+
+---
+
+### Pörssit ja säilyttäjät
+
+| Vaatimus                                   | Kuvaus                                                                                                                                                                                          | Prioriteetti |
+| :----------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- |
+| Seuraa julkista ja luottamuksellista tilaa | Ota huomioon sekä julkiset että luottamukselliset saldot hyvitettäessä talletuksia ja laskettaessa omistuksia.                                                                                  | **P0**       |
+| Käytä odottavat talletuksissa              | Käytä odottavat saldot, kun luottamukselliset talletukset saapuvat, jotta hyvitetyt summat ovat tarkkoja.                                                                                       | **P0**       |
+| Turvallinen avainten hallinta              | Jos hallinnoit luottamuksellisia varoja säilytyspalveluna, hallitse ElGamal/AES-avaimia yhtä huolellisesti kuin allekirjoitusavaimia.                                                           | **P0**       |
+| Tilien provisiointi rekisterin kautta      | Luottamuksellisten tilien perustamiseksi käyttäjille pyydä käyttäjiä rekisteröimään ElGamal-avain kerran ja provisio rekisteripolun kautta sen sijaan, että vaatisit allekirjoituksen per tili. | **P1**       |
+| Nostot käyttäjille                         | Tue luottamuksellisia tai julkisia nostoja kohdetilin konfiguraation mukaan.                                                                                                                    | **P1**       |
+| Vaatimustenmukaisuus / auditoijatuki       | Käytä tarvittaessa auditoija-avaimia tai valikoivaa tiedonjakoa raportointivelvoitteiden täyttämiseksi.                                                                                         | **P1**       |
+| Sisäinen kirjanpito raakasummilla          | Täsmäytä purettuihin summiin reunassa ja tallenna ne; älä yritä yhdistää salatekstejä.                                                                                                          | **P1**       |
+
+---
+
+### Vaatimustenmukaisuus- ja KYT-palveluntarjoajat
+
+| Vaatimus                               | Kuvaus                                                                                                                                               | Prioriteetti |
+| :------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- |
+| Osoite- ja verkostoseulonta            | Seulo lähettäjät, vastaanottajat, lyöntitoimijat ja omistajat sekä suorita vastapuolen verkostoanalyysi; nämä pysyvät julkisina.                     | **P0**       |
+| Seuraa julkisia talletuksia/nostoja    | Seuraa selkotekstisiä talletus- ja nostomääriä luottamuksellisen poolin havaittavina sisääntulo- ja poistumispisteinä.                               | **P0**       |
+| Tilintarkastajan avaimen summanäkyvyys | Tilintarkastajan avulla käyttöönotettujen lyöntitoimintojen osalta pura siirtomäärät tilintarkastajan avaimella määräpohjaisen havaitsemisen tueksi. | **P1**       |
+| Valikoiva tiedonluovutus               | Tue käyttäjien tai liikkeeseenlaskijoiden tilikohtaisilla avaimilla jakamia summatietoja.                                                            | **P2**       |

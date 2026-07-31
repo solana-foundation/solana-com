@@ -1,0 +1,186 @@
+---
+title: Ohjelmien käyttöönotto
+description:
+  Ota Solana-ohjelmat käyttöön Surfnetissä paikallisista koontitiedostoista.
+  Tunnista Anchor-työtilat automaattisesti tai anna eksplisiittinen .so-polku,
+  raakatavut ja IDL.
+---
+
+SDK voi ottaa ohjelman käyttöön paikallisista koontitiedostoista yhdellä
+kutsulla. Tähän on kaksi tapaa: **automaattinen tunnistus**
+Anchor/Agave-työtiloja varten perinteisillä poluilla, sekä **eksplisiittinen
+käyttöönotto**, kun haluat hallita, mistä tavut tulevat.
+
+Molemmat tavat rekisteröivät ohjelman IDL:n määrittelemässä osoitteessa (tai
+keypair-tiedoston julkisessa avaimessa) ja, jos IDL on saatavilla, rekisteröivät
+sen ajonaikaiseen ympäristöön `surfnet_registerIdl` kautta, jotta RPC-asiakkaat
+voivat purkaa tilitietojen koodauksen.
+
+## Tunnista Anchor-työtila automaattisesti
+
+`deployProgram` / `deploy_program` ottaa ohjelman nimen ja etsii näitä
+tiedostoja suhteessa nykyiseen työhakemistoon:
+
+| Tiedosto                            | Tarkoitus                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| `target/deploy/{name}.so`           | Käännetty ohjelmatavukoodi (pakollinen)                                  |
+| `target/deploy/{name}-keypair.json` | Ohjelman keypair — julkisesta avaimesta tulee ohjelmatunnus (pakollinen) |
+| `target/idl/{name}.json`            | Anchor IDL JSON (valinnainen; rekisteröidään jos löytyy)                 |
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let program_id = cheats.deploy_program("my_program")?;
+println!("deployed at {program_id}");
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const programId = surfnet.deployProgram("my_program");
+  console.log("deployed at", programId);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+<Callout type="info" title="Kokoa ennen käyttöönottoa">
+  Suorita `anchor build` (tai `cargo build-sbf`) ennen kuin kutsut
+  `deployProgram`, jotta `.so` ja keypair-tiedostot ovat olemassa levyllä. SDK
+  ei käynnistä koontia puolestasi.
+</Callout>
+
+## Eksplisiittinen käyttöönotto
+
+Kun tiedostot sijaitsevat epätavallisessa paikassa — CI-koontitiedostona,
+valmiiksi luotuna testitiedostona tai upotettuna tavuviipaleena — anna
+eksplisiittinen käyttöönottoasetukset.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::Surfnet;
+
+let cheats = Surfnet::start().await?.cheatcodes();
+
+// Derive the program ID from a keypair file.
+let program_id = cheats.deploy(
+    DeployProgram::from_keypair_path("fixtures/my_program-keypair.json")?
+        .so_path("fixtures/my_program.so")
+        .idl_path("fixtures/my_program.idl.json"),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const programId = "DemoProgram111111111111111111111111111111111";
+
+surfnet.deploy({
+  programId,
+  soPath: "fixtures/my_program.so",
+  idlPath: "fixtures/my_program.idl.json"
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## Käyttöönotto raakatavuista
+
+Kun tavukoodi on jo muistissa — luotu koontivaiheessa, ladattu
+tiedostovarastosta tai upotettu `include_bytes!` kautta — ohita
+tiedostojärjestelmä kokonaan.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+const PROGRAM_BYTES: &[u8] = include_bytes!("../fixtures/my_program.so");
+
+let cheats = Surfnet::start().await?.cheatcodes();
+let program_id: Pubkey = "DemoProgram111111111111111111111111111111111".parse()?;
+
+cheats.deploy(
+    DeployProgram::new(program_id).so_bytes(PROGRAM_BYTES.to_vec()),
+)?;
+```
+
+```ts !! title="TypeScript"
+import { readFileSync } from "node:fs";
+
+const surfnet = Surfnet.start();
+const programBytes = readFileSync("fixtures/my_program.so");
+
+surfnet.deploy({
+  programId: "DemoProgramID11111111111111111111111111111",
+  soBytes: programBytes
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## DeployProgram Builder -viite (Rust)
+
+| Konstruktori / asettaja            | Allekirjoitus                                     | Tarkoitus                                                                  |
+| ---------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------- |
+| `DeployProgram::new`               | `(program_id: Pubkey) -> Self`                    | Rakentaa käyttöönoton tunnetulle ohjelmatunnukselle.                       |
+| `DeployProgram::from_keypair_path` | `(path: impl AsRef<Path>) -> SurfnetResult<Self>` | Lukee Solana keypair -tiedoston; julkisesta avaimesta tulee ohjelmatunnus. |
+| `.so_path`                         | `(path: impl Into<PathBuf>)`                      | Polku käännettyyn `.so` -artefaktiin levyllä.                              |
+| `.so_bytes`                        | `(bytes: Vec<u8>)`                                | Raakaohjelmatavut (keskenään poissulkeva `so_path`:n kanssa).              |
+| `.idl_path`                        | `(path: impl Into<PathBuf>)`                      | Valinnainen Anchor IDL JSON rekisteröitäväksi käyttöönoton jälkeen.        |
+
+## DeployOptions-tyypin viite (JS)
+
+```ts
+type ByteArrayLike = Uint8Array | number[];
+
+interface DeployOptions {
+  programId: string; // base58 address to deploy at
+  soPath?: string; // path to .so on disk
+  soBytes?: ByteArrayLike; // or raw bytes in memory
+  idlPath?: string; // optional Anchor IDL JSON
+}
+```
+
+`soPath` ja `soBytes` ovat keskenään poissulkevia — anna täsmälleen yksi niistä.
+
+## Mitä rekisteröidään
+
+Onnistuneen käyttöönoton jälkeen ajoympäristö tekee kolme asiaa:
+
+1. **Kirjoittaa program account** -tilin osoitteeseen `programId` `.so`
+   -tavuilla `surfnet_writeProgram`:n kautta.
+2. **Merkitsee tilin suoritettavaksi**, jotta sitä voidaan kutsua tavallisten
+   RPC-kutsujen kautta.
+3. **Rekisteröi IDL:n** (jos annettu) `surfnet_registerIdl`:n kautta, minkä
+   ansiosta RPC-asiakkaat voivat purkaa tilin datan ohjelman IDL-skeeman avulla.
+
+<Callout type="info" title="Harvinainen: ei-suoritettava program account">
+  Jos haluat kirjoittaa ohjelmatavut tilille mutta pitää sen ei-suoritettavana,
+  käytä suoraan `SetAccount`:ää `deploy`:n sijaan. `deploy` merkitsee tilin aina
+  suoritettavaksi.
+</Callout>
+
+## Virheet
+
+| Syy                                                              | Oire                                                                    |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `.so` -tiedosto puuttuu tai on lukukelvoton                      | `SurfnetError::Cheatcode("...failed to read...")` tai heitetty JS-virhe |
+| Ohjelmatunnus ei vastaa keypair-tiedostoa                        | `SurfnetError::Cheatcode("...mismatched program id...")`                |
+| IDL JSON on viallinen                                            | `SurfnetError::Cheatcode("...invalid IDL...")`                          |
+| Surfnet on offline ja program account on jo olemassa ylävirrassa | Käyttöönotto onnistuu silti; paikallinen kopio korvaa ylävirran version |

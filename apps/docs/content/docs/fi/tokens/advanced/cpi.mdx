@@ -1,0 +1,289 @@
+---
+title: Token Programin kutsuminen CPI:n kautta
+description:
+  Kutsu Token Programia on-chain-ohjelmasta Cross Program Invocation (CPI)
+  -mekanismilla — siirrä, luo ja polta tokeneita, allekirjoita
+  PDA-auktoriteetilla ja yhdistä useita token-ohjeita yhdeksi CPI:ksi.
+url: /docs/tokens/advanced/cpi
+type: tutorial
+related:
+  - /docs/core/cpi
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/advanced/withdraw-excess-lamports
+  - /docs/tokens/advanced/unwrap-lamports
+---
+
+On-chain-ohjelmat siirtävät tokeneita lähettämällä
+[Cross Program Invocation (CPI)](/docs/core/cpi) Token Programiin. Ohjelmasi
+rakentaa Token Program -ohjeen, toimittaa tarvittavat tilit ja kutsuu
+_rs`invoke`_ (tai _rs`invoke_signed`_, kun Program Derived Address
+allekirjoittaa). Token Program suorittaa ohjeen niillä käyttöoikeuksilla, jotka
+ohjelmasi on myöntänyt sille.
+
+Tämä sivu käsittelee kyseisen prosessin token-kohtaisen puolen. CPI-mekanismista
+itsestään — miten _rs`invoke`_ ja _rs`invoke_signed`_ toimivat, miten
+allekirjoittajan ja kirjoitettavien tilien käyttöoikeudet välittyvät, sekä
+[CPI-kustannusmallista](/docs/core/cpi/cpi-cost-model) — katso
+[Cross Program Invocation](/docs/core/cpi).
+
+## Yleiset mallit
+
+Useimmat token CPI:t noudattavat samaa kaavaa: rakenna ohje, välitä token
+account -tilit ja auktoriteetti, ja kutsu. Alla oleva esimerkki siirtää
+tokeneita _rs`TransferChecked`_-funktiolla, joka tarkistaa mintin ja desimaalit
+osana siirtoa.
+
+<CodeTabs>
+
+```rust !! title="Anchor"
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
+
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod token_cpi {
+    use super::*;
+
+    pub fn transfer(ctx: Context<TokenTransfer>, amount: u64) -> Result<()> {
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.source.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            cpi_accounts,
+        );
+
+        transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct TokenTransfer<'info> {
+    #[account(mut)]
+    pub source: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(mut)]
+    pub destination: InterfaceAccount<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Interface<'info, TokenInterface>,
+}
+```
+
+```rust !! title="Native (Pinocchio)"
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::TransferChecked;
+
+/// Account layout:
+///   [0] source      (writable) — source token account
+///   [1] mint                   — token mint
+///   [2] destination (writable) — destination token account
+///   [3] authority   (signer)   — owner or delegate of the source account
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+    if data.len() < 9 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let amount = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let decimals = data[8];
+
+    let source = &accounts[0];
+    let mint = &accounts[1];
+    let destination = &accounts[2];
+    let authority = &accounts[3];
+
+    TransferChecked::new(source, mint, destination, authority, amount, decimals).invoke()?;
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+Tokeneiden luominen, polttaminen ja tilien sulkeminen noudattavat samaa kaavaa
+eri ohjeella — _rs`MintTo`_, _rs`Burn`_ ja _rs`CloseAccount`_ Anchorin
+[`anchor_spl::token`](https://docs.rs/anchor-spl/latest/anchor_spl/token/index.html)
+-moduulissa tai vastaavilla rakentajilla
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token)-kirjastossa.
+Täydellisiä, ajettavia ohjelmia, jotka käyttävät CPI:tä Token Programiin sekä
+Anchorilla että natiivilla Rustilla, löydät
+[token program -esimerkeistä](/docs/programs/examples#tokens) — erityisesti
+"Transfer Tokens" -esimerkistä.
+
+## Allekirjoittaminen PDA-auktoriteetilla
+
+Kun token account -tilin auktoriteetti on
+[Program Derived Address](/docs/core/pda), jonka omistaa ohjelmasi, ohjelma
+allekirjoittaa CPI:n itse _rs`invoke_signed`_-funktiolla välittäen PDA:n seedit
+allekirjoittajan seedeinä. Anchorissa käytä _rs`CpiContext::new_with_signer`_
+seedien kanssa _rs`CpiContext::new`_:n sijaan. Ohje on muuten identtinen yllä
+olevien esimerkkien kanssa. Katso
+[CPIs with PDA Signers](/docs/core/cpi/cpi-with-pda) täydellisen mekanismin
+selitystä varten.
+
+## Eräajo
+
+_rs`Batch`_-käsky suorittaa useita Token Program -käskyjä yhden ohjelmakutsun
+sisällä. Koska jokaisella CPI:llä on kiinteä laskentakustannus, useampien
+tokenoperaatioiden suorittaminen yhdessä eräajo-CPI:ssä kuluttaa vähemmän
+[laskentayksiköitä](/docs/core/fees/compute-budget) kuin erillisen CPI:n
+käyttäminen kutakin operaatiota kohti — katso
+[CPI-kustannusmalli](/docs/core/cpi/cpi-cost-model) saadaksesi lisätietoa
+CPI-kohtaisten kustannusten kertymisestä.
+
+Pienempi laskentakäyttö vähentää [prioriteettimaksuja](/docs/core/fees), joita
+transaktio maksaa laskentayksikköä kohti, ja parantaa sen
+onnistumismahdollisuuksia — mikä on tärkeintä ohjelmille, jotka suorittavat
+monia tokenoperaatioita yhdessä käskyssä. Yleisiä käyttötapauksia ovat siirron
+jakaminen useille vastaanottajille tai monivaiheisen tokenvirran suorittaminen
+(esimerkiksi synkronointi, siirto ja sulkeminen) yhdessä CPI:ssä.
+
+<Callout type="info">
+
+_rs`Batch`_ hyväksyy ainoastaan Token Program -käskyjä alikäskyiksi, eikä erä
+voi sisältää toista erää. Tokeneja siirtävien operaatioiden (kuten siirtojen,
+luomisten ja polttamisten) osalta ohjelma tarkistaa, että kyseessä olevat tilit
+ovat Token Program -omistuksessa ennen niiden suorittamista.
+
+</Callout>
+
+### Lähdeviite
+
+| Kohde               | Kuvaus                        | Lähde                                                                                               |
+| ------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| _rs`Batch`_         | Batch-käsky (erottelija 255). | [Lähde](https://github.com/solana-program/token/blob/main/pinocchio/interface/src/instruction.rs)   |
+| _rs`process_batch`_ | Eräajon käsittelylogiikka.    | [Lähde](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/batch.rs) |
+
+### Batch-kutsuminen CPI:n kautta
+
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token)-paketti tarjoaa
+_rs`Batch`_-rakentajan kohteen _rs`pinocchio_token::instructions::Batch`_ alla.
+Vaiheista jokainen alikäsky erän puskureihin ja lähetä sitten yksi CPI käyttäen
+_rs`invoke`_.
+
+_rs`Batch`_:n taustalla on kolme kutsujan toimittamaa puskuria: yksi
+serialisoitua instruction data varten, yksi alikäskykohtaisia tiliviittauksia
+varten ja yksi CPI:lle välitettäviä tiliäkymiä varten. Luo ne
+_rs`MaybeUninit`_-siivuina, välitä ne _rs`Batch::new`_:lle, lisää alikäskyt ja
+kutsu sitten:
+
+```rust title="Batch two transfers in one CPI"
+use core::mem::MaybeUninit;
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::{Batch, IntoBatch, Transfer};
+
+/// Process SwapBatch.
+///
+/// Performs two transfers in a single batch CPI instead of two separate
+/// `invoke()` calls.
+///
+/// Data layout:
+///   [0..8]  amount_a_to_b (u64 LE)
+///   [8..16] amount_b_to_a (u64 LE)
+///
+/// Account layout:
+///   [0] source_a    (writable) — token account A
+///   [1] source_b    (writable) — token account B
+///   [2] authority_a (signer)   — authority for account A
+///   [3] authority_b (signer)   — authority for account B
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if data.len() < 16 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let amount_a_to_b = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let amount_b_to_a = u64::from_le_bytes(data[8..16].try_into().unwrap());
+
+    let source_a = &accounts[0];
+    let source_b = &accounts[1];
+    let authority_a = &accounts[2];
+    let authority_b = &accounts[3];
+
+    // Two child transfers, each with 3 accounts and 9 bytes of data
+    // (1-byte discriminator + 8-byte amount).
+    const NUM_CHILDREN: usize = 2;
+    const CHILD_ACCOUNTS: usize = 3;
+    const CHILD_DATA_LEN: usize = 9;
+
+    // Data buffer: 1-byte batch discriminator + per child (2-byte header + data).
+    const DATA_LEN: usize = 1 + NUM_CHILDREN * (2 + CHILD_DATA_LEN);
+    // Account buffers: total accounts across all children.
+    const ACCOUNTS_LEN: usize = NUM_CHILDREN * CHILD_ACCOUNTS;
+
+    let mut data_buf = [MaybeUninit::uninit(); DATA_LEN];
+    let mut ix_accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+    let mut accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+
+    let mut batch = Batch::new(&mut data_buf, &mut ix_accounts_buf, &mut accounts_buf)?;
+
+    Transfer::new(source_a, source_b, authority_a, amount_a_to_b).into_batch(&mut batch)?;
+    Transfer::new(source_b, source_a, authority_b, amount_b_to_a).into_batch(&mut batch)?;
+
+    batch.invoke()?;
+
+    Ok(())
+}
+```
+
+_rs`Batch::new`_ kirjoittaa erän erottelijan databufferin ensimmäiseen tavuun ja
+palauttaa _rs`Batch`_:n, joka seuraa kuinka paljon kutakin bufferia on käytetty.
+Jokainen Token Program -käskynrakentaja (kuten _rs`Transfer`_,
+_rs`TransferChecked`_, _rs`MintTo`_ ja _rs`Burn`_) toteuttaa
+_rs`IntoBatch`_-traitin, joten _rs`into_batch`_ lisää kyseisen käskyn datan,
+tiliviittaukset ja tilinäkymät erään. Kutsumalla _rs`invoke`_ lähetetään koottu
+erä yhtenä CPI-kutsuna Token Programiin.
+
+Bufferit rajoittavat erän kapasiteettia. Mitoita databufferi
+`1 + Σ(2 + child_data_len)` tavuun (erotelija sekä 2 tavun otsake ja kunkin
+lapsen sarjallistettu data) ja kukin tilibufferi kaikkien lasten tilien
+kokonaismäärään. Jos lapsi ei mahdu, _rs`into_batch`_ palauttaa
+_rs`ProgramError::InvalidArgument`_:n. Viitteenä: _rs`Batch::MAX_DATA_LEN`_ on
+10 KiB ja _rs`Batch::MAX_ACCOUNTS_LEN`_ vastaa ajoympäristön
+enimmäis-CPI-tilimäärää.
+
+Eriä varten, joiden koko on tiedossa vasta ajon aikana, ota käyttöön craten
+`alloc`-ominaisuus ja käytä _rs`BatchState::new(accounts_len, data_len)`_:a
+allokoidaksesi bufferit keolle, sitten kutsu _rs`as_batch`_ saadaksesi
+_rs`Batch`_:n.
+
+Kun lapsi-käskyn auktoriteetti on ohjelmasi omistama PDA, allekirjoita CPI
+käyttämällä _rs`invoke_signed`_:ä _rs`invoke`_:n sijaan ja anna PDA-siemenet
+_rs`Signer`_-merkintöinä.
+
+### instruction data -asettelu
+
+Erä koodaa lapsensa peräkkäin `255`-erottelijan jälkeen. Kaikki tilit välitetään
+tasaisessa järjestyksessä ja kunkin lapsen osalta ositetaan `num_accounts`:lla.
+Rakentaja tuottaa täsmälleen tämän siirtoformaatin:
+
+```text title="Batch Wire Format"
+[255]                    // Batch discriminator
+// For each child instruction, in order:
+//   [num_accounts: u8]  // accounts this instruction consumes
+//   [data_len: u8]      // length of this instruction's data
+//   [data: u8; data_len]// the instruction data (begins with its own discriminator)
+```
+
+<Callout type="warn">
+
+Erän kapasiteetti on rajoitettu _rs`Batch::new`_:lle välitettyjen bufferien
+mukaan: databufferin on pidettävä erotelija sekä jokaisen lapsen otsake ja data,
+ja tilibufferien on pidettävä jokaisen lapsen tilit. Mitoita ne suurimman
+rakentamasi erän mukaan tai käytä _rs`BatchState`_:ä (`alloc`-ominaisuuden
+kanssa) mitoittaaksesi ne ajon aikana. Yhdistetty CPI on edelleen transaktion
+tili- ja kokorajoitusten alainen, joten hyvin suurissa hajautuksissa käytä
+Address Lookup Tableseja mahduttaaksesi enemmän tilejä.
+
+</Callout>

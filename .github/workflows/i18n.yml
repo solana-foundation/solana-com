@@ -4,17 +4,19 @@ on:
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/i18n.yml"
+      - ".lingo/config.json"
+      - "scripts/i18n/**"
+      - "packages/i18n/messages/*/en/*.json"
+      - "apps/docs/content/docs/en/**/*.mdx"
+      - "apps/docs/content/docs/en/**/meta.json"
+      - "!apps/docs/content/docs/en/rpc/**"
+      - "apps/docs/content/learn/en/**/*.mdx"
+      - "apps/docs/content/learn/en/**/meta.json"
+      - "apps/docs/content/developers-learn/en/**/*.mdx"
+      - "apps/docs/content/developers-learn/en/**/meta.json"
   workflow_dispatch:
-    inputs:
-      target:
-        description: Translation scope to run
-        required: true
-        default: all
-        type: choice
-        options:
-          - all
-          - ui
-          - docs
 
 concurrency:
   group: ${{ github.workflow }}-main
@@ -25,46 +27,51 @@ permissions:
   pull-requests: write
 
 jobs:
-  i18n-ui:
-    name: Run i18n for shared UI catalogs
+  i18n:
+    name: Run continuous localization
     concurrency:
       group: ${{ github.workflow }}-i18n
       cancel-in-progress: false
-    if:
-      github.event_name == 'push' || github.event.inputs.target == 'all' ||
-      github.event.inputs.target == 'ui'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: lingodotdev/lingo.dev@main
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/setup-node@v4
         with:
-          api-key: ${{ secrets.LINGODOTDEV_API_KEY }}
-          pull-request: true
-          pull-request-title: "i18n: Lingo (ui)"
-          commit-message: "i18n: Lingo Translation Update (ui)"
-          working-directory: "packages/i18n"
-          parallel: true
-
-  i18n-docs:
-    name: Run i18n for docs content
-    concurrency:
-      group: ${{ github.workflow }}-i18n
-      cancel-in-progress: false
-    if:
-      github.event_name == 'push' || github.event.inputs.target == 'all' ||
-      github.event.inputs.target == 'docs'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: lingodotdev/lingo.dev@main
+          node-version-file: .node-version
+      - name: Verify Lingo source configuration
+        run: |
+          node scripts/i18n/verify-source-locales.mjs
+          node scripts/i18n/verify-config-coverage.mjs
+      - name: Run Lingo.dev
         env:
-          GH_TOKEN: ${{ github.token }}
+          LINGO_API_KEY:
+            ${{ secrets.LINGO_API_KEY || secrets.LINGODOTDEV_API_KEY }}
+        run: node scripts/i18n/run.mjs all
+      - name: Verify Lingo target coverage
+        run: node scripts/i18n/verify-target-coverage.mjs
+      - name: Verify docs frontmatter
+        run: node scripts/i18n/verify-docs-frontmatter.mjs
+      - name: Create signed pull request
+        id: create-pr
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
-          api-key: ${{ secrets.LINGODOTDEV_API_KEY }}
-          pull-request: true
-          pull-request-title: "i18n: Lingo (docs)"
-          commit-message: "i18n: Lingo Translation Update (docs)"
-          working-directory: "apps/docs"
-          parallel: true
+          sign-commits: true
+          commit-message: "i18n: Lingo Translation Update"
+          title: "i18n: Lingo"
+          body:
+            "Automated Lingo.dev translation update for UI catalogs and docs
+            content."
+          branch: i18n/lingo
+          base: main
+          delete-branch: true
+          add-paths: |
+            packages/i18n/messages
+            apps/docs/content
+            .lingo/lock.json
+      - name: Verify pull request commits
+        if:
+          steps.create-pr.outputs.pull-request-operation != 'none' &&
+          steps.create-pr.outputs.pull-request-commits-verified != 'true'
+        run: |
+          echo "Pull request commits were not verified by GitHub."
+          exit 1

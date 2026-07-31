@@ -1,9 +1,10 @@
 import { defineConfig } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3002";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3002";
 const storageState = process.env.PLAYWRIGHT_STORAGE_STATE;
 const isLocalKeystatic =
   (process.env.NEXT_PUBLIC_KEYSTATIC_LOCAL ?? "true") === "true";
+const shouldStartServer = !process.env.PLAYWRIGHT_BASE_URL;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -19,10 +20,10 @@ export default defineConfig({
     trace: "off",
     ...(storageState ? { storageState } : {}),
   },
-  ...(isLocalKeystatic
+  ...(shouldStartServer
     ? {
         webServer: {
-          command: "NEXT_PUBLIC_KEYSTATIC_LOCAL=true pnpm dev",
+          command: `NEXT_PUBLIC_KEYSTATIC_LOCAL=${isLocalKeystatic} pnpm dev`,
           url: "http://127.0.0.1:3002/keystatic",
           reuseExistingServer: true,
           timeout: 120_000,

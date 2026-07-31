@@ -1,0 +1,633 @@
+---
+title: Gizli Transfer Entegrasyon Rehberi
+description:
+  Gizli Transfer uzantısını kullanan token'ları cüzdanlar, gezginler, borsalar
+  ve diğer uygulamalara nasıl entegre edeceğinizi öğrenin.
+---
+
+# Solana'da Gizli Transferleri Destekleme
+
+## Arka Plan
+
+Gizli Transfer uzantısı, Token-2022 mint'lerinin transfer miktarlarını ve hesap
+bakiyelerini zincir üzerinde şifreli tutmasına olanak tanır. Bakiyeler
+şifrelendiğinden bunları görüntülemek sahibin şifre çözme anahtarlarını
+gerektirir; gönderim yapmak ise istemci tarafında sıfır-bilgi ispatları
+oluşturmayı gerektirir.
+
+Bu rehber, gizli transfer token'larını **entegre eden** ekipler (cüzdanlar,
+gezginler, borsalar, saklama sağlayıcıları, indeksleyiciler) için
+hazırlanmıştır; bir mint yapılandıran yayıncılar için değildir. Temel akışı
+sıfırdan inşa ediyorsanız aşağıda bağlantısı verilen adım adım sayfalara
+başvurun; bu rehber ürününüzün bu token'ları iyi desteklemek için neler yapması
+gerektiğine odaklanmaktadır.
+
+Her hesabın adresi, mint'i ve sahibi **herkese açık** kalmaya devam eder.
+Yalnızca miktarlar ve bakiyeler şifrelenir; dolayısıyla kimlerin kimlerle işlem
+yaptığı da dahil olmak üzere geri kalan her şey görünür olmaya devam eder. Bu
+durum, kamuya açık gözlemcilere karşı gizlilik sağlar; anonim kimlik değil.
+
+### Kaynaklar
+
+- [Gizli Transfer genel bakışı ve adım adım rehberler](/docs/tokens/extensions/confidential-transfer)
+- [Uzantı Rust kodu](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` JS istemcisi](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (talimatlar, token account durumu ayrıştırma, anahtar türetme ve üst düzey
+  gizli transfer yardımcıları)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (şifreleme temelleri ve ispat verisi oluşturma)
+- [`@solana-program/zk-elgamal-proof` JS istemcisi](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (ispat doğrulama talimatları)
+- [`spl-token-client` Rust crate](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (Rust'ta üst düzey uçtan uca yardımcılar)
+
+## Özetle
+
+- Her gizli token account'ın hâlâ bir **genel bakiyesi** ile şifreli bir
+  **bekleyen** ve **kullanılabilir** bakiyesi vardır. Bir token, genel ve gizli
+  durumlar arasında serbestçe geçiş yapabilir.
+- Gizli bir bakiyeyi **görüntülemek** için sahibin anahtarlarına ihtiyacınız
+  vardır. Önerilen yaklaşım, bunları sahibin cüzdanından türetmek,
+  kullanılabilir bakiyeyi AES anahtarıyla çözmek (hızlı) ve gerektiğinde
+  bekleyen miktarları ElGamal anahtarıyla çözmektir.
+- **Gizli gönderim** yapmak için istemci tarafında ZK ispatları (eşitlik,
+  şifreli metin geçerliliği, aralık) oluşturursunuz; bunlar genellikle geçici
+  **ispat bağlam durumu hesaplarına** yerleştirilir, ardından transfer
+  gönderilir. Hem `@solana-program/token-2022` (JS) hem de `spl-token-client`
+  (Rust), ispatları oluşturan ve işlemleri sizin adınıza sıralayan üst düzey
+  yardımcılar sunar.
+- Gizli transferler şu anda birkaç bağımlı işleme yayılmaktadır; çünkü ispatlar
+  mevcut işlem boyutu sınırını aşmaktadır. Yaklaşan bir değişiklik (işlem biçimi
+  v1, Agave v4.2 ile geliyor) bu sınırı yükseltecek ve gizli bir transferin tek
+  bir zincir üstü işlemde gerçekleştirilmesine olanak tanıması beklenmektedir.
+- Hiçbir destek eklemeyen bir cüzdan yine de çalışır: genel bakiyeyi gösterir ve
+  standart transferler işlevini korur. Gizli fonlar, sahibin anahtarlarına sahip
+  gizlilik-bilinçli herhangi bir istemci tarafından erişilebilir olmaya devam
+  eder.
+
+## Terimler
+
+- **ElGamal keypair**: bakiyeleri şifrelemek ve ZK kanıtları oluşturmak için
+  hesap başına kullanılan açık anahtarlı keypair. Açık anahtar hesapta saklanır.
+- **AES anahtarı**: "çözümlenebilir kullanılabilir bakiye"yi şifrelemek için
+  hesap başına kullanılan simetrik anahtar; bu sayede hesap sahibi, ayrık
+  logaritma çözmeksizin kullanılabilir bakiyesini sabit sürede okuyabilir.
+- **Bekleyen bakiye**: yatırımlar veya gelen transferler aracılığıyla alınan ve
+  henüz uygulanmamış fonların şifrelenmiş bakiyesi. Doğrudan harcanamazlar.
+- **Kullanılabilir bakiye**: transfer edilebilen veya çekilebilen şifrelenmiş
+  bakiye.
+- **Uygula**: bekleyen bakiyeyi kullanılabilir bakiyeye taşıyan adım.
+- **Kanıt bağlam durumu hesabı**: önceden doğrulanmış bir ZK kanıtı barındıran,
+  gizli bir talimat tarafından referans alınan ve ardından rent geri kazanmak
+  için kapatılan geçici bir zincir üstü hesap.
+- **Denetçi**: mint üzerindeki isteğe bağlı global bir ElGamal anahtarı;
+  ayarlandığında, her transfer ayrıca tutarını bu anahtar altında şifreler;
+  böylece yetkili bir taraf tutarı çözümleyebilir.
+
+## Hesap modeli ve bakiyeler
+
+Bir hesap gizli transferler için yapılandırıldığında,
+`ConfidentialTransferAccount` uzantısı (diğer alanların yanı sıra) şunları
+depolar:
+
+- `elgamal_pubkey`: hesabın ElGamal açık anahtarı.
+- `pending_balance_lo` / `pending_balance_hi`: bekleyen bakiyenin düşük ve
+  yüksek bitlere bölünmüş ElGamal şifremetinleri (yüksek bitlerin şifre çözümü
+  daha maliyetlidir, bu nedenle ayrı tutulurlar).
+- `available_balance`: harcanabilir bakiyenin ElGamal şifremetni.
+- `decryptable_available_balance`: hesap sahibinin anında çözümleyebildiği, aynı
+  kullanılabilir bakiyenin **AES** şifremetni. Görüntüleme için kullanılacak
+  alan budur.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: hesabın gelen
+  gizli veya genel kredileri şu anda kabul edip etmediği.
+- `pending_balance_credit_counter` ve `maximum_pending_balance_credit_counter`:
+  bekleyen bakiyede biriken kredi sayısı ve bir uygulama gerektirilmeden önceki
+  üst sınır.
+
+Tüm bu alanlar, standart RPC üzerinden ayrıştırılmış hesap durumunda döndürülür.
+Şifreli metinleri herkes okuyabilir, ancak yalnızca anahtar sahipleri temel
+tutarları kurtarabilir.
+
+## Anahtar yönetimi
+
+Her gizli hesap iki anahtar kullanır: şifreleme ve kanıtlar için bir **ElGamal
+keypair** ve hızlı bakiye şifre çözümü için bir **AES anahtarı**. Bu anahtarları
+nasıl üretip sakladığınız bir entegrasyon tercihidir. Birkaç yaygın seçenek:
+
+- **Bir cüzdan imzasından türet (önerilen varsayılan).** Sahibi kanonik,
+  alan-ayrılmış bir mesajı imzalar ve anahtarlar bu imzadan türetilir; böylece
+  yalnızca cüzdandan yeniden üretilebilirler ve saklamanız gerekmez. seed, hesap
+  başına deterministiktir: aşağıdaki JS yardımcıları onu `(owner, mint)` çiftine
+  bağlarken, Rust örneği token account adresinden seed alır (associated token
+  account için bu adres sahibinden ve mint'ten türetildiğinden bunlar
+  eşdeğerdir).
+- **Bağımsız anahtar materyalinden türet.** Passkey'ler, güvenli çevreler veya
+  MPC kurulumları için, gizli anahtarların hesabın imzalama anahtarına bağlı
+  olmaması amacıyla anahtarları bir WebAuthn PRF çıktısından veya başka bir
+  giriş anahtar materyalinden türetin. `@solana/zk-sdk` bunun için
+  `ConfidentialKeys.fromIkm` ve `ConfidentialKeys.fromPrf` işlevlerini sunar.
+- **Doğrudan oluşturun ve yönetin.** Emanetçi ve MPC sağlayıcıları, anahtarları
+  oluşturmayı ve diğer hassas anahtar materyalleri gibi yönetmeyi tercih
+  edebilir.
+
+`@solana-program/token-2022` istemcisi, önerilen yol için yardımcılarla birlikte
+gelir:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Gizli anahtarlar, şifre çözme anahtarlarıdır. Türetme mesajını imzalama
+  isteğini, kullanıcının bakiyelerinin özel görünümünün kilidini açmak gibi
+  değerlendirin. Bunları saklamak yerine ihtiyaç anında türetmeyi tercih edin;
+  eğer saklıyorsanız (örneğin bir emanet hizmetinde), imzalama anahtarlarıyla
+  aynı titizlikle koruyun.
+</Callout>
+
+Türetme yardımcıları serileştirilmiş anahtar materyali döndürür. Üst düzey işlem
+yardımcıları (ilerleyen bölümlerde gösterilecektir) WASM `ElGamalKeypair` ve
+`AeKey` nesnelerini alır; bu nedenle ihtiyaç duyduğunuzda bunları baytlardan
+yeniden oluşturun:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Hesap oluşturma ve yapılandırma
+
+Bir hesabın gizli bakiye tutabilmesi için önce `ConfidentialTransferAccount`
+uzantısına ihtiyaç vardır; bu uzantı token account boyutuna yaklaşık 295 bayt
+ekler (ek rent olarak yaklaşık 0,0015 SOL). Kurulum iki adımdan oluşur: token
+account oluşturma, ardından uzantıyı yapılandırma.
+
+Yapılandırma normalde **hesap sahibinin** imzalamasını ve hesapta ayarlanan
+ElGamal pubkey'ine sahip olduğunu kanıtlayan bir ispat sunmasını gerektirir. Bir
+cüzdan veya borsa, kullanıcı adına yalın token account oluşturabilir ve
+fonlayabilir; ancak kullanıcının o imzası olmadan gizlilik uzantısını
+yapılandıramaz.
+
+Bu nedenle, her kullanıcı için sessiz sedasız gizli hesap oluşturmaktan kaçının:
+ek rent maliyeti doğurur ve yine de hesap sahibinin müdahalesini gerektirir. İlk
+kullanımda veya kullanıcı gizli transferleri etkinleştirdiğinde yapılandırın.
+
+**ElGamal kayıt defteri**, hesap başına düşen sahip adımını ortadan kaldırır.
+Bir kullanıcı ElGamal pubkey'ini bir kez kaydeder (kayıt sırasında bir ispat
+imzalar) ve kayıt defteri girişi her mint genelinde yeniden kullanılabilir.
+Bundan sonra üçüncü bir taraf, kullanıcı adına `ConfigureAccountWithRegistry`
+aracılığıyla gizli hesapları yapılandırabilir; bu işlem yapılandırma sırasında
+sahip imzası veya ispat gerektirmez, yalnızca rent için bir ödeyici yeterlidir.
+Kullanıcılar için gizli hesapları sorunsuz biçimde sağlamak istiyorsanız
+kullanmanız gereken mekanizma budur.
+
+<Callout type="info">
+  Kayıt defteri yapılandırması bugün itibarıyla Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) ve
+  `spl-elgamal-registry` programında kullanılabilir.
+  `@solana-program/token-2022` JS istemcisindeki eşdeğer yardımcılar henüz
+  mevcut değildir; bu nedenle kayıt defteri yoluna ihtiyaç duyan JS
+  entegrasyonları, söz konusu istemcinin sürümlerini takip etmelidir.
+</Callout>
+
+## Bakiyeleri görüntüleme
+
+Sağlam bir entegrasyon; standart token bakiyesini kullanarak genel bakiyeyi
+gösterir, gizli uzantıyı algılar ve kullanıcı anahtarlarının kilidini açtığında
+kullanılabilir bakiyeyi şifresi çözülerek görüntüler.
+
+Kullanılabilir bakiye en iyi şekilde `decryptable_available_balance` üzerinden
+AES anahtarı kullanılarak okunur; bu işlem sabit zamanlıdır. ElGamal
+`available_balance` şifreli metninin doğrudan çözülmesi ayrık logaritma hesabı
+gerektirir ve rutin görüntüleme için önerilmez.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+Kullanıcı anahtarlarının kilidini açmadığında, genel bakiyeyi gösterin ve gizli
+bir bakiyenin mevcut olduğunu ancak kilitli olduğunu belirtin; sıfır göstermek
+yerine bunu tercih edin.
+
+## Transfer alma
+
+Gelen yatırmalar ve transferler **bekleyen** bakiyeye düşer ve uygulanana kadar
+harcanamaz. Her alacak `pending_balance_credit_counter` değerini bir artırır; bu
+değer `maximum_pending_balance_credit_counter` sınırına ulaştığında, hesap
+sahibi bekleyen bakiyeyi uygulayana kadar daha fazla gizli alacak alamaz.
+
+Kullanıcılar adına fon tutan entegrasyonlar şunları yapmalıdır:
+
+- Kullanıcıların yeni alınan bir tutarın neden henüz harcanamaz olduğunu
+  anlayabilmesi için bekleyen ve kullanılabilir bakiyeyi ayrı ayrı gösterin.
+- Bakiyelerin takılı kalmaması için bekleyen bakiyeyi uygun zamanlarda (örneğin
+  bir gönderim işleminden önce) kullanıcı adına uygulayın.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Tam akış için
+[Bekleyen Bakiyeyi Uygula](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+sayfasına bakın.
+
+## Transfer gönderme
+
+Gizli bir transfer, istemci tarafında oluşturulan üç sıfır bilgi kanıtı
+gerektirir:
+
+- **Eşitlik kanıtı**: Göndericinin yeni bakiye şifreli metninin, göndericinin
+  açabildiği yeni bir taahhütle aynı değeri şifrelediğini kanıtlar.
+- **Şifreli metin geçerlilik kanıtı**: Transfer tutarı şifreli metinlerinin
+  kaynak, hedef ve (ayarlanmışsa) denetçi anahtarları altında doğru
+  biçimlendirildiğini kanıtlar.
+- **Aralık kanıtı**: Tutarın ve göndericinin kalan bakiyesinin geçerli negatif
+  olmayan tam sayılar olduğunu kanıtlar; bu, ince havadan değer yaratılmasını
+  önleyen unsurdur.
+
+Bu kanıtlar, günümüzdeki işlem boyutu sınırının satır içi olarak izin
+verdiğinden daha büyüktür; bu nedenle yaygın kalıp, **kanıt bağlamı durum
+hesapları** oluşturmak, her kanıtı bunlara doğrulamak, transfer talimatından
+bunlara referans vermek ve ardından rent'i geri almak için bunları kapatmaktır.
+Bu işlem birkaç bağımlı işleme yayılır. İşlem formatı v1 (Agave v4.2 ile
+kullanıma sunulacak), boyut sınırını artırır ve gizli bir transferin tek bir
+zincir üstü işlemde çalışmasına olanak tanıyarak bu akışı basitleştirmesi
+beklenmektedir.
+
+Kanıtları elle oluşturmanız gerekmez. Her iki istemci de kanıtları oluşturan ve
+göndermek için talimatlar üreten üst düzey bir yardımcı sağlar:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Daha ince bir kontrole ihtiyaç duyarsanız, alt düzey yapı taşları da mevcuttur:
+`@solana/zk-sdk` her kanıtın verilerini
+(`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`) üretir, `@solana-program/zk-elgamal-proof` kanıt
+doğrulama talimatlarını sağlar ve `@solana-program/token-2022`,
+`confidentialTransfer` ile bağlam durum hesabı talimatlarını sağlar.
+
+Ayrıntılı talimat dizisi için
+[Token Transferi](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+sayfasına bakın.
+
+## Para Çekme
+
+Para çekme, gizli kullanılabilir bakiyedeki fonları tekrar genel bakiyeye taşır;
+bu işlemin ardından fonlar herhangi bir normal token bakiyesi gibi davranır.
+Para çekme işlemi de kanıt gerektirir (eşitlik ve aralık kanıtı); JS
+istemcisinde `getConfidentialWithdrawInstructionPlan`, Rust istemcisinde ise
+`confidential_transfer_withdraw` olarak sunulur. Tam tutarın kullanılabilir
+olması için önce bekleyen bakiyeyi uygulayın. Bkz.
+[Token Çekme](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+
+## İlgili gizli uzantılar
+
+İki isteğe bağlı uzantı, gizli transferler üzerine inşa edilmiştir. Her ikisi de
+ağırlıklı olarak ihraççının sorumluluğundadır; ancak her biri bir entegratörün
+ele alması gereken bir şeyi değiştirir:
+
+- **Gizli transfer ücretleri.** Bir mint, gizli transferleri
+  [transfer ücreti](/docs/tokens/extensions/transfer-fees) ile eşleştirdiğinde,
+  göndermeler ücretli transfer yolunu (Rust istemcisinde
+  `confidential_transfer_transfer_with_fee`) kullanır ve kesilen ücret, tutar
+  gibi şifrelenir. Kesilen ücretlerin toplanması (toplama ve çekme) ücret
+  otoritesinin görevidir, entegratörün değil.
+- **Gizli mint ve burn.** Bu uzantıya sahip bir mint, arzı gizli olarak ihraç
+  eder ve yakar; bu da genel yatırma ve çekme yolunu devre dışı bırakır.
+  Token'lar, böyle bir mint üzerinde genel ve gizli bakiyeler arasında hareket
+  edemez; dolayısıyla bunun için yatırma veya çekme işlevini kullanıcıya
+  sunmayın.
+
+Her ikisinin protokol düzeyindeki ayrıntıları için
+[gizli bakiyeler belgelerine](https://www.solana-program.com/docs/confidential-balances)
+bakın.
+
+## Gizli transfer işlemlerini ayrıştırma
+
+Gezginler ve indeksleyiciler, tutarları okuyamadan gizli transfer aktivitesini
+tanımlayıp etiketleyebilmelidir. `@solana-program/token-2022` istemcisi, her
+Token-2022 talimatını sınıflandırmak için `identifyToken2022Instruction` ile
+birlikte hesapları ve gizli olmayan alanları çözmek amacıyla talimat başına
+ayrıştırıcıları (örneğin `parseConfidentialTransferInstruction`) sunar.
+Şifrelenmiş tutarlar şifreli metin olarak kalır: bunları bir sayı olarak işlemek
+yerine gizli olarak görüntüleyin.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+Planlanması gereken indeksleme sınırlamaları:
+
+- **Gizli transferler için tutar yok.** Bir `ConfidentialTransfer` şifrelenmiş
+  tutarlar içerdiğinden, hacim, akış ve transfer boyutu analizleri bundan
+  hesaplanamaz. Bu transferleri sıfır veya ham şifreli metin kaydetmek yerine
+  gizli olarak işaretleyin.
+- **Bakiye değişimi yok.** Gizli hareketler genel token bakiyesini
+  değiştirmediğinden, çoğu transfer indekslemesinin dayandığı önceki/sonraki
+  token bakiyesi farkı yöntemi bunları yakalamaz. Bekleyen ve mevcut bakiyeler
+  şifreli metinlerdir.
+- **Yatırma ve çekme işlemleri açık metin içerir.** `ConfidentialDeposit` ve
+  `ConfidentialWithdraw` açık metin tutarları taşıdığından, gizli havuza giren
+  ve çıkan akışı indekslemeye devam edebilirsiniz; ancak havuz içindeki
+  transferleri değil.
+- **Bir transfer bugün birden fazla işleme yayılır.** Kanıt bağlamı durum
+  hesapları transfer etrafında oluşturulur, kullanılır ve kapatılır; bu nedenle
+  ilgili işlemleri her birini ayrı ayrı ele almak yerine ilişkilendirin. Bu
+  durum, tek işlemli gizli transferler devreye girdiğinde (yukarıya bakın)
+  ortadan kalkacaktır.
+- **Denetçi mint'leri şifresi çözülebilir.** Bir mint'in genel bir denetçisi
+  varsa ve denetçi anahtarına sahipseniz, o mint için transfer tutarlarının
+  şifresini çözebilirsiniz (aşağıya bakın).
+
+## Denetçiler ve uyumluluk
+
+Bir mint, **global denetçi** ElGamal pubkey değerini yapılandırabilir.
+Ayarlandığında, her gizli transfer, denetçi anahtarıyla şifrelenmiş tutarı
+içermek zorundadır; böylece denetçi gizli anahtarının sahibi, o mint için tüm
+transfer tutarlarının şifresini çözebilir. Geçerlilik kanıtı denetçi şifreli
+metnini kapsadığından, bir entegratör olarak gönderim yolunda mint
+yapılandırmasından denetçi anahtarını iletmek dışında özel bir şey yapmanız
+gerekmez (üst düzey yardımcılar bunu sizin için okur).
+
+Ürününüz denetçi ise (örneğin düzenlenmiş bir ihraççı veya uyumluluk
+sağlayıcısı), transfer tutarlarının şifresini denetçi gizli anahtarıyla
+çözersiniz; bu, bir hesap sahibinin kendi bakiyesinin şifresini çözmesiyle aynı
+yöntemdir. Hesap sahipleri ayrıca hesap başına anahtarlarını herkese açık hale
+getirmeden belirli bir tarafla seçici olarak paylaşabilir.
+
+### İşlem izleme (KYT)
+
+İşlemi tanıma (KYT) ve AML sağlayıcıları için gizli transferler, gözlemlenebilir
+olanı değiştirir; genel modeli değil:
+
+- **Adres ve grafik analizi etkilenmez.** Gönderenler, alıcılar, mint'ler ve
+  hesap sahipleri herkese açık kalmaya devam eder; bu nedenle adres tarama,
+  yaptırım eşleştirme ve karşı taraf grafik analizi, herhangi bir token için
+  olduğu gibi aynı şekilde çalışır.
+- **Tutara dayalı buluşsal yöntemler denetçi anahtarına ihtiyaç duyar.**
+  Yapılandırma, eşik raporlama ve hacim tabanlı risk puanlaması, gizli transfer
+  tutarlarını kendi başlarına okuyamaz. Para yatırma ve çekme tutarları açık
+  kaldığından, gizli havuza giren ve çıkan akışların büyüklüğü hâlâ görünür
+  durumdadır.
+- **Kapsam, denetçi modelinden gelir.** Global denetçi yapılandıran mint'lerde,
+  denetçi anahtarıyla çalışan (veya kullanıcı ya da ihraççıdan seçici açıklama
+  alan) bir sağlayıcı transfer tutarlarını kurtarabilir. Düzenlenmiş
+  bağlamlardaki ihraççılar, izlemenin mümkün olması için bir denetçi
+  yapılandırmayı veya seçici açıklamayı desteklemeyi planlamalıdır.
+
+## Geriye Dönük Uyumluluk
+
+- Bir gizli token account her zaman bir genel bakiyeye sahiptir. Uzantıyı
+  desteklemeyen cüzdanlar ve uygulamalar çalışmaya devam eder ve genel bakiyeyi
+  görüntüler.
+- Hedef, gizli olmayan kredilere izin verdiği sürece standart transferler genel
+  bakiye için işlev görmeye devam eder.
+- Gizli bakiyeler, desteklemeyen araçlar tarafından görülemez; ancak fonlar
+  kaybolmaz: gizli transferleri destekleyen herhangi bir istemci, sahip
+  anahtarlarıyla bunlara erişebilir.
+- Tutarlar şifrelendiğinden, transfer tutarlarını okumaya dayanan arz ve hacim
+  düzeyindeki analizler gizli aktiviteyi göremez. Kontrol panellerini ve
+  muhasebeyi buna göre planlayın.
+
+## Platform Başına Önerilen Entegrasyon Öncelikleri
+
+### Genel Gereksinimler
+
+| Gereksinim                  | Açıklama                                                                                                                                                                                    | Öncelik |
+| :-------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------ |
+| Uzantıyı algıla             | Mint'ler ve hesaplardaki Gizli Transfer uzantısını tanıyın ve bu token'ları yalnızca genel model varsayımı yapmak yerine açıkça ele alın.                                                   | **P0**  |
+| Gizli fonları asla kaybetme | Tam destek olmasa bile, kullanıcıların hesaplarının boş olduğunu varsaymaması için gizli bir bakiyenin mevcut olduğunu gösterin.                                                            | **P0**  |
+| Sağlam anahtar yönetimi     | ElGamal ve AES anahtarları için bir anahtar stratejisi belirleyin. Sahip cüzdanından türetmek önerilen varsayılandır; anahtarları saklıyorsanız, bunları imzalama anahtarları gibi koruyun. | **P0**  |
+
+---
+
+### Cüzdanlar
+
+| Gereksinim                                | Açıklama                                                                                                                                                      | Öncelik |
+| :---------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------ |
+| Genel bakiyeyi görüntüle                  | Standart token bakiyesi okumalarını kullanarak genel bakiyeyi her zaman gösterin.                                                                             | **P0**  |
+| Mevcut bakiyenin kilidini aç ve görüntüle | Kullanıcının imza aracılığıyla anahtarların kilidini açmasına izin verin ve şifresi çözülmüş mevcut bakiyeyi (AES ile çözülebilir bakiye üzerinden) gösterin. | **P0**  |
+| Bekleyen ve mevcut bakiyeyi göster        | Bekleyen bakiyeleri ayrıca gösterin ve fonlar alındığında uygulamak için kullanıcıyı yönlendirin.                                                             | **P1**  |
+| Bekleyenleri otomatik uygula              | Fonların takılıp kalmaması için bekleyen bakiyeleri uygun anlarda (örn. göndermeden önce) uygulayın.                                                          | **P1**  |
+| Gizli gönderim                            | İstemci tarafı kanıt oluşturma ile yatırma, transfer ve çekme akışlarını destekleyin.                                                                         | **P1**  |
+| Kilitli durum kullanıcı deneyimi          | Anahtarların kilidi açık değilken, sıfır göstermek yerine gizli bir bakiyenin mevcut olduğunu açıkça belirtin.                                                | **P1**  |
+| Katılım / eğitim                          | Kullanıcıların neyin gizli kaldığını (tutarlar ve bakiyeler) ve anahtar kilit açma adımını anlamalarına yardımcı olun.                                        | **P2**  |
+
+---
+
+### Gezginler ve İndeksleyiciler
+
+| Gereksinim                              | Açıklama                                                                                                           | Öncelik |
+| :-------------------------------------- | :----------------------------------------------------------------------------------------------------------------- | :------ |
+| Gizli hesapları ve mint'leri etiketle   | Uzantıyı kullanan hesapları ve mint'leri açıkça işaretle ve genel bakiyeyi göster.                                 | **P0**  |
+| Gizli talimatları ayrıştır              | Yapılandırma, yatırma, uygulama, transfer ve çekme talimatlarını çöz ve türlerini göster (miktarları değil).       | **P0**  |
+| Şifreli miktarları sayı olarak gösterme | Şifreli metin alanlarını hiçbir zaman düz metin bakiyesi gibi gösterme; bunları gizli olarak işaretle.             | **P0**  |
+| Genel yatırma/çekme akışlarını indeksle | Gizli havuza giren ve çıkan akışı takip etmek için yatırma ve çekme işlemlerindeki açık metin miktarlarını kaydet. | **P1**  |
+| Çok işlemli transferleri ilişkilendir   | Tek bir gizli transferi oluşturan kanıt kurulumu, transfer ve temizleme işlemlerini gruplandır.                    | **P1**  |
+| Denetçi yapılandırmasını göster         | Bir mint'in global denetçi yapılandırmasının olup olmadığını göster.                                               | **P1**  |
+| Kanıt hesabı yaşam döngüsü              | Kanıt bağlamı durum hesabının oluşturulmasını ve kapatılmasını tanı, böylece işlemler anlaşılır biçimde görünsün.  | **P2**  |
+
+---
+
+### Borsalar ve Saklayıcılar
+
+| Gereksinim                               | Açıklama                                                                                                                                                                                         | Öncelik |
+| :--------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------ |
+| Genel ve gizli durumu takip et           | Yatırımları kredilendirirken ve varlıkları hesaplarken hem genel hem de gizli bakiyeleri dikkate al.                                                                                             | **P0**  |
+| Yatırımlarda bekleyenleri uygula         | Gizli yatırımlar geldiğinde bekleyen bakiyeleri uygula, böylece kredilendirilen miktarlar doğru olsun.                                                                                           | **P0**  |
+| Güvenli anahtar yönetimi                 | Gizli fonları saklayıcı olarak tutuyorsan, ElGamal/AES anahtarlarını imzalama anahtarlarıyla aynı titizlikle yönet.                                                                              | **P0**  |
+| Kayıt defteri aracılığıyla hesap sağlama | Kullanıcılar için gizli hesaplar oluşturmak amacıyla, kullanıcıların ElGamal anahtarını bir kez kaydettirmesini sağla ve hesap başına imza gerektirmek yerine kayıt defteri yoluyla sağlama yap. | **P1**  |
+| Kullanıcılara para çekme                 | Hedef hesap yapılandırmasına bağlı olarak gizli veya genel para çekimi destekle.                                                                                                                 | **P1**  |
+| Uyumluluk / denetçi desteği              | Gerektiğinde, raporlama yükümlülüklerini karşılamak için denetçi anahtarlarını veya seçici açıklamayı kullan.                                                                                    | **P1**  |
+| Ham miktarlar üzerinde iç muhasebe       | Kenarda şifresi çözülmüş miktarlara göre mutabakat sağla ve bunları sakla; şifreli metinleri toplamaya çalışma.                                                                                  | **P1**  |
+
+---
+
+### Uyumluluk ve KYT Sağlayıcıları
+
+| Gereksinim                            | Açıklama                                                                                                                                         | Öncelik |
+| :------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------- | :------ |
+| Adres ve grafik taraması              | Gönderenleri, alıcıları, mint'leri ve sahipleri tarayın; karşı taraf grafik analizini çalıştırın; bunlar herkese açık kalır.                     | **P0**  |
+| Genel para yatırma/çekme takibi       | Gizli havuzun gözlemlenebilir giriş ve çıkış noktaları olarak açık metin para yatırma ve çekme tutarlarını izleyin.                              | **P0**  |
+| Denetçi anahtarıyla tutar görünürlüğü | Denetçi özellikli mint'ler için, tutar tabanlı tespiti desteklemek amacıyla denetçi anahtarı kullanılarak transfer tutarlarının şifresi çözülür. | **P1**  |
+| Seçici açıklama alımı                 | Kullanıcılar veya ihraççılar tarafından hesap başına anahtarlar aracılığıyla paylaşılan tutar açıklamalarını destekleyin.                        | **P2**  |

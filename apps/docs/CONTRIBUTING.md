@@ -87,7 +87,7 @@ up as a red CI run rather than rotted documentation.
 
 Run `pnpm --filter @workspace/docs-examples test` locally — needs the `surfpool`
 CLI installed via
-`cargo install --git https://github.com/txtx/surfpool --locked surfpool-cli`.
+`cargo install --git https://github.com/solana-foundation/surfpool --locked surfpool-cli`.
 
 ### Rust
 

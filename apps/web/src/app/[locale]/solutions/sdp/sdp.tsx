@@ -61,7 +61,7 @@ export function SdpPage() {
             t("advantages.items.2"),
           ]}
           visualSrc="/src/img/solutions/sdp/advantages-visual.svg"
-          visualBgSrc="/src/img/solutions/sdp/advantages-visual-bg.jpg"
+          visualBgSrc="/src/img/solutions/sdp/advantages-visual-bg.webp"
         />
       </section>
       <DecorGrid />
@@ -72,21 +72,21 @@ export function SdpPage() {
             {
               num: "1",
               img: "/src/img/solutions/sdp/feat-1.svg",
-              bg: "/src/img/solutions/sdp/feat-bg-1.jpg",
+              bg: "/src/img/solutions/sdp/feat-bg-1.webp",
               heading: t("cardGrid.columns.0.heading"),
               body: t("cardGrid.columns.0.body"),
             },
             {
               num: "2",
               img: "/src/img/solutions/sdp/feat-2.svg",
-              bg: "/src/img/solutions/sdp/feat-bg-2.jpg",
+              bg: "/src/img/solutions/sdp/feat-bg-2.webp",
               heading: t("cardGrid.columns.1.heading"),
               body: t("cardGrid.columns.1.body"),
             },
             {
               num: "3",
               img: "/src/img/solutions/sdp/feat-3.svg",
-              bg: "/src/img/solutions/sdp/feat-bg-3.jpg",
+              bg: "/src/img/solutions/sdp/feat-bg-3.webp",
               heading: t("cardGrid.columns.2.heading"),
               headingBadge: t("cardGrid.columns.2.headingBadge"),
               body: t("cardGrid.columns.2.body"),

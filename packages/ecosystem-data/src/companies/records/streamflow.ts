@@ -1,5 +1,9 @@
 import type { CompanyRecord } from "../../types";
+import streamflowBreakpoint2026White from "../../../assets/companies/streamflow/breakpoint-2026-white.svg";
+import streamflowBreakpoint2026WhitePng from "../../../assets/companies/streamflow/breakpoint-2026-white.png";
 import streamflowLogoColor from "../../../assets/companies/streamflow/logo-color.svg";
+import streamflowMarkColorPng from "../../../assets/companies/streamflow/mark-color.png";
+import streamflowMarkWhite from "../../../assets/companies/streamflow/mark-white.svg";
 
 export const streamflow = {
   id: "streamflow",
@@ -26,10 +30,42 @@ export const streamflow = {
   defaultLogoId: "logo-color",
   logos: [
     {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: streamflowBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
+    {
+      id: "breakpoint-2026-white-png",
+      fileName: "breakpoint-2026-white.png",
+      format: "png",
+      source: streamflowBreakpoint2026WhitePng,
+      theme: "dark",
+      treatment: "monotone",
+    },
+    {
       id: "logo-color",
       fileName: "logo-color.svg",
       format: "svg",
       source: streamflowLogoColor,
+    },
+    {
+      id: "mark-color-png",
+      fileName: "mark-color.png",
+      format: "png",
+      source: streamflowMarkColorPng,
+      kind: "mark",
+    },
+    {
+      id: "mark-white",
+      fileName: "mark-white.svg",
+      format: "svg",
+      source: streamflowMarkWhite,
+      theme: "dark",
+      kind: "mark",
+      treatment: "monotone",
     },
   ],
 } satisfies CompanyRecord;

@@ -1,0 +1,313 @@
+---
+title: Чіткоди
+description:
+  Пропускайте транзакції та безпосередньо змінюйте стан Surfnet. Поповнюйте SOL
+  і токени, встановлюйте довільні дані акаунтів, скидайте кешовані
+  upstream-акаунти та транслюйте акаунти mainnet у реальному часі.
+---
+
+Чіткоди — це мутації стану, що обходять звичайний потік транзакцій. Вони
+виконуються миттєво, не витрачаючи blockhash і не сплачуючи комісій — саме те,
+що потрібно для налаштування тестів.
+
+У Rust чіткоди знаходяться в `Surfnet::cheatcodes()`. У JS вони є методами
+безпосередньо на екземплярі `Surfnet`.
+
+## Поповнення SOL
+
+`fundSol` / `fund_sol` встановлює баланс у lamport для будь-якого акаунту,
+створюючи акаунт, якщо він не існує.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+let wallet = Pubkey::new_unique();
+
+cheats.fund_sol(&wallet, 1_000_000_000)?;
+
+// Fund several accounts in one call.
+let bob = Pubkey::new_unique();
+let carol = Pubkey::new_unique();
+cheats.fund_sol_many(&[(&bob, 2_000_000_000), (&carol, 3_000_000_000)])?;
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const wallet = Surfnet.newKeypair();
+
+surfnet.fundSol(wallet.publicKey, 1_000_000_000);
+
+const bob = Surfnet.newKeypair();
+const carol = Surfnet.newKeypair();
+surfnet.fundSolMany([
+  { address: bob.publicKey, lamports: 2_000_000_000 },
+  { address: carol.publicKey, lamports: 3_000_000_000 }
+]);
+```
+
+</CodeTabs>
+
+## Поповнення токенів
+
+`fundToken` / `fund_token` карбує токени до гаманця, обчислюючи пов'язаний token
+account, створюючи його за потреби та встановлюючи суму.
+
+<Callout type="info" title="Мінти Token-2022">
+  За замовчуванням `fundToken` використовує класичну програму SPL Token Program.
+  Для мінтів Token-2022 передайте ID програми Token-2022
+  (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`) як останній аргумент.
+</Callout>
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let wallet = Pubkey::new_unique();
+let mint: Pubkey = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    .parse()
+    .unwrap();
+
+// Classic SPL Token mint.
+cheats.fund_token(&wallet, &mint, 5_000_000, None)?;
+
+// Token-2022 mint — pass the program id explicitly.
+let token_2022: Pubkey = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+    .parse()
+    .unwrap();
+cheats.fund_token(&wallet, &mint, 5_000_000, Some(&token_2022))?;
+
+// Fund many wallets with the same mint.
+let mob = vec![Pubkey::new_unique(), Pubkey::new_unique()];
+cheats.fund_token_many(&mob.iter().collect::<Vec<_>>(), &mint, 1_000_000, None)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const wallet = Surfnet.newKeypair();
+const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+surfnet.fundToken(wallet.publicKey, USDC, 5_000_000);
+
+// Token-2022 mint — pass the program id explicitly.
+const TOKEN_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+surfnet.fundToken(wallet.publicKey, USDC, 5_000_000, TOKEN_2022);
+
+// Fund many wallets at once.
+const mob = [Surfnet.newKeypair().publicKey, Surfnet.newKeypair().publicKey];
+surfnet.fundTokenMany(mob, USDC, 1_000_000);
+```
+
+</CodeTabs>
+
+Щоб отримати ATA без поповнення, використовуйте `getAta` / `get_ata`:
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let ata = cheats.get_ata(&wallet, &mint, None);
+```
+
+```ts !! title="TypeScript"
+const ata = surfnet.getAta(wallet.publicKey, USDC);
+```
+
+</CodeTabs>
+
+## Встановлення довільного стану акаунту
+
+Метод `setAccount` записує lamport, власника та необроблені байти даних для
+будь-якого акаунту за один виклик. Rust SDK додатково надає будівельник
+`SetAccount` для більш складних полів, таких як `rent_epoch` та `executable`.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::SetAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let address = Pubkey::new_unique();
+let owner = Pubkey::new_unique();
+
+// Direct method.
+cheats.set_account(&address, 500_000, &[1, 2, 3], &owner)?;
+
+// Builder when you need finer control.
+cheats.execute(
+    SetAccount::new(address)
+        .lamports(500_000)
+        .owner(owner)
+        .data(vec![1, 2, 3])
+        .rent_epoch(0)
+        .executable(false),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const address = Surfnet.newKeypair();
+const owner = Surfnet.newKeypair();
+
+surfnet.setAccount(
+  address.publicKey,
+  500_000,
+  new Uint8Array([1, 2, 3]),
+  owner.publicKey
+);
+```
+
+</CodeTabs>
+
+## Мутація полів Token Account
+
+`setTokenAccount` оновлює розширені поля наявного token account — делегата,
+стан, повноваження на закриття, делеговану суму. Використовуйте його, коли
+одного лише `fundToken` недостатньо.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::SetTokenAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let cheats = Surfnet::start().await?.cheatcodes();
+
+let owner = Pubkey::new_unique();
+let mint: Pubkey = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".parse()?;
+let delegate = Pubkey::new_unique();
+
+cheats.execute(
+    SetTokenAccount::new(owner, mint)
+        .amount(2_000_000)
+        .delegate(delegate)
+        .delegated_amount(500_000)
+        .state("initialized"),
+)?;
+
+// Later: clear the delegation.
+cheats.execute(SetTokenAccount::new(owner, mint).clear_delegate())?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const owner = Surfnet.newKeypair();
+const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const delegate = Surfnet.newKeypair();
+
+surfnet.setTokenAccount(owner.publicKey, USDC, {
+  amount: 2_000_000,
+  delegate: delegate.publicKey,
+  delegatedAmount: 500_000,
+  state: "initialized"
+});
+
+// Later: clear the delegation.
+surfnet.setTokenAccount(owner.publicKey, USDC, { clearDelegate: true });
+```
+
+</CodeTabs>
+
+## Скидання акаунтів до початкового стану
+
+`resetAccount` відкидає всі локальні зміни та повторно отримує акаунт з
+вихідного RPC. Передайте `includeOwnedAccounts: true`, щоб також скинути кожен
+акаунт, що належить цільовому — корисно при скиданні програми та всіх її PDA.
+
+<Callout type="info" title="Потребує `remoteRpcUrl` для повторного отримання">
+  На офлайн-Surfnet `resetAccount` очищає локальну копію, але не має вихідного
+  джерела для отримання даних. Налаштуйте `remoteRpcUrl` під час запуску, щоб
+  скидання відновлювало стан із вихідного джерела.
+</Callout>
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::ResetAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let cheats = Surfnet::start().await?.cheatcodes();
+let token_program: Pubkey = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".parse()?;
+
+cheats.execute(
+    ResetAccount::new(token_program).include_owned_accounts(true),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+
+surfnet.resetAccount(TOKEN_PROGRAM, { includeOwnedAccounts: true });
+```
+
+</CodeTabs>
+
+## Потокова передача акаунтів у реальному часі
+
+`streamAccount` реєструє акаунт для фонового опитування з вихідного RPC.
+Локальна копія Surfnet залишається синхронізованою з мейннетом без необхідності
+явного опитування у тесті. Поєднайте з `includeOwnedAccounts` для потокової
+передачі кожного PDA, що належить програмі.
+
+<Callout type="warn" title="Потребує `remoteRpcUrl`">
+  `streamAccount` працює лише на Surfnet, запущеному з `remoteRpcUrl` (або
+  `remote_rpc_url` у Rust). Без вихідного RPC немає звідки отримувати потік
+  даних, і виклик поверне помилку.
+</Callout>
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::StreamAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let cheats = Surfnet::builder()
+    .remote_rpc_url("https://api.mainnet-beta.solana.com")
+    .start()
+    .await?
+    .cheatcodes();
+
+let oracle: Pubkey = "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG".parse()?;
+
+cheats.execute(StreamAccount::new(oracle).include_owned_accounts(false))?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com"
+});
+
+surfnet.streamAccount("H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG");
+```
+
+</CodeTabs>
+
+## Білдери чіткодів (Rust)
+
+Rust SDK надає типізовані білдери в `surfpool_sdk::cheatcodes::builders` для
+випадків, коли зручних методів недостатньо. Кожен білдер реалізує трейт
+`CheatcodeBuilder` і виконується через `cheats.execute(builder)`.
+
+| Builder           | Constructor                                          | Common setters                                                                                                                   |
+| ----------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `SetAccount`      | `new(address: Pubkey)`                               | `lamports`, `data`, `owner`, `rent_epoch`, `executable`                                                                          |
+| `SetTokenAccount` | `new(owner: Pubkey, mint: Pubkey)`                   | `amount`, `delegate`, `clear_delegate`, `state`, `delegated_amount`, `close_authority`, `clear_close_authority`, `token_program` |
+| `ResetAccount`    | `new(address: Pubkey)`                               | `include_owned_accounts(bool)`                                                                                                   |
+| `StreamAccount`   | `new(address: Pubkey)`                               | `include_owned_accounts(bool)`                                                                                                   |
+| `DeployProgram`   | `new(program_id: Pubkey)`, `from_keypair_path(path)` | `so_path`, `so_bytes`, `idl_path`                                                                                                |
+
+Для повної JS-поверхні дивіться
+[JS Reference](/docs/tools/surfpool/sdk/js-reference). Для повної Rust-поверхні
+дивіться [Rust Reference](/docs/tools/surfpool/sdk/rust-reference).

@@ -1,123 +1,159 @@
 ---
-title: "@solana/client"
+title: Kit клиент
 description:
-  Создавайте легковесные фронтенды Solana с помощью headless-рантайма Solana
-  client.
+  Build a Solana client from Kit plugins for RPC, signing, and sending
+  transactions.
 ---
 
-`@solana/client` обеспечивает минимальный runtime-интерфейс. Один store, один
-RPC-стек и реестр кошельков поддерживают различные вспомогательные функции,
-чтобы один и тот же экземпляр мог использоваться для CLI, скриптов или
-полноценных UI. Actions, watchers и helpers используют общий кэш, подписки и
-сессии кошелька через этот единый клиент.
+`@solana/kit` поставляется с `createClient` — небольшим хостом, который расширяется с помощью плагинов. Каждый
+плагин добавляет возможность — RPC-соединение, подписчика, планирование транзакций —
+а составной клиент одинаково подходит для скриптов, серверных маршрутов и UI.
 
 <Callout type="info">
-  Если вы строите исключительно React-приложение, обычно быстрее начать с
-  [`@solana/react-hooks`](/docs/frontend/react-hooks). Пакет hooks оборачивает
-  этот же client runtime и предоставляет готовые хуки, так что к headless client
-  вы обращаетесь только при необходимости дополнительного контроля.
+  Создаёте React-приложение? [Руководство по React](/docs/frontend/react-hooks) оборачивает тот же
+  клиент с помощью `@solana/react`, чтобы компоненты читали состояние кошелька и данные RPC
+  через хуки. Начните с него и возвращайтесь сюда, когда потребуется более тонкий контроль.
 </Callout>
 
 ## Установка
 
 ```terminal
-$ npm install @solana/client
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer
 ```
 
-Используйте любой пакетный менеджер; клиент работает в браузерах, воркерах,
-React, Svelte или серверных рантаймах.
+Используйте любой пакетный менеджер. Kit — версии v7+, а пакеты `@solana/kit-plugin-*` —
+0.13+.
 
-## Создайте клиент один раз
+## Создание клиента
 
-Выберите Wallet Standard-коннекторы (автообнаружение — самый быстрый способ
-начать), затем создайте клиент. Этот единый объект предоставляет store, actions,
-watchers и helpers.
+Комбинируйте плагины с помощью `.use(...)`. Сначала установите подписчика, затем RPC-соединение.
+`solanaDevnetRpc()` добавляет `client.rpc`, подписки, планировщик/исполнитель транзакций
+и вспомогательный метод `client.sendTransaction` — поэтому приложению редко
+нужно настраивать эти части вручную.
 
 ```ts
-import { autoDiscover, createClient } from "@solana/client";
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
+const payer = await generateKeyPairSigner();
 
-await client.actions.connectWallet("wallet-standard:phantom");
-const balance = await client.actions.fetchBalance("Fke...address");
-console.log(balance.lamports?.toString());
+const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+
+const slot = await client.rpc.getSlot().send();
+console.log("current slot", slot);
 ```
 
-Store клиента отслеживает конфигурацию кластера, подписки, ожидающие транзакции
-и сессии кошелька. Вы можете использовать собственный store на Zustand, если вам
-нужна персистентность или координация между вкладками.
+Плагин `signer` устанавливает как плательщика комиссии, так и идентификатор приложения. RPC-пакет
+требует наличия плательщика заранее, поэтому порядок важен.
 
-## Оркестрация кошельков
+### Варианты подписчика
 
-Коннекторы инкапсулируют метаданные Wallet Standard и логику
-подключения/отключения. Зарегистрируйте встроенные `phantom()`, `solflare()`,
-`backpack()` или `autoDiscover()` helpers, либо оберните кастомные провайдеры с
-помощью `createWalletStandardConnector`. Все действия с кошельком (connect,
-disconnect, sign, send) проходят через реестр клиента, чтобы все потребители
-оставались синхронизированы.
+`@solana/kit-plugin-signer` предоставляет три роли, чтобы вы предоставляли клиенту только необходимые права:
 
-## Actions, watchers и helpers
+- `signer(x)` — устанавливает и `client.payer`, и `client.identity`.
+- `payer(x)` — только плательщик комиссии.
+- `identity(x)` — только авторитет приложения.
 
-- **Actions** оборачивают типовые RPC-запросы на чтение и запись, обновляя store
-  (например, `fetchAccount`, `requestAirdrop`, `setCluster`).
-- **Watchers** мультиплексируют подписки на websocket, стримят обновления в
-  store и предоставляют abort handles для очистки.
-- **Helpers** реализуют более высокоуровневые сценарии, такие как переводы SOL,
-  работу с SPL-токенами, отслеживание подписей и пулы транзакций.
+Каждый имеет варианты `*FromFile(path)` (Node), `generated*()`, `generated*WithSol(amount)`
+и `airdrop*()` для тестов и скриптов.
+
+## Отправка транзакции
+
+Создайте инструкции с помощью сгенерированного клиента программы, затем передайте их в
+`client.sendTransaction`. Планировщик разрешает blockhash, оценивает вычислительные ресурсы,
+подписывает с помощью плательщика клиента и отправляет.
 
 ```ts
-const abortWatcher = client.watchers.watchBalance(
-  { address: "Fke...address" },
-  (lamports) => {
-    console.log("live balance", lamports.toString());
-  }
-);
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
 
-// Later when the component unmounts or the flow ends
-abortWatcher.abort();
+const transfer = getTransferSolInstruction({
+  source: client.payer,
+  destination: address("Fke...address"),
+  amount: lamports(10_000_000n) // 0.01 SOL
+});
+
+const { context } = await client.sendTransaction([transfer]);
+console.log("submitted", context.signature);
 ```
 
-## Паттерн помощника для транзакций
+`sendTransaction` возвращает объект результата; подпись транзакции находится в
+`result.context.signature`. Метод проверяет, что план умещается в одну транзакцию, и
+выбрасывает исключение в противном случае — используйте `sendTransactions`, если пакет может охватывать несколько
+транзакций.
 
-Помощник для транзакций отвечает за обновление blockhash, определение
-плательщика комиссии и подпись. Вы можете подготовить, проверить и отправить
-транзакцию с любым удобным для вас UX.
+## Выбор RPC-пакета
+
+`@solana/kit-plugin-rpc` поставляется с пресетами кластеров:
+
+- `solanaDevnetRpc()` — настройки devnet по умолчанию, airdrop включён (`client.airdrop`).
+- `solanaMainnetRpc()` — mainnet; airdrop является ошибкой времени компиляции.
+- `solanaLocalRpc()` — `http://127.0.0.1:8899` для локального validator.
+- `solanaRpc({ rpcUrl })` — любой эндпоинт.
 
 ```ts
-const prepared = await client.helpers.transaction.prepare({
-  authority: client.store.getState().wallet.session!,
-  instructions: [instructionA, instructionB]
-});
+import { solanaRpc } from "@solana/kit-plugin-rpc";
 
-await client.helpers.transaction.simulate(prepared, {
-  commitment: "processed"
-});
-const signature = await client.helpers.transaction.send(prepared);
-console.log("submitted", signature.toString());
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpc({ rpcUrl: "https://your-rpc-provider.example" }));
 ```
 
-Используйте `prepareAndSend` для готового процесса (симуляция плюс логирование)
-или вызывайте `sign` / `toWire`, чтобы собрать подписи вручную перед тем, как
-самостоятельно отправить wire-формат.
+### Детальная компоновка
 
-## Общие паттерны для разработчиков Solana
+Пресеты объединяют RPC-соединение, планировщик, исполнитель и вспомогательные методы отправки, поэтому
+большинству приложений никогда не нужны отдельные части. Переходите к детальным плагинам только
+для настройки одного из них — например, кастомного планировщика или другого канала подписок. Этот путь также
+требует `@solana/kit-plugin-instruction-plan`, который пресеты в противном случае включают за вас:
 
-- **Headless state machines**: Запускайте клиент внутри API-роутов, скриптов или
-  воркеров, чтобы переиспользовать ту же логику оркестрации кошелька и RPC, что
-  и в вашем UI.
-- **Realtime dashboards**: Комбинируйте вотчеры (балансы, аккаунты, подписи) с
-  вашей любимой UI-библиотекой; клиент сам обрабатывает websocket fan-out и
-  инвалидирует кэш.
-- **Custom stores**: Внедряйте свой Zustand store для гидратации из
-  IndexedDB/localStorage, зеркалируйте состояние в сессии сервера или
-  координируйте между вкладками браузера.
-- **Bridge to React hooks**: Передавайте настроенный экземпляр клиента в
-  `@solana/react-hooks`, если хотите использовать эргономичные хуки поверх того
-  же рантайма.
-- **Тестируемость**: Единый интерфейс клиента можно мокать в unit-тестах, что
-  позволяет легко симулировать ответы RPC или сессии кошелька без браузерного
-  кошелька.
+```ts
+import {
+  solanaRpcConnection,
+  rpcAirdrop,
+  rpcTransactionPlanner,
+  rpcTransactionPlanExecutor
+} from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpcConnection({ rpcUrl: "https://api.devnet.solana.com" }))
+  .use(rpcAirdrop())
+  .use(rpcTransactionPlanner())
+  .use(rpcTransactionPlanExecutor())
+  .use(planAndSendTransactions());
+```
+
+## Добавление клиентов программ
+
+Сгенерированные пакеты `@solana-program/*` предоставляют клиентские плагины, чтобы вызовы программ
+были доступны через клиент. Установите нужную программу и подключите её плагин через `.use()`:
+
+```ts
+import { tokenProgram } from "@solana-program/token";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaDevnetRpc())
+  .use(tokenProgram()); // adds client.token
+```
+
+## Подписание без браузерного кошелька
+
+Запускаете в режиме headless в API-маршруте, воркере или скрипте? Подписывайте с помощью бэкенд-сервиса
+управления ключами вместо raw keypair. Смотрите
+[Keychain](/docs/tools/keychain) и
+[Подписание в продакшне](/docs/core/transactions/signing-in-production).
+
+## Типичные паттерны для разработчиков Solana
+
+- **Общая настройка**: Создайте клиент один раз в основном модуле и импортируйте его в
+  скрипты, серверные маршруты и UI.
+- **Чтение на стороне сервера**: Клиент только с `signer` + `solanaRpc` (без плагина кошелька)
+  читает аккаунты и симулирует транзакции на сервере.
+- **Локальное тестирование**: Замените RPC-пакет на `.use(litesvm())` из
+  `@solana/kit-plugin-litesvm` для запуска против in-memory validator (только
+  Node).
+- **Тестируемость**: Составной клиент легко мокировать — заглушайте RPC-ответы или
+  подписчиков без браузерного кошелька.

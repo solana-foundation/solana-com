@@ -53,11 +53,9 @@ function EmptyConsole({
         )}
       </button>
       <span
-        className={`text-sm h-4 ${running ? "opacity-0" : "opacity-80"} transition-opacity duration-100 ${error ? "text-red-500" : ""}`}
+        className={`px-4 text-center text-sm min-h-4 whitespace-pre-wrap ${running ? "opacity-0" : "opacity-80"} transition-opacity duration-100 ${error ? "text-red-500" : ""}`}
       >
-        {!error
-          ? "Click to execute the code."
-          : "There was an error running the code."}
+        {error ?? "Click to execute the code."}
       </span>
     </div>
   );
@@ -73,6 +71,22 @@ type RunnableCodeState = {
   error: string | null;
   handleRun: () => void;
 };
+
+function getRunnerError(data: unknown): string {
+  if (!data || typeof data !== "object") return "Unknown runner error";
+
+  const response = data as Record<string, unknown>;
+  if (typeof response.details === "string") return response.details;
+
+  if (response.details && typeof response.details === "object") {
+    const details = response.details as Record<string, unknown>;
+    if (typeof details.error === "string") return details.error;
+  }
+
+  return typeof response.error === "string"
+    ? response.error
+    : "Unknown runner error";
+}
 
 function useRunnableCode(code: string, language: string): RunnableCodeState {
   const [running, setRunning] = useState(false);
@@ -91,17 +105,13 @@ function useRunnableCode(code: string, language: string): RunnableCodeState {
 
       const data = await res.json();
       if (!res.ok || data.error) {
-        setError(
-          `Error running code: ${JSON.stringify(data.details?.error || data.error || "Unknown error")}`,
-        );
+        setError(getRunnerError(data));
         return;
       }
 
       setResult(data as CodeRun);
     } catch (err) {
-      setError(
-        `Error running code: ${err instanceof Error ? err.message : "Unknown error"}`,
-      );
+      setError(err instanceof Error ? err.message : "Unknown runner error");
     } finally {
       setRunning(false);
     }

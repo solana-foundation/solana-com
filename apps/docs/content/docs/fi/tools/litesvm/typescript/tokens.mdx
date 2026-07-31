@@ -1,0 +1,212 @@
+---
+title: Token-testaus
+description:
+  Testaa SPL-tokeneilla käyttäen @solana-program/token-pakettia ja LiteSVM:ää
+---
+
+Token-logiikan testaaminen Solanassa tarkoittaa minttiä, token account -tilejä
+ja valtuuksien määrittämistä ennen kuin voit testata varsinaista
+siirtologiikkaa. `tokenProgram()`-laajennus paketista `@solana-program/token`
+tiivistää tämän asetuksen muutamaan metodikutsuun — ja hallitsee ATA:n luomisen
+automaattisesti.
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://www.npmjs.com/package/@solana-program/token"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 780 250"
+      className="w-5 h-4"
+      fill="currentColor"
+    >
+      <path d="M240,250h100V0H240ZM340,0h100V200H390V50H340ZM480,0V200H580V250h50V0Z" />
+    </svg>
+    Näytä <code>@solana-program/token</code> npm:ssä
+  </a>
+</div>
+
+## Asennus
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+</Tabs>
+
+## Luo Mintti
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { tokenProgram } from "@solana-program/token";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(tokenProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const mintAuthority = await generateKeyPairSigner();
+const newMint = await generateKeyPairSigner();
+
+await client.token.instructions
+  .createMint({
+    newMint,
+    decimals: 9,
+    mintAuthority: mintAuthority.address
+  })
+  .sendTransaction();
+
+// Verify
+const mintAccount = await client.token.accounts.mint.fetch(newMint.address);
+console.log(mintAccount.data.supply); // 0n
+console.log(mintAccount.data.decimals); // 9
+```
+
+## Luo Tokeneita
+
+`mintToATA` lähettää tokeneita omistajan associated token account -tilille. Jos
+ATA ei ole olemassa, se luodaan samassa transaktiossa.
+
+```typescript
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: client.payer.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n, // 1000 tokens (9 decimals)
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+`decimals`-parametri on turvatarkistus — sen on vastattava mintin desimaaleja
+täsmälleen, muuten Token Program hylkää transaktion virheellä `0x24`. Tämä estää
+vahingossa luomasta 1000-kertaa liian monta tokenia.
+
+## Siirrä Tokeneita
+
+`transferToATA` siirtää tokeneita käyttäjien välillä. Vastaanottajan ATA luodaan
+automaattisesti tarvittaessa.
+
+```typescript
+const alice = await generateKeyPairSigner();
+const bob = await generateKeyPairSigner();
+
+// Mint to Alice
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: alice.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+
+// Transfer 400 tokens from Alice to Bob
+await client.token.instructions
+  .transferToATA({
+    mint: newMint.address,
+    authority: alice,
+    recipient: bob.address,
+    amount: 400_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+`authority` on allekirjoittaja, joka omistaa lähdetokeneja. Laajennus johtaa
+sekä lähde- että kohde-ATA:t niiden osoitteista ja mintistä.
+
+## Saldojen Tarkistaminen
+
+Lukeaksesi token-saldot takaisin, johda ATA-osoite käyttämällä
+`findAssociatedTokenPda` ja hae dekoodattu tili:
+
+```typescript
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const [aliceAta] = await findAssociatedTokenPda({
+  owner: alice.address,
+  mint: newMint.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const aliceAccount = await client.token.accounts.token.fetch(aliceAta);
+console.log(aliceAccount.data.amount); // 600_000_000_000n
+console.log(aliceAccount.data.mint); // newMint.address
+console.log(aliceAccount.data.owner); // alice.address
+```
+
+## Desimaalit
+
+Token-määrät ovat aina raakayksiköissä. 1000 tokenia 9 desimaalilla on
+`1_000_000_000_000n`, ei `1000n`.
+
+```typescript
+// USDC has 6 decimals
+const oneUSDC = 10n ** 6n; // 1_000_000n
+
+// SOL has 9 decimals
+const oneSOL = 10n ** 9n; // 1_000_000_000n
+```
+
+<Callout type="warn">
+  Käytä aina `BigInt` token-määrille. JavaScriptin `Number` menettää tarkkuuden
+  arvon 2^53 yläpuolella.
+</Callout>
+
+## Laajennusviite
+
+| Metodi                                      | Kuvaus                                                           |
+| ------------------------------------------- | ---------------------------------------------------------------- |
+| `client.token.instructions.createMint()`    | Luo uusi SPL-token mint account                                  |
+| `client.token.instructions.mintToATA()`     | Lyö tokeneita omistajan ATA:han (luo ATA:n tarvittaessa)         |
+| `client.token.instructions.transferToATA()` | Siirrä tokeneita vastaanottajan ATA:han (luo ATA:n tarvittaessa) |
+| `client.token.accounts.mint.fetch()`        | Hae ja dekoodaa mint account                                     |
+| `client.token.accounts.token.fetch()`       | Hae ja dekoodaa token account                                    |
+
+## Yleiset virheet
+
+| Virhe                        | Syy                                        | Korjaus                                                       |
+| ---------------------------- | ------------------------------------------ | ------------------------------------------------------------- |
+| `custom program error: 0x24` | `decimals` ei vastaa minttiä               | Käytä samaa desimaalien arvoa, jonka välitit `createMint`:lle |
+| `AccountNotFound`            | Tiliä ei ole vielä olemassa                | Varmista, että mint account on luotu ennen lyömistä           |
+| `InsufficientFunds`          | Ei tarpeeksi lamporteja rent-maksua varten | Airdrop lisää SOL maksajalle                                  |
+| `OwnerMismatch`              | Väärä ohjelma omistaa tilin                | Tarkista ohjelmatunnus                                        |

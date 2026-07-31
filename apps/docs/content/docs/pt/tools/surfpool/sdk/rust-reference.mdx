@@ -1,0 +1,294 @@
+---
+title: Referência da API Rust
+description:
+  API pública completa para o crate surfpool-sdk — Surfnet, builder, cheatcodes,
+  builders, erros e re-exports.
+---
+
+O crate `surfpool-sdk` expõe uma interface enxuta centrada na struct `Surfnet`.
+Esta página lista todos os itens públicos; para uso narrativo, consulte os guias
+a partir de [Visão Geral](/docs/tools/surfpool/sdk/overview).
+
+## Exportações da Raiz do Crate
+
+| Item                  | Tipo       | Notas                                                                  |
+| --------------------- | ---------- | ---------------------------------------------------------------------- |
+| `Surfnet`             | struct     | Instância do Surfnet em execução — endpoints RPC/WS, payer, cheatcodes |
+| `SurfnetBuilder`      | struct     | Builder fluente utilizado por `Surfnet::builder()`                     |
+| `Cheatcodes<'_>`      | struct     | Helper de cheatcode emprestado retornado por `Surfnet::cheatcodes()`   |
+| `SurfnetError`        | enum       | Todas as variantes de erro retornadas pelo SDK                         |
+| `SurfnetResult<T>`    | type alias | `Result<T, SurfnetError>`                                              |
+| `Keypair`             | re-export  | `solana_keypair::Keypair`                                              |
+| `Pubkey`              | re-export  | `solana_pubkey::Pubkey`                                                |
+| `Signer`              | re-export  | `solana_signer::Signer`                                                |
+| `RpcClient`           | re-export  | `solana_rpc_client::rpc_client::RpcClient`                             |
+| `BlockProductionMode` | re-export  | `surfpool_types::BlockProductionMode`                                  |
+| `SimnetCommand`       | re-export  | `surfpool_types::SimnetCommand`                                        |
+| `SimnetEvent`         | re-export  | `surfpool_types::SimnetEvent`                                          |
+| `SvmFeatureConfig`    | re-export  | `surfpool_types::SvmFeatureConfig`                                     |
+
+## Surfnet
+
+```rust
+pub struct Surfnet { /* private */ }
+```
+
+### Construtores
+
+```rust
+impl Surfnet {
+    pub async fn start() -> SurfnetResult<Self>;
+    pub fn builder() -> SurfnetBuilder;
+}
+```
+
+### Acessores
+
+```rust
+impl Surfnet {
+    pub fn rpc_url(&self) -> &str;
+    pub fn ws_url(&self) -> &str;
+    pub fn payer(&self) -> &Keypair;
+    pub fn instance_id(&self) -> &str;
+    pub fn rpc_client(&self) -> RpcClient;
+    pub fn cheatcodes(&self) -> Cheatcodes<'_>;
+    pub fn events(&self) -> &crossbeam_channel::Receiver<SimnetEvent>;
+    pub fn send_command(&self, cmd: SimnetCommand) -> SurfnetResult<()>;
+}
+```
+
+### Ciclo de Vida
+
+```rust
+impl Surfnet {
+    pub fn stop(&mut self) -> SurfnetResult<()>;
+}
+
+impl Drop for Surfnet { /* calls stop() if not already stopped */ }
+```
+
+`stop` aguarda até cinco segundos para que o runtime libere suas portas. Falhas
+durante `Drop` são silenciosas; falhas durante um `stop` explícito retornam um
+`SurfnetError::Runtime`.
+
+## SurfnetBuilder
+
+```rust
+pub struct SurfnetBuilder { /* private */ }
+```
+
+Cada setter retorna `Self`, permitindo o encadeamento de chamadas. A chamada
+terminal é `start().await`.
+
+```rust
+impl SurfnetBuilder {
+    pub fn offline(self, offline: bool) -> Self;
+    pub fn remote_rpc_url(self, url: impl Into<String>) -> Self;
+    pub fn block_production_mode(self, mode: BlockProductionMode) -> Self;
+    pub fn slot_time_ms(self, ms: u64) -> Self;
+    pub fn airdrop_addresses(self, addrs: Vec<Pubkey>) -> Self;
+    pub fn airdrop_sol(self, lamports: u64) -> Self;
+    pub fn skip_blockhash_check(self, skip: bool) -> Self;
+    pub fn payer(self, payer: Keypair) -> Self;
+    pub fn enable_feature(self, feature_id: Pubkey) -> Self;
+    pub fn disable_feature(self, feature_id: Pubkey) -> Self;
+    pub fn feature_config(self, config: SvmFeatureConfig) -> Self;
+    pub async fn start(self) -> SurfnetResult<Surfnet>;
+}
+```
+
+## Cheatcodes
+
+```rust
+pub struct Cheatcodes<'a> { /* private */ }
+```
+
+### Financiamento em SOL
+
+```rust
+impl<'a> Cheatcodes<'a> {
+    pub fn fund_sol(&self, address: &Pubkey, lamports: u64) -> SurfnetResult<()>;
+    pub fn fund_sol_many(&self, accounts: &[(&Pubkey, u64)]) -> SurfnetResult<()>;
+}
+```
+
+### Financiamento de Tokens
+
+```rust
+impl<'a> Cheatcodes<'a> {
+    pub fn fund_token(
+        &self,
+        owner: &Pubkey,
+        mint: &Pubkey,
+        amount: u64,
+        token_program: Option<&Pubkey>,
+    ) -> SurfnetResult<()>;
+
+    pub fn fund_token_many(
+        &self,
+        owners: &[&Pubkey],
+        mint: &Pubkey,
+        amount: u64,
+        token_program: Option<&Pubkey>,
+    ) -> SurfnetResult<()>;
+
+    pub fn set_token_balance(
+        &self,
+        owner: &Pubkey,
+        mint: &Pubkey,
+        amount: u64,
+        token_program: Option<&Pubkey>,
+    ) -> SurfnetResult<()>;
+
+    pub fn get_ata(
+        &self,
+        owner: &Pubkey,
+        mint: &Pubkey,
+        token_program: Option<&Pubkey>,
+    ) -> Pubkey;
+}
+```
+
+### Mutação de Conta
+
+```rust
+impl<'a> Cheatcodes<'a> {
+    pub fn set_account(
+        &self,
+        address: &Pubkey,
+        lamports: u64,
+        data: &[u8],
+        owner: &Pubkey,
+    ) -> SurfnetResult<()>;
+
+    pub fn execute<B: CheatcodeBuilder>(&self, builder: B) -> SurfnetResult<()>;
+}
+```
+
+### Viagem no Tempo
+
+```rust
+impl<'a> Cheatcodes<'a> {
+    pub fn time_travel_to_slot(&self, slot: u64) -> SurfnetResult<EpochInfo>;
+    pub fn time_travel_to_epoch(&self, epoch: u64) -> SurfnetResult<EpochInfo>;
+    pub fn time_travel_to_timestamp(&self, timestamp_ms: u64) -> SurfnetResult<EpochInfo>;
+}
+```
+
+### Implantação de Programa
+
+```rust
+impl<'a> Cheatcodes<'a> {
+    pub fn deploy_program(&self, program_name: &str) -> SurfnetResult<Pubkey>;
+    pub fn deploy(&self, builder: DeployProgram) -> SurfnetResult<Pubkey>;
+}
+```
+
+## Trait CheatcodeBuilder
+
+```rust
+pub trait CheatcodeBuilder {
+    const METHOD: &'static str;
+    fn build(self) -> serde_json::Value;
+}
+```
+
+Implemente isto para cheatcodes JSON-RPC personalizados que ainda não foram
+encapsulados por um builder tipado.
+
+## Builders
+
+Todos os builders residem em `surfpool_sdk::cheatcodes::builders`.
+
+### SetAccount
+
+```rust
+pub struct SetAccount { /* private */ }
+
+impl SetAccount {
+    pub fn new(address: Pubkey) -> Self;
+    pub fn lamports(self, lamports: u64) -> Self;
+    pub fn data(self, data: Vec<u8>) -> Self;
+    pub fn owner(self, owner: Pubkey) -> Self;
+    pub fn rent_epoch(self, epoch: u64) -> Self;
+    pub fn executable(self, executable: bool) -> Self;
+}
+```
+
+### SetTokenAccount
+
+```rust
+pub struct SetTokenAccount { /* private */ }
+
+impl SetTokenAccount {
+    pub fn new(owner: Pubkey, mint: Pubkey) -> Self;
+    pub fn amount(self, amount: u64) -> Self;
+    pub fn delegate(self, delegate: Pubkey) -> Self;
+    pub fn clear_delegate(self) -> Self;
+    pub fn state(self, state: impl Into<String>) -> Self;
+    pub fn delegated_amount(self, amount: u64) -> Self;
+    pub fn close_authority(self, authority: Pubkey) -> Self;
+    pub fn clear_close_authority(self) -> Self;
+    pub fn token_program(self, program: Pubkey) -> Self;
+}
+```
+
+### ResetAccount
+
+```rust
+pub struct ResetAccount { /* private */ }
+
+impl ResetAccount {
+    pub fn new(address: Pubkey) -> Self;
+    pub fn include_owned_accounts(self, include: bool) -> Self;
+}
+```
+
+### StreamAccount
+
+```rust
+pub struct StreamAccount { /* private */ }
+
+impl StreamAccount {
+    pub fn new(address: Pubkey) -> Self;
+    pub fn include_owned_accounts(self, include: bool) -> Self;
+}
+```
+
+### DeployProgram
+
+```rust
+pub struct DeployProgram { /* private */ }
+
+impl DeployProgram {
+    pub fn new(program_id: Pubkey) -> Self;
+    pub fn from_keypair_path(path: impl AsRef<Path>) -> SurfnetResult<Self>;
+    pub fn so_path(self, path: impl Into<PathBuf>) -> Self;
+    pub fn so_bytes(self, bytes: Vec<u8>) -> Self;
+    pub fn idl_path(self, path: impl Into<PathBuf>) -> Self;
+}
+```
+
+## SurfnetError
+
+```rust
+#[derive(Debug)]
+pub enum SurfnetError {
+    PortAllocation(String),
+    Startup(String),
+    Runtime(String),
+    Cheatcode(String),
+    Aborted(String),
+}
+```
+
+| Variante         | Causa                                                              |
+| ---------------- | ------------------------------------------------------------------ |
+| `PortAllocation` | Não foi possível vincular a uma porta livre para RPC ou WebSocket. |
+| `Startup`        | O runtime falhou ao inicializar.                                   |
+| `Runtime`        | A thread do runtime entrou em pânico ou encerrou inesperadamente.  |
+| `Cheatcode`      | Uma chamada JSON-RPC de cheatcode retornou um erro.                |
+| `Aborted`        | O runtime foi encerrado ou cancelado durante a inicialização.      |
+
+O crate implementa `std::error::Error` e `Display` em `SurfnetError`, portanto
+funciona com `?` e `anyhow` nativamente.

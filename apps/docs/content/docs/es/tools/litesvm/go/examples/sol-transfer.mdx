@@ -1,0 +1,120 @@
+---
+title: Transferencia de SOL
+description: Construye y envía una transacción de transferencia de SOL con litesvm-go
+---
+
+La transacción de Solana más básica: mover SOL de una cuenta a otra. Es una buena primera prueba para verificar que tu configuración de `litesvm-go` funciona correctamente antes de probar lógica de programas más compleja.
+
+## Ejemplo Completo
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/programs/system"
+)
+
+func TestSolTransfer(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Generate payer + recipient.
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    recipient := solana.NewWallet().PublicKey()
+
+    // Airdrop SOL to the payer.
+    if err := svm.Airdrop(payer, 10_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Check initial balance.
+    senderInitial, _, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("sender initial: %.3f SOL", float64(senderInitial)/1e9)
+
+    // Build, sign, and encode the transfer.
+    blockhash, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := system.NewTransferInstruction(1_000_000_000, payer, recipient).Build()
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        blockhash,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    // Execute the transfer.
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    // Check final balances.
+    senderFinal, _, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    recipientFinal, _, err := svm.Balance(recipient)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("sender final:    %.6f SOL", float64(senderFinal)/1e9)
+    t.Logf("recipient final: %.3f SOL", float64(recipientFinal)/1e9)
+    t.Logf("compute units:   %d", out.ComputeUnits())
+    t.Logf("fee:             %d lamports", out.Fee())
+}
+```
+
+## Salida Esperada
+
+```
+sender initial: 10.000 SOL
+sender final:    8.999995 SOL
+recipient final: 1.000 SOL
+compute units:   150
+fee:             5000 lamports
+```
+
+<Callout type="info">
+  El saldo final del remitente es ligeramente inferior a 9 SOL debido a las comisiones de transacción
+  (5,000 lamports por firma).
+</Callout>
+
+Esto cubre el tipo de transacción más simple. Para pruebas con programas personalizados, consulta
+[Pruebas de Programas](/docs/tools/litesvm/go/examples/program-testing). Para
+lógica dependiente del tiempo, consulta
+[Pruebas Basadas en el Tiempo](/docs/tools/litesvm/go/examples/time-based).

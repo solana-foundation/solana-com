@@ -1,6 +1,8 @@
 "use client";
 
 import { Hero } from "@/components/index/hero";
+import { CampaignId } from "@/components/index/campaigns/config";
+import { Epoch1000Hero } from "@/components/index/campaigns/epoch1000/Epoch1000Hero";
 import { Logos } from "@/component-library/logos";
 import { Divider } from "@/component-library/divider";
 import {
@@ -80,6 +82,8 @@ interface HomePageProps {
   firstFeaturedEventIndex: number;
   videos: YouTubePlaylistItem[];
   news: PostItem[];
+  /** When set, a campaign hero takes over the top of the page (see campaigns/config.ts). */
+  activeCampaign?: CampaignId | null;
 }
 
 export function HomePage({
@@ -88,6 +92,7 @@ export function HomePage({
   firstFeaturedEventIndex,
   videos,
   news,
+  activeCampaign,
 }: HomePageProps) {
   const [newsFallback, setNewsFallback] = useState<PostItem[] | null>(null);
 
@@ -136,51 +141,58 @@ export function HomePage({
 
   return (
     <div className="bg-nd-bg">
-      <Hero
-        title={translations.heroTitle}
-        subtitle={translations.heroSubtitle}
-        bannerEyebrow="Breakpoint 2026"
-        bannerDescription="Solana's flagship gathering returns to London, November 15-17, 2026."
-        bannerImgSrc="/src/img/index/breakpoint-2026-promo.webp"
-        bannerHref="/breakpoint"
-        bannerLabel="Learn More"
-        bannerExpiryDate="2026-11-17"
-        cta={translations.heroCta}
-        bgJsonFilePath="/src/img/index/hero-bg.json"
-        bgImageSrc="/src/img/index/hero-bg.webp"
-        getStartedTitle={translations.getStartedTitle}
-        getStartedTabs={[
-          {
-            id: "institution",
-            title: translations.getStartedTabInstitution,
-            Icon: Bank,
-          },
-          {
-            id: "user",
-            title: translations.getStartedTabUser,
-            Icon: Avatar,
-          },
-          {
-            id: "developer",
-            title: translations.getStartedTabDeveloper,
-            Icon: CodeFilled,
-          },
-        ]}
-        getStartedLinks={{
-          institution: GET_STARTED_LINKS.institution.map((item, index) => ({
-            title: translations.getStartedLinksInstitution[index],
-            href: item.href,
-          })),
-          developer: GET_STARTED_LINKS.developer.map((item, index) => ({
-            title: translations.getStartedLinksDeveloper[index],
-            href: item.href,
-          })),
-          user: GET_STARTED_LINKS.user.map((item, index) => ({
-            title: translations.getStartedLinksUser[index],
-            href: item.href,
-          })),
-        }}
-      />
+      {/* Campaign takeover: when a campaign window is active the default hero
+          below is swapped out wholesale — everything else stays untouched.
+          Windows live in campaigns/config.ts. */}
+      {activeCampaign === "epoch1000" ? (
+        <Epoch1000Hero />
+      ) : (
+        <Hero
+          title={translations.heroTitle}
+          subtitle={translations.heroSubtitle}
+          bannerEyebrow="Breakpoint 2026"
+          bannerDescription="Solana's flagship gathering returns to London, November 15-17, 2026."
+          bannerImgSrc="/src/img/index/breakpoint-2026-promo.webp"
+          bannerHref="/breakpoint"
+          bannerLabel="Learn More"
+          bannerExpiryDate="2026-11-17"
+          cta={translations.heroCta}
+          bgJsonFilePath="/src/img/index/hero-bg.json"
+          bgImageSrc="/src/img/index/hero-bg.webp"
+          getStartedTitle={translations.getStartedTitle}
+          getStartedTabs={[
+            {
+              id: "institution",
+              title: translations.getStartedTabInstitution,
+              Icon: Bank,
+            },
+            {
+              id: "user",
+              title: translations.getStartedTabUser,
+              Icon: Avatar,
+            },
+            {
+              id: "developer",
+              title: translations.getStartedTabDeveloper,
+              Icon: CodeFilled,
+            },
+          ]}
+          getStartedLinks={{
+            institution: GET_STARTED_LINKS.institution.map((item, index) => ({
+              title: translations.getStartedLinksInstitution[index],
+              href: item.href,
+            })),
+            developer: GET_STARTED_LINKS.developer.map((item, index) => ({
+              title: translations.getStartedLinksDeveloper[index],
+              href: item.href,
+            })),
+            user: GET_STARTED_LINKS.user.map((item, index) => ({
+              title: translations.getStartedLinksUser[index],
+              href: item.href,
+            })),
+          }}
+        />
+      )}
 
       <Logos
         className="h-[73px] xl:h-[123px] gap-4 md:gap-3 xl:gap-4 justify-evenly max-w-screen-2xl w-full mx-auto px-5 md:px-8 xl:px-10 py-6 xl:py-11 mt-4 md:mt-6 xl:mt-8"

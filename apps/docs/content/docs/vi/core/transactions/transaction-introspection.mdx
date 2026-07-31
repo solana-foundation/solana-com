@@ -1,0 +1,206 @@
+---
+title: Kiểm Tra Giao Dịch
+description:
+  Giải mã và kiểm tra một giao dịch Solana đã được xác nhận với
+  @solana/transaction-introspection - phân giải chỉ số tài khoản và địa chỉ
+  lookup-table, duyệt qua các lệnh ngoài và lệnh nội tuyến (CPI), đồng thời phân
+  tích chúng với các chương trình client.
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="Tóm tắt">
+  `@solana/transaction-introspection` chuyển đổi phản hồi RPC `getTransaction`
+  thành danh sách các lệnh với địa chỉ thực. Nó phân giải các chỉ số tài khoản
+  (bao gồm cả địa chỉ lookup-table), giải mã các lệnh Cross Program Invocation
+  nội tuyến, và duyệt toàn bộ cây lệnh theo thứ tự hiển thị của trình khám phá.
+</Callout>
+
+<Callout type="info">
+  Bạn đang tìm hiểu cách một chương trình kiểm tra các lệnh liền kề _trên chuỗi_
+  trong thời gian chạy? Đó là Instructions sysvar - xem [Kiểm Tra
+  Lệnh](/docs/core/instructions/instruction-introspection). Trang này nói về
+  việc giải mã một giao dịch _ngoài chuỗi_ từ phản hồi RPC.
+</Callout>
+
+Phản hồi [`getTransaction`](/docs/rpc/http/gettransaction) không cung cấp cho
+bạn danh sách lệnh sẵn sàng sử dụng. Các tài khoản được lưu trữ dưới dạng chỉ số
+số, [giao dịch phiên bản](/docs/core/transactions/versioned-transactions) phân
+chia các tài khoản đó thành các khóa tĩnh cộng với các địa chỉ được tải từ
+[Bảng Tra Cứu Địa Chỉ](/docs/core/transactions/versioned-transactions), và các
+lệnh nội tuyến từ cross-program invocations (CPI) đến dưới dạng các blob được mã
+hóa trong siêu dữ liệu giao dịch.
+
+`@solana/transaction-introspection` thực hiện việc phân giải này cho bạn. Nó
+giải mã giao dịch trên dây, ánh xạ từng chỉ số tài khoản trở lại `Address` của
+nó, chuẩn hóa các lệnh nội tuyến, và trả về các lệnh theo cùng thứ tự
+ngoài-rồi-trong mà trình khám phá khối hiển thị. Các lệnh được trả về có thể cắm
+trực tiếp vào các helper `parseXInstruction` của các client được tạo bởi codama
+(ví dụ: `@solana-program/*`).
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## Giải mã phản hồi
+
+Tải giao dịch với mã hóa định dạng dây và truyền phản hồi vào
+`decodeTransactionFromRpcResponse`.
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+Các đoạn mã còn lại tái sử dụng `rpcTx`, `compiledMessage`, và `loadedAddresses`
+từ bước này.
+
+<Callout type="warn">
+  Tải với mã hóa `base64`, `base58`, hoặc `json`.
+  `decodeTransactionFromRpcResponse` từ chối các phản hồi `jsonParsed` - mã hóa
+  đó yêu cầu nút RPC phân tích lệnh phía máy chủ, vì vậy không còn gì để giải mã
+  ở phía client.
+</Callout>
+
+## Duyệt qua các lệnh
+
+`walkInstructions` trả về mọi lệnh - bên ngoài và bên trong - dưới dạng một mảng
+theo thứ tự mà một trình khám phá khối hiển thị: mỗi lệnh bên ngoài theo sau
+ngay lập tức bởi các lệnh bên trong mà CPI của nó tạo ra. Mỗi lệnh mang một
+trường `trace` mô tả vị trí của nó trong hệ thống phân cấp lời gọi.
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+`trace` là một union có phân biệt: `{ kind: "outer", index }` cho một lệnh cấp
+cao nhất, hoặc `{ kind: "inner", outerIndex, innerIndex, stackHeight? }` cho một
+lệnh CPI lồng bên trong lệnh bên ngoài.
+
+`meta` là tùy chọn - truyền `rpcTx.meta` trực tiếp ngay cả khi nó có thể là
+`null`. Khi không có meta, `walkInstructions` chỉ trả về các lệnh bên ngoài.
+
+## Phân tích cú pháp với một chương trình client
+
+Mỗi lệnh từ `walkInstructions` là một `ResolvedInstruction`, vì vậy nó hoạt động
+trực tiếp với các vị từ từ `@solana/instructions` và các trình trợ giúp
+`identifyXInstruction` / `parseXInstruction` được tạo bởi các client
+`@solana-program/*` - không cần bước chuyển đổi.
+
+Ví dụ này kiểm tra mọi lệnh `SyncNative` của Token Program trong một giao dịch,
+dù nó chạy ở cấp cao nhất hay bên trong một CPI.
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## Các trình trợ giúp cấp thấp hơn
+
+`walkInstructions` đáp ứng hầu hết các nhu cầu, nhưng gói cũng hiển thị các
+thành phần mà nó xây dựng trên:
+
+- `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  chỉ trả về các lệnh bên ngoài, với các tài khoản đã được giải quyết và dữ liệu
+  đã được giải mã.
+- `getInnerInstructionsFromMeta(meta, accountMetas)` giải mã các lệnh CPI bên
+  trong từ siêu dữ liệu giao dịch.
+- `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  trả về danh sách tài khoản đầy đủ theo thứ tự giao dịch - đầu vào mà trình trợ
+  giúp trước cần để giải quyết các chỉ số tài khoản lệnh bên trong.
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="Dùng Rust?">
+  Không có bản tương đương Rust của gói này. Để lấy các lệnh đã được phân tích
+  cú pháp từ Rust, hãy yêu cầu `UiTransactionEncoding::JsonParsed` từ
+  [`getTransaction`](/docs/rpc/http/gettransaction) và để nút RPC giải quyết các
+  tài khoản và lệnh bên trong cho bạn.
+</Callout>
+
+## Xem thêm
+
+- [Cấu trúc giao dịch](/docs/core/transactions/transaction-structure) - giải
+  phẫu của phản hồi mà gói này giải mã
+- [Giao dịch có phiên bản](/docs/core/transactions/versioned-transactions) -
+  cách các Bảng tra cứu địa chỉ phân chia tài khoản thành các nhóm tĩnh và đã
+  tải
+- [`getTransaction`](/docs/rpc/http/gettransaction) - phương thức RPC trả về
+  giao dịch

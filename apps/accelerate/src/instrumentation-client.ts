@@ -3,22 +3,8 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
-import {
-  sentryBeforeSend,
-  sentryBeforeSendTransaction,
-  sentryDenyUrls,
-  sentryIgnoreErrors,
-  sentryTracesSampler,
-} from "@workspace/sentry";
+import { sentryOptions } from "@workspace/sentry";
 
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  tracesSampler: sentryTracesSampler,
-  debug: false,
-  beforeSend: sentryBeforeSend,
-  beforeSendTransaction: sentryBeforeSendTransaction,
-  ignoreErrors: sentryIgnoreErrors,
-  denyUrls: sentryDenyUrls,
-});
+Sentry.init(sentryOptions);
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

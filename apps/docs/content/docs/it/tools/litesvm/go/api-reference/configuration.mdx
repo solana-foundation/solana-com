@@ -1,0 +1,262 @@
+---
+title: Configurazione
+description: Metodi setter per configurare LiteSVM in Go
+---
+
+Ogni setter rispecchia il corrispondente metodo builder sul tipo Rust `LiteSVM`.
+Le chiamate hanno effetto immediato e restituiscono un `error`.
+
+## Configurazione tipica dei test
+
+```go
+svm, err := litesvm.New()
+if err != nil {
+    t.Fatal(err)
+}
+defer svm.Close()
+
+// Each setter returns an error. The calls below are infallible in practice,
+// so the docs use _ = ... for brevity; check the error in production code.
+_ = svm.SetSigverify(false)        // skip signature verification (faster)
+_ = svm.SetBlockhashCheck(false)   // skip blockhash validation (simpler)
+_ = svm.SetSysvars()               // reset Clock, Rent, etc. to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetTransactionHistory(100) // keep the last 100 transactions
+```
+
+## Firma e Blockhash
+
+### SetSigverify
+
+```go
+func (s *LiteSVM) SetSigverify(enabled bool) error
+```
+
+Attiva o disattiva la verifica delle firme delle transazioni.
+
+```go
+if err := svm.SetSigverify(false); err != nil { // accept unsigned / badly-signed txs
+    t.Fatal(err)
+}
+if err := svm.SetSigverify(true); err != nil {  // restore production-like behavior
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  Disabilitare la verifica delle firme rende i test più veloci ma meno realistici.
+</Callout>
+
+### Sigverify
+
+```go
+func (s *LiteSVM) Sigverify() (bool, error)
+```
+
+Legge l'impostazione corrente.
+
+### SetBlockhashCheck
+
+```go
+func (s *LiteSVM) SetBlockhashCheck(enabled bool) error
+```
+
+Attiva o disattiva il controllo del blockhash recente sulle transazioni inviate.
+
+```go
+if err := svm.SetBlockhashCheck(false); err != nil { // accept any blockhash
+    t.Fatal(err)
+}
+```
+
+## Programmi e Sysvar
+
+### SetSysvars
+
+```go
+func (s *LiteSVM) SetSysvars() error
+```
+
+Reinizializza le sysvar integrate (Clock, Rent, EpochSchedule, ...) ai loro
+valori predefiniti.
+
+### SetBuiltins
+
+```go
+func (s *LiteSVM) SetBuiltins() error
+```
+
+Carica il set predefinito di programmi integrati.
+
+### SetDefaultPrograms
+
+```go
+func (s *LiteSVM) SetDefaultPrograms() error
+```
+
+Carica i programmi SPL standard (System Program, SPL Token, Memo, ...).
+
+### SetPrecompiles
+
+```go
+func (s *LiteSVM) SetPrecompiles() error
+```
+
+Abilita i programmi precompilati ed25519 / secp256k1.
+
+### WithNativeMints
+
+```go
+func (s *LiteSVM) WithNativeMints() error
+```
+
+Esegue il seed degli account native-mint di SPL Token / Token-2022 (wrapped SOL). Nessuna operazione se il
+programma corrispondente non è caricato; chiama prima `SetDefaultPrograms` se desideri
+entrambi.
+
+## Limiti delle risorse
+
+### SetLamports
+
+```go
+func (s *LiteSVM) SetLamports(lamports uint64) error
+```
+
+Imposta il saldo in lamport predefinito dell'account del pool di airdrop interno.
+
+```go
+if err := svm.SetLamports(1 << 40); err != nil { // ~1.1 trillion lamports (~1,100 SOL)
+    t.Fatal(err)
+}
+```
+
+### SetLogBytesLimit
+
+```go
+func (s *LiteSVM) SetLogBytesLimit(limit int) error
+```
+
+Limita il totale dei byte di log acquisiti per transazione. Passa un valore negativo per
+rimuovere il limite.
+
+```go
+if err := svm.SetLogBytesLimit(10_000); err != nil { // 10 KB cap
+    t.Fatal(err)
+}
+if err := svm.SetLogBytesLimit(-1); err != nil {     // unlimited
+    t.Fatal(err)
+}
+```
+
+### SetTransactionHistory
+
+```go
+func (s *LiteSVM) SetTransactionHistory(capacity int) error
+```
+
+Imposta la capacità della cronologia delle transazioni in memoria. Passa `0` per disabilitare il dedup
+e consentire la ripetizione di transazioni identiche.
+
+```go
+if err := svm.SetTransactionHistory(100); err != nil { // cap at 100 entries
+    t.Fatal(err)
+}
+if err := svm.SetTransactionHistory(0); err != nil {   // disable dedup entirely
+    t.Fatal(err)
+}
+```
+
+## Budget di calcolo
+
+```go
+type ComputeBudget struct {
+    // See litesvm-go/litesvm.go for the full field list.
+    // usize fields are normalized to uint64; HeapSize stays uint32.
+    ComputeUnitLimit uint64
+    HeapSize         uint32
+    // ...
+}
+```
+
+### ComputeBudget
+
+```go
+func (s *LiteSVM) ComputeBudget() (ComputeBudget, bool, error)
+```
+
+Legge il budget di calcolo corrente. Il secondo valore restituito indica se un
+budget è stato impostato esplicitamente; se `false`, la struct contiene i valori predefiniti
+che verranno utilizzati.
+
+```go
+budget, set, err := svm.ComputeBudget()
+if err != nil {
+    t.Fatal(err)
+}
+if !set {
+    budget.ComputeUnitLimit = 1_400_000
+}
+if err := svm.SetComputeBudget(budget); err != nil {
+    t.Fatal(err)
+}
+```
+
+### SetComputeBudget
+
+```go
+func (s *LiteSVM) SetComputeBudget(b ComputeBudget) error
+```
+
+Installa un budget di calcolo per le transazioni successive.
+
+## Set di funzionalità
+
+`FeatureSet` è un handle opaco - costruiscilo, modificalo con `Activate` /
+`Deactivate`, quindi installalo con `SetFeatureSet`. Chiudi gli handle che crei.
+
+```go
+// Start with all features off, then activate what you care about.
+fs, err := litesvm.NewFeatureSet()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs.Close()
+if err := fs.Activate(featureID, 0); err != nil {
+    t.Fatal(err)
+}
+
+// Or start from "everything enabled" and flip specific features off.
+fs2, err := litesvm.NewFeatureSetAllEnabled()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs2.Close()
+if err := fs2.Deactivate(featureID); err != nil {
+    t.Fatal(err)
+}
+
+if err := svm.SetFeatureSet(fs); err != nil {
+    t.Fatal(err)
+}
+```
+
+| Metodo                                                   | Descrizione                       |
+| -------------------------------------------------------- | --------------------------------- |
+| `litesvm.NewFeatureSet() (*FeatureSet, error)`           | Set vuoto (tutte le funzionalità inattive) |
+| `litesvm.NewFeatureSetAllEnabled() (*FeatureSet, error)` | Tutte le funzionalità attive               |
+| `fs.Activate(featureID, slot) error`                     | Segna la funzionalità come attiva al slot       |
+| `fs.Deactivate(featureID) error`                         | Segna la funzionalità come inattiva             |
+| `fs.IsActive(featureID) bool`                            | Verifica se attiva                      |
+| `fs.ActivatedSlot(featureID) (uint64, bool)`             | slot in cui una funzionalità è stata attivata   |
+| `fs.ActiveCount() int`                                   | Numero di funzionalità attive              |
+| `fs.InactiveCount() int`                                 | Numero di funzionalità inattive            |
+| `fs.ActiveFeatures() []solana.PublicKey`                 | Elenca gli ID delle funzionalità attive           |
+| `fs.InactiveFeatures() []solana.PublicKey`               | Elenca gli ID delle funzionalità inattive         |
+| `fs.Close()`                                             | Rilascia l'handle                |
+| `svm.SetFeatureSet(*FeatureSet) error`                   | Installa sulla SVM                |
+
+<Callout type="info">
+  Usa il feature gating per testare il comportamento dei programmi in una specifica versione di Solana
+  - attiva le funzionalità rilasciate con la versione che hai come target, quindi
+  disattiva quelle arrivate successivamente.
+</Callout>

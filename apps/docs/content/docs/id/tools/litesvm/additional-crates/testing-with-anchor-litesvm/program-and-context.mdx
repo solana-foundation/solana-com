@@ -1,0 +1,480 @@
+---
+title: Program & Konteks
+description:
+  Menyiapkan lingkungan pengujian dan membangun instruksi dengan AnchorContext
+  dan Program
+---
+
+## Menghasilkan Tipe Klien dengan declare_program!
+
+Anchor 1.0 memperkenalkan `declare_program!`, yang membaca IDL program Anda pada
+waktu kompilasi dan menghasilkan modul `client::accounts::*` dan
+`client::args::*` yang aman terhadap tipe. Ini adalah cara yang direkomendasikan
+untuk membangun instruksi dalam pengujian.
+
+```rust
+// At the top of your test file, generate client modules from the IDL
+anchor_lang::declare_program!(my_program);
+
+// Now use the generated types:
+// my_program::client::accounts::Initialize { ... }
+// my_program::client::args::Initialize { ... }
+// my_program::MyAccount (for account deserialization)
+```
+
+<Callout type="info">
+  Jalankan `anchor build` terlebih dahulu untuk menghasilkan
+  `target/idl/my_program.json`. `declare_program!` membaca file ini pada waktu
+  kompilasi. Nama makro harus sesuai dengan nama crate program Anda
+  (snake_case).
+</Callout>
+
+## Menyiapkan Lingkungan Pengujian
+
+Builder `AnchorLiteSVM` menyediakan API yang mudah digunakan untuk
+mengonfigurasi lingkungan pengujian Anda.
+
+### Pengaturan Dasar
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_basic_setup() {
+    // Read the program keypair to get the correct program ID
+    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+
+    let mut ctx = AnchorLiteSVM::new()
+        .deploy_program(
+            program_keypair.pubkey(),
+            include_bytes!("../target/deploy/my_program.so"),
+        )
+        .build();
+
+    println!("Program deployed: {}", ctx.program().id());
+}
+```
+
+### Singkatan untuk Program Tunggal
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+#[test]
+fn test_single_program() {
+    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+
+    // Convenience method for single-program setups
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        program_keypair.pubkey(),
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+}
+```
+
+### Beberapa Program
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+#[test]
+fn test_multiple_programs() {
+    let program_a_kp = read_keypair_file("target/deploy/program_a-keypair.json").unwrap();
+    let program_b_kp = read_keypair_file("target/deploy/program_b-keypair.json").unwrap();
+
+    // Deploy multiple programs — first one becomes the primary (ctx.program_id)
+    let mut ctx = AnchorLiteSVM::build_with_programs(&[
+        (program_a_kp.pubkey(), include_bytes!("../target/deploy/program_a.so") as &[u8]),
+        (program_b_kp.pubkey(), include_bytes!("../target/deploy/program_b.so") as &[u8]),
+    ]);
+
+    // Primary program is program_a
+    assert_eq!(ctx.program().id(), program_a_kp.pubkey());
+}
+```
+
+### Payer Kustom
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+
+#[test]
+fn test_custom_payer() {
+    let custom_payer = Keypair::new();
+
+    let mut ctx = AnchorLiteSVM::new()
+        .with_payer(custom_payer)
+        .deploy_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"))
+        .build();
+
+    println!("Payer: {}", ctx.payer().pubkey());
+}
+```
+
+<Callout type="info">
+  Jika Anda tidak menentukan payer, `AnchorLiteSVM` secara otomatis membuat dan
+  mendanai satu untuk Anda.
+</Callout>
+
+## AnchorContext
+
+`AnchorContext` adalah antarmuka utama untuk berinteraksi dengan lingkungan
+pengujian Anda.
+
+### Properti Inti
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use solana_signer::Signer;
+
+#[test]
+fn test_context_properties() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        PROGRAM_ID,
+        include_bytes!("../target/deploy/your_program.so"),
+    );
+
+    // ctx.svm — direct access to the underlying LiteSVM instance (public field)
+    let balance = ctx.svm.get_balance(&some_pubkey);
+
+    // ctx.payer() — the payer keypair
+    let payer = ctx.payer();
+    println!("Payer pubkey: {}", payer.pubkey());
+
+    // ctx.program() — Program instance for instruction building
+    let program = ctx.program();
+    println!("Program ID: {}", program.id());
+
+    // ctx.latest_blockhash()
+    let blockhash = ctx.latest_blockhash();
+}
+```
+
+### Membuat Akun yang Didanai
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_litesvm::TestHelpers;
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+
+#[test]
+fn test_create_accounts() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        PROGRAM_ID,
+        include_bytes!("../target/deploy/your_program.so"),
+    );
+
+    // Option 1: via AnchorContext (returns Result<Keypair>)
+    let user = ctx.create_funded_account(10_000_000_000).unwrap();
+
+    // Option 2: via ctx.svm with TestHelpers (same result)
+    let user2 = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // Airdrop to an existing address
+    let another_user = Keypair::new();
+    ctx.airdrop(&another_user.pubkey(), 5_000_000_000).unwrap();
+}
+```
+
+### Memeriksa Keberadaan Akun
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+
+#[test]
+fn test_account_exists() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        PROGRAM_ID,
+        include_bytes!("../target/deploy/your_program.so"),
+    );
+
+    let some_pda = ctx.svm.get_pda(&[b"vault"], &PROGRAM_ID);
+
+    if ctx.account_exists(&some_pda) {
+        println!("Account exists!");
+    } else {
+        println!("Account not found");
+    }
+}
+```
+
+## Membangun Instruksi dengan Program
+
+Struct `Program` menyediakan API yang mudah digunakan untuk membangun instruksi
+yang mencerminkan anchor-client. Gunakan tipe yang dihasilkan oleh
+`declare_program!` untuk keamanan tipe.
+
+### Membangun Instruksi Dasar
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_lang::system_program;
+use solana_signer::Signer;
+
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_build_instruction() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        PROGRAM_ID,
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+    let user_pda = ctx.svm.get_pda(&[b"user", user.pubkey().as_ref()], &PROGRAM_ID);
+
+    // Build instruction using types generated by declare_program!
+    let ix = ctx.program()
+        .accounts(my_program::client::accounts::Initialize {
+            user: user.pubkey(),
+            user_account: user_pda,
+            system_program: system_program::ID,
+        })
+        .args(my_program::client::args::Initialize {
+            name: "test".to_string(),
+        })
+        .instruction()
+        .unwrap();
+
+    println!("Instruction built successfully!");
+}
+```
+
+<Callout type="info">
+  Metode `.accounts()` menerima tipe apa pun yang mengimplementasikan
+  `ToAccountMetas`, yang secara otomatis dilakukan oleh semua struct akun
+  Anchor. Demikian pula, `.args()` menerima tipe apa pun yang
+  mengimplementasikan `InstructionData`.
+</Callout>
+
+### Mengeksekusi Instruksi
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_lang::system_program;
+use solana_signer::Signer;
+
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_execute_instruction() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        PROGRAM_ID,
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+    let user_pda = ctx.svm.get_pda(&[b"user", user.pubkey().as_ref()], &PROGRAM_ID);
+
+    let ix = ctx.program()
+        .accounts(my_program::client::accounts::Initialize {
+            user: user.pubkey(),
+            user_account: user_pda,
+            system_program: system_program::ID,
+        })
+        .args(my_program::client::args::Initialize { name: "test".to_string() })
+        .instruction()
+        .unwrap();
+
+    // Execute — returns TransactionResult
+    ctx.execute_instruction(ix, &[&user])
+        .unwrap()
+        .assert_success();
+}
+```
+
+### Mengeksekusi Beberapa Instruksi
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use solana_signer::Signer;
+
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_execute_multiple_instructions() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        PROGRAM_ID,
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    let ix1 = ctx.program()
+        .accounts(my_program::client::accounts::Initialize { /* ... */ })
+        .args(my_program::client::args::Initialize { name: "first".to_string() })
+        .instruction()
+        .unwrap();
+
+    let ix2 = ctx.program()
+        .accounts(my_program::client::accounts::Update { /* ... */ })
+        .args(my_program::client::args::Update { name: "second".to_string() })
+        .instruction()
+        .unwrap();
+
+    // Execute multiple instructions in one transaction
+    ctx.execute_instructions(vec![ix1, ix2], &[&user])
+        .unwrap()
+        .assert_success();
+}
+```
+
+### Menggunakan send_and_confirm_transaction
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use solana_signer::Signer;
+use solana_transaction::Transaction;
+
+#[test]
+fn test_send_transaction() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        PROGRAM_ID,
+        include_bytes!("../target/deploy/your_program.so"),
+    );
+
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    let ix = ctx.program()
+        .accounts(/* ... */)
+        .args(/* ... */)
+        .instruction()
+        .unwrap();
+
+    // Build transaction manually if needed
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&ctx.payer().pubkey()),
+        &[ctx.payer(), &user],
+        ctx.latest_blockhash(),
+    );
+
+    // Note: takes &Transaction (reference)
+    ctx.send_and_confirm_transaction(&tx).unwrap();
+}
+```
+
+## Contoh Lengkap
+
+Berikut adalah contoh komprehensif menggunakan pola escrow dengan
+`declare_program!`:
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_litesvm::{AssertionHelpers, TestHelpers};
+use anchor_lang::system_program;
+use solana_sdk::signature::{read_keypair_file, Signer};
+use spl_associated_token_account::get_associated_token_address;
+use litesvm_token::spl_token;
+
+anchor_lang::declare_program!(anchor_escrow);
+
+#[test]
+fn test_make_and_take() {
+    // 1. One-line setup
+    let program_keypair = read_keypair_file("target/deploy/anchor_escrow-keypair.json").unwrap();
+    let program_id = program_keypair.pubkey();
+
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        program_id,
+        include_bytes!("../target/deploy/anchor_escrow.so"),
+    );
+
+    // 2. Create test accounts using TestHelpers on ctx.svm
+    let maker = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+    let taker = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // 3. Create token mints and funded ATAs
+    let mint_a = ctx.svm.create_token_mint(&maker, 9).unwrap();
+    let mint_b = ctx.svm.create_token_mint(&maker, 9).unwrap();
+
+    let maker_ata_a = ctx.svm
+        .create_associated_token_account(&mint_a.pubkey(), &maker)
+        .unwrap();
+    ctx.svm.mint_to(&mint_a.pubkey(), &maker_ata_a, &maker, 1_000_000_000).unwrap();
+
+    let taker_ata_b = ctx.svm
+        .create_associated_token_account(&mint_b.pubkey(), &taker)
+        .unwrap();
+    ctx.svm.mint_to(&mint_b.pubkey(), &taker_ata_b, &maker, 500_000_000).unwrap();
+
+    // 4. Derive PDAs
+    let seed: u64 = 42;
+    let escrow_pda = ctx.svm.get_pda(
+        &[b"escrow", maker.pubkey().as_ref(), &seed.to_le_bytes()],
+        &program_id,
+    );
+    let vault = get_associated_token_address(&escrow_pda, &mint_a.pubkey());
+
+    // 5. Build and execute Make instruction using generated client types
+    let make_ix = ctx.program()
+        .accounts(anchor_escrow::client::accounts::Make {
+            maker: maker.pubkey(),
+            escrow: escrow_pda,
+            mint_a: mint_a.pubkey(),
+            mint_b: mint_b.pubkey(),
+            maker_ata_a,
+            vault,
+            associated_token_program: spl_associated_token_account::id(),
+            token_program: spl_token::id(),
+            system_program: system_program::ID,
+        })
+        .args(anchor_escrow::client::args::Make {
+            seed,
+            receive: 500_000_000,
+            amount: 1_000_000_000,
+        })
+        .instruction()
+        .unwrap();
+
+    ctx.execute_instruction(make_ix, &[&maker])
+        .unwrap()
+        .assert_success();
+
+    // 6. Assert state using AssertionHelpers on ctx.svm
+    assert!(ctx.account_exists(&escrow_pda));
+    ctx.svm.assert_token_balance(&vault, 1_000_000_000);
+    ctx.svm.assert_token_balance(&maker_ata_a, 0);
+
+    // 7. Execute Take
+    let taker_ata_a = get_associated_token_address(&taker.pubkey(), &mint_a.pubkey());
+    let maker_ata_b = get_associated_token_address(&maker.pubkey(), &mint_b.pubkey());
+
+    let take_ix = ctx.program()
+        .accounts(anchor_escrow::client::accounts::Take {
+            taker: taker.pubkey(),
+            maker: maker.pubkey(),
+            escrow: escrow_pda,
+            mint_a: mint_a.pubkey(),
+            mint_b: mint_b.pubkey(),
+            vault,
+            taker_ata_a,
+            taker_ata_b,
+            maker_ata_b,
+            associated_token_program: spl_associated_token_account::id(),
+            token_program: spl_token::id(),
+            system_program: system_program::ID,
+        })
+        .args(anchor_escrow::client::args::Take {})
+        .instruction()
+        .unwrap();
+
+    ctx.execute_instruction(take_ix, &[&taker])
+        .unwrap()
+        .assert_success();
+
+    // 8. Final assertions
+    ctx.svm.assert_account_closed(&escrow_pda);
+    ctx.svm.assert_account_closed(&vault);
+    ctx.svm.assert_token_balance(&taker_ata_a, 1_000_000_000);
+    ctx.svm.assert_token_balance(&maker_ata_b, 500_000_000);
+}
+```

@@ -1,0 +1,281 @@
+---
+title: Démarrage rapide
+description:
+  Apprenez à utiliser anchor-litesvm pour tester des programmes Anchor avec une
+  syntaxe simplifiée
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/anchor-litesvm"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    Voir <code>anchor-litesvm</code> sur crates.io
+  </a>
+</div>
+
+## Installation
+
+Ajoutez les dépendances nécessaires :
+
+```bash
+cargo add --dev anchor-litesvm litesvm litesvm-utils
+```
+
+## Qu'est-ce qu'anchor-litesvm ?
+
+La crate `anchor-litesvm` offre une **syntaxe simplifiée similaire à
+anchor-client** mais sans la surcharge RPC. Elle permet une **réduction de 78%
+du code** par rapport à LiteSVM brut, tout en maintenant la sécurité des types
+avec les types Anchor.
+
+<Steps>
+<Step>
+**AnchorContext**
+- Contexte de test compatible avec la production
+- Mêmes patterns d'API qu'anchor-client
+- Gère l'instance LiteSVM, le payeur et le programme
+- Exécute les instructions sans surcharge RPC
+</Step>
+
+<Step>
+  **API Programme** - Construction fluide des instructions - Gestion des comptes
+  et des arguments avec sécurité des types - Syntaxe anchor-client familière
+</Step>
+
+<Step>
+  **Désérialisation des comptes** - Récupération et désérialisation des comptes
+  Anchor - Gestion automatique des discriminateurs - Prise en charge des PDAs et
+  des structures personnalisées
+</Step>
+
+<Step>
+**Analyse des événements**
+- Analyse des événements à partir des journaux de transaction
+- Assertion de l'émission des événements
+- Désérialisation des événements avec sécurité des types
+</Step>
+</Steps>
+
+## Exemple rapide
+
+Avec Anchor 1.0, utilisez `declare_program!` pour générer des types client à
+partir de l'IDL de votre programme. Cette macro crée les modules
+`client::accounts::*` et `client::args::*` pour une construction d'instructions
+sécurisée par les types :
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_litesvm::{AssertionHelpers, TestHelpers};
+use anchor_lang::system_program;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+// Generate client types from your program's IDL
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_anchor_program() {
+    // One-line setup — reads program keypair for the correct ID
+    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        program_keypair.pubkey(),
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    // Create a funded account via TestHelpers on ctx.svm
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // Derive PDA
+    let seed: u64 = 42;
+    let pda = ctx.svm.get_pda(
+        &[b"user", user.pubkey().as_ref(), &seed.to_le_bytes()],
+        &program_keypair.pubkey(),
+    );
+
+    // Build instruction using generated client types
+    let ix = ctx.program()
+        .accounts(my_program::client::accounts::Initialize {
+            user: user.pubkey(),
+            user_account: pda,
+            system_program: system_program::ID,
+        })
+        .args(my_program::client::args::Initialize {
+            seed,
+            name: "test".to_string(),
+        })
+        .instruction()
+        .unwrap();
+
+    // Execute and assert in one chain
+    ctx.execute_instruction(ix, &[&user])
+        .unwrap()
+        .assert_success();
+
+    // Fetch and deserialize the account
+    let account: my_program::MyAccount = ctx.get_account(&pda).unwrap();
+    assert_eq!(account.name, "test");
+}
+```
+
+<Callout type="info">
+  `declare_program!(my_program)` lit l'IDL depuis `target/idl/my_program.json`
+  au moment de la compilation et génère les modules `client::accounts::*` et
+  `client::args::*`. Cela nécessite de compiler votre programme au préalable.
+</Callout>
+
+## Comparaison : LiteSVM brut vs anchor-litesvm
+
+### Avant (LiteSVM brut)
+
+```rust
+use litesvm::LiteSVM;
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_message::Message;
+use solana_transaction::Transaction;
+
+let mut svm = LiteSVM::new();
+svm.add_program(program_id, program_bytes).unwrap();
+
+let payer = Keypair::new();
+svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+// Manually compute 8-byte discriminator
+let discriminator = {
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(b"global:initialize");
+    let result = hasher.finalize();
+    result[..8].to_vec()
+};
+
+// Manually serialize args and build instruction
+let mut data = discriminator;
+data.extend_from_slice(&borsh::to_vec(&args).unwrap());
+
+let accounts = vec![
+    AccountMeta::new(user.pubkey(), true),
+    AccountMeta::new(user_pda, false),
+    AccountMeta::new_readonly(system_program::id(), false),
+];
+
+let ix = Instruction::new_with_bytes(program_id, &data, accounts);
+let tx = Transaction::new_signed_with_payer(
+    &[ix],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+svm.send_transaction(tx).unwrap();
+
+// Manually deserialize with discriminator skip
+let account_data = svm.get_account(&pda).unwrap().data;
+let account: UserAccount = UserAccount::try_deserialize(
+    &mut &account_data[8..]
+).unwrap();
+```
+
+### Après (anchor-litesvm)
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+
+anchor_lang::declare_program!(my_program);
+
+let mut ctx = AnchorLiteSVM::build_with_program(program_id, program_bytes);
+let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+let ix = ctx.program()
+    .accounts(my_program::client::accounts::Initialize {
+        user: user.pubkey(),
+        user_account: user_pda,
+        system_program: anchor_lang::system_program::ID,
+    })
+    .args(my_program::client::args::Initialize { name: "test".to_string() })
+    .instruction()
+    .unwrap();
+
+ctx.execute_instruction(ix, &[&user]).unwrap().assert_success();
+
+let account: my_program::UserAccount = ctx.get_account(&user_pda).unwrap();
+```
+
+## Composants clés
+
+### Constructeur AnchorLiteSVM
+
+| Méthode                         | Description                                |
+| ------------------------------- | ------------------------------------------ |
+| `new()`                         | Crée une nouvelle instance du constructeur |
+| `with_payer(keypair)`           | Définit un keypair payeur personnalisé     |
+| `deploy_program(id, bytes)`     | Ajoute un programme à déployer             |
+| `build()`                       | Construit l'AnchorContext                  |
+| `build_with_program(id, bytes)` | Raccourci pour un programme unique         |
+| `build_with_programs(programs)` | Déploie plusieurs programmes               |
+
+### AnchorContext
+
+| Méthode                              | Description                                                     |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `svm`                                | Accès direct à l'instance `LiteSVM` sous-jacente (champ public) |
+| `program_id`                         | L'identifiant du programme (champ public)                       |
+| `program()`                          | Retourne `Program` pour la construction d'instructions          |
+| `payer()`                            | Obtenir le keypair payeur                                       |
+| `execute_instruction(ix, signers)`   | Exécuter une seule instruction                                  |
+| `execute_instructions(ixs, signers)` | Exécuter plusieurs instructions en une seule transaction        |
+| `send_and_confirm_transaction(&tx)`  | Envoyer une transaction brute                                   |
+| `get_account<T>(pubkey)`             | Récupérer et désérialiser un compte Anchor                      |
+| `get_account_unchecked<T>(pubkey)`   | Récupérer sans vérification du discriminant                     |
+| `create_funded_account(lamports)`    | Créer et approvisionner un nouveau keypair                      |
+| `airdrop(pubkey, lamports)`          | Airdrop de SOL vers une adresse                                 |
+| `latest_blockhash()`                 | Obtenir le blockhash actuel                                     |
+| `account_exists(pubkey)`             | Vérifier si un compte existe                                    |
+| `deploy_program(id, bytes)`          | Déployer un programme supplémentaire (via `ProgramTestExt`)     |
+
+### Programme
+
+| Méthode              | Description                                                          |
+| -------------------- | -------------------------------------------------------------------- |
+| `accounts(accounts)` | Définir les comptes de l'instruction (tout type `ToAccountMetas`)    |
+| `args(args)`         | Définir les arguments de l'instruction (tout type `InstructionData`) |
+| `instruction()`      | Construire l'`Instruction` final                                     |
+| `id()`               | Obtenir l'identifiant du programme                                   |
+
+### ctx.svm — TestHelpers & AssertionHelpers
+
+`ctx.svm` est un champ public `LiteSVM` avec les traits `TestHelpers` et
+`AssertionHelpers` disponibles via `litesvm-utils` :
+
+| Méthode                                                   | Description                        |
+| --------------------------------------------------------- | ---------------------------------- |
+| `ctx.svm.create_funded_account(lamports)`                 | Créer et financer un keypair       |
+| `ctx.svm.create_token_mint(authority, decimals)`          | Créer un mint de token SPL         |
+| `ctx.svm.create_associated_token_account(mint, owner)`    | Créer un ATA                       |
+| `ctx.svm.mint_to(mint, token_account, authority, amount)` | Minter des tokens                  |
+| `ctx.svm.get_pda(seeds, program_id)`                      | Dériver une adresse PDA            |
+| `ctx.svm.get_pda_with_bump(seeds, program_id)`            | Dériver un PDA avec bump seed      |
+| `ctx.svm.assert_token_balance(token_account, expected)`   | Vérifier le solde de tokens        |
+| `ctx.svm.assert_account_closed(pubkey)`                   | Vérifier que le compte a été fermé |
+| `ctx.svm.assert_sol_balance(pubkey, expected)`            | Vérifier le solde SOL              |
+
+## Dépannage
+
+### Erreurs courantes
+
+| Erreur                  | Cause                                    | Solution                                                                            |
+| ----------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| `AccountNotFound`       | Le compte n'existe pas                   | S'assurer que le compte est créé avant de le récupérer                              |
+| `DiscriminatorMismatch` | Type de compte incorrect                 | Vérifier que vous utilisez la bonne structure de compte                             |
+| `DeserializationError`  | Données de compte invalides              | Vérifier que le compte a été correctement initialisé                                |
+| Aucun programme ajouté  | `build()` appelé sans `deploy_program()` | Ajouter au moins un programme avant de compiler                                     |
+| Types client manquants  | `declare_program!` non appelé            | Exécuter `anchor build` d'abord pour générer l'IDL, puis appeler `declare_program!` |

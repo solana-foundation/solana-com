@@ -1,0 +1,217 @@
+---
+title: Thời Gian & Sysvars
+description: Các phương thức để thao tác thời gian và biến hệ thống
+---
+
+## Thao Tác Thời Gian
+
+### warp_to_slot
+
+```rust
+pub fn warp_to_slot(&mut self, slot: u64)
+```
+
+Nhảy đến một slot cụ thể. Chỉ hỗ trợ di chuyển thời gian về phía trước.
+
+```rust
+// Get current slot
+let clock: Clock = svm.get_sysvar();
+let current_slot = clock.slot;
+
+// Jump forward 100 slots
+svm.warp_to_slot(current_slot + 100);
+
+// Verify
+let new_clock: Clock = svm.get_sysvar();
+assert_eq!(new_clock.slot, current_slot + 100);
+```
+
+### Thao Tác Đồng Hồ Thủ Công
+
+```rust
+use solana_sdk::clock::Clock;
+
+// Read clock
+let mut clock: Clock = svm.get_sysvar();
+
+// Modify fields
+clock.slot = 1000;
+clock.epoch = 10;
+clock.unix_timestamp = 1735689600;
+
+// Write back
+svm.set_sysvar(&clock);
+```
+
+<Callout type="info">
+  Sử dụng `warp_to_slot()` cho hầu hết các thao tác thời gian. Chỉ sử dụng chỉnh
+  sửa đồng hồ thủ công khi bạn cần kiểm soát chính xác nhiều trường.
+</Callout>
+
+## Sysvars
+
+### get_sysvar
+
+```rust
+pub fn get_sysvar<T: Sysvar>(&self) -> T
+```
+
+Đọc giá trị sysvar.
+
+```rust
+use solana_sdk::clock::Clock;
+use solana_sdk::rent::Rent;
+use solana_sdk::epoch_schedule::EpochSchedule;
+
+let clock: Clock = svm.get_sysvar();
+let rent: Rent = svm.get_sysvar();
+let epoch_schedule: EpochSchedule = svm.get_sysvar();
+```
+
+### set_sysvar
+
+```rust
+pub fn set_sysvar<T: Sysvar>(&mut self, sysvar: &T)
+```
+
+Ghi giá trị sysvar.
+
+```rust
+use solana_sdk::rent::Rent;
+
+let rent = Rent {
+    lamports_per_byte_year: 3480,
+    exemption_threshold: 2.0,
+    burn_percent: 50,
+};
+
+svm.set_sysvar(&rent);
+```
+
+## Sysvars Thông Dụng
+
+### Đồng Hồ
+
+```rust
+use solana_sdk::clock::Clock;
+
+let clock: Clock = svm.get_sysvar();
+println!("Slot: {}", clock.slot);
+println!("Timestamp: {}", clock.unix_timestamp);
+println!("Epoch: {}", clock.epoch);
+```
+
+### Rent
+
+```rust
+use solana_sdk::rent::Rent;
+
+let rent: Rent = svm.get_sysvar();
+let min_balance = rent.minimum_balance(data_len);
+```
+
+### Lịch epoch
+
+```rust
+use solana_sdk::epoch_schedule::EpochSchedule;
+
+let schedule: EpochSchedule = svm.get_sysvar();
+println!("Slots per epoch: {}", schedule.slots_per_epoch);
+```
+
+### Lịch Sử Stake
+
+```rust
+use solana_sdk::stake_history::{StakeHistory, StakeHistoryEntry};
+
+let mut stake_history = StakeHistory::default();
+stake_history.add(
+    0, // epoch
+    StakeHistoryEntry {
+        effective: 1_000_000,
+        activating: 0,
+        deactivating: 0,
+    },
+);
+
+svm.set_sysvar(&stake_history);
+```
+
+## Các Mẫu Kiểm Thử Dựa Trên Thời Gian
+
+### Kiểm Thử Các Tính Năng Dựa Trên Slot
+
+```rust
+let mut svm = LiteSVM::new();
+
+// Get starting slot
+let start_slot = svm.get_sysvar::<Clock>().slot;
+
+// Try action before unlock slot (should fail)
+let result = call_locked_program(&mut svm);
+assert!(result.is_err());
+
+// Warp to unlock slot
+svm.warp_to_slot(start_slot + 1000);
+
+// Now it should succeed
+let result = call_locked_program(&mut svm);
+assert!(result.is_ok());
+```
+
+### Kiểm Thử Các Tính Năng Dựa Trên Dấu Thời Gian
+
+```rust
+let mut svm = LiteSVM::new();
+
+// Get current timestamp
+let clock: Clock = svm.get_sysvar();
+let current_time = clock.unix_timestamp;
+
+// Warp forward 1 hour (3600 seconds)
+// Slots roughly correspond to ~0.4 seconds on Solana
+let target_slot = clock.slot + (3600.0 / 0.4) as u64;
+svm.warp_to_slot(target_slot);
+
+// Verify timestamp increased
+let new_clock: Clock = svm.get_sysvar();
+assert!(new_clock.unix_timestamp >= current_time + 3600);
+```
+
+### Kiểm Thử Lịch Trình Vesting
+
+```rust
+// Setup vesting with 100 slot period
+let vesting_period = 100;
+let start_slot = svm.get_sysvar::<Clock>().slot;
+
+// Test before vesting completes
+let result = claim_vested_tokens(&mut svm);
+assert!(result.is_err()); // Too early
+
+// Warp past vesting period
+svm.warp_to_slot(start_slot + vesting_period + 1);
+
+// Now claim should succeed
+let result = claim_vested_tokens(&mut svm);
+assert!(result.is_ok());
+```
+
+## Các Trường Hợp Sử Dụng Phổ Biến
+
+- Lịch trình vesting
+- Rút tiền có khóa thời gian
+- Thời gian chờ stake/unstake
+- Thời gian kết thúc đấu giá
+- Thời hạn thuê
+- Phần thưởng dựa trên epoch
+
+## Lưu Ý Quan Trọng
+
+1. **Chỉ tiến về phía trước** - Bạn chỉ có thể dịch chuyển thời gian về phía
+   trước, không thể quay ngược
+2. **Slot sang thời gian** - Các slot tương ứng khoảng ~0.4 giây trên Solana
+   mainnet
+3. **Clock sysvar** - Luôn được cập nhật khi sử dụng `warp_to_slot()`
+4. **Không cập nhật tự động** - Không giống như các validator thực, thời gian
+   không tự động tiến giữa các giao dịch

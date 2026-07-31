@@ -48,6 +48,26 @@ const platinumSponsors = [
     width: 181.818,
     height: 32,
   },
+  {
+    companyId: "solflare",
+    width: 230.648,
+    height: 55.2,
+  },
+  {
+    companyId: "bridge",
+    width: 204,
+    height: 96,
+  },
+  {
+    companyId: "phantom",
+    width: 279.68,
+    height: 55.2,
+  },
+  {
+    companyId: "nodit",
+    width: 1000,
+    height: 381.62,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -64,7 +84,7 @@ const goldSponsors = [
   {
     companyId: "vybe-network",
     width: 2400,
-    height: 1176,
+    height: 368,
   },
   {
     companyId: "alchemy",
@@ -92,6 +112,61 @@ const goldSponsors = [
     width: 226,
     height: 49,
   },
+  {
+    companyId: "metaplex",
+    width: 268,
+    height: 26,
+  },
+  {
+    companyId: "streamflow",
+    width: 1118.91,
+    height: 150,
+  },
+  {
+    companyId: "sidley",
+    width: 1911,
+    height: 440,
+  },
+  {
+    companyId: "rain",
+    width: 300,
+    height: 91.13,
+  },
+  {
+    companyId: "kast",
+    width: 384,
+    height: 80,
+  },
+  {
+    companyId: "raiku",
+    width: 2646,
+    height: 768,
+  },
+  {
+    companyId: "render-network",
+    width: 1933,
+    height: 233,
+  },
+  {
+    companyId: "sec3",
+    width: 450,
+    height: 149,
+  },
+  {
+    companyId: "quicknode",
+    width: 2193,
+    height: 512,
+  },
+  {
+    companyId: "galaxy",
+    width: 3602,
+    height: 1031,
+  },
+  {
+    companyId: "colosseum",
+    width: 1777,
+    height: 230,
+  },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
@@ -107,7 +182,7 @@ export const sponsorTiers = [
     title: "Platinum",
     mobileColumns: "grid-cols-1",
     mobileLogoScale: 0.6,
-    columns: "md:grid-cols-3",
+    columns: "md:grid-cols-4",
     cellAspect: "aspect-[442/221]",
     sponsors: platinumSponsors,
   },
@@ -118,7 +193,6 @@ export const sponsorTiers = [
     columns: "md:grid-cols-5",
     cellAspect: "aspect-[256/128]",
     sponsors: goldSponsors,
-    emptyCells: 2,
   },
 ] satisfies SponsorTier[];
 
@@ -135,13 +209,13 @@ export const sponsorMarqueeRows = [
     direction: "right",
     density: "standard",
     duration: "92s",
-    sponsors: goldSponsors.slice(0, 4),
+    sponsors: goldSponsors.slice(0, 5),
   },
   {
     title: "Gold",
     direction: "left",
     density: "standard",
     duration: "104s",
-    sponsors: [...goldSponsors.slice(4), ...activationSponsors],
+    sponsors: [...goldSponsors.slice(5), ...activationSponsors],
   },
 ] satisfies SponsorMarqueeRow[];

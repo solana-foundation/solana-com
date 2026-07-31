@@ -1,0 +1,136 @@
+---
+title: タイムトラベル
+description: Surfnetのクロックを絶対slot、epoch、またはUnixタイムスタンプに進めます。ベスティングスケジュール、ロックアップ、有効期限ウィンドウ、またはepoch境界をテストする際に便利です。
+---
+
+Surfpoolランタイムは3つのタイムトラベルヘルパーを提供します。それぞれのヘルパーはローカルクロックを絶対ターゲット（相対オフセットではなく）に移動させ、更新された`EpochInfo`を返すため、テストはランタイムが実際にリクエストされた時刻に到達したことを検証できます。
+
+| ヘルパー                                             | ターゲット                     | 返り値                                 |
+| ---------------------------------------------------- | ------------------------------ | -------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | 絶対slot番号                   | 新しい`absolute_slot`を含む`EpochInfo` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | 絶対epoch番号                  | 新しい`epoch`を含む`EpochInfo`         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | ミリ秒単位のUnixタイムスタンプ | 対応するslotを反映した`EpochInfo`      |
+
+<Callout type="warn" title="前方方向のみ">
+  タイムトラベルはクロックを**前方**にのみ移動できます。過去のターゲットでこれらのメソッドを呼び出した場合は何も起きません
+  — ヘルパーは現在の`EpochInfo`をそのまま返します。
+</Callout>
+
+## slotへジャンプ
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let info = cheats.time_travel_to_slot(1_000_000)?;
+assert!(info.absolute_slot >= 1_000_000);
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const info = surfnet.timeTravelToSlot(1_000_000);
+  console.assert(info.absoluteSlot >= 1_000_000);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## epochへジャンプ
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let info = cheats.time_travel_to_epoch(420)?;
+assert_eq!(info.epoch, 420);
+```
+
+```ts !! title="TypeScript"
+const info = surfnet.timeTravelToEpoch(420);
+console.assert(info.epoch === 420);
+```
+
+</CodeTabs>
+
+## Unixタイムスタンプへジャンプ
+
+タイムスタンプは秒ではなく**ミリ秒**で渡してください。ランタイムはそのタイムスタンプに最も近いslotを計算します。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+// 2030-01-01T00:00:00Z
+let info = cheats.time_travel_to_timestamp(1_893_456_000_000)?;
+```
+
+```ts !! title="TypeScript"
+// 2030-01-01T00:00:00Z
+const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
+```
+
+</CodeTabs>
+
+## よくある使用パターン
+
+### ロックアップまたはベスティングウィンドウのテスト
+
+以下の例はスケッチです —
+`assertWithdrawFails`および`assertWithdrawSucceeds`は、テストスイートでRPCの動作を検証するために使用するクライアント側ヘルパーのプレースホルダーです。
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const beneficiary = Surfnet.newKeypair();
+
+// 1. Set up a vesting account that unlocks at slot 1,000,000.
+surfnet.setAccount(/* ...lockup program state... */);
+
+// 2. Verify withdrawal fails before unlock.
+await assertWithdrawFails(surfnet.rpcUrl, beneficiary);
+
+// 3. Travel past the unlock slot.
+surfnet.timeTravelToSlot(1_000_001);
+
+// 4. Verify withdrawal succeeds.
+await assertWithdrawSucceeds(surfnet.rpcUrl, beneficiary);
+
+surfnet.stop();
+```
+
+### マルチepochシナリオを実行する
+
+<Callout type="warn" title="中間のslotはスキップされます">
+  タイムトラベルはターゲットに直接ジャンプします — epoch 1からepoch
+  5に移動すると、 その間のslotはスキップされます。プログラムが各中間epoch
+  の境界での処理を必要とする場合（たとえば、epochごとの報酬を付与するなど）、
+  間に必要なトランザクションを挟みながら、`time_travel_to_epoch`をepochごとに1回呼び出してください。
+</Callout>
+
+```rust
+for epoch in 2..=5 {
+    cheats.time_travel_to_epoch(epoch)?;
+    surfnet.rpc_client().send_transaction(&claim_rewards_tx)?;
+}
+```
+
+## EpochInfoの構造
+
+両方のSDKはこれらのフィールドを持つ`EpochInfo`形式のオブジェクトを返します：
+
+| フィールド          | Rust                             | JS                          |
+| ------------------- | -------------------------------- | --------------------------- |
+| 絶対slot            | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| epoch内のslot       | `slot_index: u64`                | `slotIndex: number`         |
+| epoch当たりのslot数 | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| epoch番号           | `epoch: u64`                     | `epoch: number`             |
+| ブロック高          | `block_height: u64`              | `blockHeight: number`       |
+| トランザクション数  | `transaction_count: Option<u64>` | `transactionCount?: number` |

@@ -1,0 +1,146 @@
+---
+title: Viagem no Tempo
+description:
+  Avance o relógio do Surfnet para um slot, epoch ou timestamp Unix absoluto.
+  Útil para testes que envolvem cronogramas de vesting, bloqueios, janelas de
+  expiração ou limites de epoch.
+---
+
+O runtime do Surfpool expõe três auxiliares de viagem no tempo. Cada um move o
+relógio local para um alvo absoluto (não um deslocamento relativo) e retorna o
+`EpochInfo` atualizado, para que os testes possam verificar que o runtime
+efetivamente atingiu o tempo solicitado.
+
+| Auxiliar                                             | Alvo                            | Retorna                                 |
+| ---------------------------------------------------- | ------------------------------- | --------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Número de slot absoluto         | `EpochInfo` com o novo `absolute_slot`  |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Número de epoch absoluto        | `EpochInfo` com o novo `epoch`          |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Timestamp Unix em milissegundos | `EpochInfo` refletindo o slot implícito |
+
+<Callout type="warn" title="Somente para frente">
+  A viagem no tempo só pode mover o relógio **para frente**. Chamar esses
+  métodos com um alvo no passado não tem efeito — o auxiliar retorna o
+  `EpochInfo` atual sem alterações.
+</Callout>
+
+## Saltar Para Um Slot
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let info = cheats.time_travel_to_slot(1_000_000)?;
+assert!(info.absolute_slot >= 1_000_000);
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const info = surfnet.timeTravelToSlot(1_000_000);
+  console.assert(info.absoluteSlot >= 1_000_000);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## Saltar Para Um Epoch
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let info = cheats.time_travel_to_epoch(420)?;
+assert_eq!(info.epoch, 420);
+```
+
+```ts !! title="TypeScript"
+const info = surfnet.timeTravelToEpoch(420);
+console.assert(info.epoch === 420);
+```
+
+</CodeTabs>
+
+## Saltar Para Um Timestamp Unix
+
+Passe o timestamp em **milissegundos**, não em segundos. O runtime calcula o
+slot mais próximo naquele timestamp.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+// 2030-01-01T00:00:00Z
+let info = cheats.time_travel_to_timestamp(1_893_456_000_000)?;
+```
+
+```ts !! title="TypeScript"
+// 2030-01-01T00:00:00Z
+const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
+```
+
+</CodeTabs>
+
+## Padrões Comuns
+
+### Testar um Bloqueio ou Janela de Vesting
+
+O exemplo abaixo é um esboço — `assertWithdrawFails` e `assertWithdrawSucceeds`
+são marcadores de posição para os auxiliares do lado do cliente que sua suíte de
+testes utiliza para verificar o comportamento do RPC.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const beneficiary = Surfnet.newKeypair();
+
+// 1. Set up a vesting account that unlocks at slot 1,000,000.
+surfnet.setAccount(/* ...lockup program state... */);
+
+// 2. Verify withdrawal fails before unlock.
+await assertWithdrawFails(surfnet.rpcUrl, beneficiary);
+
+// 3. Travel past the unlock slot.
+surfnet.timeTravelToSlot(1_000_001);
+
+// 4. Verify withdrawal succeeds.
+await assertWithdrawSucceeds(surfnet.rpcUrl, beneficiary);
+
+surfnet.stop();
+```
+
+### Simular um Cenário de Múltiplos Epochs
+
+<Callout type="warn" title="Slots intermediários são ignorados">
+  O salto no tempo vai diretamente para o destino — mover do epoch 1 para o
+  epoch 5 ignora os slots intermediários. Se o seu programa precisar que cada
+  limite de epoch intermediário seja acionado (por exemplo, para creditar
+  recompensas por epoch), chame `time_travel_to_epoch` uma vez por epoch com as
+  transações necessárias entre elas.
+</Callout>
+
+```rust
+for epoch in 2..=5 {
+    cheats.time_travel_to_epoch(epoch)?;
+    surfnet.rpc_client().send_transaction(&claim_rewards_tx)?;
+}
+```
+
+## Estrutura do EpochInfo
+
+Ambos os SDKs retornam um objeto do tipo `EpochInfo` com os seguintes campos:
+
+| Campo                  | Rust                             | JS                          |
+| ---------------------- | -------------------------------- | --------------------------- |
+| Slot absoluto          | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| Slot dentro do epoch   | `slot_index: u64`                | `slotIndex: number`         |
+| Slots por epoch        | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Número do epoch        | `epoch: u64`                     | `epoch: number`             |
+| Altura do bloco        | `block_height: u64`              | `blockHeight: number`       |
+| Contagem de transações | `transaction_count: Option<u64>` | `transactionCount?: number` |

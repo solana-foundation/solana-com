@@ -1,0 +1,146 @@
+---
+title: Time Travel
+description:
+  Jump the Surfnet clock forward to an absolute slot, epoch, or Unix timestamp.
+  Useful for tests that exercise vesting schedules, lockups, expiration windows,
+  or epoch boundaries.
+---
+
+The Surfpool runtime exposes three time-travel helpers. Each one moves the local
+clock to an absolute target (not a relative offset) and returns the updated
+`EpochInfo` so tests can assert that the runtime actually reached the requested
+time.
+
+| Helper                                               | Target                         | Returns                                  |
+| ---------------------------------------------------- | ------------------------------ | ---------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Absolute slot number           | `EpochInfo` with the new `absolute_slot` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Absolute epoch number          | `EpochInfo` with the new `epoch`         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Unix timestamp in milliseconds | `EpochInfo` reflecting the implied slot  |
+
+<Callout type="warn" title="Forward only">
+  Time travel can only move the clock **forward**. Calling these methods with a
+  target in the past is a no-op — the helper returns the current `EpochInfo`
+  unchanged.
+</Callout>
+
+## Jump To A Slot
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let info = cheats.time_travel_to_slot(1_000_000)?;
+assert!(info.absolute_slot >= 1_000_000);
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const info = surfnet.timeTravelToSlot(1_000_000);
+  console.assert(info.absoluteSlot >= 1_000_000);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## Jump To An Epoch
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let info = cheats.time_travel_to_epoch(420)?;
+assert_eq!(info.epoch, 420);
+```
+
+```ts !! title="TypeScript"
+const info = surfnet.timeTravelToEpoch(420);
+console.assert(info.epoch === 420);
+```
+
+</CodeTabs>
+
+## Jump To A Unix Timestamp
+
+Pass the timestamp in **milliseconds**, not seconds. The runtime computes the
+closest slot at that timestamp.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+// 2030-01-01T00:00:00Z
+let info = cheats.time_travel_to_timestamp(1_893_456_000_000)?;
+```
+
+```ts !! title="TypeScript"
+// 2030-01-01T00:00:00Z
+const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
+```
+
+</CodeTabs>
+
+## Common Patterns
+
+### Test A Lockup Or Vesting Window
+
+The example below is a sketch — `assertWithdrawFails` and
+`assertWithdrawSucceeds` are placeholders for whatever client-side helpers your
+test suite uses to assert on RPC behavior.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const beneficiary = Surfnet.newKeypair();
+
+// 1. Set up a vesting account that unlocks at slot 1,000,000.
+surfnet.setAccount(/* ...lockup program state... */);
+
+// 2. Verify withdrawal fails before unlock.
+await assertWithdrawFails(surfnet.rpcUrl, beneficiary);
+
+// 3. Travel past the unlock slot.
+surfnet.timeTravelToSlot(1_000_001);
+
+// 4. Verify withdrawal succeeds.
+await assertWithdrawSucceeds(surfnet.rpcUrl, beneficiary);
+
+surfnet.stop();
+```
+
+### Drive A Multi-Epoch Scenario
+
+<Callout type="warn" title="Intermediate slots are skipped">
+  Time travel jumps directly to the target — moving from epoch 1 to epoch 5
+  skips the slots in between. If your program needs each intermediate epoch
+  boundary to fire (for example, to credit per-epoch rewards), call
+  `time_travel_to_epoch` once per epoch with any required transactions in
+  between.
+</Callout>
+
+```rust
+for epoch in 2..=5 {
+    cheats.time_travel_to_epoch(epoch)?;
+    surfnet.rpc_client().send_transaction(&claim_rewards_tx)?;
+}
+```
+
+## EpochInfo Shape
+
+Both SDKs return an `EpochInfo`-shaped object with these fields:
+
+| Field             | Rust                             | JS                          |
+| ----------------- | -------------------------------- | --------------------------- |
+| Absolute slot     | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| Slot within epoch | `slot_index: u64`                | `slotIndex: number`         |
+| Slots per epoch   | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Epoch number      | `epoch: u64`                     | `epoch: number`             |
+| Block height      | `block_height: u64`              | `blockHeight: number`       |
+| Transaction count | `transaction_count: Option<u64>` | `transactionCount?: number` |

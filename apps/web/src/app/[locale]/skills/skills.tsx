@@ -9,7 +9,41 @@ import { Divider } from "@/components/solutions/divider.v2";
 import { COMMUNITY_SKILLS } from "@/data/skills/communitySkills";
 import { SOLANA_DEV_SKILLS_GITHUB_API_URL } from "@/components/skills/skills";
 
-function parseSkillMarkdown(
+const CANONICAL_SKILLS_URL_ORIGIN = "https://github.com";
+const CANONICAL_SKILLS_PATH_PREFIX =
+  "/solana-foundation/solana-dev-skill/blob/main/skills/solana-dev/references/";
+
+function resolveEndorsedSkillUrl(
+  frontmatterUrl: unknown,
+  htmlUrl: string,
+): string {
+  // Prefer the canonical GitHub `html_url` returned by the contents API.
+  // Only honor a frontmatter `url` when its parsed origin is github.com and
+  // its pathname *starts with* the fully-qualified canonical reference blob
+  // path. Anchoring with `startsWith` on the parsed pathname keeps the check
+  // position-sensitive: stale/invalid metadata (e.g. the singular
+  // `/skill/references/...` path, a canonical segment smuggled into a
+  // query/fragment, or the segment planted inside a crafted branch ref such
+  // as `/blob/skills/solana-dev/references/main/evil.md`) all fall back to
+  // `html_url` so links never point at a 404 or the wrong page.
+  if (typeof frontmatterUrl === "string") {
+    try {
+      const parsed = new URL(frontmatterUrl);
+      if (
+        parsed.origin === CANONICAL_SKILLS_URL_ORIGIN &&
+        parsed.pathname.startsWith(CANONICAL_SKILLS_PATH_PREFIX)
+      ) {
+        return frontmatterUrl;
+      }
+    } catch {
+      // Malformed URL: fall back to the canonical html_url below.
+    }
+  }
+
+  return htmlUrl;
+}
+
+export function parseSkillMarkdown(
   filename: string,
   content: string,
   htmlUrl: string,
@@ -21,7 +55,7 @@ function parseSkillMarkdown(
     slug,
     title: data.title ?? slug,
     description: data.description ?? "",
-    githubUrl: htmlUrl,
+    githubUrl: resolveEndorsedSkillUrl(data.url, htmlUrl),
     sourceType: "official",
   };
 }

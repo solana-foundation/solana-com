@@ -1,0 +1,103 @@
+---
+title: Cross-Program Invocation
+description: Πώς να δοκιμάσετε προγράμματα που καλούν άλλα προγράμματα
+---
+
+## Πλήρης Δοκιμή
+
+```rust title="tests/cpi_test.rs"
+use litesvm::LiteSVM;
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+    system_program,
+};
+
+#[test]
+fn test_cross_program_invocation() {
+    let mut svm = LiteSVM::new();
+
+    // Deploy both programs
+    let caller_program = Pubkey::new_unique();
+    let callee_program = Pubkey::new_unique();
+
+    svm.add_program(
+        caller_program,
+        include_bytes!("../target/deploy/caller.so")
+    ).unwrap();
+
+    svm.add_program(
+        callee_program,
+        include_bytes!("../target/deploy/callee.so")
+    ).unwrap();
+
+    // Setup accounts
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+    // Create instruction that will trigger CPI
+    let instruction = Instruction {
+        program_id: caller_program,
+        accounts: vec![
+            AccountMeta::new(payer.pubkey(), true),
+            AccountMeta::new_readonly(callee_program, false),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+        data: vec![1], // Instruction to trigger CPI
+    };
+
+    let tx = Transaction::new_signed_with_payer(
+        &[instruction],
+        Some(&payer.pubkey()),
+        &[&payer],
+        svm.latest_blockhash(),
+    );
+
+    let result = svm.send_transaction(tx).unwrap();
+
+    // Verify both programs were invoked
+    assert!(result.logs.iter().any(|log|
+        log.contains(&format!("Program {} invoke", caller_program))
+    ));
+    assert!(result.logs.iter().any(|log|
+        log.contains(&format!("Program {} invoke", callee_program))
+    ));
+
+    println!("CPI successful!");
+    println!("Logs showing both programs:");
+    for log in &result.logs {
+        if log.contains("invoke") {
+            println!("   {}", log);
+        }
+    }
+}
+```
+
+## Βασικά Σημεία
+
+1. **Πολλαπλά Προγράμματα**: Αναπτύξτε όλα τα προγράμματα που εμπλέκονται στην
+   αλυσίδα Cross Program Invocation
+2. **Αναγνωριστικά Προγραμμάτων**: Περάστε το αναγνωριστικό του καλούμενου
+   προγράμματος ως λογαριασμό στην εντολή
+3. **System Program**: Συχνά απαιτείται για λειτουργίες Cross Program Invocation
+   (μεταφορές, δημιουργία λογαριασμών κ.λπ.)
+4. **Επαλήθευση Αρχείων Καταγραφής**: Ελέγξτε τα αρχεία καταγραφής για να
+   επαληθεύσετε ότι εκτελέστηκαν όλα τα προγράμματα στην αλυσίδα κλήσεων
+
+Για πιο αναλυτικές πληροφορίες ανάπτυξης, διαβάστε
+[αυτή την ενότητα](/docs/tools/litesvm/testing-your-program/deploy).
+
+## Κατανόηση Αρχείων Καταγραφής Cross Program Invocation
+
+Όταν συμβαίνει ένα Cross Program Invocation, θα δείτε αρχεία καταγραφής όπως:
+
+```
+Program A invoke [1]
+Program B invoke [2]
+Program B success
+Program A success
+```
+
+Οι αριθμοί σε αγκύλες υποδηλώνουν το βάθος κλήσης.

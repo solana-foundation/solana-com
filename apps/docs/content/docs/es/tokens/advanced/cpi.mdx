@@ -1,0 +1,293 @@
+---
+title: Llamando al Token Program mediante CPI
+description:
+  Invoca el Token Program desde un programa on-chain con una Cross Program
+  Invocation (CPI) — transfiere, acuña y quema tokens, firma con una autoridad
+  PDA y agrupa varias instrucciones de token en una sola CPI.
+url: /docs/tokens/advanced/cpi
+type: tutorial
+related:
+  - /docs/core/cpi
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/advanced/withdraw-excess-lamports
+  - /docs/tokens/advanced/unwrap-lamports
+---
+
+Los programas on-chain mueven tokens emitiendo una
+[Cross Program Invocation (CPI)](/docs/core/cpi) hacia el Token Program. Tu
+programa construye una instrucción del Token Program, proporciona las cuentas
+necesarias y llama a _rs`invoke`_ (o _rs`invoke_signed`_ cuando firma un Program
+Derived Address). El Token Program ejecuta entonces esa instrucción con los
+privilegios que tu programa le otorga.
+
+Esta página cubre la parte específica de tokens en ese flujo. Para conocer el
+mecanismo CPI en sí — cómo funcionan _rs`invoke`_ y _rs`invoke_signed`_, cómo se
+propagan los privilegios de firmante y escritura, y el
+[modelo de coste por CPI](/docs/core/cpi/cpi-cost-model) — consulta
+[Cross Program Invocation](/docs/core/cpi).
+
+## Patrones comunes
+
+La mayoría de los CPIs de tokens siguen la misma estructura: construir la
+instrucción, pasar las token accounts y una autoridad, e invocar. El ejemplo a
+continuación transfiere tokens con _rs`TransferChecked`_, que verifica el mint y
+los decimales como parte de la transferencia.
+
+<CodeTabs>
+
+```rust !! title="Anchor"
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
+
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod token_cpi {
+    use super::*;
+
+    pub fn transfer(ctx: Context<TokenTransfer>, amount: u64) -> Result<()> {
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.source.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            cpi_accounts,
+        );
+
+        transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct TokenTransfer<'info> {
+    #[account(mut)]
+    pub source: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(mut)]
+    pub destination: InterfaceAccount<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Interface<'info, TokenInterface>,
+}
+```
+
+```rust !! title="Native (Pinocchio)"
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::TransferChecked;
+
+/// Account layout:
+///   [0] source      (writable) — source token account
+///   [1] mint                   — token mint
+///   [2] destination (writable) — destination token account
+///   [3] authority   (signer)   — owner or delegate of the source account
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+    if data.len() < 9 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let amount = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let decimals = data[8];
+
+    let source = &accounts[0];
+    let mint = &accounts[1];
+    let destination = &accounts[2];
+    let authority = &accounts[3];
+
+    TransferChecked::new(source, mint, destination, authority, amount, decimals).invoke()?;
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+Acuñar, quemar y cerrar cuentas siguen el mismo patrón con una instrucción
+diferente — _rs`MintTo`_, _rs`Burn`_ y _rs`CloseAccount`_ en el módulo
+[`anchor_spl::token`](https://docs.rs/anchor-spl/latest/anchor_spl/token/index.html)
+de Anchor, o los constructores equivalentes en
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token). Para programas
+completos y ejecutables que realizan CPI hacia el Token Program tanto en Anchor
+como en Rust nativo, consulta los
+[ejemplos de token program](/docs/programs/examples#tokens) — en particular el
+ejemplo "Transfer Tokens".
+
+## Firmando con una autoridad PDA
+
+Cuando la autoridad de una token account es un
+[Program Derived Address](/docs/core/pda) propiedad de tu programa, el programa
+firma el CPI por sí mismo con _rs`invoke_signed`_, pasando las seeds del PDA
+como signer seeds. En Anchor, usa _rs`CpiContext::new_with_signer`_ con las
+seeds en lugar de _rs`CpiContext::new`_. La instrucción es, por lo demás,
+idéntica a los ejemplos anteriores. Consulta
+[CPIs with PDA Signers](/docs/core/cpi/cpi-with-pda) para conocer la mecánica
+completa.
+
+## Procesamiento por lotes
+
+La instrucción _rs`Batch`_ ejecuta varias instrucciones de Token Program dentro
+de una única invocación de programa. Dado que cada CPI conlleva un costo fijo de
+cómputo, ejecutar varias operaciones de token en un único CPI por lotes consume
+menos [unidades de cómputo](/docs/core/fees/compute-budget) que emitir un CPI
+separado por operación. Consulta el
+[modelo de costos de CPI](/docs/core/cpi/cpi-cost-model) para ver cómo se
+acumulan los costos por CPI.
+
+Un menor uso de cómputo reduce las [tarifas de prioridad](/docs/core/fees) que
+paga una transacción por unidad de cómputo y mejora sus posibilidades de ser
+procesada, lo que resulta especialmente relevante para programas que realizan
+muchas operaciones de token en una sola instrucción. Los usos más comunes
+incluyen distribuir una transferencia a múltiples destinatarios, o ejecutar un
+flujo de token de varios pasos (por ejemplo, sincronizar, transferir y cerrar)
+en un único CPI.
+
+<Callout type="info">
+
+_rs`Batch`_ solo acepta instrucciones de Token Program como elementos
+secundarios, y un lote no puede contener otro lote. Para las operaciones que
+mueven tokens (como transferencias, acuñaciones y quemas), el programa verifica
+que las cuentas afectadas sean propiedad del Token Program antes de ejecutarlas.
+
+</Callout>
+
+### Referencia del código fuente
+
+| Elemento            | Descripción                               | Fuente                                                                                               |
+| ------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| _rs`Batch`_         | La instrucción Batch (discriminador 255). | [Fuente](https://github.com/solana-program/token/blob/main/pinocchio/interface/src/instruction.rs)   |
+| _rs`process_batch`_ | Lógica del procesador de lotes.           | [Fuente](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/batch.rs) |
+
+### Llamada a Batch mediante CPI
+
+El crate [`pinocchio-token`](https://crates.io/crates/pinocchio-token) expone un
+constructor _rs`Batch`_ bajo _rs`pinocchio_token::instructions::Batch`_. Puedes
+preparar cada instrucción secundaria en los búferes del lote y luego emitir un
+único CPI con _rs`invoke`_.
+
+Un _rs`Batch`_ se apoya en tres búferes proporcionados por el invocador: uno
+para los instruction data serializados, uno para los metadatos de cuenta de cada
+instrucción secundaria, y uno para las vistas de cuenta pasadas al CPI.
+Construyelos como slices _rs`MaybeUninit`_, pásalos a _rs`Batch::new`_, añade
+los elementos secundarios y luego invoca:
+
+```rust title="Batch two transfers in one CPI"
+use core::mem::MaybeUninit;
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::{Batch, IntoBatch, Transfer};
+
+/// Process SwapBatch.
+///
+/// Performs two transfers in a single batch CPI instead of two separate
+/// `invoke()` calls.
+///
+/// Data layout:
+///   [0..8]  amount_a_to_b (u64 LE)
+///   [8..16] amount_b_to_a (u64 LE)
+///
+/// Account layout:
+///   [0] source_a    (writable) — token account A
+///   [1] source_b    (writable) — token account B
+///   [2] authority_a (signer)   — authority for account A
+///   [3] authority_b (signer)   — authority for account B
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if data.len() < 16 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let amount_a_to_b = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let amount_b_to_a = u64::from_le_bytes(data[8..16].try_into().unwrap());
+
+    let source_a = &accounts[0];
+    let source_b = &accounts[1];
+    let authority_a = &accounts[2];
+    let authority_b = &accounts[3];
+
+    // Two child transfers, each with 3 accounts and 9 bytes of data
+    // (1-byte discriminator + 8-byte amount).
+    const NUM_CHILDREN: usize = 2;
+    const CHILD_ACCOUNTS: usize = 3;
+    const CHILD_DATA_LEN: usize = 9;
+
+    // Data buffer: 1-byte batch discriminator + per child (2-byte header + data).
+    const DATA_LEN: usize = 1 + NUM_CHILDREN * (2 + CHILD_DATA_LEN);
+    // Account buffers: total accounts across all children.
+    const ACCOUNTS_LEN: usize = NUM_CHILDREN * CHILD_ACCOUNTS;
+
+    let mut data_buf = [MaybeUninit::uninit(); DATA_LEN];
+    let mut ix_accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+    let mut accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+
+    let mut batch = Batch::new(&mut data_buf, &mut ix_accounts_buf, &mut accounts_buf)?;
+
+    Transfer::new(source_a, source_b, authority_a, amount_a_to_b).into_batch(&mut batch)?;
+    Transfer::new(source_b, source_a, authority_b, amount_b_to_a).into_batch(&mut batch)?;
+
+    batch.invoke()?;
+
+    Ok(())
+}
+```
+
+_rs`Batch::new`_ escribe el discriminador de lote en el primer byte del búfer de
+datos y devuelve un _rs`Batch`_ que registra cuánto se ha utilizado de cada
+búfer. Cada constructor de instrucciones de Token Program (como _rs`Transfer`_,
+_rs`TransferChecked`_, _rs`MintTo`_ y _rs`Burn`_) implementa el trait
+_rs`IntoBatch`_, por lo que _rs`into_batch`_ agrega los datos de instrucción,
+las metainformaciones de cuenta y las vistas de cuenta de esa instrucción al
+lote. Llamar a _rs`invoke`_ emite el lote ensamblado como una única CPI hacia el
+Token Program.
+
+Los búferes limitan la capacidad del lote. Dimensiona el búfer de datos con
+`1 + Σ(2 + child_data_len)` bytes (el discriminador, más una cabecera de 2 bytes
+y los datos serializados de cada hijo) y cada búfer de cuentas con el número
+total de cuentas de todos los hijos. Si un hijo no cabe, _rs`into_batch`_
+devuelve _rs`ProgramError::InvalidArgument`_. Como referencia,
+_rs`Batch::MAX_DATA_LEN`_ equivale a 10 KiB y _rs`Batch::MAX_ACCOUNTS_LEN`_ es
+igual al número máximo de cuentas CPI del entorno de ejecución.
+
+Para lotes cuyo tamaño solo se conoce en tiempo de ejecución, habilita la
+función `alloc` del crate y usa _rs`BatchState::new(accounts_len, data_len)`_
+para asignar los búferes en el heap; luego llama a _rs`as_batch`_ para obtener
+un _rs`Batch`_.
+
+Cuando la autoridad de una instrucción hija es un PDA propiedad de tu programa,
+firma la CPI con _rs`invoke_signed`_ en lugar de _rs`invoke`_, pasando las
+semillas del PDA como entradas _rs`Signer`_.
+
+### Diseño de instruction data
+
+Un lote codifica sus hijos uno tras otro detrás del discriminador `255`. Todas
+las cuentas se pasan de forma plana, en orden, y son segmentadas por
+`num_accounts` para cada hijo. El constructor produce exactamente este formato
+de wire:
+
+```text title="Batch Wire Format"
+[255]                    // Batch discriminator
+// For each child instruction, in order:
+//   [num_accounts: u8]  // accounts this instruction consumes
+//   [data_len: u8]      // length of this instruction's data
+//   [data: u8; data_len]// the instruction data (begins with its own discriminator)
+```
+
+<Callout type="warn">
+
+La capacidad de un lote está limitada por los búferes pasados a
+_rs`Batch::new`_: el búfer de datos debe contener el discriminador más la
+cabecera y los datos de cada hijo, y los búferes de cuentas deben contener las
+cuentas de cada hijo. Dimensiónalos para el lote más grande que construyas, o
+usa _rs`BatchState`_ (con la función `alloc`) para dimensionarlos en tiempo de
+ejecución. La CPI combinada sigue estando sujeta a los límites de cuentas y
+tamaño de la transacción, por lo que para fan-outs muy grandes usa Address
+Lookup Tables para incluir más cuentas.
+
+</Callout>

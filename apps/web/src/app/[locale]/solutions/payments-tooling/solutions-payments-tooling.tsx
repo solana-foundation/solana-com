@@ -194,7 +194,7 @@ export function SolutionsPaymentsToolingPage() {
               endIcon: "arrow-right",
               size: "lg",
               hierarchy: "outline",
-              url: "/developers/guides/getstarted/hello-world-in-your-browser",
+              url: "/docs/intro/quick-start",
             },
           },
           {

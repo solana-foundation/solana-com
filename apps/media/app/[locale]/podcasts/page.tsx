@@ -7,17 +7,31 @@ import {
   fetchEpisodesForPodcast,
 } from "@/lib/podcast-data";
 import PodcastsClientPage from "./client-page";
-import { podcastsListingMetadata } from "@/lib/metadata";
+import {
+  PODCASTS_SEO_DESCRIPTION,
+  PODCASTS_SEO_TITLE,
+  podcastsListingMetadata,
+} from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildPodcastCollectionJsonLd } from "@/lib/content-structured-data";
 
 export const revalidate = 1800; // 30 minutes
 
-export const metadata: Metadata = podcastsListingMetadata();
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return podcastsListingMetadata(locale);
+}
 
 export default async function PodcastsPage({
-  params: _,
+  params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
+  const { locale } = await params;
   const allPodcasts = await fetchAllPodcasts();
 
   // Filter for active podcasts only
@@ -39,6 +53,17 @@ export default async function PodcastsPage({
       };
     }),
   );
+  const structuredData = buildPodcastCollectionJsonLd({
+    podcasts: podcastsWithEpisodes,
+    locale,
+    title: PODCASTS_SEO_TITLE,
+    description: PODCASTS_SEO_DESCRIPTION,
+  });
 
-  return <PodcastsClientPage podcasts={podcastsWithEpisodes} />;
+  return (
+    <>
+      <JsonLd data={structuredData} />
+      <PodcastsClientPage podcasts={podcastsWithEpisodes} />
+    </>
+  );
 }

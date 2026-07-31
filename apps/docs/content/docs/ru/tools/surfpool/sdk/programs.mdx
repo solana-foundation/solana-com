@@ -1,0 +1,186 @@
+---
+title: Развёртывание программ
+description:
+  Развёртывание программ Solana в Surfnet из локальных артефактов сборки.
+  Автоматическое обнаружение Anchor-воркспейсов или передача явного пути к файлу
+  .so, сырых байт и IDL.
+---
+
+SDK позволяет развернуть программу из локальных артефактов сборки за один вызов.
+Существует два варианта: **автоматическое обнаружение** для воркспейсов
+Anchor/Agave со стандартными путями и **явное развёртывание**, когда вы хотите
+контролировать источник байт.
+
+Оба варианта регистрируют программу по адресу, указанному в IDL (или по
+открытому ключу файла keypair), и, если IDL доступен, регистрируют его в среде
+выполнения через `surfnet_registerIdl`, чтобы RPC-клиенты могли декодировать
+данные аккаунта.
+
+## Автоматическое обнаружение Anchor-воркспейса
+
+`deployProgram` / `deploy_program` принимает имя программы и ищет следующие
+файлы относительно текущего рабочего каталога:
+
+| Файл                                | Назначение                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------ |
+| `target/deploy/{name}.so`           | Скомпилированный байткод программы (обязательно)                                     |
+| `target/deploy/{name}-keypair.json` | keypair программы — открытый ключ становится идентификатором программы (обязательно) |
+| `target/idl/{name}.json`            | Anchor IDL JSON (необязательно; регистрируется при наличии)                          |
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let program_id = cheats.deploy_program("my_program")?;
+println!("deployed at {program_id}");
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const programId = surfnet.deployProgram("my_program");
+  console.log("deployed at", programId);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+<Callout type="info" title="Выполните сборку перед развёртыванием">
+  Запустите `anchor build` (или `cargo build-sbf`) перед вызовом
+  `deployProgram`, чтобы артефакты `.so` и keypair действительно существовали на
+  диске. SDK не выполняет сборку за вас.
+</Callout>
+
+## Явное развёртывание
+
+Когда артефакты находятся в нестандартном месте — артефакт CI, заранее
+подготовленная тестовая точка, встроенный байтовый срез — передайте явную
+конфигурацию развёртывания.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::Surfnet;
+
+let cheats = Surfnet::start().await?.cheatcodes();
+
+// Derive the program ID from a keypair file.
+let program_id = cheats.deploy(
+    DeployProgram::from_keypair_path("fixtures/my_program-keypair.json")?
+        .so_path("fixtures/my_program.so")
+        .idl_path("fixtures/my_program.idl.json"),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const programId = "DemoProgram111111111111111111111111111111111";
+
+surfnet.deploy({
+  programId,
+  soPath: "fixtures/my_program.so",
+  idlPath: "fixtures/my_program.idl.json"
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## Развёртывание из сырых байт
+
+Когда байткод уже находится в памяти — сгенерирован на этапе сборки, загружен из
+хранилища артефактов или встроен через `include_bytes!` — полностью пропустите
+файловую систему.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+const PROGRAM_BYTES: &[u8] = include_bytes!("../fixtures/my_program.so");
+
+let cheats = Surfnet::start().await?.cheatcodes();
+let program_id: Pubkey = "DemoProgram111111111111111111111111111111111".parse()?;
+
+cheats.deploy(
+    DeployProgram::new(program_id).so_bytes(PROGRAM_BYTES.to_vec()),
+)?;
+```
+
+```ts !! title="TypeScript"
+import { readFileSync } from "node:fs";
+
+const surfnet = Surfnet.start();
+const programBytes = readFileSync("fixtures/my_program.so");
+
+surfnet.deploy({
+  programId: "DemoProgramID11111111111111111111111111111",
+  soBytes: programBytes
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## Справочник по билдеру DeployProgram (Rust)
+
+| Конструктор / сеттер               | Сигнатура                                         | Назначение                                                           |
+| ---------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------- |
+| `DeployProgram::new`               | `(program_id: Pubkey) -> Self`                    | Создать деплой для известного ID программы.                          |
+| `DeployProgram::from_keypair_path` | `(path: impl AsRef<Path>) -> SurfnetResult<Self>` | Считать файл keypair Solana; публичный ключ становится ID программы. |
+| `.so_path`                         | `(path: impl Into<PathBuf>)`                      | Путь к скомпилированному артефакту `.so` на диске.                   |
+| `.so_bytes`                        | `(bytes: Vec<u8>)`                                | Необработанные байты программы (взаимоисключающее с `so_path`).      |
+| `.idl_path`                        | `(path: impl Into<PathBuf>)`                      | Опциональный JSON Anchor IDL для регистрации после деплоя.           |
+
+## Справочник по типу DeployOptions (JS)
+
+```ts
+type ByteArrayLike = Uint8Array | number[];
+
+interface DeployOptions {
+  programId: string; // base58 address to deploy at
+  soPath?: string; // path to .so on disk
+  soBytes?: ByteArrayLike; // or raw bytes in memory
+  idlPath?: string; // optional Anchor IDL JSON
+}
+```
+
+`soPath` и `soBytes` являются взаимоисключающими — укажите ровно одно из двух.
+
+## Что регистрируется
+
+После успешного деплоя среда выполнения делает три вещи:
+
+1. **Записывает program account** по адресу `programId` с байтами `.so` через
+   `surfnet_writeProgram`.
+2. **Помечает аккаунт как исполняемый**, чтобы его можно было вызвать через
+   обычные RPC-вызовы.
+3. **Регистрирует IDL** (если указан) через `surfnet_registerIdl`, что позволяет
+   RPC-клиентам декодировать данные аккаунта, используя IDL-схему программы.
+
+<Callout type="info" title="Редкий случай: неисполняемый program account">
+  Если вы хотите записать байты программы в аккаунт, но оставить его
+  неисполняемым, используйте `SetAccount` напрямую вместо `deploy`. Путь через
+  `deploy` всегда помечает аккаунт как исполняемый.
+</Callout>
+
+## Ошибки
+
+| Причина                                                              | Симптом                                                                  |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Файл `.so` отсутствует или недоступен для чтения                     | `SurfnetError::Cheatcode("...failed to read...")` или ошибка JS          |
+| ID программы не совпадает с файлом keypair                           | `SurfnetError::Cheatcode("...mismatched program id...")`                 |
+| JSON IDL некорректен                                                 | `SurfnetError::Cheatcode("...invalid IDL...")`                           |
+| Surfnet недоступен, и program account уже существует в основной сети | Деплой всё равно успешен; локальная копия переопределяет основную версию |

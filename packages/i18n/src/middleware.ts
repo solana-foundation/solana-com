@@ -2,6 +2,9 @@ import createNextIntlMiddleware from "next-intl/middleware";
 import { defineRouting } from "next-intl/routing";
 import { NextResponse, type NextRequest } from "next/server";
 import { locales, defaultLocale } from "./config";
+import { getLocaleFromPathname } from "./pathname";
+
+export { getLocaleFromPathname } from "./pathname";
 
 export const SHARED_LOCALE_COOKIE = "SOLANA_LOCALE";
 const SHARED_LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -38,11 +41,6 @@ export const routingWithoutDetection = defineRouting({
   localePrefix: "as-needed",
   localeDetection: false,
 });
-
-export function getLocaleFromPathname(pathname: string) {
-  const [, firstSegment] = pathname.split("/");
-  return firstSegment && locales.includes(firstSegment) ? firstSegment : null;
-}
 
 export function getPreferredLocaleCookie(value?: string | null) {
   return value && locales.includes(value) ? value : null;

@@ -1,0 +1,220 @@
+---
+title: Temps et Sysvars
+description: Méthodes pour manipuler le temps et les variables système
+---
+
+## Manipulation du temps
+
+### warp_to_slot
+
+```rust
+pub fn warp_to_slot(&mut self, slot: u64)
+```
+
+Sauter vers un slot spécifique. Seul le voyage dans le temps vers l'avenir est
+pris en charge.
+
+```rust
+// Get current slot
+let clock: Clock = svm.get_sysvar();
+let current_slot = clock.slot;
+
+// Jump forward 100 slots
+svm.warp_to_slot(current_slot + 100);
+
+// Verify
+let new_clock: Clock = svm.get_sysvar();
+assert_eq!(new_clock.slot, current_slot + 100);
+```
+
+### Manipulation manuelle de l'horloge
+
+```rust
+use solana_sdk::clock::Clock;
+
+// Read clock
+let mut clock: Clock = svm.get_sysvar();
+
+// Modify fields
+clock.slot = 1000;
+clock.epoch = 10;
+clock.unix_timestamp = 1735689600;
+
+// Write back
+svm.set_sysvar(&clock);
+```
+
+<Callout type="info">
+  Utilisez `warp_to_slot()` pour la plupart des manipulations de temps. Utilisez
+  la modification manuelle de l'horloge uniquement lorsque vous avez besoin d'un
+  contrôle précis sur plusieurs champs.
+</Callout>
+
+## Sysvars
+
+### get_sysvar
+
+```rust
+pub fn get_sysvar<T: Sysvar>(&self) -> T
+```
+
+Lire la valeur du sysvar.
+
+```rust
+use solana_sdk::clock::Clock;
+use solana_sdk::rent::Rent;
+use solana_sdk::epoch_schedule::EpochSchedule;
+
+let clock: Clock = svm.get_sysvar();
+let rent: Rent = svm.get_sysvar();
+let epoch_schedule: EpochSchedule = svm.get_sysvar();
+```
+
+### set_sysvar
+
+```rust
+pub fn set_sysvar<T: Sysvar>(&mut self, sysvar: &T)
+```
+
+Écrire la valeur du sysvar.
+
+```rust
+use solana_sdk::rent::Rent;
+
+let rent = Rent {
+    lamports_per_byte_year: 3480,
+    exemption_threshold: 2.0,
+    burn_percent: 50,
+};
+
+svm.set_sysvar(&rent);
+```
+
+## Sysvars courants
+
+### Horloge
+
+```rust
+use solana_sdk::clock::Clock;
+
+let clock: Clock = svm.get_sysvar();
+println!("Slot: {}", clock.slot);
+println!("Timestamp: {}", clock.unix_timestamp);
+println!("Epoch: {}", clock.epoch);
+```
+
+### Rent
+
+```rust
+use solana_sdk::rent::Rent;
+
+let rent: Rent = svm.get_sysvar();
+let min_balance = rent.minimum_balance(data_len);
+```
+
+### Epoch Schedule
+
+```rust
+use solana_sdk::epoch_schedule::EpochSchedule;
+
+let schedule: EpochSchedule = svm.get_sysvar();
+println!("Slots per epoch: {}", schedule.slots_per_epoch);
+```
+
+### Historique des mises
+
+```rust
+use solana_sdk::stake_history::{StakeHistory, StakeHistoryEntry};
+
+let mut stake_history = StakeHistory::default();
+stake_history.add(
+    0, // epoch
+    StakeHistoryEntry {
+        effective: 1_000_000,
+        activating: 0,
+        deactivating: 0,
+    },
+);
+
+svm.set_sysvar(&stake_history);
+```
+
+## Modèles de tests basés sur le temps
+
+### Tester les fonctionnalités basées sur les slot
+
+```rust
+let mut svm = LiteSVM::new();
+
+// Get starting slot
+let start_slot = svm.get_sysvar::<Clock>().slot;
+
+// Try action before unlock slot (should fail)
+let result = call_locked_program(&mut svm);
+assert!(result.is_err());
+
+// Warp to unlock slot
+svm.warp_to_slot(start_slot + 1000);
+
+// Now it should succeed
+let result = call_locked_program(&mut svm);
+assert!(result.is_ok());
+```
+
+### Tester les fonctionnalités basées sur les horodatages
+
+```rust
+let mut svm = LiteSVM::new();
+
+// Get current timestamp
+let clock: Clock = svm.get_sysvar();
+let current_time = clock.unix_timestamp;
+
+// Warp forward 1 hour (3600 seconds)
+// Slots roughly correspond to ~0.4 seconds on Solana
+let target_slot = clock.slot + (3600.0 / 0.4) as u64;
+svm.warp_to_slot(target_slot);
+
+// Verify timestamp increased
+let new_clock: Clock = svm.get_sysvar();
+assert!(new_clock.unix_timestamp >= current_time + 3600);
+```
+
+### Tester les calendriers d'acquisition
+
+```rust
+// Setup vesting with 100 slot period
+let vesting_period = 100;
+let start_slot = svm.get_sysvar::<Clock>().slot;
+
+// Test before vesting completes
+let result = claim_vested_tokens(&mut svm);
+assert!(result.is_err()); // Too early
+
+// Warp past vesting period
+svm.warp_to_slot(start_slot + vesting_period + 1);
+
+// Now claim should succeed
+let result = claim_vested_tokens(&mut svm);
+assert!(result.is_ok());
+```
+
+## Cas d'utilisation courants
+
+- Calendriers d'acquisition
+- Retraits verrouillés dans le temps
+- Périodes de refroidissement pour le staking/unstaking
+- Heures de fin d'enchères
+- Périodes de location
+- Récompenses basées sur les époques
+
+## Remarques importantes
+
+1. **Uniquement vers l'avant** - Vous ne pouvez avancer dans le temps, pas
+   reculer
+2. **Slot vers temps** - Les slot correspondent approximativement à ~0,4
+   secondes sur le réseau principal Solana
+3. **Clock sysvar** - Toujours mis à jour lors de l'utilisation de
+   `warp_to_slot()`
+4. **Pas de mises à jour automatiques** - Contrairement aux validator réels, le
+   temps n'avance pas automatiquement entre les transactions

@@ -1,0 +1,219 @@
+---
+title: Konfigurointi
+description:
+  Konfiguroi Surfnet käynnistyksen yhteydessä — etä-RPC-varajärjestelmä,
+  lohkontuotantotila, slot-ajoitus, airdropit, ominaisuusportit ja mukautetut
+  maksajat.
+---
+
+`Surfnet::start()` (Rust) ja `Surfnet.start()` (JS) käynnistävät
+offline-Surfnetin transaktiotilan lohkontuotannolla ja maksajalla, jolle on
+ennalta ladattu 10 SOL. Kun tarvitset jotain muuta — mainnet-forkatun Surfnetin,
+hitaamman kellon, deterministisen rahoituksen tai tietyn maksajan keypair —
+käytä builderia (Rust) tai `startWithConfig` (JS).
+
+## Oletusasetukset
+
+Jos kutsut `start()` ilman argumentteja, saat:
+
+| Asetus           | Arvo                                                                |
+| ---------------- | ------------------------------------------------------------------- |
+| Tila             | Offline (ei ylävirran RPC:tä)                                       |
+| Lohkontuotanto   | Transaktio (lohkot etenevät jokaisen tx:n myötä)                    |
+| Slot-aika        | 1 ms                                                                |
+| Maksaja          | Satunnainen keypair ladattuna 10 SOL:lla (10 000 000 000 lamportia) |
+| RPC URL          | `http://127.0.0.1:<random>`                                         |
+| WS URL           | `ws://127.0.0.1:<random>`                                           |
+| Ominaisuusasetus | Mainnetin oletusoMinaisuusjoukko                                    |
+
+## Mukautettu konfigurointi
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{BlockProductionMode, Pubkey, Surfnet};
+
+#[tokio::test]
+async fn starts_with_custom_configuration() {
+    let alice = Pubkey::new_unique();
+
+    let surfnet = Surfnet::builder()
+        .remote_rpc_url("https://api.mainnet-beta.solana.com")
+        .block_production_mode(BlockProductionMode::Transaction)
+        .slot_time_ms(10)
+        .airdrop_addresses(vec![alice])
+        .airdrop_sol(5_000_000_000)
+        .skip_blockhash_check(true)
+        .start()
+        .await
+        .unwrap();
+
+    assert_eq!(
+        surfnet.rpc_client().get_balance(&alice).unwrap(),
+        5_000_000_000
+    );
+}
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const alice = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com",
+  blockProductionMode: "transaction",
+  slotTimeMs: 10,
+  airdropAddresses: [alice.publicKey],
+  airdropSol: 5_000_000_000
+});
+
+try {
+  console.log(surfnet.rpcUrl);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## Builder-viite
+
+Rust-builder ja JS-konfiguraatio-objekti tarjoavat samat loogiset asetukset
+camelCase / snake_case -nimeämisellä.
+
+| Asetus                     | Rust-asettaja                                | JS-kenttä                                 | Tyyppi                                        | Oletus           |
+| -------------------------- | -------------------------------------------- | ----------------------------------------- | --------------------------------------------- | ---------------- |
+| Offline-tila               | `offline(bool)`                              | `offline?: boolean`                       | `bool`                                        | `true`           |
+| Ylävirran RPC              | `remote_rpc_url(impl Into<String>)`          | `remoteRpcUrl?: string`                   | URL-merkkijono                                | ei mitään        |
+| Lohkontuotanto             | `block_production_mode(BlockProductionMode)` | `blockProductionMode?: string`            | enum / `"manual" \| "clock" \| "transaction"` | `Transaction`    |
+| Slot-aika                  | `slot_time_ms(u64)`                          | `slotTimeMs?: number`                     | millisekuntia                                 | `1`              |
+| Airdrop-osoitteet          | `airdrop_addresses(Vec<Pubkey>)`             | `airdropAddresses?: string[]`             | lista pubkey-avaimista                        | tyhjä            |
+| Airdrop-määrä              | `airdrop_sol(u64)`                           | `airdropSol?: number`                     | lamportia                                     | `10_000_000_000` |
+| Ohita lohkohash            | `skip_blockhash_check(bool)`                 | n/a                                       | `bool`                                        | `false`          |
+| Mukautettu maksaja         | `payer(Keypair)`                             | `payerSecretKey?: Uint8Array \| number[]` | Keypair / tavut                               | generoitu        |
+| Ota ominaisuus käyttöön    | `enable_feature(Pubkey)`                     | `enableFeatures?: string[]`               | ominaisuus-ID(t)                              | ei mitään        |
+| Poista ominaisuus käytöstä | `disable_feature(Pubkey)`                    | `disableFeatures?: string[]`              | ominaisuus-ID(t)                              | ei mitään        |
+| Kaikki ominaisuudet        | n/a                                          | `allFeatures?: boolean`                   | `bool`                                        | `false`          |
+| Ominaisuusasetus           | `feature_config(SvmFeatureConfig)`           | n/a                                       | täysi konfiguraatio                           | mainnet-oletus   |
+
+### Etä-RPC-varareitti
+
+`remoteRpcUrl` (tai `remote_rpc_url` Rustissa) kytkee Surfnetin pois
+offline-tilasta. Paikallisesti puuttuvat tilit haetaan tarvittaessa ylävirran
+RPC:stä, joka on mainnet-fork-testien toimintaperiaate.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let surfnet = Surfnet::builder()
+    .remote_rpc_url("https://api.mainnet-beta.solana.com")
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com"
+});
+```
+
+</CodeTabs>
+
+<Callout type="info" title="Käytä laadukasta ylävirran RPC:tä">
+  Käytä maksullista päätepistettä (Helius, Triton, QuickNode) testeissä, jotka
+  käyttävät useita haarautettuja tilejä. Julkinen `mainnet-beta` on voimakkaasti
+  nopeusrajoitettu ja epäluotettava rinnakkaisten testikuormien alla.
+</Callout>
+
+### Lohkontuotantotila
+
+| Tila                   | Milloin lohkot etenevät                                                                                                                                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Transaction` (oletus) | Jokaisen transaktion jälkeen. Parhaiten sopii testeille, jotka lähettävät ja tarkistavat välittömästi.                                                                 |
+| `Clock`                | Kiinteällä välillä, jonka määrittää `slot_time_ms`. Parhaiten sopii testeille, jotka edellyttävät useiden slot-jaksojen kulumista ilman eksplisiittisiä transaktioita. |
+| `Manual`               | Vain kun `SimnetCommand::AdvanceClock` lähetetään. Parhaiten sopii aikaherkille testeille, joissa testi ohjaa kelloa.                                                  |
+
+### Mukautettu maksaja
+
+Oletuksena maksaja on juuri luotu keypair. Anna oma keypair silloin, kun
+testeissä tarvitaan tunnettu osoite – esimerkiksi rakennettaessa etukäteen
+ohjeita, jotka viittaavat maksajan pubkey-avaimeen.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Keypair, Signer, Surfnet};
+
+let payer = Keypair::new();
+let surfnet = Surfnet::builder().payer(payer.insecure_clone()).start().await?;
+
+assert_eq!(surfnet.payer().pubkey(), payer.pubkey());
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const kp = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  payerSecretKey: kp.secretKey
+});
+
+console.assert(surfnet.payer === kp.publicKey);
+```
+
+</CodeTabs>
+
+### Ominaisuusportit
+
+Vaihda yksittäisiä SVM-ominaisuusportteja ID:n perusteella tai aktivoi kaikki
+tunnetut ominaisuudet `allFeatures: true`:lla (vain JS — Rust-rakentaja hyväksyy
+`feature_config` täyttä joukkoa varten).
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let feature_id: Pubkey = "9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"
+    .parse()
+    .unwrap();
+
+let surfnet = Surfnet::builder()
+    .enable_feature(feature_id)
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  enableFeatures: ["9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"],
+  disableFeatures: ["7Vced5VKEjQGc2GnQDfnNYf4ckEbz9b2gMRsZGYP6JeF"]
+});
+```
+
+</CodeTabs>
+
+### Ohita lohkotiivisteen tarkistus
+
+`skip_blockhash_check(true)` (vain Rust) poistaa lohkotiivisteen validoinnin
+käytöstä kaikissa transaktioissa. Hyödyllinen testeissä, jotka allekirjoittavat
+transaktiot kauan ennen lähettämistä tai joissa vanhenemisella ei ole
+merkitystä.
+
+## Virheet
+
+Väärin määritelty builder epäonnistuu kohdassa `start()`. Rust SDK palauttaa
+`SurfnetError`:
+
+| Variantti                | Milloin                                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------------------- |
+| `PortAllocation(String)` | Ei voitu sitoutua vapaaseen RPC- tai WebSocket-porttiin.                                        |
+| `Startup(String)`        | Ajonaikaisen ympäristön alustus epäonnistui (virheellinen määritys, virheellinen etä-URL jne.). |
+| `Runtime(String)`        | Ajonaikainen ympäristö kaatui käynnistyksen aikana ennen kuin se oli valmis.                    |
+| `Aborted(String)`        | Käynnistys peruutettiin (esim. sammutussignaali käynnistyksen aikana).                          |
+| `Cheatcode(String)`      | Builderin sisäinen cheatcode-kutsu epäonnistui.                                                 |
+
+JS SDK heittää `Error` -poikkeuksen, jonka viesti sisältää saman taustalla
+olevan variantin.

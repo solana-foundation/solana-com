@@ -1,0 +1,103 @@
+---
+title: Cross-Program Invocation
+description: Come testare programmi che chiamano altri programmi
+---
+
+## Test Completo
+
+```rust title="tests/cpi_test.rs"
+use litesvm::LiteSVM;
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+    system_program,
+};
+
+#[test]
+fn test_cross_program_invocation() {
+    let mut svm = LiteSVM::new();
+
+    // Deploy both programs
+    let caller_program = Pubkey::new_unique();
+    let callee_program = Pubkey::new_unique();
+
+    svm.add_program(
+        caller_program,
+        include_bytes!("../target/deploy/caller.so")
+    ).unwrap();
+
+    svm.add_program(
+        callee_program,
+        include_bytes!("../target/deploy/callee.so")
+    ).unwrap();
+
+    // Setup accounts
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+    // Create instruction that will trigger CPI
+    let instruction = Instruction {
+        program_id: caller_program,
+        accounts: vec![
+            AccountMeta::new(payer.pubkey(), true),
+            AccountMeta::new_readonly(callee_program, false),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+        data: vec![1], // Instruction to trigger CPI
+    };
+
+    let tx = Transaction::new_signed_with_payer(
+        &[instruction],
+        Some(&payer.pubkey()),
+        &[&payer],
+        svm.latest_blockhash(),
+    );
+
+    let result = svm.send_transaction(tx).unwrap();
+
+    // Verify both programs were invoked
+    assert!(result.logs.iter().any(|log|
+        log.contains(&format!("Program {} invoke", caller_program))
+    ));
+    assert!(result.logs.iter().any(|log|
+        log.contains(&format!("Program {} invoke", callee_program))
+    ));
+
+    println!("CPI successful!");
+    println!("Logs showing both programs:");
+    for log in &result.logs {
+        if log.contains("invoke") {
+            println!("   {}", log);
+        }
+    }
+}
+```
+
+## Punti Chiave
+
+1. **Programmi Multipli**: Distribuisci tutti i programmi coinvolti nella catena
+   CPI
+2. **ID Programma**: Passa l'ID del programma chiamato come account
+   nell'istruzione
+3. **System Program**: Spesso necessario per le operazioni CPI (trasferimenti,
+   creazione di account, ecc.)
+4. **Verifica dei Log**: Controlla i log per verificare che tutti i programmi
+   nella catena di chiamata siano stati eseguiti
+
+Per informazioni più dettagliate sulla distribuzione, leggi
+[questa sezione](/docs/tools/litesvm/testing-your-program/deploy).
+
+## Comprensione dei Log CPI
+
+Quando si verifica un CPI, vedrai log come:
+
+```
+Program A invoke [1]
+Program B invoke [2]
+Program B success
+Program A success
+```
+
+I numeri tra parentesi indicano la profondità della chiamata.

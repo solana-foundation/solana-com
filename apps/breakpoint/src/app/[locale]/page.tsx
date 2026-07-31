@@ -8,6 +8,7 @@ import WhyAttendSection from "@/components/sections/WhyAttendSection";
 import GallerySection from "@/components/sections/GallerySection";
 import StatsSection from "@/components/sections/StatsSection";
 import SponsorsSection from "@/components/sections/SponsorsSection";
+import EventsSection from "@/components/sections/EventsSection";
 import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
 import FAQSection from "@/components/sections/FAQSection";
@@ -47,6 +48,7 @@ export default async function HomePage({
       <GallerySection />
       <StatsSection />
       <Marquee />
+      <EventsSection />
       <HighlightsSection />
       <AnnouncementsSection />
       <FAQSection />

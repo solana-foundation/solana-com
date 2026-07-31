@@ -1,69 +1,103 @@
 ---
-title: "@solana/react-hooks"
-description: すぐに使えるフックでReactアプリ全体に@solana/clientの状態を共有します。
+title: React
+description:
+  Share a Kit client across your React app with @solana/react and the wallet
+  plugin hooks.
 ---
 
-`@solana/react-hooks`は、`@solana/client`の上にReactプロバイダー、フック、およびサスペンス対応のクエリヘルパーを重ねます。単一のクライアントを設定するだけで、フックはストアやサブスクリプションを手動で配線することなく、ウォレットの状態、残高、トランザクション、プログラムクエリを公開します。
+`@solana/react` は1つのプロバイダーを通じてコンポーネントツリーにKitクライアントを提供し、フックはそこからRPCデータ、サブスクリプション、ウォレットの状態を読み取ります。ブラウザウォレットフックは `@solana/kit-plugin-wallet/react` に含まれており、同じプロバイダーを読み取ります — 別途ウォレットプロバイダーは必要ありません。
 
 ## インストール
 
 ```terminal
-$ npm install @solana/client @solana/react-hooks
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-wallet @solana/react
 ```
 
-フックはクライアントランタイムを再利用してウォレット、RPC、キャッシュを管理するため、両方のパッケージが必要です。
+## クライアントのビルド
+
+クライアントはモジュールスコープで、Reactツリーの外側で一度だけビルドします。ブラウザでは、`walletSigner` が接続されたウォレットを手数料支払者かつアイデンティティとして設定します。
+
+```tsx title="client.ts"
+import { createClient } from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { walletSigner } from "@solana/kit-plugin-wallet";
+
+export const client = createClient()
+  .use(walletSigner({ chain: "solana:devnet" }))
+  .use(solanaRpc({ rpcUrl: "https://api.devnet.solana.com" }));
+
+export type AppClient = Awaited<typeof client>;
+```
+
+`walletSigner` は `client.wallet`（Wallet Standard の検出と接続）を追加し、`solanaRpc` は `client.rpc` と `client.sendTransaction` ヘルパーを追加します。後から非同期で解決するプラグインを追加した場合でも型が正しく保たれるよう、クライアント型を `Awaited<>` でラップしてエクスポートし、その `AppClient` をすべての `useClient` 呼び出しに渡してください。
 
 ## ツリーを一度ラップする
 
-クライアントを作成し、オプションでウォレットコネクタを選択してから、`SolanaProvider`でReactツリーをラップします。すべてのフックは共有クライアントインスタンスから読み取ります。
+`ClientProvider` がクライアントを提供します。データフック（`useRequest`、`useSubscription`、`useTrackedData`）は `useClient` を介してクライアントを読み取ります。以下のウォレットフックには、最初の引数として同じクライアントを明示的に渡す必要があります。
+
+```tsx title="providers.tsx"
+"use client";
+
+import { ClientProvider } from "@solana/react";
+import { client } from "./client";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <ClientProvider client={client}>{children}</ClientProvider>;
+}
+```
+
+## ウォレットフック
+
+ウォレットフックには、ウォレットプラグイン（例：`walletSigner`）がインストールされたクライアントが必要です。`useClient<AppClient>()` でクライアントを取得し、各フックの最初の引数として渡してください — これにより、コンテキストルックアップに依存せず、アプリ全体でエンドツーエンドの型安全性が保たれます。
+
+- `useWallets(client)` — クライアントのチェーンで検出された Wallet Standard ウォレット。
+- `useWalletStatus(client)` —
+  `"pending" | "disconnected" | "connecting" | "connected" | "disconnecting" | "reconnecting"`。
+- `useConnectedWallet(client)` — `{ account, signer, wallet }` または `null`。
+  読み取り専用ウォレットの場合、`signer` は `null` になります。
+- `useConnect(client)` / `useDisconnect(client)` — `ActionResult` を返します。その `dispatch`（および `dispatchAsync`）がアクションを実行し、`isRunning`、`status`、`data`、`error`、`reset` でその結果を追跡します。
 
 ```tsx
 "use client";
 
-import { autoDiscover, createClient } from "@solana/client";
-import { SolanaProvider } from "@solana/react-hooks";
+import {
+  useConnect,
+  useConnectedWallet,
+  useDisconnect,
+  useWallets,
+  useWalletStatus
+} from "@solana/kit-plugin-wallet/react";
+import { useClient } from "@solana/react";
+import type { AppClient } from "./client";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  return <SolanaProvider client={client}>{children}</SolanaProvider>;
-}
-```
-
-## フックはクライアントランタイムを反映
-
-- **ウォレット + コネクタ**:
-  `useWallet`、`useWalletConnection`、`useConnectWallet`、`useDisconnectWallet`は、クライアントを動かすのと同じレジストリを公開します。
-- **残高 + アカウントウォッチャー**:
-  `useBalance`、`useAccount`、`useSolBalance`、`useProgramAccounts`は、基盤となるウォッチャーから更新をストリーミングし、アクションとキャッシュを共有します。
-- **トランザクション + SPLヘルパー**:
-  `useSolTransfer`、`useSplToken`、`useTransactionPool`、`useSendTransaction`は、クライアントのヘルパースイートに依存しているため、フックはブロックハッシュの更新、手数料支払者の解決、ログ記録を継承します。
-
-```tsx
 function WalletPanel() {
-  const { connectors, connect, disconnect, wallet, status } =
-    useWalletConnection();
-  const balance = useBalance(wallet?.account.address);
+  const client = useClient<AppClient>();
+  const status = useWalletStatus(client);
+  const wallets = useWallets(client);
+  const connected = useConnectedWallet(client);
+  const connect = useConnect(client);
+  const disconnect = useDisconnect(client);
 
-  if (status === "connected") {
+  if (status === "pending") return null; // wait out auto-reconnect
+
+  if (connected) {
     return (
       <div>
-        <p>{wallet?.account.address.toString()}</p>
-        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
-        <button onClick={disconnect}>Disconnect</button>
+        <p>{connected.account.address}</p>
+        <button onClick={() => disconnect.dispatch()}>Disconnect</button>
       </div>
     );
   }
 
   return (
     <div>
-      {connectors.map((connector) => (
-        <button key={connector.id} onClick={() => connect(connector.id)}>
-          Connect {connector.name}
+      {wallets.map((wallet) => (
+        <button
+          key={wallet.name}
+          disabled={connect.isRunning}
+          onClick={() => connect.dispatch(wallet)}
+        >
+          Connect {wallet.name}
         </button>
       ))}
     </div>
@@ -71,110 +105,92 @@ function WalletPanel() {
 }
 ```
 
-## クエリ + キャッシングパターン
+## トランザクションの送信
 
-`SolanaQueryProvider`は、クライアントストアの上にReact
-Query互換のプリミティブを重ねることで、Solana固有のクエリがサスペンド、再フェッチ、プログラムサブスクリプションと同期できるようにします。
-
-```tsx
-import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
-
-function ProgramAccounts({ program }: { program: string }) {
-  const query = useProgramAccounts(program);
-
-  if (query.isLoading) return <p>Loading…</p>;
-  if (query.isError) return <p role="alert">RPC error</p>;
-
-  return (
-    <div>
-      <button onClick={() => query.refresh()}>Refresh</button>
-      <ul>
-        {query.accounts.map(({ pubkey }) => (
-          <li key={pubkey.toString()}>{pubkey.toString()}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export function ProgramAccountsSection({ program }: { program: string }) {
-  return (
-    <SolanaQueryProvider>
-      <ProgramAccounts program={program} />
-    </SolanaQueryProvider>
-  );
-}
-```
-
-## トランザクションフローを宣言的に
-
-フックは、クライアントと同じトランザクションヘルパーを公開しますが、読み込み状態とエラー状態を管理します。SOL転送、SPLトークンフロー、または任意の命令バッチに使用できます。
+`useClient` は公開したクライアントをそのまま返します。生成されたプログラムクライアントで instructions を構築し、`client.sendTransaction` を通じて送信します。
 
 ```tsx
-import { useSolTransfer } from "@solana/react-hooks";
+"use client";
 
-function SolTransferForm({ destination }: { destination: string }) {
-  const transfer = useSolTransfer();
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        void transfer.send({ destination, lamports: 100_000_000n });
-      }}
-    >
-      <button type="submit" disabled={transfer.isSending}>
-        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
-      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
-    </form>
-  );
-}
-```
-
-代わりに生のinstructionsが必要ですか？`useSendTransaction`は`instructions`とオプションの`prepare`オーバーライドを受け入れ、リクエストが完了したときに署名とステータスの追跡を提供します。
-
-```tsx
-import { useSendTransaction, useWallet } from "@solana/react-hooks";
-import { getTransferSolInstruction } from "@solana-program/system";
 import { address, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { useClient } from "@solana/react";
+import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
+import type { AppClient } from "./client";
 
-function CustomTransactionForm({ destination }: { destination: string }) {
-  const wallet = useWallet();
-  const { send, isSending, signature, error } = useSendTransaction();
+function SendSol({ destination }: { destination: string }) {
+  const client = useClient<AppClient>();
+  const connected = useConnectedWallet(client);
 
   async function handleSend() {
-    if (wallet.status !== "connected") return;
-
-    const instruction = getTransferSolInstruction({
-      source: wallet.session.account,
+    if (!connected?.signer) return;
+    const transfer = getTransferSolInstruction({
+      source: connected.signer,
       destination: address(destination),
-      amount: lamports(100_000_000n)
+      amount: lamports(10_000_000n) // 0.01 SOL
     });
-
-    await send({ instructions: [instruction] });
+    const result = await client.sendTransaction([transfer]);
+    console.log("sent", result.context.signature);
   }
 
   return (
+    <button disabled={!connected?.signer} onClick={handleSend}>
+      Send 0.01 SOL
+    </button>
+  );
+}
+```
+
+`useClient` にエクスポートした `AppClient` 型を渡すことで、フックはプラグインで拡張されたフルクライアントを取得し、`client.rpc` と `client.sendTransaction` が適切に型付けされます。
+
+## データの読み取り
+
+`@solana/react` にはクライアントを通じてデータを読み取るフックが含まれています：
+
+- `useRequest(source)` — 単発のRPC読み取り。`{ data, error, status, refresh }` を返します。
+- `useSubscription(source)` — ライブサブスクリプション。`{ data, error, reconnect, status }` を返します。
+- `useTrackedData(spec)` — サブスクリプションによって最新の状態に保たれる、RPCをシードとした値。
+
+```tsx
+"use client";
+
+import { address } from "@solana/kit";
+import { useClient, useRequest } from "@solana/react";
+import { useMemo } from "react";
+import type { AppClient } from "./client";
+
+function Balance({ owner }: { owner: string }) {
+  const client = useClient<AppClient>();
+  const source = useMemo(
+    () => client.rpc.getBalance(address(owner)),
+    [client, owner]
+  );
+  const { data, status, refresh } = useRequest(source);
+
+  if (status === "fetching") return <p>Loading…</p>;
+  if (status === "error") return <p role="alert">RPC error</p>;
+
+  return (
     <div>
-      <button onClick={handleSend} disabled={isSending}>
-        {isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {signature ? <p>Signature: {signature}</p> : null}
-      {error ? <p role="alert">{String(error)}</p> : null}
+      <p>Lamports: {data?.value.toString()}</p>
+      <button onClick={() => refresh()}>Refresh</button>
     </div>
   );
 }
 ```
 
+ソースを（`useMemo`、または関数の場合は `useCallback` で）メモ化することで、フックはすべてのレンダリング時ではなく、入力が変化したときのみ再フェッチします。
+
+キャッシュと再検証については、`@solana/react/swr` および `@solana/react/query` サブパスが、[SWR](https://swr.vercel.app) および [TanStack Query](https://tanstack.com/query) 向けに同じフックをラップしています。
+
 ## Solana開発者向けの一般的なパターン
 
-- **共有ランタイム、複数のアプリ**: クライアントを一度設定し（コアパッケージなどで）、ウェブ、モバイルウェブ、または埋め込まれたReactアイランドで使用します。
-- **UIファースト開発**: フックは最も一般的なSolanaのフロー（ウォレットの接続、残高の取得、SOLの送信、SPL残高の読み取り）を反映しているため、RPCの配管ではなくUXに集中できます。
-- **プログレッシブエンハンスメント**:
-  `@solana/client`でヘッドレスから始め、Reactステートとサスペンスフレンドリーなデータフェッチが必要な領域にフックを追加します。
-- **テスト**: フックの戻り値をモックするか、モックされたクライアントを`SolanaProvider`に渡して、ユニットテストでウォレット、RPCの成功、または失敗をシミュレートします。
-- **サーバーコンポーネント対応**: フックを呼び出すリーフコンポーネントのみを`"use client"`でマークします。それ以外はすべてサーバー上に留まり、フックを使用する子コンポーネントからハイドレートされたプロップスを受け取ることができます。
+- **プロバイダーは1つ**: `ClientProvider` が唯一必要なプロバイダーです。`useClient<AppClient>()` でクライアントを取得し、ウォレットフックに渡してください。
+- **サーバーコンポーネント対応**: フックを呼び出すリーフコンポーネントにのみ `"use client"` を付けてください。サーバーでの読み取りはウォレットなしのプレーンなKit RPCクライアントで行えます。
+- **テスト**: モック化したクライアントを `ClientProvider` 経由で提供することで、ウォレットやRPCレスポンスをシミュレートできます。
 
-このガイドを[@solana/clientの概要](/docs/frontend/client)と組み合わせて、各フックが構築されるランタイムを理解してください。
+<Callout type="warn" title="2つのフックファミリー、同じ名前">
+  `useSignIn` と `useSignMessage` は `@solana/react`（`UiWalletAccount` 引数を取る）と `@solana/kit-plugin-wallet/react`（代わりに `client` を取り、`ActionResult` を返す）の両方に存在します。上記のクライアントパターンでは `@solana/kit-plugin-wallet/react` バージョンを使用してください。古い `@solana/react` のウォレットフックは置き換えが進んでいます。
+</Callout>
+
+このガイドと [Kitクライアントの概要](/docs/frontend/client) を併せて参照し、各フックが読み取るクライアントについて理解を深めてください。
