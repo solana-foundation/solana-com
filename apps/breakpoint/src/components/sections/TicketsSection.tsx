@@ -35,6 +35,10 @@ type TicketCardProps = {
   priceAfterIncrease?: string;
 };
 
+type FeaturedTicketCardProps = TicketCardProps & {
+  initialNow: number;
+};
+
 function PriceCut({ value }: { value: string }) {
   return (
     <span className="relative inline-flex self-start">
@@ -105,11 +109,12 @@ function FeaturedTicketCard({
   description,
   heading,
   href,
+  initialNow,
   lumaEventId,
   originalPrice,
   price,
   priceAfterIncrease,
-}: TicketCardProps) {
+}: FeaturedTicketCardProps) {
   return (
     <TicketLink
       href={href}
@@ -130,6 +135,7 @@ function FeaturedTicketCard({
           {priceAfterIncrease ? (
             <GeneralAdmissionPrice
               currentPrice={price}
+              initialNow={initialNow}
               increasedPrice={priceAfterIncrease}
             />
           ) : (
@@ -188,7 +194,7 @@ function HorizontalTicketCard({
   );
 }
 
-export default function TicketsSection() {
+export default function TicketsSection({ initialNow }: { initialNow: number }) {
   const t = useTranslations("breakpoint");
   const variant = useVariant();
 
@@ -213,6 +219,7 @@ export default function TicketsSection() {
           )}
           <TicketPriceChangeCountdown
             className="self-center"
+            initialNow={initialNow}
             label={t("tickets.priceIncreaseCountdown")}
           />
         </div>
@@ -221,6 +228,7 @@ export default function TicketsSection() {
           <FeaturedTicketCard
             heading={t("tickets.categories.general.label")}
             description={t("tickets.categories.general.description")}
+            initialNow={initialNow}
             price={t("tickets.categories.general.price")}
             priceAfterIncrease={t(
               "tickets.categories.general.priceAfterIncrease",

@@ -5,8 +5,8 @@ import PageShell from "@/components/PageShell";
 import RegistrationTicketButton from "@/components/pages/registration/RegistrationTicketButton";
 import SubpageHero from "@/components/SubpageHero";
 import {
-  GeneralAdmissionPrice,
-  TicketPriceChangeCountdown,
+  LocalizedGeneralAdmissionPrice,
+  LocalizedTicketPriceChangeCountdown,
 } from "@/components/TicketPriceChange";
 import {
   DEVELOPER_APPLICATION_HREF,
@@ -88,7 +88,13 @@ function PriceCut({ value }: { value: string }) {
   );
 }
 
-function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
+function RegistrationTicketCard({
+  initialNow,
+  ticket,
+}: {
+  initialNow: number;
+  ticket: RegistrationTicket;
+}) {
   const isFeatured = ticket.tone === "featured";
   const isDisabled = ticket.tone === "disabled";
 
@@ -125,10 +131,7 @@ function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
         {ticket.originalPrice && <PriceCut value={ticket.originalPrice} />}
         <p className={`type-h2 ${isFeatured ? "text-black" : "text-white"}`}>
           {ticket.priceAfterIncrease ? (
-            <GeneralAdmissionPrice
-              currentPrice={ticket.price}
-              increasedPrice={ticket.priceAfterIncrease}
-            />
+            <LocalizedGeneralAdmissionPrice initialNow={initialNow} />
           ) : (
             ticket.price
           )}
@@ -144,17 +147,21 @@ function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
   );
 }
 
-function TicketsGrid() {
+function TicketsGrid({ initialNow }: { initialNow: number }) {
   return (
     <section className="bg-black pt-2xl md:pt-[120px]">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-xs md:px-8">
-        <TicketPriceChangeCountdown
+        <LocalizedTicketPriceChangeCountdown
           className="self-center"
-          label="Prices increase in"
+          initialNow={initialNow}
         />
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {tickets.map((ticket) => (
-            <RegistrationTicketCard key={ticket.title} ticket={ticket} />
+            <RegistrationTicketCard
+              key={ticket.title}
+              initialNow={initialNow}
+              ticket={ticket}
+            />
           ))}
         </div>
       </div>
@@ -206,6 +213,8 @@ function ExpectationsSection() {
 }
 
 export default function RegistrationPage() {
+  const initialNow = Date.now();
+
   return (
     <PageShell
       contentId="registration-content"
@@ -224,7 +233,7 @@ export default function RegistrationPage() {
         highlightClassName="text-green"
         highlights={REGISTRATION_MARQUEE_HIGHLIGHTS}
       />
-      <TicketsGrid />
+      <TicketsGrid initialNow={initialNow} />
       <ExpectationsSection />
       <Footer />
     </PageShell>

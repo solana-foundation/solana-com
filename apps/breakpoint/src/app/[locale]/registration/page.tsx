@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import RegistrationPage from "@/components/pages/registration/RegistrationPage";
 import { getPageMetadata } from "@/app/metadata";
 
+export const dynamic = "force-dynamic";
+
 const pageMetadata = {
   path: "/registration",
   title: "Registration",

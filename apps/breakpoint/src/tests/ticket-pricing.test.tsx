@@ -1,4 +1,5 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   GeneralAdmissionPrice,
@@ -49,8 +50,15 @@ describe("Breakpoint general admission price change", () => {
 
     render(
       <>
-        <GeneralAdmissionPrice currentPrice="$450" increasedPrice="$550" />
-        <TicketPriceChangeCountdown label="Prices increase in" />
+        <GeneralAdmissionPrice
+          currentPrice="$450"
+          initialNow={Date.now()}
+          increasedPrice="$550"
+        />
+        <TicketPriceChangeCountdown
+          initialNow={Date.now()}
+          label="Prices increase in"
+        />
       </>,
     );
 
@@ -65,5 +73,27 @@ describe("Breakpoint general admission price change", () => {
 
     expect(screen.getByText("$550")).toBeInTheDocument();
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+  });
+
+  it("renders the increased price in post-cutoff server HTML", () => {
+    const postCutoff = GENERAL_ADMISSION_PRICE_INCREASE_AT + 1;
+
+    expect(
+      renderToStaticMarkup(
+        <GeneralAdmissionPrice
+          currentPrice="$450"
+          initialNow={postCutoff}
+          increasedPrice="$550"
+        />,
+      ),
+    ).toContain("$550");
+    expect(
+      renderToStaticMarkup(
+        <TicketPriceChangeCountdown
+          initialNow={postCutoff}
+          label="Prices increase in"
+        />,
+      ),
+    ).toBe("");
   });
 });

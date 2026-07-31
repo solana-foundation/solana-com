@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import {
   GENERAL_ADMISSION_PRICE_INCREASE_AT,
   getTicketPriceCountdownParts,
@@ -9,16 +10,28 @@ import {
 
 type GeneralAdmissionPriceProps = {
   currentPrice: string;
+  initialNow: number;
   increasedPrice: string;
 };
 
 type TicketPriceChangeCountdownProps = {
   className?: string;
+  initialNow: number;
   label: string;
 };
 
-function usePriceChangeClock() {
-  const [now, setNow] = useState<number | null>(null);
+type LocalizedTicketPriceChangeCountdownProps = Omit<
+  TicketPriceChangeCountdownProps,
+  "label"
+>;
+
+type LocalizedGeneralAdmissionPriceProps = Pick<
+  GeneralAdmissionPriceProps,
+  "initialNow"
+>;
+
+function usePriceChangeClock(initialNow: number) {
+  const [now, setNow] = useState(initialNow);
 
   useEffect(() => {
     let intervalId: number | undefined;
@@ -72,24 +85,25 @@ function ClockIcon() {
 
 export function GeneralAdmissionPrice({
   currentPrice,
+  initialNow,
   increasedPrice,
 }: GeneralAdmissionPriceProps) {
-  const now = usePriceChangeClock();
-  const price =
-    now !== null && hasGeneralAdmissionPriceIncreased(now)
-      ? increasedPrice
-      : currentPrice;
+  const now = usePriceChangeClock(initialNow);
+  const price = hasGeneralAdmissionPriceIncreased(now)
+    ? increasedPrice
+    : currentPrice;
 
   return <>{price}</>;
 }
 
 export function TicketPriceChangeCountdown({
   className = "",
+  initialNow,
   label,
 }: TicketPriceChangeCountdownProps) {
-  const now = usePriceChangeClock();
+  const now = usePriceChangeClock(initialNow);
 
-  if (now === null || hasGeneralAdmissionPriceIncreased(now)) {
+  if (hasGeneralAdmissionPriceIncreased(now)) {
     return null;
   }
 
@@ -104,7 +118,7 @@ export function TicketPriceChangeCountdown({
   return (
     <div
       aria-label={`${label} ${countdown}`}
-      className={`type-caption inline-flex items-center gap-2 border border-stroke-secondary bg-neutral-800 px-3 py-3 text-white md:px-4 md:text-[length:var(--text-button)] md:font-normal md:leading-[var(--text-eyebrow--line-height)] md:tracking-[var(--text-eyebrow--letter-spacing)] ${className}`}
+      className={`type-caption inline-flex max-w-full flex-wrap items-center justify-center gap-2 border border-stroke-secondary bg-neutral-800 px-3 py-3 text-white md:px-4 md:text-[length:var(--text-button)] md:font-normal md:leading-[var(--text-eyebrow--line-height)] md:tracking-[var(--text-eyebrow--letter-spacing)] ${className}`}
       role="timer"
     >
       <ClockIcon />
@@ -113,5 +127,32 @@ export function TicketPriceChangeCountdown({
         {countdown}
       </span>
     </div>
+  );
+}
+
+export function LocalizedTicketPriceChangeCountdown(
+  props: LocalizedTicketPriceChangeCountdownProps,
+) {
+  const t = useTranslations("breakpoint");
+
+  return (
+    <TicketPriceChangeCountdown
+      {...props}
+      label={t("tickets.priceIncreaseCountdown")}
+    />
+  );
+}
+
+export function LocalizedGeneralAdmissionPrice({
+  initialNow,
+}: LocalizedGeneralAdmissionPriceProps) {
+  const t = useTranslations("breakpoint");
+
+  return (
+    <GeneralAdmissionPrice
+      currentPrice={t("tickets.categories.general.price")}
+      initialNow={initialNow}
+      increasedPrice={t("tickets.categories.general.priceAfterIncrease")}
+    />
   );
 }
