@@ -527,7 +527,7 @@ pub enum ExecuteMsg {
     Transfer { recipient: String, amount: Uint128 },
     Burn { amount: Uint128 },
 }</code></pre>
-      <pre><code class="language-rust">#[derive(WincodeEncode, WincodeDecode)]
+      <pre><code class="language-rust">#[derive(SchemaWrite, SchemaRead)]
 pub enum CounterInstruction {
     Initialize { start_value: i64 },
     Increment,
