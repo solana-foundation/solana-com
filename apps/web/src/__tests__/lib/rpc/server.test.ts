@@ -309,6 +309,12 @@ describe("RPC latency cache identity", () => {
       getRpcLatencyCacheKey(config, options),
     );
   });
+
+  it("scopes cached data to the FluxRPC provider allowlist", () => {
+    expect(getRpcLatencyCacheKey(config, {})).toContain(
+      "|alchemy,fluxrpc,helius,quicknode,triton|",
+    );
+  });
 });
 
 describe("RPC Prometheus queries", () => {
