@@ -214,13 +214,8 @@ for entry in unbonding:
         <li>Pause relayers before the halt so no new packets enter the queue.</li>
         <li>Drain or timeout in-flight packets intentionally.</li>
         <li>Notify counterparty chains and relayer operators with real dates, not vague warnings.</li>
-        <li>If you can cleanly close routes through governance, do it before the halt.</li>
       </ul>
-      <pre><code class="language-bash">chaind tx ibc channel close-init \
-  --port-id transfer \
-  --channel-id channel-0 \
-  --from gov_addr \
-  --chain-id your-chain-id</code></pre>
+      <p>Transfer (ICS-20) channels cannot be force-closed with <code>close-init</code> — the transfer module rejects user-initiated closes. Wind them down by pausing relayers and letting in-flight packets time out, then coordinate counterparties on the halt date.</p>
       <h3>Validator offboarding</h3>
       <ul>
         <li>Ask validators to archive their final node state and signing-state files.</li>
