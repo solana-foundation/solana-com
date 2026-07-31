@@ -1,0 +1,99 @@
+---
+title: Cross-Program Invocation
+description: 如何测试调用其他程序的程序
+---
+
+## 完整测试
+
+```rust title="tests/cpi_test.rs"
+use litesvm::LiteSVM;
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+    system_program,
+};
+
+#[test]
+fn test_cross_program_invocation() {
+    let mut svm = LiteSVM::new();
+
+    // Deploy both programs
+    let caller_program = Pubkey::new_unique();
+    let callee_program = Pubkey::new_unique();
+
+    svm.add_program(
+        caller_program,
+        include_bytes!("../target/deploy/caller.so")
+    ).unwrap();
+
+    svm.add_program(
+        callee_program,
+        include_bytes!("../target/deploy/callee.so")
+    ).unwrap();
+
+    // Setup accounts
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+    // Create instruction that will trigger CPI
+    let instruction = Instruction {
+        program_id: caller_program,
+        accounts: vec![
+            AccountMeta::new(payer.pubkey(), true),
+            AccountMeta::new_readonly(callee_program, false),
+            AccountMeta::new_readonly(system_program::id(), false),
+        ],
+        data: vec![1], // Instruction to trigger CPI
+    };
+
+    let tx = Transaction::new_signed_with_payer(
+        &[instruction],
+        Some(&payer.pubkey()),
+        &[&payer],
+        svm.latest_blockhash(),
+    );
+
+    let result = svm.send_transaction(tx).unwrap();
+
+    // Verify both programs were invoked
+    assert!(result.logs.iter().any(|log|
+        log.contains(&format!("Program {} invoke", caller_program))
+    ));
+    assert!(result.logs.iter().any(|log|
+        log.contains(&format!("Program {} invoke", callee_program))
+    ));
+
+    println!("CPI successful!");
+    println!("Logs showing both programs:");
+    for log in &result.logs {
+        if log.contains("invoke") {
+            println!("   {}", log);
+        }
+    }
+}
+```
+
+## 关键要点
+
+1. **多程序**：部署 CPI 调用链中涉及的所有程序
+2. **程序 ID**：在指令中将被调用程序的 ID 作为账户传入
+3. **System Program**：CPI 操作（转账、创建账户等）通常需要用到
+4. **日志验证**：检查日志以确认调用链中的所有程序均已执行
+
+有关更详细的部署信息，请阅读
+[此章节](/docs/tools/litesvm/testing-your-program/deploy)。
+
+## 理解 CPI 日志
+
+当 Cross Program Invocation 发生时，您将看到如下日志：
+
+```
+Program A invoke [1]
+Program B invoke [2]
+Program B success
+Program A success
+```
+
+括号中的数字表示调用深度。

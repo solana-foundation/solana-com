@@ -1,0 +1,279 @@
+---
+title: Pikaopas
+description:
+  Opi käyttämään anchor-litesvm-kirjastoa Anchor-ohjelmien testaamiseen
+  yksinkertaistetulla syntaksilla
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/anchor-litesvm"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    Näytä <code>anchor-litesvm</code> crates.io-palvelussa
+  </a>
+</div>
+
+## Asennus
+
+Lisää tarvittavat riippuvuudet:
+
+```bash
+cargo add --dev anchor-litesvm litesvm litesvm-utils
+```
+
+## Mikä on anchor-litesvm?
+
+`anchor-litesvm`-kirjasto tarjoaa **anchor-clientiin verrattavan
+yksinkertaistetun syntaksin** ilman RPC-kuormitusta. Se saavuttaa **78 %
+koodinvähennyksen** verrattuna raakaan LiteSVM:ään säilyttäen samalla
+tyyppiturvallisuuden Anchor-tyyppien avulla.
+
+<Steps>
+<Step>
+**AnchorContext**
+- Tuotantoyhteensopiva testikonteksti
+- Samat API-mallit kuin anchor-clientissa
+- Hallitsee LiteSVM-instanssia, maksajaa ja ohjelmaa
+- Suorita ohjeita ilman RPC-kuormitusta
+</Step>
+
+<Step>
+  **Ohjelma-API** – Sujuva ohjeiden rakentaminen – Tyyppiturvalliset tilit ja
+  argumenttien käsittely – Tuttu anchor-client-syntaksi
+</Step>
+
+<Step>
+  **Tilin deserialisointi** – Hae ja deserialisoi Anchor-tilit – Automaattinen
+  erottimen käsittely – Tuki PDA:ille ja mukautetuille asetteluille
+</Step>
+
+<Step>
+**Tapahtumien jäsentäminen**
+- Jäsennä tapahtumia transaktiolgeista
+- Vahvista tapahtuman lähettäminen
+- Tyyppiturvalliset tapahtumadeserialisoinnit
+</Step>
+</Steps>
+
+## Pikaesimerkki
+
+Anchor 1.0:n kanssa käytä `declare_program!`-makroa luodaksesi asiakastyypit
+ohjelmasi IDL:stä. Tämä makro luo `client::accounts::*`- ja
+`client::args::*`-moduulit tyyppiturvallisuutta varten ohjeiden rakentamisessa:
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_litesvm::{AssertionHelpers, TestHelpers};
+use anchor_lang::system_program;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+// Generate client types from your program's IDL
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_anchor_program() {
+    // One-line setup — reads program keypair for the correct ID
+    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        program_keypair.pubkey(),
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    // Create a funded account via TestHelpers on ctx.svm
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // Derive PDA
+    let seed: u64 = 42;
+    let pda = ctx.svm.get_pda(
+        &[b"user", user.pubkey().as_ref(), &seed.to_le_bytes()],
+        &program_keypair.pubkey(),
+    );
+
+    // Build instruction using generated client types
+    let ix = ctx.program()
+        .accounts(my_program::client::accounts::Initialize {
+            user: user.pubkey(),
+            user_account: pda,
+            system_program: system_program::ID,
+        })
+        .args(my_program::client::args::Initialize {
+            seed,
+            name: "test".to_string(),
+        })
+        .instruction()
+        .unwrap();
+
+    // Execute and assert in one chain
+    ctx.execute_instruction(ix, &[&user])
+        .unwrap()
+        .assert_success();
+
+    // Fetch and deserialize the account
+    let account: my_program::MyAccount = ctx.get_account(&pda).unwrap();
+    assert_eq!(account.name, "test");
+}
+```
+
+<Callout type="info">
+  `declare_program!(my_program)` lukee IDL:n kohteesta
+  `target/idl/my_program.json` käännösaikana ja luo `client::accounts::*`- ja
+  `client::args::*`-moduulit. Tämä edellyttää ohjelman rakentamista ensin.
+</Callout>
+
+## Vertailu: Raw LiteSVM vs anchor-litesvm
+
+### Ennen (Raw LiteSVM)
+
+```rust
+use litesvm::LiteSVM;
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_message::Message;
+use solana_transaction::Transaction;
+
+let mut svm = LiteSVM::new();
+svm.add_program(program_id, program_bytes).unwrap();
+
+let payer = Keypair::new();
+svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+// Manually compute 8-byte discriminator
+let discriminator = {
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(b"global:initialize");
+    let result = hasher.finalize();
+    result[..8].to_vec()
+};
+
+// Manually serialize args and build instruction
+let mut data = discriminator;
+data.extend_from_slice(&borsh::to_vec(&args).unwrap());
+
+let accounts = vec![
+    AccountMeta::new(user.pubkey(), true),
+    AccountMeta::new(user_pda, false),
+    AccountMeta::new_readonly(system_program::id(), false),
+];
+
+let ix = Instruction::new_with_bytes(program_id, &data, accounts);
+let tx = Transaction::new_signed_with_payer(
+    &[ix],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+svm.send_transaction(tx).unwrap();
+
+// Manually deserialize with discriminator skip
+let account_data = svm.get_account(&pda).unwrap().data;
+let account: UserAccount = UserAccount::try_deserialize(
+    &mut &account_data[8..]
+).unwrap();
+```
+
+### Jälkeen (anchor-litesvm)
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+
+anchor_lang::declare_program!(my_program);
+
+let mut ctx = AnchorLiteSVM::build_with_program(program_id, program_bytes);
+let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+let ix = ctx.program()
+    .accounts(my_program::client::accounts::Initialize {
+        user: user.pubkey(),
+        user_account: user_pda,
+        system_program: anchor_lang::system_program::ID,
+    })
+    .args(my_program::client::args::Initialize { name: "test".to_string() })
+    .instruction()
+    .unwrap();
+
+ctx.execute_instruction(ix, &[&user]).unwrap().assert_success();
+
+let account: my_program::UserAccount = ctx.get_account(&user_pda).unwrap();
+```
+
+## Keskeiset komponentit
+
+### AnchorLiteSVM Builder
+
+| Metodi                          | Kuvaus                               |
+| ------------------------------- | ------------------------------------ |
+| `new()`                         | Luo uuden builder-instanssin         |
+| `with_payer(keypair)`           | Asettaa mukautetun maksajan keypair  |
+| `deploy_program(id, bytes)`     | Lisää ohjelman käyttöönotettavaksi   |
+| `build()`                       | Rakentaa AnchorContext-olion         |
+| `build_with_program(id, bytes)` | Kätevä yksittäisen ohjelman käyttöön |
+| `build_with_programs(programs)` | Ottaa käyttöön useita ohjelmia       |
+
+### AnchorContext
+
+| Metodi                               | Kuvaus                                                              |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| `svm`                                | Suora pääsy pohjana olevaan `LiteSVM`-instanssiin (julkinen kenttä) |
+| `program_id`                         | Ohjelman tunnus (julkinen kenttä)                                   |
+| `program()`                          | Palauttaa `Program`-olion ohjeiden rakentamista varten              |
+| `payer()`                            | Hakee maksajan keypair                                              |
+| `execute_instruction(ix, signers)`   | Suorittaa yksittäisen ohjeen                                        |
+| `execute_instructions(ixs, signers)` | Suorittaa useita ohjeita yhdessä transaktiossa                      |
+| `send_and_confirm_transaction(&tx)`  | Lähettää raakatapahtuman                                            |
+| `get_account<T>(pubkey)`             | Hakee ja deseralisoi Anchor-tilin                                   |
+| `get_account_unchecked<T>(pubkey)`   | Hakee ilman erotinmerkin tarkistusta                                |
+| `create_funded_account(lamports)`    | Luo ja rahoittaa uuden keypair-avaimen                              |
+| `airdrop(pubkey, lamports)`          | Pudottaa SOL-varoja osoitteeseen                                    |
+| `latest_blockhash()`                 | Hakee nykyisen lohkohashin                                          |
+| `account_exists(pubkey)`             | Tarkistaa, onko tili olemassa                                       |
+| `deploy_program(id, bytes)`          | Ottaa käyttöön lisäohjelman (kautta `ProgramTestExt`)               |
+
+### Program
+
+| Metodi               | Kuvaus                                                            |
+| -------------------- | ----------------------------------------------------------------- |
+| `accounts(accounts)` | Asettaa ohjeen tilit (mikä tahansa `ToAccountMetas`-tyyppi)       |
+| `args(args)`         | Asettaa ohjeen argumentit (mikä tahansa `InstructionData`-tyyppi) |
+| `instruction()`      | Rakentaa lopullisen `Instruction`-olion                           |
+| `id()`               | Hakee ohjelman tunnuksen                                          |
+
+### ctx.svm — TestHelpers & AssertionHelpers
+
+`ctx.svm` on julkinen `LiteSVM`-kenttä, jossa `TestHelpers`- ja
+`AssertionHelpers`-piirteet ovat käytettävissä `litesvm-utils`:n kautta:
+
+| Metodi                                                    | Kuvaus                          |
+| --------------------------------------------------------- | ------------------------------- |
+| `ctx.svm.create_funded_account(lamports)`                 | Luo ja rahoita keypair          |
+| `ctx.svm.create_token_mint(authority, decimals)`          | Luo SPL-tokenin mint            |
+| `ctx.svm.create_associated_token_account(mint, owner)`    | Luo ATA                         |
+| `ctx.svm.mint_to(mint, token_account, authority, amount)` | Mintaa tokeneita                |
+| `ctx.svm.get_pda(seeds, program_id)`                      | Johda PDA-osoite                |
+| `ctx.svm.get_pda_with_bump(seeds, program_id)`            | Johda PDA bump seed:llä         |
+| `ctx.svm.assert_token_balance(token_account, expected)`   | Tarkista token-saldo            |
+| `ctx.svm.assert_account_closed(pubkey)`                   | Tarkista, että tili on suljettu |
+| `ctx.svm.assert_sol_balance(pubkey, expected)`            | Tarkista SOL-saldo              |
+
+## Vianmääritys
+
+### Yleiset virheet
+
+| Virhe                   | Syy                                           | Ratkaisu                                                                           |
+| ----------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `AccountNotFound`       | Tiliä ei ole olemassa                         | Varmista, että tili on luotu ennen hakua                                           |
+| `DiscriminatorMismatch` | Väärä tilityyppi                              | Tarkista, että käytät oikeaa tilirakennetta                                        |
+| `DeserializationError`  | Virheelliset titilitiedot                     | Tarkista, että tili on alustettu oikein                                            |
+| No programs added       | Kutsuttiin `build()` ilman `deploy_program()` | Lisää vähintään yksi ohjelma ennen koontia                                         |
+| Missing client types    | `declare_program!` ei kutsuttu                | Suorita ensin `anchor build` IDL:n generoimiseksi, sitten kutsu `declare_program!` |

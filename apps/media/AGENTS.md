@@ -8,7 +8,7 @@ media-specific APIs.
 - Workspace: `apps/media`
 - Package: `solana-com-media`
 - Default dev port: `3002`
-- Public route ownership: `/news`, `/podcasts`, `/keystatic`
+- Public route ownership: `/news`, `/changelog`, `/podcasts`, `/keystatic`
 
 ## First Files To Open
 

@@ -1,0 +1,252 @@
+---
+title: 설정
+description: Go에서 LiteSVM을 구성하는 세터 메서드
+---
+
+각 세터는 Rust `LiteSVM` 타입의 해당 빌더 메서드를 그대로 반영합니다.
+호출은 즉시 적용되며 `error`를 반환합니다.
+
+## 일반적인 테스트 설정
+
+```go
+svm, err := litesvm.New()
+if err != nil {
+    t.Fatal(err)
+}
+defer svm.Close()
+
+// Each setter returns an error. The calls below are infallible in practice,
+// so the docs use _ = ... for brevity; check the error in production code.
+_ = svm.SetSigverify(false)        // skip signature verification (faster)
+_ = svm.SetBlockhashCheck(false)   // skip blockhash validation (simpler)
+_ = svm.SetSysvars()               // reset Clock, Rent, etc. to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetTransactionHistory(100) // keep the last 100 transactions
+```
+
+## 서명 및 블록해시
+
+### SetSigverify
+
+```go
+func (s *LiteSVM) SetSigverify(enabled bool) error
+```
+
+트랜잭션 서명 검증을 토글합니다.
+
+```go
+if err := svm.SetSigverify(false); err != nil { // accept unsigned / badly-signed txs
+    t.Fatal(err)
+}
+if err := svm.SetSigverify(true); err != nil {  // restore production-like behavior
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  서명 검증을 비활성화하면 테스트 속도는 빨라지지만 실제 환경과의 유사성은 낮아집니다.
+</Callout>
+
+### Sigverify
+
+```go
+func (s *LiteSVM) Sigverify() (bool, error)
+```
+
+현재 설정값을 읽습니다.
+
+### SetBlockhashCheck
+
+```go
+func (s *LiteSVM) SetBlockhashCheck(enabled bool) error
+```
+
+제출된 트랜잭션의 최근 블록해시 검사를 토글합니다.
+
+```go
+if err := svm.SetBlockhashCheck(false); err != nil { // accept any blockhash
+    t.Fatal(err)
+}
+```
+
+## 프로그램 및 Sysvar
+
+### SetSysvars
+
+```go
+func (s *LiteSVM) SetSysvars() error
+```
+
+내장 sysvar(Clock, Rent, EpochSchedule 등)을 기본값으로 재초기화합니다.
+
+### SetBuiltins
+
+```go
+func (s *LiteSVM) SetBuiltins() error
+```
+
+기본 내장 프로그램 세트를 로드합니다.
+
+### SetDefaultPrograms
+
+```go
+func (s *LiteSVM) SetDefaultPrograms() error
+```
+
+표준 SPL 프로그램(System Program, SPL Token, Memo 등)을 로드합니다.
+
+### SetPrecompiles
+
+```go
+func (s *LiteSVM) SetPrecompiles() error
+```
+
+ed25519 / secp256k1 사전 컴파일 프로그램을 활성화합니다.
+
+### WithNativeMints
+
+```go
+func (s *LiteSVM) WithNativeMints() error
+```
+
+SPL Token / Token-2022 네이티브 민트 계정(래핑된 SOL)을 seed합니다. 해당 프로그램이 로드되지 않은 경우 아무 작업도 수행하지 않습니다. 둘 다 원하는 경우 먼저 `SetDefaultPrograms`를 호출하세요.
+
+## 리소스 제한
+
+### SetLamports
+
+```go
+func (s *LiteSVM) SetLamports(lamports uint64) error
+```
+
+내부 에어드롭 풀 계정의 기본 lamport 잔액을 설정합니다.
+
+```go
+if err := svm.SetLamports(1 << 40); err != nil { // ~1.1 trillion lamports (~1,100 SOL)
+    t.Fatal(err)
+}
+```
+
+### SetLogBytesLimit
+
+```go
+func (s *LiteSVM) SetLogBytesLimit(limit int) error
+```
+
+트랜잭션당 캡처되는 총 로그 바이트 수를 제한합니다. 제한을 제거하려면 음수 값을 전달하세요.
+
+```go
+if err := svm.SetLogBytesLimit(10_000); err != nil { // 10 KB cap
+    t.Fatal(err)
+}
+if err := svm.SetLogBytesLimit(-1); err != nil {     // unlimited
+    t.Fatal(err)
+}
+```
+
+### SetTransactionHistory
+
+```go
+func (s *LiteSVM) SetTransactionHistory(capacity int) error
+```
+
+인메모리 트랜잭션 히스토리의 용량을 설정합니다. 중복 제거를 비활성화하고 동일한 트랜잭션을 재실행할 수 있도록 하려면 `0`을 전달하세요.
+
+```go
+if err := svm.SetTransactionHistory(100); err != nil { // cap at 100 entries
+    t.Fatal(err)
+}
+if err := svm.SetTransactionHistory(0); err != nil {   // disable dedup entirely
+    t.Fatal(err)
+}
+```
+
+## 컴퓨트 버짓
+
+```go
+type ComputeBudget struct {
+    // See litesvm-go/litesvm.go for the full field list.
+    // usize fields are normalized to uint64; HeapSize stays uint32.
+    ComputeUnitLimit uint64
+    HeapSize         uint32
+    // ...
+}
+```
+
+### ComputeBudget
+
+```go
+func (s *LiteSVM) ComputeBudget() (ComputeBudget, bool, error)
+```
+
+현재 컴퓨트 버짓을 읽습니다. 두 번째 반환값은 버짓이 명시적으로 설정되었는지 여부를 나타냅니다. `false`인 경우 구조체에는 사용될 기본값이 포함됩니다.
+
+```go
+budget, set, err := svm.ComputeBudget()
+if err != nil {
+    t.Fatal(err)
+}
+if !set {
+    budget.ComputeUnitLimit = 1_400_000
+}
+if err := svm.SetComputeBudget(budget); err != nil {
+    t.Fatal(err)
+}
+```
+
+### SetComputeBudget
+
+```go
+func (s *LiteSVM) SetComputeBudget(b ComputeBudget) error
+```
+
+이후 트랜잭션에 적용할 컴퓨트 버짓을 설정합니다.
+
+## 피처 세트
+
+`FeatureSet`은 불투명한 핸들입니다. 핸들을 생성하고 `Activate` / `Deactivate`로 변경한 후 `SetFeatureSet`으로 설치하세요. 생성한 핸들은 반드시 닫으세요.
+
+```go
+// Start with all features off, then activate what you care about.
+fs, err := litesvm.NewFeatureSet()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs.Close()
+if err := fs.Activate(featureID, 0); err != nil {
+    t.Fatal(err)
+}
+
+// Or start from "everything enabled" and flip specific features off.
+fs2, err := litesvm.NewFeatureSetAllEnabled()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs2.Close()
+if err := fs2.Deactivate(featureID); err != nil {
+    t.Fatal(err)
+}
+
+if err := svm.SetFeatureSet(fs); err != nil {
+    t.Fatal(err)
+}
+```
+
+| 메서드                                                   | 설명                       |
+| -------------------------------------------------------- | --------------------------------- |
+| `litesvm.NewFeatureSet() (*FeatureSet, error)`           | 빈 세트 (모든 피처 비활성화) |
+| `litesvm.NewFeatureSetAllEnabled() (*FeatureSet, error)` | 모든 피처 활성화               |
+| `fs.Activate(featureID, slot) error`                     | 해당 slot에서 피처를 활성 상태로 표시       |
+| `fs.Deactivate(featureID) error`                         | 피처를 비활성 상태로 표시             |
+| `fs.IsActive(featureID) bool`                            | 활성 여부 확인                      |
+| `fs.ActivatedSlot(featureID) (uint64, bool)`             | 피처가 활성화된 slot   |
+| `fs.ActiveCount() int`                                   | 활성 피처 수              |
+| `fs.InactiveCount() int`                                 | 비활성 피처 수            |
+| `fs.ActiveFeatures() []solana.PublicKey`                 | 활성 피처 ID 목록           |
+| `fs.InactiveFeatures() []solana.PublicKey`               | 비활성 피처 ID 목록         |
+| `fs.Close()`                                             | 핸들 해제                |
+| `svm.SetFeatureSet(*FeatureSet) error`                   | SVM에 설치                |
+
+<Callout type="info">
+  피처 게이팅을 사용하여 특정 Solana 버전에서 프로그램이 어떻게 동작하는지 테스트하세요. 목표로 하는 릴리스에 포함된 피처를 활성화하고, 이후에 추가된 피처는 비활성화하세요.
+</Callout>

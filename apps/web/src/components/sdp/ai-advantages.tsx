@@ -52,9 +52,9 @@ function useTypingAnimation(texts: string[], isEnabled: boolean) {
 }
 
 const visualSrc1 = "/src/img/solutions/sdp/ai-advantages-visual-1.svg";
-const visualBgSrc1 = "/src/img/solutions/sdp/ai-advantages-visual-bg-1.jpg";
+const visualBgSrc1 = "/src/img/solutions/sdp/ai-advantages-visual-bg-1.webp";
 const visualSrc2 = "/src/img/solutions/sdp/ai-advantages-visual-2.svg";
-const visualBgSrc2 = "/src/img/solutions/sdp/ai-advantages-visual-bg-2.jpg";
+const visualBgSrc2 = "/src/img/solutions/sdp/ai-advantages-visual-bg-2.webp";
 
 const Checkmark = ({ className }: { className?: string }) => (
   <svg

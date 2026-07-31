@@ -1,0 +1,144 @@
+---
+title: 에이전트 결제
+description:
+  x402 프로토콜을 사용하여 AI 에이전트가 서비스, API 및 리소스에 대한 비용을
+  자율적으로 지불할 수 있도록 합니다.
+---
+
+AI 에이전트는 코드 작성, 데이터 가져오기, 리소스 프로비저닝 등 워크플로우에서
+점점 더 자율적으로 작동하고 있습니다. 완전히 독립적으로 작동하려면 프로그래밍
+방식으로 실시간으로 최소 비용으로 서비스에 대한 "소액 결제"를 수행할 수 있는
+방법이 필요합니다. 기존 결제 시스템은 소액 결제에 적합하지 않습니다. Solana의
+1센트 미만 수수료와 1초 미만의 최종성은 이를 기술적으로나 경제적으로 실현
+가능하게 만듭니다.
+
+## 왜 중요한가요?
+
+예를 들어, 애플리케이션을 구축하기 위해 LLM을 사용하는 개발자가 유료 API의
+데이터가 필요하다고 가정해 보겠습니다. 중요한 데이터를 가져오려면 개발자는
+워크플로우를 중단하고, API를 조사하고, 제공업체를 선택하고, 계정을 만들고, 결제
+수단을 추가하고, API 키를 생성하고, 키를 환경에 복사한 다음 워크플로우를
+재개해야 합니다. 이러한 마찰은 몰입 상태를 깨뜨립니다. AI 지원 워크플로우의 경우
+이는 장애물입니다.
+
+대신 에이전트 결제를 사용하면 에이전트가 요청하고, 비용을 지불하고, 워크플로우를
+계속할 수 있습니다. 계정도 필요 없고, API 키도 필요 없으며, 수동 개입도 필요
+없습니다.
+
+### pay.sh로 API 결제하기
+
+[pay.sh](https://pay.sh)는 HTTP 에이전트와 커맨드라인 도구를 위한 결제
+레이어입니다. `pay` 설치 방법은 [pay.sh 문서](https://pay.sh/docs)를 참조하세요.
+`pay` CLI는 `curl`, `codex`, `claude`와 같은 도구를 래핑하여 제공자 계정이나 API
+키 없이도 유료 API를 호출할 수 있게 합니다. API가 MPP 또는 x402
+`402 Payment Required` 챌린지를 반환하면, `pay`가 로컬 지갑에 서명 승인을
+요청합니다.
+
+Pay를 설치하려면 다음을 사용하세요:
+
+```bash
+brew install pay
+```
+
+또는
+
+```bash
+npm install -g @solana/pay
+```
+
+다음 명령어로 설치를 확인하세요:
+
+```bash
+pay --version
+```
+
+툴체인이 자동으로 주소를 설정해 드립니다. 다음 명령어를 실행하여 지갑을 설정하고
+잔액을 충전하세요:
+
+```bash
+pay setup
+```
+
+## x402 프로토콜
+
+에이전트 결제는 기존 웹 인터페이스를 방해하지 않으면서 표준 웹 인프라를 통해
+클라이언트와 서버가 결제 조건을 협상할 수 있는 방법이 필요합니다. 소액 결제
+분야는 아직 초기 단계이며, 생태계가 발전함에 따라 새로운 도구와 표준이 등장할
+것으로 예상됩니다. 하지만 [x402 프로토콜](https://www.x402.org/)은 강력한 생태계
+지원을 바탕으로 초기 표준으로 자리 잡았습니다. x402는
+[HTTP의 402 "Payment Required"](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/402)
+상태 코드를 사용하며, 이는 HTTP/1.1부터 표준으로 존재했지만 블록체인 결제 정산이
+가능해지면서 비로소 실용적으로 활용되기 시작했습니다.
+
+### 작동 방식
+
+클라이언트가 요청을 보내면 결제 조건이 담긴 402 응답을 받고, 서명된 결제 정보와
+함께 요청을 재시도합니다. 서버는 검증과 정산을 퍼실리테이터(선택적 중개자)에게
+위임하며, 퍼실리테이터는 온체인 트랜잭션 제출을 처리합니다. 퍼실리테이터가
+정산을 확인하면 서버는 요청된 콘텐츠를 반환합니다. 이러한 분리 구조 덕분에 API
+제공자는 온체인 인프라를 직접 관리하지 않고도 결제를 수락할 수 있습니다.
+
+![x402 흐름 다이어그램](/assets/guides/x402/x402-flow-solana.png)
+
+이 프로토콜은 상태를 저장하지 않으며(세션이나 API 키 불필요), 표준 HTTP 인프라와
+호환되고, 서버가 허용하는 모든 SPL 토큰을 지원합니다. x402 미들웨어를 사용하여
+Express 서버를 설정하는 방법의 예시 코드는 다음과 같습니다:
+
+```ts
+app.use(
+  paymentMiddleware(
+    {
+      "GET /costly-data": {
+        accepts: [
+          {
+            scheme: "exact",
+            price: "$0.001",
+            network: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+            payTo: svmAddress
+          }
+        ],
+        description: "Costly data",
+        mimeType: "application/json"
+      }
+    },
+    new x402ResourceServer(facilitatorClient).register(
+      "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      new ExactSvmScheme()
+    )
+  )
+);
+
+app.get("/costly-data", (req, res) => {
+  res.send({
+    report: {
+      data: "costly data"
+    }
+  });
+});
+```
+
+x402에 대해 더 자세히 알아보려면 다음 가이드를 참조하세요:
+
+<Cards>
+  <Card
+    title="x402 소개"
+    href="/docs/payments/agentic-payments/intro-to-x402"
+    description="결제 지원 API 구축을 위한 프로토콜 기초 및 SDK 옵션."
+  />
+  <Card
+    title="Kora로 빌드하기"
+    href="/docs/payments/agentic-payments/x402-facilitator"
+    description="Kora의 서명 인프라를 활용한 가스비 없는 x402 결제 구현."
+  />
+</Cards>
+
+### x402 툴링
+
+| SDK                                                             | 설명                          |
+| --------------------------------------------------------------- | ----------------------------- |
+| [Corbits](https://corbits.dev/)                                 | Solana 우선 x402 구현체       |
+| [MCPay.tech](https://mcpay.tech/)                               | MCP 서버용 요청당 결제        |
+| [PayAI](https://payai.network/)                                 | Solana 지원 x402 퍼실리테이터 |
+| [x402 GitHub](https://github.com/coinbase/x402)                 | 레퍼런스 구현체               |
+| [ACK](https://github.com/agentcommercekit/ack)                  | 에이전트 커머스 킷            |
+| [A2A x402](https://github.com/google-agentic-commerce/a2a-x402) | Google의 에이전트 간 결제     |

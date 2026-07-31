@@ -1,16 +1,20 @@
 # `@workspace/ecosystem-data`
 
-Shared ecosystem company data and logo assets for the monorepo.
+Shared ecosystem company data, wallet directory data, and logo assets for the
+monorepo.
 
 ## Purpose
 
-This package stores company information as atomic records and lets apps compose
-those records into event sponsors or other ecosystem listings.
+This package stores company and wallet information as atomic records and lets
+apps compose those records into event sponsors, wallet directories, or other
+ecosystem listings.
 
 The package owns:
 
 - canonical company records
+- canonical wallet records and wallet filter tags
 - canonical imported company assets
+- canonical imported wallet icon assets
 - selectors for reading company data and logos
 - audit tooling for registry and asset completeness
 
@@ -21,7 +25,8 @@ The package does not own app-specific augmentation.
 There are two layers:
 
 1. atomic company data
-2. composable app-level references
+2. atomic wallet data
+3. composable app-level references
 
 Atomic company data lives in a single company record and includes:
 
@@ -38,6 +43,29 @@ packages/ecosystem-data/src/companies/records/<company-slug>.ts
 
 The registry composes those atomic modules into the exported lookups and
 selectors.
+
+Atomic wallet data lives in:
+
+```text
+packages/ecosystem-data/src/wallets/
+├── wallet-data.ts   # canonical wallet records, keyed by slug (single source of truth)
+├── taxonomy.ts      # category/platform/feature metadata (labels + descriptions)
+└── index.ts         # data-only re-exports
+```
+
+Wallet records include researched wallet identity, descriptions, website URLs,
+platforms, categories, feature tags, and icon assets. There are no override
+layers or standalone alias maps: each record carries its own optional
+`companyId` (link into `src/companies`) and `aliases` (alternate product names).
+This module exports data and types only — directory entry building, filtering,
+label lookup, and icon fallback logic live in the consuming app
+(`apps/web/src/app/[locale]/wallets/`). Apps should load wallet directory
+entries from these shared wallet records instead of fetching, hydrating, or
+displaying external discovery metadata at runtime. Wallet research starts from
+these canonical records and uses current web research to discover and
+cross-check candidates before reviewed fields are published back into the
+package. The live wallet page uses package-owned data only; it does not fetch or
+merge an external wallet dataset at runtime.
 
 Composable event or campaign data should live in the consuming app and reference
 those company records by `companyId`. For `apps/accelerate`, the JSON files
@@ -61,6 +89,12 @@ packages/ecosystem-data/assets/companies/jito/
 ```
 
 Do not add new files to a shared flat logo directory.
+
+Wallet icons live under:
+
+```text
+packages/ecosystem-data/assets/wallets/
+```
 
 ## Logo naming rules
 
@@ -178,6 +212,7 @@ Examples:
 - sort order for a specific page
 - curated logo choice for one page or one theme treatment
 - app-only marketing copy
+- external wallet discovery metadata
 
 ## Using ecosystem assets
 

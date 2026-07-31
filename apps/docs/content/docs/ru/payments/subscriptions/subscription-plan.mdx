@@ -27,8 +27,8 @@ description: Руководство по настройке транзакций
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -139,6 +139,16 @@ description: Руководство по настройке транзакций
 подписчики сохраняют условия, которые они приняли, в то время как новые
 подписчики принимают текущие условия плана.
 
+Применяются следующие правила:
+
+- Конечный `endTs` можно только сократить, но нельзя продлить или сбросить
+  (`PlanEndTsCannotExtend`).
+- В рамках плана `Sunset` вы можете удалять пуллеры (новый набор должен быть
+  подмножеством текущего) для отзыва скомпрометированного пуллера; статус,
+  `endTs` и метаданные остаются неизменными.
+- Изменения допустимы в течение последнего расчётного периода плана при условии,
+  что `endTs` остаётся неизменным.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -173,9 +183,13 @@ description: Руководство по настройке транзакций
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -190,8 +204,8 @@ description: Руководство по настройке транзакций
 
 ## Подписка
 
-Подписчик принимает текущие условия плана. PDA подписки выводится из PDA плана и
-адреса подписчика.
+Подписчик принимает условия текущего плана. PDA подписки формируется на основе
+PDA плана и адреса подписчика.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -314,9 +328,9 @@ description: Руководство по настройке транзакций
 
 ## Получение платежа
 
-Продавец или внесённый в белый список получатель подписывает операцию сбора
-средств. Когда план использует список разрешённых получателей, владелец
-токен-аккаунта получателя должен быть указан в `destinations`.
+Сбор средств подписывает мерчант или авторизованный пуллер. Если план использует
+список разрешённых адресов назначения, владелец token account получателя должен
+быть указан в `destinations`.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -363,10 +377,10 @@ description: Руководство по настройке транзакций
   </Tab>
 </Tabs>
 
-## Отмена и аннулирование
+## Отмена и отзыв
 
-Отмена помечает подписку как завершающуюся. Аннулирование закрывает PDA подписки
-после истечения срока отмены. Обе транзакции подписываются подписчиком.
+Отмена помечает подписку как завершающуюся. Отзыв закрывает PDA подписки после
+истечения срока действия отмены. Подписчик подписывает обе транзакции.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -415,14 +429,57 @@ description: Руководство по настройке транзакций
   </Tab>
 </Tabs>
 
+## Возобновление подписки
+
+Отменённую подписку можно повторно активировать до её отзыва. После отзыва
+аккаунт подписки закрывается, и подписчик должен [подписаться](#subscribe)
+заново. Для возобновления требуется `SubscriptionAuthority` подписчика для минта
+плана, который программа проверяет (владелец, минт и `init_id`) и отклоняет,
+если он устарел или был повторно инициализирован.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Примечания
 
 - `amount` указывается в базовых единицах. Для токена с 6 десятичными знаками
   `5_000_000` означает `5` токенов.
-- TypeScript SDK получает актуальные условия плана во время `subscribe`, когда
-  вы их не указываете.
+- TypeScript SDK получает актуальные условия плана во время `subscribe`, если вы
+  их не указываете.
 - Rust `SubscribeBuilder` требует ожидаемых условий плана. Сначала получите и
   декодируйте аккаунт плана, затем передайте эти поля через `SubscribeData`.
-- Только продавец или кошелёк, указанный в `pullers`, может получать платежи.
-- Подписчик подписывает транзакции настройки, отмены и отзыва. Продавец или
-  утверждённый инициатор списания подписывает транзакции сбора средств.
+- Только мерчант или кошелёк, указанный в `pullers`, может собирать платежи.
+- Подписчик подписывает транзакции настройки, отмены и отзыва. Мерчант или
+  авторизованный сборщик подписывает транзакции сбора платежей.

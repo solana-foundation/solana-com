@@ -3,40 +3,33 @@ title: Retirar tokens
 description: Aprende cómo retirar tokens del estado confidencial.
 ---
 
-<Callout type="warn">
-  El ZK ElGamal Program está temporalmente deshabilitado en la mainnet y devnet
-  mientras se somete a una auditoría de seguridad. Esto significa que la
-  extensión de transferencias confidenciales no está disponible actualmente.
-  Aunque los conceptos siguen siendo válidos, los ejemplos de código no
-  funcionarán.
-</Callout>
-
 ## Cómo retirar tokens del saldo disponible confidencial
 
 Para retirar tokens del saldo disponible confidencial al saldo público:
 
 1. Crea
    [dos pruebas](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/confidential-transfer/proof-generation/src/withdraw.rs#L22)
-   del lado del cliente:
+   en el lado del cliente:
 
    **Prueba de igualdad
    ([CiphertextCommitmentEqualityProofData](https://github.com/anza-xyz/agave/blob/8b33d6d311c95780362a7d235919e7b8d2345939/zk-token-sdk/src/instruction/ciphertext_commitment_equality.rs#L56))**:
-   Verifica que el texto cifrado del saldo disponible restante después del
-   retiro coincida con su
+   Verifica que el texto cifrado del saldo disponible restante tras el retiro
+   coincida con su
    [compromiso de Pedersen](https://en.wikipedia.org/wiki/Commitment_scheme)
-   correspondiente, asegurando que el nuevo saldo disponible de la cuenta se
+   correspondiente, garantizando que el nuevo saldo disponible de la cuenta se
    calcule correctamente como
    `remaining_balance = current_balance - withdraw_amount`.
 
    **Prueba de rango
    ([BatchedRangeProofU64Data](https://github.com/anza-xyz/agave/blob/8b33d6d311c95780362a7d235919e7b8d2345939/zk-token-sdk/src/instruction/batched_range_proof/batched_range_proof_u64.rs#L37))**:
-   Verifica que el saldo disponible restante después del retiro sea no negativo
-   y esté dentro de un rango especificado.
+   Verifica que el saldo disponible restante tras el retiro sea no negativo y
+   esté dentro de un rango especificado.
 
 2. Para cada prueba:
-   - Invoca el ZK ElGamal proof program para verificar los datos de la prueba.
+   - Invoca el programa de pruebas ZK ElGamal para verificar los datos de la
+     prueba.
    - Almacena los metadatos específicos de la prueba en una cuenta de "estado de
-     contexto" de la prueba para usar en otras instrucciones.
+     contexto" de la prueba para usarla en otras instrucciones.
 
 3. Invoca la instrucción
    [ConfidentialTransferInstruction::Withdraw](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/processor.rs#L493)
@@ -76,405 +69,441 @@ sequenceDiagram
 
 Para retirar tokens del saldo disponible confidencial al saldo público, debes:
 
-- Generar una prueba de igualdad y una prueba de rango del lado del cliente
-- Invocar el Zk ElGamal proof program para verificar las pruebas e inicializar
-  las cuentas de "estado de contexto"
+- Generar una prueba de igualdad y una prueba de rango en el lado del cliente
+- Invocar el programa de pruebas ZK ElGamal para verificar las pruebas e
+  inicializar las cuentas de "estado de contexto"
 - Invocar la instrucción
   [ConfidentialTransferInstruction::Withdraw](https://github.com/solana-program/token-2022/blob/efd0c957fefbd79882d77df5fb2dac88c001249c/program/src/extension/confidential_transfer/processor.rs#L493)
   proporcionando las dos cuentas de prueba.
 - Cerrar las dos cuentas de prueba para recuperar el rent.
 
-El crate `spl_token_client` proporciona los siguientes métodos:
+El ejemplo en Rust que aparece a continuación genera las pruebas con el crate
+`spl-token-confidential-transfer-proof-generation`, verifica cada una en una
+cuenta de estado de contexto a través del programa ZK ElGamal Proof, hace
+referencia a ambas cuentas en la instrucción de retiro y las cierra
+posteriormente. El ejemplo en TypeScript utiliza el helper
+`getConfidentialWithdrawInstructionPlan` de
+`@solana-program/token-2022/confidential`, que ensambla las mismas cuentas de
+prueba, el retiro y el cierre como un plan de instrucciones de múltiples
+transacciones.
 
-- Método `confidential_transfer_create_context_state_account` que crea una
-  cuenta de prueba.
-- Método `confidential_transfer_withdraw` que invoca la instrucción `Withdraw`.
-- Método `confidential_transfer_close_context_state_account` que cierra una
-  cuenta de prueba.
+## Código de ejemplo
 
-### Código de ejemplo
+El siguiente ejemplo retira tokens del saldo confidencial disponible de vuelta
+al saldo público. La cuenta ya debe estar configurada para transferencias
+confidenciales y tener un saldo confidencial disponible.
 
-El siguiente ejemplo demuestra cómo retirar tokens del saldo disponible
-confidencial al saldo público.
+Las transferencias confidenciales dependen del programa ZK ElGamal Proof, que
+está habilitado en mainnet y devnet. Un `solana-test-validator` estándar no lo
+habilita, pero un validator local con bifurcación de mainnet como
+[Surfpool](https://surfpool.run) sí lo hace. Ejecuta el ejemplo en uno de esos
+entornos (el código usa devnet) con un pagador con fondos, y reemplaza los
+marcadores de posición con tu mint y token account.
 
-Para ejecutar el ejemplo, inicia un validador local con el programa de extensión
-de tokens clonado desde mainnet usando el siguiente comando. Debes tener
-instalada la CLI de Solana para iniciar el validador local.
-
-```terminal
-$ solana-test-validator --clone-upgradeable-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb --url https://api.mainnet.solana.com -r
-```
-
-<Callout type="info">
-  Al momento de escribir esto, las transferencias confidenciales no están
-  habilitadas en el validador local predeterminado. Debes clonar el programa de
-  extensión de tokens de mainnet para ejecutar el código de ejemplo.
-</Callout>
+### Rust
 
 <CodeTabs>
 
 ```rust !! title="main.rs"
+// !collapse(1:49) collapsed
+// Imports: dependencies used by this example.
 use anyhow::{Context, Result};
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    signature::{Keypair, Signer},
-    transaction::Transaction,
+use solana_address::Address;
+use solana_client::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_instruction::Instruction;
+use solana_keypair::Keypair;
+use solana_pubkey::Pubkey;
+use solana_signer::Signer;
+use solana_system_interface::instruction as system_instruction;
+use solana_transaction::Transaction;
+use solana_zk_elgamal_proof_interface::{
+    instruction::{close_context_state, ContextStateInfo, ProofInstruction},
+    proof_data::{
+        BatchedRangeProofContext, CiphertextCommitmentEqualityProofContext,
+        PubkeyValidityProofContext,
+    },
+    state::ProofContextState,
 };
+use solana_zk_sdk::{
+    encryption::{
+        auth_encryption::AeCiphertext,
+        derivation::derive_confidential_keys,
+        elgamal::ElGamalCiphertext,
+    },
+    zk_elgamal_proof_program::pubkey_validity::build_pubkey_validity_proof_data,
+};
+use solana_zk_sdk_pod::encryption::auth_encryption::PodAeCiphertext;
 use spl_associated_token_account::{
     get_associated_token_address_with_program_id, instruction::create_associated_token_account,
 };
-use spl_token_client::{
-    client::{ProgramRpcClient, ProgramRpcClientSendTransaction},
-    spl_token_2022::{
-        extension::{
-            confidential_transfer::{
-                account_info::WithdrawAccountInfo,
-                ConfidentialTransferAccount,
-                instruction::{configure_account, PubkeyValidityProofData},
+use spl_token_2022::{
+    extension::{
+        confidential_transfer::{
+            instruction::{
+                apply_pending_balance, configure_account, deposit,
+                initialize_mint as initialize_confidential_transfer_mint, withdraw,
+                PubkeyValidityProofData,
             },
-            BaseStateWithExtensions, ExtensionType,
+            ConfidentialTransferAccount,
         },
-        id as token_2022_program_id,
-        instruction::reallocate,
-        solana_zk_sdk::encryption::{auth_encryption::*, elgamal::*},
+        BaseStateWithExtensions, ExtensionType, StateWithExtensions,
     },
-    token::{ExtensionInitializationParams, Token},
+    instruction::{initialize_mint as initialize_mint_base, mint_to, reallocate},
+    state::{Account as TokenAccount, Mint},
 };
-use spl_token_confidential_transfer_proof_extraction::instruction::{ProofData, ProofLocation};
-use spl_token_confidential_transfer_proof_generation::withdraw::WithdrawProofData;
-use std::sync::Arc;
+use spl_token_confidential_transfer_proof_extraction::instruction::ProofLocation;
+use spl_token_confidential_transfer_proof_generation::withdraw::withdraw_proof_data;
+use std::mem::size_of;
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Create connection to local test validator
-    let rpc_client = Arc::new(RpcClient::new_with_commitment(
-        String::from("http://localhost:8899"),
+const ZK_PROOF_PROGRAM_ID: Pubkey =
+    solana_pubkey::pubkey!("ZkE1Gama1Proof11111111111111111111111111111");
+
+fn main() -> Result<()> {
+    let rpc_client = RpcClient::new_with_commitment(
+        String::from("https://api.devnet.solana.com"),
         CommitmentConfig::confirmed(),
-    ));
-
-    // Load the default Solana CLI keypair to use as the fee payer
-    // This will be the wallet paying for the transaction fees
-    // Use Arc to prevent multiple clones of the keypair
-    let payer = Arc::new(load_keypair()?);
-    println!("Using payer: {}", payer.pubkey());
-
-    // Generate a new keypair to use as the address of the token mint
-    let mint = Keypair::new();
-    println!("Mint keypair generated: {}", mint.pubkey());
-
-    // Set up program client for Token client
-    let program_client = ProgramRpcClient::new(rpc_client.clone(), ProgramRpcClientSendTransaction);
-
-    // Number of decimals for the mint
-    let decimals = 9;
-
-    // Create a token client for the Token-2022 program
-    // This provides high-level methods for token operations
-    let token = Token::new(
-        Arc::new(program_client),
-        &token_2022_program_id(), // Use the Token-2022 program (newer version with extensions)
-        &mint.pubkey(),           // Address of the new token mint
-        Some(decimals),           // Number of decimal places
-        payer.clone(),            // Fee payer for transactions
     );
 
-    // Create extension initialization parameters for the mint
-    // The ConfidentialTransferMint extension enables confidential (private) transfers of tokens
-    let extension_initialization_params =
-        vec![ExtensionInitializationParams::ConfidentialTransferMint {
-            authority: Some(payer.pubkey()), // Authority that can modify confidential transfer settings
-            auto_approve_new_accounts: true, // Automatically approve new confidential accounts
-            auditor_elgamal_pubkey: None,    // Optional auditor ElGamal public key
-        }];
+    // Owner = fee payer = token account owner. The account must already be
+    // configured for confidential transfers with an available confidential
+    // balance to withdraw from.
+    let owner = load_keypair()?;
+    let amount: u64 = 100;
+    let decimals: u8 = 2;
 
-    // Create and initialize the mint with the ConfidentialTransferMint extension
-    // This sends a transaction to create the new token mint
-    let transaction_signature = token
-        .create_mint(
-            &payer.pubkey(),                 // Mint authority - can mint new tokens
-            Some(&payer.pubkey()),           // Freeze authority - can freeze token accounts
-            extension_initialization_params, // Add the ConfidentialTransferMint extension
-            &[&mint],                        // Mint keypair needed as signer
-        )
-        .await?;
+    // Setup: create an available confidential balance to withdraw.
+    let (mint, token_account) = setup_withdrawable_account(&rpc_client, &owner, amount, decimals)?;
 
-    // Print results for user verification
-    println!("Mint Address: {}", mint.pubkey());
-    println!(
-        "Mint Creation Transaction Signature: {}",
-        transaction_signature
+    // Derive the owner's keys and read the current confidential available balance.
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(&owner, &token_account.to_bytes())
+        .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
+
+    let account_data = rpc_client.get_account(&token_account)?;
+    let account = StateWithExtensions::<TokenAccount>::unpack(&account_data.data)?;
+    let ct_extension = account.get_extension::<ConfidentialTransferAccount>()?;
+
+    // The ElGamal available-balance ciphertext is required to build the proof.
+    let available_balance: ElGamalCiphertext = ct_extension
+        .available_balance
+        .try_into()
+        .map_err(|e| anyhow::anyhow!("decode available balance: {e:?}"))?;
+
+    // Read the plaintext balance from the AES-encrypted decryptable balance.
+    // ElGamal's decrypt_u32 only recovers values up to 2^32 raw units, so it
+    // fails for realistic balances; the AES field has no such limit.
+    let decryptable_balance: AeCiphertext = ct_extension
+        .decryptable_available_balance
+        .try_into()
+        .map_err(|e| anyhow::anyhow!("decode decryptable balance: {e:?}"))?;
+    let current_available = decryptable_balance
+        .decrypt(&aes_key)
+        .context("decrypt available balance")?;
+
+    // Generate the equality and range proofs for the withdrawal.
+    let proof_data = withdraw_proof_data(&available_balance, current_available, amount, &elgamal_keypair)
+        .map_err(|e| anyhow::anyhow!("withdraw_proof_data: {e}"))?;
+
+    let new_available = current_available
+        .checked_sub(amount)
+        .context("insufficient confidential balance")?;
+    let new_decryptable: PodAeCiphertext = aes_key.encrypt(new_available).into();
+
+    // The owner is the context-state authority for both proof accounts.
+    let authority: Address = owner.pubkey().to_bytes().into();
+
+    // Equality proof context state account.
+    let equality_account = Keypair::new();
+    let equality_size = size_of::<ProofContextState<CiphertextCommitmentEqualityProofContext>>();
+    let equality_create_ix = system_instruction::create_account(
+        &owner.pubkey(),
+        &equality_account.pubkey(),
+        rpc_client.get_minimum_balance_for_rent_exemption(equality_size)?,
+        equality_size as u64,
+        &ZK_PROOF_PROGRAM_ID,
     );
-
-    // ===== Create and configure token account for confidential transfers =====
-    println!("\nCreate and configure token account for confidential transfers");
-
-    // Get the associated token account address for the owner
-    let token_account_pubkey = get_associated_token_address_with_program_id(
-        &payer.pubkey(),          // Token account owner
-        &mint.pubkey(),           // Mint
-        &token_2022_program_id(), // Token program ID
-    );
-    println!("Token Account Address: {}", token_account_pubkey);
-
-    // Step 1: Create the associated token account
-    let create_associated_token_account_instruction = create_associated_token_account(
-        &payer.pubkey(),          // Funding account
-        &payer.pubkey(),          // Token account owner
-        &mint.pubkey(),           // Mint
-        &token_2022_program_id(), // Token program ID
-    );
-
-    // Step 2: Reallocate the token account to include space for the ConfidentialTransferAccount extension
-    let reallocate_instruction = reallocate(
-        &token_2022_program_id(),                      // Token program ID
-        &token_account_pubkey,                         // Token account
-        &payer.pubkey(),                               // Payer
-        &payer.pubkey(),                               // Token account owner
-        &[&payer.pubkey()],                            // Signers
-        &[ExtensionType::ConfidentialTransferAccount], // Extension to reallocate space for
-    )?;
-
-    // Step 3: Generate the ElGamal keypair and AES key for token account
-    let elgamal_keypair = ElGamalKeypair::new_from_signer(&payer, &token_account_pubkey.to_bytes())
-        .expect("Failed to create ElGamal keypair");
-    let aes_key = AeKey::new_from_signer(&payer, &token_account_pubkey.to_bytes())
-        .expect("Failed to create AES key");
-
-    // The maximum number of Deposit and Transfer instructions that can
-    // credit pending_balance before the ApplyPendingBalance instruction must be executed
-    let maximum_pending_balance_credit_counter = 65536;
-
-    // Initial token balance is 0
-    let decryptable_balance = aes_key.encrypt(0);
-
-    // Generate the proof data client-side
-    let proof_data = PubkeyValidityProofData::new(&elgamal_keypair)
-        .map_err(|_| anyhow::anyhow!("Failed to generate proof data"))?;
-
-    // Indicate that proof is included in the same transaction
-    let proof_location =
-        ProofLocation::InstructionOffset(1.try_into()?, ProofData::InstructionData(&proof_data));
-
-    // Step 4: Create instructions to configure the account for confidential transfers
-    let configure_account_instructions = configure_account(
-        &token_2022_program_id(),               // Program ID
-        &token_account_pubkey,                  // Token account
-        &mint.pubkey(),                         // Mint
-        &decryptable_balance.into(),            // Initial balance
-        maximum_pending_balance_credit_counter, // Maximum pending balance credit counter
-        &payer.pubkey(),                        // Token Account Owner
-        &[],                                    // Additional signers
-        proof_location,                         // Proof location
-    )?;
-
-    // Combine all instructions
-    let mut instructions = vec![
-        create_associated_token_account_instruction,
-        reallocate_instruction,
-    ];
-    instructions.extend(configure_account_instructions);
-
-    // Create and send the transaction
-    let recent_blockhash = rpc_client.get_latest_blockhash().await?;
-    let transaction = Transaction::new_signed_with_payer(
-        &instructions,
-        Some(&payer.pubkey()),
-        &[&*payer],
-        recent_blockhash,
-    );
-
-    let setup_signature = rpc_client
-        .send_and_confirm_transaction(&transaction)
-        .await?;
-    println!(
-        "Token Account Setup Transaction Signature: {}",
-        setup_signature
-    );
-
-    // Mint some tokens to the newly created token account
-    // This gives the account some tokens to work with
-    let mint_signature = token
-        .mint_to(
-            &token_account_pubkey,            // Destination account
-            &payer.pubkey(),                  // Mint authority
-            100 * 10u64.pow(decimals as u32), // Amount (100 tokens with decimal precision)
-            &[&payer],                        // Signers
-        )
-        .await?;
-
-    println!("Token Minting Transaction Signature: {}", mint_signature);
-
-    // Deposit the tokens to confidential state
-    // This converts regular tokens to confidential tokens
-    println!("Deposit tokens to confidential state pending balance");
-    let deposit_signature = token
-        .confidential_transfer_deposit(
-            &token_account_pubkey,            // The token account
-            &payer.pubkey(),                  // Authority (owner) of the account
-            100 * 10u64.pow(decimals as u32), // Amount to deposit (100 tokens)
-            decimals,                         // Decimals of the token
-            &[&payer],                        // Signers (owner must sign)
-        )
-        .await?;
-
-    println!(
-        "Confidential Transfer Deposit Signature: {}",
-        deposit_signature
-    );
-
-    // Apply the pending balance to make funds available
-    println!("Apply pending balance to available balance");
-    let apply_signature = token
-        .confidential_transfer_apply_pending_balance(
-            &token_account_pubkey,    // The token account
-            &payer.pubkey(),          // Authority (owner) of the account
-            None,                     // Optional new decryptable available balance
-            elgamal_keypair.secret(), // ElGamal secret key encryption
-            &aes_key,                 // AES key for encryption
-            &[&payer],                // Signers (owner must sign)
-        )
-        .await?;
-
-    println!("Apply Pending Balance Signature: {}", apply_signature);
-
-    // ===== Withdraw half of the tokens from confidential state =====
-    println!("\nWithdraw tokens from confidential available balance");
-
-    // Calculate the withdraw amount (half of the deposited amount)
-    let withdraw_amount = 50 * 10u64.pow(decimals as u32); // Half of the 100 tokens deposited
-
-    // Get the token account data to access the confidential transfer extension
-    let token_account = token.get_account_info(&token_account_pubkey).await?;
-
-    // Unpack the ConfidentialTransferAccount extension portion of the token account data
-    let extension_data = token_account.get_extension::<ConfidentialTransferAccount>()?;
-
-    // Confidential Transfer extension information needed to construct a `Withdraw` instruction
-    let withdraw_account_info =
-        WithdrawAccountInfo::new(
-            extension_data,
+    let equality_verify_ix = ProofInstruction::VerifyCiphertextCommitmentEquality
+        .encode_verify_proof(
+            Some(ContextStateInfo {
+                context_state_account: &Address::from(equality_account.pubkey().to_bytes()),
+                context_state_authority: &authority,
+            }),
+            &proof_data.equality_proof_data,
         );
+    send_tx(&rpc_client, &[equality_create_ix], &[&owner, &equality_account])?;
+    send_tx(&rpc_client, &[equality_verify_ix], &[&owner])?;
 
-    // Create keypairs for the proof accounts
-    let equality_proof_context_state_keypair = Keypair::new();
-    let equality_proof_context_state_pubkey = equality_proof_context_state_keypair.pubkey();
-    let range_proof_context_state_keypair = Keypair::new();
-    let range_proof_context_state_pubkey = range_proof_context_state_keypair.pubkey();
+    // Range proof context state account.
+    let range_account = Keypair::new();
+    let range_size = size_of::<ProofContextState<BatchedRangeProofContext>>();
+    let range_create_ix = system_instruction::create_account(
+        &owner.pubkey(),
+        &range_account.pubkey(),
+        rpc_client.get_minimum_balance_for_rent_exemption(range_size)?,
+        range_size as u64,
+        &ZK_PROOF_PROGRAM_ID,
+    );
+    let range_verify_ix = ProofInstruction::VerifyBatchedRangeProofU64.encode_verify_proof(
+        Some(ContextStateInfo {
+            context_state_account: &Address::from(range_account.pubkey().to_bytes()),
+            context_state_authority: &authority,
+        }),
+        &proof_data.range_proof_data,
+    );
+    send_tx(&rpc_client, &[range_create_ix], &[&owner, &range_account])?;
+    send_tx(&rpc_client, &[range_verify_ix], &[&owner])?;
 
-    // Create a withdraw proof data
-    let WithdrawProofData {
-        equality_proof_data,
-        range_proof_data,
-    } = withdraw_account_info.generate_proof_data(
-        withdraw_amount,  // Amount to withdraw from confidential state
-        &elgamal_keypair, // ElGamal keypair for encryption
-        &aes_key,         // AES key for encryption
+    // Withdraw, referencing both pre-verified proof accounts.
+    let withdraw_ixs = withdraw(
+        &spl_token_2022::id(),
+        &token_account,
+        &mint,
+        amount,
+        decimals,
+        &new_decryptable,
+        &owner.pubkey(),
+        &[&owner.pubkey()],
+        ProofLocation::ContextStateAccount(&equality_account.pubkey()),
+        ProofLocation::ContextStateAccount(&range_account.pubkey()),
     )?;
+    let blockhash = rpc_client.get_latest_blockhash()?;
+    let transaction =
+        Transaction::new_signed_with_payer(&withdraw_ixs, Some(&owner.pubkey()), &[&owner], blockhash);
+    let signature = rpc_client.send_and_confirm_transaction(&transaction)?;
 
-    // Generate the equality proof account
-    println!("Create equality proof context state account");
-    let equality_proof_signature = token
-        .confidential_transfer_create_context_state_account(
-            &equality_proof_context_state_pubkey, // Public key of the new equality proof context state account
-            &payer.pubkey(), // Authority that can close the context state account
-            &equality_proof_data, // Proof data for the equality proof verification
-            false, // False: combine account creation and proof verification in one transaction
-            &[&equality_proof_context_state_keypair], // Signer for the new account
-        )
-        .await?;
-    println!(
-        "Equality Proof Context State Account Signature: {}",
-        equality_proof_signature
-    );
+    // Close both proof accounts to reclaim their rent.
+    for account in [&equality_account, &range_account] {
+        let close_ix = close_context_state(
+            ContextStateInfo {
+                context_state_account: &Address::from(account.pubkey().to_bytes()),
+                context_state_authority: &authority,
+            },
+            &authority,
+        );
+        send_tx(&rpc_client, &[close_ix], &[&owner])?;
+    }
 
-    // Generate the range proof account
-    println!("Create range proof context state account");
-    let range_proof_signature = token
-        .confidential_transfer_create_context_state_account(
-            &range_proof_context_state_pubkey, // Public key of the new range proof context state account
-            &payer.pubkey(),                   // Authority that can close the context state account
-            &range_proof_data,                 // Proof data for the range proof verification
-            true, // True: split account creation and proof verification into separate transactions (for large proofs)
-            &[&range_proof_context_state_keypair], // Signer for the new account
-        )
-        .await?;
-    println!(
-        "Range Proof Context State Account Signature: {}",
-        range_proof_signature
-    );
-
-    // Perform the withdrawal
-    println!("Execute withdrawal transaction");
-    let withdraw_signature = token
-        .confidential_transfer_withdraw(
-            &token_account_pubkey, // Token account to withdraw from
-            &payer.pubkey(),       // Owner of the token account
-            Some(&spl_token_client::token::ProofAccount::ContextAccount(
-                equality_proof_context_state_pubkey, // Reference to the equality proof account
-            )),
-            Some(&spl_token_client::token::ProofAccount::ContextAccount(
-                range_proof_context_state_pubkey, // Reference to the range proof account
-            )),
-            withdraw_amount,             // Amount to withdraw from confidential state
-            decimals,                    // Decimal precision of the token
-            Some(withdraw_account_info), // Data from confidential transfer extension for proof verification
-            &elgamal_keypair, // ElGamal keypair for encryption
-            &aes_key,         // AES key for encryption
-            &[&payer],        // Owner must sign the transaction
-        )
-        .await?;
-    println!("Withdraw Transaction Signature: {}", withdraw_signature);
-
-    // Close the context state accounts to recover rent
-    println!("Close equality proof context state account");
-    let close_equality_signature = token
-        .confidential_transfer_close_context_state_account(
-            &equality_proof_context_state_pubkey, // Equality proof context state account to close
-            &token_account_pubkey,                // Account that will receive the lamports
-            &payer.pubkey(),                      // Authority allowed to close the account
-            &[&payer],                            // Authority must sign
-        )
-        .await?;
-    println!(
-        "Close Equality Proof Account Signature: {}",
-        close_equality_signature
-    );
-
-    println!("Close range proof context state account");
-    let close_range_signature = token
-        .confidential_transfer_close_context_state_account(
-            &range_proof_context_state_pubkey, // Range proof context state account to close
-            &token_account_pubkey,             // Account that will receive the lamports
-            &payer.pubkey(),                   // Authority allowed to close the account
-            &[&payer],                         // Authority must sign
-        )
-        .await?;
-    println!(
-        "Close Range Proof Account Signature: {}",
-        close_range_signature
-    );
+    println!("Withdrew {amount} tokens to the public balance: {signature}");
     Ok(())
 }
 
-// Load the keypair from the default Solana CLI keypair path (~/.config/solana/id.json)
-// This enables using the same wallet as the Solana CLI tools
+// !collapse(1:1000) collapsed
+// Setup: helper functions to create and apply a balance.
+fn send_tx(client: &RpcClient, instructions: &[Instruction], signers: &[&Keypair]) -> Result<()> {
+    let blockhash = client.get_latest_blockhash()?;
+    let transaction =
+        Transaction::new_signed_with_payer(instructions, Some(&signers[0].pubkey()), signers, blockhash);
+    client.send_and_confirm_transaction(&transaction)?;
+    Ok(())
+}
+
+fn setup_withdrawable_account(
+    rpc_client: &RpcClient,
+    owner: &Keypair,
+    amount: u64,
+    decimals: u8,
+) -> Result<(Pubkey, Pubkey)> {
+    let mint = create_confidential_mint(rpc_client, owner, decimals)?;
+    let token_account = configure_confidential_token_account(rpc_client, owner, owner, &mint)?;
+
+    let mint_to_ix = mint_to(
+        &spl_token_2022::id(),
+        &mint,
+        &token_account,
+        &owner.pubkey(),
+        &[&owner.pubkey()],
+        amount,
+    )?;
+    let deposit_ix = deposit(
+        &spl_token_2022::id(),
+        &token_account,
+        &mint,
+        amount,
+        decimals,
+        &owner.pubkey(),
+        &[&owner.pubkey()],
+    )?;
+    send_tx(rpc_client, &[mint_to_ix, deposit_ix], &[owner])?;
+    apply_pending_balance_for_account(rpc_client, owner, &token_account)?;
+
+    Ok((mint, token_account))
+}
+
+fn create_confidential_mint(rpc_client: &RpcClient, payer: &Keypair, decimals: u8) -> Result<Pubkey> {
+    let mint = Keypair::new();
+    let space =
+        ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::ConfidentialTransferMint])?;
+    let rent = rpc_client.get_minimum_balance_for_rent_exemption(space)?;
+
+    let create_account_ix = system_instruction::create_account(
+        &payer.pubkey(),
+        &mint.pubkey(),
+        rent,
+        space as u64,
+        &spl_token_2022::id(),
+    );
+    let init_confidential_ix = initialize_confidential_transfer_mint(
+        &spl_token_2022::id(),
+        &mint.pubkey(),
+        Some(payer.pubkey()),
+        true,
+        None,
+    )?;
+    let init_mint_ix = initialize_mint_base(
+        &spl_token_2022::id(),
+        &mint.pubkey(),
+        &payer.pubkey(),
+        None,
+        decimals,
+    )?;
+
+    send_tx(
+        rpc_client,
+        &[create_account_ix, init_confidential_ix, init_mint_ix],
+        &[payer, &mint],
+    )?;
+    Ok(mint.pubkey())
+}
+
+fn configure_confidential_token_account(
+    rpc_client: &RpcClient,
+    payer: &Keypair,
+    owner: &Keypair,
+    mint: &Pubkey,
+) -> Result<Pubkey> {
+    let token_account = get_associated_token_address_with_program_id(
+        &owner.pubkey(),
+        mint,
+        &spl_token_2022::id(),
+    );
+    let create_ata_ix = create_associated_token_account(
+        &payer.pubkey(),
+        &owner.pubkey(),
+        mint,
+        &spl_token_2022::id(),
+    );
+    let realloc_ix = reallocate(
+        &spl_token_2022::id(),
+        &token_account,
+        &payer.pubkey(),
+        &owner.pubkey(),
+        &[&owner.pubkey()],
+        &[ExtensionType::ConfidentialTransferAccount],
+    )?;
+
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner, &token_account.to_bytes())
+        .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
+    let decryptable_balance: PodAeCiphertext = aes_key.encrypt(0).into();
+
+    let proof_data = build_pubkey_validity_proof_data(&elgamal_keypair)
+        .map_err(|e| anyhow::anyhow!("generate pubkey validity proof: {e}"))?;
+    let proof_account = Keypair::new();
+    let context_state_size = size_of::<ProofContextState<PubkeyValidityProofContext>>();
+    let create_proof_account_ix = system_instruction::create_account(
+        &payer.pubkey(),
+        &proof_account.pubkey(),
+        rpc_client.get_minimum_balance_for_rent_exemption(context_state_size)?,
+        context_state_size as u64,
+        &ZK_PROOF_PROGRAM_ID,
+    );
+
+    let proof_account_address: Address = proof_account.pubkey().to_bytes().into();
+    let owner_address: Address = owner.pubkey().to_bytes().into();
+    let verify_proof_ix = ProofInstruction::VerifyPubkeyValidity.encode_verify_proof(
+        Some(ContextStateInfo {
+            context_state_account: &proof_account_address,
+            context_state_authority: &owner_address,
+        }),
+        &proof_data,
+    );
+    let proof_location: ProofLocation<PubkeyValidityProofData> =
+        ProofLocation::ContextStateAccount(&proof_account.pubkey());
+    let configure_account_ixs = configure_account(
+        &spl_token_2022::id(),
+        &token_account,
+        mint,
+        &decryptable_balance,
+        65_536,
+        &owner.pubkey(),
+        &[&owner.pubkey()],
+        proof_location,
+    )?;
+
+    let mut instructions = vec![
+        create_ata_ix,
+        realloc_ix,
+        create_proof_account_ix,
+        verify_proof_ix,
+    ];
+    instructions.extend(configure_account_ixs);
+
+    if payer.pubkey() == owner.pubkey() {
+        send_tx(rpc_client, &instructions, &[payer, &proof_account])?;
+    } else {
+        send_tx(rpc_client, &instructions, &[payer, owner, &proof_account])?;
+    }
+
+    Ok(token_account)
+}
+
+fn apply_pending_balance_for_account(
+    rpc_client: &RpcClient,
+    owner: &Keypair,
+    token_account: &Pubkey,
+) -> Result<()> {
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner, &token_account.to_bytes())
+        .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
+
+    let account_data = rpc_client.get_account(token_account)?;
+    let account = StateWithExtensions::<TokenAccount>::unpack(&account_data.data)?;
+    let ct_extension = account.get_extension::<ConfidentialTransferAccount>()?;
+    let pending_lo: ElGamalCiphertext = ct_extension
+        .pending_balance_lo
+        .try_into()
+        .map_err(|e| anyhow::anyhow!("pending_balance_lo: {e:?}"))?;
+    let pending_hi: ElGamalCiphertext = ct_extension
+        .pending_balance_hi
+        .try_into()
+        .map_err(|e| anyhow::anyhow!("pending_balance_hi: {e:?}"))?;
+
+    let pending_lo_amount = pending_lo
+        .decrypt_u32(elgamal_keypair.secret())
+        .context("decrypt pending_balance_lo")? as u64;
+    let pending_hi_amount = pending_hi
+        .decrypt_u32(elgamal_keypair.secret())
+        .context("decrypt pending_balance_hi")? as u64;
+
+    let decryptable_balance: AeCiphertext = ct_extension
+        .decryptable_available_balance
+        .try_into()
+        .map_err(|e| anyhow::anyhow!("decryptable_available_balance: {e:?}"))?;
+    let current_available = decryptable_balance
+        .decrypt(&aes_key)
+        .context("decrypt available balance")?;
+
+    let new_available = current_available + pending_lo_amount + (pending_hi_amount << 16);
+    let new_decryptable: PodAeCiphertext = aes_key.encrypt(new_available).into();
+    let expected_counter: u64 = ct_extension.pending_balance_credit_counter.into();
+
+    let apply_ix = apply_pending_balance(
+        &spl_token_2022::id(),
+        token_account,
+        expected_counter,
+        &new_decryptable,
+        &owner.pubkey(),
+        &[&owner.pubkey()],
+    )?;
+    send_tx(rpc_client, &[apply_ix], &[owner])
+}
+
 fn load_keypair() -> Result<Keypair> {
-    // Get the default keypair path
     let keypair_path = dirs::home_dir()
-        .context("Could not find home directory")?
+        .context("could not find home directory")?
         .join(".config/solana/id.json");
-
-    // Read the keypair file directly into bytes using serde_json
-    // The keypair file is a JSON array of bytes
-    let file = std::fs::File::open(&keypair_path)?;
-    let keypair_bytes: Vec<u8> = serde_json::from_reader(file)?;
-
-    // Create keypair from the loaded bytes
-    // This converts the byte array into a keypair
-    let keypair = Keypair::from_bytes(&keypair_bytes)?;
-
-    Ok(keypair)
+    let bytes: Vec<u8> = serde_json::from_reader(std::fs::File::open(keypair_path)?)?;
+    let mut secret = [0u8; 32];
+    secret.copy_from_slice(&bytes[0..32]);
+    Ok(Keypair::new_from_array(secret))
 }
 ```
 
@@ -484,18 +513,296 @@ name = "confidential-transfer"
 version = "0.1.0"
 edition = "2021"
 
+# spl-token-2022 11 requires solana-system-interface 3.2 (which needs
+# solana-instruction >= 3.4). The stable solana-client 4.0.0 caps it lower, so
+# pin the 4.0.0-rc.0 line and use the granular solana crates instead of the
+# solana-sdk umbrella. This collapses back to solana-sdk once a stable
+# solana-client that allows solana-instruction 3.4 ships.
 [dependencies]
-solana-client = "2.2.2"
-solana-sdk = "2.2.2"
-spl-associated-token-account = "6.0.0"
-spl-token-client = "0.14.0"
-spl-token-confidential-transfer-proof-extraction = "0.2.1"
-spl-token-confidential-transfer-proof-generation = "0.3.0"
+solana-client = "4.0.0-rc.0"
+solana-pubkey = "4.2"
+solana-keypair = "3.1"
+solana-signer = "3.0"
+solana-transaction = "3.1"
+solana-instruction = "3.4"
+solana-commitment-config = "3.1.1"
+solana-system-interface = { version = "3.2.0", features = ["bincode"] }
+solana-address = "2.6"
+solana-zk-sdk = "7.0.1"
+solana-zk-sdk-pod = "0.1.2"
+solana-zk-elgamal-proof-interface = "0.1.2"
+spl-token-2022 = { version = "11.0.0", features = ["zk-ops"] }
+spl-associated-token-account = "8.0.0"
+spl-token-confidential-transfer-proof-extraction = "0.6.1"
+spl-token-confidential-transfer-proof-generation = "0.6.1"
 
-anyhow = "1.0.95"
+anyhow = "1.0"
 dirs = "6.0.0"
-serde_json = "1.0.135"
-tokio = { version = "1.44.2", features = ["full"] }
+serde_json = "1.0"
+```
+
+</CodeTabs>
+
+### Typescript
+
+<CodeTabs>
+
+```ts !! title="index.ts"
+// !collapse(1:31) collapsed
+// Imports: dependencies used by this example.
+import {
+  deriveAeKeyForOwnerMint,
+  deriveElGamalKeypairForOwnerMint,
+  getApplyConfidentialPendingBalanceInstructionFromToken,
+  getConfidentialWithdrawInstructionPlan,
+  getCreateConfidentialTransferAccountInstructionPlan
+} from "@solana-program/token-2022/confidential";
+import {
+  TOKEN_2022_PROGRAM_ADDRESS,
+  fetchToken,
+  findAssociatedTokenPda,
+  getConfidentialDepositInstruction,
+  getCreateMintInstructionPlan,
+  getMintToInstruction
+} from "@solana-program/token-2022";
+import {
+  createClient,
+  generateKeyPairSigner,
+  some,
+  summarizeTransactionPlanResult
+} from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { signerFromFile } from "@solana/kit-plugin-signer";
+import {
+  AeKey,
+  ElGamalKeypair,
+  ElGamalSecretKey
+} from "@solana/zk-sdk/bundler";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+const client = await createClient()
+  .use(signerFromFile(join(homedir(), ".config/solana/id.json")))
+  .use(
+    solanaRpc({
+      rpcUrl: "https://api.devnet.solana.com",
+      maxConcurrency: 1
+    })
+  );
+
+// The Solana CLI default keypair, used as fee payer, mint authority, and
+// token account owner.
+const owner = client.payer;
+const depositAmount = 100n;
+const amount = 25n;
+const decimals = 2;
+
+// Setup: create a confidential account with an available confidential balance.
+const mint = await createConfidentialMint(client, owner, decimals);
+const token = await createConfidentialTokenAccount(client, owner, mint);
+await mintPublicTokens(client, owner, mint, token, depositAmount);
+await depositTokens(client, owner, mint, token, depositAmount, decimals);
+await applyPendingBalance(client, owner, mint, token);
+
+// Derive the owner's recoverable ElGamal and AES keys, bound to (owner, mint).
+const { elgamalKeypair, aesKey } = await deriveConfidentialKeys(owner, mint);
+
+const tokenAccount = (await fetchToken(client.rpc, token)).data;
+
+// Builds the equality + range proof accounts, the withdraw, and the closes as a
+// multi-transaction instruction plan.
+const plan = await getConfidentialWithdrawInstructionPlan({
+  rpc: client.rpc,
+  payer: owner,
+  authority: owner,
+  token,
+  mint,
+  tokenAccount,
+  amount,
+  decimals,
+  elgamalKeypair,
+  aesKey
+});
+
+const result = await client.sendTransactions(plan);
+const summary = summarizeTransactionPlanResult(result);
+const signature =
+  summary.successfulTransactions[summary.successfulTransactions.length - 1]
+    .context.signature;
+console.log(`Withdrew ${amount} tokens to the public balance: ${signature}`);
+
+// !collapse(1:1000) collapsed
+// Setup: helper functions to create and fund the confidential token account.
+async function createConfidentialMint(
+  kitClient: typeof client,
+  payer: typeof owner,
+  decimals: number
+) {
+  const mint = await generateKeyPairSigner();
+  const auditor = await deriveElGamalKeypairForOwnerMint({
+    signer: payer,
+    owner: payer.address,
+    mint: mint.address
+  });
+
+  const plan = getCreateMintInstructionPlan({
+    payer,
+    newMint: mint,
+    decimals,
+    mintAuthority: payer,
+    extensions: [
+      {
+        __kind: "ConfidentialTransferMint",
+        authority: some(payer.address),
+        autoApproveNewAccounts: true,
+        auditorElgamalPubkey: some(auditor.elgamalPubkey)
+      }
+    ]
+  });
+
+  await kitClient.sendTransaction(plan);
+  await pauseForPublicRpc();
+
+  return mint.address;
+}
+
+async function createConfidentialTokenAccount(
+  kitClient: typeof client,
+  accountOwner: typeof owner,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>
+) {
+  const [token] = await findAssociatedTokenPda({
+    owner: accountOwner.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
+    mint
+  });
+  const { elgamalKeypair, aesKey } = await deriveConfidentialKeys(
+    accountOwner,
+    mint
+  );
+
+  const plan = await getCreateConfidentialTransferAccountInstructionPlan({
+    rpc: kitClient.rpc,
+    payer: accountOwner,
+    owner: accountOwner,
+    mint,
+    elgamalKeypair,
+    aesKey
+  });
+
+  await kitClient.sendTransaction(plan);
+  await pauseForPublicRpc();
+
+  return token;
+}
+
+async function mintPublicTokens(
+  kitClient: typeof client,
+  mintAuthority: typeof owner,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>,
+  token: Awaited<ReturnType<typeof createConfidentialTokenAccount>>,
+  amount: bigint
+) {
+  await kitClient.sendTransaction([
+    getMintToInstruction({
+      mint,
+      token,
+      mintAuthority,
+      amount
+    })
+  ]);
+  await pauseForPublicRpc();
+}
+
+async function depositTokens(
+  kitClient: typeof client,
+  authority: typeof owner,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>,
+  token: Awaited<ReturnType<typeof createConfidentialTokenAccount>>,
+  amount: bigint,
+  decimals: number
+) {
+  await kitClient.sendTransaction([
+    getConfidentialDepositInstruction({
+      token,
+      mint,
+      authority,
+      amount,
+      decimals
+    })
+  ]);
+  await pauseForPublicRpc();
+}
+
+async function applyPendingBalance(
+  kitClient: typeof client,
+  accountOwner: typeof owner,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>,
+  token: Awaited<ReturnType<typeof createConfidentialTokenAccount>>
+) {
+  const { elgamalSecretKey, aesKey } = await deriveConfidentialKeys(
+    accountOwner,
+    mint
+  );
+  const tokenAccount = await fetchToken(kitClient.rpc, token);
+  await kitClient.sendTransaction([
+    getApplyConfidentialPendingBalanceInstructionFromToken({
+      token,
+      tokenAccount: tokenAccount.data,
+      authority: accountOwner,
+      elgamalSecretKey,
+      aesKey
+    })
+  ]);
+  await pauseForPublicRpc();
+}
+
+async function deriveConfidentialKeys(
+  accountOwner: typeof owner,
+  mint: Awaited<ReturnType<typeof createConfidentialMint>>
+) {
+  const derivedElGamal = await deriveElGamalKeypairForOwnerMint({
+    signer: accountOwner,
+    owner: accountOwner.address,
+    mint
+  });
+  const elgamalSecretKey = ElGamalSecretKey.fromBytes(derivedElGamal.secretKey);
+  const elgamalKeypair = ElGamalKeypair.fromSecretKey(elgamalSecretKey);
+  const aesKey = AeKey.fromBytes(
+    await deriveAeKeyForOwnerMint({
+      signer: accountOwner,
+      owner: accountOwner.address,
+      mint
+    })
+  );
+
+  return { elgamalKeypair, elgamalSecretKey, aesKey };
+}
+
+async function pauseForPublicRpc() {
+  // Public devnet RPC can rate-limit bursts of setup transactions.
+  await new Promise((resolve) => setTimeout(resolve, 2_000));
+}
+```
+
+```json !! title="package.json"
+{
+  "name": "confidential-withdraw",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@solana-program/system": "^0.12.2",
+    "@solana-program/token-2022": "^0.12.0",
+    "@solana/kit": "^6.10.0",
+    "@solana/kit-plugin-rpc": "^0.11.1",
+    "@solana/kit-plugin-signer": "^0.10.0",
+    "@solana/zk-sdk": "^0.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "typescript": "^5.8.3"
+  }
+}
 ```
 
 </CodeTabs>

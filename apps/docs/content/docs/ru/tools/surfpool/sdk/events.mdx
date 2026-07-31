@@ -1,0 +1,211 @@
+---
+title: События среды выполнения
+description:
+  Наблюдайте за транзакциями, тиками slot, потоковой передачей аккаунтов и
+  ошибками среды выполнения изнутри теста. Rust предоставляет канал; JS
+  предоставляет метод drain.
+---
+
+Среда выполнения Surfnet генерирует поток структурированных событий,
+охватывающих обработку транзакций, тики slot, потоковую передачу аккаунтов,
+перемещение во времени и ошибки. SDK предоставляет этот поток, чтобы тесты могли
+проверять поведение среды выполнения без разбора логов.
+
+## Rust: Channel Receiver
+
+`Surfnet::events()` возвращает ссылку на
+`crossbeam_channel::Receiver<SimnetEvent>`, в который публикует события среда
+выполнения. Извлекайте их с помощью `try_iter()` (неблокирующий режим) или
+читайте отдельные события через `recv()` / `recv_timeout()`.
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+
+// Drain whatever has accumulated so far.
+for event in surfnet.events().try_iter() {
+    match event {
+        SimnetEvent::TransactionProcessed(_ts, metadata, error) => {
+            println!("tx {} -> {:?}", metadata.signature, metadata.logs);
+            if let Some(err) = error {
+                eprintln!("  failed: {err:?}");
+            }
+        }
+        SimnetEvent::ErrorLog(_ts, message) => {
+            eprintln!("runtime error: {message}");
+        }
+        other => {
+            println!("event: {other:?}");
+        }
+    }
+}
+```
+
+<Callout type="warn" title="Receiver is shared">
+  Если вы запускаете фоновую задачу для потребления событий, не вызывайте также
+  `try_iter` из основного потока. События будут непредсказуемо распределяться
+  между двумя потребителями.
+</Callout>
+
+## JS: Drain Method
+
+JS-биндинги буферизуют события внутри и предоставляют доступ к ним через
+`drainEvents`. Каждый вызов возвращает всё накопленное с момента предыдущего
+вызова, а затем очищает буфер.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  // ... do test setup that triggers events ...
+
+  const events = surfnet.drainEvents();
+  for (const event of events) {
+    switch (event.kind) {
+      case "transactionProcessed":
+        console.log("tx", event.transactionSignature, event.logs);
+        break;
+      case "errorLog":
+        console.error("runtime error:", event.message);
+        break;
+      default:
+        console.log(event.kind, event.message ?? "");
+    }
+  }
+} finally {
+  surfnet.stop();
+}
+```
+
+<Callout type="warn" title="Unbounded buffer">
+  Если вы никогда не вызываете `drainEvents`, буфер растёт на протяжении всего
+  времени жизни экземпляра. Для коротких тестов это допустимо, но при длительных
+  фикстурах вызывайте его периодически, чтобы не допустить неконтролируемого
+  роста памяти.
+</Callout>
+
+## Структура SimnetEventValue (JS)
+
+Тип события JS представляет собой плоский объект с дискриминатором `kind` и
+необязательными полями. Не каждое поле задано для каждого варианта — выполняйте
+деструктуризацию на основе `kind`.
+
+```ts
+interface SimnetEventValue {
+  kind: string; // discriminator, e.g. "TransactionProcessed"
+  message?: string; // human-readable message
+  timestamp?: string; // ISO timestamp
+
+  // startup
+  initialTransactionCount?: number;
+  clock?: ClockValue;
+
+  // slot / clock
+  epochInfo?: EpochInfoValue;
+  clockCommand?: string;
+  slotIntervalMs?: number;
+
+  // accounts
+  accountPubkey?: string;
+
+  // transactions
+  transactionSignature?: string;
+  logs?: string[];
+  computeUnitsConsumed?: number;
+  fee?: number;
+
+  // errors
+  errorMessage?: string;
+
+  // misc
+  tag?: string;
+  profileKey?: string;
+  profileSlot?: number;
+  runbookId?: string;
+  runbookErrors?: string[];
+}
+```
+
+## Типы событий
+
+Строки типов на стороне JS используют camelCase; соответствующий вариант Rust
+использует PascalCase. Сопоставляйте по этим точным строкам — они чувствительны
+к регистру и стабильны между версиями.
+
+| JS `kind`                                       | Вариант Rust                                                 | Генерируется когда                                                                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`                                         | `SimnetEvent::Ready`                                         | Среда выполнения завершила загрузку; содержит `initialTransactionCount`.                                                                  |
+| `connected`                                     | `SimnetEvent::Connected`                                     | Установлено соединение с удалённым RPC; содержит `message` (URL).                                                                         |
+| `aborted`                                       | `SimnetEvent::Aborted`                                       | Запуск был прерван; содержит `message` (причина).                                                                                         |
+| `shutdown`                                      | `SimnetEvent::Shutdown`                                      | Начинается плановое завершение работы.                                                                                                    |
+| `systemClockUpdated`                            | `SimnetEvent::SystemClockUpdated`                            | Системные часы продвинулись вперёд; содержит `clock`.                                                                                     |
+| `clockUpdate`                                   | `SimnetEvent::ClockUpdate`                                   | Выполнена команда управления часами (пауза/возобновление/обновление интервала); содержит `clockCommand` и, опционально, `slotIntervalMs`. |
+| `epochInfoUpdate`                               | `SimnetEvent::EpochInfoUpdate`                               | Доступен новый снимок информации epoch; содержит `epochInfo`.                                                                             |
+| `blockHashExpired`                              | `SimnetEvent::BlockHashExpired`                              | Истёк срок действия использовавшегося blockhash.                                                                                          |
+| `transactionReceived`                           | `SimnetEvent::TransactionReceived`                           | Транзакция поставлена в очередь; содержит `timestamp`, `transactionSignature`.                                                            |
+| `transactionProcessed`                          | `SimnetEvent::TransactionProcessed`                          | Транзакция выполнена; содержит `timestamp`, `transactionSignature`, `logs`, `computeUnitsConsumed`, `fee` и `errorMessage` в случае сбоя. |
+| `accountUpdate`                                 | `SimnetEvent::AccountUpdate`                                 | Аккаунт изменился — охватывает потоковые аккаунты и мутации через cheatcode; содержит `timestamp` и `accountPubkey`.                      |
+| `infoLog` / `warnLog` / `errorLog` / `debugLog` | `SimnetEvent::InfoLog` / `WarnLog` / `ErrorLog` / `DebugLog` | Среда выполнения вывела строку лога; содержит `timestamp` и `message`.                                                                    |
+| `pluginLoaded`                                  | `SimnetEvent::PluginLoaded`                                  | Загружен плагин Geyser; содержит `message` (имя плагина).                                                                                 |
+| `taggedProfile`                                 | `SimnetEvent::TaggedProfile`                                 | Зафиксирован результат профилировщика; содержит `tag`, `profileKey`, `profileSlot`, `logs`, `computeUnitsConsumed`.                       |
+| `runbookStarted` / `runbookCompleted`           | `SimnetEvent::RunbookStarted` / `RunbookCompleted`           | Runbook запущен или завершён; содержит `runbookId` и (по завершении) необязательный `runbookErrors`.                                      |
+
+## Паттерны проверок
+
+### Проверка успешного выполнения транзакции
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const sig = await sendTransaction(surfnet.rpcUrl /* ... */);
+  // ... wait for confirmation via RPC ...
+
+  const landed = surfnet
+    .drainEvents()
+    .some(
+      (e) => e.kind === "transactionProcessed" && e.transactionSignature === sig
+    );
+
+  console.assert(landed, "expected transaction to land");
+} finally {
+  surfnet.stop();
+}
+```
+
+### Проверка отсутствия ошибок во время выполнения
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let mut surfnet = Surfnet::start().await?;
+
+// ... run the test ...
+
+let errors: Vec<_> = surfnet
+    .events()
+    .try_iter()
+    .filter(|e| matches!(e, SimnetEvent::ErrorLog(_, _)))
+    .collect();
+
+assert!(errors.is_empty(), "runtime errors: {errors:?}");
+
+surfnet.stop()?;
+```
+
+## Почему события лучше парсинга логов
+
+<Callout type="info" title="Используйте поток событий вместо stdout">
+Среда выполнения выводит структурированные события через `tracing`, что может соблазнить вас перехватывать и парсить их из stdout. Не делайте этого. Структурированный поток событий:
+
+- **Устойчив к изменениям уровня логирования** — события генерируются независимо
+  от `RUST_LOG`.
+- **Содержит типизированные данные** — никакого парсинга строк, никакого
+  смещения формата между версиями.
+- **Имеет стабильные типы** — строки логов форматируются для людей и могут
+  свободно меняться; типы событий являются частью контракта SDK.
+
+</Callout>

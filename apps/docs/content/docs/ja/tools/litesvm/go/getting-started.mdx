@@ -1,0 +1,274 @@
+---
+title: はじめに
+description:
+  Use LiteSVM from Go with litesvm-go for fast, in-process Solana testing
+---
+
+Solanaのテストスイートで`solana-test-validator`を起動する場合、テストごとに数秒かかります。プロセスの起動、RPC接続、ネットワークのラウンドトリップに時間を取られるためです。LiteSVMを使えば、同じテストがミリ秒単位で実行されます。外部プロセスも不要、ネットワークも不要で、すべてがテストランナー内のメモリ上で完結します。
+
+`litesvm-go`は公式のGoバインディングです。コア型（`PublicKey`、`Hash`、`Signature`）は[`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go)から直接取得されるため、`litesvm-go`とGoのSolanaエコシステムの間で値が自然に受け渡されます。
+
+<Callout type="info">
+  **動作要件:** Go 1.24以上。Rustツールチェーンは不要です。ビルド済みの静的アーカイブがモジュールにバンドルされており、`GOOS` / `GOARCH`に基づいて自動的に選択されます。対応プラットフォーム: macOS（amd64、arm64）、Linux（amd64、arm64；glibc または musl）、Windows（amd64）。
+</Callout>
+
+新規の`LiteSVM`ハンドルは、エアドロップ、トランザクション（レガシー＋v0）、シミュレーション、アカウントの読み書き、sysvars、コンピュートバジェット、フィーチャーゲート、タイムトラベル、カスタムプログラム、トランザクション履歴を提供します。これらはすべて、RustおよびTypeScript SDKを支えるのと同じRustコアによってバックアップされています。
+
+## クイックスタート
+
+<Steps>
+
+<Step>
+### モジュールのインストール
+
+`go get`は依存関係をGoモジュールに解決するため、`go.mod`がまだない場合はまず初期化してください：
+
+```bash
+go mod init mytest
+```
+
+次にモジュールを追加します：
+
+```bash
+go get github.com/LiteSVM/litesvm-go
+```
+
+keypair、instructions、トランザクションの構築のために`solana-go`も取得してください：
+
+```bash
+go get github.com/gagliardetto/solana-go
+```
+
+<Callout type="warn">
+  **Alpine / muslユーザーへ:** 正しいバンドルアーカイブがリンクされるよう、`go build` / `go test`の実行時に`-tags musl`を追加してください。
+</Callout>
+
+</Step>
+
+<Step>
+### SVMの作成
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Fund a payer
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+
+    if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Check the balance
+    lamports, ok, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if !ok {
+        t.Fatal("payer account missing")
+    }
+    t.Logf("balance: %d lamports", lamports)
+}
+```
+
+<Callout type="info">
+  `litesvm.New()`は`*LiteSVM`と`error`を返します。`litesvm-go`のすべてのエントリポイントは同じ`(value, error)`の形式に従います。Rust側のパニックはキャッチされてエラーに変換されます。常に`defer svm.Close()`を呼び出して、内部のRustハンドルを解放してください。ファイナライザに頼ることもできますが、予測可能なクリーンアップのために明示的な`Close`が推奨されます。
+</Callout>
+
+</Step>
+
+</Steps>
+
+## ハンドルについて
+
+`litesvm.New()`の後、返された`*LiteSVM`は以下の機能グループを提供します：
+
+| グループ                | メソッド                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| アカウント             | `Airdrop`, `Balance`, `GetAccount`, `SetAccount`, `MinimumBalanceForRentExemption`                                                 |
+| トランザクション         | `SendLegacyTransaction`, `SendVersionedTransaction`, `SimulateLegacyTransaction`, `SimulateVersionedTransaction`, `GetTransaction` |
+| ブロックハッシュ            | `LatestBlockhash`, `ExpireBlockhash`                                                                                               |
+| プログラム             | `AddProgram`, `AddProgramFromFile`, `AddProgramWithLoader`                                                                         |
+| 時刻とsysvars     | `WarpToSlot`, `Clock`, `SetClock`, `Rent`, `SetRent`, `EpochSchedule`, `SetEpochSchedule`, `EpochRewards`, ...                     |
+| 設定        | `SetSigverify`, `SetBlockhashCheck`, `SetTransactionHistory`, `SetLogBytesLimit`, `SetSysvars`, `SetBuiltins`, ...                 |
+| コンピュートとフィーチャー | `ComputeBudget`, `SetComputeBudget`, `SetFeatureSet`                                                                               |
+
+新規の`LiteSVM`にはコアSolanaプログラム（System Program、SPL Tokenなど）がプリロードされているため、シンプルな送金はそのまま動作します。
+
+## トランザクションの送信
+
+`solana-go`でinstructionsを構築し、トランザクションをマーシャルして、バイト列を送信します。`litesvm-go`は`(*solana.Transaction).MarshalBinary`によって生成されたbincodeエンコードされたバイト列を受け付けます：
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/programs/system"
+)
+
+func TestTransfer(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    recipient := solana.NewWallet().PublicKey()
+
+    if err := svm.Airdrop(payer, 2_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    blockhash, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := system.NewTransferInstruction(1_000_000_000, payer, recipient).Build()
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        blockhash,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    lamports, _, err := svm.Balance(recipient)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if lamports != 1_000_000_000 {
+        t.Fatalf("recipient balance = %d, want 1_000_000_000", lamports)
+    }
+}
+```
+
+<Callout type="info">
+  `SendLegacyTransaction`と`SendVersionedTransaction`はどちらも、トランザクションの成否にかかわらず`*TxOutcome`を返します。成功時のみ有効なフィールドを読み取る前に`IsOk()`を呼び出し、常に`defer out.Close()`でRustハンドルを解放してください。
+</Callout>
+
+## TxOutcomeの扱い方
+
+すべてのsend / simulateエントリポイントは`*TxOutcome`を返します。同じハンドルが成功・失敗両方のメタデータを保持します：
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("error: %s", out.Error())
+}
+
+_ = out.Signature()    // solana.Signature
+_ = out.ComputeUnits() // uint64
+_ = out.Fee()          // uint64
+_ = out.Logs()         // []string
+_ = out.InnerInstructions()
+
+// Programs that call set_return_data expose it here.
+if pid, data, ok := out.ReturnData(); ok {
+    _ = pid
+    _ = data
+}
+```
+
+`SimulateLegacyTransaction` / `SimulateVersionedTransaction`では、同じ`*TxOutcome`がさらに`PostAccounts()`を公開します。これは仮の実行後のアカウント状態です：
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    _ = p.Address
+    _ = p.Account.Lamports()
+    p.Account.Close()
+}
+```
+
+## 設定
+
+`litesvm-go`はRustクレートと同じビルダースイッチを`Set*`メソッドとして提供します：
+
+```go
+// Each setter returns an error. In tests where the values are known good,
+// the calls are infallible and assigning to _ keeps the example readable;
+// in production code, check the error or wrap with require.NoError(t, ...).
+_ = svm.SetSigverify(false)        // accept unsigned / badly-signed txs
+_ = svm.SetBlockhashCheck(false)   // skip recent-blockhash enforcement
+_ = svm.SetTransactionHistory(0)   // 0 disables dedup; any N caps history
+_ = svm.SetLogBytesLimit(-1)       // negative = unlimited
+_ = svm.SetLamports(1 << 40)       // default lamports for new accounts
+_ = svm.SetSysvars()               // reset sysvars to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetDefaultPrograms()       // reload SPL Token, Memo, etc.
+_ = svm.SetPrecompiles()           // enable ed25519 / secp256k1 precompiles
+_ = svm.WithNativeMints()          // seed wrapped-SOL mint
+```
+
+## 注意事項
+
+**スレッドセーフティ。** `*LiteSVM`ハンドルは複数のgoroutineからの並行使用に対して安全ではありません（内部のRust型は`Sync`ではなく、ほとんどのメソッドが内部状態を変更します）。ハンドルは単一のgoroutineに限定するか、`sync.Mutex`で保護してください。
+
+**パニックの挙動。** バンドルされたリリースアーカイブは`immediate-abort`でビルドされています。Rust内部のパニックは、アンワインドなしでホストプロセスを直接終了させます。これはアーカイブサイズを小さくするための意図的なトレードオフです。実際に発生した場合は、再現手順とともにIssueを開いてください。
+
+## 次のステップ
+
+このドキュメントではコアハンドルの概要（アカウントの作成、instructionsの送信、状態の読み取り）を説明しました。メソッドごとの詳細なリファレンスは[APIドキュメント](/docs/tools/litesvm/go/api-reference)を参照してください。実行可能なサンプル（SOL送金、アカウントセットアップ、プログラムテスト、時刻ベースのロジック）については[サンプル集](/docs/tools/litesvm/go/examples)を参照してください。

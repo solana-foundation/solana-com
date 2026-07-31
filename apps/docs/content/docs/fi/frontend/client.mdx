@@ -1,124 +1,157 @@
 ---
-title: "@solana/client"
+title: Asiakaskirjasto
 description:
-  Rakenna kevyitä Solana-käyttöliittymiä headless Solana client
-  -ajonaikaisympäristöllä.
+  Build a Solana client from Kit plugins for RPC, signing, and sending
+  transactions.
 ---
 
-`@solana/client` pitää ajonaikaisympäristön kevyenä. Yksi store, yksi RPC-pino
-ja wallet-rekisteri ohjaavat eri apuvälineitä, joten sama instanssi voi tukea
-CLI-työkaluja, skriptejä tai täysiä käyttöliittymiä. Actionit, watcherit ja
-helperit jakavat välimuistin, tilaukset ja wallet-istunnot tämän yhden clientin
-kautta.
+`@solana/kit` sisältää `createClient`-funktion, joka on pienikokoinen isäntä, jota laajennetaan liitännäisillä. Jokainen
+liitännäinen lisää ominaisuuden — RPC-yhteyden, allekirjoittajan, tapahtumien suunnittelun —
+ja koostettu asiakas palvelee skriptejä, palvelinreittejä ja käyttöliittymiä yhtä lailla.
 
 <Callout type="info">
-  Kun rakennat puhtaasti React-pohjaista käyttökokemusta, on yleensä nopeampaa
-  aloittaa [`@solana/react-hooks`](/docs/frontend/react-hooks) -paketilla.
-  Hooks-paketti käärii saman client-ajonaikaisympäristön ja tarjoaa valmiit
-  hookit, joten käytät headless clientia vain silloin, kun tarvitset
-  lisäkontrollia.
+  Rakennatko React-sovellusta? [React-opas](/docs/frontend/react-hooks) käärii tämän
+  saman asiakkaan `@solana/react`-kirjastolla, jolloin komponentit lukevat lompakon tilan ja RPC-datan
+  hookien kautta. Aloita sieltä ja palaa tänne, kun tarvitset tarkempaa hallintaa.
 </Callout>
 
 ## Asennus
 
 ```terminal
-$ npm install @solana/client
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer
 ```
 
-Käytä mitä tahansa paketinhallintaa; client toimii selaimissa, workereissa,
-Reactissa, Sveltessä tai palvelinpuolen ajonaikaisympäristöissä.
+Käytä mitä tahansa paketinhallintaa. Kit on v7+ ja `@solana/kit-plugin-*`-paketit ovat
+0.13+.
 
-## Luo client kerran
+## Luo asiakas
 
-Valitse Wallet Standard -liittimet (automaattinen löytäminen on nopein tapa
-aloittaa), ja luo sitten client. Tämä yksittäinen objekti tarjoaa storen,
-actionit, watcherit ja helperit.
+Yhdistä liitännäiset `.use(...)`-metodilla. Aseta allekirjoittaja ensin, sitten RPC-yhteys.
+`solanaDevnetRpc()` lisää `client.rpc`:n, tilaukset, tapahtumien
+suunnittelijan/suorittajan ja `client.sendTransaction`-apumetodin — joten sovelluksen ei yleensä
+tarvitse kytkeä näitä osia itse.
 
 ```ts
-import { autoDiscover, createClient } from "@solana/client";
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
+const payer = await generateKeyPairSigner();
 
-await client.actions.connectWallet("wallet-standard:phantom");
-const balance = await client.actions.fetchBalance("Fke...address");
-console.log(balance.lamports?.toString());
+const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+
+const slot = await client.rpc.getSlot().send();
+console.log("current slot", slot);
 ```
 
-Client store seuraa klusterin konfiguraatiota, tilauksia, odottavia
-transaktioita ja wallet-istuntoja. Voit tarjota oman Zustand-storen, jos
-tarvitset pysyvyyttä tai usean välilehden koordinointia.
+`signer`-liitännäinen asettaa sekä maksajan että sovelluksen identiteetin. RPC-paketti
+edellyttää, että maksaja on asetettu ensin, minkä vuoksi järjestyksellä on merkitystä.
 
-## Wallet-orkestrointi
+### Allekirjoittajan variantit
 
-Liittimet kapseloivat Wallet Standard -metadatan sekä yhdistämis- ja
-katkaisulogiikan. Rekisteröi sisäänrakennetut `phantom()`, `solflare()`,
-`backpack()` tai `autoDiscover()` -helperit, tai kääri mukautetut providerit
-`createWalletStandardConnector` -toiminnolla. Kaikki wallet-actionit (yhdistä,
-katkaise, allekirjoita, lähetä) kulkevat client-rekisterin kautta, joten
-jokainen kuluttaja pysyy synkronoituna.
+`@solana/kit-plugin-signer` tarjoaa kolme roolia, jotta voit myöntää asiakkaalle vain tarvittavat oikeudet:
 
-## Actionit, watcherit ja helperit
+- `signer(x)` — asettaa sekä `client.payer`n että `client.identity`n.
+- `payer(x)` — vain tapahtumamaksaja.
+- `identity(x)` — vain sovelluksen auktoriteetti.
 
-- **Actionit** käärivät yleiset RPC-luku- ja kirjoitusoperaatiot samalla
-  päivittäen storea (esim. `fetchAccount`, `requestAirdrop`, `setCluster`).
-- **Watcherit** multipleksoivat websocket-tilaukset, suoratoistavat päivitykset
-  storeen ja antavat sinulle abort-kahvat siivousta varten.
-- **Helperit** tarjoavat korkeamman tason toimintoja, kuten SOL-siirrot, SPL
-  token -helperit, allekirjoitusten pollauksen ja transaktiopoolit.
+Jokaisella on `*FromFile(path)` (Node), `generated*()`, `generated*WithSol(amount)`
+ja `airdrop*()`-variantit testejä ja skriptejä varten.
+
+## Lähetä tapahtuma
+
+Rakenna käskyt generoidulla ohjelmaklientillä ja välitä ne
+`client.sendTransaction`-metodille. Suunnittelija ratkaisee lohkohashin, arvioi laskennan,
+allekirjoittaa asiakkaan maksajalla ja lähettää tapahtuman.
 
 ```ts
-const abortWatcher = client.watchers.watchBalance(
-  { address: "Fke...address" },
-  (lamports) => {
-    console.log("live balance", lamports.toString());
-  }
-);
+import { getTransferSolInstruction } from "@solana-program/system";
+import { address, lamports } from "@solana/kit";
 
-// Later when the component unmounts or the flow ends
-abortWatcher.abort();
+const transfer = getTransferSolInstruction({
+  source: client.payer,
+  destination: address("Fke...address"),
+  amount: lamports(10_000_000n) // 0.01 SOL
+});
+
+const { context } = await client.sendTransaction([transfer]);
+console.log("submitted", context.signature);
 ```
 
-## Transaktioavustajan malli
+`sendTransaction` palauttaa tulososion; tapahtuman allekirjoitus löytyy
+`result.context.signature`-kentästä. Se varmistaa, että suunnitelma mahtuu yhteen tapahtumaan ja
+heittää poikkeuksen muutoin — käytä `sendTransactions`-metodia, kun erä voi kattaa useita
+tapahtumia.
 
-Transaktioavustaja hallinnoi blockhash-päivitystä, maksajan määritystä ja
-allekirjoitusta. Voit valmistella, tarkastaa ja lähettää haluamallasi
-käyttöliittymällä.
+## Valitse RPC-paketti
+
+`@solana/kit-plugin-rpc` sisältää klusterivalmiit asetukset:
+
+- `solanaDevnetRpc()` — devnetin oletusasetukset, airdrop käytössä (`client.airdrop`).
+- `solanaMainnetRpc()` — mainnet; airdrop on käännösaikainen virhe.
+- `solanaLocalRpc()` — `http://127.0.0.1:8899` paikallista validator-solmua varten.
+- `solanaRpc({ rpcUrl })` — mikä tahansa päätepiste.
 
 ```ts
-const prepared = await client.helpers.transaction.prepare({
-  authority: client.store.getState().wallet.session!,
-  instructions: [instructionA, instructionB]
-});
+import { solanaRpc } from "@solana/kit-plugin-rpc";
 
-await client.helpers.transaction.simulate(prepared, {
-  commitment: "processed"
-});
-const signature = await client.helpers.transaction.send(prepared);
-console.log("submitted", signature.toString());
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpc({ rpcUrl: "https://your-rpc-provider.example" }));
 ```
 
-Käytä `prepareAndSend` valmiiseen prosessiin (simulaatio ja lokitus) tai kutsu
-`sign` / `toWire` kerätäksesi allekirjoitukset manuaalisesti ennen wire-muodon
-välittämistä itse.
+### Koosta yksityiskohtaisesti
+
+Valmiit paketit yhdistävät RPC-yhteyden, suunnittelijan, suorittajan ja lähetysapumetodit,
+joten useimmat sovellukset eivät koskaan tarvitse osia erikseen. Siirry yksittäisiin liitännäisiin vain
+jota yhtä räätälöidäksesi — esimerkiksi mukautettu suunnittelija tai eri tilauskanava. Tämä polku vaatii myös `@solana/kit-plugin-instruction-plan`-paketin, jonka
+valmiit paketit muutoin sisällyttävät puolestasi:
+
+```ts
+import {
+  solanaRpcConnection,
+  rpcAirdrop,
+  rpcTransactionPlanner,
+  rpcTransactionPlanExecutor
+} from "@solana/kit-plugin-rpc";
+import { planAndSendTransactions } from "@solana/kit-plugin-instruction-plan";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaRpcConnection({ rpcUrl: "https://api.devnet.solana.com" }))
+  .use(rpcAirdrop())
+  .use(rpcTransactionPlanner())
+  .use(rpcTransactionPlanExecutor())
+  .use(planAndSendTransactions());
+```
+
+## Lisää ohjelma-asiakkaita
+
+Generoidut `@solana-program/*`-paketit tarjoavat asiakasliitännäisiä, jolloin ohjelmakutsut
+liittyvät suoraan asiakkaaseen. Asenna tarvitsemasi ohjelma ja lisää sen liitännäinen `.use()`-metodilla:
+
+```ts
+import { tokenProgram } from "@solana-program/token";
+
+const client = createClient()
+  .use(signer(payer))
+  .use(solanaDevnetRpc())
+  .use(tokenProgram()); // adds client.token
+```
+
+## Allekirjoittaminen ilman selainlompakkoa
+
+Ajetaanko API-reitillä, workerissa tai skriptissä headless-tilassa? Allekirjoita
+taustapalvelun avaintenhallinnan avulla raaka keypair-parin sijaan. Katso
+[Keychain](/docs/tools/keychain) ja
+[Signing in Production](/docs/core/transactions/signing-in-production).
 
 ## Yleisiä malleja Solana-kehittäjille
 
-- **Headless-tilakoneet**: Suorita asiakasohjelma API-reittien, skriptien tai
-  workereiden sisällä käyttääksesi uudelleen samaa lompakko- ja
-  RPC-orkestrointilogiikkaa, joka käyttää käyttöliittymääsi.
-- **Reaaliaikaiset kojelaudat**: Yhdistä tarkkailijat (saldot, tilit,
-  allekirjoitukset) haluamaasi käyttöliittymäkirjastoon; asiakasohjelma
-  käsittelee websocket-jakelun ja välimuistin mitätöinnin.
-- **Mukautetut storet**: Injektoi oma Zustand-storesi hydratoidaksesi
-  IndexedDB:stä/localStoragesta, peilaa tila palvelinsessioihin tai koordinoi
-  selainvälilehtien välillä.
-- **Silta React-hookkeihin**: Välitä konfiguroitu asiakasinstanssi
-  `@solana/react-hooks` kun haluat ergonomisia hookkeja saman ajonaikaisen
-  päälle.
-- **Testattavuus**: Yksittäinen asiakasrajapinta voidaan mockkata
-  yksikkötesteissä, mikä helpottaa RPC-vastausten tai lompakkosessioiden
-  simulointia ilman selaimen lompakkoa.
+- **Jaettu alustus**: Rakenna asiakas kerran ydinmoduulissa ja tuo se
+  skripteihin, palvelinreitteihin ja käyttöliittymään.
+- **Palvelinpuolen lukemat**: Pelkällä `signer` + `solanaRpc` -yhdistelmällä (ilman lompakkoliitännäistä) varustettu asiakas lukee tilejä ja simuloi tapahtumia palvelimelta.
+- **Paikallinen testaus**: Vaihda RPC-paketti `.use(litesvm())`-liitännäiseen
+  `@solana/kit-plugin-litesvm`-paketista ajaaksesi muistissa olevaa validator-solmua vastaan (vain Node).
+- **Testattavuus**: Koostettu asiakas on helppo simuloida — tynkää RPC-vastauksia tai
+  allekirjoittajia ilman selaimen lompakkoa.

@@ -34,7 +34,7 @@ Solanaトランザクションには、指定された手数料支払者、つ�
 <CodePlaceholder title="トランザクション手数料のスポンサー" />
 
 ```ts !! title="Sponsor Transaction Fee"
-const sponsor = (await generateKeypair()).signer;
+const sponsor = await generateKeyPairSigner();
 ```
 
 ## !!steps 転送命令の作成
@@ -44,41 +44,47 @@ const sponsor = (await generateKeypair()).signer;
 <CodePlaceholder title="スポンサートランザクション手数料" />
 
 ```ts !! title="Sponsor Transaction Fee"
-const sponsor = (await generateKeypair()).signer;
+const sponsor = await generateKeyPairSigner();
 
-// !focus(1:6)
-const transferInstruction = getTransferInstruction({
+// !focus(1:8)
+const transferInstruction = getTransferCheckedInstruction({
   source: senderAta,
+  mint: mint.address,
   destination: recipientAta,
   authority: sender, // Sender signs for the transfer
-  amount: 250_000n // adjusted for the mint's decimals
+  amount: 250_000n, // adjusted for the mint's decimals
+  decimals: 6
 });
 ```
 
 ## !!steps スポンサーを手数料支払者として送信
 
-`authority`(転送に署名する送信者)と`feePayer`(手数料を支払うスポンサー)の両方を使用して`prepareAndSend`を使用します。両方がトランザクションに署名する必要があります。
+スポンサーを手数料支払者として設定したクライアントを `payer(sponsor)`
+で作成し、その後 `client.sendTransaction`
+を呼び出します。スポンサーはネットワーク手数料を支払うために署名し、送信者は送金を承認するために署名します。`sendTransaction`
+は参照されたすべての署名者を自動的に収集します。
 
 <CodePlaceholder title="スポンサートランザクション手数料" />
 
 ```ts !! title="Sponsor Transaction Fee"
-const sponsor = (await generateKeypair()).signer;
+const sponsor = await generateKeyPairSigner();
 
-const transferInstruction = getTransferInstruction({
+const transferInstruction = getTransferCheckedInstruction({
   source: senderAta,
+  mint: mint.address,
   destination: recipientAta,
   authority: sender,
-  amount: 250_000n
+  amount: 250_000n,
+  decimals: 6
 });
 
-// !focus(1:6)
-const signature = await client.transaction.prepareAndSend({
-  authority: sender, // Signs the transfer instruction
+// !focus(1:5)
+const client = createClient()
   // !mark
-  feePayer: sponsor, // Pays the transaction fees
-  instructions: [transferInstruction],
-  version: 0
-});
+  .use(payer(sponsor)) // Sponsor pays the transaction fees
+  .use(solanaLocalRpc());
+
+const { context } = await client.sendTransaction([transferInstruction]);
 ```
 
 </ScrollyCoding>
@@ -88,11 +94,12 @@ const signature = await client.transaction.prepareAndSend({
 <CodeTabs flags="r">
 
 ```ts !! title="Demo"
-// !collapse(1:14) collapsed
+// !collapse(1:15) collapsed
 // Click ">" icon on left to expand demo imports
-import { createClient, lamports } from "@solana/client";
-import { generateKeypair } from "@solana/client/server";
-import type { ServerKeypair } from "@solana/client/server";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import type { KeyPairSigner } from "@solana/kit";
+import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
+import { payer } from "@solana/kit-plugin-signer";
 import { getCreateAccountInstruction } from "@solana-program/system";
 import {
   getCreateAssociatedTokenInstructionAsync,
@@ -101,14 +108,14 @@ import {
   TOKEN_2022_PROGRAM_ADDRESS,
   findAssociatedTokenPda,
   getMintToInstruction,
-  getTransferInstruction
+  getTransferCheckedInstruction
 } from "@solana-program/token-2022";
 
 // Generate keypairs for sender, recipient, and sponsor (fee payer)
-const sender = (await generateKeypair()).signer;
-const recipient = (await generateKeypair()).signer;
+const sender = await generateKeyPairSigner();
+const recipient = await generateKeyPairSigner();
 // !mark
-const sponsor = (await generateKeypair()).signer;
+const sponsor = await generateKeyPairSigner();
 
 console.log("Sender Address:", sender.address);
 console.log("Recipient Address:", recipient.address);
@@ -141,40 +148,38 @@ console.log("Recipient Token Account:", recipientAta.toString());
 
 // Create instruction to transfer tokens from sender to recipient
 // Transferring 250,000 base units = 0.25 tokens (with 6 decimals)
-const transferInstruction = getTransferInstruction({
+const transferInstruction = getTransferCheckedInstruction({
   source: senderAta,
+  mint: mint.address,
   destination: recipientAta,
-  authority: sender, // Pass signer, not just address
-  amount: 250_000n // 0.25 tokens
+  authority: sender, // Sender signs to authorize the transfer
+  amount: 250_000n, // 0.25 tokens
+  decimals: 6
 });
 
-// Prepare and send transaction with sponsor as fee payer using @solana/client
-// The sponsor pays transaction fees, sender signs for the transfer
-const signature = await client.transaction.prepareAndSend({
-  authority: sender, // Sender signs the transfer instruction
-  // !mark
-  feePayer: sponsor, // Sponsor pays the transaction fees (different account)
-  instructions: [transferInstruction],
-  version: 0
-});
+// Send transaction with sponsor as fee payer using @solana/kit
+// The sponsor (client.payer) pays fees; the sender signs for the transfer
+// !mark
+const { context } = await client.sendTransaction([transferInstruction]);
+const signature = context.signature;
 
 console.log("\n=== Sponsored Token Payment Complete ===");
 console.log("Transaction Signature:", signature.toString());
 
-// Fetch final token account balances using @solana/client SPL token helper
-const splToken = client.splToken({
-  mint: mint.address,
-  tokenProgram: "auto"
-});
+// Fetch final token account balances from the RPC
+const senderBalance = await client.rpc.getTokenAccountBalance(senderAta).send();
+const recipientBalance = await client.rpc
+  .getTokenAccountBalance(recipientAta)
+  .send();
 
-const senderBalance = await splToken.fetchBalance(sender.address);
-const recipientBalance = await splToken.fetchBalance(recipient.address);
-
-console.log("\nSender Token Account Balance:", senderBalance);
-console.log("Recipient Token Account Balance:", recipientBalance);
+console.log("\nSender Token Account Balance:", senderBalance.value.uiAmount);
+console.log(
+  "Recipient Token Account Balance:",
+  recipientBalance.value.uiAmount
+);
 
 // Fetch transaction details
-const transaction = await client.runtime.rpc
+const transaction = await client.rpc
   .getTransaction(signature, {
     encoding: "jsonParsed",
     maxSupportedTransactionVersion: 0
@@ -192,46 +197,36 @@ console.log("Fee Payer Address:", feePayer);
 
 /**
  * Sets up for a sponsored token transfer demo:
- * - Creates @solana/client instance
+ * - Creates @solana/kit client pointing to a local validator
  * - Airdrops SOL to sponsor for transaction fees
  * - Generates mint keypair and creates/initializes mint account
  * - Creates associated token accounts for sender and recipient
  * - Mints initial tokens to sender
  *
- * @param sender - The sender's keypair (will be funded and used as mint authority)
+ * @param sender - The sender's keypair (will be used as mint authority)
  * @param recipient - The recipient's keypair
  * @param sponsor - The sponsor's keypair (will pay all transaction fees)
  * @returns Returns client instance and mint address
  */
 async function demoSetup(
-  sender: ServerKeypair["signer"],
-  recipient: ServerKeypair["signer"],
-  sponsor: ServerKeypair["signer"]
+  sender: KeyPairSigner,
+  recipient: KeyPairSigner,
+  sponsor: KeyPairSigner
 ) {
-  // Create @solana/client instance pointing to local validator
-  const client = createClient({
-    endpoint: "http://localhost:8899",
-    websocketEndpoint: "ws://localhost:8900",
-    commitment: "confirmed",
-    logger: () => {} // Disable all logs
-  });
+  // Create @solana/kit client with the sponsor set as the fee payer
+  const client = createClient().use(payer(sponsor)).use(solanaLocalRpc());
 
-  // Fund sponsor with SOL for transaction fees using @solana/client actions
-  await client.actions.requestAirdrop(
-    sponsor.address,
-    lamports(1_000_000_000n)
-  );
+  // Fund sponsor with SOL for transaction fees
+  await client.airdrop(sponsor.address, lamports(1_000_000_000n));
 
   // Generate keypair to use as address of mint
-  const mint = (await generateKeypair()).signer;
+  const mint = await generateKeyPairSigner();
 
   // Get default mint account size (in bytes), no extensions enabled
   const space = BigInt(getMintSize());
 
   // Get minimum balance for rent exemption
-  const rent = await client.runtime.rpc
-    .getMinimumBalanceForRentExemption(space)
-    .send();
+  const rent = await client.rpc.getMinimumBalanceForRentExemption(space).send();
 
   // Instruction to create new account for mint (token program)
   // Invokes the system program (sponsor pays the rent)
@@ -251,19 +246,13 @@ async function demoSetup(
     mintAuthority: sender.address
   });
 
-  // Derive sender's associated token account address (ATA)
-  const [senderAta] = await findAssociatedTokenPda({
-    mint: mint.address,
-    owner: sender.address,
-    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
-  });
-
   // Create instruction for sender's ATA (sponsor pays)
   const createSenderAtaInstruction =
     await getCreateAssociatedTokenInstructionAsync({
       payer: sponsor,
       mint: mint.address,
-      owner: sender.address
+      owner: sender.address,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
     });
 
   // Create instruction for recipient's ATA (sponsor pays)
@@ -271,8 +260,16 @@ async function demoSetup(
     await getCreateAssociatedTokenInstructionAsync({
       payer: sponsor,
       mint: mint.address,
-      owner: recipient.address
+      owner: recipient.address,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
     });
+
+  // Derive sender's associated token account address (ATA)
+  const [senderAta] = await findAssociatedTokenPda({
+    mint: mint.address,
+    owner: sender.address,
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
 
   // Create instruction to mint initial tokens to sender
   // Sender is the mint authority and must sign
@@ -283,7 +280,7 @@ async function demoSetup(
     amount: 1_000_000n // Mint 1.00 tokens (1,000,000 base units with 6 decimals)
   });
 
-  // Combine all instructions and send using @solana/client transaction helper
+  // Combine all setup instructions
   const setupInstructions = [
     createAccountInstruction, // Create mint account
     initializeMintInstruction, // Initialize mint
@@ -292,13 +289,8 @@ async function demoSetup(
     mintToInstruction // Mint tokens to sender
   ];
 
-  // Prepare and send transaction using @solana/client with sponsor as fee payer
-  await client.transaction.prepareAndSend({
-    authority: sender,
-    feePayer: sponsor, // Sponsor pays all transaction fees
-    instructions: setupInstructions,
-    version: 0
-  });
+  // Send transaction using @solana/kit with sponsor as fee payer
+  await client.sendTransaction(setupInstructions);
 
   return {
     client,
@@ -326,20 +318,28 @@ cargo install kora-cli
 kora --config path/to/kora.toml rpc start --signers-config path/to/signers.toml
 ```
 
-次に、Koraクライアントを使用してトランザクションに署名して送信します:
+次に、Kit クライアントをお使いの Kora サーバーに向け、上記と同じ API を使用してトランザクションを送信します：
 
 ```bash
 pnpm add @solana/kora
 ```
 
 ```typescript
-import { KoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+import { createKitKoraClient } from "@solana/kora";
 
-const kora = new KoraClient({ rpcUrl: "https://your-kora-instance" });
-
-const { signature } = await kora.signAndSendTransaction({
-  transaction: base64EncodedTransaction
+// A Kora-backed Kit client: Kora is the fee payer, and users pay
+// fees in the SPL token of your choice instead of SOL
+const kora = await createKitKoraClient({
+  endpoint: "https://your-kora-instance",
+  rpcUrl: "https://api.mainnet-beta.solana.com",
+  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
+  feePayerWallet: sender // Signs to authorize the token fee payment
 });
+
+// Same instruction, same call—Kora sponsors the network fee
+const { context } = await kora.sendTransaction([transferInstruction]);
+console.log("Signature:", context.signature);
 ```
 
 ### Koraリソース

@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useContext } from "react";
 
-// Global settings type (replaces TinaCMS GlobalQuery)
+// Global settings shared through the media layout
 interface GlobalSettings {
   theme: {
     color?: string | null;

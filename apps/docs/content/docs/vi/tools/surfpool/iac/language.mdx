@@ -1,0 +1,271 @@
+---
+title: Ngôn Ngữ & Cú Pháp
+description: Sử dụng DSL txtx để mô tả các triển khai mà surfpool quản lý.
+---
+
+Đây là tài liệu cho ngôn ngữ txtx. Các tệp Runbook mà bạn viết mô tả những
+blockchain và mạng nào sẽ được sử dụng, dữ liệu nào cần truy xuất, và những giao
+dịch nào cần phát sóng. Ngôn ngữ txtx cũng cho phép bạn xác định các phụ thuộc
+giữa các tài nguyên và tạo nhiều cấu trúc tương tự từ một khối duy nhất.
+
+## Cú Pháp
+
+Runbook chứa một loạt các khối mã trông giống như sau:
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+Mỗi khối có một loại lệnh (trong ví dụ này là `variable`, `action` và `output`),
+một tên tham chiếu (`"query_path"`, `"http_query"` và `"status_code"`), và dữ
+liệu bên trong của khối (mọi thứ nằm giữa `{ ... }`). Một số loại lệnh cũng yêu
+cầu chỉ định một lệnh cụ thể (`"std::send_http_request"`). Dữ liệu bên trong của
+khối được quy định bởi loại lệnh và lệnh được chỉ định.
+
+### Tham Chiếu Lệnh
+
+Một lệnh có thể tham chiếu đầu ra của lệnh khác để xây dựng một chuỗi các lệnh
+phụ thuộc. Khi bạn thực thi một Runbook, surfpool sẽ tạo một đồ thị của tất cả
+các lệnh để đảm bảo chúng luôn được thực thi theo đúng thứ tự. Điều này cũng có
+nghĩa là cần tránh các vòng phụ thuộc khi tạo Runbook.
+
+Đầu ra của một lệnh khác có thể được tham chiếu trong một khối bằng cách sử dụng
+`command_type.ref_name.output_name`. Dưới đây là một số ví dụ:
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### Hàm
+
+Thư viện [chuẩn](/docs/tools/surfpool/iac/std/functions) cung cấp một số hàm có
+thể được viết nội tuyến, thay vì phải viết toàn bộ khối lệnh với các đối số được
+đặt tên. Các hàm này có thể được mở rộng thông qua các addon.
+
+Các hàm này có thể trông giống như lời gọi hàm tường minh (ví dụ:
+`add_uint(1, 3)`), hoặc chúng có thể trông giống như các phép toán số học nội
+tuyến (ví dụ: `1 + 3`). Các hàm có thể tham chiếu đầu ra của các lệnh khác, hoặc
+chúng có thể được lưu trữ trong đầu ra lệnh mới. Đây là một ví dụ sử dụng một
+vài hàm:
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## Đầu Vào Manifest & CLI
+
+Các đầu vào có thể được cung cấp cho Runbook bằng cách truyền chúng dưới dạng
+đầu vào CLI, hoặc bằng cách chỉ định chúng trong tệp manifest `txtx.yml`. Nếu
+cùng một đầu vào được cung cấp cả trong CLI và trong manifest, đầu vào CLI sẽ
+được ưu tiên. Để xem thông tin về cách sử dụng CLI, hãy xem
+[tài liệu CLI](/docs/tools/surfpool/toolchain/cli). Trong manifest, các đầu vào
+này có thể được nhóm theo khóa môi trường, giúp dễ dàng sử dụng cùng một Runbook
+trên nhiều môi trường.
+
+Dưới đây là ví dụ cấu hình với các biến môi trường:
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+Trong bất kỳ tệp `.tx` nào được tải bởi runbook này, các đầu vào
+`input.network_id` và `input.rpc_api_url` sẽ có sẵn trong phạm vi toàn cục. Khi
+Web UI tải runbook này, mục hành động đầu tiên sẽ cho phép bạn chọn môi trường
+cần tải. Việc chọn một môi trường mới sẽ tải lại runbook hiện tại với các biến
+môi trường mới được đưa vào quá trình thực thi.
+
+### Quản Lý Trạng Thái
+
+Surfpool có thể quản lý trạng thái qua các lần thực thi Runbook. Khi chạy các
+triển khai hợp đồng, tính năng quản lý trạng thái có thể được sử dụng để phát
+hiện bất kỳ thay đổi nào đối với mã hợp đồng và đầu vào Runbook nhằm xác định
+xem Runbook có cần được thực thi lại hay không. Surfpool sẽ ngăn việc thực thi
+lại một Runbook nếu không có bất kỳ thay đổi nào đối với mã hợp đồng hoặc đầu
+vào Runbook.
+
+Để bật quản lý trạng thái, cung cấp giá trị `state` và một `location` để lưu trữ
+tệp trạng thái trong `txtx.yml`:
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## Biến
+
+Biến có thể được dùng để lưu trữ các giá trị mà các cấu trúc khác có thể sử dụng
+và người dùng có thể chỉnh sửa trong Web UI. Nếu trường `editable` của biến
+không được chỉ định hoặc được đặt thành `false`, biến sẽ xuất hiện trên Web UI
+trong phần `Variables Review` dưới dạng giá trị chỉ đọc có thể được xác minh.
+Tuy nhiên, nếu trường `editable` được đặt thành `true`, biến sẽ xuất hiện dưới
+dạng trường có thể chỉnh sửa trong Web UI. Trường tùy chọn `description` có thể
+được cung cấp để thêm ngữ cảnh bổ sung cho biến. Dưới đây là ví dụ về biến:
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## Tiện ích bổ sung & Mặc định
+
+Các khối tiện ích bổ sung cho phép bạn chỉ định những tiện ích bổ sung nào sẽ
+được sử dụng bởi Runbook. Bất kỳ trường nào được khai báo bên trong khối tiện
+ích bổ sung đều có thể được tham chiếu bởi bất kỳ hành động nào thuộc tiện ích
+bổ sung đó. Điều này cho phép bạn bỏ qua các trường khi sử dụng các hành động
+tùy chỉnh từ tiện ích bổ sung đó. Ví dụ sau đây khai báo tiện ích bổ sung `svm`
+và đặt các trường `network_id` và `rpc_api_url` làm giá trị mặc định:
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+Với giá trị mặc định này được thêm vào tệp `.tx`, bất kỳ hành động nào từ tiện
+ích bổ sung SVM đều có thể bỏ qua cả hai trường `network_id` và `rpc_api_url`.
+
+## Luồng
+
+Luồng cho phép bạn thực thi một Runbook nhiều lần với các đầu vào khác nhau cho
+mỗi lần thực thi. Bất kỳ trường nào được chỉ định trong khối luồng đều có thể
+được tham chiếu bởi bất kỳ hành động nào thuộc luồng đó thông qua
+`flow.field_name`. Điều này có thể được sử dụng kết hợp với khối `addon` theo
+những cách hữu ích:
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## Người ký
+
+Các tiện ích bổ sung có thể định nghĩa người ký cung cấp nhiều cách khác nhau để
+ký giao dịch khi sử dụng surfpool. Những người ký này có thể được dùng để ký
+giao dịch thông qua mnemonic hoặc khóa bí mật, để nhắc người dùng kết nối ví web
+và đăng nhập trong Surfpool Web UI, để ký giao dịch bất đồng bộ thông qua secure
+enclave, để định nghĩa ví multisig, và nhiều hơn nữa. Mỗi cách triển khai người
+ký tiện ích bổ sung sẽ có các trường hợp sử dụng và tài liệu riêng.
+
+Dưới đây là ví dụ về một người ký đang được sử dụng:
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+Ví dụ này định nghĩa một người ký có tên `alice`, sử dụng người ký
+`svm::web_wallet`. Định nghĩa người ký này sẽ tạo ra một lời nhắc trong Web UI
+để kết nối ví, cung cấp pubkey thông qua chữ ký tin nhắn, và ký tất cả các giao
+dịch sử dụng ví này làm người ký.
+
+## Hành động
+
+Hành động là các cấu trúc đa mục đích được định nghĩa bởi các addon và bởi
+[thư viện chuẩn](/docs/tools/surfpool/iac/std/actions). Mỗi hành động xác định
+tập hợp đầu vào riêng của nó (một số tùy chọn và một số bắt buộc) có thể được
+cung cấp cho hành động, những gì xảy ra trong mỗi lần gọi hành động, và những
+đầu ra nào được tạo ra bởi hành động, có thể được tham chiếu bởi các lệnh tiếp
+theo.
+
+Một số ví dụ về các loại hành động bao gồm thực hiện các yêu cầu http và xuất
+kết quả, mã hóa dữ liệu giao dịch để khớp với codec của một chuỗi nhất định, ký
+giao dịch bằng ví và xuất các byte giao dịch đã ký, hoặc phát sóng giao dịch lên
+mạng.
+
+Dưới đây là một ví dụ về hành động:
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## Mô-đun
+
+Sắp ra mắt.
+
+## Đầu ra
+
+Lệnh đầu ra có thể được sử dụng để hiển thị dữ liệu vào cuối quá trình thực thi
+runbook. Dưới đây là một ví dụ về lệnh đầu ra:
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

@@ -5,39 +5,39 @@
 
 ## When To Use This
 
-Use this flow when you are creating or updating a post and do not want to work
-directly on the shared `staging` branch.
+Use this flow for every content change. Each article or related content batch
+gets its own `staging-*` branch.
 
 The goal is simple:
 
-1. Create a dedicated branch from `staging`
+1. Create a dedicated `staging-*` branch from `main`
 2. Write and save the post there
-3. Open the pull request flow from that branch
-4. Merge and publish through GitHub
+3. Open a Pull Request from that branch to `main`
+4. Review, approve, and merge the Pull Request
 
-## Step 1: Start from `staging`
+## Step 1: Start from `main`
 
 Open the hosted Keystatic admin:
 
 - `https://solana-com-media.vercel.app/keystatic`
 
-On the dashboard, confirm the branch selector is set to `staging`.
+On the dashboard, confirm the branch selector is set to `main`. Starting from
+`main` ensures the new content branch contains the latest published content.
 
 Then click `New branch...`.
 
-![Create New Branch](screenshots/17-create-new-branch.webp)
-
 ## Step 2: Name the Branch
 
-Use a descriptive branch name for the article you are creating.
+Keystatic adds the required `staging-` prefix. Enter a descriptive suffix for
+the article you are creating.
 
 Example:
 
-- `staging-ek-article-name`
+- Enter `ek-article-name`
+- Keystatic creates `staging-ek-article-name`
 
-Keep `Based on` set to `staging`, then click `Create`.
-
-![Name Branch](screenshots/18-name-branch.webp)
+Because you started on `main`, Keystatic uses `main` as the base automatically.
+Click `Create`.
 
 ## Step 3: Open Posts and Draft on Your Branch
 
@@ -64,15 +64,12 @@ Keystatic opens the GitHub PR screen for the current branch.
 In GitHub, review the branch comparison, add the PR title and description, and
 create the pull request.
 
-The flow in the screenshots shows:
+Confirm the GitHub comparison shows:
 
 - `base`: `main`
 - `compare`: your content branch, for example `staging-ek-article-name`
 
 ![Open Pull Request in GitHub](screenshots/20-action-in-github.webp)
-
-If your team wants an intermediate merge into shared `staging` before release,
-adjust the GitHub base branch there before creating the PR.
 
 ## Step 6: Wait for the Vercel Preview Build
 
@@ -85,11 +82,41 @@ link to the preview deployment for that PR.
 
 Use that preview link to review the post before merging.
 
+## Step 7: Approve the Pull Request in GitHub
+
+After the preview looks correct, open the PR's `Files changed` tab and review
+the content diff.
+
+Click `Submit review`, select `Approve`, and then click `Submit review` again.
+
+![Approve Pull Request Review](screenshots/21-approve-github-review.webp)
+
+Only approve after the post copy, metadata, publish date, images, and preview
+page have been checked.
+
+## Step 8: Squash and Merge the Pull Request
+
+Return to the PR conversation view. Confirm GitHub shows:
+
+- `Changes reviewed`
+- `All checks have passed`
+- `No conflicts with base branch`
+
+Then click `Squash and merge`.
+
+![Squash and Merge Pull Request](screenshots/22-squash-and-merge.webp)
+
+After the squash merge completes, the post is published from `main` once the
+production deployment finishes and the post's `Publish Date` timestamp has
+passed.
+
 ## Quick Rules
 
-- Do not draft directly on shared `staging` when the article should live on its
-  own branch first
+- Start each content branch from `main`
+- Use a branch beginning with `staging-`; Keystatic adds this prefix for you
 - Use one dedicated branch per article or content batch
-- Review the GitHub base and compare branches before clicking
-  `Create pull request`
+- Open the Pull Request directly from the content branch to `main`
 - Wait for the Vercel preview build and review the preview link from the PR
+- Approve the GitHub PR only after the preview and content diff have been
+  checked
+- Use `Squash and merge` after approval, passing checks, and a clean base branch

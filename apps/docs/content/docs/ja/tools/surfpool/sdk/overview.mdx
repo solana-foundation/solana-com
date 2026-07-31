@@ -1,0 +1,127 @@
+---
+title: Surfpool SDK
+description: RustおよびTypeScriptのテストにSurfpoolを組み込む。CLIを別プロセスとして起動することなく、ローカルSurfnetの起動、アカウント状態の変更、タイムトラベル、コードからのプログラムデプロイが可能。
+---
+
+Surfpool
+SDKは、テストプロセス内でフルSurfnetランタイムを起動します。ローカルのSolana互換RPCエンドポイント、事前に資金が付与されたペイヤー、そして`surfpool start`を別プロセスとして起動せずに直接状態を操作したい場合に使用します。
+
+Rustクレートの`surfpool-sdk`とJSバインディングの`@solana/surfpool`は、同一のランタイムをラップしています。JSパッケージは、napi-rsを通じてmacOS（Intel +
+Apple Silicon）およびLinux
+x86-64向けにビルド済みのネイティブバイナリを提供します。
+
+## クイックスタート
+
+SDKをインストールし、Surfnetを起動してRPCエンドポイントにアクセスした後、停止します。ポートは動的に割り当てられるため、並列テストは同一プロセスを安全に共有できます。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Signer, Surfnet};
+
+#[tokio::test]
+async fn starts_a_local_surfnet() {
+    let surfnet = Surfnet::start().await.unwrap();
+
+    let rpc = surfnet.rpc_client();
+    let balance = rpc.get_balance(&surfnet.payer().pubkey()).unwrap();
+
+    assert!(balance > 0);
+    println!("rpc: {}", surfnet.rpc_url());
+    println!("ws: {}", surfnet.ws_url());
+}
+```
+
+```ts !! title="TypeScript"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+
+after(() => {
+  surfnet.stop();
+});
+
+test("starts a local surfnet", () => {
+  assert.match(surfnet.rpcUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.match(surfnet.wsUrl, /^ws:\/\/127\.0\.0\.1:\d+$/);
+  assert.ok(surfnet.payer);
+});
+```
+
+</CodeTabs>
+
+## 同梱内容
+
+<Cards>
+  <Card
+    title="インストール"
+    href="/docs/tools/surfpool/sdk/installation"
+    description="Cargoおよびnpmのセットアップ、対応プラットフォーム、ネイティブバイナリ"
+  />
+  <Card
+    title="設定"
+    href="/docs/tools/surfpool/sdk/configuration"
+    description="ビルダーオプション：リモートRPCフォールバック、ブロック生成、スロットタイミング、フィーチャーゲート、カスタムペイヤー"
+  />
+  <Card
+    title="チートコード"
+    href="/docs/tools/surfpool/sdk/cheatcodes"
+    description="SOL/トークンの資金追加、アカウントの変更、アップストリーム状態のリセット、メインネットからのストリーミング"
+  />
+  <Card
+    title="タイムトラベル"
+    href="/docs/tools/surfpool/sdk/time-travel"
+    description="絶対スロット、エポック、またはUnixタイムスタンプへのジャンプ"
+  />
+  <Card
+    title="プログラム"
+    href="/docs/tools/surfpool/sdk/programs"
+    description="Anchorワークスペースの自動検出、明示的な.so + IDLのデプロイ"
+  />
+  <Card
+    title="イベント"
+    href="/docs/tools/surfpool/sdk/events"
+    description="アサーションおよびロギング用のランタイムイベントの取り出し"
+  />
+  <Card
+    title="Rustリファレンス"
+    href="/docs/tools/surfpool/sdk/rust-reference"
+    description="surfpool-sdk クレートの完全なAPI"
+  />
+  <Card
+    title="JSリファレンス"
+    href="/docs/tools/surfpool/sdk/js-reference"
+    description="@solana/surfpool TypeScript APIの完全リファレンス"
+  />
+</Cards>
+
+## `surfpool start`との違い
+
+CLIは外部プロセスから接続する長期稼働のSurfnetを実行します。SDKはSurfnetをテスト*内部*で実行します。つまり：
+
+- **外部ポート管理が不要** — すべての `Surfnet::start()`
+  は空きポートにバインドされるため、`--port`
+  フラグなしでテストスイートを並列実行できます。
+- **同期的なteardown** — `stop()`
+  は、ランタイムが実際にポートを解放した時点で返ります。
+- **型付きメソッドとしてのCheatcode** — `surfpool start`
+  によってJSON-RPC上に公開されているのと同じインターフェースが、ネイティブRustメソッドおよびnapi-rsバインディングとして利用できます。
+- **直接的なイベント観測**
+  — ランタイムイベントは、WebSocketサブスクリプションを使わずに、インプロセスチャネル（Rust）またはdrainメソッド（JS）を通じて公開されます。
+
+## SDKを使うべきタイミング
+
+以下の場合にSDKの使用を検討してください：
+
+- Anchor プログラムの**インテグレーションテスト**を記述しており、一連のCheatcode設定後にトークン残高をアサートしたい場合。
+- **並列テストワーカー**それぞれに独立したSurfnetを持たせたい場合。
+- テスト内で `remoteRpcUrl` + `streamAccount`
+  を使って**メインネットの特定アカウントをフォーク**したい場合。
+- ベスティング、ロックアップ、または有効期限ロジックを検証する前に、ランタイムを固定の slot またはタイムスタンプに移動させることで**決定論的なクロック**を実現したい場合。
+
+<Callout type="info" title="CLIの方が適しているケース">
+  複数のプロセスをまたいで存続するSurfnetが必要な場合、たとえばCLI、ブラウザウォレット、およびカスタムクライアントスクリプトがすべて同じインスタンスを共有する必要がある場合は、代わりに
+  `surfpool start` を使用してください。
+</Callout>

@@ -24,7 +24,7 @@ Pick the app first. That usually cuts exploration time in half.
 | --------------------- | ------------------------------------------- | ---------- | ------------------------------------------------------------------ |
 | Main marketing site   | `apps/web` / `solana-com`                   | `3000`     | `/`, `/solutions`, `/developers`, `/ecosystem`, `/events`, `/news` |
 | Developer docs        | `apps/docs` / `solana-docs`                 | `3003`     | `/docs`, `/developers/cookbook`, `/developers/guides`              |
-| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/podcasts`, `/keystatic`                                 |
+| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/changelog`, `/podcasts`, `/keystatic`                   |
 | Templates showcase    | `apps/templates` / `solana-templates`       | `3001`     | `/developers/templates` via rewrites                               |
 | Accelerate event site | `apps/accelerate` / `solana-com-accelerate` | `3004`     | `/accelerate` via rewrites                                         |
 | Breakpoint event site | `apps/breakpoint` / `solana-com-breakpoint` | `3005`     | `/breakpoint` via rewrites                                         |

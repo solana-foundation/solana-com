@@ -1,0 +1,214 @@
+---
+title: 时间与系统变量
+description: 用于操作时间和系统变量的方法
+---
+
+## 时间操作
+
+### warp_to_slot
+
+```rust
+pub fn warp_to_slot(&mut self, slot: u64)
+```
+
+跳转到特定 slot。仅支持向前的时间跳转。
+
+```rust
+// Get current slot
+let clock: Clock = svm.get_sysvar();
+let current_slot = clock.slot;
+
+// Jump forward 100 slots
+svm.warp_to_slot(current_slot + 100);
+
+// Verify
+let new_clock: Clock = svm.get_sysvar();
+assert_eq!(new_clock.slot, current_slot + 100);
+```
+
+### 手动时钟操作
+
+```rust
+use solana_sdk::clock::Clock;
+
+// Read clock
+let mut clock: Clock = svm.get_sysvar();
+
+// Modify fields
+clock.slot = 1000;
+clock.epoch = 10;
+clock.unix_timestamp = 1735689600;
+
+// Write back
+svm.set_sysvar(&clock);
+```
+
+<Callout type="info">
+  大多数时间操作请使用
+  `warp_to_slot()`。仅在需要精确控制多个字段时，才使用手动时钟修改。
+</Callout>
+
+## 系统变量
+
+### get_sysvar
+
+```rust
+pub fn get_sysvar<T: Sysvar>(&self) -> T
+```
+
+读取系统变量值。
+
+```rust
+use solana_sdk::clock::Clock;
+use solana_sdk::rent::Rent;
+use solana_sdk::epoch_schedule::EpochSchedule;
+
+let clock: Clock = svm.get_sysvar();
+let rent: Rent = svm.get_sysvar();
+let epoch_schedule: EpochSchedule = svm.get_sysvar();
+```
+
+### set_sysvar
+
+```rust
+pub fn set_sysvar<T: Sysvar>(&mut self, sysvar: &T)
+```
+
+写入系统变量值。
+
+```rust
+use solana_sdk::rent::Rent;
+
+let rent = Rent {
+    lamports_per_byte_year: 3480,
+    exemption_threshold: 2.0,
+    burn_percent: 50,
+};
+
+svm.set_sysvar(&rent);
+```
+
+## 常用系统变量
+
+### 时钟
+
+```rust
+use solana_sdk::clock::Clock;
+
+let clock: Clock = svm.get_sysvar();
+println!("Slot: {}", clock.slot);
+println!("Timestamp: {}", clock.unix_timestamp);
+println!("Epoch: {}", clock.epoch);
+```
+
+### Rent
+
+```rust
+use solana_sdk::rent::Rent;
+
+let rent: Rent = svm.get_sysvar();
+let min_balance = rent.minimum_balance(data_len);
+```
+
+### Epoch 计划
+
+```rust
+use solana_sdk::epoch_schedule::EpochSchedule;
+
+let schedule: EpochSchedule = svm.get_sysvar();
+println!("Slots per epoch: {}", schedule.slots_per_epoch);
+```
+
+### 质押历史
+
+```rust
+use solana_sdk::stake_history::{StakeHistory, StakeHistoryEntry};
+
+let mut stake_history = StakeHistory::default();
+stake_history.add(
+    0, // epoch
+    StakeHistoryEntry {
+        effective: 1_000_000,
+        activating: 0,
+        deactivating: 0,
+    },
+);
+
+svm.set_sysvar(&stake_history);
+```
+
+## 基于时间的测试模式
+
+### 测试基于 slot 的功能
+
+```rust
+let mut svm = LiteSVM::new();
+
+// Get starting slot
+let start_slot = svm.get_sysvar::<Clock>().slot;
+
+// Try action before unlock slot (should fail)
+let result = call_locked_program(&mut svm);
+assert!(result.is_err());
+
+// Warp to unlock slot
+svm.warp_to_slot(start_slot + 1000);
+
+// Now it should succeed
+let result = call_locked_program(&mut svm);
+assert!(result.is_ok());
+```
+
+### 测试基于时间戳的功能
+
+```rust
+let mut svm = LiteSVM::new();
+
+// Get current timestamp
+let clock: Clock = svm.get_sysvar();
+let current_time = clock.unix_timestamp;
+
+// Warp forward 1 hour (3600 seconds)
+// Slots roughly correspond to ~0.4 seconds on Solana
+let target_slot = clock.slot + (3600.0 / 0.4) as u64;
+svm.warp_to_slot(target_slot);
+
+// Verify timestamp increased
+let new_clock: Clock = svm.get_sysvar();
+assert!(new_clock.unix_timestamp >= current_time + 3600);
+```
+
+### 测试归属计划
+
+```rust
+// Setup vesting with 100 slot period
+let vesting_period = 100;
+let start_slot = svm.get_sysvar::<Clock>().slot;
+
+// Test before vesting completes
+let result = claim_vested_tokens(&mut svm);
+assert!(result.is_err()); // Too early
+
+// Warp past vesting period
+svm.warp_to_slot(start_slot + vesting_period + 1);
+
+// Now claim should succeed
+let result = claim_vested_tokens(&mut svm);
+assert!(result.is_ok());
+```
+
+## 常见使用场景
+
+- 归属计划
+- 时间锁定提款
+- 质押/取消质押冷却期
+- 拍卖结束时间
+- 租赁期限
+- 基于 epoch 的奖励
+
+## 重要说明
+
+1. **仅向前推进** - 时间只能向前跳转，不能向后回退
+2. **slot 与时间的对应关系** - 在 Solana 主网上，每个 slot 大约对应 ~0.4 秒
+3. **时钟系统变量** - 使用 `warp_to_slot()` 时始终会更新
+4. **无自动更新** - 与真实的 validator 不同，时间不会在交易之间自动推进

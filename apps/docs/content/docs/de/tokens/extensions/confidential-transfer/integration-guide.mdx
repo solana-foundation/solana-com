@@ -1,0 +1,662 @@
+---
+title: Leitfaden zur Integration von Confidential Transfer
+description:
+  Erfahren Sie, wie Sie Token, die die Confidential-Transfer-Erweiterung
+  verwenden, in Wallets, Explorer, Börsen und andere Anwendungen integrieren.
+---
+
+# Unterstützung von Confidential Transfers auf Solana
+
+## Hintergrund
+
+Die Confidential-Transfer-Erweiterung ermöglicht es Token-2022-Mints,
+Transferbeträge und Konten-Salden verschlüsselt onchain zu speichern. Da die
+Salden verschlüsselt sind, erfordert ihre Anzeige die Entschlüsselungsschlüssel
+des Inhabers; das Senden erfordert die clientseitige Generierung von
+Zero-Knowledge-Beweisen.
+
+Dieser Leitfaden richtet sich an Teams, die **Confidential-Transfer-Token
+integrieren** (Wallets, Explorer, Börsen, Verwahrer, Indexer), und nicht an
+Emittenten, die einen Mint konfigurieren. Wenn Sie den zugrunde liegenden Ablauf
+von Grund auf neu aufbauen, beginnen Sie mit den unten verlinkten
+Schritt-für-Schritt-Seiten; dieser Leitfaden konzentriert sich darauf, was Ihr
+Produkt benötigt, um diese Token optimal zu unterstützen.
+
+Kontenadressen, der Mint und der Inhaber jedes Konten bleiben **öffentlich**.
+Nur Beträge und Salden sind verschlüsselt, sodass alles andere – einschließlich
+der Information, wer mit wem Transaktionen durchführt – sichtbar bleibt. Dies
+gewährleistet Vertraulichkeit gegenüber öffentlichen Beobachtern, jedoch keine
+Anonymität.
+
+### Ressourcen
+
+- [Übersicht über Confidential Transfer und Schritt-für-Schritt-Anleitungen](/docs/tokens/extensions/confidential-transfer)
+- [Erweiterung Rust-Code](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` JS-Client](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  ( Anweisungen, token account-Zustandsparsing, Schlüsselableitung und
+  übergeordnete Confidential-Transfer-Helfer)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (Verschlüsselungsprimitive und Proof-Datengenerierung)
+- [`@solana-program/zk-elgamal-proof` JS-Client](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (Proof-Verifizierungs- Anweisungen)
+- [`spl-token-client` Rust-Crate](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (übergeordnete End-to-End-Helfer in Rust)
+
+## Kurzfassung
+
+- Jedes Confidential-Token-Konto verfügt weiterhin über ein **öffentliches
+  Guthaben** sowie ein verschlüsseltes **ausstehendes** und **verfügbares**
+  Guthaben. Ein Token kann sich frei zwischen öffentlichen und vertraulichen
+  Zuständen bewegen.
+- Um ein vertrauliches Guthaben **anzuzeigen**, benötigen Sie die Schlüssel des
+  Inhabers. Der empfohlene Ansatz besteht darin, diese aus der Wallet des
+  Inhabers abzuleiten, das verfügbare Guthaben mit dem AES-Schlüssel zu
+  entschlüsseln (schnell) und ausstehende Beträge bei Bedarf mit dem
+  ElGamal-Schlüssel zu entschlüsseln.
+- Um **vertraulich zu senden**, generieren Sie ZK-Beweise auf dem Client
+  (Gleichheit, Chiffretext-Gültigkeit, Bereich), die üblicherweise in temporären
+  **Proof-Kontext-Zustandskonten** abgelegt werden, und übermitteln dann den
+  Transfer. Sowohl `@solana-program/token-2022` (JS) als auch `spl-token-client`
+  (Rust) bieten übergeordnete Helfer, die die Beweise erstellen und die
+  Transaktionen für Sie sequenzieren.
+- Vertrauliche Transfers umfassen derzeit einige abhängige Transaktionen, da die
+  Beweise das aktuelle Transaktionsgrößenlimit überschreiten. Eine bevorstehende
+  Änderung (Transaktionsformat v1, eingeführt mit Agave v4.2) erhöht dieses
+  Limit und soll es ermöglichen, einen vertraulichen Transfer in einer einzigen
+  Onchain-Transaktion auszuführen.
+- Eine Wallet, die keine Unterstützung hinzufügt, funktioniert weiterhin: Sie
+  zeigt das öffentliche Guthaben an und Standard-Transfers bleiben
+  funktionsfähig. Vertrauliche Mittel bleiben jedem vertraulichkeitsfähigen
+  Client mit den Schlüsseln des Inhabers zugänglich.
+
+## Begriffe
+
+- **ElGamal keypair**: ein pro-Konten keypair mit öffentlichem Schlüssel zur
+  Verschlüsselung von Guthaben und zur Erstellung von ZK-Beweisen. Der
+  öffentliche Schlüssel wird im Konten gespeichert.
+- **AES-Schlüssel**: ein symmetrischer Schlüssel pro Konten zur Verschlüsselung
+  des "entschlüsselbaren verfügbaren Guthabens", damit der Inhaber sein
+  verfügbares Guthaben in konstanter Zeit lesen kann, ohne einen diskreten
+  Logarithmus zu lösen.
+- **Ausstehendes Guthaben**: verschlüsseltes Guthaben aus Einzahlungen oder
+  eingehenden Überweisungen, das noch nicht angewendet wurde. Kann nicht direkt
+  ausgegeben werden.
+- **Verfügbares Guthaben**: verschlüsseltes Guthaben, das übertragen oder
+  abgehoben werden kann.
+- **Anwenden**: der Schritt, der ausstehendes in verfügbares Guthaben überführt.
+- **Proof-Kontext-Status-Konten**: ein temporäres Onchain-Konten, das einen
+  vorab verifizierten ZK-Beweis enthält, der von einer vertraulichen Anweisung
+  referenziert und anschließend geschlossen wird, um rent zurückzufordern.
+- **Prüfer**: ein optionaler globaler ElGamal-Schlüssel auf dem Mint; wenn
+  gesetzt, verschlüsselt jede Übertragung ihren Betrag zusätzlich unter diesem
+  Schlüssel, sodass eine bestimmte Partei ihn entschlüsseln kann.
+
+## Kontenmodell und Guthaben
+
+Wenn ein Konten für vertrauliche Überweisungen konfiguriert ist, speichert die
+`ConfidentialTransferAccount`-Erweiterung (neben anderen Feldern):
+
+- `elgamal_pubkey`: der ElGamal-öffentliche Schlüssel des Konten.
+- `pending_balance_lo` / `pending_balance_hi`: ElGamal-Chiffretexte des
+  ausstehenden Guthabens, aufgeteilt in niedrige und hohe Bits (die
+  Entschlüsselung der hohen Bits ist aufwändiger, daher werden sie getrennt
+  gehalten).
+- `available_balance`: ElGamal-Chiffretext des verfügbaren Guthabens.
+- `decryptable_available_balance`: ein **AES**-Chiffretext desselben verfügbaren
+  Guthabens, den der Inhaber sofort entschlüsseln kann. Dies ist das Feld, das
+  für die Anzeige verwendet werden sollte.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: ob das Konten
+  derzeit eingehende vertrauliche oder öffentliche Gutschriften akzeptiert.
+- `pending_balance_credit_counter` und `maximum_pending_balance_credit_counter`:
+  wie viele Gutschriften dem ausstehenden Guthaben zugeflossen sind und die
+  Obergrenze, bevor ein Anwenden erforderlich ist.
+
+Alle diese Felder werden im geparsten Konten-Zustand über Standard-RPC
+zurückgegeben. Jeder kann die Chiffretexte lesen, aber nur Schlüsselinhaber
+können die zugrunde liegenden Beträge wiederherstellen.
+
+## Schlüsselverwaltung
+
+Jedes vertrauliche Konten verwendet zwei Schlüssel: ein **ElGamal keypair** für
+Verschlüsselung und Beweise sowie einen **AES-Schlüssel** für die schnelle
+Entschlüsselung des Guthabens. Wie Sie diese Schlüssel erzeugen und speichern,
+ist eine Integrationsentscheidung. Einige gängige Optionen:
+
+- **Aus einer Wallet-Signatur ableiten (empfohlene Standardmethode).** Der
+  Inhaber signiert eine kanonische, domain-separierte Nachricht, und die
+  Schlüssel werden aus dieser Signatur abgeleitet, sodass sie allein aus der
+  Wallet reproduzierbar sind und nicht gespeichert werden müssen. Der seed ist
+  deterministisch pro Konten: Die JS-Hilfsfunktionen unten binden ihn an das
+  `(owner, mint)`-Paar, während das Rust-Beispiel aus der token account-Adresse
+  seeded wird (bei einem associated token account sind diese äquivalent, da
+  diese Adresse selbst aus dem Inhaber und dem Mint abgeleitet wird).
+- **Aus unabhängigem Schlüsselmaterial ableiten.** Für Passkeys, sichere
+  Enklaven oder MPC-Setups leiten Sie die Schlüssel aus einem
+  WebAuthn-PRF-Output oder anderem Eingabeschlüsselmaterial ab, sodass die
+  vertraulichen Schlüssel nicht an den Signaturschlüssel des Konten gebunden
+  sind. `@solana/zk-sdk` stellt `ConfidentialKeys.fromIkm` und
+  `ConfidentialKeys.fromPrf` dafür bereit.
+- **Direkt generieren und verwalten.** Custodial- und MPC-Anbieter ziehen es
+  möglicherweise vor, die Schlüssel zu generieren und wie jedes andere sensible
+  Schlüsselmaterial zu verwalten.
+
+Der `@solana-program/token-2022`-Client enthält Hilfsfunktionen für den
+empfohlenen Pfad:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Vertrauliche Schlüssel sind Entschlüsselungsschlüssel. Behandeln Sie eine
+  Anfrage zum Signieren der Ableitungsnachricht wie das Entsperren einer
+  privaten Ansicht der Guthaben des Nutzers. Bevorzugen Sie die bedarfsweise
+  Ableitung gegenüber der Speicherung; wenn Sie sie doch speichern (z. B. in
+  einem Custodial-Dienst), schützen Sie sie mit derselben Sorgfalt wie
+  Signaturschlüssel.
+</Callout>
+
+Die Ableitungshilfsfunktionen geben serialisiertes Schlüsselmaterial zurück. Die
+übergeordneten Operationshilfsfunktionen (später gezeigt) nehmen WASM
+`ElGamalKeypair`- und `AeKey`-Objekte entgegen, daher müssen diese bei Bedarf
+aus den Bytes rekonstruiert werden:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Konten erstellen und konfigurieren
+
+Bevor ein Konten einen vertraulichen Saldo halten kann, benötigt es die
+Erweiterung `ConfidentialTransferAccount`, die dem token account etwa 295 Bytes
+hinzufügt (in der Größenordnung von 0,0015 SOL an zusätzlichem rent). Die
+Einrichtung erfolgt in zwei Schritten: das token account erstellen und
+anschließend die Erweiterung konfigurieren.
+
+Die Konfiguration erfordert normalerweise, dass der **Konten-Inhaber** signiert
+und einen Nachweis erbringt, dass er den ElGamal-öffentlichen Schlüssel besitzt,
+der für das Konten festgelegt wird. Eine Wallet oder eine Börse kann das
+einfache token account für einen Nutzer erstellen und finanzieren, kann jedoch
+die vertrauliche Erweiterung nicht im Namen des Nutzers ohne diese Signatur
+konfigurieren.
+
+Vermeiden Sie es daher, stillschweigend vertrauliche Konten für jeden Nutzer
+bereitzustellen: Es verursacht zusätzlichen rent und erfordert dennoch die
+Beteiligung des Inhabers. Konfigurieren Sie bei der ersten Verwendung oder wenn
+der Nutzer vertrauliche Übertragungen aktiviert.
+
+Die **ElGamal-Registry** entfernt den kontenbezogenen Inhaberschritt. Ein Nutzer
+registriert seinen ElGamal-öffentlichen Schlüssel einmalig (indem er bei der
+Registrierung einen Nachweis signiert), und der Registry-Eintrag ist für jeden
+Mint wiederverwendbar. Danach kann ein Dritter vertrauliche Konten für den
+Nutzer mit `ConfigureAccountWithRegistry` konfigurieren, was zum
+Konfigurationszeitpunkt weder eine Inhabersignatur noch einen Nachweis erfordert
+– nur einen Zahler für rent. Dies ist der Mechanismus, der zu verwenden ist,
+wenn Sie vertrauliche Konten reibungslos für Nutzer bereitstellen möchten.
+
+<Callout type="info">
+  Die Registry-Konfiguration ist heute im Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) und im
+  `spl-elgamal-registry`-Programm verfügbar. Entsprechende Hilfsfunktionen im
+  `@solana-program/token-2022` JS-Client sind noch nicht verfügbar, daher
+  sollten JS-Integrationen, die den Registry-Pfad benötigen, die Releases dieses
+  Clients verfolgen.
+</Callout>
+
+## Guthaben anzeigen
+
+Eine robuste Integration zeigt das öffentliche Guthaben über den standardmäßigen
+Token-Saldo an, erkennt die vertrauliche Erweiterung und entschlüsselt – sobald
+der Benutzer seine Schlüssel entsperrt hat – das verfügbare Guthaben und zeigt
+es an.
+
+Das verfügbare Guthaben liest man am besten aus `decryptable_available_balance`
+mit dem AES-Schlüssel aus, da dies in konstanter Zeit erfolgt. Die direkte
+Entschlüsselung des ElGamal-`available_balance` erfordert die Lösung eines
+diskreten Logarithmus und sollte für die routinemäßige Anzeige vermieden werden.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+Wenn der Benutzer seine Schlüssel nicht entsperrt hat, sollte das öffentliche
+Guthaben angezeigt und darauf hingewiesen werden, dass ein vertrauliches
+Guthaben vorhanden, aber gesperrt ist – anstatt null anzuzeigen.
+
+## Überweisungen empfangen
+
+Eingehende Einzahlungen und Überweisungen landen im **ausstehenden** Guthaben
+und können erst nach der Anwendung ausgegeben werden. Jede Gutschrift erhöht
+`pending_balance_credit_counter`; sobald der Wert
+`maximum_pending_balance_credit_counter` erreicht, können die Konten keine
+weiteren vertraulichen Gutschriften mehr empfangen, bis der Inhaber das
+ausstehende Guthaben anwendet.
+
+Integrationen, die Gelder im Namen von Benutzern verwahren, sollten:
+
+- Ausstehende und verfügbare Guthaben getrennt anzeigen, damit Benutzer
+  verstehen, warum ein soeben empfangener Betrag noch nicht ausgegeben werden
+  kann.
+- Das ausstehende Guthaben im Namen des Benutzers zu geeigneten Zeitpunkten
+  anwenden (zum Beispiel vor einer Überweisung), damit Guthaben nicht
+  feststecken.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Weitere Informationen zum vollständigen Ablauf finden Sie auf der Seite
+[Ausstehendes Guthaben anwenden](/docs/tokens/extensions/confidential-transfer/apply-pending-balance).
+
+## Überweisungen senden
+
+Eine vertrauliche Überweisung erfordert drei Zero-Knowledge-Beweise, die auf dem
+Client generiert werden:
+
+- **Gleichheitsnachweis**, dass das neue Guthaben-Chiffretext des Senders
+  denselben Wert verschlüsselt wie eine neue Verpflichtung, die der Sender
+  öffnen kann.
+- **Chiffretext-Gültigkeitsnachweis**, dass die Chiffretexte des
+  Überweisungsbetrags unter den Schlüsseln von Quelle, Ziel und (falls gesetzt)
+  Prüfer wohlgeformt sind.
+- **Bereichsnachweis**, dass der Betrag und das verbleibende Guthaben des
+  Senders gültige nicht-negative ganze Zahlen sind – was verhindert, dass Wert
+  aus dem Nichts erzeugt wird.
+
+Diese Beweise sind größer als das heutige Transaktionsgrößenlimit für
+Inline-Daten erlaubt. Daher ist das übliche Muster,
+**Proof-Kontext-Zustandskonten** zu erstellen, jeden Beweis darin zu
+verifizieren, sie aus der Transfer-Anweisung heraus zu referenzieren und sie
+anschließend zu schließen, um rent zurückzufordern. Dies umfasst einige
+abhängige Transaktionen. Das Transaktionsformat v1 (wird mit Agave v4.2
+eingeführt) erhöht das Größenlimit und soll es ermöglichen, einen vertraulichen
+Transfer in einer einzigen Onchain-Transaktion durchzuführen, was diesen Ablauf
+vereinfachen wird.
+
+Sie müssen die Beweise nicht manuell zusammenstellen. Beide Clients bieten einen
+übergeordneten Helfer, der die Beweise erstellt und die einzureichenden
+Anweisungen generiert:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Wenn Sie eine feinere Kontrolle benötigen, stehen auch die untergeordneten
+Bausteine zur Verfügung: `@solana/zk-sdk` generiert die Daten jedes Beweises
+(`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`), `@solana-program/zk-elgamal-proof` stellt die
+Beweis-Verifizierungs- Anweisungen bereit, und `@solana-program/token-2022`
+stellt die `confidentialTransfer`- und Kontextzustands-Konten- Anweisungen
+bereit.
+
+Weitere Informationen zur detaillierten Anweisungssequenz finden Sie auf der
+Seite
+[Token übertragen](/docs/tokens/extensions/confidential-transfer/transfer-tokens).
+
+## Abheben
+
+Beim Abheben werden Mittel vom vertraulichen verfügbaren Guthaben zurück auf das
+öffentliche Guthaben übertragen, wonach sie sich wie jedes normale
+Token-Guthaben verhalten. Das Abheben erfordert ebenfalls Beweise (einen
+Gleichheits- und einen Bereichsbeweis), die als
+`getConfidentialWithdrawInstructionPlan` im JS-Client und
+`confidential_transfer_withdraw` im Rust-Client verfügbar sind. Wenden Sie
+zunächst ausstehende Guthaben an, damit der volle Betrag verfügbar ist. Siehe
+[Token abheben](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+
+## Verwandte vertrauliche Erweiterungen
+
+Zwei optionale Erweiterungen bauen auf vertraulichen Transfers auf. Beide liegen
+hauptsächlich in der Verantwortung des Emittenten, aber jede ändert etwas, das
+ein Integrator berücksichtigen sollte:
+
+- **Vertrauliche Transfer-Fee.** Wenn ein Mint vertrauliche Transfers mit einer
+  [Transfer-Fee](/docs/tokens/extensions/transfer-fees) kombiniert, verwenden
+  Sendungen einen Transfer-Pfad mit Fee
+  (`confidential_transfer_transfer_with_fee` im Rust-Client), und die
+  einbehaltene Fee ist wie der Betrag verschlüsselt. Das Einziehen einbehaltener
+  Fee (Einsammeln und Abheben) ist die Aufgabe der Fee-Autorität, nicht des
+  Integrators.
+- **Vertrauliges Prägen und Verbrennen.** Ein Mint mit dieser Erweiterung gibt
+  Token vertraulich aus und verbrennt sie, wodurch der öffentliche Ein- und
+  Auszahlungspfad deaktiviert wird. Token können bei einem solchen Mint nicht
+  zwischen dem öffentlichen und dem vertraulichen Guthaben verschoben werden.
+  Daher sollte die Ein- oder Auszahlung für diesen nicht angezeigt werden.
+
+Für die Details auf Protokollebene beider Methoden, siehe die
+[Dokumentation zu vertraulichen Salden](https://www.solana-program.com/docs/confidential-balances).
+
+## Vertrauliche Transfertransaktionen parsen
+
+Explorer und Indexer müssen vertrauliche Transfer-Aktivitäten erkennen und
+kennzeichnen, ohne die Beträge lesen zu können. Der
+`@solana-program/token-2022`-Client stellt `identifyToken2022Instruction`
+bereit, um jede Token-2022-Anweisung zu klassifizieren, sowie
+anweisungsspezifische Parser (zum Beispiel
+`parseConfidentialTransferInstruction`), um Konten und nicht-geheime Felder zu
+dekodieren. Die verschlüsselten Beträge bleiben Chiffretexte: Zeige sie als
+vertraulich an, anstatt die Bytes als Zahl darzustellen.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+Zu berücksichtigende Einschränkungen bei der Indexierung:
+
+- **Keine Beträge bei vertraulichen Transfers.** Eine `ConfidentialTransfer`
+  enthält verschlüsselte Beträge, sodass Volumen-, Fluss- und
+  Transfergrößen-Analysen daraus nicht berechnet werden können. Markiere diese
+  Transfers als vertraulich, anstatt eine Null oder einen rohen Chiffretext zu
+  erfassen.
+- **Keine Saldoänderungen.** Vertrauliche Transfers ändern nicht den
+  öffentlichen Token- Saldo, daher erfasst der
+  Vorher/Nachher-Token-Saldo-Vergleich, der die meisten Transfer- Indexierungen
+  antreibt, diese nicht. Die ausstehenden und verfügbaren Salden sind
+  Chiffretexte.
+- **Einzahlungen und Auszahlungen sind im Klartext.** `ConfidentialDeposit` und
+  `ConfidentialWithdraw` enthalten Klartextbeträge, sodass du den Zufluss in den
+  und den Abfluss aus dem vertraulichen Pool indexieren kannst, jedoch nicht die
+  Transfers innerhalb davon.
+- **Ein Transfer umfasst heute mehrere Transaktionen.** Proof-Kontext-Zustands-
+  Konten werden um den Transfer herum erstellt, verwendet und geschlossen, daher
+  sollten die zugehörigen Transaktionen korreliert werden, anstatt jede isoliert
+  zu betrachten. Dies vereinfacht sich, sobald einzeltransaktionale vertrauliche
+  Transfers verfügbar sind (siehe oben).
+- **Prüfer-Mints sind entschlüsselbar.** Wenn ein Mint einen globalen Prüfer hat
+  und du den Prüferschlüssel besitzt, kannst du Transferbeträge für diesen Mint
+  entschlüsseln (siehe unten).
+
+## Prüfer und Compliance
+
+Eine Mint kann einen **globalen Prüfer**-ElGamal-pubkey konfigurieren. Wenn
+dieser gesetzt ist, muss jede vertrauliche Überweisung den Betrag enthalten, der
+unter dem Prüferschlüssel verschlüsselt ist, sodass der Inhaber des geheimen
+Prüferschlüssels alle Überweisungsbeträge für diese Mint entschlüsseln kann. Der
+Gültigkeitsbeweis umfasst den Prüfer-Chiffretext, sodass Sie als Integrator auf
+dem Sendepfad nichts Besonderes tun müssen, außer den Prüferschlüssel aus der
+Mint-Konfiguration zu übergeben (die High-Level-Hilfsfunktionen lesen ihn für
+Sie aus).
+
+Wenn Ihr Produkt der Prüfer ist (zum Beispiel ein regulierter Emittent oder ein
+Compliance-Anbieter), entschlüsseln Sie Überweisungsbeträge mit dem geheimen
+Prüferschlüssel auf dieselbe Weise, wie ein Inhaber sein eigenes Guthaben
+entschlüsselt. Inhaber können außerdem ihre kontenspezifischen Schlüssel
+selektiv mit einer bestimmten Partei teilen, ohne sie öffentlich preiszugeben.
+
+### Transaktionsüberwachung (KYT)
+
+Für Know-Your-Transaction- und AML-Anbieter ändern vertrauliche Überweisungen,
+was beobachtbar ist, nicht jedoch das Gesamtmodell:
+
+- **Adressen- und Graphanalyse ist nicht betroffen.** Absender, Empfänger, Mints
+  und Konteninhaber bleiben öffentlich, sodass Adressprüfung, Sanktionsabgleich
+  und Kontrahenten-Graphanalyse genauso funktionieren wie bei jedem anderen
+  Token.
+- **Betragsbasierte Heuristiken benötigen den Prüferschlüssel.** Strukturierung,
+  Schwellenwertmeldung und volumenbasierte Risikobewertung können vertrauliche
+  Überweisungsbeträge nicht eigenständig auslesen. Ein- und Auszahlungsbeträge
+  bleiben im Klartext, sodass die Größe der in den und aus dem vertraulichen
+  Pool fließenden Beträge weiterhin sichtbar ist.
+- **Die Abdeckung ergibt sich aus dem Prüfermodell.** Bei Mints, die einen
+  globalen Prüfer konfigurieren, kann ein Anbieter, der mit dem Prüferschlüssel
+  arbeitet (oder eine selektive Offenlegung vom Nutzer oder Emittenten erhält),
+  Überweisungsbeträge wiederherstellen. Emittenten in regulierten Kontexten
+  sollten planen, einen Prüfer zu konfigurieren oder eine selektive Offenlegung
+  zu unterstützen, damit eine Überwachung möglich ist.
+
+## Abwärtskompatibilität
+
+- Ein vertrauliches token account verfügt immer über ein öffentliches Guthaben.
+  Wallets und Apps, die die Erweiterung nicht unterstützen, funktionieren
+  weiterhin und zeigen das öffentliche Guthaben an.
+- Standardüberweisungen funktionieren weiterhin für das öffentliche Guthaben,
+  solange das Ziel nicht-vertrauliche Gutschriften akzeptiert.
+- Vertrauliche Guthaben sind für nicht unterstützende Tools nicht sichtbar, aber
+  die Mittel gehen nicht verloren: Jeder vertraulichkeitsfähige Client kann mit
+  den Schlüsseln des Eigentümers darauf zugreifen.
+- Da Beträge verschlüsselt sind, werden Analyse-Tools für Angebots- und
+  Volumendaten, die auf dem Auslesen von Überweisungsbeträgen basieren, keine
+  vertraulichen Aktivitäten erfassen. Berücksichtigen Sie dies bei der Planung
+  von Dashboards und der Buchhaltung.
+
+## Empfohlene Integrationsprioritäten je Plattform
+
+### Allgemeine Anforderungen
+
+| Anforderung                       | Beschreibung                                                                                                                                                                                                           | Priorität |
+| :-------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Erweiterung erkennen              | Erkennen Sie die Confidential Transfer-Erweiterung bei Mints und Konten und behandeln Sie diese Token explizit, anstatt ein rein öffentliches Modell vorauszusetzen.                                                   | **P0**    |
+| Vertrauliche Mittel nie verlieren | Auch ohne vollständige Unterstützung darauf hinweisen, dass ein vertrauliches Guthaben vorhanden ist, damit Benutzer nicht davon ausgehen, dass ihre Konten leer sind.                                                 | **P0**    |
+| Solides Schlüsselmanagement       | Wählen Sie eine Schlüsselstrategie für ElGamal- und AES-Schlüssel. Die Ableitung aus der Wallet des Eigentümers ist die empfohlene Standardmethode; wenn Sie Schlüssel speichern, schützen Sie diese wie Signing-Keys. | **P0**    |
+
+---
+
+### Wallets
+
+| Anforderung                                    | Beschreibung                                                                                                                                                  | Priorität |
+| :--------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :-------- |
+| Öffentliches Guthaben anzeigen                 | Das öffentliche Guthaben immer über standardmäßige Token-Guthaben-Abfragen anzeigen.                                                                          | **P0**    |
+| Verfügbares Guthaben entsperren und anzeigen   | Dem Benutzer ermöglichen, Schlüssel per Signatur zu entsperren, und das entschlüsselte verfügbare Guthaben anzeigen (über das AES-entschlüsselbare Guthaben). | **P0**    |
+| Ausstehendes und verfügbares Guthaben anzeigen | Ausstehende Guthaben separat anzeigen und zur Übernahme auffordern, wenn Mittel eingehen.                                                                     | **P1**    |
+| Ausstehende Guthaben automatisch übernehmen    | Ausstehende Guthaben zu sinnvollen Zeitpunkten übernehmen (z. B. vor einem Versand), damit Mittel nicht hängen bleiben.                                       | **P1**    |
+| Vertraulich senden                             | Einzahlungs-, Überweisungs- und Auszahlungsabläufe mit clientseitiger Proof-Generierung unterstützen.                                                         | **P1**    |
+| UX im gesperrten Zustand                       | Wenn Schlüssel nicht entsperrt sind, klar darauf hinweisen, dass ein vertrauliches Guthaben vorhanden ist, anstatt null anzuzeigen.                           | **P1**    |
+| Onboarding / Aufklärung                        | Benutzern helfen zu verstehen, was privat bleibt (Beträge und Guthaben) und den Schlüssel-Entsperrschritt zu erläutern.                                       | **P2**    |
+
+---
+
+### Explorer und Indexer
+
+| Anforderung                                      | Beschreibung                                                                                                                             | Priorität |
+| :----------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Vertrauliche Konten und Mints kennzeichnen       | Konten und Mints, die die Erweiterung verwenden, klar markieren und das öffentliche Guthaben anzeigen.                                   | **P0**    |
+| Vertrauliche Anweisungen parsen                  | Konfigurations-, Einzahlungs-, Anwendungs-, Transfer- und Auszahlungs Anweisungen dekodieren und ihren Typ anzeigen (nicht die Beträge). | **P0**    |
+| Verschlüsselte Beträge nicht als Zahlen anzeigen | Chiffretextfelder niemals als wären sie Klartextguthaben darstellen; sie als vertraulich anzeigen.                                       | **P0**    |
+| Öffentliche Ein-/Auszahlungsflüsse indexieren    | Die Klartextbeträge bei Einzahlungen und Auszahlungen erfassen, um den Zu- und Abfluss aus dem vertraulichen Pool nachzuverfolgen.       | **P1**    |
+| Mehrtransaktionale Transfers korrelieren         | Die Proof-Einrichtungs-, Transfer- und Bereinigungstransaktionen, die einen vertraulichen Transfer bilden, gruppieren.                   | **P1**    |
+| Auditor-Konfiguration anzeigen                   | Anzeigen, ob für einen Mint ein globaler Auditor konfiguriert ist.                                                                       | **P1**    |
+| Lebenszyklus des Proof-Kontos                    | Erstellung und Schließung von Proof-Kontext-Zustandskonten erkennen, damit Transaktionen verständlich dargestellt werden.                | **P2**    |
+
+---
+
+### Börsen und Verwahrer
+
+| Anforderung                                     | Beschreibung                                                                                                                                                                                        | Priorität |
+| :---------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- |
+| Öffentlichen und vertraulichen Status verfolgen | Sowohl öffentliche als auch vertrauliche Guthaben bei der Gutschrift von Einzahlungen und der Berechnung von Beständen berücksichtigen.                                                             | **P0**    |
+| Ausstehende Beträge bei Einzahlungen anwenden   | Ausstehende Guthaben anwenden, wenn vertrauliche Einzahlungen eingehen, damit gutgeschriebene Beträge korrekt sind.                                                                                 | **P0**    |
+| Sichere Schlüsselverwaltung                     | Bei verwahrter Verwaltung vertraulicher Mittel ElGamal-/AES-Schlüssel mit der gleichen Sorgfalt wie Signaturschlüssel verwalten.                                                                    | **P0**    |
+| Konten-Bereitstellung über Registry             | Um vertrauliche Konten für Nutzer einzurichten, Nutzer einmalig einen ElGamal-Schlüssel registrieren lassen und über den Registry-Pfad bereitstellen, anstatt eine Signatur pro Konto zu erfordern. | **P1**    |
+| Auszahlungen an Nutzer                          | Vertrauliche oder öffentliche Auszahlungen je nach Konfiguration des Zielkontos unterstützen.                                                                                                       | **P1**    |
+| Compliance / Auditor-Unterstützung              | Wo erforderlich, Auditor-Schlüssel oder selektive Offenlegung verwenden, um Berichtspflichten zu erfüllen.                                                                                          | **P1**    |
+| Interne Buchführung auf Rohbeträgen             | Gegen entschlüsselte Beträge am Rand abgleichen und speichern; keine Aggregation von Chiffretexten versuchen.                                                                                       | **P1**    |
+
+---
+
+### Compliance und KYT-Anbieter
+
+| Anforderung                             | Beschreibung                                                                                                                                            | Priorität |
+| :-------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ | :-------- |
+| Adressen- und Graph-Screening           | Überprüfung von Absendern, Empfängern, Mints und Eigentümern sowie Durchführung einer Gegenpartei-Graph-Analyse; diese bleiben öffentlich.              | **P0**    |
+| Öffentliche Ein-/Auszahlungen verfolgen | Überwachung von Klartext-Ein- und Auszahlungsbeträgen als beobachtbare Ein- und Ausstiegspunkte des vertraulichen Pools.                                | **P0**    |
+| Betragssichtbarkeit per Prüfschlüssel   | Bei Mints mit aktiviertem Prüfschlüssel werden Transferbeträge mithilfe des Prüfschlüssels entschlüsselt, um betragsbasierte Erkennung zu unterstützen. | **P1**    |
+| Selektive Offenlegung                   | Unterstützung von Betragsoffenlegungen, die von Nutzern oder Emittenten über kontospezifische Schlüssel geteilt werden.                                 | **P2**    |

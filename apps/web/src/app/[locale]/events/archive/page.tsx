@@ -3,47 +3,105 @@ import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 import { uniqBy, orderBy } from "lodash";
 import {
+  type CalendarEvent,
   fetchCalendarEvents,
-  fetchCalendarRiverEvents,
 } from "@/lib/events/fetchCalendarEvents";
 
-type Props = { params: Promise<{ locale: string }> };
+type Props = {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ page?: string | string[] }>;
+};
 
-export const revalidate = 60;
+export const revalidate = 86400;
 
-export default async function Page(_props: Props) {
+const ARCHIVE_REVALIDATE_SECONDS = revalidate;
+
+const ARCHIVE_EVENTS_PER_PAGE = 24;
+// Pull a deep slice of past events per calendar in a single request so the
+// archive has real depth without paginating the upstream API.
+const ARCHIVE_FETCH_LIMIT = 100;
+const ARCHIVE_CALENDAR_IDS = [
   // Solana Foundation calendar
-  const mainEvents = await fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
-    period: "past",
-  });
-
+  "cal-J8WZ4jDbwzD9TWi",
   // HH calendar
-  const hhEvents = await fetchCalendarEvents("cal-dLrjJu0Dqay3WBe", {
-    period: "past",
-  });
-
+  "cal-dLrjJu0Dqay3WBe",
   // Community calendar
-  const communityEvents = await fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
-    period: "past",
-  });
+  "cal-C0cmhNE8Qz3xF5r",
+] as const;
 
-  // Community River calendar
-  const communityRiverEvents = await fetchCalendarRiverEvents({
-    time: "past",
-    limit: 20,
-  });
-
-  const sortInstructions = [
-    [(x: { schedule: { from: string | null } }) => x.schedule.from],
+const sortByStartDateDesc = (events: CalendarEvent[]) =>
+  orderBy(
+    events,
+    [
+      (event) =>
+        event.schedule.from
+          ? new Date(event.schedule.from).getTime()
+          : Number.NEGATIVE_INFINITY,
+    ],
     ["desc"],
-  ];
-  const sorted = orderBy(
-    [...mainEvents, ...hhEvents, ...communityEvents, ...communityRiverEvents],
-    ...sortInstructions,
   );
-  const unique = uniqBy(sorted, "key");
 
-  return <EventsArchivePage events={unique} />;
+async function fetchArchiveEvents() {
+  const eventGroups = await Promise.all(
+    ARCHIVE_CALENDAR_IDS.map((calendarId) =>
+      fetchCalendarEvents(
+        calendarId,
+        {
+          period: "past",
+          pagination_limit: ARCHIVE_FETCH_LIMIT,
+        },
+        { revalidate: ARCHIVE_REVALIDATE_SECONDS },
+      ),
+    ),
+  );
+
+  return uniqBy(sortByStartDateDesc(eventGroups.flat()), "key");
+}
+
+function parsePageParam(value?: string | string[]) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const requestedPage = Number.parseInt(rawValue ?? "", 10);
+
+  return Number.isFinite(requestedPage) && requestedPage > 0
+    ? requestedPage
+    : 1;
+}
+
+export default async function Page({ searchParams }: Props) {
+  const [events, params, t] = await Promise.all([
+    fetchArchiveEvents(),
+    searchParams,
+    getTranslations(),
+  ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(events.length / ARCHIVE_EVENTS_PER_PAGE),
+  );
+  const currentPage = Math.min(parsePageParam(params.page), totalPages);
+  const pageStart = (currentPage - 1) * ARCHIVE_EVENTS_PER_PAGE;
+  const pageEnd = Math.min(pageStart + ARCHIVE_EVENTS_PER_PAGE, events.length);
+  const pageEvents = events.slice(pageStart, pageEnd);
+  const eventRange = events.length > 0 ? `${pageStart + 1} - ${pageEnd}` : "0";
+
+  return (
+    <EventsArchivePage
+      events={pageEvents}
+      pagination={{
+        currentPage,
+        eventCountLabel: t("events.archive.event-count", {
+          current: eventRange,
+          total: events.length,
+        }),
+        pageEnd,
+        previousLabel: t("events.archive.previous-page"),
+        nextLabel: t("events.archive.next-page"),
+        totalCount: events.length,
+        totalPages,
+      }}
+      emptyLabel={t("events.empty.archive")}
+    />
+  );
 }
 
 export async function generateMetadata({ params }: Props) {

@@ -1,0 +1,141 @@
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  resolveVariant,
+  resolveVariantFromParams,
+  VARIANTS,
+} from "@/content/variants";
+import { DEVELOPER_APPLICATION_HREF } from "@/content/links";
+import { useVariant } from "@/lib/use-variant";
+
+describe("resolveVariant", () => {
+  it("resolves every configured variant slug", () => {
+    for (const slug of Object.keys(VARIANTS)) {
+      expect(resolveVariant(slug)?.slug).toBe(slug);
+    }
+  });
+
+  it("is case-insensitive", () => {
+    expect(resolveVariant("Developers")?.slug).toBe("developers");
+    expect(resolveVariant("TECH")?.slug).toBe("tech");
+  });
+
+  it("falls back to null for missing or unknown values", () => {
+    expect(resolveVariant(null)).toBeNull();
+    expect(resolveVariant(undefined)).toBeNull();
+    expect(resolveVariant("")).toBeNull();
+    expect(resolveVariant("gaming")).toBeNull();
+    expect(resolveVariant("developers ")).toBeNull();
+  });
+
+  it("ignores inherited object property names", () => {
+    expect(resolveVariant("__proto__")).toBeNull();
+    expect(resolveVariant("constructor")).toBeNull();
+    expect(resolveVariant("toString")).toBeNull();
+  });
+});
+
+describe("resolveVariantFromParams", () => {
+  it("prefers ?v= over utm_content", () => {
+    const params = new URLSearchParams("v=finance&utm_content=tech");
+    expect(resolveVariantFromParams(params)?.slug).toBe("finance");
+  });
+
+  it("resolves the Tech campaign from its utm_content fallback", () => {
+    const params = new URLSearchParams(
+      "utm_source=brave&utm_medium=ntt&utm_campaign=bp26&utm_content=tech",
+    );
+    expect(resolveVariantFromParams(params)?.slug).toBe("tech");
+  });
+
+  it("resolves the Finance campaign from its canonical variant", () => {
+    const params = new URLSearchParams(
+      "v=finance&utm_source=brave&utm_medium=ntt&utm_campaign=bp26&utm_content=finance",
+    );
+    expect(resolveVariantFromParams(params)?.slug).toBe("finance");
+  });
+
+  it("resolves the Builders campaign from its developers variant", () => {
+    const params = new URLSearchParams(
+      "v=developers&utm_source=brave&utm_medium=ntt&utm_campaign=bp26&utm_content=builders",
+    );
+    expect(resolveVariantFromParams(params)?.slug).toBe("developers");
+  });
+
+  it("ignores creative-level utm_content values", () => {
+    const params = new URLSearchParams("utm_content=finance-video-b");
+    expect(resolveVariantFromParams(params)).toBeNull();
+  });
+
+  it("returns null with no params", () => {
+    expect(resolveVariantFromParams(new URLSearchParams(""))).toBeNull();
+  });
+});
+
+describe("variant configs", () => {
+  it("routes each hero CTA to the ticket flow it advertises", () => {
+    expect(VARIANTS.developers?.heroCtaHref).toBe(DEVELOPER_APPLICATION_HREF);
+    expect(VARIANTS.tech?.heroCtaHref).toBe(
+      "https://luma.com/breakpoint2026?coupon=BRAVE20",
+    );
+    expect(VARIANTS.finance?.heroCtaHref).toBe(
+      "https://luma.com/breakpoint2026?coupon=BRAVE20",
+    );
+  });
+
+  it("shows the BRAVE20 offers as ticket straplines", () => {
+    expect(VARIANTS.tech?.ticketsStrapline).toBe(
+      "Buy your tickets today and use code BRAVE20 to save 20%.",
+    );
+    expect(VARIANTS.finance?.ticketsStrapline).toBe(
+      "Use code BRAVE20 to save 20%.",
+    );
+    expect(VARIANTS.developers?.ticketsStrapline).toBeUndefined();
+  });
+
+  it("carry complete copy for every swapped section", () => {
+    for (const variant of Object.values(VARIANTS)) {
+      expect(variant.heroHeadline).toBeTruthy();
+      expect(variant.heroCtaLabel).toBeTruthy();
+      expect(variant.heroCtaHref).toBeTruthy();
+      expect(variant.positioningStatement).toBeTruthy();
+      expect(variant.ticketsHeadline).toBeTruthy();
+      expect(variant.narrativeParagraphs.length).toBeGreaterThanOrEqual(3);
+      expect(variant.narrativeParagraphs.length).toBeLessThanOrEqual(5);
+      expect(variant.stats.length).toBeGreaterThanOrEqual(3);
+      expect(variant.stats.length).toBeLessThanOrEqual(4);
+      for (const stat of variant.stats) {
+        expect(stat.value).toBeTruthy();
+        expect(stat.label).toBeTruthy();
+      }
+    }
+  });
+});
+
+function VariantProbe() {
+  const variant = useVariant();
+  return <output>{variant?.slug ?? "default"}</output>;
+}
+
+describe("useVariant", () => {
+  afterEach(() => {
+    cleanup();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("resolves the variant from ?v= after hydration", async () => {
+    window.history.replaceState(null, "", "/?v=finance&utm_source=brave");
+    render(<VariantProbe />);
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent("finance");
+    });
+  });
+
+  it("renders the default when the param is absent or unknown", async () => {
+    window.history.replaceState(null, "", "/?v=unknown");
+    render(<VariantProbe />);
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent("default");
+    });
+  });
+});

@@ -1,0 +1,236 @@
+---
+title: 交易
+description: 在 Go 中使用 LiteSVM 执行和模拟交易
+---
+
+用于发送、模拟和管理交易的方法。同时支持旧版（legacy）和 v0+ 版本化交易。
+
+`litesvm-go` 接受由 [`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go) 中的 `(*solana.Transaction).MarshalBinary` 生成的 bincode 编码交易字节。
+
+## SendLegacyTransaction
+
+```go
+func (s *LiteSVM) SendLegacyTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+提交一个 bincode 编码的旧版 `Transaction`。成功后，该交易将提交至内存账本。
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+}
+
+t.Logf("signature: %s", out.Signature())
+t.Logf("compute:   %d CU", out.ComputeUnits())
+t.Logf("fee:       %d lamports", out.Fee())
+```
+
+<Callout type="warn">
+  仅当字节无法解码或发生内部错误时，返回的 error 才为非 nil。*执行后失败* 的交易仍会返回非 nil 的 `*TxOutcome`；在使用仅成功状态前，请务必检查 `IsOk()`。
+</Callout>
+
+## SendVersionedTransaction
+
+```go
+func (s *LiteSVM) SendVersionedTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+与 `SendLegacyTransaction` 结构相同，但适用于 v0+ 消息。`solana-go` 的 `MarshalBinary` 可为两种情况生成正确的字节。
+
+## SimulateLegacyTransaction / SimulateVersionedTransaction
+
+```go
+func (s *LiteSVM) SimulateLegacyTransaction(txBytes []byte) (*TxOutcome, error)
+func (s *LiteSVM) SimulateVersionedTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+在不提交状态的情况下执行交易。返回相同的 `*TxOutcome` 结构，成功时 `PostAccounts()` 还会填充执行后的账户状态预测值。
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+if !sim.IsOk() {
+    t.Fatalf("sim failed: %s", sim.Error())
+}
+
+t.Logf("would use %d compute units", sim.ComputeUnits())
+t.Logf("logs: %v", sim.Logs())
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    t.Logf("%s: %d lamports", p.Address, p.Account.Lamports())
+    p.Account.Close()
+}
+```
+
+<Callout type="info">
+  模拟不会改变状态。可用于估算计算预算或断言日志，而不会污染账本。
+</Callout>
+
+## TxOutcome
+
+每次发送/模拟调用都会返回一个 `*TxOutcome`，无论成功还是失败均携带相同的元数据。请务必调用 `Close`。
+
+| 方法                | 返回值                            | 描述                                               |
+| --------------------- | ---------------------------------- | --------------------------------------------------------- |
+| `IsOk()`              | `bool`                             | 交易成功                                     |
+| `Error()`             | `string`                           | 失败描述（成功时为空）                    |
+| `Signature()`         | `solana.Signature`                 | 交易签名                                     |
+| `ComputeUnits()`      | `uint64`                           | 已消耗的计算单元                                    |
+| `Fee()`               | `uint64`                           | 收取的手续费                                               |
+| `Logs()`              | `[]string`                         | 程序日志                                              |
+| `ReturnData()`        | `(solana.PublicKey, []byte, bool)` | 通过 `set_return_data` 设置的返回数据；无数据时 `ok=false` |
+| `InnerInstructions()` | `[][]InnerInstruction`             | 按顶层指令分组的 CPI                     |
+| `PostAccounts()`      | `([]PostAccount, error)`           | 执行后状态——仅限模拟                      |
+| `Close()`             | -                                  | 释放底层 Rust 句柄                        |
+
+### InnerInstruction
+
+```go
+type CompiledInstruction struct {
+    ProgramIDIndex uint8
+    Accounts       []byte // indices into the transaction's account table
+    Data           []byte
+}
+
+type InnerInstruction struct {
+    Instruction CompiledInstruction
+    StackHeight uint8 // 1 for top-level, higher for deeper CPIs
+}
+```
+
+`InnerInstructions()` 返回一个切片，按触发各批 CPI 的顶层指令进行索引。
+
+### PostAccount
+
+```go
+type PostAccount struct {
+    Address solana.PublicKey
+    Account *Account // close this when done
+}
+```
+
+仅在模拟成功时填充。
+
+## 区块哈希管理
+
+### LatestBlockhash
+
+```go
+func (s *LiteSVM) LatestBlockhash() (solana.Hash, error)
+```
+
+读取当前区块哈希。在构建交易时将其传入 `solana.NewTransaction(...)`。
+
+```go
+blockhash, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+
+tx, _ := solana.NewTransaction(
+    []solana.Instruction{ix},
+    blockhash,
+    solana.TransactionPayer(payer),
+)
+```
+
+### ExpireBlockhash
+
+```go
+func (s *LiteSVM) ExpireBlockhash() error
+```
+
+推进至当前区块哈希之后，使下一次 `LatestBlockhash` 返回新值。适用于测试区块哈希过期的边界情况。
+
+```go
+bh1, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.ExpireBlockhash(); err != nil {
+    t.Fatal(err)
+}
+bh2, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+// bh1 != bh2
+_, _ = bh1, bh2
+```
+
+## 交易历史
+
+交易历史默认开启。可通过 `SetTransactionHistory` 调整容量（或禁用去重）：
+
+```go
+// Cap history at 100 entries.
+if err := svm.SetTransactionHistory(100); err != nil {
+    t.Fatal(err)
+}
+
+// Disable dedup entirely (allows replaying identical transactions).
+if err := svm.SetTransactionHistory(0); err != nil {
+    t.Fatal(err)
+}
+```
+
+通过签名查询历史交易：
+
+```go
+prior := svm.GetTransaction(sig) // nil if unknown
+if prior != nil {
+    defer prior.Close()
+    t.Logf("found: %s, fee=%d", prior.Signature(), prior.Fee())
+}
+```
+
+## BuildTransferTx（测试辅助函数）
+
+```go
+func BuildTransferTx(
+    payerSeed [32]byte,
+    to solana.PublicKey,
+    lamports uint64,
+    blockhash solana.Hash,
+) ([]byte, error)
+```
+
+生成一个 bincode 编码、已签名的旧版 `Transaction`，将 `lamports` 从由 `payerSeed` 派生的 keypair 转账至 `to`，并使用指定的 `blockhash`。返回的字节可直接传入 `SendLegacyTransaction`。
+
+```go
+var seed [32]byte
+copy(seed[:], somePayerSeedBytes)
+
+bh, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+txBytes, err := litesvm.BuildTransferTx(seed, recipient, 1_000_000_000, bh)
+if err != nil {
+    t.Fatal(err)
+}
+
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+```
+
+<Callout type="info">
+  此函数用于引导测试，也适用于希望避免引入 `solana-go` 的调用方。一旦开始构建真实交易，建议优先使用上述 `solana-go` 路径——它可扩展支持多指令交易、v0 消息以及任意程序。
+</Callout>

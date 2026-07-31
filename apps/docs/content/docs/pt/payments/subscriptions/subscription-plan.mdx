@@ -26,8 +26,8 @@ PDA de assinatura resultante.
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -139,6 +139,16 @@ O comerciante pode atualizar campos mutáveis do plano após a criação. Assina
 existentes mantêm os termos que aceitaram, enquanto novos assinantes aceitam os
 termos atuais do plano.
 
+Algumas regras se aplicam:
+
+- Um `endTs` finito só pode ser encurtado, nunca estendido ou removido
+  (`PlanEndTsCannotExtend`).
+- Em um plano `Sunset` você pode remover pullers (o novo conjunto deve ser um
+  subconjunto do atual) para revogar um puller comprometido; o status, `endTs` e
+  os metadados permanecem congelados.
+- As edições funcionam durante o período de cobrança final de um plano, desde
+  que o `endTs` não seja alterado.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -173,9 +183,13 @@ termos atuais do plano.
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -188,9 +202,9 @@ termos atuais do plano.
   </Tab>
 </Tabs>
 
-## Subscrever
+## Assinar
 
-O assinante aceita os termos atuais do plano. O PDA da assinatura é derivado do
+O assinante aceita os termos do plano atual. O PDA de assinatura é derivado do
 PDA do plano e do endereço do assinante.
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -315,8 +329,8 @@ PDA do plano e do endereço do assinante.
 ## Coletar um Pagamento
 
 O comerciante ou um puller autorizado assina a cobrança. Quando o plano utiliza
-uma lista de permissões de destino, o proprietário da token account receptora
-deve estar listado em `destinations`.
+uma lista de destinos permitidos, o proprietário do token account receptor deve
+estar listado em `destinations`.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -365,8 +379,8 @@ deve estar listado em `destinations`.
 
 ## Cancelar e Revogar
 
-Cancelar marca a assinatura como encerrando. Revogar fecha o PDA da assinatura
-após o período de expiração do cancelamento ter decorrido. O assinante assina
+Cancelar marca a subscrição como encerrando. Revogar fecha a PDA da subscrição
+após o prazo de expiração do cancelamento ter decorrido. O subscritor assina
 ambas as transações.
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -416,16 +430,59 @@ ambas as transações.
   </Tab>
 </Tabs>
 
+## Retomar uma Subscrição
+
+Uma subscrição cancelada pode ser reativada antes de ser revogada. Uma vez
+revogada, a conta de subscrição é encerrada e o subscritor deve
+[subscrever](#subscribe) novamente. Retomar requer o `SubscriptionAuthority` do
+subscritor para o mint do plano, que o programa valida (proprietário, mint e
+`init_id`) e rejeita se estiver desatualizado ou reinicializado.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Notas
 
 - `amount` está em unidades base. Para um token de 6 decimais, `5_000_000`
   significa `5` tokens.
-- O SDK TypeScript busca os termos do plano em tempo real durante `subscribe`
-  quando você os omite.
-- O `SubscribeBuilder` em Rust precisa dos termos do plano esperados. Busque e
-  decodifique a conta do plano primeiro, depois passe esses campos através de
-  `SubscribeData`.
-- Apenas o comerciante ou uma carteira listada em `pullers` pode coletar
+- O SDK TypeScript obtém os termos do plano em tempo real durante `subscribe`
+  quando os omite.
+- O `SubscribeBuilder` em Rust necessita dos termos esperados do plano. Obtenha
+  e descodifique a conta do plano primeiro, em seguida passe esses campos
+  através de `SubscribeData`.
+- Apenas o comerciante ou uma carteira listada em `pullers` pode cobrar
   pagamentos.
-- O assinante assina as transações de configuração, cancelamento e revogação. O
-  comerciante ou extrator aprovado assina as transações de cobrança.
+- O subscritor assina as transações de configuração, cancelamento e revogação. O
+  comerciante ou o cobrador aprovado assina as transações de cobrança.

@@ -148,6 +148,49 @@ function ensureUniqueEpisodeSlugs(
   });
 }
 
+/**
+ * Buzzsprout enclosure URLs embed the same `{id}-{slug}` path segment used by
+ * the Buzzsprout website (e.g. /2617232/episodes/19255333-some-title.mp3).
+ * Deriving the episode id and slug from it keeps RSS-sourced episode URLs
+ * identical to the ones produced by Buzzsprout website scraping.
+ */
+function extractBuzzsproutEpisodeRef(
+  enclosureUrl?: string,
+): { id: string; slug: string } | null {
+  if (!enclosureUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(enclosureUrl);
+
+    if (!/(?:^|\.)buzzsprout\.com$/i.test(url.hostname)) {
+      return null;
+    }
+
+    const segment = url.pathname.match(
+      /\/episodes\/([^/?#]+?)(?:\.[a-z0-9]+)?$/i,
+    )?.[1];
+
+    if (!segment) {
+      return null;
+    }
+
+    const slug = slugifySegment(decodeURIComponent(segment));
+
+    if (!slug) {
+      return null;
+    }
+
+    return {
+      id: slug.match(/^(\d+)/)?.[1] ?? slug,
+      slug,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function extractEpisodeThumbnail(item: {
   itunesImage?: { href?: string; $?: { href?: string } };
   itunes?: { image?: string };
@@ -296,11 +339,11 @@ function parseBuzzsproutEpisodesPage(
     const block = match[0] ?? "";
 
     const hrefMatch = block.match(
-      /<a class="w-full" href="(\/\d+\/episodes\/[^"]+)"/,
+      /<a class="w-full[^"]*" href="(\/\d+\/episodes\/[^"]+)"/,
     );
     const titleMatch = block.match(/<h3[^>]*>([\s\S]*?)<\/h3>/);
     const descriptionMatch = block.match(
-      /<div id="description_episode_[^"]+"[^>]*>([\s\S]*?)<\/div>/,
+      /<(?:div|p) id="description_episode_[^"]+"[^>]*>([\s\S]*?)<\/(?:div|p)>/,
     );
     const dateMatch = block.match(
       /<time datetime="([^"]+)" class="whitespace-nowrap">/,
@@ -407,7 +450,8 @@ export async function fetchEpisodesFromRSS(
         const duration = parseDuration(
           item.itunesDuration || item.itunes?.duration,
         );
-        const id = generateEpisodeId(item);
+        const buzzsproutRef = extractBuzzsproutEpisodeRef(item.enclosure?.url);
+        const id = buzzsproutRef?.id ?? generateEpisodeId(item);
         const publishedDate =
           item.pubDate || item.isoDate || new Date().toISOString();
         const linkSlug =
@@ -417,7 +461,10 @@ export async function fetchEpisodesFromRSS(
 
         return {
           id,
-          slug: linkSlug || buildEpisodeSlug(item.title, id, publishedDate),
+          slug:
+            linkSlug ||
+            buzzsproutRef?.slug ||
+            buildEpisodeSlug(item.title, id, publishedDate),
           recordingId: id,
           podcastSlug,
           title: item.title || "Untitled Episode",
@@ -476,7 +523,27 @@ export async function fetchEpisodesFromRSSCached(
 ): Promise<PodcastEpisode[]> {
   try {
     if (isBuzzsproutFeed(rssFeedUrl)) {
-      return await fetchEpisodesFromBuzzsprout(rssFeedUrl, podcastSlug);
+      // Buzzsprout website scraping gives stable episode slugs, but the page
+      // markup changes without notice — fall back to the RSS feed itself so
+      // episodes never silently disappear.
+      const scrapedEpisodes = await fetchEpisodesFromBuzzsprout(
+        rssFeedUrl,
+        podcastSlug,
+      ).catch((error) => {
+        console.error(
+          `❌ Failed to scrape Buzzsprout episodes for ${rssFeedUrl}:`,
+          error,
+        );
+        return [];
+      });
+
+      if (scrapedEpisodes.length > 0) {
+        return scrapedEpisodes;
+      }
+
+      console.warn(
+        `Buzzsprout scraping returned no episodes for ${rssFeedUrl}, falling back to RSS feed`,
+      );
     }
 
     const episodes = await fetchEpisodesFromRSS(rssFeedUrl, podcastSlug);

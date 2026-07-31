@@ -25,8 +25,8 @@ description: دليل لإعداد معاملات خطة الاشتراك.
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -136,6 +136,15 @@ description: دليل لإعداد معاملات خطة الاشتراك.
 يمكن للتاجر تحديث حقول الخطة القابلة للتعديل بعد الإنشاء. يحتفظ المشتركون
 الحاليون بالشروط التي قبلوها، بينما يقبل المشتركون الجدد شروط الخطة الحالية.
 
+تنطبق بعض القواعد:
+
+- يمكن تقصير `endTs` المحدود فقط، ولا يمكن تمديده أو مسحه أبدًا
+  (`PlanEndTsCannotExtend`).
+- في خطة `Sunset` يمكنك إزالة المسحوبات (يجب أن تكون المجموعة الجديدة مجموعة
+  فرعية من المجموعة الحالية) لإلغاء صلاحية ساحب مخترق؛ تبقى الحالة و`endTs`
+  والبيانات الوصفية مجمّدة.
+- تعمل التعديلات خلال فترة الفوترة الأخيرة للخطة طالما ظل `endTs` دون تغيير.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -170,9 +179,13 @@ description: دليل لإعداد معاملات خطة الاشتراك.
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -187,7 +200,7 @@ description: دليل لإعداد معاملات خطة الاشتراك.
 
 ## الاشتراك
 
-يوافق المشترك على شروط الخطة الحالية. يتم اشتقاق PDA للاشتراك من PDA الخطة
+يقبل المشترك شروط الخطة الحالية. يتم اشتقاق PDA الخاص بالاشتراك من PDA الخطة
 وعنوان المشترك.
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -309,10 +322,10 @@ description: دليل لإعداد معاملات خطة الاشتراك.
   </Tab>
 </Tabs>
 
-## تحصيل الدفعة
+## تحصيل دفعة
 
-يوقّع التاجر أو السّاحب المدرج في القائمة البيضاء على عملية التحصيل. عندما
-تستخدم الخطة قائمة وجهات مسموح بها، يجب أن يكون مالك حساب الرمز المستقبِل مدرجًا
+يوقّع التاجر أو أحد المسحوبات المدرجة في القائمة البيضاء على عملية التحصيل.
+عندما تستخدم الخطة قائمة مسموح بها للوجهات، يجب إدراج مالك token account المستلم
 في `destinations`.
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -360,10 +373,10 @@ description: دليل لإعداد معاملات خطة الاشتراك.
   </Tab>
 </Tabs>
 
-## الإلغاء والإبطال
+## الإلغاء والسحب
 
-يضع الإلغاء علامة على الاشتراك بأنه منتهٍ. يؤدي الإبطال إلى إغلاق PDA للاشتراك
-بعد انقضاء فترة الإلغاء. يوقّع المشترك على كلتا المعاملتين.
+يُعلِّم الإلغاءُ الاشتراكَ بأنه سينتهي. أما السحب فيُغلق حساب PDA الخاص
+بالاشتراك بعد انقضاء مدة انتهاء الإلغاء. يوقّع المشترك كلا المعاملتين.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -412,14 +425,55 @@ description: دليل لإعداد معاملات خطة الاشتراك.
   </Tab>
 </Tabs>
 
+## استئناف الاشتراك
+
+يمكن إعادة تفعيل الاشتراك الملغى قبل سحبه. وبمجرد سحبه، يُغلق حساب الاشتراك
+ويتعين على المشترك [الاشتراك](#subscribe) من جديد. يستلزم الاستئناف امتلاك
+المشترك `SubscriptionAuthority` الخاص بالمنت المرتبط بالخطة، والذي يتحقق منه
+البرنامج (المالك، والمنت، و`init_id`) ويرفضه إذا كان قديمًا أو مُعاد تهيئته.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## ملاحظات
 
-- `amount` بالوحدات الأساسية. بالنسبة لرمز مميز بـ 6 خانات عشرية، يعني
-  `5_000_000` أن هناك `5` رمزاً مميزاً.
-- يقوم SDK الخاص بـ TypeScript بجلب شروط الخطة المباشرة أثناء `subscribe` عندما
-  تحذفها.
-- يحتاج `SubscribeBuilder` الخاص بـ Rust إلى شروط الخطة المتوقعة. قم بجلب حساب
-  الخطة وفك تشفيره أولاً، ثم مرر تلك الحقول عبر `SubscribeData`.
-- يمكن للتاجر أو المحفظة المدرجة في `pullers` فقط تحصيل المدفوعات.
-- يوقع المشترك على معاملات الإعداد والإلغاء والإبطال. يوقع التاجر أو السَاحِب
-  المعتمد على معاملات التحصيل.
+- `amount` بالوحدات الأساسية. بالنسبة للرمز ذي 6 خانات عشرية، يعني `5_000_000`
+  قيمة `5` رمزًا.
+- يجلب TypeScript SDK شروط الخطة المباشرة أثناء `subscribe` عند حذفها.
+- يحتاج `SubscribeBuilder` في Rust إلى شروط الخطة المتوقعة. احرص على جلب حساب
+  الخطة وفك ترميزه أولًا، ثم مرِّر تلك الحقول عبر `SubscribeData`.
+- يمكن للتاجر فقط أو أي محفظة مدرجة في `pullers` تحصيل المدفوعات.
+- يوقّع المشترك معاملات الإعداد والإلغاء والسحب. أما التاجر أو المحصّل المعتمد
+  فيوقّع معاملات التحصيل.

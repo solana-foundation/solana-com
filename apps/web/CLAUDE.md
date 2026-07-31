@@ -79,7 +79,6 @@ ANALYZE=true pnpm build
 
 - **Luma** - Events calendar (`LUMA_PRIVATE_API_KEY`)
 - **YouTube** - Video content (`YOUTUBE_API_KEY`, `YOUTUBE_CHANNEL_ID`)
-- **River** - Newsletter integration (`RIVER_KEY`)
 - **Inkeep** - AI chat assistant (`INKEEP_API_KEY`)
 
 ### PostHog Analytics

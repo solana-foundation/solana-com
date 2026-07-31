@@ -1,0 +1,331 @@
+---
+title: Mengeksekusi Instruksi
+description:
+  Pelajari cara memanggil instruksi dari program Solana dalam pengujian Anda
+---
+
+## Ikhtisar
+
+Setelah men-deploy program ke LiteSVM, Anda perlu mengeksekusi instruksi untuk
+berinteraksi dengan program yang telah di-deploy.
+
+LiteSVM menyediakan API sederhana untuk membuat, mengirim, dan mensimulasikan
+transaksi yang sepenuhnya kompatibel dengan model transaksi Solana.
+
+## Alur Transaksi Dasar
+
+Alur umum untuk mengeksekusi instruksi adalah:
+
+1. **Buat Instruksi** - Tentukan program yang akan dipanggil dan data yang
+   digunakan
+2. **Bangun Pesan** - Gabungkan satu atau lebih instruksi
+3. **Buat Transaksi** - Tandatangani pesan dengan penanda tangan yang diperlukan
+4. **Kirim atau Simulasikan** - Eksekusi transaksi dan tangani hasilnya
+
+## Membuat Instruksi
+
+### Struktur Instruksi Dasar
+
+```rust
+use solana_instruction::{Instruction, AccountMeta};
+use solana_pubkey::Pubkey;
+
+let instruction = Instruction {
+    program_id: Pubkey::new_unique(),  // The program to call
+    accounts: vec![                     // Accounts the program needs
+        AccountMeta::new(account_pubkey, false),        // Writable, not signer
+        AccountMeta::new_readonly(readonly_pubkey, false), // Read-only, not signer
+        AccountMeta::new(signer_pubkey, true),          // Writable, signer
+    ],
+    data: vec![0, 1, 2, 3],             // Instruction data (program-specific)
+};
+```
+
+## Membangun dan Mengirim Transaksi
+
+### Metode 1: Transaksi Dasar
+
+```rust
+use litesvm::LiteSVM;
+use solana_keypair::Keypair;
+use solana_message::Message;
+use solana_transaction::Transaction;
+use solana_signer::Signer;
+
+let mut svm = LiteSVM::new();
+let payer = Keypair::new();
+
+// Airdrop SOL for fees
+svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+// Create instruction
+let instruction = /* your instruction */;
+
+// Build message with payer
+let message = Message::new(&[instruction], Some(&payer.pubkey()));
+
+// Create and sign transaction
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],                 // Your instructions
+    Some(&payer.pubkey()),          // Who pays transaction fees
+    &[&payer],                      // All required signers
+    svm.latest_blockhash(),         // Recent blockhash
+);
+
+// Send transaction
+let result = svm.send_transaction(tx);
+```
+
+<div className="ml-4 my-2">
+  <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+    Yang dilakukan `new_signed_with_payer`:
+  </div>
+  <ul className="space-y-0.5 ml-4 list-disc text-sm text-gray-600 dark:text-gray-400">
+    <li>Secara otomatis membangun Message dari instruksi Anda</li>
+    <li>
+      Secara otomatis menandatangani transaksi dengan semua keypair yang
+      diberikan
+    </li>
+    <li>
+      Mengembalikan transaksi yang telah ditandatangani sepenuhnya dan siap
+      dikirim
+    </li>
+  </ul>
+</div>
+
+### Metode 2: Transaksi Pesan Kustom
+
+```rust
+let payer = Keypair::new();
+
+// Manually construct message
+let message = Message::new(&[instruction], Some(&payer.pubkey()));
+
+// Create transaction with signers, message, and blockhash
+let tx = Transaction::new(
+    &[&payer],
+    message,
+    svm.latest_blockhash(),
+);
+
+let result = svm.send_transaction(tx);
+```
+
+<div className="ml-4 my-2">
+  <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+    Gunakan metode ini ketika Anda memerlukan kontrol atas `Message` seperti:
+  </div>
+  <ul className="space-y-0.5 ml-4 list-disc text-sm text-gray-600 dark:text-gray-400">
+    <li>Transaksi berversi (v0 dengan lookup table)</li>
+    <li>Alur kerja partial/multi-sig</li>
+    <li>Durable nonce</li>
+    <li>Simulasi atau inspeksi pra-tanda tangan</li>
+    <li>Logika fee payer kustom</li>
+    <li>Optimasi ukuran transaksi</li>
+  </ul>
+</div>
+
+## Transaksi Berversi
+
+LiteSVM mendukung transaksi legacy maupun transaksi berversi:
+
+```rust
+use solana_transaction::versioned::VersionedTransaction;
+use solana_message::VersionedMessage;
+
+// Legacy transaction (most common)
+let legacy_msg = Message::new(&[instruction], Some(&payer.pubkey()));
+let versioned_tx = VersionedTransaction::try_new(
+    VersionedMessage::Legacy(legacy_msg),
+    &[&payer]
+).unwrap();
+
+// Send versioned transaction
+let result = svm.send_transaction(versioned_tx);
+```
+
+## Hasil Transaksi
+
+### Transaksi Berhasil
+
+```rust
+match svm.send_transaction(tx) {
+    Ok(meta) => {
+        println!("Signature: {}", meta.signature);
+        println!("Compute units: {}", meta.compute_units_consumed);
+        println!("Logs:");
+        for log in &meta.logs {
+            println!("  {}", log);
+        }
+    }
+    Err(err) => {
+        println!("Transaction failed: {:?}", err.err);
+        // Logs are still available on failure
+        println!("Failure logs: {:?}", err.meta.logs);
+    }
+}
+```
+
+### Kolom Metadata Transaksi
+
+```rust
+pub struct TransactionMetadata {
+    pub signature: Signature,
+    pub logs: Vec<String>,
+    pub inner_instructions: InnerInstructionsList,
+    pub compute_units_consumed: u64,
+    pub return_data: TransactionReturnData,
+    pub fee: u64,
+}
+```
+
+## Mensimulasikan Transaksi
+
+Simulasikan transaksi memungkinkan Anda menguji transaksi tanpa mengubah state:
+
+```rust
+// Simulate instead of sending
+match svm.simulate_transaction(tx) {
+    Ok(sim_result) => {
+        println!("Simulation successful!");
+        println!("Logs: {:?}", sim_result.meta.logs);
+        println!("Compute units: {}", sim_result.meta.compute_units_consumed);
+    }
+    Err(err) => {
+        println!("Simulation failed: {:?}", err.err);
+    }
+}
+```
+
+## Penanganan Error
+
+### Error Transaksi Umum
+
+```rust
+use solana_transaction_error::TransactionError;
+use solana_instruction::error::InstructionError;
+
+match svm.send_transaction(tx) {
+    Err(failed_tx) => {
+        match failed_tx.err {
+            TransactionError::InsufficientFundsForFee => {
+                println!("Not enough SOL for fees");
+            }
+            TransactionError::InvalidProgramForExecution => {
+                println!("Program doesn't exist or isn't executable");
+            }
+            TransactionError::InstructionError(index, err) => {
+                println!("Instruction {} failed: {:?}", index, err);
+                match err {
+                    InstructionError::Custom(code) => {
+                        println!("Custom error code: {}", code);
+                    }
+                    InstructionError::AccountNotFound => {
+                        println!("An account doesn't exist");
+                    }
+                    _ => {}
+                }
+            }
+            TransactionError::BlockhashNotFound => {
+                println!("Blockhash expired or invalid");
+            }
+            _ => println!("Other error: {:?}", failed_tx.err),
+        }
+    }
+    Ok(_) => {}
+}
+```
+
+## Bekerja dengan Log Program
+
+### Mengakses Log
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// All logs (including system logs)
+for log in &result.logs {
+    println!("{}", log);
+}
+
+// Pretty-printed logs (formatted)
+println!("{}", result.pretty_logs());
+```
+
+### Contoh Output Log
+
+```
+Program 11111111111111111111111111111111 invoke [1]
+Program log: Processing instruction
+Program 11111111111111111111111111111111 consumed 2000 compute units
+Program 11111111111111111111111111111111 success
+```
+
+## Konfigurasi Compute Budget
+
+### Mengatur Compute Budget Global
+
+```rust
+use solana_compute_budget::compute_budget::ComputeBudget;
+
+let mut svm = LiteSVM::new()
+    .with_compute_budget(ComputeBudget {
+        compute_unit_limit: 200_000,
+        ..Default::default()
+    });
+```
+
+### Compute Budget Per-Transaksi
+
+```rust
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+
+let instructions = vec![
+    // Set compute budget for this transaction
+    ComputeBudgetInstruction::set_compute_unit_limit(400_000),
+    ComputeBudgetInstruction::set_compute_unit_price(1),
+
+    // Your actual instruction
+    your_instruction,
+];
+```
+
+## Instruksi System Program
+
+LiteSVM menyertakan dukungan System Program:
+
+```rust
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+use solana_system_interface::instruction as system_instruction;
+use solana_transaction::Transaction;
+
+// Transfer SOL
+let transfer_ix = system_instruction::transfer(
+    &alice.pubkey(),
+    &bob.pubkey(),
+    1_000_000_000, // 1 SOL
+);
+
+// Create new account
+let create_ix = system_instruction::create_account(
+    &payer_pubkey,
+    &new_account_pubkey,
+    lamports,
+    space as u64,
+    &owner_program_id,
+);
+```
+
+## Ringkasan
+
+Mengeksekusi instruksi di LiteSVM mengikuti model transaksi Solana standar:
+
+1. Buat objek `Instruction` dengan ID program, akun, dan data
+2. Bangun `Transaction` dengan instruksi dan penanda tangan yang diperlukan
+3. Gunakan `send_transaction()` untuk mengeksekusi atau `simulate_transaction()`
+   untuk menguji
+4. Tangani hasil dengan memeriksa `TransactionMetadata` atau detail error
+
+LiteSVM menyediakan eksekusi instan dengan log terperinci dan informasi
+debugging, menjadikannya ideal untuk menguji program Solana secara efisien.

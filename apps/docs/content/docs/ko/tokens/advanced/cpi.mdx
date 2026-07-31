@@ -1,0 +1,280 @@
+---
+title: CPI를 통한 Token Program 호출
+description:
+  Cross Program Invocation (CPI)을 사용하여 온체인 프로그램에서 Token Program을
+  호출하세요 — 토큰 전송, 발행, 소각, PDA 권한으로 서명, 여러 토큰 명령어를 단일
+  CPI로 일괄 처리할 수 있습니다.
+url: /docs/tokens/advanced/cpi
+type: tutorial
+related:
+  - /docs/core/cpi
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/advanced/withdraw-excess-lamports
+  - /docs/tokens/advanced/unwrap-lamports
+---
+
+온체인 프로그램은 Token Program으로
+[Cross Program Invocation (CPI)](/docs/core/cpi)을 발행하여 토큰을 이동시킵니다.
+프로그램은 Token Program 명령어를 구성하고, 필요한 계정을 제공한 뒤
+_rs`invoke`_(또는 Program Derived Address가 서명할 때는 _rs`invoke_signed`_)를
+호출합니다. 그러면 Token Program이 프로그램이 부여한 권한으로 해당 명령어를
+실행합니다.
+
+이 페이지는 해당 흐름의 토큰 관련 부분을 다룹니다. CPI 메커니즘 자체 —
+_rs`invoke`_ 및 *rs`invoke_signed`*의 동작 방식, 서명자 및 쓰기 권한의 전파,
+[CPI 비용 모델](/docs/core/cpi/cpi-cost-model) — 에 대해서는
+[Cross Program Invocation](/docs/core/cpi)을 참조하세요.
+
+## 일반적인 패턴
+
+대부분의 토큰 CPI는 동일한 구조를 따릅니다: 명령어를 구성하고, token account와
+권한을 전달한 뒤 호출합니다. 아래 예제는 *rs`TransferChecked`*를 사용하여 토큰을
+전송하며, 이는 전송의 일부로 민트와 소수점 자릿수를 검증합니다.
+
+<CodeTabs>
+
+```rust !! title="Anchor"
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
+
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod token_cpi {
+    use super::*;
+
+    pub fn transfer(ctx: Context<TokenTransfer>, amount: u64) -> Result<()> {
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.source.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            cpi_accounts,
+        );
+
+        transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct TokenTransfer<'info> {
+    #[account(mut)]
+    pub source: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(mut)]
+    pub destination: InterfaceAccount<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Interface<'info, TokenInterface>,
+}
+```
+
+```rust !! title="Native (Pinocchio)"
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::TransferChecked;
+
+/// Account layout:
+///   [0] source      (writable) — source token account
+///   [1] mint                   — token mint
+///   [2] destination (writable) — destination token account
+///   [3] authority   (signer)   — owner or delegate of the source account
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+    if data.len() < 9 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let amount = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let decimals = data[8];
+
+    let source = &accounts[0];
+    let mint = &accounts[1];
+    let destination = &accounts[2];
+    let authority = &accounts[3];
+
+    TransferChecked::new(source, mint, destination, authority, amount, decimals).invoke()?;
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+민팅, 소각, 계정 닫기도 동일한 패턴을 따르며, 다른 명령어를 사용합니다 —
+Anchor의
+[`anchor_spl::token`](https://docs.rs/anchor-spl/latest/anchor_spl/token/index.html)
+모듈에서 _rs`MintTo`_, _rs`Burn`_, _rs`CloseAccount`_, 또는
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token)의 해당 빌더를
+사용합니다. Anchor 및 네이티브 Rust 모두에서 Token Program으로 CPI를 수행하는
+완전하고 실행 가능한 프로그램은
+[token program 예제](/docs/programs/examples#tokens)를 참조하세요 — 특히
+"Transfer Tokens" 예제를 확인하세요.
+
+## PDA 권한으로 서명하기
+
+token account의 권한이 프로그램이 소유한
+[Program Derived Address](/docs/core/pda)인 경우, 프로그램은
+*rs`invoke_signed`*를 사용하여 PDA 시드를 서명자 시드로 전달하며 CPI에 직접
+서명합니다. Anchor에서는 _rs`CpiContext::new`_ 대신 시드와 함께
+*rs`CpiContext::new_with_signer`*를 사용하세요. 명령어 자체는 위의 예제와
+동일합니다. 전체 메커니즘은
+[PDA 서명자를 사용한 CPI](/docs/core/cpi/cpi-with-pda)를 참조하세요.
+
+## 배치 처리
+
+_rs`Batch`_ 명령어는 단일 프로그램 호출 내에서 여러 Token Program 명령어를
+실행합니다. 각 CPI마다 고정된 컴퓨팅 비용이 발생하기 때문에, 하나의 배치 CPI에서
+여러 토큰 작업을 실행하면 작업마다 별도의 CPI를 발행하는 것보다 더 적은
+[컴퓨팅 유닛](/docs/core/fees/compute-budget)을 사용합니다 — CPI별 비용이
+누적되는 방식은 [CPI 비용 모델](/docs/core/cpi/cpi-cost-model)을 참조하세요.
+
+컴퓨팅 사용량이 낮을수록 트랜잭션이 컴퓨팅 유닛당 지불하는
+[우선순위 수수료](/docs/core/fees)가 줄어들고 처리될 가능성이 높아집니다 — 이는
+단일 명령어에서 많은 토큰 작업을 수행하는 프로그램에서 특히 중요합니다. 일반적인
+사용 사례로는 여러 수신자에게 전송을 분산하거나, 단일 CPI에서 다단계 토큰
+흐름(예: 동기화, 전송, 종료)을 실행하는 것이 있습니다.
+
+<Callout type="info">
+
+*rs`Batch`*는 자식 요소로 Token Program 명령어만 허용하며, 배치 안에 또 다른
+배치를 포함할 수 없습니다. 토큰을 이동하는 작업(전송, 민팅, 소각 등)의 경우,
+프로그램은 실행 전에 해당 계정이 Token Program에 의해 소유되어 있는지
+검증합니다.
+
+</Callout>
+
+### 소스 참조
+
+| 항목                | 설명                      | 소스                                                                                               |
+| ------------------- | ------------------------- | -------------------------------------------------------------------------------------------------- |
+| _rs`Batch`_         | 배치 명령어 (식별자 255). | [소스](https://github.com/solana-program/token/blob/main/pinocchio/interface/src/instruction.rs)   |
+| _rs`process_batch`_ | 배치 처리기 로직.         | [소스](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/batch.rs) |
+
+### CPI를 통한 배치 호출
+
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token) 크레이트는
+_rs`pinocchio_token::instructions::Batch`_ 아래에 _rs`Batch`_ 빌더를 제공합니다.
+각 자식 명령어를 배치의 버퍼에 준비한 후 *rs`invoke`*를 통해 단일 CPI를
+발행합니다.
+
+*rs`Batch`*는 호출자가 제공하는 세 개의 버퍼를 기반으로 합니다: 직렬화된
+instruction data용 버퍼, 자식 명령어별 계정 메타용 버퍼, 그리고 CPI에 전달되는
+계정 뷰용 버퍼입니다. 이를 _rs`MaybeUninit`_ 슬라이스로 구성하고
+*rs`Batch::new`*에 전달한 후, 자식 요소를 추가하고 호출합니다:
+
+```rust title="Batch two transfers in one CPI"
+use core::mem::MaybeUninit;
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::{Batch, IntoBatch, Transfer};
+
+/// Process SwapBatch.
+///
+/// Performs two transfers in a single batch CPI instead of two separate
+/// `invoke()` calls.
+///
+/// Data layout:
+///   [0..8]  amount_a_to_b (u64 LE)
+///   [8..16] amount_b_to_a (u64 LE)
+///
+/// Account layout:
+///   [0] source_a    (writable) — token account A
+///   [1] source_b    (writable) — token account B
+///   [2] authority_a (signer)   — authority for account A
+///   [3] authority_b (signer)   — authority for account B
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if data.len() < 16 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let amount_a_to_b = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let amount_b_to_a = u64::from_le_bytes(data[8..16].try_into().unwrap());
+
+    let source_a = &accounts[0];
+    let source_b = &accounts[1];
+    let authority_a = &accounts[2];
+    let authority_b = &accounts[3];
+
+    // Two child transfers, each with 3 accounts and 9 bytes of data
+    // (1-byte discriminator + 8-byte amount).
+    const NUM_CHILDREN: usize = 2;
+    const CHILD_ACCOUNTS: usize = 3;
+    const CHILD_DATA_LEN: usize = 9;
+
+    // Data buffer: 1-byte batch discriminator + per child (2-byte header + data).
+    const DATA_LEN: usize = 1 + NUM_CHILDREN * (2 + CHILD_DATA_LEN);
+    // Account buffers: total accounts across all children.
+    const ACCOUNTS_LEN: usize = NUM_CHILDREN * CHILD_ACCOUNTS;
+
+    let mut data_buf = [MaybeUninit::uninit(); DATA_LEN];
+    let mut ix_accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+    let mut accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+
+    let mut batch = Batch::new(&mut data_buf, &mut ix_accounts_buf, &mut accounts_buf)?;
+
+    Transfer::new(source_a, source_b, authority_a, amount_a_to_b).into_batch(&mut batch)?;
+    Transfer::new(source_b, source_a, authority_b, amount_b_to_a).into_batch(&mut batch)?;
+
+    batch.invoke()?;
+
+    Ok(())
+}
+```
+
+*rs`Batch::new`*는 배치 판별자를 데이터 버퍼의 첫 번째 바이트에 기록하고, 각
+버퍼가 얼마나 사용되었는지 추적하는 *rs`Batch`*를 반환합니다. 모든 Token Program
+instruction builder(예: _rs`Transfer`_, _rs`TransferChecked`_, _rs`MintTo`_,
+_rs`Burn`_)는 _rs`IntoBatch`_ 트레이트를 구현하므로, *rs`into_batch`*는 해당
+instruction의 instruction data, 계정 메타, 계정 뷰를 배치에 추가합니다.
+*rs`invoke`*를 호출하면 조합된 배치가 Token Program에 대한 단일 CPI로
+실행됩니다.
+
+버퍼는 배치의 용량을 제한합니다. 데이터 버퍼의 크기는
+`1 + Σ(2 + child_data_len)` 바이트(판별자, 2바이트 헤더, 각 자식의 직렬화된
+데이터 포함)로 설정하고, 각 계정 버퍼는 모든 자식에 걸친 총 계정 수로
+설정하세요. 자식이 들어가지 않을 경우 *rs`into_batch`*는
+*rs`ProgramError::InvalidArgument`*를 반환합니다. 참고로,
+*rs`Batch::MAX_DATA_LEN`*는 10 KiB이고 *rs`Batch::MAX_ACCOUNTS_LEN`*는 런타임의
+최대 CPI 계정 수와 같습니다.
+
+런타임에만 크기가 결정되는 배치의 경우, 크레이트의 `alloc` 피처를 활성화하고
+*rs`BatchState::new(accounts_len, data_len)`*를 사용하여 힙에 버퍼를 할당한
+다음, *rs`as_batch`*를 호출하여 *rs`Batch`*를 얻으세요.
+
+자식 instruction의 권한이 프로그램이 소유한 PDA인 경우, _rs`invoke`_ 대신
+*rs`invoke_signed`*를 사용하여 CPI에 서명하고, PDA 시드를 _rs`Signer`_ 항목으로
+전달하세요.
+
+### Instruction data 레이아웃
+
+배치는 `255` 판별자 뒤에 자식들을 순서대로 인코딩합니다. 모든 계정은 순서대로
+평탄하게 전달되며, 각 자식마다 `num_accounts`에 의해 슬라이싱됩니다. 빌더는
+정확히 다음과 같은 와이어 포맷을 생성합니다:
+
+```text title="Batch Wire Format"
+[255]                    // Batch discriminator
+// For each child instruction, in order:
+//   [num_accounts: u8]  // accounts this instruction consumes
+//   [data_len: u8]      // length of this instruction's data
+//   [data: u8; data_len]// the instruction data (begins with its own discriminator)
+```
+
+<Callout type="warn">
+
+배치의 용량은 *rs`Batch::new`*에 전달된 버퍼에 의해 제한됩니다. 데이터 버퍼는
+판별자와 모든 자식의 헤더 및 데이터를 담을 수 있어야 하며, 계정 버퍼는 모든
+자식의 계정을 담을 수 있어야 합니다. 가장 큰 배치를 기준으로 크기를 설정하거나,
+`alloc` 피처를 사용하여 *rs`BatchState`*로 런타임에 크기를 결정하세요. 결합된
+CPI는 여전히 트랜잭션의 계정 및 크기 제한을 받으므로, 팬아웃이 매우 큰 경우
+Address Lookup Tables를 사용하여 더 많은 계정을 수용하세요.
+
+</Callout>

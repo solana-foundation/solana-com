@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import bridgeBreakpoint2026White from "../../../assets/companies/bridge/breakpoint-2026-white.svg";
 import bridgeLogo from "../../../assets/companies/bridge/logo.svg";
 
 export const bridge = {
@@ -23,6 +24,14 @@ export const bridge = {
   },
   defaultLogoId: "logo",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: bridgeBreakpoint2026White,
+      theme: "dark",
+      treatment: "monotone",
+    },
     {
       id: "logo",
       fileName: "logo.svg",

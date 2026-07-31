@@ -1,0 +1,256 @@
+---
+title: Pengujian Berbasis Waktu
+description: Uji logika yang bergantung pada waktu dengan manipulasi jam litesvm-go
+---
+
+Mendemonstrasikan penggunaan `WarpToSlot` dan `SetClock` untuk menguji logika
+program yang bergantung pada waktu.
+
+## Manipulasi Jam Dasar
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+)
+
+func TestClockWarp(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Read the initial clock.
+    initial, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("initial state:")
+    t.Logf("  slot:           %d", initial.Slot)
+    t.Logf("  epoch:          %d", initial.Epoch)
+    t.Logf("  unix timestamp: %d", initial.UnixTimestamp)
+
+    // Warp to slot 1_000.
+    if err := svm.WarpToSlot(1_000); err != nil {
+        t.Fatal(err)
+    }
+
+    after, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("after warpToSlot(1000):")
+    t.Logf("  slot:  %d", after.Slot)
+    t.Logf("  epoch: %d", after.Epoch)
+
+    // Warp further.
+    if err := svm.WarpToSlot(100_000); err != nil {
+        t.Fatal(err)
+    }
+
+    after2, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("after warpToSlot(100000):")
+    t.Logf("  slot:  %d", after2.Slot)
+    t.Logf("  epoch: %d", after2.Epoch)
+}
+```
+
+## Menguji Logika Terkunci Waktu
+
+```go
+package mytest
+
+import (
+    "encoding/binary"
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestTimeLockedVault(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Setters are infallible in practice; discarding the return keeps the
+    // example readable.
+    _ = svm.SetSigverify(false)
+    _ = svm.SetBlockhashCheck(false)
+    _ = svm.SetSysvars()
+
+    // Fund a payer.
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    if err := svm.Airdrop(payer, 10_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Set up a time-locked vault account.
+    // Layout: [u8 discriminator, u64 unlock_slot, u64 amount]
+    const unlockSlot = uint64(10_000)
+    const lockedAmount = uint64(5_000_000_000)
+
+    vaultData := make([]byte, 1+8+8)
+    vaultData[0] = 0x01
+    binary.LittleEndian.PutUint64(vaultData[1:9], unlockSlot)
+    binary.LittleEndian.PutUint64(vaultData[9:17], lockedAmount)
+
+    programID := solana.NewWallet().PublicKey()
+    vaultAddr := solana.NewWallet().PublicKey()
+    minBalance, err := svm.MinimumBalanceForRentExemption(len(vaultData))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(minBalance+lockedAmount, vaultData, programID, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(vaultAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+
+    t.Logf("vault created: unlock slot=%d, locked=%.3f SOL",
+        unlockSlot, float64(lockedAmount)/1e9)
+
+    // --- Test 1: Before unlock ---
+    cBefore, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("current slot: %d", cBefore.Slot)
+    // In a real test you would build a withdraw instruction here and assert
+    // it fails because the current slot < unlock_slot.
+    t.Log("withdrawal attempt: EXPECTED TO FAIL (too early)")
+
+    // --- Test 2: After unlock ---
+    if err := svm.WarpToSlot(unlockSlot + 100); err != nil {
+        t.Fatal(err)
+    }
+
+    cAfter, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("current slot: %d", cAfter.Slot)
+    // Build and submit the withdraw instruction; assert it succeeds.
+    t.Log("withdrawal attempt: EXPECTED TO SUCCEED (after unlock)")
+
+    // Verify vault state.
+    updated := svm.GetAccount(vaultAddr)
+    if updated == nil {
+        t.Fatal("vault missing")
+    }
+    defer updated.Close()
+    t.Logf("vault balance: %d lamports", updated.Lamports())
+
+    _ = payer // payer would be referenced when building the withdraw ix
+}
+```
+
+## Membaca Jadwal Epoch
+
+```go
+func TestReadEpochSchedule(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    es, err := svm.EpochSchedule()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("slots per epoch:    %d", es.SlotsPerEpoch)
+    t.Logf("first normal epoch: %d", es.FirstNormalEpoch)
+    t.Logf("first normal slot:  %d", es.FirstNormalSlot)
+}
+```
+
+<Callout type="warn">
+  `WarpToSlot` memajukan field `Slot` pada jam tetapi **tidak** secara otomatis
+  memperbarui `Epoch` atau `UnixTimestamp`. Gunakan `SetClock` untuk kontrol penuh atas
+  field jam.
+</Callout>
+
+## Manipulasi Jam Manual
+
+Ketika program Anda membaca `Epoch` atau `UnixTimestamp` dari sysvar Clock, atur
+field tersebut secara langsung dengan `SetClock`:
+
+```go
+func TestSetClock(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    c, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    c.Slot = 50_000
+    c.Epoch = 5
+    c.UnixTimestamp = 1_700_000_000
+    if err := svm.SetClock(c); err != nil {
+        t.Fatal(err)
+    }
+
+    after, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("slot:  %d", after.Slot)           // 50000
+    t.Logf("epoch: %d", after.Epoch)          // 5
+    t.Logf("unix:  %d", after.UnixTimestamp)  // 1700000000
+}
+```
+
+Ini mencerminkan pola Rust `set_sysvar(&clock)`. Gunakan `WarpToSlot` untuk kemajuan slot
+sederhana, dan `SetClock` ketika Anda membutuhkan kontrol epoch atau timestamp.
+
+## Kasus Penggunaan
+
+Manipulasi waktu berguna untuk menguji:
+
+| Skenario                | Pendekatan                             |
+| ----------------------- | ------------------------------------ |
+| Vesting token           | Warp melewati cliff / tonggak vesting |
+| Akhir lelang         | Warp melewati slot akhir lelang           |
+| Hadiah staking         | Gunakan `SetClock` untuk mengatur epoch          |
+| Penarikan terkunci waktu | Warp melewati slot buka kunci                |
+| Pembatasan laju           | Warp di antara interval yang diizinkan       |
+| Order yang kedaluwarsa         | Warp melewati kedaluwarsa order           |
+
+<Callout type="info">
+  `WarpToSlot` hanya mengubah slot. Unix timestamp mungkin tidak diperbarui
+  secara proporsional - gunakan `SetClock` jika program Anda membaca `UnixTimestamp`.
+</Callout>
+
+## Poin Utama
+
+1. **Sysvar default aktif** - `litesvm.New()` mengembalikan handle dengan sysvar
+   yang telah diinisialisasi; panggil `SetSysvars()` untuk mengatur ulang ke default jika Anda telah mengubahnya.
+2. **Maju ke depan** - `WarpToSlot(slot)` hanya memajukan field slot.
+3. **Kontrol penuh** - `SetClock(Clock{...})` memungkinkan Anda mengatur `Epoch`,
+   `UnixTimestamp`, dan field lainnya.
+4. **Baca** - `svm.Clock()` membaca nilai saat ini.
+5. **Pola pengujian** - uji sebelum dan sesudah batas waktu; harapkan kegagalan di
+   satu sisi dan keberhasilan di sisi lainnya.

@@ -1,0 +1,254 @@
+---
+title: 設定
+description: GoでLiteSVMを設定するためのセッターメソッド
+---
+
+各セッターは、Rustの`LiteSVM`型に対応するビルダーメソッドを反映しています。
+呼び出しは即座に反映され、`error`を返します。
+
+## 典型的なテストセットアップ
+
+```go
+svm, err := litesvm.New()
+if err != nil {
+    t.Fatal(err)
+}
+defer svm.Close()
+
+// Each setter returns an error. The calls below are infallible in practice,
+// so the docs use _ = ... for brevity; check the error in production code.
+_ = svm.SetSigverify(false)        // skip signature verification (faster)
+_ = svm.SetBlockhashCheck(false)   // skip blockhash validation (simpler)
+_ = svm.SetSysvars()               // reset Clock, Rent, etc. to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetTransactionHistory(100) // keep the last 100 transactions
+```
+
+## 署名とブロックハッシュ
+
+### SetSigverify
+
+```go
+func (s *LiteSVM) SetSigverify(enabled bool) error
+```
+
+トランザクションの署名検証を切り替えます。
+
+```go
+if err := svm.SetSigverify(false); err != nil { // accept unsigned / badly-signed txs
+    t.Fatal(err)
+}
+if err := svm.SetSigverify(true); err != nil {  // restore production-like behavior
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  署名検証を無効にするとテストは高速になりますが、現実の環境との乖離が生じます。
+</Callout>
+
+### Sigverify
+
+```go
+func (s *LiteSVM) Sigverify() (bool, error)
+```
+
+現在の設定を読み取ります。
+
+### SetBlockhashCheck
+
+```go
+func (s *LiteSVM) SetBlockhashCheck(enabled bool) error
+```
+
+送信されたトランザクションに対するrecent-blockhashチェックを切り替えます。
+
+```go
+if err := svm.SetBlockhashCheck(false); err != nil { // accept any blockhash
+    t.Fatal(err)
+}
+```
+
+## プログラムとSysvar
+
+### SetSysvars
+
+```go
+func (s *LiteSVM) SetSysvars() error
+```
+
+組み込みのsysvar（Clock、rent、EpochScheduleなど）をデフォルト値に
+再初期化します。
+
+### SetBuiltins
+
+```go
+func (s *LiteSVM) SetBuiltins() error
+```
+
+デフォルトの組み込みプログラムセットをロードします。
+
+### SetDefaultPrograms
+
+```go
+func (s *LiteSVM) SetDefaultPrograms() error
+```
+
+標準のSPLプログラム（System Program、SPL Token、Memoなど）をロードします。
+
+### SetPrecompiles
+
+```go
+func (s *LiteSVM) SetPrecompiles() error
+```
+
+ed25519 / secp256k1プリコンパイル済みプログラムを有効にします。
+
+### WithNativeMints
+
+```go
+func (s *LiteSVM) WithNativeMints() error
+```
+
+SPL Token / Token-2022のネイティブミントアカウント（ラップされたSOL）をseedします。対応するプログラムがロードされていない場合はno-opとなります。両方が必要な場合は、先に`SetDefaultPrograms`を呼び出してください。
+
+## リソース制限
+
+### SetLamports
+
+```go
+func (s *LiteSVM) SetLamports(lamports uint64) error
+```
+
+内部エアドロッププールアカウントのデフォルトlamport残高を設定します。
+
+```go
+if err := svm.SetLamports(1 << 40); err != nil { // ~1.1 trillion lamports (~1,100 SOL)
+    t.Fatal(err)
+}
+```
+
+### SetLogBytesLimit
+
+```go
+func (s *LiteSVM) SetLogBytesLimit(limit int) error
+```
+
+トランザクションごとにキャプチャされるログバイトの合計を制限します。制限を解除するには負の値を渡してください。
+
+```go
+if err := svm.SetLogBytesLimit(10_000); err != nil { // 10 KB cap
+    t.Fatal(err)
+}
+if err := svm.SetLogBytesLimit(-1); err != nil {     // unlimited
+    t.Fatal(err)
+}
+```
+
+### SetTransactionHistory
+
+```go
+func (s *LiteSVM) SetTransactionHistory(capacity int) error
+```
+
+インメモリトランザクション履歴のキャパシティを設定します。重複排除を無効にして同一トランザクションの再実行を許可するには`0`を渡してください。
+
+```go
+if err := svm.SetTransactionHistory(100); err != nil { // cap at 100 entries
+    t.Fatal(err)
+}
+if err := svm.SetTransactionHistory(0); err != nil {   // disable dedup entirely
+    t.Fatal(err)
+}
+```
+
+## コンピュートバジェット
+
+```go
+type ComputeBudget struct {
+    // See litesvm-go/litesvm.go for the full field list.
+    // usize fields are normalized to uint64; HeapSize stays uint32.
+    ComputeUnitLimit uint64
+    HeapSize         uint32
+    // ...
+}
+```
+
+### ComputeBudget
+
+```go
+func (s *LiteSVM) ComputeBudget() (ComputeBudget, bool, error)
+```
+
+現在のコンピュートバジェットを読み取ります。2番目の戻り値はバジェットが明示的に設定されているかどうかを示します。`false`の場合、構造体には使用されるデフォルト値が含まれます。
+
+```go
+budget, set, err := svm.ComputeBudget()
+if err != nil {
+    t.Fatal(err)
+}
+if !set {
+    budget.ComputeUnitLimit = 1_400_000
+}
+if err := svm.SetComputeBudget(budget); err != nil {
+    t.Fatal(err)
+}
+```
+
+### SetComputeBudget
+
+```go
+func (s *LiteSVM) SetComputeBudget(b ComputeBudget) error
+```
+
+後続のトランザクションにコンピュートバジェットを設定します。
+
+## フィーチャーセット
+
+`FeatureSet`は不透明なハンドルです。構築後、`Activate` /
+`Deactivate`で変更し、`SetFeatureSet`でインストールしてください。作成したハンドルはクローズしてください。
+
+```go
+// Start with all features off, then activate what you care about.
+fs, err := litesvm.NewFeatureSet()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs.Close()
+if err := fs.Activate(featureID, 0); err != nil {
+    t.Fatal(err)
+}
+
+// Or start from "everything enabled" and flip specific features off.
+fs2, err := litesvm.NewFeatureSetAllEnabled()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs2.Close()
+if err := fs2.Deactivate(featureID); err != nil {
+    t.Fatal(err)
+}
+
+if err := svm.SetFeatureSet(fs); err != nil {
+    t.Fatal(err)
+}
+```
+
+| メソッド                                                   | 説明                       |
+| -------------------------------------------------------- | --------------------------------- |
+| `litesvm.NewFeatureSet() (*FeatureSet, error)`           | 空のセット（全フィーチャーが無効） |
+| `litesvm.NewFeatureSetAllEnabled() (*FeatureSet, error)` | 全フィーチャーが有効               |
+| `fs.Activate(featureID, slot) error`                     | 指定したslotでフィーチャーを有効化       |
+| `fs.Deactivate(featureID) error`                         | フィーチャーを無効化             |
+| `fs.IsActive(featureID) bool`                            | 有効状態の確認                      |
+| `fs.ActivatedSlot(featureID) (uint64, bool)`             | フィーチャーが有効化されたslot   |
+| `fs.ActiveCount() int`                                   | 有効なフィーチャーの数              |
+| `fs.InactiveCount() int`                                 | 無効なフィーチャーの数            |
+| `fs.ActiveFeatures() []solana.PublicKey`                 | 有効なフィーチャーIDの一覧           |
+| `fs.InactiveFeatures() []solana.PublicKey`               | 無効なフィーチャーIDの一覧         |
+| `fs.Close()`                                             | ハンドルを解放                |
+| `svm.SetFeatureSet(*FeatureSet) error`                   | SVMにインストール                |
+
+<Callout type="info">
+  フィーチャーゲーティングを使用して、特定のSolanaバージョン下でのプログラムの動作をテストできます。ターゲットとするリリースに含まれるフィーチャーを有効化し、それ以降に追加されたフィーチャーを無効化してください。
+</Callout>

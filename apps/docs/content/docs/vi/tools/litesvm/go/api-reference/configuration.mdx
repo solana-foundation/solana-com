@@ -1,0 +1,262 @@
+---
+title: Cấu hình
+description: Các phương thức setter để cấu hình LiteSVM trong Go
+---
+
+Mỗi setter phản chiếu phương thức builder tương ứng trên kiểu `LiteSVM` của Rust.
+Các lời gọi có hiệu lực ngay lập tức và trả về một `error`.
+
+## Thiết lập Test Thông thường
+
+```go
+svm, err := litesvm.New()
+if err != nil {
+    t.Fatal(err)
+}
+defer svm.Close()
+
+// Each setter returns an error. The calls below are infallible in practice,
+// so the docs use _ = ... for brevity; check the error in production code.
+_ = svm.SetSigverify(false)        // skip signature verification (faster)
+_ = svm.SetBlockhashCheck(false)   // skip blockhash validation (simpler)
+_ = svm.SetSysvars()               // reset Clock, Rent, etc. to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetTransactionHistory(100) // keep the last 100 transactions
+```
+
+## Chữ ký và Blockhash
+
+### SetSigverify
+
+```go
+func (s *LiteSVM) SetSigverify(enabled bool) error
+```
+
+Bật/tắt xác minh chữ ký giao dịch.
+
+```go
+if err := svm.SetSigverify(false); err != nil { // accept unsigned / badly-signed txs
+    t.Fatal(err)
+}
+if err := svm.SetSigverify(true); err != nil {  // restore production-like behavior
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  Tắt xác minh chữ ký giúp test nhanh hơn nhưng kém thực tế hơn.
+</Callout>
+
+### Sigverify
+
+```go
+func (s *LiteSVM) Sigverify() (bool, error)
+```
+
+Đọc cài đặt hiện tại.
+
+### SetBlockhashCheck
+
+```go
+func (s *LiteSVM) SetBlockhashCheck(enabled bool) error
+```
+
+Bật/tắt kiểm tra recent-blockhash trên các giao dịch được gửi lên.
+
+```go
+if err := svm.SetBlockhashCheck(false); err != nil { // accept any blockhash
+    t.Fatal(err)
+}
+```
+
+## Chương trình và Sysvar
+
+### SetSysvars
+
+```go
+func (s *LiteSVM) SetSysvars() error
+```
+
+Khởi tạo lại các sysvar tích hợp sẵn (Clock, Rent, EpochSchedule, ...) về giá trị
+mặc định.
+
+### SetBuiltins
+
+```go
+func (s *LiteSVM) SetBuiltins() error
+```
+
+Tải tập hợp các chương trình tích hợp sẵn mặc định.
+
+### SetDefaultPrograms
+
+```go
+func (s *LiteSVM) SetDefaultPrograms() error
+```
+
+Tải các chương trình SPL tiêu chuẩn (System Program, SPL Token, Memo, ...).
+
+### SetPrecompiles
+
+```go
+func (s *LiteSVM) SetPrecompiles() error
+```
+
+Kích hoạt các chương trình biên dịch sẵn ed25519 / secp256k1.
+
+### WithNativeMints
+
+```go
+func (s *LiteSVM) WithNativeMints() error
+```
+
+Seed các tài khoản native-mint của SPL Token / Token-2022 (wrapped SOL). Không thực hiện gì nếu
+chương trình tương ứng chưa được tải; hãy gọi `SetDefaultPrograms` trước nếu bạn muốn
+cả hai.
+
+## Giới hạn Tài nguyên
+
+### SetLamports
+
+```go
+func (s *LiteSVM) SetLamports(lamports uint64) error
+```
+
+Đặt số dư lamport mặc định của tài khoản airdrop-pool nội bộ.
+
+```go
+if err := svm.SetLamports(1 << 40); err != nil { // ~1.1 trillion lamports (~1,100 SOL)
+    t.Fatal(err)
+}
+```
+
+### SetLogBytesLimit
+
+```go
+func (s *LiteSVM) SetLogBytesLimit(limit int) error
+```
+
+Giới hạn tổng số byte log được ghi lại mỗi giao dịch. Truyền giá trị âm để
+bỏ giới hạn.
+
+```go
+if err := svm.SetLogBytesLimit(10_000); err != nil { // 10 KB cap
+    t.Fatal(err)
+}
+if err := svm.SetLogBytesLimit(-1); err != nil {     // unlimited
+    t.Fatal(err)
+}
+```
+
+### SetTransactionHistory
+
+```go
+func (s *LiteSVM) SetTransactionHistory(capacity int) error
+```
+
+Đặt dung lượng của lịch sử giao dịch trong bộ nhớ. Truyền `0` để tắt tính năng dedup
+và cho phép phát lại các giao dịch giống hệt nhau.
+
+```go
+if err := svm.SetTransactionHistory(100); err != nil { // cap at 100 entries
+    t.Fatal(err)
+}
+if err := svm.SetTransactionHistory(0); err != nil {   // disable dedup entirely
+    t.Fatal(err)
+}
+```
+
+## Ngân sách Tính toán
+
+```go
+type ComputeBudget struct {
+    // See litesvm-go/litesvm.go for the full field list.
+    // usize fields are normalized to uint64; HeapSize stays uint32.
+    ComputeUnitLimit uint64
+    HeapSize         uint32
+    // ...
+}
+```
+
+### ComputeBudget
+
+```go
+func (s *LiteSVM) ComputeBudget() (ComputeBudget, bool, error)
+```
+
+Đọc ngân sách tính toán hiện tại. Giá trị trả về thứ hai cho biết liệu ngân sách
+có được đặt tường minh hay không; nếu là `false`, struct chứa các giá trị mặc định
+sẽ được sử dụng.
+
+```go
+budget, set, err := svm.ComputeBudget()
+if err != nil {
+    t.Fatal(err)
+}
+if !set {
+    budget.ComputeUnitLimit = 1_400_000
+}
+if err := svm.SetComputeBudget(budget); err != nil {
+    t.Fatal(err)
+}
+```
+
+### SetComputeBudget
+
+```go
+func (s *LiteSVM) SetComputeBudget(b ComputeBudget) error
+```
+
+Cài đặt ngân sách tính toán cho các giao dịch tiếp theo.
+
+## Tập hợp Tính năng
+
+`FeatureSet` là một handle mờ - khởi tạo nó, thay đổi với `Activate` /
+`Deactivate`, sau đó cài đặt bằng `SetFeatureSet`. Đóng các handle bạn tạo ra.
+
+```go
+// Start with all features off, then activate what you care about.
+fs, err := litesvm.NewFeatureSet()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs.Close()
+if err := fs.Activate(featureID, 0); err != nil {
+    t.Fatal(err)
+}
+
+// Or start from "everything enabled" and flip specific features off.
+fs2, err := litesvm.NewFeatureSetAllEnabled()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs2.Close()
+if err := fs2.Deactivate(featureID); err != nil {
+    t.Fatal(err)
+}
+
+if err := svm.SetFeatureSet(fs); err != nil {
+    t.Fatal(err)
+}
+```
+
+| Phương thức                                                   | Mô tả                       |
+| -------------------------------------------------------- | --------------------------------- |
+| `litesvm.NewFeatureSet() (*FeatureSet, error)`           | Tập rỗng (tất cả tính năng không hoạt động) |
+| `litesvm.NewFeatureSetAllEnabled() (*FeatureSet, error)` | Tất cả tính năng đang hoạt động               |
+| `fs.Activate(featureID, slot) error`                     | Đánh dấu tính năng hoạt động tại slot       |
+| `fs.Deactivate(featureID) error`                         | Đánh dấu tính năng không hoạt động             |
+| `fs.IsActive(featureID) bool`                            | Kiểm tra trạng thái hoạt động                      |
+| `fs.ActivatedSlot(featureID) (uint64, bool)`             | slot mà tính năng được kích hoạt   |
+| `fs.ActiveCount() int`                                   | Số lượng tính năng đang hoạt động              |
+| `fs.InactiveCount() int`                                 | Số lượng tính năng không hoạt động            |
+| `fs.ActiveFeatures() []solana.PublicKey`                 | Liệt kê các ID tính năng đang hoạt động           |
+| `fs.InactiveFeatures() []solana.PublicKey`               | Liệt kê các ID tính năng không hoạt động         |
+| `fs.Close()`                                             | Giải phóng handle                |
+| `svm.SetFeatureSet(*FeatureSet) error`                   | Cài đặt lên SVM                |
+
+<Callout type="info">
+  Sử dụng feature gating để kiểm tra cách các chương trình hoạt động trên một phiên bản Solana cụ thể
+  - kích hoạt các tính năng được phát hành cùng với bản release bạn nhắm tới, sau đó
+  vô hiệu hóa những tính năng xuất hiện sau đó.
+</Callout>

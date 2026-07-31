@@ -1,0 +1,278 @@
+---
+title: Giao dịch
+description: Các phương thức xử lý giao dịch
+---
+
+## send_transaction
+
+```rust
+pub fn send_transaction(&mut self, tx: impl Into<VersionedTransaction>) -> Result<TransactionMetadata, FailedTransactionMetadata>
+```
+
+Thực thi giao dịch và thay đổi trạng thái.
+
+```rust
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+
+match svm.send_transaction(tx) {
+    Ok(meta) => {
+        println!("Success! Signature: {}", meta.signature);
+        println!("Compute units: {}", meta.compute_units_consumed);
+        println!("Fee: {} lamports", meta.fee);
+    }
+    Err(e) => {
+        println!("Failed: {:?}", e.err);
+        println!("Logs: {:?}", e.meta.logs);
+    }
+}
+```
+
+## simulate_transaction
+
+```rust
+pub fn simulate_transaction(&self, tx: impl Into<VersionedTransaction>) -> Result<SimulatedTransactionInfo, FailedTransactionMetadata>
+```
+
+Mô phỏng giao dịch mà không thay đổi trạng thái.
+
+Trả về `SimulatedTransactionInfo` bao gồm:
+
+- `meta`: Siêu dữ liệu giao dịch (nhật ký, đơn vị tính toán, chữ ký, v.v.)
+- `post_accounts`: Trạng thái tài khoản sau khi mô phỏng
+
+```rust
+// State before simulation
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate transaction
+let result = svm.simulate_transaction(tx.clone());
+
+// State unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+
+// Check simulation result
+if let Ok(sim_info) = result {
+    println!("Would succeed");
+    println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+    // Can inspect post_accounts to see what would change
+    for (pubkey, account) in sim_info.post_accounts {
+        println!("Account {} would have {} lamports", pubkey, account.lamports());
+    }
+
+    // Safe to send
+    svm.send_transaction(tx).unwrap();
+}
+```
+
+## Khi Nào Nên Dùng Mô Phỏng
+
+Dùng `simulate_transaction()` để:
+
+- Kiểm tra tính hợp lệ của giao dịch mà không thay đổi trạng thái
+- Kiểm tra mức tiêu thụ đơn vị tính toán
+- Xác minh nhật ký giao dịch mà không cần cam kết
+- Kiểm tra các luồng xử lý lỗi
+
+```rust
+// Test if transaction would succeed
+let result = svm.simulate_transaction(tx.clone());
+
+match result {
+    Ok(sim_info) => {
+        println!("Would succeed");
+        println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+        // Now execute for real
+        svm.send_transaction(tx).unwrap();
+    }
+    Err(e) => {
+        println!("Would fail: {:?}", e.err);
+        // Don't send transaction
+    }
+}
+```
+
+## Kiểm Tra Các Trường Hợp Lỗi
+
+```rust
+// Simulate expected failure
+let result = svm.simulate_transaction(invalid_tx);
+assert!(result.is_err());
+
+match result.unwrap_err().err {
+    TransactionError::InsufficientFundsForFee => {
+        println!("Expected error occurred");
+    }
+    _ => panic!("Unexpected error"),
+}
+```
+
+## Trạng Thái Không Thay Đổi
+
+```rust
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate multiple times
+for _ in 0..10 {
+    svm.simulate_transaction(tx.clone()).unwrap();
+}
+
+// Balance unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+```
+
+## Siêu Dữ Liệu Giao Dịch
+
+`send_transaction()` trả về `TransactionMetadata` trực tiếp, trong khi
+`simulate_transaction()` trả về `SimulatedTransactionInfo` bao gồm
+`meta: TransactionMetadata`:
+
+```rust
+pub struct TransactionMetadata {
+    pub signature: Signature,
+    pub logs: Vec<String>,
+    pub inner_instructions: InnerInstructionsList,
+    pub compute_units_consumed: u64,
+    pub return_data: TransactionReturnData,
+    pub fee: u64,
+}
+```
+
+### Truy Cập Dữ Liệu Giao Dịch
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Signature
+println!("Signature: {}", result.signature);
+
+// Logs
+for log in &result.logs {
+    println!("{}", log);
+}
+
+// Compute units
+println!("CU consumed: {}", result.compute_units_consumed);
+
+// Return data
+if let Some(data) = result.return_data.data {
+    println!("Program returned: {:?}", data);
+}
+
+// Inner instructions (CPIs)
+for inner in &result.inner_instructions {
+    println!("CPI: {:?}", inner);
+}
+
+// Transaction fee paid by fee payer
+println!("Fee paid: {} lamports", result.fee);
+```
+
+## get_transaction
+
+```rust
+pub fn get_transaction(&self, signature: &Signature) -> Option<&TransactionResult>
+```
+
+Trong đó
+`TransactionResult = Result<TransactionMetadata, FailedTransactionMetadata>`.
+
+Truy vấn giao dịch từ lịch sử. Yêu cầu `with_transaction_history()` phải được
+thiết lập.
+
+```rust
+let mut svm = LiteSVM::default()
+    .with_transaction_history(100);
+
+let result = svm.send_transaction(tx).unwrap();
+let signature = result.signature;
+
+// Query later
+if let Some(tx_result) = svm.get_transaction(&signature) {
+    match tx_result {
+        Ok(meta) => println!("Found: {:?}", meta),
+        Err(e) => println!("Failed: {:?}", e.err),
+    }
+}
+```
+
+## latest_blockhash
+
+```rust
+pub fn latest_blockhash(&self) -> Hash
+```
+
+Lấy blockhash hiện tại cho các giao dịch.
+
+```rust
+let blockhash = svm.latest_blockhash();
+
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    blockhash,
+);
+```
+
+## expire_blockhash
+
+```rust
+pub fn expire_blockhash(&mut self)
+```
+
+Buộc blockhash hiện tại hết hạn.
+
+```rust
+let old_hash = svm.latest_blockhash();
+svm.expire_blockhash();
+let new_hash = svm.latest_blockhash();
+
+assert_ne!(old_hash, new_hash);
+
+// Transactions with old_hash will now fail
+```
+
+## Các Mẫu Phổ Biến
+
+### Xác Thực Trước Khi Thực Thi
+
+```rust
+// Simulate first to check validity
+if svm.simulate_transaction(tx.clone()).is_ok() {
+    // Execute if simulation passes
+    svm.send_transaction(tx).unwrap();
+} else {
+    println!("Transaction would fail, skipping execution");
+}
+```
+
+### Theo Dõi Đơn Vị Tính Toán
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Assert within budget
+assert!(
+    result.compute_units_consumed < 100_000,
+    "Transaction used too many compute units: {}",
+    result.compute_units_consumed
+);
+```
+
+### Kiểm Tra Nhật Ký Giao Dịch
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Check for specific log messages
+assert!(result.logs.iter().any(|log|
+    log.contains("Transfer successful")
+));
+```

@@ -8,6 +8,8 @@ import {
 } from "@/lib/podcast-data";
 import EpisodeClientPage from "./client-page";
 import { podcastEpisodeMetadata } from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildPodcastEpisodeJsonLd } from "@/lib/content-structured-data";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800; // 30 minutes
@@ -56,15 +58,23 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
   const relatedEpisodes = allEpisodes
     .filter((ep) => ep.id !== episode.id)
     .slice(0, 3);
+  const structuredData = buildPodcastEpisodeJsonLd({
+    podcast,
+    episode,
+    locale: resolvedParams.locale,
+  });
 
   return (
-    <EpisodeClientPage
-      podcast={podcast}
-      episode={episode}
-      relatedEpisodes={relatedEpisodes}
-      previousEpisode={previousEpisode ?? null}
-      nextEpisode={nextEpisode ?? null}
-    />
+    <>
+      <JsonLd data={structuredData} />
+      <EpisodeClientPage
+        podcast={podcast}
+        episode={episode}
+        relatedEpisodes={relatedEpisodes}
+        previousEpisode={previousEpisode ?? null}
+        nextEpisode={nextEpisode ?? null}
+      />
+    </>
   );
 }
 
@@ -82,5 +92,6 @@ export async function generateMetadata({
   return podcastEpisodeMetadata(
     resolvedParams.podcastSlug,
     resolvedParams.episodeId,
+    resolvedParams.locale,
   );
 }

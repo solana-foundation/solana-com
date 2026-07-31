@@ -1,0 +1,275 @@
+---
+title: Kieli ja syntaksi
+description: Käytä txtx DSL:ää kuvaamaan käyttöönotot, joita surfpool hallinnoi.
+---
+
+Tämä on txtx-kielen dokumentaatio. Kirjoittamasi Runbook-tiedostot
+määrittelevät, mitä lohkoketjuja ja verkkoja käytetään, mitä tietoja haetaan ja
+mitä tapahtumia lähetetään. txtx-kieli mahdollistaa myös riippuvuuksien
+määrittelyn resurssien välille sekä useiden samankaltaisten rakenteiden luomisen
+yhdestä lohkosta.
+
+## Syntaksi
+
+Runbookit sisältävät sarjan koodilohkoja, jotka näyttävät suunnilleen tältä:
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+Jokaisella lohkolla on komentotyyppi (tässä esimerkissä `variable`, `action` ja
+`output`), viitenimi (`"query_path"`, `"http_query"` ja `"status_code"`) sekä
+lohkon sisäinen data (kaikki `{ ... }`:n välissä oleva). Jotkin komentotyypeistä
+edellyttävät myös komennon määrittelyä (`"std::send_http_request"`). Lohkon
+sisäinen data määräytyy määritellyn komentotyyppin ja komennon mukaan.
+
+### Komentoviittaukset
+
+Yksi komento voi viitata toisen komennon tulosteisiin rakentaakseen ketjun
+riippuvaisista komennoista. Kun suoritat Runbookin, surfpool luo kaavion
+kaikista komennoista varmistaakseen, että ne suoritetaan aina oikeassa
+järjestyksessä. Tämä tarkoittaa, että riippuvuussyklit tulee välttää Runbookia
+luotaessa.
+
+Toisen komennon tulosteeseen voidaan viitata lohkossa käyttämällä
+`command_type.ref_name.output_name`. Tässä muutamia esimerkkejä:
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### Funktiot
+
+[Vakiokirjasto](/docs/tools/surfpool/iac/std/functions) tarjoaa joitain
+funktioita, jotka voidaan kirjoittaa rivinsisäisesti täysien komentalohkojen
+sijaan nimetyillä argumenteilla. Näitä funktioita voidaan laajentaa lisäosien
+avulla.
+
+Nämä funktiot voivat näyttää eksplisiittisiltä funktiokutsuista (esim.
+`add_uint(1, 3)`), tai ne voivat näyttää rivinsisäisiltä aritmeettisista
+operaatioilta (esim. `1 + 3`). Funktiot voivat viitata muiden komentojen
+tulosteisiin, tai ne voidaan tallentaa uusiin komento- tulosteisiin. Tässä
+esimerkki muutaman funktion käytöstä:
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## Manifest & CLI -syötteet
+
+Syötteet voidaan antaa Runbookille joko CLI-syötteenä tai määrittämällä ne
+`txtx.yml`-manifesti­tiedostossa. Jos sama syöte annetaan sekä CLI:ssä että
+manifestissa, CLI-syöte on etusijalla. Lisätietoja CLI:n käytöstä löytyy
+[CLI-dokumentaatiosta](/docs/tools/surfpool/toolchain/cli). Manifestissa nämä
+syötteet voidaan ryhmitellä ympäristö­avaimen mukaan, mikä helpottaa saman
+Runbookin käyttöä useissa eri ympäristöissä.
+
+Tässä on esimerkki­konfiguraatio ympäristö­muuttujilla:
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+Kaikissa `.tx`-tiedostoissa, jotka tämä runbook lataa, syötteet
+`input.network_id` ja `input.rpc_api_url` ovat käytettävissä globaalissa
+näkyvyys­alueessa. Kun Web UI lataa tämän runbookin, ensimmäinen toiminto­kohta
+antaa sinun valita ladattavan ympäristön. Uuden ympäristön valitseminen lataa
+nykyisen runbookin uudelleen siten, että uudet ympäristö­muuttujat injektoidaan
+suoritukseen.
+
+### Tilan­hallinta
+
+Surfpool voi hallita tilaa Runbook-suoritusten välillä. Sopimusten
+käyttöönottoja ajettaessa tilan­hallintaa voidaan käyttää havaitsemaan muutokset
+sopimus­koodissa ja Runbook-syötteissä sen määrittämiseksi, täytyykö Runbook
+suorittaa uudelleen. Surfpool estää Runbookin uudelleen­suorituksen, jos
+sopimus­koodissa tai Runbook-syötteissä ei ole muutoksia.
+
+Ota tilan­hallinta käyttöön antamalla `state`-arvo ja `location` tiedoston
+tallentamista varten `txtx.yml`:ssä:
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## Muuttujat
+
+Muuttujia voidaan käyttää arvojen tallentamiseen, joita muut rakenteet voivat
+hyödyntää ja joita käyttäjät voivat muokata Web UI:ssa. Jos muuttujan
+`editable`-kenttä on määrittämätön tai asetettu arvoon `false`, muuttuja näkyy
+Web UI:ssa `Variables Review`-osiossa vain­luku­arvona, joka voidaan tarkistaa.
+Jos `editable`-kenttä on asetettu arvoon `true`, muuttuja näkyy Web UI:ssa
+muokattavana kentänä. Valinnainen `description`-kenttä voidaan antaa
+lisä­kontekstin lisäämiseksi muuttujalle. Tässä on esimerkki­muuttuja:
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## Lisäosat ja oletusarvot
+
+Lisäosalohkot mahdollistavat sen, että voit määrittää, mitä lisäosia Runbook
+käyttää. Kaikkiin lisäosalohkon sisällä määriteltyihin kenttiin voivat viitata
+kaikki kyseisen lisäosan toiminnot. Tämän avulla voit jättää kentät pois
+käyttäessäsi kyseisen lisäosan mukautettuja toimintoja. Seuraavassa esimerkissä
+määritellään `svm`-lisäosa ja asetetaan `network_id`- ja `rpc_api_url`-kentät
+oletusarvoiksi:
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+Kun tämä oletusarvo on lisätty `.tx`-tiedostoon, kaikki SVM-lisäosan toiminnot
+voivat jättää pois sekä `network_id`- että `rpc_api_url`-kentät.
+
+## Työnkulut
+
+Työnkulut mahdollistavat Runbookin suorittamisen useita kertoja eri syötteillä
+kullekin suorituskerralle. Kaikkiin työnkulkulohkossa määriteltyihin kenttiin
+voivat viitata kaikki kyseisen työnkulun toiminnot `flow.field_name`-viittauksen
+kautta. Tätä voidaan käyttää yhdessä `addon`-lohkon kanssa hyödyllisillä
+tavoilla:
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## Allekirjoittajat
+
+Lisäosat voivat määritellä allekirjoittajia, jotka tarjoavat erilaisia tapoja
+allekirjoittaa transaktioita surfpoolia käytettäessä. Näitä allekirjoittajia
+voidaan käyttää transaktioiden allekirjoittamiseen mnemonisella lauseella tai
+salaisen avaimen avulla, pyytämään käyttäjiä yhdistämään web-lompakkonsa ja
+kirjautumaan Surfpool Web UI:ssa, allekirjoittamaan transaktioita asynkronisesti
+turvallisen enklavin kautta, määrittelemään multisig-lompakot ja paljon muuta.
+Jokaisella lisäosan allekirjoittajatoteutuksella on omat käyttötapauksensa ja
+dokumentaationsa.
+
+Tässä on esimerkki allekirjoittajan käytöstä:
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+Tässä esimerkissä määritellään allekirjoittaja nimeltä `alice`, joka käyttää
+`svm::web_wallet`-allekirjoittajaa. Tämä allekirjoittajamääritys luo kehotteen
+Web UI:ssa lompakon yhdistämistä varten, tarjoaa pubkey viestin allekirjoituksen
+kautta ja allekirjoittaa kaikki transaktiot käyttäen tätä lompakkoa
+allekirjoittajana.
+
+## Toiminnot
+
+Toiminnot ovat monikäyttöisiä rakenteita, jotka on määritelty lisäosissa ja
+[vakiokirjastossa](/docs/tools/surfpool/iac/std/actions). Jokainen toiminto
+määrittelee oman joukkonsa syötteitä (osa valinnaisia ja osa pakollisia), jotka
+voidaan välittää toiminnolle, mitä tapahtuu jokaisella toimintokutsulla sekä
+mitä tulosteita toiminto luo – ja joihin myöhemmät komennot voivat viitata.
+
+Esimerkkejä toimintotyypeistä ovat muun muassa HTTP-pyyntöjen tekeminen ja
+tulosten tulostaminen, transaktioiden tietojen koodaaminen tietyn ketjun
+koodekin mukaisesti, transaktion allekirjoittaminen lompakolla ja
+allekirjoitettujen tavujen tulostaminen sekä transaktion lähettäminen verkkoon.
+
+Tässä on esimerkki toiminnosta:
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## Moduulit
+
+Tulossa pian.
+
+## Tulosteet
+
+Tulostekomentoa voidaan käyttää datan näyttämiseen suorituskirjan suorituksen
+lopussa. Tässä on esimerkki tulostekomennosta:
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

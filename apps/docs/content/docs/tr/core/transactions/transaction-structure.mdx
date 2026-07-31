@@ -65,20 +65,25 @@ imzalanmış, serileştirilmiş `Message`'ın 64 baytlık bir Ed25519 imzasıdı
 İşlemin talimatları tarafından referans verilen her
 [imzalayan hesap](#account-addresses) için bir imza gereklidir.
 
-Dizideki ilk imza, işlem
-[temel ücret ve önceliklendirme ücretini](/docs/core/fees/fee-structure#base-fee)
-ödeyen hesap olan **ücret ödeyicisine** aittir. Bu ilk imza aynı zamanda ağda
-işlemi aramak için kullanılan **işlem kimliği** olarak da hizmet eder. İşlem
-kimliği genellikle **işlem imzası** olarak adlandırılır.
+Her imza bir özel anahtar tarafından üretilir. Bu anahtarın nerede bulunduğu —
+yerel bir keypair, bulut tabanlı bir HSM veya KMS ya da yönetilen bir cüzdan
+hizmeti — bir üretim tasarım kararıdır. Bkz.
+[Üretimde İmzalama](/docs/core/transactions/signing-in-production).
 
-Ücret ödeyen gereksinimleri:
+Dizideki ilk imza, işlem
+[temel ücretini ve önceliklendirme ücretini](/docs/core/fees/fee-structure#base-fee)
+ödeyen hesap olan **ücret ödeyiciye** aittir. Bu ilk imza aynı zamanda ağ
+üzerinde işlemi aramak için kullanılan **işlem kimliği** olarak da hizmet eder.
+İşlem kimliği yaygın olarak **işlem imzası** olarak adlandırılır.
+
+Ücret ödeyici gereksinimleri:
 
 - Mesajdaki ilk hesap (indeks 0) olmalı ve imzalayan olmalıdır.
 - System Program'a ait bir hesap veya nonce hesabı olmalıdır
   ([`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)
   tarafından doğrulanır).
-- `rent_exempt_minimum + total_fee` tutarını karşılayacak yeterli lamport
-  içermelidir; aksi takdirde işlem _rs`InsufficientFundsForFee`_ hatası ile
+- `rent_exempt_minimum + total_fee`'yi karşılayacak kadar lamport
+  bulundurmalıdır; aksi takdirde işlem _rs`InsufficientFundsForFee`_ hatasıyla
   başarısız olur.
 
 ## Mesaj
@@ -90,11 +95,11 @@ yapısıdır:
 <WithMentions>
 
 - [`header`](mention:message-header): Mesaj [başlığı](#header)
-- [`account_keys`](mention:account-addresses): İşlemin talimatları için gerekli
-  [hesap adresleri](#account-addresses) dizisi
+- [`account_keys`](mention:account-addresses): İşlemin talimatları tarafından
+  gereken [hesap adresleri](#account-addresses) dizisi
 - [`recent_blockhash`](mention:recent-blockhash): İşlem için zaman damgası
-  görevi gören bir [blockhash](#recent-blockhash)
-- [`instructions`](mention:instructions): [Talimatlar](#instructions) dizisi
+  işlevi gören bir [blok karması](#recent-blockhash)
+- [`instructions`](mention:instructions): Bir [talimat](#instructions) dizisi
 
 ```rust title="Message"
 pub struct Message {
@@ -125,12 +130,12 @@ pub struct Message {
 
 <WithMentions>
 
-`header` alanı, `account_keys` dizisini izin gruplarına bölen üç `u8` alanına
+`header` alanı, `account_keys` dizisini izin gruplarına ayıran üç `u8` alanına
 sahip bir
 [`MessageHeader`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/lib.rs#L109)
 yapısıdır:
 
-- [`num_required_signatures`](mention:num_required_signatures): İşlem için
+- [`num_required_signatures`](mention:num_required_signatures): İşlem tarafından
   gereken toplam imza sayısı.
 - [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): Salt
   okunur olan imzalı hesap sayısı.
@@ -159,63 +164,70 @@ pub struct MessageHeader {
 
 </WithMentions>
 
+<Callout type="info" title="Eski ve sürümlü mesaj önekleri">
+  Eski bir işlem mesajında, ilk mesaj baytı `num_required_signatures` olup
+  ardından diğer iki `MessageHeader` baytı gelir. Sürümlü bir işlem mesajında
+  ise ilk bayt bir sürüm önekidir; üç baytlık `MessageHeader` bu önekten hemen
+  sonra başlar. Tam v0 mesaj düzeni için bkz. [sürümlü
+  işlemler](/docs/core/transactions/versioned-transactions).
+</Callout>
+
 ![Mesaj başlığının üç bölümünü gösteren diyagram](/assets/docs/core/transactions/message_header.png)
 
 ### Hesap adresleri
 
 [`account_keys`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L168)
-alanı, kompakt kodlanmış bir public key dizisidir. Her giriş, işlemin
-talimatlarından en az biri tarafından kullanılan bir hesabı tanımlar. Dizi her
-hesabı içermeli ve şu katı sıralamayı izlemelidir:
+alanı, sıkıştırılmış kodlanmış bir genel anahtar dizisidir. Her giriş, işlemin
+talimatlarından en az biri tarafından kullanılan bir hesabı tanımlar. Dizi, tüm
+hesapları içermeli ve şu katı sıralamayı izlemelidir:
 
 1. İmzalayan + Yazılabilir
 2. İmzalayan + Salt okunur
-3. İmzalayan olmayan + Yazılabilir
-4. İmzalayan olmayan + Salt okunur
+3. İmzalamayan + Yazılabilir
+4. İmzalamayan + Salt okunur
 
 <Callout>
-  Bu katı sıralama, `account_keys` dizisinin mesajın [`header`](#header)
-  alanındaki üç sayımla birleştirilerek, hesap başına metadata bayrakları
-  saklamadan her hesap için izinlerin belirlenmesini sağlar. Başlık sayımları,
-  diziyi yukarıda listelenen dört izin grubuna böler.
+  Bu katı sıralama, `account_keys` dizisinin, mesajın [`header`](#header)
+  bölümündeki üç sayımla birleştirilerek her hesap için izinlerin, hesap başına
+  meta veri bayrakları saklanmadan belirlenmesine olanak tanır. Başlık
+  sayımları, diziyi yukarıda listelenen dört izin grubuna böler.
 </Callout>
 
 ![Hesap adresleri dizisinin sırasını gösteren diyagram](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
 
-### Son blok hash'i
+### Son blok karması
 
-`recent_blockhash` alanı, iki amaca hizmet eden 32 baytlık bir hash'tir:
+`recent_blockhash` alanı, iki amaca hizmet eden 32 baytlık bir karmadır:
 
 1. **Zaman damgası**: işlemin yakın zamanda oluşturulduğunu kanıtlar.
-2. **Tekrar önleme**: aynı işlemin iki kez işlenmesini önler.
+2. **Tekilleştirme**: aynı işlemin iki kez işlenmesini önler.
 
-Bir blok hash'i 150 slot sonra geçerliliğini yitirir. İşlem ulaştığında blok
-hash'i artık geçerli değilse, geçerli bir
+Bir blok karması 150 slot sonra geçerliliğini yitirir. İşlem ulaştığında blok
+karması artık geçerli değilse, geçerli bir
 [dayanıklı nonce işlemi](/docs/core/transactions/durable-nonces) olmadığı sürece
-_rs`BlockhashNotFound`_ ile reddedilir.
+_rs`BlockhashNotFound`_ hatasıyla reddedilir.
 
 <Callout>
-  [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC metodu, mevcut
-  blok hash'ini ve blok hash'inin geçerli olacağı son blok yüksekliğini almanızı
-  sağlar.
+  [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC yöntemi, geçerli
+  blok karmasını ve blok karmasının geçerli olacağı son blok yüksekliğini
+  almanıza olanak tanır.
 </Callout>
 
 ### Talimatlar
 
 [`instructions`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L176)
-alanı,
+alanı, kompakt kodlanmış bir
 [`CompiledInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/compiled_instruction.rs#L21)
-yapılarının kompakt kodlanmış bir dizisidir. Her _rs`CompiledInstruction`_, tam
-public key yerine `account_keys` dizisindeki indeks ile hesaplara referans
-verir. Şunları içerir:
+yapı dizisidir. Her _rs`CompiledInstruction`_, hesaplara tam public key yerine
+`account_keys` dizisindeki indeks üzerinden başvurur. Şunları içerir:
 
 <WithMentions>
 
 1. [`program_id_index`](mention:program-id-index): Çağrılacak programı
    tanımlayan `account_keys` içindeki indeks.
 2. [`accounts`](mention:account-indexes): Programa iletilecek hesapları belirten
-   `account_keys` içindeki indeksler dizisi.
-3. [`data`](mention:instruction-data): Talimat ayırıcısını ve serileştirilmiş
+   `account_keys` içindeki indeks dizisi.
+3. [`data`](mention:instruction-data): Talimat ayrımcısını ve serileştirilmiş
    argümanları içeren bayt dizisi.
 
 ```rust title="CompiledInstruction"
@@ -236,43 +248,43 @@ pub struct CompiledInstruction {
 
 </WithMentions>
 
-![Talimatların kompakt dizisi](/assets/docs/core/transactions/compact_array_of_ixs.png)
+![Kompakt Talimat Dizisi](/assets/docs/core/transactions/compact_array_of_ixs.png)
 
-## İşlem ikili formatı
+## İşlem ikili biçimi
 
-İşlemler kompakt bir kodlama şeması kullanılarak serileştirilir. Tüm değişken
+İşlemler, kompakt bir kodlama şeması kullanılarak serileştirilir. Tüm değişken
 uzunluklu diziler (imzalar, hesap anahtarları, talimatlar) compact-u16 uzunluk
-kodlaması ile öneklenir. Bu format, 0-127 değerleri için 1 bayt ve daha büyük
-değerler için 2-3 bayt kullanır.
+kodlamasıyla öneklenir. Bu biçim, 0-127 arasındaki değerler için 1 bayt, daha
+büyük değerler için 2-3 bayt kullanır.
 
-**Legacy işlem düzeni** (kablo üzerinde):
+**Eski işlem düzeni** (aktarım üzerinde):
 
-| Alan                      | Boyut                        | Açıklama                                     |
-| ------------------------- | ---------------------------- | -------------------------------------------- |
-| `num_signatures`          | 1-3 bayt (compact-u16)       | İmza sayısı                                  |
-| `signatures`              | `num_signatures` x 64 bayt   | Ed25519 imzaları                             |
-| `num_required_signatures` | 1 bayt                       | `MessageHeader` alan 1                       |
-| `num_readonly_signed`     | 1 bayt                       | `MessageHeader` alan 2                       |
-| `num_readonly_unsigned`   | 1 bayt                       | `MessageHeader` alan 3                       |
-| `num_account_keys`        | 1-3 bayt (compact-u16)       | Statik hesap anahtarı sayısı                 |
-| `account_keys`            | `num_account_keys` x 32 bayt | Public key'ler                               |
-| `recent_blockhash`        | 32 bayt                      | Blok hash'i                                  |
-| `num_instructions`        | 1-3 bayt (compact-u16)       | Talimat sayısı                               |
-| `instructions`            | değişken                     | [Derlenmiş talimatlar](#instructions) dizisi |
+| Alan                      | Boyut                        | Açıklama                                  |
+| ------------------------- | ---------------------------- | ----------------------------------------- |
+| `num_signatures`          | 1-3 bayt (compact-u16)       | İmza sayısı                               |
+| `signatures`              | `num_signatures` x 64 bayt   | Ed25519 imzaları                          |
+| `num_required_signatures` | 1 bayt                       | `MessageHeader` alan 1                    |
+| `num_readonly_signed`     | 1 bayt                       | `MessageHeader` alan 2                    |
+| `num_readonly_unsigned`   | 1 bayt                       | `MessageHeader` alan 3                    |
+| `num_account_keys`        | 1-3 bayt (compact-u16)       | Statik hesap anahtarı sayısı              |
+| `account_keys`            | `num_account_keys` x 32 bayt | Public key'ler                            |
+| `recent_blockhash`        | 32 bayt                      | Blockhash                                 |
+| `num_instructions`        | 1-3 bayt (compact-u16)       | Talimat sayısı                            |
+| `instructions`            | değişken                     | [Derlenmiş talimat](#instructions) dizisi |
 
 Her derlenmiş talimat şu şekilde serileştirilir:
 
-| Alan               | Boyut                   | Açıklama                   |
-| ------------------ | ----------------------- | -------------------------- |
-| `program_id_index` | 1 bayt                  | Hesap anahtarlarına indeks |
-| `num_accounts`     | 1-3 bayt (compact-u16)  | Hesap indeksi sayısı       |
-| `account_indices`  | `num_accounts` x 1 bayt | Hesap anahtarı indeksleri  |
-| `data_len`         | 1-3 bayt (compact-u16)  | Talimat verisi uzunluğu    |
-| `data`             | `data_len` bayt         | Opak talimat verisi        |
+| Alan               | Boyut                   | Açıklama                          |
+| ------------------ | ----------------------- | --------------------------------- |
+| `program_id_index` | 1 bayt                  | Hesap anahtarları içindeki indeks |
+| `num_accounts`     | 1-3 bayt (compact-u16)  | Hesap indeksi sayısı              |
+| `account_indices`  | `num_accounts` x 1 bayt | Hesap anahtarı indeksleri         |
+| `data_len`         | 1-3 bayt (compact-u16)  | instruction data uzunluğu         |
+| `data`             | `data_len` bayt         | Opak instruction data             |
 
 ### Boyut hesaplama
 
-_rs`PACKET_DATA_SIZE`_ = 1.232 bayt olduğunda, kullanılabilir alan şu şekilde
+_rs`PACKET_DATA_SIZE`_ = 1.232 bayt olduğunda, kullanılabilir alan
 hesaplanabilir:
 
 ```
@@ -289,24 +301,45 @@ Total = 1232 bytes
 
 ## Örnek: SOL transfer işlemi
 
-Aşağıdaki diyagram, kullanıcıların ağ ile etkileşime girmesini sağlamak için
-işlemlerin ve talimatların birlikte nasıl çalıştığını göstermektedir. Bu
-örnekte, SOL bir hesaptan diğerine aktarılmaktadır.
+Aşağıdaki diyagram, işlemler ve talimatların kullanıcıların ağla etkileşime
+girmesine nasıl olanak tanıdığını göstermektedir. Bu örnekte SOL, bir hesaptan
+diğerine aktarılmaktadır.
 
-Gönderen hesabın
-[metaverisi](/docs/core/instructions/instruction-structure#account-metadata),
-işlem için imzalaması gerektiğini belirtir. Bu, System Program'ın lamport
-düşmesine izin verir. Lamport bakiyelerinin değişebilmesi için hem gönderen hem
-de alıcı hesapların yazılabilir olması gerekir. Bu talimatı yürütmek için
-gönderenin cüzdanı, imzasını ve SOL transfer talimatını içeren mesajı içeren
-işlemi gönderir.
+Gönderici hesabının
+[meta verisi](/docs/core/instructions/instruction-structure#account-metadata),
+işlemi imzalaması gerektiğini belirtir. Bu, System Program'ın lamport düşmesine
+olanak tanır. lamport bakiyelerinin değişebilmesi için hem gönderici hem de
+alıcı hesapların yazılabilir olması gerekir. Bu talimatı yürütmek için
+göndericinin cüzdanı, kendi imzasını ve SOL transfer talimatını içeren mesajı
+barındıran işlemi gönderir.
 
 ![SOL transfer diyagramı](/assets/docs/core/transactions/sol-transfer.svg)
 
-İşlem gönderildikten sonra, System Program transfer talimatını işler ve her iki
+İşlem gönderildikten sonra System Program, transfer talimatını işler ve her iki
 hesabın lamport bakiyesini günceller.
 
-![SOL transfer işlem diyagramı](/assets/docs/core/transactions/sol-transfer-process.svg)
+![SOL transfer süreci diyagramı](/assets/docs/core/transactions/sol-transfer-process.svg)
+
+<Callout type="warn" title="SOL göndermeden önce alıcıyı doğrulayın">
+
+Bir System Program transferi, **herhangi bir** hesaba lamport ekler. Alıcının
+SOL'u geri çıkarabildiğine dair protokol düzeyinde bir kontrol yoktur. lamport
+yalnızca hesabın sahibi olan program tarafından taşınabilir; dolayısıyla SOL'u
+bir [token mint](/docs/tokens/basics/create-mint)'e, bir programa veya
+kontrolünüzde olmayan bir [PDA](/docs/core/pda)'ya göndermek **kalıcı fon kaybı
+riskini** beraberinde getirir — bunları yalnızca sahibi olan program tarafından
+belirlenen bir yetki geri alabilir. Bir
+[token account](/docs/tokens/basics/create-token-account)'a gönderilen SOL
+yalnızca o hesabın sahibi tarafından geri alınabilir; gönderici tarafından asla
+alınamaz.
+
+SPL **token** transferleri kısmen kendini koruyacak biçimde tasarlanmıştır:
+Token Program, hesapları beklenen mint ile eşleşmeyen bir transferi reddeder.
+Yerel **SOL** transferlerinde böyle bir güvence yoktur; bu nedenle gönderici
+imzalamadan önce alıcıyı doğrulamalıdır. Tam sınıflandırma mantığı için
+[Adresi Doğrula](/docs/payments/send-payments/verify-address) sayfasına bakın.
+
+</Callout>
 
 Aşağıdaki örnek, yukarıdaki diyagramlarla ilgili kodu göstermektedir. System
 Program'ın
@@ -678,9 +711,8 @@ async fn main() -> Result<()> {
 </CodeTabs>
 
 <WithMentions>
-Aşağıdaki kod, önceki kod parçacıklarından elde edilen çıktıyı gösterir.
-Format SDK'lar arasında farklılık gösterir,
-ancak her talimatın aynı gerekli bilgileri içerdiğine dikkat edin.
+Aşağıdaki kod, önceki kod parçacıklarının çıktısını göstermektedir.
+Biçim SDK'lar arasında farklılık gösterse de her talimatın aynı zorunlu bilgileri içerdiğine dikkat edin.
 
 <CodeTabs storage="sol-transfer">
 
@@ -785,11 +817,81 @@ ancak her talimatın aynı gerekli bilgileri içerdiğine dikkat edin.
 </CodeTabs>
 </WithMentions>
 
-## İşlem detaylarını getirme
+### Transferden önce alıcıyı doğrulayın
 
-Gönderimden sonra, işlem imzasını ve
-[getTransaction](/docs/rpc/http/gettransaction) RPC metodunu kullanarak işlem
-detaylarını alın.
+SOL transferi herhangi bir hesaba başarıyla gerçekleşebildiğinden, imzalamadan
+önce alıcıyı kontrol edin. Hesabı çekip yalnızca bir System Program cüzdanına
+(veya fonlanmamış bir
+[eğri üzerindeki](/docs/payments/send-payments/verify-address#on-curve-addresses)
+adrese) gönderin; kontrolünüzde olmayan mint'leri, token account'ları,
+programları ve PDA'ları reddedin.
+
+<CodeTabs flags="r">
+
+```ts !! title="Kit"
+import {
+  type Address,
+  createSolanaRpc,
+  fetchJsonParsedAccount,
+  isOffCurveAddress
+} from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+
+/**
+ * Throws if `recipient` cannot safely receive native SOL.
+ *
+ * Only System Program wallets (or unfunded on-curve addresses) are safe. Any
+ * other account locks the lamports because no authority can debit them.
+ */
+async function assertSafeSolRecipient(recipient: Address): Promise<void> {
+  const account = await fetchJsonParsedAccount(rpc, recipient);
+
+  if (!account.exists) {
+    // Off-curve = a PDA with no account; reject conservatively.
+    if (isOffCurveAddress(recipient)) {
+      throw new Error(
+        "Recipient is a PDA with no account; SOL would be locked"
+      );
+    }
+    // On-curve = an unfunded wallet, safe to fund.
+    return;
+  }
+
+  if (account.programAddress !== SYSTEM_PROGRAM) {
+    throw new Error(
+      `Recipient is owned by ${account.programAddress}, not a wallet; SOL would be locked`
+    );
+  }
+}
+
+// A wallet: safe.
+await assertSafeSolRecipient(
+  "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS" as Address
+);
+
+// The USDC mint: rejected before any SOL leaves the sender.
+await assertSafeSolRecipient(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address
+);
+```
+
+</CodeTabs>
+
+<Callout>
+  Bu kod parçacığı yalnızca native SOL alıcılarını kontrol eder. SPL token
+  gönderimleriyle de ilgilenen tam sınıflandırma için (token account'lar,
+  ATA'lar, Token-2022), bkz. [Adres
+  Doğrulama](/docs/payments/send-payments/verify-address).
+</Callout>
+
+## İşlem ayrıntılarını getirme
+
+Gönderimin ardından, işlem imzasını ve
+[getTransaction](/docs/rpc/http/gettransaction) RPC yöntemini kullanarak işlem
+ayrıntılarını alın.
 
 <Callout>
   İşlemi [Solana Explorer](https://explorer.solana.com) kullanarak da
@@ -852,3 +954,8 @@ detaylarını alın.
   "version": "legacy"
 }
 ```
+
+Ham yanıt, hesapları dizine göre tanımlar ve iç (CPI) talimatlarını kodlanmış
+blob'lar olarak depolar. Bunları adreslere çözümlemek ve tam talimat ağacında
+gezinmek için bkz.
+[İşlem İncelemesi](/docs/core/transactions/transaction-introspection).

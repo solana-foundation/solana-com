@@ -1,0 +1,181 @@
+---
+title: Configuração de Contas
+description: Configure contas de teste e estado com litesvm-go
+---
+
+Demonstra a inicialização do estado de contas diretamente com `SetAccount`, sem executar
+transações. Isso é significativamente mais rápido do que airdropping + financiamento pelo
+runtime quando você precisa de muitas contas prontas para um teste.
+
+## Configuração Básica de Contas
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestBasicAccountSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Calculate minimum balance for rent exemption.
+    accountData := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    minBalance, err := svm.MinimumBalanceForRentExemption(len(accountData))
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("minimum balance for %d bytes: %d lamports", len(accountData), minBalance)
+
+    // Owner program (system program in this trivial example).
+    owner := solana.SystemProgramID
+    testAddr := solana.NewWallet().PublicKey()
+
+    // Build the account handle, then store it.
+    acct, err := litesvm.NewAccount(minBalance, accountData, owner, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(testAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+    t.Log("account state set successfully")
+
+    // Retrieve the account back.
+    retrieved := svm.GetAccount(testAddr)
+    if retrieved == nil {
+        t.Fatal("expected account to exist")
+    }
+    defer retrieved.Close()
+
+    t.Logf("  address:    %s", testAddr)
+    t.Logf("  lamports:   %d", retrieved.Lamports())
+    t.Logf("  owner:      %s", retrieved.Owner())
+    t.Logf("  executable: %v", retrieved.Executable())
+    t.Logf("  data:       %v", retrieved.Data())
+
+    // Or just read the balance.
+    bal, _, err := svm.Balance(testAddr)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("balance: %d lamports", bal)
+}
+```
+
+## Configurando Múltiplas Contas
+
+```go
+func TestMultipleAccounts(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    owner := solana.SystemProgramID
+
+    // Set up 5 accounts with different data payloads.
+    addrs := make([]solana.PublicKey, 5)
+    for i := range addrs {
+        addrs[i] = solana.NewWallet().PublicKey()
+
+        data := []byte{byte(i), byte(i + 1), byte(i + 2)}
+        rent, err := svm.MinimumBalanceForRentExemption(len(data))
+        if err != nil {
+            t.Fatal(err)
+        }
+
+        acct, err := litesvm.NewAccount(rent, data, owner, false, 0)
+        if err != nil {
+            t.Fatal(err)
+        }
+        if err := svm.SetAccount(addrs[i], acct); err != nil {
+            acct.Close()
+            t.Fatal(err)
+        }
+        acct.Close()
+
+        t.Logf("account %d: %s", i, addrs[i])
+    }
+
+    // Verify each account.
+    for i, addr := range addrs {
+        a := svm.GetAccount(addr)
+        if a == nil {
+            t.Fatalf("account %d missing", i)
+        }
+        t.Logf("  account %d: %d lamports, data[0]=%d", i, a.Lamports(), a.Data()[0])
+        a.Close()
+    }
+}
+```
+
+## Configuração de program data account
+
+Configure um program data account de propriedade do programa serializando o layout da sua struct na
+`data` da conta. Este trecho também importa `encoding/binary`:
+
+```go
+import "encoding/binary"
+
+func TestProgramDataAccount(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    programID := solana.NewWallet().PublicKey()
+    dataAddr := solana.NewWallet().PublicKey()
+
+    // Example layout: [u8 discriminator, u64 counter, 32-byte owner pubkey]
+    data := make([]byte, 1+8+32)
+    data[0] = 0x01                                      // discriminator
+    binary.LittleEndian.PutUint64(data[1:9], 100)       // counter
+    // copy(data[9:], ownerPubkey[:])                   // owner
+
+    rent, err := svm.MinimumBalanceForRentExemption(len(data))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(rent, data, programID, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(dataAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+
+    t.Logf("program data account set up: %s", dataAddr)
+}
+```
+
+<Callout type="info">
+  `SetAccount` é mais rápido do que executar transações para configuração em massa de contas, e
+  mantém o código de teste focado no comportamento sendo testado, em vez do
+  trabalho de construção do estado.
+</Callout>
+
+## Pontos-Chave
+
+1. **Estado direto** - `SetAccount` grava o estado da conta sem passar pelo
+   runtime.
+2. **Isenção de rent** - use `MinimumBalanceForRentExemption` para calcular os lamports
+   antes de construir a conta.
+3. **Propriedade** - `NewAccount` retorna um identificador que você ainda possui. A SVM mantém
+   sua própria cópia após `SetAccount`; encerre a sua quando terminar.
+4. **Verificação** - use `GetAccount` para ler de volta em um identificador, ou `Balance`
+   para uma verificação somente de lamports.

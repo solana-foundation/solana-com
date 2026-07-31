@@ -1,0 +1,647 @@
+---
+title: Integratiegids voor Vertrouwelijke Overdrachten
+description:
+  Leer hoe u tokens die de Vertrouwelijke Overdracht-extensie gebruiken kunt
+  integreren in wallets, verkenners, exchanges en andere applicaties.
+---
+
+# Vertrouwelijke Overdrachten Ondersteunen op Solana
+
+## Achtergrond
+
+De Vertrouwelijke Overdracht-extensie laat Token-2022-mints toe om
+overdrachtsbedragen en accountsaldi versleuteld op de blockchain te bewaren.
+Saldi zijn versleuteld, dus om ze weer te geven zijn de ontsleutelingssleutels
+van de eigenaar nodig, en voor het versturen moeten er zero-knowledge-bewijzen
+op de client worden gegenereerd.
+
+Deze gids is bedoeld voor teams die vertrouwelijke overdrachtstokens
+**integreren** (wallets, verkenners, exchanges, bewaarders, indexeerders) en
+niet voor uitgevers die een mint configureren. Als u de onderliggende flow vanaf
+nul opbouwt, begin dan met de stapsgewijze pagina's die hieronder gelinkt zijn;
+deze gids richt zich op wat uw product moet doen om deze tokens goed te
+ondersteunen.
+
+Accountadressen, de mint en de eigenaar van elk account blijven **openbaar**.
+Alleen bedragen en saldi zijn versleuteld, dus alles else, inclusief wie met wie
+handelt, blijft zichtbaar. Dit biedt vertrouwelijkheid ten opzichte van openbare
+waarnemers, maar geen anonimiteit.
+
+### Bronnen
+
+- [Overzicht van Vertrouwelijke Overdrachten en stapsgewijze gidsen](/docs/tokens/extensions/confidential-transfer)
+- [Extensie Rust-code](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
+- [`@solana-program/token-2022` JS-client](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  (instructies, parsing van accountstatus, sleutelafleiding en geavanceerde
+  hulpfuncties voor vertrouwelijke overdrachten)
+- [`@solana/zk-sdk` WASM SDK](https://github.com/solana-program/zk-elgamal-proof/tree/main/zk-sdk-wasm-js)
+  (versleutelingsprimitieven en generatie van bewijsgegevens)
+- [`@solana-program/zk-elgamal-proof` JS-client](https://github.com/solana-program/zk-elgamal-proof/tree/main/clients-js)
+  (instructies voor bewijsverificatie)
+- [`spl-token-client` Rust-crate](https://github.com/solana-program/token-2022/tree/main/clients/rust-legacy)
+  (geavanceerde end-to-end hulpfuncties in Rust)
+
+## Samenvatting
+
+- Elk vertrouwelijk token account heeft nog steeds een **openbaar saldo** plus
+  een versleuteld **wachtend** en **beschikbaar** saldo. Een token kan vrijelijk
+  bewegen tussen openbare en vertrouwelijke statussen.
+- Om een vertrouwelijk saldo **weer te geven** hebt u de sleutels van de
+  eigenaar nodig. De aanbevolen aanpak is om deze af te leiden van de wallet van
+  de eigenaar, het beschikbare saldo te ontsleutelen met de AES-sleutel (snel),
+  en wachtende bedragen te ontsleutelen met de ElGamal-sleutel wanneer nodig.
+- Om **vertrouwelijk te verzenden** genereert u ZK-bewijzen op de client
+  (gelijkheid, geldigheid van versleutelde tekst, bereik), doorgaans geplaatst
+  in tijdelijke **bewijscontextstatus- accounts**, waarna u de overdracht
+  indient. Zowel `@solana-program/token-2022` (JS) als `spl-token-client` (Rust)
+  bieden geavanceerde hulpfuncties die de bewijzen opbouwen en de transacties
+  voor u in volgorde plaatsen.
+- Vertrouwelijke overdrachten beslaan momenteel enkele afhankelijke transacties
+  omdat de bewijzen de huidige transactiegroottелимiet overschrijden. Een
+  aanstaande wijziging (transactieformaat v1, geïntroduceerd met Agave v4.2)
+  verhoogt die limiet en zal naar verwachting een vertrouwelijke overdracht in
+  één enkele onchain-transactie mogelijk maken.
+- Een wallet zonder enige ondersteuning werkt nog steeds: het toont het openbare
+  saldo en standaardoverdrachten blijven functioneren. Vertrouwelijke fondsen
+  blijven toegankelijk voor elke vertrouwelijkheidsbewuste client met de
+  sleutels van de eigenaar.
+
+## Termen
+
+- **ElGamal keypair**: per-account publieke-sleutel keypair gebruikt om saldi te
+  versleutelen en ZK-bewijzen te bouwen. De publieke sleutel wordt opgeslagen op
+  het account.
+- **AES-sleutel**: per-account symmetrische sleutel gebruikt om het
+  "ontsleutelbare beschikbare saldo" te versleutelen, zodat de eigenaar zijn
+  beschikbare saldo in constante tijd kan lezen zonder een discrete logaritme op
+  te lossen.
+- **Openstaand saldo**: versleuteld saldo van ontvangen middelen via stortingen
+  of inkomende overdrachten die nog niet zijn verwerkt. Kan niet direct worden
+  besteed.
+- **Beschikbaar saldo**: versleuteld saldo dat kan worden overgedragen of
+  opgenomen.
+- **Toepassen**: de stap die het openstaande saldo naar het beschikbare saldo
+  verplaatst.
+- **Proof context state account**: een tijdelijk onchain-account dat een vooraf
+  geverifieerd ZK-bewijs bevat, waarnaar wordt verwezen door een vertrouwelijke
+  instructie en dat vervolgens wordt gesloten om rent terug te vorderen.
+- **Auditor**: een optionele globale ElGamal-sleutel op de mint; wanneer
+  ingesteld, versleutelt elke overdracht het bedrag aanvullend onder deze
+  sleutel, zodat een aangewezen partij het kan ontsleutelen.
+
+## Accountmodel en saldi
+
+Wanneer een account is geconfigureerd voor vertrouwelijke overdrachten, slaat de
+`ConfidentialTransferAccount`-extensie (onder andere velden) op:
+
+- `elgamal_pubkey`: de ElGamal-publieke sleutel van het account.
+- `pending_balance_lo` / `pending_balance_hi`: ElGamal-cijferteksten van het
+  openstaande saldo, opgesplitst in lage en hoge bits (ontsleuteling van de hoge
+  bits is duurder, dus ze worden apart gehouden).
+- `available_balance`: ElGamal-cijfertekst van het besteedbare saldo.
+- `decryptable_available_balance`: een **AES**-cijfertekst van hetzelfde
+  beschikbare saldo dat de eigenaar direct kan ontsleutelen. Dit is het veld dat
+  gebruikt moet worden voor weergave.
+- `allow_confidential_credits` / `allow_non_confidential_credits`: of het
+  account momenteel inkomende vertrouwelijke of publieke credits accepteert.
+- `pending_balance_credit_counter` en `maximum_pending_balance_credit_counter`:
+  hoeveel credits zijn opgebouwd in het openstaande saldo en het maximum voordat
+  een toepassing vereist is.
+
+Al deze velden worden teruggegeven in de geparseerde accountstatus via standaard
+RPC. Iedereen kan de cijferteksten lezen, maar alleen sleutelhouders kunnen de
+onderliggende bedragen herstellen.
+
+## Sleutelbeheer
+
+Elk vertrouwelijk account gebruikt twee sleutels: een **ElGamal keypair** voor
+versleuteling en bewijzen, en een **AES-sleutel** voor snelle saldodecodering.
+Hoe u deze sleutels aanmaakt en opslaat, is een integratiekeuze. Een paar
+veelgebruikte opties:
+
+- **Afleiden van een wallethandtekening (aanbevolen standaard).** De eigenaar
+  ondertekent een canoniek, domein-gescheiden bericht en de sleutels worden
+  afgeleid van die handtekening, zodat ze reproduceerbaar zijn vanuit de wallet
+  alleen en u ze niet hoeft op te slaan. De seed is deterministisch per account:
+  de onderstaande JS-helpers koppelen het aan het `(owner, mint)`-paar, terwijl
+  het Rust-voorbeeld seeds van het token account-adres (voor een associated
+  token account zijn deze equivalent, omdat dat adres zelf is afgeleid van de
+  eigenaar en de mint).
+- **Afleiden van onafhankelijk sleutelmateriaal.** Voor passkeys, beveiligde
+  enclaves of MPC-setups kunt u de sleutels afleiden van een WebAuthn
+  PRF-uitvoer of ander invoersleutelmateriaal, zodat de vertrouwelijke sleutels
+  niet gekoppeld zijn aan de ondertekeningssleutel van het account.
+  `@solana/zk-sdk` biedt `ConfidentialKeys.fromIkm` en
+  `ConfidentialKeys.fromPrf` hiervoor.
+- **Rechtstreeks genereren en beheren.** Custodiale en MPC-providers geven er
+  mogelijk de voorkeur aan de sleutels te genereren en te beheren zoals elk
+  ander gevoelig sleutelmateriaal.
+
+De `@solana-program/token-2022`-client wordt geleverd met helpers voor het
+aanbevolen pad:
+
+<CodeTabs>
+
+```ts !! title="JS-derive-keys.ts"
+import {
+  deriveElGamalKeypairForOwnerMint,
+  deriveAeKeyForOwnerMint
+} from "@solana-program/token-2022";
+
+// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+const aesKey = await deriveAeKeyForOwnerMint({
+  signer: owner,
+  owner: owner.address,
+  mint
+});
+```
+
+```rust !! title="rust-derive-keys.rs"
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
+
+// `signer` is the account owner; the token account address is the public seed.
+// This is the canonical, domain-separated derivation that the JS helpers also
+// use, so the keys match across clients.
+let (elgamal_keypair, aes_key) =
+    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
+        .expect("Failed to derive confidential keys");
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+  Vertrouwelijke sleutels zijn decryptiesleutels. Behandel een verzoek om het
+  afleidingsbericht te ondertekenen als het ontgrendelen van een privéweergave
+  van de saldi van de gebruiker. Leid ze bij voorkeur op aanvraag af in plaats
+  van ze op te slaan; als u ze toch opslaat (bijvoorbeeld in een custodiale
+  service), bescherm ze dan met dezelfde zorgvuldigheid als
+  ondertekeningssleutels.
+</Callout>
+
+De afleiding-helpers retourneren geserialiseerd sleutelmateriaal. De
+hulpfuncties voor bewerkingen op hoog niveau (later weergegeven) accepteren WASM
+`ElGamalKeypair`- en `AeKey`-objecten, dus herstel ze vanuit de bytes wanneer je
+ze nodig hebt:
+
+```ts !! title="JS-rebuild-keys.ts"
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey
+} from "@solana/zk-sdk/bundler";
+
+const elgamalKeypair = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(secretKey)
+);
+const aesKeyObject = AeKey.fromBytes(aesKey);
+```
+
+## Accounts aanmaken en configureren
+
+Voordat een account een vertrouwelijk saldo kan bevatten, heeft het de
+`ConfidentialTransferAccount`-extensie nodig, die ongeveer 295 bytes toevoegt
+aan het token account (in de orde van 0,0015 SOL aan extra rent). De installatie
+bestaat uit twee stappen: het token account aanmaken en vervolgens de extensie
+configureren.
+
+Configureren vereist normaal gesproken dat de **accounteigenaar** ondertekent en
+een bewijs levert dat hij de ElGamal-publieke sleutel bezit die op het account
+wordt ingesteld. Een wallet of exchange kan het kale token account voor een
+gebruiker aanmaken en financieren, maar kan de vertrouwelijke extensie niet
+namens de gebruiker configureren zonder die handtekening.
+
+Voorkom daarom het stilzwijgend inrichten van vertrouwelijke accounts voor elke
+gebruiker: dit kost extra rent en vereist toch betrokkenheid van de eigenaar.
+Configureer bij eerste gebruik, of wanneer de gebruiker kiest voor
+vertrouwelijke overdrachten.
+
+Het **ElGamal-register** verwijdert de per-account eigenaarsstap. Een gebruiker
+registreert zijn ElGamal-publieke sleutel eenmalig (door een bewijs te
+ondertekenen bij registratie), en de registervermelding is herbruikbaar voor elk
+mint. Daarna kan een derde partij vertrouwelijke accounts voor de gebruiker
+configureren met `ConfigureAccountWithRegistry`, waarvoor geen handtekening van
+de eigenaar of bewijs nodig is bij de configuratie, alleen een betaler voor
+rent. Dit is het mechanisme dat je moet gebruiken als je vertrouwelijke accounts
+voor gebruikers soepel wilt inrichten.
+
+<Callout type="info">
+  Registerconfiguratie is vandaag beschikbaar in de Rust `spl-token-client`
+  (`confidential_transfer_configure_token_account_with_registry`) en het
+  `spl-elgamal-registry`-programma. Equivalente hulpfuncties in de
+  `@solana-program/token-2022` JS-client zijn nog niet beschikbaar, dus
+  JS-integraties die het registerpad nodig hebben, dienen de releases van die
+  client bij te houden.
+</Callout>
+
+## Saldi weergeven
+
+Een robuuste integratie toont het publieke saldo via het standaard tokenbalans,
+detecteert de vertrouwelijke extensie, en decrypteert en toont het beschikbare
+saldo wanneer de gebruiker zijn sleutels heeft ontgrendeld.
+
+Het beschikbare saldo lees je het beste uit `decryptable_available_balance` met
+de AES-sleutel, wat constante tijd kost. Het direct ontsleutelen van de ElGamal
+`available_balance` vereist het oplossen van een discrete logaritme en moet
+worden vermeden voor routinematige weergave.
+
+<CodeTabs>
+
+```ts !! title="JS-display-balance.ts"
+import { AeCiphertext } from "@solana/zk-sdk/bundler";
+import { fetchToken } from "@solana-program/token-2022";
+import { unwrapOption } from "@solana/kit";
+
+const account = await fetchToken(rpc, tokenAccountAddress);
+
+// `extensions` is an Option<Array<Extension>>; each extension is a tagged union.
+const extensions = unwrapOption(account.data.extensions) ?? [];
+const ct = extensions.find((e) => e.__kind === "ConfidentialTransferAccount");
+
+if (ct) {
+  // Fast path: decrypt the AES "decryptable available balance" for display.
+  const ciphertext = AeCiphertext.fromBytes(
+    new Uint8Array(ct.decryptableAvailableBalance)
+  );
+  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  console.log("Available (confidential):", availableBalance);
+}
+```
+
+```rust !! title="rust-display-balance.rs"
+// `token` is an spl_token_client `Token`. These helpers decrypt for you.
+let pending = token
+    .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
+    .await?;
+let available = token
+    .confidential_transfer_get_available_balance(&token_account, &aes_key)
+    .await?;
+let total = token
+    .confidential_transfer_get_total_balance(&token_account, elgamal_keypair.secret(), &aes_key)
+    .await?;
+```
+
+</CodeTabs>
+
+Wanneer de gebruiker zijn sleutels niet heeft ontgrendeld, toon het publieke
+saldo en geef aan dat er een vertrouwelijk saldo bestaat maar vergrendeld is, in
+plaats van nul te tonen.
+
+## Overdrachten ontvangen
+
+Inkomende stortingen en overdrachten komen terecht in het **in behandeling**
+saldo en zijn niet uitgeefbaar totdat ze zijn verwerkt. Elke creditering
+verhoogt `pending_balance_credit_counter`; zodra dit
+`maximum_pending_balance_credit_counter` bereikt, kan het account geen
+vertrouwelijke credieten meer ontvangen totdat de eigenaar het openstaande saldo
+verwerkt.
+
+Integraties die namens gebruikers fondsen beheren, dienen:
+
+- Openstaande en beschikbare saldi afzonderlijk te tonen, zodat gebruikers
+  begrijpen waarom een zojuist ontvangen bedrag nog niet uitgeefbaar is.
+- Het openstaande saldo namens de gebruiker te verwerken op geschikte momenten
+  (bijvoorbeeld vóór een verzending), zodat saldi niet vastlopen.
+
+<CodeTabs>
+
+```ts !! title="JS-apply-pending.ts"
+import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+
+// Builds a single instruction; no proofs are needed to apply.
+const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
+  token: tokenAccountAddress,
+  tokenAccount, // decoded Token account
+  authority: owner,
+  elgamalSecretKey: elgamalKeypair.secret(),
+  aesKey
+});
+```
+
+```rust !! title="rust-apply-pending.rs"
+token
+    .confidential_transfer_apply_pending_balance(
+        &token_account,
+        &owner,
+        None, // account info, fetched if None
+        elgamal_keypair.secret(),
+        &aes_key,
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Zie de pagina
+[Openstaand saldo verwerken](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+voor de volledige stroom.
+
+## Overdrachten verzenden
+
+Een vertrouwelijke overdracht vereist drie zero-knowledge bewijzen die op de
+client worden gegenereerd:
+
+- **Gelijkheidsbewijs** dat de nieuwe saldo-cijfertekst van de afzender dezelfde
+  waarde versleutelt als een nieuwe toezegging die de afzender kan openen.
+- **Cijfertekst geldigheidsbewijs** dat de cijferteksten van het
+  overdrachtsbedrag correct zijn gevormd onder de bron-, bestemmings- en (indien
+  ingesteld) controleursleutels.
+- **Bereikbewijs** dat het bedrag en het resterende saldo van de afzender
+  geldige niet-negatieve gehele getallen zijn, wat voorkomt dat er waarde uit
+  het niets wordt gecreëerd.
+
+Deze bewijzen zijn groter dan de huidige transactiegroottelimiet toestaat voor
+inline gebruik, dus het gebruikelijke patroon is om **proof context state
+accounts** aan te maken, elk bewijs daarin te verifiëren, ernaar te verwijzen
+vanuit de overdrachtsinstructie en ze vervolgens te sluiten om rent terug te
+vorderen. Dit beslaat een aantal afhankelijke transacties. Transactieformaat v1
+(geïntroduceerd met Agave v4.2) verhoogt de groottelimiet en zal naar
+verwachting een vertrouwelijke overdracht in één enkele onchain-transactie
+mogelijk maken, wat deze flow zal vereenvoudigen.
+
+U hoeft de bewijzen niet handmatig samen te stellen. Beide clients bieden een
+high-level helper die de bewijzen opbouwt en de in te dienen instructies
+genereert:
+
+<CodeTabs>
+
+```ts !! title="JS-transfer.ts"
+import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+
+// Returns an instruction plan covering proof setup, the transfer, and cleanup.
+const plan = await getConfidentialTransferInstructionPlan({
+  rpc,
+  payer, // funds rent for the temporary proof context state accounts
+  sourceToken,
+  mint,
+  destinationToken,
+  sourceTokenAccount, // decoded Token account for the source
+  destinationTokenAccount, // decoded Token account for the destination,
+  // or pass `destinationElgamalPubkey` directly instead
+  authority: owner,
+  amount,
+  sourceElgamalKeypair, // ElGamal keypair for the source account
+  aesKey, // AES key for the source account
+  auditorElgamalPubkey // optional, read from the mint config
+});
+
+// Execute the plan with your instruction-plan executor of choice.
+```
+
+```rust !! title="rust-transfer.rs"
+// Verify the three proofs into context state accounts first (see the Transfer
+// Tokens page), then reference them here. Passing None for a proof account
+// inlines that proof instead, which a full transfer cannot fit within today's
+// transaction size limit.
+token
+    .confidential_transfer_transfer(
+        &source_token_account,
+        &destination_token_account,
+        &owner,
+        Some(&equality_proof_account), // pre-verified proof context accounts
+        Some(&ciphertext_validity_proof),
+        Some(&range_proof_account),
+        amount,
+        None, // source account info, fetched if None
+        &source_elgamal_keypair,
+        &source_aes_key,
+        destination_elgamal_pubkey,
+        auditor_elgamal_pubkey, // Option, read from the mint
+        &[&owner_keypair],
+    )
+    .await?;
+```
+
+</CodeTabs>
+
+Als u meer controle nodig heeft, zijn de low-level bouwstenen ook beschikbaar:
+`@solana/zk-sdk` genereert de gegevens van elk bewijs
+(`CiphertextCommitmentEqualityProofData`,
+`BatchedGroupedCiphertext3HandlesValidityProofData`,
+`BatchedRangeProofU128Data`), `@solana-program/zk-elgamal-proof` levert de
+bewijs­verificatie­instructies, en `@solana-program/token-2022` levert de
+`confidentialTransfer`- en context state account-instructies.
+
+Zie de pagina
+[Tokens overdragen](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+voor de gedetailleerde instructiereeks.
+
+## Opnemen
+
+Bij het opnemen worden fondsen van het vertrouwelijke beschikbare saldo
+teruggeboekt naar het publieke saldo, waarna ze zich gedragen als elk normaal
+tokensaldo. Voor opname zijn ook bewijzen vereist (een gelijkheids- en een
+bereikbewijs), beschikbaar als `getConfidentialWithdrawInstructionPlan` in de
+JS-client en `confidential_transfer_withdraw` in de Rust-client. Verwerk eerst
+eventueel uitstaand saldo zodat het volledige bedrag beschikbaar is. Zie
+[Tokens opnemen](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+
+## Verwante vertrouwelijke extensies
+
+Twee optionele extensies bouwen voort op vertrouwelijke overdrachten. Beide
+vallen hoofdzakelijk onder de verantwoordelijkheid van de uitgever, maar elk
+verandert iets wat een integrator moet afhandelen:
+
+- **Vertrouwelijke overdrachtskosten.** Wanneer een mint vertrouwelijke
+  overdrachten combineert met
+  [overdrachtskosten](/docs/tokens/extensions/transfer-fees), gebruiken
+  verzendingen een overdrachtspad met kosten
+  (`confidential_transfer_transfer_with_fee` in de Rust-client), en worden de
+  ingehouden kosten versleuteld net als het bedrag. Het innen van ingehouden
+  kosten (oogsten en opnemen) is de taak van de kostenautoriteit, niet van de
+  integrator.
+- **Vertrouwelijke mint en burn.** Een mint met deze extensie geeft supply
+  vertrouwelijk uit en verbrandt deze, waardoor het publieke stortings- en
+  opnamepad wordt uitgeschakeld. Tokens kunnen niet worden verplaatst tussen het
+  publieke en vertrouwelijke saldo bij een dergelijke mint, dus maak storten of
+  opnemen hiervoor niet beschikbaar.
+
+Voor de details op protocolniveau van beide, zie de
+[documentatie over vertrouwelijke saldi](https://www.solana-program.com/docs/confidential-balances).
+
+## Vertrouwelijke overschrijvingstransacties parseren
+
+Explorers en indexers moeten vertrouwelijke overboekingsactiviteit herkennen en
+labelen zonder de bedragen te kunnen lezen. De `@solana-program/token-2022`
+client biedt `identifyToken2022Instruction` om elke Token-2022-instructie te
+classificeren, plus per-instructie parsers (bijvoorbeeld
+`parseConfidentialTransferInstruction`) om accounts en niet-geheime velden te
+decoderen. De versleutelde bedragen blijven cipherteksten: geef ze weer als
+vertrouwelijk in plaats van de bytes als een getal te tonen.
+
+<CodeTabs>
+
+```ts !! title="JS-parse-instruction.ts"
+import {
+  identifyToken2022Instruction,
+  Token2022Instruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+for (const ix of instructions) {
+  if (ix.programAddress !== TOKEN_2022_PROGRAM_ADDRESS) continue;
+
+  const kind = identifyToken2022Instruction(ix);
+  switch (kind) {
+    case Token2022Instruction.ConfidentialTransfer:
+    case Token2022Instruction.ConfidentialTransferWithFee:
+      console.log("Confidential transfer (amount encrypted)");
+      break;
+    case Token2022Instruction.ConfidentialDeposit:
+      console.log("Deposit to confidential balance");
+      break;
+    case Token2022Instruction.ConfidentialWithdraw:
+      console.log("Withdraw from confidential balance");
+      break;
+    case Token2022Instruction.ApplyConfidentialPendingBalance:
+      console.log("Apply pending balance");
+      break;
+    default:
+      break;
+  }
+}
+```
+
+</CodeTabs>
+
+Indexeringsbeperkingen om rekening mee te houden:
+
+- **Geen bedragen voor vertrouwelijke overboekingen.** Een
+  `ConfidentialTransfer` bevat versleutelde bedragen, waardoor volume-, stroom-
+  en overboekingsgrootte-analyses niet berekend kunnen worden. Markeer deze
+  overboekingen als vertrouwelijk in plaats van een nul of een ruwe ciphertekst
+  op te slaan.
+- **Geen saldoverschillen.** Vertrouwelijke overboekingen wijzigen het publieke
+  tokensaldo niet, waardoor de voor/na tokensaldo-vergelijking die de meeste
+  overdrachtsindexering aandrijft, ze niet vastlegt. De uitstaande en
+  beschikbare saldi zijn cipherteksten.
+- **Stortingen en opnames zijn in het openbaar.** `ConfidentialDeposit` en
+  `ConfidentialWithdraw` bevatten klartekstbedragen, zodat u de stroom in en uit
+  de vertrouwelijke pool nog steeds kunt indexeren, maar niet de overboekingen
+  daarbinnen.
+- **Één overboeking beslaat vandaag meerdere transacties.**
+  Proof-contextstatusaccounts worden aangemaakt, gebruikt en gesloten rondom de
+  overboeking, dus correleer de gerelateerde transacties in plaats van elke
+  afzonderlijk te behandelen. Dit wordt eenvoudiger zodra enkeltransactie
+  vertrouwelijke overboekingen beschikbaar komen (zie boven).
+- **Auditormints zijn ontsleutelbaar.** Als een mint een globale auditor heeft
+  en u de auditorsleutel bezit, kunt u overboekingsbedragen voor die mint
+  ontsleutelen (zie hieronder).
+
+## Auditors en compliance
+
+Een mint kan een **globale auditor** ElGamal pubkey configureren. Wanneer
+ingesteld, moet elke vertrouwelijke overdracht het bedrag bevatten dat
+versleuteld is met de auditorsleutel, zodat de houder van de geheime
+auditorsleutel alle overdrachtsbedragen voor die mint kan ontsleutelen. Het
+geldigsheidsbewijs dekt de auditorciphertext, dus als integrator hoef je niets
+speciaals te doen op het verzendpad buiten het doorgeven van de auditorsleutel
+uit de mintconfiguratie (de high-level helpers lezen deze voor je uit).
+
+Als jouw product de auditor is (bijvoorbeeld een gereguleerde uitgever of een
+complianceprovider), ontsleutel je overdrachtsbedragen met de geheime
+auditorsleutel op dezelfde manier als een eigenaar zijn eigen saldo ontsleutelt.
+Eigenaars kunnen ook selectief hun per-account sleutels delen met een specifieke
+partij zonder deze publiekelijk bloot te stellen.
+
+### Transactiemonitoring (KYT)
+
+Voor know-your-transaction- en AML-aanbieders veranderen vertrouwelijke
+overdrachten wat observeerbaar is, niet het algehele model:
+
+- **Adres- en grafiekanalyse is niet beïnvloed.** Verzenders, ontvangers, mints
+  en accounteigenaren blijven openbaar, dus adresscreening, sanctiematching en
+  tegenpartijgrafiekanalyse werken hetzelfde als voor elk token.
+- **Op bedragen gebaseerde heuristieken hebben de auditorsleutel nodig.**
+  Structurering, drempelrapportage en op volume gebaseerde risicoscoring kunnen
+  vertrouwelijke overdrachtsbedragen niet zelfstandig uitlezen. Stortings- en
+  opnamebedragen blijven zichtbaar, zodat de omvang van de geldstromen die de
+  vertrouwelijke pool in- en uitstromen nog steeds zichtbaar is.
+- **Dekking komt van het auditormodel.** Op mints die een globale auditor
+  configureren, kan een provider die werkt met de auditorsleutel (of die
+  selectieve openbaarmaking ontvangt van de gebruiker of uitgever)
+  overdrachtsbedragen herstellen. Uitgevers in gereguleerde contexten dienen van
+  plan te zijn een auditor te configureren of selectieve openbaarmaking te
+  ondersteunen zodat monitoring mogelijk is.
+
+## Achterwaartse compatibiliteit
+
+- Een token account heeft altijd een publiek saldo. Wallets en apps die de
+  extensie niet ondersteunen blijven werken en tonen het publieke saldo.
+- Standaard overdrachten blijven functioneren voor het publieke saldo, zolang de
+  bestemming niet-vertrouwelijke bijschrijvingen toestaat.
+- Vertrouwelijke saldi zijn niet zichtbaar voor niet-ondersteunende tools, maar
+  de fondsen gaan niet verloren: elke vertrouwelijkheids-bewuste client kan ze
+  benaderen met de sleutels van de eigenaar.
+- Omdat bedragen versleuteld zijn, zullen supply- en volumeanalyses die
+  afhankelijk zijn van het lezen van overdrachtsbedragen geen vertrouwelijke
+  activiteit zien. Houd hier rekening mee bij dashboards en boekhouding.
+
+## Aanbevolen integratieprioteiten per platform
+
+### Algemene vereisten
+
+| Vereiste                             | Beschrijving                                                                                                                                                                                        | Prioriteit |
+| :----------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Detecteer de extensie                | Herken de Confidential Transfer-extensie op mints en accounts en verwerk deze tokens expliciet in plaats van uit te gaan van een uitsluitend publiek model.                                         | **P0**     |
+| Verlies nooit vertrouwelijke fondsen | Geef zelfs zonder volledige ondersteuning aan dat er een vertrouwelijk saldo bestaat, zodat gebruikers niet aannemen dat hun account leeg is.                                                       | **P0**     |
+| Degelijk sleutelbeheer               | Kies een sleutelstrategie voor ElGamal- en AES-sleutels. Afleiding vanuit de wallet van de eigenaar is de aanbevolen standaard; als u sleutels opslaat, beveilig ze dan als ondertekeningssleutels. | **P0**     |
+
+---
+
+### Wallets
+
+| Vereiste                              | Beschrijving                                                                                                                                  | Prioriteit |
+| :------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Toon publiek saldo                    | Toon altijd het publieke saldo via standaard token-saldolezingen.                                                                             | **P0**     |
+| Ontgrendel en toon beschikbaar saldo  | Laat de gebruiker sleutels ontgrendelen via een handtekening en toon het gedecrypteerde beschikbare saldo (via het AES-decrypteerbare saldo). | **P0**     |
+| Toon openstaand vs. beschikbaar       | Toon openstaande saldi afzonderlijk en geef een melding om toe te passen wanneer fondsen ontvangen worden.                                    | **P1**     |
+| Pas openstaande saldi automatisch toe | Pas openstaande saldi toe op geschikte momenten (bijv. vóór een verzending) zodat fondsen niet vastlopen.                                     | **P1**     |
+| Verstuur vertrouwelijk                | Ondersteun stort-, overdrachts- en opnamestromen met clientzijdige bewijsgeneratie.                                                           | **P1**     |
+| UX bij vergrendelde toestand          | Wanneer sleutels niet ontgrendeld zijn, geef duidelijk aan dat er een vertrouwelijk saldo bestaat in plaats van nul te tonen.                 | **P1**     |
+| Onboarding / educatie                 | Help gebruikers begrijpen wat privé blijft (bedragen en saldi) en de stap voor het ontgrendelen van sleutels.                                 | **P2**     |
+
+---
+
+### Verkenners en Indexeerders
+
+| Vereiste                                          | Beschrijving                                                                                                                | Prioriteit |
+| :------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Vertrouwelijke accounts en mints labelen          | Markeer duidelijk accounts en mints die de extensie gebruiken en toon het publieke saldo.                                   | **P0**     |
+| Vertrouwelijke instructies verwerken              | Decodeer configureer-, storten-, toepassen-, overdracht- en opname-instructies en toon hun type (niet de bedragen).         | **P0**     |
+| Versleutelde bedragen niet als getallen weergeven | Geef cijfertekstvelden nooit weer alsof het plaintext-saldi zijn; toon ze als vertrouwelijk.                                | **P0**     |
+| Publieke storten/opname-stromen indexeren         | Registreer de plaintext-bedragen bij stortingen en opnames om de in- en uitstroom van de vertrouwelijke pool bij te houden. | **P1**     |
+| Meertransactie-overdrachten correleren            | Groepeer de bewijs-setup-, overdracht- en opruimingstransacties die samen één vertrouwelijke overdracht vormen.             | **P1**     |
+| Auditorconfiguratie tonen                         | Geef weer of een mint een globale auditor geconfigureerd heeft.                                                             | **P1**     |
+| Levenscyclus van bewijsaccounts                   | Herken het aanmaken en sluiten van bewijs-contextstatusaccounts zodat transacties begrijpelijk worden weergegeven.          | **P2**     |
+
+---
+
+### Beurzen en Bewaarders
+
+| Vereiste                                      | Beschrijving                                                                                                                                                                                              | Prioriteit |
+| :-------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Publieke en vertrouwelijke status bijhouden   | Houd zowel publieke als vertrouwelijke saldi bij bij het verwerken van stortingen en het berekenen van tegoeden.                                                                                          | **P0**     |
+| Openstaande bedragen toepassen bij stortingen | Pas openstaande saldi toe wanneer vertrouwelijke stortingen binnenkomen, zodat gecrediteerde bedragen nauwkeurig zijn.                                                                                    | **P0**     |
+| Veilig sleutelbeheer                          | Beheer bij het bewaren van vertrouwelijke fondsen als bewaarder de ElGamal/AES-sleutels met dezelfde zorgvuldigheid als ondertekeningssleutels.                                                           | **P0**     |
+| Accountinrichting via register                | Laat gebruikers voor het instellen van vertrouwelijke accounts eenmalig een ElGamal-sleutel registreren en richt accounts in via het registerpad, in plaats van een handtekening per account te vereisen. | **P1**     |
+| Opnames naar gebruikers                       | Ondersteun vertrouwelijke of publieke opnames afhankelijk van de configuratie van het bestemmingsaccount.                                                                                                 | **P1**     |
+| Compliance / auditorondersteuning             | Gebruik waar vereist auditorsleutels of selectieve openbaarmaking om aan rapportageverplichtingen te voldoen.                                                                                             | **P1**     |
+| Interne boekhouding op ruwe bedragen          | Reconcilieer op basis van gedecodeerde bedragen aan de rand en sla deze op; probeer geen cijferteksten samen te voegen.                                                                                   | **P1**     |
+
+---
+
+### Compliance en KYT-providers
+
+| Vereiste                              | Beschrijving                                                                                                                     | Prioriteit |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- | :--------- |
+| Adres- en grafiekscreening            | Screen verzenders, ontvangers, minters en eigenaren en voer tegenpartij-grafiekanalyse uit; deze blijven openbaar.               | **P0**     |
+| Openbare stortingen/opnames bijhouden | Monitor stortings- en opnamebedragen in leesbare tekst als zichtbare in- en uitstapmomenten van de vertrouwelijke pool.          | **P0**     |
+| Bedragzichtbaarheid via auditsleutel  | Voor mints met auditorfunctie: decodeer overdrachtsbedragen via de auditsleutel ter ondersteuning van bedraggebaseerde detectie. | **P1**     |
+| Inname van selectieve openbaarmaking  | Ondersteun bedragopenbaarmaking gedeeld door gebruikers of uitgevers via sleutels per account.                                   | **P2**     |

@@ -1,0 +1,276 @@
+---
+title: 交易
+description: 处理交易的方法
+---
+
+## send_transaction
+
+```rust
+pub fn send_transaction(&mut self, tx: impl Into<VersionedTransaction>) -> Result<TransactionMetadata, FailedTransactionMetadata>
+```
+
+执行交易并修改状态。
+
+```rust
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+
+match svm.send_transaction(tx) {
+    Ok(meta) => {
+        println!("Success! Signature: {}", meta.signature);
+        println!("Compute units: {}", meta.compute_units_consumed);
+        println!("Fee: {} lamports", meta.fee);
+    }
+    Err(e) => {
+        println!("Failed: {:?}", e.err);
+        println!("Logs: {:?}", e.meta.logs);
+    }
+}
+```
+
+## simulate_transaction
+
+```rust
+pub fn simulate_transaction(&self, tx: impl Into<VersionedTransaction>) -> Result<SimulatedTransactionInfo, FailedTransactionMetadata>
+```
+
+模拟交易而不修改状态。
+
+返回 `SimulatedTransactionInfo`，其中包含：
+
+- `meta`：交易元数据（日志、计算单元、签名等）
+- `post_accounts`：模拟后的账户状态
+
+```rust
+// State before simulation
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate transaction
+let result = svm.simulate_transaction(tx.clone());
+
+// State unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+
+// Check simulation result
+if let Ok(sim_info) = result {
+    println!("Would succeed");
+    println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+    // Can inspect post_accounts to see what would change
+    for (pubkey, account) in sim_info.post_accounts {
+        println!("Account {} would have {} lamports", pubkey, account.lamports());
+    }
+
+    // Safe to send
+    svm.send_transaction(tx).unwrap();
+}
+```
+
+## 何时使用模拟
+
+使用 `simulate_transaction()` 来：
+
+- 在不修改状态的情况下测试交易有效性
+- 检查计算单元消耗
+- 在不提交的情况下验证交易日志
+- 测试错误处理路径
+
+```rust
+// Test if transaction would succeed
+let result = svm.simulate_transaction(tx.clone());
+
+match result {
+    Ok(sim_info) => {
+        println!("Would succeed");
+        println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+        // Now execute for real
+        svm.send_transaction(tx).unwrap();
+    }
+    Err(e) => {
+        println!("Would fail: {:?}", e.err);
+        // Don't send transaction
+    }
+}
+```
+
+## 测试错误案例
+
+```rust
+// Simulate expected failure
+let result = svm.simulate_transaction(invalid_tx);
+assert!(result.is_err());
+
+match result.unwrap_err().err {
+    TransactionError::InsufficientFundsForFee => {
+        println!("Expected error occurred");
+    }
+    _ => panic!("Unexpected error"),
+}
+```
+
+## 状态保持不变
+
+```rust
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate multiple times
+for _ in 0..10 {
+    svm.simulate_transaction(tx.clone()).unwrap();
+}
+
+// Balance unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+```
+
+## 交易元数据
+
+`send_transaction()` 直接返回 `TransactionMetadata`，而 `simulate_transaction()`
+返回 `SimulatedTransactionInfo`，其中包含 `meta: TransactionMetadata`：
+
+```rust
+pub struct TransactionMetadata {
+    pub signature: Signature,
+    pub logs: Vec<String>,
+    pub inner_instructions: InnerInstructionsList,
+    pub compute_units_consumed: u64,
+    pub return_data: TransactionReturnData,
+    pub fee: u64,
+}
+```
+
+### 访问交易数据
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Signature
+println!("Signature: {}", result.signature);
+
+// Logs
+for log in &result.logs {
+    println!("{}", log);
+}
+
+// Compute units
+println!("CU consumed: {}", result.compute_units_consumed);
+
+// Return data
+if let Some(data) = result.return_data.data {
+    println!("Program returned: {:?}", data);
+}
+
+// Inner instructions (CPIs)
+for inner in &result.inner_instructions {
+    println!("CPI: {:?}", inner);
+}
+
+// Transaction fee paid by fee payer
+println!("Fee paid: {} lamports", result.fee);
+```
+
+## get_transaction
+
+```rust
+pub fn get_transaction(&self, signature: &Signature) -> Option<&TransactionResult>
+```
+
+其中
+`TransactionResult = Result<TransactionMetadata, FailedTransactionMetadata>`。
+
+从历史记录中查询交易。需要设置 `with_transaction_history()`。
+
+```rust
+let mut svm = LiteSVM::default()
+    .with_transaction_history(100);
+
+let result = svm.send_transaction(tx).unwrap();
+let signature = result.signature;
+
+// Query later
+if let Some(tx_result) = svm.get_transaction(&signature) {
+    match tx_result {
+        Ok(meta) => println!("Found: {:?}", meta),
+        Err(e) => println!("Failed: {:?}", e.err),
+    }
+}
+```
+
+## latest_blockhash
+
+```rust
+pub fn latest_blockhash(&self) -> Hash
+```
+
+获取当前区块哈希以用于交易。
+
+```rust
+let blockhash = svm.latest_blockhash();
+
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    blockhash,
+);
+```
+
+## expire_blockhash
+
+```rust
+pub fn expire_blockhash(&mut self)
+```
+
+强制使当前区块哈希过期。
+
+```rust
+let old_hash = svm.latest_blockhash();
+svm.expire_blockhash();
+let new_hash = svm.latest_blockhash();
+
+assert_ne!(old_hash, new_hash);
+
+// Transactions with old_hash will now fail
+```
+
+## 常见模式
+
+### 执行前验证
+
+```rust
+// Simulate first to check validity
+if svm.simulate_transaction(tx.clone()).is_ok() {
+    // Execute if simulation passes
+    svm.send_transaction(tx).unwrap();
+} else {
+    println!("Transaction would fail, skipping execution");
+}
+```
+
+### 追踪计算单元
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Assert within budget
+assert!(
+    result.compute_units_consumed < 100_000,
+    "Transaction used too many compute units: {}",
+    result.compute_units_consumed
+);
+```
+
+### 检查交易日志
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Check for specific log messages
+assert!(result.logs.iter().any(|log|
+    log.contains("Transfer successful")
+));
+```

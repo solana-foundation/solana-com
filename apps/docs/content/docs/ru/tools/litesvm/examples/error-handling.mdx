@@ -1,0 +1,105 @@
+---
+title: Обработка ошибок
+description: Как тестировать условия ошибок и граничные случаи
+---
+
+## Полный тест
+
+```rust title="tests/error_test.rs"
+use litesvm::LiteSVM;
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    system_instruction,
+    transaction::Transaction,
+};
+use solana_transaction_error::TransactionError;
+
+#[test]
+fn test_insufficient_funds_error() {
+    let mut svm = LiteSVM::new();
+
+    let alice = Keypair::new();
+    let bob = Keypair::new();
+
+    // Give Alice only 0.5 SOL
+    svm.airdrop(&alice.pubkey(), 500_000_000).unwrap();
+
+    // Try to transfer 1 SOL (should fail)
+    let transfer_ix = system_instruction::transfer(
+        &alice.pubkey(),
+        &bob.pubkey(),
+        1_000_000_000, // More than Alice has
+    );
+
+    let tx = Transaction::new_signed_with_payer(
+        &[transfer_ix],
+        Some(&alice.pubkey()),
+        &[&alice],
+        svm.latest_blockhash(),
+    );
+
+    // Verify it fails with expected error
+    let result = svm.send_transaction(tx);
+    assert!(result.is_err());
+
+    let err = result.unwrap_err();
+    match err.err {
+        TransactionError::InstructionError(0, _) => {
+            println!("Got expected error: InstructionError (insufficient funds)");
+        }
+        _ => panic!("Got unexpected error: {:?}", err.err),
+    }
+
+    // Verify no funds were transferred
+    assert_eq!(svm.get_balance(&bob.pubkey()).unwrap_or(0), 0);
+}
+```
+
+## Тестирование различных типов ошибок
+
+### Недействительный аккаунт
+
+```rust
+#[test]
+fn test_account_not_found() {
+    let mut svm = LiteSVM::new();
+    let non_existent = Pubkey::new_unique();
+
+    // This should return None
+    assert!(svm.get_account(&non_existent).is_none());
+}
+```
+
+### Пользовательские ошибки программы
+
+```rust
+#[test]
+fn test_custom_program_error() {
+    let mut svm = LiteSVM::new();
+
+    // Deploy program and trigger custom error
+    let result = svm.send_transaction(tx);
+
+    if let Err(e) = result {
+        match e.err {
+            TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
+                assert_eq!(code, YOUR_ERROR_CODE);
+            }
+            _ => panic!("Expected custom error"),
+        }
+    }
+}
+```
+
+## Ключевые моменты
+
+1. **Утверждения об ошибках**: Используйте `assert!(result.is_err())` для
+   проверки возникновения ошибок
+2. **Сопоставление ошибок**: Сопоставляйте конкретные типы ошибок для
+   обеспечения корректной обработки ошибок
+3. **Проверка состояния**: Убедитесь, что состояние не изменилось при
+   возникновении ошибок
+4. **Пользовательские ошибки**: Тестируйте пользовательские коды ошибок вашей
+   программы
+5. **Граничные случаи**: Тестируйте граничные условия и некорректные входные
+   данные

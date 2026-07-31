@@ -1,0 +1,138 @@
+---
+title: 时间旅行
+description:
+  将 Surfnet 时钟向前跳转至指定的绝对 slot、epoch 或 Unix
+  时间戳。适用于测试归属计划、锁定期、过期窗口或 epoch 边界等场景。
+---
+
+Surfpool 运行时提供了三个时间旅行辅助函数。每个函数均将本地时钟移动至绝对目标时间（而非相对偏移量），并返回更新后的
+`EpochInfo`，以便测试用例验证运行时是否确实到达了请求的时间。
+
+| 辅助函数                                             | 目标               | 返回值                                |
+| ---------------------------------------------------- | ------------------ | ------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | 绝对 slot 编号     | 包含新 `absolute_slot` 的 `EpochInfo` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | 绝对 epoch 编号    | 包含新 `epoch` 的 `EpochInfo`         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | 毫秒级 Unix 时间戳 | 反映对应 slot 的 `EpochInfo`          |
+
+<Callout type="warn" title="仅支持向前跳转">
+  时间旅行只能将时钟**向前**移动。若目标时间早于当前时间，该方法将不执行任何操作——辅助函数将返回当前
+  `EpochInfo`，保持不变。
+</Callout>
+
+## 跳转至指定 Slot
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let info = cheats.time_travel_to_slot(1_000_000)?;
+assert!(info.absolute_slot >= 1_000_000);
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const info = surfnet.timeTravelToSlot(1_000_000);
+  console.assert(info.absoluteSlot >= 1_000_000);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## 跳转至指定 Epoch
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let info = cheats.time_travel_to_epoch(420)?;
+assert_eq!(info.epoch, 420);
+```
+
+```ts !! title="TypeScript"
+const info = surfnet.timeTravelToEpoch(420);
+console.assert(info.epoch === 420);
+```
+
+</CodeTabs>
+
+## 跳转至指定 Unix 时间戳
+
+请以**毫秒**为单位传入时间戳，而非秒。运行时将计算该时间戳所对应的最近 slot。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+// 2030-01-01T00:00:00Z
+let info = cheats.time_travel_to_timestamp(1_893_456_000_000)?;
+```
+
+```ts !! title="TypeScript"
+// 2030-01-01T00:00:00Z
+const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
+```
+
+</CodeTabs>
+
+## 常见使用模式
+
+### 测试锁定期或归属窗口
+
+以下示例仅为示意——`assertWithdrawFails` 和 `assertWithdrawSucceeds`
+是占位符，代表您的测试套件中用于断言 RPC 行为的客户端辅助函数。
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const beneficiary = Surfnet.newKeypair();
+
+// 1. Set up a vesting account that unlocks at slot 1,000,000.
+surfnet.setAccount(/* ...lockup program state... */);
+
+// 2. Verify withdrawal fails before unlock.
+await assertWithdrawFails(surfnet.rpcUrl, beneficiary);
+
+// 3. Travel past the unlock slot.
+surfnet.timeTravelToSlot(1_000_001);
+
+// 4. Verify withdrawal succeeds.
+await assertWithdrawSucceeds(surfnet.rpcUrl, beneficiary);
+
+surfnet.stop();
+```
+
+### 驱动多 epoch 场景
+
+<Callout type="warn" title="中间 slot 将被跳过">
+  时间旅行会直接跳转到目标位置 —— 从 epoch 1 跳转到 epoch 5 会跳过中间的所有
+  slot。如果您的程序需要触发每个中间 epoch 的边界事件（例如，用于计算每 epoch
+  的奖励），请在每个 epoch 之间 携带所需交易调用一次 `time_travel_to_epoch`。
+</Callout>
+
+```rust
+for epoch in 2..=5 {
+    cheats.time_travel_to_epoch(epoch)?;
+    surfnet.rpc_client().send_transaction(&claim_rewards_tx)?;
+}
+```
+
+## EpochInfo 结构
+
+两个 SDK 均返回一个 `EpochInfo` 结构的对象，包含以下字段：
+
+| 字段                | Rust                             | JS                          |
+| ------------------- | -------------------------------- | --------------------------- |
+| 绝对 slot           | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| epoch 内的 slot     | `slot_index: u64`                | `slotIndex: number`         |
+| 每 epoch 的 slot 数 | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| epoch 编号          | `epoch: u64`                     | `epoch: number`             |
+| 区块高度            | `block_height: u64`              | `blockHeight: number`       |
+| 交易数量            | `transaction_count: Option<u64>` | `transactionCount?: number` |

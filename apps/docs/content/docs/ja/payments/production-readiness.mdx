@@ -168,43 +168,47 @@ Solanaにおけるコンピュートは、プログラムが実行する作業�
 トランザクションを送信する際には、使用されるコンピュート量を見積もり、それに応じてコンピュートユニット制限を設定する必要があります。これは実質的に、トランザクションのために確保すべき総容量の量に対するリクエストです。実際には、トランザクションに必要なコンピュートユニットを適切に見積もることが、トランザクションをブロックに含めるために重要であり(また、優先手数料を管理する上でも重要です)。
 
 Solana JSON RPC
-APIには、トランザクションに必要なコンピュートユニットを推定するために使用できる[`simulatetransaction`](/docs/rpc/http/simulatetransaction)メソッドがあります。これには、使用されるコンピュートユニットの推定値が含まれます。[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)パッケージは、トランザクションに必要なコンピュートユニットを簡単に推定するためのヘルパー関数を提供します（内部的に`simulatetransaction`メソッドを使用します）。
+APIには、トランザクションに必要なコンピュートユニットを推定するために使用できる[`simulatetransaction`](/docs/rpc/http/simulatetransaction)メソッドがあり、使用されるコンピュートユニットの推定値が含まれます。
+[`@solana/kit`](https://github.com/anza-xyz/kit)は、トランザクションのリソース制限を推定し、1つのステップでメッセージに設定するヘルパー関数を提供します（内部で`simulatetransaction`メソッドを使用）。バージョン1のトランザクションでは、これらのヘルパーはロードされたアカウントのデータサイズ制限も推定します。
 
 ```ts
 import {
-  estimateComputeUnitLimitFactory,
-  updateOrAppendSetComputeUnitLimitInstruction
-} from "@solana-program/compute-budget";
+  estimateResourceLimitsFactory,
+  estimateAndSetResourceLimitsFactory
+} from "@solana/kit";
 
-const estimateComputeUnitLimit = estimateComputeUnitLimitFactory({ rpc });
-const computeUnitLimit = await estimateComputeUnitLimit(tx);
-const txWithComputeUnitLimit = updateOrAppendSetComputeUnitLimitInstruction(
-  computeUnitLimit,
-  tx
+const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimits
 );
+const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
 ```
 
-本番環境では、同じタイプのトランザクションを複数回繰り返す場合、毎回コンピュートユニットを推定するオーバーヘッドを避けるために、トランザクションタイプのコンピュート推定値をキャッシュすることを検討してください。
+<Callout type="info">
+  kitプラグインクライアントを使用してトランザクションをビルドおよび送信する場合、通常このステップは不要です。クライアントが送信時（`.sendTransaction()`）にコンピュートバジェットのinstructionsを自動的に追加します。上記の手動フローは、`@solana/kit`を使用してトランザクションを直接アセンブルする場合に使用します。
+</Callout>
+
+本番環境において、同じ種類のトランザクションを繰り返し実行する場合は、毎回コンピュートユニットを推定するオーバーヘッドを避けるために、そのトランザクションタイプのコンピュート推定値をキャッシュすることを検討してください。
 
 ### Jitoバンドル
 
-Jitoバンドルは、複数のトランザクションのアトミックな実行を管理するためのツールです。これは、チップと共に複数のトランザクションをJitoネットワークに送信することで実現されます。チップは、Jitoネットワークがあなたのトランザクションをブロックに含めるよう促すために使用できます。
+Jitoバンドルは、複数のトランザクションのアトミックな実行を管理するためのツールです。これは、チップを付けて複数のトランザクションをJitoネットワークに送信することで実現されます。チップは、Jitoネットワークがあなたのトランザクションをブロックに含めるよう促すインセンティブとして使用できます。
 
 **リソース:**
 
 - [Jitoドキュメント](https://docs.jito.wtf/lowlatencytxnsend/)
 - [🎥 動画: Jitoバンドル](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
-- [JitoバンドルについてのQuickNodeガイド](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+- [Jitoバンドルに関するQuickNodeガイド](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
 
 ### リトライ戦略
 
-トランザクションは様々な理由で失敗する可能性があります。成功/失敗を即座に返す従来の決済APIとは異なり、ブロックチェーントランザクションには確認の追跡が必要です。
+トランザクションはさまざまな理由で失敗することがあります。成功／失敗を即座に返す従来の決済APIとは異なり、ブロックチェーンのトランザクションは確認のトラッキングが必要です。
 
 **主要な概念:**
 
 - **ブロックハッシュの有効期限**: トランザクションは約150ブロック（約60〜90秒）有効です
-- **冪等性**: 同じ署名済みトランザクションは常に同じシグネチャを生成します—再送信は安全です
-- **指数バックオフ**: 急速なリトライでネットワークを圧迫しないようにします
+- **冪等性**: 同じ署名済みトランザクションは常に同じシグネチャを生成するため、再送信は安全です
+- **指数バックオフ**: 短時間での大量リトライによるネットワークへの過負荷を避けてください
 
 ```typescript
 import {
@@ -239,39 +243,44 @@ try {
 }
 ```
 
-`@solana/kit`の`sendAndConfirmTransactionFactory`は、確認のポーリングとブロック高の追跡を自動的に処理します。トランザクションのブロックハッシュが期限切れになると`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED`をスローし、新しいブロックハッシュでトランザクションを再構築する必要があることを通知します。
+`sendAndConfirmTransactionFactory` は、`@solana/kit`
+からの確認ポーリングとブロック高の追跡を自動的に処理します。トランザクションのブロックハッシュが期限切れになると
+`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED`
+をスローし、新しいブロックハッシュでトランザクションを再構築する必要があることを通知します。
 
-### 追加リソース
+### 参考リソース
 
-- [ガイド: トランザクションの確認と有効期限](https://solana.com/developers/guides/advanced/confirmation)
-- [Helius: Solanaでトランザクションを成功させる方法](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [ガイド: トランザクションの確認と有効期限](https://solana.com/developers/cookbook/transactions/confirmation)
+- [Helius: Solanaでトランザクションを成立させる方法](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
 - [QuickNode: Solanaトランザクションを最適化する戦略](https://www.quicknode.com/docs/solana/transactions)
 
 ## 確認レベルの理解
 
-Solanaは3つの確認レベルを提供しています。従来の金融用語で表すと:
+Solanaは3つの確認レベルを提供しています。従来の金融用語で表すと：
 
-| レベル      | Solanaの定義         | 従来の金融における相当 | 使用例                     |
-| ----------- | -------------------- | ---------------------- | -------------------------- |
-| `processed` | ブロック内、未投票   | 承認待ち               | リアルタイムUI更新         |
-| `confirmed` | 過半数が投票済み     | 資金決済済み           | **ほとんどの支払い**       |
-| `finalized` | ルート化済み、不可逆 | 資金確定済み           | 高額取引、コンプライアンス |
+| レベル      | Solanaの定義                     | 従来の金融における相当 | ユースケース               |
+| ----------- | -------------------------------- | ---------------------- | -------------------------- |
+| `processed` | ブロックに含まれているが、未投票 | 承認待ち               | リアルタイムUI更新         |
+| `confirmed` | スーパーマジョリティが投票済み   | 決済済み資金           | **ほとんどの支払い**       |
+| `finalized` | ルート済み、不可逆               | 確定済み資金           | 高額取引、コンプライアンス |
 
-**各レベルの使用タイミング:**
+**各レベルの使い分け：**
 
-- **UI更新**: 即座のフィードバックには`processed`を表示(「支払いを送信しました」)
-- **ユーザーアカウントへの入金**:
-  `confirmed`を待機(ほとんどのトランザクションで安全)
-- **物理的な商品の発送**: `finalized`を待機
-- **大口出金**: `finalized`を待機
-- **コンプライアンス/監査**: 常に`finalized`ステータスを記録
+- **UI更新**: 即時フィードバックには `processed`
+  を表示（「支払いが送信されました」）
+- **ユーザーアカウントへのクレジット**: `confirmed`
+  を待つ（ほとんどのトランザクションで安全）
+- **物理的な商品の発送**: `finalized` を待つ
+- **大口出金**: `finalized` を待つ
+- **コンプライアンス／監査**: 常に `finalized` ステータスを記録する
 
-トランザクションステータスの確認の詳細については、[Solanaとのやり取り](/docs/payments/interacting-with-solana)を参照してください。
+トランザクションステータスの確認方法については、
+[Solanaとのインタラクション](/docs/payments/interacting-with-solana)を参照してください。
 
 ## エラー処理
 
-Solana
-Kitは`isSolanaError()`を介して型付きエラーを提供します。文字列マッチングではなく、特定のエラーコードを使用してください:
+Solana Kit は `isSolanaError()`
+を通じて型付きエラーを提供します。文字列マッチングの代わりに、特定のエラーコードを使用してください：
 
 ```typescript
 import {
@@ -317,38 +326,44 @@ function handlePaymentError(error: unknown): {
 }
 ```
 
-**一般的なエラーコード:**
+**一般的なエラーコード：**
 
-| エラーコード                 | 原因                           | 対処方法                                                                                                              |
-| ---------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `BLOCK_HEIGHT_EXCEEDED`      | ブロックハッシュの有効期限切れ | 新しいブロックハッシュで再構築                                                                                        |
-| `BLOCKHASH_NOT_FOUND`        | ブロックハッシュが見つからない | 新しいブロックハッシュで再構築                                                                                        |
-| `INSUFFICIENT_FUNDS_FOR_FEE` | SOLが不足                      | 手数料支払者に資金を供給するか、[手数料抽象化](/docs/payments/send-payments/payment-processing/fee-abstraction)を使用 |
-| `INSUFFICIENT_FUNDS`         | トークンが不足                 | ユーザーは残高を増やす必要があります                                                                                  |
-| `ACCOUNT_NOT_FOUND`          | token accountが存在しない      | トランザクション内でATAを作成                                                                                         |
+| エラーコード                 | 原因                           | 対処法                                                                                                            |
+| ---------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | ブロックハッシュの有効期限切れ | 新しいブロックハッシュで再構築                                                                                    |
+| `BLOCKHASH_NOT_FOUND`        | ブロックハッシュが見つからない | 新しいブロックハッシュで再構築                                                                                    |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | SOL残高不足                    | 手数料支払者に入金するか、[手数料の抽象化](/docs/payments/send-payments/payment-processing/fee-abstraction)を使用 |
+| `INSUFFICIENT_FUNDS`         | トークン残高不足               | ユーザーの残高が不足しています                                                                                    |
+| `ACCOUNT_NOT_FOUND`          | token account が存在しない     | トランザクションにATAを作成                                                                                       |
 
 ## ガスレストランザクション
 
-ユーザーはステーブルコインでの支払いを期待しており、ネットワーク手数料のためにSOLを取得することは望んでいません。ガスレストランザクションはこの問題を解決します。これはVenmoのユーザーがACH手数料について考えないのと同様です。完全な実装については、[手数料の抽象化](/docs/payments/send-payments/payment-processing/fee-abstraction)を参照してください。
+ユーザーはネットワーク手数料のためにSOLを取得するのではなく、ステーブルコインで支払うことを望んでいます。ガスレストランザクションはこの問題を解決します。これは、VenmoユーザーがACH手数料を意識しないのと同様です。完全な実装については、
+[手数料の抽象化](/docs/payments/send-payments/payment-processing/fee-abstraction)
+をご覧ください。
 
 ## セキュリティ
 
 ### 鍵管理
 
-- **フロントエンドコードで秘密鍵を公開しないでください。**バックエンド署名、ハードウェアウォレット、マルチシグネチャウォレット、または鍵管理サービスを使用してください。
-- **ホットウォレットとコールドウォレットを分離してください。**運用にはホットウォレット、資産管理にはコールドウォレットを使用します。
-- **すべての本番環境の鍵をバックアップしてください。**暗号化されたバックアップを複数の安全な場所に保管してください。鍵を紛失すると、永久にアクセスできなくなります。
-- **devnetとmainnetで異なる鍵を使用してください。**devnetの鍵をmainnetの鍵として使用しないでください。環境ベースの設定を使用して、各ネットワークに適切な鍵が読み込まれるようにしてください。
+- **フロントエンドコードに秘密鍵を絶対に公開しないでください。**
+  バックエンド署名、ハードウェアウォレット、マルチシグウォレット、または鍵管理サービスを使用してください。
+- **ホットウォレットとコールドウォレットを分離してください。**
+  ホットウォレットは運用用、コールドウォレットは資産保管用に使用します。
+- **すべての本番環境の鍵をバックアップしてください。**
+  暗号化されたバックアップを複数の安全な場所に保管してください。鍵を紛失すると、アクセスが永久に失われます。
+- **開発ネットと本番ネットで異なる鍵を使用してください。**
+  開発ネットの鍵を本番ネットの鍵として使用しないでください。環境ベースの設定を使用して、各ネットワークに適切な鍵が読み込まれるようにしてください。
 
 ### 署名インフラストラクチャ
 
-本番環境のバックエンド署名には、[solana-keychain](https://github.com/solana-foundation/solana-keychain)の使用をご検討ください。これは、Memory、Vault、Privy、Turnkey、AWS
+本番環境のバックエンド署名には、[Keychain](/docs/tools/keychain)を使用してください。これは、単一のインターフェースを通じて複数の鍵管理バックエンドを抽象化する統合署名ライブラリです。対応バックエンド：Memory、Vault、Privy、Turnkey、AWS
 KMS、Fireblocks、GCP
-KMS、CDP、Para、Dfns、Crossmintなど、複数の鍵管理バックエンドを単一のインターフェースで抽象化した統合署名ライブラリです。これにより、ローカル環境ではメモリ内の鍵を使用して開発し、アプリケーションコードを変更することなく本番環境レベルのバックエンドに切り替えることができます。
+KMS、CDP、Para、Dfns、Crossmint、Openfort、Utila。これにより、インメモリ鍵を使用してローカルで開発し、アプリケーションコードを変更することなく本番環境グレードのバックエンドに切り替えることができます。
 
-[Rust](https://crates.io/crates/solana-keychain)と[TypeScript](https://www.npmjs.com/package/@solana/keychain)の両方で利用可能です。
-
-追加の鍵管理サービスを統合するには、[Adding Signersガイド](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)をご確認ください。
+どのバックエンドが適しているかわからない場合は、
+[バックエンドの選択](/docs/tools/keychain/choosing-a-backend)をご覧ください。Keychainは[Rust](https://crates.io/crates/solana-keychain)と
+[TypeScript](https://www.npmjs.com/package/@solana/keychain)の両方で利用可能です。
 
 ### RPCセキュリティ
 
@@ -401,45 +416,58 @@ Programのアドレスは以下の通りです：
 | Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
 | Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
 
-## 本番リリース前チェックリスト
+適切なアドレスをアローリストに登録することで、なりすましトークンからの保護は可能ですが、誤った*種類*のアカウントへの送信は防げません。受取人アドレスはウォレット、token
+account、ミント、またはプログラムのいずれかであり、それぞれ異なる処理が必要です。ウォレット以外に送信されたネイティブSOLは送信者の管理下から外れます。ミントやプログラムへの送信では完全に失われ、token
+accountへの送信はアカウント所有者のみが取り戻せますが、ユーザーへの警告となる失敗トランザクションは発生しません。
 
-- [ ] 手数料とrentのためのMainnet SOLを取得済み
-- [ ] 本番用RPCを設定済み（パブリックエンドポイントではない）
+<Callout type="warn" title="送信前に受取人を検証する">
+  送金に署名する前に、すべての受取人アドレスを分類してください。ウォレット、token
+  account、ミント、プログラムを区別するための完全なデシジョンツリーとリファレンスコードについては、[アドレスの検証](/docs/payments/send-payments/verify-address)を参照してください。
+</Callout>
+
+## ローンチ前チェックリスト
+
+- [ ] 手数料とrentのためのメインネットSOLを取得済み
+- [ ] 本番用RPCを設定済み（パブリックエンドポイントは使用しない）
 - [ ] フォールバックRPCエンドポイントを設定済み
-- [ ] 動的価格設定による優先手数料を実装済み
-- [ ] ブロックハッシュの有効期限切れに対応するリトライロジックを実装済み
+- [ ] 動的な価格設定による優先手数料を実装済み
+- [ ] リトライロジックでブロックハッシュの有効期限を処理済み
 - [ ] ユースケースに適した確認レベルを設定済み
 - [ ] すべての一般的なエラーを適切に処理済み
-- [ ] ガスレス機能を設定済み（該当する場合）
-- [ ] Mainnetトークンアドレスを検証済み（Devnetミントではない）
+- [ ] ガスレスを設定済み（該当する場合）
+- [ ] メインネットのトークンアドレスを確認済み（devnetのミントではない）
+- [ ] 送信前に受取人アドレスを検証済み（ウォレット vs token account
+      vs ミント vs プログラム）
 - [ ] すべての鍵を安全にバックアップ済み
-- [ ] 鍵管理をレビュー済み（フロントエンドに鍵がない）
-- [ ] トランザクション監視とアラートが有効
-- [ ] 予想されるボリュームで負荷テスト済み
+- [ ] 鍵管理を確認済み（フロントエンドに鍵を置かない）
+- [ ] トランザクションの監視とアラートを有効化済み
+- [ ] 想定トラフィックでの負荷テスト完了
 
 ## プログラムのデプロイ
 
-決済インフラストラクチャの一部としてカスタムSolanaプログラムをデプロイする場合、追加の考慮事項があります。
+支払いインフラの一部としてカスタムSolanaプログラムをデプロイする場合、追加の考慮事項があります。
 
 ### デプロイ前の準備
 
-- **Solana CLIのバージョン:**
-  最新バージョンの[Solana CLI](https://solana.com/docs/intro/installation)を使用していることを確認してください。
+- **Solana CLIのバージョン:** 最新バージョンの
+  [Solana CLI](https://solana.com/docs/intro/installation)を使用していることを確認してください。
 - **プログラムのkeypair:**
-  プログラムは、devnetとmainnetで異なるアドレスを持ちます(同じkeypairを再利用する場合を除く)。アプリケーション設定内のすべての参照を更新してください。プログラムのkeypairは安全な場所に保管してください(`cargo clean`を実行すると、プログラムのkeypairが削除される可能性があることに注意してください)。
+  メインネット上のプログラムアドレスは、devnetとは異なります（同じkeypairを再利用する場合を除く）。アプリケーション設定内のすべての参照を更新してください。プログラムのkeypairは安全な場所に保管してください（`cargo clean`を実行すると、プログラムのkeypairが削除される可能性があります）。
 - **アカウントの初期化:**
-  プログラムが管理者アカウント、PDA、またはその他の状態アカウントを必要とする場合、ユーザーがアプリケーションと対話する前に、これらがmainnet上で作成されていることを確認してください。プログラムが必要とするAssociated
-  Token Account(ATA)についても同様です。
+  プログラムに管理者アカウント、PDA、またはその他のステートアカウントが必要な場合、ユーザーがアプリケーションを操作する前に、これらをメインネット上で作成しておく必要があります。プログラムが必要とするassociated
+  token accountについても同様です。
 
-### デプロイプロセス
+### デプロイのプロセス
 
-- **バッファアカウント:**
-  大規模なプログラムはバッファアカウントを介してデプロイされます。`solana program deploy`コマンドはこれを自動的に処理しますが、デプロイはアトミックではないことを理解してください。中断された場合、バッファアカウントの復旧またはクローズが必要になる場合があります。詳細は[プログラムのデプロイ](https://solana.com/docs/programs/deploying)を参照してください。
+- **バッファーアカウント:** 大規模なプログラムはbuffer
+  accountsを介してデプロイされます。`solana program deploy`コマンドはこれを自動的に処理しますが、デプロイはアトミックではないことに注意してください。中断された場合、buffer
+  accountsの回復またはクローズが必要になることがあります。詳細は[プログラムのデプロイ](https://solana.com/docs/programs/deploying)を参照してください。
 - **アップグレード権限:**
-  プログラムがローンチ後にアップグレード可能であるべきかどうかを決定してください。不変性を保つには、デプロイ後にアップグレード権限を取り消します。柔軟性を保つには、アップグレード権限キーを適切に保護してください。
-- **レント:** すべてのprogram
-  accountのレント免除最低額をカバーするのに十分なSOLがデプロイウォレットにあることを確認してください。
+  プログラムをリリース後にアップグレード可能にするかどうかを決定してください。不変性を確保するには、デプロイ後にアップグレード権限を失効させてください。柔軟性を保持する場合は、アップグレード権限キーを適切に保護してください。
+- **レント:** デプロイ用ウォレットに、すべてのprogram
+  accountのレント免除最低額をカバーするのに十分なSOLがあることを確認してください。
 - **検証:**
-  プログラムを[検証](https://solana.com/docs/programs/verified-builds)して、Solanaネットワークにデプロイする実行可能プログラムがリポジトリ内のソースコードと一致することを確認してください。
+  プログラムを[検証](https://solana.com/docs/programs/verified-builds)して、Solanaネットワークにデプロイした実行可能プログラムがリポジトリのソースコードと一致していることを確認してください。
 
-プログラムデプロイの完全なガイダンスについては、[プログラムのデプロイ](https://solana.com/docs/programs/deploying)を参照してください。
+プログラムのデプロイに関する完全なガイダンスについては、
+[プログラムのデプロイ](https://solana.com/docs/programs/deploying)を参照してください。
