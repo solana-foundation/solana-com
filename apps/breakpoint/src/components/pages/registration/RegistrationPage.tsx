@@ -5,10 +5,15 @@ import PageShell from "@/components/PageShell";
 import RegistrationTicketButton from "@/components/pages/registration/RegistrationTicketButton";
 import SubpageHero from "@/components/SubpageHero";
 import {
+  LocalizedGeneralAdmissionPrice,
+  LocalizedTicketPriceChangeCountdown,
+} from "@/components/TicketPriceChange";
+import {
   DEVELOPER_APPLICATION_HREF,
   GENERAL_ADMISSION_HREF,
   STUDENT_APPLICATION_HREF,
 } from "@/content/links";
+import { GENERAL_ADMISSION_PRICE_CHANGE } from "@/content/ticket-pricing";
 const REGISTRATION_MARQUEE_HIGHLIGHTS = [
   "BP26",
   "LDN",
@@ -20,15 +25,16 @@ const REGISTRATION_MARQUEE_HIGHLIGHTS = [
 const tickets = [
   {
     title: "General Admission",
-    description: "Price available until May 31, 2026",
-    price: "$450",
+    description: "General admission to Breakpoint 2026.",
+    price: GENERAL_ADMISSION_PRICE_CHANGE.current.display,
+    priceAfterIncrease: GENERAL_ADMISSION_PRICE_CHANGE.increased.display,
     ctaLabel: "Get tickets",
     href: GENERAL_ADMISSION_HREF,
     tone: "featured",
   },
   {
     title: "Late Bird",
-    description: "General admission pricing after May 31, 2026",
+    description: "Final general admission pricing.",
     price: "$800",
     ctaLabel: "Coming soon",
     tone: "disabled",
@@ -65,6 +71,7 @@ type RegistrationTicket = {
   href?: string;
   originalPrice?: string;
   price: string;
+  priceAfterIncrease?: string;
   title: string;
   tone: "disabled" | "featured" | "standard";
 };
@@ -81,7 +88,13 @@ function PriceCut({ value }: { value: string }) {
   );
 }
 
-function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
+function RegistrationTicketCard({
+  initialNow,
+  ticket,
+}: {
+  initialNow: number;
+  ticket: RegistrationTicket;
+}) {
   const isFeatured = ticket.tone === "featured";
   const isDisabled = ticket.tone === "disabled";
 
@@ -117,7 +130,11 @@ function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
       <div className="flex flex-col gap-2 md:gap-3">
         {ticket.originalPrice && <PriceCut value={ticket.originalPrice} />}
         <p className={`type-h2 ${isFeatured ? "text-black" : "text-white"}`}>
-          {ticket.price}
+          {ticket.priceAfterIncrease ? (
+            <LocalizedGeneralAdmissionPrice initialNow={initialNow} />
+          ) : (
+            ticket.price
+          )}
         </p>
         <RegistrationTicketButton
           disabled={isDisabled}
@@ -130,13 +147,23 @@ function RegistrationTicketCard({ ticket }: { ticket: RegistrationTicket }) {
   );
 }
 
-function TicketsGrid() {
+function TicketsGrid({ initialNow }: { initialNow: number }) {
   return (
     <section className="bg-black pt-2xl md:pt-[120px]">
-      <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-6 px-xs md:grid-cols-2 md:px-8">
-        {tickets.map((ticket) => (
-          <RegistrationTicketCard key={ticket.title} ticket={ticket} />
-        ))}
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-xs md:px-8">
+        <LocalizedTicketPriceChangeCountdown
+          className="self-center"
+          initialNow={initialNow}
+        />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {tickets.map((ticket) => (
+            <RegistrationTicketCard
+              key={ticket.title}
+              initialNow={initialNow}
+              ticket={ticket}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -186,6 +213,8 @@ function ExpectationsSection() {
 }
 
 export default function RegistrationPage() {
+  const initialNow = Date.now();
+
   return (
     <PageShell
       contentId="registration-content"
@@ -204,7 +233,7 @@ export default function RegistrationPage() {
         highlightClassName="text-green"
         highlights={REGISTRATION_MARQUEE_HIGHLIGHTS}
       />
-      <TicketsGrid />
+      <TicketsGrid initialNow={initialNow} />
       <ExpectationsSection />
       <Footer />
     </PageShell>

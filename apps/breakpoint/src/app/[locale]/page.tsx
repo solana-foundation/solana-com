@@ -16,12 +16,15 @@ import Footer from "@/components/sections/Footer";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import { buildBreakpointJsonLd } from "@/lib/structured-data";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const initialNow = Date.now();
   const jsonLd = buildBreakpointJsonLd(locale);
 
   return (
@@ -41,7 +44,7 @@ export default async function HomePage({
       <HeroSection />
       <NarrativeSection />
       <Marquee />
-      <TicketsSection />
+      <TicketsSection initialNow={initialNow} />
       <ParticipateSection />
       <WhyAttendSection />
       <SponsorsSection />
