@@ -83,23 +83,27 @@ const rows: MetricRow[] = providers.flatMap((provider, index) => [
 type ComparisonChangeHandler = (_providers: Set<ProviderName> | null) => void;
 
 function renderExperience({
+  availableProviders = providers,
   comparisonProviders = new Set<ProviderName>(),
   hasExplicitComparison = false,
   onComparisonChange = vi.fn<ComparisonChangeHandler>(),
+  rows: experienceRows = rows,
 }: {
+  availableProviders?: ProviderName[];
   comparisonProviders?: ReadonlySet<ProviderName>;
   hasExplicitComparison?: boolean;
   onComparisonChange?: ComparisonChangeHandler;
+  rows?: MetricRow[];
 } = {}) {
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <SenderProviderExperience
-        availableProviders={providers}
+        availableProviders={availableProviders}
         comparisonProviders={comparisonProviders}
         hasExplicitComparison={hasExplicitComparison}
         isLoading={false}
         isRefreshing={false}
-        rows={rows}
+        rows={experienceRows}
         onComparisonChange={onComparisonChange}
       />
     </NextIntlClientProvider>,
@@ -162,6 +166,29 @@ describe("SenderProviderExperience", () => {
     expect(within(table).getAllByRole("rowheader")[0]).toHaveTextContent(
       "Provider 12",
     );
+  });
+
+  it("keeps providers visible when an economics metric is not reported", () => {
+    renderExperience({
+      rows: rows.filter(
+        (row) =>
+          row.providerName !== "Provider 01" ||
+          row.metricName !== "Sender Median Fee",
+      ),
+    });
+
+    const table = screen.getByRole("table", {
+      name: "Transaction sender provider economics for the selected time frame",
+    });
+
+    expect(within(table).getAllByRole("rowheader")[0]).toHaveTextContent(
+      "Provider 01",
+    );
+    expect(
+      screen.getByText(
+        "A dash means that metric was not reported for the selected period. Summary totals include reported values only.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("searches all providers and starts a focused comparison", () => {

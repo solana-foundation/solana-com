@@ -377,6 +377,18 @@ export function SolanaDataDashboard() {
 
   useEffect(() => {
     if (
+      !providerParam ||
+      availableProviders.length === 0 ||
+      !hasInvalidProviderParam(providerParam, availableProviders)
+    ) {
+      return;
+    }
+
+    updateQuery({ providers: new Set(availableProviders) });
+  }, [availableProviders, providerParam, updateQuery]);
+
+  useEffect(() => {
+    if (
       !isRpcTab ||
       availableRpcRegionOptions.some((option) => option.value === rpcRegion)
     ) {
@@ -1996,12 +2008,18 @@ function useDashboardQueryUpdater(
   );
 }
 
-function applyQueryUpdates(
+export function applyQueryUpdates(
   params: URLSearchParams,
   updates: QueryUpdates,
   availableProviders: readonly ProviderName[],
 ) {
   if (updates.tab) {
+    const currentTab = parseTab(params.get("tab"));
+
+    if (getProviderScope(currentTab) !== getProviderScope(updates.tab)) {
+      params.delete("providers");
+    }
+
     params.set("tab", updates.tab);
   }
 
@@ -2559,6 +2577,10 @@ export function parseProviders(
     );
   }
 
+  if (hasInvalidProviderParam(value, availableProviders)) {
+    return new Set(availableProviders);
+  }
+
   const availableProviderSet = new Set(availableProviders);
   const selectedProviders = parsedProviders.filter((provider) =>
     availableProviderSet.has(provider),
@@ -2567,6 +2589,31 @@ export function parseProviders(
   return selectedProviders.length > 0
     ? new Set(selectedProviders)
     : new Set(availableProviders);
+}
+
+export function hasInvalidProviderParam(
+  value: string,
+  availableProviders: readonly ProviderName[],
+) {
+  if (value === emptyProvidersParam || availableProviders.length === 0) {
+    return false;
+  }
+
+  const parsedProviders = getOrderedProviderNames(value.split(","));
+  const availableProviderSet = new Set(availableProviders);
+
+  return (
+    parsedProviders.length === 0 ||
+    parsedProviders.some((provider) => !availableProviderSet.has(provider))
+  );
+}
+
+function getProviderScope(tab: DashboardTab) {
+  if (tab === "rpc" || tab === "senders") {
+    return tab;
+  }
+
+  return "warehouse";
 }
 
 function hasAllProvidersSelected(

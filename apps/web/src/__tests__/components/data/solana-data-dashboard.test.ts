@@ -6,6 +6,7 @@ import type {
   ProviderName,
 } from "@/app/[locale]/data/data-config";
 import {
+  applyQueryUpdates,
   getAvailableProviders,
   getKpiValue,
   getMedian,
@@ -109,6 +110,34 @@ describe("provider query state", () => {
     expect(parseProviders("NotAProvider", availableProviders)).toEqual(
       new Set(availableProviders),
     );
+  });
+
+  it("falls back to all providers when a stale selection partially overlaps", () => {
+    const rpcProviders = ["Alchemy", "Helius", "QuickNode", "Triton"];
+
+    expect(parseProviders("0Slot,Helius,Temporal", rpcProviders)).toEqual(
+      new Set(rpcProviders),
+    );
+  });
+
+  it("clears provider selections when switching provider namespaces", () => {
+    const params = new URLSearchParams(
+      "tab=senders&providers=0Slot%2CHelius%2CTemporal&method=getMultipleAccounts",
+    );
+
+    applyQueryUpdates(params, { tab: "rpc" }, availableProviders);
+
+    expect(params.get("tab")).toBe("rpc");
+    expect(params.has("providers")).toBe(false);
+    expect(params.get("method")).toBe("getMultipleAccounts");
+  });
+
+  it("preserves provider selections between warehouse tabs", () => {
+    const params = new URLSearchParams("tab=overview&providers=Allium");
+
+    applyQueryUpdates(params, { tab: "network" }, availableProviders);
+
+    expect(params.get("providers")).toBe("Allium");
   });
 
   it("normalizes legacy DeFiLlama provider spellings", () => {
@@ -236,6 +265,76 @@ describe("transaction sender economics", () => {
   it("honors the provider selection", () => {
     expect(getSenderEconomicsItems(rows, new Set<ProviderName>())).toEqual([]);
   });
+
+  it("keeps active providers when economics metrics are incomplete", () => {
+    const incompleteRows: MetricRow[] = [
+      {
+        date,
+        metricName: "Sender Total Transactions",
+        providerName: "temporal",
+        unit: "Count",
+        value: 150,
+      },
+      {
+        date,
+        metricName: "Sender Total Tips",
+        providerName: "temporal",
+        unit: "SOL",
+        value: 2.5,
+      },
+    ];
+
+    expect(
+      getSenderEconomicsItems(
+        incompleteRows,
+        new Set<ProviderName>(["Temporal"]),
+      ),
+    ).toEqual([
+      {
+        medianFeeLamports: null,
+        medianTipLamports: null,
+        provider: "Temporal",
+        totalFeesSol: null,
+        totalTipsSol: 2.5,
+        transactions: 150,
+      },
+    ]);
+  });
+
+  it("uses transaction observations when the total metric is delayed", () => {
+    const observationRows: MetricRow[] = [
+      {
+        date: "2026-07-29T00:00:00.000Z",
+        metricName: "Sender Transactions",
+        providerName: "0slot",
+        unit: "Count",
+        value: 60,
+      },
+      {
+        date: "2026-07-29T00:05:00.000Z",
+        metricName: "Sender Transactions",
+        providerName: "0slot",
+        unit: "Count",
+        value: 40,
+      },
+    ];
+
+    expect(
+      getSenderEconomicsItems(
+        observationRows,
+        new Set<ProviderName>(["0Slot"]),
+      ),
+    ).toEqual([
+      {
+        medianFeeLamports: null,
+        medianTipLamports: null,
+        provider: "0Slot",
+        totalFeesSol: null,
+        totalTipsSol: null,
+        transactions: 100,
+      },
+    ]);
+  });
 });
 
 describe("transaction sender provider experience", () => {
@@ -353,6 +452,31 @@ describe("transaction sender provider experience", () => {
       "Provider 2",
       "Provider 1",
     ]);
+  });
+
+  it("keeps missing economics values at the end in either sort direction", () => {
+    const itemsWithMissingValue: SenderEconomicsItem[] = [
+      ...economicsItems.slice(0, 2),
+      {
+        ...economicsItems[2]!,
+        medianFeeLamports: null,
+      },
+    ];
+
+    expect(
+      sortSenderProviderItems(
+        itemsWithMissingValue,
+        "medianFeeLamports",
+        "descending",
+      ).at(-1)?.provider,
+    ).toBe("Provider 3");
+    expect(
+      sortSenderProviderItems(
+        itemsWithMissingValue,
+        "medianFeeLamports",
+        "ascending",
+      ).at(-1)?.provider,
+    ).toBe("Provider 3");
   });
 });
 

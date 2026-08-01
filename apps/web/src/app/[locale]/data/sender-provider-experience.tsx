@@ -51,11 +51,11 @@ const otherProviderColor = "#ABABBA";
 const otherProviderDashPattern = "2 4";
 
 export type SenderEconomicsItem = {
-  medianFeeLamports: number;
-  medianTipLamports: number;
+  medianFeeLamports: number | null;
+  medianTipLamports: number | null;
   provider: ProviderName;
-  totalFeesSol: number;
-  totalTipsSol: number;
+  totalFeesSol: number | null;
+  totalTipsSol: number | null;
   transactions: number;
 };
 
@@ -179,6 +179,13 @@ export function SenderProviderExperience({
   const summaryValues = useMemo(
     () => getSenderSummaryValues(economicsItems),
     [economicsItems],
+  );
+  const hasIncompleteEconomics = economicsItems.some(
+    (item) =>
+      item.totalTipsSol === null ||
+      item.totalFeesSol === null ||
+      item.medianTipLamports === null ||
+      item.medianFeeLamports === null,
   );
   const comparisonLimitReached =
     hasExplicitComparison &&
@@ -610,6 +617,12 @@ export function SenderProviderExperience({
           </div>
         ) : null}
 
+        {!isLoading && hasIncompleteEconomics ? (
+          <p className="border-t border-nd-border-light px-4 py-3 font-brand-mono text-[10px] font-bold uppercase text-nd-mid-em-text md:px-6 xl:px-8">
+            {t("senderExperience.incompleteEconomicsNotice")}
+          </p>
+        ) : null}
+
         {!isLoading && filteredItems.length > defaultVisibleProviderCount ? (
           <div className="flex flex-col gap-3 border-t border-nd-border-light px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-6 xl:px-8">
             <span
@@ -918,7 +931,7 @@ function SenderValueCell({
 }: {
   locale: string;
   unit: "lamports" | "sol";
-  value: number;
+  value: number | null;
 }) {
   return (
     <td className="px-4 py-3 text-right font-brand-mono text-[12px] font-bold tabular-nums text-nd-high-em-text">
@@ -1141,8 +1154,8 @@ function getSenderDetailItems(
 function getSenderSummaryValues(items: SenderEconomicsItem[]) {
   return items.reduce(
     (summary, item) => ({
-      totalFeesSol: summary.totalFeesSol + item.totalFeesSol,
-      totalTipsSol: summary.totalTipsSol + item.totalTipsSol,
+      totalFeesSol: summary.totalFeesSol + (item.totalFeesSol ?? 0),
+      totalTipsSol: summary.totalTipsSol + (item.totalTipsSol ?? 0),
       totalTransactions: summary.totalTransactions + item.transactions,
     }),
     { totalFeesSol: 0, totalTipsSol: 0, totalTransactions: 0 },
@@ -1160,24 +1173,59 @@ function formatSenderSortValue(
     case "transactions":
       return formatSenderEconomicsValue(item.transactions, "count", locale);
     case "totalTipsSol":
-      return `${formatSenderEconomicsValue(item.totalTipsSol, "sol", locale)} SOL`;
+      return formatSenderEconomicsValueWithUnit(
+        item.totalTipsSol,
+        "sol",
+        "SOL",
+        locale,
+      );
     case "totalFeesSol":
-      return `${formatSenderEconomicsValue(item.totalFeesSol, "sol", locale)} SOL`;
+      return formatSenderEconomicsValueWithUnit(
+        item.totalFeesSol,
+        "sol",
+        "SOL",
+        locale,
+      );
     case "medianTipLamports":
-      return `${formatSenderEconomicsValue(item.medianTipLamports, "lamports", locale)} lamports`;
+      return formatSenderEconomicsValueWithUnit(
+        item.medianTipLamports,
+        "lamports",
+        "lamports",
+        locale,
+      );
     case "medianFeeLamports":
-      return `${formatSenderEconomicsValue(item.medianFeeLamports, "lamports", locale)} lamports`;
+      return formatSenderEconomicsValueWithUnit(
+        item.medianFeeLamports,
+        "lamports",
+        "lamports",
+        locale,
+      );
   }
 }
 
 function formatSenderEconomicsValue(
-  value: number,
+  value: number | null,
   unit: "count" | "lamports" | "sol",
   locale: string,
 ) {
+  if (value === null) {
+    return "—";
+  }
+
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: unit === "sol" ? 4 : 0,
   }).format(value);
+}
+
+function formatSenderEconomicsValueWithUnit(
+  value: number | null,
+  unit: "lamports" | "sol",
+  suffix: string,
+  locale: string,
+) {
+  return value === null
+    ? formatSenderEconomicsValue(value, unit, locale)
+    : `${formatSenderEconomicsValue(value, unit, locale)} ${suffix}`;
 }
 
 function formatShare(share: number, locale: string) {
@@ -1208,8 +1256,23 @@ export function sortSenderProviderItems<T extends SenderEconomicsItem>(
       );
     }
 
+    const aValue = a[sortKey];
+    const bValue = b[sortKey];
+
+    if (aValue === null && bValue === null) {
+      return a.provider.localeCompare(b.provider);
+    }
+
+    if (aValue === null) {
+      return 1;
+    }
+
+    if (bValue === null) {
+      return -1;
+    }
+
     return (
-      (a[sortKey] - b[sortKey]) * directionMultiplier ||
+      (aValue - bValue) * directionMultiplier ||
       a.provider.localeCompare(b.provider)
     );
   });
@@ -1253,9 +1316,10 @@ export function getSenderEconomicsItems(
 
     if (
       !selectedProviders.has(providerName) ||
-      !senderEconomicsMetricNames.includes(
-        row.metricName as (typeof senderEconomicsMetricNames)[number],
-      )
+      (row.metricName !== "Sender Transactions" &&
+        !senderEconomicsMetricNames.includes(
+          row.metricName as (typeof senderEconomicsMetricNames)[number],
+        ))
     ) {
       continue;
     }
@@ -1268,10 +1332,9 @@ export function getSenderEconomicsItems(
 
   return Array.from(rowsByProvider.entries())
     .flatMap(([provider, providerRows]) => {
-      const transactions = getLatestMetricValue(
-        providerRows,
-        "Sender Total Transactions",
-      );
+      const transactions =
+        getLatestMetricValue(providerRows, "Sender Total Transactions") ??
+        getObservedTransactionTotal(providerRows);
       const totalTipsSol = getLatestMetricValue(
         providerRows,
         "Sender Total Tips",
@@ -1289,18 +1352,14 @@ export function getSenderEconomicsItems(
         "Sender Median Fee",
       );
 
-      return transactions !== undefined &&
-        totalTipsSol !== undefined &&
-        totalFeesSol !== undefined &&
-        medianTipLamports !== undefined &&
-        medianFeeLamports !== undefined
+      return transactions !== undefined
         ? [
             {
-              medianFeeLamports,
-              medianTipLamports,
+              medianFeeLamports: medianFeeLamports ?? null,
+              medianTipLamports: medianTipLamports ?? null,
               provider,
-              totalFeesSol,
-              totalTipsSol,
+              totalFeesSol: totalFeesSol ?? null,
+              totalTipsSol: totalTipsSol ?? null,
               transactions,
             },
           ]
@@ -1310,6 +1369,16 @@ export function getSenderEconomicsItems(
       (a, b) =>
         b.transactions - a.transactions || a.provider.localeCompare(b.provider),
     );
+}
+
+function getObservedTransactionTotal(rows: readonly MetricRow[]) {
+  const transactionRows = rows.filter(
+    (row) => row.metricName === "Sender Transactions",
+  );
+
+  return transactionRows.length > 0
+    ? transactionRows.reduce((total, row) => total + row.value, 0)
+    : undefined;
 }
 
 function getLatestMetricValue(rows: MetricRow[], metricName: string) {
