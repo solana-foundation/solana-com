@@ -192,6 +192,13 @@ describe("available providers", () => {
       },
       {
         date: "2026-06-01",
+        metricName: "RPC Avg Latency",
+        providerName: "chainstack",
+        unit: "Milliseconds",
+        value: 1,
+      },
+      {
+        date: "2026-06-01",
         metricName: "Supply",
         providerName: "DefiLama",
         unit: "USD",
@@ -201,6 +208,7 @@ describe("available providers", () => {
 
     expect(getAvailableProviders(rows)).toEqual([
       "Brand New Provider",
+      "Chainstack",
       "DeFiLlama",
       "Dune",
     ]);
