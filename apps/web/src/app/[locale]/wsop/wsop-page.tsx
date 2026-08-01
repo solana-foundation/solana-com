@@ -242,6 +242,7 @@ const ambassadors: Array<{
     name: "Phil Hellmuth",
     initials: "PH",
     suit: "club",
+    image: "/src/img/wsop/phil-hellmuth.webp",
   },
 ];
 
