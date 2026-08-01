@@ -14,6 +14,12 @@ import {
   parseProviders,
   updateProvidersParam,
 } from "@/app/[locale]/data/solana-data-dashboard";
+import {
+  getNextSenderComparison,
+  getSenderComparisonSeries,
+  sortSenderProviderItems,
+  type SenderEconomicsItem,
+} from "@/app/[locale]/data/sender-provider-experience";
 
 const availableProviders: ProviderName[] = [
   "Allium",
@@ -229,6 +235,124 @@ describe("transaction sender economics", () => {
 
   it("honors the provider selection", () => {
     expect(getSenderEconomicsItems(rows, new Set<ProviderName>())).toEqual([]);
+  });
+});
+
+describe("transaction sender provider experience", () => {
+  const economicsItems: SenderEconomicsItem[] = Array.from(
+    { length: 6 },
+    (_, index) => ({
+      medianFeeLamports: 1_000 + index,
+      medianTipLamports: 2_000 + index,
+      provider: `Provider ${index + 1}`,
+      totalFeesSol: 10 + index,
+      totalTipsSol: 20 + index,
+      transactions: 600 - index * 100,
+    }),
+  );
+  const firstDate = "2026-07-29T00:00:00.000Z";
+  const secondDate = "2026-07-29T00:05:00.000Z";
+  const transactionRows: MetricRow[] = economicsItems.flatMap((item, index) => [
+    {
+      date: firstDate,
+      metricName: "Sender Transactions",
+      providerName: item.provider,
+      unit: "Count",
+      value: 60 - index * 10,
+    },
+    ...(index < 5
+      ? [
+          {
+            date: secondDate,
+            metricName: "Sender Transactions",
+            providerName: item.provider,
+            unit: "Count",
+            value: 50 - index * 5,
+          },
+        ]
+      : []),
+  ]);
+
+  it("shows the five volume leaders and an aggregate other series by default", () => {
+    const series = getSenderComparisonSeries({
+      economicsItems,
+      otherLabel: "Other observed providers",
+      overview: true,
+      rows: transactionRows,
+      selectedProviders: new Set(),
+    });
+
+    expect(series.map((item) => item.label)).toEqual([
+      "Provider 1",
+      "Provider 2",
+      "Provider 3",
+      "Provider 4",
+      "Provider 5",
+      "Other observed providers",
+    ]);
+    expect(series.at(-1)?.points).toMatchObject([
+      { defined: true, value: 10 },
+      { defined: false, value: 0 },
+    ]);
+  });
+
+  it("preserves missing comparison observations as gaps", () => {
+    const series = getSenderComparisonSeries({
+      economicsItems,
+      otherLabel: "Other observed providers",
+      overview: false,
+      rows: transactionRows,
+      selectedProviders: new Set(["Provider 6"]),
+    });
+
+    expect(series).toHaveLength(1);
+    expect(series[0]?.points).toMatchObject([
+      { defined: true, value: 10 },
+      { defined: false, value: 0 },
+    ]);
+  });
+
+  it("starts a focused comparison from the overview and caps it at four", () => {
+    expect(
+      getNextSenderComparison({
+        hasExplicitComparison: false,
+        provider: "Provider 3",
+        selectedProviders: new Set(),
+      }),
+    ).toEqual(new Set(["Provider 3"]));
+
+    expect(
+      getNextSenderComparison({
+        hasExplicitComparison: true,
+        provider: "Provider 5",
+        selectedProviders: new Set([
+          "Provider 1",
+          "Provider 2",
+          "Provider 3",
+          "Provider 4",
+        ]),
+      }),
+    ).toEqual(
+      new Set(["Provider 1", "Provider 2", "Provider 3", "Provider 4"]),
+    );
+  });
+
+  it("sorts every economics metric without discarding long-tail providers", () => {
+    const sorted = sortSenderProviderItems(
+      economicsItems,
+      "medianFeeLamports",
+      "descending",
+    );
+
+    expect(sorted).toHaveLength(6);
+    expect(sorted.map((item) => item.provider)).toEqual([
+      "Provider 6",
+      "Provider 5",
+      "Provider 4",
+      "Provider 3",
+      "Provider 2",
+      "Provider 1",
+    ]);
   });
 });
 

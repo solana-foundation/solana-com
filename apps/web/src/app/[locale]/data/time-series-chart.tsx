@@ -17,23 +17,28 @@ import type { ChartScale, MetricRowDetail } from "./data-config";
 
 export type SeriesPoint = {
   date: Date;
+  defined?: boolean;
   details?: MetricRowDetail[];
   value: number;
 };
 
 export type ChartSeries = {
+  color: string;
+  dashPattern?: string;
   id: string;
   label: string;
-  color: string;
   points: SeriesPoint[];
 };
 
 type TimeSeriesChartProps = {
-  series: ChartSeries[];
-  valueLabel: string;
+  ariaLabel?: string;
   height?: number;
+  interactiveLegend?: boolean;
   scaleType?: ChartScale;
+  series: ChartSeries[];
+  showEndLabels?: boolean;
   timeGranularity?: TimeGranularity;
+  valueLabel: string;
 };
 
 type TooltipValue = {
@@ -66,10 +71,13 @@ const percentDomainMax = 100;
 const percentMinimumDomainSpan = 1;
 
 export function TimeSeriesChart({
+  ariaLabel,
   series,
   valueLabel,
   height = 320,
+  interactiveLegend = true,
   scaleType = "linear",
+  showEndLabels = false,
   timeGranularity = "day",
 }: TimeSeriesChartProps) {
   const locale = useLocale();
@@ -77,8 +85,11 @@ export function TimeSeriesChart({
   const [disabledSeries, setDisabledSeries] = useState<Set<string>>(new Set());
   const [hoveredSeriesId, setHoveredSeriesId] = useState<string | null>(null);
   const visibleSeries = useMemo(
-    () => series.filter((item) => !disabledSeries.has(item.id)),
-    [disabledSeries, series],
+    () =>
+      interactiveLegend
+        ? series.filter((item) => !disabledSeries.has(item.id))
+        : series,
+    [disabledSeries, interactiveLegend, series],
   );
   const seriesDashPatterns = useMemo(
     () => getSeriesDashPatterns(visibleSeries),
@@ -96,6 +107,37 @@ export function TimeSeriesChart({
       <div className="flex min-h-6 w-full flex-wrap items-center gap-1.5">
         {series.map((item) => {
           const disabled = disabledSeries.has(item.id);
+          const content = (
+            <>
+              <svg aria-hidden="true" className="h-2 w-4" viewBox="0 0 16 8">
+                <line
+                  opacity={disabled ? 0.4 : 1}
+                  stroke={item.color}
+                  strokeDasharray={item.dashPattern}
+                  strokeLinecap="round"
+                  strokeWidth={2}
+                  x1={0}
+                  x2={16}
+                  y1={4}
+                  y2={4}
+                />
+              </svg>
+              {item.label}
+            </>
+          );
+
+          if (!interactiveLegend) {
+            return (
+              <span
+                className="inline-flex items-center gap-2 border border-nd-border-prominent px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-high-em-text"
+                key={item.id}
+                onMouseEnter={() => setHoveredSeriesId(item.id)}
+                onMouseLeave={() => setHoveredSeriesId(null)}
+              >
+                {content}
+              </span>
+            );
+          }
 
           return (
             <button
@@ -126,18 +168,11 @@ export function TimeSeriesChart({
               onMouseLeave={() => setHoveredSeriesId(null)}
               type="button"
             >
-              <span
-                aria-hidden="true"
-                className="h-1.5 w-1.5"
-                style={{
-                  backgroundColor: disabled ? `${item.color}66` : item.color,
-                }}
-              />
-              {item.label}
+              {content}
             </button>
           );
         })}
-        {series.length > 1 ? (
+        {interactiveLegend && series.length > 1 ? (
           <button
             className="inline-flex items-center border border-nd-border-prominent px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text transition-colors hover:bg-nd-border-light/20 hover:text-nd-high-em-text"
             onClick={() => {
@@ -163,10 +198,12 @@ export function TimeSeriesChart({
               <ChartSvg
                 height={measuredHeight}
                 highlightedSeriesId={highlightedSeriesId}
+                ariaLabel={ariaLabel}
                 locale={locale}
                 scaleType={scaleType}
                 series={visibleSeries}
                 seriesDashPatterns={seriesDashPatterns}
+                showEndLabels={showEndLabels}
                 timeGranularity={timeGranularity}
                 valueLabel={valueLabel}
                 width={width}
@@ -184,22 +221,26 @@ export function TimeSeriesChart({
 }
 
 function ChartSvg({
+  ariaLabel,
   height,
   highlightedSeriesId,
   locale,
   scaleType,
   series,
   seriesDashPatterns,
+  showEndLabels,
   timeGranularity,
   valueLabel,
   width,
 }: {
+  ariaLabel?: string;
   height: number;
   highlightedSeriesId: string | null;
   locale: string;
   scaleType: ChartScale;
   series: ChartSeries[];
   seriesDashPatterns: ReadonlyMap<string, string>;
+  showEndLabels: boolean;
   timeGranularity: TimeGranularity;
   valueLabel: string;
   width: number;
@@ -213,21 +254,30 @@ function ChartSvg({
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
-  const margin =
-    width <= compactChartMaxWidth
-      ? { top: 16, right: 12, bottom: 32, left: 52 }
-      : baseMargin;
+  const isCompactChart = width <= compactChartMaxWidth;
+  const margin = isCompactChart
+    ? {
+        top: 16,
+        right: showEndLabels ? 92 : 12,
+        bottom: 32,
+        left: 52,
+      }
+    : {
+        ...baseMargin,
+        right: showEndLabels ? 140 : baseMargin.right,
+      };
   const innerWidth = Math.max(width - margin.left - margin.right, 0);
   const innerHeight = Math.max(height - margin.top - margin.bottom, 0);
   const points = series.flatMap((item) => item.points);
+  const definedPoints = points.filter((point) => point.defined !== false);
   const dateValues = Array.from(
     new Set(points.map((point) => point.date.getTime())),
   ).sort((a, b) => a - b);
   const xDomain = getDateDomain(points);
   const yDomain =
     scaleType === "log"
-      ? getLogValueDomain(points)
-      : getValueDomain(points, valueLabel);
+      ? getLogValueDomain(definedPoints)
+      : getValueDomain(definedPoints, valueLabel);
   const xScale = scaleTime<number>({
     domain: xDomain,
     range: [0, innerWidth],
@@ -252,6 +302,9 @@ function ChartSvg({
           valueLabel,
         );
   const formatYAxisValue = getAxisValueFormatter(valueLabel, locale);
+  const endLabels = showEndLabels
+    ? getEndLabelPositions(series, yScale, innerHeight)
+    : [];
 
   if (width < 10 || height < 10 || innerWidth <= 0 || innerHeight <= 0) {
     return null;
@@ -259,7 +312,12 @@ function ChartSvg({
 
   return (
     <>
-      <svg height={height} width={width}>
+      <svg
+        aria-label={ariaLabel}
+        height={height}
+        role={ariaLabel ? "img" : undefined}
+        width={width}
+      >
         <Group left={margin.left} top={margin.top}>
           <GridRows
             height={innerHeight}
@@ -306,27 +364,67 @@ function ChartSvg({
           />
 
           {series.map((item) => (
-            <LinePath
-              data={item.points}
-              defined={(point) =>
-                Number.isFinite(point.value) &&
-                (scaleType !== "log" || point.value > 0)
-              }
-              key={item.id}
-              stroke={item.color}
-              strokeDasharray={seriesDashPatterns.get(item.id)}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeOpacity={
-                highlightedSeriesId && highlightedSeriesId !== item.id
-                  ? dimmedSeriesOpacity
-                  : 1
-              }
-              strokeWidth={2}
-              style={{ transition: "stroke-opacity 150ms ease" }}
-              x={(point) => xScale(point.date)}
-              y={(point) => yScale(getPlottedValue(point.value, valueLabel))}
-            />
+            <g key={item.id}>
+              <LinePath
+                data={item.points}
+                defined={(point) =>
+                  point.defined !== false &&
+                  Number.isFinite(point.value) &&
+                  (scaleType !== "log" || point.value > 0)
+                }
+                stroke={item.color}
+                strokeDasharray={
+                  item.dashPattern ?? seriesDashPatterns.get(item.id)
+                }
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeOpacity={
+                  highlightedSeriesId && highlightedSeriesId !== item.id
+                    ? dimmedSeriesOpacity
+                    : 1
+                }
+                strokeWidth={2}
+                style={{ transition: "stroke-opacity 150ms ease" }}
+                x={(point) => xScale(point.date)}
+                y={(point) => yScale(getPlottedValue(point.value, valueLabel))}
+              />
+              {item.points.map((point, index) =>
+                isIsolatedSeriesPoint(item.points, index, scaleType) ? (
+                  <circle
+                    cx={xScale(point.date)}
+                    cy={yScale(getPlottedValue(point.value, valueLabel))}
+                    fill={item.color}
+                    key={point.date.getTime()}
+                    r={2.5}
+                  />
+                ) : null,
+              )}
+            </g>
+          ))}
+
+          {endLabels.map((item) => (
+            <g aria-hidden="true" key={item.id}>
+              <line
+                stroke={item.color}
+                strokeDasharray={item.dashPattern}
+                strokeOpacity={0.7}
+                x1={xScale(item.point.date)}
+                x2={innerWidth + 5}
+                y1={yScale(getPlottedValue(item.point.value, valueLabel))}
+                y2={item.y}
+              />
+              <text
+                dominantBaseline="middle"
+                fill={item.color}
+                fontSize={10}
+                fontWeight={700}
+                x={innerWidth + 8}
+                y={item.y}
+              >
+                <title>{item.label}</title>
+                {truncateEndLabel(item.label, isCompactChart ? 10 : 18)}
+              </text>
+            </g>
           ))}
 
           {tooltipData ? (
@@ -348,7 +446,7 @@ function ChartSvg({
                   seriesPoint.date.getTime() === tooltipData.date.getTime(),
               );
 
-            if (!point) {
+            if (!point || point.defined === false) {
               return null;
             }
 
@@ -369,8 +467,8 @@ function ChartSvg({
           <rect
             fill="transparent"
             height={innerHeight}
-            onMouseLeave={hideTooltip}
-            onMouseMove={(event) => {
+            onPointerLeave={hideTooltip}
+            onPointerMove={(event) => {
               const point = localPoint(event);
 
               if (!point || dateValues.length === 0) {
@@ -396,7 +494,10 @@ function ChartSvg({
                   );
                   const value = seriesPoint?.value;
 
-                  if (typeof value !== "number") {
+                  if (
+                    typeof value !== "number" ||
+                    seriesPoint?.defined === false
+                  ) {
                     return null;
                   }
 
@@ -419,6 +520,7 @@ function ChartSvg({
                 tooltipTop: margin.top,
               });
             }}
+            style={{ touchAction: "pan-y" }}
             width={innerWidth}
           />
         </Group>
@@ -502,6 +604,71 @@ export function compareTooltipValues(a: TooltipValue, b: TooltipValue) {
   return b.value - a.value || a.label.localeCompare(b.label);
 }
 
+function getEndLabelPositions(
+  series: ChartSeries[],
+  yScale: (_value: number) => number,
+  innerHeight: number,
+) {
+  const minimumGap = 14;
+  const labels = series
+    .flatMap((item) => {
+      const point = item.points.findLast(
+        (candidate) =>
+          candidate.defined !== false && Number.isFinite(candidate.value),
+      );
+      const targetY = point ? yScale(point.value) : Number.NaN;
+
+      return point && Number.isFinite(targetY)
+        ? [
+            {
+              color: item.color,
+              dashPattern: item.dashPattern,
+              id: item.id,
+              label: item.label,
+              point,
+              targetY,
+              y: targetY,
+            },
+          ]
+        : [];
+    })
+    .sort((a, b) => a.targetY - b.targetY);
+
+  labels.forEach((label, index) => {
+    const previousLabel = labels[index - 1];
+
+    if (previousLabel) {
+      label.y = Math.max(label.targetY, previousLabel.y + minimumGap);
+    }
+  });
+
+  const lastLabel = labels.at(-1);
+  const overflow = lastLabel ? Math.max(lastLabel.y - innerHeight, 0) : 0;
+
+  if (overflow > 0) {
+    labels.forEach((label) => {
+      label.y -= overflow;
+    });
+  }
+
+  const firstLabel = labels[0];
+  const underflow = firstLabel ? Math.min(firstLabel.y, 0) : 0;
+
+  if (underflow < 0) {
+    labels.forEach((label) => {
+      label.y -= underflow;
+    });
+  }
+
+  return labels;
+}
+
+function truncateEndLabel(value: string, maximumLength: number) {
+  return value.length > maximumLength
+    ? `${value.slice(0, Math.max(maximumLength - 1, 1))}…`
+    : value;
+}
+
 function getMetricDetailLabel(
   t: ReturnType<typeof useTranslations>,
   detail: MetricRowDetail,
@@ -559,6 +726,38 @@ function areValuesClose(a: number, b: number) {
   const scale = Math.max(Math.abs(a), Math.abs(b));
 
   return Math.abs(a - b) <= scale * 1e-9;
+}
+
+function isIsolatedSeriesPoint(
+  points: SeriesPoint[],
+  index: number,
+  scaleType: ChartScale,
+) {
+  const point = points[index];
+
+  if (
+    !point ||
+    point.defined === false ||
+    !Number.isFinite(point.value) ||
+    (scaleType === "log" && point.value <= 0)
+  ) {
+    return false;
+  }
+
+  const previousPoint = points[index - 1];
+  const nextPoint = points[index + 1];
+  const previousIsDefined =
+    previousPoint?.defined !== false &&
+    typeof previousPoint?.value === "number" &&
+    Number.isFinite(previousPoint.value) &&
+    (scaleType !== "log" || previousPoint.value > 0);
+  const nextIsDefined =
+    nextPoint?.defined !== false &&
+    typeof nextPoint?.value === "number" &&
+    Number.isFinite(nextPoint.value) &&
+    (scaleType !== "log" || nextPoint.value > 0);
+
+  return !previousIsDefined && !nextIsDefined;
 }
 
 function getDateDomain(points: SeriesPoint[]): [Date, Date] {
