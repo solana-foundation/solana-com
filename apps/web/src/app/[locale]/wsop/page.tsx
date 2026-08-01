@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "@workspace/i18n/server";
+import { config } from "@/config";
 import { fetchLatestLinks } from "@/lib/media/link";
 import type { LinkItem } from "@/types/media";
 import { WsopPage } from "./wsop-page";
@@ -9,7 +10,8 @@ type Props = {
   params: Promise<{ locale: string }>;
 };
 
-const SOCIAL_IMAGE = "/src/img/wsop/solana-wsop.jpg";
+const WSOP_PATH = "/wsop";
+const WSOP_SOCIAL_IMAGE = "/src/img/wsop/solana-wsop.jpg";
 
 type WsopContentMode = "preview" | "live";
 
@@ -69,32 +71,45 @@ export default async function Page({ params }: Props) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  const alternates = getAlternates("/wsop", locale);
+  const alternates = getAlternates(WSOP_PATH, locale);
   const t = await getTranslations({ locale, namespace: "wsop.metadata" });
+  const title = t("title");
+  const description = t("description");
+  const socialImageAlt = t("socialImageAlt");
 
   return {
-    title: t("title"),
-    description: t("description"),
+    title: {
+      absolute: title,
+    },
+    description,
     alternates,
     openGraph: {
-      title: t("title"),
-      description: t("description"),
+      title,
+      description,
       type: "website",
       url: alternates.canonical,
+      siteName: config.siteMetadata.title,
+      locale,
       images: [
         {
-          url: SOCIAL_IMAGE,
+          url: WSOP_SOCIAL_IMAGE,
           width: 1200,
           height: 630,
-          alt: t("socialImageAlt"),
+          alt: socialImageAlt,
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title: t("title"),
-      description: t("description"),
-      images: [SOCIAL_IMAGE],
+      creator: config.siteMetadata.author,
+      title,
+      description,
+      images: [
+        {
+          url: WSOP_SOCIAL_IMAGE,
+          alt: socialImageAlt,
+        },
+      ],
     },
   };
 }
