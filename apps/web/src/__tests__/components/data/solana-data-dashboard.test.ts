@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { MetricRow, ProviderName } from "@/app/[locale]/data/data-config";
+import type {
+  ChartDefinition,
+  MetricRow,
+  ProviderName,
+} from "@/app/[locale]/data/data-config";
 import {
   getAvailableProviders,
+  getKpiValue,
   getMedian,
   getSelectedProviderList,
+  getSenderEconomicsItems,
   parseProviders,
   updateProvidersParam,
 } from "@/app/[locale]/data/solana-data-dashboard";
@@ -15,6 +21,15 @@ const availableProviders: ProviderName[] = [
   "Dune",
   "New Provider",
 ];
+const latencyChart = {
+  aggregation: "avg",
+  id: "rpc-avg-latency",
+  metrics: ["RPC Avg Latency"],
+  seriesField: "provider",
+  tab: "rpc",
+  title: "Avg Latency",
+  valueLabel: "Milliseconds",
+} as const satisfies ChartDefinition;
 
 describe("getMedian", () => {
   it("returns the middle value for an odd count", () => {
@@ -154,5 +169,106 @@ describe("available providers", () => {
       "DeFiLlama",
       "Dune",
     ]);
+  });
+});
+
+describe("transaction sender economics", () => {
+  const date = "2026-07-29T00:00:00.000Z";
+  const rows: MetricRow[] = [
+    {
+      date,
+      metricName: "Sender Total Transactions",
+      providerName: "jito",
+      unit: "Count",
+      value: 204_212,
+    },
+    {
+      date,
+      metricName: "Sender Total Tips",
+      providerName: "jito",
+      unit: "SOL",
+      value: 38.3,
+    },
+    {
+      date,
+      metricName: "Sender Total Fees",
+      providerName: "jito",
+      unit: "SOL",
+      value: 5.6,
+    },
+    {
+      date,
+      metricName: "Sender Median Tip",
+      providerName: "jito",
+      unit: "Lamports",
+      value: 4_000,
+    },
+    {
+      date,
+      metricName: "Sender Median Fee",
+      providerName: "jito",
+      unit: "Lamports",
+      value: 5_000,
+    },
+  ];
+
+  it("normalizes provider labels and returns complete economics rows", () => {
+    expect(
+      getSenderEconomicsItems(rows, new Set<ProviderName>(["Jito"])),
+    ).toEqual([
+      {
+        medianFeeLamports: 5_000,
+        medianTipLamports: 4_000,
+        provider: "Jito",
+        totalFeesSol: 5.6,
+        totalTipsSol: 38.3,
+        transactions: 204_212,
+      },
+    ]);
+  });
+
+  it("honors the provider selection", () => {
+    expect(getSenderEconomicsItems(rows, new Set<ProviderName>())).toEqual([]);
+  });
+});
+
+describe("KPI aggregation", () => {
+  const rows: MetricRow[] = [
+    {
+      date: "2026-06-01T00:00:00.000Z",
+      metricName: "RPC Avg Latency",
+      providerName: "Alchemy",
+      unit: "Milliseconds",
+      value: 120,
+    },
+    {
+      date: "2026-06-01T00:00:00.000Z",
+      metricName: "RPC Avg Latency",
+      providerName: "Helius",
+      unit: "Milliseconds",
+      value: 40,
+    },
+    {
+      date: "2026-06-01T00:00:00.000Z",
+      metricName: "RPC Avg Latency",
+      providerName: "QuickNode",
+      unit: "Milliseconds",
+      value: 80,
+    },
+  ];
+  const selectedProviders = new Set<ProviderName>([
+    "Alchemy",
+    "Helius",
+    "QuickNode",
+  ]);
+
+  it("keeps provider KPI aggregation median by default", () => {
+    expect(getKpiValue(latencyChart, rows, selectedProviders).value).toBe(80);
+  });
+
+  it("supports minimum provider KPI aggregation for RPC latency", () => {
+    expect(
+      getKpiValue(latencyChart, rows, selectedProviders, "minimum").value,
+    ).toBe(40);
   });
 });

@@ -5,10 +5,7 @@ import {
   resolveVariantFromParams,
   VARIANTS,
 } from "@/content/variants";
-import {
-  DEVELOPER_APPLICATION_HREF,
-  GENERAL_ADMISSION_HREF,
-} from "@/content/links";
+import { DEVELOPER_APPLICATION_HREF } from "@/content/links";
 import { useVariant } from "@/lib/use-variant";
 
 describe("resolveVariant", () => {
@@ -78,8 +75,12 @@ describe("resolveVariantFromParams", () => {
 describe("variant configs", () => {
   it("routes each hero CTA to the ticket flow it advertises", () => {
     expect(VARIANTS.developers?.heroCtaHref).toBe(DEVELOPER_APPLICATION_HREF);
-    expect(VARIANTS.tech?.heroCtaHref).toBe(GENERAL_ADMISSION_HREF);
-    expect(VARIANTS.finance?.heroCtaHref).toBe(GENERAL_ADMISSION_HREF);
+    expect(VARIANTS.tech?.heroCtaHref).toBe(
+      "https://luma.com/breakpoint2026?coupon=BRAVE20",
+    );
+    expect(VARIANTS.finance?.heroCtaHref).toBe(
+      "https://luma.com/breakpoint2026?coupon=BRAVE20",
+    );
   });
 
   it("shows the BRAVE20 offers as ticket straplines", () => {

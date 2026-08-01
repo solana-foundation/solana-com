@@ -134,7 +134,7 @@ export default async function Page(_props: Props) {
           "x402.hackathon.resources.items.facilitatorDocs.description",
         ),
         category: t("x402.hackathon.resources.items.facilitatorDocs.category"),
-        url: "https://solana.com/developers/guides/getstarted/build-a-x402-facilitator",
+        url: "https://solana.com/docs/payments/agentic-payments/x402-facilitator",
       },
       {
         title: t("x402.hackathon.resources.items.x402Template.title"),

@@ -13,19 +13,43 @@ create a new entry in the `Posts` collection.
 
 Use these fields:
 
-| Field        | Guidance                                                         |
-| ------------ | ---------------------------------------------------------------- |
-| Title        | `Solana Changelog: Month D, YYYY`                                |
-| Status       | Keep as `Draft` until approved                                   |
-| Hero Image   | Supply the weekly changelog image for the article and social SEO |
-| Description  | One concise sentence naming the most important shipped changes   |
-| Author       | Usually `Solana Foundation`                                      |
-| Publish Date | Enter the intended publication date and time in UTC              |
-| Categories   | Add `Changelog` first and `Developers` second                    |
-| Tags         | Use relevant existing tags; typically include `Developer`        |
+| Field        | Guidance                                                          |
+| ------------ | ----------------------------------------------------------------- |
+| Title        | `Solana Changelog: Month D, YYYY`                                 |
+| Status       | Keep as `Draft` until approved                                    |
+| Hero Image   | Supply the weekly changelog image for the article and social SEO  |
+| Description  | A topic-first sentence connecting two to four concrete highlights |
+| Author       | Usually `Solana Foundation`                                       |
+| Publish Date | Enter the intended publication date and time in UTC               |
+| Categories   | Add `Changelog` first and `Developers` second                     |
+| Tags         | Use relevant existing tags; typically include `Developer`         |
 
 The `Changelog` category is required. Without it, the post will not appear on
 `/changelog` or in the changelog RSS feed.
+
+## Write the description
+
+Write a compact, topic-first headline sentence:
+
+```text
+Agave v4.2.0 shipped as RPC coverage expanded and Solana Kit added new APIs.
+```
+
+The `/changelog` listing uses the description as the issue heading when the post
+title contains only its publication date. The description is also used on
+article cards and as the SEO summary, so keep it:
+
+- to one sentence and no more than 160 characters, including spaces;
+- led by the most important named release or change, without recurring setup
+  such as “This week’s highlights” or “In this issue”;
+- focused on two to four specific releases, protocol changes, or tools;
+- connected naturally with words such as `as`, `alongside`, or `and`;
+- written with active verbs and version numbers when they are a key part of the
+  update; and
+- free of setup or generic claims such as “another week of engineering updates.”
+
+End with a period. Prioritize the items a developer would be most likely to scan
+for or search for; the opening paragraph can provide broader context.
 
 ## Structure the issue
 

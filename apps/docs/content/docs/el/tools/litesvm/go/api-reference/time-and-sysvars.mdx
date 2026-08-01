@@ -1,0 +1,302 @@
+---
+title: Χρόνος & Sysvars
+description: Χειρισμός ρολογιού και πρόσβαση σε sysvar στη Go
+---
+
+Μέθοδοι για τον χειρισμό του χρόνου και την πρόσβαση σε μεταβλητές συστήματος. Κάθε
+getter sysvar έχει έναν αντίστοιχο setter· οι structs είναι απλά Go αντίγραφα της πηγής
+της Solana.
+
+## Χειρισμός Ρολογιού
+
+### WarpToSlot
+
+```go
+func (s *LiteSVM) WarpToSlot(slot uint64) error
+```
+
+Προώθηση του εσωτερικού ρολογιού σε ένα συγκεκριμένο slot.
+
+```go
+before, err := svm.Clock()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("current slot: %d", before.Slot)
+
+if err := svm.WarpToSlot(10_000_000); err != nil {
+    t.Fatal(err)
+}
+
+after, err := svm.Clock()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("new slot:     %d", after.Slot)
+```
+
+### Clock
+
+```go
+type Clock struct {
+    Slot                uint64
+    EpochStartTimestamp int64
+    Epoch               uint64
+    LeaderScheduleEpoch uint64
+    UnixTimestamp       int64
+}
+
+func (s *LiteSVM) Clock() (Clock, error)
+```
+
+Ανάγνωση του sysvar Clock.
+
+```go
+c, err := svm.Clock()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("slot=%d epoch=%d unix=%d", c.Slot, c.Epoch, c.UnixTimestamp)
+```
+
+### SetClock
+
+```go
+func (s *LiteSVM) SetClock(c Clock) error
+```
+
+Αντικατάσταση του sysvar Clock. Διαβάστε το, τροποποιήστε πεδία και γράψτε το πίσω όταν χρειάζεστε
+έλεγχο του `Epoch` ή του `UnixTimestamp` (τα οποία το `WarpToSlot` δεν ενημερώνει).
+
+```go
+c, err := svm.Clock()
+if err != nil {
+    t.Fatal(err)
+}
+c.Slot = 1_000
+c.Epoch = 10
+c.UnixTimestamp = 1_735_689_600
+if err := svm.SetClock(c); err != nil {
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  Το `WarpToSlot` ενημερώνει μόνο το `Slot`. Χρησιμοποιήστε το `SetClock` όταν το πρόγραμμά σας διαβάζει
+  `Epoch` ή `UnixTimestamp` από το sysvar Clock.
+</Callout>
+
+## Rent
+
+### Rent / SetRent
+
+```go
+type Rent struct {
+    LamportsPerByteYear uint64
+    ExemptionThreshold  float64
+    BurnPercent         uint8
+}
+
+func (s *LiteSVM) Rent() (Rent, error)
+func (s *LiteSVM) SetRent(r Rent) error
+```
+
+```go
+r, err := svm.Rent()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("lamports/byte-year: %d", r.LamportsPerByteYear)
+t.Logf("exemption threshold: %.2f", r.ExemptionThreshold)
+t.Logf("burn percent: %d", r.BurnPercent)
+```
+
+### MinimumBalanceForRentExemption
+
+```go
+func (s *LiteSVM) MinimumBalanceForRentExemption(dataLen int) (uint64, error)
+```
+
+```go
+for _, size := range []int{0, 100, 1024} {
+    min, err := svm.MinimumBalanceForRentExemption(size)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("%4d bytes -> %d lamports", size, min)
+}
+```
+
+## Epoch Schedule
+
+```go
+type EpochSchedule struct {
+    SlotsPerEpoch            uint64
+    LeaderScheduleSlotOffset uint64
+    Warmup                   bool
+    FirstNormalEpoch         uint64
+    FirstNormalSlot          uint64
+}
+
+func (s *LiteSVM) EpochSchedule() (EpochSchedule, error)
+func (s *LiteSVM) SetEpochSchedule(e EpochSchedule) error
+```
+
+```go
+es, err := svm.EpochSchedule()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("slots per epoch: %d", es.SlotsPerEpoch)
+t.Logf("first normal epoch: %d", es.FirstNormalEpoch)
+t.Logf("first normal slot:  %d", es.FirstNormalSlot)
+```
+
+## Epoch Rewards
+
+```go
+type EpochRewards struct {
+    DistributionStartingBlockHeight uint64
+    NumPartitions                   uint64
+    ParentBlockhash                 solana.Hash
+    TotalPointsLo                   uint64 // low 64 bits of the u128 total_points
+    TotalPointsHi                   uint64 // high 64 bits
+    TotalRewards                    uint64
+    DistributedRewards              uint64
+    Active                          bool
+}
+
+func (s *LiteSVM) EpochRewards() (EpochRewards, error)
+func (s *LiteSVM) SetEpochRewards(e EpochRewards) error
+```
+
+Το `total_points` είναι `u128` στην πλευρά της Solana· το `litesvm-go` εκθέτει και τα δύο μισά
+ρητά, ώστε οι καλούντες σε Go να μην χρειάζονται βιβλιοθήκη u128. Για τιμές που χωράνε σε 64
+bits, το `TotalPointsHi` είναι `0` και το `TotalPointsLo` είναι η τιμή.
+
+## Πληροφορίες Slot
+
+### LastRestartSlot / SetLastRestartSlot
+
+```go
+func (s *LiteSVM) LastRestartSlot() (uint64, error)
+func (s *LiteSVM) SetLastRestartSlot(slot uint64) error
+```
+
+```go
+last, err := svm.LastRestartSlot()
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.SetLastRestartSlot(last + 1); err != nil {
+    t.Fatal(err)
+}
+```
+
+### SlotHashes / SetSlotHashes
+
+```go
+type SlotHash struct {
+    Slot uint64
+    Hash solana.Hash
+}
+
+func (s *LiteSVM) SlotHashes() ([]SlotHash, error)
+func (s *LiteSVM) SetSlotHashes(items []SlotHash) error
+```
+
+### SlotHistory
+
+Το `SlotHistory` είναι ένα bitvec ~128 KB· το `litesvm-go` το εκθέτει ως handle αντί
+για slice.
+
+```go
+sh, err := litesvm.NewSlotHistory()
+if err != nil {
+    t.Fatal(err)
+}
+defer sh.Close()
+
+sh.Add(42)
+
+switch sh.Check(42) {
+case litesvm.SlotHistoryFound:
+    // ...
+case litesvm.SlotHistoryNotFound:
+    // ...
+case litesvm.SlotHistoryTooOld:
+    // ...
+case litesvm.SlotHistoryFuture:
+    // ...
+}
+
+if err := svm.SetSlotHistory(sh); err != nil {
+    t.Fatal(err)
+}
+```
+
+| Μέθοδος                                           | Περιγραφή                                |
+| ------------------------------------------------ | ------------------------------------------ |
+| `litesvm.NewSlotHistory() (*SlotHistory, error)` | Κενό handle                               |
+| `sh.Add(slot uint64)`                            | Καταγραφή ενός slot                              |
+| `sh.Check(slot uint64) SlotHistoryCheck`         | `Future` / `TooOld` / `Found` / `NotFound` |
+| `sh.Oldest() uint64`                             | Παλαιότερο slot που παρακολουθείται                        |
+| `sh.Newest() uint64`                             | Νεότερο slot που παρακολουθείται                        |
+| `sh.NextSlot() uint64`                           | Επόμενο slot προς καταγραφή                        |
+| `sh.SetNextSlot(slot uint64) error`              | Αντικατάσταση του δείκτη επόμενου slot              |
+| `sh.Close()`                                     | Αποδέσμευση του handle                         |
+| `svm.SlotHistory() (*SlotHistory, error)`        | Ανάγνωση σε νέο handle                   |
+| `svm.SetSlotHistory(*SlotHistory) error`         | Εγκατάσταση στο SVM                         |
+
+## Ιστορικό Stake
+
+```go
+type StakeHistoryItem struct {
+    Epoch        uint64
+    Effective    uint64
+    Activating   uint64
+    Deactivating uint64
+}
+
+func (s *LiteSVM) StakeHistory() ([]StakeHistoryItem, error)
+func (s *LiteSVM) SetStakeHistory(items []StakeHistoryItem) error
+```
+
+## Έλεγχος Λογικής που Εξαρτάται από τον Χρόνο
+
+Χρησιμοποιήστε το `WarpToSlot` για απλή προώθηση βάσει slot και το `SetClock` για πλήρη έλεγχο:
+
+```go
+func TestTimeLockedVault(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    const unlockSlot = uint64(10_000)
+
+    // Setup: create the time-locked account ...
+
+    // Test 1: Try to withdraw before unlock (should fail)
+    before, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("current slot: %d", before.Slot)
+    // ... attempt withdrawal, expect failure ...
+
+    // Warp time forward past unlock slot
+    if err := svm.WarpToSlot(unlockSlot + 1); err != nil {
+        t.Fatal(err)
+    }
+
+    // Test 2: Try to withdraw after unlock (should succeed)
+    after, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("new slot: %d", after.Slot)
+    // ... attempt withdrawal, expect success ...
+}
+```

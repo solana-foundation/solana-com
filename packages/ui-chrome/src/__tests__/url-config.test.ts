@@ -36,7 +36,7 @@ describe("cross-app URL configuration", () => {
     const shouldUseNextLink = await loadShouldUseNextLink("docs");
 
     expect(shouldUseNextLink("/docs")).toBe(true);
-    expect(shouldUseNextLink("/developers/guides")).toBe(true);
+    expect(shouldUseNextLink("/developers/cookbook")).toBe(true);
     expect(shouldUseNextLink("/data")).toBe(false);
   });
 

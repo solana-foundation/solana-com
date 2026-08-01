@@ -1,0 +1,296 @@
+---
+title: 时间与系统变量
+description: 在 Go 中操作时钟及访问系统变量
+---
+
+用于操作时间和访问系统变量的方法。每个系统变量的 getter 都有对应的 setter；这些结构体是 Solana 源码的纯 Go 镜像。
+
+## 时钟操作
+
+### WarpToSlot
+
+```go
+func (s *LiteSVM) WarpToSlot(slot uint64) error
+```
+
+将内部时钟推进到指定的 slot。
+
+```go
+before, err := svm.Clock()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("current slot: %d", before.Slot)
+
+if err := svm.WarpToSlot(10_000_000); err != nil {
+    t.Fatal(err)
+}
+
+after, err := svm.Clock()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("new slot:     %d", after.Slot)
+```
+
+### Clock
+
+```go
+type Clock struct {
+    Slot                uint64
+    EpochStartTimestamp int64
+    Epoch               uint64
+    LeaderScheduleEpoch uint64
+    UnixTimestamp       int64
+}
+
+func (s *LiteSVM) Clock() (Clock, error)
+```
+
+读取 Clock 系统变量。
+
+```go
+c, err := svm.Clock()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("slot=%d epoch=%d unix=%d", c.Slot, c.Epoch, c.UnixTimestamp)
+```
+
+### SetClock
+
+```go
+func (s *LiteSVM) SetClock(c Clock) error
+```
+
+覆写 Clock 系统变量。当需要控制 `Epoch` 或 `UnixTimestamp`（`WarpToSlot` 不会更新这两个字段）时，先读取、修改字段，再写回。
+
+```go
+c, err := svm.Clock()
+if err != nil {
+    t.Fatal(err)
+}
+c.Slot = 1_000
+c.Epoch = 10
+c.UnixTimestamp = 1_735_689_600
+if err := svm.SetClock(c); err != nil {
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  `WarpToSlot` 仅更新 `Slot`。若程序需要从 Clock 系统变量中读取
+  `Epoch` 或 `UnixTimestamp`，请使用 `SetClock`。
+</Callout>
+
+## Rent
+
+### Rent / SetRent
+
+```go
+type Rent struct {
+    LamportsPerByteYear uint64
+    ExemptionThreshold  float64
+    BurnPercent         uint8
+}
+
+func (s *LiteSVM) Rent() (Rent, error)
+func (s *LiteSVM) SetRent(r Rent) error
+```
+
+```go
+r, err := svm.Rent()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("lamports/byte-year: %d", r.LamportsPerByteYear)
+t.Logf("exemption threshold: %.2f", r.ExemptionThreshold)
+t.Logf("burn percent: %d", r.BurnPercent)
+```
+
+### MinimumBalanceForRentExemption
+
+```go
+func (s *LiteSVM) MinimumBalanceForRentExemption(dataLen int) (uint64, error)
+```
+
+```go
+for _, size := range []int{0, 100, 1024} {
+    min, err := svm.MinimumBalanceForRentExemption(size)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("%4d bytes -> %d lamports", size, min)
+}
+```
+
+## Epoch Schedule
+
+```go
+type EpochSchedule struct {
+    SlotsPerEpoch            uint64
+    LeaderScheduleSlotOffset uint64
+    Warmup                   bool
+    FirstNormalEpoch         uint64
+    FirstNormalSlot          uint64
+}
+
+func (s *LiteSVM) EpochSchedule() (EpochSchedule, error)
+func (s *LiteSVM) SetEpochSchedule(e EpochSchedule) error
+```
+
+```go
+es, err := svm.EpochSchedule()
+if err != nil {
+    t.Fatal(err)
+}
+t.Logf("slots per epoch: %d", es.SlotsPerEpoch)
+t.Logf("first normal epoch: %d", es.FirstNormalEpoch)
+t.Logf("first normal slot:  %d", es.FirstNormalSlot)
+```
+
+## Epoch Rewards
+
+```go
+type EpochRewards struct {
+    DistributionStartingBlockHeight uint64
+    NumPartitions                   uint64
+    ParentBlockhash                 solana.Hash
+    TotalPointsLo                   uint64 // low 64 bits of the u128 total_points
+    TotalPointsHi                   uint64 // high 64 bits
+    TotalRewards                    uint64
+    DistributedRewards              uint64
+    Active                          bool
+}
+
+func (s *LiteSVM) EpochRewards() (EpochRewards, error)
+func (s *LiteSVM) SetEpochRewards(e EpochRewards) error
+```
+
+`total_points` 在 Solana 端为 `u128` 类型；`litesvm-go` 将其拆分为高低两部分显式暴露，使 Go 调用方无需引入 u128 库。对于能放入 64 位的值，`TotalPointsHi` 为 `0`，`TotalPointsLo` 即为该值。
+
+## Slot 信息
+
+### LastRestartSlot / SetLastRestartSlot
+
+```go
+func (s *LiteSVM) LastRestartSlot() (uint64, error)
+func (s *LiteSVM) SetLastRestartSlot(slot uint64) error
+```
+
+```go
+last, err := svm.LastRestartSlot()
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.SetLastRestartSlot(last + 1); err != nil {
+    t.Fatal(err)
+}
+```
+
+### SlotHashes / SetSlotHashes
+
+```go
+type SlotHash struct {
+    Slot uint64
+    Hash solana.Hash
+}
+
+func (s *LiteSVM) SlotHashes() ([]SlotHash, error)
+func (s *LiteSVM) SetSlotHashes(items []SlotHash) error
+```
+
+### SlotHistory
+
+`SlotHistory` 是一个约 128 KB 的位向量；`litesvm-go` 将其作为句柄而非切片暴露。
+
+```go
+sh, err := litesvm.NewSlotHistory()
+if err != nil {
+    t.Fatal(err)
+}
+defer sh.Close()
+
+sh.Add(42)
+
+switch sh.Check(42) {
+case litesvm.SlotHistoryFound:
+    // ...
+case litesvm.SlotHistoryNotFound:
+    // ...
+case litesvm.SlotHistoryTooOld:
+    // ...
+case litesvm.SlotHistoryFuture:
+    // ...
+}
+
+if err := svm.SetSlotHistory(sh); err != nil {
+    t.Fatal(err)
+}
+```
+
+| 方法                                           | 描述                                |
+| ------------------------------------------------ | ------------------------------------------ |
+| `litesvm.NewSlotHistory() (*SlotHistory, error)` | 空句柄                               |
+| `sh.Add(slot uint64)`                            | 记录一个 slot                              |
+| `sh.Check(slot uint64) SlotHistoryCheck`         | `Future` / `TooOld` / `Found` / `NotFound` |
+| `sh.Oldest() uint64`                             | 已追踪的最旧 slot                        |
+| `sh.Newest() uint64`                             | 已追踪的最新 slot                        |
+| `sh.NextSlot() uint64`                           | 下一个待记录的 slot                        |
+| `sh.SetNextSlot(slot uint64) error`              | 覆盖下一 slot 标记              |
+| `sh.Close()`                                     | 释放句柄                         |
+| `svm.SlotHistory() (*SlotHistory, error)`        | 读取到新句柄                   |
+| `svm.SetSlotHistory(*SlotHistory) error`         | 安装到 SVM                         |
+
+## 质押历史
+
+```go
+type StakeHistoryItem struct {
+    Epoch        uint64
+    Effective    uint64
+    Activating   uint64
+    Deactivating uint64
+}
+
+func (s *LiteSVM) StakeHistory() ([]StakeHistoryItem, error)
+func (s *LiteSVM) SetStakeHistory(items []StakeHistoryItem) error
+```
+
+## 测试时间相关逻辑
+
+使用 `WarpToSlot` 进行基于 slot 的简单推进，使用 `SetClock` 实现完全控制：
+
+```go
+func TestTimeLockedVault(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    const unlockSlot = uint64(10_000)
+
+    // Setup: create the time-locked account ...
+
+    // Test 1: Try to withdraw before unlock (should fail)
+    before, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("current slot: %d", before.Slot)
+    // ... attempt withdrawal, expect failure ...
+
+    // Warp time forward past unlock slot
+    if err := svm.WarpToSlot(unlockSlot + 1); err != nil {
+        t.Fatal(err)
+    }
+
+    // Test 2: Try to withdraw after unlock (should succeed)
+    after, err := svm.Clock()
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("new slot: %d", after.Slot)
+    // ... attempt withdrawal, expect success ...
+}
+```

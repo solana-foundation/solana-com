@@ -32,7 +32,6 @@ export function isThemeRoute(pathname: string | null | undefined) {
   return (
     matchesRouteSegment(pathname, "/docs") ||
     matchesRouteSegment(pathname, "/developers/cookbook") ||
-    matchesRouteSegment(pathname, "/developers/guides") ||
     matchesRouteSegment(pathname, "/developers/bootcamp")
   );
 }

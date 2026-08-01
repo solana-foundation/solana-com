@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -6,7 +7,11 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "../..");
 const configPath = path.join(rootDir, ".lingo/config.json");
+const lockPath = path.join(rootDir, ".lingo/lock.json");
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+const lock = fs.existsSync(lockPath)
+  ? JSON.parse(fs.readFileSync(lockPath, "utf8"))
+  : null;
 
 const excludedSources = new Set(
   config.files.flatMap((fileGroup) =>
@@ -61,6 +66,7 @@ function getLeafKeys(value, prefix = "") {
 }
 
 const incompleteJsonTargets = [];
+const divergentLockedTargets = [];
 
 for (const sourcePath of sourceFiles.filter((filePath) =>
   filePath.endsWith(".json"),
@@ -88,10 +94,35 @@ for (const sourcePath of sourceFiles.filter((filePath) =>
   }
 }
 
-if (missingTargets.length > 0 || incompleteJsonTargets.length > 0) {
-  console.error(
-    "Refusing to bootstrap Lingo because existing translations are incomplete.",
-  );
+if (lock) {
+  for (const sourcePath of sourceFiles) {
+    for (const targetLocale of config.targetLocales) {
+      const targetPath = getTargetPath(sourcePath, targetLocale);
+      const absoluteTargetPath = path.join(rootDir, targetPath);
+      const lockedHash = lock.files[targetPath]?.sha256;
+
+      if (!lockedHash || !fs.existsSync(absoluteTargetPath)) {
+        continue;
+      }
+
+      const localHash = crypto
+        .createHash("sha256")
+        .update(fs.readFileSync(absoluteTargetPath))
+        .digest("hex");
+
+      if (localHash !== lockedHash) {
+        divergentLockedTargets.push(targetPath);
+      }
+    }
+  }
+}
+
+if (
+  missingTargets.length > 0 ||
+  incompleteJsonTargets.length > 0 ||
+  divergentLockedTargets.length > 0
+) {
+  console.error("Lingo target coverage is incomplete.");
 
   for (const targetPath of missingTargets.slice(0, 20)) {
     console.error(`- missing file: ${targetPath}`);
@@ -113,6 +144,16 @@ if (missingTargets.length > 0 || incompleteJsonTargets.length > 0) {
   if (incompleteJsonTargets.length > 20) {
     console.error(
       `- …and ${incompleteJsonTargets.length - 20} more incomplete JSON files`,
+    );
+  }
+
+  for (const targetPath of divergentLockedTargets.slice(0, 20)) {
+    console.error(`- diverged from Lingo lock: ${targetPath}`);
+  }
+
+  if (divergentLockedTargets.length > 20) {
+    console.error(
+      `- …and ${divergentLockedTargets.length - 20} more lock divergences`,
     );
   }
 

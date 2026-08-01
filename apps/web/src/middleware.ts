@@ -14,7 +14,6 @@ export function isProxiedPath(normalizedPathname: string) {
     normalizedPathname === "/developers" ||
     normalizedPathname.startsWith("/developers/templates") ||
     normalizedPathname.startsWith("/developers/cookbook") ||
-    normalizedPathname.startsWith("/developers/guides") ||
     normalizedPathname.startsWith("/developers/bootcamp") ||
     normalizedPathname.startsWith("/docs") ||
     normalizedPathname.startsWith("/learn") ||

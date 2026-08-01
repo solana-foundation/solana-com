@@ -95,6 +95,11 @@ export const LOGOS = [
     height: "19px",
   },
   {
+    src: "/src/img/logos-eco/validation-cloud.svg",
+    alt: "Validation Cloud",
+    height: "20px",
+  },
+  {
     src: "/src/img/logos-eco/alchemy.svg",
     alt: "Alchemy",
     height: "26px",
@@ -135,6 +140,12 @@ export const NODES_LOGOS = [
     alt: "QuickNode",
     height: "19px",
     href: "https://quicknode.com",
+  },
+  {
+    src: "/src/img/logos-eco/validation-cloud.svg",
+    alt: "Validation Cloud",
+    height: "20px",
+    href: "https://validationcloud.io",
   },
 ];
 
