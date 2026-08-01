@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "@workspace/i18n/server";
 import { config } from "@/config";
 import { fetchLatestLinks } from "@/lib/media/link";
@@ -11,6 +10,7 @@ type Props = {
 };
 
 const WSOP_PATH = "/wsop";
+const WSOP_LOCALE = "en";
 const WSOP_SOCIAL_IMAGE = "/src/img/wsop/solana-wsop.jpg";
 
 type WsopContentMode = "preview" | "live";
@@ -69,10 +69,11 @@ export default async function Page({ params }: Props) {
   return <WsopPage stories={stories} />;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await params;
-  const alternates = getAlternates(WSOP_PATH, locale);
-  const t = await getTranslations({ locale, namespace: "wsop.metadata" });
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations({
+    locale: WSOP_LOCALE,
+    namespace: "wsop.metadata",
+  });
   const title = t("title");
   const description = t("description");
   const socialImageAlt = t("socialImageAlt");
@@ -82,14 +83,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       absolute: title,
     },
     description,
-    alternates,
+    alternates: {
+      canonical: WSOP_PATH,
+    },
     openGraph: {
       title,
       description,
       type: "website",
-      url: alternates.canonical,
+      url: WSOP_PATH,
       siteName: config.siteMetadata.title,
-      locale,
+      locale: WSOP_LOCALE,
       images: [
         {
           url: WSOP_SOCIAL_IMAGE,
