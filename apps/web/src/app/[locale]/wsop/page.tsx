@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getAlternates } from "@workspace/i18n/routing";
+import { getTranslations } from "@workspace/i18n/server";
 import { fetchLatestLinks } from "@/lib/media/link";
 import type { LinkItem } from "@/types/media";
 import { WsopPage } from "./wsop-page";
@@ -8,9 +9,6 @@ type Props = {
   params: Promise<{ locale: string }>;
 };
 
-const PAGE_TITLE = "Solana × World Series of Poker";
-const PAGE_DESCRIPTION =
-  "Solana is bringing instant digital buy-ins and payouts to the World Series of Poker - and crypto's biggest personalities to the feature table.";
 const SOCIAL_IMAGE = "/src/img/wsop/solana-wsop.jpg";
 
 type WsopContentMode = "preview" | "live";
@@ -19,42 +17,46 @@ type WsopContentMode = "preview" | "live";
 // published WSOP stories from apps/media/content/links.
 const WSOP_CONTENT_MODE: WsopContentMode = "live";
 
-const PREVIEW_STORIES: LinkItem[] = [
-  {
-    id: "preview-feature-table",
-    title: "Inside the WSOP: Solana Showdown feature table",
-    url: "https://x.com/solana",
-    date: "Preview",
-    source: "Preview · Solana",
-    linkType: "video",
-    thumbnailImage: "/src/img/wsop/feature-table.webp",
-  },
-  {
-    id: "preview-player-stories",
-    title: "Meet the players taking crypto to poker’s biggest stage",
-    url: "https://x.com/solana",
-    date: "Preview",
-    source: "Preview · Player stories",
-    linkType: "video",
-    thumbnailImage: "/src/img/wsop/solana-wsop.jpg",
-  },
-  {
-    id: "preview-highlights",
-    title: "Big hands and highlights from under the bright lights",
-    url: "https://x.com/solana",
-    date: "Preview",
-    source: "Preview · Highlights",
-    linkType: "video",
-    thumbnailImage: "/src/img/wsop/feature-table.webp",
-  },
-];
-
 export const revalidate = 300;
 
-export default async function Page() {
+export default async function Page({ params }: Props) {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "wsop.previewStories",
+  });
+  const previewStories: LinkItem[] = [
+    {
+      id: "preview-feature-table",
+      title: t("featureTable.title"),
+      url: "https://x.com/solana",
+      date: t("date"),
+      source: t("featureTable.source"),
+      linkType: "video",
+      thumbnailImage: "/src/img/wsop/feature-table.webp",
+    },
+    {
+      id: "preview-player-stories",
+      title: t("playerStories.title"),
+      url: "https://x.com/solana",
+      date: t("date"),
+      source: t("playerStories.source"),
+      linkType: "video",
+      thumbnailImage: "/src/img/wsop/solana-wsop.jpg",
+    },
+    {
+      id: "preview-highlights",
+      title: t("highlights.title"),
+      url: "https://x.com/solana",
+      date: t("date"),
+      source: t("highlights.source"),
+      linkType: "video",
+      thumbnailImage: "/src/img/wsop/feature-table.webp",
+    },
+  ];
   const stories =
     WSOP_CONTENT_MODE === "preview"
-      ? PREVIEW_STORIES
+      ? previewStories
       : (
           await fetchLatestLinks({
             limit: 8,
@@ -68,14 +70,15 @@ export default async function Page() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   const alternates = getAlternates("/wsop", locale);
+  const t = await getTranslations({ locale, namespace: "wsop.metadata" });
 
   return {
-    title: PAGE_TITLE,
-    description: PAGE_DESCRIPTION,
+    title: t("title"),
+    description: t("description"),
     alternates,
     openGraph: {
-      title: PAGE_TITLE,
-      description: PAGE_DESCRIPTION,
+      title: t("title"),
+      description: t("description"),
       type: "website",
       url: alternates.canonical,
       images: [
@@ -83,14 +86,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           url: SOCIAL_IMAGE,
           width: 1200,
           height: 630,
-          alt: "Solana × World Series of Poker",
+          alt: t("socialImageAlt"),
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title: PAGE_TITLE,
-      description: PAGE_DESCRIPTION,
+      title: t("title"),
+      description: t("description"),
       images: [SOCIAL_IMAGE],
     },
   };

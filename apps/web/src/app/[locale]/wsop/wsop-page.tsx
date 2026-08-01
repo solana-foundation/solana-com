@@ -32,6 +32,7 @@ import {
   WalletCards,
   Zap,
 } from "lucide-react";
+import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/app/components/ui/button";
 import type { LinkItem } from "@/types/media";
@@ -131,65 +132,25 @@ const chipVariants: Variants = {
   },
 };
 
-const marqueeLines = [
-  "Shuffle up & deal",
-  "Buy in from anywhere",
-  "Read the table",
-  "Cash out in seconds",
-  "Hold your nerve",
-  "No wires. No waiting.",
-  "Size your bets",
-  "The fastest money in the room",
+const MARQUEE_LINE_IDS = [
+  "shuffleUp",
+  "buyInAnywhere",
+  "readTable",
+  "cashOut",
+  "holdNerve",
+  "noWires",
+  "sizeBets",
+  "fastestMoney",
+] as const;
+
+const BENEFITS: Array<{ id: string; suit: Suit }> = [
+  { id: "zeroFees", suit: "spade" },
+  { id: "instantConfirmation", suit: "diamond" },
+  { id: "borderless", suit: "heart" },
+  { id: "fromWallet", suit: "club" },
 ];
 
-const benefits: Array<{
-  title: string;
-  body: string;
-  suit: Suit;
-}> = [
-  {
-    title: "Zero processing fees",
-    body: "Every crypto buy-in goes straight into play.",
-    suit: "spade",
-  },
-  {
-    title: "Instant confirmation",
-    body: "From wallet to tournament ticket in seconds.",
-    suit: "diamond",
-  },
-  {
-    title: "Borderless",
-    body: "A cleaner way for a global field to move money.",
-    suit: "heart",
-  },
-  {
-    title: "Straight from your wallet",
-    body: "Pay in SOL, USDC, or USDT.",
-    suit: "club",
-  },
-];
-
-const eventDetails: Array<{
-  label: string;
-  value: string;
-}> = [
-  {
-    label: "When",
-    value: "August 4, 2026",
-  },
-  {
-    label: "Where",
-    value: "WSOP feature table, Horseshoe Las Vegas",
-  },
-  {
-    label: "Watch",
-    value: "@Solana on X",
-  },
-  {
-    label: "Hosted by",
-    value: "2006 Main Event champion Jamie Gold",
-  },
-];
+const EVENT_DETAIL_IDS = ["when", "where", "watch", "host"] as const;
 
 const lineup: Array<{
   name: string;
@@ -254,39 +215,33 @@ const lineup: Array<{
 ];
 
 const ambassadors: Array<{
+  id: string;
   name: string;
   initials: string;
   suit: Suit;
-  title: string;
-  biography: string;
   image?: string;
   unoptimized?: boolean;
 }> = [
   {
+    id: "jamieGold",
     name: "Jamie Gold",
     initials: "JG",
     suit: "diamond",
-    title: "2006 Main Event champion",
-    biography:
-      "Winner of the 2006 WSOP Main Event, the largest in history at the time, for a record $12 million. Gold is one of poker’s biggest personalities and a defining figure of the WSOP’s original ESPN era.",
     image: "/src/img/wsop/jamie-gold.webp",
   },
   {
+    id: "michaelMizrachi",
     name: "Michael Mizrachi",
     initials: "MM",
     suit: "spade",
-    title: "The Grinder",
-    biography:
-      "The 2025 WSOP Main Event champion took down the title for $10 million. His nine bracelets include a record four Poker Players Championship wins. Inducted into the Poker Hall of Fame in 2025, his career earnings exceed $30 million.",
     image: "/src/img/wsop/michael-mizrachi.webp",
     unoptimized: true,
   },
   {
+    id: "philHellmuth",
     name: "Phil Hellmuth",
     initials: "PH",
     suit: "club",
-    title: "Solana Poker Ambassador",
-    biography: "Full ambassador profile coming soon.",
   },
 ];
 
@@ -432,11 +387,12 @@ function ArrowLink({
 }
 
 function BrandMarquee() {
+  const t = useTranslations("wsop.marquee");
   const track = (hidden: boolean) => (
     <div className="wsop-marquee__track" aria-hidden={hidden || undefined}>
-      {marqueeLines.map((line, index) => (
-        <span className="wsop-marquee__item" key={line}>
-          <span className="wsop-marquee__text">{line}</span>
+      {MARQUEE_LINE_IDS.map((id, index) => (
+        <span className="wsop-marquee__item" key={id}>
+          <span className="wsop-marquee__text">{t(id)}</span>
           <SuitIcon
             className="wsop-marquee__suit"
             suit={SUITS[index % SUITS.length]}
@@ -455,6 +411,7 @@ function BrandMarquee() {
 }
 
 function PrizeCounter() {
+  const t = useTranslations("wsop.event.ticket");
   const ref = useRef<HTMLElement>(null);
   const inView = useInView(ref, { once: true, margin: "-15% 0px" });
   const reduceMotion = useReducedMotion();
@@ -478,7 +435,7 @@ function PrizeCounter() {
   }, [inView, reduceMotion]);
 
   return (
-    <strong ref={ref} aria-label="$100K">
+    <strong ref={ref} aria-label={t("prizeAmountAria")}>
       <span aria-hidden="true">${value}K</span>
     </strong>
   );
@@ -571,6 +528,7 @@ function getStoryThumbnail(story: LinkItem) {
 }
 
 function StoryRail({ stories }: { stories: LinkItem[] }) {
+  const t = useTranslations("wsop.stories");
   const reduceMotion = useReducedMotion();
 
   if (stories.length === 0) {
@@ -585,13 +543,10 @@ function StoryRail({ stories }: { stories: LinkItem[] }) {
         />
         <div className="wsop-video-empty__wash" />
         <div className="wsop-video-empty__content">
-          <LiveChip>First deal · Aug 4</LiveChip>
-          <h3>Stories from the felt are coming.</h3>
-          <p>
-            Player reveals, table talk, and highlights will appear here as the
-            campaign rolls out.
-          </p>
-          <ArrowLink href="https://x.com/solana">Follow the action</ArrowLink>
+          <LiveChip>{t("empty.chip")}</LiveChip>
+          <h3>{t("empty.title")}</h3>
+          <p>{t("empty.description")}</p>
+          <ArrowLink href="https://x.com/solana">{t("empty.action")}</ArrowLink>
         </div>
       </div>
     );
@@ -642,7 +597,7 @@ function StoryRail({ stories }: { stories: LinkItem[] }) {
           </span>
         </div>
         <div className="wsop-video-card__copy">
-          <span>{story.source || story.linkType || "Story"}</span>
+          <span>{story.source || story.linkType || t("fallbackLabel")}</span>
           <h3>{story.title}</h3>
           <ArrowUpRight aria-hidden="true" />
         </div>
@@ -653,7 +608,7 @@ function StoryRail({ stories }: { stories: LinkItem[] }) {
   return (
     <motion.div
       className="wsop-video-rail"
-      aria-label="WSOP campaign stories"
+      aria-label={t("ariaLabel")}
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: "0px 0px -8% 0px" }}
@@ -664,7 +619,7 @@ function StoryRail({ stories }: { stories: LinkItem[] }) {
   );
 }
 
-const paymentSteps = ["Choose entry", "Review", "Confirmed"] as const;
+const PAYMENT_STEP_IDS = ["chooseEntry", "review", "confirmed"] as const;
 type PaymentStep = 0 | 1 | 2;
 
 function SolanaLogo() {
@@ -681,6 +636,11 @@ function SolanaLogo() {
 }
 
 function PaymentSimulation() {
+  const t = useTranslations("wsop.payment");
+  const paymentSteps = PAYMENT_STEP_IDS.map((id) => ({
+    id,
+    label: t(`progress.steps.${id}`),
+  }));
   const [step, setStep] = useState<PaymentStep>(0);
   const [isConfirming, setIsConfirming] = useState(false);
   const confirmationTimer = useRef<number | null>(null);
@@ -728,40 +688,36 @@ function PaymentSimulation() {
       <Reveal className="wsop-payment-demo__intro">
         <p className="wsop-eyebrow wsop-payment-demo__eyebrow">
           <SuitIcon className="wsop-payment-demo__eyebrow-suit" suit="club" />
-          <span>Payment simulator · Demo only</span>
+          <span>{t("intro.eyebrow")}</span>
         </p>
-        <h3 id="payment-demo-heading">See how easy a buy-in can be</h3>
-        <p>
-          Choose an event, review one clear payment, and preview how quickly a
-          ticket can land after approval. It’s a fast, simple look at the flow
-          from buy-in to done.
-        </p>
+        <h3 id="payment-demo-heading">{t("intro.title")}</h3>
+        <p>{t("intro.description")}</p>
         <div className="wsop-payment-demo__trust">
           <span>
             <CheckCircle2 aria-hidden="true" />
-            Two simple steps
+            {t("intro.twoSteps")}
           </span>
           <span>
             <Zap aria-hidden="true" />
-            Confirmation in moments
+            {t("intro.fastConfirmation")}
           </span>
         </div>
       </Reveal>
 
       <div className="wsop-payment-demo__device">
         <div className="wsop-payment-demo__topbar">
-          <span>WSOP LIVE</span>
+          <span>{t("topbar.product")}</span>
           <span>
             <i aria-hidden="true" />
-            Demo mode
+            {t("topbar.demoMode")}
           </span>
         </div>
 
         <ol
           className="wsop-payment-demo__progress"
-          aria-label="Payment progress"
+          aria-label={t("progress.ariaLabel")}
         >
-          {paymentSteps.map((label, index) => {
+          {paymentSteps.map(({ id, label }, index) => {
             const isComplete =
               index < step ||
               (step === paymentSteps.length - 1 && index === step);
@@ -772,7 +728,7 @@ function PaymentSimulation() {
                 className={`${isComplete ? "is-complete" : ""} ${
                   isCurrent ? "is-current" : ""
                 }`}
-                key={label}
+                key={id}
                 aria-current={isCurrent ? "step" : undefined}
               >
                 <span aria-hidden="true">
@@ -793,7 +749,9 @@ function PaymentSimulation() {
         <div className="wsop-payment-demo__notice" role="note">
           <Info aria-hidden="true" />
           <span>
-            <strong>Demo mode</strong> — no payment will be submitted.
+            {t.rich("notice", {
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </span>
         </div>
 
@@ -808,25 +766,25 @@ function PaymentSimulation() {
             {step === 0 && (
               <>
                 <div className="wsop-payment-demo__screen-heading">
-                  <span>WSOP Paradise · December 2026</span>
-                  <h4>Purchase tournament ticket</h4>
-                  <p>Review the entry, then choose how you want to pay.</p>
+                  <span>{t("entry.eyebrow")}</span>
+                  <h4>{t("entry.title")}</h4>
+                  <p>{t("entry.description")}</p>
                 </div>
 
                 <div className="wsop-payment-demo__event-card">
-                  <span>Example tournament</span>
-                  <h5>WSOP Paradise event entry</h5>
+                  <span>{t("entry.exampleLabel")}</span>
+                  <h5>{t("entry.eventName")}</h5>
                   <dl>
                     <div>
-                      <dt>Starts</dt>
-                      <dd>December 2026</dd>
+                      <dt>{t("entry.startsLabel")}</dt>
+                      <dd>{t("entry.startsValue")}</dd>
                     </div>
                     <div>
-                      <dt>Location</dt>
-                      <dd>The Bahamas</dd>
+                      <dt>{t("entry.locationLabel")}</dt>
+                      <dd>{t("entry.locationValue")}</dd>
                     </div>
                     <div>
-                      <dt>Buy-in</dt>
+                      <dt>{t("entry.buyInLabel")}</dt>
                       <dd>$500</dd>
                     </div>
                   </dl>
@@ -838,11 +796,13 @@ function PaymentSimulation() {
                       <SolanaLogo />
                     </span>
                     <span>
-                      <small>Payment method</small>
-                      <strong>Crypto on Solana</strong>
+                      <small>{t("entry.paymentMethodLabel")}</small>
+                      <strong>{t("entry.paymentMethodValue")}</strong>
                     </span>
                   </div>
-                  <span className="wsop-payment-demo__fee">No fee</span>
+                  <span className="wsop-payment-demo__fee">
+                    {t("entry.noFee")}
+                  </span>
                 </div>
 
                 <button
@@ -850,7 +810,7 @@ function PaymentSimulation() {
                   type="button"
                   onClick={() => setStep(1)}
                 >
-                  Continue with crypto
+                  {t("entry.continue")}
                   <ChevronRight aria-hidden="true" />
                 </button>
               </>
@@ -865,19 +825,19 @@ function PaymentSimulation() {
                   disabled={isConfirming}
                 >
                   <ArrowLeft aria-hidden="true" />
-                  Back
+                  {t("review.back")}
                 </button>
 
                 <div className="wsop-payment-demo__merchant">
                   <span>WSOP LLC</span>
                   <span>
                     <CheckCircle2 aria-hidden="true" />
-                    Verified
+                    {t("review.verified")}
                   </span>
                 </div>
 
                 <div className="wsop-payment-demo__amount">
-                  <span>Amount due</span>
+                  <span>{t("review.amountDue")}</span>
                   <strong>
                     $500 <small>USDC</small>
                   </strong>
@@ -886,25 +846,25 @@ function PaymentSimulation() {
                     Solana
                     <span aria-hidden="true">·</span>
                     <WalletCards aria-hidden="true" />
-                    Demo wallet
+                    {t("review.demoWallet")}
                   </div>
                 </div>
 
                 <dl className="wsop-payment-demo__summary">
                   <div>
-                    <dt>Prize pool</dt>
+                    <dt>{t("review.prizePool")}</dt>
                     <dd>$440.50</dd>
                   </div>
                   <div>
-                    <dt>Tournament fee</dt>
+                    <dt>{t("review.tournamentFee")}</dt>
                     <dd>$59.50</dd>
                   </div>
                   <div>
-                    <dt>Payment fee</dt>
+                    <dt>{t("review.paymentFee")}</dt>
                     <dd>$0</dd>
                   </div>
                   <div>
-                    <dt>Total</dt>
+                    <dt>{t("review.total")}</dt>
                     <dd>$500 USDC</dd>
                   </div>
                 </dl>
@@ -917,7 +877,7 @@ function PaymentSimulation() {
                 >
                   {isConfirming ? (
                     <>
-                      Confirming
+                      {t("review.confirming")}
                       <LoaderCircle
                         className="wsop-payment-demo__spinner"
                         aria-hidden="true"
@@ -925,7 +885,7 @@ function PaymentSimulation() {
                     </>
                   ) : (
                     <>
-                      Confirm simulated payment
+                      {t("review.confirm")}
                       <ChevronRight aria-hidden="true" />
                     </>
                   )}
@@ -947,25 +907,22 @@ function PaymentSimulation() {
                 >
                   <Check aria-hidden="true" />
                 </motion.span>
-                <span>Payment confirmed</span>
-                <h4>Your ticket is ready</h4>
-                <p>
-                  $500 USDC was simulated on Solana. In the real flow, you can
-                  now use this ticket to register for the tournament.
-                </p>
+                <span>{t("success.confirmed")}</span>
+                <h4>{t("success.title")}</h4>
+                <p>{t("success.description")}</p>
 
                 <dl className="wsop-payment-demo__receipt">
                   <div>
-                    <dt>Ticket</dt>
-                    <dd>WSOP Paradise event entry</dd>
+                    <dt>{t("success.ticketLabel")}</dt>
+                    <dd>{t("entry.eventName")}</dd>
                   </div>
                   <div>
-                    <dt>Network</dt>
+                    <dt>{t("success.networkLabel")}</dt>
                     <dd>Solana</dd>
                   </div>
                   <div>
-                    <dt>Confirmation</dt>
-                    <dd>0.8 sec</dd>
+                    <dt>{t("success.confirmationLabel")}</dt>
+                    <dd>{t("success.confirmationValue")}</dd>
                   </div>
                 </dl>
 
@@ -976,13 +933,13 @@ function PaymentSimulation() {
                     onClick={reset}
                   >
                     <RotateCcw aria-hidden="true" />
-                    Run demo again
+                    {t("success.runAgain")}
                   </button>
                   <Link
                     className="wsop-payment-demo__secondary wsop-payment-demo__secondary--wallet"
                     href="/wallets"
                   >
-                    Find a wallet
+                    {t("success.findWallet")}
                     <ArrowUpRight aria-hidden="true" />
                   </Link>
                 </div>
@@ -996,6 +953,18 @@ function PaymentSimulation() {
 }
 
 export function WsopPage({ stories }: WsopPageProps) {
+  const t = useTranslations("wsop");
+  const eventDetails = EVENT_DETAIL_IDS.map((id) => ({
+    id,
+    label: t(`event.details.${id}.label`),
+    value: t(`event.details.${id}.value`),
+  }));
+  const benefits = BENEFITS.map(({ id, suit }) => ({
+    id,
+    suit,
+    title: t(`buyIns.benefits.${id}.title`),
+    body: t(`buyIns.benefits.${id}.body`),
+  }));
   const heroRef = useRef<HTMLElement>(null);
   const reduceMotion = useReducedMotion();
   const { scrollYProgress } = useScroll({
@@ -1013,7 +982,7 @@ export function WsopPage({ stories }: WsopPageProps) {
         whileFocus={{ y: 0 }}
         transition={{ duration: 0.2, ease: EASE }}
       >
-        Skip to main content
+        {t("accessibility.skipToMain")}
       </motion.a>
 
       <main id="wsop-main">
@@ -1031,7 +1000,7 @@ export function WsopPage({ stories }: WsopPageProps) {
           >
             <Image
               src="/src/img/wsop/feature-table.webp"
-              alt="The World Series of Poker feature table, presented by Solana"
+              alt={t("accessibility.heroImageAlt")}
               fill
               priority
               sizes="100vw"
@@ -1047,8 +1016,8 @@ export function WsopPage({ stories }: WsopPageProps) {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.7, ease: EASE, delay: 0.1 }}
           >
-            <p>Solana × World Series of Poker</p>
-            <p>Official presenting sponsor · 2026</p>
+            <p>{t("hero.brand")}</p>
+            <p>{t("hero.sponsor")}</p>
           </motion.div>
 
           <motion.div
@@ -1060,12 +1029,12 @@ export function WsopPage({ stories }: WsopPageProps) {
             <motion.div variants={heroItemVariants}>
               <p className="wsop-eyebrow wsop-hero__eyebrow">
                 <SuitRun />
-                The main event
+                {t("hero.eyebrow")}
               </p>
             </motion.div>
             <div className="wsop-hero__title-mask">
               <motion.h1 id="wsop-title" variants={heroTitleVariants}>
-                Solana is upping the ante at the World Series of Poker
+                {t("hero.title")}
               </motion.h1>
             </div>
           </motion.div>
@@ -1085,7 +1054,7 @@ export function WsopPage({ stories }: WsopPageProps) {
             }
             transition={{ duration: 0.6, ease: EASE, delay: 0.55 }}
           >
-            <span>Read the story</span>
+            <span>{t("hero.readStory")}</span>
             <motion.span
               className="wsop-scroll-cue"
               aria-hidden="true"
@@ -1109,19 +1078,14 @@ export function WsopPage({ stories }: WsopPageProps) {
           aria-labelledby="event-heading"
         >
           <Reveal>
-            <SectionLabel suit="heart">WSOP: Solana Showdown</SectionLabel>
+            <SectionLabel suit="heart">{t("event.label")}</SectionLabel>
 
             <div className="wsop-section-heading wsop-event__intro">
               <div>
-                <LiveChip>One night only</LiveChip>
-                <h2 id="event-heading">Crypto hits poker’s biggest stage</h2>
+                <LiveChip>{t("event.chip")}</LiveChip>
+                <h2 id="event-heading">{t("event.title")}</h2>
               </div>
-              <p>
-                WSOP: Solana Showdown is a live-streamed invitational bringing
-                some of crypto’s biggest personalities to the bright lights of
-                the WSOP feature table - the same felt where champions are
-                crowned.
-              </p>
+              <p>{t("event.description")}</p>
             </div>
 
             <div className="wsop-event__layout">
@@ -1143,20 +1107,22 @@ export function WsopPage({ stories }: WsopPageProps) {
                   </div>
                   <p className="wsop-ticket__prize">
                     <PrizeCounter />
-                    <span>Prize Pool</span>
+                    <span>{t("event.ticket.prizePool")}</span>
                   </p>
                 </div>
 
                 <p className="wsop-ticket__bracelet">
-                  + custom Solana WSOP bracelet
+                  {t("event.ticket.bracelet")}
                 </p>
 
                 <div className="wsop-ticket__date">
-                  <span>Tournament Date:</span>
+                  <span>{t("event.ticket.dateLabel")}</span>
                   <span className="wsop-ticket__pen" aria-hidden="true">
                     804-8
                   </span>
-                  <time dateTime="2026-08-04">8/4/2026</time>
+                  <time dateTime="2026-08-04">
+                    {t("event.ticket.dateValue")}
+                  </time>
                 </div>
 
                 <div className="wsop-ticket__scan">
@@ -1165,17 +1131,17 @@ export function WsopPage({ stories }: WsopPageProps) {
                 </div>
 
                 <div className="wsop-ticket__bottomline">
-                  <span>Solana Showdown</span>
-                  <span>Buy-in</span>
-                  <span>Invite only</span>
+                  <span>{t("event.ticket.name")}</span>
+                  <span>{t("event.ticket.buyIn")}</span>
+                  <span>{t("event.ticket.inviteOnly")}</span>
                 </div>
               </motion.div>
 
               <Stagger className="wsop-event__details">
-                {eventDetails.map(({ label, value }) => (
+                {eventDetails.map(({ id, label, value }) => (
                   <motion.div
                     className="wsop-detail"
-                    key={label}
+                    key={id}
                     variants={staggerItemVariants}
                   >
                     <span>{label}</span>
@@ -1187,8 +1153,8 @@ export function WsopPage({ stories }: WsopPageProps) {
 
             <div className="wsop-lineup">
               <div>
-                <p className="wsop-eyebrow">At the table</p>
-                <h3>Nine seats. No easy hands.</h3>
+                <p className="wsop-eyebrow">{t("lineup.eyebrow")}</p>
+                <h3>{t("lineup.title")}</h3>
               </div>
               <motion.ol
                 initial="hidden"
@@ -1233,12 +1199,9 @@ export function WsopPage({ stories }: WsopPageProps) {
             </div>
 
             <div className="wsop-event__cta">
-              <p>
-                Follow @Solana on X for the full lineup and to watch the stream
-                live.
-              </p>
+              <p>{t("lineup.description")}</p>
               <ArrowLink href="https://x.com/solana">
-                Watch on @Solana
+                {t("lineup.action")}
               </ArrowLink>
             </div>
           </Reveal>
@@ -1249,16 +1212,11 @@ export function WsopPage({ stories }: WsopPageProps) {
           aria-labelledby="ambassadors-heading"
         >
           <Reveal>
-            <SectionLabel suit="club">The ambassadors</SectionLabel>
+            <SectionLabel suit="club">{t("ambassadors.label")}</SectionLabel>
 
             <div className="wsop-section-heading wsop-ambassadors__heading">
-              <h2 id="ambassadors-heading">
-                Introducing Solana’s Poker Ambassadors
-              </h2>
-              <p>
-                Some of poker’s biggest names will represent Solana at the WSOP
-                and beyond.
-              </p>
+              <h2 id="ambassadors-heading">{t("ambassadors.title")}</h2>
+              <p>{t("ambassadors.description")}</p>
             </div>
 
             <Stagger className="wsop-ambassadors__grid">
@@ -1290,18 +1248,20 @@ export function WsopPage({ stories }: WsopPageProps) {
                           {ambassador.initials}
                         </strong>
                         <span className="wsop-ambassador__portrait-note">
-                          Official portrait incoming
+                          {t("ambassadors.portraitIncoming")}
                         </span>
                       </>
                     )}
                   </div>
                   <div className="wsop-ambassador__copy">
                     <span>{String(index + 1).padStart(2, "0")}</span>
-                    <p>{ambassador.title}</p>
+                    <p>{t(`ambassadors.profiles.${ambassador.id}.title`)}</p>
                     <h3>{ambassador.name}</h3>
-                    <p>{ambassador.biography}</p>
+                    <p>
+                      {t(`ambassadors.profiles.${ambassador.id}.biography`)}
+                    </p>
                     <div className="wsop-ambassador__story">
-                      Solana Story episode · Coming in August
+                      {t("ambassadors.episode")}
                       <Clock3 aria-hidden="true" />
                     </div>
                   </div>
@@ -1317,32 +1277,13 @@ export function WsopPage({ stories }: WsopPageProps) {
           aria-labelledby="partnership-heading"
         >
           <Reveal>
-            <SectionLabel suit="spade">The edge</SectionLabel>
+            <SectionLabel suit="spade">{t("partnership.label")}</SectionLabel>
             <div className="wsop-partnership__grid">
-              <h2 id="partnership-heading">
-                The same instincts. A faster way to move.
-              </h2>
+              <h2 id="partnership-heading">{t("partnership.title")}</h2>
               <div className="wsop-prose wsop-partnership__copy">
-                <p>
-                  The skills that make a great poker player are the skills that
-                  make a great trader. Reading the situation, sizing your bets,
-                  holding your nerve under pressure. Solana already leads crypto
-                  by giving traders the fastest, cheapest, most reliable way to
-                  move money. Now that same edge comes to poker.
-                </p>
-                <p>
-                  Poker tournament buy-ins started as cash at the cage. Then
-                  came slow, expensive wire transfers and high-interest credit
-                  card advances. The next step is free, borderless, instant:
-                  digital buy-ins and payouts, powered by Solana.
-                </p>
-                <p>
-                  No more customs declarations at the border. No more security
-                  escort to your car after a big session. No more refreshing
-                  your bank app for days waiting on a wire. At WSOP Paradise in
-                  the Bahamas, Solana is the fastest, cleanest way to get money
-                  in and out of play.
-                </p>
+                <p>{t("partnership.paragraphs.skills")}</p>
+                <p>{t("partnership.paragraphs.history")}</p>
+                <p>{t("partnership.paragraphs.experience")}</p>
               </div>
             </div>
           </Reveal>
@@ -1353,24 +1294,18 @@ export function WsopPage({ stories }: WsopPageProps) {
           aria-labelledby="buyins-heading"
         >
           <Reveal>
-            <SectionLabel suit="diamond">
-              Buy-ins powered by Solana + MoonPay
-            </SectionLabel>
+            <SectionLabel suit="diamond">{t("buyIns.label")}</SectionLabel>
 
             <div className="wsop-section-heading wsop-buyins__heading">
-              <h2 id="buyins-heading">Fast and frictionless crypto buy-ins</h2>
-              <p>
-                This summer in Las Vegas, WSOP players bought into tournaments
-                with crypto for the first time - in seconds, through the WSOP
-                LIVE app.
-              </p>
+              <h2 id="buyins-heading">{t("buyIns.title")}</h2>
+              <p>{t("buyIns.description")}</p>
             </div>
 
             <Stagger className="wsop-benefits">
-              {benefits.map(({ title, body, suit }) => (
+              {benefits.map(({ id, title, body, suit }) => (
                 <motion.article
                   className="wsop-benefit"
-                  key={title}
+                  key={id}
                   variants={dealVariants}
                 >
                   <span
@@ -1408,30 +1343,22 @@ export function WsopPage({ stories }: WsopPageProps) {
                 variants={chipVariants}
               >
                 <div className="wsop-chip__face">
-                  <span>Next stop</span>
-                  <strong>Paradise</strong>
+                  <span>{t("next.chipLabel")}</span>
+                  <strong>{t("next.chipTitle")}</strong>
                   <small>
-                    The Bahamas
+                    {t("next.location")}
                     <br />
-                    December 2026
+                    {t("next.date")}
                   </small>
                 </div>
               </motion.div>
               <div>
-                <p className="wsop-eyebrow">What’s next</p>
-                <h3>
-                  Crypto buy-ins and payouts come to WSOP Paradise this
-                  December.
-                </h3>
-                <p>
-                  The Las Vegas pilot brought crypto buy-ins to the WSOP LIVE
-                  app for the first time. This December at WSOP Paradise, the
-                  experience expands with fast crypto buy-ins and payouts
-                  powered by Solana.
-                </p>
+                <p className="wsop-eyebrow">{t("next.eyebrow")}</p>
+                <h3>{t("next.title")}</h3>
+                <p>{t("next.description")}</p>
                 <div className="wsop-reference-links mt-6 flex flex-wrap gap-3">
                   <span className="w-full font-[var(--wsop-font-label)] text-[length:var(--wsop-label-size)] leading-[1.33] font-medium tracking-[var(--wsop-label-tracking)] text-black/60 uppercase">
-                    Get the WSOP LIVE app
+                    {t("next.download.label")}
                   </span>
                   <Button
                     asChild
@@ -1443,7 +1370,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                       href="https://apps.apple.com/us/app/wsop-live-wsop-official-app/id1660727059"
                       target="_blank"
                       rel="noreferrer"
-                      aria-label="View WSOP LIVE on the App Store (opens in a new tab)"
+                      aria-label={t("next.download.appStoreAria")}
                       whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
                       whileTap={reduceMotion ? { scale: 1 } : { scale: 0.98 }}
                       transition={{ duration: 0.2, ease: EASE }}
@@ -1460,10 +1387,10 @@ export function WsopPage({ stories }: WsopPageProps) {
                       </span>
                       <span className="grid min-w-0 gap-0.5">
                         <small className="font-[var(--wsop-font-label)] text-[0.625rem] leading-none font-medium tracking-[0.06em] text-black/60 uppercase">
-                          View on
+                          {t("next.download.viewOn")}
                         </small>
                         <strong className="font-[var(--wsop-font-sans)] text-base leading-[1.15] font-medium tracking-[-0.015em]">
-                          App Store
+                          {t("next.download.appStore")}
                         </strong>
                       </span>
                       <ArrowUpRight
@@ -1483,7 +1410,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                       href="https://play.google.com/store/apps/details?id=com.nsus.wsopplus&hl=en"
                       target="_blank"
                       rel="noreferrer"
-                      aria-label="View WSOP LIVE on Google Play (opens in a new tab)"
+                      aria-label={t("next.download.googlePlayAria")}
                       whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
                       whileTap={reduceMotion ? { scale: 1 } : { scale: 0.98 }}
                       transition={{ duration: 0.2, ease: EASE }}
@@ -1500,10 +1427,10 @@ export function WsopPage({ stories }: WsopPageProps) {
                       </span>
                       <span className="grid min-w-0 gap-0.5">
                         <small className="font-[var(--wsop-font-label)] text-[0.625rem] leading-none font-medium tracking-[0.06em] text-black/60 uppercase">
-                          View on
+                          {t("next.download.viewOn")}
                         </small>
                         <strong className="font-[var(--wsop-font-sans)] text-base leading-[1.15] font-medium tracking-[-0.015em]">
-                          Google Play
+                          {t("next.download.googlePlay")}
                         </strong>
                       </span>
                       <ArrowUpRight
@@ -1526,13 +1453,10 @@ export function WsopPage({ stories }: WsopPageProps) {
           aria-labelledby="videos-heading"
         >
           <Reveal>
-            <SectionLabel suit="spade">From the felt</SectionLabel>
+            <SectionLabel suit="spade">{t("videos.label")}</SectionLabel>
             <div className="wsop-section-heading wsop-videos__heading">
-              <h2 id="videos-heading">The hands. The people. The stories.</h2>
-              <p>
-                WSOP and poker coverage, updated automatically as the campaign
-                unfolds.
-              </p>
+              <h2 id="videos-heading">{t("videos.title")}</h2>
+              <p>{t("videos.description")}</p>
             </div>
             <StoryRail stories={stories} />
           </Reveal>
@@ -1540,26 +1464,23 @@ export function WsopPage({ stories }: WsopPageProps) {
 
         <section className="wsop-start" aria-labelledby="get-started-heading">
           <Reveal className="wsop-start__inner">
-            <SectionLabel suit="diamond">Your first hand</SectionLabel>
+            <SectionLabel suit="diamond">{t("start.label")}</SectionLabel>
             <div className="wsop-start__content">
-              <h2 id="get-started-heading">Get started with Solana</h2>
-              <p>
-                Set up a wallet, learn the basics, and be ready when the action
-                moves onchain.
-              </p>
+              <h2 id="get-started-heading">{t("start.title")}</h2>
+              <p>{t("start.description")}</p>
               <div className="wsop-start__actions">
                 <Link
                   className="wsop-button wsop-button--light"
                   href="/wallets"
                 >
-                  <span>Find a wallet</span>
+                  <span>{t("start.findWallet")}</span>
                   <ArrowUpRight aria-hidden="true" />
                 </Link>
                 <span className="wsop-coming-soon">
                   <span className="wsop-coming-soon__label">
-                    A poker player’s guide to crypto
+                    {t("start.guide")}
                   </span>
-                  <small>Coming soon</small>
+                  <small>{t("start.comingSoon")}</small>
                 </span>
               </div>
             </div>
