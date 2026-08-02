@@ -322,13 +322,30 @@ pub fn process_transfer(
     Ok(())
 }</code></pre>
       <h3>Rent and space allocation</h3>
-      <p>Solana storage is not abstracted away. Accounts must carry enough <a href="/docs/references/terminology#lamport">lamports</a>, the smallest unit of SOL, to remain <a href="/docs/references/terminology#rent-exempt">rent-exempt</a>. Rent exemption means the account has the minimum balance required to stay onchain for its allocated data size, and you must allocate enough space up front for the layout you intend to store.</p>
+      <p>Solana storage is not abstracted away. Accounts must carry enough <a href="/docs/references/terminology#lamport">lamports</a>, the smallest unit of SOL, to remain <a href="/docs/references/terminology#rent-exempt">rent-exempt</a>. Rent exemption means the account has the minimum balance required to stay onchain for its allocated data size, and you must allocate enough space up front for the layout you intend to store. Despite the name, rent is a refundable deposit, not a fee: the lamports sit escrowed in the account to hold its state and come back in full when the account is closed.</p>
+      <p>The CLI prints the deposit for any data size — here 49 bytes, the 8-byte discriminator plus <code>UserBalance::INIT_SPACE</code>:</p>
+      <pre><code class="language-bash">solana rent 49 -um
+# Rent-exempt minimum: 0.00123192 SOL</code></pre>
       <pre><code class="language-rust">#[account(
     init,
     payer = user,
     space = 8 + UserBalance::INIT_SPACE,
 )]
 pub user_balance: Account&lt;'info, UserBalance&gt;</code></pre>
+      <p>The same allocation in Pinocchio is an explicit system-program CPI: read the rent sysvar, compute the minimum balance for the space, and create the account with your program as its owner.</p>
+      <pre><code class="language-rust">use pinocchio::sysvars::{rent::Rent, Sysvar};
+use pinocchio_system::instructions::CreateAccount;
+
+let lamports = Rent::get()?.try_minimum_balance(space)?;
+
+CreateAccount {
+    from: payer,
+    to: user_balance,
+    lamports,
+    space: space as u64,
+    owner: program_id,
+}
+.invoke()?;</code></pre>
       <p>In Anchor, the leading 8 bytes are the account discriminator, a type identifier Anchor writes before the account data so it can reject the wrong account type. In Pinocchio or other lower-level frameworks, you define and validate the binary layout yourself. Variable-length fields such as strings and vectors require explicit sizing discipline either way.</p>
       <pre><code class="language-rust">#[account]
 #[derive(InitSpace)]
@@ -338,7 +355,7 @@ pub struct Metadata {
     #[max_len(200)]
     pub uri: String,
 }</code></pre>
-      <p>If you may add fields later, either pre-allocate spare space up front or plan a <a href="/docs/core/accounts/modification-rules"><code>realloc</code></a> or migration path.</p>
+      <p>If you may add fields later, either pre-allocate spare space up front or plan a <a href="/docs/core/accounts/modification-rules"><code>realloc</code></a> or migration path — the <a href="https://github.com/solana-developers/program-examples/tree/main/basics/realloc" target="_blank" rel="noreferrer">realloc program example</a> shows the resize flow.</p>
       <p>Reallocation changes an existing account's data length, but it has runtime limits and may require extra lamports to keep the account rent-exempt. Existing Solana accounts do not automatically grow the way contract-local storage feels like it does in CosmWasm.</p>
     `,
   },
