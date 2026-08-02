@@ -80,6 +80,7 @@ export const RUNBOOK_SECTIONS = [
     tone: "default",
     html: `
       <h2>1. Why Solana Is a Good Fit</h2>
+      <p><strong>Prerequisite:</strong> this runbook covers the operational side of retiring an app chain and relaunching on Solana. The code-level work of rewriting CosmWasm contracts as Solana programs is covered in the <a href="/developers/migrate-to-solana/cosmos/cosmwasm">CosmWasm migration guide</a> — read that first, because the phases below assume the contract rewrite is planned or underway.</p>
       <p>Do not start a migration because another team did. The strongest reason to choose Solana is that the network already operates at the scale most app chains are working toward:</p>
       <ul>
         <li><strong>Secure:</strong> one globally distributed validator set secures every program, so your team inherits deep shared security instead of operating its own validators.</li>
