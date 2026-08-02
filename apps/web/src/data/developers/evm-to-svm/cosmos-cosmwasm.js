@@ -557,6 +557,19 @@ pub enum CounterInstruction {
     Increment,
     Reset { value: i64 },
 }</code></pre>
+      <h4>Deserialization</h4>
+      <p>Deserialization mirrors this on both sides of the RPC boundary. Inside the program, Anchor's <code>Account&lt;'info, T&gt;</code> checks the discriminator and borsh-decodes the bytes before your handler runs, so deserialization is part of account validation. In Pinocchio or native code you do it yourself, either with borsh's <code>try_from_slice</code> or by reinterpreting raw bytes against a <code>#[repr(C)]</code> layout the way the State section's <code>try_from_bytes</code> example does.</p>
+      <p>On the client, account data comes back from the RPC as raw bytes and must be decoded against the same layout. Anchor clients decode through the IDL (<code>program.account.userBalance.fetch(pda)</code>); Kit clients compose the layout from the same <a href="https://github.com/anza-xyz/kit#codecs" target="_blank" rel="noreferrer">codecs</a> used for encoding, and <a href="https://github.com/codama-idl/codama" target="_blank" rel="noreferrer">Codama</a> can generate these decoders from your IDL.</p>
+      <pre><code class="language-typescript">import { getAddressCodec, getStructCodec, getU64Codec, getU8Codec } from "@solana/kit";
+
+const userBalanceCodec = getStructCodec([
+  ["owner", getAddressCodec()],
+  ["amount", getU64Codec()],
+  ["bump", getU8Codec()],
+]);
+
+// Skip Anchor's 8-byte account discriminator, then decode the layout.
+const state = userBalanceCodec.decode(accountData.slice(8));</code></pre>
     `,
   },
   {
@@ -627,6 +640,7 @@ svm.add_program_from_file(PROGRAM_ID, "target/deploy/counter.so")?;</code></pre>
         <li><code>litesvm-token</code>: helpers for SPL token mint, account, and transfer scenarios.</li>
         <li><code>anchor-litesvm</code>: Anchor-aware helpers when your program and accounts use Anchor types and patterns.</li>
       </ul>
+      <p>For working references: every project in the <a href="https://github.com/solana-developers/program-examples" target="_blank" rel="noreferrer">program-examples repository</a> ships a test suite alongside each framework implementation, and LiteSVM's own <a href="https://github.com/LiteSVM/litesvm/tree/master/crates/litesvm/tests" target="_blank" rel="noreferrer">test directory</a> shows the harness exercised end to end.</p>
       <h3>Surfpool</h3>
       <pre><code class="language-bash">surfpool start</code></pre>
       <p><a href="https://docs.surfpool.run/" target="_blank" rel="noreferrer">Surfpool</a> is useful when you want a validator-like local environment with RPC workflows, debugger-style inspection, and on-demand access to cluster state. A local validator environment gives you a private Solana cluster for integration testing without relying on devnet or mainnet RPC. See also the <a href="https://github.com/solana-foundation/surfpool" target="_blank" rel="noreferrer">Surfpool GitHub repository</a>.</p>
