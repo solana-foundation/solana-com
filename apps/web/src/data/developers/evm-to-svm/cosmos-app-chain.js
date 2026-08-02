@@ -516,7 +516,7 @@ pub struct VestingSchedule {
       </div>
       <h3>Migration portal requirements</h3>
       <ul>
-        <li>Connect Cosmos and Solana wallets in the same flow.</li>
+        <li>Connect Cosmos and Solana wallets in the same flow. On the Solana side, <a href="https://github.com/anza-xyz/wallet-adapter" target="_blank" rel="noreferrer">wallet-adapter</a> is the established React integration, and the <a href="https://github.com/anza-xyz/kit/tree/main/examples/react-app" target="_blank" rel="noreferrer">@solana/kit react-app example</a> shows a complete connect and sign-in flow built on the newer wallet-standard hooks.</li>
         <li>Show eligibility and claimable amount from the canonical snapshot.</li>
         <li>Support your chosen architecture: mapping-only, one-way bridge, or post-snapshot claim.</li>
         <li>Provide status tracking, transaction signatures, and a user-visible audit trail.</li>
