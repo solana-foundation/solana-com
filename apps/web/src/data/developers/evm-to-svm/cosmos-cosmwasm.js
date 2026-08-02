@@ -482,6 +482,7 @@ invoke_signed(
         </table>
       </div>
       <p>An <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">Associated Token Account (ATA)</a> is the conventional token account address for a wallet and mint. It is derived deterministically, which lets clients find or create the expected token account without asking users to manage token-account addresses directly.</p>
+      <p>One difference that catches Cosmos developers: a bank send credits any address implicitly, but an SPL transfer fails unless the recipient's token account has already been initialized. Create the ATA before transferring — anyone can pay to create one for any wallet, and idempotent creation (the ATA program's create-idempotent instruction, or Anchor's <code>init_if_needed</code> constraint) makes it safe to include in every transfer flow.</p>
       <p>A vault token account is a normal token account whose authority is a PDA instead of a user's wallet. Your program can move tokens out of that vault only when it proves the PDA seeds to the runtime with <code>invoke_signed</code> or Anchor's signer-seed helpers.</p>
     `,
   },
