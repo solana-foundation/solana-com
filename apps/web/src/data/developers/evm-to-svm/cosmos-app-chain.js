@@ -279,6 +279,19 @@ pub struct ClaimStatus {
     ctx.accounts.claim_status.claimed = true;
     Ok(())
 }</code></pre>
+      <p><code>transfer_from_vault</code> is where a <a href="/docs/core/cpi">Cross Program Invocation (CPI)</a> happens: the claim program calls the SPL Token program to move tokens from the vault into the claimant's token account. Because the vault authority is a PDA, the program signs that CPI with the authority's seeds instead of a private key. In Anchor the transfer looks like this:</p>
+      <pre><code class="language-rust">token::transfer(
+    CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        token::Transfer {
+            from: ctx.accounts.vault.to_account_info(),
+            to: ctx.accounts.recipient_token_account.to_account_info(),
+            authority: ctx.accounts.vault_authority.to_account_info(),
+        },
+        &amp;[&amp;[b"vault_authority", &amp;[ctx.bumps.vault_authority]]],
+    ),
+    amount,
+)?;</code></pre>
       <p>If per-claim rent matters at your scale, a rent-free variant tracks spent claims in Merkle state instead of in receipt accounts. Each claim submits an exclusion proof that its leaf is not yet in a stored spent-claims root plus the updated root that includes it, the program verifies both against the same sibling path, and then swaps the root in place. The Solana Foundation's <a href="https://github.com/solana-foundation/solana-private-channels/blob/main/private-channel-escrow-program/program/src/processor/release_funds.rs" target="_blank" rel="noreferrer">private-channel escrow program</a> implements this pattern with a sparse Merkle tree. It is cheaper to administer and removes the rent barrier for claimants, in exchange for serializing claims on the root account and requiring your proof service to track the evolving spent set.</p>
       <h3>Why this architecture is usually better</h3>
       <ul>
@@ -508,50 +521,7 @@ pub struct VestingSchedule {
         <li>Support your chosen architecture: mapping-only, one-way bridge, or post-snapshot claim.</li>
         <li>Provide status tracking, transaction signatures, and a user-visible audit trail.</li>
       </ul>
-      <p>The Rust example below is an Anchor-style claim instruction. It uses a <a href="/docs/core/cpi">Cross Program Invocation (CPI)</a>, which is how one Solana program calls another, to ask the SPL Token program to transfer tokens from the vault into the user's token account. The vault authority is a <a href="/docs/core/pda">PDA</a>, so the claim program can sign for the vault without holding a private key.</p>
-      <pre><code class="language-rust">#[program]
-pub mod migration_claim {
-    use super::*;
-
-    pub fn claim(ctx: Context&lt;Claim&gt;) -&gt; Result&lt;()&gt; {
-        let claim_record = &amp;mut ctx.accounts.claim_record;
-        require!(!claim_record.claimed, ClaimError::AlreadyClaimed);
-
-        let amount = claim_record.amount;
-        claim_record.claimed = true;
-
-        token::transfer(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                token::Transfer {
-                    from: ctx.accounts.vault.to_account_info(),
-                    to: ctx.accounts.recipient_token_account.to_account_info(),
-                    authority: ctx.accounts.vault_authority.to_account_info(),
-                },
-                &[&amp;[b"vault_authority", &[ctx.bumps.vault_authority]]],
-            ),
-            amount,
-        )?;
-
-        Ok(())
-    }
-}</code></pre>
-      <pre><code class="language-typescript">for (const [cosmosAddr, { solanaAddr, amount }] of Object.entries(snapshot)) {
-  const recipientPubkey = new PublicKey(solanaAddr);
-  const [claimPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("claim"), recipientPubkey.toBuffer()],
-    CLAIM_PROGRAM_ID
-  );
-
-  await program.methods
-    .initializeClaim(new anchor.BN(amount))
-    .accounts({
-      payer: teamWallet.publicKey,
-      claimRecord: claimPda,
-      recipient: recipientPubkey,
-    })
-    .rpc();
-}</code></pre>
+      <p>The portal is the frontend over the claim program from <a href="#token-migration-architecture">Token Migration Architecture</a>: it looks up the user's leaf in the published claims file, fetches the Merkle proof, submits the claim transaction, and surfaces the resulting signature as the audit trail.</p>
       <h3>Exchange coordination</h3>
       <p>Custodial platforms need the new mint address, conversion ratio, cutover date, test transaction, and a real technical contact. Large exchanges usually need more notice than your community does.</p>
     `,
