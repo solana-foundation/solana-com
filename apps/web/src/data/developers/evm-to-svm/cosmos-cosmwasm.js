@@ -360,14 +360,62 @@ pub struct Metadata {
     `,
   },
   {
-    id: "token-handling",
-    navLabel: "6. Tokens",
+    id: "cross-program",
+    navLabel: "6. CPIs",
     tone: "phase",
     html: `
-      <h2>6. Token Handling: Bank Module / CW20 vs SPL Tokens</h2>
+      <h2>6. Cross-Contract Communication: Sub-Messages vs CPIs</h2>
+      <p>CosmWasm composes contracts through asynchronous messages. Solana composes programs through synchronous <a href="/docs/core/cpi">cross-program invocations (CPIs)</a>. A CPI is one Solana program calling an instruction on another program during the same transaction.</p>
+      <h4>Compare contract calls:</h4>
+      <pre><code class="language-rust">let exec = WasmMsg::Execute {
+    contract_addr: pool_contract.to_string(),
+    msg: to_json_binary(&amp;PoolExecuteMsg::Swap { amount_in, min_amount_out })?,
+    funds: coins(amount_in.u128(), "uatom"),
+};
+
+let sub_msg = SubMsg::reply_on_success(exec, SWAP_REPLY_ID);
+Ok(Response::new().add_submessage(sub_msg))</code></pre>
+      <pre><code class="language-rust">let cpi_ctx = CpiContext::new(
+    ctx.accounts.pool_program.to_account_info(),
+    pool_program::cpi::accounts::Swap {
+        pool: ctx.accounts.pool.to_account_info(),
+        user_src: ctx.accounts.user_src.to_account_info(),
+        user_dst: ctx.accounts.user_dst.to_account_info(),
+        authority: ctx.accounts.user.to_account_info(),
+    },
+);
+
+pool_program::cpi::swap(cpi_ctx, amount_in, min_amount_out)?;</code></pre>
+      <div class="tw-overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>CosmWasm</th>
+              <th>Solana</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Execution</td><td>Asynchronous message queue</td><td>Synchronous call stack</td></tr>
+            <tr><td>Return values</td><td>Observed through <code>reply</code></td><td>Available immediately</td></tr>
+            <tr><td>Accounts known up front</td><td>No</td><td>Yes, across the whole call chain</td></tr>
+            <tr><td>Nesting limit</td><td>Flexible application-level design</td><td><a href="/docs/core/cpi/cpi-cost-model">CPI depth is limited</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Practical consequence: on Solana, the caller must gather every account the entire CPI chain will need and include them in the transaction.</p>
+      <p>Account privileges such as signer and writable status flow from caller to callee, so a callee cannot use an account with privileges the original transaction did not grant. The reward is a more predictable execution surface.</p>
+    `,
+  },
+  {
+    id: "token-handling",
+    navLabel: "7. Tokens",
+    tone: "phase",
+    html: `
+      <h2>7. Token Handling: Bank Module / CW20 vs SPL Tokens</h2>
       <p>CosmWasm splits native-denom flows and CW20 flows. Solana standardizes fungible tokens around the <a href="/docs/tokens">SPL Token program</a>, where a mint account defines a token and token accounts hold balances for one owner and one mint.</p>
       <p>SOL itself moves through the <a href="/docs/core/programs/builtin-programs#the-system-program">System Program</a>, the built-in program that creates accounts, transfers SOL, allocates data, and assigns ownership.</p>
-      <p>Two terms show up throughout the Solana examples: a <a href="/docs/core/cpi">CPI</a> is a program-to-program call made during the same transaction, and an <a href="/docs/references/terminology#authority">authority</a> is the account or PDA that a program recognizes as allowed to perform an action such as transferring tokens, minting tokens, or changing settings.</p>
+      <p>Every Solana snippet below is a <a href="/docs/core/cpi">CPI</a> from the previous section into the System or Token Program. The other term to know is <a href="/docs/references/terminology#authority">authority</a>: the account or PDA that a program recognizes as allowed to perform an action such as transferring tokens, minting tokens, or changing settings.</p>
       <p>The examples below cover the three common transfer cases: moving SOL with the System Program, moving SPL tokens with the Token Program, and moving tokens from a program-controlled vault by signing with PDA seeds.</p>
       <h4>Compare token handling:</h4>
       <pre><code class="language-rust">let payment = info.funds.iter()
@@ -483,55 +531,7 @@ invoke_signed(
       </div>
       <p>An <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">Associated Token Account (ATA)</a> is the conventional token account address for a wallet and mint. It is derived deterministically, which lets clients find or create the expected token account without asking users to manage token-account addresses directly.</p>
       <p>One difference that catches Cosmos developers: a bank send credits any address implicitly, but an SPL transfer fails unless the recipient's token account has already been initialized. Create the ATA before transferring — anyone can pay to create one for any wallet, and idempotent creation (the ATA program's create-idempotent instruction, or Anchor's <code>init_if_needed</code> constraint) makes it safe to include in every transfer flow.</p>
-      <p>A vault token account is a normal token account whose authority is a PDA instead of a user's wallet. Your program can move tokens out of that vault only when it proves the PDA seeds to the runtime with <code>invoke_signed</code> or Anchor's signer-seed helpers.</p>
-    `,
-  },
-  {
-    id: "cross-program",
-    navLabel: "7. CPIs",
-    tone: "phase",
-    html: `
-      <h2>7. Cross-Contract Communication: Sub-Messages vs CPIs</h2>
-      <p>CosmWasm composes contracts through asynchronous messages. Solana composes programs through synchronous <a href="/docs/core/cpi">cross-program invocations (CPIs)</a>. A CPI is one Solana program calling an instruction on another program during the same transaction.</p>
-      <h4>Compare contract calls:</h4>
-      <pre><code class="language-rust">let exec = WasmMsg::Execute {
-    contract_addr: pool_contract.to_string(),
-    msg: to_json_binary(&amp;PoolExecuteMsg::Swap { amount_in, min_amount_out })?,
-    funds: coins(amount_in.u128(), "uatom"),
-};
-
-let sub_msg = SubMsg::reply_on_success(exec, SWAP_REPLY_ID);
-Ok(Response::new().add_submessage(sub_msg))</code></pre>
-      <pre><code class="language-rust">let cpi_ctx = CpiContext::new(
-    ctx.accounts.pool_program.to_account_info(),
-    pool_program::cpi::accounts::Swap {
-        pool: ctx.accounts.pool.to_account_info(),
-        user_src: ctx.accounts.user_src.to_account_info(),
-        user_dst: ctx.accounts.user_dst.to_account_info(),
-        authority: ctx.accounts.user.to_account_info(),
-    },
-);
-
-pool_program::cpi::swap(cpi_ctx, amount_in, min_amount_out)?;</code></pre>
-      <div class="tw-overflow-x-auto">
-        <table>
-          <thead>
-            <tr>
-              <th>Dimension</th>
-              <th>CosmWasm</th>
-              <th>Solana</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>Execution</td><td>Asynchronous message queue</td><td>Synchronous call stack</td></tr>
-            <tr><td>Return values</td><td>Observed through <code>reply</code></td><td>Available immediately</td></tr>
-            <tr><td>Accounts known up front</td><td>No</td><td>Yes, across the whole call chain</td></tr>
-            <tr><td>Nesting limit</td><td>Flexible application-level design</td><td><a href="/docs/core/cpi/cpi-cost-model">CPI depth is limited</a></td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p>Practical consequence: on Solana, the caller must gather every account the entire CPI chain will need and include them in the transaction.</p>
-      <p>Account privileges such as signer and writable status flow from caller to callee, so a callee cannot use an account with privileges the original transaction did not grant. The reward is a more predictable execution surface.</p>
+      <p>A vault token account is a normal token account whose authority is a PDA instead of a user's wallet. Your program can move tokens out of that vault only when it proves the PDA seeds to the runtime with <a href="/docs/core/cpi#invoke-vs-invoke_signed"><code>invoke_signed</code></a> or Anchor's signer-seed helpers.</p>
     `,
   },
   {
