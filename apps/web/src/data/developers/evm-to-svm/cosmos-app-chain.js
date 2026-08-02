@@ -75,33 +75,21 @@ export const RUNBOOK_HIGHLIGHTS = {
 
 export const RUNBOOK_SECTIONS = [
   {
-    id: "decision-framework",
-    navLabel: "1. Decision Framework",
+    id: "why-solana",
+    navLabel: "1. Why Solana",
     tone: "default",
     html: `
-      <h2>1. Decision Framework: Is Solana the Right Destination?</h2>
-      <p>Do not start a migration because another team did. Validate that Solana fits your product better than continuing on Cosmos or moving to another environment.</p>
+      <h2>1. Why Solana Is a Good Fit</h2>
+      <p>Do not start a migration because another team did. The strongest reason to choose Solana is that the network already operates at the scale most app chains are working toward:</p>
+      <ul>
+        <li><strong>Secure:</strong> one globally distributed validator set secures every program, so your team inherits deep shared security instead of operating its own validators.</li>
+        <li><strong>100M+ quarterly active wallets:</strong> a live user base to acquire from instead of bootstrapping activity on an isolated chain.</li>
+        <li><strong>$2T annual DEX volume and $10B+ DeFi TVL:</strong> real liquidity and market structure for your token to plug into on day one.</li>
+        <li><strong>Billions of transactions per quarter at fees under $0.0025:</strong> consumer-scale activity stays affordable for users and for your own operational jobs.</li>
+        <li><strong>Mature developer ecosystem:</strong> established program frameworks, testing resources, <a href="/docs/rpc">RPC</a> providers, indexers, wallets, and payment rails.</li>
+      </ul>
+      <p>Two tradeoffs still deserve honest validation before you commit: native IBC interoperability does not carry over, so plan a bridge or protocol-specific integration, and CosmWasm contracts need a real rewrite to Solana's account model rather than a port.</p>
       <p>On Solana, a <a href="/docs/core/programs">program</a> is executable onchain code, an <a href="/docs/core/accounts">account</a> is the durable state that programs read and write, and a <a href="/docs/core/transactions">transaction</a> is the signed bundle of instructions that asks programs to do work. If that model fits your product and operations, the migration has a stronger foundation.</p>
-      <div class="tw-overflow-x-auto">
-        <table>
-          <thead>
-            <tr>
-              <th>Criterion</th>
-              <th>Questions to ask</th>
-              <th>Solana fit</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>Security</td><td>How much economic security does the destination chain have, and is it proportionate to your product?</td><td>Strong for teams that want deep shared security instead of their own validator set.</td></tr>
-            <tr><td>Liquidity</td><td>Can your token find real liquidity on major venues?</td><td>Strong DEX aggregation and active market structure.</td></tr>
-            <tr><td>Developer ecosystem</td><td>Are the tools mature enough for your roadmap?</td><td>Strong developer tooling, program frameworks, testing resources, <a href="/docs/rpc">RPC</a> providers, indexers, wallets, and payment rails.</td></tr>
-            <tr><td>User base</td><td>Do your target users already live here?</td><td>Often strong for consumer, trading, payments, and NFT-adjacent products.</td></tr>
-            <tr><td>IBC compatibility</td><td>Do you still need native Cosmos interoperability after migration?</td><td>Limited. You need bridge or custom interoperability design.</td></tr>
-            <tr><td>Smart contract model</td><td>Can the product survive a rewrite to the account model?</td><td>Good if you can re-architect around explicit accounts; poor if you need CosmWasm patterns unchanged.</td></tr>
-            <tr><td>Transaction fees</td><td>Can your users afford frequent activity?</td><td>Very low nominal fees.</td></tr>
-          </tbody>
-        </table>
-      </div>
       <h3>Architecture differences: Cosmos app chains vs Solana</h3>
       <p>Use this mapping when you are translating operational responsibilities and state architecture, not just contract code.</p>
       <div class="tw-overflow-x-auto">
