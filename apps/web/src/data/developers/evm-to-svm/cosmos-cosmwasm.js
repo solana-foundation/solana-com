@@ -235,6 +235,7 @@ fn process_instruction(
         _ =&gt; Err(ProgramError::InvalidInstructionData),
     }
 }</code></pre>
+      <p>That <code>match</code> on the first byte is Solana's replacement for CosmWasm's <code>ExecuteMsg</code> enum dispatch: instruction data begins with a discriminator that assigns the payload to a handler. In Pinocchio you define and read it yourself — here a single byte. Anchor abstracts the same mechanism: it derives an 8-byte discriminator from each handler's name and routes on it automatically, which is why the snippet below has no visible dispatch.</p>
       <pre><code class="language-rust">#[program]
 pub mod counter {
     use super::*;
