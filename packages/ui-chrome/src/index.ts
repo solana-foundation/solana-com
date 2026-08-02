@@ -21,6 +21,9 @@ export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
 export { AskSolanaButton } from "./ask-solana/ask-solana-button";
 export { AskSolanaSearchBar } from "./ask-solana/ask-solana-searchbar";
+export { AskSolanaModalHost } from "./ask-solana/modal";
+export { isAskSolanaEnabled } from "./ask-solana/flags";
+export { openAskSolana } from "./ask-solana/store";
 export {
   ASK_SOLANA_ANALYTICS_EVENT,
   trackAskSolana,

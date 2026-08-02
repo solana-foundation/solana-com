@@ -135,7 +135,7 @@ export function AskSolanaChatView({
 }) {
   const t = useTranslations();
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
-  const [input, setInput] = React.useState(initialQuery);
+  const [input, setInput] = React.useState("");
   const [isBusy, setIsBusy] = React.useState(false);
   const conversationIdRef = React.useRef<string | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
@@ -241,6 +241,16 @@ export function AskSolanaChatView({
     [isBusy, updateLastAssistant],
   );
 
+  // Entry points hand a question in via initialQuery (hero ask bar, search
+  // handoff, guided mode) — send it immediately so the answer starts
+  // without a second submit.
+  const initialSentRef = React.useRef(false);
+  React.useEffect(() => {
+    if (initialSentRef.current) return;
+    initialSentRef.current = true;
+    if (initialQuery.trim().length > 0) send(initialQuery);
+  }, [initialQuery, send]);
+
   const resetChat = () => {
     abortRef.current?.abort();
     conversationIdRef.current = null;
@@ -255,7 +265,7 @@ export function AskSolanaChatView({
       : t("askSolana.statusThinking");
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="relative z-[1] flex h-full min-h-0 flex-col">
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col justify-center gap-4">
@@ -403,7 +413,9 @@ export function AskSolanaChatView({
             aria-label={t("askSolana.send")}
             className={cn(
               "rounded-lg p-1.5 transition-all",
-              "bg-gradient-to-r from-[#9945FF] to-[#14F195] text-white",
+              // !important: the global form reset ([type="submit"] {
+              // background-image: none }) otherwise hides the gradient.
+              "!bg-gradient-to-r from-[#9945FF] to-[#14F195] text-white",
               "disabled:opacity-40",
             )}
           >

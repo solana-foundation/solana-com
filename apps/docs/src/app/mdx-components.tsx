@@ -21,6 +21,38 @@ import { ScrollyCoding } from "./components/code/scrollycoding";
 import { CodePlaceholder } from "./components/code/scrollycoding.client";
 import { SideBySide } from "./components/side-by-side";
 import { CodeReference } from "./components/code-reference";
+import {
+  AccountCard,
+  AccountRow,
+  AddressPill,
+  AnswerIntro,
+  CodeDisclosure,
+  CommandArg,
+  CommandChip,
+  CommandList,
+  CommandRow,
+  FlowConnector,
+  FlowStep,
+  FlowSteps,
+  KeyItem,
+  KeyLegend,
+  LabeledPanel,
+  ModelArrows,
+  ModelDiagram,
+  ModelEmptyState,
+  NetworkBadge,
+  PanelStack,
+  PrereqList,
+  PrereqRow,
+  ResultBanner,
+  SourceLink,
+  SourcesRow,
+  StepReturns,
+  Tok,
+  VectorAnswerCard,
+  VectorAvatar,
+  VectorSurface,
+} from "./components/vector";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -48,6 +80,39 @@ export const mdxComponents = {
   Download,
   Rocket,
   Coins,
+  // Vector design-system family (self-contained pieces; interactive
+  // orchestration like ExecuteButton wiring stays in TSX). Wrap standalone
+  // usage in <VectorSurface> so type metrics and responsive rules hold.
+  VectorSurface,
+  VectorAnswerCard,
+  VectorAvatar,
+  AnswerIntro,
+  PanelStack,
+  LabeledPanel,
+  KeyLegend,
+  KeyItem,
+  NetworkBadge,
+  FlowSteps,
+  FlowStep,
+  FlowConnector,
+  CommandChip,
+  CommandArg,
+  AddressPill,
+  StepReturns,
+  ResultBanner,
+  AccountCard,
+  AccountRow,
+  ModelDiagram,
+  ModelArrows,
+  ModelEmptyState,
+  PrereqList,
+  PrereqRow,
+  CommandList,
+  CommandRow,
+  CodeDisclosure,
+  SourcesRow,
+  SourceLink,
+  Tok,
 };
 
 function DocsKitCode(props: { codeblock: RawCode }) {

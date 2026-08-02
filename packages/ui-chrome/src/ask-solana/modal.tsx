@@ -11,6 +11,7 @@ import { X } from "react-feather";
 import { useTheme } from "../theme-provider";
 import {
   allocateHostId,
+  clearAskSolanaInitialQuery,
   closeAskSolana,
   getAskSolanaState,
   isOwnerHost,
@@ -70,6 +71,33 @@ function TabButton({
   );
 }
 
+/**
+ * Animated purple glow backdrop behind the chat thread: two large blurred
+ * Solana-purple blobs plus a smaller green accent that slowly drift and
+ * breathe (staggered 9–12s loops), echoing the glow under the launcher
+ * robot. Sits under the content (z-index 0 vs. the header/views' z-[1]),
+ * is pointer-transparent, and only renders on the dark near-black surface.
+ * Motion freezes under prefers-reduced-motion.
+ */
+const AskSolanaGlow = () => (
+  <div className="askai-glow" aria-hidden="true">
+    <style>{`
+      .askai-glow{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+      .askai-glow span{position:absolute;border-radius:50%;filter:blur(80px)}
+      .askai-glow-a{width:420px;height:420px;top:-120px;left:-120px;background:radial-gradient(circle,rgba(153,69,255,.35),transparent 70%);animation:askai-glow-a 11s ease-in-out infinite alternate}
+      .askai-glow-b{width:380px;height:380px;right:-140px;bottom:-160px;background:radial-gradient(circle,rgba(153,69,255,.3),rgba(20,241,149,.08) 55%,transparent 75%);animation:askai-glow-b 9s ease-in-out infinite alternate}
+      .askai-glow-c{width:240px;height:240px;top:-70px;right:12%;background:radial-gradient(circle,rgba(20,241,149,.15),transparent 70%);animation:askai-glow-c 12s ease-in-out infinite alternate}
+      @keyframes askai-glow-a{from{transform:translate(0,0) scale(1);opacity:.7}to{transform:translate(80px,60px) scale(1.15);opacity:1}}
+      @keyframes askai-glow-b{from{transform:translate(0,0) scale(1.1);opacity:.55}to{transform:translate(-70px,-40px) scale(.92);opacity:.9}}
+      @keyframes askai-glow-c{from{transform:translate(0,0) scale(1);opacity:.45}to{transform:translate(-50px,40px) scale(1.25);opacity:.8}}
+      @media (prefers-reduced-motion:reduce){.askai-glow span{animation:none!important}}
+    `}</style>
+    <span className="askai-glow-a" />
+    <span className="askai-glow-b" />
+    <span className="askai-glow-c" />
+  </div>
+);
+
 function AskSolanaDialog() {
   const t = useTranslations();
   const { theme } = useTheme();
@@ -79,6 +107,16 @@ function AskSolanaDialog() {
   const deepLinkQuery = searchParams.get("search")?.trim() ?? "";
   // Key the chat view so "handoff" queries from the search view re-seed it.
   const [chatSeed, setChatSeed] = React.useState({ key: 0, query: "" });
+
+  // Entry points that open straight into chat with a question (hero ask
+  // bar, guided-learning card) pass it via the store — seed the chat view
+  // from it once, then clear it so tab switches don't re-seed.
+  React.useEffect(() => {
+    if (isOpen && view === "chat" && initialQuery.trim().length > 0) {
+      setChatSeed((seed) => ({ key: seed.key + 1, query: initialQuery }));
+      clearAskSolanaInitialQuery();
+    }
+  }, [isOpen, view, initialQuery]);
 
   // ?search= deep link parity with Inkeep: any URL with a non-empty ?search=
   // opens the modal in search view, prefilled.
@@ -155,9 +193,11 @@ function AskSolanaDialog() {
             </DialogPrimitive.Description>
           </VisuallyHidden.Root>
 
+          {isDark ? <AskSolanaGlow /> : null}
+
           <div
             className={cn(
-              "flex items-center justify-between gap-2 border-b px-4 py-3",
+              "relative z-[1] flex items-center justify-between gap-2 border-b px-4 py-3",
               isDark ? "border-white/10" : "border-gray-200",
             )}
           >

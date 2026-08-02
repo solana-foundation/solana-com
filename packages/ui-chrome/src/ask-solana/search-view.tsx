@@ -72,7 +72,7 @@ export function AskSolanaSearchView({
   const trimmed = query.trim();
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="relative z-[1] flex h-full min-h-0 flex-col">
       <div
         className={cn(
           "flex items-center gap-2 border-b px-5 py-3",

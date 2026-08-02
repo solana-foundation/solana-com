@@ -41,6 +41,14 @@ export function openAskSolana(view: AskSolanaView, initialQuery = "") {
   emit();
 }
 
+/** Consume-once semantics for entry-point queries: after a view seeds
+ * itself, clear the query so tab switches don't re-seed (and wipe) it. */
+export function clearAskSolanaInitialQuery() {
+  if (!state.initialQuery) return;
+  state = { ...state, initialQuery: "" };
+  emit();
+}
+
 export function setAskSolanaView(view: AskSolanaView) {
   if (state.view === view) return;
   state = { ...state, view };
