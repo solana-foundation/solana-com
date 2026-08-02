@@ -301,10 +301,12 @@ pub struct ClaimStatus {
             <tr><td>Burn</td><td>Unclaimed balances disappear after the window.</td><td>Simple but punitive.</td></tr>
             <tr><td>Community treasury</td><td>Unclaimed balances move to multisig or DAO control.</td><td>Flexible but politically sensitive.</td></tr>
             <tr><td>Extended claim escrow</td><td>Hold balances for a longer claim period under a governed escrow.</td><td>User-friendly but more operational work.</td></tr>
+            <tr><td>Permanent program escrow</td><td>Leave unclaimed balances claimable in the program escrow forever, with no deadline.</td><td>The least hostile to users, but the "real" circulating supply stays permanently uncertain.</td></tr>
+            <tr><td>Decaying claims</td><td>Build a decay factor into the claim program: for example, 100% of the allocation for the first year, then decreasing linearly to zero by year two.</td><td>Creates urgency without a hard cliff, but adds program logic and still needs a destination for the decayed remainder.</td></tr>
           </tbody>
         </table>
       </div>
-      <p>A long escrow-based claim window is usually the least hostile choice for real users.</p>
+      <p>A long or permanent escrow-based claim window is usually the least hostile choice for real users.</p>
     `,
   },
   {
