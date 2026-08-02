@@ -123,6 +123,28 @@ export const RUNBOOK_SECTIONS = [
           </tbody>
         </table>
       </div>
+      <h3>Architecture differences: Cosmos app chains vs Solana</h3>
+      <p>Use this mapping when you are translating operational responsibilities and state architecture, not just contract code.</p>
+      <div class="tw-overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Cosmos app chain</th>
+              <th>Solana destination</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Modules and/or CosmWasm contracts</td><td>Programs</td></tr>
+            <tr><td>Module KV stores and shared chain state</td><td>Program-owned accounts and PDAs</td></tr>
+            <tr><td>Governance proposal plus chain upgrade</td><td>Governance-controlled authorities and program upgrades</td></tr>
+            <tr><td>Validator set operated by the app chain</td><td>Shared Solana validator set; app teams operate programs and off-chain services</td></tr>
+            <tr><td>Cross-module or contract invocation</td><td>CPI with explicit account metas</td></tr>
+            <tr><td>IBC interoperability</td><td>Bridge or protocol-specific cross-chain integration</td></tr>
+            <tr><td>Bech32-encoded account addresses, typically backed by secp256k1 account keys</td><td>Base58-encoded Ed25519 wallet addresses</td></tr>
+            <tr><td>Genesis export and state snapshot</td><td>Merkle roots, claim programs, and replayable migration jobs</td></tr>
+          </tbody>
+        </table>
+      </div>
     `,
   },
   {
@@ -317,11 +339,31 @@ pub struct ClaimStatus {
     `,
   },
   {
+    id: "address-linking",
+    navLabel: "6. Address Linking",
+    tone: "default",
+    html: `
+      <h2>6. Address Linking</h2>
+      <p>Cosmos users usually hold Bech32-encoded account addresses while Solana wallets use base58-encoded Ed25519 <a href="/docs/references/terminology#public-key-pubkey">public keys</a>, so the migration needs a deterministic way to link a source-chain account to a destination wallet before the claims file is final.</p>
+      <p>Keep the layers separate in your design: Bech32 is an address format, Cosmos account keys are usually secp256k1 for transaction signing, and validator consensus keys are a different identity entirely. Do not assume a validator key or node operator identity should map to a user claim.</p>
+      <h3>Recommended: pre-registration plus a carefully scoped fallback</h3>
+      <p><strong>Primary:</strong> before the snapshot, let users register their Solana address on Cosmos so the migration artifact already contains the intended destination.</p>
+      <p><strong>Fallback:</strong> if your wallet and support flows can reliably access the original Cosmos account signing key, you can offer a signature-based recovery path for users who missed pre-registration. Treat this as a recovery mechanism, not the default UX, because operational support is more complex and some users will no longer have a compatible signing flow.</p>
+      <h3>Example: preregistration record</h3>
+      <pre><code class="language-json">{
+  "cosmos_address": "osmo1...",
+  "solana_address": "7Yp...base58...",
+  "snapshot_height": 12345678,
+  "nonce": "migration-v1"
+}</code></pre>
+    `,
+  },
+  {
     id: "launching-on-solana",
-    navLabel: "6. Launching on Solana",
+    navLabel: "7. Launching on Solana",
     tone: "phase",
     html: `
-      <h2>6. Phase 3: Launching on Solana</h2>
+      <h2>7. Phase 3: Launching on Solana</h2>
       <h3>Create the SPL token</h3>
       <p>An <a href="/docs/tokens">SPL token</a> has a <a href="/docs/tokens#mint-account">mint account</a> that defines the token's decimals, supply controls, and authorities. Match the migrated token's precision deliberately, and decide whether you need the standard <a href="/docs/references/terminology#token-program">Token Program</a> or <a href="/docs/tokens/extensions">Token Extensions</a> for features such as transfer fees, metadata, or compliance controls.</p>
       <pre><code class="language-bash">solana-keygen new --outfile migration-authority.json
@@ -356,10 +398,10 @@ spl-token authorize MINT_ADDRESS freeze --disable</code></pre>
   },
   {
     id: "program-migration",
-    navLabel: "7. Programs",
+    navLabel: "8. Programs",
     tone: "phase",
     html: `
-      <h2>7. Phase 4: Smart Contract / Program Migration</h2>
+      <h2>8. Phase 4: Smart Contract / Program Migration</h2>
       <p>The contract rewrite itself is covered in the <a href="/developers/migrate-to-solana/cosmos/cosmwasm">CosmWasm migration guide</a>. Operationally, this phase is about deciding which live chain state must survive and how it will be represented as Solana accounts.</p>
       <h3>Categorize every contract and module</h3>
       <pre><code class="language-text">Category A - Migrate with state
@@ -385,15 +427,36 @@ pub struct VestingSchedule {
         <li>Export token ownership and metadata dependencies.</li>
         <li>Pick the <a href="/docs/tokens/metaplex">Solana NFT or digital-asset standard</a> before writing claim logic.</li>
         <li>Preserve provenance and identifiers intentionally where external integrations depend on them.</li>
+        <li>Create a deterministic claim or remint flow for every migrated asset, and decide early whether compressed assets fit the target product and tooling.</li>
+      </ul>
+      <h3>DeFi positions</h3>
+      <p><strong>Liquidity positions:</strong> snapshot LP balances and the asset ratios you need to honor at migration time. Decide whether users receive migrated LP positions, underlying assets, or a fresh liquidity program entry on Solana.</p>
+      <p><strong>Lending and borrowing:</strong> snapshot collateral, liabilities, and risk state. Resolve bad debt and policy exceptions before migration so you do not import insolvency into a new environment.</p>
+      <p><strong>Delegation and rewards:</strong> define how staking, pending unbonding, and accrued rewards map into the Solana-side product.</p>
+      <h3>What usually does not migrate 1:1</h3>
+      <ul>
+        <li><strong>Validator operations:</strong> your app no longer owns a dedicated validator set after the move.</li>
+        <li><strong>IBC channels and client state:</strong> these need a new cross-chain integration plan rather than a literal port.</li>
+        <li><strong>Module internals:</strong> Cosmos module parameters and store layouts rarely map cleanly into Solana account layouts.</li>
+        <li><strong>Indexer assumptions:</strong> dashboards and support tooling usually need a new read model built around Solana accounts and logs.</li>
+      </ul>
+      <h3>Solana constraints to plan around</h3>
+      <ul>
+        <li><strong>Programs are stateless:</strong> durable migration data must live in accounts, not inside the executable.</li>
+        <li><strong>Account allocation has cost:</strong> account sizing, rent, and resize strategy affect both migration design and user experience.</li>
+        <li><strong>Transaction envelopes are bounded:</strong> large claims, proof payloads, or fan-out jobs may need to be chunked across multiple instructions or batches.</li>
+        <li><strong>Compute per transaction is finite:</strong> expensive verification or multi-program flows need budgeting and profiling before production rollout.</li>
+        <li><strong>Operational jobs must be restartable:</strong> large migrations should assume retries, partial completion, and resumable execution.</li>
+        <li><strong>Read models often move off-chain:</strong> dashboards, audits, and support tools usually depend on indexed account data rather than on-chain query entrypoints.</li>
       </ul>
     `,
   },
   {
     id: "governance-migration",
-    navLabel: "8. Governance",
+    navLabel: "9. Governance",
     tone: "phase",
     html: `
-      <h2>8. Phase 5: Governance Migration</h2>
+      <h2>9. Phase 5: Governance Migration</h2>
       <p><a href="https://realms.today" target="_blank" rel="noreferrer">Realms</a> is the main DAO and treasury-management interface for Solana. It sits on top of <a href="https://github.com/solana-labs/solana-program-library/tree/master/governance" target="_blank" rel="noreferrer">SPL Governance</a>, the Solana governance program, and gives you proposal workflows, voting configuration, DAO treasuries, and governed execution for actions such as treasury transfers and <a href="/docs/core/programs/program-deployment">program upgrades</a>.</p>
       <p>If your Cosmos chain used on-chain governance for signaling, treasury control, or upgrade approval, the closest Solana-native destination is usually a Realm plus one or more governed treasuries. The migration is not one-to-one: Cosmos governance controls chain state, while Solana governance usually controls assets, program authorities, and operational workflows.</p>
       <div class="tw-overflow-x-auto">
@@ -426,10 +489,10 @@ pub struct VestingSchedule {
   },
   {
     id: "user-migration",
-    navLabel: "9. User Migration",
+    navLabel: "10. User Migration",
     tone: "phase",
     html: `
-      <h2>9. Phase 6: User Migration &amp; Communication</h2>
+      <h2>10. Phase 6: User Migration &amp; Communication</h2>
       <h3>Communication plan</h3>
       <div class="tw-overflow-x-auto">
         <table>
@@ -506,10 +569,10 @@ pub mod migration_claim {
   },
   {
     id: "decommissioning",
-    navLabel: "10. Decommissioning",
+    navLabel: "11. Decommissioning",
     tone: "phase",
     html: `
-      <h2>10. Phase 7: Decommissioning Cosmos Infrastructure</h2>
+      <h2>11. Phase 7: Decommissioning Cosmos Infrastructure</h2>
       <h3>Inventory everything first</h3>
       <p>On Solana, <a href="/docs/rpc">RPC</a> services expose account and transaction data to wallets, indexers, dashboards, and support tools. Keep enough Cosmos RPC, LCD, gRPC, and explorer infrastructure online for users to verify history while the Solana-side product becomes the source of truth.</p>
       <pre><code class="language-text">Validators:
@@ -560,10 +623,10 @@ aws s3 cp final_state_archive.json.gz s3://your-archive-bucket/</code></pre>
   },
   {
     id: "full-migration-checklist",
-    navLabel: "11. Checklist",
+    navLabel: "12. Checklist",
     tone: "success",
     html: `
-      <h2>11. Full Migration Checklist</h2>
+      <h2>12. Full Migration Checklist</h2>
       <h3>Decision and planning</h3>
       <ul>
         <li>Align internally on destination chain, migration scope, and halt window.</li>
