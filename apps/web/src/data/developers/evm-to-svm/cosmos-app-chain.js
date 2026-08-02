@@ -129,6 +129,7 @@ export const RUNBOOK_SECTIONS = [
         <li>Audit every active IBC channel and identify external relayer operators and counterparty teams.</li>
         <li>Contact major validator operators privately before the public announcement.</li>
         <li>Give listed exchanges meaningful notice before the public migration window begins.</li>
+        <li>Prepare a coordinated user communications plan: synchronized announcements across your channels plus persistent banner notifications on your site, apps, and block explorers, each linking to a canonical migration info page.</li>
         <li>Draft the governance proposal and the technical shutdown runbook in parallel.</li>
         <li>Decide what the migration portal will need to do for identity linking and claims.</li>
       </ul>
@@ -474,7 +475,7 @@ pub struct VestingSchedule {
             <tr><td>Blog post</td><td>Day 0</td><td>Full rationale, timeline, and migration mechanics</td></tr>
             <tr><td>Discord, Telegram, X</td><td>Day 0</td><td>Short-form announcement and reminder cadence</td></tr>
             <tr><td>Email</td><td>Day 0</td><td>Direct notice to known users and partners</td></tr>
-            <tr><td>In-app banner</td><td>Day 0 to halt</td><td>Persistent countdown and migration CTA</td></tr>
+            <tr><td>Site, app, and explorer banners</td><td>Day 0 to halt</td><td>Persistent countdown and a link to the canonical migration info page</td></tr>
             <tr><td>Validator and exchange outreach</td><td>Before public launch</td><td>Operational heads-up and cutover coordination</td></tr>
           </tbody>
         </table>
