@@ -75,32 +75,11 @@ export const RUNBOOK_HIGHLIGHTS = {
 
 export const RUNBOOK_SECTIONS = [
   {
-    id: "why-teams-leave",
-    navLabel: "1. Learn from other teams",
-    tone: "note",
-    html: `
-      <h2>1. Learn from other teams</h2>
-      <h4>What worked in prior migrations</h4>
-      <ul>
-        <li>One-way migration windows with a public deadline and exchange coordination created urgency and high completion rates.</li>
-        <li>Public request-for-proposal or evaluation processes gave the community a real decision framework instead of a hand-wavy announcement.</li>
-        <li>Long notice periods of 60 to 90 days reduced stranded balances and support chaos.</li>
-        <li>Archiving chain state preserved auditability and historical support data.</li>
-      </ul>
-      <h4>What failed</h4>
-      <ul>
-        <li>Short notice windows stranded meaningful supply.</li>
-        <li>Skipping exchange coordination left custodial users behind.</li>
-        <li>Teams that failed to archive state lost an authoritative record of balances and protocol history.</li>
-      </ul>
-    `,
-  },
-  {
     id: "decision-framework",
-    navLabel: "2. Decision Framework",
+    navLabel: "1. Decision Framework",
     tone: "default",
     html: `
-      <h2>2. Decision Framework: Is Solana the Right Destination?</h2>
+      <h2>1. Decision Framework: Is Solana the Right Destination?</h2>
       <p>Do not start a migration because another team did. Validate that Solana fits your product better than continuing on Cosmos or moving to another environment.</p>
       <p>On Solana, a <a href="/docs/core/programs">program</a> is executable onchain code, an <a href="/docs/core/accounts">account</a> is the durable state that programs read and write, and a <a href="/docs/core/transactions">transaction</a> is the signed bundle of instructions that asks programs to do work. If that model fits your product and operations, the migration has a stronger foundation.</p>
       <div class="tw-overflow-x-auto">
@@ -149,10 +128,10 @@ export const RUNBOOK_SECTIONS = [
   },
   {
     id: "planning-announcement",
-    navLabel: "3. Planning & Announcement",
+    navLabel: "2. Planning & Announcement",
     tone: "phase",
     html: `
-      <h2>3. Phase 0: Planning &amp; Announcement</h2>
+      <h2>2. Phase 0: Planning &amp; Announcement</h2>
       <h3>Internal alignment</h3>
       <p>Do this before any public message goes out.</p>
       <ul>
@@ -195,10 +174,10 @@ Day 180: Optional migration-claim deadline</code></pre>
   },
   {
     id: "cosmos-shutdown",
-    navLabel: "4. Cosmos Shutdown",
+    navLabel: "3. Cosmos Shutdown",
     tone: "phase",
     html: `
-      <h2>4. Phase 1: Cosmos Chain Shutdown (Technical)</h2>
+      <h2>3. Phase 1: Cosmos Chain Shutdown (Technical)</h2>
       <h3>Set the halt block height</h3>
       <p>Choose a height far enough in the future that validators, exchanges, relayers, and users can act. Every validator should configure the same halt height.</p>
       <pre><code class="language-toml"># ~/.chain/config/app.toml
@@ -255,10 +234,10 @@ The chain will halt at block HEIGHT on DATE.
   },
   {
     id: "token-migration-architecture",
-    navLabel: "5. Token Migration",
+    navLabel: "4. Token Migration",
     tone: "phase",
     html: `
-      <h2>5. Phase 2: Token Migration Architecture</h2>
+      <h2>4. Phase 2: Token Migration Architecture</h2>
       <p>For most chain shutdowns, the cleanest design is a snapshot-driven Merkle tree claimer on Solana. Instead of keeping a bridge alive after the Cosmos chain halts, you finalize balances off-chain, commit one Merkle root on Solana, fund a claim vault, and let each user prove their entitlement once.</p>
       <p>A Merkle root is a compact cryptographic commitment to the full claims file. A claim vault is a <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">token account</a> funded with the migration supply. The <a href="/docs/core/programs">claim program</a> verifies each proof, releases the right <a href="/docs/tokens">SPL token</a> amount, and records that the claim is complete. A working reference is available in the <a href="https://github.com/brimigs/cosmos-migration-guide/tree/main/example-merkle-token-claimer" target="_blank" rel="noreferrer">example Merkle token claimer</a>.</p>
       <h3>Recommended architecture: Merkle tree claimer</h3>
@@ -340,10 +319,10 @@ pub struct ClaimStatus {
   },
   {
     id: "address-linking",
-    navLabel: "6. Address Linking",
+    navLabel: "5. Address Linking",
     tone: "default",
     html: `
-      <h2>6. Address Linking</h2>
+      <h2>5. Address Linking</h2>
       <p>Cosmos users usually hold Bech32-encoded account addresses while Solana wallets use base58-encoded Ed25519 <a href="/docs/references/terminology#public-key-pubkey">public keys</a>, so the migration needs a deterministic way to link a source-chain account to a destination wallet before the claims file is final.</p>
       <p>Keep the layers separate in your design: Bech32 is an address format, Cosmos account keys are usually secp256k1 for transaction signing, and validator consensus keys are a different identity entirely. Do not assume a validator key or node operator identity should map to a user claim.</p>
       <h3>Recommended: pre-registration plus a carefully scoped fallback</h3>
@@ -360,10 +339,10 @@ pub struct ClaimStatus {
   },
   {
     id: "launching-on-solana",
-    navLabel: "7. Launching on Solana",
+    navLabel: "6. Launching on Solana",
     tone: "phase",
     html: `
-      <h2>7. Phase 3: Launching on Solana</h2>
+      <h2>6. Phase 3: Launching on Solana</h2>
       <h3>Create the SPL token</h3>
       <p>An <a href="/docs/tokens">SPL token</a> has a <a href="/docs/tokens#mint-account">mint account</a> that defines the token's decimals, supply controls, and authorities. Match the migrated token's precision deliberately, and decide whether you need the standard <a href="/docs/references/terminology#token-program">Token Program</a> or <a href="/docs/tokens/extensions">Token Extensions</a> for features such as transfer fees, metadata, or compliance controls.</p>
       <pre><code class="language-bash">solana-keygen new --outfile migration-authority.json
@@ -398,10 +377,10 @@ spl-token authorize MINT_ADDRESS freeze --disable</code></pre>
   },
   {
     id: "program-migration",
-    navLabel: "8. Programs",
+    navLabel: "7. Programs",
     tone: "phase",
     html: `
-      <h2>8. Phase 4: Smart Contract / Program Migration</h2>
+      <h2>7. Phase 4: Smart Contract / Program Migration</h2>
       <p>The contract rewrite itself is covered in the <a href="/developers/migrate-to-solana/cosmos/cosmwasm">CosmWasm migration guide</a>. Operationally, this phase is about deciding which live chain state must survive and how it will be represented as Solana accounts.</p>
       <h3>Categorize every contract and module</h3>
       <pre><code class="language-text">Category A - Migrate with state
@@ -453,10 +432,10 @@ pub struct VestingSchedule {
   },
   {
     id: "governance-migration",
-    navLabel: "9. Governance",
+    navLabel: "8. Governance",
     tone: "phase",
     html: `
-      <h2>9. Phase 5: Governance Migration</h2>
+      <h2>8. Phase 5: Governance Migration</h2>
       <p><a href="https://realms.today" target="_blank" rel="noreferrer">Realms</a> is the main DAO and treasury-management interface for Solana. It sits on top of <a href="https://github.com/solana-labs/solana-program-library/tree/master/governance" target="_blank" rel="noreferrer">SPL Governance</a>, the Solana governance program, and gives you proposal workflows, voting configuration, DAO treasuries, and governed execution for actions such as treasury transfers and <a href="/docs/core/programs/program-deployment">program upgrades</a>.</p>
       <p>If your Cosmos chain used on-chain governance for signaling, treasury control, or upgrade approval, the closest Solana-native destination is usually a Realm plus one or more governed treasuries. The migration is not one-to-one: Cosmos governance controls chain state, while Solana governance usually controls assets, program authorities, and operational workflows.</p>
       <div class="tw-overflow-x-auto">
@@ -489,10 +468,10 @@ pub struct VestingSchedule {
   },
   {
     id: "user-migration",
-    navLabel: "10. User Migration",
+    navLabel: "9. User Migration",
     tone: "phase",
     html: `
-      <h2>10. Phase 6: User Migration &amp; Communication</h2>
+      <h2>9. Phase 6: User Migration &amp; Communication</h2>
       <h3>Communication plan</h3>
       <div class="tw-overflow-x-auto">
         <table>
@@ -569,10 +548,10 @@ pub mod migration_claim {
   },
   {
     id: "decommissioning",
-    navLabel: "11. Decommissioning",
+    navLabel: "10. Decommissioning",
     tone: "phase",
     html: `
-      <h2>11. Phase 7: Decommissioning Cosmos Infrastructure</h2>
+      <h2>10. Phase 7: Decommissioning Cosmos Infrastructure</h2>
       <h3>Inventory everything first</h3>
       <p>On Solana, <a href="/docs/rpc">RPC</a> services expose account and transaction data to wallets, indexers, dashboards, and support tools. Keep enough Cosmos RPC, LCD, gRPC, and explorer infrastructure online for users to verify history while the Solana-side product becomes the source of truth.</p>
       <pre><code class="language-text">Validators:
@@ -623,10 +602,10 @@ aws s3 cp final_state_archive.json.gz s3://your-archive-bucket/</code></pre>
   },
   {
     id: "full-migration-checklist",
-    navLabel: "12. Checklist",
+    navLabel: "11. Checklist",
     tone: "success",
     html: `
-      <h2>12. Full Migration Checklist</h2>
+      <h2>11. Full Migration Checklist</h2>
       <h3>Decision and planning</h3>
       <ul>
         <li>Align internally on destination chain, migration scope, and halt window.</li>
@@ -670,6 +649,27 @@ aws s3 cp final_state_archive.json.gz s3://your-archive-bucket/</code></pre>
         <li>Monitor claim completion rate and support queues.</li>
         <li>Publish a post-migration report with totals, deadlines, and leftover policy.</li>
         <li>Retire or archive remaining Cosmos infrastructure on a public schedule.</li>
+      </ul>
+    `,
+  },
+  {
+    id: "learn-from-others",
+    navLabel: "12. Learn from other teams",
+    tone: "note",
+    html: `
+      <h2>12. Learn from other teams</h2>
+      <h4>What worked in prior migrations</h4>
+      <ul>
+        <li>One-way migration windows with a public deadline and exchange coordination created urgency and high completion rates.</li>
+        <li>Public request-for-proposal or evaluation processes gave the community a real decision framework instead of a hand-wavy announcement.</li>
+        <li>Long notice periods of 60 to 90 days reduced stranded balances and support chaos.</li>
+        <li>Archiving chain state preserved auditability and historical support data.</li>
+      </ul>
+      <h4>What failed</h4>
+      <ul>
+        <li>Short notice windows stranded meaningful supply.</li>
+        <li>Skipping exchange coordination left custodial users behind.</li>
+        <li>Teams that failed to archive state lost an authoritative record of balances and protocol history.</li>
       </ul>
     `,
   },
