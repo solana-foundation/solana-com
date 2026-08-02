@@ -194,7 +194,7 @@ tests/
     html: `
       <h2>4. Entry Points: Messages vs Instructions</h2>
       <p>CosmWasm exposes distinct entry points for different classes of work. Native Solana exposes one <a href="/docs/core/instructions">instruction</a> processor that you dispatch yourself, and Anchor rebuilds a multi-handler abstraction on top.</p>
-      <p>There is no separate instantiate step on Solana. Initialization is just another instruction, usually one that creates state accounts and derives any PDA addresses they use. Queries are <a href="/docs/rpc/http/getaccountinfo">off-chain RPC reads</a>, not on-chain handlers; clients fetch account data from an RPC node and decode it locally.</p>
+      <p>There is no separate instantiate step on Solana. Initialization is just another instruction, usually one that creates state accounts and derives any PDA addresses they use. Queries are <a href="/docs/rpc/http/getaccountinfo">off-chain RPC reads</a>, not on-chain handlers; clients fetch account data from an RPC node and decode it locally. <a href="https://github.com/anza-xyz/kit#codecs" target="_blank" rel="noreferrer">Kit's codecs</a> give TypeScript clients composable decoders for turning those raw account bytes back into structured data.</p>
       <h4>Compare the entry points:</h4>
       <pre><code class="language-rust">#[entry_point]
 pub fn instantiate(
