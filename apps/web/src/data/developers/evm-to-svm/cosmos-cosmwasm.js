@@ -109,6 +109,7 @@ export const GUIDE_SECTIONS = [
       </ul>
       <h3>Program Derived Addresses</h3>
       <p><a href="/docs/core/pda">Program Derived Addresses (PDAs)</a> are the cornerstone of Solana state management. They are deterministic, off-curve account addresses derived from seeds plus the program ID and a bump seed. "Off-curve" means no private key exists for the address, so only the deriving program can sign for it through the runtime.</p>
+      <p>One note before the first program snippet: Solana has several frameworks for writing programs. This guide's Rust examples use <a href="https://www.anchor-lang.com/docs" target="_blank" rel="noreferrer">Anchor</a>, the most widely used one, but you can also build with the lower-level <a href="https://github.com/anza-xyz/pinocchio" target="_blank" rel="noreferrer">Pinocchio</a> or with no framework at all — the <a href="#project-structure">Toolchain section</a> compares the options.</p>
       <h4>Solana PDA</h4>
       <pre><code class="language-rust">#[derive(Accounts)]
 pub struct Increment&lt;'info&gt; {
@@ -125,6 +126,14 @@ pub struct Increment&lt;'info&gt; {
       <pre><code class="language-rust">pub const USER_COUNTERS: Map&lt;&amp;Addr, u64&gt; = Map::new("user_counters");
 let count = USER_COUNTERS.load(deps.storage, &amp;info.sender)?;</code></pre>
       <p>That CosmWasm map lookup becomes <a href="/docs/core/pda/pda-derivation">PDA derivation</a> plus account deserialization on Solana. The key is the address.</p>
+      <h4>Client-side derivation</h4>
+      <p>The derivation is not program-only: any client can compute the same address off-chain and fetch the account directly, so frontends and indexers never need an on-chain registry. With <a href="https://github.com/anza-xyz/kit" target="_blank" rel="noreferrer">@solana/kit</a>, the TypeScript equivalent of the seeds above is:</p>
+      <pre><code class="language-typescript">import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+
+const [counterPda, bump] = await getProgramDerivedAddress({
+  programAddress: COUNTER_PROGRAM_ADDRESS,
+  seeds: ["counter", getAddressEncoder().encode(userAddress)],
+});</code></pre>
     `,
   },
   {
