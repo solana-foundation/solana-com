@@ -363,6 +363,8 @@ spl-token authorize MINT_ADDRESS freeze --disable</code></pre>
       <h3>Multisig, token lists, and liquidity</h3>
       <ul>
         <li>Move treasury and migration vault control to a multisig such as <a href="https://squads.xyz" target="_blank" rel="noreferrer">Squads</a>.</li>
+        <li>Bridge the treasury assets you need on day one: native USDC moves from Cosmos (Noble) to Solana through Circle's <a href="https://developers.circle.com/cctp" target="_blank" rel="noreferrer">Cross-Chain Transfer Protocol</a>, and other assets need an established bridge route you have rehearsed with a small transfer first.</li>
+        <li>Fund operational wallets with mainnet SOL for deploys, rent, and fee payers before cutover week, and review the <a href="https://solana.org/grants-funding" target="_blank" rel="noreferrer">Solana Foundation grants and funding page</a> for ecosystem support programs.</li>
         <li>Submit token metadata to the venues and registries your users will rely on.</li>
         <li>Seed at least one meaningful liquidity venue before the migration rush begins.</li>
       </ul>
