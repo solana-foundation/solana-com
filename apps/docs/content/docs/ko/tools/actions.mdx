@@ -1,0 +1,1019 @@
+---
+title: 액션과 블링크
+seoTitle: "액션과 블링크"
+description:
+  "Solana Actions are APIs that return transactions for users to preview and
+  sign. Blockchain links – or blinks – turn Actions into a shareable,
+  metadata-rich link."
+---
+
+[Solana 액션](#actions)은 QR 코드, 버튼 및 위젯, 인터넷상의 웹사이트 등 다양한 컨텍스트에서 미리보기, 서명 및 전송될 Solana 블록체인 트랜잭션을 반환하는 사양 준수 API입니다. 액션을 통해 개발자는 Solana 생태계 전반에서 수행할 수 있는 기능을 여러분의 환경에 직접 통합할 수 있으며, 다른 앱이나 웹페이지로 이동하지 않고도 블록체인 트랜잭션을 실행할 수 있습니다.
+
+[블록체인 링크](#blinks)(블링크)는 모든 Solana 액션을 공유 가능하고 메타데이터가 풍부한 링크로 변환합니다. 블링크는 액션을 인식하는 클라이언트(브라우저 확장 지갑, 봇)가 사용자에게 추가 기능을 표시할 수 있도록 합니다. 웹사이트에서 블링크는 탈중앙화 앱으로 이동하지 않고도 지갑에서 즉시 트랜잭션 미리보기를 트리거할 수 있으며, Discord에서는 봇이 블링크를 대화형 버튼 세트로 확장할 수 있습니다. 이를 통해 URL을 표시할 수 있는 모든 웹 환경에서 온체인 상호작용이 가능해집니다.
+
+## 시작하기
+
+커스텀 Solana 액션을 빠르게 시작하려면:
+
+```shell
+npm install @solana/actions
+```
+
+- 애플리케이션에 [Solana Actions SDK](https://www.npmjs.com/package/@solana/actions)를
+  설치하세요
+- 액션에 대한 메타데이터를 반환하는 [GET 요청](#get-request)용
+  API 엔드포인트를 구축하세요
+- [POST 요청](#post-request)을 수락하고 사용자가
+  서명할 수 있는 트랜잭션을 반환하는 API 엔드포인트를 생성하세요
+
+> `@solana/actions` SDK를 사용하여
+> [Solana 액션을 구축하는 방법](https://www.youtube.com/watch?v=kCht01Ycif0)에 대한
+> 동영상 튜토리얼을 확인하세요.
+>
+> 또한 네이티브 SOL 전송을 수행하는 [액션의 소스 코드](https://github.com/solana-developers/solana-actions/blob/main/examples/next-js/src/app/api/actions/transfer-sol/route.ts)와
+> [이 저장소](https://github.com/solana-developers/solana-actions/tree/main/examples)에서
+> 여러 가지 다른 예제 액션도 확인하실 수 있습니다.
+
+커스텀 Solana 액션을 프로덕션에 배포할 때:
+
+- 애플리케이션의 도메인 루트에 유효한 [actions.json 파일](#actionsjson)이
+  있는지 확인하세요
+- 애플리케이션이 모든 액션 엔드포인트(including `actions.json` 파일 포함)에서
+  [필수 Cross-Origin 헤더](#options-response)로
+  응답하는지 확인하세요
+- [블링크 인스펙터](https://www.blinks.xyz/inspector)를 사용하여
+  블링크/액션을 테스트하고 디버그하세요
+
+액션과 블링크 구축에 대한 영감을 찾고 있다면, [Awesome Blinks](https://github.com/solana-developers/awesome-blinks) 저장소에서 커뮤니티 창작물과 [새로운 아이디어](https://github.com/solana-developers/awesome-blinks/discussions/categories/ideas-for-blinks)를 확인해 보세요.
+
+## 액션
+
+Solana 액션 사양은 표준 API 세트를 사용하여 애플리케이션에서 사용자에게 직접 서명 가능한 트랜잭션(및 향후 서명 가능한 메시지)을 전달합니다. 이는 공개적으로 접근 가능한 URL에 호스팅되므로 모든 클라이언트가 URL을 통해 상호작용할 수 있습니다.
+
+> 액션을 메타데이터와 사용자가 블록체인 지갑으로 서명할 무언가
+> (트랜잭션 또는 인증 메시지)를 반환하는 API 엔드포인트로
+> 생각할 수 있습니다.
+
+액션 API는 액션의 URL 엔드포인트에 간단한 `GET` 및 `POST` 요청을 수행하고, 액션 인터페이스를 준수하는 응답을 처리하는 것으로 구성됩니다.
+
+1. [GET 요청](#get-request)은 이 URL에서 사용 가능한 액션에 대한 사람이
+   읽을 수 있는 정보와 관련 액션의 선택적 목록을 클라이언트에
+   제공하는 메타데이터를 반환합니다.
+2. [POST 요청](#post-request)은 클라이언트가 사용자의 지갑에 서명을
+   요청하고 블록체인 또는 다른 오프체인 서비스에서 실행할
+   서명 가능한 트랜잭션 또는 메시지를 반환합니다.
+
+### 액션 실행 및 생명주기
+
+실제로 액션과의 상호작용은 일반적인 REST API와의 상호작용과 매우 유사합니다:
+
+- 클라이언트는 사용 가능한 액션에 대한 메타데이터를 가져오기 위해
+  액션 URL에 초기 `GET` 요청을 수행합니다
+- 엔드포인트는 엔드포인트에 대한 메타데이터(애플리케이션 제목 및 아이콘 등)와
+  이 엔드포인트에서 사용 가능한 액션 목록을 포함한 응답을 반환합니다
+- 클라이언트 애플리케이션(모바일 지갑, 챗봇, 웹사이트 등)은
+  사용자가 액션 중 하나를 수행할 수 있는 UI를 표시합니다
+- 사용자가 액션을 선택하면(버튼 클릭 등), 클라이언트는 사용자가
+  서명할 트랜잭션을 가져오기 위해 엔드포인트에 `POST` 요청을 수행합니다
+- 지갑은 사용자가 트랜잭션에 서명하는 것을 지원하고 최종적으로
+  확인을 위해 트랜잭션을 블록체인에 전송합니다
+
+![Solana 액션 실행 및 생명주기](/assets/docs/action-execution-and-lifecycle.png)
+
+액션 URL에서 트랜잭션을 받을 때, 클라이언트는 이러한 트랜잭션의 블록체인 제출을 처리하고 상태 생명주기를 관리해야 합니다.
+
+액션은 실행 전 일부 수준의 무효화도 지원합니다. `GET` 및 `POST` 요청은 액션이 수행 가능한지 여부를 나타내는 메타데이터를 반환할 수 있습니다(`disabled` 필드 등).
+
+예를 들어, 투표 기간이 종료된 DAO 거버넌스 제안에 대한 투표를 지원하는 액션 엔드포인트가 있다면, 초기 [GET 요청](#get-request)은 "이 제안은 더 이상 투표 대상이 아닙니다"라는 오류 메시지와 "찬성" 및 "반대" 버튼을 "비활성화" 상태로 반환할 수 있습니다.
+
+## 블링크
+
+블링크(블록체인 링크)는 액션 API를 분석하고 액션과 상호작용하고 실행하기 위한 사용자 인터페이스를 구성하는 클라이언트 애플리케이션입니다.
+
+블링크를 지원하는 클라이언트 애플리케이션은 액션 호환 URL을 감지하고 파싱하여 표준화된 사용자 인터페이스에서 사용자가 상호작용할 수 있도록 합니다.
+
+> 액션 API를 완전히 분석하여 완전한 인터페이스를 구축하는 클라이언트
+> 애플리케이션이 _블링크_입니다. 따라서 액션 API를 사용하는
+> 모든 클라이언트가 블링크는 아닙니다.
+
+### 블링크 URL 사양
+
+블링크 URL은 지갑으로 서명하는 것을 포함하여 [액션 실행의 전체 생명주기](#action-execution-and-lifecycle)를 사용자가 완료할 수 있도록 하는 클라이언트 애플리케이션을 설명합니다.
+
+```text
+https://example.domain/?action=<action_url>
+```
+
+클라이언트 애플리케이션이 블링크가 되려면:
+
+- 블링크 URL은 값이 URL 인코딩된 [액션 URL](#url-scheme)인
+  `action` 쿼리 파라미터를 포함해야 합니다. 이 값은 다른 프로토콜
+  파라미터와 충돌하지 않도록 [URL 인코딩](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)되어야 합니다.
+
+- 클라이언트 애플리케이션은 `action` 쿼리 파라미터를
+  [URL 디코딩](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)하고 제공된 액션 API 링크를
+  분석해야 합니다([액션 URL 스키마](#url-scheme) 참조).
+
+- 클라이언트는 지갑으로 서명하는 것을 포함하여 사용자가 [액션 실행의
+  전체 생명주기](#action-execution-and-lifecycle)를 완료할 수 있는
+  풍부한 사용자 인터페이스를 렌더링해야 합니다.
+
+> 모든 블링크 클라이언트 애플리케이션(예: 웹사이트 또는 dApp)이 모든
+> 액션을 지원하는 것은 아닙니다. 애플리케이션 개발자는 블링크 인터페이스 내에서
+> 지원하려는 액션을 선택할 수 있습니다.
+
+다음 예시는 URL 인코딩된 `solana-action:https://actions.alice.com/donate` 값의 `action`을 포함한 유효한 블링크 URL을 보여줍니다:
+
+```text
+https://example.domain/?action=solana-action%3Ahttps%3A%2F%2Factions.alice.com%2Fdonate
+```
+
+### 블링크를 통한 액션 감지
+
+블링크는 최소 3가지 방법으로 액션에 연결될 수 있습니다:
+
+1. 명시적 액션 URL 공유:
+   `solana-action:https://actions.alice.com/donate`
+
+   이 경우 지원되는 클라이언트만 블링크를 렌더링할 수 있습니다.
+   비지원 클라이언트 외부에서 방문할 수 있는 대체 링크 미리보기나
+   사이트가 없습니다.
+
+2. 웹사이트 도메인 루트의 [`actions.json` 파일](#actionsjson)을 통해
+   액션 API에 연결된 웹사이트 링크 공유.
+
+   예를 들어, `https://alice.com/actions.json`은
+   Alice에게 기부할 수 있는 웹사이트 URL인 `https://alice.com/donate`를
+   Alice에게 기부하는 액션이 호스팅된 API URL `https://actions.alice.com/donate`에
+   매핑합니다.
+
+3. 액션을 파싱하는 방법을 이해하는 "중간" 사이트 URL에
+   액션 URL을 삽입하는 방법.
+
+   ```text
+   https://example.domain/?action=<action_url>
+   ```
+
+블링크를 지원하는 클라이언트는 위의 모든 형식을 처리하고 클라이언트에서 직접 액션을 실행할 수 있는 인터페이스를 올바르게 렌더링할 수 있어야 합니다.
+
+블링크를 지원하지 않는 클라이언트를 위해, 기본 웹사이트가 있어야 합니다(브라우저가 범용 대체 수단이 됩니다).
+
+사용자가 액션 버튼이나 텍스트 입력 필드가 아닌 클라이언트의 어느 곳을 탭하면 기본 사이트로 이동해야 합니다.
+
+### 블링크 테스트 및 검증
+
+Solana 액션과 블링크는 권한 없는 프로토콜/사양이지만, 클라이언트 애플리케이션과 지갑은 여전히 사용자가 트랜잭션에 서명할 수 있도록 지원해야 합니다.
+
+> [블링크 인스펙터](https://www.blinks.xyz/inspector) 도구를 사용하여 브라우저에서 직접
+> 블링크와 액션을 검사, 디버그, 테스트하세요. GET 및 POST 응답
+> 페이로드, 응답 헤더를 확인하고 연결된 각 액션의 모든 입력을
+> 테스트할 수 있습니다.
+
+각 클라이언트 애플리케이션이나 지갑은 소셜 미디어 플랫폼에서 자동으로 펼쳐져 사용자에게 즉시 표시될 액션 엔드포인트에 대해 서로 다른 요구사항을 가질 수 있습니다.
+
+예를 들어, 일부 클라이언트는 Dialect의 액션 레지스트리(아래에 자세히 설명)와 같이 사용자를 위해 액션을 펼치기 전에 사전 검증이 필요한 "허용 목록" 방식으로 운영될 수 있습니다.
+
+모든 블링크는 Dialect의 [dial.to](https://dial.to) 블링크 중간 사이트에서 렌더링되고 서명이 허용되며, 레지스트리 상태가 블링크에 표시됩니다.
+
+### Dialect의 액션 레지스트리
+
+Solana 생태계를 위한 공공재로서, [Dialect](https://dialect.to)은 Solana Foundation 및 다른 커뮤니티 구성원들의 도움을 받아 알려진 출처에서 사전 검증된 블록체인 링크의 공개 레지스트리를 유지 관리합니다. 출시 당시에는 Dialect 레지스트리에 등록된 액션만 Twitter 피드에 게시될 때 펼쳐집니다.
+
+클라이언트 애플리케이션과 지갑은 사용자 보안과 안전을 보장하기 위해 이 공개 레지스트리 또는 다른 솔루션을 자유롭게 선택하여 사용할 수 있습니다. Dialect 레지스트리를 통해 검증되지 않은 경우, 블록체인 링크는 블링크 클라이언트에 의해 처리되지 않으며 일반 URL로 렌더링됩니다.
+
+개발자는 여기서 Dialect 검증을 신청할 수 있습니다:
+[dial.to/register](https://dial.to/register)
+
+## 사양
+
+Solana 액션 사양은 요청/응답 상호작용 흐름의 일부인 주요 섹션으로 구성됩니다:
+
+- 액션 URL을 제공하는 Solana 액션 [URL 스키마](#url-scheme)
+- CORS 요구사항을 충족하기 위한 액션 URL에 대한 [OPTIONS 응답](#options-response)
+- 액션 URL에 대한 [GET 요청](#get-request)
+- 서버의 [GET 응답](#get-response)
+- 액션 URL에 대한 [POST 요청](#post-request)
+- 서버의 [POST 응답](#post-response)
+
+이러한 각 요청은 _Action 클라이언트_(예: 지갑 앱, 브라우저
+확장 프로그램, dApp, 웹사이트 등)가 풍부한 사용자
+인터페이스를 위한 특정 메타데이터를 수집하고 Actions API에 대한 사용자 입력을 용이하게 하기 위해 수행합니다.
+
+각 응답은 애플리케이션(예: 웹사이트, 서버
+백엔드 등)에서 작성되어 _Action 클라이언트_로 반환됩니다. 궁극적으로 지갑이 사용자에게 승인,
+서명, 블록체인 전송을 요청할 수 있도록 서명 가능한 트랜잭션 또는 메시지를 제공합니다.
+
+> 이 readme 파일 내에 선언된 타입과 인터페이스는 가독성을 돕기 위한
+> 간소화된 버전의 타입인 경우가 많습니다.
+>
+> 더 나은 타입 안전성과 향상된 개발자 경험을 위해
+> `@solana/actions-spec` 패키지에는 더 복잡한 타입 정의가 포함되어 있습니다. 해당
+> [소스 코드는 여기에서 확인할 수 있습니다](https://github.com/solana-developers/solana-actions/blob/main/packages/actions-spec/index.d.ts).
+
+### URL 스킴
+
+Solana Action URL은 `solana-action` 프로토콜을 사용하여 서명 가능한 Solana
+트랜잭션 또는 메시지에 대한 대화형 요청을 설명합니다.
+
+URL의 매개변수가 클라이언트에서 일련의 표준화된 HTTP 요청을 수행하는 데 사용되어, 사용자가 지갑으로 서명할 수 있는 서명 가능한
+트랜잭션 또는 메시지를 구성하므로 이 요청은 대화형입니다.
+
+```text
+solana-action:<link>
+```
+
+- 단일 `link` 필드가 경로명으로 필요합니다. 값은 조건부로
+  [URL 인코딩된](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+  절대 HTTPS URL이어야 합니다.
+
+- URL에 쿼리 매개변수가 포함된 경우 URL 인코딩되어야 합니다. 값을 URL 인코딩하면
+  프로토콜 사양을 통해 추가될 수 있는 Actions 프로토콜 매개변수와의 충돌을 방지할 수 있습니다.
+
+- URL에 쿼리 매개변수가 포함되어 있지 않은 경우 URL 인코딩하지 않는 것이 좋습니다.
+  이렇게 하면 URL이 더 짧아지고 QR 코드의 밀도가 낮아집니다.
+
+어느 경우든 클라이언트는 값을
+[URL 디코딩](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+해야 합니다. 값이 URL 인코딩되어 있지 않으면 아무런 영향이 없습니다. 디코딩된
+값이 절대 HTTPS URL이 아닌 경우 지갑은 이를 **형식이 잘못된** 것으로 거부해야 합니다.
+
+### OPTIONS 응답
+
+Actions
+클라이언트(blinks 포함) 내에서 Cross-Origin Resource Sharing
+([CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS))을 허용하기 위해, 모든 Action 엔드포인트는 `OPTIONS` 메서드에 대한 HTTP 요청에 유효한 헤더로 응답해야 하며, 이를 통해 클라이언트가 동일 출처 도메인에서 이어지는 모든 요청에 대해 CORS
+검사를 통과할 수 있어야 합니다.
+
+Actions 클라이언트는 Action URL에 대한 후속 GET 요청이 모든 CORS 검사를 통과할지 확인하기 위해 Action URL 엔드포인트에
+"[preflight](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#preflighted_requests)"
+요청을 수행할 수 있습니다. 이러한 CORS preflight 검사는 `OPTIONS` HTTP 메서드를 사용하여 수행되며, Action 클라이언트(blinks 등)가 자신의 출처 도메인에서 모든 후속 요청을 올바르게 수행할 수 있도록 하는 모든 필수 HTTP
+헤더로 응답해야 합니다.
+
+최소한 필요한 HTTP 헤더는 다음과 같습니다.
+
+- 값이 `*`인 `Access-Control-Allow-Origin`
+  - 이를 통해 모든 Action 클라이언트가 필요한 모든 요청을 수행하기 위해
+    CORS 검사를 안전하게 통과할 수 있습니다.
+- 값이 `GET,POST,PUT,OPTIONS`인 `Access-Control-Allow-Methods`
+  - Actions에 필요한 모든 HTTP 요청 메서드가 지원되도록 합니다.
+- 최소값이
+  `Content-Type, Authorization, Content-Encoding, Accept-Encoding`인 `Access-Control-Allow-Headers`
+
+단순화를 위해 개발자는 `OPTIONS` 요청에 대해 [`GET` 응답](#get-response)과 동일한 응답 및
+헤더를 반환하는 것을 고려해야 합니다.
+
+<Callout type="warn" title="actions.json용 Cross-Origin 헤더">
+
+`actions.json` 파일 응답도 `GET` 및 `OPTIONS` 요청에 대해 유효한 Cross-Origin 헤더, 특히 `Access-Control-Allow-Origin`
+헤더 값 `*`를 반환해야 합니다.
+
+자세한 내용은 아래의 [actions.json](#actionsjson)을 참조하세요.
+
+</Callout>
+
+### GET 요청
+
+Action 클라이언트(예: 지갑, 브라우저 확장 프로그램 등)는 Action의 URL 엔드포인트로 HTTP
+`GET` JSON 요청을 수행해야 합니다.
+
+- 요청은 지갑이나 사용자를 식별해서는 안 됩니다.
+- 클라이언트는
+  [`Accept-Encoding` 헤더](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding)를 포함하여 요청해야 합니다.
+- 클라이언트는 요청이 수행되는 동안 URL의 도메인을 표시해야 합니다.
+
+### GET 응답
+
+Action의 URL 엔드포인트(예: 애플리케이션 또는 서버 백엔드)는 HTTP `OK` JSON 응답(본문에 유효한 페이로드 포함) 또는
+적절한 HTTP 오류로 응답해야 합니다.
+
+- 클라이언트는 HTTP
+  [클라이언트 오류](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
+  [서버 오류](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses),
+  및
+  [리디렉션 응답](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages)을 처리해야 합니다.
+- 엔드포인트는 HTTP 압축을 위해
+  [`Content-Encoding` 헤더](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)로
+  응답해야 합니다.
+- 엔드포인트는 `application/json`의
+  [`Content-Type` 헤더](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)로
+  응답해야 합니다.
+
+- 클라이언트는
+  [HTTP 캐싱](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching)
+  응답 헤더에서 지시한 경우를 제외하고 응답을 캐시해서는 안 됩니다.
+- 클라이언트는 `title`을 표시하고 `icon` 이미지를 사용자에게 렌더링해야 합니다.
+
+오류 응답(즉, HTTP 4xx 및 5xx 상태 코드)은 사용자에게 유용한 오류 메시지를 표시하기 위해 `ActionError`를 따르는 JSON
+응답 본문을 반환해야 합니다. [Action 오류](#action-errors)를 참조하세요.
+
+#### GET 응답 본문
+
+HTTP `OK` JSON 응답이 포함된 `GET` 응답에는 인터페이스 사양을 따르는 본문 페이로드가 포함되어야 합니다.
+
+```ts title="ActionGetResponse"
+export type ActionType = "action" | "completed";
+
+export type ActionGetResponse = Action<"action">;
+
+export interface Action<T extends ActionType> {
+  /** type of Action to present to the user */
+  type: T;
+  /** image url that represents the source of the action request */
+  icon: string;
+  /** describes the source of the action request */
+  title: string;
+  /** brief summary of the action to be performed */
+  description: string;
+  /** button text rendered to the user */
+  label: string;
+  /** UI state for the button being rendered to the user */
+  disabled?: boolean;
+  links?: {
+    /** list of related Actions a user could perform */
+    actions: LinkedAction[];
+  };
+  /** non-fatal error message to be displayed to the user */
+  error?: ActionError;
+}
+```
+
+- `type` - 사용자에게 제공되는 action의 타입입니다. 기본값은 `action`입니다. 초기 `ActionGetResponse`는 타입이 `action`이어야 합니다.
+  - `action` - 사용자가 `LinkedActions` 중 하나와 상호작용할 수 있도록 하는 표준 action
+  - `completed` - action 체이닝 내에서 "completed" 상태를 선언하는 데 사용됩니다.
+
+- `icon` - 값은 아이콘 이미지의 절대 HTTP 또는 HTTPS URL이어야 합니다. 파일은 SVG, PNG 또는 WebP 이미지여야 하며, 그렇지 않으면 클라이언트/지갑은 이를 **형식이 잘못된** 것으로 거부해야 합니다.
+
+- `title` - 값은 action 요청의 출처를 나타내는 UTF-8 문자열이어야 합니다. 예를 들어, 요청을 하는 브랜드, 상점,
+애플리케이션 또는 사람의 이름일 수 있습니다.
+
+- `description` - 값은 action에 대한 정보를 제공하는 UTF-8 문자열이어야 합니다. 설명은 사용자에게 표시되어야 합니다.
+
+- `label` - 값은 사용자가 클릭할 버튼에 렌더링될 UTF-8 문자열이어야 합니다. 모든 label은 5단어 구문을 초과해서는 안 되며, 사용자가 수행하기를 원하는 action을 명확히 하기 위해 동사로 시작해야 합니다. 예를 들어, “Mint NFT”, “Vote Yes” 또는 “Stake 1 SOL”입니다.
+
+- `disabled` - 값은 렌더링된 버튼(`label` 문자열을 표시함)의 비활성화 상태를 나타내는 boolean이어야 합니다. 값이 제공되지 않으면 `disabled`는 기본적으로 `false`(즉, 기본적으로 활성화됨)여야 합니다. 예를 들어, action 엔드포인트가 종료된 거버넌스 투표용인 경우 `disabled=true`로 설정하고 `label`은 “Vote Closed”가 될 수 있습니다.
+
+- `error` - 치명적이지 않은 오류에 대한 선택적 오류 표시입니다. 존재하는 경우 클라이언트는 이를 사용자에게 표시해야 합니다. 설정되어 있더라도 클라이언트가 action을 해석하거나 사용자에게 표시하는 것을 막아서는 안 됩니다([Action 오류](#action-errors) 참조). 예를 들어, `disabled`와 함께 error를 사용하여 비즈니스 제약, 권한 부여, 상태 또는 외부 리소스 오류와 같은 이유를 표시할 수 있습니다.
+
+- `links.actions` - 엔드포인트와 관련된 action의 선택적 배열입니다. 사용자는 나열된 각 action에 대한 UI를 볼 수 있어야 하며, 그중 하나만 수행하도록 예상됩니다. 예를 들어, 거버넌스 투표 action 엔드포인트는 사용자에게 “Vote Yes”, “Vote No”, “Abstain from Vote”의 세 가지 옵션을 반환할 수 있습니다.
+  - `links.actions`가 제공되지 않으면 클라이언트는 루트 `label` 문자열을 사용하여 단일 버튼을 렌더링하고, 초기 GET 요청과 동일한 action
+    URL 엔드포인트로 POST 요청을 수행해야 합니다.
+
+  - `links.actions`가 제공되는 경우, 클라이언트는 `links.actions` 필드에 나열된 항목을 기반으로만 버튼과 입력 필드를 렌더링해야 합니다. 클라이언트는 루트 `label`의 콘텐츠에 대한 버튼을 렌더링해서는 안 됩니다.
+
+```ts title="LinkedAction"
+export interface LinkedAction {
+  /** Type of action to be performed by user */
+  type: LinkedActionType;
+  /** URL endpoint for an action */
+  href: string;
+  /** button text rendered to the user */
+  label: string;
+  /**
+   * Parameters to accept user input within an action
+   * @see {ActionParameter}
+   * @see {ActionParameterSelectable}
+   */
+  parameters?: Array<TypedActionParameter>;
+}
+```
+
+`ActionParameter`는 Action API가 사용자에게 어떤 입력을 요청하는지 선언할 수 있게 합니다.
+
+```ts title="ActionParameter"
+/**
+ * Parameter to accept user input within an action
+ * note: for ease of reading, this is a simplified type of the actual
+ */
+export interface ActionParameter {
+  /** input field type */
+  type?: ActionParameterType;
+  /** parameter name in url */
+  name: string;
+  /** placeholder text for the user input field */
+  label?: string;
+  /** declare if this field is required (defaults to `false`) */
+  required?: boolean;
+  /** regular expression pattern to validate user input client side */
+  pattern?: string;
+  /** human-readable description of the `type` and/or `pattern`, represents a caption and error, if value doesn't match */
+  patternDescription?: string;
+  /** the minimum value allowed based on the `type` */
+  min?: string | number;
+  /** the maximum value allowed based on the `type` */
+  max?: string | number;
+}
+```
+
+`pattern`은 유효한 정규 표현식과 동등한 문자열이어야 합니다. 이 정규 표현식 패턴은 POST 요청을 수행하기 전에 blink-clients가 사용자 입력을 검증하는 데 사용해야 합니다. `pattern`이 유효한 정규 표현식이 아닌 경우 클라이언트는 이를 무시해야 합니다.
+
+`patternDescription`은 사용자에게 요청되는 예상 입력에 대한 사람이 읽을 수 있는 설명입니다. `pattern`이 제공된 경우 `patternDescription`도 반드시 제공되어야 합니다.
+
+`min` 및 `max` 값은 사용자에게 요청되는 입력의 하한 및/또는 상한(즉, min/max 숫자 및/또는 min/max 문자 길이)을 설정할 수 있게 하며, 클라이언트 측 검증에 사용해야 합니다. `date` 또는 `datetime-local` 입력 `type`의 경우 이러한 값은 문자열 날짜여야 합니다. 다른 문자열 기반 입력 `type`의 경우 값은 min/max 문자 길이를 나타내는 숫자여야 합니다.
+
+사용자 입력 값이 `pattern`에 따라 유효한 것으로 간주되지 않는 경우, 사용자는 입력 필드가 유효하지 않다는 클라이언트 측 오류 메시지를 받아야 하며 `patternDescription` 문자열이 표시되어야 합니다.
+
+`type` 필드는 Action API가 더 구체적인 사용자 입력 필드를 선언할 수 있게 하여, 더 나은 클라이언트 측 검증을 제공하고 사용자 경험을 개선합니다. 많은 경우 이 타입은 표준
+[HTML input 요소](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input)와 유사합니다.
+
+`ActionParameterType`은 다음 타입으로 간소화할 수 있습니다.
+
+```ts title="ActionParameterType"
+/**
+ * Input field type to present to the user
+ * @default `text`
+ */
+export type ActionParameterType =
+  | "text"
+  | "email"
+  | "url"
+  | "number"
+  | "date"
+  | "datetime-local"
+  | "checkbox"
+  | "radio"
+  | "textarea"
+  | "select";
+```
+
+각 `type` 값은 일반적으로 더 나은 클라이언트 측 검증 및 사용자 경험을 제공하기 위해 해당 `type`의 표준 HTML `input` 요소(즉,
+`<input type="email" />`)와 유사한 사용자 입력 필드가 되어야 합니다.
+
+- `text` - HTML
+  [“text” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/text)
+  요소와 동등
+- `email` - HTML
+  [“email” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email)
+  요소와 동등
+- `url` - HTML
+  [“url” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/url)
+  요소와 동등
+- `number` - HTML
+  [“number” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/number)
+  요소와 동등
+- `date` - HTML
+  [“date” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/date)
+  요소와 동등
+- `datetime-local` - HTML
+  [“datetime-local” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/datetime-local)
+  요소와 동등
+- `checkbox` - 표준 HTML
+  [“checkbox” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox)
+  요소 그룹과 동등합니다. Action API는 아래에 자세히 설명된 대로 `options`를 반환해야 합니다. 사용자는 제공된 checkbox 옵션 중 여러 개를 선택할 수 있어야 합니다.
+- `radio` - 표준 HTML
+  [“radio” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/radio)
+  요소 그룹과 동등합니다. Action API는 아래에 자세히 설명된 대로 `options`를 반환해야 합니다. 사용자는 제공된 radio 옵션 중 하나만 선택할 수 있어야 합니다.
+- 위에서 명시되지 않은 기타 HTML 입력 유형 동등 항목(`hidden`, `button`,
+  `submit`, `file` 등)은 현재 지원되지 않습니다.
+
+위의 HTML 입력 유형과 유사한 요소 외에도, 다음과 같은
+사용자 입력 요소도 지원됩니다:
+
+- `textarea` - HTML
+  [textarea 요소](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea)와 동등합니다.
+  사용자가 여러 줄의 입력을 제공할 수 있습니다.
+- `select` - HTML
+  [select 요소](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/select)와 동등하며,
+  사용자가 "드롭다운" 방식의 필드를 경험할 수 있게 합니다. Action API는
+  아래에 설명된 대로 `options`를 반환해야 합니다.
+
+`type`이 `select`, `checkbox`, 또는 `radio`로 설정된 경우, Action API는
+최소한 `label`과 `value`를 각각 제공하는 `options` 배열을 포함해야 합니다. 각 옵션에는
+사용자에게 기본으로 선택될 옵션을 blink 클라이언트에 알려주는 `selected` 값도
+포함될 수 있습니다(`checkbox`와 `radio`의 차이점은 해당 항목을 참조하세요).
+
+이 `ActionParameterSelectable`은 다음과 같은 타입 정의로 간소화할 수 있습니다:
+
+```ts title="ActionParameterSelectable"
+/**
+ * note: for ease of reading, this is a simplified type of the actual
+ */
+interface ActionParameterSelectable extends ActionParameter {
+  options: Array<{
+    /** displayed UI label of this selectable option */
+    label: string;
+    /** value of this selectable option */
+    value: string;
+    /** whether or not this option should be selected by default */
+    selected?: boolean;
+  }>;
+}
+```
+
+`type`이 설정되지 않았거나 알 수 없는/지원되지 않는 값이 설정된 경우, blink 클라이언트는
+기본값으로 `text`를 사용하여 단순 텍스트 입력 필드를 렌더링해야 합니다.
+
+Action API는 사용자 입력 파라미터의 모든 데이터를 검증하고 정제할 책임이 있으며,
+필요에 따라 "필수" 사용자 입력을 강제해야 합니다.
+
+HTML/웹 기반 외의 플랫폼(예: 네이티브 모바일)의 경우,
+위에서 설명한 HTML/웹 입력 유형과 동등한 경험 및 클라이언트 측 유효성 검사를
+달성하기 위해 해당 네이티브 사용자 입력 컴포넌트를 사용해야 합니다.
+
+#### GET 응답 예시
+
+다음 예시 응답은 "Claim Access Token"이라는 레이블의 단일 버튼으로
+사용자에게 표시될 것으로 예상되는 단일 "루트" 액션을 제공합니다:
+
+```json
+{
+  "title": "HackerHouse Events",
+  "icon": "<url-to-image>",
+  "description": "Claim your Hackerhouse access token.",
+  "label": "Claim Access Token" // button text
+}
+```
+
+다음 예시 응답은 사용자가 DAO 제안에 투표하기 위해
+3개의 버튼 중 하나를 클릭할 수 있도록 하는 3개의 관련 액션 링크를 제공합니다:
+
+```json
+{
+  "title": "Realms DAO Platform",
+  "icon": "<url-to-image>",
+  "description": "Vote on DAO governance proposals #1234.",
+  "label": "Vote",
+  "links": {
+    "actions": [
+      {
+        "label": "Vote Yes", // button text
+        "href": "/api/proposal/1234/vote?choice=yes"
+      },
+      {
+        "label": "Vote No", // button text
+        "href": "/api/proposal/1234/vote?choice=no"
+      },
+      {
+        "label": "Abstain from Vote", // button text
+        "href": "/api/proposal/1234/vote?choice=abstain"
+      }
+    ]
+  }
+}
+```
+
+#### 파라미터를 포함한 GET 응답 예시
+
+다음 예시 응답은 사용자로부터 텍스트 입력을 수락하고(`parameters` 사용),
+해당 입력을 최종 `POST` 요청 엔드포인트에 포함하는 방법을 보여줍니다(`LinkedAction` 내의 `href` 필드 사용):
+
+다음 예시 응답은 SOL 스테이킹을 위해 사용자에게 3개의 연결된 액션을 제공합니다:
+"Stake 1 SOL" 레이블의 버튼, "Stake 5 SOL" 레이블의 버튼, 그리고
+Action API로 전송될 특정 "amount" 값을 입력할 수 있는 텍스트 입력 필드입니다:
+
+```json
+{
+  "title": "Stake-o-matic",
+  "icon": "<url-to-image>",
+  "description": "Stake SOL to help secure the Solana network.",
+  "label": "Stake SOL", // not displayed since `links.actions` are provided
+  "links": {
+    "actions": [
+      {
+        "label": "Stake 1 SOL", // button text
+        "href": "/api/stake?amount=1"
+        // no `parameters` therefore not a text input field
+      },
+      {
+        "label": "Stake 5 SOL", // button text
+        "href": "/api/stake?amount=5"
+        // no `parameters` therefore not a text input field
+      },
+      {
+        "label": "Stake", // button text
+        "href": "/api/stake?amount={amount}",
+        "parameters": [
+          {
+            "name": "amount", // field name
+            "label": "SOL amount" // text input placeholder
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+다음 예시 응답은 POST 요청과 함께 전송될 `amount`를 입력하기 위한
+단일 입력 필드를 사용자에게 제공합니다(쿼리 파라미터 또는 서브패스를 사용할 수 있습니다):
+
+```json
+{
+  "icon": "<url-to-image>",
+  "label": "Donate SOL",
+  "title": "Donate to GoodCause Charity",
+  "description": "Help support this charity by donating SOL.",
+  "links": {
+    "actions": [
+      {
+        "label": "Donate", // button text
+        "href": "/api/donate/{amount}", // or /api/donate?amount={amount}
+        "parameters": [
+          // {amount} input field
+          {
+            "name": "amount", // input field name
+            "label": "SOL amount" // text input placeholder
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### POST 요청
+
+클라이언트는 다음 본문 페이로드와 함께 액션 URL에 HTTP `POST` JSON 요청을 해야 합니다:
+
+```json
+{
+  "account": "<account>"
+}
+```
+
+- `account` - 값은 트랜잭션에 서명할 수 있는 계정의 base58로 인코딩된 공개 키여야 합니다.
+
+클라이언트는
+[Accept-Encoding 헤더](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding)와 함께 요청을 해야 하며, 애플리케이션은
+HTTP 압축을 위해
+[Content-Encoding 헤더](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)로 응답할 수 있습니다.
+
+클라이언트는 요청이 이루어지는 동안 액션 URL의 도메인을 표시해야 합니다. `GET` 요청이 이루어진 경우,
+클라이언트는 `title`도 표시하고 해당 GET 응답에서 `icon` 이미지를 렌더링해야 합니다.
+
+### POST 응답
+
+액션의 `POST` 엔드포인트는 HTTP `OK` JSON 응답
+(본문에 유효한 페이로드 포함) 또는 적절한 HTTP 오류로 응답해야 합니다.
+
+- 클라이언트는 HTTP
+  [클라이언트 오류](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
+  [서버 오류](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses),
+  그리고
+  [리다이렉트 응답](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages)을 처리해야 합니다.
+- 엔드포인트는 `application/json`의
+  [`Content-Type` 헤더](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)로
+  응답해야 합니다.
+
+오류 응답(예: HTTP 4xx 및 5xx 상태 코드)은 사용자에게 유용한 오류 메시지를 표시하기 위해
+`ActionError`를 따르는 JSON 응답 본문을 반환해야 합니다. [Action 오류](#action-errors)를 참조하세요.
+
+#### POST 응답 본문
+
+`POST` 응답의 HTTP `OK` JSON 응답은 다음과 같은 본문 페이로드를 포함해야 합니다:
+
+```ts title="ActionPostResponse"
+/**
+ * Response body payload returned from the Action POST Request
+ */
+export interface ActionPostResponse<T extends ActionType = ActionType> {
+  /** base64 encoded serialized transaction */
+  transaction: string;
+  /** describes the nature of the transaction */
+  message?: string;
+  links?: {
+    /**
+     * The next action in a successive chain of actions to be obtained after
+     * the previous was successful.
+     */
+    next: NextActionLink;
+  };
+}
+```
+
+- `transaction` - 값은 base64로 인코딩된
+  [직렬화된 트랜잭션](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize)이어야 합니다.
+  클라이언트는 트랜잭션을 base64로 디코딩하고
+  [역직렬화](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#from)해야 합니다.
+
+- `message` - 값은 응답에 포함된 트랜잭션의 성격을 설명하는 UTF-8 문자열이어야 합니다.
+  클라이언트는 이 값을 사용자에게 표시해야 합니다. 예를 들어, 구매 중인 항목의 이름,
+  구매에 적용된 할인, 또는 감사 메모일 수 있습니다.
+
+- `links.next` - 여러 액션을 연속으로 "체이닝"하는 데 사용되는 선택적 값입니다.
+  포함된 `transaction`이 온체인에서 확인된 후, 클라이언트는
+  다음 액션을 가져와 렌더링할 수 있습니다. 자세한 내용은
+  [액션 체이닝](#action-chaining)을 참조하세요.
+
+- 클라이언트와 애플리케이션은 요청 본문 및 응답 본문에
+  추가 필드를 허용해야 하며, 이는 향후 사양 업데이트에 의해 추가될 수 있습니다.
+
+> 애플리케이션은 부분적으로 또는 완전히 서명된 트랜잭션으로 응답할 수 있습니다.
+> 클라이언트와 지갑은 해당 트랜잭션을 **신뢰할 수 없는** 것으로 검증해야 합니다.
+
+#### POST 응답 - 트랜잭션
+
+트랜잭션
+[`signatures`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)가
+비어 있거나 트랜잭션이 부분적으로 서명되지 않은 경우:
+
+- 클라이언트는 트랜잭션에서
+  [`feePayer`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)를
+  무시하고 `feePayer`를 요청의 `account`로 설정해야 합니다.
+- 클라이언트는 트랜잭션에서
+  [`recentBlockhash`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)를
+  무시하고 `recentBlockhash`를
+  [최신 블록해시](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)로 설정해야 합니다.
+- 클라이언트는 트랜잭션에 서명하기 전에 직렬화 및 역직렬화를 수행해야 합니다.
+  이는 [해당 이슈](https://github.com/solana-labs/solana/issues/21722)의 해결 방법으로 계정 키의 일관된 순서를 보장합니다.
+
+트랜잭션이 부분적으로 서명된 경우:
+
+- 클라이언트는 기존 서명을 무효화할 수 있으므로
+  [`feePayer`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer) 또는
+  [`recentBlockhash`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)를
+  변경해서는 안 됩니다.
+- 클라이언트는 기존 서명을 검증해야 하며, 유효하지 않은 서명이 있을 경우
+  클라이언트는 트랜잭션을 **비정상적인** 것으로 거부해야 합니다.
+
+클라이언트는 요청의 `account`로만 트랜잭션에 서명해야 하며,
+요청의 `account`에 대한 서명이 예상되는 경우에만 서명해야 합니다.
+
+요청의 `account`에 대한 서명 외에 다른 서명이 예상되는 경우,
+클라이언트는 해당 트랜잭션을 **악의적인** 것으로 거부해야 합니다.
+
+### Action 오류
+
+Actions API는 사용자에게 유용한 오류 메시지를 표시하기 위해
+`ActionError`를 사용하여 오류를 반환해야 합니다. 컨텍스트에 따라 이 오류는
+치명적이거나 비치명적일 수 있습니다.
+
+```ts title="ActionError"
+export interface ActionError {
+  /** simple error message to be displayed to the user */
+  message: string;
+}
+```
+
+Actions API가 HTTP 오류 상태 코드(예: 4xx 및 5xx)로 응답하는 경우,
+응답 본문은 `ActionError`를 따르는 JSON 페이로드여야 합니다. 오류는
+치명적인 것으로 간주되며 포함된 `message`는 사용자에게 표시되어야 합니다.
+
+선택적 `error` 속성을 지원하는 API 응답(예:
+[`ActionGetResponse`](#get-response))의 경우, 오류는 비치명적인 것으로 간주되며
+포함된 `message`는 사용자에게 표시되어야 합니다.
+
+## 액션 체이닝
+
+Solana Actions는 연속적인 순서로 "체이닝"될 수 있습니다. 액션의 트랜잭션이
+온체인에서 확인된 후, 다음 액션을 가져와 사용자에게 표시할 수 있습니다.
+
+액션 체이닝을 통해 개발자는 blink 내에서 더 복잡하고 동적인 경험을
+구축할 수 있으며, 다음을 포함합니다:
+
+- 사용자에게 여러 트랜잭션(및 향후 서명 메시지) 제공
+- 사용자의 지갑 주소를 기반으로 한 맞춤형 액션 메타데이터
+- 성공적인 트랜잭션 후 blink 메타데이터 새로 고침
+- Action API 서버에서 추가 검증 및 로직을 위해 트랜잭션 서명이 포함된
+  API 콜백 수신
+- 표시된 메타데이터를 업데이트하여 맞춤형 "성공" 메시지 제공(예: 새 이미지 및 설명)
+
+여러 액션을 체이닝하려면, 임의의 `ActionPostResponse`에 다음 중 하나의
+`links.next`를 포함하세요:
+
+- `PostNextActionLink` - 본문에서 `signature`와 사용자의 `account`를 수신하기 위한
+  동일 출처 콜백 URL을 포함하는 POST 요청 링크입니다. 이 콜백 URL은
+  `NextAction`으로 응답해야 합니다.
+- `InlineNextActionLink` - 트랜잭션이 확인된 직후 사용자에게 즉시 표시될
+  다음 액션에 대한 인라인 메타데이터입니다. 콜백은 발생하지 않습니다.
+
+```ts
+export type NextActionLink = PostNextActionLink | InlineNextActionLink;
+
+/** @see {NextActionPostRequest} */
+export interface PostNextActionLink {
+  /** Indicates the type of the link. */
+  type: "post";
+  /** Relative or same origin URL to which the POST request should be made. */
+  href: string;
+}
+
+/**
+ * Represents an inline next action embedded within the current context.
+ */
+export interface InlineNextActionLink {
+  /** Indicates the type of the link. */
+  type: "inline";
+  /** The next action to be performed */
+  action: NextAction;
+}
+```
+
+### NextAction
+
+`ActionPostResponse`에 포함된 `transaction`이 사용자에 의해 서명되고
+온체인에서 확인된 후, blink 클라이언트는 다음 중 하나를 수행해야 합니다:
+
+- `NextAction`을 가져와 표시하기 위해 콜백 요청을 실행하거나,
+- `NextAction`이 이미 `links.next`를 통해 제공된 경우, blink 클라이언트는
+  표시된 메타데이터를 업데이트하고 콜백 요청을 하지 않아야 합니다
+
+콜백 URL이 초기 POST 요청과 동일한 출처가 아닌 경우,
+콜백 요청을 해서는 안 됩니다. Blink 클라이언트는 사용자에게 알리는 오류를 표시해야 합니다.
+
+```ts title="NextAction"
+/** The next action to be performed */
+export type NextAction = Action<"action"> | CompletedAction;
+
+/** The completed action, used to declare the "completed" state within action chaining. */
+export type CompletedAction = Omit<Action<"completed">, "links">;
+```
+
+`type`에 따라, 다음 액션은 blink 클라이언트를 통해 사용자에게
+다음 방법 중 하나로 표시되어야 합니다:
+
+- `action` - (기본값) 사용자가 포함된 액션 메타데이터를 확인하고,
+  제공된 `LinkedActions`와 상호작용하며, 이후의 액션을 계속 체이닝할 수 있는
+  표준 액션입니다.
+
+- `completed` - 포함된 액션 메타데이터로 blink UI를 업데이트할 수 있지만
+  사용자가 추가 액션을 실행할 수 없는 액션 체인의 최종 상태입니다.
+
+`links.next`가 제공되지 않은 경우, blink 클라이언트는 현재 액션이
+체인의 최종 액션이라고 가정하고, 트랜잭션이 확인된 후 "완료" UI 상태를 표시해야 합니다.
+
+## actions.json
+
+[`actions.json` 파일](#actionsjson)의 목적은 애플리케이션이 클라이언트에게
+어떤 웹사이트 URL이 Solana Actions를 지원하는지 알려주고, Actions API 서버에
+[GET 요청](#get-request)을 수행하는 데 사용할 수 있는 매핑을 제공하는 것입니다.
+
+<Callout type="warn" title="Cross-Origin 헤더가 필요합니다">
+
+`actions.json` 파일 응답은 `GET` 및 `OPTIONS` 요청에 대해 유효한 Cross-Origin 헤더를 반환해야 하며,
+특히 `Access-Control-Allow-Origin` 헤더 값이 `*`이어야 합니다.
+
+자세한 내용은 위의 [OPTIONS 응답](#options-response)을 참조하세요.
+
+</Callout>
+
+`actions.json` 파일은 도메인의 루트에 저장되어 전역적으로 접근 가능해야 합니다.
+
+예를 들어, 웹 애플리케이션이 `my-site.com`에 배포된 경우
+`actions.json` 파일은 `https://my-site.com/actions.json`에서 접근 가능해야 합니다.
+이 파일은 `Access-Control-Allow-Origin` 헤더 값을 `*`로 설정하여 모든 브라우저에서
+Cross-Origin으로도 접근 가능해야 합니다.
+
+### 규칙
+
+`rules` 필드는 애플리케이션이 웹사이트의 상대적 경로 집합을
+다른 경로 집합으로 매핑할 수 있도록 합니다.
+
+**유형:** `ActionRuleObject`의 `Array`.
+
+```ts title="ActionRuleObject"
+interface ActionRuleObject {
+  /** relative (preferred) or absolute path to perform the rule mapping from */
+  pathPattern: string;
+  /** relative (preferred) or absolute path that supports Action requests */
+  apiPath: string;
+}
+```
+
+- [`pathPattern`](#rules---pathpattern) - 들어오는 각 경로명과 매칭되는 패턴입니다.
+
+- [`apiPath`](#rules---apipath) - 절대 경로명 또는 외부 URL로 정의된 목적지 위치입니다.
+
+#### 규칙 - pathPattern
+
+들어오는 각 경로명과 매칭되는 패턴입니다. 절대 경로 또는 상대 경로를 사용할 수 있으며 다음 형식을 지원합니다:
+
+- **정확한 일치**: 정확한 URL 경로와 매칭됩니다.
+  - 예시: `/exact-path`
+  - 예시: `https://website.com/exact-path`
+
+- **와일드카드 일치**: 와일드카드를 사용하여 URL 경로의 임의 문자 시퀀스와 매칭됩니다. 단일 세그먼트(`*` 사용) 또는 여러 세그먼트(`**` 사용)와 매칭될 수 있습니다. (아래 [경로 매칭](#rules---path-matching) 참조)
+  - 예시: `/trade/*`는 `/trade/123` 및 `/trade/abc`와 매칭되며, `/trade/` 이후 첫 번째 세그먼트만 캡처합니다.
+  - 예시: `/category/*/item/**`는 `/category/123/item/456` 및 `/category/abc/item/def`와 매칭됩니다.
+  - 예시: `/api/actions/trade/*/confirm`은 `/api/actions/trade/123/confirm`과 매칭됩니다.
+
+#### 규칙 - apiPath
+
+액션 요청의 목적지 경로입니다. 절대 경로명 또는 외부 URL로 정의할 수 있습니다.
+
+- 예시: `/api/exact-path`
+- 예시: `https://api.example.com/v1/donate/*`
+- 예시: `/api/category/*/item/*`
+- 예시: `/api/swap/**`
+
+#### 규칙 - 쿼리 파라미터
+
+원래 URL의 쿼리 파라미터는 항상 보존되어 매핑된 URL에 추가됩니다.
+
+#### 규칙 - 경로 매칭
+
+다음 표는 경로 매칭 패턴의 구문을 설명합니다:
+
+| 연산자 | 매칭 대상                                                                                                                                                                                  |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `*`      | 주변 경로 구분자 / 문자를 포함하지 않는 단일 경로 세그먼트입니다.                                                                                                        |
+| `**`     | 여러 경로 세그먼트 사이의 경로 구분자 / 문자를 포함하여 0개 이상의 문자와 매칭됩니다. 다른 연산자가 포함된 경우 `**` 연산자는 반드시 마지막 연산자여야 합니다. |
+| `?`      | 지원되지 않는 패턴입니다.                                                                                                                                                                     |
+
+### 규칙 예시
+
+다음 예시는 사이트 루트에서 `/buy`로의 요청을 사이트 루트 기준 정확한 경로 `/api/buy`로 매핑하는 정확한 일치 규칙을 보여줍니다:
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/buy",
+      "apiPath": "/api/buy"
+    }
+  ]
+}
+```
+
+다음 예시는 와일드카드 경로 매칭을 사용하여 사이트 루트에서 `/actions/` 하위의 임의 경로(하위 디렉토리 제외)로의 요청을 사이트 루트 기준 `/api/actions/` 하위의 해당 경로로 매핑합니다:
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/actions/*",
+      "apiPath": "/api/actions/*"
+    }
+  ]
+}
+```
+
+다음 예시는 와일드카드 경로 매칭을 사용하여 사이트 루트에서 `/donate/` 하위의 임의 경로(하위 디렉토리 제외)로의 요청을 외부 사이트의 절대 경로 `https://api.dialect.com/api/v1/donate/`로 매핑합니다:
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/donate/*",
+      "apiPath": "https://api.dialect.com/api/v1/donate/*"
+    }
+  ]
+}
+```
+
+다음 예시는 와일드카드 경로 매칭을 사용하여 사이트 루트에서 `/api/actions/` 하위의 임의 경로(하위 디렉토리 포함)로의 요청을 동일 경로로 매핑하는 멱등 규칙을 보여줍니다:
+
+> 멱등 규칙을 사용하면 blink 클라이언트가 `solana-action:` URI 접두사 없이도 또는 추가적인 응답 테스트 없이도 특정 경로가 Action API 요청을 지원하는지 보다 쉽게 판단할 수 있습니다.
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/api/actions/**",
+      "apiPath": "/api/actions/**"
+    }
+  ]
+}
+```
+
+## Action Identity
+
+Action 엔드포인트는 사용자가 서명할 [POST 응답](#post-response)으로 반환되는 트랜잭션에 _Action Identity_를 포함할 수 있습니다. 이를 통해 인덱서 및 분석 플랫폼이 온체인 활동을 특정 Action Provider(즉, 서비스)에 검증 가능한 방식으로 쉽게 귀속시킬 수 있습니다.
+
+[Action Identity](#action-identity)는 Memo 명령어를 사용하여 트랜잭션에 포함되는 특별한 형식의 메시지에 서명하는 데 사용되는 keypair입니다. 이 _식별자 메시지_는 특정 Action Identity에 검증 가능하게 귀속될 수 있으며, 따라서 트랜잭션을 특정 Action Provider에 귀속시킬 수 있습니다.
+
+keypair가 트랜잭션 자체에 서명할 필요는 없습니다. 이를 통해 지갑 및 애플리케이션은 사용자에게 반환된 트랜잭션에 다른 서명이 없는 경우 트랜잭션 전달성을 향상시킬 수 있습니다 ([POST 응답 트랜잭션](#post-response---transaction) 참조).
+
+Action Provider의 사용 사례에서 백엔드 서비스가 사용자보다 먼저 트랜잭션에 서명해야 하는 경우, 이 keypair를 Action Identity로 사용해야 합니다. 이렇게 하면 트랜잭션에 포함되는 계정 수가 하나 줄어들어 트랜잭션 총 크기가 32바이트 감소합니다.
+
+### Action 식별자 메시지
+
+Action 식별자 메시지는 단일 [SPL Memo](https://spl.solana.com/memo) 명령어를 사용하여 트랜잭션에 포함되는 콜론으로 구분된 UTF-8 문자열입니다.
+
+```shell
+protocol:identity:reference:signature
+```
+
+- `protocol` - 사용 중인 프로토콜의 값입니다 (위의 [URL 스킴](#url-scheme)에 따라 `solana-action`으로 설정).
+- `identity` - 값은 Action Identity keypair의 base58 인코딩된 공개 키 주소여야 합니다.
+- `reference` - 값은 base58 인코딩된 32바이트 배열이어야 합니다. 이는 공개 키일 수도 있고 아닐 수도 있으며, 곡선 위 또는 바깥에 있을 수 있고, Solana의 계정과 대응될 수도 있고 그렇지 않을 수도 있습니다.
+- `signature` - `reference` 값만을 서명한 Action Identity keypair로부터 생성된 base58 인코딩 서명입니다.
+
+`reference` 값은 단 한 번, 하나의 트랜잭션에서만 사용해야 합니다. Action Provider와 트랜잭션을 연결하는 목적에서는 `reference` 값의 첫 번째 사용만 유효한 것으로 간주됩니다.
+
+트랜잭션에는 여러 Memo 명령어가 포함될 수 있습니다. [`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)를 수행할 때, 결과의 `memo` 필드는 각 memo 명령어의 메시지를 세미콜론으로 구분된 단일 문자열로 반환합니다.
+
+식별자 메시지의 Memo 명령어에는 다른 데이터가 포함되어서는 안 됩니다.
+
+`identity`와 `reference`는 식별자 메시지 Memo 명령어가 아닌 명령어의 트랜잭션에 읽기 전용 비서명자 [키](https://solana-labs.github.io/solana-web3.js/v1.x/classes/TransactionInstruction.html#keys)로 포함되어야 합니다.
+
+식별자 메시지 Memo 명령어에는 제공된 계정이 없어야 합니다. 계정이 제공되면 Memo 프로그램은 해당 계정들이 유효한 서명자일 것을 요구합니다. 액션 식별 목적상, 이는 유연성을 제한하고 사용자 경험을 저하시킬 수 있습니다. 따라서 이는 안티패턴으로 간주되며 반드시 피해야 합니다.
+
+### Action Identity 검증
+
+`identity` 계정이 포함된 모든 트랜잭션은 다단계 프로세스를 통해 Action Provider와 검증 가능하게 연결될 수 있습니다:
+
+1. 주어진 `identity`에 대한 모든 트랜잭션을 가져옵니다.
+2. 각 트랜잭션의 memo 문자열을 파싱하고 검증하여, 저장된 `reference`에 대해 `signature`가 유효한지 확인합니다.
+3. 해당 트랜잭션이 온체인에서 `reference`의 첫 번째 발생인지 확인합니다:
+   - 해당 트랜잭션이 첫 번째 발생인 경우, 트랜잭션은 검증된 것으로 간주되어 Action Provider에 안전하게 귀속될 수 있습니다.
+   - 해당 트랜잭션이 첫 번째 발생이 아닌 경우, 유효하지 않은 것으로 간주되어 Action Provider에 귀속되지 않습니다.
+
+Solana validator는 계정 키별로 트랜잭션을 인덱싱하므로, [`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) RPC 메서드를 사용하여 `identity` 계정을 포함하는 모든 트랜잭션을 찾을 수 있습니다.
+
+이 RPC 메서드의 응답에는 `memo` 필드에 모든 Memo 데이터가 포함됩니다. 트랜잭션에 여러 Memo 명령어가 사용된 경우, 각 memo 메시지는 이 `memo` 필드에 포함되며 검증자가 _Identity 검증 메시지_를 얻기 위해 적절히 파싱해야 합니다.
+
+이러한 트랜잭션은 초기에 **미검증** 상태로 간주해야 합니다. 이는 `identity`가 트랜잭션에 서명할 필요가 없어 어떤 트랜잭션이든 이 계정을 비서명자로 포함할 수 있기 때문입니다. 이로 인해 귀속 및 사용 횟수가 인위적으로 부풀려질 수 있습니다.
+
+Identity 검증 메시지는 `identity`가 `reference`에 서명하여 `signature`가 생성되었는지 확인해야 합니다. 이 서명 검증이 실패하면 트랜잭션은 유효하지 않으며 Action Provider에 귀속되어서는 안 됩니다.
+
+서명 검증이 성공한 경우, 검증자는 해당 트랜잭션이 온체인에서 `reference`의 첫 번째 발생인지 확인해야 합니다. 그렇지 않은 경우 트랜잭션은 유효하지 않은 것으로 간주됩니다.

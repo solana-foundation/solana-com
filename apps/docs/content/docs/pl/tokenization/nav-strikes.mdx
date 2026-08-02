@@ -1,0 +1,1710 @@
+---
+date: 2025-11-28T00:00:00Z
+difficulty: advanced
+title: "Uderzenia NAV dla funduszy rynku pieniężnego na Solanie"
+description:
+  "Learn how to implement multiple daily NAV strikes for money market funds
+  using SPL Token 2022 extensions, enabling institutional-grade subscription and
+  redemption with atomic settlement."
+tags:
+  - token extensions
+  - token 2022
+  - ts
+  - web3js
+keywords:
+  - nav strikes
+  - money market fund
+  - net asset value
+  - subscription
+  - redemption
+  - token extensions
+  - atomic settlement
+  - fund shares
+  - compliance
+---
+
+<Embed url="https://www.youtube.com/embed/emMCM3TMW70" />
+
+Uderzenia NAV (Wartość Aktywów Netto) to stałe momenty w ciągu dnia handlowego, w których wyceniane są udziały funduszu i realizowane zlecenia. Tradycyjne fundusze mają zazwyczaj jedno dzienne uderzenie na zamknięcie rynku, jednak szybkość i niskie koszty Solany umożliwiają wielokrotne uderzenia śróddzienne, dając inwestorom większą elastyczność.
+
+## Czym jest NAV?
+
+Fundusz to pula aktywów współposiadanych przez wielu inwestorów. **NAV (Wartość Aktywów Netto)** to po prostu cena jednego udziału w funduszu. Można to sobie wyobrazić następująco:
+
+```
+NAV = (Total Value of Everything in the Fund - liabilities) ÷ Number of Shares
+```
+
+Na przykład, jeśli fundusz posiada aktywa o wartości 10 milionów dolarów i ma 10 milionów udziałów w obrocie, każdy udział jest wart 1,00 USD.
+
+**Dlaczego NAV ma znaczenie?**
+
+- **Kupowanie udziałów (subskrypcja)**: Płacisz bieżące NAV. Jeśli NAV wynosi 1,02 USD i
+  inwestujesz 102 USD, otrzymujesz 100 udziałów.
+- **Sprzedaż udziałów (umorzenie)**: Otrzymujesz bieżące NAV. Jeśli umorzysz
+  100 udziałów przy NAV 1,02 USD, otrzymujesz 102 USD.
+
+Fundusze rynku pieniężnego zazwyczaj utrzymują stabilne NAV na poziomie około 1,00 USD, z niewielkimi wahaniami wynikającymi z naliczonych odsetek.
+
+## Problem
+
+Kiedy inwestujesz w fundusz rynku pieniężnego, tradycyjnie dwie rzeczy dzieją się w różnym czasie:
+
+1. Składasz zlecenie → Czekasz na zamknięcie rynku
+2. NAV obliczane → Udziały emitowane/umarzane w T+1 lub T+2
+
+Powoduje to kilka problemów:
+
+- **Opóźniona realizacja**: Zlecenia złożone rano czekają do godziny 16:00
+- **Opóźnienie rozliczenia**: Twoje środki są w zawieszeniu przez 1–2 dni
+- **Ograniczona elastyczność**: Tylko jedna szansa na transakcję dziennie
+- **Nieaktualna wycena**: NAV może być nieaktualne między złożeniem zlecenia a jego realizacją
+
+## Rozwiązanie
+
+**Uderzenia NAV na Solanie** umożliwiają wielokrotne dzienne okna rozliczeniowe z atomową realizacją. Zlecenia kolejkują się i są wykonywane natychmiast w każdym momencie uderzenia według bieżącego NAV.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              MULTIPLE DAILY NAV STRIKES                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   9:30 AM     12:00 PM     2:30 PM      4:00 PM            │
+│      │           │            │            │                │
+│      ▼           ▼            ▼            ▼                │
+│   ┌─────┐    ┌─────┐     ┌─────┐      ┌─────┐              │
+│   │STRIKE│   │STRIKE│    │STRIKE│     │STRIKE│             │
+│   │NAV=$1│   │NAV=$1│    │NAV=$1│     │NAV=$1│             │
+│   │.0012 │   │.0015 │    │.0018 │     │.0020 │             │
+│   └─────┘    └─────┘     └─────┘      └─────┘              │
+│       │          │           │            │                 │
+│       ▼          ▼           ▼            ▼                 │
+│   Process    Process     Process      Process               │
+│   Orders     Orders      Orders       Orders                │
+│                                                             │
+│   ✅ Atomic settlement at each strike                       │
+│   ✅ NAV stored onchain in token metadata                  │
+│   ✅ Less stale prices                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Ten przewodnik pokazuje, jak wdrożyć uderzenia NAV na Solanie, używając rozszerzeń SPL Token 2022 do zgodnej z przepisami emisji udziałów funduszu oraz standardowego USDC do rozliczenia – wszystko bez pisania własnych programów w Rust.
+
+<Callout type="info" title="Implementacja referencyjna do celów edukacyjnych">
+
+Możesz użyć
+[kodu źródłowego](https://github.com/Woody4618/nav-strikes-reference) tej
+implementacji, aby wypróbować uderzenia NAV lokalnie.
+
+Niniejszy przewodnik udostępnia implementację referencyjną wyłącznie do celów eksploracji i edukacji. **NIE używaj tego kodu bezpośrednio w środowisku produkcyjnym** bez:
+
+- Kompleksowych audytów bezpieczeństwa
+- Właściwych systemów zarządzania kluczami
+- Przeglądu zgodności z przepisami
+- Konsultacji prawnych
+- Rozległych testów i modyfikacji
+
+</Callout>
+
+## Przegląd architektury
+
+System uderzeń NAV składa się z następujących kluczowych komponentów:
+
+1. **Token udziałów funduszu**: SPL Token 2022 z metadanymi przechowującymi NAV onchain
+2. **Waluta rozliczeniowa**: Standardowe USDC (istniejący token SPL)
+3. **Administrator funduszu**: Orkiestruje uderzenia za pomocą delegowanych uprawnień
+4. **System whitelist**: Kontroluje, które adresy mogą posiadać udziały funduszu
+
+### Kluczowe zasady projektowania
+
+- **Brak własnych programów**: Używa wyłącznie Token Extensions Program i standardowego USDC
+- **Atomowe rozliczenie**: Pojedyncza transakcja zapewnia, że subskrypcja/umorzenie kończy się sukcesem lub niepowodzeniem jako całość
+- **Domyślny stan zamrożenia**: Udziały wymagają jawnego dodania do whitelist w celu zachowania zgodności z przepisami
+- **Delegowane uprawnienia**: Administrator funduszu działa bez przejmowania kontroli nad aktywami
+- **NAV onchain**: Bieżąca cena przechowywana w metadanych tokena, publicznie weryfikowalna
+
+### Etap 1: Konfiguracja funduszu
+
+1. Utwórz token udziałów funduszu z rozszerzeniami metadanych
+2. Zainicjuj NAV na poziomie 1,00 USD
+3. Ustaw dzienny harmonogram uderzeń
+4. Dodaj inwestorów instytucjonalnych do whitelist
+
+### Etap 2: Okres przed uderzeniem
+
+1. Inwestorzy składają wnioski o subskrypcję/umorzenie
+2. Zlecenia kolejkują się na następny moment uderzenia
+3. Fundusz oblicza wstępne NAV
+4. Przeprowadzane są kontrole ryzyka
+
+### Etap 3: Realizacja uderzenia NAV
+
+```
+At Strike Time (e.g., 14:30):
+├── Calculate final NAV from underlying assets
+├── Update onchain NAV in metadata
+├── Process all pending subscriptions atomically
+│   └── USDC → Fund Shares at exact NAV
+├── Process all pending redemptions atomically
+│   └── Fund Shares → USDC at exact NAV
+└── Emit strike completion event
+
+✅ STRIKE COMPLETE (all trades at same NAV)
+```
+
+### Etap 4: Po uderzeniu
+
+1. Generuj potwierdzenia transakcji
+2. Aktualizuj skład funduszu
+3. Przygotuj się na następne uderzenie
+4. Dokonaj uzgodnienia z depozytariuszem
+
+### Wzorzec delegowanych uprawnień
+
+Inwestorzy z góry upoważniają administratora funduszu do przenoszenia ich tokenów, a następnie administrator wykonuje operacje w momencie uderzenia bez konieczności uzyskiwania podpisów inwestorów:
+
+```
+┌──────────┐    delegates     ┌────────────────────┐    delegates    ┌──────────┐
+│ Investor │ ───────────────→ │ Fund Administrator │ ←────────────── │ Investor │
+│    A     │     (USDC)       │     (trusted)      │     (shares)    │    B     │
+└──────────┘                  │                    │                 └──────────┘
+                              │  executes strike   │
+                              │  (atomic txns)     │
+                              └────────────────────┘
+```
+
+### Przepływ subskrypcji (USDC → Udziały funduszu)
+
+```
+Investor wants to invest $100,000 USDC
+Current NAV = $1.000234 per share
+────────────────────────────────────
+1. Investor approves $100,000 USDC delegation
+2. At strike time, atomic transaction:
+   ├── Transfer $100,000 USDC from investor
+   ├── Calculate shares: 100,000 / 1.000234 = 99,976.61
+   └── Mint 99,976.61 fund shares to investor
+3. Settlement complete in <1 second
+```
+
+### Przepływ umorzenia (Udziały funduszu → USDC)
+
+```
+Investor wants to redeem 50,000 shares
+Current NAV = $1.000234 per share
+────────────────────────────────────
+1. Investor approves 50,000 shares delegation
+2. At strike time, atomic transaction:
+   ├── Burn 50,000 fund shares from investor
+   ├── Calculate USDC: 50,000 × 1.000234 = $50,011.70
+   └── Transfer $50,011.70 USDC to investor
+3. Settlement complete in <1 second
+```
+
+## Dlaczego Solana do uderzeń NAV?
+
+Architektura Solany zapewnia znaczące przewagi nad tradycyjnym rozliczaniem funduszy:
+
+| Aspekt            | Tradycyjny (T+1) | Uderzenia NAV na Solanie          |
+| ----------------- | ----------------- | --------------------------- |
+| Logika rozliczenia  | Agenci transferowi   | Atomowe grupowanie transakcji |
+| Czas rozliczenia   | 1–2 dni          | &lt;1 sekunda                |
+| Koszt transakcji  | 50–200 USD           | &lt;0,01 USD                   |
+| Uderzeń dziennie   | 1                 | 4+ (konfigurowalne)           |
+| Ryzyko nieaktualnych cen | Wysokie              | Niższe                       |
+| Transparentność NAV  | Raport na koniec dnia | Onchain, w czasie rzeczywistym          |
+
+Atomowe transakcje Solany eliminują pośredników, zapewniając jednocześnie natychmiastowe, tanie i bezpieczne rozliczenia z transparentnością NAV onchain.
+
+## Token funduszu z Token Extensions
+
+SPL Token 2022 zapewnia zaawansowane rozszerzenia umożliwiające zgodną z przepisami emisję udziałów funduszu bez własnych programów:
+
+### Niezbędne rozszerzenia dla udziałów funduszu
+
+1. **Rozszerzenie domyślnego stanu konta**: Ustawia wszystkie nowe token account domyślnie jako zamrożone, wymagając jawnego dodania do whitelist (zgodność z KYC/AML)
+2. **Rozszerzenie metadanych**: Przechowuje NAV, harmonogram uderzeń i AUM onchain dla zapewnienia transparentności
+
+### Konfiguracja uprawnień
+
+- **Uprawnienie do mintowania**: Administrator funduszu (kontroluje emisję udziałów)
+- **Uprawnienie do zamrażania**: Administrator funduszu (zarządza whitelistą)
+- **Uprawnienie do aktualizacji**: Administrator funduszu (aktualizuje metadane NAV)
+
+<Callout type="info">
+
+Domyślny stan zamrożenia jest kluczowy dla zgodności z przepisami. Zapewnia, że tylko jawnie dodane do whitelist (zweryfikowane w procesie KYC) adresy mogą otrzymywać i posiadać udziały funduszu.
+
+</Callout>
+
+### Pola metadanych onchain
+
+```json
+{
+  "name": "Example Money Market Fund",
+  "symbol": "EX-MMF",
+  "currentNAV": "1.000234",
+  "lastStrikeTime": "2024-01-15T14:30:00Z",
+  "strikeSchedule": "[\"09:30\", \"12:00\", \"14:30\", \"16:00\"]",
+  "totalAUM": "50000000.00",
+  "fundType": "Money Market Fund"
+}
+```
+
+## Kompletna implementacja uderzeń NAV
+
+### Konfiguracja silnika uderzeń NAV
+
+Należy zauważyć, że w tym przewodniku używamy biblioteki @solana/kit do stworzenia silnika uderzeń NAV. Implementację w `web3.js` można również znaleźć w
+[kodzie źródłowym](https://github.com/Woody4618/nav-strikes-reference). Najpierw utwórz
+główną klasę silnika obsługującą wszystkie operacje funduszu:
+
+```typescript
+/**
+ * NAV Strikes Engine - Solana Kit Reference Implementation
+ *
+ * This implementation demonstrates NAV strikes for money market funds on Solana using:
+ * - SPL Token 2022 with Default Account State extension for fund shares
+ * - Standard USDC for settlement
+ * - Atomic transactions for subscription/redemption
+ * - Delegated authority pattern for fund administrator
+ *
+ * Built with @solana/kit (web3.js 2.0)
+ *
+ * ⚠️ IMPORTANT: This is a reference implementation for educational purposes.
+ * Do NOT use in production without proper audits and security reviews.
+ */
+
+import {
+  Address,
+  airdropFactory,
+  appendTransactionMessageInstructions,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  getSignatureFromTransaction,
+  KeyPairSigner,
+  lamports,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  Rpc,
+  RpcSubscriptions,
+  SolanaRpcApi,
+  SolanaRpcSubscriptionsApi
+} from "@solana/kit";
+import { getCreateAccountInstruction } from "@solana-program/system";
+import {
+  TOKEN_PROGRAM_ADDRESS,
+  getApproveInstruction,
+  getTransferCheckedInstruction,
+  getMintToInstruction,
+  getBurnInstruction,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstruction
+} from "@solana-program/token";
+import {
+  TOKEN_2022_PROGRAM_ADDRESS,
+  getInitializeMintInstruction,
+  getInitializeTokenMetadataInstruction,
+  getUpdateTokenMetadataFieldInstruction,
+  tokenMetadataField,
+  getThawAccountInstruction,
+  getFreezeAccountInstruction,
+  AccountState,
+  getMintSize,
+  extension,
+  getPreInitializeInstructionsForMintExtensions,
+  fetchMaybeToken
+} from "@solana-program/token-2022";
+
+import { pack } from "@solana/spl-token-metadata";
+import { PublicKey } from "@solana/web3.js";
+
+// TLV (Type-Length-Value) sizes for Token-2022 extensions
+const TYPE_SIZE = 2;
+const LENGTH_SIZE = 2;
+
+import type {
+  FundTokenConfig,
+  FundState,
+  SubscriptionParams,
+  RedemptionParams,
+  SubscriptionResult,
+  RedemptionResult,
+  StrikeResult,
+  StrikeOrder,
+  SolanaClient
+} from "./types";
+
+/**
+ * Cluster type for explorer links
+ */
+export type ClusterType = "mainnet-beta" | "devnet" | "testnet" | "localnet";
+
+/**
+ * Generate Solana Explorer link for a transaction
+ */
+export function getExplorerLink(
+  signature: string,
+  cluster: ClusterType = "localnet"
+): string {
+  const baseUrl = "https://explorer.solana.com/tx";
+  if (cluster === "localnet") {
+    return `${baseUrl}/${signature}?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899`;
+  }
+  return `${baseUrl}/${signature}?cluster=${cluster}`;
+}
+
+/**
+ * Generate Solana Explorer link for an account/address
+ */
+export function getAddressExplorerLink(
+  addr: string,
+  cluster: ClusterType = "localnet"
+): string {
+  const baseUrl = "https://explorer.solana.com/address";
+  if (cluster === "localnet") {
+    return `${baseUrl}/${addr}?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899`;
+  }
+  return `${baseUrl}/${addr}?cluster=${cluster}`;
+}
+
+/**
+ * Create a Solana client for Kit
+ */
+export async function createSolanaClient(
+  rpcUrl: string = "http://127.0.0.1:8899",
+  wsUrl: string = "ws://127.0.0.1:8900"
+): Promise<SolanaClient> {
+  const rpc = createSolanaRpc(rpcUrl);
+  const rpcSubscriptions = createSolanaRpcSubscriptions(wsUrl);
+  const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+    rpc,
+    rpcSubscriptions
+  });
+
+  return {
+    rpc,
+    rpcSubscriptions,
+    sendAndConfirmTransaction
+  };
+}
+
+/**
+ * NAV Strike Engine - Solana Kit Version
+ *
+ * Manages the lifecycle of a money market fund on Solana:
+ * - Creates fund tokens with Token 2022 extensions
+ * - Updates NAV at scheduled strike times
+ * - Processes subscription and redemption orders atomically
+ */
+export class NAVStrikeEngine {
+  private client: SolanaClient;
+  private fundAdministrator: KeyPairSigner;
+  private cluster: ClusterType;
+
+  // Fund state
+  private currentNAV: number = 1.0;
+  private totalAUM: number = 0;
+  private totalSharesOutstanding: number = 0;
+  private strikeSchedule: string[] = [];
+  private lastStrikeTime: Date = new Date();
+
+  // Order queue
+  private pendingOrders: StrikeOrder[] = [];
+  private orderCounter: number = 0;
+
+  constructor(
+    client: SolanaClient,
+    fundAdministrator: KeyPairSigner,
+    cluster: ClusterType = "localnet"
+  ) {
+    this.client = client;
+    this.fundAdministrator = fundAdministrator;
+    this.cluster = cluster;
+  }
+
+  /**
+   * Helper to send and confirm transactions with correct typing
+   * Works around stricter types in @solana/kit v5+
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async sendTransaction(
+    signedTx: any,
+    commitment: "confirmed" | "finalized" = "confirmed"
+  ): Promise<void> {
+    await this.client.sendAndConfirmTransaction(signedTx, { commitment });
+  }
+
+  /**
+   * Get explorer link for a transaction signature
+   */
+  getTxExplorerLink(signature: string): string {
+    return getExplorerLink(signature, this.cluster);
+  }
+
+  /**
+   * Get explorer link for an address
+   */
+  getAddressLink(addr: string): string {
+    return getAddressExplorerLink(addr, this.cluster);
+  }
+
+  /**
+   * Creates a fund share token using Token-2022 with Default Account State and Metadata extensions
+   * Fund shares are frozen by default and require whitelisting
+   * Metadata stores NAV and fund information onchain
+   */
+  async createFundToken(
+    issuer: KeyPairSigner,
+    config: FundTokenConfig
+  ): Promise<Address> {
+    console.log(
+      "\n╔══════════════════════════════════════════════════════════════╗"
+    );
+    console.log(
+      "║              NAV STRIKE - FUND CREATION (Kit)                 ║"
+    );
+    console.log(
+      "╚══════════════════════════════════════════════════════════════╝"
+    );
+    console.log(`\n🏗️  Creating fund token with Token-2022 + Metadata...`);
+    console.log(`   Name: ${config.name}`);
+    console.log(`   Symbol: ${config.symbol}`);
+    console.log(`   Initial NAV: $${config.initialNAV.toFixed(6)}`);
+    console.log(`   Strike Schedule: ${config.strikeSchedule.join(", ")}`);
+
+    // Generate new keypair for the mint
+    const mint = await generateKeyPairSigner();
+    const decimals = config.decimals ?? 6;
+
+    // Define extensions
+    const defaultAccountStateExtension = extension("DefaultAccountState", {
+      state: AccountState.Frozen
+    });
+    const metadataPointerExtension = extension("MetadataPointer", {
+      authority: this.fundAdministrator.address,
+      metadataAddress: mint.address
+    });
+    const extensions = [defaultAccountStateExtension, metadataPointerExtension];
+
+    // Calculate mint size without metadata
+    const baseMintSize = getMintSize(extensions);
+
+    // Create metadata object to calculate EXACT size using pack()
+    // Note: PublicKey is only used here for size calculation, not for transaction building
+    const metadataForSizing = {
+      mint: new PublicKey(mint.address),
+      name: config.name,
+      symbol: config.symbol,
+      uri: config.uri || "",
+      additionalMetadata: [
+        ["icon-uri", "link to icon"], // Max NAV format
+        ["currentNAV", "999999.999999"], // Max NAV format
+        ["lastStrikeTime", "2099-12-31T23:59:59.999Z"], // Max ISO timestamp
+        ["strikeSchedule", JSON.stringify(config.strikeSchedule)],
+        ["totalAUM", "999999999999999.99"], // Max AUM (quadrillions)
+        ["fundType", "Money Market Fund"]
+      ] as [string, string][]
+    };
+
+    // Calculate exact metadata size using pack()
+    const metadataLen = pack(metadataForSizing).length;
+    // MetadataExtension TLV overhead: 2 bytes for type, 2 bytes for length
+    const metadataExtensionOverhead = TYPE_SIZE + LENGTH_SIZE;
+
+    // Add safety buffer for any encoding overhead
+    const totalSpace =
+      baseMintSize + metadataLen + metadataExtensionOverhead + 100;
+    // Get rent for total space
+    const mintRent = await this.client.rpc
+      .getMinimumBalanceForRentExemption(BigInt(totalSpace))
+      .send();
+
+    // Build create account instruction (with base size, but extra rent for metadata)
+    const createAccountIx = getCreateAccountInstruction({
+      payer: issuer,
+      newAccount: mint,
+      lamports: lamports(mintRent),
+      space: baseMintSize,
+      programAddress: TOKEN_2022_PROGRAM_ADDRESS
+    });
+
+    // Get extension initialization instructions
+    const preInitIxs = getPreInitializeInstructionsForMintExtensions(
+      mint.address,
+      extensions
+    );
+
+    // Initialize mint instruction (Token 2022)
+    const initMintIx = getInitializeMintInstruction({
+      mint: mint.address,
+      decimals,
+      mintAuthority: this.fundAdministrator.address,
+      freezeAuthority: this.fundAdministrator.address
+    });
+
+    // Initialize metadata instruction
+    const initMetadataIx = getInitializeTokenMetadataInstruction({
+      metadata: mint.address,
+      updateAuthority: this.fundAdministrator.address,
+      mint: mint.address,
+      mintAuthority: this.fundAdministrator,
+      name: config.name,
+      symbol: config.symbol,
+      uri: ""
+    });
+
+    // Build custom metadata field update instructions
+    const initialMetadata: [string, string][] = [
+      ["currentNAV", config.initialNAV.toFixed(6)],
+      ["lastStrikeTime", new Date().toISOString()],
+      ["strikeSchedule", JSON.stringify(config.strikeSchedule)],
+      ["totalAUM", "0.00"],
+      ["fundType", "Money Market Fund"]
+    ];
+
+    const updateFieldIxs = initialMetadata.map(([key, value]) =>
+      getUpdateTokenMetadataFieldInstruction({
+        metadata: mint.address,
+        updateAuthority: this.fundAdministrator,
+        field: tokenMetadataField("Key", [key]),
+        value
+      })
+    );
+
+    // Get latest blockhash
+    const { value: latestBlockhash } = await this.client.rpc
+      .getLatestBlockhash()
+      .send();
+
+    // Build transaction message
+    const transactionMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(issuer, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) =>
+        appendTransactionMessageInstructions(
+          [
+            createAccountIx,
+            ...preInitIxs,
+            initMintIx,
+            initMetadataIx,
+            ...updateFieldIxs
+          ],
+          tx
+        )
+    );
+
+    // Sign and send
+    const signedTransaction =
+      await signTransactionMessageWithSigners(transactionMessage);
+    const signature = getSignatureFromTransaction(signedTransaction);
+
+    await this.sendTransaction(signedTransaction);
+
+    // Update internal state
+    this.currentNAV = config.initialNAV;
+    this.strikeSchedule = config.strikeSchedule;
+    this.lastStrikeTime = new Date();
+
+    console.log(`\n✅ Fund token created: ${mint.address}`);
+    console.log(`   Mint Authority: ${this.fundAdministrator.address}`);
+    console.log(`   Freeze Authority: ${this.fundAdministrator.address}`);
+    console.log(`   Default State: FROZEN (requires whitelisting)`);
+    console.log(`   ✨ Metadata: ON-CHAIN`);
+    console.log(`   - NAV: $${config.initialNAV.toFixed(6)}`);
+    console.log(`   - Schedule: ${config.strikeSchedule.join(", ")}`);
+    console.log(`   🔗 Token: ${this.getAddressLink(mint.address)}`);
+    console.log(`   🔗 Tx: ${this.getTxExplorerLink(signature)}`);
+
+    return mint.address;
+  }
+```
+
+<Callout type="tip" title="Dynamiczne aktualizacje metadanych">
+
+W przypadku udziałów funduszu pola `currentNAV`, `lastStrikeTime` i `totalAUM` są
+aktualizowane onchain przy każdym uderzeniu NAV za pomocą
+`getUpdateTokenMetadataFieldInstruction`. Zapewnia to:
+
+- **Widoczność NAV w czasie rzeczywistym** dla wszystkich uczestników
+- **Ścieżkę audytu** wszystkich aktualizacji NAV onchain
+- **Integrację** z protokołami DeFi, które mogą odczytywać metadane onchain
+
+</Callout>
+
+```typescript
+  /**
+   * Updates NAV onchain in token metadata
+   */
+  async updateNAV(fundMint: Address, newNAV: number): Promise<string> {
+    const previousNAV = this.currentNAV;
+    this.currentNAV = newNAV;
+    this.lastStrikeTime = new Date();
+
+    // Build update field instructions
+    const updateNavIx = getUpdateTokenMetadataFieldInstruction({
+      metadata: fundMint,
+      updateAuthority: this.fundAdministrator,
+      field: tokenMetadataField("Key", ["currentNAV"]),
+      value: newNAV.toFixed(6)
+    });
+
+    const updateTimeIx = getUpdateTokenMetadataFieldInstruction({
+      metadata: fundMint,
+      updateAuthority: this.fundAdministrator,
+      field: tokenMetadataField("Key", ["lastStrikeTime"]),
+      value: this.lastStrikeTime.toISOString()
+    });
+
+    const updateAumIx = getUpdateTokenMetadataFieldInstruction({
+      metadata: fundMint,
+      updateAuthority: this.fundAdministrator,
+      field: tokenMetadataField("Key", ["totalAUM"]),
+      value: this.totalAUM.toFixed(2)
+    });
+
+    const { value: latestBlockhash } = await this.client.rpc
+      .getLatestBlockhash()
+      .send();
+
+    const transactionMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(this.fundAdministrator, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) =>
+        appendTransactionMessageInstructions(
+          [updateNavIx, updateTimeIx, updateAumIx],
+          tx
+        )
+    );
+
+    const signedTransaction =
+      await signTransactionMessageWithSigners(transactionMessage);
+    const signature = getSignatureFromTransaction(signedTransaction);
+
+    await this.sendTransaction(signedTransaction);
+
+    const navChange = ((newNAV - previousNAV) / previousNAV) * 100;
+    const changeSymbol = navChange >= 0 ? "▲" : "▼";
+
+    console.log(
+      `   NAV Updated: $${previousNAV.toFixed(6)} → $${newNAV.toFixed(
+        6
+      )} (${changeSymbol}${Math.abs(navChange).toFixed(4)}%)`
+    );
+    console.log(`   🔗 Explorer: ${this.getTxExplorerLink(signature)}`);
+
+    return signature;
+  }
+
+  /**
+   * Whitelists an investor by creating their fund account and thawing it
+   */
+  async whitelistInvestor(
+    fundMint: Address,
+    investor: Address,
+    payer: KeyPairSigner
+  ): Promise<Address> {
+    console.log(`\n🔓 Whitelisting investor: ${investor.slice(0, 20)}...`);
+
+    // Find the ATA
+    const [ata] = await findAssociatedTokenPda({
+      mint: fundMint,
+      owner: investor,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+    });
+
+    const maybeToken = await fetchMaybeToken(this.client.rpc, ata, {
+      commitment: "confirmed"
+    });
+
+    const { value: latestBlockhash } = await this.client.rpc
+      .getLatestBlockhash()
+      .send();
+
+    if (!maybeToken.exists) {
+      // Create ATA
+      const createAtaIx = getCreateAssociatedTokenInstruction({
+        payer,
+        owner: investor,
+        mint: fundMint,
+        ata,
+        tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+      });
+
+      const createAtaMsg = pipe(
+        createTransactionMessage({ version: 0 }),
+        (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+        (tx) =>
+          setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+        (tx) => appendTransactionMessageInstructions([createAtaIx], tx)
+      );
+
+      const signedCreateAta =
+        await signTransactionMessageWithSigners(createAtaMsg);
+      await this.sendTransaction(signedCreateAta);
+    }
+
+    // Thaw the account
+    const thawIx = getThawAccountInstruction({
+      account: ata,
+      mint: fundMint,
+      owner: this.fundAdministrator
+    });
+
+    const thawMsg = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([thawIx], tx)
+    );
+
+    const signedThaw = await signTransactionMessageWithSigners(thawMsg);
+    await this.sendTransaction(signedThaw);
+
+    console.log(`   Account: ${ata}`);
+    console.log(`✅ Investor whitelisted and account thawed`);
+
+    return ata;
+  }
+
+  /**
+   * Removes an investor from whitelist by freezing their account
+   */
+  async removeFromWhitelist(
+    fundMint: Address,
+    investorFundAccount: Address,
+    payer: KeyPairSigner
+  ): Promise<void> {
+    console.log(`\n🔒 Removing from whitelist: ${investorFundAccount}`);
+
+    const { value: latestBlockhash } = await this.client.rpc
+      .getLatestBlockhash()
+      .send();
+
+    const freezeIx = getFreezeAccountInstruction({
+      account: investorFundAccount,
+      mint: fundMint,
+      owner: this.fundAdministrator
+    });
+
+    const freezeMsg = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(payer, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([freezeIx], tx)
+    );
+
+    const signedFreeze = await signTransactionMessageWithSigners(freezeMsg);
+    await this.sendTransaction(signedFreeze);
+
+    console.log(`✅ Account frozen and removed from whitelist`);
+  }
+
+  /**
+   * Delegates USDC authority to fund administrator for subscription
+   */
+  async delegateUSDCForSubscription(
+    investor: KeyPairSigner,
+    usdcMint: Address,
+    amount: number
+  ): Promise<void> {
+    const [investorUSDC] = await findAssociatedTokenPda({
+      mint: usdcMint,
+      owner: investor.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS
+    });
+
+    console.log(`\n🤝 Delegating USDC for subscription...`);
+    console.log(`   Amount: $${amount.toLocaleString()}`);
+
+    const { value: latestBlockhash } = await this.client.rpc
+      .getLatestBlockhash()
+      .send();
+
+    const approveIx = getApproveInstruction({
+      source: investorUSDC,
+      delegate: this.fundAdministrator.address,
+      owner: investor,
+      amount: BigInt(amount * 1e6)
+    });
+
+    const approveMsg = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(investor, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([approveIx], tx)
+    );
+
+    const signedApprove = await signTransactionMessageWithSigners(approveMsg);
+    await this.sendTransaction(signedApprove);
+
+    console.log(`✅ USDC delegation approved`);
+  }
+
+  /**
+   * Delegates fund shares authority to administrator for redemption
+   */
+  async delegateSharesForRedemption(
+    investor: KeyPairSigner,
+    fundMint: Address,
+    shareAmount: number
+  ): Promise<void> {
+    const [investorShares] = await findAssociatedTokenPda({
+      mint: fundMint,
+      owner: investor.address,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+    });
+
+    console.log(`\n🤝 Delegating shares for redemption...`);
+    console.log(`   Shares: ${shareAmount.toLocaleString()}`);
+
+    const { value: latestBlockhash } = await this.client.rpc
+      .getLatestBlockhash()
+      .send();
+
+    const approveIx = getApproveInstruction(
+      {
+        source: investorShares,
+        delegate: this.fundAdministrator.address,
+        owner: investor,
+        amount: BigInt(Math.floor(shareAmount * 1e6))
+      },
+      { programAddress: TOKEN_2022_PROGRAM_ADDRESS }
+    );
+
+    const approveMsg = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(investor, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) => appendTransactionMessageInstructions([approveIx], tx)
+    );
+
+    const signedApprove = await signTransactionMessageWithSigners(approveMsg);
+    await this.sendTransaction(signedApprove);
+
+    console.log(`✅ Share delegation approved`);
+  }
+
+  /**
+   * Executes atomic subscription: USDC → Fund Shares at current NAV
+   */
+  async processSubscription(
+    params: SubscriptionParams
+  ): Promise<SubscriptionResult> {
+    const { fundMint, usdcMint, investor, usdcAmount } = params;
+
+    // Calculate shares at current NAV
+    const sharesToMint = usdcAmount / this.currentNAV;
+    const shortAddr = `${investor.slice(0, 4)}...${investor.slice(-4)}`;
+
+    console.log(`\n⚡ Processing subscription...`);
+    console.log(`   Investor: ${shortAddr}`);
+    console.log(`   USDC Amount: $${usdcAmount.toLocaleString()}`);
+    console.log(`   NAV: $${this.currentNAV.toFixed(6)}`);
+    console.log(`   Shares to mint: ${sharesToMint.toFixed(6)}`);
+
+    // Get token accounts
+    const [investorUSDC] = await findAssociatedTokenPda({
+      mint: usdcMint,
+      owner: investor,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS
+    });
+
+    const [fundUSDC] = await findAssociatedTokenPda({
+      mint: usdcMint,
+      owner: this.fundAdministrator.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS
+    });
+
+    const [investorShares] = await findAssociatedTokenPda({
+      mint: fundMint,
+      owner: investor,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+    });
+
+    const { value: latestBlockhash } = await this.client.rpc
+      .getLatestBlockhash()
+      .send();
+
+    // Build atomic transaction with both instructions
+    // 1. Transfer USDC from investor to fund (using delegated authority)
+    const transferUSDCIx = getTransferCheckedInstruction({
+      source: investorUSDC,
+      mint: usdcMint,
+      destination: fundUSDC,
+      authority: this.fundAdministrator,
+      amount: BigInt(Math.floor(usdcAmount * 1e6)),
+      decimals: 6
+    });
+
+    // 2. Mint fund shares to investor
+    const mintSharesIx = getMintToInstruction(
+      {
+        mint: fundMint,
+        token: investorShares,
+        mintAuthority: this.fundAdministrator,
+        amount: BigInt(Math.floor(sharesToMint * 1e6))
+      },
+      { programAddress: TOKEN_2022_PROGRAM_ADDRESS }
+    );
+
+    const txMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(this.fundAdministrator, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) =>
+        appendTransactionMessageInstructions([transferUSDCIx, mintSharesIx], tx) // <- Both happen at the same time
+    );
+
+    const signedTx = await signTransactionMessageWithSigners(txMessage);
+    const signature = getSignatureFromTransaction(signedTx);
+
+    await this.sendTransaction(signedTx);
+
+    // Update fund state
+    this.totalAUM += usdcAmount;
+    this.totalSharesOutstanding += sharesToMint;
+
+    console.log(`✅ SUBSCRIPTION SETTLED ATOMICALLY`);
+    console.log(`   Shares issued: ${sharesToMint.toFixed(6)}`);
+    console.log(`   New AUM: $${this.totalAUM.toLocaleString()}`);
+    console.log(`   🔗 Explorer: ${this.getTxExplorerLink(signature)}`);
+
+    return {
+      signature,
+      usdcAmount,
+      sharesIssued: sharesToMint,
+      executionNAV: this.currentNAV,
+      timestamp: new Date()
+    };
+  }
+
+  /**
+   * Executes atomic redemption: Fund Shares → USDC at current NAV
+   */
+  async processRedemption(params: RedemptionParams): Promise<RedemptionResult> {
+    const { fundMint, usdcMint, investor, shareAmount } = params;
+
+    // Calculate USDC at current NAV
+    const usdcToPay = shareAmount * this.currentNAV;
+    const shortAddr = `${investor.slice(0, 4)}...${investor.slice(-4)}`;
+
+    console.log(`\n⚡ Processing redemption...`);
+    console.log(`   Investor: ${shortAddr}`);
+    console.log(`   Shares to redeem: ${shareAmount.toLocaleString()}`);
+    console.log(`   NAV: $${this.currentNAV.toFixed(6)}`);
+    console.log(`   USDC to pay: $${usdcToPay.toFixed(2)}`);
+
+    // Get token accounts
+    const [investorShares] = await findAssociatedTokenPda({
+      mint: fundMint,
+      owner: investor,
+      tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+    });
+
+    const [investorUSDC] = await findAssociatedTokenPda({
+      mint: usdcMint,
+      owner: investor,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS
+    });
+
+    const [fundUSDC] = await findAssociatedTokenPda({
+      mint: usdcMint,
+      owner: this.fundAdministrator.address,
+      tokenProgram: TOKEN_PROGRAM_ADDRESS
+    });
+
+    const { value: latestBlockhash } = await this.client.rpc
+      .getLatestBlockhash()
+      .send();
+
+    // Build atomic transaction with both instructions
+    // 1. Burn fund shares from investor (using delegated authority)
+    const burnSharesIx = getBurnInstruction(
+      {
+        account: investorShares,
+        mint: fundMint,
+        authority: this.fundAdministrator,
+        amount: BigInt(Math.floor(shareAmount * 1e6))
+      },
+      { programAddress: TOKEN_2022_PROGRAM_ADDRESS }
+    );
+
+    // 2. Transfer USDC from fund to investor
+    const transferUSDCIx = getTransferCheckedInstruction({
+      source: fundUSDC,
+      mint: usdcMint,
+      destination: investorUSDC,
+      authority: this.fundAdministrator,
+      amount: BigInt(Math.floor(usdcToPay * 1e6)),
+      decimals: 6
+    });
+
+    const txMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(this.fundAdministrator, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+      (tx) =>
+        appendTransactionMessageInstructions([burnSharesIx, transferUSDCIx], tx)
+    );
+
+    const signedTx = await signTransactionMessageWithSigners(txMessage);
+    const signature = getSignatureFromTransaction(signedTx);
+
+    await this.sendTransaction(signedTx);
+
+    // Update fund state
+    this.totalAUM -= usdcToPay;
+    this.totalSharesOutstanding -= shareAmount;
+
+    console.log(`✅ REDEMPTION SETTLED ATOMICALLY`);
+    console.log(`   USDC paid: $${usdcToPay.toFixed(2)}`);
+    console.log(`   New AUM: $${this.totalAUM.toLocaleString()}`);
+    console.log(`   🔗 Explorer: ${this.getTxExplorerLink(signature)}`);
+
+    return {
+      signature,
+      sharesRedeemed: shareAmount,
+      usdcPaid: usdcToPay,
+      executionNAV: this.currentNAV,
+      timestamp: new Date()
+    };
+  }
+
+  /**
+   * Queue an order for the next NAV strike
+   */
+  queueOrder(
+    investor: Address,
+    orderType: "subscribe" | "redeem",
+    amount: number
+  ): StrikeOrder {
+    const order: StrikeOrder = {
+      orderId: `ORD-${++this.orderCounter}`,
+      investor,
+      orderType,
+      amount,
+      strikeTime: this.getNextStrikeTime(),
+      status: "pending"
+    };
+
+    this.pendingOrders.push(order);
+
+    const shortAddr = `${investor.slice(0, 4)}...${investor.slice(-4)}`;
+
+    console.log(`\n📝 Order queued: ${order.orderId}`);
+    console.log(`   Investor: ${shortAddr}`);
+    console.log(`   Type: ${orderType}`);
+    console.log(
+      `   Amount: ${
+        orderType === "subscribe"
+          ? `$${amount.toLocaleString()} USDC`
+          : `${amount.toLocaleString()} shares`
+      }`
+    );
+
+    return order;
+  }
+
+  /**
+   * Execute NAV strike - update NAV and process all pending orders
+   */
+  async executeStrike(
+    fundMint: Address,
+    usdcMint: Address,
+    newNAV: number
+  ): Promise<StrikeResult> {
+    const strikeId = `STRIKE-${Date.now()}`;
+    const strikeTime = new Date();
+
+    console.log(
+      "\n╔══════════════════════════════════════════════════════════════╗"
+    );
+    console.log(
+      "║                    NAV STRIKE EXECUTION                       ║"
+    );
+    console.log(
+      "╚══════════════════════════════════════════════════════════════╝"
+    );
+    console.log(`   Strike ID: ${strikeId}`);
+    console.log(`   Strike Time: ${strikeTime.toISOString()}`);
+    console.log(`   New NAV: $${newNAV.toFixed(6)}`);
+    console.log(`   Pending Orders: ${this.pendingOrders.length}`);
+    console.log(
+      "────────────────────────────────────────────────────────────────"
+    );
+
+    // 1. Update NAV
+    await this.updateNAV(fundMint, newNAV);
+
+    // 2. Process pending orders
+    const signatures: string[] = [];
+    let totalUSDCSubscribed = 0;
+    let totalSharesMinted = 0;
+    let totalSharesRedeemed = 0;
+    let totalUSDCPaid = 0;
+    let subscriptionsProcessed = 0;
+    let redemptionsProcessed = 0;
+
+    const subscriptions = this.pendingOrders.filter(
+      (o) => o.orderType === "subscribe" && o.status === "pending"
+    );
+
+    const redemptions = this.pendingOrders.filter(
+      (o) => o.orderType === "redeem" && o.status === "pending"
+    );
+
+    // Process subscriptions
+    console.log(`\n📥 Processing ${subscriptions.length} subscriptions...`);
+    for (const order of subscriptions) {
+      try {
+        const result = await this.processSubscription({
+          fundMint,
+          usdcMint,
+          investor: order.investor,
+          usdcAmount: order.amount
+        });
+
+        order.status = "executed";
+        signatures.push(result.signature);
+        totalUSDCSubscribed += result.usdcAmount;
+        totalSharesMinted += result.sharesIssued;
+        subscriptionsProcessed++;
+      } catch (error) {
+        console.error(`   ❌ Order ${order.orderId} failed:`, error);
+        order.status = "failed";
+      }
+    }
+
+    // Process redemptions
+    console.log(`\n📤 Processing ${redemptions.length} redemptions...`);
+    for (const order of redemptions) {
+      try {
+        const result = await this.processRedemption({
+          fundMint,
+          usdcMint,
+          investor: order.investor,
+          shareAmount: order.amount
+        });
+
+        order.status = "executed";
+        signatures.push(result.signature);
+        totalSharesRedeemed += result.sharesRedeemed;
+        totalUSDCPaid += result.usdcPaid;
+        redemptionsProcessed++;
+      } catch (error) {
+        console.error(`   ❌ Order ${order.orderId} failed:`, error);
+        order.status = "failed";
+      }
+    }
+
+    // Clear executed orders
+    this.pendingOrders = this.pendingOrders.filter(
+      (o) => o.status === "pending"
+    );
+
+    // Print summary
+    console.log(
+      "\n════════════════════════════════════════════════════════════════"
+    );
+    console.log(
+      "                       STRIKE SUMMARY                            "
+    );
+    console.log(
+      "════════════════════════════════════════════════════════════════"
+    );
+    console.log(`   Subscriptions: ${subscriptionsProcessed} processed`);
+    console.log(`   Total USDC In: $${totalUSDCSubscribed.toLocaleString()}`);
+    console.log(`   Shares Minted: ${totalSharesMinted.toFixed(2)}`);
+    console.log(`   Redemptions: ${redemptionsProcessed} processed`);
+    console.log(`   Shares Burned: ${totalSharesRedeemed.toFixed(2)}`);
+    console.log(`   Total USDC Out: $${totalUSDCPaid.toLocaleString()}`);
+    console.log(`   New AUM: $${this.totalAUM.toLocaleString()}`);
+    console.log(
+      `   Shares Outstanding: ${this.totalSharesOutstanding.toFixed(2)}`
+    );
+    console.log(
+      "════════════════════════════════════════════════════════════════\n"
+    );
+
+    return {
+      strikeId,
+      strikeTime,
+      nav: this.currentNAV,
+      subscriptionsProcessed,
+      totalUSDCSubscribed,
+      totalSharesMinted,
+      redemptionsProcessed,
+      totalSharesRedeemed,
+      totalUSDCPaid,
+      signatures
+    };
+  }
+
+  /**
+   * Get current fund state
+   */
+  getFundState(fundMint: Address): FundState {
+    return {
+      fundMint,
+      currentNAV: this.currentNAV,
+      lastStrikeTime: this.lastStrikeTime,
+      totalAUM: this.totalAUM,
+      totalSharesOutstanding: this.totalSharesOutstanding
+    };
+  }
+
+  /**
+   * Get current NAV
+   */
+  getCurrentNAV(): number {
+    return this.currentNAV;
+  }
+
+  /**
+   * Get pending orders
+   */
+  getPendingOrders(): StrikeOrder[] {
+    return [...this.pendingOrders];
+  }
+
+  /**
+   * Calculate next strike time based on schedule
+   */
+  getNextStrikeTime(): Date {
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`;
+
+    for (const strikeTime of this.strikeSchedule) {
+      if (strikeTime > currentTime) {
+        const [hours, minutes] = strikeTime.split(":");
+        const strikeDate = new Date(now);
+        strikeDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        return strikeDate;
+      }
+    }
+
+    // Next strike is tomorrow's first strike
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const [hours, minutes] = this.strikeSchedule[0].split(":");
+    tomorrow.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    return tomorrow;
+  }
+
+  /**
+   * Airdrops SOL for testing
+   */
+  async airdropSol(publicKey: Address, amount: number): Promise<void> {
+    console.log(
+      `\n💰 Airdropping ${amount} SOL to ${publicKey.slice(0, 20)}...`
+    );
+    const airdrop = airdropFactory({
+      rpc: this.client.rpc,
+      rpcSubscriptions: this.client.rpcSubscriptions
+    });
+    await airdrop({
+      recipientAddress: publicKey,
+      lamports: lamports(BigInt(amount * 1_000_000_000)),
+      commitment: "confirmed"
+    });
+    console.log(`✅ Airdrop complete`);
+  }
+}
+```
+
+### Kompletny przykład użycia
+
+Oto kompletny przykład ilustrujący pełny dzień operacji uderzeń NAV:
+
+```typescript
+/**
+ * NAV Strikes Demo - Solana Kit Version
+ *
+ * Demonstrates multiple daily NAV strikes for a money market fund on Solana.
+ * Built with @solana/kit (web3.js 2.0)
+ *
+ * Run with: npm run demo:kit
+ * Requires: solana-test-validator running locally
+ *
+ * ⚠️ EDUCATIONAL REFERENCE ONLY - NOT FOR PRODUCTION USE
+ */
+
+import {
+  airdropFactory,
+  generateKeyPairSigner,
+  lamports,
+  KeyPairSigner,
+  Address
+} from "@solana/kit";
+import {
+  NAVStrikeEngine,
+  createSolanaClient,
+  getExplorerLink
+} from "../nav-strike-engine";
+import {
+  createTestUSDC,
+  mintTestUSDC,
+  getUSDCBalance,
+  getFundShareBalance
+} from "../test-usdc";
+import type { SolanaClient } from "../types";
+
+/**
+ * Helper to print section headers
+ */
+function printHeader(title: string): void {
+  console.log("\n");
+  console.log(
+    "╔══════════════════════════════════════════════════════════════╗"
+  );
+  console.log(`║  ${title.padEnd(60)}║`);
+  console.log(
+    "╚══════════════════════════════════════════════════════════════╝"
+  );
+}
+
+/**
+ * Print final balances for all participants
+ */
+async function printBalances(
+  client: SolanaClient,
+  fundMint: Address,
+  usdcMint: Address,
+  participants: { name: string; address: Address }[]
+): Promise<void> {
+  console.log(
+    "\n┌─────────────────────────────────────────────────────────────────┐"
+  );
+  console.log(
+    "│                    FINAL BALANCES                              │"
+  );
+  console.log(
+    "├─────────────────────────────────────────────────────────────────┤"
+  );
+
+  for (const { name, address } of participants) {
+    const usdcBalance = await getUSDCBalance(client, usdcMint, address);
+    const shareBalance = await getFundShareBalance(client, fundMint, address);
+    console.log(
+      `│  ${name.padEnd(15)} USDC: $${usdcBalance
+        .toFixed(2)
+        .padStart(10)}  │  Shares: ${shareBalance.toFixed(2).padStart(10)} │`
+    );
+  }
+
+  console.log(
+    "└─────────────────────────────────────────────────────────────────┘"
+  );
+
+  // Cost comparison
+  console.log(
+    "\n┌─────────────────────────────────────────────────────────────────┐"
+  );
+  console.log(
+    "│                    COST COMPARISON                              │"
+  );
+  console.log(
+    "├─────────────────────────────────────────────────────────────────┤"
+  );
+  console.log(
+    "│                        Traditional          Solana NAV Strikes  │"
+  );
+  console.log(
+    "│  ─────────────────────────────────────────────────────────────  │"
+  );
+  console.log(
+    "│  Strikes/Day:              1 (4PM)              4+ (configurable)│"
+  );
+  console.log(
+    "│  Settlement:              T+1/T+2                   Instant     │"
+  );
+  console.log(
+    "│  Pricing:            Unknown til 4PM     Exact NAV at strike    │"
+  );
+  console.log(
+    "│  Compliance:        Manual KYC/AML         Onchain whitelist   │"
+  );
+  console.log(
+    "│  Settlement Risk:         High                    None          │"
+  );
+  console.log(
+    "│  Audit Trail:           Manual                Blockchain        │"
+  );
+  console.log(
+    "└─────────────────────────────────────────────────────────────────┘"
+  );
+}
+
+/**
+ * Main demo function
+ */
+async function main(): Promise<void> {
+  console.log(`
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║   ███╗   ██╗ █████╗ ██╗   ██╗    ███████╗████████╗██████╗       ║
+║   ████╗  ██║██╔══██╗██║   ██║    ██╔════╝╚══██╔══╝██╔══██╗      ║
+║   ██╔██╗ ██║███████║██║   ██║    ███████╗   ██║   ██████╔╝      ║
+║   ██║╚██╗██║██╔══██║╚██╗ ██╔╝    ╚════██║   ██║   ██╔══██╗      ║
+║   ██║ ╚████║██║  ██║ ╚████╔╝     ███████║   ██║   ██║  ██║      ║
+║   ╚═╝  ╚═══╝╚═╝  ╚═╝  ╚═══╝      ╚══════╝   ╚═╝   ╚═╝  ╚═╝      ║
+║                                                                  ║
+║        NAV STRIKES - Solana Kit Reference Implementation         ║
+║        Built with @solana/kit (web3.js 2.0)                     ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+  `);
+
+  // ─────────────────────────────────────────────────────────────────
+  // SETUP: Connect to local validator
+  // ─────────────────────────────────────────────────────────────────
+  printHeader("SETUP: Connecting to Local Validator");
+
+  const client = await createSolanaClient();
+  console.log("✅ Connected to local validator (http://127.0.0.1:8899)");
+
+  // Create keypairs
+  const fundAdmin = await generateKeyPairSigner();
+  const investorA = await generateKeyPairSigner();
+  const investorB = await generateKeyPairSigner();
+
+  console.log(`\n👤 Fund Administrator: ${fundAdmin.address}`);
+  console.log(`👤 Investor A: ${investorA.address}`);
+  console.log(`👤 Investor B: ${investorB.address}`);
+
+  // Create airdrop function
+  const airdrop = airdropFactory({
+    rpc: client.rpc,
+    rpcSubscriptions: client.rpcSubscriptions
+  });
+
+  // Fund accounts with SOL
+  console.log("\n💰 Airdropping SOL to accounts...");
+
+  await airdrop({
+    recipientAddress: fundAdmin.address,
+    lamports: lamports(10_000_000_000n),
+    commitment: "confirmed"
+  });
+  console.log("   ✅ Fund Admin: 10 SOL");
+
+  await airdrop({
+    recipientAddress: investorA.address,
+    lamports: lamports(2_000_000_000n),
+    commitment: "confirmed"
+  });
+  console.log("   ✅ Investor A: 2 SOL");
+
+  await airdrop({
+    recipientAddress: investorB.address,
+    lamports: lamports(2_000_000_000n),
+    commitment: "confirmed"
+  });
+  console.log("   ✅ Investor B: 2 SOL");
+
+  // ─────────────────────────────────────────────────────────────────
+  // STEP 1: Create Test USDC
+  // ─────────────────────────────────────────────────────────────────
+  printHeader("STEP 1: Creating Test USDC");
+
+  const usdcMint = await createTestUSDC(client, fundAdmin, fundAdmin);
+
+  // Mint USDC to participants
+  await mintTestUSDC(
+    client,
+    usdcMint,
+    fundAdmin,
+    investorA.address,
+    500,
+    "Investor A"
+  );
+  await mintTestUSDC(
+    client,
+    usdcMint,
+    fundAdmin,
+    investorB.address,
+    300,
+    "Investor B"
+  );
+  await mintTestUSDC(
+    client,
+    usdcMint,
+    fundAdmin,
+    fundAdmin.address,
+    1000,
+    "Fund Admin"
+  );
+
+  // ─────────────────────────────────────────────────────────────────
+  // STEP 2: Create NAV Strike Engine & Fund Token
+  // ─────────────────────────────────────────────────────────────────
+  printHeader("STEP 2: Creating Fund & NAV Strike Engine");
+
+  const engine = new NAVStrikeEngine(client, fundAdmin, "localnet");
+
+  const fundMint = await engine.createFundToken(fundAdmin, {
+    name: "Example Money Market Fund",
+    symbol: "EX-MMF",
+    uri: "Link to of chain meta data",
+    initialNAV: 1.0,
+    strikeSchedule: ["09:30", "12:00", "14:30", "16:00"],
+    decimals: 6
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // STEP 3: Whitelist Investors
+  // ─────────────────────────────────────────────────────────────────
+  printHeader("STEP 3: Whitelisting Investors (KYC/AML)");
+
+  await engine.whitelistInvestor(fundMint, investorA.address, fundAdmin);
+  await engine.whitelistInvestor(fundMint, investorB.address, fundAdmin);
+
+  // ─────────────────────────────────────────────────────────────────
+  // STRIKE 1: 9:30 AM - Initial Subscriptions
+  // ─────────────────────────────────────────────────────────────────
+  printHeader("STRIKE 1: 9:30 AM - Initial Subscriptions");
+
+  // Investors delegate USDC and queue orders
+  await engine.delegateUSDCForSubscription(investorA, usdcMint, 250);
+  engine.queueOrder(investorA.address, "subscribe", 250);
+
+  await engine.delegateUSDCForSubscription(investorB, usdcMint, 150);
+  engine.queueOrder(investorB.address, "subscribe", 150);
+
+  // Execute strike at $1.00 NAV
+  await engine.executeStrike(fundMint, usdcMint, 1.0);
+
+  // ─────────────────────────────────────────────────────────────────
+  // STRIKE 2: 12:00 PM - Additional Subscription
+  // ─────────────────────────────────────────────────────────────────
+  printHeader("STRIKE 2: 12:00 PM - Additional Subscription");
+
+  // Investor A adds more
+  await engine.delegateUSDCForSubscription(investorA, usdcMint, 100);
+  engine.queueOrder(investorA.address, "subscribe", 100);
+
+  // Execute strike at $1.01 NAV (slight gain from interest)
+  await engine.executeStrike(fundMint, usdcMint, 1.01);
+
+  // ─────────────────────────────────────────────────────────────────
+  // STRIKE 3: 2:30 PM - Partial Redemption
+  // ─────────────────────────────────────────────────────────────────
+  printHeader("STRIKE 3: 2:30 PM - Partial Redemption");
+
+  // Investor B redeems 50 shares
+  await engine.delegateSharesForRedemption(investorB, fundMint, 50);
+  engine.queueOrder(investorB.address, "redeem", 50);
+
+  // Execute strike at $1.02 NAV
+  await engine.executeStrike(fundMint, usdcMint, 1.02);
+
+  // ─────────────────────────────────────────────────────────────────
+  // STRIKE 4: 4:00 PM - End of Day
+  // ─────────────────────────────────────────────────────────────────
+  printHeader("STRIKE 4: 4:00 PM - End of Day");
+
+  // No new orders, just NAV update
+  await engine.executeStrike(fundMint, usdcMint, 1.03);
+
+  // ─────────────────────────────────────────────────────────────────
+  // FINAL: Print Balances
+  // ─────────────────────────────────────────────────────────────────
+  printHeader("FINAL RESULTS");
+
+  await printBalances(client, fundMint, usdcMint, [
+    { name: "Fund Admin", address: fundAdmin.address },
+    { name: "Investor A", address: investorA.address },
+    { name: "Investor B", address: investorB.address }
+  ]);
+
+  // Print fund state
+  const fundState = engine.getFundState(fundMint);
+  console.log("\n📊 Fund State:");
+  console.log(`   Current NAV: $${fundState.currentNAV.toFixed(6)}`);
+  console.log(`   Total AUM: $${fundState.totalAUM.toLocaleString()}`);
+  console.log(
+    `   Shares Outstanding: ${fundState.totalSharesOutstanding.toFixed(2)}`
+  );
+  console.log(`   Last Strike: ${fundState.lastStrikeTime.toISOString()}`);
+
+  console.log(
+    "\n✅ Demo complete! NAV Strikes with Solana Kit working correctly."
+  );
+  console.log(
+    "   View transactions on Solana Explorer (local validator - links shown above)\n"
+  );
+}
+
+// Run the demo
+main().catch((error) => {
+  console.error("❌ Demo failed:", error);
+  process.exit(1);
+});
+```
+
+## Kwestie produkcyjne
+
+Przed wdrożeniem na środowisko produkcyjne upewnij się, że uwzględniasz:
+
+1. **Bezpieczeństwo**: Profesjonalne zarządzanie kluczami, kontrole wielopodpisowe i
+   kompleksowe audyty bezpieczeństwa kodu źródłowego
+2. **Zgodność z przepisami**: Rejestracja papierów wartościowych, systemy KYC/AML, ograniczenia transferu
+   i wymagana sprawozdawczość
+3. **Zarządzanie kluczami**: Instytucjonalne rozwiązania do przechowywania z właściwymi procedurami
+   tworzenia kopii zapasowych i odzyskiwania
+4. **Przetwarzanie transakcji**: Opłaty priorytetowe, logika ponownych prób, obsługa potwierdzeń
+   i redundancja RPC
+5. **Operacje funduszu**: Obliczanie NAV z miarodajnych źródeł, integracja z depozytariuszem
+   i uzgodnienia
+6. **Monitorowanie**: Śledzenie w czasie rzeczywistym, alerty i zautomatyzowana sprawozdawczość regulacyjna
+
+## Kolejne kroki
+
+Po zapoznaniu się z uderzeniami NAV na Solanie:
+
+1. **Zapoznaj się z Token Extensions**: Dowiedz się o innych
+   [rozszerzeniach Token 2022](/docs/tokens/extensions/transfer-hook), takich jak
+   na przykład stały delegat, dla dodatkowych funkcji zgodności z przepisami
+
+2. **Wdróż Token ACL**: Aby zwiększyć zgodność z przepisami, rozważ użycie
+   [Token ACL](/docs/tokenization/token-acl) do zarządzania whitelistą inwestorów
+   z bezuprawnieniowym odmrażaniem. Umożliwia to samoobsługową weryfikację KYC, w której
+   inwestorzy mogą automatycznie aktywować swoje konta po przejściu kontroli zgodności,
+   zmniejszając koszty operacyjne przy zachowaniu kontroli regulacyjnej.
+
+3. **Zapoznaj się z rozliczeniem DvP**: Zobacz nasz
+   [przewodnik Delivery vs Payment](/docs/tokenization/dvp) dotyczący wzorców rozliczania papierów wartościowych
+
+4. **Architektura produkcyjna**: Zaprojektuj solidne systemy harmonogramowania, monitorowania
+   i odtwarzania po awarii
+
+## Podsumowanie
+
+Atomowy model transakcji Solany i Token Extensions zapewniają potężną
+podstawę do implementacji wielu dziennych uderzeń NAV dla funduszy rynku pieniężnego.
+Kombinacja:
+
+- Natywnej atomowej realizacji (brak ryzyka smart kontraktów)
+- Finalności poniżej jednej sekundy
+- Bliskich zeru kosztów transakcji
+- Transparentności NAV onchain
+- Wbudowanych funkcji zgodności (domyślne zamrożenie, metadane)
+
+Sprawia, że Solana jest idealną platformą do modernizacji infrastruktury rozliczania funduszy
+i zapewniania inwestorom częstszych możliwości handlowych.
+
+Jednak przejście od tej edukacyjnej implementacji referencyjnej do środowiska produkcyjnego wymaga
+znacznej dodatkowej pracy w zakresie bezpieczeństwa, zgodności z przepisami, przechowywania aktywów i operacji. Zawsze współpracuj z wykwalifikowanymi ekspertami prawnymi, regulacyjnymi i technicznymi
+przy tokenizacji funduszy.

@@ -1,0 +1,1623 @@
+---
+title: 将 Solana 添加到您的交易所
+description:
+  Learn how to integrate Solana into your exchange with this guide covering node
+  setup and implementation details for deposits and withdrawals.
+---
+
+本指南介绍如何将 Solana 的原生代币 SOL 添加到您的加密货币交易所。
+
+## 节点设置
+
+我们强烈建议在高配置计算机或云实例上至少部署两个节点，及时升级到新版本，并使用内置监控工具密切关注服务运行状态。
+
+此配置可让您：
+
+- 拥有一个自主管理的网关，连接 Solana 主网集群，以获取数据并提交提现交易
+- 完全掌控保留多少历史区块数据
+- 即使某个节点发生故障，也能维持服务的可用性
+
+Solana 节点需要较高的计算能力，以处理我们快速的区块和高 TPS。有关具体要求，请参阅
+[硬件推荐](https://docs.anza.xyz/operations/requirements)。
+
+要运行一个 API 节点：
+
+1. [安装 Solana 命令行工具套件](/docs/intro/installation)
+2. 使用至少以下参数启动 validator：
+
+```shell
+solana-validator \
+  --ledger <LEDGER_PATH> \
+  --identity <VALIDATOR_IDENTITY_KEYPAIR> \
+  --entrypoint <CLUSTER_ENTRYPOINT> \
+  --expected-genesis-hash <EXPECTED_GENESIS_HASH> \
+  --rpc-port 8899 \
+  --no-voting \
+  --enable-rpc-transaction-history \
+  --limit-ledger-size \
+  --known-validator <VALIDATOR_ADDRESS> \
+  --only-known-rpc
+```
+
+将 `--ledger` 自定义为您期望的账本存储位置，将 `--rpc-port` 设置为您希望对外开放的端口。
+
+`--entrypoint` 和 `--expected-genesis-hash` 参数均针对您所加入的集群。
+[主网当前参数](https://docs.anza.xyz/clusters/available#example-solana-validator-command-line-2)
+
+`--limit-ledger-size` 参数允许您指定节点在磁盘上保留多少账本 [shreds](/docs/references/terminology#shred)。如果不包含此参数，validator 将保留完整账本，直至磁盘空间耗尽。默认值会尝试将账本磁盘占用控制在 500GB 以内。如有需要，可通过为 `--limit-ledger-size` 添加参数来调整磁盘使用量。运行 `solana-validator --help` 可查看 `--limit-ledger-size` 使用的默认限制值。有关选择自定义限制值的更多信息，
+[请点击此处](https://github.com/solana-labs/solana/blob/583cec922b6107e0f85c7e14cb5e642bc7dfb340/core/src/ledger_cleanup_service.rs#L15-L26)。
+
+指定一个或多个 `--known-validator` 参数可保护您免受恶意快照启动的影响。
+[关于使用已知 validator 启动的价值详解](https://docs.anza.xyz/operations/guides/validator-start#known-validators)
+
+可选参数说明：
+
+- `--private-rpc` 可防止您的 RPC 端口被发布供其他节点使用
+- `--rpc-bind-address` 允许您指定绑定 RPC 端口的不同 IP 地址
+
+### 自动重启与监控
+
+我们建议将每个节点配置为退出后自动重启，以尽量减少数据丢失。将 Solana 软件作为 systemd 服务运行是一个很好的选择。
+
+在监控方面，我们提供
+[`solana-watchtower`](https://github.com/solana-labs/solana/blob/master/watchtower/README.md)，
+它可以监控您的 validator 并检测 `solana-validator` 进程是否出现异常。它可以直接配置为通过 Slack、Telegram、Discord 或 Twilio 向您发送告警。有关详细信息，请运行 `solana-watchtower --help`。
+
+```shell
+solana-watchtower --validator-identity <YOUR VALIDATOR IDENTITY>
+```
+
+> 您可以在文档中找到更多关于
+> [Solana Watchtower 最佳实践](https://docs.anza.xyz/operations/best-practices/monitoring#solana-watchtower)
+> 的信息。
+
+#### 新版本发布公告
+
+我们频繁发布新版本（大约每周一次）。有时新版本包含不兼容的协议变更，需要及时更新软件以避免区块处理出现错误。
+
+所有类型版本（常规版本和安全版本）的官方发布公告均通过名为 `#mb-announcement` 的 [discord](/discord) 频道发布（`mb` 代表 `mainnet-beta`）。
+
+与已质押的 validator 一样，我们期望所有交易所运营的 validator 在常规版本发布公告后的一至两个工作日内尽快完成更新。对于安全相关的版本，可能需要采取更紧急的行动。
+
+### 账本连续性
+
+默认情况下，您的每个节点将从某个已知 validator 提供的快照启动。该快照反映链的当前状态，但不包含完整的历史账本。如果某个节点退出并从新快照启动，该节点上的账本可能会出现间断。为防止此问题，请在 `solana-validator` 命令中添加 `--no-snapshot-fetch` 参数，以接收历史账本数据而非快照。
+
+初始启动时请勿传入 `--no-snapshot-fetch` 参数，因为无法从创世区块开始完整启动节点。请先从快照启动，然后在重启时添加 `--no-snapshot-fetch` 参数。
+
+需要注意的是，在任何时间点，网络其余节点能够向您的节点提供的历史账本数量都是有限的。一旦投入运行，如果您的 validator 经历较长时间的停机，它们可能无法追上网络进度，需要从已知 validator 下载新的快照。这样一来，您的 validator 历史账本数据将出现无法填补的空缺。
+
+### 最小化 Validator 端口暴露
+
+validator 需要开放多个 UDP 和 TCP 端口，以接受来自所有其他 Solana validator 的入站流量。虽然这是最高效的运行模式，也是强烈推荐的方式，但也可以将 validator 限制为仅需要来自另一个 Solana validator 的入站流量。
+
+首先添加 `--restricted-repair-only-mode` 参数。这将使 validator 在受限模式下运行，不再接收来自其他 validator 的推送，而是需要持续轮询其他 validator 获取区块。该 validator 将仅通过 _Gossip_ 和 _ServeR_（"serve repair"）端口向其他 validator 发送 UDP 数据包，并仅在其 _Gossip_ 和 _Repair_ 端口上接收 UDP 数据包。
+
+_Gossip_ 端口是双向的，可使您的 validator 与集群其余部分保持联系。由于 Turbine 现已禁用，您的 validator 通过 _ServeR_ 发起修复请求，从网络其余部分获取新区块。随后，您的 validator 将在 _Repair_ 端口接收来自其他 validator 的修复响应。
+
+如需进一步将 validator 限制为仅从一个或多个 validator 请求区块，请先确定目标 validator 的身份 pubkey，并为每个 PUBKEY 添加 `--gossip-pull-validator PUBKEY --repair-validator PUBKEY` 参数。这将导致您的 validator 消耗所添加的每个 validator 的资源，因此请谨慎使用，并仅在与目标 validator 协商后再执行此操作。
+
+您的 validator 现在应仅与明确列出的 validator 通信，且仅使用 _Gossip_、_Repair_ 和 _ServeR_ 端口。
+
+## 设置充值账户
+
+Solana 账户无需任何链上初始化；一旦包含一定数量的 SOL，账户即存在。要为您的交易所设置充值账户，只需使用我们的任意
+[钱包工具](https://docs.anza.xyz/cli/wallets)
+生成一个 Solana keypair。
+
+我们建议为每位用户使用独立的充值账户。
+
+Solana 账户必须通过存入相当于 2 年 [rent](/docs/core/accounts/account-structure) 的 SOL 来实现免 rent 豁免。要查询充值账户所需的最低免 rent 余额，请查询
+[`getMinimumBalanceForRentExemption` 端点](/docs/rpc/http/getminimumbalanceforrentexemption)：
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getMinimumBalanceForRentExemption",
+  "params": [0]
+}'
+```
+
+##### 结果
+
+```json
+{ "jsonrpc": "2.0", "result": 890880, "id": 1 }
+```
+
+### 离线账户
+
+为提高安全性，您可能希望将一个或多个归集账户的密钥保持离线状态。如果是这样，您需要使用我们的
+[离线方式](https://docs.anza.xyz/cli/examples/offline-signing)
+将 SOL 转移到热账户。
+
+## 监听充值
+
+当用户希望向您的交易所充值 SOL 时，请指引他们将转账发送到相应的充值地址。
+
+### 版本化交易迁移
+
+当主网开始处理版本化交易时，交易所**必须**进行相应更改。若不进行更改，充值检测将无法正常工作，因为获取版本化交易或包含版本化交易的区块时将返回错误。
+
+- `{"maxSupportedTransactionVersion": 0}`
+
+  必须将 `maxSupportedTransactionVersion` 参数添加到 `getBlock` 和
+  `getTransaction` 请求中，以避免充值检测中断。最新的交易版本为 `0`，应将其指定为最大支持的交易版本值。
+
+理解版本化交易非常重要，它允许用户创建使用从链上地址查找表加载的另一组账户密钥的交易。
+
+- `{"encoding": "jsonParsed"}`
+
+  在获取区块和交易时，现在建议使用 `"jsonParsed"` 编码，因为它会在消息的 `"accountKeys"` 列表中包含所有交易账户密钥（包括来自查找表的密钥）。这使得解析 `preBalances` / `postBalances` 和 `preTokenBalances` / `postTokenBalances` 中的余额变化变得更加直观。
+
+  如果改用 `"json"` 编码，`preBalances` / `postBalances` 和 `preTokenBalances` / `postTokenBalances` 中的条目可能引用**不在** `"accountKeys"` 列表中的账户密钥，需要通过交易元数据中的 `"loadedAddresses"` 条目进行解析。
+
+### 轮询区块
+
+要追踪交易所的所有充值账户，请轮询每个已确认的区块，并使用您的 Solana API 节点的 JSON-RPC 服务检查感兴趣的地址。
+
+- 要确认哪些区块可用，请发送
+  [`getBlocks`](/docs/rpc/http/getblocks) 请求，将您已处理的最后一个区块作为 start-slot 参数传入：
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getBlocks",
+  "params": [160017005, 160017015]
+}'
+```
+
+##### 结果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [
+    160017005, 160017006, 160017007, 160017012, 160017013, 160017014, 160017015
+  ],
+  "id": 1
+}
+```
+
+并非每个 slot 都会产生区块，因此整数序列中可能存在间隔。
+
+- 对于每个区块，通过
+  [`getBlock`](/docs/rpc/http/getblock) 请求获取其内容：
+
+### 区块获取技巧
+
+- `{"rewards": false}`
+
+默认情况下，获取的区块将返回每个区块上 validator 手续费的信息以及 epoch 边界处的质押奖励信息。如果您不需要这些信息，可通过 "rewards" 参数将其禁用。
+
+- `{"transactionDetails": "accounts"}`
+
+默认情况下，获取的区块将返回大量对追踪账户余额并非必要的交易信息和元数据。设置 "transactionDetails" 参数可加快区块获取速度。
+
+```shell
+curl https://api.devnet.solana.com -X POST -H 'Content-Type: application/json' -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getBlock",
+  "params": [
+    166974442,
+    {
+      "encoding": "jsonParsed",
+      "maxSupportedTransactionVersion": 0,
+      "transactionDetails": "accounts",
+      "rewards": false
+    }
+  ]
+}'
+```
+
+##### 结果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "blockHeight": 157201607,
+    "blockTime": 1665070281,
+    "blockhash": "HKhao674uvFc4wMK1Cm3UyuuGbKExdgPFjXQ5xtvsG3o",
+    "parentSlot": 166974441,
+    "previousBlockhash": "98CNLU4rsYa2HDUyp7PubU4DhwYJJhSX9v6pvE7SWsAo",
+    "transactions": [
+      ... (omit)
+      {
+        "meta": {
+          "err": null,
+          "fee": 5000,
+          "postBalances": [
+            1110663066,
+            1,
+            1040000000
+          ],
+          "postTokenBalances": [],
+          "preBalances": [
+            1120668066,
+            1,
+            1030000000
+          ],
+          "preTokenBalances": [],
+          "status": {
+            "Ok": null
+          }
+        },
+        "transaction": {
+          "accountKeys": [
+            {
+              "pubkey": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde",
+              "signer": true,
+              "source": "transaction",
+              "writable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "signer": false,
+              "source": "transaction",
+              "writable": false
+            },
+            {
+              "pubkey": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+              "signer": false,
+              "source": "lookupTable",
+              "writable": true
+            }
+          ],
+          "signatures": [
+            "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM"
+          ]
+        },
+        "version": 0
+      },
+      ... (omit)
+    ]
+  },
+  "id": 1
+}
+```
+
+`preBalances` 和 `postBalances` 字段允许您跟踪每个账户的余额变化，而无需解析整个交易。它们以 [lamport](/docs/references/terminology#lamport) 为单位列出每个账户的初始余额和最终余额，并与 `accountKeys` 列表对应索引。例如，如果目标充值地址为 `G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o`，则此交易代表转账金额为 1040000000 - 1030000000 = 10,000,000 lamport = 0.01 SOL
+
+如果您需要了解更多关于交易类型或其他详细信息，可以以二进制格式从 RPC 请求区块，并使用我们的 [Rust SDK](https://github.com/solana-labs/solana) 或 [Javascript SDK](https://github.com/solana-labs/solana-web3.js) 进行解析。
+
+### 地址历史记录
+
+您也可以查询特定地址的交易历史记录。通常，这_并不是_跨所有 slot 跟踪所有充值地址的可行方法，但对于在特定时间段内检查少数账户可能有所帮助。
+
+- 向 API 节点发送 [`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) 请求：
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "3M2b3tLji7rvscqrLAHMukYxDK2nB96Q9hwfV6QkdzBN",
+    {
+      "limit": 3
+    }
+  ]
+}'
+```
+
+##### 结果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [
+    {
+      "blockTime": 1662064640,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "3EDRvnD5TbbMS2mCusop6oyHLD8CgnjncaYQd5RXpgnjYUXRCYwiNPmXb6ZG5KdTK4zAaygEhfdLoP7TDzwKBVQp",
+      "slot": 148697216
+    },
+    {
+      "blockTime": 1662064434,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "4rPQ5wthgSP1kLdLqcRgQnkYkPAZqjv5vm59LijrQDSKuL2HLmZHoHjdSLDXXWFwWdaKXUuryRBGwEvSxn3TQckY",
+      "slot": 148696843
+    },
+    {
+      "blockTime": 1662064341,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "36Q383JMiqiobuPV9qBqy41xjMsVnQBm9rdZSdpbrLTGhSQDTGZJnocM4TQTVfUGfV2vEX9ZB3sex6wUBUWzjEvs",
+      "slot": 148696677
+    }
+  ],
+  "id": 1
+}
+```
+
+- 对于返回的每个签名，通过发送 [`getTransaction`](/docs/rpc/http/gettransaction) 请求获取交易详情：
+
+```shell
+curl https://api.devnet.solana.com -X POST -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getTransaction",
+  "params":[
+    "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM",
+    {
+      "encoding":"jsonParsed",
+      "maxSupportedTransactionVersion":0
+    }
+  ]
+}'
+```
+
+##### 结果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "blockTime": 1665070281,
+    "meta": {
+      "err": null,
+      "fee": 5000,
+      "innerInstructions": [],
+      "logMessages": [
+        "Program 11111111111111111111111111111111 invoke [1]",
+        "Program 11111111111111111111111111111111 success"
+      ],
+      "postBalances": [1110663066, 1, 1040000000],
+      "postTokenBalances": [],
+      "preBalances": [1120668066, 1, 1030000000],
+      "preTokenBalances": [],
+      "rewards": [],
+      "status": {
+        "Ok": null
+      }
+    },
+    "slot": 166974442,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde",
+            "signer": true,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+            "signer": false,
+            "source": "lookupTable",
+            "writable": true
+          }
+        ],
+        "addressTableLookups": [
+          {
+            "accountKey": "4syr5pBaboZy4cZyF6sys82uGD7jEvoAP2ZMaoich4fZ",
+            "readonlyIndexes": [],
+            "writableIndexes": [3]
+          }
+        ],
+        "instructions": [
+          {
+            "parsed": {
+              "info": {
+                "destination": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+                "lamports": 10000000,
+                "source": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde"
+              },
+              "type": "transfer"
+            },
+            "program": "system",
+            "programId": "11111111111111111111111111111111"
+          }
+        ],
+        "recentBlockhash": "BhhivDNgoy4L5tLtHb1s3TP19uUXqKiy4FfUR34d93eT"
+      },
+      "signatures": [
+        "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM"
+      ]
+    },
+    "version": 0
+  },
+  "id": 1
+}
+```
+
+## 发送提现
+
+为满足用户的 SOL 提现请求，您必须生成一笔 Solana 转账交易，并将其发送至 API 节点以转发至您的集群。
+
+### 同步
+
+向 Solana 集群发送同步转账，可让您轻松确认转账是否已成功并由集群完成最终确认。
+
+Solana 命令行工具提供了一个简单的命令 `solana transfer`，用于生成、提交并确认转账交易。默认情况下，该方法会等待并在标准错误输出中跟踪进度，直到交易被集群最终确认。如果交易失败，它将报告相应的交易错误。
+
+```shell
+solana transfer <USER_ADDRESS> <AMOUNT> --allow-unfunded-recipient --keypair <KEYPAIR> --url http://localhost:8899
+```
+
+[Solana Javascript SDK](https://github.com/solana-labs/solana-web3.js) 为 JS 生态系统提供了类似的方案。使用 `SystemProgram` 构建转账交易，并通过 `sendAndConfirmTransaction` 方法提交。
+
+### 异步
+
+为获得更大的灵活性，您可以异步提交提现转账。在这种情况下，您有责任验证交易是否成功并已由集群完成最终确认。
+
+**注意：** 每笔交易都包含一个 [最近的 blockhash](/docs/core/transactions/transaction-structure#recent-blockhash) 以表明其有效性。在重试一笔看似未被集群确认或最终完成的提现转账之前，**务必**等待该 blockhash 过期。否则，您将面临双重支付的风险。请参阅下方关于 [blockhash 过期](#blockhash-expiration) 的更多说明。
+
+首先，使用 [`getFees`](/docs/rpc/deprecated/getfees) 端点或 CLI 命令获取最近的 blockhash：
+
+```shell
+solana fees --url http://localhost:8899
+```
+
+在命令行工具中，传入 `--no-wait` 参数以异步发送转账，并通过 `--blockhash` 参数附上您最近获取的 blockhash：
+
+```shell
+solana transfer <USER_ADDRESS> <AMOUNT> --no-wait --allow-unfunded-recipient --blockhash <RECENT_BLOCKHASH> --keypair <KEYPAIR> --url http://localhost:8899
+```
+
+您也可以手动构建、签名并序列化交易，然后通过 JSON-RPC [`sendTransaction`](/docs/rpc/http/sendtransaction) 端点将其发送至集群。
+
+#### 交易确认与最终性
+
+使用 [`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses) JSON-RPC 端点获取一批交易的状态。`confirmations` 字段报告自交易处理以来已经过去的 [已确认区块](/docs/references/terminology#confirmed-block) 数量。如果 `confirmations: null`，则表示交易已 [最终确认](/docs/references/terminology#finality)。
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getSignatureStatuses",
+  "params":[
+    [
+      "4cdd1oX7cfVALfr26tP52BZ6cSzrgnNGtYD7BFhm6FFeZV5sPTnRvg6NRn8yC6DbEikXcrNChBM5vVJnTgKhGhVu",
+      "5j7s6NiJS3JAkvgkoc18WVAsiSaci2pxB2A6ueCJP4tprA2TFg9wSyTLeYouxPBJEMzJinENTkpA52YStRW5Dia7"
+    ]
+  ]
+}'
+```
+
+##### 结果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "slot": 82
+    },
+    "value": [
+      {
+        "slot": 72,
+        "confirmations": 10,
+        "err": null,
+        "status": {
+          "Ok": null
+        }
+      },
+      {
+        "slot": 48,
+        "confirmations": null,
+        "err": null,
+        "status": {
+          "Ok": null
+        }
+      }
+    ]
+  },
+  "id": 1
+}
+```
+
+#### Blockhash 过期
+
+您可以通过发送 [`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash) 请求（以 blockhash 作为参数）来检查特定 blockhash 是否仍然有效。如果响应值为 `null`，则该 blockhash 已过期，使用该 blockhash 的提现交易将永远无法成功。
+
+### 验证用户提供的提现账户地址
+
+由于提现操作不可逆，在授权提现之前验证用户提供的账户地址是一个良好的做法，以防止用户资金的意外损失。
+
+#### 基本验证
+
+Solana 地址是一个 32 字节的数组，使用 Bitcoin Base58 字母表进行编码。其结果是一个符合以下正则表达式的 ASCII 文本字符串：
+
+```text
+[1-9A-HJ-NP-Za-km-z]{32,44}
+```
+
+仅凭此检查是不够的，因为 Solana 地址不含校验和，因此无法检测拼写错误。为进一步验证用户输入，可以对字符串进行解码，并确认所得字节数组的长度为 32。但是，某些地址即使存在拼写错误（例如单个字符缺失、字符顺序颠倒或大小写被忽略），仍可能解码为 32 字节。
+
+#### 高级验证
+
+鉴于上述对拼写错误的脆弱性，建议查询候选提现地址的余额，并在发现非零余额时提示用户确认其操作意图。
+
+#### 有效的 ed25519 pubkey 检查
+
+Solana 中普通账户的地址是 256 位 ed25519 公钥的 Base58 编码字符串。并非所有位模式都是 ed25519 曲线的有效公钥，因此可以验证用户提供的账户地址至少是合法的 ed25519 公钥。
+
+#### Java
+
+以下是一个将用户提供的地址验证为有效 ed25519 公钥的 Java 示例：
+
+以下代码示例假设您正在使用 Maven。
+
+`pom.xml`：
+
+```xml
+<repositories>
+  ...
+  <repository>
+    <id>spring</id>
+    <url>https://repo.spring.io/libs-release/</url>
+  </repository>
+</repositories>
+
+...
+
+<dependencies>
+  ...
+  <dependency>
+      <groupId>io.github.novacrypto</groupId>
+      <artifactId>Base58</artifactId>
+      <version>0.1.3</version>
+  </dependency>
+  <dependency>
+      <groupId>cafe.cryptography</groupId>
+      <artifactId>curve25519-elisabeth</artifactId>
+      <version>0.1.0</version>
+  </dependency>
+<dependencies>
+```
+
+```java
+import io.github.novacrypto.base58.Base58;
+import cafe.cryptography.curve25519.CompressedEdwardsY;
+
+public class PubkeyValidator
+{
+    public static boolean verifyPubkey(String userProvidedPubkey)
+    {
+        try {
+            return _verifyPubkeyInternal(userProvidedPubkey);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static boolean _verifyPubkeyInternal(String maybePubkey) throws Exception
+    {
+        byte[] bytes = Base58.base58Decode(maybePubkey);
+        return !(new CompressedEdwardsY(bytes)).decompress().isSmallOrder();
+    }
+}
+```
+
+## 最低充值与提现金额
+
+每笔 SOL 的充值和提现金额必须大于或等于钱包地址账户（不存储任何数据的基本 SOL 账户）的最低免租余额，当前为：0.000890880 SOL
+
+同样，每个充值账户必须至少持有此余额。
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getMinimumBalanceForRentExemption",
+  "params": [0]
+}'
+```
+
+##### 结果
+
+```json
+{ "jsonrpc": "2.0", "result": 890880, "id": 1 }
+```
+
+## 优先费用与计算单元
+
+在高需求时期，如果 validator 因优先选择经济价值更高的其他交易而未将某些交易纳入其区块，交易可能会在此之前过期。如果未正确实施优先费用，Solana 上的有效交易可能会被延迟或丢弃。
+
+[优先费用](/docs/references/terminology#prioritization-fee)是可在 [基础交易费用](/docs/core/fees/fee-structure#base-fee)之上额外添加的费用，用于确保交易在这些情况下被纳入区块并保障可交付性。
+
+这些优先费用通过在交易中添加一条特殊的计算预算指令来设置所需支付的优先费用金额。
+
+<Callout type="warn" title="重要说明">
+
+未能执行这些指令可能导致网络中断和交易丢弃。强烈建议每个支持 Solana 的交易所使用优先费用以避免中断。
+
+</Callout>
+
+### 什么是优先费用？
+
+优先费用以每计算单元微 lamport 为单位定价（即少量 SOL），附加在交易之前，使 validator 节点在经济上更有动力将其纳入网络区块中。
+
+### 优先费用应设置为多少？
+
+设置优先费用的方法应包括查询近期优先费用，以确定一个对网络具有足够吸引力的费用。使用 [`getRecentPrioritizationFees`](/docs/rpc/http/getrecentprioritizationfees) RPC 方法，您可以查询在近期区块中成功落块所需的优先费用。
+
+这些优先费用的定价策略将根据您的使用场景而有所不同，目前没有统一的标准方式。一种设置优先费用的策略是计算您的交易成功率，然后参照近期交易费用 API 的查询结果相应提高优先费用。优先费用的定价将根据网络活动及其他参与者的出价动态变化，只能在事后得知。
+
+使用 `getRecentPrioritizationFees` API 调用的一个挑战是，它可能只返回每个区块的最低费用。这通常为零，并不能完全有效地近似应使用的优先费用，以避免被 validator 节点拒绝。
+
+`getRecentPrioritizationFees` API 以账户的 pubkey 作为参数，返回这些账户最低优先费用中的最高值。当未指定账户时，API 将返回落块所需的最低费用，通常为零（除非区块已满）。
+
+交易所和应用程序应使用交易将写锁定的账户查询 RPC 端点。该端点将返回 `max(account_1_min_fee, account_2_min_fee, ... account_n_min_fee)`，这应作为用户为该交易设置优先费用的基准点。
+
+设置优先费用有不同的方法，也有一些 [第三方 API](https://docs.helius.dev/solana-rpc-nodes/alpha-priority-fee-api) 可用于确定最佳费用。鉴于网络的动态性，不存在"完美"的优先费用定价方式，在选择方案之前应进行仔细分析。
+
+### 如何实施优先费用
+
+在交易中添加优先费用包括在给定交易中前置两条计算预算指令：
+
+- 一条用于设置计算单元价格，以及
+- 另一条用于设置计算单元限制
+
+> 在这里，您还可以找到更详细的开发者
+> [优先费用使用指南](/docs/core/fees)，其中包含更多关于实施优先费用的信息。
+
+创建一条 `setComputeUnitPrice` 指令，在基础交易费用（5,000 lamport）之上添加优先费用。
+
+```typescript
+// import { ComputeBudgetProgram } from "@solana/web3.js"
+ComputeBudgetProgram.setComputeUnitPrice({ microLamports: number });
+```
+
+所提供的微 lamport 值将与计算单元 (CU) 预算相乘，以确定以 lamport 为单位的优先费用。例如，如果您的 CU 预算为 100 万 CU，并添加 `1 微lamport/CU`，则优先费用将为 1 lamport（100 万 \* 0.000001）。总费用将为 5001 lamport。
+
+要为交易设置新的计算单元预算，请创建一条 `setComputeUnitLimit` 指令
+
+```typescript
+// import { ComputeBudgetProgram } from "@solana/web3.js"
+ComputeBudgetProgram.setComputeUnitLimit({ units: number });
+```
+
+所提供的 `units` 值将替换 Solana 运行时的默认计算预算值。
+
+<Callout type="warn" title="为交易设置所需的最低 CU">
+
+交易应申请执行所需的最低计算单元 (CU) 数量，以最大化吞吐量并最小化总体费用。
+
+您可以通过在其他 Solana 集群（如 devnet）上发送交易来获取其消耗的 CU。例如，一笔 [简单的代币转账](https://explorer.solana.com/tx/5scDyuiiEbLxjLUww3APE9X7i8LE3H63unzonUwMG7s2htpoAGG17sgRsNAhR1zVs6NQAnZeRVemVbkAct5myi17) 需要 300 CU。
+
+</Callout>
+
+```typescript
+// import { ... } from "@solana/web3.js"
+
+const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+  // note: set this to be the lowest actual CU consumed by the transaction
+  units: 300
+});
+
+const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transaction = new Transaction()
+  .add(modifyComputeUnits)
+  .add(addPriorityFee)
+  .add(
+    SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: toAccount,
+      lamports: 10000000
+    })
+  );
+```
+
+### 优先费用与持久 Nonce
+
+如果您的设置使用了持久性 Nonce 交易，务必将优先费用与持久交易 Nonce 正确结合使用，以确保交易成功。否则，预期的持久性 Nonce 交易将无法被正确识别。
+
+如果您正在使用持久交易 Nonce，则 `AdvanceNonceAccount` 指令必须在指令列表中排在第一位，即使使用了计算预算指令来指定优先费用也不例外。
+
+您可以在本开发者指南中找到
+[同时使用持久 nonce 和优先费用](/docs/core/transactions/durable-nonces)
+的具体代码示例。
+
+## 支持 SPL Token 标准
+
+[SPL Token](https://spl.solana.com/token) 是 Solana 区块链上用于创建和交换封装代币/合成代币的标准。
+
+SPL Token 的工作流程与原生 SOL token 类似，但有一些区别，将在本节中进行介绍。
+
+### Token Mint
+
+每种 _类型_ 的 SPL Token 都通过创建一个 _mint_ account 来声明。该账户存储描述 token 特性的元数据，例如供应量、小数位数以及对 mint 拥有控制权的各类授权账户。每个 SPL Token account 均引用其关联的 mint，且只能与该类型的 SPL Token 进行交互。
+
+### 安装 `spl-token` CLI 工具
+
+SPL Token account 的查询和修改均通过 `spl-token` 命令行工具完成。本节提供的示例需要在本地系统上安装该工具。
+
+`spl-token` 通过 Rust `cargo` 命令行工具从 Rust [crates.io](https://crates.io/crates/spl-token) 分发。最新版本的 `cargo` 可通过 [rustup.rs](https://rustup.rs) 提供的适用于您平台的一行命令进行安装。安装 `cargo` 后，可使用以下命令获取 `spl-token`：
+
+```shell
+cargo install spl-token-cli
+```
+
+然后您可以检查已安装的版本以进行验证
+
+```shell
+spl-token --version
+```
+
+结果应类似于
+
+```text
+spl-token-cli 2.0.1
+```
+
+### 账户创建
+
+SPL Token account 有一些原生 System Program 账户所没有的额外要求：
+
+1. SPL Token account 必须在存入代币之前创建。可以使用 `spl-token create-account` 命令显式创建 token account，也可以通过 `spl-token transfer --fund-recipient ...` 命令隐式创建。
+1. SPL Token account 在其存续期间必须保持[免租金](/docs/core/accounts/account-structure)状态，因此需要在创建账户时存入少量原生 SOL token。对于 SPL Token account，该金额为 0.00203928 SOL（2,039,280 lamport）。
+
+#### 命令行
+
+创建具有以下属性的 SPL Token account：
+
+1. 与指定的 mint 关联
+1. 由资助账户的 keypair 拥有
+
+```shell
+spl-token create-account <TOKEN_MINT_ADDRESS>
+```
+
+#### 示例
+
+```shell
+spl-token create-account AkUFCWTXb3w9nY2n6SFJvBV6VwvFUCe4KBMCcgLsa2ir
+```
+
+输出结果类似于：
+
+```
+Creating account 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 4JsqZEPra2eDTHtHpB4FMWSfk3UgcCVmkKkP7zESZeMrKmFFkDkNd91pKP3vPVVZZPiu5XxyJwS73Vi5WsZL88D7
+```
+
+或者使用特定的 keypair 创建 SPL Token account：
+
+```shell
+solana-keygen new -o token-account.json
+
+spl-token create-account AkUFCWTXb3w9nY2n6SFJvBV6VwvFUCe4KBMCcgLsa2ir token-account.json
+```
+
+输出结果类似于：
+
+```shell
+Creating account 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 4JsqZEPra2eDTHtHpB4FMWSfk3UgcCVmkKkP7zESZeMrKmFFkDkNd91pKP3vPVVZZPiu5XxyJwS73Vi5WsZL88D7
+```
+
+### 查询账户余额
+
+#### 命令行
+
+```shell
+spl-token balance <TOKEN_ACCOUNT_ADDRESS>
+```
+
+#### 示例
+
+```shell
+solana balance 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+```
+
+输出结果类似于：
+
+```
+0
+```
+
+### Token 转账
+
+转账的来源账户是实际持有代币数量的 token account。
+
+但收款地址可以是普通的钱包账户。如果该钱包对应的 associated token account 尚不存在，在提供了 `--fund-recipient` 参数的情况下，转账操作将自动创建该账户。
+
+#### 命令行
+
+```shell
+spl-token transfer <SENDER_ACCOUNT_ADDRESS> <AMOUNT> <RECIPIENT_WALLET_ADDRESS> --fund-recipient
+```
+
+#### 示例
+
+```shell
+spl-token transfer 6B199xxzw3PkAm25hGJpjj3Wj3WNYNHzDAnt1tEqg5BN 1
+```
+
+输出结果类似于：
+
+```shell
+6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Transfer 1 tokens
+  Sender: 6B199xxzw3PkAm25hGJpjj3Wj3WNYNHzDAnt1tEqg5BN
+  Recipient: 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 3R6tsog17QM8KfzbcbdP4aoMfwgo6hBggJDVy7dZPVmH2xbCWjEj31JKD53NzMrf25ChFjY7Uv2dfCDq4mGFFyAj
+```
+
+### 充值
+
+由于每个 `（钱包, mint）` 对都需要一个独立的链上账户，建议使用 [Associated Token Account](https://spl.solana.com/associated-token-account)（ATA）方案从 SOL 充值钱包派生这些账户的地址，并且_只_接受来自 ATA 地址的充值。
+
+充值交易的监控应遵循上文所述的[区块轮询](#poll-for-blocks)方法。每个新区块都应扫描包含用户和交易所 token account 地址的成功交易。
+
+<Callout type="warn">
+
+必须使用交易元数据中的 `preTokenBalances` 和 `postTokenBalances` 字段来确定实际余额变化。这些字段包含 token mint、token account 所有者（钱包地址）以及交易前后各 token account 的余额。
+
+</Callout>
+
+<Callout>
+
+如果某个 token account 是在交易过程中创建的（例如首次接收代币时），由于它在交易前不存在，因此不会出现在 `preTokenBalances` 数组中。在这种情况下，计算充值金额时应将初始余额视为零。新创建的账户只会出现在 `postTokenBalances` 数组中，显示交易完成后的最终余额。
+
+</Callout>
+
+#### 示例 1：单笔 Token 转账
+
+下方的交易详情展示了一笔包含单条 token 转账指令的交易示例。
+
+该交易转移了 100 个 token 基本单位（未按 mint 小数位调整），涉及以下账户：
+
+- 发送方（所有者）：`4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw`
+- 发送方 Token Account：`6zhjktfYBRUp7fgXLoWU7GFFrCuZa9iQkYTQzDzuvsAS`
+- 接收方 Token Account：`G5nNekUhhWFqJAiCMpKHootZ5Bfa7MXwuQ5vvKcvuxKM`
+- Token Extension Program ID：`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`
+
+请注意，token 转账指令不需要接收方（所有者）账户和 mint account。此处列出仅供参考，因为这些地址包含在已解析的交易元数据中。
+
+- 接收方（所有者）：`8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n`
+- Mint：`Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2`
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1741240211",
+  "meta": {
+    "computeUnitsConsumed": "1551",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    // !tooltip[/logMessages/] logMessages
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: Transfer",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1551 of 200000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    // !tooltip[/postBalances/] postBalances
+    "postBalances": ["994375240", "2074080", "2074080", "1141440"],
+    // !tooltip[/postTokenBalances/] postTokenBalances
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] fromOwnerPostTokenBalance
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] senderPostTokenBalance
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] toOwnerPostTokenBalance
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] recipientPostTokenBalance
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    // !tooltip[/preBalances/] preBalances
+    "preBalances": ["994380240", "2074080", "2074080", "1141440"],
+    // !tooltip[/preTokenBalances/] preTokenBalances
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] fromOwnerPreTokenBalance
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] senderPreTokenBalance
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] toOwnerPreTokenBalance
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] recipientPreTokenBalance
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "3916",
+  "transaction": {
+    "message": {
+      // !tooltip[/accountKeys/] accountKeys
+      "accountKeys": [
+        "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "6zhjktfYBRUp7fgXLoWU7GFFrCuZa9iQkYTQzDzuvsAS",
+        "G5nNekUhhWFqJAiCMpKHootZ5Bfa7MXwuQ5vvKcvuxKM",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      // !tooltip[/instructions/] instructions
+      "instructions": [
+        {
+          "accounts": [1, 2, 0],
+          "data": "3WBgs5fm8oDy",
+          "programIdIndex": 3,
+          "stackHeight": null
+        }
+      ],
+      // !tooltip[/recentBlockhash/] recentBlockhash
+      "recentBlockhash": "8soh8j2dkEniZW6Jpx9cJaWtnvrGoGUqpbaUVwUkX5R3"
+    },
+    // !tooltip[/signatures/] signatures
+    "signatures": [
+      "3vr6Gj3GnBQmsZW1TtBJ3hvfFMi3h9BxLs2oaZkV41LRWeGWPVmeo16JTN8MdP3ypU5VgWAziYUjybhyZoisryQ6"
+    ]
+  },
+  "version": "0"
+}
+```
+
+### !logMessages
+
+交易处理时产生的程序日志。
+
+在本例中，日志表明该交易调用了 Token Program 上的转账指令。
+
+### !postBalances
+
+交易处理后，所有相关账户的 lamport 余额。
+
+### !postTokenBalances
+
+交易处理后，所有相关 token account 的 token 余额。
+
+### !preBalances
+
+交易处理前，所有相关账户的 lamport 余额。
+
+### !preTokenBalances
+
+交易处理前，所有相关 token account 的 token 余额。
+
+### !rewards
+
+交易处理前，所有相关账户的奖励信息。
+
+### !accountKeys
+
+交易中指令所需的账户地址列表。
+
+### !instructions
+
+交易中的指令列表。本例中只有一条指令，即 token 转账指令。
+
+### !recentBlockhash
+
+发送交易时最后处理的区块的区块哈希。
+
+### !senderPostTokenBalance
+
+发送方 token account 的最终余额为 0 个 token。
+
+### !recipientPostTokenBalance
+
+接收方 token account 的最终余额为 100 个 token 基本单位。
+
+由于 mint 有 2 位小数，接收方 token account 的最终余额为 1 个 token。
+
+### !senderPreTokenBalance
+
+发送方 token account 的初始余额为 100 个 token 基本单位。
+
+由于 mint 有 2 位小数，发送方 token account 的初始余额为 1 个 token。
+
+### !recipientPreTokenBalance
+
+接收方 token account 的初始余额为 0 个 token。
+
+### !fromOwnerPreTokenBalance
+
+这是交易处理前，发送 token 的 token account 的所有者。
+
+### !fromOwnerPostTokenBalance
+
+这是交易处理后，发送 token 的 token account 的所有者。
+
+### !toOwnerPreTokenBalance
+
+这是交易处理前，接收 token 的 token account 的所有者。
+
+### !toOwnerPostTokenBalance
+
+这是交易处理后，接收 token 的 token account 的所有者。
+
+### !signatures
+
+交易中包含的签名。本例中只有一个签名（来自发送方）。
+
+交易的第一个签名来自交易费用支付方，同时也用于标识该交易，通常称为交易签名。
+
+</WithNotes>
+
+#### 示例 2：创建 Token Account 并转账
+
+下方的交易详情展示了一笔在 token 转账的同一交易中创建接收方 token account 的交易示例。
+
+请注意，`preTokenBalances` 数组中不包含接收方 token account，因为它在交易前不存在。接收方 token account 仅出现在 `postTokenBalances` 数组中，显示交易完成后的最终余额。
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1740541705",
+  "meta": {
+    "computeUnitsConsumed": "17416",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [4],
+            "data": "84eT",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [0, 1],
+            "data": "11119ExAoTptm6xKUTUcw2V69MKmyEdDmRins3j3bK43o9nHeiYUtSiaT9pc292PhNQvxj",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [1],
+            "data": "P",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [1, 4],
+            "data": "6b8ZSccu4ezujyhGG8KNmg75iCWbQRyjxeSfi38u8ED8N",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+      "Program log: Create",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: GetAccountDataSize",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 928 of 394613 compute units",
+      "Program return: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb qgAAAAAAAAA=",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program log: Initialize the associated token account",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeImmutableOwner",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 487 of 388755 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeAccount3",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1440 of 385879 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 15865 of 400000 compute units",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: Transfer",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1551 of 384135 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    "postBalances": [
+      "994375240",
+      "2074080",
+      "2074080",
+      "1",
+      "1461600",
+      "731913600",
+      "0",
+      "1141440"
+    ],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "EzrmgRNGN9duiDAk3ABSC8eKhd1b2EUFwXVrYZDJw4hQ",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "preBalances": [
+      "996454320",
+      "0",
+      "2074080",
+      "1",
+      "1461600",
+      "731913600",
+      "0",
+      "1141440"
+    ],
+    "preTokenBalances": [
+      {
+        "accountIndex": 2,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "81051",
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "571u96hRRmxbRCTmp5oqC5WpJfvZhPaSXEbihLVCR5wQ",
+        "8y8KjtZN9tyGeAeKwr8doSpbBVVgfsZMtMjCGUDH7mmU",
+        "11111111111111111111111111111111",
+        "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "EzrmgRNGN9duiDAk3ABSC8eKhd1b2EUFwXVrYZDJw4hQ",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 5,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [0, 1, 6, 4, 3, 7],
+          "data": "1",
+          "programIdIndex": 5,
+          "stackHeight": null
+        },
+        {
+          "accounts": [2, 1, 0],
+          "data": "3WBgs5fm8oDy",
+          "programIdIndex": 7,
+          "stackHeight": null
+        }
+      ],
+      "recentBlockhash": "77QC38Q2hKFYZzUXk8JWmsAqGNKhw4k2Lm2XVUme9uqP"
+    },
+    "signatures": [
+      "4kuGhMeZxBHgEtej4Uv4n2arhe3jqT2GdTDPFri4JLFXYgcAtbeeXdBdzvG98HENe1tZSZqyFkm3SEvB6CfCMaM9"
+    ]
+  },
+  "version": "0"
+}
+```
+
+#### 示例 3：更改 Token Account 所有者
+
+下方的交易详情展示了一笔修改 token account `owner` 字段的交易示例。
+
+<Callout type="warn">
+
+强烈不建议通过允许充值方转让 token account 所有权（即修改 `owner` 字段）的方式接受充值。
+
+如果您选择支持此充值方式，必须验证 `postTokenBalances` 中的新 `owner` 字段与您的交易所控制且持有私钥的钱包地址相匹配。
+
+如果充值方将 token account 的 `owner` 更改为非钱包地址（例如另一个 token account 地址），相关资金可能将永久无法访问。
+
+</Callout>
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1740598556",
+  "meta": {
+    "computeUnitsConsumed": "1167",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: SetAuthority",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1167 of 200000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    "postBalances": ["996479120", "2039280", "1141440"],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "ELRBdV4gcuxqYb6jHkV4ySJ7dwYx9344cgFNzUSww1ra",
+        // !tooltip[/owner/] postTokenBalances
+        "owner": "A9FK8XxT2Hfefz8H3vQJHLwvbibGQJWErBsqMumgUYeP",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "preBalances": ["996484120", "2039280", "1141440"],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "ELRBdV4gcuxqYb6jHkV4ySJ7dwYx9344cgFNzUSww1ra",
+        // !tooltip[/owner/] preTokenBalances
+        "owner": "DLvpDgEABKfEaRDz5Qh9tSrJhuZzsiiZMcYXmvdek1zV",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "137902",
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "DLvpDgEABKfEaRDz5Qh9tSrJhuZzsiiZMcYXmvdek1zV",
+        "5Qj4uNGuAEBdryPg8k2UTewpnNfYAc9Ux9fCcDrNAjGs",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [1, 0],
+          "data": "bmb6sys4wqZErNeiV7hrM4vQVHF8AVBhi3XeR5TgbQM68MH",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "recentBlockhash": "CvTdX9MSYkqFMkALUHeGPMQN5yBeUdJptRdce2qMEkPr"
+    },
+    "signatures": [
+      "3rHUaKMh4KDDfdaATAL4J5WDEV7oFm7ykkNaMf1Eo5EwvDUjLE6dWsbxNDmyENrhb2w5gE4KqRxZ3ZwQxuM18SVR"
+    ]
+  },
+  "version": "0"
+}
+```
+
+### !postTokenBalances
+
+`postTokenBalances` 中的 `owner` 字段与 `preTokenBalances` 不同，这表明 token account 的所有权已发生变更。
+
+### !preTokenBalances
+
+`preTokenBalances` 中的 `owner` 字段是该 token account 的原始所有者。
+
+</WithNotes>
+
+#### Token 充值金额计算
+
+要准确追踪 token 充值，您必须比较交易元数据中的 `preTokenBalances` 和 `postTokenBalance` 字段。这些字段显示交易前后的 token 余额及 token account 所有者，让您能够计算出实际转账的 token 数量，从而确保捕获真实的余额变化。
+
+- 如果 `preTokenBalances` 和 `postTokenBalances` 字段中的 `owner` 字段保持不变，则计算 `amount` 字段之间的差值。
+- 如果 token account 所有权发生变更（即 `preTokenBalances` 和 `postTokenBalances` 中的 `owner` 字段不同），且 `postTokenBalance` 中的新所有者与您交易所预期的 `owner` 地址匹配，则将 `postTokenBalances` 的 `amount` 字段中显示的全部余额视为充值金额。
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+"meta": {
+    // --snip--
+    "postBalances": ["994375240", "2074080", "2074080", "1141440"],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "preBalances": ["994380240", "2074080", "2074080", "1141440"],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    // --snip--
+  }
+```
+
+### !owner
+
+检查 `preTokenBalances` 和 `postTokenBalances` 之间的 `owner` 字段是否匹配，以确定交易期间 token account 的所有权是否发生了变化。
+
+### !amount
+
+使用每个 token account 的 `preTokenBalances` 和 `postTokenBalances` 中的 `amount` 字段计算代币余额变化。
+
+如果同一笔交易中存在多次转账，则该差值表示每个相应 token account 的净转账代币数量。
+
+</WithNotes>
+
+### 提现
+
+用户提供的提现地址必须是其 SOL 钱包地址。
+
+在执行提现 [转账](#token-transfers) 之前，交易所应按照[上述说明](#validating-user-supplied-account-addresses-for-withdrawals)验证该地址。此外，该地址必须归 System Program 所有且不含账户数据。若该地址没有 SOL 余额，在继续提现之前应获得用户确认。所有其他提现地址必须被拒绝。
+
+从提现地址派生出对应铸币的 [Associated Token Account](https://spl.solana.com/associated-token-account)（ATA），并通过 [TransferChecked](https://github.com/solana-labs/solana-program-library/blob/fc0d6a2db79bd6499f04b9be7ead0c400283845e/token/program/src/instruction.rs#L268) 指令将转账发送至该账户。请注意，ATA 地址可能尚不存在，此时交易所应代表用户为该账户提供资金。对于 SPL Token 账户，为提现账户提供资金需要 0.00203928 SOL（2,039,280 lamport）。
+
+提现所用的 `spl-token transfer` 命令模板：
+
+```shell
+spl-token transfer --fund-recipient <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+### 其他注意事项
+
+#### 冻结权限
+
+出于合规原因，SPL Token 发行实体可以选择对与其铸币相关联的所有账户持有"冻结权限"。这使其可以随时 [冻结](https://spl.solana.com/token#freezing-accounts) 指定账户中的资产，使该账户在解冻之前无法使用。如果启用了此功能，冻结权限的 pubkey 将注册在 SPL Token 的铸币账户中。
+
+### 对 SPL Token-2022（Token Extensions）标准的基本支持
+
+[SPL Token-2022](https://spl.solana.com/token-2022) 是 Solana 区块链上用于封装/合成代币创建和交换的最新标准。
+
+该标准也称为 "Token Extensions"，包含许多代币创建者和账户持有者可选启用的新功能。这些功能包括保密转账、转账手续费、关闭铸币、元数据、永久委托、不可变所有权等更多功能。请参阅 [扩展指南](https://spl.solana.com/token-2022/extensions) 了解更多信息。
+
+如果您的交易所已支持 SPL Token，则支持 SPL Token-2022 所需的额外工作并不多：
+
+- CLI 工具从 3.0.0 版本起可无缝兼容两种程序。
+- `preTokenBalances` 和 `postTokenBalances` 包含 SPL Token-2022 的余额
+- RPC 对 SPL Token-2022 账户建立了索引，但必须使用程序 ID `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` 单独查询
+
+Associated Token Account 的工作方式相同，并能正确计算新账户所需的 SOL 存入金额。
+
+但由于扩展的存在，账户可能超过 165 字节，因此可能需要超过 0.00203928 SOL 来提供资金。
+
+例如，Associated Token Account 程序始终包含"不可变所有者"扩展，因此账户最少占用 170 字节，需要 0.00207408 SOL。
+
+### 扩展专项注意事项
+
+上一节概述了对 SPL Token-2022 最基本的支持。由于扩展会改变代币的行为，交易所可能需要调整处理代币的方式。
+
+可以查看铸币或 token account 上的所有扩展：
+
+```shell
+spl-token display <account address>
+```
+
+#### 转账手续费
+
+代币可以配置转账手续费，即在目标地址扣留一部分转账代币以供日后收取。
+
+如果您的交易所转账这些代币，请注意由于扣留金额的存在，并非所有代币都会到达目的地。
+
+可以在转账时指定预期手续费以避免意外：
+
+```shell
+spl-token transfer --expected-fee <fee amount> --fund-recipient <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+#### 铸币关闭权限
+
+通过此扩展，代币创建者可以在代币供应量为零的情况下关闭铸币。
+
+铸币关闭后，可能仍存在空的 token account，这些账户将不再关联到有效的铸币。
+
+直接关闭这些 token account 是安全的：
+
+```shell
+spl-token close --address <account address>
+```
+
+#### 保密转账
+
+铸币可以配置保密转账，使代币金额经过加密，但账户所有者仍然是公开的。
+
+交易所可以将 token account 配置为发送和接收保密转账，以隐藏用户金额。无需强制为 token account 启用保密转账，因此交易所可以要求用户以非保密方式发送代币。
+
+要启用保密转账，必须对账户进行相应配置：
+
+```shell
+spl-token configure-confidential-transfer-account --address <account address>
+```
+
+转账操作：
+
+```shell
+spl-token transfer --confidential <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+在保密转账过程中，`preTokenBalance` 和 `postTokenBalance` 字段将不显示任何变化。要归集存款账户，您必须解密新余额以提取代币：
+
+```shell
+spl-token apply-pending-balance --address <account address>
+spl-token withdraw-confidential-tokens --address <account address> <amount or ALL>
+```
+
+#### 默认账户状态
+
+铸币可以配置默认账户状态，使所有新建 token account 默认处于冻结状态。这些代币创建者可能要求用户通过单独流程来解冻账户。
+
+#### 不可转让
+
+某些代币不可转让，但仍可以销毁，且账户可以关闭。
+
+#### 永久委托
+
+代币创建者可以为其所有代币指定永久委托。永久委托可以从任意账户转移或销毁代币，存在盗取资金的风险。
+
+这是某些司法管辖区对稳定币的法律要求，也可能被用于代币回收方案。
+
+请注意，这些代币可能在您的交易所不知情的情况下被转移。
+
+#### 转账钩子
+
+代币可以配置一个额外的程序，该程序在转账时必须被调用，用于验证转账或执行其他逻辑。
+
+由于 Solana 运行时要求所有账户都必须显式传递给程序，而转账钩子需要额外账户，因此交易所需要以不同方式为这些代币创建转账指令。
+
+CLI 和指令创建器（如 `createTransferCheckedWithTransferHookInstruction`）会自动添加额外账户，但也可以显式指定这些额外账户：
+
+```shell
+spl-token transfer --transfer-hook-account <pubkey:role> --transfer-hook-account <pubkey:role> ...
+```
+
+#### 转账必须附带备注
+
+用户可以将其 token account 配置为转账时必须附带备注。
+
+交易所在向用户转账代币之前可能需要预附备注指令，或要求用户在向交易所发送代币之前预附备注指令：
+
+```shell
+spl-token transfer --with-memo <memo text> <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+## 测试集成
+
+在迁移至主网生产环境之前，请务必在 Solana devnet 和 testnet [集群](/docs/references/clusters)上完整测试您的工作流程。Devnet 最为开放灵活，适合初始开发；而 testnet 提供更接近真实的集群配置。devnet 和 testnet 均支持水龙头，运行 `solana airdrop 1` 即可获取一些 devnet 或 testnet SOL 用于开发和测试。
