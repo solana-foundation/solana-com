@@ -129,7 +129,7 @@ export const RUNBOOK_SECTIONS = [
         <li>Audit every active IBC channel and identify external relayer operators and counterparty teams.</li>
         <li>Contact major validator operators privately before the public announcement.</li>
         <li>Give listed exchanges meaningful notice before the public migration window begins.</li>
-        <li>Prepare a coordinated user communications plan: synchronized announcements across your channels plus persistent banner notifications on your site, apps, and block explorers, each linking to a canonical migration info page.</li>
+        <li>Prepare a coordinated user communications plan: synchronized announcements across your channels plus persistent banner notifications on your site, apps, and block explorers, each linking to a canonical migration info page. The <a href="#user-migration">channel-by-channel communication plan</a> in Phase 6 is the template to start filling in now.</li>
         <li>Draft the governance proposal and the technical shutdown runbook in parallel.</li>
         <li>Decide what the migration portal will need to do for identity linking and claims.</li>
       </ul>
@@ -482,6 +482,7 @@ pub struct VestingSchedule {
     html: `
       <h2>9. Phase 6: User Migration &amp; Communication</h2>
       <h3>Communication plan</h3>
+      <p>This is the plan you drafted during <a href="#planning-announcement">planning and announcement</a>, now running against real dates. Day 0 is the public announcement.</p>
       <div class="tw-overflow-x-auto">
         <table>
           <thead>
