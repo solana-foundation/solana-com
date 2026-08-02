@@ -573,11 +573,35 @@ const state = userBalanceCodec.decode(accountData.slice(8));</code></pre>
     `,
   },
   {
+    id: "client-generation",
+    navLabel: "9. Clients",
+    tone: "phase",
+    html: `
+      <h2>9. Invoking Your Program: Generated Clients</h2>
+      <p>On Cosmos, a client sends a JSON message through CosmJS and the chain routes it to the contract. On Solana, the client assembles the whole transaction: it picks the instruction, encodes its data, and lists every account the instruction touches. Nobody writes that by hand per instruction — clients are generated from the <a href="/docs/references/terminology#idl">IDL</a>, and the generated code does the account bookkeeping for you.</p>
+      <h4>Compare invocation:</h4>
+      <pre><code class="language-typescript">const client = await SigningCosmWasmClient.connectWithSigner(rpcUrl, signer);
+await client.execute(sender, contractAddress, { increment: {} }, "auto");</code></pre>
+      <pre><code class="language-typescript">const program = new Program(idl, provider);
+
+await program.methods
+  .increment()
+  .accounts({ user: wallet.publicKey })
+  .rpc();</code></pre>
+      <p>The Anchor client reads instruction shapes, account lists, and PDA seed metadata from the IDL, so it derives the counter PDA and fills in known programs itself — you pass only what it cannot infer. The earlier rule that the caller must list every account still holds at the wire level; the generated client is what does the listing.</p>
+      <h3>Standalone clients with Codama</h3>
+      <p><a href="/docs/programs/codama/clients">Codama</a> generates framework-free clients from the same IDL: TypeScript builders compatible with <a href="https://github.com/anza-xyz/kit" target="_blank" rel="noreferrer">@solana/kit</a> through <code>@codama/renderers-js</code>, and Rust clients through <code>@codama/renderers-rust</code>. Each generated instruction builder validates inputs, resolves default and derivable accounts, encodes arguments, and returns a ready-to-send instruction, with account decoders and PDA helpers alongside — Kit's own program clients are generated this way.</p>
+      <pre><code class="language-bash">npx codama init
+npx codama run js</code></pre>
+      <p>Anchor projects can fold this into the build: run <code>anchor codama generate -l js,rust -p clients target/idl/counter.json</code>, or set <code>[clients] auto = true</code> in Anchor.toml so every <code>anchor build</code> regenerates the clients.</p>
+    `,
+  },
+  {
     id: "error-handling",
-    navLabel: "9. Errors",
+    navLabel: "10. Errors",
     tone: "default",
     html: `
-      <h2>9. Error Handling</h2>
+      <h2>10. Error Handling</h2>
       <p>Both ecosystems lean on Rust error types, but Solana makes it more important to avoid panics because a panic often collapses into an unhelpful runtime failure. Prefer explicit Anchor <code>#[error_code]</code> values or native <code>ProgramError</code> variants so callers and tests can identify the failure path.</p>
       <h4>Compare error handling:</h4>
       <pre><code class="language-rust">#[derive(Error, Debug, PartialEq)]
@@ -600,10 +624,10 @@ pub enum CounterError {
   },
   {
     id: "time-block",
-    navLabel: "10. Time",
+    navLabel: "11. Time",
     tone: "default",
     html: `
-      <h2>10. Time &amp; Block Information</h2>
+      <h2>11. Time &amp; Block Information</h2>
       <p>CosmWasm gives you consensus time and block height in <code>env</code>. Solana exposes time and slot data through <a href="/docs/references/terminology#sysvar">sysvars</a>, which are read-only system accounts that expose cluster state to programs. The most common one here is <code>Clock</code>.</p>
       <pre><code class="language-rust">let now_secs = env.block.time.seconds();
 let height = env.block.height;</code></pre>
@@ -618,10 +642,10 @@ require!(
   },
   {
     id: "testing",
-    navLabel: "11. Testing",
+    navLabel: "12. Testing",
     tone: "phase",
     html: `
-      <h2>11. Testing</h2>
+      <h2>12. Testing</h2>
       <p>On Solana, transaction assembly is part of the product surface. Good tests exercise accounts, signers, PDA derivation, token accounts, and CPI behavior in addition to pure business logic. A signer is an account whose private key authorized the transaction, and signer status is one of the account privileges the runtime checks before execution.</p>
       <pre><code class="language-rust">let mut app = App::default();
 let code = ContractWrapper::new(execute, instantiate, query);
@@ -650,10 +674,10 @@ svm.add_program_from_file(PROGRAM_ID, "target/deploy/counter.so")?;</code></pre>
   },
   {
     id: "deployment-upgrades",
-    navLabel: "12. Upgrades",
+    navLabel: "13. Upgrades",
     tone: "phase",
     html: `
-      <h2>12. Deployment &amp; Upgrades</h2>
+      <h2>13. Deployment &amp; Upgrades</h2>
       <p>CosmWasm separates code upload from instantiation and supports explicit migrate handlers. Solana deploys one <a href="/docs/core/programs/program-deployment">program address</a> and upgrades it in place under an upgrade authority. The upgrade authority is the signer allowed to replace the program's bytecode; revoking it makes the program immutable.</p>
       <pre><code class="language-bash"># CosmWasm
 cargo build --target wasm32-unknown-unknown --release
@@ -703,10 +727,10 @@ kora-deploy --program-so ./target/deploy/my_program.so</code></pre>
   },
   {
     id: "counter-example",
-    navLabel: "13. Counter",
+    navLabel: "14. Counter",
     tone: "phase",
     html: `
-      <h2>13. Full Side-by-Side Example: Counter Contract</h2>
+      <h2>14. Full Side-by-Side Example: Counter Contract</h2>
       <p>A counter contract is a useful migration seed because it forces you to model state layout, authority, initialization, and off-chain reads without too much noise. Authority means the account or PDA your program treats as allowed to perform an action, usually enforced with a signer check, PDA seed check, or stored public key comparison.</p>
       <pre><code class="language-rust">pub const COUNTS: Map&lt;&amp;Addr, i32&gt; = Map::new("counts");
 
@@ -813,10 +837,10 @@ pub fn process_increment(
   },
   {
     id: "dex-lessons",
-    navLabel: "14. DEX Lessons",
+    navLabel: "15. DEX Lessons",
     tone: "phase",
     html: `
-      <h2>14. Porting a DEX: Lessons from the Real World</h2>
+      <h2>15. Porting a DEX: Lessons from the Real World</h2>
       <p>DEX ports expose the biggest architectural differences quickly because they touch factories, pools, vaults, LP tokens, pricing state, and multi-hop account graphs.</p>
       <p>In Solana programs, a vault is usually a PDA-controlled token account that holds assets for a pool or escrow. A multi-hop account graph is the full list of accounts needed for every swap leg in one transaction.</p>
       <div class="tw-overflow-x-auto">
@@ -842,10 +866,10 @@ pub fn process_increment(
   },
   {
     id: "pitfalls",
-    navLabel: "15. Pitfalls",
+    navLabel: "16. Pitfalls",
     tone: "warning",
     html: `
-      <h2>15. Common Pitfalls &amp; Mental Traps</h2>
+      <h2>16. Common Pitfalls &amp; Mental Traps</h2>
       <ol>
         <li>Do not forget to include every required account in the transaction. If an account is not passed in, the program cannot touch it.</li>
         <li>Do not try to deploy a new program per user or per pool. One program usually serves many accounts.</li>
@@ -862,10 +886,10 @@ pub fn process_increment(
   },
   {
     id: "migration-checklist",
-    navLabel: "16. Checklist",
+    navLabel: "17. Checklist",
     tone: "success",
     html: `
-      <h2>16. Migration Checklist</h2>
+      <h2>17. Migration Checklist</h2>
       <p>Use this checklist when porting a CosmWasm contract to Solana with Anchor.</p>
       <h3>Architecture</h3>
       <ul>
