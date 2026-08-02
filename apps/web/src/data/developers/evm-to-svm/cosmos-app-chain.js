@@ -456,6 +456,13 @@ pub struct VestingSchedule {
           </tbody>
         </table>
       </div>
+      <h3>Realms vs. Squads</h3>
+      <p>Both get described as treasury management, which makes them easy to confuse. They solve different problems:</p>
+      <ul>
+        <li><strong><a href="https://realms.today" target="_blank" rel="noreferrer">Realms</a> is token-weighted governance.</strong> Voting power comes from community (or council) tokens deposited into the Realm, proposals are voted on by token holders, and passed proposals execute their instructions on-chain. It is the closest analog to the Cosmos <code>x/gov</code> module and community pool.</li>
+        <li><strong><a href="https://squads.xyz" target="_blank" rel="noreferrer">Squads</a> is a multisig.</strong> A small, named set of member keys approves transactions against an M-of-N threshold — no token voting involved. It is the tool for operational custody: day-to-day treasury operations, program upgrade authority, and mint or freeze authorities.</li>
+      </ul>
+      <p>Most teams end up with both: community-scale decisions and the community treasury live in a Realm, while operational authorities and working funds sit in a Squads multisig that is itself accountable to the DAO.</p>
       <h3>How to migrate governance cleanly</h3>
       <ul>
         <li>Create the new DAO in Realms before or alongside token launch so treasury control and program authority do not live on a temporary signer longer than necessary.</li>
