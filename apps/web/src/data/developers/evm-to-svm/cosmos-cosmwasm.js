@@ -672,6 +672,15 @@ solana program deploy ./target/deploy/my_program.so
 solana program show PROGRAM_ID
 solana program deploy --program-id PROGRAM_ID ./target/deploy/my_program.so
 solana program set-upgrade-authority PROGRAM_ID --final</code></pre>
+      <h3>Costs, addresses, and free devnet rehearsals</h3>
+      <p>Deployment locks a rent deposit sized to the program binary — usually a few SOL, and by far the largest cost of going live. Check it up front, and note that closing a program with <code>solana program close</code> returns the deposit:</p>
+      <pre><code class="language-bash">solana rent $(wc -c &lt; ./target/deploy/my_program.so)</code></pre>
+      <p>A program ID is an ordinary keypair until you deploy to it, so teams often grind a recognizable vanity address first and deploy to that:</p>
+      <pre><code class="language-bash">solana-keygen grind --starts-with CNTR:1
+solana program deploy ./target/deploy/my_program.so --program-id CNTR_KEYPAIR.json</code></pre>
+      <p>For devnet rehearsals, <a href="https://github.com/solana-foundation/kora/tree/main/crates/kora-deploy" target="_blank" rel="noreferrer">kora-deploy</a> removes the SOL requirement entirely: a hosted Kora paymaster funds the rent and fees, your wallet is registered as the only key allowed to upgrade the program, and programs idle for more than seven days are reclaimed automatically.</p>
+      <pre><code class="language-bash">cargo install kora-deploy
+kora-deploy --program-so ./target/deploy/my_program.so</code></pre>
       <div class="tw-overflow-x-auto">
         <table>
           <thead>
