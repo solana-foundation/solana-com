@@ -279,6 +279,7 @@ pub struct ClaimStatus {
     ctx.accounts.claim_status.claimed = true;
     Ok(())
 }</code></pre>
+      <p>If per-claim rent matters at your scale, a rent-free variant tracks spent claims in Merkle state instead of in receipt accounts. Each claim submits an exclusion proof that its leaf is not yet in a stored spent-claims root plus the updated root that includes it, the program verifies both against the same sibling path, and then swaps the root in place. The Solana Foundation's <a href="https://github.com/solana-foundation/solana-private-channels/blob/main/private-channel-escrow-program/program/src/processor/release_funds.rs" target="_blank" rel="noreferrer">private-channel escrow program</a> implements this pattern with a sparse Merkle tree. It is cheaper to administer and removes the rent barrier for claimants, in exchange for serializing claims on the root account and requiring your proof service to track the evolving spent set.</p>
       <h3>Why this architecture is usually better</h3>
       <ul>
         <li>You only need one canonical balance export, not a live cross-chain relay after shutdown.</li>
