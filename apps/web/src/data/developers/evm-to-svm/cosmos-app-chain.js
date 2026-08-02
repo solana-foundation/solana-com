@@ -245,11 +245,11 @@ The chain will halt at block HEIGHT on DATE.
   -> token vault funded
   -> users submit proof and receive SPL tokens</code></pre>
       <h3>What the Solana claimer should own</h3>
-      <p>In the Rust-style structs below, <code>Pubkey</code> means a Solana <a href="/docs/references/terminology#public-key-pubkey">public key</a>: the address of an account, program, mint, vault, or wallet.</p>
+      <p>In the Rust-style structs below, <code>Address</code> is the current Solana SDK type for an address: the base58-encoded <a href="/docs/references/terminology#public-key-pubkey">public key</a> of an account, program, mint, vault, or wallet. Anchor programs still name the same 32-byte type <code>Pubkey</code>, which is why the Anchor snippets in this guide use that name.</p>
       <pre><code class="language-rust">pub struct Distributor {
     pub merkle_root: [u8; 32],
-    pub mint: Pubkey,
-    pub vault: Pubkey,
+    pub mint: Address,
+    pub vault: Address,
     pub vault_authority_bump: u8,
     pub claim_window_end_ts: i64,
 }
