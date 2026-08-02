@@ -1121,7 +1121,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                   <span className="wsop-ticket__pen" aria-hidden="true">
                     804-8
                   </span>
-                  <time dateTime="2026-08-04">
+                  <time dateTime="2026-08-04T12:00:00-08:00">
                     {t("event.ticket.dateValue")}
                   </time>
                 </div>
