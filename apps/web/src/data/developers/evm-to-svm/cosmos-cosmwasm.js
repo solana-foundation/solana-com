@@ -919,6 +919,7 @@ pub fn process_increment(
         <li>Test PDA derivation, account substitution resistance, stale reads after CPI, and account initialization paths.</li>
         <li>Define a state-migration strategy before the first production upgrade.</li>
         <li>Decide whether upgrade authority will remain active, move to multisig, or be finalized away.</li>
+        <li>Work through the <a href="/docs/payments/production-readiness">production readiness guide</a> before launch — redundant RPC, priority fees and compute budgets for transaction landing, retry and confirmation strategy, key management, and monitoring.</li>
       </ul>
     `,
   },
