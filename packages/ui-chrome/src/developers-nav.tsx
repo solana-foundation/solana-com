@@ -1,9 +1,9 @@
 import { Link } from "./link";
-import DocsIcon from "./assets/developers/docs.inline.svg";
-import RpcApiIcon from "./assets/developers/api.inline.svg";
-import CoursesIcon from "./assets/developers/courses.inline.svg";
-import ToolsIcon from "./assets/developers/templates.inline.svg";
-import StatisticsIcon from "./assets/developers/statistics.inline.svg";
+import { BookOpen as DocsIcon } from "@boxicons/react/BookOpen";
+import { Code as RpcApiIcon } from "@boxicons/react/Code";
+import { Education as CoursesIcon } from "@boxicons/react/Education";
+import { Grid as ToolsIcon } from "@boxicons/react/Grid";
+import { BarChart as StatisticsIcon } from "@boxicons/react/BarChart";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@workspace/i18n/use-router";
 import {
@@ -68,8 +68,10 @@ export function DevelopersNav({
                 activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <DocsIcon
-                  height="16"
-                  width="16"
+                  aria-hidden="true"
+                  height={16}
+                  width={16}
+                  removePadding
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">
@@ -82,8 +84,10 @@ export function DevelopersNav({
                 activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <CoursesIcon
-                  height="16"
-                  width="16"
+                  aria-hidden="true"
+                  height={16}
+                  width={16}
+                  removePadding
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">
@@ -96,8 +100,10 @@ export function DevelopersNav({
                 activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <RpcApiIcon
-                  height="16"
-                  width="16"
+                  aria-hidden="true"
+                  height={16}
+                  width={16}
+                  removePadding
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">{t("developers.nav.rpc")}</span>
@@ -114,8 +120,10 @@ export function DevelopersNav({
                 activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <StatisticsIcon
-                  height="16"
-                  width="16"
+                  aria-hidden="true"
+                  height={16}
+                  width={16}
+                  removePadding
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">
@@ -129,8 +137,10 @@ export function DevelopersNav({
                 activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <ToolsIcon
-                  height="16"
-                  width="16"
+                  aria-hidden="true"
+                  height={16}
+                  width={16}
+                  removePadding
                   className="inline-block mr-2"
                 />
                 <span className="align-middle">
