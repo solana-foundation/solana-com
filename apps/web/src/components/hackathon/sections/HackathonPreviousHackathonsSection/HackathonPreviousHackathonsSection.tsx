@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { ArrowRightCircle } from "react-feather";

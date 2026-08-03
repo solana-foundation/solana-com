@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import type { StaticImageData } from "next/image";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./PossibleVisionaries.module.scss";
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";

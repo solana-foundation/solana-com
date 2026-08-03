@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import { ArrowUpRight } from "react-feather";
 import Button from "../../../shared/Button";
 import { useTranslations } from "next-intl";

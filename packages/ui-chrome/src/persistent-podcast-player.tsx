@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import {
   Pause,
   Play,

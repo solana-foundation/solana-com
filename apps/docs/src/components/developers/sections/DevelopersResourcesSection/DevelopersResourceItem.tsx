@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import { ArrowUpRight } from "react-feather";
 
 import { InlineLink, Link } from "@/utils/Link";
