@@ -229,7 +229,7 @@ The chain will halt at block HEIGHT on DATE.
     html: `
       <h2>4. Phase 2: Token Migration Architecture</h2>
       <p>For most chain shutdowns, the cleanest design is a snapshot-driven Merkle tree claimer on Solana. Instead of keeping a bridge alive after the Cosmos chain halts, you finalize balances off-chain, commit one Merkle root on Solana, fund a claim vault, and let each user prove their entitlement once.</p>
-      <p>A Merkle root is a compact cryptographic commitment to the full claims file. A claim vault is a <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">token account</a> funded with the migration supply. The claim <a href="/docs/core/programs">program</a> verifies each proof, releases the right <a href="/docs/tokens">SPL token</a> amount, and records that the claim is complete. A working reference is available in the <a href="https://github.com/brimigs/cosmos-migration-guide/tree/main/example-merkle-token-claimer" target="_blank" rel="noreferrer">example Merkle token claimer</a>.</p>
+      <p>A Merkle root is a compact cryptographic commitment to the full claims file. A claim vault is a <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">token account</a> funded with the migration supply. The claim <a href="/docs/core/programs">program</a> verifies each proof, releases the right <a href="/docs/tokens">SPL token</a> amount, and records that the claim is complete. A working reference is available in the <a href="https://github.com/solana-foundation/program-examples/tree/main/tokens/merkle-tree-token-claimer" target="_blank" rel="noreferrer">example Merkle token claimer</a>.</p>
       <h3>Recommended architecture: Merkle tree claimer</h3>
       <ul>
         <li>Take a final Cosmos snapshot and normalize the balance dataset you intend to honor.</li>
@@ -669,7 +669,7 @@ export const RESOURCE_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "https://github.com/brimigs/cosmos-migration-guide/tree/main/example-merkle-token-claimer",
+        url: "https://github.com/solana-foundation/program-examples/tree/main/tokens/merkle-tree-token-claimer",
         label: "Open example",
         endIcon: "arrow-right",
         hierarchy: "outline",
