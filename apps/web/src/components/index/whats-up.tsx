@@ -11,11 +11,7 @@ import ChevronLeft from "@@/public/src/img/icons/ChevronLeft.inline.svg";
 import ChevronRight from "@@/public/src/img/icons/ChevronRight.inline.svg";
 import SolanaMono from "@@/public/src/img/icons/SolanaMono.inline.svg";
 import { useTranslations } from "next-intl";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import { Button } from "@/app/components/ui/button";
-
-dayjs.extend(utc);
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { useTerminal } from "@/lib/terminal";
 import { motion, AnimatePresence } from "framer-motion";
@@ -412,16 +408,6 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                               {categoryLabel}
                             </span>
                           </div>
-                          {/* Date temporarily removed
-                          <div className="shrink-0 grow-0 px-5 hidden xl:flex items-center justify-start w-[160px]">
-                            <span className="font-brand-mono font-medium text-nd-mid-em-text text-[14px] leading-[1.42] uppercase">
-                              {item.date &&
-                                dayjs
-                                  .utc(item.date, "DD MMM YYYY")
-                                  .format("MMM D YYYY")}
-                            </span>
-                          </div>
-                          */}
                         </>
                       );
 
