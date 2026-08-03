@@ -14,7 +14,6 @@ import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
 import { LLMCopyButton, ViewOptions } from "./page-actions";
 import { DocsHero } from "./docs-hero";
-import { isAskSolanaEnabled } from "@solana-com/ui-chrome";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -37,11 +36,10 @@ export function DocsPage(props: {
 }) {
   const path = props.filePath;
   const editUrl = getEditUrl(path, props.editPathPrefix);
-  // While the Ask Solana flag is on, the docs landing page is only the agent
-  // hero + answer preview: the classic MDX body, table of contents, page
-  // navigation, and rating widget are suppressed. Flag off keeps the
-  // original page untouched.
-  const isAskLanding = Boolean(props.isRoot) && isAskSolanaEnabled();
+  // The docs landing page is only the Ask Solana hero + answer preview: the
+  // classic MDX body, table of contents, page navigation, and rating widget
+  // are suppressed.
+  const isAskLanding = Boolean(props.isRoot);
   return (
     <FumaDocsPage
       toc={props.toc}
@@ -89,18 +87,7 @@ export function DocsPage(props: {
         `}</style>
       ) : null}
       {props.hideHeader ? null : props.isRoot ? (
-        isAskSolanaEnabled() ? (
-          <DocsHero
-            title={props.title}
-            description={props.description}
-            markdown={props.markdown}
-          />
-        ) : (
-          <DocsLandingHeader
-            title={props.title}
-            description={props.description}
-          />
-        )
+        <DocsHero />
       ) : (
         <DocsHeader
           href={props.href}
@@ -118,27 +105,6 @@ export function DocsPage(props: {
         </>
       )}
     </FumaDocsPage>
-  );
-}
-
-function DocsLandingHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description?: string;
-}) {
-  return (
-    <div className="mb-10 pt-2">
-      <h1 className="text-4xl font-bold tracking-tight text-[hsl(var(--fd-accent-foreground))] md:text-5xl">
-        {title}
-      </h1>
-      {description ? (
-        <p className="mt-3 max-w-3xl text-base text-[hsl(var(--fd-muted-foreground))] md:text-lg">
-          {description}
-        </p>
-      ) : null}
-    </div>
   );
 }
 

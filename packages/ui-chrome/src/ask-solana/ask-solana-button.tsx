@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { InkeepChatButton } from "../inkeep-chat-button";
-import { isAskSolanaEnabled } from "./flags";
 import { AskSolanaModalHost } from "./modal";
 import { AskSolanaWidget } from "./ask-solana-widget";
 import { trackAskSolana } from "./analytics";
@@ -58,11 +56,10 @@ interface AskSolanaButtonProps {
 }
 
 /**
- * Drop-in replacement for InkeepChatButton (same props). Renders the Inkeep
- * button until NEXT_PUBLIC_ASK_SOLANA_ENABLED=true, then the in-house Ask
- * Solana assistant backed by the docs-agent service. Clicking the robot
- * toggles the compact Vector chat widget anchored above it; the full modal
- * stays reachable via ⌘K / the search bar (AskSolanaModalHost).
+ * Entry-point button for the in-house Ask Solana assistant backed by the
+ * docs-agent service. Clicking the robot toggles the compact Vector chat
+ * widget anchored above it; the full modal stays reachable via ⌘K / the
+ * search bar (AskSolanaModalHost).
  */
 export function AskSolanaButton({
   className,
@@ -70,10 +67,6 @@ export function AskSolanaButton({
 }: AskSolanaButtonProps) {
   const t = useTranslations();
   const [chatOpen, setChatOpen] = React.useState(false);
-
-  if (!isAskSolanaEnabled()) {
-    return <InkeepChatButton className={className} variant={variant} />;
-  }
 
   const toggleChat = () => {
     const next = !chatOpen;

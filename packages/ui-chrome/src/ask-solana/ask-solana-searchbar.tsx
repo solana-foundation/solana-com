@@ -1,8 +1,6 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { InkeepSearchBar } from "../inkeep-searchbar";
-import { isAskSolanaEnabled } from "./flags";
 import { openAskSolana } from "./store";
 import { AskSolanaModalHost } from "./modal";
 
@@ -28,19 +26,15 @@ interface AskSolanaSearchBarProps {
 }
 
 /**
- * Drop-in replacement for InkeepSearchBar (same props). Renders the Inkeep
- * search bar until NEXT_PUBLIC_ASK_SOLANA_ENABLED=true, then opens the Ask
- * Solana modal in search view.
+ * Search-bar-styled entry point for the Ask Solana assistant: opens the
+ * modal in search view. Also mounts the shared modal host so ⌘K and
+ * ?search= deep links work on every page that renders it.
  */
 export function AskSolanaSearchBar({
   className,
   expanded,
 }: AskSolanaSearchBarProps) {
   const t = useTranslations();
-
-  if (!isAskSolanaEnabled()) {
-    return <InkeepSearchBar className={className} expanded={expanded} />;
-  }
 
   return (
     <>

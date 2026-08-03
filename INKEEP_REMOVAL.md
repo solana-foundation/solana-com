@@ -1,11 +1,11 @@
 # Inkeep Removal Checklist
 
-Status: **Ask Solana shipped behind a flag; Inkeep still the default.** The
-`AskSolanaButton` / `AskSolanaSearchBar` components
-(packages/ui-chrome/src/ask-solana/) render their Inkeep equivalents until
-`NEXT_PUBLIC_ASK_SOLANA_ENABLED=true`, so every mount point is already swapped
-and rollout is an env flip per Vercel project — no further code changes needed
-to launch.
+Status: **Ask Solana always on; Inkeep fully unmounted.** The `AskSolanaButton`
+/ `AskSolanaSearchBar` components (packages/ui-chrome/src/ask-solana/) render
+unconditionally — there is no feature flag and no Inkeep fallback. The Inkeep
+component files still exist as dead code until Phase 2 below. Launching is now
+the same thing as deploying, so the agent service must be reachable first (Phase
+1).
 
 ## Phase 1 — Rollout (per Vercel project: web, docs, media, templates)
 
@@ -21,12 +21,13 @@ to launch.
       should be Origin/Referer allowlisting + throttles + budget breaker. If a
       true shared-secret header is required, add an edge middleware that
       rewrites `/api/ask/:path*` with an injected header (follow-up).
-- [ ] Set `NEXT_PUBLIC_ASK_SOLANA_ENABLED=true` on preview envs → dogfood
+- [ ] Dogfood on preview deployments (Ask Solana renders unconditionally; docs
+      previews need `ANTHROPIC_API_KEY` for the native `/api/ask` routes)
 - [ ] Run the Lingo translation pass for the new `askSolana.*` keys in
       `packages/i18n/messages/web/*/common.json` (non-EN locales currently carry
       English values)
-- [ ] Flip the flag in production per app (docs first, then web, media,
-      templates), watching PostHog (`docs_ai_chat_opened`,
+- [ ] Ship to production (deploy = launch for all apps at once — there is no
+      flag; rollback is a revert), watching PostHog (`docs_ai_chat_opened`,
       `docs_ai_message_sent`, `docs_ai_search`, `docs_ai_feedback`,
       `docs_ai_search_result_clicked`) and agent-side cost/latency dashboards
 - [ ] **Export Inkeep query/conversation logs before cancelling anything**
@@ -39,10 +40,9 @@ to launch.
       `src/inkeep-config.ts`
 - [ ] Delete `src/assets/long-arrow-up.svg` (Inkeep-only chat-submit icon)
 - [ ] Remove the two Inkeep exports from `src/index.ts`
-- [ ] In `src/ask-solana/ask-solana-button.tsx` and `ask-solana-searchbar.tsx`:
-      delete the `isAskSolanaEnabled()` fallback branch +
-      `InkeepChatButton`/`InkeepSearchBar` imports (optionally retire the flag
-      entirely once no rollback path is needed)
+- [x] ~~Delete the `isAskSolanaEnabled()` fallback branches~~ — done; the flag
+      and the Inkeep fallbacks in `ask-solana-button.tsx` /
+      `ask-solana-searchbar.tsx` are removed
 - [ ] Remove `@inkeep/cxkit-react` from `packages/ui-chrome/package.json`
 - [ ] Update `packages/ui-chrome/README.md` (Inkeep sections: ~lines 4, 19–20,
       55–63, 101–109, 175–194)
@@ -76,9 +76,9 @@ to launch.
 - [ ] `/CLAUDE.md` (lines ~78, 102), `/AGENTS.md` (~line 16),
       `apps/web/CLAUDE.md` (~line 83), `apps/templates/CLAUDE.md` (~line 95):
       remove Inkeep references
-- [ ] `apps/web/src/__tests__/i18n/next-intl.test.tsx` renders `Header` —
-      confirm it still passes once the Inkeep fallback is gone (Header now
-      renders AskSolana components)
+- [x] `apps/web/src/__tests__/i18n/next-intl.test.tsx` renders `Header` —
+      verified passing with the Inkeep fallback gone (Header now renders
+      AskSolana components)
 - [ ] Decide fate of legacy `commands.askAI` / `commands.searchOrAskAI` i18n
       keys (still used by the AskSolana entry buttons — keep)
 
@@ -89,9 +89,9 @@ to launch.
 
 ## Reference — what was added (this change)
 
-- `packages/ui-chrome/src/ask-solana/` — flags, store, api (SSE client +
-  session + search + feedback), analytics bridge, markdown renderer, chat view,
-  search view, modal host, `AskSolanaButton`, `AskSolanaSearchBar` (+
+- `packages/ui-chrome/src/ask-solana/` — config (API base), store, api (SSE
+  client + session + search + feedback), analytics bridge, markdown renderer,
+  chat view, search view, modal host, `AskSolanaButton`, `AskSolanaSearchBar` (+
   `react-markdown`/`remark-gfm` deps)
 - Mount swaps: `packages/ui-chrome/src/header.tsx`,
   `apps/web/src/app/[locale]/layout.tsx`, 8 docs layouts/pages,

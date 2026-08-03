@@ -11,9 +11,8 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], display: "swap" });
 /**
  * "Ask Vector" agent hero for the docs landing page. The robot is the
  * "Vector" mark (vector-robot.html, Solana.com Design System) built purely
- * from CSS clip-paths and gradients — no SVG or images. Shown in place of
- * the classic title/search hero while the Ask Solana flag is on (see
- * DocsHero).
+ * from CSS clip-paths and gradients — no SVG or images. Rendered by
+ * DocsHero.
  */
 export function AskVectorHero() {
   const [query, setQuery] = useState("");

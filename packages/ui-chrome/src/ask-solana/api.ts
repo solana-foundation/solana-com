@@ -1,4 +1,4 @@
-import { askApiBase } from "./flags";
+import { askApiBase } from "./config";
 
 /**
  * Client for the solana-docs-agent public API (proxied same-origin at
