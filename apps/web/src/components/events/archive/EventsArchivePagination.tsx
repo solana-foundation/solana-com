@@ -49,16 +49,14 @@ const EventsArchivePagination = ({
         <ArchivePageLink
           disabled={!hasPreviousPage}
           href={getPageHref(currentPage - 1)}
-          icon={<ArrowLeft aria-hidden className="h-4 w-4"  />}
+          icon={<ArrowLeft aria-hidden className="h-4 w-4" />}
         >
           {previousLabel}
         </ArchivePageLink>
         <ArchivePageLink
           disabled={!hasNextPage}
           href={getPageHref(currentPage + 1)}
-          icon={
-            <ArrowRight aria-hidden className="h-4 w-4"  />
-          }
+          icon={<ArrowRight aria-hidden className="h-4 w-4" />}
           iconPosition="right"
         >
           {nextLabel}
