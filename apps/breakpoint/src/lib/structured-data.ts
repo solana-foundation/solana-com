@@ -1,13 +1,16 @@
 import { config, publicLocalizedRouteUrl } from "@/config";
 import { homepageFaqItems } from "@/content/faq-page";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
+import { GENERAL_ADMISSION_PRICE_CHANGE } from "@/content/ticket-pricing";
 
 type JsonLd = Record<string, unknown>;
 
 type OfferSeed = {
   name: string;
   price: number;
+  priceValidUntil?: string;
   url: string;
+  validFrom: string;
 };
 
 function asPlainTextMessage(value: unknown) {
@@ -17,8 +20,16 @@ function asPlainTextMessage(value: unknown) {
 const TICKET_OFFERS: OfferSeed[] = [
   {
     name: "General Admission",
-    price: 450,
+    price: GENERAL_ADMISSION_PRICE_CHANGE.current.amount,
+    priceValidUntil: "2026-08-01T08:59:59Z",
     url: GENERAL_ADMISSION_HREF,
+    validFrom: "2026-01-01",
+  },
+  {
+    name: "General Admission",
+    price: GENERAL_ADMISSION_PRICE_CHANGE.increased.amount,
+    url: GENERAL_ADMISSION_HREF,
+    validFrom: GENERAL_ADMISSION_PRICE_CHANGE.increasesAt,
   },
 ];
 
@@ -59,7 +70,10 @@ export function buildBreakpointJsonLd(locale: string): JsonLd {
       priceCurrency: "USD",
       url: offer.url,
       availability: "https://schema.org/InStock",
-      validFrom: "2026-01-01",
+      validFrom: offer.validFrom,
+      ...(offer.priceValidUntil
+        ? { priceValidUntil: offer.priceValidUntil }
+        : {}),
     })),
   };
 

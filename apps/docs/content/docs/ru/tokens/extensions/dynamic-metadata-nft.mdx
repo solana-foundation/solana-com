@@ -1,0 +1,451 @@
+---
+date: 2024-04-25T00:00:00Z
+difficulty: intermediate
+title: Динамические метаданные NFT с использованием Token Extensions
+description:
+  Using the metadata token extension it is possible to save dynamic metadata,
+  like level and XP, directly in the mint of an NFT.
+tags:
+  - games
+  - anchor
+  - program
+  - web3js
+  - token extensions
+  - token 2022
+  - NFTs
+  - rust
+keywords:
+  - tutorial
+  - blockchain developer
+  - blockchain tutorial
+  - web3 developer
+  - anchor
+  - games
+  - example
+  - NFTs
+  - metadata
+  - token extensions
+  - token 2022
+---
+
+С помощью [Token Extension program](/docs/tokens/extensions) вы можете создавать NFT
+и цифровые активы, используя расширения метаданных. Вместе эти расширения
+([metadata pointer и token metadata](/docs/tokens/extensions/metadata)) позволяют
+размещать любые нужные метаданные непосредственно в блокчейне. Всё это — в настраиваемом
+хранилище данных типа «ключ-значение» прямо на mint account токена, что снижает затраты и
+сложность.
+
+Это особенно полезно для [web3-игр](/solutions/games-tooling), поскольку
+теперь можно хранить «дополнительные поля метаданных» в хранилище ключ-значение в блокчейне,
+позволяя играм сохранять и получать уникальное состояние внутри самого NFT (например,
+характеристики или инвентарь игрового персонажа).
+
+## Создание программы в блокчейне
+
+В этом руководстве для разработчиков мы покажем, как создавать NFT на основе Token Extension
+и настраиваемые метаданные с помощью
+[программы Anchor](https://www.anchor-lang.com/docs). Эта программа будет сохранять
+уровень и собранные ресурсы игрока внутри NFT.
+
+Этот NFT будет создан программой Anchor, поэтому выпускать его через
+клиент на JavaScript очень просто. Каждый NFT будет иметь базовую структуру, предоставляемую
+интерфейсом Token Metadata:
+
+- стандартные поля в блокчейне — `name`, `symbol` и `uri`
+  - `uri` — это ссылка на внешний JSON-файл, содержащий внецепочечные
+    метаданные NFT
+- также у нас будут пользовательские «дополнительные поля», которые мы определяем сами
+
+Все эти поля сохраняются с использованием расширения метаданных, которое указывает на
+mint account NFT, делая их доступными для любого пользователя или программы.
+
+<Callout title="Видео и исходный код">
+
+Вы можете найти видеообзор этого примера на YouTube-канале Solana Foundation:
+
+- [Видеообзор](https://www.youtube.com/watch?v=n-ym1utpzhk)
+- [Полный исходный код](https://github.com/solana-developers/program-examples/tree/main/tokens/token-2022/NFT-meta-data-pointer/anchor)
+
+</Callout>
+
+### Другие варианты использования в играх
+
+NFT такого типа с настраиваемыми метаданными в блокчейне открывают множество интересных
+возможностей для разработчиков игр. Особенно с учётом того, что этими метаданными можно
+напрямую взаимодействовать или управлять с помощью
+[программы в блокчейне](/docs/core/programs).
+
+Некоторые из игровых вариантов использования включают:
+
+- сохранение уровня и опыта (XP) игрока
+- текущее оружие и броня
+- текущий квест
+- и это ещё не всё!
+
+## Выпуск NFT
+
+Для создания NFT необходимо выполнить следующие шаги:
+
+1. Создать mint account
+2. Инициализировать mint account
+3. Создать аккаунт указателя метаданных
+4. Инициализировать аккаунт указателя метаданных
+5. Создать аккаунт метаданных
+6. Инициализировать аккаунт метаданных
+7. Создать associated token account
+8. Выпустить токен на associated token account
+9. Заморозить права на выпуск
+
+### Код программы на Rust
+
+Вот код на Rust, используемый для выпуска NFT с помощью Token Extension program:
+
+```rust name="Program"
+// calculate the space need for the mint account with the desired extensions
+let space = ExtensionType::try_calculate_account_len::<Mint>(
+    &[ExtensionType::MetadataPointer])
+    .unwrap();
+
+// This is the space required for the metadata account.
+// We put the metadata into the mint account at the end so we
+// don't need to create and additional account.
+// Then the metadata pointer points back to the mint account.
+// Using this technique, only one account is needed for both the mint
+// information and the metadata.
+
+let meta_data_space = 250;
+
+let lamports_required = (Rent::get()?).minimum_balance(space + meta_data_space);
+
+msg!(
+    "Create Mint and metadata account size and cost: {} lamports: {}",
+    space as u64,
+    lamports_required
+);
+
+system_program::create_account(
+    CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        system_program::CreateAccount {
+            from: ctx.accounts.signer.to_account_info(),
+            to: ctx.accounts.mint.to_account_info(),
+        },
+    ),
+    lamports_required,
+    space as u64,
+    &ctx.accounts.token_program.key(),
+)?;
+
+// Assign the mint to the token program
+system_program::assign(
+    CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        system_program::Assign {
+            account_to_assign: ctx.accounts.mint.to_account_info(),
+        },
+    ),
+    &token_2022::ID,
+)?;
+
+// Initialize the metadata pointer (Need to do this before initializing the mint)
+let init_meta_data_pointer_ix =
+spl_token_2022::extension::metadata_pointer::instruction::initialize(
+    &Token2022::id(),
+    &ctx.accounts.mint.key(),
+    Some(ctx.accounts.nft_authority.key()),
+    Some(ctx.accounts.mint.key()),
+)
+.unwrap();
+
+invoke(
+    &init_meta_data_pointer_ix,
+    &[
+        ctx.accounts.mint.to_account_info(),
+        ctx.accounts.nft_authority.to_account_info()
+    ],
+)?;
+
+// Initialize the mint cpi
+let mint_cpi_ix = CpiContext::new(
+    ctx.accounts.token_program.to_account_info(),
+    token_2022::InitializeMint2 {
+        mint: ctx.accounts.mint.to_account_info(),
+    },
+);
+
+token_2022::initialize_mint2(
+    mint_cpi_ix,
+    0,
+    &ctx.accounts.nft_authority.key(),
+    None).unwrap();
+
+// We use a PDA as a mint authority for the metadata account because
+// we want to be able to update the NFT from the program.
+let seeds = b"nft_authority";
+let bump = ctx.bumps.nft_authority;
+let signer: &[&[&[u8]]] = &[&[seeds, &[bump]]];
+
+msg!("Init metadata {0}", ctx.accounts.nft_authority.to_account_info().key);
+
+// Init the metadata account
+let init_token_meta_data_ix =
+&spl_token_metadata_interface::instruction::initialize(
+    &spl_token_2022::id(),
+    ctx.accounts.mint.key,
+    ctx.accounts.nft_authority.to_account_info().key,
+    ctx.accounts.mint.key,
+    ctx.accounts.nft_authority.to_account_info().key,
+    "Beaver".to_string(),
+    "BVA".to_string(),
+    "https://arweave.net/MHK3Iopy0GgvDoM7LkkiAdg7pQqExuuWvedApCnzfj0".to_string(),
+);
+
+invoke_signed(
+    init_token_meta_data_ix,
+    &[ctx.accounts.mint.to_account_info().clone(), ctx.accounts.nft_authority.to_account_info().clone()],
+    signer,
+)?;
+
+// Update the metadata account with an additional metadata field in this case the player level
+invoke_signed(
+    &spl_token_metadata_interface::instruction::update_field(
+        &spl_token_2022::id(),
+        ctx.accounts.mint.key,
+        ctx.accounts.nft_authority.to_account_info().key,
+        spl_token_metadata_interface::state::Field::Key("level".to_string()),
+        "1".to_string(),
+    ),
+    &[
+        ctx.accounts.mint.to_account_info().clone(),
+        ctx.accounts.nft_authority.to_account_info().clone(),
+    ],
+    signer
+)?;
+
+// Create the associated token account
+associated_token::create(
+    CpiContext::new(
+    ctx.accounts.associated_token_program.to_account_info(),
+    associated_token::Create {
+        payer: ctx.accounts.signer.to_account_info(),
+        associated_token: ctx.accounts.token_account.to_account_info(),
+        authority: ctx.accounts.signer.to_account_info(),
+        mint: ctx.accounts.mint.to_account_info(),
+        system_program: ctx.accounts.system_program.to_account_info(),
+        token_program: ctx.accounts.token_program.to_account_info(),
+    },
+))?;
+
+// Mint one token to the associated token account of the player
+token_2022::mint_to(
+    CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        token_2022::MintTo {
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.token_account.to_account_info(),
+            authority: ctx.accounts.nft_authority.to_account_info(),
+        },
+        signer
+    ),
+    1,
+)?;
+
+// Freeze the mint authority so no more tokens can be minted to make it an NFT
+token_2022::set_authority(
+    CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        token_2022::SetAuthority {
+            current_authority: ctx.accounts.nft_authority.to_account_info(),
+            account_or_mint: ctx.accounts.mint.to_account_info(),
+        },
+        signer
+    ),
+    AuthorityType::MintTokens,
+    None,
+)?;
+```
+
+### Код клиента на JavaScript
+
+Вызов выпуска NFT из клиента очень прост:
+
+```js name="Client"
+const nftAuthority = PublicKey.findProgramAddressSync(
+  [Buffer.from("nft_authority")],
+  program.programId
+);
+
+const mint = new Keypair();
+
+const destinationTokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID
+);
+
+const transaction = await program.methods
+  .mintNft()
+  .accounts({
+    signer: publicKey,
+    systemProgram: SystemProgram.programId,
+    tokenProgram: TOKEN_2022_PROGRAM_ID,
+    tokenAccount: destinationTokenAccount,
+    mint: mint.publicKey,
+    rent: web3.SYSVAR_RENT_PUBKEY,
+    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+    nftAuthority: nftAuthority[0]
+  })
+  .signers([mint])
+  .transaction();
+
+console.log("transaction", transaction);
+
+const txSig = await sendTransaction(transaction, connection, {
+  signers: [mint],
+  skipPreflight: true
+});
+
+console.log(`https://explorer.solana.com/tx/${txSig}?cluster=devnet`);
+```
+
+## Пример быстрого старта
+
+Приведённый выше пример основан на Solana Games Preset, который генерирует
+шаблон проекта, включающий клиент на JavaScript и Unity для этой игры, а также
+конфигурацию для взаимодействия с программой Anchor на Solana.
+
+Вы можете запустить его самостоятельно с помощью следующей команды:
+
+```shell
+npx create-solana-game gameName
+```
+
+### Настройка локальной среды
+
+Чтобы запустить этот пример локально, убедитесь, что вы
+[настроили локальную среду](/docs/intro/installation) для разработки на Solana,
+включая установку и настройку Anchor CLI. Если вы этого ещё не сделали,
+вы можете воспользоваться упомянутым руководством по настройке.
+
+### Структура проекта
+
+Проект Anchor структурирован следующим образом:
+
+Точка входа находится в файле lib.rs. Здесь определяются идентификатор программы и
+инструкции. Инструкции определены в папке instructions. Состояние
+определено в папке state.
+
+Таким образом, вызовы поступают в файл lib.rs и затем перенаправляются в
+инструкции. Инструкции затем обращаются к состоянию для получения данных и их
+обновления.
+
+Инструкцию выпуска NFT можно найти в папке instructions.
+
+```shell
+├── src
+│   ├── instructions
+│   │   ├── chop_tree.rs
+│   │   ├── init_player.rs
+│   │   ├── mint_nft.rs
+│   │   └── update_energy.rs
+│   ├── state
+│   │   ├── game_data.rs
+│   │   ├── mod.rs
+│   │   └── player_data.rs
+│   ├── lib.rs
+│   └── constants.rs
+│   └── errors.rs
+
+```
+
+### Программа Anchor
+
+Для завершения настройки программы Anchor, сгенерированной инструментом `create-solana-game`:
+
+1. `cd program` — для перехода в директорию программы
+2. Выполните `anchor build` для сборки программы
+3. Выполните `anchor deploy` для развёртывания программы
+4. Скопируйте идентификатор программы из терминала в `lib.rs`, `anchor.toml` и
+   в Unity-проекте в `AnchorService`, а если используете JavaScript — в
+   файл `anchor.ts`
+5. Выполните сборку и развёртывание ещё раз
+
+### Клиент NextJS
+
+Для завершения настройки клиента NextJS, сгенерированного инструментом `create-solana-game`:
+
+1. Скопируйте `programId` в `app/utils/anchor.ts`
+2. `cd app` — для перехода в директорию приложения
+3. Выполните `yarn install` для установки зависимостей Node
+4. Выполните `yarn dev` для запуска клиента
+5. После внесения изменений в программу Anchor обязательно скопируйте типы
+   из программы в клиент, чтобы их можно было использовать. Типы TypeScript
+   находятся в папке `target/idl`.
+
+## Запуск этого примера локально
+
+Использование команды `test` Anchor с флагом `--detach` запустит и настроит
+локальный тестовый validator Solana с развёрнутой программой (и оставит
+validator работающим после завершения тестов):
+
+```shell
+cd program
+anchor test --detach
+```
+
+Затем вы можете настроить [Solana Explorer](https://explorer.solana.com/) на использование вашего
+локального тестового validator (который запускается при выполнении команды `anchor test`), чтобы
+просматривать транзакции:
+
+```
+https://explorer.solana.com/?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899
+```
+
+Программа также уже развёрнута в сети, и вы можете опробовать её в `devnet`.
+Клиент JavaScript также имеет кнопку для выпуска NFT. Запуск клиента JavaScript:
+
+```shell
+cd app
+yarn install
+yarn dev
+```
+
+### Открытие проекта Unity
+
+Сначала откройте проект Unity с версией Unity 2021.3.32.f1 (или аналогичной), затем
+откройте `GameScene` или `LoginScene` и нажмите Play. Используйте кнопку входа в редакторе
+в нижнем левом углу.
+
+Если вы не можете получить devnet SOL, скопируйте свой адрес из консоли и
+следуйте инструкциям в этом руководстве:
+[как получить devnet SOL](/developers/cookbook/development/airdrops-and-faucets)
+
+### Подключение к тестовому validator Solana в Unity
+
+Если вы хотите избежать необходимости следить за наличием devnet SOL, вы можете
+подключиться к запущенному локальному тестовому validator из Unity. Просто добавьте эти
+ссылки на игровой объект wallet holder:
+
+```shell
+http://localhost:8899
+ws://localhost:8900
+```
+
+### Запуск клиента JavaScript
+
+Чтобы запустить клиент JavaScript и иметь возможность взаимодействовать с игрой и программой
+через веб-браузер:
+
+- откройте директорию `app` в репозитории
+- установите зависимости Node
+- выполните команду `dev` для запуска сервера разработки
+
+```shell
+cd app
+yarn install
+yarn dev
+```
+
+Чтобы начать изменять программу и подключиться к своей программе, выполните
+следующие шаги.
