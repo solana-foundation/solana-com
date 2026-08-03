@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import EventsHeroSection from "@/components/events/EventsHeroSection";
 import EventsDetailSection from "@/components/events/EventsDetailSection";
 import EventsList from "@/components/events/EventsList";
@@ -178,10 +179,17 @@ function TextLink({
       className="group inline-flex w-fit items-center gap-2 font-brand-mono text-[11px] uppercase tracking-[0.25em] text-white/70 no-underline transition-colors duration-200 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
     >
       {children}
-      <ArrowUpRight
-        aria-hidden
-        className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-      />
+      {newTab ? (
+        <ArrowOutUpRightSquare
+          aria-hidden
+          className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+        />
+      ) : (
+        <ArrowUpRight
+          aria-hidden
+          className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+        />
+      )}
     </Link>
   );
 }

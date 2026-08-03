@@ -1,4 +1,4 @@
-import { ArrowUpRight as ExternalLink } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
 import { Wallet } from "@boxicons/react/Wallet";
 import { Mobile as Smartphone } from "@boxicons/react/Mobile";
 import { Sparkles } from "@boxicons/react/Sparkles";

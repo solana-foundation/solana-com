@@ -3,7 +3,7 @@
 import { Template, TemplatesUiImage } from "../../lib/templates";
 import { useTemplatesTranslations } from "../../lib/use-translations";
 import Link from "next/link";
-import { ArrowUpRight as ExternalLinkIcon } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare as ExternalLinkIcon } from "@boxicons/react/ArrowOutUpRightSquare";
 import { motion } from "motion/react";
 
 const MotionLink = motion(Link);

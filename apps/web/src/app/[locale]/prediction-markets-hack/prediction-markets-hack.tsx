@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { Check } from "@boxicons/react/Check";
 import { PredictionMarketsAnimations } from "./animations";
@@ -2375,7 +2375,11 @@ export function PredictionMarketsHackPage({
                     style={{ color: SOLANA_GREEN_HEX }}
                   >
                     {translations.resourcesLearnMore}
-                    <ArrowUpRight width={14} height={14} className="ml-1" />
+                    <ArrowOutUpRightSquare
+                      width={14}
+                      height={14}
+                      className="ml-1"
+                    />
                   </span>
                 </a>
               ))}

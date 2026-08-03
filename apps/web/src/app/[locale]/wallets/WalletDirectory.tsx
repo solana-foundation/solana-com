@@ -3,10 +3,8 @@
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowUpRight,
-  ArrowUpRight as ExternalLink,
-} from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { Check } from "@boxicons/react/Check";
 import { Grid as Grid2X2 } from "@boxicons/react/Grid";
 import { List } from "@boxicons/react/List";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { isExternalUrl } from "@/lib/external-url";
 import type { NewsCampaign } from "@/lib/news-campaign";
 
@@ -34,7 +34,9 @@ export function CampaignRailItem({ campaign }: CampaignRailItemProps) {
         </h3>
         <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
           {t("primaryCta")}
-          {external && <ArrowUpRight aria-hidden className="size-3.5" />}
+          {external && (
+            <ArrowOutUpRightSquare aria-hidden className="size-3.5" />
+          )}
         </span>
       </Link>
     </li>

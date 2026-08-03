@@ -3,7 +3,7 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import { Check } from "@boxicons/react/Check";
 import { ChevronDown } from "@boxicons/react/ChevronDown";
 import { Copy } from "@boxicons/react/Copy";
-import { ArrowUpRight as ExternalLinkIcon } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare as ExternalLinkIcon } from "@boxicons/react/ArrowOutUpRightSquare";
 import {
   Popover,
   PopoverContent,

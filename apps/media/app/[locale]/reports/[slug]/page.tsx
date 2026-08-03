@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowToBottom as ArrowDownToLine } from "@boxicons/react/ArrowToBottom";
-import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
@@ -196,7 +196,7 @@ export default async function ReportPage({
                       rel="noopener noreferrer"
                     >
                       {button.label}
-                      <ArrowUpRight className="size-4" />
+                      <ArrowOutUpRightSquare className="size-4" />
                     </a>
                   </Button>
                 ))}

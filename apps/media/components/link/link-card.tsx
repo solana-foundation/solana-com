@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { LinkItem } from "@/lib/link-types";
-import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { FileDetail as FileText } from "@boxicons/react/FileDetail";
 import { Github } from "@boxicons/react/Github";
 import { Headphone as Headphones } from "@boxicons/react/Headphone";
@@ -112,7 +112,7 @@ export const LinkCard = ({ link }: LinkCardProps) => {
       </div>
       <span className="inline-flex items-center gap-2 text-sm font-medium group-hover:underline w-fit">
         Open link
-        <ArrowUpRight className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+        <ArrowOutUpRightSquare className="size-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
       </span>
     </a>
   );

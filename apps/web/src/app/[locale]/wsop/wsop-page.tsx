@@ -15,6 +15,7 @@ import {
 } from "motion/react";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { Check } from "@boxicons/react/Check";
 import { CheckCircle as CheckCircle2 } from "@boxicons/react/CheckCircle";
@@ -380,7 +381,7 @@ function ArrowLink({
       transition={{ duration: 0.18, ease: EASE }}
     >
       <span>{children}</span>
-      <ArrowUpRight aria-hidden="true" />
+      <ArrowOutUpRightSquare aria-hidden="true" />
     </motion.a>
   );
 }
@@ -591,14 +592,14 @@ function StoryRail({ stories }: { stories: LinkItem[] }) {
             {story.linkType === "video" ? (
               <Play fill="currentColor" />
             ) : (
-              <ArrowUpRight />
+              <ArrowOutUpRightSquare />
             )}
           </span>
         </div>
         <div className="wsop-video-card__copy">
           <span>{story.source || story.linkType || t("fallbackLabel")}</span>
           <h3>{story.title}</h3>
-          <ArrowUpRight aria-hidden="true" />
+          <ArrowOutUpRightSquare aria-hidden="true" />
         </div>
       </motion.a>
     );
@@ -1392,7 +1393,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                           {t("next.download.appStore")}
                         </strong>
                       </span>
-                      <ArrowUpRight
+                      <ArrowOutUpRightSquare
                         className="ml-auto !size-4 shrink-0 opacity-60"
                         aria-hidden="true"
                       />
@@ -1431,7 +1432,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                           {t("next.download.googlePlay")}
                         </strong>
                       </span>
-                      <ArrowUpRight
+                      <ArrowOutUpRightSquare
                         className="ml-auto !size-4 shrink-0 opacity-60"
                         aria-hidden="true"
                       />

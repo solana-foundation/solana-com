@@ -1,6 +1,6 @@
 import Image, { type StaticImageData } from "next/image";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
-import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { Link } from "@solana-com/ui-chrome/link";
 import { buttonVariants } from "@/app/components/ui/button";
@@ -321,7 +321,7 @@ function HubFeatureCard({
           <div>
             <span className="rounded-full text-base font-light px-4 h-8 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px] inline-flex items-center gap-2">
               {external ? (
-                <ArrowUpRight
+                <ArrowOutUpRightSquare
                   aria-hidden
                   className="-ml-2 p-1 !size-5 bg-black text-white rounded-full"
                 />
@@ -700,7 +700,7 @@ function HubButton({
       >
         <span className="-ml-2 p-1 !size-6 md:!size-8 bg-black text-white rounded-full inline-flex items-center justify-center shrink-0">
           {external ? (
-            <ArrowUpRight
+            <ArrowOutUpRightSquare
               aria-hidden
               className="!size-[14px] md:!size-[16px] block"
             />
@@ -730,7 +730,7 @@ function HubButton({
     >
       {link.title}
       {external ? (
-        <ArrowUpRight aria-hidden className="size-4" />
+        <ArrowOutUpRightSquare aria-hidden className="size-4" />
       ) : (
         <ArrowRight aria-hidden className="size-4" />
       )}
@@ -757,7 +757,7 @@ function ResourceLink({ link }: { link: HubLink }) {
         )}
       </span>
       {external ? (
-        <ArrowUpRight
+        <ArrowOutUpRightSquare
           aria-hidden
           className="size-4 shrink-0 text-white/40 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white"
         />

@@ -4,7 +4,7 @@ import React, { useState, useCallback } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowLeft } from "@boxicons/react/ArrowLeft";
-import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { motion } from "motion/react";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
@@ -147,7 +147,7 @@ export default function PodcastShowClientPage({
                           {host.name}
                         </span>
                         {host.twitterUrl && (
-                          <ArrowUpRight className="size-3 text-muted-foreground" />
+                          <ArrowOutUpRightSquare className="size-3 text-muted-foreground" />
                         )}
                       </a>
                     ))}

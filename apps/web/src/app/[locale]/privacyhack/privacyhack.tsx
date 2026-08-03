@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { Lock } from "@boxicons/react/Lock";
 import { Check } from "@boxicons/react/Check";
@@ -716,7 +716,11 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                       className="mt-auto inline-flex items-center text-green-400 font-semibold hover:text-green-300 transition-colors"
                     >
                       Learn more about {bounty.sponsor}
-                      <ArrowUpRight width={16} height={16} className="ml-1" />
+                      <ArrowOutUpRightSquare
+                        width={16}
+                        height={16}
+                        className="ml-1"
+                      />
                     </a>
                   )}
                 </div>
@@ -775,7 +779,11 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                       className="mt-auto inline-flex items-center text-green-400 text-sm font-semibold hover:text-green-300 transition-colors"
                     >
                       Learn more about {bounty.sponsor}
-                      <ArrowUpRight width={14} height={14} className="ml-1" />
+                      <ArrowOutUpRightSquare
+                        width={14}
+                        height={14}
+                        className="ml-1"
+                      />
                     </a>
                   )}
                 </div>
@@ -843,7 +851,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                       className="inline-flex items-center gap-1 text-green-400 text-sm hover:text-green-300 transition-colors font-mono"
                     >
                       @{mentor.twitter.split("/").pop()}
-                      <ArrowUpRight className="w-3 h-3" />
+                      <ArrowOutUpRightSquare className="w-3 h-3" />
                     </a>
                   )}
                 </div>
@@ -914,7 +922,11 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                   </p>
                   <span className="inline-flex items-center text-green-400 text-sm font-semibold">
                     {translations.resourcesLearnMore}
-                    <ArrowUpRight width={14} height={14} className="ml-1" />
+                    <ArrowOutUpRightSquare
+                      width={14}
+                      height={14}
+                      className="ml-1"
+                    />
                   </span>
                 </a>
               ))}
@@ -959,7 +971,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                     className="mt-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-green-400 text-green-400 hover:bg-green-400 hover:text-black transition-all font-semibold text-sm"
                   >
                     Watch on 𝕏
-                    <ArrowUpRight width={14} height={14} />
+                    <ArrowOutUpRightSquare width={14} height={14} />
                   </a>
                 </div>
               ))}

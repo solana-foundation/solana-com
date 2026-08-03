@@ -1,5 +1,6 @@
 import { clsx as classNames } from "clsx";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 
 import { InlineLink, Link } from "@/utils/Link";
 import { useTranslations } from "next-intl";
@@ -56,7 +57,7 @@ export default function DevelopersResourceItem({
         </div>
         <div className={styles["resource-item__cta"]}>
           <span>{ctaLabel || t("developers.resources.learn-more")}</span>
-          <ArrowUpRight />
+          {isExternal ? <ArrowOutUpRightSquare /> : <ArrowUpRight />}
         </div>
       </div>
     </ResourceLink>

@@ -6,7 +6,7 @@ import { ArrowLeftRight } from "@boxicons/react/ArrowLeftRight";
 import { ChevronLeft } from "@boxicons/react/ChevronLeft";
 import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { DollarCircle as CircleDollarSign } from "@boxicons/react/DollarCircle";
-import { ArrowUpRight as ExternalLink } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
 import { Github } from "@boxicons/react/Github";
 import { InfoCircle as Info } from "@boxicons/react/InfoCircle";
 import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";

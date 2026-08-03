@@ -4,10 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import {
-  ArrowUpRight,
-  ArrowUpRight as ExternalLinkIcon,
-} from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare as ExternalLinkIcon } from "@boxicons/react/ArrowOutUpRightSquare";
 import { BookOpen } from "@boxicons/react/BookOpen";
 import { Github } from "@boxicons/react/Github";
 import { Linkedin } from "@boxicons/react/Linkedin";
@@ -153,7 +150,7 @@ function getQuickLinkIcon(label: string, url?: string) {
     case "website":
       return ExternalLinkIcon;
     case "data page":
-      return ArrowUpRight;
+      return ExternalLinkIcon;
     case "github":
       return Github;
     case "linkedin":

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { Check } from "@boxicons/react/Check";
 
@@ -212,7 +212,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
               className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-300 text-sm font-mono transition-colors"
             >
               Join the Telegram
-              <ArrowUpRight size={14} />
+              <ArrowOutUpRightSquare size={14} />
             </a>
           </div> */}
         </div>
@@ -437,7 +437,11 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                     className="mt-auto inline-flex items-center text-purple-400 font-semibold hover:text-purple-300 transition-colors"
                   >
                     Learn more about {bounty.sponsor}
-                    <ArrowUpRight width={16} height={16} className="ml-1" />
+                    <ArrowOutUpRightSquare
+                      width={16}
+                      height={16}
+                      className="ml-1"
+                    />
                   </a>
                 )}
               </div>
@@ -481,7 +485,11 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                     className="mt-auto inline-flex items-center text-purple-400 text-sm font-semibold hover:text-purple-300 transition-colors"
                   >
                     Learn more about {bounty.sponsor}
-                    <ArrowUpRight width={14} height={14} className="ml-1" />
+                    <ArrowOutUpRightSquare
+                      width={14}
+                      height={14}
+                      className="ml-1"
+                    />
                   </a>
                 )}
               </div>
@@ -633,7 +641,11 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                   </p>
                   <span className="inline-flex items-center text-purple-400 text-sm font-semibold">
                     {translations.resourcesLearnMore}
-                    <ArrowUpRight width={14} height={14} className="ml-1" />
+                    <ArrowOutUpRightSquare
+                      width={14}
+                      height={14}
+                      className="ml-1"
+                    />
                   </span>
                 </a>
               ))}

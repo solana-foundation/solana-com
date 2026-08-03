@@ -1,4 +1,4 @@
-import { ArrowUpRight as ExternalLink } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
 import { useTranslations } from "next-intl";
 import type { ComponentType, ReactNode } from "react";
 
