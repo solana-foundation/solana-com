@@ -12,7 +12,7 @@ import {
   useScroll,
   useTransform,
   type Variants,
-} from "framer-motion";
+} from "motion/react";
 import {
   ArrowDown,
   ArrowLeft,

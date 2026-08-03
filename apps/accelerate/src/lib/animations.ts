@@ -1,4 +1,4 @@
-import type { Variants } from "framer-motion";
+import type { Variants } from "motion/react";
 
 /** Fade-in with upward slide — used across all section components. */
 export const fadeInUp: Variants = {

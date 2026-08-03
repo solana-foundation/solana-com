@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import Link from "../../utils/Link";
 import FormattedDate from "../shared/FormattedDate";
 import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
