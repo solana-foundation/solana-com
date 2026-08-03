@@ -1,0 +1,264 @@
+---
+title: "使用 Jito DontFront 实现 MEV 防护"
+description:
+  "Learn how to protect your Solana transactions from sandwich attacks using
+  Jito's dontfront feature. This guide covers how sandwich attacks work, how
+  dontfront prevents front-running, bundle ordering rules, tip strategies, and
+  integration examples in TypeScript and Rust."
+---
+
+# 使用 Jito DontFront 实现 MEV 防护
+
+最大可提取价值（MEV）是指通过对区块内交易进行重新排序、纳入或排除所能获取的价值。MEV 并非某条链独有的问题，而是任何由区块生产者控制交易排序的区块链的基本属性。某些形式的 MEV（如套利）通过纠正 DEX 之间的价格差异来维持市场效率，而另一些形式（如三明治攻击）则直接从用户处提取价值。对于构建 DeFi 应用的开发者而言，这可能意味着更差的交易执行结果和利润损失。
+
+本指南重点介绍三明治攻击——一种常见的有害 MEV 形式，以及如何利用 Jito 的 `dontfront` 功能来应对它。
+
+建议预先阅读：
+[Jito Bundles](https://solana.com/docs/payments/production-readiness#jito-bundles)
+
+## Solana 上的 MEV
+
+与拥有公共内存池的链相比，Solana 的架构已经缩小了 MEV 的攻击面。交易会直接转发给即将出块的区块领导者，而不是在共享内存池中等待，未处理的交易在约 150 个区块（约 1 分钟）后过期。这大幅压缩了搜索者观察和利用待处理交易的时间窗口。
+
+尽管如此，MEV 提取依然存在。拥有优化基础设施和直接 validator 连接的搜索者可以观察交易流并作出响应。Solana 上大部分 MEV 活动属于原子套利：机器人在单笔交易中纠正 DEX 之间的价格差异。这类 MEV 通常是有益的，因为它有助于提升市场间的价格一致性。
+
+有害的 MEV 形式——三明治攻击，才是开发者应当积极防范的对象。
+
+## 什么是三明治攻击？
+
+三明治攻击发生在搜索者检测到你的待处理交换并利用交易排序时：
+
+1. **抢先交易**：搜索者在你的交易之前买入代币，推高价格
+2. **你的交易以比预期更差的价格执行**
+3. **跟后交易**：搜索者在你的交易之后卖出代币，赚取差价
+
+在 Solana 上，这可以通过
+[Jito bundles](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles) 实现。
+搜索者提交一个交易包，例如：
+`[frontrun_tx, your_tx, backrun_tx]`，区块引擎按顺序原子化执行它们。受害者以更差的执行价格成交，而搜索者从价差中获利。
+
+## DontFront 的工作原理
+
+[DontFront](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation) 是
+Jito 区块引擎的一项功能，可防止搜索者在交易包中将其交易排在你的交易之前。
+
+其机制为：将任意以 `jitodontfront` 开头的有效 Solana 公钥添加到你交易中的任意指令中。区块引擎识别该前缀并强制执行规则：**任何包含你交易的交易包必须将其置于索引 0 的位置**。
+
+```
+Without dontfront:  [frontrun_tx, your_tx, backrun_tx]  ← sandwich possible
+With dontfront:     [your_tx, ...]                       ← your tx must be first
+```
+
+### 分步说明
+
+1. **选择一个有效地址**，该地址以 `jitodontfront` 开头（例如：
+   `jitodontfront111111111111111111111111111111`）。该账户无需在链上存在，它不会被读取或写入。你可以使用 @solana/kit 中的
+   [`assertIsAddress`](https://www.solanakit.com/api/functions/assertIsAddress)
+   函数验证某字符串是否为有效地址，也可以在 Solana Explorer 中输入该地址查看是否能解析。这里是一个
+   [无效地址](https://explorer.solana.com/address/jitodontfront11111111111111111111111111111INVALID)的示例。
+
+2. **将其作为只读非签名账户**添加到你交易中的任意指令中。标记为只读可获得最佳上链速度。大多数程序（包括 System Program）会忽略超出预期的额外账户。
+
+3. **通过 Jito 区块引擎提交**：
+   - `sendTransaction`：
+     `https://mainnet.block-engine.jito.wtf/api/v1/transactions`
+   - `sendBundle`：`https://mainnet.block-engine.jito.wtf/api/v1/bundles`
+
+   文档：
+   [sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
+   和 [sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+
+4. 区块引擎检测到 `jitodontfront` 前缀后将强制执行排序规则。
+
+### 区块引擎的处理逻辑
+
+当区块引擎检测到包含 `jitodontfront` 账户的交易时：
+
+- 通过 `sendTransaction` 提交：该交易受到保护，任何交易包都无法在其前面插入其他交易
+- 通过 `sendBundle` 提交：该交易必须位于索引 0，否则整个交易包将被拒绝
+
+不包含 `jitodontfront` 账户的交易和交易包不受影响。
+
+## 交易包排序规则
+
+以下规则适用于交易包中包含 `jitodontfront` 交易的情况。
+
+### 允许的模式
+
+```
+[tx_with_dontfront, tip]
+[tx_with_dontfront, arbitrage, tip]
+[tx_with_dontfront_signer1, tx_with_dontfront_signer1_and_signer2, tip]
+```
+
+### 单个交易包中包含多个 DontFront 交易
+
+当**同时满足以下两个**条件时，单个交易包中允许包含多个 dontfront 交易：
+
+1. 所有 dontfront 交易**连续排列在交易包的最前面**
+2. 每个 dontfront 交易与第一个 dontfront 交易**至少共享一个签名者**
+
+```
+✅ [txA_df, txB_df, txC_df, arbitrage, tip]
+   (contiguous at front, overlapping signers)
+
+✅ [txA_df_signer1_signer2, txB_df_signer1_signer3, txC_df_signer2_signer4]
+   (each shares a signer with txA)
+```
+
+### 拒绝的模式
+
+```
+❌ [tip, tx_with_dontfront]
+   → dontfront tx is not at index 0
+
+❌ [txA_df_signer1, txB_df_signer2]
+   → no overlapping signer between txA and txB
+
+❌ [trade, tx_with_dontfront, arbitrage, tip]
+   → dontfront tx is not at the front
+```
+
+## 集成示例
+
+如需快速代码参考，请参阅
+[MEV 防护 cookbook 条目](/developers/cookbook/transactions/mev-protection)。
+
+### TypeScript（@solana/kit）
+
+核心思路是编写一个辅助函数，将 dontfront 账户追加到任意指令中：
+
+<CodeTabs storage="guide-mev">
+
+```ts !! title="Kit"
+import {
+  address,
+  AccountRole,
+  type Instruction,
+  type Address
+} from "@solana/kit";
+
+const DONT_FRONT: Address = address(
+  "jitodontfront111111111111111111111111111111"
+);
+
+// !mark(1:9)
+function withDontFront(ix: Instruction): Instruction {
+  return {
+    ...ix,
+    accounts: [
+      ...(ix.accounts ?? []),
+      { address: DONT_FRONT, role: AccountRole.READONLY }
+    ]
+  };
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+};
+use std::str::FromStr;
+
+const DONT_FRONT_ACCOUNT: &str =
+    "jitodontfront111111111111111111111111111111";
+
+// !mark(1:6)
+fn with_dontfront(ix: &mut Instruction) {
+    let dontfront =
+        Pubkey::from_str(DONT_FRONT_ACCOUNT).unwrap();
+    ix.accounts
+        .push(AccountMeta::new_readonly(dontfront, false));
+}
+```
+
+</CodeTabs>
+
+然后将已签名的交易提交到 Jito 区块引擎，而不是标准 RPC 节点。请始终使用 base64 编码。Base58 在 Jito 的 API 中已被弃用。
+
+<CodeTabs storage="guide-mev">
+
+```ts !! title="Kit"
+// !mark(1:2)
+const response = await fetch(
+  "https://mainnet.block-engine.jito.wtf/api/v1/transactions",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "sendTransaction",
+      // !mark
+      params: [base64Tx, { encoding: "base64" }]
+    })
+  }
+);
+```
+
+```rs !! title="Rust"
+let serialized = bincode::serialize(&tx)?;
+// !mark
+let base64_tx = base64::engine::general_purpose::STANDARD
+    .encode(&serialized);
+
+// !mark(1:2)
+let response = client
+    .post("https://mainnet.block-engine.jito.wtf/api/v1/transactions")
+    .json(&serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "sendTransaction",
+        "params": [base64_tx, {"encoding": "base64"}]
+    }))
+    .send()
+    .await?;
+```
+
+</CodeTabs>
+
+## 最佳实践
+
+DontFront 是防护的一层保障。一套完善的 MEV 缓解策略需要结合多种方法：
+
+### 交易级防护
+
+- **设置严格的滑点容差。** 防范三明治攻击最有效的单一手段是限制交换的可接受滑点。更小的滑点窗口压缩了攻击者可获取的利润空间，使你的交易对三明治攻击者吸引力降低。
+
+- **设置合理的小费和优先费用。** 在网络拥堵时，较高的小费和优先费用能提高你的交易/交易包快速上链的概率，从而缩短搜索者的可操作窗口。有关如何设置合理小费的更多详情，请参阅 Jito 文档中的
+[小费金额](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)部分。
+
+- **优化计算单元使用量。** 每个区块的可用计算单元数量有限（账户在每个区块内的可用计算单元也有限制）。为最大化你的交易/交易包被纳入区块的概率，应优化计算单元使用量。详情请参阅
+[如何优化 Solana 上的计算使用](/developers/cookbook/transactions/optimize-compute)
+指南。
+
+### DontFront 专项建议
+
+1. **将 dontfront 账户标记为只读。** 标记为可写也能正常工作，但只读标记
+   [可优化上链速度](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)。
+
+2. **为每个应用使用唯一的 dontfront pubkey。** 任何以
+   `jitodontfront` 开头的 pubkey 均可使用。采用唯一变体（例如
+   `jitodontfront111111111111111111111111111123`）便于在检查链上数据时区分各应用的使用情况。
+
+3. **DontFront 支持地址查找表（ALT）。** dontfront 账户可通过 ALT 添加。但请勿将 ALT 用于小费账户。
+
+## 局限性
+
+- **仅限区块引擎。** DontFront 由 Jito 区块引擎强制执行。直接提交给 validator（绕过 Jito）的交易不受保护。
+
+- **不提供保证。** 来自 Jito 文档：_"此功能可能有助于减少三明治攻击，但不保证能做到这一点，也不能解决所有交易排序方面的变化，包括第三方实施的任何排序。"_
+
+- **仅限主网/测试网。** 这是 Jito 区块引擎的功能，在开发网或本地环境中不可用。
+
+## 参考资料
+
+- [Jito 文档：三明治攻击缓解](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
+- [Jito 文档：sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
+- [Jito 文档：sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+- [Jito 文档：小费账户](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)
+- [Jito 文档：小费金额](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)
+- [Tip Floor API](https://bundles.jito.wtf/api/v1/bundles/tip_floor)
+- [GitHub 上的 @solana/kit](https://github.com/anza-xyz/kit)
+- [crates.io 上的 solana-sdk](https://crates.io/crates/solana-sdk)

@@ -48,7 +48,7 @@ Shared packages worth checking early:
 
 ## Setup
 
-Requires Node.js 24 (pinned in `.node-version`) and pnpm 11.13.0. Corepack will
+Requires Node.js 24 (pinned in `.node-version`) and pnpm 11.13.1. Corepack will
 use the pnpm version declared by the repository.
 
 1. Clone the repo:

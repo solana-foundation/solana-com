@@ -28,6 +28,7 @@ export type BreakpointMessages = {
   tickets: {
     eyebrow: string;
     headline: string;
+    priceIncreaseCountdown: string;
     categories: Record<
       string,
       {
@@ -35,6 +36,7 @@ export type BreakpointMessages = {
         description: string;
         originalPrice?: string;
         price: string;
+        priceAfterIncrease?: string;
         ctaLabel?: string;
         href?: string;
       }
