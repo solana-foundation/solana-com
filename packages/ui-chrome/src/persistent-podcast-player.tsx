@@ -2,15 +2,13 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { clsx as classNames } from "clsx";
-import {
-  Pause,
-  Play,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  VolumeX,
-  X,
-} from "lucide-react";
+import { Pause } from "@boxicons/react/Pause";
+import { Play } from "@boxicons/react/Play";
+import { SkipPrevious as SkipBack } from "@boxicons/react/SkipPrevious";
+import { SkipNext as SkipForward } from "@boxicons/react/SkipNext";
+import { VolumeFull as Volume2 } from "@boxicons/react/VolumeFull";
+import { VolumeMute as VolumeX } from "@boxicons/react/VolumeMute";
+import { X } from "@boxicons/react/X";
 import { Link } from "./link";
 import {
   clearPodcastPlayerState,
@@ -382,7 +380,7 @@ export function PersistentPodcastPlayer() {
               className="hidden size-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex"
               aria-label="Skip backward 15 seconds"
             >
-              <SkipBack size={16} />
+              <SkipBack width={16} height={16} />
             </button>
 
             <button
@@ -394,7 +392,11 @@ export function PersistentPodcastPlayer() {
               style={playPauseButtonStyle}
               aria-label={state.isPlaying ? "Pause" : "Play"}
             >
-              {state.isPlaying ? <Pause size={16} /> : <Play size={16} />}
+              {state.isPlaying ? (
+                <Pause width={16} height={16} />
+              ) : (
+                <Play width={16} height={16} />
+              )}
             </button>
 
             <button
@@ -408,7 +410,7 @@ export function PersistentPodcastPlayer() {
               className="hidden size-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/10 sm:flex"
               aria-label="Skip forward 30 seconds"
             >
-              <SkipForward size={16} />
+              <SkipForward width={16} height={16} />
             </button>
           </div>
 
@@ -420,7 +422,11 @@ export function PersistentPodcastPlayer() {
             className="hidden size-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/10 lg:flex"
             aria-label={state.isMuted ? "Unmute" : "Mute"}
           >
-            {state.isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            {state.isMuted ? (
+              <VolumeX width={16} height={16} />
+            ) : (
+              <Volume2 width={16} height={16} />
+            )}
           </button>
 
           <div className="hidden items-center gap-2 lg:flex">
@@ -447,7 +453,7 @@ export function PersistentPodcastPlayer() {
             className="flex size-8 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-white/10"
             aria-label="Close player"
           >
-            <X size={16} />
+            <X width={16} height={16} />
           </button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { Link } from "@workspace/i18n/routing";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import type { Metadata } from "next";
 import { reader } from "@/lib/reader";
 import { cn } from "@/lib/utils";

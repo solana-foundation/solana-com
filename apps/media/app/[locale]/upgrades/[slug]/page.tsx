@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowLeft, Twitter, Facebook, Linkedin, Send } from "lucide-react";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { Twitter } from "@boxicons/react/Twitter";
+import { Facebook } from "@boxicons/react/Facebook";
+import { Linkedin } from "@boxicons/react/Linkedin";
+import { Send } from "@boxicons/react/Send";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";

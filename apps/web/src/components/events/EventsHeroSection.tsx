@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import Link from "../../utils/Link";
 import FormattedDate from "../shared/FormattedDate";

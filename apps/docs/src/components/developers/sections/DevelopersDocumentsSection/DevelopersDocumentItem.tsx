@@ -1,5 +1,5 @@
 import { clsx as classNames } from "clsx";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import Button from "../../../shared/Button";
 import { useTranslations } from "next-intl";
 import styles from "./DevelopersDocumentItem.module.scss";
@@ -37,7 +37,7 @@ export default function DevelopersDocumentItem({
           aria-label={ctaLabel || t("developers.documents.view-all")}
         >
           <span>{ctaLabel || t("developers.documents.view-all")}</span>
-          <ArrowUpRight strokeWidth={1} />
+          <ArrowUpRight />
         </Button>
       </div>
       <p className={styles["document-item__description"]}>{description}</p>

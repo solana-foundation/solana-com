@@ -1,4 +1,4 @@
-import { ExternalLink } from "lucide-react";
+import { ArrowUpRight as ExternalLink } from "@boxicons/react/ArrowUpRight";
 import { useTranslations } from "next-intl";
 import type { ComponentType, ReactNode } from "react";
 
@@ -57,7 +57,11 @@ export const Products = ({
                     {productTitle}
                   </span>
                   {hasLink && (
-                    <ExternalLink size={18} className="ml-1 text-white/60" />
+                    <ExternalLink
+                      width={18}
+                      height={18}
+                      className="ml-1 text-white/60"
+                    />
                   )}
                 </div>
                 <p className="text-gray-300 mt-2 text-sm md:text-base">

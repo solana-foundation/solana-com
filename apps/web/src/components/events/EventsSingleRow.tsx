@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 
 import Link from "../../utils/Link";
 import EventsSingleLocation from "./EventsSingleLocation";

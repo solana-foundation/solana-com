@@ -1,7 +1,7 @@
 "use client";
 
 import * as Accordion from "@radix-ui/react-accordion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@boxicons/react/ChevronDown";
 import { Logos, Logo as LogoType } from "@/component-library/logos";
 import CursorBox from "@@/public/src/img/icons/CursorBox.inline.svg";
 import {
@@ -180,7 +180,8 @@ export const Ecosystem = ({
                       {cat.label}
                     </span>
                     <ChevronDown
-                      size={20}
+                      width={20}
+                      height={20}
                       className="text-white/[0.64] shrink-0 transition-transform duration-200"
                     />
                   </Accordion.Trigger>

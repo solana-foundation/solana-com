@@ -1,5 +1,7 @@
 import React from "react";
-import { ArrowUpRight, Download, FileText } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowToBottom as Download } from "@boxicons/react/ArrowToBottom";
+import { FileDetail as FileText } from "@boxicons/react/FileDetail";
 import { Button } from "@/components/ui/button";
 import { SwitchbackReportCta } from "./switchback-report-cta";
 

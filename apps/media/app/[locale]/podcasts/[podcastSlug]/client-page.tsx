@@ -3,7 +3,8 @@
 import React, { useState, useCallback } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { motion } from "motion/react";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";

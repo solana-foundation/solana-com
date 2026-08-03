@@ -1,4 +1,4 @@
-import { ArrowRightCircle } from "lucide-react";
+import { ArrowRightCircle } from "@boxicons/react/ArrowRightCircle";
 import { truncateTextByWord } from "../../../../utils/stringUtils";
 import Button from "../../../shared/Button";
 import { useTranslations } from "next-intl";
@@ -45,7 +45,7 @@ export default function DevelopersChangelog({
           className={styles["changelog__cta"]}
         >
           <span>{t("developers.changelog.cta")}</span>
-          <ArrowRightCircle strokeWidth={1} />
+          <ArrowRightCircle />
         </Button>
       ) : null}
     </div>

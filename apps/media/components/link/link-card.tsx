@@ -1,15 +1,13 @@
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { LinkItem } from "@/lib/link-types";
-import {
-  ArrowUpRight,
-  FileText,
-  Github,
-  Headphones,
-  Play,
-  Twitter,
-  Link as LinkIcon,
-} from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { FileDetail as FileText } from "@boxicons/react/FileDetail";
+import { Github } from "@boxicons/react/Github";
+import { Headphone as Headphones } from "@boxicons/react/Headphone";
+import { Play } from "@boxicons/react/Play";
+import { Twitter } from "@boxicons/react/Twitter";
+import { Link as LinkIcon } from "@boxicons/react/Link";
 import { cn } from "@/lib/utils";
 
 interface LinkCardProps {

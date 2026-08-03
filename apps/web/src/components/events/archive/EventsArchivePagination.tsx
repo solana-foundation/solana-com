@@ -1,5 +1,6 @@
 import { Link } from "@workspace/i18n/routing";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { cn } from "@/app/components/utils";
 
 export interface EventsArchivePaginationProps {
@@ -48,7 +49,7 @@ const EventsArchivePagination = ({
         <ArchivePageLink
           disabled={!hasPreviousPage}
           href={getPageHref(currentPage - 1)}
-          icon={<ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2.5} />}
+          icon={<ArrowLeft aria-hidden className="h-4 w-4"  />}
         >
           {previousLabel}
         </ArchivePageLink>
@@ -56,7 +57,7 @@ const EventsArchivePagination = ({
           disabled={!hasNextPage}
           href={getPageHref(currentPage + 1)}
           icon={
-            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+            <ArrowRight aria-hidden className="h-4 w-4"  />
           }
           iconPosition="right"
         >

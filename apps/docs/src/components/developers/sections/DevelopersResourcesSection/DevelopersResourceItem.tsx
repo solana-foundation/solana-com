@@ -1,5 +1,5 @@
 import { clsx as classNames } from "clsx";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 
 import { InlineLink, Link } from "@/utils/Link";
 import { useTranslations } from "next-intl";
@@ -56,7 +56,7 @@ export default function DevelopersResourceItem({
         </div>
         <div className={styles["resource-item__cta"]}>
           <span>{ctaLabel || t("developers.resources.learn-more")}</span>
-          <ArrowUpRight strokeWidth={1} />
+          <ArrowUpRight />
         </div>
       </div>
     </ResourceLink>

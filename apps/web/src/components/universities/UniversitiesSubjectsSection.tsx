@@ -6,14 +6,12 @@ import CarouselCards from "@/components/shared/CarouselCards";
 import UniversitiesSubjectCard from "./UniversitiesSubjectCard";
 import GradientOrbs, { orbPresets } from "./GradientOrbs";
 import { UNIVERSITY_TYPEFORM_URL } from "@/constants/universities";
-import {
-  DollarSign,
-  Book,
-  Monitor,
-  BarChart2,
-  TrendingUp,
-  Settings,
-} from "lucide-react";
+import { Dollar as DollarSign } from "@boxicons/react/Dollar";
+import { Book } from "@boxicons/react/Book";
+import { Monitor } from "@boxicons/react/Monitor";
+import { BarChart as BarChart2 } from "@boxicons/react/BarChart";
+import { TrendingUp } from "@boxicons/react/TrendingUp";
+import { Cog as Settings } from "@boxicons/react/Cog";
 
 interface UniversitiesSubjectsSectionProps {
   translations: {
@@ -93,42 +91,42 @@ export default function UniversitiesSubjectsSection({
                   title={translations.cards.finance.title}
                   description={translations.cards.finance.description}
                   learnMore={translations.learnMore}
-                  icon={<DollarSign size={32} strokeWidth={1.5} />}
+                  icon={<DollarSign width={32} height={32} />}
                   href="/solutions/financial-infrastructure"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.legal.title}
                   description={translations.cards.legal.description}
                   learnMore={translations.learnMore}
-                  icon={<Book size={32} strokeWidth={1.5} />}
+                  icon={<Book width={32} height={32} />}
                   href="https://www.solanapolicyinstitute.org/"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.technology.title}
                   description={translations.cards.technology.description}
                   learnMore={translations.learnMore}
-                  icon={<Monitor size={32} strokeWidth={1.5} />}
+                  icon={<Monitor width={32} height={32} />}
                   href="/developers"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.business.title}
                   description={translations.cards.business.description}
                   learnMore={translations.learnMore}
-                  icon={<BarChart2 size={32} strokeWidth={1.5} />}
+                  icon={<BarChart2 width={32} height={32} />}
                   href="/solutions/enterprise"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.economics.title}
                   description={translations.cards.economics.description}
                   learnMore={translations.learnMore}
-                  icon={<TrendingUp size={32} strokeWidth={1.5} />}
+                  icon={<TrendingUp width={32} height={32} />}
                   href="/solutions/tokenization"
                 />
                 <UniversitiesSubjectCard
                   title={translations.cards.engineering.title}
                   description={translations.cards.engineering.description}
                   learnMore={translations.learnMore}
-                  icon={<Settings size={32} strokeWidth={1.5} />}
+                  icon={<Settings width={32} height={32} />}
                   href="/developers"
                 />
               </CarouselCards>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/app/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@boxicons/react/ArrowRight";
 
 interface WhatIsX402PageProps {
   translations: {

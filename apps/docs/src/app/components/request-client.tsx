@@ -1,6 +1,8 @@
 "use client";
 
-import { ChevronDown, Loader2, Play } from "lucide-react";
+import { ChevronDown } from "@boxicons/react/ChevronDown";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
+import { Play } from "@boxicons/react/Play";
 import {
   Collapsible,
   CollapsibleContent,

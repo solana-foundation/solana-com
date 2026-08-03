@@ -13,25 +13,23 @@ import {
   useTransform,
   type Variants,
 } from "motion/react";
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowUpRight,
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  Club,
-  Clock3,
-  Diamond,
-  Heart,
-  Info,
-  LoaderCircle,
-  Play,
-  RotateCcw,
-  Spade,
-  WalletCards,
-  Zap,
-} from "lucide-react";
+import { ArrowDown } from "@boxicons/react/ArrowDown";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Check } from "@boxicons/react/Check";
+import { CheckCircle as CheckCircle2 } from "@boxicons/react/CheckCircle";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
+import { Club } from "@boxicons/react/Club";
+import { Clock3 } from "@boxicons/react/Clock3";
+import { Diamond } from "@boxicons/react/Diamond";
+import { Heart } from "@boxicons/react/Heart";
+import { InfoCircle as Info } from "@boxicons/react/InfoCircle";
+import { LoaderLines as LoaderCircle } from "@boxicons/react/LoaderLines";
+import { Play } from "@boxicons/react/Play";
+import { RotateCcw } from "@boxicons/react/RotateCcw";
+import { Spade } from "@boxicons/react/Spade";
+import { WalletCards } from "@boxicons/react/WalletCards";
+import { Bolt as Zap } from "@boxicons/react/Bolt";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/app/components/ui/button";
@@ -1396,7 +1394,6 @@ export function WsopPage({ stories }: WsopPageProps) {
                       </span>
                       <ArrowUpRight
                         className="ml-auto !size-4 shrink-0 opacity-60"
-                        strokeWidth={1.75}
                         aria-hidden="true"
                       />
                     </motion.a>
@@ -1436,7 +1433,6 @@ export function WsopPage({ stories }: WsopPageProps) {
                       </span>
                       <ArrowUpRight
                         className="ml-auto !size-4 shrink-0 opacity-60"
-                        strokeWidth={1.75}
                         aria-hidden="true"
                       />
                     </motion.a>

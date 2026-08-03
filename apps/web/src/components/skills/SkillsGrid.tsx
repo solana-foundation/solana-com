@@ -7,7 +7,7 @@ import {
   DEFAULT_CATEGORY,
   CategoryTranslations,
 } from "./skillCategories";
-import { Search } from "lucide-react";
+import { Search } from "@boxicons/react/Search";
 import { CommunitySkill } from "@/data/skills/communitySkills";
 import { Divider } from "@/components/solutions/divider.v2";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
@@ -97,7 +97,8 @@ export function SkillsGrid({
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative group/search">
               <Search
-                size={15}
+                width={15}
+                height={15}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within/search:text-white/50 transition-colors pointer-events-none"
                 aria-hidden={true}
               />

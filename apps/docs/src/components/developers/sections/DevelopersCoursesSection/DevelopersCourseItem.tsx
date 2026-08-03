@@ -1,6 +1,6 @@
 import { clsx as classNames } from "clsx";
 import { useTranslations } from "next-intl";
-import { ArrowRightCircle } from "lucide-react";
+import { ArrowRightCircle } from "@boxicons/react/ArrowRightCircle";
 
 import { InlineLink } from "@/utils/Link";
 
@@ -46,7 +46,7 @@ export default function DevelopersCourseItem({
               className="btn btn-sm btn-link p-0"
               aria-label={t("developers.courses.aria-label")}
             >
-              <ArrowRightCircle strokeWidth={1} />
+              <ArrowRightCircle />
             </button>
           </div>
         </div>

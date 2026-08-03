@@ -9,7 +9,7 @@ import HackathonCTASection from "@/components/universities/HackathonCTASection";
 import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
 import DevelopersDocumentItem from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentItem";
 import hackathonHeroImg from "@@/assets/universities/hackathon-hero.webp";
-import { Book } from "lucide-react";
+import { Book } from "@boxicons/react/Book";
 import { Logos } from "@/components/solutions/logos.v2";
 
 interface X402HackathonPageProps {
@@ -105,7 +105,7 @@ export function X402HackathonPage({ translations }: X402HackathonPageProps) {
           secondary: {
             label: translations.heroResourcesButton,
             href: "#resources",
-            icon: <Book size={20} />,
+            icon: <Book width={20} height={20} />,
           },
         }}
       />

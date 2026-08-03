@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUpRight, ArrowDown, Check } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowDown } from "@boxicons/react/ArrowDown";
+import { Check } from "@boxicons/react/Check";
 
 interface GraveyardHackPageProps {
   translations: {
@@ -197,7 +199,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
               className="inline-flex items-center gap-2 px-8 py-4 border border-gray-500/50 text-gray-300 font-semibold rounded-full hover:bg-gray-500/10 transition-all"
             >
               {translations.heroResourcesButton}
-              <ArrowDown size={18} />
+              <ArrowDown width={18} height={18} />
             </a>
           </div>
 
@@ -435,7 +437,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                     className="mt-auto inline-flex items-center text-purple-400 font-semibold hover:text-purple-300 transition-colors"
                   >
                     Learn more about {bounty.sponsor}
-                    <ArrowUpRight size={16} className="ml-1" />
+                    <ArrowUpRight width={16} height={16} className="ml-1" />
                   </a>
                 )}
               </div>
@@ -479,7 +481,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                     className="mt-auto inline-flex items-center text-purple-400 text-sm font-semibold hover:text-purple-300 transition-colors"
                   >
                     Learn more about {bounty.sponsor}
-                    <ArrowUpRight size={14} className="ml-1" />
+                    <ArrowUpRight width={14} height={14} className="ml-1" />
                   </a>
                 )}
               </div>
@@ -631,7 +633,7 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                   </p>
                   <span className="inline-flex items-center text-purple-400 text-sm font-semibold">
                     {translations.resourcesLearnMore}
-                    <ArrowUpRight size={14} className="ml-1" />
+                    <ArrowUpRight width={14} height={14} className="ml-1" />
                   </span>
                 </a>
               ))}
@@ -669,7 +671,11 @@ export function GraveyardHackPage({ translations }: GraveyardHackPageProps) {
                   >
                     <div className="flex-shrink-0 mt-1">
                       <div className="w-5 h-5 rounded border border-purple-400 flex items-center justify-center">
-                        <Check size={12} className="text-purple-400" />
+                        <Check
+                          width={12}
+                          height={12}
+                          className="text-purple-400"
+                        />
                       </div>
                     </div>
                     <span className="text-gray-300">{req}</span>

@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Search, X } from "lucide-react";
+import { Search } from "@boxicons/react/Search";
+import { X } from "@boxicons/react/X";
 import { useTranslations } from "next-intl";
 import defaultAgendaData from "@/data/agenda.json";
 import { fadeInUp } from "@/lib/animations";

@@ -4,7 +4,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "./classnames";
 import { useTranslations } from "next-intl";
-import { X } from "lucide-react";
+import { X } from "@boxicons/react/X";
 import { useTheme } from "./theme-provider";
 
 const ITERABLE_BASE_URL =
@@ -115,7 +115,7 @@ export function NewsletterModal({ formId, children }: NewsletterModalProps) {
               "focus:outline-none focus:ring-2 focus:ring-[#9945FF]",
             )}
           >
-            <X size={20} />
+            <X width={20} height={20} />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
 

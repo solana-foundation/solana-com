@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { isExternalUrl } from "@/lib/external-url";
 import type { NewsCampaign } from "@/lib/news-campaign";
 

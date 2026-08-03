@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { useTranslations } from "next-intl";
 import useIsomorphicLayoutEffect from "../../hooks/useIsomorphicLayoutEffect";
 

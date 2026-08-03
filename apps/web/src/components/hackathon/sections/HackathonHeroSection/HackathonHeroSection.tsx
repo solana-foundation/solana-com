@@ -7,7 +7,7 @@ import FundingIcon from "../../../../../assets/hackathon/hero/funding.inline.svg
 import ProjectsIcon from "../../../../../assets/hackathon/hero/projects.inline.svg";
 import graphicLeft from "../../../../../assets/hackathon/hero/graphic-left.png";
 import graphicRight from "../../../../../assets/hackathon/hero/graphic-right.png";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 
 import styles from "./HackathonHeroSection.module.scss";
 

@@ -9,7 +9,7 @@ import HackathonPrizes from "@/components/universities/HackathonPrizes";
 import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
 import DevelopersDocumentItem from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentItem";
 import hackathonHeroImg from "@@/assets/universities/hackathon-hero.webp";
-import { Book } from "lucide-react";
+import { Book } from "@boxicons/react/Book";
 
 interface HackathonFall2025PageProps {
   translations: {
@@ -90,7 +90,7 @@ export function HackathonFall2025Page({
           secondary: {
             label: translations.heroResourcesButton,
             href: "#resources",
-            icon: <Book size={20} />,
+            icon: <Book width={20} height={20} />,
           },
         }}
       />
