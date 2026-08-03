@@ -1,6 +1,5 @@
 "use client";
 
-import type { ComponentType, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
@@ -36,7 +35,7 @@ import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/app/components/ui/button";
 import type { LinkItem } from "@/types/media";
 
-type Icon = ComponentType<SVGProps<SVGSVGElement>>;
+type Icon = typeof Spade;
 
 type WsopPageProps = {
   stories: LinkItem[];
@@ -299,6 +298,7 @@ function SuitIcon({
       className={`wsop-suit-icon ${className} ${
         isRedSuit(suit) ? "is-red" : ""
       }`}
+      pack="filled"
       aria-hidden="true"
     />
   );
