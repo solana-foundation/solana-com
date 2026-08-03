@@ -1,0 +1,320 @@
+---
+title: "Protezione MEV con Jito DontFront"
+description:
+  "Learn how to protect your Solana transactions from sandwich attacks using
+  Jito's dontfront feature. This guide covers how sandwich attacks work, how
+  dontfront prevents front-running, bundle ordering rules, tip strategies, and
+  integration examples in TypeScript and Rust."
+---
+
+# Protezione MEV con Jito DontFront
+
+Il Maximal Extractable Value (MEV) si riferisce al valore che può essere estratto
+riordinando, includendo o escludendo transazioni all'interno di un blocco. Il MEV non è
+exclusivo di una singola chain; è una proprietà fondamentale di qualsiasi blockchain in cui
+i produttori di blocchi controllano l'ordinamento delle transazioni. Alcune forme di MEV, come l'arbitraggio,
+contribuiscono all'efficienza dei mercati correggendo le discrepanze di prezzo tra i DEX.
+Altre, come gli attacchi sandwich, estraggono valore direttamente dagli utenti. Per gli sviluppatori
+che costruiscono applicazioni DeFi, ciò può tradursi in un'esecuzione degli scambi peggiore e in
+perdite di profitto.
+
+Questa guida si concentra sugli attacchi sandwich, una forma comune di MEV dannoso, e su come
+mitigarli utilizzando la funzionalità `dontfront` di Jito.
+
+Letture preliminari consigliate:
+[Jito Bundles](https://solana.com/docs/payments/production-readiness#jito-bundles)
+
+## MEV su Solana
+
+L'architettura di Solana riduce già la superficie di attacco del MEV rispetto alle chain
+con mempool pubblici. Le transazioni vengono inoltrate direttamente al prossimo leader del blocco
+anziché rimanere in una mempool condivisa, e le transazioni non elaborate
+scadono dopo circa 150 blocchi (~1 minuto). Ciò restringe significativamente la
+finestra temporale in cui i searcher possono osservare le transazioni in sospeso e agire su di esse.
+
+Detto ciò, l'estrazione di MEV avviene comunque. I searcher con infrastrutture ottimizzate
+e connessioni dirette ai validator possono osservare il flusso delle transazioni e reagire di conseguenza.
+La maggior parte dell'attività MEV su Solana consiste in arbitraggio atomico: bot che correggono le
+differenze di prezzo tra i DEX in un'unica transazione. Questo tipo di MEV è generalmente
+vantaggioso, poiché migliora la coerenza dei prezzi tra i mercati.
+
+La varietà dannosa, gli attacchi sandwich, è quella contro cui gli sviluppatori dovrebbero attivamente
+proteggersi.
+
+## Cos'è un Attacco Sandwich?
+
+Un attacco sandwich si verifica quando un searcher rileva il tuo swap in sospeso e sfrutta
+l'ordinamento delle transazioni:
+
+1. **Front-run**: il searcher acquista il token prima del tuo scambio, facendo salire il
+   prezzo
+2. **Il tuo scambio viene eseguito** a un prezzo peggiore del previsto
+3. **Back-run**: il searcher vende il token dopo il tuo scambio, intascando la
+   differenza
+
+Su Solana, ciò può avvenire tramite
+[Jito bundles](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles). Un
+searcher invia un bundle di transazioni del tipo:
+`[frontrun_tx, your_tx, backrun_tx]`, e il block engine le esegue
+atomicamente in ordine. La vittima ottiene un prezzo di esecuzione peggiore mentre il searcher
+traggono profitto dallo spread.
+
+## Come Funziona DontFront
+
+[DontFront](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation) è una
+funzionalità del block engine di Jito che impedisce ai searcher di inserire
+transazioni prima della tua in un bundle.
+
+Il meccanismo: aggiungi qualsiasi chiave pubblica Solana valida che inizia con `jitodontfront`
+a qualsiasi istruzione nella tua transazione. Il block engine riconosce questo prefisso
+e applica una regola: **qualsiasi bundle contenente la tua transazione deve posizionarla all'indice 0**.
+
+```
+Without dontfront:  [frontrun_tx, your_tx, backrun_tx]  ← sandwich possible
+With dontfront:     [your_tx, ...]                       ← your tx must be first
+```
+
+### Passo dopo Passo
+
+1. **Scegli un indirizzo valido** che inizi con `jitodontfront` (es.,
+   `jitodontfront111111111111111111111111111111`). L'account non deve necessariamente
+   esistere onchain; non viene mai letto né scritto. Puoi verificare che una stringa sia un
+   indirizzo valido usando la funzione
+   [`assertIsAddress`](https://www.solanakit.com/api/functions/assertIsAddress)
+   di @solana/kit, oppure puoi inserire l'indirizzo in Solana Explorer per
+   verificarne la risoluzione. Ecco un esempio di
+   [indirizzo non valido](https://explorer.solana.com/address/jitodontfront11111111111111111111111111111INVALID).
+
+2. **Aggiungilo come account di sola lettura e non firmatario** a qualsiasi istruzione nella tua
+   transazione. Contrassegnalo come di sola lettura per una velocità di landing ottimale. La maggior parte dei programmi
+   (incluso il System Program) ignora gli account aggiuntivi oltre a quelli attesi.
+
+3. **Invia tramite il block engine di Jito**:
+   - `sendTransaction`:
+     `https://mainnet.block-engine.jito.wtf/api/v1/transactions`
+   - `sendBundle`: `https://mainnet.block-engine.jito.wtf/api/v1/bundles`
+
+   Documentazione:
+   [sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
+   e [sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+
+4. Il block engine rileva il prefisso `jitodontfront` e applica le
+   regole di ordinamento.
+
+### Cosa Accade nel Block Engine
+
+Quando il block engine rileva una transazione contenente un account `jitodontfront`:
+
+- Tramite `sendTransaction`: la transazione è protetta. Nessun bundle può inserire
+  un'altra transazione prima di essa
+- Tramite `sendBundle`: la transazione deve apparire all'indice 0, altrimenti l'intero bundle
+  viene rifiutato
+
+Le transazioni e i bundle che non contengono un account `jitodontfront` non sono
+influenzati.
+
+## Regole di Ordinamento dei Bundle
+
+Queste regole si applicano quando una transazione `jitodontfront` compare in un bundle.
+
+### Pattern Consentiti
+
+```
+[tx_with_dontfront, tip]
+[tx_with_dontfront, arbitrage, tip]
+[tx_with_dontfront_signer1, tx_with_dontfront_signer1_and_signer2, tip]
+```
+
+### Più Transazioni DontFront in un Singolo Bundle
+
+Più transazioni dontfront in un singolo bundle sono consentite quando **entrambe** le
+condizioni sono soddisfatte:
+
+1. Tutte le transazioni dontfront sono **contigue in testa** al bundle
+2. Ogni transazione dontfront condivide **almeno un firmatario** con la prima
+   transazione dontfront
+
+```
+✅ [txA_df, txB_df, txC_df, arbitrage, tip]
+   (contiguous at front, overlapping signers)
+
+✅ [txA_df_signer1_signer2, txB_df_signer1_signer3, txC_df_signer2_signer4]
+   (each shares a signer with txA)
+```
+
+### Pattern Rifiutati
+
+```
+❌ [tip, tx_with_dontfront]
+   → dontfront tx is not at index 0
+
+❌ [txA_df_signer1, txB_df_signer2]
+   → no overlapping signer between txA and txB
+
+❌ [trade, tx_with_dontfront, arbitrage, tip]
+   → dontfront tx is not at the front
+```
+
+## Esempi di Integrazione
+
+Per una ricetta di codice rapida, consulta la
+[voce del cookbook sulla Protezione MEV](/developers/cookbook/transactions/mev-protection).
+
+### TypeScript (@solana/kit)
+
+L'idea centrale è un helper che aggiunge l'account dontfront a qualsiasi istruzione:
+
+<CodeTabs storage="guide-mev">
+
+```ts !! title="Kit"
+import {
+  address,
+  AccountRole,
+  type Instruction,
+  type Address
+} from "@solana/kit";
+
+const DONT_FRONT: Address = address(
+  "jitodontfront111111111111111111111111111111"
+);
+
+// !mark(1:9)
+function withDontFront(ix: Instruction): Instruction {
+  return {
+    ...ix,
+    accounts: [
+      ...(ix.accounts ?? []),
+      { address: DONT_FRONT, role: AccountRole.READONLY }
+    ]
+  };
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+};
+use std::str::FromStr;
+
+const DONT_FRONT_ACCOUNT: &str =
+    "jitodontfront111111111111111111111111111111";
+
+// !mark(1:6)
+fn with_dontfront(ix: &mut Instruction) {
+    let dontfront =
+        Pubkey::from_str(DONT_FRONT_ACCOUNT).unwrap();
+    ix.accounts
+        .push(AccountMeta::new_readonly(dontfront, false));
+}
+```
+
+</CodeTabs>
+
+Quindi invia la transazione firmata al block engine di Jito anziché a un
+nodo RPC standard. Usa sempre la codifica base64. Base58 è deprecato nell'API di Jito.
+
+<CodeTabs storage="guide-mev">
+
+```ts !! title="Kit"
+// !mark(1:2)
+const response = await fetch(
+  "https://mainnet.block-engine.jito.wtf/api/v1/transactions",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "sendTransaction",
+      // !mark
+      params: [base64Tx, { encoding: "base64" }]
+    })
+  }
+);
+```
+
+```rs !! title="Rust"
+let serialized = bincode::serialize(&tx)?;
+// !mark
+let base64_tx = base64::engine::general_purpose::STANDARD
+    .encode(&serialized);
+
+// !mark(1:2)
+let response = client
+    .post("https://mainnet.block-engine.jito.wtf/api/v1/transactions")
+    .json(&serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "sendTransaction",
+        "params": [base64_tx, {"encoding": "base64"}]
+    }))
+    .send()
+    .await?;
+```
+
+</CodeTabs>
+
+## Best Practice
+
+DontFront è uno strato di protezione. Una strategia robusta di mitigazione del MEV combina
+molteplici approcci:
+
+### Protezione a Livello di Transazione
+
+- **Imposta tolleranze di slippage ridotte.** La difesa più efficace contro gli
+  attacchi sandwich è limitare lo slippage accettabile sugli swap. Una finestra di slippage più piccola
+  riduce il margine di profitto disponibile per gli attaccanti, rendendo la tua
+  transazione meno attraente per il sandwiching.
+
+- **Imposta tip e priority fee adeguati.** Durante i periodi di congestione, tip e
+  priority fee più elevati aumentano la probabilità che la tua transazione/bundle venga confermato rapidamente,
+  riducendo la finestra temporale per i searcher. Consulta la documentazione di Jito sui
+  [Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount) per maggiori
+  dettagli su come impostare tip appropriati.
+
+- **Ottimizza l'utilizzo delle compute unit.** Ogni blocco ha un numero limitato di compute
+  unit disponibili (e gli account hanno un numero limitato di compute unit disponibili
+  per blocco). Per massimizzare la probabilità che la tua transazione/bundle venga incluso
+  in un blocco, dovresti ottimizzare l'utilizzo delle compute unit. Consulta la guida
+  [Come Ottimizzare l'Utilizzo delle Compute Unit su Solana](/developers/cookbook/transactions/optimize-compute)
+  per i dettagli.
+
+### Specifiche per DontFront
+
+1. **Contrassegna l'account dontfront come di sola lettura.** Il contrassegno come scrivibile funziona, ma
+   la modalità di sola lettura
+   [ottimizza la velocità di landing](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation).
+
+2. **Usa un pubkey dontfront univoco per applicazione.** Qualsiasi pubkey che inizia con
+   `jitodontfront` funziona. Usare una variante univoca (es.,
+   `jitodontfront111111111111111111111111111123`) ti permette di distinguere l'utilizzo per
+   app quando si ispezionano i dati onchain.
+
+3. **DontFront supporta le Address Lookup Table.** L'account dontfront può essere
+   incluso tramite una ALT. Tuttavia, non utilizzare le ALT per gli account dei tip.
+
+## Limitazioni
+
+- **Solo block engine.** DontFront è applicato dal block engine di Jito.
+  Le transazioni inviate direttamente ai validator (aggirando Jito) non sono
+  protette.
+
+- **Non è una garanzia.** Dalla documentazione di Jito: _"Questa funzionalità può aiutare a ridurre gli attacchi
+  sandwich, ma non è garantita nel farlo e non rappresenta una soluzione per tutte le
+  variazioni nell'ordinamento delle transazioni, incluso qualsiasi ordinamento condotto da terze
+  parti."_
+
+- **Solo Mainnet/Testnet.** Si tratta di una funzionalità del block engine di Jito. Non
+  funziona su devnet o localhost.
+
+## Riferimenti
+
+- [Jito Docs: Sandwich Mitigation](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
+- [Jito Docs: sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
+- [Jito Docs: sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+- [Jito Docs: Tip Accounts](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)
+- [Jito Docs: Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)
+- [Tip Floor API](https://bundles.jito.wtf/api/v1/bundles/tip_floor)
+- [@solana/kit on GitHub](https://github.com/anza-xyz/kit)
+- [solana-sdk on crates.io](https://crates.io/crates/solana-sdk)
