@@ -144,6 +144,7 @@ import unitywalletIcon from "../../assets/wallets/icons/unitywallet.webp";
 import unruggableIcon from "../../assets/wallets/icons/unruggable.webp";
 import utilaIcon from "../../assets/wallets/icons/utila.webp";
 import venlyIcon from "../../assets/wallets/icons/venly.webp";
+import vultisigIcon from "../../assets/wallets/icons/vultisig.webp";
 import waiaasIcon from "../../assets/wallets/icons/waiaas.webp";
 import walletverseIcon from "../../assets/wallets/icons/walletverse.webp";
 import web3authIcon from "../../assets/wallets/icons/web3auth.webp";
@@ -2696,6 +2697,17 @@ const walletRecords = {
     website: "https://www.venly.io/product/wallet-as-a-service",
     icon: venlyIcon,
     lastVerified: "2026-07-15",
+  },
+  vultisig: {
+    name: "Vultisig",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "firefox", "desktop"],
+    features: ["non_custodial", "mpc", "multi_chain", "staking", "open_source"],
+    description:
+      "Seedless self-custody MPC wallet for 36 chains with iOS and Android apps, a browser extension, and desktop apps for Windows, macOS, and Linux, offering SOL and SPL token sends, receives, and swaps, plus SOL staking",
+    website: "https://vultisig.com/",
+    icon: vultisigIcon,
+    lastVerified: "2026-07-28",
   },
   waiaas: {
     name: "WAIaaS SDK",
