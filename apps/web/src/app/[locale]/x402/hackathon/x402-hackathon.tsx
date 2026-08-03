@@ -9,7 +9,7 @@ import HackathonCTASection from "@/components/universities/HackathonCTASection";
 import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
 import DevelopersDocumentItem from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentItem";
 import hackathonHeroImg from "@@/assets/universities/hackathon-hero.webp";
-import { Book } from "react-feather";
+import { Book } from "lucide-react";
 import { Logos } from "@/components/solutions/logos.v2";
 
 interface X402HackathonPageProps {

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Check } from "react-feather";
+import { Check } from "lucide-react";
 
 interface HackathonRequirementsProps {
   title: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Code, Zap, Server, Tool, Users } from "react-feather";
+import { Code, Zap, Server, Wrench as Tool, Users } from "lucide-react";
 
 interface HackathonTracksProps {
   translations: {

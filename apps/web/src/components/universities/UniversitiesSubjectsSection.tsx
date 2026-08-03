@@ -13,7 +13,7 @@ import {
   BarChart2,
   TrendingUp,
   Settings,
-} from "react-feather";
+} from "lucide-react";
 
 interface UniversitiesSubjectsSectionProps {
   translations: {

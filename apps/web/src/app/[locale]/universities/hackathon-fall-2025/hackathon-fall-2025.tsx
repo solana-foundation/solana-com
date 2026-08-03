@@ -9,7 +9,7 @@ import HackathonPrizes from "@/components/universities/HackathonPrizes";
 import DevelopersResourceItem from "@/components/developers/sections/DevelopersResourcesSection/DevelopersResourceItem";
 import DevelopersDocumentItem from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersDocumentItem";
 import hackathonHeroImg from "@@/assets/universities/hackathon-hero.webp";
-import { Book } from "react-feather";
+import { Book } from "lucide-react";
 
 interface HackathonFall2025PageProps {
   translations: {

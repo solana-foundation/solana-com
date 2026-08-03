@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Award, Star, Gift } from "react-feather";
+import { Award, Star, Gift } from "lucide-react";
 
 interface HackathonPrizesProps {
   translations: {

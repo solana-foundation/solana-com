@@ -1,6 +1,6 @@
 import { clsx as classNames } from "clsx";
 import Image from "next/image";
-import { ArrowRight } from "react-feather";
+import { ArrowRight } from "lucide-react";
 
 import { useTranslations } from "next-intl";
 import Button from "../shared/Button";

@@ -10,7 +10,7 @@ import {
   Volume2,
   VolumeX,
   X,
-} from "react-feather";
+} from "lucide-react";
 import { Link } from "./link";
 import {
   clearPodcastPlayerState,

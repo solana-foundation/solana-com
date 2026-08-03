@@ -1,5 +1,5 @@
 import { clsx as classNames } from "clsx";
-import { ArrowUpRight } from "react-feather";
+import { ArrowUpRight } from "lucide-react";
 import Button from "../../../shared/Button";
 import { useTranslations } from "next-intl";
 import styles from "./DevelopersDocumentItem.module.scss";

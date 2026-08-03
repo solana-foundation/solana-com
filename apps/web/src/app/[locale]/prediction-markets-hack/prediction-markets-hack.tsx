@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUpRight, ArrowDown, Check } from "react-feather";
+import { ArrowUpRight, ArrowDown, Check } from "lucide-react";
 import { PredictionMarketsAnimations } from "./animations";
 
 interface PredictionMarketsHackPageProps {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "@workspace/i18n/use-router";
-import { ArrowRight } from "react-feather";
+import { ArrowRight } from "lucide-react";
 import {
   sitewideTopAlertConfig,
   type AlertColor,

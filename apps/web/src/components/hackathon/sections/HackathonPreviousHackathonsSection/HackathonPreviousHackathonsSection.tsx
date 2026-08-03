@@ -1,7 +1,7 @@
 import { clsx as classNames } from "clsx";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { ArrowRightCircle } from "react-feather";
+import { ArrowRightCircle } from "lucide-react";
 import CarouselCards from "../../../shared/CarouselCards";
 import { Link } from "@/utils/Link";
 import renaissanceImg from "../../../../../assets/hackathon/past-hackathons/renaissance.jpg";

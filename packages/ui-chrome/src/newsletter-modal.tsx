@@ -4,7 +4,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "./classnames";
 import { useTranslations } from "next-intl";
-import { X } from "react-feather";
+import { X } from "lucide-react";
 import { useTheme } from "./theme-provider";
 
 const ITERABLE_BASE_URL =

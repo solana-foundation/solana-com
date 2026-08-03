@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUpRight, ArrowDown, Lock, Check } from "react-feather";
+import { ArrowUpRight, ArrowDown, Lock, Check } from "lucide-react";
 import { Logos } from "@/components/solutions/logos.v2";
 
 interface PrivacyHackPageProps {

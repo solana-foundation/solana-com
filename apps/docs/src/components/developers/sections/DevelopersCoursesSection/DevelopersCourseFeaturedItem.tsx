@@ -1,6 +1,6 @@
 import { clsx as classNames } from "clsx";
 import { useTranslations } from "next-intl";
-import { ArrowRightCircle } from "react-feather";
+import { ArrowRightCircle } from "lucide-react";
 
 import { InlineLink } from "@/utils/Link";
 

@@ -1,5 +1,5 @@
 import { clsx as classNames } from "clsx";
-import { ArrowUpRight } from "react-feather";
+import { ArrowUpRight } from "lucide-react";
 
 import { InlineLink, Link } from "@/utils/Link";
 import { useTranslations } from "next-intl";

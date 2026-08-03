@@ -1,4 +1,4 @@
-import { ArrowRightCircle } from "react-feather";
+import { ArrowRightCircle } from "lucide-react";
 import { truncateTextByWord } from "../../../../utils/stringUtils";
 import Button from "../../../shared/Button";
 import { useTranslations } from "next-intl";
