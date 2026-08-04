@@ -1,21 +1,18 @@
 "use client";
 
-import { motion } from "framer-motion";
-import {
-  Activity,
-  ArrowLeftRight,
-  ChevronLeft,
-  ChevronRight,
-  CircleDollarSign,
-  ExternalLink,
-  Github,
-  Info,
-  Loader2,
-  Network,
-  RadioTower,
-  Send,
-  type LucideIcon,
-} from "lucide-react";
+import { motion } from "motion/react";
+import { Pulse as Activity } from "@boxicons/react/Pulse";
+import { ArrowLeftRight } from "@boxicons/react/ArrowLeftRight";
+import { ChevronLeft } from "@boxicons/react/ChevronLeft";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
+import { DollarCircle as CircleDollarSign } from "@boxicons/react/DollarCircle";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
+import { Github } from "@boxicons/react/Github";
+import { InfoCircle as Info } from "@boxicons/react/InfoCircle";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
+import { NetworkChart as Network } from "@boxicons/react/NetworkChart";
+import { Broadcast as RadioTower } from "@boxicons/react/Broadcast";
+import { Send } from "@boxicons/react/Send";
 import Image from "next/image";
 import {
   Fragment,
@@ -97,7 +94,7 @@ const tabOptions = [
   { labelKey: "tabs.senders.label", value: "senders" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
 
-const tabIcons: Record<DashboardTab, LucideIcon> = {
+const tabIcons: Record<DashboardTab, typeof Activity> = {
   overview: Activity,
   network: Network,
   stablecoins: CircleDollarSign,
@@ -1744,7 +1741,7 @@ function KpiSummaryTooltip({
           className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-nd-mid-em-text/70 transition-colors hover:text-nd-high-em-text focus-visible:outline-none focus-visible:text-nd-high-em-text"
           type="button"
         >
-          <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+          <Info aria-hidden="true" className="h-3.5 w-3.5" />
           <span className="sr-only">{summary}</span>
         </button>
       </TooltipTrigger>

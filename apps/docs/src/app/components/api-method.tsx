@@ -8,7 +8,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "@boxicons/react/ChevronDown";
 import { Hoverable, HoverBlock, HoverProvider } from "./code/hover.client";
 import {
   AnnotationHandler,

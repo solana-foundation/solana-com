@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Check, Copy } from "lucide-react";
+import { Check } from "@boxicons/react/Check";
+import { Copy } from "@boxicons/react/Copy";
 import { motion } from "motion/react";
 import { useTheme } from "next-themes";
 import { HTMLAttributes, useEffect, useState } from "react";

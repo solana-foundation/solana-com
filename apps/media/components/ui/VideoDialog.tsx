@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { XIcon } from "lucide-react";
+import { X as XIcon } from "@boxicons/react/X";
 import { useVideoDialog } from "./VideoDialogContext";
 
 const VideoDialog = () => {

@@ -3,16 +3,14 @@
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowUpRight,
-  Check,
-  ExternalLink,
-  Grid2X2,
-  List,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Check } from "@boxicons/react/Check";
+import { Grid as Grid2X2 } from "@boxicons/react/Grid";
+import { List } from "@boxicons/react/List";
+import { Search } from "@boxicons/react/Search";
+import { SliderAlt as SlidersHorizontal } from "@boxicons/react/SliderAlt";
+import { X } from "@boxicons/react/X";
 import {
   WALLET_CATEGORIES,
   WALLET_FEATURES,
@@ -451,7 +449,8 @@ function WalletCard({
       <div className={styles.walletCardTop}>
         <WalletLogo wallet={wallet} />
         <ExternalLink
-          size={16}
+          width={16}
+          height={16}
           aria-hidden="true"
           className={styles.walletCardArrow}
         />
@@ -509,7 +508,8 @@ function WalletRow({
         <WalletTags wallet={wallet} limit={4} />
       </div>
       <ExternalLink
-        size={16}
+        width={16}
+        height={16}
         aria-hidden="true"
         className={styles.walletCardArrow}
       />
@@ -803,7 +803,7 @@ export function WalletDirectory({
                   {getWalletCategoryLabel(wallet, taxonomyLabels.categories)}
                 </small>
               </span>
-              <ExternalLink size={15} aria-hidden="true" />
+              <ExternalLink width={15} height={15} aria-hidden="true" />
             </a>
           ))}
         </div>
@@ -897,7 +897,9 @@ export function WalletDirectory({
                     }))
                   }
                 >
-                  {checked && <Check size={14} aria-hidden="true" />}
+                  {checked && (
+                    <Check width={14} height={14} aria-hidden="true" />
+                  )}
                   {t(`directory.popularNeeds.options.${feature}`)}
                   <small>{count}</small>
                 </button>
@@ -908,7 +910,7 @@ export function WalletDirectory({
 
         <div className={styles.toolbar}>
           <div className={styles.searchField}>
-            <Search size={18} aria-hidden="true" />
+            <Search width={18} height={18} aria-hidden="true" />
             <label className={styles.srOnly} htmlFor="wallet-search">
               {t("directory.search.label")}
             </label>
@@ -936,7 +938,7 @@ export function WalletDirectory({
                   )
                 }
               >
-                <X size={16} aria-hidden="true" />
+                <X width={16} height={16} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -949,7 +951,7 @@ export function WalletDirectory({
             aria-expanded={filtersOpen}
             onClick={() => setFiltersOpen(true)}
           >
-            <SlidersHorizontal size={18} aria-hidden="true" />
+            <SlidersHorizontal width={18} height={18} aria-hidden="true" />
             {t("directory.filters.more")}
             {activeFacets.length > 0 && <span>{activeFacets.length}</span>}
           </button>
@@ -966,7 +968,7 @@ export function WalletDirectory({
                 updateState((current) => ({ ...current, view: "grid" }))
               }
             >
-              <Grid2X2 size={18} aria-hidden="true" />
+              <Grid2X2 width={18} height={18} aria-hidden="true" />
               <span>{t("directory.view.grid")}</span>
             </button>
             <button
@@ -977,7 +979,7 @@ export function WalletDirectory({
                 updateState((current) => ({ ...current, view: "list" }))
               }
             >
-              <List size={18} aria-hidden="true" />
+              <List width={18} height={18} aria-hidden="true" />
               <span>{t("directory.view.list")}</span>
             </button>
           </div>
@@ -994,7 +996,7 @@ export function WalletDirectory({
             {activeFilters.map((filter) => (
               <button key={filter.id} type="button" onClick={filter.remove}>
                 {filter.label}
-                <X size={14} aria-hidden="true" />
+                <X width={14} height={14} aria-hidden="true" />
               </button>
             ))}
             <button
@@ -1044,7 +1046,7 @@ export function WalletDirectory({
                   className={styles.closeFiltersButton}
                   onClick={() => setFiltersOpen(false)}
                 >
-                  <X size={18} aria-hidden="true" />
+                  <X width={18} height={18} aria-hidden="true" />
                   <span className={styles.srOnly}>
                     {t("directory.filters.close")}
                   </span>
@@ -1246,7 +1248,7 @@ export function WalletDirectory({
                   {String(index + 1).padStart(2, "0")} ·{" "}
                   {t(`learn.resources.${resource.id}.topic`)}
                 </span>
-                <ArrowUpRight size={16} aria-hidden="true" />
+                <ArrowUpRight width={16} height={16} aria-hidden="true" />
               </div>
               <h3>{t(`learn.resources.${resource.id}.title`)}</h3>
               <p>{t(`learn.resources.${resource.id}.description`)}</p>
@@ -1264,14 +1266,15 @@ export function WalletDirectory({
         <div className={styles.builderLinks}>
           <a href="https://solana.com/docs/tools/commerce-kit/quickstart/wallet-connection">
             {t("builders.commerceKitWalletConnection")}{" "}
-            <ExternalLink size={15} aria-hidden="true" />
+            <ExternalLink width={15} height={15} aria-hidden="true" />
           </a>
           <a href="https://solana.com/docs/core/transactions/signing-in-production">
             {t("builders.productionSigning")}{" "}
-            <ExternalLink size={15} aria-hidden="true" />
+            <ExternalLink width={15} height={15} aria-hidden="true" />
           </a>
           <a href="https://share.hsforms.com/1GE1hYdApQGaDiCgaiWMXHA5lohw">
-            {t("builders.grant")} <ExternalLink size={15} aria-hidden="true" />
+            {t("builders.grant")}{" "}
+            <ExternalLink width={15} height={15} aria-hidden="true" />
           </a>
         </div>
       </section>
@@ -1313,7 +1316,7 @@ export function WalletDirectory({
           rel="noopener noreferrer"
         >
           {t("methodology.correction")}
-          <ExternalLink size={15} aria-hidden="true" />
+          <ExternalLink width={15} height={15} aria-hidden="true" />
         </a>
       </section>
     </main>

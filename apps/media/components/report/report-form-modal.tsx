@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle as CheckCircle2 } from "@boxicons/react/CheckCircle";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
 import {
   Dialog,
   DialogContent,

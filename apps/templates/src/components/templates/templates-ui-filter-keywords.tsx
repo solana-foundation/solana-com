@@ -1,8 +1,8 @@
 "use client";
 
 import { useTemplateFilterState } from "../../lib/templates";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { ChevronDown } from "@boxicons/react/ChevronDown";
 import { useState } from "react";
 
 export function TemplatesUiFilterKeywords() {

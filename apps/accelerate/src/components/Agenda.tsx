@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, X } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Search } from "@boxicons/react/Search";
+import { X } from "@boxicons/react/X";
 import { useTranslations } from "next-intl";
 import defaultAgendaData from "@/data/agenda.json";
 import { fadeInUp } from "@/lib/animations";
-import type { Variants } from "framer-motion";
+import type { Variants } from "motion/react";
 
 const staggerAgenda: Variants = {
   visible: {

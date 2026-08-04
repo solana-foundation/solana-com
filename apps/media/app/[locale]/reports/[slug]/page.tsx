@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowDownToLine, ArrowUpRight, ArrowLeft } from "lucide-react";
+import { ArrowToBottom as ArrowDownToLine } from "@boxicons/react/ArrowToBottom";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { notFound } from "next/navigation";
@@ -175,7 +177,6 @@ export default async function ReportPage({
                       <ArrowDownToLine
                         aria-hidden
                         className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
-                        strokeWidth={3}
                       />
                       Download Report
                     </a>
@@ -195,7 +196,7 @@ export default async function ReportPage({
                       rel="noopener noreferrer"
                     >
                       {button.label}
-                      <ArrowUpRight className="size-4" />
+                      <ArrowOutUpRightSquare className="size-4" />
                     </a>
                   </Button>
                 ))}

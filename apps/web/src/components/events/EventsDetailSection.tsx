@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import SocialShareButtons from "../sharedPageSections/SocialShareButtons";
 import FormattedDate from "../shared/FormattedDate";
 import { useTranslations } from "next-intl";
@@ -90,7 +90,7 @@ const EventsDetailSection = ({
             <span className="border-b border-white pb-1 transition-colors duration-200 group-hover:border-white/40">
               {t("events.detail.action")}
             </span>
-            <ArrowUpRight
+            <ArrowOutUpRightSquare
               aria-hidden
               className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
             />

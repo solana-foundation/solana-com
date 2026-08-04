@@ -1,6 +1,6 @@
 "use client";
 
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import YoutubeIcon from "./assets/youtube.inline.svg";
 import TwitterIcon from "./assets/twitter.inline.svg";
 import DiscordIcon from "./assets/discord.inline.svg";

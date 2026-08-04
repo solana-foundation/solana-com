@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import CopyIcon from "@@/public/src/img/icons/Copy.inline.svg";
-import CopyConfirmIcon from "@@/public/src/img/icons/CopyConfirm.inline.svg";
+import { Copy as CopyIcon } from "@boxicons/react/Copy";
+import { CopyCheck as CopyConfirmIcon } from "@boxicons/react/CopyCheck";
 import { SOLANA_DEV_SKILLS_REPO_URL } from "./skills";
 
 const COMMAND = `npx skills add ${SOLANA_DEV_SKILLS_REPO_URL}`;
@@ -29,7 +29,7 @@ export function SkillsInstallCommand({ copyLabel }: { copyLabel: string }) {
           aria-label={copyLabel}
           className="ml-1 shrink-0 text-white/30 hover:text-white/70 transition-colors cursor-pointer"
         >
-          <CopyIconToUse width={16} height={16} strokeWidth={1.5} />
+          <CopyIconToUse width={16} height={16} aria-hidden="true" />
         </button>
       </div>
       <p className="text-xs text-white/35 leading-relaxed">

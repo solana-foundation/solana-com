@@ -1,7 +1,7 @@
 import { forwardRef, useState } from "react";
 import { AccordionItem, AccordionContent, Accordion } from "@workspace/ui";
 import { AccordionTrigger } from "@radix-ui/react-accordion";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./PossibleInnovations.module.scss";
 import { useTranslations } from "next-intl";
 import PossibleAnimatedIcons from "./PossibleAnimatedIcons";

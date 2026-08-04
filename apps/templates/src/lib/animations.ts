@@ -2,7 +2,7 @@
  * Framer Motion animation variants for templates-site
  */
 
-import { Variants } from "framer-motion";
+import { Variants } from "motion/react";
 
 /**
  * Fade in animation with translateY

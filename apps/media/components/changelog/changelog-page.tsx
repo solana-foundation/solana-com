@@ -3,7 +3,9 @@
 import { type FormEvent, useCallback, useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowUpRight, Mail, Rss } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Envelope as Mail } from "@boxicons/react/Envelope";
+import { Rss } from "@boxicons/react/Rss";
 import {
   DescriptionContent,
   type DescriptionContentProps,

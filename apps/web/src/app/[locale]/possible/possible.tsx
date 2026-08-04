@@ -1,7 +1,7 @@
 "use client";
 
 import { useInView } from "react-intersection-observer";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "@/components/possible/PossibleLayout.module.scss";
 import PossibleHero from "@/components/possible/PossibleHero";
 import PossibleVisionaries from "@/components/possible/PossibleVisionaries";
