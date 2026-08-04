@@ -29,8 +29,8 @@ import { Decor } from "@/components/index/decor";
 import { UserCircle as Avatar } from "@boxicons/react/UserCircle";
 import { Bank } from "@boxicons/react/Bank";
 import { CodeAlt as CodeFilled } from "@boxicons/react/CodeAlt";
-import { BarChart } from "@boxicons/react/BarChart";
-import { Tachometer } from "@boxicons/react/Tachometer";
+import { Signal5 } from "@boxicons/react/Signal5";
+import { TachometerAlt } from "@boxicons/react/TachometerAlt";
 import { PostItem } from "@/types/media";
 import { fetchLatestPosts } from "@/lib/media/post";
 import { useEffect, useState, useMemo } from "react";
@@ -241,12 +241,12 @@ export function HomePage({
           {
             value: <TransactionsStat variant="total" />,
             label: translations.performanceCounterLabels[0],
-            Icon: BarChart,
+            Icon: Signal5,
           },
           {
             value: <TransactionsStat variant="per-sec" />,
             label: translations.performanceCounterLabels[1],
-            Icon: Tachometer,
+            Icon: TachometerAlt,
           },
         ]}
         stats={translations.performanceStats}
