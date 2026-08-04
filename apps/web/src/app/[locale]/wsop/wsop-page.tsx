@@ -1,6 +1,5 @@
 "use client";
 
-import type { ComponentType, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
@@ -12,32 +11,31 @@ import {
   useScroll,
   useTransform,
   type Variants,
-} from "framer-motion";
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowUpRight,
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  Club,
-  Clock3,
-  Diamond,
-  Heart,
-  Info,
-  LoaderCircle,
-  Play,
-  RotateCcw,
-  Spade,
-  WalletCards,
-  Zap,
-} from "lucide-react";
+} from "motion/react";
+import { ArrowDown } from "@boxicons/react/ArrowDown";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Check } from "@boxicons/react/Check";
+import { CheckCircle as CheckCircle2 } from "@boxicons/react/CheckCircle";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
+import { Club } from "@boxicons/react/Club";
+import { Clock3 } from "@boxicons/react/Clock3";
+import { Diamond } from "@boxicons/react/Diamond";
+import { Heart } from "@boxicons/react/Heart";
+import { InfoCircle as Info } from "@boxicons/react/InfoCircle";
+import { LoaderLines as LoaderCircle } from "@boxicons/react/LoaderLines";
+import { Play } from "@boxicons/react/Play";
+import { RotateCcw } from "@boxicons/react/RotateCcw";
+import { Spade } from "@boxicons/react/Spade";
+import { WalletCards } from "@boxicons/react/WalletCards";
+import { Bolt as Zap } from "@boxicons/react/Bolt";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/app/components/ui/button";
 import type { LinkItem } from "@/types/media";
 
-type Icon = ComponentType<SVGProps<SVGSVGElement>>;
+type Icon = typeof Spade;
 
 type WsopPageProps = {
   stories: LinkItem[];
@@ -300,6 +298,7 @@ function SuitIcon({
       className={`wsop-suit-icon ${className} ${
         isRedSuit(suit) ? "is-red" : ""
       }`}
+      pack="filled"
       aria-hidden="true"
     />
   );
@@ -382,7 +381,7 @@ function ArrowLink({
       transition={{ duration: 0.18, ease: EASE }}
     >
       <span>{children}</span>
-      <ArrowUpRight aria-hidden="true" />
+      <ArrowOutUpRightSquare aria-hidden="true" />
     </motion.a>
   );
 }
@@ -593,14 +592,14 @@ function StoryRail({ stories }: { stories: LinkItem[] }) {
             {story.linkType === "video" ? (
               <Play fill="currentColor" />
             ) : (
-              <ArrowUpRight />
+              <ArrowOutUpRightSquare />
             )}
           </span>
         </div>
         <div className="wsop-video-card__copy">
           <span>{story.source || story.linkType || t("fallbackLabel")}</span>
           <h3>{story.title}</h3>
-          <ArrowUpRight aria-hidden="true" />
+          <ArrowOutUpRightSquare aria-hidden="true" />
         </div>
       </motion.a>
     );
@@ -1394,9 +1393,8 @@ export function WsopPage({ stories }: WsopPageProps) {
                           {t("next.download.appStore")}
                         </strong>
                       </span>
-                      <ArrowUpRight
+                      <ArrowOutUpRightSquare
                         className="ml-auto !size-4 shrink-0 opacity-60"
-                        strokeWidth={1.75}
                         aria-hidden="true"
                       />
                     </motion.a>
@@ -1434,9 +1432,8 @@ export function WsopPage({ stories }: WsopPageProps) {
                           {t("next.download.googlePlay")}
                         </strong>
                       </span>
-                      <ArrowUpRight
+                      <ArrowOutUpRightSquare
                         className="ml-auto !size-4 shrink-0 opacity-60"
-                        strokeWidth={1.75}
                         aria-hidden="true"
                       />
                     </motion.a>

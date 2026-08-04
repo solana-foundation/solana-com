@@ -175,6 +175,10 @@ const nextConfig: NextConfig = {
     // Keep Vercel page-data workers within the build container's memory budget.
     cpus: isVercelBuild ? 2 : undefined,
     scrollRestoration: true,
+    // The docs watcher can keep thousands of files open in development. Use a
+    // worker thread for static-path generation so Node does not need to fork a
+    // child process with that descriptor table (which can fail with EBADF).
+    workerThreads: process.env.NODE_ENV === "development",
     // Allow importing/transpiling code from the workspace package
     externalDir: true,
     // The custom SVG rules disable Next's build worker by default. Keep the

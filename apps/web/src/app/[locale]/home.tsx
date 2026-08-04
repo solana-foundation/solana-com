@@ -26,9 +26,11 @@ import { YouTubePlaylistItem } from "@/lib/youtube/types";
 import { Community } from "@/components/index/community";
 import { WhatsUp } from "@/components/index/whats-up";
 import { Decor } from "@/components/index/decor";
-import Avatar from "@@/public/src/img/icons/Avatar.inline.svg";
-import Bank from "@@/public/src/img/icons/Bank.inline.svg";
-import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
+import { UserCircle as Avatar } from "@boxicons/react/UserCircle";
+import { Bank } from "@boxicons/react/Bank";
+import { CodeAlt as CodeFilled } from "@boxicons/react/CodeAlt";
+import { Signal5 } from "@boxicons/react/Signal5";
+import { TachometerAlt } from "@boxicons/react/TachometerAlt";
 import { PostItem } from "@/types/media";
 import { fetchLatestPosts } from "@/lib/media/post";
 import { useEffect, useState, useMemo } from "react";
@@ -239,12 +241,12 @@ export function HomePage({
           {
             value: <TransactionsStat variant="total" />,
             label: translations.performanceCounterLabels[0],
-            Icon: "/src/img/index/icons/steps.svg",
+            Icon: Signal5,
           },
           {
             value: <TransactionsStat variant="per-sec" />,
             label: translations.performanceCounterLabels[1],
-            Icon: "/src/img/index/icons/speed.svg",
+            Icon: TachometerAlt,
           },
         ]}
         stats={translations.performanceStats}

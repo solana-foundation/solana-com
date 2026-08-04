@@ -1,7 +1,9 @@
 "use client";
 
 import React from "react";
-import { Award, Star, Gift } from "react-feather";
+import { Medal as Award } from "@boxicons/react/Medal";
+import { Star } from "@boxicons/react/Star";
+import { Gift } from "@boxicons/react/Gift";
 
 interface HackathonPrizesProps {
   translations: {
@@ -26,21 +28,21 @@ export default function HackathonPrizes({
     {
       place: translations.firstPlace,
       amount: translations.firstPrize,
-      icon: <Star size={24} />,
+      icon: <Star width={24} height={24} />,
       textColor: "text-yellow-400",
       bgColor: "bg-yellow-400/10",
     },
     {
       place: translations.secondPlace,
       amount: translations.secondPrize,
-      icon: <Award size={24} />,
+      icon: <Award width={24} height={24} />,
       textColor: "text-gray-300",
       bgColor: "bg-gray-300/10",
     },
     {
       place: translations.thirdPlace,
       amount: translations.thirdPrize,
-      icon: <Gift size={24} />,
+      icon: <Gift width={24} height={24} />,
       textColor: "text-orange-400",
       bgColor: "bg-orange-400/10",
     },

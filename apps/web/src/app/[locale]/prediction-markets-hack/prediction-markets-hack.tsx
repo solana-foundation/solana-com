@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUpRight, ArrowDown, Check } from "react-feather";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowDown } from "@boxicons/react/ArrowDown";
+import { Check } from "@boxicons/react/Check";
 import { PredictionMarketsAnimations } from "./animations";
 
 interface PredictionMarketsHackPageProps {
@@ -1296,7 +1298,7 @@ export function PredictionMarketsHackPage({
                 className="relative z-10 inline-flex items-center gap-2 px-8 py-4 border border-gray-500/50 text-gray-300 font-semibold rounded-full hover:bg-gray-500/10 transition-all"
               >
                 {translations.heroResourcesButton}
-                <ArrowDown size={18} />
+                <ArrowDown width={18} height={18} />
               </a>
             </div>
           </div>
@@ -2373,7 +2375,11 @@ export function PredictionMarketsHackPage({
                     style={{ color: SOLANA_GREEN_HEX }}
                   >
                     {translations.resourcesLearnMore}
-                    <ArrowUpRight size={14} className="ml-1" />
+                    <ArrowOutUpRightSquare
+                      width={14}
+                      height={14}
+                      className="ml-1"
+                    />
                   </span>
                 </a>
               ))}
@@ -2586,7 +2592,11 @@ export function PredictionMarketsHackPage({
                           border: `1px solid ${SOLANA_GREEN_HEX}`,
                         }}
                       >
-                        <Check size={12} style={{ color: SOLANA_GREEN_HEX }} />
+                        <Check
+                          width={12}
+                          height={12}
+                          style={{ color: SOLANA_GREEN_HEX }}
+                        />
                       </div>
                     </div>
                     <span className="text-gray-300">{req}</span>

@@ -3,12 +3,7 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as VisuallyHiddenPrimitive from "@radix-ui/react-visually-hidden";
-import classNames, { ArgumentArray } from "classnames";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: ArgumentArray) {
-  return twMerge(classNames(inputs));
-}
+import { cn } from "./classnames";
 
 const Sheet = DialogPrimitive.Root;
 

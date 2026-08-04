@@ -1,7 +1,7 @@
 "use client";
 
 import { CopyButton } from "./copy-button";
-import { Maximize2 } from "lucide-react";
+import { Maximize as Maximize2 } from "@boxicons/react/Maximize";
 import { MermaidModal } from "./mermaid-modal";
 import { MermaidRenderer } from "./mermaid-renderer";
 import { RawCode } from "codehike/code";

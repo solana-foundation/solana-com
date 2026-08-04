@@ -1,5 +1,6 @@
-import classNames from "classnames";
-import { ArrowUpRight } from "react-feather";
+import { clsx as classNames } from "clsx";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import Button from "../../../shared/Button";
 import { useTranslations } from "next-intl";
 import styles from "./DevelopersDocumentItem.module.scss";
@@ -37,7 +38,7 @@ export default function DevelopersDocumentItem({
           aria-label={ctaLabel || t("developers.documents.view-all")}
         >
           <span>{ctaLabel || t("developers.documents.view-all")}</span>
-          <ArrowUpRight strokeWidth={1} />
+          {newTab ? <ArrowOutUpRightSquare /> : <ArrowUpRight />}
         </Button>
       </div>
       <p className={styles["document-item__description"]}>{description}</p>

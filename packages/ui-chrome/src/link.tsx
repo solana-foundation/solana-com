@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Link as I18nLink } from "@workspace/i18n/routing";
 import { useRouter, usePathname } from "@workspace/i18n/use-router";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import { shouldUseNextLink } from "./url-config";
 
 interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {

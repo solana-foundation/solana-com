@@ -3,7 +3,7 @@
 
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import type { MermaidConfig } from "mermaid";
-import { Loader2 } from "lucide-react";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
 
 function useIsVisible(ref: RefObject<HTMLElement | null>) {
   const [isIntersecting, setIsIntersecting] = useState(false);

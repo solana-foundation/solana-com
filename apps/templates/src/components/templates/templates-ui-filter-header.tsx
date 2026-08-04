@@ -1,7 +1,7 @@
 import { Button } from "@workspace/ui";
 import { useTemplateFilterState } from "../../lib/templates";
 import { useTemplatesTranslations } from "../../lib/use-translations";
-import { X } from "lucide-react";
+import { X } from "@boxicons/react/X";
 
 export function TemplatesUiFilterHeader() {
   const { clear, isFiltered } = useTemplateFilterState();
