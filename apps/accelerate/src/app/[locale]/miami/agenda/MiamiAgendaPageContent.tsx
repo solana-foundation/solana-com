@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { useTranslations } from "next-intl";
 import { Agenda } from "@/components/Agenda";
 import { LumaModal } from "@/components/LumaModal";

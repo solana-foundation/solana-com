@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import { useTranslations } from "next-intl";
 import StyledCaption from "../shared/StyledCaption";
 import styles from "./AiWhySection.module.scss";

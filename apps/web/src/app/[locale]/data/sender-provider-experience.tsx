@@ -1,16 +1,14 @@
 "use client";
 
-import {
-  ArrowDown,
-  ArrowUp,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  Plus,
-  Search,
-  X,
-} from "lucide-react";
+import { ArrowDown } from "@boxicons/react/ArrowDown";
+import { ArrowUp } from "@boxicons/react/ArrowUp";
+import { Check } from "@boxicons/react/Check";
+import { ChevronDown } from "@boxicons/react/ChevronDown";
+import { ChevronUp } from "@boxicons/react/ChevronUp";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
+import { Plus } from "@boxicons/react/Plus";
+import { Search } from "@boxicons/react/Search";
+import { X } from "@boxicons/react/X";
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 

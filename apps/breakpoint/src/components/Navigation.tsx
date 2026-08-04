@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Script from "next/script";
+import { LanguageSelector } from "@solana-com/ui-chrome";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link, usePathname } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
@@ -214,10 +215,15 @@ export default function Navigation({
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      const isLanguageMenu =
+        target instanceof Element && target.closest('[role="menu"]');
+
       if (
         navRef.current &&
-        event.target instanceof Node &&
-        !navRef.current.contains(event.target)
+        target instanceof Node &&
+        !navRef.current.contains(target) &&
+        !isLanguageMenu
       ) {
         setMenuOpen(false);
       }
@@ -434,6 +440,8 @@ export default function Navigation({
                 </div>
               );
             })}
+            <div className="relative h-0 w-full before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-neutral-700" />
+            <LanguageSelector className="type-button h-[26px] !text-white hover:!text-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white [&>span]:text-button [&>span]:font-bold" />
           </div>
         )}
       </nav>

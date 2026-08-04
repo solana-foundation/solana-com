@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Button } from "@@/src/app/components/ui/button";
-import { ArrowRightIcon, ChevronRight } from "lucide-react";
+import { ArrowRight as ArrowRightIcon } from "@boxicons/react/ArrowRight";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import styles from "./DePINHero.module.scss";
 import React from "react";
 import { useTranslations } from "next-intl";
@@ -41,7 +42,7 @@ const DePINHero = ({ onEmailClick }: { onEmailClick?: () => void }) => {
       >
         <div className={styles.badge}>
           <span className={styles.eyebrowText}>{t("depin.hero.badge")}</span>
-          <ChevronRight className={styles.badgeIcon} size={14} />
+          <ChevronRight className={styles.badgeIcon} width={14} height={14} />
         </div>
 
         <div className={styles.content}>

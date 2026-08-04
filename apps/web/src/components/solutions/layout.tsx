@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import { Footer, Header } from "@solana-com/ui-chrome";
 import styles from "./Layout.module.scss";
 

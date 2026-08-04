@@ -4,7 +4,7 @@ import Image from "next/image";
 import { reader } from "@/lib/reader";
 import { Section } from "@/components/layout/section";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
 import ErrorBoundary from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";

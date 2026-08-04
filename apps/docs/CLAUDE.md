@@ -137,7 +137,7 @@ Flowcharts and sequence diagrams rendered from markdown.
 - `codehike` - Advanced code blocks
 - `mermaid` - Diagram rendering
 - `ai`, `@ai-sdk/openai` - AI integration
-- `seti-icons` - File type icons
+- `@boxicons/react` - UI and file type icons
 - `svg-pan-zoom` - Zoomable diagrams
 - `zod` - Schema validation
 

@@ -2,7 +2,8 @@
 import { Template } from "../../lib/templates";
 import { useEffect, useState } from "react";
 import { Button } from "@workspace/ui";
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { Check as CheckIcon } from "@boxicons/react/Check";
+import { Copy as CopyIcon } from "@boxicons/react/Copy";
 import { highlightCode } from "../../lib/syntax-highlight";
 
 const pms = ["npm", "pnpm", "yarn", "bun"];
