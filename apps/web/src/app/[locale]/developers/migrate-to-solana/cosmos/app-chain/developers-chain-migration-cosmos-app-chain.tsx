@@ -11,7 +11,8 @@ import {
   RUNBOOK_HIGHLIGHTS,
   RUNBOOK_SECTIONS,
 } from "@/data/developers/evm-to-svm/cosmos-app-chain";
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import styles from "./developers-chain-migration-cosmos-app-chain.module.css";
