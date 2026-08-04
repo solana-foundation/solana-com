@@ -71,6 +71,7 @@ export const BLOCK_STYLES = {
       paddingLeft: "50px",
       paddingTop: "20px",
     },
+    small: { paddingRight: "0px", paddingLeft: "0px" },
   },
   [CONTENT_BLOCK_STYLE_KEYS.imageFull]: {
     large: {

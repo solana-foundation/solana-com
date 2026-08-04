@@ -24,6 +24,7 @@ export const BLOCK_STYLES = {
       paddingTop: "20px",
       marginBottom: "40px",
     },
+    small: { paddingRight: "0px", paddingLeft: "0px" },
   },
   [CONTENT_BLOCK_STYLE_KEYS.smallOnly]: {
     large: { display: "none" },

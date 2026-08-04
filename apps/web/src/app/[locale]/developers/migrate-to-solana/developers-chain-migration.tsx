@@ -122,10 +122,15 @@ export function DevelopersChainMigrationPage() {
       <SectionDivider />
 
       <style jsx global>{`
-        .chain-selector-override section,
-        .chain-selector-override section > div {
-          padding-left: 0 !important;
-          padding-right: 0 !important;
+        /* Only strip horizontal gutters once max-w-screen-xl centering
+           provides its own; below that the section's default responsive
+           padding keeps content off the screen edge. */
+        @media (min-width: 1280px) {
+          .chain-selector-override section,
+          .chain-selector-override section > div {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+          }
         }
         .chain-selector-override section {
           padding-top: 80px !important;
