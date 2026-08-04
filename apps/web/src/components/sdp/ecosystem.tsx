@@ -2,8 +2,8 @@
 
 import * as Accordion from "@radix-ui/react-accordion";
 import { ChevronDown } from "@boxicons/react/ChevronDown";
+import { CursorClick } from "@boxicons/react/CursorClick";
 import { Logos, Logo as LogoType } from "@/component-library/logos";
-import CursorBox from "@@/public/src/img/icons/CursorBox.inline.svg";
 import {
   Tooltip,
   TooltipContent,
@@ -141,7 +141,10 @@ export const Ecosystem = ({
                             </TooltipTrigger>
                             <TooltipPortal>
                               <TooltipContent className="!border-none mb-2 !rounded-[47px] !bg-[#1D1D20] !text-white !py-1 !pl-2 !pr-3 flex items-center gap-1.5">
-                                <CursorBox className="size-4" />
+                                <CursorClick
+                                  className="size-4"
+                                  aria-hidden="true"
+                                />
                                 <span className="nd-body-xs">
                                   {((logo.href as string) || "")?.replace(
                                     "https://",
