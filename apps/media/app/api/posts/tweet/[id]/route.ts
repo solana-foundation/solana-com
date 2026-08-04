@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchTweet, type Tweet } from "react-tweet/api";
 
-const CACHE_SECONDS = 60 * 60;
+const ONE_MONTH_SECONDS = 60 * 60 * 24 * 30;
 
 type TweetEntities = Tweet["entities"];
 type TweetWithEntities = {
@@ -47,7 +47,7 @@ export async function GET(
   const { id } = await params;
   const responseInit = {
     headers: {
-      "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS * 24}`,
+      "Cache-Control": `public, max-age=0, s-maxage=${ONE_MONTH_SECONDS}, stale-while-revalidate=${ONE_MONTH_SECONDS}`,
     },
   };
 

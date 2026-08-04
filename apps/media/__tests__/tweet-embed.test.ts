@@ -64,6 +64,9 @@ describe("tweet embeds", () => {
           quoted_tweet: { entities: Record<string, unknown[]> };
         };
       };
+      init: {
+        headers: Record<string, string>;
+      };
     };
 
     expect(fetchTweetMock).toHaveBeenCalledWith("2051767380880077062");
@@ -79,5 +82,8 @@ describe("tweet embeds", () => {
       user_mentions: [],
       symbols: [],
     });
+    expect(response.init.headers["Cache-Control"]).toBe(
+      "public, max-age=0, s-maxage=2592000, stale-while-revalidate=2592000",
+    );
   });
 });
