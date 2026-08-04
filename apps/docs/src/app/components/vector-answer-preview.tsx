@@ -76,21 +76,16 @@ const TS_CODE: CodeLine[] = [
   ],
   [
     kw("import"),
-    " { getCreateAccountInstruction } ",
+    " { tokenProgram } ",
     kw("from"),
     " ",
-    str('"@solana-program/system"'),
+    str('"@solana-program/token"'),
     ";",
   ],
   [kw("import"), " {"],
   ["  findAssociatedTokenPda,"],
   ["  getBurnInstruction,"],
   ["  getCloseAccountInstruction,"],
-  ["  getCreateAssociatedTokenInstructionAsync,"],
-  ["  getInitializeMint2Instruction,"],
-  ["  getMintSize,"],
-  ["  getMintToInstruction,"],
-  ["  getTransferInstruction,"],
   ["  TOKEN_2022_PROGRAM_ADDRESS,"],
   ["} ", kw("from"), " ", str('"@solana-program/token-2022"'), ";"],
   [],
@@ -138,37 +133,62 @@ const TS_CODE: CodeLine[] = [
     fn("airdropPayer"),
     "(",
     fn("lamports"),
-    "(2_000_000_000n))); ",
+    "(2_000_000_000n))) ",
     cm("// 2 devnet SOL"),
   ],
-  [],
-  [cm("// 01 · create + initialize the mint (9 decimals, Token-2022)")],
-  [kw("const"), " space = ", fn("BigInt"), "(", fn("getMintSize"), "());"],
   [
-    kw("const"),
-    " rent = ",
-    kw("await"),
-    " client.",
-    fn("getMinimumBalance"),
-    "(space);",
+    "  .",
+    kw("use"),
+    "(",
+    fn("tokenProgram"),
+    "()); ",
+    cm("// adds client.token.*"),
   ],
   [],
-  [kw("await"), " client.", fn("sendTransaction"), "(["],
-  ["  ", fn("getCreateAccountInstruction"), "({"],
-  ["    payer: sender,"],
-  ["    newAccount: mint,"],
-  ["    space,"],
-  ["    lamports: rent,"],
-  ["    programAddress: TOKEN_2022_PROGRAM_ADDRESS,"],
-  ["  }),"],
-  ["  ", fn("getInitializeMint2Instruction"), "({"],
-  ["    mint: mint.address,"],
-  ["    decimals: 9,"],
-  ["    mintAuthority: sender.address,"],
-  ["  }),"],
-  ["]);"],
+  [kw("const"), " asToken2022 = { tokenProgram: TOKEN_2022_PROGRAM_ADDRESS };"],
+  [
+    kw("const"),
+    " ONE = 10n ** 9n; ",
+    cm("// 1 token in base units (9 decimals)"),
+  ],
   [],
-  [cm("// 02 · associated token accounts — yours and the recipient's")],
+  [cm("// 01 · create + initialize the mint — one call, one transaction")],
+  [kw("await"), " client.token"],
+  ["  .", fn("createMint"), "("],
+  ["    { newMint: mint, decimals: 9, mintAuthority: sender.address },"],
+  ["    asToken2022,"],
+  ["  )"],
+  ["  .", fn("sendTransaction"), "();"],
+  [],
+  [cm("// 02 + 03 · mint 100 to your token account (created automatically)")],
+  [kw("await"), " client.token"],
+  ["  .", fn("mintToATA"), "("],
+  ["    {"],
+  ["      owner: sender.address,"],
+  ["      mint: mint.address,"],
+  ["      mintAuthority: sender,"],
+  ["      amount: 100n * ONE,"],
+  ["      decimals: 9,"],
+  ["    },"],
+  ["    asToken2022,"],
+  ["  )"],
+  ["  .", fn("sendTransaction"), "();"],
+  [],
+  [cm("// 04 · transfer 25 — the recipient's ATA is created on the fly")],
+  [kw("await"), " client.token"],
+  ["  .", fn("transferToATA"), "("],
+  ["    {"],
+  ["      mint: mint.address,"],
+  ["      authority: sender,"],
+  ["      recipient: recipient.address,"],
+  ["      amount: 25n * ONE,"],
+  ["      decimals: 9,"],
+  ["    },"],
+  ["    asToken2022,"],
+  ["  )"],
+  ["  .", fn("sendTransaction"), "();"],
+  [],
+  [cm("// 05 · burn the rest, 06 · close the emptied account")],
   [
     kw("const"),
     " [yourAta] = ",
@@ -181,68 +201,7 @@ const TS_CODE: CodeLine[] = [
   ["  mint: mint.address,"],
   ["  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,"],
   ["});"],
-  [
-    kw("const"),
-    " [theirAta] = ",
-    kw("await"),
-    " ",
-    fn("findAssociatedTokenPda"),
-    "({",
-  ],
-  ["  owner: recipient.address,"],
-  ["  mint: mint.address,"],
-  ["  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,"],
-  ["});"],
-  [],
-  [
-    kw("const"),
-    " ONE = 10n ** 9n; ",
-    cm("// 1 token in base units (9 decimals)"),
-  ],
-  [],
-  [cm("// 03 · create both accounts, then mint 100 tokens to yours")],
   [kw("await"), " client.", fn("sendTransaction"), "(["],
-  [
-    "  ",
-    kw("await"),
-    " ",
-    fn("getCreateAssociatedTokenInstructionAsync"),
-    "({",
-  ],
-  ["    payer: sender,"],
-  ["    owner: sender.address,"],
-  ["    mint: mint.address,"],
-  ["    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,"],
-  ["  }),"],
-  [
-    "  ",
-    kw("await"),
-    " ",
-    fn("getCreateAssociatedTokenInstructionAsync"),
-    "({",
-  ],
-  ["    payer: sender,"],
-  ["    owner: recipient.address,"],
-  ["    mint: mint.address,"],
-  ["    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,"],
-  ["  }),"],
-  ["  ", fn("getMintToInstruction"), "({"],
-  ["    mint: mint.address,"],
-  ["    token: yourAta,"],
-  ["    mintAuthority: sender,"],
-  ["    amount: 100n * ONE,"],
-  ["  }),"],
-  ["]);"],
-  [],
-  [cm("// 04 · transfer 25 to the recipient, 05 · burn the rest,")],
-  [cm("// 06 · close your emptied token account")],
-  [kw("await"), " client.", fn("sendTransaction"), "(["],
-  ["  ", fn("getTransferInstruction"), "({"],
-  ["    source: yourAta,"],
-  ["    destination: theirAta,"],
-  ["    authority: sender,"],
-  ["    amount: 25n * ONE,"],
-  ["  }),"],
   ["  ", fn("getBurnInstruction"), "({"],
   ["    account: yourAta,"],
   ["    mint: mint.address,"],
@@ -331,7 +290,7 @@ const STEPS: {
   {
     num: "01",
     title: "Create the mint",
-    desc: "A mint account is the token’s on-chain definition — its decimals, total supply counter, and the mint authority allowed to create new units. It holds no one’s balance; the address it returns is your token’s identity everywhere.",
+    desc: "A mint account is the token’s on-chain definition — its decimals, total supply counter, and the mint authority allowed to create new units. The --program-2022 flag puts the mint on Token-2022; every later command detects the program from the mint, so only this step needs it.",
     uses: [],
     cmd: <>spl-token create-token --program-2022</>,
     returns: (
@@ -559,6 +518,11 @@ export function VectorAnswerPreview() {
     setDone(0);
   };
 
+  const rewind = () => {
+    if (running || done === 0) return;
+    setDone((d) => d - 1);
+  };
+
   return (
     <section
       className={`${styles.preview} ${spaceGrotesk.className}`}
@@ -685,6 +649,14 @@ export function VectorAnswerPreview() {
                         </div>
 
                         <div className={styles.holderRow}>
+                          {done === 4 && (
+                            <span
+                              className={`${styles.transferFly} ${jetbrainsMono.className}`}
+                              aria-hidden="true"
+                            >
+                              sent 25
+                            </span>
+                          )}
                           {done >= 6 ? (
                             <div className={styles.acctClosed}>
                               <div className={styles.acctHead}>
@@ -897,9 +869,30 @@ export function VectorAnswerPreview() {
                         <div className={styles.tlBody}>
                           {isActive ? (
                             <div className={styles.step} ref={cardRef}>
-                              <span className={styles.stepTitle}>
-                                {s.title}
-                              </span>
+                              {done > 0 && (
+                                <span
+                                  key={`nudge-${done}`}
+                                  className={`${styles.mobileNudge} ${jetbrainsMono.className}`}
+                                  aria-hidden="true"
+                                >
+                                  ↑ on-chain state updated above
+                                </span>
+                              )}
+                              <div className={styles.stepTitleRow}>
+                                <span className={styles.stepTitle}>
+                                  {s.title}
+                                </span>
+                                {done > 0 && (
+                                  <button
+                                    type="button"
+                                    className={styles.backBtn}
+                                    onClick={rewind}
+                                    disabled={running}
+                                  >
+                                    ↶ Back
+                                  </button>
+                                )}
+                              </div>
                               <div className={styles.stepDesc}>{s.desc}</div>
                               {s.uses.length > 0 && (
                                 <div
@@ -1067,16 +1060,32 @@ export function VectorAnswerPreview() {
                       </div>
                       <div className={styles.tlBody}>
                         <div className={styles.replayRow}>
+                          <span
+                            key={`nudge-${done}`}
+                            className={`${styles.mobileNudge} ${jetbrainsMono.className}`}
+                            aria-hidden="true"
+                          >
+                            ↑ on-chain state updated above
+                          </span>
                           <span className={styles.replayMsg}>
                             Token lifecycle complete — the mint lives on
                           </span>
-                          <button
-                            type="button"
-                            className={styles.replayBtn}
-                            onClick={replay}
-                          >
-                            Replay ↺
-                          </button>
+                          <div className={styles.replayActions}>
+                            <button
+                              type="button"
+                              className={styles.backBtn}
+                              onClick={rewind}
+                            >
+                              ↶ Back
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.replayBtn}
+                              onClick={replay}
+                            >
+                              Replay ↺
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1213,11 +1222,11 @@ export function VectorAnswerPreview() {
                   <PrereqRow
                     num="1"
                     title="Install the Kit SDK + clients"
-                    copyText="npm i @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/system @solana-program/token-2022"
+                    copyText="npm i @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token @solana-program/token-2022"
                   >
                     npm <Tok tone="green">i</Tok> @solana/kit
                     @solana/kit-plugin-rpc @solana/kit-plugin-signer
-                    @solana-program/system @solana-program/token-2022
+                    @solana-program/token @solana-program/token-2022
                   </PrereqRow>
                   <PrereqRow
                     num="2"
