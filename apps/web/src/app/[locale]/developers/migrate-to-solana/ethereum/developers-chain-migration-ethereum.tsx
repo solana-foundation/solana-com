@@ -4,10 +4,10 @@ import dynamic from "next/dynamic";
 import { Container } from "@/component-library/container";
 import { useTranslations } from "next-intl";
 import { PRIMARY_CARD_DECK } from "@/data/developers/evm-to-svm";
-import Code from "@@/public/src/img/icons/Code.inline.svg";
-import FileText from "@@/public/src/img/icons/FileText.inline.svg";
-import Youtube from "@@/public/src/img/icons/youtube.inline.svg";
-import Tools from "@@/public/src/img/icons/Tools.inline.svg";
+import { Code } from "@boxicons/react/Code";
+import { FileDetail as FileText } from "@boxicons/react/FileDetail";
+import { Youtube } from "@boxicons/react/Youtube";
+import { Spanner as Tools } from "@boxicons/react/Spanner";
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
