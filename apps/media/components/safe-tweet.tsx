@@ -1,10 +1,16 @@
 "use client";
 
+import React from "react";
 import { Tweet, TweetSkeleton } from "react-tweet";
 
 type SafeTweetProps = {
   id: string;
 };
+
+// solana.com routes /api/posts/* requests to the separately deployed media app.
+function getTweetApiUrl(tweetId: string) {
+  return `/api/posts/tweet/${tweetId}`;
+}
 
 export function SafeTweet({ id }: SafeTweetProps) {
   const tweetId = id.trim();
@@ -17,7 +23,7 @@ export function SafeTweet({ id }: SafeTweetProps) {
     <div data-theme="dark">
       <Tweet
         id={tweetId}
-        apiUrl={`/api/tweet/${tweetId}`}
+        apiUrl={getTweetApiUrl(tweetId)}
         fallback={<TweetSkeleton />}
       />
     </div>
