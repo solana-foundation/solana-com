@@ -310,7 +310,7 @@ const STEPS: {
     title: "Create your token account",
     desc: "Wallets don’t hold tokens directly — every holder needs a token account tied to the mint. This creates yours (the associated token account), which starts out empty at balance 0.",
     usesLabel: "needs step 01’s result",
-    uses: [{ kind: "mint", label: "mint address" }],
+    uses: [{ kind: "mint", label: "mint" }],
     cmd: (
       <>
         spl-token create-account{" "}
@@ -339,8 +339,8 @@ const STEPS: {
     desc: "The mint authority creates 100 new units directly into your token account. The supply counter on the mint and the balance in your account both become 100.",
     usesLabel: "needs steps 01 + 02’s results",
     uses: [
-      { kind: "mint", label: "mint address" },
-      { kind: "account", label: "token account address" },
+      { kind: "mint", label: "mint" },
+      { kind: "account", label: "account" },
     ],
     cmd: (
       <>
@@ -367,7 +367,7 @@ const STEPS: {
     title: "Transfer to another holder",
     desc: "Transfers move units between token accounts of the same mint. This sends 25 to another holder’s token account — your balance drops, theirs grows, and the supply stays untouched.",
     usesLabel: "needs step 01’s result",
-    uses: [{ kind: "mint", label: "mint address" }],
+    uses: [{ kind: "mint", label: "mint" }],
     cmd: (
       <>
         spl-token transfer{" "}
@@ -394,7 +394,7 @@ const STEPS: {
     title: "Burn the rest of your balance",
     desc: "Burning destroys units out of a token account and shrinks the mint’s supply — the only way supply goes down. Emptying your account here is what lets step 06 close it.",
     usesLabel: "needs step 02’s result",
-    uses: [{ kind: "account", label: "token account address" }],
+    uses: [{ kind: "account", label: "account" }],
     cmd: (
       <>
         spl-token burn{" "}
@@ -414,7 +414,7 @@ const STEPS: {
     title: "Close your token account",
     desc: "A token account must be empty before it can close. Closing deletes the account and refunds its rent lamports to your wallet — the mint and every other holder’s account live on.",
     usesLabel: "needs step 02’s result",
-    uses: [{ kind: "account", label: "token account address" }],
+    uses: [{ kind: "account", label: "account" }],
     cmd: (
       <>
         spl-token close --address{" "}

@@ -83,7 +83,7 @@ export function DocsPage(props: {
         <style>{`
           .fumadocs.container-xl{max-width:min(1600px,100vw)!important}
           #nd-docs-layout{padding-inline-end:0!important}
-          @media(min-width:768px){#nd-docs-layout{--fd-sidebar-width:217px}}
+          @media(min-width:768px){#nd-docs-layout{--fd-sidebar-width:190px}#nd-sidebar :is(a,button){font-size:14px!important;line-height:1.5!important}}
         `}</style>
       ) : null}
       {props.hideHeader ? null : props.isRoot ? (
