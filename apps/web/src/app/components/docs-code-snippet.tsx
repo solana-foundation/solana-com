@@ -2,7 +2,9 @@
 
 import styles from "@/app/components/docs-code-snippet.module.css";
 import { cn } from "@/app/components/utils";
-import { Check, Code2, Copy } from "lucide-react";
+import { Check } from "@boxicons/react/Check";
+import { Code as Code2 } from "@boxicons/react/Code";
+import { Copy } from "@boxicons/react/Copy";
 import Prism from "prismjs";
 import "prismjs/components/prism-bash";
 import "prismjs/components/prism-json";

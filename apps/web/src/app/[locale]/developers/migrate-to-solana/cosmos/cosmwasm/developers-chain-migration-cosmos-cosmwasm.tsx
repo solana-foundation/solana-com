@@ -13,7 +13,8 @@ import {
   QUICK_REFERENCE_ROWS,
   RESOURCE_CARD_DECK,
 } from "@/data/developers/evm-to-svm/cosmos-cosmwasm";
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import styles from "./developers-chain-migration-cosmos-cosmwasm.module.css";
