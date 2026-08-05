@@ -21,30 +21,19 @@ import {
   type WalletFeature,
   type WalletPlatform,
 } from "./wallet-directory";
+import {
+  buildDirectorySearchParams,
+  DEFAULT_DIRECTORY_STATE,
+  parseDirectoryState,
+  type DirectoryScope,
+  type DirectoryState,
+} from "./wallet-directory-state";
 import styles from "./WalletDirectory.module.scss";
 import { WalletHeroScene } from "./WalletHeroScene";
 
-type DirectoryView = "grid" | "list";
-
-type DirectoryState = {
-  category: WalletCategory | "all";
-  platforms: WalletPlatform[];
-  features: WalletFeature[];
-  search: string;
-  view: DirectoryView;
-};
-
-type FilterGroupId = "platforms";
+type FilterGroupId = "platforms" | "scope";
 
 type QueryUpdateMode = "push" | "replace";
-
-const DEFAULT_STATE: DirectoryState = {
-  category: "all",
-  platforms: [],
-  features: [],
-  search: "",
-  view: "grid",
-};
 
 const FEATURED_WALLET_COUNT = 4;
 const FEATURED_WALLET_IDS = [
@@ -88,7 +77,7 @@ const FEATURE_GROUPS: Array<{
   },
   {
     id: "solana",
-    options: ["solana_native", "te", "blinks_and_actions", "solana_pay"],
+    options: ["te", "blinks_and_actions", "solana_pay"],
   },
   {
     id: "security",
@@ -148,61 +137,6 @@ const LEARN_RESOURCES: Array<{
     href: "/learn/what-is-staking",
   },
 ];
-
-function parseCsv<T extends string>(
-  value: string | null,
-  allowedValues: readonly T[],
-) {
-  if (!value) {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .filter((item): item is T => allowedValues.includes(item as T));
-}
-
-function parseDirectoryState(searchParams: URLSearchParams): DirectoryState {
-  const category = searchParams.get("category");
-  const view = searchParams.get("view");
-
-  return {
-    category:
-      category && CATEGORY_ORDER.includes(category as WalletCategory)
-        ? (category as WalletCategory)
-        : "all",
-    platforms: parseCsv(searchParams.get("platform"), WALLET_PLATFORMS),
-    features: parseCsv(searchParams.get("features"), WALLET_FEATURES),
-    search: searchParams.get("q") ?? "",
-    view: view === "list" ? "list" : "grid",
-  };
-}
-
-function buildSearchParams(state: DirectoryState) {
-  const params = new URLSearchParams();
-
-  if (state.category !== "all") {
-    params.set("category", state.category);
-  }
-
-  if (state.platforms.length) {
-    params.set("platform", state.platforms.join(","));
-  }
-
-  if (state.features.length) {
-    params.set("features", state.features.join(","));
-  }
-
-  if (state.search.trim()) {
-    params.set("q", state.search.trim());
-  }
-
-  if (state.view !== DEFAULT_STATE.view) {
-    params.set("view", state.view);
-  }
-
-  return params;
-}
 
 function toggleArrayValue<T extends string>(values: T[], value: T) {
   return values.includes(value)
@@ -274,6 +208,14 @@ function walletMatchesState(
   } = {},
 ) {
   const { ignoreGroup, ignoreFeatureGroup } = options;
+
+  if (
+    ignoreGroup !== "scope" &&
+    state.scope === "native" &&
+    !wallet.features.includes("solana_native")
+  ) {
+    return false;
+  }
 
   if (
     ignoreGroup !== "category" &&
@@ -526,7 +468,7 @@ export function WalletDirectory({
 }) {
   const t = useTranslations("wallets");
   const locale = useLocale();
-  const [state, setState] = useState<DirectoryState>(DEFAULT_STATE);
+  const [state, setState] = useState<DirectoryState>(DEFAULT_DIRECTORY_STATE);
   const featuredWallets = useMemo(
     () => getInitialFeaturedWallets(data.wallets),
     [data.wallets],
@@ -623,7 +565,7 @@ export function WalletDirectory({
   ) => {
     setState(nextState);
 
-    const params = buildSearchParams(nextState);
+    const params = buildDirectorySearchParams(nextState);
     const query = params.toString();
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
 
@@ -670,6 +612,19 @@ export function WalletDirectory({
       );
     }).length;
   };
+
+  const getScopeCount = (scope: DirectoryScope) => {
+    return data.wallets.filter(
+      (wallet) =>
+        walletMatchesState(wallet, state, taxonomyLabels, {
+          ignoreGroup: "scope",
+        }) &&
+        (scope === "all" || wallet.features.includes("solana_native")),
+    ).length;
+  };
+
+  const nativeWalletCount = getScopeCount("native");
+  const ecosystemWalletCount = getScopeCount("all");
 
   const getPlatformCount = (platform: WalletPlatform) => {
     return data.wallets.filter(
@@ -740,7 +695,8 @@ export function WalletDirectory({
 
   const clearFilters = () => {
     updateState((current) => ({
-      ...DEFAULT_STATE,
+      ...DEFAULT_DIRECTORY_STATE,
+      scope: current.scope,
       view: current.view,
     }));
   };
@@ -814,6 +770,72 @@ export function WalletDirectory({
           <div>
             <p className={styles.eyebrow}>{t("directory.eyebrow")}</p>
             <h2>{t("grid.title")}</h2>
+          </div>
+        </div>
+
+        <div className={styles.scopeSection}>
+          <div className={styles.scopeIntro}>
+            <h3 id="wallet-scope-heading">{t("directory.scope.title")}</h3>
+            <p id="wallet-scope-description">
+              {t("directory.scope.description")}
+            </p>
+          </div>
+          <div
+            className={styles.scopeToggle}
+            role="group"
+            aria-labelledby="wallet-scope-heading"
+            aria-describedby="wallet-scope-description"
+          >
+            <button
+              type="button"
+              className={styles.scopeOption}
+              aria-pressed={state.scope === "native"}
+              onClick={() =>
+                updateState((current) => ({ ...current, scope: "native" }))
+              }
+            >
+              <span className={styles.scopeOptionTop}>
+                <strong>{t("taxonomy.features.solana_native")}</strong>
+                <span className={styles.scopeOptionMeta}>
+                  <small
+                    aria-label={t("directory.filters.resultCountAria", {
+                      count: nativeWalletCount,
+                    })}
+                  >
+                    {nativeWalletCount}
+                  </small>
+                  <span className={styles.scopeCheck} aria-hidden="true">
+                    <Check width={14} height={14} />
+                  </span>
+                </span>
+              </span>
+              <span>{t("directory.scope.nativeDescription")}</span>
+            </button>
+            <button
+              type="button"
+              className={styles.scopeOption}
+              aria-pressed={state.scope === "all"}
+              onClick={() =>
+                updateState((current) => ({ ...current, scope: "all" }))
+              }
+            >
+              <span className={styles.scopeOptionTop}>
+                <strong>{t("filters.all-wallets")}</strong>
+                <span className={styles.scopeOptionMeta}>
+                  <small
+                    aria-label={t("directory.filters.resultCountAria", {
+                      count: ecosystemWalletCount,
+                    })}
+                  >
+                    {ecosystemWalletCount}
+                  </small>
+                  <span className={styles.scopeCheck} aria-hidden="true">
+                    <Check width={14} height={14} />
+                  </span>
+                </span>
+              </span>
+              <span>{t("directory.scope.allDescription")}</span>
+            </button>
           </div>
         </div>
 
