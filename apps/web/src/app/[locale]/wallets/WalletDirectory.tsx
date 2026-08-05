@@ -771,71 +771,50 @@ export function WalletDirectory({
             <p className={styles.eyebrow}>{t("directory.eyebrow")}</p>
             <h2>{t("grid.title")}</h2>
           </div>
-        </div>
-
-        <div className={styles.scopeSection}>
-          <div className={styles.scopeIntro}>
-            <h3 id="wallet-scope-heading">{t("directory.scope.title")}</h3>
-            <p id="wallet-scope-description">
+          <div className={styles.scopeControl}>
+            <div
+              className={styles.scopeSwitch}
+              role="group"
+              aria-label={t("directory.scope.label")}
+            >
+              <button
+                type="button"
+                className={styles.scopeChoice}
+                aria-pressed={state.scope === "native"}
+                onClick={() =>
+                  updateState((current) => ({ ...current, scope: "native" }))
+                }
+              >
+                {t("taxonomy.features.solana_native")}
+                <small
+                  aria-label={t("directory.filters.resultCountAria", {
+                    count: nativeWalletCount,
+                  })}
+                >
+                  {nativeWalletCount}
+                </small>
+              </button>
+              <button
+                type="button"
+                className={styles.scopeChoice}
+                aria-pressed={state.scope === "all"}
+                onClick={() =>
+                  updateState((current) => ({ ...current, scope: "all" }))
+                }
+              >
+                {t("directory.scope.allLabel")}
+                <small
+                  aria-label={t("directory.filters.resultCountAria", {
+                    count: ecosystemWalletCount,
+                  })}
+                >
+                  {ecosystemWalletCount}
+                </small>
+              </button>
+            </div>
+            <p className={styles.scopeCaption}>
               {t("directory.scope.description")}
             </p>
-          </div>
-          <div
-            className={styles.scopeToggle}
-            role="group"
-            aria-labelledby="wallet-scope-heading"
-            aria-describedby="wallet-scope-description"
-          >
-            <button
-              type="button"
-              className={styles.scopeOption}
-              aria-pressed={state.scope === "native"}
-              onClick={() =>
-                updateState((current) => ({ ...current, scope: "native" }))
-              }
-            >
-              <span className={styles.scopeOptionTop}>
-                <strong>{t("taxonomy.features.solana_native")}</strong>
-                <span className={styles.scopeOptionMeta}>
-                  <small
-                    aria-label={t("directory.filters.resultCountAria", {
-                      count: nativeWalletCount,
-                    })}
-                  >
-                    {nativeWalletCount}
-                  </small>
-                  <span className={styles.scopeCheck} aria-hidden="true">
-                    <Check width={14} height={14} />
-                  </span>
-                </span>
-              </span>
-              <span>{t("directory.scope.nativeDescription")}</span>
-            </button>
-            <button
-              type="button"
-              className={styles.scopeOption}
-              aria-pressed={state.scope === "all"}
-              onClick={() =>
-                updateState((current) => ({ ...current, scope: "all" }))
-              }
-            >
-              <span className={styles.scopeOptionTop}>
-                <strong>{t("filters.all-wallets")}</strong>
-                <span className={styles.scopeOptionMeta}>
-                  <small
-                    aria-label={t("directory.filters.resultCountAria", {
-                      count: ecosystemWalletCount,
-                    })}
-                  >
-                    {ecosystemWalletCount}
-                  </small>
-                  <span className={styles.scopeCheck} aria-hidden="true">
-                    <Check width={14} height={14} />
-                  </span>
-                </span>
-              </span>
-              <span>{t("directory.scope.allDescription")}</span>
-            </button>
           </div>
         </div>
 
