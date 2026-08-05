@@ -833,6 +833,8 @@ export function WalletDirectory({
               type="button"
               className={styles.audienceOption}
               aria-pressed={state.category === "all"}
+              aria-label={`${t("filters.all-wallets")}. ${t("directory.audience.allDescription")}. ${t("directory.filters.resultCountAria", { count: getCategoryCount("all") })}`}
+              title={t("directory.audience.allDescription")}
               onClick={() =>
                 updateState((current) => ({ ...current, category: "all" }))
               }
@@ -841,10 +843,15 @@ export function WalletDirectory({
                 <strong>{t("filters.all-wallets")}</strong>
                 <small>{getCategoryCount("all")}</small>
               </span>
-              <span>{t("directory.audience.allDescription")}</span>
             </button>
             {CATEGORY_ORDER.map((category) => {
               const count = getCategoryCount(category);
+              const label = t(
+                `directory.audience.categories.${category}.label`,
+              );
+              const description = t(
+                `directory.audience.categories.${category}.description`,
+              );
 
               return (
                 <button
@@ -852,24 +859,29 @@ export function WalletDirectory({
                   type="button"
                   className={styles.audienceOption}
                   aria-pressed={state.category === category}
+                  aria-label={`${label}. ${description}. ${t("directory.filters.resultCountAria", { count })}`}
+                  title={description}
                   disabled={count === 0 && state.category !== category}
                   onClick={() =>
                     updateState((current) => ({ ...current, category }))
                   }
                 >
                   <span className={styles.audienceOptionTop}>
-                    <strong>
-                      {t(`directory.audience.categories.${category}.label`)}
-                    </strong>
+                    <strong>{label}</strong>
                     <small>{count}</small>
-                  </span>
-                  <span>
-                    {t(`directory.audience.categories.${category}.description`)}
                   </span>
                 </button>
               );
             })}
           </div>
+          <p className={styles.audienceSelectionDescription} aria-live="polite">
+            <span aria-hidden="true" />
+            {state.category === "all"
+              ? t("directory.audience.allDescription")
+              : t(
+                  `directory.audience.categories.${state.category}.description`,
+                )}
+          </p>
         </div>
 
         <div className={styles.quickFilterBar}>
