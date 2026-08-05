@@ -772,7 +772,12 @@ export function WalletDirectory({
             <h2>{t("grid.title")}</h2>
           </div>
           <div className={styles.scopeControl}>
-            <p className={styles.scopeLabel}>{t("directory.scope.label")}</p>
+            <div className={styles.scopeCopy}>
+              <p className={styles.scopeLabel}>{t("directory.scope.label")}</p>
+              <p className={styles.scopeCaption}>
+                {t("directory.scope.description")}
+              </p>
+            </div>
             <div
               className={styles.scopeSwitch}
               role="group"
@@ -813,9 +818,6 @@ export function WalletDirectory({
                 </small>
               </button>
             </div>
-            <p className={styles.scopeCaption}>
-              {t("directory.scope.description")}
-            </p>
           </div>
         </div>
 
