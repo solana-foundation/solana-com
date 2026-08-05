@@ -3,6 +3,7 @@
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import {
+  APPLY_TO_SPEAK_HREF,
   CONTENT_CREATOR_APPLICATION_HREF,
   PRESS_APPLICATION_HREF,
   SPONSOR_FORM_HREF,
@@ -13,6 +14,12 @@ const PARTICIPATE_ACTIONS = [
     href: SPONSOR_FORM_HREF,
     key: "sponsor",
     variant: "primary",
+  },
+  {
+    href: APPLY_TO_SPEAK_HREF,
+    key: "speaker",
+    label: "Apply to Speak",
+    variant: "secondary",
   },
   {
     href: PRESS_APPLICATION_HREF,
@@ -26,7 +33,8 @@ const PARTICIPATE_ACTIONS = [
   },
 ] satisfies {
   href: string;
-  key: "creator" | "press" | "sponsor";
+  key: "creator" | "press" | "speaker" | "sponsor";
+  label?: string;
   variant: "primary" | "secondary";
 }[];
 
@@ -40,7 +48,7 @@ function ParticipateButton({ action }: { action: ParticipateAction }) {
       arrow
       className="w-full md:w-auto"
       href={action.href}
-      label={t(`participate.actions.${action.key}.label`)}
+      label={action.label ?? t(`participate.actions.${action.key}.label`)}
       variant={action.variant}
     />
   );

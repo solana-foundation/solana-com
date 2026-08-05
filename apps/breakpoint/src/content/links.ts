@@ -10,6 +10,8 @@ export const PRESS_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-press";
 export const CONTENT_CREATOR_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-creator";
+export const APPLY_TO_SPEAK_HREF =
+  "https://airtable.com/appCy7M2j24UF6QqT/pagRLZbQJSUsyz3Tn/form";
 export const CODE_OF_CONDUCT_HREF = "https://shorturl.at/lEMR1";
 export const SIDE_EVENTS_HREF = "https://luma.com/BP-SideEvents";
 // Public calendar: https://luma.com/BP-Highlight

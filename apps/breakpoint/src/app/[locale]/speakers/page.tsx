@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import ComingSoonPage from "@/components/pages/ComingSoonPage";
 import { getPageMetadata } from "@/app/metadata";
+import { APPLY_TO_SPEAK_HREF } from "@/content/links";
 
 const pageMetadata = {
   path: "/speakers",
@@ -23,6 +24,10 @@ export default function LocaleSpeakersPage() {
     <ComingSoonPage
       title="Speakers"
       description="Speaker announcements are coming soon. Check back for the builders, institutions, and policymakers joining Breakpoint 2026 in London."
+      cta={{
+        href: APPLY_TO_SPEAK_HREF,
+        label: "Apply to speak",
+      }}
     />
   );
 }
