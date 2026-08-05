@@ -767,11 +767,12 @@ export function WalletDirectory({
 
       <section id="wallet-directory" className={styles.directorySection}>
         <div className={styles.directoryHeader}>
-          <div>
+          <div className={styles.directoryTitle}>
             <p className={styles.eyebrow}>{t("directory.eyebrow")}</p>
             <h2>{t("grid.title")}</h2>
           </div>
           <div className={styles.scopeControl}>
+            <p className={styles.scopeLabel}>{t("directory.scope.label")}</p>
             <div
               className={styles.scopeSwitch}
               role="group"
@@ -785,7 +786,7 @@ export function WalletDirectory({
                   updateState((current) => ({ ...current, scope: "native" }))
                 }
               >
-                {t("taxonomy.features.solana_native")}
+                <span>{t("taxonomy.features.solana_native")}</span>
                 <small
                   aria-label={t("directory.filters.resultCountAria", {
                     count: nativeWalletCount,
@@ -802,7 +803,7 @@ export function WalletDirectory({
                   updateState((current) => ({ ...current, scope: "all" }))
                 }
               >
-                {t("directory.scope.allLabel")}
+                <span>{t("directory.scope.allLabel")}</span>
                 <small
                   aria-label={t("directory.filters.resultCountAria", {
                     count: ecosystemWalletCount,
