@@ -1,5 +1,4 @@
 import React from "react";
-import type { ComponentType } from "react";
 import Image from "next/image";
 import { cn } from "@/app/components/utils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
@@ -9,9 +8,8 @@ export type StatsGridItem = {
   label: string;
   Icon?:
     | string
-    | ComponentType<{
+    | React.ElementType<{
         className?: string;
-        size?: string | number;
         "aria-hidden"?: boolean;
       }>;
 };

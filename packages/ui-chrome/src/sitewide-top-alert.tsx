@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "@workspace/i18n/use-router";
-import { ArrowRight } from "react-feather";
+import { ArrowRight } from "@boxicons/react/ArrowRight";
 import {
   sitewideTopAlertConfig,
   type AlertColor,
@@ -53,7 +53,7 @@ function AnnouncementBar({ text, cta, color }: AnnouncementBarProps) {
           style={{ color: "inherit" }}
         >
           {cta.label}
-          <ArrowRight size={14} aria-hidden="true" />
+          <ArrowRight width={14} height={14} aria-hidden="true" />
         </a>
       )}
     </div>

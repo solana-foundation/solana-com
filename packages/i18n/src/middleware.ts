@@ -1,13 +1,17 @@
 import createNextIntlMiddleware from "next-intl/middleware";
-import { defineRouting } from "next-intl/routing";
-import { NextResponse, type NextRequest } from "next/server";
-import { locales, defaultLocale } from "./config";
-import { getLocaleFromPathname } from "./pathname";
+import type { NextRequest } from "next/server";
+import {
+  routing,
+  routingWithoutDetection,
+  SHARED_LOCALE_COOKIE,
+} from "./routing-config";
 
 export { getLocaleFromPathname } from "./pathname";
-
-export const SHARED_LOCALE_COOKIE = "SOLANA_LOCALE";
-const SHARED_LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+export {
+  routing,
+  routingWithoutDetection,
+  SHARED_LOCALE_COOKIE,
+} from "./routing-config";
 
 interface CreateMiddlewareOptions {
   /**
@@ -17,53 +21,6 @@ interface CreateMiddlewareOptions {
    * @default false
    */
   preserveProxiedLocaleCookie?: boolean;
-}
-
-/**
- * Routing configuration with locale detection enabled.
- * Use this for the main app that should detect browser language.
- */
-export const routing = defineRouting({
-  locales,
-  defaultLocale,
-  localePrefix: "as-needed",
-  localeDetection: true,
-});
-
-/**
- * Routing configuration with locale detection disabled.
- * Use this for sub-apps that are accessed via rewrites to prevent
- * redirect loops to the internal Vercel URL.
- */
-export const routingWithoutDetection = defineRouting({
-  locales,
-  defaultLocale,
-  localePrefix: "as-needed",
-  localeDetection: false,
-});
-
-export function getPreferredLocaleCookie(value?: string | null) {
-  return value && locales.includes(value) ? value : null;
-}
-
-export function getLocaleRedirectPath(pathname: string, locale: string) {
-  if (locale === defaultLocale) {
-    return pathname;
-  }
-
-  return pathname === "/" ? `/${locale}` : `/${locale}${pathname}`;
-}
-
-export function buildSharedLocaleCookie(locale: string) {
-  const expires = new Date(Date.now() + SHARED_LOCALE_COOKIE_MAX_AGE * 1000);
-
-  return [
-    `${SHARED_LOCALE_COOKIE}=${encodeURIComponent(locale)}`,
-    "Path=/",
-    `Max-Age=${SHARED_LOCALE_COOKIE_MAX_AGE}`,
-    `Expires=${expires.toUTCString()}`,
-    "SameSite=Lax",
-  ].join("; ");
 }
 
 export function getEffectiveOrigin(req: NextRequest) {
@@ -112,31 +69,16 @@ export function getFixedProxiedLocation({
   }
 }
 
-function getResponseLocale(req: NextRequest, response: Response) {
-  const localeFromRequestPath = getLocaleFromPathname(req.nextUrl.pathname);
-  if (localeFromRequestPath) {
-    return localeFromRequestPath;
-  }
-
-  const location = response.headers.get("location");
-  if (!location) {
-    return null;
-  }
-
-  const redirectPathname = new URL(location, getEffectiveOrigin(req)).pathname;
-  return getLocaleFromPathname(redirectPathname);
-}
-
 /**
  * Creates an i18n middleware that wraps next-intl's middleware with additional
  * functionality to handle multi-app deployments on the same domain.
  *
  * When multiple apps are served via rewrites on the same domain (e.g., main site,
- * docs, media), each app's middleware would normally set the NEXT_LOCALE cookie,
+ * docs, media), each app's middleware would normally set the locale cookie,
  * potentially overwriting each other. This wrapper prevents that by:
  *
  * 1. Detecting when a request comes through a proxy (via x-forwarded-host header)
- * 2. Stripping the NEXT_LOCALE Set-Cookie header from the response
+ * 2. Stripping the locale Set-Cookie header from the response
  * 3. Fixing redirect URLs to use the original host instead of the proxy target
  *
  * @param routingConfig - Use `routing` or `routingWithoutDetection` from this module
@@ -149,35 +91,7 @@ export function createMiddleware<
   const handleI18nRouting = createNextIntlMiddleware(routingConfig);
 
   return async function middleware(req: NextRequest) {
-    const pathname = req.nextUrl.pathname;
-    const localeFromPath = getLocaleFromPathname(pathname);
-    const preferredLocale = getPreferredLocaleCookie(
-      req.cookies.get(SHARED_LOCALE_COOKIE)?.value,
-    );
-
-    if (
-      !localeFromPath &&
-      preferredLocale &&
-      preferredLocale !== defaultLocale
-    ) {
-      const redirectUrl = getEffectiveOrigin(req);
-      redirectUrl.pathname = getLocaleRedirectPath(pathname, preferredLocale);
-      const redirectResponse = NextResponse.redirect(redirectUrl, 307);
-      redirectResponse.headers.append(
-        "set-cookie",
-        buildSharedLocaleCookie(preferredLocale),
-      );
-      return redirectResponse;
-    }
-
     const response = await handleI18nRouting(req);
-    const responseLocale = getResponseLocale(req, response);
-    if (responseLocale) {
-      response.headers.append(
-        "set-cookie",
-        buildSharedLocaleCookie(responseLocale),
-      );
-    }
 
     // Check if request came through a proxy (e.g., rewrite from another Vercel app)
     const forwardedHost = req.headers.get("x-forwarded-host");
@@ -191,7 +105,7 @@ export function createMiddleware<
 
     // When proxied, we need to:
     // 1. Fix redirect URLs to use the original host
-    // 2. Remove NEXT_LOCALE cookie to prevent overwriting the main app's cookie
+    // 2. Remove locale cookie to prevent overwriting the main app's cookie
     const location = response.headers.get("location");
     const setCookie = response.headers.get("set-cookie");
 
@@ -217,13 +131,18 @@ export function createMiddleware<
       fixedResponse.headers.set("location", fixedLocation);
     }
 
-    // Remove NEXT_LOCALE cookie from response to prevent overwriting the main app's cookie
+    // Remove the locale cookie from the response to prevent overwriting the
+    // main app's cookie. NEXT_LOCALE is also removed during migration from the
+    // previous next-intl default.
     if (setCookie) {
-      // Handle both single cookies and multiple cookies (separated by ", ")
-      // Note: Cookies can contain commas in values, but NEXT_LOCALE is a simple string
+      const localeCookieNames = [SHARED_LOCALE_COOKIE, "NEXT_LOCALE"];
       const cookies = setCookie
-        .split(/,(?=\s*NEXT_LOCALE=|[^;]*?=)/)
-        .filter((cookie) => !cookie.trim().startsWith("NEXT_LOCALE="));
+        .split(/,(?=\s*[^;,=]+=[^;,]*)/)
+        .filter((cookie) =>
+          localeCookieNames.every(
+            (name) => !cookie.trim().startsWith(`${name}=`),
+          ),
+        );
 
       if (cookies.length > 0) {
         fixedResponse.headers.set("set-cookie", cookies.join(", "));

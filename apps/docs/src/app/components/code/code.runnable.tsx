@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Play } from "lucide-react";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
+import { Play } from "@boxicons/react/Play";
 import React from "react";
 import { cn } from "../utils";
 import {

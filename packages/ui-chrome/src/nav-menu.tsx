@@ -1,12 +1,7 @@
 import * as React from "react";
 import * as NavigationMenuPrimitive from "@radix-ui/react-navigation-menu";
-import classNames, { ArgumentArray } from "classnames";
-import { twMerge } from "tailwind-merge";
+import { cn } from "./classnames";
 import AngleDown from "./assets/icons/angle-down.inline.svg";
-
-function cn(...inputs: ArgumentArray) {
-  return twMerge(classNames(inputs));
-}
 
 function NavigationMenu({
   className,

@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import Button from "../shared/Button";
 import Link from "next/link";
 import PossibleGlow from "./PossibleGlow";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./PossibleStartBuilding.module.scss";
 import portalImg from "../../../assets/possible/startBuilding-portal.png";
 import programmingImg from "../../../assets/possible/startBuilding-programming.png";

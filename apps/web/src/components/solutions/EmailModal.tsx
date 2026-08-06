@@ -7,7 +7,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@@/src/app/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
 
 type EmailModalProps = {
   isOpen: boolean;

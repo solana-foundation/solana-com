@@ -1,8 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Facebook, Linkedin, Send, Link2, Check } from "lucide-react";
-import { FaXTwitter } from "react-icons/fa6";
+import { Facebook } from "@boxicons/react/Facebook";
+import { Linkedin } from "@boxicons/react/Linkedin";
+import { Send } from "@boxicons/react/Send";
+import { Link as Link2 } from "@boxicons/react/Link";
+import { Check } from "@boxicons/react/Check";
+import { X as FaXTwitter } from "@boxicons/react/X";
+
 import { cn } from "@/lib/utils";
 
 export interface SocialItem {

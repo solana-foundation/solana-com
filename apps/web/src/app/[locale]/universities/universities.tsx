@@ -6,7 +6,7 @@ import UniversitiesSubjectsSection from "@/components/universities/UniversitiesS
 import UniversitiesInquiryForm from "@/components/universities/UniversitiesInquiryForm";
 import UniversityEventsGrid from "@/components/universities/UniversityEventsGrid";
 import universitiesHeroImg from "@@/assets/universities/universities-hero.webp";
-import { GitHub } from "react-feather";
+import { Github as GitHub } from "@boxicons/react/Github";
 import { UNIVERSITY_TYPEFORM_URL } from "@/constants/universities";
 
 interface UniversitiesPageProps {
@@ -84,7 +84,7 @@ export function UniversitiesPage({ translations }: UniversitiesPageProps) {
           secondary: {
             label: translations.viewCurriculum,
             href: "https://github.com/solana-foundation/curriculum",
-            icon: <GitHub size={20} />,
+            icon: <GitHub width={20} height={20} />,
           },
         }}
       />

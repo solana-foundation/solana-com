@@ -3,7 +3,11 @@
 import React, { useMemo } from "react";
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
-import { ArrowUpRight, Calendar, Clock, Play, Radio } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Calendar } from "@boxicons/react/Calendar";
+import { Clock } from "@boxicons/react/Clock";
+import { Play } from "@boxicons/react/Play";
+import { Radio } from "@boxicons/react/Radio";
 import { motion } from "motion/react";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";

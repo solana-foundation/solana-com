@@ -1,9 +1,9 @@
 import { useTranslations } from "next-intl";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Link from "../../utils/Link";
 import { FormattedNumber } from "../SolFormattedMessage";
 import styles from "./ECDRStats.module.scss";
-import ClipboardIcon from "../../../public/src/img/ecdr/clipboard.inline.svg";
+import { Clipboard as ClipboardIcon } from "@boxicons/react/Clipboard";
 
 type StatCardProps = {
   value: string | number;
@@ -49,7 +49,12 @@ const ECDRStats = () => {
         </div>
         <div className="w-full lg:w-1/3">
           <div className="flex">
-            <ClipboardIcon className="mr-2" width="24" height="26" />
+            <ClipboardIcon
+              className="mr-2"
+              width={24}
+              height={26}
+              aria-hidden="true"
+            />
             <p className={styles["ecdr-stats__heading--learn"]}>
               {t.rich("ecdr.stats.learn", {
                 learnLink: (chunks) => (

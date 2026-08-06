@@ -2,7 +2,7 @@ import React from "react";
 import styles from "./Filters.module.scss";
 import RampFilter from "./RampFilter";
 import { useTranslations } from "next-intl";
-import { XIcon } from "lucide-react";
+import { X as XIcon } from "@boxicons/react/X";
 
 interface FilterOption {
   value: string;
@@ -84,7 +84,7 @@ const Filters = ({
           aria-label={t("on-off-ramp.filters.close-button.aria-label")}
           onClick={toggleFiltersActive}
         >
-          <XIcon className="block" size={21} />
+          <XIcon className="block" width={21} height={21} />
         </button>
       </div>
       <div className="ramp-filters__list">

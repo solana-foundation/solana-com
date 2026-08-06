@@ -1,0 +1,84 @@
+---
+featured: false
+date: 2024-03-20T00:00:00Z
+difficulty: intermediate
+seoTitle: "SolanaにおけるStake-weighted Quality of Service"
+title: "SolanaにおけるStake-weighted Quality of Serviceガイド"
+description:
+  "Stake-weighted QoS (Quality-of-Service) is an implementation feature which,
+  when enabled, allows leaders (block producers) to identify and prioritize
+  transactions proxied through a staked validator as an additional sybil
+  resistance mechanism."
+tags:
+  - rust
+keywords:
+  - guide
+  - stake-weighted QoS
+  - Quality-of-Service
+  - intro to solana development
+  - blockchain developer
+  - blockchain tutorial
+  - web3 developer
+---
+
+## Stake-weighted Quality of Service（QoS）とは？
+
+Stake-weighted QoS（Quality of Service）は、有効化することでリーダー（ブロック生成者）がステークを持つvalidatorを経由してプロキシされたトランザクションを識別し、優先処理できるようにする実装機能であり、追加のシビル攻撃耐性メカニズムとして機能します。Solanaはプルーフ・オブ・ステークネットワークであるため、ステーク加重をトランザクションのQoSにまで拡張することは自然な流れです。このモデルでは、0.5%のステークを持つvalidatorは、リーダーへのパケット転送量の最大0.5%を送信する権利を持ち、ネットワーク上の他ノードからのシビル攻撃に対して耐性を発揮できます。
+
+この機能を有効化したオペレーターは、ステークが少ない（または皆無の）低品質なvalidatorが高品質（高ステーク）のvalidatorから発信されるトランザクションを「圧倒」する可能性を低減し、ネットワークのセキュリティとパフォーマンスを向上させます（シビル攻撃耐性の強化）。
+
+Stake-weighted QoSを実装することで得られる潜在的なメリットのひとつは、ValidatorとRPCノード間で特定の合意が成立している場合に実現されます。RPCノードはValidatorとピアリングすることに同意することでブロックへのトランザクション着地数を増やすことができ、ValidatorはRPCノードにより多くのキャパシティを提供できます。これらの合意はRPCオペレーターとValidator間で直接締結される必要があり、ピアリングを完了するために本ドキュメントで後述する手順の実装が含まれます。
+
+## Stake-weighted QoSの恩恵を受けるのは誰ですか？
+
+商業用RPCインフラオペレーターや取引所は、Stake-weighted QoSの主な受益者となるでしょう。RPCオペレーターはステーク済みvalidatorとの契約を獲得・交渉するうえで有利な立場となり、ブロックへのトランザクション着地率の全体的な向上を実現できます。自社インフラ上でvalidatorノードとRPCノードの両方をホストする取引所（またはその他の事業者）は、同一インフラ上で稼働するRPCノードを信頼できると確信したうえで、この機能を内部的に有効化できます。
+
+## Stake-weighted QoSはなぜ重要ですか？
+
+Stake-weighted QoSを有効化すると、1%のステークを持つvalidatorはリーダーへのパケット転送量の最大1%を送信する権利を持ちます。これにより、ステークが高いvalidatorほど高品質なサービスが保証され、ステークが少ない低品質なvalidatorが悪意を持ってトランザクションをフラッディングすることを防ぎ、全体的なシビル攻撃耐性が向上します。
+
+別の言い方をすれば、1人乗りの車がカープール車線を自由に走行できる世界を想像してみてください。同じ区間の道路でより多くの人を運ぶために設計されたカープール車線はすぐに機能しなくなるでしょう。高速道路全体の機能が損なわれ、目的地に到達できる通勤者が減ってしまいます。これは、ステークの低いvalidatorが高ステークのvalidatorと同じ優先度でリーダーにトランザクションを送信できる場合に起きることと似ています。
+
+## Stake-weighted QoSを有効化すべきなのは誰ですか？
+
+Stake-weighted QoSは、高い信頼性を持つRPCノードと組み合わせたValidatorノードで有効化すべきです。これは、信頼レベルがすでに高い同一インフラ上でRPCとValidatorを運用するような状況で有効です。Stake-weighted QoSは高信頼性の構成で最も効果を発揮し、機能を有効化する前にValidatorとRPCが事前に合意することが必要です。信頼できないRPCとのStake-weighted QoSの有効化はValidatorに対して強く推奨しません。
+
+ステークはブロック生成を行うvalidatorに適用すべきです。RPCサーバーにステークを委任することは不要であり、推奨もされず、効果もありません。
+
+## Stake-weighted QoSはどのように機能しますか？
+
+Stake-weighted QoSを有効化すると、validatorと組み合わせたRPCノードは、そのリーダーが当該RPCノードからのインバウンドTPU（トランザクション処理ユニット）トラフィックをどのように扱うかという点で「仮想」ステークを得ます。これは通常では不可能なことです。定義上、RPCノードは「未ステーク」かつ「非投票」（つまり「非コンセンサス」）であり、コンセンサスノードと同様の形でステーキングによる優先トランザクションのメリットにアクセスすることはできません。Stake-weighted QoSを使ってトランザクションを着地させるにはどうすればよいでしょうか？Stake-weighted QoSを有効化するには、validatorノードとRPCノードを設定して信頼されたピア関係を形成する必要があります。これには、以下に示すvalidatorノードとRPCノードそれぞれに対する個別の設定手順が必要です。Stake-weighted QoSを有効化したいオペレーターは、開始前に以下のものを準備してください：
+
+ネットワーク上で稼働しているステーク済みvalidator および そのvalidatorとピアリングしているRPC
+
+Stake-weighted QoSは、両方の側が正しく設定されていない限り機能しません。
+
+### Validatorノードの設定
+
+validatorでは、`--staked-nodes-overrides /path/to/overrides.yml`を有効化する必要があります。`--staked-nodes-overrides`フラグは、validatorが既知のソースから送信されるトランザクションを優先してステークを適用するのに役立ちます。これにより、validatorは特定のホストからのトランザクションを他より優先でき、RPCとのStake-weighted QoSの利用が可能になります。RPCはいかなる形でもステークされるべきではありません。
+
+現在、Stake-weighted QoSはリーダーのTPUキャパシティの80%にステーク加重の優先度を付与しています。ただし、未ステークのピアに仮想ステークを割り当てるなど、TPUピアに異なるステーク加重を仮想的に割り当てるために使用できる設定オプションがあります。
+
+`--staked-nodes-overrides`のオーバーライドファイルは以下のようになります：
+
+```yml
+staked_map_id:
+  pubkey1: 1000000000000000
+  pubkey2: 4000000000000000
+```
+
+`staked_map_id`には、各RPCに適用するIDの公開鍵（pubkey）からlamport単位のステーク量へのマップが含まれています。設定すると、validatorはそのIDの公開鍵（pubkey）で見つかったRPCとのQUIC接続を優先し、そのトランザクションにステーク量を割り当てます。リーダーのTPUキャパシティの80%は、`staked-nodes-overrides`ファイルで指定されたlamport量と既存のクラスターステークに基づいて比例配分されます。
+
+### RPCノードの設定
+
+RPCでは、`--rpc-send-transaction-tpu-peer`を使用して特定のリーダーにトランザクションを転送する必要があります。具体的な使用方法は`--rpc-send-transaction-tpu-peer HOST:PORT`となります。HostはSTaked-nodes-overridesが有効化されているリーダーのIPアドレスで、PortはそのホストのQUIC TPUポートです。リーダーのQUIC TPUポートは、[getClusterNodes](/docs/rpc/http/getclusternodes)へのRPC呼び出しによって確認できます。
+
+ピアリングは以下のようになります：
+
+![Stake-weighted QoSのためにValidatorとRPCがピアリングする図](/assets/guides/stake-weighted-qos-guide/peered-RPCs-guide.png)
+
+## まとめ
+
+Stake-weighted QoSは、現在Agaveとして知られるSolanaクライアントのv1.14で導入されたオプション機能です。Agaveは、旧Solana Labsエンジニアリングチームから構成されるスピンアウト組織であるAnzaチームが使用するアクティブブランチとなったSolana Labsクライアントのフォーク版です。
+
+Stake-weighted QoS機能は、ステークノードオペレーターとの信頼関係を構築できる立場にあるRPCインフラオペレーターにとって最も有用でしょう。また、RPCノードとvalidatorノードの両方を運用し、内部的に高信頼性の接続を確立できる取引所にとっても有用です。

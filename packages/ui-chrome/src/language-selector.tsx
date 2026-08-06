@@ -6,12 +6,7 @@ import ChevronGrabberVertical from "./assets/icons/chevron-grabber-vertical.inli
 import { languages } from "@workspace/i18n/config";
 import { Link, usePathname } from "@workspace/i18n/routing";
 import { useLocale } from "next-intl";
-import classNames from "classnames";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: classNames.ArgumentArray) {
-  return twMerge(classNames(inputs));
-}
+import { cn } from "./classnames";
 
 const LanguageSelector = ({ className = "" }: { className?: string }) => {
   const currentLocale = useLocale();

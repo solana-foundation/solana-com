@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import styles from "./RampFilter.module.scss";
 import { useTranslations } from "next-intl";
+import { ArrowDown } from "@boxicons/react/ArrowDown";
+import { Check } from "@boxicons/react/Check";
 
 interface FilterOption {
   value: string;
@@ -171,7 +173,9 @@ const RampFilter = ({
           className={`${styles["ramp-filter__toggle"]} ${
             active === 1 ? styles["ramp-filter__toggle--active"] : ""
           }`}
-        ></button>
+        >
+          <ArrowDown width={13} height={13} aria-hidden="true" />
+        </button>
       </div>
       <div
         className={`${styles["ramp-options"]} ${
@@ -213,6 +217,14 @@ const RampFilter = ({
                 checked={item.checked}
                 onChange={toggleFilterStatus}
               />
+              {inputType === "normal" && (
+                <Check
+                  className={styles["ramp-options__check"]}
+                  width={15}
+                  height={15}
+                  aria-hidden="true"
+                />
+              )}
               <label
                 className={
                   inputType === "normal"

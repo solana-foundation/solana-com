@@ -67,6 +67,14 @@ describe("RPC latency query options", () => {
     ).toBe("fluxrpc");
   });
 
+  it("accepts Chainstack as an RPC provider", () => {
+    expect(rpcLatencyProviders).toContain("chainstack");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("provider=chainstack"))
+        .provider,
+    ).toBe("chainstack");
+  });
+
   it("caps every time frame at 200 Prometheus range samples", () => {
     for (const option of rpcTimeframeOptions) {
       expect(
@@ -310,9 +318,9 @@ describe("RPC latency cache identity", () => {
     );
   });
 
-  it("scopes cached data to the FluxRPC provider allowlist", () => {
+  it("scopes cached data to the RPC provider allowlist", () => {
     expect(getRpcLatencyCacheKey(config, {})).toContain(
-      "|alchemy,fluxrpc,helius,quicknode,triton|",
+      "|alchemy,chainstack,fluxrpc,helius,quicknode,triton|",
     );
   });
 });

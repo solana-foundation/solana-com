@@ -9,6 +9,10 @@ import {
 } from "@/content/links";
 
 type ComingSoonPageProps = {
+  cta?: {
+    href: string;
+    label: string;
+  };
   description: string;
   title: string;
 };
@@ -29,6 +33,7 @@ const releaseLinks = [
 ] as const;
 
 export default function ComingSoonPage({
+  cta,
   description,
   title,
 }: ComingSoonPageProps) {
@@ -46,10 +51,12 @@ export default function ComingSoonPage({
         heroImage={false}
         eyebrow="Coming soon"
         title={title}
-        cta={{
-          href: GENERAL_ADMISSION_HREF,
-          label: "Get tickets",
-        }}
+        cta={
+          cta ?? {
+            href: GENERAL_ADMISSION_HREF,
+            label: "Get tickets",
+          }
+        }
       >
         <p className="type-p-large max-w-[720px] text-white md:text-center">
           {description}

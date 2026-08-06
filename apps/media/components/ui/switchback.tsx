@@ -1,5 +1,7 @@
 import React from "react";
-import { ArrowUpRight, Download, FileText } from "lucide-react";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowToBottom as Download } from "@boxicons/react/ArrowToBottom";
+import { FileDetail as FileText } from "@boxicons/react/FileDetail";
 import { Button } from "@/components/ui/button";
 import { SwitchbackReportCta } from "./switchback-report-cta";
 
@@ -142,7 +144,7 @@ const Switchback: React.FC<SwitchbackProps> = ({
                           rel="noopener noreferrer"
                         >
                           {button.label}
-                          <ArrowUpRight className="size-4" />
+                          <ArrowOutUpRightSquare className="size-4" />
                         </a>
                       </Button>
                     ))}
@@ -213,7 +215,7 @@ const Switchback: React.FC<SwitchbackProps> = ({
                         rel="noopener noreferrer"
                       >
                         {button.label}
-                        <ArrowUpRight className="ml-1 size-4" />
+                        <ArrowOutUpRightSquare className="ml-1 size-4" />
                       </a>
                     </Button>
                   ))}

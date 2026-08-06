@@ -31,6 +31,7 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
 }
 
 const prefix = "/docs-assets";
+const isVercelBuild = process.env.VERCEL === "1";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
@@ -42,6 +43,14 @@ const nextConfig: NextConfig = {
   },
 
   webpack(config) {
+    if (isVercelBuild) {
+      // The docs bundle contains thousands of MDX modules. Keep Vercel builds
+      // from retaining compiled modules in Webpack's cache and bound how many
+      // modules Webpack processes at once.
+      config.cache = false;
+      config.parallelism = 4;
+    }
+
     config.module.rules.push({
       test: /\.inline\.svg$/,
       use: {
@@ -163,7 +172,13 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
+    // Keep Vercel page-data workers within the build container's memory budget.
+    cpus: isVercelBuild ? 2 : undefined,
     scrollRestoration: true,
+    // The docs watcher can keep thousands of files open in development. Use a
+    // worker thread for static-path generation so Node does not need to fork a
+    // child process with that descriptor table (which can fail with EBADF).
+    workerThreads: process.env.NODE_ENV === "development",
     // Allow importing/transpiling code from the workspace package
     externalDir: true,
     // The custom SVG rules disable Next's build worker by default. Keep the
