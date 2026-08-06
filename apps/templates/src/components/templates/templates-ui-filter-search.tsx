@@ -34,6 +34,7 @@ export function TemplatesUiFilterSearch() {
         setLocalValue(e.target.value);
       }}
       placeholder={t("filter.search_placeholder")}
+      className="!bg-black/40 border-nd-border-prominent text-nd-high-em-text placeholder:text-nd-mid-em-text/60 focus-visible:border-nd-border-hovered focus-visible:ring-nd-highlight-lavendar/30 h-10 rounded-lg"
     />
   );
 }

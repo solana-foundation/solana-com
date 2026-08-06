@@ -16,12 +16,12 @@ export function AppHero({
       <div className="text-center z-10">
         <div className="max-w-2xl">
           {typeof title === "string" ? (
-            <h1 className="text-3xl md:text-4xl font-bold">{title}</h1>
+            <h1 className="nd-heading-l text-nd-high-em-text">{title}</h1>
           ) : (
             title
           )}
           {typeof subtitle === "string" ? (
-            <p className="pt-2 md:pt-3 md:max-w-2xl mx-auto text-sm md:text-base text-neutral-400">
+            <p className="pt-2 md:pt-3 md:max-w-2xl mx-auto nd-body-m text-nd-mid-em-text">
               {subtitle}
             </p>
           ) : (

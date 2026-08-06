@@ -9,14 +9,14 @@ export function TemplatesUiFilterHeader() {
 
   return (
     <div className="flex justify-between items-center gap-2">
-      <span className="text-sm font-bold py-1.5 whitespace-nowrap">
+      <span className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase tracking-wide text-nd-high-em-text py-1.5 whitespace-nowrap">
         {t("filter.title")}
       </span>
       {isFiltered ? (
         <Button
           variant="ghost"
           onClick={() => clear()}
-          className="cursor-pointer h-auto py-1 px-2 text-xs flex-shrink-0 gap-1"
+          className="cursor-pointer h-auto py-1 px-2 text-xs flex-shrink-0 gap-1 text-nd-mid-em-text hover:text-nd-high-em-text"
         >
           <X className="h-1 w-2" />
           {t("filter.clear")}

@@ -16,8 +16,10 @@ export function TemplatesUiImage({
   if (!imageSrc) {
     // Fallback placeholder
     return (
-      <div className="w-full aspect-[1200/630] bg-gradient-to-br from-purple-900/20 to-pink-900/20 flex items-center justify-center">
-        <span className="text-neutral-500">No preview available</span>
+      <div className="w-full aspect-[1200/630] bg-white/[0.02] flex items-center justify-center">
+        <span className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase tracking-wide text-nd-mid-em-text/60">
+          No preview available
+        </span>
       </div>
     );
   }
