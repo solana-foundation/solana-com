@@ -753,9 +753,7 @@ export function WalletDirectory({
               <WalletLogo wallet={wallet} size="small" />
               <span>
                 <strong>{wallet.name}</strong>
-                <small>
-                  {getWalletCategoryLabel(wallet, taxonomyLabels.categories)}
-                </small>
+                <small>{taxonomyLabels.categories[wallet.category]}</small>
               </span>
               <ExternalLink width={15} height={15} aria-hidden="true" />
             </a>
