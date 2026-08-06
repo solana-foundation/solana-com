@@ -29,7 +29,8 @@ apps/docs/
 │   │   └── [locale]/
 │   │       ├── developers/
 │   │       │   ├── cookbook/     # Code recipes
-│   │       │   └── guides/       # Step-by-step guides
+│   │       │   └── bootcamp/     # Developer learning tracks
+│   │       ├── learn/             # General learning content
 │   │       └── docs/
 │   │           ├── (main)/       # Core documentation
 │   │           └── rpc/          # RPC API reference
@@ -52,7 +53,8 @@ apps/docs/
 │   ├── docs/                     # Main docs (localized)
 │   │   ├── en/                   # English docs
 │   │   ├── ar/, de/, es/...      # Translated docs
-│   └── guides/                   # Developer guides
+│   ├── learn/                    # General learning content
+│   └── developers-learn/         # Bootcamp companion content
 ├── assets/                       # Static assets
 └── public/                       # Public files
 ```
@@ -101,7 +103,10 @@ Content is organized using Fumadocs conventions:
    - Transaction handling
    - Wallet integration
 
-3. **Guides** (`/developers/guides/*`) - Step-by-step tutorials
+3. **Learn** (`/learn/*`) - General Solana learning resources
+
+4. **Developer bootcamp** (`/developers/bootcamp/*`) - Structured learning
+   tracks and companion material
 
 ### Localization
 
@@ -143,15 +148,14 @@ Flowcharts and sequence diagrams rendered from markdown.
 
 ## API Routes
 
-Located in `src/app/api/`:
-
-- AI chat endpoints
-- Search functionality
+The `src/app/api/markdown/[...slug]` route serves Markdown representations of
+documentation pages. Inkeep feedback uses a server action under
+`src/app/components/inkeep/`.
 
 ## Build Configuration
 
 - Asset prefix: `/docs-assets` for Vercel multi-project deployment
-- Memory allocation: 8192MB for builds
+- Memory allocation: 4096MB for builds
 - Sentry integration for error tracking
 - Fumadocs MDX processing runs on postinstall
 

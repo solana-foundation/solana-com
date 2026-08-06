@@ -40,6 +40,13 @@ CURATED_SECTIONS = {
         ("Create Mint", "docs/tokens/basics/create-mint", "Create new token mints"),
         ("Token Extensions", "docs/tokens/extensions", "Token-2022 program features"),
     ],
+    "Tokenization": [
+        ("Asset Issuance & Tokenization", "docs/tokenization", "Issue and operate tokenized assets on Solana"),
+        ("Tokenization Quickstart", "docs/tokenization/quickstart", "Launch a compliance-ready Token-2022 mint"),
+        ("Token ACL", "docs/tokenization/token-acl", "Build permissioned tokens with allow and block lists"),
+        ("Delivery vs Payment", "docs/tokenization/dvp", "Settle tokenized assets and payments atomically"),
+        ("NAV Strikes", "docs/tokenization/nav-strikes", "Implement subscriptions and redemptions for tokenized funds"),
+    ],
     "Frontend": [
         ("@solana/client", "docs/frontend/client", "Headless client runtime for Solana frontends"),
         ("@solana/react-hooks", "docs/frontend/react-hooks", "React hooks and provider for Solana apps"),
@@ -61,12 +68,22 @@ CURATED_SECTIONS = {
         ("HTTP Methods", "docs/rpc/http", "JSON-RPC API reference"),
         ("WebSocket Methods", "docs/rpc/websocket", "Real-time subscriptions"),
     ],
+    "Finance": [
+        ("Finance on Solana", "docs/finance", "Build tokenized assets, payments, and onchain markets"),
+    ],
     "Payments": [
         ("Payments Overview", "docs/payments", "Build payment systems with instant settlement"),
         ("How Payments Work", "docs/payments/how-payments-work", "Core concepts for Solana payments"),
         ("Send Payments", "docs/payments/send-payments", "Send stablecoin payments with memos and batching"),
         ("Accept Payments", "docs/payments/accept-payments", "Integrate checkout and payment acceptance"),
         ("Production Readiness", "docs/payments/production-readiness", "Prepare payment systems for mainnet"),
+        ("Agentic Payments", "docs/payments/agentic-payments", "Enable autonomous payments for AI agents with x402"),
+    ],
+    "DeFi": [
+        ("Markets & Trading", "docs/defi", "Build trading systems and onchain financial applications"),
+        ("Exchange Integration", "docs/defi/exchange", "Add Solana deposits and withdrawals to an exchange"),
+        ("MEV Protection", "docs/defi/mev-protection", "Protect transactions from sandwich attacks with Jito DontFront"),
+        ("Stake-weighted QoS", "docs/defi/stake-weighted-qos", "Prioritize transactions through staked validators"),
     ],
     "Tools": [
         ("Tools", "docs/tools", "Developer tool documentation"),
@@ -77,6 +94,8 @@ CURATED_SECTIONS = {
         ("Solana Pay", "docs/tools/solana-pay", "Standard protocol for decentralized payments on Solana"),
         ("Attestations", "docs/tools/attestations", "Verifiable claims and credentials on Solana"),
         ("Private Channels", "docs/tools/private-channels", "Enterprise layer for internet capital markets"),
+        ("LiteSVM", "docs/tools/litesvm", "Test Solana programs with an in-process virtual machine"),
+        ("Surfpool", "docs/tools/surfpool", "Simulate Solana programs locally with mainnet accounts"),
     ],
 }
 
