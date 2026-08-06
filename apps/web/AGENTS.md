@@ -7,14 +7,14 @@ Use this app for the main `solana.com` experience.
 - Workspace: `apps/web`
 - Package: `solana-com`
 - Default dev port: `3000`
-- Public route ownership: `/`, `/solutions`, `/developers`, `/ecosystem`,
-  `/events`, `/news`, plus other top-level marketing routes
+- Public route ownership: `/`, `/solutions`, `/ecosystem`, `/events`, selected
+  `/developers/*` routes, and other top-level marketing routes
 
 ## First Files To Open
 
 1. `package.json`
 2. `next.config.ts`
-3. `rewrites-redirects.mjs`
+3. `rewrites-redirects.ts`
 4. `src/app/[locale]/`
 5. `content/` for guide-style content
 
@@ -23,7 +23,7 @@ Use this app for the main `solana.com` experience.
 - Largest app in the monorepo and the usual integration point for the others
 - Next.js App Router with `next-intl`
 - Shared navigation and cross-app linking come from `@solana-com/ui-chrome`
-- A lot of behavior depends on `rewrites-redirects.mjs`
+- A lot of behavior depends on `rewrites-redirects.ts`
 - Vitest is used here for unit tests
 
 ## Commands
