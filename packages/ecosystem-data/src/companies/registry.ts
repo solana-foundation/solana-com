@@ -9,6 +9,7 @@ import { anoma } from "./records/anoma";
 import { apollo } from "./records/apollo";
 import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
+import { asymmetricResearch } from "./records/asymmetric-research";
 import { atxp } from "./records/atxp";
 import { bhutan } from "./records/bhutan";
 import { blackrock } from "./records/blackrock";
@@ -120,6 +121,7 @@ export const companies = [
   apollo,
   banxa,
   arcium,
+  asymmetricResearch,
   atxp,
   bhutan,
   blackrock,
