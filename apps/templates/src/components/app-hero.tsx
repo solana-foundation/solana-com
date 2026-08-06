@@ -1,5 +1,4 @@
 import React from "react";
-import { BackgroundShapes } from "./background-shapes";
 
 export function AppHero({
   children,
@@ -12,7 +11,6 @@ export function AppHero({
 }) {
   return (
     <div className="relative flex flex-col items-center justify-center py-8 md:py-16">
-      <BackgroundShapes />
       <div className="text-center z-10">
         <div className="max-w-2xl">
           {typeof title === "string" ? (
