@@ -167,6 +167,11 @@ const goldSponsors = [
     width: 1777,
     height: 230,
   },
+  {
+    companyId: "asymmetric-research",
+    width: 608,
+    height: 118,
+  },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
