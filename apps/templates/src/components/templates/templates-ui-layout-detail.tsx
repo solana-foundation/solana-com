@@ -49,17 +49,21 @@ export function TemplatesUiLayoutDetail({
         <div>
           <div>
             <div className="max-w-5xl mx-auto mb-4">
-              <Button asChild variant="ghost" className="mb-4 px-2">
+              <Button
+                asChild
+                variant="ghost"
+                className="mb-4 px-2 text-nd-mid-em-text hover:text-nd-high-em-text hover:bg-nd-border-light"
+              >
                 <Link href="/developers/templates">← Back to templates</Link>
               </Button>
-              <h1 className="text-3xl font-bold mb-4">
+              <h1 className="nd-heading-l text-nd-high-em-text mb-6">
                 {template.displayName || template.name}
               </h1>
             </div>
-            <div className="relative overflow-hidden rounded-2xl mb-4 max-w-5xl mx-auto">
-              {/* Gradient border effect */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20" />
-              <div className="absolute inset-[1px] rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950" />
+            <div className="relative overflow-hidden rounded-2xl border border-nd-border-light bg-black mb-4 max-w-5xl mx-auto">
+              {/* Soft brand glow */}
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(202,159,245,0.06),transparent_60%)] pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none" />
 
               <div className="relative w-full max-h-96 flex items-center justify-center">
                 <TemplatesUiImage template={template} />
@@ -73,8 +77,13 @@ export function TemplatesUiLayoutDetail({
               </div>
               <div className="md:hidden ">
                 <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="item-1">
-                    <AccordionTrigger>Template details</AccordionTrigger>
+                  <AccordionItem
+                    value="item-1"
+                    className="border-nd-border-light"
+                  >
+                    <AccordionTrigger className="text-nd-high-em-text hover:no-underline font-medium">
+                      Template details
+                    </AccordionTrigger>
                     <AccordionContent>
                       <TemplatesUiSidebarDetail template={template} />
                     </AccordionContent>
@@ -82,10 +91,10 @@ export function TemplatesUiLayoutDetail({
                 </Accordion>
               </div>
             </div>
-            <div className="col-span-2 md:col-span-3 relative overflow-hidden rounded-2xl">
-              {/* Gradient border effect */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20" />
-              <div className="absolute inset-[1px] rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950" />
+            <div className="col-span-2 md:col-span-3 relative overflow-hidden rounded-2xl border border-nd-border-light bg-[#0D0C11]">
+              {/* Soft brand glow */}
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(202,159,245,0.04),transparent_60%)] pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
 
               <div className={`relative ${PROSE_README_CLASSNAME}`}>
                 <div dangerouslySetInnerHTML={{ __html: template.readme }} />
