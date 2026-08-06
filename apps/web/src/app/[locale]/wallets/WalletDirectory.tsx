@@ -740,10 +740,7 @@ export function WalletDirectory({
               className={styles.featuredWallet}
             >
               <WalletLogo wallet={wallet} size="small" />
-              <span>
-                <strong>{wallet.name}</strong>
-                <small>{taxonomyLabels.categories[wallet.category]}</small>
-              </span>
+              <strong>{wallet.name}</strong>
               <ExternalLink width={15} height={15} aria-hidden="true" />
             </a>
           ))}
