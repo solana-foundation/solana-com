@@ -1,0 +1,84 @@
+---
+title: Release Funds
+description:
+  Releases tokens from escrow to a user's wallet after verifying an SMT
+  exclusion proof
+---
+
+Called by a provisioned operator to release escrowed tokens to a user's Mainnet
+wallet, contingent on a valid Sparse Merkle Tree exclusion proof for the
+withdrawal nonce.
+
+## Accounts
+
+| Account                          | Writable | Signer | Description                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Fee payer                                                          |
+| `operator`                       |          | ✓      | Operator signer                                                    |
+| `instance`                       | ✓        |        | Escrow instance PDA (root updated on-chain)                        |
+| `operator_pda`                   |          |        | Operator PDA proving the signer is provisioned                     |
+| `mint`                           |          |        | SPL token mint                                                     |
+| `allowed_mint`                   |          |        | AllowedMint PDA - validates the mint is permitted on this instance |
+| `user_ata`                       | ✓        |        | Recipient's associated token account (destination)                 |
+| `instance_ata`                   | ✓        |        | Escrow's associated token account (source)                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | Event authority PDA for `EmitEvent` CPI                            |
+| `private_channel_escrow_program` |          |        | Escrow Program (self-reference for CPI)                            |
+
+## Parameters
+
+| Parameter             | Type        | Description                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Amount of tokens to release                                   |
+| `user`                | `Pubkey`    | Recipient wallet on Mainnet                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Updated SMT root after including this withdrawal's nonce      |
+| `transaction_nonce`   | `u64`       | Unique nonce identifying this withdrawal leaf in the SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 sibling hashes (32 bytes each) for the SMT exclusion proof |
+
+## Returns
+
+Returns a `TransactionBuilder` that can be used to build and send the
+transaction.
+
+## Example
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Important Notes
+
+- Caller must be a provisioned operator - `operator_pda` must exist (created by
+  `AddOperator`); invalid PDA throws `InvalidOperatorPda`
+- `sibling_proofs` is exactly 512 bytes (16 × 32-byte hashes, matching the SMT
+  tree height of 16)
+- `new_withdrawal_root` is the updated SMT root after including this
+  withdrawal's nonce - compute it off-chain before calling
+- `transaction_nonce` must be valid for `Instance.current_tree_index`; an
+  invalid nonce throws `InvalidTransactionNonceForCurrentTreeIndex`
+- The on-chain `verify_smt_exclusion_proof` check proves the nonce does NOT yet
+  exist in the tree; if it does, `InvalidSmtProof` is thrown
+- After verification, `Instance.withdrawal_transactions_root` is updated
+  atomically - the nonce cannot be reused
+- Emits an event via `EmitEvent` CPI
