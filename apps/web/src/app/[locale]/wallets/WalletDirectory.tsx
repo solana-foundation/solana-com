@@ -35,15 +35,11 @@ type FilterGroupId = "platforms" | "scope";
 
 type QueryUpdateMode = "push" | "replace";
 
-const FEATURED_WALLET_COUNT = 4;
-const FEATURED_WALLET_IDS = [
+const FEATURED_EVERYDAY_WALLET_IDS = [
   "solflare",
   "backpack",
   "phantom",
-  "squadsx",
   "fuse",
-  "unruggable",
-  "jupiter",
 ] as const;
 
 type FeatureGroupId =
@@ -145,11 +141,13 @@ function toggleArrayValue<T extends string>(values: T[], value: T) {
 }
 
 function getInitialFeaturedWallets(wallets: WalletDirectoryEntry[]) {
-  const featuredWalletIds = new Set<string>(FEATURED_WALLET_IDS);
+  return FEATURED_EVERYDAY_WALLET_IDS.flatMap((id) => {
+    const wallet = wallets.find(
+      (candidate) => candidate.id === id && candidate.category === "consumer",
+    );
 
-  return wallets
-    .filter((wallet) => featuredWalletIds.has(wallet.id))
-    .slice(0, FEATURED_WALLET_COUNT);
+    return wallet ? [wallet] : [];
+  });
 }
 
 function getWalletCategories(wallet: WalletDirectoryEntry) {
