@@ -161,6 +161,8 @@ import zyptoIcon from "../../assets/wallets/icons/zypto.webp";
 export type WalletRecord = {
   /** Brand display name; infrastructure SDK entries use an `SDK` suffix. */
   name: string;
+  /** Short, neutral product summary suitable for compact directory surfaces. */
+  tagline?: string;
   /** Slug of the owning company in `src/companies`, when one exists. */
   companyId?: string;
   /** Alternate, historical, or normalized product names that map to this record. */
@@ -238,6 +240,7 @@ const walletRecords = {
   },
   backpack: {
     name: "Backpack",
+    tagline: "Staking, NFTs, and multisig",
     aliases: ["backpack-exchange"],
     category: "consumer",
     platforms: ["ios", "android", "chrome"],
@@ -1149,6 +1152,7 @@ const walletRecords = {
   },
   fuse: {
     name: "Fuse",
+    tagline: "Smart recovery and spending controls",
     companyId: "squads",
     aliases: ["fuse-wallet"],
     category: "consumer",
@@ -1344,6 +1348,7 @@ const walletRecords = {
   },
   jupiter: {
     name: "Jupiter",
+    tagline: "Gasless swaps, sends, and payments",
     companyId: "jupiter",
     aliases: ["jupiter-mobile"],
     category: "consumer",
@@ -2012,6 +2017,7 @@ const walletRecords = {
   },
   phantom: {
     name: "Phantom",
+    tagline: "Multi-chain with social recovery",
     companyId: "phantom",
     category: "consumer",
     platforms: ["ios", "android", "chrome", "brave", "edge"],
@@ -2332,6 +2338,7 @@ const walletRecords = {
   },
   solflare: {
     name: "Solflare",
+    tagline: "Solana Pay, staking, and NFTs",
     companyId: "solflare",
     category: "consumer",
     platforms: ["ios", "android", "chrome", "firefox", "brave", "edge", "web"],

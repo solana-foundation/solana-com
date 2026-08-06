@@ -19,6 +19,7 @@ export {
 export type WalletDirectoryEntry = {
   id: string;
   name: string;
+  tagline?: string;
   slug: string;
   companyId?: string;
   category: WalletCategory;
