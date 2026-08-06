@@ -161,6 +161,8 @@ import zyptoIcon from "../../assets/wallets/icons/zypto.webp";
 export type WalletRecord = {
   /** Brand display name; infrastructure SDK entries use an `SDK` suffix. */
   name: string;
+  /** Short, neutral product summary suitable for compact directory surfaces. */
+  tagline?: string;
   /** Slug of the owning company in `src/companies`, when one exists. */
   companyId?: string;
   /** Alternate, historical, or normalized product names that map to this record. */
@@ -238,6 +240,7 @@ const walletRecords = {
   },
   backpack: {
     name: "Backpack",
+    tagline: "Staking, NFTs, and multisig",
     aliases: ["backpack-exchange"],
     category: "consumer",
     platforms: ["ios", "android", "chrome"],
@@ -1149,6 +1152,7 @@ const walletRecords = {
   },
   fuse: {
     name: "Fuse",
+    tagline: "Smart recovery and spending controls",
     companyId: "squads",
     aliases: ["fuse-wallet"],
     category: "consumer",
@@ -1344,6 +1348,7 @@ const walletRecords = {
   },
   jupiter: {
     name: "Jupiter",
+    tagline: "Gasless swaps, sends, and payments",
     companyId: "jupiter",
     aliases: ["jupiter-mobile"],
     category: "consumer",
@@ -2012,6 +2017,7 @@ const walletRecords = {
   },
   phantom: {
     name: "Phantom",
+    tagline: "Multi-chain with social recovery",
     companyId: "phantom",
     category: "consumer",
     platforms: ["ios", "android", "chrome", "brave", "edge"],
@@ -2332,18 +2338,10 @@ const walletRecords = {
   },
   solflare: {
     name: "Solflare",
+    tagline: "Solana Pay, staking, and NFTs",
     companyId: "solflare",
     category: "consumer",
-    platforms: [
-      "ios",
-      "android",
-      "chrome",
-      "firefox",
-      "brave",
-      "edge",
-      "web",
-      "hardware",
-    ],
+    platforms: ["ios", "android", "chrome", "firefox", "brave", "edge", "web"],
     features: [
       "non_custodial",
       "te",
@@ -2358,10 +2356,30 @@ const walletRecords = {
       "solana_native",
     ],
     description:
-      "Solana self-custody wallet with mobile, web, and browser-extension apps supporting Token Extensions, Actions and Blinks, Solana Pay, staking, and NFTs, plus the Solflare Shield hardware card and a gasless USDC Mastercard debit card",
+      "Solana self-custody wallet with mobile, web, and browser-extension apps supporting Token Extensions, Actions and Blinks, Solana Pay, staking, NFTs, hardware-wallet integrations, and a gasless USDC Mastercard debit card",
     website: "https://www.solflare.com/",
     icon: solflareIcon,
     lastVerified: "2026-07-16",
+  },
+  "solflare-shield": {
+    name: "Solflare Shield",
+    companyId: "solflare",
+    aliases: ["shield", "solflare-hardware-wallet"],
+    category: "hardware",
+    platforms: ["ios", "android", "hardware"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "hold_nfts",
+      "staking",
+      "hardware",
+      "solana_native",
+    ],
+    description:
+      "Non-custodial NFC card hardware wallet for Solana with an EAL6+ certified secure chip that keeps private keys offline and uses the Solflare mobile app for PIN-protected tap-to-sign transactions",
+    website: "https://www.solflare.com/hardware-wallet/",
+    icon: solflareIcon,
+    lastVerified: "2026-08-06",
   },
   speed: {
     name: "Speed",

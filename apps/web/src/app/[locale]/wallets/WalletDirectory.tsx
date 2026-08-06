@@ -15,6 +15,7 @@ import {
   WALLET_CATEGORIES,
   WALLET_FEATURES,
   WALLET_PLATFORMS,
+  getFeaturedEverydayWallets,
   type WalletCategory,
   type WalletDirectoryData,
   type WalletDirectoryEntry,
@@ -34,17 +35,6 @@ import { WalletHeroScene } from "./WalletHeroScene";
 type FilterGroupId = "platforms" | "scope";
 
 type QueryUpdateMode = "push" | "replace";
-
-const FEATURED_WALLET_COUNT = 4;
-const FEATURED_WALLET_IDS = [
-  "solflare",
-  "backpack",
-  "phantom",
-  "squadsx",
-  "fuse",
-  "unruggable",
-  "jupiter",
-] as const;
 
 type FeatureGroupId =
   | "ownership"
@@ -142,14 +132,6 @@ function toggleArrayValue<T extends string>(values: T[], value: T) {
   return values.includes(value)
     ? values.filter((item) => item !== value)
     : [...values, value];
-}
-
-function getInitialFeaturedWallets(wallets: WalletDirectoryEntry[]) {
-  const featuredWalletIds = new Set<string>(FEATURED_WALLET_IDS);
-
-  return wallets
-    .filter((wallet) => featuredWalletIds.has(wallet.id))
-    .slice(0, FEATURED_WALLET_COUNT);
 }
 
 function getWalletCategories(wallet: WalletDirectoryEntry) {
@@ -469,9 +451,8 @@ export function WalletDirectory({
   const t = useTranslations("wallets");
   const locale = useLocale();
   const [state, setState] = useState<DirectoryState>(DEFAULT_DIRECTORY_STATE);
-  const featuredWallets = useMemo(
-    () => getInitialFeaturedWallets(data.wallets),
-    [data.wallets],
+  const [featuredWallets, setFeaturedWallets] = useState(() =>
+    getFeaturedEverydayWallets(data.wallets),
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -500,6 +481,12 @@ export function WalletDirectory({
     }),
     [t],
   );
+
+  useEffect(() => {
+    setFeaturedWallets(
+      getFeaturedEverydayWallets(data.wallets, { randomize: true }),
+    );
+  }, [data.wallets]);
 
   useEffect(() => {
     setState(parseDirectoryState(new URLSearchParams(window.location.search)));
@@ -753,11 +740,9 @@ export function WalletDirectory({
               className={styles.featuredWallet}
             >
               <WalletLogo wallet={wallet} size="small" />
-              <span>
+              <span className={styles.featuredWalletCopy}>
                 <strong>{wallet.name}</strong>
-                <small>
-                  {getWalletCategoryLabel(wallet, taxonomyLabels.categories)}
-                </small>
+                {wallet.tagline ? <small>{wallet.tagline}</small> : null}
               </span>
               <ExternalLink width={15} height={15} aria-hidden="true" />
             </a>
