@@ -40,6 +40,43 @@ export type WalletDirectoryData = {
   lastReviewed?: string;
 };
 
+const FEATURED_EVERYDAY_WALLET_COUNT = 4;
+const FEATURED_EVERYDAY_WALLET_IDS = [
+  "solflare",
+  "backpack",
+  "phantom",
+  "fuse",
+  "jupiter",
+] as const;
+
+export function getFeaturedEverydayWallets(
+  wallets: readonly WalletDirectoryEntry[],
+  {
+    randomize = false,
+    random = Math.random,
+  }: { randomize?: boolean; random?: () => number } = {},
+) {
+  const candidates = FEATURED_EVERYDAY_WALLET_IDS.flatMap((id) => {
+    const wallet = wallets.find(
+      (candidate) => candidate.id === id && candidate.category === "consumer",
+    );
+
+    return wallet ? [wallet] : [];
+  });
+
+  if (randomize) {
+    for (let index = candidates.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(random() * (index + 1));
+      [candidates[index], candidates[swapIndex]] = [
+        candidates[swapIndex]!,
+        candidates[index]!,
+      ];
+    }
+  }
+
+  return candidates.slice(0, FEATURED_EVERYDAY_WALLET_COUNT);
+}
+
 const PAYMENT_CATEGORY_FEATURES = [
   "buy_crypto",
   "sell_crypto",

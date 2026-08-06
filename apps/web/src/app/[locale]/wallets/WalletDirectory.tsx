@@ -15,6 +15,7 @@ import {
   WALLET_CATEGORIES,
   WALLET_FEATURES,
   WALLET_PLATFORMS,
+  getFeaturedEverydayWallets,
   type WalletCategory,
   type WalletDirectoryData,
   type WalletDirectoryEntry,
@@ -34,13 +35,6 @@ import { WalletHeroScene } from "./WalletHeroScene";
 type FilterGroupId = "platforms" | "scope";
 
 type QueryUpdateMode = "push" | "replace";
-
-const FEATURED_EVERYDAY_WALLET_IDS = [
-  "solflare",
-  "backpack",
-  "phantom",
-  "fuse",
-] as const;
 
 type FeatureGroupId =
   | "ownership"
@@ -138,16 +132,6 @@ function toggleArrayValue<T extends string>(values: T[], value: T) {
   return values.includes(value)
     ? values.filter((item) => item !== value)
     : [...values, value];
-}
-
-function getInitialFeaturedWallets(wallets: WalletDirectoryEntry[]) {
-  return FEATURED_EVERYDAY_WALLET_IDS.flatMap((id) => {
-    const wallet = wallets.find(
-      (candidate) => candidate.id === id && candidate.category === "consumer",
-    );
-
-    return wallet ? [wallet] : [];
-  });
 }
 
 function getWalletCategories(wallet: WalletDirectoryEntry) {
@@ -467,9 +451,8 @@ export function WalletDirectory({
   const t = useTranslations("wallets");
   const locale = useLocale();
   const [state, setState] = useState<DirectoryState>(DEFAULT_DIRECTORY_STATE);
-  const featuredWallets = useMemo(
-    () => getInitialFeaturedWallets(data.wallets),
-    [data.wallets],
+  const [featuredWallets, setFeaturedWallets] = useState(() =>
+    getFeaturedEverydayWallets(data.wallets),
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -498,6 +481,12 @@ export function WalletDirectory({
     }),
     [t],
   );
+
+  useEffect(() => {
+    setFeaturedWallets(
+      getFeaturedEverydayWallets(data.wallets, { randomize: true }),
+    );
+  }, [data.wallets]);
 
   useEffect(() => {
     setState(parseDirectoryState(new URLSearchParams(window.location.search)));
