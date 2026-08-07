@@ -172,6 +172,11 @@ const goldSponsors = [
     width: 608,
     height: 118,
   },
+  {
+    companyId: "gmgn",
+    width: 127,
+    height: 32,
+  },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
