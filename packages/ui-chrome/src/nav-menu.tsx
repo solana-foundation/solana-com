@@ -71,13 +71,13 @@ function NavigationMenuTrigger({
         navigationMenuTriggerStyle,
         "group",
         "flex justify-between items-center w-full xl:w-auto py-1.5 xl:py-1 px-4 xl:px-3.5",
-        "text-[rgba(255,255,255,0.64)] text-[16px] xl:text-[15px] leading-[1.5] font-normal light:text-[rgba(0,0,0,0.64)] bg-transparent",
+        "text-[rgba(255,255,255,0.64)] text-[16px] xl:text-[15px] leading-[1.5] font-normal bg-transparent",
         "border-0 rounded-full",
-        "hover:text-white focus:text-white hover:bg-white/[0.08] focus:bg-white/[0.08] light:hover:text-black light:focus:text-black light:hover:bg-black/5 light:focus:bg-black/5",
+        "hover:text-white focus:text-white hover:bg-white/[0.08] focus:bg-white/[0.08]",
         "relative",
         "transition-colors duration-200",
-        "data-[state=open]:text-white data-[state=open]:bg-white/[0.08] light:data-[state=open]:text-black light:data-[state=open]:bg-black/5",
-        isActive && "text-white light:!text-black",
+        "data-[state=open]:text-white data-[state=open]:bg-white/[0.08]",
+        isActive && "text-white",
         className,
       )}
       {...props}
