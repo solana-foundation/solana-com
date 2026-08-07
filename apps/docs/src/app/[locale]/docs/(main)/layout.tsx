@@ -2,7 +2,7 @@ import { docsSource } from "@@/src/app/sources/docs";
 import type { ReactNode } from "react";
 import type { PageTree } from "fumadocs-core/server";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
-import { InkeepChatButton } from "@solana-com/ui-chrome";
+import { DocsAskSolanaButton } from "@@/src/app/components/docs-ask-solana-button";
 
 function folderContainsRoute(node: PageTree.Node, route: string): boolean {
   if (node.type === "page") return node.url?.includes(route) ?? false;
@@ -54,7 +54,7 @@ export default async function Layout({
   return (
     <DocsLayout tree={pageTree} locale={locale}>
       {children}
-      <InkeepChatButton />
+      <DocsAskSolanaButton />
     </DocsLayout>
   );
 }

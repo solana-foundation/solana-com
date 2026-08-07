@@ -13,6 +13,7 @@ import { Rate } from "./rate";
 import { onRateAction } from "./inkeep/inkeep-feedback";
 import Link from "next/link";
 import { LLMCopyButton, ViewOptions } from "./page-actions";
+import { DocsHero } from "./docs-hero";
 
 export function DocsPage(props: {
   children: ReactNode;
@@ -35,17 +36,25 @@ export function DocsPage(props: {
 }) {
   const path = props.filePath;
   const editUrl = getEditUrl(path, props.editPathPrefix);
+  // The docs landing page is only the Ask Solana hero + answer preview: the
+  // classic MDX body, table of contents, page navigation, and rating widget
+  // are suppressed.
+  const isAskLanding = Boolean(props.isRoot);
   return (
     <FumaDocsPage
       toc={props.toc}
       full={props.full}
+      // Widened hero + answer-preview column on the Ask Solana landing
+      // (default effective content is ~840px; 840 * 1.35 * 0.9 + 64px
+      // padding ≈ 1086px). Other pages keep the fumadocs default.
+      article={isAskLanding ? { className: "max-w-[1086px]" } : undefined}
       breadcrumb={{
         enabled: props.breadcrumbEnabled ?? !props.isRoot,
         includeRoot: { url: props.rootHref || "/docs" },
         includeSeparator: true,
       }}
       tableOfContentPopover={{
-        enabled: !props.hideTableOfContents,
+        enabled: !props.hideTableOfContents && !isAskLanding,
       }}
       tableOfContent={{
         footer: (
@@ -54,10 +63,10 @@ export function DocsPage(props: {
             <ScrollToTop />
           </>
         ),
-        enabled: !props.hideTableOfContents,
+        enabled: !props.hideTableOfContents && !isAskLanding,
       }}
       footer={
-        props.pageTree && !props.hidePageNavigation
+        props.pageTree && !props.hidePageNavigation && !isAskLanding
           ? {
               component: (
                 <Footer pageUrl={props.href} pageTree={props.pageTree} />
@@ -66,11 +75,19 @@ export function DocsPage(props: {
           : { enabled: false }
       }
     >
+      {isAskLanding ? (
+        // Page-scoped relaxations of the outer width chain so the wider
+        // article above actually has room: the site container and the
+        // fumadocs layout's trailing offset padding otherwise cap the
+        // column well below 1200px. Unmounts with the landing page.
+        <style>{`
+          .fumadocs.container-xl{max-width:min(1600px,100vw)!important}
+          #nd-docs-layout{padding-inline-end:0!important}
+          @media(min-width:768px){#nd-docs-layout{--fd-sidebar-width:190px}#nd-sidebar :is(a,button){font-size:14px!important;line-height:1.5!important}}
+        `}</style>
+      ) : null}
       {props.hideHeader ? null : props.isRoot ? (
-        <DocsLandingHeader
-          title={props.title}
-          description={props.description}
-        />
+        <DocsHero />
       ) : (
         <DocsHeader
           href={props.href}
@@ -79,30 +96,15 @@ export function DocsPage(props: {
           showPageActions={props.showPageActions}
         />
       )}
-      <DocsBody className="text-lg container-docs">{props.children}</DocsBody>
-      <Rate onRateAction={onRateAction} />
+      {isAskLanding ? null : (
+        <>
+          <DocsBody className="text-lg container-docs">
+            {props.children}
+          </DocsBody>
+          <Rate onRateAction={onRateAction} />
+        </>
+      )}
     </FumaDocsPage>
-  );
-}
-
-function DocsLandingHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description?: string;
-}) {
-  return (
-    <div className="mb-10 pt-2">
-      <h1 className="text-4xl font-bold tracking-tight text-[hsl(var(--fd-accent-foreground))] md:text-5xl">
-        {title}
-      </h1>
-      {description ? (
-        <p className="mt-3 max-w-3xl text-base text-[hsl(var(--fd-muted-foreground))] md:text-lg">
-          {description}
-        </p>
-      ) : null}
-    </div>
   );
 }
 
