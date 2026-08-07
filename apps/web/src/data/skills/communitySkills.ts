@@ -163,6 +163,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     url: "https://github.com/pnp-protocol/solana-skill/tree/54d164c1f1182a0674c9e57b24a82cf18e60e500",
     category: DEFI,
   },
+  {
+    slug: "wealthville-skill",
+    title: "WealthVille Skill",
+    description:
+      "Read-only skill for scoring Solana and EVM liquidity pools with Enter/Hold/Exit verdicts and a public miss-inclusive track record.",
+    url: "https://github.com/amitesh-m/wealthville-integrations/tree/89bc186f2bcd9f2fd2ddf20afd75f358cc1eff38/skills/wealthville",
+    category: DEFI,
+  },
 
   // ── AI Coding Skills – Infrastructure ───────────────────────────────
   {
