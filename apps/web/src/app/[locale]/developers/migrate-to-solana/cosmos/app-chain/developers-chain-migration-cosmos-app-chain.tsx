@@ -150,19 +150,6 @@ function LeftSidebar() {
           </li>
         </ul>
       </div>
-
-      <div className={styles.sidebarCategory}>
-        <span className={styles.sidebarCategoryLabel}>On this page</span>
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {RUNBOOK_SECTIONS.map((section) => (
-            <li key={section.id}>
-              <a href={`#${section.id}`} className={styles.sidebarLink}>
-                {section.navLabel}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
     </nav>
   );
 }
