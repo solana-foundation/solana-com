@@ -2,17 +2,17 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import { locales } from "@workspace/i18n/config";
 import { createNextIntlPlugin } from "@workspace/i18n/plugin";
+import { APP_TOPOLOGY, getNextPublicAppEnv } from "@workspace/app-topology";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
-const assetPrefix = "/breakpoint-assets";
+const assetPrefix = APP_TOPOLOGY.breakpoint.assetPrefix;
+const routePrefix = APP_TOPOLOGY.breakpoint.routes[0].path;
 const localeRoutePattern = `:locale(${locales.join("|")})`;
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   assetPrefix,
-  env: {
-    NEXT_PUBLIC_APP_NAME: "breakpoint",
-  },
+  env: getNextPublicAppEnv("breakpoint"),
   images: {
     remotePatterns: [
       {
@@ -87,35 +87,35 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         {
-          source: "/breakpoint-assets/_next/:path+",
+          source: `${assetPrefix}/_next/:path+`,
           destination: "/_next/:path+",
         },
         {
-          source: "/breakpoint-assets/assets/:path+",
+          source: `${assetPrefix}/assets/:path+`,
           destination: "/assets/:path+",
         },
         {
-          source: "/breakpoint-assets/img/:path+",
+          source: `${assetPrefix}/img/:path+`,
           destination: "/img/:path+",
         },
         {
-          source: "/breakpoint-assets/live/:path+",
+          source: `${assetPrefix}/live/:path+`,
           destination: "/live/:path+",
         },
         {
-          source: "/breakpoint",
+          source: routePrefix,
           destination: "/",
         },
         {
-          source: "/breakpoint/:path*",
+          source: `${routePrefix}/:path*`,
           destination: "/:path*",
         },
         {
-          source: "/:locale/breakpoint",
+          source: `/:locale${routePrefix}`,
           destination: "/:locale",
         },
         {
-          source: "/:locale/breakpoint/:path*",
+          source: `/:locale${routePrefix}/:path*`,
           destination: "/:locale/:path*",
         },
       ],

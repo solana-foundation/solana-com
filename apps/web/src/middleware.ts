@@ -2,32 +2,14 @@ import { createMiddleware, routing } from "@workspace/i18n/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
 import { getPathnameWithoutLocale } from "@workspace/i18n/pathname";
+import { isWebMiddlewareBypassRoute } from "@workspace/app-topology";
 
 // The main web app uses routing with locale detection enabled
 // and doesn't need preserveProxiedLocaleCookie since it's the source of truth
 const handleI18nRouting = createMiddleware(routing);
 
 export function isProxiedPath(normalizedPathname: string) {
-  return (
-    normalizedPathname.startsWith("/accelerate") ||
-    normalizedPathname.startsWith("/breakpoint") ||
-    normalizedPathname === "/developers" ||
-    normalizedPathname.startsWith("/developers/templates") ||
-    normalizedPathname.startsWith("/developers/cookbook") ||
-    normalizedPathname.startsWith("/developers/bootcamp") ||
-    normalizedPathname.startsWith("/docs") ||
-    normalizedPathname.startsWith("/learn") ||
-    (normalizedPathname.startsWith("/news") &&
-      !normalizedPathname.startsWith("/newsletter")) ||
-    normalizedPathname.startsWith("/changelog") ||
-    normalizedPathname.startsWith("/reports") ||
-    normalizedPathname.startsWith("/podcasts") ||
-    normalizedPathname === "/upgrade" ||
-    normalizedPathname.startsWith("/upgrades") ||
-    normalizedPathname.startsWith("/media-assets") ||
-    normalizedPathname.startsWith("/templates-assets") ||
-    normalizedPathname.startsWith("/opengraph")
-  );
+  return isWebMiddlewareBypassRoute(normalizedPathname);
 }
 
 export default async function middleware(req: NextRequest) {

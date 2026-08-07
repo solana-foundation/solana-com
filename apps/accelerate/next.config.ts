@@ -2,17 +2,17 @@ import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
 import { withSentryConfig } from "@sentry/nextjs";
+import { APP_TOPOLOGY, getNextPublicAppEnv } from "@workspace/app-topology";
 
-const prefix = "/accelerate-assets";
+const prefix = APP_TOPOLOGY.accelerate.assetPrefix;
+const routePrefix = APP_TOPOLOGY.accelerate.routes[0].path;
 const nextConfig: NextConfig = {
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   reactStrictMode: true,
   trailingSlash: false,
   assetPrefix: prefix,
 
-  env: {
-    NEXT_PUBLIC_APP_NAME: "accelerate",
-  },
+  env: getNextPublicAppEnv("accelerate"),
 
   webpack(config) {
     config.module.rules.push({
@@ -56,7 +56,7 @@ const nextConfig: NextConfig = {
         pathname: "/images/**",
       },
       {
-        pathname: "/accelerate-assets/images/**",
+        pathname: `${prefix}/images/**`,
       },
     ],
     remotePatterns: [
@@ -88,33 +88,33 @@ const nextConfig: NextConfig = {
       beforeFiles: [
         // Rewrite /accelerate-assets/_next/* to /_next/* for asset prefix compatibility
         {
-          source: "/accelerate-assets/_next/:path+",
+          source: `${prefix}/_next/:path+`,
           destination: "/_next/:path+",
         },
         // Internal rewrite for Next.js image optimizer to resolve source images
         {
-          source: "/accelerate-assets/images/:path+",
+          source: `${prefix}/images/:path+`,
           destination: "/images/:path+",
         },
         {
-          source: "/accelerate-assets/video/:path+",
+          source: `${prefix}/video/:path+`,
           destination: "/video/:path+",
         },
         // Rewrite /accelerate routes for proxy compatibility
         {
-          source: "/accelerate",
+          source: routePrefix,
           destination: "/",
         },
         {
-          source: "/accelerate/:path*",
+          source: `${routePrefix}/:path*`,
           destination: "/:path*",
         },
         {
-          source: "/:locale/accelerate",
+          source: `/:locale${routePrefix}`,
           destination: "/:locale",
         },
         {
-          source: "/:locale/accelerate/:path*",
+          source: `/:locale${routePrefix}/:path*`,
           destination: "/:locale/:path*",
         },
       ],

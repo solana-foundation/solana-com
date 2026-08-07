@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MEDIA_APP_URL } from "../../../../../apps-urls";
+import { APP_TOPOLOGY } from "@workspace/app-topology";
 
 const CACHE_SECONDS = 300;
+const MEDIA_ASSET_PREFIX = APP_TOPOLOGY.media.assetPrefix;
 
 const normalizePath = (input: string) => {
-  if (input.startsWith("/media-assets/uploads/")) {
-    return input.replace(/^\/media-assets/, "");
+  if (input.startsWith(`${MEDIA_ASSET_PREFIX}/uploads/`)) {
+    return input.slice(MEDIA_ASSET_PREFIX.length);
   }
 
   return input;

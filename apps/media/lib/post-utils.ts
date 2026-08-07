@@ -1,5 +1,6 @@
 import { PostItem, ContentDocument } from "./post-types";
 import { formatPublishedAt } from "./keystatic/publishing";
+import { APP_TOPOLOGY } from "@workspace/app-topology";
 
 // Type for post data from Keystatic reader
 export interface PostData {
@@ -32,7 +33,8 @@ export function transformPost(
     url: `/news/${postData.slug}`,
     description: postData.description,
     heroImage:
-      postData.heroImage || "/media-assets/uploads/posts/default-blog.webp",
+      postData.heroImage ||
+      `${APP_TOPOLOGY.media.assetPrefix}/uploads/posts/default-blog.webp`,
     author: {
       name: resolvedAuthor?.name || "Solana Foundation",
       avatar: resolvedAuthor?.avatar || null,

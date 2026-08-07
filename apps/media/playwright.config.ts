@@ -1,6 +1,8 @@
 import { defineConfig } from "@playwright/test";
+import { getLocalAppUrl } from "@workspace/app-topology";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3002";
+const localBaseUrl = getLocalAppUrl("media", "127.0.0.1");
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? localBaseUrl;
 const storageState = process.env.PLAYWRIGHT_STORAGE_STATE;
 const isLocalKeystatic =
   (process.env.NEXT_PUBLIC_KEYSTATIC_LOCAL ?? "true") === "true";
@@ -24,7 +26,7 @@ export default defineConfig({
     ? {
         webServer: {
           command: `NEXT_PUBLIC_KEYSTATIC_LOCAL=${isLocalKeystatic} pnpm dev`,
-          url: "http://127.0.0.1:3002/keystatic",
+          url: `${localBaseUrl}/keystatic`,
           reuseExistingServer: true,
           timeout: 120_000,
         },

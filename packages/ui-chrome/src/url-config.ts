@@ -8,26 +8,9 @@
  * Configuration: Set NEXT_PUBLIC_APP_NAME in each non-web app's next.config.ts
  */
 
+import { PROXY_APP_NAMES, isNavigationRoute } from "@workspace/app-topology";
+
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME;
-
-/**
- * Regex patterns for routes internal to each app.
- * Routes matching these patterns will use Next.js Link for client-side navigation.
- * Routes not matching will use <a> tags for full page load.
- */
-const APP_INTERNAL_ROUTES: Record<string, RegExp> = {
-  // docs app handles: /docs/*, /learn/*, /developers, /developers/cookbook/*, /developers/bootcamp/*
-  docs: /^\/(?:docs|learn)(?:\/|$)|^\/developers(?:$|\/(?:cookbook|bootcamp)(?:\/|$))/,
-  media: /^\/(?:changelog|news|podcasts)(?:\/|$)/,
-  // templates app handles: /developers/templates/*
-  templates: /^\/developers\/templates(?:\/|$)/,
-  // accelerate app handles: /accelerate/*
-  accelerate: /^\/accelerate(?:\/|$)/,
-  // breakpoint app handles: /breakpoint/*
-  breakpoint: /^\/breakpoint(?:\/|$)/,
-};
-
-const INTERNAL_PATTERN = APP_NAME ? APP_INTERNAL_ROUTES[APP_NAME] : null;
 
 /**
  * Checks if a href is a relative path (starts with / but not //).
@@ -42,16 +25,14 @@ function isRelativePath(href: string): boolean {
  * Checks if a route is internal to the current app.
  */
 function isInternalRoute(href: string): boolean {
-  return INTERNAL_PATTERN ? INTERNAL_PATTERN.test(href) : false;
+  return APP_NAME ? isNavigationRoute(APP_NAME, href) : false;
 }
 
 /**
  * Checks if a route is handled by any non-web app.
  */
 function isHandledByOtherApp(href: string): boolean {
-  return Object.values(APP_INTERNAL_ROUTES).some((pattern) =>
-    pattern.test(href),
-  );
+  return PROXY_APP_NAMES.some((appName) => isNavigationRoute(appName, href));
 }
 
 /**

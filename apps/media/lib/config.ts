@@ -3,6 +3,7 @@ import {
   DEFAULT_SOCIAL_IMAGE,
   DEFAULT_SOCIAL_IMAGE_URL,
 } from "@solana-com/ui-chrome/social-image";
+import { getLocalAppUrl } from "@workspace/app-topology";
 
 export const config = {
   siteMetadata: {
@@ -33,7 +34,7 @@ export const config = {
 
   siteUrl:
     process.env.NODE_ENV === `development`
-      ? `http://localhost:3002`
+      ? getLocalAppUrl("media")
       : (process.env.VERCEL_ENV != "production" && !!process.env.VERCEL_URL
           ? `https://${process.env.VERCEL_URL}`
           : `https://media.solana.com`) || `https://media.solana.com`,
