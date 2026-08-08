@@ -252,6 +252,12 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/references/clusters",
   },
   {
+    // Page was renamed during the tokens docs restructure; old URL is
+    // still indexed/bookmarked and 404s without this redirect.
+    source: "/docs/tokens/spl-token-basics",
+    destination: "/docs/tokens/quickstart",
+  },
+  {
     source: "/docs/clients/javascript",
     destination: "/docs/clients/official/javascript",
   },
