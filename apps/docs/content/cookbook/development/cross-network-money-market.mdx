@@ -1,0 +1,239 @@
+---
+date: 2026-08-05T00:00:00Z
+difficulty: intermediate
+title: Cross-Network Money Market From Solana
+description:
+  Let a Solana user supply collateral or borrow against it, with the other side
+  of the loan on any supported network.
+tags:
+  - cross-chain
+  - defi
+  - lending
+  - money-market
+  - typescript
+keywords:
+  - cross-chain lending
+  - solana lending
+  - supply borrow
+  - cross-network money market
+  - money market on solana
+---
+
+Money markets on individual networks fragment liquidity. A user on Solana with
+SOL collateral cannot borrow into a position on Base or Arbitrum without first
+bridging out, opening a position on the other side, and managing two health
+factors.
+
+This guide shows how to run a single money-market position across networks
+from a Solana wallet. The user supplies collateral from Solana. Borrowed
+liquidity can settle on Solana or on any supported destination network. All
+four actions (supply, borrow, withdraw, repay) go through one SDK module and
+finish in one signed Solana transaction each.
+
+## When To Use This vs Solana-Native Lending
+
+If your app only needs Solana-side lending, use a Solana-native protocol:
+[Kamino](https://kamino.finance), [MarginFi](https://www.marginfi.com), or
+[Solend](https://solend.fi) all serve that case with deep on-Solana
+liquidity.
+
+Reach for the pattern below when you need a position that spans networks:
+Solana collateral backing an EVM borrow, EVM collateral funding a Solana
+draw, or a single portfolio view across both sides. This guide uses
+[SODAX](https://docs.sodax.com/solana) as its example because its programs
+are already deployed and audited on Solana, so the integration is
+TypeScript-only. Other options that offer cross-network lending include
+[Radiant Capital](https://radiant.capital) and
+[Prime Protocol](https://primeprotocol.xyz).
+
+## Install
+
+<Tabs items={["npm", "pnpm", "yarn"]}>
+<Tab value="npm">
+```bash
+npm install @sodax/sdk
+```
+</Tab>
+<Tab value="pnpm">
+```bash
+pnpm add @sodax/sdk
+```
+</Tab>
+<Tab value="yarn">
+```bash
+yarn add @sodax/sdk
+```
+</Tab>
+</Tabs>
+
+## Wrap the User's Wallet
+
+Any wallet adapter exposing `publicKey` and `signTransaction` works. This is
+the same setup as the swap recipe.
+
+```typescript
+import { SolanaWalletProvider } from '@sodax/sdk';
+
+const walletProvider = new SolanaWalletProvider({
+  wallet: walletContextState, // from your wallet adapter
+  endpoint: 'https://api.mainnet-beta.solana.com',
+});
+```
+
+## Discover Assets and Reserves
+
+Six assets are live in the money market on Solana as of July 2026: SOL,
+USDC, USDT, bnUSD, SODA, JitoSOL. The full destination-side asset list is
+larger (a Solana user can supply SOL and borrow into any supported network's
+lendable asset). Never hard-code addresses; read from the SDK.
+
+```typescript
+import { Sodax, ChainKeys } from '@sodax/sdk';
+
+const sodax = new Sodax();
+await sodax.initialize();
+
+const solanaMmTokens = sodax.moneyMarket
+  .getSupportedTokensByChainId(ChainKeys.SOLANA_MAINNET);
+
+const sol = solanaMmTokens.find((t) => t.symbol === 'SOL');
+const bnUSD = solanaMmTokens.find((t) => t.symbol === 'bnUSD');
+```
+
+For rates, positions, and health factors:
+
+```typescript
+const reserves = await sodax.moneyMarket.data.getReservesHumanized();
+
+const userPos = await sodax.moneyMarket.data.getUserReservesHumanized(
+  ChainKeys.SOLANA_MAINNET,
+  await walletProvider.getWalletAddress(),
+);
+```
+
+## Supply SOL From Solana
+
+Supplying is a single call. There is no ERC-20 style allowance step on
+Solana, so no extra transaction precedes the action.
+
+```typescript
+const supply = await sodax.moneyMarket.supply({
+  params: {
+    srcChainKey: ChainKeys.SOLANA_MAINNET,
+    srcAddress: await walletProvider.getWalletAddress(),
+    token: sol.address,
+    amount: 1_000_000_000n, // 1 SOL (9 decimals)
+    action: 'supply',
+  },
+  walletProvider,
+  timeout: 120_000,
+});
+
+if (!supply.ok) {
+  throw new Error(`Supply failed: ${supply.error.code}`);
+}
+```
+
+## Borrow to Any Network
+
+`dstChainKey` and `dstAddress` default to the source. Override them to
+deliver the borrowed liquidity somewhere else. That single parameter is the
+whole cross-network story on the borrow side: the collateral you just
+supplied backs a borrow that lands on Base, Arbitrum, or wherever your user
+needs it.
+
+```typescript
+// Borrow bnUSD, deliver on Solana (same as source)
+const borrowLocal = await sodax.moneyMarket.borrow({
+  params: {
+    srcChainKey: ChainKeys.SOLANA_MAINNET,
+    srcAddress: userSolanaAddress,
+    token: bnUSD.address,
+    amount: 100_000_000_000_000_000_000n, // 100 bnUSD (18 decimals)
+    action: 'borrow',
+    dstChainKey: ChainKeys.SOLANA_MAINNET,
+    dstAddress: userSolanaAddress,
+  },
+  walletProvider,
+});
+
+// Same collateral, borrow delivered to an EVM address on Base
+const borrowCrossNetwork = await sodax.moneyMarket.borrow({
+  params: {
+    srcChainKey: ChainKeys.SOLANA_MAINNET,
+    srcAddress: userSolanaAddress,
+    token: usdcBaseAddress, // token on the destination network
+    amount: 50_000_000n, // 50 USDC (6 decimals)
+    action: 'borrow',
+    dstChainKey: ChainKeys.BASE_MAINNET,
+    dstAddress: userEvmAddress,
+  },
+  walletProvider,
+});
+```
+
+## Repay and Withdraw
+
+Both follow the same shape as supply and borrow. Withdraw and borrow need no
+approval on any network, and on Solana repay does not need one either.
+
+```typescript
+const repay = await sodax.moneyMarket.repay({
+  params: {
+    srcChainKey: ChainKeys.SOLANA_MAINNET,
+    srcAddress: userSolanaAddress,
+    token: bnUSD.address,
+    amount: 100_000_000_000_000_000_000n,
+    action: 'repay',
+  },
+  walletProvider,
+});
+
+const withdraw = await sodax.moneyMarket.withdraw({
+  params: {
+    srcChainKey: ChainKeys.SOLANA_MAINNET,
+    srcAddress: userSolanaAddress,
+    token: sol.address,
+    amount: 1_000_000_000n,
+    action: 'withdraw',
+  },
+  walletProvider,
+});
+```
+
+## Error Handling
+
+Every method returns a `Result<T>`. Branch on `result.ok` and switch on
+`result.error.code` for typed error handling. Common codes to handle in a
+lending UI include `RELAY_TIMEOUT` and `EXECUTION_FAILED`, plus positional
+errors surfaced through the reserve data (health-factor breach, LTV limit,
+etc.). Additional context lives on `result.error.context`.
+
+## Rendering Positions
+
+`sodax.moneyMarket.data` provides USD-priced summaries so a UI does not need
+its own indexer. Format is a two-step pipeline: build the request object,
+then format.
+
+```typescript
+// Reserves in USD
+const reservesRequest = sodax.moneyMarket.data
+  .buildReserveDataWithPrice(reserves);
+const reservesUsd = sodax.moneyMarket.data.formatReservesUSD(reservesRequest);
+
+// User portfolio summary (health factor, totals in USD)
+const summaryRequest = sodax.moneyMarket.data.buildUserSummaryRequest(
+  reserves,
+  reservesUsd,
+  userPos,
+);
+const summary = sodax.moneyMarket.data.formatUserSummary(summaryRequest);
+// summary.totalCollateralUSD, summary.totalBorrowsUSD, summary.healthFactor
+```
+
+## References
+
+- [SODAX Money Market on Solana](https://docs.sodax.com/solana/money-market)
+- [Money Market SDK reference](https://docs.sodax.com/developers/packages/foundation/sdk/functional-modules/money_market)
+- [Assets live on Solana today](https://docs.sodax.com/solana/networks-and-assets)
+- [Solana integration guide](https://docs.sodax.com/solana)
