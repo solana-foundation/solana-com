@@ -472,7 +472,7 @@ export function SolanaDataDashboard() {
 
         <nav
           aria-label={t("controls.ariaLabel")}
-          className="sticky top-[65px] lg:top-[71px] z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
+          className="sticky top-14 z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
         >
           <DashboardControls
             activeTab={activeTab}
