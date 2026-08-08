@@ -1,16 +1,15 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
+import { APP_TOPOLOGY, getNextPublicAppEnv } from "@workspace/app-topology";
 
-const assetPrefix = "/templates-assets";
+const assetPrefix = APP_TOPOLOGY.templates.assetPrefix;
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
   assetPrefix,
 
-  env: {
-    NEXT_PUBLIC_APP_NAME: "templates",
-  },
+  env: getNextPublicAppEnv("templates"),
 
   webpack(config) {
     // Handle inline SVGs
@@ -74,7 +73,7 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         {
-          source: "/templates-assets/_next/:path+",
+          source: `${assetPrefix}/_next/:path+`,
           destination: "/_next/:path+",
         },
       ],

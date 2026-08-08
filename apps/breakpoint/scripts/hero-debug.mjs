@@ -1,6 +1,7 @@
 import { chromium } from "playwright";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getLocalAppUrl } from "@workspace/app-topology";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(__dirname, "../.screenshots");
@@ -11,7 +12,7 @@ const ctx = await browser.newContext({
   reducedMotion: "reduce",
 });
 const page = await ctx.newPage();
-await page.goto("http://localhost:3005/en", {
+await page.goto(`${getLocalAppUrl("breakpoint")}/en`, {
   waitUntil: "networkidle",
   timeout: 60000,
 });

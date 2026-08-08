@@ -3,6 +3,7 @@ import {
   DEFAULT_SOCIAL_IMAGE,
   DEFAULT_SOCIAL_IMAGE_URL,
 } from "@solana-com/ui-chrome/social-image";
+import { getLocalAppUrl } from "@workspace/app-topology";
 
 const PUBLIC_SITE_URL = "https://solana.com";
 
@@ -21,7 +22,7 @@ export const config = {
 
   siteUrl:
     process.env.NODE_ENV === `development`
-      ? `http://localhost:3000`
+      ? getLocalAppUrl("web")
       : (process.env.VERCEL_ENV != "production" && !!process.env.VERCEL_URL
           ? `https://${process.env.VERCEL_URL}`
           : PUBLIC_SITE_URL) || PUBLIC_SITE_URL,

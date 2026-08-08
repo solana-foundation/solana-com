@@ -91,18 +91,6 @@ const nextConfig: NextConfig = {
       fallback: Rewrite[];
     };
 
-    // TODO: In production, add rewrite for /templates/* to templates app
-    // This allows the templates app to be deployed separately while maintaining
-    // the same domain for SEO and UX (prefetching, etc.)
-    // Example:
-    // if (process.env.TEMPLATES_APP_URL) {
-    //   baseRewrites.beforeFiles.push({
-    //     source: '/templates/:path*',
-    //     destination: `${process.env.TEMPLATES_APP_URL}/:path*`,
-    //     locale: false,
-    //   });
-    // }
-
     return baseRewrites;
   },
 

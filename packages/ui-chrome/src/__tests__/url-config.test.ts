@@ -36,7 +36,14 @@ describe("cross-app URL configuration", () => {
     const shouldUseNextLink = await loadShouldUseNextLink("docs");
 
     expect(shouldUseNextLink("/docs")).toBe(true);
+    expect(shouldUseNextLink("/docs/core/transactions")).toBe(true);
+    expect(shouldUseNextLink("/learn")).toBe(true);
     expect(shouldUseNextLink("/developers/cookbook")).toBe(true);
+    expect(shouldUseNextLink("/developers/cookbook/tokens")).toBe(true);
+    expect(shouldUseNextLink("/developers/bootcamp")).toBe(true);
+    expect(shouldUseNextLink("/developers")).toBe(true);
+    expect(shouldUseNextLink("/developers/templates")).toBe(false);
+    expect(shouldUseNextLink("/developers/guides")).toBe(false);
     expect(shouldUseNextLink("/data")).toBe(false);
   });
 
@@ -53,7 +60,37 @@ describe("cross-app URL configuration", () => {
   it("treats the changelog as an internal media route", async () => {
     const shouldUseNextLink = await loadShouldUseNextLink("media");
 
+    expect(shouldUseNextLink("/news")).toBe(true);
     expect(shouldUseNextLink("/changelog")).toBe(true);
     expect(shouldUseNextLink("/changelog/rss.xml")).toBe(true);
+    expect(shouldUseNextLink("/podcasts/validated")).toBe(true);
+    expect(shouldUseNextLink("/reports")).toBe(false);
+    expect(shouldUseNextLink("/upgrades")).toBe(false);
+  });
+
+  it.each([
+    ["templates", "/developers/templates", true],
+    ["templates", "/developers/templates/wallet", true],
+    ["templates", "/developers", false],
+    ["accelerate", "/accelerate", true],
+    ["accelerate", "/accelerate/schedule", true],
+    ["accelerate", "/breakpoint", false],
+    ["breakpoint", "/breakpoint", true],
+    ["breakpoint", "/breakpoint/schedule", true],
+    ["breakpoint", "/accelerate", false],
+  ])(
+    "uses the existing %s navigation boundary for %s",
+    async (appName, href, expected) => {
+      const shouldUseNextLink = await loadShouldUseNextLink(appName);
+
+      expect(shouldUseNextLink(href)).toBe(expected);
+    },
+  );
+
+  it("treats unknown app names as having no internal routes", async () => {
+    const shouldUseNextLink = await loadShouldUseNextLink("unknown");
+
+    expect(shouldUseNextLink("/docs")).toBe(false);
+    expect(shouldUseNextLink("/data")).toBe(false);
   });
 });

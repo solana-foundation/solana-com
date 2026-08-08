@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { getLocalAppUrl } from "@workspace/app-topology";
 
 type CreateRefInput = {
   name: string;
@@ -43,7 +44,7 @@ test("filters branches and creates a staging branch from main", async ({
     {
       name: "keystatic-gh-access-token",
       value: "test-token",
-      url: "http://127.0.0.1:3002",
+      url: getLocalAppUrl("media", "127.0.0.1"),
     },
   ]);
 

@@ -8,6 +8,7 @@
  * Prerequisites: accelerate dev server running on port 3004
  */
 import { chromium } from "@playwright/test";
+import { getLocalAppUrl } from "@workspace/app-topology";
 
 async function captureWaveLines() {
   const browser = await chromium.launch();
@@ -17,7 +18,9 @@ async function captureWaveLines() {
 
   // Disable CSS animations for stable screenshots
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("http://localhost:3004", { waitUntil: "networkidle" });
+  await page.goto(getLocalAppUrl("accelerate"), {
+    waitUntil: "networkidle",
+  });
   await page.addStyleTag({
     content: `
       *, *::before, *::after {

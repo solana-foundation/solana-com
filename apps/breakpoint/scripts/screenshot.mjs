@@ -2,12 +2,13 @@ import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getLocalAppUrl } from "@workspace/app-topology";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(__dirname, "../.screenshots");
 mkdirSync(outDir, { recursive: true });
 
-const url = "http://localhost:3005/en";
+const url = `${getLocalAppUrl("breakpoint")}/en`;
 
 const viewports = [
   { name: "desktop", width: 1440, height: 900 },
