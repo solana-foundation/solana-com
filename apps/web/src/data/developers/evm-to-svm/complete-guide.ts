@@ -71,6 +71,7 @@ export const BLOCK_STYLES = {
       paddingLeft: "50px",
       paddingTop: "20px",
     },
+    small: { paddingRight: "0px", paddingLeft: "0px" },
   },
   [CONTENT_BLOCK_STYLE_KEYS.imageFull]: {
     large: {
@@ -197,7 +198,7 @@ export const NAV_BUTTONS = [
     iconSize: "md",
     startIcon: "none",
     endIcon: "none",
-    url: "https://solana.com/developers/evm-to-svm",
+    url: "/developers/migrate-to-solana/ethereum",
   },
 ] as const;
 

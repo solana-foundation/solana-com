@@ -293,6 +293,36 @@ const breakpointSubrouteRedirects: RedirectInput[] = [
   { source: "/breakpoint/tickets", destination: "/breakpoint/registration" },
 ];
 
+/**
+ * The EVM→SVM and Cosmos→SVM guides were consolidated under
+ * /developers/migrate-to-solana. Permanent redirects keep the old URLs
+ * working: external links and AI agents hold them indefinitely.
+ */
+const chainMigrationRedirects: RedirectInput[] = [
+  // EVM→SVM guides moved 1:1 under /developers/migrate-to-solana
+  {
+    source: "/developers/evm-to-svm/:path+",
+    destination: "/developers/migrate-to-solana/:path+",
+    permanent: true,
+  },
+  {
+    source: "/developers/evm-to-svm",
+    destination: "/developers/migrate-to-solana/ethereum",
+    permanent: true,
+  },
+  {
+    source: "/developers/cosmos-to-svm",
+    destination: "/developers/migrate-to-solana/cosmos",
+    permanent: true,
+  },
+  // The CosmWasm guide lives under the Cosmos hub
+  {
+    source: "/developers/migrate-to-solana/cosmwasm",
+    destination: "/developers/migrate-to-solana/cosmos/cosmwasm",
+    permanent: true,
+  },
+];
+
 export default {
   rewrites: {
     beforeFiles: [
@@ -710,6 +740,7 @@ export default {
   redirects: withLocaleRedirects([
     ...dissolvedGuideRedirects,
     ...movedDocsRedirects,
+    ...chainMigrationRedirects,
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     {
