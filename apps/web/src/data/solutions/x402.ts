@@ -1,7 +1,7 @@
 export const PRODUCTS = [
   {
     key: "x402",
-    href: "https://x402.org/",
+    href: "https://payments.org/solutions/agentic-payments",
   },
   {
     key: "corbits",
