@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { AppHero } from "@/components/app-hero";
+import { BackgroundShapes } from "@/components/background-shapes";
 import { TemplatesUiLayoutList } from "@/components/templates/templates-ui-layout-list";
 import { fetchTemplatesFromGitHub } from "@/lib/fetch-templates";
 import { AppProviders } from "@/components/app-providers";
@@ -39,9 +40,10 @@ export default async function TemplatesPage() {
   const t = await getTranslations("templates");
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-purple-500/5 via-background via-50% to-emerald-400/8">
-      <div className="absolute inset-0 bg-gradient-to-t from-transparent via-cyan-400/3 to-transparent pointer-events-none"></div>
-      <div className="absolute inset-0 bg-gradient-to-bl from-pink-400/3 via-transparent to-transparent pointer-events-none"></div>
+    <div className="relative min-h-screen bg-nd-inverse text-nd-high-em-text">
+      <BackgroundShapes />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(202,159,245,0.08),transparent_55%)] pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(85,233,171,0.06),transparent_55%)] pointer-events-none"></div>
       <AppProviders>
         <TemplatesProviderWrapper>
           <Suspense>

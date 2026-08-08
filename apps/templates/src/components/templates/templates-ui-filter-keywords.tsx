@@ -23,12 +23,12 @@ export function TemplatesUiFilterKeywords() {
     const isExpanded = expandedSections.includes(filter.id);
     return (
       <div
-        className="flex flex-col gap-2 border-b border-white/5 pb-4 last:border-b-0"
+        className="flex flex-col gap-2 border-b border-nd-border-light pb-4 last:border-b-0"
         key={filter.id}
       >
         <button
           onClick={() => toggleSection(filter.id)}
-          className="flex items-center justify-between text-sm font-bold py-1.5 hover:text-purple-400 transition-colors"
+          className="flex items-center justify-between font-brand-mono text-[11px] leading-[1.42] font-bold uppercase tracking-wide py-1.5 text-nd-high-em-text hover:text-nd-cta transition-colors"
         >
           <span>{filter.name}</span>
           <motion.div
@@ -53,13 +53,13 @@ export function TemplatesUiFilterKeywords() {
                   return (
                     <label
                       key={keyword.id}
-                      className="flex items-center gap-2 cursor-pointer hover:text-purple-400 transition-colors text-xs"
+                      className="flex items-center gap-2 cursor-pointer text-nd-mid-em-text hover:text-nd-high-em-text transition-colors text-xs"
                     >
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleKeyword(keyword.id)}
-                        className="w-3.5 h-3.5 rounded border-white/10 bg-zinc-800/50 checked:bg-purple-500 checked:border-purple-500 cursor-pointer"
+                        className="w-3.5 h-3.5 rounded border-nd-border-prominent bg-white/5 checked:bg-nd-primary checked:border-nd-primary cursor-pointer"
                       />
                       <span>{keyword.name}</span>
                     </label>

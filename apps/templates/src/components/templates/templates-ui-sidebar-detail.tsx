@@ -14,16 +14,16 @@ export function TemplatesUiSidebarDetail({ template }: { template: Template }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative overflow-hidden rounded-2xl">
-        {/* Gradient border effect */}
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20" />
-        <div className="absolute inset-[1px] rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950" />
+      <div className="relative overflow-hidden rounded-2xl border border-nd-border-light bg-[#0D0C11]">
+        {/* Soft brand glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(202,159,245,0.05),transparent_60%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none" />
 
         <div className="relative flex flex-col gap-4 px-4 py-6">
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold leading-none">
+                <h3 className="text-[17px] font-medium leading-none text-nd-high-em-text">
                   {template.displayName || template.name}
                 </h3>
               </div>
@@ -31,23 +31,34 @@ export function TemplatesUiSidebarDetail({ template }: { template: Template }) {
                 href={template.repoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-zinc-400 hover:text-purple-400 transition-colors flex-shrink-0 flex items-center"
+                className="text-nd-mid-em-text hover:text-nd-high-em-text transition-colors flex-shrink-0 flex items-center"
                 title="View on GitHub"
               >
                 <Github className="h-4 w-4" />
               </a>
             </div>
-            <p className="text-sm text-neutral-500">{template.description}</p>
+            <p className="text-sm text-nd-mid-em-text">
+              {template.description}
+            </p>
           </div>
           <div className="space-y-2">
-            <p className="flex justify-between text-sm">
-              <strong>Author:</strong>
-              <span>{sourceMap[template.source.name]?.name}</span>
+            <p className="flex justify-between gap-4 text-sm">
+              <strong className="font-medium text-nd-mid-em-text">
+                Author:
+              </strong>
+              <span className="text-nd-high-em-text text-right">
+                {sourceMap[template.source.name]?.name}
+              </span>
             </p>
             {filters.map((filters) => (
-              <div key={filters.id} className="flex justify-between text-sm">
-                <strong>{filters.name}:</strong>
-                <span>
+              <div
+                key={filters.id}
+                className="flex justify-between gap-4 text-sm"
+              >
+                <strong className="font-medium text-nd-mid-em-text">
+                  {filters.name}:
+                </strong>
+                <span className="text-nd-high-em-text text-right">
                   {filters.keywords.map((keyword) => keyword.name).join(", ")}
                 </span>
               </div>

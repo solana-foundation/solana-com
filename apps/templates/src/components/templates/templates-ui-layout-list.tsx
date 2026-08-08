@@ -27,8 +27,8 @@ export function TemplatesUiLayoutList({
           </div>
           <div className="md:hidden">
             <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="item-1">
-                <AccordionTrigger>
+              <AccordionItem value="item-1" className="border-nd-border-light">
+                <AccordionTrigger className="text-nd-high-em-text hover:no-underline font-medium">
                   {t("filter.mobile_accordion")}
                 </AccordionTrigger>
                 <AccordionContent>
