@@ -92,7 +92,7 @@ export function SkillsGrid({
 
   return (
     <div className="flex flex-col">
-      <div className="sticky top-[57px] xl:top-[65px] z-40 bg-black/80 backdrop-blur-md border-b border-white/10">
+      <div className="sticky top-14 z-40 bg-black/80 backdrop-blur-md border-b border-white/10">
         <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] w-full py-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative group/search">
