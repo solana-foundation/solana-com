@@ -174,8 +174,8 @@ const goldSponsors = [
   },
   {
     companyId: "gmgn",
-    width: 127,
-    height: 32,
+    width: 84,
+    height: 95,
   },
 ] satisfies SponsorLogo[];
 
