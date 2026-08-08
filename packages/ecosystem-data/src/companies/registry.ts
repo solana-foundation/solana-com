@@ -40,6 +40,7 @@ import { flashTrade } from "./records/flash-trade";
 import { franklinTempleton } from "./records/franklin-templeton";
 import { frodobots } from "./records/frodobots";
 import { galaxy } from "./records/galaxy";
+import { gmgn } from "./records/gmgn";
 import { gradient } from "./records/gradient";
 import { hamiltonLane } from "./records/hamilton-lane";
 import { jito } from "./records/jito";
@@ -152,6 +153,7 @@ export const companies = [
   franklinTempleton,
   frodobots,
   galaxy,
+  gmgn,
   gradient,
   hamiltonLane,
   jito,
