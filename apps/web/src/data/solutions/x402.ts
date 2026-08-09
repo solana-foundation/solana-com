@@ -23,6 +23,10 @@ export const PRODUCTS = [
     key: "cdp",
     href: "https://docs.cdp.coinbase.com/embedded-wallets/welcome",
   },
+  {
+    key: "bykaranteli",
+    href: "https://bykaranteli.com/developers",
+  },
 ];
 
 export const TOOLS = [
