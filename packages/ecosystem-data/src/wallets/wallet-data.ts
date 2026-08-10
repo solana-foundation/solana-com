@@ -49,7 +49,6 @@ import ellipalIcon from "../../assets/wallets/icons/ellipal.webp";
 import emcdIcon from "../../assets/wallets/icons/emcd.webp";
 import enkryptIcon from "../../assets/wallets/icons/enkrypt.webp";
 import ethosIcon from "../../assets/wallets/icons/ethos.webp";
-import espressoCashIcon from "../../assets/wallets/icons/espresso-cash.webp";
 import exodusIcon from "../../assets/wallets/icons/exodus.webp";
 import fireblocksEmbeddedIcon from "../../assets/wallets/icons/fireblocks-embedded.webp";
 import fordefiIcon from "../../assets/wallets/icons/fordefi.webp";
@@ -1063,25 +1062,6 @@ const walletRecords = {
     website: "https://www.exodus.com/",
     icon: exodusIcon,
     lastVerified: "2026-07-15",
-  },
-  "espresso-cash": {
-    name: "Espresso Cash",
-    aliases: ["espresso-wallet"],
-    category: "payments",
-    platforms: ["ios", "android"],
-    features: [
-      "non_custodial",
-      "buy_crypto",
-      "sell_crypto",
-      "get_paid",
-      "open_source",
-      "solana_native",
-    ],
-    description:
-      "Open-source self-custody Solana payments wallet for sending and receiving stablecoins through shareable links, with integrated fiat on- and off-ramps",
-    website: "https://www.espressocash.com/",
-    icon: espressoCashIcon,
-    lastVerified: "2026-07-16",
   },
   "fireblocks-embedded": {
     name: "Fireblocks SDK",
