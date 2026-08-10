@@ -23,7 +23,7 @@ resulting subscription PDA.
   <Tab value="Rust">
     ```toml
     [dependencies]
-    subscriptions = "0.4.0"
+    subscriptions = "0.5.0"
     solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
@@ -34,6 +34,10 @@ resulting subscription PDA.
 
 The merchant owns the plan. The plan PDA is derived from the merchant address
 and `planId`.
+
+A sponsor can fund the plan's rent by passing the optional `payer` while the
+merchant remains the plan owner. Deleting the plan refunds the owner, not the
+payer, so gate sponsorship off-chain.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -142,6 +146,13 @@ A few rules apply:
   stay frozen.
 - Edits work during a plan's final billing period as long as `endTs` is
   unchanged.
+- The instruction carries the plan state observed at signing
+  (`expectedCreatedAt`, `expectedEndTs`, `expectedPullers`,
+  `expectedMetadataUri`). If the live plan no longer matches, the update is
+  rejected (`StalePlanApproval`), so a stale signed update cannot restore
+  removed pullers or revert later edits. The plugin client's `updatePlan`
+  fetches the live state for you; when building manually, fetch the plan and
+  pass the fields yourself.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -178,6 +189,9 @@ A few rules apply:
     let (event_authority, _) =
         Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
 
+    // Fetch and decode the live plan account before building UpdatePlanData.
+    let fetched_plan: Plan = fetched_plan;
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
@@ -187,6 +201,10 @@ A few rules apply:
             end_ts: 0,
             pullers: updated_pullers,
             metadata_uri: updated_metadata_uri,
+            expected_created_at: fetched_plan.data.terms.created_at,
+            expected_end_ts: fetched_plan.data.end_ts,
+            expected_pullers: fetched_plan.data.pullers,
+            expected_metadata_uri: fetched_plan.data.metadata_uri,
         })
         .instruction();
     ```
@@ -198,6 +216,14 @@ A few rules apply:
 
 The subscriber accepts the current plan terms. The subscription PDA is derived
 from the plan PDA and subscriber address.
+
+To bundle authority initialization and subscribe into a single transaction, pass
+the sentinel `UNKNOWN_INIT_ID` (exported by the TypeScript SDK) as
+`expectedSubscriptionAuthorityInitId`. The program accepts the authority only if
+it was created in the current slot, so the sentinel works for fresh signups; a
+returning user whose authority was created in an earlier slot must pass the real
+`initId` (the plugin client fetches it for you) or the call fails with
+`StaleSubscriptionAuthority`.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -416,6 +442,59 @@ transactions.
   </Tab>
 </Tabs>
 
+## Cancel Immediately
+
+When both the subscriber and the current plan owner sign,
+`cancelSubscriptionNow` expires the subscription at cancellation time instead of
+the end of the billing period. It can also shorten a pending grace-period
+cancellation. The approval is bound to the period start observed at signing; if
+the subscription has changed since, the transaction is rejected
+(`StaleSubscriptionApproval`).
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
+    await subscriberClient.subscriptions.instructions
+      .cancelSubscriptionNow({
+        subscriber: subscriberSigner,
+        merchant: merchantSigner,
+        planPda,
+        expectedCurrentPeriodStartTs: subscription.data.currentPeriodStartTs,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use subscriptions::{accounts::SubscriptionDelegation, generated::{instructions::*, types::*}};
+
+    // Fetch and decode the subscription account before building the data.
+    let fetched_subscription: SubscriptionDelegation = fetched_subscription;
+
+    let cancel_now_ix = CancelSubscriptionNowBuilder::new()
+        .subscriber(subscriber)
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .event_authority(event_authority)
+        .cancel_subscription_now_data(CancelSubscriptionNowData {
+            expected_current_period_start_ts: fetched_subscription.current_period_start_ts,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Resume A Subscription
 
 A cancelled subscription can be reactivated before it is revoked. Once revoked,
@@ -424,14 +503,27 @@ the subscription account is closed and the subscriber must
 `SubscriptionAuthority` for the plan's mint, which the program validates (owner,
 mint, and `init_id`) and rejects if it is stale or re-initialized.
 
+The instruction carries the expiry the subscriber observed at signing
+(`expectedExpiresAtTs`); a mismatch is rejected (`StaleSubscriptionApproval`),
+so a stale signed resume cannot clear a later cancellation the subscriber never
+approved.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
     ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
     await subscriberClient.subscriptions.instructions
       .resumeSubscription({
         subscriber: subscriberSigner,
         planPda,
         tokenMint,
+        expectedExpiresAtTs: subscription.data.expiresAtTs,
       })
       .sendTransaction();
     ```
@@ -451,6 +543,9 @@ mint, and `init_id`) and rejects if it is stale or re-initialized.
         .subscription_pda(subscription_pda)
         .subscription_authority(subscription_authority)
         .event_authority(event_authority)
+        .resume_data(ResumeData {
+            expected_expires_at_ts: fetched_subscription.expires_at_ts,
+        })
         .instruction();
     ```
 
