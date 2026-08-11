@@ -8,17 +8,17 @@ export function TemplatesUiFilterHeader() {
   const t = useTemplatesTranslations();
 
   return (
-    <div className="flex justify-between items-center gap-2">
-      <span className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase tracking-wide text-nd-high-em-text py-1.5 whitespace-nowrap">
+    <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
+      <span className="whitespace-nowrap font-brand-mono text-[12px] font-medium uppercase tracking-[0.08em] text-nd-high-em-text">
         {t("filter.title")}
       </span>
       {isFiltered ? (
         <Button
           variant="ghost"
           onClick={() => clear()}
-          className="cursor-pointer h-auto py-1 px-2 text-xs flex-shrink-0 gap-1 text-nd-mid-em-text hover:text-nd-high-em-text"
+          className="h-auto flex-shrink-0 cursor-pointer gap-1 px-2 py-1 text-xs text-nd-mid-em-text hover:bg-white/[0.06] hover:text-nd-high-em-text"
         >
-          <X className="h-1 w-2" />
+          <X className="size-3" />
           {t("filter.clear")}
         </Button>
       ) : null}

@@ -66,11 +66,9 @@ export default async function TemplateDetailPage({
   return (
     <div className="relative min-h-screen bg-nd-inverse text-nd-high-em-text">
       <BackgroundShapes />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(202,159,245,0.08),transparent_55%)] pointer-events-none"></div>
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(85,233,171,0.06),transparent_55%)] pointer-events-none"></div>
       <AppProviders>
         <TemplatesProviderWrapper>
-          <div className="relative z-10 container mx-auto px-4 py-8">
+          <div className="relative z-10">
             <TemplatesUiLayoutDetail
               name={id}
               source={templates.find((t) => t.name === id)?.source.id || ""}

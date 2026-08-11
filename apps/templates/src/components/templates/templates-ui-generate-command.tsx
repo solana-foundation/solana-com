@@ -62,6 +62,7 @@ export function TemplatesUiGenerateCommand({
             key={item}
             variant="outline"
             onClick={() => setSelected(item)}
+            aria-pressed={item === selected}
             className={
               item === selected
                 ? "justify-start bg-nd-primary border-nd-primary text-nd-on-primary hover:bg-nd-primary-hovered dark:bg-nd-primary dark:hover:bg-nd-primary-hovered"
@@ -82,6 +83,7 @@ export function TemplatesUiGenerateCommand({
           size="icon"
           className="absolute top-2 right-2 text-nd-mid-em-text hover:text-nd-high-em-text"
           onClick={handleCopy}
+          aria-label={isCopied ? "Command copied" : "Copy command"}
         >
           {isCopied ? (
             <CheckIcon className="h-4 w-4" />

@@ -19,7 +19,6 @@ export function TemplatesUiFilterSearch() {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (localValue !== filter) {
-        console.log("Updating filter to:", localValue);
         setFilter(localValue);
       }
     }, 300);
@@ -29,12 +28,10 @@ export function TemplatesUiFilterSearch() {
   return (
     <Input
       value={localValue}
-      onChange={(e) => {
-        console.log("Search input changed:", e.target.value);
-        setLocalValue(e.target.value);
-      }}
+      onChange={(e) => setLocalValue(e.target.value)}
+      aria-label={t("actions.search_label")}
       placeholder={t("filter.search_placeholder")}
-      className="!bg-black/40 border-nd-border-prominent text-nd-high-em-text placeholder:text-nd-mid-em-text/60 focus-visible:border-nd-border-hovered focus-visible:ring-nd-highlight-lavendar/30 h-10 rounded-lg"
+      className="h-11 rounded-none border-white/[0.16] !bg-white/[0.03] px-3 text-sm text-nd-high-em-text placeholder:text-nd-mid-em-text/60 focus-visible:border-white/30 focus-visible:ring-1 focus-visible:ring-white/20"
     />
   );
 }

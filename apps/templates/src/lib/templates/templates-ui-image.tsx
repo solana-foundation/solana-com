@@ -12,11 +12,14 @@ export function TemplatesUiImage({
   const imageSrc = template.image
     ? `${GITHUB_RAW_BASE}/${template.image}`
     : null;
+  const { className, ...imageProps } = props;
 
   if (!imageSrc) {
     // Fallback placeholder
     return (
-      <div className="w-full aspect-[1200/630] bg-white/[0.02] flex items-center justify-center">
+      <div
+        className={`flex aspect-[1200/630] w-full items-center justify-center bg-white/[0.02] ${className ?? ""}`}
+      >
         <span className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase tracking-wide text-nd-mid-em-text/60">
           No preview available
         </span>
@@ -30,8 +33,8 @@ export function TemplatesUiImage({
       alt={`Preview of ${template.displayName || template.name}`}
       width={1200}
       height={630}
-      className="w-full h-auto"
-      {...props}
+      className={className ?? "h-auto w-full"}
+      {...imageProps}
     />
   );
 }
