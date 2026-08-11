@@ -57,7 +57,6 @@ import fuseIcon from "../../assets/wallets/icons/fuse.webp";
 import fxwalletIcon from "../../assets/wallets/icons/fxwallet.webp";
 import gateIcon from "../../assets/wallets/icons/gate.webp";
 import gemIcon from "../../assets/wallets/icons/gem.webp";
-import glowIcon from "../../assets/wallets/icons/glow.webp";
 import guardaIcon from "../../assets/wallets/icons/guarda.webp";
 import heliumIcon from "../../assets/wallets/icons/helium.webp";
 import hexTrustIcon from "../../assets/wallets/icons/hex-trust.webp";
@@ -1196,23 +1195,6 @@ const walletRecords = {
       "Fully open-source self-custodial mobile wallet for 100+ chains including Solana, with built-in swaps, fiat on-ramp in 170+ countries, NFTs, and SOL staking via validator delegation",
     website: "https://gemwallet.com/",
     icon: gemIcon,
-    lastVerified: "2026-07-15",
-  },
-  glow: {
-    name: "Glow",
-    category: "consumer",
-    platforms: ["ios", "android", "chrome", "firefox", "brave", "edge"],
-    features: [
-      "non_custodial",
-      "hold_nfts",
-      "staking",
-      "hardware",
-      "solana_native",
-    ],
-    description:
-      "Solana-native wallet for mobile and desktop browsers with zero-fee swaps, SOL staking, an NFT gallery, spam-token burning that earns SOL, and Ledger Nano X signing",
-    website: "https://glow.app/",
-    icon: glowIcon,
     lastVerified: "2026-07-15",
   },
   guarda: {
