@@ -20,6 +20,7 @@ import { newsPostMetadata } from "@/lib/metadata";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { extractHeadings } from "@/lib/extract-headings";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
+import { isPublishedReport } from "@/lib/keystatic/report-status";
 import { isChangelogCategory } from "@/lib/changelog";
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -119,7 +120,8 @@ export default async function PostPage({
   // separately from reusable switchbacks.
   let report = null;
   if (post.report) {
-    report = await reader.collections.reports.read(post.report);
+    const resolvedReport = await reader.collections.reports.read(post.report);
+    report = isPublishedReport(resolvedReport) ? resolvedReport : null;
   }
 
   const formattedDate = formatPublishedAt(post.publishedAt, "long");
