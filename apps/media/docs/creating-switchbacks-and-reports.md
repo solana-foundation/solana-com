@@ -168,20 +168,21 @@ Fill these fields for every report:
 
 ### Optional report fields
 
-| Field              | Use case                                                                                                          |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `PDF URL`          | Adds a direct `Download Report` button. Upload through the CMS toolbar to Vercel Blob, then paste the copied URL. |
-| `HubSpot Form CTA` | Opens a gated HubSpot form in a modal                                                                             |
-| `Buttons`          | Extra regular external links                                                                                      |
+| Field              | Use case                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| `PDF URL`          | Adds a direct `Download Report` button. Use **Manage report PDFs** to upload or copy a Vercel Blob URL. |
+| `HubSpot Form CTA` | Opens a gated HubSpot form in a modal                                                                   |
+| `Buttons`          | Extra regular external links                                                                            |
 
 ---
 
 ## Uploading a PDF to Vercel Blob
 
-When editing a report in Keystatic, use **Upload report PDF** above the editor.
-The uploader accepts PDFs only, stores them under `reports/` in the connected
-Vercel Blob store, and copies the public URL. Paste that URL into `PDF URL` and
-save the report.
+When editing a report in Keystatic, use **Manage report PDFs** in the lower
+right corner. The dialog lets you upload a PDF, copy an existing PDF URL, and
+delete an unused PDF. Uploads are stored under `reports/` in the connected
+Vercel Blob store and their public URL is copied automatically. Paste that URL
+into `PDF URL` and save the report.
 
 The deployed media app needs the `BLOB_READ_WRITE_TOKEN` environment variable
 for the linked Blob store. On Vercel, connect the specified Blob store to the

@@ -575,7 +575,7 @@ export default config({
         pdfUrl: fields.text({
           label: "PDF URL",
           description:
-            "Use the Upload Report PDF button above to upload a PDF to Vercel Blob, then paste the generated URL here.",
+            "Use the Manage report PDFs button to upload or copy a Vercel Blob PDF URL.",
         }),
         hubspotForm: fields.object(
           {
