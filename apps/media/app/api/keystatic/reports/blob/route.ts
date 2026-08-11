@@ -18,10 +18,24 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { blobs } = await list({
-      prefix: REPORTS_PATH_PREFIX,
-      limit: 1000,
-    });
+    const blobs: Awaited<ReturnType<typeof list>>["blobs"] = [];
+    let cursor: string | undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const page = await list({
+        cursor,
+        prefix: REPORTS_PATH_PREFIX,
+        limit: 1000,
+      });
+      blobs.push(...page.blobs);
+      if (page.hasMore && !page.cursor) {
+        throw new Error("Blob listing returned no cursor for the next page.");
+      }
+      cursor = page.cursor;
+      hasMore = page.hasMore;
+    }
+
     return NextResponse.json({ blobs });
   } catch (error) {
     return NextResponse.json(

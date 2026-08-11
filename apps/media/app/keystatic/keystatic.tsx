@@ -26,10 +26,6 @@ function formatFileSize(bytes: number) {
 function ReportPdfManager() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [buttonPosition, setButtonPosition] = useState<{
-    left: number;
-    top: number;
-  } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [blobs, setBlobs] = useState<ReportBlob[]>([]);
@@ -61,47 +57,6 @@ function ReportPdfManager() {
   useEffect(() => {
     if (isOpen) void loadBlobs();
   }, [isOpen]);
-
-  useEffect(() => {
-    function updateButtonPosition() {
-      const label = Array.from(document.querySelectorAll("*")).find(
-        (element) =>
-          element.children.length === 0 &&
-          element.textContent?.trim() === "PDF URL",
-      );
-      if (!label) {
-        setButtonPosition(null);
-        return;
-      }
-
-      const labelRect = label.getBoundingClientRect();
-      const input = Array.from(document.querySelectorAll("input")).find(
-        (element) => {
-          const rect = element.getBoundingClientRect();
-          return rect.top > labelRect.top && rect.left >= labelRect.left - 1;
-        },
-      );
-      if (!input) {
-        setButtonPosition(null);
-        return;
-      }
-
-      const inputRect = input.getBoundingClientRect();
-      setButtonPosition({ left: inputRect.left, top: inputRect.bottom + 8 });
-    }
-
-    updateButtonPosition();
-    const observer = new MutationObserver(updateButtonPosition);
-    observer.observe(document.body, { childList: true, subtree: true });
-    document.addEventListener("scroll", updateButtonPosition, true);
-    window.addEventListener("resize", updateButtonPosition);
-
-    return () => {
-      observer.disconnect();
-      document.removeEventListener("scroll", updateButtonPosition, true);
-      window.removeEventListener("resize", updateButtonPosition);
-    };
-  }, []);
 
   async function copyUrl(url: string) {
     await navigator.clipboard.writeText(url);
@@ -165,15 +120,13 @@ function ReportPdfManager() {
 
   return (
     <>
-      {buttonPosition && (
-        <button
-          type="button"
-          onClick={() => setIsOpen(true)}
-          style={{ ...managerButtonStyle, ...buttonPosition }}
-        >
-          Manage report PDFs
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        style={managerButtonStyle}
+      >
+        Manage report PDFs
+      </button>
       {isOpen && (
         <div
           role="dialog"
@@ -291,6 +244,8 @@ const managerButtonStyle = {
   lineHeight: "20px",
   padding: "3px 9px",
   position: "fixed" as const,
+  right: "24px",
+  bottom: "24px",
   zIndex: 20,
 };
 const dialogBackdropStyle = {

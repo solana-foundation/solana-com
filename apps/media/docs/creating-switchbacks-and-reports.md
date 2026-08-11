@@ -168,18 +168,18 @@ Fill these fields for every report:
 
 ### Optional report fields
 
-| Field              | Use case                                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `PDF URL`          | Adds a direct `Download Report` button. Use **Manage report PDFs** below this field to upload or copy a Vercel Blob URL. |
-| `HubSpot Form CTA` | Opens a gated HubSpot form in a modal                                                                                    |
-| `Buttons`          | Extra regular external links                                                                                             |
+| Field              | Use case                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| `PDF URL`          | Adds a direct `Download Report` button. Use **Manage report PDFs** to upload or copy a Vercel Blob URL. |
+| `HubSpot Form CTA` | Opens a gated HubSpot form in a modal                                                                   |
+| `Buttons`          | Extra regular external links                                                                            |
 
 ---
 
 ## Uploading a PDF to Vercel Blob
 
-When editing a report in Keystatic, use **Manage report PDFs** below the **PDF
-URL** field. The dialog lets you upload a PDF, copy an existing PDF URL, and
+When editing a report in Keystatic, use **Manage report PDFs** in the lower
+right corner. The dialog lets you upload a PDF, copy an existing PDF URL, and
 delete an unused PDF. Uploads are stored under `reports/` in the connected
 Vercel Blob store and their public URL is copied automatically. Paste that URL
 into `PDF URL` and save the report.
