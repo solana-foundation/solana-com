@@ -257,28 +257,6 @@ export default async function PostPage({
                 url: button?.url || "",
               }),
             )}
-            isReport={switchback.isReport || undefined}
-            hubspotForm={
-              switchback.hubspotForm?.portalId && switchback.hubspotForm?.formId
-                ? {
-                    buttonLabel:
-                      switchback.hubspotForm.buttonLabel ||
-                      "Get the full report",
-                    portalId: String(switchback.hubspotForm.portalId),
-                    formId: String(switchback.hubspotForm.formId),
-                    formUrl: switchback.hubspotForm.formUrl
-                      ? String(switchback.hubspotForm.formUrl)
-                      : undefined,
-                  }
-                : undefined
-            }
-            pdfUrl={switchback.pdfUrl ? String(switchback.pdfUrl) : undefined}
-            headline={switchback.headline || undefined}
-            description={
-              switchback.description
-                ? String(switchback.description)
-                : undefined
-            }
           />
         </Section>
       )}
