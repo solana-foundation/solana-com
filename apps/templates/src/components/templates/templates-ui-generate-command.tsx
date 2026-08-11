@@ -62,10 +62,11 @@ export function TemplatesUiGenerateCommand({
             key={item}
             variant="outline"
             onClick={() => setSelected(item)}
+            aria-pressed={item === selected}
             className={
               item === selected
-                ? "justify-start bg-purple-500/20 border-purple-500 text-purple-300 hover:bg-purple-500/30"
-                : "justify-start"
+                ? "justify-start bg-nd-primary border-nd-primary text-nd-on-primary hover:bg-nd-primary-hovered dark:bg-nd-primary dark:hover:bg-nd-primary-hovered"
+                : "justify-start border-nd-border-prominent text-nd-mid-em-text hover:bg-nd-border-prominent hover:text-nd-high-em-text dark:bg-transparent dark:hover:bg-nd-border-prominent"
             }
           >
             {item}
@@ -74,14 +75,15 @@ export function TemplatesUiGenerateCommand({
       </div>
       <div className="relative">
         <div
-          className="rounded-lg my-4 pr-12 overflow-x-auto max-w-full bg-zinc-900 [&>pre]:!bg-zinc-900 [&>pre]:!m-0 [&>pre]:!p-4 [&>pre]:!rounded-lg [&>pre]:overflow-x-auto [&>pre]:max-w-full [&>pre]:text-xs [&_code]:text-xs"
+          className="rounded-lg my-4 pr-12 overflow-x-auto max-w-full bg-black border border-nd-border-light [&>pre]:!bg-black [&>pre]:!m-0 [&>pre]:!p-4 [&>pre]:!rounded-lg [&>pre]:overflow-x-auto [&>pre]:max-w-full [&>pre]:text-xs [&_code]:text-xs"
           dangerouslySetInnerHTML={{ __html: highlightedHtml }}
         />
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-2 right-2"
+          className="absolute top-2 right-2 text-nd-mid-em-text hover:text-nd-high-em-text"
           onClick={handleCopy}
+          aria-label={isCopied ? "Command copied" : "Copy command"}
         >
           {isCopied ? (
             <CheckIcon className="h-4 w-4" />
