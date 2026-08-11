@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from "react";
 import type { TOCItemType } from "fumadocs-core/server";
 import {
   rpcCategoryEndpoints,
@@ -61,8 +62,39 @@ export function getRpcEndpointToc(slug: string[]): TOCItemType[] {
   // flush-left; anything deeper would indent the whole list under a parent
   // heading that does not exist.
   return methodNames.map((methodName) => ({
-    title: methodName,
+    title: breakOnWordBoundaries(methodName),
     url: `#${methodName}`,
     depth: 2,
   }));
+}
+
+/**
+ * Renders a method name that can wrap, but only between its words.
+ *
+ * The table of contents is 250px wide (`globals.css`), so the ten longest
+ * method names do not fit on one line. Wrapping is the right answer — it is what
+ * every long prose heading on the site already does — but prose wraps at spaces
+ * and an identifier has none, so fumadocs' `[overflow-wrap:anywhere]` would
+ * slice it mid-word into `getMinimumBalanceForRentExem` / `ption`. Marking the
+ * camelCase and underscore boundaries as the preferred break points instead
+ * yields `getMinimumBalanceFor` / `RentExemption`.
+ *
+ * `overflow-wrap: break-word` is what makes those marks win: unlike `anywhere`,
+ * it breaks at an arbitrary character only when a line offers no other break
+ * opportunity. `<wbr>` contributes no character, so copying an entry still
+ * yields the plain method name.
+ */
+function breakOnWordBoundaries(methodName: string): ReactNode {
+  const words = methodName.split(/(?=[A-Z])|(?<=_)/).filter(Boolean);
+
+  return (
+    <span className="[overflow-wrap:break-word]">
+      {words.map((word, index) => (
+        <Fragment key={index}>
+          {index > 0 ? <wbr /> : null}
+          {word}
+        </Fragment>
+      ))}
+    </span>
+  );
 }
