@@ -165,6 +165,10 @@ export default config({
           label: "Switchback",
           collection: "switchbacks",
         }),
+        report: fields.relationship({
+          label: "Report Promotion",
+          collection: "reports",
+        }),
       },
     }),
 

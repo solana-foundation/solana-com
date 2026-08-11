@@ -43,7 +43,7 @@ async function canUploadReports(request: Request) {
   const permission = (await permissionResponse.json()) as {
     permission?: string;
   };
-  return ["admin", "maintain", "push"].includes(permission.permission ?? "");
+  return ["admin", "maintain", "write"].includes(permission.permission ?? "");
 }
 
 export async function POST(request: Request) {

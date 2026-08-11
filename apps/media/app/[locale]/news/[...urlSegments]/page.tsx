@@ -5,6 +5,7 @@ import { reader } from "@/lib/reader";
 import { Section } from "@/components/layout/section";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowToBottom as ArrowDownToLine } from "@boxicons/react/ArrowToBottom";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
 import ErrorBoundary from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import type { Metadata } from "next";
 import { JsonLd } from "@/components/seo/json-ld";
 import { buildArticleJsonLd } from "@/lib/content-structured-data";
 import { toPlainText } from "@/lib/structured-data";
+import { ReportFormModal } from "@/components/report/report-form-modal";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -111,6 +113,13 @@ export default async function PostPage({
   let switchback = null;
   if (post.switchback) {
     switchback = await reader.collections.switchbacks.read(post.switchback);
+  }
+
+  // Reports use their own collection, so post promotions must resolve them
+  // separately from reusable switchbacks.
+  let report = null;
+  if (post.report) {
+    report = await reader.collections.reports.read(post.report);
   }
 
   const formattedDate = formatPublishedAt(post.publishedAt, "long");
@@ -257,6 +266,64 @@ export default async function PostPage({
                 url: button?.url || "",
               }),
             )}
+          />
+        </Section>
+      )}
+      {report && (
+        <Section>
+          <Switchback
+            title={String(report.headline || report.title)}
+            image={{
+              src: report.image?.src ?? "",
+              alt: report.image?.alt ?? "",
+            }}
+            eyebrow={report.eyebrow || undefined}
+            body={
+              <MDXRemote
+                source={preprocessMDX(await report.body())}
+                components={mdxComponents}
+                options={{
+                  mdxOptions: { remarkPlugins: [remarkGfm] },
+                }}
+              />
+            }
+            buttons={report.buttons?.flatMap(
+              (button: { label?: string; url?: string } | undefined) =>
+                button?.label && button.url
+                  ? [{ label: button.label, url: button.url }]
+                  : [],
+            )}
+            actions={
+              <>
+                {report.hubspotForm?.portalId && report.hubspotForm?.formId && (
+                  <ReportFormModal
+                    buttonLabel={
+                      report.hubspotForm.buttonLabel || "Get the full report"
+                    }
+                    portalId={String(report.hubspotForm.portalId)}
+                    formId={String(report.hubspotForm.formId)}
+                    formUrl={
+                      report.hubspotForm.formUrl
+                        ? String(report.hubspotForm.formUrl)
+                        : undefined
+                    }
+                    title={String(report.headline || report.title)}
+                  />
+                )}
+                {report.pdfUrl && (
+                  <Button asChild size="lg">
+                    <a
+                      href={String(report.pdfUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ArrowDownToLine className="size-4" />
+                      Download Report
+                    </a>
+                  </Button>
+                )}
+              </>
+            }
           />
         </Section>
       )}

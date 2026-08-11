@@ -14,6 +14,7 @@ interface SwitchbackProps {
     label: string;
     url: string;
   }[];
+  actions?: React.ReactNode;
 }
 
 const Switchback: React.FC<SwitchbackProps> = ({
@@ -22,6 +23,7 @@ const Switchback: React.FC<SwitchbackProps> = ({
   eyebrow,
   body,
   buttons,
+  actions,
 }) => {
   const hasImage = image?.src;
   return (
@@ -86,6 +88,9 @@ const Switchback: React.FC<SwitchbackProps> = ({
                     </Button>
                   ))}
                 </div>
+              )}
+              {actions && (
+                <div className="mt-6 flex flex-wrap gap-3">{actions}</div>
               )}
             </div>
           </div>
