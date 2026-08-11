@@ -23,6 +23,10 @@ const {
         list: vi.fn(),
         read: vi.fn(),
       },
+      reports: {
+        list: vi.fn(),
+        read: vi.fn(),
+      },
       categories: {
         read: vi.fn(),
       },
@@ -670,7 +674,6 @@ describe("latest content filters", () => {
     it("excludes future-dated reports and returns publish timestamps", async () => {
       const reports = {
         "live-report": {
-          isReport: true,
           status: "published",
           title: "Live Report",
           description: "live report",
@@ -680,7 +683,6 @@ describe("latest content filters", () => {
           image: { src: "/uploads/live-report.webp" },
         },
         "scheduled-report": {
-          isReport: true,
           status: "published",
           title: "Scheduled Report",
           description: "scheduled report",
@@ -691,12 +693,11 @@ describe("latest content filters", () => {
         },
       };
 
-      readerMock.collections.switchbacks.list.mockResolvedValue(
+      readerMock.collections.reports.list.mockResolvedValue(
         Object.keys(reports),
       );
-      readerMock.collections.switchbacks.read.mockImplementation(
-        (slug: string) =>
-          Promise.resolve(reports[slug as keyof typeof reports] ?? null),
+      readerMock.collections.reports.read.mockImplementation((slug: string) =>
+        Promise.resolve(reports[slug as keyof typeof reports] ?? null),
       );
 
       const result = await fetchLatestReports({});
@@ -813,36 +814,33 @@ describe("latest content filters", () => {
     });
 
     it("keeps future-dated reports out of the reports API payload", async () => {
-      readerMock.collections.switchbacks.list.mockResolvedValue([
+      readerMock.collections.reports.list.mockResolvedValue([
         "live-report",
         "scheduled-report",
       ]);
-      readerMock.collections.switchbacks.read.mockImplementation(
-        (slug: string) =>
-          Promise.resolve(
-            {
-              "live-report": {
-                isReport: true,
-                status: "published",
-                title: "Live Report",
-                description: "live report",
-                publishedAt: "2026-03-11T00:00:00.000Z",
-                categories: [{ category: "ecosystem" }],
-                tags: [{ tag: "defi" }],
-                image: { src: "/uploads/live-report.webp" },
-              },
-              "scheduled-report": {
-                isReport: true,
-                status: "published",
-                title: "Scheduled Report",
-                description: "scheduled report",
-                publishedAt: "2026-03-25T12:00:00.000Z",
-                categories: [{ category: "ecosystem" }],
-                tags: [{ tag: "defi" }],
-                image: { src: "/uploads/scheduled-report.webp" },
-              },
-            }[slug] ?? null,
-          ),
+      readerMock.collections.reports.read.mockImplementation((slug: string) =>
+        Promise.resolve(
+          {
+            "live-report": {
+              status: "published",
+              title: "Live Report",
+              description: "live report",
+              publishedAt: "2026-03-11T00:00:00.000Z",
+              categories: [{ category: "ecosystem" }],
+              tags: [{ tag: "defi" }],
+              image: { src: "/uploads/live-report.webp" },
+            },
+            "scheduled-report": {
+              status: "published",
+              title: "Scheduled Report",
+              description: "scheduled report",
+              publishedAt: "2026-03-25T12:00:00.000Z",
+              categories: [{ category: "ecosystem" }],
+              tags: [{ tag: "defi" }],
+              image: { src: "/uploads/scheduled-report.webp" },
+            },
+          }[slug] ?? null,
+        ),
       );
 
       const response = (await getLatestReports({

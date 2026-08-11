@@ -1,7 +1,7 @@
 # Creating Switchbacks and Reports in Keystatic
 
 > A practical guide for content editors creating standard switchbacks and
-> report-backed switchbacks in the media app.
+> standalone reports in the media app.
 
 ---
 
@@ -19,23 +19,14 @@ At the simplest level, a switchback contains:
 - Rich text body content
 - One or more buttons
 
-Switchbacks were originally used as supporting marketing sections attached to
-posts. They now also serve a second purpose: they can act as the source of truth
-for **reports**.
-
-This means there are now **two valid ways** to use a switchback:
-
-1. As a normal switchback attached to a post or other page
-2. As a published report that appears under `/reports/[slug]`
+Switchbacks are reusable supporting marketing sections attached to posts or
+other pages. Reports are managed separately in the **Reports** collection.
 
 ---
 
 ## What a Report Is
 
-A report is a **report-backed switchback**.
-
-There is no separate `Reports` collection in Keystatic. Instead, reports live
-inside `Switchbacks` and are activated with the `Use As Report` field.
+A report is a standalone entry in the **Reports** collection.
 
 Reports exist for content such as:
 
@@ -45,7 +36,7 @@ Reports exist for content such as:
 - Gated report landing pages
 - Downloadable PDFs promoted through a HubSpot form
 
-In practice, a report is a switchback with extra report metadata:
+Each report has:
 
 - Publish status
 - Date
@@ -55,8 +46,7 @@ In practice, a report is a switchback with extra report metadata:
 - Optional PDF URL
 - Optional HubSpot modal CTA
 
-If `Use As Report` is not enabled, the switchback behaves like a normal
-switchback and **will not** appear on `/reports`.
+Switchbacks never appear on `/reports`.
 
 ---
 
@@ -66,7 +56,7 @@ Open Keystatic and go to:
 
 - `Switchbacks`
 
-For a general Keystatic walkthrough, see:
+For switchback authoring, see:
 
 - [keystatic-walkthrough.md](/Users/karambit/Sites/solana-com/apps/media/docs/keystatic-walkthrough.md)
 
@@ -90,7 +80,7 @@ not need it to become a report page.
 1. Open `Switchbacks`
 2. Click `Add`
 3. Fill in the content fields
-4. Leave `Use As Report` unchecked
+4. Save
 5. Save
 
 ### Standard switchback fields
@@ -142,7 +132,7 @@ under `/reports/[slug]`.
 
 ### Report behavior
 
-When a switchback is configured as a report:
+When a report is configured as published:
 
 - It becomes eligible for the `/reports` listing
 - It becomes available at `/reports/[slug]`
@@ -152,12 +142,12 @@ When a switchback is configured as a report:
 
 ### Required report fields
 
-To make a switchback render as a report:
+To make a report render publicly:
 
-1. Set `Use As Report` to `true`
-2. Set `Report Status` to `published`
+1. Open `Reports`
+2. Set `Status` to `published`
 
-If either is missing, the report page will not resolve.
+Draft or future-dated reports do not resolve publicly.
 
 ### Recommended report setup
 
@@ -166,24 +156,37 @@ Fill these fields for every report:
 | Field                | Why it matters                                                    |
 | -------------------- | ----------------------------------------------------------------- |
 | `Title`              | Defines the entry slug                                            |
-| `Use As Report`      | Enables report behavior                                           |
-| `Report Status`      | Must be `published` for the route to work                         |
+| `Status`             | Must be `published` for the route to work                         |
 | `Publish Date`       | Controls scheduling, sorting, and display; enter the value in UTC |
 | `Report Description` | Used for SEO and preview copy                                     |
 | `Image`              | Main hero image for the report page                               |
 | `Eyebrow`            | Category-style label above the headline                           |
 | `Headline`           | Main report title shown on page                                   |
 | Main editor body     | Structured report copy shown in the hero text column              |
-| `Report Categories`  | Used for filtering and page metadata                              |
-| `Report Tags`        | Used for filtering and tagging                                    |
+| `Categories`         | Used for filtering and page metadata                              |
+| `Tags`               | Used for filtering and tagging                                    |
 
 ### Optional report fields
 
-| Field              | Use case                               |
-| ------------------ | -------------------------------------- |
-| `PDF URL`          | Adds a direct `Download Report` button |
-| `HubSpot Form CTA` | Opens a gated HubSpot form in a modal  |
-| `Buttons`          | Extra regular external links           |
+| Field              | Use case                                                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `PDF URL`          | Adds a direct `Download Report` button. Upload through the CMS toolbar to Vercel Blob, then paste the copied URL. |
+| `HubSpot Form CTA` | Opens a gated HubSpot form in a modal                                                                             |
+| `Buttons`          | Extra regular external links                                                                                      |
+
+---
+
+## Uploading a PDF to Vercel Blob
+
+When editing a report in Keystatic, use **Upload report PDF** above the editor.
+The uploader accepts PDFs only, stores them under `reports/` in the connected
+Vercel Blob store, and copies the public URL. Paste that URL into `PDF URL` and
+save the report.
+
+The deployed media app needs the `BLOB_READ_WRITE_TOKEN` environment variable
+for the linked Blob store. On Vercel, connect the specified Blob store to the
+Solana.com project and enable that variable for every environment where CMS
+uploads should work.
 
 ---
 
@@ -311,11 +314,12 @@ For every report:
 
 ## Images for Switchbacks and Reports
 
-All switchback images should now use:
+Switchback images use:
 
 - `/uploads/switchbacks/...`
 
-This includes report-backed switchbacks.
+Report cover images use `/uploads/reports/...` for new uploads. Existing report
+cover images retain their current paths so public URLs do not break.
 
 The repo was migrated so older switchbacks no longer point to the legacy
 `/uploads/posts/...` paths.
@@ -335,8 +339,7 @@ That keeps switchback assets consistent and easier to manage.
 
 Before marking a report as published, confirm all of the following:
 
-- `Use As Report` is enabled
-- `Report Status` is `published`
+- `Status` is `published`
 - `Publish Date` is set with the correct UTC date and time
 - `Report Description` is filled
 - `Headline` is correct
@@ -355,9 +358,8 @@ Before marking a report as published, confirm all of the following:
 
 Usually one of these:
 
-- `Use As Report` is not enabled
-- `Report Status` is not `published`
-- The slug in the URL does not match the switchback slug
+- `Status` is not `published`
+- The slug in the URL does not match the report slug
 
 ### The body does not appear in Keystatic correctly
 
@@ -397,14 +399,14 @@ Cause:
 
 Fix:
 
-- Re-upload through the switchback `Image` field so it stores under
-  `/uploads/switchbacks/...`
+- Re-upload through the report `Cover Image` field so new assets store under
+  `/uploads/reports/...`
 
 ---
 
 ## Example: Tokenized Equities
 
-`tokenized-equities` is a good example of a report-backed switchback that uses:
+`tokenized-equities` is a report that uses:
 
 - A report headline and description
 - Category and tag relationships
@@ -414,20 +416,14 @@ Fix:
 
 Source file:
 
-- [tokenized-equities.mdx](/Users/karambit/Sites/solana-com/apps/media/content/switchbacks/tokenized-equities.mdx)
+- [tokenized-equities.mdx](../content/reports/tokenized-equities.mdx)
 
 ---
 
 ## Summary
 
-Use `Switchbacks` for both:
-
-- reusable marketing sections
-- standalone reports
-
-The difference is whether `Use As Report` is enabled.
-
-If it is a report:
+Use `Switchbacks` for reusable marketing sections and `Reports` for standalone
+report landing pages. For each report:
 
 - publish it
 - give it taxonomy
