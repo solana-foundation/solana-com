@@ -116,6 +116,15 @@ plugin looks for `<source>.<region>.output.txt`, then `<source>.output.txt`, so
 an example needs no extra wiring in the MDX. A block whose code is inline in the
 MDX can point at a file explicitly with `output=<path>` on the fence.
 
+An example whose output is a freshly generated key pair would read as wrong
+frozen into a file, so `cookbook/wallets/create-keypair` builds its output in
+the browser instead — it generates a real Ed25519 key pair with `@solana/keys`
+on each Run. To do the same for another example, add a module under
+`apps/docs/src/app/components/code/runners/` exporting one function per tab
+title, register it in `runners/registry.ts`, and name it from the MDX with
+`<CodeTabs flags="r" runner="<id>">`. Prefer a captured `.output.txt` wherever a
+fixed value is honest — it costs no client JavaScript.
+
 ## RPC providers
 
 To be considered for listing on the https://solana.com/rpc page, providers must

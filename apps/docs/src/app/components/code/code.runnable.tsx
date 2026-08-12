@@ -10,6 +10,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@@/src/app/components/ui/resizable";
+import { loadRunner } from "./runners/registry";
 
 function ConsoleHeader({ className }: { className?: string }) {
   return (
@@ -79,8 +80,9 @@ const MIN_RUN_MS = 500;
 const NO_OUTPUT = "This example doesn't have output to show yet.";
 
 /**
- * Produces the console output for a runnable block. Nothing is executed: the
- * block prints the output captured from the real example.
+ * Produces the console output for a runnable block. Nothing is executed: a
+ * block either has a browser-side runner (for examples whose output is freshly
+ * generated data) or a static output captured from the real example.
  */
 function useRunnableCode(example: Example): RunnableCodeState {
   const [running, setRunning] = useState(false);
@@ -113,7 +115,17 @@ function useRunnableCode(example: Example): RunnableCodeState {
   };
 }
 
-async function resolveOutput({ output }: Example): Promise<React.ReactNode> {
+async function resolveOutput({
+  code,
+  language,
+  title,
+  output,
+  runner,
+}: Example): Promise<React.ReactNode> {
+  if (runner) {
+    const run = await loadRunner(runner, { title, language });
+    if (run) return run({ code, language, title });
+  }
   return output ?? NO_OUTPUT;
 }
 
