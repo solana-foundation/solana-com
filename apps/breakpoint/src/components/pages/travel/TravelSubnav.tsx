@@ -70,7 +70,7 @@ export default function TravelSubnav() {
       <nav
         ref={navRef}
         aria-label="Travel sections"
-        className="sticky top-20 z-30 border-b border-neutral-700 bg-black py-[29px]"
+        className="sticky top-20 z-30 border-b border-neutral-700 bg-black py-[28.5px]"
       >
         <div className="container flex w-full max-w-[1440px] flex-wrap items-center gap-1 md:gap-2">
           {TRAVEL_LINKS.map((link) => (

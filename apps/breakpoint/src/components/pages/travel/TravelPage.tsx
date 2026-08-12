@@ -77,23 +77,22 @@ const AIRLINES = [
 
 function FlightsSection() {
   return (
-    <section
-      id="flights"
-      className="scroll-mt-16 bg-black pt-[80px] md:scroll-mt-20 md:pt-[120px]"
-    >
+    <section id="flights" className="scroll-mt-16 bg-black md:scroll-mt-20">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-12 px-4 md:gap-16 md:px-8">
-        <SectionHeadline
-          alignment="center"
-          eyebrow="Airports & flight deals"
-          headline="Getting to London"
-        />
-        <div className="grid gap-12 md:grid-cols-bp-desktop md:gap-x-s">
+        <div className="flex h-[147px] shrink-0 items-center justify-center md:h-[180px]">
+          <SectionHeadline
+            alignment="center"
+            eyebrow="Airports & flight deals"
+            headline="Getting to London"
+          />
+        </div>
+        <div className="grid gap-16 md:grid-cols-bp-desktop md:gap-x-s">
           <div className="flex flex-col md:col-span-6">
             {AIRPORTS.map((airport) => (
               <a
                 key={airport.code}
                 href={airport.href}
-                className="group flex min-h-[140px] flex-col justify-center gap-3 border-b border-stroke-primary py-6 first:border-t md:min-h-[166px] md:px-8 md:py-8"
+                className="group flex h-[140px] flex-col justify-center gap-3 border-b border-stroke-primary py-6 first:border-t md:h-[166px] md:px-8 md:py-8"
                 {...getAnchorLinkProps({ href: airport.href })}
               >
                 <p className="font-bp26 text-h6 uppercase text-white">
@@ -111,8 +110,8 @@ function FlightsSection() {
               </a>
             ))}
           </div>
-          <div className="-mr-4 overflow-x-auto pb-2 md:col-span-9 md:col-start-8 md:mr-0 md:overflow-visible">
-            <div className="grid w-max grid-flow-col auto-cols-[minmax(284px,calc(100vw-48px))] gap-6 md:w-full md:grid-flow-row md:grid-cols-2 md:gap-8">
+          <div className="-mr-4 overflow-x-auto md:col-span-9 md:col-start-8 md:mr-0 md:overflow-visible">
+            <div className="grid w-max grid-flow-col auto-cols-[283.56px] gap-6 md:w-full md:auto-rows-[382px] md:grid-flow-row md:grid-cols-2 md:gap-8">
               {AIRLINES.map((airline) => (
                 <article key={airline.name} className="w-full">
                   <div className="flex h-[189px] items-center justify-center border border-stroke-primary bg-transparent-white-05 p-9 md:h-[246px] md:p-11">
@@ -270,10 +269,12 @@ export default function TravelPage() {
       <TravelHero />
       <TravelSubnav />
       <FlightsSection />
-      <Marquee
-        highlightClassName="text-green"
-        highlights={TRAVEL_MARQUEE_HIGHLIGHTS}
-      />
+      <div className="hidden h-[82px] overflow-hidden md:block">
+        <Marquee
+          highlightClassName="text-green"
+          highlights={TRAVEL_MARQUEE_HIGHLIGHTS}
+        />
+      </div>
       <HotelsSection />
       <VisaSection />
       <Marquee
