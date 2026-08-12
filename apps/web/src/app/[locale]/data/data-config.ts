@@ -482,7 +482,7 @@ export const providerColors: Record<string, string> = {
   Chainstack: "#7B61FF",
   DeFiLlama: "#3B8CFF",
   Dune: "#F75F47",
-  FluxRPC: "#FF5C5C",
+  FluxRPC: "#F2C14E",
   Helius: "#E84125",
   Jito: "#A78BFA",
   QuickNode: "#6CFF75",
