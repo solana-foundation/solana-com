@@ -1,6 +1,5 @@
 export type SwitchbackItem = {
   title: string;
-  isReport?: boolean | null;
   status?: string | null;
   publishedAt?: string | null;
   description?: string | null;

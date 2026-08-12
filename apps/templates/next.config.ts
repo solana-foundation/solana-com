@@ -1,6 +1,7 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import { APP_TOPOLOGY, getNextPublicAppEnv } from "@workspace/app-topology";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const assetPrefix = APP_TOPOLOGY.templates.assetPrefix;
 
@@ -83,4 +84,15 @@ const nextConfig: NextConfig = {
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
-export default withNextIntl(nextConfig);
+export default withSentryConfig(withNextIntl(nextConfig), {
+  org: "solana-fndn",
+  project: "javascript-nextjs",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  disableLogger: true,
+  automaticVercelMonitors: true,
+  sourcemaps: {
+    disable:
+      process.env.VERCEL_ENV !== "production" || !process.env.SENTRY_AUTH_TOKEN,
+  },
+});

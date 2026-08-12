@@ -427,9 +427,9 @@ export async function reportMetadata(
   locale?: string,
 ): Promise<Metadata> {
   const resolvedLocale = resolveLocale(locale);
-  const report = await reader.collections.switchbacks.read(slug);
+  const report = await reader.collections.reports.read(slug);
 
-  if (!isPublishedReport(report)) {
+  if (!report || !isPublishedReport(report)) {
     return notFoundMetadata("Report Not Found");
   }
 

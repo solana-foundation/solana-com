@@ -49,7 +49,6 @@ import ellipalIcon from "../../assets/wallets/icons/ellipal.webp";
 import emcdIcon from "../../assets/wallets/icons/emcd.webp";
 import enkryptIcon from "../../assets/wallets/icons/enkrypt.webp";
 import ethosIcon from "../../assets/wallets/icons/ethos.webp";
-import espressoCashIcon from "../../assets/wallets/icons/espresso-cash.webp";
 import exodusIcon from "../../assets/wallets/icons/exodus.webp";
 import fireblocksEmbeddedIcon from "../../assets/wallets/icons/fireblocks-embedded.webp";
 import fordefiIcon from "../../assets/wallets/icons/fordefi.webp";
@@ -58,7 +57,6 @@ import fuseIcon from "../../assets/wallets/icons/fuse.webp";
 import fxwalletIcon from "../../assets/wallets/icons/fxwallet.webp";
 import gateIcon from "../../assets/wallets/icons/gate.webp";
 import gemIcon from "../../assets/wallets/icons/gem.webp";
-import glowIcon from "../../assets/wallets/icons/glow.webp";
 import guardaIcon from "../../assets/wallets/icons/guarda.webp";
 import heliumIcon from "../../assets/wallets/icons/helium.webp";
 import hexTrustIcon from "../../assets/wallets/icons/hex-trust.webp";
@@ -1064,25 +1062,6 @@ const walletRecords = {
     icon: exodusIcon,
     lastVerified: "2026-07-15",
   },
-  "espresso-cash": {
-    name: "Espresso Cash",
-    aliases: ["espresso-wallet"],
-    category: "payments",
-    platforms: ["ios", "android"],
-    features: [
-      "non_custodial",
-      "buy_crypto",
-      "sell_crypto",
-      "get_paid",
-      "open_source",
-      "solana_native",
-    ],
-    description:
-      "Open-source self-custody Solana payments wallet for sending and receiving stablecoins through shareable links, with integrated fiat on- and off-ramps",
-    website: "https://www.espressocash.com/",
-    icon: espressoCashIcon,
-    lastVerified: "2026-07-16",
-  },
   "fireblocks-embedded": {
     name: "Fireblocks SDK",
     companyId: "fireblocks",
@@ -1216,23 +1195,6 @@ const walletRecords = {
       "Fully open-source self-custodial mobile wallet for 100+ chains including Solana, with built-in swaps, fiat on-ramp in 170+ countries, NFTs, and SOL staking via validator delegation",
     website: "https://gemwallet.com/",
     icon: gemIcon,
-    lastVerified: "2026-07-15",
-  },
-  glow: {
-    name: "Glow",
-    category: "consumer",
-    platforms: ["ios", "android", "chrome", "firefox", "brave", "edge"],
-    features: [
-      "non_custodial",
-      "hold_nfts",
-      "staking",
-      "hardware",
-      "solana_native",
-    ],
-    description:
-      "Solana-native wallet for mobile and desktop browsers with zero-fee swaps, SOL staking, an NFT gallery, spam-token burning that earns SOL, and Ledger Nano X signing",
-    website: "https://glow.app/",
-    icon: glowIcon,
     lastVerified: "2026-07-15",
   },
   guarda: {
