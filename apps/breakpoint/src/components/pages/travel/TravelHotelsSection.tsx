@@ -2,52 +2,33 @@
 
 import { useState } from "react";
 import Button from "@/components/Button";
+import ImageTreatment from "@/components/ImageTreatment";
 import { publicAssetPath } from "@/config";
+import { HOTEL_BOOKING_HREF, NOMADZ_HREF } from "@/content/links";
 
 const HOTELS = [
   {
-    name: "The Ned London",
-    href: "https://www.thened.com/london/",
-    description: "City of London hotel in a landmark 1930s bank building.",
-    distance: "40 minutes from Olympia Convention Centre",
+    ctaLabel: "Book through aRes",
+    name: "aRes Travel",
+    href: HOTEL_BOOKING_HREF,
+    description: "Browse hotel accommodations for Breakpoint.",
+    distance: "Hotel booking partner",
     imageSrc: "/img/travel/hotel-london.webp",
     imagePosition: "center",
   },
   {
-    name: "Vintry and Mercer",
-    href: "https://www.vintryandmercer.com/us/",
-    description: "Boutique hotel near Mansion House and the District line.",
-    distance: "40 minutes from Olympia Convention Centre",
+    ctaLabel: "Book with Nomadz",
+    name: "Nomadz",
+    href: NOMADZ_HREF,
+    description: "Travel aggregator on Solana.",
+    distance: "Save up to 30% on stays",
     imageSrc: "/img/travel/london-pick-02.jpg",
-    imagePosition: "center",
-  },
-  {
-    name: "The Westin London City",
-    href: "https://www.marriott.com/en-us/hotels/lonwi-the-westin-london-city/overview/",
-    description: "Riverside stay on Upper Thames Street with westbound routes.",
-    distance: "35 minutes from Olympia Convention Centre",
-    imageSrc: "/img/travel/london-pick-03.jpg",
-    imagePosition: "center",
-  },
-  {
-    name: "The Waldorf Hilton",
-    href: "https://www.hilton.com/en/hotels/lonwahi-the-waldorf-hilton-london/",
-    description: "Aldwych hotel near Covent Garden, theatres, and dining.",
-    distance: "30 minutes from Olympia Convention Centre",
-    imageSrc: "/img/travel/london-pick-04.jpg",
-    imagePosition: "center",
-  },
-  {
-    name: "The Clermont London, Charing Cross",
-    href: "https://www.theclermont.co.uk/charing-cross",
-    description: "Charing Cross hotel by Trafalgar Square and central rail.",
-    distance: "35 minutes from Olympia Convention Centre",
-    imageSrc: "/img/travel/london-pick-05.jpg",
     imagePosition: "center",
   },
 ] satisfies HotelInfo[];
 
 type HotelInfo = {
+  ctaLabel: string;
   description: string;
   distance: string;
   href: string;
@@ -89,15 +70,21 @@ export default function HotelsSection() {
               maskSize: "100% 100%",
             }}
           >
-            <img
+            <ImageTreatment
               key={activeHotel.name}
-              src={publicAssetPath(activeHotel.imageSrc)}
+              src={activeHotel.imageSrc}
               alt=""
               aria-hidden="true"
-              width={638}
-              height={967}
-              className="h-full w-full object-cover"
-              style={{ objectPosition: activeHotel.imagePosition }}
+              glitchPattern="p1"
+              intensity={40}
+              lighting="even"
+              color="blue"
+              motion
+              flicker
+              mouseReactive
+              mouseRadius={120}
+              objectFit="cover"
+              className="absolute inset-0 h-full w-full opacity-90 transition-opacity duration-300"
             />
           </div>
 
@@ -143,7 +130,7 @@ export default function HotelsSection() {
                       <Button
                         arrow
                         href={hotel.href}
-                        label="Learn more"
+                        label={hotel.ctaLabel}
                         variant="inline"
                       />
                     </div>
