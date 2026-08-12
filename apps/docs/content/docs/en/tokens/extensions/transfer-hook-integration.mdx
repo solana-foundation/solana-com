@@ -51,9 +51,9 @@ Kit and Web3.js.
   (extension detection, extra account resolution, and the high-level transfer
   helper used throughout this guide)
 - [`@solana-program/token-2022` JS client](https://github.com/solana-program/token-2022/tree/main/clients/js)
-  (Kit-based instruction builders, including `TransferChecked` and the
-  `InitializeTransferHook` / `UpdateTransferHook` builders an issuer uses to
-  configure the hook)
+  (Kit-based instruction builders and native transfer hook resolution, including
+  `getTransferCheckedWithTransferHookInstructionAsync` and the lower-level
+  `resolveExtraAccountMetasForExecute` / `findExtraAccountMetaListPda` helpers)
 - [Token Extensions Transfer Hook guide](/developers/guides/token-extensions/transfer-hook)
   (writing a hook program, for context on what issuers configure)
 
@@ -71,12 +71,10 @@ Kit and Web3.js.
   the token without the hook.
 - **Both Kit (`@solana-program/token-2022`) and Web3.js (`@solana/spl-token`)
   can send a hook-enabled transfer end-to-end** — see the complete functions
-  under [Sending a transfer-hook token](#sending-a-transfer-hook-token). Web3.js
-  resolves everything natively via
-  `createTransferCheckedWithTransferHookInstruction`. Kit doesn't ship an
-  `ExtraAccountMetaList` resolver of its own yet, so its function borrows the
-  legacy client's resolver internally to compute the extra accounts, then builds
-  and sends entirely with Kit.
+  under [Sending a transfer-hook token](#sending-a-transfer-hook-token). Each
+  resolves the `ExtraAccountMetaList` natively: Kit via
+  `getTransferCheckedWithTransferHookInstructionAsync`, Web3.js via
+  `createTransferCheckedWithTransferHookInstruction`.
 - **Always simulate before sending.** A hook program can fail the transfer for
   any reason it defines (an allowlist check, a paused state, a missing
   delegation), and the set of extra accounts can change if the issuer updates
@@ -112,15 +110,15 @@ wherever your app currently builds a Token-2022 transfer.
 
 ### Kit
 
-Kit doesn't ship its own `ExtraAccountMetaList` resolver yet, so this function
-borrows the legacy client's resolver purely to compute the hook's extra accounts
-— the `legacyConnection` it takes is never used to send anything, only to
-resolve. Everything else is built and sent with Kit.
+The `@solana-program/token-2022` client resolves everything natively via
+`getTransferCheckedWithTransferHookInstructionAsync`: it fetches the mint,
+detects whether a transfer hook is configured, resolves the
+`ExtraAccountMetaList`, and appends the hook's extra accounts. When the mint has
+no hook it returns a plain `transferChecked`, so the same call covers both cases
+with no bridging to the legacy client.
 
 ```ts title="send-transfer-hook-token-kit.ts"
 import {
-  address,
-  AccountRole,
   appendTransactionMessageInstructions,
   createTransactionMessage,
   getBase64EncodedWireTransaction,
@@ -130,82 +128,13 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
   type Address,
-  type AccountMeta as KitAccountMeta,
   type Rpc,
   type RpcSubscriptions,
   type SolanaRpcApi,
   type SolanaRpcSubscriptionsApi,
   type TransactionSigner
 } from "@solana/kit";
-import {
-  fetchMint,
-  getTransferCheckedInstruction,
-  isExtension,
-  unwrapOption
-} from "@solana-program/token-2022";
-import {
-  Connection,
-  PublicKey,
-  type AccountMeta as LegacyAccountMeta
-} from "@solana/web3.js";
-import {
-  createTransferCheckedWithTransferHookInstruction,
-  TOKEN_2022_PROGRAM_ID
-} from "@solana/spl-token";
-
-function toKitAccountMeta(meta: LegacyAccountMeta): KitAccountMeta {
-  return {
-    address: address(meta.pubkey.toBase58()),
-    role: meta.isSigner
-      ? meta.isWritable
-        ? AccountRole.WRITABLE_SIGNER
-        : AccountRole.READONLY_SIGNER
-      : meta.isWritable
-        ? AccountRole.WRITABLE
-        : AccountRole.READONLY
-  };
-}
-
-// Kit has no ExtraAccountMetaList resolver yet, so this borrows the legacy
-// client's resolver purely to compute the extra accounts a hook needs -- the
-// instruction it builds here is never sent, only read for its resolved keys.
-async function resolveTransferHookAccounts({
-  legacyConnection,
-  source,
-  mint,
-  destination,
-  owner,
-  amount,
-  decimals
-}: {
-  legacyConnection: Connection;
-  source: Address;
-  mint: Address;
-  destination: Address;
-  owner: Address;
-  amount: bigint;
-  decimals: number;
-}): Promise<KitAccountMeta[]> {
-  const scratchInstruction =
-    await createTransferCheckedWithTransferHookInstruction(
-      legacyConnection,
-      new PublicKey(source),
-      new PublicKey(mint),
-      new PublicKey(destination),
-      new PublicKey(owner),
-      amount,
-      decimals,
-      [],
-      "confirmed",
-      TOKEN_2022_PROGRAM_ID
-    );
-
-  // The first 4 keys are the base TransferChecked accounts (source, mint,
-  // destination, owner), which the Kit instruction below already has.
-  // Everything after that is the hook program, the ExtraAccountMetaList
-  // PDA, and the resolved extra accounts.
-  return scratchInstruction.keys.slice(4).map(toKitAccountMeta);
-}
+import { getTransferCheckedWithTransferHookInstructionAsync } from "@solana-program/token-2022";
 
 /**
  * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
@@ -215,7 +144,6 @@ async function resolveTransferHookAccounts({
 export async function sendTokenTransfer({
   rpc,
   rpcSubscriptions,
-  legacyConnection,
   source,
   mint,
   destination,
@@ -226,7 +154,6 @@ export async function sendTokenTransfer({
 }: {
   rpc: Rpc<SolanaRpcApi>;
   rpcSubscriptions: RpcSubscriptions<SolanaRpcSubscriptionsApi>;
-  legacyConnection: Connection; // Same RPC endpoint as `rpc`, used only to resolve hook accounts.
   source: Address;
   mint: Address;
   destination: Address;
@@ -235,39 +162,22 @@ export async function sendTokenTransfer({
   amount: bigint;
   decimals: number;
 }) {
-  // 1. Re-check for a transfer hook on every send. The hook program and its
-  // extra accounts can both change, so don't cache this across transfers.
-  const mintAccount = await fetchMint(rpc, mint);
-  const transferHook = (unwrapOption(mintAccount.data.extensions) ?? []).find(
-    (item) => isExtension("TransferHook", item)
-  );
-
-  // 2. Build the transfer instruction, then append the hook's extra
-  // accounts if one is configured.
-  let instruction = getTransferCheckedInstruction({
-    source,
-    mint,
-    destination,
-    authority: owner,
-    amount,
-    decimals
-  });
-
-  if (transferHook) {
-    const extraAccounts = await resolveTransferHookAccounts({
-      legacyConnection,
+  // 1. Build the transfer instruction. When the mint has a transfer hook this
+  // fetches it, resolves the ExtraAccountMetaList, and appends the accounts the
+  // hook's CPI needs; when it doesn't, you get a plain transferChecked. Because
+  // it re-fetches the mint on every call, don't cache the result across sends
+  // -- the hook program and its extra accounts can both change.
+  const instruction = await getTransferCheckedWithTransferHookInstructionAsync(
+    { rpc },
+    {
       source,
       mint,
       destination,
-      owner: owner.address,
+      authority: owner,
       amount,
       decimals
-    });
-    instruction = {
-      ...instruction,
-      accounts: [...instruction.accounts, ...extraAccounts]
-    };
-  }
+    }
+  );
 
   const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
   const message = pipe(
@@ -278,7 +188,7 @@ export async function sendTokenTransfer({
   );
   const signedMessage = await signTransactionMessageWithSigners(message);
 
-  // 3. Simulate before sending. This is what catches a hook rejecting the
+  // 2. Simulate before sending. This is what catches a hook rejecting the
   // transfer (an allowlist check, a paused mint, ...) or a stale
   // ExtraAccountMetaList, before the user pays a fee for a failed transaction.
   const simulation = await rpc
@@ -293,7 +203,7 @@ export async function sendTokenTransfer({
     );
   }
 
-  // 4. Only send after a successful simulation.
+  // 3. Only send after a successful simulation.
   await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
     signedMessage,
     { commitment: "confirmed" }
@@ -302,11 +212,11 @@ export async function sendTokenTransfer({
 ```
 
 <Callout type="info">
-  This function calls the same legacy resolver functions covered under
-  [Assembling accounts manually](#assembling-accounts-manually) below —
-  `createTransferCheckedWithTransferHookInstruction` is the highest-level of
-  them. Once Kit ships its own `ExtraAccountMetaList` resolver, the
-  `resolveTransferHookAccounts` helper above is the only piece that changes.
+  `getTransferCheckedWithTransferHookInstructionAsync` wraps the lower-level Kit
+  resolvers (`resolveExtraAccountMetasForExecute`,
+  `findExtraAccountMetaListPda`) covered under [Assembling accounts
+  manually](#assembling-accounts-manually) below. Reach for those directly only
+  when you're appending hook accounts to an instruction you assemble yourself.
 </Callout>
 
 ### Web3.js
@@ -420,7 +330,10 @@ export async function sendTokenTransfer({
 
 #### Detecting the extension
 
-Step 1 in both functions above does this — re-fetching on every send.
+Both functions above re-fetch the mint and check for the hook on every send:
+Web3.js explicitly via `getMint`, Kit inside
+`getTransferCheckedWithTransferHookInstructionAsync`, which fetches the mint
+before it resolves anything.
 
 <Callout type="info">
   The hook program address on the mint can be updated by the mint's transfer
@@ -443,6 +356,15 @@ account for that mint specifies. The list is a PDA derived from the hook
 program:
 
 ```ts title="derive-extra-account-meta-list.ts"
+// Kit (@solana-program/token-2022)
+import { findExtraAccountMetaListPda } from "@solana-program/token-2022";
+
+const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
+  { mint: mintAddress },
+  { programAddress: transferHook.programId }
+);
+
+// Web3.js (@solana/spl-token)
 import { getExtraAccountMetaAddress } from "@solana/spl-token";
 
 const extraAccountMetaListPda = getExtraAccountMetaAddress(
@@ -461,7 +383,25 @@ why resolution is asynchronous and can take more than one round trip.
 ##### Assembling accounts manually
 
 If you're assembling the instruction yourself rather than using the functions
-above, the lower-level pieces both are built from:
+above, both clients expose the lower-level pieces those functions are built
+from.
+
+**Kit (`@solana-program/token-2022`)**
+
+- `findExtraAccountMetaListPda({ mint }, { programAddress })`: derives the
+  `ExtraAccountMetaList` validation account's PDA.
+- `getExtraAccountMetasDecoder().decode(accountData)`: parses the raw validation
+  account data into a list of `ExtraAccountMeta` entries.
+- `resolveExtraAccountMeta(meta, previousAddresses, instructionData, hookProgramAddress, rpc)`:
+  resolves one entry into an `AccountMeta`, given the addresses resolved so far
+  (later entries can reference earlier ones).
+- `resolveExtraAccountMetasForExecute({ rpc, transferHookProgramAddress, source, mint, destination, owner, amount })`:
+  resolves every entry and returns the metas to append — the extra accounts, the
+  hook program, and the validation account. Kit instructions are immutable, so
+  it returns the metas for you to spread onto the instruction rather than
+  mutating it in place.
+
+**Web3.js (`@solana/spl-token`)**
 
 - `getExtraAccountMetas(account)`: decodes the raw `ExtraAccountMetaList`
   account data into a list of `ExtraAccountMeta` entries.
@@ -473,8 +413,8 @@ above, the lower-level pieces both are built from:
 
 #### Simulating before sending
 
-Step 3 in both functions above is why this matters: two things can go wrong that
-only show up at execution time.
+The simulate step in both functions above is why this matters: two things can go
+wrong that only show up at execution time.
 
 - **The hook rejects the transfer.** A hook program can encode arbitrary
   conditions (an allowlist, a paused mint, a per-transfer cap) and fails the
