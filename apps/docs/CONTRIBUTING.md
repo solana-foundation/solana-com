@@ -66,7 +66,7 @@ additional details on how files are structured, see the
 
 ## Cookbook code examples
 
-The Kit, Legacy, and Rust snippets shown on cookbook pages live in
+The Kit, Legacy, Rust, and Python snippets shown on cookbook pages live in
 `packages/docs-examples`, not inline in the MDX. Tests in that package run
 against a local surfpool on every PR, so an SDK rename or signature change shows
 up as a red CI run rather than rotted documentation.
@@ -106,6 +106,21 @@ Each Rust example is a member crate of the Cargo workspace at
 Run locally with `bash packages/docs-examples/scripts/run-rust-examples.sh` —
 spawns surfpool, ensures the fixture keypair exists, and cargo-runs every binary
 in the workspace.
+
+### Python
+
+Python snippets follow the same layout, one file per rendered block:
+
+1. Put the snippet in
+   `packages/docs-examples/cookbook/<section>/<page>/python.py` — or
+   `<variant>-python.py` when the page has more than one runnable block,
+   matching its Kit/Legacy siblings.
+2. Wrap the rendered region in `# #region <name>` / `# #endregion <name>`,
+   reusing the region name the other tabs on that block use.
+3. Point the fence at it:
+   ` ```py !! title="Python" file=packages/docs-examples/cookbook/<section>/<page>/python.py#region=<name> `
+
+There is no Python test suite yet, so these are not covered by CI.
 
 ### Runnable blocks and their console output
 
