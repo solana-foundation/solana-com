@@ -128,6 +128,10 @@ describe("@workspace/i18n messages", () => {
       "breakpoint.travel.visas.checkRequirements",
       "Check visa requirements",
     );
+    expect(messages).toHaveProperty(
+      "breakpoint.pages.registration.heroTitle",
+      "Snag Breakpoint 2026 tickets",
+    );
   });
 
   it("does not let primitives overwrite structured English objects", () => {

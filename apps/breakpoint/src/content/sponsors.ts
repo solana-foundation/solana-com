@@ -15,6 +15,7 @@ export type SponsorLogo = {
 };
 
 export type SponsorTier = {
+  id: string;
   title: string;
   mobileColumns: string;
   mobileLogoScale: number;
@@ -189,6 +190,7 @@ const activationSponsors = [
 
 export const sponsorTiers = [
   {
+    id: "platinum",
     title: "Platinum",
     mobileColumns: "grid-cols-1",
     mobileLogoScale: 0.6,
@@ -197,6 +199,7 @@ export const sponsorTiers = [
     sponsors: platinumSponsors,
   },
   {
+    id: "gold",
     title: "Gold",
     mobileColumns: "grid-cols-2",
     mobileLogoScale: 0.64,

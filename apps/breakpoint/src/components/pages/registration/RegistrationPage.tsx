@@ -1,3 +1,4 @@
+import { getTranslations } from "@workspace/i18n/server";
 import ImageTreatment from "@/components/ImageTreatment";
 import Footer from "@/components/sections/Footer";
 import Marquee from "@/components/Marquee";
@@ -22,58 +23,54 @@ const REGISTRATION_MARQUEE_HIGHLIGHTS = [
   "SHIP MORE",
 ];
 
-const tickets = [
+const ticketSeeds = [
   {
-    title: "General Admission",
-    description: "General admission to Breakpoint 2026.",
+    id: "general",
     price: GENERAL_ADMISSION_PRICE_CHANGE.current.display,
     priceAfterIncrease: GENERAL_ADMISSION_PRICE_CHANGE.increased.display,
-    ctaLabel: "Get tickets",
     href: GENERAL_ADMISSION_HREF,
     tone: "featured",
   },
   {
-    title: "Late Bird",
-    description: "Final general admission pricing.",
+    id: "lateBird",
     price: "$800",
-    ctaLabel: "Coming soon",
     tone: "disabled",
   },
   {
-    title: "Developers",
-    description: "Discounted access for builders actively working on Solana.",
+    id: "developers",
     price: "$250",
-    ctaLabel: "Apply",
     href: DEVELOPER_APPLICATION_HREF,
     tone: "standard",
   },
   {
-    title: "Students",
-    description: "Discounted access for active higher education students.",
+    id: "students",
     price: "$100",
-    ctaLabel: "Apply",
     href: STUDENT_APPLICATION_HREF,
     tone: "standard",
   },
-] satisfies RegistrationTicket[];
+] satisfies RegistrationTicketSeed[];
 
-const expectations = [
-  "Exclusive opening party with other attendees",
-  "Solana and partner swag",
-  "Over 60+ talks and other activations",
-  "Time with Solana builders and founders",
-  "Early access to talk recordings and other materials",
-];
+const expectationIds = [
+  "openingParty",
+  "swag",
+  "talks",
+  "builders",
+  "recordings",
+] as const;
 
-type RegistrationTicket = {
-  ctaLabel: string;
-  description: string;
+type RegistrationTicketSeed = {
   href?: string;
+  id: string;
   originalPrice?: string;
   price: string;
   priceAfterIncrease?: string;
-  title: string;
   tone: "disabled" | "featured" | "standard";
+};
+
+type RegistrationTicket = RegistrationTicketSeed & {
+  ctaLabel: string;
+  description: string;
+  title: string;
 };
 
 function PriceCut({ value }: { value: string }) {
@@ -147,7 +144,13 @@ function RegistrationTicketCard({
   );
 }
 
-function TicketsGrid({ initialNow }: { initialNow: number }) {
+function TicketsGrid({
+  initialNow,
+  tickets,
+}: {
+  initialNow: number;
+  tickets: RegistrationTicket[];
+}) {
   return (
     <section className="bg-black pt-2xl md:pt-[120px]">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-xs md:px-8">
@@ -158,7 +161,7 @@ function TicketsGrid({ initialNow }: { initialNow: number }) {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {tickets.map((ticket) => (
             <RegistrationTicketCard
-              key={ticket.title}
+              key={ticket.id}
               initialNow={initialNow}
               ticket={ticket}
             />
@@ -178,14 +181,22 @@ function CheckMark() {
   );
 }
 
-function ExpectationsSection() {
+function ExpectationsSection({
+  headline,
+  imageAlt,
+  items,
+}: {
+  headline: string;
+  imageAlt: string;
+  items: string[];
+}) {
   return (
     <section className="bg-black pt-2xl md:pt-[120px]">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-l px-xs md:flex-row md:items-center md:justify-center md:gap-[116px] md:px-8">
         <div className="flex w-full flex-col gap-m md:w-[582px]">
-          <p className="type-eyebrow text-white">What to expect:</p>
+          <p className="type-eyebrow text-white">{headline}</p>
           <ul className="unstyled-list flex flex-col gap-[20px] md:gap-2xs">
-            {expectations.map((item) => (
+            {items.map((item) => (
               <li key={item} className="flex items-start gap-2">
                 <CheckMark />
                 <span className="type-p-large text-white">{item}</span>
@@ -197,7 +208,7 @@ function ExpectationsSection() {
         <div className="relative aspect-[676/507] w-full overflow-hidden bg-neutral-800 md:w-[676px]">
           <ImageTreatment
             src="/img/gallery/photo-7.jpg"
-            alt="Breakpoint attendees arriving at general admission"
+            alt={imageAlt}
             glitchPattern="p1"
             intensity={40}
             lighting="even"
@@ -212,8 +223,16 @@ function ExpectationsSection() {
   );
 }
 
-export default function RegistrationPage() {
+export default async function RegistrationPage() {
+  const t = await getTranslations("breakpoint.pages.registration");
   const initialNow = Date.now();
+  const tickets = ticketSeeds.map((ticket) => ({
+    ...ticket,
+    title: t(`tickets.${ticket.id}.title`),
+    description: t(`tickets.${ticket.id}.description`),
+    ctaLabel: t(`tickets.${ticket.id}.cta`),
+  }));
+  const expectations = expectationIds.map((item) => t(`expectations.${item}`));
 
   return (
     <PageShell
@@ -221,20 +240,21 @@ export default function RegistrationPage() {
       navigation={{
         ctaAlwaysVisible: true,
         ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Get tickets",
+        ctaLabel: t("ticketsCta"),
         showMenuButton: true,
       }}
     >
-      <SubpageHero
-        heroImage="registration"
-        title="Snag Breakpoint 2026 tickets"
-      />
+      <SubpageHero heroImage="registration" title={t("heroTitle")} />
       <Marquee
         highlightClassName="text-green"
         highlights={REGISTRATION_MARQUEE_HIGHLIGHTS}
       />
-      <TicketsGrid initialNow={initialNow} />
-      <ExpectationsSection />
+      <TicketsGrid initialNow={initialNow} tickets={tickets} />
+      <ExpectationsSection
+        headline={t("expectations.headline")}
+        imageAlt={t("expectations.imageAlt")}
+        items={expectations}
+      />
       <Footer />
     </PageShell>
   );

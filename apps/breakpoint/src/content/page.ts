@@ -1,3 +1,7 @@
+type MessageRecord = {
+  [key: string]: string | MessageRecord;
+};
+
 export type BreakpointMessages = {
   metadata: {
     title: string;
@@ -151,6 +155,7 @@ export type BreakpointMessages = {
         }
       >;
     };
+    londonPicks: MessageRecord;
     visas: {
       headline: string;
       summary: string;
@@ -172,6 +177,7 @@ export type BreakpointMessages = {
       cta: string;
     };
   };
+  pages: MessageRecord;
   footer: {
     copyright: string;
     contact: string;
