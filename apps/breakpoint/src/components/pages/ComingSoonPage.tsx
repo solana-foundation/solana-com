@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
@@ -17,44 +20,36 @@ type ComingSoonPageProps = {
   title: string;
 };
 
-const releaseLinks = [
-  {
-    href: "/travel",
-    label: "Plan travel",
-  },
-  {
-    href: SPONSOR_FORM_HREF,
-    label: "Sponsor",
-  },
-  {
-    href: SIDE_EVENTS_HREF,
-    label: "Submit your side event",
-  },
-] as const;
-
 export default function ComingSoonPage({
   cta,
   description,
   title,
 }: ComingSoonPageProps) {
+  const t = useTranslations("breakpoint.pages.comingSoon");
+  const releaseLinks = [
+    { href: "/travel", label: t("releaseLinks.travel") },
+    { href: SPONSOR_FORM_HREF, label: t("releaseLinks.sponsor") },
+    { href: SIDE_EVENTS_HREF, label: t("releaseLinks.sideEvents") },
+  ];
+
   return (
     <PageShell
       contentId={`breakpoint-${title.toLowerCase()}-coming-soon-content`}
       navigation={{
         ctaAlwaysVisible: true,
         ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Get tickets",
+        ctaLabel: t("ticketsCta"),
         showMenuButton: true,
       }}
     >
       <SubpageHero
         heroImage={false}
-        eyebrow="Coming soon"
+        eyebrow={t("eyebrow")}
         title={title}
         cta={
           cta ?? {
             href: GENERAL_ADMISSION_HREF,
-            label: "Get tickets",
+            label: t("ticketsCta"),
           }
         }
       >
@@ -70,7 +65,9 @@ export default function ComingSoonPage({
               key={link.href}
               className="flex min-h-[220px] flex-col justify-between border border-neutral-700 bg-white/[0.03] p-s"
             >
-              <p className="type-eyebrow text-white opacity-70">Live now</p>
+              <p className="type-eyebrow text-white opacity-70">
+                {t("liveNow")}
+              </p>
               <Button
                 arrow
                 href={link.href}

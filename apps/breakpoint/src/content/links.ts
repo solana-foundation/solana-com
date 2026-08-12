@@ -22,6 +22,17 @@ export const BP25_RECAP_YOUTUBE_ID = "394wb968J68";
 export const TICKET_TRANSFER_HREF = "https://luma.com/breakpoint2026/transfer";
 export const HOTEL_BOOKING_HREF =
   "https://reservations.arestravel.com/hotel/list/24713?Search%5BhotelRegion%5D=i8011&Search%5BcheckInDate%5D=11%2F11%2F2026&Search%5BcheckOutDate%5D=11%2F21%2F2026&Search%5BroomOccupancies%5D%5B0%5D%5BnumberOfAdults%5D=1&Search%5BroomOccupancies%5D%5B0%5D%5BnumberOfChildren%5D=0&Search%5BkeywordSearch%5D=&Search%5Bsort%5D=distance&Search%5BstarRating%5D=&Search%5BlowPrice%5D=&Search%5BhighPrice%5D=&Search%5Bsearch%5D=&customNavLink=0&Search%5Bnear%5D=&Search%5Blatitude%5D=&Search%5Blongitude%5D=&Search%5BlocationSearch%5D=&Search%5BpoiDistance%5D=2";
+export const NOMADZ_HREF = "https://nomadz.xyz/breakpoint";
+export const LONDON_CITY_AIRPORT_HREF = "https://www.londoncityairport.com/";
+export const HEATHROW_AIRPORT_HREF = "https://www.heathrow.com/";
+export const GATWICK_AIRPORT_HREF = "https://www.gatwickairport.com/";
+export const VIRGIN_ATLANTIC_HREF = "https://www.virginatlantic.com/en-gb";
+export const DELTA_AIRLINES_HREF =
+  "https://www.delta.com/us/en/flight-deals/europe-flights/flights-to-london";
+export const BRITISH_AIRWAYS_HREF =
+  "https://www.britishairways.com/travel/home/public/en_ws/";
+export const LUFTHANSA_HREF = "https://www.lufthansa.com/gb/en/homepage";
+export const BREAKPOINT_EMAIL_HREF = "mailto:breakpoint@solana.org";
 export const VISA_CHECK_HREF = "https://www.gov.uk/check-uk-visa";
 export const IAS_HREF =
   "https://iasservices.org.uk/breakpoint-priority-visa-application-centre/";
