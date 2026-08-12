@@ -107,6 +107,15 @@ Run locally with `bash packages/docs-examples/scripts/run-rust-examples.sh` —
 spawns surfpool, ensures the fixture keypair exists, and cargo-runs every binary
 in the workspace.
 
+### Runnable blocks and their console output
+
+`<CodeTabs flags="r">` renders a console with a Run button beside the code.
+Nothing executes in the browser — the console prints output captured from the
+real example, stored beside its source as `<name>.output.txt`. The include
+plugin looks for `<source>.<region>.output.txt`, then `<source>.output.txt`, so
+an example needs no extra wiring in the MDX. A block whose code is inline in the
+MDX can point at a file explicitly with `output=<path>` on the fence.
+
 ## RPC providers
 
 To be considered for listing on the https://solana.com/rpc page, providers must

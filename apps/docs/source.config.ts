@@ -2,6 +2,7 @@ import { defineConfig, defineDocs } from "fumadocs-mdx/config";
 import { recmaCodeHike, remarkCodeHike } from "codehike/mdx";
 import { rehypeToc } from "fumadocs-core/mdx-plugins";
 import remarkIncludeCode from "@devrelkit/remark-include-code";
+import remarkExampleOutput from "./src/lib/remark-example-output.mjs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -74,6 +75,8 @@ export default defineConfig({
     remarkImageOptions: false,
     recmaPlugins: [[recmaCodeHike, chConfig]],
     remarkPlugins: (v) => [
+      // Runs first: it reads the `file=` token that remarkIncludeCode consumes.
+      [remarkExampleOutput, { rootDir: includeRoot }],
       [remarkIncludeCode, { rootDir: includeRoot, highlightStyle: "codehike" }],
       [remarkCodeHike, chConfig],
       ...v,

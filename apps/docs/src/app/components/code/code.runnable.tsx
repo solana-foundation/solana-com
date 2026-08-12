@@ -153,18 +153,27 @@ function Console({
   );
 }
 
-export function RunnableLayout({
-  children,
-  code,
-  language,
-  className,
-}: {
-  children: React.ReactNode;
+type Example = {
+  /** The code shown in the active tab. */
   code: string;
   language: string;
+  /** The active tab's title, which selects the runner for this example. */
+  title: string;
+  /** What running the example prints, from an `.output.txt` beside its source. */
+  output?: string;
+  /** Id into the runner registry, from the `runner` prop on `<CodeTabs>`. */
+  runner?: string;
+};
+
+export function RunnableLayout({
+  children,
+  className,
+  ...example
+}: Example & {
+  children: React.ReactNode;
   className?: string;
 }) {
-  const state = useRunnableCode(code, language);
+  const state = useRunnableCode(example.code, example.language);
 
   return (
     <>

@@ -8,6 +8,8 @@ type CodeOptions = {
 
 export type CodeGroup = {
   storage?: string;
+  /** Id of the browser-side runner for this block, if it has one. */
+  runner?: string;
   options: CodeOptions;
   tabs: {
     options: CodeOptions;
@@ -17,6 +19,8 @@ export type CodeGroup = {
     pre: React.ReactNode;
     icon: React.ReactNode;
     lang: string;
+    /** What running this tab prints, resolved from an `.output.txt` at build time. */
+    output?: string;
   }[];
 };
 
