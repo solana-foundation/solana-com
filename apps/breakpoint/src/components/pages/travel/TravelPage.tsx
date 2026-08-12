@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "@workspace/i18n/client";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import Button from "@/components/Button";
 import Marquee from "@/components/Marquee";
@@ -34,56 +37,55 @@ const TRAVEL_MARQUEE_HIGHLIGHTS = [
 const AIRPORTS = [
   {
     code: "LCY",
-    distance: "11km east of central London",
     href: LONDON_CITY_AIRPORT_HREF,
-    name: "London City Airport",
+    id: "lcy",
   },
   {
     code: "LHR",
-    distance: "24km west of central London",
     href: HEATHROW_AIRPORT_HREF,
-    name: "Heathrow Airport",
+    id: "lhr",
   },
   {
     code: "LGW",
-    distance: "48km south of central London",
     href: GATWICK_AIRPORT_HREF,
-    name: "London Gatwick Airport",
+    id: "lgw",
   },
 ] as const;
 
 const AIRLINES = [
   {
     href: VIRGIN_ATLANTIC_HREF,
+    id: "virginAtlantic",
     logo: "/img/travel/airline-virgin-atlantic.svg",
-    name: "Virgin Atlantic",
   },
   {
     href: DELTA_AIRLINES_HREF,
+    id: "delta",
     logo: "/img/travel/airline-delta.svg",
-    name: "Delta Air Lines",
   },
   {
     href: BRITISH_AIRWAYS_HREF,
+    id: "britishAirways",
     logo: "/img/travel/airline-british-airways.svg",
-    name: "British Airways",
   },
   {
     href: LUFTHANSA_HREF,
+    id: "lufthansa",
     logo: "/img/travel/airline-lufthansa.svg",
-    name: "Lufthansa",
   },
 ] as const;
 
 function FlightsSection() {
+  const t = useTranslations("breakpoint.travel.flights");
+
   return (
     <section id="flights" className="scroll-mt-16 bg-black md:scroll-mt-20">
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-12 px-4 md:gap-16 md:px-8">
         <div className="flex h-[147px] shrink-0 items-center justify-center md:h-[180px]">
           <SectionHeadline
             alignment="center"
-            eyebrow="Airports & flight deals"
-            headline="Getting to London"
+            eyebrow={t("eyebrow")}
+            headline={t("headline")}
           />
         </div>
         <div className="grid gap-16 md:grid-cols-bp-desktop md:gap-x-s">
@@ -100,11 +102,11 @@ function FlightsSection() {
                 </p>
                 <div className="flex flex-col gap-2">
                   <span className="type-h5 inline-flex items-center gap-2 text-white transition-colors group-hover:text-neutral-100">
-                    {airport.name}
+                    {t(`airports.${airport.id}.name`)}
                     <ArrowUpRightIcon className="size-3 shrink-0" />
                   </span>
                   <span className="type-eyebrow text-blue">
-                    {airport.distance}
+                    {t(`airports.${airport.id}.distance`)}
                   </span>
                 </div>
               </a>
@@ -113,11 +115,13 @@ function FlightsSection() {
           <div className="-mr-4 overflow-x-auto md:col-span-9 md:col-start-8 md:mr-0 md:overflow-visible">
             <div className="grid w-max grid-flow-col auto-cols-[283.56px] gap-6 md:w-full md:auto-rows-[382px] md:grid-flow-row md:grid-cols-2 md:gap-8">
               {AIRLINES.map((airline) => (
-                <article key={airline.name} className="w-full">
+                <article key={airline.id} className="w-full">
                   <div className="flex h-[189px] items-center justify-center border border-stroke-primary bg-transparent-white-05 p-9 md:h-[246px] md:p-11">
                     <img
                       src={publicAssetPath(airline.logo)}
-                      alt={`${airline.name} logo`}
+                      alt={t("airlineLogo", {
+                        name: t(`airlines.${airline.id}.name`),
+                      })}
                       width={281}
                       height={68}
                       className="max-h-[68px] w-auto max-w-full"
@@ -126,16 +130,16 @@ function FlightsSection() {
                   <div className="flex flex-col items-start gap-4 py-6">
                     <div className="flex flex-col gap-2">
                       <h3 className="type-paragraph font-bold text-white">
-                        {airline.name}
+                        {t(`airlines.${airline.id}.name`)}
                       </h3>
                       <p className="type-paragraph text-text-secondary">
-                        Explore flights to London.
+                        {t(`airlines.${airline.id}.description`)}
                       </p>
                     </div>
                     <Button
                       arrow
                       href={airline.href}
-                      label="View flights"
+                      label={t("viewFlights")}
                       variant="inline"
                     />
                   </div>
@@ -154,6 +158,8 @@ function HotelsSection() {
 }
 
 function VisaSection() {
+  const t = useTranslations("breakpoint.travel.visas");
+
   return (
     <section
       id="visas"
@@ -163,66 +169,54 @@ function VisaSection() {
         <div className="grid gap-16 border-t border-stroke-primary pt-8 md:grid-cols-bp-desktop md:gap-x-s md:pt-12">
           <div className="flex flex-col items-start gap-8 md:col-span-6">
             <div className="flex flex-col gap-4">
-              <h2 className="type-h3 text-white">Visas for London</h2>
-              <p className="type-paragraph text-white">
-                Attendees are responsible for reviewing entry requirements and
-                arranging their own visas.
-              </p>
+              <h2 className="type-h3 text-white">{t("headline")}</h2>
+              <p className="type-paragraph text-white">{t("summary")}</p>
             </div>
             <Button
               arrow
               href={VISA_CHECK_HREF}
-              label="Check visa requirements"
+              label={t("checkRequirements")}
               variant="secondary"
             />
           </div>
           <div className="type-paragraph flex flex-col gap-8 text-white md:col-span-8 md:col-start-9">
             <div className="flex flex-col gap-4">
-              <h3 className="type-p-large text-white">
-                First, check if you need a visa
-              </h3>
+              <h3 className="type-p-large text-white">{t("firstStep")}</h3>
               <p>
                 <a
                   href={VISA_CHECK_HREF}
                   className="text-purple underline decoration-purple underline-offset-4 transition-opacity hover:opacity-80"
                   {...getAnchorLinkProps({ href: VISA_CHECK_HREF })}
                 >
-                  Check the official UK visa requirements
+                  {t("officialRequirements")}
                 </a>{" "}
-                for entry.
+                {t("entrySuffix")}
               </p>
             </div>
             <div className="flex flex-col gap-4">
-              <h3 className="type-p-large text-white">
-                Then, if you need support with a visa
-              </h3>
+              <h3 className="type-p-large text-white">{t("secondStep")}</h3>
               <p>
-                Solana Foundation has engaged Immigration Advice Service (IAS)
-                to assist you in this process. If you’re ready to apply, click{" "}
+                {t("supportPrefix")}{" "}
                 <a
                   href={IAS_HREF}
                   className="text-purple underline decoration-purple underline-offset-4 transition-opacity hover:opacity-80"
                   {...getAnchorLinkProps({ href: IAS_HREF })}
                 >
-                  here
+                  {t("supportLink")}
                 </a>{" "}
-                to get started.
+                {t("supportSuffix")}
               </p>
+              <p>{t("fees")}</p>
               <p>
-                Please note Solana Foundation does not cover the cost of visa
-                support and it’s up to the individual to pay for these services.
-                IAS fees are €TBD for full visa support.
-              </p>
-              <p>
-                Need an invitation letter? Please email{" "}
+                {t("invitationPrefix")}{" "}
                 <a
                   href={BREAKPOINT_EMAIL_HREF}
                   className="text-purple underline decoration-purple underline-offset-4 transition-opacity hover:opacity-80"
                   {...getAnchorLinkProps({ href: BREAKPOINT_EMAIL_HREF })}
                 >
-                  breakpoint@solana.org
+                  {t("invitationLink")}
                 </a>
-                .
+                {t("invitationSuffix")}
               </p>
             </div>
           </div>
@@ -233,12 +227,14 @@ function VisaSection() {
 }
 
 function FaqBanner() {
+  const t = useTranslations("breakpoint.travel.faq");
+
   return (
     <section className="bg-black pt-[80px] md:pt-[120px]">
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
         <div className="flex h-[308px] flex-col items-center justify-end gap-10 bg-neutral-800 px-8 py-20 text-center md:h-auto md:min-h-[286px] md:p-[80px]">
-          <h2 className="type-h4 text-white">Frequently asked questions</h2>
-          <Button arrow href="/faq" label="See all" variant="primary" />
+          <h2 className="type-h4 text-white">{t("headline")}</h2>
+          <Button arrow href="/faq" label={t("cta")} variant="primary" />
         </div>
       </div>
     </section>
@@ -246,9 +242,11 @@ function FaqBanner() {
 }
 
 function TravelHero() {
+  const t = useTranslations("breakpoint.travel");
+
   return (
     <SubpageHero
-      title="Travel"
+      title={t("title")}
       contentClassName="max-w-[1440px]"
       heroImage="travel"
     />
@@ -256,13 +254,15 @@ function TravelHero() {
 }
 
 export default function TravelPage() {
+  const t = useTranslations("breakpoint.travel");
+
   return (
     <PageShell
       contentId="travel-content"
       navigation={{
         ctaAlwaysVisible: true,
         ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Get tickets",
+        ctaLabel: t("cta"),
         showMenuButton: true,
       }}
     >

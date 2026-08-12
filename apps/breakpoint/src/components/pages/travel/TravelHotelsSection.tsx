@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import ImageTreatment from "@/components/ImageTreatment";
 import { publicAssetPath } from "@/config";
@@ -8,33 +9,24 @@ import { HOTEL_BOOKING_HREF, NOMADZ_HREF } from "@/content/links";
 
 const HOTELS = [
   {
-    ctaLabel: "Book through aRes",
-    name: "aRes Travel",
+    id: "ares",
     href: HOTEL_BOOKING_HREF,
-    description: "Browse hotel accommodations for Breakpoint.",
-    distance: "Hotel booking partner",
     imageSrc: "/img/travel/hotel-london.webp",
     imagePosition: "center",
   },
   {
-    ctaLabel: "Book with Nomadz",
-    name: "Nomadz",
+    id: "nomadz",
     href: NOMADZ_HREF,
-    description: "Travel aggregator on Solana.",
-    distance: "Save up to 30% on stays",
     imageSrc: "/img/travel/london-pick-02.jpg",
     imagePosition: "center",
   },
 ] satisfies HotelInfo[];
 
 type HotelInfo = {
-  ctaLabel: string;
-  description: string;
-  distance: string;
   href: string;
+  id: string;
   imagePosition: string;
   imageSrc: string;
-  name: string;
 };
 
 function SectionHeading({ title }: { title: string }) {
@@ -46,6 +38,7 @@ function SectionHeading({ title }: { title: string }) {
 }
 
 export default function HotelsSection() {
+  const t = useTranslations("breakpoint.travel.hotels");
   const [activeIndex, setActiveIndex] = useState(0);
   const activeHotel = HOTELS[activeIndex] ?? HOTELS[0]!;
   const hotelMaskImage = `url("${publicAssetPath("/img/travel/hotel-mask.svg")}")`;
@@ -56,7 +49,7 @@ export default function HotelsSection() {
       className="scroll-mt-16 bg-black pt-[80px] md:scroll-mt-20 md:pt-[120px]"
     >
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 md:gap-12 md:px-8">
-        <SectionHeading title="Hotels" />
+        <SectionHeading title={t("headline")} />
 
         <div className="grid items-start gap-12 md:grid-cols-bp-desktop md:gap-x-s">
           <div
@@ -71,7 +64,7 @@ export default function HotelsSection() {
             }}
           >
             <ImageTreatment
-              key={activeHotel.name}
+              key={activeHotel.id}
               src={activeHotel.imageSrc}
               alt=""
               aria-hidden="true"
@@ -95,7 +88,7 @@ export default function HotelsSection() {
 
               return (
                 <div
-                  key={hotel.name}
+                  key={hotel.id}
                   className={`border-t pb-3 pt-6 transition-colors ${
                     open ? "border-white" : "border-neutral-700"
                   }`}
@@ -114,7 +107,7 @@ export default function HotelsSection() {
                           : "text-text-secondary opacity-60 group-hover/hotel:text-white group-hover/hotel:opacity-100 group-focus-visible/hotel:text-white group-focus-visible/hotel:opacity-100"
                       }`}
                     >
-                      {hotel.name}
+                      {t(`items.${hotel.id}.name`)}
                     </h3>
                   </button>
 
@@ -124,13 +117,15 @@ export default function HotelsSection() {
                       className="mt-4 flex flex-col items-start gap-4"
                     >
                       <p className="type-paragraph text-white">
-                        {hotel.description}
+                        {t(`items.${hotel.id}.description`)}
                       </p>
-                      <p className="type-eyebrow text-blue">{hotel.distance}</p>
+                      <p className="type-eyebrow text-blue">
+                        {t(`items.${hotel.id}.distance`)}
+                      </p>
                       <Button
                         arrow
                         href={hotel.href}
-                        label={hotel.ctaLabel}
+                        label={t(`items.${hotel.id}.ctaLabel`)}
                         variant="inline"
                       />
                     </div>

@@ -106,6 +106,72 @@ export type BreakpointMessages = {
       }
     >;
   };
+  travel: {
+    metadata: {
+      title: string;
+      description: string;
+    };
+    title: string;
+    cta: string;
+    subnav: {
+      label: string;
+      flights: string;
+      hotels: string;
+      visas: string;
+    };
+    flights: {
+      eyebrow: string;
+      headline: string;
+      airlines: Record<
+        string,
+        {
+          name: string;
+          description: string;
+        }
+      >;
+      viewFlights: string;
+      airlineLogo: string;
+      airports: Record<
+        string,
+        {
+          name: string;
+          distance: string;
+        }
+      >;
+    };
+    hotels: {
+      headline: string;
+      items: Record<
+        string,
+        {
+          name: string;
+          description: string;
+          distance: string;
+          ctaLabel: string;
+        }
+      >;
+    };
+    visas: {
+      headline: string;
+      summary: string;
+      checkRequirements: string;
+      firstStep: string;
+      officialRequirements: string;
+      entrySuffix: string;
+      secondStep: string;
+      supportPrefix: string;
+      supportLink: string;
+      supportSuffix: string;
+      fees: string;
+      invitationPrefix: string;
+      invitationLink: string;
+      invitationSuffix: string;
+    };
+    faq: {
+      headline: string;
+      cta: string;
+    };
+  };
   footer: {
     copyright: string;
     contact: string;

@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@workspace/i18n/server";
 import TravelPage from "@/components/pages/travel/TravelPage";
 import { getPageMetadata } from "@/app/metadata";
-
-const pageMetadata = {
-  path: "/travel",
-  title: "Travel",
-  description:
-    "Plan travel to Breakpoint 2026 in London with airport, flight, hotel, visa, and local recommendations.",
-};
 
 export async function generateMetadata({
   params,
@@ -15,7 +9,16 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  return getPageMetadata(locale, pageMetadata);
+  const t = await getTranslations({
+    locale,
+    namespace: "breakpoint.travel.metadata",
+  });
+
+  return getPageMetadata(locale, {
+    path: "/travel",
+    title: t("title"),
+    description: t("description"),
+  });
 }
 
 export default function LocaleTravelPage() {

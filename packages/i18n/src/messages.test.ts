@@ -118,6 +118,18 @@ describe("@workspace/i18n messages", () => {
     expect(messages).toHaveProperty("cookie-consent");
   });
 
+  it("falls back to English for new Breakpoint route messages", async () => {
+    const messages = await loadMergedMessages({
+      app: "breakpoint",
+      locale: "es",
+    });
+
+    expect(messages).toHaveProperty(
+      "breakpoint.travel.visas.checkRequirements",
+      "Check visa requirements",
+    );
+  });
+
   it("does not let primitives overwrite structured English objects", () => {
     const merged = deepMergeMessages(
       { nested: { label: "English" } },
