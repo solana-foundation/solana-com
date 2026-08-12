@@ -295,6 +295,7 @@ export default function Navigation({
         style={{ cursor: showCta ? "pointer" : undefined }}
         {...(isLumaCheckoutCta
           ? {
+              ...getAnchorLinkProps({ href: resolvedCtaHref }),
               "data-luma-action": "checkout",
               "data-luma-event-id": BREAKPOINT_LUMA_EVENT_ID,
             }
