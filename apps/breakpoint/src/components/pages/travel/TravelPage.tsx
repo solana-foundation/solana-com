@@ -13,6 +13,7 @@ import {
   GENERAL_ADMISSION_HREF,
   GATWICK_AIRPORT_HREF,
   HEATHROW_AIRPORT_HREF,
+  IAS_HREF,
   LONDON_CITY_AIRPORT_HREF,
   LUFTHANSA_HREF,
   VISA_CHECK_HREF,
@@ -197,15 +198,32 @@ function VisaSection() {
                 Then, if you need support with a visa
               </h3>
               <p>
-                If you are ready to apply, click{" "}
+                Solana Foundation has engaged Immigration Advice Service (IAS)
+                to assist you in this process. If you’re ready to apply, click{" "}
+                <a
+                  href={IAS_HREF}
+                  className="text-purple underline decoration-purple underline-offset-4 transition-opacity hover:opacity-80"
+                  {...getAnchorLinkProps({ href: IAS_HREF })}
+                >
+                  here
+                </a>{" "}
+                to get started.
+              </p>
+              <p>
+                Please note Solana Foundation does not cover the cost of visa
+                support and it’s up to the individual to pay for these services.
+                IAS fees are €TBD for full visa support.
+              </p>
+              <p>
+                Need an invitation letter? Please email{" "}
                 <a
                   href={BREAKPOINT_EMAIL_HREF}
                   className="text-purple underline decoration-purple underline-offset-4 transition-opacity hover:opacity-80"
                   {...getAnchorLinkProps({ href: BREAKPOINT_EMAIL_HREF })}
                 >
-                  here
-                </a>{" "}
-                to get started with an invitation-letter request.
+                  breakpoint@solana.org
+                </a>
+                .
               </p>
             </div>
           </div>

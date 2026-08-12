@@ -34,3 +34,5 @@ export const BRITISH_AIRWAYS_HREF =
 export const LUFTHANSA_HREF = "https://www.lufthansa.com/gb/en/homepage";
 export const BREAKPOINT_EMAIL_HREF = "mailto:breakpoint@solana.org";
 export const VISA_CHECK_HREF = "https://www.gov.uk/check-uk-visa";
+export const IAS_HREF =
+  "https://iasservices.org.uk/breakpoint-priority-visa-application-centre/";
