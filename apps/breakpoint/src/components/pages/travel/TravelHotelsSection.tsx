@@ -119,9 +119,11 @@ export default function HotelsSection() {
                       <p className="type-paragraph text-white">
                         {t(`items.${hotel.id}.description`)}
                       </p>
-                      <p className="type-eyebrow text-blue">
-                        {t(`items.${hotel.id}.distance`)}
-                      </p>
+                      {hotel.id !== "ares" && (
+                        <p className="type-eyebrow text-blue">
+                          {t(`items.${hotel.id}.distance`)}
+                        </p>
+                      )}
                       <Button
                         arrow
                         href={hotel.href}

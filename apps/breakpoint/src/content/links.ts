@@ -26,12 +26,6 @@ export const NOMADZ_HREF = "https://nomadz.xyz/breakpoint";
 export const LONDON_CITY_AIRPORT_HREF = "https://www.londoncityairport.com/";
 export const HEATHROW_AIRPORT_HREF = "https://www.heathrow.com/";
 export const GATWICK_AIRPORT_HREF = "https://www.gatwickairport.com/";
-export const VIRGIN_ATLANTIC_HREF = "https://www.virginatlantic.com/en-gb";
-export const DELTA_AIRLINES_HREF =
-  "https://www.delta.com/us/en/flight-deals/europe-flights/flights-to-london";
-export const BRITISH_AIRWAYS_HREF =
-  "https://www.britishairways.com/travel/home/public/en_ws/";
-export const LUFTHANSA_HREF = "https://www.lufthansa.com/gb/en/homepage";
 export const BREAKPOINT_EMAIL_HREF = "mailto:breakpoint@solana.org";
 export const VISA_CHECK_HREF = "https://www.gov.uk/check-uk-visa";
 export const IAS_HREF =
