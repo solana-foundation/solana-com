@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useMemo, Suspense } from "react";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import { useSearchParams } from "next/navigation";
 import DevelopersResourceItem from "../sections/DevelopersResourcesSection/DevelopersResourceItem";
 import styles from "./DevelopersResourcesGrid.module.scss";

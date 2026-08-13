@@ -6,7 +6,7 @@ import {
   NavDropdownColumn,
 } from "./header-dropdown-layout";
 import {
-  CollapsibleNavGroup,
+  NavGroup,
   NavItemsList,
   SectionHeading,
 } from "./nav-section-renderers";
@@ -15,7 +15,7 @@ import {
   productSurfaceItems,
 } from "./nav-section-content-config";
 
-const HeaderListProducts = ({ isMobile = false }) => {
+const HeaderListProducts = () => {
   const t = useTranslations();
 
   return (
@@ -25,12 +25,9 @@ const HeaderListProducts = ({ isMobile = false }) => {
         <NavItemsList items={productSurfaceItems} />
       </NavDropdownColumn>
       <NavDropdownColumn>
-        <CollapsibleNavGroup
-          title={t("nav.products.tools.title")}
-          isMobile={isMobile}
-        >
+        <NavGroup title={t("nav.products.tools.title")}>
           <NavItemsList items={productToolItems} />
-        </CollapsibleNavGroup>
+        </NavGroup>
       </NavDropdownColumn>
     </HeaderDropdownLayout>
   );

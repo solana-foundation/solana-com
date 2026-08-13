@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRight as ArrowRightIcon } from "@boxicons/react/ArrowRight";
 
 export type NewsItemProps = {
   title: string;

@@ -39,6 +39,7 @@ const MS_PER_SECOND = 1000;
 
 export const rpcLatencyProviders = [
   "alchemy",
+  "chainstack",
   "helius",
   "quicknode",
   "triton",
@@ -155,6 +156,7 @@ export function getRpcLatencyCacheKey(
     timeframe.value,
     timeframe.durationSeconds,
     timeframe.stepSeconds,
+    rpcLatencyProviders.join(","),
     buildRpcErrorRateQuery(options),
     buildRpcErrorRateBreakdownQuery(options),
     buildRpcAvgLatencyQuery(options),

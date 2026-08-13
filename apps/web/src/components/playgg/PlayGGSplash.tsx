@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import styles from "./PlayGGSplash.module.scss";
 import Link, { InlineLink } from "@/utils/Link";
 import useReducedMotion from "../../hooks/useReducedMotion";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Solana from "../../../assets/playgg/solana.inline.svg";
 import MagicEdenLogo from "../../../assets/playgg/magiceden.inline.svg";
 import Play from "../../../assets/playgg/play.inline.svg";

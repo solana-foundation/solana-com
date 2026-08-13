@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Image from "next/legacy/image";
 import { useTranslations } from "next-intl";
 import Button from "@/components/shared/Button";
@@ -7,7 +7,7 @@ import FundingIcon from "../../../../../assets/hackathon/hero/funding.inline.svg
 import ProjectsIcon from "../../../../../assets/hackathon/hero/projects.inline.svg";
 import graphicLeft from "../../../../../assets/hackathon/hero/graphic-left.png";
 import graphicRight from "../../../../../assets/hackathon/hero/graphic-right.png";
-import { ArrowUpRight } from "react-feather";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 
 import styles from "./HackathonHeroSection.module.scss";
 
@@ -53,7 +53,7 @@ export default function HackathonHeroSection({
         <div className={styles["signup-form"]}>
           <Button to="https://arena.colosseum.org/signup" newTab rel="nofollow">
             {t("hackathon.index.cta")}
-            <ArrowUpRight />
+            <ArrowOutUpRightSquare />
           </Button>
         </div>
         <div

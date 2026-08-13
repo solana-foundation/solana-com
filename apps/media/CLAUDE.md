@@ -28,10 +28,12 @@ apps/media/
 ├── app/
 │   ├── [locale]/              # Locale-based routing
 │   │   ├── news/              # Blog posts listing
-│   │   ├── podcast/           # Podcast episodes
-│   │   └── [...slug]/         # Dynamic content pages
+│   │   ├── podcasts/          # Podcast shows and episodes
+│   │   ├── changelog/         # Product changelog
+│   │   ├── reports/           # Report pages
+│   │   └── upgrades/          # Network upgrade articles
 │   ├── keystatic/             # Keystatic admin interface
-│   └── api/                   # API routes (RSS, Keystatic, etc.)
+│   └── api/                   # Keystatic and content metadata APIs
 ├── components/
 │   ├── blocks/                # Content block components
 │   ├── layout/                # Layout components
@@ -68,8 +70,8 @@ pnpm dev
 # Build for production
 pnpm build
 
-# Format content files
-pnpm format:content
+# Lint and format content files
+pnpm lint:content
 
 # Clean generated files
 pnpm clean

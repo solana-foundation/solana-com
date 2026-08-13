@@ -22,9 +22,7 @@ export default async function Page(_props: Props) {
   ] as const;
 
   const translations = {
-    heroEyebrow: t("hero.eyebrow"),
     heroHeadline: t("hero.headline"),
-    heroBody: t("hero.body"),
     introBody: t.raw("sections.intro") as string,
     sections: sections.map((key) => ({
       key,

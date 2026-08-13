@@ -15,10 +15,10 @@ repositories.
 
 - **Framework**: Next.js 15 (App Router) with next-intl
 - **Styling**: Tailwind CSS 3.4, SCSS
-- **Animation**: Framer Motion
+- **Animation**: Motion
 - **Code Highlighting**: Shiki
 - **URL State**: nuqs (type-safe URL search params)
-- **UI Components**: Radix UI, React Bootstrap, Lucide icons
+- **UI Components**: `@workspace/ui` and `@solana-com/ui-chrome`
 
 ## Project Structure
 
@@ -27,8 +27,9 @@ apps/templates/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx         # Root layout (no [locale] wrapper)
-│   │   ├── page.tsx           # Homepage
-│   │   └── [slug]/            # Template detail pages
+│   │   └── developers/templates/
+│   │       ├── page.tsx       # Template list
+│   │       └── [id]/          # Template detail pages and social images
 │   ├── components/            # React components
 │   │   ├── TemplateCard/
 │   │   ├── TemplateGrid/
@@ -97,11 +98,12 @@ Templates sourced from `solana-foundation/templates` GitHub repository:
 
 ## Routing
 
-Unlike other apps, templates uses simpler routing:
+Unlike other apps, templates uses stable unprefixed routing:
 
-- No `[locale]` dynamic segment in most routes
+- No `[locale]` dynamic segment
 - i18n handled via next-intl plugin
-- Template detail pages: `/[slug]`
+- Template list: `/developers/templates`
+- Template detail pages: `/developers/templates/[id]`
 
 ## Image Configuration
 

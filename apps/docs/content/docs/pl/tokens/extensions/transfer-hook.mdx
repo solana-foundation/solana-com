@@ -1,0 +1,1633 @@
+---
+date: 2023-02-01T00:00:00Z
+seoTitle: "Token Extensions: Transfer Hook"
+title: Jak używać rozszerzenia Transfer Hook
+description:
+  "The Transfer Hook extension and Transfer Hook Interface introduce the ability
+  to create Mint Accounts that execute custom instruction logic on every token
+  transfer."
+keywords:
+  - token 2022
+  - token extensions
+  - token program
+difficulty: intermediate
+tags:
+  - token 2022
+  - token extensions
+---
+
+Rozszerzenie Transfer Hook oraz Transfer Hook Interface wprowadzają możliwość
+tworzenia Mint Accounts, które wykonują niestandardową logikę instrukcji przy każdym
+przekazaniu tokena.
+
+Otwiera to wiele nowych przypadków użycia dla transferów tokenów, takich jak:
+
+- Egzekwowanie tantiem NFT
+- Czarne lub białe listy portfeli mogących otrzymywać tokeny
+- Implementowanie niestandardowych opłat przy transferach tokenów
+- Tworzenie niestandardowych zdarzeń transferu tokenów
+- Śledzenie statystyk transferów tokenów
+- I wiele więcej
+
+Aby to osiągnąć, deweloperzy muszą zbudować program implementujący
+[Transfer Hook Interface](https://github.com/solana-labs/solana-program-library/tree/master/token/transfer-hook/interface)
+oraz zainicjalizować mint account z włączonym rozszerzeniem Transfer Hook.
+
+Przy każdym transferze tokenów z danego mint account, program Token
+Extensions wykonuje Cross Program Invocation (CPI) w celu wywołania instrukcji
+na programie Transfer Hook.
+
+<Callout type="info">
+
+Gdy Token Extensions program wykonuje CPI do programu Transfer Hook, wszystkie konta
+z pierwotnego transferu są konwertowane na konta tylko do odczytu. Oznacza to, że
+uprawnienia podpisującego nadawcy nie są przenoszone do programu Transfer Hook.
+
+Ta decyzja projektowa ma na celu zapobieganie złośliwemu wykorzystaniu programów Transfer Hook.
+
+</Callout>
+
+W tym przewodniku stworzymy program Transfer Hook przy użyciu frameworka Anchor,
+jednak możliwe jest również zaimplementowanie Transfer Hook Interface przy użyciu natywnego
+programu. Dowiedz się więcej o frameworku Anchor tutaj:
+[Anchor Framework](https://www.anchor-lang.com/)
+
+## Przegląd Transfer Hook Interface
+
+Transfer Hook Interface zapewnia deweloperom sposób na implementację niestandardowej
+logiki instrukcji wykonywanej przy każdym transferze tokena dla określonego mint account.
+
+Transfer Hook Interface określa następujące
+[instrukcje](https://github.com/solana-labs/solana-program-library/blob/master/token/transfer-hook/interface/src/instruction.rs):
+
+- `Execute`: Instrukcja wywoływana przez program Token Extension przy każdym
+  transferze tokena.
+- `InitializeExtraAccountMetaList` (opcjonalne): Tworzy konto przechowujące
+  listę dodatkowych kont wymaganych przez niestandardową instrukcję `Execute`.
+- `UpdateExtraAccountMetaList` (opcjonalne): Aktualizuje listę dodatkowych
+  kont poprzez nadpisanie istniejącej listy.
+
+Technicznie nie jest wymagane implementowanie instrukcji `InitializeExtraAccountMetaList`
+za pomocą interfejsu. Konto może zostać utworzone przez dowolną instrukcję
+na programie Transfer Hook.
+
+Jednak Program Derived Address (PDA) dla tego konta musi być wyprowadzony przy użyciu
+następujących seed:
+
+- Zakodowany na stałe ciąg znaków "extra-account-metas"
+- Adres mint account
+- ID programu Transfer Hook
+
+```js
+const [pda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("extra-account-metas"), mint.publicKey.toBuffer()],
+  program.programId // transfer hook program ID
+);
+```
+
+Przechowując dodatkowe konta wymagane przez instrukcję `Execute` w
+predefiniowanym PDA, konta te mogą być automatycznie dodawane do instrukcji
+transferu tokena po stronie klienta.
+
+## Hello-world Transfer hook
+
+Ten przykład to hello world haków transferowych. Jest to prosty transfer hook,
+który wypisze wiadomość przy każdym transferze tokena. Zaczynamy od otwarcia
+przykładu w Solana Playground, narzędziu online do budowania i wdrażania programów Solana:
+[link](https://beta.solpg.io/github.com/solana-developers/anchor-transfer-hook/tree/hello_world)
+
+Przykład składa się z programu anchor implementującego interfejs transfer hook
+oraz pliku testowego do przetestowania programu.
+
+Ten program będzie zawierał tylko 3 instrukcje:
+
+1. `initialize_extra_account_meta_list`: Tworzy konto przechowujące listę
+   dodatkowych kont wymaganych przez instrukcję `transfer_hook`. W przykładzie
+   hello world pozostawiamy to pole puste.
+2. `transfer_hook`: Ta instrukcja jest wywoływana przez CPI przy każdym transferze tokena
+   w celu wykonania transferu opakowanego tokena SOL.
+3. `fallback`: Ponieważ używamy Anchor, a token program jest programem natywnym,
+   musimy dodać instrukcję fallback, aby ręcznie dopasować dyskryminator instrukcji
+   i wywołać niestandardową instrukcję `transfer_hook`.
+   Nie musisz zmieniać tej funkcji.
+
+Za każdym razem, gdy token zostanie przekazany, ta funkcja `transfer_hook` będzie
+wywołana przez token program.
+
+```rust
+pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+
+    msg!("Hello Transfer Hook!");
+
+    Ok(())
+}
+```
+
+W tej funkcji możesz teraz dodać własną logikę. Na przykład możesz
+sprawić, że transfer nie powiedzie się, gdy przekazywana kwota jest większa niż 50,
+w następujący sposób:
+
+```rust
+#[error_code]
+pub enum MyError {
+    #[msg("The amount is too big")]
+    AmountTooBig,
+}
+
+pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+
+    msg!("Hello Transfer Hook!");
+
+    if amount > 50 {
+        return err!(MyError::AmountTooBig);
+    }
+
+    Ok(())
+}
+```
+
+Aby uruchomić przykład w Solana Playground, przejdź pod ten link:
+[link](https://beta.solpg.io/github.com/solana-developers/anchor-transfer-hook/tree/hello_world)
+
+W terminalu Playground uruchom polecenie `build`, które zaktualizuje wartość
+`declare_id` w pliku `lib.rs` nowo wygenerowanym ID programu. Następnie uruchom
+polecenie `deploy`, aby wdrożyć program do devnet. Po wdrożeniu programu możesz
+uruchomić plik testowy używając polecenia `test` w terminalu.
+
+Spowoduje to wyświetlenie danych wyjściowych podobnych do następujących:
+
+```shell
+  transfer-hook.test.ts:
+  transfer-hook
+    Transaction Signature: kB8Hkn8NEavK7xztEhQZXKSeidgEK81PZNmgSSodZFVyzM9o18GwNi4bDWD9Q3cbmh75Vn1jqyinYH3YdgJfnuJ
+    ✔ Create Mint Account with Transfer Hook Extension (539ms)
+    Transaction Signature: Bf9eYieas6jpV8UxS5upuRv2oMebDdHgDstLMw86ptM7cd4qRpaxRyFYmNZC1WZMcDXP68PoGoApUrrrQKeBbJA
+    ✔ Create Token Accounts and Mint Tokens (744ms)
+    Transaction Signature: 3oRtCjM6oSdkxQKUyGF3r6hmZGLUpNefihHoGQT5cftRPeQtimvVukLPvb3PSpvLrUsoCWBnz6nSm6ZbPRUhx7UP
+    ✔ Create ExtraAccountMetaList Account (728ms)
+    Transfer Signature: WNAWK2o7wWpVCqPz2uoMtHRe1F5B1jfW8v4kezdQYqaXE3nRAPfqUFkFHg31uYmpZCjncZUwo4g9ZuhgMC9cS1i
+    ✔ Transfer Hook with Extra Account Meta (1327ms)
+  4 passing (3s)
+```
+
+Jeśli nie chcesz używać JavaScript do tworzenia tokena, możesz również użyć
+polecenia `spl-token` z Solana CLI po wdrożeniu programu:
+
+```shell
+spl-token --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb create-token --transfer-hook yourTransferHookProgramId
+```
+
+## Counter Transfer hook
+
+Następny przykład pokaże, jak możesz zwiększać licznik za każdym razem, gdy
+twój token zostanie przekazany.
+[link](https://beta.solpg.io/github.com/solana-developers/anchor-transfer-hook/tree/counter)
+
+Jeśli chcesz dodać logikę do swojego transfer hooka, która wymaga dodatkowych kont,
+musisz dodać je do konta ExtraAccountMetaList. W naszym przypadku chcemy PDA,
+który zapisuje informację o tym, ile razy token został przekazany.
+
+Można to zrobić, dodając następujący kod do instrukcji
+`initialize_extra_account_meta_list`:
+
+```rust
+let account_metas = vec![
+    ExtraAccountMeta::new_with_seeds(
+        &[Seed::Literal {
+            bytes: "counter".as_bytes().to_vec(),
+        }],
+        false, // is_signer
+        true,  // is_writable
+    )?,
+];
+```
+
+Musimy również utworzyć to konto podczas inicjalizacji nowego mint account
+i przekazywać je za każdym razem, gdy przekazujemy token.
+
+```rust
+#[derive(Accounts)]
+pub struct InitializeExtraAccountMetaList<'info> {
+    #[account(mut)]
+    payer: Signer<'info>,
+
+    /// CHECK: ExtraAccountMetaList Account, must use these seeds
+    #[account(
+        mut,
+        seeds = [b"extra-account-metas", mint.key().as_ref()],
+        bump
+    )]
+    pub extra_account_meta_list: AccountInfo<'info>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(
+        init_if_needed,
+        seeds = [b"counter"],
+        bump,
+        payer = payer,
+        space = 16
+    )]
+    pub counter_account: Account<'info, CounterAccount>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct TransferHook<'info> {
+    #[account(
+        token::mint = mint,
+        token::authority = owner,
+    )]
+    pub source_token: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(
+        token::mint = mint,
+    )]
+    pub destination_token: InterfaceAccount<'info, TokenAccount>,
+    /// CHECK: source token account owner, can be SystemAccount or PDA owned by another program
+    pub owner: UncheckedAccount<'info>,
+    /// CHECK: ExtraAccountMetaList Account,
+    #[account(
+        seeds = [b"extra-account-metas", mint.key().as_ref()],
+        bump
+    )]
+    pub extra_account_meta_list: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"counter"],
+        bump
+    )]
+    pub counter_account: Account<'info, CounterAccount>,
+}
+```
+
+Konto będzie przechowywać zmienną licznikową typu `u64`:
+
+```rust
+#[account]
+pub struct CounterAccount {
+    counter: u64,
+}
+```
+
+Teraz w funkcji transfer hook możemy po prostu zwiększać ten licznik o jeden za każdym
+razem, gdy jest wywoływana:
+
+```rust
+pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+
+    ctx.accounts.counter_account.counter.checked_add(1).unwrap();
+    msg!("This token has been transferred {0} times", ctx.accounts.counter_account.counter);
+
+    Ok(())
+}
+```
+
+Po stronie klienta te dodatkowe konta są dodawane automatycznie przez funkcję pomocniczą
+createTransferCheckedWithTransferHookInstruction:
+
+```js
+let transferInstructionWithHelper =
+  await createTransferCheckedWithTransferHookInstruction(
+    connection,
+    sourceTokenAccount,
+    mint.publicKey,
+    destinationTokenAccount,
+    wallet.publicKey,
+    amountBigInt,
+    decimals,
+    [],
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  );
+```
+
+Aby uruchomić przykład w Solana Playground, przejdź pod ten link:
+[link](https://beta.solpg.io/github.com/solana-developers/anchor-transfer-hook/tree/counter)
+
+Następnie wpisz `build`, co zaktualizuje wartość `declare_id` w pliku `lib.rs`
+nowo wygenerowanym ID programu. Następnie wpisz `deploy`, aby wdrożyć program
+do devnet. Po wdrożeniu programu możesz uruchomić plik testowy, wpisując `test`
+w terminalu.
+
+Spowoduje to wyświetlenie następujących danych wyjściowych. W ostatniej transakcji
+będziesz mógł zobaczyć, ile razy twój token został przekazany:
+
+```shell
+"This token has been transferred 1 times"
+```
+
+```shell
+Running tests...
+  transfer-hook.test.ts:
+  transfer-hook
+    Transaction Signature: 48r6effAA4B9RVh13eBXdGjmcPKcm6QwnvodX2dT5nNfJyzoS3AejqatKXyqcmpzPdcmpTjgALnd1xx7v17ggptV
+    ✔ Create Mint Account with Transfer Hook Extension (545ms)
+    Transaction Signature: nfkBH6cbM5c94od3VG4QmxHkXJzm6VEFxogbQKpd7gERJNgESyu1gEjLJnPiUer59sXnx787eB6hYBkhdkFnzdL
+    ✔ Create Token Accounts and Mint Tokens (354ms)
+    Extra accounts meta: null
+    Transaction Signature: 4T6FS3Y95Kjkf9fy5jtCYWo2Wf1SSQKmo6GUK2YqXEcgR4Wrr6aLmnoEBcBNCpEv4ALbJuwu5KtVdxb1S3ynMPJY
+    ✔ Create ExtraAccountMetaList Account (695ms)
+    Extra accounts meta: 9mifVeGPh7CHyf1NrcUWzzVKMU7g3AwQ6L3md3fMNqju
+    Counter PDa: 334HLdMwbhSGYf8QWHHmEkeZf6x6caXGF6oxVnCEmaQd
+    Transfer Signature: 32zoL4oTC3XPVsgeDmT3KsTS4v8U4qe3GPKMF72QX5eSHgAFagKEyvRrGuoP2UEGLpj41Ygm9dSRi5YKghxS24EN
+    ✔ Transfer Hook with Extra Account Meta (776ms)
+  4 passing (2s)
+```
+
+<Callout type="warn">
+
+Ponieważ zwiększamy licznik za każdym razem, gdy token jest przekazywany, musimy
+upewnić się, że instrukcja transfer hook może być wywołana tylko podczas transferu,
+w przeciwnym razie ktoś mógłby wywołać instrukcję transfer hook bezpośrednio
+i zaburzać nasz licznik. Jest to sprawdzenie, które powinieneś dodać do każdego
+ze swoich transfer hooków.
+
+</Callout>
+
+Możesz dodać sprawdzenie w następujący sposób:
+
+```rust
+fn assert_is_transferring(ctx: &Context<TransferHook>) -> Result<()> {
+    let source_token_info = ctx.accounts.source_token.to_account_info();
+    let mut account_data_ref: RefMut<&mut [u8]> = source_token_info.try_borrow_mut_data()?;
+    let mut account = PodStateWithExtensionsMut::<PodAccount>::unpack(*account_data_ref)?;
+    let account_extension = account.get_extension_mut::<TransferHookAccount>()?;
+
+    if !bool::from(account_extension.transferring) {
+        return err!(TransferError::IsNotCurrentlyTransferring);
+    }
+
+    Ok(())
+}
+```
+
+A następnie wywołać je na początku funkcji `transfer_hook`:
+
+```rust
+    #[error_code]
+    pub enum TransferError {
+        #[msg("The token is not currently transferring")]
+        IsNotCurrentlyTransferring,
+    }
+
+    #[interface(spl_transfer_hook_interface::execute)]
+    pub fn transfer_hook(ctx: Context<TransferHook>, _amount: u64) -> Result<()> {
+        // Fail this instruction if it is not called from within a transfer hook
+        assert_is_transferring(&ctx)?;
+
+        ctx.accounts.counter_account.counter.checked_add(1).unwrap();
+        msg!("This token has been transferred {0} times", ctx.accounts.counter_account.counter);
+
+        Ok(())
+    }
+```
+
+## Transfer Hook z opłatą wSOL (przykład zaawansowany)
+
+W kolejnej części tego przewodnika zbudujemy bardziej zaawansowany program Transfer Hook
+przy użyciu frameworka Anchor. Ten program będzie wymagał od nadawcy uiszczenia
+opłaty w wSOL za każdy transfer tokena.
+
+Transfery wSOL będą wykonywane przy użyciu delegata będącego PDA wyprowadzonym
+z programu Transfer Hook. Jest to konieczne, ponieważ podpis pierwotnego
+nadawcy instrukcji transferu tokena nie jest dostępny w programie Transfer Hook.
+
+Ten program będzie zawierał tylko 3 instrukcje:
+
+1. `initialize_extra_account_meta_list`: Tworzy konto przechowujące listę
+   dodatkowych kont wymaganych przez instrukcję `transfer_hook`.
+2. `transfer_hook`: Ta instrukcja jest wywoływana przez CPI przy każdym transferze tokena
+   w celu wykonania transferu opakowanego tokena SOL.
+3. `fallback`: Instrukcje interfejsu transfer hook posiadają określone
+   dyskryminatory (identyfikatory instrukcji). W programie Anchor możemy użyć
+   instrukcji fallback, aby ręcznie dopasować dyskryminator instrukcji i
+   wywołać niestandardową instrukcję `transfer_hook`.
+
+Ten program będzie wymagał od nadawcy uiszczenia opłaty w opakowanym SOL (wSOL) przy każdym
+transferze tokena. Oto
+[gotowy program](https://beta.solpg.io/github.com/solana-developers/anchor-transfer-hook/tree/main).
+
+### Pierwsze kroki
+
+Zacznij od otwarcia tego linku do Solana Playground
+[link](https://beta.solpg.io/github.com/solana-developers/anchor-transfer-hook/tree/starter)
+a następnie kliknij przycisk „Import“, aby skopiować projekt.
+
+Kod startowy zawiera pliki `lib.rs` oraz `transfer-hook.test.ts`, które stanowią
+szkielet programu, który będziemy tworzyć. W pliku `lib.rs` powinieneś
+zobaczyć następujący kod:
+
+```rust
+use anchor_lang::{
+    prelude::*,
+    system_program::{create_account, CreateAccount},
+};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
+};
+use spl_tlv_account_resolution::{
+    account::ExtraAccountMeta, seeds::Seed, state::ExtraAccountMetaList,
+};
+use spl_transfer_hook_interface::instruction::{ExecuteInstruction, TransferHookInstruction};
+
+declare_id!("E6wu6Nykdra8gXs57Zqo7hY6DLaWugTmD3uuuBmX2Vxt");
+
+#[program]
+pub mod transfer_hook {
+    use super::*;
+
+    pub fn initialize_extra_account_meta_list(
+        ctx: Context<InitializeExtraAccountMetaList>,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn fallback<'info>(
+        program_id: &Pubkey,
+        accounts: &'info [AccountInfo<'info>],
+        data: &[u8],
+    ) -> Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct InitializeExtraAccountMetaList {}
+
+#[derive(Accounts)]
+pub struct TransferHook {}
+```
+
+Po zaimportowaniu projektu zbuduj program używając polecenia `build`
+w terminalu Playground.
+
+```
+build
+```
+
+Spowoduje to aktualizację wartości `declare_id` w pliku `lib.rs` nowo
+wygenerowanym ID programu.
+
+### Instrukcja inicjalizacji konta ExtraAccountMetas
+
+W tym kroku zaimplementujemy instrukcję `initialize_extra_account_meta_list`
+dla naszego programu Transfer Hook. Ta instrukcja tworzy konto ExtraAccountMetas,
+które będzie przechowywać dodatkowe konta wymagane przez instrukcję `transfer_hook`.
+
+W tym przykładzie instrukcja `initialize_extra_account_meta_list` wymaga 7
+kont:
+
+- `payer`: Konto używane do opłacenia utworzenia konta ExtraAccountMetas.
+- `extra_account_meta_list`: Konto ExtraAccountMetas utworzone w celu przechowywania
+  listy kont wymaganych przez instrukcję `transfer_hook`.
+- `mint`: mint account wskazujący na ten program Transfer Hook. Adres mint
+  jest wymaganym seed do wyprowadzenia PDA `extra_account_meta_list`.
+- `wsol_mint`: Opakowany mint SOL.
+- `token_program`: Oryginalny Token Program ID.
+- `associated_token_program`: ID Associated Token Program.
+- `system_program`: System Program, który jest wymaganym kontem przy
+  tworzeniu nowych kont.
+
+Adresy `mint`, `wsol_mint` oraz `associated_token_program` zostaną użyte
+do wyprowadzenia adresów wSOL Associated Token Accounts. Te konta są wymagane
+przez instrukcję `transfer_hook` i będą przechowywane na koncie ExtraAccountMetas.
+
+Zaktualizuj strukturę `InitializeExtraAccountMetaList`, zastępując następujący
+kod startowy:
+
+```rust
+#[derive(Accounts)]
+pub struct InitializeExtraAccountMetaList {}
+```
+
+Kodem podanym poniżej:
+
+```rust
+#[derive(Accounts)]
+pub struct InitializeExtraAccountMetaList<'info> {
+    #[account(mut)]
+    payer: Signer<'info>,
+
+    /// CHECK: ExtraAccountMetaList Account, must use these seeds
+    #[account(
+        mut,
+        seeds = [b"extra-account-metas", mint.key().as_ref()],
+        bump
+    )]
+    pub extra_account_meta_list: AccountInfo<'info>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    pub wsol_mint: InterfaceAccount<'info, Mint>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+Następnie zaktualizuj instrukcję `initialize_extra_account_meta_list`, zastępując
+następujący kod startowy:
+
+```rust
+pub fn initialize_extra_account_meta_list(
+    ctx: Context<InitializeExtraAccountMetaList>,
+) -> Result<()> {
+    Ok(())
+}
+```
+
+Kodem podanym poniżej:
+
+```rust
+pub fn initialize_extra_account_meta_list(
+        ctx: Context<InitializeExtraAccountMetaList>,
+    ) -> Result<()> {
+        // index 0-3 are the accounts required for token transfer (source, mint, destination, owner)
+        // index 4 is address of ExtraAccountMetaList account
+        // The `addExtraAccountsToInstruction` JS helper function resolving incorrectly
+        let account_metas = vec![
+            // index 5, wrapped SOL mint
+            ExtraAccountMeta::new_with_pubkey(&ctx.accounts.wsol_mint.key(), false, false)?,
+            // index 6, token program
+            ExtraAccountMeta::new_with_pubkey(&ctx.accounts.token_program.key(), false, false)?,
+            // index 7, associated token program
+            ExtraAccountMeta::new_with_pubkey(
+                &ctx.accounts.associated_token_program.key(),
+                false,
+                false,
+            )?,
+            // index 8, delegate PDA
+            ExtraAccountMeta::new_with_seeds(
+                &[Seed::Literal {
+                    bytes: "delegate".as_bytes().to_vec(),
+                }],
+                false, // is_signer
+                false,  // is_writable
+            )?,
+            // index 9, delegate wrapped SOL token account
+            ExtraAccountMeta::new_external_pda_with_seeds(
+                7, // associated token program index
+                &[
+                    Seed::AccountKey { index: 8 }, // owner index (delegate PDA)
+                    Seed::AccountKey { index: 6 }, // token program index
+                    Seed::AccountKey { index: 5 }, // wsol mint index
+                ],
+                false, // is_signer
+                true,  // is_writable
+            )?,
+            // index 10, sender wrapped SOL token account
+            ExtraAccountMeta::new_external_pda_with_seeds(
+                7, // associated token program index
+                &[
+                    Seed::AccountKey { index: 3 }, // owner index
+                    Seed::AccountKey { index: 6 }, // token program index
+                    Seed::AccountKey { index: 5 }, // wsol mint index
+                ],
+                false, // is_signer
+                true,  // is_writable
+            )?,
+        ];
+
+        // calculate account size
+        let account_size = ExtraAccountMetaList::size_of(account_metas.len())? as u64;
+        // calculate minimum required lamports
+        let lamports = Rent::get()?.minimum_balance(account_size as usize);
+
+        let mint = ctx.accounts.mint.key();
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"extra-account-metas",
+            &mint.as_ref(),
+            &[ctx.bumps.extra_account_meta_list],
+        ]];
+
+        // create ExtraAccountMetaList account
+        create_account(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                CreateAccount {
+                    from: ctx.accounts.payer.to_account_info(),
+                    to: ctx.accounts.extra_account_meta_list.to_account_info(),
+                },
+            )
+            .with_signer(signer_seeds),
+            lamports,
+            account_size,
+            ctx.program_id,
+        )?;
+
+        // initialize ExtraAccountMetaList account with extra accounts
+        ExtraAccountMetaList::init::<ExecuteInstruction>(
+            &mut ctx.accounts.extra_account_meta_list.try_borrow_mut_data()?,
+            &account_metas,
+        )?;
+
+        Ok(())
+    }
+```
+
+Przeanalizujmy zaktualizowaną logikę instrukcji. Zaczynamy od wylistowania
+dodatkowych kont, które muszą być przechowywane na koncie ExtraAccountMetas.
+
+```rust
+// index 0-3 are the accounts required for token transfer (source, mint, destination, owner)
+// index 4 is address of ExtraAccountMetaList account
+// The `addExtraAccountsToInstruction` JS helper function resolving incorrectly
+let account_metas = vec![
+    // index 5, wrapped SOL mint
+    ExtraAccountMeta::new_with_pubkey(&ctx.accounts.wsol_mint.key(), false, false)?,
+    // index 6, token program
+    ExtraAccountMeta::new_with_pubkey(&ctx.accounts.token_program.key(), false, false)?,
+    // index 7, associated token program
+    ExtraAccountMeta::new_with_pubkey(
+        &ctx.accounts.associated_token_program.key(),
+        false,
+        false,
+    )?,
+    // index 8, delegate PDA
+    ExtraAccountMeta::new_with_seeds(
+        &[Seed::Literal {
+            bytes: "delegate".as_bytes().to_vec(),
+        }],
+        false, // is_signer
+        true,  // is_writable
+    )?,
+    // index 9, delegate wrapped SOL token account
+    ExtraAccountMeta::new_external_pda_with_seeds(
+        7, // associated token program index
+        &[
+            Seed::AccountKey { index: 8 }, // owner index (delegate PDA)
+            Seed::AccountKey { index: 6 }, // token program index
+            Seed::AccountKey { index: 5 }, // wsol mint index
+        ],
+        false, // is_signer
+        true,  // is_writable
+    )?,
+    // index 10, sender wrapped SOL token account
+    ExtraAccountMeta::new_external_pda_with_seeds(
+        7, // associated token program index
+        &[
+            Seed::AccountKey { index: 3 }, // owner index
+            Seed::AccountKey { index: 6 }, // token program index
+            Seed::AccountKey { index: 5 }, // wsol mint index
+        ],
+        false, // is_signer
+        true,  // is_writable
+    )?,
+];
+```
+
+Istnieją trzy metody przechowywania tych kont:
+
+1. Bezpośrednie przechowywanie adresu konta:
+   - Adres opakowanego mintu SOL
+   - Token Program ID
+   - Associated Token Program ID
+
+```rust
+// index 5, wrapped SOL mint
+ExtraAccountMeta::new_with_pubkey(&ctx.accounts.wsol_mint.key(), false, false)?,
+// index 6, token program
+ExtraAccountMeta::new_with_pubkey(&ctx.accounts.token_program.key(), false, false)?,
+// index 7, associated token program
+ExtraAccountMeta::new_with_pubkey(
+    &ctx.accounts.associated_token_program.key(),
+    false,
+    false,
+)?,
+
+```
+
+2. Przechowywanie seed do wyprowadzenia PDA dla programu Transfer Hook:
+   - Delegate PDA
+
+```rust
+// index 8, delegate PDA
+ExtraAccountMeta::new_with_seeds(
+    &[Seed::Literal {
+        bytes: "delegate".as_bytes().to_vec(),
+    }],
+    false, // is_signer
+    false,  // is_writable
+)?,
+
+```
+
+3. Przechowaj seed do wyprowadzenia PDA dla programu innego niż program Transfer Hook:
+   - Delegat wSOL Associated Token Account
+   - Nadawca wSOL Associated Token Account
+
+```rust
+// index 9, delegate wrapped SOL token account
+ExtraAccountMeta::new_external_pda_with_seeds(
+    7, // associated token program index
+    &[
+        Seed::AccountKey { index: 8 }, // owner index (delegate PDA)
+        Seed::AccountKey { index: 6 }, // token program index
+        Seed::AccountKey { index: 5 }, // wsol mint index
+    ],
+    false, // is_signer
+    true,  // is_writable
+)?,
+// index 10, sender wrapped SOL token account
+ExtraAccountMeta::new_external_pda_with_seeds(
+    7, // associated token program index
+    &[
+        Seed::AccountKey { index: 3 }, // owner index
+        Seed::AccountKey { index: 6 }, // token program index
+        Seed::AccountKey { index: 5 }, // wsol mint index
+    ],
+    false, // is_signer
+    true,  // is_writable
+)?,
+```
+
+Następnie obliczamy rozmiar i rent wymagane do przechowania listy ExtraAccountMetas.
+
+```rust
+// calculate account size
+let account_size = ExtraAccountMetaList::size_of(account_metas.len())? as u64;
+// calculate minimum required lamports
+let lamports = Rent::get()?.minimum_balance(account_size as usize);
+```
+
+Następnie wykonujemy CPI do System Program, aby utworzyć konto i ustawić Token Extensions Program jako właściciela. seed PDA są dołączone jako seed podpisującego w CPI, ponieważ używamy PDA jako adresu nowego konta.
+
+```rust
+let mint = ctx.accounts.mint.key();
+let signer_seeds: &[&[&[u8]]] = &[&[
+    b"extra-account-metas",
+    &mint.as_ref(),
+    &[ctx.bumps.extra_account_meta_list],
+]];
+
+// create ExtraAccountMetaList account
+create_account(
+    CpiContext::new(
+        ctx.accounts.system_program.to_account_info(),
+        CreateAccount {
+            from: ctx.accounts.payer.to_account_info(),
+            to: ctx.accounts.extra_account_meta_list.to_account_info(),
+        },
+    )
+    .with_signer(signer_seeds),
+    lamports,
+    account_size,
+    ctx.program_id,
+)?;
+```
+
+Po utworzeniu konta inicjalizujemy dane konta w celu przechowania listy ExtraAccountMetas.
+
+```rust
+// initialize ExtraAccountMetaList account with extra accounts
+ExtraAccountMetaList::init::<ExecuteInstruction>(
+    &mut ctx.accounts.extra_account_meta_list.try_borrow_mut_data()?,
+    &account_metas,
+)?;
+```
+
+<Callout type="info">
+
+W tym przykładzie nie używamy interfejsu Transfer Hook do tworzenia konta ExtraAccountMetas.
+
+</Callout>
+
+### Niestandardowa Instrukcja Transfer Hook
+
+Następnie zaimplementujemy niestandardową instrukcję `transfer_hook`. Jest to instrukcja, którą Token Extensions Program będzie wywoływał przy każdym transferze tokenów.
+
+W tym przykładzie wymagamy opłaty uiszczanej w wSOL za każdy transfer tokenów. Dla uproszczenia kwota opłaty jest równa kwocie transferu tokenów.
+
+Zaktualizuj strukturę `TransferHook`, zastępując następujący kod startowy:
+
+```rust
+#[derive(Accounts)]
+pub struct TransferHook {}
+```
+
+Zaktualizowanym kodem poniżej:
+
+<Callout type="info">
+
+Należy pamiętać, że kolejność kont w tej strukturze ma znaczenie. Jest to kolejność, w jakiej Token Extensions Program dostarcza te konta podczas CPI do tego programu Transfer Hook.
+
+</Callout>
+
+```rust
+// Order of accounts matters for this struct.
+// The first 4 accounts are the accounts required for token transfer (source, mint, destination, owner)
+// Remaining accounts are the extra accounts required from the ExtraAccountMetaList account
+// These accounts are provided via CPI to this program from the token2022 program
+#[derive(Accounts)]
+pub struct TransferHook<'info> {
+    #[account(
+        token::mint = mint,
+        token::authority = owner,
+    )]
+    pub source_token: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(
+        token::mint = mint,
+    )]
+    pub destination_token: InterfaceAccount<'info, TokenAccount>,
+    /// CHECK: source token account owner, can be SystemAccount or PDA owned by another program
+    pub owner: UncheckedAccount<'info>,
+    /// CHECK: ExtraAccountMetaList Account,
+    #[account(
+        seeds = [b"extra-account-metas", mint.key().as_ref()],
+        bump
+    )]
+    pub extra_account_meta_list: UncheckedAccount<'info>,
+    pub wsol_mint: InterfaceAccount<'info, Mint>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    #[account(
+        seeds = [b"delegate"],
+        bump
+    )]
+    pub delegate: SystemAccount<'info>,
+    #[account(
+        mut,
+        token::mint = wsol_mint,
+        token::authority = delegate,
+    )]
+    pub delegate_wsol_token_account: InterfaceAccount<'info, TokenAccount>,
+    #[account(
+        mut,
+        token::mint = wsol_mint,
+        token::authority = owner,
+    )]
+    pub sender_wsol_token_account: InterfaceAccount<'info, TokenAccount>,
+}
+```
+
+Pierwsze 4 konta to konta wymagane przez początkowy transfer tokenów.
+
+```rust
+#[account(
+    token::mint = mint,
+    token::authority = owner,
+)]
+pub source_token: InterfaceAccount<'info, TokenAccount>,
+pub mint: InterfaceAccount<'info, Mint>,
+#[account(
+    token::mint = mint,
+)]
+pub destination_token: InterfaceAccount<'info, TokenAccount>,
+/// CHECK: source token account owner, can be SystemAccount or PDA owned by another program
+pub owner: UncheckedAccount<'info>,
+```
+
+Piąte konto to adres konta ExtraAccountMeta, które przechowuje listę dodatkowych kont wymaganych przez naszą instrukcję `transfer_hook`.
+
+```rust
+/// CHECK: ExtraAccountMetaList Account
+#[account(
+    seeds = [b"extra-account-metas", mint.key().as_ref()],
+    bump
+)]
+pub extra_account_meta_list: UncheckedAccount<'info>,
+```
+
+Pozostałe konta to konta wymienione na koncie ExtraAccountMetas w kolejności, w jakiej zdefiniowaliśmy je w instrukcji `initialize_extra_account_meta_list`.
+
+```rust
+pub wsol_mint: InterfaceAccount<'info, Mint>,
+pub token_program: Interface<'info, TokenInterface>,
+pub associated_token_program: Program<'info, AssociatedToken>,
+#[account(
+    mut,
+    seeds = [b"delegate"],
+    bump
+)]
+pub delegate: SystemAccount<'info>,
+#[account(
+    mut,
+    token::mint = wsol_mint,
+    token::authority = delegate,
+)]
+pub delegate_wsol_token_account: InterfaceAccount<'info, TokenAccount>,
+#[account(
+    mut,
+    token::mint = wsol_mint,
+    token::authority = owner,
+)]
+pub sender_wsol_token_account: InterfaceAccount<'info, TokenAccount>,
+```
+
+Następnie zaktualizuj instrukcję `transfer_hook`, zastępując następujący kod startowy:
+
+```rust
+pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+    Ok(())
+}
+```
+
+Zaktualizowanym kodem poniżej:
+
+```rust
+// Require SOL fee on transfer, lamport fee is equal to transfer amount
+// If this fails, the initial token transfer fails
+pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+    msg!("Transfer WSOL using delegate PDA");
+
+    let signer_seeds: &[&[&[u8]]] = &[&[b"delegate", &[ctx.bumps.delegate]]];
+
+    // transfer WSOL from sender to delegate token account using delegate PDA
+    transfer_checked(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            TransferChecked {
+                from: ctx.accounts.sender_wsol_token_account.to_account_info(),
+                mint: ctx.accounts.wsol_mint.to_account_info(),
+                to: ctx.accounts.delegate_wsol_token_account.to_account_info(),
+                authority: ctx.accounts.delegate.to_account_info(),
+            },
+        )
+        .with_signer(signer_seeds),
+        amount,
+        ctx.accounts.wsol_mint.decimals,
+    )?;
+    Ok(())
+}
+```
+
+W logice instrukcji wykonujemy CPI, aby przenieść wSOL z token account wSOL nadawcy. Transfer ten jest podpisywany przez delegata PDA. Przed każdym transferem tokenów nadawca musi najpierw zatwierdzić delegata dla kwoty transferu.
+
+### Instrukcja Fallback
+
+Na koniec musimy dodać instrukcję fallback do programu Anchor, aby obsłużyć CPI z Token Extensions Program.
+
+Ten krok jest wymagany ze względu na różnicę w sposobie, w jaki Anchor generuje dyskryminatory instrukcji w porównaniu z tymi używanymi w instrukcjach interfejsu Transfer Hook. Dyskryminator instrukcji dla instrukcji `transfer_hook` nie będzie pasował do tego dla interfejsu Transfer Hook.
+
+Zaktualizuj instrukcję `fallback`, zastępując następujący kod startowy:
+
+```rust
+pub fn fallback<'info>(
+    program_id: &Pubkey,
+    accounts: &'info [AccountInfo<'info>],
+    data: &[u8],
+) -> Result<()> {
+    Ok(())
+}
+```
+
+Zaktualizowanym kodem poniżej:
+
+```rust
+// fallback instruction handler as workaround to anchor instruction discriminator check
+pub fn fallback<'info>(
+    program_id: &Pubkey,
+    accounts: &'info [AccountInfo<'info>],
+    data: &[u8],
+) -> Result<()> {
+    let instruction = TransferHookInstruction::unpack(data)?;
+
+    // match instruction discriminator to transfer hook interface execute instruction
+    // token2022 program CPIs this instruction on token transfer
+    match instruction {
+        TransferHookInstruction::Execute { amount } => {
+            let amount_bytes = amount.to_le_bytes();
+
+            // invoke custom transfer hook instruction on our program
+            __private::__global::transfer_hook(program_id, accounts, &amount_bytes)
+        }
+        _ => return Err(ProgramError::InvalidInstructionData.into()),
+    }
+}
+```
+
+Instrukcja fallback sprawdza, czy dyskryminator instrukcji dla przychodzącej instrukcji pasuje do instrukcji `Execute` z interfejsu Transfer Hook. W przypadku pomyślnego dopasowania wywołuje instrukcję `transfer_hook` w naszym programie Anchor.
+
+<Callout type="info">
+
+Aktualnie istnieje nieopublikowana funkcja Anchor, która upraszcza ten proces. Usunęłaby potrzebę stosowania instrukcji fallback.
+
+</Callout>
+
+### Budowanie i Wdrażanie Programu
+
+Program Transfer Hook jest teraz kompletny. Upewnij się, że masz wystarczająco dużo SOL w sieci Devnet w swoim portfelu Playground, aby wdrożyć program.
+
+Aby zbudować program, użyj następującego polecenia:
+
+```
+build
+```
+
+Następnie wdróż program za pomocą polecenia:
+
+```
+deploy
+```
+
+### Przegląd Pliku Testowego
+
+Następnie przetestujemy program. Otwórz plik `transfer-hook.test.ts` i powinieneś zobaczyć następujący kod startowy:
+
+```js
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { TransferHook } from "../target/types/transfer_hook";
+import {
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+} from "@solana/web3.js";
+import {
+  ExtensionType,
+  TOKEN_2022_PROGRAM_ID,
+  getMintLen,
+  createInitializeMintInstruction,
+  createInitializeTransferHookInstruction,
+  addExtraAccountsToInstruction,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  createMintToInstruction,
+  createTransferCheckedInstruction,
+  getAssociatedTokenAddressSync,
+  createApproveInstruction,
+  createSyncNativeInstruction,
+  NATIVE_MINT,
+  TOKEN_PROGRAM_ID,
+  getAccount,
+  getOrCreateAssociatedTokenAccount,
+} from "@solana/spl-token";
+import assert from "assert";
+
+describe("transfer-hook", () => {
+  // Configure the client to use the local cluster.
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.TransferHook as Program<TransferHook>;
+  const wallet = provider.wallet as anchor.Wallet;
+  const connection = provider.connection;
+
+  // Generate keypair to use as address for the transfer-hook enabled mint
+  const mint = new Keypair();
+  const decimals = 9;
+
+  // Sender token account address
+  const sourceTokenAccount = getAssociatedTokenAddressSync(
+    mint.publicKey,
+    wallet.publicKey,
+    false,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+
+  // Recipient token account address
+  const recipient = Keypair.generate();
+  const destinationTokenAccount = getAssociatedTokenAddressSync(
+    mint.publicKey,
+    recipient.publicKey,
+    false,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+
+  // ExtraAccountMetaList address
+  // Store extra accounts required by the custom transfer hook instruction
+  const [extraAccountMetaListPDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("extra-account-metas"), mint.publicKey.toBuffer()],
+    program.programId
+  );
+
+  // PDA delegate to transfer wSOL tokens from sender
+  const [delegatePDA] = PublicKey.findProgramAddressSync(
+    [Buffer.from("delegate")],
+    program.programId
+  );
+
+  // Sender wSOL token account address
+  const senderWSolTokenAccount = getAssociatedTokenAddressSync(
+    NATIVE_MINT, // mint
+    wallet.publicKey // owner
+  );
+
+  // Delegate PDA wSOL token account address, to receive wSOL tokens from sender
+  const delegateWSolTokenAccount = getAssociatedTokenAddressSync(
+    NATIVE_MINT, // mint
+    delegatePDA, // owner
+    true // allowOwnerOffCurve
+  );
+
+  // Create the two WSol token accounts as part of setup
+  before(async () => {
+    // WSol Token Account for sender
+    await getOrCreateAssociatedTokenAccount(
+      connection,
+      wallet.payer,
+      NATIVE_MINT,
+      wallet.publicKey
+    );
+
+    // WSol Token Account for delegate PDA
+    await getOrCreateAssociatedTokenAccount(
+      connection,
+      wallet.payer,
+      NATIVE_MINT,
+      delegatePDA,
+      true
+    );
+  });
+
+  it("Create Mint Account with Transfer Hook Extension", async () => {});
+
+  it("Create Token Accounts and Mint Tokens", async () => {});
+
+  it("Create ExtraAccountMetaList Account", async () => {});
+
+  it("Transfer Hook with Extra Account Meta", async () => {});
+});
+```
+
+Najpierw generujemy keypair, który będzie służył jako adres dla nowego Mint Account. Używając adresu mint, wyprowadzamy adresy Associated Token Account (ATA), których użyjemy do transferu tokenów.
+
+```js
+// Generate keypair to use as address for the transfer-hook enabled mint
+const mint = new Keypair();
+const decimals = 9;
+
+// Sender token account address
+const sourceTokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  wallet.publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+// Recipient token account address
+const recipient = Keypair.generate();
+const destinationTokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  recipient.publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+```
+
+Następnie wyprowadzamy PDA dla konta ExtraAccountMetas. Konto to jest tworzone w celu przechowania dodatkowych kont wymaganych przez niestandardową instrukcję transfer hook.
+
+```js
+// ExtraAccountMetaList address
+// Store extra accounts required by the custom transfer hook instruction
+const [extraAccountMetaListPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("extra-account-metas"), mint.publicKey.toBuffer()],
+  program.programId
+);
+```
+
+Wyprowadzamy również PDA, który będzie używany jako delegat. Nadawca musi zatwierdzić ten adres jako delegata dla swojego token account wSOL. Ten PDA delegata jest używany do "podpisywania" transferu wSOL w niestandardowej instrukcji transfer hook.
+
+```js
+// PDA delegate to transfer wSOL tokens from sender
+const [delegatePDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("delegate")],
+  program.programId
+);
+```
+
+Dodatkowo wyprowadzamy adresy dla token account wSOL. Pierwszy adres jest przeznaczony dla token account wSOL nadawcy, który musi być zasilony w celu pokrycia opłaty transferowej wymaganej przez instrukcję transfer hook. Drugi adres jest przeznaczony dla token account wSOL należącego do PDA delegata. W tym przykładzie wszystkie opłaty wSOL są wysyłane na to konto.
+
+```js
+// Sender wSOL token account address
+const senderWSolTokenAccount = getAssociatedTokenAddressSync(
+  NATIVE_MINT, // mint
+  wallet.publicKey // owner
+);
+
+// Delegate PDA wSOL token account address, to receive wSOL tokens from sender
+const delegateWSolTokenAccount = getAssociatedTokenAddressSync(
+  NATIVE_MINT, // mint
+  delegatePDA, // owner
+  true // allowOwnerOffCurve
+);
+```
+
+Na koniec, w ramach konfiguracji, tworzymy token account wSOL.
+
+```js
+// Create the two WSol token accounts as part of setup
+before(async () => {
+  // WSol Token Account for sender
+  await getOrCreateAssociatedTokenAccount(
+    connection,
+    wallet.payer,
+    NATIVE_MINT,
+    wallet.publicKey
+  );
+
+  // WSol Token Account for delegate PDA
+  await getOrCreateAssociatedTokenAccount(
+    connection,
+    wallet.payer,
+    NATIVE_MINT,
+    delegatePDA,
+    true
+  );
+});
+```
+
+### Tworzenie Mint Account
+
+Na początek zbuduj transakcję, aby utworzyć nowy Mint Account z włączonym rozszerzeniem Transfer Hook. W tej transakcji pamiętaj, aby określić nasz program jako Token Extensions Program przechowywany w rozszerzeniu.
+
+Włączenie rozszerzenia Transfer Hook pozwala Token Extensions Program określić, który program wywołać przy każdym transferze tokenów.
+
+Zastąp zastępczy test:
+
+```js
+it("Create Mint Account with Transfer Hook Extension", async () => {});
+```
+
+Zaktualizowanym testem poniżej:
+
+```js
+it("Create Mint Account with Transfer Hook Extension", async () => {
+  const extensions = [ExtensionType.TransferHook];
+  const mintLen = getMintLen(extensions);
+  const lamports =
+    await provider.connection.getMinimumBalanceForRentExemption(mintLen);
+
+  const transaction = new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: wallet.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space: mintLen,
+      lamports: lamports,
+      programId: TOKEN_2022_PROGRAM_ID
+    }),
+    createInitializeTransferHookInstruction(
+      mint.publicKey,
+      wallet.publicKey,
+      program.programId, // Transfer Hook Program ID
+      TOKEN_2022_PROGRAM_ID
+    ),
+    createInitializeMintInstruction(
+      mint.publicKey,
+      decimals,
+      wallet.publicKey,
+      null,
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+
+  const txSig = await sendAndConfirmTransaction(
+    provider.connection,
+    transaction,
+    [wallet.payer, mint]
+  );
+  console.log(`Transaction Signature: ${txSig}`);
+});
+```
+
+### Tworzenie Token Account
+
+Następnie, w ramach konfiguracji, utwórz associated token account dla nadawcy i odbiorcy. Zasilij również konto nadawcy pewną ilością tokenów.
+
+Zastąp zastępczy test:
+
+```js
+it("Create Token Accounts and Mint Tokens", async () => {});
+```
+
+Zaktualizowanym testem poniżej:
+
+```js
+// Create the two token accounts for the transfer-hook enabled mint
+// Fund the sender token account with 100 tokens
+it("Create Token Accounts and Mint Tokens", async () => {
+  // 100 tokens
+  const amount = 100 * 10 ** decimals;
+
+  const transaction = new Transaction().add(
+    createAssociatedTokenAccountInstruction(
+      wallet.publicKey,
+      sourceTokenAccount,
+      wallet.publicKey,
+      mint.publicKey,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    ),
+    createAssociatedTokenAccountInstruction(
+      wallet.publicKey,
+      destinationTokenAccount,
+      recipient.publicKey,
+      mint.publicKey,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    ),
+    createMintToInstruction(
+      mint.publicKey,
+      sourceTokenAccount,
+      wallet.publicKey,
+      amount,
+      [],
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+
+  const txSig = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [wallet.payer],
+    { skipPreflight: true }
+  );
+
+  console.log(`Transaction Signature: ${txSig}`);
+});
+```
+
+### Tworzenie Konta ExtraAccountMeta
+
+Przed wysłaniem transferu tokenów musimy utworzyć konto ExtraAccountMetas, aby przechować wszystkie dodatkowe konta wymagane przez instrukcję transfer hook.
+
+Aby utworzyć to konto, wywołujemy instrukcję z naszego programu.
+
+Zastąp zastępczy test:
+
+```js
+it("Create ExtraAccountMetaList Account", async () => {});
+```
+
+Zaktualizowanym testem poniżej:
+
+```js
+// Account to store extra accounts required by the transfer hook instruction
+it("Create ExtraAccountMetaList Account", async () => {
+  const initializeExtraAccountMetaListInstruction = await program.methods
+    .initializeExtraAccountMetaList()
+    .accounts({
+      payer: wallet.publicKey,
+      extraAccountMetaList: extraAccountMetaListPDA,
+      mint: mint.publicKey,
+      wsolMint: NATIVE_MINT,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID
+    })
+    .instruction();
+
+  const transaction = new Transaction().add(
+    initializeExtraAccountMetaListInstruction
+  );
+
+  const txSig = await sendAndConfirmTransaction(
+    provider.connection,
+    transaction,
+    [wallet.payer],
+    { skipPreflight: true }
+  );
+  console.log("Transaction Signature:", txSig);
+});
+```
+
+### Transfer Tokenów
+
+Jesteśmy już gotowi do wysłania transferu tokenów. Oprócz instrukcji transferu istnieje kilka dodatkowych instrukcji, które należy uwzględnić.
+
+- Nadawca musi przenieść SOL na swój token account wSOL, aby pokryć opłatę wymaganą przez instrukcję transfer hook.
+- Nadawca musi zatwierdzić PDA delegata dla kwoty opłaty wSOL.
+- Dodaj instrukcję synchronizacji salda wSOL.
+- Instrukcja transferu tokenów musi zawierać wszystkie dodatkowe konta wymagane przez instrukcję transfer hook.
+
+Zastąp zastępczy test:
+
+```js
+it("Transfer Hook with Extra Account Meta", async () => {});
+```
+
+Zaktualizowanym testem poniżej:
+
+```js
+it("Transfer Hook with Extra Account Meta", async () => {
+  // 1 tokens
+  const amount = 1 * 10 ** decimals;
+  const amountBigInt = BigInt(amount);
+
+  // Instruction for sender to fund their WSol token account
+  const solTransferInstruction = SystemProgram.transfer({
+    fromPubkey: wallet.publicKey,
+    toPubkey: senderWSolTokenAccount,
+    lamports: amount
+  });
+
+  // Approve delegate PDA to transfer WSol tokens from sender WSol token account
+  const approveInstruction = createApproveInstruction(
+    senderWSolTokenAccount,
+    delegatePDA,
+    wallet.publicKey,
+    amount,
+    [],
+    TOKEN_PROGRAM_ID
+  );
+
+  // Sync sender WSol token account
+  const syncWrappedSolInstruction = createSyncNativeInstruction(
+    senderWSolTokenAccount
+  );
+
+  // This helper function will automatically derive all the additional accounts that were defined in the ExtraAccountMetas account
+  let transferInstructionWithHelper =
+    await createTransferCheckedWithTransferHookInstruction(
+      connection,
+      sourceTokenAccount,
+      mint.publicKey,
+      destinationTokenAccount,
+      wallet.publicKey,
+      amountBigInt,
+      decimals,
+      [],
+      "confirmed",
+      TOKEN_2022_PROGRAM_ID
+    );
+
+  const transaction = new Transaction().add(
+    solTransferInstruction,
+    syncWrappedSolInstruction,
+    approveInstruction,
+    transferInstructionWithHelper
+  );
+
+  const txSig = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [wallet.payer],
+    { skipPreflight: true }
+  );
+  console.log("Transfer Signature:", txSig);
+});
+```
+
+Instrukcja transferu musi zawierać wszystkie dodatkowe AccountMetas, adres konta ExtraAccountMetas oraz adres Token Extensions Program.
+
+### Uruchamianie Pliku Testowego
+
+Po zaktualizowaniu wszystkich testów ostatnim krokiem jest uruchomienie testu.
+
+Aby uruchomić plik testowy, użyj następującego polecenia w terminalu:
+
+```
+test
+```
+
+Powinieneś zobaczyć dane wyjściowe podobne do następujących:
+
+```
+Running tests...
+  transfer-hook.test.ts:
+  transfer-hook
+    Transaction Signature: 5o12ZTvcSkV8YNqyeQpzRCq4zFSg9VqguQkT9ZSesioj8uzb8dWRheoknuPaRDDqEGdrUBqmRQ2veSUshUicWsqG
+    ✔ Create Mint Account with Transfer Hook Extension (996ms)
+    Transaction Signature: 4F4Vhi8s1h2reDr6jecvuQFF5XpoofWPpshgAMnfg7jtNZj4HtxbsksFTh28ZjYTaKFpjeturYZKxk5Cj4gBZoy
+    ✔ Create Token Accounts and Mint Tokens (716ms)
+    Transaction Signature: 3s4Nok6H4qexpGXup3AWC4nGuiqy567rm5rTWLFMXYKxZJensBVVZHCwVDzpwD3XtWjMFHm4TrvQXwKSsp47y5jx
+    ✔ Create ExtraAccountMetaList Account (711ms)
+    Transfer Signature: 53j9QV5LYUVgV7T7Z99GfYg1Xvp2qbQnHsJbzDK6BR5TPBo9s622KCf3W3BDEL4ECprkZFs5biDRDedfVj6zuDA6
+    ✔ Transfer Hook with Extra Account Meta (925ms)
+  4 passing (5s)
+```
+
+### Korzystanie z danych token account w transfer hook
+
+Czasami możesz chcieć użyć danych konta do wyprowadzenia dodatkowych kont w extra account metas. Jest to przydatne, jeśli na przykład chcesz użyć właściciela token account jako seed dla PDA.
+
+Podczas tworzenia ExtraAccountMeta możesz użyć danych dowolnego konta jako dodatkowego seed. W tym przypadku chcemy wyprowadzić konto licznika z właściciela token account i ciągu znaków 'counter'. Oznacza to, że zawsze będziemy mogli sprawdzić, jak często dany właściciel token account dokonywał transferów tokenów.
+
+Oto jak skonfigurować to w funkcji `extra_account_metas()`.
+
+```rust
+// Define extra account metas to store on extra_account_meta_list account
+impl<'info> InitializeExtraAccountMetaList<'info> {
+    pub fn extra_account_metas() -> Result<Vec<ExtraAccountMeta>> {
+        Ok(
+            vec![
+                ExtraAccountMeta::new_with_seeds(
+                    &[
+                        Seed::Literal {
+                            bytes: b"counter".to_vec(),
+                        },
+                        Seed::AccountData { account_index: 0, data_index: 32, length: 32 },
+                    ],
+                    false, // is_signer
+                    true // is_writable
+                )?
+            ]
+        )
+    }
+}
+```
+
+Przyjrzyjmy się strukturze token account, aby zrozumieć, jak przechowywane są dane konta. Poniżej znajduje się przykład struktury token account. Możemy pobrać 32 bajty na pozycji 32 do 64 jako właściciela token account, który znajduje się pod 'account_index: 0'. 'account_index' odnosi się do indeksu konta w tablicy kont. W przypadku transfer hook token account właściciela jest pierwszym wpisem w tablicy kont. Drugie konto to zawsze mint, a trzecie konto to docelowy token account. Ta kolejność kont jest taka sama jak w starym Token Program.
+
+```rust
+/// Account data.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Account {
+    /// The mint associated with this account
+    pub mint: Pubkey,
+    /// The owner of this account.
+    pub owner: Pubkey,
+    /// The amount of tokens this account holds.
+    pub amount: u64,
+    pub delegate: COption<Pubkey>,
+    pub state: AccountState,
+    pub is_native: COption<u64>,
+    pub delegated_amount: u64,
+    pub close_authority: COption<Pubkey>,
+}
+```
+
+W naszym przypadku chcemy wyprowadzić konto licznika z właściciela token account nadawcy, więc gdy tworzymy konta ExtraAccountMeta, inicjalizujemy (`init`) to konto licznika PDA, które jest wyprowadzone z właściciela token account nadawcy i ciągu znaków 'counter'. Po zainicjalizowaniu konta licznika PDA będziemy mogli używać go w transfer hook do inkrementowania wartości przy każdym transferze.
+
+````rust
+struct.
+
+```rust
+#[derive(Accounts)]
+pub struct InitializeExtraAccountMetaList<'info> {
+    #[account(mut)]
+    payer: Signer<'info>,
+
+    /// CHECK: ExtraAccountMetaList Account, must use these seeds
+    #[account(
+        init,
+        seeds = [b"extra-account-metas", mint.key().as_ref()],
+        bump,
+        space = ExtraAccountMetaList::size_of(
+            InitializeExtraAccountMetaList::extra_account_metas()?.len()
+        )?,
+        payer = payer
+    )]
+    pub extra_account_meta_list: AccountInfo<'info>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(init, seeds = [b"counter", payer.key().as_ref()], bump, payer = payer, space = 16)]
+    pub counter_account: Account<'info, CounterAccount>,
+    pub token_program: Program<'info, Token2022>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+````
+
+Musimy również zdefiniować to dodatkowe konto licznika w strukturze TransferHook. Są to konta przekazywane do naszego programu TransferHook za każdym razem, gdy wykonywany jest transfer. Klient pobiera te dodatkowe konta z PDA ExtraAccountsMetaList i dołącza je do instrukcji transferu tokenów, ale tutaj w programie nadal musimy je zdefiniować.
+
+```rust
+#[derive(Accounts)]
+pub struct TransferHook<'info> {
+    #[account(token::mint = mint, token::authority = owner)]
+    pub source_token: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(token::mint = mint)]
+    pub destination_token: InterfaceAccount<'info, TokenAccount>,
+    /// CHECK: source token account owner, can be SystemAccount or PDA owned by another program
+    pub owner: UncheckedAccount<'info>,
+    /// CHECK: ExtraAccountMetaList Account,
+    #[account(seeds = [b"extra-account-metas", mint.key().as_ref()], bump)]
+    pub extra_account_meta_list: UncheckedAccount<'info>,
+    #[account(seeds = [b"counter", owner.key().as_ref()], bump)]
+    pub counter_account: Account<'info, CounterAccount>,
+}
+```
+
+Po stronie klienta konto to jest generowane automatycznie i można go używać w następujący sposób.
+
+```rust
+const transferInstructionWithHelper =
+await createTransferCheckedWithTransferHookInstruction(
+    connection,
+    sourceTokenAccount,
+    mint.publicKey,
+    destinationTokenAccount,
+    wallet.publicKey,
+    amountBigInt,
+    decimals,
+    [],
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+);
+```
+
+Funkcja pomocnicza automatycznie rozwiązuje konto na podstawie konta danych ExtraAccounts. Oto jak konto byłoby rozwiązywane po stronie klienta:
+
+```js
+const [counterPDA] = PublicKey.findProgramAddressSync(
+  [Buffer.from("counter"), wallet.publicKey.toBuffer()],
+  program.programId
+);
+```
+
+Należy pamiętać, że konto licznika jest wyprowadzone z właściciela token account i musi zostać zainicjalizowane przed wykonaniem transferu. W tym przykładzie inicjalizujemy konto licznika podczas inicjalizacji extra account metas. Będziemy więc mieli konto licznika PDA tylko dla właściciela token account, który wywołał tę funkcję. Jeśli chcesz mieć konto licznika dla każdego token account dla swojego mint, będziesz musiał zapewnić funkcjonalność umożliwiającą wcześniejsze tworzenie tych PDA. Na swojej dapp możesz dodać przycisk do rejestracji licznika, który tworzy to konto PDA, a od tej pory użytkownicy będą mogli korzystać z tego tokenu licznika.
+
+### Podsumowanie
+
+Rozszerzenie Transfer Hook i interfejs Transfer Hook umożliwiają tworzenie Mint Account wykonujących niestandardową logikę instrukcji przy każdym transferze tokenów. Ten przewodnik służy jako punkt odniesienia, który pomoże Ci tworzyć własne programy Transfer Hook. Zachęcamy do kreatywności i odkrywania możliwości tej nowej funkcjonalności!

@@ -6,7 +6,7 @@ import {
   NavDropdownColumn,
 } from "./header-dropdown-layout";
 import {
-  CollapsibleNavGroup,
+  NavGroup,
   NavColumns,
   NavItemsList,
   SectionHeading,
@@ -16,7 +16,7 @@ import {
   enterpriseProofItems,
 } from "./nav-section-content-config";
 
-const HeaderListEnterprise = ({ isMobile = false }) => {
+const HeaderListEnterprise = () => {
   const t = useTranslations();
 
   return (
@@ -26,12 +26,9 @@ const HeaderListEnterprise = ({ isMobile = false }) => {
         <NavColumns columns={enterpriseBusinessColumns} />
       </NavDropdownColumn>
       <NavDropdownColumn>
-        <CollapsibleNavGroup
-          title={t("nav.enterprise.proof.title")}
-          isMobile={isMobile}
-        >
+        <NavGroup title={t("nav.enterprise.proof.title")}>
           <NavItemsList items={enterpriseProofItems} />
-        </CollapsibleNavGroup>
+        </NavGroup>
       </NavDropdownColumn>
     </HeaderDropdownLayout>
   );

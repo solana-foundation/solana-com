@@ -1,21 +1,18 @@
 "use client";
 
-import { motion } from "framer-motion";
-import {
-  Activity,
-  ArrowLeftRight,
-  ChevronLeft,
-  ChevronRight,
-  CircleDollarSign,
-  ExternalLink,
-  Github,
-  Info,
-  Loader2,
-  Network,
-  RadioTower,
-  Send,
-  type LucideIcon,
-} from "lucide-react";
+import { motion } from "motion/react";
+import { Pulse as Activity } from "@boxicons/react/Pulse";
+import { ArrowLeftRight } from "@boxicons/react/ArrowLeftRight";
+import { ChevronLeft } from "@boxicons/react/ChevronLeft";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
+import { DollarCircle as CircleDollarSign } from "@boxicons/react/DollarCircle";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
+import { Github } from "@boxicons/react/Github";
+import { InfoCircle as Info } from "@boxicons/react/InfoCircle";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
+import { NetworkChart as Network } from "@boxicons/react/NetworkChart";
+import { Broadcast as RadioTower } from "@boxicons/react/Broadcast";
+import { Send } from "@boxicons/react/Send";
 import Image from "next/image";
 import {
   Fragment,
@@ -84,6 +81,9 @@ import {
   TimeSeriesChart,
   type ChartSeries,
 } from "./time-series-chart";
+import { SenderProviderExperience } from "./sender-provider-experience";
+
+export { getSenderEconomicsItems } from "./sender-provider-experience";
 
 const tabOptions = [
   { labelKey: "tabs.overview.label", value: "overview" },
@@ -94,7 +94,7 @@ const tabOptions = [
   { labelKey: "tabs.senders.label", value: "senders" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
 
-const tabIcons: Record<DashboardTab, LucideIcon> = {
+const tabIcons: Record<DashboardTab, typeof Activity> = {
   overview: Activity,
   network: Network,
   stablecoins: CircleDollarSign,
@@ -221,14 +221,14 @@ const resourceCards = [
     titleKey: "buildSection.cards.pay.title",
   },
   {
-    analyticsId: "x402",
+    analyticsId: "defi-monitor",
     backgroundClassName: "",
-    backgroundSrc: "/src/img/data-dashboard/x402-card-bg.webp",
-    ctaKey: "buildSection.cards.x402.cta",
-    descriptionKey: "buildSection.cards.x402.description",
-    href: "/x402",
+    backgroundSrc: "/src/img/solutions/defi/bg-1.webp",
+    ctaKey: "buildSection.cards.defiMonitor.cta",
+    descriptionKey: "buildSection.cards.defiMonitor.description",
+    href: "https://api.topledger.xyz/defi-monitor/",
     nodeId: "8:171",
-    titleKey: "buildSection.cards.x402.title",
+    titleKey: "buildSection.cards.defiMonitor.title",
   },
   {
     analyticsId: "rpc-sender-dashboard",
@@ -374,6 +374,18 @@ export function SolanaDataDashboard() {
 
   useEffect(() => {
     if (
+      !providerParam ||
+      availableProviders.length === 0 ||
+      !hasInvalidProviderParam(providerParam, availableProviders)
+    ) {
+      return;
+    }
+
+    updateQuery({ providers: new Set(availableProviders) });
+  }, [availableProviders, providerParam, updateQuery]);
+
+  useEffect(() => {
+    if (
       !isRpcTab ||
       availableRpcRegionOptions.some((option) => option.value === rpcRegion)
     ) {
@@ -460,7 +472,7 @@ export function SolanaDataDashboard() {
 
         <nav
           aria-label={t("controls.ariaLabel")}
-          className="sticky top-[65px] lg:top-[71px] z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
+          className="sticky top-14 z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
         >
           <DashboardControls
             activeTab={activeTab}
@@ -473,7 +485,7 @@ export function SolanaDataDashboard() {
             rpcRegionsByInfra={rpcRegionsByInfra}
             rpcTimeframe={rpcTimeframe}
             selectedProviders={selectedProviders}
-            showProviderControls={showProviderControls}
+            showProviderControls={showProviderControls && !isSendersTab}
             showRangeControl={!isLiveInfrastructureTab}
             showRpcFilterControls={isRpcTab}
             showTimeframeControl={isLiveInfrastructureTab}
@@ -498,40 +510,52 @@ export function SolanaDataDashboard() {
           ) : null}
         </section>
 
-        <DataResourceCarousel />
-
         {error ? <DataError error={error} /> : null}
 
         {!error ? (
-          <>
-            {hasKpiGrid ? (
-              <KpiGrid
-                aggregation={kpiAggregation}
-                isLoading={isInitialLoading}
-                kpis={kpis}
-              />
-            ) : null}
-
-            {isSendersTab ? (
-              <SenderEconomicsTable
-                isLoading={isInitialLoading}
-                rows={rows}
-                selectedProviders={selectedProviders}
-              />
-            ) : null}
-
-            <ChartGrid
-              activeCharts={activeCharts}
-              activeTab={activeTab}
-              isConnectedToPrevious={hasKpiGrid || isSendersTab}
+          isSendersTab ? (
+            <SenderProviderExperience
+              availableProviders={availableProviders}
+              comparisonProviders={
+                providerParam === null
+                  ? new Set<ProviderName>()
+                  : selectedProviders
+              }
+              hasExplicitComparison={providerParam !== null}
               isLoading={isInitialLoading}
               isRefreshing={isRefreshing}
               rows={rows}
-              selectedProviders={selectedProviders}
-              visibleCharts={visibleCharts}
+              onComparisonChange={(providers) =>
+                updateQuery({
+                  providers: providers ?? new Set(availableProviders),
+                })
+              }
             />
-          </>
+          ) : (
+            <>
+              {hasKpiGrid ? (
+                <KpiGrid
+                  aggregation={kpiAggregation}
+                  isLoading={isInitialLoading}
+                  kpis={kpis}
+                />
+              ) : null}
+
+              <ChartGrid
+                activeCharts={activeCharts}
+                activeTab={activeTab}
+                isConnectedToPrevious={hasKpiGrid}
+                isLoading={isInitialLoading}
+                isRefreshing={isRefreshing}
+                rows={rows}
+                selectedProviders={selectedProviders}
+                visibleCharts={visibleCharts}
+              />
+            </>
+          )
         ) : null}
+
+        <DataResourceCarousel />
 
         <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-5 font-brand-mono text-[12px] md:text-[13px] leading-[1.42] uppercase text-nd-mid-em-text">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -929,163 +953,6 @@ function KpiGrid({
             ))}
       </section>
     </TooltipProvider>
-  );
-}
-
-type SenderEconomicsItem = {
-  medianFeeLamports: number;
-  medianTipLamports: number;
-  provider: ProviderName;
-  totalFeesSol: number;
-  totalTipsSol: number;
-  transactions: number;
-};
-
-function SenderEconomicsTable({
-  isLoading,
-  rows,
-  selectedProviders,
-}: {
-  isLoading: boolean;
-  rows: MetricRow[];
-  selectedProviders: Set<ProviderName>;
-}) {
-  const locale = useLocale();
-  const t = useTranslations("dataDashboard");
-  const items = useMemo(
-    () => getSenderEconomicsItems(rows, selectedProviders),
-    [rows, selectedProviders],
-  );
-  const columns = [
-    {
-      key: "transactions",
-      label: t("senderEconomics.transactions"),
-      unit: "count",
-    },
-    {
-      key: "totalTipsSol",
-      label: t("senderEconomics.totalTips"),
-      unit: "sol",
-    },
-    {
-      key: "totalFeesSol",
-      label: t("senderEconomics.totalFees"),
-      unit: "sol",
-    },
-    {
-      key: "medianTipLamports",
-      label: t("senderEconomics.medianTip"),
-      unit: "lamports",
-    },
-    {
-      key: "medianFeeLamports",
-      label: t("senderEconomics.medianFee"),
-      unit: "lamports",
-    },
-  ] as const;
-
-  return (
-    <section
-      aria-label={t("senderEconomics.ariaLabel")}
-      className="mt-10 border border-nd-border-light xl:mt-14"
-    >
-      <div className="flex items-center justify-between gap-4 border-b border-nd-border-light px-4 py-5 md:px-6 xl:px-8">
-        <h2 className="m-0 text-[20px] leading-[1.25] font-medium tracking-normal xl:text-[24px]">
-          {t("senderEconomics.title")}
-        </h2>
-        <span className="shrink-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
-          {t("senderEconomics.rangeTotal")}
-        </span>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[880px] border-collapse">
-          <thead>
-            <tr className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
-              <th
-                className="border-r border-nd-border-light px-4 py-3 text-left md:px-6 xl:px-8"
-                scope="col"
-              >
-                {t("senderEconomics.provider")}
-              </th>
-              {columns.map((column) => (
-                <th
-                  className="px-4 py-3 text-right md:px-6"
-                  key={column.key}
-                  scope="col"
-                >
-                  {column.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading
-              ? Array.from({ length: 6 }).map((_, index) => (
-                  <tr className="border-t border-nd-border-light" key={index}>
-                    {Array.from({ length: 6 }).map((__, columnIndex) => (
-                      <td
-                        className={cn(
-                          "px-4 py-4 md:px-6",
-                          columnIndex === 0
-                            ? "border-r border-nd-border-light xl:px-8"
-                            : "",
-                        )}
-                        key={columnIndex}
-                      >
-                        <span
-                          className={cn(
-                            "block h-3 animate-pulse bg-nd-border-light",
-                            columnIndex === 0 ? "w-24" : "ml-auto w-16",
-                          )}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              : items.map((item) => (
-                  <tr
-                    className="border-t border-nd-border-light font-brand-mono text-[12px] leading-[1.42] font-bold text-nd-high-em-text"
-                    key={item.provider}
-                  >
-                    <th
-                      className="border-r border-nd-border-light px-4 py-4 text-left uppercase md:px-6 xl:px-8"
-                      scope="row"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          aria-hidden="true"
-                          className="h-2 w-2 shrink-0"
-                          style={{
-                            backgroundColor: getProviderColor(item.provider),
-                          }}
-                        />
-                        {item.provider}
-                      </span>
-                    </th>
-                    {columns.map((column) => (
-                      <td
-                        className="px-4 py-4 text-right tabular-nums md:px-6"
-                        key={column.key}
-                      >
-                        {formatSenderEconomicsValue(
-                          item[column.key],
-                          column.unit,
-                          locale,
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-          </tbody>
-        </table>
-        {!isLoading && items.length === 0 ? (
-          <div className="border-t border-nd-border-light px-6 py-12 text-center font-brand-mono text-[12px] uppercase text-nd-mid-em-text">
-            {t("empty.noDataForSelection")}
-          </div>
-        ) : null}
-      </div>
-    </section>
   );
 }
 
@@ -1874,7 +1741,7 @@ function KpiSummaryTooltip({
           className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-nd-mid-em-text/70 transition-colors hover:text-nd-high-em-text focus-visible:outline-none focus-visible:text-nd-high-em-text"
           type="button"
         >
-          <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+          <Info aria-hidden="true" className="h-3.5 w-3.5" />
           <span className="sr-only">{summary}</span>
         </button>
       </TooltipTrigger>
@@ -2138,12 +2005,18 @@ function useDashboardQueryUpdater(
   );
 }
 
-function applyQueryUpdates(
+export function applyQueryUpdates(
   params: URLSearchParams,
   updates: QueryUpdates,
   availableProviders: readonly ProviderName[],
 ) {
   if (updates.tab) {
+    const currentTab = parseTab(params.get("tab"));
+
+    if (getProviderScope(currentTab) !== getProviderScope(updates.tab)) {
+      params.delete("providers");
+    }
+
     params.set("tab", updates.tab);
   }
 
@@ -2319,82 +2192,6 @@ function filterRowsForCharts(
   ]);
 
   return rows.filter((row) => isChartDataRow(row, metricSet));
-}
-
-export function getSenderEconomicsItems(
-  rows: readonly MetricRow[],
-  selectedProviders: ReadonlySet<ProviderName>,
-): SenderEconomicsItem[] {
-  const rowsByProvider = new Map<ProviderName, MetricRow[]>();
-
-  for (const row of rows) {
-    const providerName = getRowProviderName(row);
-
-    if (
-      !selectedProviders.has(providerName) ||
-      !senderEconomicsMetricNames.includes(
-        row.metricName as (typeof senderEconomicsMetricNames)[number],
-      )
-    ) {
-      continue;
-    }
-
-    const providerRows = rowsByProvider.get(providerName) ?? [];
-
-    providerRows.push(row);
-    rowsByProvider.set(providerName, providerRows);
-  }
-
-  return Array.from(rowsByProvider.entries())
-    .flatMap(([provider, providerRows]) => {
-      const transactions = getLatestMetricValue(
-        providerRows,
-        "Sender Total Transactions",
-      );
-      const totalTipsSol = getLatestMetricValue(
-        providerRows,
-        "Sender Total Tips",
-      );
-      const totalFeesSol = getLatestMetricValue(
-        providerRows,
-        "Sender Total Fees",
-      );
-      const medianTipLamports = getLatestMetricValue(
-        providerRows,
-        "Sender Median Tip",
-      );
-      const medianFeeLamports = getLatestMetricValue(
-        providerRows,
-        "Sender Median Fee",
-      );
-
-      return transactions !== undefined &&
-        totalTipsSol !== undefined &&
-        totalFeesSol !== undefined &&
-        medianTipLamports !== undefined &&
-        medianFeeLamports !== undefined
-        ? [
-            {
-              medianFeeLamports,
-              medianTipLamports,
-              provider,
-              totalFeesSol,
-              totalTipsSol,
-              transactions,
-            },
-          ]
-        : [];
-    })
-    .sort(
-      (a, b) =>
-        b.transactions - a.transactions || a.provider.localeCompare(b.provider),
-    );
-}
-
-function getLatestMetricValue(rows: MetricRow[], metricName: string) {
-  return rows
-    .filter((row) => row.metricName === metricName)
-    .sort((a, b) => b.date.localeCompare(a.date))[0]?.value;
 }
 
 function getKpis(
@@ -2777,6 +2574,10 @@ export function parseProviders(
     );
   }
 
+  if (hasInvalidProviderParam(value, availableProviders)) {
+    return new Set(availableProviders);
+  }
+
   const availableProviderSet = new Set(availableProviders);
   const selectedProviders = parsedProviders.filter((provider) =>
     availableProviderSet.has(provider),
@@ -2785,6 +2586,31 @@ export function parseProviders(
   return selectedProviders.length > 0
     ? new Set(selectedProviders)
     : new Set(availableProviders);
+}
+
+export function hasInvalidProviderParam(
+  value: string,
+  availableProviders: readonly ProviderName[],
+) {
+  if (value === emptyProvidersParam || availableProviders.length === 0) {
+    return false;
+  }
+
+  const parsedProviders = getOrderedProviderNames(value.split(","));
+  const availableProviderSet = new Set(availableProviders);
+
+  return (
+    parsedProviders.length === 0 ||
+    parsedProviders.some((provider) => !availableProviderSet.has(provider))
+  );
+}
+
+function getProviderScope(tab: DashboardTab) {
+  if (tab === "rpc" || tab === "senders") {
+    return tab;
+  }
+
+  return "warehouse";
 }
 
 function hasAllProvidersSelected(
@@ -2838,16 +2664,6 @@ function formatTimestamp(value: string, locale: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-}
-
-function formatSenderEconomicsValue(
-  value: number,
-  unit: "count" | "lamports" | "sol",
-  locale: string,
-) {
-  return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: unit === "sol" ? 4 : 0,
-  }).format(value);
 }
 
 function getTabContent(t: DashboardTranslator, tab: DashboardTab) {

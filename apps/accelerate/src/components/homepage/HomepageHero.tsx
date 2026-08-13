@@ -11,7 +11,7 @@ import {
   useMotionValue,
   useMotionValueEvent,
   useScroll,
-} from "framer-motion";
+} from "motion/react";
 import { getImagePath } from "@/config";
 
 export function HomepageHero() {

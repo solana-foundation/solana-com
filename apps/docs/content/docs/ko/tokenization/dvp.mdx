@@ -1,0 +1,1074 @@
+---
+date: 2025-11-25T00:00:00Z
+difficulty: advanced
+title: "Solana에서의 인도 대 결제(DvP)"
+description:
+  "Learn how to implement atomic Delivery vs Payment (DvP) for commercial paper
+  and securities using SPL Token 2022 extensions and standard USDC, without
+  writing custom Rust programs."
+tags:
+  - token extensions
+  - token 2022
+  - ts
+  - web3js
+keywords:
+  - delivery vs payment
+  - dvp
+  - commercial paper
+  - securities
+  - token extensions
+  - atomic settlement
+  - bonds
+  - compliance
+---
+
+<Embed url="https://www.youtube.com/embed/dRCiYa1rkrY" />
+
+인도 대 결제(DvP)는 유가증권의 이전이 대금 지급과 동시에 이루어지도록 보장하는 증권 결제 방식입니다. 이는 거래의 양 측면이 원자적으로 실행되도록 보장함으로써 거래 상대방 리스크를 제거합니다. 즉, 양쪽 모두 완료되거나 둘 다 실행되지 않습니다.
+
+## 문제점
+
+채권(기업어음 등)을 매수할 때, 전통적으로 두 가지 일이 발생해야 합니다:
+
+1. 귀하가 자금을 송금 → 매도자
+2. 매도자가 채권을 송부 → 귀하
+
+이 두 가지가 별개로 발생하면 리스크가 존재합니다 — 대금을 지불했지만 채권을 받지 못한다면? 혹은 그 반대라면?
+
+## 해결책
+
+(DvP) "인도 대 결제"는 두 이전이 정확히 같은 순간에 발생하거나, 아니면 둘 다 발생하지 않음을 의미합니다. 양측이 동시에 교환하는 스왑과 같습니다.
+
+```
+┌─────────────────────────────────────────────────────┐
+│              ONE ATOMIC TRANSACTION                 │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│   Investor ──── $95,000 USDC ────→ Issuer           │
+│                                                     │
+│   Issuer ─────── 100 Bonds ──────→ Investor         │
+│                                                     │
+│   ✅ Both happen together, or neither happens       │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+이 가이드는 규정을 준수하는 채권 발행을 위한 SPL Token 2022 확장과 결제를 위한 표준 USDC를 활용하여, 커스텀 Rust 프로그램 없이 Solana에서 완전한 DvP 워크플로우를 구현하는 방법을 설명합니다.
+
+<Callout type="info" title="교육용 참고 구현">
+
+이 구현의 [소스 코드](https://github.com/Woody4618/dvp)를 사용하여 로컬에서 DvP 구현을 시험해 볼 수 있습니다.
+
+이 가이드는 탐구 및 교육 목적으로만 제공되는 참고 구현입니다. 다음 사항 없이 **이 코드를 프로덕션에 직접 사용하지 마십시오**:
+
+- 포괄적인 보안 감사
+- 적절한 키 관리 시스템
+- 규제 준수 검토
+- 법적 자문
+- 광범위한 테스트 및 수정
+
+</Callout>
+
+## DvP에 Solana를 사용하는 이유
+
+Solana의 아키텍처는 전통적인 증권 결제 대비 상당한 이점을 제공합니다:
+
+| 항목            | 전통 방식 (T+2)     | Solana                      |
+| ----------------- | --------------------- | --------------------------- |
+| 결제 로직  | 청산소        | 원자적 트랜잭션 번들링 |
+| 결제 시간   | 2일                | &lt;1초                |
+| 트랜잭션 비용  | $50~500               | &lt;$0.01                   |
+| 거래 상대방 리스크 | 높음 (중개자 존재) | 없음 (원자적 실행)     |
+| 확정성          | 당일 마감            | ~400ms                      |
+
+Solana의 원자적 트랜잭션 번들링은 중개자를 제거하는 동시에 즉각적이고 저렴하며 안전한 결제를 제공합니다.
+
+## 아키텍처 개요
+
+DvP 시스템은 다음과 같은 핵심 구성 요소로 이루어져 있습니다:
+
+1. **채권 토큰 (기업어음)**: Token Extensions이 적용된 SPL Token 2022
+2. **결제 통화**: 표준 USDC (기존 SPL 토큰)
+3. **결제 에이전트**: 위임된 권한을 통해 원자적 스왑을 조율
+4. **화이트리스트 시스템**: 채권을 보유할 수 있는 주소를 제어
+
+### 주요 설계 원칙
+
+- **커스텀 프로그램 없음**: SPL Token 2022 Token Extensions과 표준 USDC만 사용
+- **원자적 결제**: 단일 트랜잭션으로 두 이전의 성공 또는 실패를 함께 보장
+- **기본 동결 상태**: 규제 준수를 위해 채권에 명시적 화이트리스트 등록 필요
+- **위임된 권한**: 결제 에이전트가 자산을 직접 보관하지 않고 조율
+- **네트워크 상태 통신**: 포인트 투 포인트 API 연결 불필요
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   DvP Settlement Flow               │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  1. Bond Creation (Token-2022 + Extensions)         │
+│     └─> Default State: FROZEN                       │
+│     └─> Freeze Authority: Settlement Agent/Issuer   │
+│     └─> Token metadata: Bond information            │
+│                                                     │
+│  2. Whitelist Participants                          │
+│     └─> Whitelist issuer, mint bonds                │
+│     └─> Whitelist investor for trading              │
+│                                                     │
+│  3. Delegate Authority to settlement agent          │
+│     ├─> Issuer delegates bonds                      │
+│     └─> Investor delegates USDC                     │
+│                                                     │
+│  4. Atomic Settlement                               │
+│     ├─> Transfer bonds: Issuer → Investor           │
+│     └─> Transfer USDC: Investor → Issuer            │
+│         (Both or neither - atomic)                  │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+거래를 조율하는 신뢰할 수 있는 주체입니다. 양측은 결제 에이전트에게 권한을 위임하며, 에이전트는 원자적 스왑을 실행합니다.
+
+```
+┌─────────┐     delegates      ┌──────────────────┐     delegates     ┌──────────┐
+│ Issuer  │ ─────────────────→ │ Settlement Agent │ ←──────────────── │ Investor │
+└─────────┘    (bonds)         │    (trusted)     │      (USDC)       └──────────┘
+                               │                  │
+                               │  executes atomic │
+                               │   transaction    │
+                               └──────────────────┘
+```
+
+## Token Extensions이 적용된 채권 토큰
+
+SPL Token 2022는 커스텀 프로그램 없이 규정을 준수하는 증권 발행을 가능하게 하는 강력한 확장 기능을 제공합니다:
+
+### 채권에 필수적인 확장 기능
+
+1. **기본 계정 상태 확장**: 모든 신규 token account를 기본적으로 동결 상태로 설정하여 명시적 화이트리스트 등록 필요
+2. **메타데이터 확장**: 채권 정보(ISIN, 만기일, 쿠폰 이율 등)를 온체인에 저장
+3. **영구 위임자** (선택 사항): 규정에서 요구하는 경우 승인된 복구 또는 클로백 허용
+
+### 권한 구성
+
+- **발행 권한**: 발행자 (공급량 생성 제어)
+- **동결 권한**: 결제 에이전트 (화이트리스트 관리)
+- **업데이트 권한**: 결제 에이전트 (메타데이터 업데이트 가능)
+
+<Callout type="info">
+
+기본 동결 상태는 규제 준수에 있어 매우 중요합니다. 이는 명시적으로 화이트리스트에 등록된 주소만 해당 유가증권을 수령하고 보유할 수 있도록 보장하여 KYC/AML 요건을 충족합니다.
+
+</Callout>
+
+## 완전한 DvP 구현
+
+### DvP 엔진 설정
+
+먼저, 모든 작업을 처리하는 핵심 DvP 엔진 클래스를 생성합니다:
+
+```typescript
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  SystemProgram,
+  sendAndConfirmTransaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  approve,
+  thawAccount,
+  freezeAccount,
+  getAccount,
+  getAssociatedTokenAddress,
+  getOrCreateAssociatedTokenAccount,
+  createTransferCheckedInstruction,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  ExtensionType,
+  getMintLen,
+  createInitializeMintInstruction,
+  createInitializeDefaultAccountStateInstruction,
+  createInitializeMetadataPointerInstruction,
+  AccountState,
+  LENGTH_SIZE,
+  TYPE_SIZE
+} from "@solana/spl-token";
+import {
+  pack,
+  createInitializeInstruction,
+  createUpdateFieldInstruction,
+  type TokenMetadata
+} from "@solana/spl-token-metadata";
+
+interface BondTokenConfig {
+  name: string;
+  symbol: string;
+  decimals: number;
+  maturityDate: Date;
+  couponRate: number;
+  isin?: string;
+  description?: string;
+}
+
+interface DvPParams {
+  bondMint: PublicKey;
+  usdcMint: PublicKey;
+  bondAmount: number;
+  usdcAmount: number;
+  issuer: PublicKey;
+  investor: PublicKey;
+}
+
+interface DvPResult {
+  signature: string;
+  bondAmount: number;
+  usdcAmount: number;
+  timestamp: Date;
+  bondsSent: boolean;
+  usdcReceived: boolean;
+}
+
+/**
+ * DvP Engine - Reference Implementation
+ *
+ * This implementation demonstrates Delivery vs Payment (DvP) on Solana using:
+ * - SPL Token 2022 with Default Account State extension for bonds
+ * - Standard USDC for settlement
+ * - Atomic transactions for settlement
+ * - Delegated authority pattern for settlement agent
+ *
+ * ⚠️ IMPORTANT: This is a reference implementation for educational purposes.
+ * Do NOT use in production without proper audits and security reviews.
+ */
+export class DvPEngine {
+  private connection: Connection;
+  private settlementAgent: Keypair;
+
+  constructor(connection: Connection, settlementAgent: Keypair) {
+    this.connection = connection;
+    this.settlementAgent = settlementAgent;
+  }
+
+  /**
+   * Creates a bond token using Token-2022 with Default Account State and Metadata extensions
+   * Bonds are frozen by default and require whitelisting
+   * Metadata is stored onchain using the TokenMetadata extension
+   */
+  async createBondToken(
+    issuer: Keypair,
+    config: BondTokenConfig
+  ): Promise<PublicKey> {
+    console.log("\n🏗️  Creating bond token with Token-2022 + Metadata...");
+    console.log(`   Name: ${config.name}`);
+    console.log(`   Symbol: ${config.symbol}`);
+    console.log(`   Coupon Rate: ${config.couponRate}%`);
+    console.log(
+      `   Maturity: ${config.maturityDate.toISOString().split("T")[0]}`
+    );
+
+    // Generate new keypair for the mint
+    const mintKeypair = Keypair.generate();
+
+    // Create the metadata object to get EXACT size
+    const metadata: TokenMetadata = {
+      mint: mintKeypair.publicKey,
+      name: config.name,
+      symbol: config.symbol,
+      uri: config.description || "",
+      additionalMetadata: [
+        ["couponRate", config.couponRate.toString()],
+        ["maturityDate", config.maturityDate.toISOString()],
+        ["isin", config.isin || ""]
+      ]
+    };
+
+    // Size of metadata using pack() - this gives us the EXACT size
+    const metadataLen = pack(metadata).length;
+
+    // Size of MetadataExtension: 2 bytes for type, 2 bytes for length
+    const metadataExtension = TYPE_SIZE + LENGTH_SIZE;
+
+    // Calculate space for mint with extensions (without metadata)
+    const extensions = [
+      ExtensionType.DefaultAccountState,
+      ExtensionType.MetadataPointer
+    ];
+    const spaceWithoutMetadataExtension = getMintLen(extensions);
+
+    // Calculate rent for FULL space (mint + metadata + TLV overhead)
+    const lamports = await this.connection.getMinimumBalanceForRentExemption(
+      spaceWithoutMetadataExtension + metadataLen + metadataExtension
+    );
+
+    // Build transaction following the official docs pattern
+    const transaction = new Transaction().add(
+      // 1. Create account with just base space, but rent for full space
+      SystemProgram.createAccount({
+        fromPubkey: issuer.publicKey,
+        newAccountPubkey: mintKeypair.publicKey,
+        space: spaceWithoutMetadataExtension, // Just base space
+        lamports, // But rent for full space (includes metadata + TLV)
+        programId: TOKEN_2022_PROGRAM_ID
+      }),
+      // 2. Initialize metadata pointer (before mint!)
+      createInitializeMetadataPointerInstruction(
+        mintKeypair.publicKey,
+        issuer.publicKey, // authority
+        mintKeypair.publicKey, // metadata address (self)
+        TOKEN_2022_PROGRAM_ID
+      ),
+      // 3. Initialize default account state (frozen)
+      createInitializeDefaultAccountStateInstruction(
+        mintKeypair.publicKey,
+        AccountState.Frozen,
+        TOKEN_2022_PROGRAM_ID
+      ),
+      // 4. Initialize mint
+      createInitializeMintInstruction(
+        mintKeypair.publicKey,
+        config.decimals,
+        issuer.publicKey, // mint authority
+        this.settlementAgent.publicKey, // freeze authority
+        TOKEN_2022_PROGRAM_ID
+      ),
+      // 5. Initialize metadata
+      createInitializeInstruction({
+        programId: TOKEN_2022_PROGRAM_ID,
+        mint: mintKeypair.publicKey,
+        metadata: mintKeypair.publicKey,
+        name: config.name,
+        symbol: config.symbol,
+        uri: config.description || "",
+        mintAuthority: issuer.publicKey,
+        updateAuthority: this.settlementAgent.publicKey
+      })
+    );
+
+    // 6. Add custom metadata fields
+    for (const [field, value] of metadata.additionalMetadata) {
+      if (value) {
+        transaction.add(
+          createUpdateFieldInstruction({
+            programId: TOKEN_2022_PROGRAM_ID,
+            metadata: mintKeypair.publicKey,
+            updateAuthority: this.settlementAgent.publicKey,
+            field: field,
+            value: value
+          })
+        );
+      }
+    }
+
+    // Send transaction
+    await sendAndConfirmTransaction(
+      this.connection,
+      transaction,
+      [issuer, mintKeypair, this.settlementAgent],
+      { commitment: "confirmed" }
+    );
+
+    console.log(`✅ Bond token created: ${mintKeypair.publicKey.toBase58()}`);
+    console.log(`   Mint Authority: ${issuer.publicKey.toBase58()}`);
+    console.log(
+      `   Freeze Authority: ${this.settlementAgent.publicKey.toBase58()}`
+    );
+    console.log(
+      `   Update Authority: ${this.settlementAgent.publicKey.toBase58()}`
+    );
+    console.log(`   Default State: FROZEN (requires whitelisting)`);
+    console.log(`   ✨ Metadata: ON-CHAIN`);
+
+    return mintKeypair.publicKey;
+  }
+
+  /**
+   * Whitelists a participant by creating their bond account and thawing it
+   */
+  async whitelist(
+    bondMint: PublicKey,
+    participant: PublicKey,
+    payer: Keypair
+  ): Promise<PublicKey> {
+    console.log(`\n🔓 Whitelisting participant: ${participant.toBase58()}`);
+
+    // Get or create token account (will be frozen by default if new)
+    const bondAccount = await getOrCreateAssociatedTokenAccount(
+      this.connection,
+      payer,
+      bondMint,
+      participant,
+      false,
+      "confirmed",
+      { commitment: "confirmed" },
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    console.log(`   Account: ${bondAccount.address.toBase58()}`);
+
+    // Only thaw if the account is frozen
+    if (bondAccount.isFrozen) {
+      await thawAccount(
+        this.connection,
+        this.settlementAgent,
+        bondAccount.address,
+        bondMint,
+        this.settlementAgent,
+        [],
+        { commitment: "confirmed" },
+        TOKEN_2022_PROGRAM_ID
+      );
+      console.log(`✅ Participant whitelisted and account thawed`);
+    } else {
+      console.log(
+        `✅ Participant already whitelisted (account was not frozen)`
+      );
+    }
+
+    return bondAccount.address;
+  }
+
+  /**
+   * Removes an investor from whitelist by freezing their account
+   */
+  async removeFromWhitelist(
+    bondMint: PublicKey,
+    investorBondAccount: PublicKey
+  ): Promise<void> {
+    console.log(
+      `\n🔒 Removing from whitelist: ${investorBondAccount.toBase58()}`
+    );
+
+    await freezeAccount(
+      this.connection,
+      this.settlementAgent,
+      investorBondAccount,
+      bondMint,
+      this.settlementAgent,
+      [],
+      { commitment: "confirmed" },
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    console.log(`✅ Account frozen and removed from whitelist`);
+  }
+
+  /**
+   * Delegates authority to settlement agent for a token account
+   */
+  async delegateAuthority(
+    owner: Keypair,
+    tokenAccount: PublicKey,
+    amount: number,
+    decimals: number,
+    programId: PublicKey
+  ): Promise<void> {
+    const amountWithDecimals = amount * Math.pow(10, decimals);
+
+    console.log(`\n🤝 Delegating authority...`);
+    console.log(`   Account: ${tokenAccount.toBase58()}`);
+    console.log(`   Amount: ${amount}`);
+    console.log(`   Delegate: ${this.settlementAgent.publicKey.toBase58()}`);
+
+    await approve(
+      this.connection,
+      owner,
+      tokenAccount,
+      this.settlementAgent.publicKey,
+      owner.publicKey,
+      amountWithDecimals,
+      [],
+      { commitment: "confirmed" },
+      programId
+    );
+
+    console.log(`✅ Authority delegated`);
+  }
+
+  /**
+   * Executes atomic DvP settlement
+   * Both bond and USDC transfers happen in a single transaction
+   */
+  async executeDvP(params: DvPParams): Promise<DvPResult> {
+    console.log(`\n⚡ Executing atomic DvP settlement...`);
+    console.log(`   Bonds: ${params.bondAmount}`);
+    console.log(`   USDC: ${params.usdcAmount}`);
+    console.log(`   Issuer: ${params.issuer.toBase58()}`);
+    console.log(`   Investor: ${params.investor.toBase58()}`);
+
+    // Get all associated token account addresses (deterministically)
+    const issuerBondAccount = await getAssociatedTokenAddress(
+      params.bondMint,
+      params.issuer,
+      false, // allowOwnerOffCurve
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    const investorBondAccount = await getAssociatedTokenAddress(
+      params.bondMint,
+      params.investor,
+      false,
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    const investorUSDCAccount = await getAssociatedTokenAddress(
+      params.usdcMint,
+      params.investor,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+
+    const issuerUSDCAccount = await getAssociatedTokenAddress(
+      params.usdcMint,
+      params.issuer,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+
+    // Build atomic transaction
+    const transaction = new Transaction();
+
+    // Add bond transfer instruction (Issuer → Investor)
+    transaction.add(
+      this.createTransferCheckedIx(
+        issuerBondAccount,
+        params.bondMint,
+        investorBondAccount,
+        params.bondAmount,
+        0, // bonds have 0 decimals
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+
+    // Add USDC transfer instruction (Investor → Issuer)
+    transaction.add(
+      this.createTransferCheckedIx(
+        investorUSDCAccount,
+        params.usdcMint,
+        issuerUSDCAccount,
+        params.usdcAmount * 1e6, // USDC has 6 decimals
+        6,
+        TOKEN_PROGRAM_ID
+      )
+    );
+
+    // Send atomic transaction
+    console.log(`\n📡 Sending atomic transaction...`);
+    const signature = await sendAndConfirmTransaction(
+      this.connection,
+      transaction,
+      [this.settlementAgent],
+      { commitment: "confirmed" }
+    );
+
+    console.log(`✅ DvP SETTLED ATOMICALLY`);
+    console.log(`   Signature: ${signature}`);
+    console.log(`   Bonds transferred: ${params.bondAmount}`);
+    console.log(`   USDC transferred: ${params.usdcAmount}`);
+
+    return {
+      signature,
+      bondAmount: params.bondAmount,
+      usdcAmount: params.usdcAmount,
+      timestamp: new Date(),
+      bondsSent: true,
+      usdcReceived: true
+    };
+  }
+
+  /**
+   * Helper to create a transferChecked instruction using delegated authority
+   */
+  private createTransferCheckedIx(
+    source: PublicKey,
+    mint: PublicKey,
+    destination: PublicKey,
+    amount: number,
+    decimals: number,
+    programId: PublicKey
+  ) {
+    return createTransferCheckedInstruction(
+      source,
+      mint,
+      destination,
+      this.settlementAgent.publicKey, // Settlement agent acts via delegation
+      amount,
+      decimals,
+      [],
+      programId
+    );
+  }
+
+  /**
+   * Gets account information for inspection
+   */
+  async getAccountInfo(tokenAccount: PublicKey, programId: PublicKey) {
+    const account = await getAccount(
+      this.connection,
+      tokenAccount,
+      "confirmed",
+      programId
+    );
+
+    return {
+      address: tokenAccount,
+      mint: account.mint,
+      owner: account.owner,
+      amount: account.amount,
+      isFrozen: account.isFrozen
+    };
+  }
+
+  /**
+   * Airdrops SOL for testing (devnet/testnet only)
+   */
+  async airdropSol(publicKey: PublicKey, amount: number): Promise<void> {
+    console.log(`\n💰 Airdropping ${amount} SOL to ${publicKey.toBase58()}`);
+    const signature = await this.connection.requestAirdrop(
+      publicKey,
+      amount * LAMPORTS_PER_SOL
+    );
+    await this.connection.confirmTransaction(signature, "confirmed");
+    console.log(`✅ Airdrop complete`);
+  }
+}
+```
+
+### 완전한 사용 예시
+
+전체 DvP 워크플로우를 보여주는 완전한 예시입니다:
+
+```typescript
+import { Connection, Keypair, clusterApiUrl, PublicKey } from "@solana/web3.js";
+import {
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// Standard USDC mint address on mainnet
+const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+async function runDvPExample() {
+  // 1. Initialize connection and keypairs
+  const connection = new Connection(clusterApiUrl("devnet"));
+
+  const settlementAgent = Keypair.generate();
+  const issuer = Keypair.generate();
+  const investor = Keypair.generate();
+
+  console.log("🚀 Starting DvP Workflow\n");
+
+  // 2. Initialize DvP engine
+  const dvp = new DvPEngine(connection, settlementAgent);
+
+  // 3. Airdrop SOL for transaction fees (devnet only)
+  await dvp.airdropSol(settlementAgent.publicKey, 2);
+  await dvp.airdropSol(issuer.publicKey, 2);
+  await dvp.airdropSol(investor.publicKey, 2);
+
+  // 4. Create commercial paper (bond) token with metadata
+  const bondMint = await dvp.createBondToken(issuer, {
+    name: "ACME Commercial Paper Series A",
+    symbol: "ACME-CP-A",
+    decimals: 0, // Bonds are whole units
+    maturityDate: new Date("2026-12-31"),
+    couponRate: 4.5, // 4.5% annual coupon
+    isin: "US0000000001",
+    description: "https://acme.com/bonds/series-a"
+  });
+
+  // 5. Whitelist issuer and mint bonds
+  console.log("\n🏦 Whitelisting issuer for bond holding...");
+  const issuerBondAccount = await dvp.whitelist(
+    bondMint,
+    issuer.publicKey,
+    settlementAgent
+  );
+
+  console.log("\n💰 Minting 100 bonds to issuer...");
+  await mintTo(
+    connection,
+    issuer,
+    bondMint,
+    issuerBondAccount,
+    issuer,
+    100, // 100 bonds
+    [],
+    { commitment: "confirmed" },
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  // 6. Whitelist investor (KYC/AML approved)
+  await dvp.whitelist(bondMint, investor.publicKey, settlementAgent);
+
+  // 7. Setup USDC for investor
+  console.log("\n💵 Setting up USDC for investor...");
+  const investorUSDCAccount = await getOrCreateAssociatedTokenAccount(
+    connection,
+    investor,
+    USDC_MINT,
+    investor.publicKey,
+    false,
+    "confirmed",
+    { commitment: "confirmed" },
+    TOKEN_PROGRAM_ID
+  );
+
+  // In production, investor would acquire USDC from exchange/market
+  // For this example, assume they have 95,000 USDC
+
+  // 8. Delegate authority to settlement agent
+  console.log("\n🔐 Delegating authority to settlement agent...");
+
+  // Issuer delegates bonds
+  await dvp.delegateAuthority(
+    issuer,
+    issuerBondAccount,
+    100, // 100 bonds
+    0, // 0 decimals
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  // Investor delegates USDC
+  await dvp.delegateAuthority(
+    investor,
+    investorUSDCAccount.address,
+    95000, // $95,000
+    6, // USDC decimals
+    TOKEN_PROGRAM_ID
+  );
+
+  // 9. Execute atomic DvP settlement
+  console.log("\n⚡ Executing atomic DvP settlement...");
+  console.log("   Terms: 100 bonds @ $950 each = $95,000\n");
+
+  const result = await dvp.executeDvP({
+    bondMint,
+    usdcMint: USDC_MINT,
+    bondAmount: 100,
+    usdcAmount: 95000,
+    issuer: issuer.publicKey,
+    investor: investor.publicKey
+  });
+
+  console.log("\n✨ Settlement complete!");
+  console.log(`   Transaction: ${result.signature}`);
+  console.log(`   Timestamp: ${result.timestamp.toISOString()}`);
+  console.log(
+    `   View on explorer: https://explorer.solana.com/tx/${result.signature}?cluster=devnet`
+  );
+
+  // 10. Verify balances
+  console.log("\n🔍 Verifying final balances...");
+
+  const issuerBondInfo = await dvp.getAccountInfo(
+    issuerBondAccount,
+    TOKEN_2022_PROGRAM_ID
+  );
+  console.log(`   Issuer bonds: ${issuerBondInfo.amount}`);
+
+  const investorBondInfo = await dvp.getAccountInfo(
+    await getAssociatedTokenAddress(
+      bondMint,
+      investor.publicKey,
+      false,
+      TOKEN_2022_PROGRAM_ID
+    ),
+    TOKEN_2022_PROGRAM_ID
+  );
+  console.log(`   Investor bonds: ${investorBondInfo.amount}`);
+  console.log(`   Investor frozen: ${investorBondInfo.isFrozen}`);
+}
+
+// Run the example
+runDvPExample().catch(console.error);
+```
+
+## 추가 기능
+
+### 메타데이터 업데이트
+
+결제 에이전트(업데이트 권한 보유)는 메타데이터 필드를 업데이트할 수 있습니다:
+
+<Tabs items={["Helper Function", "Usage Example"]}>
+
+<Tab value="Helper Function">
+
+```typescript
+import { createUpdateFieldInstruction } from "@solana/spl-token-metadata";
+
+async function updateBondMetadata(
+  connection: Connection,
+  settlementAgent: Keypair,
+  bondMint: PublicKey,
+  field: string,
+  value: string
+): Promise<void> {
+  const transaction = new Transaction().add(
+    createUpdateFieldInstruction({
+      programId: TOKEN_2022_PROGRAM_ID,
+      metadata: bondMint,
+      updateAuthority: settlementAgent.publicKey,
+      field: field,
+      value: value
+    })
+  );
+
+  await sendAndConfirmTransaction(connection, transaction, [settlementAgent]);
+}
+```
+
+</Tab>
+
+<Tab value="Usage Example">
+
+```typescript
+// Update coupon rate after rate adjustment
+await updateBondMetadata(
+  connection,
+  settlementAgent,
+  bondMint,
+  "couponRate",
+  "4.75"
+);
+
+// Update maturity date
+await updateBondMetadata(
+  connection,
+  settlementAgent,
+  bondMint,
+  "maturityDate",
+  "2027-06-30T00:00:00.000Z"
+);
+```
+
+</Tab>
+
+</Tabs>
+
+### 화이트리스트에서 제거
+
+내장된 `removeFromWhitelist` 메서드를 사용하여 투자자의 token account를 동결함으로써 채권 보유 권한을 제거합니다:
+
+```typescript
+await dvp.removeFromWhitelist(bondMint, investorBondAccount);
+```
+
+<Callout type="caution" title="동결 vs 소각">
+
+계정을 동결하면 이전은 차단되지만 계정과 잔액은 보존됩니다.
+완전히 제거하려면, 먼저 발행자에게 채권을 다시 이전한 후 계정을 동결하는 것이 좋습니다.
+
+</Callout>
+
+### 다자간 결제
+
+여러 당사자가 참여하는 더 복잡한 시나리오의 경우, 여러 이전을 단일 원자적 트랜잭션으로 묶을 수 있습니다:
+
+<Tabs items={["Function Definition", "Three-Way Swap Example"]}>
+
+<Tab value="Function Definition">
+
+```typescript
+import { sendAndConfirmTransaction } from "@solana/web3.js";
+import { createTransferCheckedInstruction } from "@solana/spl-token";
+
+interface TransferLeg {
+  from: PublicKey;
+  to: PublicKey;
+  mint: PublicKey;
+  amount: number;
+  decimals: number;
+  programId: PublicKey;
+}
+
+async function executeMultiPartyDvP(
+  connection: Connection,
+  settlementAgent: Keypair,
+  legs: TransferLeg[]
+): Promise<string> {
+  const transaction = new Transaction();
+
+  // Add all transfer legs to single transaction
+  for (const leg of legs) {
+    const fromAccount = await getAssociatedTokenAddress(
+      leg.mint,
+      leg.from,
+      false,
+      leg.programId
+    );
+
+    const toAccount = await getAssociatedTokenAddress(
+      leg.mint,
+      leg.to,
+      false,
+      leg.programId
+    );
+
+    // Add transfer instruction using delegated authority
+    transaction.add(
+      createTransferCheckedInstruction(
+        fromAccount,
+        leg.mint,
+        toAccount,
+        settlementAgent.publicKey, // Uses delegated authority
+        leg.amount * Math.pow(10, leg.decimals),
+        leg.decimals,
+        [],
+        leg.programId
+      )
+    );
+  }
+
+  // All legs settle atomically - either all succeed or all fail
+  const signature = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [settlementAgent],
+    { commitment: "confirmed" }
+  );
+
+  console.log(`✅ Multi-party DvP settled: ${legs.length} legs`);
+  return signature;
+}
+```
+
+</Tab>
+
+<Tab value="Three-Way Swap Example">
+
+```typescript
+// Example: Three-way swap (Bond A → Bond B → Cash)
+// Party A sends Bond A to Party B
+// Party B sends Bond B to Party C
+// Party C sends USDC to Party A
+const signature = await executeMultiPartyDvP(connection, settlementAgent, [
+  {
+    from: partyA.publicKey,
+    to: partyB.publicKey,
+    mint: bondAMint,
+    amount: 100,
+    decimals: 0,
+    programId: TOKEN_2022_PROGRAM_ID
+  },
+  {
+    from: partyB.publicKey,
+    to: partyC.publicKey,
+    mint: bondBMint,
+    amount: 50,
+    decimals: 0,
+    programId: TOKEN_2022_PROGRAM_ID
+  },
+  {
+    from: partyC.publicKey,
+    to: partyA.publicKey,
+    mint: USDC_MINT,
+    amount: 75000,
+    decimals: 6,
+    programId: TOKEN_PROGRAM_ID
+  }
+]);
+```
+
+</Tab>
+
+</Tabs>
+
+<Callout type="info" title="트랜잭션 크기 제한">
+
+Solana 트랜잭션에는 크기 제한(~1232바이트)이 있습니다. 각 이전 명령어는 약 200바이트를 추가합니다. 매우 큰 규모의 다자간 결제의 경우, [주소 조회 테이블](/developers/cookbook/transactions/lookup-tables)을 사용하여 계정 주소를 압축하고 트랜잭션당 더 많은 이전을 포함시키는 것을 고려하십시오.
+
+</Callout>
+
+## 프로덕션 고려 사항
+
+프로덕션 배포 전에 다음 사항을 반드시 해결하십시오:
+
+1. **보안**: 전문적인 키 관리 인프라, 멀티시그 제어, 코드베이스에 대한 포괄적인 감사
+2. **규제 준수**: 유가증권 등록, KYC/AML 시스템, 이전 제한 및 법적 프레임워크
+3. **키 관리**: 적절한 백업 및 복구 절차를 갖춘 전문적인 수탁 솔루션
+4. **트랜잭션 처리**: 안정적인 결제 실행을 위한 우선순위 수수료, 재시도 로직, 확인 처리 및 RPC 이중화
+5. **운영**: 결제 스케줄링, 실패한 거래 처리, 조정 및 고객 지원
+6. **모니터링**: 실시간 추적, 알림 및 자동화된 규제 보고
+
+<Callout type="caution" title="SPL Token 제한 사항">
+
+SPL Token 계정은 **한 번에 하나의 위임자만** 가질 수 있습니다. 따라서 다자간 시나리오에서는 여러 순차적 위임 또는 다른 아키텍처 패턴을 사용하여 이 제약을 극복하도록 설계해야 할 수 있습니다.
+
+</Callout>
+
+### 계정 상태 검사
+
+`DvPEngine`에는 token account 상태를 검사하는 헬퍼가 포함되어 있습니다. 이는 화이트리스트 상태 확인, 결제 완료 검증, 이전 문제 디버깅 및 계정 상태 감사에 유용합니다.
+
+<Tabs items={["Get Account Info", "Pre-Settlement Check"]}>
+
+<Tab value="Get Account Info">
+
+```typescript
+// Get detailed account information
+const accountInfo = await dvp.getAccountInfo(
+  investorBondAccount,
+  TOKEN_2022_PROGRAM_ID
+);
+
+console.log("Account Information:");
+console.log(`  Address: ${accountInfo.address.toBase58()}`);
+console.log(`  Mint: ${accountInfo.mint.toBase58()}`);
+console.log(`  Owner: ${accountInfo.owner.toBase58()}`);
+console.log(`  Balance: ${accountInfo.amount}`);
+console.log(`  Frozen: ${accountInfo.isFrozen}`);
+```
+
+</Tab>
+
+<Tab value="Pre-Settlement Check">
+
+```typescript
+// Check if investor is whitelisted before settlement
+const investorAccount = await dvp.getAccountInfo(
+  investorBondAccount,
+  TOKEN_2022_PROGRAM_ID
+);
+
+if (investorAccount.isFrozen) {
+  throw new Error("Investor not whitelisted - account is frozen");
+}
+
+// Proceed with DvP
+await dvp.executeDvP({
+  /* ... */
+});
+```
+
+</Tab>
+
+</Tabs>
+
+## 다음 단계
+
+Solana에서의 DvP 기본 원리를 이해한 후:
+
+1. **Token Extensions 탐색**: 추가적인 규정 준수 기능을 위해 Transfer Hooks와 같은 다른 [Token 2022 확장 기능](/docs/tokens/extensions/transfer-hook)에 대해 알아보세요
+
+2. **Token ACL 구현**: 보다 정교한 규정 준수 요건을 위해 허가 없이 해동 가능한 허용/차단 목록을 구현하는 [Token ACL](/docs/tokenization/token-acl) 사용을 고려하세요. 이를 통해 사용자는 완전한 규정 준수 제어를 유지하면서 셀프서비스 화이트리스트 검증이 가능합니다.
+
+3. **규제 심층 분석**: 해당 관할권의 유가증권 규정에 관해 법률 전문가와 상담하세요
+
+4. **프로덕션 아키텍처**: 견고한 키 관리, 모니터링 및 재해 복구 시스템을 설계하세요
+
+## 결론
+
+Solana의 원자적 트랜잭션 모델과 Token Extensions은 유가증권을 위한 규정 준수 DvP 결제를 구현하기 위한 강력한 기반을 제공합니다. 다음의 조합이:
+
+- 네이티브 원자적 실행 (스마트 컨트랙트 리스크 없음)
+- 1초 미만의 확정성
+- 거의 없는 트랜잭션 비용
+- 내장된 규정 준수 기능 (기본 동결, 메타데이터)
+
+Solana를 증권 결제 인프라 현대화를 위한 이상적인 플랫폼으로 만듭니다.
+
+그러나 이 교육용 참고 구현을 프로덕션으로 전환하려면 보안, 규정 준수, 수탁 및 운영과 관련하여 상당한 추가 작업이 필요합니다. 유가증권 토큰화를 다룰 때는 항상 자격을 갖춘 법률, 규제 및 기술 전문가와 협력하십시오.

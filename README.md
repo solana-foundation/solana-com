@@ -19,11 +19,14 @@ solana-com/
 ├── packages/
 │   ├── config-eslint/       # Shared ESLint configs
 │   ├── config-typescript/   # Shared TypeScript configs
-│   ├── i18n/                # Shared i18n utilities (next-intl)
-│   ├── ui/                  # Shared UI components (Radix-based)
-│   ├── ui-chrome/           # Header, Footer, Theme components
+│   ├── docs-examples/       # Tested cookbook source snippets
 │   ├── ecosystem-data/      # Shared company and logo registry
-│   └── sentry/              # Shared Sentry helpers
+│   ├── fab-menu/            # Reusable Solana property menu
+│   ├── i18n/                # Shared i18n utilities (next-intl)
+│   ├── sentry/              # Shared Sentry helpers
+│   ├── sitemap/             # Shared sitemap generation helpers
+│   ├── ui/                  # Shared UI components (Radix-based)
+│   └── ui-chrome/           # Header, Footer, Theme components
 ```
 
 The main web app (`apps/web`) uses **Next.js App Router** with all pages under
@@ -48,7 +51,7 @@ Shared packages worth checking early:
 
 ## Setup
 
-Requires Node.js 24 (pinned in `.node-version`) and pnpm 11.13.0. Corepack will
+Requires Node.js 24 (pinned in `.node-version`) and pnpm 11.13.1. Corepack will
 use the pnpm version declared by the repository.
 
 1. Clone the repo:
@@ -83,12 +86,12 @@ use the pnpm version declared by the repository.
 
 ## Commands
 
-| Command           | Description               |
-| ----------------- | ------------------------- |
-| `pnpm build`      | Build all apps            |
-| `pnpm test`       | Run tests                 |
-| `pnpm lint`       | Lint all workspaces       |
-| `pnpm format:all` | Format code with Prettier |
+| Command            | Description               |
+| ------------------ | ------------------------- |
+| `pnpm build`       | Build all apps            |
+| `pnpm test`        | Run tests                 |
+| `pnpm lint`        | Lint all workspaces       |
+| `pnpm check-types` | Type-check all workspaces |
 
 Targeted validation is usually faster:
 

@@ -1,0 +1,1609 @@
+---
+title: 取引所にSolanaを追加する
+description:
+  Learn how to integrate Solana into your exchange with this guide covering node
+  setup and implementation details for deposits and withdrawals.
+---
+
+このガイドでは、SolanaのネイティブトークンであるSOLを暗号資産取引所に追加する方法について説明します。
+
+## ノードのセットアップ
+
+高性能なコンピューター/クラウドインスタンスに少なくとも2つのノードをセットアップし、新しいバージョンへのアップグレードを迅速に行い、付属の監視ツールでサービスの運用状況を常に把握することを強くお勧めします。
+
+このセットアップにより、以下が可能になります：
+
+- データの取得および出金トランザクションの送信を行うための、Solana メインネットクラスターへの自己管理ゲートウェイを持つこと
+- 保持する過去のブロックデータ量を完全に制御すること
+- 一方のノードに障害が発生してもサービスの可用性を維持すること
+
+Solanaノードは、高速なブロック処理と高いTPSに対応するため、比較的高い演算能力を必要とします。具体的な要件については、[ハードウェア推奨事項](https://docs.anza.xyz/operations/requirements)をご参照ください。
+
+APIノードを実行するには：
+
+1. [Solana コマンドラインツールスイートのインストール](/docs/intro/installation)
+2. 少なくとも以下のパラメーターを指定してvalidatorを起動します：
+
+```shell
+solana-validator \
+  --ledger <LEDGER_PATH> \
+  --identity <VALIDATOR_IDENTITY_KEYPAIR> \
+  --entrypoint <CLUSTER_ENTRYPOINT> \
+  --expected-genesis-hash <EXPECTED_GENESIS_HASH> \
+  --rpc-port 8899 \
+  --no-voting \
+  --enable-rpc-transaction-history \
+  --limit-ledger-size \
+  --known-validator <VALIDATOR_ADDRESS> \
+  --only-known-rpc
+```
+
+`--ledger` を希望するレジャーの保存場所に、`--rpc-port` を公開するポートに合わせてカスタマイズしてください。
+
+`--entrypoint` および `--expected-genesis-hash` パラメーターは、参加するクラスターに固有のものです。
+[メインネットの現在のパラメーター](https://docs.anza.xyz/clusters/available#example-solana-validator-command-line-2)
+
+`--limit-ledger-size` パラメーターを使用すると、ノードがディスクに保持するレジャー[shreds](/docs/references/terminology#shred)の数を指定できます。このパラメーターを指定しない場合、validatorはディスク容量が不足するまでレジャー全体を保持し続けます。デフォルト値では、レジャーのディスク使用量を500GB未満に抑えるよう設定されています。必要に応じて `--limit-ledger-size` に引数を追加することで、ディスク使用量を増減させることができます。`--limit-ledger-size` が使用するデフォルトの制限値については `solana-validator --help` を確認してください。カスタム制限値の選択に関する詳細は[こちらをご覧ください](https://github.com/solana-labs/solana/blob/583cec922b6107e0f85c7e14cb5e642bc7dfb340/core/src/ledger_cleanup_service.rs#L15-L26)。
+
+1つ以上の `--known-validator` パラメーターを指定することで、悪意のあるスナップショットからの起動を防ぐことができます。
+[既知のvalidatorでの起動の価値についての詳細](https://docs.anza.xyz/operations/guides/validator-start#known-validators)
+
+検討すべきオプションのパラメーター：
+
+- `--private-rpc` はRPCポートが他のノードによる使用のために公開されるのを防ぎます
+- `--rpc-bind-address` ではRPCポートをバインドする別のIPアドレスを指定できます
+
+### 自動再起動と監視
+
+データの欠落を最小限に抑えるために、各ノードを終了時に自動的に再起動するよう設定することをお勧めします。solanaソフトウェアをsystemdサービスとして実行することは、優れた選択肢の一つです。
+
+監視ツールとして、[`solana-watchtower`](https://github.com/solana-labs/solana/blob/master/watchtower/README.md)を提供しています。これはvalidatorを監視し、`solana-validator` プロセスが正常でない状態を検出することができます。Slack、Telegram、Discord、またはTwilioを通じてアラートを送信するよう直接設定できます。詳細は `solana-watchtower --help` を実行してください。
+
+```shell
+solana-watchtower --validator-identity <YOUR VALIDATOR IDENTITY>
+```
+
+> ドキュメントのこちらで、
+> [Solana Watchtowerのベストプラクティス](https://docs.anza.xyz/operations/best-practices/monitoring#solana-watchtower)
+> に関する詳細情報をご覧いただけます。
+
+#### 新しいソフトウェアリリースのアナウンス
+
+新しいソフトウェアは頻繁にリリースされます（約1回/週）。新しいバージョンには互換性のないプロトコル変更が含まれる場合があり、ブロック処理のエラーを避けるためにタイムリーなソフトウェアアップデートが必要になることがあります。
+
+通常リリースおよびセキュリティリリースを含むすべての種類のリリースに関する公式アナウンスは、`#mb-announcement` という名前の[discord](/discord)チャンネルで伝達されます（`mb` は `mainnet-beta` の略です）。
+
+ステークを持つvalidatorと同様に、取引所が運営するvalidatorについても、通常のリリースアナウンス後1〜2営業日以内に更新されることを期待しています。セキュリティ関連のリリースについては、より迅速な対応が必要になる場合があります。
+
+### レジャーの継続性
+
+デフォルトでは、各ノードは既知のvalidatorの1つから提供されるスナップショットから起動します。このスナップショットはチェーンの現在の状態を反映していますが、完全な過去のレジャーは含まれていません。ノードが終了して新しいスナップショットから起動した場合、そのノードのレジャーにギャップが生じる可能性があります。この問題を防ぐには、スナップショットの代わりに過去のレジャーデータを受信するために、`solana-validator` コマンドに `--no-snapshot-fetch` パラメーターを追加してください。
+
+初回起動時には `--no-snapshot-fetch` パラメーターを使用しないでください。ジェネシスブロックからノードを完全に起動することはできないためです。まずスナップショットから起動し、その後の再起動時に `--no-snapshot-fetch` パラメーターを追加してください。
+
+ネットワーク上の他のノードからお使いのノードが利用できる過去のレジャーの量は、常に制限されていることに注意することが重要です。運用開始後にvalidatorが長時間ダウンした場合、ネットワークに追いつけなくなり、既知のvalidatorから新しいスナップショットをダウンロードする必要が生じる可能性があります。その場合、validatorの過去のレジャーデータにギャップが生じ、そのギャップは埋められなくなります。
+
+### Validatorのポート公開を最小化する
+
+validatorは、他のすべてのSolana validatorからのインバウンドトラフィックのために、様々なUDPおよびTCPポートが開放されている必要があります。これは最も効率的な運用モードであり、強く推奨されますが、validatorを1つの他のSolana validatorからのインバウンドトラフィックのみを必要とするよう制限することも可能です。
+
+まず `--restricted-repair-only-mode` 引数を追加します。これにより、validatorは制限モードで動作し、他のvalidatorからのプッシュを受信せず、代わりにブロックを求めて他のvalidatorを継続的にポーリングする必要があります。validatorは _Gossip_ ポートと _ServeR_（"serve repair"）ポートを使用して他のvalidatorへのUDPパケットの送信のみを行い、 _Gossip_ ポートと _Repair_ ポートでのみUDPパケットを受信します。
+
+_Gossip_ ポートは双方向であり、validatorがクラスターの他のノードと接続を維持できるようにします。Turbineが無効になったため、validatorは _ServeR_ を通じて送信し、ネットワークの他のノードから新しいブロックを取得するための修復リクエストを行います。その後、validatorは他のvalidatorから _Repair_ ポートで修復レスポンスを受信します。
+
+validatorを1つ以上のvalidatorからのみブロックを要求するようにさらに制限するには、まず対象のvalidatorのidentity pubkeyを確認し、各PUBKEYに対して `--gossip-pull-validator PUBKEY --repair-validator PUBKEY` 引数を追加します。これにより、追加した各validatorにリソースの負担をかけることになるため、対象のvalidatorに事前に相談した上で、慎重に使用してください。
+
+これで、お使いのvalidatorは明示的にリストされたvalidatorとのみ、_Gossip_、_Repair_、_ServeR_ ポートでのみ通信するようになります。
+
+## 入金アカウントの設定
+
+Solanaのアカウントはオンチェーンでの初期化を必要としません。SOLが含まれた時点で存在します。取引所の入金アカウントを設定するには、[ウォレットツール](https://docs.anza.xyz/cli/wallets)のいずれかを使用してSolana keypairを生成するだけです。
+
+ユーザーごとに固有の入金アカウントを使用することをお勧めします。
+
+Solanaアカウントは、2年分の[rent](/docs/core/accounts/account-structure)に相当するSOLを保有することでrent免除にする必要があります。入金アカウントのrent免除に必要な最低残高を確認するには、[`getMinimumBalanceForRentExemption` エンドポイント](/docs/rpc/http/getminimumbalanceforrentexemption)にクエリを送信してください：
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getMinimumBalanceForRentExemption",
+  "params": [0]
+}'
+```
+
+##### 結果
+
+```json
+{ "jsonrpc": "2.0", "result": 890880, "id": 1 }
+```
+
+### オフラインアカウント
+
+セキュリティ強化のために、1つ以上のコレクションアカウントの鍵をオフラインで保管することを希望される場合があります。その場合は、[オフラインメソッド](https://docs.anza.xyz/cli/examples/offline-signing)を使用してホットアカウントにSOLを移動する必要があります。
+
+## 入金の監視
+
+ユーザーが取引所にSOLを入金する場合は、適切な入金アドレスへ送金するよう案内してください。
+
+### バージョン管理トランザクションへの移行
+
+メインネットがバージョン管理トランザクションの処理を開始した場合、取引所は**必ず**変更を加える必要があります。変更が行われない場合、バージョン管理トランザクションまたはバージョン管理トランザクションを含むブロックの取得時にエラーが返されるため、入金検知が正常に機能しなくなります。
+
+- `{"maxSupportedTransactionVersion": 0}`
+
+  `maxSupportedTransactionVersion` パラメーターは、入金検知の中断を避けるために `getBlock` および `getTransaction` リクエストに追加する必要があります。最新のトランザクションバージョンは `0` であり、サポートされる最大トランザクションバージョン値として指定する必要があります。
+
+バージョン管理トランザクションを使用すると、ユーザーはオンチェーンのアドレスルックアップテーブルから読み込まれた別のアカウントキーセットを使用するトランザクションを作成できることを理解することが重要です。
+
+- `{"encoding": "jsonParsed"}`
+
+  ブロックおよびトランザクションを取得する際には、`"jsonParsed"` エンコーディングの使用が推奨されます。これは、メッセージの `"accountKeys"` リストにすべてのトランザクションアカウントキー（ルックアップテーブルのものを含む）が含まれるためです。これにより、`preBalances` / `postBalances` および `preTokenBalances` / `postTokenBalances` に記載された残高変化の解決が容易になります。
+
+  `"json"` エンコーディングを使用した場合、`preBalances` / `postBalances` および `preTokenBalances` / `postTokenBalances` のエントリが `"accountKeys"` リストに**含まれない**アカウントキーを参照する可能性があり、トランザクションメタデータの `"loadedAddresses"` エントリを使用して解決する必要があります。
+
+### ブロックのポーリング
+
+取引所のすべての入金アカウントを追跡するには、確認済みの各ブロックをポーリングし、SolanaのAPIノードのJSON-RPCサービスを使用して対象のアドレスを検索します。
+
+- 利用可能なブロックを特定するには、[`getBlocks`](/docs/rpc/http/getblocks)リクエストを送信し、既に処理した最後のブロックをstart-slotパラメーターとして渡します：
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getBlocks",
+  "params": [160017005, 160017015]
+}'
+```
+
+##### 結果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [
+    160017005, 160017006, 160017007, 160017012, 160017013, 160017014, 160017015
+  ],
+  "id": 1
+}
+```
+
+すべてのslotがブロックを生成するわけではないため、整数のシーケンスにギャップが生じる場合があります。
+
+- 各ブロックについて、[`getBlock`](/docs/rpc/http/getblock)リクエストでその内容を取得します：
+
+### ブロック取得のヒント
+
+- `{"rewards": false}`
+
+デフォルトでは、取得したブロックは各ブロックのvalidator手数料とepoch境界のステーキング報酬に関する情報を返します。この情報が不要な場合は、"rewards" パラメーターで無効にしてください。
+
+- `{"transactionDetails": "accounts"}`
+
+デフォルトでは、取得したブロックはアカウント残高の追跡に不要なトランザクション情報やメタデータを大量に返します。"transactionDetails" パラメーターを設定することでブロック取得を高速化できます。
+
+```shell
+curl https://api.devnet.solana.com -X POST -H 'Content-Type: application/json' -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getBlock",
+  "params": [
+    166974442,
+    {
+      "encoding": "jsonParsed",
+      "maxSupportedTransactionVersion": 0,
+      "transactionDetails": "accounts",
+      "rewards": false
+    }
+  ]
+}'
+```
+
+##### 結果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "blockHeight": 157201607,
+    "blockTime": 1665070281,
+    "blockhash": "HKhao674uvFc4wMK1Cm3UyuuGbKExdgPFjXQ5xtvsG3o",
+    "parentSlot": 166974441,
+    "previousBlockhash": "98CNLU4rsYa2HDUyp7PubU4DhwYJJhSX9v6pvE7SWsAo",
+    "transactions": [
+      ... (omit)
+      {
+        "meta": {
+          "err": null,
+          "fee": 5000,
+          "postBalances": [
+            1110663066,
+            1,
+            1040000000
+          ],
+          "postTokenBalances": [],
+          "preBalances": [
+            1120668066,
+            1,
+            1030000000
+          ],
+          "preTokenBalances": [],
+          "status": {
+            "Ok": null
+          }
+        },
+        "transaction": {
+          "accountKeys": [
+            {
+              "pubkey": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde",
+              "signer": true,
+              "source": "transaction",
+              "writable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "signer": false,
+              "source": "transaction",
+              "writable": false
+            },
+            {
+              "pubkey": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+              "signer": false,
+              "source": "lookupTable",
+              "writable": true
+            }
+          ],
+          "signatures": [
+            "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM"
+          ]
+        },
+        "version": 0
+      },
+      ... (omit)
+    ]
+  },
+  "id": 1
+}
+```
+
+`preBalances`と`postBalances`フィールドを使用すると、トランザクション全体を解析することなく、すべてのアカウントの残高変化を追跡できます。これらは`accountKeys`リストにインデックスされた各アカウントの開始残高と終了残高を[lamport](/docs/references/terminology#lamport)単位でリストします。例えば、対象の入金アドレスが`G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o`である場合、このトランザクションは1040000000 - 1030000000 = 10,000,000 lamport = 0.01 SOLの送金を表します。
+
+トランザクションの種類やその他の詳細情報が必要な場合は、RPCからブロックをバイナリ形式でリクエストし、[Rust SDK](https://github.com/solana-labs/solana)または[Javascript SDK](https://github.com/solana-labs/solana-web3.js)を使用して解析できます。
+
+### アドレス履歴
+
+特定のアドレスのトランザクション履歴を照会することもできます。これは、すべてのslotにわたるすべての入金アドレスを追跡する方法としては一般的に_適していません_が、特定の期間における少数のアカウントを調べる際には役立つ場合があります。
+
+- APIノードに[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)リクエストを送信します：
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "3M2b3tLji7rvscqrLAHMukYxDK2nB96Q9hwfV6QkdzBN",
+    {
+      "limit": 3
+    }
+  ]
+}'
+```
+
+##### 結果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [
+    {
+      "blockTime": 1662064640,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "3EDRvnD5TbbMS2mCusop6oyHLD8CgnjncaYQd5RXpgnjYUXRCYwiNPmXb6ZG5KdTK4zAaygEhfdLoP7TDzwKBVQp",
+      "slot": 148697216
+    },
+    {
+      "blockTime": 1662064434,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "4rPQ5wthgSP1kLdLqcRgQnkYkPAZqjv5vm59LijrQDSKuL2HLmZHoHjdSLDXXWFwWdaKXUuryRBGwEvSxn3TQckY",
+      "slot": 148696843
+    },
+    {
+      "blockTime": 1662064341,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "36Q383JMiqiobuPV9qBqy41xjMsVnQBm9rdZSdpbrLTGhSQDTGZJnocM4TQTVfUGfV2vEX9ZB3sex6wUBUWzjEvs",
+      "slot": 148696677
+    }
+  ],
+  "id": 1
+}
+```
+
+- 返された各署名について、[`getTransaction`](/docs/rpc/http/gettransaction)リクエストを送信してトランザクションの詳細を取得します：
+
+```shell
+curl https://api.devnet.solana.com -X POST -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getTransaction",
+  "params":[
+    "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM",
+    {
+      "encoding":"jsonParsed",
+      "maxSupportedTransactionVersion":0
+    }
+  ]
+}'
+```
+
+##### 結果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "blockTime": 1665070281,
+    "meta": {
+      "err": null,
+      "fee": 5000,
+      "innerInstructions": [],
+      "logMessages": [
+        "Program 11111111111111111111111111111111 invoke [1]",
+        "Program 11111111111111111111111111111111 success"
+      ],
+      "postBalances": [1110663066, 1, 1040000000],
+      "postTokenBalances": [],
+      "preBalances": [1120668066, 1, 1030000000],
+      "preTokenBalances": [],
+      "rewards": [],
+      "status": {
+        "Ok": null
+      }
+    },
+    "slot": 166974442,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde",
+            "signer": true,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+            "signer": false,
+            "source": "lookupTable",
+            "writable": true
+          }
+        ],
+        "addressTableLookups": [
+          {
+            "accountKey": "4syr5pBaboZy4cZyF6sys82uGD7jEvoAP2ZMaoich4fZ",
+            "readonlyIndexes": [],
+            "writableIndexes": [3]
+          }
+        ],
+        "instructions": [
+          {
+            "parsed": {
+              "info": {
+                "destination": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+                "lamports": 10000000,
+                "source": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde"
+              },
+              "type": "transfer"
+            },
+            "program": "system",
+            "programId": "11111111111111111111111111111111"
+          }
+        ],
+        "recentBlockhash": "BhhivDNgoy4L5tLtHb1s3TP19uUXqKiy4FfUR34d93eT"
+      },
+      "signatures": [
+        "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM"
+      ]
+    },
+    "version": 0
+  },
+  "id": 1
+}
+```
+
+## 出金の送信
+
+ユーザーのSOL出金リクエストに対応するには、Solanaの送金トランザクションを生成し、クラスターに転送するためにAPIノードへ送信する必要があります。
+
+### 同期
+
+Solanaクラスターへ同期送金を行うことで、送金が成功しクラスターによってファイナライズされたことを簡単に確認できます。
+
+SolanaのコマンドラインツールはシンプルなコマンドとしてTの生成、送信、確認を行う`solana transfer`を提供しています。デフォルトでは、このメソッドはトランザクションがクラスターによってファイナライズされるまで、stderrで進行状況を待機して追跡します。トランザクションが失敗した場合は、トランザクションエラーが報告されます。
+
+```shell
+solana transfer <USER_ADDRESS> <AMOUNT> --allow-unfunded-recipient --keypair <KEYPAIR> --url http://localhost:8899
+```
+
+[Solana Javascript SDK](https://github.com/solana-labs/solana-web3.js)はJSエコシステム向けに同様のアプローチを提供しています。`SystemProgram`を使用して送金トランザクションを構築し、`sendAndConfirmTransaction`メソッドを使用して送信してください。
+
+### 非同期
+
+より柔軟に対応するために、出金送金を非同期で送信することができます。この場合、トランザクションが成功し、クラスターによってファイナライズされたことを確認するのはお客様の責任となります。
+
+**注意：** 各トランザクションには、その有効性を示す[最新のブロックハッシュ](/docs/core/transactions/transaction-structure#recent-blockhash)が含まれています。クラスターによって確認またはファイナライズされていないように見える出金送金を再試行する前に、このブロックハッシュが期限切れになるまで待つことが**重要**です。そうしないと、二重支払いのリスクがあります。[ブロックハッシュの有効期限](#blockhash-expiration)については以下を参照してください。
+
+まず、[`getFees`](/docs/rpc/deprecated/getfees)エンドポイントまたはCLIコマンドを使用して最新のブロックハッシュを取得します：
+
+```shell
+solana fees --url http://localhost:8899
+```
+
+コマンドラインツールでは、`--no-wait`引数を渡して送金を非同期で送信し、`--blockhash`引数で最新のブロックハッシュを指定します：
+
+```shell
+solana transfer <USER_ADDRESS> <AMOUNT> --no-wait --allow-unfunded-recipient --blockhash <RECENT_BLOCKHASH> --keypair <KEYPAIR> --url http://localhost:8899
+```
+
+また、トランザクションを手動で構築、署名、シリアライズし、JSON-RPCの[`sendTransaction`](/docs/rpc/http/sendtransaction)エンドポイントを使用してクラスターに送信することもできます。
+
+#### トランザクションの確認とファイナリティ
+
+[`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses) JSON-RPCエンドポイントを使用して、複数のトランザクションのステータスを一括取得します。`confirmations`フィールドは、トランザクションが処理されてから経過した[確認済みブロック](/docs/references/terminology#confirmed-block)の数を示します。`confirmations: null`の場合は、[ファイナライズ済み](/docs/references/terminology#finality)です。
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getSignatureStatuses",
+  "params":[
+    [
+      "4cdd1oX7cfVALfr26tP52BZ6cSzrgnNGtYD7BFhm6FFeZV5sPTnRvg6NRn8yC6DbEikXcrNChBM5vVJnTgKhGhVu",
+      "5j7s6NiJS3JAkvgkoc18WVAsiSaci2pxB2A6ueCJP4tprA2TFg9wSyTLeYouxPBJEMzJinENTkpA52YStRW5Dia7"
+    ]
+  ]
+}'
+```
+
+##### 結果
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "slot": 82
+    },
+    "value": [
+      {
+        "slot": 72,
+        "confirmations": 10,
+        "err": null,
+        "status": {
+          "Ok": null
+        }
+      },
+      {
+        "slot": 48,
+        "confirmations": null,
+        "err": null,
+        "status": {
+          "Ok": null
+        }
+      }
+    ]
+  },
+  "id": 1
+}
+```
+
+#### ブロックハッシュの有効期限
+
+[`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash)リクエストにブロックハッシュをパラメーターとして送信することで、特定のブロックハッシュがまだ有効かどうかを確認できます。レスポンスの値が`null`の場合、ブロックハッシュは期限切れであり、そのブロックハッシュを使用した出金トランザクションは成功しません。
+
+### 出金のためのユーザー指定アカウントアドレスの検証
+
+出金は取り消しができないため、ユーザーの資金が誤って失われることを防ぐために、出金を承認する前にユーザーが指定したアカウントアドレスを検証することが推奨されます。
+
+#### 基本的な検証
+
+Solanaのアドレスは32バイトの配列で、ビットコインのbase58アルファベットでエンコードされています。これにより、以下の正規表現に一致するASCIIテキスト文字列が生成されます：
+
+```text
+[1-9A-HJ-NP-Za-km-z]{32,44}
+```
+
+SolanaのアドレスはチェックサムされていないためTypoを検出できないので、この検証だけでは不十分です。ユーザーの入力をさらに検証するには、文字列をデコードし、結果のバイト配列の長さが32であることを確認します。ただし、1文字の欠落、文字の逆転、大文字小文字の無視などのTypoがあっても32バイトにデコードできるアドレスが存在します。
+
+#### 高度な検証
+
+上記のTypoへの脆弱性のため、出金候補アドレスの残高を照会し、ゼロ以外の残高が見つかった場合はユーザーに意図を確認するよう促すことが推奨されます。
+
+#### 有効なed25519 pubkeyチェック
+
+Solanaの通常アカウントのアドレスは、256ビットのed25519公開鍵をBase58エンコードした文字列です。すべてのビットパターンがed25519曲線の有効な公開鍵であるわけではないため、ユーザーが指定したアカウントアドレスが少なくとも正しいed25519公開鍵であることを確認することが可能です。
+
+#### Java
+
+以下は、ユーザーが指定したアドレスを有効なed25519公開鍵として検証するJavaの例です：
+
+以下のコードサンプルはMavenを使用していることを前提としています。
+
+`pom.xml`：
+
+```xml
+<repositories>
+  ...
+  <repository>
+    <id>spring</id>
+    <url>https://repo.spring.io/libs-release/</url>
+  </repository>
+</repositories>
+
+...
+
+<dependencies>
+  ...
+  <dependency>
+      <groupId>io.github.novacrypto</groupId>
+      <artifactId>Base58</artifactId>
+      <version>0.1.3</version>
+  </dependency>
+  <dependency>
+      <groupId>cafe.cryptography</groupId>
+      <artifactId>curve25519-elisabeth</artifactId>
+      <version>0.1.0</version>
+  </dependency>
+<dependencies>
+```
+
+```java
+import io.github.novacrypto.base58.Base58;
+import cafe.cryptography.curve25519.CompressedEdwardsY;
+
+public class PubkeyValidator
+{
+    public static boolean verifyPubkey(String userProvidedPubkey)
+    {
+        try {
+            return _verifyPubkeyInternal(userProvidedPubkey);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static boolean _verifyPubkeyInternal(String maybePubkey) throws Exception
+    {
+        byte[] bytes = Base58.base58Decode(maybePubkey);
+        return !(new CompressedEdwardsY(bytes)).decompress().isSmallOrder();
+    }
+}
+```
+
+## 最小入出金額
+
+SOLの入出金はいずれも、ウォレットアドレスのアカウント（データを保持しない基本的なSOLアカウント）のレント免除最小残高以上である必要があります。現在の値：0.000890880 SOL
+
+同様に、すべての入金アカウントは少なくともこの残高を保持している必要があります。
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getMinimumBalanceForRentExemption",
+  "params": [0]
+}'
+```
+
+##### 結果
+
+```json
+{ "jsonrpc": "2.0", "result": 890880, "id": 1 }
+```
+
+## 優先手数料とコンピュートユニット
+
+需要が高い時期には、validatorがより高い経済的価値を持つ他のトランザクションを選択した結果、validatorがブロックにトランザクションを含める前にトランザクションが期限切れになる可能性があります。優先手数料が適切に実装されていない場合、Solana上の有効なトランザクションが遅延またはドロップされる可能性があります。
+
+[優先手数料](/docs/references/terminology#prioritization-fee)は、ブロック内でのトランザクション確実な取り込みを保証し、このような状況での配信を確保するために、[基本トランザクション手数料](/docs/core/fees/fee-structure#base-fee)に上乗せして追加できる追加手数料です。
+
+これらの優先手数料は、支払う優先手数料を設定する特別なCompute Budgetのinstructionsをトランザクションに追加することで、トランザクションに付加されます。
+
+<Callout type="warn" title="重要なお知らせ">
+
+これらのinstructionsの実装を怠ると、ネットワークの障害やトランザクションのドロップが発生する可能性があります。Solanaをサポートするすべての取引所は、障害を避けるために優先手数料を活用することを強くお勧めします。
+
+</Callout>
+
+### 優先手数料とは何ですか？
+
+優先手数料は、ネットワーク上のブロックにトランザクションを含めることをvalidatorノードにとって経済的に魅力的にするために、トランザクションの先頭に付加されるコンピュートユニット（CU）あたりのマイクロlamport（SOLの少額）で価格設定されています。
+
+### 優先手数料はいくらに設定すべきですか？
+
+優先手数料の設定方法としては、最近の優先手数料を照会してネットワークにとって魅力的な手数料を設定することが考えられます。[`getRecentPrioritizationFees`](/docs/rpc/http/getrecentprioritizationfees) RPCメソッドを使用すると、最近のブロックにトランザクションを取り込むために必要な優先手数料を照会できます。
+
+優先手数料の価格戦略はユースケースによって異なります。標準的な方法は存在しません。優先手数料を設定する一つの戦略として、トランザクションの成功率を計算し、最近のトランザクション手数料APIへの照会に基づいて優先手数料を引き上げ、適宜調整する方法があります。優先手数料の価格はネットワークのアクティビティや他の参加者による入札に基づいて動的に変化し、事後にのみ把握可能です。
+
+`getRecentPrioritizationFees` APIコールを使用する際の課題の一つは、各ブロックの最低手数料のみを返す場合があることです。これはしばしばゼロになりますが、validatorノードに拒否されないようにするための優先手数料として使用するには十分な近似値ではありません。
+
+`getRecentPrioritizationFees` APIはアカウントのpubkeyをパラメーターとして受け取り、これらのアカウントの最小優先手数料の中で最も高い値を返します。アカウントが指定されていない場合、APIはブロックに取り込まれるための最低手数料を返します（ブロックが満杯でない限り、通常はゼロです）。
+
+取引所およびアプリケーションは、トランザクションが書き込みロックするアカウントを指定してRPCエンドポイントに照会する必要があります。RPCエンドポイントは`max(account_1_min_fee, account_2_min_fee, ... account_n_min_fee)`を返します。これをそのトランザクションの優先手数料を設定する際の基準値とすべきです。
+
+優先手数料の設定にはさまざまなアプローチがあり、最適な手数料を決定するための[サードパーティAPI](https://docs.helius.dev/solana-rpc-nodes/alpha-priority-fee-api)も利用可能です。ネットワークの動的な性質を考えると、優先手数料の価格設定に"完璧な"方法は存在せず、進め方を選択する前に慎重な分析を行う必要があります。
+
+### 優先手数料の実装方法
+
+トランザクションに優先手数料を追加するには、対象トランザクションの先頭に2つのCompute Budgetのinstructionsを付加します：
+
+- 一つはコンピュートユニット価格を設定するため、
+- もう一つはコンピュートユニット上限を設定するため
+
+> ここでは、優先手数料の使用方法に関するより詳細な開発者向け
+> [ガイド](/docs/core/fees)も参照できます。優先手数料の実装に関するより詳しい情報が含まれています。
+
+基本トランザクション手数料（5,000 lamport）に上乗せして優先手数料を追加するために、`setComputeUnitPrice`instructionsを作成します。
+
+```typescript
+// import { ComputeBudgetProgram } from "@solana/web3.js"
+ComputeBudgetProgram.setComputeUnitPrice({ microLamports: number });
+```
+
+マイクロlamportで指定された値はコンピュートユニット（CU）バジェットと乗算され、lamport単位の優先手数料が決定されます。例えば、CUバジェットが1M CUで`1 microLamport/CU`を追加した場合、優先手数料は1 lamport（1M \* 0.000001）になります。合計手数料は5001 lamportになります。
+
+トランザクションの新しいコンピュートユニットバジェットを設定するには、`setComputeUnitLimit`instructionsを作成します。
+
+```typescript
+// import { ComputeBudgetProgram } from "@solana/web3.js"
+ComputeBudgetProgram.setComputeUnitLimit({ units: number });
+```
+
+指定された`units`の値はSolanaランタイムのデフォルトのコンピュートバジェット値を置き換えます。
+
+<Callout type="warn" title="トランザクションに必要な最小CUを設定する">
+
+トランザクションはスループットを最大化し、全体的な手数料を最小化するために、実行に必要な最小限のコンピュートユニット（CU）をリクエストする必要があります。
+
+トランザクションが消費するCUは、devnetなど別のSolanaクラスターでトランザクションを送信することで確認できます。例えば、[シンプルなトークン送金](https://explorer.solana.com/tx/5scDyuiiEbLxjLUww3APE9X7i8LE3H63unzonUwMG7s2htpoAGG17sgRsNAhR1zVs6NQAnZeRVemVbkAct5myi17)は300 CUを消費します。
+
+</Callout>
+
+```typescript
+// import { ... } from "@solana/web3.js"
+
+const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+  // note: set this to be the lowest actual CU consumed by the transaction
+  units: 300
+});
+
+const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transaction = new Transaction()
+  .add(modifyComputeUnits)
+  .add(addPriorityFee)
+  .add(
+    SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: toAccount,
+      lamports: 10000000
+    })
+  );
+```
+
+### 優先手数料と持続可能なNonce
+
+セットアップでDurable Nonce Transactionsを使用している場合、トランザクションを確実に成功させるために、Prioritization FeesとDurable Transaction Noncesを適切に組み合わせて実装することが重要です。これを怠ると、意図したDurable Nonceトランザクションが正しく検出されなくなります。
+
+Durable Transaction Noncesを使用している場合、`AdvanceNonceAccount` instructionはinstructionsリストの先頭に指定する必要があります。これは、優先手数料を指定するためにコンピュートバジェットのinstructionsを使用する場合でも同様です。
+
+このデベロッパーガイドでは、[Durable NoncesとPriority Feesを組み合わせて使用する](/docs/core/transactions/durable-nonces)具体的なコード例を参照できます。
+
+## SPL Tokenスタンダードのサポート
+
+[SPL Token](https://spl.solana.com/token)は、Solanaブロックチェーン上でラップ済み／合成トークンを作成・交換するための標準規格です。
+
+SPL Tokenのワークフローはネイティブ SOL トークンと似ていますが、このセクションで説明するいくつかの違いがあります。
+
+### Token Mints
+
+SPL Tokenの各_タイプ_は、_mint_ accountを作成することで定義されます。このアカウントには、供給量、小数点以下の桁数、mintを管理するさまざまな権限など、トークンの特性を表すメタデータが格納されます。各SPL Token accountは関連するmintを参照しており、そのタイプのSPL Tokenとのみやり取りできます。
+
+### `spl-token` CLIツールのインストール
+
+SPL Token accountの照会と変更には、`spl-token`コマンドラインユーティリティを使用します。このセクションで提供されるサンプルは、ローカルシステムにインストールされていることを前提としています。
+
+`spl-token`はRustの[crates.io](https://crates.io/crates/spl-token)からRustの`cargo`コマンドラインユーティリティ経由で配布されています。`cargo`の最新バージョンは、[rustup.rs](https://rustup.rs)にあるプラットフォーム向けのワンライナーを使用してインストールできます。`cargo`がインストールされたら、以下のコマンドで`spl-token`を取得できます：
+
+```shell
+cargo install spl-token-cli
+```
+
+インストール済みのバージョンを確認するには
+
+```shell
+spl-token --version
+```
+
+次のような結果が表示されるはずです
+
+```text
+spl-token-cli 2.0.1
+```
+
+### アカウントの作成
+
+SPL Token accountには、ネイティブのSystem Programアカウントにはない追加要件があります：
+
+1. SPL Token accountは、トークンを入金する前に作成しておく必要があります。token accountは、`spl-token create-account`コマンドで明示的に、または`spl-token transfer --fund-recipient ...`コマンドで暗黙的に作成できます。
+1. SPL Token accountは、存在する間は[家賃免除（rent-exempt）](/docs/core/accounts/account-structure)の状態を維持する必要があるため、アカウント作成時に少量のネイティブ SOL トークンの入金が必要です。SPL Token accountの場合、この金額は0.00203928 SOL（2,039,280 lamports）です。
+
+#### コマンドライン
+
+以下のプロパティを持つSPL Token accountを作成するには：
+
+1. 指定されたmintに関連付けられている
+1. 資金提供アカウントのkeypairが所有者
+
+```shell
+spl-token create-account <TOKEN_MINT_ADDRESS>
+```
+
+#### 例
+
+```shell
+spl-token create-account AkUFCWTXb3w9nY2n6SFJvBV6VwvFUCe4KBMCcgLsa2ir
+```
+
+次のような出力が得られます：
+
+```
+Creating account 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 4JsqZEPra2eDTHtHpB4FMWSfk3UgcCVmkKkP7zESZeMrKmFFkDkNd91pKP3vPVVZZPiu5XxyJwS73Vi5WsZL88D7
+```
+
+または、特定のkeypairでSPL Token accountを作成するには：
+
+```shell
+solana-keygen new -o token-account.json
+
+spl-token create-account AkUFCWTXb3w9nY2n6SFJvBV6VwvFUCe4KBMCcgLsa2ir token-account.json
+```
+
+次のような出力が得られます：
+
+```shell
+Creating account 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 4JsqZEPra2eDTHtHpB4FMWSfk3UgcCVmkKkP7zESZeMrKmFFkDkNd91pKP3vPVVZZPiu5XxyJwS73Vi5WsZL88D7
+```
+
+### アカウント残高の確認
+
+#### コマンドライン
+
+```shell
+spl-token balance <TOKEN_ACCOUNT_ADDRESS>
+```
+
+#### 例
+
+```shell
+solana balance 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+```
+
+次のような出力が得られます：
+
+```
+0
+```
+
+### トークンの転送
+
+転送のソースアカウントは、実際の金額が含まれているtoken accountです。
+
+ただし、送金先アドレスは通常のウォレットアカウントでも構いません。そのウォレットに対して指定されたmintのassociated token accountがまだ存在しない場合、`--fund-recipient`引数が指定されていれば、転送時に自動的に作成されます。
+
+#### コマンドライン
+
+```shell
+spl-token transfer <SENDER_ACCOUNT_ADDRESS> <AMOUNT> <RECIPIENT_WALLET_ADDRESS> --fund-recipient
+```
+
+#### 例
+
+```shell
+spl-token transfer 6B199xxzw3PkAm25hGJpjj3Wj3WNYNHzDAnt1tEqg5BN 1
+```
+
+次のような出力が得られます：
+
+```shell
+6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Transfer 1 tokens
+  Sender: 6B199xxzw3PkAm25hGJpjj3Wj3WNYNHzDAnt1tEqg5BN
+  Recipient: 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 3R6tsog17QM8KfzbcbdP4aoMfwgo6hBggJDVy7dZPVmH2xbCWjEj31JKD53NzMrf25ChFjY7Uv2dfCDq4mGFFyAj
+```
+
+### 入金
+
+各`(ウォレット, mint)`ペアはオンチェーンで個別のアカウントを必要とするため、これらのアカウントのアドレスは[Associated Token Account](https://spl.solana.com/associated-token-account)（ATA）スキームを使用してSOL入金ウォレットから導出し、ATAアドレスからの入金のみを受け付けることを推奨します。
+
+入金トランザクションの監視は、上記で説明した[ブロックポーリング](#poll-for-blocks)方式に従う必要があります。新しいブロックごとに、ユーザーと取引所のtoken accountアドレスを含む成功したトランザクションをスキャンする必要があります。
+
+<Callout type="warn">
+
+トランザクションのメタデータにある`preTokenBalances`と`postTokenBalances`フィールドを使用して、実際の残高変化を確認する必要があります。これらのフィールドには、トークンのmint、token accountの所有者（ウォレットアドレス）、およびトランザクション前後のtoken accountの残高が含まれています。
+
+</Callout>
+
+<Callout>
+
+token accountがトランザクションの一部として作成された場合（初めてトークンを受け取る場合など）、そのアカウントはトランザクション前に存在しなかったため、`preTokenBalances`配列には表示されません。このシナリオでは、入金額を計算する際に初期残高をゼロとして扱う必要があります。新しく作成されたアカウントは、トランザクション完了後の最終残高とともに`postTokenBalances`配列にのみ表示されます。
+
+</Callout>
+
+#### 例1：単一トークン転送
+
+以下のトランザクション詳細は、単一のトークン転送instructionを含むトランザクションの例を示しています。
+
+このトランザクションはトークンの100基本単位（mintの小数点未調整）を転送し、以下のアカウントが含まれます：
+
+- 送信者（所有者）: `4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw`
+- 送信者 Token Account: `6zhjktfYBRUp7fgXLoWU7GFFrCuZa9iQkYTQzDzuvsAS`
+- 受信者 Token Account: `G5nNekUhhWFqJAiCMpKHootZ5Bfa7MXwuQ5vvKcvuxKM`
+- Token Extension Program ID: `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`
+
+なお、受信者（所有者）アカウントとmint accountはトークン転送instructionには必須ではありません。参考として、解析済みトランザクションメタデータにアドレスが含まれているため、ここに記載しています。
+
+- 受信者（所有者）: `8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n`
+- Mint: `Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2`
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1741240211",
+  "meta": {
+    "computeUnitsConsumed": "1551",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    // !tooltip[/logMessages/] logMessages
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: Transfer",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1551 of 200000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    // !tooltip[/postBalances/] postBalances
+    "postBalances": ["994375240", "2074080", "2074080", "1141440"],
+    // !tooltip[/postTokenBalances/] postTokenBalances
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] fromOwnerPostTokenBalance
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] senderPostTokenBalance
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] toOwnerPostTokenBalance
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] recipientPostTokenBalance
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    // !tooltip[/preBalances/] preBalances
+    "preBalances": ["994380240", "2074080", "2074080", "1141440"],
+    // !tooltip[/preTokenBalances/] preTokenBalances
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] fromOwnerPreTokenBalance
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] senderPreTokenBalance
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] toOwnerPreTokenBalance
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] recipientPreTokenBalance
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "3916",
+  "transaction": {
+    "message": {
+      // !tooltip[/accountKeys/] accountKeys
+      "accountKeys": [
+        "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "6zhjktfYBRUp7fgXLoWU7GFFrCuZa9iQkYTQzDzuvsAS",
+        "G5nNekUhhWFqJAiCMpKHootZ5Bfa7MXwuQ5vvKcvuxKM",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      // !tooltip[/instructions/] instructions
+      "instructions": [
+        {
+          "accounts": [1, 2, 0],
+          "data": "3WBgs5fm8oDy",
+          "programIdIndex": 3,
+          "stackHeight": null
+        }
+      ],
+      // !tooltip[/recentBlockhash/] recentBlockhash
+      "recentBlockhash": "8soh8j2dkEniZW6Jpx9cJaWtnvrGoGUqpbaUVwUkX5R3"
+    },
+    // !tooltip[/signatures/] signatures
+    "signatures": [
+      "3vr6Gj3GnBQmsZW1TtBJ3hvfFMi3h9BxLs2oaZkV41LRWeGWPVmeo16JTN8MdP3ypU5VgWAziYUjybhyZoisryQ6"
+    ]
+  },
+  "version": "0"
+}
+```
+
+### !logMessages
+
+トランザクション処理時のプログラムログ。
+
+この場合、ログはトランザクションがToken Program上のtransfer instructionを呼び出したことを示しています。
+
+### !postBalances
+
+トランザクション処理後の、トランザクションに関与したすべてのアカウントのlamport残高。
+
+### !postTokenBalances
+
+トランザクション処理後の、トランザクションに関与したすべてのtoken accountのトークン残高。
+
+### !preBalances
+
+トランザクション処理前の、トランザクションに関与したすべてのアカウントのlamport残高。
+
+### !preTokenBalances
+
+トランザクション処理前の、トランザクションに関与したすべてのtoken accountのトークン残高。
+
+### !rewards
+
+トランザクション処理前の、トランザクションに関与したすべてのアカウントの報酬。
+
+### !accountKeys
+
+トランザクション内のinstructionに必要なアカウントアドレスのリスト。
+
+### !instructions
+
+トランザクション内のinstructionsのリスト。この場合、instructionはトークン転送instructionの1つのみです。
+
+### !recentBlockhash
+
+トランザクション送信時に処理された最後のブロックのブロックハッシュ。
+
+### !senderPostTokenBalance
+
+送信者のtoken accountの最終残高は0トークンです。
+
+### !recipientPostTokenBalance
+
+受信者のtoken accountの最終残高はトークンの100基本単位です。
+
+mintの小数点以下は2桁のため、受信者のtoken accountの最終残高は1トークンです。
+
+### !senderPreTokenBalance
+
+送信者のtoken accountの初期残高はトークンの100基本単位でした。
+
+mintの小数点以下は2桁のため、送信者のtoken accountの初期残高は1トークンでした。
+
+### !recipientPreTokenBalance
+
+受信者のtoken accountの初期残高は0トークンでした。
+
+### !fromOwnerPreTokenBalance
+
+これはトランザクション処理前にトークンを送信しているtoken accountの所有者です。
+
+### !fromOwnerPostTokenBalance
+
+これはトランザクション処理後にトークンを送信しているtoken accountの所有者です。
+
+### !toOwnerPreTokenBalance
+
+これはトランザクション処理前にトークンを受信しているtoken accountの所有者です。
+
+### !toOwnerPostTokenBalance
+
+これはトランザクション処理後にトークンを受信しているtoken accountの所有者です。
+
+### !signatures
+
+トランザクションに含まれる署名。この場合、署名は1つのみ（送信者からの署名）です。
+
+トランザクションの最初の署名はトランザクション手数料支払者からのものです。これはトランザクションの識別にも使用され、一般的にトランザクション署名と呼ばれます。
+
+</WithNotes>
+
+#### 例2：Token Accountの作成と転送
+
+以下のトランザクション詳細は、受信者のtoken accountがトークン転送と同じトランザクション内で作成されるトランザクションの例を示しています。
+
+`preTokenBalances`配列には、トランザクション前に存在しなかった受信者のtoken accountが含まれていないことに注意してください。受信者のtoken accountは、トランザクション完了後の最終残高とともに`postTokenBalances`配列にのみ表示されます。
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1740541705",
+  "meta": {
+    "computeUnitsConsumed": "17416",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [4],
+            "data": "84eT",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [0, 1],
+            "data": "11119ExAoTptm6xKUTUcw2V69MKmyEdDmRins3j3bK43o9nHeiYUtSiaT9pc292PhNQvxj",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [1],
+            "data": "P",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [1, 4],
+            "data": "6b8ZSccu4ezujyhGG8KNmg75iCWbQRyjxeSfi38u8ED8N",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+      "Program log: Create",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: GetAccountDataSize",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 928 of 394613 compute units",
+      "Program return: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb qgAAAAAAAAA=",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program log: Initialize the associated token account",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeImmutableOwner",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 487 of 388755 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeAccount3",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1440 of 385879 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 15865 of 400000 compute units",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: Transfer",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1551 of 384135 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    "postBalances": [
+      "994375240",
+      "2074080",
+      "2074080",
+      "1",
+      "1461600",
+      "731913600",
+      "0",
+      "1141440"
+    ],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "EzrmgRNGN9duiDAk3ABSC8eKhd1b2EUFwXVrYZDJw4hQ",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "preBalances": [
+      "996454320",
+      "0",
+      "2074080",
+      "1",
+      "1461600",
+      "731913600",
+      "0",
+      "1141440"
+    ],
+    "preTokenBalances": [
+      {
+        "accountIndex": 2,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "81051",
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "571u96hRRmxbRCTmp5oqC5WpJfvZhPaSXEbihLVCR5wQ",
+        "8y8KjtZN9tyGeAeKwr8doSpbBVVgfsZMtMjCGUDH7mmU",
+        "11111111111111111111111111111111",
+        "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "EzrmgRNGN9duiDAk3ABSC8eKhd1b2EUFwXVrYZDJw4hQ",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 5,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [0, 1, 6, 4, 3, 7],
+          "data": "1",
+          "programIdIndex": 5,
+          "stackHeight": null
+        },
+        {
+          "accounts": [2, 1, 0],
+          "data": "3WBgs5fm8oDy",
+          "programIdIndex": 7,
+          "stackHeight": null
+        }
+      ],
+      "recentBlockhash": "77QC38Q2hKFYZzUXk8JWmsAqGNKhw4k2Lm2XVUme9uqP"
+    },
+    "signatures": [
+      "4kuGhMeZxBHgEtej4Uv4n2arhe3jqT2GdTDPFri4JLFXYgcAtbeeXdBdzvG98HENe1tZSZqyFkm3SEvB6CfCMaM9"
+    ]
+  },
+  "version": "0"
+}
+```
+
+#### 例3：Token Account所有者の変更
+
+以下のトランザクション詳細は、token accountの`owner`フィールドが変更されるトランザクションの例を示しています。
+
+<Callout type="warn">
+
+token accountの所有権を移転させる（`owner`フィールドを変更する）方法で入金を受け付けることは強く推奨されません。
+
+これを入金方法としてサポートする場合は、`postTokenBalances`内の新しい`owner`フィールドが、取引所が管理し秘密鍵を保有するウォレットアドレスと一致することを確認する必要があります。
+
+入金者がtoken accountの`owner`をウォレット以外のアドレス（別のtoken accountアドレスなど）に変更した場合、資金に永久にアクセスできなくなる可能性があります。
+
+</Callout>
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1740598556",
+  "meta": {
+    "computeUnitsConsumed": "1167",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: SetAuthority",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1167 of 200000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    "postBalances": ["996479120", "2039280", "1141440"],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "ELRBdV4gcuxqYb6jHkV4ySJ7dwYx9344cgFNzUSww1ra",
+        // !tooltip[/owner/] postTokenBalances
+        "owner": "A9FK8XxT2Hfefz8H3vQJHLwvbibGQJWErBsqMumgUYeP",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "preBalances": ["996484120", "2039280", "1141440"],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "ELRBdV4gcuxqYb6jHkV4ySJ7dwYx9344cgFNzUSww1ra",
+        // !tooltip[/owner/] preTokenBalances
+        "owner": "DLvpDgEABKfEaRDz5Qh9tSrJhuZzsiiZMcYXmvdek1zV",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "137902",
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "DLvpDgEABKfEaRDz5Qh9tSrJhuZzsiiZMcYXmvdek1zV",
+        "5Qj4uNGuAEBdryPg8k2UTewpnNfYAc9Ux9fCcDrNAjGs",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [1, 0],
+          "data": "bmb6sys4wqZErNeiV7hrM4vQVHF8AVBhi3XeR5TgbQM68MH",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "recentBlockhash": "CvTdX9MSYkqFMkALUHeGPMQN5yBeUdJptRdce2qMEkPr"
+    },
+    "signatures": [
+      "3rHUaKMh4KDDfdaATAL4J5WDEV7oFm7ykkNaMf1Eo5EwvDUjLE6dWsbxNDmyENrhb2w5gE4KqRxZ3ZwQxuM18SVR"
+    ]
+  },
+  "version": "0"
+}
+```
+
+### !postTokenBalances
+
+`postTokenBalances`の`owner`フィールドは`preTokenBalances`と異なります。これはtoken accountの所有権が変更されたことを示しています。
+
+### !preTokenBalances
+
+`preTokenBalances`の`owner`フィールドは、token accountの元の所有者です。
+
+</WithNotes>
+
+#### トークン入金額の計算
+
+トークンの入金を正確に追跡するには、トランザクションメタデータの`preTokenBalances`と`postTokenBalance`フィールドを比較する必要があります。これらのフィールドはトランザクション前後のトークン残高とtoken accountの所有者を示しており、転送されたトークンの正確な量を計算することができます。このアプローチにより、実際の残高変化を確実に把握できます。
+
+- `preTokenBalances`と`postTokenBalances`の`owner`フィールドが同じ場合は、`amount`フィールドの差分を計算します。
+- token accountの所有権が変更された場合（`preTokenBalances`と`postTokenBalances`の`owner`フィールドが異なる場合）、かつ`postTokenBalance`の新しい所有者が取引所の期待する`owner`アドレスと一致する場合は、`postTokenBalances`の`amount`フィールドに表示されている残高全体を入金額とみなします。
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+"meta": {
+    // --snip--
+    "postBalances": ["994375240", "2074080", "2074080", "1141440"],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "preBalances": ["994380240", "2074080", "2074080", "1141440"],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    // --snip--
+  }
+```
+
+### !owner
+
+`preTokenBalances`と`postTokenBalances`の間で`owner`フィールドが一致するかどうかを確認し、トランザクション中にtoken accountの所有権が変更されたかどうかを判断します。
+
+### !amount
+
+各token accountの`preTokenBalances`と`postTokenBalances`にある`amount`フィールドを使用して、トークン残高の変化を計算します。
+
+同一トランザクション内に複数の転送がある場合、この差分はそれぞれのtoken accountについての正味転送トークン数を表します。
+
+</WithNotes>
+
+### 出金
+
+ユーザーが提供する出金アドレスは、そのユーザーのSOLウォレットのアドレスでなければなりません。
+
+出金の[転送](#token-transfers)を実行する前に、取引所は[上記の説明](#validating-user-supplied-account-addresses-for-withdrawals)に従ってアドレスを確認する必要があります。また、このアドレスはSystem Programによって所有されており、アカウントデータを持たないことが必要です。アドレスにSOL残高がない場合は、出金を進める前にユーザーの確認を取る必要があります。その他すべての出金アドレスは拒否しなければなりません。
+
+出金アドレスから、正しいミントに対応する[Associated Token Account](https://spl.solana.com/associated-token-account)（ATA）が導出され、[TransferChecked](https://github.com/solana-labs/solana-program-library/blob/fc0d6a2db79bd6499f04b9be7ead0c400283845e/token/program/src/instruction.rs#L268) instructionsを通じてそのアカウントへ転送が発行されます。ATAアドレスがまだ存在しない場合があり、その際は取引所がユーザーに代わってアカウントに資金を提供する必要があります。SPL Tokenのtoken accountへの資金提供には、0.00203928 SOL（2,039,280 lamports）が必要です。
+
+出金用の`spl-token transfer`コマンドのテンプレート：
+
+```shell
+spl-token transfer --fund-recipient <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+### その他の考慮事項
+
+#### フリーズ権限
+
+規制遵守上の理由から、SPLトークンを発行するエンティティは、そのミントに関連して作成されたすべてのアカウントに対して「フリーズ権限」を任意で保持することができます。これにより、特定のアカウントの資産を任意で[凍結](https://spl.solana.com/token#freezing-accounts)し、解除されるまでそのアカウントを使用不能にすることができます。この機能が使用されている場合、フリーズ権限のpubkeyはSPLトークンのミントアカウントに登録されます。
+
+### SPL Token-2022（Token Extensions）標準の基本サポート
+
+[SPL Token-2022](https://spl.solana.com/token-2022)は、Solanaブロックチェーン上でのラップ/合成トークンの作成と交換に関する最新の標準です。
+
+「Token Extensions」とも呼ばれるこの標準には、トークン作成者およびアカウント保有者が任意で有効化できる多くの新機能が含まれています。これらの機能には、コンフィデンシャル転送、転送手数料、ミントのクローズ、メタデータ、パーマネントデリゲート、イミュータブルオーナーシップなどが含まれます。詳細については、[拡張機能ガイド](https://spl.solana.com/token-2022/extensions)をご参照ください。
+
+取引所がSPL Tokenをサポートしている場合、SPL Token-2022をサポートするために必要な追加作業はそれほど多くありません：
+
+- CLIツールはバージョン3.0.0以降、両方のプログラムとシームレスに動作します。
+- `preTokenBalances`と`postTokenBalances`にSPL Token-2022の残高が含まれます
+- RPCはSPL Token-2022アカウントをインデックス化しますが、プログラムID `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` を使用して個別にクエリする必要があります
+
+Associated Token Accountは同じ方法で機能し、新しいアカウントに必要なSOLのデポジット額を正しく計算します。
+
+ただし、拡張機能によってアカウントが165バイトを超える場合があるため、資金提供に0.00203928 SOL以上が必要になる場合があります。
+
+例えば、Associated Token Accountプログラムは常に「immutable owner」拡張機能を含むため、アカウントは最低170バイトを占有し、0.00207408 SOLが必要となります。
+
+### 拡張機能固有の考慮事項
+
+前のセクションでは、SPL Token-2022の最も基本的なサポートについて概説しました。拡張機能はトークンの動作を変更するため、取引所はトークンの処理方法を変更する必要がある場合があります。
+
+ミントまたはtoken account上のすべての拡張機能を確認することができます：
+
+```shell
+spl-token display <account address>
+```
+
+#### 転送手数料
+
+トークンには転送手数料を設定することができ、転送されたトークンの一部が将来の回収のために送金先で差し引かれます。
+
+取引所がこれらのトークンを転送する場合、差し引かれる金額によりすべてが送金先に届かない可能性があることに注意してください。
+
+予期しない事態を避けるために、転送時に期待される手数料を指定することができます：
+
+```shell
+spl-token transfer --expected-fee <fee amount> --fund-recipient <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+#### ミントクローズ権限
+
+この拡張機能により、トークン作成者はトークンの供給量がゼロである場合にミントをクローズすることができます。
+
+ミントがクローズされた場合、空のtoken accountが存在し続ける可能性があり、それらは有効なミントに関連付けられなくなります。
+
+これらのtoken accountは単純にクローズすることで安全に処理できます：
+
+```shell
+spl-token close --address <account address>
+```
+
+#### コンフィデンシャル転送
+
+ミントはコンフィデンシャル転送用に設定することができ、トークン量は暗号化されますが、アカウント所有者は引き続き公開されます。
+
+取引所はtoken accountをコンフィデンシャル転送の送受信用に設定して、ユーザーの金額を非公開にすることができます。token accountでコンフィデンシャル転送を有効にすることは必須ではないため、取引所はユーザーに非コンフィデンシャルでトークンを送信するよう強制することができます。
+
+コンフィデンシャル転送を有効にするには、アカウントを次のように設定する必要があります：
+
+```shell
+spl-token configure-confidential-transfer-account --address <account address>
+```
+
+転送するには：
+
+```shell
+spl-token transfer --confidential <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+コンフィデンシャル転送中、`preTokenBalance`および`postTokenBalance`フィールドには変化が表示されません。デポジットアカウントをスイープするには、新しい残高を復号化してトークンを出金する必要があります：
+
+```shell
+spl-token apply-pending-balance --address <account address>
+spl-token withdraw-confidential-tokens --address <account address> <amount or ALL>
+```
+
+#### デフォルトアカウント状態
+
+ミントにはデフォルトのアカウント状態を設定することができ、すべての新しいtoken accountがデフォルトで凍結されます。これらのトークン作成者は、アカウントを解除するための別のプロセスをユーザーに要求する場合があります。
+
+#### 転送不可
+
+一部のトークンは転送不可ですが、バーンすることは可能であり、アカウントをクローズすることもできます。
+
+#### パーマネントデリゲート
+
+トークン作成者は、すべてのトークンに対してパーマネントデリゲートを指定することができます。パーマネントデリゲートは任意のアカウントからトークンを転送またはバーンすることができ、資金を窃取する可能性があります。
+
+これは特定の法域におけるステーブルコインの法的要件であるか、またはトークン没収スキームに使用される可能性があります。
+
+これらのトークンは取引所の知らないうちに転送される可能性があることに注意してください。
+
+#### 転送フック
+
+トークンには追加のプログラムを設定することができ、転送を検証したりその他のロジックを実行したりするために、転送中に呼び出す必要があります。
+
+Solanaランタイムはすべてのアカウントをプログラムに明示的に渡す必要があり、転送フックには追加のアカウントが必要なため、取引所はこれらのトークンに対して異なる方法で転送instructionsを作成する必要があります。
+
+CLIおよび`createTransferCheckedWithTransferHookInstruction`などのinstruction作成ツールは追加アカウントを自動的に追加しますが、追加アカウントを明示的に指定することもできます：
+
+```shell
+spl-token transfer --transfer-hook-account <pubkey:role> --transfer-hook-account <pubkey:role> ...
+```
+
+#### 転送時のメモ必須
+
+ユーザーはtoken accountを転送時にメモを必須とするように設定することができます。
+
+取引所はユーザーへのトークン返送前にメモinstructionsを先頭に追加する必要がある場合があります。または、取引所への送信前にユーザーがメモinstructionsを先頭に追加するよう求めることもできます：
+
+```shell
+spl-token transfer --with-memo <memo text> <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+## インテグレーションのテスト
+
+メインネットの本番環境に移行する前に、Solana devnetおよびtestnetの[クラスター](/docs/references/clusters)上で完全なワークフローをテストしてください。Devnetは最もオープンで柔軟性が高く、初期開発に最適です。一方、testnetはより現実的なクラスター設定を提供します。devnetとtestnetの両方がフォーセットをサポートしており、開発およびテスト用のdevnetまたはtestnet SOLを取得するには`solana airdrop 1`を実行してください。

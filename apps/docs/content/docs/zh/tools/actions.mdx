@@ -1,0 +1,1060 @@
+---
+title: Actions 与 Blinks
+seoTitle: "Actions 与 Blinks"
+description:
+  "Solana Actions are APIs that return transactions for users to preview and
+  sign. Blockchain links – or blinks – turn Actions into a shareable,
+  metadata-rich link."
+---
+
+[Solana Actions](#actions) 是符合规范的 API，可在 Solana 区块链上返回交易，供用户预览、签署并在多种场景下发送，包括二维码、按钮与小组件以及互联网上的各类网站。Actions 让开发者能够轻松地将 Solana 生态系统中的各种操作直接集成到您的环境中，使您无需跳转至其他应用或网页即可完成区块链交易。
+
+[区块链链接](#blinks)（即 Blinks）可将任意 Solana Action 转化为可分享的、携带丰富元数据的链接。Blinks 允许支持 Action 的客户端（浏览器扩展钱包、机器人）为用户展示额外的操作能力。在网站上，Blink 可直接在钱包中触发交易预览，无需前往去中心化应用；在 Discord 中，机器人可将 Blink 展开为一组可交互的按钮。这使得任何能够显示 URL 的 Web 界面都具备了链上交互的能力。
+
+## 快速开始
+
+快速开始创建自定义 Solana Actions：
+
+```shell
+npm install @solana/actions
+```
+
+- 在您的应用中安装
+  [Solana Actions SDK](https://www.npmjs.com/package/@solana/actions)
+- 构建用于 [GET 请求](#get-request) 的 API 端点，返回有关您的 Action 的元数据
+- 创建接受 [POST 请求](#post-request) 的 API 端点，并为用户返回可签名的交易
+
+> 查看以下视频教程，了解如何
+> [使用 `@solana/actions` SDK 构建 Solana Action](https://www.youtube.com/watch?v=kCht01Ycif0)。
+>
+> 您还可以在此找到
+> [执行原生 SOL 转账的 Action 源代码](https://github.com/solana-developers/solana-actions/blob/main/examples/next-js/src/app/api/actions/transfer-sol/route.ts)
+> 以及
+> [此代码库](https://github.com/solana-developers/solana-actions/tree/main/examples)
+> 中的多个其他示例 Action。
+
+将自定义 Solana Actions 部署至生产环境时：
+
+- 确保您的应用在域名根目录下有有效的 [actions.json 文件](#actionsjson)
+- 确保您的应用在所有 Action 端点（包括 `actions.json` 文件）上返回
+  [必要的跨域请求头](#options-response)
+- 使用 [Blinks Inspector](https://www.blinks.xyz/inspector) 测试并调试您的 Blinks 和 Actions
+
+如果您正在寻找构建 Actions 和 Blinks 的灵感，欢迎访问 [Awesome Blinks](https://github.com/solana-developers/awesome-blinks) 代码库，查看社区创作，甚至探索
+[新的创意方向](https://github.com/solana-developers/awesome-blinks/discussions/categories/ideas-for-blinks)。
+
+## Actions
+
+Solana Actions 规范使用一组标准 API，将可签名的交易（以及最终的可签名消息）从应用程序直接传递给用户。这些 API 托管于可公开访问的 URL，因此任何客户端均可通过其 URL 与之交互。
+
+> 您可以将 Actions 理解为一个 API 端点，它会返回元数据以及
+> 需要用户使用其区块链钱包签名的内容（交易或身份验证消息）。
+
+Actions API 通过向 Action 的 URL 端点发送简单的 `GET` 和 `POST` 请求，并处理符合 Actions 接口规范的响应来实现交互。
+
+1. [GET 请求](#get-request)返回元数据，向客户端提供关于该 URL 下可用 Actions 的可读信息，以及一个可选的相关 Actions 列表。
+2. [POST 请求](#post-request)返回可签名的交易或消息，客户端随后提示用户的钱包对其签名，并在区块链或其他链下服务上执行。
+
+### Action 的执行与生命周期
+
+在实际使用中，与 Actions 的交互过程与典型的 REST API 交互非常相似：
+
+- 客户端向 Action URL 发起初始 `GET` 请求，以获取可用 Actions 的元数据
+- 端点返回包含端点元数据（如应用标题和图标）以及该端点可用 Actions 列表的响应
+- 客户端应用（如移动钱包、聊天机器人或网站）向用户展示 UI，供其执行其中一个 Action
+- 用户选择某个 Action（点击按钮）后，客户端向端点发起 `POST` 请求，获取需要用户签名的交易
+- 钱包协助用户对交易进行签名，并最终将交易提交至区块链进行确认
+
+![Solana Actions 执行与生命周期](/assets/docs/action-execution-and-lifecycle.png)
+
+在从 Actions URL 接收到交易后，客户端应负责将这些交易提交至区块链，并管理其状态生命周期。
+
+Actions 还支持在执行前进行一定程度的失效检测。`GET` 和 `POST` 请求可能会返回部分元数据，说明该 Action 是否可以被执行（例如通过 `disabled` 字段）。
+
+例如，如果某个 Action 端点用于对已关闭投票窗口的 DAO 治理提案进行投票，初始
+[GET 请求](#get-request)可能会返回错误消息"该提案已不再接受投票"，并将"赞成"和"反对"按钮显示为"已禁用"。
+
+## Blinks
+
+Blinks（区块链链接）是一种客户端应用，可对 Action API 进行深度解析，并围绕 Actions 的交互与执行构建用户界面。
+
+支持 Blinks 的客户端应用只需检测与 Action 兼容的 URL，对其进行解析，并通过标准化的用户界面让用户与之交互。
+
+> 任何能够完整解析 Actions API 并为其构建完整交互界面的客户端应用
+> 即为 _blink_。因此，并非所有使用 Actions API 的客户端都是 Blinks。
+
+### Blink URL 规范
+
+Blink URL 描述了一种客户端应用，使用户能够完成
+[执行 Action 的完整生命周期](#action-execution-and-lifecycle)，
+包括使用其钱包进行签名。
+
+```text
+https://example.domain/?action=<action_url>
+```
+
+任何客户端应用若要成为 Blink，需满足以下条件：
+
+- Blink URL 必须包含值为 URL 编码的 [Action URL](#url-scheme) 的 `action` 查询参数。该值必须经过
+  [URL 编码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+  以避免与其他协议参数冲突。
+
+- 客户端应用必须
+  [URL 解码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+  `action` 查询参数，并对所提供的 Action API 链接进行解析（参见
+  [Action URL 格式](#url-scheme)）。
+
+- 客户端必须渲染丰富的用户界面，使用户能够完成
+  [执行 Action 的完整生命周期](#action-execution-and-lifecycle)，
+  包括使用其钱包进行签名。
+
+> 并非所有 Blink 客户端应用（如网站或 dApp）都会支持所有 Actions。
+> 应用开发者可以自行选择在其 Blink 界面中支持哪些 Actions。
+
+以下示例展示了一个有效的 Blink URL，其中 `action` 值为经过 URL 编码的 `solana-action:https://actions.alice.com/donate`：
+
+```text
+https://example.domain/?action=solana-action%3Ahttps%3A%2F%2Factions.alice.com%2Fdonate
+```
+
+### 通过 Blinks 检测 Actions
+
+Blinks 可通过至少 3 种方式与 Actions 关联：
+
+1. 分享显式的 Action URL：
+   `solana-action:https://actions.alice.com/donate`
+
+   在这种情况下，只有受支持的客户端才能渲染该 Blink。不支持的客户端将无法显示链接预览，也无法访问对应网站。
+
+2. 分享通过网站域名根目录下的
+   [`actions.json` 文件](#actionsjson)与 Actions API 关联的网站链接。
+
+   例如，`https://alice.com/actions.json` 将用户可向 Alice 捐款的网站 URL `https://alice.com/donate`
+   映射至托管 Alice 捐款 Actions 的 API URL `https://actions.alice.com/donate`。
+
+3. 将 Action URL 嵌入能够解析 Actions 的"中间页"网站 URL 中。
+
+   ```text
+   https://example.domain/?action=<action_url>
+   ```
+
+支持 Blinks 的客户端应能够处理上述任意格式，并正确渲染界面，以便用户直接在客户端中执行对应的 Action。
+
+对于不支持 Blinks 的客户端，应提供一个底层网站作为兜底方案（使浏览器成为通用的回退选项）。
+
+如果用户点击客户端中非操作按钮或文本输入框的区域，应跳转至底层网站。
+
+### Blink 测试与验证
+
+尽管 Solana Actions 和 Blinks 是一种无需许可的协议/规范，客户端应用和钱包仍需最终协助用户完成交易签名。
+
+> 使用 [Blinks Inspector](https://www.blinks.xyz/inspector) 工具，可直接在浏览器中
+> 检查、调试和测试您的 Blinks 和 Actions。您可以查看 GET 和 POST 响应内容、响应头，并对每个关联 Action 的所有输入进行测试。
+
+各客户端应用或钱包对于哪些 Action 端点会被自动展开并直接在社交媒体平台上向用户显示，可能有不同的要求。
+
+例如，某些客户端可能采用"白名单"机制，要求在为用户展开 Action 之前进行验证，例如 Dialect 的 Actions Registry（详见下文）。
+
+所有 Blinks 仍可在 Dialect 的
+[dial.to](https://dial.to) Blinks 中间页上正常渲染并支持签名，其注册状态将显示在 Blink 中。
+
+### Dialect 的 Actions Registry
+
+作为 Solana 生态系统的公共基础设施，[Dialect](https://dialect.to)
+在 Solana Foundation 及其他社区成员的协助下，维护着一个公开的注册表，收录了来自经过预先验证的已知来源的区块链链接。自上线之日起，只有已在 Dialect 注册表中登记的 Actions，才会在发布至 Twitter 时自动展开显示。
+
+客户端应用和钱包可以自由选择使用该公共注册表或其他解决方案，以保障用户安全。若未通过 Dialect 注册表的验证，区块链链接将不会被 Blink 客户端处理，而是作为普通 URL 渲染。
+
+开发者可在此申请通过 Dialect 验证：
+[dial.to/register](https://dial.to/register)
+
+## 规范
+
+Solana Actions 规范由请求/响应交互流程中的几个关键部分组成：
+
+- 提供 Action URL 的 Solana Action [URL 格式](#url-scheme)
+- 向 Action URL 发送的 [OPTIONS 响应](#options-response)，用于满足 CORS 要求
+- 向 Action URL 发送的 [GET 请求](#get-request)
+- 服务器返回的 [GET 响应](#get-response)
+- 向 Action URL 发送的 [POST 请求](#post-request)
+- 服务器返回的 [POST 响应](#post-response)
+
+这些请求均由 _Action 客户端_（例如钱包应用、浏览器
+扩展、dApp、网站等）发起，用于收集特定元数据，以支持丰富的用户
+界面，并便于用户向 Actions API 提供输入。
+
+每个响应均由应用程序（例如网站、服务器
+后端等）构建，并返回给 _Action 客户端_。最终会为钱包提供一个
+可签名的交易或消息，以提示用户批准、
+签名并发送到区块链。
+
+> 此 readme 文件中声明的类型和接口通常是这些类型的
+> 简化版本，以便提高可读性。
+>
+> 为了获得更好的类型安全性并改善开发者体验，
+> `@solana/actions-spec` 包包含更复杂的类型定义。你可以
+> 在此处找到它们的
+> [源代码](https://github.com/solana-developers/solana-actions/blob/main/packages/actions-spec/index.d.ts)。
+
+### URL 方案
+
+Solana Action URL 使用 `solana-action` 协议描述一个交互式请求，
+用于生成可签名的 Solana 交易或消息。
+
+该请求是交互式的，因为 URL 中的参数会被客户端用于发起一系列标准化的 HTTP 请求，
+从而为用户组合出一个可签名的交易或消息，供用户使用其钱包签名。
+
+```text
+solana-action:<link>
+```
+
+- 需要一个单独的 `link` 字段作为路径名。该值必须是一个
+  按条件
+  [URL 编码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+  的绝对 HTTPS URL。
+
+- 如果 URL 包含查询参数，则必须进行 URL 编码。对该
+  值进行 URL 编码可避免与任何 Actions 协议参数发生冲突，这些参数可能会
+  通过协议规范添加。
+
+- 如果 URL 不包含查询参数，则不应进行 URL 编码。
+  这样会生成更短的 URL，以及信息密度更低的二维码。
+
+无论哪种情况，客户端都必须
+[URL 解码](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+该值。如果该值未经过 URL 编码，则此操作没有影响。如果解码后的
+值不是绝对 HTTPS URL，钱包必须将其作为**格式错误**而拒绝。
+
+### OPTIONS 响应
+
+为了在 Actions
+客户端（包括 blinks）中允许跨源资源共享
+([CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS))，所有 Action 端点都应使用有效的标头响应
+`OPTIONS` 方法的 HTTP 请求，以允许客户端对来自其同源域名的所有后续请求
+通过 CORS 检查。
+
+Actions 客户端可能会向 Action URL 端点执行
+“[预检](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#preflighted_requests)”
+请求，以检查后续发往 Action URL 的 GET 请求
+是否会通过所有 CORS 检查。这些 CORS 预检检查使用 `OPTIONS` HTTP 方法发起，
+并且应返回所有必需的 HTTP 标头，以允许 Action 客户端（如 blinks）
+能够从其来源域名正确发起所有后续请求。
+
+至少，必需的 HTTP 标头包括：
+
+- `Access-Control-Allow-Origin`，其值为 `*`
+  - 这可确保所有 Action 客户端都能安全地通过 CORS 检查，以便发起
+    所有必需的请求
+- `Access-Control-Allow-Methods`，其值为 `GET,POST,PUT,OPTIONS`
+  - 确保 Actions 支持所有必需的 HTTP 请求方法
+- `Access-Control-Allow-Headers`，其最小值为
+  `Content-Type, Authorization, Content-Encoding, Accept-Encoding`
+
+为简化处理，开发者应考虑对 `OPTIONS` 请求返回与其 [`GET` 响应](#get-response)相同的响应和
+标头。
+
+<Callout type="warn" title="actions.json 的跨源标头">
+
+`actions.json` 文件响应也必须为
+`GET` 和 `OPTIONS` 请求返回有效的跨源标头，尤其是值为 `*` 的
+`Access-Control-Allow-Origin` 标头。
+
+有关更多详细信息，请参阅下方的 [actions.json](#actionsjson)。
+
+</Callout>
+
+### GET 请求
+
+Action 客户端（例如钱包、浏览器扩展等）应向 Action 的 URL 端点发起 HTTP
+`GET` JSON 请求。
+
+- 该请求不应识别钱包或用户。
+- 客户端应使用
+  [`Accept-Encoding` 标头](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding)
+  发起请求。
+- 在发起请求时，客户端应显示 URL 的域名。
+
+### GET 响应
+
+Action 的 URL 端点（例如应用程序或服务器后端）应返回
+HTTP `OK` JSON 响应（正文中包含有效载荷），或返回
+适当的 HTTP 错误。
+
+- 客户端必须处理 HTTP
+  [客户端错误](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)、
+  [服务器错误](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+  以及
+  [重定向响应](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages)。
+- 端点应返回
+  [`Content-Encoding` 标头](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+  以用于 HTTP 压缩。
+- 端点应返回
+  值为 `application/json` 的
+  [`Content-Type` 标头](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)。
+
+- 除非
+  [HTTP 缓存](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching)
+  响应标头另有指示，否则客户端不应缓存该响应。
+- 客户端应向用户显示 `title`，并渲染 `icon` 图像。
+
+错误响应（即 HTTP 4xx 和 5xx 状态码）应按照 `ActionError` 返回 JSON
+响应正文，以向用户呈现有帮助的错误消息。请参阅 [Action 错误](#action-errors)。
+
+#### GET 响应正文
+
+带有 HTTP `OK` JSON 响应的 `GET` 响应应包含符合以下接口规范的正文载荷：
+
+```ts title="ActionGetResponse"
+export type ActionType = "action" | "completed";
+
+export type ActionGetResponse = Action<"action">;
+
+export interface Action<T extends ActionType> {
+  /** type of Action to present to the user */
+  type: T;
+  /** image url that represents the source of the action request */
+  icon: string;
+  /** describes the source of the action request */
+  title: string;
+  /** brief summary of the action to be performed */
+  description: string;
+  /** button text rendered to the user */
+  label: string;
+  /** UI state for the button being rendered to the user */
+  disabled?: boolean;
+  links?: {
+    /** list of related Actions a user could perform */
+    actions: LinkedAction[];
+  };
+  /** non-fatal error message to be displayed to the user */
+  error?: ActionError;
+}
+```
+
+- `type` - 提供给用户的 action 类型。默认为 `action`。初始的
+  `ActionGetResponse` 必须具有 `action` 类型。
+  - `action` - 标准 action，允许用户与任何
+    `LinkedActions` 交互
+  - `completed` - 用于在 action 链接中声明“已完成”状态。
+
+- `icon` - 该值必须是图标图像的绝对 HTTP 或 HTTPS URL。该
+  文件必须是 SVG、PNG 或 WebP 图像，否则客户端/钱包必须将其作为
+  **格式错误**而拒绝。
+
+- `title` - 该值必须是表示 action 请求来源的 UTF-8 字符串。
+  例如，这可能是发起请求的品牌、商店、
+  应用程序或个人的名称。
+
+- `description` - 该值必须是提供 action 相关信息的 UTF-8 字符串。
+  描述应展示给用户。
+
+- `label` - 该值必须是 UTF-8 字符串，将渲染在按钮上
+  供用户点击。所有标签都不应超过 5 个词，并且应
+  以动词开头，以明确你希望用户执行的操作。例如，
+  “Mint NFT”、“Vote Yes” 或 “Stake 1 SOL”。
+
+- `disabled` - 该值必须是布尔值，用于表示渲染按钮的禁用状态
+  （按钮显示 `label` 字符串）。如果未提供任何值，
+  `disabled` 应默认为 `false`（即默认启用）。例如，
+  如果 action 端点用于已结束的治理投票，则设置
+  `disabled=true`，并且 `label` 可以是 “Vote Closed”。
+
+- `error` - 用于非致命错误的可选错误提示。如果存在，
+  客户端应将其显示给用户。如果设置了该字段，它不应阻止客户端
+  解析 action 或将其显示给用户（请参阅
+  [Action 错误](#action-errors)）。例如，error 可与
+  `disabled` 一起使用，用于显示业务限制、授权、
+  状态或外部资源错误等原因。
+
+- `links.actions` - 端点相关 action 的可选数组。应为用户
+  展示每个列出的 action 的 UI，并预期用户只执行
+  其中一个。例如，治理投票 action 端点可向用户返回三个
+  选项：“Vote Yes”、“Vote No” 和 “Abstain from Vote”。
+  - 如果未提供 `links.actions`，客户端应使用根级 `label` 字符串
+    渲染单个按钮，并向与初始 GET 请求相同的 action
+    URL 端点发起 POST 请求。
+
+  - 如果提供了任何 `links.actions`，客户端应仅基于 `links.actions` 字段中列出的项目
+    渲染按钮
+    和输入字段。客户端不应为根级 `label` 的内容渲染按钮。
+
+```ts title="LinkedAction"
+export interface LinkedAction {
+  /** Type of action to be performed by user */
+  type: LinkedActionType;
+  /** URL endpoint for an action */
+  href: string;
+  /** button text rendered to the user */
+  label: string;
+  /**
+   * Parameters to accept user input within an action
+   * @see {ActionParameter}
+   * @see {ActionParameterSelectable}
+   */
+  parameters?: Array<TypedActionParameter>;
+}
+```
+
+`ActionParameter` 允许声明 Action API 正在向用户请求何种输入：
+
+```ts title="ActionParameter"
+/**
+ * Parameter to accept user input within an action
+ * note: for ease of reading, this is a simplified type of the actual
+ */
+export interface ActionParameter {
+  /** input field type */
+  type?: ActionParameterType;
+  /** parameter name in url */
+  name: string;
+  /** placeholder text for the user input field */
+  label?: string;
+  /** declare if this field is required (defaults to `false`) */
+  required?: boolean;
+  /** regular expression pattern to validate user input client side */
+  pattern?: string;
+  /** human-readable description of the `type` and/or `pattern`, represents a caption and error, if value doesn't match */
+  patternDescription?: string;
+  /** the minimum value allowed based on the `type` */
+  min?: string | number;
+  /** the maximum value allowed based on the `type` */
+  max?: string | number;
+}
+```
+
+`pattern` 应是一个等同于有效正则表达式的字符串。该
+正则表达式模式应由 blink 客户端用于在发起 POST 请求之前验证用户
+输入。如果 `pattern` 不是有效的正则表达式，客户端应忽略它。
+
+`patternDescription` 是对预期用户输入请求的人类可读描述。
+如果提供了 `pattern`，则必须提供 `patternDescription`。
+
+`min` 和 `max` 值允许为向用户请求的输入设置下限和/或上限
+（即最小/最大数字，和/或最小/最大
+字符长度），并应用于客户端侧验证。对于 `date` 或 `datetime-local` 类型的输入
+`type`，这些值应为日期字符串。
+对于其他基于字符串的输入 `type`，这些值应为表示其最小/最大字符长度的数字。
+
+如果根据 `pattern` 判断用户输入值无效，用户
+应收到客户端侧错误消息，说明该输入字段
+无效，并显示 `patternDescription` 字符串。
+
+`type` 字段允许 Action API 声明更具体的用户输入
+字段，从而提供更好的客户端侧验证并改善用户
+体验。在许多情况下，此类型会类似于标准的
+[HTML input 元素](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input)。
+
+`ActionParameterType` 可以简化为以下类型：
+
+```ts title="ActionParameterType"
+/**
+ * Input field type to present to the user
+ * @default `text`
+ */
+export type ActionParameterType =
+  | "text"
+  | "email"
+  | "url"
+  | "number"
+  | "date"
+  | "datetime-local"
+  | "checkbox"
+  | "radio"
+  | "textarea"
+  | "select";
+```
+
+每个 `type` 值通常都应生成一个用户输入字段，
+该字段类似于对应 `type` 的标准 HTML `input` 元素（即
+`<input type="email" />`），以提供更好的客户端侧验证和用户
+体验：
+
+- `text` - 等同于 HTML
+  [“text” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/text)
+  元素
+- `email` - 等同于 HTML
+  [“email” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email)
+  元素
+- `url` - 等同于 HTML
+  [“url” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/url)
+  元素
+- `number` - 等同于 HTML
+  [“number” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/number)
+  元素
+- `date` - 等同于 HTML
+  [“date” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/date)
+  元素
+- `datetime-local` - 等同于 HTML
+  [“datetime-local” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/datetime-local)
+  元素
+- `checkbox` - 等同于一组标准 HTML
+  [“checkbox” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox)
+  元素。Action API 应按下文详述返回 `options`。用户
+  应能够从提供的复选框选项中选择多个。
+- `radio` - 等同于一组标准 HTML
+  [“radio” input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/radio)
+  元素。Action API 应按下文详述返回 `options`。用户
+  应只能从提供的单选选项中选择一个。
+- 上述未指定的其他 HTML 输入类型等效项（`hidden`、`button`、
+  `submit`、`file` 等）目前不受支持。
+
+除上述类似 HTML 输入类型的元素外，以下
+用户输入元素也受支持：
+
+- `textarea` - 等效于 HTML
+  [textarea 元素](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea)。
+  允许用户提供多行输入。
+- `select` - 等效于 HTML
+  [select 元素](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/select)，
+  允许用户使用"下拉"样式字段。Action API
+  应按如下所述返回 `options`。
+
+当 `type` 设置为 `select`、`checkbox` 或 `radio` 时，Action API
+应包含一个 `options` 数组，每个选项至少提供 `label` 和 `value`。每个选项还可以有一个 `selected` 值，以告知
+blink 客户端默认为用户选择哪个选项
+（差异详见 `checkbox` 和 `radio`）。
+
+此 `ActionParameterSelectable` 可简化为以下类型
+定义：
+
+```ts title="ActionParameterSelectable"
+/**
+ * note: for ease of reading, this is a simplified type of the actual
+ */
+interface ActionParameterSelectable extends ActionParameter {
+  options: Array<{
+    /** displayed UI label of this selectable option */
+    label: string;
+    /** value of this selectable option */
+    value: string;
+    /** whether or not this option should be selected by default */
+    selected?: boolean;
+  }>;
+}
+```
+
+如果未设置 `type` 或设置了未知/不支持的值，blink 客户端应
+默认使用 `text` 并渲染简单的文本输入框。
+
+Action API 仍负责验证和清理所有来自
+用户输入参数的数据，并根据需要强制执行"必填"用户输入。
+
+对于非 HTML/Web 平台（如原生移动端），
+应使用等效的原生用户输入组件，以实现与上述
+HTML/Web 输入类型相同的体验和客户端验证。
+
+#### GET 响应示例
+
+以下示例响应提供了一个单一"根"操作，预期
+以带有"Claim Access Token"标签的单个按钮形式呈现给用户：
+
+```json
+{
+  "title": "HackerHouse Events",
+  "icon": "<url-to-image>",
+  "description": "Claim your Hackerhouse access token.",
+  "label": "Claim Access Token" // button text
+}
+```
+
+以下示例响应提供了 3 个相关操作链接，允许
+用户点击 3 个按钮之一为 DAO 提案投票：
+
+```json
+{
+  "title": "Realms DAO Platform",
+  "icon": "<url-to-image>",
+  "description": "Vote on DAO governance proposals #1234.",
+  "label": "Vote",
+  "links": {
+    "actions": [
+      {
+        "label": "Vote Yes", // button text
+        "href": "/api/proposal/1234/vote?choice=yes"
+      },
+      {
+        "label": "Vote No", // button text
+        "href": "/api/proposal/1234/vote?choice=no"
+      },
+      {
+        "label": "Abstain from Vote", // button text
+        "href": "/api/proposal/1234/vote?choice=abstain"
+      }
+    ]
+  }
+}
+```
+
+#### 带参数的 GET 响应示例
+
+以下示例响应演示了如何通过 `parameters` 接受用户的文本输入，
+并通过 `LinkedAction` 中的 `href` 字段将该输入包含在最终的 `POST` 请求
+端点中：
+
+以下示例响应为用户提供了 3 个关联操作来质押
+SOL：一个标有"Stake 1 SOL"的按钮、另一个标有"Stake 5 SOL"的按钮，以及一个
+允许用户输入特定"amount"值并发送到 Action API 的
+文本输入字段：
+
+```json
+{
+  "title": "Stake-o-matic",
+  "icon": "<url-to-image>",
+  "description": "Stake SOL to help secure the Solana network.",
+  "label": "Stake SOL", // not displayed since `links.actions` are provided
+  "links": {
+    "actions": [
+      {
+        "label": "Stake 1 SOL", // button text
+        "href": "/api/stake?amount=1"
+        // no `parameters` therefore not a text input field
+      },
+      {
+        "label": "Stake 5 SOL", // button text
+        "href": "/api/stake?amount=5"
+        // no `parameters` therefore not a text input field
+      },
+      {
+        "label": "Stake", // button text
+        "href": "/api/stake?amount={amount}",
+        "parameters": [
+          {
+            "name": "amount", // field name
+            "label": "SOL amount" // text input placeholder
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+以下示例响应提供了一个单一输入字段，供用户
+输入随 POST 请求发送的 `amount`（可使用查询参数或子路径）：
+
+```json
+{
+  "icon": "<url-to-image>",
+  "label": "Donate SOL",
+  "title": "Donate to GoodCause Charity",
+  "description": "Help support this charity by donating SOL.",
+  "links": {
+    "actions": [
+      {
+        "label": "Donate", // button text
+        "href": "/api/donate/{amount}", // or /api/donate?amount={amount}
+        "parameters": [
+          // {amount} input field
+          {
+            "name": "amount", // input field name
+            "label": "SOL amount" // text input placeholder
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### POST 请求
+
+客户端必须向操作 URL 发送 HTTP `POST` JSON 请求，请求体
+载荷为：
+
+```json
+{
+  "account": "<account>"
+}
+```
+
+- `account` - 该值必须是可能签署交易的账户的
+  base58 编码公钥。
+
+客户端应在请求中附带
+[Accept-Encoding 标头](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding)，
+应用程序可通过
+[Content-Encoding 标头](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+进行 HTTP 压缩响应。
+
+客户端在发出请求时应显示操作 URL 的域名。如果已发出 `GET` 请求，客户端还应显示该 GET 响应中的 `title`
+并渲染 `icon` 图片。
+
+### POST 响应
+
+Action 的 `POST` 端点应返回 HTTP `OK` JSON 响应
+（正文中包含有效载荷）或适当的 HTTP 错误。
+
+- 客户端必须处理 HTTP
+  [客户端错误](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)、
+  [服务器错误](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+  以及
+  [重定向响应](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages)。
+- 端点应返回
+  [`Content-Type` 标头](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)
+  值为 `application/json`。
+
+错误响应（即 HTTP 4xx 和 5xx 状态码）应返回遵循 `ActionError` 的 JSON
+响应正文，以向用户呈现有用的错误信息。请参阅 [Action 错误](#action-errors)。
+
+#### POST 响应正文
+
+HTTP `OK` JSON 的 `POST` 响应应包含如下正文载荷：
+
+```ts title="ActionPostResponse"
+/**
+ * Response body payload returned from the Action POST Request
+ */
+export interface ActionPostResponse<T extends ActionType = ActionType> {
+  /** base64 encoded serialized transaction */
+  transaction: string;
+  /** describes the nature of the transaction */
+  message?: string;
+  links?: {
+    /**
+     * The next action in a successive chain of actions to be obtained after
+     * the previous was successful.
+     */
+    next: NextActionLink;
+  };
+}
+```
+
+- `transaction` - 该值必须是 base64 编码的
+  [序列化交易](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize)。
+  客户端必须对交易进行 base64 解码并
+  [反序列化](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#from)。
+
+- `message` - 该值必须是描述响应中所含交易性质的 UTF-8 字符串。客户端应将此值展示给
+用户。例如，这可能是所购商品的名称、适用的折扣或感谢备注。
+
+- `links.next` - 一个可选值，用于将多个 Action 串联
+  在一起。在所含 `transaction` 在链上得到确认后，客户端
+  可以获取并渲染下一个操作。详情请参阅
+  [Action 链接](#action-chaining)。
+
+- 客户端和应用程序应允许请求正文和响应正文中包含额外字段，
+  这些字段可能由未来的规范更新添加。
+
+> 应用程序可能返回部分签名或完全签名的交易。
+> 客户端和钱包必须将交易视为**不可信**进行验证。
+
+#### POST 响应 - 交易
+
+如果交易的
+[`signatures`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+为空或交易尚未被部分签名：
+
+- 客户端必须忽略交易中的
+  [`feePayer`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  并将 `feePayer` 设置为请求中的 `account`。
+- 客户端必须忽略交易中的
+  [`recentBlockhash`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  并将 `recentBlockhash` 设置为
+  [最新的区块哈希](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash)。
+- 客户端必须在签名前对交易进行序列化和反序列化。
+  这可确保账户密钥的排序一致，作为
+  [此问题](https://github.com/solana-labs/solana/issues/21722)的变通方案。
+
+如果交易已被部分签名：
+
+- 客户端不得修改
+  [`feePayer`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  或
+  [`recentBlockhash`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)，
+  否则将导致已有签名失效。
+- 客户端必须验证现有签名，如有任何无效签名，客户端
+  必须将交易视为**格式错误**而拒绝。
+
+客户端只能使用请求中的 `account` 对交易进行签名，且
+仅在预期对请求中的 `account` 进行签名时才可执行此操作。
+
+如果预期对请求中 `account` 签名以外的任何签名，
+客户端必须将交易视为**恶意**而拒绝。
+
+### Action 错误
+
+Actions API 应使用 `ActionError` 返回错误，以便向用户呈现
+有用的错误信息。根据上下文，此错误可能是致命的或非致命的。
+
+```ts title="ActionError"
+export interface ActionError {
+  /** simple error message to be displayed to the user */
+  message: string;
+}
+```
+
+当 Actions API 返回 HTTP 错误状态码（即 4xx 和 5xx）时，
+响应正文应为遵循 `ActionError` 的 JSON 载荷。该错误被视为致命错误，
+所含 `message` 应呈现给用户。
+
+对于支持可选 `error` 属性的 API 响应（如
+[`ActionGetResponse`](#get-response)），该错误被视为非致命错误，
+所含 `message` 应呈现给用户。
+
+## Action 链接
+
+Solana Actions 可以串联成连续的系列。在一个
+Action 的交易在链上得到确认后，可以获取并将下一个操作
+呈现给用户。
+
+Action 链接允许开发者在 blink 中构建更复杂、更动态的体验，包括：
+
+- 向用户提供多笔交易（以及最终的消息签名）
+- 根据用户的钱包地址自定义操作元数据
+- 在交易成功后刷新 blink 元数据
+- 通过交易签名接收 API 回调，以便在 Action API 服务器上
+  进行额外验证和逻辑处理
+- 通过更新显示的元数据（如新图片和描述）自定义"成功"消息
+
+要将多个操作链接在一起，可在任意 `ActionPostResponse` 中包含
+以下之一的 `links.next`：
+
+- `PostNextActionLink` - POST 请求链接，包含同源回调 URL，用于
+  在请求正文中接收 `signature` 和用户的 `account`。此回调 URL
+  应返回一个 `NextAction`。
+- `InlineNextActionLink` - 内联元数据，用于在交易确认后立即
+  向用户呈现下一个操作。不会发出任何回调请求。
+
+```ts
+export type NextActionLink = PostNextActionLink | InlineNextActionLink;
+
+/** @see {NextActionPostRequest} */
+export interface PostNextActionLink {
+  /** Indicates the type of the link. */
+  type: "post";
+  /** Relative or same origin URL to which the POST request should be made. */
+  href: string;
+}
+
+/**
+ * Represents an inline next action embedded within the current context.
+ */
+export interface InlineNextActionLink {
+  /** Indicates the type of the link. */
+  type: "inline";
+  /** The next action to be performed */
+  action: NextAction;
+}
+```
+
+### NextAction
+
+在 `ActionPostResponse` 中所含的 `transaction` 被用户签名并
+在链上确认后，blink 客户端应：
+
+- 执行回调请求以获取并显示 `NextAction`，或
+- 如果已通过 `links.next` 提供了 `NextAction`，blink 客户端
+  应更新显示的元数据且不发出任何回调请求
+
+如果回调 URL 与初始 POST 请求不同源，则不应
+发出回调请求。Blink 客户端应显示错误通知用户。
+
+```ts title="NextAction"
+/** The next action to be performed */
+export type NextAction = Action<"action"> | CompletedAction;
+
+/** The completed action, used to declare the "completed" state within action chaining. */
+export type CompletedAction = Omit<Action<"completed">, "links">;
+```
+
+根据 `type`，下一个操作应通过 blink 客户端以以下方式之一
+呈现给用户：
+
+- `action` -（默认）标准操作，允许用户查看
+  所含 Action 元数据、与提供的 `LinkedActions` 进行交互，
+  并继续链接后续操作。
+
+- `completed` - 操作链的终止状态，可使用所含 Action 元数据更新 blink
+  界面，但不允许用户执行进一步操作。
+
+如果未提供 `links.next`，blink 客户端应假定当前操作是链中的最终操作，
+在交易确认后呈现其"已完成"界面状态。
+
+## actions.json
+
+[`actions.json` 文件](#actionsjson)的用途是允许应用程序
+指示客户端哪些网站 URL 支持 Solana Actions，并提供可用于向 Actions
+API 服务器执行 [GET 请求](#get-request)的映射关系。
+
+<Callout type="warn" title="需要跨域标头">
+
+`actions.json` 文件响应还必须为
+`GET` 和 `OPTIONS` 请求返回有效的跨域标头，特别是 `Access-Control-Allow-Origin`
+标头值需设为 `*`。
+
+详情请参阅上方的 [OPTIONS 响应](#options-response)。
+
+</Callout>
+
+`actions.json` 文件应存储在域名根目录下并可被普遍访问。
+
+例如，如果您的 Web 应用部署在 `my-site.com`，则
+`actions.json` 文件应可通过 `https://my-site.com/actions.json` 访问。
+该文件还应通过设置 `Access-Control-Allow-Origin` 标头值为 `*`，
+使任何浏览器均可跨域访问。
+
+### 规则
+
+`rules` 字段允许应用程序将网站的一组相对
+路由路径映射到另一组路径。
+
+**类型：** `ActionRuleObject` 的 `Array`。
+
+```ts title="ActionRuleObject"
+interface ActionRuleObject {
+  /** relative (preferred) or absolute path to perform the rule mapping from */
+  pathPattern: string;
+  /** relative (preferred) or absolute path that supports Action requests */
+  apiPath: string;
+}
+```
+
+- [`pathPattern`](#rules---pathpattern) - 匹配每个传入路径名的模式。
+
+- [`apiPath`](#rules---apipath) - 以绝对路径名或外部 URL 定义的目标位置。
+
+#### 规则 - pathPattern
+
+匹配每个传入路径名的模式。它可以是绝对路径或相对路径，并支持以下格式：
+
+- **精确匹配**：匹配精确的 URL 路径。
+  - 示例：`/exact-path`
+  - 示例：`https://website.com/exact-path`
+
+- **通配符匹配**：使用通配符匹配 URL 路径中的任意字符序列。可以匹配单个路径段（使用 `*`）或多个路径段（使用 `**`）。（参见下方的[路径匹配](#rules---path-matching)）。
+  - 示例：`/trade/*` 将匹配 `/trade/123` 和 `/trade/abc`，仅捕获 `/trade/` 之后的第一个路径段。
+  - 示例：`/category/*/item/**` 将匹配 `/category/123/item/456` 和 `/category/abc/item/def`。
+  - 示例：`/api/actions/trade/*/confirm` 将匹配 `/api/actions/trade/123/confirm`。
+
+#### 规则 - apiPath
+
+操作请求的目标路径。可定义为绝对路径名或外部 URL。
+
+- 示例：`/api/exact-path`
+- 示例：`https://api.example.com/v1/donate/*`
+- 示例：`/api/category/*/item/*`
+- 示例：`/api/swap/**`
+
+#### 规则 - 查询参数
+
+原始 URL 中的查询参数始终会被保留，并追加到映射后的 URL 中。
+
+#### 规则 - 路径匹配
+
+下表列出了路径匹配模式的语法：
+
+| 运算符 | 匹配内容                                                                                                                                                                                  |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `*`      | 单个路径段，不包含周围的路径分隔符 / 字符。                                                                                                        |
+| `**`     | 匹配零个或多个字符，包括多个路径段之间的任意路径分隔符 / 字符。如果包含其他运算符，`**` 运算符必须是最后一个运算符。 |
+| `?`      | 不支持的模式。                                                                                                                                                                     |
+
+### 规则示例
+
+以下示例演示了一个精确匹配规则，将站点根目录下对 `/buy` 的请求映射到相对于站点根目录的精确路径 `/api/buy`：
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/buy",
+      "apiPath": "/api/buy"
+    }
+  ]
+}
+```
+
+以下示例使用通配符路径匹配，将站点根目录下 `/actions/` 路径（不含子目录）的请求映射到相对于站点根目录的 `/api/actions/` 下对应路径：
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/actions/*",
+      "apiPath": "/api/actions/*"
+    }
+  ]
+}
+```
+
+以下示例使用通配符路径匹配，将站点根目录下 `/donate/` 路径（不含子目录）的请求映射到外部站点的绝对路径 `https://api.dialect.com/api/v1/donate/`：
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/donate/*",
+      "apiPath": "https://api.dialect.com/api/v1/donate/*"
+    }
+  ]
+}
+```
+
+以下示例使用通配符路径匹配，设置一条幂等规则，将站点根目录下 `/api/actions/` 路径（包含子目录）的请求映射到其自身：
+
+> 幂等规则使 blink 客户端无需添加 `solana-action:` URI 前缀或执行额外的响应测试，即可更轻松地判断给定路径
+> 是否支持 Action API 请求。
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/api/actions/**",
+      "apiPath": "/api/actions/**"
+    }
+  ]
+}
+```
+
+## Action 身份标识
+
+Action 端点可以在其 [POST 响应](#post-response) 返回的交易中包含一个 _Action 身份标识_，供用户签名。这使得索引器和分析平台能够以可验证的方式，将链上活动清晰地归因到特定的 Action 提供者（即服务）。
+
+[Action 身份标识](#action-identity) 是一个 keypair，用于对经过特殊格式化的消息进行签名，该消息通过 Memo 指令包含在交易中。此 _标识符消息_ 可被可验证地归因到特定的 Action 身份标识，从而将交易归因到特定的 Action 提供者。
+
+该 keypair 不需要对交易本身进行签名。这使得钱包和应用程序在返回给用户的交易中没有其他签名时，能够提高交易的可送达性（参见 [POST 响应交易](#post-response---transaction)）。
+
+如果 Action 提供者的使用场景要求其后端服务在用户签名之前预先对交易进行签名，则应将此 keypair 用作其 Action 身份标识。这样可以减少交易中包含的账户数量，将交易总大小降低 32 字节。
+
+### Action 标识符消息
+
+Action 标识符消息是一个以冒号分隔的 UTF-8 字符串，通过单条 [SPL Memo](https://spl.solana.com/memo) 指令包含在交易中。
+
+```shell
+protocol:identity:reference:signature
+```
+
+- `protocol` - 所使用协议的值（根据上方的 [URL 方案](#url-scheme)，设置为 `solana-action`）
+- `identity` - 该值必须是 Action 身份标识 keypair 的 base58 编码公钥地址
+- `reference` - 该值必须是 base58 编码的 32 字节数组。该数组可能是也可能不是公钥，可能在曲线上也可能不在曲线上，并且可能与 Solana 上的账户对应，也可能不对应。
+- `signature` - 由 Action 身份标识 keypair 仅对 `reference` 值进行签名所生成的 base58 编码签名。
+
+`reference` 值只能使用一次，且只能用于单笔交易。为了将交易与 Action 提供者关联，只有 `reference` 值的首次使用才被视为有效。
+
+交易中可以包含多条 Memo 指令。在执行 [`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) 时，结果中的 `memo` 字段会将每条 Memo 指令的消息以单个字符串的形式返回，各条消息之间以分号分隔。
+
+标识符消息的 Memo 指令中不应包含任何其他数据。
+
+`identity` 和 `reference` 应作为只读非签名者 [密钥](https://solana-labs.github.io/solana-web3.js/v1.x/classes/TransactionInstruction.html#keys) 包含在交易中，且所在的指令不得是标识符消息 Memo 指令。
+
+标识符消息 Memo 指令必须不提供任何账户。如果提供了任何账户，Memo 程序将要求这些账户为有效签名者。就识别 Action 而言，这会限制灵活性并可能降低用户体验。因此，这被视为反模式，必须避免。
+
+### Action 身份标识验证
+
+任何包含 `identity` 账户的交易，均可通过以下多步骤流程与 Action 提供者进行可验证的关联：
+
+1. 获取指定 `identity` 的所有交易。
+2. 解析并验证每笔交易的 memo 字符串，确保 `signature` 对所存储的 `reference` 有效。
+3. 验证该特定交易是否为 `reference` 在链上的首次出现：
+   - 如果该交易是首次出现，则该交易被视为已验证，可安全归因于 Action 提供者。
+   - 如果该交易**不是**首次出现，则视为无效，不归因于 Action 提供者。
+
+由于 Solana validator 通过账户密钥对交易进行索引，可以使用 [`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) RPC 方法查找所有包含 `identity` 账户的交易。
+
+该 RPC 方法的响应在 `memo` 字段中包含所有 Memo 数据。如果交易中使用了多条 Memo 指令，每条 memo 消息都将包含在此 `memo` 字段中，验证者必须对其进行相应解析以获取 _身份验证消息_。
+
+这些交易最初应被视为 **未经验证**。这是因为 `identity` 无需对交易进行签名，因此任何交易均可将该账户作为非签名者包含在内，从而可能人为地虚增归因数量和使用次数。
+
+应检查身份验证消息，以确保 `signature` 是由 `identity` 对 `reference` 签名所生成的。如果签名验证失败，则该交易无效，不应归因于 Action 提供者。
+
+如果签名验证成功，验证者应确认该交易是 `reference` 在链上的首次出现。如果不是，则该交易被视为无效。

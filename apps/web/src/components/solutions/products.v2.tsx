@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { useTranslations } from "next-intl";
 import type { ComponentType, ReactNode } from "react";
 import Image from "next/image";
@@ -145,7 +145,8 @@ export const Products = ({
                     {hasLink && (
                       <ChevronRight
                         className="text-[#ABABBA] group-hover:text-white"
-                        size={22}
+                        width={22}
+                        height={22}
                         aria-hidden={true}
                       />
                     )}
