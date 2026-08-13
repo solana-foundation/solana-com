@@ -8,19 +8,14 @@ import PageShell from "@/components/PageShell";
 import SectionHeadline from "@/components/SectionHeadline";
 import SubpageHero from "@/components/SubpageHero";
 import Footer from "@/components/sections/Footer";
-import { publicAssetPath } from "@/config";
 import {
   BREAKPOINT_EMAIL_HREF,
-  BRITISH_AIRWAYS_HREF,
-  DELTA_AIRLINES_HREF,
   GENERAL_ADMISSION_HREF,
   GATWICK_AIRPORT_HREF,
   HEATHROW_AIRPORT_HREF,
   IAS_HREF,
   LONDON_CITY_AIRPORT_HREF,
-  LUFTHANSA_HREF,
   VISA_CHECK_HREF,
-  VIRGIN_ATLANTIC_HREF,
 } from "@/content/links";
 import { getAnchorLinkProps } from "@/lib/links";
 import TravelHotelsSection from "./TravelHotelsSection";
@@ -52,29 +47,6 @@ const AIRPORTS = [
   },
 ] as const;
 
-const AIRLINES = [
-  {
-    href: VIRGIN_ATLANTIC_HREF,
-    id: "virginAtlantic",
-    logo: "/img/travel/airline-virgin-atlantic.svg",
-  },
-  {
-    href: DELTA_AIRLINES_HREF,
-    id: "delta",
-    logo: "/img/travel/airline-delta.svg",
-  },
-  {
-    href: BRITISH_AIRWAYS_HREF,
-    id: "britishAirways",
-    logo: "/img/travel/airline-british-airways.svg",
-  },
-  {
-    href: LUFTHANSA_HREF,
-    id: "lufthansa",
-    logo: "/img/travel/airline-lufthansa.svg",
-  },
-] as const;
-
 function FlightsSection() {
   const t = useTranslations("breakpoint.travel.flights");
 
@@ -88,65 +60,28 @@ function FlightsSection() {
             headline={t("headline")}
           />
         </div>
-        <div className="grid gap-16 md:grid-cols-bp-desktop md:gap-x-s">
-          <div className="flex flex-col md:col-span-6">
-            {AIRPORTS.map((airport) => (
-              <a
-                key={airport.code}
-                href={airport.href}
-                className="group flex h-[140px] flex-col justify-center gap-3 border-b border-stroke-primary py-6 first:border-t md:h-[166px] md:px-8 md:py-8"
-                {...getAnchorLinkProps({ href: airport.href })}
-              >
-                <p className="font-bp26 text-h6 uppercase text-white">
-                  {airport.code}
-                </p>
-                <div className="flex flex-col gap-2">
-                  <span className="type-h5 inline-flex items-center gap-2 text-white transition-colors group-hover:text-neutral-100">
-                    {t(`airports.${airport.id}.name`)}
-                    <ArrowUpRightIcon className="size-3 shrink-0" />
-                  </span>
-                  <span className="type-eyebrow text-blue">
-                    {t(`airports.${airport.id}.distance`)}
-                  </span>
-                </div>
-              </a>
-            ))}
-          </div>
-          <div className="-mr-4 overflow-x-auto md:col-span-9 md:col-start-8 md:mr-0 md:overflow-visible">
-            <div className="grid w-max grid-flow-col auto-cols-[283.56px] gap-6 md:w-full md:auto-rows-[382px] md:grid-flow-row md:grid-cols-2 md:gap-8">
-              {AIRLINES.map((airline) => (
-                <article key={airline.id} className="w-full">
-                  <div className="flex h-[189px] items-center justify-center border border-stroke-primary bg-transparent-white-05 p-9 md:h-[246px] md:p-11">
-                    <img
-                      src={publicAssetPath(airline.logo)}
-                      alt={t("airlineLogo", {
-                        name: t(`airlines.${airline.id}.name`),
-                      })}
-                      width={281}
-                      height={68}
-                      className="max-h-[68px] w-auto max-w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col items-start gap-4 py-6">
-                    <div className="flex flex-col gap-2">
-                      <h3 className="type-paragraph font-bold text-white">
-                        {t(`airlines.${airline.id}.name`)}
-                      </h3>
-                      <p className="type-paragraph text-text-secondary">
-                        {t(`airlines.${airline.id}.description`)}
-                      </p>
-                    </div>
-                    <Button
-                      arrow
-                      href={airline.href}
-                      label={t("viewFlights")}
-                      variant="inline"
-                    />
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
+        <div className="grid border-y border-stroke-primary md:grid-cols-3">
+          {AIRPORTS.map((airport) => (
+            <a
+              key={airport.code}
+              href={airport.href}
+              className="group flex min-h-[140px] flex-col justify-center gap-3 border-b border-stroke-primary py-6 last:border-b-0 md:min-h-[166px] md:border-b-0 md:border-l md:px-8 md:py-8 md:first:border-l-0"
+              {...getAnchorLinkProps({ href: airport.href })}
+            >
+              <p className="font-bp26 text-h6 uppercase text-white">
+                {airport.code}
+              </p>
+              <div className="flex flex-col gap-2">
+                <span className="type-h5 inline-flex items-center gap-2 text-white transition-colors group-hover:text-neutral-100">
+                  {t(`airports.${airport.id}.name`)}
+                  <ArrowUpRightIcon className="size-3 shrink-0" />
+                </span>
+                <span className="type-eyebrow text-blue">
+                  {t(`airports.${airport.id}.distance`)}
+                </span>
+              </div>
+            </a>
+          ))}
         </div>
       </div>
     </section>
