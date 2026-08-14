@@ -143,6 +143,13 @@ export const faqPageSections = [
           "Entry requirements depend on your passport and travel plans. Review the official UK visa checker before booking travel.",
       },
       {
+        id: "travel-invitation-letter",
+        question: "How do I request an invitation letter?",
+        answer: "Please email",
+        answerHref: "mailto:breakpoint@solana.org",
+        answerLinkLabel: "breakpoint@solana.org",
+      },
+      {
         id: "travel-venue",
         question: "How do I get to Olympia Convention Centre?",
         answer:

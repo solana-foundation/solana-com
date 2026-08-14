@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Tweet, TweetSkeleton } from "react-tweet";
+import { normalizeTweetId } from "@/lib/tweet-id";
 
 type SafeTweetProps = {
   id: string;
@@ -13,7 +14,7 @@ function getTweetApiUrl(tweetId: string) {
 }
 
 export function SafeTweet({ id }: SafeTweetProps) {
-  const tweetId = id.trim();
+  const tweetId = normalizeTweetId(id);
 
   if (!tweetId) {
     return null;

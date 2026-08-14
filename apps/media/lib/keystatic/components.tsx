@@ -7,6 +7,7 @@ import {
 } from "@keystatic/core/content-components";
 import React from "react";
 import { Latex } from "@/components/latex";
+import { tweetIdField } from "@/lib/keystatic/tweet-id-field";
 
 // Background options for section blocks
 const backgroundOptions = [
@@ -447,10 +448,7 @@ const tweet = block({
   label: "Tweet",
   description: "Embed a tweet/X post",
   schema: {
-    id: fields.text({
-      label: "Tweet ID",
-      description: "The ID of the tweet to embed",
-    }),
+    id: tweetIdField,
   },
   ContentView: (props) => (
     <div

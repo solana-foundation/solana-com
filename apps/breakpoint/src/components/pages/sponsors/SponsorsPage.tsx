@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { type CompanyRecord } from "@workspace/ecosystem-data";
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import GlitchOverlay, {
   getGlitchIntensityStyle,
@@ -126,7 +127,10 @@ type SponsorSocialLink = {
   label: string;
 };
 
-function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
+function getSponsorSocialLinks(
+  company: CompanyRecord,
+  t: ReturnType<typeof useTranslations>,
+): SponsorSocialLink[] {
   const profile = company.profile;
   const socials = profile?.socials;
   const links: SponsorSocialLink[] = [];
@@ -135,7 +139,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: profile.links.website,
       icon: <GlobeIcon />,
-      label: "Website",
+      label: t("social.website"),
     });
   }
 
@@ -151,7 +155,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.linkedin,
       icon: <LinkedInIcon />,
-      label: "LinkedIn",
+      label: t("social.linkedin"),
     });
   }
 
@@ -159,7 +163,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.github,
       icon: <AssetIcon src="/assets/icon-github.svg" />,
-      label: "GitHub",
+      label: t("social.github"),
     });
   }
 
@@ -167,7 +171,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.discord,
       icon: <AssetIcon src="/assets/icon-discord.svg" />,
-      label: "Discord",
+      label: t("social.discord"),
     });
   }
 
@@ -175,7 +179,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.telegram,
       icon: <AssetIcon src="/assets/icon-telegram.svg" />,
-      label: "Telegram",
+      label: t("social.telegram"),
     });
   }
 
@@ -183,7 +187,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.youtube,
       icon: <AssetIcon src="/assets/icon-youtube.svg" />,
-      label: "YouTube",
+      label: t("social.youtube"),
     });
   }
 
@@ -353,22 +357,21 @@ function SponsorTierSection({
   tier,
   first = false,
   onSponsorClick,
+  title,
 }: {
   tier: SponsorTier;
   first?: boolean;
   onSponsorClick: (_sponsor: SponsorLogo) => void;
+  title: string;
 }) {
   return (
     <section
-      aria-labelledby={`${tier.title.toLowerCase()}-sponsors`}
+      aria-labelledby={`${tier.id}-sponsors`}
       className={first ? "pt-xl md:pt-2xl" : "pt-xl md:pt-3xl"}
     >
       <div className="container">
-        <h2
-          id={`${tier.title.toLowerCase()}-sponsors`}
-          className="type-h3 text-white"
-        >
-          {tier.title}
+        <h2 id={`${tier.id}-sponsors`} className="type-h3 text-white">
+          {title}
         </h2>
 
         <div
@@ -399,9 +402,11 @@ function SponsorTierSection({
 function SponsorModal({
   onClose,
   sponsor,
+  t,
 }: {
   onClose: () => void;
   sponsor: SponsorLogo | null;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -483,7 +488,7 @@ function SponsorModal({
     company.profile?.summary ??
     company.profile?.description ??
     company.profile?.tagline;
-  const socialLinks = getSponsorSocialLinks(company);
+  const socialLinks = getSponsorSocialLinks(company, t);
   const tags = getSponsorTags(company);
   const modalLogoStyle = {
     "--modal-logo-width": `${sponsor.width * 1.3}px`,
@@ -516,7 +521,7 @@ function SponsorModal({
           ref={closeButtonRef}
           type="button"
           onClick={onClose}
-          aria-label="Close sponsor details"
+          aria-label={t("closeDetails")}
           className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-white text-black transition-colors hover:bg-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white md:right-[15px] md:top-[15px]"
         >
           <CloseIcon />
@@ -559,8 +564,8 @@ function SponsorModal({
   );
 }
 
-function SponsorsIntro() {
-  const introText = `<span class="text-purple">7,000+</span> high-intent <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to Solana's decision-makers in London's financial hub. Your brand, their attention. ROI starts day one.`;
+function SponsorsIntro({ t }: { t: ReturnType<typeof useTranslations> }) {
+  const introText = t.raw("intro") as string;
 
   return (
     <section className="bg-black pt-l md:pt-xl">
@@ -569,7 +574,7 @@ function SponsorsIntro() {
           as="p"
           className="type-eyebrow text-white"
           stepMs={60}
-          text="WHY SPONSOR BP'26"
+          text={t("eyebrow")}
         />
 
         <div className="w-full max-w-[851px]">
@@ -586,7 +591,7 @@ function SponsorsIntro() {
             arrow
             className="mt-s"
             href={SPONSOR_FORM_HREF}
-            label="Contact us"
+            label={t("contactCta")}
             variant="primary"
           />
         </div>
@@ -596,12 +601,13 @@ function SponsorsIntro() {
 }
 
 export default function SponsorsPage() {
+  const t = useTranslations("breakpoint.pages.sponsors");
   const [activeSponsor, setActiveSponsor] = useState<SponsorLogo | null>(null);
 
   return (
     <PageShell contentId="breakpoint-sponsors-content">
-      <SubpageHero title="Sponsors" heroImage="sponsors" />
-      <SponsorsIntro />
+      <SubpageHero title={t("title")} heroImage="sponsors" />
+      <SponsorsIntro t={t} />
       <div className="pb-xl md:pb-2xl">
         {sponsorTiers.map((tier, index) => (
           <SponsorTierSection
@@ -609,6 +615,7 @@ export default function SponsorsPage() {
             tier={tier}
             first={index === 0}
             onSponsorClick={setActiveSponsor}
+            title={t(`tiers.${tier.id}`)}
           />
         ))}
       </div>
@@ -616,6 +623,7 @@ export default function SponsorsPage() {
       <SponsorModal
         sponsor={activeSponsor}
         onClose={() => setActiveSponsor(null)}
+        t={t}
       />
     </PageShell>
   );

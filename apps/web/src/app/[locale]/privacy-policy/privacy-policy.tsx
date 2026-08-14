@@ -5,9 +5,7 @@ import ReactMarkdown from "react-markdown";
 
 interface PrivacyPolicyPageProps {
   translations: {
-    heroEyebrow: string;
     heroHeadline: string;
-    heroBody: string;
     introBody: string;
     sections: {
       key: string;
@@ -36,9 +34,7 @@ export function PrivacyPolicyPage({ translations }: PrivacyPolicyPageProps) {
         headingAs="h1"
         centered={false}
         newsLetter={false}
-        eyebrow={translations.heroEyebrow}
         headline={translations.heroHeadline}
-        body={translations.heroBody}
       />
 
       <Section>

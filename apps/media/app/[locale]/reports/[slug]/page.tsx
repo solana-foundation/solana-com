@@ -15,7 +15,7 @@ import { reader } from "@/lib/reader";
 import { reportMetadata } from "@/lib/metadata";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
-import { SwitchbackItem } from "@/lib/switchback-types";
+import type { ReportEntry } from "@/lib/report-types";
 import { JsonLd } from "@/components/seo/json-ld";
 import { buildReportJsonLd } from "@/lib/content-structured-data";
 
@@ -28,10 +28,10 @@ export default async function ReportPage({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
-  const report: SwitchbackItem =
-    await reader.collections.switchbacks.read(slug);
+  const report: ReportEntry | null =
+    await reader.collections.reports.read(slug);
 
-  if (!isPublishedReport(report)) {
+  if (!report || !isPublishedReport(report)) {
     notFound();
   }
 
@@ -228,11 +228,11 @@ export default async function ReportPage({
 
 export async function generateStaticParams() {
   try {
-    const slugs = await reader.collections.switchbacks.list();
+    const slugs = await reader.collections.reports.list();
     const publishedSlugs: string[] = [];
 
     for (const slug of slugs) {
-      const report = await reader.collections.switchbacks.read(slug);
+      const report = await reader.collections.reports.read(slug);
       if (isPublishedReport(report)) {
         publishedSlugs.push(slug);
       }

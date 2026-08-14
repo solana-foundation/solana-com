@@ -133,15 +133,18 @@ function CodeTabs(props: unknown) {
     code: z.array(CodeBlock),
     flags: z.string().optional(),
     storage: z.string().optional(),
+    runner: z.string().optional(),
   }).safeParse(props);
 
   if (error) {
     throw betterError(error, "CodeTabs");
   }
 
-  const { code, flags, storage } = data;
+  const { code, flags, storage, runner } = data;
 
-  return <Code codeblocks={code} flags={flags} storage={storage} />;
+  return (
+    <Code codeblocks={code} flags={flags} storage={storage} runner={runner} />
+  );
 }
 
 function TerminalPicker(props: unknown) {

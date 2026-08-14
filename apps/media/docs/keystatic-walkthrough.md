@@ -280,27 +280,25 @@ Click **Add** to create a switchback.
 | **Body**     | Rich text content         |
 | **Buttons**  | One or more CTA buttons   |
 
-### Reports in Switchbacks
+### Reports
 
-Reports are managed through the **Switchbacks** collection.
+Reports are managed through the separate **Reports** collection.
 
-When a switchback is used as a report:
+When creating or editing a report:
 
 | Field                          | Description                                              |
 | ------------------------------ | -------------------------------------------------------- |
-| **Use As Report**              | Marks the switchback as a report                         |
-| **Report Status**              | Set to **Published** when the report is approved         |
+| **Status**                     | Set to **Published** when the report is approved         |
 | **Publish Date**               | Exact date and time in UTC when the report should appear |
 | **Report Description**         | Summary used for previews and SEO                        |
 | **PDF URL / HubSpot Form CTA** | Download or lead-gen action                              |
 
 To schedule a report:
 
-1. Open the switchback entry for the report.
-2. Enable **Use As Report** if needed.
-3. Set **Report Status** to **Published**.
-4. Set **Publish Date** to the exact release date and time in UTC.
-5. Save on a dedicated `staging-*` branch and publish through the normal Pull
+1. Open the report entry.
+2. Set **Status** to **Published**.
+3. Set **Publish Date** to the exact release date and time in UTC.
+4. Save on a dedicated `staging-*` branch and publish through the normal Pull
    Request flow.
 
 ---

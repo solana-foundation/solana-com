@@ -53,17 +53,17 @@ packages/ecosystem-data/src/wallets/
 └── index.ts         # data-only re-exports
 ```
 
-Wallet records include researched wallet identity, descriptions, website URLs,
-platforms, categories, feature tags, and icon assets. There are no override
-layers or standalone alias maps: each record carries its own optional
-`companyId` (link into `src/companies`) and `aliases` (alternate product names).
-This module exports data and types only — directory entry building, filtering,
-label lookup, and icon fallback logic live in the consuming app
-(`apps/web/src/app/[locale]/wallets/`). Apps should load wallet directory
-entries from these shared wallet records instead of fetching, hydrating, or
-displaying external discovery metadata at runtime. Wallet research starts from
-these canonical records and uses current web research to discover and
-cross-check candidates before reviewed fields are published back into the
+Wallet records include researched wallet identity, optional short taglines,
+descriptions, website URLs, platforms, categories, feature tags, and icon
+assets. There are no override layers or standalone alias maps: each record
+carries its own optional `companyId` (link into `src/companies`) and `aliases`
+(alternate product names). This module exports data and types only — directory
+entry building, filtering, label lookup, and icon fallback logic live in the
+consuming app (`apps/web/src/app/[locale]/wallets/`). Apps should load wallet
+directory entries from these shared wallet records instead of fetching,
+hydrating, or displaying external discovery metadata at runtime. Wallet research
+starts from these canonical records and uses current web research to discover
+and cross-check candidates before reviewed fields are published back into the
 package. The live wallet page uses package-owned data only; it does not fetch or
 merge an external wallet dataset at runtime.
 

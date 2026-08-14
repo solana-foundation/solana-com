@@ -1,15 +1,9 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@workspace/i18n/server";
 import RegistrationPage from "@/components/pages/registration/RegistrationPage";
 import { getPageMetadata } from "@/app/metadata";
 
 export const dynamic = "force-dynamic";
-
-const pageMetadata = {
-  path: "/registration",
-  title: "Registration",
-  description:
-    "Reserve Breakpoint 2026 tickets for general admission, developers, and students.",
-};
 
 export async function generateMetadata({
   params,
@@ -17,7 +11,12 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  return getPageMetadata(locale, pageMetadata);
+  const t = await getTranslations({ locale, namespace: "breakpoint.pages" });
+  return getPageMetadata(locale, {
+    path: "/registration",
+    title: t("registration.title"),
+    description: t("registration.metadataDescription"),
+  });
 }
 
 export default function LocaleRegistrationPage() {
