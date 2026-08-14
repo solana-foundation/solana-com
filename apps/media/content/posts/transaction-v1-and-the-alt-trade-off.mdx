@@ -8,71 +8,84 @@ categories:
 tags:
   - tag: reports
 ---
+
 ## Why This Matters, by Stakeholder
 
-* **Validators and client teams**: v1 exposes fee and resource requests directly in transaction metadata, enabling earlier prioritization and more efficient block construction, with the potential for better fee capture; it also removes state-dependent ALT resolution from ingestion
-* **Application developers**: the 4,096-byte envelope enables richer atomic transactions, but the unchanged 64-account limit can still constrain account-heavy applications
-* **Traders, routers, and searchers**: larger transactions can support more complex atomic routes, although dense ALT users consume more of the new byte budget when addresses are inlined
-* **Wallets, SDKs, and RPC providers**: v1 requires new serialization, decoding, and transaction-building support, including removal of ALT-specific assumptions
-* **Privacy, multisig, and cryptographic applications**: larger payloads create substantially more room for proofs, signatures, and other data-heavy constructions without increasing compute or account limits.
+- **Validators and client teams**: v1 exposes fee and resource requests directly in transaction metadata, enabling earlier prioritization and more efficient block construction, with the potential for better fee capture; it also removes state-dependent ALT resolution from ingestion
+- **Application developers**: the 4,096-byte envelope enables richer atomic transactions, but the unchanged 64-account limit can still constrain account-heavy applications
+- **Traders, routers, and searchers**: larger transactions can support more complex atomic routes, although dense ALT users consume more of the new byte budget when addresses are inlined
+- **Wallets, SDKs, and RPC providers**: v1 requires new serialization, decoding, and transaction-building support, including removal of ALT-specific assumptions
+- **Privacy, multisig, and cryptographic applications**: larger payloads create substantially more room for proofs, signatures, and other data-heavy constructions without increasing compute or account limits.
 
 ## TL;DR
 
-* Account Lookup Table removal is the main source of potential serialized-size expansion under v1
-* ALT usage is both widespread and operationally concentrated. Around 62% of observed v0 transactions reference at least one ALT
-* Dense ALT transactions (i.e. transactions using multiple ALTs) can add more than 1,500 bytes when converted to v1
-  * 50% of current transactions show an excess that is less than 420 bytes when converted to v1
-  * 90% of current transactions show an excess that is less than 1,400 bytes when converted to v1
-* The current workload appears broadly compatible with the 4,096-byte envelope, but not every dimension gains the same headroom
-  * top-level instruction capacity is generally abundant
-  * account headroom is more heterogeneous, and the unchanged 64-account limit may remain the binding constraint
+- Account Lookup Table removal is the main source of potential serialized-size expansion under v1
+- ALT usage is both widespread and operationally concentrated. Around 62% of observed v0 transactions reference at least one ALT
+- Dense ALT transactions (i.e. transactions using multiple ALTs) can add more than 1,500 bytes when converted to v1
+  - 50% of current transactions show an excess that is less than 420 bytes when converted to v1
+  - 90% of current transactions show an excess that is less than 1,400 bytes when converted to v1
+- The current workload appears broadly compatible with the 4,096-byte envelope, but not every dimension gains the same headroom
+  - top-level instruction capacity is generally abundant
+  - account headroom is more heterogeneous, and the unchanged 64-account limit may remain the binding constraint
 
 ## Relevant Charts
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_all.png" alt="Empirical probability density function of the serialized size of transactions.">
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_all.png"
+  alt="Empirical probability density function of the serialized size of transactions."
+>
   Empirical probability density function of the serialized size of transactions. The distribution is
   computed from a 1/16 transaction-level sample (30 days). Each bin is decomposed into component
   density contributions, whose vertical sum reconstructs the aggregate PDF. Source:
   [Dune](https://dune.com/queries/8121324/12110510).
 </Figure>
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_v1_format_conversion_pdf_all.webp" alt="Counterfactual v1 serialized-size PDF for the sampled legacy and v0 workload. ">
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_v1_format_conversion_pdf_all.webp"
+  alt="Counterfactual v1 serialized-size PDF for the sampled legacy and v0 workload. "
+>
   Counterfactual v1 serialized-size PDF for the sampled legacy and v0 workload. Static addresses and
   addresses originally loaded through ALT are shown separately. The distribution is computed from
   the same 1/16 transaction sample as Figs. 1 and 2. Source:
   [Dune](https://dune.com/queries/8122675/12111819?sidebar=none).
 </Figure>
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/account_and_instruction_headroom.png" alt="Remaining v1 account slots, decomposed by top-level instruction headroom. ">
-  Remaining v1 account slots, decomposed by top-level instruction headroom. Bar height reports the share of current v0 ALT transactions in each account-headroom bin; colors identify the corresponding range of remaining instruction slots. Source: [Dune](https://dune.com/queries/8135365/12126122).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/account_and_instruction_headroom.png"
+  alt="Remaining v1 account slots, decomposed by top-level instruction headroom. "
+>
+  Remaining v1 account slots, decomposed by top-level instruction headroom. Bar height reports the
+  share of current v0 ALT transactions in each account-headroom bin; colors identify the
+  corresponding range of remaining instruction slots. Source:
+  [Dune](https://dune.com/queries/8135365/12126122).
 </Figure>
 
 ## Introduction
 
 Solana is moving through a broad set of protocol and client-side optimizations. In this context, the current legacy and v0 transaction formats introduce avoidable complexity along the validator’s ingestion path. Before a transaction can enter the scheduler, a validator must:
 
-* receive and decode it
-* verify its signatures and sanitize its message
-* extract its fee and resource requests
-* estimate its execution cost and compute its priority
-* place it in the appropriate scheduler queue.
+- receive and decode it
+- verify its signatures and sanitize its message
+- extract its fee and resource requests
+- estimate its execution cost and compute its priority
+- place it in the appropriate scheduler queue.
 
 For v0 transactions, this process includes an additional state-dependent step. Before the complete account set is known, the validator must:
 
-* load every referenced Address Lookup Table from the Bank and AccountsDB
-* verify the lookup-table account owner and deserialize its state
-* validate the writable and read-only indices
-* resolve those indices into full account addresses
-* combine the resolved addresses with the static account keys
-* validate the final account set used by the subsequent processing stages.
+- load every referenced Address Lookup Table from the Bank and AccountsDB
+- verify the lookup-table account owner and deserialize its state
+- validate the writable and read-only indices
+- resolve those indices into full account addresses
+- combine the resolved addresses with the static account keys
+- validate the final account set used by the subsequent processing stages.
 
 The current instruction layout introduces a separate source of parsing complexity. Legacy and v0 instructions are serialized sequentially as variable-length `CompiledInstruction` objects. Each instruction contains a program index, a compact-length-prefixed account vector, and a compact-length-prefixed data vector. As a result, the boundary of instruction $i$ is not directly available from a fixed metadata section: the parser must first read or skip the preceding instructions.
 
 The proposed v1 format addresses both transaction capacity and this ingestion complexity. The larger envelope introduced by [SIMD-0296](https://github.com/solana-foundation/solana-improvement-documents/pull/296) creates room for applications that cannot fit within the current 1,232-byte limit, while [SIMD-0385](https://github.com/solana-foundation/solana-improvement-documents/pull/385) changes the transaction layout itself. Under v1:
 
-* fees and resource requests become first-class transaction metadata
-* Address Lookup Tables are removed and all referenced accounts are included in a single inline address array
-* fixed-width instruction headers are separated from their variable-length payloads.
+- fees and resource requests become first-class transaction metadata
+- Address Lookup Tables are removed and all referenced accounts are included in a single inline address array
+- fixed-width instruction headers are separated from their variable-length payloads.
 
 These changes allow validators to recover fee and resource information, determine instruction boundaries, and identify the complete account set earlier and with less state-dependent processing.
 
@@ -90,9 +103,9 @@ To answer it, we study how ALT are used by current transactions: how many tables
 
 Increasing transaction size, with relative transaction V1 format, has been discussed in
 
-* [Discussion #226](https://github.com/solana-foundation/solana-improvement-documents/discussions/226)
-* [SIMD-0296: Larger Transaction Size](https://github.com/solana-foundation/solana-improvement-documents/pull/296)
-* [SIMD-0385: Transaction V1 Format](https://github.com/solana-foundation/solana-improvement-documents/pull/385)
+- [Discussion #226](https://github.com/solana-foundation/solana-improvement-documents/discussions/226)
+- [SIMD-0296: Larger Transaction Size](https://github.com/solana-foundation/solana-improvement-documents/pull/296)
+- [SIMD-0385: Transaction V1 Format](https://github.com/solana-foundation/solana-improvement-documents/pull/385)
 
 ## Serialized Size Composition Walkthrough
 
@@ -102,7 +115,10 @@ The current distribution is clearly multimodal (Fig. 1). Its most visible modes 
 
 This is not the shape expected from a single transaction class whose size varies continuously. It is more consistent with a mixture of recurring transaction templates, each characterized by a relatively stable combination of signatures, account addresses, instructions, and lookup-table usage.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_all.png" alt="Empirical probability density function of the serialized size of transactions.">
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_all.png"
+  alt="Empirical probability density function of the serialized size of transactions."
+>
   **Fig. 1:** Empirical probability density function of the serialized size of transactions. The
   distribution is computed from a 1/16 transaction-level sample (30 days). Each bin is decomposed
   into component density contributions, whose vertical sum reconstructs the aggregate PDF. Source:
@@ -115,7 +131,10 @@ Compiled instructions represent the second major variable component. They includ
 
 The isolated `lookup_entries` contribution has a different profile (Fig. 2). Most of its density contribution is concentrated between approximately 540 and 940 bytes, although secondary mass remains visible closer to the transaction-size limit.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_lookup_entries_component.webp" alt="Lookup-entry contribution to transaction serialized-size density.">
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_lookup_entries_component.webp"
+  alt="Lookup-entry contribution to transaction serialized-size density."
+>
   **Fig. 2:** Lookup-entry contribution to transaction serialized-size density. At each
   transaction-size bin, the series combines the aggregate transaction density with the average
   fraction of bytes attributable to serialized lookup entries. It is computed from the same 1/16
@@ -148,8 +167,13 @@ The transaction-level distribution of serialized lookup-entry bytes contains a l
 
 The positive support starts with a shoulder below approximately 50 bytes and develops a long, irregular right tail.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_lookup_entries.png" alt="Empirical PDF of serialized lookup-entry bytes per transaction">
-  **Fig. 3:** Empirical PDF of serialized lookup-entry bytes per transaction. The zero bin contains transactions with no serialized lookup entries, while the positive support measures the current on-wire cost of ALT references. Source: [Dune](https://dune.com/queries/8134032/12124239).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_lookup_entries.png"
+  alt="Empirical PDF of serialized lookup-entry bytes per transaction"
+>
+  **Fig. 3:** Empirical PDF of serialized lookup-entry bytes per transaction. The zero bin contains
+  transactions with no serialized lookup entries, while the positive support measures the current
+  on-wire cost of ALT references. Source: [Dune](https://dune.com/queries/8134032/12124239).
 </Figure>
 
 The first positive region is consistent with compact ALT usage: one table is referenced and a limited number of addresses are selected from it.
@@ -158,8 +182,13 @@ The right tail has a less direct interpretation. A large lookup section can be g
 
 A closer view reveals a sequence of recurring modes rather than a smooth decay (Fig. 4).
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_lookup_entries_tail.png" alt="Zoom of Fig. 3 over the 60-1232 byte range.">
-  **Fig. 4:** Zoom of Fig. 3 over the 60-1232 byte range. Recurring modes reflect the fixed cost of referencing additional lookup tables together with the one-byte cost of each selected account index. Source: [Dune](https://dune.com/queries/8134032/12124239).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_pdf_lookup_entries_tail.png"
+  alt="Zoom of Fig. 3 over the 60-1232 byte range."
+>
+  **Fig. 4:** Zoom of Fig. 3 over the 60-1232 byte range. Recurring modes reflect the fixed cost of
+  referencing additional lookup tables together with the one-byte cost of each selected account
+  index. Source: [Dune](https://dune.com/queries/8134032/12124239).
 </Figure>
 
 These peaks follow directly from the encoding.
@@ -168,8 +197,8 @@ Adding another account to a table that is already used moves the lookup size by 
 
 The same lookup-entry size can consequently describe very different account structures:
 
-* many accounts concentrated in a few tables
-* fewer accounts distributed across more tables.
+- many accounts concentrated in a few tables
+- fewer accounts distributed across more tables.
 
 This distinction becomes central once the tables are removed.
 
@@ -177,8 +206,14 @@ This distinction becomes central once the tables are removed.
 
 The relation between lookup-entry size and the number of writable and read-only accounts makes this structure visible (Fig. 5).
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_lookup_vs_writes_and_reads.png" alt="Writable and read-only addresses loaded through ALT versus serialized lookup-entry size.">
-  **Fig. 5:** Writable and read-only addresses loaded through ALT versus serialized lookup-entry size. Bubble size is proportional to transaction count. The diagonal bands primarily reflect different numbers of referenced lookup tables.. Source: [Dune](https://dune.com/queries/8127373/12117653?sidebar=none).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_lookup_vs_writes_and_reads.png"
+  alt="Writable and read-only addresses loaded through ALT versus serialized lookup-entry size."
+>
+  **Fig. 5:** Writable and read-only addresses loaded through ALT versus serialized lookup-entry
+  size. Bubble size is proportional to transaction count. The diagonal bands primarily reflect
+  different numbers of referenced lookup tables.. Source:
+  [Dune](https://dune.com/queries/8127373/12117653?sidebar=none).
 </Figure>
 
 The repeated diagonal bands are not an unexplained empirical pattern. Each band corresponds approximately to a fixed number of lookup tables.
@@ -205,14 +240,19 @@ Frequently ALT-loaded accounts are strongly connected to token and trading infra
 
 In Fig. 6 we show the number of transactions in which an account is loaded through ALT.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_lookup_table.png" alt="Most frequently ALT-loaded accounts.">
-  **Fig. 6:** Most frequently ALT-loaded accounts. For each account, the table reports the number of transactions in which it is loaded through ALT and the mean number of lookup tables referenced by those transactions. Source: [Dune](https://dune.com/queries/8134041/12125566).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_lookup_table.png"
+  alt="Most frequently ALT-loaded accounts."
+>
+  **Fig. 6:** Most frequently ALT-loaded accounts. For each account, the table reports the number of
+  transactions in which it is loaded through ALT and the mean number of lookup tables referenced by
+  those transactions. Source: [Dune](https://dune.com/queries/8134041/12125566).
 </Figure>
 
 For every account loaded through ALT, the table reports:
 
-* how many transactions loaded that account
-* the mean number of lookup tables referenced by those transactions.
+- how many transactions loaded that account
+- the mean number of lookup tables referenced by those transactions.
 
 The second statistic requires a careful interpretation.
 
@@ -226,8 +266,14 @@ This is consistent with ALT usage being particularly relevant for transactions t
 
 To study the persistency of the pattern, accounts are divided into equal-population buckets according to the number of transactions in which they are loaded through ALT. For each bucket, Figures 7 and 8 report the distribution of the per-account mean number of referenced lookup tables.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/lookup_tables_reference.png" alt="ALT usage by account-frequency quantile.">
-  **Fig. 7:** ALT usage by account-frequency quantile. Accounts are grouped into equal-population buckets according to the number of transactions in which they are loaded through ALT. Lines report the p05, p50, mean and p95 of the per-account mean lookup-table count. Source: [Dune](https://dune.com/queries/8134649).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/lookup_tables_reference.png"
+  alt="ALT usage by account-frequency quantile."
+>
+  **Fig. 7:** ALT usage by account-frequency quantile. Accounts are grouped into equal-population
+  buckets according to the number of transactions in which they are loaded through ALT. Lines report
+  the p05, p50, mean and p95 of the per-account mean lookup-table count. Source:
+  [Dune](https://dune.com/queries/8134649).
 </Figure>
 
 Among low-frequency accounts, the median transaction context starts near two lookup tables.
@@ -236,8 +282,13 @@ As account frequency increases, both the median and the mean move toward approxi
 
 The same relationship becomes easier to read when each frequency bucket is positioned by its median absolute transaction count on a logarithmic scale (Fig. 8).
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/lookup_tables_reference_frequency.png" alt="ALT usage by absolute account frequency. ">
-  Fig. 8: ALT usage by absolute account frequency. The same account-level statistics as Figure 7, with each bucket positioned by its median number of transactions per account on a logarithmic scale. Source: [Dune](https://dune.com/queries/8134649).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/lookup_tables_reference_frequency.png"
+  alt="ALT usage by absolute account frequency. "
+>
+  Fig. 8: ALT usage by absolute account frequency. The same account-level statistics as Figure 7,
+  with each bucket positioned by its median number of transactions per account on a logarithmic
+  scale. Source: [Dune](https://dune.com/queries/8134649).
 </Figure>
 
 The three-to-four-table range persists over several orders of magnitude in account frequency. Multi-table usage is therefore not limited to rare accounts or isolated transaction templates. It also characterizes accounts that are loaded through ALT across large numbers of transactions.
@@ -246,16 +297,21 @@ The three-to-four-table range persists over several orders of magnitude in accou
 
 When transactions are grouped directly by the number of lookup tables they reference, activity is concentrated in the low-single-digit range (Fig. 9).
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/lookup_tables_reference_vs_accounts.png" alt="ALT-loaded addresses by number of referenced lookup tables.">
-  **Fig. 9:** ALT-loaded addresses by number of referenced lookup tables. The vertical axis reports the average number of addresses loaded through ALT; bubble size is proportional to transaction count. Source: [Dune](https://dune.com/queries/8135329/12125810).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/lookup_tables_reference_vs_accounts.png"
+  alt="ALT-loaded addresses by number of referenced lookup tables."
+>
+  **Fig. 9:** ALT-loaded addresses by number of referenced lookup tables. The vertical axis reports
+  the average number of addresses loaded through ALT; bubble size is proportional to transaction
+  count. Source: [Dune](https://dune.com/queries/8135329/12125810).
 </Figure>
 
 Transactions using three or four lookup tables are among the largest observed groups. More importantly, these groups load approximately 40 addresses through ALT on average.
 
 These transactions are not paying table overhead for a small account set. They are simultaneously:
 
-* table-heavy, because they reference several lookup tables
-* account-heavy, because those tables collectively provide a large number of addresses.
+- table-heavy, because they reference several lookup tables
+- account-heavy, because those tables collectively provide a large number of addresses.
 
 This is exactly the regime in which ALT compression is useful. Several tables allow a transaction to represent a large account set through short indices rather than complete public keys. The vertical axis includes only the accounts loaded through ALT.
 
@@ -269,16 +325,28 @@ Across the observation window, approximately 62.19% of v0 transactions reference
 
 This is a remarkably concentrated distribution. The queried workload references more than 350,000 distinct ALTs, yet fewer than 7.5% of them account for 95% of all observed references. The remaining tables form a very long tail that collectively contributes only the final 5%.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/concentration_of_alt_usage.png" alt="Concentration of ALT usage. ">
-  **Fig. 10:** Concentration of ALT usage. Lookup tables are ranked by the number of distinct transactions referencing them. The left axis reports transaction count on a logarithmic scale, while the right axis reports the cumulative share of all transaction-to-ALT references. Source: [Dune](https://dune.com/queries/8141531/?utm_source=share\&utm_medium=copy\&utm_campaign=query).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/concentration_of_alt_usage.png"
+  alt="Concentration of ALT usage. "
+>
+  **Fig. 10:** Concentration of ALT usage. Lookup tables are ranked by the number of distinct
+  transactions referencing them. The left axis reports transaction count on a logarithmic scale,
+  while the right axis reports the cumulative share of all transaction-to-ALT references. Source:
+  [Dune](https://dune.com/queries/8141531/?utm_source=share\&utm_medium=copy\&utm_campaign=query).
 </Figure>
 
 If we measure the fraction of ALT-using transactions that reference a given table, we see that this quantity falls below 0.1% after the 212th table. By measures the table’s share of all transaction-to-ALT references, this quantity falls below 0.1% after only 117 tables.
 
 For every ALT, we can also measure how many writable and read-only addresses are selected on an average reference (Fig. 11). This is not the total number of addresses stored in the table. It is the number of addresses that transactions actually extract from the table each time they use it.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/avg_addresses_loaded _from_table_per_use.png" alt="Average addresses loaded per ALT use.">
-  **Fig. 11:** Average addresses loaded per ALT use. Lookup tables are ordered by transaction-reference rank. The vertical axis reports the average number of writable and read-only addresses selected from each table whenever it is referenced. Source: [Dune](https://dune.com/queries/8141531/?utm_source=share\&utm_medium=copy\&utm_campaign=query).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/avg_addresses_loaded _from_table_per_use.png"
+  alt="Average addresses loaded per ALT use."
+>
+  **Fig. 11:** Average addresses loaded per ALT use. Lookup tables are ordered by
+  transaction-reference rank. The vertical axis reports the average number of writable and read-only
+  addresses selected from each table whenever it is referenced. Source:
+  [Dune](https://dune.com/queries/8141531/?utm_source=share\&utm_medium=copy\&utm_campaign=query).
 </Figure>
 
 The plot shows that many tables provide fewer than ten addresses on an average use. This remains true across a broad portion of the rank distribution, including tables that are referenced by a large number of transactions.
@@ -289,8 +357,14 @@ The far-right tail of Fig. 11 is more dispersed, with some rarely referenced tab
 
 Figure 12 shows the daily lifecycle data of ALTs.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/n_of_alt_by_event_type.png" alt="Daily ALT usage and lifecycle activity.">
-  **Fig. 12:** Daily ALT usage and lifecycle activity. n\_alts\_used is the number of distinct ALTs referenced by successful v0 transactions on each date. The remaining series report the number of distinct tables successfully created, extended, or closed during the same date. Source: [Dune](https://dune.com/queries/8146517/12138154).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/n_of_alt_by_event_type.png"
+  alt="Daily ALT usage and lifecycle activity."
+>
+  **Fig. 12:** Daily ALT usage and lifecycle activity. n\_alts\_used is the number of distinct ALTs
+  referenced by successful v0 transactions on each date. The remaining series report the number of
+  distinct tables successfully created, extended, or closed during the same date. Source:
+  [Dune](https://dune.com/queries/8146517/12138154).
 </Figure>
 
 Approximately 60,000-75,000 distinct ALTs are used by successful v0 transactions on a typical complete day in the sample. At the same time, tables are continuously created, extended, and closed, with each lifecycle category generally involving thousands or tens of thousands of distinct tables per day.
@@ -313,11 +387,17 @@ What remains are the accounts it previously resolved, and every one of those acc
 
 For every v0 transaction using at least one lookup table, we compare:
 
-* the complete serialized v0 ALT section;
-* the bytes required to include the same loaded accounts inline in v1.
+- the complete serialized v0 ALT section;
+- the bytes required to include the same loaded accounts inline in v1.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/lookup_tables_v1_conversion_cdf.png" alt="Empirical CDF of the ALT-to-v1 account-encoding delta.">
-  **Fig. 12:** Empirical CDF of the ALT-to-v1 account-encoding delta. The delta compares the complete v0 ALT section with the cost of including the same loaded addresses inline in v1. The distribution is conditional on v0 transactions using at least one ALT. Source: [Dune](https://dune.com/queries/8147839/12139360).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/lookup_tables_v1_conversion_cdf.png"
+  alt="Empirical CDF of the ALT-to-v1 account-encoding delta."
+>
+  **Fig. 12:** Empirical CDF of the ALT-to-v1 account-encoding delta. The delta compares the
+  complete v0 ALT section with the cost of including the same loaded addresses inline in v1. The
+  distribution is conditional on v0 transactions using at least one ALT. Source:
+  [Dune](https://dune.com/queries/8147839/12139360).
 </Figure>
 
 A positive value means that the v1 inline representation is larger. A negative value means that the current lookup configuration is sufficiently sparse or fragmented that its table overhead already exceeds the cost of placing the selected addresses inline.
@@ -338,13 +418,19 @@ Recognized Compute Budget instructions are moved into transaction-level configur
 
 For analytical purposes, the address component is split into:
 
-* `static_addresses`, which were already included inline in the source transaction
-* `alt_loaded_addresses`, which were previously compressed through lookup tables.
+- `static_addresses`, which were already included inline in the source transaction
+- `alt_loaded_addresses`, which were previously compressed through lookup tables.
 
 The actual v1 format contains one address array. The split is used only to show the origin of the bytes.
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_v1_format_conversion_pdf_all.png" alt="Counterfactual v1 serialized-size PDF for the sampled legacy and v0 workload.">
-  **Fig. 13:** Counterfactual v1 serialized-size PDF for the sampled legacy and v0 workload. Static addresses and addresses originally loaded through ALT are shown separately. The distribution is computed from the same 1/16 transaction sample as Figs. 1 and 2. Source: [Dune](https://dune.com/queries/8122675/12111819?sidebar=none).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/serialized_size_v1_format_conversion_pdf_all.png"
+  alt="Counterfactual v1 serialized-size PDF for the sampled legacy and v0 workload."
+>
+  **Fig. 13:** Counterfactual v1 serialized-size PDF for the sampled legacy and v0 workload. Static
+  addresses and addresses originally loaded through ALT are shown separately. The distribution is
+  computed from the same 1/16 transaction sample as Figs. 1 and 2. Source:
+  [Dune](https://dune.com/queries/8122675/12111819?sidebar=none).
 </Figure>
 
 The distribution moves substantially to the right but remains multimodal. The recurring templates visible under the current format do not disappear; they move according to their account and instruction requirements.
@@ -367,8 +453,14 @@ A converted transaction can remain far below 4,096 bytes while already sitting c
 
 The headroom analysis therefore considers both remaining account slots and remaining top-level instruction slots (Fig. 14).
 
-<Figure src="/uploads/posts/transaction-v1-and-the-alt-trade-off/account_and_instruction_headroom.png" alt="Remaining v1 account slots, decomposed by top-level instruction headroom. ">
-  Fig. 14: Remaining v1 account slots, decomposed by top-level instruction headroom. Bar height reports the share of current v0 ALT transactions in each account-headroom bin; colors identify the corresponding range of remaining instruction slots. Source: [Dune](https://dune.com/queries/8135365/12126122).
+<Figure
+  src="/uploads/posts/transaction-v1-and-the-alt-trade-off/account_and_instruction_headroom.png"
+  alt="Remaining v1 account slots, decomposed by top-level instruction headroom. "
+>
+  Fig. 14: Remaining v1 account slots, decomposed by top-level instruction headroom. Bar height
+  reports the share of current v0 ALT transactions in each account-headroom bin; colors identify the
+  corresponding range of remaining instruction slots. Source:
+  [Dune](https://dune.com/queries/8135365/12126122).
 </Figure>
 
 The instruction dimension appears largely unconstrained for the current workload. Most transactions retain between 56 and 63 top-level instruction slots after conversion, meaning that their v1 representation uses only one to eight such instructions.
@@ -381,11 +473,11 @@ This difference determines what kind of complexity v1 can support.
 
 A transaction with byte and instruction headroom can add:
 
-* more instruction data
-* additional checks and conditions
-* more instructions operating on accounts already present
-* operations that introduce only a limited number of new addresses
-* larger proofs or other data-heavy payloads.
+- more instruction data
+- additional checks and conditions
+- more instructions operating on accounts already present
+- operations that introduce only a limited number of new addresses
+- larger proofs or other data-heavy payloads.
 
 This is meaningful room for structurally richer transactions.
 
@@ -397,15 +489,20 @@ V1 appears to leave substantial room for richer transactions that reuse or moder
 
 We can reconstruct the serialized size of a transaction starting from its composition. Let’s define
 
-* <InlineLatex formula="S_t" /> as the number of signatures
-* <InlineLatex formula="A_t" /> as the number of static accounts
-* <InlineLatex formula="I_t" /> as the number of top-level instructions
-* <InlineLatex formula="a_{t_i}" /> as the number of accounts index in the instruction <InlineLatex formula="i" />
-* <InlineLatex formula="d_{t_i}" /> as the number of instruction-data byte of instruction <InlineLatex formula="i" />
-* <InlineLatex formula="L_t" /> as the number of Address Lookup Table referenced
-* <InlineLatex formula="w_{t_j}" /> and <InlineLatex formula="r_{t_j}" /> as the number of writable e read-only index loaded in the lookup table <InlineLatex formula="j" />
-* <InlineLatex formula="v_t=1" /> for a v0 transaction and <InlineLatex formula="V_t = 0" /> for a legacy transaction
-* <InlineLatex formula="c(n)" /> as the number of bytes used by the `compact-u16` representation of <InlineLatex formula="n" />.
+- <InlineLatex formula="S_t" /> as the number of signatures
+- <InlineLatex formula="A_t" /> as the number of static accounts
+- <InlineLatex formula="I_t" /> as the number of top-level instructions
+- <InlineLatex formula="a_{t_i}" /> as the number of accounts index in the instruction
+  <InlineLatex formula="i" />
+- <InlineLatex formula="d_{t_i}" /> as the number of instruction-data byte of instruction
+  <InlineLatex formula="i" />
+- <InlineLatex formula="L_t" /> as the number of Address Lookup Table referenced
+- <InlineLatex formula="w_{t_j}" /> and <InlineLatex formula="r_{t_j}" /> as the number of writable
+  e read-only index loaded in the lookup table <InlineLatex formula="j" />
+- <InlineLatex formula="v_t=1" /> for a v0 transaction and <InlineLatex formula="V_t = 0" /> for a
+  legacy transaction
+- <InlineLatex formula="c(n)" /> as the number of bytes used by the `compact-u16` representation of
+  <InlineLatex formula="n" />.
 
 The function <InlineLatex formula="c(n)" /> is defined as (see [here](https://solana.com/docs/core/transactions/transaction-structure#transaction-binary-format))
 
@@ -442,13 +539,17 @@ Unlike legacy and v0, v1 is not based on variable-length `compact-u16` vectors a
 
 Let us define:
 
-* <InlineLatex formula="S_t" /> as the number of required signatures
-* <InlineLatex formula="A_t" /> as the number of unique account addresses referenced by the transaction
-* <InlineLatex formula="I_t" /> as the number of top-level instructions
-* <InlineLatex formula="a_{t_i}" /> as the number of account indices passed to instruction <InlineLatex formula="i" />
-* <InlineLatex formula="d_{t_i}" /> as the number of instruction-data bytes of instruction <InlineLatex formula="i" />
-* <InlineLatex formula="M_t" /> as the 32-bit `TransactionConfigMask`
-* <InlineLatex formula="K_t=\operatorname{popcount}(M_t)" /> as the number of four-byte configuration slots contained in `ConfigValues`
+- <InlineLatex formula="S_t" /> as the number of required signatures
+- <InlineLatex formula="A_t" /> as the number of unique account addresses referenced by the
+  transaction
+- <InlineLatex formula="I_t" /> as the number of top-level instructions
+- <InlineLatex formula="a_{t_i}" /> as the number of account indices passed to instruction
+  <InlineLatex formula="i" />
+- <InlineLatex formula="d_{t_i}" /> as the number of instruction-data bytes of instruction
+  <InlineLatex formula="i" />
+- <InlineLatex formula="M_t" /> as the 32-bit `TransactionConfigMask`
+- <InlineLatex formula="K_t=\operatorname{popcount}(M_t)" /> as the number of four-byte
+  configuration slots contained in `ConfigValues`
 
 Under the currently specified configuration fields, the priority-fee request uses two bits, while the compute-unit limit, loaded-account-data-size limit, and heap-size request use one slot each. More generally, the size computation depends only on <InlineLatex formula="K_t" />, independently of the meaning assigned to each bit.
 
@@ -470,11 +571,12 @@ The main structural difference between v0 and v1 can be isolated by comparing th
 
 Let:
 
-* <InlineLatex formula="A^s_t" /> be the number of static accounts
-* <InlineLatex formula="W_t" /> be the number of writable accounts loaded through ALT
-* <InlineLatex formula="R_t" /> be the number of read-only accounts loaded through ALT
-* <InlineLatex formula="L_t" /> be the number of referenced lookup tables
-* <InlineLatex formula="w_{t_j}" /> and <InlineLatex formula="r_{t_j}" /> be the writable and read-only indices selected from table <InlineLatex formula="j" />.
+- <InlineLatex formula="A^s_t" /> be the number of static accounts
+- <InlineLatex formula="W_t" /> be the number of writable accounts loaded through ALT
+- <InlineLatex formula="R_t" /> be the number of read-only accounts loaded through ALT
+- <InlineLatex formula="L_t" /> be the number of referenced lookup tables
+- <InlineLatex formula="w_{t_j}" /> and <InlineLatex formula="r_{t_j}" /> be the writable and
+  read-only indices selected from table <InlineLatex formula="j" />.
 
 Under v0, the combined static-account and ALT representation is:
 
@@ -505,9 +607,9 @@ Static addresses cancel because they occupy 32 bytes in both formats.
 
 The expression shows that:
 
-* every ALT-loaded address adds approximately 31 net bytes
-* every removed lookup table offsets approximately 34 bytes
-* the global lookup-count prefix offsets one additional byte.
+- every ALT-loaded address adds approximately 31 net bytes
+- every removed lookup table offsets approximately 34 bytes
+- the global lookup-count prefix offsets one additional byte.
 
 The delta can be negative for sparse lookup configurations. It grows rapidly when many addresses are concentrated in relatively few tables.
 
@@ -541,10 +643,10 @@ V1 always includes a four-byte `TransactionConfigMask`.
 
 Under the currently specified fields, the configuration can contain at most five four-byte slots:
 
-* two slots for the priority-fee value
-* one slot for the compute-unit limit
-* one slot for the loaded-account-data-size limit
-* one slot for the heap-size request.
+- two slots for the priority-fee value
+- one slot for the compute-unit limit
+- one slot for the loaded-account-data-size limit
+- one slot for the heap-size request.
 
 The gross v1 configuration cost is therefore bounded by
 
@@ -556,12 +658,12 @@ This is an upper bound on the positive contribution. These fields replace Comput
 
 The remaining components do not create a large positive expansion:
 
-* every signature remains 64 bytes
-* v1 removes the signature-count prefix
-* the three-byte message header remains unchanged
-* the 32-byte recent blockhash becomes a 32-byte lifetime specifier
-* the v0 and v1 version fields are both one byte
-* under the current limits, the global account and instruction counts occupy one byte in both formats
-* static addresses remain 32 bytes each.
+- every signature remains 64 bytes
+- v1 removes the signature-count prefix
+- the three-byte message header remains unchanged
+- the 32-byte recent blockhash becomes a 32-byte lifetime specifier
+- the v0 and v1 version fields are both one byte
+- under the current limits, the global account and instruction counts occupy one byte in both formats
+- static addresses remain 32 bytes each.
 
 These components are unchanged, bounded, or smaller under v1.
