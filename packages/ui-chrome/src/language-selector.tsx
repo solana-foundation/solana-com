@@ -37,10 +37,12 @@ const LanguageSelector = ({
           )}
           type="button"
           aria-label={
-            ariaLabel ? `${ariaLabel}: ${currentLanguage}` : undefined
+            ariaLabel
+              ? `${ariaLabel}: ${currentLanguage}`
+              : `Select language, current: ${currentLanguage}`
           }
         >
-          <Globe height="20" />
+          <Globe height="20" aria-hidden="true" />
           <span
             className={cn(
               "mx-1 align-middle text-base font-normal",
@@ -49,7 +51,7 @@ const LanguageSelector = ({
           >
             {displayLanguageName ? currentLanguage : currentLocale}
           </span>
-          <ChevronGrabberVertical width="20" height="20" />
+          <ChevronGrabberVertical width="20" height="20" aria-hidden="true" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
