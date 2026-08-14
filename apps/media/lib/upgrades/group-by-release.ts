@@ -67,6 +67,12 @@ export function groupUpgradesByRelease(
   );
   const releaseSlugs = new Set(releases.map((release) => release.slug));
 
+  const overviewSlugs = new Set(
+    releases
+      .map((release) => release.overview)
+      .filter((slug): slug is string => Boolean(slug)),
+  );
+
   const groups: ReleaseGroup[] = releases.map((release) => {
     const overview = release.overview
       ? (upgradeBySlug.get(release.overview) ?? null)
@@ -75,7 +81,7 @@ export function groupUpgradesByRelease(
     const groupUpgrades = upgrades
       .filter(
         (upgrade) =>
-          upgrade.release === release.slug && upgrade.slug !== release.overview,
+          upgrade.release === release.slug && !overviewSlugs.has(upgrade.slug),
       )
       .sort(compareUpgradeOrder);
 
@@ -88,12 +94,6 @@ export function groupUpgradesByRelease(
       upgrades: groupUpgrades,
     };
   });
-
-  const overviewSlugs = new Set(
-    releases
-      .map((release) => release.overview)
-      .filter((slug): slug is string => Boolean(slug)),
-  );
   const unscheduledUpgrades = upgrades
     .filter(
       (upgrade) =>

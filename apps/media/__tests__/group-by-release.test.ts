@@ -154,4 +154,78 @@ describe("groupUpgradesByRelease", () => {
 
     expect(groups).toEqual([]);
   });
+
+  it("excludes an upgrade from a release's list if it is any release's overview (cross-release mismatch)", () => {
+    const releases: ReleaseInput[] = [
+      release({
+        slug: "a",
+        name: "Release A",
+        status: "shipped",
+        expectedDate: "2026-06-01",
+        overview: "x",
+      }),
+      release({
+        slug: "b",
+        name: "Release B",
+        status: "shipped",
+        expectedDate: "2026-07-01",
+      }),
+    ];
+    const upgrades: UpgradeListItem[] = [
+      upgrade({ slug: "x", release: "b" }),
+      upgrade({ slug: "other", release: "b" }),
+    ];
+
+    const groups = groupUpgradesByRelease(upgrades, releases);
+
+    const groupA = groups.find((g) => g.key === "a");
+    const groupB = groups.find((g) => g.key === "b");
+
+    expect(groupA?.overview?.slug).toBe("x");
+    expect(groupB?.upgrades.map((item) => item.slug)).toEqual(["other"]);
+  });
+
+  it("treats order: 0 as present (not falsy)", () => {
+    const releases: ReleaseInput[] = [
+      release({ slug: "r", status: "shipped", expectedDate: "2026-06-01" }),
+    ];
+    const upgrades: UpgradeListItem[] = [
+      upgrade({ slug: "ordered-zero", release: "r", order: 0 }),
+      upgrade({ slug: "ordered-one", release: "r", order: 1 }),
+      upgrade({
+        slug: "no-order",
+        release: "r",
+        order: null,
+        publishedAt: "2026-05-01",
+      }),
+    ];
+
+    const groups = groupUpgradesByRelease(upgrades, releases);
+
+    expect(groups[0].upgrades.map((item) => item.slug)).toEqual([
+      "ordered-zero",
+      "ordered-one",
+      "no-order",
+    ]);
+  });
+
+  it("renders a release with overview but no regular upgrades", () => {
+    const releases: ReleaseInput[] = [
+      release({
+        slug: "r",
+        status: "shipped",
+        expectedDate: "2026-06-01",
+        overview: "overview-article",
+      }),
+    ];
+    const upgrades: UpgradeListItem[] = [
+      upgrade({ slug: "overview-article", release: "r" }),
+    ];
+
+    const groups = groupUpgradesByRelease(upgrades, releases);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].overview?.slug).toBe("overview-article");
+    expect(groups[0].upgrades).toEqual([]);
+  });
 });
