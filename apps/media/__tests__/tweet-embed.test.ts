@@ -33,12 +33,36 @@ describe("tweet embeds", () => {
 
   it("loads tweet data through the media app's public posts API", () => {
     renderToStaticMarkup(
-      React.createElement(SafeTweet, { id: " 2051767380880077062 " }),
+      React.createElement(SafeTweet, {
+        id: " https://x.com/solana/status/2051767380880077062?s=46 ",
+      }),
     );
 
     expect(tweetMock.mock.calls[0]?.[0]).toMatchObject({
       id: "2051767380880077062",
       apiUrl: "/api/posts/tweet/2051767380880077062",
+    });
+  });
+
+  it("does not request an invalid tweet value", () => {
+    renderToStaticMarkup(
+      React.createElement(SafeTweet, {
+        id: "https://example.com/status/2051767380880077062",
+      }),
+    );
+
+    expect(tweetMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a nonnumeric API route parameter", async () => {
+    const response = (await getTweet(new Request("https://example.com"), {
+      params: Promise.resolve({ id: "not-a-tweet" }),
+    })) as unknown as { body: unknown; init: { status: number } };
+
+    expect(fetchTweetMock).not.toHaveBeenCalled();
+    expect(response).toMatchObject({
+      body: { error: "Invalid tweet ID" },
+      init: { status: 400 },
     });
   });
 
