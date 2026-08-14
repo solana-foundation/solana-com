@@ -6,7 +6,10 @@ import { mdxComponents } from "../src/app/mdx-components";
 
 const pages = [
   ["payments/agentic-payments/index.mdx", "Agentic payments let software"],
-  ["payments/agentic-payments/quickstart.mdx", "Inspect an unpaid MPP request"],
+  [
+    "payments/agentic-payments/quickstart.mdx",
+    "Ask the agent to make one request",
+  ],
   ["payments/agentic-payments/mpp.mdx", "MPP Charge Flow"],
   ["payments/agentic-payments/intro-to-x402.mdx", "PAYMENT-SIGNATURE"],
   ["payments/agentic-payments/x402-facilitator.mdx", "Facilitator interface"],
