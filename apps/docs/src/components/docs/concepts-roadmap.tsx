@@ -1931,6 +1931,22 @@ const USE_CASE_PATHS: UseCasePath[] = [
   },
 ];
 
+const USE_CASE_OPTIONS: readonly PersonalizationOption<UseCaseRoute>[] = [
+  {
+    id: "full",
+    emoji: "🧭",
+    title: "Keep the full learning journey",
+    description:
+      "Learn the complete path from core concepts through programs and production",
+  },
+  ...USE_CASE_PATHS.map((path) => ({
+    id: path.id,
+    emoji: path.emoji,
+    title: path.title,
+    description: path.description,
+  })),
+];
+
 const ALL_ROADMAP_STEPS = [...CORE_STEPS, ...USE_CASE_STEPS];
 const ROADMAP_STEP_BY_ID = new Map(
   ALL_ROADMAP_STEPS.map((step) => [step.id, step]),
@@ -2361,13 +2377,18 @@ function PersonalizationDialog({
   open,
   onOpenChange,
   profile,
+  useCaseRoute,
   onApply,
   onClear,
 }: {
   open: boolean;
   onOpenChange: (_open: boolean) => void;
   profile: PersonalizationProfile | null;
-  onApply: (_profile: PersonalizationProfile) => void;
+  useCaseRoute: UseCaseRoute;
+  onApply: (
+    _profile: PersonalizationProfile,
+    _useCaseRoute: UseCaseRoute,
+  ) => void;
   onClear: () => void;
 }) {
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -2376,6 +2397,7 @@ function PersonalizationDialog({
   const [startingPoint, setStartingPoint] = useState<StartingPoint | null>(
     null,
   );
+  const [selectedUseCase, setSelectedUseCase] = useState<UseCaseRoute>("full");
   const [learningStyles, setLearningStyles] = useState<LearningStyle[]>([]);
 
   useEffect(() => {
@@ -2384,8 +2406,9 @@ function PersonalizationDialog({
     setGoal(profile?.goal ?? null);
     setFocus(profile?.focus ?? null);
     setStartingPoint(profile?.startingPoint ?? null);
+    setSelectedUseCase(useCaseRoute);
     setLearningStyles(profile?.learningStyles ?? []);
-  }, [open, profile]);
+  }, [open, profile, useCaseRoute]);
 
   const focusOptions = goal ? FOCUS_OPTIONS[goal] : [];
   const startingOptions =
@@ -2400,7 +2423,7 @@ function PersonalizationDialog({
           : goal === "work"
             ? "What kind of work brings you here?"
             : "What do you need right now?";
-  const questionThreeTitle =
+  const questionFourTitle =
     goal === "work"
       ? "How technical should your path be?"
       : goal === "reference"
@@ -2420,6 +2443,11 @@ function PersonalizationDialog({
     setQuestionIndex(2);
   };
 
+  const chooseUseCase = (nextUseCase: UseCaseRoute) => {
+    setSelectedUseCase(nextUseCase);
+    setQuestionIndex(3);
+  };
+
   const toggleLearningStyle = (style: LearningStyle) => {
     setLearningStyles((current) =>
       current.includes(style)
@@ -2430,7 +2458,7 @@ function PersonalizationDialog({
 
   const applyProfile = () => {
     if (!goal || !focus || !startingPoint) return;
-    onApply({ goal, focus, startingPoint, learningStyles });
+    onApply({ goal, focus, startingPoint, learningStyles }, selectedUseCase);
     onOpenChange(false);
   };
 
@@ -2474,7 +2502,7 @@ function PersonalizationDialog({
 
           <header className={styles.personalizeProgress}>
             <div aria-hidden="true">
-              {[0, 1, 2].map((index) => (
+              {[0, 1, 2, 3].map((index) => (
                 <span
                   key={index}
                   className={
@@ -2483,7 +2511,7 @@ function PersonalizationDialog({
                 />
               ))}
             </div>
-            <span>{questionIndex + 1} of 3</span>
+            <span>{questionIndex + 1} of 4</span>
           </header>
 
           {questionIndex > 0 ? (
@@ -2504,14 +2532,18 @@ function PersonalizationDialog({
                 ? "What brings you to Solana?"
                 : questionIndex === 1
                   ? questionTwoTitle
-                  : questionThreeTitle}
+                  : questionIndex === 2
+                    ? "Do you have a specific outcome?"
+                    : questionFourTitle}
             </Dialog.Title>
             <Dialog.Description>
               {questionIndex === 0
                 ? "Under a minute — we'll cut the full roadmap down to your starting path."
                 : questionIndex === 1
                   ? "This chooses which specialist stops stay in your roadmap."
-                  : "We'll keep the fundamentals you need and remove the ones you already know."}
+                  : questionIndex === 2
+                    ? "Choose a focused use-case path, or keep the complete learning journey."
+                    : "We'll keep the fundamentals you need and remove the ones you already know."}
             </Dialog.Description>
           </div>
 
@@ -2539,6 +2571,17 @@ function PersonalizationDialog({
               : null}
 
             {questionIndex === 2
+              ? USE_CASE_OPTIONS.map((option, index) =>
+                  renderOption(
+                    option,
+                    option.id === selectedUseCase,
+                    () => chooseUseCase(option.id),
+                    index,
+                  ),
+                )
+              : null}
+
+            {questionIndex === 3
               ? startingOptions.map((option, index) =>
                   renderOption(
                     option,
@@ -2550,7 +2593,7 @@ function PersonalizationDialog({
               : null}
           </div>
 
-          {questionIndex === 2 ? (
+          {questionIndex === 3 ? (
             <section className={styles.learningPreference}>
               <header>
                 <div>
@@ -2596,7 +2639,7 @@ function PersonalizationDialog({
             ) : (
               <span>Personalization only removes irrelevant stops.</span>
             )}
-            {questionIndex === 2 ? (
+            {questionIndex === 3 ? (
               <button
                 type="button"
                 className={styles.applyPersonalization}
@@ -2931,7 +2974,7 @@ export function ConceptsRoadmap() {
     : entryRoute;
   const isEthereumPath = activeEntryRoute === "ethereum";
   const activeUseCasePath =
-    useCaseRoute === "full"
+    !activePersonalization || useCaseRoute === "full"
       ? null
       : (USE_CASE_PATH_BY_ID.get(useCaseRoute) ?? null);
   const journeySteps = activeUseCasePath
@@ -3056,33 +3099,33 @@ export function ConceptsRoadmap() {
     writeProgress(completedIds, nextRoute);
   };
 
-  const selectUseCaseRoute = (nextRoute: UseCaseRoute) => {
-    setUseCaseRoute(nextRoute);
-    writeProgress(
-      completedIds,
-      entryRoute,
-      assessmentPassed,
-      personalization,
-      nextRoute,
-    );
-  };
-
   const passAssessment = () => {
     setAssessmentPassed(true);
     writeProgress(completedIds, entryRoute, true);
   };
 
-  const applyPersonalization = (profile: PersonalizationProfile) => {
+  const applyPersonalization = (
+    profile: PersonalizationProfile,
+    nextUseCaseRoute: UseCaseRoute,
+  ) => {
     setPersonalization(profile);
+    setUseCaseRoute(nextUseCaseRoute);
     setRoadmapView("personalized");
-    writeProgress(completedIds, entryRoute, assessmentPassed, profile);
+    writeProgress(
+      completedIds,
+      entryRoute,
+      assessmentPassed,
+      profile,
+      nextUseCaseRoute,
+    );
   };
 
   const clearPersonalization = () => {
     setPersonalization(null);
+    setUseCaseRoute("full");
     setRoadmapView("original");
     setEntryRoute("new");
-    writeProgress(completedIds, "new", assessmentPassed, null);
+    writeProgress(completedIds, "new", assessmentPassed, null, "full");
   };
 
   const openStep = (step: CoreStep) => {
@@ -3262,75 +3305,6 @@ export function ConceptsRoadmap() {
         </div>
 
         {visibleIntroStep ? renderStep(visibleIntroStep, "left") : null}
-
-        <section
-          className={`${styles.useCaseFork} ${
-            activeUseCasePath ? styles.useCaseForkActive : ""
-          }`}
-          aria-labelledby="use-case-path-title"
-        >
-          <article>
-            <header>
-              <span>
-                <GitBranch aria-hidden="true" size={14} />
-                Use-case path
-              </span>
-              {activeUseCasePath ? (
-                <small>{activeUseCasePath.shortTitle} active</small>
-              ) : null}
-            </header>
-            <h3 id="use-case-path-title">What do you want to build?</h3>
-            <p>
-              Choose an outcome to replace the path below. You will keep the
-              foundations you need and skip custom program work you do not.
-            </p>
-            <div
-              className={styles.useCaseOptions}
-              role="radiogroup"
-              aria-label="Choose a use-case learning path"
-            >
-              {USE_CASE_PATHS.map((path) => {
-                const selected = useCaseRoute === path.id;
-                return (
-                  <button
-                    key={path.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    className={selected ? styles.useCaseOptionActive : ""}
-                    onClick={() => selectUseCaseRoute(path.id)}
-                  >
-                    <span aria-hidden="true">{path.emoji}</span>
-                    <span>
-                      <strong>{path.title}</strong>
-                      <small>{path.description}</small>
-                    </span>
-                    {selected ? (
-                      <Check aria-hidden="true" size={14} strokeWidth={2.8} />
-                    ) : (
-                      <ChevronRight aria-hidden="true" size={14} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <footer>
-              <span>
-                {activeUseCasePath
-                  ? `${requiredSteps.length} focused stops`
-                  : "Full learning journey active"}
-              </span>
-              {activeUseCasePath ? (
-                <button
-                  type="button"
-                  onClick={() => selectUseCaseRoute("full")}
-                >
-                  Show full roadmap
-                </button>
-              ) : null}
-            </footer>
-          </article>
-        </section>
 
         {!activePersonalization ||
         activePersonalization.startingPoint === "ethereum" ? (
@@ -3585,10 +3559,10 @@ export function ConceptsRoadmap() {
       <p className={styles.srStatus} aria-live="polite">
         {requiredCompletedCount} of {requiredSteps.length} required steps
         complete on the{" "}
-        {activePersonalization
-          ? "personalized"
-          : activeUseCasePath
-            ? activeUseCasePath.shortTitle
+        {activeUseCasePath
+          ? `${activeUseCasePath.shortTitle} personalized`
+          : activePersonalization
+            ? "personalized"
             : isEthereumPath
               ? "Ethereum shortcut"
               : "full"}{" "}
@@ -3599,6 +3573,7 @@ export function ConceptsRoadmap() {
         open={isPersonalizeOpen}
         onOpenChange={setIsPersonalizeOpen}
         profile={personalization}
+        useCaseRoute={useCaseRoute}
         onApply={applyPersonalization}
         onClear={clearPersonalization}
       />
