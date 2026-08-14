@@ -1,5 +1,5 @@
 // #region balance
-import { createSolanaRpc, Address } from "@solana/kit";
+import { createSolanaRpc, type Address } from "@solana/kit";
 
 const rpc = createSolanaRpc("http://localhost:8899");
 

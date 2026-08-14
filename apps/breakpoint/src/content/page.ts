@@ -126,15 +126,6 @@ export type BreakpointMessages = {
     flights: {
       eyebrow: string;
       headline: string;
-      airlines: Record<
-        string,
-        {
-          name: string;
-          description: string;
-        }
-      >;
-      viewFlights: string;
-      airlineLogo: string;
       airports: Record<
         string,
         {
@@ -150,7 +141,7 @@ export type BreakpointMessages = {
         {
           name: string;
           description: string;
-          distance: string;
+          distance?: string;
           ctaLabel: string;
         }
       >;

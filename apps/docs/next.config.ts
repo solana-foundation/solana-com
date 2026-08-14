@@ -187,19 +187,26 @@ const nextConfig: NextConfig = {
     webpackMemoryOptimizations: true,
   },
 
-  // Cookbook MDX uses async compile (lazy at request time) and the
-  // remark-include-code plugin reads from packages/docs-examples on disk.
-  // Tell Next/Vercel to bundle those source files into the cookbook
-  // function's filesystem so the reads succeed in production.
+  // Cookbook MDX uses async compile (lazy at request time), and both the
+  // remark-include-code plugin and remark-example-output read from
+  // packages/docs-examples on disk. Tell Next/Vercel to bundle those source
+  // files into the cookbook function's filesystem so the reads succeed in
+  // production. Every extension an MDX fence can point at has to be listed:
+  // a missing snippet throws IncludeError, and a missing .output.txt silently
+  // leaves the Run console with nothing to print.
   outputFileTracingIncludes: {
     "/[locale]/developers/cookbook/**/*": [
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
     "/[locale]/developers/cookbook/[...slug]": [
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
   },

@@ -83,53 +83,42 @@ export default function HotelsSection() {
 
           <div className="flex min-w-0 flex-col gap-5 md:col-span-8 md:col-start-9">
             {HOTELS.map((hotel, index) => {
-              const open = index === activeIndex;
-              const panelId = `hotel-panel-${index}`;
+              const selected = index === activeIndex;
 
               return (
                 <div
                   key={hotel.id}
                   className={`border-t pb-3 pt-6 transition-colors ${
-                    open ? "border-white" : "border-neutral-700"
+                    selected ? "border-white" : "border-neutral-700"
                   }`}
                 >
                   <button
                     type="button"
-                    aria-expanded={open}
-                    aria-controls={panelId}
+                    aria-pressed={selected}
                     onClick={() => setActiveIndex(index)}
                     className="group/hotel flex w-full cursor-pointer items-start text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                   >
-                    <h3
-                      className={`type-p-large-bold transition-[color,opacity] ${
-                        open
-                          ? "text-white opacity-100"
-                          : "text-text-secondary opacity-60 group-hover/hotel:text-white group-hover/hotel:opacity-100 group-focus-visible/hotel:text-white group-focus-visible/hotel:opacity-100"
-                      }`}
-                    >
+                    <h3 className="type-p-large-bold text-white">
                       {t(`items.${hotel.id}.name`)}
                     </h3>
                   </button>
 
-                  {open && (
-                    <div
-                      id={panelId}
-                      className="mt-4 flex flex-col items-start gap-4"
-                    >
-                      <p className="type-paragraph text-white">
-                        {t(`items.${hotel.id}.description`)}
-                      </p>
+                  <div className="mt-4 flex flex-col items-start gap-4">
+                    <p className="type-paragraph text-white">
+                      {t(`items.${hotel.id}.description`)}
+                    </p>
+                    {hotel.id !== "ares" && (
                       <p className="type-eyebrow text-blue">
                         {t(`items.${hotel.id}.distance`)}
                       </p>
-                      <Button
-                        arrow
-                        href={hotel.href}
-                        label={t(`items.${hotel.id}.ctaLabel`)}
-                        variant="inline"
-                      />
-                    </div>
-                  )}
+                    )}
+                    <Button
+                      arrow
+                      href={hotel.href}
+                      label={t(`items.${hotel.id}.ctaLabel`)}
+                      variant="inline"
+                    />
+                  </div>
                 </div>
               );
             })}
