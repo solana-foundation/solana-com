@@ -131,12 +131,23 @@ export default async function UpgradesPage({
   const groups = groupUpgradesByRelease(upgrades, releases);
 
   const structuredData = buildUpgradeCollectionJsonLd({
-    upgrades: upgrades.map((upgrade) => ({
-      slug: upgrade.slug,
-      title: upgrade.title,
-      description: upgrade.description || upgrade.subtitle,
-      publishedAt: upgrade.publishedAt,
-    })),
+    upgrades: [...upgrades]
+      .sort((left, right) => {
+        const leftDate = left.publishedAt
+          ? new Date(left.publishedAt).getTime()
+          : 0;
+        const rightDate = right.publishedAt
+          ? new Date(right.publishedAt).getTime()
+          : 0;
+
+        return rightDate - leftDate;
+      })
+      .map((upgrade) => ({
+        slug: upgrade.slug,
+        title: upgrade.title,
+        description: upgrade.description || upgrade.subtitle,
+        publishedAt: upgrade.publishedAt,
+      })),
     locale,
     title: UPGRADES_SEO_TITLE,
     description: UPGRADES_SEO_DESCRIPTION,

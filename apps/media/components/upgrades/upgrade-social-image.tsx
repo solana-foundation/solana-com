@@ -2,12 +2,7 @@ import {
   formatUpgradePublishedDate,
   getUpgradeTitleFontSize,
 } from "@/lib/upgrades/social-image";
-
-type UpgradeBadge = {
-  text: string;
-  color: string;
-  variant: string;
-};
+import { STAGE_LABELS, type UpgradeStage } from "@/lib/upgrades/stage";
 
 type UpgradeMetric = {
   value: string;
@@ -19,33 +14,33 @@ type UpgradeSocialImageProps = {
   subtitle?: string | null;
   publishedAt?: string | null;
   authorName: string;
-  badges: UpgradeBadge[];
+  stage: UpgradeStage;
   metrics: UpgradeMetric[];
 };
 
-const badgeColorMap: Record<
-  string,
+const stageColorMap: Record<
+  UpgradeStage,
   { backgroundColor: string; borderColor: string; color: string }
 > = {
-  green: {
-    backgroundColor: "rgba(20, 241, 149, 0.08)",
-    borderColor: "rgba(20, 241, 149, 0.35)",
-    color: "#42E6A3",
+  planned: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(255, 255, 255, 0.25)",
+    color: "#B3B3C2",
   },
-  yellow: {
+  in_development: {
     backgroundColor: "rgba(234, 179, 8, 0.08)",
     borderColor: "rgba(234, 179, 8, 0.35)",
     color: "#FACC15",
   },
-  red: {
+  live: {
+    backgroundColor: "rgba(20, 241, 149, 0.08)",
+    borderColor: "rgba(20, 241, 149, 0.35)",
+    color: "#42E6A3",
+  },
+  action_required: {
     backgroundColor: "rgba(244, 63, 94, 0.08)",
     borderColor: "rgba(244, 63, 94, 0.35)",
     color: "#FB7185",
-  },
-  purple: {
-    backgroundColor: "rgba(153, 69, 255, 0.08)",
-    borderColor: "rgba(153, 69, 255, 0.35)",
-    color: "#C084FC",
   },
 };
 
@@ -54,10 +49,11 @@ export function UpgradeSocialImage({
   subtitle,
   publishedAt,
   authorName,
-  badges,
+  stage,
   metrics,
 }: UpgradeSocialImageProps) {
   const publishedDate = formatUpgradePublishedDate(publishedAt);
+  const palette = stageColorMap[stage];
 
   return (
     <div
@@ -96,52 +92,31 @@ export function UpgradeSocialImage({
         }}
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {badges.length > 0 && (
-            <div
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 28,
+            }}
+          >
+            <span
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
-                marginBottom: 28,
+                padding: "8px 18px 7px",
+                border: `1px solid ${palette.borderColor}`,
+                borderRadius: 999,
+                backgroundColor: palette.backgroundColor,
+                color: palette.color,
+                fontSize: 18,
+                fontWeight: 500,
+                lineHeight: 1,
               }}
             >
-              {badges.map((badge, index) => {
-                const palette =
-                  badgeColorMap[badge.color] ?? badgeColorMap.green!;
-
-                return badge.variant === "text" ? (
-                  <span
-                    key={`${badge.text}-${index}`}
-                    style={{
-                      color: "#8D8D9D",
-                      fontSize: 18,
-                      lineHeight: 1,
-                    }}
-                  >
-                    {badge.text}
-                  </span>
-                ) : (
-                  <span
-                    key={`${badge.text}-${index}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      padding: "8px 18px 7px",
-                      border: `1px solid ${palette.borderColor}`,
-                      borderRadius: 999,
-                      backgroundColor: palette.backgroundColor,
-                      color: palette.color,
-                      fontSize: 18,
-                      fontWeight: 500,
-                      lineHeight: 1,
-                    }}
-                  >
-                    {badge.text}
-                  </span>
-                );
-              })}
-            </div>
-          )}
+              {STAGE_LABELS[stage]}
+            </span>
+          </div>
 
           <div
             style={{

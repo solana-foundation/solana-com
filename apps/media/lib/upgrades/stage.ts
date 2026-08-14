@@ -1,5 +1,7 @@
 import type { UpgradeStage } from "./group-by-release";
 
+export type { UpgradeStage };
+
 export const STAGE_LABELS: Record<UpgradeStage, string> = {
   planned: "Planned",
   in_development: "In Development",
