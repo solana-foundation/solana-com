@@ -1,65 +1,70 @@
 "use client";
 
-import { Template, TemplatesUiImage } from "../../lib/templates";
+import type { Template } from "../../lib/types/templates";
+import { TemplatesUiImage } from "../../lib/templates/templates-ui-image";
 import { useTemplatesTranslations } from "../../lib/use-translations";
 import Link from "next/link";
 import { ArrowOutUpRightSquare as ExternalLinkIcon } from "@boxicons/react/ArrowOutUpRightSquare";
-import { motion } from "motion/react";
-
-const MotionLink = motion(Link);
+import { ArrowRight } from "@boxicons/react/ArrowRight";
+import { useTemplateFilters } from "../../lib/templates/use-template-filters";
 
 export function TemplatesUiGridItem({ template }: { template: Template }) {
   const t = useTemplatesTranslations();
+  const filters = useTemplateFilters({ template });
+  const keywords = filters.flatMap((filter) => filter.keywords).slice(0, 3);
+  const displayName = template.displayName || template.name;
 
   return (
-    <MotionLink
-      href={`/developers/templates/${template.name}`}
-      className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 block h-full flex flex-col"
-      whileHover={{ scale: 1.02, y: -4 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.2, ease: "easeInOut" }}
-      style={{ willChange: "transform" }}
-    >
-      {/* Gradient border effect */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20 opacity-0 transition-opacity group-hover:opacity-100" />
-      <div className="absolute inset-[1px] rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950" />
+    <article className="group relative min-w-0 bg-[#0C0C0E] transition-colors hover:bg-[#151518]">
+      <Link
+        href={`/developers/templates/${template.name}`}
+        className="flex h-full flex-col outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+      >
+        <div className="relative aspect-[16/10] overflow-hidden border-b border-white/[0.08] bg-white/[0.03]">
+          <TemplatesUiImage
+            template={template}
+            className="h-full w-full object-cover object-top transition-transform duration-500 ease-out group-hover:scale-[1.025]"
+            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 360px"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60" />
+        </div>
 
-      <div className="relative flex flex-col h-full">
-        <div className="space-y-1.5 mb-4">
-          <div className="flex justify-between items-start gap-2">
-            <h3 className="font-semibold text-base text-white line-clamp-1">
-              {template.displayName || template.name}
+        <div className="flex flex-1 flex-col p-5 xl:p-6">
+          {keywords.length ? (
+            <div className="mb-5 flex flex-wrap gap-1.5">
+              {keywords.map((keyword) => (
+                <span
+                  key={keyword.id}
+                  className="border border-white/[0.12] bg-white/[0.03] px-2 py-1 font-brand-mono text-[10px] font-medium uppercase tracking-[0.06em] text-nd-mid-em-text"
+                >
+                  {keyword.name}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="flex items-start justify-between gap-4">
+            <h3 className="nd-heading-xs line-clamp-2 text-nd-high-em-text">
+              {displayName}
             </h3>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                return window.open(
-                  template.repoUrl,
-                  "_blank",
-                  "noopener,noreferrer",
-                );
-              }}
-              title={t("actions.view_repo")}
-              role="link"
-              aria-label={t("actions.view_repo")}
-              type="button"
-              className="text-xs flex items-center gap-1 hover:text-purple-400 transition-colors text-zinc-400 flex-shrink-0"
-            >
-              <ExternalLinkIcon className="h-3.5 w-3.5" />
-            </button>
+            <ArrowRight className="mt-1 size-4 shrink-0 text-nd-mid-em-text transition-transform duration-200 group-hover:translate-x-1 group-hover:text-white" />
           </div>
-          <p className="text-[11px] leading-relaxed text-zinc-400 line-clamp-2">
+          <p className="mt-2 line-clamp-3 text-sm leading-5 text-nd-mid-em-text">
             {template.description}
           </p>
         </div>
+      </Link>
 
-        <div
-          className="relative w-full overflow-hidden rounded-lg bg-white/5 backdrop-blur-sm mt-auto"
-          style={{ aspectRatio: "1200/630" }}
-        >
-          <TemplatesUiImage template={template} />
-        </div>
-      </div>
-    </MotionLink>
+      <a
+        href={template.repoUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={t("actions.view_repo")}
+        aria-label={`${t("actions.view_repo")}: ${displayName}`}
+        className="absolute right-3 top-3 z-10 flex size-9 items-center justify-center rounded-full border border-white/[0.16] bg-black/70 text-nd-mid-em-text backdrop-blur-md transition-colors hover:border-white/30 hover:bg-black hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+      >
+        <ExternalLinkIcon className="size-4" />
+      </a>
+    </article>
   );
 }

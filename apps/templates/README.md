@@ -49,8 +49,11 @@ Next.js rewrites. Users always access the templates through `solana.com`.
 
 ## Routes
 
-- `/[locale]/` - Template list page
-- `/[locale]/[id]/` - Individual template detail page
+- `/developers/templates` - Template list page
+- `/developers/templates/[id]` - Individual template detail page
+
+The templates app does not use a locale path segment; `next-intl` supplies
+localized UI within these stable public routes.
 
 ## Header Navigation
 

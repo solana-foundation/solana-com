@@ -49,7 +49,6 @@ import ellipalIcon from "../../assets/wallets/icons/ellipal.webp";
 import emcdIcon from "../../assets/wallets/icons/emcd.webp";
 import enkryptIcon from "../../assets/wallets/icons/enkrypt.webp";
 import ethosIcon from "../../assets/wallets/icons/ethos.webp";
-import espressoCashIcon from "../../assets/wallets/icons/espresso-cash.webp";
 import exodusIcon from "../../assets/wallets/icons/exodus.webp";
 import fireblocksEmbeddedIcon from "../../assets/wallets/icons/fireblocks-embedded.webp";
 import fordefiIcon from "../../assets/wallets/icons/fordefi.webp";
@@ -58,7 +57,6 @@ import fuseIcon from "../../assets/wallets/icons/fuse.webp";
 import fxwalletIcon from "../../assets/wallets/icons/fxwallet.webp";
 import gateIcon from "../../assets/wallets/icons/gate.webp";
 import gemIcon from "../../assets/wallets/icons/gem.webp";
-import glowIcon from "../../assets/wallets/icons/glow.webp";
 import guardaIcon from "../../assets/wallets/icons/guarda.webp";
 import heliumIcon from "../../assets/wallets/icons/helium.webp";
 import hexTrustIcon from "../../assets/wallets/icons/hex-trust.webp";
@@ -69,6 +67,7 @@ import iopayIcon from "../../assets/wallets/icons/iopay.webp";
 import jupiterIcon from "../../assets/wallets/icons/jupiter.webp";
 import keepkeyIcon from "../../assets/wallets/icons/keepkey.webp";
 import keystoneIcon from "../../assets/wallets/icons/keystone.webp";
+import kleverIcon from "../../assets/wallets/icons/klever.webp";
 import krakenIcon from "../../assets/wallets/icons/kraken.webp";
 import kryptogoIcon from "../../assets/wallets/icons/kryptogo.webp";
 import lazorkitIcon from "../../assets/wallets/icons/lazorkit.webp";
@@ -121,6 +120,7 @@ import safepalIcon from "../../assets/wallets/icons/safepal.webp";
 import samuiIcon from "../../assets/wallets/icons/samui.webp";
 import salmonIcon from "../../assets/wallets/icons/salmon.webp";
 import secuxIcon from "../../assets/wallets/icons/secux.webp";
+import seedVaultWalletIcon from "../../assets/wallets/icons/seed-vault-wallet.webp";
 import siidIcon from "../../assets/wallets/icons/siid.webp";
 import solflareIcon from "../../assets/wallets/icons/solflare.webp";
 import speedIcon from "../../assets/wallets/icons/speed.webp";
@@ -144,6 +144,7 @@ import unitywalletIcon from "../../assets/wallets/icons/unitywallet.webp";
 import unruggableIcon from "../../assets/wallets/icons/unruggable.webp";
 import utilaIcon from "../../assets/wallets/icons/utila.webp";
 import venlyIcon from "../../assets/wallets/icons/venly.webp";
+import vultisigIcon from "../../assets/wallets/icons/vultisig.webp";
 import waiaasIcon from "../../assets/wallets/icons/waiaas.webp";
 import walletverseIcon from "../../assets/wallets/icons/walletverse.webp";
 import web3authIcon from "../../assets/wallets/icons/web3auth.webp";
@@ -158,6 +159,8 @@ import zyptoIcon from "../../assets/wallets/icons/zypto.webp";
 export type WalletRecord = {
   /** Brand display name; infrastructure SDK entries use an `SDK` suffix. */
   name: string;
+  /** Short, neutral product summary suitable for compact directory surfaces. */
+  tagline?: string;
   /** Slug of the owning company in `src/companies`, when one exists. */
   companyId?: string;
   /** Alternate, historical, or normalized product names that map to this record. */
@@ -235,6 +238,7 @@ const walletRecords = {
   },
   backpack: {
     name: "Backpack",
+    tagline: "Staking, NFTs, and multisig",
     aliases: ["backpack-exchange"],
     category: "consumer",
     platforms: ["ios", "android", "chrome"],
@@ -1058,25 +1062,6 @@ const walletRecords = {
     icon: exodusIcon,
     lastVerified: "2026-07-15",
   },
-  "espresso-cash": {
-    name: "Espresso Cash",
-    aliases: ["espresso-wallet"],
-    category: "payments",
-    platforms: ["ios", "android"],
-    features: [
-      "non_custodial",
-      "buy_crypto",
-      "sell_crypto",
-      "get_paid",
-      "open_source",
-      "solana_native",
-    ],
-    description:
-      "Open-source self-custody Solana payments wallet for sending and receiving stablecoins through shareable links, with integrated fiat on- and off-ramps",
-    website: "https://www.espressocash.com/",
-    icon: espressoCashIcon,
-    lastVerified: "2026-07-16",
-  },
   "fireblocks-embedded": {
     name: "Fireblocks SDK",
     companyId: "fireblocks",
@@ -1146,6 +1131,7 @@ const walletRecords = {
   },
   fuse: {
     name: "Fuse",
+    tagline: "Smart recovery and spending controls",
     companyId: "squads",
     aliases: ["fuse-wallet"],
     category: "consumer",
@@ -1209,23 +1195,6 @@ const walletRecords = {
       "Fully open-source self-custodial mobile wallet for 100+ chains including Solana, with built-in swaps, fiat on-ramp in 170+ countries, NFTs, and SOL staking via validator delegation",
     website: "https://gemwallet.com/",
     icon: gemIcon,
-    lastVerified: "2026-07-15",
-  },
-  glow: {
-    name: "Glow",
-    category: "consumer",
-    platforms: ["ios", "android", "chrome", "firefox", "brave", "edge"],
-    features: [
-      "non_custodial",
-      "hold_nfts",
-      "staking",
-      "hardware",
-      "solana_native",
-    ],
-    description:
-      "Solana-native wallet for mobile and desktop browsers with zero-fee swaps, SOL staking, an NFT gallery, spam-token burning that earns SOL, and Ledger Nano X signing",
-    website: "https://glow.app/",
-    icon: glowIcon,
     lastVerified: "2026-07-15",
   },
   guarda: {
@@ -1341,6 +1310,7 @@ const walletRecords = {
   },
   jupiter: {
     name: "Jupiter",
+    tagline: "Gasless swaps, sends, and payments",
     companyId: "jupiter",
     aliases: ["jupiter-mobile"],
     category: "consumer",
@@ -1349,6 +1319,7 @@ const walletRecords = {
       "non_custodial",
       "buy_crypto",
       "sell_crypto",
+      "get_paid",
       "card_spending",
       "hold_nfts",
       "gas_abstraction",
@@ -1357,10 +1328,10 @@ const walletRecords = {
       "solana_native",
     ],
     description:
-      "Non-custodial Solana-only wallet from Jupiter with mobile apps and a browser extension, gasless swaps and sends, Apple Pay fiat on-ramp, bank cash-out, and Ledger, Keystone, and Trezor support",
+      "Non-custodial Solana-only wallet from Jupiter with mobile apps and a browser extension, gasless swaps and sends, shareable payment links, fiat on- and off-ramps, and hardware-wallet support",
     website: "https://jup.ag/wallet",
     icon: jupiterIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-08-06",
   },
   keepkey: {
     name: "KeepKey",
@@ -1392,6 +1363,25 @@ const walletRecords = {
     website: "https://keyst.one/",
     icon: keystoneIcon,
     lastVerified: "2026-07-15",
+  },
+  klever: {
+    name: "Klever Wallet",
+    aliases: ["klever-extension", "kleversafe"],
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "brave", "edge", "hardware"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "sell_crypto",
+      "hold_nfts",
+      "hardware",
+      "multi_chain",
+    ],
+    description:
+      "Self-custody wallet for Solana and 40+ blockchains with mobile and Chromium browser apps, integrated fiat on- and off-ramps, NFT support, and optional KleverSafe hardware signing",
+    website: "https://klever.io/crypto-wallet/solana-sol/",
+    icon: kleverIcon,
+    lastVerified: "2026-08-06",
   },
   kraken: {
     name: "Kraken",
@@ -1989,6 +1979,7 @@ const walletRecords = {
   },
   phantom: {
     name: "Phantom",
+    tagline: "Multi-chain with social recovery",
     companyId: "phantom",
     category: "consumer",
     platforms: ["ios", "android", "chrome", "brave", "edge"],
@@ -2276,6 +2267,25 @@ const walletRecords = {
     icon: secuxIcon,
     lastVerified: "2026-07-15",
   },
+  "seed-vault-wallet": {
+    name: "Seed Vault Wallet",
+    aliases: ["seeker-wallet", "solana-seed-vault-wallet"],
+    category: "consumer",
+    platforms: ["android", "hardware"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "hold_nfts",
+      "staking",
+      "hardware",
+      "solana_native",
+    ],
+    description:
+      "Solana Seeker's native self-custody wallet with built-in token swaps, fiat purchases, SOL staking, NFT management, and hardware-backed Seed Vault signing isolated from Android",
+    website: "https://wallet-help.solanamobile.com/en/",
+    icon: seedVaultWalletIcon,
+    lastVerified: "2026-08-06",
+  },
   siid: {
     name: "SIID",
     aliases: ["siid-wallet"],
@@ -2290,18 +2300,10 @@ const walletRecords = {
   },
   solflare: {
     name: "Solflare",
+    tagline: "Solana Pay, staking, and NFTs",
     companyId: "solflare",
     category: "consumer",
-    platforms: [
-      "ios",
-      "android",
-      "chrome",
-      "firefox",
-      "brave",
-      "edge",
-      "web",
-      "hardware",
-    ],
+    platforms: ["ios", "android", "chrome", "firefox", "brave", "edge", "web"],
     features: [
       "non_custodial",
       "te",
@@ -2316,10 +2318,30 @@ const walletRecords = {
       "solana_native",
     ],
     description:
-      "Solana self-custody wallet with mobile, web, and browser-extension apps supporting Token Extensions, Actions and Blinks, Solana Pay, staking, and NFTs, plus the Solflare Shield hardware card and a gasless USDC Mastercard debit card",
+      "Solana self-custody wallet with mobile, web, and browser-extension apps supporting Token Extensions, Actions and Blinks, Solana Pay, staking, NFTs, hardware-wallet integrations, and a gasless USDC Mastercard debit card",
     website: "https://www.solflare.com/",
     icon: solflareIcon,
     lastVerified: "2026-07-16",
+  },
+  "solflare-shield": {
+    name: "Solflare Shield",
+    companyId: "solflare",
+    aliases: ["shield", "solflare-hardware-wallet"],
+    category: "hardware",
+    platforms: ["ios", "android", "hardware"],
+    features: [
+      "non_custodial",
+      "buy_crypto",
+      "hold_nfts",
+      "staking",
+      "hardware",
+      "solana_native",
+    ],
+    description:
+      "Non-custodial NFC card hardware wallet for Solana with an EAL6+ certified secure chip that keeps private keys offline and uses the Solflare mobile app for PIN-protected tap-to-sign transactions",
+    website: "https://www.solflare.com/hardware-wallet/",
+    icon: solflareIcon,
+    lastVerified: "2026-08-06",
   },
   speed: {
     name: "Speed",
@@ -2696,6 +2718,23 @@ const walletRecords = {
     website: "https://www.venly.io/product/wallet-as-a-service",
     icon: venlyIcon,
     lastVerified: "2026-07-15",
+  },
+  vultisig: {
+    name: "Vultisig",
+    category: "consumer",
+    platforms: ["ios", "android", "chrome", "brave", "edge", "desktop"],
+    features: [
+      "non_custodial",
+      "mpc",
+      "open_source",
+      "multi_chain",
+      "multi_sig",
+    ],
+    description:
+      "Open-source self-custody MPC wallet for Solana and 30+ chains, using threshold vault shares across multiple devices with mobile, desktop, and Chromium browser apps",
+    website: "https://vultisig.com/",
+    icon: vultisigIcon,
+    lastVerified: "2026-08-06",
   },
   waiaas: {
     name: "WAIaaS SDK",

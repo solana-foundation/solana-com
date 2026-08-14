@@ -221,14 +221,14 @@ const resourceCards = [
     titleKey: "buildSection.cards.pay.title",
   },
   {
-    analyticsId: "x402",
+    analyticsId: "defi-monitor",
     backgroundClassName: "",
-    backgroundSrc: "/src/img/data-dashboard/x402-card-bg.webp",
-    ctaKey: "buildSection.cards.x402.cta",
-    descriptionKey: "buildSection.cards.x402.description",
-    href: "/x402",
+    backgroundSrc: "/src/img/solutions/defi/bg-1.webp",
+    ctaKey: "buildSection.cards.defiMonitor.cta",
+    descriptionKey: "buildSection.cards.defiMonitor.description",
+    href: "https://api.topledger.xyz/defi-monitor/",
     nodeId: "8:171",
-    titleKey: "buildSection.cards.x402.title",
+    titleKey: "buildSection.cards.defiMonitor.title",
   },
   {
     analyticsId: "rpc-sender-dashboard",
@@ -472,7 +472,7 @@ export function SolanaDataDashboard() {
 
         <nav
           aria-label={t("controls.ariaLabel")}
-          className="sticky top-[65px] lg:top-[71px] z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
+          className="sticky top-14 z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
         >
           <DashboardControls
             activeTab={activeTab}

@@ -22,6 +22,7 @@ export async function Code(props: {
   codeblocks: RawCode[];
   flags?: string;
   storage?: string;
+  runner?: string;
   className?: string;
   handlers?: AnnotationHandler[];
 }) {
@@ -40,7 +41,7 @@ export function SingleCode({
   group: CodeGroup;
   className?: string;
 }) {
-  const { pre, title, code, icon, lang } = group.tabs[0];
+  const { pre, title, code, icon, lang, output } = group.tabs[0];
   const isRunnable = group.options.runnable;
 
   const content = (
@@ -82,7 +83,14 @@ export function SingleCode({
   );
 
   return isRunnable ? (
-    <RunnableLayout code={code} language={lang} className={"my-4"}>
+    <RunnableLayout
+      code={code}
+      language={lang}
+      title={title}
+      output={output}
+      runner={group.runner}
+      className={"my-4"}
+    >
       {content}
     </RunnableLayout>
   ) : (
@@ -94,6 +102,7 @@ export async function toCodeGroup(props: {
   codeblocks: RawCode[];
   flags?: string;
   storage?: string;
+  runner?: string;
   handlers?: AnnotationHandler[];
 }): Promise<CodeGroup> {
   const groupOptions = flagsToOptions(props.flags);
@@ -121,6 +130,7 @@ export async function toCodeGroup(props: {
         code: highlighted.code,
         icon: <CodeIcon title={title ?? ""} lang={tab.lang} />,
         lang: tab.lang,
+        output: extractOutput(tab),
         pre: (
           <Pre
             code={highlighted}
@@ -135,9 +145,21 @@ export async function toCodeGroup(props: {
 
   return {
     storage: props.storage,
+    runner: props.runner,
     options: groupOptions,
     tabs,
   };
+}
+
+/**
+ * Reads the expected console output that `remark-example-output` baked into the
+ * fence meta as `output=<base64url>`.
+ */
+function extractOutput(codeblock: RawCode): string | undefined {
+  const match = codeblock.meta.match(/(?:^|\s)output=(\S+)/);
+  return match
+    ? Buffer.from(match[1], "base64url").toString("utf8")
+    : undefined;
 }
 
 function getHandlers(options: CodeGroup["options"]) {

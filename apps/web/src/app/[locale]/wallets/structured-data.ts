@@ -7,7 +7,7 @@ import {
 } from "./wallet-directory";
 
 export const WALLETS_PATH = "/wallets";
-export const WALLETS_SOCIAL_IMAGE = "/images/learn/understanding_wallets.webp";
+export const WALLETS_SOCIAL_IMAGE = "/social/solana-wallets.webp";
 
 export function buildWalletDirectoryJsonLd({
   data,

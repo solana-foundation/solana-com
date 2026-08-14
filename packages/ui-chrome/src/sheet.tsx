@@ -46,7 +46,7 @@ const SheetContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed left-1 right-1 bottom-1 z-50 bg-[rgba(25,24,27,0.90)] p-2 rounded-xl text-[rgba(255,255,255,0.64)] text-[14px] xl:text-[16px] leading-[1.5] backdrop-blur-[12px] overflow-y-auto max-h-[90vh] w-auto",
+          "fixed inset-x-1 bottom-0 z-50 max-h-[calc(100dvh_-_env(safe-area-inset-top)_-_0.5rem)] w-auto overflow-y-auto overscroll-contain rounded-t-xl bg-[rgba(25,24,27,0.90)] p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-[14px] leading-[1.5] text-[rgba(255,255,255,0.64)] backdrop-blur-[12px] sm:bottom-1 sm:rounded-xl xl:text-[16px]",
           "transition-opacity duration-200 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           className,
         )}
@@ -71,6 +71,18 @@ const SheetTitle = React.forwardRef<
 ));
 SheetTitle.displayName = DialogPrimitive.Title.displayName;
 
+const SheetDescription = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn("text-sm text-white/60", className)}
+    {...props}
+  />
+));
+SheetDescription.displayName = DialogPrimitive.Description.displayName;
+
 const VisuallyHidden = VisuallyHiddenPrimitive.Root;
 
 export {
@@ -79,6 +91,7 @@ export {
   SheetClose,
   SheetContent,
   SheetTitle,
+  SheetDescription,
   VisuallyHidden,
 };
 export type { SheetContentProps };

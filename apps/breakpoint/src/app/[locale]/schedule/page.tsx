@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@workspace/i18n/server";
 import ComingSoonPage from "@/components/pages/ComingSoonPage";
 import { getPageMetadata } from "@/app/metadata";
-
-const pageMetadata = {
-  path: "/schedule",
-  title: "Schedule",
-  description:
-    "The Breakpoint 2026 schedule is coming soon for the London conference.",
-};
 
 export async function generateMetadata({
   params,
@@ -15,14 +9,16 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  return getPageMetadata(locale, pageMetadata);
+  const t = await getTranslations({ locale, namespace: "breakpoint.pages" });
+  return getPageMetadata(locale, {
+    path: "/schedule",
+    title: t("schedule.title"),
+    description: t("schedule.metadataDescription"),
+  });
 }
 
-export default function LocaleSchedulePage() {
-  return (
-    <ComingSoonPage
-      title="Schedule"
-      description="The Breakpoint 2026 schedule is coming soon. In the meantime, plan your trip, explore community side events, and reserve your ticket."
-    />
-  );
+export default async function LocaleSchedulePage() {
+  const t = await getTranslations("breakpoint.pages.schedule");
+
+  return <ComingSoonPage title={t("title")} description={t("description")} />;
 }

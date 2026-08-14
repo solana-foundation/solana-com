@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchTweet, type Tweet } from "react-tweet/api";
+import { isTweetId } from "@/lib/tweet-id";
 
 const ONE_MONTH_SECONDS = 60 * 60 * 24 * 30;
 
@@ -50,6 +51,10 @@ export async function GET(
       "Cache-Control": `public, max-age=0, s-maxage=${ONE_MONTH_SECONDS}, stale-while-revalidate=${ONE_MONTH_SECONDS}`,
     },
   };
+
+  if (!isTweetId(id)) {
+    return NextResponse.json({ error: "Invalid tweet ID" }, { status: 400 });
+  }
 
   try {
     const { data } = await fetchTweet(id);

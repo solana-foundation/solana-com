@@ -33,12 +33,6 @@ declare global {
   }
 }
 
-const NAV_ITEMS = [
-  { label: "Travel", href: "/travel" },
-  { label: "Sponsors", href: "/sponsors" },
-  { label: "FAQ", href: "/faq" },
-] as const;
-
 type NavigationProps = {
   ctaAlwaysVisible?: boolean;
   ctaHref?: string;
@@ -142,6 +136,11 @@ export default function Navigation({
   const [isGlitching, setIsGlitching] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const navItems = [
+    { label: t("navigation.travel"), href: "/travel" },
+    { label: t("navigation.sponsors"), href: "/sponsors" },
+    { label: t("navigation.faq"), href: "/faq" },
+  ];
 
   const clearGlitchTimeout = useCallback(() => {
     if (glitchTimeoutRef.current != null) {
@@ -295,6 +294,7 @@ export default function Navigation({
         style={{ cursor: showCta ? "pointer" : undefined }}
         {...(isLumaCheckoutCta
           ? {
+              ...getAnchorLinkProps({ href: resolvedCtaHref }),
               "data-luma-action": "checkout",
               "data-luma-event-id": BREAKPOINT_LUMA_EVENT_ID,
             }
@@ -353,7 +353,7 @@ export default function Navigation({
 
       <nav
         ref={navRef}
-        aria-label="Primary"
+        aria-label={t("navigation.primary")}
         className={`left-1/2 z-40 flex -translate-x-1/2 flex-col items-start overflow-visible transition-[width,transform,opacity] duration-300 ease-out ${navPositionClass} ${navWidthClass}`}
         style={{ top: `${STICKY_OFFSET_PX}px` }}
       >
@@ -363,7 +363,7 @@ export default function Navigation({
           <Link
             href={breakpointHref("/")}
             className={`flex shrink-0 items-center ${logoSizeClasses}`}
-            aria-label="Breakpoint 2026"
+            aria-label={t("navigation.siteLabel")}
             onClick={closeMenu}
           >
             <img
@@ -402,7 +402,11 @@ export default function Navigation({
                 <button
                   type="button"
                   onClick={() => setMenuOpen((open) => !open)}
-                  aria-label={menuOpen ? "Close menu" : "Open menu"}
+                  aria-label={
+                    menuOpen
+                      ? t("navigation.closeMenu")
+                      : t("navigation.openMenu")
+                  }
                   aria-controls="breakpoint-navigation-menu"
                   aria-expanded={menuOpen}
                   className={`relative flex size-8 shrink-0 cursor-pointer items-center justify-center overflow-visible text-white transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white ${
@@ -424,7 +428,7 @@ export default function Navigation({
             id="breakpoint-navigation-menu"
             className="flex w-full flex-col items-start gap-4 bg-black p-4 shadow-[inset_0_1px_0_0_var(--color-stroke-primary)] md:px-6 md:py-5"
           >
-            {NAV_ITEMS.map((item, index) => {
+            {navItems.map((item, index) => {
               const isCurrent = isCurrentBreakpointHref(pathname, item.href);
               return (
                 <div key={item.href} className="contents">
@@ -434,7 +438,7 @@ export default function Navigation({
                     label={item.label}
                     onNavigate={closeMenu}
                   />
-                  {index < NAV_ITEMS.length - 1 && (
+                  {index < navItems.length - 1 && (
                     <div className="relative h-0 w-full before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-neutral-700" />
                   )}
                 </div>

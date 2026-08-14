@@ -827,6 +827,7 @@ export default {
     { source: "/developers/ai", destination: "/solutions/ai" },
     { source: "/ai", destination: "/solutions/ai" },
     { source: "/developer", destination: "/developers" },
+    { source: "/universities/:path*", destination: "/developers" },
     { source: "/token22", destination: "/solutions/token-extensions" },
     {
       source: "/solutions/token22",

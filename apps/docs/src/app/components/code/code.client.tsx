@@ -82,6 +82,9 @@ export function MultiCode({
     <RunnableLayout
       code={current.code}
       language={current.lang}
+      title={current.title}
+      output={current.output}
+      runner={group.runner}
       key={current.title}
       className={"my-4"}
     >
