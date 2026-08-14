@@ -75,6 +75,10 @@ type TokenTopic = {
 
 type EntryRoute = "new" | "ethereum";
 
+type UseCaseId = "payments" | "tokenization" | "trading";
+
+type UseCaseRoute = "full" | UseCaseId;
+
 type RoadmapGoal = "build" | "developer" | "understand" | "work" | "reference";
 
 type RoadmapFocus =
@@ -108,8 +112,21 @@ type PersonalizationProfile = {
 type StoredProgress = {
   completedIds: string[];
   entryRoute: EntryRoute;
+  useCaseRoute: UseCaseRoute;
   assessmentPassed: boolean;
   personalization: PersonalizationProfile | null;
+};
+
+type UseCasePath = {
+  id: UseCaseId;
+  code: string;
+  emoji: string;
+  title: string;
+  shortTitle: string;
+  description: string;
+  outcome: string;
+  stepIds: string[];
+  phaseLabels: Record<CoreStep["phase"], string>;
 };
 
 type MultipleChoiceQuestion = {
@@ -1522,6 +1539,419 @@ const PRODUCT_BRANCHES: Branch[] = [
   },
 ];
 
+const USE_CASE_STEPS: CoreStep[] = [
+  {
+    id: "payments-flow",
+    number: "P6",
+    phase: "Learn",
+    title: "Design the payment flow",
+    description:
+      "Choose the asset, sender experience, fee payer, recipient model, references, and confirmation policy before writing integration code.",
+    resources: [
+      {
+        label: "How payments work",
+        href: "/docs/payments/how-payments-work",
+        type: "Read",
+      },
+      {
+        label: "Send payments",
+        href: "/docs/payments/send-payments",
+        type: "Build",
+      },
+      {
+        label: "Accept payments",
+        href: "/docs/payments/accept-payments",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "You can draw the complete money and data flow, including who signs, who pays fees, how the recipient is identified, and how settlement is verified.",
+  },
+  {
+    id: "payments-integration",
+    number: "P8",
+    phase: "Build",
+    title: "Build one complete payment journey",
+    description:
+      "Implement a checkout, payout, subscription, or paid API from request through confirmation and reconciliation.",
+    resources: [
+      {
+        label: "Payments quickstart",
+        href: "/docs/payments/quickstart",
+        type: "Build",
+      },
+      {
+        label: "Payment verification tools",
+        href: "/docs/payments/accept-payments/verification-tools",
+        type: "Build",
+      },
+      {
+        label: "Agentic payments",
+        href: "/docs/payments/agentic-payments",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "A user or agent can initiate a payment, recover from an expected failure, and see a verified receipt tied to your application record.",
+  },
+  {
+    id: "payments-production",
+    number: "P11",
+    phase: "Ship",
+    title: "Operate payments reliably",
+    description:
+      "Harden confirmation, retries, indexing, key custody, fee handling, monitoring, and reconciliation before moving real value.",
+    resources: [
+      {
+        label: "Payment production readiness",
+        href: "/docs/payments/production-readiness",
+        type: "Read",
+      },
+      {
+        label: "Index accepted payments",
+        href: "/docs/payments/accept-payments/indexing",
+        type: "Build",
+      },
+      {
+        label: "Transaction signing in production",
+        href: "/docs/core/transactions/signing-in-production",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "Your payment service has idempotent processing, reconciliation, alerts, controlled signing, and a tested recovery path.",
+  },
+  {
+    id: "tokenization-design",
+    number: "T7",
+    phase: "Learn",
+    title: "Model the asset and its controls",
+    description:
+      "Define what the token represents, who may issue, hold, transfer, pause, freeze, or update it, and which controls belong onchain.",
+    resources: [
+      {
+        label: "Asset issuance and tokenization",
+        href: "/docs/tokenization",
+        type: "Read",
+      },
+      {
+        label: "Token Extensions",
+        href: "/docs/tokens/extensions",
+        type: "Read",
+      },
+      {
+        label: "Token access control",
+        href: "/docs/tokenization/token-acl",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "You have an authority matrix and can explain why each selected extension is necessary before the mint is initialized.",
+  },
+  {
+    id: "tokenization-issue",
+    number: "T9",
+    phase: "Build",
+    title: "Issue and control the asset",
+    description:
+      "Launch a Token-2022 mint, create holder accounts, issue supply, and exercise the controls your operating model requires.",
+    resources: [
+      {
+        label: "Launch a token",
+        href: "/docs/tokenization/quickstart",
+        type: "Build",
+      },
+      {
+        label: "Create a mint",
+        href: "/docs/tokens/basics/create-mint",
+        type: "Build",
+      },
+      {
+        label: "Set authority",
+        href: "/docs/tokens/basics/set-authority",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "The asset exists on a test network, its metadata and authorities are correct, and expected and forbidden transfers behave as designed.",
+  },
+  {
+    id: "tokenization-settlement",
+    number: "T10",
+    phase: "Build",
+    title: "Add issuance, redemption, and settlement",
+    description:
+      "Connect the token to the offchain asset lifecycle and make delivery, payment, and record updates explicit and auditable.",
+    resources: [
+      {
+        label: "Delivery versus payment",
+        href: "/docs/tokenization/dvp",
+        type: "Build",
+      },
+      {
+        label: "NAV strikes",
+        href: "/docs/tokenization/nav-strikes",
+        type: "Read",
+      },
+      {
+        label: "Real-world assets application",
+        href: "/developers/bootcamp/fullstack-apps/real-world-assets",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "Issuance, redemption, and settlement each have a defined authority, atomic boundary, source record, and recovery procedure.",
+  },
+  {
+    id: "tokenization-operations",
+    number: "T11",
+    phase: "Ship",
+    title: "Run the asset through its lifecycle",
+    description:
+      "Prepare authority custody, compliance operations, supply reconciliation, monitoring, incident response, and controlled upgrades.",
+    resources: [
+      {
+        label: "Token access control",
+        href: "/docs/tokenization/token-acl",
+        type: "Read",
+      },
+      {
+        label: "Transaction signing in production",
+        href: "/docs/core/transactions/signing-in-production",
+        type: "Read",
+      },
+      {
+        label: "Production readiness",
+        href: "/docs/payments/production-readiness",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "Authorities are held under policy, supply reconciles to source records, alerts cover critical events, and operators can pause or recover safely.",
+  },
+  {
+    id: "trading-markets",
+    number: "R6",
+    phase: "Learn",
+    title: "Understand quotes, routes, and execution",
+    description:
+      "Learn how token amounts, liquidity, price impact, slippage, routes, and transaction landing affect a trading strategy.",
+    resources: [
+      {
+        label: "Markets and trading",
+        href: "/docs/defi",
+        type: "Read",
+      },
+      {
+        label: "Transactions",
+        href: "/docs/core/transactions",
+        type: "Read",
+      },
+      {
+        label: "Solana terminology",
+        href: "/docs/references/terminology",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "You can explain the difference between a quote and an execution, calculate price impact and slippage limits, and identify every signer.",
+  },
+  {
+    id: "trading-api",
+    number: "R7",
+    phase: "Build",
+    title: "Connect to a trading API",
+    description:
+      "Start API-first: request a route, inspect the returned transaction, simulate it, sign it, and verify the resulting balances.",
+    resources: [
+      {
+        label: "Jupiter Swap API",
+        href: "https://developers.jup.ag/docs/swap",
+        type: "Build",
+      },
+      {
+        label: "Solana JavaScript client",
+        href: "/docs/clients/official/javascript",
+        type: "Read",
+      },
+      {
+        label: "Simulate a transaction",
+        href: "/docs/rpc/http/simulatetransaction",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "Your script can obtain a quote, reject unsafe parameters, simulate and sign the transaction, and verify the expected token balance changes.",
+  },
+  {
+    id: "trading-loop",
+    number: "R8",
+    phase: "Build",
+    title: "Build the bot loop with guardrails",
+    description:
+      "Separate signal generation from execution, then add position limits, stale-data checks, slippage caps, retries, and a kill switch.",
+    resources: [
+      {
+        label: "Transaction pipeline",
+        href: "/docs/core/transactions/transaction-pipeline",
+        type: "Read",
+      },
+      {
+        label: "WebSocket subscriptions",
+        href: "/docs/rpc/websocket",
+        type: "Build",
+      },
+      {
+        label: "Testing with LiteSVM",
+        href: "https://learn.blueshift.gg/en/courses/testing-with-litesvm/litesvm-101",
+        type: "Build",
+      },
+    ],
+    doneWhen:
+      "The strategy and execution layers can be tested independently, and the bot refuses stale, oversized, or unexpectedly expensive trades.",
+  },
+  {
+    id: "trading-production",
+    number: "R10",
+    phase: "Ship",
+    title: "Land and monitor trades in production",
+    description:
+      "Plan transaction landing, priority fees, MEV protection, RPC failover, key custody, observability, and automated shutdown conditions.",
+    resources: [
+      {
+        label: "MEV protection",
+        href: "/docs/defi/mev-protection",
+        type: "Read",
+      },
+      {
+        label: "Compute budget and priority fees",
+        href: "/docs/core/fees/compute-budget",
+        type: "Read",
+      },
+      {
+        label: "Transaction signing in production",
+        href: "/docs/core/transactions/signing-in-production",
+        type: "Read",
+      },
+    ],
+    doneWhen:
+      "The bot has bounded keys and positions, redundant infrastructure, execution-quality metrics, alerts, and an exercised kill switch.",
+  },
+];
+
+const USE_CASE_PATHS: UseCasePath[] = [
+  {
+    id: "payments",
+    code: "P",
+    emoji: "💸",
+    title: "Accept or send payments",
+    shortTitle: "Payments",
+    description:
+      "Build checkout, payouts, subscriptions, or agentic payment flows without requiring a custom program.",
+    outcome:
+      "You are ready to ship a payment integration with verified settlement and a production operating plan.",
+    stepIds: [
+      "mental-model",
+      "network-wallets",
+      "transactions",
+      "signing-wallets",
+      "tokens",
+      "payments-flow",
+      "clients-rpc",
+      "payments-integration",
+      "transaction-ux",
+      "index-data",
+      "payments-production",
+    ],
+    phaseLabels: {
+      "Get ready": "Phase 1 · Payment foundations",
+      Learn: "Phase 2 · Assets, signing, and settlement",
+      Build: "Phase 3 · Build the payment journey",
+      Ship: "Phase 4 · Reconcile and operate",
+    },
+  },
+  {
+    id: "tokenization",
+    code: "T",
+    emoji: "🪙",
+    title: "Create or tokenize an asset",
+    shortTitle: "Tokenization",
+    description:
+      "Issue a token or real-world asset, choose its controls, and plan issuance, settlement, and operations.",
+    outcome:
+      "You are ready to issue a controlled asset and operate its full lifecycle from minting through settlement.",
+    stepIds: [
+      "mental-model",
+      "network-wallets",
+      "accounts-programs",
+      "transactions",
+      "signing-wallets",
+      "tokens",
+      "tokenization-design",
+      "clients-rpc",
+      "tokenization-issue",
+      "tokenization-settlement",
+      "tokenization-operations",
+    ],
+    phaseLabels: {
+      "Get ready": "Phase 1 · Asset foundations",
+      Learn: "Phase 2 · Tokens, controls, and authority",
+      Build: "Phase 3 · Issue and settle the asset",
+      Ship: "Phase 4 · Govern and operate",
+    },
+  },
+  {
+    id: "trading",
+    code: "R",
+    emoji: "📈",
+    title: "Build a trading bot",
+    shortTitle: "Trading bot",
+    description:
+      "Use market and swap APIs to quote, simulate, execute, and monitor trades—no onchain program required.",
+    outcome:
+      "You are ready to run an API-driven trading bot with bounded risk, observable execution, and a kill switch.",
+    stepIds: [
+      "mental-model",
+      "network-wallets",
+      "transactions",
+      "signing-wallets",
+      "clients-rpc",
+      "trading-markets",
+      "trading-api",
+      "trading-loop",
+      "index-data",
+      "trading-production",
+    ],
+    phaseLabels: {
+      "Get ready": "Phase 1 · Network foundations",
+      Learn: "Phase 2 · Quotes, routes, and execution",
+      Build: "Phase 3 · Build and test the bot",
+      Ship: "Phase 4 · Land, monitor, and limit risk",
+    },
+  },
+];
+
+const ALL_ROADMAP_STEPS = [...CORE_STEPS, ...USE_CASE_STEPS];
+const ROADMAP_STEP_BY_ID = new Map(
+  ALL_ROADMAP_STEPS.map((step) => [step.id, step]),
+);
+const USE_CASE_PATH_BY_ID = new Map(
+  USE_CASE_PATHS.map((path) => [path.id, path]),
+);
+
+function stepsForUseCase(path: UseCasePath) {
+  return path.stepIds.map((stepId, index) => {
+    const step = ROADMAP_STEP_BY_ID.get(stepId);
+    if (!step) throw new Error(`Unknown roadmap step: ${stepId}`);
+
+    return { ...step, number: `${path.code}${index + 1}` };
+  });
+}
+
+function isUseCaseRoute(value: unknown): value is UseCaseRoute {
+  return value === "full" || USE_CASE_PATHS.some((path) => path.id === value);
+}
+
 const INTRO_STEP = CORE_STEPS[0];
 const ETHEREUM_SKIPPED_STEP_IDS = new Set([
   "accounts-programs",
@@ -1729,6 +2159,7 @@ function readProgress(): StoredProgress {
   const emptyProgress: StoredProgress = {
     completedIds: [],
     entryRoute: "new",
+    useCaseRoute: "full",
     assessmentPassed: false,
     personalization: null,
   };
@@ -1744,7 +2175,7 @@ function readProgress(): StoredProgress {
   try {
     const parsed = JSON.parse(value) as Partial<StoredProgress>;
     const validIds = new Set([
-      ...CORE_STEPS.map((step) => step.id),
+      ...ALL_ROADMAP_STEPS.map((step) => step.id),
       ETHEREUM_STEP.id,
       ...PRODUCT_BRANCHES.map((branch) => branch.id),
       ...TOKEN_TOPICS.map((topic) => topic.id),
@@ -1758,6 +2189,9 @@ function readProgress(): StoredProgress {
           )
         : [],
       entryRoute: parsed.entryRoute === "ethereum" ? "ethereum" : "new",
+      useCaseRoute: isUseCaseRoute(parsed.useCaseRoute)
+        ? parsed.useCaseRoute
+        : "full",
       assessmentPassed: parsed.assessmentPassed === true,
       personalization: isPersonalizationProfile(parsed.personalization)
         ? parsed.personalization
@@ -2466,6 +2900,7 @@ function IntermediateQuiz({
 export function ConceptsRoadmap() {
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [entryRoute, setEntryRoute] = useState<EntryRoute>("new");
+  const [useCaseRoute, setUseCaseRoute] = useState<UseCaseRoute>("full");
   const [assessmentPassed, setAssessmentPassed] = useState(false);
   const [personalization, setPersonalization] =
     useState<PersonalizationProfile | null>(null);
@@ -2480,6 +2915,7 @@ export function ConceptsRoadmap() {
     const progress = readProgress();
     setCompletedIds(progress.completedIds);
     setEntryRoute(progress.entryRoute);
+    setUseCaseRoute(progress.useCaseRoute);
     setAssessmentPassed(progress.assessmentPassed);
     setPersonalization(progress.personalization);
     if (progress.personalization) setRoadmapView("personalized");
@@ -2494,8 +2930,18 @@ export function ConceptsRoadmap() {
       : "new"
     : entryRoute;
   const isEthereumPath = activeEntryRoute === "ethereum";
-  const matchingCoreSteps = CORE_STEPS.filter((step) =>
-    stepMatchesProfile(step, activePersonalization),
+  const activeUseCasePath =
+    useCaseRoute === "full"
+      ? null
+      : (USE_CASE_PATH_BY_ID.get(useCaseRoute) ?? null);
+  const journeySteps = activeUseCasePath
+    ? stepsForUseCase(activeUseCasePath)
+    : CORE_STEPS;
+  const matchingCoreSteps = journeySteps.filter((step) =>
+    activeUseCasePath
+      ? !activePersonalization ||
+        !step.hideFor?.includes(activePersonalization.startingPoint)
+      : stepMatchesProfile(step, activePersonalization),
   );
   const visibleCoreSteps = matchingCoreSteps
     .filter(
@@ -2528,14 +2974,16 @@ export function ConceptsRoadmap() {
         ...visibleCoreSteps.filter((step) => step.id !== INTRO_STEP.id),
       ]
     : visibleCoreSteps;
-  const visibleBranches = PRODUCT_BRANCHES.filter(
-    (branch) =>
-      !activePersonalization ||
-      branch.focuses.includes(activePersonalization.focus),
-  ).map((branch) => ({
-    ...branch,
-    resources: resourcesForProfile(branch.resources, activePersonalization),
-  }));
+  const visibleBranches = activeUseCasePath
+    ? []
+    : PRODUCT_BRANCHES.filter(
+        (branch) =>
+          !activePersonalization ||
+          branch.focuses.includes(activePersonalization.focus),
+      ).map((branch) => ({
+        ...branch,
+        resources: resourcesForProfile(branch.resources, activePersonalization),
+      }));
   const requiredCompletedCount = requiredSteps.filter((step) =>
     completedSet.has(step.id),
   ).length;
@@ -2551,6 +2999,7 @@ export function ConceptsRoadmap() {
     nextRoute = entryRoute,
     nextAssessmentPassed = assessmentPassed,
     nextPersonalization = personalization,
+    nextUseCaseRoute = useCaseRoute,
   ) => {
     safeStorageSetItem(
       getBrowserStorage("localStorage"),
@@ -2558,6 +3007,7 @@ export function ConceptsRoadmap() {
       JSON.stringify({
         completedIds: nextIds,
         entryRoute: nextRoute,
+        useCaseRoute: nextUseCaseRoute,
         assessmentPassed: nextAssessmentPassed,
         personalization: nextPersonalization,
       } satisfies StoredProgress),
@@ -2604,6 +3054,17 @@ export function ConceptsRoadmap() {
   const selectEntryRoute = (nextRoute: EntryRoute) => {
     setEntryRoute(nextRoute);
     writeProgress(completedIds, nextRoute);
+  };
+
+  const selectUseCaseRoute = (nextRoute: UseCaseRoute) => {
+    setUseCaseRoute(nextRoute);
+    writeProgress(
+      completedIds,
+      entryRoute,
+      assessmentPassed,
+      personalization,
+      nextRoute,
+    );
   };
 
   const passAssessment = () => {
@@ -2802,6 +3263,75 @@ export function ConceptsRoadmap() {
 
         {visibleIntroStep ? renderStep(visibleIntroStep, "left") : null}
 
+        <section
+          className={`${styles.useCaseFork} ${
+            activeUseCasePath ? styles.useCaseForkActive : ""
+          }`}
+          aria-labelledby="use-case-path-title"
+        >
+          <article>
+            <header>
+              <span>
+                <GitBranch aria-hidden="true" size={14} />
+                Use-case path
+              </span>
+              {activeUseCasePath ? (
+                <small>{activeUseCasePath.shortTitle} active</small>
+              ) : null}
+            </header>
+            <h3 id="use-case-path-title">What do you want to build?</h3>
+            <p>
+              Choose an outcome to replace the path below. You will keep the
+              foundations you need and skip custom program work you do not.
+            </p>
+            <div
+              className={styles.useCaseOptions}
+              role="radiogroup"
+              aria-label="Choose a use-case learning path"
+            >
+              {USE_CASE_PATHS.map((path) => {
+                const selected = useCaseRoute === path.id;
+                return (
+                  <button
+                    key={path.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className={selected ? styles.useCaseOptionActive : ""}
+                    onClick={() => selectUseCaseRoute(path.id)}
+                  >
+                    <span aria-hidden="true">{path.emoji}</span>
+                    <span>
+                      <strong>{path.title}</strong>
+                      <small>{path.description}</small>
+                    </span>
+                    {selected ? (
+                      <Check aria-hidden="true" size={14} strokeWidth={2.8} />
+                    ) : (
+                      <ChevronRight aria-hidden="true" size={14} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <footer>
+              <span>
+                {activeUseCasePath
+                  ? `${requiredSteps.length} focused stops`
+                  : "Full learning journey active"}
+              </span>
+              {activeUseCasePath ? (
+                <button
+                  type="button"
+                  onClick={() => selectUseCaseRoute("full")}
+                >
+                  Show full roadmap
+                </button>
+              ) : null}
+            </footer>
+          </article>
+        </section>
+
         {!activePersonalization ||
         activePersonalization.startingPoint === "ethereum" ? (
           <section
@@ -2887,7 +3417,10 @@ export function ConceptsRoadmap() {
         {phaseOneSteps.length > 0 ? (
           <>
             <div className={styles.phaseLabel}>
-              <span>Phase 1 · Tooling and first program</span>
+              <span>
+                {activeUseCasePath?.phaseLabels["Get ready"] ??
+                  "Phase 1 · Tooling and first program"}
+              </span>
             </div>
             {phaseOneSteps.map((step, index) =>
               renderStep(step, index % 2 === 0 ? "right" : "left"),
@@ -2898,7 +3431,10 @@ export function ConceptsRoadmap() {
         {phaseTwoSteps.length > 0 ? (
           <>
             <div className={styles.phaseLabel}>
-              <span>Phase 2 · Runtime and core primitives</span>
+              <span>
+                {activeUseCasePath?.phaseLabels.Learn ??
+                  "Phase 2 · Runtime and core primitives"}
+              </span>
             </div>
             {phaseTwoSteps.map((step, index) =>
               renderStep(step, index % 2 === 0 ? "left" : "right"),
@@ -2909,7 +3445,10 @@ export function ConceptsRoadmap() {
         {phaseThreeSteps.length > 0 ? (
           <>
             <div className={styles.phaseLabel}>
-              <span>Phase 3 · Build beyond the basics</span>
+              <span>
+                {activeUseCasePath?.phaseLabels.Build ??
+                  "Phase 3 · Build beyond the basics"}
+              </span>
             </div>
             {phaseThreeSteps.map((step, index) =>
               renderStep(step, index % 2 === 0 ? "right" : "left"),
@@ -2917,34 +3456,50 @@ export function ConceptsRoadmap() {
           </>
         ) : null}
 
-        <div
-          className={`${styles.levelMilestone} ${
-            reachedIntermediate ? styles.levelMilestoneReached : ""
-          } ${assessmentPassed ? styles.levelMilestonePassed : ""}`}
-        >
-          <span className={styles.levelIcon}>
-            <Trophy aria-hidden="true" size={19} />
-            {assessmentPassed ? (
-              <span className={styles.trophyCheck}>
-                <Check aria-hidden="true" size={11} strokeWidth={3} />
-              </span>
+        {activeUseCasePath ? (
+          <div
+            className={`${styles.levelMilestone} ${styles.useCaseMilestone} ${
+              reachedIntermediate ? styles.levelMilestoneReached : ""
+            }`}
+          >
+            <span className={styles.levelIcon}>
+              <CheckCircle2 aria-hidden="true" size={19} />
+            </span>
+            <span className={styles.levelCopy}>
+              <small>{activeUseCasePath.shortTitle} milestone</small>
+              <strong>{activeUseCasePath.outcome}</strong>
+            </span>
+          </div>
+        ) : (
+          <div
+            className={`${styles.levelMilestone} ${
+              reachedIntermediate ? styles.levelMilestoneReached : ""
+            } ${assessmentPassed ? styles.levelMilestonePassed : ""}`}
+          >
+            <span className={styles.levelIcon}>
+              <Trophy aria-hidden="true" size={19} />
+              {assessmentPassed ? (
+                <span className={styles.trophyCheck}>
+                  <Check aria-hidden="true" size={11} strokeWidth={3} />
+                </span>
+              ) : null}
+            </span>
+            <span className={styles.levelCopy}>
+              <small>Milestone</small>
+              <strong>You&apos;ve reached intermediate level</strong>
+            </span>
+            {reachedIntermediate || assessmentPassed ? (
+              <button
+                type="button"
+                className={styles.assessmentButton}
+                onClick={() => setIsQuizOpen(true)}
+              >
+                {assessmentPassed ? "Retake test" : "Test me"}
+                <ChevronRight aria-hidden="true" size={14} />
+              </button>
             ) : null}
-          </span>
-          <span className={styles.levelCopy}>
-            <small>Milestone</small>
-            <strong>You&apos;ve reached intermediate level</strong>
-          </span>
-          {reachedIntermediate || assessmentPassed ? (
-            <button
-              type="button"
-              className={styles.assessmentButton}
-              onClick={() => setIsQuizOpen(true)}
-            >
-              {assessmentPassed ? "Retake test" : "Test me"}
-              <ChevronRight aria-hidden="true" size={14} />
-            </button>
-          ) : null}
-        </div>
+          </div>
+        )}
 
         {visibleBranches.length > 0 ? (
           <section
@@ -3004,7 +3559,10 @@ export function ConceptsRoadmap() {
         {phaseFourSteps.length > 0 ? (
           <>
             <div className={styles.phaseLabel}>
-              <span>Phase 4 · Secure, deploy, and operate</span>
+              <span>
+                {activeUseCasePath?.phaseLabels.Ship ??
+                  "Phase 4 · Secure, deploy, and operate"}
+              </span>
             </div>
             {phaseFourSteps.map((step, index) =>
               renderStep(step, index % 2 === 0 ? "left" : "right"),
@@ -3015,8 +3573,12 @@ export function ConceptsRoadmap() {
         <div className={styles.coreFinish}>
           <ShieldCheck aria-hidden="true" size={18} />
           {requiredCompletedCount === requiredSteps.length
-            ? "Roadmap complete"
-            : "Complete the required steps to finish"}
+            ? activeUseCasePath
+              ? `${activeUseCasePath.shortTitle} path complete`
+              : "Roadmap complete"
+            : activeUseCasePath
+              ? `Complete the ${activeUseCasePath.shortTitle.toLowerCase()} stops to finish`
+              : "Complete the required steps to finish"}
         </div>
       </div>
 
@@ -3025,9 +3587,11 @@ export function ConceptsRoadmap() {
         complete on the{" "}
         {activePersonalization
           ? "personalized"
-          : isEthereumPath
-            ? "Ethereum shortcut"
-            : "full"}{" "}
+          : activeUseCasePath
+            ? activeUseCasePath.shortTitle
+            : isEthereumPath
+              ? "Ethereum shortcut"
+              : "full"}{" "}
         path.
       </p>
 
