@@ -1,6 +1,6 @@
 "use client";
 
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import YoutubeIcon from "./assets/youtube.inline.svg";
 import TwitterIcon from "./assets/twitter.inline.svg";
 import DiscordIcon from "./assets/discord.inline.svg";
@@ -79,7 +79,6 @@ const FOOTER_COLUMNS: FooterColumnConfig[] = [
     links: [
       { labelKey: "footer.build.developers", href: "/developers" },
       { labelKey: "footer.build.docs", href: "/docs" },
-      { labelKey: "footer.build.guides", href: "/developers/guides" },
       { labelKey: "footer.build.templates", href: "/developers/templates" },
     ],
   },

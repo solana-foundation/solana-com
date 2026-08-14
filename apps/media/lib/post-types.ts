@@ -21,7 +21,7 @@ export type PostItem = {
   cursor?: string;
 };
 
-// PageInfo type for pagination (replaces TinaCMS PageInfo)
+// PageInfo type for pagination
 export type PageInfo = {
   hasPreviousPage: boolean;
   hasNextPage: boolean;

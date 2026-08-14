@@ -1,0 +1,252 @@
+---
+title: 配置
+description: 用于在 Go 中配置 LiteSVM 的 Setter 方法
+---
+
+每个 setter 都对应 Rust `LiteSVM` 类型上的同名构建器方法。
+调用立即生效并返回 `error`。
+
+## 典型测试配置
+
+```go
+svm, err := litesvm.New()
+if err != nil {
+    t.Fatal(err)
+}
+defer svm.Close()
+
+// Each setter returns an error. The calls below are infallible in practice,
+// so the docs use _ = ... for brevity; check the error in production code.
+_ = svm.SetSigverify(false)        // skip signature verification (faster)
+_ = svm.SetBlockhashCheck(false)   // skip blockhash validation (simpler)
+_ = svm.SetSysvars()               // reset Clock, Rent, etc. to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetTransactionHistory(100) // keep the last 100 transactions
+```
+
+## 签名与区块哈希
+
+### SetSigverify
+
+```go
+func (s *LiteSVM) SetSigverify(enabled bool) error
+```
+
+切换交易签名验证。
+
+```go
+if err := svm.SetSigverify(false); err != nil { // accept unsigned / badly-signed txs
+    t.Fatal(err)
+}
+if err := svm.SetSigverify(true); err != nil {  // restore production-like behavior
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  禁用签名验证可使测试更快，但真实性有所降低。
+</Callout>
+
+### Sigverify
+
+```go
+func (s *LiteSVM) Sigverify() (bool, error)
+```
+
+读取当前设置。
+
+### SetBlockhashCheck
+
+```go
+func (s *LiteSVM) SetBlockhashCheck(enabled bool) error
+```
+
+切换已提交交易的最近区块哈希检查。
+
+```go
+if err := svm.SetBlockhashCheck(false); err != nil { // accept any blockhash
+    t.Fatal(err)
+}
+```
+
+## 程序与系统变量
+
+### SetSysvars
+
+```go
+func (s *LiteSVM) SetSysvars() error
+```
+
+将内置系统变量（Clock、rent、EpochSchedule 等）重新初始化为默认值。
+
+### SetBuiltins
+
+```go
+func (s *LiteSVM) SetBuiltins() error
+```
+
+加载默认的内置程序集。
+
+### SetDefaultPrograms
+
+```go
+func (s *LiteSVM) SetDefaultPrograms() error
+```
+
+加载标准 SPL 程序（System Program、SPL Token、Memo 等）。
+
+### SetPrecompiles
+
+```go
+func (s *LiteSVM) SetPrecompiles() error
+```
+
+启用 ed25519 / secp256k1 预编译程序。
+
+### WithNativeMints
+
+```go
+func (s *LiteSVM) WithNativeMints() error
+```
+
+以 seed 方式初始化 SPL Token / Token-2022 原生铸币账户（wrapped SOL）。若对应程序未加载则为空操作；如需同时启用两者，请先调用 `SetDefaultPrograms`。
+
+## 资源限制
+
+### SetLamports
+
+```go
+func (s *LiteSVM) SetLamports(lamports uint64) error
+```
+
+设置内部空投池账户的默认 lamport 余额。
+
+```go
+if err := svm.SetLamports(1 << 40); err != nil { // ~1.1 trillion lamports (~1,100 SOL)
+    t.Fatal(err)
+}
+```
+
+### SetLogBytesLimit
+
+```go
+func (s *LiteSVM) SetLogBytesLimit(limit int) error
+```
+
+限制每笔交易捕获的总日志字节数。传入负值可取消该限制。
+
+```go
+if err := svm.SetLogBytesLimit(10_000); err != nil { // 10 KB cap
+    t.Fatal(err)
+}
+if err := svm.SetLogBytesLimit(-1); err != nil {     // unlimited
+    t.Fatal(err)
+}
+```
+
+### SetTransactionHistory
+
+```go
+func (s *LiteSVM) SetTransactionHistory(capacity int) error
+```
+
+设置内存中交易历史的容量。传入 `0` 可禁用去重并允许重放相同的交易。
+
+```go
+if err := svm.SetTransactionHistory(100); err != nil { // cap at 100 entries
+    t.Fatal(err)
+}
+if err := svm.SetTransactionHistory(0); err != nil {   // disable dedup entirely
+    t.Fatal(err)
+}
+```
+
+## 计算预算
+
+```go
+type ComputeBudget struct {
+    // See litesvm-go/litesvm.go for the full field list.
+    // usize fields are normalized to uint64; HeapSize stays uint32.
+    ComputeUnitLimit uint64
+    HeapSize         uint32
+    // ...
+}
+```
+
+### ComputeBudget
+
+```go
+func (s *LiteSVM) ComputeBudget() (ComputeBudget, bool, error)
+```
+
+读取当前计算预算。第二个返回值表示是否已显式设置预算；若为 `false`，则结构体包含将使用的默认值。
+
+```go
+budget, set, err := svm.ComputeBudget()
+if err != nil {
+    t.Fatal(err)
+}
+if !set {
+    budget.ComputeUnitLimit = 1_400_000
+}
+if err := svm.SetComputeBudget(budget); err != nil {
+    t.Fatal(err)
+}
+```
+
+### SetComputeBudget
+
+```go
+func (s *LiteSVM) SetComputeBudget(b ComputeBudget) error
+```
+
+为后续交易安装计算预算。
+
+## 功能集
+
+`FeatureSet` 是一个不透明句柄——构造后使用 `Activate` / `Deactivate` 进行修改，再通过 `SetFeatureSet` 安装。请关闭您创建的句柄。
+
+```go
+// Start with all features off, then activate what you care about.
+fs, err := litesvm.NewFeatureSet()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs.Close()
+if err := fs.Activate(featureID, 0); err != nil {
+    t.Fatal(err)
+}
+
+// Or start from "everything enabled" and flip specific features off.
+fs2, err := litesvm.NewFeatureSetAllEnabled()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs2.Close()
+if err := fs2.Deactivate(featureID); err != nil {
+    t.Fatal(err)
+}
+
+if err := svm.SetFeatureSet(fs); err != nil {
+    t.Fatal(err)
+}
+```
+
+| 方法                                                   | 描述                       |
+| -------------------------------------------------------- | --------------------------------- |
+| `litesvm.NewFeatureSet() (*FeatureSet, error)`           | 空集（所有功能未激活） |
+| `litesvm.NewFeatureSetAllEnabled() (*FeatureSet, error)` | 所有功能已激活               |
+| `fs.Activate(featureID, slot) error`                     | 在指定 slot 标记功能为激活       |
+| `fs.Deactivate(featureID) error`                         | 标记功能为未激活             |
+| `fs.IsActive(featureID) bool`                            | 检查功能是否激活                      |
+| `fs.ActivatedSlot(featureID) (uint64, bool)`             | 功能被激活时所在的 slot   |
+| `fs.ActiveCount() int`                                   | 已激活功能数量              |
+| `fs.InactiveCount() int`                                 | 未激活功能数量            |
+| `fs.ActiveFeatures() []solana.PublicKey`                 | 列出已激活功能 ID           |
+| `fs.InactiveFeatures() []solana.PublicKey`               | 列出未激活功能 ID         |
+| `fs.Close()`                                             | 释放句柄                |
+| `svm.SetFeatureSet(*FeatureSet) error`                   | 安装到 SVM                |
+
+<Callout type="info">
+  使用功能门控来测试程序在特定 Solana 版本下的行为——激活目标版本随附的功能，然后停用后续版本新增的功能。
+</Callout>

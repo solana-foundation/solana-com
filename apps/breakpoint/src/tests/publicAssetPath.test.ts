@@ -62,7 +62,7 @@ describe("publicAssetPath", () => {
 
   it("leaves non-Breakpoint asset paths unchanged", () => {
     expect(publicAssetPath("/breakpoint")).toBe("/breakpoint");
-    expect(publicAssetPath("/social-card.webp")).toBe("/social-card.webp");
+    expect(publicAssetPath("/social-card.jpg")).toBe("/social-card.jpg");
     expect(publicAssetPath("/breakpoint-assets/assets/home-hero.webp")).toBe(
       "/breakpoint-assets/assets/home-hero.webp",
     );

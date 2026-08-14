@@ -1,21 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import {
-  ArrowUpRight,
-  BookOpen,
-  ExternalLinkIcon,
-  Github,
-  Linkedin,
-  Link2,
-  MessageCircle,
-  Send,
-  Twitter,
-  Youtube,
-} from "lucide-react";
+import { ArrowOutUpRightSquare as ExternalLinkIcon } from "@boxicons/react/ArrowOutUpRightSquare";
+import { BookOpen } from "@boxicons/react/BookOpen";
+import { Github } from "@boxicons/react/Github";
+import { Linkedin } from "@boxicons/react/Linkedin";
+import { Link as Link2 } from "@boxicons/react/Link";
+import { MessageCircle } from "@boxicons/react/MessageCircle";
+import { Send } from "@boxicons/react/Send";
+import { Twitter } from "@boxicons/react/Twitter";
+import { Youtube } from "@boxicons/react/Youtube";
 import {
   Dialog,
   DialogContent,
@@ -153,7 +150,7 @@ function getQuickLinkIcon(label: string, url?: string) {
     case "website":
       return ExternalLinkIcon;
     case "data page":
-      return ArrowUpRight;
+      return ExternalLinkIcon;
     case "github":
       return Github;
     case "linkedin":

@@ -158,7 +158,7 @@ export const SECONDARY_CARD_DECK_CARDS = [
     callToAction: {
       endIcon: "arrow-right",
       hierarchy: "outline",
-      url: "/developers/guides/getstarted/hello-world-in-your-browser",
+      url: "/docs/intro/quick-start",
     },
   },
   {

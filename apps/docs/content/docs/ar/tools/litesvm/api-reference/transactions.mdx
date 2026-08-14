@@ -1,0 +1,277 @@
+---
+title: المعاملات
+description: طرق معالجة المعاملات
+---
+
+## send_transaction
+
+```rust
+pub fn send_transaction(&mut self, tx: impl Into<VersionedTransaction>) -> Result<TransactionMetadata, FailedTransactionMetadata>
+```
+
+تنفيذ المعاملة وتعديل الحالة.
+
+```rust
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+
+match svm.send_transaction(tx) {
+    Ok(meta) => {
+        println!("Success! Signature: {}", meta.signature);
+        println!("Compute units: {}", meta.compute_units_consumed);
+        println!("Fee: {} lamports", meta.fee);
+    }
+    Err(e) => {
+        println!("Failed: {:?}", e.err);
+        println!("Logs: {:?}", e.meta.logs);
+    }
+}
+```
+
+## simulate_transaction
+
+```rust
+pub fn simulate_transaction(&self, tx: impl Into<VersionedTransaction>) -> Result<SimulatedTransactionInfo, FailedTransactionMetadata>
+```
+
+محاكاة المعاملة دون تعديل الحالة.
+
+يُرجع `SimulatedTransactionInfo` الذي يحتوي على:
+
+- `meta`: بيانات المعاملة الوصفية (السجلات، وحدات الحوسبة، التوقيع، إلخ.)
+- `post_accounts`: حالات الحسابات بعد المحاكاة
+
+```rust
+// State before simulation
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate transaction
+let result = svm.simulate_transaction(tx.clone());
+
+// State unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+
+// Check simulation result
+if let Ok(sim_info) = result {
+    println!("Would succeed");
+    println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+    // Can inspect post_accounts to see what would change
+    for (pubkey, account) in sim_info.post_accounts {
+        println!("Account {} would have {} lamports", pubkey, account.lamports());
+    }
+
+    // Safe to send
+    svm.send_transaction(tx).unwrap();
+}
+```
+
+## متى تستخدم المحاكاة
+
+استخدم `simulate_transaction()` من أجل:
+
+- اختبار صحة المعاملة دون تعديل الحالة
+- التحقق من استهلاك وحدات الحوسبة
+- مراجعة سجلات المعاملة دون الالتزام
+- اختبار مسارات معالجة الأخطاء
+
+```rust
+// Test if transaction would succeed
+let result = svm.simulate_transaction(tx.clone());
+
+match result {
+    Ok(sim_info) => {
+        println!("Would succeed");
+        println!("Compute units: {}", sim_info.meta.compute_units_consumed);
+
+        // Now execute for real
+        svm.send_transaction(tx).unwrap();
+    }
+    Err(e) => {
+        println!("Would fail: {:?}", e.err);
+        // Don't send transaction
+    }
+}
+```
+
+## اختبار حالات الأخطاء
+
+```rust
+// Simulate expected failure
+let result = svm.simulate_transaction(invalid_tx);
+assert!(result.is_err());
+
+match result.unwrap_err().err {
+    TransactionError::InsufficientFundsForFee => {
+        println!("Expected error occurred");
+    }
+    _ => panic!("Unexpected error"),
+}
+```
+
+## الحالة تبقى دون تغيير
+
+```rust
+let balance_before = svm.get_balance(&pubkey).unwrap_or(0);
+
+// Simulate multiple times
+for _ in 0..10 {
+    svm.simulate_transaction(tx.clone()).unwrap();
+}
+
+// Balance unchanged
+assert_eq!(svm.get_balance(&pubkey).unwrap_or(0), balance_before);
+```
+
+## بيانات المعاملة الوصفية
+
+يُرجع `send_transaction()` قيمة `TransactionMetadata` مباشرةً، بينما يُرجع
+`simulate_transaction()` قيمة `SimulatedTransactionInfo` التي تحتوي على
+`meta: TransactionMetadata`:
+
+```rust
+pub struct TransactionMetadata {
+    pub signature: Signature,
+    pub logs: Vec<String>,
+    pub inner_instructions: InnerInstructionsList,
+    pub compute_units_consumed: u64,
+    pub return_data: TransactionReturnData,
+    pub fee: u64,
+}
+```
+
+### الوصول إلى بيانات المعاملة
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Signature
+println!("Signature: {}", result.signature);
+
+// Logs
+for log in &result.logs {
+    println!("{}", log);
+}
+
+// Compute units
+println!("CU consumed: {}", result.compute_units_consumed);
+
+// Return data
+if let Some(data) = result.return_data.data {
+    println!("Program returned: {:?}", data);
+}
+
+// Inner instructions (CPIs)
+for inner in &result.inner_instructions {
+    println!("CPI: {:?}", inner);
+}
+
+// Transaction fee paid by fee payer
+println!("Fee paid: {} lamports", result.fee);
+```
+
+## get_transaction
+
+```rust
+pub fn get_transaction(&self, signature: &Signature) -> Option<&TransactionResult>
+```
+
+حيث
+`TransactionResult = Result<TransactionMetadata, FailedTransactionMetadata>`.
+
+استعلام عن معاملة من السجل. يتطلب تعيين `with_transaction_history()`.
+
+```rust
+let mut svm = LiteSVM::default()
+    .with_transaction_history(100);
+
+let result = svm.send_transaction(tx).unwrap();
+let signature = result.signature;
+
+// Query later
+if let Some(tx_result) = svm.get_transaction(&signature) {
+    match tx_result {
+        Ok(meta) => println!("Found: {:?}", meta),
+        Err(e) => println!("Failed: {:?}", e.err),
+    }
+}
+```
+
+## latest_blockhash
+
+```rust
+pub fn latest_blockhash(&self) -> Hash
+```
+
+الحصول على blockhash الحالي للمعاملات.
+
+```rust
+let blockhash = svm.latest_blockhash();
+
+let tx = Transaction::new_signed_with_payer(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &[&payer],
+    blockhash,
+);
+```
+
+## expire_blockhash
+
+```rust
+pub fn expire_blockhash(&mut self)
+```
+
+إجبار blockhash الحالي على الانتهاء.
+
+```rust
+let old_hash = svm.latest_blockhash();
+svm.expire_blockhash();
+let new_hash = svm.latest_blockhash();
+
+assert_ne!(old_hash, new_hash);
+
+// Transactions with old_hash will now fail
+```
+
+## الأنماط الشائعة
+
+### التحقق قبل التنفيذ
+
+```rust
+// Simulate first to check validity
+if svm.simulate_transaction(tx.clone()).is_ok() {
+    // Execute if simulation passes
+    svm.send_transaction(tx).unwrap();
+} else {
+    println!("Transaction would fail, skipping execution");
+}
+```
+
+### تتبع وحدات الحوسبة
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Assert within budget
+assert!(
+    result.compute_units_consumed < 100_000,
+    "Transaction used too many compute units: {}",
+    result.compute_units_consumed
+);
+```
+
+### فحص سجلات المعاملات
+
+```rust
+let result = svm.send_transaction(tx).unwrap();
+
+// Check for specific log messages
+assert!(result.logs.iter().any(|log|
+    log.contains("Transfer successful")
+));
+```

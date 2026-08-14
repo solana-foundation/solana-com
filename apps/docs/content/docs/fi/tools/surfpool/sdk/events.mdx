@@ -1,0 +1,209 @@
+---
+title: Ajonaikaiset tapahtumat
+description:
+  Tarkkaile transaktioita, slot-tikityksiä, tilivirroitusta ja ajonaikaisia
+  virheitä testin sisältä. Rust tarjoaa kanavan; JS tarjoaa drain-metodin.
+---
+
+Surfnet-ajoympäristö lähettää jäsenneltyjen tapahtumien virran, joka kattaa
+transaktiokäsittelyn, slot-tikitykset, tilivirroituksen, aikamatkustuksen ja
+virheet. SDK paljastaa tämän virran niin, että testit voivat tarkistaa
+ajonaikaisen käyttäytymisen ilman lokien jäsentämistä.
+
+## Rust: Kanavastaanotin
+
+`Surfnet::events()` palauttaa viitteen
+`crossbeam_channel::Receiver<SimnetEvent>`-kanavaan, johon ajoympäristö
+julkaisee. Tyhjennä se `try_iter()`-funktiolla (ei-estävä) tai lue yksittäisiä
+tapahtumia `recv()`- / `recv_timeout()`-metodeilla.
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+
+// Drain whatever has accumulated so far.
+for event in surfnet.events().try_iter() {
+    match event {
+        SimnetEvent::TransactionProcessed(_ts, metadata, error) => {
+            println!("tx {} -> {:?}", metadata.signature, metadata.logs);
+            if let Some(err) = error {
+                eprintln!("  failed: {err:?}");
+            }
+        }
+        SimnetEvent::ErrorLog(_ts, message) => {
+            eprintln!("runtime error: {message}");
+        }
+        other => {
+            println!("event: {other:?}");
+        }
+    }
+}
+```
+
+<Callout type="warn" title="Vastaanotin on jaettu">
+  Jos käynnistät taustatason tehtävän tapahtumien kuluttamiseksi, älä kutsu myös
+  `try_iter` pääsäikeestä. Tapahtumat jakautuvat ennakoimattomasti kahden
+  kuluttajan välillä.
+</Callout>
+
+## JS: Drain-metodi
+
+JS-sidokset puskuroivat tapahtumat sisäisesti ja paljastavat ne
+`drainEvents`-metodin kautta. Jokainen kutsu palauttaa kaiken edellisen kutsun
+jälkeen kertyneen sisällön ja tyhjentää puskurin.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  // ... do test setup that triggers events ...
+
+  const events = surfnet.drainEvents();
+  for (const event of events) {
+    switch (event.kind) {
+      case "transactionProcessed":
+        console.log("tx", event.transactionSignature, event.logs);
+        break;
+      case "errorLog":
+        console.error("runtime error:", event.message);
+        break;
+      default:
+        console.log(event.kind, event.message ?? "");
+    }
+  }
+} finally {
+  surfnet.stop();
+}
+```
+
+<Callout type="warn" title="Rajoittamaton puskuri">
+  Jos et koskaan kutsu `drainEvents`, puskuri kasvaa koko instanssin elinajan.
+  Se sopii lyhyille testeille, mutta kutsu sitä säännöllisesti pitkäkestoisissa
+  fixtureissa, jotta muisti ei turvoa.
+</Callout>
+
+## SimnetEventValue-rakenne (JS)
+
+JS-tapahtumatyyppi on litteä objekti, jossa on `kind`-diskriminaattori ja
+valinnaiset kentät. Kaikkia kenttiä ei ole asetettu jokaisessa variantissa —
+hajota rakenne `kind`-arvon perusteella.
+
+```ts
+interface SimnetEventValue {
+  kind: string; // discriminator, e.g. "TransactionProcessed"
+  message?: string; // human-readable message
+  timestamp?: string; // ISO timestamp
+
+  // startup
+  initialTransactionCount?: number;
+  clock?: ClockValue;
+
+  // slot / clock
+  epochInfo?: EpochInfoValue;
+  clockCommand?: string;
+  slotIntervalMs?: number;
+
+  // accounts
+  accountPubkey?: string;
+
+  // transactions
+  transactionSignature?: string;
+  logs?: string[];
+  computeUnitsConsumed?: number;
+  fee?: number;
+
+  // errors
+  errorMessage?: string;
+
+  // misc
+  tag?: string;
+  profileKey?: string;
+  profileSlot?: number;
+  runbookId?: string;
+  runbookErrors?: string[];
+}
+```
+
+## Tapahtumatyypit
+
+JS-puolen kind-merkkijonot ovat camelCase-muodossa; vastaava Rust-variantti
+käyttää PascalCase-muotoa. Täsmää näihin tarkkoihin merkkijonoihin — ne ovat
+kirjainkokoriippuvaisia ja pysyviä versioiden välillä.
+
+| JS `kind`                                       | Rust-variantti                                               | Lähetetään kun                                                                                                                                             |
+| ----------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`                                         | `SimnetEvent::Ready`                                         | Ajoympäristö käynnistyy loppuun; sisältää `initialTransactionCount`.                                                                                       |
+| `connected`                                     | `SimnetEvent::Connected`                                     | Yhdistetty etäiseen RPC-palvelimeen; sisältää `message` (URL).                                                                                             |
+| `aborted`                                       | `SimnetEvent::Aborted`                                       | Käynnistys keskeytettiin; sisältää `message` (syy).                                                                                                        |
+| `shutdown`                                      | `SimnetEvent::Shutdown`                                      | Hallittu sammutus alkaa.                                                                                                                                   |
+| `systemClockUpdated`                            | `SimnetEvent::SystemClockUpdated`                            | Järjestelmäkello eteni; sisältää `clock`.                                                                                                                  |
+| `clockUpdate`                                   | `SimnetEvent::ClockUpdate`                                   | Kellokäsky suoritettiin (tauko/jatka/päivitä väli); sisältää `clockCommand` ja valinnaisesti `slotIntervalMs`.                                             |
+| `epochInfoUpdate`                               | `SimnetEvent::EpochInfoUpdate`                               | Uusi epoch-tietokuva on saatavilla; sisältää `epochInfo`.                                                                                                  |
+| `blockHashExpired`                              | `SimnetEvent::BlockHashExpired`                              | Käytössä ollut lohkohajautusarvo on vanhentunut.                                                                                                           |
+| `transactionReceived`                           | `SimnetEvent::TransactionReceived`                           | Transaktio lisättiin jonoon; sisältää `timestamp`, `transactionSignature`.                                                                                 |
+| `transactionProcessed`                          | `SimnetEvent::TransactionProcessed`                          | Transaktio suoritettiin; sisältää `timestamp`, `transactionSignature`, `logs`, `computeUnitsConsumed`, `fee` ja epäonnistumisen yhteydessä `errorMessage`. |
+| `accountUpdate`                                 | `SimnetEvent::AccountUpdate`                                 | Tili muuttui — kattaa virroitetut tilit ja cheatcode-ohjatut muutokset; sisältää `timestamp` ja `accountPubkey`.                                           |
+| `infoLog` / `warnLog` / `errorLog` / `debugLog` | `SimnetEvent::InfoLog` / `WarnLog` / `ErrorLog` / `DebugLog` | Ajoympäristö lähetti lokirivin; sisältää `timestamp` ja `message`.                                                                                         |
+| `pluginLoaded`                                  | `SimnetEvent::PluginLoaded`                                  | Geyser-lisäosa ladattiin; sisältää `message` (lisäosan nimi).                                                                                              |
+| `taggedProfile`                                 | `SimnetEvent::TaggedProfile`                                 | Profilointitulos merkittiin; sisältää `tag`, `profileKey`, `profileSlot`, `logs`, `computeUnitsConsumed`.                                                  |
+| `runbookStarted` / `runbookCompleted`           | `SimnetEvent::RunbookStarted` / `RunbookCompleted`           | Runbook käynnistyi tai päättyi; sisältää `runbookId` ja (valmistumisen yhteydessä) valinnaisen `runbookErrors`.                                            |
+
+## Assertion-mallit
+
+### Varmista, että transaktio onnistui
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const sig = await sendTransaction(surfnet.rpcUrl /* ... */);
+  // ... wait for confirmation via RPC ...
+
+  const landed = surfnet
+    .drainEvents()
+    .some(
+      (e) => e.kind === "transactionProcessed" && e.transactionSignature === sig
+    );
+
+  console.assert(landed, "expected transaction to land");
+} finally {
+  surfnet.stop();
+}
+```
+
+### Varmista, ettei ajonaikaisia virheitä esiintynyt
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let mut surfnet = Surfnet::start().await?;
+
+// ... run the test ...
+
+let errors: Vec<_> = surfnet
+    .events()
+    .try_iter()
+    .filter(|e| matches!(e, SimnetEvent::ErrorLog(_, _)))
+    .collect();
+
+assert!(errors.is_empty(), "runtime errors: {errors:?}");
+
+surfnet.stop()?;
+```
+
+## Miksi tapahtumat ovat parempia kuin lokianalyysi
+
+<Callout type="info" title="Suosi tapahtumavirta stdout:n sijaan">
+Ajoympäristö tulostaa jäsenneltyjä tapahtumia `tracing`:n kautta, mikä voi houkutella sieppaamaan ja jäsentämään niitä stdout:sta. Älä tee niin. Jäsennelty tapahtumavirta:
+
+- **Selviää lokitasomuutoksista** — tapahtumat lähetetään riippumatta
+  `RUST_LOG`:stä.
+- **Sisältää tyypitetyt hyötykuormat** — ei merkkijonojen jäsennystä, ei
+  muotomäärittelyjen ajautumista versioiden välillä.
+- **Omaa vakaat tyypit** — lokirivit on muotoiltu ihmisille ja voivat muuttua
+  vapaasti; tapahtumatyypit ovat osa SDK-sopimusta.
+
+</Callout>

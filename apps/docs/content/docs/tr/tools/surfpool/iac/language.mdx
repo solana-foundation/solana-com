@@ -1,0 +1,274 @@
+---
+title: Dil ve Sözdizimi
+description:
+  surfpool'un yönettiği dağıtımları tanımlamak için txtx DSL'ini kullanın.
+---
+
+Bu, txtx dili için dokümantasyondur. Yazdığınız Runbook dosyaları hangi blok
+zincirlerin ve ağların kullanılacağını, hangi verilerin alınacağını ve hangi
+işlemlerin yayınlanacağını tanımlar. txtx dili ayrıca kaynaklar arasında
+bağımlılıklar tanımlamanıza ve tek bir bloktan birden fazla benzer yapı
+oluşturmanıza olanak tanır.
+
+## Sözdizimi
+
+Runbook'lar, şuna benzer bir dizi kod bloğu içerir:
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+Her bloğun bir komut türü (bu örnekte `variable`, `action` ve `output`), bir
+referans adı (`"query_path"`, `"http_query"` ve `"status_code"`) ve bloğun iç
+verisi (`{ ... }` arasındaki her şey) bulunur. Bazı komut türleri ayrıca bir
+komutun belirtilmesini gerektirir (`"std::send_http_request"`). Bloğun iç
+verisi, belirtilen komut türü ve komut tarafından belirlenir.
+
+### Komut Referansları
+
+Bir komut, bağımlı komutlardan oluşan bir zincir oluşturmak için başka bir
+komutun çıktılarına referans verebilir. Bir Runbook çalıştırdığınızda, surfpool
+tüm komutların her zaman doğru sırayla yürütülmesini sağlamak için bir grafik
+oluşturur. Bu, bir Runbook oluştururken bağımlılık döngülerinden kaçınılması
+gerektiği anlamına gelir.
+
+Başka bir komutun çıktısına bir blokta `command_type.ref_name.output_name`
+kullanılarak referans verilebilir. İşte bazı örnekler:
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### Fonksiyonlar
+
+[Standart kütüphane](/docs/tools/surfpool/iac/std/functions), adlandırılmış
+argümanlara sahip tam komut blokları yazmak yerine satır içi yazılabilen bazı
+fonksiyonlar sağlar. Bu fonksiyonlar eklentiler aracılığıyla genişletilebilir.
+
+Bu fonksiyonlar açık fonksiyon çağrıları gibi görünebilir (ör. `add_uint(1, 3)`)
+ya da satır içi aritmetik işlemler gibi görünebilir (ör. `1 + 3`). Fonksiyonlar
+diğer komut çıktılarına referans verebilir ya da yeni komut çıktılarında
+saklanabilir. İşte birkaç fonksiyon kullanan bir örnek:
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## Manifest ve CLI Girdileri
+
+Girdiler, Runbook'a CLI girdisi olarak aktarılarak veya `txtx.yml` manifest
+dosyasında belirtilerek sağlanabilir. Aynı girdi hem CLI'da hem de bir manifest
+dosyasında belirtilmişse, CLI girdisi öncelik kazanır. CLI'ın nasıl
+kullanılacağına ilişkin bilgi için
+[CLI belgelerine](/docs/tools/surfpool/toolchain/cli) bakabilirsiniz. Manifest
+dosyasında bu girdiler bir ortam anahtarına göre gruplandırılabilir; böylece
+aynı Runbook'u birden fazla ortamda kolaylıkla kullanmak mümkün olur.
+
+Ortam değişkenlerine sahip örnek bir yapılandırma aşağıda verilmiştir:
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+Bu runbook tarafından yüklenen `.tx` dosyalarının herhangi birinde,
+`input.network_id` ve `input.rpc_api_url` girdileri global kapsamda
+kullanılabilir olacaktır. Web Arayüzü bu runbook'u yüklediğinde, ilk eylem öğesi
+hangi ortamın yükleneceğini seçmenize olanak tanır. Yeni bir ortam seçildiğinde
+mevcut runbook, yeni ortam değişkenleri yürütmeye eklenerek yeniden
+yüklenecektir.
+
+### Durum Yönetimi
+
+Surfpool, Runbook yürütmeleri arasında durumu yönetebilir. Kontrat dağıtımları
+çalıştırılırken durum yönetimi, kontrat kodunda ve Runbook girdilerinde herhangi
+bir değişiklik olup olmadığını tespit etmek ve Runbook'un yeniden yürütülmesi
+gerekip gerekmediğini belirlemek için kullanılabilir. Kontrat kodunda veya
+Runbook girdilerinde herhangi bir değişiklik yoksa Surfpool, Runbook'un yeniden
+yürütülmesini engeller.
+
+Durum yönetimini etkinleştirmek için `state` değerini ve durum dosyasını
+depolamak üzere bir `location` değerini `txtx.yml` içinde belirtin:
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## Değişkenler
+
+Değişkenler, diğer yapılar tarafından kullanılabilecek ve Web Arayüzü'ndeki
+kullanıcılar tarafından düzenlenebilecek değerleri depolamak için
+kullanılabilir. Bir değişkenin `editable` alanı belirtilmemişse veya `false`
+olarak ayarlanmışsa, değişken Web Arayüzü'nde `Variables Review` bölümünde salt
+okunur bir değer olarak görünür ve doğrulanabilir. Ancak `editable` alanı `true`
+olarak ayarlandığında, değişken Web Arayüzü'nde düzenlenebilir bir alan olarak
+görünür. İsteğe bağlı `description` alanı, değişkene ek bağlam eklemek için
+kullanılabilir. Örnek bir değişken aşağıda verilmiştir:
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## Eklentiler ve Varsayılanlar
+
+Eklenti blokları, Runbook tarafından hangi eklentilerin kullanılacağını
+belirtmenize olanak tanır. Eklenti bloğu içinde tanımlanan herhangi bir alan, o
+eklentinin parçası olan tüm eylemler tarafından referans alınabilir. Bu, söz
+konusu eklentiden özel eylemler kullanırken alanları atlamanıza olanak sağlar.
+Aşağıdaki örnek, `svm` eklentisini tanımlar ve `network_id` ile `rpc_api_url`
+alanlarını varsayılan olarak ayarlar:
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+Bu varsayılan bir `.tx` dosyasına eklendiğinde, SVM eklentisinden gelen tüm
+eylemler hem `network_id` hem de `rpc_api_url` alanlarını atlayabilir.
+
+## Akışlar
+
+Akışlar, bir Runbook'u farklı girdilerle birden fazla kez çalıştırmanıza olanak
+tanır. Akış bloğunda belirtilen herhangi bir alan, `flow.field_name`
+aracılığıyla o akışın parçası olan tüm eylemler tarafından referans alınabilir.
+Bu, `addon` bloğuyla birlikte yararlı şekillerde kullanılabilir:
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## İmzalayanlar
+
+Eklentiler, surfpool kullanırken işlemleri imzalamanın çeşitli yollarını
+sağlayan imzalayanlar tanımlayabilir. Bu imzalayanlar; bir anımsatıcı veya gizli
+anahtar aracılığıyla işlemleri imzalamak, kullanıcıların web cüzdanlarını
+bağlayarak Surfpool Web Arayüzü'nde oturum açmalarını istemek, güvenli kuşatma
+aracılığıyla işlemleri eş zamansız olarak imzalamak, çoklu imza cüzdanları
+tanımlamak ve daha fazlası için kullanılabilir. Her eklenti imzalayan
+uygulamasının kendi kullanım senaryoları ve belgeleri olacaktır.
+
+İşte kullanımda olan bir imzalayana örnek:
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+Bu örnek, `svm::web_wallet` imzalayanını kullanan `alice` adında bir imzalayan
+tanımlar. Bu imzalayan tanımı, Web Arayüzü'nde bir cüzdan bağlamak, mesaj imzası
+aracılığıyla pubkey sağlamak ve bu cüzdanı imzalayan olarak kullanarak tüm
+işlemleri imzalamak için bir istem oluşturacaktır.
+
+## Eylemler
+
+Eylemler, eklentiler ve
+[standart kütüphane](/docs/tools/surfpool/iac/std/actions) tarafından tanımlanan
+çok amaçlı yapılardır. Her eylem, eyleme sağlanabilecek kendi girdi setini
+(bazıları isteğe bağlı, bazıları zorunlu), her eylem çağrısında neler olduğunu
+ve sonraki komutlar tarafından başvurulabilecek eylem çıktılarını tanımlar.
+
+Eylem türlerine ilişkin bazı örnekler şunlardır: http istekleri yapıp sonucu
+çıktı olarak vermek, işlem verilerini belirli bir zincirin codec'iyle eşleşecek
+şekilde kodlamak, bir işlemi cüzdanla imzalayıp imzalanmış işlem baytlarını
+çıktı olarak vermek veya bir işlemi ağa yayınlamak.
+
+İşte örnek bir eylem:
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## Modüller
+
+Yakında.
+
+## Çıktılar
+
+Çıktı komutu, çalışma kitabı yürütmesinin sonunda verileri görüntülemek için
+kullanılabilir. İşte çıktı komutuna ilişkin bir örnek:
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

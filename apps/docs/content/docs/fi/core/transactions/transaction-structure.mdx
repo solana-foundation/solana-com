@@ -65,19 +65,26 @@ avaimella. Yksi allekirjoitus vaaditaan jokaiselta
 [allekirjoittajatililtä](#account-addresses), johon tapahtuman ohjeet
 viittaavat.
 
-Taulukon ensimmäinen allekirjoitus kuuluu **maksajalle**, tilille, joka maksaa
-tapahtuman
-[perusmaksun ja priorisointimaksun](/docs/core/fees/fee-structure#base-fee).
-Tämä ensimmäinen allekirjoitus toimii myös **tapahtumatunnisteena**, jota
-käytetään tapahtuman hakemiseen verkosta. Tapahtumatunnistetta kutsutaan
-yleisesti **tapahtuman allekirjoitukseksi**.
+Jokaisen allekirjoituksen tuottaa yksityinen avain. Se, missä kyseinen avain
+sijaitsee — paikallinen keypair, pilvi-HSM tai KMS, tai hallittu lompakkopalvelu
+— on tuotantoympäristön suunnittelupäätös. Katso
+[Allekirjoittaminen tuotannossa](/docs/core/transactions/signing-in-production).
 
-Maksajan vaatimukset:
+Taulukon ensimmäinen allekirjoitus kuuluu **maksun maksajalle**, tilille joka
+maksaa transaktion
+[perusmaksun ja priorisointimaksun](/docs/core/fees/fee-structure#base-fee).
+Tämä ensimmäinen allekirjoitus toimii myös **transaktion tunnuksena**, jota
+käytetään transaktion hakemiseen verkosta. Transaktion tunnukseen viitataan
+yleisesti nimellä **transaktioallekirjoitus**.
+
+Maksun maksajan vaatimukset:
 
 - Täytyy olla ensimmäinen tili viestissä (indeksi 0) ja allekirjoittaja.
-- Täytyy olla System Program -omistuksessa oleva tili tai nonce-tili (validoitu
-  [`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)).
-- Täytyy sisältää riittävästi lamportteja kattamaan
+- Täytyy olla System Program -omistuksessa oleva tili tai nonce-tili
+  (vahvistetaan
+  [`validate_fee_payer`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L369-L417)
+  toimesta).
+- Täytyy pitää hallussaan riittävästi lamport-yksiköitä kattaakseen
   `rent_exempt_minimum + total_fee`; muuten transaktio epäonnistuu virheellä
   _rs`InsufficientFundsForFee`_.
 
@@ -90,8 +97,8 @@ Maksajan vaatimukset:
 <WithMentions>
 
 - [`header`](mention:message-header): Viestin [otsikko](#header)
-- [`account_keys`](mention:account-addresses): Taulukko
-  [tiliosoitteista](#account-addresses), joita transaktion käskyt vaativat
+- [`account_keys`](mention:account-addresses): Taulukko transaktion käskyjen
+  vaatimista [tilin osoitteista](#account-addresses)
 - [`recent_blockhash`](mention:recent-blockhash):
   [Lohkohajautusarvo](#recent-blockhash), joka toimii transaktion aikaleimana
 - [`instructions`](mention:instructions): Taulukko [käskyistä](#instructions)
@@ -128,14 +135,14 @@ pub struct Message {
 `header`-kenttä on
 [`MessageHeader`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/lib.rs#L109)
 -rakenne, jossa on kolme `u8`-kenttää, jotka jakavat `account_keys`-taulukon
-käyttöoikeusryhmiin:
+oikeusryhmiin:
 
 - [`num_required_signatures`](mention:num_required_signatures): Transaktion
   vaatimien allekirjoitusten kokonaismäärä.
-- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts):
-  Allekirjoitettujen tilien määrä, jotka ovat vain luku -tilassa.
+- [`num_readonly_signed_accounts`](mention:num_readonly_signed_accounts): Vain
+  luku -tilassa olevien allekirjoitettujen tilien lukumäärä.
 - [`num_readonly_unsigned_accounts`](mention:num_readonly_unsigned_accounts):
-  Allekirjoittamattomien tilien määrä, jotka ovat vain luku -tilassa.
+  Vain luku -tilassa olevien allekirjoittamattomien tilien lukumäärä.
 
 ```rust title="MessageHeader"
 pub struct MessageHeader {
@@ -159,65 +166,75 @@ pub struct MessageHeader {
 
 </WithMentions>
 
-![Kaavio, joka näyttää viestin otsikon kolme osaa](/assets/docs/core/transactions/message_header.png)
-
-### Tiliosoitteet
-
-[`account_keys`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L168)
--kenttä on kompaktisti koodattu taulukko julkisista avaimista. Jokainen merkintä
-tunnistaa tilin, jota vähintään yksi transaktion käskyistä käyttää. Taulukon
-täytyy sisältää jokainen tili ja sen täytyy noudattaa tätä tarkkaa järjestystä:
-
-1. Allekirjoittaja + kirjoitettava
-2. Allekirjoittaja + vain luku
-3. Ei-allekirjoittaja + kirjoitettava
-4. Ei-allekirjoittaja + vain luku
-
-<Callout>
-  Tämä tarkka järjestys mahdollistaa sen, että `account_keys`-taulukko voidaan
-  yhdistää viestin [`header`](#header)-kentän kolmeen lukumäärään, jolloin
-  kunkin tilin käyttöoikeudet voidaan määrittää ilman tilikohtaisten
-  metatietolippujen tallentamista. Otsikon lukumäärät jakavat taulukon yllä
-  lueteltuihin neljään käyttöoikeusryhmään.
+<Callout type="info" title="Perinteiset ja versioidut viestietuliitteet">
+  Perinteisessä transaktioviestissä ensimmäinen viestin tavu on
+  `num_required_signatures`, jota seuraavat muut kaksi `MessageHeader` tavua.
+  Versioidussa transaktioviestissä ensimmäinen tavu on sen sijaan
+  versioprefiksi; kolmitavuinen `MessageHeader` alkaa heti tämän prefiksin
+  jälkeen. Katso [versioidut
+  transaktiot](/docs/core/transactions/versioned-transactions) täydellisen
+  v0-viestin asettelun osalta.
 </Callout>
 
-![Kaavio, joka näyttää tilisoitteiden taulukon järjestyksen](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+![Kaavio, joka näyttää viestiotsikon kolme osaa](/assets/docs/core/transactions/message_header.png)
 
-### Viimeaikainen lohkohajautusarvo
+### Tilin osoitteet
 
-`recent_blockhash`-kenttä on 32-tavuinen hajautusarvo, joka palvelee kahta
+[`account_keys`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L168)-kenttä
+on kompaktikoodattu taulukko julkisista avaimista. Jokainen merkintä yksilöi
+tilin, jota vähintään yksi transaktion ohjeista käyttää. Taulukon on
+sisällettävä kaikki tilit ja sen on noudatettava tätä tiukkaa järjestystä:
+
+1. Allekirjoittaja + Kirjoitettava
+2. Allekirjoittaja + Vain luku
+3. Ei allekirjoittaja + Kirjoitettava
+4. Ei allekirjoittaja + Vain luku
+
+<Callout>
+  Tämä tiukka järjestys mahdollistaa `account_keys`-taulukon yhdistämisen
+  viestin [`header`](#header)-otsikon kolmeen lukumäärään, jolloin kunkin tilin
+  käyttöoikeudet voidaan määrittää tallentamatta tilikohtaisia metatietolippuja.
+  Otsikon lukumäärät jakavat taulukon neljään edellä mainittuun
+  käyttöoikeusryhmään.
+</Callout>
+
+![Kaavio, joka näyttää tilitaulukon järjestyksen](/assets/docs/core/transactions/compat_array_of_account_addresses.png)
+
+### Viimeisin lohkohajautusarvo
+
+`recent_blockhash`-kenttä on 32-tavuinen hajautusarvo, jolla on kaksi
 tarkoitusta:
 
 1. **Aikaleima**: todistaa, että transaktio on luotu äskettäin.
 2. **Deduplikointi**: estää saman transaktion käsittelyn kahdesti.
 
-Lohkohajautusarvo vanhenee 150 slotin jälkeen. Jos lohkohajautusarvo ei ole enää
-voimassa transaktion saapuessa, se hylätään virheellä _rs`BlockhashNotFound`_,
-ellei kyseessä ole voimassa oleva
+Lohkohajautusarvo vanhenee 150 slot:n jälkeen. Jos lohkohajautusarvo ei ole enää
+voimassa transaktion saapuessa, se hylätään virhekoodilla
+_rs`BlockhashNotFound`_, ellei kyseessä ole voimassa oleva
 [kestävä nonce-transaktio](/docs/core/transactions/durable-nonces).
 
 <Callout>
   [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) RPC-metodi
   mahdollistaa nykyisen lohkohajautusarvon ja viimeisen lohkokorkeuden
-  hakemisen, jolla lohkohajautusarvo on voimassa.
+  hakemisen, johon asti lohkohajautusarvo on voimassa.
 </Callout>
 
-### Käskyt
+### Ohjeet
 
 [`instructions`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/legacy.rs#L176)-kenttä
-on kompaktisti koodattu taulukko
+on kompaktikoodattu taulukko
 [`CompiledInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/compiled_instruction.rs#L21)-rakenteita.
-Jokainen _rs`CompiledInstruction`_ viittaa tileihin indeksillä
-`account_keys`-taulukkoon täyden julkisen avaimen sijaan. Se sisältää:
+Jokainen _rs`CompiledInstruction`_ viittaa tileihin indeksin kautta
+`account_keys`-taulukkoon täydellisen julkisen avaimen sijaan. Se sisältää:
 
 <WithMentions>
 
 1. [`program_id_index`](mention:program-id-index): Indeksi
-   `account_keys`-taulukkoon, joka tunnistaa kutsuttavan ohjelman.
-2. [`accounts`](mention:account-indexes): Taulukko indeksejä
-   `account_keys`-taulukkoon, jotka määrittävät ohjelmalle välitettävät tilit.
-3. [`data`](mention:instruction-data): Tavutaulukko, joka sisältää käskyn
-   erottelijan ja sarjallistetut argumentit.
+   `account_keys`-taulukkoon, joka yksilöi kutsuttavan ohjelman.
+2. [`accounts`](mention:account-indexes): Taulukko indekseistä
+   `account_keys`-taulukkoon, jotka määrittelevät ohjelmalle välitettävät tilit.
+3. [`data`](mention:instruction-data): Taulukko tavuja, joka sisältää
+   instruction discriminatorin ja serialisoidut argumentit.
 
 ```rust title="CompiledInstruction"
 pub struct CompiledInstruction {
@@ -237,43 +254,43 @@ pub struct CompiledInstruction {
 
 </WithMentions>
 
-![Kompakti käskyjen taulukko](/assets/docs/core/transactions/compact_array_of_ixs.png)
+![Kompakti taulukko ohjeista](/assets/docs/core/transactions/compact_array_of_ixs.png)
 
 ## Transaktion binäärimuoto
 
-Transaktiot sarjallistetaan käyttäen kompaktia koodausjärjestelmää. Kaikki
-muuttuvan pituiset taulukot (allekirjoitukset, tiliavaimet, käskyt) alkavat
-compact-u16-pituuskoodauksella. Tämä muoto käyttää 1 tavua arvoille 0-127 ja 2-3
+Transaktiot serialisoidaan kompaktia koodausjärjestelmää käyttäen. Kaikkia
+muuttuvanpituisia taulukoita (allekirjoitukset, tilin avaimet, ohjeet) edeltää
+compact-u16-pituuskoodaus. Tämä muoto käyttää 1 tavua arvoille 0–127 ja 2–3
 tavua suuremmille arvoille.
 
-**Legacy-transaktion rakenne** (verkossa):
+**Vanhan transaktion rakenne** (siirrettäessä):
 
-| Kenttä                    | Koko                          | Kuvaus                                        |
-| ------------------------- | ----------------------------- | --------------------------------------------- |
-| `num_signatures`          | 1-3 tavua (compact-u16)       | Allekirjoitusten määrä                        |
-| `signatures`              | `num_signatures` x 64 tavua   | Ed25519-allekirjoitukset                      |
-| `num_required_signatures` | 1 tavu                        | `MessageHeader`-kenttä 1                      |
-| `num_readonly_signed`     | 1 tavu                        | `MessageHeader`-kenttä 2                      |
-| `num_readonly_unsigned`   | 1 tavu                        | `MessageHeader`-kenttä 3                      |
-| `num_account_keys`        | 1-3 tavua (compact-u16)       | Staattisten tiliavainten määrä                |
-| `account_keys`            | `num_account_keys` x 32 tavua | Julkiset avaimet                              |
-| `recent_blockhash`        | 32 tavua                      | Lohkohajautusarvo                             |
-| `num_instructions`        | 1-3 tavua (compact-u16)       | Käskyjen määrä                                |
-| `instructions`            | vaihteleva                    | Taulukko [käännettyjä käskyjä](#instructions) |
+| Kenttä                    | Koko                          | Kuvaus                                       |
+| ------------------------- | ----------------------------- | -------------------------------------------- |
+| `num_signatures`          | 1–3 tavua (compact-u16)       | Allekirjoitusten määrä                       |
+| `signatures`              | `num_signatures` x 64 tavua   | Ed25519-allekirjoitukset                     |
+| `num_required_signatures` | 1 tavu                        | `MessageHeader` kenttä 1                     |
+| `num_readonly_signed`     | 1 tavu                        | `MessageHeader` kenttä 2                     |
+| `num_readonly_unsigned`   | 1 tavu                        | `MessageHeader` kenttä 3                     |
+| `num_account_keys`        | 1–3 tavua (compact-u16)       | Staattisten tilin avainten määrä             |
+| `account_keys`            | `num_account_keys` x 32 tavua | Julkiset avaimet (pubkey)                    |
+| `recent_blockhash`        | 32 tavua                      | Lohkohajautusarvo                            |
+| `num_instructions`        | 1–3 tavua (compact-u16)       | Ohjeiden määrä                               |
+| `instructions`            | vaihteleva                    | Taulukko [kootuista ohjeista](#instructions) |
 
-Jokainen käännetty ohje sarjallistetaan seuraavasti:
+Jokainen koottu ohje serialisoidaan seuraavasti:
 
 | Kenttä             | Koko                    | Kuvaus                         |
 | ------------------ | ----------------------- | ------------------------------ |
-| `program_id_index` | 1 tavu                  | Indeksi tiliavaimiin           |
-| `num_accounts`     | 1-3 tavua (compact-u16) | Tili-indeksien määrä           |
-| `account_indices`  | `num_accounts` x 1 tavu | Tiliavainten indeksit          |
-| `data_len`         | 1-3 tavua (compact-u16) | Instruction datan pituus       |
+| `program_id_index` | 1 tavu                  | Indeksi tilin avaimiin         |
+| `num_accounts`     | 1–3 tavua (compact-u16) | Tiliindeksien määrä            |
+| `account_indices`  | `num_accounts` x 1 tavu | Tilin avainindeksit            |
+| `data_len`         | 1–3 tavua (compact-u16) | instruction data -pituus       |
 | `data`             | `data_len` tavua        | Läpinäkymätön instruction data |
 
 ### Koon laskeminen
 
-Kun _rs`PACKET_DATA_SIZE`_ = 1 232 tavua, käytettävissä oleva tila voidaan
+Koska _rs`PACKET_DATA_SIZE`_ = 1 232 tavua, käytettävissä oleva tila voidaan
 laskea:
 
 ```
@@ -288,50 +305,51 @@ Total = 1232 bytes
  - sum(instruction_sizes)         # per-instruction overhead + data
 ```
 
-## Esimerkki: SOL-siirtotransaktio
+## Esimerkki: SOL-siirtotapahtuma
 
-Alla oleva kaavio näyttää, miten transaktiot ja ohjeet toimivat yhdessä
-mahdollistaen käyttäjien vuorovaikutuksen verkon kanssa. Tässä esimerkissä SOL
+Alla oleva kaavio näyttää, kuinka tapahtumat ja käskyt toimivat yhdessä, jotta
+käyttäjät voivat olla vuorovaikutuksessa verkon kanssa. Tässä esimerkissä SOL
 siirretään yhdeltä tililtä toiselle.
 
 Lähettäjätilin
-[metadata](/docs/core/instructions/instruction-structure#account-metadata)
-osoittaa, että sen on allekirjoitettava transaktio. Tämä mahdollistaa System
-Programin vähentää lamportteja. Sekä lähettäjän että vastaanottajan tilien on
-oltava kirjoitettavia, jotta niiden lamportti-saldo voi muuttua. Tämän ohjeen
-suorittamiseksi lähettäjän lompakko lähettää transaktion, joka sisältää sen
-allekirjoituksen ja viestin, joka sisältää SOL-siirto-ohjeen.
+[metatiedot](/docs/core/instructions/instruction-structure#account-metadata)
+osoittavat, että sen on allekirjoitettava tapahtuma. Tämä sallii System Program
+in vähentää lamport-yksiköitä. Sekä lähettäjän että vastaanottajan tilien on
+oltava kirjoitettavissa, jotta niiden lamport-saldo voi muuttua. Tämän käskyn
+suorittamiseksi lähettäjän lompakko lähettää tapahtuman, joka sisältää
+allekirjoituksen ja viestin, joka sisältää SOL-siirtokäskyn.
 
 ![SOL-siirtokaavio](/assets/docs/core/transactions/sol-transfer.svg)
 
-Kun transaktio on lähetetty, System Program käsittelee siirto-ohjeen ja
-päivittää molempien tilien lamportti-saldon.
+Tapahtuman lähettämisen jälkeen System Program käsittelee siirtokäskyn ja
+päivittää molempien tilien lamport-saldon.
 
-![SOL-siirtoprosessikaavio](/assets/docs/core/transactions/sol-transfer-process.svg)
+![SOL-siirtoprosessin kaavio](/assets/docs/core/transactions/sol-transfer-process.svg)
 
 <Callout type="warn" title="Tarkista vastaanottaja ennen SOL:n lähettämistä">
 
-System Program -siirto lisää lamports-yksiköitä **mihin tahansa** tilille.
-Protokollatasolla ei ole tarkistusta sille, että vastaanottaja pystyy siirtämään
-SOL:n takaisin ulos. Lamports-yksiköitä voi siirtää ulos ainoastaan tilin
-omistava ohjelma, joten SOL:n lähettäminen
-[token mint](/docs/tokens/basics/create-mint) -osoitteeseen, ohjelmaan tai
-[PDA:han](/docs/core/pda), jota et hallitse, **vaarantaa varojen pysyvän
-menetyksen** — aino­astaan omistavan ohjelman määrittelemä auktoriteetti voi
-palauttaa ne. token account -tilille lähetetty SOL on palautettavissa ainoastaan
-kyseisen tilin omistajan toimesta, ei koskaan lähettäjän.
+System Program -siirto lisää lamport-yksiköitä **mihin tahansa** tilille.
+Protokollatasolla ei ole tarkistusta siitä, voiko vastaanottaja siirtää SOL:n
+takaisin ulos. lamport-yksiköitä voi siirtää ulos vain tilin omistavan ohjelman
+kautta, joten SOL:n lähettäminen
+[token mintille](/docs/tokens/basics/create-mint), ohjelmalle tai
+[PDA:lle](/docs/core/pda), jota et hallitse, **vaarantaa varojen pysyvän
+menetyksen** — vain omistavan ohjelman määrittämä valtuutus voi palauttaa ne.
+SOL, joka lähetetään [token account](/docs/tokens/basics/create-token-account)
+-tilille, on palautettavissa vain kyseisen tilin omistajan toimesta, ei koskaan
+lähettäjän toimesta.
 
 SPL **token** -siirrot ovat osittain itsensä suojaavia: Token Program hylkää
-siirron, jonka tilit eivät vastaa odotettua minttausta. Natiiveilla
-**SOL**-siirroilla ei ole tällaista suojaa, joten lähettäjän täytyy tarkistaa
+siirron, jonka tilit eivät vastaa odotettua minttiä. Natiiville
+**SOL**-siirroille ei ole tällaista suojausta, joten lähettäjän on varmistettava
 vastaanottaja ennen allekirjoittamista. Katso
-[Verify Address](/docs/payments/send-payments/verify-address) täydellisen
-luokittelulogiikan osalta.
+[Osoitteen varmistaminen](/docs/payments/send-payments/verify-address)
+täydellisen luokittelulogiikan osalta.
 
 </Callout>
 
-Alla oleva esimerkki näyttää yllä olevien kaavioiden kannalta oleellisen koodin.
-Katso System Program:n
+Alla oleva esimerkki näyttää yllä oleviin kaavioihin liittyvän koodin. Katso
+System Program'n
 [`transfer`-funktio](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/system/src/system_processor.rs#L210).
 
 <CodeTabs storage="sol-transfer" flags="r">
@@ -549,8 +567,8 @@ async fn main() -> Result<()> {
 
 </CodeTabs>
 
-Seuraava esimerkki näyttää yhden SOL-siirtokäskyn sisältävän transaktion
-rakenteen.
+Seuraava esimerkki näyttää sellaisen transaktion rakenteen, joka sisältää
+yksittäisen SOL-siirtoinstruktion.
 
 <CodeTabs storage="sol-transfer" flags="r">
 
@@ -700,8 +718,8 @@ async fn main() -> Result<()> {
 
 <WithMentions>
 Alla oleva koodi näyttää edellisten koodinäytteiden tulosteen.
-Formaatti vaihtelee SDK:iden välillä,
-mutta huomaa, että jokainen käsky sisältää samat vaaditut tiedot.
+Muoto vaihtelee SDK:iden välillä,
+mutta huomaa, että jokainen instruktio sisältää samat vaaditut tiedot.
 
 <CodeTabs storage="sol-transfer">
 
@@ -808,11 +826,11 @@ mutta huomaa, että jokainen käsky sisältää samat vaaditut tiedot.
 
 ### Tarkista vastaanottaja ennen siirtoa
 
-Koska SOL-siirto onnistuu mille tahansa tilille, tarkista vastaanottaja ennen
-allekirjoittamista. Hae tilitiedot ja lähetä vain System Program -lompakkoon
-(tai rahoittamattomaan
-[käyrällä olevaan](/docs/payments/send-payments/verify-address#on-curve-addresses)
-osoitteeseen); hylkää mintit, token accountit, ohjelmat ja PDA:t, joita et
+Koska SOL-siirto onnistuu mihin tahansa tiliin, tarkista vastaanottaja ennen
+allekirjoittamista. Hae tili ja lähetä vain System Program -lompakkoon (tai
+rahoittamattomaan
+[on-curve](/docs/payments/send-payments/verify-address#on-curve-addresses)
+-osoitteeseen); hylkää mintit, token account -tilit, ohjelmat ja PDA:t, joita et
 hallitse.
 
 <CodeTabs flags="r">
@@ -870,19 +888,20 @@ await assertSafeSolRecipient(
 </CodeTabs>
 
 <Callout>
-  Tämä koodinpätkä tarkistaa natiivin SOL-vastaanottajat. Täydellinen
-  luokittelu, joka käsittelee myös SPL-tokenien lähetyksen (token account,
-  ATA:t, Token-2022), löytyy täältä: [Vahvista
-  osoite](/docs/payments/send-payments/verify-address).
+  Tämä katkelma tarkistaa natiivit SOL-vastaanottajat. Täydellinen luokittelu,
+  joka käsittelee myös SPL-tokenien lähetykset (token account -tilit, ATA:t,
+  Token-2022), löytyy kohdasta [Verify
+  Address](/docs/payments/send-payments/verify-address).
 </Callout>
 
 ## Tapahtuman tietojen hakeminen
 
 Lähetyksen jälkeen voit hakea tapahtuman tiedot käyttämällä tapahtuman
-allekirjoitusta ja [getTransaction](/docs/rpc/http/gettransaction)-RPC-metodia.
+allekirjoitusta ja [getTransaction](/docs/rpc/http/gettransaction) RPC-metodia.
 
 <Callout>
-  Voit myös etsiä tapahtuman [Solana Explorerista](https://explorer.solana.com).
+  Voit myös etsiä tapahtuman [Solana Explorer](https://explorer.solana.com)
+  -palvelun avulla.
 </Callout>
 
 ```json title="Transaction Data"
@@ -941,3 +960,8 @@ allekirjoitusta ja [getTransaction](/docs/rpc/http/gettransaction)-RPC-metodia.
   "version": "legacy"
 }
 ```
+
+Raakavastaus tunnistaa tilit indeksin perusteella ja tallentaa sisäiset (CPI)
+ohjeet koodattuina blobeina. Näiden muuntamiseksi osoitteiksi ja koko ohjeiden
+puun läpikäymiseksi katso
+[Tapahtuman tarkastelu](/docs/core/transactions/transaction-introspection).

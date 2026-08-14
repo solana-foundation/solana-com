@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Image from "next/legacy/image";
 import TypeformModal from "../shared/TypeformModal";
 import styles from "./ECDRHero.module.scss";

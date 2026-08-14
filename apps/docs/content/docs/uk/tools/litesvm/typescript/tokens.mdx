@@ -1,0 +1,213 @@
+---
+title: Тестування токенів
+description:
+  Тестування з SPL-токенами за допомогою @solana-program/token і LiteSVM
+---
+
+Тестування логіки токенів на Solana означає налаштування мінтів, token accounts
+і повноважень, перш ніж ви зможете протестувати логіку переказів, яка вас
+насправді цікавить. Плагін `tokenProgram()` від `@solana-program/token` скорочує
+це налаштування до кількох викликів методів — і автоматично обробляє створення
+ATA.
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://www.npmjs.com/package/@solana-program/token"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 780 250"
+      className="w-5 h-4"
+      fill="currentColor"
+    >
+      <path d="M240,250h100V0H240ZM340,0h100V200H390V50H340ZM480,0V200H580V250h50V0Z" />
+    </svg>
+    Переглянути <code>@solana-program/token</code> на npm
+  </a>
+</div>
+
+## Встановлення
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+</Tabs>
+
+## Створення мінту
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { tokenProgram } from "@solana-program/token";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(tokenProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const mintAuthority = await generateKeyPairSigner();
+const newMint = await generateKeyPairSigner();
+
+await client.token.instructions
+  .createMint({
+    newMint,
+    decimals: 9,
+    mintAuthority: mintAuthority.address
+  })
+  .sendTransaction();
+
+// Verify
+const mintAccount = await client.token.accounts.mint.fetch(newMint.address);
+console.log(mintAccount.data.supply); // 0n
+console.log(mintAccount.data.decimals); // 9
+```
+
+## Мінтинг токенів
+
+`mintToATA` випускає токени на associated token account власника. Якщо ATA не
+існує, він створюється в тій самій транзакції.
+
+```typescript
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: client.payer.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n, // 1000 tokens (9 decimals)
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+Параметр `decimals` — це перевірка безпеки: він має точно збігатися з кількістю
+десяткових знаків мінту, інакше Token Program відхилить транзакцію з помилкою
+`0x24`. Це запобігає випадковому мінтингу в 1000 разів більшої кількості
+токенів.
+
+## Переказ токенів
+
+`transferToATA` переміщує токени між користувачами. ATA отримувача створюється
+автоматично, якщо потрібно.
+
+```typescript
+const alice = await generateKeyPairSigner();
+const bob = await generateKeyPairSigner();
+
+// Mint to Alice
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: alice.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+
+// Transfer 400 tokens from Alice to Bob
+await client.token.instructions
+  .transferToATA({
+    mint: newMint.address,
+    authority: alice,
+    recipient: bob.address,
+    amount: 400_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+`authority` — це підписант, який володіє вихідними токенами. Плагін визначає як
+вихідний, так і цільовий ATA за їхніми адресами та мінтом.
+
+## Перевірка балансів
+
+Щоб зчитати баланси токенів, отримайте адресу ATA за допомогою
+`findAssociatedTokenPda` та завантажте декодований акаунт:
+
+```typescript
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const [aliceAta] = await findAssociatedTokenPda({
+  owner: alice.address,
+  mint: newMint.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const aliceAccount = await client.token.accounts.token.fetch(aliceAta);
+console.log(aliceAccount.data.amount); // 600_000_000_000n
+console.log(aliceAccount.data.mint); // newMint.address
+console.log(aliceAccount.data.owner); // alice.address
+```
+
+## Десяткові знаки
+
+Суми токенів завжди вказуються в необроблених одиницях. 1000 токенів із 9
+десятковими знаками — це `1_000_000_000_000n`, а не `1000n`.
+
+```typescript
+// USDC has 6 decimals
+const oneUSDC = 10n ** 6n; // 1_000_000n
+
+// SOL has 9 decimals
+const oneSOL = 10n ** 9n; // 1_000_000_000n
+```
+
+<Callout type="warn">
+  Завжди використовуйте `BigInt` для сум токенів. JavaScript's `Number` втрачає
+  точність вище 2^53.
+</Callout>
+
+## Довідник плагіна
+
+| Метод                                       | Опис                                                        |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| `client.token.instructions.createMint()`    | Створити новий SPL token mint                               |
+| `client.token.instructions.mintToATA()`     | Мінтити токени на ATA власника (створює ATA за потреби)     |
+| `client.token.instructions.transferToATA()` | Перенести токени на ATA отримувача (створює ATA за потреби) |
+| `client.token.accounts.mint.fetch()`        | Отримати та декодувати mint account                         |
+| `client.token.accounts.token.fetch()`       | Отримати та декодувати token account                        |
+
+## Поширені помилки
+
+| Помилка                      | Причина                                   | Виправлення                                                                        |
+| ---------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------- |
+| `custom program error: 0x24` | `decimals` не відповідає mint             | Використовуйте те саме значення десяткових знаків, яке ви передали до `createMint` |
+| `AccountNotFound`            | Акаунт ще не існує                        | Переконайтеся, що mint створено перед мінтингом                                    |
+| `InsufficientFunds`          | Недостатньо lamport для rent              | Поповніть SOL на рахунок платника через airdrop                                    |
+| `OwnerMismatch`              | Програма є неправильним власником акаунта | Перевірте ID програми                                                              |

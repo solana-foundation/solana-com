@@ -1,9 +1,8 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import Link from "next/link";
 import React from "react";
 
 const roots = {
-  guides: "Guides",
   cookbook: "Cookbook",
   docs: "Docs",
   developers: "Developers",

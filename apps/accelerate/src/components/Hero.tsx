@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
 import { useTranslations } from "next-intl";

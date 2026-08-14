@@ -1,0 +1,100 @@
+---
+title: 오류 처리
+description: 오류 조건 및 엣지 케이스 테스트 방법
+---
+
+## 완전한 테스트
+
+```rust title="tests/error_test.rs"
+use litesvm::LiteSVM;
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    system_instruction,
+    transaction::Transaction,
+};
+use solana_transaction_error::TransactionError;
+
+#[test]
+fn test_insufficient_funds_error() {
+    let mut svm = LiteSVM::new();
+
+    let alice = Keypair::new();
+    let bob = Keypair::new();
+
+    // Give Alice only 0.5 SOL
+    svm.airdrop(&alice.pubkey(), 500_000_000).unwrap();
+
+    // Try to transfer 1 SOL (should fail)
+    let transfer_ix = system_instruction::transfer(
+        &alice.pubkey(),
+        &bob.pubkey(),
+        1_000_000_000, // More than Alice has
+    );
+
+    let tx = Transaction::new_signed_with_payer(
+        &[transfer_ix],
+        Some(&alice.pubkey()),
+        &[&alice],
+        svm.latest_blockhash(),
+    );
+
+    // Verify it fails with expected error
+    let result = svm.send_transaction(tx);
+    assert!(result.is_err());
+
+    let err = result.unwrap_err();
+    match err.err {
+        TransactionError::InstructionError(0, _) => {
+            println!("Got expected error: InstructionError (insufficient funds)");
+        }
+        _ => panic!("Got unexpected error: {:?}", err.err),
+    }
+
+    // Verify no funds were transferred
+    assert_eq!(svm.get_balance(&bob.pubkey()).unwrap_or(0), 0);
+}
+```
+
+## 다양한 오류 유형 테스트
+
+### 잘못된 계정
+
+```rust
+#[test]
+fn test_account_not_found() {
+    let mut svm = LiteSVM::new();
+    let non_existent = Pubkey::new_unique();
+
+    // This should return None
+    assert!(svm.get_account(&non_existent).is_none());
+}
+```
+
+### 커스텀 프로그램 오류
+
+```rust
+#[test]
+fn test_custom_program_error() {
+    let mut svm = LiteSVM::new();
+
+    // Deploy program and trigger custom error
+    let result = svm.send_transaction(tx);
+
+    if let Err(e) = result {
+        match e.err {
+            TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
+                assert_eq!(code, YOUR_ERROR_CODE);
+            }
+            _ => panic!("Expected custom error"),
+        }
+    }
+}
+```
+
+## 핵심 사항
+
+1. **오류 어설션**: `assert!(result.is_err())`를 사용하여 오류 발생 확인
+2. **오류 매칭**: 특정 오류 유형을 매칭하여 올바른 오류 처리 보장
+3. **상태 검증**: 오류 발생 시 상태가 변경되지 않았는지 확인
+4. **커스텀 오류**: 프로그램의 커스텀 오류 코드 테스트
+5. **엣지 케이스**: 경계 조건 및 잘못된 입력 테스트

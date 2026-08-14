@@ -2,7 +2,7 @@
 
 import { useState, useCallback, FormEvent, ChangeEvent } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { getImagePath } from "@/config";
 
 const ITERABLE_BASE_URL =

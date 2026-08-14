@@ -1,0 +1,407 @@
+---
+date: 2024-04-25T00:00:00Z
+difficulty: intermediate
+title: Token Extensionsを使用した動的メタデータNFT
+description:
+  Using the metadata token extension it is possible to save dynamic metadata,
+  like level and XP, directly in the mint of an NFT.
+tags:
+  - games
+  - anchor
+  - program
+  - web3js
+  - token extensions
+  - token 2022
+  - NFTs
+  - rust
+keywords:
+  - tutorial
+  - blockchain developer
+  - blockchain tutorial
+  - web3 developer
+  - anchor
+  - games
+  - example
+  - NFTs
+  - metadata
+  - token extensions
+  - token 2022
+---
+
+[Token Extension program](/docs/tokens/extensions)を使用すると、メタデータ拡張機能を活用してNFTやデジタルアセットを作成できます。これらの拡張機能（[メタデータポインターとトークンメタデータ](/docs/tokens/extensions/metadata)）を組み合わせることで、任意のメタデータをネイティブにオンチェーンに保存できます。すべてはトークンのmint accountに直接設けられたカスタマイズ可能なキーバリューデータストア内に収まり、コストと複雑さを削減します。
+
+これは[web3ゲーム](/solutions/games-tooling)に特に有効です。オンチェーンのキーバリューストア内にこれらの「追加メタデータフィールド」を持てるようになったことで、ゲームはNFT自体の中にユニークな状態（ゲームキャラクターのステータスやインベントリなど）を保存・参照できるようになります。
+
+## オンチェーンプログラムの構築
+
+このデベロッパーガイドでは、[Anchorプログラム](https://www.anchor-lang.com/docs)を使用して、Token Extensionsベースのこれらのカスタムメタデータを持つNFTを構築する方法を紹介します。このプログラムは、ゲームプレイヤーのレベルと収集したリソースをNFT内に保存します。
+
+このNFTはAnchorプログラムによって作成されるため、JavaScriptクライアントから非常に簡単にミントできます。各NFTはToken Metadataインターフェースを通じて提供される基本的な構造を持ちます：
+
+- デフォルトのオンチェーンフィールド - `name`、`symbol`、`uri`
+  - `uri`はNFTのオフチェーンメタデータを含むオフチェーンJSONファイルへのリンクです
+- 独自に定義するカスタム「追加フィールド」も設定できます
+
+これらのフィールドはすべてNFTのmint accountを指すメタデータ拡張機能を使用して保存され、誰でも、またどのプログラムからもアクセス可能になります。
+
+<Callout title="動画とソースコード">
+
+このサンプルのビデオウォークスルーはSolana FoundationのYoutubeチャンネルでご覧いただけます：
+
+- [ビデオウォークスルー](https://www.youtube.com/watch?v=n-ym1utpzhk)
+- [完全なソースコード](https://github.com/solana-developers/program-examples/tree/main/tokens/token-2022/NFT-meta-data-pointer/anchor)
+
+</Callout>
+
+### ゲームにおけるその他のユースケース
+
+カスタマイズ可能なオンチェーンメタデータを持つこれらの種類のNFTは、ゲーム開発者に多くの興味深い可能性をもたらします。特に、このメタデータが[オンチェーンプログラム](/docs/core/programs)によって直接操作・管理できる点が魅力です。
+
+ゲームに関連するユースケースには以下のものが含まれます：
+
+- プレイヤーのレベルとXPを保存する
+- 現在の武器と防具
+- 現在のクエスト
+- まだまだ続きます！
+
+## NFTのミント
+
+NFTを作成するには、以下の手順を実行する必要があります：
+
+1. mint accountを作成する
+2. mint accountを初期化する
+3. メタデータポインターアカウントを作成する
+4. メタデータポインターアカウントを初期化する
+5. メタデータアカウントを作成する
+6. メタデータアカウントを初期化する
+7. associated token accountを作成する
+8. associated token accountにトークンをミントする
+9. ミント権限を凍結する
+
+### Rustプログラムコード
+
+以下は、Token Extension programを使用してNFTをミントするために使用されるRustコードです：
+
+```rust name="Program"
+// calculate the space need for the mint account with the desired extensions
+let space = ExtensionType::try_calculate_account_len::<Mint>(
+    &[ExtensionType::MetadataPointer])
+    .unwrap();
+
+// This is the space required for the metadata account.
+// We put the metadata into the mint account at the end so we
+// don't need to create and additional account.
+// Then the metadata pointer points back to the mint account.
+// Using this technique, only one account is needed for both the mint
+// information and the metadata.
+
+let meta_data_space = 250;
+
+let lamports_required = (Rent::get()?).minimum_balance(space + meta_data_space);
+
+msg!(
+    "Create Mint and metadata account size and cost: {} lamports: {}",
+    space as u64,
+    lamports_required
+);
+
+system_program::create_account(
+    CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        system_program::CreateAccount {
+            from: ctx.accounts.signer.to_account_info(),
+            to: ctx.accounts.mint.to_account_info(),
+        },
+    ),
+    lamports_required,
+    space as u64,
+    &ctx.accounts.token_program.key(),
+)?;
+
+// Assign the mint to the token program
+system_program::assign(
+    CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        system_program::Assign {
+            account_to_assign: ctx.accounts.mint.to_account_info(),
+        },
+    ),
+    &token_2022::ID,
+)?;
+
+// Initialize the metadata pointer (Need to do this before initializing the mint)
+let init_meta_data_pointer_ix =
+spl_token_2022::extension::metadata_pointer::instruction::initialize(
+    &Token2022::id(),
+    &ctx.accounts.mint.key(),
+    Some(ctx.accounts.nft_authority.key()),
+    Some(ctx.accounts.mint.key()),
+)
+.unwrap();
+
+invoke(
+    &init_meta_data_pointer_ix,
+    &[
+        ctx.accounts.mint.to_account_info(),
+        ctx.accounts.nft_authority.to_account_info()
+    ],
+)?;
+
+// Initialize the mint cpi
+let mint_cpi_ix = CpiContext::new(
+    ctx.accounts.token_program.to_account_info(),
+    token_2022::InitializeMint2 {
+        mint: ctx.accounts.mint.to_account_info(),
+    },
+);
+
+token_2022::initialize_mint2(
+    mint_cpi_ix,
+    0,
+    &ctx.accounts.nft_authority.key(),
+    None).unwrap();
+
+// We use a PDA as a mint authority for the metadata account because
+// we want to be able to update the NFT from the program.
+let seeds = b"nft_authority";
+let bump = ctx.bumps.nft_authority;
+let signer: &[&[&[u8]]] = &[&[seeds, &[bump]]];
+
+msg!("Init metadata {0}", ctx.accounts.nft_authority.to_account_info().key);
+
+// Init the metadata account
+let init_token_meta_data_ix =
+&spl_token_metadata_interface::instruction::initialize(
+    &spl_token_2022::id(),
+    ctx.accounts.mint.key,
+    ctx.accounts.nft_authority.to_account_info().key,
+    ctx.accounts.mint.key,
+    ctx.accounts.nft_authority.to_account_info().key,
+    "Beaver".to_string(),
+    "BVA".to_string(),
+    "https://arweave.net/MHK3Iopy0GgvDoM7LkkiAdg7pQqExuuWvedApCnzfj0".to_string(),
+);
+
+invoke_signed(
+    init_token_meta_data_ix,
+    &[ctx.accounts.mint.to_account_info().clone(), ctx.accounts.nft_authority.to_account_info().clone()],
+    signer,
+)?;
+
+// Update the metadata account with an additional metadata field in this case the player level
+invoke_signed(
+    &spl_token_metadata_interface::instruction::update_field(
+        &spl_token_2022::id(),
+        ctx.accounts.mint.key,
+        ctx.accounts.nft_authority.to_account_info().key,
+        spl_token_metadata_interface::state::Field::Key("level".to_string()),
+        "1".to_string(),
+    ),
+    &[
+        ctx.accounts.mint.to_account_info().clone(),
+        ctx.accounts.nft_authority.to_account_info().clone(),
+    ],
+    signer
+)?;
+
+// Create the associated token account
+associated_token::create(
+    CpiContext::new(
+    ctx.accounts.associated_token_program.to_account_info(),
+    associated_token::Create {
+        payer: ctx.accounts.signer.to_account_info(),
+        associated_token: ctx.accounts.token_account.to_account_info(),
+        authority: ctx.accounts.signer.to_account_info(),
+        mint: ctx.accounts.mint.to_account_info(),
+        system_program: ctx.accounts.system_program.to_account_info(),
+        token_program: ctx.accounts.token_program.to_account_info(),
+    },
+))?;
+
+// Mint one token to the associated token account of the player
+token_2022::mint_to(
+    CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        token_2022::MintTo {
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.token_account.to_account_info(),
+            authority: ctx.accounts.nft_authority.to_account_info(),
+        },
+        signer
+    ),
+    1,
+)?;
+
+// Freeze the mint authority so no more tokens can be minted to make it an NFT
+token_2022::set_authority(
+    CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        token_2022::SetAuthority {
+            current_authority: ctx.accounts.nft_authority.to_account_info(),
+            account_or_mint: ctx.accounts.mint.to_account_info(),
+        },
+        signer
+    ),
+    AuthorityType::MintTokens,
+    None,
+)?;
+```
+
+### JavaScriptクライアントコード
+
+クライアントからNFTミントを呼び出すのは非常に簡単です：
+
+```js name="Client"
+const nftAuthority = PublicKey.findProgramAddressSync(
+  [Buffer.from("nft_authority")],
+  program.programId
+);
+
+const mint = new Keypair();
+
+const destinationTokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID
+);
+
+const transaction = await program.methods
+  .mintNft()
+  .accounts({
+    signer: publicKey,
+    systemProgram: SystemProgram.programId,
+    tokenProgram: TOKEN_2022_PROGRAM_ID,
+    tokenAccount: destinationTokenAccount,
+    mint: mint.publicKey,
+    rent: web3.SYSVAR_RENT_PUBKEY,
+    associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+    nftAuthority: nftAuthority[0]
+  })
+  .signers([mint])
+  .transaction();
+
+console.log("transaction", transaction);
+
+const txSig = await sendTransaction(transaction, connection, {
+  signers: [mint],
+  skipPreflight: true
+});
+
+console.log(`https://explorer.solana.com/tx/${txSig}?cluster=devnet`);
+```
+
+## クイックスタートの例
+
+上記の例はSolana Games Presetをベースにしており、このゲーム用のJavaScriptおよびUnityクライアントを含むスキャフォールドを生成します。SolanaのAnchorプログラムと連携するための設定も含まれています。
+
+以下のコマンドで自分で実行できます：
+
+```shell
+npx create-solana-game gameName
+```
+
+### ローカル環境のセットアップ
+
+このサンプルをローカルで実行するには、Anchor CLIのインストールと設定を含め、Solana開発用に[ローカル環境をセットアップ](/docs/intro/installation)していることを確認する必要があります。まだの場合は、リンク先のセットアップガイドに従って設定してください。
+
+### プロジェクト構成
+
+Anchorプロジェクトは次のような構成になっています：
+
+エントリーポイントはlib.rsファイルにあります。ここではプログラムIDとinstructionsを定義します。instructionsはinstructionsフォルダーで定義されています。状態はstateフォルダーで定義されています。
+
+呼び出しはlib.rsファイルに届き、instructionsに転送されます。instructionsはstateを呼び出してデータを取得し、更新します。
+
+NFTミントのinstructionはinstructionsフォルダーで確認できます。
+
+```shell
+├── src
+│   ├── instructions
+│   │   ├── chop_tree.rs
+│   │   ├── init_player.rs
+│   │   ├── mint_nft.rs
+│   │   └── update_energy.rs
+│   ├── state
+│   │   ├── game_data.rs
+│   │   ├── mod.rs
+│   │   └── player_data.rs
+│   ├── lib.rs
+│   └── constants.rs
+│   └── errors.rs
+
+```
+
+### Anchorプログラム
+
+`create-solana-game`ツールで生成されたAnchorプログラムのセットアップを完了するには：
+
+1. `cd program`でプログラムディレクトリに移動する
+2. `anchor build`を実行してプログラムをビルドする
+3. `anchor deploy`を実行してプログラムをデプロイする
+4. ターミナルからプログラムIDをコピーして`lib.rs`、`anchor.toml`、およびUnityプロジェクト内の`AnchorService`に貼り付ける。JavaScriptを使用する場合は`anchor.ts`ファイルにも貼り付ける
+5. 再度ビルドしてデプロイする
+
+### NextJSクライアント
+
+`create-solana-game`ツールで生成されたNextJSクライアントのセットアップを完了するには：
+
+1. `programId`を`app/utils/anchor.ts`にコピーする
+2. `cd app`でappディレクトリに移動する
+3. `yarn install`を実行してNodeの依存関係をインストールする
+4. `yarn dev`を実行してクライアントを起動する
+5. Anchorプログラムに変更を加えた後は、プログラムから型をクライアントにコピーして使用できるようにしてください。TypeScriptの型は`target/idl`フォルダーにあります。
+
+## このサンプルをローカルで実行する
+
+Anchorの`test`コマンドに`--detach`フラグを付けて使用すると、プログラムがデプロイされた状態でSolanaのローカルテストvalidatorが起動・設定され（テスト完了後もvalidatorが継続して動作します）：
+
+```shell
+cd program
+anchor test --detach
+```
+
+その後、[Solana Explorer](https://explorer.solana.com/)をローカルテストvalidator（`anchor test`コマンドの実行時に起動）を使用するよう設定することで、トランザクションを確認できます：
+
+```
+https://explorer.solana.com/?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899
+```
+
+プログラムはすでにnetにデプロイされているため、`devnet`で試すことができます。JavaScriptクライアントにはNFTをミントするボタンも用意されています。JavaScriptクライアントの起動：
+
+```shell
+cd app
+yarn install
+yarn dev
+```
+
+### Unityプロジェクトを開く
+
+まずUnity Version 2021.3.32.f1（または類似バージョン）でUnityプロジェクトを開き、`GameScene`または`LoginScene`を開いて再生ボタンを押してください。左下のエディターログインボタンを使用してください。
+
+devnetのSOLが取得できない場合は、コンソールからアドレスをコピーして、[devnet SOLの取得方法](/developers/cookbook/development/airdrops-and-faucets)に関するこのガイドのinstructionsに従ってください
+
+### UnityでSolanaテストvalidatorに接続する
+
+devnet SOLの維持管理を気にせずに済むようにしたい場合は、Unity内から実行中のローカルテストvalidatorに接続できます。ウォレットホルダーゲームオブジェクトにこれらのリンクを追加するだけです：
+
+```shell
+http://localhost:8899
+ws://localhost:8900
+```
+
+### JavaScriptクライアントを実行する
+
+JavaScriptクライアントを起動してWebブラウザーからゲームとプログラムを操作するには：
+
+- リポジトリ内の`app`ディレクトリを開く
+- Nodeの依存関係をインストールする
+- `dev`コマンドを実行して開発サーバーを起動する
+
+```shell
+cd app
+yarn install
+yarn dev
+```
+
+プログラムを変更して自分のプログラムに接続し始めるには、以下の手順に従ってください。

@@ -3,7 +3,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@@/src/app/components/ui/collapsible";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDown as ChevronDownIcon } from "@boxicons/react/ChevronDown";
 import { BlockAnnotation, AnnotationHandler, InnerLine } from "codehike/code";
 
 const collapseRoot: AnnotationHandler = {
@@ -36,7 +36,8 @@ const collapseRoot: AnnotationHandler = {
 const icon = (
   <ChevronDownIcon
     className="inline-block group-data-[state=closed]:-rotate-90 transition select-none opacity-30 group-data-[state=closed]:opacity-80 group-hover:!opacity-100 mb-0.5 ml-1 -mr-1 "
-    size={15}
+    width={15}
+    height={15}
   />
 );
 const collapseTrigger: AnnotationHandler = {

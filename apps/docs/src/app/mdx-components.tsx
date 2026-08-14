@@ -16,11 +16,23 @@ import { NoteTooltip } from "./components/code/notes.tooltip";
 import { InlineCode } from "./components/code/inline-code";
 import { Terminal } from "./components/code/terminal";
 import { Mermaid } from "./components/code/mermaid";
-import { Download, Rocket, Coins } from "lucide-react";
+import { ArrowToBottom as Download } from "@boxicons/react/ArrowToBottom";
+import { Rocket } from "@boxicons/react/Rocket";
+import { Coins } from "@boxicons/react/Coins";
 import { ScrollyCoding } from "./components/code/scrollycoding";
 import { CodePlaceholder } from "./components/code/scrollycoding.client";
+import { File, Files, Folder } from "./components/ui/files";
 import { SideBySide } from "./components/side-by-side";
 import { CodeReference } from "./components/code-reference";
+import {
+  AccountsRpc,
+  AdminRpc,
+  CheatcodesRpc,
+  NetworkRpc,
+  NodeRpc,
+  TransactionsRpc,
+} from "@/components/rpc/RpcPageContent";
+import { WebSocketsRpc } from "@/components/rpc/WebSocketsRpc";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -30,6 +42,9 @@ export const mdxComponents = {
   Step,
   Accordion,
   Accordions,
+  Files,
+  Folder,
+  File,
   Tab,
   Tabs,
   img: Image,
@@ -44,11 +59,40 @@ export const mdxComponents = {
   CodePlaceholder,
   SideBySide,
   CodeReference,
+  DocsDiagram,
+  AccountsRpc,
+  AdminRpc,
+  CheatcodesRpc,
+  NetworkRpc,
+  NodeRpc,
+  TransactionsRpc,
+  WebSocketsRpc,
   // Icons
   Download,
   Rocket,
   Coins,
 };
+
+function DocsDiagram({ src, alt }: { src: string; alt: string }) {
+  const lightSrc = src.replace(/\.svg$/, "-light.svg");
+
+  return (
+    <figure className="not-prose mt-5 mb-8 first:-mt-6">
+      <img
+        src={lightSrc}
+        alt={alt}
+        className="block h-auto w-full dark:hidden"
+        decoding="async"
+      />
+      <img
+        src={src}
+        alt={alt}
+        className="hidden h-auto w-full dark:block"
+        decoding="async"
+      />
+    </figure>
+  );
+}
 
 function DocsKitCode(props: { codeblock: RawCode }) {
   const { codeblock, ...rest } = props;
@@ -89,15 +133,18 @@ function CodeTabs(props: unknown) {
     code: z.array(CodeBlock),
     flags: z.string().optional(),
     storage: z.string().optional(),
+    runner: z.string().optional(),
   }).safeParse(props);
 
   if (error) {
     throw betterError(error, "CodeTabs");
   }
 
-  const { code, flags, storage } = data;
+  const { code, flags, storage, runner } = data;
 
-  return <Code codeblocks={code} flags={flags} storage={storage} />;
+  return (
+    <Code codeblocks={code} flags={flags} storage={storage} runner={runner} />
+  );
 }
 
 function TerminalPicker(props: unknown) {

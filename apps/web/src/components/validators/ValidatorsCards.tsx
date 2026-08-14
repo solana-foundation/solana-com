@@ -1,4 +1,4 @@
-import Loader from "../../../public/src/img/icons/Loader.inline.svg";
+import { LoaderLines as Loader } from "@boxicons/react/LoaderLines";
 import RoundedDepthCard from "../shared/RoundedDepthCard";
 import { FormattedNumber } from "../SolFormattedMessage";
 import { useTranslations } from "next-intl";
@@ -26,7 +26,7 @@ const ValidatorsCards = ({ visible }: { visible: boolean }) => {
                 {availableStats ? (
                   <FormattedNumber value={validators} />
                 ) : (
-                  <Loader />
+                  <Loader className="animate-spin" aria-hidden="true" />
                 )}
               </div>
               <p className="text-black m-0">
@@ -40,7 +40,7 @@ const ValidatorsCards = ({ visible }: { visible: boolean }) => {
                 {superminority !== null ? (
                   <FormattedNumber value={superminority} />
                 ) : (
-                  <Loader />
+                  <Loader className="animate-spin" aria-hidden="true" />
                 )}
               </div>
               <p className="text-black m-0">

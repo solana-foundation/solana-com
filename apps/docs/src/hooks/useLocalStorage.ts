@@ -1,4 +1,9 @@
 import React from "react";
+import {
+  getBrowserStorage,
+  safeStorageGetItem,
+  safeStorageSetItem,
+} from "@solana-com/ui-chrome";
 
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react-hooks/exhaustive-deps */
@@ -15,14 +20,15 @@ export function useStateOrLocalStorage(
   React.useLayoutEffect(() => {
     if (!key) return;
 
-    const storedValue = window.localStorage.getItem(key);
+    const storage = getBrowserStorage("localStorage");
+    const storedValue = safeStorageGetItem(storage, key);
     if (storedValue != null) {
       setState(storedValue);
     }
 
     const onStorageChange = (e: StorageEvent) => {
       if (e.key === key) {
-        const storedValue = window.localStorage.getItem(key);
+        const storedValue = safeStorageGetItem(storage, key);
         setState(storedValue || initialState);
       }
     };
@@ -34,7 +40,7 @@ export function useStateOrLocalStorage(
     ? setState
     : (value: string) => {
         if (typeof window !== "undefined") {
-          window.localStorage.setItem(key, value);
+          safeStorageSetItem(getBrowserStorage("localStorage"), key, value);
           window.dispatchEvent(new StorageEvent("storage", { key }));
         }
       };

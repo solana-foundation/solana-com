@@ -1,0 +1,279 @@
+---
+title: 빠른 시작
+description:
+  간소화된 구문으로 Anchor 프로그램을 테스트하기 위해 anchor-litesvm을 사용하는
+  방법 알아보기
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/anchor-litesvm"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    crates.io에서 <code>anchor-litesvm</code> 보기
+  </a>
+</div>
+
+## 설치
+
+필요한 의존성을 추가하세요:
+
+```bash
+cargo add --dev anchor-litesvm litesvm litesvm-utils
+```
+
+## anchor-litesvm이란?
+
+`anchor-litesvm` 크레이트는 **anchor-client와 유사한 간소화된 구문**을
+제공하지만 RPC 오버헤드가 없습니다. Anchor 타입으로 타입 안전성을 유지하면서
+순수 LiteSVM 대비 **78% 코드 감소**를 달성합니다.
+
+<Steps>
+<Step>
+**AnchorContext**
+- 프로덕션 호환 테스트 컨텍스트
+- anchor-client와 동일한 API 패턴
+- LiteSVM 인스턴스, 페이어, 프로그램 관리
+- RPC 오버헤드 없이 명령어 실행
+</Step>
+
+<Step>
+  **Program API** - 유연한 명령어 빌딩 - 타입 안전한 계정 및 인수 처리 - 친숙한
+  anchor-client 구문
+</Step>
+
+<Step>
+  **계정 역직렬화** - Anchor 계정 조회 및 역직렬화 - 자동 식별자 처리 - PDA 및
+  커스텀 레이아웃 지원
+</Step>
+
+<Step>
+**이벤트 파싱**
+- 트랜잭션 로그에서 이벤트 파싱
+- 이벤트 발생 검증
+- 타입 안전한 이벤트 역직렬화
+</Step>
+</Steps>
+
+## 빠른 예제
+
+Anchor 1.0에서는 `declare_program!`를 사용하여 프로그램의 IDL에서 클라이언트
+타입을 생성하세요. 이 매크로는 타입 안전한 명령어 빌딩을 위한
+`client::accounts::*` 및 `client::args::*` 모듈을 생성합니다:
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_litesvm::{AssertionHelpers, TestHelpers};
+use anchor_lang::system_program;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+// Generate client types from your program's IDL
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_anchor_program() {
+    // One-line setup — reads program keypair for the correct ID
+    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        program_keypair.pubkey(),
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    // Create a funded account via TestHelpers on ctx.svm
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // Derive PDA
+    let seed: u64 = 42;
+    let pda = ctx.svm.get_pda(
+        &[b"user", user.pubkey().as_ref(), &seed.to_le_bytes()],
+        &program_keypair.pubkey(),
+    );
+
+    // Build instruction using generated client types
+    let ix = ctx.program()
+        .accounts(my_program::client::accounts::Initialize {
+            user: user.pubkey(),
+            user_account: pda,
+            system_program: system_program::ID,
+        })
+        .args(my_program::client::args::Initialize {
+            seed,
+            name: "test".to_string(),
+        })
+        .instruction()
+        .unwrap();
+
+    // Execute and assert in one chain
+    ctx.execute_instruction(ix, &[&user])
+        .unwrap()
+        .assert_success();
+
+    // Fetch and deserialize the account
+    let account: my_program::MyAccount = ctx.get_account(&pda).unwrap();
+    assert_eq!(account.name, "test");
+}
+```
+
+<Callout type="info">
+  `declare_program!(my_program)`는 컴파일 시점에
+  `target/idl/my_program.json`에서 IDL을 읽어 `client::accounts::*` 및
+  `client::args::*` 모듈을 생성합니다. 이를 위해서는 먼저 프로그램을 빌드해야
+  합니다.
+</Callout>
+
+## 비교: Raw LiteSVM vs anchor-litesvm
+
+### 이전 (Raw LiteSVM)
+
+```rust
+use litesvm::LiteSVM;
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_message::Message;
+use solana_transaction::Transaction;
+
+let mut svm = LiteSVM::new();
+svm.add_program(program_id, program_bytes).unwrap();
+
+let payer = Keypair::new();
+svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+// Manually compute 8-byte discriminator
+let discriminator = {
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(b"global:initialize");
+    let result = hasher.finalize();
+    result[..8].to_vec()
+};
+
+// Manually serialize args and build instruction
+let mut data = discriminator;
+data.extend_from_slice(&borsh::to_vec(&args).unwrap());
+
+let accounts = vec![
+    AccountMeta::new(user.pubkey(), true),
+    AccountMeta::new(user_pda, false),
+    AccountMeta::new_readonly(system_program::id(), false),
+];
+
+let ix = Instruction::new_with_bytes(program_id, &data, accounts);
+let tx = Transaction::new_signed_with_payer(
+    &[ix],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+svm.send_transaction(tx).unwrap();
+
+// Manually deserialize with discriminator skip
+let account_data = svm.get_account(&pda).unwrap().data;
+let account: UserAccount = UserAccount::try_deserialize(
+    &mut &account_data[8..]
+).unwrap();
+```
+
+### 이후 (anchor-litesvm)
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+
+anchor_lang::declare_program!(my_program);
+
+let mut ctx = AnchorLiteSVM::build_with_program(program_id, program_bytes);
+let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+let ix = ctx.program()
+    .accounts(my_program::client::accounts::Initialize {
+        user: user.pubkey(),
+        user_account: user_pda,
+        system_program: anchor_lang::system_program::ID,
+    })
+    .args(my_program::client::args::Initialize { name: "test".to_string() })
+    .instruction()
+    .unwrap();
+
+ctx.execute_instruction(ix, &[&user]).unwrap().assert_success();
+
+let account: my_program::UserAccount = ctx.get_account(&user_pda).unwrap();
+```
+
+## 주요 구성 요소
+
+### AnchorLiteSVM 빌더
+
+| 메서드                          | 설명                               |
+| ------------------------------- | ---------------------------------- |
+| `new()`                         | 새 빌더 인스턴스를 생성합니다      |
+| `with_payer(keypair)`           | 커스텀 페이어 keypair를 설정합니다 |
+| `deploy_program(id, bytes)`     | 배포할 프로그램을 추가합니다       |
+| `build()`                       | AnchorContext를 빌드합니다         |
+| `build_with_program(id, bytes)` | 단일 프로그램을 위한 편의 메서드   |
+| `build_with_programs(programs)` | 여러 프로그램을 배포합니다         |
+
+### AnchorContext
+
+| 메서드                               | 설명                                                  |
+| ------------------------------------ | ----------------------------------------------------- |
+| `svm`                                | 내부 `LiteSVM` 인스턴스에 직접 접근합니다 (공개 필드) |
+| `program_id`                         | 프로그램 ID (공개 필드)                               |
+| `program()`                          | 명령어 빌드를 위한 `Program`를 반환합니다             |
+| `payer()`                            | 페이어 `Keypair`를 가져옵니다                         |
+| `execute_instruction(ix, signers)`   | 단일 명령어를 실행합니다                              |
+| `execute_instructions(ixs, signers)` | 하나의 트랜잭션에서 여러 명령어를 실행합니다          |
+| `send_and_confirm_transaction(&tx)`  | 원시 트랜잭션을 전송합니다                            |
+| `get_account<T>(pubkey)`             | Anchor 계정을 가져와 역직렬화합니다                   |
+| `get_account_unchecked<T>(pubkey)`   | 판별자 검사 없이 가져옵니다                           |
+| `create_funded_account(lamports)`    | 새 keypair를 생성하고 자금을 지원합니다               |
+| `airdrop(pubkey, lamports)`          | 주소에 SOL을 에어드롭합니다                           |
+| `latest_blockhash()`                 | 현재 블록해시를 가져옵니다                            |
+| `account_exists(pubkey)`             | 계정 존재 여부를 확인합니다                           |
+| `deploy_program(id, bytes)`          | 추가 프로그램을 배포합니다 (`ProgramTestExt` 경유)    |
+
+### Program
+
+| 메서드               | 설명                                                   |
+| -------------------- | ------------------------------------------------------ |
+| `accounts(accounts)` | 명령어 계정을 설정합니다 (모든 `ToAccountMetas` 타입)  |
+| `args(args)`         | 명령어 인수를 설정합니다 (모든 `InstructionData` 타입) |
+| `instruction()`      | 최종 `Instruction`를 빌드합니다                        |
+| `id()`               | 프로그램 ID를 가져옵니다                               |
+
+### ctx.svm — TestHelpers & AssertionHelpers
+
+`ctx.svm`는 `litesvm-utils`를 통해 `TestHelpers` 및 `AssertionHelpers`
+트레이트를 사용할 수 있는 공개 `LiteSVM` 필드입니다:
+
+| 메서드                                                    | 설명                      |
+| --------------------------------------------------------- | ------------------------- |
+| `ctx.svm.create_funded_account(lamports)`                 | keypair 생성 및 자금 지원 |
+| `ctx.svm.create_token_mint(authority, decimals)`          | SPL 토큰 민트 생성        |
+| `ctx.svm.create_associated_token_account(mint, owner)`    | ATA 생성                  |
+| `ctx.svm.mint_to(mint, token_account, authority, amount)` | 토큰 민트                 |
+| `ctx.svm.get_pda(seeds, program_id)`                      | PDA 주소 도출             |
+| `ctx.svm.get_pda_with_bump(seeds, program_id)`            | bump seed로 PDA 도출      |
+| `ctx.svm.assert_token_balance(token_account, expected)`   | 토큰 잔액 확인            |
+| `ctx.svm.assert_account_closed(pubkey)`                   | 계정 종료 여부 확인       |
+| `ctx.svm.assert_sol_balance(pubkey, expected)`            | SOL 잔액 확인             |
+
+## 문제 해결
+
+### 일반적인 오류
+
+| 오류                    | 원인                                     | 해결 방법                                                                      |
+| ----------------------- | ---------------------------------------- | ------------------------------------------------------------------------------ |
+| `AccountNotFound`       | 계정이 존재하지 않음                     | 데이터를 가져오기 전에 계정이 생성되었는지 확인                                |
+| `DiscriminatorMismatch` | 잘못된 계정 유형                         | 올바른 계정 구조체를 사용하고 있는지 확인                                      |
+| `DeserializationError`  | 유효하지 않은 계정 데이터                | 계정이 올바르게 초기화되었는지 확인                                            |
+| No programs added       | `deploy_program()` 없이 `build()` 호출됨 | 빌드하기 전에 최소 하나의 프로그램을 추가하세요                                |
+| Missing client types    | `declare_program!`가 호출되지 않음       | 먼저 `anchor build`를 실행하여 IDL을 생성한 후 `declare_program!`를 호출하세요 |

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
+import { getLocale } from "next-intl/server";
+import { getLangDir } from "rtl-detect";
 import { cn } from "@/lib/utils";
 
 import "@/styles.css";
@@ -110,9 +112,21 @@ const fontSans = localFont({
   variable: "--font-sans",
 });
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const locale = await getLocale();
+  const direction = getLangDir(locale);
+
   return (
-    <html lang="en" className={cn(fontSans.variable)} suppressHydrationWarning>
+    <html
+      lang={locale}
+      dir={direction}
+      className={cn(fontSans.variable)}
+      suppressHydrationWarning
+    >
       <body
         className="min-h-screen bg-background font-sans antialiased"
         suppressHydrationWarning

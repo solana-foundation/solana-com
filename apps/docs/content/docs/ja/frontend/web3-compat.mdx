@@ -1,83 +1,51 @@
 ---
-title: "@solana/web3-compat"
-description:
-  レガシーの@solana/web3.jsコードをKit
-  primitivesで実行できるドロップイン互換性レイヤー。
+title: Kitへの移行
+description: "@solana/web3.jsとwallet-adapterの概念を@solana/kitに対応付ける方法。"
 ---
 
-`@solana/web3-compat`は、長期運用されている`@solana/web3.js`アプリと新しいKitランタイムの橋渡しです。importを切り替えるだけで、アプリが既に知っているインターフェースを維持しながら、すべてのヘルパーやinstructionを書き直すことなく、段階的にKit機能を採用できます。
+`@solana/web3.js`（v1）、`@solana/wallet-adapter-*`、または以前のframework-kitパッケージ（`@solana/client`、`@solana/react-hooks`、`@solana/web3-compat`）から移行する場合、これらのアプローチは廃止されています。新しいアプリは`@solana/kit`とkitプラグインを直接使用して構築します。このページでは、すでにご存知の概念をKitの対応する概念に対応付けています。
 
-## Kitピア依存関係と共にインストール
+## 概念の対応表
 
-```terminal
-$ npm install @solana/web3-compat @solana/kit @solana/client
-```
+| web3.js v1 / wallet-adapter            | Kit                                                                            |
+| -------------------------------------- | ------------------------------------------------------------------------------ |
+| `new Connection(url)`                  | `createSolanaRpc(url)`、またはクライアント上の`.use(solanaRpc({ rpcUrl }))`    |
+| `PublicKey`                            | `Address` — `address("...")`で文字列を変換                                     |
+| `Keypair`                              | `generateKeyPairSigner()` または`@solana/kit-plugin-signer`プラグイン          |
+| `SystemProgram.transfer(...)`          | `@solana-program/system`の`getTransferSolInstruction(...)`                     |
+| `LAMPORTS_PER_SOL` 演算                | `@solana/kit`の`lamports(...)`                                                 |
+| `Transaction` / `VersionedTransaction` | トランザクションプランナーによって構築・パックされるトランザクションメッセージ |
+| `sendAndConfirmTransaction(...)`       | `client.sendTransaction([...])`（プランナーが署名・送信・確認を行う）          |
+| `@solana/wallet-adapter-*`             | `@solana/kit-plugin-wallet` + Wallet Standard検出                              |
 
-互換性レイヤーは、クラシックWeb3型(`Connection`、`PublicKey`、`Transaction`など)を再エクスポートしながら、内部的にKitのネットワーキングとコーデックに委譲します。既存のRPCエンドポイントを維持しながら、Kitのより予測可能なblockhash処理とウォレット抽象化の恩恵を受けられます。
+## web3.jsからの移行
 
-## importを置き換える(他のコード変更は不要)
+大規模な`@solana/web3.js`
+v1コードベースを管理しており、Kitへの完全な書き換えがまだ現実的でない場合、web3.js
+v3がブリッジとなります。現在は`@solana/web3.js@rc`（`3.0.0-rc`ライン）としてリリースされており、`@solana/kit`の内部実装をベースに、従来のクラスベースAPI（`Connection`、`Keypair`、`Transaction`）を再構築しています。Kitの上に構築されているため、相互運用性は高く、`PublicKey`は`Address`の非推奨エイリアスとなっており、v3の`Keypair`は構造的にKitの`KeyPairSigner`を満たすため、Kit
+API、プラグイン、Codamaが生成したクライアントに直接渡すことができます。
 
-ほとんどのプロジェクトは、importソースを切り替えることでファイル単位で移行できます。名前付きimportと名前空間importの両方が、旧パッケージを反映しています。
+v3はまだ**リリース候補**です — 正確なバージョンを固定し、RC間でAPIが変更される可能性を想定してください。これはレガシー相互運用のためのパスであり、新規開発のデフォルトではありません。新しいアプリはKitを直接使用して構築してください。移行については、公式の[web3.js v1 → v3 移行ガイド](https://github.com/solana-foundation/solana-web3.js/blob/v3.x/docs/web3js-v1-to-v3-migration.md)をご参照ください。
 
-```ts title="Before"
-import { Connection, PublicKey } from "@solana/web3.js";
-```
+## ウォレット
 
-```ts title="After"
-import { Connection, PublicKey } from "@solana/web3-compat";
-```
+Kitはwallet-adapterを使用しません。`@solana/kit-plugin-wallet`はWallet
+Standardウォレットを検出し、`client.wallet`と
+[Reactフック](/docs/frontend/react-hooks)を通じて公開します。最新のウォレット（Phantom、Solflare、Backpack、その他）はWallet
+Standardを通じて自身を通知するため、ウォレットごとのアダプターパッケージは不要です。
 
-CommonJSも動作します:
+[@solana/connector](https://www.npmjs.com/package/@solana/connector)のような既成ツールを使用することもできます。このツールはKitのプリミティブを直接使用してウォレットに接続します。
 
-```js
-const solanaWeb3 = require("@solana/web3-compat");
-const connection = new solanaWeb3.Connection("https://api.devnet.solana.com");
-```
-
-内部的には`Connection`が`@solana/client`を通じて読み書きを転送するため、`sendAndConfirmTransaction`、`simulateTransaction`、`getProgramAccounts`などのヘルパーは、ビジネスロジックに触れることなく新しいランタイムの恩恵を受けられます。
-
-## Kit型が必要な場合のブリッジヘルパー
-
-Kitを直接採用する際(`@solana/client`や`@solana/react-hooks`を使用する新しいコンポーネントなど)、compatパッケージに同梱されているブリッジヘルパーを使用して、2つのエコシステム間で変換できます:
-
-```ts
-import {
-  PublicKey,
-  toAddress,
-  toPublicKey,
-  toWeb3Instruction,
-  toKitSigner
-} from "@solana/web3-compat";
-
-const legacyKey = new PublicKey("11111111111111111111111111111111");
-const kitAddress = toAddress(legacyKey);
-const backToWeb3 = toPublicKey(kitAddress);
-```
-
-ランタイムの混在が安全になります:新しいフックがKit
-instructionsを発行し、`toWeb3Instruction`がプロジェクト全体が移行するまでレガシーフロー用にラップします。
-
-## 段階的な移行パターン
-
-- **段階的なロールアウト**: 一度に1つの機能フォルダを更新します。モジュールが互換性を必要としなくなったら、ツリーの残りに触れることなく、`@solana/client`/`@solana/react-hooks`を直接指定します。
-- **共有RPCチューニング**: 互換性はKit接続に依存しているため、コミットメントレベル、優先手数料、またはRPC
-  URLのチューニングは単一の設定オブジェクトを通じて行われます。
-- **SPL + トランザクションヘルパー**: 今のところレガシートランザクションビルダーを保持しますが、準備ができたら`client.helpers.transaction.prepare`を使用してください。互換性は同じ署名済みペイロードを送信できます。
-- **テスト**: パブリックサーフェスは同一のままなので、既存のWeb3モックを再利用できますが、テスト中にKitクライアントをスタブ化してより豊富なシミュレーションを行うことができます。
-
-## フェーズ0で提供されるもの
-
-- `Connection`と`getLatestBlockhash`、`getBalance`、`getAccountInfo`、
-  `getProgramAccounts`、`getSignatureStatuses`、`sendRawTransaction`、
-  `confirmTransaction`、および`simulateTransaction`。
-- `LAMPORTS_PER_SOL`、`sendAndConfirmTransaction`、および
-  `compileFromCompat`などのユーティリティ。
-- `SystemProgram.transfer`とすべてのコアWeb3プリミティブ(`Keypair`、
-  `Transaction`、`VersionedTransaction`、`TransactionInstruction`)。
-
-<Callout type="warn" title="カバレッジは引き続き拡大中">
-  上記のリスト以外のメソッドは、現在レガシー`@solana/web3.js`にフォールバックします。
-  サーフェスの残りが互換性に対応するまで古い依存関係を保持し、サブスクリプションサポートとより広範なRPCカバレッジについては今後のリリースを追跡してください。
+<Callout type="info" title="まだwallet-adapterをお使いですか?">
+  `@solana/wallet-adapter-*`で構築されたアプリを管理しており、まだ移行の準備ができていない場合は、[wallet-adapter
+  リポジトリ](https://github.com/anza-xyz/wallet-adapter)がそのスタックのリファレンスとして引き続き利用できます。新しいものにはKitウォレットプラグインをお勧めします。
 </Callout>
 
-準備ができたら、このガイドを[@solana/clientの概要](/docs/frontend/client)および[@solana/react-hooksガイド](/docs/frontend/react-hooks)と組み合わせて、同じKitランタイム上に新しいUIの構築を開始してください。
+## 次のステップ
+
+- [Kitクライアント](/docs/frontend/client)
+  — プラグインからクライアントを構築する。
+- [React](/docs/frontend/react-hooks) —
+  `@solana/react`バインディングとウォレットフック。
+- [Next.jsチュートリアル](/docs/frontend/nextjs-solana)
+  — フルアプリのエンドツーエンド。

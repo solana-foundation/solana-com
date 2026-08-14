@@ -1,0 +1,143 @@
+---
+title: Surfpool SDK
+description:
+  Встраивайте Surfpool в тесты на Rust и TypeScript. Запускайте локальный
+  Surfnet, изменяйте состояние аккаунта, перемещайтесь во времени и
+  развёртывайте программы из кода — без запуска CLI как отдельного процесса.
+---
+
+Surfpool SDK запускает полноценную среду выполнения Surfnet внутри вашего
+тестового процесса. Используйте его, когда вам нужен локальный RPC-эндпоинт,
+совместимый с Solana, предварительно пополненный плательщик и прямое управление
+состоянием без запуска `surfpool start` как отдельного процесса.
+
+Как крейт для Rust (`surfpool-sdk`), так и JS-биндинги (`@solana/surfpool`)
+оборачивают одну и ту же среду выполнения. JS-пакет поставляется с готовыми
+нативными бинарными файлами через napi-rs для macOS (Intel + Apple Silicon) и
+Linux x86-64.
+
+## Быстрый старт
+
+Установите SDK, запустите Surfnet, обратитесь к RPC-эндпоинту, затем остановите
+его. Параллельные тесты безопасно используют один и тот же процесс, поскольку
+порты выделяются динамически.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Signer, Surfnet};
+
+#[tokio::test]
+async fn starts_a_local_surfnet() {
+    let surfnet = Surfnet::start().await.unwrap();
+
+    let rpc = surfnet.rpc_client();
+    let balance = rpc.get_balance(&surfnet.payer().pubkey()).unwrap();
+
+    assert!(balance > 0);
+    println!("rpc: {}", surfnet.rpc_url());
+    println!("ws: {}", surfnet.ws_url());
+}
+```
+
+```ts !! title="TypeScript"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+
+after(() => {
+  surfnet.stop();
+});
+
+test("starts a local surfnet", () => {
+  assert.match(surfnet.rpcUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.match(surfnet.wsUrl, /^ws:\/\/127\.0\.0\.1:\d+$/);
+  assert.ok(surfnet.payer);
+});
+```
+
+</CodeTabs>
+
+## Что входит в комплект
+
+<Cards>
+  <Card
+    title="Установка"
+    href="/docs/tools/surfpool/sdk/installation"
+    description="Настройка Cargo и npm, поддерживаемые платформы, нативные бинарные файлы"
+  />
+  <Card
+    title="Конфигурация"
+    href="/docs/tools/surfpool/sdk/configuration"
+    description="Параметры сборщика: резервный удалённый RPC, производство блоков, тайминг слотов, флаги функций, пользовательские плательщики"
+  />
+  <Card
+    title="Читкоды"
+    href="/docs/tools/surfpool/sdk/cheatcodes"
+    description="Пополнение SOL/токенов, изменение аккаунтов, сброс состояния upstream, стриминг из мейннета"
+  />
+  <Card
+    title="Путешествие во времени"
+    href="/docs/tools/surfpool/sdk/time-travel"
+    description="Переход к абсолютному слоту, эпохе или Unix-временной метке"
+  />
+  <Card
+    title="Программы"
+    href="/docs/tools/surfpool/sdk/programs"
+    description="Автоматическое обнаружение рабочего пространства Anchor, явное развёртывание .so + IDL"
+  />
+  <Card
+    title="События"
+    href="/docs/tools/surfpool/sdk/events"
+    description="Извлечение событий среды выполнения для утверждений и логирования"
+  />
+  <Card
+    title="Справочник Rust"
+    href="/docs/tools/surfpool/sdk/rust-reference"
+    description="Полный API крейта surfpool-sdk"
+  />
+  <Card
+    title="Справочник JS"
+    href="/docs/tools/surfpool/sdk/js-reference"
+    description="Полный TypeScript API @solana/surfpool"
+  />
+</Cards>
+
+## Отличия от `surfpool start`
+
+CLI запускает долгоживущий Surfnet, к которому вы подключаетесь из внешних
+процессов. SDK запускает Surfnet _внутри_ вашего теста, что означает:
+
+- **Без управления внешними портами** — каждый `Surfnet::start()` привязывается
+  к свободному порту, поэтому наборы тестов могут выполняться параллельно без
+  флагов `--port`.
+- **Синхронное завершение работы** — `stop()` возвращает управление только после
+  того, как среда выполнения фактически освободила свои порты.
+- **Читкоды как типизированные методы** — тот же интерфейс, предоставляемый
+  через JSON-RPC посредством `surfpool start`, доступен в виде нативных методов
+  Rust и привязок napi-rs.
+- **Прямое наблюдение за событиями** — события среды выполнения передаются через
+  внутрипроцессный канал (Rust) или метод drain (JS) без подписки на WebSocket.
+
+## Когда использовать SDK
+
+Используйте SDK в следующих случаях:
+
+- Вы пишете **интеграционные тесты** для программы Anchor и хотите проверять
+  балансы токенов после серии настроек с использованием читкодов.
+- Вам нужно, чтобы **параллельные тестовые воркеры** имели каждый собственную
+  изолированную Surfnet.
+- Вы хотите **форкнуть конкретные аккаунты из mainnet** (`remoteRpcUrl` +
+  `streamAccount`) внутри теста.
+- Вам нужны **детерминированные часы** — для этого переводите среду выполнения
+  на фиксированный slot или временную метку перед проверкой логики вестинга,
+  локапа или истечения срока.
+
+<Callout type="info" title="Когда CLI подходит лучше">
+  Используйте `surfpool start`, если вам нужна Surfnet, которая сохраняется
+  между несколькими процессами — например, когда CLI, браузерный кошелёк и
+  пользовательские клиентские скрипты должны совместно использовать один и тот
+  же экземпляр.
+</Callout>

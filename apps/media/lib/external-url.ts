@@ -1,5 +1,9 @@
 const ALLOWED_EXTERNAL_PROTOCOLS = new Set(["http:", "https:"]);
 
+export function isExternalUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 export function getSafeExternalUrl(
   value: string | null | undefined,
 ): string | undefined {

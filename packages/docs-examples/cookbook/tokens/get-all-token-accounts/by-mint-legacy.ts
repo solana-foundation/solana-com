@@ -4,7 +4,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 // connection
 const connection = new Connection("http://localhost:8899", "confirmed");
 
-const owner = new PublicKey("G2FAbFQPFa5qKXCetoFZQEvF9BVvCKbvUZvodpVidnoY");
+const owner = new PublicKey("4kg8oh3jdNtn7j2wcS7TrUua31AgbLzDVkBZgTAe44aF");
 const mint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
 let response = await connection.getParsedTokenAccountsByOwner(owner, {

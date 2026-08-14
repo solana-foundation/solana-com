@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Play } from "lucide-react";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
+import { Play } from "@boxicons/react/Play";
 import React from "react";
 import { cn } from "../utils";
 import {
@@ -9,6 +10,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@@/src/app/components/ui/resizable";
+import { loadRunner } from "./runners/registry";
 
 function ConsoleHeader({ className }: { className?: string }) {
   return (
@@ -53,18 +55,16 @@ function EmptyConsole({
         )}
       </button>
       <span
-        className={`text-sm h-4 ${running ? "opacity-0" : "opacity-80"} transition-opacity duration-100 ${error ? "text-red-500" : ""}`}
+        className={`px-4 text-center text-sm min-h-4 whitespace-pre-wrap ${running ? "opacity-0" : "opacity-80"} transition-opacity duration-100 ${error ? "text-red-500" : ""}`}
       >
-        {!error
-          ? "Click to execute the code."
-          : "There was an error running the code."}
+        {error ?? "Click to execute the code."}
       </span>
     </div>
   );
 }
 
 type CodeRun = {
-  output: string;
+  output: React.ReactNode;
 };
 
 type RunnableCodeState = {
@@ -74,7 +74,17 @@ type RunnableCodeState = {
   handleRun: () => void;
 };
 
-function useRunnableCode(code: string, language: string): RunnableCodeState {
+/** How long "Running" stays on screen, so output doesn't appear instantly. */
+const MIN_RUN_MS = 500;
+
+const NO_OUTPUT = "This example doesn't have output to show yet.";
+
+/**
+ * Produces the console output for a runnable block. Nothing is executed: a
+ * block either has a browser-side runner (for examples whose output is freshly
+ * generated data) or a static output captured from the real example.
+ */
+function useRunnableCode(example: Example): RunnableCodeState {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<CodeRun | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,25 +93,15 @@ function useRunnableCode(code: string, language: string): RunnableCodeState {
     setRunning(true);
     setResult(null);
     setError(null);
+
+    const startedAt = Date.now();
     try {
-      const res = await fetch("/docs/api", {
-        method: "POST",
-        body: JSON.stringify({ code, language }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(
-          `Error running code: ${JSON.stringify(data.details?.error || data.error || "Unknown error")}`,
-        );
-        return;
-      }
-
-      setResult(data as CodeRun);
+      const output = await resolveOutput(example);
+      await settle(startedAt);
+      setResult({ output });
     } catch (err) {
-      setError(
-        `Error running code: ${err instanceof Error ? err.message : "Unknown error"}`,
-      );
+      await settle(startedAt);
+      setError(err instanceof Error ? err.message : "Could not run example");
     } finally {
       setRunning(false);
     }
@@ -113,6 +113,26 @@ function useRunnableCode(code: string, language: string): RunnableCodeState {
     error,
     handleRun,
   };
+}
+
+async function resolveOutput({
+  code,
+  language,
+  title,
+  output,
+  runner,
+}: Example): Promise<React.ReactNode> {
+  if (runner) {
+    const run = await loadRunner(runner, { title, language });
+    if (run) return run({ code, language, title });
+  }
+  return output ?? NO_OUTPUT;
+}
+
+function settle(startedAt: number): Promise<void> {
+  const remaining = MIN_RUN_MS - (Date.now() - startedAt);
+  if (remaining <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
 function Console({
@@ -142,18 +162,27 @@ function Console({
   );
 }
 
-export function RunnableLayout({
-  children,
-  code,
-  language,
-  className,
-}: {
-  children: React.ReactNode;
+type Example = {
+  /** The code shown in the active tab. */
   code: string;
   language: string;
+  /** The active tab's title, which selects the runner for this example. */
+  title: string;
+  /** What running the example prints, from an `.output.txt` beside its source. */
+  output?: string;
+  /** Id into the runner registry, from the `runner` prop on `<CodeTabs>`. */
+  runner?: string;
+};
+
+export function RunnableLayout({
+  children,
+  className,
+  ...example
+}: Example & {
+  children: React.ReactNode;
   className?: string;
 }) {
-  const state = useRunnableCode(code, language);
+  const state = useRunnableCode(example);
 
   return (
     <>

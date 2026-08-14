@@ -96,12 +96,12 @@ export const docsRoutes: RouteGenerator = () => {
         changeFrequency: "weekly",
         priority: 0.8,
       }),
-      ...createLocalizedEntries("/developers/guides", {
+      ...createLocalizedEntries("/developers/bootcamp", {
         changeFrequency: "weekly",
         priority: 0.8,
       }),
-      ...createLocalizedEntries("/developers/bootcamp", {
-        changeFrequency: "weekly",
+      ...createLocalizedEntries("/data", {
+        changeFrequency: "daily",
         priority: 0.8,
       }),
     ];
@@ -119,10 +119,6 @@ export const docsRoutes: RouteGenerator = () => {
       ...getDefaultLocaleContentEntries(
         path.join(docsContentRoot, "cookbook"),
         "/developers/cookbook",
-      ),
-      ...getDefaultLocaleContentEntries(
-        path.join(docsContentRoot, "guides"),
-        "/developers/guides",
       ),
       ...getLocalizedContentEntries(
         path.join(docsContentRoot, "developers-learn"),

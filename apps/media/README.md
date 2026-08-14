@@ -16,8 +16,8 @@ Solana.com monorepo.
 
 ### Prerequisites
 
-- Node.js 22+
-- pnpm 10+
+- Node.js 24
+- pnpm 11+
 
 ### Environment Variables
 
@@ -43,7 +43,7 @@ From the root of the monorepo:
 pnpm install
 
 # Run media app in development mode
-pnpm --filter @solana-com-media dev
+pnpm --filter solana-com-media dev
 ```
 
 Or from within the media app directory:
@@ -70,7 +70,7 @@ Content is stored in the `content/` directory:
 
 - `content/posts/` - News articles (MDX)
 - `content/podcasts/` - Podcast metadata (MDX)
-- `content/authors/` - Author profiles (Markdown)
+- `content/authors/` - Author profiles (MDX)
 - `content/tags/` - Tag definitions (MDX)
 - `content/categories/` - Category definitions (MDX)
 - `content/global/` - Global site settings (JSON)
@@ -79,13 +79,15 @@ Podcast episodes are fetched from RSS feeds configured in podcast metadata.
 
 ## Routing
 
-All routes are prefixed with locale:
+Content routes are implemented under `app/[locale]`. Default-locale public URLs
+are unprefixed (for example `/news`), while translated URLs include the locale
+(for example `/es/news`). Key routes are:
 
-- `/<locale>/news` - News articles listing
-- `/<locale>/news/:slug` - Individual article
-- `/<locale>/podcasts` - Podcasts listing
-- `/<locale>/podcasts/:podcast` - Podcast show page
-- `/<locale>/podcasts/:podcast/episodes/:slug` - Individual episode
+- `/news` and `/news/:slug` - News listing and articles
+- `/changelog` - Product changelog
+- `/podcasts` and `/podcasts/:podcast` - Podcast listing and shows
+- `/podcasts/:podcast/episodes/:slug` - Individual episodes
+- `/reports` and `/upgrades` - Reports and network upgrade content
 - `/keystatic` - Keystatic admin panel (no locale prefix)
 
 ## Architecture
@@ -115,5 +117,6 @@ See `packages/ui-chrome/src/url-config.ts` for the routing logic.
 - `pnpm start` - Start production server
 - `pnpm lint` - Run ESLint
 - `pnpm lint:fix` - Fix ESLint errors
-- `pnpm format` - Format code with Prettier
+- `pnpm check-types` - Generate Next types and check TypeScript
+- `pnpm test` - Run unit tests
 - `pnpm clean` - Clean node_modules and generated files

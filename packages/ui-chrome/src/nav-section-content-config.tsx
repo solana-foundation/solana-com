@@ -17,7 +17,6 @@ import MoneyIcon from "./assets/nav/solutions/money.inline.svg";
 import RootingIcon from "./assets/nav/solutions/rooting.inline.svg";
 import SparklesIcon from "./assets/nav/solutions/sparkles.inline.svg";
 import StoreIcon from "./assets/nav/solutions/store.inline.svg";
-import WalletSolutionsIcon from "./assets/nav/solutions/wallet.inline.svg";
 import WalletLearnIcon from "./assets/nav/learn/wallet.inline.svg";
 import DocumentsIcon from "./assets/nav/learn/documents.inline.svg";
 import EducationIcon from "./assets/nav/learn/education.inline.svg";
@@ -44,14 +43,6 @@ export const useSolanaWalletItems: NavItemDefinition[] = [
     descriptionKey: "nav.useSolana.wallets.items.wallets.description",
     href: "/wallets",
     icon: WalletLearnIcon,
-    variant: "large",
-  },
-  {
-    id: "use-solana-wallet-directory",
-    titleKey: "nav.useSolana.wallets.items.directory.title",
-    descriptionKey: "nav.useSolana.wallets.items.directory.description",
-    href: "/solana-wallets",
-    icon: WalletSolutionsIcon,
     variant: "large",
   },
   {
@@ -160,12 +151,6 @@ export const buildStartItems: NavItemDefinition[] = [
 
 export const buildResourceItems: NavItemDefinition[] = [
   {
-    id: "build-guides",
-    titleKey: "nav.build.resources.items.guides.title",
-    href: "/developers/guides",
-    icon: DocumentsIcon,
-  },
-  {
     id: "build-cookbook",
     titleKey: "nav.build.resources.items.cookbook.title",
     href: "/developers/cookbook",
@@ -176,6 +161,12 @@ export const buildResourceItems: NavItemDefinition[] = [
     titleKey: "nav.build.resources.items.templates.title",
     href: "/developers/templates",
     icon: TemplatesIcon,
+  },
+  {
+    id: "build-data",
+    titleKey: "nav.build.resources.items.data.title",
+    href: "/data",
+    icon: PulseIcon,
   },
   {
     id: "build-rpc-docs",
@@ -190,10 +181,10 @@ export const buildResourceItems: NavItemDefinition[] = [
     icon: ApiConnectionNetworkIcon,
   },
   {
-    id: "build-tokens-docs",
-    titleKey: "nav.build.resources.items.tokensDocs.title",
-    href: "/docs/tokens",
-    icon: CoinsIcon,
+    id: "build-finance-docs",
+    titleKey: "nav.build.resources.items.financeDocs.title",
+    href: "/docs/finance",
+    icon: MoneyIcon,
   },
 ];
 

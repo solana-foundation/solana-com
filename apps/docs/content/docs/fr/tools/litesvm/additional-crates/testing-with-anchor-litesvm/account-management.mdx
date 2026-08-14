@@ -1,0 +1,293 @@
+---
+title: Gestion des comptes
+description:
+  Récupération et désérialisation des comptes Anchor avec gestion automatique
+  des discriminants
+---
+
+## Comprendre les discriminants de comptes Anchor
+
+Les programmes Anchor ajoutent un discriminant de 8 octets à toutes les données
+de compte. Ce discriminant est un hachage du nom du type de compte et est
+utilisé pour vérifier que les données du compte correspondent au type attendu.
+
+```
+┌─────────────────────────────────────────────────┐
+│ Account Data Layout                             │
+├────────────────┬────────────────────────────────┤
+│ Discriminator  │ Account Fields                 │
+│ (8 bytes)      │ (variable size)                │
+└────────────────┴────────────────────────────────┘
+```
+
+Les utilitaires de compte `anchor-litesvm` gèrent ce discriminant
+automatiquement.
+
+## Récupération des comptes Anchor
+
+### Récupération de base des comptes
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_lang::prelude::*;
+use solana_signer::Signer;
+use solana_program::pubkey::Pubkey;
+
+#[account]
+pub struct UserAccount {
+    pub name: String,
+    pub balance: u64,
+    pub authority: Pubkey,
+}
+
+#[test]
+fn test_fetch_account() {
+    let mut ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    let user = ctx.create_funded_account(10_000_000_000).unwrap();
+
+    // ... initialize the account ...
+
+    let (user_pda, _) = Pubkey::find_program_address(
+        &[b"user", user.pubkey().as_ref()],
+        &PROGRAM_ID,
+    );
+
+    // Fetch and deserialize the account
+    let account: UserAccount = ctx.get_account(&user_pda).unwrap();
+
+    assert_eq!(account.name, "Alice");
+    assert_eq!(account.authority, user.pubkey());
+}
+```
+
+<Callout type="info">
+  `get_account<T>()` valide automatiquement le discriminant de 8 octets pour s'assurer que les données du compte correspondent au type attendu.
+</Callout>
+
+### Désérialisation sans vérification
+
+Pour les PDAs ou les structures de comptes personnalisées où la validation du
+discriminant pourrait échouer, utilisez `get_account_unchecked` :
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+
+#[test]
+fn test_fetch_unchecked() {
+    let ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    // Fetch without discriminator validation
+    let account: UserAccount = ctx.get_account_unchecked(&some_pda).unwrap();
+}
+```
+
+<Callout type="warn">
+  Utilisez `get_account_unchecked` avec précaution. Sans validation du
+  discriminant, vous risquez de désérialiser des données invalides. N'utilisez
+  ceci que lorsque vous êtes certain du type de compte.
+</Callout>
+
+## Utilisation directe du module de compte
+
+Vous pouvez également utiliser directement les fonctions de désérialisation de
+compte :
+
+```rust
+use anchor_litesvm::{get_anchor_account, get_anchor_account_unchecked};
+use litesvm::LiteSVM;
+
+#[test]
+fn test_direct_account_fetch() {
+    let mut svm = LiteSVM::new();
+    // ... setup ...
+
+    // Fetch with discriminator check
+    let account: UserAccount = get_anchor_account(&svm, &account_pubkey).unwrap();
+
+    // Fetch without discriminator check
+    let account: UserAccount = get_anchor_account_unchecked(&svm, &account_pubkey).unwrap();
+}
+```
+
+## Erreurs de compte
+
+L'énumération `AccountError` fournit des informations d'erreur détaillées :
+
+```rust
+use anchor_litesvm::AccountError;
+
+#[test]
+fn test_handle_errors() {
+    let ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    let result: Result<UserAccount, AccountError> = ctx.get_account(&nonexistent_pubkey);
+
+    match result {
+        Ok(account) => println!("Found account: {}", account.name),
+        Err(AccountError::AccountNotFound(pubkey)) => {
+            println!("Account not found: {}", pubkey);
+        }
+        Err(AccountError::DiscriminatorMismatch) => {
+            println!("Wrong account type!");
+        }
+        Err(AccountError::DeserializationError(msg)) => {
+            println!("Failed to deserialize: {}", msg);
+        }
+    }
+}
+```
+
+| Erreur                         | Description                                                 |
+| ------------------------------ | ----------------------------------------------------------- |
+| `AccountNotFound(Pubkey)`      | Aucun compte n'existe à l'adresse indiquée                  |
+| `DiscriminatorMismatch`        | Le discriminant du compte ne correspond pas au type attendu |
+| `DeserializationError(String)` | Échec de la désérialisation des données du compte           |
+
+## Travailler avec plusieurs types de comptes
+
+### Récupération de différents types de comptes
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_lang::prelude::*;
+
+#[account]
+pub struct Config {
+    pub admin: Pubkey,
+    pub fee_bps: u16,
+}
+
+#[account]
+pub struct UserProfile {
+    pub owner: Pubkey,
+    pub username: String,
+    pub created_at: i64,
+}
+
+#[account]
+pub struct Order {
+    pub user: Pubkey,
+    pub amount: u64,
+    pub status: OrderStatus,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub enum OrderStatus {
+    Pending,
+    Completed,
+    Cancelled,
+}
+
+#[test]
+fn test_multiple_account_types() {
+    let ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    // Each account type is deserialized correctly
+    let config: Config = ctx.get_account(&config_pda).unwrap();
+    let profile: UserProfile = ctx.get_account(&profile_pda).unwrap();
+    let order: Order = ctx.get_account(&order_pda).unwrap();
+
+    assert_eq!(config.fee_bps, 100);
+    assert_eq!(profile.username, "alice");
+    assert!(matches!(order.status, OrderStatus::Pending));
+}
+```
+
+### Vérification de l'existence du compte avant la récupération
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+
+#[test]
+fn test_check_before_fetch() {
+    let ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+
+    let user_pda = Pubkey::new_unique();
+
+    // Check existence first
+    if ctx.account_exists(&user_pda) {
+        let account: UserAccount = ctx.get_account(&user_pda).unwrap();
+        println!("Found: {}", account.name);
+    } else {
+        println!("Account not initialized yet");
+    }
+}
+```
+
+## Exemple complet
+
+Voici un exemple complet illustrant la gestion de compte :
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_litesvm::TestHelpers;
+use anchor_lang::prelude::*;
+use solana_signer::Signer;
+use solana_program::pubkey::Pubkey;
+
+anchor_lang::declare_program!(counter);
+
+#[test]
+fn test_counter_workflow() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        id(),
+        include_bytes!("../target/deploy/counter.so"),
+    );
+
+    let authority = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // Derive the counter PDA
+    let (counter_pda, bump) = Pubkey::find_program_address(
+        &[b"counter", authority.pubkey().as_ref()],
+        &id(),
+    );
+
+    // Verify counter doesn't exist yet
+    assert!(!ctx.account_exists(&counter_pda));
+
+    // Initialize using generated client types
+    let init_ix = ctx.program()
+        .accounts(counter::client::accounts::Initialize {
+            authority: authority.pubkey(),
+            counter: counter_pda,
+            system_program: anchor_lang::system_program::ID,
+        })
+        .args(counter::client::args::Initialize {})
+        .instruction()
+        .unwrap();
+
+    ctx.execute_instruction(init_ix, &[&authority]).unwrap();
+
+    // Verify counter exists and has correct initial state
+    assert!(ctx.account_exists(&counter_pda));
+    let counter: counter::Counter = ctx.get_account(&counter_pda).unwrap();
+    assert_eq!(counter.count, 0);
+    assert_eq!(counter.authority, authority.pubkey());
+    assert_eq!(counter.bump, bump);
+
+    // Increment using generated client types
+    let increment_ix = ctx.program()
+        .accounts(counter::client::accounts::Increment {
+            authority: authority.pubkey(),
+            counter: counter_pda,
+        })
+        .args(counter::client::args::Increment {})
+        .instruction()
+        .unwrap();
+
+    ctx.execute_instruction(increment_ix, &[&authority]).unwrap();
+
+    // Verify incremented
+    let counter: counter::Counter = ctx.get_account(&counter_pda).unwrap();
+    assert_eq!(counter.count, 1);
+
+    // Increment again
+    ctx.execute_instruction(increment_ix.clone(), &[&authority]).unwrap();
+
+    let counter: counter::Counter = ctx.get_account(&counter_pda).unwrap();
+    assert_eq!(counter.count, 2);
+
+    println!("Counter test passed! Final count: {}", counter.count);
+}
+```

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import {
   Category,
   CATEGORY_MAP,
@@ -68,7 +68,7 @@ export function SkillCard({
       )}
       <span className="inline-flex items-center gap-1 text-xs font-medium text-[#ABABBA] group-hover:text-white transition-colors w-fit mt-4">
         {linkLabel}
-        <ChevronRight size={14} aria-hidden={true} />
+        <ChevronRight width={14} height={14} aria-hidden={true} />
       </span>
     </Link>
   );

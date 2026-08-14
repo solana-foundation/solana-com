@@ -1,0 +1,1705 @@
+---
+title: Aggiungi Solana al Tuo Exchange
+description:
+  Learn how to integrate Solana into your exchange with this guide covering node
+  setup and implementation details for deposits and withdrawals.
+---
+
+Questa guida descrive come aggiungere il token nativo di Solana, SOL, al tuo exchange di criptovalute.
+
+## Configurazione del Nodo
+
+Consigliamo vivamente di configurare almeno due nodi su computer ad alte prestazioni o istanze cloud, di aggiornare tempestivamente alle versioni più recenti e di monitorare le operazioni del servizio con uno strumento di monitoraggio integrato.
+
+Questa configurazione ti consente di:
+
+- disporre di un gateway autogestito al cluster mainnet di Solana per ottenere dati e inviare transazioni di prelievo
+- avere il pieno controllo sulla quantità di dati storici dei blocchi conservati
+- mantenere la disponibilità del servizio anche in caso di guasto di un nodo
+
+I nodi Solana richiedono una potenza di calcolo relativamente elevata per gestire i nostri blocchi veloci e l'alto TPS. Per i requisiti specifici, consulta le
+[raccomandazioni hardware](https://docs.anza.xyz/operations/requirements).
+
+Per eseguire un nodo API:
+
+1. [Installa la suite di strumenti a riga di comando di Solana](/docs/intro/installation)
+2. Avvia il validator con almeno i seguenti parametri:
+
+```shell
+solana-validator \
+  --ledger <LEDGER_PATH> \
+  --identity <VALIDATOR_IDENTITY_KEYPAIR> \
+  --entrypoint <CLUSTER_ENTRYPOINT> \
+  --expected-genesis-hash <EXPECTED_GENESIS_HASH> \
+  --rpc-port 8899 \
+  --no-voting \
+  --enable-rpc-transaction-history \
+  --limit-ledger-size \
+  --known-validator <VALIDATOR_ADDRESS> \
+  --only-known-rpc
+```
+
+Personalizza `--ledger` con la posizione di archiviazione del ledger desiderata e `--rpc-port` con la porta che vuoi esporre.
+
+I parametri `--entrypoint` e `--expected-genesis-hash` sono specifici per il cluster a cui ti stai unendo.
+[Parametri attuali per Mainnet](https://docs.anza.xyz/clusters/available#example-solana-validator-command-line-2)
+
+Il parametro `--limit-ledger-size` consente di specificare quanti [shred](/docs/references/terminology#shred) del ledger il nodo conserva su disco. Se non includi questo parametro, il validator manterrà l'intero ledger fino all'esaurimento dello spazio su disco. Il valore predefinito cerca di mantenere l'utilizzo del disco del ledger sotto i 500 GB. Un utilizzo del disco maggiore o minore può essere richiesto aggiungendo un argomento a `--limit-ledger-size`, se desiderato. Esegui `solana-validator --help` per il valore limite predefinito utilizzato da `--limit-ledger-size`. Ulteriori informazioni sulla selezione di un valore limite personalizzato sono
+[disponibili qui](https://github.com/solana-labs/solana/blob/583cec922b6107e0f85c7e14cb5e642bc7dfb340/core/src/ledger_cleanup_service.rs#L15-L26).
+
+Specificare uno o più parametri `--known-validator` può proteggerti dall'avvio da uno snapshot malevolo.
+[Maggiori informazioni sul valore dell'avvio con validator noti](https://docs.anza.xyz/operations/guides/validator-start#known-validators)
+
+Parametri opzionali da considerare:
+
+- `--private-rpc` impedisce che la tua porta RPC venga pubblicata per l'uso da parte di altri nodi
+- `--rpc-bind-address` consente di specificare un indirizzo IP diverso a cui associare la porta RPC
+
+### Riavvii Automatici e Monitoraggio
+
+Consigliamo di configurare ciascun nodo per il riavvio automatico all'uscita, per garantire di perdere il minor numero di dati possibile. Eseguire il software Solana come servizio systemd è un'ottima opzione.
+
+Per il monitoraggio, forniamo
+[`solana-watchtower`](https://github.com/solana-labs/solana/blob/master/watchtower/README.md),
+che può monitorare il tuo validator e rilevare quando il processo `solana-validator` non è in buono stato. Può essere configurato direttamente per inviarti avvisi tramite Slack, Telegram, Discord o Twilio. Per i dettagli, esegui `solana-watchtower --help`.
+
+```shell
+solana-watchtower --validator-identity <YOUR VALIDATOR IDENTITY>
+```
+
+> Puoi trovare ulteriori informazioni sulle
+> [best practice per Solana Watchtower](https://docs.anza.xyz/operations/best-practices/monitoring#solana-watchtower)
+> qui nella documentazione.
+
+#### Annunci di Nuove Versioni Software
+
+Rilasciamo nuovo software frequentemente (circa 1 versione a settimana). A volte le versioni più recenti includono modifiche al protocollo incompatibili, che richiedono un aggiornamento software tempestivo per evitare errori nell'elaborazione dei blocchi.
+
+I nostri annunci ufficiali di rilascio per ogni tipo di versione (normale e di sicurezza) vengono comunicati tramite un canale [discord](/discord) chiamato
+`#mb-announcement` (`mb` sta per `mainnet-beta`).
+
+Come i validator con stake, ci aspettiamo che i validator gestiti dagli exchange vengano aggiornati quanto prima, entro uno o due giorni lavorativi dal normale annuncio di rilascio. Per le versioni legate alla sicurezza, potrebbe essere necessaria un'azione più urgente.
+
+### Continuità del Ledger
+
+Per impostazione predefinita, ciascun nodo si avvierà da uno snapshot fornito da uno dei validator noti. Questo snapshot riflette lo stato attuale della catena, ma non contiene il ledger storico completo. Se uno dei tuoi nodi si arresta e si riavvia da un nuovo snapshot, potrebbe esserci un'interruzione nel ledger su quel nodo. Per evitare questo problema, aggiungi il parametro `--no-snapshot-fetch` al comando `solana-validator` per ricevere i dati storici del ledger invece di uno snapshot.
+
+Non passare il parametro `--no-snapshot-fetch` al primo avvio, poiché non è possibile avviare il nodo a partire dal blocco genesi. Avvia prima da uno snapshot, quindi aggiungi il parametro `--no-snapshot-fetch` per i riavvii successivi.
+
+È importante notare che la quantità di ledger storico disponibile per i tuoi nodi dal resto della rete è limitata in qualsiasi momento. Una volta operativi, se i tuoi validator subiscono un'interruzione significativa, potrebbero non riuscire a sincronizzarsi con la rete e sarà necessario scaricare un nuovo snapshot da un validator noto. In tal caso, i tuoi validator presenteranno un'interruzione nei dati storici del ledger che non potrà essere colmata.
+
+### Minimizzare l'Esposizione delle Porte del Validator
+
+Il validator richiede che diverse porte UDP e TCP siano aperte per il traffico in entrata da tutti gli altri validator Solana. Sebbene questa sia la modalità operativa più efficiente e sia fortemente consigliata, è possibile limitare il validator in modo da richiedere traffico in entrata solo da un altro validator Solana.
+
+Per prima cosa, aggiungi l'argomento `--restricted-repair-only-mode`. Questo farà operare il validator in modalità limitata, in cui non riceverà aggiornamenti push dagli altri validator e dovrà invece interrogare continuamente altri validator per i blocchi. Il validator trasmetterà pacchetti UDP ad altri validator solo tramite le porte _Gossip_ e _ServeR_ ("serve repair"), e riceverà pacchetti UDP solo sulle sue porte _Gossip_ e _Repair_.
+
+La porta _Gossip_ è bidirezionale e consente al tuo validator di rimanere in contatto con il resto del cluster. Il tuo validator trasmette sulla porta _ServeR_ per effettuare richieste di riparazione al fine di ottenere nuovi blocchi dal resto della rete, poiché Turbine è ora disabilitato. Il tuo validator riceverà quindi le risposte di riparazione sulla porta _Repair_ dagli altri validator.
+
+Per limitare ulteriormente il validator a richiedere blocchi solo a uno o più validator, determina prima la pubkey di identità di quel validator e aggiungi gli argomenti `--gossip-pull-validator PUBKEY --repair-validator PUBKEY` per ciascun PUBKEY. Questo farà sì che il tuo validator costituisca un consumo di risorse per ogni validator che aggiungi, quindi fallo con parsimonia e solo dopo aver consultato il validator di destinazione.
+
+Il tuo validator dovrebbe ora comunicare solo con i validator esplicitamente elencati e solo sulle porte _Gossip_, _Repair_ e _ServeR_.
+
+## Configurazione degli Account di Deposito
+
+Gli account Solana non richiedono alcuna inizializzazione on-chain; una volta che contengono SOL, esistono. Per configurare un account di deposito per il tuo exchange, genera semplicemente un keypair Solana utilizzando uno dei nostri
+[strumenti wallet](https://docs.anza.xyz/cli/wallets).
+
+Consigliamo di utilizzare un account di deposito univoco per ciascuno dei tuoi utenti.
+
+Gli account Solana devono essere esenti da rent contenendo un importo di
+[rent](/docs/core/accounts/account-structure) in SOL equivalente a 2 anni. Per trovare il saldo minimo esente da rent per i tuoi account di deposito, interroga
+l'[endpoint `getMinimumBalanceForRentExemption`](/docs/rpc/http/getminimumbalanceforrentexemption):
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getMinimumBalanceForRentExemption",
+  "params": [0]
+}'
+```
+
+##### Risultato
+
+```json
+{ "jsonrpc": "2.0", "result": 890880, "id": 1 }
+```
+
+### Account Offline
+
+Potresti voler tenere le chiavi per uno o più account di raccolta offline per una maggiore sicurezza. In tal caso, dovrai spostare SOL su account hot utilizzando i nostri
+[metodi offline](https://docs.anza.xyz/cli/examples/offline-signing).
+
+## Monitoraggio dei Depositi
+
+Quando un utente desidera depositare SOL nel tuo exchange, istruiscilo a inviare un trasferimento all'indirizzo di deposito appropriato.
+
+### Migrazione alle Transazioni con Versione
+
+Quando la rete Mainnet inizierà a elaborare transazioni con versione, gli exchange **DEVONO** apportare modifiche. Se non vengono apportate modifiche, il rilevamento dei depositi non funzionerà più correttamente, poiché il recupero di una transazione con versione o di un blocco contenente transazioni con versione restituirà un errore.
+
+- `{"maxSupportedTransactionVersion": 0}`
+
+  Il parametro `maxSupportedTransactionVersion` deve essere aggiunto alle richieste `getBlock` e
+  `getTransaction` per evitare interruzioni nel rilevamento dei depositi. La versione di transazione più recente è `0` e deve essere specificata come valore massimo supportato della versione di transazione.
+
+È importante capire che le transazioni con versione consentono agli utenti di creare transazioni che utilizzano un altro insieme di chiavi account caricate da tabelle di lookup degli indirizzi on-chain.
+
+- `{"encoding": "jsonParsed"}`
+
+  Quando si recuperano blocchi e transazioni, è ora consigliato utilizzare la codifica
+  `"jsonParsed"` perché include tutte le chiavi degli account della transazione
+  (incluse quelle dalle tabelle di lookup) nell'elenco `"accountKeys"` del messaggio. Questo
+  semplifica la risoluzione delle variazioni di saldo dettagliate in `preBalances`
+  / `postBalances` e `preTokenBalances` / `postTokenBalances`.
+
+  Se viene utilizzata la codifica `"json"`, le voci in `preBalances` /
+  `postBalances` e `preTokenBalances` / `postTokenBalances` potrebbero fare riferimento a
+  chiavi account che **NON** sono nell'elenco `"accountKeys"` e devono essere
+  risolte utilizzando le voci `"loadedAddresses"` nei metadati della transazione.
+
+### Polling dei Blocchi
+
+Per monitorare tutti gli account di deposito del tuo exchange, esegui il polling di ogni blocco confermato e controlla gli indirizzi di interesse, utilizzando il servizio JSON-RPC del tuo nodo API Solana.
+
+- Per identificare quali blocchi sono disponibili, invia una richiesta
+  [`getBlocks`](/docs/rpc/http/getblocks), passando l'ultimo blocco già
+  elaborato come parametro start-slot:
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getBlocks",
+  "params": [160017005, 160017015]
+}'
+```
+
+##### Risultato
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [
+    160017005, 160017006, 160017007, 160017012, 160017013, 160017014, 160017015
+  ],
+  "id": 1
+}
+```
+
+Non ogni slot produce un blocco, quindi potrebbero esserci lacune nella sequenza di numeri interi.
+
+- Per ogni blocco, richiedi il suo contenuto con una richiesta
+  [`getBlock`](/docs/rpc/http/getblock):
+
+### Suggerimenti per il Recupero dei Blocchi
+
+- `{"rewards": false}`
+
+Per impostazione predefinita, i blocchi recuperati restituiranno informazioni sulle commissioni del validator per ogni blocco e sui premi di staking ai confini dell'epoch. Se non hai bisogno di queste informazioni, disabilitale con il parametro "rewards".
+
+- `{"transactionDetails": "accounts"}`
+
+Per impostazione predefinita, i blocchi recuperati restituiranno molte informazioni sulle transazioni e metadati non necessari per il monitoraggio dei saldi degli account. Imposta il parametro "transactionDetails" per velocizzare il recupero dei blocchi.
+
+```shell
+curl https://api.devnet.solana.com -X POST -H 'Content-Type: application/json' -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getBlock",
+  "params": [
+    166974442,
+    {
+      "encoding": "jsonParsed",
+      "maxSupportedTransactionVersion": 0,
+      "transactionDetails": "accounts",
+      "rewards": false
+    }
+  ]
+}'
+```
+
+##### Risultato
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "blockHeight": 157201607,
+    "blockTime": 1665070281,
+    "blockhash": "HKhao674uvFc4wMK1Cm3UyuuGbKExdgPFjXQ5xtvsG3o",
+    "parentSlot": 166974441,
+    "previousBlockhash": "98CNLU4rsYa2HDUyp7PubU4DhwYJJhSX9v6pvE7SWsAo",
+    "transactions": [
+      ... (omit)
+      {
+        "meta": {
+          "err": null,
+          "fee": 5000,
+          "postBalances": [
+            1110663066,
+            1,
+            1040000000
+          ],
+          "postTokenBalances": [],
+          "preBalances": [
+            1120668066,
+            1,
+            1030000000
+          ],
+          "preTokenBalances": [],
+          "status": {
+            "Ok": null
+          }
+        },
+        "transaction": {
+          "accountKeys": [
+            {
+              "pubkey": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde",
+              "signer": true,
+              "source": "transaction",
+              "writable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "signer": false,
+              "source": "transaction",
+              "writable": false
+            },
+            {
+              "pubkey": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+              "signer": false,
+              "source": "lookupTable",
+              "writable": true
+            }
+          ],
+          "signatures": [
+            "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM"
+          ]
+        },
+        "version": 0
+      },
+      ... (omit)
+    ]
+  },
+  "id": 1
+}
+```
+
+I campi `preBalances` e `postBalances` consentono di tracciare le variazioni di saldo in ogni account senza dover analizzare l'intera transazione. Elencano i saldi iniziali e finali di ciascun account in [lamport](/docs/references/terminology#lamport), indicizzati alla lista `accountKeys`. Ad esempio, se l'indirizzo di deposito di interesse è `G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o`, questa transazione rappresenta un trasferimento di 1040000000 - 1030000000 = 10.000.000 lamport = 0,01 SOL
+
+Se hai bisogno di ulteriori informazioni sul tipo di transazione o su altri dettagli specifici, puoi richiedere il blocco dall'RPC in formato binario e analizzarlo utilizzando il nostro [Rust SDK](https://github.com/solana-labs/solana) o il [Javascript SDK](https://github.com/solana-labs/solana-web3.js).
+
+### Cronologia degli indirizzi
+
+Puoi anche consultare la cronologia delle transazioni di un indirizzo specifico. In generale, questo _non_ è un metodo praticabile per tracciare tutti i tuoi indirizzi di deposito su tutti i slot, ma può essere utile per esaminare alcuni account in un periodo di tempo specifico.
+
+- Invia una richiesta [`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) al nodo API:
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "3M2b3tLji7rvscqrLAHMukYxDK2nB96Q9hwfV6QkdzBN",
+    {
+      "limit": 3
+    }
+  ]
+}'
+```
+
+##### Risultato
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [
+    {
+      "blockTime": 1662064640,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "3EDRvnD5TbbMS2mCusop6oyHLD8CgnjncaYQd5RXpgnjYUXRCYwiNPmXb6ZG5KdTK4zAaygEhfdLoP7TDzwKBVQp",
+      "slot": 148697216
+    },
+    {
+      "blockTime": 1662064434,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "4rPQ5wthgSP1kLdLqcRgQnkYkPAZqjv5vm59LijrQDSKuL2HLmZHoHjdSLDXXWFwWdaKXUuryRBGwEvSxn3TQckY",
+      "slot": 148696843
+    },
+    {
+      "blockTime": 1662064341,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "36Q383JMiqiobuPV9qBqy41xjMsVnQBm9rdZSdpbrLTGhSQDTGZJnocM4TQTVfUGfV2vEX9ZB3sex6wUBUWzjEvs",
+      "slot": 148696677
+    }
+  ],
+  "id": 1
+}
+```
+
+- Per ogni firma restituita, ottieni i dettagli della transazione inviando una richiesta [`getTransaction`](/docs/rpc/http/gettransaction):
+
+```shell
+curl https://api.devnet.solana.com -X POST -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getTransaction",
+  "params":[
+    "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM",
+    {
+      "encoding":"jsonParsed",
+      "maxSupportedTransactionVersion":0
+    }
+  ]
+}'
+```
+
+##### Risultato
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "blockTime": 1665070281,
+    "meta": {
+      "err": null,
+      "fee": 5000,
+      "innerInstructions": [],
+      "logMessages": [
+        "Program 11111111111111111111111111111111 invoke [1]",
+        "Program 11111111111111111111111111111111 success"
+      ],
+      "postBalances": [1110663066, 1, 1040000000],
+      "postTokenBalances": [],
+      "preBalances": [1120668066, 1, 1030000000],
+      "preTokenBalances": [],
+      "rewards": [],
+      "status": {
+        "Ok": null
+      }
+    },
+    "slot": 166974442,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde",
+            "signer": true,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+            "signer": false,
+            "source": "lookupTable",
+            "writable": true
+          }
+        ],
+        "addressTableLookups": [
+          {
+            "accountKey": "4syr5pBaboZy4cZyF6sys82uGD7jEvoAP2ZMaoich4fZ",
+            "readonlyIndexes": [],
+            "writableIndexes": [3]
+          }
+        ],
+        "instructions": [
+          {
+            "parsed": {
+              "info": {
+                "destination": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+                "lamports": 10000000,
+                "source": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde"
+              },
+              "type": "transfer"
+            },
+            "program": "system",
+            "programId": "11111111111111111111111111111111"
+          }
+        ],
+        "recentBlockhash": "BhhivDNgoy4L5tLtHb1s3TP19uUXqKiy4FfUR34d93eT"
+      },
+      "signatures": [
+        "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM"
+      ]
+    },
+    "version": 0
+  },
+  "id": 1
+}
+```
+
+## Invio dei prelievi
+
+Per soddisfare la richiesta di prelievo di SOL di un utente, devi generare una transazione di trasferimento Solana e inviarla al nodo API affinché venga inoltrata al tuo cluster.
+
+### Sincrono
+
+L'invio di un trasferimento sincrono al cluster Solana consente di verificare facilmente che un trasferimento sia andato a buon fine e sia stato finalizzato dal cluster.
+
+Lo strumento da riga di comando di Solana offre un comando semplice, `solana transfer`, per generare, inviare e confermare le transazioni di trasferimento. Per impostazione predefinita, questo metodo attende e tiene traccia del progresso su stderr fino a quando la transazione non è stata finalizzata dal cluster. Se la transazione fallisce, verranno segnalati eventuali errori.
+
+```shell
+solana transfer <USER_ADDRESS> <AMOUNT> --allow-unfunded-recipient --keypair <KEYPAIR> --url http://localhost:8899
+```
+
+Il [Solana Javascript SDK](https://github.com/solana-labs/solana-web3.js) offre un approccio simile per l'ecosistema JS. Usa `SystemProgram` per costruire una transazione di trasferimento e inviala utilizzando il metodo `sendAndConfirmTransaction`.
+
+### Asincrono
+
+Per una maggiore flessibilità, puoi inviare i trasferimenti di prelievo in modo asincrono. In questi casi, è tua responsabilità verificare che la transazione sia avvenuta con successo e sia stata finalizzata dal cluster.
+
+**Nota:** Ogni transazione contiene un [blockhash recente](/docs/core/transactions/transaction-structure#recent-blockhash) per indicarne la validità temporale. È **fondamentale** attendere la scadenza di questo blockhash prima di riprovare un trasferimento di prelievo che non sembra essere stato confermato o finalizzato dal cluster. In caso contrario, si rischia un double spend. Per ulteriori informazioni consulta la sezione [scadenza del blockhash](#blockhash-expiration) più avanti.
+
+Per prima cosa, ottieni un blockhash recente usando l'endpoint [`getFees`](/docs/rpc/deprecated/getfees) o il comando CLI:
+
+```shell
+solana fees --url http://localhost:8899
+```
+
+Nello strumento da riga di comando, passa l'argomento `--no-wait` per inviare un trasferimento in modo asincrono, e includi il tuo blockhash recente con l'argomento `--blockhash`:
+
+```shell
+solana transfer <USER_ADDRESS> <AMOUNT> --no-wait --allow-unfunded-recipient --blockhash <RECENT_BLOCKHASH> --keypair <KEYPAIR> --url http://localhost:8899
+```
+
+Puoi anche costruire, firmare e serializzare la transazione manualmente, e inviarla al cluster utilizzando l'endpoint JSON-RPC [`sendTransaction`](/docs/rpc/http/sendtransaction).
+
+#### Conferme delle transazioni e finalità
+
+Ottieni lo stato di un gruppo di transazioni utilizzando l'endpoint JSON-RPC [`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses). Il campo `confirmations` indica quanti [blocchi confermati](/docs/references/terminology#confirmed-block) sono trascorsi dall'elaborazione della transazione. Se `confirmations: null`, la transazione è [finalizzata](/docs/references/terminology#finality).
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getSignatureStatuses",
+  "params":[
+    [
+      "4cdd1oX7cfVALfr26tP52BZ6cSzrgnNGtYD7BFhm6FFeZV5sPTnRvg6NRn8yC6DbEikXcrNChBM5vVJnTgKhGhVu",
+      "5j7s6NiJS3JAkvgkoc18WVAsiSaci2pxB2A6ueCJP4tprA2TFg9wSyTLeYouxPBJEMzJinENTkpA52YStRW5Dia7"
+    ]
+  ]
+}'
+```
+
+##### Risultato
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "slot": 82
+    },
+    "value": [
+      {
+        "slot": 72,
+        "confirmations": 10,
+        "err": null,
+        "status": {
+          "Ok": null
+        }
+      },
+      {
+        "slot": 48,
+        "confirmations": null,
+        "err": null,
+        "status": {
+          "Ok": null
+        }
+      }
+    ]
+  },
+  "id": 1
+}
+```
+
+#### Scadenza del blockhash
+
+Puoi verificare se un determinato blockhash è ancora valido inviando una richiesta [`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash) con il blockhash come parametro. Se il valore della risposta è `null`, il blockhash è scaduto e la transazione di prelievo che utilizza quel blockhash non andrà mai a buon fine.
+
+### Validazione degli indirizzi account forniti dagli utenti per i prelievi
+
+Poiché i prelievi sono irreversibili, può essere buona pratica validare un indirizzo account fornito dall'utente prima di autorizzare un prelievo, al fine di prevenire la perdita accidentale di fondi.
+
+#### Verifica di base
+
+Gli indirizzi Solana sono array di 32 byte, codificati con l'alfabeto bitcoin base58. Questo produce una stringa di testo ASCII corrispondente alla seguente espressione regolare:
+
+```text
+[1-9A-HJ-NP-Za-km-z]{32,44}
+```
+
+Questo controllo da solo è insufficiente poiché gli indirizzi Solana non sono dotati di checksum, quindi i refusi non possono essere rilevati. Per validare ulteriormente l'input dell'utente, la stringa può essere decodificata e la lunghezza dell'array di byte risultante confermata essere 32. Tuttavia, esistono alcuni indirizzi che possono essere decodificati in 32 byte nonostante un errore di battitura, come un singolo carattere mancante, caratteri invertiti o differenze tra maiuscole e minuscole.
+
+#### Verifica avanzata
+
+A causa della vulnerabilità agli errori di battitura descritta in precedenza, si consiglia di interrogare il saldo degli indirizzi di prelievo candidati e di chiedere all'utente di confermare le proprie intenzioni qualora venga rilevato un saldo diverso da zero.
+
+#### Verifica della pubkey ed25519 valida
+
+L'indirizzo di un account normale su Solana è una stringa codificata in Base58 di una chiave pubblica ed25519 a 256 bit. Non tutti i pattern di bit sono chiavi pubbliche valide per la curva ed25519, quindi è possibile garantire che gli indirizzi account forniti dagli utenti siano almeno pubkey ed25519 corrette.
+
+#### Java
+
+Ecco un esempio Java per la validazione di un indirizzo fornito dall'utente come pubkey ed25519 valida:
+
+Il seguente esempio di codice presuppone che tu stia utilizzando Maven.
+
+`pom.xml`:
+
+```xml
+<repositories>
+  ...
+  <repository>
+    <id>spring</id>
+    <url>https://repo.spring.io/libs-release/</url>
+  </repository>
+</repositories>
+
+...
+
+<dependencies>
+  ...
+  <dependency>
+      <groupId>io.github.novacrypto</groupId>
+      <artifactId>Base58</artifactId>
+      <version>0.1.3</version>
+  </dependency>
+  <dependency>
+      <groupId>cafe.cryptography</groupId>
+      <artifactId>curve25519-elisabeth</artifactId>
+      <version>0.1.0</version>
+  </dependency>
+<dependencies>
+```
+
+```java
+import io.github.novacrypto.base58.Base58;
+import cafe.cryptography.curve25519.CompressedEdwardsY;
+
+public class PubkeyValidator
+{
+    public static boolean verifyPubkey(String userProvidedPubkey)
+    {
+        try {
+            return _verifyPubkeyInternal(userProvidedPubkey);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static boolean _verifyPubkeyInternal(String maybePubkey) throws Exception
+    {
+        byte[] bytes = Base58.base58Decode(maybePubkey);
+        return !(new CompressedEdwardsY(bytes)).decompress().isSmallOrder();
+    }
+}
+```
+
+## Importi minimi di deposito e prelievo
+
+Ogni deposito e prelievo di SOL deve essere maggiore o uguale al saldo minimo esente da rent per l'account all'indirizzo del wallet (un account SOL base che non contiene dati), attualmente: 0,000890880 SOL
+
+Allo stesso modo, ogni account di deposito deve contenere almeno questo saldo.
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getMinimumBalanceForRentExemption",
+  "params": [0]
+}'
+```
+
+##### Risultato
+
+```json
+{ "jsonrpc": "2.0", "result": 890880, "id": 1 }
+```
+
+## Commissioni di priorità e unità di calcolo
+
+Nei periodi di alta domanda, è possibile che una transazione scada prima che un validator abbia incluso tali transazioni nel proprio blocco, poiché ha scelto altre transazioni con un valore economico più elevato. Le transazioni valide su Solana possono essere ritardate o scartate se le commissioni di priorità non vengono implementate correttamente.
+
+Le [commissioni di priorità](/docs/references/terminology#prioritization-fee) sono commissioni aggiuntive che possono essere aggiunte alla [commissione base della transazione](/docs/core/fees/fee-structure#base-fee) per garantire l'inclusione della transazione nei blocchi in queste situazioni e contribuire a garantirne la consegna.
+
+Queste commissioni di priorità vengono aggiunte alla transazione inserendo una speciale istruzione Compute Budget che imposta la commissione di priorità desiderata da pagare.
+
+<Callout type="warn" title="Nota importante">
+
+Il mancato rispetto di queste istruzioni potrebbe causare interruzioni della rete e transazioni scartate. Si raccomanda vivamente che ogni exchange che supporta Solana utilizzi le commissioni di priorità per evitare interruzioni.
+
+</Callout>
+
+### Cos'è una commissione di priorità?
+
+Le commissioni di priorità sono calcolate in micro-lamport per unità di calcolo (Compute Unit, ad es. piccole quantità di SOL) e vengono anteposti alle transazioni per renderle economicamente più attraenti per i nodi validator, affinché le includano nei blocchi della rete.
+
+### Quanto dovrebbe essere la commissione di priorità?
+
+Il metodo per impostare la tua commissione di priorità dovrebbe prevedere l'interrogazione delle commissioni di priorità recenti per stabilire una commissione che sia probabilmente convincente per la rete. Utilizzando il metodo RPC [`getRecentPrioritizationFees`](/docs/rpc/http/getrecentprioritizationfees), puoi interrogare le commissioni di priorità necessarie per far atterrare una transazione in un blocco recente.
+
+La strategia di prezzo per queste commissioni di priorità varierà in base al caso d'uso. Non esiste un metodo canonico per farlo. Una strategia per impostare le commissioni di priorità potrebbe consistere nel calcolare il tasso di successo delle transazioni e poi aumentare la commissione di priorità in base a una query sull'API delle commissioni di transazione recenti, adeguandola di conseguenza. I prezzi delle commissioni di priorità saranno dinamici in base all'attività sulla rete e alle offerte degli altri partecipanti, e saranno noti solo a posteriori.
+
+Una difficoltà nell'utilizzo della chiamata API `getRecentPrioritizationFees` è che potrebbe restituire solo la commissione più bassa per ogni blocco. Spesso questo valore sarà zero, il che non è un'approssimazione pienamente utile della commissione di priorità da utilizzare per evitare il rifiuto da parte dei nodi validator.
+
+L'API `getRecentPrioritizationFees` accetta le pubkey degli account come parametri e restituisce il valore più alto tra le commissioni di priorità minime per questi account. Quando non viene specificato alcun account, l'API restituirà la commissione minima per atterrare nel blocco, che di solito è zero (a meno che il blocco non sia pieno).
+
+Gli exchange e le applicazioni dovrebbero interrogare l'endpoint RPC con gli account che una transazione andrà a bloccare in scrittura. L'endpoint RPC restituirà `max(account_1_min_fee, account_2_min_fee, ... account_n_min_fee)`, che dovrebbe essere il punto di partenza per l'utente per impostare la commissione di priorità per quella transazione.
+
+Esistono diversi approcci per impostare le commissioni di priorità e alcune [API di terze parti](https://docs.helius.dev/solana-rpc-nodes/alpha-priority-fee-api) sono disponibili per determinare la commissione migliore da applicare. Data la natura dinamica della rete, non esisterà un modo "perfetto" per definire il prezzo delle commissioni di priorità e sarà necessaria un'attenta analisi prima di scegliere la strada da seguire.
+
+### Come implementare le commissioni di priorità
+
+L'aggiunta di commissioni di priorità a una transazione consiste nell'anteporre due istruzioni Compute Budget a una determinata transazione:
+
+- una per impostare il prezzo dell'unità di calcolo, e
+- un'altra per impostare il limite dell'unità di calcolo
+
+> Qui puoi trovare anche una
+> [guida per sviluppatori più dettagliata su come utilizzare le commissioni di priorità](/docs/core/fees), che include ulteriori
+> informazioni sull'implementazione delle commissioni di priorità.
+
+Crea un'istruzione `setComputeUnitPrice` per aggiungere una commissione di priorità superiore alla commissione base della transazione (5.000 lamport).
+
+```typescript
+// import { ComputeBudgetProgram } from "@solana/web3.js"
+ComputeBudgetProgram.setComputeUnitPrice({ microLamports: number });
+```
+
+Il valore fornito in micro-lamport verrà moltiplicato per il budget delle unità di calcolo (CU) per determinare la commissione di priorità in lamport. Ad esempio, se il tuo budget CU è 1M CU e aggiungi `1 microLamport/CU`, la commissione di priorità sarà 1 lamport (1M \* 0,000001). La commissione totale sarà quindi di 5001 lamport.
+
+Per impostare un nuovo budget di unità di calcolo per la transazione, crea un'istruzione `setComputeUnitLimit`
+
+```typescript
+// import { ComputeBudgetProgram } from "@solana/web3.js"
+ComputeBudgetProgram.setComputeUnitLimit({ units: number });
+```
+
+Il valore `units` fornito sostituirà il valore predefinito del budget di calcolo del runtime di Solana.
+
+<Callout type="warn" title="Imposta il numero minimo di CU richiesto per la transazione">
+
+Le transazioni dovrebbero richiedere il numero minimo di unità di calcolo (CU) necessarie per l'esecuzione, al fine di massimizzare il throughput e ridurre al minimo le commissioni complessive.
+
+Puoi ottenere le CU consumate da una transazione inviandola su un cluster Solana diverso, come devnet. Ad esempio, un [semplice trasferimento di token](https://explorer.solana.com/tx/5scDyuiiEbLxjLUww3APE9X7i8LE3H63unzonUwMG7s2htpoAGG17sgRsNAhR1zVs6NQAnZeRVemVbkAct5myi17) richiede 300 CU.
+
+</Callout>
+
+```typescript
+// import { ... } from "@solana/web3.js"
+
+const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+  // note: set this to be the lowest actual CU consumed by the transaction
+  units: 300
+});
+
+const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transaction = new Transaction()
+  .add(modifyComputeUnits)
+  .add(addPriorityFee)
+  .add(
+    SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: toAccount,
+      lamports: 10000000
+    })
+  );
+```
+
+### Commissioni di priorità e Durable Nonce
+
+Se la tua configurazione utilizza le Durable Nonce Transactions, è importante implementare correttamente le Prioritization Fees in combinazione con i Durable Transaction Nonces per garantire transazioni riuscite. In caso contrario, le transazioni Durable Nonce previste non verranno riconosciute come tali.
+
+Se stai utilizzando i Durable Transaction Nonces, l'istruzione `AdvanceNonceAccount` DEVE essere specificata PER PRIMA nell'elenco delle istruzioni, anche quando le istruzioni del budget di calcolo vengono utilizzate per specificare le priority fee.
+
+Puoi trovare un esempio di codice specifico
+[che utilizza durable nonces e priority fee insieme](/docs/core/transactions/durable-nonces)
+in questa guida per sviluppatori.
+
+## Supporto allo Standard SPL Token
+
+[SPL Token](https://spl.solana.com/token) è lo standard per la creazione e lo scambio di token
+wrapped/sintetici sulla blockchain di Solana.
+
+Il flusso di lavoro di SPL Token è simile a quello dei token SOL nativi, ma ci sono alcune differenze che verranno discusse in questa sezione.
+
+### Token Mint
+
+Ogni _tipo_ di SPL Token viene dichiarato creando un mint account. Questo account memorizza i metadati che descrivono le caratteristiche del token, come la disponibilità totale, il numero di decimali e le varie autorità con controllo sul mint. Ogni SPL Token account fa riferimento al mint associato e può interagire solo con SPL Token di quel tipo.
+
+### Installazione dello Strumento CLI `spl-token`
+
+I SPL Token account vengono consultati e modificati tramite l'utilità a riga di comando `spl-token`. Gli esempi forniti in questa sezione richiedono che sia installata sul sistema locale.
+
+`spl-token` è distribuito da Rust
+[crates.io](https://crates.io/crates/spl-token) tramite l'utilità a riga di comando `cargo` di Rust.
+L'ultima versione di `cargo` può essere installata usando un pratico one-liner
+per la tua piattaforma su [rustup.rs](https://rustup.rs). Una volta installato `cargo`,
+`spl-token` può essere ottenuto con il seguente comando:
+
+```shell
+cargo install spl-token-cli
+```
+
+Puoi quindi verificare la versione installata
+
+```shell
+spl-token --version
+```
+
+Il risultato dovrebbe essere simile a
+
+```text
+spl-token-cli 2.0.1
+```
+
+### Creazione dell'Account
+
+I SPL Token account hanno requisiti aggiuntivi che i System Program account nativi non hanno:
+
+1. I SPL Token account devono essere creati prima che una quantità di token possa essere depositata. I token account possono essere creati esplicitamente con il comando `spl-token create-account`, oppure implicitamente tramite il comando `spl-token transfer --fund-recipient ...`.
+1. I SPL Token account devono rimanere
+   [esenti dall'affitto](/docs/core/accounts/account-structure) per tutta la loro durata e richiedono pertanto il deposito di una piccola quantità di token SOL nativi alla creazione dell'account. Per i SPL Token account, questo importo è di 0,00203928 SOL (2.039.280 lamport).
+
+#### Riga di Comando
+
+Per creare un SPL Token account con le seguenti proprietà:
+
+1. Associato al mint specificato
+1. Di proprietà del keypair dell'account finanziatore
+
+```shell
+spl-token create-account <TOKEN_MINT_ADDRESS>
+```
+
+#### Esempio
+
+```shell
+spl-token create-account AkUFCWTXb3w9nY2n6SFJvBV6VwvFUCe4KBMCcgLsa2ir
+```
+
+Restituisce un output simile a:
+
+```
+Creating account 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 4JsqZEPra2eDTHtHpB4FMWSfk3UgcCVmkKkP7zESZeMrKmFFkDkNd91pKP3vPVVZZPiu5XxyJwS73Vi5WsZL88D7
+```
+
+Oppure per creare un SPL Token account con un keypair specifico:
+
+```shell
+solana-keygen new -o token-account.json
+
+spl-token create-account AkUFCWTXb3w9nY2n6SFJvBV6VwvFUCe4KBMCcgLsa2ir token-account.json
+```
+
+Restituisce un output simile a:
+
+```shell
+Creating account 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 4JsqZEPra2eDTHtHpB4FMWSfk3UgcCVmkKkP7zESZeMrKmFFkDkNd91pKP3vPVVZZPiu5XxyJwS73Vi5WsZL88D7
+```
+
+### Verifica del Saldo di un Account
+
+#### Riga di Comando
+
+```shell
+spl-token balance <TOKEN_ACCOUNT_ADDRESS>
+```
+
+#### Esempio
+
+```shell
+solana balance 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+```
+
+Restituisce un output simile a:
+
+```
+0
+```
+
+### Trasferimenti di Token
+
+L'account sorgente di un trasferimento è il token account effettivo che contiene l'importo.
+
+L'indirizzo del destinatario, tuttavia, può essere un normale account wallet. Se un associated token account per il mint specificato non esiste ancora per quel wallet, il trasferimento lo creerà a condizione che l'argomento `--fund-recipient` sia stato fornito.
+
+#### Riga di Comando
+
+```shell
+spl-token transfer <SENDER_ACCOUNT_ADDRESS> <AMOUNT> <RECIPIENT_WALLET_ADDRESS> --fund-recipient
+```
+
+#### Esempio
+
+```shell
+spl-token transfer 6B199xxzw3PkAm25hGJpjj3Wj3WNYNHzDAnt1tEqg5BN 1
+```
+
+Restituisce un output simile a:
+
+```shell
+6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Transfer 1 tokens
+  Sender: 6B199xxzw3PkAm25hGJpjj3Wj3WNYNHzDAnt1tEqg5BN
+  Recipient: 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 3R6tsog17QM8KfzbcbdP4aoMfwgo6hBggJDVy7dZPVmH2xbCWjEj31JKD53NzMrf25ChFjY7Uv2dfCDq4mGFFyAj
+```
+
+### Depositi
+
+Poiché ogni coppia `(wallet, mint)` richiede un account separato onchain, si raccomanda che gli indirizzi di questi account siano derivati dai wallet di deposito SOL utilizzando lo schema
+[Associated Token Account](https://spl.solana.com/associated-token-account)
+(ATA) e che vengano accettati _solo_ i depositi provenienti da indirizzi ATA.
+
+Il monitoraggio delle transazioni di deposito dovrebbe seguire il metodo di
+[block polling](#poll-for-blocks) descritto in precedenza. Ogni nuovo blocco dovrebbe essere analizzato alla ricerca di transazioni riuscite che includano gli indirizzi dei token account dell'utente e dell'exchange.
+
+<Callout type="warn">
+
+I campi `preTokenBalances` e `postTokenBalances` dai metadati della transazione devono essere utilizzati per determinare la variazione effettiva del saldo. Questi campi includono il mint del token, il proprietario del token account (indirizzo wallet) e i saldi dei token account prima e dopo la transazione.
+
+</Callout>
+
+<Callout>
+
+Se un token account viene creato come parte di una transazione (ad esempio alla prima ricezione di token), non comparirà nell'array `preTokenBalances` poiché non esisteva prima della transazione. In questo scenario, dovresti considerare il saldo iniziale pari a zero nel calcolo degli importi depositati. L'account appena creato apparirà solo nell'array `postTokenBalances` con il suo saldo finale al completamento della transazione.
+
+</Callout>
+
+#### Esempio 1: Trasferimento Singolo di Token
+
+Il dettaglio della transazione seguente mostra un esempio di transazione che include un'unica istruzione di trasferimento di token.
+
+La transazione trasferisce 100 unità base del token (non aggiustate per i decimali del mint) e include i seguenti account:
+
+- Mittente (proprietario): `4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw`
+- Token Account del Mittente: `6zhjktfYBRUp7fgXLoWU7GFFrCuZa9iQkYTQzDzuvsAS`
+- Token Account del Destinatario: `G5nNekUhhWFqJAiCMpKHootZ5Bfa7MXwuQ5vvKcvuxKM`
+- ID del Token Extension Program: `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`
+
+Nota che l'account del destinatario (proprietario) e il mint account non sono richiesti in un'istruzione di trasferimento di token. A titolo di riferimento, sono elencati qui poiché i loro indirizzi sono inclusi nei metadati della transazione analizzata.
+
+- Destinatario (proprietario): `8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n`
+- Mint: `Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2`
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1741240211",
+  "meta": {
+    "computeUnitsConsumed": "1551",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    // !tooltip[/logMessages/] logMessages
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: Transfer",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1551 of 200000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    // !tooltip[/postBalances/] postBalances
+    "postBalances": ["994375240", "2074080", "2074080", "1141440"],
+    // !tooltip[/postTokenBalances/] postTokenBalances
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] fromOwnerPostTokenBalance
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] senderPostTokenBalance
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] toOwnerPostTokenBalance
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] recipientPostTokenBalance
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    // !tooltip[/preBalances/] preBalances
+    "preBalances": ["994380240", "2074080", "2074080", "1141440"],
+    // !tooltip[/preTokenBalances/] preTokenBalances
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] fromOwnerPreTokenBalance
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] senderPreTokenBalance
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] toOwnerPreTokenBalance
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] recipientPreTokenBalance
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "3916",
+  "transaction": {
+    "message": {
+      // !tooltip[/accountKeys/] accountKeys
+      "accountKeys": [
+        "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "6zhjktfYBRUp7fgXLoWU7GFFrCuZa9iQkYTQzDzuvsAS",
+        "G5nNekUhhWFqJAiCMpKHootZ5Bfa7MXwuQ5vvKcvuxKM",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      // !tooltip[/instructions/] instructions
+      "instructions": [
+        {
+          "accounts": [1, 2, 0],
+          "data": "3WBgs5fm8oDy",
+          "programIdIndex": 3,
+          "stackHeight": null
+        }
+      ],
+      // !tooltip[/recentBlockhash/] recentBlockhash
+      "recentBlockhash": "8soh8j2dkEniZW6Jpx9cJaWtnvrGoGUqpbaUVwUkX5R3"
+    },
+    // !tooltip[/signatures/] signatures
+    "signatures": [
+      "3vr6Gj3GnBQmsZW1TtBJ3hvfFMi3h9BxLs2oaZkV41LRWeGWPVmeo16JTN8MdP3ypU5VgWAziYUjybhyZoisryQ6"
+    ]
+  },
+  "version": "0"
+}
+```
+
+### !logMessages
+
+Log del programma generati durante l'elaborazione della transazione.
+
+In questo caso, i log indicano che la transazione invoca l'istruzione di trasferimento sul Token Program.
+
+### !postBalances
+
+Il saldo in lamport di tutti gli account coinvolti nella transazione dopo l'elaborazione.
+
+### !postTokenBalances
+
+Il saldo dei token di tutti i token account coinvolti nella transazione dopo l'elaborazione.
+
+### !preBalances
+
+Il saldo in lamport di tutti gli account coinvolti nella transazione prima dell'elaborazione.
+
+### !preTokenBalances
+
+Il saldo dei token di tutti i token account coinvolti nella transazione prima dell'elaborazione.
+
+### !rewards
+
+I premi di tutti gli account coinvolti nella transazione prima dell'elaborazione.
+
+### !accountKeys
+
+Elenco degli indirizzi degli account richiesti per l'istruzione nella transazione.
+
+### !instructions
+
+Elenco delle istruzioni nella transazione. In questo caso è presente una sola istruzione, un'istruzione di trasferimento di token.
+
+### !recentBlockhash
+
+Il blockhash dell'ultimo blocco elaborato al momento dell'invio della transazione.
+
+### !senderPostTokenBalance
+
+Il token account del mittente ha un saldo finale di 0 token.
+
+### !recipientPostTokenBalance
+
+Il token account del destinatario ha un saldo finale di 100 unità base del token.
+
+Il mint ha 2 decimali, quindi il token account del destinatario ha un saldo finale di 1 token.
+
+### !senderPreTokenBalance
+
+Il token account del mittente aveva un saldo iniziale di 100 unità base del token.
+
+Il mint ha 2 decimali, quindi il token account del mittente aveva un saldo iniziale di 1 token.
+
+### !recipientPreTokenBalance
+
+Il token account del destinatario aveva un saldo iniziale di 0 token.
+
+### !fromOwnerPreTokenBalance
+
+Questo è il proprietario del token account che invia token prima dell'elaborazione della transazione.
+
+### !fromOwnerPostTokenBalance
+
+Questo è il proprietario del token account che invia token dopo l'elaborazione della transazione.
+
+### !toOwnerPreTokenBalance
+
+Questo è il proprietario del token account che riceve token prima dell'elaborazione della transazione.
+
+### !toOwnerPostTokenBalance
+
+Questo è il proprietario del token account che riceve token dopo l'elaborazione della transazione.
+
+### !signatures
+
+Le firme incluse nella transazione. In questo caso è presente una sola firma (del mittente).
+
+La prima firma di una transazione proviene dal pagante della commissione di transazione. Viene inoltre utilizzata per identificare la transazione ed è comunemente denominata firma della transazione.
+
+</WithNotes>
+
+#### Esempio 2: Creazione di un Token Account e Trasferimento
+
+Il dettaglio della transazione seguente mostra un esempio di transazione in cui il token account del destinatario viene creato nella stessa transazione del trasferimento di token.
+
+Nota che l'array `preTokenBalances` non include il token account del destinatario poiché non esisteva prima della transazione. Il token account del destinatario appare solo nell'array `postTokenBalances` con il suo saldo finale al completamento della transazione.
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1740541705",
+  "meta": {
+    "computeUnitsConsumed": "17416",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [4],
+            "data": "84eT",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [0, 1],
+            "data": "11119ExAoTptm6xKUTUcw2V69MKmyEdDmRins3j3bK43o9nHeiYUtSiaT9pc292PhNQvxj",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [1],
+            "data": "P",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [1, 4],
+            "data": "6b8ZSccu4ezujyhGG8KNmg75iCWbQRyjxeSfi38u8ED8N",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+      "Program log: Create",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: GetAccountDataSize",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 928 of 394613 compute units",
+      "Program return: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb qgAAAAAAAAA=",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program log: Initialize the associated token account",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeImmutableOwner",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 487 of 388755 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeAccount3",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1440 of 385879 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 15865 of 400000 compute units",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: Transfer",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1551 of 384135 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    "postBalances": [
+      "994375240",
+      "2074080",
+      "2074080",
+      "1",
+      "1461600",
+      "731913600",
+      "0",
+      "1141440"
+    ],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "EzrmgRNGN9duiDAk3ABSC8eKhd1b2EUFwXVrYZDJw4hQ",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "preBalances": [
+      "996454320",
+      "0",
+      "2074080",
+      "1",
+      "1461600",
+      "731913600",
+      "0",
+      "1141440"
+    ],
+    "preTokenBalances": [
+      {
+        "accountIndex": 2,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "81051",
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "571u96hRRmxbRCTmp5oqC5WpJfvZhPaSXEbihLVCR5wQ",
+        "8y8KjtZN9tyGeAeKwr8doSpbBVVgfsZMtMjCGUDH7mmU",
+        "11111111111111111111111111111111",
+        "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "EzrmgRNGN9duiDAk3ABSC8eKhd1b2EUFwXVrYZDJw4hQ",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 5,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [0, 1, 6, 4, 3, 7],
+          "data": "1",
+          "programIdIndex": 5,
+          "stackHeight": null
+        },
+        {
+          "accounts": [2, 1, 0],
+          "data": "3WBgs5fm8oDy",
+          "programIdIndex": 7,
+          "stackHeight": null
+        }
+      ],
+      "recentBlockhash": "77QC38Q2hKFYZzUXk8JWmsAqGNKhw4k2Lm2XVUme9uqP"
+    },
+    "signatures": [
+      "4kuGhMeZxBHgEtej4Uv4n2arhe3jqT2GdTDPFri4JLFXYgcAtbeeXdBdzvG98HENe1tZSZqyFkm3SEvB6CfCMaM9"
+    ]
+  },
+  "version": "0"
+}
+```
+
+#### Esempio 3: Cambio del Proprietario del Token Account
+
+Il dettaglio della transazione seguente mostra un esempio di transazione in cui il campo `owner` del token account viene modificato.
+
+<Callout type="warn">
+
+Accettare depositi consentendo ai depositanti di trasferire la proprietà dei token account (modificando il campo `owner`) è fortemente sconsigliato.
+
+Se si sceglie di supportare questo metodo come modalità di deposito, è necessario verificare che il nuovo campo `owner` nei `postTokenBalances` corrisponda a un indirizzo wallet controllato dall'exchange e di cui si possiede la chiave privata.
+
+Se un depositante modifica il campo `owner` di un token account con un indirizzo che non è un wallet (come l'indirizzo di un altro token account), i fondi potrebbero diventare permanentemente inaccessibili.
+
+</Callout>
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1740598556",
+  "meta": {
+    "computeUnitsConsumed": "1167",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: SetAuthority",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1167 of 200000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    "postBalances": ["996479120", "2039280", "1141440"],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "ELRBdV4gcuxqYb6jHkV4ySJ7dwYx9344cgFNzUSww1ra",
+        // !tooltip[/owner/] postTokenBalances
+        "owner": "A9FK8XxT2Hfefz8H3vQJHLwvbibGQJWErBsqMumgUYeP",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "preBalances": ["996484120", "2039280", "1141440"],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "ELRBdV4gcuxqYb6jHkV4ySJ7dwYx9344cgFNzUSww1ra",
+        // !tooltip[/owner/] preTokenBalances
+        "owner": "DLvpDgEABKfEaRDz5Qh9tSrJhuZzsiiZMcYXmvdek1zV",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "137902",
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "DLvpDgEABKfEaRDz5Qh9tSrJhuZzsiiZMcYXmvdek1zV",
+        "5Qj4uNGuAEBdryPg8k2UTewpnNfYAc9Ux9fCcDrNAjGs",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [1, 0],
+          "data": "bmb6sys4wqZErNeiV7hrM4vQVHF8AVBhi3XeR5TgbQM68MH",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "recentBlockhash": "CvTdX9MSYkqFMkALUHeGPMQN5yBeUdJptRdce2qMEkPr"
+    },
+    "signatures": [
+      "3rHUaKMh4KDDfdaATAL4J5WDEV7oFm7ykkNaMf1Eo5EwvDUjLE6dWsbxNDmyENrhb2w5gE4KqRxZ3ZwQxuM18SVR"
+    ]
+  },
+  "version": "0"
+}
+```
+
+### !postTokenBalances
+
+Il campo `owner` nei `postTokenBalances` differisce da quello nei `preTokenBalances`. Ciò indica che la proprietà del token account è cambiata.
+
+### !preTokenBalances
+
+Il campo `owner` nei `preTokenBalances` è il proprietario originale del token account.
+
+</WithNotes>
+
+#### Calcolo dei Depositi di Token
+
+Per tracciare con precisione i depositi di token, è necessario confrontare i campi `preTokenBalances` e `postTokenBalance` nei metadati della transazione. Questi campi mostrano i saldi dei token e il proprietario del token account prima e dopo la transazione, consentendo di calcolare l'importo esatto dei token trasferiti. Questo approccio garantisce di acquisire le variazioni effettive del saldo.
+
+- Se il campo `owner` dei campi `preTokenBalances` e `postTokenBalances` rimane invariato, calcola la differenza tra i campi `amount`.
+- Se la proprietà del token account cambia (campo `owner` diverso tra `preTokenBalances` e `postTokenBalances`), e il nuovo proprietario in `postTokenBalance` corrisponde all'indirizzo `owner` atteso dall'exchange, considera l'intero saldo indicato nel campo `amount` di `postTokenBalances` come importo depositato.
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+"meta": {
+    // --snip--
+    "postBalances": ["994375240", "2074080", "2074080", "1141440"],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "preBalances": ["994380240", "2074080", "2074080", "1141440"],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    // --snip--
+  }
+```
+
+### !owner
+
+Verifica se il campo `owner` corrisponde tra `preTokenBalances` e
+`postTokenBalances` per determinare se la proprietà del token account è cambiata
+durante la transazione.
+
+### !amount
+
+Calcula le variazioni del saldo token utilizzando il campo `amount` in
+`preTokenBalances` e `postTokenBalances` per ogni token account.
+
+Nel caso in cui ci siano più trasferimenti all'interno della stessa transazione, questa
+differenza rappresenta i token netti trasferiti per ogni rispettivo token account.
+
+</WithNotes>
+
+### Prelievo
+
+L'indirizzo di prelievo fornito dall'utente deve essere quello del proprio wallet SOL.
+
+Prima di eseguire un [trasferimento](#token-transfers) di prelievo, l'exchange dovrebbe
+verificare l'indirizzo come
+[descritto sopra](#validating-user-supplied-account-addresses-for-withdrawals).
+Inoltre, questo indirizzo deve essere di proprietà del System Program e non contenere
+dati dell'account. Se l'indirizzo non ha saldo SOL, è necessario ottenere la conferma dell'utente prima di procedere con il prelievo. Tutti gli altri indirizzi di prelievo
+devono essere rifiutati.
+
+Dall'indirizzo di prelievo, viene derivato l'
+[Associated Token Account](https://spl.solana.com/associated-token-account)
+(ATA) per il mint corretto e il trasferimento viene emesso su quell'account
+tramite un'istruzione
+[TransferChecked](https://github.com/solana-labs/solana-program-library/blob/fc0d6a2db79bd6499f04b9be7ead0c400283845e/token/program/src/instruction.rs#L268).
+Si noti che è possibile che l'indirizzo ATA non esista ancora;
+in tal caso, l'exchange dovrebbe finanziare l'account per conto dell'utente. Per
+gli account SPL Token, il finanziamento dell'account di prelievo richiederà 0.00203928 SOL
+(2.039.280 lamport).
+
+Comando `spl-token transfer` di esempio per un prelievo:
+
+```shell
+spl-token transfer --fund-recipient <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+### Altre Considerazioni
+
+#### Freeze Authority
+
+Per motivi di conformità normativa, un'entità emittente SPL Token può facoltativamente
+scegliere di mantenere la "Freeze Authority" su tutti gli account creati in associazione con
+il proprio mint. Ciò consente loro di
+[congelare](https://spl.solana.com/token#freezing-accounts) le risorse in un determinato
+account a piacimento, rendendo l'account inutilizzabile fino allo sblocco. Se questa funzionalità è
+in uso, il pubkey dell'autorità di congelamento sarà registrato nel mint account dell'SPL Token.
+
+### Supporto Base per lo Standard SPL Token-2022 (Token Extensions)
+
+[SPL Token-2022](https://spl.solana.com/token-2022) è lo standard più recente per
+la creazione e lo scambio di token wrapped/sintetici sulla blockchain Solana.
+
+Conosciuto anche come "Token Extensions", lo standard contiene molte nuove funzionalità che
+i creatori di token e i titolari di account possono abilitare facoltativamente. Queste funzionalità includono
+trasferimenti confidenziali, commissioni sul trasferimento, chiusura dei mint, metadati, delegati permanenti,
+proprietà immutabile e molto altro. Consulta la
+[guida alle estensioni](https://spl.solana.com/token-2022/extensions) per ulteriori
+informazioni.
+
+Se il tuo exchange supporta SPL Token, non è necessario molto lavoro aggiuntivo per
+supportare SPL Token-2022:
+
+- lo strumento CLI funziona perfettamente con entrambi i programmi a partire dalla versione 3.0.0.
+- `preTokenBalances` e `postTokenBalances` includono i saldi di SPL Token-2022
+- RPC indicizza gli account SPL Token-2022, ma devono essere interrogati separatamente con
+  program id `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`
+
+L'Associated Token Account funziona allo stesso modo e calcola correttamente
+l'importo di SOL richiesto per il deposito del nuovo account.
+
+A causa delle estensioni, tuttavia, gli account possono superare i 165 byte, quindi potrebbero
+richiedere più di 0.00203928 SOL per essere finanziati.
+
+Ad esempio, il programma Associated Token Account include sempre l'estensione "immutable
+owner", quindi gli account occupano un minimo di 170 byte, il che richiede
+0.00207408 SOL.
+
+### Considerazioni Specifiche per Estensione
+
+La sezione precedente illustra il supporto più basilare per SPL Token-2022. Poiché
+le estensioni modificano il comportamento dei token, gli exchange potrebbero dover cambiare il modo in cui
+gestiscono i token.
+
+È possibile visualizzare tutte le estensioni su un mint o token account:
+
+```shell
+spl-token display <account address>
+```
+
+#### Commissione di Trasferimento
+
+Un token può essere configurato con una commissione di trasferimento, in cui una parte dei token trasferiti
+viene trattenuta alla destinazione per una raccolta futura.
+
+Se il tuo exchange trasferisce questi token, tieni presente che potrebbero non arrivare tutti alla
+destinazione a causa dell'importo trattenuto.
+
+È possibile specificare la commissione attesa durante un trasferimento per evitare sorprese:
+
+```shell
+spl-token transfer --expected-fee <fee amount> --fund-recipient <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+#### Mint Close Authority
+
+Con questa estensione, un creatore di token può chiudere un mint, a condizione che l'offerta di
+token sia pari a zero.
+
+Quando un mint viene chiuso, potrebbero ancora esistere token account vuoti che
+non saranno più associati a un mint valido.
+
+È sicuro semplicemente chiudere questi token account:
+
+```shell
+spl-token close --address <account address>
+```
+
+#### Trasferimento Confidenziale
+
+I mint possono essere configurati per trasferimenti confidenziali, in modo che gli importi dei token siano
+crittografati, ma i proprietari degli account siano ancora pubblici.
+
+Gli exchange possono configurare i token account per inviare e ricevere trasferimenti confidenziali,
+al fine di nascondere gli importi degli utenti. Non è obbligatorio abilitare i trasferimenti confidenziali
+sui token account, quindi gli exchange possono obbligare gli utenti a inviare token
+in modo non confidenziale.
+
+Per abilitare i trasferimenti confidenziali, l'account deve essere configurato di conseguenza:
+
+```shell
+spl-token configure-confidential-transfer-account --address <account address>
+```
+
+E per trasferire:
+
+```shell
+spl-token transfer --confidential <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+Durante un trasferimento confidenziale, i campi `preTokenBalance` e `postTokenBalance`
+non mostreranno alcuna variazione. Per svuotare gli account di deposito, è necessario decrittare
+il nuovo saldo per prelevare i token:
+
+```shell
+spl-token apply-pending-balance --address <account address>
+spl-token withdraw-confidential-tokens --address <account address> <amount or ALL>
+```
+
+#### Stato Account Predefinito
+
+I mint possono essere configurati con uno stato account predefinito, in modo che tutti i nuovi token
+account siano congelati per impostazione predefinita. Questi creatori di token possono richiedere agli utenti di seguire
+un processo separato per sbloccare l'account.
+
+#### Non Trasferibile
+
+Alcuni token non sono trasferibili, ma possono comunque essere bruciati e l'account
+può essere chiuso.
+
+#### Delegato Permanente
+
+I creatori di token possono designare un delegato permanente per tutti i loro token. Il
+delegato permanente può trasferire o bruciare token da qualsiasi account, potenzialmente
+sottraendo fondi.
+
+Questo è un requisito legale per le stablecoin in alcune giurisdizioni, oppure potrebbe
+essere utilizzato per schemi di recupero dei token.
+
+Tieni presente che questi token potrebbero essere trasferiti senza che il tuo exchange ne sia a conoscenza.
+
+#### Transfer Hook
+
+I token possono essere configurati con un programma aggiuntivo che deve essere richiamato durante
+i trasferimenti, al fine di validare il trasferimento o eseguire qualsiasi altra logica.
+
+Poiché il runtime di Solana richiede che tutti gli account vengano passati esplicitamente a un
+programma, e i transfer hook richiedono account aggiuntivi, l'exchange deve
+creare istruzioni di trasferimento in modo diverso per questi token.
+
+La CLI e i creatori di istruzioni come
+`createTransferCheckedWithTransferHookInstruction` aggiungono automaticamente gli account extra,
+ma gli account aggiuntivi possono anche essere specificati esplicitamente:
+
+```shell
+spl-token transfer --transfer-hook-account <pubkey:role> --transfer-hook-account <pubkey:role> ...
+```
+
+#### Memo Obbligatorio sul Trasferimento
+
+Gli utenti possono configurare i propri token account per richiedere un memo sul trasferimento.
+
+Gli exchange potrebbero dover anteporre un'istruzione memo prima di trasferire token agli
+utenti, oppure possono richiedere agli utenti di anteporre un'istruzione memo prima di inviare
+all'exchange:
+
+```shell
+spl-token transfer --with-memo <memo text> <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+## Test dell'Integrazione
+
+Assicurati di testare il tuo flusso di lavoro completo sui [cluster](/docs/references/clusters) devnet e testnet di Solana
+prima di passare alla produzione sulla mainnet.
+Devnet è il più aperto e flessibile, ideale per lo sviluppo iniziale, mentre
+testnet offre una configurazione del cluster più realistica. Sia devnet che testnet
+supportano un faucet; esegui `solana airdrop 1` per ottenere del SOL devnet o testnet
+per lo sviluppo e il testing.

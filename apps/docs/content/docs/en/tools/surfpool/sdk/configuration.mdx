@@ -1,0 +1,215 @@
+---
+title: Configuration
+description:
+  Configure a Surfnet at startup — remote RPC fallback, block production mode,
+  slot timing, airdrops, feature gates, and custom payers.
+---
+
+`Surfnet::start()` (Rust) and `Surfnet.start()` (JS) boot an offline Surfnet
+with transaction-mode block production and a payer pre-funded with 10 SOL. When
+you need anything else — a mainnet-forked Surfnet, a slower clock, deterministic
+funding, a specific payer keypair — reach for the builder (Rust) or
+`startWithConfig` (JS).
+
+## Defaults
+
+If you call `start()` with no arguments, you get:
+
+| Setting          | Value                                                       |
+| ---------------- | ----------------------------------------------------------- |
+| Mode             | Offline (no upstream RPC)                                   |
+| Block production | Transaction (blocks advance on each tx)                     |
+| Slot time        | 1 ms                                                        |
+| Payer            | Random keypair funded with 10 SOL (10,000,000,000 lamports) |
+| RPC URL          | `http://127.0.0.1:<random>`                                 |
+| WS URL           | `ws://127.0.0.1:<random>`                                   |
+| Feature config   | Default mainnet feature set                                 |
+
+## Custom Configuration
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{BlockProductionMode, Pubkey, Surfnet};
+
+#[tokio::test]
+async fn starts_with_custom_configuration() {
+    let alice = Pubkey::new_unique();
+
+    let surfnet = Surfnet::builder()
+        .remote_rpc_url("https://api.mainnet-beta.solana.com")
+        .block_production_mode(BlockProductionMode::Transaction)
+        .slot_time_ms(10)
+        .airdrop_addresses(vec![alice])
+        .airdrop_sol(5_000_000_000)
+        .skip_blockhash_check(true)
+        .start()
+        .await
+        .unwrap();
+
+    assert_eq!(
+        surfnet.rpc_client().get_balance(&alice).unwrap(),
+        5_000_000_000
+    );
+}
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const alice = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com",
+  blockProductionMode: "transaction",
+  slotTimeMs: 10,
+  airdropAddresses: [alice.publicKey],
+  airdropSol: 5_000_000_000
+});
+
+try {
+  console.log(surfnet.rpcUrl);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## Builder Reference
+
+The Rust builder and the JS config object expose the same logical options under
+camelCase / snake_case naming.
+
+| Option            | Rust setter                                  | JS field                                  | Type                                          | Default          |
+| ----------------- | -------------------------------------------- | ----------------------------------------- | --------------------------------------------- | ---------------- |
+| Offline mode      | `offline(bool)`                              | `offline?: boolean`                       | `bool`                                        | `true`           |
+| Upstream RPC      | `remote_rpc_url(impl Into<String>)`          | `remoteRpcUrl?: string`                   | URL string                                    | none             |
+| Block production  | `block_production_mode(BlockProductionMode)` | `blockProductionMode?: string`            | enum / `"manual" \| "clock" \| "transaction"` | `Transaction`    |
+| Slot time         | `slot_time_ms(u64)`                          | `slotTimeMs?: number`                     | milliseconds                                  | `1`              |
+| Airdrop addresses | `airdrop_addresses(Vec<Pubkey>)`             | `airdropAddresses?: string[]`             | list of pubkeys                               | empty            |
+| Airdrop amount    | `airdrop_sol(u64)`                           | `airdropSol?: number`                     | lamports                                      | `10_000_000_000` |
+| Skip blockhash    | `skip_blockhash_check(bool)`                 | n/a                                       | `bool`                                        | `false`          |
+| Custom payer      | `payer(Keypair)`                             | `payerSecretKey?: Uint8Array \| number[]` | Keypair / bytes                               | generated        |
+| Enable feature    | `enable_feature(Pubkey)`                     | `enableFeatures?: string[]`               | feature ID(s)                                 | none             |
+| Disable feature   | `disable_feature(Pubkey)`                    | `disableFeatures?: string[]`              | feature ID(s)                                 | none             |
+| All features      | n/a                                          | `allFeatures?: boolean`                   | `bool`                                        | `false`          |
+| Feature config    | `feature_config(SvmFeatureConfig)`           | n/a                                       | full config                                   | default mainnet  |
+
+### Remote RPC Fallback
+
+Setting `remoteRpcUrl` (or `remote_rpc_url` in Rust) flips the Surfnet out of
+offline mode. Accounts not present locally are fetched on demand from the
+upstream RPC, which is how mainnet-fork tests work.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let surfnet = Surfnet::builder()
+    .remote_rpc_url("https://api.mainnet-beta.solana.com")
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com"
+});
+```
+
+</CodeTabs>
+
+<Callout type="info" title="Use a high-quality upstream RPC">
+  Use a paid endpoint (Helius, Triton, QuickNode) for tests that exercise many
+  forked accounts. Public `mainnet-beta` is heavily rate limited and will flake
+  under parallel test loads.
+</Callout>
+
+### Block Production Mode
+
+| Mode                    | When blocks advance                                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `Transaction` (default) | After every transaction. Best for tests that send and immediately assert.                                                      |
+| `Clock`                 | At a fixed interval set by `slot_time_ms`. Best for tests that depend on multiple slots passing without explicit transactions. |
+| `Manual`                | Only when a `SimnetCommand::AdvanceClock` is sent. Best for time-sensitive tests where the test drives the clock.              |
+
+### Custom Payer
+
+By default the payer is a freshly generated keypair. Provide your own when tests
+need a known address, for example to pre-build instructions referencing the
+payer's public key.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Keypair, Signer, Surfnet};
+
+let payer = Keypair::new();
+let surfnet = Surfnet::builder().payer(payer.insecure_clone()).start().await?;
+
+assert_eq!(surfnet.payer().pubkey(), payer.pubkey());
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const kp = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  payerSecretKey: kp.secretKey
+});
+
+console.assert(surfnet.payer === kp.publicKey);
+```
+
+</CodeTabs>
+
+### Feature Gates
+
+Toggle individual SVM feature gates by ID, or activate every known feature with
+`allFeatures: true` (JS only — the Rust builder accepts `feature_config` for the
+full set).
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let feature_id: Pubkey = "9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"
+    .parse()
+    .unwrap();
+
+let surfnet = Surfnet::builder()
+    .enable_feature(feature_id)
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  enableFeatures: ["9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"],
+  disableFeatures: ["7Vced5VKEjQGc2GnQDfnNYf4ckEbz9b2gMRsZGYP6JeF"]
+});
+```
+
+</CodeTabs>
+
+### Skip Blockhash Check
+
+`skip_blockhash_check(true)` (Rust only) disables blockhash validation on all
+transactions. Useful for tests that sign transactions far in advance of
+submission or that don't care about expiry.
+
+## Errors
+
+A misconfigured builder fails at `start()`. The Rust SDK returns `SurfnetError`:
+
+| Variant                  | When                                                                 |
+| ------------------------ | -------------------------------------------------------------------- |
+| `PortAllocation(String)` | Could not bind to a free RPC or WebSocket port.                      |
+| `Startup(String)`        | The runtime failed to initialize (bad config, bad remote URL, etc.). |
+| `Runtime(String)`        | The runtime crashed during startup before becoming ready.            |
+| `Aborted(String)`        | Startup was cancelled (e.g., shutdown signal during boot).           |
+| `Cheatcode(String)`      | A cheatcode call inside the builder failed.                          |
+
+The JS SDK throws an `Error` whose message wraps the same underlying variant.

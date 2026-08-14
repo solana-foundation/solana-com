@@ -1,9 +1,16 @@
-import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { Link } from "@workspace/i18n/routing";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import type { Metadata } from "next";
 import { reader } from "@/lib/reader";
-import { config } from "@/lib/config";
 import { cn } from "@/lib/utils";
+import {
+  UPGRADES_SEO_DESCRIPTION,
+  UPGRADES_SEO_TITLE,
+  upgradesListingMetadata,
+} from "@/lib/metadata";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildUpgradeCollectionJsonLd } from "@/lib/content-structured-data";
+import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
 
 export const revalidate = 300;
 
@@ -125,7 +132,7 @@ async function getPublishedUpgrades(): Promise<UpgradeCard[]> {
         unknown
       > | null;
 
-      if (!entry || entry.status !== "published") {
+      if (!isPublishedUpgrade(entry)) {
         return null;
       }
 
@@ -155,39 +162,37 @@ async function getPublishedUpgrades(): Promise<UpgradeCard[]> {
     });
 }
 
-export function generateMetadata(): Metadata {
-  const title = "Solana Upgrades";
-  const description =
-    "Track Solana network upgrades, validator actions, protocol changes, and performance improvements.";
-  const canonicalUrl = `${config.publicUrl}/upgrades`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      type: "website",
-      siteName: config.siteMetadata.title,
-      images: [config.siteMetadata.socialShare],
-    },
-    twitter: {
-      card: "summary_large_image",
-      creator: `@${config.social.twitter.name}`,
-      title,
-      description,
-      images: [config.siteMetadata.socialShare],
-    },
-    alternates: { canonical: canonicalUrl },
-  };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return upgradesListingMetadata(locale);
 }
 
-export default async function UpgradesPage() {
+export default async function UpgradesPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
   const upgrades = await getPublishedUpgrades();
+  const structuredData = buildUpgradeCollectionJsonLd({
+    upgrades: upgrades.map((upgrade) => ({
+      slug: upgrade.slug,
+      title: upgrade.title,
+      description: upgrade.description || upgrade.subtitle,
+      publishedAt: upgrade.publishedAt,
+    })),
+    locale,
+    title: UPGRADES_SEO_TITLE,
+    description: UPGRADES_SEO_DESCRIPTION,
+  });
 
   return (
     <section className="relative min-h-screen bg-black text-left text-white">
+      <JsonLd data={structuredData} />
       <div className="mx-auto w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px]">
         <div className="flex max-w-5xl flex-col py-[64px] md:py-[112px] xl:py-[160px]">
           <span className="mb-5 text-xs font-medium uppercase tracking-[0.28em] text-[#14F195]">

@@ -1,33 +1,25 @@
 import { createMiddleware, routing } from "@workspace/i18n/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
+import { getPathnameWithoutLocale } from "@workspace/i18n/pathname";
 
 // The main web app uses routing with locale detection enabled
 // and doesn't need preserveProxiedLocaleCookie since it's the source of truth
 const handleI18nRouting = createMiddleware(routing);
 
-export default async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const pathSegments = pathname.split("/").filter(Boolean);
-  const hasLocalePrefix = locales.includes(pathSegments[0] ?? "");
-  const normalizedPathname = hasLocalePrefix
-    ? `/${pathSegments.slice(1).join("/")}`
-    : pathname;
-
-  // Skip i18n for paths that are proxied to other Vercel apps via rewrites
-  // These paths are handled by their respective app's middleware
-  if (
+export function isProxiedPath(normalizedPathname: string) {
+  return (
     normalizedPathname.startsWith("/accelerate") ||
     normalizedPathname.startsWith("/breakpoint") ||
     normalizedPathname === "/developers" ||
     normalizedPathname.startsWith("/developers/templates") ||
     normalizedPathname.startsWith("/developers/cookbook") ||
-    normalizedPathname.startsWith("/developers/guides") ||
     normalizedPathname.startsWith("/developers/bootcamp") ||
     normalizedPathname.startsWith("/docs") ||
     normalizedPathname.startsWith("/learn") ||
     (normalizedPathname.startsWith("/news") &&
       !normalizedPathname.startsWith("/newsletter")) ||
+    normalizedPathname.startsWith("/changelog") ||
     normalizedPathname.startsWith("/reports") ||
     normalizedPathname.startsWith("/podcasts") ||
     normalizedPathname === "/upgrade" ||
@@ -35,7 +27,17 @@ export default async function middleware(req: NextRequest) {
     normalizedPathname.startsWith("/media-assets") ||
     normalizedPathname.startsWith("/templates-assets") ||
     normalizedPathname.startsWith("/opengraph")
-  ) {
+  );
+}
+
+export default async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const pathSegments = pathname.split("/").filter(Boolean);
+  const normalizedPathname = getPathnameWithoutLocale(pathname);
+
+  // Skip i18n for paths that are proxied to other Vercel apps via rewrites
+  // These paths are handled by their respective app's middleware
+  if (isProxiedPath(normalizedPathname)) {
     return NextResponse.next();
   }
 
@@ -101,7 +103,7 @@ export const config = {
   matcher: [
     "/SKILL.md",
     "/skill.md",
-    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|docs|learn|news(?!letter)|reports|podcasts|upgrade|upgrades|media-assets|templates-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|changelog|docs|learn|news(?!letter)|reports|podcasts|upgrade|upgrades|media-assets|templates-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

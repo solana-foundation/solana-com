@@ -1,0 +1,189 @@
+---
+title: トランザクションイントロスペクション
+description:
+  "@solana/transaction-introspectionを使用して、確認済みのSolanaトランザクションをデコードおよ\
+  び検査します。アカウントインデックスとルックアップテーブルアドレスを解決し、外部および内部（CPI）instructionsをたどり、プログラムクライアン\
+  トで解析します。"
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="概要">
+  `@solana/transaction-introspection`は、`getTransaction` RPCレスポンスを
+  実際のアドレスを持つinstructionsのリストに変換します。アカウントインデックス
+  （ルックアップテーブルアドレスを含む）を解決し、内部CPI
+  instructionsをデコードし、
+  エクスプローラーの順序でinstruction全体のツリーをたどります。
+</Callout>
+
+<Callout type="info">
+  プログラムが実行時に_オンチェーン_で兄弟instructionsを検査する方法をお探しですか？
+  それはInstructions sysvarです。[Instruction
+  Introspection](/docs/core/instructions/instruction-introspection)をご覧ください。このページは
+  RPCレスポンスから_オフチェーン_でトランザクションをデコードすることについて説明しています。
+</Callout>
+
+[`getTransaction`](/docs/rpc/http/gettransaction)レスポンスは、すぐに使えるinstructionsのリストを提供しません。アカウントは数値インデックスとして保存され、[バージョン管理されたトランザクション](/docs/core/transactions/versioned-transactions)はそれらのアカウントを静的キーと[アドレスルックアップテーブル](/docs/core/transactions/versioned-transactions)から読み込まれたアドレスに分割し、Cross
+Program
+Invocation（CPI）からの内部instructionsはトランザクションメタデータ内にエンコードされたブロブとして届きます。
+
+`@solana/transaction-introspection`はこの解決処理を代わりに行います。ワイヤートランザクションをデコードし、すべてのアカウントインデックスをそれぞれの`Address`にマッピングし、内部instructionsを正規化して、ブロックエクスプローラーが表示するのと同じ外部から内部への順序でinstructionsを返します。返されたinstructionsは、codamaが生成したクライアント（例：`@solana-program/*`）の`parseXInstruction`ヘルパーに直接接続できます。
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## レスポンスのデコード
+
+ワイヤーフォーマットエンコーディングでトランザクションをフェッチし、レスポンスを`decodeTransactionFromRpcResponse`に渡します。
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+以降のスニペットでは、このステップの`rpcTx`、`compiledMessage`、および`loadedAddresses`を再利用します。
+
+<Callout type="warn">
+  `base64`、`base58`、または`json`エンコーディングでフェッチしてください。
+  `decodeTransactionFromRpcResponse`は`jsonParsed`レスポンスを拒否します。そのエンコーディングは
+  RPCノードにサーバー側でinstructionsを解析させるため、クライアント側でデコードするものが
+  残りません。
+</Callout>
+
+## instructionsを反復処理する
+
+`walkInstructions`
+は、ブロックエクスプローラーが表示する順序（各アウター命令の直後にそのCPIが生成したインナー命令が続く形）で、すべてのinstruction（アウターおよびインナー）を配列として返します。各instructionには、コール階層内での位置を示す
+`trace` フィールドが含まれています。
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+`trace` は直和型です：トップレベルのinstructionの場合は
+`{ kind: "outer", index }`、アウター命令の下にネストされたCPI
+instructionの場合は `{ kind: "inner", outerIndex, innerIndex, stackHeight? }`
+となります。
+
+`meta` はオプションです — `null` の可能性がある場合でも、`rpcTx.meta`
+を直接渡してください。メタデータがない場合、`walkInstructions`
+はアウター命令のみを返します。
+
+## プログラムクライアントでパースする
+
+`walkInstructions` から得られる各instructionは `ResolvedInstruction`
+であるため、`@solana/instructions` の述語や、`@solana-program/*`
+クライアントが生成する `identifyXInstruction` / `parseXInstruction`
+ヘルパーと変換ステップなしに直接連携できます。
+
+この例では、トランザクション内のすべての Token Program の `SyncNative`
+instruction（トップレベルで実行されたものか、CPI内で実行されたものかを問わず）を監査します。
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## 低レベルヘルパー
+
+`walkInstructions`
+はほとんどのユースケースをカバーしていますが、このパッケージはその内部で使用されている構成要素も公開しています：
+
+- `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  アウター命令のみを、解決済みアカウントおよびデコード済みデータとともに返します。
+- `getInnerInstructionsFromMeta(meta, accountMetas)`
+  はトランザクションメタデータからインナーCPI instructionsをデコードします。
+- `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  トランザクション順でアカウントの完全なリストを返します。これは、前のヘルパーがインナー命令のアカウントインデックスを解決するために必要な入力です。
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="Rustをお使いですか？">
+  このパッケージに相当するRust版は存在しません。RustでパースされたinstructionsをRustで取得するには、[`getTransaction`](/docs/rpc/http/gettransaction)
+  から `UiTransactionEncoding::JsonParsed`
+  をリクエストし、RPCノードにアカウントとインナー命令の解決を任せてください。
+</Callout>
+
+## 関連情報
+
+- [トランザクション構造](/docs/core/transactions/transaction-structure) - このパッケージがデコードするレスポンスの構造
+- [バージョン管理されたトランザクション](/docs/core/transactions/versioned-transactions) - アドレスルックアップテーブルがアカウントを静的グループと読み込みグループに分割する仕組み
+- [`getTransaction`](/docs/rpc/http/gettransaction) - トランザクションを返すRPCメソッド

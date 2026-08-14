@@ -1,0 +1,318 @@
+---
+title: Cheatcodes
+description:
+  Παράκαμψη συναλλαγών και άμεση μετάλλαξη της κατάστασης του Surfnet.
+  Χρηματοδότηση SOL και token, ορισμός αυθαίρετων δεδομένων λογαριασμού,
+  επαναφορά λογαριασμών με cache από upstream και ζωντανή ροή λογαριασμών του
+  mainnet.
+---
+
+Τα Cheatcodes είναι μεταλλάξεις κατάστασης που παρακάμπτουν τη φυσιολογική ροή
+συναλλαγών. Εκτελούνται άμεσα χωρίς να καταναλώνουν blockhash ή να πληρώνουν
+προμήθειες, κάτι που είναι ακριβώς αυτό που χρειάζεστε για την προετοιμασία
+δοκιμών.
+
+Στη Rust, τα cheatcodes βρίσκονται υπό το `Surfnet::cheatcodes()`. Στη JS, είναι
+μέθοδοι απευθείας στο instance του `Surfnet`.
+
+## Χρηματοδότηση SOL
+
+Το `fundSol` / `fund_sol` ορίζει το υπόλοιπο σε lamport για οποιονδήποτε
+λογαριασμό, δημιουργώντας τον λογαριασμό αν δεν υπάρχει.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+let wallet = Pubkey::new_unique();
+
+cheats.fund_sol(&wallet, 1_000_000_000)?;
+
+// Fund several accounts in one call.
+let bob = Pubkey::new_unique();
+let carol = Pubkey::new_unique();
+cheats.fund_sol_many(&[(&bob, 2_000_000_000), (&carol, 3_000_000_000)])?;
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const wallet = Surfnet.newKeypair();
+
+surfnet.fundSol(wallet.publicKey, 1_000_000_000);
+
+const bob = Surfnet.newKeypair();
+const carol = Surfnet.newKeypair();
+surfnet.fundSolMany([
+  { address: bob.publicKey, lamports: 2_000_000_000 },
+  { address: carol.publicKey, lamports: 3_000_000_000 }
+]);
+```
+
+</CodeTabs>
+
+## Χρηματοδότηση Token
+
+Το `fundToken` / `fund_token` κόβει token σε ένα πορτοφόλι υπολογίζοντας το
+associated token account, δημιουργώντας το αν χρειαστεί, και ορίζοντας το ποσό.
+
+<Callout type="info" title="Token-2022 mints">
+  Από προεπιλογή το `fundToken` χρησιμοποιεί το κλασικό Token Program SPL. Για
+  Token-2022 mints, περάστε το Token-2022 program ID
+  (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`) ως τελευταίο όρισμα.
+</Callout>
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let wallet = Pubkey::new_unique();
+let mint: Pubkey = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    .parse()
+    .unwrap();
+
+// Classic SPL Token mint.
+cheats.fund_token(&wallet, &mint, 5_000_000, None)?;
+
+// Token-2022 mint — pass the program id explicitly.
+let token_2022: Pubkey = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+    .parse()
+    .unwrap();
+cheats.fund_token(&wallet, &mint, 5_000_000, Some(&token_2022))?;
+
+// Fund many wallets with the same mint.
+let mob = vec![Pubkey::new_unique(), Pubkey::new_unique()];
+cheats.fund_token_many(&mob.iter().collect::<Vec<_>>(), &mint, 1_000_000, None)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const wallet = Surfnet.newKeypair();
+const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+surfnet.fundToken(wallet.publicKey, USDC, 5_000_000);
+
+// Token-2022 mint — pass the program id explicitly.
+const TOKEN_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+surfnet.fundToken(wallet.publicKey, USDC, 5_000_000, TOKEN_2022);
+
+// Fund many wallets at once.
+const mob = [Surfnet.newKeypair().publicKey, Surfnet.newKeypair().publicKey];
+surfnet.fundTokenMany(mob, USDC, 1_000_000);
+```
+
+</CodeTabs>
+
+Για να υπολογίσετε το ATA χωρίς χρηματοδότηση, χρησιμοποιήστε το `getAta` /
+`get_ata`:
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let ata = cheats.get_ata(&wallet, &mint, None);
+```
+
+```ts !! title="TypeScript"
+const ata = surfnet.getAta(wallet.publicKey, USDC);
+```
+
+</CodeTabs>
+
+## Ορισμός Αυθαίρετης Κατάστασης Λογαριασμού
+
+Η μέθοδος `setAccount` γράφει lamports, owner και ακατέργαστα bytes δεδομένων
+για οποιονδήποτε λογαριασμό σε μία κλήση. Το Rust SDK εκθέτει επιπλέον έναν
+builder `SetAccount` για πιο προχωρημένα πεδία όπως `rent_epoch` και
+`executable`.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::SetAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let address = Pubkey::new_unique();
+let owner = Pubkey::new_unique();
+
+// Direct method.
+cheats.set_account(&address, 500_000, &[1, 2, 3], &owner)?;
+
+// Builder when you need finer control.
+cheats.execute(
+    SetAccount::new(address)
+        .lamports(500_000)
+        .owner(owner)
+        .data(vec![1, 2, 3])
+        .rent_epoch(0)
+        .executable(false),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const address = Surfnet.newKeypair();
+const owner = Surfnet.newKeypair();
+
+surfnet.setAccount(
+  address.publicKey,
+  500_000,
+  new Uint8Array([1, 2, 3]),
+  owner.publicKey
+);
+```
+
+</CodeTabs>
+
+## Μετάλλαξη Πεδίων Token Account
+
+`setTokenAccount` ενημερώνει τα προηγμένα πεδία ενός υπάρχοντος token account —
+delegate, state, close authority, delegated amount. Χρησιμοποιήστε το όταν το
+`fundToken` μόνο του δεν είναι αρκετό.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::SetTokenAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let cheats = Surfnet::start().await?.cheatcodes();
+
+let owner = Pubkey::new_unique();
+let mint: Pubkey = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".parse()?;
+let delegate = Pubkey::new_unique();
+
+cheats.execute(
+    SetTokenAccount::new(owner, mint)
+        .amount(2_000_000)
+        .delegate(delegate)
+        .delegated_amount(500_000)
+        .state("initialized"),
+)?;
+
+// Later: clear the delegation.
+cheats.execute(SetTokenAccount::new(owner, mint).clear_delegate())?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const owner = Surfnet.newKeypair();
+const USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const delegate = Surfnet.newKeypair();
+
+surfnet.setTokenAccount(owner.publicKey, USDC, {
+  amount: 2_000_000,
+  delegate: delegate.publicKey,
+  delegatedAmount: 500_000,
+  state: "initialized"
+});
+
+// Later: clear the delegation.
+surfnet.setTokenAccount(owner.publicKey, USDC, { clearDelegate: true });
+```
+
+</CodeTabs>
+
+## Επαναφορά Λογαριασμών στην Upstream Κατάσταση
+
+`resetAccount` απορρίπτει τυχόν τοπικές μεταβολές και ξανααντλεί τον λογαριασμό
+από το upstream RPC. Περάστε `includeOwnedAccounts: true` για να επαναφέρετε
+επίσης κάθε λογαριασμό που ανήκει στον στόχο — χρήσιμο όταν επαναφέρετε ένα
+πρόγραμμα και όλα τα PDAs του.
+
+<Callout type="info" title="Χρειάζεται `remoteRpcUrl` για επαναφορά">
+  Σε ένα offline Surfnet, το `resetAccount` διαγράφει το τοπικό αντίγραφο αλλά
+  δεν έχει upstream από όπου να αντλήσει. Ρυθμίστε το `remoteRpcUrl` κατά την
+  εκκίνηση για να επαναφέρουν τα resets την upstream κατάσταση.
+</Callout>
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::ResetAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let cheats = Surfnet::start().await?.cheatcodes();
+let token_program: Pubkey = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".parse()?;
+
+cheats.execute(
+    ResetAccount::new(token_program).include_owned_accounts(true),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+
+surfnet.resetAccount(TOKEN_PROGRAM, { includeOwnedAccounts: true });
+```
+
+</CodeTabs>
+
+## Ζωντανή Ροή Λογαριασμών
+
+`streamAccount` καταχωρεί έναν λογαριασμό για ανάκτηση στο παρασκήνιο από το
+upstream RPC. Το τοπικό αντίγραφο του Surfnet παραμένει συγχρονισμένο με το
+mainnet χωρίς να χρειάζεται ο έλεγχος να κάνει ρητή αναμονή. Συνδυάστε το με
+`includeOwnedAccounts` για ροή κάθε PDA που ανήκει σε ένα πρόγραμμα.
+
+<Callout type="warn" title="Απαιτεί `remoteRpcUrl`">
+  Το `streamAccount` λειτουργεί μόνο σε Surfnet που ξεκίνησε με `remoteRpcUrl`
+  (ή `remote_rpc_url` στη Rust). Χωρίς upstream RPC δεν υπάρχει τίποτα από όπου
+  να γίνει ροή και η κλήση θα επιστρέψει σφάλμα.
+</Callout>
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::StreamAccount;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let cheats = Surfnet::builder()
+    .remote_rpc_url("https://api.mainnet-beta.solana.com")
+    .start()
+    .await?
+    .cheatcodes();
+
+let oracle: Pubkey = "H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG".parse()?;
+
+cheats.execute(StreamAccount::new(oracle).include_owned_accounts(false))?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com"
+});
+
+surfnet.streamAccount("H6ARHf6YXhGYeQfUzQNGk6rDNnLBQKrenN712K4AQJEG");
+```
+
+</CodeTabs>
+
+## Cheatcode Builders (Rust)
+
+Το Rust SDK εκθέτει typed builders κάτω από `surfpool_sdk::cheatcodes::builders`
+για περιπτώσεις όπου οι μέθοδοι ευκολίας δεν επαρκούν. Κάθε builder υλοποιεί το
+trait `CheatcodeBuilder` και εκτελείται μέσω `cheats.execute(builder)`.
+
+| Builder           | Constructor                                          | Common setters                                                                                                                   |
+| ----------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `SetAccount`      | `new(address: Pubkey)`                               | `lamports`, `data`, `owner`, `rent_epoch`, `executable`                                                                          |
+| `SetTokenAccount` | `new(owner: Pubkey, mint: Pubkey)`                   | `amount`, `delegate`, `clear_delegate`, `state`, `delegated_amount`, `close_authority`, `clear_close_authority`, `token_program` |
+| `ResetAccount`    | `new(address: Pubkey)`                               | `include_owned_accounts(bool)`                                                                                                   |
+| `StreamAccount`   | `new(address: Pubkey)`                               | `include_owned_accounts(bool)`                                                                                                   |
+| `DeployProgram`   | `new(program_id: Pubkey)`, `from_keypair_path(path)` | `so_path`, `so_bytes`, `idl_path`                                                                                                |
+
+Για την πλήρη επιφάνεια JS, δείτε
+[Αναφορά JS](/docs/tools/surfpool/sdk/js-reference). Για την πλήρη επιφάνεια
+Rust, δείτε [Αναφορά Rust](/docs/tools/surfpool/sdk/rust-reference).

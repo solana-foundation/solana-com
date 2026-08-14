@@ -1,0 +1,210 @@
+---
+title: Quản Lý Tài Khoản
+description: Các phương thức quản lý tài khoản, số dư và rent trong Go
+---
+
+Các phương thức để nạp tiền, đọc và ghi tài khoản.
+
+## Airdrop
+
+```go
+func (s *LiteSVM) Airdrop(pubkey solana.PublicKey, lamports uint64) error
+```
+
+Nạp lamport vào một tài khoản. Được triển khai dưới dạng chuyển khoản thực từ System Program thông qua faucet nội bộ, do đó người nhận phải có khả năng giữ số dư kết quả.
+
+```go
+priv, err := solana.NewRandomPrivateKey()
+if err != nil {
+    t.Fatal(err)
+}
+payer := priv.PublicKey()
+
+// Airdrop 5 SOL
+if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+    t.Fatal(err)
+}
+```
+
+## Số Dư
+
+```go
+func (s *LiteSVM) Balance(pubkey solana.PublicKey) (uint64, bool, error)
+```
+
+Trả về số dư SOL của tài khoản. Giá trị thứ hai là `false` khi tài khoản không tồn tại - khác với trường hợp "tài khoản tồn tại với số dư lamport bằng không".
+
+```go
+lamports, ok, err := svm.Balance(payer)
+if err != nil {
+    t.Fatal(err)
+}
+if !ok {
+    t.Log("account does not exist")
+} else {
+    t.Logf("balance: %d lamports (%.3f SOL)", lamports, float64(lamports)/1e9)
+}
+```
+
+## GetAccount
+
+```go
+func (s *LiteSVM) GetAccount(pubkey solana.PublicKey) *Account
+```
+
+Lấy một handle tài khoản không định kiểu, hoặc `nil` nếu tài khoản không tồn tại. Luôn `Close` handle (hoặc dựa vào finalizer).
+
+```go
+acct := svm.GetAccount(payer)
+if acct == nil {
+    t.Fatal("account missing")
+}
+defer acct.Close()
+
+_ = acct.Lamports()    // uint64
+_ = acct.Owner()       // solana.PublicKey
+_ = acct.Executable()  // bool
+_ = acct.RentEpoch()   // uint64
+_ = acct.Data()        // []byte (copy)
+```
+
+### Các phương thức của Account
+
+| Phương thức         | Trả về            | Mô tả                        |
+| -------------- | ------------------ | ---------------------------------- |
+| `Lamports()`   | `uint64`           | Số dư SOL                        |
+| `Owner()`      | `solana.PublicKey` | Chương trình sở hữu                     |
+| `Executable()` | `bool`             | Tài khoản có thể thực thi hay không  |
+| `RentEpoch()`  | `uint64`           | epoch rent                         |
+| `Data()`       | `[]byte`           | Bản sao dữ liệu tài khoản           |
+| `Close()`      | -                  | Giải phóng handle Rust bên dưới |
+
+## NewAccount
+
+```go
+func NewAccount(lamports uint64, data []byte, owner solana.PublicKey, executable bool, rentEpoch uint64) (*Account, error)
+```
+
+Khởi tạo một giá trị `Account` để truyền vào `SetAccount`. Người gọi vẫn sở hữu handle được trả về và phải `Close` nó.
+
+```go
+payload := []byte{1, 2, 3, 4}
+rent, err := svm.MinimumBalanceForRentExemption(len(payload))
+if err != nil {
+    t.Fatal(err)
+}
+
+acct, err := litesvm.NewAccount(rent, payload, ownerProgramID, false, 0)
+if err != nil {
+    t.Fatal(err)
+}
+defer acct.Close()
+```
+
+## SetAccount
+
+```go
+func (s *LiteSVM) SetAccount(pubkey solana.PublicKey, acct *Account) error
+```
+
+Lưu một bản sao của `acct` tại `pubkey`. SVM giữ bản sao riêng của nó; người gọi vẫn sở hữu `acct` và phải `Close` nó.
+
+```go
+if err := svm.SetAccount(targetAddr, acct); err != nil {
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  `SetAccount` nhanh hơn đáng kể so với việc thực thi các giao dịch khi bạn chỉ cần seed nhiều tài khoản cho một bài kiểm thử. Hãy đảm bảo giá trị lamport ít nhất bằng mức tối thiểu miễn rent cho kích thước dữ liệu đó.
+</Callout>
+
+## MinimumBalanceForRentExemption
+
+```go
+func (s *LiteSVM) MinimumBalanceForRentExemption(dataLen int) (uint64, error)
+```
+
+Tính toán lượng lamport cần thiết để một tài khoản có độ dài dữ liệu nhất định được miễn rent.
+
+```go
+for _, size := range []int{0, 100, 1024} {
+    min, err := svm.MinimumBalanceForRentExemption(size)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("%4d bytes -> %d lamports", size, min)
+}
+```
+
+## Quản Lý Chương Trình
+
+### AddProgram
+
+```go
+func (s *LiteSVM) AddProgram(programID solana.PublicKey, bytes []byte) error
+```
+
+Tải một chương trình SBF từ các byte trong bộ nhớ.
+
+```go
+bytes, err := os.ReadFile("./target/deploy/my_program.so")
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.AddProgram(programID, bytes); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramFromFile
+
+```go
+func (s *LiteSVM) AddProgramFromFile(programID solana.PublicKey, path string) error
+```
+
+Tải một chương trình SBF từ đường dẫn tệp `.so`.
+
+```go
+if err := svm.AddProgramFromFile(programID, "./target/deploy/my_program.so"); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramWithLoader
+
+```go
+func (s *LiteSVM) AddProgramWithLoader(programID solana.PublicKey, bytes []byte, loaderID solana.PublicKey) error
+```
+
+Tải một chương trình SBF với một loader cụ thể. Hữu ích khi kiểm thử với phiên bản BPF loader không mặc định.
+
+## Thiết Lập Tài Khoản Hàng Loạt
+
+Đối với các bài kiểm thử cần nhiều tài khoản đã được seed, hãy lặp qua `SetAccount`:
+
+```go
+const N = 10
+for i := 0; i < N; i++ {
+    pk := solana.NewWallet().PublicKey()
+    data := []byte{byte(i)}
+    rent, err := svm.MinimumBalanceForRentExemption(len(data))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(rent, data, owner, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if err := svm.SetAccount(pk, acct); err != nil {
+        acct.Close()
+        t.Fatal(err)
+    }
+    acct.Close()
+}
+```
+
+<Callout type="info">
+  Luôn `Close` `*Account` được trả về bởi `NewAccount` sau khi SVM đã lưu bản sao của nó thông qua `SetAccount` - SVM không tiếp nhận quyền sở hữu handle.
+</Callout>

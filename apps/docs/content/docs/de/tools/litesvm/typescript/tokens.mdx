@@ -1,0 +1,212 @@
+---
+title: Token-Tests
+description:
+  Testen mit SPL-Tokens mithilfe von @solana-program/token und LiteSVM
+---
+
+Das Testen von Token-Logik auf Solana erfordert das Einrichten von Mints, token
+accounts und Authoritäten, bevor die eigentliche Transfer-Logik getestet werden
+kann. Das `tokenProgram()`-Plugin von `@solana-program/token` reduziert dieses
+Setup auf wenige Methodenaufrufe — und übernimmt die ATA-Erstellung automatisch.
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://www.npmjs.com/package/@solana-program/token"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 780 250"
+      className="w-5 h-4"
+      fill="currentColor"
+    >
+      <path d="M240,250h100V0H240ZM340,0h100V200H390V50H340ZM480,0V200H580V250h50V0Z" />
+    </svg>
+    <code>@solana-program/token</code> auf npm ansehen
+  </a>
+</div>
+
+## Installation
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+</Tabs>
+
+## Einen Mint erstellen
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { tokenProgram } from "@solana-program/token";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(tokenProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const mintAuthority = await generateKeyPairSigner();
+const newMint = await generateKeyPairSigner();
+
+await client.token.instructions
+  .createMint({
+    newMint,
+    decimals: 9,
+    mintAuthority: mintAuthority.address
+  })
+  .sendTransaction();
+
+// Verify
+const mintAccount = await client.token.accounts.mint.fetch(newMint.address);
+console.log(mintAccount.data.supply); // 0n
+console.log(mintAccount.data.decimals); // 9
+```
+
+## Tokens prägen
+
+`mintToATA` gibt Tokens an das Associated Token Account eines Inhabers aus.
+Falls das ATA nicht existiert, wird es in derselben Transaktion erstellt.
+
+```typescript
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: client.payer.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n, // 1000 tokens (9 decimals)
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+Der Parameter `decimals` ist eine Sicherheitsprüfung — er muss exakt mit den
+Dezimalstellen des Mints übereinstimmen, sonst lehnt das Token Program die
+Transaktion mit Fehler `0x24` ab. Dies verhindert, dass versehentlich 1000-mal
+zu viele Tokens geprägt werden.
+
+## Tokens übertragen
+
+`transferToATA` überträgt Tokens zwischen Nutzern. Das ATA des Empfängers wird
+bei Bedarf automatisch erstellt.
+
+```typescript
+const alice = await generateKeyPairSigner();
+const bob = await generateKeyPairSigner();
+
+// Mint to Alice
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: alice.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+
+// Transfer 400 tokens from Alice to Bob
+await client.token.instructions
+  .transferToATA({
+    mint: newMint.address,
+    authority: alice,
+    recipient: bob.address,
+    amount: 400_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+Der `authority` ist der Signer, dem die Quell-Tokens gehören. Das Plugin leitet
+sowohl das Quell- als auch das Ziel-ATA aus deren Adressen und dem Mint ab.
+
+## Guthaben überprüfen
+
+Um Token-Salden abzurufen, leiten Sie die ATA-Adresse mit
+`findAssociatedTokenPda` ab und rufen Sie das dekodierte Konten ab:
+
+```typescript
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const [aliceAta] = await findAssociatedTokenPda({
+  owner: alice.address,
+  mint: newMint.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const aliceAccount = await client.token.accounts.token.fetch(aliceAta);
+console.log(aliceAccount.data.amount); // 600_000_000_000n
+console.log(aliceAccount.data.mint); // newMint.address
+console.log(aliceAccount.data.owner); // alice.address
+```
+
+## Dezimalstellen
+
+Token-Beträge werden immer in Roheinheiten angegeben. 1000 Token mit 9
+Dezimalstellen sind `1_000_000_000_000n`, nicht `1000n`.
+
+```typescript
+// USDC has 6 decimals
+const oneUSDC = 10n ** 6n; // 1_000_000n
+
+// SOL has 9 decimals
+const oneSOL = 10n ** 9n; // 1_000_000_000n
+```
+
+<Callout type="warn">
+  Verwenden Sie für Token-Beträge immer `BigInt`. JavaScripts `Number` verliert
+  Präzision oberhalb von 2^53.
+</Callout>
+
+## Plugin-Referenz
+
+| Methode                                     | Beschreibung                                                           |
+| ------------------------------------------- | ---------------------------------------------------------------------- |
+| `client.token.instructions.createMint()`    | Neues SPL-Token-Mint erstellen                                         |
+| `client.token.instructions.mintToATA()`     | Token an die ATA eines Inhabers minten (erstellt ATA bei Bedarf)       |
+| `client.token.instructions.transferToATA()` | Token an die ATA eines Empfängers übertragen (erstellt ATA bei Bedarf) |
+| `client.token.accounts.mint.fetch()`        | Ein mint account abrufen und dekodieren                                |
+| `client.token.accounts.token.fetch()`       | Ein token account abrufen und dekodieren                               |
+
+## Häufige Fehler
+
+| Fehler                       | Ursache                                      | Lösung                                                                              |
+| ---------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `custom program error: 0x24` | `decimals` stimmt nicht mit dem Mint überein | Verwenden Sie denselben Dezimalstellenwert, den Sie an `createMint` übergeben haben |
+| `AccountNotFound`            | Konten existiert noch nicht                  | Stellen Sie sicher, dass der Mint vor dem Minten erstellt wurde                     |
+| `InsufficientFunds`          | Nicht genügend lamport für rent              | Mehr SOL an den Zahler airdroppen                                                   |
+| `OwnerMismatch`              | Falsches Programm besitzt das Konten         | Programm-ID prüfen                                                                  |

@@ -19,7 +19,7 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
   {
     key: "Content-Security-Policy",
-    value: "frame-ancestors 'self'",
+    value: `frame-ancestors 'self'`,
   },
 ];
 
@@ -31,6 +31,7 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
 }
 
 const prefix = "/docs-assets";
+const isVercelBuild = process.env.VERCEL === "1";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
@@ -42,6 +43,14 @@ const nextConfig: NextConfig = {
   },
 
   webpack(config) {
+    if (isVercelBuild) {
+      // The docs bundle contains thousands of MDX modules. Keep Vercel builds
+      // from retaining compiled modules in Webpack's cache and bound how many
+      // modules Webpack processes at once.
+      config.cache = false;
+      config.parallelism = 4;
+    }
+
     config.module.rules.push({
       test: /\.inline\.svg$/,
       use: {
@@ -106,10 +115,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "assets.getriver.io",
-      },
-      {
-        protocol: "https",
         hostname: "placehold.co",
       },
       {
@@ -133,6 +138,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "*.vercel.app",
         port: "",
+      },
+      {
+        protocol: "https",
+        hostname: "solana.com",
+        pathname: "/social/**",
       },
     ],
   },
@@ -162,24 +172,41 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
+    // Keep Vercel page-data workers within the build container's memory budget.
+    cpus: isVercelBuild ? 2 : undefined,
     scrollRestoration: true,
+    // The docs watcher can keep thousands of files open in development. Use a
+    // worker thread for static-path generation so Node does not need to fork a
+    // child process with that descriptor table (which can fail with EBADF).
+    workerThreads: process.env.NODE_ENV === "development",
     // Allow importing/transpiling code from the workspace package
     externalDir: true,
+    // The custom SVG rules disable Next's build worker by default. Keep the
+    // Webpack heap isolated so Vercel has memory available for type-checking.
+    webpackBuildWorker: true,
+    webpackMemoryOptimizations: true,
   },
 
-  // Cookbook MDX uses async compile (lazy at request time) and the
-  // remark-include-code plugin reads from packages/docs-examples on disk.
-  // Tell Next/Vercel to bundle those source files into the cookbook
-  // function's filesystem so the reads succeed in production.
+  // Cookbook MDX uses async compile (lazy at request time), and both the
+  // remark-include-code plugin and remark-example-output read from
+  // packages/docs-examples on disk. Tell Next/Vercel to bundle those source
+  // files into the cookbook function's filesystem so the reads succeed in
+  // production. Every extension an MDX fence can point at has to be listed:
+  // a missing snippet throws IncludeError, and a missing .output.txt silently
+  // leaves the Run console with nothing to print.
   outputFileTracingIncludes: {
     "/[locale]/developers/cookbook/**/*": [
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
     "/[locale]/developers/cookbook/[...slug]": [
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
+      "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
   },

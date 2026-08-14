@@ -10,45 +10,27 @@ Shared UI catalogs now live in `packages/i18n/messages/web`.
 
 Translations can be manually triggered:
 
-- run `npx lingo.dev@latest login` to login to Lingo
+- run `npx --yes @lingo.dev/cli@latest login` to log in to Lingo
 - run `pnpm i18n:lingo` from `apps/web` to sync the web UI catalog
 - or run `pnpm i18n:ui` from repo root to sync every shared UI catalog
 
-### Run Lingo for a specific path (e.g. developers/evm-to-svm)
+### Run Lingo for a specific source file or path
 
 From repo root:
 
 **Web UI catalog** (locale files like
-`packages/i18n/messages/web/[locale]/common.json`) — update all keys whose path
-starts with a given prefix (use dot-separated key prefix; Lingo matches
-recursively):
+`packages/i18n/messages/web/[locale]/common.json`):
 
 ```bash
-pnpm --dir packages/i18n exec npx lingo.dev@latest run --bucket json --file "messages/web/" --key "developers-evm-to-svm"
+npx --yes @lingo.dev/cli@latest push 'packages/i18n/messages/web/en/*.json' --wait
 ```
 
-This updates all keys starting with `developers-evm-to-svm` (landing page and
-sub-pages: accounts, client-differences, complete-guide, consensus, eip2612,
-erc20, erc3643, erc4337, erc4626, erc721, smart-contracts). Add `--force` to
-re-translate even if the lockfile considers them unchanged.
+The current CLI scopes by source file pattern, not JSON key. A normal push only
+translates changed source keys. Add `--force --yes` to retranslate every key in
+the matching file.
 
-**Nav only** (e.g. just the “EVM to SVM” label in the developers nav):
-
-```bash
-pnpm --dir packages/i18n exec npx lingo.dev@latest run --bucket json --file "messages/web/" --key "nav.developers.tutorials.evm-to-svm"
-```
-
-**TXT bucket** (llms-\*.txt files) — after adding a new section to
-`llms-en.txt`:
-
-```bash
-pnpm i18n:lingo:llms
-# or
-npx lingo.dev@latest run --bucket txt --file "llms-"
-```
-
-Use `--key "<prefix>"` with any dot-separated key prefix to limit which keys are
-processed; omit `--key` to process the whole bucket.
+The current CLI does not support the `public/llms-*.txt` filename layout, so
+those files are not part of the automated Lingo workflow.
 
 ### Remove keys with no content (after Lingo adds nulls)
 

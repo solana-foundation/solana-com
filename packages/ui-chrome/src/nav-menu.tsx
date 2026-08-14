@@ -1,12 +1,7 @@
 import * as React from "react";
 import * as NavigationMenuPrimitive from "@radix-ui/react-navigation-menu";
-import classNames, { ArgumentArray } from "classnames";
-import { twMerge } from "tailwind-merge";
+import { cn } from "./classnames";
 import AngleDown from "./assets/icons/angle-down.inline.svg";
-
-function cn(...inputs: ArgumentArray) {
-  return twMerge(classNames(inputs));
-}
 
 function NavigationMenu({
   className,
@@ -76,13 +71,13 @@ function NavigationMenuTrigger({
         navigationMenuTriggerStyle,
         "group",
         "flex justify-between items-center w-full xl:w-auto py-1.5 xl:py-1 px-4 xl:px-3.5",
-        "text-[rgba(255,255,255,0.64)] text-[16px] xl:text-[15px] leading-[1.5] font-normal light:text-[rgba(0,0,0,0.64)] bg-transparent",
+        "text-[rgba(255,255,255,0.64)] text-[16px] xl:text-[15px] leading-[1.5] font-normal bg-transparent",
         "border-0 rounded-full",
-        "hover:text-white focus:text-white hover:bg-white/[0.08] focus:bg-white/[0.08] light:hover:text-black light:focus:text-black light:hover:bg-black/5 light:focus:bg-black/5",
+        "hover:text-white focus:text-white hover:bg-white/[0.08] focus:bg-white/[0.08]",
         "relative",
         "transition-colors duration-200",
-        "data-[state=open]:text-white data-[state=open]:bg-white/[0.08] light:data-[state=open]:text-black light:data-[state=open]:bg-black/5",
-        isActive && "text-white light:!text-black",
+        "data-[state=open]:text-white data-[state=open]:bg-white/[0.08]",
+        isActive && "text-white",
         className,
       )}
       {...props}
@@ -130,7 +125,7 @@ function NavigationMenuContent({
         align === "center" && "xl:left-1/2 xl:-translate-x-1/2",
         align === "right" && "xl:right-0 xl:left-auto xl:translate-x-0",
         // Visual styling
-        "min-w-[320px] bg-[rgba(25,24,27,0.92)] p-2 xl:p-4 rounded-2xl text-[rgba(255,255,255,0.64)] text-[14px] xl:text-[15px] leading-[1.5] backdrop-blur-[20px] xl:border xl:border-white/[0.06] xl:shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]",
+        "min-w-[320px] bg-[rgba(25,24,27,0.92)] p-2 xl:p-4 rounded-2xl text-[rgba(255,255,255,0.64)] text-[14px] xl:text-[15px] leading-[1.5] backdrop-blur-[20px] xl:max-h-[calc(100dvh-5rem)] xl:overflow-y-auto xl:overscroll-contain xl:border xl:border-white/[0.06] xl:shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]",
         className,
       )}
       {...props}

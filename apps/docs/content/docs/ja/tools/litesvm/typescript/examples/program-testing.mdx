@@ -1,0 +1,134 @@
+---
+title: プログラムテスト
+description: LiteSVMを使用してカスタムSolanaプログラムをロードしてテストする
+---
+
+カスタムSolanaプログラムをテストするには、コンパイル済みの`.so`ファイルをSVMにロードし、必要なアカウントを設定して、それに対してinstructionsを送信します。
+LiteSVMはこれらすべてをインプロセスで処理します — validatorは不要です。互換性のあるKit Pluginにアクセスできるよう、
+[Codama JS Renderer](https://github.com/codama-idl/renderers-js)を使用してプログラムクライアントを生成することをお勧めします。
+
+## プログラムのロード
+
+```typescript
+import { createClient, address, generateKeyPairSigner } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { myProgramPlugin } from "@my-program/sdk";
+import * as fs from "node:fs";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(myProgramPlugin());
+
+// Configure for program testing
+client.svm
+  .withSigverify(false)
+  .withBlockhashCheck(false)
+  .withSysvars()
+  .withBuiltins();
+
+// Load program from .so file
+const programId = address("YourProgramId111111111111111111111111111");
+const soPath = "/path/to/target/deploy/my_program.so";
+
+if (fs.existsSync(soPath)) {
+  client.svm.addProgramFromFile(programId, soPath);
+  console.log("Program loaded:", programId);
+
+  // Verify program account
+  const programAccount = client.svm.getAccount(programId);
+  if (programAccount.exists) {
+    console.log("  Executable:", programAccount.executable);
+    console.log("  Data size:", programAccount.data.length, "bytes");
+  }
+} else {
+  console.log("Program file not found:", soPath);
+  console.log("Build with: cargo build-sbf");
+}
+```
+
+## 完全なプログラムテストのセットアップ
+
+```typescript
+import { createClient, address, generateKeyPairSigner, lamports } from '@solana/kit';
+import { litesvm } from '@solana/kit-plugin-litesvm';
+import { signer } from '@solana/kit-plugin-signer';
+import { myProgramPlugin } from '@my-program/sdk';
+import * as fs from 'node:fs';
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+    .use(signer(mySigner))
+    .use(litesvm())
+    .use(myProgramPlugin());
+
+client.svm
+    .withSigverify(false)
+    .withBlockhashCheck(false)
+    .withSysvars()
+    .withBuiltins()
+    .withPrecompiles()
+    .withTransactionHistory(100n);
+
+// Load program
+const programId = address('YourProgramId111111111111111111111111111');
+const soPath = '/path/to/target/deploy/my_program.so';
+
+if (fs.existsSync(soPath)) {
+    client.svm.addProgramFromFile(programId, soPath);
+}
+
+// Set up any required data accounts
+const dataAccountAddress = address('DataAccount111111111111111111111111111');
+const minBalance = client.svm.minimumBalanceForRentExemption(100n);
+client.svm.setAccount({
+    address: dataAccountAddress,
+    data: new Uint8Array(100),
+    executable: false,
+    lamports: lamports(minBalance),
+    programAddress: programId,
+    space: 100n,
+});
+
+// Send the transaction
+await client.myProgram.testInstruction({..}).sendTransaction();
+
+// Verify state changes
+const updatedAccount = client.myProgram.myAccount.fetch(dataAccountAddress);
+// assert on decoded account
+```
+
+## デフォルトプログラムの使用
+
+標準プログラムを必要とするテストの場合:
+
+```typescript
+const mySigner = await generateKeyPairSigner();
+const client = createClient().use(signer(mySigner)).use(litesvm());
+
+// Add all default programs (System, BPF Loader, etc.)
+client.svm.withDefaultPrograms();
+
+// Or add specific programs you need
+// The Token program, Associated Token program, etc. would need
+// to be added manually via addProgramFromFile if needed
+```
+
+<Callout type="info">
+  `cargo build-sbf`を使用してSolanaプログラムをビルドし、`.so`ファイルを生成します。
+</Callout>
+
+パターンは常に同じです:
+
+1. **プログラムのロード**: `addProgramFromFile`を使用してコンパイル済みプログラムをロードし、
+   クライアントから`myProgramPlugin()`をインポートする
+2. **設定**: 必要に応じてsysvar、組み込み機能、プリコンパイルを有効にする
+3. **アカウントのセットアップ**: `setAccount`でデータアカウントを事前に設定する
+4. **送信**: `client.myProgram.testInstruction({..}).sendTransaction()`を使用する —
+   手動トランザクション構築は不要
+5. **検証**: 実行後にアカウントの状態を確認する
+   (`client.myProgram.myAccount.fetch`)
+
+このスケルトンが動作するようになれば、さらにinstructionsとアサーションを追加して完全なテストスイートを構築できます。

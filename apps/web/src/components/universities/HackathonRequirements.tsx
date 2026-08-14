@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Check } from "react-feather";
+import { Check } from "@boxicons/react/Check";
 
 interface HackathonRequirementsProps {
   title: string;
@@ -42,7 +42,11 @@ export default function HackathonRequirements({
                 <li key={index} className="flex items-start">
                   <div className="flex-shrink-0 mt-1 mr-4">
                     <div className="w-6 h-6 rounded-full bg-green-400/20 flex items-center justify-center">
-                      <Check size={14} className="text-green-400" />
+                      <Check
+                        width={14}
+                        height={14}
+                        className="text-green-400"
+                      />
                     </div>
                   </div>
                   <span className="text-gray-300 text-lg">{req}</span>

@@ -1,0 +1,199 @@
+---
+title: 运行时事件
+description:
+  在测试中观察交易、slot 滴答、账户流式传输及运行时错误。Rust 提供通道接口；JS
+  提供 drain 方法。
+---
+
+Surfnet 运行时会发出一系列结构化事件流，涵盖交易处理、slot 滴答、账户流式传输、时间旅行及错误。SDK 将此事件流暴露给测试，使其无需解析日志即可对运行时行为进行断言。
+
+## Rust：通道接收器
+
+`Surfnet::events()` 返回运行时所发布的
+`crossbeam_channel::Receiver<SimnetEvent>` 的引用。可使用
+`try_iter()`（非阻塞）一次性清空，或使用 `recv()` / `recv_timeout()`
+逐个读取事件。
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+
+// Drain whatever has accumulated so far.
+for event in surfnet.events().try_iter() {
+    match event {
+        SimnetEvent::TransactionProcessed(_ts, metadata, error) => {
+            println!("tx {} -> {:?}", metadata.signature, metadata.logs);
+            if let Some(err) = error {
+                eprintln!("  failed: {err:?}");
+            }
+        }
+        SimnetEvent::ErrorLog(_ts, message) => {
+            eprintln!("runtime error: {message}");
+        }
+        other => {
+            println!("event: {other:?}");
+        }
+    }
+}
+```
+
+<Callout type="warn" title="接收器为共享资源">
+  如果你启动了一个后台任务来消费事件，请勿同时在主线程中调用 `try_iter`。
+  事件将在两个消费者之间被不可预测地分割。
+</Callout>
+
+## JS：Drain 方法
+
+JS 绑定在内部缓冲事件，并通过 `drainEvents`
+暴露出来。每次调用将返回自上次调用以来积累的所有事件，然后清空缓冲区。
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  // ... do test setup that triggers events ...
+
+  const events = surfnet.drainEvents();
+  for (const event of events) {
+    switch (event.kind) {
+      case "transactionProcessed":
+        console.log("tx", event.transactionSignature, event.logs);
+        break;
+      case "errorLog":
+        console.error("runtime error:", event.message);
+        break;
+      default:
+        console.log(event.kind, event.message ?? "");
+    }
+  }
+} finally {
+  surfnet.stop();
+}
+```
+
+<Callout type="warn" title="无限制缓冲区">
+  如果从不调用
+  `drainEvents`，缓冲区将在实例的整个生命周期内持续增长。对于短时测试这没有问题，但对于长时间运行的
+  fixture，请定期调用以防止内存无限膨胀。
+</Callout>
+
+## SimnetEventValue 结构（JS）
+
+JS 事件类型是一个扁平对象，包含 `kind`
+判别字段及可选字段。并非每个字段都会在所有变体中被设置——请根据 `kind` 进行解构。
+
+```ts
+interface SimnetEventValue {
+  kind: string; // discriminator, e.g. "TransactionProcessed"
+  message?: string; // human-readable message
+  timestamp?: string; // ISO timestamp
+
+  // startup
+  initialTransactionCount?: number;
+  clock?: ClockValue;
+
+  // slot / clock
+  epochInfo?: EpochInfoValue;
+  clockCommand?: string;
+  slotIntervalMs?: number;
+
+  // accounts
+  accountPubkey?: string;
+
+  // transactions
+  transactionSignature?: string;
+  logs?: string[];
+  computeUnitsConsumed?: number;
+  fee?: number;
+
+  // errors
+  errorMessage?: string;
+
+  // misc
+  tag?: string;
+  profileKey?: string;
+  profileSlot?: number;
+  runbookId?: string;
+  runbookErrors?: string[];
+}
+```
+
+## 事件类型
+
+JS 侧的类型字符串使用驼峰命名法（camelCase）；对应的 Rust 变体使用帕斯卡命名法（PascalCase）。请精确匹配这些字符串——它们区分大小写，且在各版本间保持稳定。
+
+| JS `kind`                                       | Rust 变体                                                    | 触发时机                                                                                                                   |
+| ----------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `ready`                                         | `SimnetEvent::Ready`                                         | 运行时完成启动；携带 `initialTransactionCount`。                                                                           |
+| `connected`                                     | `SimnetEvent::Connected`                                     | 已连接至上游远程 RPC；携带 `message`（URL）。                                                                              |
+| `aborted`                                       | `SimnetEvent::Aborted`                                       | 启动被中止；携带 `message`（原因）。                                                                                       |
+| `shutdown`                                      | `SimnetEvent::Shutdown`                                      | 优雅关闭开始。                                                                                                             |
+| `systemClockUpdated`                            | `SimnetEvent::SystemClockUpdated`                            | 系统时钟前进；携带 `clock`。                                                                                               |
+| `clockUpdate`                                   | `SimnetEvent::ClockUpdate`                                   | 执行了时钟命令（暂停/恢复/更新间隔）；携带 `clockCommand`，以及可选的 `slotIntervalMs`。                                   |
+| `epochInfoUpdate`                               | `SimnetEvent::EpochInfoUpdate`                               | 新的 epoch 信息快照可用；携带 `epochInfo`。                                                                                |
+| `blockHashExpired`                              | `SimnetEvent::BlockHashExpired`                              | 正在使用的区块哈希已过期。                                                                                                 |
+| `transactionReceived`                           | `SimnetEvent::TransactionReceived`                           | 交易已入队；携带 `timestamp`、`transactionSignature`。                                                                     |
+| `transactionProcessed`                          | `SimnetEvent::TransactionProcessed`                          | 交易已执行；携带 `timestamp`、`transactionSignature`、`logs`、`computeUnitsConsumed`、`fee`，以及失败时的 `errorMessage`。 |
+| `accountUpdate`                                 | `SimnetEvent::AccountUpdate`                                 | 账户发生变更——涵盖流式账户及作弊码驱动的变更；携带 `timestamp` 和 `accountPubkey`。                                        |
+| `infoLog` / `warnLog` / `errorLog` / `debugLog` | `SimnetEvent::InfoLog` / `WarnLog` / `ErrorLog` / `DebugLog` | 运行时输出了一条日志；携带 `timestamp` 和 `message`。                                                                      |
+| `pluginLoaded`                                  | `SimnetEvent::PluginLoaded`                                  | Geyser 插件已加载；携带 `message`（插件名称）。                                                                            |
+| `taggedProfile`                                 | `SimnetEvent::TaggedProfile`                                 | 性能分析结果已被标记；携带 `tag`、`profileKey`、`profileSlot`、`logs`、`computeUnitsConsumed`。                            |
+| `runbookStarted` / `runbookCompleted`           | `SimnetEvent::RunbookStarted` / `RunbookCompleted`           | Runbook 已启动或完成；携带 `runbookId`，以及完成时可选的 `runbookErrors`。                                                 |
+
+## 断言模式
+
+### 断言交易已落链
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const sig = await sendTransaction(surfnet.rpcUrl /* ... */);
+  // ... wait for confirmation via RPC ...
+
+  const landed = surfnet
+    .drainEvents()
+    .some(
+      (e) => e.kind === "transactionProcessed" && e.transactionSignature === sig
+    );
+
+  console.assert(landed, "expected transaction to land");
+} finally {
+  surfnet.stop();
+}
+```
+
+### 断言未发生运行时错误
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let mut surfnet = Surfnet::start().await?;
+
+// ... run the test ...
+
+let errors: Vec<_> = surfnet
+    .events()
+    .try_iter()
+    .filter(|e| matches!(e, SimnetEvent::ErrorLog(_, _)))
+    .collect();
+
+assert!(errors.is_empty(), "runtime errors: {errors:?}");
+
+surfnet.stop()?;
+```
+
+## 为什么事件优于日志解析
+
+<Callout type="info" title="优先使用事件流而非标准输出">
+运行时通过 `tracing` 输出结构化事件，直接从标准输出捕获并解析这些内容可能看起来很方便，但请不要这样做。结构化事件流：
+
+- **在日志级别变更后依然有效** — 无论 `RUST_LOG` 如何设置，事件均会正常触发。
+- **携带类型化的负载** — 无需字符串解析，不存在版本间的格式偏差。
+- **具有稳定的类型标识**
+  — 日志行面向人类格式化，可随时变动；事件类型是 SDK 契约的一部分。
+
+</Callout>

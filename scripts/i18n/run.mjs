@@ -2,15 +2,19 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import process from "node:process";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const rootDir = process.cwd();
-const uiCatalogPathByApp = {
-  web: "messages/web/",
-  accelerate: "messages/accelerate/",
-  media: "messages/media/",
-  templates: "messages/templates/",
-};
-
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(scriptDir, "../..");
+const lingoCliPackage = "@lingo.dev/cli@1.12.0";
+const appTargets = new Set([
+  "accelerate",
+  "breakpoint",
+  "docs",
+  "media",
+  "templates",
+  "web",
+]);
 function loadEnvFileIfPresent(filePath) {
   if (!fs.existsSync(filePath)) {
     return;
@@ -38,49 +42,105 @@ function run(command, args, cwd) {
     shell: false,
   });
 
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+  return result.status ?? 1;
+}
+
+function runOrExit(command, args, cwd) {
+  const status = run(command, args, cwd);
+
+  if (status !== 0) {
+    process.exit(status);
   }
 }
 
-function runUi(bucket) {
-  if (bucket) {
-    const fileFilter = uiCatalogPathByApp[bucket];
+function runLingo(args) {
+  return run("npx", ["--yes", lingoCliPackage, ...args], rootDir);
+}
 
-    if (!fileFilter) {
-      console.error(`Unknown shared UI catalog: ${bucket}`);
-      process.exit(1);
-    }
+function runLingoPush(args) {
+  const pushStatus = runLingo(["push", ...args, "--wait"]);
 
-    run(
-      "npx",
-      ["lingo.dev@latest", "run", "--bucket", "json", "--file", fileFilter],
-      `${rootDir}/packages/i18n`,
-    );
+  if (pushStatus === 0) {
     return;
   }
 
-  run("pnpm", ["--dir", "packages/i18n", "i18n:lingo"], rootDir);
+  console.error(
+    "Lingo push ended before its outputs were downloaded; recovering and attaching to the same run.",
+  );
+  const resumeStatus = runLingo(["resume"]);
+
+  if (resumeStatus !== 0) {
+    console.error(
+      "Lingo resume was not available; attempting to pull the same run anyway.",
+    );
+  }
+
+  const pullStatus = runLingo(["pull"]);
+
+  if (pullStatus !== 0) {
+    process.exit(pushStatus);
+  }
 }
 
-function runDocsContent() {
-  run("pnpm", ["--dir", "apps/docs", "i18n:lingo:content"], rootDir);
+function verifyTargetCoverage() {
+  return run("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
+}
+
+function runContinuousLocalization(requestedScope) {
+  const lockPath = path.join(rootDir, ".lingo/lock.json");
+
+  if (!fs.existsSync(lockPath)) {
+    console.log(
+      "No .lingo/lock.json found; adopting existing translations without overwriting them.",
+    );
+    runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
+    runLingoPush([]);
+
+    if (requestedScope === "all" || requestedScope === "docs") {
+      runOrExit(
+        "node",
+        ["./scripts/i18n/verify-docs-frontmatter.mjs"],
+        rootDir,
+      );
+    }
+
+    return;
+  }
+
+  // Current Lingo releases treat positional patterns as force/new-file scopes
+  // and skip changed keys when target files already exist. Incremental pushes
+  // must be config-wide; the lockfile still limits work to changed sources.
+  if (requestedScope !== "all") {
+    console.log(
+      `Lingo incremental syncs are config-wide; processing changed sources for the requested "${requestedScope}" workflow.`,
+    );
+  }
+
+  runLingoPush([]);
+
+  if (requestedScope === "all" && verifyTargetCoverage() !== 0) {
+    console.error(
+      "Lingo left target coverage incomplete; retrying once with the updated lockfile.",
+    );
+    runLingoPush([]);
+    runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
+  }
+
+  if (requestedScope === "all" || requestedScope === "docs") {
+    runOrExit("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"], rootDir);
+  }
 }
 
 const [, , target, app] = process.argv;
 
-run("node", ["./scripts/i18n/verify-source-locales.mjs"], rootDir);
+runOrExit("node", ["./scripts/i18n/verify-source-locales.mjs"], rootDir);
+runOrExit("node", ["./scripts/i18n/verify-config-coverage.mjs"], rootDir);
 
 switch (target) {
   case "all":
-    runUi();
-    runDocsContent();
-    break;
   case "ui":
-    runUi();
-    break;
   case "docs":
-    runDocsContent();
+    runContinuousLocalization(target);
     break;
   case "app":
     if (!app) {
@@ -88,17 +148,12 @@ switch (target) {
       process.exit(1);
     }
 
-    if (app === "docs") {
-      runDocsContent();
-      break;
+    if (!appTargets.has(app)) {
+      console.error(`Unknown localization app: ${app}`);
+      process.exit(1);
     }
 
-    if (app === "breakpoint") {
-      console.log("Breakpoint has no local translation catalog to sync.");
-      break;
-    }
-
-    runUi(app);
+    runContinuousLocalization(app);
     break;
   default:
     console.error("Usage: pnpm i18n[:ui|:docs|:app <app>]");

@@ -1,0 +1,122 @@
+---
+title: Chuyển SOL
+description: Xây dựng và gửi giao dịch chuyển SOL với litesvm-go
+---
+
+Giao dịch Solana cơ bản nhất: chuyển SOL từ tài khoản này sang tài khoản khác. Đây là
+bài kiểm tra đầu tiên tốt để xác minh rằng thiết lập `litesvm-go` của bạn hoạt động trước khi kiểm tra
+logic chương trình phức tạp hơn.
+
+## Ví Dụ Đầy Đủ
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/programs/system"
+)
+
+func TestSolTransfer(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Generate payer + recipient.
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    recipient := solana.NewWallet().PublicKey()
+
+    // Airdrop SOL to the payer.
+    if err := svm.Airdrop(payer, 10_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Check initial balance.
+    senderInitial, _, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("sender initial: %.3f SOL", float64(senderInitial)/1e9)
+
+    // Build, sign, and encode the transfer.
+    blockhash, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := system.NewTransferInstruction(1_000_000_000, payer, recipient).Build()
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        blockhash,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    // Execute the transfer.
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    // Check final balances.
+    senderFinal, _, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    recipientFinal, _, err := svm.Balance(recipient)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("sender final:    %.6f SOL", float64(senderFinal)/1e9)
+    t.Logf("recipient final: %.3f SOL", float64(recipientFinal)/1e9)
+    t.Logf("compute units:   %d", out.ComputeUnits())
+    t.Logf("fee:             %d lamports", out.Fee())
+}
+```
+
+## Kết Quả Mong Đợi
+
+```
+sender initial: 10.000 SOL
+sender final:    8.999995 SOL
+recipient final: 1.000 SOL
+compute units:   150
+fee:             5000 lamports
+```
+
+<Callout type="info">
+  Số dư cuối cùng của người gửi thấp hơn 9 SOL một chút do phí giao dịch
+  (5.000 lamport mỗi chữ ký).
+</Callout>
+
+Phần này đề cập đến loại giao dịch đơn giản nhất. Để kiểm tra với các chương trình tùy chỉnh, xem
+[Kiểm Tra Chương Trình](/docs/tools/litesvm/go/examples/program-testing). Để xử lý
+logic phụ thuộc thời gian, xem
+[Kiểm Tra Dựa Trên Thời Gian](/docs/tools/litesvm/go/examples/time-based).

@@ -1,0 +1,214 @@
+---
+title: Δοκιμή Token
+description:
+  Δοκιμή με SPL tokens χρησιμοποιώντας @solana-program/token και LiteSVM
+---
+
+Η δοκιμή λογικής token στο Solana σημαίνει ότι πρέπει να ρυθμίσετε mints, token
+accounts και authorities πριν μπορέσετε να δοκιμάσετε τη λογική μεταφοράς που
+πραγματικά σας ενδιαφέρει. Το plugin `tokenProgram()` από το
+`@solana-program/token` συμπτύσσει αυτή τη ρύθμιση σε λίγες κλήσεις μεθόδων —
+και χειρίζεται αυτόματα τη δημιουργία ATA.
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://www.npmjs.com/package/@solana-program/token"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 780 250"
+      className="w-5 h-4"
+      fill="currentColor"
+    >
+      <path d="M240,250h100V0H240ZM340,0h100V200H390V50H340ZM480,0V200H580V250h50V0Z" />
+    </svg>
+    Προβολή <code>@solana-program/token</code> στο npm
+  </a>
+</div>
+
+## Εγκατάσταση
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']} groupId='package-manager'>
+<Tab value="pnpm">
+
+```bash
+pnpm add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="npm">
+
+```bash
+npm install @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="yarn">
+
+```bash
+yarn add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+<Tab value="bun">
+
+```bash
+bun add @solana/kit @solana/kit-plugin-litesvm @solana/kit-plugin-signer @solana-program/token
+```
+
+</Tab>
+</Tabs>
+
+## Δημιουργία Mint
+
+```typescript
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { litesvm } from "@solana/kit-plugin-litesvm";
+import { signer } from "@solana/kit-plugin-signer";
+import { tokenProgram } from "@solana-program/token";
+
+const mySigner = await generateKeyPairSigner();
+const client = createClient()
+  .use(signer(mySigner))
+  .use(litesvm())
+  .use(tokenProgram());
+
+client.svm.airdrop(client.payer.address, lamports(10_000_000_000n));
+
+const mintAuthority = await generateKeyPairSigner();
+const newMint = await generateKeyPairSigner();
+
+await client.token.instructions
+  .createMint({
+    newMint,
+    decimals: 9,
+    mintAuthority: mintAuthority.address
+  })
+  .sendTransaction();
+
+// Verify
+const mintAccount = await client.token.accounts.mint.fetch(newMint.address);
+console.log(mintAccount.data.supply); // 0n
+console.log(mintAccount.data.decimals); // 9
+```
+
+## Έκδοση Tokens
+
+Το `mintToATA` εκδίδει tokens στο associated token account του κατόχου. Αν το
+ATA δεν υπάρχει, δημιουργείται στην ίδια συναλλαγή.
+
+```typescript
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: client.payer.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n, // 1000 tokens (9 decimals)
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+Η παράμετρος `decimals` είναι ένας έλεγχος ασφαλείας — πρέπει να ταιριάζει
+ακριβώς με τα δεκαδικά ψηφία του mint, διαφορετικά το Token Program απορρίπτει
+τη συναλλαγή με σφάλμα `0x24`. Αυτό αποτρέπει την κατά λάθος έκδοση 1000 φορών
+περισσότερων tokens.
+
+## Μεταφορά Tokens
+
+Το `transferToATA` μετακινεί tokens μεταξύ χρηστών. Το associated token account
+του παραλήπτη δημιουργείται αυτόματα αν χρειάζεται.
+
+```typescript
+const alice = await generateKeyPairSigner();
+const bob = await generateKeyPairSigner();
+
+// Mint to Alice
+await client.token.instructions
+  .mintToATA({
+    mint: newMint.address,
+    owner: alice.address,
+    mintAuthority,
+    amount: 1_000_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+
+// Transfer 400 tokens from Alice to Bob
+await client.token.instructions
+  .transferToATA({
+    mint: newMint.address,
+    authority: alice,
+    recipient: bob.address,
+    amount: 400_000_000_000n,
+    decimals: 9
+  })
+  .sendTransaction();
+```
+
+Το `authority` είναι ο υπογράφων που κατέχει τα tokens της πηγής. Το plugin
+εξάγει τόσο το associated token account πηγής όσο και προορισμού από τις
+διευθύνσεις τους και το mint.
+
+## Επαλήθευση Υπολοίπων
+
+Για να διαβάσετε τα υπόλοιπα token, προσδιορίστε τη διεύθυνση ATA με
+`findAssociatedTokenPda` και ανακτήστε τον αποκωδικοποιημένο λογαριασμό:
+
+```typescript
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const [aliceAta] = await findAssociatedTokenPda({
+  owner: alice.address,
+  mint: newMint.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const aliceAccount = await client.token.accounts.token.fetch(aliceAta);
+console.log(aliceAccount.data.amount); // 600_000_000_000n
+console.log(aliceAccount.data.mint); // newMint.address
+console.log(aliceAccount.data.owner); // alice.address
+```
+
+## Δεκαδικά Ψηφία
+
+Τα ποσά token είναι πάντα σε ακατέργαστες μονάδες. 1000 token με 9 δεκαδικά
+ψηφία είναι `1_000_000_000_000n`, όχι `1000n`.
+
+```typescript
+// USDC has 6 decimals
+const oneUSDC = 10n ** 6n; // 1_000_000n
+
+// SOL has 9 decimals
+const oneSOL = 10n ** 9n; // 1_000_000_000n
+```
+
+<Callout type="warn">
+  Να χρησιμοποιείτε πάντα `BigInt` για ποσά token. Το `Number` της JavaScript
+  χάνει ακρίβεια πάνω από 2^53.
+</Callout>
+
+## Αναφορά Plugin
+
+| Μέθοδος                                     | Περιγραφή                                                            |
+| ------------------------------------------- | -------------------------------------------------------------------- |
+| `client.token.instructions.createMint()`    | Δημιουργία νέου SPL token mint                                       |
+| `client.token.instructions.mintToATA()`     | Mint token στο ATA ενός κατόχου (δημιουργεί ATA αν χρειάζεται)       |
+| `client.token.instructions.transferToATA()` | Μεταφορά token στο ATA ενός παραλήπτη (δημιουργεί ATA αν χρειάζεται) |
+| `client.token.accounts.mint.fetch()`        | Ανάκτηση και αποκωδικοποίηση ενός mint account                       |
+| `client.token.accounts.token.fetch()`       | Ανάκτηση και αποκωδικοποίηση ενός token account                      |
+
+## Συνηθισμένα Σφάλματα
+
+| Σφάλμα                       | Αιτία                                       | Επιδιόρθωση                                                          |
+| ---------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| `custom program error: 0x24` | Το `decimals` δεν αντιστοιχεί στο mint      | Χρησιμοποιήστε την ίδια τιμή δεκαδικών που περάσατε στο `createMint` |
+| `AccountNotFound`            | Ο λογαριασμός δεν υπάρχει ακόμα             | Βεβαιωθείτε ότι το mint δημιουργείται πριν από το minting            |
+| `InsufficientFunds`          | Δεν υπάρχουν αρκετά lamport για rent        | Κάντε Airdrop περισσότερο SOL στον πληρωτή                           |
+| `OwnerMismatch`              | Λανθασμένο πρόγραμμα κατέχει τον λογαριασμό | Ελέγξτε το αναγνωριστικό προγράμματος                                |

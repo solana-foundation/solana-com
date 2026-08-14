@@ -1,0 +1,210 @@
+---
+title: 账户管理
+description: Go 中用于管理账户、余额和 rent 的方法
+---
+
+用于为账户充值、读取和写入账户的方法。
+
+## 空投
+
+```go
+func (s *LiteSVM) Airdrop(pubkey solana.PublicKey, lamports uint64) error
+```
+
+使用 lamport 为账户充值。该操作以真实的 System Program 转账形式从内部水龙头执行，因此接收方必须能够持有所产生的余额。
+
+```go
+priv, err := solana.NewRandomPrivateKey()
+if err != nil {
+    t.Fatal(err)
+}
+payer := priv.PublicKey()
+
+// Airdrop 5 SOL
+if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+    t.Fatal(err)
+}
+```
+
+## 余额
+
+```go
+func (s *LiteSVM) Balance(pubkey solana.PublicKey) (uint64, bool, error)
+```
+
+返回账户的 SOL 余额。当账户不存在时，第二个返回值为 `false`——这与"账户存在但 lamport 余额为零"的情况不同。
+
+```go
+lamports, ok, err := svm.Balance(payer)
+if err != nil {
+    t.Fatal(err)
+}
+if !ok {
+    t.Log("account does not exist")
+} else {
+    t.Logf("balance: %d lamports (%.3f SOL)", lamports, float64(lamports)/1e9)
+}
+```
+
+## GetAccount
+
+```go
+func (s *LiteSVM) GetAccount(pubkey solana.PublicKey) *Account
+```
+
+获取一个不透明的账户句柄，若账户不存在则返回 `nil`。请务必调用 `Close` 关闭句柄（或依赖终结器自动处理）。
+
+```go
+acct := svm.GetAccount(payer)
+if acct == nil {
+    t.Fatal("account missing")
+}
+defer acct.Close()
+
+_ = acct.Lamports()    // uint64
+_ = acct.Owner()       // solana.PublicKey
+_ = acct.Executable()  // bool
+_ = acct.RentEpoch()   // uint64
+_ = acct.Data()        // []byte (copy)
+```
+
+### 账户方法
+
+| 方法         | 返回值            | 描述                        |
+| -------------- | ------------------ | ---------------------------------- |
+| `Lamports()`   | `uint64`           | SOL 余额                        |
+| `Owner()`      | `solana.PublicKey` | 所属程序                     |
+| `Executable()` | `bool`             | 账户是否可执行  |
+| `RentEpoch()`  | `uint64`           | rent epoch                         |
+| `Data()`       | `[]byte`           | 账户数据的副本           |
+| `Close()`      | -                  | 释放底层 Rust 句柄 |
+
+## NewAccount
+
+```go
+func NewAccount(lamports uint64, data []byte, owner solana.PublicKey, executable bool, rentEpoch uint64) (*Account, error)
+```
+
+构造一个 `Account` 值以传递给 `SetAccount`。调用方仍持有返回的句柄，必须调用 `Close` 进行释放。
+
+```go
+payload := []byte{1, 2, 3, 4}
+rent, err := svm.MinimumBalanceForRentExemption(len(payload))
+if err != nil {
+    t.Fatal(err)
+}
+
+acct, err := litesvm.NewAccount(rent, payload, ownerProgramID, false, 0)
+if err != nil {
+    t.Fatal(err)
+}
+defer acct.Close()
+```
+
+## SetAccount
+
+```go
+func (s *LiteSVM) SetAccount(pubkey solana.PublicKey, acct *Account) error
+```
+
+将 `acct` 的副本存储至 `pubkey`。SVM 保留自己的副本；调用方仍持有 `acct`，必须调用 `Close` 进行释放。
+
+```go
+if err := svm.SetAccount(targetAddr, acct); err != nil {
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  `SetAccount` 在仅需为测试 seed 大量账户时，比执行交易要快得多。请确保 lamport 值至少达到该数据大小所需的免 rent 最低余额。
+</Callout>
+
+## MinimumBalanceForRentExemption
+
+```go
+func (s *LiteSVM) MinimumBalanceForRentExemption(dataLen int) (uint64, error)
+```
+
+计算指定数据长度的账户实现免 rent 所需的 lamport 数量。
+
+```go
+for _, size := range []int{0, 100, 1024} {
+    min, err := svm.MinimumBalanceForRentExemption(size)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("%4d bytes -> %d lamports", size, min)
+}
+```
+
+## 程序管理
+
+### AddProgram
+
+```go
+func (s *LiteSVM) AddProgram(programID solana.PublicKey, bytes []byte) error
+```
+
+从内存字节中加载 SBF 程序。
+
+```go
+bytes, err := os.ReadFile("./target/deploy/my_program.so")
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.AddProgram(programID, bytes); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramFromFile
+
+```go
+func (s *LiteSVM) AddProgramFromFile(programID solana.PublicKey, path string) error
+```
+
+从 `.so` 文件路径加载 SBF 程序。
+
+```go
+if err := svm.AddProgramFromFile(programID, "./target/deploy/my_program.so"); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramWithLoader
+
+```go
+func (s *LiteSVM) AddProgramWithLoader(programID solana.PublicKey, bytes []byte, loaderID solana.PublicKey) error
+```
+
+在指定加载器下加载 SBF 程序。适用于针对非默认 BPF 加载器版本进行测试的场景。
+
+## 批量账户初始化
+
+对于需要大量 seed 账户的测试，可循环调用 `SetAccount`：
+
+```go
+const N = 10
+for i := 0; i < N; i++ {
+    pk := solana.NewWallet().PublicKey()
+    data := []byte{byte(i)}
+    rent, err := svm.MinimumBalanceForRentExemption(len(data))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(rent, data, owner, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if err := svm.SetAccount(pk, acct); err != nil {
+        acct.Close()
+        t.Fatal(err)
+    }
+    acct.Close()
+}
+```
+
+<Callout type="info">
+  通过 `SetAccount` 让 SVM 存储副本后，请务必 `Close` `NewAccount` 返回的 `*Account`——SVM 不会接管该句柄的所有权。
+</Callout>

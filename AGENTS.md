@@ -20,14 +20,14 @@ Most apps are not standalone product islands. They share:
 
 Pick the app first. That usually cuts exploration time in half.
 
-| Area                  | Workspace                                   | Local Port | Key Route Prefixes                                                 |
-| --------------------- | ------------------------------------------- | ---------- | ------------------------------------------------------------------ |
-| Main marketing site   | `apps/web` / `solana-com`                   | `3000`     | `/`, `/solutions`, `/developers`, `/ecosystem`, `/events`, `/news` |
-| Developer docs        | `apps/docs` / `solana-docs`                 | `3003`     | `/docs`, `/developers/cookbook`, `/developers/guides`              |
-| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/podcasts`, `/keystatic`                                 |
-| Templates showcase    | `apps/templates` / `solana-templates`       | `3001`     | `/developers/templates` via rewrites                               |
-| Accelerate event site | `apps/accelerate` / `solana-com-accelerate` | `3004`     | `/accelerate` via rewrites                                         |
-| Breakpoint event site | `apps/breakpoint` / `solana-com-breakpoint` | `3005`     | `/breakpoint` via rewrites                                         |
+| Area                  | Workspace                                   | Local Port | Key Route Prefixes                                                               |
+| --------------------- | ------------------------------------------- | ---------- | -------------------------------------------------------------------------------- |
+| Main marketing site   | `apps/web` / `solana-com`                   | `3000`     | `/`, `/solutions`, `/ecosystem`, `/events`, selected `/developers/*` routes      |
+| Developer docs        | `apps/docs` / `solana-docs`                 | `3003`     | `/docs`, `/learn`, `/developers`, `/developers/cookbook`, `/developers/bootcamp` |
+| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/changelog`, `/podcasts`, `/keystatic`                                 |
+| Templates showcase    | `apps/templates` / `solana-templates`       | `3001`     | `/developers/templates` via rewrites                                             |
+| Accelerate event site | `apps/accelerate` / `solana-com-accelerate` | `3004`     | `/accelerate` via rewrites                                                       |
+| Breakpoint event site | `apps/breakpoint` / `solana-com-breakpoint` | `3005`     | `/breakpoint` via rewrites                                                       |
 
 ## Repo Layout
 
@@ -63,6 +63,7 @@ pnpm dev
 pnpm dev:web
 pnpm dev:media
 pnpm dev:acc
+pnpm dev:bp
 pnpm --filter solana-docs dev
 pnpm --filter solana-templates dev
 pnpm --filter solana-com-breakpoint dev
@@ -115,7 +116,8 @@ inspect `packages/ui-chrome` and the target app `next.config.ts` together.
 
 ## Content Ownership
 
-- `apps/docs/content`: source of truth for docs, cookbook, and guides
+- `apps/docs/content`: source of truth for docs, cookbook, learn, and developer
+  bootcamp content
 - `apps/media/content`: source of truth for posts, podcasts, authors, tags, and
   global CMS content
 - `packages/i18n/messages/*`: shared UI message catalogs by app

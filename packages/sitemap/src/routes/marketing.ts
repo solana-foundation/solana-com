@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { WALLET_DIRECTORY_LAST_VERIFIED } from "@workspace/ecosystem-data/wallets/metadata";
 import { repoRoot } from "../constants";
 import type { RouteGenerator } from "../types";
 import {
@@ -49,6 +50,14 @@ function getPriority(routePath: string) {
   return 0.8;
 }
 
+function getRouteLastModified(routePath: string, filePath: string) {
+  if (routePath === "/wallets") {
+    return `${WALLET_DIRECTORY_LAST_VERIFIED}T00:00:00.000Z`;
+  }
+
+  return getFileLastModified(filePath);
+}
+
 export const marketingRoutes: RouteGenerator = () => {
   try {
     if (!fs.existsSync(appLocaleRoot)) {
@@ -66,11 +75,13 @@ export const marketingRoutes: RouteGenerator = () => {
         return [];
       }
 
-      return createLocalizedEntries(routePath, {
-        lastModified: getFileLastModified(filePath),
+      const options = {
+        lastModified: getRouteLastModified(routePath, filePath),
         changeFrequency: "weekly",
         priority: getPriority(routePath),
-      });
+      } as const;
+
+      return createLocalizedEntries(routePath, options);
     });
 
     return dedupeEntries(entries);

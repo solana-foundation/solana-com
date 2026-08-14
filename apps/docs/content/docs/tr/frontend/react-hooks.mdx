@@ -1,81 +1,103 @@
 ---
-title: "@solana/react-hooks"
+title: React
 description:
-  "@solana/client durumunu kullanıma hazır hook'larla React uygulamanız
-  genelinde paylaşın."
+  Share a Kit client across your React app with @solana/react and the wallet
+  plugin hooks.
 ---
 
-`@solana/react-hooks`, `@solana/client` üzerine bir React sağlayıcı, hook'lar ve
-suspense uyumlu sorgu yardımcıları katmanı ekler. Hala tek bir istemci
-yapılandırırsınız, ancak hook'lar cüzdan durumunu, bakiyeleri, işlemleri ve
-program sorgularını manuel olarak store veya abonelik bağlamadan sunar.
+`@solana/react`, bileşen ağacınıza tek bir sağlayıcı aracılığıyla bir Kit istemcisi yayınlar; hook'lar ise RPC verilerini, abonelikleri ve cüzdan durumunu bu istemciden okur. Tarayıcı cüzdan hook'ları `@solana/kit-plugin-wallet/react` içinde bulunur ve aynı sağlayıcıyı okur — ayrı bir cüzdan sağlayıcısına gerek yoktur.
 
 ## Kurulum
 
 ```terminal
-$ npm install @solana/client @solana/react-hooks
+$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-wallet @solana/react
 ```
 
-Her iki paket de gereklidir çünkü hook'lar cüzdanları, RPC'yi ve önbellekleri
-yönetmek için istemci çalışma zamanını yeniden kullanır.
+## İstemciyi oluşturun
+
+İstemciyi bir kez, modül kapsamında, React ağacının dışında oluşturun. Tarayıcıda `walletSigner`, bağlı cüzdanı hem ücret ödeyici hem de kimlik olarak ayarlar.
+
+```tsx title="client.ts"
+import { createClient } from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { walletSigner } from "@solana/kit-plugin-wallet";
+
+export const client = createClient()
+  .use(walletSigner({ chain: "solana:devnet" }))
+  .use(solanaRpc({ rpcUrl: "https://api.devnet.solana.com" }));
+
+export type AppClient = Awaited<typeof client>;
+```
+
+`walletSigner`, `client.wallet` ekler (Wallet Standard keşfi ve bağlantısı); `solanaRpc` ise `client.rpc` ile `client.sendTransaction` yardımcısını ekler. İstemci türünü `Awaited<>` içine sararak dışa aktarın; böylece daha sonra asenkron çözümlenen bir eklenti eklediğinizde tür doğruluğu korunur ve bu `AppClient`'ı her `useClient` çağrısına iletin.
 
 ## Ağacınızı bir kez sarın
 
-İstemciyi oluşturun, isteğe bağlı olarak cüzdan bağlayıcılarını seçin, ardından
-React ağacınızı `SolanaProvider` ile sarın. Her hook paylaşılan istemci
-örneğinden okur.
+`ClientProvider`, istemciyi yayınlar. Veri hook'ları (`useRequest`, `useSubscription`, `useTrackedData`) bunu `useClient` aracılığıyla okur. Aşağıdaki cüzdan hook'larının ise aynı istemcinin açıkça ilk argüman olarak iletilmesi gerekir.
+
+```tsx title="providers.tsx"
+"use client";
+
+import { ClientProvider } from "@solana/react";
+import { client } from "./client";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return <ClientProvider client={client}>{children}</ClientProvider>;
+}
+```
+
+## Cüzdan hook'ları
+
+Cüzdan hook'ları, cüzdan eklentisi yüklü bir istemci gerektirir (örn. `walletSigner`). `useClient<AppClient>()` ile alın ve her hook'un ilk argümanı olarak iletin — bu, bağlam aramalarına güvenmek yerine uygulamanın uçtan uca tam olarak türlendirilmesini sağlar.
+
+- `useWallets(client)` — İstemcinin zinciri için keşfedilen Wallet Standard cüzdanları.
+- `useWalletStatus(client)` —
+  `"pending" | "disconnected" | "connecting" | "connected" | "disconnecting" | "reconnecting"`.
+- `useConnectedWallet(client)` — `{ account, signer, wallet }` veya `null`.
+  `signer`, salt okunur cüzdanlar için `null`'dır.
+- `useConnect(client)` / `useDisconnect(client)` — Bir `ActionResult` döndürür; `dispatch` (ve `dispatchAsync`) eylemi çalıştırır, `isRunning`, `status`, `data`, `error` ve `reset` ise sonucu izler.
 
 ```tsx
 "use client";
 
-import { autoDiscover, createClient } from "@solana/client";
-import { SolanaProvider } from "@solana/react-hooks";
+import {
+  useConnect,
+  useConnectedWallet,
+  useDisconnect,
+  useWallets,
+  useWalletStatus
+} from "@solana/kit-plugin-wallet/react";
+import { useClient } from "@solana/react";
+import type { AppClient } from "./client";
 
-const client = createClient({
-  endpoint: "https://api.devnet.solana.com",
-  websocketEndpoint: "wss://api.devnet.solana.com",
-  walletConnectors: autoDiscover()
-});
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  return <SolanaProvider client={client}>{children}</SolanaProvider>;
-}
-```
-
-## Hook'lar istemci çalışma zamanını yansıtır
-
-- **Cüzdan + bağlayıcılar**: `useWallet`, `useWalletConnection`,
-  `useConnectWallet` ve `useDisconnectWallet`, istemciyi güçlendiren aynı kayıt
-  defterini sunar.
-- **Bakiye + hesap izleyicileri**: `useBalance`, `useAccount`, `useSolBalance`
-  ve `useProgramAccounts`, alttaki izleyicilerden güncellemeleri akışa alır ve
-  önbelleği eylemlerle paylaşır.
-- **İşlemler + SPL yardımcıları**: `useSolTransfer`, `useSplToken`,
-  `useTransactionPool` ve `useSendTransaction`, istemcinin yardımcı paketine
-  dayanır, böylece hook'lar blockhash yenileme, ücret ödeyici çözümlemesi ve
-  günlüklemeyi miras alır.
-
-```tsx
 function WalletPanel() {
-  const { connectors, connect, disconnect, wallet, status } =
-    useWalletConnection();
-  const balance = useBalance(wallet?.account.address);
+  const client = useClient<AppClient>();
+  const status = useWalletStatus(client);
+  const wallets = useWallets(client);
+  const connected = useConnectedWallet(client);
+  const connect = useConnect(client);
+  const disconnect = useDisconnect(client);
 
-  if (status === "connected") {
+  if (status === "pending") return null; // wait out auto-reconnect
+
+  if (connected) {
     return (
       <div>
-        <p>{wallet?.account.address.toString()}</p>
-        <p>Lamports: {balance.lamports?.toString() ?? "loading…"}</p>
-        <button onClick={disconnect}>Disconnect</button>
+        <p>{connected.account.address}</p>
+        <button onClick={() => disconnect.dispatch()}>Disconnect</button>
       </div>
     );
   }
 
   return (
     <div>
-      {connectors.map((connector) => (
-        <button key={connector.id} onClick={() => connect(connector.id)}>
-          Connect {connector.name}
+      {wallets.map((wallet) => (
+        <button
+          key={wallet.name}
+          disabled={connect.isRunning}
+          onClick={() => connect.dispatch(wallet)}
+        >
+          Connect {wallet.name}
         </button>
       ))}
     </div>
@@ -83,125 +105,92 @@ function WalletPanel() {
 }
 ```
 
-## Sorgu + önbellekleme kalıpları
+## İşlem gönderme
 
-`SolanaQueryProvider`, istemci deposunun üzerine React Query uyumlu ilkeller
-katmanı ekler, böylece Solana'ya özgü sorgular askıya alınabilir, yeniden
-getirilebilir ve program abonelikleriyle senkronize olabilir.
+`useClient`, yayınladığınız istemcinin aynısını döndürür. Oluşturulan bir program istemcisiyle talimatlar oluşturun ve bunları `client.sendTransaction` aracılığıyla gönderin.
 
 ```tsx
-import { SolanaQueryProvider, useProgramAccounts } from "@solana/react-hooks";
+"use client";
 
-function ProgramAccounts({ program }: { program: string }) {
-  const query = useProgramAccounts(program);
-
-  if (query.isLoading) return <p>Loading…</p>;
-  if (query.isError) return <p role="alert">RPC error</p>;
-
-  return (
-    <div>
-      <button onClick={() => query.refresh()}>Refresh</button>
-      <ul>
-        {query.accounts.map(({ pubkey }) => (
-          <li key={pubkey.toString()}>{pubkey.toString()}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export function ProgramAccountsSection({ program }: { program: string }) {
-  return (
-    <SolanaQueryProvider>
-      <ProgramAccounts program={program} />
-    </SolanaQueryProvider>
-  );
-}
-```
-
-## İşlem akışları bildirimsel hale getirildi
-
-Hook'lar istemciyle aynı işlem yardımcılarını sunar ancak yükleme ve hata
-durumlarını sizin için yönetir. Bunları SOL transferleri, SPL token akışları
-veya rastgele talimat grupları için kullanın.
-
-```tsx
-import { useSolTransfer } from "@solana/react-hooks";
-
-function SolTransferForm({ destination }: { destination: string }) {
-  const transfer = useSolTransfer();
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        void transfer.send({ destination, lamports: 100_000_000n });
-      }}
-    >
-      <button type="submit" disabled={transfer.isSending}>
-        {transfer.isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {transfer.signature ? <p>Signature: {transfer.signature}</p> : null}
-      {transfer.error ? <p role="alert">{String(transfer.error)}</p> : null}
-    </form>
-  );
-}
-```
-
-Bunun yerine ham talimatlar mı gerekiyor? `useSendTransaction`, `instructions`
-kabul eder ve isteğe bağlı `prepare` geçersiz kılmaları ile istek
-tamamlandığında size imza ve durum takibi sağlar.
-
-```tsx
-import { useSendTransaction, useWallet } from "@solana/react-hooks";
-import { getTransferSolInstruction } from "@solana-program/system";
 import { address, lamports } from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { useClient } from "@solana/react";
+import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
+import type { AppClient } from "./client";
 
-function CustomTransactionForm({ destination }: { destination: string }) {
-  const wallet = useWallet();
-  const { send, isSending, signature, error } = useSendTransaction();
+function SendSol({ destination }: { destination: string }) {
+  const client = useClient<AppClient>();
+  const connected = useConnectedWallet(client);
 
   async function handleSend() {
-    if (wallet.status !== "connected") return;
-
-    const instruction = getTransferSolInstruction({
-      source: wallet.session.account,
+    if (!connected?.signer) return;
+    const transfer = getTransferSolInstruction({
+      source: connected.signer,
       destination: address(destination),
-      amount: lamports(100_000_000n)
+      amount: lamports(10_000_000n) // 0.01 SOL
     });
-
-    await send({ instructions: [instruction] });
+    const result = await client.sendTransaction([transfer]);
+    console.log("sent", result.context.signature);
   }
 
   return (
+    <button disabled={!connected?.signer} onClick={handleSend}>
+      Send 0.01 SOL
+    </button>
+  );
+}
+```
+
+Dışa aktarılan `AppClient` türünü `useClient`'a iletmek, hook'a eklenti genişletmeli tam istemciyi sağlar; böylece `client.rpc` ve `client.sendTransaction` türlendirilmiş olur.
+
+## Veri okuma
+
+`@solana/react`, istemci üzerinden okuyan hook'larla birlikte gelir:
+
+- `useRequest(source)` — tek seferlik RPC okuması; `{ data, error, status, refresh }` döndürür.
+- `useSubscription(source)` — canlı bir abonelik; `{ data, error, reconnect, status }` döndürür.
+- `useTrackedData(spec)` — abonelik ile güncel tutulan, RPC ile başlatılan bir değer.
+
+```tsx
+"use client";
+
+import { address } from "@solana/kit";
+import { useClient, useRequest } from "@solana/react";
+import { useMemo } from "react";
+import type { AppClient } from "./client";
+
+function Balance({ owner }: { owner: string }) {
+  const client = useClient<AppClient>();
+  const source = useMemo(
+    () => client.rpc.getBalance(address(owner)),
+    [client, owner]
+  );
+  const { data, status, refresh } = useRequest(source);
+
+  if (status === "fetching") return <p>Loading…</p>;
+  if (status === "error") return <p role="alert">RPC error</p>;
+
+  return (
     <div>
-      <button onClick={handleSend} disabled={isSending}>
-        {isSending ? "Sending…" : "Send 0.1 SOL"}
-      </button>
-      {signature ? <p>Signature: {signature}</p> : null}
-      {error ? <p role="alert">{String(error)}</p> : null}
+      <p>Lamports: {data?.value.toString()}</p>
+      <button onClick={() => refresh()}>Refresh</button>
     </div>
   );
 }
 ```
 
-## Solana geliştiricileri için yaygın desenler
+Hook'un yalnızca girdileri değiştiğinde yeniden veri çekmesi için (her render'da değil) kaynağı memoize edin (`useMemo` ile veya bir fonksiyon için `useCallback` ile).
 
-- **Paylaşılan çalışma zamanı, birden fazla uygulama**: İstemciyi bir kez
-  yapılandırın (belki bir çekirdek pakette) ve web, mobil web veya gömülü React
-  adalarında kullanın.
-- **Kullanıcı arayüzü öncelikli geliştirme**: Hook'lar en yaygın Solana
-  akışlarını yansıtır (cüzdan bağlama, bakiye getirme, SOL gönderme, SPL
-  bakiyelerini okuma), böylece RPC altyapısı yerine kullanıcı deneyimine
-  odaklanabilirsiniz.
-- **Aşamalı geliştirme**: `@solana/client` ile başsız başlayın, ardından React
-  durumu ve suspense dostu veri getirme istediğiniz alanlara hook'lar ekleyin.
-- **Test**: Birim testlerinde cüzdanları, RPC başarılarını veya hatalarını
-  simüle etmek için hook dönüş değerlerini taklit edin veya `SolanaProvider`
-  için taklit edilmiş bir istemci geçirin.
-- **Sunucu bileşenleri farkında**: Yalnızca hook'ları çağıran yaprak bileşenleri
-  `"use client"` ile işaretleyin; diğer her şey sunucuda kalabilir ve hook
-  destekli alt bileşenlerden hidrate edilmiş prop'lar alabilir.
+Önbellekleme ve yeniden doğrulama için `@solana/react/swr` ve `@solana/react/query` alt yolları, aynı hook'ları [SWR](https://swr.vercel.app) ve [TanStack Query](https://tanstack.com/query) için sarar.
 
-Her hook'un üzerine inşa edildiği çalışma zamanını anlamak için bu kılavuzu
-[@solana/client genel bakış](/docs/frontend/client) ile eşleştirin.
+## Solana geliştiricileri için yaygın kalıplar
+
+- **Tek sağlayıcı**: `ClientProvider`, ihtiyacınız olan tek sağlayıcıdır; `useClient<AppClient>()` ile istemciyi alın ve cüzdan hook'larına iletin.
+- **Sunucu bileşenlerini destekler**: Yalnızca hook çağıran yaprak bileşenleri `"use client"` ile işaretleyin; sunucu okumaları, cüzdan olmaksızın düz bir Kit RPC istemcisi kullanabilir.
+- **Test**: Cüzdanları ve RPC yanıtlarını simüle etmek için `ClientProvider` aracılığıyla sahte bir istemci yayınlayın.
+
+<Callout type="warn" title="İki hook ailesi, aynı isimler">
+  `useSignIn` ve `useSignMessage` hem `@solana/react` içinde (bir `UiWalletAccount` argümanı alır) hem de `@solana/kit-plugin-wallet/react` içinde (bunun yerine `client` alır, bir `ActionResult` döndürür) bulunur. Yukarıdaki istemci kalıbıyla `@solana/kit-plugin-wallet/react` sürümlerini kullanın; eski `@solana/react` cüzdan hook'larının yerini bunlar almaktadır.
+</Callout>
+
+Her hook'un okuduğu istemciyi anlamak için bu kılavuzu [Kit istemcisine genel bakış](/docs/frontend/client) ile birlikte kullanın.

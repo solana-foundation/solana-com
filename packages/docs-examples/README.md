@@ -3,8 +3,8 @@
 Source of truth for the Kit and Legacy code snippets shown on
 [solana.com cookbook pages](../../apps/docs/content/cookbook). Every file under
 `cookbook/` is real, runnable, and exercised against a local
-[surfpool](https://github.com/txtx/surfpool) instance on every PR — so SDK
-renames or signature changes turn into red CI runs instead of rotted
+[surfpool](https://github.com/solana-foundation/surfpool) instance on every PR —
+so SDK renames or signature changes turn into red CI runs instead of rotted
 documentation.
 
 The MDX pages in `apps/docs` pull slices from here at build time via
@@ -29,7 +29,7 @@ pnpm --filter @workspace/docs-examples test
 Requires the `surfpool` CLI on `$PATH`:
 
 ```sh
-cargo install --git https://github.com/txtx/surfpool --locked surfpool-cli
+cargo install --git https://github.com/solana-foundation/surfpool --locked surfpool-cli
 ```
 
 The first run starts surfpool with `--network mainnet` so cookbook examples that
