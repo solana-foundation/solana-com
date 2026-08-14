@@ -6,7 +6,7 @@ import {
   NavDropdownColumn,
 } from "./header-dropdown-layout";
 import {
-  CollapsibleNavGroup,
+  NavGroup,
   NavItemsList,
   SectionHeading,
 } from "./nav-section-renderers";
@@ -16,7 +16,7 @@ import {
   buildUseCaseItems,
 } from "./nav-section-content-config";
 
-const HeaderListBuild = ({ isMobile = false }) => {
+const HeaderListBuild = () => {
   const t = useTranslations();
 
   return (
@@ -26,20 +26,14 @@ const HeaderListBuild = ({ isMobile = false }) => {
         <NavItemsList items={buildStartItems} />
       </NavDropdownColumn>
       <NavDropdownColumn>
-        <CollapsibleNavGroup
-          title={t("nav.build.resources.title")}
-          isMobile={isMobile}
-        >
+        <NavGroup title={t("nav.build.resources.title")}>
           <NavItemsList items={buildResourceItems} />
-        </CollapsibleNavGroup>
+        </NavGroup>
       </NavDropdownColumn>
       <NavDropdownColumn>
-        <CollapsibleNavGroup
-          title={t("nav.build.useCases.title")}
-          isMobile={isMobile}
-        >
+        <NavGroup title={t("nav.build.useCases.title")}>
           <NavItemsList items={buildUseCaseItems} />
-        </CollapsibleNavGroup>
+        </NavGroup>
       </NavDropdownColumn>
     </HeaderDropdownLayout>
   );

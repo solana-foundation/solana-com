@@ -1,0 +1,172 @@
+---
+title: 账户设置
+description: 使用 litesvm-go 设置测试账户和状态
+---
+
+演示如何直接使用 `SetAccount` 填充账户状态，无需执行交易。当您需要为测试准备大量账户时，这比通过运行时进行空投和充值要快得多。
+
+## 基本账户设置
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestBasicAccountSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Calculate minimum balance for rent exemption.
+    accountData := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    minBalance, err := svm.MinimumBalanceForRentExemption(len(accountData))
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("minimum balance for %d bytes: %d lamports", len(accountData), minBalance)
+
+    // Owner program (system program in this trivial example).
+    owner := solana.SystemProgramID
+    testAddr := solana.NewWallet().PublicKey()
+
+    // Build the account handle, then store it.
+    acct, err := litesvm.NewAccount(minBalance, accountData, owner, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(testAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+    t.Log("account state set successfully")
+
+    // Retrieve the account back.
+    retrieved := svm.GetAccount(testAddr)
+    if retrieved == nil {
+        t.Fatal("expected account to exist")
+    }
+    defer retrieved.Close()
+
+    t.Logf("  address:    %s", testAddr)
+    t.Logf("  lamports:   %d", retrieved.Lamports())
+    t.Logf("  owner:      %s", retrieved.Owner())
+    t.Logf("  executable: %v", retrieved.Executable())
+    t.Logf("  data:       %v", retrieved.Data())
+
+    // Or just read the balance.
+    bal, _, err := svm.Balance(testAddr)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("balance: %d lamports", bal)
+}
+```
+
+## 设置多个账户
+
+```go
+func TestMultipleAccounts(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    owner := solana.SystemProgramID
+
+    // Set up 5 accounts with different data payloads.
+    addrs := make([]solana.PublicKey, 5)
+    for i := range addrs {
+        addrs[i] = solana.NewWallet().PublicKey()
+
+        data := []byte{byte(i), byte(i + 1), byte(i + 2)}
+        rent, err := svm.MinimumBalanceForRentExemption(len(data))
+        if err != nil {
+            t.Fatal(err)
+        }
+
+        acct, err := litesvm.NewAccount(rent, data, owner, false, 0)
+        if err != nil {
+            t.Fatal(err)
+        }
+        if err := svm.SetAccount(addrs[i], acct); err != nil {
+            acct.Close()
+            t.Fatal(err)
+        }
+        acct.Close()
+
+        t.Logf("account %d: %s", i, addrs[i])
+    }
+
+    // Verify each account.
+    for i, addr := range addrs {
+        a := svm.GetAccount(addr)
+        if a == nil {
+            t.Fatalf("account %d missing", i)
+        }
+        t.Logf("  account %d: %d lamports, data[0]=%d", i, a.Lamports(), a.Data()[0])
+        a.Close()
+    }
+}
+```
+
+## Program Data Account Setup
+
+通过将结构体布局序列化到账户的 `data` 字段来设置程序拥有的数据账户。此代码片段还需额外导入 `encoding/binary`：
+
+```go
+import "encoding/binary"
+
+func TestProgramDataAccount(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    programID := solana.NewWallet().PublicKey()
+    dataAddr := solana.NewWallet().PublicKey()
+
+    // Example layout: [u8 discriminator, u64 counter, 32-byte owner pubkey]
+    data := make([]byte, 1+8+32)
+    data[0] = 0x01                                      // discriminator
+    binary.LittleEndian.PutUint64(data[1:9], 100)       // counter
+    // copy(data[9:], ownerPubkey[:])                   // owner
+
+    rent, err := svm.MinimumBalanceForRentExemption(len(data))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(rent, data, programID, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(dataAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+
+    t.Logf("program data account set up: %s", dataAddr)
+}
+```
+
+<Callout type="info">
+  `SetAccount` 在批量账户设置时比执行交易更快，并让您的测试代码专注于被测行为本身，而非构建状态的繁琐流程。
+</Callout>
+
+## 要点
+
+1. **直接写入状态** - `SetAccount` 可直接写入账户状态，无需经过运行时。
+2. **免租豁免** - 在构建账户前，使用 `MinimumBalanceForRentExemption` 计算所需的 lamport。
+3. **所有权** - `NewAccount` 返回一个您仍持有的句柄。调用 `SetAccount` 后，SVM 会保留其自身的副本；完成后请关闭您持有的句柄。
+4. **验证** - 使用 `GetAccount` 将数据读回句柄，或使用 `Balance` 进行仅检查 lamport 的快速验证。

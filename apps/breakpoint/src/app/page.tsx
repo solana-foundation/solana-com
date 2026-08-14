@@ -7,6 +7,8 @@ import { getBaseMetadata } from "./metadata";
 import { FabMenu } from "@/components/FabMenu";
 import { loadBreakpointMessages } from "@/i18n/request";
 
+export const dynamic = "force-dynamic";
+
 const displayFont = localFont({
   src: "../../public/fonts/bp26-extended/BP26-Extended.woff2",
   variable: "--font-bp26",

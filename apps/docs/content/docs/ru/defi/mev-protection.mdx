@@ -1,0 +1,262 @@
+---
+title: "MEV Protection with Jito DontFront"
+description:
+  "Learn how to protect your Solana transactions from sandwich attacks using
+  Jito's dontfront feature. This guide covers how sandwich attacks work, how
+  dontfront prevents front-running, bundle ordering rules, tip strategies, and
+  integration examples in TypeScript and Rust."
+---
+
+# Защита от MEV с помощью Jito DontFront
+
+Максимально извлекаемая ценность (MEV) — это ценность, которую можно получить путём переупорядочивания, включения или исключения транзакций внутри блока. MEV не является уникальной особенностью какой-либо одной сети; это фундаментальное свойство любого блокчейна, в котором производители блоков контролируют порядок транзакций. Некоторые формы MEV, например арбитраж, способствуют эффективности рынков, устраняя ценовые расхождения между DEX. Другие, например сэндвич-атаки, извлекают ценность напрямую у пользователей. Для разработчиков DeFi-приложений это может означать ухудшение исполнения сделок и потерю прибыли.
+
+В этом руководстве рассматриваются сэндвич-атаки — распространённая форма вредоносного MEV — и способы их предотвращения с помощью функции `dontfront` от Jito.
+
+Рекомендуется предварительно ознакомиться с:
+[Jito Bundles](https://solana.com/docs/payments/production-readiness#jito-bundles)
+
+## MEV на Solana
+
+Архитектура Solana уже сокращает поверхность атаки MEV по сравнению с сетями с открытым мемпулом. Транзакции напрямую передаются следующему лидеру блока, а не накапливаются в общем мемпуле, и необработанные транзакции истекают примерно через 150 блоков (~1 минута). Это существенно сужает окно возможностей для наблюдения и реакции на ожидающие транзакции.
+
+Тем не менее извлечение MEV всё равно происходит. Искатели с оптимизированной инфраструктурой и прямыми подключениями к validator могут отслеживать поток транзакций и реагировать на него. Значительная часть MEV-активности на Solana — это атомарный арбитраж: боты, исправляющие ценовые расхождения между DEX в рамках одной транзакции. Такой тип MEV в целом считается полезным, поскольку улучшает согласованность цен на рынках.
+
+Вредоносная разновидность MEV — сэндвич-атаки — это то, от чего разработчики должны активно защищаться.
+
+## Что такое сэндвич-атака?
+
+Сэндвич-атака происходит, когда искатель обнаруживает ваш ожидающий своп и эксплуатирует порядок транзакций:
+
+1. **Фронтран**: искатель покупает токен перед вашей сделкой, поднимая цену вверх
+2. **Ваша сделка исполняется** по цене хуже ожидаемой
+3. **Бэкран**: искатель продаёт токен после вашей сделки, забирая разницу
+
+На Solana это может происходить через
+[Jito bundles](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles). Искатель отправляет пакет транзакций вида:
+`[frontrun_tx, your_tx, backrun_tx]`, и блок-движок исполняет их атомарно по порядку. Жертва получает худшую цену исполнения, тогда как искатель извлекает прибыль из спреда.
+
+## Как работает DontFront
+
+[DontFront](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation) — это
+функция блок-движка Jito, которая не позволяет искателям размещать транзакции перед вашей в составе пакета.
+
+Механизм работы: добавьте любой валидный публичный ключ Solana, начинающийся с `jitodontfront`, в любую инструкцию вашей транзакции. Блок-движок распознаёт этот префикс и применяет правило: **любой пакет, содержащий вашу транзакцию, должен помещать её на индекс 0**.
+
+```
+Without dontfront:  [frontrun_tx, your_tx, backrun_tx]  ← sandwich possible
+With dontfront:     [your_tx, ...]                       ← your tx must be first
+```
+
+### Пошаговая инструкция
+
+1. **Выберите валидный адрес**, начинающийся с `jitodontfront` (например,
+   `jitodontfront111111111111111111111111111111`). Аккаунт не обязан существовать в сети; он никогда не читается и не записывается. Вы можете проверить, является ли строка валидным адресом, с помощью функции
+   [`assertIsAddress`](https://www.solanakit.com/api/functions/assertIsAddress)
+   из @solana/kit, либо введите адрес в Solana Explorer, чтобы проверить его. Вот пример
+   [невалидного адреса](https://explorer.solana.com/address/jitodontfront11111111111111111111111111111INVALID).
+
+2. **Добавьте его как аккаунт только для чтения без права подписи** в любую инструкцию вашей транзакции. Отметьте его как доступный только для чтения — это обеспечит оптимальную скорость попадания в блок. Большинство программ (включая System Program) игнорируют дополнительные аккаунты сверх ожидаемых.
+
+3. **Отправьте через блок-движок Jito**:
+   - `sendTransaction`:
+     `https://mainnet.block-engine.jito.wtf/api/v1/transactions`
+   - `sendBundle`: `https://mainnet.block-engine.jito.wtf/api/v1/bundles`
+
+   Документация:
+   [sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
+   и [sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+
+4. Блок-движок обнаруживает префикс `jitodontfront` и применяет правила упорядочивания.
+
+### Что происходит на стороне блок-движка
+
+Когда блок-движок обнаруживает транзакцию, содержащую аккаунт `jitodontfront`:
+
+- Через `sendTransaction`: транзакция защищена. Ни один пакет не может поместить другую транзакцию перед ней
+- Через `sendBundle`: транзакция должна находиться на индексе 0, иначе весь пакет отклоняется
+
+Транзакции и пакеты, не содержащие аккаунт `jitodontfront`, не затрагиваются.
+
+## Правила упорядочивания в пакетах
+
+Эти правила применяются, когда транзакция с `jitodontfront` присутствует в пакете.
+
+### Допустимые шаблоны
+
+```
+[tx_with_dontfront, tip]
+[tx_with_dontfront, arbitrage, tip]
+[tx_with_dontfront_signer1, tx_with_dontfront_signer1_and_signer2, tip]
+```
+
+### Несколько DontFront-транзакций в одном пакете
+
+Несколько dontfront-транзакций в одном пакете допускаются при выполнении **обоих** условий:
+
+1. Все dontfront-транзакции **идут подряд в начале** пакета
+2. Каждая dontfront-транзакция имеет **хотя бы одного общего подписанта** с первой dontfront-транзакцией
+
+```
+✅ [txA_df, txB_df, txC_df, arbitrage, tip]
+   (contiguous at front, overlapping signers)
+
+✅ [txA_df_signer1_signer2, txB_df_signer1_signer3, txC_df_signer2_signer4]
+   (each shares a signer with txA)
+```
+
+### Недопустимые шаблоны
+
+```
+❌ [tip, tx_with_dontfront]
+   → dontfront tx is not at index 0
+
+❌ [txA_df_signer1, txB_df_signer2]
+   → no overlapping signer between txA and txB
+
+❌ [trade, tx_with_dontfront, arbitrage, tip]
+   → dontfront tx is not at the front
+```
+
+## Примеры интеграции
+
+Быстрый пример кода см. в
+[записи MEV Protection в кулинарной книге](/developers/cookbook/transactions/mev-protection).
+
+### TypeScript (@solana/kit)
+
+Основная идея — вспомогательная функция, добавляющая dontfront-аккаунт к любой инструкции:
+
+<CodeTabs storage="guide-mev">
+
+```ts !! title="Kit"
+import {
+  address,
+  AccountRole,
+  type Instruction,
+  type Address
+} from "@solana/kit";
+
+const DONT_FRONT: Address = address(
+  "jitodontfront111111111111111111111111111111"
+);
+
+// !mark(1:9)
+function withDontFront(ix: Instruction): Instruction {
+  return {
+    ...ix,
+    accounts: [
+      ...(ix.accounts ?? []),
+      { address: DONT_FRONT, role: AccountRole.READONLY }
+    ]
+  };
+}
+```
+
+```rs !! title="Rust"
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+};
+use std::str::FromStr;
+
+const DONT_FRONT_ACCOUNT: &str =
+    "jitodontfront111111111111111111111111111111";
+
+// !mark(1:6)
+fn with_dontfront(ix: &mut Instruction) {
+    let dontfront =
+        Pubkey::from_str(DONT_FRONT_ACCOUNT).unwrap();
+    ix.accounts
+        .push(AccountMeta::new_readonly(dontfront, false));
+}
+```
+
+</CodeTabs>
+
+Затем отправьте подписанную транзакцию в блок-движок Jito вместо стандартного RPC-узла. Всегда используйте кодировку base64. Base58 устарел в API Jito.
+
+<CodeTabs storage="guide-mev">
+
+```ts !! title="Kit"
+// !mark(1:2)
+const response = await fetch(
+  "https://mainnet.block-engine.jito.wtf/api/v1/transactions",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "sendTransaction",
+      // !mark
+      params: [base64Tx, { encoding: "base64" }]
+    })
+  }
+);
+```
+
+```rs !! title="Rust"
+let serialized = bincode::serialize(&tx)?;
+// !mark
+let base64_tx = base64::engine::general_purpose::STANDARD
+    .encode(&serialized);
+
+// !mark(1:2)
+let response = client
+    .post("https://mainnet.block-engine.jito.wtf/api/v1/transactions")
+    .json(&serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "sendTransaction",
+        "params": [base64_tx, {"encoding": "base64"}]
+    }))
+    .send()
+    .await?;
+```
+
+</CodeTabs>
+
+## Лучшие практики
+
+DontFront — это один уровень защиты. Надёжная стратегия противодействия MEV сочетает несколько подходов:
+
+### Защита на уровне транзакций
+
+- **Устанавливайте жёсткие допуски проскальзывания.** Наиболее эффективная защита от сэндвич-атак — ограничение допустимого проскальзывания при свопах. Меньший диапазон проскальзывания снижает доступную атакующим прибыль, делая вашу транзакцию менее привлекательной для сэндвич-атаки.
+
+- **Устанавливайте соответствующие чаевые и приоритетные комиссии.** В периоды перегрузки более высокие чаевые и приоритетные комиссии увеличивают вероятность быстрого попадания вашей транзакции/пакета в блок, сокращая окно возможностей для искателей. Подробнее о правилах выставления чаевых см. в документации Jito по
+  [Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount).
+
+- **Оптимизируйте использование вычислительных единиц.** Каждый блок имеет ограниченное количество вычислительных единиц (и аккаунты имеют ограниченное число вычислительных единиц на блок). Чтобы максимизировать вероятность включения вашей транзакции/пакета в блок, оптимизируйте использование вычислительных единиц. Подробнее см. в руководстве
+  [How to Optimize Compute Usage on Solana](/developers/cookbook/transactions/optimize-compute).
+
+### Специфика DontFront
+
+1. **Отмечайте dontfront-аккаунт как доступный только для чтения.** Режим записи тоже работает, но режим чтения
+   [оптимизирует скорость попадания в блок](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation).
+
+2. **Используйте уникальный pubkey dontfront для каждого приложения.** Подходит любой pubkey, начинающийся с
+   `jitodontfront`. Использование уникального варианта (например,
+   `jitodontfront111111111111111111111111111123`) позволяет различать использование по приложениям при анализе данных в сети.
+
+3. **DontFront поддерживает Address Lookup Tables.** Dontfront-аккаунт можно включить через ALT. Но не используйте ALT для аккаунтов с чаевыми.
+
+## Ограничения
+
+- **Только блок-движок.** DontFront обеспечивается блок-движком Jito. Транзакции, отправленные напрямую к validator (в обход Jito), не защищены.
+
+- **Не является гарантией.** Из документации Jito: _«Эта функция может помочь снизить количество сэндвич-атак, но не гарантирует этого и не является решением для всех вариантов изменения порядка транзакций, включая любое упорядочивание, осуществляемое третьими сторонами.»_
+
+- **Только Mainnet/Testnet.** Это функция блок-движка Jito. Она не работает в devnet или localhost.
+
+## Ссылки
+
+- [Jito Docs: Sandwich Mitigation](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
+- [Jito Docs: sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
+- [Jito Docs: sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+- [Jito Docs: Tip Accounts](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)
+- [Jito Docs: Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)
+- [Tip Floor API](https://bundles.jito.wtf/api/v1/bundles/tip_floor)
+- [@solana/kit on GitHub](https://github.com/anza-xyz/kit)
+- [solana-sdk on crates.io](https://crates.io/crates/solana-sdk)

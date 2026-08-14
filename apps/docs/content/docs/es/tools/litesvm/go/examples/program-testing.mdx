@@ -1,0 +1,223 @@
+---
+title: Pruebas de Programas
+description: Carga y prueba programas personalizados de Solana con litesvm-go
+---
+
+Probar un programa personalizado de Solana desde Go implica cargar su archivo `.so` compilado
+en el SVM, configurar las cuentas que espera y enviar instrucciones
+contra él. `litesvm-go` gestiona todo esto en proceso — no se necesita ningún validator.
+
+## Carga de un Programa
+
+```go
+package mytest
+
+import (
+    "os"
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestLoadProgram(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Configure for program testing. Setters are infallible in practice;
+    // discarding the return keeps the example readable.
+    _ = svm.SetSigverify(false)
+    _ = svm.SetBlockhashCheck(false)
+    _ = svm.SetSysvars()
+    _ = svm.SetBuiltins()
+
+    // Load program from .so file.
+    programID := solana.NewWallet().PublicKey()
+    soPath := "./target/deploy/my_program.so"
+
+    if _, err := os.Stat(soPath); err != nil {
+        t.Skipf("program file not found: %s (build with: cargo build-sbf)", soPath)
+    }
+
+    if err := svm.AddProgramFromFile(programID, soPath); err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("program loaded: %s", programID)
+
+    // Verify the program account.
+    acct := svm.GetAccount(programID)
+    if acct == nil {
+        t.Fatal("program account missing after load")
+    }
+    defer acct.Close()
+
+    t.Logf("  executable: %v", acct.Executable())
+    t.Logf("  data size:  %d bytes", len(acct.Data()))
+}
+```
+
+## Configuración Completa de Prueba de Programa
+
+```go
+package mytest
+
+import (
+    "os"
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestProgramEndToEnd(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Wide-open config: faster tests, less plumbing. Setters are infallible
+    // in practice; discarding the return keeps the example readable.
+    _ = svm.SetSigverify(false)
+    _ = svm.SetBlockhashCheck(false)
+    _ = svm.SetSysvars()
+    _ = svm.SetBuiltins()
+    _ = svm.SetPrecompiles()
+    _ = svm.SetTransactionHistory(100)
+
+    // Load the program.
+    programID := solana.NewWallet().PublicKey()
+    soPath := "./target/deploy/my_program.so"
+    if _, err := os.Stat(soPath); err != nil {
+        t.Skipf("missing %s", soPath)
+    }
+    if err := svm.AddProgramFromFile(programID, soPath); err != nil {
+        t.Fatal(err)
+    }
+
+    // Seed any data accounts the program expects.
+    dataAddr := solana.NewWallet().PublicKey()
+    dataPayload := make([]byte, 100)
+
+    rent, err := svm.MinimumBalanceForRentExemption(len(dataPayload))
+    if err != nil {
+        t.Fatal(err)
+    }
+    acct, err := litesvm.NewAccount(rent, dataPayload, programID, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(dataAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+
+    // Fund a payer that will sign the test instruction.
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    if err := svm.Airdrop(payer, 1_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Build an instruction against the program.
+    bh, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := &solana.GenericInstruction{
+        ProgID: programID,
+        AccountValues: solana.AccountMetaSlice{
+            {PublicKey: dataAddr, IsWritable: true, IsSigner: false},
+            {PublicKey: payer, IsWritable: true, IsSigner: true},
+        },
+        DataBytes: []byte{0x01 /* discriminator + args */},
+    }
+
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        bh,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    // Execute and inspect.
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("program failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    t.Logf("logs: %v", out.Logs())
+    t.Logf("compute: %d CU", out.ComputeUnits())
+
+    // Verify state changes by reading the data account back.
+    updated := svm.GetAccount(dataAddr)
+    if updated == nil {
+        t.Fatal("data account missing after execution")
+    }
+    defer updated.Close()
+    // Decode `updated.Data()` and assert as needed.
+}
+```
+
+## Uso de Programas Predeterminados
+
+Para pruebas que requieren programas estándar (SPL Token, Memo, ...):
+
+```go
+svm, err := litesvm.New()
+if err != nil {
+    t.Fatal(err)
+}
+defer svm.Close()
+
+if err := svm.SetDefaultPrograms(); err != nil { // SPL Token, Memo, etc.
+    t.Fatal(err)
+}
+if err := svm.WithNativeMints(); err != nil {    // wrapped-SOL mint
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  Compila tu programa de Solana con `cargo build-sbf` para generar el archivo `.so`.
+</Callout>
+
+El patrón es siempre el mismo:
+
+1. **Configuración** — habilita sysvars, builtins y precompiles según sea necesario.
+2. **Carga del programa** — `AddProgramFromFile` (o `AddProgram` para bytes
+   en memoria).
+3. **Configuración de cuentas** — precarga las cuentas de datos con `SetAccount`.
+4. **Envío** — construye la instrucción con `solana-go`, serializa y envía mediante
+   `SendLegacyTransaction`.
+5. **Verificación** — lee las cuentas de nuevo con `GetAccount` y verifica los logs,
+   las unidades de cómputo y el estado posterior.
+
+Una vez que tengas este esqueleto funcionando, escala añadiendo más instrucciones, más
+cuentas y un helper para el código repetitivo.

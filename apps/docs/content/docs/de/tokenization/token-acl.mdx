@@ -1,0 +1,1271 @@
+---
+date: 2026-01-12T00:00:00Z
+difficulty: advanced
+title: "Permissioned Tokens mit Token ACL (sRFC37)"
+description:
+  "Learn how to implement compliant, permissioned tokens on Solana using Token
+  ACL and the ABL Gate Program. Enable allow/block lists without sacrificing
+  user experience."
+tags:
+  - token extensions
+  - token 2022
+  - ts
+  - web3js
+keywords:
+  - token acl
+  - permissioned tokens
+  - allow list
+  - block list
+  - compliance
+  - sanctions
+  - kyc
+  - aml
+  - frozen accounts
+  - permissionless thaw
+---
+
+<Embed url="https://www.youtube.com/embed/mMaU8fZXZoE" />
+
+Token ACL (Access Control List) ist ein Solana-Programm, das konforme,
+permissioned Token ermöglicht, ohne die Benutzerfreundlichkeit zu beeinträchtigen. Es implementiert
+[sRFC37](https://github.com/solana-foundation/SRFCs/discussions/2) und ermöglicht
+Unternehmen, Token mit Allow/Block-List-Funktionalität zu erstellen und dabei
+die nahtlose UX beizubehalten, die Nutzer erwarten.
+
+## Das Problem
+
+Unternehmen benötigen konforme Token, die folgendes können:
+
+1. KYC/AML-Anforderungen durchsetzen
+2. Sanktionierte Adressen blockieren
+3. Token-Transfers auf zugelassene Parteien beschränken
+
+Der traditionelle Ansatz verwendet die `DefaultAccountState`-Erweiterung von Token-2022, um
+Konten im **eingefrorenen Zustand** zu erstellen, was manuelle Eingriffe erfordert, um
+jedes Konto aufzutauen:
+
+```
+┌─────────────────────────────────────────────────────┐
+│           TRADITIONAL FROZEN TOKENS                 │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│   1. User creates token account                     │
+│      └─> Account is FROZEN ❄️                       │
+│                                                     │
+│   2. User contacts issuer support                   │
+│      └─> "Please whitelist my wallet"               │
+│                                                     │
+│   3. Issuer manually verifies KYC                   │
+│      └─> Delays, friction, poor UX                  │
+│                                                     │
+│   4. Issuer thaws account                           │
+│      └─> Finally can receive tokens                 │
+│                                                     │
+│   ❌ Bad UX - users wait hours/days                 │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+Dies erzeugt erhebliche Reibungsverluste und untergräbt das Versprechen sofortiger,
+permissionloser Blockchain-Transaktionen.
+
+## Die Lösung
+
+Token ACL ermöglicht **permissionloses Auftauen** – Nutzer können ihre eigenen
+Konten automatisch auftauen, wenn sie die vom Gate Program definierten Kriterien erfüllen:
+
+```
+┌─────────────────────────────────────────────────────┐
+│              TOKEN ACL FLOW                         │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│   1. User creates token account                     │
+│      └─> Account is FROZEN ❄️                       │
+│                                                     │
+│   2. User calls permissionless thaw                 │
+│      └─> Token ACL checks Gate Program              │
+│                                                     │
+│   3. Gate Program validates user                    │
+│      ├─> On allow list? ✅ THAW                     │
+│      ├─> On block list? ❌ STAY FROZEN              │
+│      └─> AllowAllEoas mode? ✅ THAW                 │
+│                                                     │
+│   4. Account thawed instantly!                      │
+│      └─> User can receive tokens immediately        │
+│                                                     │
+│   ✅ Great UX - instant, self-service               │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+<Callout type="info" title="Edukative Referenzimplementierung">
+
+Dieser Leitfaden enthält eine vollständige, funktionsfähige Implementierung, die lokal ausgeführt werden kann. Der
+[Quellcode](https://github.com/Woody4618/access-control-list-acl-demo)
+bietet Referenzimplementierungen für Erkundungs- und Bildungszwecke.
+
+Der Code der ACL-Programme ist im
+[token-acl Repository](https://github.com/solana-foundation/token-acl) verfügbar und das
+ABL Gate Program ist im
+[abl-gate-program Repository](https://github.com/solana-foundation/abl-gate-program) verfügbar.
+
+**Wichtig**: Das in diesem Leitfaden verwendete ABL (Allow Block List) Gate Program ist eine
+**Referenzimplementierung**. Obwohl es geprüft und produktionsreif ist, können Emittenten
+eigene Gate Programs erstellen, die besser zu ihren spezifischen
+Compliance-Anforderungen passen. Sie sind nur an die Token ACL-Spezifikation (sRFC37) gebunden,
+nicht an dieses spezifische Gate Program-Design.
+
+**Verwenden Sie diesen Code NICHT direkt in der Produktion** ohne:
+
+- Umfassende Sicherheitsaudits
+- Ordnungsgemäße Schlüsselverwaltungssysteme
+- Überprüfung der regulatorischen Compliance
+- Rechtliche Beratung
+
+</Callout>
+
+## Warum Token ACL?
+
+| Aspekt             | Traditionell eingefroren    | Token ACL                  |
+| ------------------ | --------------------- | -------------------------- |
+| Kontoaktivierung | Manuell (Minuten/Tage) | Sofort (Self-Service)     |
+| Benutzererfahrung    | Schlecht                  | Nahtlos                   |
+| Compliance-Kontrolle | Vollständig                  | Vollständig                       |
+| Sanktionsblockierung | Manuell                | Automatisch über Gate Program |
+| Integrationsaufwand | Hoch                  | Niedrig (SDK verfügbar)        |
+| Kompositionsfähigkeit      | Eingeschränkt               | Vollständig (funktioniert mit DeFi)     |
+
+## Token ACL vs. Transfer Hooks
+
+Sowohl Token ACL als auch [Transfer Hooks](/docs/tokens/extensions/transfer-hook) sind
+Token-2022-Lösungen zum Hinzufügen benutzerdefinierter Logik zu Token, sie dienen jedoch
+unterschiedlichen Zwecken und haben unterschiedliche Kompromisse:
+
+| Aspekt                   | Token ACL                             | Transfer Hooks                           |
+| ------------------------ | ------------------------------------- | ---------------------------------------- |
+| **Wann die Logik ausgeführt wird**      | Nur bei Einfrieren/Auftauen        | Bei **jedem** Transfer                    |
+| **Transfer-Overhead**    | Keiner – Transfers sind Standard         | Zusätzliche CUs + Konten bei jedem Transfer    |
+| **Kontoabhängigkeiten** | Nur bei der Kontoaktivierung        | Bei jeder Transfer-Transaktion erforderlich   |
+| **DeFi-Kompositionsfähigkeit**   | Vollständig – Protokolle funktionieren normal        | Eingeschränkt – viele Protokolle blockieren       |
+| **Am besten geeignet für**             | KYC/AML, Sanktionen, Allow/Block-Listen | Royalties, benutzerdefinierte Transfer-Validierung    |
+| **Komplexität für Nutzer** | Niedrig – einmaliger Auftauvorgang         | Höher – jeder Transfer benötigt zusätzliche Daten |
+
+### Wann Token ACL verwenden
+
+Wählen Sie Token ACL, wenn Sie kontrollieren möchten, **wer Ihren Token halten kann**:
+
+- KYC/AML-Compliance – Inhaber überprüfen, bevor sie Token empfangen können
+- Sanktionsprüfung – bestimmte Adressen blockieren
+- Einschränkungen für akkreditierte Investoren – Token-Inhaber auf geprüfte Parteien beschränken
+- PDA-Blockierung – verhindern, dass Smart Contracts Token halten
+
+### Wann Transfer Hooks verwenden
+
+Wählen Sie Transfer Hooks, wenn Sie kontrollieren möchten, **wie Token bewegt werden**:
+
+- NFT-Royalties – Fee bei jedem Transfer erheben
+- Transfer-Einschränkungen – Transferbeträge oder -häufigkeit begrenzen
+- Benutzerdefinierte Transfer-Logik – Code bei jeder Bewegung ausführen
+- Onchain-Analytik – alle Token-Bewegungen verfolgen
+
+<Callout type="info" title="Ergänzende Lösungen">
+
+Token ACL und Transfer Hooks können zusammen verwendet werden. Beispielsweise könnten Sie
+Token ACL verwenden, um zu kontrollieren, wer Ihren Token halten kann (Compliance), während Sie Transfer
+Hooks für die Durchsetzung von Royalties bei jedem Transfer nutzen.
+
+</Callout>
+
+## Architekturüberblick
+
+Token ACL besteht aus drei Hauptkomponenten:
+
+1. **Token ACL Program**: Das Kernprogramm, das die Einfrierautoritätsdelegierung
+   und permissionlose Operationen verwaltet
+2. **Gate Program**: Benutzerdefinierte Logik, die bestimmt, wer auftauen/einfrieren kann (z. B. ABL
+   Gate Program für Allow/Block-Listen)
+3. **MintConfig**: Pro-Mint-Konfiguration, die Einstellungen speichert und
+   Einfrierautorität delegiert
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TOKEN ACL ARCHITECTURE                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ┌──────────────┐      delegates       ┌─────────────────┐     │
+│   │  Token Mint  │ ──────────────────→  │   MintConfig    │     │
+│   │  (Token-22)  │   freeze authority   │   (Token ACL)   │     │
+│   └──────────────┘                      └────────┬────────┘     │
+│                                                  │              │
+│                                                  │ calls        │
+│                                                  ▼              │
+│   ┌──────────────┐     validates        ┌─────────────────┐     │
+│   │     User     │ ◄─────────────────── │  Gate Program   │     │
+│   │   (wallet)   │                      │  (ABL/Custom)   │     │
+│   └──────────────┘                      └─────────────────┘     │
+│                                                  │              │
+│                                         ┌────────┴────────┐     │
+│                                         │                 │     │
+│                                    ┌────▼────┐      ┌─────▼───┐ │
+│                                    │ Allow   │      │ Block   │ │
+│                                    │ Lists   │      │ Lists   │ │
+│                                    └─────────┘      └─────────┘ │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Schlüsselkonzepte
+
+1. **Delegierung der Einfrierautorität**: Wenn Sie eine Token ACL-Konfiguration erstellen, wird
+   die Einfrierautorität des Mints an die MintConfig-PDA übertragen. Dadurch kann
+   Token ACL Einfrieren/Auftauen-Operationen verwalten.
+
+2. **Gate Programs**: Externe Programme, die die Allow/Block-Logik implementieren.
+   Das ABL (Allow Block List) Gate Program ist eine **Referenzimplementierung** –
+   Emittenten können eigene Gate Programs mit unterschiedlicher Logik erstellen (z. B. Onchain-
+   KYC-Verifizierung, orakelbasierte Sanktionsprüfungen oder Integration mit Identitäts-
+   protokollen).
+
+3. **Permissionlose Operationen**: Nutzer können ihre eigenen Konten auftauen ohne
+   Eingriff des Emittenten, solange das Gate Program zustimmt.
+
+4. **TokenMetadata-Integration**: Das Hinzufügen eines `token_acl`-Felds zu den
+   Metadaten Ihres Mints ermöglicht die automatische Erkennung durch Wallets und SDKs wie
+   `@solana/token-helpers`.
+
+<Callout type="info" title="Automatische Erkennung mit TokenMetadata">
+
+Wenn Sie ein `token_acl`-Feld zur TokenMetadata-Erweiterung Ihres Mints hinzufügen, das
+auf die Gate Program-Adresse zeigt, können SDKs wie `@solana/token-helpers` Token ACL-Mints automatisch
+erkennen und Auftau- Anweisungen beim Erstellen von Token-Konten einschließen.
+
+</Callout>
+
+## ABL Gate Program Modi
+
+<Callout type="info" title="ABL ist eine Referenzimplementierung">
+
+Das hier gezeigte ABL Gate Program ist eine **Referenzimplementierung**, die
+gängige Allow/Block-List-Anwendungsfälle abdeckt. Sie sind jedoch **nicht an dieses
+Design gebunden**. Die Token ACL-Spezifikation (sRFC37) definiert nur die Schnittstelle
+zwischen Token ACL und Gate Programs – Sie können eigene Gate Programs erstellen mit:
+
+- Integration mit Onchain-Identitäts-/KYC-Protokollen
+- Orakelbasierter Echtzeit-Sanktionsprüfung
+- Multi-Sig-Genehmigungsworkflows
+- Zeit- oder bedingungsbasierten Zugriffsregeln
+- Beliebiger anderer benutzerdefinierter Compliance-Logik
+
+Die einzige Anforderung ist die Implementierung der in sRFC37 definierten Gate Program-Schnittstelle.
+
+</Callout>
+
+Das ABL (Allow Block List) Gate Program unterstützt mehrere Modi:
+
+| Modus           | Beschreibung                                     | Anwendungsfall                      |
+| -------------- | ----------------------------------------------- | ----------------------------- |
+| `AllowAllEoas` | Alle regulären Wallets (Nicht-PDAs) können auftauen         | Offene Token mit PDA-Blockierung |
+| `Allow`        | Nur Wallets auf der Allow-Liste können auftauen         | KYC-pflichtige Token           |
+| `Block`        | Alle Wallets AUSSER denen auf der Block-Liste können auftauen | Sanctions-Compliance          |
+| Kombiniert      | Allow- und Block-Listen kombinieren                     | Vollständiges Compliance-Setup         |
+
+<Callout type="caution" title="Vorrang der Block-Liste">
+
+Bei kombinierten Listen hat die **Block-Liste immer Vorrang**. Eine Wallet,
+die sowohl auf der Allow-Liste als auch auf der Block-Liste steht, kann NICHT auftauen.
+
+</Callout>
+
+## Programmadressen
+
+Der Einfachheit halber sind die Programme bereits im Devnet bereitgestellt. Sie können die
+folgenden Adressen verwenden. Das Mainnet-Release folgt nach den Audits.
+
+| Programm          | Adresse                                        |
+| ---------------- | ---------------------------------------------- |
+| Token ACL        | `TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP`  |
+| ABL Gate Program | `GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz` |
+
+## Voraussetzungen
+
+Um die Beispiele lokal auszuführen, stellen Sie sicher, dass Sie die Programme in Ihren lokalen
+validator klonen:
+
+1. **Solana CLI**
+
+   (Für die lokale Ausführung verwenden Sie 2.x, NICHT 3.x – es gibt ein bekanntes Problem mit
+   Token-2022-Metadaten, das beim Schritt des Hinzufügens zusätzlicher Metadaten fehlschlägt)
+
+   ```bash
+   solana --version
+   ```
+
+2. **Node.js 18+** und **pnpm**
+
+3. **Lokaler validator** mit erforderlichen Programmen:
+   ```bash
+    solana-test-validator \
+    --clone TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP \
+    --clone GEC5tu9eaZQrNS7ohERwZRqyvLvV8k2iVZqqt6VuwvJu \
+    --clone GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz \
+    --clone D2GUvBwbnkFu3R5s1rz5dcBJ81UsqY3nvHbLdeJLtSx5 \
+    --url devnet \
+    --reset
+   ```
+
+## Vollständige Implementierung
+
+### Schritt 1: Abhängigkeiten installieren
+
+```bash
+pnpm add @solana/kit @solana-program/token-2022 @solana-program/system \
+  @solana-program/compute-budget @token-acl/sdk @token-acl/abl-sdk \
+  @solana/spl-token-metadata @solana/web3.js ws
+```
+
+### Schritt 2: Token mit Token ACL erstellen
+
+Hier ist ein vollständiges Beispiel, das einen konformen Token mit Token ACL erstellt:
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  getSignatureFromTransaction,
+  generateKeyPairSigner,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstructions,
+  signTransactionMessageWithSigners,
+  lamports
+} from "@solana/kit";
+
+import { getCreateAccountInstruction } from "@solana-program/system";
+import { getSetComputeUnitLimitInstruction } from "@solana-program/compute-budget";
+
+import {
+  TOKEN_2022_PROGRAM_ADDRESS,
+  getInitializeMintInstruction,
+  getInitializeTokenMetadataInstruction,
+  getUpdateTokenMetadataFieldInstruction,
+  tokenMetadataField,
+  AccountState,
+  getMintSize,
+  getPreInitializeInstructionsForMintExtensions,
+  extension
+} from "@solana-program/token-2022";
+
+import { pack } from "@solana/spl-token-metadata";
+import { PublicKey } from "@solana/web3.js";
+
+// Token ACL SDK
+import {
+  getCreateConfigInstruction,
+  findMintConfigPda,
+  getTogglePermissionlessInstructionsInstruction,
+  findThawExtraMetasAccountPda
+} from "@token-acl/sdk";
+
+// ABL Gate Program SDK
+import {
+  getCreateListInstruction,
+  getSetupExtraMetasInstruction,
+  getAddWalletInstruction,
+  findListConfigPda,
+  findWalletEntryPda,
+  ABL_PROGRAM_ADDRESS,
+  Mode
+} from "@token-acl/abl-sdk";
+
+// TLV sizes for Token-2022 extensions
+const TYPE_SIZE = 2;
+const LENGTH_SIZE = 2;
+
+async function createTokenACLMint() {
+  // Setup RPC
+  const rpc = createSolanaRpc("http://localhost:8899");
+  const rpcSubscriptions = createSolanaRpcSubscriptions("ws://localhost:8900");
+  const sendAndConfirm = sendAndConfirmTransactionFactory({
+    rpc,
+    rpcSubscriptions
+  });
+
+  // Load your payer keypair
+  const payer = await loadKeypair("~/.config/solana/id.json");
+
+  // Generate mint keypair
+  const mint = await generateKeyPairSigner();
+  console.log(`🪙  Mint: ${mint.address}`);
+
+  // TokenMetadata config - includes 'token_acl' for auto-detection
+  const TOKEN_NAME = "Compliant Token";
+  const TOKEN_SYMBOL = "COMP";
+  const TOKEN_URI = "";
+  const TOKEN_ACL_KEY = "token_acl";
+
+  // Define extensions
+  const defaultAccountStateExtension = extension("DefaultAccountState", {
+    state: AccountState.Frozen
+  });
+  const metadataPointerExtension = extension("MetadataPointer", {
+    authority: payer.address,
+    metadataAddress: mint.address
+  });
+  const extensions = [defaultAccountStateExtension, metadataPointerExtension];
+
+  // Calculate mint size
+  const baseMintSize = getMintSize(extensions);
+  const metadataForSizing = {
+    mint: new PublicKey(mint.address),
+    name: TOKEN_NAME,
+    symbol: TOKEN_SYMBOL,
+    uri: TOKEN_URI,
+    additionalMetadata: [[TOKEN_ACL_KEY, ABL_PROGRAM_ADDRESS]] as [
+      string,
+      string
+    ][]
+  };
+  const metadataLen = pack(metadataForSizing).length;
+  const totalSpace = baseMintSize + metadataLen + TYPE_SIZE + LENGTH_SIZE;
+
+  // Get rent
+  const mintRent = await rpc
+    .getMinimumBalanceForRentExemption(BigInt(totalSpace))
+    .send();
+
+  // Get extension pre-initialization instructions
+  const extensionInstructions = getPreInitializeInstructionsForMintExtensions(
+    mint.address,
+    extensions
+  );
+
+  // Build transaction
+  const { value: blockhash } = await rpc.getLatestBlockhash().send();
+  const createMintTx = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayer(payer.address, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+    (tx) =>
+      appendTransactionMessageInstructions(
+        [
+          getSetComputeUnitLimitInstruction({ units: 400_000 }),
+          getCreateAccountInstruction({
+            payer,
+            newAccount: mint,
+            lamports: lamports(mintRent),
+            space: baseMintSize,
+            programAddress: TOKEN_2022_PROGRAM_ADDRESS
+          }),
+          ...extensionInstructions,
+          getInitializeMintInstruction({
+            mint: mint.address,
+            decimals: 6,
+            mintAuthority: payer.address,
+            freezeAuthority: payer.address
+          }),
+          getInitializeTokenMetadataInstruction({
+            metadata: mint.address,
+            updateAuthority: payer.address,
+            mint: mint.address,
+            mintAuthority: payer,
+            name: TOKEN_NAME,
+            symbol: TOKEN_SYMBOL,
+            uri: TOKEN_URI
+          }),
+          getUpdateTokenMetadataFieldInstruction({
+            metadata: mint.address,
+            updateAuthority: payer,
+            field: tokenMetadataField("Key", [TOKEN_ACL_KEY]),
+            value: ABL_PROGRAM_ADDRESS
+          })
+        ],
+        tx
+      )
+  );
+
+  // Sign and send
+  const signedTx = await signTransactionMessageWithSigners(createMintTx);
+  await sendAndConfirm(signedTx, { commitment: "confirmed" });
+
+  console.log("✅ Mint created with TokenMetadata");
+  return mint.address;
+}
+```
+
+### Schritt 3: Token ACL-Konfiguration erstellen
+
+Nach der Erstellung des Mints die Token ACL-Konfiguration erstellen:
+
+```typescript
+async function createTokenACLConfig(
+  mintAddress: Address,
+  payer: TransactionSigner
+) {
+  const [mintConfigPda] = await findMintConfigPda({ mint: mintAddress });
+  console.log(`📋 MintConfig PDA: ${mintConfigPda}`);
+
+  const createConfigIx = getCreateConfigInstruction({
+    payer: payer.address,
+    authority: payer,
+    mint: mintAddress,
+    mintConfig: mintConfigPda,
+    gatingProgram: ABL_PROGRAM_ADDRESS
+  });
+
+  const { value: blockhash } = await rpc.getLatestBlockhash().send();
+  const tx = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayer(payer.address, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+    (tx) => appendTransactionMessageInstructions([createConfigIx], tx)
+  );
+
+  const signedTx = await signTransactionMessageWithSigners(tx);
+  await sendAndConfirm(signedTx, { commitment: "confirmed" });
+
+  console.log("✅ Token ACL config created");
+  console.log("   Freeze authority transferred to MintConfig PDA");
+
+  return mintConfigPda;
+}
+```
+
+### Schritt 4: ABL Gate Program einrichten
+
+Eine ABL-Liste erstellen und Extra-Metas einrichten:
+
+<Tabs items={["AllowAllEoas Mode", "Allow List Mode", "Block List Mode"]}>
+
+<Tab value="AllowAllEoas Mode">
+
+```typescript
+// AllowAllEoas - All regular wallets can thaw automatically
+async function setupAllowAllEoas(
+  mintAddress: Address,
+  mintConfigPda: Address,
+  payer: TransactionSigner
+) {
+  const listSeed = mintAddress; // Use mint as seed
+  const [listConfigPda] = await findListConfigPda({
+    authority: payer.address,
+    seed: listSeed
+  });
+
+  const createListIx = getCreateListInstruction({
+    authority: payer,
+    listConfig: listConfigPda,
+    mode: Mode.AllowAllEoas, // All EOAs can thaw
+    seed: listSeed
+  });
+
+  const [thawExtraMetasPda] = await findThawExtraMetasAccountPda(
+    { mint: mintAddress },
+    { programAddress: ABL_PROGRAM_ADDRESS }
+  );
+
+  const setupMetasIx = getSetupExtraMetasInstruction({
+    authority: payer,
+    tokenAclMintConfig: mintConfigPda,
+    mint: mintAddress,
+    extraMetas: thawExtraMetasPda,
+    lists: [listConfigPda]
+  });
+
+  // Send transaction with both instructions...
+  console.log("✅ ABL list created with AllowAllEoas mode");
+}
+```
+
+</Tab>
+
+<Tab value="Allow List Mode">
+
+```typescript
+// Allow List - Only whitelisted wallets can thaw
+async function setupAllowList(
+  mintAddress: Address,
+  mintConfigPda: Address,
+  payer: TransactionSigner
+) {
+  const listSeed = mintAddress;
+  const [listConfigPda] = await findListConfigPda({
+    authority: payer.address,
+    seed: listSeed
+  });
+
+  const createListIx = getCreateListInstruction({
+    authority: payer,
+    listConfig: listConfigPda,
+    mode: Mode.Allow, // Only allow-listed wallets
+    seed: listSeed
+  });
+
+  // Setup extra metas...
+  console.log("✅ Allow list created - only whitelisted wallets can thaw");
+}
+
+// Add wallet to allow list
+async function addToAllowList(
+  listConfigPda: Address,
+  walletToAdd: Address,
+  authority: TransactionSigner
+) {
+  const [walletEntryPda] = await findWalletEntryPda({
+    listConfig: listConfigPda,
+    walletAddress: walletToAdd
+  });
+
+  const addWalletIx = getAddWalletInstruction({
+    authority,
+    listConfig: listConfigPda,
+    walletEntry: walletEntryPda,
+    wallet: walletToAdd
+  });
+
+  // Send transaction...
+  console.log(`✅ Added ${walletToAdd} to allow list`);
+}
+```
+
+</Tab>
+
+<Tab value="Block List Mode">
+
+```typescript
+// Block List - All wallets can thaw EXCEPT blocked ones
+async function setupBlockList(
+  mintAddress: Address,
+  mintConfigPda: Address,
+  payer: TransactionSigner
+) {
+  const listSeed = mintAddress;
+  const [listConfigPda] = await findListConfigPda({
+    authority: payer.address,
+    seed: listSeed
+  });
+
+  const createListIx = getCreateListInstruction({
+    authority: payer,
+    listConfig: listConfigPda,
+    mode: Mode.Block, // Block listed wallets
+    seed: listSeed
+  });
+
+  // Setup extra metas...
+  console.log("✅ Block list created - blocked wallets cannot thaw");
+}
+
+// Add wallet to block list (e.g., sanctioned address)
+async function addToBlockList(
+  listConfigPda: Address,
+  walletToBlock: Address,
+  authority: TransactionSigner
+) {
+  const [walletEntryPda] = await findWalletEntryPda({
+    listConfig: listConfigPda,
+    walletAddress: walletToBlock
+  });
+
+  const addWalletIx = getAddWalletInstruction({
+    authority,
+    listConfig: listConfigPda,
+    walletEntry: walletEntryPda,
+    wallet: walletToBlock
+  });
+
+  // Send transaction...
+  console.log(`🚫 Added ${walletToBlock} to block list`);
+}
+```
+
+</Tab>
+
+</Tabs>
+
+### Schritt 5: Permissionloses Auftauen aktivieren
+
+Nutzern ermöglichen, ihre eigenen Konten aufzutauen:
+
+```typescript
+async function enablePermissionlessThaw(
+  mintConfigPda: Address,
+  authority: TransactionSigner
+) {
+  const toggleIx = getTogglePermissionlessInstructionsInstruction({
+    authority,
+    mintConfig: mintConfigPda,
+    thawEnabled: true,
+    freezeEnabled: false // Optional: enable permissionless freeze too
+  });
+
+  // Send transaction...
+  console.log("✅ Permissionless thaw enabled");
+}
+```
+
+### Schritt 6: Nutzer taut sein Konto auf
+
+Nutzer können ihre eigenen Konten jetzt über das SDK auftauen:
+
+```typescript
+import {
+  createThawPermissionlessIdempotentInstructionWithExtraMetas,
+  TOKEN_ACL_PROGRAM_ADDRESS
+} from "@token-acl/sdk";
+import { fetchEncodedAccount } from "@solana/kit";
+
+async function userThawsAccount(
+  mintAddress: Address,
+  userAta: Address,
+  userAddress: Address,
+  payer: TransactionSigner
+) {
+  // Account retriever function for the SDK
+  const accountRetriever = async (addr: Address) => {
+    return await fetchEncodedAccount(rpc, addr);
+  };
+
+  // The SDK handles all the complexity of fetching extra metas
+  const thawIx =
+    await createThawPermissionlessIdempotentInstructionWithExtraMetas(
+      payer, // authority (signer)
+      userAta, // token account to thaw
+      mintAddress, // mint
+      userAddress, // token account owner
+      TOKEN_ACL_PROGRAM_ADDRESS, // Token ACL program
+      accountRetriever // account fetcher
+    );
+
+  // Send transaction signed by payer...
+  console.log("✅ Account thawed permissionlessly!");
+}
+```
+
+## @solana/token-helpers für automatisches Auftauen verwenden
+
+Das SDK `@solana/token-helpers` kann Token ACL-Mints automatisch erkennen und
+Auftau- Anweisungen einschließen:
+
+```typescript
+import { createAndConfirmAssociatedTokenAccount } from "@solana/token-helpers";
+
+// This automatically includes thaw instruction if mint has 'token_acl' metadata
+const { signature, associatedTokenAddress } =
+  await createAndConfirmAssociatedTokenAccount(
+    rpc,
+    rpcSubscriptions,
+    payer,
+    user.address,
+    mintAddress,
+    true // idempotent
+  );
+
+console.log(`✅ Account created AND thawed automatically!`);
+console.log(`   ATA: ${associatedTokenAddress}`);
+```
+
+<Callout type="info" title="TokenMetadata-Anforderung">
+
+Damit die automatische Erkennung von `@solana/token-helpers` funktioniert, muss Ihr Mint folgendes haben:
+
+1. Die `TokenMetadata`-Erweiterung initialisiert
+2. Ein `additionalMetadata`-Feld mit dem Schlüssel `token_acl` und dem Wert der Gate
+   Program-Adresse
+
+</Callout>
+
+## Kombinierte Allow- und Block-Listen
+
+Für maximale Compliance-Kontrolle Allow- und Block-Listen kombinieren:
+
+```typescript
+async function setupCompositeLists(
+  mintAddress: Address,
+  mintConfigPda: Address,
+  payer: TransactionSigner
+) {
+  // Create ALLOW list
+  const allowListSeed = /* unique seed for allow list */;
+  const [allowListPda] = await findListConfigPda({
+    authority: payer.address,
+    seed: allowListSeed,
+  });
+
+  const createAllowListIx = getCreateListInstruction({
+    authority: payer,
+    listConfig: allowListPda,
+    mode: Mode.Allow,
+    seed: allowListSeed,
+  });
+
+  // Create BLOCK list
+  const blockListSeed = /* unique seed for block list */;
+  const [blockListPda] = await findListConfigPda({
+    authority: payer.address,
+    seed: blockListSeed,
+  });
+
+  const createBlockListIx = getCreateListInstruction({
+    authority: payer,
+    listConfig: blockListPda,
+    mode: Mode.Block,
+    seed: blockListSeed,
+  });
+
+  // Setup extra metas with BOTH lists
+  const [thawExtraMetasPda] = await findThawExtraMetasAccountPda(
+    { mint: mintAddress },
+    { programAddress: ABL_PROGRAM_ADDRESS }
+  );
+
+  const setupMetasIx = getSetupExtraMetasInstruction({
+    authority: payer,
+    tokenAclMintConfig: mintConfigPda,
+    mint: mintAddress,
+    extraMetas: thawExtraMetasPda,
+    lists: [allowListPda, blockListPda], // Both lists!
+  });
+
+  // Send transaction...
+  console.log("✅ Composite lists created");
+  console.log("   - Allow list: Only whitelisted users can thaw");
+  console.log("   - Block list: Blocked users can NEVER thaw");
+}
+```
+
+### Verhalten kombinierter Listen
+
+```
+┌─────────────────────────────────────────────────────┐
+│           COMPOSITE LIST LOGIC                      │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│   User tries to thaw:                               │
+│                                                     │
+│   1. Check BLOCK list first                         │
+│      └─> On block list? ❌ DENY (always)            │
+│                                                     │
+│   2. Check ALLOW list                               │
+│      └─> On allow list? ✅ ALLOW                    │
+│      └─> Not on allow list? ❌ DENY                 │
+│                                                     │
+│   Key insight: Block list ALWAYS wins!              │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+## Anwendungsfälle
+
+### 1. Security Token (KYC erforderlich)
+
+Verwenden Sie eine **Allow-Liste**, um sicherzustellen, dass nur KYC-verifizierte Investoren Token halten können:
+
+```typescript
+// Create allow list
+const createListIx = getCreateListInstruction({
+  authority: issuer,
+  listConfig: allowListPda,
+  mode: Mode.Allow,
+  seed: mintAddress
+});
+
+// After KYC verification, add investor
+await addToAllowList(allowListPda, kycVerifiedInvestor, issuer);
+```
+
+### 2. Sanctions-Compliance
+
+Verwenden Sie eine **Block-Liste**, um zu verhindern, dass sanktionierte Adressen Token empfangen:
+
+```typescript
+// Create block list
+const createListIx = getCreateListInstruction({
+  authority: complianceOfficer,
+  listConfig: blockListPda,
+  mode: Mode.Block,
+  seed: mintAddress
+});
+
+// Block sanctioned address
+await addToBlockList(blockListPda, sanctionedAddress, complianceOfficer);
+```
+
+### 3. Offener Token mit PDA-Schutz
+
+Verwenden Sie **AllowAllEoas**, um alle regulären Wallets zuzulassen und gleichzeitig PDAs (Smart
+Contracts) zu blockieren:
+
+```typescript
+const createListIx = getCreateListInstruction({
+  authority: payer,
+  listConfig: listConfigPda,
+  mode: Mode.AllowAllEoas, // Regular wallets OK, PDAs blocked
+  seed: mintAddress
+});
+```
+
+### 4. Vollständige Enterprise-Compliance
+
+Kombinieren Sie **Allow-Liste + Block-Liste** für vollständige Kontrolle:
+
+- Allow-Liste: KYC-verifizierte Investoren
+- Block-Liste: Sanktionierte Adressen, ausgeschiedene Mitarbeiter usw.
+
+## Produktionsüberlegungen
+
+Vor der Bereitstellung in der Produktion:
+
+1. **Sicherheitsaudits**: Holen Sie professionelle Sicherheitsaudits Ihrer Implementierung
+   und aller benutzerdefinierten Gate Programs ein
+
+2. **Schlüsselverwaltung**: Verwenden Sie geeignete Custody-Lösungen für Autoritätsschlüssel. Erwägen Sie
+   Multi-Sig für sensible Operationen
+
+3. **Regulatorische Compliance**: Konsultieren Sie Rechtsexperten zu Wertpapiervorschriften,
+   KYC/AML-Anforderungen und Sanctions-Compliance
+
+4. **Listenverwaltung**: Robuste Systeme für die Verwaltung von Allow/Block-Listen aufbauen,
+   einschließlich:
+   - Integration automatisierter Sanktionsprüfungen
+   - KYC-Anbieterintegration
+   - Audit-Protokollierung
+
+5. **Monitoring**: Monitoring implementieren für:
+   - Fehlgeschlagene Auftauversuche (potenzielle Compliance-Probleme)
+   - Listenänderungen
+   - Verwendung von Autoritätsschlüsseln
+
+6. **Notfallwiederherstellung**: Planung für Schlüsselrotation, Listenwiederherstellung und Notfall-
+   Einfrierverfahren
+
+<Callout type="caution" title="Solana CLI-Version">
+
+Token ACL mit TokenMetadata erfordert **Solana CLI 2.x**. Es gibt ein bekanntes Problem
+mit CLI 3.x, das die automatische TokenMetadata-Erweiterungsfunktion beeinträchtigt. Überprüfen Sie immer
+Ihre CLI-Version vor der Bereitstellung.
+
+</Callout>
+
+## Befehlszeilenschnittstelle (CLI)
+
+Sowohl Token ACL als auch das ABL Gate Program stellen CLIs zur Verwaltung von Konfigurationen und
+Listen bereit, ohne Code schreiben zu müssen. Dies ist nützlich für Operations-Teams.
+
+### Token ACL CLI
+
+Die Token ACL CLI verwaltet Mint-Konfigurationen sowie Einfrieren/Auftauen-Operationen.
+
+#### Installation
+
+```bash
+# Install from crates.io
+cargo install token-acl-cli
+
+# Verify installation
+token-acl --version
+```
+
+#### Token ACL-Befehle
+
+| Befehl                              | Beschreibung                                            |
+| ------------------------------------ | ------------------------------------------------------ |
+| `create-config`                      | Erstellt eine neue Mint-Konfiguration (überträgt Einfrierautorität) |
+| `delete-config`                      | Löscht eine Mint-Konfiguration                                  |
+| `set-authority`                      | Setzt die Autorität einer Mint-Konfiguration                    |
+| `set-gating-program`                 | Legt das Gating-Programm für eine Mint-Konfiguration fest              |
+| `set-instructions`                   |  Anweisungen zum erlaubnisfreien Auftauen/Einfrieren aktivieren/deaktivieren              |
+| `thaw`                               | Taut ein token account auf (Berechtigung erforderlich)             |
+| `freeze`                             | Friert ein token account ein (Berechtigung erforderlich)           |
+| `thaw-permissionless`                | Taut ein token account erlaubnisfrei auf                 |
+| `freeze-permissionless`              | Friert ein token account erlaubnisfrei ein               |
+| `create-ata-and-thaw-permissionless` | Erstellt ein associated token account und taut es in einem Befehl auf                   |
+
+#### Eine Token-ACL-Konfiguration erstellen
+
+```bash
+# Create a mint config (delegates freeze authority to Token ACL)
+token-acl create-config <MINT_ADDRESS> \
+  --gating-program GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz
+```
+
+#### Erlaubnisfreies Auftauen aktivieren
+
+```bash
+# Enable permissionless thaw only (recommended for most use cases)
+# - Users can self-service unfreeze after passing gate checks
+# - Only authority can freeze accounts (security best practice)
+token-acl set-instructions --enable-thaw --disable-freeze <MINT_ADDRESS>
+
+# Enable both permissionless thaw AND freeze
+# Use case: Allow anyone to freeze blocked users, or users to self-freeze
+token-acl set-instructions --enable-thaw --enable-freeze <MINT_ADDRESS>
+
+# Disable all permissionless operations (authority-only mode)
+token-acl set-instructions --disable-thaw --disable-freeze <MINT_ADDRESS>
+```
+
+#### Auftau-/Einfrieroperationen
+
+```bash
+# Thaw an account permissionlessly (user self-service)
+token-acl thaw-permissionless <MINT_ADDRESS> <TOKEN_ACCOUNT_ADDRESS>
+
+# Thaw using authority (issuer operation)
+token-acl thaw <MINT_ADDRESS> <TOKEN_ACCOUNT_ADDRESS>
+
+# Freeze using authority (compliance enforcement)
+token-acl freeze <MINT_ADDRESS> <TOKEN_ACCOUNT_ADDRESS>
+```
+
+#### ATA erstellen und in einem Befehl auftauen
+
+```bash
+# Creates associated token account and thaws it automatically
+token-acl create-ata-and-thaw-permissionless --mint <MINT_ADDRESS> --owner <WALLET_ADDRESS>
+```
+
+### ABL Gate CLI (`allow-block-list`)
+
+Die ABL Gate CLI verwaltet Erlaubnis-/Sperrlisten und Wallet-Einträge.
+
+#### Installation
+
+```bash
+# Install from crates.io
+cargo install token-acl-gate-cli
+
+# Verify installation (binary is named 'allow-block-list')
+allow-block-list --version
+```
+
+#### ABL Gate Befehle
+
+| Befehl               | Beschreibung                            |
+| --------------------- | -------------------------------------- |
+| `create-list`         | Erstellt eine neue Erlaubnis-/Sperrliste         |
+| `delete-list`         | Löscht eine Liste                         |
+| `add-wallet`          | Fügt ein Wallet zu einer Liste hinzu                |
+| `remove-wallet`       | Entfernt ein Wallet aus einer Liste           |
+| `apply-lists-to-mint` | Konfiguriert, welche Listen auf einen Mint angewendet werden |
+
+#### Eine Liste erstellen
+
+```bash
+# Create an ALLOW list (only whitelisted wallets can thaw)
+allow-block-list create-list --mode allow
+
+# Create a BLOCK list (blocked wallets cannot thaw)
+allow-block-list create-list --mode block
+
+# Create an ALLOW-ALL-EOAs list (all regular wallets can thaw)
+allow-block-list create-list --mode allow-all-eoas
+```
+
+Der Befehl gibt die `list_config` PDA-Adresse und den `seed` aus – **diese unbedingt speichern!**
+
+#### Wallets in Listen verwalten
+
+```bash
+# Add wallet to a list (works for both allow and block lists)
+allow-block-list add-wallet <LIST_ADDRESS> <WALLET_ADDRESS>
+
+# Remove wallet from a list
+allow-block-list remove-wallet <LIST_ADDRESS> <WALLET_ADDRESS>
+```
+
+#### Listen auf einen Mint anwenden
+
+```bash
+# Apply a single list to a mint
+allow-block-list apply-lists-to-mint <MINT_ADDRESS> <LIST_ADDRESS>
+
+# Apply multiple lists (e.g., allow + block for composite compliance)
+allow-block-list apply-lists-to-mint <MINT_ADDRESS> <ALLOW_LIST> <BLOCK_LIST>
+```
+
+### Globale CLI-Optionen
+
+Beide CLIs unterstützen diese Optionen:
+
+| Option                  | Beschreibung                           |
+| ----------------------- | ------------------------------------- |
+| `-u, --url <URL>`       | RPC-URL (Standard: aus der Solana-Konfiguration) |
+| `-k, --payer <KEYPAIR>` | keypair-Datei des Zahlers oder Hardware-Wallet |
+| `-C, --config <PATH>`   | Pfad zur Solana-Konfigurationsdatei               |
+| `-v, --verbose`         | Zusätzliche Informationen anzeigen           |
+
+### Vollständiges CLI-Workflow-Beispiel
+
+Hier ist ein vollständiger Workflow, der alle CLIs verwendet, um ein konformes Token von Grund auf einzurichten:
+
+```bash
+# ============================================================================
+# STEP 1: Configure Solana CLI
+# ============================================================================
+solana config set --url localhost
+
+# ============================================================================
+# STEP 2: Create Token22 Mint with Metadata + DefaultAccountState Extensions
+# ============================================================================
+
+# Create the mint with:
+# - Token-2022 program
+# - Freeze authority enabled
+# - Default account state = frozen (all new accounts start frozen)
+# - Metadata extension with token_acl field for auto-detection
+spl-token create-token \
+  --program-id TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb \
+  --enable-freeze \
+  --default-account-state frozen \
+  --enable-metadata
+
+# Output:
+# Creating token 7KzLwpXMzKa8JiqYr2ookFjxLx1xMF4xM4YhVqPJpump
+# Address: 7KzLwpXMzKa8JiqYr2ookFjxLx1xMF4xM4YhVqPJpump
+
+# Save the mint address for use in subsequent commands
+MINT=7KzLwpXMzKa8JiqYr2ookFjxLx1xMF4xM4YhVqPJpump
+
+# Initialize the token metadata
+spl-token initialize-metadata $MINT "Compliant Token" "COMP" "https://example.com/metadata.json"
+
+# Add the token_acl field for wallet auto-detection
+# This tells wallets/SDKs which gate program to use for thaw
+spl-token update-metadata $MINT token_acl GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz
+
+# Verify the token was created correctly
+spl-token display $MINT
+
+# ============================================================================
+# STEP 3: Create Token ACL Config
+# ============================================================================
+
+# This transfers freeze authority from your wallet to the Token ACL MintConfig PDA
+token-acl create-config $MINT \
+  --gating-program GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz
+
+# Output:
+# ✅ Config created for mint 7KzLwpXMzKa8JiqYr2ookFjxLx1xMF4xM4YhVqPJpump
+# MintConfig PDA: 9xYzAbCdEfGhIjKlMnOpQrStUvWxYz123456789abc
+
+# ============================================================================
+# STEP 4: Create ABL Lists
+# ============================================================================
+
+# Create a block list for sanctions compliance
+allow-block-list create-list --mode block
+
+# Output:
+# list_config: 5HnJkLmNoPqRsTuVwXyZ987654321defghijk
+# seed: 3AbCdEfGhIjKlMnOpQrStUvWxYz123456789
+
+# Save the block list address
+BLOCK_LIST=5HnJkLmNoPqRsTuVwXyZ987654321defghijk
+
+# ============================================================================
+# STEP 5: Apply Lists to Mint
+# ============================================================================
+
+# Configure the block list to be used for this mint's permissionless operations
+allow-block-list apply-lists-to-mint $MINT $BLOCK_LIST
+
+# ============================================================================
+# STEP 6: Enable Permissionless Thaw
+# ============================================================================
+
+# Allow users to thaw their own accounts (if not on block list)
+# --enable-thaw: Users can self-service unfreeze after passing gate checks
+# --disable-freeze: Only authority can freeze
+token-acl set-instructions --enable-thaw --disable-freeze $MINT
+
+# ============================================================================
+# STEP 7: Manage Block List (Compliance Operations)
+# ============================================================================
+
+# To fully block a user, you need TWO steps:
+# 1. Add to block list (prevents future thawing)
+# 2. Freeze their token account (stops current usage)
+
+# Step 7a: Add wallet to block list
+# Replace with actual wallet address to block (must be valid base58 pubkey)
+allow-block-list add-wallet $BLOCK_LIST <WALLET_TO_BLOCK>
+
+# Step 7b: Freeze their existing token account (if they have one)
+# This requires the token account address, not the wallet address
+# spl-token address --verbose --token $MINT to get the token account address
+# token-acl freeze <TOKEN_ACCOUNT_ADDRESS>
+
+# Note: Adding to block list alone only prevents them from THAWING.
+# If their account is already thawed, they can still use it until you freeze it!
+
+# Later, if sanctions are lifted:
+# 1. Remove from block list
+# allow-block-list remove-wallet $BLOCK_LIST <WALLET_ADDRESS>
+# 2. User can then thaw their account again
+
+# ============================================================================
+# STEP 8: User Creates Account and Thaws
+# ============================================================================
+
+# A user can now create their token account and thaw it in one command
+# Use your own wallet or generate one: solana-keygen new --no-outfile
+USER_WALLET=$(solana address)  # Uses your configured wallet
+token-acl create-ata-and-thaw-permissionless --mint $MINT --owner $USER_WALLET
+
+# Output:
+# ✅ Created ATA: 8AbCdEfGhIjKlMnOpQrStUvWxYz123456789xyz
+# ✅ Thawed successfully!
+
+# ============================================================================
+# STEP 9: Mint Tokens to User
+# ============================================================================
+
+# Now the issuer can mint tokens to the user's thawed account
+spl-token mint $MINT 1000 --recipient-owner $USER_WALLET
+
+# Verify balance
+spl-token balance $MINT
+```
+
+<Callout type="info" title="Token-Metadaten zur automatischen Erkennung">
+
+Das Hinzufügen des Metadatenfelds `token_acl` ist entscheidend für die Wallet-Integration. Wenn Wallets wie Phantom oder SDKs wie `@solana/token-helpers` dieses Feld erkennen, fügen sie beim Erstellen von token accounts automatisch Auftau- Anweisungen hinzu.
+
+```bash
+spl-token update-metadata $MINT token_acl GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz
+```
+
+</Callout>
+
+## Nächste Schritte
+
+1. **Workshop ausprobieren**: Klonen Sie das
+   [token-acl-Repository](https://github.com/Woody4618/access-control-list-acl-demo)
+   und führen Sie die Demo-Beispiele aus. Lesen Sie die Implementierung der
+   [ACL](https://github.com/solana-foundation/token-acl) und des
+   [ABL Gate Programms](https://github.com/solana-foundation/token-acl-gate) durch.
+
+2. **Eigene Gate-Programme erstellen**: Das ABL Gate Programm ist lediglich eine Referenzimplementierung. Erstellen Sie Ihr eigenes Gate-Programm, um es in Ihre bestehende Compliance-Infrastruktur und Identitätsanbieter zu integrieren oder benutzerdefinierte Logik zu implementieren, die Ihren spezifischen Anforderungen entspricht.
+
+3. **Integration mit DeFi**: Token-ACL-Token sind vollständig mit DeFi-Protokollen kombinierbar
+
+4. **Spezifikation lesen**: Lesen Sie
+   [sRFC37](https://github.com/solana-foundation/token-acl/blob/main/srfc37.md)
+   für die vollständige technische Spezifikation und nehmen Sie an der
+   [sRFC37-Diskussion](https://github.com/solana-foundation/SRFCs/discussions/2) teil
+
+## Fazit
+
+Token ACL (sRFC37) bietet eine leistungsstarke Lösung für Unternehmen, die konforme, berechtigungsgesteuerte Token benötigen, ohne die Benutzererfahrung zu beeinträchtigen, die Blockchain so wertvoll macht. Wichtige Vorteile:
+
+- **Sofortige Aktivierung**: Nutzer können ihre Konten selbstständig auftauen
+- **Vollständige Compliance-Kontrolle**: Erlaubnislisten, Sperrlisten oder benutzerdefinierte Logik
+- **Flexible Gate-Programme**: Verwenden Sie die ABL-Referenzimplementierung oder erstellen Sie eigene Gate-Programme, die sich in Ihre Compliance-Infrastruktur integrieren
+- **Nahtlose Integration**: SDKs übernehmen die Komplexität automatisch
+- **Kombinierbar**: Funktioniert mit bestehenden DeFi-Protokollen
+- **Geprüft**: Produktionsreife Programme, die im Mainnet eingesetzt werden
+
+Die Kombination der `DefaultAccountState`-Erweiterung von Token-2022 mit den erlaubnisfreien Operationen von Token ACL schafft ein neues Paradigma für die konforme Token-Ausgabe auf Solana.

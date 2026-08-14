@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import type { ReactNode } from "react";
 
 import styles from "./DevelopersContent.module.scss";

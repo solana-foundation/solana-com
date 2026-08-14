@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowDownToLine, ArrowUpRight, ArrowLeft } from "lucide-react";
+import { ArrowToBottom as ArrowDownToLine } from "@boxicons/react/ArrowToBottom";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { notFound } from "next/navigation";
@@ -13,7 +15,7 @@ import { reader } from "@/lib/reader";
 import { reportMetadata } from "@/lib/metadata";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
-import { SwitchbackItem } from "@/lib/switchback-types";
+import type { ReportEntry } from "@/lib/report-types";
 import { JsonLd } from "@/components/seo/json-ld";
 import { buildReportJsonLd } from "@/lib/content-structured-data";
 
@@ -26,10 +28,10 @@ export default async function ReportPage({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
-  const report: SwitchbackItem =
-    await reader.collections.switchbacks.read(slug);
+  const report: ReportEntry | null =
+    await reader.collections.reports.read(slug);
 
-  if (!isPublishedReport(report)) {
+  if (!report || !isPublishedReport(report)) {
     notFound();
   }
 
@@ -175,7 +177,6 @@ export default async function ReportPage({
                       <ArrowDownToLine
                         aria-hidden
                         className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
-                        strokeWidth={3}
                       />
                       Download Report
                     </a>
@@ -195,7 +196,7 @@ export default async function ReportPage({
                       rel="noopener noreferrer"
                     >
                       {button.label}
-                      <ArrowUpRight className="size-4" />
+                      <ArrowOutUpRightSquare className="size-4" />
                     </a>
                   </Button>
                 ))}
@@ -227,11 +228,11 @@ export default async function ReportPage({
 
 export async function generateStaticParams() {
   try {
-    const slugs = await reader.collections.switchbacks.list();
+    const slugs = await reader.collections.reports.list();
     const publishedSlugs: string[] = [];
 
     for (const slug of slugs) {
-      const report = await reader.collections.switchbacks.read(slug);
+      const report = await reader.collections.reports.read(slug);
       if (isPublishedReport(report)) {
         publishedSlugs.push(slug);
       }

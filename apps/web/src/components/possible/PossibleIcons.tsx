@@ -1,6 +1,6 @@
 import { useTranslations } from "next-intl";
 import PossibleGlow from "./PossibleGlow";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Button from "../shared/Button";
 import styles from "./PossibleIcons.module.scss";
 import IconBackground from "../../../assets/possible/icons.png";

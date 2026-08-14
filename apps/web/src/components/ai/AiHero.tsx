@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import Button from "@/components/shared/Button";
@@ -33,7 +33,7 @@ export default function AiHero() {
           <Button
             newTab
             size="large"
-            to="/developers/guides/getstarted/intro-to-ai"
+            to="/docs/intro/coding-with-agents"
             variant="secondary"
           >
             {t("ai.hero.cta")}

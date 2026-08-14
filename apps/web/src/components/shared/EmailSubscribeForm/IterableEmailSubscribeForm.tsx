@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import { useTranslations } from "next-intl";
 import { memo, useMemo } from "react";
 import * as Yup from "yup";

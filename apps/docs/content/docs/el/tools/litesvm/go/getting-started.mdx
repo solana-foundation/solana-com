@@ -1,0 +1,312 @@
+---
+title: Ξεκινώντας
+description:
+  Use LiteSVM from Go with litesvm-go for fast, in-process Solana testing
+---
+
+Τα test suites της Solana που εκκινούν `solana-test-validator` χρειάζονται δευτερόλεπτα ανά test -
+περιμένετε την εκκίνηση διεργασίας, τις συνδέσεις RPC και τους γύρους δικτύου.
+Το LiteSVM εκτελεί τα ίδια tests σε milliseconds. Χωρίς εξωτερική διεργασία, χωρίς δίκτυο,
+όλα στη μνήμη μέσα στο test runner σας.
+
+Το `litesvm-go` είναι το επίσημο Go binding. Οι βασικοί τύποι (`PublicKey`, `Hash`,
+`Signature`) προέρχονται απευθείας από
+[`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go), οπότε οι τιμές
+ρέουν φυσικά μεταξύ του `litesvm-go` και του υπόλοιπου οικοσυστήματος Go Solana.
+
+<Callout type="info">
+  **Απαιτήσεις:** Go 1.24+. Δεν απαιτείται toolchain Rust - προκατασκευασμένα στατικά
+  αρχεία είναι ενσωματωμένα στο module και επιλέγονται αυτόματα από το `GOOS` /
+  `GOARCH`. Υποστηριζόμενες πλατφόρμες: macOS (amd64, arm64), Linux (amd64, arm64;
+  glibc ή musl), Windows (amd64).
+</Callout>
+
+Ένα νέο handle `LiteSVM` παρέχει airdrops, transactions (legacy + v0),
+προσομοίωση, ανάγνωση/εγγραφή λογαριασμών, sysvars, compute budget, feature gates, time
+travel, custom προγράμματα και ιστορικό transactions - όλα υποστηριζόμενα από τον ίδιο Rust
+core που τροφοδοτεί τα SDKs Rust και TypeScript.
+
+## Γρήγορη Εκκίνηση
+
+<Steps>
+
+<Step>
+### Εγκατάσταση του module
+
+Το `go get` επιλύει τις εξαρτήσεις σε ένα Go module, οπότε αρχικοποιήστε ένα πρώτα αν
+δεν έχετε ήδη `go.mod`:
+
+```bash
+go mod init mytest
+```
+
+Στη συνέχεια προσθέστε το module:
+
+```bash
+go get github.com/LiteSVM/litesvm-go
+```
+
+Επίσης εισάγετε το `solana-go` για δόμηση keypair, εντολών και transactions:
+
+```bash
+go get github.com/gagliardetto/solana-go
+```
+
+<Callout type="warn">
+  **Χρήστες Alpine / musl:** προσθέστε `-tags musl` στην εντολή `go build` / `go test`
+  για να συνδεθεί το σωστό ενσωματωμένο αρχείο.
+</Callout>
+
+</Step>
+
+<Step>
+### Δημιουργία του SVM σας
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Fund a payer
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+
+    if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Check the balance
+    lamports, ok, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if !ok {
+        t.Fatal("payer account missing")
+    }
+    t.Logf("balance: %d lamports", lamports)
+}
+```
+
+<Callout type="info">
+  Η `litesvm.New()` επιστρέφει ένα `*LiteSVM` και ένα `error`. Κάθε σημείο εισόδου στο
+  `litesvm-go` ακολουθεί το ίδιο σχήμα `(value, error)`· τα panics στη Rust πλευρά
+  συλλαμβάνονται και μετατρέπονται σε errors. Να χρησιμοποιείτε πάντα `defer svm.Close()` ώστε
+  το υποκείμενο handle Rust να αποδεσμεύεται - ή βασιστείτε στον finalizer, αν και ο ρητός
+  `Close` προτιμάται για προβλέψιμο καθαρισμό.
+</Callout>
+
+</Step>
+
+</Steps>
+
+## Κατανόηση του Handle
+
+Μετά την `litesvm.New()`, το επιστρεφόμενο `*LiteSVM` παρέχει αυτές τις ομάδες λειτουργιών:
+
+| Ομάδα                | Μέθοδοι                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Λογαριασμοί             | `Airdrop`, `Balance`, `GetAccount`, `SetAccount`, `MinimumBalanceForRentExemption`                                                 |
+| Transactions         | `SendLegacyTransaction`, `SendVersionedTransaction`, `SimulateLegacyTransaction`, `SimulateVersionedTransaction`, `GetTransaction` |
+| Blockhash            | `LatestBlockhash`, `ExpireBlockhash`                                                                                               |
+| Προγράμματα             | `AddProgram`, `AddProgramFromFile`, `AddProgramWithLoader`                                                                         |
+| Χρόνος και sysvars     | `WarpToSlot`, `Clock`, `SetClock`, `Rent`, `SetRent`, `EpochSchedule`, `SetEpochSchedule`, `EpochRewards`, ...                     |
+| Διαμόρφωση        | `SetSigverify`, `SetBlockhashCheck`, `SetTransactionHistory`, `SetLogBytesLimit`, `SetSysvars`, `SetBuiltins`, ...                 |
+| Υπολογισμός και features | `ComputeBudget`, `SetComputeBudget`, `SetFeatureSet`                                                                               |
+
+Ένα νέο `LiteSVM` παρέχεται με τα βασικά προγράμματα Solana (System Program, SPL
+Token κ.λπ.) προφορτωμένα, οπότε οι απλές μεταφορές λειτουργούν εξαρχής.
+
+## Αποστολή Transactions
+
+Δομήστε εντολές με `solana-go`, serialize το transaction και υποβάλετε τα
+bytes. Το `litesvm-go` δέχεται τα bytes κωδικοποιημένα σε bincode που παράγονται από
+την `(*solana.Transaction).MarshalBinary`:
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/programs/system"
+)
+
+func TestTransfer(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    recipient := solana.NewWallet().PublicKey()
+
+    if err := svm.Airdrop(payer, 2_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    blockhash, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := system.NewTransferInstruction(1_000_000_000, payer, recipient).Build()
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        blockhash,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    lamports, _, err := svm.Balance(recipient)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if lamports != 1_000_000_000 {
+        t.Fatalf("recipient balance = %d, want 1_000_000_000", lamports)
+    }
+}
+```
+
+<Callout type="info">
+  Το `SendLegacyTransaction` και το `SendVersionedTransaction` επιστρέφουν και τα δύο ένα
+  `*TxOutcome` είτε το transaction πέτυχε είτε απέτυχε. Καλέστε `IsOk()` πριν
+  διαβάσετε πεδία που αφορούν μόνο επιτυχία, και πάντα `defer out.Close()` για να αποδεσμεύσετε
+  το handle Rust.
+</Callout>
+
+## Εργασία με TxOutcome
+
+Κάθε σημείο εισόδου send / simulate επιστρέφει ένα `*TxOutcome`. Το ίδιο handle
+περιέχει metadata για επιτυχία και αποτυχία:
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("error: %s", out.Error())
+}
+
+_ = out.Signature()    // solana.Signature
+_ = out.ComputeUnits() // uint64
+_ = out.Fee()          // uint64
+_ = out.Logs()         // []string
+_ = out.InnerInstructions()
+
+// Programs that call set_return_data expose it here.
+if pid, data, ok := out.ReturnData(); ok {
+    _ = pid
+    _ = data
+}
+```
+
+Για `SimulateLegacyTransaction` / `SimulateVersionedTransaction`, το ίδιο
+`*TxOutcome` εκθέτει επιπλέον την `PostAccounts()` - την κατάσταση λογαριασμών μετά την εκτέλεση
+όπως θα ήταν:
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    _ = p.Address
+    _ = p.Account.Lamports()
+    p.Account.Close()
+}
+```
+
+## Διαμόρφωση
+
+Το `litesvm-go` παρέχει τους ίδιους builder switches όπως το Rust crate, μέσω
+μεθόδων `Set*`:
+
+```go
+// Each setter returns an error. In tests where the values are known good,
+// the calls are infallible and assigning to _ keeps the example readable;
+// in production code, check the error or wrap with require.NoError(t, ...).
+_ = svm.SetSigverify(false)        // accept unsigned / badly-signed txs
+_ = svm.SetBlockhashCheck(false)   // skip recent-blockhash enforcement
+_ = svm.SetTransactionHistory(0)   // 0 disables dedup; any N caps history
+_ = svm.SetLogBytesLimit(-1)       // negative = unlimited
+_ = svm.SetLamports(1 << 40)       // default lamports for new accounts
+_ = svm.SetSysvars()               // reset sysvars to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetDefaultPrograms()       // reload SPL Token, Memo, etc.
+_ = svm.SetPrecompiles()           // enable ed25519 / secp256k1 precompiles
+_ = svm.WithNativeMints()          // seed wrapped-SOL mint
+```
+
+## Σημειώσεις
+
+**Ασφάλεια νημάτων.** Ένα handle `*LiteSVM` δεν είναι ασφαλές για ταυτόχρονη χρήση από
+πολλαπλά goroutines (ο υποκείμενος τύπος Rust δεν είναι `Sync`, και οι περισσότερες μέθοδοι
+τροποποιούν την εσωτερική κατάσταση). Περιορίστε ένα handle σε ένα μόνο goroutine, ή προστατέψτε το με
+ένα `sync.Mutex`.
+
+**Συμπεριφορά panic.** Τα ενσωματωμένα αρχεία release είναι κατασκευασμένα με `immediate-abort`:
+οποιοδήποτε panic εντός Rust τερματίζει αμέσως τη διεργασία του host, χωρίς unwinding. Αυτό
+είναι μια συνειδητή επιλογή για μικρότερα αρχεία. Αν το αντιμετωπίσετε στην πράξη,
+παρακαλούμε ανοίξτε ένα issue με ένα reproducer.
+
+## Τι Ακολουθεί
+
+Αυτό καλύπτει το βασικό handle - δημιουργία λογαριασμών, αποστολή εντολών και
+ανάγνωση κατάστασης. Για πλήρη αναφορά ανά μέθοδο δείτε τα
+[API docs](/docs/tools/litesvm/go/api-reference). Για εκτελέσιμα παραδείγματα (μεταφορά SOL,
+ρύθμιση λογαριασμών, δοκιμή προγραμμάτων, λογική βασισμένη σε χρόνο) δείτε
+[Examples](/docs/tools/litesvm/go/examples).

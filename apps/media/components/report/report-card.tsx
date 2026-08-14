@@ -1,6 +1,6 @@
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import type { ReportItem } from "@/lib/report-types";
 import { cn } from "@/lib/utils";
 
@@ -66,7 +66,6 @@ export function ReportCard({ report, index = 0 }: ReportCardProps) {
           <ChevronRight
             aria-hidden
             className="size-4 transition-transform duration-300 group-hover:translate-x-0.5"
-            strokeWidth={2}
           />
         </div>
       </div>

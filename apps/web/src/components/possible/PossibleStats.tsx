@@ -1,11 +1,11 @@
 import { useTranslations } from "next-intl";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./PossibleStats.module.scss";
 import Link from "../../utils/Link";
 import Image from "next/image";
 import GlowLines from "../../../public/src/img/index/glow-lines.jpg";
 
-import Loader from "../../../public/src/img/icons/Loader.inline.svg";
+import { LoaderLines as Loader } from "@boxicons/react/LoaderLines";
 import {
   PERF_UPDATE_SEC,
   SAMPLE_HISTORY_HOURS,
@@ -188,7 +188,7 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                   availableStats ? (
                     <FormattedNumber value={avgTps} />
                   ) : (
-                    <Loader />
+                    <Loader className="animate-spin" aria-hidden="true" />
                   )
                 }
                 valueName={t("possible.stats.transactions")}
@@ -203,7 +203,7 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                   availableStats ? (
                     <FormattedNumber value={validators} />
                   ) : (
-                    <Loader />
+                    <Loader className="animate-spin" aria-hidden="true" />
                   )
                 }
                 valueName={t("possible.stats.validators")}
@@ -220,7 +220,7 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                       perfUpdateSec={PERF_UPDATE_SEC}
                     />
                   ) : (
-                    <Loader />
+                    <Loader className="animate-spin" aria-hidden="true" />
                   )
                 }
                 valueName={t("possible.stats.totaltransactions")}

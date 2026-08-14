@@ -1,0 +1,256 @@
+---
+title: Yapılandırma
+description: Go'da LiteSVM'yi yapılandırmaya yönelik setter metotları
+---
+
+Her setter, Rust `LiteSVM` türündeki karşılık gelen builder metodunu yansıtır.
+Çağrılar hemen etki eder ve bir `error` döndürür.
+
+## Tipik Test Kurulumu
+
+```go
+svm, err := litesvm.New()
+if err != nil {
+    t.Fatal(err)
+}
+defer svm.Close()
+
+// Each setter returns an error. The calls below are infallible in practice,
+// so the docs use _ = ... for brevity; check the error in production code.
+_ = svm.SetSigverify(false)        // skip signature verification (faster)
+_ = svm.SetBlockhashCheck(false)   // skip blockhash validation (simpler)
+_ = svm.SetSysvars()               // reset Clock, Rent, etc. to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetTransactionHistory(100) // keep the last 100 transactions
+```
+
+## İmza ve Blockhash
+
+### SetSigverify
+
+```go
+func (s *LiteSVM) SetSigverify(enabled bool) error
+```
+
+İşlem imzası doğrulamasını açar veya kapatır.
+
+```go
+if err := svm.SetSigverify(false); err != nil { // accept unsigned / badly-signed txs
+    t.Fatal(err)
+}
+if err := svm.SetSigverify(true); err != nil {  // restore production-like behavior
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  İmza doğrulamasını devre dışı bırakmak testleri hızlandırır ancak daha az gerçekçi hale getirir.
+</Callout>
+
+### Sigverify
+
+```go
+func (s *LiteSVM) Sigverify() (bool, error)
+```
+
+Mevcut ayarı okur.
+
+### SetBlockhashCheck
+
+```go
+func (s *LiteSVM) SetBlockhashCheck(enabled bool) error
+```
+
+Gönderilen işlemlerde güncel blockhash kontrolünü açar veya kapatır.
+
+```go
+if err := svm.SetBlockhashCheck(false); err != nil { // accept any blockhash
+    t.Fatal(err)
+}
+```
+
+## Programlar ve Sysvar'lar
+
+### SetSysvars
+
+```go
+func (s *LiteSVM) SetSysvars() error
+```
+
+Yerleşik sysvar'ları (Clock, rent, EpochSchedule, ...) varsayılan
+değerlerine yeniden başlatır.
+
+### SetBuiltins
+
+```go
+func (s *LiteSVM) SetBuiltins() error
+```
+
+Varsayılan yerleşik programlar kümesini yükler.
+
+### SetDefaultPrograms
+
+```go
+func (s *LiteSVM) SetDefaultPrograms() error
+```
+
+Standart SPL programlarını (System Program, SPL Token, Memo, ...) yükler.
+
+### SetPrecompiles
+
+```go
+func (s *LiteSVM) SetPrecompiles() error
+```
+
+ed25519 / secp256k1 önceden derlenmiş programlarını etkinleştirir.
+
+### WithNativeMints
+
+```go
+func (s *LiteSVM) WithNativeMints() error
+```
+
+SPL Token / Token-2022 yerel mint hesaplarını (sarılmış SOL) seed'ler. Eşleşen program yüklü değilse işlem yapılmaz; her ikisini de istiyorsanız önce `SetDefaultPrograms` çağrısını yapın.
+
+## Kaynak Sınırları
+
+### SetLamports
+
+```go
+func (s *LiteSVM) SetLamports(lamports uint64) error
+```
+
+Dahili airdrop havuzu hesabının varsayılan lamport bakiyesini ayarlar.
+
+```go
+if err := svm.SetLamports(1 << 40); err != nil { // ~1.1 trillion lamports (~1,100 SOL)
+    t.Fatal(err)
+}
+```
+
+### SetLogBytesLimit
+
+```go
+func (s *LiteSVM) SetLogBytesLimit(limit int) error
+```
+
+İşlem başına yakalanan toplam log baytını sınırlar. Sınırı kaldırmak için
+negatif bir değer geçin.
+
+```go
+if err := svm.SetLogBytesLimit(10_000); err != nil { // 10 KB cap
+    t.Fatal(err)
+}
+if err := svm.SetLogBytesLimit(-1); err != nil {     // unlimited
+    t.Fatal(err)
+}
+```
+
+### SetTransactionHistory
+
+```go
+func (s *LiteSVM) SetTransactionHistory(capacity int) error
+```
+
+Bellek içi işlem geçmişinin kapasitesini ayarlar. Tekilleştirmeyi devre dışı bırakmak ve aynı işlemlerin yeniden oynatılmasına izin vermek için `0` geçin.
+
+```go
+if err := svm.SetTransactionHistory(100); err != nil { // cap at 100 entries
+    t.Fatal(err)
+}
+if err := svm.SetTransactionHistory(0); err != nil {   // disable dedup entirely
+    t.Fatal(err)
+}
+```
+
+## Hesaplama Bütçesi
+
+```go
+type ComputeBudget struct {
+    // See litesvm-go/litesvm.go for the full field list.
+    // usize fields are normalized to uint64; HeapSize stays uint32.
+    ComputeUnitLimit uint64
+    HeapSize         uint32
+    // ...
+}
+```
+
+### ComputeBudget
+
+```go
+func (s *LiteSVM) ComputeBudget() (ComputeBudget, bool, error)
+```
+
+Mevcut hesaplama bütçesini okur. İkinci dönüş değeri, bir bütçenin açıkça ayarlanıp ayarlanmadığını bildirir; `false` ise yapı, kullanılacak varsayılan değerleri içerir.
+
+```go
+budget, set, err := svm.ComputeBudget()
+if err != nil {
+    t.Fatal(err)
+}
+if !set {
+    budget.ComputeUnitLimit = 1_400_000
+}
+if err := svm.SetComputeBudget(budget); err != nil {
+    t.Fatal(err)
+}
+```
+
+### SetComputeBudget
+
+```go
+func (s *LiteSVM) SetComputeBudget(b ComputeBudget) error
+```
+
+Sonraki işlemler için bir hesaplama bütçesi yükler.
+
+## Özellik Kümeleri
+
+`FeatureSet` opak bir tanıtıcıdır - oluşturun, `Activate` / `Deactivate` ile değiştirin, ardından `SetFeatureSet` ile yükleyin. Oluşturduğunuz tanıtıcıları kapatın.
+
+```go
+// Start with all features off, then activate what you care about.
+fs, err := litesvm.NewFeatureSet()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs.Close()
+if err := fs.Activate(featureID, 0); err != nil {
+    t.Fatal(err)
+}
+
+// Or start from "everything enabled" and flip specific features off.
+fs2, err := litesvm.NewFeatureSetAllEnabled()
+if err != nil {
+    t.Fatal(err)
+}
+defer fs2.Close()
+if err := fs2.Deactivate(featureID); err != nil {
+    t.Fatal(err)
+}
+
+if err := svm.SetFeatureSet(fs); err != nil {
+    t.Fatal(err)
+}
+```
+
+| Metot                                                   | Açıklama                       |
+| -------------------------------------------------------- | --------------------------------- |
+| `litesvm.NewFeatureSet() (*FeatureSet, error)`           | Boş küme (tüm özellikler devre dışı) |
+| `litesvm.NewFeatureSetAllEnabled() (*FeatureSet, error)` | Tüm özellikler etkin               |
+| `fs.Activate(featureID, slot) error`                     | Özelliği slot'ta etkin olarak işaretle       |
+| `fs.Deactivate(featureID) error`                         | Özelliği devre dışı olarak işaretle             |
+| `fs.IsActive(featureID) bool`                            | Etkinlik kontrolü                      |
+| `fs.ActivatedSlot(featureID) (uint64, bool)`             | Özelliğin etkinleştirildiği slot   |
+| `fs.ActiveCount() int`                                   | Etkin özellik sayısı              |
+| `fs.InactiveCount() int`                                 | Devre dışı özellik sayısı            |
+| `fs.ActiveFeatures() []solana.PublicKey`                 | Etkin özellik ID'lerini listele           |
+| `fs.InactiveFeatures() []solana.PublicKey`               | Devre dışı özellik ID'lerini listele         |
+| `fs.Close()`                                             | Tanıtıcıyı serbest bırak                |
+| `svm.SetFeatureSet(*FeatureSet) error`                   | SVM'ye yükle                |
+
+<Callout type="info">
+  Programların belirli bir Solana sürümünde nasıl davrandığını test etmek için özellik geçişini kullanın
+  - hedeflediğiniz sürümle birlikte gelen özellikleri etkinleştirin, ardından
+  sonradan eklenenlerini devre dışı bırakın.
+</Callout>

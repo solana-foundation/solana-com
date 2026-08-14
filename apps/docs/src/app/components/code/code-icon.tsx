@@ -1,5 +1,44 @@
-import { themeIcons } from "seti-icons";
-import { TerminalIcon } from "lucide-react";
+import { Bash } from "@boxicons/react/Bash";
+import { C } from "@boxicons/react/C";
+import { CPlusPlus } from "@boxicons/react/CPlusPlus";
+import { Css3 } from "@boxicons/react/Css3";
+import { FileCode } from "@boxicons/react/FileCode";
+import { Html5 } from "@boxicons/react/Html5";
+import { Java } from "@boxicons/react/Java";
+import { Javascript } from "@boxicons/react/Javascript";
+import { Markdown } from "@boxicons/react/Markdown";
+import { Python } from "@boxicons/react/Python";
+import { ReactIcon } from "@boxicons/react/ReactIcon";
+import { TailwindCss } from "@boxicons/react/TailwindCss";
+import { Terminal } from "@boxicons/react/Terminal";
+import { Typescript } from "@boxicons/react/Typescript";
+
+const languageIcons: Record<string, typeof FileCode> = {
+  bash: Bash,
+  c: C,
+  "c++": CPlusPlus,
+  cpp: CPlusPlus,
+  css: Css3,
+  html: Html5,
+  java: Java,
+  javascript: Javascript,
+  js: Javascript,
+  jsx: ReactIcon,
+  markdown: Markdown,
+  md: Markdown,
+  mdx: Markdown,
+  python: Python,
+  py: Python,
+  react: ReactIcon,
+  sass: Css3,
+  scss: Css3,
+  sh: Bash,
+  shell: Bash,
+  tailwind: TailwindCss,
+  ts: Typescript,
+  tsx: ReactIcon,
+  typescript: Typescript,
+};
 
 export function CodeIcon({
   title,
@@ -10,51 +49,20 @@ export function CodeIcon({
   lang: string;
   className?: string;
 }) {
-  if (
-    title?.toLowerCase() == "terminal output" ||
-    title?.toLowerCase() == "terminal" ||
-    lang === "sh" ||
-    lang == "shell" ||
-    lang == "bash"
-  ) {
-    return (
-      <TerminalIcon
-        size={16}
-        className={className}
-        style={{ marginTop: -3.5 }}
-      />
-    );
-  }
+  const normalizedTitle = title?.toLowerCase();
+  const normalizedLanguage = lang?.toLowerCase();
+  const Icon =
+    normalizedTitle === "terminal output" || normalizedTitle === "terminal"
+      ? Terminal
+      : (languageIcons[normalizedLanguage] ?? FileCode);
 
-  const ext = lang === "rust" ? "rs" : lang === "typescript" ? "ts" : lang;
-  const filename = "x." + ext;
-
-  const { svg, color } = getIcon(filename);
-  const __html = svg.replace(
-    /svg/,
-    `svg fill='${color}' height='28' style='margin-left: -6px; margin-top: -6px;'`,
-  );
   return (
-    <span className={className}>
-      <span
-        dangerouslySetInnerHTML={{ __html }}
-        style={{ display: "contents" }}
-      />
-    </span>
+    <Icon
+      aria-hidden="true"
+      width={16}
+      height={16}
+      className={className}
+      style={{ marginTop: -3.5 }}
+    />
   );
 }
-
-// from https://github.com/jesseweed/seti-ui/blob/master/styles/ui-variables.less
-const getIcon = themeIcons({
-  white: "#d4d7d6",
-  grey: "#4d5a5e",
-  "grey-light": "#6d8086",
-  blue: "#519aba",
-  green: "#8dc149",
-  orange: "#e37933",
-  pink: "#f55385",
-  purple: "#a074c4",
-  red: "#cc3e44",
-  yellow: "#cbcb41",
-  ignore: "#41535b",
-});

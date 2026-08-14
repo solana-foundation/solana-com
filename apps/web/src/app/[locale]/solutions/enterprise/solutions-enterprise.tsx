@@ -6,7 +6,7 @@ import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { Products } from "@/components/solutions/products.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { SelectionColor } from "@/component-library/selection-color";
-import { Mail } from "lucide-react";
+import { Envelope as Mail } from "@boxicons/react/Envelope";
 import {
   SOLUTION_LINKS,
   TECHNICAL_GUIDES,

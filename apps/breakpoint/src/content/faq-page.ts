@@ -1,4 +1,8 @@
-import { SPONSOR_FORM_HREF, TICKET_TRANSFER_HREF } from "@/content/links";
+import {
+  APPLY_TO_SPEAK_HREF,
+  SPONSOR_FORM_HREF,
+  TICKET_TRANSFER_HREF,
+} from "@/content/links";
 
 export type FAQPageItem = {
   id: string;
@@ -35,8 +39,9 @@ export const faqPageSections = [
       {
         id: "general-speaking",
         question: "How can I apply to speak at Breakpoint?",
-        answer:
-          "Speaker applications are not open yet. More information will be shared in the coming months.",
+        answer: "Speaker applications for Breakpoint 2026 are open.",
+        answerHref: APPLY_TO_SPEAK_HREF,
+        answerLinkLabel: "Apply to speak",
       },
       {
         id: "general-sponsor",
@@ -136,6 +141,13 @@ export const faqPageSections = [
         question: "Do I need a visa to attend?",
         answer:
           "Entry requirements depend on your passport and travel plans. Review the official UK visa checker before booking travel.",
+      },
+      {
+        id: "travel-invitation-letter",
+        question: "How do I request an invitation letter?",
+        answer: "Please email",
+        answerHref: "mailto:breakpoint@solana.org",
+        answerLinkLabel: "breakpoint@solana.org",
       },
       {
         id: "travel-venue",

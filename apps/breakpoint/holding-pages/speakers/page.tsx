@@ -5,6 +5,7 @@ import SubpageHero from "@/components/SubpageHero";
 import { getAirtableSpeakers } from "@/content/speakers/airtable";
 import { fallbackSpeakers } from "@/content/speakers/fallback-speakers";
 import Footer from "@/components/sections/Footer";
+import { APPLY_TO_SPEAK_HREF } from "@/content/links";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +14,6 @@ export const metadata: Metadata = {
   description:
     "Meet the speakers joining Breakpoint 2026 in London for keynotes, firesides, debates, and product demos.",
 };
-
-const APPLY_TO_SPEAK_HREF =
-  "mailto:breakpoint@solana.org?subject=Breakpoint%202026%20speaker%20application";
 
 export default async function SpeakersPage() {
   const isDesignPreview = process.env.NODE_ENV !== "production";

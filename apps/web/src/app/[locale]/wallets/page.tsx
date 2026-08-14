@@ -99,8 +99,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images: [
         {
           url: WALLETS_SOCIAL_IMAGE,
-          width: 1920,
-          height: 1080,
+          width: 1200,
+          height: 630,
           alt: t("socialImageAlt"),
         },
       ],

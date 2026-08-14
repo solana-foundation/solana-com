@@ -406,7 +406,7 @@ const navigationHubStaticConfigs = {
             href: "/rpc",
           },
           {
-            href: "/developers/guides",
+            href: "/docs/tools",
           },
         ],
       },
@@ -526,6 +526,9 @@ const navigationHubStaticConfigs = {
           },
           {
             href: "/breakpoint",
+          },
+          {
+            href: "/wsop",
           },
           {
             href: "/community",
