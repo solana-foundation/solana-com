@@ -11,5 +11,12 @@ export function getUrlWithoutLocale(page: { url: string; locale?: string }) {
 }
 
 export function toUrlWithoutLocale(url: string, locale: string) {
-  return url.replace(`/${locale}/`, "/");
+  if (!url || !locale) return url || "/";
+  const cleaned = url.replace(new RegExp(`/${locale}(?:/|$)`), "/");
+  if (cleaned === "/" || cleaned === "") {
+    return "/";
+  }
+  return cleaned.endsWith("/") && cleaned.length > 1
+    ? cleaned.slice(0, -1)
+    : cleaned;
 }

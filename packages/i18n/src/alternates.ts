@@ -5,7 +5,20 @@ function normalizeAlternatePath(path: string) {
     return "/";
   }
 
-  return path.startsWith("/") ? path : `/${path}`;
+  let formatted = path.startsWith("/") ? path : `/${path}`;
+
+  // Strip leading supported locale prefix if path was already localized
+  for (const loc of locales) {
+    if (formatted === `/${loc}`) {
+      return "/";
+    }
+    if (formatted.startsWith(`/${loc}/`)) {
+      formatted = formatted.slice(loc.length + 1);
+      break;
+    }
+  }
+
+  return formatted;
 }
 
 function localizeAlternatePath(path: string, locale: string) {

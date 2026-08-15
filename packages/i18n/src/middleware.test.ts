@@ -98,6 +98,23 @@ describe("@workspace/i18n middleware", () => {
         fr: "/fr",
       }),
     });
+    expect(getAlternates("/es/docs/tools", "es")).toEqual({
+      canonical: "/es/docs/tools",
+      languages: expect.objectContaining({
+        "x-default": "/docs/tools",
+        en: "/docs/tools",
+        es: "/es/docs/tools",
+        fr: "/fr/docs/tools",
+      }),
+    });
+    expect(getAlternates("/es", "es")).toEqual({
+      canonical: "/es",
+      languages: expect.objectContaining({
+        "x-default": "/",
+        en: "/",
+        es: "/es",
+      }),
+    });
   });
 
   it("rewrites proxied redirect locations to the forwarded public host", () => {
