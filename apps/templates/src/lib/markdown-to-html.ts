@@ -150,25 +150,20 @@ export async function markdownToHtml(markdown: string): Promise<string> {
   // Highlight all code blocks
   let result = html;
   for (const block of codeBlocks) {
+    const placeholder = `<pre data-code-id="${block.id}" data-lang="${block.lang}" data-code="${encodeURIComponent(block.code)}"></pre>`;
     try {
       const highlighted = await codeToHtml(block.code, {
         lang: block.lang || "text",
         theme: "github-dark",
       });
-      result = result.replace(
-        `<pre data-code-id="${block.id}" data-lang="${block.lang}" data-code="${encodeURIComponent(block.code)}"></pre>`,
-        highlighted,
-      );
+      result = result.replace(placeholder, () => highlighted);
     } catch {
       // If language is not supported, fall back to 'text'
       const highlighted = await codeToHtml(block.code, {
         lang: "text",
         theme: "github-dark",
       });
-      result = result.replace(
-        `<pre data-code-id="${block.id}" data-lang="${block.lang}" data-code="${encodeURIComponent(block.code)}"></pre>`,
-        highlighted,
-      );
+      result = result.replace(placeholder, () => highlighted);
     }
   }
 

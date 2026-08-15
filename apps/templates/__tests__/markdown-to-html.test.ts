@@ -70,4 +70,19 @@ const answer: number = 42;
     expect(html).not.toContain("data-code-id");
     expect(html).not.toContain("data-code=");
   });
+
+  it("does not corrupt code blocks containing special replacement characters ($&, $1, $', $`)", async () => {
+    const html = await markdownToHtml(`
+\`\`\`bash
+echo "$1" && echo "$&" && echo "$'" && echo "$\`" && echo "$$"
+\`\`\`
+`);
+
+    expect(html).toContain("$1");
+    expect(html).toContain("$&amp;");
+    expect(html).toContain("$'");
+    expect(html).toContain("$$");
+    expect(html).not.toContain("data-code-id");
+    expect(html).not.toContain("<pre></pre>");
+  });
 });
