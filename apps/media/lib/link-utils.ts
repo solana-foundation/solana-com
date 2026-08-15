@@ -1,6 +1,7 @@
 import { LinkItem, LinkMetadata, LinkType } from "./link-types";
 import { ContentDocument } from "./post-types";
 import { formatPublishedAt } from "./keystatic/publishing";
+import { extractYouTubeVideoId } from "./youtube-id";
 
 // Type for link data from Keystatic
 interface LinkData {
@@ -111,22 +112,6 @@ export async function enrichLinksWithMetadata(
     links.map((link) => enrichLinkWithMetadata(link)),
   );
   return enrichedLinks;
-}
-
-/**
- * Extract YouTube video ID from various URL formats
- */
-function extractYouTubeVideoId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1] ?? null;
-  }
-  return null;
 }
 
 /**
