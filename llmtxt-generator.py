@@ -17,6 +17,7 @@ OUTPUT_DIR = os.path.join(REPO_ROOT, 'apps', 'web', 'public')
 AI_AGENT_RESOURCES = [
     ("SKILL.md", "SKILL.md", "Comprehensive guide for AI agents to understand and build on Solana"),
     ("Full Documentation", "llms-full.txt", "Complete inline documentation with code examples and API reference"),
+    ("Coding with Agents", "docs/intro/coding-with-agents", "Use Solana MCP and Agent Skills in AI-assisted development workflows"),
 ]
 
 # Curated sections for the English source file

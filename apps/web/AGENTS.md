@@ -25,6 +25,8 @@ Use this app for the main `solana.com` experience.
 - Shared navigation and cross-app linking come from `@solana-com/ui-chrome`
 - A lot of behavior depends on `rewrites-redirects.ts`
 - Vitest is used here for unit tests
+- Wallet-directory records are owned by `packages/ecosystem-data`, while this
+  app owns their presentation and filtering UI
 
 ## Commands
 
@@ -32,6 +34,7 @@ Use this app for the main `solana.com` experience.
 pnpm --filter solana-com dev
 pnpm --filter solana-com build
 pnpm --filter solana-com lint
+pnpm --filter solana-com check-types
 pnpm --filter solana-com test
 pnpm --filter solana-com test:e2e
 ```
