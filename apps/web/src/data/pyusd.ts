@@ -93,7 +93,7 @@ export const PRIMARY_CARD_DECK_CARDS = [
     callToAction: {
       endIcon: "none",
       hierarchy: "outline",
-      url: "",
+      url: "https://solana.com/solutions/payments-tooling",
     },
   },
   {
@@ -103,7 +103,7 @@ export const PRIMARY_CARD_DECK_CARDS = [
     callToAction: {
       endIcon: "none",
       hierarchy: "outline",
-      url: "",
+      url: "https://solana.com/solutions/commerce-tooling",
     },
   },
 ] as const;
