@@ -6,10 +6,11 @@ import {
 } from "@/lib/upgrades/stage";
 
 describe("upgrade stage helper", () => {
-  it("has a label and badge class for all four stages", () => {
+  it("has a label and badge class for all five stages", () => {
     const stages = [
       "planned",
       "in_development",
+      "pending_activation",
       "live",
       "action_required",
     ] as const;
@@ -21,6 +22,7 @@ describe("upgrade stage helper", () => {
 
   it("validates stage values from untrusted content data", () => {
     expect(isUpgradeStage("live")).toBe(true);
+    expect(isUpgradeStage("pending_activation")).toBe(true);
     expect(isUpgradeStage("mainnet-live")).toBe(false);
     expect(isUpgradeStage(undefined)).toBe(false);
   });

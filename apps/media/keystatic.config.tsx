@@ -206,6 +206,10 @@ export default config({
           options: [
             { label: "Planned", value: "planned" },
             { label: "In Development", value: "in_development" },
+            {
+              label: "Pending Feature Activation",
+              value: "pending_activation",
+            },
             { label: "Live on Mainnet", value: "live" },
             { label: "Action Required", value: "action_required" },
           ],

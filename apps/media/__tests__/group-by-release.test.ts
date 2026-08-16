@@ -101,7 +101,7 @@ describe("groupUpgradesByRelease", () => {
 
     const groups = groupUpgradesByRelease(upgrades, releases);
 
-    expect(groups[0].upgrades.map((item) => item.slug)).toEqual([
+    expect(groups[0]!.upgrades.map((item) => item.slug)).toEqual([
       "first",
       "second",
       "no-order-newer",
@@ -125,8 +125,8 @@ describe("groupUpgradesByRelease", () => {
 
     const groups = groupUpgradesByRelease(upgrades, releases);
 
-    expect(groups[0].overview?.slug).toBe("overview-article");
-    expect(groups[0].upgrades.map((item) => item.slug)).toEqual([
+    expect(groups[0]!.overview?.slug).toBe("overview-article");
+    expect(groups[0]!.upgrades.map((item) => item.slug)).toEqual([
       "regular-article",
     ]);
   });
@@ -202,7 +202,7 @@ describe("groupUpgradesByRelease", () => {
 
     const groups = groupUpgradesByRelease(upgrades, releases);
 
-    expect(groups[0].upgrades.map((item) => item.slug)).toEqual([
+    expect(groups[0]!.upgrades.map((item) => item.slug)).toEqual([
       "ordered-zero",
       "ordered-one",
       "no-order",
@@ -225,7 +225,7 @@ describe("groupUpgradesByRelease", () => {
     const groups = groupUpgradesByRelease(upgrades, releases);
 
     expect(groups).toHaveLength(1);
-    expect(groups[0].overview?.slug).toBe("overview-article");
-    expect(groups[0].upgrades).toEqual([]);
+    expect(groups[0]!.overview?.slug).toBe("overview-article");
+    expect(groups[0]!.upgrades).toEqual([]);
   });
 });

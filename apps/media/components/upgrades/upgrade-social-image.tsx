@@ -32,6 +32,11 @@ const stageColorMap: Record<
     borderColor: "rgba(234, 179, 8, 0.35)",
     color: "#FACC15",
   },
+  pending_activation: {
+    backgroundColor: "rgba(96, 165, 250, 0.08)",
+    borderColor: "rgba(96, 165, 250, 0.35)",
+    color: "#93C5FD",
+  },
   live: {
     backgroundColor: "rgba(20, 241, 149, 0.08)",
     borderColor: "rgba(20, 241, 149, 0.35)",

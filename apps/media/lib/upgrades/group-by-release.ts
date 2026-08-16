@@ -1,6 +1,7 @@
 export type UpgradeStage =
   | "planned"
   | "in_development"
+  | "pending_activation"
   | "live"
   | "action_required";
 
