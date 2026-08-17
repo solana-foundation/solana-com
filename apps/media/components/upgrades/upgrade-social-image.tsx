@@ -42,11 +42,6 @@ const stageColorMap: Record<
     borderColor: "rgba(20, 241, 149, 0.35)",
     color: "#42E6A3",
   },
-  action_required: {
-    backgroundColor: "rgba(244, 63, 94, 0.08)",
-    borderColor: "rgba(244, 63, 94, 0.35)",
-    color: "#FB7185",
-  },
 };
 
 export function UpgradeSocialImage({

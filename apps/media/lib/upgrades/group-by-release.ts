@@ -2,8 +2,7 @@ export type UpgradeStage =
   | "planned"
   | "in_development"
   | "pending_activation"
-  | "live"
-  | "action_required";
+  | "live";
 
 export type UpgradeMetric = {
   value: string;

@@ -211,7 +211,6 @@ export default config({
               value: "pending_activation",
             },
             { label: "Live on Mainnet", value: "live" },
-            { label: "Action Required", value: "action_required" },
           ],
           defaultValue: "in_development",
         }),
