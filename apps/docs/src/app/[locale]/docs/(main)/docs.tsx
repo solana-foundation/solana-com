@@ -30,7 +30,9 @@ export async function MainDocsPage({
       pageTree={docsSource.pageTree[locale]}
       href={page.url}
       markdown={markdown}
-      isRoot={slug.length === 0}
+      // The Ask Solana hero landing lives at /docs/ai-assistant; every other
+      // page (including the /docs root) renders as a normal docs page.
+      isRoot={slug.join("/") === "ai-assistant"}
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (
