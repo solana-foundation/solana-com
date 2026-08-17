@@ -322,7 +322,7 @@ export default function UpgradesClientPage({
               view === "table" ? "bg-white text-black" : "text-white/70",
             )}
           >
-            Table
+            List
           </button>
           <button
             type="button"
@@ -333,7 +333,7 @@ export default function UpgradesClientPage({
               view === "cards" ? "bg-white text-black" : "text-white/70",
             )}
           >
-            Cards
+            Grid
           </button>
         </div>
       </div>
