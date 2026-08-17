@@ -6,20 +6,27 @@ description:
 ---
 
 <Callout type="info">
-  Users and developers don't interact with the SMT directly - exclusion proofs
+  Users and developers don't interact with the SMT directly; exclusion proofs
   are computed and submitted automatically by the `operator-private-channel`
   service. This page is reference material for operators and anyone building
   operator tooling.
+</Callout>
+
+<Callout type="info">
+  The escrow program is migrating from this Sparse Merkle Tree design to an
+  on-chain nonce bitmap (tracked upstream). This page is accurate against the
+  current escrow program and will be reworked once that change lands.
 </Callout>
 
 ## Purpose
 
 Private Channels uses a Sparse Merkle Tree (SMT) to guarantee that each
 withdrawal nonce can only be settled once. When an operator calls
-`ReleaseFunds`, they must provide a proof that the nonce does NOT yet exist in
-the tree. The program verifies this exclusion proof on-chain before releasing
-funds, then updates the root to include the nonce - making any future attempt to
-reuse it provably invalid.
+`ReleaseFunds`, they must provide two proofs: an exclusion proof that the nonce
+does NOT yet exist against the current root, and an inclusion proof that the
+nonce DOES exist in the caller-supplied new root. Only after both checks pass
+does the program store the new root, making any future attempt to reuse the
+nonce provably invalid.
 
 ## Tree Parameters
 
@@ -27,7 +34,7 @@ reuse it provably invalid.
 - Maximum leaves: `65,536` (2^16)
 - Hash function: SHA-256
 - Empty leaf value: `[0u8; 32]` (32 zero bytes)
-- Non-empty leaf value: `SHA256([1u8; 32])` - stored as the constant
+- Non-empty leaf value: `SHA256([1u8; 32])`, stored as the constant
   `NON_EMPTY_LEAF_HASH`
 
 ```text
@@ -58,7 +65,7 @@ A leaf is considered non-empty when its value equals `NON_EMPTY_LEAF_HASH`
 
 The `transaction_nonce` in `ReleaseFunds` is a `u64`. Its position in the tree
 is `nonce % 65536`. Its expected epoch is `nonce / 65536`. The on-chain program
-validates that this computed epoch equals `Instance.current_tree_index` - a
+validates that this computed epoch equals `Instance.current_tree_index`; a
 mismatch throws `InvalidTransactionNonceForCurrentTreeIndex`.
 
 ## Tree Rotation
@@ -92,16 +99,17 @@ Tree rotation is tracked by `Instance.current_tree_index: u64`, stored on-chain.
 
 ## Verification in ReleaseFunds
 
-The `sibling_proofs` argument in `ReleaseFunds` is exactly `[u8; 512]` - 16
+The `sibling_proofs` argument in `ReleaseFunds` is exactly `[u8; 512]`: 16
 sibling hashes × 32 bytes each, matching the tree height of 16.
 
-The on-chain verification process (`verify_smt_exclusion_proof`):
+The on-chain verification process runs two separate checks in sequence:
 
-1. Verifies the proof proves the nonce leaf is currently empty (not yet in the
-   tree)
-2. If valid, updates `Instance.withdrawal_transactions_root` to the new root
-   that includes this nonce
-3. Releases the tokens to the recipient
+1. `verify_smt_exclusion_proof` proves the nonce leaf is currently empty against
+   the current `Instance.withdrawal_transactions_root`
+2. `verify_smt_inclusion_proof` proves the nonce leaf is present in the
+   caller-supplied `new_withdrawal_root` argument
+3. Only if both checks pass does the program store `new_withdrawal_root` as the
+   new `Instance.withdrawal_transactions_root` and release the tokens
 
-The updated root is stored in `Instance.withdrawal_transactions_root: [u8; 32]`,
-updated atomically with each `ReleaseFunds` call.
+Either check failing throws `InvalidSmtProof`. The root update in step 3 is
+atomic with each `ReleaseFunds` call.
