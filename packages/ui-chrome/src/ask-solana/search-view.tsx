@@ -21,7 +21,7 @@ export function AskSolanaSearchView({
 }: {
   isDark: boolean;
   initialQuery: string;
-  onAskAI: (query: string) => void;
+  onAskAI?: (query: string) => void;
 }) {
   const t = useTranslations();
   const [query, setQuery] = React.useState(initialQuery);
@@ -99,7 +99,7 @@ export function AskSolanaSearchView({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-        {trimmed ? (
+        {trimmed && onAskAI ? (
           <button
             type="button"
             onClick={() => onAskAI(trimmed)}
@@ -148,51 +148,57 @@ export function AskSolanaSearchView({
           </p>
         ) : null}
 
-        {results.map((result) => (
-          <a
-            key={result.url}
-            href={result.url}
-            onClick={() =>
-              trackAskSolana("docs_ai_search_result_clicked", {
-                query: trimmed,
-                url: result.url,
-              })
-            }
-            className={cn(
-              "block rounded-lg px-3 py-2.5 transition-colors",
-              isDark ? "hover:bg-white/5" : "hover:bg-gray-100",
-            )}
-          >
-            <div
+        {results.map((result) => {
+          const breadcrumbs = Array.isArray(result.breadcrumbs)
+            ? result.breadcrumbs
+            : [];
+
+          return (
+            <a
+              key={result.url}
+              href={result.url}
+              onClick={() =>
+                trackAskSolana("docs_ai_search_result_clicked", {
+                  query: trimmed,
+                  url: result.url,
+                })
+              }
               className={cn(
-                "text-sm font-medium",
-                isDark ? "text-gray-100" : "text-gray-900",
+                "block rounded-lg px-3 py-2.5 transition-colors",
+                isDark ? "hover:bg-white/5" : "hover:bg-gray-100",
               )}
             >
-              {result.title}
-            </div>
-            {result.breadcrumbs && result.breadcrumbs.length > 0 ? (
               <div
                 className={cn(
-                  "mt-0.5 text-xs",
-                  isDark ? "text-gray-500" : "text-gray-400",
+                  "text-sm font-medium",
+                  isDark ? "text-gray-100" : "text-gray-900",
                 )}
               >
-                {result.breadcrumbs.join(" › ")}
+                {result.title}
               </div>
-            ) : null}
-            {result.snippet ? (
-              <div
-                className={cn(
-                  "mt-1 line-clamp-2 text-xs leading-relaxed",
-                  isDark ? "text-gray-400" : "text-gray-500",
-                )}
-              >
-                {result.snippet}
-              </div>
-            ) : null}
-          </a>
-        ))}
+              {breadcrumbs.length > 0 ? (
+                <div
+                  className={cn(
+                    "mt-0.5 text-xs",
+                    isDark ? "text-gray-500" : "text-gray-400",
+                  )}
+                >
+                  {breadcrumbs.join(" › ")}
+                </div>
+              ) : null}
+              {result.snippet ? (
+                <div
+                  className={cn(
+                    "mt-1 line-clamp-2 text-xs leading-relaxed",
+                    isDark ? "text-gray-400" : "text-gray-500",
+                  )}
+                >
+                  {result.snippet}
+                </div>
+              ) : null}
+            </a>
+          );
+        })}
       </div>
     </div>
   );

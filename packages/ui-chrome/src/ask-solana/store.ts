@@ -7,10 +7,17 @@
  * Same approach as podcast-player-store.
  */
 export type AskSolanaView = "chat" | "search";
+export type AskSolanaMode = "full" | "search";
+
+type AskSolanaOpenOptions = {
+  mode?: AskSolanaMode;
+};
 
 type AskSolanaState = {
   isOpen: boolean;
   view: AskSolanaView;
+  /** "search" opens a regular docs-search modal with no chat affordances. */
+  mode: AskSolanaMode;
   /** Query to prefill (e.g. from the ?search= deep link or entry buttons). */
   initialQuery: string;
 };
@@ -18,6 +25,7 @@ type AskSolanaState = {
 let state: AskSolanaState = {
   isOpen: false,
   view: "search",
+  mode: "full",
   initialQuery: "",
 };
 
@@ -36,8 +44,18 @@ export function getAskSolanaState(): AskSolanaState {
   return state;
 }
 
-export function openAskSolana(view: AskSolanaView, initialQuery = "") {
-  state = { isOpen: true, view, initialQuery };
+export function openAskSolana(
+  view: AskSolanaView,
+  initialQuery = "",
+  options: AskSolanaOpenOptions = {},
+) {
+  const mode = view === "chat" ? "full" : (options.mode ?? "full");
+  state = {
+    isOpen: true,
+    view: mode === "search" ? "search" : view,
+    mode,
+    initialQuery,
+  };
   emit();
 }
 
@@ -50,6 +68,7 @@ export function clearAskSolanaInitialQuery() {
 }
 
 export function setAskSolanaView(view: AskSolanaView) {
+  if (state.mode === "search" && view === "chat") return;
   if (state.view === view) return;
   state = { ...state, view };
   emit();
@@ -57,15 +76,18 @@ export function setAskSolanaView(view: AskSolanaView) {
 
 export function closeAskSolana() {
   if (!state.isOpen) return;
-  state = { ...state, isOpen: false, initialQuery: "" };
+  state = { ...state, isOpen: false, mode: "full", initialQuery: "" };
   emit();
 }
 
-export function toggleAskSolana(view: AskSolanaView) {
+export function toggleAskSolana(
+  view: AskSolanaView,
+  options: AskSolanaOpenOptions = {},
+) {
   if (state.isOpen) {
     closeAskSolana();
   } else {
-    openAskSolana(view);
+    openAskSolana(view, "", options);
   }
 }
 

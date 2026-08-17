@@ -24,6 +24,7 @@ import {
   type AskSolanaView,
 } from "./store";
 import { trackAskSolana } from "./analytics";
+import { prewarmAskSession } from "./api";
 import { AskSolanaChatView } from "./chat-view";
 import { AskSolanaSearchView } from "./search-view";
 
@@ -102,7 +103,8 @@ function AskSolanaDialog() {
   const t = useTranslations();
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { isOpen, view, initialQuery } = useAskSolanaStore();
+  const { isOpen, view, mode, initialQuery } = useAskSolanaStore();
+  const isSearchOnly = mode === "search";
   const searchParams = useSearchParams();
   const deepLinkQuery = searchParams.get("search")?.trim() ?? "";
   // Key the chat view so "handoff" queries from the search view re-seed it.
@@ -122,7 +124,7 @@ function AskSolanaDialog() {
   // opens the modal in search view, prefilled.
   React.useEffect(() => {
     if (deepLinkQuery.length > 0) {
-      openAskSolana("search", deepLinkQuery);
+      openAskSolana("search", deepLinkQuery, { mode: "search" });
     }
   }, [deepLinkQuery]);
 
@@ -131,7 +133,7 @@ function AskSolanaDialog() {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        toggleAskSolana("search");
+        toggleAskSolana("search", { mode: "search" });
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -140,6 +142,7 @@ function AskSolanaDialog() {
 
   React.useEffect(() => {
     if (isOpen) {
+      prewarmAskSession();
       trackAskSolana("docs_ai_chat_opened", { view });
     }
     // Only fire on open/close, not on tab switches.
@@ -159,7 +162,9 @@ function AskSolanaDialog() {
   return (
     <DialogPrimitive.Root
       open={isOpen}
-      onOpenChange={(open) => (open ? openAskSolana(view) : closeAskSolana())}
+      onOpenChange={(open) =>
+        open ? openAskSolana(view, "", { mode }) : closeAskSolana()
+      }
     >
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
@@ -186,10 +191,12 @@ function AskSolanaDialog() {
         >
           <VisuallyHidden.Root>
             <DialogPrimitive.Title>
-              {t("askSolana.title")}
+              {isSearchOnly ? t("commands.search") : t("askSolana.title")}
             </DialogPrimitive.Title>
             <DialogPrimitive.Description>
-              {t("askSolana.intro")}
+              {isSearchOnly
+                ? t("askSolana.searchPlaceholder")
+                : t("askSolana.intro")}
             </DialogPrimitive.Description>
           </VisuallyHidden.Root>
 
@@ -201,20 +208,31 @@ function AskSolanaDialog() {
               isDark ? "border-white/10" : "border-gray-200",
             )}
           >
-            <div className="flex items-center gap-1.5">
-              <TabButton
-                label={t("askSolana.tabChat")}
-                isActive={view === "chat"}
-                isDark={isDark}
-                onClick={() => switchView("chat")}
-              />
-              <TabButton
-                label={t("askSolana.tabSearch")}
-                isActive={view === "search"}
-                isDark={isDark}
-                onClick={() => switchView("search")}
-              />
-            </div>
+            {isSearchOnly ? (
+              <div
+                className={cn(
+                  "text-sm font-semibold",
+                  isDark ? "text-white" : "text-black",
+                )}
+              >
+                {t("commands.search")}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <TabButton
+                  label={t("askSolana.tabChat")}
+                  isActive={view === "chat"}
+                  isDark={isDark}
+                  onClick={() => switchView("chat")}
+                />
+                <TabButton
+                  label={t("askSolana.tabSearch")}
+                  isActive={view === "search"}
+                  isDark={isDark}
+                  onClick={() => switchView("search")}
+                />
+              </div>
+            )}
             <DialogPrimitive.Close
               aria-label={t("commands.close")}
               className={cn(
@@ -228,7 +246,7 @@ function AskSolanaDialog() {
             </DialogPrimitive.Close>
           </div>
 
-          {view === "chat" ? (
+          {view === "chat" && !isSearchOnly ? (
             <AskSolanaChatView
               key={chatSeed.key}
               isDark={isDark}
@@ -238,7 +256,7 @@ function AskSolanaDialog() {
             <AskSolanaSearchView
               isDark={isDark}
               initialQuery={initialQuery}
-              onAskAI={handleAskAI}
+              onAskAI={isSearchOnly ? undefined : handleAskAI}
             />
           )}
         </DialogPrimitive.Content>

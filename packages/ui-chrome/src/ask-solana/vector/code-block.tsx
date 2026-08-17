@@ -14,10 +14,10 @@ export type CodeToken = string | { text: string; tone: CodeTone };
 export type CodeLine = CodeToken[];
 
 const TONE_CLASS: Record<CodeTone, string> = {
-  kw: styles.tokPurple,
-  fn: styles.tokGreen,
-  str: styles.codeGreen,
-  cm: styles.tokComment,
+  kw: styles.tokPurple ?? "",
+  fn: styles.tokGreen ?? "",
+  str: styles.codeGreen ?? "",
+  cm: styles.tokComment ?? "",
 };
 
 export function codeText(lines: CodeLine[]) {
@@ -29,22 +29,31 @@ export function codeText(lines: CodeLine[]) {
 }
 
 /* Inline tone span for hand-written command markup (the colored words in
-   prerequisite chips and command rows). */
+   prerequisite chips, command rows and CommandTerminal commands). "mint" and
+   "account" are the flow's address tints; `flowTarget` names the token so
+   FlowArrows can point the matching UseChip's provenance arrow at it. */
 export function Tok({
   tone,
+  flowTarget,
   children,
 }: {
-  tone: "green" | "mint" | "purple" | "comment" | "str";
+  tone: "green" | "mint" | "account" | "purple" | "comment" | "str";
+  flowTarget?: string;
   children: ReactNode;
 }) {
   const cls = {
     green: styles.tokGreen,
     mint: styles.tokMint,
+    account: styles.tokAccount,
     purple: styles.tokPurple,
     comment: styles.tokComment,
     str: styles.codeGreen,
   }[tone];
-  return <span className={cls}>{children}</span>;
+  return (
+    <span className={cls} data-flow-target={flowTarget}>
+      {children}
+    </span>
+  );
 }
 
 export function TokenizedCode({
@@ -76,11 +85,20 @@ export function TokenizedCode({
 
 /* Scrolling code panel with a floating copy button; the clipboard gets the
    plain text of the same lines. */
-export function CodeSnippet({ lines }: { lines: CodeLine[] }) {
+export function CodeSnippet({
+  lines,
+  compact,
+}: {
+  lines: CodeLine[];
+  compact?: boolean;
+}) {
   return (
     <div className={styles.preWrap}>
       <CopyTextButton variant="float" text={codeText(lines)} />
-      <TokenizedCode lines={lines} className={styles.codePre} />
+      <TokenizedCode
+        lines={lines}
+        className={cx(styles.codePre, compact && styles.codePreCompact)}
+      />
     </div>
   );
 }

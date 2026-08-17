@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { AskSolanaModalHost } from "./modal";
 import { AskSolanaWidget } from "./ask-solana-widget";
 import { trackAskSolana } from "./analytics";
+import { prewarmAskSession } from "./api";
 
 /**
  * "Vector" — miniature of the animated robot mark (design component 1a,
@@ -58,8 +59,8 @@ interface AskSolanaButtonProps {
 /**
  * Entry-point button for the in-house Ask Solana assistant backed by the
  * docs-agent service. Clicking the robot toggles the compact Vector chat
- * widget anchored above it; the full modal stays reachable via ⌘K / the
- * search bar (AskSolanaModalHost).
+ * widget anchored above it; AskSolanaModalHost keeps shared modal ownership
+ * for other docs entry points.
  */
 export function AskSolanaButton({
   className,
@@ -67,6 +68,20 @@ export function AskSolanaButton({
 }: AskSolanaButtonProps) {
   const t = useTranslations();
   const [chatOpen, setChatOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(() => prewarmAskSession(), {
+        timeout: 3000,
+      });
+      return () => window.cancelIdleCallback(idleId);
+    }
+
+    const timeoutId = globalThis.setTimeout(() => prewarmAskSession(), 1200);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, []);
 
   const toggleChat = () => {
     const next = !chatOpen;
@@ -83,6 +98,8 @@ export function AskSolanaButton({
           " flex items-center justify-center bg-transparent transition-transform hover:scale-110"
         }
         onClick={toggleChat}
+        onFocus={prewarmAskSession}
+        onMouseEnter={prewarmAskSession}
         type="button"
         aria-label={t("commands.askAI")}
         aria-expanded={chatOpen}

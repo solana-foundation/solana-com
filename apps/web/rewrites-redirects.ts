@@ -454,18 +454,13 @@ export default {
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
         locale: false,
       },
-      // Ask Solana (docs AI agent) proxy: gives the ui-chrome widget
-      // same-origin access to the solana-docs-agent service. Only active
-      // when ASK_AGENT_URL is configured on the web project.
-      ...(process.env.ASK_AGENT_URL
-        ? [
-            {
-              source: "/api/ask/:path*",
-              destination: `${process.env.ASK_AGENT_URL}/api/ask/:path*`,
-              locale: false,
-            },
-          ]
-        : []),
+      // Ask Solana (docs AI agent) proxy. The docs app owns the route handler
+      // that injects X-Ask-Proxy-Secret before forwarding to the bot service.
+      {
+        source: "/api/ask/:path*",
+        destination: `${DOCS_APP_URL}/api/ask/:path*`,
+        locale: false,
+      },
       // Proxy /_next/image requests for /uploads/* to the media app's image
       // optimizer. The web app's /_next/image reads from its own filesystem,
       // but /uploads/ files live in the media app's deployment.

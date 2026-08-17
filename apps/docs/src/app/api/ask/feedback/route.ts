@@ -1,7 +1,8 @@
-/**
- * Fire-and-forget feedback endpoint (parity with the docs-agent service
- * contract). The local Claude-backed implementation just acknowledges.
- */
-export async function POST() {
-  return new Response(null, { status: 204 });
+import { proxyAskRequest } from "@/lib/ask-agent-proxy";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export function POST(request: Request) {
+  return proxyAskRequest(request, ["feedback"]);
 }

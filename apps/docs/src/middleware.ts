@@ -21,6 +21,7 @@ const MARKDOWN_PREFIXES = [
 ] as const;
 const MARKDOWN_API_PREFIX = "/api/markdown";
 const SOLANA_SITE_ORIGIN = "https://solana.com";
+const ASK_UI_PREVIEW_PATH = "/ask-ui-preview";
 
 function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
@@ -83,6 +84,10 @@ export default async function middleware(
   event: NextFetchEvent,
 ) {
   const { pathname } = req.nextUrl;
+
+  if (pathname === ASK_UI_PREVIEW_PATH) {
+    return NextResponse.next();
+  }
 
   if (
     pathname === MARKDOWN_API_PREFIX ||

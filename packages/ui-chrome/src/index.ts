@@ -20,9 +20,12 @@ export { ThemeProvider } from "./theme-provider";
 export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
 export { AskSolanaButton } from "./ask-solana/ask-solana-button";
+export { AskSolanaChatView } from "./ask-solana/chat-view";
+export type { AskSolanaChatStatus } from "./ask-solana/chat-view";
 export { AskSolanaSearchBar } from "./ask-solana/ask-solana-searchbar";
 export { AskSolanaModalHost } from "./ask-solana/modal";
 export { openAskSolana } from "./ask-solana/store";
+export * from "./ask-solana/vector";
 export {
   ASK_SOLANA_ANALYTICS_EVENT,
   trackAskSolana,

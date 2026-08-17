@@ -5,8 +5,18 @@ import classNames from "classnames";
 import { twMerge } from "tailwind-merge";
 import { useTranslations } from "next-intl";
 import { Maximize2, Minimize2, Send, X } from "react-feather";
-import { streamChat, type AskCitation } from "./api";
+import {
+  prewarmAskSession,
+  splitCodeFollowupPrompt,
+  streamChat,
+  type AskChatTiming,
+  type AskCitation,
+  type AskGenerativeUi,
+  type CodeFollowupButton,
+  type CodeFollowups,
+} from "./api";
 import { trackAskSolana } from "./analytics";
+import { GenerativeUiAnswer } from "./generative-ui";
 import { AnswerMarkdown } from "./markdown";
 
 function cn(...inputs: classNames.ArgumentArray) {
@@ -18,13 +28,64 @@ function cn(...inputs: classNames.ArgumentArray) {
 const GREETING =
   "Hi — I'm Vector. I'm a Solana expert and here to help your learning journey.";
 
+function WidgetAnswerMarkdown({
+  content,
+  codeFollowups,
+}: {
+  content: string;
+  codeFollowups: CodeFollowups | null;
+}) {
+  const { body } = splitCodeFollowupPrompt(content, codeFollowups);
+
+  if (!body.trim()) return null;
+
+  return <AnswerMarkdown content={body} isDark />;
+}
+
+function WidgetCodeFollowupCta({
+  followups,
+  disabled,
+  onSelect,
+}: {
+  followups: CodeFollowups | null;
+  disabled: boolean;
+  onSelect: (_button: CodeFollowupButton) => void;
+}) {
+  if (!followups || followups.buttons.length === 0) return null;
+
+  return (
+    <section className="mt-3 rounded-xl border border-white/10 bg-white/[0.035] p-3">
+      <p className="m-0 text-sm leading-relaxed text-gray-300">
+        {followups.prompt}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {followups.buttons.map((button) => (
+          <button
+            key={`${button.language}-${button.message}`}
+            type="button"
+            data-language={button.language}
+            disabled={disabled}
+            onClick={() => onSelect(button)}
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-sm font-medium text-gray-200 transition-colors hover:border-white/30 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#9945FF] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {button.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 type UserMessage = { role: "user"; content: string };
 type AssistantMessage = {
   role: "assistant";
   content: string;
   citations: AskCitation[];
+  generativeUi: AskGenerativeUi | null;
+  codeFollowups: CodeFollowups | null;
   state: "streaming" | "done" | "error";
   statusStage: string | null;
+  visualStatus: string | null;
   errorKind: "rate_limited" | "generic" | null;
 };
 type ChatMessage = UserMessage | AssistantMessage;
@@ -59,11 +120,14 @@ export function AskSolanaWidget({
   const [isBusy, setIsBusy] = React.useState(false);
   const conversationIdRef = React.useRef<string | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
+  const requestIdRef = React.useRef(0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
-    if (open) inputRef.current?.focus();
+    if (!open) return;
+    prewarmAskSession();
+    inputRef.current?.focus();
   }, [open]);
 
   React.useEffect(() => {
@@ -121,6 +185,8 @@ export function AskSolanaWidget({
       const message = raw.trim();
       if (!message || isBusy) return;
 
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
       setInput("");
       setIsBusy(true);
       setMessages((current) => [
@@ -130,8 +196,11 @@ export function AskSolanaWidget({
           role: "assistant",
           content: "",
           citations: [],
+          generativeUi: null,
+          codeFollowups: null,
           state: "streaming",
           statusStage: null,
+          visualStatus: null,
           errorKind: null,
         },
       ]);
@@ -143,6 +212,24 @@ export function AskSolanaWidget({
 
       const controller = new AbortController();
       abortRef.current = controller;
+      const trackTiming = (timing: AskChatTiming) => {
+        trackAskSolana("docs_ai_timing", {
+          surface: "widget",
+          phase: timing.phase,
+          elapsed_ms: timing.elapsedMs,
+          detail: timing.detail ?? undefined,
+          conversation_id: conversationIdRef.current,
+        });
+      };
+      const deferGenerativeUi = (generativeUi: AskGenerativeUi | null) => {
+        if (!generativeUi) return;
+        window.setTimeout(() => {
+          if (requestIdRef.current !== requestId) return;
+          updateLastAssistant((m) =>
+            m.generativeUi ? m : { ...m, generativeUi, statusStage: null },
+          );
+        }, 0);
+      };
 
       void streamChat({
         message,
@@ -157,14 +244,36 @@ export function AskSolanaWidget({
               content: m.content + text,
               statusStage: null,
             })),
-          onDone: ({ conversationId, citations }) => {
+          onUiStatus: (stage) =>
+            updateLastAssistant((m) => ({
+              ...m,
+              visualStatus: stage,
+            })),
+          onGenerativeUi: (generativeUi) =>
+            updateLastAssistant((m) => ({
+              ...m,
+              generativeUi,
+              visualStatus: null,
+              statusStage: null,
+            })),
+          onDone: ({
+            response,
+            conversationId,
+            citations,
+            generativeUi,
+            codeFollowups,
+          }) => {
             if (conversationId) conversationIdRef.current = conversationId;
             updateLastAssistant((m) => ({
               ...m,
+              content: response ?? m.content,
               citations,
+              codeFollowups,
               state: "done",
               statusStage: null,
+              visualStatus: null,
             }));
+            deferGenerativeUi(generativeUi);
             setIsBusy(false);
           },
           onError: (errorMessage) => {
@@ -172,11 +281,13 @@ export function AskSolanaWidget({
               ...m,
               state: "error",
               statusStage: null,
+              visualStatus: null,
               errorKind:
                 errorMessage === "rate_limited" ? "rate_limited" : "generic",
             }));
             setIsBusy(false);
           },
+          onTiming: trackTiming,
         },
       });
     },
@@ -186,7 +297,23 @@ export function AskSolanaWidget({
   const statusLabel = (stage: string | null) =>
     stage === "searching_docs"
       ? t("askSolana.statusSearching")
-      : t("askSolana.statusThinking");
+      : stage === "cache_hit"
+        ? "Loading cached answer"
+        : stage === "session_start"
+          ? "Opening session"
+          : stage === "chat_connecting"
+            ? "Connecting"
+            : t("askSolana.statusThinking");
+  const visualStatusLabel = (stage: string | null) =>
+    stage ? "Building visual companion" : "Building visual companion";
+  const handleCodeFollowup = (button: CodeFollowupButton) => {
+    trackAskSolana("docs_ai_code_followup_clicked", {
+      language: button.language,
+      type: button.type,
+      surface: "widget",
+    });
+    send(button.message);
+  };
 
   return (
     <div
@@ -263,12 +390,21 @@ export function AskSolanaWidget({
             ) : (
               <div key={index} className="max-w-full text-sm">
                 {message.content ? (
-                  <AnswerMarkdown content={message.content} isDark />
+                  <WidgetAnswerMarkdown
+                    content={message.content}
+                    codeFollowups={message.codeFollowups}
+                  />
                 ) : null}
                 {message.state === "streaming" && !message.content ? (
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <span className="inline-block size-2 animate-pulse rounded-full bg-[#9945FF]" />
                     {statusLabel(message.statusStage)}
+                  </div>
+                ) : null}
+                {message.visualStatus && !message.generativeUi ? (
+                  <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-gray-400">
+                    <span className="inline-block size-2 animate-pulse rounded-full bg-[#14F195]" />
+                    {visualStatusLabel(message.visualStatus)}
                   </div>
                 ) : null}
                 {message.state === "error" ? (
@@ -278,18 +414,32 @@ export function AskSolanaWidget({
                       : t("askSolana.errorGeneric")}
                   </p>
                 ) : null}
-                {message.state === "done" && message.citations.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {message.citations.map((citation) => (
-                      <a
-                        key={citation.url}
-                        href={citation.url}
-                        className="rounded-full border border-gray-700 px-2.5 py-1 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-white"
-                      >
-                        {citation.title || citation.url}
-                      </a>
-                    ))}
-                  </div>
+                {message.state === "done" ? (
+                  <>
+                    <WidgetCodeFollowupCta
+                      followups={message.codeFollowups}
+                      disabled={isBusy}
+                      onSelect={handleCodeFollowup}
+                    />
+                    {message.generativeUi ? (
+                      <div className="mt-3">
+                        <GenerativeUiAnswer ui={message.generativeUi} />
+                      </div>
+                    ) : null}
+                    {message.citations.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {message.citations.map((citation) => (
+                          <a
+                            key={citation.url}
+                            href={citation.url}
+                            className="rounded-full border border-gray-700 px-2.5 py-1 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-white"
+                          >
+                            {citation.title || citation.url}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
               </div>
             ),

@@ -15,15 +15,14 @@ export function FlowSteps({
   return <div className={vectorRoot(styles.steps, className)}>{children}</div>;
 }
 
-/* One numbered card in an interactive flow. While a step is current it can
-   show a longer `description`; children fill the actions row (CommandChip,
-   ExecuteButton, StepReturns…). `reveal` delays the entrance animation so a
-   preceding FlowConnector plays first; `done` relaxes the accent border. */
+/* One item in the Vector timeline. Current steps expand into a bordered card;
+   completed/upcoming steps collapse to compact rows while keeping the rail. */
 export function FlowStep({
   num,
   title,
   sub,
   description,
+  current = true,
   done,
   reveal,
   actionsColumn,
@@ -35,6 +34,7 @@ export function FlowStep({
   title: ReactNode;
   sub?: ReactNode;
   description?: ReactNode;
+  current?: boolean;
   done?: boolean;
   reveal?: boolean;
   actionsColumn?: boolean;
@@ -48,29 +48,35 @@ export function FlowStep({
       className={vectorRoot(
         styles.step,
         reveal && styles.stepReveal,
+        current && styles.stepCurrent,
         done && styles.stepDone,
         className,
       )}
     >
-      <div className={styles.stepTop}>
+      <div className={styles.stepRail} aria-hidden="true">
         <span className={cx(styles.stepNum, jetbrainsMono.className)}>
           {num}
         </span>
-        <span className={styles.stepTitle}>
-          {title}{" "}
-          {sub != null && <span className={styles.stepSub}>- {sub}</span>}
-        </span>
+        <span className={styles.stepLine} />
       </div>
-      {description != null && (
-        <div className={styles.stepDesc}>{description}</div>
-      )}
-      <div
-        className={cx(
-          styles.stepActions,
-          actionsColumn && styles.stepActionsCol,
+      <div className={styles.stepCard}>
+        <div className={styles.stepTop}>
+          <span className={styles.stepTitle}>
+            {title}{" "}
+            {sub != null && <span className={styles.stepSub}>- {sub}</span>}
+          </span>
+        </div>
+        {description != null && (
+          <div className={styles.stepDesc}>{description}</div>
         )}
-      >
-        {children}
+        <div
+          className={cx(
+            styles.stepActions,
+            actionsColumn && styles.stepActionsCol,
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

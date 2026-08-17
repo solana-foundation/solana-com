@@ -8,6 +8,7 @@ import styles from "./vector.module.css";
 export function ExecuteButton({
   busy,
   disabled,
+  variant = "primary",
   onClick,
   children = "Execute",
   busyLabel = "Running…",
@@ -15,6 +16,7 @@ export function ExecuteButton({
 }: {
   busy?: boolean;
   disabled?: boolean;
+  variant?: "primary" | "secondary";
   onClick?: () => void;
   children?: ReactNode;
   busyLabel?: ReactNode;
@@ -23,7 +25,12 @@ export function ExecuteButton({
   return (
     <button
       type="button"
-      className={cx(styles.execute, className)}
+      className={cx(
+        styles.execute,
+        variant === "secondary" && styles.executeSecondary,
+        busy && styles.executeRunning,
+        className,
+      )}
       onClick={onClick}
       disabled={disabled}
     >

@@ -5,9 +5,8 @@ import { cx, vectorRoot } from "./base";
 import { jetbrainsMono } from "./fonts";
 import styles from "./vector.module.css";
 
-/* Stacks LabeledPanels column-reverse: the LAST child renders on top, so an
-   always-visible summary (like the live model) can sit above a long flow
-   while staying after it in the DOM/reading order. */
+/* Responsive side-by-side panel grid. Put the live model first and the flow
+   second so the DOM order matches the visual order used by the docs preview. */
 export function PanelStack({
   className,
   children,
@@ -19,16 +18,18 @@ export function PanelStack({
 }
 
 /* Uppercase micro-label over a bordered panel (LIVE MODEL, TOKEN CREATION
-   FLOW). `sticky` pins the panel below the site header while its siblings
-   scroll — used for the live model so it stays in view as steps execute. */
+   FLOW). `sticky` is kept for backwards-compatible callers, but the current
+   Vector answer treatment uses a full panel grid instead of pinned cards. */
 export function LabeledPanel({
   label,
   sticky,
+  compact,
   className,
   children,
 }: {
   label: ReactNode;
   sticky?: boolean;
+  compact?: boolean;
   className?: string;
   children: ReactNode;
 }) {
@@ -37,6 +38,7 @@ export function LabeledPanel({
       className={vectorRoot(
         styles.panelGroup,
         sticky && styles.panelGroupSticky,
+        compact && styles.panelGroupCompact,
         className,
       )}
     >
