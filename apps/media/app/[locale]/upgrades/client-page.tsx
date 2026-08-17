@@ -4,6 +4,13 @@ import { useMemo, useState } from "react";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { STAGE_BADGE_CLASSES, STAGE_LABELS } from "@/lib/upgrades/stage";
 import type {
   ReleaseGroup,
@@ -279,19 +286,31 @@ export default function UpgradesClientPage({
           >
             Release
           </label>
-          <select
-            id="release-select"
-            value={selectedRelease}
-            onChange={(event) => setSelectedRelease(event.target.value)}
-            className="min-w-[220px] rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-[14.5px] font-medium text-white hover:border-white/25"
-          >
-            <option value="all">All releases</option>
-            {releaseOptions.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <Select value={selectedRelease} onValueChange={setSelectedRelease}>
+            <SelectTrigger
+              id="release-select"
+              className="min-w-[220px] rounded-lg border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-[14.5px] font-medium text-white ring-offset-0 hover:border-white/25 focus:ring-0 focus:ring-offset-0"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="min-w-[220px] rounded-lg border-white/10 bg-black text-white shadow-xl">
+              <SelectItem
+                value="all"
+                className="text-[14.5px] focus:bg-white/10 focus:text-white"
+              >
+                All releases
+              </SelectItem>
+              {releaseOptions.map((option) => (
+                <SelectItem
+                  key={option.key}
+                  value={option.key}
+                  className="text-[14.5px] focus:bg-white/10 focus:text-white"
+                >
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="inline-flex flex-shrink-0 gap-0.5 rounded-lg border border-white/10 p-[3px]">
           <button
