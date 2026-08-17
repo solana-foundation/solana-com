@@ -7,7 +7,7 @@ description: Deploy and operate a Private Channels instance with Docker Compose
 
 An operator is a trusted, on-chain-permissioned entity that bridges Solana
 Mainnet and the private channel network. Operators are provisioned by the
-instance admin via `AddOperator`, which creates an on-chain `Operator` PDA -
+instance admin via `AddOperator`, which creates an on-chain `Operator` PDA;
 without this, no party can call `ReleaseFunds`. In practice, an operator is an
 organization or team running the services that watch for deposits, mint
 channel-side tokens, detect withdrawals, and settle funds back to Mainnet.
@@ -47,7 +47,7 @@ make install-toolchain
 
 ### Services
 
-Running a Private Channels instance means owning five ongoing responsibilities -
+Running a Private Channels instance means owning five ongoing responsibilities,
 each handled by dedicated containers in the Docker Compose stack:
 
 1. **Index Mainnet for deposits** - `indexer-solana` watches Solana Mainnet for
@@ -70,13 +70,18 @@ each handled by dedicated containers in the Docker Compose stack:
 For the full service inventory and port assignments, see the
 [Configuration reference](/docs/tools/private-channels/operators/configuration).
 
-> **Security note:** The gateway (`8899`) is the only port bound to all network
-> interfaces. Write-node and read-node ports are bound to loopback (`127.0.0.1`)
-> only. RBAC is enforced at the gateway layer, not the node level.
+> **Security note:** Write-node and read-node ports are bound to loopback
+> (`127.0.0.1`) only, but several other services (gateway, auth, operator
+> metrics, Grafana, Prometheus, cAdvisor) are published to all network
+> interfaces by default. See the
+> [Configuration reference](/docs/tools/private-channels/operators/configuration#service-port-reference)
+> for the full port table and firewall these before any public-facing
+> deployment. RBAC only covers the gateway's own JSON-RPC methods, not these
+> other services.
 
 ### Access Control: Open vs. RBAC
 
-By default the gateway accepts all connections - no tokens required. To enable
+By default the gateway accepts all connections; no tokens required. To enable
 JWT-based RBAC, set `JWT_SECRET` and start the stack with `--profile auth`. See
 **[Authentication & Roles](/docs/tools/private-channels/concepts/auth)** for the
 full configuration reference, including how to provision the `operator` role and
@@ -91,15 +96,13 @@ AUTH_PORT=8903
 
 ## Environment Setup
 
-Copy the devnet template:
+`.env.devnet` is already tracked in the repository with devnet-specific defaults
+filled in; edit it directly rather than regenerating it from `.env.example`,
+which would overwrite those defaults.
 
-```bash
-cp .env.example .env.devnet
-```
-
-Fill in values as you work through the deploy steps below - some are only
-available mid-deployment. Secrets go in the gitignored `.env` file; non-secret
-variables go in `.env.devnet`.
+Fill in the remaining values as you work through the deploy steps below; some
+are only available mid-deployment. Secrets go in the gitignored `.env` file;
+non-secret variables go in `.env.devnet`.
 
 **Secrets - set these immediately:**
 
@@ -150,8 +153,8 @@ takes 30 minutes to an hour.
 ### Set up the Admin UI
 
 The Admin UI is a browser-based tool for creating and configuring the escrow
-instance. It is a development and administration utility - not a user-facing
-product and not a required runtime component. All operations it performs
+instance: a development and administration utility, not a user-facing product
+and not a required runtime component. All operations it performs
 (`CreateInstance`, `AllowMint`, `AddOperator`) can also be run via the CLI
 scripts in the repository.
 
@@ -170,7 +173,7 @@ pnpm dev   # opens at http://localhost:5173
 
 1. Set your browser wallet to **Devnet** and ensure you have Devnet SOL for fees
 2. In the Admin UI, click **Create New Instance** and approve the transaction
-3. Copy the **Instance Address** - set it as `ESCROW_INSTANCE_ID` in
+3. Copy the **Instance Address** and set it as `ESCROW_INSTANCE_ID` in
    `.env.devnet`
 
 Alternatively, use the CLI script:
@@ -224,11 +227,16 @@ make docker-devnet-up
 With auth:
 
 ```bash
-docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --profile auth up -d
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
 ```
 
+Compose disables its automatic `.env` auto-load once any `--env-file` flag is
+passed, so the trailing `--env-file .env` is required. Without it,
+`POSTGRES_PASSWORD`, `ADMIN_PRIVATE_KEY`, and `JWT_SECRET` (which you put in
+`.env` above) resolve empty and the stack fails to start correctly.
+
 > Start services before configuring the instance. The indexer streams events in
-> real time - bringing the stack up first ensures `AllowMint` and your first
+> real time, so bringing the stack up first ensures `AllowMint` and your first
 > deposit are indexed in order without needing a backfill.
 
 </Step>
@@ -263,12 +271,12 @@ cargo run --bin add_operator -- \
 
 This guide targets Solana devnet. For Mainnet:
 
-- Program IDs are compiled in via `declare_id!()` - verify you are using the
+- Program IDs are compiled in via `declare_id!()`: verify you are using the
   correct Mainnet IDs from the repository
 - Yellowstone gRPC endpoints require a Mainnet plan; devnet endpoints will not
   stream Mainnet events
-- The operator wallet pays SOL fees for every `ReleaseFunds` call - size the SOL
-  balance for your expected withdrawal volume
+- The operator wallet pays SOL fees for every `ReleaseFunds` call, so size the
+  SOL balance for your expected withdrawal volume
 - Change all default credentials (Grafana, PostgreSQL) before any public-facing
   deployment
 
@@ -313,8 +321,8 @@ monitoring. Grafana is accessible on port `37429`.
    `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-solana`
 4. Check that your Yellowstone gRPC endpoint is reachable and the token is valid
    (`DEVNET_YELLOWSTONE_ENDPOINT`, `INDEXER_YELLOWSTONE_TOKEN`)
-5. Allow up to 30 seconds after on-chain confirmation - the indexer applies a
-   finality safety delay before crediting
+5. Allow up to 30 seconds after on-chain confirmation, since the indexer applies
+   a finality safety delay before crediting
 
 ### Withdrawal not settling to Mainnet
 
@@ -324,7 +332,7 @@ monitoring. Grafana is accessible on port `37429`.
    `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-private-channel`
 3. Confirm the operator keypair in `ADMIN_PRIVATE_KEY` matches the key
    registered with `AddOperator` on-chain
-4. If logs show "SMT root mismatch" - the service shuts down rather than submit
+4. If logs show "SMT root mismatch", the service shuts down rather than submit
    an invalid proof. Stop the stack, restore from a consistent state, and
    restart
 
@@ -333,7 +341,7 @@ monitoring. Grafana is accessible on port `37429`.
 1. Confirm `JWT_SECRET` is identical on both the gateway and auth service
    containers
 2. Confirm the stack was started with `--profile auth`
-3. Tokens expire after 24 hours - re-authenticate to get a fresh token
+3. Tokens expire after 24 hours; re-authenticate to get a fresh token
 
 ### First build takes too long
 
@@ -348,7 +356,7 @@ cache and are significantly faster.
     title="Quickstart"
     href="/docs/tools/private-channels/quickstart/installation"
   >
-    Test your deployment - deposit, transfer, and withdraw on devnet.
+    Test your deployment: deposit, transfer, and withdraw on devnet.
   </Card>
   <Card
     title="Configuration"
