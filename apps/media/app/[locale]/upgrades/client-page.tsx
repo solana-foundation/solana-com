@@ -174,15 +174,17 @@ function TableView({ groups }: { groups: ReleaseGroup[] }) {
                   return (
                     <tr
                       key={upgrade.slug}
-                      className="border-b border-white/10 transition-colors last:border-b-0 hover:bg-white/[0.06]"
+                      className="group relative border-b border-white/10 transition-colors last:border-b-0 hover:bg-white/[0.06]"
                     >
                       <td className="p-4 px-5 align-top">
                         <Link
                           href={`/upgrades/${upgrade.slug}`}
-                          className="text-[15px] font-semibold hover:underline"
-                        >
+                          className="absolute inset-0"
+                          aria-label={upgrade.title}
+                        />
+                        <div className="text-[15px] font-semibold group-hover:underline">
                           {upgrade.title}
-                        </Link>
+                        </div>
                         <div className="mt-1 text-[13px] leading-5 text-[#ABABBA]">
                           {upgrade.subtitle || upgrade.description}
                         </div>
