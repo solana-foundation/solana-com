@@ -1,13 +1,15 @@
 # Docs App Agent Guide
 
-Use this app for developer docs, cookbook, guides, and docs-specific UI.
+Use this app for developer docs, cookbook, learning content, bootcamp content,
+and docs-specific UI.
 
 ## Identity
 
 - Workspace: `apps/docs`
 - Package: `solana-docs`
 - Default dev port: `3003`
-- Public route ownership: `/docs`, `/developers/cookbook`, `/developers/guides`
+- Public route ownership: `/docs`, `/learn`, `/developers`,
+  `/developers/cookbook`, `/developers/bootcamp`
 
 ## First Files To Open
 
@@ -31,7 +33,9 @@ Use this app for developer docs, cookbook, guides, and docs-specific UI.
 
 - `content/docs/*`: core docs by locale
 - `content/cookbook/*`: recipe-style content
-- `content/guides/*`: long-form developer guides
+- `content/learn/*`: general learning content
+- `content/developers-learn/*`: developer bootcamp and companion content
+- `packages/docs-examples/*`: runnable code embedded in cookbook pages
 - `src/components/*`: docs-only React UI
 
 ## Commands
@@ -40,6 +44,7 @@ Use this app for developer docs, cookbook, guides, and docs-specific UI.
 pnpm --filter solana-docs dev
 pnpm --filter solana-docs build
 pnpm --filter solana-docs lint
+pnpm --filter solana-docs check-types
 pnpm --filter solana-docs postinstall
 ```
 

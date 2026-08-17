@@ -4,7 +4,7 @@ import React from "react";
 import type { ComponentType } from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
-import { ArrowDownToLine } from "lucide-react";
+import { ArrowToBottom as ArrowDownToLine } from "@boxicons/react/ArrowToBottom";
 import { cn } from "@/app/components/utils";
 import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
@@ -181,7 +181,6 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                 <ArrowDownToLine
                   aria-hidden={true}
                   className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
-                  strokeWidth={3}
                 />
                 {emailCta}
               </Button>
@@ -310,7 +309,6 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                         <ArrowDownToLine
                           aria-hidden={true}
                           className="-ml-2 p-1 !size-5 bg-white text-black rounded-full"
-                          strokeWidth={3}
                         />
                         {emailCta}
                       </Button>

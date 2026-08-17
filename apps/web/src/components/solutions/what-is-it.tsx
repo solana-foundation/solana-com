@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check } from "@boxicons/react/Check";
 
 type WhatIsItProps = {
   title: string;
@@ -32,11 +32,7 @@ type FeatureCheckProps = { text: string };
 const FeatureCheck = ({ text }: FeatureCheckProps) => (
   <li className="flex items-center gap-2">
     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0f533d]">
-      <Check
-        className="w-4 h-4 text-[#1eff9b]"
-        strokeWidth={2.5}
-        aria-hidden="true"
-      />
+      <Check className="w-4 h-4 text-[#1eff9b]" aria-hidden="true" />
     </span>
     <span className="text-base text-[#B0B8C1]">{text}</span>
   </li>

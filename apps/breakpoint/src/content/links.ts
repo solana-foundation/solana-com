@@ -10,6 +10,8 @@ export const PRESS_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-press";
 export const CONTENT_CREATOR_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-creator";
+export const APPLY_TO_SPEAK_HREF =
+  "https://airtable.com/appCy7M2j24UF6QqT/pagRLZbQJSUsyz3Tn/form";
 export const CODE_OF_CONDUCT_HREF = "https://shorturl.at/lEMR1";
 export const SIDE_EVENTS_HREF = "https://luma.com/BP-SideEvents";
 // Public calendar: https://luma.com/BP-Highlight
@@ -20,6 +22,11 @@ export const BP25_RECAP_YOUTUBE_ID = "394wb968J68";
 export const TICKET_TRANSFER_HREF = "https://luma.com/breakpoint2026/transfer";
 export const HOTEL_BOOKING_HREF =
   "https://reservations.arestravel.com/hotel/list/24713?Search%5BhotelRegion%5D=i8011&Search%5BcheckInDate%5D=11%2F11%2F2026&Search%5BcheckOutDate%5D=11%2F21%2F2026&Search%5BroomOccupancies%5D%5B0%5D%5BnumberOfAdults%5D=1&Search%5BroomOccupancies%5D%5B0%5D%5BnumberOfChildren%5D=0&Search%5BkeywordSearch%5D=&Search%5Bsort%5D=distance&Search%5BstarRating%5D=&Search%5BlowPrice%5D=&Search%5BhighPrice%5D=&Search%5Bsearch%5D=&customNavLink=0&Search%5Bnear%5D=&Search%5Blatitude%5D=&Search%5Blongitude%5D=&Search%5BlocationSearch%5D=&Search%5BpoiDistance%5D=2";
+export const NOMADZ_HREF = "https://nomadz.xyz/breakpoint";
+export const LONDON_CITY_AIRPORT_HREF = "https://www.londoncityairport.com/";
+export const HEATHROW_AIRPORT_HREF = "https://www.heathrow.com/";
+export const GATWICK_AIRPORT_HREF = "https://www.gatwickairport.com/";
+export const BREAKPOINT_EMAIL_HREF = "mailto:breakpoint@solana.org";
 export const VISA_CHECK_HREF = "https://www.gov.uk/check-uk-visa";
 export const IAS_HREF =
   "https://iasservices.org.uk/breakpoint-priority-visa-application-centre/";

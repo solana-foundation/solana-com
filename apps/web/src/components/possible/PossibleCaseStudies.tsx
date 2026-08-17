@@ -1,5 +1,5 @@
 import Link from "../../utils/Link";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./PossibleCaseStudies.module.scss";
 import { useTranslations } from "next-intl";
 

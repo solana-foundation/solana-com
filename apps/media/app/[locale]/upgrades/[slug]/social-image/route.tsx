@@ -7,6 +7,7 @@ import {
   UPGRADE_SOCIAL_IMAGE_SIZE,
   UPGRADE_SOCIAL_IMAGE_TYPE,
 } from "@/lib/upgrades/social-image";
+import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
@@ -37,7 +38,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   const { slug } = await params;
   const entry = await reader.collections.upgrades.read(slug);
 
-  if (!entry || entry.status !== "published") {
+  if (!isPublishedUpgrade(entry)) {
     return new Response("Upgrade not found", { status: 404 });
   }
 

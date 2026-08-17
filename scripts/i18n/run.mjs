@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "../..");
+const lingoCliPackage = "@lingo.dev/cli@1.12.0";
 const appTargets = new Set([
   "accelerate",
   "breakpoint",
@@ -14,24 +15,6 @@ const appTargets = new Set([
   "templates",
   "web",
 ]);
-const sourcePatternsByScope = {
-  accelerate: ["packages/i18n/messages/accelerate/en/*.json"],
-  docs: [
-    "apps/docs/content/docs/en/**/*.mdx",
-    "apps/docs/content/learn/en/*.mdx",
-    "apps/docs/content/docs/en/**/meta.json",
-  ],
-  media: ["packages/i18n/messages/media/en/*.json"],
-  templates: ["packages/i18n/messages/templates/en/*.json"],
-  ui: [
-    "packages/i18n/messages/accelerate/en/*.json",
-    "packages/i18n/messages/media/en/*.json",
-    "packages/i18n/messages/templates/en/*.json",
-    "packages/i18n/messages/web/en/*.json",
-  ],
-  web: ["packages/i18n/messages/web/en/*.json"],
-};
-
 function loadEnvFileIfPresent(filePath) {
   if (!fs.existsSync(filePath)) {
     return;
@@ -59,9 +42,48 @@ function run(command, args, cwd) {
     shell: false,
   });
 
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+  return result.status ?? 1;
+}
+
+function runOrExit(command, args, cwd) {
+  const status = run(command, args, cwd);
+
+  if (status !== 0) {
+    process.exit(status);
   }
+}
+
+function runLingo(args) {
+  return run("npx", ["--yes", lingoCliPackage, ...args], rootDir);
+}
+
+function runLingoPush(args) {
+  const pushStatus = runLingo(["push", ...args, "--wait"]);
+
+  if (pushStatus === 0) {
+    return;
+  }
+
+  console.error(
+    "Lingo push ended before its outputs were downloaded; recovering and attaching to the same run.",
+  );
+  const resumeStatus = runLingo(["resume"]);
+
+  if (resumeStatus !== 0) {
+    console.error(
+      "Lingo resume was not available; attempting to pull the same run anyway.",
+    );
+  }
+
+  const pullStatus = runLingo(["pull"]);
+
+  if (pullStatus !== 0) {
+    process.exit(pushStatus);
+  }
+}
+
+function verifyTargetCoverage() {
+  return run("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
 }
 
 function runContinuousLocalization(requestedScope) {
@@ -71,37 +93,48 @@ function runContinuousLocalization(requestedScope) {
     console.log(
       "No .lingo/lock.json found; adopting existing translations without overwriting them.",
     );
-    run("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
-    run("npx", ["--yes", "@lingo.dev/cli@latest", "push", "--wait"], rootDir);
+    runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
+    runLingoPush([]);
 
     if (requestedScope === "all" || requestedScope === "docs") {
-      run("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"], rootDir);
+      runOrExit(
+        "node",
+        ["./scripts/i18n/verify-docs-frontmatter.mjs"],
+        rootDir,
+      );
     }
 
     return;
   }
 
-  // Lingo accepts positional glob patterns and resolves them itself. Keep the
-  // patterns unexpanded so scoped pushes match the entries in .lingo/config.json.
-  const sourcePatterns = sourcePatternsByScope[requestedScope] ?? [];
-  const args = [
-    "--yes",
-    "@lingo.dev/cli@latest",
-    "push",
-    ...sourcePatterns,
-    "--wait",
-  ];
+  // Current Lingo releases treat positional patterns as force/new-file scopes
+  // and skip changed keys when target files already exist. Incremental pushes
+  // must be config-wide; the lockfile still limits work to changed sources.
+  if (requestedScope !== "all") {
+    console.log(
+      `Lingo incremental syncs are config-wide; processing changed sources for the requested "${requestedScope}" workflow.`,
+    );
+  }
 
-  run("npx", args, rootDir);
+  runLingoPush([]);
+
+  if (requestedScope === "all" && verifyTargetCoverage() !== 0) {
+    console.error(
+      "Lingo left target coverage incomplete; retrying once with the updated lockfile.",
+    );
+    runLingoPush([]);
+    runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
+  }
 
   if (requestedScope === "all" || requestedScope === "docs") {
-    run("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"], rootDir);
+    runOrExit("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"], rootDir);
   }
 }
 
 const [, , target, app] = process.argv;
 
-run("node", ["./scripts/i18n/verify-source-locales.mjs"], rootDir);
+runOrExit("node", ["./scripts/i18n/verify-source-locales.mjs"], rootDir);
+runOrExit("node", ["./scripts/i18n/verify-config-coverage.mjs"], rootDir);
 
 switch (target) {
   case "all":
@@ -118,11 +151,6 @@ switch (target) {
     if (!appTargets.has(app)) {
       console.error(`Unknown localization app: ${app}`);
       process.exit(1);
-    }
-
-    if (app === "breakpoint") {
-      console.log("Breakpoint has no local translation catalog to sync.");
-      break;
     }
 
     runContinuousLocalization(app);

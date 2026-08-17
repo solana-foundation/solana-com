@@ -1,3 +1,7 @@
+type MessageRecord = {
+  [key: string]: string | MessageRecord;
+};
+
 export type BreakpointMessages = {
   metadata: {
     title: string;
@@ -28,6 +32,7 @@ export type BreakpointMessages = {
   tickets: {
     eyebrow: string;
     headline: string;
+    priceIncreaseCountdown: string;
     categories: Record<
       string,
       {
@@ -35,6 +40,7 @@ export type BreakpointMessages = {
         description: string;
         originalPrice?: string;
         price: string;
+        priceAfterIncrease?: string;
         ctaLabel?: string;
         href?: string;
       }
@@ -104,6 +110,65 @@ export type BreakpointMessages = {
       }
     >;
   };
+  travel: {
+    metadata: {
+      title: string;
+      description: string;
+    };
+    title: string;
+    cta: string;
+    subnav: {
+      label: string;
+      flights: string;
+      hotels: string;
+      visas: string;
+    };
+    flights: {
+      eyebrow: string;
+      headline: string;
+      airports: Record<
+        string,
+        {
+          name: string;
+          distance: string;
+        }
+      >;
+    };
+    hotels: {
+      headline: string;
+      items: Record<
+        string,
+        {
+          name: string;
+          description: string;
+          distance?: string;
+          ctaLabel: string;
+        }
+      >;
+    };
+    londonPicks: MessageRecord;
+    visas: {
+      headline: string;
+      summary: string;
+      checkRequirements: string;
+      firstStep: string;
+      officialRequirements: string;
+      entrySuffix: string;
+      secondStep: string;
+      supportPrefix: string;
+      supportLink: string;
+      supportSuffix: string;
+      fees: string;
+      invitationPrefix: string;
+      invitationLink: string;
+      invitationSuffix: string;
+    };
+    faq: {
+      headline: string;
+      cta: string;
+    };
+  };
+  pages: MessageRecord;
   footer: {
     copyright: string;
     contact: string;

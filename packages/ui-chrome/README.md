@@ -60,8 +60,9 @@ Floating or inline button that opens the Inkeep AI search + chat modal. Requires
 
 ### InkeepSearchBar
 
-Search bar that opens the same Inkeep modal. Used in docs hero and elsewhere.
-Optional `expanded` prop for always-expanded styling.
+Search button that opens the same Inkeep modal and displays its `⌘ K` keyboard
+shortcut on larger viewports. The optional `expanded` prop adds a visible label
+and full-width styling.
 
 ### NewsletterModal
 

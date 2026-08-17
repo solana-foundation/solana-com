@@ -23,6 +23,10 @@ const {
         list: vi.fn(),
         read: vi.fn(),
       },
+      reports: {
+        list: vi.fn(),
+        read: vi.fn(),
+      },
       categories: {
         read: vi.fn(),
       },
@@ -92,6 +96,7 @@ describe("latest content filters", () => {
     readerMock.collections.categories.read.mockImplementation((slug: string) =>
       Promise.resolve(
         {
+          changelog: { name: "Changelog" },
           ecosystem: { name: "Ecosystem" },
           developers: { name: "Developers" },
         }[slug] ?? null,
@@ -354,6 +359,40 @@ describe("latest content filters", () => {
       ]);
     });
 
+    it("excludes posts by category from latest post results", async () => {
+      const posts = {
+        "changelog-post": {
+          status: "published",
+          title: "Solana Changelog",
+          description: "weekly developer updates",
+          publishedAt: "2026-03-12T00:00:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "changelog" }, { category: "developers" }],
+          tags: [{ tag: "developer" }],
+        },
+        "developer-post": {
+          status: "published",
+          title: "Developer Story",
+          description: "developer story",
+          publishedAt: "2026-03-11T00:00:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "developers" }],
+          tags: [{ tag: "developer" }],
+        },
+      };
+
+      readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
+      readerMock.collections.posts.read.mockImplementation((slug: string) =>
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
+      );
+
+      const result = await fetchLatestPosts({
+        excludeCategory: "Changelog",
+      });
+
+      expect(result.posts.map((item) => item.id)).toEqual(["developer-post"]);
+    });
+
     it("matches mixed category and tag reference formats by slug", async () => {
       const posts = {
         "slug-match-post": {
@@ -540,6 +579,53 @@ describe("latest content filters", () => {
       ]);
     });
 
+    it("excludes a category before limiting featured posts", async () => {
+      const posts = {
+        "newest-changelog": {
+          status: "published",
+          title: "Newest Changelog",
+          description: "changelog",
+          publishedAt: "2026-03-13T00:00:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "changelog" }],
+          tags: [{ tag: "featured" }],
+        },
+        "newest-news": {
+          status: "published",
+          title: "Newest News",
+          description: "news",
+          publishedAt: "2026-03-12T00:00:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "ecosystem" }],
+          tags: [{ tag: "featured" }],
+        },
+        "older-news": {
+          status: "published",
+          title: "Older News",
+          description: "news",
+          publishedAt: "2026-03-11T00:00:00.000Z",
+          author: "solana-foundation",
+          categories: [{ category: "developers" }],
+          tags: [{ tag: "featured" }],
+        },
+      };
+
+      readerMock.collections.posts.list.mockResolvedValue(Object.keys(posts));
+      readerMock.collections.posts.read.mockImplementation((slug: string) =>
+        Promise.resolve(posts[slug as keyof typeof posts] ?? null),
+      );
+
+      const result = await fetchFeaturedPosts({
+        limit: 2,
+        excludeCategory: "Changelog",
+      });
+
+      expect(result.posts.map((item) => item.id)).toEqual([
+        "newest-news",
+        "older-news",
+      ]);
+    });
+
     it("dedupes duplicate tag and category names in transformed posts", async () => {
       readerMock.collections.categories.read.mockImplementation(
         (slug: string) =>
@@ -588,7 +674,6 @@ describe("latest content filters", () => {
     it("excludes future-dated reports and returns publish timestamps", async () => {
       const reports = {
         "live-report": {
-          isReport: true,
           status: "published",
           title: "Live Report",
           description: "live report",
@@ -598,7 +683,6 @@ describe("latest content filters", () => {
           image: { src: "/uploads/live-report.webp" },
         },
         "scheduled-report": {
-          isReport: true,
           status: "published",
           title: "Scheduled Report",
           description: "scheduled report",
@@ -609,12 +693,11 @@ describe("latest content filters", () => {
         },
       };
 
-      readerMock.collections.switchbacks.list.mockResolvedValue(
+      readerMock.collections.reports.list.mockResolvedValue(
         Object.keys(reports),
       );
-      readerMock.collections.switchbacks.read.mockImplementation(
-        (slug: string) =>
-          Promise.resolve(reports[slug as keyof typeof reports] ?? null),
+      readerMock.collections.reports.read.mockImplementation((slug: string) =>
+        Promise.resolve(reports[slug as keyof typeof reports] ?? null),
       );
 
       const result = await fetchLatestReports({});
@@ -667,7 +750,7 @@ describe("latest content filters", () => {
       ]);
     });
 
-    it("includes tag exclusions in the posts cache key and forwards them to the data layer", async () => {
+    it("includes category and tag exclusions in the posts cache key and forwards them to the data layer", async () => {
       const fetchLatestPostsSpy = vi
         .spyOn(keystaticPostData, "fetchLatestPosts")
         .mockResolvedValue({
@@ -695,12 +778,12 @@ describe("latest content filters", () => {
         });
 
       const response = (await getLatestPosts({
-        url: "https://example.com/api/posts/latest?limit=2&cursor=post-0&category=ecosystem&tag=defi&excludeTag=featured",
+        url: "https://example.com/api/posts/latest?limit=2&cursor=post-0&category=ecosystem&excludeCategory=changelog&tag=defi&excludeTag=featured",
       } as any)) as any;
 
       expect(unstableCacheMock).toHaveBeenCalledWith(
         expect.any(Function),
-        ["posts-2-post-0-ecosystem-defi-featured"],
+        ["posts-2-post-0-ecosystem-changelog-defi-featured"],
         expect.objectContaining({
           tags: ["posts"],
         }),
@@ -709,6 +792,7 @@ describe("latest content filters", () => {
         limit: 2,
         cursor: "post-0",
         category: "ecosystem",
+        excludeCategory: "changelog",
         tag: "defi",
         excludeTag: "featured",
       });
@@ -730,36 +814,33 @@ describe("latest content filters", () => {
     });
 
     it("keeps future-dated reports out of the reports API payload", async () => {
-      readerMock.collections.switchbacks.list.mockResolvedValue([
+      readerMock.collections.reports.list.mockResolvedValue([
         "live-report",
         "scheduled-report",
       ]);
-      readerMock.collections.switchbacks.read.mockImplementation(
-        (slug: string) =>
-          Promise.resolve(
-            {
-              "live-report": {
-                isReport: true,
-                status: "published",
-                title: "Live Report",
-                description: "live report",
-                publishedAt: "2026-03-11T00:00:00.000Z",
-                categories: [{ category: "ecosystem" }],
-                tags: [{ tag: "defi" }],
-                image: { src: "/uploads/live-report.webp" },
-              },
-              "scheduled-report": {
-                isReport: true,
-                status: "published",
-                title: "Scheduled Report",
-                description: "scheduled report",
-                publishedAt: "2026-03-25T12:00:00.000Z",
-                categories: [{ category: "ecosystem" }],
-                tags: [{ tag: "defi" }],
-                image: { src: "/uploads/scheduled-report.webp" },
-              },
-            }[slug] ?? null,
-          ),
+      readerMock.collections.reports.read.mockImplementation((slug: string) =>
+        Promise.resolve(
+          {
+            "live-report": {
+              status: "published",
+              title: "Live Report",
+              description: "live report",
+              publishedAt: "2026-03-11T00:00:00.000Z",
+              categories: [{ category: "ecosystem" }],
+              tags: [{ tag: "defi" }],
+              image: { src: "/uploads/live-report.webp" },
+            },
+            "scheduled-report": {
+              status: "published",
+              title: "Scheduled Report",
+              description: "scheduled report",
+              publishedAt: "2026-03-25T12:00:00.000Z",
+              categories: [{ category: "ecosystem" }],
+              tags: [{ tag: "defi" }],
+              image: { src: "/uploads/scheduled-report.webp" },
+            },
+          }[slug] ?? null,
+        ),
       );
 
       const response = (await getLatestReports({

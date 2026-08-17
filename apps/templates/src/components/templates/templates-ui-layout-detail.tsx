@@ -1,12 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@workspace/ui";
 import { Button } from "@workspace/ui";
 import { AppHero } from "../app-hero";
 import { TemplatesUiImage } from "../../lib/templates";
@@ -44,56 +38,48 @@ export function TemplatesUiLayoutDetail({
   }
 
   return (
-    <div>
-      <div className="md:col-span-3 gap-4">
-        <div>
-          <div>
-            <div className="max-w-5xl mx-auto mb-4">
-              <Button asChild variant="ghost" className="mb-4 px-2">
-                <Link href="/developers/templates">← Back to templates</Link>
-              </Button>
-              <h1 className="text-3xl font-bold mb-4">
-                {template.displayName || template.name}
-              </h1>
-            </div>
-            <div className="relative overflow-hidden rounded-2xl mb-4 max-w-5xl mx-auto">
-              {/* Gradient border effect */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20" />
-              <div className="absolute inset-[1px] rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950" />
+    <section className="mx-auto w-full max-w-[1440px] border-b border-white/[0.08] xl:border-x">
+      <header className="border-b border-white/[0.08] px-5 pb-14 pt-12 md:px-8 md:pb-20 md:pt-16 xl:px-12 xl:pb-24 xl:pt-20">
+        <Link
+          href="/developers/templates"
+          className="inline-flex items-center font-brand-mono text-[11px] font-medium uppercase tracking-[0.08em] text-nd-mid-em-text transition-colors hover:text-white"
+        >
+          ← Back to templates
+        </Link>
+        <h1 className="nd-heading-2xl mt-8 max-w-5xl text-nd-high-em-text">
+          {template.displayName || template.name}
+        </h1>
+        <p className="mt-5 max-w-2xl nd-body-l text-nd-mid-em-text md:mt-6">
+          {template.description}
+        </p>
+      </header>
 
-              <div className="relative w-full max-h-96 flex items-center justify-center">
-                <TemplatesUiImage template={template} />
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 lg:gap-8 max-w-5xl mx-auto">
-            <div className="col-span-2">
-              <div className="hidden md:block md:sticky md:top-0 md:self-start">
-                <TemplatesUiSidebarDetail template={template} />
-              </div>
-              <div className="md:hidden ">
-                <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="item-1">
-                    <AccordionTrigger>Template details</AccordionTrigger>
-                    <AccordionContent>
-                      <TemplatesUiSidebarDetail template={template} />
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
-            </div>
-            <div className="col-span-2 md:col-span-3 relative overflow-hidden rounded-2xl">
-              {/* Gradient border effect */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-blue-500/20" />
-              <div className="absolute inset-[1px] rounded-2xl bg-gradient-to-br from-zinc-900 to-zinc-950" />
-
-              <div className={`relative ${PROSE_README_CLASSNAME}`}>
-                <div dangerouslySetInnerHTML={{ __html: template.readme }} />
-              </div>
-            </div>
+      <div className="border-b border-white/[0.08] p-3 md:p-8 xl:p-12">
+        <div className="relative overflow-hidden border border-white/[0.12] bg-black shadow-[0_32px_100px_rgba(0,0,0,0.45)]">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(202,159,245,0.08),transparent_60%)] pointer-events-none" />
+          <div className="relative flex w-full items-center justify-center">
+            <TemplatesUiImage
+              template={template}
+              className="h-auto w-full"
+              sizes="(max-width: 768px) 100vw, 1344px"
+              priority
+            />
           </div>
         </div>
       </div>
-    </div>
+
+      <div className="grid xl:grid-cols-[340px_minmax(0,1fr)]">
+        <aside className="border-b border-white/[0.08] p-5 md:p-8 xl:border-b-0 xl:border-r xl:p-10">
+          <div className="xl:sticky xl:top-20">
+            <TemplatesUiSidebarDetail template={template} />
+          </div>
+        </aside>
+        <article className="min-w-0 overflow-hidden p-5 md:p-8 xl:p-12">
+          <div className={PROSE_README_CLASSNAME}>
+            <div dangerouslySetInnerHTML={{ __html: template.readme }} />
+          </div>
+        </article>
+      </div>
+    </section>
   );
 }

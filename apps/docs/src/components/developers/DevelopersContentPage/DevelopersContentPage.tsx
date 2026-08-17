@@ -1,6 +1,6 @@
 "use client";
 
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./DevelopersContentPage.module.scss";
 import { FormattedDate } from "@/components/SolFormattedMessage";
 import Link from "next/link";

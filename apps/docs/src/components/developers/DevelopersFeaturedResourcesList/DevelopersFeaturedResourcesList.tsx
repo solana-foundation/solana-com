@@ -1,5 +1,5 @@
 import { memo, type ReactNode } from "react";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import { useTranslations } from "next-intl";
 import styles from "./DevelopersFeaturedResourcesList.module.scss";
 import DevelopersFeaturedResourcesListItem from "./DevelopersFeaturedResourcesListItem/DevelopersFeaturedResourcesListItem";

@@ -34,6 +34,7 @@ interface NewsMastheadProps {
   /** Slug of the vertical currently being viewed, if any (for active state). */
   activeSlug?: string;
   navItems?: NewsNavItem[];
+  wordmarkAsHeading?: boolean;
 }
 
 /**
@@ -45,6 +46,7 @@ export function NewsMasthead({
   tagline,
   activeSlug,
   navItems = NEWS_NAV_ITEMS,
+  wordmarkAsHeading = false,
 }: NewsMastheadProps) {
   const t = useTranslations("news.masthead");
   const mastheadTagline = tagline ?? t("tagline");
@@ -61,9 +63,15 @@ export function NewsMasthead({
             href="/news"
             className="text-inherit no-underline hover:no-underline w-fit"
           >
-            <span className="text-3xl md:text-4xl font-bold tracking-tight">
-              {t("wordmark")}
-            </span>
+            {wordmarkAsHeading ? (
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                {t("wordmark")}
+              </h1>
+            ) : (
+              <span className="text-3xl md:text-4xl font-bold tracking-tight">
+                {t("wordmark")}
+              </span>
+            )}
           </Link>
           <p className="text-sm text-muted-foreground">{mastheadTagline}</p>
         </div>
@@ -71,12 +79,12 @@ export function NewsMasthead({
 
       {/*
         Sticky section nav. Sticks directly beneath the global site header
-        (sticky top-0, ~65px mobile / ~71px desktop) so verticals stay reachable
+        (sticky top-0, 56px) so verticals stay reachable
         while scrolling. z-40 keeps it below the global header's z-50.
       */}
       <nav
         aria-label={t("navLabel")}
-        className="sticky top-[65px] lg:top-[71px] z-40 border-y border-border bg-background/85 backdrop-blur-md"
+        className="sticky top-14 z-40 border-y border-border bg-background/85 backdrop-blur-md"
       >
         <div className="max-w-6xl mx-auto w-full px-4 md:px-6 lg:px-0">
           <ul className="flex flex-nowrap gap-x-6 overflow-x-auto overflow-y-hidden whitespace-nowrap md:flex-wrap md:whitespace-normal">
@@ -88,7 +96,7 @@ export function NewsMasthead({
             {navItems.map((item) => (
               <li key={item.slug}>
                 <NavLink
-                  href={newsNavHref(item.slug)}
+                  href={newsNavHref(item)}
                   isActive={item.slug === activeSlug}
                 >
                   {item.label}

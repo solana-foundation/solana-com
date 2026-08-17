@@ -24,13 +24,16 @@ const localStorage: LocalConfig["storage"] = {
   kind: "local",
 };
 
-const githubStorage: GitHubConfig["storage"] = {
+export const githubStorage: GitHubConfig["storage"] = {
   kind: "github",
   repo: {
     owner: "solana-foundation",
     name: "solana-com",
   },
-  branchPrefix: "staging",
+  // Keep content work isolated to one branch per article or content batch.
+  // Keystatic prepends this value when creating a branch and only lists
+  // matching branches (plus the repository's default branch).
+  branchPrefix: "staging-",
   pathPrefix: "apps/media",
 };
 
@@ -161,6 +164,10 @@ export default config({
         switchback: fields.relationship({
           label: "Switchback",
           collection: "switchbacks",
+        }),
+        report: fields.relationship({
+          label: "Report Promotion",
+          collection: "reports",
         }),
       },
     }),
@@ -488,31 +495,6 @@ export default config({
         title: fields.slug({
           name: { label: "Title", validation: { isRequired: true } },
         }),
-        isReport: fields.checkbox({
-          label: "Use As Report",
-          description:
-            "Marks this switchback as a report so it can appear under /reports and the reports API",
-        }),
-        status: fields.select({
-          label: "Report Status",
-          options: [
-            { label: "Draft", value: "draft" },
-            { label: "Published", value: "published" },
-          ],
-          defaultValue: "draft",
-          description: "Only applies when 'Use As Report' is enabled",
-        }),
-        publishedAt: fields.datetime({
-          label: "Publish Date",
-          description:
-            "Only applies when 'Use As Report' is enabled. Date and time in UTC when the report becomes visible on the site and in APIs. The picker value is stored as UTC.",
-        }),
-        description: fields.text({
-          label: "Report Description",
-          description:
-            "Only applies when 'Use As Report' is enabled. Used for SEO and report previews",
-          multiline: true,
-        }),
         image: fields.object(
           {
             src: fields.image({
@@ -526,32 +508,92 @@ export default config({
         ),
         eyebrow: fields.text({ label: "Eyebrow" }),
         headline: fields.text({ label: "Headline" }),
+        body: fields.mdx({
+          label: "Body",
+          options: {
+            bold: true,
+            italic: true,
+            link: true,
+          },
+        }),
+        buttons: fields.array(
+          fields.object({
+            label: fields.text({ label: "Label" }),
+            url: fields.text({ label: "URL" }),
+          }),
+          {
+            label: "Buttons",
+            itemLabel: (props) => props.fields.label.value || "Button",
+          },
+        ),
+      },
+    }),
+
+    reports: collection({
+      label: "Reports",
+      slugField: "title",
+      path: "content/reports/*",
+      format: { contentField: "body" },
+      entryLayout: "content",
+      schema: {
+        title: fields.slug({
+          name: { label: "Title", validation: { isRequired: true } },
+        }),
+        status: fields.select({
+          label: "Status",
+          options: [
+            { label: "Draft", value: "draft" },
+            { label: "Published", value: "published" },
+          ],
+          defaultValue: "draft",
+        }),
+        publishedAt: fields.datetime({
+          label: "Publish Date",
+          description:
+            "Date and time in UTC when the report becomes visible on the site and in APIs. The picker value is stored as UTC.",
+          validation: { isRequired: true },
+        }),
+        description: fields.text({
+          label: "Description",
+          description: "Used for SEO and report previews",
+          multiline: true,
+          validation: { isRequired: true },
+        }),
+        image: fields.object(
+          {
+            src: fields.image({
+              label: "Source",
+              directory: "public/uploads/reports",
+              publicPath: "/uploads/reports",
+            }),
+            alt: fields.text({ label: "Alt" }),
+          },
+          { label: "Cover Image" },
+        ),
+        eyebrow: fields.text({ label: "Eyebrow" }),
+        headline: fields.text({ label: "Headline" }),
         pdfUrl: fields.text({
           label: "PDF URL",
           description:
-            "Only applies when 'Use As Report' is enabled. Direct URL to the downloadable report PDF",
+            "Use the Manage report PDFs button to upload or copy a Vercel Blob PDF URL.",
         }),
         hubspotForm: fields.object(
           {
-            buttonLabel: fields.text({
-              label: "Button Label",
-              description:
-                "Only applies when 'Use As Report' is enabled. Label for the HubSpot report CTA",
-            }),
+            buttonLabel: fields.text({ label: "Button Label" }),
             portalId: fields.text({
               label: "Portal ID",
               description:
-                "Only applies when 'Use As Report' is enabled. In HubSpot, open the form's Share or Embed panel and copy the numeric `portalId` value from the embed code (eg: 9409604)",
+                "Copy the numeric `portalId` value from the HubSpot form embed code (for example, 9409604).",
             }),
             formId: fields.text({
               label: "Form ID",
               description:
-                "Only applies when 'Use As Report' is enabled. In HubSpot, open the form's Share or Embed panel and copy the UUID `formId` value from the embed code (eg: 7aef2b29-c63f-4427-bc18-a8c15fbff49b)",
+                "Copy the UUID `formId` value from the HubSpot form embed code.",
             }),
             formUrl: fields.text({
               label: "Form URL",
               description:
-                "Optional. Use the HubSpot share URL when the form needs query parameters, such as `bd_vertical=Institutional`.",
+                "Optional. Use the HubSpot share URL when query parameters are needed.",
             }),
           },
           { label: "HubSpot Form CTA" },
@@ -564,29 +606,22 @@ export default config({
             }),
           }),
           {
-            label: "Report Categories",
+            label: "Categories",
             itemLabel: (props) => props.fields.category.value || "Category",
           },
         ),
         tags: fields.array(
           fields.object({
-            tag: fields.relationship({
-              label: "Tag",
-              collection: "tags",
-            }),
+            tag: fields.relationship({ label: "Tag", collection: "tags" }),
           }),
           {
-            label: "Report Tags",
+            label: "Tags",
             itemLabel: (props) => props.fields.tag.value || "Tag",
           },
         ),
         body: fields.mdx({
           label: "Body",
-          options: {
-            bold: true,
-            italic: true,
-            link: true,
-          },
+          options: { bold: true, italic: true, link: true },
         }),
         buttons: fields.array(
           fields.object({

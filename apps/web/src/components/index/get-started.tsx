@@ -2,7 +2,7 @@ import { Dialog, DialogContent } from "@/app/components/ui/dialog";
 import { cn } from "@/app/components/utils";
 import SolanaMono from "@@/public/src/img/icons/SolanaMono.inline.svg";
 import { useEffect, useState } from "react";
-import ArrowUpRight from "@@/public/src/img/icons/ArrowUpRight.inline.svg";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 
 export interface GetStartedProps {
   title?: string;
@@ -88,7 +88,10 @@ export const GetStarted: React.FC<GetStartedProps> = (props) => {
                     {item.title}
                   </div>
                 </div>
-                <ArrowUpRight className="size-4 md:size-5 opacity-[0.64] text-nd-cta self-center" />
+                <ArrowUpRight
+                  className="size-4 md:size-5 opacity-[0.64] text-nd-cta self-center"
+                  aria-hidden="true"
+                />
               </a>
             ))}
           </div>

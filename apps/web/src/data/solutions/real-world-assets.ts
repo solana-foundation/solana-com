@@ -1,17 +1,15 @@
 import { VideoBadge } from "@/components/solutions/video-grid.v2";
 import type { SolutionNewsQuery } from "@/lib/media/solution-news";
 import { getCompanyLogoSrc } from "@workspace/ecosystem-data";
-import {
-  BadgeCheck,
-  CandlestickChart,
-  DatabaseZap,
-  Gem,
-  Landmark,
-  Layers3,
-  LockKeyhole,
-  ShieldCheck,
-  UserCheck,
-} from "lucide-react";
+import { BadgeCheck } from "@boxicons/react/BadgeCheck";
+import { Candlestick as CandlestickChart } from "@boxicons/react/Candlestick";
+import { Database as DatabaseZap } from "@boxicons/react/Database";
+import { Gem } from "@boxicons/react/Gem";
+import { Landmark } from "@boxicons/react/Landmark";
+import { Layers as Layers3 } from "@boxicons/react/Layers";
+import { LockKeyhole } from "@boxicons/react/LockKeyhole";
+import { CheckShield as ShieldCheck } from "@boxicons/react/CheckShield";
+import { UserCheck } from "@boxicons/react/UserCheck";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [

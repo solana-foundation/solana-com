@@ -17,6 +17,7 @@ import LoadMoreStatus from "@/components/ui/load-more-status";
 import type { NewsCampaign } from "@/lib/news-campaign";
 import type { NewsNavItem } from "@/lib/news-nav";
 import type { PageInfo, PostItem } from "@/lib/post-types";
+import { CHANGELOG_CATEGORY } from "@/lib/changelog";
 import uniqBy from "lodash/uniqBy";
 
 const DEFAULT_PAGE_INFO: PageInfo = {
@@ -62,6 +63,7 @@ export default function PostsClientPage({
       const cursor = currentCursor || pageInfo.endCursor;
       const params = new URLSearchParams({
         limit: "13",
+        excludeCategory: CHANGELOG_CATEGORY,
         excludeTag: "featured",
       });
       if (cursor) params.set("cursor", cursor);
@@ -109,7 +111,7 @@ export default function PostsClientPage({
   return (
     <ErrorBoundary>
       <div className="bg-default pb-16">
-        <NewsMasthead navItems={navItems} />
+        <NewsMasthead navItems={navItems} wordmarkAsHeading />
 
         <div className="flex flex-col gap-12 pt-8">
           {lead && (
@@ -141,7 +143,7 @@ export default function PostsClientPage({
                         {leadCategory}
                       </span>
                     )}
-                    <h1
+                    <h2
                       id="lead-story-title"
                       className="text-3xl font-bold leading-[1.08] tracking-tight md:text-5xl"
                     >
@@ -151,7 +153,7 @@ export default function PostsClientPage({
                       >
                         {lead.title}
                       </Link>
-                    </h1>
+                    </h2>
                     <div className="line-clamp-3 text-base text-muted-foreground md:text-lg">
                       <DescriptionContent
                         description={

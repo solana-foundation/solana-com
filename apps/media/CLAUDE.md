@@ -28,10 +28,12 @@ apps/media/
 ├── app/
 │   ├── [locale]/              # Locale-based routing
 │   │   ├── news/              # Blog posts listing
-│   │   ├── podcast/           # Podcast episodes
-│   │   └── [...slug]/         # Dynamic content pages
+│   │   ├── podcasts/          # Podcast shows and episodes
+│   │   ├── changelog/         # Product changelog
+│   │   ├── reports/           # Report pages
+│   │   └── upgrades/          # Network upgrade articles
 │   ├── keystatic/             # Keystatic admin interface
-│   └── api/                   # API routes (RSS, Keystatic, etc.)
+│   └── api/                   # Keystatic and content metadata APIs
 ├── components/
 │   ├── blocks/                # Content block components
 │   ├── layout/                # Layout components
@@ -68,8 +70,8 @@ pnpm dev
 # Build for production
 pnpm build
 
-# Format content files
-pnpm format:content
+# Lint and format content files
+pnpm lint:content
 
 # Clean generated files
 pnpm clean
@@ -160,6 +162,13 @@ Podcast episodes link to Simplecast:
 
 - `SIMPLECAST_API_KEY` - API access
 - `SIMPLECAST_PODCAST_ID` - Podcast identifier
+
+### Upgrade Articles
+
+Articles in `content/upgrades/` follow a specific voice, structure, and
+Keystatic frontmatter shape. See
+[`content/upgrades/AGENTS.md`](./content/upgrades/AGENTS.md) before drafting or
+editing one.
 
 ## Key Dependencies (App-Specific)
 

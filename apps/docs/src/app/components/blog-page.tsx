@@ -1,7 +1,7 @@
 import { DocsBody, DocsPageProps } from "fumadocs-ui/page";
 import { ReactNode } from "react";
 import { Toc, TOCItems } from "fumadocs-ui/components/layout/toc";
-import { Text } from "lucide-react";
+import { FileDetail as Text } from "@boxicons/react/FileDetail";
 import {
   HeroTitle,
   ContentRecord,

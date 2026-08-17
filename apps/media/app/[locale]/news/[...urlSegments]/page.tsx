@@ -4,7 +4,8 @@ import Image from "next/image";
 import { reader } from "@/lib/reader";
 import { Section } from "@/components/layout/section";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowToBottom as ArrowDownToLine } from "@boxicons/react/ArrowToBottom";
 import { mdxComponents, preprocessMDX } from "@/components/mdx-components";
 import ErrorBoundary from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,13 @@ import { newsPostMetadata } from "@/lib/metadata";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { extractHeadings } from "@/lib/extract-headings";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
+import { isPublishedReport } from "@/lib/keystatic/report-status";
+import { isChangelogCategory } from "@/lib/changelog";
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildArticleJsonLd } from "@/lib/content-structured-data";
+import { toPlainText } from "@/lib/structured-data";
+import { ReportFormModal } from "@/components/report/report-form-modal";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -46,21 +53,56 @@ export default async function PostPage({
 
   // Resolve category
   let categoryName: string | null = null;
+  let isChangelogPost = false;
   if (post.categories) {
     for (const catItem of post.categories) {
-      if (catItem && typeof catItem === "object" && "category" in catItem) {
-        if (catItem.category) {
-          const catData = await reader.collections.categories.read(
-            catItem.category,
-          );
-          if (catData?.name) {
-            categoryName = String(catData.name);
-            break;
-          }
+      const categorySlug =
+        typeof catItem === "string"
+          ? catItem
+          : catItem && typeof catItem === "object" && "category" in catItem
+            ? catItem.category
+            : null;
+
+      if (!categorySlug) continue;
+
+      if (isChangelogCategory(categorySlug)) {
+        isChangelogPost = true;
+      }
+
+      const catData = await reader.collections.categories.read(categorySlug);
+      if (catData?.name) {
+        const resolvedCategoryName = String(catData.name);
+        categoryName ??= resolvedCategoryName;
+
+        if (isChangelogCategory(resolvedCategoryName)) {
+          isChangelogPost = true;
         }
       }
     }
   }
+
+  const tagNames = post.tags
+    ? (
+        await Promise.all(
+          post.tags.map(async (tagItem: unknown) => {
+            const tagSlug =
+              typeof tagItem === "string"
+                ? tagItem
+                : tagItem && typeof tagItem === "object" && "tag" in tagItem
+                  ? tagItem.tag
+                  : null;
+
+            if (!tagSlug) return null;
+            const tagData = await reader.collections.tags.read(tagSlug);
+            return tagData?.name ? String(tagData.name) : null;
+          }),
+        )
+      ).filter((tagName): tagName is string => Boolean(tagName))
+    : [];
+
+  const backLink = isChangelogPost
+    ? { href: "/changelog" as const, label: "Back to Changelog" }
+    : { href: "/news" as const, label: "Back to News" };
 
   // Resolve CTA
   let cta = null;
@@ -74,10 +116,33 @@ export default async function PostPage({
     switchback = await reader.collections.switchbacks.read(post.switchback);
   }
 
+  // Reports use their own collection, so post promotions must resolve them
+  // separately from reusable switchbacks.
+  let report = null;
+  if (post.report) {
+    const resolvedReport = await reader.collections.reports.read(post.report);
+    report = isPublishedReport(resolvedReport) ? resolvedReport : null;
+  }
+
   const formattedDate = formatPublishedAt(post.publishedAt, "long");
+  const title = String(post.title);
+  const structuredData = buildArticleJsonLd({
+    slug,
+    locale: resolvedParams.locale,
+    title,
+    description: post.description ? toPlainText(post.description) : undefined,
+    image: post.heroImage,
+    publishedAt: post.publishedAt,
+    authorName: author?.name ? String(author.name) : undefined,
+    category: categoryName,
+    tags: tagNames,
+    backPath: backLink.href,
+    backLabel: backLink.label.replace(/^Back to /, ""),
+  });
 
   return (
     <ErrorBoundary>
+      <JsonLd data={structuredData} />
       <Section>
         <div className="relative w-full py-12 pt-8">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_110%_at_0%_0%,rgba(82,158,255,0.25),transparent_55%),radial-gradient(90%_90%_at_100%_0%,rgba(25,237,152,0.15),transparent_60%),radial-gradient(80%_80%_at_50%_100%,rgba(153,69,255,0.15),transparent_75%)]" />
@@ -85,9 +150,9 @@ export default async function PostPage({
           <div className="max-w-[720px] mx-auto w-full px-4 md:px-6 lg:px-8">
             <div className="mb-6">
               <Button asChild variant="ghost" size="sm" className="w-fit gap-2">
-                <Link href="/news">
+                <Link href={backLink.href}>
                   <ArrowLeft className="size-4" />
-                  <span>Back to News</span>
+                  <span>{backLink.label}</span>
                 </Link>
               </Button>
             </div>
@@ -116,7 +181,7 @@ export default async function PostPage({
             </div>
 
             <h1 className="w-full mb-10 text-4xl md:text-5xl font-bold tracking-tight text-left">
-              {String(post.title)}
+              {title}
             </h1>
 
             {post.heroImage && (
@@ -124,7 +189,7 @@ export default async function PostPage({
                 <Image
                   priority={true}
                   src={post.heroImage}
-                  alt={String(post.title)}
+                  alt={title}
                   width={720}
                   height={400}
                   className="w-full h-auto"
@@ -155,7 +220,7 @@ export default async function PostPage({
                 />
               </article>
 
-              <SocialShare title={String(post.title)} variant="card" />
+              <SocialShare title={title} variant="card" />
 
               <aside className="hidden xl:block absolute top-0 bottom-0 left-full ml-12 w-56">
                 <div className="sticky top-24 space-y-8">
@@ -203,27 +268,63 @@ export default async function PostPage({
                 url: button?.url || "",
               }),
             )}
-            isReport={switchback.isReport || undefined}
-            hubspotForm={
-              switchback.hubspotForm?.portalId && switchback.hubspotForm?.formId
-                ? {
-                    buttonLabel:
-                      switchback.hubspotForm.buttonLabel ||
-                      "Get the full report",
-                    portalId: String(switchback.hubspotForm.portalId),
-                    formId: String(switchback.hubspotForm.formId),
-                    formUrl: switchback.hubspotForm.formUrl
-                      ? String(switchback.hubspotForm.formUrl)
-                      : undefined,
-                  }
-                : undefined
+          />
+        </Section>
+      )}
+      {report && (
+        <Section>
+          <Switchback
+            title={String(report.headline || report.title)}
+            image={{
+              src: report.image?.src ?? "",
+              alt: report.image?.alt ?? "",
+            }}
+            eyebrow={report.eyebrow || undefined}
+            body={
+              <MDXRemote
+                source={preprocessMDX(await report.body())}
+                components={mdxComponents}
+                options={{
+                  mdxOptions: { remarkPlugins: [remarkGfm] },
+                }}
+              />
             }
-            pdfUrl={switchback.pdfUrl ? String(switchback.pdfUrl) : undefined}
-            headline={switchback.headline || undefined}
-            description={
-              switchback.description
-                ? String(switchback.description)
-                : undefined
+            buttons={report.buttons?.flatMap(
+              (button: { label?: string; url?: string } | undefined) =>
+                button?.label && button.url
+                  ? [{ label: button.label, url: button.url }]
+                  : [],
+            )}
+            actions={
+              <>
+                {report.hubspotForm?.portalId && report.hubspotForm?.formId && (
+                  <ReportFormModal
+                    buttonLabel={
+                      report.hubspotForm.buttonLabel || "Get the full report"
+                    }
+                    portalId={String(report.hubspotForm.portalId)}
+                    formId={String(report.hubspotForm.formId)}
+                    formUrl={
+                      report.hubspotForm.formUrl
+                        ? String(report.hubspotForm.formUrl)
+                        : undefined
+                    }
+                    title={String(report.headline || report.title)}
+                  />
+                )}
+                {report.pdfUrl && (
+                  <Button asChild size="lg">
+                    <a
+                      href={String(report.pdfUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ArrowDownToLine className="size-4" />
+                      Download Report
+                    </a>
+                  </Button>
+                )}
+              </>
             }
           />
         </Section>

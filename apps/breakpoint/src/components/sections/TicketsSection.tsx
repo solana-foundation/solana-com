@@ -4,6 +4,10 @@ import React, { useEffect } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import {
+  GeneralAdmissionPrice,
+  TicketPriceChangeCountdown,
+} from "@/components/TicketPriceChange";
+import {
   BREAKPOINT_LUMA_EVENT_ID,
   DEVELOPER_APPLICATION_HREF,
   GENERAL_ADMISSION_HREF,
@@ -28,6 +32,11 @@ type TicketCardProps = {
   lumaEventId?: string;
   originalPrice?: string;
   price: string;
+  priceAfterIncrease?: string;
+};
+
+type FeaturedTicketCardProps = TicketCardProps & {
+  initialNow: number;
 };
 
 function PriceCut({ value }: { value: string }) {
@@ -100,10 +109,12 @@ function FeaturedTicketCard({
   description,
   heading,
   href,
+  initialNow,
   lumaEventId,
   originalPrice,
   price,
-}: TicketCardProps) {
+  priceAfterIncrease,
+}: FeaturedTicketCardProps) {
   return (
     <TicketLink
       href={href}
@@ -120,7 +131,17 @@ function FeaturedTicketCard({
 
       <div className="flex flex-col gap-2xs md:gap-3">
         {originalPrice && <PriceCut value={originalPrice} />}
-        <p className="type-h2 text-black">{price}</p>
+        <p className="type-h2 text-black">
+          {priceAfterIncrease ? (
+            <GeneralAdmissionPrice
+              currentPrice={price}
+              initialNow={initialNow}
+              increasedPrice={priceAfterIncrease}
+            />
+          ) : (
+            price
+          )}
+        </p>
       </div>
 
       <ArrowGlyph className="absolute bottom-m right-m size-[26px] text-black transition-transform group-hover:translate-x-1 group-hover:-translate-y-1 md:bottom-[40px] md:right-[40px] md:size-[35px]" />
@@ -173,7 +194,7 @@ function HorizontalTicketCard({
   );
 }
 
-export default function TicketsSection() {
+export default function TicketsSection({ initialNow }: { initialNow: number }) {
   const t = useTranslations("breakpoint");
   const variant = useVariant();
 
@@ -191,13 +212,27 @@ export default function TicketsSection() {
           <h2 className="type-h3 mx-auto max-w-[24ch] text-white">
             {variant?.ticketsHeadline ?? t("tickets.headline")}
           </h2>
+          {variant?.ticketsStrapline && (
+            <p className="type-p-large mx-auto max-w-[48ch] text-white">
+              {variant.ticketsStrapline}
+            </p>
+          )}
+          <TicketPriceChangeCountdown
+            className="self-center"
+            initialNow={initialNow}
+            label={t("tickets.priceIncreaseCountdown")}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-xs md:grid-cols-bp-desktop md:gap-s">
           <FeaturedTicketCard
             heading={t("tickets.categories.general.label")}
             description={t("tickets.categories.general.description")}
+            initialNow={initialNow}
             price={t("tickets.categories.general.price")}
+            priceAfterIncrease={t(
+              "tickets.categories.general.priceAfterIncrease",
+            )}
             href={lumaHref}
             lumaEventId={lumaEventId}
           />

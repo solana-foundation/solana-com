@@ -1,0 +1,274 @@
+---
+title: 快速上手
+description:
+  Use LiteSVM from Go with litesvm-go for fast, in-process Solana testing
+---
+
+使用 `solana-test-validator` 的 Solana 测试套件每个测试需要数秒——你在等待进程启动、RPC 连接和网络往返。LiteSVM 能在毫秒内完成相同的测试。无需外部进程，无需网络，一切都在测试运行器内部的内存中完成。
+
+`litesvm-go` 是官方 Go 绑定。核心类型（`PublicKey`、`Hash`、`Signature`）直接来自 [`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go)，因此值可以在 `litesvm-go` 与 Go Solana 生态系统的其他部分之间自然流转。
+
+<Callout type="info">
+  **环境要求：** Go 1.24+。无需 Rust 工具链——预构建的静态归档文件已内嵌在模块中，并由 `GOOS` / `GOARCH` 自动选择。支持的平台：macOS（amd64、arm64）、Linux（amd64、arm64；glibc 或 musl）、Windows（amd64）。
+</Callout>
+
+全新的 `LiteSVM` 句柄提供空投、交易（legacy + v0）、模拟、账户读写、sysvars、计算预算、特性门控、时间旅行、自定义程序以及交易历史——所有这些都由驱动 Rust 和 TypeScript SDK 的同一 Rust 核心提供支持。
+
+## 快速开始
+
+<Steps>
+
+<Step>
+### 安装模块
+
+`go get` 会将依赖项解析到 Go 模块中，因此如果尚未创建 `go.mod`，请先初始化一个：
+
+```bash
+go mod init mytest
+```
+
+然后添加模块：
+
+```bash
+go get github.com/LiteSVM/litesvm-go
+```
+
+同时引入 `solana-go`，用于 keypair、指令和交易构建：
+
+```bash
+go get github.com/gagliardetto/solana-go
+```
+
+<Callout type="warn">
+  **Alpine / musl 用户：** 在 `go build` / `go test` 命令中添加 `-tags musl`，以链接正确的内嵌归档文件。
+</Callout>
+
+</Step>
+
+<Step>
+### 创建你的 SVM
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Fund a payer
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+
+    if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Check the balance
+    lamports, ok, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if !ok {
+        t.Fatal("payer account missing")
+    }
+    t.Logf("balance: %d lamports", lamports)
+}
+```
+
+<Callout type="info">
+  `litesvm.New()` 返回一个 `*LiteSVM` 和一个 `error`。`litesvm-go` 中的每个入口点都遵循相同的 `(value, error)` 形式；Rust 侧的 panic 会被捕获并转换为错误。请始终使用 `defer svm.Close()` 以释放底层 Rust 句柄——或依赖终结器，但推荐使用显式 `Close` 以实现可预期的清理。
+</Callout>
+
+</Step>
+
+</Steps>
+
+## 理解句柄
+
+调用 `litesvm.New()` 后，返回的 `*LiteSVM` 提供以下功能组：
+
+| 功能组                | 方法                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 账户             | `Airdrop`、`Balance`、`GetAccount`、`SetAccount`、`MinimumBalanceForRentExemption`                                                 |
+| 交易         | `SendLegacyTransaction`、`SendVersionedTransaction`、`SimulateLegacyTransaction`、`SimulateVersionedTransaction`、`GetTransaction` |
+| 区块哈希            | `LatestBlockhash`、`ExpireBlockhash`                                                                                               |
+| 程序             | `AddProgram`、`AddProgramFromFile`、`AddProgramWithLoader`                                                                         |
+| 时间与 sysvars     | `WarpToSlot`、`Clock`、`SetClock`、`Rent`、`SetRent`、`EpochSchedule`、`SetEpochSchedule`、`EpochRewards`、...                     |
+| 配置        | `SetSigverify`、`SetBlockhashCheck`、`SetTransactionHistory`、`SetLogBytesLimit`、`SetSysvars`、`SetBuiltins`、...                 |
+| 计算与特性 | `ComputeBudget`、`SetComputeBudget`、`SetFeatureSet`                                                                               |
+
+全新的 `LiteSVM` 已预加载核心 Solana 程序（System Program、SPL Token 等），因此简单的转账开箱即用。
+
+## 发送交易
+
+使用 `solana-go` 构建指令，序列化交易，然后提交字节数据。`litesvm-go` 接受由 `(*solana.Transaction).MarshalBinary` 生成的 bincode 编码字节：
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/programs/system"
+)
+
+func TestTransfer(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    recipient := solana.NewWallet().PublicKey()
+
+    if err := svm.Airdrop(payer, 2_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    blockhash, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := system.NewTransferInstruction(1_000_000_000, payer, recipient).Build()
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        blockhash,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    lamports, _, err := svm.Balance(recipient)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if lamports != 1_000_000_000 {
+        t.Fatalf("recipient balance = %d, want 1_000_000_000", lamports)
+    }
+}
+```
+
+<Callout type="info">
+  `SendLegacyTransaction` 和 `SendVersionedTransaction` 无论交易成功还是失败，都会返回一个 `*TxOutcome`。在读取仅成功时才有效的字段之前，请先调用 `IsOk()`，并始终使用 `defer out.Close()` 释放 Rust 句柄。
+</Callout>
+
+## 使用 TxOutcome
+
+每个发送/模拟入口点都返回一个 `*TxOutcome`。同一句柄同时携带成功和失败的元数据：
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("error: %s", out.Error())
+}
+
+_ = out.Signature()    // solana.Signature
+_ = out.ComputeUnits() // uint64
+_ = out.Fee()          // uint64
+_ = out.Logs()         // []string
+_ = out.InnerInstructions()
+
+// Programs that call set_return_data expose it here.
+if pid, data, ok := out.ReturnData(); ok {
+    _ = pid
+    _ = data
+}
+```
+
+对于 `SimulateLegacyTransaction` / `SimulateVersionedTransaction`，同一个 `*TxOutcome` 还额外提供 `PostAccounts()`——即模拟执行后的账户状态：
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    _ = p.Address
+    _ = p.Account.Lamports()
+    p.Account.Close()
+}
+```
+
+## 配置
+
+`litesvm-go` 提供与 Rust crate 相同的构建器开关，以 `Set*` 方法的形式暴露：
+
+```go
+// Each setter returns an error. In tests where the values are known good,
+// the calls are infallible and assigning to _ keeps the example readable;
+// in production code, check the error or wrap with require.NoError(t, ...).
+_ = svm.SetSigverify(false)        // accept unsigned / badly-signed txs
+_ = svm.SetBlockhashCheck(false)   // skip recent-blockhash enforcement
+_ = svm.SetTransactionHistory(0)   // 0 disables dedup; any N caps history
+_ = svm.SetLogBytesLimit(-1)       // negative = unlimited
+_ = svm.SetLamports(1 << 40)       // default lamports for new accounts
+_ = svm.SetSysvars()               // reset sysvars to defaults
+_ = svm.SetBuiltins()              // reload built-in programs
+_ = svm.SetDefaultPrograms()       // reload SPL Token, Memo, etc.
+_ = svm.SetPrecompiles()           // enable ed25519 / secp256k1 precompiles
+_ = svm.WithNativeMints()          // seed wrapped-SOL mint
+```
+
+## 注意事项
+
+**线程安全。** `*LiteSVM` 句柄不支持多个 goroutine 并发使用（底层 Rust 类型不是 `Sync`，且大多数方法会修改内部状态）。请将句柄限定在单个 goroutine 中使用，或使用 `sync.Mutex` 进行保护。
+
+**Panic 行为。** 内嵌的发布归档文件使用 `immediate-abort` 构建：Rust 内部发生的任何 panic 都会直接终止宿主进程，不进行栈展开。这是为了换取更小的归档体积而做出的有意取舍。如果你在实际使用中遇到此情况，请附上可复现的示例提交一个 issue。
+
+## 下一步
+
+本文介绍了核心句柄的使用——创建账户、发送指令和读取状态。完整的逐方法参考请查阅 [API 文档](/docs/tools/litesvm/go/api-reference)。可运行的示例（SOL 转账、账户设置、程序测试、基于时间的逻辑）请参见 [示例](/docs/tools/litesvm/go/examples)。

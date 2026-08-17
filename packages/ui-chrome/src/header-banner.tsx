@@ -66,7 +66,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({
           <div className={date || location ? "mt-2" : ""}>
             <Link
               to={ctaHref}
-              className="block group/cta pl-4 pr-2 h-[34px] font-medium text-black text-[14px] leading-[34px] tracking-[-0.16px] bg-white hover:bg-white/90 transition-colors rounded-full text-nowrap"
+              className="group/cta flex min-h-11 items-center rounded-full bg-white pl-4 pr-2 text-[14px] font-medium leading-none tracking-[-0.16px] text-black text-nowrap transition-colors hover:bg-white/90"
             >
               {cta}
               <ChevronRightSmallIcon className="ml-1 size-5 group-hover/cta:translate-x-[2px] transition-transform duration-200 inline-flex" />

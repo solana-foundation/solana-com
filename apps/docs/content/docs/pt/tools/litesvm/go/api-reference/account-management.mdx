@@ -1,0 +1,221 @@
+---
+title: Gerenciamento de Contas
+description: Métodos para gerenciar contas, saldos e rent em Go
+---
+
+Métodos para financiar, ler e escrever contas.
+
+## Airdrop
+
+```go
+func (s *LiteSVM) Airdrop(pubkey solana.PublicKey, lamports uint64) error
+```
+
+Financia uma conta com lamports. Implementado como uma transferência real do System Program
+a partir do faucet interno, portanto o destinatário deve ser capaz de manter o saldo
+resultante.
+
+```go
+priv, err := solana.NewRandomPrivateKey()
+if err != nil {
+    t.Fatal(err)
+}
+payer := priv.PublicKey()
+
+// Airdrop 5 SOL
+if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+    t.Fatal(err)
+}
+```
+
+## Saldo
+
+```go
+func (s *LiteSVM) Balance(pubkey solana.PublicKey) (uint64, bool, error)
+```
+
+Retorna o saldo SOL da conta. O segundo valor é `false` quando a conta
+não existe — distinto de "conta existe com zero lamports".
+
+```go
+lamports, ok, err := svm.Balance(payer)
+if err != nil {
+    t.Fatal(err)
+}
+if !ok {
+    t.Log("account does not exist")
+} else {
+    t.Logf("balance: %d lamports (%.3f SOL)", lamports, float64(lamports)/1e9)
+}
+```
+
+## GetAccount
+
+```go
+func (s *LiteSVM) GetAccount(pubkey solana.PublicKey) *Account
+```
+
+Recupera um identificador opaco de conta, ou `nil` se a conta não existir.
+Sempre `Close` o identificador (ou confie no finalizador).
+
+```go
+acct := svm.GetAccount(payer)
+if acct == nil {
+    t.Fatal("account missing")
+}
+defer acct.Close()
+
+_ = acct.Lamports()    // uint64
+_ = acct.Owner()       // solana.PublicKey
+_ = acct.Executable()  // bool
+_ = acct.RentEpoch()   // uint64
+_ = acct.Data()        // []byte (copy)
+```
+
+### Métodos de conta
+
+| Método         | Retorna            | Descrição                        |
+| -------------- | ------------------ | ---------------------------------- |
+| `Lamports()`   | `uint64`           | Saldo SOL                        |
+| `Owner()`      | `solana.PublicKey` | Programa proprietário                     |
+| `Executable()` | `bool`             | Se a conta é executável  |
+| `RentEpoch()`  | `uint64`           | epoch de rent                         |
+| `Data()`       | `[]byte`           | Cópia dos dados da conta           |
+| `Close()`      | -                  | Libera o identificador Rust subjacente |
+
+## NewAccount
+
+```go
+func NewAccount(lamports uint64, data []byte, owner solana.PublicKey, executable bool, rentEpoch uint64) (*Account, error)
+```
+
+Constrói um valor `Account` para passar ao `SetAccount`. O chamador ainda é proprietário do
+identificador retornado e deve fazer `Close` nele.
+
+```go
+payload := []byte{1, 2, 3, 4}
+rent, err := svm.MinimumBalanceForRentExemption(len(payload))
+if err != nil {
+    t.Fatal(err)
+}
+
+acct, err := litesvm.NewAccount(rent, payload, ownerProgramID, false, 0)
+if err != nil {
+    t.Fatal(err)
+}
+defer acct.Close()
+```
+
+## SetAccount
+
+```go
+func (s *LiteSVM) SetAccount(pubkey solana.PublicKey, acct *Account) error
+```
+
+Armazena uma cópia de `acct` em `pubkey`. O SVM mantém sua própria cópia; o chamador ainda
+é proprietário de `acct` e deve fazer `Close` nele.
+
+```go
+if err := svm.SetAccount(targetAddr, acct); err != nil {
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  `SetAccount` é significativamente mais rápido do que executar transações quando você apenas
+  precisa popular muitas contas com seed para um teste. Certifique-se de que o valor em lamports seja pelo menos
+  o mínimo de isenção de rent para o tamanho dos dados.
+</Callout>
+
+## MinimumBalanceForRentExemption
+
+```go
+func (s *LiteSVM) MinimumBalanceForRentExemption(dataLen int) (uint64, error)
+```
+
+Calcula os lamports necessários para que uma conta com o tamanho de dados especificado seja
+isenta de rent.
+
+```go
+for _, size := range []int{0, 100, 1024} {
+    min, err := svm.MinimumBalanceForRentExemption(size)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("%4d bytes -> %d lamports", size, min)
+}
+```
+
+## Gerenciamento de Programas
+
+### AddProgram
+
+```go
+func (s *LiteSVM) AddProgram(programID solana.PublicKey, bytes []byte) error
+```
+
+Carrega um programa SBF a partir de bytes em memória.
+
+```go
+bytes, err := os.ReadFile("./target/deploy/my_program.so")
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.AddProgram(programID, bytes); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramFromFile
+
+```go
+func (s *LiteSVM) AddProgramFromFile(programID solana.PublicKey, path string) error
+```
+
+Carrega um programa SBF a partir de um caminho de arquivo `.so`.
+
+```go
+if err := svm.AddProgramFromFile(programID, "./target/deploy/my_program.so"); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramWithLoader
+
+```go
+func (s *LiteSVM) AddProgramWithLoader(programID solana.PublicKey, bytes []byte, loaderID solana.PublicKey) error
+```
+
+Carrega um programa SBF com um loader específico. Útil ao testar com uma
+versão não padrão do loader BPF.
+
+## Configuração em Lote de Contas
+
+Para testes que precisam de muitas contas com seed, itere sobre `SetAccount`:
+
+```go
+const N = 10
+for i := 0; i < N; i++ {
+    pk := solana.NewWallet().PublicKey()
+    data := []byte{byte(i)}
+    rent, err := svm.MinimumBalanceForRentExemption(len(data))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(rent, data, owner, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if err := svm.SetAccount(pk, acct); err != nil {
+        acct.Close()
+        t.Fatal(err)
+    }
+    acct.Close()
+}
+```
+
+<Callout type="info">
+  Sempre faça `Close` no `*Account` retornado por `NewAccount` assim que o SVM tiver armazenado
+  sua cópia via `SetAccount` — o SVM não assume a propriedade do identificador.
+</Callout>

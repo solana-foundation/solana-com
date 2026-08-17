@@ -1,0 +1,1047 @@
+---
+title: Actions и Blinks
+seoTitle: "Actions и Blinks"
+description:
+  "Solana Actions are APIs that return transactions for users to preview and
+  sign. Blockchain links – or blinks – turn Actions into a shareable,
+  metadata-rich link."
+---
+
+[Solana Actions](#actions) — это соответствующие спецификации API, которые возвращают транзакции в блокчейне Solana для предварительного просмотра, подписи и отправки в различных контекстах, включая QR-коды, кнопки и виджеты, а также веб-сайты в интернете. Actions позволяют разработчикам легко интегрировать возможности экосистемы Solana прямо в свою среду, обеспечивая выполнение блокчейн-транзакций без необходимости переходить в другое приложение или на другую веб-страницу.
+
+[Блокчейн-ссылки](#blinks) – или blinks – превращают любое Solana Action в доступную для публикации ссылку, обогащённую метаданными. Blinks позволяют клиентам, поддерживающим Actions (расширениям-кошелькам для браузера, ботам), отображать дополнительные возможности для пользователя. На веб-сайте blink может мгновенно инициировать предварительный просмотр транзакции в кошельке без перехода в децентрализованное приложение; в Discord бот может развернуть blink в интерактивный набор кнопок. Это выносит возможность взаимодействия с блокчейном на любую веб-поверхность, способную отображать URL.
+
+## Начало работы
+
+Чтобы быстро приступить к созданию пользовательских Solana Actions:
+
+```shell
+npm install @solana/actions
+```
+
+- установите [Solana Actions SDK](https://www.npmjs.com/package/@solana/actions) в своём приложении
+- создайте конечную точку API для [GET-запроса](#get-request), возвращающего метаданные о вашем Action
+- создайте конечную точку API, принимающую [POST-запрос](#post-request) и возвращающую подписываемую транзакцию для пользователя
+
+> Ознакомьтесь с видеоуроком о том,
+> [как создать Solana Action](https://www.youtube.com/watch?v=kCht01Ycif0)
+> с использованием SDK `@solana/actions`.
+>
+> Вы также можете найти
+> [исходный код Action](https://github.com/solana-developers/solana-actions/blob/main/examples/next-js/src/app/api/actions/transfer-sol/route.ts),
+> выполняющего нативный перевод SOL, а также несколько других примеров Actions в
+> [этом репозитории](https://github.com/solana-developers/solana-actions/tree/main/examples).
+
+При развёртывании пользовательских Solana Actions в рабочей среде:
+
+- убедитесь, что в вашем приложении есть корректный [файл actions.json](#actionsjson) в корне домена
+- убедитесь, что ваше приложение отвечает с [необходимыми заголовками Cross-Origin](#options-response) на всех конечных точках Action, включая файл `actions.json`
+- тестируйте и отлаживайте ваши blinks/actions с помощью инструмента [Blinks Inspector](https://www.blinks.xyz/inspector)
+
+Если вам нужно вдохновение для создания Actions и blinks, посетите репозиторий [Awesome Blinks](https://github.com/solana-developers/awesome-blinks) с разработками сообщества и даже [идеями для новых](https://github.com/solana-developers/awesome-blinks/discussions/categories/ideas-for-blinks).
+
+## Actions
+
+Спецификация Solana Actions использует набор стандартных API для доставки подписываемых транзакций (и в дальнейшем подписываемых сообщений) непосредственно от приложения к пользователю. Они размещены по общедоступным URL-адресам и поэтому доступны по своему URL для взаимодействия любым клиентом.
+
+> Actions можно рассматривать как конечную точку API, которая возвращает метаданные и
+> нечто для подписи пользователем (транзакцию или сообщение аутентификации)
+> с помощью его блокчейн-кошелька.
+
+Actions API состоит из выполнения простых `GET` и `POST` запросов к конечной точке URL Action и обработки ответов, соответствующих интерфейсу Actions.
+
+1. [GET-запрос](#get-request) возвращает метаданные, предоставляющие клиенту удобочитаемую информацию о доступных по этому URL actions и необязательный список связанных actions.
+2. [POST-запрос](#post-request) возвращает подписываемую транзакцию или сообщение, после чего клиент предлагает кошельку пользователя подписать и выполнить её в блокчейне или другом офчейн-сервисе.
+
+### Выполнение и жизненный цикл Action
+
+На практике взаимодействие с Actions очень похоже на взаимодействие с типичным REST API:
+
+- клиент выполняет начальный `GET`-запрос к URL Action для получения метаданных о доступных Actions
+- конечная точка возвращает ответ, содержащий метаданные о ней (например, заголовок и иконку приложения), а также список доступных actions для данной конечной точки
+- клиентское приложение (например, мобильный кошелёк, чат-бот или веб-сайт) отображает пользовательский интерфейс для выполнения одного из actions
+- после того как пользователь выбирает action (нажимая кнопку), клиент выполняет `POST`-запрос к конечной точке для получения транзакции на подпись пользователем
+- кошелёк обеспечивает подпись транзакции пользователем и в конечном счёте отправляет транзакцию в блокчейн для подтверждения
+
+![Выполнение и жизненный цикл Solana Actions](/assets/docs/action-execution-and-lifecycle.png)
+
+При получении транзакций от URL Actions клиенты должны обрабатывать отправку этих транзакций в блокчейн и управлять их жизненным циклом.
+
+Actions также поддерживают определённый уровень инвалидации до выполнения. `GET` и `POST` запросы могут возвращать метаданные, указывающие, доступно ли данное action для выполнения (например, через поле `disabled`).
+
+Например, если существует конечная точка Action, обеспечивающая голосование по предложению управления DAO, период голосования по которому закрыт, начальный [GET-запрос](#get-request) может вернуть сообщение об ошибке «Голосование по этому предложению завершено», а кнопки «Голосовать За» и «Голосовать Против» будут отображаться как «неактивные».
+
+## Blinks
+
+Blinks (блокчейн-ссылки) — это клиентские приложения, которые анализируют API Actions и формируют пользовательские интерфейсы для взаимодействия с Actions и их выполнения.
+
+Клиентские приложения, поддерживающие blinks, просто обнаруживают URL-адреса, совместимые с Actions, разбирают их и позволяют пользователям взаимодействовать с ними через стандартизированные пользовательские интерфейсы.
+
+> Любое клиентское приложение, которое полностью анализирует Actions API для построения
+> полноценного интерфейса, является _blink_. Таким образом, не все клиенты,
+> использующие Actions API, являются blinks.
+
+### Спецификация URL для Blink
+
+URL blink описывает клиентское приложение, позволяющее пользователю пройти полный [жизненный цикл выполнения Action](#action-execution-and-lifecycle), включая подпись с помощью кошелька.
+
+```text
+https://example.domain/?action=<action_url>
+```
+
+Чтобы любое клиентское приложение стало blink:
+
+- URL blink должен содержать параметр запроса `action`, значением которого является [URL Action](#url-scheme) в кодировке URL. Это значение должно быть [закодировано в URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent), чтобы не конфликтовать с другими параметрами протокола.
+
+- Клиентское приложение должно [декодировать URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent) параметра запроса `action` и проанализировать предоставленную ссылку Actions API (см. [схему URL Action](#url-scheme)).
+
+- Клиент должен отображать насыщенный пользовательский интерфейс, позволяющий пользователю пройти полный [жизненный цикл выполнения Action](#action-execution-and-lifecycle), включая подпись с помощью кошелька.
+
+> Не все клиентские приложения blink (например, веб-сайты или dApps) будут поддерживать все
+> Actions. Разработчики приложений могут сами выбирать, какие Actions они хотят поддерживать
+> в своих интерфейсах blink.
+
+Следующий пример демонстрирует корректный URL blink со значением `action`, равным `solana-action:https://actions.alice.com/donate`, закодированным в URL:
+
+```text
+https://example.domain/?action=solana-action%3Ahttps%3A%2F%2Factions.alice.com%2Fdonate
+```
+
+### Обнаружение Actions через Blinks
+
+Blinks могут быть связаны с Actions как минимум тремя способами:
+
+1. Публикация явного URL Action:
+   `solana-action:https://actions.alice.com/donate`
+
+   В этом случае blink смогут отображать только поддерживаемые клиенты. Не будет никакого резервного предварительного просмотра ссылки или сайта, доступного за пределами неподдерживающего клиента.
+
+2. Публикация ссылки на веб-сайт, связанный с Actions API через [файл `actions.json`](#actionsjson) в корне домена сайта.
+
+   Например, `https://alice.com/actions.json` отображает `https://alice.com/donate`, URL веб-сайта, на котором пользователи могут делать пожертвования Alice, на URL API `https://actions.alice.com/donate`, где размещены Actions для пожертвований Alice.
+
+3. Встраивание URL Action в URL «промежуточного» сайта, умеющего разбирать Actions.
+
+   ```text
+   https://example.domain/?action=<action_url>
+   ```
+
+Клиенты, поддерживающие blinks, должны уметь принимать любой из перечисленных форматов и корректно отображать интерфейс для выполнения action непосредственно в клиенте.
+
+Для клиентов, не поддерживающих blinks, должен существовать базовый веб-сайт (превращающий браузер в универсальный резервный вариант).
+
+Если пользователь нажимает в любом месте клиента, которое не является кнопкой action или полем ввода текста, его следует перенаправить на базовый сайт.
+
+### Тестирование и верификация Blink
+
+Несмотря на то что Solana Actions и blinks являются протоколом/спецификацией без разрешений, клиентские приложения и кошельки по-прежнему обязаны в конечном счёте обеспечивать подпись транзакций пользователями.
+
+> Используйте инструмент [Blinks Inspector](https://www.blinks.xyz/inspector) для проверки,
+> отладки и тестирования ваших blinks и actions прямо в браузере. Вы можете просматривать
+> полезные данные GET и POST ответов, заголовки ответов и тестировать все входные данные
+> для каждого из ваших связанных Actions.
+
+Каждое клиентское приложение или кошелёк может предъявлять различные требования к тому, какие конечные точки Actions будут автоматически разворачиваться и немедленно отображаться пользователям на платформах социальных сетей.
+
+Например, некоторые клиенты могут использовать подход «белого списка», требующий верификации до того, как клиент развернёт Action для пользователей, — как в случае с Dialect's Actions Registry (подробнее ниже).
+
+Все blinks по-прежнему будут отображаться и поддерживать подпись на промежуточном сайте blinks [dial.to](https://dial.to) от Dialect, при этом в blink будет отображаться статус регистрации.
+
+### Реестр Actions от Dialect
+
+В качестве общественного блага для экосистемы Solana [Dialect](https://dialect.to) поддерживает публичный реестр — совместно с Solana Foundation и другими участниками сообщества — блокчейн-ссылок, прошедших предварительную верификацию из известных источников. На момент запуска только Actions, зарегистрированные в реестре Dialect, будут разворачиваться в ленте Twitter при публикации.
+
+Клиентские приложения и кошельки могут свободно использовать этот публичный реестр или другое решение для обеспечения безопасности пользователей. Если блокчейн-ссылка не прошла верификацию через реестр Dialect, blink-клиент не будет её обрабатывать, и она будет отображаться как обычный URL.
+
+Разработчики могут подать заявку на верификацию через Dialect здесь:
+[dial.to/register](https://dial.to/register)
+
+## Спецификация
+
+Спецификация Solana Actions состоит из ключевых разделов, являющихся частью потока взаимодействия запрос/ответ:
+
+- [Схема URL](#url-scheme) Solana Action, предоставляющая URL Action
+- [Ответ OPTIONS](#options-response) на URL Action для соответствия требованиям CORS
+- [GET-запрос](#get-request) к URL Action
+- [GET-ответ](#get-response) от сервера
+- [POST-запрос](#post-request) к URL Action
+- [POST-ответ](#post-response) от сервера
+
+Каждый из этих запросов выполняется _клиентом Action_ (например, кошельком, браузерным расширением, dApp, веб-сайтом и т.д.) для получения конкретных метаданных, необходимых для формирования удобного интерфейса и обеспечения ввода данных пользователем в Actions API.
+
+Каждый из ответов формируется приложением (например, веб-сайтом, серверным бэкендом и т.д.) и возвращается _клиенту Action_. В конечном итоге это предоставляет подписываемую транзакцию или сообщение, которое кошелёк предлагает пользователю подтвердить, подписать и отправить в блокчейн.
+
+> Типы и интерфейсы, объявленные в этом файле readme, зачастую являются
+> упрощёнными версиями типов для удобства чтения.
+>
+> Для обеспечения большей типобезопасности и улучшения опыта разработчика пакет
+> `@solana/actions-spec` содержит более сложные определения типов. Исходный код
+> можно найти
+> [здесь](https://github.com/solana-developers/solana-actions/blob/main/packages/actions-spec/index.d.ts).
+
+### Схема URL
+
+URL Solana Action описывает интерактивный запрос на получение подписываемой транзакции или сообщения Solana с использованием протокола `solana-action`.
+
+Запрос является интерактивным, поскольку параметры в URL используются клиентом для выполнения серии стандартизированных HTTP-запросов с целью формирования подписываемой транзакции или сообщения для подписания пользователем с помощью своего кошелька.
+
+```text
+solana-action:<link>
+```
+
+- В качестве пути обязательно должно быть указано единственное поле `link`. Значение должно представлять собой условно
+  [URL-кодированный](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+  абсолютный HTTPS URL.
+
+- Если URL содержит параметры запроса, он должен быть URL-кодирован. URL-кодирование значения предотвращает конфликты с параметрами протокола Actions, которые могут быть добавлены согласно спецификации протокола.
+
+- Если URL не содержит параметров запроса, его не следует URL-кодировать.
+  Это позволяет получить более короткий URL и менее плотный QR-код.
+
+В любом случае клиенты должны
+[декодировать URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+значения. Это не оказывает эффекта, если значение не было URL-кодировано. Если декодированное значение не является абсолютным HTTPS URL, кошелёк должен отклонить его как **некорректное**.
+
+### Ответ на OPTIONS
+
+Для обеспечения совместного использования ресурсов между источниками
+([CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)) в клиентах Actions
+(включая blinks) все конечные точки Action должны отвечать на HTTP-запросы
+метода `OPTIONS` корректными заголовками, позволяющими клиентам успешно пройти проверки CORS для всех последующих запросов из того же домена источника.
+
+Клиент Action может выполнять
+"[предварительные](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#preflighted_requests)"
+запросы к конечной точке URL Action, чтобы проверить, пройдёт ли последующий GET-запрос к URL Action все проверки CORS. Эти предварительные CORS-запросы выполняются с использованием HTTP-метода `OPTIONS` и должны возвращать все необходимые HTTP-заголовки, позволяющие клиентам Action (например, blinks) корректно выполнять все последующие запросы из их домена источника.
+
+Обязательные HTTP-заголовки включают как минимум:
+
+- `Access-Control-Allow-Origin` со значением `*`
+  - это гарантирует, что все клиенты Action смогут успешно пройти проверки CORS для выполнения всех необходимых запросов
+- `Access-Control-Allow-Methods` со значением `GET,POST,PUT,OPTIONS`
+  - обеспечивает поддержку всех необходимых методов HTTP-запросов для Actions
+- `Access-Control-Allow-Headers` с минимальным значением
+  `Content-Type, Authorization, Content-Encoding, Accept-Encoding`
+
+Для упрощения разработчикам рекомендуется возвращать тот же ответ и те же заголовки на запросы `OPTIONS`, что и на [ответ `GET`](#get-response).
+
+<Callout type="warn" title="Заголовки Cross-Origin для actions.json">
+
+Ответ файла `actions.json` также должен возвращать корректные заголовки Cross-Origin для запросов `GET` и `OPTIONS`, в частности заголовок `Access-Control-Allow-Origin` со значением `*`.
+
+Подробнее см. [actions.json](#actionsjson) ниже.
+
+</Callout>
+
+### GET-запрос
+
+Клиент Action (например, кошелёк, браузерное расширение и т.д.) должен выполнить HTTP-запрос `GET` в формате JSON к конечной точке URL Action.
+
+- Запрос не должен идентифицировать кошелёк или пользователя.
+- Клиент должен выполнять запрос с
+  [заголовком `Accept-Encoding`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding).
+- Клиент должен отображать домен URL в процессе выполнения запроса.
+
+### GET-ответ
+
+Конечная точка URL Action (например, приложение или серверный бэкенд) должна вернуть HTTP-ответ `OK` в формате JSON (с корректными данными в теле) или соответствующую HTTP-ошибку.
+
+- Клиент должен обрабатывать HTTP-
+  [ошибки клиента](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
+  [ошибки сервера](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses),
+  а также
+  [ответы с перенаправлением](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+- Конечная точка должна возвращать
+  [заголовок `Content-Encoding`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+  для HTTP-сжатия.
+- Конечная точка должна возвращать
+  [заголовок `Content-Type`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)
+  со значением `application/json`.
+
+- Клиент не должен кэшировать ответ, если только это не предписано
+  [заголовками HTTP-кэширования](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching)
+  в ответе.
+- Клиент должен отображать `title` и показывать изображение `icon` пользователю.
+
+Ответы с ошибками (т.е. с HTTP-статусами 4xx и 5xx) должны возвращать тело ответа в формате JSON согласно `ActionError`, чтобы предоставить пользователям понятное сообщение об ошибке. См. [Ошибки Action](#action-errors).
+
+#### Тело GET-ответа
+
+Ответ `GET` с HTTP-статусом `OK` в формате JSON должен содержать тело с данными, соответствующими спецификации интерфейса:
+
+```ts title="ActionGetResponse"
+export type ActionType = "action" | "completed";
+
+export type ActionGetResponse = Action<"action">;
+
+export interface Action<T extends ActionType> {
+  /** type of Action to present to the user */
+  type: T;
+  /** image url that represents the source of the action request */
+  icon: string;
+  /** describes the source of the action request */
+  title: string;
+  /** brief summary of the action to be performed */
+  description: string;
+  /** button text rendered to the user */
+  label: string;
+  /** UI state for the button being rendered to the user */
+  disabled?: boolean;
+  links?: {
+    /** list of related Actions a user could perform */
+    actions: LinkedAction[];
+  };
+  /** non-fatal error message to be displayed to the user */
+  error?: ActionError;
+}
+```
+
+- `type` — тип действия, предоставляемого пользователю. По умолчанию — `action`. Начальный `ActionGetResponse` должен иметь тип `action`.
+  - `action` — стандартное действие, позволяющее пользователю взаимодействовать с любым из
+    `LinkedActions`
+  - `completed` — используется для объявления состояния «завершено» в цепочке действий.
+
+- `icon` — значение должно быть абсолютным HTTP или HTTPS URL изображения иконки. Файл должен быть изображением в формате SVG, PNG или WebP, в противном случае клиент/кошелёк должен отклонить его как **некорректное**.
+
+- `title` — значение должно быть строкой в кодировке UTF-8, представляющей источник запроса действия. Например, это может быть название бренда, магазина, приложения или имя человека, выполняющего запрос.
+
+- `description` — значение должно быть строкой в кодировке UTF-8, содержащей информацию о действии. Описание должно отображаться пользователю.
+
+- `label` — значение должно быть строкой в кодировке UTF-8, которая будет отображена на кнопке для нажатия пользователем. Все метки не должны превышать 5 слов и должны начинаться с глагола, чтобы чётко обозначить действие, которое требуется от пользователя. Например: «Выпустить NFT», «Голосовать За» или «Застейкать 1 SOL».
+
+- `disabled` — значение должно быть булевым и отражать состояние отключения отображаемой кнопки (показывающей строку `label`). Если значение не указано, `disabled` по умолчанию должно быть `false` (т.е. включено по умолчанию). Например, если конечная точка действия предназначена для голосования по управлению, которое уже завершилось, установите `disabled=true`, а `label` может быть «Голосование закрыто».
+
+- `error` — необязательное указание на некритическую ошибку. При наличии клиент должен отобразить её пользователю. Если задано, это не должно препятствовать интерпретации или отображению действия клиентом (см.
+  [Ошибки Action](#action-errors)). Например, ошибку можно использовать совместно с `disabled` для отображения причины, связанной с бизнес-ограничениями, авторизацией, состоянием или ошибкой внешнего ресурса.
+
+- `links.actions` — необязательный массив связанных действий для конечной точки. Пользователю должен отображаться интерфейс для каждого из перечисленных действий, при этом ожидается, что он выполнит только одно из них. Например, конечная точка действия голосования по управлению может предлагать три варианта: «Голосовать За», «Голосовать Против» и «Воздержаться».
+  - Если `links.actions` не указан, клиент должен отобразить одну кнопку с использованием корневой строки `label` и выполнить POST-запрос к той же конечной точке URL действия, что и исходный GET-запрос.
+
+  - Если указаны `links.actions`, клиент должен отображать только кнопки и поля ввода на основе элементов, перечисленных в поле `links.actions`. Клиент не должен отображать кнопку для содержимого корневого поля `label`.
+
+```ts title="LinkedAction"
+export interface LinkedAction {
+  /** Type of action to be performed by user */
+  type: LinkedActionType;
+  /** URL endpoint for an action */
+  href: string;
+  /** button text rendered to the user */
+  label: string;
+  /**
+   * Parameters to accept user input within an action
+   * @see {ActionParameter}
+   * @see {ActionParameterSelectable}
+   */
+  parameters?: Array<TypedActionParameter>;
+}
+```
+
+`ActionParameter` позволяет объявить, какие входные данные Action API запрашивает у пользователя:
+
+```ts title="ActionParameter"
+/**
+ * Parameter to accept user input within an action
+ * note: for ease of reading, this is a simplified type of the actual
+ */
+export interface ActionParameter {
+  /** input field type */
+  type?: ActionParameterType;
+  /** parameter name in url */
+  name: string;
+  /** placeholder text for the user input field */
+  label?: string;
+  /** declare if this field is required (defaults to `false`) */
+  required?: boolean;
+  /** regular expression pattern to validate user input client side */
+  pattern?: string;
+  /** human-readable description of the `type` and/or `pattern`, represents a caption and error, if value doesn't match */
+  patternDescription?: string;
+  /** the minimum value allowed based on the `type` */
+  min?: string | number;
+  /** the maximum value allowed based on the `type` */
+  max?: string | number;
+}
+```
+
+`pattern` должен быть строковым эквивалентом допустимого регулярного выражения. Этот шаблон регулярного выражения должен использоваться blink-клиентами для валидации пользовательского ввода перед выполнением POST-запроса. Если `pattern` не является допустимым регулярным выражением, клиенты должны его игнорировать.
+
+`patternDescription` — это описание ожидаемого ввода, понятное человеку. Если указан `pattern`, предоставление `patternDescription` является обязательным.
+
+Значения `min` и `max` позволяют задать нижнюю и/или верхнюю границы запрашиваемого от пользователя ввода (т.е. минимальное/максимальное числовое значение и/или минимальную/максимальную длину символов) и должны использоваться для валидации на стороне клиента. Для типов ввода `date` или `datetime-local` эти значения должны быть строковыми датами. Для других строковых типов ввода значения должны быть числами, представляющими минимальную/максимальную длину символов.
+
+Если введённое пользователем значение не соответствует `pattern`, пользователь должен получить сообщение об ошибке на стороне клиента, указывающее, что поле ввода недопустимо, с отображением строки `patternDescription`.
+
+Поле `type` позволяет Action API объявить более конкретные поля пользовательского ввода, обеспечивая улучшенную валидацию на стороне клиента и повышая удобство использования. Во многих случаях этот тип будет соответствовать стандартному
+[элементу HTML input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input).
+
+Тип `ActionParameterType` можно упростить до следующего вида:
+
+```ts title="ActionParameterType"
+/**
+ * Input field type to present to the user
+ * @default `text`
+ */
+export type ActionParameterType =
+  | "text"
+  | "email"
+  | "url"
+  | "number"
+  | "date"
+  | "datetime-local"
+  | "checkbox"
+  | "radio"
+  | "textarea"
+  | "select";
+```
+
+Каждое из значений `type` обычно должно приводить к созданию поля пользовательского ввода, напоминающего стандартный HTML-элемент `input` с соответствующим `type` (т.е.
+`<input type="email" />`) для обеспечения лучшей валидации на стороне клиента и удобства использования:
+
+- `text` — эквивалент HTML-элемента
+  [input типа «text»](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/text)
+- `email` — эквивалент HTML-элемента
+  [input типа «email»](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email)
+- `url` — эквивалент HTML-элемента
+  [input типа «url»](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/url)
+- `number` — эквивалент HTML-элемента
+  [input типа «number»](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/number)
+- `date` — эквивалент HTML-элемента
+  [input типа «date»](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/date)
+- `datetime-local` — эквивалент HTML-элемента
+  [input типа «datetime-local»](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/datetime-local)
+- `checkbox` — эквивалент группы стандартных HTML-элементов
+  [input типа «checkbox»](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox).
+  Action API должен возвращать `options`, как описано ниже. Пользователь должен иметь возможность выбрать несколько предложенных вариантов флажков.
+- `radio` — эквивалент группы стандартных HTML-элементов
+  [input типа «radio»](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/radio).
+  Action API должен возвращать `options`, как описано ниже. Пользователь должен иметь возможность выбрать только один из предложенных вариантов.
+- Другие эквиваленты типов HTML input, не указанные выше (`hidden`, `button`,
+  `submit`, `file` и т. д.), в настоящее время не поддерживаются.
+
+В дополнение к элементам, аналогичным типам HTML input, перечисленным выше, также поддерживаются следующие
+элементы пользовательского ввода:
+
+- `textarea` — эквивалент HTML-элемента
+  [textarea](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea).
+  Позволяет пользователю вводить многострочный текст.
+- `select` — эквивалент HTML-элемента
+  [select](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/select),
+  позволяющий пользователю работать с полем в стиле «выпадающего списка». Action API
+  должен возвращать `options`, как описано ниже.
+
+Если `type` задан как `select`, `checkbox` или `radio`, то Action API
+должен включать массив `options`, каждый элемент которого предоставляет как минимум `label` и `value`. Каждый вариант также может иметь значение `selected`, чтобы сообщить
+бlink-клиенту, какой из вариантов должен быть выбран по умолчанию для пользователя
+(см. различия в `checkbox` и `radio`).
+
+Этот `ActionParameterSelectable` можно упростить до следующего определения типа:
+
+```ts title="ActionParameterSelectable"
+/**
+ * note: for ease of reading, this is a simplified type of the actual
+ */
+interface ActionParameterSelectable extends ActionParameter {
+  options: Array<{
+    /** displayed UI label of this selectable option */
+    label: string;
+    /** value of this selectable option */
+    value: string;
+    /** whether or not this option should be selected by default */
+    selected?: boolean;
+  }>;
+}
+```
+
+Если `type` не задан или задано неизвестное/неподдерживаемое значение, blink-клиенты должны
+использовать `text` по умолчанию и отображать простое текстовое поле ввода.
+
+Action API по-прежнему несёт ответственность за валидацию и санитизацию всех данных из
+параметров пользовательского ввода, обеспечивая соблюдение всех «обязательных» полей ввода при необходимости.
+
+Для платформ, отличных от HTML/веб-based (например, нативных мобильных), следует использовать
+эквивалентный нативный компонент пользовательского ввода, чтобы обеспечить аналогичный
+опыт и клиентскую валидацию, как у типов HTML/веб-ввода, описанных выше.
+
+#### Пример GET-ответа
+
+Следующий пример ответа предоставляет единственное «корневое» действие, которое должно
+быть представлено пользователю в виде одной кнопки с меткой «Claim Access
+Token»:
+
+```json
+{
+  "title": "HackerHouse Events",
+  "icon": "<url-to-image>",
+  "description": "Claim your Hackerhouse access token.",
+  "label": "Claim Access Token" // button text
+}
+```
+
+Следующий пример ответа предоставляет 3 связанные ссылки на действия, позволяющие
+пользователю нажать одну из 3 кнопок, чтобы проголосовать за предложение DAO:
+
+```json
+{
+  "title": "Realms DAO Platform",
+  "icon": "<url-to-image>",
+  "description": "Vote on DAO governance proposals #1234.",
+  "label": "Vote",
+  "links": {
+    "actions": [
+      {
+        "label": "Vote Yes", // button text
+        "href": "/api/proposal/1234/vote?choice=yes"
+      },
+      {
+        "label": "Vote No", // button text
+        "href": "/api/proposal/1234/vote?choice=no"
+      },
+      {
+        "label": "Abstain from Vote", // button text
+        "href": "/api/proposal/1234/vote?choice=abstain"
+      }
+    ]
+  }
+}
+```
+
+#### Пример GET-ответа с параметрами
+
+Следующий пример ответа демонстрирует, как принять текстовый ввод от
+пользователя (через `parameters`) и включить его в конечный запрос `POST`
+(через поле `href` в `LinkedAction`):
+
+Следующий пример ответа предоставляет пользователю 3 связанных действия для стейкинга
+SOL: кнопку с меткой «Stake 1 SOL», ещё одну кнопку с меткой «Stake 5 SOL» и
+текстовое поле ввода, позволяющее пользователю ввести конкретное значение «amount», которое
+будет отправлено в Action API:
+
+```json
+{
+  "title": "Stake-o-matic",
+  "icon": "<url-to-image>",
+  "description": "Stake SOL to help secure the Solana network.",
+  "label": "Stake SOL", // not displayed since `links.actions` are provided
+  "links": {
+    "actions": [
+      {
+        "label": "Stake 1 SOL", // button text
+        "href": "/api/stake?amount=1"
+        // no `parameters` therefore not a text input field
+      },
+      {
+        "label": "Stake 5 SOL", // button text
+        "href": "/api/stake?amount=5"
+        // no `parameters` therefore not a text input field
+      },
+      {
+        "label": "Stake", // button text
+        "href": "/api/stake?amount={amount}",
+        "parameters": [
+          {
+            "name": "amount", // field name
+            "label": "SOL amount" // text input placeholder
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Следующий пример ответа предоставляет одно поле ввода, в котором пользователь
+может указать `amount`, отправляемый вместе с POST-запросом (можно использовать
+как параметр запроса, так и подпуть):
+
+```json
+{
+  "icon": "<url-to-image>",
+  "label": "Donate SOL",
+  "title": "Donate to GoodCause Charity",
+  "description": "Help support this charity by donating SOL.",
+  "links": {
+    "actions": [
+      {
+        "label": "Donate", // button text
+        "href": "/api/donate/{amount}", // or /api/donate?amount={amount}
+        "parameters": [
+          // {amount} input field
+          {
+            "name": "amount", // input field name
+            "label": "SOL amount" // text input placeholder
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### POST-запрос
+
+Клиент должен выполнить HTTP-запрос `POST` в формате JSON на URL действия с телом
+запроса вида:
+
+```json
+{
+  "account": "<account>"
+}
+```
+
+- `account` — значение должно быть публичным ключом аккаунта, закодированным в base58,
+  который может подписать транзакцию.
+
+Клиент должен выполнять запрос с заголовком
+[Accept-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding),
+а приложение может отвечать с заголовком
+[Content-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+для HTTP-сжатия.
+
+Клиент должен отображать домен URL действия в процессе выполнения запроса. Если был выполнен `GET`-запрос, клиент также должен отображать `title`
+и рендерить изображение `icon` из этого GET-ответа.
+
+### POST-ответ
+
+Конечная точка `POST` действия должна отвечать HTTP-ответом `OK` в формате JSON
+(с корректными данными в теле) или соответствующей HTTP-ошибкой.
+
+- Клиент должен обрабатывать HTTP-
+  [ошибки клиента](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
+  [ошибки сервера](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+  и
+  [ответы с перенаправлением](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+- Конечная точка должна отвечать с заголовком
+  [`Content-Type`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)
+  со значением `application/json`.
+
+Ответы с ошибками (т. е. с кодами состояния HTTP 4xx и 5xx) должны возвращать тело JSON-ответа, соответствующее `ActionError`, чтобы отображать пользователю понятное сообщение об ошибке. См. [Ошибки действий](#action-errors).
+
+#### Тело POST-ответа
+
+Ответ `POST` с HTTP `OK` в формате JSON должен включать тело запроса вида:
+
+```ts title="ActionPostResponse"
+/**
+ * Response body payload returned from the Action POST Request
+ */
+export interface ActionPostResponse<T extends ActionType = ActionType> {
+  /** base64 encoded serialized transaction */
+  transaction: string;
+  /** describes the nature of the transaction */
+  message?: string;
+  links?: {
+    /**
+     * The next action in a successive chain of actions to be obtained after
+     * the previous was successful.
+     */
+    next: NextActionLink;
+  };
+}
+```
+
+- `transaction` — значение должно быть
+  [сериализованной транзакцией](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize),
+  закодированной в base64.
+  Клиент должен декодировать транзакцию из base64 и
+  [десериализовать её](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#from).
+
+- `message` — значение должно быть строкой в кодировке UTF-8, описывающей характер
+  транзакции, включённой в ответ. Клиент должен отображать это значение пользователю. Например, это может быть название приобретаемого товара, применённая скидка или благодарственное сообщение.
+
+- `links.next` — необязательное значение, используемое для «цепочки» нескольких действий
+  последовательно. После того как включённая `transaction` будет подтверждена в сети, клиент
+  может получить и отобразить следующее действие. Подробнее см. в разделе
+  [Цепочка действий](#action-chaining).
+
+- Клиент и приложение должны допускать дополнительные поля в теле запроса
+  и теле ответа, которые могут быть добавлены в будущих обновлениях спецификации.
+
+> Приложение может ответить частично или полностью подписанной транзакцией.
+> Клиент и кошелёк должны валидировать транзакцию как **ненадёжную**.
+
+#### POST-ответ — транзакция
+
+Если
+[`signatures`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+транзакции пусты или транзакция НЕ была частично подписана:
+
+- Клиент должен игнорировать
+  [`feePayer`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  в транзакции и установить `feePayer` равным `account` из запроса.
+- Клиент должен игнорировать
+  [`recentBlockhash`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  в транзакции и установить `recentBlockhash` равным
+  [последнему blockhash](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+- Клиент должен сериализовать и десериализовать транзакцию перед её подписанием.
+  Это обеспечивает согласованный порядок ключей аккаунтов в качестве обходного решения для
+  [данной проблемы](https://github.com/solana-labs/solana/issues/21722).
+
+Если транзакция была частично подписана:
+
+- Клиент НЕ должен изменять
+  [`feePayer`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  или
+  [`recentBlockhash`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash),
+  так как это сделает недействительными существующие подписи.
+- Клиент должен проверить существующие подписи, и если какие-либо из них недействительны, клиент
+  должен отклонить транзакцию как **некорректную**.
+
+Клиент должен подписывать транзакцию только с помощью `account` из запроса и
+делать это лишь в том случае, если ожидается подпись для данного `account`.
+
+Если ожидается какая-либо подпись, кроме подписи для `account` из запроса,
+клиент должен отклонить транзакцию как **вредоносную**.
+
+### Ошибки действий
+
+Actions API должны возвращать ошибки с использованием `ActionError`, чтобы отображать
+пользователю понятные сообщения об ошибках. В зависимости от контекста ошибка может
+быть критической или некритической.
+
+```ts title="ActionError"
+export interface ActionError {
+  /** simple error message to be displayed to the user */
+  message: string;
+}
+```
+
+Когда Actions API отвечает кодом состояния HTTP с ошибкой (т. е. 4xx и 5xx),
+тело ответа должно быть JSON-данными, соответствующими `ActionError`. Ошибка считается
+критической, и включённое `message` должно быть представлено пользователю.
+
+Для ответов API, поддерживающих необязательный атрибут `error` (например,
+[`ActionGetResponse`](#get-response)), ошибка считается некритической и
+включённое `message` должно быть представлено пользователю.
+
+## Цепочка действий
+
+Действия Solana могут быть «выстроены в цепочку» в последовательный ряд. После того как транзакция действия
+будет подтверждена в сети, можно получить и представить пользователю следующее действие.
+
+Цепочка действий позволяет разработчикам создавать более сложные и динамичные
+взаимодействия внутри blink, в том числе:
+
+- предоставление пользователю нескольких транзакций (и, в перспективе, подписи сообщений)
+- настройка метаданных действия на основе адреса кошелька пользователя
+- обновление метаданных blink после успешной транзакции
+- получение обратного вызова API с подписью транзакции для дополнительной
+  валидации и логики на сервере Action API
+- настраиваемые сообщения об «успехе» посредством обновления отображаемых метаданных (например, нового
+  изображения и описания)
+
+Чтобы выстроить несколько действий в цепочку, включите в любой `ActionPostResponse`
+`links.next` одного из следующих типов:
+
+- `PostNextActionLink` — ссылка на POST-запрос с URL обратного вызова того же источника для
+  получения `signature` и `account` пользователя в теле запроса. Этот URL обратного вызова
+  должен отвечать `NextAction`.
+- `InlineNextActionLink` — встроенные метаданные следующего действия, которое будет представлено
+  пользователю сразу после подтверждения транзакции. Обратный вызов выполнен не будет.
+
+```ts
+export type NextActionLink = PostNextActionLink | InlineNextActionLink;
+
+/** @see {NextActionPostRequest} */
+export interface PostNextActionLink {
+  /** Indicates the type of the link. */
+  type: "post";
+  /** Relative or same origin URL to which the POST request should be made. */
+  href: string;
+}
+
+/**
+ * Represents an inline next action embedded within the current context.
+ */
+export interface InlineNextActionLink {
+  /** Indicates the type of the link. */
+  type: "inline";
+  /** The next action to be performed */
+  action: NextAction;
+}
+```
+
+### NextAction
+
+После того как включённая в `ActionPostResponse` транзакция подписана пользователем и
+подтверждена в сети, blink-клиент должен либо:
+
+- выполнить запрос обратного вызова для получения и отображения `NextAction`, либо
+- если `NextAction` уже предоставлен через `links.next`, blink-клиент
+  должен обновить отображаемые метаданные и не выполнять запрос обратного вызова
+
+Если URL обратного вызова не совпадает с источником первоначального POST-запроса,
+запрос обратного вызова не должен выполняться. Blink-клиенты должны отображать ошибку с уведомлением
+пользователя.
+
+```ts title="NextAction"
+/** The next action to be performed */
+export type NextAction = Action<"action"> | CompletedAction;
+
+/** The completed action, used to declare the "completed" state within action chaining. */
+export type CompletedAction = Omit<Action<"completed">, "links">;
+```
+
+В зависимости от `type`, следующее действие должно быть представлено пользователю через blink-
+клиенты одним из следующих способов:
+
+- `action` — (по умолчанию) стандартное действие, позволяющее пользователю видеть
+  включённые метаданные действия, взаимодействовать с предоставленными `LinkedActions` и
+  продолжать цепочку последующих действий.
+
+- `completed` — конечное состояние цепочки действий, которое может обновить
+  интерфейс blink с включёнными метаданными действия, но не позволит пользователю выполнять
+  дальнейшие действия.
+
+Если `links.next` не предоставлен, blink-клиенты должны считать текущее действие
+финальным в цепочке и отображать состояние «завершено» после подтверждения транзакции.
+
+## actions.json
+
+Назначение [файла `actions.json`](#actionsjson) состоит в том, чтобы позволить приложению
+информировать клиентов о том, какие URL веб-сайта поддерживают Solana Actions, и предоставить
+отображение, которое можно использовать для выполнения [GET-запросов](#get-request) к серверу
+Actions API.
+
+<Callout type="warn" title="Требуются заголовки Cross-Origin">
+
+Ответ файла `actions.json` также должен возвращать корректные заголовки Cross-Origin для
+запросов `GET` и `OPTIONS`, в частности заголовок `Access-Control-Allow-Origin`
+со значением `*`.
+
+Подробнее см. в разделе [Ответ OPTIONS](#options-response) выше.
+
+</Callout>
+
+Файл `actions.json` должен быть сохранён и общедоступен в корневом каталоге домена.
+
+Например, если ваше веб-приложение развёрнуто на `my-site.com`, то
+файл `actions.json` должен быть доступен по адресу `https://my-site.com/actions.json`.
+Этот файл также должен быть доступен из любого браузера через Cross-Origin с заголовком
+`Access-Control-Allow-Origin` со значением `*`.
+
+### Правила
+
+Поле `rules` позволяет приложению сопоставлять набор относительных
+путей маршрутов сайта с набором других путей.
+
+**Тип:** `Array` из `ActionRuleObject`.
+
+```ts title="ActionRuleObject"
+interface ActionRuleObject {
+  /** relative (preferred) or absolute path to perform the rule mapping from */
+  pathPattern: string;
+  /** relative (preferred) or absolute path that supports Action requests */
+  apiPath: string;
+}
+```
+
+- [`pathPattern`](#rules---pathpattern) — Шаблон, соответствующий каждому входящему
+  пути.
+
+- [`apiPath`](#rules---apipath) — Целевое расположение, заданное как абсолютный
+  путь или внешний URL.
+
+#### Правила — pathPattern
+
+Шаблон, соответствующий каждому входящему пути. Может быть абсолютным или относительным
+путём и поддерживает следующие форматы:
+
+- **Точное совпадение**: Соответствует точному URL-пути.
+  - Пример: `/exact-path`
+  - Пример: `https://website.com/exact-path`
+
+- **Совпадение по шаблону с подстановочными знаками**: Использует подстановочные знаки для сопоставления с любой последовательностью символов в
+  URL-пути. Может соответствовать одному (с помощью `*`) или нескольким сегментам (с помощью `**`).
+  (см. [Сопоставление путей](#rules---path-matching) ниже).
+  - Пример: `/trade/*` будет соответствовать `/trade/123` и `/trade/abc`, захватывая только
+    первый сегмент после `/trade/`.
+  - Пример: `/category/*/item/**` будет соответствовать `/category/123/item/456` и
+    `/category/abc/item/def`.
+  - Пример: `/api/actions/trade/*/confirm` будет соответствовать
+    `/api/actions/trade/123/confirm`.
+
+#### Правила — apiPath
+
+Путь назначения для запроса действия. Может быть задан как абсолютный
+путь или внешний URL.
+
+- Пример: `/api/exact-path`
+- Пример: `https://api.example.com/v1/donate/*`
+- Пример: `/api/category/*/item/*`
+- Пример: `/api/swap/**`
+
+#### Правила — параметры запроса
+
+Параметры запроса из исходного URL всегда сохраняются и добавляются к
+сопоставленному URL.
+
+#### Правила — сопоставление путей
+
+В следующей таблице описан синтаксис шаблонов сопоставления путей:
+
+| Оператор | Соответствует                                                                                                                                                                                  |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `*`      | Один сегмент пути, не включая окружающие разделители пути /.                                                                                                        |
+| `**`     | Соответствует нулю или более символам, включая разделители пути / между несколькими сегментами пути. Если используются другие операторы, оператор `**` должен быть последним. |
+| `?`      | Неподдерживаемый шаблон.                                                                                                                                                                     |
+
+### Примеры правил
+
+Следующий пример демонстрирует правило точного совпадения для сопоставления запросов к `/buy`
+из корня вашего сайта с точным путём `/api/buy` относительно корня вашего сайта:
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/buy",
+      "apiPath": "/api/buy"
+    }
+  ]
+}
+```
+
+Следующий пример использует сопоставление путей с подстановочными знаками для перенаправления запросов к любому пути
+(исключая подкаталоги) в `/actions/` из корня вашего сайта на
+соответствующий путь в `/api/actions/` относительно корня вашего сайта:
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/actions/*",
+      "apiPath": "/api/actions/*"
+    }
+  ]
+}
+```
+
+Следующий пример использует сопоставление путей с подстановочными знаками для перенаправления запросов к любому пути
+(исключая подкаталоги) в `/donate/` из корня вашего сайта на
+соответствующий абсолютный путь `https://api.dialect.com/api/v1/donate/` на
+внешнем сайте:
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/donate/*",
+      "apiPath": "https://api.dialect.com/api/v1/donate/*"
+    }
+  ]
+}
+```
+
+Следующий пример использует сопоставление путей с подстановочными знаками для идемпотентного правила,
+перенаправляющего запросы к любому пути (включая подкаталоги) в `/api/actions/` из корня
+вашего сайта на себя:
+
+> Идемпотентные правила позволяют клиентам blink легче определять, поддерживает ли заданный путь
+> запросы Action API, не требуя префикса
+> `solana-action:` URI или выполнения дополнительной проверки ответа.
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/api/actions/**",
+      "apiPath": "/api/actions/**"
+    }
+  ]
+}
+```
+
+## Идентификатор действия
+
+Конечные точки действий могут включать _Идентификатор действия_ в транзакции, возвращаемые
+в их [POST-ответе](#post-response) для подписи пользователем. Это
+позволяет индексаторам и аналитическим платформам легко и верифицируемо привязывать
+ончейн-активность к конкретному поставщику действий (т.е. сервису) проверяемым
+способом.
+
+[Идентификатор действия](#action-identity) — это keypair, используемый для подписи специально
+отформатированного сообщения, включаемого в транзакцию с помощью инструкции Memo. Это
+_Идентификационное сообщение_ может быть верифицируемо привязано к конкретному идентификатору действия,
+и тем самым транзакции могут быть отнесены к конкретному поставщику действий.
+
+keypair не обязан подписывать саму транзакцию. Это позволяет кошелькам
+и приложениям улучшить доставляемость транзакций, когда в транзакции,
+возвращаемой пользователю, нет других подписей (см.
+[транзакцию POST-ответа](#post-response---transaction)).
+
+Если сценарий использования поставщика действий требует, чтобы его серверные службы предварительно подписали
+транзакцию до пользователя, следует использовать этот keypair в качестве идентификатора действия. Это позволит включить на один аккаунт меньше в транзакцию,
+уменьшив общий размер транзакции на 32 байта.
+
+### Идентификационное сообщение действия
+
+Идентификационное сообщение действия — это строка UTF-8, разделённая двоеточиями, включаемая в
+транзакцию с помощью одной инструкции [SPL Memo](https://spl.solana.com/memo).
+
+```shell
+protocol:identity:reference:signature
+```
+
+- `protocol` — Значение используемого протокола (установлено в `solana-action` согласно
+  [схеме URL](#url-scheme) выше)
+- `identity` — Значение должно быть публичным адресом ключа идентификатора действия keypair в кодировке base58
+- `reference` — Значение должно быть 32-байтовым массивом в кодировке base58. Это может как являться, так и не являться pubkey, на кривой или вне её, и может как соответствовать, так и не соответствовать аккаунтам в Solana.
+- `signature` — подпись в кодировке base58, созданная идентификатором действия keypair путём подписи только значения `reference`.
+
+Значение `reference` должно использоваться только один раз и в одной транзакции. Для
+целей связывания транзакций с поставщиком действий действительным считается только первое
+использование значения `reference`.
+
+Транзакции могут содержать несколько инструкций Memo. При выполнении
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) поле `memo` в результатах
+вернёт сообщение каждой инструкции Memo в виде единой строки,
+где каждое сообщение разделено точкой с запятой.
+
+В инструкцию Memo идентификационного сообщения не должны включаться никакие другие данные.
+
+`identity` и `reference` должны быть включены как доступные только для чтения ключи без права подписи
+[keys](https://solana-labs.github.io/solana-web3.js/v1.x/classes/TransactionInstruction.html#keys)
+в транзакции в инструкции, которая НЕ является инструкцией Memo идентификационного сообщения.
+
+Инструкция Memo идентификационного сообщения должна иметь ноль предоставленных аккаунтов. Если какие-либо
+аккаунты предоставлены, программа Memo требует, чтобы эти аккаунты были действительными
+подписантами. Для целей идентификации действий это ограничивает гибкость и
+может ухудшить пользовательский опыт. Поэтому это считается антипаттерном и
+должно быть исключено.
+
+### Верификация идентификатора действия
+
+Любая транзакция, включающая аккаунт `identity`, может быть верифицируемо
+связана с поставщиком действий в многоэтапном процессе:
+
+1. Получить все транзакции для заданного `identity`.
+2. Разобрать и проверить строку memo каждой транзакции, убедившись, что `signature`
+   действительна для сохранённого `reference`.
+3. Убедиться, что конкретная транзакция является первым ончейн-вхождением
+   `reference` в блокчейне:
+   - Если эта транзакция является первым вхождением, транзакция считается
+     верифицированной и может быть безопасно отнесена к поставщику действий.
+   - Если эта транзакция НЕ является первым вхождением, она считается недействительной
+     и не относится к поставщику действий.
+
+Поскольку validator в Solana индексируют транзакции по ключам аккаунтов, метод RPC
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)
+можно использовать для поиска всех транзакций, включающих аккаунт `identity`.
+
+Ответ этого метода RPC включает все данные Memo в поле `memo`. Если
+в транзакции использовалось несколько инструкций Memo, каждое сообщение memo будет
+включено в это поле `memo` и должно быть соответствующим образом разобрано верификатором
+для получения _Сообщения верификации идентификатора_.
+
+Эти транзакции изначально следует считать **НЕПРОВЕРЕННЫМИ**. Это связано с тем, что
+`identity` не обязан подписывать транзакцию, что позволяет любой
+транзакции включать этот аккаунт в качестве неподписанта. Это потенциально может искусственно
+завышать показатели атрибуции и использования.
+
+Следует проверить идентификационное сообщение верификации, чтобы убедиться, что `signature`
+была создана `identity` путём подписи `reference`. Если верификация подписи
+не проходит, транзакция недействительна и не должна быть отнесена к
+поставщику действий.
+
+Если верификация подписи успешна, верификатор должен убедиться, что данная
+транзакция является первым ончейн-вхождением `reference`. Если это не так,
+транзакция считается недействительной.

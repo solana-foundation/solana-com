@@ -9,7 +9,7 @@ import DevelopersDocumentsSection from "@/components/developers/sections/Develop
 import DevelopersContentSection from "@/components/developers/sections/DevelopersContentSection/DevelopersContentSection";
 import heroImg from "@@/assets/developers/hero-geometry.png";
 import { useTranslations } from "next-intl";
-import StackExchangeIcon from "@@/assets/developers/stackexchange.inline.svg";
+import { MessageBubbleDots } from "@boxicons/react/MessageBubbleDots";
 import { LatestChangelogVideo } from "@/components/developers/sections/DevelopersDocumentsSection/DevelopersChangelog";
 
 export function DevelopersPage({
@@ -38,7 +38,12 @@ export function DevelopersPage({
             label: t("developers.hero.support"),
             href: "https://solana.stackexchange.com",
             icon: (
-              <StackExchangeIcon width={16} height={20} fill="currentColor" />
+              <MessageBubbleDots
+                width={20}
+                height={20}
+                pack="filled"
+                aria-hidden="true"
+              />
             ),
           },
         }}
@@ -46,7 +51,7 @@ export function DevelopersPage({
       <DevelopersCoursesSection /* courses={courses} */ />
       <DevelopersResourcesSection
         items={guides ?? []}
-        baseHref={`/developers/guides`}
+        baseHref={`/docs`}
         translationKey={"guides"}
       />
       <DevelopersDocumentsSection latestVideo={latestChangelogVideo} />

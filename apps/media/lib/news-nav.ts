@@ -15,6 +15,8 @@ export interface NewsNavItem {
   label: string;
   /** Existing category slug under `content/categories` (kebab-case). */
   slug: string;
+  /** Optional standalone route for a category with a custom landing page. */
+  href?: string;
 }
 
 /**
@@ -24,6 +26,7 @@ export interface NewsNavItem {
 export const NEWS_NAV_ITEMS: NewsNavItem[] = [
   { label: "Ecosystem", slug: "ecosystem" },
   { label: "Developers", slug: "developers" },
+  { label: "Changelog", slug: "changelog", href: "/changelog" },
   { label: "Institutions", slug: "institutions" },
   { label: "Finance", slug: "finance" },
   { label: "Payments", slug: "payments" },
@@ -34,6 +37,6 @@ export const NEWS_NAV_ITEMS: NewsNavItem[] = [
   { label: "Breakpoint", slug: "breakpoint" },
 ];
 
-export function newsNavHref(slug: string): string {
-  return `/news/category/${slug}`;
+export function newsNavHref(item: NewsNavItem): string {
+  return item.href ?? `/news/category/${item.slug}`;
 }

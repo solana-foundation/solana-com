@@ -15,6 +15,7 @@ export type SponsorLogo = {
 };
 
 export type SponsorTier = {
+  id: string;
   title: string;
   mobileColumns: string;
   mobileLogoScale: number;
@@ -167,6 +168,16 @@ const goldSponsors = [
     width: 1777,
     height: 230,
   },
+  {
+    companyId: "asymmetric-research",
+    width: 608,
+    height: 118,
+  },
+  {
+    companyId: "gmgn",
+    width: 84,
+    height: 95,
+  },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
@@ -179,6 +190,7 @@ const activationSponsors = [
 
 export const sponsorTiers = [
   {
+    id: "platinum",
     title: "Platinum",
     mobileColumns: "grid-cols-1",
     mobileLogoScale: 0.6,
@@ -187,6 +199,7 @@ export const sponsorTiers = [
     sponsors: platinumSponsors,
   },
   {
+    id: "gold",
     title: "Gold",
     mobileColumns: "grid-cols-2",
     mobileLogoScale: 0.64,

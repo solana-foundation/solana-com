@@ -9,6 +9,7 @@ import { anoma } from "./records/anoma";
 import { apollo } from "./records/apollo";
 import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
+import { asymmetricResearch } from "./records/asymmetric-research";
 import { atxp } from "./records/atxp";
 import { bhutan } from "./records/bhutan";
 import { blackrock } from "./records/blackrock";
@@ -39,6 +40,7 @@ import { flashTrade } from "./records/flash-trade";
 import { franklinTempleton } from "./records/franklin-templeton";
 import { frodobots } from "./records/frodobots";
 import { galaxy } from "./records/galaxy";
+import { gmgn } from "./records/gmgn";
 import { gradient } from "./records/gradient";
 import { hamiltonLane } from "./records/hamilton-lane";
 import { jito } from "./records/jito";
@@ -120,6 +122,7 @@ export const companies = [
   apollo,
   banxa,
   arcium,
+  asymmetricResearch,
   atxp,
   bhutan,
   blackrock,
@@ -150,6 +153,7 @@ export const companies = [
   franklinTempleton,
   frodobots,
   galaxy,
+  gmgn,
   gradient,
   hamiltonLane,
   jito,

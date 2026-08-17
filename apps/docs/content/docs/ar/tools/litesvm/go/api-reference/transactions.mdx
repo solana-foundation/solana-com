@@ -1,0 +1,255 @@
+---
+title: المعاملات
+description: تنفيذ ومحاكاة المعاملات باستخدام LiteSVM في Go
+---
+
+أساليب لإرسال المعاملات ومحاكاتها وإدارتها. يتم دعم كلٍّ من المعاملات القديمة (legacy) والمعاملات ذات الإصدارات v0+.
+
+`litesvm-go` يقبل بايتات المعاملات المشفّرة بـ bincode والمُنتجة بواسطة
+`(*solana.Transaction).MarshalBinary` من
+[`gagliardetto/solana-go`](https://github.com/gagliardetto/solana-go).
+
+## SendLegacyTransaction
+
+```go
+func (s *LiteSVM) SendLegacyTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+إرسال معاملة `Transaction` قديمة مشفّرة بـ bincode. عند النجاح، تُثبَّت المعاملة في دفتر الأستاذ الموجود في الذاكرة.
+
+```go
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+
+if !out.IsOk() {
+    t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+}
+
+t.Logf("signature: %s", out.Signature())
+t.Logf("compute:   %d CU", out.ComputeUnits())
+t.Logf("fee:       %d lamports", out.Fee())
+```
+
+<Callout type="warn">
+  الخطأ المُعاد يكون غير nil فقط عند تعذّر فكّ ترميز البايتات أو حدوث
+  فشل داخلي. المعاملة التي *تُنفَّذ وتفشل* لا تزال
+  تُعيد `*TxOutcome` غير nil؛ تحقّق دائمًا من `IsOk()` قبل استهلاك
+  الحالة المخصصة للنجاح فقط.
+</Callout>
+
+## SendVersionedTransaction
+
+```go
+func (s *LiteSVM) SendVersionedTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+نفس بنية `SendLegacyTransaction`، لكن لرسائل v0+. تُنتج
+`MarshalBinary` الخاصة بـ `solana-go` البايتات الصحيحة في كلتا الحالتين.
+
+## SimulateLegacyTransaction / SimulateVersionedTransaction
+
+```go
+func (s *LiteSVM) SimulateLegacyTransaction(txBytes []byte) (*TxOutcome, error)
+func (s *LiteSVM) SimulateVersionedTransaction(txBytes []byte) (*TxOutcome, error)
+```
+
+تنفيذ المعاملة دون تثبيت الحالة. تُعاد نفس بنية `*TxOutcome`،
+إضافةً إلى أن `PostAccounts()` تُملأ عند النجاح بحالة الحساب المتوقعة
+بعد التنفيذ.
+
+```go
+sim, err := svm.SimulateLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer sim.Close()
+
+if !sim.IsOk() {
+    t.Fatalf("sim failed: %s", sim.Error())
+}
+
+t.Logf("would use %d compute units", sim.ComputeUnits())
+t.Logf("logs: %v", sim.Logs())
+
+posts, err := sim.PostAccounts()
+if err != nil {
+    t.Fatal(err)
+}
+for _, p := range posts {
+    t.Logf("%s: %d lamports", p.Address, p.Account.Lamports())
+    p.Account.Close()
+}
+```
+
+<Callout type="info">
+  المحاكاة لا تُغيّر الحالة. استخدمها لتحديد حجم ميزانيات الحوسبة أو التحقق من
+  السجلات دون تلويث دفتر الأستاذ الخاص بك.
+</Callout>
+
+## TxOutcome
+
+كل استدعاء للإرسال أو المحاكاة يُعيد `*TxOutcome` يحمل نفس البيانات الوصفية
+bغض النظر عن النجاح أو الفشل. احرص دائمًا على استدعاء `Close`.
+
+| الأسلوب                | يُعيد                            | الوصف                                               |
+| --------------------- | ---------------------------------- | --------------------------------------------------------- |
+| `IsOk()`              | `bool`                             | نجحت المعاملة                                     |
+| `Error()`             | `string`                           | وصف الفشل (فارغ عند النجاح)                    |
+| `Signature()`         | `solana.Signature`                 | توقيع المعاملة                                     |
+| `ComputeUnits()`      | `uint64`                           | وحدات الحوسبة المستهلكة                                    |
+| `Fee()`               | `uint64`                           | الرسوم المحتسبة                                               |
+| `Logs()`              | `[]string`                         | سجلات البرنامج                                              |
+| `ReturnData()`        | `(solana.PublicKey, []byte, bool)` | بيانات الإرجاع المُعيَّنة عبر `set_return_data`؛ `ok=false` إذا لم تكن موجودة |
+| `InnerInstructions()` | `[][]InnerInstruction`             | استدعاءات البرامج المتداخلة (CPIs) مجمَّعة حسب التعليمات ذات المستوى الأعلى                     |
+| `PostAccounts()`      | `([]PostAccount, error)`           | حالة ما بعد التنفيذ - للمحاكاة فقط                      |
+| `Close()`             | -                                  | تحرير مقبض Rust الأساسي                        |
+
+### InnerInstruction
+
+```go
+type CompiledInstruction struct {
+    ProgramIDIndex uint8
+    Accounts       []byte // indices into the transaction's account table
+    Data           []byte
+}
+
+type InnerInstruction struct {
+    Instruction CompiledInstruction
+    StackHeight uint8 // 1 for top-level, higher for deeper CPIs
+}
+```
+
+تُعيد `InnerInstructions()` شريحة مُفهرسة حسب التعليمة ذات المستوى الأعلى التي
+أطلقت كل دُفعة من استدعاءات البرامج المتداخلة (CPIs).
+
+### PostAccount
+
+```go
+type PostAccount struct {
+    Address solana.PublicKey
+    Account *Account // close this when done
+}
+```
+
+تُملأ فقط عند نجاح عمليات المحاكاة.
+
+## إدارة Blockhash
+
+### LatestBlockhash
+
+```go
+func (s *LiteSVM) LatestBlockhash() (solana.Hash, error)
+```
+
+قراءة الـ blockhash الحالي. مرّره إلى `solana.NewTransaction(...)` عند
+بناء المعاملات.
+
+```go
+blockhash, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+
+tx, _ := solana.NewTransaction(
+    []solana.Instruction{ix},
+    blockhash,
+    solana.TransactionPayer(payer),
+)
+```
+
+### ExpireBlockhash
+
+```go
+func (s *LiteSVM) ExpireBlockhash() error
+```
+
+التقدّم إلى ما بعد الـ blockhash الحالي بحيث يُعيد `LatestBlockhash` التالي قيمةً جديدة.
+مفيد لاختبار حالات انتهاء صلاحية الـ blockhash الحدّية.
+
+```go
+bh1, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.ExpireBlockhash(); err != nil {
+    t.Fatal(err)
+}
+bh2, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+// bh1 != bh2
+_, _ = bh1, bh2
+```
+
+## سجل المعاملات
+
+سجل المعاملات مفعّل افتراضيًا. اضبط السعة (أو عطّل إزالة التكرار)
+باستخدام `SetTransactionHistory`:
+
+```go
+// Cap history at 100 entries.
+if err := svm.SetTransactionHistory(100); err != nil {
+    t.Fatal(err)
+}
+
+// Disable dedup entirely (allows replaying identical transactions).
+if err := svm.SetTransactionHistory(0); err != nil {
+    t.Fatal(err)
+}
+```
+
+البحث عن معاملة سابقة باستخدام التوقيع:
+
+```go
+prior := svm.GetTransaction(sig) // nil if unknown
+if prior != nil {
+    defer prior.Close()
+    t.Logf("found: %s, fee=%d", prior.Signature(), prior.Fee())
+}
+```
+
+## BuildTransferTx (أداة مساعدة للاختبار)
+
+```go
+func BuildTransferTx(
+    payerSeed [32]byte,
+    to solana.PublicKey,
+    lamports uint64,
+    blockhash solana.Hash,
+) ([]byte, error)
+```
+
+تُنتج معاملة `Transaction` قديمة موقّعة ومشفّرة بـ bincode تُحوّل `lamports`
+من keypair المشتق من `payerSeed` إلى `to`، باستخدام `blockhash`. البايتات
+المُعادة جاهزة للتمرير إلى `SendLegacyTransaction`.
+
+```go
+var seed [32]byte
+copy(seed[:], somePayerSeedBytes)
+
+bh, err := svm.LatestBlockhash()
+if err != nil {
+    t.Fatal(err)
+}
+txBytes, err := litesvm.BuildTransferTx(seed, recipient, 1_000_000_000, bh)
+if err != nil {
+    t.Fatal(err)
+}
+
+out, err := svm.SendLegacyTransaction(txBytes)
+if err != nil {
+    t.Fatal(err)
+}
+defer out.Close()
+```
+
+<Callout type="info">
+  هذا موجود لتهيئة الاختبارات وللمستدعين الذين يريدون تجنّب استيراد
+  `solana-go`. بمجرد البدء في بناء معاملات حقيقية، يُفضَّل استخدام مسار `solana-go`
+  الموضح أعلاه - فهو يتوسّع ليشمل المعاملات متعددة التعليمات، ورسائل v0،
+  والبرامج التعسفية.
+</Callout>

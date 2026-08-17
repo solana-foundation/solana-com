@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@workspace/i18n/server";
 import ComingSoonPage from "@/components/pages/ComingSoonPage";
 import { getPageMetadata } from "@/app/metadata";
-
-const pageMetadata = {
-  path: "/speakers",
-  title: "Speakers",
-  description:
-    "Breakpoint 2026 speaker announcements are coming soon for the London conference.",
-};
+import { APPLY_TO_SPEAK_HREF } from "@/content/links";
 
 export async function generateMetadata({
   params,
@@ -15,14 +10,25 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  return getPageMetadata(locale, pageMetadata);
+  const t = await getTranslations({ locale, namespace: "breakpoint.pages" });
+  return getPageMetadata(locale, {
+    path: "/speakers",
+    title: t("speakers.title"),
+    description: t("speakers.metadataDescription"),
+  });
 }
 
-export default function LocaleSpeakersPage() {
+export default async function LocaleSpeakersPage() {
+  const t = await getTranslations("breakpoint.pages.speakers");
+
   return (
     <ComingSoonPage
-      title="Speakers"
-      description="Speaker announcements are coming soon. Check back for the builders, institutions, and policymakers joining Breakpoint 2026 in London."
+      title={t("title")}
+      description={t("description")}
+      cta={{
+        href: APPLY_TO_SPEAK_HREF,
+        label: t("cta"),
+      }}
     />
   );
 }

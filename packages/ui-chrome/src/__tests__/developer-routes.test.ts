@@ -31,7 +31,7 @@ describe("developer route matching", () => {
 
   it("keeps theme support on docs developer routes", () => {
     expect(isThemeRoute("/docs/rpc")).toBe(true);
-    expect(isThemeRoute("/developers/guides/getting-started")).toBe(true);
+    expect(isThemeRoute("/developers/bootcamp/foundations")).toBe(true);
     expect(isThemeRoute("/data")).toBe(false);
     expect(isThemeRoute("/database")).toBe(false);
   });

@@ -2,7 +2,8 @@ import { EventsLandingPage } from "./events";
 import type { Metadata } from "next";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
-import { uniqBy, orderBy } from "lodash";
+import orderBy from "lodash/orderBy";
+import uniqBy from "lodash/uniqBy";
 import {
   buildEventsJsonLd,
   EVENTS_PATH,

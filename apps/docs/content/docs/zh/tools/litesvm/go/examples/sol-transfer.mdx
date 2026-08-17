@@ -1,0 +1,118 @@
+---
+title: SOL 转账
+description: 使用 litesvm-go 构建并发送 SOL 转账交易
+---
+
+最基础的 Solana 交易：将 SOL 从一个账户转移到另一个账户。这是验证你的 `litesvm-go` 环境是否正常运行的绝佳入门测试，可在测试更复杂的程序逻辑之前使用。
+
+## 完整示例
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+    "github.com/gagliardetto/solana-go/programs/system"
+)
+
+func TestSolTransfer(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Generate payer + recipient.
+    priv, err := solana.NewRandomPrivateKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+    payer := priv.PublicKey()
+    recipient := solana.NewWallet().PublicKey()
+
+    // Airdrop SOL to the payer.
+    if err := svm.Airdrop(payer, 10_000_000_000); err != nil {
+        t.Fatal(err)
+    }
+
+    // Check initial balance.
+    senderInitial, _, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("sender initial: %.3f SOL", float64(senderInitial)/1e9)
+
+    // Build, sign, and encode the transfer.
+    blockhash, err := svm.LatestBlockhash()
+    if err != nil {
+        t.Fatal(err)
+    }
+    ix := system.NewTransferInstruction(1_000_000_000, payer, recipient).Build()
+    tx, err := solana.NewTransaction(
+        []solana.Instruction{ix},
+        blockhash,
+        solana.TransactionPayer(payer),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    if _, err := tx.Sign(func(k solana.PublicKey) *solana.PrivateKey {
+        if k.Equals(payer) {
+            return &priv
+        }
+        return nil
+    }); err != nil {
+        t.Fatal(err)
+    }
+    txBytes, err := tx.MarshalBinary()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    // Execute the transfer.
+    out, err := svm.SendLegacyTransaction(txBytes)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer out.Close()
+
+    if !out.IsOk() {
+        t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
+    }
+
+    // Check final balances.
+    senderFinal, _, err := svm.Balance(payer)
+    if err != nil {
+        t.Fatal(err)
+    }
+    recipientFinal, _, err := svm.Balance(recipient)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("sender final:    %.6f SOL", float64(senderFinal)/1e9)
+    t.Logf("recipient final: %.3f SOL", float64(recipientFinal)/1e9)
+    t.Logf("compute units:   %d", out.ComputeUnits())
+    t.Logf("fee:             %d lamports", out.Fee())
+}
+```
+
+## 预期输出
+
+```
+sender initial: 10.000 SOL
+sender final:    8.999995 SOL
+recipient final: 1.000 SOL
+compute units:   150
+fee:             5000 lamports
+```
+
+<Callout type="info">
+  由于交易手续费（每个签名 5,000 lamport），发送方的最终余额略低于 9 SOL。
+</Callout>
+
+本文介绍了最简单的交易类型。如需测试自定义程序，请参阅
+[程序测试](/docs/tools/litesvm/go/examples/program-testing)。如需处理时间相关的逻辑，请参阅
+[基于时间的测试](/docs/tools/litesvm/go/examples/time-based)。

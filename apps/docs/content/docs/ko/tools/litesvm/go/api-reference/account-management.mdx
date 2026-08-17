@@ -1,0 +1,210 @@
+---
+title: 계정 관리
+description: Go에서 계정, 잔액, rent를 관리하는 메서드
+---
+
+계정 자금 지원, 읽기 및 쓰기를 위한 메서드입니다.
+
+## Airdrop
+
+```go
+func (s *LiteSVM) Airdrop(pubkey solana.PublicKey, lamports uint64) error
+```
+
+lamport로 계정에 자금을 지원합니다. 내부 faucet에서 실제 System Program 전송으로 구현되므로, 수신자는 결과 잔액을 보유할 수 있어야 합니다.
+
+```go
+priv, err := solana.NewRandomPrivateKey()
+if err != nil {
+    t.Fatal(err)
+}
+payer := priv.PublicKey()
+
+// Airdrop 5 SOL
+if err := svm.Airdrop(payer, 5_000_000_000); err != nil {
+    t.Fatal(err)
+}
+```
+
+## Balance
+
+```go
+func (s *LiteSVM) Balance(pubkey solana.PublicKey) (uint64, bool, error)
+```
+
+계정의 SOL 잔액을 반환합니다. 계정이 존재하지 않을 경우 두 번째 값은 `false`입니다 - 이는 "계정이 존재하지만 lamport가 0인 경우"와는 구별됩니다.
+
+```go
+lamports, ok, err := svm.Balance(payer)
+if err != nil {
+    t.Fatal(err)
+}
+if !ok {
+    t.Log("account does not exist")
+} else {
+    t.Logf("balance: %d lamports (%.3f SOL)", lamports, float64(lamports)/1e9)
+}
+```
+
+## GetAccount
+
+```go
+func (s *LiteSVM) GetAccount(pubkey solana.PublicKey) *Account
+```
+
+불투명한 계정 핸들을 가져오거나, 계정이 존재하지 않으면 `nil`을 반환합니다. 항상 핸들을 `Close`하거나 finalizer에 위임하세요.
+
+```go
+acct := svm.GetAccount(payer)
+if acct == nil {
+    t.Fatal("account missing")
+}
+defer acct.Close()
+
+_ = acct.Lamports()    // uint64
+_ = acct.Owner()       // solana.PublicKey
+_ = acct.Executable()  // bool
+_ = acct.RentEpoch()   // uint64
+_ = acct.Data()        // []byte (copy)
+```
+
+### 계정 메서드
+
+| 메서드         | 반환값            | 설명                        |
+| -------------- | ------------------ | ---------------------------------- |
+| `Lamports()`   | `uint64`           | SOL 잔액                        |
+| `Owner()`      | `solana.PublicKey` | 소유 프로그램                     |
+| `Executable()` | `bool`             | 계정의 실행 가능 여부  |
+| `RentEpoch()`  | `uint64`           | rent epoch                         |
+| `Data()`       | `[]byte`           | 계정 데이터 복사본           |
+| `Close()`      | -                  | 기반 Rust 핸들 해제 |
+
+## NewAccount
+
+```go
+func NewAccount(lamports uint64, data []byte, owner solana.PublicKey, executable bool, rentEpoch uint64) (*Account, error)
+```
+
+`SetAccount`에 전달할 `Account` 값을 생성합니다. 호출자는 반환된 핸들을 계속 소유하며 반드시 `Close`해야 합니다.
+
+```go
+payload := []byte{1, 2, 3, 4}
+rent, err := svm.MinimumBalanceForRentExemption(len(payload))
+if err != nil {
+    t.Fatal(err)
+}
+
+acct, err := litesvm.NewAccount(rent, payload, ownerProgramID, false, 0)
+if err != nil {
+    t.Fatal(err)
+}
+defer acct.Close()
+```
+
+## SetAccount
+
+```go
+func (s *LiteSVM) SetAccount(pubkey solana.PublicKey, acct *Account) error
+```
+
+`acct`의 복사본을 `pubkey`에 저장합니다. SVM은 자체 복사본을 유지하며, 호출자는 여전히 `acct`를 소유하고 반드시 `Close`해야 합니다.
+
+```go
+if err := svm.SetAccount(targetAddr, acct); err != nil {
+    t.Fatal(err)
+}
+```
+
+<Callout type="info">
+  `SetAccount`는 테스트를 위해 많은 계정에 seed를 설정할 때 트랜잭션을 실행하는 것보다 훨씬 빠릅니다. lamport 값이 해당 데이터 크기에 대한 rent 면제 최솟값 이상인지 확인하세요.
+</Callout>
+
+## MinimumBalanceForRentExemption
+
+```go
+func (s *LiteSVM) MinimumBalanceForRentExemption(dataLen int) (uint64, error)
+```
+
+주어진 데이터 길이의 계정이 rent 면제 상태가 되기 위해 필요한 lamport를 계산합니다.
+
+```go
+for _, size := range []int{0, 100, 1024} {
+    min, err := svm.MinimumBalanceForRentExemption(size)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("%4d bytes -> %d lamports", size, min)
+}
+```
+
+## 프로그램 관리
+
+### AddProgram
+
+```go
+func (s *LiteSVM) AddProgram(programID solana.PublicKey, bytes []byte) error
+```
+
+메모리 내 바이트에서 SBF 프로그램을 로드합니다.
+
+```go
+bytes, err := os.ReadFile("./target/deploy/my_program.so")
+if err != nil {
+    t.Fatal(err)
+}
+if err := svm.AddProgram(programID, bytes); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramFromFile
+
+```go
+func (s *LiteSVM) AddProgramFromFile(programID solana.PublicKey, path string) error
+```
+
+`.so` 파일 경로에서 SBF 프로그램을 로드합니다.
+
+```go
+if err := svm.AddProgramFromFile(programID, "./target/deploy/my_program.so"); err != nil {
+    t.Fatal(err)
+}
+```
+
+### AddProgramWithLoader
+
+```go
+func (s *LiteSVM) AddProgramWithLoader(programID solana.PublicKey, bytes []byte, loaderID solana.PublicKey) error
+```
+
+특정 로더를 사용하여 SBF 프로그램을 로드합니다. 기본값이 아닌 BPF 로더 버전으로 테스트할 때 유용합니다.
+
+## 배치 계정 설정
+
+여러 seed 계정이 필요한 테스트의 경우 `SetAccount`를 반복 실행하세요:
+
+```go
+const N = 10
+for i := 0; i < N; i++ {
+    pk := solana.NewWallet().PublicKey()
+    data := []byte{byte(i)}
+    rent, err := svm.MinimumBalanceForRentExemption(len(data))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(rent, data, owner, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    if err := svm.SetAccount(pk, acct); err != nil {
+        acct.Close()
+        t.Fatal(err)
+    }
+    acct.Close()
+}
+```
+
+<Callout type="info">
+  SVM이 `SetAccount`를 통해 복사본을 저장한 후에는 `NewAccount`가 반환한 `*Account`를 반드시 `Close`하세요 - SVM은 해당 핸들의 소유권을 가져가지 않습니다.
+</Callout>

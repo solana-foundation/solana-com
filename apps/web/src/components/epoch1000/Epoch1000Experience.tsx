@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDown as ChevronDownIcon } from "@boxicons/react/ChevronDown";
 import Odometer from "./Odometer";
 import Reveal from "./Reveal";
 import ThousandGrid from "./ThousandGrid";
@@ -131,7 +131,7 @@ export default function Epoch1000Experience({ title, description }: Props) {
           className="ep-cue mt-6 pb-1 text-ep-dust hover:text-ep-ink transition-colors duration-200"
           aria-label="Scroll to the wallet checker"
         >
-          <ChevronDownIcon aria-hidden className="size-5" strokeWidth={2} />
+          <ChevronDownIcon aria-hidden className="size-5" />
         </a>
       </section>
 
