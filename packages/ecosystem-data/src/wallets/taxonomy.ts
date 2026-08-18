@@ -104,7 +104,8 @@ export const WALLET_FEATURE_METADATA = {
   },
   open_source: {
     label: "Open source",
-    description: "Publishes relevant source code or SDKs.",
+    description:
+      "Publishes the wallet application's source code under an open-source license.",
   },
   hardware: {
     label: "Hardware support",
