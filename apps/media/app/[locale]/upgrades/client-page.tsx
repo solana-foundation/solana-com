@@ -312,7 +312,7 @@ export default function UpgradesClientPage({
             </SelectContent>
           </Select>
         </div>
-        <div className="inline-flex flex-shrink-0 gap-0.5 rounded-lg border border-white/10 p-[3px]">
+        <div className="hidden flex-shrink-0 gap-0.5 rounded-lg border border-white/10 p-[3px] md:inline-flex">
           <button
             type="button"
             aria-pressed={view === "table"}
@@ -338,11 +338,17 @@ export default function UpgradesClientPage({
         </div>
       </div>
 
-      {view === "table" ? (
-        <TableView groups={visibleGroups} />
-      ) : (
+      {/* Mobile always gets Grid — the table's horizontal scroll doesn't work well at that width. */}
+      <div className="md:hidden">
         <CardsView groups={visibleGroups} />
-      )}
+      </div>
+      <div className="hidden md:block">
+        {view === "table" ? (
+          <TableView groups={visibleGroups} />
+        ) : (
+          <CardsView groups={visibleGroups} />
+        )}
+      </div>
     </div>
   );
 }
