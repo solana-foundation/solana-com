@@ -170,7 +170,7 @@ function TableView({ groups }: { groups: ReleaseGroup[] }) {
                   <th className="w-[27%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
                     Key metric
                   </th>
-                  <th className="w-[28%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
+                  <th className="w-[28%] py-3 pl-12 pr-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
                     Status
                   </th>
                 </tr>
@@ -208,7 +208,7 @@ function TableView({ groups }: { groups: ReleaseGroup[] }) {
                           </>
                         )}
                       </td>
-                      <td className="p-4 px-5 align-top">
+                      <td className="py-4 pl-12 pr-5 align-top">
                         <StageBadge stage={upgrade.stage} />
                       </td>
                     </tr>
