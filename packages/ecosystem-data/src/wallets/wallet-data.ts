@@ -2010,7 +2010,12 @@ const walletRecords = {
     aliases: ["phantom-embedded-wallets", "phantom-wallet-sdk"],
     category: "infrastructure",
     platforms: ["sdk"],
-    features: ["non_custodial", "private_key_infrastructure", "solana_native"],
+    features: [
+      "non_custodial",
+      "open_source",
+      "private_key_infrastructure",
+      "solana_native",
+    ],
     description:
       "Client SDKs for embedding Phantom wallet creation and signing in web and React Native apps, with full Solana network support and social-login onboarding",
     website: "https://docs.phantom.com/wallet-sdks-overview",
