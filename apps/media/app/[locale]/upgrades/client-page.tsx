@@ -41,7 +41,7 @@ function StageBadge({ stage }: { stage: UpgradeListItem["stage"] }) {
   return (
     <span
       className={cn(
-        "rounded-full border px-3 py-1 text-xs font-medium",
+        "whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium",
         STAGE_BADGE_CLASSES[stage],
       )}
     >
@@ -161,16 +161,16 @@ function TableView({ groups }: { groups: ReleaseGroup[] }) {
           <ReleaseHeader group={group} />
           {group.overview && <OverviewCallout overview={group.overview} />}
           <div className="overflow-x-auto border border-white/10">
-            <table className="w-full min-w-[480px] border-collapse">
+            <table className="w-full min-w-[480px] table-fixed border-collapse">
               <thead>
                 <tr className="border-b border-white/10 bg-white/[0.02]">
-                  <th className="p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
+                  <th className="w-[45%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
                     Upgrade
                   </th>
-                  <th className="p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
+                  <th className="w-[27%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
                     Key metric
                   </th>
-                  <th className="p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
+                  <th className="w-[28%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
                     Status
                   </th>
                 </tr>

@@ -157,14 +157,14 @@ export default async function UpgradesPage({
     <section className="relative min-h-screen bg-black text-left text-white">
       <JsonLd data={structuredData} />
       <div className="mx-auto w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px]">
-        <div className="flex max-w-5xl flex-col py-[64px] md:py-[112px] xl:py-[160px]">
-          <span className="mb-5 text-xs font-medium uppercase tracking-[0.28em] text-[#14F195]">
+        <div className="flex max-w-3xl flex-col gap-2 py-8 md:py-10">
+          <span className="text-xs font-medium uppercase tracking-[0.28em] text-[#14F195]">
             Network upgrade notifications
           </span>
-          <h1 className="m-0 text-[40px] font-medium leading-[1.1] tracking-[-1px] md:text-[56px] md:tracking-[-1.4px] xl:text-[88px] xl:tracking-[-2px]">
+          <h1 className="m-0 text-[28px] font-medium leading-[1.15] tracking-[-0.5px] md:text-[34px] md:tracking-[-0.6px]">
             Solana Upgrades
           </h1>
-          <p className="mb-0 mt-[12px] max-w-2xl text-lg leading-[1.33] tracking-[-0.18px] text-[#ABABBA] md:text-2xl md:tracking-[-0.24px] xl:mt-[24px]">
+          <p className="m-0 max-w-2xl text-base leading-[1.4] text-[#ABABBA] md:text-lg">
             Track network changes, validator actions, client support, and
             rollout status for Solana protocol and performance upgrades.
           </p>
