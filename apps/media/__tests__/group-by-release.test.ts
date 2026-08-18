@@ -185,6 +185,38 @@ describe("groupUpgradesByRelease", () => {
     expect(groupB?.upgrades.map((item) => item.slug)).toEqual(["other"]);
   });
 
+  it("drops a release entirely if its only assigned upgrade is actually another release's overview", () => {
+    const releases: ReleaseInput[] = [
+      release({
+        slug: "a",
+        name: "Release A",
+        status: "shipped",
+        expectedDate: "2026-06-01",
+        overview: "x",
+      }),
+      release({
+        slug: "b",
+        name: "Release B",
+        status: "shipped",
+        expectedDate: "2026-07-01",
+      }),
+    ];
+    const upgrades: UpgradeListItem[] = [upgrade({ slug: "x", release: "b" })];
+
+    const groups = groupUpgradesByRelease(upgrades, releases);
+
+    // "x" is claimed as release "a"'s overview but tagged with release "b" —
+    // a content-authoring mistake (its release field should be "a"). Since it's
+    // globally excluded from every release's regular list to avoid rendering
+    // twice, and "b" has no other content, "b" disappears from the page
+    // entirely rather than showing an empty section. This is the accepted
+    // trade-off of the cross-release-mismatch fix above: catch the underlying
+    // mistake with the release-overview-consistency content check instead of
+    // trying to make the grouping logic paper over it.
+    expect(groups.map((group) => group.key)).toEqual(["a"]);
+    expect(groups.find((group) => group.key === "b")).toBeUndefined();
+  });
+
   it("treats order: 0 as present (not falsy)", () => {
     const releases: ReleaseInput[] = [
       release({ slug: "r", status: "shipped", expectedDate: "2026-06-01" }),
