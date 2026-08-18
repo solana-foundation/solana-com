@@ -15,17 +15,16 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { buildUpgradeJsonLd } from "@/lib/content-structured-data";
 import { getUpgradeSocialImageUrl } from "@/lib/upgrades/social-image";
 import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
+import {
+  isUpgradeStage,
+  STAGE_BADGE_CLASSES,
+  STAGE_LABELS,
+  type UpgradeStage,
+} from "@/lib/upgrades/stage";
 
 export const revalidate = 300;
 
 type Props = { params: Promise<{ slug: string; locale: string }> };
-
-const badgeColorMap: Record<string, string> = {
-  green: "bg-[#14F195]/10 border-[#14F195]/30 text-[#14F195]",
-  yellow: "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
-  red: "bg-red-500/10 border-red-500/30 text-red-400",
-  purple: "bg-purple-500/10 border-purple-500/30 text-purple-400",
-};
 
 function SocialShare({ title, slug }: { title: string; slug: string }) {
   const url = encodeURIComponent(`https://solana.com/upgrades/${slug}`);
@@ -85,6 +84,9 @@ export default async function Page({ params }: Props) {
     ? await reader.collections.authors.read(entry.author)
     : null;
   const authorName = String(authorEntry?.name ?? "Solana Foundation");
+  const stage: UpgradeStage = isUpgradeStage(entry.stage)
+    ? entry.stage
+    : "in_development";
   const publishedDate = entry.publishedAt
     ? new Date(entry.publishedAt).toLocaleDateString("en-US", {
         month: "long",
@@ -116,28 +118,13 @@ export default async function Page({ params }: Props) {
               <span>Back to Upgrades</span>
             </Link>
           </div>
-          {entry.badges && entry.badges.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mb-6">
-              {entry.badges.map(
-                (
-                  badge: { text: string; color: string; variant: string },
-                  i: number,
-                ) =>
-                  badge.variant === "text" ? (
-                    <span key={i} className="text-xs text-gray-500">
-                      {badge.text}
-                    </span>
-                  ) : (
-                    <span
-                      key={i}
-                      className={`text-xs px-3 py-1 rounded-full border font-medium ${badgeColorMap[badge.color] ?? badgeColorMap.green}`}
-                    >
-                      {badge.text}
-                    </span>
-                  ),
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <span
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${STAGE_BADGE_CLASSES[stage]}`}
+            >
+              {STAGE_LABELS[stage]}
+            </span>
+          </div>
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
             {titleDisplay}
           </h1>

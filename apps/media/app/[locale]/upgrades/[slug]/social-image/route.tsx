@@ -8,6 +8,7 @@ import {
   UPGRADE_SOCIAL_IMAGE_TYPE,
 } from "@/lib/upgrades/social-image";
 import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
+import { isUpgradeStage, type UpgradeStage } from "@/lib/upgrades/stage";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
@@ -45,6 +46,9 @@ export async function GET(_request: Request, { params }: RouteContext) {
   const authorEntry = entry.author
     ? await reader.collections.authors.read(entry.author)
     : null;
+  const stage: UpgradeStage = isUpgradeStage(entry.stage)
+    ? entry.stage
+    : "in_development";
   let regularFont: Buffer;
   let mediumFont: Buffer;
 
@@ -66,7 +70,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
       subtitle={entry.subtitle ? String(entry.subtitle) : null}
       publishedAt={entry.publishedAt ? String(entry.publishedAt) : null}
       authorName={String(authorEntry?.name ?? "Solana Foundation")}
-      badges={entry.badges ?? []}
+      stage={stage}
       metrics={entry.metrics ?? []}
     />,
     {
