@@ -224,12 +224,136 @@ describe("RPC latency query ranges", () => {
       .map(([input]) => new URL(String(input)))
       .filter((url) => url.pathname.endsWith("/query_range"));
 
-    expect(rangeUrls).toHaveLength(5);
+    expect(rangeUrls).toHaveLength(6);
     for (const url of rangeUrls) {
       expect(url.searchParams.get("start")).toBe(String(nowSeconds - 30 * 60));
       expect(url.searchParams.get("end")).toBe(String(nowSeconds));
       expect(url.searchParams.get("step")).toBe("60");
     }
+  });
+
+  it("keeps average latency providers with valid samples in the selected range", async () => {
+    const nowSeconds = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams.get("query") ?? "";
+      const result = query.includes("rpc_latency_seconds_sum")
+        ? [
+            {
+              metric: { provider: "helius" },
+              values: [
+                [nowSeconds - 300, "42"],
+                [nowSeconds, "43"],
+              ],
+            },
+          ]
+        : [];
+
+      return new Response(
+        JSON.stringify({ status: "success", data: { result } }),
+        { status: 200 },
+      );
+    });
+
+    vi.spyOn(Date, "now").mockReturnValue(nowSeconds * 1000);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { timeframe: "30m" },
+    );
+
+    expect(result.rows).toEqual([
+      {
+        date: new Date((nowSeconds - 300) * 1000).toISOString(),
+        metricName: "RPC Avg Latency",
+        providerName: "helius",
+        unit: "Milliseconds",
+        value: 42,
+      },
+      {
+        date: new Date(nowSeconds * 1000).toISOString(),
+        metricName: "RPC Avg Latency",
+        providerName: "helius",
+        unit: "Milliseconds",
+        value: 43,
+      },
+    ]);
+
+    const avgLatencyUrl = fetchMock.mock.calls
+      .map(([input]) => new URL(String(input)))
+      .find((url) =>
+        (url.searchParams.get("query") ?? "").includes(
+          "rpc_latency_seconds_sum",
+        ),
+      );
+
+    expect(avgLatencyUrl?.pathname).toBe("/api/v1/query_range");
+    expect(avgLatencyUrl?.searchParams.get("start")).toBe(
+      String(nowSeconds - 30 * 60),
+    );
+    expect(avgLatencyUrl?.searchParams.get("end")).toBe(String(nowSeconds));
+    expect(avgLatencyUrl?.searchParams.get("step")).toBe("60");
+  });
+
+  it("keeps a provider whose latest average sample is missing or non-finite", async () => {
+    const nowSeconds = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams.get("query") ?? "";
+      const result = query.includes("rpc_latency_seconds_sum")
+        ? [
+            {
+              metric: { provider: "helius" },
+              values: [
+                [nowSeconds - 600, "21"],
+                [nowSeconds - 300, "NaN"],
+                [nowSeconds, "+Inf"],
+              ],
+            },
+            {
+              metric: { provider: "chainstack" },
+              values: [[nowSeconds, "18"]],
+            },
+          ]
+        : [];
+
+      return new Response(
+        JSON.stringify({ status: "success", data: { result } }),
+        { status: 200 },
+      );
+    });
+
+    vi.spyOn(Date, "now").mockReturnValue(nowSeconds * 1000);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { timeframe: "1h" },
+    );
+
+    expect(
+      result.rows.filter((row) => row.metricName === "RPC Avg Latency"),
+    ).toEqual([
+      {
+        date: new Date((nowSeconds - 600) * 1000).toISOString(),
+        metricName: "RPC Avg Latency",
+        providerName: "helius",
+        unit: "Milliseconds",
+        value: 21,
+      },
+      {
+        date: new Date(nowSeconds * 1000).toISOString(),
+        metricName: "RPC Avg Latency",
+        providerName: "chainstack",
+        unit: "Milliseconds",
+        value: 18,
+      },
+    ]);
   });
 
   it("attaches human-readable error kinds to error-rate samples", async () => {
