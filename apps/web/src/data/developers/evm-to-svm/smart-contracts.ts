@@ -34,6 +34,7 @@ export const BLOCK_STYLES = {
       paddingLeft: "50px",
       paddingTop: "20px",
     },
+    small: { paddingRight: "0px", paddingLeft: "0px" },
   },
   [CONTENT_BLOCK_STYLE_KEYS.codeBlock]: {
     large: {
@@ -63,7 +64,7 @@ export const NAV_BUTTONS = [
     iconSize: "md",
     startIcon: "none",
     endIcon: "none",
-    url: "https://solana.com/developers/evm-to-svm",
+    url: "/developers/migrate-to-solana/ethereum",
   },
   {
     label: "",
@@ -71,7 +72,7 @@ export const NAV_BUTTONS = [
     size: "md",
     iconSize: "md",
     endIcon: "arrow-right",
-    url: "/developers/evm-to-svm/client-differences",
+    url: "/developers/migrate-to-solana/client-differences",
   },
 ] as const;
 
