@@ -78,12 +78,12 @@ type PrometheusResponse<T> = {
   status?: string;
 };
 
-type PrometheusInstantResult = {
+export type PrometheusInstantResult = {
   metric?: Record<string, unknown>;
   value?: [number | string, string];
 };
 
-type PrometheusRangeResult = {
+export type PrometheusRangeResult = {
   metric?: Record<string, unknown>;
   values?: Array<[number | string, string]>;
 };
@@ -383,14 +383,14 @@ function formatLabelMatcher([key, operator, value]: PrometheusLabelMatcher) {
   return `${key}${operator}"${escapePrometheusLabelValue(value)}"`;
 }
 
-function escapePrometheusLabelValue(value: string) {
+export function escapePrometheusLabelValue(value: string) {
   return value
     .replace(/\\/g, "\\\\")
     .replace(/\n/g, "\\n")
     .replace(/"/g, '\\"');
 }
 
-async function queryPrometheus<T>(
+export async function queryPrometheus<T>(
   config: RpcLatencyConfig,
   path: string,
   params: Record<string, string>,
