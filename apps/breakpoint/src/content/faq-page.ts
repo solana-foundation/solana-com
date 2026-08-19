@@ -39,7 +39,7 @@ export const faqPageSections = [
       {
         id: "general-speaking",
         question: "How can I apply to speak at Breakpoint?",
-        answer: "Speaker applications for Breakpoint 2026 are open.",
+        answer: "",
         answerHref: APPLY_TO_SPEAK_HREF,
         answerLinkLabel: "Apply to speak",
       },

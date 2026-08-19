@@ -102,7 +102,9 @@ export function buildBreakpointJsonLd(locale: string): JsonLd {
         "@type": "Answer",
         text: asPlainTextMessage(
           item.answerHref
-            ? `${item.answer} ${item.answerLinkLabel ?? item.answerHref}.`
+            ? [item.answer, `${item.answerLinkLabel ?? item.answerHref}.`]
+                .filter((part) => part.trim().length > 0)
+                .join(" ")
             : item.answer,
         ),
       },
