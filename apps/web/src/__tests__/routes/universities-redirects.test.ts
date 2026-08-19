@@ -4,26 +4,10 @@ import rewritesAndRedirects from "@@/rewrites-redirects";
 const redirects = rewritesAndRedirects.redirects;
 
 describe("Universities redirects", () => {
-  it("redirects the universities route and its subpaths to developers", () => {
-    expect(redirects).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          source: "/universities/:path*",
-          destination: "/developers",
-        }),
-      ]),
+  it("does not redirect the universities route, which now serves the ambassador program page", () => {
+    const universitiesRedirects = redirects.filter((redirect) =>
+      redirect.source.includes("/universities"),
     );
-  });
-
-  it("keeps locale-prefixed universities routes on localized developers pages", () => {
-    expect(redirects).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          source:
-            "/:locale(en|ar|de|el|es|fi|fr|id|it|ja|ko|nl|pl|pt|ru|tr|uk|vi|zh)/universities/:path*",
-          destination: "/:locale/developers",
-        }),
-      ]),
-    );
+    expect(universitiesRedirects).toEqual([]);
   });
 });
