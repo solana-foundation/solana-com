@@ -244,8 +244,11 @@ export async function getRpcLatencyMetricRows(
       start: String(start),
       step: String(timeframe.stepSeconds),
     }),
-    queryPrometheus<PrometheusInstantResult>(config, QUERY_API_PATH, {
+    queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
+      end: String(end),
       query: buildRpcAvgLatencyQuery(normalizedOptions),
+      start: String(start),
+      step: String(timeframe.stepSeconds),
     }),
     queryPrometheus<PrometheusRangeResult>(config, QUERY_RANGE_API_PATH, {
       end: String(end),
@@ -271,7 +274,7 @@ export async function getRpcLatencyMetricRows(
     generatedAt: new Date().toISOString(),
     rows: [
       ...toErrorRateMetricRows(errorRateResults, errorRateBreakdownResults),
-      ...toInstantMetricRows(avgLatencyResults, "RPC Avg Latency"),
+      ...toRangeMetricRows(avgLatencyResults, "RPC Avg Latency"),
       ...toRangeMetricRows(p50LatencyResults, "RPC P50 Latency"),
       ...toRangeMetricRows(p95LatencyResults, "RPC P95 Latency"),
       ...toRangeMetricRows(p99LatencyResults, "RPC P99 Latency"),
@@ -501,29 +504,6 @@ function formatErrorKindLabel(value: string) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function toInstantMetricRows(
-  results: PrometheusInstantResult[],
-  metricName: string,
-  unit = "Milliseconds",
-): MetricRow[] {
-  return results.flatMap((result) => {
-    const providerName = getProviderLabel(result.metric);
-    const sample = result.value;
-
-    if (!providerName || !sample) {
-      return [];
-    }
-
-    return toMetricRow({
-      metricName,
-      providerName,
-      timestamp: sample[0],
-      unit,
-      value: sample[1],
-    });
-  });
 }
 
 function toRangeMetricRows(
