@@ -710,6 +710,11 @@ export default {
   redirects: withLocaleRedirects([
     ...dissolvedGuideRedirects,
     ...movedDocsRedirects,
+    {
+      source: "/universities",
+      destination: "/university",
+      permanent: true,
+    },
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     {

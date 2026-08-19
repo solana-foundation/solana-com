@@ -1,5 +1,5 @@
 import React from "react";
-import { UniversityAmbassadorPage } from "./university-ambassador";
+import { UniversityAmbassadorPage } from "../universities/university-ambassador";
 import { getIndexMetadata } from "@/app/metadata";
 
 type Props = { params: Promise<{ locale: string }> };
@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props) {
   return await getIndexMetadata({
     titleKey: "universities.title",
     descriptionKey: "universities.description",
-    path: "/universities",
+    path: "/university",
     locale,
   });
 }
