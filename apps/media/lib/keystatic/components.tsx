@@ -502,6 +502,46 @@ const iframe = block({
   ),
 });
 
+// Diagram blocks for upgrade articles. These take no options — each renders a
+// single fixed illustration defined in `components/upgrades/diagrams.tsx` — so
+// they exist here purely to declare the tags as valid in the Keystatic editor.
+const diagramBlock = (label: string, description: string) =>
+  block({
+    label,
+    description,
+    schema: {},
+    ContentView: () => (
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: "8px",
+          color: "#6b7280",
+          fontSize: "14px",
+          margin: "16px 0",
+          padding: "16px",
+        }}
+      >
+        <strong style={{ color: "#14161c", display: "block" }}>Diagram</strong>
+        {label}
+      </div>
+    ),
+  });
+
+const txWireLayout = diagramBlock(
+  "Diagram: transaction wire layout",
+  "Byte layout of legacy, v0 and v1 transactions compared",
+);
+
+const txSimulationTrace = diagramBlock(
+  "Diagram: v1 simulation failure trace",
+  "Where an empty v1 config fails during simulation, and what comes back",
+);
+
+const txAccountBytes = diagramBlock(
+  "Diagram: loaded account bytes running total",
+  "How an account created after estimation pushes the running total past the limit",
+);
+
 // Export all component blocks
 export const componentBlocks: Record<string, ContentComponent> = {
   blockquote,
@@ -514,6 +554,15 @@ export const componentBlocks: Record<string, ContentComponent> = {
   sup,
   tweet,
   iframe,
+};
+
+// Diagram blocks are intentionally limited to upgrade articles, whose template
+// renders on a permanently dark surface the diagrams are colored for.
+export const upgradeComponentBlocks: Record<string, ContentComponent> = {
+  ...componentBlocks,
+  TxAccountBytes: txAccountBytes,
+  TxSimulationTrace: txSimulationTrace,
+  TxWireLayout: txWireLayout,
 };
 
 // Formula controls are intentionally limited to news posts. Other collections

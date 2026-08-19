@@ -8,6 +8,7 @@ import { Send } from "@boxicons/react/Send";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
 import { reader } from "@/lib/reader";
 import { upgradeMdxComponents } from "@/components/upgrades/mdx-components";
 import { upgradeMetadata } from "@/lib/metadata";
@@ -167,7 +168,12 @@ export default async function Page({ params }: Props) {
             <MDXRemote
               source={rawBody}
               components={upgradeMdxComponents}
-              options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }}
+              options={{
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm],
+                  rehypePlugins: [rehypeSlug],
+                },
+              }}
             />
           </article>
         </div>

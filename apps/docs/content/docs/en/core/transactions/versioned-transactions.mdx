@@ -1,9 +1,9 @@
 ---
 title: Versioned Transactions
 description:
-  Legacy vs versioned (V0) transaction formats on Solana, including Address
-  Lookup Tables (ALTs), version detection, V0 message format, and ALT
-  resolution.
+  Legacy, v0, and v1 transaction formats on Solana, including Address Lookup
+  Tables (ALTs), version detection, the v1 transaction config, and resource
+  limits.
 url: /docs/core/transactions/versioned-transactions
 type: conceptual
 prerequisites:
@@ -15,27 +15,78 @@ related:
 ---
 
 <Callout type="info" title="Summary">
-  V0 transactions add Address Lookup Tables (ALTs), allowing references to
-  accounts via 1-byte indices instead of 32-byte keys. This saves 31 bytes per
-  ALT-resolved account.
+  Solana has three transaction formats: legacy, v0, and v1. **v0** adds Address
+  Lookup Tables (ALTs) for referencing accounts via 1-byte indices. **v1**
+  raises the size limit to 4,096 bytes, moves resource limits into the message
+  itself, and removes ALTs.
 </Callout>
 
-Solana supports two transaction formats: **legacy** and **versioned** (v0).
+Solana supports three transaction formats: **legacy**, **v0**, and **v1**.
+
+<Callout type="warn" title="v1 activation status">
+  The [v1 format](https://solana.com/upgrades/larger-transaction-sizes) is not
+  yet active on any cluster. Activation is targeted with Agave v4.2.
+  `solana-test-validator` 4.2+ enables you to test v1 transactions locally.
+  Existing apps should review [preparing for v1](#preparing-for-v1).
+</Callout>
+
+## Version detection
 
 The validator determines the format by inspecting the first byte of the message:
 
-- If the first byte has the
-  [version prefix](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
-  bit set, it's a **versioned message**. Currently only version 0 is supported.
-  The next 3 bytes are the _rs`MessageHeader`_.
-- Otherwise, it's a **legacy message**. The first byte is
-  `num_required_signatures`, and the next 2 bytes complete the header.
+| First byte of message    | Format | Notes                                                    |
+| ------------------------ | ------ | -------------------------------------------------------- |
+| Version prefix bit unset | legacy | First byte is `num_required_signatures`                  |
+| `0x80` (128)             | v0     | Adds `address_table_lookups` after the instructions      |
+| `0x81` (129)             | v1     | New layout: version byte first, signatures moved to tail |
 
-<Callout type="info" title="When to use V0 transactions">
-  Use V0 when your transaction references many accounts and approaches the
-  1,232-byte packet limit. If your transaction fits within the size limit with
-  all accounts inline, legacy transactions are simpler and have wider tooling
-  support. V0 is required to use Address Lookup Tables.
+In legacy and v0 transactions, the message sits behind a length-prefixed
+signature array, so the version byte is not at offset zero of the transaction.
+v1 reorders the envelope: the version byte is the **first byte of the
+transaction**, and signatures move to the tail. This lets infrastructure
+identify the format without deserializing anything.
+
+## Format comparison
+
+| Limit                 | legacy                     | v0                         | v1                 |
+| --------------------- | -------------------------- | -------------------------- | ------------------ |
+| Max transaction size  | 1,232 bytes                | 1,232 bytes                | **4,096 bytes**    |
+| Account addresses     | ~32, size-bound            | 64, via lookup tables      | **64, inline**     |
+| Address lookup tables | not supported              | supported                  | **not supported**  |
+| Duplicate addresses   | allowed                    | allowed                    | **rejected**       |
+| Resource limits       | ComputeBudget instructions | ComputeBudget instructions | **message config** |
+
+The legacy and v0 account counts above are
+[runtime limits](/docs/core/transactions#limits), not format limits. Both
+formats can encode more accounts than they can execute: the runtime rejects any
+transaction locking more than 64 accounts. Legacy transactions cannot reach even
+that: 64 inline addresses at 32 bytes each is 2,048 bytes, so a legacy
+transaction exhausts its 1,232-byte budget somewhere around 32 addresses — the
+exact number depends on how many signatures and how much instruction data it
+carries. v0 reaches the full 64 by referencing lookup-table addresses at 1 byte
+each instead. v1 reaches the same 64 with plain inline addresses, because 2,048
+bytes fits comfortably inside 4,096, and makes 64 an explicit format limit
+checked at sanitization. A draft proposal, SIMD-0596, would raise the v1 account
+limit to 96.
+
+The instruction limits are not version-specific. Two independent caps apply to
+every format: sanitization rejects any transaction carrying more than 64
+top-level instructions
+([SIMD-0160](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0160-static-instruction-limit.md),
+active on mainnet), and execution fails with `MaxInstructionTraceLengthExceeded`
+once the instruction trace — top-level instructions plus every CPI — exceeds 64.
+
+The 12-signature ceiling reaches v1 by a different route than it did before. In
+legacy and v0 it is size-derived: each signature also needs a 32-byte signer
+key, so a 13th cannot fit inside 1,232 bytes. v1 states it as an explicit format
+constant, because at 4,096 bytes the envelope would otherwise hold 42.
+
+<Callout type="info" title="When to use each format">
+  Use **legacy** when your transaction fits in 1,232 bytes with all accounts
+  inline — it has the widest tooling support. Use **v0** when you need Address
+  Lookup Tables. Use **v1** (once active) when you need transactions larger than
+  1,232 bytes or want resource limits in the message instead of ComputeBudget
+  instructions.
 </Callout>
 
 ## V0 message format
@@ -60,7 +111,7 @@ Each address table lookup entry contains:
 | `writable_indexes` | compact-u16 + N x 1 byte | Indices into the ALT for writable accounts  |
 | `readonly_indexes` | compact-u16 + N x 1 byte | Indices into the ALT for read-only accounts |
 
-## Address lookup table resolution
+### Address lookup table resolution
 
 An ALT is an onchain account that stores up to 256 public keys. By referencing
 an ALT, a transaction can include additional accounts using 1-byte indices
@@ -78,3 +129,121 @@ lookups.
   account addresses. ALT-resolved accounts can only be writable or read-only
   (non-signer); they cannot be signers.
 </Callout>
+
+## V1 message format
+
+v1 raises the size limit to 4,096 bytes and restructures the message around a
+**transaction config**: resource limits move out of ComputeBudget instructions
+and into fixed-position fields in the message itself. This lets the network rank
+a transaction by priority fee with a single fixed-offset read instead of
+scanning and deserializing its instruction list.
+
+A v1 message serializes its fields in this order:
+
+| Field                  | Size         | Description                                                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `0x81`                 | 1 byte       | Version prefix byte — the first byte of the transaction                            |
+| `header`               | 3 bytes      | MessageHeader (same as legacy)                                                     |
+| `config_mask`          | 4 bytes      | `u32` LE bitmask marking which config values are present                           |
+| `recent_blockhash`     | 32 bytes     | Lifetime specifier                                                                 |
+| `num_instructions`     | 1 byte       | Fixed-width count, max 64                                                          |
+| `num_addresses`        | 1 byte       | Fixed-width count, max 64                                                          |
+| `addresses`            | N x 32 bytes | Account addresses, all inline — no lookup table references                         |
+| `config_values`        | 0–20 bytes   | One value per set mask bit, in bit order (see below)                               |
+| `instruction_headers`  | N x 4 bytes  | Per instruction: `program_id_index` (u8), `num_accounts` (u8), `data_len` (u16 LE) |
+| `instruction_payloads` | variable     | Per instruction: account indices, then instruction data                            |
+| `signatures`           | N x 64 bytes | At the tail, with no length prefix — the count comes from the header               |
+
+Two structural differences from legacy and v0 are worth noting when writing a
+decoder. The counts are fixed-width `u8` fields rather than compact-u16, and the
+instructions are split into two runs: every fixed-size header first, then every
+variable-length payload, instead of each instruction being contiguous.
+
+### Transaction config
+
+The config is a `u32` bitmask followed by fixed-width values for each field
+whose bit is set:
+
+| Bit(s) | Field                           | Width | Notes                                       |
+| ------ | ------------------------------- | ----- | ------------------------------------------- |
+| 0–1    | Priority fee                    | u64   | **Total lamports** — both bits set together |
+| 2      | Compute unit limit              | u32   |                                             |
+| 3      | Loaded accounts data size limit | u32   |                                             |
+| 4      | Requested heap size             | u32   |                                             |
+
+Unknown bits are rejected. Because the message is signed, unrecognized config
+fields cannot be silently dropped.
+
+<Callout type="warn" title="Priority fee is total lamports, not a price">
+  In legacy and v0, the priority fee is set via `SetComputeUnitPrice` as
+  **micro-lamports per compute unit**, multiplied by the compute unit limit. In
+  v1 it is an **absolute total in lamports** — no multiplication, no rounding.
+  Do not carry the per-CU arithmetic across. The total fee formula is otherwise
+  unchanged: `(signatures × lamports_per_signature) + priority_fee`.
+</Callout>
+
+### ComputeBudget instructions are no-ops in v1
+
+A v1 transaction does not reject ComputeBudget instructions — it **ignores**
+them for configuration. They still execute as successful no-ops, consuming 150
+compute units and one of the 64 instruction slots while having no effect on the
+budget. Strip them when building v1 transactions, and stop scanning for them
+when reading v1 transactions: the values live in the message config.
+
+### Config fields must be set explicitly
+
+The most important behavioral change for senders: unlike legacy and v0, v1
+transactions must set the compute unit limit and loaded accounts data size limit
+explicitly or your transaction will fail.
+
+| Unset field               | legacy / v0                    | v1          | Symptom if omitted                                              |
+| ------------------------- | ------------------------------ | ----------- | --------------------------------------------------------------- |
+| Compute unit limit        | 200k per instruction, max 1.4M | **0 CU**    | Fails immediately, out of budget                                |
+| Loaded accounts data size | 64 MiB                         | **0 bytes** | `MaxLoadedAccountsDataSizeExceeded` on the first account loaded |
+| Priority fee              | 0                              | 0           | —                                                               |
+| Heap size                 | 32 KiB                         | 32 KiB      | —                                                               |
+
+The recommended approach is to simulate once with both limits maxed, then write
+the returned `unitsConsumed` and `loadedAccountsDataSize` back into the config,
+rounding the data size up to the next 32 KiB page for headroom (the block cost
+model charges in 32 KiB pages, so headroom below the next page boundary is
+free).
+
+### No address lookup tables
+
+v1 removes ALT support deliberately. 64 raw addresses is 2,048 bytes,
+comfortably inside the 4,096-byte limit. If your application depends on lookup
+tables, moving to v1 means inlining those addresses.
+
+## Preparing for v1
+
+v1 changes **reading** transactions, not just sending them. When v1 activates,
+any client that calls `getTransaction` or `getBlock` without opting in will
+start failing on v1 transactions:
+
+- Pass `maxSupportedTransactionVersion: 1` — the JSON **integer** `1`, not the
+  string `"1"` — to [`getTransaction`](/docs/rpc/http/gettransaction) and
+  [`getBlock`](/docs/rpc/http/getblock). Passing `0` fails on v1 transactions
+  exactly like omitting the parameter, so a codebase updated during the v0
+  rollout still needs the value changed.
+- `getTransaction` fails on a v1 transaction with error `-32015`, and one v1
+  transaction fails an **entire** `getBlock` response with the same error —
+  there is no partial result.
+- [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe) emits `block: null` and
+  stops advancing, so a consumer that reads that as an empty block silently
+  falls behind from the first v1 slot onward.
+- `getSignaturesForAddress` never inspects transaction bodies, so v1 signatures
+  list normally.
+- Opted-in responses include a `transactionConfig` object in the message for v1
+  transactions (absent entirely for legacy and v0). Pipelines that derive
+  priority fees or compute limits by scanning for ComputeBudget instructions
+  will silently report **zero** for every v1 transaction.
+- Use `encoding: 'base64'` when you decode transactions client-side, and for
+  `sendTransaction`/`simulateTransaction` with transactions over 1,232 bytes —
+  base58 encoding remains capped at the old size.
+- Client library support requires recent versions: `@solana/kit` 8.0+, Agave
+  4.2.x-generation Rust crates, or web3.js v3.
+
+For the full migration guide — including client library support, streaming
+(Geyser/gRPC) version detection, and simulation behavior — see the
+[Transaction Format v1 upgrade page](https://solana.com/upgrades/larger-transaction-sizes).

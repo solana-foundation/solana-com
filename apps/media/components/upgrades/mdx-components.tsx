@@ -1,4 +1,5 @@
 import React, { ComponentPropsWithoutRef } from "react";
+import { TxAccountBytes, TxSimulationTrace, TxWireLayout } from "./diagrams";
 
 export function StatusBadge({
   children,
@@ -48,6 +49,9 @@ export function MetricCardGroup({ children }: { children: React.ReactNode }) {
 }
 
 export const upgradeMdxComponents = {
+  TxAccountBytes,
+  TxSimulationTrace,
+  TxWireLayout,
   StatusBadge,
   StatusBadgeGroup,
   MetricCard,
