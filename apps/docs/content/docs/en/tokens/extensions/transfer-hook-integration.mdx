@@ -123,6 +123,7 @@ with no bridging to the legacy client.
 ```ts title="send-transfer-hook-token-kit.ts"
 import {
   appendTransactionMessageInstructions,
+  compileTransaction,
   createTransactionMessage,
   getBase64EncodedWireTransaction,
   pipe,
@@ -189,15 +190,18 @@ export async function sendTokenTransfer({
     (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
     (tx) => appendTransactionMessageInstructions([instruction], tx)
   );
-  const signedMessage = await signTransactionMessageWithSigners(message);
 
-  // 2. Simulate before sending. This is what catches a hook rejecting the
-  // transfer (an allowlist check, a paused mint, ...) or a stale
-  // ExtraAccountMetaList, before the user pays a fee for a failed transaction.
+  // 2. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Compiling the message (rather than signing
+  // it) is enough to simulate, and sigVerify: false lets the network run it
+  // without signatures. This catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
   const simulation = await rpc
-    .simulateTransaction(getBase64EncodedWireTransaction(signedMessage), {
-      encoding: "base64"
-    })
+    .simulateTransaction(
+      getBase64EncodedWireTransaction(compileTransaction(message)),
+      { encoding: "base64", sigVerify: false, replaceRecentBlockhash: true }
+    )
     .send();
   if (simulation.value.err) {
     throw new Error(
@@ -206,7 +210,8 @@ export async function sendTokenTransfer({
     );
   }
 
-  // 3. Only send after a successful simulation.
+  // 3. Sign only after a successful simulation, then send.
+  const signedMessage = await signTransactionMessageWithSigners(message);
   await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
     signedMessage,
     { commitment: "confirmed" }
@@ -312,13 +317,12 @@ export async function sendTokenTransfer({
     lastValidBlockHeight
   }).add(instruction);
 
-  // 3. Simulate before sending. This is what catches a hook rejecting the
-  // transfer (an allowlist check, a paused mint, ...) or a stale
-  // ExtraAccountMetaList, before the user pays a fee for a failed transaction.
-  const simulation = await connection.simulateTransaction(transaction, [
-    payer,
-    owner
-  ]);
+  // 3. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Simulating without signers runs the
+  // transaction unsigned, which catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await connection.simulateTransaction(transaction);
   if (simulation.value.err) {
     throw new Error(
       `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
@@ -326,7 +330,7 @@ export async function sendTokenTransfer({
     );
   }
 
-  // 4. Only send after a successful simulation.
+  // 4. Sign and send only after a successful simulation.
   return sendAndConfirmTransaction(connection, transaction, [payer, owner]);
 }
 ```
