@@ -786,6 +786,12 @@ export default {
     { source: "/blog", destination: "/news" },
     { source: "/rss.xml", destination: "/news/rss.xml" },
     { source: "/news/tag/:path*", destination: "/news" },
+    // /upgrades is now the source of truth for network upgrade status;
+    // this hub post is retired.
+    {
+      source: "/news/solana-network-upgrades",
+      destination: "/upgrades",
+    },
     {
       source: "/news/solana-scaffold-part-1-wallet-adapter",
       destination:
