@@ -107,10 +107,7 @@ export const LATEST_NEWS_QUERY = {
   categories: ["finance", "institutions"],
   tags: ["token", "finance", "partner"],
   limit: 6,
-  excludeUrls: [
-    "/news/solana-developer-platform",
-    "/news/solana-network-upgrades",
-  ],
+  excludeUrls: ["/news/solana-developer-platform"],
   fallbackImage: "/src/img/solutions/icm/og-image.webp",
   fallbackImageAspectRatio: "1200 / 630",
 };
