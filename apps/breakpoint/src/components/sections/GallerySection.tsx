@@ -87,7 +87,7 @@ export default function GallerySection() {
         open={recapOpen}
         onClose={() => setRecapOpen(false)}
         videoId={BP25_RECAP_YOUTUBE_ID}
-        title="Breakpoint 2025 Recap"
+        title={t("gallery.videoTitle")}
       />
     </section>
   );

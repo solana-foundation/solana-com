@@ -17,6 +17,12 @@ export async function generateMetadata({
   });
 }
 
-export default function LocaleFAQPage() {
-  return <FAQPage />;
+export default async function LocaleFAQPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+
+  return <FAQPage locale={locale} />;
 }

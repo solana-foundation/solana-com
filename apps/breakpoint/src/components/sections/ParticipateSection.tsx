@@ -18,7 +18,6 @@ const PARTICIPATE_ACTIONS = [
   {
     href: APPLY_TO_SPEAK_HREF,
     key: "speaker",
-    label: "Apply to Speak",
     variant: "secondary",
   },
   {
@@ -48,7 +47,7 @@ function ParticipateButton({ action }: { action: ParticipateAction }) {
       arrow
       className="w-full md:w-auto"
       href={action.href}
-      label={action.label ?? t(`participate.actions.${action.key}.label`)}
+      label={t(`participate.actions.${action.key}.label`)}
       variant={action.variant}
     />
   );

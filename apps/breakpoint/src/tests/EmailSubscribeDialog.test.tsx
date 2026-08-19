@@ -1,9 +1,19 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "@workspace/i18n/client";
 import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
+import messages from "../../../../packages/i18n/messages/breakpoint/en/breakpoint.json";
 
 const NEWSLETTER_ACTION_URL =
   "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=16189fcd-ac6c-4cc9-ac4a-94aa102fccc1";
+
+function renderDialog(onClose = () => {}) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <EmailSubscribeDialog open onClose={onClose} />
+    </NextIntlClientProvider>,
+  );
+}
 
 describe("EmailSubscribeDialog", () => {
   afterEach(() => {
@@ -15,7 +25,7 @@ describe("EmailSubscribeDialog", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue({ ok: true } as Response);
 
-    render(<EmailSubscribeDialog open onClose={() => {}} />);
+    renderDialog();
 
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "builder@example.com" },
@@ -40,7 +50,7 @@ describe("EmailSubscribeDialog", () => {
   it("shows an error for invalid email without submitting", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
-    render(<EmailSubscribeDialog open onClose={() => {}} />);
+    renderDialog();
 
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "not-an-email" },

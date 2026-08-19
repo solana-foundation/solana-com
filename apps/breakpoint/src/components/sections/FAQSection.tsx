@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import Accordion from "@/components/Accordion";
 import FAQAnswer from "@/components/FAQAnswer";
-import { SPONSOR_FORM_HREF } from "@/content/links";
+import { APPLY_TO_SPEAK_HREF, SPONSOR_FORM_HREF } from "@/content/links";
 
 export default function FAQSection() {
   const t = useTranslations("breakpoint");
@@ -27,7 +27,9 @@ export default function FAQSection() {
     {
       id: "q4",
       question: t("faq.items.q4.question"),
-      answer: t("faq.items.q4.answer"),
+      answer: "",
+      answerHref: APPLY_TO_SPEAK_HREF,
+      answerLinkLabel: t("faq.items.q4.answerLinkLabel"),
     },
     {
       id: "q5",
