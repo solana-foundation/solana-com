@@ -199,6 +199,13 @@ describe("available providers", () => {
       },
       {
         date: "2026-06-01",
+        metricName: "RPC Avg Latency",
+        providerName: "fluxrpc",
+        unit: "Milliseconds",
+        value: 1,
+      },
+      {
+        date: "2026-06-01",
         metricName: "Supply",
         providerName: "DefiLama",
         unit: "USD",
@@ -211,6 +218,7 @@ describe("available providers", () => {
       "Chainstack",
       "DeFiLlama",
       "Dune",
+      "FluxRPC",
     ]);
   });
 });

@@ -59,6 +59,14 @@ describe("RPC latency query options", () => {
     ).toBe("6h");
   });
 
+  it("accepts FluxRPC as an RPC provider", () => {
+    expect(rpcLatencyProviders).toContain("fluxrpc");
+    expect(
+      parseRpcLatencyQueryOptions(new URLSearchParams("provider=fluxrpc"))
+        .provider,
+    ).toBe("fluxrpc");
+  });
+
   it("accepts Chainstack as an RPC provider", () => {
     expect(rpcLatencyProviders).toContain("chainstack");
     expect(
@@ -310,9 +318,9 @@ describe("RPC latency cache identity", () => {
     );
   });
 
-  it("scopes cached data to the Chainstack provider allowlist", () => {
+  it("scopes cached data to the RPC provider allowlist", () => {
     expect(getRpcLatencyCacheKey(config, {})).toContain(
-      "|alchemy,chainstack,helius,quicknode,triton|",
+      "|alchemy,chainstack,fluxrpc,helius,quicknode,triton|",
     );
   });
 });
