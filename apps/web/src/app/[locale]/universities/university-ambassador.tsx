@@ -5,11 +5,11 @@ import { getTranslations } from "next-intl/server";
 import { AmbassadorApplicationForm } from "@/components/universities/ambassador/AmbassadorApplicationForm";
 import { AmbassadorFaq } from "@/components/universities/ambassador/AmbassadorFaq";
 
-import heroImg from "@@/assets/universities/ambassador-hero.png";
-import workshopsImg from "@@/assets/universities/ambassador-workshops.png";
-import buildNightsImg from "@@/assets/universities/ambassador-build-nights.png";
-import demoDayImg from "@@/assets/universities/ambassador-demo-day.png";
-import communityImg from "@@/assets/universities/ambassador-community.png";
+import heroImg from "@@/assets/universities/ambassador-hero.webp";
+import workshopsImg from "@@/assets/universities/ambassador-workshops.webp";
+import buildNightsImg from "@@/assets/universities/ambassador-build-nights.webp";
+import demoDayImg from "@@/assets/universities/ambassador-demo-day.webp";
+import communityImg from "@@/assets/universities/ambassador-community.webp";
 
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { BookOpen } from "@boxicons/react/BookOpen";
