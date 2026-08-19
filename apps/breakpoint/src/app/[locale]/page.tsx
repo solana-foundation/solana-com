@@ -15,7 +15,7 @@ import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
-import { buildBreakpointJsonLd } from "@/lib/structured-data";
+import { buildBreakpointJsonLd, serializeJsonLd } from "@/lib/structured-data";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,7 @@ export default async function HomePage({
       beforeNavigation={
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       }
     >

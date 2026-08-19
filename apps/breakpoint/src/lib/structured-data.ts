@@ -5,6 +5,10 @@ import { GENERAL_ADMISSION_PRICE_CHANGE } from "@/content/ticket-pricing";
 
 type JsonLd = Record<string, unknown>;
 
+export function serializeJsonLd(data: unknown) {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
 type OfferSeed = {
   price: number;
   priceValidUntil?: string;
