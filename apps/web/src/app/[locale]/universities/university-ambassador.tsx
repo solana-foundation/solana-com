@@ -129,12 +129,25 @@ export async function UniversityAmbassadorPage() {
   );
 
   const circuitSteps = [
-    { key: "workshop", dotColor: "border-[#9945ff]" },
-    { key: "buildNight", dotColor: "border-[#796ee5]" },
-    { key: "demoDay", dotColor: "border-[#3ebab6]" },
+    {
+      key: "workshop",
+      dotColor: "border-[#9945ff]",
+      connectorGradient: "from-[#9945ff] to-[#796ee5]",
+    },
+    {
+      key: "buildNight",
+      dotColor: "border-[#796ee5]",
+      connectorGradient: "from-[#796ee5] to-[#3ebab6]",
+    },
+    {
+      key: "demoDay",
+      dotColor: "border-[#3ebab6]",
+      connectorGradient: "from-[#3ebab6] to-[#14f195]",
+    },
     { key: "next", dotColor: "border-[#14f195]" },
-  ].map(({ key, dotColor }) => ({
+  ].map(({ key, dotColor, connectorGradient }) => ({
     dotColor,
+    connectorGradient,
     label: t(`circuit.steps.${key}.label`),
     title: t(`circuit.steps.${key}.title`),
     description: t(`circuit.steps.${key}.description`),
@@ -487,27 +500,40 @@ export async function UniversityAmbassadorPage() {
           <div className="relative mt-14 md:mt-[72px]">
             {/* Connecting line: horizontal on desktop, vertical on mobile */}
             <div className="absolute left-[11px] top-[26px] hidden h-[2px] w-[calc(75%+28px)] bg-gradient-to-r from-[#9945ff] to-[#14f195] md:block" />
-            <div className="absolute bottom-16 left-[11px] top-4 w-[2px] bg-gradient-to-b from-[#9945ff] to-[#14f195] md:hidden" />
             <div className="grid gap-12 md:grid-cols-4 md:gap-[38px]">
-              {circuitSteps.map(({ dotColor, label, title, description }) => (
-                <div
-                  key={title}
-                  className="relative pl-12 pt-0 md:pl-0 md:pt-[58px]"
-                >
-                  <span
-                    className={`absolute left-0 top-0 size-[23px] rounded-full border-[5px] bg-black md:top-4 ${dotColor}`}
-                  />
-                  <p className="font-brand-mono text-[11px] text-[#8b8b94]">
-                    {label}
-                  </p>
-                  <h3 className="mt-2 font-medium text-[25px] leading-[1.08] tracking-[-0.8px] text-white">
-                    {title}
-                  </h3>
-                  <p className="mt-[10px] max-w-[312px] text-[15px] leading-[1.45] text-[#ababba]">
-                    {description}
-                  </p>
-                </div>
-              ))}
+              {circuitSteps.map(
+                ({
+                  dotColor,
+                  connectorGradient,
+                  label,
+                  title,
+                  description,
+                }) => (
+                  <div
+                    key={title}
+                    className="relative pl-12 pt-0 md:pl-0 md:pt-[58px]"
+                  >
+                    {connectorGradient && (
+                      <span
+                        aria-hidden
+                        className={`absolute left-[11px] top-[23px] -bottom-12 w-[2px] bg-gradient-to-b ${connectorGradient} md:hidden`}
+                      />
+                    )}
+                    <span
+                      className={`absolute left-0 top-0 z-10 size-[23px] rounded-full border-[5px] bg-black md:top-4 ${dotColor}`}
+                    />
+                    <p className="font-brand-mono text-[11px] text-[#8b8b94]">
+                      {label}
+                    </p>
+                    <h3 className="mt-2 font-medium text-[25px] leading-[1.08] tracking-[-0.8px] text-white">
+                      {title}
+                    </h3>
+                    <p className="mt-[10px] max-w-[312px] text-[15px] leading-[1.45] text-[#ababba]">
+                      {description}
+                    </p>
+                  </div>
+                ),
+              )}
             </div>
           </div>
         </div>
