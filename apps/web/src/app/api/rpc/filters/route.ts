@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import type { RpcLatencyFiltersResponse } from "@/app/[locale]/data/data-config";
@@ -57,16 +56,10 @@ function getRpcFilters(config: RpcLatencyConfig) {
     return getRpcLatencyFilterOptions(config);
   }
 
-  const cacheKeyParts = [FILTER_CACHE_KEY_VERSION, config.baseUrl];
-
-  return unstable_cache(
-    () => getInMemoryCachedRpcFilters(config, cacheKeyParts.join("|")),
-    cacheKeyParts,
-    {
-      revalidate: FILTER_CACHE_REVALIDATE_SECONDS,
-      tags: ["solana-data-rpc-filters"],
-    },
-  )();
+  return getInMemoryCachedRpcFilters(
+    config,
+    [FILTER_CACHE_KEY_VERSION, config.baseUrl].join("|"),
+  );
 }
 
 const rpcFilterRequests = new Map<string, Promise<RpcLatencyFiltersResponse>>();

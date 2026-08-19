@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unstable_cache } from "next/cache";
 
 import type { DataApiResponse } from "@/app/[locale]/data/data-config";
 import {
@@ -17,7 +16,6 @@ export const revalidate = 0;
 
 const RPC_CACHE_REVALIDATE_SECONDS = 60;
 const EDGE_STALE_SECONDS = 5 * 60;
-const RPC_CACHE_KEY_VERSION = "solana-data-rpc-latency-v5";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 const DATA_UNAVAILABLE_ERROR =
@@ -77,26 +75,12 @@ function getRpcLatencyData(
   options: RpcLatencyQueryOptions,
 ): Promise<RpcLatencyData> {
   return IS_PRODUCTION
-    ? getCachedRpcLatencyData(config, options)
+    ? getInMemoryCachedRpcLatencyData(
+        config,
+        options,
+        getRpcLatencyCacheKey(config, options),
+      )
     : fetchRpcLatencyData(config, options);
-}
-
-async function getCachedRpcLatencyData(
-  config: RpcLatencyConfig,
-  options: RpcLatencyQueryOptions,
-) {
-  const dataCacheKey = getRpcLatencyCacheKey(config, options);
-  const cacheKeyParts = [RPC_CACHE_KEY_VERSION, dataCacheKey];
-
-  return unstable_cache(
-    () =>
-      getInMemoryCachedRpcLatencyData(config, options, cacheKeyParts.join("|")),
-    cacheKeyParts,
-    {
-      revalidate: RPC_CACHE_REVALIDATE_SECONDS,
-      tags: ["solana-data-rpc-latency"],
-    },
-  )();
 }
 
 function fetchRpcLatencyData(
