@@ -216,7 +216,11 @@ interface AmbassadorApplicationFormProps {
     videoShipped: FieldTranslation;
     videoOrganized: FieldTranslation;
     buildIdea: FieldTranslation;
-    coLead: FieldTranslation;
+    coLead: {
+      label: string;
+      namePlaceholder: string;
+      emailPlaceholder: string;
+    };
     involvement: {
       label: string;
       options: {
@@ -228,6 +232,13 @@ interface AmbassadorApplicationFormProps {
         other: string;
       };
     };
+    education: {
+      label: string;
+      options: {
+        none: string;
+        completed: string;
+      };
+    };
     submit: string;
     notOpen: string;
   };
@@ -236,6 +247,8 @@ interface AmbassadorApplicationFormProps {
 const LABEL_CLASSES = "font-medium text-[14px] text-black";
 const INPUT_CLASSES =
   "h-[50px] w-full rounded-lg border border-[#cfcfd6] bg-white px-4 text-[16px] text-[#1a1a1d] placeholder:text-[#757575] focus:border-black focus:outline-none";
+const SELECT_CLASSES =
+  "h-[52px] w-full rounded-lg border border-[#cfcfd6] bg-white pl-[19px] pr-10 text-[16px] text-[#1a1a1d] focus:border-black focus:outline-none";
 
 function Field({
   label,
@@ -302,7 +315,7 @@ export function AmbassadorApplicationForm({
             name="country"
             required
             defaultValue=""
-            className={`${INPUT_CLASSES} appearance-none pr-10 invalid:text-[#757575]`}
+            className={`${SELECT_CLASSES} appearance-none invalid:text-[#757575]`}
           >
             <option value="" disabled>
               {t.country.placeholder}
@@ -337,7 +350,7 @@ export function AmbassadorApplicationForm({
         <input
           id="ambassador-graduation"
           name="graduation"
-          type="month"
+          type="text"
           required
           placeholder={t.graduation.placeholder}
           className={INPUT_CLASSES}
@@ -389,15 +402,26 @@ export function AmbassadorApplicationForm({
         />
       </Field>
 
-      <Field label={t.coLead.label} htmlFor="ambassador-co-lead">
+      <Field label={t.coLead.label} htmlFor="ambassador-co-lead-name">
         <input
-          id="ambassador-co-lead"
-          name="coLead"
+          id="ambassador-co-lead-name"
+          name="coLeadName"
           type="text"
-          placeholder={t.coLead.placeholder}
+          placeholder={t.coLead.namePlaceholder}
           className={INPUT_CLASSES}
         />
       </Field>
+
+      <div className="flex h-full flex-col justify-end">
+        <input
+          id="ambassador-co-lead-email"
+          name="coLeadEmail"
+          type="email"
+          aria-label={t.coLead.emailPlaceholder}
+          placeholder={t.coLead.emailPlaceholder}
+          className={INPUT_CLASSES}
+        />
+      </div>
 
       <Field label={t.involvement.label} htmlFor="ambassador-involvement">
         <div className="relative">
@@ -405,7 +429,7 @@ export function AmbassadorApplicationForm({
             id="ambassador-involvement"
             name="involvement"
             defaultValue="none"
-            className={`${INPUT_CLASSES} appearance-none pr-10`}
+            className={`${SELECT_CLASSES} appearance-none`}
           >
             {(
               Object.entries(t.involvement.options) as Array<[string, string]>
@@ -424,13 +448,38 @@ export function AmbassadorApplicationForm({
         </div>
       </Field>
 
+      <Field label={t.education.label} htmlFor="ambassador-education">
+        <div className="relative">
+          <select
+            id="ambassador-education"
+            name="education"
+            defaultValue="none"
+            className={`${SELECT_CLASSES} appearance-none`}
+          >
+            {(
+              Object.entries(t.education.options) as Array<[string, string]>
+            ).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            width={14}
+            height={14}
+            fill="#1a1a1d"
+            className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2"
+          />
+        </div>
+      </Field>
+
       <div className="mt-[10px] sm:col-span-2">
         <button
           type="submit"
-          className="flex h-[54px] w-full items-center justify-center gap-2 rounded-full !bg-black text-[16px] text-white transition-opacity hover:opacity-90"
+          className="flex h-[54px] w-full items-center justify-center gap-2 rounded-full !bg-black text-[17px] text-white transition-opacity hover:opacity-90"
         >
           {t.submit}
-          <ArrowRight width={16} height={16} fill="currentColor" />
+          <ArrowRight width={24} height={24} fill="currentColor" />
         </button>
         {submitted && (
           <p

@@ -5,11 +5,11 @@ import { getTranslations } from "next-intl/server";
 import { AmbassadorApplicationForm } from "@/components/universities/ambassador/AmbassadorApplicationForm";
 import { AmbassadorFaq } from "@/components/universities/ambassador/AmbassadorFaq";
 
-import heroImg from "@@/assets/universities/ambassador-hero.webp";
-import workshopsImg from "@@/assets/universities/ambassador-workshops.webp";
-import buildNightsImg from "@@/assets/universities/ambassador-build-nights.webp";
-import demoDayImg from "@@/assets/universities/ambassador-demo-day.webp";
-import communityImg from "@@/assets/universities/ambassador-community.webp";
+import heroImg from "@@/assets/universities/ambassador-hero.png";
+import workshopsImg from "@@/assets/universities/ambassador-workshops.png";
+import buildNightsImg from "@@/assets/universities/ambassador-build-nights.png";
+import demoDayImg from "@@/assets/universities/ambassador-demo-day.png";
+import communityImg from "@@/assets/universities/ambassador-community.png";
 
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { BookOpen } from "@boxicons/react/BookOpen";
@@ -74,7 +74,7 @@ export async function UniversityAmbassadorPage() {
   const subnavLinks = [
     { href: "#program", label: t("subnav.program") },
     { href: "#perks", label: t("subnav.perks") },
-    { href: "#faq", label: t("subnav.faq") },
+    { href: "#faq", label: t("subnav.research") },
     { href: "#apply", label: t("subnav.apply"), highlight: true },
   ];
 
@@ -84,15 +84,32 @@ export async function UniversityAmbassadorPage() {
   }));
 
   const formatCards = [
-    { key: "workshops", img: workshopsImg },
-    { key: "buildNights", img: buildNightsImg },
-    { key: "demoDay", img: demoDayImg },
-    { key: "community", img: communityImg },
-  ].map(({ key, img }) => ({
-    img,
-    badge: t(`formats.cards.${key}.badge`),
-    title: t(`formats.cards.${key}.title`),
-    description: t(`formats.cards.${key}.description`),
+    {
+      key: "workshops",
+      img: workshopsImg,
+      gradientTransform: "matrix(-4.1721 8.3301 -6.3633 -3.187 110 144)",
+    },
+    {
+      key: "buildNights",
+      img: buildNightsImg,
+      gradientTransform: "matrix(10.318 14.139 -10.801 7.8816 91.6 117.76)",
+    },
+    {
+      key: "demoDay",
+      img: demoDayImg,
+      gradientTransform: "matrix(-8.296 12.519 -9.5635 -6.3372 122.1 120.71)",
+      solidGradient: true,
+    },
+    {
+      key: "community",
+      img: communityImg,
+      gradientTransform: "matrix(-6.4256 15.413 -11.774 -4.9084 110 118.56)",
+    },
+  ].map((card) => ({
+    ...card,
+    badge: t(`formats.cards.${card.key}.badge`),
+    title: t(`formats.cards.${card.key}.title`),
+    description: t(`formats.cards.${card.key}.description`),
   }));
 
   const perkIcons = {
@@ -168,7 +185,8 @@ export async function UniversityAmbassadorPage() {
     },
     coLead: {
       label: t("application.form.coLead.label"),
-      placeholder: t("application.form.coLead.placeholder"),
+      namePlaceholder: t("application.form.coLead.namePlaceholder"),
+      emailPlaceholder: t("application.form.coLead.emailPlaceholder"),
     },
     involvement: {
       label: t("application.form.involvement.label"),
@@ -181,6 +199,13 @@ export async function UniversityAmbassadorPage() {
         other: t("application.form.involvement.options.other"),
       },
     },
+    education: {
+      label: t("application.form.education.label"),
+      options: {
+        none: t("application.form.education.options.none"),
+        completed: t("application.form.education.options.completed"),
+      },
+    },
     submit: t("application.form.submit"),
     notOpen: t("application.form.notOpen"),
   };
@@ -189,7 +214,7 @@ export async function UniversityAmbassadorPage() {
     <div className="scroll-smooth bg-black font-brand text-white">
       {/* Sticky in-page navigation */}
       <nav className="sticky top-14 z-40 border-b border-white/[0.14] bg-black/[0.82] backdrop-blur-xl">
-        <div className={`${CONTAINER} flex h-[56px] items-center md:h-[72px]`}>
+        <div className={`${CONTAINER} flex h-12 items-center`}>
           <p className="font-bold text-[16px] text-white">
             {t("subnav.brand")}
           </p>
@@ -212,7 +237,7 @@ export async function UniversityAmbassadorPage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
+      <section className="relative min-h-[540px] overflow-hidden md:min-h-[620px] xl:h-[704px]">
         <Image
           src={heroImg}
           alt=""
@@ -225,7 +250,7 @@ export async function UniversityAmbassadorPage() {
           className="absolute inset-0"
           style={{
             backgroundImage:
-              "linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.72) 42%, rgba(0,0,0,0.28) 76%, rgba(0,0,0,0.36) 100%)",
+              "linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.72) 30.998%, rgba(0,0,0,0) 67.45%, rgba(0,0,0,0.36) 100%)",
           }}
         />
         <div className={`${CONTAINER} relative py-20 md:py-24 xl:py-28`}>
@@ -248,37 +273,41 @@ export async function UniversityAmbassadorPage() {
       </section>
 
       {/* Why this exists */}
-      <section className="border-t border-white/[0.14] bg-[#08080a]">
-        <div className={`${CONTAINER} ${SECTION_PADDING}`}>
-          <Eyebrow>{t("why.eyebrow")}</Eyebrow>
-          <div className="mt-7 grid gap-10 xl:grid-cols-2 xl:gap-20">
-            <h2 className="font-bold text-[40px] leading-[1.03] tracking-[-1.4px] md:text-[52px] xl:text-[64px] xl:tracking-[-2.3px]">
-              {t("why.title")}
-            </h2>
-            <p className="text-[19px] leading-[1.42] text-[#ababba] md:pt-[15px] md:text-[22px]">
-              {t("why.description")}
-            </p>
-          </div>
-          {/* Stat rail */}
-          <div className="relative mt-16">
-            <div className="absolute inset-x-0 top-0 h-px bg-white/[0.14]" />
-            <div className="absolute left-0 top-0 h-[2px] w-[132px] bg-gradient-to-r from-[rgba(153,69,255,0.9)] via-[rgba(79,125,255,0.85)] via-[55%] to-[rgba(20,242,148,0.9)]" />
-            <div className="grid gap-8 pt-[18px] sm:grid-cols-3 sm:gap-7">
-              {stats.map(({ value, label }, i) => (
-                <div
-                  key={label}
-                  className={
-                    i > 0 ? "sm:border-l sm:border-white/[0.08] sm:pl-7" : ""
-                  }
-                >
-                  <p className="font-medium text-[32px] tracking-[-1.2px] text-white md:text-[40px]">
-                    {value}
-                  </p>
-                  <p className="mt-[10px] text-[16px] text-[#848895]">
-                    {label}
-                  </p>
-                </div>
-              ))}
+      <section className="border-t border-white/[0.14] bg-[#08080a] xl:h-[520px]">
+        <div className={`${CONTAINER} py-16 md:py-24 xl:pb-0 xl:pt-[73px]`}>
+          <div className="relative xl:h-[447px]">
+            <Eyebrow>{t("why.eyebrow")}</Eyebrow>
+            <div className="mt-7 grid gap-10 xl:grid-cols-[807px_1fr] xl:gap-0">
+              <h2 className="whitespace-pre-line font-bold text-[40px] leading-[1.03] tracking-[-1.4px] md:text-[52px] xl:text-[54px] xl:tracking-[-2.3px]">
+                {t("why.title")}
+              </h2>
+              <p className="text-[19px] leading-[1.42] text-[#ababba] md:pt-[15px] md:text-[22px]">
+                {t("why.description")}
+              </p>
+            </div>
+            {/* Stat rail */}
+            <div className="relative mt-16 xl:absolute xl:left-0 xl:right-0 xl:top-[317.5px] xl:mt-0 xl:h-[150.5px]">
+              <div className="absolute inset-x-0 top-0 h-px bg-white/[0.14]" />
+              <div className="absolute left-0 top-0 h-[2px] w-[132px] bg-gradient-to-r from-[rgba(153,69,255,0.9)] via-[rgba(79,125,255,0.85)] via-[55%] to-[rgba(20,242,148,0.9)]" />
+              <div className="grid gap-8 pt-[18px] sm:grid-cols-3 sm:gap-7 xl:grid-rows-[94.5px]">
+                {stats.map(({ value, label }, i) => (
+                  <div
+                    key={label}
+                    className={
+                      i > 0
+                        ? "relative sm:before:absolute sm:before:-left-[14px] sm:before:top-[4px] sm:before:h-14 sm:before:w-px sm:before:bg-white/[0.2] sm:before:content-['']"
+                        : ""
+                    }
+                  >
+                    <p className="font-medium text-[32px] tracking-[-1.2px] text-white md:text-[40px]">
+                      {value}
+                    </p>
+                    <p className="mt-[5px] text-[16px] text-[#848895]">
+                      {label}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -289,10 +318,12 @@ export async function UniversityAmbassadorPage() {
         id="program"
         className="scroll-mt-28 border-t border-white/[0.14]"
       >
-        <div className={`${CONTAINER} ${SECTION_PADDING}`}>
+        <div
+          className={`${CONTAINER} pb-16 pt-16 md:py-24 xl:pb-[45px] xl:pt-[113px]`}
+        >
           <Eyebrow>{t("formats.eyebrow")}</Eyebrow>
           <div className="mt-[26px] flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
-            <h2 className="max-w-[560px] font-bold text-[40px] leading-[1.03] tracking-[-1.4px] md:text-[52px] xl:text-[64px] xl:tracking-[-2.3px]">
+            <h2 className="max-w-[539px] whitespace-pre-line font-bold text-[40px] leading-[1.03] tracking-[-1.4px] md:text-[52px] xl:text-[64px] xl:tracking-[-2.3px]">
               {t("formats.title")}
             </h2>
             <p className="max-w-[470px] text-[18px] leading-[1.4] text-[#ababba] md:text-[20px]">
@@ -300,33 +331,101 @@ export async function UniversityAmbassadorPage() {
             </p>
           </div>
           <div className="mt-[54px] grid gap-5 lg:grid-cols-2">
-            {formatCards.map(({ img, badge, title, description }) => (
-              <article
-                key={title}
-                className="flex flex-col overflow-hidden rounded-[14px] border border-white/[0.14] bg-[#111114] sm:h-[290px] sm:flex-row"
-              >
-                <div className="relative h-[180px] w-full shrink-0 sm:h-auto sm:w-[220px]">
-                  <Image
-                    src={img}
-                    alt={title}
-                    fill
-                    sizes="(min-width: 640px) 220px, 100vw"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex flex-col items-start px-7 py-[26px]">
-                  <span className="inline-flex h-[29px] items-center rounded-full border border-white/[0.14] px-[10px] font-brand-mono text-[11px] uppercase text-[#c9c9d1]">
-                    {badge}
-                  </span>
-                  <h3 className="mt-[22px] font-medium text-[26px] tracking-[-0.8px] text-white md:text-[32px]">
-                    {title}
-                  </h3>
-                  <p className="mt-3 text-[17px] leading-[1.42] text-[#ababba]">
-                    {description}
-                  </p>
-                </div>
-              </article>
-            ))}
+            {formatCards.map(
+              (
+                {
+                  img,
+                  badge,
+                  title,
+                  description,
+                  gradientTransform,
+                  solidGradient,
+                },
+                index,
+              ) => (
+                <article
+                  key={title}
+                  className="flex flex-col overflow-hidden rounded-[14px] border border-white/[0.14] bg-[#111114] sm:h-[290px] sm:flex-row"
+                >
+                  <div className="relative h-[180px] w-full shrink-0 sm:h-auto sm:w-[220px]">
+                    <Image
+                      src={img}
+                      alt={title}
+                      fill
+                      sizes="(min-width: 640px) 220px, 100vw"
+                      className="object-cover"
+                    />
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 bg-[#9945ff] mix-blend-overlay"
+                    />
+                    <svg
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 size-full mix-blend-overlay"
+                      focusable="false"
+                      preserveAspectRatio="none"
+                      viewBox="0 0 220 288"
+                    >
+                      <defs>
+                        <radialGradient
+                          id={`format-card-gradient-${index}`}
+                          cx="0"
+                          cy="0"
+                          gradientTransform={gradientTransform}
+                          gradientUnits="userSpaceOnUse"
+                          r="10"
+                        >
+                          <stop offset="0" stopColor="#666" stopOpacity="0" />
+                          {solidGradient ? (
+                            <stop offset="1" stopColor="#000" />
+                          ) : (
+                            <>
+                              <stop
+                                offset="0.5"
+                                stopColor="#333"
+                                stopOpacity="0.5"
+                              />
+                              <stop
+                                offset="0.75"
+                                stopColor="#1a1a1a"
+                                stopOpacity="0.75"
+                              />
+                              <stop
+                                offset="0.875"
+                                stopColor="#0d0d0d"
+                                stopOpacity="0.875"
+                              />
+                              <stop
+                                offset="0.9375"
+                                stopColor="#060606"
+                                stopOpacity="0.9375"
+                              />
+                              <stop offset="1" stopColor="#000" />
+                            </>
+                          )}
+                        </radialGradient>
+                      </defs>
+                      <rect
+                        fill={`url(#format-card-gradient-${index})`}
+                        height="100%"
+                        width="100%"
+                      />
+                    </svg>
+                  </div>
+                  <div className="flex flex-col items-start px-7 py-[26px]">
+                    <span className="inline-flex h-[29px] items-center rounded-full border border-white/[0.14] px-[10px] font-brand-mono text-[11px] uppercase text-[#c9c9d1]">
+                      {badge}
+                    </span>
+                    <h3 className="mt-[22px] font-medium text-[26px] tracking-[-0.8px] text-white md:text-[32px]">
+                      {title}
+                    </h3>
+                    <p className="mt-3 text-[17px] leading-[1.42] text-[#ababba]">
+                      {description}
+                    </p>
+                  </div>
+                </article>
+              ),
+            )}
           </div>
         </div>
       </section>
@@ -381,7 +480,7 @@ export async function UniversityAmbassadorPage() {
         <div className={`${CONTAINER} ${SECTION_PADDING}`}>
           <div className="flex flex-col items-center text-center">
             <Eyebrow>{t("circuit.eyebrow")}</Eyebrow>
-            <h2 className="mt-[25px] max-w-[830px] font-medium text-[36px] leading-[1.03] tracking-[-1.3px] md:text-[48px] xl:text-[64px] xl:tracking-[-2.3px]">
+            <h2 className="mt-[25px] max-w-[830px] whitespace-pre-line font-medium text-[36px] leading-[1.03] tracking-[-1.3px] md:text-[48px] xl:text-[64px] xl:tracking-[-2.3px]">
               {t("circuit.title")}
             </h2>
           </div>
@@ -487,10 +586,10 @@ export async function UniversityAmbassadorPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="bg-solana-purple">
+      <section className="bg-solana-purple xl:h-[515px]">
         <div className={`${CONTAINER} pb-24 pt-16 md:pb-[160px] md:pt-24`}>
           <Eyebrow className="text-[#17002c]">{t("cta.eyebrow")}</Eyebrow>
-          <h2 className="mt-[22px] max-w-[820px] font-medium text-[40px] leading-[1.03] tracking-[-1.4px] text-black md:text-[56px] xl:text-[72px] xl:tracking-[-2.3px]">
+          <h2 className="mt-[22px] max-w-[912px] whitespace-pre-line font-medium text-[40px] leading-[1.03] tracking-[-1.4px] text-black md:text-[56px] xl:text-[72px] xl:tracking-[-2.3px]">
             {t("cta.title")}
           </h2>
           <div className="mt-[34px]">
