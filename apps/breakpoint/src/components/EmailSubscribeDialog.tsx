@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useId, useRef, useState } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 
 const ITERABLE_BASE_URL =
@@ -14,6 +15,8 @@ interface Props {
 }
 
 export default function EmailSubscribeDialog({ open, onClose }: Props) {
+  const t = useTranslations("breakpoint.subscribe");
+  const tAccessibility = useTranslations("breakpoint.accessibility");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">(
     "idle",
@@ -121,12 +124,12 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
       >
         <div className="flex items-start justify-between gap-4">
           <h2 id={titleId} className="type-h4 text-white">
-            Follow BP26
+            {t("title")}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={tAccessibility("close")}
             className="text-white/60 transition-colors hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
           >
             <svg
@@ -145,7 +148,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
           </button>
         </div>
         <p id={descriptionId} className="type-paragraph mt-3 text-white/72">
-          Get news, event updates, and reveal drops for Breakpoint 2026.
+          {t("description")}
         </p>
 
         {status === "done" ? (
@@ -154,12 +157,12 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
             aria-live="polite"
             className="type-caption mt-6 text-green"
           >
-            You&rsquo;re subscribed.
+            {t("success")}
           </p>
         ) : (
           <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
             <label htmlFor="bp-email" className="sr-only">
-              Email
+              {t("emailLabel")}
             </label>
             <input
               id="bp-email"
@@ -175,18 +178,18 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
                   setStatus("idle");
                 }
               }}
-              placeholder="you@domain.com"
+              placeholder={t("emailPlaceholder")}
               disabled={status === "sending"}
               className="type-field h-[40px] border border-white/15 bg-transparent px-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
             />
             {status === "error" && (
               <p role="alert" className="type-caption text-pink">
-                Please enter a valid email address and try again.
+                {t("error")}
               </p>
             )}
             <Button
               disabled={status === "sending"}
-              label={status === "sending" ? "Subscribing…" : "Subscribe"}
+              label={status === "sending" ? t("submitting") : t("submit")}
               type="submit"
               variant="primary"
             />

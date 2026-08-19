@@ -5,9 +5,13 @@ import SubpageHero from "@/components/SubpageHero";
 import FAQSubnav from "@/components/pages/FAQSubnav";
 import type { FAQPageSection } from "@/content/faq-page";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
+import { getTranslations } from "@workspace/i18n/server";
 
-export default async function FAQPage() {
-  const t = await getTranslations("breakpoint.pages.faq");
+export default async function FAQPage({ locale }: { locale: string }) {
+  const t = await getTranslations({
+    locale,
+    namespace: "breakpoint.pages.faq",
+  });
   const sections = t.raw("sections") as FAQPageSection[];
 
   return (
@@ -27,4 +31,3 @@ export default async function FAQPage() {
     </PageShell>
   );
 }
-import { getTranslations } from "@workspace/i18n/server";

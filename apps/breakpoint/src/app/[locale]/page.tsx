@@ -1,3 +1,4 @@
+import { getTranslations } from "@workspace/i18n/server";
 import HeroSection from "@/components/sections/HeroSection";
 import PageShell from "@/components/PageShell";
 import Marquee from "@/components/Marquee";
@@ -24,15 +25,16 @@ export default async function HomePage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "breakpoint" });
   const initialNow = Date.now();
-  const jsonLd = buildBreakpointJsonLd(locale);
+  const jsonLd = await buildBreakpointJsonLd(locale);
 
   return (
     <PageShell
       contentId="breakpoint-content"
       navigation={{
         ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Register",
+        ctaLabel: t("menu.items.register"),
       }}
       beforeNavigation={
         <script
