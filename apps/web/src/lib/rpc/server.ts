@@ -134,9 +134,7 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
   return {
     infra,
     method: parseRpcMethod(params.get("method")),
-    provider: parseAllowedValue(params.get("provider"), providerSet) as
-      | RpcLatencyProvider
-      | undefined,
+    provider: normalizeRpcProvider(params.get("provider")),
     region: parseRpcRegion(params.get("region"), infra),
     timeframe: parseRpcTimeframe(params.get("timeframe")),
   };
@@ -366,7 +364,7 @@ function buildLabelSelector(
   ];
 
   if (provider) {
-    matchers.push(["provider", "=", provider]);
+    matchers.push(["provider", "=~", getRpcProviderMatcher(provider)]);
   }
 
   matchers.push(...extraMatchers);
@@ -380,6 +378,13 @@ function getRpcInfraMatcher(infra: RpcLatencyInfra) {
 
 function getRpcRegionMatcher(infra: RpcLatencyInfra, region: RpcLatencyRegion) {
   return getRpcRegionSourceValue(infra, region);
+}
+
+function getRpcProviderMatcher(provider: RpcLatencyProvider) {
+  // Prometheus may store branded labels (e.g. "FluxRPC"), so match every
+  // casing/separator variant that normalizeRpcProvider collapses to this
+  // provider instead of requiring the canonical label.
+  return `(?i)[\\s_-]*${provider.split("").join("[\\s_-]*")}[\\s_-]*`;
 }
 
 function formatLabelMatcher([key, operator, value]: PrometheusLabelMatcher) {
@@ -562,9 +567,7 @@ function toMetricRow({
 }
 
 function getProviderLabel(metric: Record<string, unknown> | undefined) {
-  const provider = getMetricLabel(metric, "provider");
-
-  return provider && providerSet.has(provider) ? provider : undefined;
+  return normalizeRpcProvider(getMetricLabel(metric, "provider"));
 }
 
 function getMetricLabel(
@@ -592,16 +595,15 @@ function normalizePrometheusNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function parseAllowedValue<T extends string>(
-  value: string | null | undefined,
-  allowedValues: ReadonlySet<string>,
-  fallback?: T,
-) {
-  if (value && allowedValues.has(value)) {
-    return value as T;
-  }
+function normalizeRpcProvider(value: string | null | undefined) {
+  const normalizedValue = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
 
-  return fallback;
+  return normalizedValue && providerSet.has(normalizedValue)
+    ? (normalizedValue as RpcLatencyProvider)
+    : undefined;
 }
 
 function normalizeBaseUrl(value: string) {
