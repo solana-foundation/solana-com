@@ -8,13 +8,14 @@ import {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-// One serverless invocation holds one upstream WebSocket per viewer; the
-// EventSource client reconnects seamlessly when we close before the cap.
+// Every viewer on an instance shares ONE upstream RPC WebSocket (see bridge
+// below); each SSE response still holds an invocation, so cap its lifetime —
+// the EventSource client reconnects seamlessly when we close before the cap.
 export const maxDuration = 300;
 
 const STREAM_MS = 285_000;
-// Backstop against connection floods: each stream holds an upstream RPC
-// WebSocket for up to STREAM_MS, so bound how many one instance will carry.
+// Backstop against connection floods: streams are cheap now (fan-out only, no
+// per-viewer upstream), but each still pins an invocation for up to STREAM_MS.
 // The authoritative rate limit lives at the platform edge (Vercel WAF);
 // rejected clients fall back to the cached /api/slot-time poll.
 const MAX_STREAMS_PER_INSTANCE = 100;
@@ -37,11 +38,16 @@ function clientKey(req: NextRequest): string {
   }
   return "unknown";
 }
+
 const ENCODER = new TextEncoder();
 const DEFAULT_SLOT_MS = 400;
 const STREAM_SNAPSHOT_CACHE_SECONDS = 15;
 const STREAM_SNAPSHOT_CACHE_KEY = "slot200-stream-snapshot-v2";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const SNAP_INTERVAL_MS = 60_000;
+const WS_GUARD_MS = 8_000;
+const WS_RECONNECT_DELAY_MS = 1_000;
+const WS_MAX_CONSECUTIVE_FAILURES = 3;
 
 async function loadStreamSnapshot() {
   return Promise.all([getEpochInfo(), getPerformanceSamples(10)]).then(
@@ -59,10 +65,238 @@ interface SlotNotification {
   params?: { result?: { slot?: number } };
 }
 
+interface SnapPayload {
+  type: "snap";
+  slot: number;
+  epoch: number;
+  epochEndSlot: number;
+  avg1m: number | null;
+  avg10m: number | null;
+  tps: number | null;
+}
+
+interface Viewer {
+  enqueue: (_chunk: Uint8Array) => void;
+  end: () => void;
+}
+
 /**
- * Per-viewer SSE bridge: one Helius (or public RPC) WebSocket slotSubscribe
- * upstream, per-slot arrival gaps downstream. Averages are ratio-of-totals
- * over checkpoints — never mean-of-arrival-gaps, WS delivery is bursty.
+ * Shared upstream bridge: ONE slotSubscribe WebSocket and ONE snapshot poll
+ * per function instance, fanned out to every connected SSE viewer, so RPC
+ * quota scales with warm instances rather than with viewers. This relies on
+ * Vercel Fluid compute (in-function concurrency) packing concurrent viewers
+ * onto the same instance; without it each invocation is its own instance and
+ * this degenerates to one upstream socket per viewer.
+ *
+ * Averages are ratio-of-totals over checkpoints — never mean-of-arrival-gaps,
+ * WS delivery is bursty. Measurement state survives upstream reconnects and
+ * quiet periods: the checkpoints are chain-anchored, so the ratio stays valid
+ * across a gap.
+ */
+const bridge = {
+  viewers: new Set<Viewer>(),
+  ws: null as WebSocket | null,
+  wsFailures: 0,
+  timers: [] as ReturnType<typeof setTimeout>[],
+  // ── measurement state ──
+  lastSlot: 0,
+  lastAt: 0,
+  // checkpoints of (t, slot) for ratio-of-totals averages
+  checks: [] as [number, number][],
+  seedAvg: null as number | null,
+  tps: null as number | null,
+  lastSnap: null as SnapPayload | null,
+};
+
+function sseChunk(data: unknown): Uint8Array {
+  return ENCODER.encode(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+function broadcast(data: unknown) {
+  const chunk = sseChunk(data);
+  for (const viewer of bridge.viewers) viewer.enqueue(chunk);
+}
+
+function avgOver(windowMs: number): number | null {
+  const now = Date.now();
+  let oldest: [number, number] | null = null;
+  for (const c of bridge.checks) {
+    if (now - c[0] <= windowMs + 5000) {
+      oldest = c;
+      break;
+    }
+  }
+  if (!oldest || !bridge.lastSlot) return null;
+  const dSlots = bridge.lastSlot - oldest[1];
+  const dMs = now - oldest[0];
+  // demand a real window before trusting the ratio
+  if (dSlots < 20 || dMs < windowMs * 0.5) return null;
+  return dMs / dSlots;
+}
+
+async function snap() {
+  try {
+    const { info, samples } = await getStreamSnapshot();
+    // Samples are newest first. Keep TPS on the same roughly two-minute
+    // window as before while reusing the ten samples needed for the
+    // initial seed average.
+    const recent = samples.slice(0, 2);
+    const nonVote = recent.reduce(
+      (a, s) => a + (s.numNonVoteTransactions ?? 0),
+      0,
+    );
+    const secs = recent.reduce((a, s) => a + s.samplePeriodSecs, 0);
+    if (secs > 0 && nonVote > 0) bridge.tps = Math.round(nonVote / secs);
+    if (bridge.seedAvg === null) {
+      const slots = samples.reduce((a, s) => a + s.numSlots, 0);
+      const sampleSecs = samples.reduce((a, s) => a + s.samplePeriodSecs, 0);
+      bridge.seedAvg =
+        slots > 0 && sampleSecs > 0
+          ? (sampleSecs / slots) * 1000
+          : DEFAULT_SLOT_MS;
+    }
+    const payload: SnapPayload = {
+      type: "snap",
+      slot: Math.max(info.absoluteSlot, bridge.lastSlot),
+      epoch: info.epoch,
+      epochEndSlot: info.absoluteSlot - info.slotIndex + info.slotsInEpoch,
+      avg1m: avgOver(60_000) ?? bridge.seedAvg,
+      avg10m: avgOver(600_000) ?? bridge.seedAvg,
+      tps: bridge.tps,
+    };
+    bridge.lastSnap = payload;
+    broadcast(payload);
+  } catch {
+    // keep streaming slots; clients hold their last snapshot
+  }
+}
+
+function stopBridge() {
+  bridge.timers.forEach(clearTimeout);
+  bridge.timers = [];
+  const ws = bridge.ws;
+  bridge.ws = null;
+  try {
+    ws?.close();
+  } catch {
+    // already closed
+  }
+}
+
+/** Upstream is gone for good: tell every viewer, close them all out. */
+function failBridge() {
+  broadcast({ type: "err" });
+  const viewers = [...bridge.viewers];
+  bridge.viewers.clear();
+  stopBridge();
+  for (const viewer of viewers) viewer.end();
+}
+
+function handleUpstreamLoss(ws: WebSocket) {
+  if (bridge.ws !== ws) return; // stale socket from a previous generation
+  bridge.ws = null;
+  try {
+    ws.close();
+  } catch {
+    // already closed
+  }
+  if (bridge.viewers.size === 0) return;
+  bridge.wsFailures++;
+  if (bridge.wsFailures > WS_MAX_CONSECUTIVE_FAILURES) {
+    failBridge();
+    return;
+  }
+  bridge.timers.push(
+    setTimeout(connectUpstream, WS_RECONNECT_DELAY_MS * bridge.wsFailures),
+  );
+}
+
+function connectUpstream() {
+  let ws: WebSocket;
+  try {
+    ws = new WebSocket(rpcWsUrl());
+  } catch {
+    failBridge();
+    return;
+  }
+  bridge.ws = ws;
+  // never compute a per-slot arrival gap across a (re)connect
+  bridge.lastAt = 0;
+
+  let sawSlot = false;
+  bridge.timers.push(
+    setTimeout(() => {
+      if (!sawSlot) handleUpstreamLoss(ws);
+    }, WS_GUARD_MS),
+  );
+
+  ws.onopen = () =>
+    ws.send(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "slotSubscribe" }));
+  ws.onmessage = (ev) => {
+    let msg: SlotNotification;
+    try {
+      msg = JSON.parse(String(ev.data));
+    } catch {
+      return;
+    }
+    const slot = msg.params?.result?.slot;
+    if (!slot || slot <= bridge.lastSlot) return;
+    sawSlot = true;
+    bridge.wsFailures = 0;
+    const now = Date.now();
+    const dt =
+      bridge.lastAt && slot === bridge.lastSlot + 1
+        ? now - bridge.lastAt
+        : null;
+    bridge.lastSlot = slot;
+    bridge.lastAt = now;
+    bridge.checks.push([now, slot]);
+    // 10 min of 400 ms checkpoints ≈ 1500 entries
+    if (bridge.checks.length > 1600)
+      bridge.checks.splice(0, bridge.checks.length - 1600);
+    const a1 = avgOver(60_000);
+    broadcast({
+      s: slot,
+      dt,
+      ...(a1 ? { avg1m: Math.round(a1 * 10) / 10 } : {}),
+    });
+  };
+  ws.onerror = () => handleUpstreamLoss(ws);
+  ws.onclose = () => handleUpstreamLoss(ws);
+}
+
+function addViewer(viewer: Viewer) {
+  const first = bridge.viewers.size === 0;
+  bridge.viewers.add(viewer);
+  // A late joiner gets the last snapshot immediately (with the freshest slot)
+  // instead of waiting for the next poll tick.
+  if (bridge.lastSnap) {
+    viewer.enqueue(
+      sseChunk({
+        ...bridge.lastSnap,
+        slot: Math.max(bridge.lastSnap.slot, bridge.lastSlot),
+      }),
+    );
+  }
+  if (first) {
+    bridge.wsFailures = 0;
+    // register the poll timer before connecting so a synchronous connect
+    // failure (failBridge → stopBridge) clears it too
+    const snapTimer = setInterval(() => void snap(), SNAP_INTERVAL_MS);
+    bridge.timers.push(snapTimer as unknown as ReturnType<typeof setTimeout>);
+    connectUpstream();
+    if (bridge.viewers.size > 0) void snap();
+  }
+}
+
+function removeViewer(viewer: Viewer) {
+  bridge.viewers.delete(viewer);
+  if (bridge.viewers.size === 0) stopBridge();
+}
+
+/**
+ * Per-viewer SSE response: admission control, heartbeat, and lifetime cap.
+ * All slot data comes from the shared bridge above.
  */
 export async function GET(req: NextRequest) {
   const client = clientKey(req);
@@ -89,36 +323,33 @@ export async function GET(req: NextRequest) {
   };
 
   const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
+    start(controller) {
       let closed = false;
-      let ws: WebSocket | null = null;
       const timers: ReturnType<typeof setTimeout>[] = [];
 
-      const send = (data: unknown) => {
-        if (closed) return;
-        try {
-          controller.enqueue(
-            ENCODER.encode(`data: ${JSON.stringify(data)}\n\n`),
-          );
-        } catch {
-          cleanup();
-        }
-      };
-      const cleanup = () => {
+      function cleanup() {
         if (closed) return;
         closed = true;
         timers.forEach(clearTimeout);
-        try {
-          ws?.close();
-        } catch {
-          // already closed
-        }
+        removeViewer(viewer);
         try {
           controller.close();
         } catch {
           // already closed
         }
         release();
+      }
+
+      const viewer: Viewer = {
+        enqueue: (chunk) => {
+          if (closed) return;
+          try {
+            controller.enqueue(chunk);
+          } catch {
+            cleanup();
+          }
+        },
+        end: cleanup,
       };
 
       req.signal.addEventListener("abort", cleanup);
@@ -135,125 +366,7 @@ export async function GET(req: NextRequest) {
       }, 15_000);
       timers.push(hb as unknown as ReturnType<typeof setTimeout>);
 
-      // ── measurement state ──
-      let lastSlot = 0;
-      let lastAt = 0;
-      // checkpoints of (t, slot) for ratio-of-totals averages
-      const checks: [number, number][] = [];
-      let seedAvg: number | null = null;
-      let tps: number | null = null;
-
-      const avgOver = (windowMs: number): number | null => {
-        const now = Date.now();
-        let oldest: [number, number] | null = null;
-        for (const c of checks) {
-          if (now - c[0] <= windowMs + 5000) {
-            oldest = c;
-            break;
-          }
-        }
-        if (!oldest || !lastSlot) return null;
-        const dSlots = lastSlot - oldest[1];
-        const dMs = now - oldest[0];
-        // demand a real window before trusting the ratio
-        if (dSlots < 20 || dMs < windowMs * 0.5) return null;
-        return dMs / dSlots;
-      };
-
-      const snap = async (first: boolean) => {
-        try {
-          const { info, samples } = await getStreamSnapshot();
-          // Samples are newest first. Keep TPS on the same roughly two-minute
-          // window as before while reusing the ten samples needed for the
-          // initial seed average.
-          const recent = samples.slice(0, 2);
-          const nonVote = recent.reduce(
-            (a, s) => a + (s.numNonVoteTransactions ?? 0),
-            0,
-          );
-          const secs = recent.reduce((a, s) => a + s.samplePeriodSecs, 0);
-          if (secs > 0 && nonVote > 0) tps = Math.round(nonVote / secs);
-          if (first) {
-            const slots = samples.reduce((a, s) => a + s.numSlots, 0);
-            const sampleSecs = samples.reduce(
-              (a, s) => a + s.samplePeriodSecs,
-              0,
-            );
-            seedAvg =
-              slots > 0 && sampleSecs > 0
-                ? (sampleSecs / slots) * 1000
-                : DEFAULT_SLOT_MS;
-          }
-          send({
-            type: "snap",
-            slot: Math.max(info.absoluteSlot, lastSlot),
-            epoch: info.epoch,
-            epochEndSlot:
-              info.absoluteSlot - info.slotIndex + info.slotsInEpoch,
-            avg1m: avgOver(60_000) ?? seedAvg,
-            avg10m: avgOver(600_000) ?? seedAvg,
-            tps,
-          });
-        } catch {
-          // keep streaming slots; the client holds its last snapshot
-        }
-      };
-      // ── upstream slot subscription ──
-      try {
-        ws = new WebSocket(rpcWsUrl());
-      } catch {
-        send({ type: "err" });
-        cleanup();
-        return;
-      }
-      const wsGuard = setTimeout(() => {
-        if (!lastSlot) {
-          send({ type: "err" });
-          cleanup();
-        }
-      }, 8_000);
-      timers.push(wsGuard);
-
-      ws.onopen = () =>
-        ws?.send(
-          JSON.stringify({ jsonrpc: "2.0", id: 1, method: "slotSubscribe" }),
-        );
-      ws.onmessage = (ev) => {
-        let msg: SlotNotification;
-        try {
-          msg = JSON.parse(String(ev.data));
-        } catch {
-          return;
-        }
-        const slot = msg.params?.result?.slot;
-        if (!slot || slot <= lastSlot) return;
-        const now = Date.now();
-        const dt = lastAt && slot === lastSlot + 1 ? now - lastAt : null;
-        lastSlot = slot;
-        lastAt = now;
-        checks.push([now, slot]);
-        // 10 min of 400 ms checkpoints ≈ 1500 entries
-        if (checks.length > 1600) checks.splice(0, checks.length - 1600);
-        const a1 = avgOver(60_000);
-        send({
-          s: slot,
-          dt,
-          ...(a1 ? { avg1m: Math.round(a1 * 10) / 10 } : {}),
-        });
-      };
-      ws.onerror = () => {
-        if (!lastSlot) {
-          send({ type: "err" });
-          cleanup();
-        }
-      };
-      ws.onclose = () => cleanup();
-
-      // Open the real-time path before waiting for the slower HTTP snapshot.
-      // The first slot can reach the browser while the averages are loading.
-      const snapTimer = setInterval(() => void snap(false), 60_000);
-      timers.push(snapTimer as unknown as ReturnType<typeof setTimeout>);
-      await snap(true);
+      addViewer(viewer);
     },
   });
 
