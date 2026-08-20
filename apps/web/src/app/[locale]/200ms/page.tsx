@@ -6,7 +6,7 @@ import Slot200Experience from "@/components/slot200/Slot200Experience";
 type Props = { params: Promise<{ locale: string }> };
 
 const PAGE_PATH = "/200ms";
-const PAGE_SOCIAL_IMAGE = "/social/solana-200ms.webp";
+const PAGE_SOCIAL_IMAGE = "/social/solana-200ms.jpg";
 
 export default function Page() {
   return <Slot200Experience />;
