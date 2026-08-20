@@ -223,6 +223,11 @@ async function recoverLingoRun() {
   return runLingo(["pull"]);
 }
 
+async function recoverFailedPush(failedResult) {
+  const recoveryResult = await recoverLingoRun();
+  return recoveryResult.status === 0 ? recoveryResult : failedResult;
+}
+
 async function runLingoPush(args = []) {
   const pushResult = await runLingo(["push", ...args, "--wait"]);
 
@@ -254,15 +259,13 @@ async function runLingoPush(args = []) {
     console.error(
       "The targeted Lingo retry failed; recovering any completed outputs before exiting.",
     );
-    await recoverLingoRun();
-    return forceResult;
+    return recoverFailedPush(forceResult);
   }
 
   console.error(
     "Lingo push failed without recoverable target paths; recovering any completed outputs before exiting.",
   );
-  await recoverLingoRun();
-  return pushResult;
+  return recoverFailedPush(pushResult);
 }
 
 function verifyTargetCoverage() {
