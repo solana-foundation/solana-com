@@ -20,8 +20,8 @@ const STREAM_MS = 285_000;
 // rejected clients fall back to the cached /api/slot-time poll.
 const MAX_STREAMS_PER_INSTANCE = 100;
 // A browser needs one stream per tab; anything beyond a handful of concurrent
-// streams from a single address is a misbehaving client, so refuse it before
-// it can monopolize the instance-wide allowance above.
+// streams from a single address (IPv4) or /64 prefix (IPv6) is a misbehaving
+// client, so refuse it before it can monopolize the instance-wide allowance.
 const MAX_STREAMS_PER_CLIENT = 4;
 let activeStreams = 0;
 const streamsByClient = new Map<string, number>();
@@ -30,13 +30,27 @@ const streamsByClient = new Map<string, number>();
 // can carry client-supplied entries, so only its last hop is trusted.
 function clientKey(req: NextRequest): string {
   const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
+  if (realIp) return bucketIp(realIp.trim());
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) {
     const hops = fwd.split(",");
-    return hops[hops.length - 1].trim();
+    return bucketIp(hops[hops.length - 1].trim());
   }
   return "unknown";
+}
+
+// An IPv6 caller usually controls an entire /64 and can rotate through it for
+// free, so key those by prefix; IPv4 addresses (including IPv4-mapped IPv6)
+// are scarce enough to key individually.
+function bucketIp(ip: string): string {
+  const addr = ip.toLowerCase();
+  if (!addr.includes(":") || addr.includes(".")) return addr;
+  const [head, tail = ""] = addr.split("::");
+  const headParts = head ? head.split(":") : [];
+  const tailParts = tail ? tail.split(":") : [];
+  const missing = Math.max(8 - headParts.length - tailParts.length, 0);
+  const full = [...headParts, ...Array(missing).fill("0"), ...tailParts];
+  return full.slice(0, 4).join(":");
 }
 
 const ENCODER = new TextEncoder();
