@@ -131,8 +131,8 @@ export const WhatIsIt = ({
         // offset. The exit fires 100px outside the viewport, so it is never
         // visible.
         setters.forEach(({ x, y }) => {
-          x.tween.kill();
-          y.tween.kill();
+          x.tween?.kill();
+          y.tween?.kill();
         });
         gsap.set(
           layers.map(({ el }) => el),
