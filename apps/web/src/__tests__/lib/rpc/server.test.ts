@@ -67,6 +67,15 @@ describe("RPC latency query options", () => {
     ).toBe("fluxrpc");
   });
 
+  it("normalizes Flux provider aliases", () => {
+    for (const provider of ["FluxRPC", "flux-rpc", "flux"]) {
+      expect(
+        parseRpcLatencyQueryOptions(new URLSearchParams(`provider=${provider}`))
+          .provider,
+      ).toBe("fluxrpc");
+    }
+  });
+
   it("accepts Chainstack as an RPC provider", () => {
     expect(rpcLatencyProviders).toContain("chainstack");
     expect(
@@ -354,6 +363,45 @@ describe("RPC latency query ranges", () => {
         value: 18,
       },
     ]);
+  });
+
+  it("keeps Flux range samples when Prometheus uses a branded provider label", async () => {
+    const timestamp = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams.get("query") ?? "";
+      const result = query.includes("rpc_latency_seconds_sum")
+        ? [
+            {
+              metric: { provider: "FluxRPC" },
+              values: [[timestamp, "42"]],
+            },
+          ]
+        : [];
+
+      return new Response(
+        JSON.stringify({ status: "success", data: { result } }),
+        { status: 200 },
+      );
+    });
+
+    vi.spyOn(Date, "now").mockReturnValue(timestamp * 1000);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { timeframe: "30m" },
+    );
+
+    expect(result.rows).toContainEqual({
+      date: new Date(timestamp * 1000).toISOString(),
+      metricName: "RPC Avg Latency",
+      providerName: "fluxrpc",
+      unit: "Milliseconds",
+      value: 42,
+    });
   });
 
   it("attaches human-readable error kinds to error-rate samples", async () => {

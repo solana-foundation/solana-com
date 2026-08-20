@@ -48,6 +48,16 @@ export const rpcLatencyProviders = [
 
 export type RpcLatencyProvider = (typeof rpcLatencyProviders)[number];
 
+const rpcProviderAliases: Record<string, RpcLatencyProvider> = {
+  alchemy: "alchemy",
+  chainstack: "chainstack",
+  flux: "fluxrpc",
+  fluxrpc: "fluxrpc",
+  helius: "helius",
+  quicknode: "quicknode",
+  triton: "triton",
+};
+
 export type RpcLatencyQueryOptions = {
   infra?: RpcLatencyInfra;
   method?: RpcLatencyMethod;
@@ -134,9 +144,7 @@ export function parseRpcLatencyQueryOptions(params: URLSearchParams): Required<
   return {
     infra,
     method: parseRpcMethod(params.get("method")),
-    provider: parseAllowedValue(params.get("provider"), providerSet) as
-      | RpcLatencyProvider
-      | undefined,
+    provider: normalizeRpcProvider(params.get("provider")),
     region: parseRpcRegion(params.get("region"), infra),
     timeframe: parseRpcTimeframe(params.get("timeframe")),
   };
@@ -562,7 +570,7 @@ function toMetricRow({
 }
 
 function getProviderLabel(metric: Record<string, unknown> | undefined) {
-  const provider = getMetricLabel(metric, "provider");
+  const provider = normalizeRpcProvider(getMetricLabel(metric, "provider"));
 
   return provider && providerSet.has(provider) ? provider : undefined;
 }
@@ -592,16 +600,13 @@ function normalizePrometheusNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function parseAllowedValue<T extends string>(
-  value: string | null | undefined,
-  allowedValues: ReadonlySet<string>,
-  fallback?: T,
-) {
-  if (value && allowedValues.has(value)) {
-    return value as T;
-  }
+function normalizeRpcProvider(value: string | null | undefined) {
+  const normalizedValue = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
 
-  return fallback;
+  return normalizedValue ? rpcProviderAliases[normalizedValue] : undefined;
 }
 
 function normalizeBaseUrl(value: string) {
