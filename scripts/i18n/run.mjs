@@ -1,6 +1,7 @@
 /* global clearTimeout, console, setTimeout */
 
 import { spawn, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import process from "node:process";
 import path from "node:path";
@@ -189,11 +190,11 @@ function sourcePathFromTarget(targetPath) {
   return null;
 }
 
-function extractFailedSourcePatterns(output) {
+function extractFailedPushPaths(output) {
   // Lingo uses ANSI color codes in the failure report.
   // eslint-disable-next-line no-control-regex
   const normalizedOutput = output.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
-  const failedSourcePatterns = new Set();
+  const failedPaths = new Set();
   let collectingFailures = false;
 
   for (const line of normalizedOutput.split(/\r?\n/)) {
@@ -208,15 +209,51 @@ function extractFailedSourcePatterns(output) {
     for (const match of line.matchAll(
       /(?:apps\/docs\/content|packages\/i18n\/messages)\/[^\s:]+/g,
     )) {
-      const sourcePath = sourcePathFromTarget(match[0]);
-      if (sourcePath) failedSourcePatterns.add(sourcePath);
+      failedPaths.add(match[0]);
     }
   }
 
-  return [...failedSourcePatterns];
+  return [...failedPaths];
 }
 
-async function recoverLingoRun() {
+function extractFailedSourcePatterns(output) {
+  return [
+    ...new Set(
+      extractFailedPushPaths(output).map(sourcePathFromTarget).filter(Boolean),
+    ),
+  ];
+}
+
+function extractFailedTargetPaths(output) {
+  return extractFailedPushPaths(output).filter((failedPath) => {
+    const sourcePath = sourcePathFromTarget(failedPath);
+    return sourcePath !== null && sourcePath !== failedPath;
+  });
+}
+
+function hashFileIfExists(relativePath) {
+  const absolutePath = path.join(rootDir, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return undefined;
+  }
+
+  return crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(absolutePath))
+    .digest("hex");
+}
+
+async function recoverFailedPush(failedResult) {
+  // Snapshot the targets the CLI reported as failed so a recovery pull only
+  // clears the failure once those exact files were created or rewritten.
+  const failedTargetPaths = extractFailedTargetPaths(failedResult.output);
+  const failedTargetHashes = new Map(
+    failedTargetPaths.map((targetPath) => [
+      targetPath,
+      hashFileIfExists(targetPath),
+    ]),
+  );
+
   const resumeResult = await runLingo(["resume"]);
 
   if (resumeResult.status !== 0) {
@@ -225,12 +262,44 @@ async function recoverLingoRun() {
     );
   }
 
-  return runLingo(["pull"]);
-}
+  const pullResult = await runLingo(["pull"]);
 
-async function recoverFailedPush(failedResult) {
-  const recoveryResult = await recoverLingoRun();
-  return recoveryResult.status === 0 ? recoveryResult : failedResult;
+  if (pullResult.status !== 0) {
+    return failedResult;
+  }
+
+  if (failedTargetPaths.length > 0) {
+    const unrecoveredTargets = failedTargetPaths.filter((targetPath) => {
+      const recoveredHash = hashFileIfExists(targetPath);
+      return (
+        recoveredHash === undefined ||
+        recoveredHash === failedTargetHashes.get(targetPath)
+      );
+    });
+
+    if (unrecoveredTargets.length === 0) {
+      return pullResult;
+    }
+
+    console.error(
+      `The recovery pull left ${unrecoveredTargets.length} failed target(s) unrecovered; keeping the failed push status.`,
+    );
+    for (const targetPath of unrecoveredTargets.slice(0, 20)) {
+      console.error(`- unrecovered target: ${targetPath}`);
+    }
+    return failedResult;
+  }
+
+  // Without a per-target failure report, only a completed resume proves the
+  // interrupted run finished; a bare pull may have fetched partial output.
+  if (resumeResult.status === 0) {
+    return pullResult;
+  }
+
+  console.error(
+    "The recovery pull salvaged completed outputs but could not confirm the run finished; keeping the failed push status.",
+  );
+  return failedResult;
 }
 
 async function runLingoPush(args = []) {
@@ -326,9 +395,9 @@ async function runContinuousLocalization(requestedScope) {
     runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
   }
 
-  if (requestedScope === "all" || requestedScope === "docs") {
-    verifyDocsOutput();
-  }
+  // Config-wide pushes and backfills can rewrite docs targets under any
+  // requested scope, so always normalize and verify the docs output.
+  verifyDocsOutput();
 }
 
 async function main() {
