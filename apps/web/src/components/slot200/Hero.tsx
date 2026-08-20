@@ -21,9 +21,9 @@ function fmtEta(ms: number): string {
 }
 
 /**
- * The hero: title and explainer on the left (the beating dot is the
- * heartbeat, one pulse per mainnet block, and the audio source), the live
- * counter on the right. Every state is derived from measured averages and
+ * The hero: title and explainer on the left, the live counter on the right
+ * (pulsing once per mainnet block, doubling as the audio source). Every
+ * state is derived from measured averages and
  * the confirmed activation schedule, so the page rides the whole rollout —
  * countdown, live flip, landed, waiting for the next epoch — without edits.
  */
@@ -33,18 +33,14 @@ export const Hero: React.FC<HeroProps> = ({ feed, subscribe }) => {
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const [soundOn, setSoundOn] = React.useState(false);
   const audioRef = React.useRef<HeartbeatAudio | null>(null);
-  const dotRef = React.useRef<HTMLSpanElement>(null);
   const bigRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const unsub = subscribe(() => {
       audioRef.current?.tick();
-      const dot = dotRef.current;
       const big = bigRef.current;
-      dot?.classList.add("on");
       big?.classList.add("on");
       setTimeout(() => {
-        dot?.classList.remove("on");
         big?.classList.remove("on");
       }, 120);
     });
@@ -95,6 +91,32 @@ export const Hero: React.FC<HeroProps> = ({ feed, subscribe }) => {
     ),
   };
 
+  // The share text is a live snapshot: whoever posts it stamps the exact
+  // moment they watched — a countdown number or a measured speed, never hype.
+  let shareText: string;
+  if (ready && counting && slotsLeft !== null) {
+    shareText = t("shareCounting", {
+      n: nf.format(slotsLeft),
+      from,
+      to: to ?? from,
+    });
+  } else if (phase === "flipping") {
+    shareText = t("shareFlipping", { from, to: to ?? from });
+  } else if (phase === "flipped") {
+    shareText = t("shareFlipped", {
+      pct: pctFaster(from, to ?? from),
+      from,
+      to: to ?? from,
+    });
+  } else if (avgShown !== null) {
+    shareText = t("shareLive", { avg: avgShown });
+  } else {
+    shareText = t("shareDefault");
+  }
+  const shareHref = `https://x.com/intent/post?text=${encodeURIComponent(
+    shareText,
+  )}&url=${encodeURIComponent("https://solana.com/200ms")}`;
+
   let under: string;
   let lock: React.ReactNode;
   if (!ready) {
@@ -134,17 +156,23 @@ export const Hero: React.FC<HeroProps> = ({ feed, subscribe }) => {
   return (
     <section className="s2-hero" aria-labelledby="s2-hero-title">
       <div className="s2-hero-copy">
-        <p className="s2-eyebrow">
-          <span ref={dotRef} className="s2-beat" aria-hidden />
-          {t("kicker")}
-        </p>
         <h1 className="s2-hero-title" id="s2-hero-title">
           {t("title")}
         </h1>
         <p className="s2-minilock">{lock}</p>
-        <button type="button" className="s2-soundbtn" onClick={toggleSound}>
-          {soundOn ? t("soundOn") : t("soundOff")}
-        </button>
+        <div className="s2-hero-actions">
+          <button type="button" className="s2-soundbtn" onClick={toggleSound}>
+            {soundOn ? t("soundOn") : t("soundOff")}
+          </button>
+          <a
+            className="s2-sharebtn"
+            href={shareHref}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t("share")}
+          </a>
+        </div>
       </div>
 
       <div className="s2-hero-live">

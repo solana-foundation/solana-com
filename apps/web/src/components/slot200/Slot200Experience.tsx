@@ -8,7 +8,6 @@ import { FooterBar } from "./FooterBar";
 import { HeartbeatChart } from "./HeartbeatChart";
 import { Hero } from "./Hero";
 import { HistoryChart } from "./HistoryChart";
-import { SlowLane } from "./SlowLane";
 import { Tape } from "./Tape";
 import { TopRail } from "./TopRail";
 import { WorldMap } from "./WorldMap";
@@ -44,7 +43,6 @@ export default function Slot200Experience() {
           <HeartbeatChart subscribe={subscribe} />
           <HistoryChart />
           <Blockspace />
-          <SlowLane attribution={attribution} />
         </div>
         <div className="s2-row-c">
           <Tape feed={feed} subscribe={subscribe} lookup={lookup} />
