@@ -491,8 +491,10 @@ export const providerColors: Record<string, string> = {
   Stellium: "#FB7185",
   Temporal: "#FB923C",
   "Token Terminal": "#45A88E",
+  "Top Ledger": "#06B6D4",
   Triton: "#A12CFF",
   "Validators App": "#38BDF8",
+  Birdeye: "#FFD166",
 };
 
 const providerAliases: Record<string, ProviderName> = {
@@ -530,11 +532,45 @@ export const metricColors: Record<string, string> = {
 
 export const chartDefinitions = [
   {
-    id: "stablecoin-supply",
+    id: "stablecoin-total-supply",
     tab: "stablecoins",
-    title: "Supply",
+    title: "Total Supply",
     valueLabel: "USD",
-    metrics: ["Supply"],
+    metrics: ["Total Supply"],
+    aggregation: "avg",
+    seriesField: "provider",
+    methodology: [
+      {
+        provider: "Allium",
+        description:
+          "Sum of total stablecoin supply, including non-circulating treasury and pre-minted balances.",
+      },
+      {
+        provider: "Blockworks",
+        description: "Total stablecoin supply outstanding on Solana.",
+      },
+      {
+        provider: "Dune",
+        description:
+          "Sum of positive stablecoin balances across all Solana token accounts.",
+      },
+      {
+        provider: "RWA",
+        description: "Total stablecoin supply issued on Solana.",
+      },
+      {
+        provider: "Token Terminal",
+        description:
+          "Native issuance plus bridged-in supply, including issuer treasury and pre-minted balances.",
+      },
+    ],
+  },
+  {
+    id: "stablecoin-circulating-supply",
+    tab: "stablecoins",
+    title: "Circulating Supply",
+    valueLabel: "USD",
+    metrics: ["Circulating Supply"],
     aggregation: "avg",
     seriesField: "provider",
     methodology: [
@@ -544,19 +580,27 @@ export const chartDefinitions = [
           "Net mints minus burns, excluding treasury and locked balances.",
       },
       {
+        provider: "Artemis",
+        description: "Circulating stablecoin supply on Solana.",
+      },
+      {
+        provider: "Birdeye",
+        description:
+          "Total circulating supply, priced and aggregated across stablecoins.",
+      },
+      {
         provider: "DeFiLlama",
         description:
           "Bridge-aware circulating supply, priced and aggregated across stablecoins and peg types.",
       },
       {
-        provider: "Token Terminal",
+        provider: "Dune",
         description:
-          "Circulating supply excludes issuer treasury and pre-minted, not-yet-issued balances.",
+          "Circulating supply excluding issuer treasury and locked balances.",
       },
       {
-        provider: "RWA",
-        description:
-          "Net minted supply minus burned supply and treasury or premint address balances.",
+        provider: "Top Ledger",
+        description: "Total circulating supply of stablecoins in USD.",
       },
     ],
   },
@@ -714,6 +758,27 @@ export const chartDefinitions = [
         provider: "Artemis",
         description:
           "Distinct signers of successful transactions, not just fee payers, capturing fee-sponsored users.",
+      },
+    ],
+  },
+  {
+    id: "application-revenue",
+    tab: "overview",
+    title: "Application Revenue",
+    valueLabel: "USD",
+    metrics: ["Application Revenue"],
+    aggregation: "avg",
+    seriesField: "provider",
+    methodology: [
+      {
+        provider: "Blockworks",
+        description:
+          "Daily total application revenue generated on Solana, excludes L1 transaction fees.",
+      },
+      {
+        provider: "DeFiLlama",
+        description:
+          "Daily app revenue aggregated across tracked Solana protocols.",
       },
     ],
   },
