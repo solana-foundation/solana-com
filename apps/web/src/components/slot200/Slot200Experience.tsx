@@ -1,34 +1,54 @@
 "use client";
 
 import React from "react";
-import { Divider } from "@/component-library/divider";
-import { PulseHero } from "./PulseHero";
-import { StatsStrip } from "./StatsStrip";
-import { StagePath } from "./StagePath";
-import { WhyItMatters } from "./WhyItMatters";
-import { DayRecut } from "./DayRecut";
-import { WorldPulse } from "./WorldPulse";
-import { LinksCta } from "./LinksCta";
-import { useSlotClock } from "./useSlotClock";
+import { BigBoard } from "./BigBoard";
+import { Blockspace } from "./Blockspace";
+import { ClientClock } from "./ClientClock";
+import { FooterBar } from "./FooterBar";
+import { HeartbeatChart } from "./HeartbeatChart";
+import { Hero } from "./Hero";
+import { HistoryChart } from "./HistoryChart";
+import { SlowLane } from "./SlowLane";
+import { Tape } from "./Tape";
+import { TopRail } from "./TopRail";
+import { WorldMap } from "./WorldMap";
+import { useAttribution } from "./useAttribution";
+import { useLeaderSchedule } from "./useLeaderSchedule";
+import { useSlotFeed } from "./useSlotFeed";
 
-/** The /200ms page body: one live clock feeds every section. */
+/**
+ * The /200ms situation room: one live slot feed (server-side slotSubscribe
+ * bridge) drives every instrument; the leader schedule attributes each block
+ * to its producer for the map and the accountability tables.
+ */
 export default function Slot200Experience() {
-  const { live, snap } = useSlotClock();
+  const { feed, subscribe } = useSlotFeed();
+  const { network, lookup } = useLeaderSchedule();
+  const attribution = useAttribution(subscribe, lookup);
 
   return (
-    <div className="bg-nd-bg text-nd-high-em-text">
-      <PulseHero live={live} snap={snap} />
-      <StatsStrip />
-      <Divider />
-      <StagePath live={live} />
-      <Divider />
-      <WhyItMatters />
-      <Divider />
-      <DayRecut />
-      <Divider />
-      <WorldPulse live={live} />
-      <Divider />
-      <LinksCta />
+    <div className="s2-root">
+      <TopRail feed={feed} />
+      <Hero feed={feed} subscribe={subscribe} />
+      <div className="s2-grid">
+        <div className="s2-col-left">
+          <BigBoard feed={feed} network={network} />
+        </div>
+        <div className="s2-col-mid">
+          <WorldMap subscribe={subscribe} lookup={lookup} />
+        </div>
+        <div className="s2-col-right">
+          <ClientClock attribution={attribution} />
+          <SlowLane attribution={attribution} />
+        </div>
+        <div className="s2-row-b">
+          <HeartbeatChart subscribe={subscribe} />
+          <HistoryChart />
+          <Blockspace />
+          <Tape feed={feed} subscribe={subscribe} />
+        </div>
+      </div>
+      <FooterBar />
     </div>
   );
 }

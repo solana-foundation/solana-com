@@ -7,6 +7,15 @@ function rpcUrl(): string {
   return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
 }
 
+/** WebSocket endpoint matching rpcUrl(), for slotSubscribe. */
+export function rpcWsUrl(): string {
+  const key = process.env.HELIUS_API_KEY;
+  if (key) return `wss://mainnet.helius-rpc.com/?api-key=${key}`;
+  const custom = process.env.SOLANA_RPC_URL;
+  if (custom) return custom.replace(/^http/, "ws");
+  return "wss://api.mainnet-beta.solana.com";
+}
+
 async function rpc<T>(method: string, params: unknown[] = []): Promise<T> {
   const res = await fetch(rpcUrl(), {
     method: "POST",
@@ -31,9 +40,19 @@ export async function getEpochInfo(): Promise<EpochInfo> {
   return rpc<EpochInfo>("getEpochInfo");
 }
 
-interface PerfSample {
+export interface PerfSample {
+  slot: number;
   numSlots: number;
+  numNonVoteTransactions?: number;
+  numTransactions: number;
   samplePeriodSecs: number;
+}
+
+/** Raw performance samples, newest first (one per minute, max 720 = 12h). */
+export async function getPerformanceSamples(
+  limit: number,
+): Promise<PerfSample[]> {
+  return rpc<PerfSample[]>("getRecentPerformanceSamples", [limit]);
 }
 
 /**
@@ -63,6 +82,55 @@ interface ClusterNode {
 
 export async function getClusterNodes(): Promise<ClusterNode[]> {
   return rpc<ClusterNode[]>("getClusterNodes");
+}
+
+interface BlockTx {
+  transaction: {
+    signatures: string[];
+    message: {
+      accountKeys: string[];
+      instructions: { programIdIndex: number }[];
+    };
+  };
+  meta: {
+    err: unknown;
+    loadedAddresses?: { writable: string[]; readonly: string[] };
+  } | null;
+}
+
+export interface SampledBlock {
+  blockHeight: number | null;
+  blockTime: number | null;
+  transactions: BlockTx[];
+}
+
+/** Program ids invoked by a transaction's top-level instructions. */
+export function txProgramIds(tx: BlockTx): string[] {
+  const keys = tx.transaction.message.accountKeys.concat(
+    tx.meta?.loadedAddresses?.writable ?? [],
+    tx.meta?.loadedAddresses?.readonly ?? [],
+  );
+  return tx.transaction.message.instructions.map(
+    (ix) => keys[ix.programIdIndex],
+  );
+}
+
+/** One confirmed block with full transactions, for registry classification. */
+export async function getBlockFull(slot: number): Promise<SampledBlock | null> {
+  return rpc<SampledBlock | null>("getBlock", [
+    slot,
+    {
+      encoding: "json",
+      transactionDetails: "full",
+      rewards: false,
+      commitment: "confirmed",
+      maxSupportedTransactionVersion: 0,
+    },
+  ]);
+}
+
+export async function getConfirmedSlot(): Promise<number> {
+  return rpc<number>("getSlot", [{ commitment: "confirmed" }]);
 }
 
 interface VoteAccount {
@@ -123,4 +191,19 @@ export function runsUpgradedClient(
 ): boolean {
   const v = parseAgaveVersion(version);
   return v !== null && (v[0] > 4 || (v[0] === 4 && v[1] >= 2));
+}
+
+/**
+ * Client family from the gossip version string. Firedancer publishes its own
+ * "0.x" scheme; everything semver-shaped is the Agave lineage (gossip alone
+ * cannot separate Agave from Jito-Agave — that needs the on-chain validator
+ * history program, so this page doesn't claim it).
+ */
+export function clientFamily(
+  version: string | null | undefined,
+): "Firedancer" | "Agave lineage" | "Unknown" {
+  if (!version) return "Unknown";
+  if (version.startsWith("0.")) return "Firedancer";
+  if (/^\d+\.\d+/.test(version)) return "Agave lineage";
+  return "Unknown";
 }
