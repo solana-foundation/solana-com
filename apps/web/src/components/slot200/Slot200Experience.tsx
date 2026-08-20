@@ -39,15 +39,15 @@ export default function Slot200Experience() {
         </div>
         <div className="s2-col-right">
           <ClientClock attribution={attribution} />
-          <SlowLane attribution={attribution} />
         </div>
         <div className="s2-row-b">
           <HeartbeatChart subscribe={subscribe} />
           <HistoryChart />
           <Blockspace />
+          <SlowLane attribution={attribution} />
         </div>
         <div className="s2-row-c">
-          <Tape feed={feed} subscribe={subscribe} />
+          <Tape feed={feed} subscribe={subscribe} lookup={lookup} />
         </div>
       </div>
       <FooterBar />

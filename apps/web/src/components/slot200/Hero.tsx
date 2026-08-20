@@ -21,9 +21,9 @@ function fmtEta(ms: number): string {
 }
 
 /**
- * The hero: one beating dot ("monitoring the situation" — the dot is the
- * heartbeat, one pulse per mainnet block, and the audio source), one giant
- * counter, one lock line. Every state is derived from measured averages and
+ * The hero: title and explainer on the left (the beating dot is the
+ * heartbeat, one pulse per mainnet block, and the audio source), the live
+ * counter on the right. Every state is derived from measured averages and
  * the confirmed activation schedule, so the page rides the whole rollout —
  * countdown, live flip, landed, waiting for the next epoch — without edits.
  */
@@ -132,39 +132,44 @@ export const Hero: React.FC<HeroProps> = ({ feed, subscribe }) => {
   }
 
   return (
-    <section className="s2-hero" aria-labelledby="s2-hero-big">
-      <p className="s2-eyebrow">
-        <span ref={dotRef} className="s2-beat" aria-hidden />
-        {t("eyebrow")}
-      </p>
+    <section className="s2-hero" aria-labelledby="s2-hero-title">
+      <div className="s2-hero-copy">
+        <p className="s2-eyebrow">
+          <span ref={dotRef} className="s2-beat" aria-hidden />
+          {t("kicker")}
+        </p>
+        <h1 className="s2-hero-title" id="s2-hero-title">
+          {t("title")}
+        </h1>
+        <p className="s2-minilock">{lock}</p>
+        <button type="button" className="s2-soundbtn" onClick={toggleSound}>
+          {soundOn ? t("soundOn") : t("soundOff")}
+        </button>
+      </div>
 
-      {counting ? (
-        <div className="s2-big" id="s2-hero-big" ref={bigRef}>
-          <span className="s2-big-num">
-            {slotsLeft !== null ? nf.format(slotsLeft) : "—"}
-          </span>
-        </div>
-      ) : (
-        <div className="s2-big" id="s2-hero-big" ref={bigRef}>
-          <span className="s2-big-old">{from}</span>
-          <span className="s2-big-arrow" aria-hidden>
-            →
-          </span>
-          <span
-            className={`s2-big-num ${phase === "flipping" ? "" : "is-flipped"}`}
-          >
-            {avgShown ?? "—"}
-          </span>
-          <span className="s2-big-unit">ms</span>
-        </div>
-      )}
-
-      <p className={`s2-under ${finalMinute ? "is-final" : ""}`}>{under}</p>
-      <p className="s2-minilock">{lock}</p>
-
-      <button type="button" className="s2-soundbtn" onClick={toggleSound}>
-        {soundOn ? t("soundOn") : t("soundOff")}
-      </button>
+      <div className="s2-hero-live">
+        <p className={`s2-under ${finalMinute ? "is-final" : ""}`}>{under}</p>
+        {counting ? (
+          <div className="s2-big" ref={bigRef}>
+            <span className="s2-big-num">
+              {slotsLeft !== null ? nf.format(slotsLeft) : "—"}
+            </span>
+          </div>
+        ) : (
+          <div className="s2-big" ref={bigRef}>
+            <span className="s2-big-old">{from}</span>
+            <span className="s2-big-arrow" aria-hidden>
+              →
+            </span>
+            <span
+              className={`s2-big-num ${phase === "flipping" ? "" : "is-flipped"}`}
+            >
+              {avgShown ?? "—"}
+            </span>
+            <span className="s2-big-unit">ms</span>
+          </div>
+        )}
+      </div>
     </section>
   );
 };

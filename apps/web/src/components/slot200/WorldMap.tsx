@@ -46,16 +46,20 @@ const CENTROID = (() => {
   return [sx / sw, sy / sw] as const;
 })();
 
-function viewBoxFor(zoom: number, mobile: boolean): string {
+function viewRect(
+  zoom: number,
+  mobile: boolean,
+  center: [number, number] | null,
+): [number, number, number, number] {
   const [bx, by, bw, bh] = mobile ? BASE_MOBILE : BASE_DESK;
   const f = Math.pow(1.45, zoom);
   const w = bw / f;
   const h = bh / f;
-  const cx = zoom === 0 ? bx + bw / 2 : CENTROID[0];
-  const cy = zoom === 0 ? by + bh / 2 : CENTROID[1];
+  const [cx, cy] =
+    center ?? (zoom === 0 ? [bx + bw / 2, by + bh / 2] : CENTROID);
   const x = Math.min(Math.max(cx - w / 2, bx), bx + bw - w);
   const y = Math.min(Math.max(cy - h / 2, by), by + bh - h);
-  return `${x.toFixed(1)} ${y.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`;
+  return [x, y, w, h];
 }
 
 /**
@@ -70,9 +74,76 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
   const t = useTranslations("slot200.map");
   const pulseGroup = React.useRef<SVGGElement>(null);
   const capRef = React.useRef<HTMLDivElement>(null);
+  const svgRef = React.useRef<SVGSVGElement>(null);
   const nf = React.useMemo(() => new Intl.NumberFormat("en-US"), []);
   const [mobile, setMobile] = React.useState(false);
   const [zoom, setZoom] = React.useState(0);
+  // pan target while zoomed; null = default framing (world / stake centroid)
+  const [center, setCenter] = React.useState<[number, number] | null>(null);
+  const [panning, setPanning] = React.useState(false);
+  const drag = React.useRef<{
+    px: number;
+    py: number;
+    cx: number;
+    cy: number;
+  } | null>(null);
+
+  const [vx, vy, vw, vh] = viewRect(zoom, mobile, center);
+
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (zoom === 0) return;
+    svgRef.current?.setPointerCapture(e.pointerId);
+    drag.current = {
+      px: e.clientX,
+      py: e.clientY,
+      cx: vx + vw / 2,
+      cy: vy + vh / 2,
+    };
+    setPanning(true);
+  };
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = drag.current;
+    const svg = svgRef.current;
+    if (!d || !svg) return;
+    const scale = vw / svg.clientWidth;
+    setCenter([
+      d.cx - (e.clientX - d.px) * scale,
+      d.cy - (e.clientY - d.py) * scale,
+    ]);
+  };
+  const endPan = () => {
+    drag.current = null;
+    setPanning(false);
+  };
+
+  // land + constellation never change — keep them out of the per-move render
+  const staticLayers = React.useMemo(
+    () => (
+      <>
+        <path
+          d={(worldLand as { d: string }).d}
+          fill="rgba(255,255,255,0.05)"
+          stroke="rgba(255,255,255,0.13)"
+          strokeWidth="0.6"
+        />
+        <g>
+          {LOCS.map((l, i) => {
+            const [x, y] = toXY(l[0], l[1]);
+            return (
+              <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r={Math.min(7, 1 + 1.6 * Math.sqrt(l[3] || 0)).toFixed(1)}
+                fill="rgba(148,163,184,0.28)"
+              />
+            );
+          })}
+        </g>
+      </>
+    ),
+    [],
+  );
 
   React.useEffect(() => {
     setMobile(window.matchMedia("(max-width: 700px)").matches);
@@ -131,37 +202,29 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
             type="button"
             aria-label={t("zoomOut")}
             disabled={zoom <= 0}
-            onClick={() => setZoom((z) => Math.max(0, z - 1))}
+            onClick={() =>
+              setZoom((z) => {
+                const next = Math.max(0, z - 1);
+                if (next === 0) setCenter(null);
+                return next;
+              })
+            }
           >
             −
           </button>
         </div>
         <svg
-          viewBox={viewBoxFor(zoom, mobile)}
+          ref={svgRef}
+          viewBox={`${vx.toFixed(1)} ${vy.toFixed(1)} ${vw.toFixed(1)} ${vh.toFixed(1)}`}
           preserveAspectRatio="xMidYMid meet"
-          className="s2-map-svg"
+          className={`s2-map-svg ${zoom > 0 ? "is-pannable" : ""} ${panning ? "is-panning" : ""}`}
           aria-label={t("ariaLabel")}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endPan}
+          onPointerCancel={endPan}
         >
-          <path
-            d={(worldLand as { d: string }).d}
-            fill="rgba(255,255,255,0.05)"
-            stroke="rgba(255,255,255,0.13)"
-            strokeWidth="0.6"
-          />
-          <g>
-            {LOCS.map((l, i) => {
-              const [x, y] = toXY(l[0], l[1]);
-              return (
-                <circle
-                  key={i}
-                  cx={x}
-                  cy={y}
-                  r={Math.min(7, 1 + 1.6 * Math.sqrt(l[3] || 0)).toFixed(1)}
-                  fill="rgba(148,163,184,0.28)"
-                />
-              );
-            })}
-          </g>
+          {staticLayers}
           <g ref={pulseGroup} />
         </svg>
       </div>

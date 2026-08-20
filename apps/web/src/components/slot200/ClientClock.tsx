@@ -3,29 +3,88 @@
 import React from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Panel } from "./Panel";
+import { usePolled } from "./usePolled";
+import type { ClientStats } from "@/app/api/slot-time/clients/route";
 import type { Attribution } from "./useAttribution";
 
-/** Rolling gap time by the leader's client family, since the viewer tuned in. */
+/** Below this, a client's average is a curiosity, not a ranking entry. */
+const SOLID_MIN_SLOTS = 40;
+
+interface Row {
+  key: string;
+  client: string;
+  slots: number;
+  avg: number;
+  median: number;
+  /** small sample — shown, but dimmed and excluded from the ranking */
+  dim: boolean;
+}
+
+/**
+ * Rolling gap time by the producing validator's client. Primary source: the
+ * perp200 relay's rolling window, where identities map to real clients
+ * (Firedancer, Jito, BAM, Harmonic, Rakurai…) via the on-chain validator
+ * history program. Fallback when that proxy fails: this page's own
+ * session-scoped attribution by gossip version family.
+ */
 export const ClientClock: React.FC<{ attribution: Attribution }> = ({
   attribution,
 }) => {
   const t = useTranslations("slot200.clients");
   const locale = useLocale();
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
-  const { clients, attributed } = attribution;
-  const maxAvg = Math.max(1, ...clients.map((c) => c.avg));
-  const bestAvg = clients.length >= 2 ? clients[0].avg : -1;
+  const remote = usePolled<ClientStats>("/api/slot-time/clients", 30_000);
+
+  let rows: Row[];
+  let meta: string;
+  let note: string;
+  if (remote?.rows?.length) {
+    const solid = remote.rows
+      .filter((r) => r.slots >= SOLID_MIN_SLOTS)
+      .sort((a, b) => a.avg - b.avg);
+    const small = remote.rows
+      .filter((r) => r.slots < SOLID_MIN_SLOTS)
+      .sort((a, b) => b.slots - a.slots);
+    rows = [...solid, ...small].map((r) => ({
+      key: `ct${r.ct}`,
+      client: r.client,
+      slots: r.slots,
+      avg: r.avg,
+      median: r.median,
+      dim: r.slots < SOLID_MIN_SLOTS,
+    }));
+    const span =
+      remote.toSlot && remote.fromSlot ? remote.toSlot - remote.fromSlot : 0;
+    meta = t("metaWindow", {
+      count: nf.format(remote.attributed),
+      hours: Math.max(1, Math.round((span * 0.4) / 3600)),
+    });
+    note = t("noteLive");
+  } else {
+    rows = attribution.clients.map((c) => ({
+      key: c.client,
+      client: c.client,
+      slots: c.slots,
+      avg: c.avg,
+      median: c.median,
+      dim: false,
+    }));
+    meta =
+      attribution.attributed > 0
+        ? t("meta", { count: nf.format(attribution.attributed) })
+        : t("metaSyncing");
+    note = t("note");
+  }
+
+  // Bars scale to the ranked rows only: one long gap in an 8-slot sample
+  // must not own the visual range. A ranking of one is not a ranking.
+  const ranked = rows.filter((r) => !r.dim);
+  const maxAvg = Math.max(1, ...ranked.map((r) => r.avg));
+  const bestAvg = ranked.length >= 2 ? ranked[0].avg : -1;
 
   return (
-    <Panel
-      title={t("title")}
-      meta={
-        attributed > 0
-          ? t("meta", { count: nf.format(attributed) })
-          : t("metaSyncing")
-      }
-    >
-      {clients.length === 0 ? (
+    <Panel title={t("title")} meta={meta}>
+      {rows.length === 0 ? (
         <p className="s2-empty">{t("empty")}</p>
       ) : (
         <table className="s2-table">
@@ -39,21 +98,26 @@ export const ClientClock: React.FC<{ attribution: Attribution }> = ({
             </tr>
           </thead>
           <tbody>
-            {clients.map((c) => (
+            {rows.map((r) => (
               <tr
-                key={c.client}
-                className={c.avg === bestAvg ? "is-fast" : undefined}
+                key={r.key}
+                className={
+                  r.dim ? "is-dim" : r.avg === bestAvg ? "is-fast" : undefined
+                }
               >
-                <td>{c.client}</td>
-                <td className="s2-num">{nf.format(c.slots)}</td>
-                <td className="s2-num">{Math.round(c.avg)} ms</td>
-                <td className="s2-num">{Math.round(c.median)} ms</td>
+                <td>
+                  {r.client}
+                  {r.dim ? <small> {t("smallSample")}</small> : null}
+                </td>
+                <td className="s2-num">{nf.format(r.slots)}</td>
+                <td className="s2-num">{Math.round(r.avg)} ms</td>
+                <td className="s2-num">{Math.round(r.median)} ms</td>
                 <td className="s2-barcell">
                   <div className="s2-bar">
                     <div
                       className="s2-bar-fill"
                       style={{
-                        width: `${Math.min(100, Math.round((c.avg / maxAvg) * 100))}%`,
+                        width: `${Math.min(100, Math.round((r.avg / maxAvg) * 100))}%`,
                       }}
                     />
                   </div>
@@ -63,7 +127,7 @@ export const ClientClock: React.FC<{ attribution: Attribution }> = ({
           </tbody>
         </table>
       )}
-      <p className="s2-note">{t("note")}</p>
+      <p className="s2-note">{note}</p>
     </Panel>
   );
 };

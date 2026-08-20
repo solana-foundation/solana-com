@@ -67,7 +67,7 @@ export const HeartbeatChart: React.FC<HeartbeatChartProps> = React.memo(
         if (data.length < 2) return;
         const step = (w - 34) / (KEEP - 1);
         const start = Math.max(0, data.length - KEEP);
-        ctx.strokeStyle = "rgba(255,90,72,0.9)";
+        ctx.strokeStyle = "rgba(153,69,255,0.9)";
         ctx.lineWidth = 1.4;
         ctx.beginPath();
         for (let i = start; i < data.length; i++) {
@@ -78,7 +78,7 @@ export const HeartbeatChart: React.FC<HeartbeatChartProps> = React.memo(
         }
         ctx.stroke();
         const last = data[data.length - 1];
-        ctx.fillStyle = "#ff5a48";
+        ctx.fillStyle = "#9945ff";
         ctx.beginPath();
         ctx.arc(w - 34, toY(last), 3, 0, Math.PI * 2);
         ctx.fill();
