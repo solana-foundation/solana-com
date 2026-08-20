@@ -9,6 +9,21 @@ import { classifyTx } from "@/lib/slot200/programs";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+/** Mainnet per-block compute ceiling (SIMD-0286). */
+const BLOCK_CU_LIMIT = 100_000_000;
+
+// The eight Jito tip-payment accounts: lamports landing here are MEV tips.
+const TIP_ACCOUNTS = new Set([
+  "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
+  "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+  "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+  "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+  "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+  "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+  "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+  "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
+]);
+
 /**
  * One recent confirmed block, decomposed against the known-program registry:
  * what the blockspace actually carried. Heavier than every other call on
@@ -29,8 +44,29 @@ export async function GET() {
 
     const counts = new Map<string, number>();
     let votes = 0;
+    let feeLamports = 0;
+    let tipLamports = 0;
+    let cu = 0;
     const tape: { sig: string; p: string }[] = [];
     for (const tx of block.transactions) {
+      const m = tx.meta;
+      if (m) {
+        feeLamports += m.fee ?? 0;
+        cu += m.computeUnitsConsumed ?? 0;
+        // balance arrays index static keys first, then loaded (writable,
+        // readonly) — positive deltas on tip accounts are the tips
+        if (m.preBalances && m.postBalances) {
+          const keys = tx.transaction.message.accountKeys.concat(
+            m.loadedAddresses?.writable ?? [],
+            m.loadedAddresses?.readonly ?? [],
+          );
+          for (let i = 0; i < keys.length; i++) {
+            if (!TIP_ACCOUNTS.has(keys[i])) continue;
+            const d = (m.postBalances[i] ?? 0) - (m.preBalances[i] ?? 0);
+            if (d > 0) tipLamports += d;
+          }
+        }
+      }
       const bucket = classifyTx(txProgramIds(tx));
       if (bucket === null) {
         votes++;
@@ -54,6 +90,10 @@ export async function GET() {
         txs: block.transactions.length,
         votes,
         nonVotes: block.transactions.length - votes,
+        feeLamports,
+        tipLamports,
+        cu,
+        cuPct: Math.round((cu / BLOCK_CU_LIMIT) * 100),
         programs,
         tape,
         serverTime: Date.now(),

@@ -94,6 +94,10 @@ interface BlockTx {
   };
   meta: {
     err: unknown;
+    fee?: number;
+    computeUnitsConsumed?: number;
+    preBalances?: number[];
+    postBalances?: number[];
     loadedAddresses?: { writable: string[]; readonly: string[] };
   } | null;
 }

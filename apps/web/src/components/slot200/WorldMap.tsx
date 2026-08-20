@@ -73,7 +73,15 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
 }) {
   const t = useTranslations("slot200.map");
   const pulseGroup = React.useRef<SVGGElement>(null);
-  const capRef = React.useRef<HTMLDivElement>(null);
+  const capName = React.useRef<HTMLElement>(null);
+  const capSub = React.useRef<HTMLSpanElement>(null);
+  const capSlot = React.useRef<HTMLSpanElement>(null);
+  const nextName = React.useRef<HTMLElement>(null);
+  const nextSub = React.useRef<HTMLSpanElement>(null);
+  const nextFill = React.useRef<HTMLDivElement>(null);
+  const nextEta = React.useRef<HTMLSpanElement>(null);
+  // rough per-slot pace for the next-leader ETA, smoothed locally
+  const emaMs = React.useRef(400);
   const svgRef = React.useRef<SVGSVGElement>(null);
   const nf = React.useMemo(() => new Intl.NumberFormat("en-US"), []);
   const [mobile, setMobile] = React.useState(false);
@@ -152,28 +160,54 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
     ).matches;
 
     return subscribe((ev) => {
+      if (ev.dt !== null) emaMs.current = emaMs.current * 0.8 + ev.dt * 0.2;
+      if (document.hidden) return;
       const leader = lookup(ev.slot);
       if (!leader) return;
-      const cap = capRef.current;
-      if (cap) {
-        // structured DOM, not innerHTML: city and name are arbitrary strings
-        cap.textContent = "";
-        const b = document.createElement("b");
-        b.textContent = `#${nf.format(ev.slot)}`;
-        cap.append(t("capBlock") + " ", b);
-        if (leader.city) {
-          const c = document.createElement("b");
-          c.textContent = leader.city;
-          cap.append(`, ${t("capMadeIn")} `, c);
-        }
-        if (leader.name) {
-          const n = document.createElement("b");
-          n.textContent = leader.name;
-          cap.append(` ${t("capBy")} `, n);
+      // "now producing" caption — textContent only: names are arbitrary
+      if (capName.current)
+        capName.current.textContent = leader.name || leader.id;
+      if (capSub.current)
+        capSub.current.textContent = [
+          leader.city || null,
+          leader.stakePct > 0 ? t("capStake", { pct: leader.stakePct }) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+      if (capSlot.current)
+        capSlot.current.textContent = `#${nf.format(ev.slot)}`;
+      // next leader: first upcoming slot with a different producer
+      let next: LeaderEntry | null = null;
+      let toGo = 0;
+      for (let s = ev.slot + 1; s <= ev.slot + 40; s++) {
+        const e = lookup(s);
+        if (!e) break;
+        if (e.id !== leader.id) {
+          next = e;
+          toGo = s - ev.slot;
+          break;
         }
       }
+      if (next && toGo > 0) {
+        let into = 1;
+        while (into < 8) {
+          const e = lookup(ev.slot - into);
+          if (!e || e.id !== leader.id) break;
+          into++;
+        }
+        if (nextName.current)
+          nextName.current.textContent = next.name || next.id;
+        if (nextSub.current) nextSub.current.textContent = next.city;
+        if (nextFill.current)
+          nextFill.current.style.width = `${Math.round((into / (into + toGo - 1)) * 100)}%`;
+        if (nextEta.current)
+          nextEta.current.textContent = t("nextIn", {
+            n: toGo,
+            s: ((toGo * emaMs.current) / 1000).toFixed(1),
+          });
+      }
       const g = pulseGroup.current;
-      if (!g || !leader.ll || reduced || document.hidden) return;
+      if (!g || !leader.ll || reduced) return;
       const [x, y] = toXY(leader.ll[0], leader.ll[1]);
       const p = document.createElementNS(SVG_NS, "circle");
       p.setAttribute("cx", String(x));
@@ -228,8 +262,28 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
           <g ref={pulseGroup} />
         </svg>
       </div>
-      <div ref={capRef} className="s2-map-cap">
-        {" "}
+      <div className="s2-map-cap">
+        <span className="s2-cap-tag is-now" aria-hidden>
+          {t("capNow")}
+        </span>
+        <b className="s2-cap-name" ref={capName}>
+          —
+        </b>
+        <span className="s2-cap-sub" ref={capSub} />
+        <span className="s2-cap-slot" ref={capSlot} />
+      </div>
+      <div className="s2-map-next">
+        <span className="s2-cap-tag" aria-hidden>
+          {t("nextLabel")}
+        </span>
+        <b className="s2-cap-name" ref={nextName}>
+          —
+        </b>
+        <span className="s2-cap-sub" ref={nextSub} />
+        <div className="s2-next-bar" aria-hidden>
+          <div className="s2-next-fill" ref={nextFill} />
+        </div>
+        <span className="s2-next-eta" ref={nextEta} />
       </div>
       <p className="s2-note">{t("note")}</p>
     </Panel>

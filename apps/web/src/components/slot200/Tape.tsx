@@ -7,7 +7,8 @@ import { usePolled, type BlockSample } from "./usePolled";
 import type { LeaderEntry } from "./useLeaderSchedule";
 import type { FeedState, SlotEvent } from "./useSlotFeed";
 
-const MAX_BLOCK_ROWS = 40;
+const MAX_GROUPS = 10;
+const MAX_GROUP_ROWS = 12;
 const MAX_TX_ROWS = 48;
 const MAX_UPCOMING = 10;
 
@@ -18,11 +19,12 @@ interface TapeProps {
 }
 
 /**
- * The tape: blocks landing live on the left (one row per slot from the
- * stream), the transactions inside the latest sampled block in the middle,
- * and on the right the confirmed leader schedule — who makes the blocks
- * after this one. The live lists keep constant height with scroll anchoring
- * off — rows are inserted at the top, exactly like the perp200 tape.
+ * The tape: blocks landing live on the left, grouped into leader windows
+ * (one card per validator's consecutive turn, like the Jito monitor), the
+ * transactions inside the latest sampled block in the middle, and on the
+ * right the confirmed leader schedule — who makes the blocks after this
+ * one. The live lists keep constant height with scroll anchoring off —
+ * rows are inserted at the top, exactly like the perp200 tape.
  */
 export const Tape: React.FC<TapeProps> = ({ feed, subscribe, lookup }) => {
   const t = useTranslations("slot200.tape");
@@ -31,25 +33,74 @@ export const Tape: React.FC<TapeProps> = ({ feed, subscribe, lookup }) => {
   const block = usePolled<BlockSample>("/api/slot-time/block", 5_000);
   const lastTapeSlot = React.useRef(0);
   const nf = React.useMemo(() => new Intl.NumberFormat("en-US"), []);
+  const groupRef = React.useRef<{ id: string; el: HTMLDivElement } | null>(
+    null,
+  );
+  const lastStatusRef = React.useRef<HTMLSpanElement | null>(null);
 
   React.useEffect(
     () =>
       subscribe((ev) => {
         const list = blocksRef.current;
         if (!list || document.hidden) return;
+        const leader = lookup(ev.slot);
+        const gid = leader?.id ?? "?";
+        let group = groupRef.current;
+        if (!group || group.id !== gid || group.el.parentNode !== list) {
+          const el = document.createElement("div");
+          el.className = "s2-tgroup";
+          const head = document.createElement("div");
+          head.className = "s2-tgroup-h";
+          const name = document.createElement("span");
+          name.className = "s2-tgroup-name";
+          name.textContent = leader ? leader.name || leader.id : "—";
+          if (leader?.city) {
+            const city = document.createElement("small");
+            city.textContent = ` ${leader.city}`;
+            name.appendChild(city);
+          }
+          const meta = document.createElement("span");
+          meta.className = "s2-tgroup-meta";
+          meta.textContent = leader
+            ? [
+                leader.client !== "Unknown" ? leader.client : null,
+                leader.stakePct > 0 ? `${leader.stakePct}%` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : "";
+          head.append(name, meta);
+          el.appendChild(head);
+          list.insertBefore(el, list.firstChild);
+          while (list.children.length > MAX_GROUPS)
+            list.removeChild(list.lastChild!);
+          group = { id: gid, el };
+          groupRef.current = group;
+        }
+        // a newer block landed: the previous one is sealed behind it
+        if (lastStatusRef.current) {
+          lastStatusRef.current.textContent = "✓";
+          lastStatusRef.current.className = "s2-st is-ok";
+        }
         const row = document.createElement("div");
         row.className = "s2-trow";
         const num = document.createElement("span");
-        num.textContent = `#${nf.format(ev.slot)}`;
+        num.className = "s2-trow-slot";
+        const st = document.createElement("span");
+        st.className = "s2-st is-land";
+        st.textContent = "○";
+        num.append(st, `#${nf.format(ev.slot)}`);
         const ms = document.createElement("span");
         ms.className = "s2-trow-ms";
         ms.textContent = ev.dt !== null ? `${Math.round(ev.dt)} ms` : "—";
         row.append(num, ms);
-        list.insertBefore(row, list.firstChild);
-        while (list.children.length > MAX_BLOCK_ROWS)
-          list.removeChild(list.lastChild!);
+        // newest slot right under the group header
+        group.el.insertBefore(row, group.el.firstChild!.nextSibling);
+        while (group.el.children.length > MAX_GROUP_ROWS + 1)
+          group.el.removeChild(group.el.lastChild!);
+        lastStatusRef.current = st;
       }),
-    [subscribe, nf],
+    [subscribe, lookup, nf],
   );
 
   React.useEffect(() => {
@@ -114,15 +165,23 @@ export const Tape: React.FC<TapeProps> = ({ feed, subscribe, lookup }) => {
         <div className="s2-tape-col">
           <div className="s2-tape-h">{t("upNext")}</div>
           <div className="s2-tape-list">
-            {upcoming.map(({ slot, entry }) => (
-              <div key={slot} className="s2-trow">
-                <span className="s2-val-name">
-                  {entry.name || entry.id}
-                  {entry.city ? <small> {entry.city}</small> : null}
-                </span>
-                <span className="s2-trow-ms">+{slot - feed.slot}</span>
-              </div>
-            ))}
+            {upcoming.map(({ slot, entry }) => {
+              const sub = [
+                entry.city || null,
+                entry.stakePct > 0 ? `${entry.stakePct}%` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <div key={slot} className="s2-trow">
+                  <span className="s2-val-name">
+                    {entry.name || entry.id}
+                    {sub ? <small> {sub}</small> : null}
+                  </span>
+                  <span className="s2-trow-ms">+{slot - feed.slot}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

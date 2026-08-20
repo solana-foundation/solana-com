@@ -49,6 +49,14 @@ export interface BlockSample {
   txs: number;
   votes: number;
   nonVotes: number;
+  /** Total transaction fees in the block, lamports. */
+  feeLamports?: number;
+  /** Lamports landing on the known Jito tip accounts. */
+  tipLamports?: number;
+  /** Compute units consumed across the block. */
+  cu?: number;
+  /** cu as a percent of the block compute ceiling. */
+  cuPct?: number;
   programs: { name: string; count: number }[];
   tape: { sig: string; p: string }[];
 }

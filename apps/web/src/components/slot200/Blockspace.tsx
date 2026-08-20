@@ -12,6 +12,10 @@ export const Blockspace: React.FC = () => {
   const t = useTranslations("slot200.blockspace");
   const locale = useLocale();
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
+  const nfSol = React.useMemo(
+    () => new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }),
+    [locale],
+  );
   const block = usePolled<BlockSample>("/api/slot-time/block", 5_000);
   const [agoText, setAgoText] = React.useState("");
   const seenAt = React.useRef(0);
@@ -54,34 +58,47 @@ export const Blockspace: React.FC = () => {
       {!block ? (
         <p className="s2-empty">{t("empty")}</p>
       ) : (
-        <div className="s2-progs">
-          {rows.map((p) => (
-            <div key={p.name} className="s2-prow">
-              <span className="s2-pname">{p.name}</span>
-              <div className="s2-bar">
-                <div
-                  className="s2-bar-fill"
-                  style={{ width: `${Math.round((p.count / max) * 100)}%` }}
-                />
+        <>
+          <div className="s2-bstats">
+            {typeof block.feeLamports === "number"
+              ? t("stats", {
+                  fees: nfSol.format(block.feeLamports / 1e9),
+                  tips: nfSol.format((block.tipLamports ?? 0) / 1e9),
+                  cu: block.cuPct ?? 0,
+                })
+              : "—"}
+          </div>
+          <div className="s2-progs">
+            {rows.map((p) => (
+              <div key={p.name} className="s2-prow">
+                <span className="s2-pname">{p.name}</span>
+                <div className="s2-bar">
+                  <div
+                    className="s2-bar-fill"
+                    style={{ width: `${Math.round((p.count / max) * 100)}%` }}
+                  />
+                </div>
+                <span className="s2-pval">{nf.format(p.count)}</span>
               </div>
-              <span className="s2-pval">{nf.format(p.count)}</span>
-            </div>
-          ))}
-          {tailCount > 0 && (
-            <div className="s2-prow is-tail">
-              <span className="s2-pname">{t("tail", { n: tail.length })}</span>
-              <div className="s2-bar">
-                <div
-                  className="s2-bar-fill"
-                  style={{
-                    width: `${Math.min(100, Math.round((tailCount / max) * 100))}%`,
-                  }}
-                />
+            ))}
+            {tailCount > 0 && (
+              <div className="s2-prow is-tail">
+                <span className="s2-pname">
+                  {t("tail", { n: tail.length })}
+                </span>
+                <div className="s2-bar">
+                  <div
+                    className="s2-bar-fill"
+                    style={{
+                      width: `${Math.min(100, Math.round((tailCount / max) * 100))}%`,
+                    }}
+                  />
+                </div>
+                <span className="s2-pval">{nf.format(tailCount)}</span>
               </div>
-              <span className="s2-pval">{nf.format(tailCount)}</span>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </>
       )}
       <p className="s2-note">{t("note")}</p>
     </Panel>
