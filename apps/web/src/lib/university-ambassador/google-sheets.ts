@@ -104,11 +104,11 @@ export async function appendUniversityAmbassadorApplication(
 
 function getGoogleSheetsConfig(): GoogleSheetsConfig {
   const requiredValues = {
-    projectNumber: process.env.GCP_PROJECT_NUMBER,
-    poolId: process.env.GCP_WORKLOAD_IDENTITY_POOL_ID,
-    providerId: process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID,
-    serviceAccountEmail: process.env.GCP_SERVICE_ACCOUNT_EMAIL,
-    sheetId: process.env.UNIVERSITY_AMBASSADOR_GOOGLE_SHEET_ID,
+    projectNumber: process.env.GCP_PROJECT_NUMBER?.trim(),
+    poolId: process.env.GCP_WORKLOAD_IDENTITY_POOL_ID?.trim(),
+    providerId: process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID?.trim(),
+    serviceAccountEmail: process.env.GCP_SERVICE_ACCOUNT_EMAIL?.trim(),
+    sheetId: process.env.UNIVERSITY_AMBASSADOR_GOOGLE_SHEET_ID?.trim(),
   };
 
   const missingValues = Object.entries(requiredValues)
@@ -177,15 +177,13 @@ async function ensureResponseHeaders(
   const response = await sheetsRequest(
     config,
     client,
-    `/${HEADER_RANGE}`,
+    `/${encodeURIComponent(HEADER_RANGE)}`,
     { method: "GET" },
     signal,
   );
 
   if (!response.ok) {
-    throw new Error(
-      `Google Sheets header lookup failed with status ${response.status}`,
-    );
+    throw new Error(await describeSheetsError("header lookup", response));
   }
 
   const payload = (await response.json()) as {
@@ -219,7 +217,7 @@ async function ensureResponseHeaders(
   const updateResponse = await sheetsRequest(
     config,
     client,
-    `/${HEADER_RANGE}?valueInputOption=RAW`,
+    `/${encodeURIComponent(HEADER_RANGE)}?valueInputOption=RAW`,
     {
       method: "PUT",
       body: JSON.stringify({
@@ -232,9 +230,25 @@ async function ensureResponseHeaders(
 
   if (!updateResponse.ok) {
     throw new Error(
-      `Google Sheets header initialization failed with status ${updateResponse.status}`,
+      await describeSheetsError("header initialization", updateResponse),
     );
   }
+}
+
+async function describeSheetsError(operation: string, response: Response) {
+  let message = "";
+
+  try {
+    const payload = (await response.json()) as {
+      error?: { message?: unknown };
+    };
+    message =
+      typeof payload.error?.message === "string" ? payload.error.message : "";
+  } catch {
+    // Keep the status-only message when Google does not return JSON.
+  }
+
+  return `Google Sheets ${operation} failed with status ${response.status}${message ? `: ${message}` : ""}`;
 }
 
 async function sheetsRequest(
