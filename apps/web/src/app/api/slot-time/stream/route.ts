@@ -18,7 +18,25 @@ const STREAM_MS = 285_000;
 // The authoritative rate limit lives at the platform edge (Vercel WAF);
 // rejected clients fall back to the cached /api/slot-time poll.
 const MAX_STREAMS_PER_INSTANCE = 100;
+// A browser needs one stream per tab; anything beyond a handful of concurrent
+// streams from a single address is a misbehaving client, so refuse it before
+// it can monopolize the instance-wide allowance above.
+const MAX_STREAMS_PER_CLIENT = 4;
 let activeStreams = 0;
+const streamsByClient = new Map<string, number>();
+
+// Vercel sets x-real-ip to the socket peer address; the x-forwarded-for chain
+// can carry client-supplied entries, so only its last hop is trusted.
+function clientKey(req: NextRequest): string {
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp;
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) {
+    const hops = fwd.split(",");
+    return hops[hops.length - 1].trim();
+  }
+  return "unknown";
+}
 const ENCODER = new TextEncoder();
 const DEFAULT_SLOT_MS = 400;
 const STREAM_SNAPSHOT_CACHE_SECONDS = 15;
@@ -47,18 +65,27 @@ interface SlotNotification {
  * over checkpoints — never mean-of-arrival-gaps, WS delivery is bursty.
  */
 export async function GET(req: NextRequest) {
-  if (activeStreams >= MAX_STREAMS_PER_INSTANCE) {
+  const client = clientKey(req);
+  const clientStreams = streamsByClient.get(client) ?? 0;
+  if (
+    activeStreams >= MAX_STREAMS_PER_INSTANCE ||
+    clientStreams >= MAX_STREAMS_PER_CLIENT
+  ) {
     return new Response("stream capacity reached", {
       status: 429,
       headers: { "Retry-After": "30", "Cache-Control": "no-store" },
     });
   }
   activeStreams++;
+  streamsByClient.set(client, clientStreams + 1);
   let released = false;
   const release = () => {
     if (released) return;
     released = true;
     activeStreams--;
+    const remaining = (streamsByClient.get(client) ?? 1) - 1;
+    if (remaining > 0) streamsByClient.set(client, remaining);
+    else streamsByClient.delete(client);
   };
 
   const stream = new ReadableStream<Uint8Array>({
