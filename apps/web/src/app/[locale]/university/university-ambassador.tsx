@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 
 import { AmbassadorApplicationForm } from "@/components/universities/ambassador/AmbassadorApplicationForm";
 import { AmbassadorFaq } from "@/components/universities/ambassador/AmbassadorFaq";
+import { MAX_BUILD_IDEA_WORDS } from "@/lib/university-ambassador/validation";
 
 import heroImg from "@@/assets/universities/ambassador-hero.webp";
 import workshopsImg from "@@/assets/universities/ambassador-workshops.webp";
@@ -199,6 +200,9 @@ export async function UniversityAmbassadorPage() {
     buildIdea: {
       label: t("application.form.buildIdea.label"),
       placeholder: t("application.form.buildIdea.placeholder"),
+      wordLimit: t("application.form.buildIdea.wordLimit", {
+        count: MAX_BUILD_IDEA_WORDS,
+      }),
     },
     coLead: {
       label: t("application.form.coLead.label"),

@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { checkBotId } from "botid/server";
 import { checkRateLimit } from "@vercel/firewall";
 import { NextResponse } from "next/server";
+import { getTranslations } from "next-intl/server";
 
+import { resolveLocale } from "@workspace/i18n/messages";
 import {
   appendUniversityAmbassadorApplication,
   UniversityAmbassadorSheetsConfigurationError,
@@ -16,6 +18,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 15;
 
+const ERROR_TRANSLATION_NAMESPACE =
+  "universities.application.form.serverErrors";
+
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
 } as const;
@@ -27,18 +32,27 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
+    const t = await getErrorTranslations();
+
     return NextResponse.json(
-      { error: "Invalid request body." },
+      { error: t("invalidRequest") },
       { status: 400, headers: NO_STORE_HEADERS },
     );
   }
 
   if (!isRecord(body)) {
+    const t = await getErrorTranslations();
+
     return NextResponse.json(
-      { error: "Invalid request body." },
+      { error: t("invalidRequest") },
       { status: 400, headers: NO_STORE_HEADERS },
     );
   }
+
+  const locale = resolveLocale(
+    typeof body.locale === "string" ? body.locale : undefined,
+  );
+  const t = await getErrorTranslations(locale);
 
   const values = normalizeAmbassadorApplication(body);
   const fieldErrors = validateAmbassadorApplication(values);
@@ -46,7 +60,7 @@ export async function POST(request: Request) {
   if (Object.keys(fieldErrors).length > 0) {
     return NextResponse.json(
       {
-        error: "Please check the highlighted fields and try again.",
+        error: t("validation"),
         fieldErrors,
       },
       { status: 400, headers: NO_STORE_HEADERS },
@@ -68,7 +82,7 @@ export async function POST(request: Request) {
     console.error("University ambassador rate-limit check failed", error);
 
     return NextResponse.json(
-      { error: "The application form is temporarily unavailable." },
+      { error: t("unavailable") },
       {
         status: 503,
         headers: NO_STORE_HEADERS,
@@ -85,14 +99,14 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json(
-      { error: "The application form is not configured yet." },
+      { error: t("notConfigured") },
       { status: 503, headers: NO_STORE_HEADERS },
     );
   }
 
   if (rateLimit.rateLimited) {
     return NextResponse.json(
-      { error: "Too many applications. Please try again later." },
+      { error: t("rateLimited") },
       {
         status: 429,
         headers: {
@@ -103,8 +117,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const locale =
-    typeof body.locale === "string" ? body.locale.slice(0, 16) : "en";
   const submissionId = randomUUID();
 
   try {
@@ -112,7 +124,7 @@ export async function POST(request: Request) {
 
     if (botCheck.isBot) {
       return NextResponse.json(
-        { error: "We could not verify this submission." },
+        { error: t("verification") },
         { status: 403, headers: NO_STORE_HEADERS },
       );
     }
@@ -138,8 +150,8 @@ export async function POST(request: Request) {
       {
         error:
           error instanceof UniversityAmbassadorSheetsConfigurationError
-            ? "The application form is not configured yet."
-            : "We could not submit your application. Please try again.",
+            ? t("notConfigured")
+            : t("submission"),
       },
       {
         status:
@@ -150,6 +162,13 @@ export async function POST(request: Request) {
       },
     );
   }
+}
+
+async function getErrorTranslations(locale = "en") {
+  return getTranslations({
+    locale,
+    namespace: ERROR_TRANSLATION_NAMESPACE,
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

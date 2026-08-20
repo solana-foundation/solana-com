@@ -8,7 +8,6 @@ import { ChevronDown } from "@boxicons/react/ChevronDown";
 import {
   APPLICATION_FIELDS,
   COUNTRY_CODES,
-  MAX_BUILD_IDEA_WORDS,
   isValidationCode,
   normalizeAmbassadorApplication,
   validateAmbassadorApplication,
@@ -18,6 +17,7 @@ import {
 } from "@/lib/university-ambassador/validation";
 
 type FieldTranslation = { label: string; placeholder: string };
+type BuildIdeaTranslation = FieldTranslation & { wordLimit: string };
 
 interface AmbassadorApplicationFormProps {
   translations: {
@@ -28,7 +28,7 @@ interface AmbassadorApplicationFormProps {
     graduation: FieldTranslation;
     videoShipped: FieldTranslation;
     videoOrganized: FieldTranslation;
-    buildIdea: FieldTranslation;
+    buildIdea: BuildIdeaTranslation;
     coLead: {
       label: string;
       namePlaceholder: string;
@@ -411,9 +411,7 @@ export function AmbassadorApplicationForm({
           }
           className={`${getInputClasses(buildIdeaError)} h-[106px] resize-none py-[15px]`}
         />
-        <p className="text-[12px] text-[#6d6d78]">
-          {MAX_BUILD_IDEA_WORDS} words maximum.
-        </p>
+        <p className="text-[12px] text-[#6d6d78]">{t.buildIdea.wordLimit}</p>
       </Field>
 
       <Field
