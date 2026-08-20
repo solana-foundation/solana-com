@@ -52,7 +52,8 @@ function sanitizeFile(filePath) {
 
   if (!changed) return;
 
-  fs.writeFileSync(filePath, lines.join(newline));
+  const sanitized = lines.join(newline);
+  fs.writeFileSync(filePath, sanitized);
   changedFiles++;
 
   const relativePath = path
@@ -63,7 +64,7 @@ function sanitizeFile(filePath) {
 
   lockEntry.sha256 = crypto
     .createHash("sha256")
-    .update(fs.readFileSync(filePath))
+    .update(sanitized)
     .digest("hex");
   changedLockEntries++;
 }

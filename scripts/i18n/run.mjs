@@ -44,6 +44,45 @@ function loadI18nEnv() {
 
 loadI18nEnv();
 
+function parsePositiveInt(value) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+// CI sets LINGO_JOB_TIMEOUT_MINUTES below the workflow's timeout-minutes so
+// every Lingo command, retry, and recovery finishes before the job is killed.
+// Local runs leave it unset and are only capped by the per-command wait limit.
+const jobTimeoutMinutes = parsePositiveInt(
+  process.env.LINGO_JOB_TIMEOUT_MINUTES,
+);
+const jobDeadlineMs = jobTimeoutMinutes
+  ? Date.now() + jobTimeoutMinutes * 60_000
+  : undefined;
+
+// Every command must finish before the workflow deadline; commands that wait
+// on Lingo are additionally capped by the configured wait limit, and repair
+// pushes get a shorter window so recovery still fits inside the deadline.
+function computeLingoTimeoutMs(args) {
+  // `resume` re-attaches to an in-flight run and blocks like `push --wait`.
+  const waitsOnLingo = args.includes("--wait") || args[0] === "resume";
+  const configuredTimeoutMinutes =
+    parsePositiveInt(process.env.LINGO_WAIT_TIMEOUT_MINUTES) ?? 210;
+  const isRecoveryPush =
+    args.includes("--force") || args.includes("--backfill-missing");
+  const maxTimeoutMs =
+    (isRecoveryPush
+      ? Math.min(configuredTimeoutMinutes, 90)
+      : configuredTimeoutMinutes) * 60_000;
+  const remainingJobMs =
+    jobDeadlineMs === undefined
+      ? undefined
+      : jobDeadlineMs - Date.now() - lingoTimeoutBufferMs;
+
+  return waitsOnLingo
+    ? Math.min(maxTimeoutMs, remainingJobMs ?? maxTimeoutMs)
+    : remainingJobMs;
+}
+
 function run(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd,
@@ -64,48 +103,13 @@ function runOrExit(command, args, cwd) {
 
 function runLingo(args) {
   return new Promise((resolve) => {
-    const commandArgs = ["--yes", lingoCliPackage, ...args];
-    // `resume` re-attaches to an in-flight run and blocks like `push --wait`.
-    const waitsOnLingo = args.includes("--wait") || args[0] === "resume";
-    const configuredTimeoutMinutes = Number.parseInt(
-      process.env.LINGO_WAIT_TIMEOUT_MINUTES ?? "210",
-      10,
-    );
-    const configuredTimeout =
-      Number.isFinite(configuredTimeoutMinutes) && configuredTimeoutMinutes > 0
-        ? configuredTimeoutMinutes
-        : 210;
-    // A forced or backfill push is a bounded repair pass after the main run.
-    const isRecoveryPush =
-      args.includes("--force") || args.includes("--backfill-missing");
-    const maxTimeoutMinutes = isRecoveryPush
-      ? Math.min(configuredTimeout, 90)
-      : configuredTimeout;
-    const maxTimeoutMs = maxTimeoutMinutes * 60 * 1000;
-    const jobDeadlineMs = Number.parseInt(
-      process.env.LINGO_JOB_DEADLINE_MS ?? "",
-      10,
-    );
-    const remainingJobMs = Number.isFinite(jobDeadlineMs)
-      ? jobDeadlineMs - Date.now() - lingoTimeoutBufferMs
-      : undefined;
-    // Every command must finish before the workflow deadline; commands that
-    // wait on Lingo are additionally capped by the configured wait limit.
-    const timeoutMs = waitsOnLingo
-      ? Math.min(maxTimeoutMs, remainingJobMs ?? maxTimeoutMs)
-      : remainingJobMs;
+    const timeoutMs = computeLingoTimeoutMs(args);
 
     if (timeoutMs !== undefined && timeoutMs <= 0) {
       console.error(
         "Not enough workflow time remains to start another bounded Lingo command; stopping it.",
       );
-      resolve({
-        status: 124,
-        signal: undefined,
-        error: undefined,
-        output: "",
-        timedOut: true,
-      });
+      resolve({ status: 124, output: "" });
       return;
     }
 
@@ -118,31 +122,26 @@ function runLingo(args) {
     let timeoutHandle;
     let killHandle;
 
-    const finish = (status, signal, error) => {
+    const finish = (status, error) => {
       if (settled) return;
       settled = true;
 
       if (timeoutHandle) clearTimeout(timeoutHandle);
       if (killHandle) clearTimeout(killHandle);
+      if (error) console.error(error);
 
-      resolve({
-        status: status ?? (timedOut ? 124 : 1),
-        signal,
-        error,
-        output,
-        timedOut,
-      });
+      resolve({ status: status ?? (timedOut ? 124 : 1), output });
     };
 
     let child;
     try {
-      child = spawn("npx", commandArgs, {
+      child = spawn("npx", ["--yes", lingoCliPackage, ...args], {
         cwd: rootDir,
         shell: false,
         stdio: ["inherit", "pipe", "pipe"],
       });
     } catch (error) {
-      finish(1, undefined, error);
+      finish(1, error);
       return;
     }
 
@@ -154,8 +153,8 @@ function runLingo(args) {
 
     child.stdout.on("data", forward(process.stdout));
     child.stderr.on("data", forward(process.stderr));
-    child.once("error", (error) => finish(1, undefined, error));
-    child.once("close", (status, signal) => finish(status, signal));
+    child.once("error", (error) => finish(1, error));
+    child.once("close", (status) => finish(status));
 
     if (timeoutMs) {
       timeoutHandle = setTimeout(() => {
@@ -392,7 +391,12 @@ async function runContinuousLocalization(requestedScope) {
     if (retryResult.status !== 0) {
       process.exit(retryResult.status);
     }
-    runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
+    if (verifyTargetCoverage() !== 0) {
+      console.error(
+        "Lingo target coverage is still incomplete after the backfill retry.",
+      );
+      process.exit(1);
+    }
   }
 
   // Config-wide pushes and backfills can rewrite docs targets under any
