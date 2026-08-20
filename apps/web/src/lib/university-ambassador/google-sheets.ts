@@ -193,17 +193,48 @@ async function ensureResponseHeaders(
   };
   const existingHeaders = payload.values?.[0] ?? [];
 
-  const hasExpectedHeaders = RESPONSE_HEADERS.every(
-    (header, index) => existingHeaders[index] === header,
-  );
+  const hasExpectedHeaders =
+    existingHeaders.length === RESPONSE_HEADERS.length &&
+    RESPONSE_HEADERS.every(
+      (header, index) => existingHeaders[index] === header,
+    );
 
   if (hasExpectedHeaders) {
     return;
   }
 
-  throw new UniversityAmbassadorSheetsConfigurationError(
-    "The University Ambassador sheet must be initialized with response headers before accepting applications.",
+  const hasExistingHeaderValues = existingHeaders.some((value) =>
+    String(value ?? "").trim(),
   );
+
+  if (hasExistingHeaderValues) {
+    throw new UniversityAmbassadorSheetsConfigurationError(
+      "The University Ambassador sheet must be initialized with the expected response headers before accepting applications.",
+    );
+  }
+
+  // This update is idempotent and only touches row 1. Concurrent first
+  // submissions can safely write the same headers; INSERT_ROWS appends each
+  // application below the header row without overwriting another submission.
+  const updateResponse = await sheetsRequest(
+    config,
+    client,
+    `/${HEADER_RANGE}?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        majorDimension: "ROWS",
+        values: [RESPONSE_HEADERS],
+      }),
+    },
+    signal,
+  );
+
+  if (!updateResponse.ok) {
+    throw new Error(
+      `Google Sheets header initialization failed with status ${updateResponse.status}`,
+    );
+  }
 }
 
 async function sheetsRequest(
