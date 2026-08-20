@@ -67,8 +67,8 @@ describe("RPC latency query options", () => {
     ).toBe("fluxrpc");
   });
 
-  it("normalizes Flux provider aliases", () => {
-    for (const provider of ["FluxRPC", "flux-rpc", "flux"]) {
+  it("normalizes Flux provider label casing", () => {
+    for (const provider of ["FluxRPC", "flux-rpc"]) {
       expect(
         parseRpcLatencyQueryOptions(new URLSearchParams(`provider=${provider}`))
           .provider,

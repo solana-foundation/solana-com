@@ -504,7 +504,6 @@ const providerAliases: Record<string, ProviderName> = {
   chainstack: "Chainstack",
   DefiLama: "DeFiLlama",
   DefiLlama: "DeFiLlama",
-  flux: "FluxRPC",
   fluxrpc: "FluxRPC",
   helius: "Helius",
   jito: "Jito",

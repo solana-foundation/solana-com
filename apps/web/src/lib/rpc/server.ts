@@ -51,7 +51,6 @@ export type RpcLatencyProvider = (typeof rpcLatencyProviders)[number];
 const rpcProviderAliases: Record<string, RpcLatencyProvider> = {
   alchemy: "alchemy",
   chainstack: "chainstack",
-  flux: "fluxrpc",
   fluxrpc: "fluxrpc",
   helius: "helius",
   quicknode: "quicknode",
