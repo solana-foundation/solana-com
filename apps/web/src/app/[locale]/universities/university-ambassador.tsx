@@ -214,13 +214,23 @@ export async function UniversityAmbassadorPage() {
     },
     education: {
       label: t("application.form.education.label"),
-      options: {
-        none: t("application.form.education.options.none"),
-        completed: t("application.form.education.options.completed"),
-      },
+      placeholder: t("application.form.education.placeholder"),
+    },
+    validation: {
+      required: t("application.form.validation.required"),
+      maxLength: t("application.form.validation.maxLength"),
+      country: t("application.form.validation.country"),
+      graduation: t("application.form.validation.graduation"),
+      url: t("application.form.validation.url"),
+      buildIdea: t("application.form.validation.buildIdea"),
+      email: t("application.form.validation.email"),
+      coLeadPair: t("application.form.validation.coLeadPair"),
+      option: t("application.form.validation.option"),
     },
     submit: t("application.form.submit"),
-    notOpen: t("application.form.notOpen"),
+    submitting: t("application.form.submitting"),
+    success: t("application.form.success"),
+    error: t("application.form.error"),
   };
 
   return (
