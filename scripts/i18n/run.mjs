@@ -243,8 +243,8 @@ function hashFileIfExists(relativePath) {
 }
 
 async function recoverFailedPush(failedResult) {
-  // Snapshot the targets the CLI reported as failed so a recovery pull only
-  // clears the failure once those exact files were created or rewritten.
+  // Snapshot the targets the CLI reported as failed so a confirmed recovery
+  // only clears the failure once those exact files were created or rewritten.
   const failedTargetPaths = extractFailedTargetPaths(failedResult.output);
   const failedTargetHashes = new Map(
     failedTargetPaths.map((targetPath) => [
@@ -267,6 +267,16 @@ async function recoverFailedPush(failedResult) {
     return failedResult;
   }
 
+  // Only a completed resume proves the interrupted run finished; a bare pull
+  // may fetch partial output, and a rewritten target file is not proof of a
+  // complete translation.
+  if (resumeResult.status !== 0) {
+    console.error(
+      "The recovery pull salvaged completed outputs but could not confirm the run finished; keeping the failed push status.",
+    );
+    return failedResult;
+  }
+
   if (failedTargetPaths.length > 0) {
     const unrecoveredTargets = failedTargetPaths.filter((targetPath) => {
       const recoveredHash = hashFileIfExists(targetPath);
@@ -276,29 +286,18 @@ async function recoverFailedPush(failedResult) {
       );
     });
 
-    if (unrecoveredTargets.length === 0) {
-      return pullResult;
+    if (unrecoveredTargets.length > 0) {
+      console.error(
+        `The recovery pull left ${unrecoveredTargets.length} failed target(s) unrecovered; keeping the failed push status.`,
+      );
+      for (const targetPath of unrecoveredTargets.slice(0, 20)) {
+        console.error(`- unrecovered target: ${targetPath}`);
+      }
+      return failedResult;
     }
-
-    console.error(
-      `The recovery pull left ${unrecoveredTargets.length} failed target(s) unrecovered; keeping the failed push status.`,
-    );
-    for (const targetPath of unrecoveredTargets.slice(0, 20)) {
-      console.error(`- unrecovered target: ${targetPath}`);
-    }
-    return failedResult;
   }
 
-  // Without a per-target failure report, only a completed resume proves the
-  // interrupted run finished; a bare pull may have fetched partial output.
-  if (resumeResult.status === 0) {
-    return pullResult;
-  }
-
-  console.error(
-    "The recovery pull salvaged completed outputs but could not confirm the run finished; keeping the failed push status.",
-  );
-  return failedResult;
+  return pullResult;
 }
 
 async function runLingoPush(args = []) {
