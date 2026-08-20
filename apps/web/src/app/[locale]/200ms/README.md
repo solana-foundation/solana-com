@@ -141,5 +141,5 @@ not prove that the network has reached a particular timing stage.
   charts have guide lines hardcoded to 400ms and 350ms.
 - The heartbeat chart clamps its lower display range at 250ms, so 200ms values
   will be visually clipped until that chart is updated.
-- Page metadata and OpenGraph copy remain static around the original 400 → 350
-  milestone; they do not update from live measurements.
+- Page metadata and social-card copy are intentionally evergreen; they do not
+  update from live measurements.

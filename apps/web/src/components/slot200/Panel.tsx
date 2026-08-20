@@ -20,10 +20,10 @@ export const Panel: React.FC<PanelProps> = ({
 }) => (
   <section className={`s2-panel ${className ?? ""}`}>
     <header className="s2-panel-head">
-      <span className="s2-panel-title">
+      <h2 className="s2-panel-title">
         {live && <span aria-hidden className="s2-dot s2-dot-live" />}
         {title}
-      </span>
+      </h2>
       {meta && <span className="s2-panel-meta">{meta}</span>}
     </header>
     <div className="s2-panel-body">{children}</div>
