@@ -404,6 +404,54 @@ describe("RPC latency query ranges", () => {
     });
   });
 
+  it("keeps branded Flux samples when filtering by provider", async () => {
+    const timestamp = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams.get("query") ?? "";
+      const result = query.includes("rpc_latency_seconds_sum")
+        ? [
+            {
+              metric: { provider: "FluxRPC" },
+              values: [[timestamp, "42"]],
+            },
+          ]
+        : [];
+
+      return new Response(
+        JSON.stringify({ status: "success", data: { result } }),
+        { status: 200 },
+      );
+    });
+
+    vi.spyOn(Date, "now").mockReturnValue(timestamp * 1000);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { provider: "fluxrpc", timeframe: "30m" },
+    );
+
+    expect(result.rows).toContainEqual({
+      date: new Date(timestamp * 1000).toISOString(),
+      metricName: "RPC Avg Latency",
+      providerName: "fluxrpc",
+      unit: "Milliseconds",
+      value: 42,
+    });
+
+    const queries = fetchMock.mock.calls.map(
+      ([input]) => new URL(String(input)).searchParams.get("query") ?? "",
+    );
+
+    for (const query of queries) {
+      expect(query).toContain('provider=~"(?i)');
+      expect(query).not.toContain('provider="');
+    }
+  });
+
   it("attaches human-readable error kinds to error-rate samples", async () => {
     const timestamp = 1_800_000_000;
     const fetchMock = vi.fn().mockImplementation(async (input: string) => {
@@ -551,6 +599,26 @@ describe("RPC Prometheus queries", () => {
     expect(buildRpcAvgLatencyQuery({ infra: "tsw", region: "pit" })).toContain(
       'region=~"pit1|pitt1"',
     );
+  });
+
+  it("filters providers with a case- and separator-insensitive matcher", () => {
+    const query = buildRpcAvgLatencyQuery({ provider: "fluxrpc" });
+    const matcher = query.match(/provider=~"([^"]+)"/)?.[1];
+
+    expect(matcher).toBeDefined();
+    expect(matcher).toMatch(/^\(\?i\)/);
+
+    const pattern = new RegExp(
+      `^${matcher!.slice("(?i)".length).replace(/\\\\/g, "\\")}$`,
+      "i",
+    );
+
+    for (const label of ["fluxrpc", "FluxRPC", "flux-rpc", "Flux RPC"]) {
+      expect(pattern.test(label)).toBe(true);
+    }
+
+    expect(pattern.test("helius")).toBe(false);
+    expect(pattern.test("notfluxrpc")).toBe(false);
   });
 
   it("computes error rate over success and error outcomes", () => {

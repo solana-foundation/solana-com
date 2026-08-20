@@ -48,15 +48,6 @@ export const rpcLatencyProviders = [
 
 export type RpcLatencyProvider = (typeof rpcLatencyProviders)[number];
 
-const rpcProviderAliases: Record<string, RpcLatencyProvider> = {
-  alchemy: "alchemy",
-  chainstack: "chainstack",
-  fluxrpc: "fluxrpc",
-  helius: "helius",
-  quicknode: "quicknode",
-  triton: "triton",
-};
-
 export type RpcLatencyQueryOptions = {
   infra?: RpcLatencyInfra;
   method?: RpcLatencyMethod;
@@ -373,7 +364,7 @@ function buildLabelSelector(
   ];
 
   if (provider) {
-    matchers.push(["provider", "=", provider]);
+    matchers.push(["provider", "=~", getRpcProviderMatcher(provider)]);
   }
 
   matchers.push(...extraMatchers);
@@ -387,6 +378,13 @@ function getRpcInfraMatcher(infra: RpcLatencyInfra) {
 
 function getRpcRegionMatcher(infra: RpcLatencyInfra, region: RpcLatencyRegion) {
   return getRpcRegionSourceValue(infra, region);
+}
+
+function getRpcProviderMatcher(provider: RpcLatencyProvider) {
+  // Prometheus may store branded labels (e.g. "FluxRPC"), so match every
+  // casing/separator variant that normalizeRpcProvider collapses to this
+  // provider instead of requiring the canonical label.
+  return `(?i)[\\s_-]*${provider.split("").join("[\\s_-]*")}[\\s_-]*`;
 }
 
 function formatLabelMatcher([key, operator, value]: PrometheusLabelMatcher) {
@@ -569,9 +567,7 @@ function toMetricRow({
 }
 
 function getProviderLabel(metric: Record<string, unknown> | undefined) {
-  const provider = normalizeRpcProvider(getMetricLabel(metric, "provider"));
-
-  return provider && providerSet.has(provider) ? provider : undefined;
+  return normalizeRpcProvider(getMetricLabel(metric, "provider"));
 }
 
 function getMetricLabel(
@@ -605,7 +601,9 @@ function normalizeRpcProvider(value: string | null | undefined) {
     .toLowerCase()
     .replace(/[\s_-]+/g, "");
 
-  return normalizedValue ? rpcProviderAliases[normalizedValue] : undefined;
+  return normalizedValue && providerSet.has(normalizedValue)
+    ? (normalizedValue as RpcLatencyProvider)
+    : undefined;
 }
 
 function normalizeBaseUrl(value: string) {
