@@ -44,35 +44,27 @@ function loadI18nEnv() {
 
 loadI18nEnv();
 
-function parsePositiveInt(value) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-// CI sets LINGO_JOB_TIMEOUT_MINUTES below the workflow's timeout-minutes so
-// every Lingo command, retry, and recovery finishes before the job is killed.
-// Local runs leave it unset and are only capped by the per-command wait limit.
-const jobTimeoutMinutes = parsePositiveInt(
-  process.env.LINGO_JOB_TIMEOUT_MINUTES,
-);
-const jobDeadlineMs = jobTimeoutMinutes
+// Kept below the workflow's timeout-minutes so every Lingo command, retry,
+// and recovery finishes before the job is killed. Only applied in CI; local
+// runs are only capped by the per-command wait limit.
+const jobTimeoutMinutes = 300;
+const jobDeadlineMs = process.env.CI
   ? Date.now() + jobTimeoutMinutes * 60_000
   : undefined;
 
 // Every command must finish before the workflow deadline; commands that wait
-// on Lingo are additionally capped by the configured wait limit, and repair
-// pushes get a shorter window so recovery still fits inside the deadline.
+// on Lingo are additionally capped by the wait limit, and repair pushes get
+// a shorter window so recovery still fits inside the deadline.
+const waitTimeoutMinutes = 210;
+
 function computeLingoTimeoutMs(args) {
   // `resume` re-attaches to an in-flight run and blocks like `push --wait`.
   const waitsOnLingo = args.includes("--wait") || args[0] === "resume";
-  const configuredTimeoutMinutes =
-    parsePositiveInt(process.env.LINGO_WAIT_TIMEOUT_MINUTES) ?? 210;
   const isRecoveryPush =
     args.includes("--force") || args.includes("--backfill-missing");
   const maxTimeoutMs =
-    (isRecoveryPush
-      ? Math.min(configuredTimeoutMinutes, 90)
-      : configuredTimeoutMinutes) * 60_000;
+    (isRecoveryPush ? Math.min(waitTimeoutMinutes, 90) : waitTimeoutMinutes) *
+    60_000;
   const remainingJobMs =
     jobDeadlineMs === undefined
       ? undefined
