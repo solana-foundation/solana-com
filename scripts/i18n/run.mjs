@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "../..");
 const lingoCliPackage = "@lingo.dev/cli@1.12.0";
+const lingoTimeoutBufferMs = 30_000;
 const lingoConfig = JSON.parse(
   fs.readFileSync(path.join(rootDir, ".lingo/config.json"), "utf8"),
 );
@@ -75,10 +76,36 @@ function runLingo(args) {
     // A forced or backfill push is a bounded repair pass after the main run.
     const isRecoveryPush =
       args.includes("--force") || args.includes("--backfill-missing");
-    const timeoutMinutes = isRecoveryPush
+    const maxTimeoutMinutes = isRecoveryPush
       ? Math.min(configuredTimeout, 90)
       : configuredTimeout;
-    const timeoutMs = shouldWait ? timeoutMinutes * 60 * 1000 : undefined;
+    const maxTimeoutMs = maxTimeoutMinutes * 60 * 1000;
+    const jobDeadlineMs = Number.parseInt(
+      process.env.LINGO_JOB_DEADLINE_MS ?? "",
+      10,
+    );
+    const remainingJobMs = Number.isFinite(jobDeadlineMs)
+      ? jobDeadlineMs - Date.now() - lingoTimeoutBufferMs
+      : undefined;
+    const timeoutMs = shouldWait
+      ? Math.min(maxTimeoutMs, remainingJobMs ?? maxTimeoutMs)
+      : undefined;
+
+    if (shouldWait && timeoutMs <= 0) {
+      console.error(
+        "Not enough workflow time remains to start another bounded Lingo command; stopping it.",
+      );
+      resolve({
+        status: 124,
+        signal: undefined,
+        error: undefined,
+        output: "",
+        timedOut: true,
+      });
+      return;
+    }
+
+    const timeoutMinutes = timeoutMs ? timeoutMs / 60 / 1000 : undefined;
     let output = "";
     let timedOut = false;
     let settled = false;
