@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { checkBotId } from "botid/server";
+import { checkRateLimit } from "@vercel/firewall";
 import { NextResponse } from "next/server";
 
 import {
@@ -10,10 +11,6 @@ import {
   normalizeAmbassadorApplication,
   validateAmbassadorApplication,
 } from "@/lib/university-ambassador/validation";
-import {
-  checkUniversityAmbassadorRateLimit,
-  clientIpFromHeaders,
-} from "@/lib/university-ambassador/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,6 +19,7 @@ export const maxDuration = 15;
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
 } as const;
+const UNIVERSITY_AMBASSADOR_RATE_LIMIT_ID = "university-ambassador-submit";
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -60,17 +58,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true }, { headers: NO_STORE_HEADERS });
   }
 
-  const clientIp = clientIpFromHeaders(request.headers);
-  const rateLimit = checkUniversityAmbassadorRateLimit({ ip: clientIp });
+  let rateLimit: Awaited<ReturnType<typeof checkRateLimit>>;
 
-  if (!rateLimit.ok) {
+  try {
+    rateLimit = await checkRateLimit(UNIVERSITY_AMBASSADOR_RATE_LIMIT_ID, {
+      request,
+    });
+  } catch (error) {
+    console.error("University ambassador rate-limit check failed", error);
+
     return NextResponse.json(
-      { error: rateLimit.error },
+      { error: "The application form is temporarily unavailable." },
+      {
+        status: 503,
+        headers: NO_STORE_HEADERS,
+      },
+    );
+  }
+
+  if (
+    rateLimit.error === "not-found" &&
+    process.env.NODE_ENV === "production"
+  ) {
+    console.error(
+      `University Ambassador Vercel WAF rate limit '${UNIVERSITY_AMBASSADOR_RATE_LIMIT_ID}' is not configured`,
+    );
+
+    return NextResponse.json(
+      { error: "The application form is not configured yet." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  if (rateLimit.rateLimited) {
+    return NextResponse.json(
+      { error: "Too many applications. Please try again later." },
       {
         status: 429,
         headers: {
           ...NO_STORE_HEADERS,
-          "Retry-After": String(rateLimit.retryAfter),
+          "Retry-After": "60",
         },
       },
     );
@@ -122,8 +149,6 @@ export async function POST(request: Request) {
         headers: NO_STORE_HEADERS,
       },
     );
-  } finally {
-    rateLimit.release();
   }
 }
 
