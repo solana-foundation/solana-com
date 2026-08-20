@@ -64,7 +64,8 @@ function runOrExit(command, args, cwd) {
 function runLingo(args) {
   return new Promise((resolve) => {
     const commandArgs = ["--yes", lingoCliPackage, ...args];
-    const shouldWait = args.includes("--wait");
+    // `resume` re-attaches to an in-flight run and blocks like `push --wait`.
+    const waitsOnLingo = args.includes("--wait") || args[0] === "resume";
     const configuredTimeoutMinutes = Number.parseInt(
       process.env.LINGO_WAIT_TIMEOUT_MINUTES ?? "210",
       10,
@@ -87,11 +88,13 @@ function runLingo(args) {
     const remainingJobMs = Number.isFinite(jobDeadlineMs)
       ? jobDeadlineMs - Date.now() - lingoTimeoutBufferMs
       : undefined;
-    const timeoutMs = shouldWait
+    // Every command must finish before the workflow deadline; commands that
+    // wait on Lingo are additionally capped by the configured wait limit.
+    const timeoutMs = waitsOnLingo
       ? Math.min(maxTimeoutMs, remainingJobMs ?? maxTimeoutMs)
-      : undefined;
+      : remainingJobMs;
 
-    if (shouldWait && timeoutMs <= 0) {
+    if (timeoutMs !== undefined && timeoutMs <= 0) {
       console.error(
         "Not enough workflow time remains to start another bounded Lingo command; stopping it.",
       );
@@ -105,7 +108,9 @@ function runLingo(args) {
       return;
     }
 
-    const timeoutMinutes = timeoutMs ? timeoutMs / 60 / 1000 : undefined;
+    const timeoutMinutes = timeoutMs
+      ? Math.round(timeoutMs / 6_000) / 10
+      : undefined;
     let output = "";
     let timedOut = false;
     let settled = false;
@@ -155,7 +160,7 @@ function runLingo(args) {
       timeoutHandle = setTimeout(() => {
         timedOut = true;
         console.error(
-          `Lingo command exceeded the ${timeoutMinutes}-minute wait limit; stopping it.`,
+          `Lingo command exceeded its ${timeoutMinutes}-minute time limit; stopping it.`,
         );
         child.kill("SIGTERM");
         killHandle = setTimeout(() => child.kill("SIGKILL"), 10_000);
@@ -307,6 +312,9 @@ async function runContinuousLocalization(requestedScope) {
     process.exit(pushResult.status);
   }
 
+  // The coverage guard and backfill are deliberately repo-wide: incremental
+  // pushes are always config-wide (see above), so any gap they surface was
+  // already inside this run's blast radius regardless of the requested scope.
   if (verifyTargetCoverage() !== 0) {
     console.error(
       "Lingo left target coverage incomplete; retrying once in backfill mode.",
