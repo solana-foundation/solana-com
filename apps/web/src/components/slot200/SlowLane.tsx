@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Panel } from "./Panel";
 import type { Attribution } from "./useAttribution";
 
-const MAX_ROWS = 8;
+const MAX_ROWS = 6;
 
 /**
  * The slow lane: per-validator time added beyond the session median —

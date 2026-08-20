@@ -89,8 +89,10 @@ export const Tape: React.FC<TapeProps> = ({ feed, subscribe }) => {
           <div className="s2-tape-h">{t("txs")}</div>
           <div ref={txRef} className="s2-tape-list" />
         </div>
+        <div className="s2-tape-note">
+          <p className="s2-note">{t("note")}</p>
+        </div>
       </div>
-      <p className="s2-note">{t("note")}</p>
     </Panel>
   );
 };

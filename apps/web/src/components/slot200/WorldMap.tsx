@@ -27,6 +27,37 @@ interface WorldMapProps {
   lookup: (_slot: number) => LeaderEntry | null;
 }
 
+const BASE_DESK = [0, 50, 1000, 333] as const;
+const BASE_MOBILE = [70, 65, 840, 290] as const;
+const MAX_ZOOM = 5;
+
+// stake-weighted centroid — zoom dives into the network's mass, not mid-ocean
+const CENTROID = (() => {
+  let sx = 0;
+  let sy = 0;
+  let sw = 0;
+  for (const l of LOCS) {
+    const [x, y] = toXY(l[0], l[1]);
+    const w = l[3] || 0.01;
+    sx += x * w;
+    sy += y * w;
+    sw += w;
+  }
+  return [sx / sw, sy / sw] as const;
+})();
+
+function viewBoxFor(zoom: number, mobile: boolean): string {
+  const [bx, by, bw, bh] = mobile ? BASE_MOBILE : BASE_DESK;
+  const f = Math.pow(1.45, zoom);
+  const w = bw / f;
+  const h = bh / f;
+  const cx = zoom === 0 ? bx + bw / 2 : CENTROID[0];
+  const cy = zoom === 0 ? by + bh / 2 : CENTROID[1];
+  const x = Math.min(Math.max(cx - w / 2, bx), bx + bw - w);
+  const y = Math.min(Math.max(cy - h / 2, by), by + bh - h);
+  return `${x.toFixed(1)} ${y.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`;
+}
+
 /**
  * Every block, on the map: the staked constellation, with one pulse per
  * block fired from the producing validator's city (live leader schedule +
@@ -41,6 +72,7 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
   const capRef = React.useRef<HTMLDivElement>(null);
   const nf = React.useMemo(() => new Intl.NumberFormat("en-US"), []);
   const [mobile, setMobile] = React.useState(false);
+  const [zoom, setZoom] = React.useState(0);
 
   React.useEffect(() => {
     setMobile(window.matchMedia("(max-width: 700px)").matches);
@@ -85,34 +117,54 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
 
   return (
     <Panel title={t("title")} live className="s2-map-panel">
-      <svg
-        viewBox={mobile ? "70 65 840 290" : "0 50 1000 333"}
-        preserveAspectRatio="xMidYMid meet"
-        className="s2-map-svg"
-        aria-label={t("ariaLabel")}
-      >
-        <path
-          d={(worldLand as { d: string }).d}
-          fill="rgba(255,255,255,0.05)"
-          stroke="rgba(255,255,255,0.13)"
-          strokeWidth="0.6"
-        />
-        <g>
-          {LOCS.map((l, i) => {
-            const [x, y] = toXY(l[0], l[1]);
-            return (
-              <circle
-                key={i}
-                cx={x}
-                cy={y}
-                r={Math.min(7, 1 + 1.6 * Math.sqrt(l[3] || 0)).toFixed(1)}
-                fill="rgba(148,163,184,0.28)"
-              />
-            );
-          })}
-        </g>
-        <g ref={pulseGroup} />
-      </svg>
+      <div className="s2-map-stage">
+        <div className="s2-map-zoom" role="group" aria-label={t("zoomLabel")}>
+          <button
+            type="button"
+            aria-label={t("zoomIn")}
+            disabled={zoom >= MAX_ZOOM}
+            onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 1))}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            aria-label={t("zoomOut")}
+            disabled={zoom <= 0}
+            onClick={() => setZoom((z) => Math.max(0, z - 1))}
+          >
+            −
+          </button>
+        </div>
+        <svg
+          viewBox={viewBoxFor(zoom, mobile)}
+          preserveAspectRatio="xMidYMid meet"
+          className="s2-map-svg"
+          aria-label={t("ariaLabel")}
+        >
+          <path
+            d={(worldLand as { d: string }).d}
+            fill="rgba(255,255,255,0.05)"
+            stroke="rgba(255,255,255,0.13)"
+            strokeWidth="0.6"
+          />
+          <g>
+            {LOCS.map((l, i) => {
+              const [x, y] = toXY(l[0], l[1]);
+              return (
+                <circle
+                  key={i}
+                  cx={x}
+                  cy={y}
+                  r={Math.min(7, 1 + 1.6 * Math.sqrt(l[3] || 0)).toFixed(1)}
+                  fill="rgba(148,163,184,0.28)"
+                />
+              );
+            })}
+          </g>
+          <g ref={pulseGroup} />
+        </svg>
+      </div>
       <div ref={capRef} className="s2-map-cap">
         {" "}
       </div>

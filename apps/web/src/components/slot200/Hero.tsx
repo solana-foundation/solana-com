@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
-import { flipPhase } from "./stages";
+import { nextStep, pctFaster, rolloutState } from "./stages";
 import { HeartbeatAudio } from "./heartbeatAudio";
 import type { FeedState, SlotEvent } from "./useSlotFeed";
 
@@ -10,6 +10,8 @@ interface HeroProps {
   feed: FeedState;
   subscribe: (_fn: (_ev: SlotEvent) => void) => () => void;
 }
+
+const SLOTS_PER_EPOCH = 432_000;
 
 function fmtEta(ms: number): string {
   const totalMin = Math.max(0, Math.round(ms / 60000));
@@ -19,10 +21,11 @@ function fmtEta(ms: number): string {
 }
 
 /**
- * The countdown hero: slots left on the 400 ms clock falling live, the
- * epoch-1020 lock line, measured per-block proof, and the audible heartbeat.
- * After the flip is MEASURED (never on the calendar alone), it becomes the
- * "measured right now" hero.
+ * The hero: one beating dot ("monitoring the situation" — the dot is the
+ * heartbeat, one pulse per mainnet block, and the audio source), one giant
+ * counter, one lock line. Every state is derived from measured averages and
+ * the confirmed activation schedule, so the page rides the whole rollout —
+ * countdown, live flip, landed, waiting for the next epoch — without edits.
  */
 export const Hero: React.FC<HeroProps> = ({ feed, subscribe }) => {
   const t = useTranslations("slot200.hero");
@@ -30,18 +33,18 @@ export const Hero: React.FC<HeroProps> = ({ feed, subscribe }) => {
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const [soundOn, setSoundOn] = React.useState(false);
   const audioRef = React.useRef<HeartbeatAudio | null>(null);
-  const beatRef = React.useRef<HTMLSpanElement>(null);
+  const dotRef = React.useRef<HTMLSpanElement>(null);
   const bigRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const unsub = subscribe(() => {
       audioRef.current?.tick();
-      const beat = beatRef.current;
+      const dot = dotRef.current;
       const big = bigRef.current;
-      beat?.classList.add("on");
+      dot?.classList.add("on");
       big?.classList.add("on");
       setTimeout(() => {
-        beat?.classList.remove("on");
+        dot?.classList.remove("on");
         big?.classList.remove("on");
       }, 120);
     });
@@ -57,90 +60,107 @@ export const Hero: React.FC<HeroProps> = ({ feed, subscribe }) => {
     setSoundOn(audioRef.current.toggle());
   };
 
-  const phase = flipPhase(feed.avg1m, feed.avg10m);
+  const rollout = rolloutState(feed.avg1m, feed.avg10m);
+  const { from, to, phase, stepIndex, stepsDone, targetEpoch } = rollout;
+  const avgShown = feed.avg1m ? Math.round(feed.avg1m) : null;
+
+  // countdown only against a confirmed epoch, drained by real slots
   const slotsLeft =
-    feed.epochEndSlot && feed.slot
-      ? Math.max(0, feed.epochEndSlot - feed.slot)
+    targetEpoch !== null &&
+    feed.epoch !== null &&
+    feed.epochEndSlot &&
+    feed.slot &&
+    targetEpoch > feed.epoch
+      ? Math.max(
+          0,
+          feed.epochEndSlot +
+            (targetEpoch - feed.epoch - 1) * SLOTS_PER_EPOCH -
+            feed.slot,
+        )
       : null;
   const finalMinute = slotsLeft !== null && slotsLeft > 0 && slotsLeft <= 150;
   const eta =
-    slotsLeft !== null ? fmtEta(slotsLeft * (feed.avg1m ?? 400)) : null;
-  const avgShown = feed.avg1m ? Math.round(feed.avg1m) : null;
-  const pctFaster = feed.avg1m
-    ? ((400 / feed.avg1m - 1) * 100).toFixed(1)
-    : "0";
+    slotsLeft !== null ? fmtEta(slotsLeft * (feed.avg1m ?? from)) : null;
+
+  const ready = feed.slot > 0 && feed.avg1m !== null;
+  const counting = !ready || (phase === "pre" && slotsLeft !== null);
+  const rich = {
+    old: (chunks: React.ReactNode) => (
+      <span className="s2-ml-old">{chunks}</span>
+    ),
+    arw: (chunks: React.ReactNode) => (
+      <span className="s2-ml-arw" aria-hidden>
+        {chunks}
+      </span>
+    ),
+  };
+
+  let under: string;
+  let lock: React.ReactNode;
+  if (!ready) {
+    under = t("under", { from });
+    lock = " ";
+  } else if (counting) {
+    under = finalMinute ? t("underFinal", { from }) : t("under", { from });
+    lock = t.rich(stepIndex === 1 ? "lockFirst" : "lockNext", {
+      ...rich,
+      from,
+      to: to ?? from,
+      step: stepIndex,
+      epoch: String(targetEpoch),
+      eta: eta ?? "—",
+    });
+  } else if (phase === "flipping") {
+    under = t("underMeasured");
+    lock = t("sentenceFlipping", { to: to ?? from });
+  } else if (phase === "flipped") {
+    under = t("underMeasured");
+    const after = to !== null ? nextStep(to) : null;
+    lock =
+      after !== null
+        ? t("sentenceFlipped", {
+            pct: pctFaster(from, to ?? from),
+            next: after,
+          })
+        : t("sentenceFlippedLast", { pct: pctFaster(from, to ?? from) });
+  } else if (to === null) {
+    under = t("underMeasured");
+    lock = t("sentenceDone");
+  } else {
+    under = t("underHolding", { done: stepsDone });
+    lock = t("lockUnscheduled", { to });
+  }
 
   return (
     <section className="s2-hero" aria-labelledby="s2-hero-big">
-      <p className="s2-kicker">
-        {phase === "flipped" ? t("kickerPost") : t("kicker")}
+      <p className="s2-eyebrow">
+        <span ref={dotRef} className="s2-beat" aria-hidden />
+        {t("eyebrow")}
       </p>
 
-      {phase === "flipped" ? (
-        <div className="s2-big" id="s2-hero-big" ref={bigRef}>
-          <span className="s2-big-old">400</span>
-          <span className="s2-big-arrow" aria-hidden>
-            →
-          </span>
-          <span className="s2-big-num is-flipped">{avgShown ?? "—"}</span>
-          <span className="s2-big-unit">ms</span>
-        </div>
-      ) : (
+      {counting ? (
         <div className="s2-big" id="s2-hero-big" ref={bigRef}>
           <span className="s2-big-num">
             {slotsLeft !== null ? nf.format(slotsLeft) : "—"}
           </span>
         </div>
+      ) : (
+        <div className="s2-big" id="s2-hero-big" ref={bigRef}>
+          <span className="s2-big-old">{from}</span>
+          <span className="s2-big-arrow" aria-hidden>
+            →
+          </span>
+          <span
+            className={`s2-big-num ${phase === "flipping" ? "" : "is-flipped"}`}
+          >
+            {avgShown ?? "—"}
+          </span>
+          <span className="s2-big-unit">ms</span>
+        </div>
       )}
 
-      <p className={`s2-under ${finalMinute ? "is-final" : ""}`}>
-        {phase === "flipped"
-          ? t("underPost")
-          : finalMinute
-            ? t("underFinal")
-            : t("under")}
-      </p>
-
-      {phase !== "flipped" && feed.epoch !== null && (
-        <p className="s2-minilock">
-          {t.rich("minilock", {
-            eta: eta ?? "—",
-            epoch: String(feed.epoch + 1),
-            old: (chunks) => <span className="s2-ml-old">{chunks}</span>,
-            arw: (chunks) => (
-              <span className="s2-ml-arw" aria-hidden>
-                {chunks}
-              </span>
-            ),
-          })}
-        </p>
-      )}
-
-      <p className="s2-liveproof">
-        <span ref={beatRef} className="s2-beat" aria-hidden />
-        <span>
-          {t.rich("liveproof", {
-            ms: feed.lastDt !== null ? String(feed.lastDt) : "—",
-            avg: avgShown !== null ? String(avgShown) : "—",
-            slot: feed.slot ? nf.format(feed.slot) : "—",
-            b: (chunks) => <b>{chunks}</b>,
-          })}
-        </span>
-      </p>
-
-      <p className="s2-story">
-        {phase === "flipped"
-          ? t.rich("storyFlipped", {
-              pct: pctFaster,
-              b: (chunks) => <b>{chunks}</b>,
-            })
-          : phase === "flipping"
-            ? t.rich("storyFlipping", {
-                ms: String(avgShown ?? "—"),
-                b: (chunks) => <b>{chunks}</b>,
-              })
-            : t.rich("story", { b: (chunks) => <b>{chunks}</b> })}
-      </p>
+      <p className={`s2-under ${finalMinute ? "is-final" : ""}`}>{under}</p>
+      <p className="s2-minilock">{lock}</p>
 
       <button type="button" className="s2-soundbtn" onClick={toggleSound}>
         {soundOn ? t("soundOn") : t("soundOff")}

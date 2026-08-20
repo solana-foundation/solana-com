@@ -45,6 +45,8 @@ export default function Slot200Experience() {
           <HeartbeatChart subscribe={subscribe} />
           <HistoryChart />
           <Blockspace />
+        </div>
+        <div className="s2-row-c">
           <Tape feed={feed} subscribe={subscribe} />
         </div>
       </div>
