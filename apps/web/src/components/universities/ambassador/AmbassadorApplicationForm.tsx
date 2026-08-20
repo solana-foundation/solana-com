@@ -23,6 +23,7 @@ interface AmbassadorApplicationFormProps {
   translations: {
     school: FieldTranslation;
     country: { label: string; placeholder: string };
+    email: FieldTranslation;
     major: FieldTranslation;
     graduation: FieldTranslation;
     videoShipped: FieldTranslation;
@@ -216,6 +217,7 @@ export function AmbassadorApplicationForm({
 
   const schoolError = errorMessage("school");
   const countryError = errorMessage("country");
+  const emailError = errorMessage("email");
   const majorError = errorMessage("major");
   const graduationError = errorMessage("graduation");
   const videoShippedError = errorMessage("videoShipped");
@@ -286,6 +288,26 @@ export function AmbassadorApplicationForm({
             className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2"
           />
         </div>
+      </Field>
+
+      <Field
+        label={t.email.label}
+        htmlFor="ambassador-email"
+        error={emailError}
+      >
+        <input
+          id="ambassador-email"
+          name="email"
+          type="email"
+          required
+          maxLength={320}
+          autoComplete="email"
+          inputMode="email"
+          placeholder={t.email.placeholder}
+          aria-invalid={Boolean(emailError)}
+          aria-describedby={emailError ? "ambassador-email-error" : undefined}
+          className={getInputClasses(emailError)}
+        />
       </Field>
 
       <Field

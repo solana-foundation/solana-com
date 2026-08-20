@@ -176,6 +176,10 @@ export async function UniversityAmbassadorPage() {
       label: t("application.form.country.label"),
       placeholder: t("application.form.country.placeholder"),
     },
+    email: {
+      label: t("application.form.email.label"),
+      placeholder: t("application.form.email.placeholder"),
+    },
     major: {
       label: t("application.form.major.label"),
       placeholder: t("application.form.major.placeholder"),

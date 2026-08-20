@@ -9,8 +9,8 @@ import type { AmbassadorApplication } from "./validation";
 
 const SHEETS_API_URL = "https://sheets.googleapis.com/v4/spreadsheets";
 const SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets";
-const HEADER_RANGE = "A1:O1";
-const DEFAULT_APPEND_RANGE = "A:O";
+const HEADER_RANGE = "A1:P1";
+const DEFAULT_APPEND_RANGE = "A:P";
 
 const RESPONSE_HEADERS = [
   "Timestamp",
@@ -28,7 +28,9 @@ const RESPONSE_HEADERS = [
   "Prior ecosystem involvement",
   "Solana Training or Bootcamp",
   "Source",
+  "Email",
 ] as const;
+const LEGACY_RESPONSE_HEADERS = RESPONSE_HEADERS.slice(0, -1);
 
 type GoogleSheetsConfig = {
   projectNumber: string;
@@ -79,6 +81,7 @@ export async function appendUniversityAmbassadorApplication(
     values.involvement,
     values.education,
     "university-ambassador",
+    values.email,
   ].map(toSafeSheetValue);
 
   const response = await sheetsRequest(
@@ -201,19 +204,27 @@ async function ensureResponseHeaders(
     return;
   }
 
+  const hasLegacyResponseHeaders =
+    existingHeaders.length === LEGACY_RESPONSE_HEADERS.length &&
+    LEGACY_RESPONSE_HEADERS.every(
+      (header, index) => existingHeaders[index] === header,
+    );
+
   const hasExistingHeaderValues = existingHeaders.some((value) =>
     String(value ?? "").trim(),
   );
 
-  if (hasExistingHeaderValues) {
+  if (hasExistingHeaderValues && !hasLegacyResponseHeaders) {
     throw new UniversityAmbassadorSheetsConfigurationError(
       "The University Ambassador sheet must be initialized with the expected response headers before accepting applications.",
     );
   }
 
-  // This update is idempotent and only touches row 1. Concurrent first
-  // submissions can safely write the same headers; INSERT_ROWS appends each
-  // application below the header row without overwriting another submission.
+  // This update is idempotent and only touches row 1. Email is appended to
+  // preserve the column alignment of sheets initialized before this field was
+  // added. Concurrent first submissions can safely write the same headers;
+  // INSERT_ROWS appends each application below the header row without
+  // overwriting another submission.
   const updateResponse = await sheetsRequest(
     config,
     client,

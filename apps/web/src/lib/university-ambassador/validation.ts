@@ -213,6 +213,7 @@ export const MAX_BUILD_IDEA_WORDS = 150;
 export const APPLICATION_FIELDS = [
   "school",
   "country",
+  "email",
   "major",
   "graduation",
   "videoShipped",
@@ -282,6 +283,7 @@ export function validateAmbassadorApplication(
 
   addRequiredError(errors, values, "school");
   addRequiredError(errors, values, "country");
+  addRequiredError(errors, values, "email");
   addRequiredError(errors, values, "major");
   addRequiredError(errors, values, "graduation");
   addRequiredError(errors, values, "videoShipped");
@@ -294,6 +296,12 @@ export function validateAmbassadorApplication(
 
   if (values.major.length > 200) {
     errors.major = "maxLength";
+  }
+
+  if (values.email.length > 320) {
+    errors.email = "maxLength";
+  } else if (values.email && !isEmail(values.email)) {
+    errors.email = "email";
   }
 
   if (

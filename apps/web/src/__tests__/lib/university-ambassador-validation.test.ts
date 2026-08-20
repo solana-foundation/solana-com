@@ -9,6 +9,7 @@ import {
 const validApplication = {
   school: "Solana University",
   country: "NZ",
+  email: "applicant@example.com",
   major: "Computer Science",
   graduation: "2027-11",
   videoShipped: "https://example.com/shipped",
@@ -28,16 +29,24 @@ describe("university ambassador application validation", () => {
   it("rejects invalid dates, links, and overlong build ideas", () => {
     const errors = validateAmbassadorApplication({
       ...validApplication,
+      email: "not-an-email",
       graduation: "2026-12",
       videoShipped: "javascript:alert(1)",
       buildIdea: Array.from({ length: 151 }, () => "word").join(" "),
     });
 
     expect(errors).toMatchObject({
+      email: "email",
       graduation: "graduation",
       videoShipped: "url",
       buildIdea: "buildIdea",
     });
+  });
+
+  it("requires the submitter's email", () => {
+    expect(
+      validateAmbassadorApplication({ ...validApplication, email: "" }),
+    ).toEqual({ email: "required" });
   });
 
   it("requires both optional co-lead fields together", () => {
