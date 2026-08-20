@@ -29,7 +29,7 @@ export default function Slot200Experience() {
   const block = usePolled<BlockSample>("/api/slot-time/block", 5_000);
 
   return (
-    <div className="s2-root">
+    <main className="s2-root">
       <TopRail feed={feed} />
       <Hero feed={feed} subscribe={subscribe} />
       <div className="s2-grid">
@@ -58,6 +58,6 @@ export default function Slot200Experience() {
       </div>
       <FooterBar />
       <ResourceLinks />
-    </div>
+    </main>
   );
 }
