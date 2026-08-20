@@ -1,6 +1,6 @@
+import { unstable_cache } from "next/cache";
 import { NextRequest } from "next/server";
 import {
-  getAvgSlotMs,
   getEpochInfo,
   getPerformanceSamples,
   rpcWsUrl,
@@ -14,6 +14,22 @@ export const maxDuration = 300;
 
 const STREAM_MS = 285_000;
 const ENCODER = new TextEncoder();
+const DEFAULT_SLOT_MS = 400;
+const STREAM_SNAPSHOT_CACHE_SECONDS = 15;
+const STREAM_SNAPSHOT_CACHE_KEY = "slot200-stream-snapshot-v2";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+async function loadStreamSnapshot() {
+  return Promise.all([getEpochInfo(), getPerformanceSamples(10)]).then(
+    ([info, samples]) => ({ info, samples }),
+  );
+}
+
+const getStreamSnapshot = IS_PRODUCTION
+  ? unstable_cache(loadStreamSnapshot, [STREAM_SNAPSHOT_CACHE_KEY], {
+      revalidate: STREAM_SNAPSHOT_CACHE_SECONDS,
+    })
+  : loadStreamSnapshot;
 
 interface SlotNotification {
   params?: { result?: { slot?: number } };
@@ -98,20 +114,31 @@ export async function GET(req: NextRequest) {
 
       const snap = async (first: boolean) => {
         try {
-          const [info, samples] = await Promise.all([
-            getEpochInfo(),
-            getPerformanceSamples(2),
-          ]);
-          const nonVote = samples.reduce(
+          const { info, samples } = await getStreamSnapshot();
+          // Samples are newest first. Keep TPS on the same roughly two-minute
+          // window as before while reusing the ten samples needed for the
+          // initial seed average.
+          const recent = samples.slice(0, 2);
+          const nonVote = recent.reduce(
             (a, s) => a + (s.numNonVoteTransactions ?? 0),
             0,
           );
-          const secs = samples.reduce((a, s) => a + s.samplePeriodSecs, 0);
+          const secs = recent.reduce((a, s) => a + s.samplePeriodSecs, 0);
           if (secs > 0 && nonVote > 0) tps = Math.round(nonVote / secs);
-          if (first) seedAvg = await getAvgSlotMs();
+          if (first) {
+            const slots = samples.reduce((a, s) => a + s.numSlots, 0);
+            const sampleSecs = samples.reduce(
+              (a, s) => a + s.samplePeriodSecs,
+              0,
+            );
+            seedAvg =
+              slots > 0 && sampleSecs > 0
+                ? (sampleSecs / slots) * 1000
+                : DEFAULT_SLOT_MS;
+          }
           send({
             type: "snap",
-            slot: info.absoluteSlot,
+            slot: Math.max(info.absoluteSlot, lastSlot),
             epoch: info.epoch,
             epochEndSlot:
               info.absoluteSlot - info.slotIndex + info.slotsInEpoch,
@@ -123,10 +150,6 @@ export async function GET(req: NextRequest) {
           // keep streaming slots; the client holds its last snapshot
         }
       };
-      await snap(true);
-      const snapTimer = setInterval(() => void snap(false), 60_000);
-      timers.push(snapTimer as unknown as ReturnType<typeof setTimeout>);
-
       // ── upstream slot subscription ──
       try {
         ws = new WebSocket(rpcWsUrl());
@@ -177,6 +200,12 @@ export async function GET(req: NextRequest) {
         }
       };
       ws.onclose = () => cleanup();
+
+      // Open the real-time path before waiting for the slower HTTP snapshot.
+      // The first slot can reach the browser while the averages are loading.
+      const snapTimer = setInterval(() => void snap(false), 60_000);
+      timers.push(snapTimer as unknown as ReturnType<typeof setTimeout>);
+      await snap(true);
     },
   });
 

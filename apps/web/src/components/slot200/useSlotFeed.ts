@@ -74,6 +74,7 @@ export function useSlotFeed(): {
     let es: EventSource | null = null;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
     let beatTimer: ReturnType<typeof setTimeout> | null = null;
+    let pollController: AbortController | null = null;
     let degradedRetryAt = 0;
 
     const state = { ...INITIAL };
@@ -106,12 +107,17 @@ export function useSlotFeed(): {
 
     // ── degraded mode: polled snapshot + paced synthetic beats ──
     const degrade = () => {
-      if (!alive || pollTimer) return;
+      if (!alive || document.hidden || pollTimer) return;
       state.status = "degraded";
       push();
       const poll = async () => {
+        if (!alive || document.hidden) return;
+        const controller = new AbortController();
+        pollController = controller;
         try {
-          const res = await fetch("/api/slot-time");
+          const res = await fetch("/api/slot-time", {
+            signal: controller.signal,
+          });
           if (!res.ok) throw new Error();
           const d = (await res.json()) as {
             epoch: number;
@@ -124,6 +130,8 @@ export function useSlotFeed(): {
           if (d.absoluteSlot > state.slot) onSlot(d.absoluteSlot, null, false);
         } catch {
           // keep pacing on the last known average
+        } finally {
+          if (pollController === controller) pollController = null;
         }
       };
       void poll();
@@ -143,13 +151,17 @@ export function useSlotFeed(): {
       pollTimer = null;
       if (beatTimer) clearTimeout(beatTimer);
       beatTimer = null;
+      pollController?.abort();
+      pollController = null;
     };
 
     // ── primary: the SSE stream ──
     const connect = () => {
-      if (!alive) return;
-      es = new EventSource("/api/slot-time/stream");
-      es.onmessage = (msg) => {
+      if (!alive || document.hidden || es) return;
+      const next = new EventSource("/api/slot-time/stream");
+      es = next;
+      next.onmessage = (msg) => {
+        if (es !== next) return;
         let d: Record<string, unknown>;
         try {
           d = JSON.parse(msg.data);
@@ -157,7 +169,7 @@ export function useSlotFeed(): {
           return;
         }
         if (d.type === "err") {
-          es?.close();
+          next.close();
           es = null;
           degrade();
           return;
@@ -182,29 +194,52 @@ export function useSlotFeed(): {
         if (typeof d.s === "number")
           onSlot(d.s, typeof d.dt === "number" ? d.dt : null, true);
       };
-      es.onerror = () => {
+      next.onerror = () => {
+        if (es !== next) return;
         // EventSource retries by itself; if we were never live, or the
         // degraded fallback is due for a retry window, keep both running
-        if (state.status === "connecting") degrade();
+        if (state.status === "connecting" && !document.hidden) degrade();
       };
     };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        const current = es;
+        es = null;
+        current?.close();
+        stopDegraded();
+        state.status = "connecting";
+        push();
+        return;
+      }
+      state.status = "connecting";
+      push();
+      connect();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
     connect();
 
     // if we've been degraded for a while, retry the stream
     const retry = setInterval(() => {
-      if (!alive || state.status === "live") return;
+      if (!alive || document.hidden || state.status === "live") return;
       if (degradedRetryAt && Date.now() >= degradedRetryAt) {
         degradedRetryAt = Date.now() + 60_000;
-        es?.close();
+        const current = es;
+        es = null;
+        current?.close();
         connect();
       }
     }, 10_000);
 
     return () => {
       alive = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       clearInterval(retry);
       stopDegraded();
-      es?.close();
+      const current = es;
+      es = null;
+      current?.close();
     };
   }, []);
 

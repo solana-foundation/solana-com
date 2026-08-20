@@ -14,6 +14,7 @@ import { TopRail } from "./TopRail";
 import { WorldMap } from "./WorldMap";
 import { useAttribution } from "./useAttribution";
 import { useLeaderSchedule } from "./useLeaderSchedule";
+import { usePolled, type BlockSample } from "./usePolled";
 import { useSlotFeed } from "./useSlotFeed";
 
 /**
@@ -25,6 +26,7 @@ export default function Slot200Experience() {
   const { feed, subscribe } = useSlotFeed();
   const { network, lookup } = useLeaderSchedule();
   const attribution = useAttribution(subscribe, lookup);
+  const block = usePolled<BlockSample>("/api/slot-time/block", 5_000);
 
   return (
     <div className="s2-root">
@@ -43,10 +45,15 @@ export default function Slot200Experience() {
         <div className="s2-row-b">
           <HeartbeatChart subscribe={subscribe} />
           <HistoryChart />
-          <Blockspace />
+          <Blockspace block={block} />
         </div>
         <div className="s2-row-c">
-          <Tape feed={feed} subscribe={subscribe} lookup={lookup} />
+          <Tape
+            feed={feed}
+            subscribe={subscribe}
+            lookup={lookup}
+            block={block}
+          />
         </div>
       </div>
       <FooterBar />

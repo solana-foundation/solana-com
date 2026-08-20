@@ -1,4 +1,5 @@
 const DEFAULT_SLOT_MS = 400;
+const RPC_TIMEOUT_MS = 10_000;
 
 function rpcUrl(): string {
   const key = process.env.HELIUS_API_KEY;
@@ -22,6 +23,7 @@ async function rpc<T>(method: string, params: unknown[] = []): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     cache: "no-store",
+    signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`RPC ${method} failed: ${res.status}`);
   const json = await res.json();
@@ -110,13 +112,19 @@ export interface SampledBlock {
 
 /** Program ids invoked by a transaction's top-level instructions. */
 export function txProgramIds(tx: BlockTx): string[] {
-  const keys = tx.transaction.message.accountKeys.concat(
-    tx.meta?.loadedAddresses?.writable ?? [],
-    tx.meta?.loadedAddresses?.readonly ?? [],
-  );
-  return tx.transaction.message.instructions.map(
-    (ix) => keys[ix.programIdIndex],
-  );
+  const staticKeys = tx.transaction.message.accountKeys;
+  const writable = tx.meta?.loadedAddresses?.writable ?? [];
+  const readonly = tx.meta?.loadedAddresses?.readonly ?? [];
+  const staticLength = staticKeys.length;
+
+  return tx.transaction.message.instructions
+    .map(({ programIdIndex }) => {
+      if (programIdIndex < staticLength) return staticKeys[programIdIndex];
+      const loadedIndex = programIdIndex - staticLength;
+      if (loadedIndex < writable.length) return writable[loadedIndex];
+      return readonly[loadedIndex - writable.length];
+    })
+    .filter((id): id is string => id !== undefined);
 }
 
 /** One confirmed block with full transactions, for registry classification. */

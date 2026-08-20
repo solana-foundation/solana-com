@@ -5,7 +5,11 @@ import { useLocale, useTranslations } from "@workspace/i18n/client";
 import type { FeedState } from "./useSlotFeed";
 
 /** The thin status rail: connection state, current slot, UTC clock. */
-export const TopRail: React.FC<{ feed: FeedState }> = ({ feed }) => {
+export const TopRail = React.memo(function TopRail({
+  feed,
+}: {
+  feed: FeedState;
+}) {
   const t = useTranslations("slot200.rail");
   const locale = useLocale();
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
@@ -58,4 +62,4 @@ export const TopRail: React.FC<{ feed: FeedState }> = ({ feed }) => {
       </div>
     </div>
   );
-};
+});

@@ -27,25 +27,29 @@ function fmtEta(ms: number): string {
  * the confirmed activation schedule, so the page rides the whole rollout —
  * countdown, live flip, landed, waiting for the next epoch — without edits.
  */
-export const Hero: React.FC<HeroProps> = ({ feed, subscribe }) => {
+export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
   const t = useTranslations("slot200.hero");
   const locale = useLocale();
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const [soundOn, setSoundOn] = React.useState(false);
   const audioRef = React.useRef<HeartbeatAudio | null>(null);
   const bigRef = React.useRef<HTMLDivElement>(null);
+  const pulseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     const unsub = subscribe(() => {
       audioRef.current?.tick();
       const big = bigRef.current;
       big?.classList.add("on");
-      setTimeout(() => {
+      if (pulseTimer.current) clearTimeout(pulseTimer.current);
+      pulseTimer.current = setTimeout(() => {
         big?.classList.remove("on");
+        pulseTimer.current = null;
       }, 120);
     });
     return () => {
       unsub();
+      if (pulseTimer.current) clearTimeout(pulseTimer.current);
       audioRef.current?.dispose();
       audioRef.current = null;
     };
@@ -200,4 +204,4 @@ export const Hero: React.FC<HeroProps> = ({ feed, subscribe }) => {
       </div>
     </section>
   );
-};
+});

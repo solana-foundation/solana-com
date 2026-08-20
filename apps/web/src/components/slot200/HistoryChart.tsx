@@ -11,7 +11,7 @@ const GUIDES = [400, 350] as const;
  * The last ~12 hours of measured per-minute average slot time (the RPC's
  * full performance-sample history). When the flip lands it draws the cliff.
  */
-export const HistoryChart: React.FC = () => {
+export const HistoryChart = React.memo(function HistoryChart() {
   const t = useTranslations("slot200.history");
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const data = usePolled<{ points: SeriesPoint[] }>(
@@ -103,4 +103,4 @@ export const HistoryChart: React.FC = () => {
       <canvas ref={canvasRef} className="s2-chart" />
     </Panel>
   );
-};
+});

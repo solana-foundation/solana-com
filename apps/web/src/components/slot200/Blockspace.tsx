@@ -3,12 +3,16 @@
 import React from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Panel } from "./Panel";
-import { usePolled, type BlockSample } from "./usePolled";
+import type { BlockSample } from "./usePolled";
 
 const MAX_ROWS = 9;
 
 /** What one recent block actually carried, classified by known program. */
-export const Blockspace: React.FC = () => {
+export const Blockspace = React.memo(function Blockspace({
+  block,
+}: {
+  block: BlockSample | null;
+}) {
   const t = useTranslations("slot200.blockspace");
   const locale = useLocale();
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
@@ -16,7 +20,6 @@ export const Blockspace: React.FC = () => {
     () => new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }),
     [locale],
   );
-  const block = usePolled<BlockSample>("/api/slot-time/block", 5_000);
   const [agoText, setAgoText] = React.useState("");
   const seenAt = React.useRef(0);
   const lastSlot = React.useRef(0);
@@ -103,4 +106,4 @@ export const Blockspace: React.FC = () => {
       <p className="s2-note">{t("note")}</p>
     </Panel>
   );
-};
+});

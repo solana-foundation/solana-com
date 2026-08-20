@@ -46,9 +46,16 @@ export function useLeaderSchedule(): {
 
   useEffect(() => {
     let alive = true;
+    let loading = false;
+    let controller: AbortController | null = null;
     async function load() {
+      if (!alive || document.hidden || loading) return;
+      loading = true;
+      controller = new AbortController();
       try {
-        const res = await fetch("/api/slot-time/schedule");
+        const res = await fetch("/api/slot-time/schedule", {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error();
         const data = (await res.json()) as ScheduleResponse;
         if (alive && data.slots?.length) {
@@ -57,13 +64,25 @@ export function useLeaderSchedule(): {
         }
       } catch {
         // keep the last schedule on failure
+      } finally {
+        loading = false;
+        controller = null;
       }
     }
+
+    const onVisibilityChange = () => {
+      if (document.hidden) controller?.abort();
+      else void load();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
     void load();
-    const refetch = setInterval(load, 180_000);
+    const refetch = setInterval(() => void load(), 180_000);
     return () => {
       alive = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       clearInterval(refetch);
+      controller?.abort();
     };
   }, []);
 

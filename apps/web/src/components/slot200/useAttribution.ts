@@ -69,7 +69,10 @@ export function useAttribution(
         const c = byClient.current.get(leader.client) ?? { sum: 0, gaps: [] };
         c.sum += ev.dt;
         c.gaps.push(ev.dt);
-        if (c.gaps.length > 2000) c.gaps.splice(0, 500);
+        if (c.gaps.length > 2000) {
+          const removed = c.gaps.splice(0, 500);
+          c.sum -= removed.reduce((sum, gap) => sum + gap, 0);
+        }
         byClient.current.set(leader.client, c);
         const v = byLeader.current.get(leader.id) ?? {
           entry: leader,
@@ -88,7 +91,7 @@ export function useAttribution(
 
   useEffect(() => {
     const timer = setInterval(() => {
-      if (!dirty.current) return;
+      if (!dirty.current || document.hidden) return;
       dirty.current = false;
       const sortedAll = [...allGaps.current].sort((a, b) => a - b);
       const netMedian = sortedAll.length ? median(sortedAll) : null;

@@ -6,7 +6,7 @@ import { useTranslations } from "@workspace/i18n/client";
 const DESIGNER_HREF = "https://x.com/BusinessMngr";
 
 /** The claims-discipline footnote and design credit. */
-export const FooterBar: React.FC = () => {
+export const FooterBar = React.memo(function FooterBar() {
   const t = useTranslations("slot200.footer");
   return (
     <footer className="s2-footer">
@@ -22,4 +22,4 @@ export const FooterBar: React.FC = () => {
       </p>
     </footer>
   );
-};
+});

@@ -23,10 +23,13 @@ const Tile: React.FC<TileProps> = ({ value, label, tone = "plain", big }) => (
  * The JHU-style number wall: measured pace and network vitals, every value
  * live from the feed or the shared schedule fetch.
  */
-export const BigBoard: React.FC<{
+export const BigBoard = React.memo(function BigBoard({
+  feed,
+  network,
+}: {
   feed: FeedState;
   network: NetworkTotals | null;
-}> = ({ feed, network }) => {
+}) {
   const t = useTranslations("slot200.board");
   const locale = useLocale();
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
@@ -106,4 +109,4 @@ export const BigBoard: React.FC<{
       </div>
     </div>
   );
-};
+});

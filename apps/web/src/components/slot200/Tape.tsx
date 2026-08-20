@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { Panel } from "./Panel";
-import { usePolled, type BlockSample } from "./usePolled";
+import type { BlockSample } from "./usePolled";
 import type { LeaderEntry } from "./useLeaderSchedule";
 import type { FeedState, SlotEvent } from "./useSlotFeed";
 
@@ -14,6 +14,7 @@ const MAX_UPCOMING = 10;
 
 interface TapeProps {
   feed: FeedState;
+  block: BlockSample | null;
   subscribe: (_fn: (_ev: SlotEvent) => void) => () => void;
   lookup: (_slot: number) => LeaderEntry | null;
 }
@@ -26,11 +27,15 @@ interface TapeProps {
  * one. The live lists keep constant height with scroll anchoring off —
  * rows are inserted at the top, exactly like the perp200 tape.
  */
-export const Tape: React.FC<TapeProps> = ({ feed, subscribe, lookup }) => {
+export const Tape = React.memo(function Tape({
+  feed,
+  block,
+  subscribe,
+  lookup,
+}: TapeProps) {
   const t = useTranslations("slot200.tape");
   const blocksRef = React.useRef<HTMLDivElement>(null);
   const txRef = React.useRef<HTMLDivElement>(null);
-  const block = usePolled<BlockSample>("/api/slot-time/block", 5_000);
   const lastTapeSlot = React.useRef(0);
   const nf = React.useMemo(() => new Intl.NumberFormat("en-US"), []);
   const groupRef = React.useRef<{ id: string; el: HTMLDivElement } | null>(
@@ -190,4 +195,4 @@ export const Tape: React.FC<TapeProps> = ({ feed, subscribe, lookup }) => {
       </div>
     </Panel>
   );
-};
+});

@@ -8,7 +8,7 @@ const UPGRADE_HREF = "/upgrades/reduced-slot-times";
 const UPGRADES_HREF = "/upgrades";
 
 /** Three callout cards below the dash: analysis, rollout tracker, upgrades. */
-export const ResourceLinks: React.FC = () => {
+export const ResourceLinks = React.memo(function ResourceLinks() {
   const t = useTranslations("slot200.footer");
   const cards = [
     { href: ANALYSIS_HREF, title: t("analysis"), desc: t("analysisDesc") },
@@ -34,4 +34,4 @@ export const ResourceLinks: React.FC = () => {
       ))}
     </nav>
   );
-};
+});

@@ -28,9 +28,11 @@ interface Row {
  * history program. Fallback when that proxy fails: this page's own
  * session-scoped attribution by gossip version family.
  */
-export const ClientClock: React.FC<{ attribution: Attribution }> = ({
+export const ClientClock = React.memo(function ClientClock({
   attribution,
-}) => {
+}: {
+  attribution: Attribution;
+}) {
   const t = useTranslations("slot200.clients");
   const locale = useLocale();
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
@@ -135,4 +137,4 @@ export const ClientClock: React.FC<{ attribution: Attribution }> = ({
       <p className="s2-note">{note}</p>
     </Panel>
   );
-};
+});
