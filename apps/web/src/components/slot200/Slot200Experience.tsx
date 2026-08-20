@@ -8,6 +8,7 @@ import { FooterBar } from "./FooterBar";
 import { HeartbeatChart } from "./HeartbeatChart";
 import { Hero } from "./Hero";
 import { HistoryChart } from "./HistoryChart";
+import { ResourceLinks } from "./ResourceLinks";
 import { Tape } from "./Tape";
 import { TopRail } from "./TopRail";
 import { WorldMap } from "./WorldMap";
@@ -49,6 +50,7 @@ export default function Slot200Experience() {
         </div>
       </div>
       <FooterBar />
+      <ResourceLinks />
     </div>
   );
 }
