@@ -84,7 +84,7 @@ export async function appendUniversityAmbassadorApplication(
   const response = await sheetsRequest(
     config,
     client,
-    `/${encodeURIComponent(config.appendRange)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    `/values/${encodeURIComponent(config.appendRange)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -177,7 +177,7 @@ async function ensureResponseHeaders(
   const response = await sheetsRequest(
     config,
     client,
-    `/${encodeURIComponent(HEADER_RANGE)}`,
+    `/values/${encodeURIComponent(HEADER_RANGE)}`,
     { method: "GET" },
     signal,
   );
@@ -217,7 +217,7 @@ async function ensureResponseHeaders(
   const updateResponse = await sheetsRequest(
     config,
     client,
-    `/${encodeURIComponent(HEADER_RANGE)}?valueInputOption=RAW`,
+    `/values/${encodeURIComponent(HEADER_RANGE)}?valueInputOption=RAW`,
     {
       method: "PUT",
       body: JSON.stringify({
