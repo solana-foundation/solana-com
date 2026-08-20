@@ -51,10 +51,9 @@ subtitle: <Short subtitle shown in the hero section>
 publishedAt: <YYYY-MM-DDT00:00:00.000Z>
 status: draft
 author: solana-foundation
-badges:
-  - text: <e.g. "Under Development">
-    color: yellow # green | yellow | red | purple
-    variant: badge # badge | text
+stage: in_development # planned | in_development | pending_activation | live
+release: <release slug, e.g. agave-4-3> # optional, omit for Unscheduled
+order: <integer, e.g. 1> # optional, manual sort within the release
 metrics:
   - value: <e.g. "150ms">
     label: <e.g. "Target finality">
@@ -94,20 +93,22 @@ tags:
 
 Fields defined in `apps/media/keystatic.config.tsx`, `upgrades` collection:
 
-| Field         | Type                              | Notes                                                   |
-| ------------- | --------------------------------- | ------------------------------------------------------- |
-| `title`       | slug/text                         | Required, becomes the URL slug                          |
-| `status`      | select                            | `draft` \| `published`, defaults to `draft`             |
-| `description` | text                              | SEO meta description                                    |
-| `subtitle`    | text                              | Shown below title in hero                               |
-| `badges`      | array of `{text, color, variant}` | `color`: green/yellow/red/purple; `variant`: badge/text |
-| `metrics`     | array of `{value, label}`         | Key stat cards                                          |
-| `heroImage`   | image                             | Optional, used as `og:image`                            |
-| `author`      | relationship                      | Author entry                                            |
-| `publishedAt` | datetime                          | Required                                                |
-| `categories`  | array → categories                | Typically just `upgrades`                               |
-| `tags`        | array → tags                      | Typically `announcements`                               |
-| `body`        | MDX                               | The article content itself                              |
+| Field         | Type                      | Notes                                                                                                                                                                                                        |
+| ------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `title`       | slug/text                 | Required, becomes the URL slug                                                                                                                                                                               |
+| `status`      | select                    | `draft` \| `published`, defaults to `draft`                                                                                                                                                                  |
+| `description` | text                      | SEO meta description                                                                                                                                                                                         |
+| `subtitle`    | text                      | Shown below title in hero                                                                                                                                                                                    |
+| `stage`       | select                    | `planned` \| `in_development` \| `pending_activation` \| `live` — use `pending_activation` instead of `in_development` once the article's release has shipped but this specific feature hasn't activated yet |
+| `metrics`     | array of `{value, label}` | Key stat cards                                                                                                                                                                                               |
+| `heroImage`   | image                     | Optional, used as `og:image`                                                                                                                                                                                 |
+| `author`      | relationship              | Author entry                                                                                                                                                                                                 |
+| `publishedAt` | datetime                  | Required                                                                                                                                                                                                     |
+| `release`     | relationship → releases   | Optional; unset = Unscheduled                                                                                                                                                                                |
+| `order`       | integer                   | Optional; manual sort position within the release                                                                                                                                                            |
+| `categories`  | array → categories        | Typically just `upgrades`                                                                                                                                                                                    |
+| `tags`        | array → tags              | Typically `announcements`                                                                                                                                                                                    |
+| `body`        | MDX                       | The article content itself                                                                                                                                                                                   |
 
 ## Accuracy
 

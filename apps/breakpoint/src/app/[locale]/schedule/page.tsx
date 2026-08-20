@@ -17,8 +17,16 @@ export async function generateMetadata({
   });
 }
 
-export default async function LocaleSchedulePage() {
-  const t = await getTranslations("breakpoint.pages.schedule");
+export default async function LocaleSchedulePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "breakpoint.pages.schedule",
+  });
 
   return <ComingSoonPage title={t("title")} description={t("description")} />;
 }

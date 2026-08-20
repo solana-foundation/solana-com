@@ -657,10 +657,9 @@ export async function podcastEpisodeMetadata(
 // Upgrades listing  /upgrades
 // ---------------------------------------------------------------------------
 
-export const UPGRADES_SEO_TITLE =
-  "Solana Network Upgrades and Validator Actions";
+export const UPGRADES_SEO_TITLE = "Solana Network Upgrades";
 export const UPGRADES_SEO_DESCRIPTION =
-  "Track Solana network upgrades, validator actions, client support, protocol changes, rollout status, and performance improvements across the ecosystem.";
+  "Track Solana network upgrades, client support, protocol changes, rollout status, and performance improvements across the ecosystem.";
 
 export function upgradesListingMetadata(locale?: string): Metadata {
   const resolvedLocale = resolveLocale(locale);

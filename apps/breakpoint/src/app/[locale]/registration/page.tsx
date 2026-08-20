@@ -19,6 +19,12 @@ export async function generateMetadata({
   });
 }
 
-export default function LocaleRegistrationPage() {
-  return <RegistrationPage />;
+export default async function LocaleRegistrationPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+
+  return <RegistrationPage locale={locale} />;
 }

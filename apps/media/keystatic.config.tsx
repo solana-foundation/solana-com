@@ -199,36 +199,21 @@ export default config({
           label: "Subtitle",
           description: "Displayed below the title in the hero section",
         }),
-        badges: fields.array(
-          fields.object({
-            text: fields.text({
-              label: "Text",
-              validation: { isRequired: true },
-            }),
-            color: fields.select({
-              label: "Color",
-              options: [
-                { label: "Green", value: "green" },
-                { label: "Yellow", value: "yellow" },
-                { label: "Red", value: "red" },
-                { label: "Purple", value: "purple" },
-              ],
-              defaultValue: "green",
-            }),
-            variant: fields.select({
-              label: "Variant",
-              options: [
-                { label: "Badge (pill style)", value: "badge" },
-                { label: "Text (plain)", value: "text" },
-              ],
-              defaultValue: "badge",
-            }),
-          }),
-          {
-            label: "Status Badges",
-            itemLabel: (props) => props.fields.text.value || "Badge",
-          },
-        ),
+        stage: fields.select({
+          label: "Stage",
+          description:
+            "Standardized rollout stage shown as the upgrade's badge.",
+          options: [
+            { label: "Planned", value: "planned" },
+            { label: "In Development", value: "in_development" },
+            {
+              label: "Pending Feature Activation",
+              value: "pending_activation",
+            },
+            { label: "Live on Mainnet", value: "live" },
+          ],
+          defaultValue: "in_development",
+        }),
         metrics: fields.array(
           fields.object({
             value: fields.text({
@@ -251,6 +236,17 @@ export default config({
           description:
             "Date and time in UTC when the upgrade becomes visible on the site.",
           validation: { isRequired: true },
+        }),
+        release: fields.relationship({
+          label: "Release",
+          collection: "releases",
+          description:
+            "The release this upgrade ships in. Leave unset for Unscheduled.",
+        }),
+        order: fields.integer({
+          label: "Order",
+          description:
+            "Manual sort position within this upgrade's release. Lower numbers appear first; leave blank to sort by publish date.",
         }),
         categories: fields.array(
           fields.object({
@@ -287,6 +283,38 @@ export default config({
           },
           components: componentBlocks,
         }),
+      },
+    }),
+
+    releases: collection({
+      label: "Releases",
+      slugField: "name",
+      path: "content/releases/*",
+      format: { contentField: "description" },
+      schema: {
+        name: fields.slug({
+          name: { label: "Name", validation: { isRequired: true } },
+        }),
+        expectedDate: fields.date({
+          label: "Expected Date",
+          description: "When this release is expected to ship, or shipped.",
+          validation: { isRequired: true },
+        }),
+        status: fields.select({
+          label: "Status",
+          options: [
+            { label: "Planned", value: "planned" },
+            { label: "Shipped", value: "shipped" },
+          ],
+          defaultValue: "planned",
+        }),
+        overview: fields.relationship({
+          label: "Overview Article",
+          collection: "upgrades",
+          description:
+            "The upgrade article featured as this release's overview.",
+        }),
+        description: fields.mdx({ label: "Description" }),
       },
     }),
 

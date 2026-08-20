@@ -18,8 +18,16 @@ export async function generateMetadata({
   });
 }
 
-export default async function LocaleSpeakersPage() {
-  const t = await getTranslations("breakpoint.pages.speakers");
+export default async function LocaleSpeakersPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "breakpoint.pages.speakers",
+  });
 
   return (
     <ComingSoonPage

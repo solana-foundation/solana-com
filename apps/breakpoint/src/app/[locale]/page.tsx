@@ -1,3 +1,4 @@
+import { getTranslations } from "@workspace/i18n/server";
 import HeroSection from "@/components/sections/HeroSection";
 import PageShell from "@/components/PageShell";
 import Marquee from "@/components/Marquee";
@@ -14,7 +15,7 @@ import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
-import { buildBreakpointJsonLd } from "@/lib/structured-data";
+import { buildBreakpointJsonLd, serializeJsonLd } from "@/lib/structured-data";
 
 export const dynamic = "force-dynamic";
 
@@ -24,20 +25,21 @@ export default async function HomePage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "breakpoint" });
   const initialNow = Date.now();
-  const jsonLd = buildBreakpointJsonLd(locale);
+  const jsonLd = await buildBreakpointJsonLd(locale);
 
   return (
     <PageShell
       contentId="breakpoint-content"
       navigation={{
         ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: "Register",
+        ctaLabel: t("menu.items.register"),
       }}
       beforeNavigation={
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       }
     >
