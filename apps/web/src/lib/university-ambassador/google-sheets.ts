@@ -193,30 +193,17 @@ async function ensureResponseHeaders(
   };
   const existingHeaders = payload.values?.[0] ?? [];
 
-  if (existingHeaders.some((value) => String(value).trim())) {
+  const hasExpectedHeaders = RESPONSE_HEADERS.every(
+    (header, index) => existingHeaders[index] === header,
+  );
+
+  if (hasExpectedHeaders) {
     return;
   }
 
-  const updateResponse = await sheetsRequest(
-    config,
-    client,
-    `/${HEADER_RANGE}?valueInputOption=RAW`,
-    {
-      method: "PUT",
-      body: JSON.stringify({
-        majorDimension: "ROWS",
-        range: HEADER_RANGE,
-        values: [RESPONSE_HEADERS],
-      }),
-    },
-    signal,
+  throw new UniversityAmbassadorSheetsConfigurationError(
+    "The University Ambassador sheet must be initialized with response headers before accepting applications.",
   );
-
-  if (!updateResponse.ok) {
-    throw new Error(
-      `Google Sheets header initialization failed with status ${updateResponse.status}`,
-    );
-  }
 }
 
 async function sheetsRequest(

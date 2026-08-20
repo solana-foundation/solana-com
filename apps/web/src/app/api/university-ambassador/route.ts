@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { checkBotId } from "botid/server";
 import { NextResponse } from "next/server";
 
 import {
@@ -9,6 +10,10 @@ import {
   normalizeAmbassadorApplication,
   validateAmbassadorApplication,
 } from "@/lib/university-ambassador/validation";
+import {
+  checkUniversityAmbassadorRateLimit,
+  clientIpFromHeaders,
+} from "@/lib/university-ambassador/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -55,11 +60,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true }, { headers: NO_STORE_HEADERS });
   }
 
+  const clientIp = clientIpFromHeaders(request.headers);
+  const rateLimit = checkUniversityAmbassadorRateLimit({ ip: clientIp });
+
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: rateLimit.error },
+      {
+        status: 429,
+        headers: {
+          ...NO_STORE_HEADERS,
+          "Retry-After": String(rateLimit.retryAfter),
+        },
+      },
+    );
+  }
+
   const locale =
     typeof body.locale === "string" ? body.locale.slice(0, 16) : "en";
   const submissionId = randomUUID();
 
   try {
+    const botCheck = await checkBotId();
+
+    if (botCheck.isBot) {
+      return NextResponse.json(
+        { error: "We could not verify this submission." },
+        { status: 403, headers: NO_STORE_HEADERS },
+      );
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
@@ -92,6 +122,8 @@ export async function POST(request: Request) {
         headers: NO_STORE_HEADERS,
       },
     );
+  } finally {
+    rateLimit.release();
   }
 }
 

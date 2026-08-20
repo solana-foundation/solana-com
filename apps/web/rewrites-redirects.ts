@@ -746,6 +746,11 @@ export default {
       destination: "/university",
       permanent: true,
     },
+    {
+      source: "/universities/:path*",
+      destination: "/university",
+      permanent: true,
+    },
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     {
