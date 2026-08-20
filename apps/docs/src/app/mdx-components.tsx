@@ -33,6 +33,7 @@ import {
   TransactionsRpc,
 } from "@/components/rpc/RpcPageContent";
 import { WebSocketsRpc } from "@/components/rpc/WebSocketsRpc";
+import { ConceptsRoadmap } from "@@/src/components/docs/concepts-roadmap";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -67,6 +68,7 @@ export const mdxComponents = {
   NodeRpc,
   TransactionsRpc,
   WebSocketsRpc,
+  ConceptsRoadmap,
   // Icons
   Download,
   Rocket,
