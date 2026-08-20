@@ -1,5 +1,5 @@
 import React from "react";
-import { UniversityAmbassadorPage } from "../universities/university-ambassador";
+import { UniversityAmbassadorPage } from "./university-ambassador";
 import { getIndexMetadata } from "@/app/metadata";
 
 type Props = { params: Promise<{ locale: string }> };
