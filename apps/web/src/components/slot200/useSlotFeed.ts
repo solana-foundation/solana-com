@@ -124,6 +124,10 @@ export function useSlotFeed(): {
             absoluteSlot: number;
             avgSlotMs: number;
           };
+          // the poll endpoint carries no epochEndSlot; a stale one from the
+          // stream would skew the countdown by a whole epoch once we cross
+          if (state.epoch !== null && d.epoch !== state.epoch)
+            state.epochEndSlot = null;
           state.epoch = d.epoch;
           state.avg1m = d.avgSlotMs;
           state.avg10m = d.avgSlotMs;
@@ -196,8 +200,18 @@ export function useSlotFeed(): {
       };
       next.onerror = () => {
         if (es !== next) return;
-        // EventSource retries by itself; if we were never live, or the
-        // degraded fallback is due for a retry window, keep both running
+        // CLOSED means the browser gave up for good (non-200 response, e.g.
+        // the stream endpoint shedding load) — EventSource won't retry, so
+        // fall back to polling; the retry loop re-attempts the stream later
+        if (next.readyState === EventSource.CLOSED) {
+          es = null;
+          next.close();
+          if (state.status === "live") state.status = "connecting";
+          if (!document.hidden) degrade();
+          return;
+        }
+        // otherwise EventSource retries by itself; if we were never live,
+        // keep the degraded fallback running alongside it
         if (state.status === "connecting" && !document.hidden) degrade();
       };
     };

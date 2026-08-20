@@ -13,6 +13,12 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const STREAM_MS = 285_000;
+// Backstop against connection floods: each stream holds an upstream RPC
+// WebSocket for up to STREAM_MS, so bound how many one instance will carry.
+// The authoritative rate limit lives at the platform edge (Vercel WAF);
+// rejected clients fall back to the cached /api/slot-time poll.
+const MAX_STREAMS_PER_INSTANCE = 100;
+let activeStreams = 0;
 const ENCODER = new TextEncoder();
 const DEFAULT_SLOT_MS = 400;
 const STREAM_SNAPSHOT_CACHE_SECONDS = 15;
@@ -41,6 +47,20 @@ interface SlotNotification {
  * over checkpoints — never mean-of-arrival-gaps, WS delivery is bursty.
  */
 export async function GET(req: NextRequest) {
+  if (activeStreams >= MAX_STREAMS_PER_INSTANCE) {
+    return new Response("stream capacity reached", {
+      status: 429,
+      headers: { "Retry-After": "30", "Cache-Control": "no-store" },
+    });
+  }
+  activeStreams++;
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    activeStreams--;
+  };
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let closed = false;
@@ -71,6 +91,7 @@ export async function GET(req: NextRequest) {
         } catch {
           // already closed
         }
+        release();
       };
 
       req.signal.addEventListener("abort", cleanup);
