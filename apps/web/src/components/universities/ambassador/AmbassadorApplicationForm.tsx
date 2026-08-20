@@ -237,6 +237,27 @@ export function AmbassadorApplicationForm({
       className="grid grid-cols-1 content-start gap-x-[18px] gap-y-6 sm:grid-cols-2"
     >
       <Field
+        label={t.email.label}
+        htmlFor="ambassador-email"
+        className="sm:col-span-2"
+        error={emailError}
+      >
+        <input
+          id="ambassador-email"
+          name="email"
+          type="email"
+          required
+          maxLength={320}
+          autoComplete="email"
+          inputMode="email"
+          placeholder={t.email.placeholder}
+          aria-invalid={Boolean(emailError)}
+          aria-describedby={emailError ? "ambassador-email-error" : undefined}
+          className={getInputClasses(emailError)}
+        />
+      </Field>
+
+      <Field
         label={t.school.label}
         htmlFor="ambassador-school"
         error={schoolError}
@@ -288,26 +309,6 @@ export function AmbassadorApplicationForm({
             className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2"
           />
         </div>
-      </Field>
-
-      <Field
-        label={t.email.label}
-        htmlFor="ambassador-email"
-        error={emailError}
-      >
-        <input
-          id="ambassador-email"
-          name="email"
-          type="email"
-          required
-          maxLength={320}
-          autoComplete="email"
-          inputMode="email"
-          placeholder={t.email.placeholder}
-          aria-invalid={Boolean(emailError)}
-          aria-describedby={emailError ? "ambassador-email-error" : undefined}
-          className={getInputClasses(emailError)}
-        />
       </Field>
 
       <Field
