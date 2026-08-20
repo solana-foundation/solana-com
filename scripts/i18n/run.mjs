@@ -307,7 +307,7 @@ async function runContinuousLocalization(requestedScope) {
     process.exit(pushResult.status);
   }
 
-  if (requestedScope === "all" && verifyTargetCoverage() !== 0) {
+  if (verifyTargetCoverage() !== 0) {
     console.error(
       "Lingo left target coverage incomplete; retrying once in backfill mode.",
     );
