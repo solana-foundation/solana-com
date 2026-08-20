@@ -741,6 +741,16 @@ export default {
     ...dissolvedGuideRedirects,
     ...movedDocsRedirects,
     ...chainMigrationRedirects,
+    {
+      source: "/universities",
+      destination: "/university",
+      permanent: true,
+    },
+    {
+      source: "/universities/:path*",
+      destination: "/university",
+      permanent: true,
+    },
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
     {
@@ -864,7 +874,6 @@ export default {
     { source: "/developers/ai", destination: "/solutions/ai" },
     { source: "/ai", destination: "/solutions/ai" },
     { source: "/developer", destination: "/developers" },
-    { source: "/universities/:path*", destination: "/developers" },
     { source: "/token22", destination: "/solutions/token-extensions" },
     {
       source: "/solutions/token22",
