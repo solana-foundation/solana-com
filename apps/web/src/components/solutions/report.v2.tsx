@@ -75,7 +75,8 @@ export const SolutionReport: React.FC<SolutionReportProps> = ({
           width="100%"
           height="100%"
           jsonFilePath={bgJsonFilePath}
-          scale={1}
+          // Lower down the scale to improve the performance
+          scale={0.8}
           fps={30}
           lazyLoad={true}
           production={true}

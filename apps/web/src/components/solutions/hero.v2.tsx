@@ -115,7 +115,8 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           jsonFilePath={bgJsonFilePath}
           width="100%"
           height="100%"
-          scale={1}
+          // Lower down the scale to improve the performance
+          scale={0.8}
           fps={30}
           lazyLoad={true}
           production={true}

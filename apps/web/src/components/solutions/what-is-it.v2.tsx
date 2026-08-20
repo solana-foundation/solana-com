@@ -4,7 +4,7 @@ import React, { useCallback, useId } from "react";
 import { useScrollTextHighlight } from "../../hooks/useScrollTextHighlight";
 import Image from "next/image";
 import { useViewportVisibility } from "@/hooks/useViewportVisibility";
-import debounce from "lodash/debounce";
+import { gsap } from "gsap";
 import { cn } from "@/app/components/utils";
 
 export type WhatIsItProps = {
@@ -56,40 +56,88 @@ export const WhatIsIt = ({
 
       if (!part1 || !part2 || !part3) return;
 
-      const debouncedMouseMoveHandler = debounce(
-        (event: MouseEvent) => {
-          // Calculate normalized mouse position (-1 to 1)
-          const mouseX = (event.clientX / node.clientWidth) * 2 - 1;
-          const mouseY = (event.clientY / node.clientHeight) * 2 - 1;
+      // Parallax effect: different layers move at different speeds.
+      // part1 (closest) moves most, part3 (farthest) moves least.
+      const layers = [
+        { el: part1, depth: 10 }, // 10% movement
+        { el: part2, depth: 6 }, // 6% movement
+        { el: part3, depth: 4 }, // 4% movement
+      ];
 
-          // Parallax effect: different layers move at different speeds
-          // part1 (closest layer) - moves more
-          const part1X = mouseX * 10; // 10% movement
-          const part1Y = mouseY * 10;
+      // The parallax is decorative and pointer-driven, so it is skipped
+      // entirely under reduced motion and on devices that cannot hover. Touch
+      // browsers emit one compatibility mousemove on tap and no reliable
+      // mouseleave, which would otherwise leave the layers offset for good —
+      // visible on touch devices wide enough to render them (the image column
+      // is max-xl:hidden, so tablets in landscape and up). In both cases the
+      // layers stay in their CSS-defined positions.
+      //
+      // Matched once per entry rather than through gsap.matchMedia() because
+      // GSAP never removes the change listener it registers, and this handler
+      // re-runs on every scroll-in — one leaked MediaQueryList per entry. The
+      // IntersectionObserver already scopes the effect's lifetime, so a live
+      // listener buys nothing: a preference change is picked up on the next
+      // entry.
+      if (
+        !window.matchMedia(
+          "(prefers-reduced-motion: no-preference) and (hover: hover)",
+        ).matches
+      ) {
+        return;
+      }
 
-          // part2 (middle layer) - moves moderately
-          const part2X = mouseX * 6; // 6% movement
-          const part2Y = mouseY * 6;
+      // quickTo batches writes onto the GSAP ticker and eases toward the
+      // latest pointer position, so the layers move at frame rate rather than
+      // stepping at the ~10 updates/sec a debounced handler allowed.
+      const setters = layers.map(({ el, depth }) => ({
+        depth,
+        x: gsap.quickTo(el, "xPercent", { duration: 0.6, ease: "power3" }),
+        y: gsap.quickTo(el, "yPercent", { duration: 0.6, ease: "power3" }),
+      }));
 
-          // part3 (farthest layer) - moves least
-          const part3X = mouseX * 4; // 4% movement
-          const part3Y = mouseY * 4;
+      const moveTo = (mouseX: number, mouseY: number) => {
+        setters.forEach(({ depth, x, y }) => {
+          x(mouseX * depth);
+          y(mouseY * depth);
+        });
+      };
 
-          if (part1X && part1Y)
-            part1.style.transform = `translateX(${part1X}%) translateY(${part1Y}%)`;
-          if (part2X && part2Y)
-            part2.style.transform = `translateX(${part2X}%) translateY(${part2Y}%)`;
-          if (part3X && part3Y)
-            part3.style.transform = `translateX(${part3X}%) translateY(${part3Y}%)`;
-        },
-        50,
-        { leading: true, maxWait: 100 },
-      );
+      const handleMouseMove = (event: MouseEvent) => {
+        const bounds = node.getBoundingClientRect();
 
-      node.addEventListener("mousemove", debouncedMouseMoveHandler);
+        // Normalized pointer position within the section (-1 to 1). Measured
+        // against the section's own box so the offset stays correct as the
+        // page scrolls.
+        moveTo(
+          ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+          ((event.clientY - bounds.top) / bounds.height) * 2 - 1,
+        );
+      };
+
+      const handleMouseLeave = () => moveTo(0, 0);
+
+      node.addEventListener("mousemove", handleMouseMove);
+      node.addEventListener("mouseleave", handleMouseLeave);
 
       return () => {
-        node.removeEventListener("mousemove", debouncedMouseMoveHandler);
+        node.removeEventListener("mousemove", handleMouseMove);
+        node.removeEventListener("mouseleave", handleMouseLeave);
+
+        // Scrolling the section out of view runs this cleanup without any
+        // mouseleave firing (the pointer never left the section), so the layers
+        // would otherwise be frozen wherever the easing had reached. Stop the
+        // tweens, then snap to rest — the set keeps GSAP's transform cache in
+        // sync so the next entry eases from centre rather than from a stale
+        // offset. The exit fires 100px outside the viewport, so it is never
+        // visible.
+        setters.forEach(({ x, y }) => {
+          x.tween.kill();
+          y.tween.kill();
+        });
+        gsap.set(
+          layers.map(({ el }) => el),
+          { xPercent: 0, yPercent: 0 },
+        );
       };
     },
     [id],
@@ -115,8 +163,8 @@ export const WhatIsIt = ({
           {title}
         </h2>
         <div className="flex flex-col xl:items-center xl:flex-row gap-8 xl:gap-16">
-          <div className="w-[35%] max-xl:hidden">
-            {imageSrc && (
+          {imageSrc && (
+            <div className="w-[35%] max-xl:hidden">
               <div className="relative overflow-hidden rounded-xl translate-z-0">
                 <Image
                   id={`what-is-part-1-${id}`}
@@ -154,9 +202,14 @@ export const WhatIsIt = ({
                   loading="lazy"
                 />
               </div>
+            </div>
+          )}
+          <div
+            className={cn(
+              "relative w-full",
+              imageSrc ? "xl:w-3/5 max-w-2xl" : " max-w-3xl",
             )}
-          </div>
-          <div className="relative w-full xl:w-3/5 max-w-2xl">
+          >
             <p
               className="text-xl md:text-[32px] mb-0 font-medium tracking-[-0.6px] md:tracking-[-0.96px] leading-[1.4] md:leading-[1.25]"
               ref={ref}
