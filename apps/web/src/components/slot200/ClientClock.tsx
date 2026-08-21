@@ -20,11 +20,12 @@ interface Row {
 }
 
 /**
- * Gap time by the producing validator's client family, measured entirely by
- * this page: every gap comes off our own RPC slot stream, credited via the
- * leader schedule, with families from gossip versions (gossip alone cannot
- * separate Agave from its forks, so the page doesn't claim to). Session-scoped
- * — counting starts when the viewer tunes in, and the labels say so.
+ * Gap time by the producing validator's client, measured entirely by this
+ * page: every gap comes off our own RPC slot stream, credited via the leader
+ * schedule. Identities come from the on-chain validator history program
+ * (decoded by our own RPC sweep — Jito, BAM, Harmonic, Rakurai…), with
+ * gossip-version families as the fallback. Session-scoped — counting starts
+ * when the viewer tunes in, and the labels say so.
  */
 export const ClientClock = React.memo(function ClientClock({
   attribution,
