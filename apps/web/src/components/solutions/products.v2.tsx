@@ -11,6 +11,7 @@ export type Product = {
   key: string;
   href?: string;
   eyebrow?: string;
+  external?: boolean;
   Icon?: ComponentType<{
     className?: string;
     "aria-hidden"?: boolean;
@@ -99,8 +100,9 @@ export const Products = ({
                 !oneColumn,
             })}
           >
-            {products.map(({ key, href, eyebrow, Icon }, index) => {
+            {products.map(({ key, href, eyebrow, external, Icon }, index) => {
               const hasLink = Boolean(href);
+              const opensInNewTab = external !== false;
               const productTitle = t(`${translationBase}.${key}.title`);
               const productDescription = t(
                 `${translationBase}.${key}.description`,
@@ -179,8 +181,8 @@ export const Products = ({
                   {hasLink ? (
                     <a
                       href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      target={opensInNewTab ? "_blank" : undefined}
+                      rel={opensInNewTab ? "noopener noreferrer" : undefined}
                       className="group flex flex-row w-full p-[24px_0] xl:p-[24px_12px] text-inherit focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-xl"
                     >
                       {content}

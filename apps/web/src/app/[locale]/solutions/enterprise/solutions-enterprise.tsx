@@ -98,6 +98,7 @@ export function SolutionsEnterprisePage() {
             key: guide.key,
             href: guide.href,
             eyebrow: t(`partners.guides.items.${guide.key}.tag`),
+            external: false,
           }))}
           translationBase="partners.guides.items"
           highlightColor="#14F195"
@@ -124,6 +125,7 @@ export function SolutionsEnterprisePage() {
           products={RESOURCES.map((resource) => ({
             key: resource.key,
             href: resource.href,
+            external: resource.external,
           }))}
           translationBase="partners.resources.items"
           highlightColor="#14F195"
