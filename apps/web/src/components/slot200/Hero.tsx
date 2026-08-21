@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
-import { nextStep, pctFaster, rolloutState } from "./stages";
+import { STEPS, nextStep, pctFaster, rolloutState } from "./stages";
 import { HeartbeatAudio } from "./heartbeatAudio";
 import type { FeedState, SlotEvent } from "./useSlotFeed";
 
@@ -63,6 +63,15 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
   const rollout = rolloutState(feed.avg1m, feed.avg10m);
   const { from, to, phase, stepIndex, stepsDone, targetEpoch } = rollout;
   const avgShown = feed.avg1m ? Math.round(feed.avg1m) : null;
+  // The struck-out number is always a clock the network left behind: mid-flip
+  // that's `from`; once the average settles and `from` re-bases to the new
+  // step, it's the previous step (never the clock we just arrived on).
+  const cameFrom =
+    phase === "flipping" || phase === "flipped"
+      ? from
+      : stepsDone > 0
+        ? STEPS[stepsDone - 1]
+        : null;
 
   // countdown only against a confirmed epoch, drained by real slots
   const slotsLeft =
@@ -154,7 +163,10 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     lock = t("sentenceDone");
   } else {
     under = t("underHolding", { done: stepsDone });
-    lock = t("lockUnscheduled", { to });
+    lock =
+      stepsDone > 0
+        ? t("lockHolding", { from, pct: pctFaster(STEPS[0], from), to })
+        : t("lockUnscheduled", { to });
   }
 
   return (
@@ -189,10 +201,14 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
           </div>
         ) : (
           <div className="s2-big" ref={bigRef}>
-            <span className="s2-big-old">{from}</span>
-            <span className="s2-big-arrow" aria-hidden>
-              →
-            </span>
+            {cameFrom !== null && (
+              <>
+                <span className="s2-big-old">{cameFrom}</span>
+                <span className="s2-big-arrow" aria-hidden>
+                  →
+                </span>
+              </>
+            )}
             <span
               className={`s2-big-num ${phase === "flipping" ? "" : "is-flipped"}`}
             >
