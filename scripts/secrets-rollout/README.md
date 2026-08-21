@@ -19,9 +19,18 @@ out of GitHub Actions unless a future workflow genuinely needs them.
 
 ## Managed Projects
 
-The project list lives in
-[`projects.solana-apps.json`](./projects.solana-apps.json). Each entry only
-defines:
+The typed source of truth lives in
+[`packages/app-topology/src/index.ts`](../../packages/app-topology/src/index.ts).
+The checked-in [`projects.solana-apps.json`](./projects.solana-apps.json) file
+is generated from it. Regenerate or validate the artifact from the repository
+root:
+
+```bash
+pnpm topology:generate
+pnpm topology:check
+```
+
+Each generated entry defines:
 
 - `doppler_project`
 - `doppler_config`

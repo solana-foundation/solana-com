@@ -32,6 +32,7 @@ import { WalletCards } from "@boxicons/react/WalletCards";
 import { Bolt as Zap } from "@boxicons/react/Bolt";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
+import { APP_TOPOLOGY } from "@workspace/app-topology";
 import { Button } from "@/app/components/ui/button";
 import type { LinkItem } from "@/types/media";
 
@@ -516,7 +517,7 @@ function getYoutubeId(url: string) {
 
 function getStoryThumbnail(story: LinkItem) {
   if (story.thumbnailImage?.startsWith("/uploads/")) {
-    return `/media-assets${story.thumbnailImage}`;
+    return `${APP_TOPOLOGY.media.assetPrefix}${story.thumbnailImage}`;
   }
 
   if (story.thumbnailImage) {

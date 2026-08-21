@@ -1,8 +1,9 @@
 import { chromium } from "playwright";
 import path from "path";
 import fs from "fs";
+import { getLocalAppUrl } from "@workspace/app-topology";
 
-const BASE_URL = "http://localhost:3004";
+const BASE_URL = getLocalAppUrl("accelerate");
 const OUTPUT_DIR = path.join(__dirname, "screenshots");
 
 const pages = [

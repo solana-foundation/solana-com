@@ -47,6 +47,7 @@ Pick the app first. That usually cuts exploration time in half.
 ### Shared packages
 
 - `packages/i18n`: locale list, routing helpers, shared message loading
+- `packages/app-topology`: typed app ownership and deployment topology manifest
 - `packages/ui`: reusable UI primitives
 - `packages/ui-chrome`: shared nav/footer/theme/cross-app link behavior
 - `packages/ecosystem-data`: canonical company, wallet, and logo registry used
@@ -106,6 +107,9 @@ If repo structure changed and the onboarding docs may be stale, use the
 
 ## Cross-App Behavior
 
+- `@workspace/app-topology` is the source of truth for app names, ports, route
+  ownership, asset prefixes, topology environment variables, and deployment
+  project names
 - Non-web apps set `NEXT_PUBLIC_APP_NAME` in `next.config.ts`
 - `@solana-com/ui-chrome/url-config` uses that value to decide whether a link
   should use Next client navigation or a full page load across app boundaries
@@ -113,7 +117,9 @@ If repo structure changed and the onboarding docs may be stale, use the
   `solana.com` without breaking static assets
 
 If you touch navigation, shared header/footer behavior, or route ownership,
-inspect `packages/ui-chrome` and the target app `next.config.ts` together.
+inspect `packages/app-topology`, `packages/ui-chrome`, and the target app
+`next.config.ts` together. Run `pnpm topology:check` after topology changes and
+`pnpm topology:generate` when a generated deployment manifest needs updating.
 
 ## Content Ownership
 

@@ -179,7 +179,7 @@ export const PAGES_TO_COMPARE: PageConfig[] = [
 ];
 
 export const PRODUCTION_BASE_URL = "https://solana.com";
-export const LOCAL_BASE_URL = "http://localhost:3000";
+export const LOCAL_BASE_URL = getLocalAppUrl("web");
 
 export function getPagesByCategory(category: PageConfig["category"]) {
   return PAGES_TO_COMPARE.filter((page) => page.category === category);
@@ -188,3 +188,4 @@ export function getPagesByCategory(category: PageConfig["category"]) {
 export function getAllRoutes() {
   return PAGES_TO_COMPARE.map((page) => page.route);
 }
+import { getLocalAppUrl } from "@workspace/app-topology";

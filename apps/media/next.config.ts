@@ -1,18 +1,17 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { APP_TOPOLOGY, getNextPublicAppEnv } from "@workspace/app-topology";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
-const assetPrefix = "/media-assets";
+const assetPrefix = APP_TOPOLOGY.media.assetPrefix;
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   trailingSlash: false,
   assetPrefix,
 
-  env: {
-    NEXT_PUBLIC_APP_NAME: "media",
-  },
+  env: getNextPublicAppEnv("media"),
 
   images: {
     path: `${assetPrefix}/_next/image`,
@@ -21,7 +20,7 @@ const nextConfig: NextConfig = {
         pathname: "/uploads/**",
       },
       {
-        pathname: "/media-assets/uploads/**",
+        pathname: `${assetPrefix}/uploads/**`,
       },
     ],
     remotePatterns: [
@@ -124,11 +123,11 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         {
-          source: "/media-assets/_next/:path+",
+          source: `${assetPrefix}/_next/:path+`,
           destination: "/_next/:path+",
         },
         {
-          source: "/media-assets/uploads/:path+",
+          source: `${assetPrefix}/uploads/:path+`,
           destination: "/uploads/:path+",
         },
       ],

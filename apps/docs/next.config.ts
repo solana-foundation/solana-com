@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { createMDX } from "fumadocs-mdx/next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { APP_TOPOLOGY, getNextPublicAppEnv } from "@workspace/app-topology";
 
 const securityHeaders: Array<{ key: string; value: string }> = [
   {
@@ -30,7 +31,7 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
   });
 }
 
-const prefix = "/docs-assets";
+const prefix = APP_TOPOLOGY.docs.assetPrefix;
 const isVercelBuild = process.env.VERCEL === "1";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -38,9 +39,7 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   assetPrefix: prefix,
 
-  env: {
-    NEXT_PUBLIC_APP_NAME: "docs",
-  },
+  env: getNextPublicAppEnv("docs"),
 
   webpack(config) {
     if (isVercelBuild) {
@@ -164,7 +163,7 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         {
-          source: "/docs-assets/_next/:path+",
+          source: `${prefix}/_next/:path+`,
           destination: "/_next/:path+",
         },
       ],
