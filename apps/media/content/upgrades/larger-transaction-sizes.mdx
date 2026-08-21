@@ -62,97 +62,108 @@ You can check activation status of the feature gate at any time (use `-u d` or
 solana -u m feature status txv1aq4pp281K9um3tnPgkfX8UqtFT6wcVW3hNezGLL
 ```
 
-Local testing is available today. The
-[Solana CLI](https://solana.com/docs/intro/installation)'s test validator
-(v4.2+) and [Surfpool](https://www.surfpool.run/) (v1.5+) both enable the
-feature by default, so every behavior described below is reproducible locally
-before activation.
+Local testing is available today. V1 Transactions are enabled in:
 
-## Technical Details
+- Local test validator in the [Solana CLI](https://solana.com/docs/intro/installation)
+  (v4.2+)
+- [Surfpool](https://www.surfpool.run/) (v1.5+)
+- [SIMD-0296 - Ephemeral Surfnet](https://simd-0296.surfnet.dev/)
 
-### Size Limit
+## Migration Checklist
 
-The new per-transaction size limit is 4096 bytes, up from 1232. The previous
-limit was set by Solana's conservative use of a 1280-byte MTU (Maximum
-Transmission Unit), which after overhead left 1232 bytes for transaction
-payload.
+<AudienceGroup>
+<Audience title="For Users" summary="No action needed.">
 
-In 2022, QUIC became the default transaction ingestion protocol, which does not
-specify a maximum stream size, so the maximum transaction size can be raised.
+Wallets and applications keep working exactly as they do today. The `legacy` and
+`v0` transaction formats are unchanged, and nothing about how you approve, sign,
+or send a transaction changes.
 
-The ceiling stays at 4096 rather than going larger as this matches the standard
-4 KiB memory page used by validator hardware, which keeps per-transaction memory
-handling cheap and avoids forcing a single transaction to span multiple pages.
-
-Once a transaction exceeds the MTU, it has to be split across multiple QUIC
-frames, and a single dropped frame triggers a retransmit of the whole set. This
-makes larger transactions more expensive to receive reliably and puts more
-pressure on validator in-flight buffers. Keeping the transaction size under 4096
-avoids this problem.
-
-A 4096-byte ceiling covers a meaningful share of the use cases that have relied
-on bundles, letting developers land them as individual atomic transactions
-instead. Because larger transactions consume more validator bandwidth, the
-scheduler is expected to require higher priority fees to land them than smaller
-transactions of equivalent priority.
-
-### v1 Format Requirement
-
-The larger size is only available in the `v1` transaction format, specified in
-[SIMD-0385](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0385-transaction-v1.md).
-
-v1 reorders the transaction envelope. Signatures move to the tail so the version
-byte lands at offset zero, letting infrastructure identify the format without
-deserializing anything. A `v1` transaction starts with the byte `129` (`0x81`).
-
-<TxWireLayout />
-
-The config mask and values are new: compute unit limit, loaded accounts data
-size limit, heap size, and priority fee live at fixed positions in the message
-instead of inside `ComputeBudgetProgram` instructions. This means the network
-can rank a transaction by priority fee with a single fixed-offset read instead
-of scanning and deserializing its instruction list.
-
-The limits also change. v1 transactions can be larger but must be flatter:
-
-| Limit                 | legacy          | v0                    | v1                |
-| --------------------- | --------------- | --------------------- | ----------------- |
-| Transaction size      | 1232 bytes      | 1232 bytes            | **4096 bytes**    |
-| Account addresses     | ~32, size-bound | 64, via lookup tables | **64, inline**    |
-| Address lookup tables | not supported   | supported             | **not supported** |
-| Duplicate addresses   | allowed         | allowed               | **rejected**      |
-
-The legacy and v0 numbers above are runtime limits, not format limits. Both
-formats can encode more accounts than they can execute — the runtime rejects any
-transaction locking more than 64 accounts. Legacy transactions cannot reach even
-that: 64 inline addresses at 32 bytes each is 2048 bytes, so a legacy transaction
-runs out of its 1232-byte budget somewhere around 32 addresses, depending on how
-many signatures and how much instruction data it carries. v0 reaches the full 64
-by referencing lookup-table addresses at 1 byte each instead — which is the whole
-point of lookup tables. v1 reaches the same 64 with plain inline addresses,
-because 2048 bytes fits comfortably inside 4096, and makes 64 an explicit format
-limit checked at sanitization — so dropping lookup tables costs nothing in
-practice. A draft proposal, SIMD-0596, would raise the account limit to 96.
-
-The larger size enables transaction-level workloads that did not fit inside 1232
-bytes, including ZK proofs such as those used by
+What the upgrade buys you is headroom. Work that previously had to be split
+across several chained transactions — ZK proofs such as those used by
 [Confidential Transfers](https://solana.com/docs/tokens/extensions/confidential-transfer),
-Winternitz one-time signatures, nested multisigs often used by institutions, and
-signature schemes like BLS.
+large multisigs, and batched operations — can land as a single atomic
+transaction. That means fewer signatures to pay for and one confirmation instead
+of several.
 
-### What Changes for Existing Clients
+</Audience>
 
-The v1 format changes the byte layout of every field after the version byte. Any
-indexer or client that decodes raw transaction bytes will need to recognize the
-`129` version prefix and parse the new layout, and any RPC consumer reading
-transactions or blocks has to opt in to receiving them.
+<Audience title="For Developers" summary="Reading transactions is a breaking change. Sending v1 is opt-in.">
 
-Transactions sent in `v0` or `legacy` formats continue to deserialize as they do
-today, but apps that read any incoming transaction or block will need to make small changes to avoid a break.
-Check the following sections below to understand exactly how your codebase will be impacted:
-[transaction/block reads](#breaking-change-reading-transactions-and-blocks),
-[indexing](#breaking-change-indexing-transactions), or
-[sending transactions](#sending-v1-transactions).
+**If you read transactions:**
+
+- Upgrade dependencies. Rust: Move to Agave 4.2.x-generation client dependencies. F
+  TS: Kit upgrade to v8 / web3.js 1.x, upgrade to
+  1.99.0+ — it reads v1 but cannot send it.
+- Set `maxSupportedTransactionVersion` to the integer `1` on `getTransaction`,
+  `getBlock`, and `blockSubscribe`.
+- Audit transaction parsers that introspect ComputeBudget instruction instructions; for
+  for V1 transactions read `transactionConfig` instead.
+- Treat `blockSubscribe`'s `block: null` with an error as a failure, not an empty
+  block.
+- Regenerate protobuf stubs and discriminate v1 transactions on `config` presence.
+
+**If you send transactions:**
+
+- Set compute unit limit and loaded accounts data size explicitly (the defaults
+  are zero and your transaction will fail without them).
+- Estimate both from one simulation with both limits maxed; round the data size
+  up to the next 32 KiB page.
+- Strip ComputeBudget instructions.
+- Convert priority fees from micro-lamports-per-CU to total lamports.
+- Confirm no address lookup table dependency.
+- Pass `encoding: 'base64'` when simulating and sending.
+
+The [technical details](#technical-details) below explain each of these in full.
+Sample code is available at: [github.com/solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples)
+
+</Audience>
+
+<Audience title="For Indexers" summary="Update RPC and Geyser decoders to recognize v1 transactions.">
+
+- Update raw transaction decoders to recognize the v1 `129` (`0x81`) version
+  prefix and parse its new layout.
+- Read v1 resource limits and priority fees from `transactionConfig`, not
+  `ComputeBudget` instructions.
+- Regenerate Geyser / gRPC protobuf stubs, then identify v1 from the presence of
+  `Message.config` before checking the `versioned` flag.
+- Normalize priority fees before comparing transaction versions: v0 uses
+  micro-lamports per compute unit, while v1 uses total lamports.
+
+See the [indexing migration details](#breaking-change-indexing-transactions) for
+the version-detection order and examples.
+
+</Audience>
+
+<Audience title="For Validators" summary="Raise QUIC stream windows and verify storage read paths.">
+
+- Raise QUIC stream windows to 4096 bytes — a relayer that misses this rejects
+  oversized v1 transactions after activation.
+- Verify long-term storage read paths round-trip v1 without downgrading it to
+  v0.
+
+</Audience>
+</AudienceGroup>
+
+## Breaking Changes
+
+These are the first releases that handle v1 transactions. Upgrade your dependencies to avoid errors.
+
+| Library                            | Minimum version       | v1 support                                                                                                        |
+| ---------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| TypeScript `@solana/kit`           | 8.0.0                 | Read and send                                                                                                     |
+| TypeScript `@solana/web3.js` 3.x   | (coming soon, rc-0.3) | Read and send ([PR](https://github.com/solana-foundation/solana-web3.js/pull/3866))                               |
+| TypeScript `@solana/web3.js` 1.x   | (coming soon, 1.99.0) | **Read only** — cannot build, sign, or send ([PR](https://github.com/solana-foundation/solana-web3.js/pull/3861)) |
+| Rust — `solana-*` crates           | 4.2.x                 | Read and send                                                                                                     |
+| Python — `solders`                 | 0.29.0                | Read and send                                                                                                     |
+| Go — `solana-foundation/solana-go` | coming soon           | [PR](https://github.com/solana-foundation/solana-go/pull/481)                                                     |
+| `yellowstone-grpc-proto`           | 12.6.0                | First generated code carrying `Message.config`                                                                    |
+| Yellowstone geyser plugin          | 15.1.1                | Earlier builds downgrade v1 to v0 before the wire                                                                 |
+| `@triton-one/yellowstone-grpc`     | 6.0.0                 | Decodes field 7                                                                                                   |
+
+**[GitHub: Transaction V1 Example Code](https://github.com/solana-foundation/transaction-v1-examples)** has a runnable example in each of these languages — sending, decoding, reading blocks, and indexing over gRPC — against a local validator, plus a version matrix recording the first release of every dependency that handles v1, including the ones that drop the config silently rather than erroring. Details for all breaking changes are included below:
+
+<AudienceGroup>
+<Audience title="For Transaction Readers" summary="Opt in to v1 transactions before they appear onchain.">
 
 ### Breaking Change: Reading Transactions and Blocks
 
@@ -162,18 +173,6 @@ starts failing. The fix is one line:
 - Pass `maxSupportedTransactionVersion: 1` on `getTransaction` and `getBlock`.
   It must be the JSON **integer** `1`, not the string `"1"`.
 - **Passing `0` or `legacy` fails on v1 transactions exactly like omitting the parameter.**
-
-In TypeScript, with `@solana/kit`:
-
-```js
-const tx = await rpc.getTransaction(signature, { maxSupportedTransactionVersion: 1 }).send();
-```
-
-And in Rust:
-
-```rust
-let tx = rpc_client.get_transaction_with_config(&signature, RpcTransactionConfig { max_supported_transaction_version: Some(1), ..Default::default() })?;
-```
 
 How each read surface behaves without the opt-in:
 
@@ -199,6 +198,10 @@ v1 transactions (it is absent entirely for legacy and v0):
   }
 }
 ```
+
+</Audience>
+
+<Audience title="For Indexers" summary="Decode v1 transaction configuration instead of ComputeBudget instructions.">
 
 ### Breaking Change: Indexing Transactions
 
@@ -251,13 +254,6 @@ fn message_version(message: &Message) -> MessageVersion {
 proto3 — so this check holds however your decoder handles defaults, and whether or
 not your copy of the schema marks the field `optional`.
 
-**Regenerating stubs means bumping the schema, not just the client.** Yellowstone
-consumers need `yellowstone-grpc-proto` 12.6.0+ (the first release whose generated
-code carries `Message.config`) and geyser plugin 15.1.1+ — earlier plugin builds
-downgrade a v1 message to v0 before it ever reaches the wire, so no client-side fix
-can recover the config. On the TypeScript side,
-`@triton-one/yellowstone-grpc` decodes field 7 as of 6.0.0.
-
 **Comparing fees across versions needs normalising.** v0 states a priority fee as
 a _price_ in micro-lamports per compute unit; v1 states a _total_ in lamports. To
 put both in one dashboard, multiply the v0 price by the compute unit limit the
@@ -267,6 +263,10 @@ transaction actually requested, then divide by 1,000,000:
 20,000 CU × 250,000 micro-lamports/CU = 5,000 lamports   // v0
                                         5,000 lamports   // the v1 equivalent
 ```
+
+</Audience>
+
+<Audience title="For Transaction Senders" summary="Sending v1 is opt-in, but its resource limits must be explicit.">
 
 ### Sending v1 Transactions
 
@@ -304,79 +304,128 @@ Three more sending changes:
   transaction version, and was deliberately not raised on deprecation grounds,
   so the 4096-byte ceiling is only reachable over base64.
 
-### Client Library Support
+</Audience>
+</AudienceGroup>
 
-- **TypeScript / `@solana/kit`** — fully supported in 8.x The v1 codecs, the config
-  setters, and `maxSupportedTransactionVersion: 1` all landed in 7.x, but 8.0.0
-  is the first release whose types accept
-  `createTransactionMessage({ version: 1 })`, which is what lets a v1 message be
-  built through the same `pipe` as a legacy or v0 one. On 7.x the builder is
-  reachable only by suppressing the type error.
-- **TypeScript / `@solana/web3.js@rc`** — v3 (release candidate) [supports v1](https://github.com/solana-foundation/solana-web3.js/pull/3861) (`compileToV1Message`).
-- **TypeScript / `@solana/web3.js` 1.x** — read only, from 1.99.0 onward
-  ([PR](https://github.com/solana-foundation/solana-web3.js/pull/3866)).
-  Building, signing, serializing, and sending v1 are not supported on 1.x.
-  Migrate to `@solana/kit` 8.0+ or web3.js v3. Releases
-  before 1.99.0 cannot read v1 at all.
-- **Rust / `solana-*` crates** — ready. Use 4.2.x dependencies.
-- **Python / `solders`** — ready from 0.29.0, for both reading and sending.
-  Earlier releases have neither. The RPC side is plain
-  JSON-RPC: pass `maxSupportedTransactionVersion: 1` when reading and
-  `encoding: "base64"` when sending.
-- **Go** — `solana-foundation/solana-go` - coming soon [PR](https://github.com/solana-foundation/solana-go/pull/481)
+## SDK Cheat Sheet
 
-[`transaction-v1-examples`](https://github.com/solana-foundation/transaction-v1-examples) has a runnable example in each of these languages — sending, decoding, reading blocks, and indexing over gRPC — against a local validator, plus a version matrix recording the first release of every dependency that handles v1, including the ones that drop the config silently rather than erroring.
+Use these APIs to build, send, and read v1 transactions.
 
-**Cheat Sheet**
+<AudienceGroup>
+<Audience title="TypeScript — @solana/kit" summary="@solana/kit 8.0.0 or later">
 
-| Task                                      | `@solana/kit`                                                                                                                                                                        | Rust (`solana-*` 4.2)                                                                                                                                                      |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Build a v1 message                        | `createTransactionMessage({ version: 1 })`                                                                                                                                           | `v1::Message::try_compile_with_config`                                                                                                                                     |
-| Set the resource limits                   | `setTransactionMessageComputeUnitLimit`<br />`setTransactionMessageLoadedAccountsDataSizeLimit`<br />`setTransactionMessageHeapSize`<br />`setTransactionMessagePriorityFeeLamports` | `v1::TransactionConfig::empty()`<br />`.with_compute_unit_limit(…)`<br />`.with_loaded_accounts_data_size_limit(…)`<br />`.with_heap_size(…)`<br />`.with_priority_fee(…)` |
-| Reserve the limit space before simulating | `fillTransactionMessageProvisoryResourceLimits`                                                                                                                                      | —                                                                                                                                                                          |
-| Measure the limits by simulation          | `estimateResourceLimitsFactory`                                                                                                                                                      | — read `unitsConsumed` and `loadedAccountsDataSize` off `simulateTransaction` yourself                                                                                     |
-| Write the measured limits back            | `estimateAndSetResourceLimitsFactory`                                                                                                                                                | —                                                                                                                                                                          |
-| Decode a transaction off the wire         | `getTransactionDecoder`<br />`getCompiledTransactionMessageDecoder`<br />`decompileTransactionMessage`                                                                               | `VersionedTransaction` deserialization, or `EncodedTransaction::decode` on an RPC response                                                                                 |
-| Read the config back                      | `message.config` on the v1 arm of `TransactionMessage`                                                                                                                               | `VersionedMessage::V1(m) => m.config`                                                                                                                                      |
-| Opt in to reading v1                      | `maxSupportedTransactionVersion: 1` on `getTransaction` / `getBlock`                                                                                                                 | `max_supported_transaction_version: Some(1)` on `RpcTransactionConfig` / `RpcBlockConfig`                                                                                  |
+| Task                                  | API                                                                                                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Build a v1 message                    | `createTransactionMessage({ version: 1 })`                                                                                                                                           |
+| Set resource limits                   | `setTransactionMessageComputeUnitLimit`<br />`setTransactionMessageLoadedAccountsDataSizeLimit`<br />`setTransactionMessageHeapSize`<br />`setTransactionMessagePriorityFeeLamports` |
+| Reserve limit space before simulating | `fillTransactionMessageProvisoryResourceLimits`                                                                                                                                      |
+| Measure limits by simulation          | `estimateResourceLimitsFactory`                                                                                                                                                      |
+| Write measured limits back            | `estimateAndSetResourceLimitsFactory`                                                                                                                                                |
+| Decode a transaction off the wire     | `getTransactionDecoder`<br />`getCompiledTransactionMessageDecoder`<br />`decompileTransactionMessage`                                                                               |
+| Read the config                       | `message.config` on the v1 arm of `TransactionMessage`                                                                                                                               |
+| Opt in to reading v1                  | `maxSupportedTransactionVersion: 1` on `getTransaction` / `getBlock`                                                                                                                 |
 
-The compute unit limit, loaded accounts data size limit, and heap size setters take a message of any version. The priority fee is the exception: it is a total in lamports on v1 and a price in micro-lamports per compute unit on legacy and v0, so `@solana/kit` splits it into `setTransactionMessagePriorityFeeLamports` (v1 only) and `setTransactionMessageComputeUnitPrice` (legacy and v0 only), enforced by their types.
+The compute unit limit, loaded accounts data size limit, and heap size setters
+work for messages of any version. Priority fees differ: v1 stores a total in
+lamports, while legacy and v0 use micro-lamports per compute unit. Use
+`setTransactionMessagePriorityFeeLamports` for v1 and
+`setTransactionMessageComputeUnitPrice` for legacy and v0; Kit enforces this
+distinction with its types.
 
-### Checklist Before Activation
+</Audience>
 
-**If you read transactions:**
+<Audience title="Rust — solana-*" summary="solana-* 4.2.x">
 
-- Set `maxSupportedTransactionVersion` to the integer `1` on `getTransaction`,
-  `getBlock`, and `blockSubscribe`. Grep for the literal `0` too — it is just as
-  broken as omitting it.
-- Audit for ComputeBudget instruction scanning; read `transactionConfig`
-  instead, and persist it — it has no v0 equivalent.
-- Treat `blockSubscribe`'s `block: null` with an error as a failure, not an empty
-  block.
-- Regenerate protobuf stubs and discriminate on `config` presence, never on the
-  `versioned` boolean.
-- Move to Agave 4.2.x-generation client dependencies. On web3.js 1.x, upgrade to
-  1.99.0+ — it reads v1 but cannot send it.
+| Task                                  | API                                                                                                                                                                        |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build a v1 message                    | `v1::Message::try_compile_with_config`                                                                                                                                     |
+| Set resource limits                   | `v1::TransactionConfig::empty()`<br />`.with_compute_unit_limit(…)`<br />`.with_loaded_accounts_data_size_limit(…)`<br />`.with_heap_size(…)`<br />`.with_priority_fee(…)` |
+| Reserve limit space before simulating | —                                                                                                                                                                          |
+| Measure limits by simulation          | Read `unitsConsumed` and `loadedAccountsDataSize` from `simulateTransaction`.                                                                                              |
+| Write measured limits back            | —                                                                                                                                                                          |
+| Decode a transaction off the wire     | `VersionedTransaction` deserialization, or `EncodedTransaction::decode` on an RPC response                                                                                 |
+| Read the config                       | `VersionedMessage::V1(m) => m.config`                                                                                                                                      |
+| Opt in to reading v1                  | `max_supported_transaction_version: Some(1)` on `RpcTransactionConfig` / `RpcBlockConfig`                                                                                  |
 
-**If you send transactions:**
+</Audience>
+</AudienceGroup>
 
-- Set compute unit limit and loaded accounts data size explicitly — the defaults
-  are zero.
-- Estimate both from one simulation with both limits maxed; round the data size
-  up to the next 32 KiB page.
-- Strip ComputeBudget instructions. Convert priority fees from
-  micro-lamports-per-CU to total lamports. Confirm no address lookup table
-  dependency.
-- Pass `encoding: 'base64'` when simulating and sending.
-
-**If you operate infrastructure:**
-
-- Raise QUIC stream windows to 4096 bytes — a relayer that misses this rejects
-  oversized v1 transactions after activation.
-- Verify long-term storage read paths round-trip v1 without downgrading it to
-  v0.
+Full sample code for TypeScript, Rust, Go, and Python are available on [GitHub](https://github.com/solana-foundation/transaction-v1-examples).
 
 ---
+
+## Technical Details
+
+### Size Limit
+
+The new per-transaction size limit is 4096 bytes, up from 1232. The previous
+limit was set by Solana's conservative use of a 1280-byte MTU (Maximum
+Transmission Unit), which after overhead left 1232 bytes for transaction
+payload.
+
+In 2022, QUIC became the default transaction ingestion protocol, which does not
+specify a maximum stream size, so the maximum transaction size can be raised.
+
+The ceiling stays at 4096 rather than going larger as this matches the standard
+4 KiB memory page used by validator hardware, which keeps per-transaction memory
+handling cheap and avoids forcing a single transaction to span multiple pages.
+
+Once a transaction exceeds the MTU, it has to be split across multiple QUIC
+frames, and a single dropped frame triggers a retransmit of the whole set. This
+makes larger transactions more expensive to receive reliably and puts more
+pressure on validator in-flight buffers. Keeping the transaction size under 4096
+avoids this problem.
+
+A 4096-byte ceiling covers a meaningful share of the use cases that have relied
+on bundles, letting developers land them as individual atomic transactions
+instead. Because larger transactions consume more validator bandwidth, the
+scheduler is expected to require higher priority fees to land them than smaller
+transactions of equivalent priority.
+
+### v1 Format
+
+The larger size is only available in the `v1` transaction format, specified in
+[SIMD-0385](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0385-transaction-v1.md).
+
+v1 reorders the transaction envelope. Signatures move to the tail and the
+transaction discriminator moves to the first slot (offset zero), letting
+infrastructure identify the format without deserializing anything. For v1, that
+discriminator is the byte `129` (`0x81`).
+
+<TxWireLayout />
+
+The config mask and values are new: compute unit limit, loaded accounts data
+size limit, heap size, and priority fee live at fixed positions in the message
+instead of inside `ComputeBudgetProgram` instructions. This means the network
+can rank a transaction by priority fee with a single fixed-offset read instead
+of scanning and deserializing its instruction list.
+
+The limits also change. v1 transactions can be larger but must be flatter:
+
+| Limit                 | legacy          | v0                    | v1                |
+| --------------------- | --------------- | --------------------- | ----------------- |
+| Transaction size      | 1232 bytes      | 1232 bytes            | **4096 bytes**    |
+| Account addresses     | ~32, size-bound | 64, via lookup tables | **64, inline**    |
+| Address lookup tables | not supported   | supported             | **not supported** |
+| Duplicate addresses   | allowed         | allowed               | **rejected**      |
+
+The legacy and v0 numbers above are runtime limits, not format limits. Both
+formats can encode more accounts than they can execute — the runtime rejects any
+transaction locking more than 64 accounts. Legacy transactions cannot reach even
+that: 64 inline addresses at 32 bytes each is 2048 bytes, so a legacy transaction
+runs out of its 1232-byte budget somewhere around 32 addresses, depending on how
+many signatures and how much instruction data it carries. v0 reaches the full 64
+by referencing lookup-table addresses at 1 byte each instead — which is the whole
+point of lookup tables. v1 reaches the same 64 with plain inline addresses,
+because 2048 bytes fits comfortably inside 4096, and makes 64 an explicit format
+limit checked at sanitization — so dropping lookup tables costs nothing in
+practice. A draft proposal, SIMD-0596, would raise the account limit to 96.
+
+The larger size enables transaction-level workloads that did not fit inside 1232
+bytes, including ZK proofs such as those used by
+[Confidential Transfers](https://solana.com/docs/tokens/extensions/confidential-transfer),
+Winternitz one-time signatures, nested multisigs often used by institutions, and
+signature schemes like BLS.
 
 ## About This Upgrade
 

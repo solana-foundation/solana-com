@@ -502,6 +502,54 @@ const iframe = block({
   ),
 });
 
+const audienceGroup = wrapper({
+  label: "Audience group",
+  description: "Container for the collapsible per-audience sections",
+  schema: {},
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        Audience group
+      </strong>
+      {props.children}
+    </div>
+  ),
+});
+
+const audience = wrapper({
+  label: "Audience section",
+  description: "One collapsible section addressed to a single audience",
+  schema: {
+    title: fields.text({
+      label: "Title",
+      validation: { isRequired: true },
+    }),
+    summary: fields.text({ label: "Summary" }),
+  },
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        {props.value.title || "Audience section"}
+      </strong>
+      {props.children}
+    </div>
+  ),
+});
+
 // Diagram blocks for upgrade articles. These take no options — each renders a
 // single fixed illustration defined in `components/upgrades/diagrams.tsx` — so
 // they exist here purely to declare the tags as valid in the Keystatic editor.
@@ -560,6 +608,8 @@ export const componentBlocks: Record<string, ContentComponent> = {
 // renders on a permanently dark surface the diagrams are colored for.
 export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   ...componentBlocks,
+  Audience: audience,
+  AudienceGroup: audienceGroup,
   TxAccountBytes: txAccountBytes,
   TxSimulationTrace: txSimulationTrace,
   TxWireLayout: txWireLayout,
