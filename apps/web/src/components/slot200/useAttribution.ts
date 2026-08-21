@@ -45,8 +45,8 @@ function median(sorted: number[]): number {
 /**
  * Session-scoped gap attribution: every measured block gap credited to the
  * producing validator (and its client family) via the leader schedule.
- * Unlike the perp200 relay this page has no 29-hour server memory — counting
- * starts when the viewer tunes in, and every label says so.
+ * There is no server memory on Vercel — counting starts when the viewer
+ * tunes in, and every label says so.
  */
 export function useAttribution(
   subscribe: (_fn: (_ev: SlotEvent) => void) => () => void,
