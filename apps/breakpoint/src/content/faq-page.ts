@@ -116,7 +116,7 @@ export const faqPageSections = [
         id: "children-minors-attendance",
         question: "Can children attend Breakpoint?",
         answer:
-          "Children 16 and under are welcome to attend Breakpoint when accompanied by a registered parent or legal guardian. Parents and guardians are responsible for supervising their children at all times. Breakpoint does not provide childcare, and access to certain areas may be restricted.",
+          "Children 16 and under are welcome to attend Breakpoint when accompanied by a registered parent or legal guardian. At registration, an adult must sign a waiver for each child to enter the venue. Parents and guardians are responsible for supervising their children at all times. Breakpoint does not provide childcare, and access to certain areas may be restricted.",
       },
     ],
   },
