@@ -74,6 +74,7 @@ import { rain } from "./records/rain";
 import { ramp } from "./records/ramp";
 import { raydium } from "./records/raydium";
 import { reap } from "./records/reap";
+import { rendben } from "./records/rendben";
 import { renderNetwork } from "./records/render-network";
 import { rockawayx } from "./records/rockawayx";
 import { ryder } from "./records/ryder";
@@ -187,6 +188,7 @@ export const companies = [
   ramp,
   raydium,
   reap,
+  rendben,
   renderNetwork,
   rockawayx,
   ryder,
