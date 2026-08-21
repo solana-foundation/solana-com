@@ -1,0 +1,109 @@
+---
+title: Haskell SDK
+description:
+  Learn how to interact with Solana using the Haskell SDK (solana-haskell-sdk).
+h1: Haskell SDK for Solana
+---
+
+## Solana Haskell SDK
+
+[`solana-haskell-sdk`](https://github.com/mariusgeorgescu/solana-haskell-sdk)
+
+- Build, sign, and submit transactions from Haskell, including sponsored fees
+  (an explicit fee payer with automatic signature ordering), durable nonces,
+  and priority fees.
+- Clients for the native programs (System, Stake, Vote, Address Lookup Table,
+  BPF Loader, Compute Budget, Secp256k1), SPL Token and Associated Token
+  Account, and Metaplex Token Metadata.
+- Versioned (v0) transactions with address lookup tables, plus decoders for
+  on-chain account state: token accounts, mints, lookup tables, stake and
+  nonce accounts, and metadata.
+- A [Solana JSON RPC API](/docs/rpc) client and PubSub (WebSocket)
+  subscriptions with push-based transaction confirmation.
+- Serialization is verified byte-for-byte against the official Rust crates by
+  golden-vector tests.
+- Available on
+  [Hackage](https://hackage.haskell.org/package/solana-haskell-sdk), with full
+  API documentation on the package page.
+
+## Installation
+
+Add `solana-haskell-sdk` to your project's `build-depends`, or install it
+directly from [Hackage](https://hackage.haskell.org/package/solana-haskell-sdk):
+
+```bash
+cabal update
+cabal install --lib solana-haskell-sdk
+```
+
+## Transfer SOL
+
+The examples use `GHC2021` (the package's `default-language`). This program
+generates a keypair, funds it with an airdrop on a local validator, and
+transfers 1 SOL:
+
+```haskell
+{-# LANGUAGE OverloadedStrings #-}
+
+module Main where
+
+import Control.Monad (void)
+import Control.Monad.IO.Class (liftIO)
+import Network.Solana.Core.Crypto
+import Network.Solana.NativePrograms.SystemProgram qualified as SystemProgram
+import Network.Solana.RPC.HTTP.Transaction
+import Network.Solana.SolanaWeb3
+import Network.Web3.Provider
+
+main :: IO ()
+main = do
+  -- Generate keypairs for fee payer (sender)
+  (myPublicKey, myPrivateKey) <- createSolanaKeyPair
+
+  -- Create Connection, local validator in this example
+  result <- runWeb3' (HttpProvider "http://127.0.0.1:8899") $ do
+    -- Fund fee payer
+    void $ requestAirdrop myPublicKey 10_000_000_000
+    wait 15 -- Wait 15 seconds be sure the tx was confirmed
+
+    -- Define recipient's address from a base58-encoded string
+    let recipient = "A988FuUtUVk8jMUuVc1ccaoTA3VS9CB4dkEf9XUAUqV4"
+
+    -- Check balance
+    printBalances [myPublicKey, recipient]
+
+    -- Create a new transaction.
+    txId <-
+      newTransaction
+        [myPrivateKey] -- Signing keys (with all required signers)
+        -- List of instructions
+        [ SystemProgram.transfer
+            myPublicKey -- sender address
+            recipient -- recipient address
+            1_000_000_000 -- amount to transfer 1 SOL
+        ]
+    liftIO $ putStrLn ("Transaction sent: " <> show txId)
+
+    void $ confirmTransaction txId
+    -- Check balance
+    printBalances [myPublicKey, recipient]
+
+  either (\e -> putStrLn ("RPC error: " <> show e)) pure result
+```
+
+## Push-based confirmation over WebSocket
+
+The SDK speaks Solana's PubSub protocol without depending on a WebSocket
+library — you supply the connection (for example with the
+[`websockets`](https://hackage.haskell.org/package/websockets) package), and
+`awaitSignature` waits for the confirmation to be pushed instead of polling:
+
+```haskell
+import Network.Solana.RPC.WebSocket
+import Network.WebSockets qualified as WS
+
+WS.runClient "127.0.0.1" 8900 "/" $ \conn -> do
+  let transport = WsTransport (WS.sendTextData conn) (WS.receiveData conn)
+  result <- awaitSignature transport (RequestId 1) (Just "confirmed") 30 signature
+  print result -- Right <slot>, or Left with the on-chain or protocol error
+```
