@@ -15,6 +15,7 @@ export const rendben = {
     type: "Company",
     links: {
       website: "https://rendben.com",
+      docs: "https://rendben.com/docs/api",
     },
     socials: {
       x: "https://x.com/joelsstafford",
