@@ -33,7 +33,9 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 // grace, then the response ships gossip families and after() lets the sweep
 // finish into the cache for the next hit.
 const CLIENTS_CACHE_REVALIDATE_SECONDS = 21_600;
-const CLIENTS_COLD_WAIT_MS = 2_500;
+// a healthy cold sweep measures ~2.6s — give it room so even the first
+// response can carry real identities
+const CLIENTS_COLD_WAIT_MS = 4_000;
 const CLIENTS_FAILURE_COOLDOWN_MS = 120_000;
 
 const getClientTypesForEpoch = IS_PRODUCTION
@@ -83,6 +85,9 @@ async function clientTypesWithGrace(
     return {};
   const sweep = getClientTypes(epoch).catch((err) => {
     clientTypesLastFailure = Date.now();
+    // the response degrades silently to gossip families — the failure itself
+    // must not be silent too
+    console.warn("slot200: validator-history sweep failed:", err);
     throw err;
   });
   const winner = await Promise.race([

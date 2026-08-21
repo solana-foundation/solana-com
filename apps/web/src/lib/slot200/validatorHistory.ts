@@ -34,12 +34,16 @@ const ARR_OFFSET = 320;
 const ENTRY_SIZE = 128;
 const ENTRY_EPOCH = 8; // u16
 const ENTRY_CLIENT_TYPE = 17; // u8
+/** entries in the circular buffer — a cursor walkback wraps past index 0 */
+const RING_SIZE = 512;
 /** epochs of history to search for the latest set client type (~1 month) */
 const WALKBACK = 16;
 /** cursor band width — validators in a band share one sliced read */
 const BAND = 16;
 const MAX_KEYS_PER_CALL = 100;
 const CONCURRENCY = 8;
+/** one retry per band — public-RPC 429s are bursty, not persistent */
+const RETRY_DELAY_MS = 750;
 const UNSET = 255;
 /** zeroed (never-written) buffer slots decode as epoch 0 — reject them */
 const MIN_PLAUSIBLE_EPOCH = 500;
@@ -152,76 +156,141 @@ export async function loadValidatorClientTypes(): Promise<
     });
   }
 
-  // Only staked validators matter (the leader schedule holds no others), and
-  // when an identity runs several vote accounts the heaviest one decides.
-  const staked = votes
-    .filter((v) => v.activatedStake > 0)
-    .sort((a, b) => a.activatedStake - b.activatedStake);
+  // Only staked validators matter (the leader schedule holds no others).
+  // When an identity runs several vote accounts the heaviest one decides —
+  // enforced by explicit stake comparison below, since bands resolve in RPC
+  // completion order, not submission order.
+  const staked = votes.filter((v) => v.activatedStake > 0);
 
   // Band by cursor so one sliced read covers every validator in the band:
   // fetch [bandStart − (WALKBACK−1) … bandEnd] and walk back per validator.
-  // The ring hasn't wrapped on mainnet yet (512 epochs ≈ 2.8 years of
-  // history; cursors top out ~460). After a wrap, a cursor near 0 just gets
-  // a shortened walk-back — never stale reads, since the walk only moves
-  // toward older positions below the cursor.
+  // The buffer is a ring, so once it wraps a cursor within WALKBACK of index
+  // 0 continues its walk-back from the array's end — covered by an extra
+  // tail read. Pre-wrap those tail slots are zeroed and decode as epoch 0,
+  // which the plausibility check rejects.
   const bands = new Map<
     number,
-    { pubkey: string; idx: number; identity: string }[]
+    { pubkey: string; idx: number; identity: string; stake: number }[]
   >();
   for (const v of staked) {
     const h = histByVote.get(v.votePubkey);
     if (!h) continue;
     const band = Math.floor(h.idx / BAND);
     if (!bands.has(band)) bands.set(band, []);
-    bands.get(band)!.push({ ...h, identity: v.nodePubkey });
+    bands
+      .get(band)!
+      .push({ ...h, identity: v.nodePubkey, stake: v.activatedStake });
   }
 
   const calls: {
-    keys: { pubkey: string; idx: number; identity: string }[];
+    keys: { pubkey: string; idx: number; identity: string; stake: number }[];
     from: number;
     count: number;
+    tailCount: number;
   }[] = [];
   for (const [band, group] of bands) {
-    const from = Math.max(0, band * BAND - (WALKBACK - 1));
+    const start = band * BAND - (WALKBACK - 1);
+    const from = Math.max(0, start);
     const count = (band + 1) * BAND - 1 - from + 1;
+    const tailCount = Math.max(0, -start);
     for (let i = 0; i < group.length; i += MAX_KEYS_PER_CALL)
-      calls.push({ keys: group.slice(i, i + MAX_KEYS_PER_CALL), from, count });
+      calls.push({
+        keys: group.slice(i, i + MAX_KEYS_PER_CALL),
+        from,
+        count,
+        tailCount,
+      });
   }
 
   const byIdentity: Record<string, number> = {};
-  await mapLimit(calls, CONCURRENCY, async ({ keys, from, count }) => {
-    const res = await rpc<{ value: ({ data: [string, string] } | null)[] }>(
-      "getMultipleAccounts",
-      [
-        keys.map((k) => k.pubkey),
-        {
-          encoding: "base64",
-          dataSlice: {
-            offset: ARR_OFFSET + from * ENTRY_SIZE,
-            length: count * ENTRY_SIZE,
-          },
-        },
-      ],
-    );
-    res.value.forEach((val, i) => {
-      if (!val) return;
-      const buf = Buffer.from(val.data[0], "base64");
-      const { idx, identity } = keys[i];
-      for (
-        let e = idx - from;
-        e >= Math.max(0, idx - from - (WALKBACK - 1));
-        e--
-      ) {
-        const ct = buf.readUInt8(e * ENTRY_SIZE + ENTRY_CLIENT_TYPE);
-        const epoch = buf.readUInt16LE(e * ENTRY_SIZE + ENTRY_EPOCH);
-        if (ct !== UNSET && epoch >= MIN_PLAUSIBLE_EPOCH) {
-          // staked is sorted ascending, so a bigger vote account wins ties
-          byIdentity[identity] = ct;
+  const best: Record<string, { stake: number; pubkey: string }> = {};
+  let failedBands = 0;
+  await mapLimit(
+    calls,
+    CONCURRENCY,
+    async ({ keys, from, count, tailCount }) => {
+      const readSlice = (offset: number, length: number) =>
+        rpc<{ value: ({ data: [string, string] } | null)[] }>(
+          "getMultipleAccounts",
+          [
+            keys.map((k) => k.pubkey),
+            { encoding: "base64", dataSlice: { offset, length } },
+          ],
+        );
+      // The walk-back window for a low cursor wraps below index 0 to the ring's
+      // end, and dataSlice is a single contiguous range — so wrapped bands read
+      // the ring tail separately and prepend it, making the walk seamless.
+      const readBand = () =>
+        Promise.all([
+          readSlice(ARR_OFFSET + from * ENTRY_SIZE, count * ENTRY_SIZE),
+          tailCount > 0
+            ? readSlice(
+                ARR_OFFSET + (RING_SIZE - tailCount) * ENTRY_SIZE,
+                tailCount * ENTRY_SIZE,
+              )
+            : null,
+        ]);
+      // A rate-limited band must not sink the sweep: partial identities beat
+      // none, since every missing validator keeps its gossip-family fallback.
+      let band: Awaited<ReturnType<typeof readBand>>;
+      try {
+        band = await readBand();
+      } catch {
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        try {
+          band = await readBand();
+        } catch {
+          failedBands++;
           return;
         }
       }
-    });
-  });
+      const [head, tail] = band;
+      head.value.forEach((val, i) => {
+        if (!val) return;
+        const headBuf = Buffer.from(val.data[0], "base64");
+        const tailVal = tail?.value[i];
+        const buf =
+          tailCount > 0
+            ? Buffer.concat([
+                tailVal
+                  ? Buffer.from(tailVal.data[0], "base64")
+                  : Buffer.alloc(tailCount * ENTRY_SIZE),
+                headBuf,
+              ])
+            : headBuf;
+        const { idx, identity, stake, pubkey } = keys[i];
+        for (
+          let e = tailCount + idx - from;
+          e >= Math.max(0, tailCount + idx - from - (WALKBACK - 1));
+          e--
+        ) {
+          const ct = buf.readUInt8(e * ENTRY_SIZE + ENTRY_CLIENT_TYPE);
+          const epoch = buf.readUInt16LE(e * ENTRY_SIZE + ENTRY_EPOCH);
+          if (ct !== UNSET && epoch >= MIN_PLAUSIBLE_EPOCH) {
+            // the heaviest vote account decides, independent of which band's
+            // RPC call completes first; equal stakes tie-break on pubkey so
+            // the result is deterministic across runs
+            const cur = best[identity];
+            if (
+              !cur ||
+              stake > cur.stake ||
+              (stake === cur.stake && pubkey > cur.pubkey)
+            ) {
+              best[identity] = { stake, pubkey };
+              byIdentity[identity] = ct;
+            }
+            return;
+          }
+        }
+      });
+    },
+  );
 
+  // Nothing resolved at all is a real outage — throw so the route's failure
+  // cooldown engages instead of caching an empty map as a good sweep.
+  if (calls.length > 0 && failedBands === calls.length)
+    throw new Error(
+      `validator history: all ${calls.length} getMultipleAccounts bands failed`,
+    );
   return byIdentity;
 }
