@@ -28,6 +28,16 @@ The page does not inspect a protocol feature flag to decide that a speed has
 landed. It infers the active speed from measured mainnet timing. Epoch data is
 used for the countdown only.
 
+Validator client identities (Jito, Agave BAM, Harmonic, Rakurai, Firedancer…)
+come from the on-chain Jito validator history program, decoded by our own RPC
+sweep in `lib/slot200/validatorHistory.ts`: one filtered `getProgramAccounts`
+with a 300-byte data slice, then sliced `getMultipleAccounts` reads of each
+account's recent circular-buffer entries, banded so validators with nearby
+cursors share a call. The sweep is cached per epoch inside the schedule
+endpoint; while it is cold the schedule ships gossip-version families
+(Firedancer vs Agave lineage) and the sweep finishes into the cache after the
+response.
+
 ## Rollout model
 
 The path is defined in [`stages.ts`](../../../components/slot200/stages.ts):

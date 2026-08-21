@@ -17,7 +17,10 @@ export function rpcWsUrl(): string {
   return "wss://api.mainnet-beta.solana.com";
 }
 
-async function rpc<T>(method: string, params: unknown[] = []): Promise<T> {
+export async function rpc<T>(
+  method: string,
+  params: unknown[] = [],
+): Promise<T> {
   const res = await fetch(rpcUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -208,8 +211,8 @@ export function runsUpgradedClient(
 /**
  * Client family from the gossip version string. Firedancer publishes its own
  * "0.x" scheme; everything semver-shaped is the Agave lineage (gossip alone
- * cannot separate Agave from Jito-Agave — that needs the on-chain validator
- * history program, so this page doesn't claim it).
+ * cannot separate Agave from Jito-Agave). Fallback only — real identities
+ * come from the on-chain validator history program (validatorHistory.ts).
  */
 export function clientFamily(
   version: string | null | undefined,
