@@ -10,6 +10,7 @@ import { cn } from "@/app/components/utils";
 export type Product = {
   key: string;
   href?: string;
+  eyebrow?: string;
   Icon?: ComponentType<{
     className?: string;
     "aria-hidden"?: boolean;
@@ -98,7 +99,7 @@ export const Products = ({
                 !oneColumn,
             })}
           >
-            {products.map(({ key, href, Icon }, index) => {
+            {products.map(({ key, href, eyebrow, Icon }, index) => {
               const hasLink = Boolean(href);
               const productTitle = t(`${translationBase}.${key}.title`);
               const productDescription = t(
@@ -134,6 +135,14 @@ export const Products = ({
                     )}
                   </div>
                   <div className="grow">
+                    {eyebrow && (
+                      <p
+                        className="text-sm font-medium mb-1 tracking-[-0.14px] leading-[1.4]"
+                        style={{ color: highlightColor }}
+                      >
+                        {eyebrow}
+                      </p>
+                    )}
                     <p className="font-medium mb-0 text-base md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.5] md:leading-[1.33]">
                       {productTitle}
                     </p>
