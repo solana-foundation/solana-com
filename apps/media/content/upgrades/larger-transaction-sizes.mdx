@@ -23,8 +23,6 @@ tags:
   - tag: announcements
 ---
 
-# Larger Transaction Sizes
-
 **Updated August 2026** • Solana Foundation
 
 A major upcoming upgrade to Solana raises the maximum transaction size from 1232
@@ -55,12 +53,9 @@ targets mainnet feature activation in **Agave v4.2**. This lands alongside the
 first stage of [reduced slot times](/upgrades/reduced-slot-times) and a rent
 reduction. Anza's schedule is explicitly tentative and subject to change.
 
-You can check activation status of the feature gate at any time (use `-u d` or
-`-u t` for devnet or testnet):
+Current feature gate activation status:
 
-```bash
-solana -u m feature status txv1aq4pp281K9um3tnPgkfX8UqtFT6wcVW3hNezGLL
-```
+<FeatureActivationStatus />
 
 Local testing is available today. V1 Transactions are enabled in:
 
@@ -68,6 +63,22 @@ Local testing is available today. V1 Transactions are enabled in:
   (v4.2+)
 - [Surfpool](https://www.surfpool.run/) (v1.5+)
 - [SIMD-0296 - Ephemeral Surfnet](https://simd-0296.surfnet.dev/)
+
+## Support for V1 Transactions
+
+These are the first releases that handle v1 transactions. Upgrade your dependencies to avoid errors.
+
+| Library                                                                                                             | Minimum supported version | v1 support                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| [`@solana/kit`](https://www.npmjs.com/package/@solana/kit) (Typescript)                                             | 8.0.0                     | Read and send                                                                                                     |
+| [`@solana/web3.js`](https://www.npmjs.com/package/@solana/web3.js) (Typescript) 3.x                                 | (coming soon, rc-0.3)     | Read and send ([PR](https://github.com/solana-foundation/solana-web3.js/pull/3866))                               |
+| [`@solana/web3.js`](https://www.npmjs.com/package/@solana/web3.js) (Typescript) 1.x                                 | (coming soon, 1.99.0)     | **Read only** — cannot build, sign, or send ([PR](https://github.com/solana-foundation/solana-web3.js/pull/3861)) |
+| [`solana-*` crates](https://crates.io/users/anza-team?sort=recent-downloads) (Rust)                                 | 4.2.x                     | Read and send                                                                                                     |
+| [`solders`](https://pypi.org/project/solders/) (Python)                                                             | 0.29.0                    | Read and send                                                                                                     |
+| [`solana-foundation/solana-go`](https://github.com/solana-foundation/solana-go) (Go)                                | coming soon               | [PR](https://github.com/solana-foundation/solana-go/pull/481)                                                     |
+| [`yellowstone-grpc-proto`](https://github.com/rpcpool/yellowstone-grpc/tree/master/yellowstone-grpc-proto) (Rust)   | 12.6.0                    | First generated code carrying `Message.config`                                                                    |
+| [Yellowstone geyser plugin](https://github.com/rpcpool/yellowstone-grpc/tree/master/yellowstone-grpc-geyser) (Rust) | 15.1.1                    | Earlier builds downgrade v1 to v0 before the wire                                                                 |
+| [`@rpcpool/yellowstone-grpc`](https://github.com/rpcpool/yellowstone-grpc/tree/master) (Typescript)                 | 6.0.0                     | Decodes field 7                                                                                                   |
 
 ## Migration Checklist
 
@@ -89,32 +100,30 @@ of several.
 
 <Audience title="For Developers" summary="Reading transactions is a breaking change. Sending v1 is opt-in.">
 
-**If you read transactions:**
+**If you read V1 transactions:**
 
-- Upgrade dependencies. Rust: Move to Agave 4.2.x-generation client dependencies. F
-  TS: Kit upgrade to v8 / web3.js 1.x, upgrade to
-  1.99.0+ — it reads v1 but cannot send it.
-- Set `maxSupportedTransactionVersion` to the integer `1` on `getTransaction`,
-  `getBlock`, and `blockSubscribe`.
-- Audit transaction parsers that introspect ComputeBudget instruction instructions; for
-  for V1 transactions read `transactionConfig` instead.
-- Treat `blockSubscribe`'s `block: null` with an error as a failure, not an empty
-  block.
+- Upgrade dependencies (See above table for library support).
+- When fetching data via HTTP RPC call, set `maxSupportedTransactionVersion` to the integer `1` on `getTransaction` and
+  `getBlock`.
+- When streaming data via Websockets, set `maxSupportedTransactionVersion` to the integer `1` on `blockSubscribe`.
+- When parsing the V1 transaction payload, read `transactionConfig` instead of introspecting the ComputeBudget instructions.
+- When streaming block data from Websockets via `blockSubscribe`, handle the `block: null` with an error as a failure, not an empty block.
 - Regenerate protobuf stubs and discriminate v1 transactions on `config` presence.
 
-**If you send transactions:**
+**If you want to send V1 transactions:**
 
+- Upgrade dependencies (See above table for library support).
+- If you explicitly add ComputeBudget instructions, remove them from your transaction and use the `messageConfig` instead.
+- If you used Address Lookup Tables (ALTs) in V0, remove them from your transaction and place the accounts directly in the instruction (up to 64 accounts) instead.
 - Set compute unit limit and loaded accounts data size explicitly (the defaults
   are zero and your transaction will fail without them).
 - Estimate both from one simulation with both limits maxed; round the data size
   up to the next 32 KiB page.
-- Strip ComputeBudget instructions.
 - Convert priority fees from micro-lamports-per-CU to total lamports.
-- Confirm no address lookup table dependency.
 - Pass `encoding: 'base64'` when simulating and sending.
 
 The [technical details](#technical-details) below explain each of these in full.
-Sample code is available at: [github.com/solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples)
+Sample code is available [here](https://github.com/solana-foundation/transaction-v1-examples).
 
 </Audience>
 
@@ -135,22 +144,6 @@ the version-detection order and examples.
 </Audience>
 
 </AudienceGroup>
-
-## Breaking Changes
-
-These are the first releases that handle v1 transactions. Upgrade your dependencies to avoid errors.
-
-| Library                            | Minimum version       | v1 support                                                                                                        |
-| ---------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| TypeScript `@solana/kit`           | 8.0.0                 | Read and send                                                                                                     |
-| TypeScript `@solana/web3.js` 3.x   | (coming soon, rc-0.3) | Read and send ([PR](https://github.com/solana-foundation/solana-web3.js/pull/3866))                               |
-| TypeScript `@solana/web3.js` 1.x   | (coming soon, 1.99.0) | **Read only** — cannot build, sign, or send ([PR](https://github.com/solana-foundation/solana-web3.js/pull/3861)) |
-| Rust — `solana-*` crates           | 4.2.x                 | Read and send                                                                                                     |
-| Python — `solders`                 | 0.29.0                | Read and send                                                                                                     |
-| Go — `solana-foundation/solana-go` | coming soon           | [PR](https://github.com/solana-foundation/solana-go/pull/481)                                                     |
-| `yellowstone-grpc-proto`           | 12.6.0                | First generated code carrying `Message.config`                                                                    |
-| Yellowstone geyser plugin          | 15.1.1                | Earlier builds downgrade v1 to v0 before the wire                                                                 |
-| `@triton-one/yellowstone-grpc`     | 6.0.0                 | Decodes field 7                                                                                                   |
 
 **[GitHub: Transaction V1 Example Code](https://github.com/solana-foundation/transaction-v1-examples)** has a runnable example in each of these languages — sending, decoding, reading blocks, and indexing over gRPC — against a local validator, plus a version matrix recording the first release of every dependency that handles v1, including the ones that drop the config silently rather than erroring. Details for all breaking changes are included below:
 

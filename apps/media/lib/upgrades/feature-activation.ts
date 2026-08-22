@@ -1,0 +1,62 @@
+import {
+  address,
+  createSolanaRpc,
+  getBase64Encoder,
+  type Address,
+} from "@solana/kit";
+
+const FEATURE_GATE_PROGRAM_ADDRESS =
+  "Feature111111111111111111111111111111" as Address;
+const FEATURE_ACCOUNT_SIZE = 9;
+
+type FeatureAccount = {
+  data: readonly [string, "base64"];
+  owner: Address;
+};
+
+export type FeatureActivationStatus =
+  | "Not set"
+  | `Live in Epoch ${number}`
+  | "Active";
+
+export function readFeatureAccountState(
+  account: FeatureAccount | null,
+): "not-set" | "pending" | "active" {
+  if (account === null) return "not-set";
+
+  const data = getBase64Encoder().encode(account.data[0]);
+  if (
+    account.owner !== FEATURE_GATE_PROGRAM_ADDRESS ||
+    data.length < FEATURE_ACCOUNT_SIZE
+  ) {
+    throw new Error("Invalid feature gate account");
+  }
+
+  if (data[0] === 0) return "pending";
+  if (data[0] === 1) return "active";
+  throw new Error("Invalid feature gate activation state");
+}
+
+export async function getFeatureActivationStatus(
+  rpcUrl: string,
+  featureAddress: Address,
+): Promise<FeatureActivationStatus> {
+  const rpc = createSolanaRpc(rpcUrl);
+  const { value: account } = await rpc
+    .getAccountInfo(featureAddress, {
+      commitment: "confirmed",
+      encoding: "base64",
+    })
+    .send();
+  const state = readFeatureAccountState(account);
+
+  if (state === "not-set") return "Not set";
+  if (state === "active") return "Active";
+
+  const { epoch } = await rpc.getEpochInfo({ commitment: "confirmed" }).send();
+  return `Live in Epoch ${Number(epoch) + 1}`;
+}
+
+export const LARGER_TRANSACTIONS_FEATURE_ADDRESS = address(
+  "txv1aq4pp281K9um3tnPgkfX8UqtFT6wcVW3hNezGLL",
+);
