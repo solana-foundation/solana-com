@@ -33,6 +33,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     url: "https://github.com/tenequm/skills/tree/bedc922b6301179fbc2772079692cd3d748762d2/skills/solana-development",
     category: PROGRAMS,
   },
+  {
+    slug: "svs-action-authorization",
+    title: "SVS Action Authorization",
+    description:
+      "Authorize consequential Solana agent actions with signed identity, human approval, receipt registry proof, and fail-closed verification.",
+    url: "https://github.com/SVS-Protocol/svs-agent-skill/tree/v1.0.0/skills/svs-action-authorization",
+    category: TOOLING,
+  },
 
   // ── AI Coding Skills – DeFi ─────────────────────────────────────────
   {
