@@ -1,5 +1,6 @@
 import React, { ComponentPropsWithoutRef } from "react";
 import { TxAccountBytes, TxSimulationTrace, TxWireLayout } from "./diagrams";
+import { FeatureActivationStatus } from "./feature-activation-status";
 
 export function StatusBadge({
   children,
@@ -88,6 +89,7 @@ export function Audience({
 export const upgradeMdxComponents = {
   Audience,
   AudienceGroup,
+  FeatureActivationStatus,
   TxAccountBytes,
   TxSimulationTrace,
   TxWireLayout,
