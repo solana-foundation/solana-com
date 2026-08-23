@@ -19,7 +19,11 @@ function mainnetRpcUrl(): string {
 
 const getCachedFeatureActivationStatus = unstable_cache(
   (rpcUrl: string) =>
-    getFeatureActivationStatus(rpcUrl, LARGER_TRANSACTIONS_FEATURE_ADDRESS),
+    getFeatureActivationStatus(
+      rpcUrl,
+      LARGER_TRANSACTIONS_FEATURE_ADDRESS,
+      AbortSignal.timeout(60_000),
+    ),
   ["feature-activation-status"],
   { revalidate: 300 },
 );

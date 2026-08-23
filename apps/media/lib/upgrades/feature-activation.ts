@@ -44,6 +44,7 @@ export function readFeatureAccountState(
 export async function getFeatureActivationStatus(
   rpcUrl: string,
   featureAddress: Address,
+  abortSignal?: AbortSignal,
 ): Promise<FeatureActivationStatus> {
   const rpc = createSolanaRpc(rpcUrl);
   const { value: account } = await rpc
@@ -51,12 +52,14 @@ export async function getFeatureActivationStatus(
       commitment: "confirmed",
       encoding: "base64",
     })
-    .send();
+    .send({ abortSignal });
   const state = readFeatureAccountState(account);
 
   if (state === "not-set") return "Not set";
   if (state === "active") return "Active";
 
-  const { epoch } = await rpc.getEpochInfo({ commitment: "confirmed" }).send();
+  const { epoch } = await rpc
+    .getEpochInfo({ commitment: "confirmed" })
+    .send({ abortSignal });
   return `Live in Epoch ${Number(epoch) + 1}`;
 }
