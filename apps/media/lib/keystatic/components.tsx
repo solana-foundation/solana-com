@@ -590,6 +590,29 @@ const txAccountBytes = diagramBlock(
   "How an account created after estimation pushes the running total past the limit",
 );
 
+const featureActivationStatus = block({
+  label: "Feature activation status",
+  description: "Live feature activation status for each Solana cluster",
+  schema: {},
+  ContentView: () => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        color: "#6b7280",
+        fontSize: "14px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        Feature activation status
+      </strong>
+      Live cluster statuses are shown on the published page.
+    </div>
+  ),
+});
+
 // Export all component blocks
 export const componentBlocks: Record<string, ContentComponent> = {
   blockquote,
@@ -610,6 +633,7 @@ export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   ...componentBlocks,
   Audience: audience,
   AudienceGroup: audienceGroup,
+  FeatureActivationStatus: featureActivationStatus,
   TxAccountBytes: txAccountBytes,
   TxSimulationTrace: txSimulationTrace,
   TxWireLayout: txWireLayout,
