@@ -5,9 +5,13 @@ import {
   type Address,
 } from "@solana/kit";
 
-const FEATURE_GATE_PROGRAM_ADDRESS =
-  "Feature111111111111111111111111111111" as Address;
+const FEATURE_GATE_PROGRAM_ADDRESS = address(
+  "Feature111111111111111111111111111111111111",
+);
 const FEATURE_ACCOUNT_SIZE = 9;
+export const LARGER_TRANSACTIONS_FEATURE_ADDRESS = address(
+  "txv1aq4pp281K9um3tnPgkfX8UqtFT6wcVW3hNezGLL",
+);
 
 type FeatureAccount = {
   data: readonly [string, "base64"];
@@ -56,7 +60,3 @@ export async function getFeatureActivationStatus(
   const { epoch } = await rpc.getEpochInfo({ commitment: "confirmed" }).send();
   return `Live in Epoch ${Number(epoch) + 1}`;
 }
-
-export const LARGER_TRANSACTIONS_FEATURE_ADDRESS = address(
-  "txv1aq4pp281K9um3tnPgkfX8UqtFT6wcVW3hNezGLL",
-);
