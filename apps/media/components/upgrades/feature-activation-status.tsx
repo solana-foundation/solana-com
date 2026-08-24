@@ -2,48 +2,50 @@ import { unstable_cache } from "next/cache";
 import {
   getFeatureActivationStatus,
   LARGER_TRANSACTIONS_FEATURE_ADDRESS,
+  type FeatureActivationStatus as ActivationStatus,
 } from "@/lib/upgrades/feature-activation";
 
-const CLUSTERS = [
-  { name: "Testnet", rpcUrl: () => "https://api.testnet.solana.com" },
-  { name: "Devnet", rpcUrl: () => "https://api.devnet.solana.com" },
-  { name: "Mainnet", rpcUrl: mainnetRpcUrl },
-] as const;
+const CLUSTERS = ["Testnet", "Devnet", "Mainnet"] as const;
+type Cluster = (typeof CLUSTERS)[number];
 
-function mainnetRpcUrl(): string {
+const RPC_TIMEOUT_MS = 10_000;
+const CACHE_SECONDS = 300;
+
+function rpcUrl(cluster: Cluster): string {
+  if (cluster === "Testnet") return "https://api.testnet.solana.com";
+  if (cluster === "Devnet") return "https://api.devnet.solana.com";
+
   const key = process.env.HELIUS_API_KEY;
   if (key) return `https://mainnet.helius-rpc.com/?api-key=${key}`;
-  // Local/dev fallback — public RPC is rate-limited, fine for these light calls
   return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
 }
 
 const getCachedFeatureActivationStatus = unstable_cache(
-  (rpcUrl: string) =>
-    getFeatureActivationStatus(
-      rpcUrl,
-      LARGER_TRANSACTIONS_FEATURE_ADDRESS,
-      AbortSignal.timeout(60_000),
-    ),
+  async (cluster: Cluster): Promise<ActivationStatus | "Unavailable"> => {
+    try {
+      return await getFeatureActivationStatus(
+        rpcUrl(cluster),
+        LARGER_TRANSACTIONS_FEATURE_ADDRESS,
+        AbortSignal.timeout(RPC_TIMEOUT_MS),
+      );
+    } catch (error) {
+      console.error(
+        `Failed to fetch ${cluster} feature activation status:`,
+        error,
+      );
+      return "Unavailable";
+    }
+  },
   ["feature-activation-status"],
-  { revalidate: 300 },
+  { revalidate: CACHE_SECONDS },
 );
 
-async function FeatureActivationStatusRow({
-  name,
-  rpcUrl,
-}: (typeof CLUSTERS)[number]) {
-  let status: string;
-
-  try {
-    status = await getCachedFeatureActivationStatus(rpcUrl());
-  } catch (error) {
-    console.error(`Failed to fetch ${name} feature activation status:`, error);
-    status = "Unavailable";
-  }
+async function FeatureActivationStatusRow({ cluster }: { cluster: Cluster }) {
+  const status = await getCachedFeatureActivationStatus(cluster);
 
   return (
     <tr className="border-b border-white/10">
-      <td className="px-6 py-4 text-base text-gray-300">{name}</td>
+      <td className="px-6 py-4 text-base text-gray-300">{cluster}</td>
       <td className="px-6 py-4 text-base text-gray-300">{status}</td>
     </tr>
   );
@@ -65,7 +67,7 @@ export function FeatureActivationStatus() {
         </thead>
         <tbody>
           {CLUSTERS.map((cluster) => (
-            <FeatureActivationStatusRow key={cluster.name} {...cluster} />
+            <FeatureActivationStatusRow key={cluster} cluster={cluster} />
           ))}
         </tbody>
       </table>

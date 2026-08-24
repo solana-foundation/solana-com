@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getBase64Decoder, type Address } from "@solana/kit";
-import { readFeatureAccountState } from "@/lib/upgrades/feature-activation";
-
-const FEATURE_GATE_PROGRAM_ADDRESS =
-  "Feature111111111111111111111111111111" as Address;
+import {
+  FEATURE_GATE_PROGRAM_ADDRESS,
+  readFeatureAccountState,
+} from "@/lib/upgrades/feature-activation";
 
 function featureAccount(data: Uint8Array) {
   return {

@@ -5,7 +5,7 @@ import {
   type Address,
 } from "@solana/kit";
 
-const FEATURE_GATE_PROGRAM_ADDRESS = address(
+export const FEATURE_GATE_PROGRAM_ADDRESS = address(
   "Feature111111111111111111111111111111111111",
 );
 const FEATURE_ACCOUNT_SIZE = 9;
