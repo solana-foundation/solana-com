@@ -19,27 +19,27 @@ function rpcUrl(cluster: Cluster): string {
 }
 
 const getCachedFeatureActivationStatus = unstable_cache(
-  async (cluster: Cluster): Promise<ActivationStatus | "Unavailable"> => {
-    try {
-      return await getFeatureActivationStatus(
-        rpcUrl(cluster),
-        LARGER_TRANSACTIONS_FEATURE_ADDRESS,
-        AbortSignal.timeout(RPC_TIMEOUT_MS),
-      );
-    } catch (error) {
-      console.error(
-        `Failed to fetch ${cluster} feature activation status:`,
-        error,
-      );
-      return "Unavailable";
-    }
-  },
+  async (cluster: Cluster): Promise<ActivationStatus> =>
+    getFeatureActivationStatus(
+      rpcUrl(cluster),
+      LARGER_TRANSACTIONS_FEATURE_ADDRESS,
+      AbortSignal.timeout(RPC_TIMEOUT_MS),
+    ),
   ["feature-activation-status"],
   { revalidate: CACHE_SECONDS },
 );
 
 async function FeatureActivationStatusRow({ cluster }: { cluster: Cluster }) {
-  const status = await getCachedFeatureActivationStatus(cluster);
+  let status: ActivationStatus | "Unavailable";
+  try {
+    status = await getCachedFeatureActivationStatus(cluster);
+  } catch (error) {
+    console.error(
+      `Failed to fetch ${cluster} feature activation status:`,
+      error,
+    );
+    status = "Unavailable";
+  }
 
   return (
     <tr className="border-b border-white/10">
