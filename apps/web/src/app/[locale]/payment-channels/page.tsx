@@ -11,8 +11,8 @@ export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
   return {
     ...getBaseMetadata(locale),
-    title: "Payment Channels: give your agent a spending limit",
+    title: "Payment channels for agentic payments",
     description:
-      "Payment channels are a new Solana primitive built to solve this across x402 and MPP payment protocols. It lets an agent authorize a spending limit once, spend against the limit, and settle the payment amount once.",
+      "A visual study of payment channels built to process one million logical payments per second and settle on Solana.",
   };
 }

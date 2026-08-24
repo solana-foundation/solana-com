@@ -295,10 +295,10 @@ function Streak({ style }: { style: CSSProperties }) {
 /* ── content, verbatim from the copy deck ── */
 
 const STATS: [string, string][] = [
-  ["1M", "Payments per second"],
-  ["600M", "Payments settled"],
-  ["$0.0004", "Average fee"],
-  ["< 400ms", "Finality"],
+  ["1M+", "Logical payments / second"],
+  ["10 min", "Sustained throughput run"],
+  ["100k", "Unique wallets (devnet)"],
+  ["80B+", "Vouchers ingested in 24h"],
 ];
 
 const BREAKS: [string, string][] = [
@@ -341,22 +341,28 @@ const STEPS: { layers: Layer[]; title: string; body: string }[] = [
 ];
 
 const LIMITS: [string, string][] = [
-  ["Requires human approval", "A human ends up back in the loop, approving payments one at a time."],
   [
-    "Costs & latency",
-    "Every payment carries settlement cost and latency. In a world with fully autonomous agent spend where millions of transactions need to be settled, costs add up fast.",
+    "Simple by design",
+    "Open a channel once. Exchange signed cumulative updates off-chain. Settle the final balance to Solana when it matters.",
   ],
   [
-    "Custodial",
-    "The workarounds are custodial. Prepaid credits mean your balance is gone on the first call and tracked in someone else’s database.",
+    "Scales cleanly",
+    "Ed25519 verification is the CPU-bound work. Independent channel ownership lets you shard channel ranges across Proxies as demand grows.",
+  ],
+  [
+    "Cheap at settlement",
+    "The 100k-channel study completed with 25,000 four-channel transactions for 0.625 SOL while the logical payments themselves stayed off-chain.",
+  ],
+  [
+    "Your rules, your clock",
+    "Settle by time, volume, risk, or your own business logic. Fewer settlements lower cost; tighter settlement windows bring faster finality.",
   ],
 ];
 
-const REMOVES = [
-  "You set a cap.",
-  "Your agents spend against it.",
-  "Settlement happens in batches.",
-  "Funds stay non-custodial the entire time.",
+const SETTLEMENT_METRICS: [string, string][] = [
+  ["~203 s", "100k-channel settlement cycle observed"],
+  ["0.625 SOL", "Fee for the 100k-channel settlement cycle"],
+  ["25,000", "Four-channel settlement transactions"],
 ];
 
 const MODES: [string, string][] = [
@@ -455,13 +461,14 @@ export default function Landing() {
           <div className={s.heroContent}>
             <div className={s.heroBlock}>
               <h1 className={`${s.hXl} ${s.heroTitle}`}>
-                1 million payments
+                1 million logical payments
                 <br />
                 <span className={s.thin}>every second</span>
               </h1>
               <p className={`${s.bodyL} ${s.heroSub}`}>
-                Solana sustained a million payments a second for ten minutes straight. Solana is
-                the settlement layer for world where agents pay.
+                The next generation of software will not wait at a checkout screen. It will make
+                many small, continuous decisions—and pay for the data, inference, and services it
+                needs as it goes.
               </p>
               <a className={s.btn} href="https://pay.sh/docs/building-with-pay/payment-channels/concept">Read the docs</a>
             </div>
@@ -491,22 +498,23 @@ export default function Landing() {
             <div className={s.agentsCol}>
               <div className={s.agentsHead}>
                 <h2 className={s.hL}>
-                  Give your agents
+                  Payment channels,
                   <br />
-                  <span className={s.thin}>a spending limit</span>
+                  <span className={s.thin}>reintroduced at Solana pace</span>
+                  <br />
+                  for agentic traffic.
                 </h2>
                 <p className={`${s.bodyL} ${s.mid} ${s.agentsKicker}`}>
-                  Agentic payments have a friction problem. Every call an agent makes needs a
-                  signature approval and settlement. That works fine for one payment. But it gets
-                  more complicated when agents are making hundreds of small paid calls in a loop,
-                  and human approvals slow down the completion of tasks.
+                  One Proxy completed the full receive, verify, and settlement path on an AMD EPYC
+                  9555P: 64 physical cores and 128 threads. At one million logical payments per
+                  second, it kept 117 threads busy and absorbed about 11 Gbps of inbound traffic.
                 </p>
               </div>
               <hr className={s.rule} />
               <p className={`${s.bodyXl} ${s.agentsPull}`}>
-                Payment channels are a new Solana primitive built to solve this across x402 and MPP
-                payment protocols. It lets an agent authorize a spending limit once, spend against
-                the limit, and settle the payment amount once.
+                Scale up a Proxy with more CPU and network bandwidth. Scale out by giving the next
+                Proxy a different channel range; channel state stays local, so the hot path needs
+                no shared state.
               </p>
             </div>
 
@@ -586,8 +594,9 @@ export default function Landing() {
                 <hr className={s.rule} />
               </div>
               <p className={s.bodyL}>
-                A payment channel amortizes the onchain work down to one open and one settle, no
-                matter how much metering happens in between.
+                  A payment channel amortizes the onchain work down to one open and one settle, no
+                matter how much metering happens in between. Logical payments keep moving at
+                application speed while Solana handles settlement when it matters.
               </p>
             </div>
 
@@ -675,7 +684,7 @@ export default function Landing() {
         <div className={s.inner}>
           <div className={s.whyStack}>
             <h2 className={`${s.hL} ${s.whyHead}`}>
-              The per-call model <span className={s.thin}>quietly breaks agent autonomy and economics:</span>
+              Settlement is the bill, <span className={s.thin}>not the bottleneck.</span>
             </h2>
 
             <div className={s.whyCols}>
@@ -692,16 +701,26 @@ export default function Landing() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className={s.sessionPlate} src={ART.sessionBg} alt="" aria-hidden="true" />
               <div className={s.sessionLeft}>
-                <h3 className={`${s.hM} ${s.sessionTitle}`}>Session removes all these limitations</h3>
-                <a className={s.btn} href="https://pay.sh/docs/sdk/typescript">Build with payment channels</a>
+                <h3 className={`${s.hM} ${s.sessionTitle}`}>
+                  100,000 channels. 25,000 transactions. One completed settlement cycle.
+                </h3>
+                <p className={`${s.bodyL} ${s.mid} ${s.sessionIntro}`}>
+                  A settlement transaction carries four channel updates. The full cycle finalized
+                  all 100,000 channels while one million logical payments per second continued at
+                  application speed.
+                </p>
+                <a className={s.btn} href="https://pay.sh/docs/sdk/typescript">Run the benchmark</a>
               </div>
               <ul className={s.sessionList}>
-                {REMOVES.map((line) => (
-                  <li key={line} className={`${s.bodyL} ${s.sessionItem}`}>
+                {SETTLEMENT_METRICS.map(([value, label]) => (
+                  <li key={label} className={s.sessionItem}>
                     <svg className={s.sessionTick} viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="m6 12.6 4 4L18 7.5" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    {line}
+                    <span className={s.sessionMetric}>
+                      <strong className={s.sessionMetricValue}>{value}</strong>
+                      <span className={`${s.bodyS} ${s.mid}`}>{label}</span>
+                    </span>
                   </li>
                 ))}
               </ul>
