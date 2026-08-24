@@ -15,8 +15,6 @@ function rpcUrl(cluster: Cluster): string {
   if (cluster === "Testnet") return "https://api.testnet.solana.com";
   if (cluster === "Devnet") return "https://api.devnet.solana.com";
 
-  const key = process.env.HELIUS_API_KEY;
-  if (key) return `https://mainnet.helius-rpc.com/?api-key=${key}`;
   return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
 }
 
