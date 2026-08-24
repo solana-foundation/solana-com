@@ -40,12 +40,12 @@ to `v1` transactions.
 
 **Breaking Changes:**
 
-| If your app                                              | Breaking?   | What you have to do                                                                                                                                                               |
-| -------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Reads** transactions or blocks                         | **Yes**     | Pass `maxSupportedTransactionVersion: 1`. [Learn more](#breaking-change-reading-transactions-and-blocks)                                                                          |
-| **Indexes** transactions                                 | **Yes**     | Read limits for v1 transactions from `transactionConfig` instead of from ComputeBudget instructions. [Learn more](#breaking-change-indexing-transactions)                         |
-| **Sends** transactions                                   | No (opt-in) | If using v1 you MUST set the compute unit and data size limits explicitly (both default to zero). [Learn more](#sending-v1-transactions)                                          |
-| **Sponsors** fees or co-signs someone else's transaction | **Yes**     | Caps that scan ComputeBudget instructions stop binding. Read the limits you gate on from `transactionConfig`. [Learn more](#breaking-change-sponsoring-someone-elses-transaction) |
+| If your app                                              | Breaking?   | What you have to do                                                                                                                                                                 |
+| -------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Reads** transactions or blocks                         | **Yes**     | Pass `maxSupportedTransactionVersion: 1`. [Learn more](#breaking-change-reading-transactions-and-blocks)                                                                            |
+| **Indexes** transactions                                 | **Yes**     | Read limits for v1 transactions from `transactionConfig` instead of from ComputeBudget instructions. [Learn more](#breaking-change-indexing-transactions)                           |
+| **Sends** transactions                                   | No (opt-in) | If using v1 you MUST set the compute unit and data size limits explicitly (both default to zero). [Learn more](#sending-v1-transactions)                                            |
+| **Sponsors** fees or co-signs someone else's transaction | **Yes**     | Caps that scan ComputeBudget instructions stop binding. Read the limits you gate on from `transactionConfig`. [Learn more](#breaking-change-sponsoring-and-co-signing-transactions) |
 
 **Expected Mainnet Activation Date:**
 
@@ -109,19 +109,36 @@ of several.
 
 <Audience title="For Developers" summary="Reading transactions is a breaking change. Sending v1 is opt-in.">
 
-**If you read V1 transactions:**
+Start by upgrading dependencies (see
+[Support for V1 Transactions](#support-for-v1-transactions)), then work through
+whichever of these describes your application.
 
-- Upgrade dependencies (see [Support for V1 Transactions](#support-for-v1-transactions)).
+**If you read or stream transactions** — RPC consumers, indexers, explorers,
+Geyser pipelines
+([details](#breaking-change-reading-transactions-and-blocks)):
+
 - When fetching data via HTTP RPC call, set `maxSupportedTransactionVersion` to the integer `1` on `getTransaction` and
   `getBlock`.
 - When streaming data via Websockets, set `maxSupportedTransactionVersion` to the integer `1` on `blockSubscribe`.
-- When parsing the V1 transaction payload, read `transactionConfig` instead of introspecting the ComputeBudget instructions.
 - When streaming block data from Websockets via `blockSubscribe`, handle the `block: null` with an error as a failure, not an empty block.
-- Regenerate protobuf stubs and discriminate v1 transactions on `config` presence.
+- Update raw transaction decoders to recognize the v1 `129` (`0x81`) version
+  prefix and parse its new layout.
+- Regenerate Geyser / gRPC protobuf stubs, then identify v1 from the presence of
+  `Message.config` before checking the `versioned` flag.
 
-**If you want to send V1 transactions:**
+**If you introspect a transaction's compute budget or priority fee** — indexers,
+onchain programs, relayers, paymasters, and anyone who sponsors a fee
+([indexing details](#breaking-change-indexing-transactions),
+[onchain details](#breaking-change-onchain-introspection-of-the-compute-budget),
+[sponsor details](#breaking-change-sponsoring-and-co-signing-transactions)):
 
-- Upgrade dependencies (see [Support for V1 Transactions](#support-for-v1-transactions)).
+- When parsing the V1 transaction payload, read `transactionConfig` instead of introspecting the ComputeBudget instructions.
+- Normalize priority fees before comparing across versions: v0 states a price in
+  micro-lamports per compute unit, v1 a total in lamports.
+
+**If you want to send V1 transactions**
+([details](#sending-v1-transactions)):
+
 - If you explicitly add ComputeBudget instructions, remove them from your transaction and use the `messageConfig` instead.
 - If you used Address Lookup Tables (ALTs) in V0, remove them from your transaction and place the accounts directly in the instruction (up to 64 accounts) instead.
 - Set compute unit limit and loaded accounts data size explicitly (the defaults
@@ -133,34 +150,6 @@ of several.
 
 The [technical details](#technical-details) below explain each of these in full.
 Sample code is available [here](https://github.com/solana-foundation/transaction-v1-examples).
-
-</Audience>
-
-<Audience title="For Indexers" summary="Update RPC and Geyser decoders to recognize v1 transactions.">
-
-- Update raw transaction decoders to recognize the v1 `129` (`0x81`) version
-  prefix and parse its new layout.
-- Read v1 resource limits and priority fees from `transactionConfig`, not
-  `ComputeBudget` instructions.
-- Regenerate Geyser / gRPC protobuf stubs, then identify v1 from the presence of
-  `Message.config` before checking the `versioned` flag.
-- Normalize priority fees before comparing transaction versions: v0 uses
-  micro-lamports per compute unit, while v1 uses total lamports.
-
-See the [indexing migration details](#breaking-change-indexing-transactions) for
-the version-detection order and examples.
-
-</Audience>
-
-<Audience title="For Facilitators and Fee Sponsors" summary="Instruction-scanning verifiers stop seeing the resource limits they gate on.">
-
-If you co-sign, sponsor the fee for, or verify a transaction somebody else
-built (e.g., relayers, paymasters, and gasless backends):
-
-- For v1 Transactions, read the priority fee and compute limits from `transactionConfig`,
-  not from ComputeBudget instructions. Priority fees are in lamports, not lamports
-  per CU.
-- Pass `maxSupportedTransactionVersion: 1` on the `getTransaction` calls.
 
 </Audience>
 
@@ -331,6 +320,39 @@ extract the message config. This means that program should stop gating on
 introspected ComputeBudget Instructions once v1 transactions are live.
 
 We are evaluating additional options. Check back here for updates.
+
+</Audience>
+
+<Audience title="For Paymasters and Server Signers" summary="A fee cap that scans instructions does not bind a v1 transaction.">
+
+### Breaking Change: Sponsoring and Co-Signing Transactions
+
+If you pay the network fee for a transaction somebody else built — a paymaster,
+a relayer, an x402 or MPP facilitator, any server that co-signs — you probably
+bound your exposure by scanning the transaction's instructions for
+`SetComputeUnitPrice` and rejecting anything above a cap. In v1 the priority fee
+is a field on the message and ComputeBudget instructions are inert, so a v1
+transaction carries no ComputeBudget instruction at all. The scan finds nothing,
+the cap passes, and you co-sign for whatever total
+`transactionConfig.priorityFee` states.
+
+This means: **a fee cap built on instruction scanning stops enforcing anything
+the moment a payer switches to v1, without erroring.** Read the value you gate
+on from `transactionConfig`, and reject a transaction whose config you cannot
+parse. The same applies to `computeUnitLimit` and `loadedAccountsDataSizeLimit`
+— both affect what the transaction costs you, and neither appears in the
+instruction list any more.
+
+The instruction allowlist itself needs the same widening. An allowlist accepts a
+transaction by proving every instruction in it is one you expected; in v1 that
+proof no longer covers the four resource limits, because they are not
+instructions.
+
+Settlement verification is the other half. A server that broadcasts a
+payer-supplied transaction and then reads it back to confirm the transfer needs
+`maxSupportedTransactionVersion: 1` on that read. Without it the broadcast still
+lands and the confirmation fails with `-32015` — the payment settles onchain
+while your records show it did not.
 
 </Audience>
 
