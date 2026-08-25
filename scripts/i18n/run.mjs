@@ -259,6 +259,24 @@ async function recoverFailedPush(failedResult) {
     return failedResult;
   }
 
+  // Lingo's target report is the only authoritative completeness signal for
+  // MDX. A pull can rewrite a failed target (and its lock hash) with partial
+  // output, while the repository-level coverage check can only establish that
+  // the file exists. Keep those recovered files for the next run, but do not
+  // turn a reported MDX failure into a successful localization run.
+  const failedMdxTargets = failedTargetPaths.filter((targetPath) =>
+    targetPath.endsWith(".mdx"),
+  );
+  if (failedMdxTargets.length > 0) {
+    console.error(
+      `The failed push reported ${failedMdxTargets.length} MDX target(s); keeping the failed push status because recovery cannot verify translation completeness.`,
+    );
+    for (const targetPath of failedMdxTargets.slice(0, 20)) {
+      console.error(`- failed MDX target: ${targetPath}`);
+    }
+    return failedResult;
+  }
+
   // Only a completed resume proves the interrupted run finished; a bare pull
   // may fetch partial output, and a rewritten target file is not proof of a
   // complete translation.
