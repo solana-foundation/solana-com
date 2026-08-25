@@ -4,6 +4,7 @@ import { toSpeakerDeliveryItem } from "@/content/speakers/types";
 import { AIRTABLE_CACHE_SECONDS } from "@/lib/airtable";
 
 export const runtime = "nodejs";
+// Next requires this export to be a literal; 1800 seconds = 30 minutes.
 export const revalidate = 1800;
 
 const CACHE_CONTROL = `public, s-maxage=${AIRTABLE_CACHE_SECONDS}, stale-while-revalidate=60`;

@@ -5,6 +5,7 @@ import {
   getAirtableRecords,
   getField,
   isPublished,
+  type AirtableRecord,
 } from "@/lib/airtable";
 import type { BreakpointSpeaker } from "@/content/speakers/types";
 
@@ -36,7 +37,7 @@ function formatXUrl(value: string | undefined) {
 }
 
 function normalizeSpeakerRecord(
-  record: { fields?: Record<string, unknown>; id: string },
+  record: AirtableRecord,
   index: number,
 ): BreakpointSpeaker | null {
   const fields = record.fields ?? {};

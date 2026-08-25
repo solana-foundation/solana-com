@@ -234,41 +234,26 @@ function SocialLink({
 }
 
 function SpeakerRow({
-  designPreview = false,
   onToggle,
   open,
   priority,
   speaker,
 }: {
-  designPreview?: boolean;
   onToggle: () => void;
   open: boolean;
   priority: boolean;
   speaker: BreakpointSpeaker;
 }) {
+  const name = displayName(speaker);
   const session = speaker.session;
   const hasSessionDetails = Boolean(session?.day || session?.format);
   const hasOpenContent = Boolean(session?.title || hasSessionDetails);
   const isOpen = open && hasOpenContent;
-  const hasSocialLinks = Boolean(speaker.xUrl);
-  const hasCompany = Boolean(speaker.company);
-  const hasDetails = Boolean(speaker.company || speaker.role);
-  const designPreviewHeightClass =
-    designPreview && isOpen
-      ? "h-[475px] md:h-auto"
-      : designPreview && hasSocialLinks && hasCompany
-        ? "h-[324px] md:h-auto"
-        : designPreview && hasSocialLinks
-          ? "h-[299px] md:h-auto"
-          : designPreview && hasDetails
-            ? "h-[284px] md:h-auto"
-            : "";
 
   return (
     <article
       className={[
         "relative flex w-full flex-col items-start overflow-hidden p-4 outline outline-1 -outline-offset-1 outline-neutral-700 md:flex-row md:items-center md:justify-between md:gap-0 md:py-6 md:pl-6 md:pr-12",
-        designPreviewHeightClass,
         isOpen ? "bg-neutral-800" : "bg-black",
       ]
         .filter(Boolean)
@@ -287,14 +272,12 @@ function SpeakerRow({
         >
           <div className="flex w-full min-w-0 flex-col gap-m md:flex-row md:items-center md:gap-[120px]">
             <div className="flex min-w-0 flex-1 flex-col items-start gap-4">
-              <h2 className="type-h5 w-full text-white">
-                {displayName(speaker)}
-              </h2>
+              <h2 className="type-h5 w-full text-white">{name}</h2>
               <div className="flex items-center gap-6">
                 <SocialLink
                   href={speaker.xUrl}
                   icon={<XIcon />}
-                  label={displayName(speaker) + " on X"}
+                  label={name + " on X"}
                 />
               </div>
             </div>
@@ -345,7 +328,7 @@ function SpeakerRow({
         <button
           type="button"
           aria-expanded={isOpen}
-          aria-label={(isOpen ? "Collapse " : "Expand ") + displayName(speaker)}
+          aria-label={(isOpen ? "Collapse " : "Expand ") + name}
           onClick={onToggle}
           className={
             accordionButtonClassName(isOpen) +
@@ -360,21 +343,13 @@ function SpeakerRow({
 }
 
 export default function SpeakersList({
-  designPreview = false,
-  initialOpenSlug,
-  preserveOrder = false,
   speakers,
 }: {
-  designPreview?: boolean;
-  initialOpenSlug?: string;
-  preserveOrder?: boolean;
   speakers: BreakpointSpeaker[];
 }) {
   const [sort, setSort] = useState<SortOption>("az");
   const [filter, setFilter] = useState<FilterOption>("All Events");
-  const [openSlug, setOpenSlug] = useState<string | null>(
-    initialOpenSlug ?? null,
-  );
+  const [openSlug, setOpenSlug] = useState<string | null>(null);
 
   const visibleSpeakers = useMemo(() => {
     const selectedFormat = normalizeForCompare(filter);
@@ -384,15 +359,11 @@ export default function SpeakersList({
       return normalizeForCompare(speaker.session?.format) === selectedFormat;
     });
 
-    if (preserveOrder) {
-      return filtered.sort((a, b) => a.sortOrder - b.sortOrder);
-    }
-
     return filtered.sort((a, b) => {
       const byName = a.name.localeCompare(b.name);
       return sort === "az" ? byName : -byName;
     });
-  }, [filter, preserveOrder, sort, speakers]);
+  }, [filter, sort, speakers]);
 
   return (
     <>
@@ -433,7 +404,6 @@ export default function SpeakersList({
             <SpeakerRow
               key={speaker.slug}
               speaker={speaker}
-              designPreview={designPreview}
               open={openSlug === speaker.slug}
               priority={index === 0}
               onToggle={() =>

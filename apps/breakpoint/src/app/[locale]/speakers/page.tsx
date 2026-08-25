@@ -3,6 +3,7 @@ import { getTranslations } from "@workspace/i18n/server";
 import SpeakersPage from "@/components/pages/speakers/SpeakersPage";
 import { getPageMetadata } from "@/app/metadata";
 
+// Next requires this export to be a literal; 1800 seconds = 30 minutes.
 export const revalidate = 1800;
 
 export async function generateMetadata({
@@ -15,8 +16,7 @@ export async function generateMetadata({
   return getPageMetadata(locale, {
     path: "/speakers",
     title: t("speakers.title"),
-    description:
-      "Meet the speakers joining Breakpoint 2026 in London for keynotes, firesides, debates, and product demos.",
+    description: t("speakers.metadataDescription"),
   });
 }
 
