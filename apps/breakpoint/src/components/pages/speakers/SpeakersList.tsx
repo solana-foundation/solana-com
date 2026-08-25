@@ -1,23 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
-import { accordionButtonClassName } from "@/components/AccordionButton";
-import DisclosureIcon from "@/components/DisclosureIcon";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { publicAssetPath } from "@/config";
 import type { BreakpointSpeaker } from "@/content/speakers/types";
 
-const FILTER_OPTIONS = [
-  "All Events",
-  "Keynote",
-  "Fireside",
-  "Debate",
-  "Product Demo",
-] as const;
-const EYEBROW_TEXT_CLASS = "type-eyebrow uppercase";
-
 type SortOption = "az" | "za";
-type FilterOption = (typeof FILTER_OPTIONS)[number];
 
 function ArrowDownIcon() {
   return (
@@ -35,50 +22,12 @@ function ArrowDownIcon() {
   );
 }
 
-function GlobeIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="block"
-    >
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3 12H21" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M12 3C14.4 5.45 15.6 8.45 15.6 12C15.6 15.55 14.4 18.55 12 21C9.6 18.55 8.4 15.55 8.4 12C8.4 8.45 9.6 5.45 12 3Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
-}
-
-function LinkedInIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-      className="block"
-    >
-      <path d="M22.2 0H1.8C1.32261 0 0.864773 0.189642 0.527208 0.527208C0.189642 0.864773 0 1.32261 0 1.8V22.2C0 22.6774 0.189642 23.1352 0.527208 23.4728C0.864773 23.8104 1.32261 24 1.8 24H22.2C22.6774 24 23.1352 23.8104 23.4728 23.4728C23.8104 23.1352 24 22.6774 24 22.2V1.8C24 1.32261 23.8104 0.864773 23.4728 0.527208C23.1352 0.189642 22.6774 0 22.2 0ZM7.2 20.4H3.6V9.6H7.2V20.4ZM5.4 7.5C4.98742 7.48821 4.58746 7.35509 4.2501 7.11729C3.91274 6.87949 3.65294 6.54754 3.50315 6.16293C3.35337 5.77832 3.32025 5.35809 3.40793 4.95476C3.49561 4.55144 3.7002 4.18289 3.99614 3.89517C4.29207 3.60745 4.66624 3.41332 5.07188 3.33704C5.47752 3.26075 5.89664 3.30569 6.27688 3.46625C6.65712 3.62681 6.98162 3.89586 7.20983 4.23978C7.43804 4.5837 7.55983 4.98725 7.56 5.4C7.55052 5.96442 7.318 6.50214 6.91326 6.89564C6.50852 7.28914 5.96446 7.50642 5.4 7.5ZM20.4 20.4H16.8V14.712C16.8 13.008 16.08 12.396 15.144 12.396C14.8696 12.4143 14.6015 12.4866 14.3551 12.6088C14.1087 12.731 13.8888 12.9006 13.7082 13.108C13.5275 13.3154 13.3897 13.5565 13.3025 13.8173C13.2152 14.0782 13.1804 14.3537 13.2 14.628C13.194 14.6838 13.194 14.7402 13.2 14.796V20.4H9.6V9.6H13.08V11.16C13.431 10.626 13.9133 10.1911 14.4806 9.89692C15.0479 9.60276 15.6813 9.4592 16.32 9.48C18.18 9.48 20.352 10.512 20.352 13.872L20.4 20.4Z" />
-    </svg>
-  );
-}
-
 function XIcon() {
   return (
     <svg
       aria-hidden="true"
-      width="24"
-      height="24"
+      width="20"
+      height="20"
       viewBox="0 0 24 24"
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
@@ -89,22 +38,16 @@ function XIcon() {
   );
 }
 
-function normalizeForCompare(value: string | undefined) {
-  return (value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
 function SelectControl({
   id,
   label,
   onChange,
   value,
-  children,
 }: {
-  children: ReactNode;
   id: string;
   label: string;
-  onChange: (_value: string) => void;
-  value: string;
+  onChange: (_value: SortOption) => void;
+  value: SortOption;
 }) {
   return (
     <label
@@ -116,10 +59,11 @@ function SelectControl({
         <select
           id={id}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => onChange(event.target.value as SortOption)}
           className="type-button h-10 w-full appearance-none overflow-hidden border border-neutral-700 bg-black pb-2 pl-4 pr-10 pt-2 text-white outline-none focus:border-white"
         >
-          {children}
+          <option value="az">Alphabetical (A→Z)</option>
+          <option value="za">Alphabetical (Z→A)</option>
         </select>
         <ArrowDownIcon />
       </span>
@@ -127,14 +71,126 @@ function SelectControl({
   );
 }
 
+type NetworkInformation = {
+  effectiveType?: string;
+  saveData?: boolean;
+};
+
+function shouldPreferStillImage() {
+  const connection = (
+    navigator as Navigator & { connection?: NetworkInformation }
+  ).connection;
+
+  return (
+    connection?.saveData === true ||
+    ["slow-2g", "2g"].includes(connection?.effectiveType ?? "") ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+function displayName(speaker: BreakpointSpeaker) {
+  if (!speaker.company) return speaker.name;
+
+  const sourceSuffix = ` - ${speaker.company}`;
+  return speaker.name.endsWith(sourceSuffix)
+    ? speaker.name.slice(0, -sourceSuffix.length)
+    : speaker.name;
+}
+
+function SpeakerMedia({
+  priority,
+  speaker,
+}: {
+  priority: boolean;
+  speaker: BreakpointSpeaker;
+}) {
+  const mediaRef = useRef<HTMLDivElement>(null);
+  const [loadVideo, setLoadVideo] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const pngSrc = speaker.headshotPng
+    ? publicAssetPath(speaker.headshotPng)
+    : undefined;
+  const webmSrc = speaker.headshotWebm
+    ? publicAssetPath(speaker.headshotWebm)
+    : undefined;
+  const name = displayName(speaker);
+
+  useEffect(() => {
+    if (!webmSrc || shouldPreferStillImage()) return;
+
+    const element = mediaRef.current;
+    if (!element || !("IntersectionObserver" in window)) {
+      setLoadVideo(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        setLoadVideo(true);
+        observer.disconnect();
+      },
+      { rootMargin: "160px 0px" },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [webmSrc]);
+
+  const showVideo = loadVideo && !videoFailed && Boolean(webmSrc);
+
+  return (
+    <div
+      ref={mediaRef}
+      className="relative aspect-[4/5] overflow-hidden bg-neutral-800"
+    >
+      {pngSrc ? (
+        <img
+          src={pngSrc}
+          alt={`${name} headshot`}
+          width={640}
+          height={800}
+          loading={priority ? "eager" : "lazy"}
+          decoding="async"
+          fetchPriority={priority ? "high" : "low"}
+          className={`absolute inset-0 h-full w-full object-cover object-top grayscale transition-opacity duration-500 motion-reduce:transition-none ${videoReady ? "opacity-0" : "opacity-100"}`}
+        />
+      ) : (
+        <div aria-hidden="true" className="absolute inset-0 bg-neutral-800" />
+      )}
+
+      {showVideo && (
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="none"
+          poster={pngSrc}
+          aria-hidden="true"
+          onCanPlay={() => setVideoReady(true)}
+          onError={() => setVideoFailed(true)}
+          className={`absolute inset-0 h-full w-full object-cover object-top grayscale transition-opacity duration-500 motion-reduce:transition-none ${videoReady ? "opacity-100" : "opacity-0"}`}
+        >
+          <source src={webmSrc} type="video/webm" />
+        </video>
+      )}
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"
+      />
+    </div>
+  );
+}
+
 function SocialLink({
   href,
-  icon,
-  label,
+  name,
 }: {
   href: string | undefined;
-  icon: ReactNode;
-  label: string;
+  name: string;
 }) {
   if (!href) return null;
 
@@ -143,245 +199,105 @@ function SocialLink({
       href={href}
       target="_blank"
       rel="noreferrer"
-      aria-label={label}
-      className="flex size-6 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-      onClick={(event) => event.stopPropagation()}
+      aria-label={`${name} on X`}
+      className="flex size-8 items-center justify-center border border-neutral-700 text-white transition-colors hover:border-neutral-500 hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
     >
-      {icon}
+      <XIcon />
     </a>
   );
 }
 
-function SpeakerImage({ speaker }: { speaker: BreakpointSpeaker }) {
-  if (!speaker.image) {
-    return (
-      <div
-        aria-hidden="true"
-        className="size-[120px] shrink-0 bg-neutral-700 md:size-[200px]"
-      />
-    );
-  }
-
-  return (
-    <div className="size-[120px] shrink-0 overflow-hidden bg-neutral-700 md:size-[200px]">
-      <img
-        src={publicAssetPath(speaker.image)}
-        alt=""
-        loading="lazy"
-        className="h-full w-full object-cover object-top grayscale"
-      />
-    </div>
-  );
-}
-
-function SpeakerRow({
-  designPreview = false,
-  open,
+function SpeakerCard({
+  priority,
   speaker,
-  onToggle,
 }: {
-  designPreview?: boolean;
-  onToggle: () => void;
-  open: boolean;
+  priority: boolean;
   speaker: BreakpointSpeaker;
 }) {
-  const session = speaker.session;
-  const hasSessionDetails = Boolean(session?.day || session?.format);
-  const hasOpenContent = Boolean(session?.title || hasSessionDetails);
-  const hasSocialLinks = Boolean(
-    speaker.socials.website || speaker.socials.x || speaker.socials.linkedin,
-  );
-  const hasCompany = Boolean(speaker.company);
-  const hasDetails = Boolean(speaker.company || speaker.title);
-  const designPreviewHeightClass =
-    designPreview && open && hasOpenContent
-      ? "h-[475px] md:h-auto"
-      : designPreview && hasSocialLinks && hasCompany
-        ? "h-[324px] md:h-auto"
-        : designPreview && hasSocialLinks
-          ? "h-[299px] md:h-auto"
-          : designPreview && hasDetails
-            ? "h-[284px] md:h-auto"
-            : "";
+  const name = displayName(speaker);
 
   return (
-    <article
-      className={`relative flex w-full flex-col items-start overflow-hidden p-4 outline outline-1 -outline-offset-1 outline-neutral-700 md:flex-row md:items-center md:justify-between md:gap-0 md:py-6 md:pl-6 md:pr-12 ${designPreviewHeightClass} ${
-        open ? "bg-neutral-800" : "bg-black"
-      }`}
-    >
-      <div className="flex min-w-0 flex-1 flex-col gap-6 pr-0 md:flex-row md:items-center md:justify-center md:gap-[96px] md:pr-16">
-        <SpeakerImage speaker={speaker} />
+    <article className="bp-speaker-card group flex min-w-0 flex-col overflow-hidden border border-neutral-700 bg-black transition-colors hover:border-neutral-500">
+      <SpeakerMedia priority={priority} speaker={speaker} />
 
-        <div
-          className={`flex min-w-0 flex-1 flex-col items-start justify-end ${
-            open && hasOpenContent ? "gap-8" : ""
-          }`}
-        >
-          <div className="flex w-full min-w-0 flex-col gap-m md:flex-row md:items-center md:gap-[120px]">
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-4">
-              <h2 className="type-h5 w-full text-white">{speaker.name}</h2>
-              <div className="flex items-center gap-6">
-                <SocialLink
-                  href={speaker.socials.website}
-                  icon={<GlobeIcon />}
-                  label={`${speaker.name} website`}
-                />
-                <SocialLink
-                  href={speaker.socials.x}
-                  icon={<XIcon />}
-                  label={`${speaker.name} on X`}
-                />
-                <SocialLink
-                  href={speaker.socials.linkedin}
-                  icon={<LinkedInIcon />}
-                  label={`${speaker.name} on LinkedIn`}
-                />
-              </div>
-            </div>
+      <div className="flex min-h-[184px] flex-1 flex-col justify-between gap-s p-s md:min-h-[200px]">
+        <h2 className="type-h5 max-w-[18ch] text-white">{name}</h2>
 
-            <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-              {speaker.company && (
-                <p className={`${EYEBROW_TEXT_CLASS} w-full text-white`}>
-                  {speaker.company}
-                </p>
-              )}
-              {speaker.title && (
-                <p
-                  className={`${EYEBROW_TEXT_CLASS} w-full text-text-secondary`}
-                >
-                  {speaker.title}
-                </p>
-              )}
-            </div>
+        <div className="flex items-end justify-between gap-s">
+          <div className="flex min-w-0 flex-col gap-1">
+            {speaker.company && (
+              <p className="type-eyebrow w-full text-green">
+                {speaker.company}
+              </p>
+            )}
+            {speaker.role && (
+              <p className="type-eyebrow w-full text-text-secondary">
+                {speaker.role}
+              </p>
+            )}
           </div>
-
-          {open && hasOpenContent && (
-            <div className="flex w-full max-w-[912px] flex-col items-start gap-2">
-              {hasSessionDetails && (
-                <div className="flex flex-wrap items-center gap-4">
-                  {session?.day && (
-                    <p className={`${EYEBROW_TEXT_CLASS} text-blue`}>
-                      {session.day}
-                    </p>
-                  )}
-                  {session?.format && (
-                    <p className={`${EYEBROW_TEXT_CLASS} text-white`}>
-                      {session.format}
-                    </p>
-                  )}
-                </div>
-              )}
-              {session?.title && (
-                <p className="type-p-large w-full text-white">
-                  {session.title}
-                </p>
-              )}
-            </div>
-          )}
+          <SocialLink href={speaker.xUrl} name={name} />
         </div>
       </div>
-
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-label={`${open ? "Collapse" : "Expand"} ${speaker.name}`}
-        onClick={onToggle}
-        className={`${accordionButtonClassName(open)} absolute right-4 top-4 md:static md:self-center`}
-      >
-        <DisclosureIcon open={open} />
-      </button>
     </article>
   );
 }
 
 export default function SpeakersList({
-  designPreview = false,
-  initialOpenSlug,
-  preserveOrder = false,
   speakers,
 }: {
-  designPreview?: boolean;
-  initialOpenSlug?: string;
-  preserveOrder?: boolean;
   speakers: BreakpointSpeaker[];
 }) {
   const [sort, setSort] = useState<SortOption>("az");
-  const [filter, setFilter] = useState<FilterOption>("All Events");
-  const [openSlug, setOpenSlug] = useState<string | null>(
-    initialOpenSlug ?? null,
+
+  const visibleSpeakers = useMemo(
+    () =>
+      [...speakers].sort((a, b) => {
+        const byName = a.name.localeCompare(b.name);
+        return sort === "az" ? byName : -byName;
+      }),
+    [sort, speakers],
   );
-
-  const visibleSpeakers = useMemo(() => {
-    const selectedFormat = normalizeForCompare(filter);
-
-    const filtered = [...speakers].filter((speaker) => {
-      if (filter === "All Events") return true;
-      return normalizeForCompare(speaker.session?.format) === selectedFormat;
-    });
-
-    if (preserveOrder) {
-      return filtered.sort((a, b) => a.sortOrder - b.sortOrder);
-    }
-
-    return filtered.sort((a, b) => {
-      const byName = a.name.localeCompare(b.name);
-      return sort === "az" ? byName : -byName;
-    });
-  }, [filter, preserveOrder, sort, speakers]);
 
   return (
     <>
       <section
         aria-label="Speaker controls"
-        className="container mx-auto flex w-full flex-col gap-m border-b border-neutral-700 pb-s pt-10 min-[560px]:flex-row min-[560px]:items-center min-[560px]:gap-8 md:pt-12"
+        className="container mx-auto flex w-full flex-col gap-m border-b border-neutral-700 pb-s pt-10 min-[560px]:flex-row min-[560px]:items-end min-[560px]:justify-between min-[560px]:gap-8 md:pt-12"
       >
+        <div className="flex flex-col gap-2">
+          <p className="type-eyebrow text-green">Confirmed speakers</p>
+          <p className="type-paragraph text-text-secondary">
+            {speakers.length} {speakers.length === 1 ? "speaker" : "speakers"}{" "}
+            announced
+          </p>
+        </div>
         <SelectControl
           id="speaker-sort"
           label="Sort"
           value={sort}
-          onChange={(value) => setSort(value as SortOption)}
-        >
-          <option value="az">Alphabetical (A→Z)</option>
-          <option value="za">Alphabetical (Z→A)</option>
-        </SelectControl>
-
-        <SelectControl
-          id="speaker-filter"
-          label="Filter"
-          value={filter}
-          onChange={(value) => setFilter(value as FilterOption)}
-        >
-          {FILTER_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </SelectControl>
+          onChange={setSort}
+        />
       </section>
 
       <section
         aria-label="Speakers"
-        className="container mx-auto flex w-full flex-col items-start gap-3 pt-m md:pt-12"
+        className="container mx-auto w-full pt-m md:pt-l"
       >
         {visibleSpeakers.length > 0 ? (
-          visibleSpeakers.map((speaker) => (
-            <SpeakerRow
-              key={speaker.slug}
-              speaker={speaker}
-              designPreview={designPreview}
-              open={openSlug === speaker.slug}
-              onToggle={() =>
-                setOpenSlug((current) =>
-                  current === speaker.slug ? null : speaker.slug,
-                )
-              }
-            />
-          ))
+          <div className="grid w-full grid-cols-1 gap-3 min-[560px]:grid-cols-2 xl:grid-cols-3">
+            {visibleSpeakers.map((speaker, index) => (
+              <SpeakerCard
+                key={speaker.slug}
+                priority={index < 2}
+                speaker={speaker}
+              />
+            ))}
+          </div>
         ) : (
           <div className="w-full border border-neutral-700 px-6 py-12 text-center">
             <p className="type-button-relaxed text-text-secondary">
-              No speakers match this filter.
+              Speaker details are coming soon.
             </p>
           </div>
         )}
