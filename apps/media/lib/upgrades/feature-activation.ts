@@ -19,9 +19,9 @@ type FeatureAccount = {
 };
 
 export type FeatureActivationStatus =
-  | "Not activated"
-  | `Live in Epoch ${number}`
-  | "Active";
+  | { state: "not-activated" }
+  | { state: "pending"; epoch: number }
+  | { state: "active" };
 
 export function readFeatureAccountState(
   account: FeatureAccount | null,
@@ -55,11 +55,11 @@ export async function getFeatureActivationStatus(
     .send({ abortSignal });
   const state = readFeatureAccountState(account);
 
-  if (state === "not-set") return "Not activated";
-  if (state === "active") return "Active";
+  if (state === "not-set") return { state: "not-activated" };
+  if (state === "active") return { state: "active" };
 
   const { epoch } = await rpc
     .getEpochInfo({ commitment: "confirmed" })
     .send({ abortSignal });
-  return `Live in Epoch ${Number(epoch) + 1}`;
+  return { state: "pending", epoch: Number(epoch) + 1 };
 }

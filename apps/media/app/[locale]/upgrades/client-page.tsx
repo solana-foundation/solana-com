@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { cn } from "@/lib/utils";
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { STAGE_BADGE_CLASSES, STAGE_LABELS } from "@/lib/upgrades/stage";
+import { STAGE_BADGE_CLASSES } from "@/lib/upgrades/stage";
 import type {
   ReleaseGroup,
   UpgradeListItem,
@@ -23,21 +24,28 @@ interface UpgradesClientPageProps {
   groups: ReleaseGroup[];
 }
 
-function formatReleaseDate(group: ReleaseGroup): string | null {
+function useReleaseDateLabel(group: ReleaseGroup): string | null {
+  const t = useTranslations("upgrades.listing");
+  const format = useFormatter();
+
   if (!group.expectedDate) {
     return null;
   }
 
-  const formatted = new Date(group.expectedDate).toLocaleDateString("en-US", {
+  const formatted = format.dateTime(new Date(group.expectedDate), {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
 
-  return group.status === "planned" ? `Expected ${formatted}` : formatted;
+  return group.status === "planned"
+    ? t("expectedDate", { date: formatted })
+    : formatted;
 }
 
 function StageBadge({ stage }: { stage: UpgradeListItem["stage"] }) {
+  const t = useTranslations("upgrades.stage");
+
   return (
     <span
       className={cn(
@@ -45,12 +53,14 @@ function StageBadge({ stage }: { stage: UpgradeListItem["stage"] }) {
         STAGE_BADGE_CLASSES[stage],
       )}
     >
-      {STAGE_LABELS[stage]}
+      {t(stage)}
     </span>
   );
 }
 
 function UpgradeCard({ upgrade }: { upgrade: UpgradeListItem }) {
+  const t = useTranslations("upgrades.listing");
+
   return (
     <Link
       href={`/upgrades/${upgrade.slug}`}
@@ -88,7 +98,7 @@ function UpgradeCard({ upgrade }: { upgrade: UpgradeListItem }) {
       </div>
       <div className="mt-8 flex items-center justify-end gap-4 border-t border-white/10 pt-5">
         <span className="inline-flex items-center gap-2 text-sm font-medium text-white">
-          View details
+          {t("viewDetails")}
           <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </span>
       </div>
@@ -97,13 +107,15 @@ function UpgradeCard({ upgrade }: { upgrade: UpgradeListItem }) {
 }
 
 function OverviewCallout({ overview }: { overview: UpgradeListItem }) {
+  const t = useTranslations("upgrades.listing");
+
   return (
     <Link
       href={`/upgrades/${overview.slug}`}
       className="mb-4 block border border-[#14F195]/35 bg-[#14F195]/5 p-6 transition-colors hover:border-[#14F195]/55 hover:bg-[#14F195]/[0.08]"
     >
       <div className="mb-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#14F195]">
-        Release overview
+        {t("releaseOverview")}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-5">
         <div className="max-w-xl">
@@ -131,7 +143,8 @@ function OverviewCallout({ overview }: { overview: UpgradeListItem }) {
 }
 
 function ReleaseHeader({ group }: { group: ReleaseGroup }) {
-  const dateLabel = formatReleaseDate(group);
+  const t = useTranslations("upgrades.releaseStatus");
+  const dateLabel = useReleaseDateLabel(group);
 
   return (
     <div className="mb-4 flex flex-wrap items-baseline gap-3">
@@ -140,12 +153,12 @@ function ReleaseHeader({ group }: { group: ReleaseGroup }) {
       </h2>
       {group.status === "planned" && (
         <span className="rounded-full border border-[#14F195]/35 bg-[#14F195]/[0.08] px-2.5 py-0.5 text-[11.5px] font-semibold text-[#14F195]">
-          Planned
+          {t("planned")}
         </span>
       )}
       {group.status === "shipped" && (
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[11.5px] font-semibold text-white/70">
-          Shipped
+          {t("shipped")}
         </span>
       )}
       {dateLabel && <span className="text-sm text-white/50">{dateLabel}</span>}
@@ -154,6 +167,8 @@ function ReleaseHeader({ group }: { group: ReleaseGroup }) {
 }
 
 function TableView({ groups }: { groups: ReleaseGroup[] }) {
+  const t = useTranslations("upgrades.listing");
+
   return (
     <>
       {groups.map((group) => (
@@ -165,13 +180,13 @@ function TableView({ groups }: { groups: ReleaseGroup[] }) {
               <thead>
                 <tr className="border-b border-white/10 bg-white/[0.02]">
                   <th className="w-[45%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
-                    Upgrade
+                    {t("columnUpgrade")}
                   </th>
                   <th className="w-[27%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
-                    Key metric
+                    {t("columnKeyMetric")}
                   </th>
                   <th className="w-[28%] py-3 pl-12 pr-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
-                    Status
+                    {t("columnStatus")}
                   </th>
                 </tr>
               </thead>
@@ -249,6 +264,8 @@ function CardsView({ groups }: { groups: ReleaseGroup[] }) {
 export default function UpgradesClientPage({
   groups,
 }: UpgradesClientPageProps) {
+  const t = useTranslations("upgrades.listing");
+  const tReleaseStatus = useTranslations("upgrades.releaseStatus");
   const [view, setView] = useState<View>("table");
   const [selectedRelease, setSelectedRelease] = useState("all");
 
@@ -258,9 +275,14 @@ export default function UpgradesClientPage({
         .filter((group) => group.status !== null)
         .map((group) => ({
           key: group.key,
-          label: `${group.name} — ${group.status === "planned" ? "Planned" : "Shipped"}`,
+          label: t("releaseOption", {
+            name: group.name,
+            status: tReleaseStatus(
+              group.status === "planned" ? "planned" : "shipped",
+            ),
+          }),
         })),
-    [groups],
+    [groups, t, tReleaseStatus],
   );
 
   const visibleGroups =
@@ -271,7 +293,7 @@ export default function UpgradesClientPage({
   if (groups.length === 0) {
     return (
       <div className="py-20 text-center text-lg tracking-[-0.18px] text-white/60">
-        No published upgrades found.
+        {t("empty")}
       </div>
     );
   }
@@ -284,7 +306,7 @@ export default function UpgradesClientPage({
             htmlFor="release-select"
             className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/50"
           >
-            Release
+            {t("releaseLabel")}
           </label>
           <Select value={selectedRelease} onValueChange={setSelectedRelease}>
             <SelectTrigger
@@ -298,7 +320,7 @@ export default function UpgradesClientPage({
                 value="all"
                 className="text-[14.5px] focus:bg-white/10 focus:text-white"
               >
-                All releases
+                {t("allReleases")}
               </SelectItem>
               {releaseOptions.map((option) => (
                 <SelectItem
@@ -322,7 +344,7 @@ export default function UpgradesClientPage({
               view === "table" ? "bg-white text-black" : "text-white/70",
             )}
           >
-            List
+            {t("viewList")}
           </button>
           <button
             type="button"
@@ -333,7 +355,7 @@ export default function UpgradesClientPage({
               view === "cards" ? "bg-white text-black" : "text-white/70",
             )}
           >
-            Grid
+            {t("viewGrid")}
           </button>
         </div>
       </div>

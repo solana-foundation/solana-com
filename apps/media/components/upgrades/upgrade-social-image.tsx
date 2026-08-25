@@ -2,7 +2,7 @@ import {
   formatUpgradePublishedDate,
   getUpgradeTitleFontSize,
 } from "@/lib/upgrades/social-image";
-import { STAGE_LABELS, type UpgradeStage } from "@/lib/upgrades/stage";
+import type { UpgradeStage } from "@/lib/upgrades/stage";
 
 type UpgradeMetric = {
   value: string;
@@ -15,6 +15,8 @@ type UpgradeSocialImageProps = {
   publishedAt?: string | null;
   authorName: string;
   stage: UpgradeStage;
+  stageLabel: string;
+  locale?: string;
   metrics: UpgradeMetric[];
 };
 
@@ -50,9 +52,11 @@ export function UpgradeSocialImage({
   publishedAt,
   authorName,
   stage,
+  stageLabel,
+  locale,
   metrics,
 }: UpgradeSocialImageProps) {
-  const publishedDate = formatUpgradePublishedDate(publishedAt);
+  const publishedDate = formatUpgradePublishedDate(publishedAt, locale);
   const palette = stageColorMap[stage];
 
   return (
@@ -114,7 +118,7 @@ export function UpgradeSocialImage({
                 lineHeight: 1,
               }}
             >
-              {STAGE_LABELS[stage]}
+              {stageLabel}
             </span>
           </div>
 

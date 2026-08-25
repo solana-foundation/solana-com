@@ -468,8 +468,8 @@ describe("reportsListingMetadata", () => {
 });
 
 describe("upgradesListingMetadata", () => {
-  it("has complete, localized, indexable metadata", () => {
-    const meta = upgradesListingMetadata("ja");
+  it("has complete, localized, indexable metadata", async () => {
+    const meta = await upgradesListingMetadata("ja");
 
     expectOgFields(meta.openGraph as any);
     expectTwitterFields(meta.twitter as any);
