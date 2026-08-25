@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
+import { getTranslations } from "next-intl/server";
 import { UpgradeSocialImage } from "@/components/upgrades/upgrade-social-image";
 import { reader } from "@/lib/reader";
 import {
@@ -36,13 +37,14 @@ function loadFontFiles(): Promise<FontFiles> {
 }
 
 export async function GET(_request: Request, { params }: RouteContext) {
-  const { slug } = await params;
+  const { locale, slug } = await params;
   const entry = await reader.collections.upgrades.read(slug);
 
   if (!isPublishedUpgrade(entry)) {
     return new Response("Upgrade not found", { status: 404 });
   }
 
+  const t = await getTranslations({ locale, namespace: "upgrades.stage" });
   const authorEntry = entry.author
     ? await reader.collections.authors.read(entry.author)
     : null;
@@ -71,6 +73,8 @@ export async function GET(_request: Request, { params }: RouteContext) {
       publishedAt={entry.publishedAt ? String(entry.publishedAt) : null}
       authorName={String(authorEntry?.name ?? "Solana Foundation")}
       stage={stage}
+      stageLabel={t(stage)}
+      locale={locale}
       metrics={entry.metrics ?? []}
     />,
     {

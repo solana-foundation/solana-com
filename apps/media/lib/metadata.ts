@@ -48,7 +48,7 @@ function getPublicPageUrls(path: string, locale: string) {
   };
 }
 
-async function getNewsMetadataMessages(locale?: string) {
+async function getMetadataMessages(prefix: string[], locale?: string) {
   const resolvedLocale = resolveLocale(locale);
   const messages = await loadMergedMessages({
     app: "media",
@@ -56,7 +56,7 @@ async function getNewsMetadataMessages(locale?: string) {
   });
 
   function t(key: string, values: Record<string, string> = {}) {
-    const path = ["news", "metadata", ...key.split(".")];
+    const path = [...prefix, ...key.split(".")];
     const template = path.reduce<unknown>((value, part) => {
       if (value && typeof value === "object" && part in value) {
         return (value as Record<string, unknown>)[part];
@@ -76,6 +76,14 @@ async function getNewsMetadataMessages(locale?: string) {
   }
 
   return { locale: resolvedLocale, t };
+}
+
+function getNewsMetadataMessages(locale?: string) {
+  return getMetadataMessages(["news", "metadata"], locale);
+}
+
+function getUpgradesMetadataMessages(locale?: string) {
+  return getMetadataMessages(["upgrades", "metadata"], locale);
 }
 
 // ---------------------------------------------------------------------------
@@ -657,14 +665,13 @@ export async function podcastEpisodeMetadata(
 // Upgrades listing  /upgrades
 // ---------------------------------------------------------------------------
 
-export const UPGRADES_SEO_TITLE = "Solana Network Upgrades";
-export const UPGRADES_SEO_DESCRIPTION =
-  "Track Solana network upgrades, client support, protocol changes, rollout status, and performance improvements across the ecosystem.";
-
-export function upgradesListingMetadata(locale?: string): Metadata {
-  const resolvedLocale = resolveLocale(locale);
-  const title = UPGRADES_SEO_TITLE;
-  const description = UPGRADES_SEO_DESCRIPTION;
+export async function upgradesListingMetadata(
+  locale?: string,
+): Promise<Metadata> {
+  const { locale: resolvedLocale, t } =
+    await getUpgradesMetadataMessages(locale);
+  const title = t("title");
+  const description = t("description");
   const { alternates, canonicalUrl } = getPublicPageUrls(
     "/upgrades",
     resolvedLocale,
@@ -701,11 +708,12 @@ export async function upgradeMetadata(
   slug: string,
   locale?: string,
 ): Promise<Metadata> {
-  const resolvedLocale = resolveLocale(locale);
+  const { locale: resolvedLocale, t } =
+    await getUpgradesMetadataMessages(locale);
   const entry = await reader.collections.upgrades.read(slug);
 
   if (!isPublishedUpgrade(entry)) {
-    return notFoundMetadata("Upgrade Not Found");
+    return notFoundMetadata(t("notFound"));
   }
 
   const title = String(entry.title);

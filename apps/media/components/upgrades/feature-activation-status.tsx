@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import {
   getFeatureActivationStatus,
   LARGER_TRANSACTIONS_FEATURE_ADDRESS,
@@ -30,7 +31,8 @@ const getCachedFeatureActivationStatus = unstable_cache(
 );
 
 async function FeatureActivationStatusRow({ cluster }: { cluster: Cluster }) {
-  let status: ActivationStatus | "Unavailable";
+  const t = await getTranslations("upgrades.featureActivation");
+  let status: ActivationStatus | null;
   try {
     status = await getCachedFeatureActivationStatus(cluster);
   } catch (error) {
@@ -38,28 +40,38 @@ async function FeatureActivationStatusRow({ cluster }: { cluster: Cluster }) {
       `Failed to fetch ${cluster} feature activation status:`,
       error,
     );
-    status = "Unavailable";
+    status = null;
+  }
+
+  function statusLabel(): string {
+    if (status === null) return t("unavailable");
+    if (status.state === "not-activated") return t("notActivated");
+    if (status.state === "active") return t("active");
+
+    return t("liveInEpoch", { epoch: status.epoch });
   }
 
   return (
     <tr className="border-b border-white/10">
       <td className="px-6 py-4 text-base text-gray-300">{cluster}</td>
-      <td className="px-6 py-4 text-base text-gray-300">{status}</td>
+      <td className="px-6 py-4 text-base text-gray-300">{statusLabel()}</td>
     </tr>
   );
 }
 
-export function FeatureActivationStatus() {
+export async function FeatureActivationStatus() {
+  const t = await getTranslations("upgrades.featureActivation");
+
   return (
     <div className="overflow-x-auto mb-8">
       <table className="w-full border-collapse border border-white/10 rounded-lg">
         <thead className="bg-gray-900">
           <tr className="border-b border-white/10">
             <th className="px-6 py-4 text-left text-sm font-semibold text-white">
-              Cluster
+              {t("columnCluster")}
             </th>
             <th className="px-6 py-4 text-left text-sm font-semibold text-white">
-              Activation status
+              {t("columnStatus")}
             </th>
           </tr>
         </thead>

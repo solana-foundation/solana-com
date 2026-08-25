@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getFormatter, getTranslations } from "next-intl/server";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { Twitter } from "@boxicons/react/Twitter";
@@ -19,7 +20,6 @@ import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
 import {
   isUpgradeStage,
   STAGE_BADGE_CLASSES,
-  STAGE_LABELS,
   type UpgradeStage,
 } from "@/lib/upgrades/stage";
 
@@ -27,18 +27,19 @@ export const revalidate = 300;
 
 type Props = { params: Promise<{ slug: string; locale: string }> };
 
-function SocialShare({ title, slug }: { title: string; slug: string }) {
+async function SocialShare({ title, slug }: { title: string; slug: string }) {
+  const t = await getTranslations("upgrades.detail");
   const url = encodeURIComponent(`https://solana.com/upgrades/${slug}`);
   const text = encodeURIComponent(title);
   return (
     <div className="flex items-center gap-3 mb-6">
-      <span className="text-sm text-gray-400">Share:</span>
+      <span className="text-sm text-gray-400">{t("share")}</span>
       <a
         href={`https://twitter.com/intent/tweet?text=${text}&url=${url}`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
-        aria-label="Share on Twitter"
+        aria-label={t("shareOnTwitter")}
       >
         <Twitter className="size-5" />
       </a>
@@ -47,7 +48,7 @@ function SocialShare({ title, slug }: { title: string; slug: string }) {
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
-        aria-label="Share on Facebook"
+        aria-label={t("shareOnFacebook")}
       >
         <Facebook className="size-5" />
       </a>
@@ -56,7 +57,7 @@ function SocialShare({ title, slug }: { title: string; slug: string }) {
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
-        aria-label="Share on LinkedIn"
+        aria-label={t("shareOnLinkedin")}
       >
         <Linkedin className="size-5" />
       </a>
@@ -65,7 +66,7 @@ function SocialShare({ title, slug }: { title: string; slug: string }) {
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
-        aria-label="Share on Telegram"
+        aria-label={t("shareOnTelegram")}
       >
         <Send className="size-5" />
       </a>
@@ -75,6 +76,8 @@ function SocialShare({ title, slug }: { title: string; slug: string }) {
 
 export default async function Page({ params }: Props) {
   const { locale, slug } = await params;
+  const t = await getTranslations("upgrades");
+  const format = await getFormatter();
   const entry = await reader.collections.upgrades.read(slug);
 
   if (!isPublishedUpgrade(entry)) notFound();
@@ -89,7 +92,7 @@ export default async function Page({ params }: Props) {
     ? entry.stage
     : "in_development";
   const publishedDate = entry.publishedAt
-    ? new Date(entry.publishedAt).toLocaleDateString("en-US", {
+    ? format.dateTime(new Date(entry.publishedAt), {
         month: "long",
         year: "numeric",
       })
@@ -116,14 +119,14 @@ export default async function Page({ params }: Props) {
               className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-[#14F195] transition-colors"
             >
               <ArrowLeft className="size-4" />
-              <span>Back to Upgrades</span>
+              <span>{t("detail.back")}</span>
             </Link>
           </div>
           <div className="flex flex-wrap items-center gap-2 mb-6">
             <span
               className={`rounded-full border px-3 py-1 text-xs font-medium ${STAGE_BADGE_CLASSES[stage]}`}
             >
-              {STAGE_LABELS[stage]}
+              {t(`stage.${stage}`)}
             </span>
           </div>
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
@@ -135,13 +138,14 @@ export default async function Page({ params }: Props) {
             </p>
           )}
           <SocialShare title={titleDisplay} slug={slug} />
-          {(publishedDate || authorName) && (
-            <p className="text-base text-gray-400 mb-8">
-              {publishedDate && <span>{publishedDate}</span>}
-              {publishedDate && authorName && <span>, by </span>}
-              {authorName && <span>{authorName}</span>}
-            </p>
-          )}
+          <p className="text-base text-gray-400 mb-8">
+            {publishedDate
+              ? t("detail.bylineWithDate", {
+                  date: publishedDate,
+                  author: authorName,
+                })
+              : t("detail.byline", { author: authorName })}
+          </p>
           {entry.metrics && entry.metrics.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
               {entry.metrics.map(
