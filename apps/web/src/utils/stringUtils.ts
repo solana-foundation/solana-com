@@ -9,30 +9,25 @@
 export const truncateTextByWord = (
   text: string,
   truncateLength: number,
-  append = "",
+  append: string = "",
 ): string => {
-  const textLength = text.length;
-  const appendLength = append.length;
-
-  if (
-    textLength < truncateLength ||
-    text.indexOf(" ") + appendLength > truncateLength
-  ) {
+  if (text.length <= truncateLength) {
     return text;
   }
 
-  const newLength =
-    textLength + appendLength > truncateLength
-      ? truncateLength - appendLength
-      : textLength;
+  // Reserve room for the postfix so the result never exceeds truncateLength.
+  const budget = truncateLength - append.length;
 
-  // Truncate string to new length & find last whitespace beforehand.
-  const tempString = text.substring(0, newLength).replace(/\s+\S*$/, "");
-
-  if (appendLength > 0) {
-    return `${tempString} ${append}`;
+  if (budget <= 0) {
+    return append.slice(0, truncateLength);
   }
-  return tempString;
+
+  const clipped = text.slice(0, budget);
+  // Prefer a word boundary, falling back to a hard clip when the first word is
+  // already longer than the budget.
+  const trimmed = clipped.replace(/\s+\S*$/, "") || clipped;
+
+  return `${trimmed.trimEnd()}${append}`;
 };
 
 /**
