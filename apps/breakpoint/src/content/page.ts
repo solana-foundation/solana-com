@@ -11,6 +11,7 @@ export type BreakpointMessages = {
     ogTitle: string;
     ogDescription: string;
     keywords: string;
+    socialImageAlt: string;
   };
   hero: {
     headline: string;
@@ -63,6 +64,7 @@ export type BreakpointMessages = {
     eyebrow: string;
     headline: string;
     cta: string;
+    videoTitle: string;
   };
   stats: {
     headline: string;
@@ -90,6 +92,7 @@ export type BreakpointMessages = {
   };
   announcements: {
     headline: string;
+    article: string;
     items: Record<
       string,
       {
@@ -169,6 +172,27 @@ export type BreakpointMessages = {
     };
   };
   pages: MessageRecord;
+  accessibility: {
+    close: string;
+    opensInNewTab: string;
+    externalLink: string;
+    previous: string;
+    next: string;
+    previousItem: string;
+    nextItem: string;
+    skipToContent: string;
+    youtubeVideoPlayer: string;
+  };
+  subscribe: {
+    title: string;
+    description: string;
+    success: string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    error: string;
+    submit: string;
+    submitting: string;
+  };
   footer: {
     copyright: string;
     contact: string;

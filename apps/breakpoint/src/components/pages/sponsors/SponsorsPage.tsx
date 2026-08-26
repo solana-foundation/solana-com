@@ -321,6 +321,7 @@ function SponsorCard({
   mobileLogoScale: number;
   onClick: () => void;
 }) {
+  const t = useTranslations("breakpoint.pages.sponsors");
   const logo = getLogo(sponsor);
   const logoStyle = {
     "--logo-width": `${sponsor.width}px`,
@@ -332,7 +333,7 @@ function SponsorCard({
     <button
       type="button"
       onClick={onClick}
-      aria-label={`View ${logo.alt} sponsor details`}
+      aria-label={t("viewDetails", { name: logo.alt })}
       className={`group flex ${cellAspect} min-w-0 cursor-pointer items-center justify-center overflow-hidden border-0 bg-white/[0.05] p-[10px] transition-colors hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
     >
       <span

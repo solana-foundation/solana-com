@@ -9,18 +9,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, "..");
 const walletDataPath = path.join(packageRoot, "src/wallets/wallet-data.ts");
+const excludedWalletsPath = path.join(
+  packageRoot,
+  "src/wallets/excluded-wallets.json",
+);
 
 function printUsage() {
   console.log(`Usage: pnpm --filter @workspace/ecosystem-data wallets:research-queue [options]
 
 Options:
+  --candidate <name-or-slug>   Check a discovery candidate against maintainer exclusions.
   --slug <slug>              Return one canonical wallet record.
   --stale-before <YYYY-MM-DD> Return records not verified since the date.
   --help                     Show this help.`);
 }
 
 function readOptions(args) {
-  const options = { slug: undefined, staleBefore: undefined };
+  const options = {
+    candidate: undefined,
+    slug: undefined,
+    staleBefore: undefined,
+  };
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -34,13 +43,19 @@ function readOptions(args) {
       process.exit(0);
     }
 
-    if (argument === "--slug" || argument === "--stale-before") {
+    if (
+      argument === "--candidate" ||
+      argument === "--slug" ||
+      argument === "--stale-before"
+    ) {
       const value = args[index + 1];
       if (!value || value.startsWith("--")) {
         throw new Error(`${argument} requires a value`);
       }
 
-      if (argument === "--slug") {
+      if (argument === "--candidate") {
+        options.candidate = value;
+      } else if (argument === "--slug") {
         options.slug = value;
       } else {
         options.staleBefore = value;
@@ -141,6 +156,51 @@ function getWalletRecordsObject(sourceFile) {
   throw new Error(`Could not find walletRecords in ${walletDataPath}`);
 }
 
+function normalizeIdentifier(value) {
+  return value.trim().toLowerCase();
+}
+
+function readExclusions() {
+  const contents = fs.readFileSync(excludedWalletsPath, "utf8");
+  const parsed = JSON.parse(contents);
+
+  if (!Array.isArray(parsed.wallets)) {
+    throw new Error(`${excludedWalletsPath} must contain a wallets array`);
+  }
+
+  return parsed.wallets.map((wallet) => {
+    if (
+      !wallet ||
+      typeof wallet.slug !== "string" ||
+      !Array.isArray(wallet.identifiers) ||
+      !wallet.identifiers.every(
+        (identifier) => typeof identifier === "string",
+      ) ||
+      typeof wallet.reason !== "string" ||
+      typeof wallet.excludedAt !== "string"
+    ) {
+      throw new Error(`Invalid wallet exclusion in ${excludedWalletsPath}`);
+    }
+
+    return wallet;
+  });
+}
+
+function matchesExclusion(wallet, exclusion) {
+  const walletIdentifiers = new Set(
+    [wallet.slug, wallet.name, ...wallet.aliases]
+      .filter(Boolean)
+      .map(normalizeIdentifier),
+  );
+  const exclusionIdentifiers = [exclusion.slug, ...exclusion.identifiers].map(
+    normalizeIdentifier,
+  );
+
+  return exclusionIdentifiers.some((identifier) =>
+    walletIdentifiers.has(identifier),
+  );
+}
+
 function readWallets() {
   const sourceText = fs.readFileSync(walletDataPath, "utf8");
   const sourceFile = ts.createSourceFile(
@@ -178,6 +238,46 @@ function readWallets() {
 
 const options = readOptions(process.argv.slice(2));
 let wallets = readWallets();
+const excludedWallets = readExclusions();
+
+const excludedWalletsInRegistry = wallets.flatMap((wallet) =>
+  excludedWallets
+    .filter((excludedWallet) => matchesExclusion(wallet, excludedWallet))
+    .map((excludedWallet) => ({
+      exclusion: excludedWallet.slug,
+      wallet: wallet.slug,
+    })),
+);
+
+if (excludedWalletsInRegistry.length > 0) {
+  throw new Error(
+    `Excluded wallets must not be published: ${excludedWalletsInRegistry
+      .map(({ exclusion, wallet }) => `${wallet} matches ${exclusion}`)
+      .join(", ")}`,
+  );
+}
+
+if (options.candidate) {
+  const candidate = normalizeIdentifier(options.candidate);
+  const matches = excludedWallets.filter((excludedWallet) =>
+    [excludedWallet.slug, ...excludedWallet.identifiers]
+      .map(normalizeIdentifier)
+      .includes(candidate),
+  );
+
+  console.log(
+    JSON.stringify(
+      {
+        candidate: options.candidate,
+        decision: matches.length > 0 ? "excluded" : "not-excluded",
+        matches,
+      },
+      null,
+      2,
+    ),
+  );
+  process.exit(0);
+}
 
 if (options.slug) {
   wallets = wallets.filter((wallet) => wallet.slug === options.slug);
@@ -199,6 +299,7 @@ console.log(
     {
       source: path.relative(packageRoot, walletDataPath),
       count: wallets.length,
+      excludedWallets,
       wallets,
     },
     null,

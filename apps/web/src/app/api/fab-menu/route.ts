@@ -39,7 +39,7 @@ const EXPLORE_MENU = {
       { title: "RPC API", href: "/docs/rpc" },
       { title: "Templates", href: "/developers/templates" },
       { title: "Developer Hub", href: "/developers" },
-      { title: "EVM to SVM", href: "/developers/evm-to-svm" },
+      { title: "EVM to SVM", href: "/developers/migrate-to-solana/ethereum" },
       { title: "Hackathons & Events", href: "/events" },
     ],
     business: [

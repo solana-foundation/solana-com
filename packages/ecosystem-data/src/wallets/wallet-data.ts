@@ -1145,7 +1145,6 @@ const walletRecords = {
       "social_recovery",
       "staking",
       "spending_limits",
-      "open_source",
       "hardware",
       "solana_native",
       "multi_sig",
@@ -1154,7 +1153,7 @@ const walletRecords = {
       "Solana smart wallet on Squads Protocol with multifactor approvals and recovery keys, programmable spending limits, sponsored transactions, SOL staking, bank on/off-ramps, and a virtual Visa card",
     website: "https://www.fusewallet.com/",
     icon: fuseIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-08-18",
   },
   fxwallet: {
     name: "FxWallet",
@@ -1510,7 +1509,7 @@ const walletRecords = {
       "Open-source self-custody Solana wallet with browser, web, and Android access, smart-account security, configurable spending caps, and destination allowlists",
     website: "https://askloyal.com/",
     icon: loyalIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-08-18",
   },
   magic: {
     name: "Magic SDK",
@@ -2003,7 +2002,7 @@ const walletRecords = {
       "Self-custody wallet for Solana and other networks with mobile apps and Chromium browser extensions, Google and Apple account recovery, gasless Solana transactions, and in-app crypto purchases plus bank cash-out for eligible US users",
     website: "https://phantom.com/",
     icon: phantomIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-08-18",
   },
   "phantom-connect": {
     name: "Phantom SDK",
@@ -2018,10 +2017,10 @@ const walletRecords = {
       "solana_native",
     ],
     description:
-      "Open-source client SDKs for embedding Phantom wallet creation and signing in web and React Native apps, with full Solana network support and social-login onboarding",
+      "Client SDKs for embedding Phantom wallet creation and signing in web and React Native apps, with full Solana network support and social-login onboarding",
     website: "https://docs.phantom.com/wallet-sdks-overview",
     icon: phantomIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-08-18",
   },
   pontem: {
     name: "Pontem",
@@ -2365,7 +2364,6 @@ const walletRecords = {
       "non_custodial",
       "gas_abstraction",
       "spending_limits",
-      "open_source",
       "solana_native",
       "multi_sig",
     ],
@@ -2374,7 +2372,7 @@ const walletRecords = {
     website:
       "https://chromewebstore.google.com/detail/squadsx/jhmfofkpljgmilikdmkglcmekjnlekda",
     icon: squadsxIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-08-18",
   },
   starkey: {
     name: "StarKey",
