@@ -22,9 +22,9 @@ interface TapeProps {
 /**
  * The tape: blocks landing live on the left, grouped into leader windows
  * (one card per validator's consecutive turn, like the Jito monitor), the
- * transactions inside the latest sampled block in the middle, and on the
- * right the confirmed leader schedule — who makes the blocks after this
- * one. The live lists keep constant height with scroll anchoring off —
+ * confirmed leader schedule in the middle, and the transactions inside the
+ * latest sampled block on the right. The live lists keep constant height with
+ * scroll anchoring off —
  * rows are inserted at the top, exactly like the perp200 tape.
  */
 export const Tape = React.memo(function Tape({
@@ -164,10 +164,6 @@ export const Tape = React.memo(function Tape({
           <div ref={blocksRef} className="s2-tape-list" />
         </div>
         <div className="s2-tape-col">
-          <div className="s2-tape-h">{t("txs")}</div>
-          <div ref={txRef} className="s2-tape-list" />
-        </div>
-        <div className="s2-tape-col">
           <div className="s2-tape-h">{t("upNext")}</div>
           <div className="s2-tape-list">
             {upcoming.map(({ slot, entry }) => {
@@ -188,6 +184,10 @@ export const Tape = React.memo(function Tape({
               );
             })}
           </div>
+        </div>
+        <div className="s2-tape-col">
+          <div className="s2-tape-h">{t("txs")}</div>
+          <div ref={txRef} className="s2-tape-list" />
         </div>
       </div>
       <div className="s2-tape-foot">
