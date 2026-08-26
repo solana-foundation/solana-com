@@ -61,15 +61,19 @@ export function rolloutState(
   let from = stable ? settledStep(stable) : STEPS[0];
   const observed = avg1m ? settledStep(avg1m) : from;
   const scheduledEpoch = CONFIRMED_EPOCHS[nextStep(from) ?? -1];
+  const observedTargetEpoch = CONFIRMED_EPOCHS[nextStep(observed) ?? -1];
 
   // The 10-minute average is seeded when a stream connects and can briefly
   // lag the current measurement. Once its transition's epoch is already in
-  // the past, never resurrect that old flip in the hero or share copy.
+  // the past, never resurrect that old flip in the hero or share copy. Do
+  // not use a transient one-minute reading to promote an unscheduled step.
   if (
     epoch !== null &&
     epoch !== undefined &&
     scheduledEpoch !== undefined &&
-    epoch > scheduledEpoch
+    epoch > scheduledEpoch &&
+    observedTargetEpoch !== undefined &&
+    epoch <= observedTargetEpoch
   )
     from = observed;
 

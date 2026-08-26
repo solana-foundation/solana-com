@@ -30,6 +30,15 @@ describe("the 350ms to 300ms rollout", () => {
     });
   });
 
+  it("does not skip to an unscheduled step on a transient one-minute average", () => {
+    expect(rolloutState(320, 350, 1025)).toMatchObject({
+      from: 350,
+      to: 300,
+      phase: "flipping",
+      targetEpoch: 1024,
+    });
+  });
+
   it("shows an activation state when slots cross the boundary before the epoch snapshot refreshes", () => {
     const rollout = rolloutState(350, 350);
 
