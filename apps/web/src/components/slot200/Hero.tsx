@@ -66,7 +66,7 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     setSoundOn(audioRef.current.toggle());
   };
 
-  const rollout = rolloutState(feed.avg1m, feed.avg10m);
+  const rollout = rolloutState(feed.avg1m, feed.avg10m, feed.epoch);
   const { from, to, phase, stepIndex, stepsDone, targetEpoch } = rollout;
   const avgShown = feed.avg1m ? Math.round(feed.avg1m) : null;
   const activationPending = isActivationWindow(

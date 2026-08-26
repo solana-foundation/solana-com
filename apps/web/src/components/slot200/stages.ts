@@ -55,9 +55,24 @@ function settledStep(avg: number): number {
 export function rolloutState(
   avg1m: number | null,
   avg10m: number | null,
+  epoch?: number | null,
 ): RolloutState {
   const stable = avg10m ?? avg1m;
-  const from = stable ? settledStep(stable) : STEPS[0];
+  let from = stable ? settledStep(stable) : STEPS[0];
+  const observed = avg1m ? settledStep(avg1m) : from;
+  const scheduledEpoch = CONFIRMED_EPOCHS[nextStep(from) ?? -1];
+
+  // The 10-minute average is seeded when a stream connects and can briefly
+  // lag the current measurement. Once its transition's epoch is already in
+  // the past, never resurrect that old flip in the hero or share copy.
+  if (
+    epoch !== null &&
+    epoch !== undefined &&
+    scheduledEpoch !== undefined &&
+    epoch > scheduledEpoch
+  )
+    from = observed;
+
   const fromIdx = STEPS.indexOf(from as (typeof STEPS)[number]);
   const to = fromIdx < STEPS.length - 1 ? STEPS[fromIdx + 1] : null;
 

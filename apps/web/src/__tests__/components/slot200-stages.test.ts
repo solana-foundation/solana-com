@@ -21,6 +21,15 @@ describe("the 350ms to 300ms rollout", () => {
     expect(isActivationWindow(rollout, 1024)).toBe(true);
   });
 
+  it("does not resurrect an old flip when a seeded average lags mainnet", () => {
+    expect(rolloutState(360, 400, 1024)).toMatchObject({
+      from: 350,
+      to: 300,
+      phase: "pre",
+      targetEpoch: 1024,
+    });
+  });
+
   it("shows an activation state when slots cross the boundary before the epoch snapshot refreshes", () => {
     const rollout = rolloutState(350, 350);
 
