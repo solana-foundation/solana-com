@@ -7,18 +7,29 @@ import { useState } from "react";
 
 export type PerformanceItem = {
   key?: string;
+  link?: string;
+  secondaryLink?: string;
+  secondaryLinkLabel?: string;
 };
 
 type PerformanceProps = {
   title?: ReactNode;
+  description?: ReactNode;
   items: PerformanceItem[];
   translationBase: string;
+  titleKey?: string;
+  descriptionKey?: string;
+  linkLabel?: string;
 };
 
 export const Performance = ({
   items,
   title,
+  description,
   translationBase,
+  titleKey = "title",
+  descriptionKey = "description",
+  linkLabel,
 }: PerformanceProps) => {
   const t = useTranslations();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -40,57 +51,99 @@ export const Performance = ({
       <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px] xl:py-[160px] flex flex-col xl:flex-row max-xl:gap-6 xl:gap-20">
         <div className={cn("w-full xl:w-1/2")}>
           {title && (
-            <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px] mb-[32px] xl:mb-[48px]">
+            <h2
+              className={cn(
+                "font-brand font-medium leading-none text-[32px] md:text-[40px] xl:text-[64px]",
+                description ? "mb-5" : "mb-[32px] xl:mb-[48px]",
+              )}
+            >
               {title}
             </h2>
+          )}
+          {description && (
+            <p className="text-[#ABABBA] text-lg md:text-2xl mb-0 max-w-md tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.33]">
+              {description}
+            </p>
           )}
         </div>
         <div className="w-full xl:w-1/2">
           <ul className="pl-0">
-            {items.map(({ key }, index) => {
-              const productTitle = t(`${translationBase}.${key}.title`);
-              const productDescription = t(
-                `${translationBase}.${key}.description`,
-              );
-              const isExpanded = expandedItems.has(key || "");
+            {items.map(
+              ({ key, link, secondaryLink, secondaryLinkLabel }, index) => {
+                const productTitle = t(`${translationBase}.${key}.${titleKey}`);
+                const productDescription = t(
+                  `${translationBase}.${key}.${descriptionKey}`,
+                );
+                const isExpanded = expandedItems.has(key || "");
 
-              return (
-                <li key={key} className="group flex flex-col list-none w-full">
-                  <div
-                    className={cn(
-                      "box-border content-stretch flex gap-[18px] items-start px-0 py-[20px] relative shrink-0 w-full cursor-pointer transition-all duration-200 ",
-                      {
-                        "border-t border-white/10": index !== 0,
-                      },
-                    )}
-                    onClick={() => key && toggleExpanded(key)}
+                return (
+                  <li
+                    key={key}
+                    className="group flex flex-col list-none w-full"
                   >
-                    <div className="xl:w-8 xl:h-8 max-xl:w-6 max-xl:h-6 md:mt-0 shrink-0 grow-0 bg-none rounded-full flex items-center justify-center text-white border-[1px] border-white group-hover:bg-white group-hover:!text-black transition-all duration-200">
-                      <span className="text-sm font-medium leading-8">
-                        {index + 1}
-                      </span>
-                    </div>
-                    <div className="basis-0 grow shrink-0">
-                      <p className="font-medium mb-0 font-brand text-lg md:text-2xl">
-                        {productTitle}
-                      </p>
-                      <div className="overflow-hidden transition-all duration-300 ease-in-out">
-                        <p
-                          className={cn(
-                            "text-[#ABABBA] font-brand text-lg md:text-2xl mb-0 mt-1 transition-all duration-300",
-                            isExpanded
-                              ? "opacity-100 max-h-96"
-                              : "opacity-60 max-h-0",
-                          )}
-                        >
-                          {productDescription}
+                    <div
+                      className={cn(
+                        "box-border content-stretch flex gap-[18px] items-start px-0 py-[20px] relative shrink-0 w-full cursor-pointer transition-all duration-200 ",
+                        {
+                          "border-t border-white/10": index !== 0,
+                        },
+                      )}
+                      onClick={() => key && toggleExpanded(key)}
+                    >
+                      <div className="xl:w-8 xl:h-8 max-xl:w-6 max-xl:h-6 md:mt-0 shrink-0 grow-0 bg-none rounded-full flex items-center justify-center text-white border-[1px] border-white group-hover:bg-white group-hover:!text-black transition-all duration-200">
+                        <span className="text-sm font-medium leading-8">
+                          {index + 1}
+                        </span>
+                      </div>
+                      <div className="basis-0 grow shrink-0">
+                        <p className="font-medium mb-0 font-brand text-lg md:text-2xl">
+                          {productTitle}
                         </p>
+                        <div className="overflow-hidden transition-all duration-300 ease-in-out">
+                          <div
+                            className={cn(
+                              "transition-all duration-300",
+                              isExpanded
+                                ? "opacity-100 max-h-[1200px]"
+                                : "opacity-60 max-h-0",
+                            )}
+                          >
+                            <p className="text-[#ABABBA] font-brand text-lg md:text-2xl mb-0 mt-1">
+                              {productDescription}
+                            </p>
+                            {(link || secondaryLink) && (
+                              <div
+                                className="flex flex-wrap gap-4 mt-4"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                {link && linkLabel && (
+                                  <a
+                                    href={link}
+                                    className="text-white hover:underline text-base md:text-lg font-medium tracking-[-0.16px] md:tracking-[-0.18px]"
+                                  >
+                                    {linkLabel} →
+                                  </a>
+                                )}
+                                {secondaryLink && secondaryLinkLabel && (
+                                  <a
+                                    href={secondaryLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-white hover:underline text-base md:text-lg font-medium tracking-[-0.16px] md:tracking-[-0.18px]"
+                                  >
+                                    {secondaryLinkLabel} →
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </li>
-              );
-            })}
+                  </li>
+                );
+              },
+            )}
           </ul>
         </div>
       </div>

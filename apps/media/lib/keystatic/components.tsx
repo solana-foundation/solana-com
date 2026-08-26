@@ -502,6 +502,117 @@ const iframe = block({
   ),
 });
 
+const audienceGroup = wrapper({
+  label: "Audience group",
+  description: "Container for the collapsible per-audience sections",
+  schema: {},
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        Audience group
+      </strong>
+      {props.children}
+    </div>
+  ),
+});
+
+const audience = wrapper({
+  label: "Audience section",
+  description: "One collapsible section addressed to a single audience",
+  schema: {
+    title: fields.text({
+      label: "Title",
+      validation: { isRequired: true },
+    }),
+    summary: fields.text({ label: "Summary" }),
+  },
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        {props.value.title || "Audience section"}
+      </strong>
+      {props.children}
+    </div>
+  ),
+});
+
+// Diagram blocks for upgrade articles. These take no options — each renders a
+// single fixed illustration defined in `components/upgrades/diagrams.tsx` — so
+// they exist here purely to declare the tags as valid in the Keystatic editor.
+const diagramBlock = (label: string, description: string) =>
+  block({
+    label,
+    description,
+    schema: {},
+    ContentView: () => (
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: "8px",
+          color: "#6b7280",
+          fontSize: "14px",
+          margin: "16px 0",
+          padding: "16px",
+        }}
+      >
+        <strong style={{ color: "#14161c", display: "block" }}>Diagram</strong>
+        {label}
+      </div>
+    ),
+  });
+
+const txWireLayout = diagramBlock(
+  "Diagram: transaction wire layout",
+  "Byte layout of legacy, v0 and v1 transactions compared",
+);
+
+const txSimulationTrace = diagramBlock(
+  "Diagram: v1 simulation failure trace",
+  "Where an empty v1 config fails during simulation, and what comes back",
+);
+
+const txAccountBytes = diagramBlock(
+  "Diagram: loaded account bytes running total",
+  "How an account created after estimation pushes the running total past the limit",
+);
+
+const featureActivationStatus = block({
+  label: "Feature activation status",
+  description: "Live feature activation status for each Solana cluster",
+  schema: {},
+  ContentView: () => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        color: "#6b7280",
+        fontSize: "14px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        Feature activation status
+      </strong>
+      Live cluster statuses are shown on the published page.
+    </div>
+  ),
+});
+
 // Export all component blocks
 export const componentBlocks: Record<string, ContentComponent> = {
   blockquote,
@@ -514,6 +625,18 @@ export const componentBlocks: Record<string, ContentComponent> = {
   sup,
   tweet,
   iframe,
+};
+
+// Diagram blocks are intentionally limited to upgrade articles, whose template
+// renders on a permanently dark surface the diagrams are colored for.
+export const upgradeComponentBlocks: Record<string, ContentComponent> = {
+  ...componentBlocks,
+  Audience: audience,
+  AudienceGroup: audienceGroup,
+  FeatureActivationStatus: featureActivationStatus,
+  TxAccountBytes: txAccountBytes,
+  TxSimulationTrace: txSimulationTrace,
+  TxWireLayout: txWireLayout,
 };
 
 // Formula controls are intentionally limited to news posts. Other collections

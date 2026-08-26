@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useId, useRef } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 
 interface Props {
   open: boolean;
@@ -9,12 +10,9 @@ interface Props {
   title?: string;
 }
 
-export default function YouTubeModal({
-  open,
-  onClose,
-  videoId,
-  title = "YouTube video player",
-}: Props) {
+export default function YouTubeModal({ open, onClose, videoId, title }: Props) {
+  const t = useTranslations("breakpoint.accessibility");
+  const resolvedTitle = title ?? t("youtubeVideoPlayer");
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
@@ -78,13 +76,13 @@ export default function YouTubeModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id={titleId} className="sr-only">
-          {title}
+          {resolvedTitle}
         </h2>
         <button
           ref={closeButtonRef}
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("close")}
           className="absolute -top-12 right-0 inline-flex size-8 items-center justify-center text-white/80 transition-colors hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
         >
           <svg
@@ -104,7 +102,7 @@ export default function YouTubeModal({
         <div className="relative aspect-video w-full bg-black">
           <iframe
             src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`}
-            title={title}
+            title={resolvedTitle}
             className="absolute inset-0 h-full w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen

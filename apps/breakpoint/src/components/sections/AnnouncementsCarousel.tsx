@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useId, useRef } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import CarouselControls from "@/components/CarouselControls";
 import type { BreakpointAnnouncementLink } from "@/lib/media-links";
@@ -19,6 +20,7 @@ export default function AnnouncementsCarousel({
   headline,
   items,
 }: AnnouncementsCarouselProps) {
+  const t = useTranslations("breakpoint");
   const scrollRef = useRef<HTMLUListElement>(null);
   const headingId = useId();
 
@@ -81,11 +83,13 @@ export default function AnnouncementsCarousel({
           const content = (
             <>
               <span className="type-eyebrow text-white opacity-80">
-                {item.tags?.[0] ?? "Article"}
+                {item.tags?.[0] ?? t("announcements.article")}
               </span>
               <span className="type-h5 text-white">{item.title}</span>
               {!isRelativeHref(resolvedUrl) && (
-                <span className="sr-only">(opens in a new tab)</span>
+                <span className="sr-only">
+                  {t("accessibility.opensInNewTab")}
+                </span>
               )}
             </>
           );

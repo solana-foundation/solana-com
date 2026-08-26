@@ -223,8 +223,11 @@ function ExpectationsSection({
   );
 }
 
-export default async function RegistrationPage() {
-  const t = await getTranslations("breakpoint.pages.registration");
+export default async function RegistrationPage({ locale }: { locale: string }) {
+  const t = await getTranslations({
+    locale,
+    namespace: "breakpoint.pages.registration",
+  });
   const initialNow = Date.now();
   const tickets = ticketSeeds.map((ticket) => ({
     ...ticket,

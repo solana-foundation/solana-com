@@ -31,13 +31,14 @@ export function createUpgradeSocialImage(
 
 export function formatUpgradePublishedDate(
   publishedAt: string | null | undefined,
+  locale = "en",
 ): string | null {
   if (!publishedAt) return null;
 
   const date = new Date(publishedAt);
   if (Number.isNaN(date.getTime())) return null;
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     month: "long",
     year: "numeric",
     timeZone: "UTC",

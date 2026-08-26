@@ -1,4 +1,6 @@
 import React, { ComponentPropsWithoutRef } from "react";
+import { TxAccountBytes, TxSimulationTrace, TxWireLayout } from "./diagrams";
+import { FeatureActivationStatus } from "./feature-activation-status";
 
 export function StatusBadge({
   children,
@@ -47,7 +49,50 @@ export function MetricCardGroup({ children }: { children: React.ReactNode }) {
   );
 }
 
+export function AudienceGroup({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="my-8 divide-y divide-white/10 rounded-lg border border-white/10 overflow-hidden">
+      {children}
+    </div>
+  );
+}
+
+export function Audience({
+  title,
+  summary,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group bg-white/[0.02] open:bg-white/[0.04]">
+      <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 px-6 py-5 [&::-webkit-details-marker]:hidden">
+        <span>
+          <span className="text-xl font-semibold text-white">{title}</span>
+          {summary ? (
+            <span className="block text-base text-gray-400 mt-1">
+              {summary}
+            </span>
+          ) : null}
+        </span>
+        <span className="shrink-0 text-[#14F195] transition-transform group-open:rotate-45">
+          +
+        </span>
+      </summary>
+      <div className="px-6 pb-2 [&>*:last-child]:mb-6">{children}</div>
+    </details>
+  );
+}
+
 export const upgradeMdxComponents = {
+  Audience,
+  AudienceGroup,
+  FeatureActivationStatus,
+  TxAccountBytes,
+  TxSimulationTrace,
+  TxWireLayout,
   StatusBadge,
   StatusBadgeGroup,
   MetricCard,

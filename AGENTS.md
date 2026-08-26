@@ -49,7 +49,8 @@ Pick the app first. That usually cuts exploration time in half.
 - `packages/i18n`: locale list, routing helpers, shared message loading
 - `packages/ui`: reusable UI primitives
 - `packages/ui-chrome`: shared nav/footer/theme/cross-app link behavior
-- `packages/ecosystem-data`: canonical company and logo registry used by apps
+- `packages/ecosystem-data`: canonical company, wallet, and logo registry used
+  by apps
 - `packages/sentry`: shared Sentry helpers
 - `packages/config-eslint`, `packages/config-typescript`: shared configs
 
@@ -121,8 +122,8 @@ inspect `packages/ui-chrome` and the target app `next.config.ts` together.
 - `apps/media/content`: source of truth for posts, podcasts, authors, tags, and
   global CMS content
 - `packages/i18n/messages/*`: shared UI message catalogs by app
-- `packages/ecosystem-data`: shared company metadata and logos, not app-specific
-  marketing copy
+- `packages/ecosystem-data`: shared company metadata, wallet-directory records,
+  and logos, not app-specific marketing copy
 
 ## Best Next File
 

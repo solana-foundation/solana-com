@@ -1,5 +1,6 @@
 // trigger preview build
 import createNextIntlPlugin from "next-intl/plugin";
+import { withBotId } from "botid/next/config";
 import rewritesAndRedirectsJson from "./rewrites-redirects";
 import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
@@ -283,7 +284,7 @@ const moduleExports = (): NextConfig => {
   return plugins.reduce<NextConfig>((acc, next) => next(acc), nextConfig);
 };
 
-export default withSentryConfig(moduleExports, {
+export default withSentryConfig(withBotId(moduleExports), {
   org: "solana-fndn",
   project: "javascript-nextjs",
   silent: !process.env.CI,
