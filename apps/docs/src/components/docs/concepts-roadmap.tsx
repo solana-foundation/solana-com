@@ -11,6 +11,7 @@ import {
   Code2,
   ExternalLink,
   GitBranch,
+  Link2,
   Play,
   RotateCcw,
   ShieldCheck,
@@ -25,12 +26,29 @@ import {
   safeStorageGetItem,
   safeStorageSetItem,
 } from "@solana-com/ui-chrome";
+import {
+  createEmptyProgress,
+  parseSharedRoadmap,
+  parseStoredProgress,
+  ROADMAP_SHARE_PARAM,
+  ROADMAP_STORAGE_KEY,
+  serializeSharedRoadmap,
+  type EntryRoute,
+  type LearningStyle,
+  type PersonalizationProfile,
+  type RoadmapFocus,
+  type RoadmapGoal,
+  type StartingPoint,
+  type StoredProgress,
+  type UseCaseId,
+  type UseCaseRoute,
+} from "./concepts-roadmap-state";
 import styles from "./concepts-roadmap.module.scss";
 
 type RoadmapResource = {
   label: string;
   href: string;
-  type: "Read" | "Watch" | "Build";
+  type: LearningStyle;
 };
 
 type CoreStep = {
@@ -73,50 +91,6 @@ type TokenTopic = {
   featured?: boolean;
 };
 
-type EntryRoute = "new" | "ethereum";
-
-type UseCaseId = "payments" | "tokenization" | "trading";
-
-type UseCaseRoute = "full" | UseCaseId;
-
-type RoadmapGoal = "build" | "developer" | "understand" | "work" | "reference";
-
-type RoadmapFocus =
-  | "apps"
-  | "programs"
-  | "tokens-payments"
-  | "defi"
-  | "games-performance"
-  | "data"
-  | "architecture"
-  | "transactions"
-  | "ecosystem"
-  | "product"
-  | "finance"
-  | "developer-relations"
-  | "client-reference"
-  | "program-reference"
-  | "production-reference";
-
-type StartingPoint = "new" | "web" | "rust" | "ethereum" | "solana";
-
-type LearningStyle = RoadmapResource["type"];
-
-type PersonalizationProfile = {
-  goal: RoadmapGoal;
-  focus: RoadmapFocus;
-  startingPoint: StartingPoint;
-  learningStyles: LearningStyle[];
-};
-
-type StoredProgress = {
-  completedIds: string[];
-  entryRoute: EntryRoute;
-  useCaseRoute: UseCaseRoute;
-  assessmentPassed: boolean;
-  personalization: PersonalizationProfile | null;
-};
-
 type UseCasePath = {
   id: UseCaseId;
   code: string;
@@ -145,8 +119,6 @@ type WrittenQuestion = {
 };
 
 type IntermediateQuestion = MultipleChoiceQuestion | WrittenQuestion;
-
-const STORAGE_KEY = "solana:docs:concepts-roadmap:v2";
 
 type PersonalizationOption<T extends string> = {
   id: T;
@@ -1976,6 +1948,12 @@ const ETHEREUM_SKIPPED_STEP_IDS = new Set([
   "pda-authority",
   "cpi-composability",
 ]);
+const VALID_PROGRESS_IDS = new Set([
+  ...ALL_ROADMAP_STEPS.map((step) => step.id),
+  ETHEREUM_STEP.id,
+  ...PRODUCT_BRANCHES.map((branch) => branch.id),
+  ...TOKEN_TOPICS.map((topic) => topic.id),
+]);
 
 function ResourceLink({ resource }: { resource: RoadmapResource }) {
   return (
@@ -2172,50 +2150,25 @@ function TokenRoadmapGroup({
 }
 
 function readProgress(): StoredProgress {
-  const emptyProgress: StoredProgress = {
-    completedIds: [],
-    entryRoute: "new",
-    useCaseRoute: "full",
-    assessmentPassed: false,
-    personalization: null,
-  };
-
-  if (typeof window === "undefined") return emptyProgress;
+  if (typeof window === "undefined") return createEmptyProgress();
 
   const value = safeStorageGetItem(
     getBrowserStorage("localStorage"),
-    STORAGE_KEY,
+    ROADMAP_STORAGE_KEY,
   );
-  if (!value) return emptyProgress;
 
-  try {
-    const parsed = JSON.parse(value) as Partial<StoredProgress>;
-    const validIds = new Set([
-      ...ALL_ROADMAP_STEPS.map((step) => step.id),
-      ETHEREUM_STEP.id,
-      ...PRODUCT_BRANCHES.map((branch) => branch.id),
-      ...TOKEN_TOPICS.map((topic) => topic.id),
-    ]);
+  return parseStoredProgress(value, VALID_PROGRESS_IDS, {
+    isPersonalizationProfile,
+    isUseCaseRoute,
+  });
+}
 
-    return {
-      completedIds: Array.isArray(parsed.completedIds)
-        ? parsed.completedIds.filter(
-            (item): item is string =>
-              typeof item === "string" && validIds.has(item),
-          )
-        : [],
-      entryRoute: parsed.entryRoute === "ethereum" ? "ethereum" : "new",
-      useCaseRoute: isUseCaseRoute(parsed.useCaseRoute)
-        ? parsed.useCaseRoute
-        : "full",
-      assessmentPassed: parsed.assessmentPassed === true,
-      personalization: isPersonalizationProfile(parsed.personalization)
-        ? parsed.personalization
-        : null,
-    };
-  } catch {
-    return emptyProgress;
-  }
+function persistProgress(progress: StoredProgress) {
+  safeStorageSetItem(
+    getBrowserStorage("localStorage"),
+    ROADMAP_STORAGE_KEY,
+    JSON.stringify(progress),
+  );
 }
 
 function RoadmapStep({
@@ -2953,9 +2906,31 @@ export function ConceptsRoadmap() {
   const [isPersonalizeOpen, setIsPersonalizeOpen] = useState(false);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [activeDetail, setActiveDetail] = useState<RoadmapDetail | null>(null);
+  const [shareNotice, setShareNotice] = useState("");
 
   useEffect(() => {
-    const progress = readProgress();
+    let progress = readProgress();
+    const url = new URL(window.location.href);
+    const sharedValue = url.searchParams.get(ROADMAP_SHARE_PARAM);
+
+    if (sharedValue !== null) {
+      const sharedRoadmap = parseSharedRoadmap(sharedValue, {
+        isPersonalizationProfile,
+        isUseCaseRoute,
+      });
+
+      if (sharedRoadmap) {
+        progress = { ...progress, ...sharedRoadmap };
+        persistProgress(progress);
+        setShareNotice("Shared roadmap loaded. Your progress stays private.");
+      } else {
+        setShareNotice("This roadmap link is invalid.");
+      }
+
+      url.searchParams.delete(ROADMAP_SHARE_PARAM);
+      window.history.replaceState(window.history.state, "", url);
+    }
+
     setCompletedIds(progress.completedIds);
     setEntryRoute(progress.entryRoute);
     setUseCaseRoute(progress.useCaseRoute);
@@ -2964,14 +2939,17 @@ export function ConceptsRoadmap() {
     if (progress.personalization) setRoadmapView("personalized");
   }, []);
 
+  useEffect(() => {
+    if (!shareNotice) return;
+
+    const timeout = window.setTimeout(() => setShareNotice(""), 4_000);
+    return () => window.clearTimeout(timeout);
+  }, [shareNotice]);
+
   const completedSet = useMemo(() => new Set(completedIds), [completedIds]);
   const activePersonalization =
     roadmapView === "personalized" ? personalization : null;
-  const activeEntryRoute = activePersonalization
-    ? activePersonalization.startingPoint === "ethereum"
-      ? "ethereum"
-      : "new"
-    : entryRoute;
+  const activeEntryRoute = entryRoute;
   const isEthereumPath = activeEntryRoute === "ethereum";
   const activeUseCasePath =
     !activePersonalization || useCaseRoute === "full"
@@ -3037,24 +3015,15 @@ export function ConceptsRoadmap() {
     .filter((step) => step.phase !== "Ship")
     .every((step) => completedSet.has(step.id));
 
-  const writeProgress = (
-    nextIds: string[],
-    nextRoute = entryRoute,
-    nextAssessmentPassed = assessmentPassed,
-    nextPersonalization = personalization,
-    nextUseCaseRoute = useCaseRoute,
-  ) => {
-    safeStorageSetItem(
-      getBrowserStorage("localStorage"),
-      STORAGE_KEY,
-      JSON.stringify({
-        completedIds: nextIds,
-        entryRoute: nextRoute,
-        useCaseRoute: nextUseCaseRoute,
-        assessmentPassed: nextAssessmentPassed,
-        personalization: nextPersonalization,
-      } satisfies StoredProgress),
-    );
+  const writeProgress = (updates: Partial<StoredProgress>) => {
+    persistProgress({
+      completedIds,
+      entryRoute,
+      useCaseRoute,
+      assessmentPassed,
+      personalization,
+      ...updates,
+    });
   };
 
   const toggleComplete = (id: string) => {
@@ -3089,35 +3058,37 @@ export function ConceptsRoadmap() {
           : [...current, id];
       }
 
-      writeProgress(next);
+      writeProgress({ completedIds: next });
       return next;
     });
   };
 
   const selectEntryRoute = (nextRoute: EntryRoute) => {
     setEntryRoute(nextRoute);
-    writeProgress(completedIds, nextRoute);
+    writeProgress({ entryRoute: nextRoute });
   };
 
   const passAssessment = () => {
     setAssessmentPassed(true);
-    writeProgress(completedIds, entryRoute, true);
+    writeProgress({ assessmentPassed: true });
   };
 
   const applyPersonalization = (
     profile: PersonalizationProfile,
     nextUseCaseRoute: UseCaseRoute,
   ) => {
+    const nextEntryRoute =
+      profile.startingPoint === "ethereum" ? "ethereum" : "new";
+
     setPersonalization(profile);
+    setEntryRoute(nextEntryRoute);
     setUseCaseRoute(nextUseCaseRoute);
     setRoadmapView("personalized");
-    writeProgress(
-      completedIds,
-      entryRoute,
-      assessmentPassed,
-      profile,
-      nextUseCaseRoute,
-    );
+    writeProgress({
+      entryRoute: nextEntryRoute,
+      personalization: profile,
+      useCaseRoute: nextUseCaseRoute,
+    });
   };
 
   const clearPersonalization = () => {
@@ -3125,7 +3096,30 @@ export function ConceptsRoadmap() {
     setUseCaseRoute("full");
     setRoadmapView("original");
     setEntryRoute("new");
-    writeProgress(completedIds, "new", assessmentPassed, null, "full");
+    writeProgress({
+      entryRoute: "new",
+      personalization: null,
+      useCaseRoute: "full",
+    });
+  };
+
+  const copyRoadmapLink = async () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set(
+      ROADMAP_SHARE_PARAM,
+      serializeSharedRoadmap({
+        entryRoute,
+        useCaseRoute,
+        personalization,
+      }),
+    );
+
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setShareNotice("Roadmap link copied. Progress stays private.");
+    } catch {
+      setShareNotice("Could not copy the roadmap link. Please try again.");
+    }
   };
 
   const openStep = (step: CoreStep) => {
@@ -3217,6 +3211,22 @@ export function ConceptsRoadmap() {
   return (
     <div className={`${styles.roadmap} not-prose`} data-learn-roadmap="">
       <div className={styles.roadmapToolbar}>
+        <button
+          type="button"
+          className={styles.shareRoadmap}
+          onClick={copyRoadmapLink}
+          title="Copy this roadmap configuration. Progress stays private."
+        >
+          {shareNotice.startsWith("Roadmap link copied") ? (
+            <Check aria-hidden="true" size={14} />
+          ) : (
+            <Link2 aria-hidden="true" size={14} />
+          )}
+          {shareNotice.startsWith("Roadmap link copied")
+            ? "Copied"
+            : "Copy roadmap"}
+        </button>
+
         {personalization ? (
           <div
             className={styles.roadmapViewTabs}
@@ -3270,6 +3280,12 @@ export function ConceptsRoadmap() {
             Personalize
           </button>
         )}
+
+        {shareNotice ? (
+          <span className={styles.shareNotice} role="status">
+            {shareNotice}
+          </span>
+        ) : null}
       </div>
 
       <div className={styles.corePath}>
