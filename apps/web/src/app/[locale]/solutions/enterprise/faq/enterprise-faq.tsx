@@ -82,7 +82,7 @@ export function EnterpriseFaqPage() {
       {/* Hero */}
       <div className="max-w-[1140px] mx-auto px-5 md:px-8 pt-12 pb-1">
         <Link
-          href="/enterprise"
+          href="/solutions/enterprise"
           className="text-[13px] text-[#ABABBA] hover:text-white no-underline transition-colors"
         >
           ← Enterprise

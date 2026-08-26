@@ -118,7 +118,7 @@ export function SolutionsEnterprisePage() {
             </div>
             <div className="w-full xl:w-1/2 flex items-center">
               <Link
-                href="/enterprise/faq"
+                href="/solutions/enterprise/faq"
                 className="group flex items-center justify-between gap-6 w-full border border-white/10 hover:border-[#14F195]/60 rounded-2xl px-6 py-8 no-underline transition-colors"
               >
                 <div>

@@ -16,6 +16,6 @@ export async function generateMetadata({ params }: Props) {
     title: "Enterprise FAQ | Solana",
     description:
       "Common questions from institutions exploring Solana — chain migration, privacy, tokenized funds, payments and settlement, custody, compliance, and yield — answered in plain language for business and partnership teams.",
-    alternates: getAlternates("/enterprise/faq", locale),
+    alternates: getAlternates("/solutions/enterprise/faq", locale),
   };
 }
