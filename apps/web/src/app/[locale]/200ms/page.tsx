@@ -6,8 +6,7 @@ import Slot200Experience from "@/components/slot200/Slot200Experience";
 type Props = { params: Promise<{ locale: string }> };
 
 const PAGE_PATH = "/200ms";
-// Dynamic share card: the static /social/solana-200ms.jpg background plus a
-// live status line (slots left on the clock, flip in progress, flip landed).
+// Static share card generated from /social/solana-200ms.jpg.
 const PAGE_SOCIAL_IMAGE = "/api/slot-time/og";
 
 export default function Page() {

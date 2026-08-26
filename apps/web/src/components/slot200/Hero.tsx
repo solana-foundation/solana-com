@@ -2,7 +2,13 @@
 
 import React from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
-import { STEPS, nextStep, pctFaster, rolloutState } from "./stages";
+import {
+  STEPS,
+  isActivationWindow,
+  nextStep,
+  pctFaster,
+  rolloutState,
+} from "./stages";
 import { HeartbeatAudio } from "./heartbeatAudio";
 import type { FeedState, SlotEvent } from "./useSlotFeed";
 
@@ -60,18 +66,21 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     setSoundOn(audioRef.current.toggle());
   };
 
-  const rollout = rolloutState(feed.avg1m, feed.avg10m);
+  const rollout = rolloutState(feed.avg1m, feed.avg10m, feed.epoch);
   const { from, to, phase, stepIndex, stepsDone, targetEpoch } = rollout;
   const avgShown = feed.avg1m ? Math.round(feed.avg1m) : null;
-  // The struck-out number is always a clock the network left behind: mid-flip
-  // that's `from`; once the average settles and `from` re-bases to the new
-  // step, it's the previous step (never the clock we just arrived on).
-  const cameFrom =
-    phase === "flipping" || phase === "flipped"
-      ? from
-      : stepsDone > 0
-        ? STEPS[stepsDone - 1]
-        : null;
+  const activationPending = isActivationWindow(
+    rollout,
+    feed.epoch,
+    feed.slot,
+    feed.epochEndSlot,
+  );
+  // At the boundary, `epoch` can lag one snapshot behind the slot stream;
+  // afterwards, name the live epoch rather than the original target epoch.
+  const activationEpoch =
+    targetEpoch !== null && feed.epoch !== null
+      ? Math.max(targetEpoch, feed.epoch)
+      : targetEpoch;
 
   // countdown only against a confirmed epoch, drained by real slots
   const slotsLeft =
@@ -79,7 +88,8 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     feed.epoch !== null &&
     feed.epochEndSlot &&
     feed.slot &&
-    targetEpoch > feed.epoch
+    targetEpoch > feed.epoch &&
+    !activationPending
       ? Math.max(
           0,
           feed.epochEndSlot +
@@ -92,6 +102,18 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     slotsLeft !== null ? fmtEta(slotsLeft * (feed.avg1m ?? from)) : null;
 
   const ready = feed.slot > 0 && feed.avg1m !== null;
+  // The struck-out number is always a clock the network left behind: mid-flip
+  // that's `from`; once the average settles and `from` re-bases to the new
+  // step, it's the previous step (never the clock we just arrived on). During
+  // the activation window, show the current clock cleanly until timing starts
+  // to move rather than implying the prior reduction is still the story.
+  const cameFrom = activationPending
+    ? null
+    : phase === "flipping" || phase === "flipped"
+      ? from
+      : stepsDone > 0
+        ? STEPS[stepsDone - 1]
+        : null;
   const counting = !ready || (phase === "pre" && slotsLeft !== null);
   const rich = {
     old: (chunks: React.ReactNode) => (
@@ -110,6 +132,12 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
   if (ready && counting && slotsLeft !== null) {
     shareText = t("shareCounting", {
       n: nf.format(slotsLeft),
+      from,
+      to: to ?? from,
+    });
+  } else if (activationPending) {
+    shareText = t("shareActivating", {
+      epoch: String(activationEpoch),
       from,
       to: to ?? from,
     });
@@ -145,6 +173,13 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
       epoch: String(targetEpoch),
       eta: eta ?? "—",
     });
+  } else if (activationPending) {
+    under = t("underActivating");
+    lock = t("sentenceActivating", {
+      epoch: String(activationEpoch),
+      from,
+      to: to ?? from,
+    });
   } else if (phase === "flipping") {
     under = t("underMeasured");
     lock = t("sentenceFlipping", { to: to ?? from });
@@ -175,7 +210,9 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
         <h1 className="s2-hero-title" id="s2-hero-title">
           {t("title")}
         </h1>
-        <p className="s2-minilock">{lock}</p>
+        <p className="s2-minilock" aria-live="polite">
+          {lock}
+        </p>
         <div className="s2-hero-actions">
           <button type="button" className="s2-soundbtn" onClick={toggleSound}>
             {soundOn ? t("soundOn") : t("soundOff")}
@@ -210,7 +247,9 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
               </>
             )}
             <span
-              className={`s2-big-num ${phase === "flipping" ? "" : "is-flipped"}`}
+              className={`s2-big-num ${
+                phase === "flipping" || activationPending ? "" : "is-flipped"
+              }`}
             >
               {avgShown ?? "—"}
             </span>

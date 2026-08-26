@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { NextRequest } from "next/server";
 import {
   getEpochInfo,
+  getEpochEndSlot,
   getPerformanceSamples,
   rpcWsUrl,
 } from "@/lib/slot200/rpc";
@@ -173,7 +174,7 @@ async function snap() {
       type: "snap",
       slot: Math.max(info.absoluteSlot, bridge.lastSlot),
       epoch: info.epoch,
-      epochEndSlot: info.absoluteSlot - info.slotIndex + info.slotsInEpoch,
+      epochEndSlot: getEpochEndSlot(info),
       avg1m: avgOver(60_000) ?? bridge.seedAvg,
       avg10m: avgOver(600_000) ?? bridge.seedAvg,
       tps: bridge.tps,
