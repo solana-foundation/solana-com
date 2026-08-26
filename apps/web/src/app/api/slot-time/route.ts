@@ -5,7 +5,7 @@ import { getAvgSlotMs, getEpochInfo } from "@/lib/slot200/rpc";
 export const dynamic = "force-dynamic";
 
 const SLOT_CACHE_REVALIDATE_SECONDS = 20;
-const SLOT_CACHE_KEY = "slot200-slot-v2";
+const SLOT_CACHE_KEY = "slot200-slot-v3";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 async function loadSlotInfo() {
@@ -13,6 +13,7 @@ async function loadSlotInfo() {
   return {
     epoch: info.epoch,
     absoluteSlot: info.absoluteSlot,
+    epochEndSlot: info.absoluteSlot - info.slotIndex + info.slotsInEpoch,
     avgSlotMs: Math.round(avgSlotMs * 10) / 10,
     serverTime: Date.now(),
   };

@@ -122,13 +122,16 @@ export function useSlotFeed(): {
           const d = (await res.json()) as {
             epoch: number;
             absoluteSlot: number;
+            epochEndSlot: number;
             avgSlotMs: number;
           };
-          // the poll endpoint carries no epochEndSlot; a stale one from the
-          // stream would skew the countdown by a whole epoch once we cross
-          if (state.epoch !== null && d.epoch !== state.epoch)
-            state.epochEndSlot = null;
-          state.epoch = d.epoch;
+          // Keep this monotonic: an edge-cached poll from the preceding epoch
+          // must not overwrite a newer stream/poll snapshot. With the boundary
+          // retained, synthetic slots can still enter the activation window.
+          if (state.epoch === null || d.epoch >= state.epoch) {
+            state.epoch = d.epoch;
+            state.epochEndSlot = d.epochEndSlot;
+          }
           state.avg1m = d.avgSlotMs;
           state.avg10m = d.avgSlotMs;
           if (d.absoluteSlot > state.slot) onSlot(d.absoluteSlot, null, false);
