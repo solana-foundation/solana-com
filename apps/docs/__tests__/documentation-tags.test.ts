@@ -60,6 +60,23 @@ describe("documentation tags", () => {
     expect(getDocumentationTag(pages, "payments")?.label).toBe("Payments");
   });
 
+  it("rejects different labels that resolve to the same URL slug", () => {
+    const collidingPages = [
+      {
+        url: "/docs/languages/c-sharp",
+        data: { title: "C#", documentationTags: ["C#"] },
+      },
+      {
+        url: "/docs/languages/c-plus-plus",
+        data: { title: "C++", documentationTags: ["C++"] },
+      },
+    ] satisfies DocumentationTagPage[];
+
+    expect(() => getDocumentationTags(collidingPages)).toThrow(
+      'Documentation tag labels "C#" and "C++" share the slug "c".',
+    );
+  });
+
   it("builds default and localized tag URLs", () => {
     expect(getDocumentationTagUrl("en")).toBe("/docs/tags");
     expect(getDocumentationTagUrl("en", "payments")).toBe(
