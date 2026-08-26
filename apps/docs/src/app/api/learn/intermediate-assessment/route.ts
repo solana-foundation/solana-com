@@ -2,8 +2,14 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  checkLearnAssessmentRateLimit,
+  clientIpFromHeaders,
+} from "@/lib/learn-assessment-rate-limit";
 
 export const runtime = "nodejs";
+
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 
 const requestSchema = z.object({
   questionId: z.literal("vault-security-review"),
@@ -62,6 +68,23 @@ export async function POST(request: Request) {
     );
   }
 
+  const rateLimit = checkLearnAssessmentRateLimit({
+    ip: clientIpFromHeaders(request.headers),
+  });
+
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: "Too many grading requests. Please try again shortly." },
+      {
+        status: 429,
+        headers: {
+          ...NO_STORE_HEADERS,
+          "Retry-After": String(rateLimit.retryAfter),
+        },
+      },
+    );
+  }
+
   const openai = createOpenAI({ apiKey });
 
   try {
@@ -75,11 +98,13 @@ export async function POST(request: Request) {
       temperature: 0,
     });
 
-    return NextResponse.json(object);
+    return NextResponse.json(object, { headers: NO_STORE_HEADERS });
   } catch {
     return NextResponse.json(
       { error: "The written answer could not be graded. Please try again." },
-      { status: 502 },
+      { status: 502, headers: NO_STORE_HEADERS },
     );
+  } finally {
+    rateLimit.release();
   }
 }
