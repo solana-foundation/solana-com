@@ -5,7 +5,7 @@ import { useTranslations } from "@workspace/i18n/client";
 import { Panel } from "./Panel";
 import { usePolled, type SeriesPoint } from "./usePolled";
 
-const GUIDES = [400, 350] as const;
+const GUIDES = [400, 350, 300] as const;
 
 /**
  * The last ~12 hours of measured per-minute average slot time (the RPC's
@@ -39,7 +39,9 @@ export const HistoryChart = React.memo(function HistoryChart() {
       ctx.clearRect(0, 0, w, h);
 
       const values = points.map((p) => p.ms);
-      const lo = Math.min(340, Math.min(...values) - 8);
+      // Keep the scheduled 300ms guide in view before the measured series
+      // descends to it.
+      const lo = Math.min(290, Math.min(...values) - 8);
       const hi = Math.max(430, Math.max(...values) + 8);
       const t0 = points[0].t;
       const t1 = points[points.length - 1].t;
@@ -52,7 +54,7 @@ export const HistoryChart = React.memo(function HistoryChart() {
         if (g < lo || g > hi) continue;
         const y = toY(g);
         ctx.strokeStyle =
-          g === 350 ? "rgba(20,241,149,0.35)" : "rgba(148,163,184,0.25)";
+          g === 300 ? "rgba(20,241,149,0.35)" : "rgba(148,163,184,0.25)";
         ctx.setLineDash([4, 4]);
         ctx.beginPath();
         ctx.moveTo(0, y);
@@ -60,7 +62,7 @@ export const HistoryChart = React.memo(function HistoryChart() {
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle =
-          g === 350 ? "rgba(20,241,149,0.7)" : "rgba(148,163,184,0.6)";
+          g === 300 ? "rgba(20,241,149,0.7)" : "rgba(148,163,184,0.6)";
         ctx.fillText(String(g), w - 26, y + 3);
       }
 

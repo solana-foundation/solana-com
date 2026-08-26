@@ -150,7 +150,7 @@ not prove that the network has reached a particular timing stage.
 - The 350ms and 300ms targets have confirmed epochs. Later countdowns require
   adding their target epochs to `CONFIRMED_EPOCHS`.
 - The Hero supports all four future transitions, but the heartbeat and history
-  charts have guide lines hardcoded to 400ms and 350ms.
+  charts have guide lines hardcoded to 400ms, 350ms, and 300ms.
 - The heartbeat chart clamps its lower display range at 250ms, so 200ms values
   will be visually clipped until that chart is updated.
 - Page metadata and social-card copy are intentionally evergreen; they do not
