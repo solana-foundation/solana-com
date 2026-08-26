@@ -63,14 +63,16 @@ function shouldRebaseExpiredSeed(
   const target = nextStep(from);
   const targetEpoch = confirmedEpochFor(target);
 
+  // Only repair the known 400 ms fallback seed, and advance exactly one
+  // stage. A transient one-minute reading must not promote later reductions.
   return (
+    from === STEPS[0] &&
     epoch !== null &&
     epoch !== undefined &&
     target !== null &&
     targetEpoch !== null &&
     epoch > targetEpoch &&
-    stepIndex(observed) >= stepIndex(target) &&
-    confirmedEpochFor(nextStep(target)) !== null
+    stepIndex(observed) >= stepIndex(target)
   );
 }
 
