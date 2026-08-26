@@ -45,6 +45,11 @@ export async function getEpochInfo(): Promise<EpochInfo> {
   return rpc<EpochInfo>("getEpochInfo");
 }
 
+/** Absolute slot at which the following epoch begins. */
+export function getEpochEndSlot(info: EpochInfo): number {
+  return info.absoluteSlot - info.slotIndex + info.slotsInEpoch;
+}
+
 export interface PerfSample {
   slot: number;
   numSlots: number;

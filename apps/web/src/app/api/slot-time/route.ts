@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
-import { getAvgSlotMs, getEpochInfo } from "@/lib/slot200/rpc";
+import { getAvgSlotMs, getEpochEndSlot, getEpochInfo } from "@/lib/slot200/rpc";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ async function loadSlotInfo() {
   return {
     epoch: info.epoch,
     absoluteSlot: info.absoluteSlot,
-    epochEndSlot: info.absoluteSlot - info.slotIndex + info.slotsInEpoch,
+    epochEndSlot: getEpochEndSlot(info),
     avgSlotMs: Math.round(avgSlotMs * 10) / 10,
     serverTime: Date.now(),
   };
