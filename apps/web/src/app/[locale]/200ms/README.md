@@ -113,6 +113,11 @@ the epoch boundary (about three days away when announced). The countdown is
 automatically replaced by live measured flip and landed states when mainnet
 timing changes.
 
+At the epoch boundary, before the rolling averages have enough evidence of a
+faster clock, the hero reports that the activation window is open and keeps the
+current 350ms value visible. It does not fall back to an "epoch not yet
+scheduled" message during this short measurement window.
+
 ### 300ms → 250ms
 
 The same sequence repeats. The landed copy reports `20.0%` faster and points to

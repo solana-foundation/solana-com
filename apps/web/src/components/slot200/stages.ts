@@ -79,6 +79,24 @@ export function rolloutState(
   };
 }
 
+/**
+ * A scheduled epoch has started, but mainnet timing has not yet provided
+ * enough evidence to call the reduction in progress. Keeping this separate
+ * from `pre` prevents the hero from falling back to an "unscheduled" state
+ * in the short gap between an epoch boundary and the measured flip.
+ */
+export function isActivationWindow(
+  rollout: Pick<RolloutState, "phase" | "targetEpoch">,
+  epoch: number | null,
+): boolean {
+  return (
+    rollout.phase === "pre" &&
+    rollout.targetEpoch !== null &&
+    epoch !== null &&
+    epoch >= rollout.targetEpoch
+  );
+}
+
 /** Percent more blocks per second after a from→to step (e.g. 14.3). */
 export function pctFaster(from: number, to: number): string {
   return ((from / to - 1) * 100).toFixed(1);
