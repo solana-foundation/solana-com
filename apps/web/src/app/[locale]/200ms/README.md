@@ -102,14 +102,16 @@ or current measured speed.
 The same detection and visual sequence is reused. The landed copy reports
 `16.7%` faster and points to 250ms.
 
-Because epoch 300 is not currently listed in `CONFIRMED_EPOCHS`, the page does
-not show a countdown for this step. While the network is stably at 350ms, it
-shows a holding state such as:
+The 300ms target is scheduled for epoch 1024:
 
-> Next stop 300ms — activation epoch not yet scheduled.
+```ts
+CONFIRMED_EPOCHS = { 300: 1024 };
+```
 
-If a future activation epoch is added to `CONFIRMED_EPOCHS`, the existing Hero
-logic will automatically show a countdown for this step.
+While the network is stably at 350ms, the hero shows a slot-based countdown to
+the epoch boundary (about three days away when announced). The countdown is
+automatically replaced by live measured flip and landed states when mainnet
+timing changes.
 
 ### 300ms → 250ms
 
@@ -145,8 +147,8 @@ not prove that the network has reached a particular timing stage.
 
 ## Current limitations
 
-- Only the 350ms target has a confirmed epoch in the source. Later countdowns
-  require adding their target epochs to `CONFIRMED_EPOCHS`.
+- The 350ms and 300ms targets have confirmed epochs. Later countdowns require
+  adding their target epochs to `CONFIRMED_EPOCHS`.
 - The Hero supports all four future transitions, but the heartbeat and history
   charts have guide lines hardcoded to 400ms and 350ms.
 - The heartbeat chart clamps its lower display range at 250ms, so 200ms values

@@ -15,6 +15,7 @@ export const STEPS = [400, 350, 300, 250, 200] as const;
  */
 export const CONFIRMED_EPOCHS: Partial<Record<number, number>> = {
   350: 1020,
+  300: 1024,
 };
 
 export type FlipPhase = "pre" | "flipping" | "flipped";
