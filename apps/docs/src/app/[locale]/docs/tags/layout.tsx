@@ -1,8 +1,8 @@
-import { docsSource } from "@@/src/app/sources/docs";
-import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
+import { docsSource } from "@@/src/app/sources/docs";
 import { InkeepChatButton } from "@solana-com/ui-chrome";
-import { getMainDocsPageTree } from "./main-page-tree";
+import type { ReactNode } from "react";
+import { getMainDocsPageTree } from "../(main)/main-page-tree";
 
 export default async function Layout({
   children,
@@ -12,8 +12,8 @@ export default async function Layout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const tree = docsSource.pageTree[locale];
-  const pageTree = getMainDocsPageTree(tree);
+  const pageTree = getMainDocsPageTree(docsSource.pageTree[locale]);
+
   return (
     <DocsLayout tree={pageTree} locale={locale}>
       {children}
