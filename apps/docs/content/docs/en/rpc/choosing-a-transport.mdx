@@ -1,0 +1,116 @@
+---
+title: WebSockets vs Polling
+description:
+  Choose between Solana RPC WebSocket subscriptions, HTTP polling, and a hybrid
+  approach based on latency, completeness, recovery, ordering, and rate limits.
+url: /docs/rpc/choosing-a-transport
+type: conceptual
+prerequisites:
+  - /docs/rpc
+related:
+  - /docs/rpc/http
+  - /docs/rpc/websocket
+  - /docs/rpc/http/getsignaturesforaddress
+  - /docs/rpc/http/getblocks
+---
+
+Solana RPC offers HTTP request-response methods and WebSocket subscriptions.
+WebSockets deliver low-latency notifications, while HTTP methods provide
+snapshots and the historical queries needed to recover missed data. Most
+production applications use both.
+
+## Choose an Approach
+
+| Requirement                                                    | Recommended approach                                                                                                     |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Keep a wallet balance or small set of accounts fresh in a UI   | Fetch an HTTP snapshot, then subscribe for changes. Refresh the snapshot after reconnecting.                             |
+| Refresh a dashboard or cache every few seconds or minutes      | Poll over HTTP. Add jitter and batch compatible reads with `getMultipleAccounts`.                                        |
+| Confirm one submitted transaction                              | Subscribe with `signatureSubscribe`, with `getSignatureStatuses` as a timeout and recovery fallback.                     |
+| Record every transaction, log, or block                        | Use a stream plus durable cursors and HTTP backfill. For sustained high volume, use an indexing or Geyser-based service. |
+| Read current state only, with no need for intermediate changes | Poll the relevant HTTP method.                                                                                           |
+
+Do not treat a WebSocket subscription by itself as a complete event log. A
+subscription only delivers notifications while its connection and subscription
+are active.
+
+## Tradeoffs
+
+| Concern         | WebSocket subscriptions                                                                                                   | HTTP polling                                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Latency         | Pushes changes without waiting for the next polling interval.                                                             | Detection latency is at least the polling interval plus request time.                                                                       |
+| Completeness    | Can miss changes during disconnects, process restarts, or provider failures.                                              | Returns state at each read, but snapshots can skip intermediate changes between polls.                                                      |
+| Recovery        | Reconnect, create new subscriptions, and reconcile missed data. Subscription IDs do not survive a new connection.         | Retry failed requests and continue from the last durable cursor where the method supports pagination or ranges.                             |
+| Backfill        | Native PubSub does not replay notifications.                                                                              | Historical methods can backfill signatures, transactions, and blocks. Current-state account methods do not reconstruct past account values. |
+| Ordering        | Use notification slots as ordering metadata. Do not assume notifications from separate subscriptions have a global order. | Sort historical records by their documented slot or signature cursor, not by response arrival time.                                         |
+| Rate limits     | Providers limit connections, subscriptions per connection, and message volume.                                            | Providers limit requests, concurrent calls, response size, and method-specific usage.                                                       |
+| Reorganizations | `processed` and `confirmed` notifications may describe state that later changes.                                          | Reads at non-finalized commitment have the same fork risk.                                                                                  |
+
+Provider limits and billing models differ. Check both the HTTP and WebSocket
+limits for your provider, and use the same provider and cluster for both
+transports when possible.
+
+## Use a Hybrid State Pattern
+
+For live account state, combine a baseline read with notifications:
+
+1. Open the WebSocket subscription and begin buffering notifications.
+2. Fetch the current state over HTTP at the same commitment level.
+3. Record the snapshot's `context.slot`.
+4. Discard buffered notifications from older slots, then apply notifications
+   from newer slots. If an equal-slot update could change the result, fetch a
+   fresh snapshot instead of guessing its order.
+5. On disconnect, reconnect with exponential backoff and jitter, then repeat the
+   snapshot-and-buffer sequence.
+
+This closes the gap between the baseline read and the live subscription. It does
+not create account history: multiple writes to the same account can still
+collapse into the latest HTTP snapshot during an outage. If every change
+matters, store transaction or block cursors and backfill the underlying events.
+`context.slot` is a consistency boundary, not a total event order: separate
+subscriptions and multiple writes in one slot require application-specific
+ordering or reconciliation.
+
+## Backfill by Data Type
+
+| Data                        | Live signal                                        | Recovery source                                                                                                                  |
+| --------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| One account                 | `accountSubscribe`                                 | `getAccountInfo` for the latest state. Use an indexer or transaction history if intermediate states matter.                      |
+| Program-owned accounts      | `programSubscribe`                                 | `getProgramAccounts` for a new baseline. Use filters to control response and notification volume.                                |
+| One transaction             | `signatureSubscribe`                               | `getSignatureStatuses`, then `getTransaction` when the selected commitment is reached.                                           |
+| Address transaction history | `logsSubscribe` where an appropriate filter exists | Page backward with `getSignaturesForAddress`, then fetch required transactions with `getTransaction`. De-duplicate by signature. |
+| Blocks                      | `blockSubscribe` when the RPC provider enables it  | Query missing ranges with `getBlocks` or `getBlocksWithLimit`, then fetch each required block with `getBlock`.                   |
+
+Persist the last successfully processed signature or slot before acknowledging
+work downstream. Backfill from that cursor after a restart, and make processing
+idempotent so overlapping live and historical results are safe.
+
+## Commitment and Reorganizations
+
+Use the same [commitment](/docs/rpc#configuring-state-commitment) for the HTTP
+baseline, subscription, and backfill unless you intentionally reconcile across
+commitment levels.
+
+- `processed` gives the lowest latency but can be rolled back.
+- `confirmed` reduces fork risk while remaining timely for most interfaces.
+- `finalized` provides the strongest commitment but arrives later.
+
+If an application acts on `processed` or `confirmed` data, keep the slot and
+identity of each record, tolerate duplicates, and define how to reverse or
+replace data that does not reach finality.
+
+## Production Checklist
+
+- Detect connection closure, errors, and stalled streams.
+- Reconnect with capped exponential backoff and jitter.
+- Recreate every subscription after reconnecting.
+- Fetch a fresh baseline or backfill from a durable cursor before declaring the
+  stream healthy.
+- Match cluster, provider, encoding, filters, and commitment across HTTP and
+  WebSocket clients.
+- De-duplicate by stable identifiers such as transaction signature and slot.
+- Monitor reconnect count, time since the last notification, backfill lag, and
+  provider rate-limit errors.
+- Test process restarts, network loss, duplicate delivery, and fork replacement.
+
+For the available methods, see the [HTTP reference](/docs/rpc/http) and
+[WebSocket reference](/docs/rpc/websocket).
