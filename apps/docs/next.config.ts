@@ -160,6 +160,21 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  async redirects() {
+    return [
+      {
+        source: "/docs/payments/production-readiness",
+        destination: "/docs/tools/production-readiness",
+        permanent: true,
+      },
+      {
+        source: "/:locale/docs/payments/production-readiness",
+        destination: "/:locale/docs/tools/production-readiness",
+        permanent: true,
+      },
+    ];
+  },
+
   async rewrites() {
     return {
       beforeFiles: [
