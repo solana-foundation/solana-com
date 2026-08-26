@@ -13,6 +13,8 @@ import {
 import { shouldShowDocsSidebarToggle } from "./developer-routes";
 import type { ComponentProps } from "react";
 
+const localInstallationResourcesPath = "/docs/intro/installation/";
+
 function NavLink(props: ComponentProps<typeof Link>) {
   return (
     <Link
@@ -64,6 +66,7 @@ export function DevelopersNav({
                   "/docs/tokenization",
                   "/docs/defi",
                   "/docs/tools",
+                  localInstallationResourcesPath,
                 ]}
                 activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
@@ -133,7 +136,10 @@ export function DevelopersNav({
               <NavLink
                 partiallyActive
                 to="/docs/tools"
-                partiallyActiveMatch={["/docs/references"]}
+                partiallyActiveMatch={[
+                  "/docs/references",
+                  localInstallationResourcesPath,
+                ]}
                 activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
               >
                 <ToolsIcon
