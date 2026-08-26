@@ -88,13 +88,20 @@ export function rolloutState(
 export function isActivationWindow(
   rollout: Pick<RolloutState, "phase" | "targetEpoch">,
   epoch: number | null,
+  slot?: number,
+  epochEndSlot?: number | null,
 ): boolean {
-  return (
-    rollout.phase === "pre" &&
-    rollout.targetEpoch !== null &&
+  const targetHasStarted =
     epoch !== null &&
-    epoch >= rollout.targetEpoch
-  );
+    rollout.targetEpoch !== null &&
+    (epoch >= rollout.targetEpoch ||
+      (epoch === rollout.targetEpoch - 1 &&
+        epochEndSlot !== null &&
+        epochEndSlot !== undefined &&
+        slot !== undefined &&
+        slot >= epochEndSlot));
+
+  return rollout.phase === "pre" && targetHasStarted;
 }
 
 /** Percent more blocks per second after a from→to step (e.g. 14.3). */

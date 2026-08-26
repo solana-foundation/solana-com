@@ -69,6 +69,12 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
   const rollout = rolloutState(feed.avg1m, feed.avg10m);
   const { from, to, phase, stepIndex, stepsDone, targetEpoch } = rollout;
   const avgShown = feed.avg1m ? Math.round(feed.avg1m) : null;
+  const activationPending = isActivationWindow(
+    rollout,
+    feed.epoch,
+    feed.slot,
+    feed.epochEndSlot,
+  );
 
   // countdown only against a confirmed epoch, drained by real slots
   const slotsLeft =
@@ -76,7 +82,8 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     feed.epoch !== null &&
     feed.epochEndSlot &&
     feed.slot &&
-    targetEpoch > feed.epoch
+    targetEpoch > feed.epoch &&
+    !activationPending
       ? Math.max(
           0,
           feed.epochEndSlot +
@@ -89,7 +96,6 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     slotsLeft !== null ? fmtEta(slotsLeft * (feed.avg1m ?? from)) : null;
 
   const ready = feed.slot > 0 && feed.avg1m !== null;
-  const activationPending = isActivationWindow(rollout, feed.epoch);
   // The struck-out number is always a clock the network left behind: mid-flip
   // that's `from`; once the average settles and `from` re-bases to the new
   // step, it's the previous step (never the clock we just arrived on). During

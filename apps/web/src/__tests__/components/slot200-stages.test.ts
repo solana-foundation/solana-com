@@ -21,6 +21,14 @@ describe("the 350ms to 300ms rollout", () => {
     expect(isActivationWindow(rollout, 1024)).toBe(true);
   });
 
+  it("shows an activation state when slots cross the boundary before the epoch snapshot refreshes", () => {
+    const rollout = rolloutState(350, 350);
+
+    expect(isActivationWindow(rollout, 1023, 442_000_000, 442_000_000)).toBe(
+      true,
+    );
+  });
+
   it("progresses from measuring the flip to the settled 300ms holding state", () => {
     expect(rolloutState(320, 340)).toMatchObject({
       from: 350,
