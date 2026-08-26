@@ -135,24 +135,22 @@ function ThemedDiagram({
 
   return (
     <figure className={`not-prose mt-5 mb-8 ${className}`}>
-      <span className="block overflow-hidden rounded-xl border border-fd-border bg-fd-card p-2 shadow-sm sm:p-3">
-        <img
-          {...props}
-          src={lightSrc}
-          alt={alt}
-          className="block h-auto w-full dark:hidden"
-          decoding="async"
-          loading="lazy"
-        />
-        <img
-          {...props}
-          src={src}
-          alt={alt}
-          className="hidden h-auto w-full dark:block"
-          decoding="async"
-          loading="lazy"
-        />
-      </span>
+      <img
+        {...props}
+        src={lightSrc}
+        alt={alt}
+        className="block h-auto w-full dark:hidden"
+        decoding="async"
+        loading="lazy"
+      />
+      <img
+        {...props}
+        src={src}
+        alt={alt}
+        className="hidden h-auto w-full dark:block"
+        decoding="async"
+        loading="lazy"
+      />
       {showCaption && alt ? (
         <figcaption className="mt-2 text-center text-sm text-fd-muted-foreground">
           {alt}

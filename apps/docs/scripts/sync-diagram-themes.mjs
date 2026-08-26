@@ -65,7 +65,7 @@ const legacyLightPalette = {
 };
 
 const darkPalette = {
-  "#ffffff": "#0b1020",
+  "#ffffff": "#000000",
   "#f8fafc": "#151d2e",
   "#eef2f7": "#1c2638",
   "#d5dce5": "#263247",
@@ -116,6 +116,8 @@ function replacePalette(svg, palette) {
 function normalizeOverview(svg) {
   return replacePalette(svg, overviewLightPalette)
     .replaceAll(/#fff(?=[\s;"'])/gi, "#ffffff")
+    .replaceAll('fill="#ffffff" stroke=', 'fill="none" stroke=')
+    .replaceAll(".node{fill:#ffffff;", ".node{fill:none;")
     .replaceAll(
       "Diatype,Helvetica,sans-serif",
       "Diatype,Inter,ui-sans-serif,system-ui,sans-serif",
