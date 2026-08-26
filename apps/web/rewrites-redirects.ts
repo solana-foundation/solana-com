@@ -210,11 +210,11 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   // getstarted/* → payments, tools, cookbook
   {
     source: "/developers/guides/getstarted/intro-to-x402",
-    destination: "/docs/payments/agentic-payments/intro-to-x402",
+    destination: "/docs/payments/agentic-payments/x402",
   },
   {
     source: "/developers/guides/getstarted/build-a-x402-facilitator",
-    destination: "/docs/payments/agentic-payments/x402-facilitator",
+    destination: "/docs/tools/x402-facilitator",
   },
   {
     source: "/developers/guides/getstarted/intro-to-ai",
@@ -248,6 +248,18 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
 ]);
 
 const movedDocsRedirects: RedirectInput[] = withMdVariants([
+  {
+    source: "/docs/payments/agentic-payments/intro-to-x402",
+    destination: "/docs/payments/agentic-payments/x402",
+  },
+  {
+    source: "/docs/payments/agentic-payments/x402-quickstart",
+    destination: "/docs/payments/agentic-payments/x402/making-a-payment",
+  },
+  {
+    source: "/docs/payments/agentic-payments/x402-facilitator",
+    destination: "/docs/tools/x402-facilitator",
+  },
   {
     source: "/docs/tools/ai",
     destination: "/docs/intro/coding-with-agents",
