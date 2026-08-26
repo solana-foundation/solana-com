@@ -75,6 +75,12 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     feed.slot,
     feed.epochEndSlot,
   );
+  // At the boundary, `epoch` can lag one snapshot behind the slot stream;
+  // afterwards, name the live epoch rather than the original target epoch.
+  const activationEpoch =
+    targetEpoch !== null && feed.epoch !== null
+      ? Math.max(targetEpoch, feed.epoch)
+      : targetEpoch;
 
   // countdown only against a confirmed epoch, drained by real slots
   const slotsLeft =
@@ -131,7 +137,7 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     });
   } else if (activationPending) {
     shareText = t("shareActivating", {
-      epoch: String(targetEpoch),
+      epoch: String(activationEpoch),
       from,
       to: to ?? from,
     });
@@ -170,7 +176,7 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
   } else if (activationPending) {
     under = t("underActivating");
     lock = t("sentenceActivating", {
-      epoch: String(targetEpoch),
+      epoch: String(activationEpoch),
       from,
       to: to ?? from,
     });

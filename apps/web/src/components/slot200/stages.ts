@@ -2,11 +2,12 @@
  * The SIMD-0525 rollout model: four 50 ms reductions from the 400 ms genesis
  * clock, each behind its own feature gate, activating at epoch boundaries
  * (solana.com/news/lowering-slot-time-and-validators-economic). The page
- * derives which step is live from MEASURED averages only — never the
- * calendar — so it stays correct before, during, and after every activation.
+ * derives which step is live from measured averages. Epoch data only repairs
+ * a stale stream seed; it never promotes an unscheduled reduction.
  */
 
 export const STEPS = [400, 350, 300, 250, 200] as const;
+type Step = (typeof STEPS)[number];
 
 /**
  * Activation epochs confirmed by Anza, keyed by target ms. Later steps stay
@@ -46,6 +47,33 @@ function settledStep(avg: number): number {
   return STEPS[0];
 }
 
+function stepIndex(step: number): number {
+  return STEPS.indexOf(step as Step);
+}
+
+function confirmedEpochFor(step: number | null): number | null {
+  return step === null ? null : (CONFIRMED_EPOCHS[step] ?? null);
+}
+
+function shouldRebaseExpiredSeed(
+  from: number,
+  observed: number,
+  epoch: number | null | undefined,
+): boolean {
+  const target = nextStep(from);
+  const targetEpoch = confirmedEpochFor(target);
+
+  return (
+    epoch !== null &&
+    epoch !== undefined &&
+    target !== null &&
+    targetEpoch !== null &&
+    epoch > targetEpoch &&
+    stepIndex(observed) >= stepIndex(target) &&
+    confirmedEpochFor(nextStep(target)) !== null
+  );
+}
+
 /**
  * Where the rollout stands. Transition thresholds mirror the perp200
  * dashboard's jitter guard, generalized to any 50 ms step: a one-minute
@@ -58,27 +86,13 @@ export function rolloutState(
   epoch?: number | null,
 ): RolloutState {
   const stable = avg10m ?? avg1m;
-  let from = stable ? settledStep(stable) : STEPS[0];
-  const observed = avg1m ? settledStep(avg1m) : from;
-  const scheduledEpoch = CONFIRMED_EPOCHS[nextStep(from) ?? -1];
-  const observedTargetEpoch = CONFIRMED_EPOCHS[nextStep(observed) ?? -1];
-
-  // The 10-minute average is seeded when a stream connects and can briefly
-  // lag the current measurement. Once its transition's epoch is already in
-  // the past, never resurrect that old flip in the hero or share copy. Do
-  // not use a transient one-minute reading to promote an unscheduled step.
-  if (
-    epoch !== null &&
-    epoch !== undefined &&
-    scheduledEpoch !== undefined &&
-    epoch > scheduledEpoch &&
-    observedTargetEpoch !== undefined &&
-    epoch <= observedTargetEpoch
-  )
-    from = observed;
-
-  const fromIdx = STEPS.indexOf(from as (typeof STEPS)[number]);
-  const to = fromIdx < STEPS.length - 1 ? STEPS[fromIdx + 1] : null;
+  const stableFrom = stable ? settledStep(stable) : STEPS[0];
+  const observed = avg1m ? settledStep(avg1m) : stableFrom;
+  const from = shouldRebaseExpiredSeed(stableFrom, observed, epoch)
+    ? nextStep(stableFrom)!
+    : stableFrom;
+  const fromIdx = stepIndex(from);
+  const to = nextStep(from);
 
   let phase: FlipPhase = "pre";
   if (to !== null && avg1m) {
@@ -94,7 +108,7 @@ export function rolloutState(
     stepIndex: Math.min(fromIdx + 1, STEPS.length - 1),
     stepsDone: fromIdx,
     phase,
-    targetEpoch: to !== null ? (CONFIRMED_EPOCHS[to] ?? null) : null,
+    targetEpoch: confirmedEpochFor(to),
   };
 }
 
@@ -130,6 +144,6 @@ export function pctFaster(from: number, to: number): string {
 
 /** The reduction after `ms`, or null at the end of the path. */
 export function nextStep(ms: number): number | null {
-  const i = STEPS.indexOf(ms as (typeof STEPS)[number]);
+  const i = stepIndex(ms);
   return i >= 0 && i < STEPS.length - 1 ? STEPS[i + 1] : null;
 }
