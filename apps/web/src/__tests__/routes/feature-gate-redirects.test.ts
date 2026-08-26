@@ -41,6 +41,18 @@ function expectPermanentRedirect(source: string, destination: string) {
   );
 }
 
+function expectRedirectBefore(source: string, fallbackSource: string) {
+  const sourceIndex = redirects.findIndex(
+    (redirect) => redirect.source === source,
+  );
+  const fallbackIndex = redirects.findIndex(
+    (redirect) => redirect.source === fallbackSource,
+  );
+
+  expect(sourceIndex).toBeGreaterThanOrEqual(0);
+  expect(fallbackIndex).toBeGreaterThan(sourceIndex);
+}
+
 describe("Retired feature-gate routes", () => {
   it.each(retiredRoutes)(
     "redirects $path to its canonical proposal",
@@ -48,6 +60,20 @@ describe("Retired feature-gate routes", () => {
       const source = `/docs/references/feature-gates/${route.path}`;
       expectPermanentRedirect(source, route.destination);
       expectPermanentRedirect(`${localePattern}${source}`, route.destination);
+    },
+  );
+
+  it.each(retiredRoutes)(
+    "places $path ahead of the overlapping catch-all",
+    (route) => {
+      const source = `/docs/references/feature-gates/${route.path}`;
+      const fallbackSource = "/docs/references/feature-gates/:path*";
+
+      expectRedirectBefore(source, fallbackSource);
+      expectRedirectBefore(
+        `${localePattern}${source}`,
+        `${localePattern}${fallbackSource}`,
+      );
     },
   );
 
