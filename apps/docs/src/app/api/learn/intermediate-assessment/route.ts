@@ -1,15 +1,13 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { checkRateLimit } from "@vercel/firewall";
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  checkLearnAssessmentRateLimit,
-  clientIpFromHeaders,
-} from "@/lib/learn-assessment-rate-limit";
 
 export const runtime = "nodejs";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
+const LEARN_ASSESSMENT_RATE_LIMIT_ID = "learn-assessment-grade";
 
 const requestSchema = z.object({
   questionId: z.literal("vault-security-review"),
@@ -68,18 +66,43 @@ export async function POST(request: Request) {
     );
   }
 
-  const rateLimit = checkLearnAssessmentRateLimit({
-    ip: clientIpFromHeaders(request.headers),
-  });
+  let rateLimit: Awaited<ReturnType<typeof checkRateLimit>>;
 
-  if (!rateLimit.ok) {
+  try {
+    rateLimit = await checkRateLimit(LEARN_ASSESSMENT_RATE_LIMIT_ID, {
+      request,
+    });
+  } catch (error) {
+    console.error("Learn assessment rate-limit check failed", error);
+
+    return NextResponse.json(
+      { error: "The written assessment is temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  if (
+    rateLimit.error === "not-found" &&
+    process.env.NODE_ENV === "production"
+  ) {
+    console.error(
+      `Learn assessment Vercel WAF rate limit '${LEARN_ASSESSMENT_RATE_LIMIT_ID}' is not configured`,
+    );
+
+    return NextResponse.json(
+      { error: "The written assessment is temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  if (rateLimit.rateLimited) {
     return NextResponse.json(
       { error: "Too many grading requests. Please try again shortly." },
       {
         status: 429,
         headers: {
           ...NO_STORE_HEADERS,
-          "Retry-After": String(rateLimit.retryAfter),
+          "Retry-After": "60",
         },
       },
     );
@@ -104,7 +127,5 @@ export async function POST(request: Request) {
       { error: "The written answer could not be graded. Please try again." },
       { status: 502, headers: NO_STORE_HEADERS },
     );
-  } finally {
-    rateLimit.release();
   }
 }
