@@ -81,10 +81,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (
-    rateLimit.error === "not-found" &&
-    process.env.NODE_ENV === "production"
-  ) {
+  if (rateLimit.error === "not-found") {
     console.error(
       `Learn assessment Vercel WAF rate limit '${LEARN_ASSESSMENT_RATE_LIMIT_ID}' is not configured`,
     );
