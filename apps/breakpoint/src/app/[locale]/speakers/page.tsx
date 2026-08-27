@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@workspace/i18n/server";
-import ComingSoonPage from "@/components/pages/ComingSoonPage";
+import SpeakersPage from "@/components/pages/speakers/SpeakersPage";
 import { getPageMetadata } from "@/app/metadata";
-import { APPLY_TO_SPEAK_HREF } from "@/content/links";
+
+// Next requires this export to be a literal; 1800 seconds = 30 minutes.
+export const revalidate = 1800;
 
 export async function generateMetadata({
   params,
@@ -26,17 +28,13 @@ export default async function LocaleSpeakersPage({
   const { locale } = await params;
   const t = await getTranslations({
     locale,
-    namespace: "breakpoint.pages.speakers",
+    namespace: "breakpoint.pages",
   });
 
   return (
-    <ComingSoonPage
-      title={t("title")}
-      description={t("description")}
-      cta={{
-        href: APPLY_TO_SPEAK_HREF,
-        label: t("cta"),
-      }}
+    <SpeakersPage
+      applyToSpeakLabel={t("speakers.cta")}
+      title={t("speakers.title")}
     />
   );
 }
