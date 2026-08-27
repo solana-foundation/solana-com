@@ -3077,8 +3077,13 @@ export function ConceptsRoadmap() {
     profile: PersonalizationProfile,
     nextUseCaseRoute: UseCaseRoute,
   ) => {
-    const nextEntryRoute =
-      profile.startingPoint === "ethereum" ? "ethereum" : "new";
+    const startingPointChanged =
+      personalization?.startingPoint !== profile.startingPoint;
+    const nextEntryRoute = startingPointChanged
+      ? profile.startingPoint === "ethereum"
+        ? "ethereum"
+        : "new"
+      : entryRoute;
 
     setPersonalization(profile);
     setEntryRoute(nextEntryRoute);
