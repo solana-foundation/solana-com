@@ -160,6 +160,26 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  async redirects() {
+    return [
+      {
+        source: "/docs/payments/accept-payments/payment-button",
+        destination: "/docs/tools/commerce-kit/quickstart/payment-button",
+        permanent: true,
+      },
+      {
+        source: "/docs/payments/accept-payments/pay-sh",
+        destination: "/docs/payments/pay-sh",
+        permanent: true,
+      },
+      {
+        source: "/docs/payments/subscriptions/pay-sh",
+        destination: "/docs/payments/pay-sh",
+        permanent: true,
+      },
+    ];
+  },
+
   async rewrites() {
     return {
       beforeFiles: [
