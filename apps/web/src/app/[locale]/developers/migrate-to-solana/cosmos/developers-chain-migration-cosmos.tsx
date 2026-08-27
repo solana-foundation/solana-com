@@ -161,7 +161,7 @@ export function DevelopersChainMigrationCosmosPage() {
             jsonFilePath="/src/img/index/community-bg.json"
             width="100%"
             height="101%"
-            scale={1}
+            scale={0.8}
             dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
             fps={30}
             lazyLoad={true}
