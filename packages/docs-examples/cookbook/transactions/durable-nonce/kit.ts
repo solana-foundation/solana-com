@@ -6,6 +6,7 @@ import {
   createClient,
   createTransactionMessage,
   generateKeyPairSigner,
+  getSignatureFromTransaction,
   lamports,
   type Nonce,
   pipe,
@@ -113,4 +114,9 @@ await sendAndConfirmDurableNonceTransactionFactory({
   rpc: client.rpc,
   rpcSubscriptions: client.rpcSubscriptions,
 })(durableNonceTransaction, { commitment: "confirmed" });
+
+console.log(
+  "Transaction signature:",
+  getSignatureFromTransaction(durableNonceTransaction),
+);
 // #endregion durable-nonce
