@@ -1,0 +1,348 @@
+---
+title: Anchor Account Constraints
+description:
+  Validate signers, writable accounts, PDAs, owners, addresses, token accounts,
+  initialization, closing, reallocation, and custom errors in Anchor programs.
+url: /docs/programs/anchor-account-constraints
+type: reference
+prerequisites:
+  - /docs/programs
+  - /docs/core/accounts
+related:
+  - /docs/core/pda
+  - /docs/core/tokens
+---
+
+Anchor's `#[derive(Accounts)]` macro validates account invariants before an
+instruction handler runs. Account wrapper types provide the first layer of
+validation, while `#[account(...)]` constraints express relationships between
+accounts and instruction data.
+
+<Callout
+  type="warn"
+  title="Constraints are the instruction's security boundary"
+>
+  Every account address is caller-controlled. Validate its signer status,
+  mutability, owner, address, data relationships, and PDA derivation before
+  using it. Use `UncheckedAccount` only when the surrounding constraints or the
+  handler perform every required check.
+</Callout>
+
+## Quick reference
+
+| Requirement                      | Preferred form                                   |
+| -------------------------------- | ------------------------------------------------ |
+| Transaction signature            | `Signer<'info>` or `#[account(signer)]`          |
+| Writable account                 | `#[account(mut)]`                                |
+| Program-owned typed data         | `Account<'info, T>`                              |
+| Exact address                    | `#[account(address = expected)]`                 |
+| Raw owner                        | `#[account(owner = expected_program)]`           |
+| Account data points to another   | `#[account(has_one = authority)]`                |
+| PDA derivation                   | `#[account(seeds = [...], bump)]`                |
+| Create and initialize            | `#[account(init, payer = payer, space = ...)]`   |
+| Drain and close                  | `#[account(mut, close = recipient)]`             |
+| Resize program-owned data        | `realloc`, `realloc::payer`, and `realloc::zero` |
+| Token account mint and authority | `token::mint` and `token::authority`             |
+| Canonical associated account     | `associated_token::mint` and `::authority`       |
+| Application-specific invariant   | `#[account(constraint = expression)]`            |
+| Custom constraint error          | Append `@ ErrorCode::Variant` to that constraint |
+
+## Signers and writable accounts
+
+Use `Signer<'info>` when an account only needs to prove that it signed the
+transaction. Use `#[account(signer)]` when another wrapper type is needed.
+
+```rust
+#[derive(Accounts)]
+pub struct UpdateProfile<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(mut, has_one = authority)]
+    pub profile: Account<'info, Profile>,
+}
+```
+
+`#[account(mut)]` checks that the transaction marked the account writable and
+allows Anchor to persist changes when the handler exits. It does not prove who
+is authorized to modify the account; pair it with signer and relationship checks
+such as `has_one`, `address`, or `seeds`.
+
+Anchor 1.0 rejects duplicate mutable `Account` values by default. Add `dup` only
+when passing the same mutable account in two fields is intentional and the
+handler is safe under aliasing:
+
+```rust
+#[account(mut, dup)]
+pub second_view: Account<'info, Profile>,
+```
+
+## Owners, addresses, and relationships
+
+Choose the narrowest wrapper and constraint for the invariant:
+
+```rust
+#[derive(Accounts)]
+pub struct Execute<'info> {
+    pub authority: Signer<'info>,
+
+    // Account<T> checks this program owns the account and validates T's
+    // discriminator. has_one checks profile.authority == authority.key().
+    #[account(mut, has_one = authority)]
+    pub profile: Account<'info, Profile>,
+
+    // Validate a known singleton account by its public key.
+    #[account(address = CONFIG_ADDRESS)]
+    pub config: UncheckedAccount<'info>,
+
+    // Validate the account's owner without deserializing its data.
+    #[account(owner = external_program.key())]
+    pub external_state: UncheckedAccount<'info>,
+
+    pub external_program: UncheckedAccount<'info>,
+}
+```
+
+`address` compares the account's public key. `owner` compares the program ID in
+the account header. `has_one = authority` deserializes the typed account and
+compares its `authority` field with the `authority` account in the same Accounts
+struct. These checks are not interchangeable.
+
+Use `Program<'info, T>` or `Interface<'info, T>` instead of an unchecked program
+account when a typed wrapper exists; those wrappers also validate that the
+account is executable and has an allowed program ID.
+
+## PDAs with seeds and bumps
+
+`seeds` and `bump` prove that an account is the expected PDA. A bare `bump` uses
+the canonical bump. For an existing account, compare the canonical bump with a
+stored bump if the account schema records it:
+
+```rust
+#[derive(Accounts)]
+pub struct UseVault<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        seeds = [b"vault", authority.key().as_ref()],
+        bump = vault.bump,
+        has_one = authority,
+    )]
+    pub vault: Account<'info, Vault>,
+}
+```
+
+For initialization, let Anchor find the canonical bump and save
+`ctx.bumps.vault` in the new account:
+
+```rust
+#[derive(Accounts)]
+pub struct CreateVault<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + Vault::INIT_SPACE,
+        seeds = [b"vault", authority.key().as_ref()],
+        bump,
+    )]
+    pub vault: Account<'info, Vault>,
+
+    pub system_program: Program<'info, System>,
+}
+
+pub fn create_vault(ctx: Context<CreateVault>) -> Result<()> {
+    let vault = &mut ctx.accounts.vault;
+    vault.authority = ctx.accounts.authority.key();
+    vault.bump = ctx.bumps.vault;
+    Ok(())
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct Vault {
+    pub authority: Pubkey,
+    pub bump: u8,
+}
+```
+
+`seeds::program = other_program.key()` validates a PDA derived by another
+program. It cannot be combined with `init`, because the current program cannot
+sign for another program's PDA.
+
+## Initialize accounts safely
+
+`init` creates the account through the System Program, funds rent exemption,
+assigns ownership, and writes the Anchor discriminator. It requires `payer`,
+`space`, and the System Program account.
+
+The `space` expression includes the discriminator. With the default Anchor
+discriminator, add 8 bytes to `INIT_SPACE`:
+
+```rust
+#[account(
+    init,
+    payer = payer,
+    space = 8 + Settings::INIT_SPACE,
+)]
+pub settings: Account<'info, Settings>,
+```
+
+`init_if_needed` requires the `init-if-needed` Cargo feature. Use it only when
+the handler can distinguish a new account from an existing one and validates the
+existing state against the current authority. Otherwise an initialization path
+can become a reinitialization attack.
+
+## Token, mint, and associated token constraints
+
+Use token-interface wrappers when an instruction supports both the original
+Token Program and Token-2022:
+
+```rust
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+
+#[derive(Accounts)]
+pub struct AcceptTokens<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        mint::authority = authority,
+        mint::decimals = 6,
+        mint::token_program = token_program,
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        token::mint = mint,
+        token::authority = authority,
+        token::token_program = token_program,
+    )]
+    pub source: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(
+        associated_token::mint = mint,
+        associated_token::authority = authority,
+        associated_token::token_program = token_program,
+    )]
+    pub authority_ata: InterfaceAccount<'info, TokenAccount>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+```
+
+`token::*` validates a token account's decoded mint and authority fields.
+`associated_token::*` additionally validates that the address is the canonical
+associated token account derived from the owner, mint, and token program. Use
+the latter only when the protocol specifically requires the canonical ATA.
+
+When creating a mint or token account, combine `init` with the relevant
+`mint::*`, `token::*`, or `associated_token::*` constraints and include the
+required payer, System Program, and token program accounts.
+
+## Close accounts
+
+`close = recipient` transfers the account's lamports to the recipient and resets
+its data when the instruction exits:
+
+```rust
+#[derive(Accounts)]
+pub struct CloseVault<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        close = authority,
+        has_one = authority,
+        seeds = [b"vault", authority.key().as_ref()],
+        bump = vault.bump,
+    )]
+    pub vault: Account<'info, Vault>,
+}
+```
+
+Always validate the close authority and destination. Do not rely on the mere
+ability to make the account writable as authorization to receive its lamports.
+
+## Reallocate account data
+
+Use `realloc` when a program-owned account must grow or shrink. Provide the new
+total size, a payer for any additional rent, and whether newly allocated bytes
+must be zeroed:
+
+```rust
+#[derive(Accounts)]
+#[instruction(new_capacity: u32)]
+pub struct ResizeLedger<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        has_one = authority,
+        realloc = 8 + Ledger::space(new_capacity as usize),
+        realloc::payer = authority,
+        realloc::zero = true,
+    )]
+    pub ledger: Account<'info, Ledger>,
+
+    pub system_program: Program<'info, System>,
+}
+```
+
+The new size must cover the discriminator and the maximum serialized data the
+handler will write. Use checked size arithmetic for user-provided lengths and
+set an application-level maximum. `realloc::zero = true` is the safer default
+when newly exposed bytes must not contain stale data; it costs additional
+compute for zeroing.
+
+## Map constraint failures to custom errors
+
+Append `@ ErrorCode::Variant` to the individual constraint whose default error
+you want to replace:
+
+```rust
+#[derive(Accounts)]
+pub struct UpdateProfile<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        has_one = authority @ ProfileError::WrongAuthority,
+        constraint = profile.active @ ProfileError::Inactive,
+    )]
+    pub profile: Account<'info, Profile>,
+}
+
+#[error_code]
+pub enum ProfileError {
+    #[msg("The signer does not control this profile")]
+    WrongAuthority,
+    #[msg("The profile is inactive")]
+    Inactive,
+}
+```
+
+Each `@` maps only the constraint immediately before it. Keep errors specific
+enough for clients to distinguish bad input from authorization failures, but do
+not expose secrets or internal state in error messages.
+
+## Review checklist
+
+- Prefer typed account wrappers over `UncheckedAccount`.
+- Require a signer and validate its relationship to every protected account.
+- Mark every account changed directly or by CPI as mutable.
+- Validate PDA seeds and bumps instead of accepting a caller-supplied address.
+- Distinguish account address checks from account owner checks.
+- Validate both token mint and token authority; require an ATA only when needed.
+- Include the discriminator and bounded variable-length data in `space` and
+  `realloc` calculations.
+- Authorize close destinations and reallocation payers explicitly.
+- Use custom errors where callers need to recover from a specific failure.
+
+## Further reading
+
+- [Anchor account constraints](https://www.anchor-lang.com/docs/references/account-constraints)
+- [Anchor account types](https://www.anchor-lang.com/docs/references/account-types)
+- [Anchor account space reference](https://www.anchor-lang.com/docs/references/space)
