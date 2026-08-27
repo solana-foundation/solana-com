@@ -13,12 +13,25 @@ const feePayer = Keypair.generate();
 const sender = Keypair.generate();
 const recipient = Keypair.generate();
 
-await connection.confirmTransaction(
-  await connection.requestAirdrop(feePayer.publicKey, LAMPORTS_PER_SOL),
+const feePayerAirdrop = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL,
 );
-await connection.confirmTransaction(
-  await connection.requestAirdrop(sender.publicKey, LAMPORTS_PER_SOL),
+const feePayerAirdropLifetime = await connection.getLatestBlockhash();
+await connection.confirmTransaction({
+  ...feePayerAirdropLifetime,
+  signature: feePayerAirdrop,
+});
+
+const senderAirdrop = await connection.requestAirdrop(
+  sender.publicKey,
+  LAMPORTS_PER_SOL,
 );
+const senderAirdropLifetime = await connection.getLatestBlockhash();
+await connection.confirmTransaction({
+  ...senderAirdropLifetime,
+  signature: senderAirdrop,
+});
 
 // Agree on every message field before asking anyone to sign.
 const lifetime = await connection.getLatestBlockhash();
