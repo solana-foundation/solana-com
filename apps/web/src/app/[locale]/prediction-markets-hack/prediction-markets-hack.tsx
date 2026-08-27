@@ -30,7 +30,6 @@ interface PredictionMarketsHackPageProps {
       place: string;
       prize: string;
       sponsor: string;
-      category?: string;
     }>;
     sponsorBountiesTitle: string;
     sponsorBountiesSubtitle: string;
@@ -61,25 +60,18 @@ interface PredictionMarketsHackPageProps {
     ctaLabel: string;
     ctaUrl: string;
   };
-  registrationUrl?: string;
-  submissionDeadline?: string;
-  countdownLabel?: string;
-  finalCtaQuote?: string;
 }
 
 // Solana green: #14F195
 const SOLANA_GREEN = "20, 241, 149";
 const SOLANA_GREEN_HEX = "#14F195";
 
-const DEFAULT_REGISTRATION_URL =
-  "https://solanafoundation.typeform.com/predictionhack";
-const DEFAULT_SUBMISSION_DEADLINE = "2026-03-27T23:59:59";
-const DEFAULT_CTA_QUOTE = "The best way to predict the future is to build it.";
+// Submission deadline: Mar 27, 2026
+const SUBMISSION_DEADLINE = new Date("2026-03-27T23:59:59");
 
-function getDaysUntilDeadline(deadline: string) {
+function getDaysUntilDeadline() {
   const now = new Date();
-  const deadlineDate = new Date(deadline);
-  const diff = deadlineDate.getTime() - now.getTime();
+  const diff = SUBMISSION_DEADLINE.getTime() - now.getTime();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
@@ -110,18 +102,15 @@ function useScrollReveal() {
 
 export function PredictionMarketsHackPage({
   translations,
-  registrationUrl = DEFAULT_REGISTRATION_URL,
-  submissionDeadline = DEFAULT_SUBMISSION_DEADLINE,
-  countdownLabel = "Submissions due in",
-  finalCtaQuote = DEFAULT_CTA_QUOTE,
 }: PredictionMarketsHackPageProps) {
-  const [daysLeft, setDaysLeft] = useState(() =>
-    getDaysUntilDeadline(submissionDeadline),
-  );
+  const REGISTRATION_URL =
+    "https://solanafoundation.typeform.com/predictionhack";
+
+  const [daysLeft, setDaysLeft] = useState(getDaysUntilDeadline());
 
   useEffect(() => {
-    setDaysLeft(getDaysUntilDeadline(submissionDeadline));
-  }, [submissionDeadline]);
+    setDaysLeft(getDaysUntilDeadline());
+  }, []);
 
   const timelineReveal = useScrollReveal();
   const prizesReveal = useScrollReveal();
@@ -1285,7 +1274,7 @@ export function PredictionMarketsHackPage({
                 }}
               />
               <a
-                href={registrationUrl}
+                href={REGISTRATION_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="relative z-10 inline-flex items-center gap-2 px-8 py-4 text-black font-bold rounded-full transition-all hover:scale-105"
@@ -1322,7 +1311,7 @@ export function PredictionMarketsHackPage({
               animation: "countdownPulse 2s ease-in-out infinite",
             }}
           >
-            {countdownLabel} {daysLeft} day{daysLeft !== 1 ? "s" : ""}
+            Submissions due in {daysLeft} day{daysLeft !== 1 ? "s" : ""}
           </p>
         </div>
       </section>
@@ -1550,16 +1539,14 @@ export function PredictionMarketsHackPage({
                   className="text-xs font-mono uppercase tracking-wider mb-3"
                   style={{ color: SOLANA_GREEN_HEX }}
                 >
-                  {prize.category ?? "Overall"}
+                  Overall
                 </div>
                 <h4
                   className={`${index === 0 ? "text-2xl" : "text-xl"} font-bold text-white mb-2`}
                 >
                   {prize.place}
                 </h4>
-                {prize.sponsor && (
-                  <p className="text-gray-500 text-sm mb-6">{prize.sponsor}</p>
-                )}
+                <p className="text-gray-500 text-sm mb-6">{prize.sponsor}</p>
                 <div
                   className="pt-4 mt-auto"
                   style={{
@@ -1784,105 +1771,48 @@ export function PredictionMarketsHackPage({
           </div>
 
           {/* Bounties — side by side */}
-          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {translations.sponsorBounties.map((bounty, index) => {
-              const isComingSoon =
-                bounty.title === "COMING SOON" &&
-                !bounty.description &&
-                !bounty.prizeAmount;
-
-              return (
-                <div
-                  key={index}
-                  className={`bg-[#0a0612]/60 rounded-xl p-8 flex flex-col text-center transition-all duration-500 pmh-card ${
-                    bountiesReveal.isVisible
-                      ? "opacity-100 translate-y-0"
-                      : "opacity-0 translate-y-8"
-                  } ${isComingSoon ? "items-center justify-center" : "items-start"}`}
-                  style={{
-                    border: `1px solid rgba(${SOLANA_GREEN}, 0.2)`,
-                    transitionDelay: `${index * 150 + 200}ms`,
-                    animationDelay: `${index * 1.2}s`,
-                    minHeight: "200px",
-                  }}
-                >
-                  {isComingSoon ? (
-                    <h4
-                      className="text-2xl font-bold font-mono tracking-wider"
-                      style={{ color: SOLANA_GREEN_HEX }}
-                    >
-                      COMING SOON
-                    </h4>
-                  ) : (
-                    <>
-                      {bounty.sponsor && (
-                        <div
-                          className="text-xs font-mono uppercase tracking-wider mb-3"
-                          style={{ color: SOLANA_GREEN_HEX }}
-                        >
-                          {bounty.sponsor}
-                        </div>
-                      )}
-                      <h4 className="text-2xl font-bold text-white mb-4 text-left">
-                        {bounty.title}
-                      </h4>
-                      <p className="text-gray-400 text-sm mb-6 text-left whitespace-pre-line flex-grow">
-                        {bounty.description}
-                      </p>
-                      {bounty.prizeAmount && (
-                        <div
-                          className="pt-4 mt-auto w-full text-left"
-                          style={{
-                            borderTop: `1px solid rgba(${SOLANA_GREEN}, 0.2)`,
-                          }}
-                        >
-                          <span
-                            className="text-2xl font-bold font-mono"
-                            style={{ color: SOLANA_GREEN_HEX }}
-                          >
-                            {bounty.prizeAmount}
-                          </span>
-                          <span className="text-gray-500 text-sm ml-2">
-                            prize
-                          </span>
-                        </div>
-                      )}
-                      {bounty.url && (
-                        <a
-                          href={bounty.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-4 inline-flex items-center text-sm font-semibold transition-colors"
-                          style={{ color: SOLANA_GREEN_HEX }}
-                        >
-                          Learn more
-                          <ArrowUpRight size={16} className="ml-1" />
-                        </a>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {translations.addBountyText && (
-            <div className="max-w-3xl mx-auto mt-10 text-center">
-              <p className="text-gray-400 text-base">
-                {translations.addBountyText.split("submitting a PR")[0]}
-                <a
-                  href="https://github.com/solana-foundation/solana-com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline transition-colors"
+          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+            {translations.sponsorBounties.map((bounty, index) => (
+              <div
+                key={index}
+                className={`bg-[#0a0612]/60 rounded-xl p-8 flex flex-col items-center justify-center text-center transition-all duration-500 pmh-card ${
+                  bountiesReveal.isVisible
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-8"
+                }`}
+                style={{
+                  border: `1px solid rgba(${SOLANA_GREEN}, 0.2)`,
+                  transitionDelay: `${index * 150 + 200}ms`,
+                  animationDelay: `${index * 1.2}s`,
+                  minHeight: "200px",
+                }}
+              >
+                <h4
+                  className="text-2xl font-bold font-mono tracking-wider"
                   style={{ color: SOLANA_GREEN_HEX }}
                 >
-                  submitting a PR
-                </a>
-                {translations.addBountyText.split("submitting a PR")[1]}
-              </p>
-            </div>
-          )}
+                  COMING SOON
+                </h4>
+              </div>
+            ))}
+          </div>
+
+          {/* Add a bounty CTA */}
+          <div className="max-w-3xl mx-auto mt-10 text-center">
+            <p className="text-gray-400 text-base">
+              {translations.addBountyText.split("submitting a PR")[0]}
+              <a
+                href="https://github.com/solana-foundation/solana-com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline transition-colors"
+                style={{ color: SOLANA_GREEN_HEX }}
+              >
+                submitting a PR
+              </a>
+              {translations.addBountyText.split("submitting a PR")[1]}
+            </p>
+          </div>
         </div>
       </section>
 
@@ -2752,7 +2682,7 @@ export function PredictionMarketsHackPage({
         ))}
         <div className="container relative z-10 text-center">
           <p className="text-xl md:text-2xl italic mb-8 pmh-hero-title">
-            {finalCtaQuote}
+            The best way to predict the future is to build it.
           </p>
           <div className="relative inline-block">
             <div
@@ -2763,7 +2693,7 @@ export function PredictionMarketsHackPage({
               }}
             />
             <a
-              href={registrationUrl}
+              href={REGISTRATION_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="relative z-10 inline-flex items-center gap-2 px-8 py-4 text-black font-bold rounded-full transition-all hover:scale-105"
