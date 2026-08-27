@@ -1,0 +1,356 @@
+---
+title: Distribuzione dei Programmi
+description: Scopri come distribuire programmi in un'istanza di test LiteSVM
+---
+
+## Per Iniziare
+
+```rust
+let mut svm = LiteSVM::new();
+```
+
+Questo crea l'istanza di test litesvm di base, che include tutte le funzionalità
+di runtime abilitate, sysvars predefinite, precompilazioni, programmi spl,
+sigverify e tutti i programmi integrati come il System Program.
+
+Per interagire con qualsiasi altro programma nei tuoi test, devi distribuire
+quel programma nel tuo ambiente di test.
+
+1. Compila e distribuisci il programma che vuoi testare
+
+2. Individua tutti i programmi a cui il programma precedente effettua chiamate
+   CPI e distribuisci anche quelli
+
+<Callout type="info">
+  **Esempio:** Se il tuo programma utilizza feed di dati di Pyth, dovrai avere
+  il programma Pyth distribuito nella tua istanza di test.
+</Callout>
+
+## Distribuzione Base dei Programmi
+
+### Metodo 1: Distribuzione da Byte
+
+Distribuisci i programmi direttamente da array di byte per un'esecuzione dei
+test più rapida:
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read the program's keypair to get correct ID
+let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json")
+    .expect("Program keypair file not found");
+let program_id = program_keypair.pubkey();
+
+// Include bytes at compile time
+let program_bytes = include_bytes!("../target/deploy/my_program.so");
+
+// Deploy from bytes
+svm.add_program(program_id, program_bytes)
+    .expect("Failed to deploy program");
+
+// Verify deployment
+assert!(svm.get_account(&program_id).is_some(), "Program account not created");
+assert!(svm.get_account(&program_id).unwrap().executable, "Program not executable");
+```
+
+`include_bytes!` incorpora il binario direttamente nell'eseguibile di test al
+momento della compilazione, eliminando le operazioni di I/O durante l'esecuzione
+dei test.
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> Vantaggi
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Più veloce a runtime (nessuna lettura da disco)</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Binario di test autonomo</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Funziona anche se il file .so viene eliminato dopo la compilazione</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> Svantaggi
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Dimensione del binario di test maggiore</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>È necessario ricompilare i test quando il file .so cambia</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+### Metodo 2: Deploy da File (.so)
+
+Carica i programmi dal file system quando cambiano frequentemente:
+
+```rust
+use litesvm::LiteSVM;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+let mut svm = LiteSVM::new();
+
+// Read keypair for correct program ID
+let program_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = program_keypair.pubkey();
+
+// Deploy from file
+svm.add_program_from_file(program_id, "target/deploy/program.so")
+    .expect("Failed to deploy program from file");
+
+// Always verify
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-2 my-3">
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✓</span> Vantaggi
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Binario di test più leggero</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Rileva le modifiche ai file .so senza ricompilare i test</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Maggiore flessibilità per le pipeline CI/CD</span>
+      </li>
+    </ul>
+  </div>
+
+  <div className="bg-gray-50 dark:bg-gray-950/20 border border-gray-200 dark:border-gray-800 rounded-lg px-2 pt-0.5 pb-2">
+    <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+      <span className="text-sm">✗</span> Svantaggi
+    </h4>
+    <ul className="space-y-1 text-xs text-gray-900 dark:text-gray-200">
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Più lento (I/O su disco a runtime)</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Richiede che il file .so esista al momento dell'esecuzione del test</span>
+      </li>
+      <li className="flex items-start gap-1.5">
+        <span className="text-gray-600 dark:text-gray-400 mt-0.5">•</span>
+        <span>Il percorso del file deve essere corretto rispetto alla directory di esecuzione del test</span>
+      </li>
+    </ul>
+  </div>
+</div>
+
+## Recupero di Programmi da Mainnet/Devnet
+
+Quando hai bisogno di un programma di cui non disponi del codice sorgente,
+utilizza la Solana CLI per esportare i programmi dai cluster attivi e
+utilizzarli nei test:
+
+```bash
+# Dump a program from mainnet
+solana program dump gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s pyth.so --url mainnet-beta
+
+# Dump from devnet
+solana program dump YourProgramID program.so --url devnet
+```
+
+Quindi caricalo nei tuoi test:
+
+```rust
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+```
+
+## Best Practice
+
+### 1. Scegli il Metodo di Deploy Corretto
+
+- **Usa `add_program()`** quando:
+  - I programmi sono incorporati nel binario di test in fase di compilazione
+  - Vuoi un'esecuzione dei test più rapida (nessun I/O a runtime)
+  - I test devono essere autonomi
+
+- **Usa `add_program_from_file()`** quando:
+  - I programmi vengono compilati separatamente (es. recuperati da devnet)
+  - Il programma cambia frequentemente durante lo sviluppo (è possibile
+    rieseguire i test senza ricompilare)
+  - Hai ambienti CI/CD in cui i file .so sono artefatti
+
+### Comprendere i keypair dei programmi
+
+Quando compili un programma Solana:
+
+1. **Anchor** crea `target/deploy/program-keypair.json`
+2. Le build **native** creano un file keypair insieme al file `.so`
+3. L'**indirizzo on-chain** del programma è la chiave pubblica di questo
+   keypair, nota anche come ID del programma.
+4. Per i **PDA**, `find_program_address()` richiede l'ID del programma come seed
+5. Per i **CPI**, l'ID del programma viene utilizzato per richiamare altri
+   programmi
+
+## Problemi comuni e soluzioni
+
+### Errori silenziosi durante il deployment
+
+**Problema**: Il programma sembra essere distribuito ma le transazioni
+falliscono con "InvalidProgramForExecution".
+
+**Causa**: L'ID del programma non corrisponde al keypair.
+
+**Soluzione**:
+
+```rust
+// Always use the keypair-derived ID
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// Verify with detailed checks
+let account = svm.get_account(&program_id)
+    .expect("Program account doesn't exist");
+
+assert!(account.executable, "Program not executable");
+assert_eq!(account.owner, solana_sdk::bpf_loader::id(), "Wrong owner");
+assert!(!account.data.is_empty(), "Program data is empty");
+
+println!("✅ Program verified at {}", program_id);
+```
+
+### Errore: programma non trovato
+
+**Errore**: `TransactionError::InvalidProgramForExecution`
+
+**Cause comuni**:
+
+1. Programma non distribuito
+2. ID del programma errato utilizzato nell'istruzione
+3. ID del programma non corrispondente al keypair
+
+**Passaggi di debug**:
+
+```rust
+// Step 1: Check if program exists
+if let Some(account) = svm.get_account(&program_id) {
+    println!("Program exists");
+    println!("  Executable: {}", account.executable);
+    println!("  Owner: {}", account.owner);
+    println!("  Data length: {}", account.data.len());
+} else {
+    println!("Program does not exist at {}", program_id);
+}
+
+// Step 2: Verify the ID matches keypair
+let expected_keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let expected_id = expected_keypair.pubkey();
+
+if program_id != expected_id {
+    println!("  ID mismatch!");
+    println!("  Used: {}", program_id);
+    println!("  Expected: {}", expected_id);
+}
+
+// Step 3: Check instruction program ID
+println!("Instruction program_id: {}", instruction.program_id);
+assert_eq!(instruction.program_id, program_id, "Instruction uses wrong program ID");
+```
+
+### CPI verso programmi non distribuiti
+
+**Problema**: Il tuo programma effettua una chiamata CPI a un programma non
+distribuito.
+
+**Soluzione**: Distribuisci tutti i programmi dipendenti:
+
+```rust
+// Find all dependency programs and make sure they are deployed
+svm.add_program_from_file(
+    pubkey!("gSbePebfvPy7tRqimPoVecS2UsBvYv46ynrzWocc92s"),
+    "pyth.so"
+).unwrap();
+
+```
+
+Se hai bisogno di recuperare il programma da un cluster, consulta
+[questa sezione](#pulling-programs-from-mainnetdevnet).
+
+### lamport insufficienti per il deployment
+
+**Nota**: LiteSVM gestisce automaticamente il saldo esente da rent per i
+programmi.
+
+```rust
+// No need to manually fund - LiteSVM handles this
+svm.add_program(program_id, &program_bytes).unwrap();
+
+// But you can check the rent if needed
+let program_len = program_bytes.len();
+let required_lamports = svm.minimum_balance_for_rent_exemption(program_len);
+println!("Program requires {} lamports for rent exemption", required_lamports);
+```
+
+## Checklist di verifica del deployment
+
+<Steps>
+<Step>
+**Leggi il keypair del programma**
+
+```rust
+let keypair = read_keypair_file("target/deploy/program-keypair.json").unwrap();
+let program_id = keypair.pubkey();
+```
+
+</Step>
+
+<Step>
+**Distribuisci con ID corrispondente**
+
+```rust
+svm.add_program(program_id, &program_bytes).unwrap();
+```
+
+</Step>
+
+<Step>
+**Verifica il deployment**
+
+```rust
+assert!(svm.get_account(&program_id).unwrap().executable);
+```
+
+</Step>
+
+<Step>
+Distribuisci all'istanza di test litesvm tutti i programmi richiamati dal tuo programma tramite CPI
+
+</Step>
+</Steps>
+
+## Passi successivi
+
+Nella prossima sezione, impareremo come eseguire le istruzioni del programma e
+gestire pattern di transazione complessi.

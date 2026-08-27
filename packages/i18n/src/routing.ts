@@ -1,13 +1,8 @@
 import { createNavigation } from "next-intl/navigation";
-import { defineRouting } from "next-intl/routing";
-import { locales, defaultLocale } from "./config";
+import { routing } from "./routing-config";
 
-export const routing = defineRouting({
-  locales,
-  defaultLocale,
-  localePrefix: "as-needed",
-  localeDetection: true,
-});
+export { getAlternates } from "./alternates";
+export { routing } from "./routing-config";
 
 export const { Link, redirect, usePathname, useRouter } =
   createNavigation(routing);
@@ -37,34 +32,4 @@ export function pathsWithLocales<T>(paths: { params: T }[]) {
       }));
     })
   );
-}
-
-function normalizeAlternatePath(path: string) {
-  if (!path || path === "/") {
-    return "/";
-  }
-
-  return path.startsWith("/") ? path : `/${path}`;
-}
-
-function localizeAlternatePath(path: string, locale: string) {
-  if (locale === defaultLocale) {
-    return path;
-  }
-
-  return path === "/" ? `/${locale}` : `/${locale}${path}`;
-}
-
-export function getAlternates(path: string, locale: string) {
-  const normalizedPath = normalizeAlternatePath(path);
-  const languages: Record<string, string> = {
-    "x-default": normalizedPath,
-  };
-  locales.forEach((l) => {
-    languages[l] = localizeAlternatePath(normalizedPath, l);
-  });
-  return {
-    canonical: localizeAlternatePath(normalizedPath, locale),
-    languages,
-  };
 }

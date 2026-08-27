@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
-import ComingSoonPage from "@/components/pages/ComingSoonPage";
+import { getTranslations } from "@workspace/i18n/server";
+import SpeakersPage from "@/components/pages/speakers/SpeakersPage";
 import { getPageMetadata } from "@/app/metadata";
 
-const pageMetadata = {
-  path: "/speakers",
-  title: "Speakers",
-  description:
-    "Breakpoint 2026 speaker announcements are coming soon for the London conference.",
-};
+// Next requires this export to be a literal; 1800 seconds = 30 minutes.
+export const revalidate = 1800;
 
 export async function generateMetadata({
   params,
@@ -15,14 +12,29 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  return getPageMetadata(locale, pageMetadata);
+  const t = await getTranslations({ locale, namespace: "breakpoint.pages" });
+  return getPageMetadata(locale, {
+    path: "/speakers",
+    title: t("speakers.title"),
+    description: t("speakers.metadataDescription"),
+  });
 }
 
-export default function LocaleSpeakersPage() {
+export default async function LocaleSpeakersPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "breakpoint.pages",
+  });
+
   return (
-    <ComingSoonPage
-      title="Speakers"
-      description="Speaker announcements are coming soon. Check back for the builders, institutions, and policymakers joining Breakpoint 2026 in London."
+    <SpeakersPage
+      applyToSpeakLabel={t("speakers.cta")}
+      title={t("speakers.title")}
     />
   );
 }

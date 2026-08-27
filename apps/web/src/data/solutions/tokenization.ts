@@ -1,5 +1,7 @@
 import { VideoBadge } from "@/components/solutions/video-grid.v2";
-import { Blocks, Coins, HandCoins } from "lucide-react";
+import { Blocks } from "@boxicons/react/Blocks";
+import { Coins } from "@boxicons/react/Coins";
+import { Hand as HandCoins } from "@boxicons/react/Hand";
 import { Formats, TranslationValues } from "next-intl";
 
 export const PROJECTS = [
@@ -105,10 +107,7 @@ export const LATEST_NEWS_QUERY = {
   categories: ["finance", "institutions"],
   tags: ["token", "finance", "partner"],
   limit: 6,
-  excludeUrls: [
-    "/news/solana-developer-platform",
-    "/news/solana-network-upgrades",
-  ],
+  excludeUrls: ["/news/solana-developer-platform"],
   fallbackImage: "/src/img/solutions/icm/og-image.webp",
   fallbackImageAspectRatio: "1200 / 630",
 };

@@ -6,13 +6,16 @@ import { allnodes } from "./records/allnodes";
 import { ampPay } from "./records/amp-pay";
 import { anchorage } from "./records/anchorage";
 import { anoma } from "./records/anoma";
+import { apollo } from "./records/apollo";
 import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
+import { asymmetricResearch } from "./records/asymmetric-research";
 import { atxp } from "./records/atxp";
 import { bhutan } from "./records/bhutan";
 import { blackrock } from "./records/blackrock";
 import { blockzero } from "./records/blockzero";
 import { bonk } from "./records/bonk";
+import { brevanHoward } from "./records/brevan-howard";
 import { brave } from "./records/brave";
 import { bridge } from "./records/bridge";
 import { bydfi } from "./records/bydfi";
@@ -20,6 +23,7 @@ import { byreal } from "./records/byreal";
 import { cherryServers } from "./records/cherry-servers";
 import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
+import { colosseum } from "./records/colosseum";
 import { comicbook } from "./records/comicbook";
 import { d3 } from "./records/d3";
 import { dabba } from "./records/dabba";
@@ -36,13 +40,18 @@ import { flashTrade } from "./records/flash-trade";
 import { franklinTempleton } from "./records/franklin-templeton";
 import { frodobots } from "./records/frodobots";
 import { galaxy } from "./records/galaxy";
+import { gmgn } from "./records/gmgn";
 import { gradient } from "./records/gradient";
+import { hamiltonLane } from "./records/hamilton-lane";
 import { jito } from "./records/jito";
 import { jpmorgan } from "./records/jpmorgan";
+import { jupiter } from "./records/jupiter";
+import { kamino } from "./records/kamino";
 import { kast } from "./records/kast";
 import { kazakhstan } from "./records/kazakhstan";
 import { libeara } from "./records/libeara";
 import { listingHelp } from "./records/listing-help";
+import { loopscale } from "./records/loopscale";
 import { matcha } from "./records/matcha";
 import { mantle } from "./records/mantle";
 import { mantleByreal } from "./records/mantle-byreal";
@@ -50,6 +59,7 @@ import { meta } from "./records/meta";
 import { metaplex } from "./records/metaplex";
 import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
+import { nodit } from "./records/nodit";
 import { openmined } from "./records/openmined";
 import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
@@ -59,13 +69,18 @@ import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { pyth } from "./records/pyth";
 import { quicknode } from "./records/quicknode";
+import { raiku } from "./records/raiku";
+import { rain } from "./records/rain";
 import { ramp } from "./records/ramp";
+import { raydium } from "./records/raydium";
 import { reap } from "./records/reap";
 import { renderNetwork } from "./records/render-network";
 import { rockawayx } from "./records/rockawayx";
 import { ryder } from "./records/ryder";
 import { safepalWallet } from "./records/safepal-wallet";
 import { sanctum } from "./records/sanctum";
+import { sec3 } from "./records/sec3";
+import { sidley } from "./records/sidley";
 import { societeGenerale } from "./records/societe-generale";
 import { sofi } from "./records/sofi";
 import { solanaSpaces } from "./records/solana-spaces";
@@ -104,13 +119,16 @@ export const companies = [
   ampPay,
   anchorage,
   anoma,
+  apollo,
   banxa,
   arcium,
+  asymmetricResearch,
   atxp,
   bhutan,
   blackrock,
   blockzero,
   bonk,
+  brevanHoward,
   brave,
   bridge,
   bydfi,
@@ -118,6 +136,7 @@ export const companies = [
   cherryServers,
   citi,
   coinbase,
+  colosseum,
   comicbook,
   d3,
   dabba,
@@ -134,13 +153,18 @@ export const companies = [
   franklinTempleton,
   frodobots,
   galaxy,
+  gmgn,
   gradient,
+  hamiltonLane,
   jito,
   jpmorgan,
+  jupiter,
+  kamino,
   kast,
   kazakhstan,
   libeara,
   listingHelp,
+  loopscale,
   matcha,
   mantle,
   mantleByreal,
@@ -148,6 +172,7 @@ export const companies = [
   metaplex,
   monkeDao,
   morganStanley,
+  nodit,
   openmined,
   orbitflare,
   osl,
@@ -157,13 +182,18 @@ export const companies = [
   playSolana,
   pyth,
   quicknode,
+  raiku,
+  rain,
   ramp,
+  raydium,
   reap,
   renderNetwork,
   rockawayx,
   ryder,
   safepalWallet,
   sanctum,
+  sec3,
+  sidley,
   societeGenerale,
   sofi,
   solanaSpaces,

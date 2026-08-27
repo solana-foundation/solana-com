@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 const MARQUEE_ITEMS = Array(8).fill(null);
 

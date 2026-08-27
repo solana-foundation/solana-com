@@ -13,12 +13,47 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_APP_NAME: "breakpoint",
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**.lumacdn.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.lu.ma",
+      },
+    ],
+  },
   experimental: {
     externalDir: true,
   },
   webpack(config) {
     config.module.rules.push({
-      test: /\.svg$/,
+      test: /\.inline\.svg$/,
+      use: {
+        loader: "@svgr/webpack",
+        options: {
+          svgoConfig: {
+            plugins: [
+              {
+                name: "preset-default",
+                params: {
+                  overrides: {
+                    removeViewBox: false,
+                    removeUselessStrokeAndFill: false,
+                    cleanupIds: false,
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    config.module.rules.push({
+      test: /(?<!inline)\.svg$/,
       type: "asset",
     });
 

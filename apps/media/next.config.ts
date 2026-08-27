@@ -37,11 +37,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "assets.getriver.io",
-        port: "",
-      },
-      {
-        protocol: "https",
         hostname: "placehold.co",
         port: "",
       },
@@ -141,7 +136,12 @@ const nextConfig: NextConfig = {
   },
 
   outputFileTracingIncludes: {
-    "/*": ["./content/**/*", "./keystatic.config.tsx"],
+    "/*": [
+      "./content/**/*",
+      "./fonts/ABCDiatype-Regular.woff",
+      "./fonts/ABCDiatype-Medium.woff",
+      "./keystatic.config.tsx",
+    ],
   },
 
   experimental: {

@@ -1,0 +1,206 @@
+---
+title: Tapahtuman tarkastelu
+description:
+  Pura ja tarkasta vahvistettu Solana-tapahtuma
+  @solana/transaction-introspection-paketin avulla – ratkaise tilitunnisteet ja
+  hakutaulukon osoitteet, käy läpi ulkoiset ja sisäiset (CPI) ohjeet sekä
+  jäsennä ne ohjelmaklienneillä.
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="Yhteenveto">
+  `@solana/transaction-introspection` muuntaa `getTransaction` RPC-vastauksen
+  ohjeluetteloksi, jossa on todelliset osoitteet. Se ratkaisee tilitunnisteet
+  (mukaan lukien hakutaulukon osoitteet), purkaa sisäiset CPI-ohjeet ja käy läpi
+  koko ohjerakenteen lohkoselainten järjestyksessä.
+</Callout>
+
+<Callout type="info">
+  Etsitkö tietoa siitä, miten ohjelma tarkastelee sisarohjeet _ketjussa_
+  suorituksen aikana? Se on Instructions sysvar – katso [Instruction
+  Introspection](/docs/core/instructions/instruction-introspection). Tämä sivu
+  käsittelee tapahtuman purkamista _ketjun ulkopuolella_ RPC-vastauksesta.
+</Callout>
+
+[`getTransaction`](/docs/rpc/http/gettransaction)-vastaus ei anna sinulle
+suoraan valmista ohjeluetteloa. Tilit tallennetaan numeroindekseinä,
+[versioituihin tapahtumiin](/docs/core/transactions/versioned-transactions)
+tilit jaetaan staattisiin avaimiin sekä osoitteisiin, jotka ladataan
+[Address Lookup Tables](/docs/core/transactions/versioned-transactions)
+-taulukoista, ja Cross Program Invocation (CPI) -sisäohjeet saapuvat koodattuina
+blob-tietoina tapahtuman metatiedoissa.
+
+`@solana/transaction-introspection` tekee tämän resoluution puolestasi. Se
+purkaa lanka-tapahtuman, yhdistää jokaisen tilitunnisteen vastaavaan
+`Address`-arvoon, normalisoi sisäiset ohjeet ja palauttaa ohjeet samassa
+ulko-sisä-järjestyksessä kuin lohkoselain näyttää. Palautetut ohjeet sopivat
+suoraan codama-generoitujen klienttien (esim. `@solana-program/*`)
+`parseXInstruction` -apufunktioihin.
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## Pura vastaus
+
+Hae tapahtuma lanka-muotoisella koodauksella ja välitä vastaus
+`decodeTransactionFromRpcResponse`-funktiolle.
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+Jäljellä olevat koodinpätkät käyttävät uudelleen `rpcTx`-, `compiledMessage`- ja
+`loadedAddresses`-muuttujia tästä vaiheesta.
+
+<Callout type="warn">
+  Hae käyttäen `base64`-, `base58`- tai `json`-koodausta.
+  `decodeTransactionFromRpcResponse` hylkää `jsonParsed`-vastaukset – kyseinen
+  koodaus pyytää RPC-solmua jäsentämään ohjeet palvelinpuolella, joten
+  asiakaspuolella ei ole enää mitään purettavaa.
+</Callout>
+
+## Käy ohjeet läpi
+
+`walkInstructions` palauttaa jokaisen ohjeen – ulomman ja sisemmän – taulukkona
+siinä järjestyksessä kuin lohkoselain näyttää: kukin ulompi ohje välittömästi
+sitä seuraten sisemmät ohjeet, jotka sen CPI:t tuottivat. Jokaisessa ohjeessa on
+`trace`- kenttä, joka kuvaa sen sijaintia kutsuhierarkiassa.
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+`trace` on eriytetty unioni: `{ kind: "outer", index }` ylimmän tason ohjeelle
+tai `{ kind: "inner", outerIndex, innerIndex, stackHeight? }` ulomman ohjeeseen
+sisäkkäiselle CPI-ohjeelle.
+
+`meta` on valinnainen – välitä `rpcTx.meta` suoraan, vaikka se saattaisi olla
+`null`. Ilman metaa `walkInstructions` palauttaa vain ulommat ohjeet.
+
+## Jäsennä ohjelmaklientillä
+
+Jokainen `walkInstructions`:ltä saatu ohje on `ResolvedInstruction`, joten se
+toimii suoraan `@solana/instructions`:n predikaattien sekä
+`@solana-program/*`-klienttien tuottamien `identifyXInstruction`- /
+`parseXInstruction`-apuohjelmien kanssa – ei muunnosvaihetta.
+
+Tämä esimerkki tarkastaa jokaisen Token Program `SyncNative` -ohjeen
+transaktiossa, oli se sitten suoritettu ylimmällä tasolla tai CPI:n sisällä.
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## Alemman tason apuohjelmat
+
+`walkInstructions` kattaa useimmat tarpeet, mutta paketti paljastaa myös sen
+rakentamat osat:
+
+- `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  palauttaa vain ulommat ohjeet ratkaistuin tiliviittauksin ja dekoodatuin
+  tiedoin.
+- `getInnerInstructionsFromMeta(meta, accountMetas)` dekoodaa sisemmät CPI-
+  ohjeet transaktion metatiedoista.
+- `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  palauttaa täydellisen tililuettelon transaktiojärjestyksessä – syöte, jota
+  edellinen apuohjelma tarvitsee sisempien ohjeiden tili-indeksien
+  ratkaisemiseen.
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="Käytätkö Rustia?">
+  Tälle paketille ei ole Rust-vastinetta. Jäsennettyjen ohjeiden hakemiseksi
+  Rustissa pyydä `UiTransactionEncoding::JsonParsed`
+  [`getTransaction`](/docs/rpc/http/gettransaction) -päätepisteltä ja anna
+  RPC-solmun ratkaista tilit ja sisemmät ohjeet puolestasi.
+</Callout>
+
+## Katso myös
+
+- [Transaktiorakenne](/docs/core/transactions/transaction-structure) - paketin
+  dekoodaaman vastauksen rakenne
+- [Versioidut transaktiot](/docs/core/transactions/versioned-transactions) -
+  miten osoitehakutaulukot jakavat tilit staattisiin ja ladattuihin ryhmiin
+- [`getTransaction`](/docs/rpc/http/gettransaction) - RPC-metodi, joka palauttaa
+  transaktion

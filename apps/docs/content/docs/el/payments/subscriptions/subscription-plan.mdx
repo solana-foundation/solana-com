@@ -27,8 +27,8 @@ description: Οδηγός για τη ρύθμιση συναλλαγών προ
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -140,6 +140,16 @@ description: Οδηγός για τη ρύθμιση συναλλαγών προ
 δημιουργία. Οι υπάρχοντες συνδρομητές διατηρούν τους όρους που αποδέχτηκαν, ενώ
 οι νέοι συνδρομητές αποδέχονται τους τρέχοντες όρους του προγράμματος.
 
+Ισχύουν μερικοί κανόνες:
+
+- Ένα πεπερασμένο `endTs` μπορεί μόνο να συντομευτεί, ποτέ να επεκταθεί ή να
+  διαγραφεί (`PlanEndTsCannotExtend`).
+- Σε ένα πλάνο `Sunset` μπορείτε να αφαιρέσετε pullers (το νέο σύνολο πρέπει να
+  είναι υποσύνολο του τρέχοντος) για να ανακαλέσετε έναν παραβιασμένο puller· η
+  κατάσταση, το `endTs` και τα μεταδεδομένα παραμένουν δεσμευμένα.
+- Οι επεξεργασίες λειτουργούν κατά την τελευταία περίοδο χρέωσης ενός πλάνου,
+  εφόσον το `endTs` παραμένει αμετάβλητο.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -174,9 +184,13 @@ description: Οδηγός για τη ρύθμιση συναλλαγών προ
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -191,7 +205,7 @@ description: Οδηγός για τη ρύθμιση συναλλαγών προ
 
 ## Εγγραφή
 
-Ο συνδρομητής αποδέχεται τους τρέχοντες όρους του πλάνου. Το PDA της συνδρομής
+Ο συνδρομητής αποδέχεται τους τρέχοντες όρους του πλάνου. Το PDA συνδρομής
 προκύπτει από το PDA του πλάνου και τη διεύθυνση του συνδρομητή.
 
 <Tabs items={["TypeScript", "Rust"]}>
@@ -315,9 +329,9 @@ description: Οδηγός για τη ρύθμιση συναλλαγών προ
 
 ## Είσπραξη Πληρωμής
 
-Ο έμπορος ή ένας εξουσιοδοτημένος χρήστης υπογράφει την είσπραξη. Όταν το πλάνο
-χρησιμοποιεί λίστα επιτρεπόμενων προορισμών, ο κάτοχος του λογαριασμού token
-παραλήπτη πρέπει να περιλαμβάνεται στο `destinations`.
+Ο έμπορος ή ένας εξουσιοδοτημένος puller υπογράφει την είσπραξη. Όταν το πλάνο
+χρησιμοποιεί λίστα επιτρεπόμενων προορισμών, ο κάτοχος του token account του
+παραλήπτη πρέπει να figurerer αναφέρεται στο `destinations`.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -366,9 +380,9 @@ description: Οδηγός για τη ρύθμιση συναλλαγών προ
 
 ## Ακύρωση και Ανάκληση
 
-Η ακύρωση σηματοδοτεί το τέλος της συνδρομής. Η ανάκληση κλείνει το PDA της
-συνδρομής αφού παρέλθει η προθεσμία ακύρωσης. Ο συνδρομητής υπογράφει και τις
-δύο συναλλαγές.
+Η ακύρωση σημειώνει τη συνδρομή ως λήγουσα. Η ανάκληση κλείνει το PDA της
+συνδρομής αφού παρέλθει η προθεσμία λήξης της ακύρωσης. Ο συνδρομητής υπογράφει
+και τις δύο συναλλαγές.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -417,16 +431,60 @@ description: Οδηγός για τη ρύθμιση συναλλαγών προ
   </Tab>
 </Tabs>
 
+## Επαναφορά Συνδρομής
+
+Μια ακυρωμένη συνδρομή μπορεί να επανενεργοποιηθεί πριν ανακληθεί. Μόλις
+ανακληθεί, ο λογαριασμός συνδρομής κλείνει και ο συνδρομητής πρέπει να
+[εγγραφεί](#subscribe) εκ νέου. Η επαναφορά απαιτεί το `SubscriptionAuthority`
+του συνδρομητή για το mint του πλάνου, το οποίο το πρόγραμμα επικυρώνει
+(ιδιοκτήτης, mint και `init_id`) και απορρίπτει αν είναι παρωχημένο ή έχει
+επανεκκινηθεί.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Σημειώσεις
 
-- Το `amount` είναι σε βασικές μονάδες. Για ένα token με 6 δεκαδικά, το
+- Το `amount` είναι σε βασικές μονάδες. Για ένα token 6 δεκαδικών, το
   `5_000_000` σημαίνει `5` tokens.
-- Το TypeScript SDK ανακτά τους όρους του πακέτου σε πραγματικό χρόνο κατά τη
-  διάρκεια του `subscribe` όταν τους παραλείψετε.
-- Το Rust `SubscribeBuilder` χρειάζεται τους αναμενόμενους όρους του πακέτου.
-  Πρώτα ανακτήστε και αποκωδικοποιήστε τον λογαριασμό του πακέτου και στη
-  συνέχεια περάστε αυτά τα πεδία μέσω του `SubscribeData`.
-- Μόνο ο έμπορος ή ένα πορτοφόλι που περιλαμβάνεται στο `pullers` μπορεί να
+- Το TypeScript SDK ανακτά τους ενεργούς όρους πλάνου κατά τη διάρκεια του
+  `subscribe` όταν τους παραλείπετε.
+- Το `SubscribeBuilder` της Rust χρειάζεται τους αναμενόμενους όρους πλάνου.
+  Ανακτήστε και αποκωδικοποιήστε πρώτα τον λογαριασμό πλάνου και στη συνέχεια
+  διαβιβάστε αυτά τα πεδία μέσω του `SubscribeData`.
+- Μόνο ο έμπορος ή ένα πορτοφόλι που αναφέρεται στο `pullers` μπορεί να
   εισπράξει πληρωμές.
-- Ο συνδρομητής υπογράφει τις συναλλαγές ρύθμισης, ακύρωσης και ανάκλησης. Ο
-  έμπορος ή ο εγκεκριμένος εισπράκτορας υπογράφει τις συναλλαγές είσπραξης.
+- Ο συνδρομητής υπογράφει τις συναλλαγές εγκατάστασης, ακύρωσης και ανάκλησης. Ο
+  έμπορος ή ο εγκεκριμένος συλλέκτης υπογράφει τις συναλλαγές είσπραξης.

@@ -1,0 +1,173 @@
+---
+title: 계정 설정
+description: litesvm-go로 테스트 계정 및 상태 설정하기
+---
+
+트랜잭션을 실행하지 않고 `SetAccount`를 사용하여 계정 상태를 직접 시딩하는 방법을 보여줍니다. 이는 많은 계정을 테스트에 바로 사용할 수 있도록 준비할 때 에어드롭이나 런타임을 통한 자금 조달보다 훨씬 빠릅니다.
+
+## 기본 계정 설정
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestBasicAccountSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Calculate minimum balance for rent exemption.
+    accountData := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    minBalance, err := svm.MinimumBalanceForRentExemption(len(accountData))
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("minimum balance for %d bytes: %d lamports", len(accountData), minBalance)
+
+    // Owner program (system program in this trivial example).
+    owner := solana.SystemProgramID
+    testAddr := solana.NewWallet().PublicKey()
+
+    // Build the account handle, then store it.
+    acct, err := litesvm.NewAccount(minBalance, accountData, owner, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(testAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+    t.Log("account state set successfully")
+
+    // Retrieve the account back.
+    retrieved := svm.GetAccount(testAddr)
+    if retrieved == nil {
+        t.Fatal("expected account to exist")
+    }
+    defer retrieved.Close()
+
+    t.Logf("  address:    %s", testAddr)
+    t.Logf("  lamports:   %d", retrieved.Lamports())
+    t.Logf("  owner:      %s", retrieved.Owner())
+    t.Logf("  executable: %v", retrieved.Executable())
+    t.Logf("  data:       %v", retrieved.Data())
+
+    // Or just read the balance.
+    bal, _, err := svm.Balance(testAddr)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("balance: %d lamports", bal)
+}
+```
+
+## 여러 계정 설정하기
+
+```go
+func TestMultipleAccounts(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    owner := solana.SystemProgramID
+
+    // Set up 5 accounts with different data payloads.
+    addrs := make([]solana.PublicKey, 5)
+    for i := range addrs {
+        addrs[i] = solana.NewWallet().PublicKey()
+
+        data := []byte{byte(i), byte(i + 1), byte(i + 2)}
+        rent, err := svm.MinimumBalanceForRentExemption(len(data))
+        if err != nil {
+            t.Fatal(err)
+        }
+
+        acct, err := litesvm.NewAccount(rent, data, owner, false, 0)
+        if err != nil {
+            t.Fatal(err)
+        }
+        if err := svm.SetAccount(addrs[i], acct); err != nil {
+            acct.Close()
+            t.Fatal(err)
+        }
+        acct.Close()
+
+        t.Logf("account %d: %s", i, addrs[i])
+    }
+
+    // Verify each account.
+    for i, addr := range addrs {
+        a := svm.GetAccount(addr)
+        if a == nil {
+            t.Fatalf("account %d missing", i)
+        }
+        t.Logf("  account %d: %d lamports, data[0]=%d", i, a.Lamports(), a.Data()[0])
+        a.Close()
+    }
+}
+```
+
+## Program Data Account Setup
+
+구조체 레이아웃을 계정 `data`로 직렬화하여 프로그램 소유 데이터 계정을 설정합니다. 이 코드 스니펫은 추가로 `encoding/binary`를 임포트합니다:
+
+```go
+import "encoding/binary"
+
+func TestProgramDataAccount(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    programID := solana.NewWallet().PublicKey()
+    dataAddr := solana.NewWallet().PublicKey()
+
+    // Example layout: [u8 discriminator, u64 counter, 32-byte owner pubkey]
+    data := make([]byte, 1+8+32)
+    data[0] = 0x01                                      // discriminator
+    binary.LittleEndian.PutUint64(data[1:9], 100)       // counter
+    // copy(data[9:], ownerPubkey[:])                   // owner
+
+    rent, err := svm.MinimumBalanceForRentExemption(len(data))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(rent, data, programID, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(dataAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+
+    t.Logf("program data account set up: %s", dataAddr)
+}
+```
+
+<Callout type="info">
+  `SetAccount`는 대량 계정 설정 시 트랜잭션을 실행하는 것보다 빠르며,
+  상태를 구성하는 내부 구조보다 테스트하려는 동작에 집중할 수 있도록 테스트 코드를 간결하게 유지해 줍니다.
+</Callout>
+
+## 핵심 포인트
+
+1. **직접 상태 설정** - `SetAccount`는 런타임을 거치지 않고 계정 상태를 직접 씁니다.
+2. **렌트 면제** - 계정을 구성하기 전에 `MinimumBalanceForRentExemption`을 사용하여 lamport를 계산하세요.
+3. **소유권** - `NewAccount`는 사용자가 여전히 소유하는 핸들을 반환합니다. SVM은 `SetAccount` 이후 자체 복사본을 유지하므로, 사용이 끝나면 핸들을 닫으세요.
+4. **검증** - 핸들로 다시 읽어오려면 `GetAccount`를, lamport만 확인하려면 `Balance`를 사용하세요.

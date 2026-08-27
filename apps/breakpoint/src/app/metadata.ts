@@ -6,8 +6,18 @@ import { locales, defaultLocale } from "@workspace/i18n/config";
 import { getTranslations } from "@workspace/i18n/server";
 import { config, publicLocalizedRouteUrl } from "@/config";
 
-const socialImageAlt =
-  "Breakpoint 2026 social card with the Breakpoint logo over a purple London skyline";
+function createBreakpointSocialImage(alt: string) {
+  const url = config.siteMetadata.socialShare;
+
+  return {
+    url,
+    secureUrl: url,
+    width: 1200,
+    height: 630,
+    alt,
+    type: "image/jpeg",
+  };
+}
 
 type PageMetadataConfig = {
   description: string;
@@ -30,6 +40,7 @@ export async function getBaseMetadata(
 ): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "breakpoint.metadata" });
   const { publicSiteOrigin, siteMetadata, social } = config;
+  const socialImageAlt = t("socialImageAlt");
 
   const title = t("title");
   const titleTemplate = t("titleTemplate");
@@ -60,31 +71,14 @@ export async function getBaseMetadata(
       siteName,
       title: ogTitle,
       description: ogDescription,
-      images: [
-        {
-          url: siteMetadata.socialShare,
-          secureUrl: siteMetadata.socialShare,
-          width: 1200,
-          height: 630,
-          alt: socialImageAlt,
-          type: "image/jpeg",
-        },
-      ],
+      images: [createBreakpointSocialImage(socialImageAlt)],
     },
     twitter: {
       card: "summary_large_image",
       site: `@${social.twitter.name}`,
       title: ogTitle,
       description: ogDescription,
-      images: [
-        {
-          url: siteMetadata.socialShare,
-          alt: socialImageAlt,
-          width: 1200,
-          height: 630,
-          type: "image/jpeg",
-        },
-      ],
+      images: [createBreakpointSocialImage(socialImageAlt)],
     },
     icons: [
       { url: faviconPng.src, rel: "icon", type: "image/png" },

@@ -1,0 +1,145 @@
+---
+title: Du Hành Thời Gian
+description:
+  Nhảy đồng hồ Surfnet về phía trước đến một slot, epoch, hoặc Unix timestamp
+  tuyệt đối. Hữu ích cho các bài kiểm thử liên quan đến lịch vesting, lockup,
+  cửa sổ hết hạn, hoặc ranh giới epoch.
+---
+
+Runtime Surfpool cung cấp ba hàm trợ giúp du hành thời gian. Mỗi hàm di chuyển
+đồng hồ cục bộ đến một mục tiêu tuyệt đối (không phải độ lệch tương đối) và trả
+về `EpochInfo` đã được cập nhật để các bài kiểm thử có thể xác nhận rằng runtime
+đã thực sự đến thời điểm được yêu cầu.
+
+| Hàm trợ giúp                                         | Mục tiêu                           | Trả về                              |
+| ---------------------------------------------------- | ---------------------------------- | ----------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Số slot tuyệt đối                  | `EpochInfo` với `absolute_slot` mới |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Số epoch tuyệt đối                 | `EpochInfo` với `epoch` mới         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Unix timestamp tính bằng mili giây | `EpochInfo` phản ánh slot tương ứng |
+
+<Callout type="warn" title="Chỉ tiến về phía trước">
+  Du hành thời gian chỉ có thể di chuyển đồng hồ **về phía trước**. Gọi các
+  phương thức này với mục tiêu trong quá khứ sẽ không có tác dụng — hàm trợ giúp
+  trả về `EpochInfo` hiện tại không thay đổi.
+</Callout>
+
+## Nhảy Đến Một Slot
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let info = cheats.time_travel_to_slot(1_000_000)?;
+assert!(info.absolute_slot >= 1_000_000);
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const info = surfnet.timeTravelToSlot(1_000_000);
+  console.assert(info.absoluteSlot >= 1_000_000);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## Nhảy Đến Một Epoch
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let info = cheats.time_travel_to_epoch(420)?;
+assert_eq!(info.epoch, 420);
+```
+
+```ts !! title="TypeScript"
+const info = surfnet.timeTravelToEpoch(420);
+console.assert(info.epoch === 420);
+```
+
+</CodeTabs>
+
+## Nhảy Đến Một Unix Timestamp
+
+Truyền timestamp tính bằng **mili giây**, không phải giây. Runtime sẽ tính toán
+slot gần nhất tại thời điểm đó.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+// 2030-01-01T00:00:00Z
+let info = cheats.time_travel_to_timestamp(1_893_456_000_000)?;
+```
+
+```ts !! title="TypeScript"
+// 2030-01-01T00:00:00Z
+const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
+```
+
+</CodeTabs>
+
+## Các Mẫu Phổ Biến
+
+### Kiểm Thử Lockup Hoặc Cửa Sổ Vesting
+
+Ví dụ dưới đây chỉ là phác thảo — `assertWithdrawFails` và
+`assertWithdrawSucceeds` là các placeholder cho bất kỳ hàm trợ giúp phía client
+nào mà bộ kiểm thử của bạn sử dụng để xác nhận hành vi RPC.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+const beneficiary = Surfnet.newKeypair();
+
+// 1. Set up a vesting account that unlocks at slot 1,000,000.
+surfnet.setAccount(/* ...lockup program state... */);
+
+// 2. Verify withdrawal fails before unlock.
+await assertWithdrawFails(surfnet.rpcUrl, beneficiary);
+
+// 3. Travel past the unlock slot.
+surfnet.timeTravelToSlot(1_000_001);
+
+// 4. Verify withdrawal succeeds.
+await assertWithdrawSucceeds(surfnet.rpcUrl, beneficiary);
+
+surfnet.stop();
+```
+
+### Thực Hiện Kịch Bản Đa Epoch
+
+<Callout type="warn" title="Các slot trung gian bị bỏ qua">
+  Dịch chuyển thời gian nhảy thẳng đến đích — di chuyển từ epoch 1 đến epoch 5
+  sẽ bỏ qua các slot ở giữa. Nếu chương trình của bạn cần mỗi ranh giới epoch
+  trung gian phải kích hoạt (ví dụ: để ghi nhận phần thưởng theo epoch), hãy gọi
+  `time_travel_to_epoch` mỗi epoch một lần với các giao dịch cần thiết ở giữa.
+</Callout>
+
+```rust
+for epoch in 2..=5 {
+    cheats.time_travel_to_epoch(epoch)?;
+    surfnet.rpc_client().send_transaction(&claim_rewards_tx)?;
+}
+```
+
+## Cấu Trúc EpochInfo
+
+Cả hai SDK đều trả về một đối tượng có dạng `EpochInfo` với các trường sau:
+
+| Trường             | Rust                             | JS                          |
+| ------------------ | -------------------------------- | --------------------------- |
+| Slot tuyệt đối     | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| Slot trong epoch   | `slot_index: u64`                | `slotIndex: number`         |
+| Số slot mỗi epoch  | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Số epoch           | `epoch: u64`                     | `epoch: number`             |
+| Chiều cao khối     | `block_height: u64`              | `blockHeight: number`       |
+| Số lượng giao dịch | `transaction_count: Option<u64>` | `transactionCount?: number` |

@@ -12,6 +12,7 @@ import { getLangDir } from "rtl-detect";
 import { config } from "@/config";
 import { GTMTrackingSnippet } from "@/components/gtm-tracking-snippet";
 import { CookieConsent } from "@/components/cookie-consent";
+import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 import "../scss/index.scss";
 import "./globals.css";
 
@@ -20,6 +21,15 @@ export const metadata: Metadata = {
   title: "Solana Developer Templates",
   description:
     "Build faster with production-ready templates for dApps, DeFi protocols, NFT marketplaces, and more.",
+  openGraph: {
+    type: "website",
+    images: [createDefaultSocialImage("Solana Developer Templates")],
+  },
+  twitter: {
+    card: "summary_large_image",
+    creator: "@solana",
+    images: [createDefaultSocialImage("Solana Developer Templates")],
+  },
 };
 
 type Props = {

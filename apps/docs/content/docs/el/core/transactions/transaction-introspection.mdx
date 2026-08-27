@@ -1,0 +1,212 @@
+---
+title: Ανάλυση Συναλλαγών
+description:
+  Αποκωδικοποιήστε και επιθεωρήστε μια επιβεβαιωμένη συναλλαγή Solana με το
+  @solana/transaction-introspection - επιλύστε δείκτες λογαριασμών και
+  διευθύνσεις πίνακα αναζήτησης, διατρέξτε εξωτερικές και εσωτερικές οδηγίες
+  (CPI) και αναλύστε τις με προγράμματα-πελάτες.
+url: /docs/core/transactions/transaction-introspection
+type: conceptual
+prerequisites:
+  - /docs/core/transactions/transaction-structure
+  - /docs/core/instructions/instruction-structure
+related:
+  - /docs/core/transactions/versioned-transactions
+  - /docs/rpc/http/gettransaction
+---
+
+<Callout type="info" title="Σύνοψη">
+  Το `@solana/transaction-introspection` μετατρέπει μια απόκριση RPC
+  `getTransaction` σε μια λίστα οδηγιών με πραγματικές διευθύνσεις. Επιλύει
+  δείκτες λογαριασμών (συμπεριλαμβανομένων διευθύνσεων πίνακα αναζήτησης),
+  αποκωδικοποιεί εσωτερικές οδηγίες Cross Program Invocation και διατρέχει το
+  πλήρες δέντρο οδηγιών με τη σειρά που εμφανίζεται στον explorer.
+</Callout>
+
+<Callout type="info">
+  Ψάχνετε για το πώς ένα πρόγραμμα επιθεωρεί παρακείμενες οδηγίες _on-chain_
+  κατά την εκτέλεση; Αυτό είναι το sysvar Οδηγιών - δείτε [Ανάλυση
+  Οδηγιών](/docs/core/instructions/instruction-introspection). Αυτή η σελίδα
+  αφορά την αποκωδικοποίηση μιας συναλλαγής _off-chain_ από μια απόκριση RPC.
+</Callout>
+
+Μια απόκριση [`getTransaction`](/docs/rpc/http/gettransaction) δεν σας παρέχει
+έτοιμη λίστα οδηγιών. Οι λογαριασμοί αποθηκεύονται ως αριθμητικοί δείκτες, οι
+[εκδοχές συναλλαγών](/docs/core/transactions/versioned-transactions) διαχωρίζουν
+τους λογαριασμούς σε στατικά κλειδιά και διευθύνσεις που φορτώνονται από
+[Πίνακες Αναζήτησης Διευθύνσεων](/docs/core/transactions/versioned-transactions),
+και εσωτερικές οδηγίες από Cross Program Invocation (CPIs) φτάνουν ως
+κωδικοποιημένα blob στα μεταδεδομένα της συναλλαγής.
+
+Το `@solana/transaction-introspection` πραγματοποιεί αυτή την επίλυση για εσάς.
+Αποκωδικοποιεί τη συναλλαγή wire, αντιστοιχεί κάθε δείκτη λογαριασμού στο
+`Address` του, κανονικοποιεί τις εσωτερικές οδηγίες και επιστρέφει οδηγίες με
+την ίδια σειρά εξωτερικών-εσωτερικών που εμφανίζει ένας block explorer. Οι
+επιστρεφόμενες οδηγίες συνδέονται απευθείας με τους βοηθούς `parseXInstruction`
+των πελατών που δημιουργήθηκαν από το codama (π.χ., `@solana-program/*`).
+
+```shell title="Terminal"
+npm install @solana/transaction-introspection @solana/kit @solana/instructions @solana-program/token
+```
+
+## Αποκωδικοποίηση της απόκρισης
+
+Ανακτήστε τη συναλλαγή με κωδικοποίηση wire-format και περάστε την απόκριση στο
+`decodeTransactionFromRpcResponse`.
+
+```ts title="Decode a transaction"
+import { createSolanaRpc, signature } from "@solana/kit";
+import { decodeTransactionFromRpcResponse } from "@solana/transaction-introspection";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+
+const txid =
+  "3jUKrQp1UGq5ih6FTDUUt2kkqUfoG2o4kY5T1DoVHK2tXXDLdxJSXzuJGY4JPoRivgbi45U2bc7LZfMa6C4R3szX";
+
+const rpcTx = await rpc
+  .getTransaction(signature(txid), {
+    commitment: "confirmed",
+    encoding: "base64",
+    maxSupportedTransactionVersion: 0
+  })
+  .send();
+if (!rpcTx) throw new Error(`Transaction ${txid} not found`);
+
+const { compiledMessage, loadedAddresses } =
+  decodeTransactionFromRpcResponse(rpcTx);
+```
+
+Τα υπόλοιπα αποσπάσματα επαναχρησιμοποιούν τα `rpcTx`, `compiledMessage` και
+`loadedAddresses` από αυτό το βήμα.
+
+<Callout type="warn">
+  Ανακτήστε με κωδικοποίηση `base64`, `base58` ή `json`. Το
+  `decodeTransactionFromRpcResponse` απορρίπτει αποκρίσεις `jsonParsed` - αυτή η
+  κωδικοποίηση ζητά από τον κόμβο RPC να αναλύσει τις οδηγίες από την πλευρά του
+  διακομιστή, οπότε δεν απομένει τίποτα για αποκωδικοποίηση από τον πελάτη.
+</Callout>
+
+## Διατρέξτε τις εντολές
+
+Το `walkInstructions` επιστρέφει κάθε εντολή - εξωτερική και εσωτερική - ως
+πίνακα με τη σειρά που εμφανίζει ένας εξερευνητής μπλοκ: κάθε εξωτερική εντολή
+ακολουθείται αμέσως από τις εσωτερικές εντολές που παρήγαγαν τα CPI της. Κάθε
+εντολή φέρει ένα πεδίο `trace` που περιγράφει τη θέση της στην ιεραρχία κλήσεων.
+
+```ts title="Walk every instruction"
+import { walkInstructions } from "@solana/transaction-introspection";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  const location =
+    ix.trace.kind === "outer"
+      ? `outer[${ix.trace.index}]`
+      : `inner[${ix.trace.outerIndex}/${ix.trace.innerIndex}]`;
+  console.log(location, ix.programAddress, ix.accounts?.length ?? 0);
+}
+```
+
+Το `trace` είναι μια διακριτή ένωση τύπων: `{ kind: "outer", index }` για μια
+εντολή κορυφαίου επιπέδου, ή
+`{ kind: "inner", outerIndex, innerIndex, stackHeight? }` για μια εντολή CPI
+ενσωματωμένη κάτω από μια εξωτερική.
+
+Το `meta` είναι προαιρετικό - περάστε το `rpcTx.meta` απευθείας ακόμα και όταν
+μπορεί να είναι `null`. Χωρίς μετα, το `walkInstructions` επιστρέφει μόνο τις
+εξωτερικές εντολές.
+
+## Ανάλυση με πρόγραμμα-πελάτη
+
+Κάθε εντολή από το `walkInstructions` είναι `ResolvedInstruction`, επομένως
+λειτουργεί απευθείας με τα κατηγορήματα από το `@solana/instructions` και τα
+βοηθητικά `identifyXInstruction` / `parseXInstruction` που δημιουργούνται από
+τους πελάτες `@solana-program/*` - χωρίς βήμα μετατροπής.
+
+Αυτό το παράδειγμα ελέγχει κάθε εντολή `SyncNative` του Token Program σε μια
+συναλλαγή, είτε εκτελέστηκε στο κορυφαίο επίπεδο είτε μέσα σε ένα CPI.
+
+```ts title="Find and parse SyncNative instructions"
+import {
+  isInstructionForProgram,
+  isInstructionWithAccounts,
+  isInstructionWithData
+} from "@solana/instructions";
+import { walkInstructions } from "@solana/transaction-introspection";
+import {
+  identifyTokenInstruction,
+  parseSyncNativeInstruction,
+  TOKEN_PROGRAM_ADDRESS,
+  TokenInstruction
+} from "@solana-program/token";
+
+for (const ix of walkInstructions({
+  compiledMessage,
+  loadedAddresses,
+  meta: rpcTx.meta
+})) {
+  if (!isInstructionForProgram(ix, TOKEN_PROGRAM_ADDRESS)) continue;
+  if (!isInstructionWithData(ix) || !isInstructionWithAccounts(ix)) continue;
+  if (identifyTokenInstruction(ix) !== TokenInstruction.SyncNative) continue;
+
+  const parsed = parseSyncNativeInstruction(ix);
+  console.log(ix.trace, parsed);
+}
+```
+
+## Βοηθητικά χαμηλότερου επιπέδου
+
+Το `walkInstructions` καλύπτει τις περισσότερες ανάγκες, αλλά το πακέτο εκθέτει
+επίσης τα δομικά στοιχεία που χρησιμοποιεί:
+
+- Το
+  `getInstructionsFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  επιστρέφει μόνο τις εξωτερικές εντολές, με επιλυμένους λογαριασμούς και
+  αποκωδικοποιημένα δεδομένα.
+- Το `getInnerInstructionsFromMeta(meta, accountMetas)` αποκωδικοποιεί τις
+  εσωτερικές εντολές CPI από τα μεταδεδομένα συναλλαγής.
+- Το
+  `getAccountMetasFromCompiledTransactionMessage(compiledMessage, loadedAddresses?)`
+  επιστρέφει την πλήρη λίστα λογαριασμών με τη σειρά συναλλαγής - η είσοδος που
+  χρειάζεται το προηγούμενο βοηθητικό για την επίλυση δεικτών λογαριασμών
+  εσωτερικών εντολών.
+
+```ts title="Resolve outer and inner instructions separately"
+import {
+  getAccountMetasFromCompiledTransactionMessage,
+  getInnerInstructionsFromMeta,
+  getInstructionsFromCompiledTransactionMessage
+} from "@solana/transaction-introspection";
+
+const outer = getInstructionsFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+const accountMetas = getAccountMetasFromCompiledTransactionMessage(
+  compiledMessage,
+  loadedAddresses
+);
+
+if (!rpcTx.meta) throw new Error("Transaction metadata missing");
+const inner = getInnerInstructionsFromMeta(rpcTx.meta, accountMetas);
+```
+
+<Callout type="info" title="Χρησιμοποιείτε Rust?">
+  Δεν υπάρχει ισοδύναμο Rust αυτού του πακέτου. Για να λάβετε αναλυμένες εντολές
+  από τη Rust, ζητήστε `UiTransactionEncoding::JsonParsed` από
+  [`getTransaction`](/docs/rpc/http/gettransaction) και αφήστε τον κόμβο RPC να
+  επιλύσει λογαριασμούς και εσωτερικές εντολές για εσάς.
+</Callout>
+
+## Δείτε επίσης
+
+- [Δομή Συναλλαγής](/docs/core/transactions/transaction-structure) - η ανατομία
+  της απόκρισης που αποκωδικοποιεί αυτό το πακέτο
+- [Εκδοχές Συναλλαγών](/docs/core/transactions/versioned-transactions) - πώς οι
+  Πίνακες Αναζήτησης Διευθύνσεων χωρίζουν τους λογαριασμούς σε στατικές και
+  φορτωμένες ομάδες
+- [`getTransaction`](/docs/rpc/http/gettransaction) - η μέθοδος RPC που
+  επιστρέφει τη συναλλαγή

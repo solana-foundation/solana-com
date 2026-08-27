@@ -44,6 +44,14 @@ module.exports = {
         "nd-highlight-orange": "#F48252",
         "nd-highlight-green": "#55E9AB",
         "nd-highlight-lime": "#CFF15E",
+        // Epoch 1000 campaign palette (ep- prefix, see /epoch1000)
+        "ep-void": "#000000",
+        "ep-panel": "#101010",
+        "ep-edge": "#262626",
+        "ep-ink": "#ffffff",
+        "ep-dim": "#b0b0b0",
+        "ep-dust": "#757575",
+        "ep-ember": "#ffd66b",
         // Solana logo gradient stops (purple → cyan → green)
         "solana-purple": "#9945FF",
         "solana-violet": "#7F5AF6",

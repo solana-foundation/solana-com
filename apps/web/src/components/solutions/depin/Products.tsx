@@ -1,11 +1,9 @@
-import {
-  ExternalLink,
-  Wallet,
-  Smartphone,
-  Sparkles,
-  Fullscreen,
-  Box,
-} from "lucide-react";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
+import { Wallet } from "@boxicons/react/Wallet";
+import { Mobile as Smartphone } from "@boxicons/react/Mobile";
+import { Sparkles } from "@boxicons/react/Sparkles";
+import { Fullscreen } from "@boxicons/react/Fullscreen";
+import { Box } from "@boxicons/react/Box";
 import { useTranslations } from "next-intl";
 
 const products = [
@@ -62,7 +60,7 @@ export const Products = () => {
                 <div
                   className={`flex justify-center items-center w-20 h-20 text-2xl rounded-xl ${color}`}
                 >
-                  <Icon size={20} aria-hidden="true" />
+                  <Icon width={20} height={20} aria-hidden="true" />
                 </div>
               </div>
               <div>
@@ -71,7 +69,11 @@ export const Products = () => {
                     {t(`depin.products.${key}.title`)}
                   </span>
                   {hasLink && (
-                    <ExternalLink size={18} className="ml-1 text-white/60" />
+                    <ExternalLink
+                      width={18}
+                      height={18}
+                      className="ml-1 text-white/60"
+                    />
                   )}
                 </div>
                 <p className="mt-2 text-base text-gray-300">

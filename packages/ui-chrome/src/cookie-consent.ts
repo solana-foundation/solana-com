@@ -1,3 +1,9 @@
+import {
+  safeStorageGetItem,
+  safeStorageRemoveItem,
+  safeStorageSetItem,
+} from "./browser-storage";
+
 export const COOKIE_CONSENT_KEY = "cookie_consent";
 export const COOKIE_CONSENT_EVENT = "solana:cookie-consent-change";
 // ~182.6 days (~6 months); 15778476000 = 6 × 30.436875d in ms
@@ -70,15 +76,19 @@ export const readCookieConsent = ({
 }: {
   key?: string;
   now?: number;
-  storage: Pick<Storage, "getItem" | "removeItem">;
+  storage: Pick<Storage, "getItem" | "removeItem"> | null | undefined;
 }): CookieConsentValue => {
+  if (!storage) {
+    return null;
+  }
+
   let sticky: unknown = null;
 
   try {
-    sticky = JSON.parse(storage.getItem(key) || "null");
+    sticky = JSON.parse(safeStorageGetItem(storage, key) || "null");
   } catch (error) {
     console.error(error);
-    storage.removeItem(key);
+    safeStorageRemoveItem(storage, key);
     return null;
   }
 
@@ -92,7 +102,7 @@ export const readCookieConsent = ({
   }
 
   if (typeof sticky !== "object") {
-    storage.removeItem(key);
+    safeStorageRemoveItem(storage, key);
     return null;
   }
 
@@ -104,12 +114,12 @@ export const readCookieConsent = ({
     typeof stickyStore.timeToExpire !== "number" ||
     Number.isNaN(stickyStore.timeToExpire)
   ) {
-    storage.removeItem(key);
+    safeStorageRemoveItem(storage, key);
     return null;
   }
 
   if (now > stickyStore.timeToExpire) {
-    storage.removeItem(key);
+    safeStorageRemoveItem(storage, key);
     return null;
   }
 
@@ -124,7 +134,7 @@ export const persistCookieConsent = ({
 }: {
   key?: string;
   now?: number;
-  storage: Pick<Storage, "setItem">;
+  storage: Pick<Storage, "setItem"> | null | undefined;
   value: boolean;
 }) => {
   const sticky: CookieConsentStore = {
@@ -132,7 +142,7 @@ export const persistCookieConsent = ({
     timeToExpire: now + COOKIE_CONSENT_TTL_MS,
   };
 
-  storage.setItem(key, JSON.stringify(sticky));
+  safeStorageSetItem(storage, key, JSON.stringify(sticky));
 };
 
 export const applyCookieConsent = ({
@@ -189,13 +199,27 @@ window.dataLayer = window.dataLayer || [];
 window.gtag = window.gtag || function gtag(){window.dataLayer.push(arguments);};
 (function () {
   var consentKey = ${JSON.stringify(COOKIE_CONSENT_KEY)};
-  var rawConsent = localStorage.getItem(consentKey);
+  var storage = null;
+  var rawConsent = null;
   var parsedConsent = null;
+
+  try {
+    storage = window.localStorage;
+    rawConsent = storage.getItem(consentKey);
+  } catch (_) {}
+
+  function removeConsent() {
+    try {
+      if (storage) {
+        storage.removeItem(consentKey);
+      }
+    } catch (_) {}
+  }
 
   try {
     parsedConsent = JSON.parse(rawConsent || 'null');
   } catch (_) {
-    localStorage.removeItem(consentKey);
+    removeConsent();
   }
 
   function normalizeConsentValue(value) {
@@ -225,7 +249,7 @@ window.gtag = window.gtag || function gtag(){window.dataLayer.push(arguments);};
     }
 
     if (!value || typeof value !== 'object') {
-      localStorage.removeItem(consentKey);
+      removeConsent();
       return null;
     }
 
@@ -235,12 +259,12 @@ window.gtag = window.gtag || function gtag(){window.dataLayer.push(arguments);};
       typeof value.timeToExpire !== 'number' ||
       Number.isNaN(value.timeToExpire)
     ) {
-      localStorage.removeItem(consentKey);
+      removeConsent();
       return null;
     }
 
     if (Date.now() > value.timeToExpire) {
-      localStorage.removeItem(consentKey);
+      removeConsent();
       return null;
     }
 

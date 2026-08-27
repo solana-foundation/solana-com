@@ -12,7 +12,7 @@ async function snap(page: Page, name: string) {
 
 /** Bootstrap the Keystatic SPA and wait for sidebar nav to render. */
 async function gotoKeystatic(page: Page) {
-  await page.goto("/keystatic/branch/staging", {
+  await page.goto("/keystatic/branch/main", {
     waitUntil: "domcontentloaded",
   });
   await page.waitForSelector('nav a:has-text("Posts")', { timeout: 30_000 });

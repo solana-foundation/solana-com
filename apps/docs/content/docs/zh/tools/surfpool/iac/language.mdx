@@ -1,0 +1,229 @@
+---
+title: 语言与语法
+description: 使用 txtx DSL 描述由 surfpool 管理的部署。
+---
+
+这是 txtx 语言的文档。您编写的 Runbook 文件描述了要使用哪些区块链和网络、要检索哪些数据以及要广播哪些交易。txtx 语言还允许您定义资源之间的依赖关系，并从单个代码块创建多个类似的构造。
+
+## 语法
+
+Runbook 包含一系列代码块，格式如下所示：
+
+```hcl
+variable "query_path" {
+  description = "An input that can be edited in the web UI!"
+  value = "details"
+  editable = true
+}
+
+action "http_query" "std::send_http_request" {
+  description = "This action will make a GET request to the specified URL!"
+  url = "https://example.com/${variable.my_var.query_path}"
+}
+
+output "status_code" {
+  description = "This output will be displayed in the Outputs section of the web UI!"
+  value = action.http_query.status_code
+}
+```
+
+每个代码块都有一个命令类型（在此示例中为 `variable`、`action` 和
+`output`）、一个引用名称（`"query_path"`、`"http_query"` 和
+`"status_code"`），以及代码块的内部数据（`{ ... }`
+之间的所有内容）。某些命令类型还要求指定一个命令（`"std::send_http_request"`）。代码块的内部数据由所指定的命令类型和命令决定。
+
+### 命令引用
+
+一个命令可以引用另一个命令的输出，从而构建一条依赖命令链。当您执行 Runbook 时，surfpool 会创建所有命令的依赖图，以确保它们始终按正确的顺序执行。这意味着在创建 Runbook 时需要避免循环依赖。
+
+可以在代码块中使用 `command_type.ref_name.output_name`
+来引用另一个命令的输出。以下是一些示例：
+
+```hcl
+variable "my_var" {
+  description = variable.another_var.value // references the `value` output of a `variable` named `another_var`
+  value = action.my_action.data // references the `data` output of an `action` named `my_action`
+}
+```
+
+### 函数
+
+[标准库](/docs/tools/surfpool/iac/std/functions)
+提供了一些可以内联编写的函数，无需编写带有命名参数的完整命令块。这些函数可以通过插件进行扩展。
+
+这些函数可以采用显式函数调用的形式（例如
+`add_uint(1, 3)`），也可以采用内联算术运算的形式（例如
+`1 + 3`）。函数可以引用其他命令的输出，也可以存储在新的命令输出中。以下是一个使用若干函数的示例：
+
+```hcl
+variable "one" {
+  value = 1
+}
+variable "two" {
+  value = 2
+}
+variable "addem_up" {
+  value = variable.one + variable.two
+}
+output "add_some_more" {
+  value = add_uint(variable.addem_up + variable.one, variable.two)
+}
+```
+
+## Manifest 与 CLI 输入
+
+可以通过 CLI 输入或在 `txtx.yml`
+manifest 文件中指定的方式向 Runbook 提供输入。如果同一输入同时在 CLI 和 manifest 中提供，CLI 输入将优先生效。有关如何使用 CLI 的信息，请参阅
+[CLI 文档](/docs/tools/surfpool/toolchain/cli)。在 manifest 中，这些输入可以按环境键分组，便于在多个环境中使用同一 Runbook。
+
+以下是一个包含环境变量的配置示例：
+
+```yaml
+---
+name: protocol-deployment
+runbooks:
+  - name: Deploy Protocol
+    description: This runbook deploys the protocol.
+    location: ./deployment
+environments:
+  development:
+    network_id: localnet
+    rpc_api_url: http://localhost:8899
+  devnet:
+    network_id: devnet
+    rpc_api_url: https://api.devnet.solana.com
+  mainnet:
+    network_id: mainnet
+    rpc_api_url: https://api.mainnet-beta.solana.com
+```
+
+在此 Runbook 加载的任何 `.tx` 文件中，输入 `input.network_id` 和
+`input.rpc_api_url` 将在全局作用域中可用。当 Web
+UI 加载此 Runbook 时，第一个操作项将允许您选择要加载的环境。选择新环境将以注入新环境变量的方式重新加载当前 Runbook 并执行。
+
+### 状态管理
+
+Surfpool 可以跨 Runbook 执行管理状态。在运行合约部署时，状态管理可用于检测合约代码和 Runbook 输入的任何变更，以判断是否需要重新执行 Runbook。如果合约代码或 Runbook 输入没有任何变更，Surfpool 将阻止重新执行 Runbook。
+
+要启用状态管理，请在 `txtx.yml` 中提供 `state` 值以及用于存储状态文件的
+`location`：
+
+```yaml
+runbooks:
+  - name: Deploy Protocol
+    location: ./deployment
+    state:
+      location: states
+```
+
+## 变量
+
+变量可用于存储可供其他构造使用的值，并可由用户在 Web UI 中编辑。如果变量的
+`editable` 字段未指定或设置为 `false`，该变量将以只读值的形式显示在 Web UI 的
+`Variables Review` 部分供用户核验。但如果 `editable` 字段设置为
+`true`，该变量将在 Web UI 中显示为可编辑字段。可选的 `description`
+字段可用于为变量添加额外的上下文信息。以下是一个变量示例：
+
+```hcl
+variable "my_var" {
+  description = "Enter your birthday"
+  value = "MM/DD/YYYY"
+  editable = true
+}
+```
+
+## 插件与默认值
+
+插件块允许您指定 Runbook 将使用哪些插件。在插件块内声明的任何字段，均可被该插件中的所有操作引用。这样，在使用该插件的自定义操作时，您可以省略相应字段。以下示例声明了
+`svm` 插件，并将 `network_id` 和 `rpc_api_url` 字段设为默认值：
+
+```hcl
+addon "svm" {
+  network_id = input.network_id
+  rpc_api_url = input.rpc_api_url
+}
+```
+
+将此默认值添加到 `.tx` 文件后，来自 SVM 插件的所有操作均可省略 `network_id` 和
+`rpc_api_url` 字段。
+
+## 流程
+
+流程允许您多次执行同一个 Runbook，每次执行使用不同的输入。流程块中指定的任何字段，均可通过
+`flow.field_name` 被该流程中的所有操作引用。这可以与 `addon`
+块结合使用，发挥多种灵活用途：
+
+```hcl
+// declare some flows
+flow "solana" {
+  rpc_api_url "https://api.mainnet-beta.solana.com"
+}
+flow "eclipse" {
+  rpc_api_url "https://mainnetbeta-rpc.eclipse.xyz"
+}
+// declare the evm addon with
+addon "svm" {
+  network_id = "mainnet"
+  rpc_api_url = flow.rpc_api_url
+}
+// the rest of the runbook can now use the svm addon without specifying chain_id or rpc_api_url,
+// and will be executed once for each flow
+```
+
+## 签名者
+
+插件可以定义签名者，为使用 surfpool 时的交易签名提供多种方式。这些签名者可通过助记词或私钥对交易签名，可提示用户在 Surfpool
+Web
+UI 中连接其网页钱包并进行签名，可通过安全飞地异步签名交易，还可定义多签钱包等。每种插件签名者实现都有其各自的使用场景和文档说明。
+
+以下是签名者使用示例：
+
+```hcl
+signer "alice" "svm::web_wallet" {
+  expected_address = input.expected_address
+}
+
+action "my_tx" "svm::process_instructions" {
+  ... instruction data
+  signers = [signer.alice]
+}
+```
+
+此示例定义了一个名为 `alice` 的签名者，使用 `svm::web_wallet`
+签名者类型。该签名者定义将在 Web
+UI 中生成提示，引导用户连接钱包、通过消息签名提供 pubkey，并使用此钱包作为签名者对所有交易进行签名。
+
+## 操作
+
+操作是由插件和[标准库](/docs/tools/surfpool/iac/std/actions)定义的多用途构件。每个操作都定义了自己的一组输入参数（部分为可选项，部分为必填项），这些参数可传递给操作，同时也定义了每次调用操作时所执行的逻辑，以及操作所产生的输出结果——这些输出可供后续命令引用。
+
+操作类型的一些示例包括：发起 HTTP 请求并输出结果、将交易数据编码以匹配指定链的编解码格式、使用钱包对交易进行签名并输出已签名的交易字节，或将交易广播至网络。
+
+以下是一个操作示例：
+
+```hcl
+action "deploy_hello_world" "svm::deploy_program" {
+    description = "Deploy the hello_world program"
+    program = svm::get_program_from_anchor_project("hello_world")
+    authority = signer.authority
+    payer = signer.payer
+}
+output "signature" {
+  value = action.deploy_hello_world.signature
+}
+```
+
+## 模块
+
+即将推出。
+
+## 输出
+
+输出命令可用于在运行手册执行结束时显示数据。以下是输出命令的示例：
+
+```hcl
+output "my_output" {
+  description = "An example output. I hope it equals 8."
+  value = 4 + 4
+}
+```

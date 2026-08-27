@@ -63,7 +63,7 @@ export const config = {
       "crypto event",
       "blockchain conference",
     ],
-    socialShare: `${assetBaseUrl}${getImagePath("/images/social-card.webp")}`,
+    socialShare: `${assetBaseUrl}${getImagePath("/images/social-card.jpg")}`,
     author: `@solana`,
   },
   siteUrl,

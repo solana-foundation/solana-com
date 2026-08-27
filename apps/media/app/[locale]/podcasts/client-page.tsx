@@ -3,13 +3,21 @@
 import React, { useMemo } from "react";
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
-import { ArrowUpRight, Calendar, Clock, Play, Radio } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Calendar } from "@boxicons/react/Calendar";
+import { Clock } from "@boxicons/react/Clock";
+import { Play } from "@boxicons/react/Play";
+import { Radio } from "@boxicons/react/Radio";
 import { motion } from "motion/react";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
 import { PodcastCard } from "@/components/podcast/podcast-card";
 import { AnimatedGroup } from "@/components/motion-primitives/animated-group";
-import { formatDuration, formatEpisodeDate } from "@/lib/podcast-utils";
+import {
+  formatDuration,
+  formatEpisodeDate,
+  sortPodcastsByLatestEpisode,
+} from "@/lib/podcast-utils";
 import { usePlayerOptional } from "@/components/podcast/player-context";
 import { trackPodcastPlay } from "@/lib/podcast-analytics";
 import type { PodcastShow } from "@/lib/podcast-types";
@@ -26,11 +34,16 @@ export default function PodcastsClientPage({
 }: PodcastsClientPageProps) {
   const player = usePlayerOptional();
 
+  const podcastsByLatestEpisode = useMemo(
+    () => sortPodcastsByLatestEpisode(podcasts),
+    [podcasts],
+  );
+
   const { internalPodcasts, externalPodcasts } = useMemo(() => {
     const internal: PodcastShow[] = [];
     const external: PodcastShow[] = [];
 
-    for (const podcast of podcasts) {
+    for (const podcast of podcastsByLatestEpisode) {
       if (podcast.tags?.includes(INTERNAL_TAG)) {
         internal.push(podcast);
       } else {
@@ -39,22 +52,18 @@ export default function PodcastsClientPage({
     }
 
     return { internalPodcasts: internal, externalPodcasts: external };
-  }, [podcasts]);
+  }, [podcastsByLatestEpisode]);
 
   // Get latest podcast (one with the most recent episode upload)
   const latestPodcast = useMemo(() => {
-    const podcastsWithEpisodes = podcasts.filter(
+    const podcastsWithEpisodes = podcastsByLatestEpisode.filter(
       (p) => p.latestEpisode?.publishedDate,
     );
 
     if (podcastsWithEpisodes.length === 0) return null;
 
-    return podcastsWithEpisodes.sort((a, b) => {
-      const dateA = new Date(a.latestEpisode!.publishedDate).getTime();
-      const dateB = new Date(b.latestEpisode!.publishedDate).getTime();
-      return dateB - dateA;
-    })[0];
-  }, [podcasts]);
+    return podcastsWithEpisodes[0];
+  }, [podcastsByLatestEpisode]);
 
   const handlePlayLatest = () => {
     if (!player || !latestPodcast?.latestEpisode) return;
@@ -75,6 +84,16 @@ export default function PodcastsClientPage({
     <ErrorBoundary>
       <Section>
         <div className="flex flex-col gap-16">
+          <div className="mx-auto w-full max-w-6xl px-4 pt-8 md:px-6 lg:px-0">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-6xl">
+              Solana Podcasts
+            </h1>
+            <p className="mt-3 max-w-2xl text-base text-muted-foreground md:text-lg">
+              Conversations with builders, founders, researchers, and leaders
+              shaping the Solana ecosystem.
+            </p>
+          </div>
+
           {/* Featured Podcast Hero */}
           {latestPodcast && (
             <motion.div
@@ -92,9 +111,9 @@ export default function PodcastsClientPage({
                     Latest Episode
                   </span>
 
-                  <h1 className="text-3xl font-bold leading-[1.1] md:text-5xl lg:text-6xl text-foreground">
+                  <h2 className="text-3xl font-bold leading-[1.1] md:text-5xl lg:text-6xl text-foreground">
                     {latestPodcast.title}
-                  </h1>
+                  </h2>
 
                   {latestPodcast.descriptionPlainText && (
                     <p className="text-base leading-relaxed text-muted-foreground line-clamp-3 md:text-lg">
@@ -194,17 +213,6 @@ export default function PodcastsClientPage({
 
           {/* Podcasts Listing */}
           <div className="px-4 md:px-6 lg:px-0">
-            {!latestPodcast && (
-              <div className="max-w-6xl mx-auto w-full mb-8">
-                <h1 className="text-4xl font-bold md:text-6xl mb-3 text-foreground">
-                  Podcasts
-                </h1>
-                <p className="text-lg text-muted-foreground">
-                  Explore the Solana podcast network
-                </p>
-              </div>
-            )}
-
             {/* Solana Originals Section */}
             {internalPodcasts.length > 0 && (
               <div className="max-w-6xl mx-auto w-full mb-16">

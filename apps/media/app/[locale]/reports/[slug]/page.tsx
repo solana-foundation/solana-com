@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowDownToLine, ArrowUpRight, ArrowLeft } from "lucide-react";
+import { Link } from "@workspace/i18n/routing";
+import { ArrowToBottom as ArrowDownToLine } from "@boxicons/react/ArrowToBottom";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { notFound } from "next/navigation";
@@ -13,7 +15,9 @@ import { reader } from "@/lib/reader";
 import { reportMetadata } from "@/lib/metadata";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
 import { isPublishedReport } from "@/lib/keystatic/report-status";
-import { SwitchbackItem } from "@/lib/switchback-types";
+import type { ReportEntry } from "@/lib/report-types";
+import { JsonLd } from "@/components/seo/json-ld";
+import { buildReportJsonLd } from "@/lib/content-structured-data";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -23,11 +27,11 @@ export default async function ReportPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { slug } = await params;
-  const report: SwitchbackItem =
-    await reader.collections.switchbacks.read(slug);
+  const { locale, slug } = await params;
+  const report: ReportEntry | null =
+    await reader.collections.reports.read(slug);
 
-  if (!isPublishedReport(report)) {
+  if (!report || !isPublishedReport(report)) {
     notFound();
   }
 
@@ -54,9 +58,34 @@ export default async function ReportPage({
         )
       ).filter((categoryName): categoryName is string => Boolean(categoryName))
     : [];
+  const tags = report.tags
+    ? (
+        await Promise.all(
+          report.tags.map(async (tagRef) => {
+            if (!tagRef?.tag) {
+              return null;
+            }
+
+            const tag = await reader.collections.tags.read(String(tagRef.tag));
+            return tag?.name ? String(tag.name) : null;
+          }),
+        )
+      ).filter((tagName): tagName is string => Boolean(tagName))
+    : [];
+  const structuredData = buildReportJsonLd({
+    slug,
+    locale,
+    title: headline,
+    description: report.description,
+    image: report.image?.src,
+    publishedAt: report.publishedAt,
+    categories,
+    tags,
+  });
 
   return (
     <ErrorBoundary>
+      <JsonLd data={structuredData} />
       <article className="relative min-h-screen bg-black text-white text-left">
         {/* Hero section */}
         <div className="relative mx-auto w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px]">
@@ -148,7 +177,6 @@ export default async function ReportPage({
                       <ArrowDownToLine
                         aria-hidden
                         className="-ml-2 p-1 !size-6 bg-black text-white rounded-full"
-                        strokeWidth={3}
                       />
                       Download Report
                     </a>
@@ -168,7 +196,7 @@ export default async function ReportPage({
                       rel="noopener noreferrer"
                     >
                       {button.label}
-                      <ArrowUpRight className="size-4" />
+                      <ArrowOutUpRightSquare className="size-4" />
                     </a>
                   </Button>
                 ))}
@@ -200,11 +228,11 @@ export default async function ReportPage({
 
 export async function generateStaticParams() {
   try {
-    const slugs = await reader.collections.switchbacks.list();
+    const slugs = await reader.collections.reports.list();
     const publishedSlugs: string[] = [];
 
     for (const slug of slugs) {
-      const report = await reader.collections.switchbacks.read(slug);
+      const report = await reader.collections.reports.read(slug);
       if (isPublishedReport(report)) {
         publishedSlugs.push(slug);
       }
@@ -222,6 +250,6 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
-  return reportMetadata(slug);
+  const { locale, slug } = await params;
+  return reportMetadata(slug, locale);
 }

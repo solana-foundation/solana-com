@@ -1,0 +1,219 @@
+---
+title: Configuratie
+description:
+  Configureer een Surfnet bij het opstarten — externe RPC-fallback,
+  blokverwerkingsmodus, slot-timing, airdrops, feature gates en aangepaste
+  betalers.
+---
+
+`Surfnet::start()` (Rust) en `Surfnet.start()` (JS) starten een offline Surfnet
+op met blokverwerkingsmodus op basis van transacties en een betaler die vooraf
+is gevuld met 10 SOL. Als je iets anders nodig hebt — een mainnet-geforkte
+Surfnet, een langzamere klok, deterministische financiering, een specifiek
+keypair voor de betaler — gebruik dan de builder (Rust) of `startWithConfig`
+(JS).
+
+## Standaardwaarden
+
+Als je `start()` aanroept zonder argumenten, krijg je:
+
+| Instelling     | Waarde                                                          |
+| -------------- | --------------------------------------------------------------- |
+| Modus          | Offline (geen upstream RPC)                                     |
+| Blokverwerking | Transactie (blokken vorderen bij elke tx)                       |
+| slot-tijd      | 1 ms                                                            |
+| Betaler        | Willekeurig keypair gevuld met 10 SOL (10.000.000.000 lamports) |
+| RPC URL        | `http://127.0.0.1:<random>`                                     |
+| WS URL         | `ws://127.0.0.1:<random>`                                       |
+| Feature-config | Standaard mainnet-functieset                                    |
+
+## Aangepaste configuratie
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{BlockProductionMode, Pubkey, Surfnet};
+
+#[tokio::test]
+async fn starts_with_custom_configuration() {
+    let alice = Pubkey::new_unique();
+
+    let surfnet = Surfnet::builder()
+        .remote_rpc_url("https://api.mainnet-beta.solana.com")
+        .block_production_mode(BlockProductionMode::Transaction)
+        .slot_time_ms(10)
+        .airdrop_addresses(vec![alice])
+        .airdrop_sol(5_000_000_000)
+        .skip_blockhash_check(true)
+        .start()
+        .await
+        .unwrap();
+
+    assert_eq!(
+        surfnet.rpc_client().get_balance(&alice).unwrap(),
+        5_000_000_000
+    );
+}
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const alice = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com",
+  blockProductionMode: "transaction",
+  slotTimeMs: 10,
+  airdropAddresses: [alice.publicKey],
+  airdropSol: 5_000_000_000
+});
+
+try {
+  console.log(surfnet.rpcUrl);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## Builder-referentie
+
+De Rust-builder en het JS-configuratieobject bieden dezelfde logische opties
+onder camelCase- / snake_case-naamgeving.
+
+| Optie                | Rust-setter                                  | JS-veld                                   | Type                                          | Standaard         |
+| -------------------- | -------------------------------------------- | ----------------------------------------- | --------------------------------------------- | ----------------- |
+| Offline-modus        | `offline(bool)`                              | `offline?: boolean`                       | `bool`                                        | `true`            |
+| Upstream RPC         | `remote_rpc_url(impl Into<String>)`          | `remoteRpcUrl?: string`                   | URL-string                                    | geen              |
+| Blokverwerking       | `block_production_mode(BlockProductionMode)` | `blockProductionMode?: string`            | enum / `"manual" \| "clock" \| "transaction"` | `Transaction`     |
+| slot-tijd            | `slot_time_ms(u64)`                          | `slotTimeMs?: number`                     | milliseconden                                 | `1`               |
+| Airdrop-adressen     | `airdrop_addresses(Vec<Pubkey>)`             | `airdropAddresses?: string[]`             | lijst van pubkeys                             | leeg              |
+| Airdrop-bedrag       | `airdrop_sol(u64)`                           | `airdropSol?: number`                     | lamports                                      | `10_000_000_000`  |
+| Blokhash overslaan   | `skip_blockhash_check(bool)`                 | n/a                                       | `bool`                                        | `false`           |
+| Aangepaste betaler   | `payer(Keypair)`                             | `payerSecretKey?: Uint8Array \| number[]` | Keypair / bytes                               | gegenereerd       |
+| Feature inschakelen  | `enable_feature(Pubkey)`                     | `enableFeatures?: string[]`               | feature-ID('s)                                | geen              |
+| Feature uitschakelen | `disable_feature(Pubkey)`                    | `disableFeatures?: string[]`              | feature-ID('s)                                | geen              |
+| Alle features        | n/a                                          | `allFeatures?: boolean`                   | `bool`                                        | `false`           |
+| Feature-config       | `feature_config(SvmFeatureConfig)`           | n/a                                       | volledige configuratie                        | standaard mainnet |
+
+### Remote RPC Fallback
+
+Het instellen van `remoteRpcUrl` (of `remote_rpc_url` in Rust) schakelt de
+Surfnet uit de offlinemodus. Accounts die lokaal niet aanwezig zijn, worden op
+aanvraag opgehaald van de upstream RPC, wat de basis is voor mainnet-fork tests.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let surfnet = Surfnet::builder()
+    .remote_rpc_url("https://api.mainnet-beta.solana.com")
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com"
+});
+```
+
+</CodeTabs>
+
+<Callout type="info" title="Gebruik een hoogwaardige upstream RPC">
+  Gebruik een betaald eindpunt (Helius, Triton, QuickNode) voor tests die veel
+  geforkte accounts aanspreken. De publieke `mainnet-beta` heeft strenge
+  snelheidslimieten en zal instabiel worden bij parallelle testbelasting.
+</Callout>
+
+### Blokproductiemodus
+
+| Modus                     | Wanneer blokken vorderen                                                                                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Transaction` (standaard) | Na elke transactie. Het meest geschikt voor tests die direct na verzending controleren.                                                                                 |
+| `Clock`                   | Op een vast interval ingesteld door `slot_time_ms`. Het meest geschikt voor tests die afhankelijk zijn van meerdere slot die verstrijken zonder expliciete transacties. |
+| `Manual`                  | Alleen wanneer een `SimnetCommand::AdvanceClock` wordt verzonden. Het meest geschikt voor tijdgevoelige tests waarbij de test de klok aanstuurt.                        |
+
+### Aangepaste betaler
+
+Standaard is de betaler een nieuw gegenereerd keypair. Geef uw eigen keypair op
+wanneer tests een bekend adres vereisen, bijvoorbeeld om instructies vooraf op
+te bouwen die verwijzen naar de publieke sleutel van de betaler.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Keypair, Signer, Surfnet};
+
+let payer = Keypair::new();
+let surfnet = Surfnet::builder().payer(payer.insecure_clone()).start().await?;
+
+assert_eq!(surfnet.payer().pubkey(), payer.pubkey());
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const kp = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  payerSecretKey: kp.secretKey
+});
+
+console.assert(surfnet.payer === kp.publicKey);
+```
+
+</CodeTabs>
+
+### Feature Gates
+
+Schakel individuele SVM-feature gates in of uit via ID, of activeer alle bekende
+features met `allFeatures: true` (alleen JS — de Rust-builder accepteert
+`feature_config` voor de volledig set).
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let feature_id: Pubkey = "9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"
+    .parse()
+    .unwrap();
+
+let surfnet = Surfnet::builder()
+    .enable_feature(feature_id)
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  enableFeatures: ["9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"],
+  disableFeatures: ["7Vced5VKEjQGc2GnQDfnNYf4ckEbz9b2gMRsZGYP6JeF"]
+});
+```
+
+</CodeTabs>
+
+### Blokhash-controle overslaan
+
+`skip_blockhash_check(true)` (alleen Rust) schakelt blokhashvalidatie uit voor
+alle transacties. Handig voor tests die transacties ruim van tevoren
+ondertekenen of die zich niet bekommeren om vervaldatums.
+
+## Fouten
+
+Een verkeerd geconfigureerde builder mislukt bij `start()`. De Rust SDK
+retourneert `SurfnetError`:
+
+| Variant                  | Wanneer                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| `PortAllocation(String)` | Kon niet binden aan een vrije RPC- of WebSocket-poort.                                            |
+| `Startup(String)`        | De runtime kon niet worden geïnitialiseerd (ongeldige configuratie, ongeldige externe URL, enz.). |
+| `Runtime(String)`        | De runtime is gecrasht tijdens het opstarten voordat deze gereed was.                             |
+| `Aborted(String)`        | Het opstarten werd geannuleerd (bijv. afsluitingssignaal tijdens het opstarten).                  |
+| `Cheatcode(String)`      | Een cheatcode-aanroep binnen de builder is mislukt.                                               |
+
+De JS SDK gooit een `Error` waarvan het bericht dezelfde onderliggende variant
+omhult.

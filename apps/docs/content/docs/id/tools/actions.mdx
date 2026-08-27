@@ -1,0 +1,1178 @@
+---
+title: Actions dan Blinks
+seoTitle: "Actions dan Blinks"
+description:
+  "Solana Actions are APIs that return transactions for users to preview and
+  sign. Blockchain links – or blinks – turn Actions into a shareable,
+  metadata-rich link."
+---
+
+[Solana Actions](#actions) adalah API yang sesuai spesifikasi dan mengembalikan
+transaksi di blockchain Solana untuk dipratinjau, ditandatangani, dan dikirim di berbagai
+konteks, termasuk kode QR, tombol + widget, dan situs web
+di seluruh internet. Actions memudahkan developer untuk mengintegrasikan
+hal-hal yang dapat dilakukan di seluruh ekosistem Solana langsung ke dalam lingkungan Anda,
+memungkinkan Anda melakukan transaksi blockchain tanpa perlu berpindah
+ke aplikasi atau halaman web lain.
+
+[Tautan blockchain](#blinks) – atau blinks – mengubah setiap Solana Action menjadi
+tautan yang dapat dibagikan dan kaya metadata. Blinks memungkinkan klien yang mendukung Action (dompet ekstensi browser,
+bot) untuk menampilkan kemampuan tambahan bagi pengguna. Di sebuah
+situs web, blink dapat langsung memicu pratinjau transaksi di dompet
+tanpa harus membuka aplikasi terdesentralisasi; di Discord, bot dapat memperluas blink
+menjadi sekumpulan tombol interaktif. Ini mendorong kemampuan berinteraksi secara onchain
+ke permukaan web mana pun yang mampu menampilkan URL.
+
+## Mulai
+
+Untuk mulai dengan cepat membuat Solana Actions kustom:
+
+```shell
+npm install @solana/actions
+```
+
+- instal
+  [Solana Actions SDK](https://www.npmjs.com/package/@solana/actions) di
+  aplikasi Anda
+- buat endpoint API untuk [permintaan GET](#get-request) yang mengembalikan
+  metadata tentang Action Anda
+- buat endpoint API yang menerima [permintaan POST](#post-request) dan
+  mengembalikan transaksi yang dapat ditandatangani untuk pengguna
+
+> Lihat tutorial video ini tentang
+> [cara membangun Solana Action](https://www.youtube.com/watch?v=kCht01Ycif0)
+> menggunakan SDK `@solana/actions`.
+>
+> Anda juga dapat menemukan
+> [kode sumber untuk sebuah Action](https://github.com/solana-developers/solana-actions/blob/main/examples/next-js/src/app/api/actions/transfer-sol/route.ts)
+> yang melakukan transfer SOL native di sini dan beberapa contoh Action lainnya di
+> [repositori ini](https://github.com/solana-developers/solana-actions/tree/main/examples).
+
+Saat men-deploy Solana Actions kustom Anda ke produksi:
+
+- pastikan aplikasi Anda memiliki [file actions.json](#actionsjson) yang valid di
+  root domain Anda
+- pastikan aplikasi Anda merespons dengan
+  [header Cross-Origin yang diperlukan](#options-response) di semua endpoint Action,
+  termasuk file `actions.json`
+- uji dan debug blinks/actions Anda menggunakan
+  [Blinks Inspector](https://www.blinks.xyz/inspector)
+
+Jika Anda mencari inspirasi seputar pembuatan Actions dan blinks, lihat
+repositori [Awesome Blinks](https://github.com/solana-developers/awesome-blinks)
+untuk beberapa kreasi komunitas dan bahkan
+[ide untuk yang baru](https://github.com/solana-developers/awesome-blinks/discussions/categories/ideas-for-blinks).
+
+## Actions
+
+Spesifikasi Solana Actions menggunakan sekumpulan API standar untuk mengirimkan
+transaksi yang dapat ditandatangani (dan pada akhirnya pesan yang dapat ditandatangani) dari sebuah aplikasi langsung kepada
+pengguna. Mereka di-host di URL yang dapat diakses publik dan oleh karena itu dapat diakses
+melalui URL mereka oleh klien mana pun untuk berinteraksi.
+
+> Anda dapat menganggap Actions sebagai endpoint API yang akan mengembalikan metadata dan
+> sesuatu untuk ditandatangani pengguna (baik transaksi maupun pesan autentikasi)
+> dengan dompet blockchain mereka.
+
+Actions API terdiri dari pembuatan permintaan `GET` dan `POST` sederhana ke
+endpoint URL sebuah Action dan penanganan respons yang sesuai dengan antarmuka
+Actions.
+
+1. [permintaan GET](#get-request) mengembalikan metadata yang memberikan informasi
+   yang dapat dibaca manusia kepada klien tentang actions apa yang tersedia di URL ini, dan
+   daftar opsional dari actions yang terkait.
+2. [permintaan POST](#post-request) mengembalikan transaksi atau pesan yang dapat ditandatangani
+   yang kemudian diminta oleh klien kepada dompet pengguna untuk ditandatangani dan dieksekusi di
+   blockchain atau layanan offchain lainnya.
+
+### Eksekusi dan Siklus Hidup Action
+
+Dalam praktiknya, berinteraksi dengan Actions sangat mirip dengan berinteraksi dengan
+REST API pada umumnya:
+
+- klien membuat permintaan `GET` awal ke URL Action untuk mengambil
+  metadata tentang Actions yang tersedia
+- endpoint mengembalikan respons yang mencakup metadata tentang endpoint (seperti
+  judul dan ikon aplikasi) serta daftar actions yang tersedia untuk
+  endpoint ini
+- aplikasi klien (seperti dompet mobile, chat bot, atau situs web) menampilkan
+  UI bagi pengguna untuk melakukan salah satu action
+- setelah pengguna memilih sebuah action (dengan mengklik tombol), klien membuat
+  permintaan `POST` ke endpoint untuk mendapatkan transaksi yang perlu
+  ditandatangani pengguna
+- dompet memfasilitasi pengguna menandatangani transaksi dan akhirnya mengirim
+  transaksi ke blockchain untuk konfirmasi
+
+![Eksekusi dan Siklus Hidup Solana Actions](/assets/docs/action-execution-and-lifecycle.png)
+
+Saat menerima transaksi dari URL Actions, klien harus menangani
+pengiriman transaksi ini ke blockchain dan mengelola siklus hidup statusnya.
+
+Actions juga mendukung beberapa tingkat invalidasi sebelum eksekusi. Permintaan `GET` dan
+`POST` dapat mengembalikan beberapa metadata yang menyatakan apakah action tersebut
+dapat dilakukan (seperti dengan field `disabled`).
+
+Misalnya, jika ada endpoint Action yang memfasilitasi pemungutan suara pada proposal
+tata kelola DAO yang jendela pemungutan suaranya telah ditutup, permintaan
+[GET](#get-request) awal dapat mengembalikan pesan kesalahan "Proposal ini tidak
+lagi dalam pemungutan suara" dan tombol "Vote Yes" serta "Vote No" sebagai "disabled".
+
+## Blinks
+
+Blinks (tautan blockchain) adalah aplikasi klien yang menginspeksi Action API
+dan membangun antarmuka pengguna di sekitar interaksi dan eksekusi Actions.
+
+Aplikasi klien yang mendukung blinks cukup mendeteksi URL yang kompatibel dengan Action,
+menguraikannya, dan memungkinkan pengguna berinteraksi dengan mereka dalam antarmuka pengguna yang terstandarisasi.
+
+> Aplikasi klien mana pun yang sepenuhnya menginspeksi Actions API untuk membangun
+> antarmuka yang lengkap adalah sebuah _blink_. Oleh karena itu, tidak semua klien yang
+> menggunakan Actions API adalah blinks.
+
+### Spesifikasi URL Blink
+
+URL blink menggambarkan aplikasi klien yang memungkinkan pengguna menyelesaikan
+siklus hidup penuh [eksekusi sebuah Action](#action-execution-and-lifecycle),
+termasuk penandatanganan dengan dompet mereka.
+
+```text
+https://example.domain/?action=<action_url>
+```
+
+Agar aplikasi klien menjadi sebuah blink:
+
+- URL blink harus mengandung parameter query `action` yang nilainya adalah
+  [URL Action](#url-scheme) yang dikodekan URL. Nilai ini harus
+  [dikodekan URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+  agar tidak bertentangan dengan parameter protokol lainnya.
+
+- Aplikasi klien harus
+  [mendekode URL](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+  parameter query `action` dan menginspeksi tautan Action API yang diberikan (lihat
+  [skema URL Action](#url-scheme)).
+
+- Klien harus merender antarmuka pengguna yang kaya yang memungkinkan pengguna menyelesaikan
+  siklus hidup penuh [eksekusi sebuah Action](#action-execution-and-lifecycle),
+  termasuk penandatanganan dengan dompet mereka.
+
+> Tidak semua aplikasi klien blink (misalnya situs web atau dApps) akan mendukung semua
+> Actions. Developer aplikasi dapat memilih Actions mana yang ingin mereka dukung
+> dalam antarmuka blink mereka.
+
+Contoh berikut menunjukkan URL blink yang valid dengan nilai `action` berupa
+`solana-action:https://actions.alice.com/donate` yang dikodekan URL:
+
+```text
+https://example.domain/?action=solana-action%3Ahttps%3A%2F%2Factions.alice.com%2Fdonate
+```
+
+### Mendeteksi Actions melalui Blinks
+
+Blinks dapat ditautkan ke Actions dengan setidaknya 3 cara:
+
+1. Berbagi URL Action eksplisit:
+   `solana-action:https://actions.alice.com/donate`
+
+   Dalam kasus ini, hanya klien yang didukung yang dapat merender blink. Tidak akan ada
+   pratinjau tautan fallback, atau situs yang dapat dikunjungi di luar
+   klien yang tidak mendukung.
+
+2. Berbagi tautan ke situs web yang terhubung ke Actions API melalui
+   [file `actions.json`](#actionsjson) di root domain situs web.
+
+   Misalnya, `https://alice.com/actions.json` memetakan
+   `https://alice.com/donate`, URL situs web tempat pengguna dapat berdonasi kepada Alice,
+   ke URL API `https://actions.alice.com/donate`, tempat Actions untuk berdonasi
+   kepada Alice di-host.
+
+3. Menyematkan URL Action di URL situs "interstitial" yang memahami cara
+   mengurai Actions.
+
+   ```text
+   https://example.domain/?action=<action_url>
+   ```
+
+Klien yang mendukung blinks harus dapat mengambil salah satu format di atas dan
+merender antarmuka dengan benar untuk memfasilitasi eksekusi action langsung di
+klien.
+
+Untuk klien yang tidak mendukung blinks, harus ada situs web yang mendasarinya
+(menjadikan browser sebagai fallback universal).
+
+Jika pengguna mengetuk di mana saja pada klien yang bukan tombol action atau kolom input teks,
+mereka akan dibawa ke situs yang mendasarinya.
+
+### Pengujian dan Verifikasi Blink
+
+Meskipun Solana Actions dan blinks adalah protokol/spesifikasi tanpa izin,
+aplikasi klien dan dompet tetap diharuskan untuk akhirnya memfasilitasi
+pengguna menandatangani transaksi.
+
+> Gunakan alat [Blinks Inspector](https://www.blinks.xyz/inspector) untuk menginspeksi,
+> men-debug, dan menguji blinks serta actions Anda langsung di browser. Anda dapat melihat
+> payload respons GET dan POST, header respons, dan menguji semua input untuk
+> setiap Actions yang tertaut.
+
+Setiap aplikasi klien atau dompet mungkin memiliki persyaratan berbeda mengenai
+endpoint Action mana yang secara otomatis akan di-unfurl dan ditampilkan
+langsung kepada pengguna mereka di platform media sosial.
+
+Misalnya, beberapa klien mungkin beroperasi dengan pendekatan "daftar izin" yang mungkin
+memerlukan verifikasi sebelum klien mereka men-unfurl sebuah Action untuk pengguna seperti
+Actions Registry milik Dialect (dijelaskan di bawah).
+
+Semua blinks tetap akan dirender dan memungkinkan penandatanganan di situs Interstitial blinks
+[dial.to](https://dial.to) milik Dialect, dengan status registri mereka
+ditampilkan di dalam blink.
+
+### Actions Registry Dialect
+
+Sebagai kebaikan publik bagi ekosistem Solana, [Dialect](https://dialect.to)
+memelihara registri publik — bersama dengan bantuan Solana Foundation dan
+anggota komunitas lainnya — dari tautan blockchain yang telah diverifikasi sebelumnya
+dari sumber yang dikenal. Sejak peluncuran, hanya Actions yang telah didaftarkan di
+registri Dialect yang akan di-unfurl di feed Twitter ketika diposting.
+
+Aplikasi klien dan dompet bebas memilih untuk menggunakan registri publik ini atau
+solusi lain untuk membantu memastikan keamanan pengguna. Jika tidak diverifikasi
+melalui registri Dialect, tautan blockchain tidak akan diproses oleh
+klien blink, dan akan dirender sebagai URL biasa.
+
+Developer dapat mengajukan verifikasi oleh Dialect di sini:
+[dial.to/register](https://dial.to/register)
+
+## Spesifikasi
+
+Spesifikasi Solana Actions terdiri dari bagian-bagian kunci yang merupakan bagian dari
+alur interaksi permintaan/respons:
+
+- [skema URL](#url-scheme) Solana Action yang menyediakan URL Action
+- [respons OPTIONS](#options-response) ke URL Action untuk memenuhi persyaratan CORS
+- [permintaan GET](#get-request) ke URL Action
+- [respons GET](#get-response) dari server
+- [permintaan POST](#post-request) ke URL Action
+- [respons POST](#post-response) dari server
+
+Setiap permintaan ini dibuat oleh _klien Action_ (mis. aplikasi wallet, ekstensi
+browser, dApp, situs web, dll.) untuk mengumpulkan metadata spesifik bagi
+antarmuka pengguna yang kaya dan untuk memfasilitasi input pengguna ke Actions API.
+
+Setiap respons ini disusun oleh sebuah aplikasi (mis. situs web, backend
+server, dll.) dan dikembalikan ke _klien Action_. Pada akhirnya, respons tersebut menyediakan
+transaksi atau pesan yang dapat ditandatangani agar wallet meminta pengguna untuk menyetujui,
+menandatangani, dan mengirimkannya ke blockchain.
+
+> Tipe dan antarmuka yang dideklarasikan di dalam file readme ini sering kali merupakan
+> versi yang disederhanakan dari tipe-tipe tersebut untuk membantu keterbacaan.
+>
+> Untuk keamanan tipe yang lebih baik dan pengalaman developer yang ditingkatkan, paket
+> `@solana/actions-spec` berisi definisi tipe yang lebih kompleks. Anda dapat
+> menemukan
+> [kode sumbernya di sini](https://github.com/solana-developers/solana-actions/blob/main/packages/actions-spec/index.d.ts).
+
+### Skema URL
+
+URL Solana Action menjelaskan permintaan interaktif untuk transaksi atau pesan Solana
+yang dapat ditandatangani menggunakan protokol `solana-action`.
+
+Permintaan ini bersifat interaktif karena parameter dalam URL digunakan oleh klien
+untuk membuat serangkaian permintaan HTTP terstandar guna menyusun transaksi atau pesan
+yang dapat ditandatangani oleh pengguna dengan wallet mereka.
+
+```text
+solana-action:<link>
+```
+
+- Satu field `link` wajib digunakan sebagai pathname. Nilainya harus berupa URL HTTPS absolut
+  yang secara kondisional
+  [di-URL-encode](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent).
+
+- Jika URL berisi parameter kueri, URL tersebut harus di-URL-encode. URL-encoding pada
+  nilai mencegah konflik dengan parameter protokol Actions apa pun, yang dapat
+  ditambahkan melalui spesifikasi protokol.
+
+- Jika URL tidak berisi parameter kueri, URL tersebut sebaiknya tidak di-URL-encode.
+  Ini menghasilkan URL yang lebih pendek dan kode QR yang tidak terlalu padat.
+
+Dalam kedua kasus, klien harus
+[melakukan URL-decode](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+terhadap nilai tersebut. Ini tidak berpengaruh jika nilai tidak di-URL-encode. Jika nilai
+yang telah didekode bukan URL HTTPS absolut, wallet harus menolaknya sebagai **malformed**.
+
+### Respons OPTIONS
+
+Agar Cross-Origin Resource Sharing
+([CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)) dapat digunakan dalam klien Actions
+(termasuk blinks), semua endpoint Action sebaiknya merespons permintaan HTTP
+untuk metode `OPTIONS` dengan header valid yang memungkinkan klien lolos pemeriksaan CORS
+untuk semua permintaan berikutnya dari domain origin yang sama.
+
+Klien Actions dapat melakukan permintaan
+"[preflight](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#preflighted_requests)"
+ke endpoint URL Action untuk memeriksa apakah permintaan GET berikutnya
+ke URL Action akan lolos semua pemeriksaan CORS. Pemeriksaan preflight CORS ini
+dilakukan menggunakan metode HTTP `OPTIONS` dan sebaiknya merespons dengan semua header HTTP
+yang diperlukan, sehingga klien Action (seperti blinks) dapat melakukan semua
+permintaan berikutnya dengan benar dari domain origin mereka.
+
+Minimal, header HTTP yang diperlukan mencakup:
+
+- `Access-Control-Allow-Origin` dengan nilai `*`
+  - ini memastikan semua klien Action dapat lolos pemeriksaan CORS dengan aman agar dapat membuat
+    semua permintaan yang diperlukan
+- `Access-Control-Allow-Methods` dengan nilai `GET,POST,PUT,OPTIONS`
+  - memastikan semua metode permintaan HTTP yang diperlukan didukung untuk Actions
+- `Access-Control-Allow-Headers` dengan nilai minimum
+  `Content-Type, Authorization, Content-Encoding, Accept-Encoding`
+
+Demi kesederhanaan, developer sebaiknya mempertimbangkan untuk mengembalikan respons dan
+header yang sama untuk permintaan `OPTIONS` seperti [respons `GET`](#get-response) mereka.
+
+<Callout type="warn" title="Header Cross-Origin untuk actions.json">
+
+Respons file `actions.json` juga harus mengembalikan header Cross-Origin yang valid untuk
+permintaan `GET` dan `OPTIONS`, khususnya nilai header `Access-Control-Allow-Origin`
+sebesar `*`.
+
+Lihat [actions.json](#actionsjson) di bawah untuk detail selengkapnya.
+
+</Callout>
+
+### Permintaan GET
+
+Klien Action (mis. wallet, ekstensi browser, dll.) sebaiknya membuat permintaan JSON HTTP
+`GET` ke endpoint URL Action.
+
+- Permintaan tidak boleh mengidentifikasi wallet atau pengguna.
+- Klien sebaiknya membuat permintaan dengan
+  [header `Accept-Encoding`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding).
+- Klien sebaiknya menampilkan domain URL saat permintaan sedang dibuat.
+
+### Respons GET
+
+Endpoint URL Action (mis. aplikasi atau backend server) sebaiknya merespons
+dengan respons JSON HTTP `OK` (dengan payload yang valid di body) atau
+error HTTP yang sesuai.
+
+- Klien harus menangani
+  [error klien](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses) HTTP,
+  [error server](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses),
+  dan
+  [respons pengalihan](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
+- Endpoint sebaiknya merespons dengan
+  [header `Content-Encoding`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+  untuk kompresi HTTP.
+- Endpoint sebaiknya merespons dengan
+  [header `Content-Type`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)
+  bernilai `application/json`.
+
+- Klien sebaiknya tidak menyimpan respons dalam cache kecuali sebagaimana diinstruksikan oleh
+  header respons [caching HTTP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching#controlling_caching).
+- Klien sebaiknya menampilkan `title` dan merender gambar `icon` kepada pengguna.
+
+Respons error (yaitu kode status HTTP 4xx dan 5xx) sebaiknya mengembalikan body respons JSON
+yang mengikuti `ActionError` untuk menyajikan pesan error yang membantu kepada
+pengguna. Lihat [Error Action](#action-errors).
+
+#### Body Respons GET
+
+Respons `GET` dengan respons JSON HTTP `OK` sebaiknya menyertakan payload body
+yang mengikuti spesifikasi antarmuka:
+
+```ts title="ActionGetResponse"
+export type ActionType = "action" | "completed";
+
+export type ActionGetResponse = Action<"action">;
+
+export interface Action<T extends ActionType> {
+  /** type of Action to present to the user */
+  type: T;
+  /** image url that represents the source of the action request */
+  icon: string;
+  /** describes the source of the action request */
+  title: string;
+  /** brief summary of the action to be performed */
+  description: string;
+  /** button text rendered to the user */
+  label: string;
+  /** UI state for the button being rendered to the user */
+  disabled?: boolean;
+  links?: {
+    /** list of related Actions a user could perform */
+    actions: LinkedAction[];
+  };
+  /** non-fatal error message to be displayed to the user */
+  error?: ActionError;
+}
+```
+
+- `type` - Tipe tindakan yang diberikan kepada pengguna. Default-nya adalah `action`. `ActionGetResponse`
+  awal wajib memiliki tipe `action`.
+  - `action` - Tindakan standar yang memungkinkan pengguna berinteraksi dengan salah satu
+    `LinkedActions`
+  - `completed` - Digunakan untuk mendeklarasikan status "completed" dalam chaining tindakan.
+
+- `icon` - Nilainya harus berupa URL HTTP atau HTTPS absolut dari gambar ikon. File
+  harus berupa gambar SVG, PNG, atau WebP, atau klien/wallet harus menolaknya
+  sebagai **malformed**.
+
+- `title` - Nilainya harus berupa string UTF-8 yang merepresentasikan sumber
+  permintaan tindakan. Misalnya, ini bisa berupa nama brand, toko,
+  aplikasi, atau orang yang membuat permintaan.
+
+- `description` - Nilainya harus berupa string UTF-8 yang memberikan informasi tentang
+  tindakan. Deskripsi sebaiknya ditampilkan kepada pengguna.
+
+- `label` - Nilainya harus berupa string UTF-8 yang akan dirender pada tombol
+  untuk diklik pengguna. Semua label sebaiknya tidak melebihi frasa 5 kata dan sebaiknya
+  dimulai dengan kata kerja untuk menegaskan tindakan yang Anda ingin pengguna lakukan. Misalnya,
+  "Mint NFT", "Vote Yes", atau "Stake 1 SOL".
+
+- `disabled` - Nilainya harus berupa boolean untuk merepresentasikan status nonaktif dari
+  tombol yang dirender (yang menampilkan string `label`). Jika tidak ada nilai yang diberikan,
+  `disabled` sebaiknya default ke `false` (yaitu aktif secara default). Misalnya,
+  jika endpoint tindakan adalah untuk voting tata kelola yang telah ditutup, setel
+  `disabled=true` dan `label` dapat berupa "Vote Closed".
+
+- `error` - Indikasi error opsional untuk error yang tidak fatal. Jika ada,
+  klien sebaiknya menampilkannya kepada pengguna. Jika disetel, ini seharusnya tidak mencegah klien
+  menafsirkan tindakan atau menampilkannya kepada pengguna (lihat
+  [Error Action](#action-errors)). Misalnya, error dapat digunakan bersama
+  dengan `disabled` untuk menampilkan alasan seperti kendala bisnis, otorisasi,
+  status, atau error dari sumber daya eksternal.
+
+- `links.actions` - Array opsional berisi tindakan terkait untuk endpoint. Pengguna
+  sebaiknya ditampilkan UI untuk setiap tindakan yang tercantum dan diharapkan hanya
+  menjalankan satu. Misalnya, endpoint tindakan voting tata kelola dapat mengembalikan tiga
+  opsi untuk pengguna: "Vote Yes", "Vote No", dan "Abstain from Vote".
+  - Jika tidak ada `links.actions` yang diberikan, klien sebaiknya merender satu tombol
+    menggunakan string `label` root dan membuat permintaan POST ke endpoint URL
+    tindakan yang sama seperti permintaan GET awal.
+
+  - Jika ada `links.actions` yang diberikan, klien sebaiknya hanya merender tombol
+    dan field input berdasarkan item yang tercantum dalam field `links.actions`. Klien
+    sebaiknya tidak merender tombol untuk konten `label` root.
+
+```ts title="LinkedAction"
+export interface LinkedAction {
+  /** Type of action to be performed by user */
+  type: LinkedActionType;
+  /** URL endpoint for an action */
+  href: string;
+  /** button text rendered to the user */
+  label: string;
+  /**
+   * Parameters to accept user input within an action
+   * @see {ActionParameter}
+   * @see {ActionParameterSelectable}
+   */
+  parameters?: Array<TypedActionParameter>;
+}
+```
+
+`ActionParameter` memungkinkan deklarasi input apa yang diminta Action API
+dari pengguna:
+
+```ts title="ActionParameter"
+/**
+ * Parameter to accept user input within an action
+ * note: for ease of reading, this is a simplified type of the actual
+ */
+export interface ActionParameter {
+  /** input field type */
+  type?: ActionParameterType;
+  /** parameter name in url */
+  name: string;
+  /** placeholder text for the user input field */
+  label?: string;
+  /** declare if this field is required (defaults to `false`) */
+  required?: boolean;
+  /** regular expression pattern to validate user input client side */
+  pattern?: string;
+  /** human-readable description of the `type` and/or `pattern`, represents a caption and error, if value doesn't match */
+  patternDescription?: string;
+  /** the minimum value allowed based on the `type` */
+  min?: string | number;
+  /** the maximum value allowed based on the `type` */
+  max?: string | number;
+}
+```
+
+`pattern` sebaiknya berupa string yang setara dengan ekspresi reguler yang valid. Pola
+ekspresi reguler ini sebaiknya digunakan oleh klien blink untuk memvalidasi input pengguna
+sebelum membuat permintaan POST. Jika `pattern` bukan ekspresi reguler yang valid,
+itu sebaiknya diabaikan oleh klien.
+
+`patternDescription` adalah deskripsi yang dapat dibaca manusia tentang permintaan input yang diharapkan
+dari pengguna. Jika `pattern` disediakan, `patternDescription` wajib
+disediakan.
+
+Nilai `min` dan `max` memungkinkan input menetapkan batas bawah dan/atau batas atas
+untuk input yang diminta dari pengguna (yaitu angka min/max dan/atau panjang
+karakter min/max), dan sebaiknya digunakan untuk validasi sisi klien. Untuk `type` input
+`date` atau `datetime-local`, nilai ini sebaiknya berupa string tanggal.
+Untuk `type` input berbasis string lainnya, nilainya sebaiknya berupa angka yang merepresentasikan
+panjang karakter min/max.
+
+Jika nilai input pengguna tidak dianggap valid sesuai `pattern`, pengguna
+sebaiknya menerima pesan error sisi klien yang menunjukkan bahwa field input tidak
+valid dan string `patternDescription` ditampilkan.
+
+Field `type` memungkinkan Action API mendeklarasikan field input pengguna yang lebih spesifik,
+memberikan validasi sisi klien yang lebih baik dan meningkatkan pengalaman
+pengguna. Dalam banyak kasus, tipe ini akan menyerupai
+[elemen input HTML](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input) standar.
+
+`ActionParameterType` dapat disederhanakan menjadi tipe berikut:
+
+```ts title="ActionParameterType"
+/**
+ * Input field type to present to the user
+ * @default `text`
+ */
+export type ActionParameterType =
+  | "text"
+  | "email"
+  | "url"
+  | "number"
+  | "date"
+  | "datetime-local"
+  | "checkbox"
+  | "radio"
+  | "textarea"
+  | "select";
+```
+
+Setiap nilai `type` biasanya sebaiknya menghasilkan field input pengguna yang
+menyerupai elemen `input` HTML standar dengan `type` yang sesuai (yaitu
+`<input type="email" />`) untuk memberikan validasi sisi klien dan pengalaman
+pengguna yang lebih baik:
+
+- `text` - setara dengan elemen
+  [input “text”](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/text)
+  HTML
+- `email` - setara dengan elemen
+  [input “email”](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email)
+  HTML
+- `url` - setara dengan elemen
+  [input “url”](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/url)
+  HTML
+- `number` - setara dengan elemen
+  [input “number”](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/number)
+  HTML
+- `date` - setara dengan elemen
+  [input “date”](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/date)
+  HTML
+- `datetime-local` - setara dengan elemen
+  [input “datetime-local”](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/datetime-local)
+  HTML
+- `checkbox` - setara dengan pengelompokan elemen
+  [input “checkbox”](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/checkbox)
+  HTML standar. Action API sebaiknya mengembalikan `options` seperti dirinci di bawah. Pengguna
+  sebaiknya dapat memilih beberapa opsi checkbox yang disediakan.
+- `radio` - setara dengan pengelompokan elemen
+  [input “radio”](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/radio)
+  HTML standar. Action API sebaiknya mengembalikan `options` seperti dirinci di bawah. Pengguna
+  sebaiknya hanya dapat memilih satu dari opsi radio yang disediakan.
+- Padanan tipe input HTML lainnya yang tidak disebutkan di atas (`hidden`, `button`,
+  `submit`, `file`, dll) tidak didukung saat ini.
+
+Selain elemen yang menyerupai tipe input HTML di atas, elemen input pengguna
+berikut juga didukung:
+
+- `textarea` - padanan dari
+  [elemen textarea](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/textarea) HTML.
+  Memungkinkan pengguna untuk memberikan input multi-baris.
+- `select` - padanan dari
+  [elemen select](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/select) HTML,
+  yang memungkinkan pengguna merasakan pengalaman kolom bergaya "dropdown". Action API
+  harus mengembalikan `options` seperti yang dijelaskan di bawah ini.
+
+Saat `type` diatur sebagai `select`, `checkbox`, atau `radio`, Action API
+harus menyertakan array `options` yang masing-masing memiliki `label` dan `value` minimal.
+Setiap opsi juga dapat memiliki nilai `selected` untuk memberi tahu
+blink-client opsi mana yang harus dipilih secara default bagi pengguna
+(lihat `checkbox` dan `radio` untuk perbedaannya).
+
+`ActionParameterSelectable` ini dapat disederhanakan menjadi definisi tipe
+berikut:
+
+```ts title="ActionParameterSelectable"
+/**
+ * note: for ease of reading, this is a simplified type of the actual
+ */
+interface ActionParameterSelectable extends ActionParameter {
+  options: Array<{
+    /** displayed UI label of this selectable option */
+    label: string;
+    /** value of this selectable option */
+    value: string;
+    /** whether or not this option should be selected by default */
+    selected?: boolean;
+  }>;
+}
+```
+
+Jika tidak ada `type` yang disetel atau nilai yang tidak dikenal/tidak didukung disetel, blink-client harus
+menggunakan nilai default `text` dan merender input teks sederhana.
+
+Action API tetap bertanggung jawab untuk memvalidasi dan membersihkan semua data dari
+parameter input pengguna, menerapkan input pengguna "required" yang diperlukan.
+
+Untuk platform selain berbasis HTML/web (seperti aplikasi mobile native), komponen
+input pengguna native yang setara harus digunakan untuk mencapai pengalaman
+dan validasi sisi klien yang setara dengan tipe input HTML/web yang dijelaskan
+di atas.
+
+#### Contoh Respons GET
+
+Contoh respons berikut menyediakan satu aksi "root" yang diharapkan
+disajikan kepada pengguna sebagai satu tombol dengan label "Claim Access
+Token":
+
+```json
+{
+  "title": "HackerHouse Events",
+  "icon": "<url-to-image>",
+  "description": "Claim your Hackerhouse access token.",
+  "label": "Claim Access Token" // button text
+}
+```
+
+Contoh respons berikut menyediakan 3 tautan aksi terkait yang memungkinkan
+pengguna mengklik salah satu dari 3 tombol untuk memberikan suara pada proposal DAO:
+
+```json
+{
+  "title": "Realms DAO Platform",
+  "icon": "<url-to-image>",
+  "description": "Vote on DAO governance proposals #1234.",
+  "label": "Vote",
+  "links": {
+    "actions": [
+      {
+        "label": "Vote Yes", // button text
+        "href": "/api/proposal/1234/vote?choice=yes"
+      },
+      {
+        "label": "Vote No", // button text
+        "href": "/api/proposal/1234/vote?choice=no"
+      },
+      {
+        "label": "Abstain from Vote", // button text
+        "href": "/api/proposal/1234/vote?choice=abstain"
+      }
+    ]
+  }
+}
+```
+
+#### Contoh Respons GET dengan Parameter
+
+Contoh respons berikut mendemonstrasikan cara menerima input teks dari
+pengguna (melalui `parameters`) dan menyertakan input tersebut dalam permintaan `POST` akhir
+(melalui kolom `href` di dalam `LinkedAction`):
+
+Contoh respons berikut memberikan 3 aksi tertaut kepada pengguna untuk melakukan staking
+SOL: tombol berlabel "Stake 1 SOL", tombol lain berlabel "Stake 5 SOL", dan
+kolom input teks yang memungkinkan pengguna memasukkan nilai "amount" tertentu yang
+akan dikirim ke Action API:
+
+```json
+{
+  "title": "Stake-o-matic",
+  "icon": "<url-to-image>",
+  "description": "Stake SOL to help secure the Solana network.",
+  "label": "Stake SOL", // not displayed since `links.actions` are provided
+  "links": {
+    "actions": [
+      {
+        "label": "Stake 1 SOL", // button text
+        "href": "/api/stake?amount=1"
+        // no `parameters` therefore not a text input field
+      },
+      {
+        "label": "Stake 5 SOL", // button text
+        "href": "/api/stake?amount=5"
+        // no `parameters` therefore not a text input field
+      },
+      {
+        "label": "Stake", // button text
+        "href": "/api/stake?amount={amount}",
+        "parameters": [
+          {
+            "name": "amount", // field name
+            "label": "SOL amount" // text input placeholder
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Contoh respons berikut menyediakan satu kolom input bagi pengguna untuk
+memasukkan `amount` yang dikirim bersama permintaan POST (baik sebagai parameter
+kueri maupun subpath dapat digunakan):
+
+```json
+{
+  "icon": "<url-to-image>",
+  "label": "Donate SOL",
+  "title": "Donate to GoodCause Charity",
+  "description": "Help support this charity by donating SOL.",
+  "links": {
+    "actions": [
+      {
+        "label": "Donate", // button text
+        "href": "/api/donate/{amount}", // or /api/donate?amount={amount}
+        "parameters": [
+          // {amount} input field
+          {
+            "name": "amount", // input field name
+            "label": "SOL amount" // text input placeholder
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Permintaan POST
+
+Klien harus membuat permintaan JSON `POST` HTTP ke URL aksi dengan payload
+body berupa:
+
+```json
+{
+  "account": "<account>"
+}
+```
+
+- `account` - Nilainya harus berupa kunci publik yang dikodekan base58 dari akun yang
+  dapat menandatangani transaksi.
+
+Klien harus membuat permintaan dengan
+[header Accept-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding)
+dan aplikasi dapat merespons dengan
+[header Content-Encoding](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding)
+untuk kompresi HTTP.
+
+Klien harus menampilkan domain dari URL aksi saat permintaan sedang
+dibuat. Jika permintaan `GET` telah dibuat, klien juga harus menampilkan `title`
+dan merender gambar `icon` dari respons GET tersebut.
+
+### Respons POST
+
+Endpoint `POST` dari Action harus merespons dengan respons JSON HTTP `OK`
+(dengan payload valid di body) atau error HTTP yang sesuai.
+
+- Klien harus menangani
+  [error klien](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
+  [error server](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses),
+  dan
+  [respons redirect](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages) HTTP.
+- Endpoint harus merespons dengan
+  [header `Content-Type`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type)
+  bernilai `application/json`.
+
+Respons error (yaitu kode status HTTP 4xx dan 5xx) harus mengembalikan body
+respons JSON mengikuti `ActionError` untuk menampilkan pesan error yang berguna kepada
+pengguna. Lihat [Action Errors](#action-errors).
+
+#### Body Respons POST
+
+Respons `POST` dengan respons JSON HTTP `OK` harus menyertakan payload body
+berupa:
+
+```ts title="ActionPostResponse"
+/**
+ * Response body payload returned from the Action POST Request
+ */
+export interface ActionPostResponse<T extends ActionType = ActionType> {
+  /** base64 encoded serialized transaction */
+  transaction: string;
+  /** describes the nature of the transaction */
+  message?: string;
+  links?: {
+    /**
+     * The next action in a successive chain of actions to be obtained after
+     * the previous was successful.
+     */
+    next: NextActionLink;
+  };
+}
+```
+
+- `transaction` - Nilainya harus berupa
+  [transaksi yang diserialisasi](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize) dan dikodekan base64.
+  Klien harus mendekode base64 transaksi tersebut dan
+  [mendeserialkannya](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#from).
+
+- `message` - Nilainya harus berupa string UTF-8 yang mendeskripsikan sifat
+  transaksi yang disertakan dalam respons. Klien harus menampilkan nilai ini kepada
+  pengguna. Misalnya, ini bisa berupa nama item yang dibeli, diskon yang diterapkan pada pembelian, atau catatan terima kasih.
+
+- `links.next` - Nilai opsional yang digunakan untuk "merangkai" beberapa Action secara
+  berurutan. Setelah `transaction` yang disertakan dikonfirmasi di onchain, klien
+  dapat mengambil dan merender aksi berikutnya. Lihat
+  [Action Chaining](#action-chaining) untuk detail lebih lanjut.
+
+- Klien dan aplikasi harus mengizinkan kolom tambahan dalam body permintaan
+  dan body respons, yang mungkin ditambahkan oleh pembaruan spesifikasi di masa mendatang.
+
+> Aplikasi dapat merespons dengan transaksi yang ditandatangani sebagian atau sepenuhnya.
+> Klien dan wallet harus memvalidasi transaksi sebagai **tidak tepercaya**.
+
+#### Respons POST - Transaksi
+
+Jika
+[`signatures`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#signatures)
+transaksi kosong atau transaksi BELUM ditandatangani sebagian:
+
+- Klien harus mengabaikan
+  [`feePayer`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  dalam transaksi dan menetapkan `feePayer` ke `account` dalam permintaan.
+- Klien harus mengabaikan
+  [`recentBlockhash`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  dalam transaksi dan menetapkan `recentBlockhash` ke
+  [blockhash terbaru](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Connection.html#getLatestBlockhash).
+- Klien harus menserialisasi dan mendeserialkan transaksi sebelum menandatanganinya.
+  Ini memastikan urutan kunci akun yang konsisten, sebagai solusi untuk
+  [masalah ini](https://github.com/solana-labs/solana/issues/21722).
+
+Jika transaksi telah ditandatangani sebagian:
+
+- Klien TIDAK boleh mengubah
+  [`feePayer`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#feePayer)
+  atau
+  [`recentBlockhash`](https://solana-labs.github.io/solana-web3.js/v1.x/classes/Transaction.html#recentBlockhash)
+  karena hal ini akan membatalkan tanda tangan yang sudah ada.
+- Klien harus memverifikasi tanda tangan yang ada, dan jika ada yang tidak valid, klien
+  harus menolak transaksi tersebut sebagai **malformed**.
+
+Klien hanya boleh menandatangani transaksi dengan `account` dalam permintaan, dan
+hanya boleh melakukannya jika tanda tangan untuk `account` dalam permintaan memang diharapkan.
+
+Jika ada tanda tangan selain tanda tangan untuk `account` dalam permintaan yang
+diharapkan, klien harus menolak transaksi tersebut sebagai **berbahaya**.
+
+### Action Errors
+
+Actions API harus mengembalikan error menggunakan `ActionError` untuk menampilkan
+pesan error yang berguna kepada pengguna. Bergantung pada konteksnya, error ini bisa
+bersifat fatal atau tidak fatal.
+
+```ts title="ActionError"
+export interface ActionError {
+  /** simple error message to be displayed to the user */
+  message: string;
+}
+```
+
+Ketika Actions API merespons dengan kode status error HTTP (yaitu 4xx dan 5xx),
+body respons harus berupa payload JSON mengikuti `ActionError`. Error tersebut
+dianggap fatal dan `message` yang disertakan harus ditampilkan kepada pengguna.
+
+Untuk respons API yang mendukung atribut `error` opsional (seperti
+[`ActionGetResponse`](#get-response)), error dianggap tidak fatal dan
+`message` yang disertakan harus ditampilkan kepada pengguna.
+
+## Action Chaining
+
+Solana Actions dapat "dirantai" bersama dalam serangkaian aksi berurutan. Setelah
+transaksi suatu Action dikonfirmasi di onchain, aksi berikutnya dapat diperoleh dan
+disajikan kepada pengguna.
+
+Action chaining memungkinkan developer untuk membangun pengalaman yang lebih kompleks dan dinamis
+dalam blinks, termasuk:
+
+- menyediakan beberapa transaksi (dan pada akhirnya pesan tanda tangan) kepada pengguna
+- metadata aksi yang disesuaikan berdasarkan alamat wallet pengguna
+- memperbarui metadata blink setelah transaksi berhasil
+- menerima callback API dengan tanda tangan transaksi untuk validasi
+  dan logika tambahan di server Action API
+- pesan "sukses" yang disesuaikan dengan memperbarui metadata yang ditampilkan (misalnya gambar
+  dan deskripsi baru)
+
+Untuk merangkai beberapa aksi bersama, dalam setiap `ActionPostResponse` sertakan
+`links.next` berupa salah satu dari:
+
+- `PostNextActionLink` - Tautan permintaan POST dengan URL callback same origin untuk
+  menerima `signature` dan `account` pengguna di body. URL callback ini
+  harus merespons dengan `NextAction`.
+- `InlineNextActionLink` - Metadata inline untuk aksi berikutnya yang akan disajikan
+  kepada pengguna segera setelah transaksi dikonfirmasi. Tidak ada callback yang akan
+  dibuat.
+
+```ts
+export type NextActionLink = PostNextActionLink | InlineNextActionLink;
+
+/** @see {NextActionPostRequest} */
+export interface PostNextActionLink {
+  /** Indicates the type of the link. */
+  type: "post";
+  /** Relative or same origin URL to which the POST request should be made. */
+  href: string;
+}
+
+/**
+ * Represents an inline next action embedded within the current context.
+ */
+export interface InlineNextActionLink {
+  /** Indicates the type of the link. */
+  type: "inline";
+  /** The next action to be performed */
+  action: NextAction;
+}
+```
+
+### NextAction
+
+Setelah `transaction` yang disertakan dalam `ActionPostResponse` ditandatangani oleh pengguna dan
+dikonfirmasi di onchain, blink client harus:
+
+- menjalankan permintaan callback untuk mengambil dan menampilkan `NextAction`, atau
+- jika `NextAction` sudah disediakan melalui `links.next`, blink client
+  harus memperbarui metadata yang ditampilkan dan tidak membuat permintaan callback
+
+Jika URL callback bukan berasal dari origin yang sama dengan permintaan POST awal, tidak ada
+permintaan callback yang harus dibuat. Blink client harus menampilkan error yang memberitahu
+pengguna.
+
+```ts title="NextAction"
+/** The next action to be performed */
+export type NextAction = Action<"action"> | CompletedAction;
+
+/** The completed action, used to declare the "completed" state within action chaining. */
+export type CompletedAction = Omit<Action<"completed">, "links">;
+```
+
+Berdasarkan `type`, aksi berikutnya harus disajikan kepada pengguna melalui blink
+client dengan salah satu cara berikut:
+
+- `action` - (default) Aksi standar yang memungkinkan pengguna melihat
+  metadata Action yang disertakan, berinteraksi dengan `LinkedActions` yang disediakan, dan
+  melanjutkan untuk merangkai aksi-aksi berikutnya.
+
+- `completed` - Status terminal dari rantai aksi yang dapat memperbarui
+  UI blink dengan metadata Action yang disertakan, tetapi tidak akan mengizinkan pengguna untuk menjalankan
+  aksi lebih lanjut.
+
+Jika `links.next` tidak disediakan, blink client harus menganggap aksi saat ini
+sebagai aksi terakhir dalam rantai, menampilkan status UI "completed" setelah
+transaksi dikonfirmasi.
+
+## actions.json
+
+Tujuan dari [file `actions.json`](#actionsjson) adalah memungkinkan aplikasi untuk
+menginstruksikan klien tentang URL website mana yang mendukung Solana Actions dan menyediakan
+pemetaan yang dapat digunakan untuk melakukan [permintaan GET](#get-request) ke server
+Actions API.
+
+<Callout type="warn" title="Header Cross-Origin diperlukan">
+
+Respons file `actions.json` juga harus mengembalikan header Cross-Origin yang valid untuk
+permintaan `GET` dan `OPTIONS`, khususnya nilai header `Access-Control-Allow-Origin`
+bernilai `*`.
+
+Lihat [respons OPTIONS](#options-response) di atas untuk detail lebih lanjut.
+
+</Callout>
+
+File `actions.json` harus disimpan dan dapat diakses secara universal di root
+domain.
+
+Misalnya, jika aplikasi web Anda digunakan di `my-site.com` maka file
+`actions.json` harus dapat diakses di `https://my-site.com/actions.json`.
+File ini juga harus dapat diakses lintas origin melalui browser mana pun dengan memiliki
+nilai header `Access-Control-Allow-Origin` berupa `*`.
+
+### Rules
+
+Kolom `rules` memungkinkan aplikasi untuk memetakan sekumpulan jalur rute relatif
+dari sebuah website ke sekumpulan jalur lainnya.
+
+**Tipe:** `Array` dari `ActionRuleObject`.
+
+```ts title="ActionRuleObject"
+interface ActionRuleObject {
+  /** relative (preferred) or absolute path to perform the rule mapping from */
+  pathPattern: string;
+  /** relative (preferred) or absolute path that supports Action requests */
+  apiPath: string;
+}
+```
+
+- [`pathPattern`](#rules---pathpattern) - Pola yang cocok dengan setiap pathname yang masuk.
+
+- [`apiPath`](#rules---apipath) - Tujuan lokasi yang didefinisikan sebagai pathname absolut atau URL eksternal.
+
+#### Aturan - pathPattern
+
+Pola yang cocok dengan setiap pathname yang masuk. Dapat berupa path absolut atau relatif dan mendukung format berikut:
+
+- **Pencocokan Tepat**: Mencocokkan path URL secara tepat.
+  - Contoh: `/exact-path`
+  - Contoh: `https://website.com/exact-path`
+
+- **Pencocokan Wildcard**: Menggunakan wildcard untuk mencocokkan urutan karakter apa pun dalam path URL. Ini dapat mencocokkan segmen tunggal (menggunakan `*`) atau beberapa segmen (menggunakan `**`). (lihat [Pencocokan Path](#rules---path-matching) di bawah).
+  - Contoh: `/trade/*` akan mencocokkan `/trade/123` dan `/trade/abc`, hanya menangkap segmen pertama setelah `/trade/`.
+  - Contoh: `/category/*/item/**` akan mencocokkan `/category/123/item/456` dan `/category/abc/item/def`.
+  - Contoh: `/api/actions/trade/*/confirm` akan mencocokkan `/api/actions/trade/123/confirm`.
+
+#### Aturan - apiPath
+
+Path tujuan untuk permintaan aksi. Dapat didefinisikan sebagai pathname absolut atau URL eksternal.
+
+- Contoh: `/api/exact-path`
+- Contoh: `https://api.example.com/v1/donate/*`
+- Contoh: `/api/category/*/item/*`
+- Contoh: `/api/swap/**`
+
+#### Aturan - Parameter Query
+
+Parameter query dari URL asli selalu dipertahankan dan ditambahkan ke URL yang dipetakan.
+
+#### Aturan - Pencocokan Path
+
+Tabel berikut menguraikan sintaks untuk pola pencocokan path:
+
+| Operator | Mencocokkan                                                                                                                                                                                  |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `*`      | Segmen path tunggal, tidak termasuk karakter pemisah path / di sekitarnya.                                                                                                        |
+| `**`     | Mencocokkan nol atau lebih karakter, termasuk karakter pemisah path / di antara beberapa segmen path. Jika operator lain disertakan, operator `**` harus menjadi operator terakhir. |
+| `?`      | Pola yang tidak didukung.                                                                                                                                                                     |
+
+### Contoh Aturan
+
+Contoh berikut menunjukkan aturan pencocokan tepat untuk memetakan permintaan ke `/buy` dari root situs Anda ke path tepat `/api/buy` relatif terhadap root situs Anda:
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/buy",
+      "apiPath": "/api/buy"
+    }
+  ]
+}
+```
+
+Contoh berikut menggunakan pencocokan path wildcard untuk memetakan permintaan ke path apa pun (tidak termasuk subdirektori) di bawah `/actions/` dari root situs Anda ke path yang sesuai di bawah `/api/actions/` relatif terhadap root situs Anda:
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/actions/*",
+      "apiPath": "/api/actions/*"
+    }
+  ]
+}
+```
+
+Contoh berikut menggunakan pencocokan path wildcard untuk memetakan permintaan ke path apa pun (tidak termasuk subdirektori) di bawah `/donate/` dari root situs Anda ke path absolut yang sesuai `https://api.dialect.com/api/v1/donate/` pada situs eksternal:
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/donate/*",
+      "apiPath": "https://api.dialect.com/api/v1/donate/*"
+    }
+  ]
+}
+```
+
+Contoh berikut menggunakan pencocokan path wildcard untuk aturan idempoten guna memetakan permintaan ke path apa pun (termasuk subdirektori) di bawah `/api/actions/` dari root situs Anda ke dirinya sendiri:
+
+> Aturan idempoten memungkinkan klien blink untuk lebih mudah menentukan apakah suatu path
+> mendukung permintaan Action API tanpa harus diawali dengan
+> URI `solana-action:` atau melakukan pengujian respons tambahan.
+
+```json title="actions.json"
+{
+  "rules": [
+    {
+      "pathPattern": "/api/actions/**",
+      "apiPath": "/api/actions/**"
+    }
+  ]
+}
+```
+
+## Identitas Aksi
+
+Endpoint aksi dapat menyertakan _Identitas Aksi_ dalam transaksi yang dikembalikan dalam [respons POST](#post-response) mereka untuk ditandatangani oleh pengguna. Hal ini memungkinkan pengindeks dan platform analitik untuk dengan mudah dan dapat diverifikasi menghubungkan aktivitas onchain ke Penyedia Aksi tertentu (yaitu layanan) secara terverifikasi.
+
+[Identitas Aksi](#action-identity) adalah keypair yang digunakan untuk menandatangani pesan berformat khusus yang disertakan dalam transaksi menggunakan instruksi Memo. _Pesan Pengidentifikasi_ ini dapat diverifikasi atribusinya ke Identitas Aksi tertentu, dan karenanya menghubungkan transaksi ke Penyedia Aksi tertentu.
+
+keypair tidak diwajibkan untuk menandatangani transaksi itu sendiri. Ini memungkinkan dompet dan aplikasi untuk meningkatkan kemampuan pengiriman transaksi ketika tidak ada tanda tangan lain pada transaksi yang dikembalikan kepada pengguna (lihat
+[transaksi respons POST](#post-response---transaction)).
+
+Jika kasus penggunaan Penyedia Aksi mengharuskan layanan backend mereka untuk menandatangani transaksi terlebih dahulu sebelum pengguna melakukannya, mereka harus menggunakan keypair ini sebagai Identitas Aksi mereka. Ini akan memungkinkan satu akun lebih sedikit yang disertakan dalam transaksi, mengurangi total ukuran transaksi sebesar 32 byte.
+
+### Pesan Pengidentifikasi Aksi
+
+Pesan Pengidentifikasi Aksi adalah string UTF-8 yang dipisahkan oleh titik dua yang disertakan dalam transaksi menggunakan instruksi [SPL Memo](https://spl.solana.com/memo) tunggal.
+
+```shell
+protocol:identity:reference:signature
+```
+
+- `protocol` - Nilai protokol yang digunakan (diatur ke `solana-action` sesuai
+  [Skema URL](#url-scheme) di atas)
+- `identity` - Nilainya harus berupa alamat kunci publik yang dikodekan base58 dari
+  keypair Identitas Aksi
+- `reference` - Nilainya harus berupa array 32-byte yang dikodekan base58. Ini mungkin atau mungkin tidak berupa kunci publik, pada atau di luar kurva, dan mungkin atau mungkin tidak berhubungan dengan akun di Solana.
+- `signature` - tanda tangan yang dikodekan base58 yang dibuat dari keypair Identitas Aksi yang hanya menandatangani nilai `reference`.
+
+Nilai `reference` harus digunakan hanya sekali dan dalam satu transaksi. Untuk tujuan mengasosiasikan transaksi dengan Penyedia Aksi, hanya penggunaan pertama dari nilai `reference` yang dianggap valid.
+
+Transaksi dapat memiliki beberapa instruksi Memo. Saat melakukan
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress), hasil
+bidang `memo` akan mengembalikan setiap pesan instruksi memo sebagai satu string dengan
+masing-masing dipisahkan oleh titik koma.
+
+Tidak ada data lain yang boleh disertakan dengan instruksi Memo dari Pesan Pengidentifikasi.
+
+`identity` dan `reference` harus disertakan sebagai
+[kunci](https://solana-labs.github.io/solana-web3.js/v1.x/classes/TransactionInstruction.html#keys) baca-saja, non-penandatangan
+dalam transaksi pada instruksi yang BUKAN instruksi Memo Pesan Pengidentifikasi.
+
+Instruksi Memo Pesan Pengidentifikasi harus memiliki nol akun yang disediakan. Jika ada akun yang disediakan, program Memo mengharuskan akun-akun tersebut menjadi penandatangan yang valid. Untuk tujuan mengidentifikasi aksi, hal ini membatasi fleksibilitas dan dapat menurunkan pengalaman pengguna. Oleh karena itu, hal ini dianggap sebagai anti-pola dan harus dihindari.
+
+### Verifikasi Identitas Aksi
+
+Setiap transaksi yang menyertakan akun `identity` dapat diverifikasi asosiasinya dengan Penyedia Aksi dalam proses multi-langkah:
+
+1. Dapatkan semua transaksi untuk `identity` yang diberikan.
+2. Urai dan verifikasi string memo setiap transaksi, pastikan `signature` valid untuk `reference` yang tersimpan.
+3. Verifikasi bahwa transaksi tertentu adalah kemunculan pertama onchain dari
+   `reference` secara onchain:
+   - Jika transaksi ini adalah kemunculan pertama, transaksi dianggap
+     terverifikasi dan dapat dengan aman diatribusikan ke Penyedia Aksi.
+   - Jika transaksi ini BUKAN kemunculan pertama, transaksi dianggap tidak valid
+     dan karenanya tidak diatribusikan ke Penyedia Aksi.
+
+Karena validator Solana mengindeks transaksi berdasarkan kunci akun, metode RPC
+[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)
+dapat digunakan untuk menemukan semua transaksi yang menyertakan akun `identity`.
+
+Respons metode RPC ini menyertakan semua data Memo dalam bidang `memo`. Jika
+beberapa instruksi Memo digunakan dalam transaksi, setiap pesan memo akan
+disertakan dalam bidang `memo` ini dan harus diurai dengan tepat oleh verifikator
+untuk mendapatkan _Pesan Verifikasi Identitas_.
+
+Transaksi-transaksi ini awalnya harus dianggap **BELUM TERVERIFIKASI**. Hal ini disebabkan oleh
+`identity` yang tidak diwajibkan untuk menandatangani transaksi, yang memungkinkan transaksi apa pun menyertakan akun ini sebagai non-penandatangan. Berpotensi menggembungkan atribusi dan jumlah penggunaan secara artifisial.
+
+Pesan Verifikasi Identitas harus diperiksa untuk memastikan `signature`
+dibuat oleh `identity` yang menandatangani `reference`. Jika verifikasi tanda tangan
+ini gagal, transaksi tidak valid dan harus diatribusikan ke Penyedia Aksi.
+
+Jika verifikasi tanda tangan berhasil, verifikator harus memastikan bahwa
+transaksi ini adalah kemunculan pertama onchain dari `reference`. Jika bukan,
+transaksi dianggap tidak valid.

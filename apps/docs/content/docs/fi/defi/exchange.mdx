@@ -1,0 +1,1748 @@
+---
+title: Lisää Solana pörssiin
+description:
+  Learn how to integrate Solana into your exchange with this guide covering node
+  setup and implementation details for deposits and withdrawals.
+---
+
+Tämä opas kuvaa, miten Solanan natiivi token SOL lisätään kryptovaluuttapörssiisi.
+
+## Solmun asennus
+
+Suosittelemme vahvasti vähintään kahden solmun asentamista tehokkaille tietokoneille tai pilvi-instansseille, uudempiin versioihin päivittämistä viipymättä sekä palvelutoimintojen seuraamista mukana tulevalla valvontatyökalulla.
+
+Tämä kokoonpano mahdollistaa sinulle:
+
+- oman yhdyskäytävän Solana-pääverkon klusteriin tietojen hakemista ja nostojen lähettämistä varten
+- täyden hallinnan säilytettävän historiallisen lohkodatan määrästä
+- palvelusi saatavuuden ylläpitämisen, vaikka yksi solmu vikaantuisi
+
+Solana-solmut vaativat suhteellisen paljon laskentatehoa nopeiden lohkojemme ja korkean TPS:n käsittelyyn. Tarkat vaatimukset löydät [laitteistosuosituksista](https://docs.anza.xyz/operations/requirements).
+
+API-solmun käynnistäminen:
+
+1. [Asenna Solana-komentorivityökalujen paketti](/docs/intro/installation)
+2. Käynnistä validator vähintään seuraavilla parametreilla:
+
+```shell
+solana-validator \
+  --ledger <LEDGER_PATH> \
+  --identity <VALIDATOR_IDENTITY_KEYPAIR> \
+  --entrypoint <CLUSTER_ENTRYPOINT> \
+  --expected-genesis-hash <EXPECTED_GENESIS_HASH> \
+  --rpc-port 8899 \
+  --no-voting \
+  --enable-rpc-transaction-history \
+  --limit-ledger-size \
+  --known-validator <VALIDATOR_ADDRESS> \
+  --only-known-rpc
+```
+
+Mukauta `--ledger` haluamaasi ledger-tallennussijaintiin ja `--rpc-port` haluamaasi porttiin.
+
+Parametrit `--entrypoint` ja `--expected-genesis-hash` ovat klusterikohtaisia, johon olet liittymässä.
+[Mainnetin nykyiset parametrit](https://docs.anza.xyz/clusters/available#example-solana-validator-command-line-2)
+
+Parametri `--limit-ledger-size` mahdollistaa solmun levyllä säilyttämien ledger-[shredien](/docs/references/terminology#shred) määrän määrittämisen. Jos tätä parametria ei ole mukana, validator säilyttää koko ledgerin, kunnes levytila loppuu. Oletusarvo pyrkii pitämään ledgerin levynkäytön alle 500 Gt:ssä. Enemmän tai vähemmän levytilaa voidaan pyytää lisäämällä argumentti `--limit-ledger-size`-parametrille haluttaessa. Tarkista `solana-validator --help` saadaksesi `--limit-ledger-size`-parametrin käyttämän oletusrajan. Lisätietoja mukautetun raja-arvon valitsemisesta on [saatavilla täällä](https://github.com/solana-labs/solana/blob/583cec922b6107e0f85c7e14cb5e642bc7dfb340/core/src/ledger_cleanup_service.rs#L15-L26).
+
+Yhden tai useamman `--known-validator`-parametrin määrittäminen voi suojata sinua käynnistymiseltä haitallisesta tilannevedoksesta.
+[Lisää tietoa tunnettujen validaattorien kanssa käynnistämisen hyödyistä](https://docs.anza.xyz/operations/guides/validator-start#known-validators)
+
+Harkittavia valinnaisia parametreja:
+
+- `--private-rpc` estää RPC-porttisi julkaisemisen muiden solmujen käyttöön
+- `--rpc-bind-address` mahdollistaa eri IP-osoitteen määrittämisen RPC-portin sitomiseen
+
+### Automaattinen uudelleenkäynnistys ja valvonta
+
+Suosittelemme konfiguroimaan jokaisen solmusi käynnistymään automaattisesti uudelleen poistumisen jälkeen, jotta menetät mahdollisimman vähän dataa. Solana-ohjelmiston ajaminen systemd-palveluna on yksi erinomainen vaihtoehto.
+
+Valvontaa varten tarjoamme [`solana-watchtower`](https://github.com/solana-labs/solana/blob/master/watchtower/README.md)-työkalun, joka voi valvoa validaattoriasi ja havaita, onko `solana-validator`-prosessi epäterveessä tilassa. Sen voi konfiguroida suoraan lähettämään hälytyksiä Slackin, Telegramin, Discordin tai Twilion kautta. Lisätietoja saat ajamalla `solana-watchtower --help`.
+
+```shell
+solana-watchtower --validator-identity <YOUR VALIDATOR IDENTITY>
+```
+
+> Lisätietoja löydät
+> [Solana Watchtowerin parhaista käytännöistä](https://docs.anza.xyz/operations/best-practices/monitoring#solana-watchtower)
+> täältä dokumentaatiosta.
+
+#### Uuden ohjelmistojulkaisun ilmoitukset
+
+Julkaisemme uutta ohjelmistoa usein (noin 1 julkaisu/viikko). Joskus uudemmat versiot sisältävät yhteensopimattomia protokollamuutoksia, jotka edellyttävät ohjelmiston oikea-aikaista päivittämistä virheiden välttämiseksi lohkoja käsiteltäessä.
+
+Viralliset julkaisuilmoituksemme kaikenlaisista julkaisuista (normaalit ja tietoturva) välitetään [discord](/discord)-kanavan kautta nimeltä `#mb-announcement` (`mb` tarkoittaa `mainnet-beta`).
+
+Kuten steikattujen validaattorien kohdalla, odotamme pörssien ylläpitämien validaattorien päivittämistä mahdollisimman pian, yhden tai kahden arkipäivän kuluessa normaalin julkaisuilmoituksen jälkeen. Tietoturvajulkaisuissa saatetaan tarvita nopeampaa toimintaa.
+
+### Ledgerin jatkuvuus
+
+Oletusarvoisesti jokainen solmusi käynnistyy tilannevedoksesta, jonka tarjoaa yksi tunnetuista validaattoreistasi. Tämä tilannevedos heijastaa ketjun nykyistä tilaa, mutta ei sisällä täydellistä historiallista ledgeriä. Jos jokin solmuistasi poistuu ja käynnistyy uudesta tilannevedoksesta, kyseiseen solmuun saattaa tulla aukko ledgerissä. Tämän ongelman estämiseksi lisää `--no-snapshot-fetch`-parametri `solana-validator`-komentoosi vastaanottaaksesi historiallista ledger-dataa tilannevedoksen sijaan.
+
+Älä käytä `--no-snapshot-fetch`-parametria ensimmäisessä käynnistyksessä, koska solmua ei voi käynnistää genesis-lohkosta asti. Käynnistä ensin tilannevedoksesta ja lisää sitten `--no-snapshot-fetch`-parametri uudelleenkäynnistyksiä varten.
+
+On tärkeää huomata, että verkon muista solmuista saatavilla olevan historiallisen ledger-datan määrä on rajoitettu millä tahansa hetkellä. Jos validaattorit kokevat merkittävää käyttökatkoa, ne eivät ehkä pysty saavuttamaan verkkoa ja joutuvat lataamaan uuden tilannevedoksen tunnetulta validaattorilta. Tällöin validaattoreillesi tulee aukko historialliseen ledger-dataan, jota ei voida täyttää.
+
+### Validator-porttien altistumisen minimointi
+
+Validator edellyttää, että erilaiset UDP- ja TCP-portit ovat auki saapuvalle liikenteelle kaikilta muilta Solana-validaattoreilta. Vaikka tämä on tehokkain toimintatapa ja sitä suositellaan vahvasti, on mahdollista rajoittaa validator vaatimaan saapuvaa liikennettä vain yhdeltä muulta Solana-validaattorilta.
+
+Lisää ensin `--restricted-repair-only-mode`-argumentti. Tämä saa validaattorin toimimaan rajoitetussa tilassa, jossa se ei vastaanota push-viestejä muilta validaattoreilta, vaan sen on jatkuvasti kyseltävä muilta validaattoreilta lohkoja. Validator lähettää UDP-paketteja muille validaattoreille vain _Gossip_- ja _ServeR_-porteista ("serve repair") ja vastaanottaa UDP-paketteja vain _Gossip_- ja _Repair_-porteissaan.
+
+_Gossip_-portti on kaksisuuntainen ja pitää validaattorisi yhteydessä muuhun klusteriin. Validaattorisi lähettää _ServeR_-portin kautta korjauspyyntöjä uusien lohkojen hankkimiseksi verkon muilta osilta, koska Turbine on nyt poistettu käytöstä. Validaattorisi vastaanottaa sitten korjausvastaukset _Repair_-portissa muilta validaattoreilta.
+
+Jos haluat rajoittaa validaattorin pyytämään lohkoja vain yhdeltä tai useammalta validaattorilta, määritä ensin kyseisen validaattorin identity pubkey ja lisää `--gossip-pull-validator PUBKEY --repair-validator PUBKEY` -argumentit kullekin PUBKEYlle. Tämä kuormittaa jokaista lisäämääsi validaattoria, joten tee tämä harkiten ja vain neuvoteltuasi kohteena olevan validaattorin kanssa.
+
+Validaattorisi pitäisi nyt kommunikoida vain nimenomaisesti lueteltujen validaattorien kanssa ja ainoastaan _Gossip_-, _Repair_- ja _ServeR_-porttien kautta.
+
+## Talletustilien määrittäminen
+
+Solana-tilit eivät vaadi onchain-alustusta; ne ovat olemassa heti kun niihin talletetaan SOL. Pörssisi talletustilin luomiseksi luo yksinkertaisesti Solana keypair jollakin [lompakkotyökaluistamme](https://docs.anza.xyz/cli/wallets).
+
+Suosittelemme käyttämään erillistä talletustiliä kullekin käyttäjälle.
+
+Solana-tilit on vapautettava rent-velvoitteesta sisältämällä 2 vuoden [rent](/docs/core/accounts/account-structure) SOL-muodossa. Talletustiliesi vähimmäis-rent-vapaan saldon selvittämiseksi kysy [`getMinimumBalanceForRentExemption`-endpointilta](/docs/rpc/http/getminimumbalanceforrentexemption):
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getMinimumBalanceForRentExemption",
+  "params": [0]
+}'
+```
+
+##### Tulos
+
+```json
+{ "jsonrpc": "2.0", "result": 890880, "id": 1 }
+```
+
+### Offline-tilit
+
+Saatat haluta säilyttää yhden tai useamman kokoelmatilisi avaimet offline-tilassa paremman turvallisuuden takaamiseksi. Jos niin on, sinun on siirrettävä SOL hot-tileihin [offline-menetelmiämme](https://docs.anza.xyz/cli/examples/offline-signing) käyttäen.
+
+## Talletusten kuuntelu
+
+Kun käyttäjä haluaa tallettaa SOL:ia pörssiisi, ohjaa hänet lähettämään siirto asianmukaiseen talletusosoitteeseen.
+
+### Versioitujen transaktioiden migraatio
+
+Kun Mainnet-verkko alkaa käsitellä versioituja transaktioita, pörssien **TÄYTYY** tehdä muutoksia. Jos muutoksia ei tehdä, talletusten tunnistus lakkaa toimimasta oikein, koska versioituneen transaktion tai versioituneita transaktioita sisältävän lohkon hakeminen palauttaa virheen.
+
+- `{"maxSupportedTransactionVersion": 0}`
+
+  `maxSupportedTransactionVersion`-parametri on lisättävä `getBlock`- ja `getTransaction`-pyyntoihin talletusten tunnistuksen häiriöiden välttämiseksi. Uusin transaktioversio on `0` ja se tulisi määrittää maksimituetun transaktioversion arvoksi.
+
+On tärkeää ymmärtää, että versioitujen transaktioiden avulla käyttäjät voivat luoda transaktioita, jotka käyttävät toista onchain-osoitehakutaulukoista ladattua tilijoukkoa.
+
+- `{"encoding": "jsonParsed"}`
+
+  Lohkoja ja transaktioita haettaessa suositellaan nyt käyttämään `"jsonParsed"`-enkoodausta, koska se sisältää kaikki transaktion tiliavaimet (myös hakutaulukoista peräisin olevat) viestin `"accountKeys"`-listassa. Tämä helpottaa `preBalances` / `postBalances`- ja `preTokenBalances` / `postTokenBalances`-kentissä kuvattujen saldomuutosten selvittämistä.
+
+  Jos käytetään `"json"`-enkoodausta, `preBalances` / `postBalances`- ja `preTokenBalances` / `postTokenBalances`-kenttien merkinnät saattavat viitata tiliavaimiin, jotka **EIVÄT** ole `"accountKeys"`-listassa ja jotka on selvitettävä transaktion metatietojen `"loadedAddresses"`-merkintöjen avulla.
+
+### Lohkojen kysely
+
+Seurataksesi kaikkia pörssisi talletustilejä, kysy jokaista vahvistettua lohkoa ja tarkasta kiinnostavat osoitteet Solana API -solmusi JSON-RPC-palvelun avulla.
+
+- Selvittääksesi, mitkä lohkot ovat saatavilla, lähetä [`getBlocks`](/docs/rpc/http/getblocks)-pyyntö ja anna viimeisin jo käsittelemäsi lohko start-slot-parametrina:
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getBlocks",
+  "params": [160017005, 160017015]
+}'
+```
+
+##### Tulos
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [
+    160017005, 160017006, 160017007, 160017012, 160017013, 160017014, 160017015
+  ],
+  "id": 1
+}
+```
+
+Kaikki slotit eivät tuota lohkoa, joten kokonaislukujen sekvenssissä saattaa olla aukkoja.
+
+- Pyydä kunkin lohkon sisältö [`getBlock`](/docs/rpc/http/getblock)-pyynnöllä:
+
+### Lohkojen hakuvinkkejä
+
+- `{"rewards": false}`
+
+Oletusarvoisesti haetut lohkot palauttavat tietoja validator-palkkioista kussakin lohkossa ja staking-palkkioista epoch-rajoilla. Jos et tarvitse näitä tietoja, poista ne käytöstä "rewards"-parametrilla.
+
+- `{"transactionDetails": "accounts"}`
+
+Oletusarvoisesti haetut lohkot palauttavat paljon transaktiodataa ja metatietoja, jotka eivät ole välttämättömiä tilitäseiden seurannassa. Aseta "transactionDetails"-parametri nopeuttaaksesi lohkojen hakemista.
+
+```shell
+curl https://api.devnet.solana.com -X POST -H 'Content-Type: application/json' -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getBlock",
+  "params": [
+    166974442,
+    {
+      "encoding": "jsonParsed",
+      "maxSupportedTransactionVersion": 0,
+      "transactionDetails": "accounts",
+      "rewards": false
+    }
+  ]
+}'
+```
+
+##### Tulos
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "blockHeight": 157201607,
+    "blockTime": 1665070281,
+    "blockhash": "HKhao674uvFc4wMK1Cm3UyuuGbKExdgPFjXQ5xtvsG3o",
+    "parentSlot": 166974441,
+    "previousBlockhash": "98CNLU4rsYa2HDUyp7PubU4DhwYJJhSX9v6pvE7SWsAo",
+    "transactions": [
+      ... (omit)
+      {
+        "meta": {
+          "err": null,
+          "fee": 5000,
+          "postBalances": [
+            1110663066,
+            1,
+            1040000000
+          ],
+          "postTokenBalances": [],
+          "preBalances": [
+            1120668066,
+            1,
+            1030000000
+          ],
+          "preTokenBalances": [],
+          "status": {
+            "Ok": null
+          }
+        },
+        "transaction": {
+          "accountKeys": [
+            {
+              "pubkey": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde",
+              "signer": true,
+              "source": "transaction",
+              "writable": true
+            },
+            {
+              "pubkey": "11111111111111111111111111111111",
+              "signer": false,
+              "source": "transaction",
+              "writable": false
+            },
+            {
+              "pubkey": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+              "signer": false,
+              "source": "lookupTable",
+              "writable": true
+            }
+          ],
+          "signatures": [
+            "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM"
+          ]
+        },
+        "version": 0
+      },
+      ... (omit)
+    ]
+  },
+  "id": 1
+}
+```
+
+`preBalances`- ja `postBalances`-kentät mahdollistavat saldomuutosten seuraamisen jokaisella tilillä ilman koko transaktion jäsentämistä. Ne listaavat jokaisen tilin alku- ja loppusaldot [lamport](/docs/references/terminology#lamport)-yksiköissä, indeksoituna `accountKeys`-listaan. Jos esimerkiksi kiinnostava talletusosoite on `G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o`, tämä transaktio edustaa siirtoa 1040000000 - 1030000000 = 10 000 000 lamport = 0,01 SOL
+
+Jos tarvitset lisätietoja transaktion tyypistä tai muista yksityiskohdista, voit pyytää lohkon RPC:ltä binäärimuodossa ja jäsentää sen joko [Rust SDK](https://github.com/solana-labs/solana):n tai [Javascript SDK](https://github.com/solana-labs/solana-web3.js):n avulla.
+
+### Osoitehistoria
+
+Voit myös hakea tietyn osoitteen transaktiohistorian. Tämä ei yleensä ole käytännöllinen tapa seurata kaikkia talletusosoitteitasi kaikkien slot-yksiköiden ajalta, mutta voi olla hyödyllinen muutaman tilin tutkimiseen tietyllä ajanjaksolla.
+
+- Lähetä [`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)-pyyntö API-solmulle:
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getSignaturesForAddress",
+  "params": [
+    "3M2b3tLji7rvscqrLAHMukYxDK2nB96Q9hwfV6QkdzBN",
+    {
+      "limit": 3
+    }
+  ]
+}'
+```
+
+##### Tulos
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [
+    {
+      "blockTime": 1662064640,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "3EDRvnD5TbbMS2mCusop6oyHLD8CgnjncaYQd5RXpgnjYUXRCYwiNPmXb6ZG5KdTK4zAaygEhfdLoP7TDzwKBVQp",
+      "slot": 148697216
+    },
+    {
+      "blockTime": 1662064434,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "4rPQ5wthgSP1kLdLqcRgQnkYkPAZqjv5vm59LijrQDSKuL2HLmZHoHjdSLDXXWFwWdaKXUuryRBGwEvSxn3TQckY",
+      "slot": 148696843
+    },
+    {
+      "blockTime": 1662064341,
+      "confirmationStatus": "finalized",
+      "err": null,
+      "memo": null,
+      "signature": "36Q383JMiqiobuPV9qBqy41xjMsVnQBm9rdZSdpbrLTGhSQDTGZJnocM4TQTVfUGfV2vEX9ZB3sex6wUBUWzjEvs",
+      "slot": 148696677
+    }
+  ],
+  "id": 1
+}
+```
+
+- Hae kunkin palautetun allekirjoituksen transaktion tiedot lähettämällä [`getTransaction`](/docs/rpc/http/gettransaction)-pyyntö:
+
+```shell
+curl https://api.devnet.solana.com -X POST -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getTransaction",
+  "params":[
+    "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM",
+    {
+      "encoding":"jsonParsed",
+      "maxSupportedTransactionVersion":0
+    }
+  ]
+}'
+```
+
+##### Tulos
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "blockTime": 1665070281,
+    "meta": {
+      "err": null,
+      "fee": 5000,
+      "innerInstructions": [],
+      "logMessages": [
+        "Program 11111111111111111111111111111111 invoke [1]",
+        "Program 11111111111111111111111111111111 success"
+      ],
+      "postBalances": [1110663066, 1, 1040000000],
+      "postTokenBalances": [],
+      "preBalances": [1120668066, 1, 1030000000],
+      "preTokenBalances": [],
+      "rewards": [],
+      "status": {
+        "Ok": null
+      }
+    },
+    "slot": 166974442,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde",
+            "signer": true,
+            "source": "transaction",
+            "writable": true
+          },
+          {
+            "pubkey": "11111111111111111111111111111111",
+            "signer": false,
+            "source": "transaction",
+            "writable": false
+          },
+          {
+            "pubkey": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+            "signer": false,
+            "source": "lookupTable",
+            "writable": true
+          }
+        ],
+        "addressTableLookups": [
+          {
+            "accountKey": "4syr5pBaboZy4cZyF6sys82uGD7jEvoAP2ZMaoich4fZ",
+            "readonlyIndexes": [],
+            "writableIndexes": [3]
+          }
+        ],
+        "instructions": [
+          {
+            "parsed": {
+              "info": {
+                "destination": "G1wZ113tiUHdSpQEBcid8n1x8BAvcWZoZgxPKxgE5B7o",
+                "lamports": 10000000,
+                "source": "9aE476sH92Vz7DMPyq5WLPkrKWivxeuTKEFKd2sZZcde"
+              },
+              "type": "transfer"
+            },
+            "program": "system",
+            "programId": "11111111111111111111111111111111"
+          }
+        ],
+        "recentBlockhash": "BhhivDNgoy4L5tLtHb1s3TP19uUXqKiy4FfUR34d93eT"
+      },
+      "signatures": [
+        "2CxNRsyRT7y88GBwvAB3hRg8wijMSZh3VNYXAdUesGSyvbRJbRR2q9G1KSEpQENmXHmmMLHiXumw4dp8CvzQMjrM"
+      ]
+    },
+    "version": 0
+  },
+  "id": 1
+}
+```
+
+## Nostojen lähettäminen
+
+Käyttäjän SOL-nostopyyntöä varten sinun täytyy luoda Solana-siirtotransaktio ja lähettää se API-solmulle välitettäväksi klusterillesi.
+
+### Synkroninen
+
+Synkronisen siirron lähettäminen Solana-klusterille mahdollistaa helpon varmistuksen siitä, että siirto onnistui ja klusteri on vahvistanut sen lopullisesti.
+
+Solanan komentorivityökalu tarjoaa yksinkertaisen komennon, `solana transfer`, siirtotransaktioiden luomiseen, lähettämiseen ja vahvistamiseen. Oletuksena tämä menetelmä odottaa ja seuraa edistymistä stderrissä, kunnes klusteri on vahvistanut transaktion lopullisesti. Jos transaktio epäonnistuu, se raportoi mahdolliset transaktiovirheet.
+
+```shell
+solana transfer <USER_ADDRESS> <AMOUNT> --allow-unfunded-recipient --keypair <KEYPAIR> --url http://localhost:8899
+```
+
+[Solana Javascript SDK](https://github.com/solana-labs/solana-web3.js) tarjoaa vastaavan lähestymistavan JS-ekosysteemille. Käytä `SystemProgram`-ohjelmaa siirtotransaktion rakentamiseen ja lähetä se `sendAndConfirmTransaction`-metodilla.
+
+### Asynkroninen
+
+Suurempaa joustavuutta varten voit lähettää nostot asynkronisesti. Näissä tapauksissa sinun vastuullasi on varmistaa, että transaktio onnistui ja klusteri vahvisti sen lopullisesti.
+
+**Huom.:** Jokainen transaktio sisältää [viimeaikaisen lohkohashin](/docs/core/transactions/transaction-structure#recent-blockhash) osoittamaan sen aktiivisuuden. On **erittäin tärkeää** odottaa tämän lohkohashin vanhenemista ennen nostotransaktion uudelleenyritystä, jos se ei näytä tulleen vahvistetuksi tai lopullisesti käsitellyksi klusterin toimesta. Muutoin vaarana on kaksinkertainen käyttö. Katso lisätietoja [lohkohashin vanhenemisesta](#blockhash-expiration) alla.
+
+Hae ensin viimeaikainen lohkohashi käyttämällä [`getFees`](/docs/rpc/deprecated/getfees)-päätepistettä tai CLI-komentoa:
+
+```shell
+solana fees --url http://localhost:8899
+```
+
+Komentorivityökalussa käytä `--no-wait`-argumenttia siirron lähettämiseen asynkronisesti ja sisällytä viimeaikainen lohkohashisi `--blockhash`-argumentilla:
+
+```shell
+solana transfer <USER_ADDRESS> <AMOUNT> --no-wait --allow-unfunded-recipient --blockhash <RECENT_BLOCKHASH> --keypair <KEYPAIR> --url http://localhost:8899
+```
+
+Voit myös rakentaa, allekirjoittaa ja sarjallistaa transaktion manuaalisesti ja lähettää sen klusterille JSON-RPC:n [`sendTransaction`](/docs/rpc/http/sendtransaction)-päätepisteen kautta.
+
+#### Transaktion vahvistukset ja lopullisuus
+
+Hae useiden transaktioiden tila käyttämällä [`getSignatureStatuses`](/docs/rpc/http/getsignaturestatuses) JSON-RPC-päätepistettä. `confirmations`-kenttä kertoo, kuinka monta [vahvistettua lohkoa](/docs/references/terminology#confirmed-block) on kulunut transaktion käsittelyn jälkeen. Jos `confirmations: null`, transaktio on [lopullinen](/docs/references/terminology#finality).
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getSignatureStatuses",
+  "params":[
+    [
+      "4cdd1oX7cfVALfr26tP52BZ6cSzrgnNGtYD7BFhm6FFeZV5sPTnRvg6NRn8yC6DbEikXcrNChBM5vVJnTgKhGhVu",
+      "5j7s6NiJS3JAkvgkoc18WVAsiSaci2pxB2A6ueCJP4tprA2TFg9wSyTLeYouxPBJEMzJinENTkpA52YStRW5Dia7"
+    ]
+  ]
+}'
+```
+
+##### Tulos
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "slot": 82
+    },
+    "value": [
+      {
+        "slot": 72,
+        "confirmations": 10,
+        "err": null,
+        "status": {
+          "Ok": null
+        }
+      },
+      {
+        "slot": 48,
+        "confirmations": null,
+        "err": null,
+        "status": {
+          "Ok": null
+        }
+      }
+    ]
+  },
+  "id": 1
+}
+```
+
+#### Lohkohashin vanheneminen
+
+Voit tarkistaa, onko tietty lohkohashi edelleen voimassa, lähettämällä [`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash)-pyynnön lohkohashilla parametrina. Jos vastauksen arvo on `null`, lohkohashi on vanhentunut, eikä kyseistä lohkohashia käyttävä nostotransaktio koskaan onnistu.
+
+### Käyttäjän antamien nostotilitietojen validointi
+
+Koska nostot ovat peruuttamattomia, voi olla hyvä käytäntö validoida käyttäjän antama tilin osoite ennen noston hyväksymistä, jotta vältetään käyttäjän varojen tahaton häviäminen.
+
+#### Perusvarmennus
+
+Solana-osoitteet ovat 32 tavun taulukkoja, koodattuna bitcoin base58 -aakkosilla. Tämä tuottaa ASCII-tekstimerkkijonon, joka vastaa seuraavaa säännöllistä lauseketta:
+
+```text
+[1-9A-HJ-NP-Za-km-z]{32,44}
+```
+
+Tämä tarkistus ei yksin riitä, koska Solana-osoitteissa ei ole tarkistussummaa, joten kirjoitusvirheitä ei voida havaita. Käyttäjän syötteen lisävalidoimiseksi merkkijono voidaan purkaa ja tarkistaa, että tuloksena olevan tavutaulukon pituus on 32. On kuitenkin olemassa joitakin osoitteita, jotka voivat purkautua 32 tavuun kirjoitusvirheestä huolimatta, kuten yksittäinen puuttuva merkki, käännetyt merkit tai kirjainkoon huomiotta jättäminen.
+
+#### Tarkennettu varmennus
+
+Edellä kuvatun kirjoitusvirhealttiuden vuoksi on suositeltavaa hakea saldo ehdotetuille nostoosoitteille ja kehottaa käyttäjää vahvistamaan aikomuksensa, jos havaitaan nollasta poikkeava saldo.
+
+#### Kelvollinen ed25519 pubkey -tarkistus
+
+Normaalin Solana-tilin osoite on Base58-koodattu merkkijono 256-bittisestä ed25519-julkisesta avaimesta. Kaikki bittikuviot eivät ole kelvollisia julkisia avaimia ed25519-käyrälle, joten on mahdollista varmistaa, että käyttäjän antamat tilin osoitteet ovat vähintään oikeita ed25519-julkisia avaimia.
+
+#### Java
+
+Tässä on Java-esimerkki käyttäjän antaman osoitteen validoimisesta kelvollisena ed25519-julkisena avaimena:
+
+Seuraava koodiesimerkki olettaa, että käytät Mavenia.
+
+`pom.xml`:
+
+```xml
+<repositories>
+  ...
+  <repository>
+    <id>spring</id>
+    <url>https://repo.spring.io/libs-release/</url>
+  </repository>
+</repositories>
+
+...
+
+<dependencies>
+  ...
+  <dependency>
+      <groupId>io.github.novacrypto</groupId>
+      <artifactId>Base58</artifactId>
+      <version>0.1.3</version>
+  </dependency>
+  <dependency>
+      <groupId>cafe.cryptography</groupId>
+      <artifactId>curve25519-elisabeth</artifactId>
+      <version>0.1.0</version>
+  </dependency>
+<dependencies>
+```
+
+```java
+import io.github.novacrypto.base58.Base58;
+import cafe.cryptography.curve25519.CompressedEdwardsY;
+
+public class PubkeyValidator
+{
+    public static boolean verifyPubkey(String userProvidedPubkey)
+    {
+        try {
+            return _verifyPubkeyInternal(userProvidedPubkey);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static boolean _verifyPubkeyInternal(String maybePubkey) throws Exception
+    {
+        byte[] bytes = Base58.base58Decode(maybePubkey);
+        return !(new CompressedEdwardsY(bytes)).decompress().isSmallOrder();
+    }
+}
+```
+
+## Talletus- ja nostominimi
+
+Jokaisen SOL-talletuksen ja -noston on oltava suurempi tai yhtä suuri kuin tilin vähimmäisvuokravapaa saldo lompakko-osoitteessa (pelkkää SOL:ia säilyttävä perustili ilman dataa), tällä hetkellä: 0,000890880 SOL
+
+Vastaavasti jokaisen talletustilin on sisällettävä vähintään tämä saldo.
+
+```shell
+curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getMinimumBalanceForRentExemption",
+  "params": [0]
+}'
+```
+
+##### Tulos
+
+```json
+{ "jsonrpc": "2.0", "result": 890880, "id": 1 }
+```
+
+## Priorisointimaksut ja laskentayksiköt
+
+Korkean kysynnän aikoina on mahdollista, että transaktio vanhenee ennen kuin validator on sisällyttänyt kyseisiä transaktioita lohkoonsa, koska se valitsi muita taloudellisesti arvokkaampia transaktioita. Kelvolliset transaktiot Solanassa voivat viivästyä tai pudota, jos priorisointimaksuja ei toteuteta asianmukaisesti.
+
+[Priorisointimaksut](/docs/references/terminology#prioritization-fee) ovat lisämaksuja, jotka voidaan lisätä [perustapahtumamaksun](/docs/core/fees/fee-structure#base-fee) päälle transaktion sisällyttämisen varmistamiseksi lohkoihin näissä tilanteissa ja toimitettavuuden turvaamiseksi.
+
+Nämä priorisointimaksut lisätään transaktioon lisäämällä erityinen Compute Budget -käsky, joka asettaa halutun maksettavan priorisointimaksun.
+
+<Callout type="warn" title="Tärkeä huomio">
+
+Näiden käskyjen toteuttamatta jättäminen voi johtaa verkkohäiriöihin ja transaktioiden pudottamiseen. On erittäin suositeltavaa, että jokainen Solanaa tukeva pörssi käyttää priorisointimaksuja häiriöiden välttämiseksi.
+
+</Callout>
+
+### Mikä on priorisointimaksu?
+
+Priorisointimaksut hinnoitellaan mikro-lamport-yksiköissä laskentayksikköä (CU) kohden (eli pieninä SOL-summina) ja liitetään transaktioiden alkuun, jotta ne ovat taloudellisesti houkuttelevia validator-solmuille sisällytettäväksi verkon lohkoihin.
+
+### Kuinka suuri priorisointimaksun tulisi olla?
+
+Priorisointimaksun asettamismenetelmä tulisi sisältää viimeaikaisten priorisointimaksujen hakeminen sopivan maksun määrittämiseksi. Käyttämällä [`getRecentPrioritizationFees`](/docs/rpc/http/getrecentprioritizationfees) RPC-metodia voit hakea priorisointimaksuja, jotka vaaditaan transaktion sijoittamiseksi viimeaikaiseen lohkoon.
+
+Näiden priorisointimaksujen hinnoittelustrategia vaihtelee käyttötapauksesi mukaan. Asialle ei ole olemassa yhtä kanonista tapaa. Yksi strategia priorisointimaksujesi asettamiseen voisi olla transaktion onnistumisasteen laskeminen ja priorisointimaksun kasvattaminen viimeaikaisten transaktiomaksujen API:sta tehdyn kyselyn perusteella ja sen mukainen säätö. Priorisointimaksujen hinnoittelu on dynaamista ja riippuu verkon aktiivisuudesta sekä muiden osallistujien tekemistä tarjouksista, ja se on tiedettävissä vasta jälkikäteen.
+
+Yksi haaste `getRecentPrioritizationFees` API-kutsun käytössä on, että se saattaa palauttaa vain alhaisimman maksun kullekin lohkolle. Tämä on usein nolla, mikä ei ole riittävän hyödyllinen arvio siitä, mitä priorisointimaksua käyttää validator-solmujen hylkäämisen välttämiseksi.
+
+`getRecentPrioritizationFees` API ottaa tilien pubkey-tunnisteet parametreina ja palauttaa näiden tilien vähimmäispriorisointimaksujen korkeimman arvon. Kun yhtään tiliä ei ole määritetty, API palauttaa alhaisimman maksun lohkoon pääsemiseksi, mikä on yleensä nolla (ellei lohko ole täynnä).
+
+Pörssien ja sovellusten tulisi hakea RPC-päätepistettä niillä tileillä, joihin transaktio aikoo kirjoituslukita. RPC-päätepiste palauttaa `max(account_1_min_fee, account_2_min_fee, ... account_n_min_fee)`, jonka tulisi olla käyttäjän asettaman priorisointimaksun lähtöpiste kyseiselle transaktiolle.
+
+Priorisointimaksujen asettamiseen on erilaisia lähestymistapoja ja joitakin [kolmannen osapuolen API:ja](https://docs.helius.dev/solana-rpc-nodes/alpha-priority-fee-api) on saatavilla parhaan sovellettavan maksun määrittämiseksi. Verkon dynaamisen luonteen vuoksi ei ole olemassa "täydellistä" tapaa hinnoitella priorisointimaksuja, ja huolellinen analyysi tulisi tehdä ennen etenemistavan valitsemista.
+
+### Priorisointimaksujen käyttöönotto
+
+Prioriteettimaksujen lisääminen transaktioon koostuu kahden Compute Budget -käskyn liittämisestä transaktion alkuun:
+
+- yksi laskentayksikköhinnan asettamiseksi, ja
+- toinen laskentayksikkörajoituksen asettamiseksi
+
+> Täältä löydät myös yksityiskohtaisemman kehittäjän
+> [oppaan priorisointimaksujen käytöstä](/docs/core/fees), joka sisältää lisätietoja
+> priorisointimaksujen käyttöönotosta.
+
+Luo `setComputeUnitPrice`-käsky lisätäksesi priorisointimaksun perustapahtumamaksun (5 000 lamport) päälle.
+
+```typescript
+// import { ComputeBudgetProgram } from "@solana/web3.js"
+ComputeBudgetProgram.setComputeUnitPrice({ microLamports: number });
+```
+
+Mikro-lamport-yksiköinä annettu arvo kerrotaan laskentayksikköbudjetilla (CU) priorisointimaksun määrittämiseksi lamport-yksiköissä. Esimerkiksi jos CU-budjettisi on 1 milj. CU ja lisäät `1 mikroLamport/CU`, priorisointimaksu on 1 lamport (1 milj. \* 0,000001). Kokonaismaksu on tällöin 5 001 lamport.
+
+Aseta transaktion uusi laskentayksikköbudjetti luomalla `setComputeUnitLimit`-käsky.
+
+```typescript
+// import { ComputeBudgetProgram } from "@solana/web3.js"
+ComputeBudgetProgram.setComputeUnitLimit({ units: number });
+```
+
+`units`-arvo korvaa Solana-ajonaikaisympäristön oletusarvoisen laskentayksikköbudjetin.
+
+<Callout type="warn" title="Aseta transaktion vaatima pienin CU-määrä">
+
+Transaktioiden tulisi pyytää suoritukseen vaadittava vähimmäismäärä laskentayksiköitä (CU) suorituskyvyn maksimoimiseksi ja kokonaismaksujen minimoimiseksi.
+
+Voit selvittää transaktion kuluttamat CU:t lähettämällä transaktion toiselle Solana-klusterille, kuten devnetille. Esimerkiksi [yksinkertainen tokenisiirto](https://explorer.solana.com/tx/5scDyuiiEbLxjLUww3APE9X7i8LE3H63unzonUwMG7s2htpoAGG17sgRsNAhR1zVs6NQAnZeRVemVbkAct5myi17) kuluttaa 300 CU.
+
+</Callout>
+
+```typescript
+// import { ... } from "@solana/web3.js"
+
+const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+  // note: set this to be the lowest actual CU consumed by the transaction
+  units: 300
+});
+
+const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1
+});
+
+const transaction = new Transaction()
+  .add(modifyComputeUnits)
+  .add(addPriorityFee)
+  .add(
+    SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: toAccount,
+      lamports: 10000000
+    })
+  );
+```
+
+### Priorisointimaksut ja kestävät noncet
+
+Jos asetuksesi käyttää Durable Nonce -transaktioita, on tärkeää toteuttaa
+Prioritization Fees asianmukaisesti yhdessä Durable Transaction Nonces -ominaisuuden kanssa
+onnistu­neiden transaktioiden varmistamiseksi. Jos tämä jätetään tekemättä, tarkoitetut Durable
+Nonce -transaktiot eivät tule tunnistetuksi sellaisiksi.
+
+Jos KÄYTÄT Durable Transaction Nonces -ominaisuutta, `AdvanceNonceAccount`-
+käsky TÄYTYY määrittää ENSIMMÄISEKSI käskylistassa, vaikka
+compute budget -käskyjä käytettäisiin prioriteettipalkkioiden määrittämiseen.
+
+Löydät erityisen koodiesimerkin
+[kestävien nonceiden ja prioriteettipalkkioiden käyttämisestä yhdessä](/docs/core/transactions/durable-nonces)
+tässä kehittäjäoppaassa.
+
+## SPL Token -standardin tukeminen
+
+[SPL Token](https://spl.solana.com/token) on käärittyjen/synteettisten
+tokenien luomisen ja vaihdon standardi Solana-lohkoketjussa.
+
+SPL Token -työnkulku on samanlainen kuin natiivien SOL-tokenien, mutta siinä on
+muutamia eroja, joita käsitellään tässä osiossa.
+
+### Token Mints
+
+Jokainen SPL Token -_tyyppi_ määritellään luomalla _mint_ account. Tämä tili
+tallentaa metatietoja, jotka kuvaavat tokenin ominaisuuksia, kuten tarjonnan, desimaalien
+määrän ja erilaiset mint-toimintoja hallitsevat viranomaiset. Jokainen SPL Token account
+viittaa siihen liittyvään mintiin ja voi olla vuorovaikutuksessa vain kyseisen tyypin SPL Tokenien kanssa.
+
+### `spl-token` CLI -työkalun asentaminen
+
+SPL Token accounteja kysellään ja muokataan `spl-token`-komentoriviapuohjelmalla.
+Tässä osiossa annetut esimerkit edellyttävät, että se on asennettu
+paikalliseen järjestelmään.
+
+`spl-token` jaetaan Rustin
+[crates.io](https://crates.io/crates/spl-token)-palvelusta Rustin `cargo`-komento
+riviapuohjelman kautta. Uusin versio `cargo`sta voidaan asentaa kätevästi
+yhdellä rivillä alustallesi osoitteessa [rustup.rs](https://rustup.rs). Kun `cargo` on
+asennettu, `spl-token` voidaan hankkia seuraavalla komennolla:
+
+```shell
+cargo install spl-token-cli
+```
+
+Voit sitten tarkistaa asennetun version varmistaaksesi
+
+```shell
+spl-token --version
+```
+
+Jonka pitäisi tuottaa jotain seuraavanlaista
+
+```text
+spl-token-cli 2.0.1
+```
+
+### Tilin luominen
+
+SPL Token accounteilla on lisävaatimuksia, joita natiiveilla System Program
+-tileillä ei ole:
+
+1. SPL Token accountit on luotava ennen kuin niihin voidaan tallettaa tokeneita.
+   Token accountit voidaan luoda eksplisiittisesti `spl-token create-account` -komennolla
+   tai implisiittisesti `spl-token transfer --fund-recipient ...` -komennolla.
+1. SPL Token accountien on pysyttävä
+   [rent-exempt](/docs/core/accounts/account-structure) -tilassa
+   koko olemassaolonsa ajan, ja siksi tilin luomisen yhteydessä on talletettava
+   pieni määrä natiiveja SOL-tokeneita. SPL Token accounteille tämä määrä on
+   0,00203928 SOL (2 039 280 lamportia).
+
+#### Komentorivi
+
+Luodaksesi SPL Token accountin seuraavilla ominaisuuksilla:
+
+1. Liitetty annettuun mintiin
+1. Rahoittavan tilin keypair omistaa
+
+```shell
+spl-token create-account <TOKEN_MINT_ADDRESS>
+```
+
+#### Esimerkki
+
+```shell
+spl-token create-account AkUFCWTXb3w9nY2n6SFJvBV6VwvFUCe4KBMCcgLsa2ir
+```
+
+Antaa seuraavanlaisen tulosteen:
+
+```
+Creating account 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 4JsqZEPra2eDTHtHpB4FMWSfk3UgcCVmkKkP7zESZeMrKmFFkDkNd91pKP3vPVVZZPiu5XxyJwS73Vi5WsZL88D7
+```
+
+Tai luodaksesi SPL Token accountin tietyllä keypairilla:
+
+```shell
+solana-keygen new -o token-account.json
+
+spl-token create-account AkUFCWTXb3w9nY2n6SFJvBV6VwvFUCe4KBMCcgLsa2ir token-account.json
+```
+
+Antaa seuraavanlaisen tulosteen:
+
+```shell
+Creating account 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 4JsqZEPra2eDTHtHpB4FMWSfk3UgcCVmkKkP7zESZeMrKmFFkDkNd91pKP3vPVVZZPiu5XxyJwS73Vi5WsZL88D7
+```
+
+### Tilin saldon tarkistaminen
+
+#### Komentorivi
+
+```shell
+spl-token balance <TOKEN_ACCOUNT_ADDRESS>
+```
+
+#### Esimerkki
+
+```shell
+solana balance 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+```
+
+Antaa seuraavanlaisen tulosteen:
+
+```
+0
+```
+
+### Token-siirrot
+
+Siirron lähdetili on varsinainen token account, joka sisältää
+siirrettävän määrän.
+
+Vastaanottajan osoite voi kuitenkin olla tavallinen lompakkotili. Jos kyseiselle lompakkotilolle
+ei vielä ole olemassa associated token accountia annetulle mintille,
+siirto luo sen, jos `--fund-recipient`-argumentti on
+annettu.
+
+#### Komentorivi
+
+```shell
+spl-token transfer <SENDER_ACCOUNT_ADDRESS> <AMOUNT> <RECIPIENT_WALLET_ADDRESS> --fund-recipient
+```
+
+#### Esimerkki
+
+```shell
+spl-token transfer 6B199xxzw3PkAm25hGJpjj3Wj3WNYNHzDAnt1tEqg5BN 1
+```
+
+Antaa seuraavanlaisen tulosteen:
+
+```shell
+6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Transfer 1 tokens
+  Sender: 6B199xxzw3PkAm25hGJpjj3Wj3WNYNHzDAnt1tEqg5BN
+  Recipient: 6VzWGL51jLebvnDifvcuEDec17sK6Wupi4gYhm5RzfkV
+Signature: 3R6tsog17QM8KfzbcbdP4aoMfwgo6hBggJDVy7dZPVmH2xbCWjEj31JKD53NzMrf25ChFjY7Uv2dfCDq4mGFFyAj
+```
+
+### Tallettaminen
+
+Koska jokainen `(lompakko, mint)` -pari vaatii erillisen tilin lohkoketjussa,
+on suositeltavaa, että näiden tilien osoitteet johdetaan SOL-talletuslomakoista käyttämällä
+[Associated Token Account](https://spl.solana.com/associated-token-account)
+(ATA) -skeemaa ja että _vain_ ATA-osoitteista tulevia talletuksia hyväksytään.
+
+Talletustransaktioiden seuraamisen tulisi noudattaa yllä kuvattua
+[lohkojen kyselymenetelmää](#poll-for-blocks). Jokainen uusi lohko tulee
+skannata onnistuneiden transaktioiden varalta, mukaan lukien käyttäjän ja pörssin token
+account -osoitteet.
+
+<Callout type="warn">
+
+`preTokenBalances`- ja `postTokenBalances`-kenttiä transaktion
+metatiedoista on käytettävä todellisen saldomuutoksen määrittämiseen. Nämä kentät
+sisältävät token mintin, token accountin omistajan (lompakko-osoitteen) sekä
+token accountien saldot ennen ja jälkeen transaktion.
+
+</Callout>
+
+<Callout>
+
+Jos token account luodaan osana transaktiota (kuten silloin, kun
+tokeneita vastaanotetaan ensimmäistä kertaa), se ei näy `preTokenBalances`-taulukossa,
+koska sitä ei ollut olemassa ennen transaktiota. Tässä tapauksessa
+alkusaldon tulisi olla nolla talletussummia laskettaessa. Juuri luotu
+tili näkyy vain `postTokenBalances`-taulukossa lopullisella saldollaan
+transaktion valmistuttua.
+
+</Callout>
+
+#### Esimerkki 1: Yksittäinen token-siirto
+
+Alla oleva transaktiodetaili näyttää esimerkin transaktiosta, joka sisältää
+yksittäisen token-siirtokäskyn.
+
+Transaktio siirtää 100 tokenin perusyksikköä (ei oikaistu mintin
+desimaaleilla) ja sisältää seuraavat tilit:
+
+- Lähettäjä (omistaja): `4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw`
+- Lähettäjän token account: `6zhjktfYBRUp7fgXLoWU7GFFrCuZa9iQkYTQzDzuvsAS`
+- Vastaanottajan token account: `G5nNekUhhWFqJAiCMpKHootZ5Bfa7MXwuQ5vvKcvuxKM`
+- Token Extension Program ID: `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`
+
+Huomaa, että vastaanottajan (omistajan) tiliä ja mint accountia ei vaadita
+token-siirtokäskyssä. Viitteeksi ne on listattu tähän, koska osoitteet
+sisältyvät jäsennettyyn transaktioiden metatietoon.
+
+- Vastaanottaja (omistaja): `8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n`
+- Mint: `Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2`
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1741240211",
+  "meta": {
+    "computeUnitsConsumed": "1551",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    // !tooltip[/logMessages/] logMessages
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: Transfer",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1551 of 200000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    // !tooltip[/postBalances/] postBalances
+    "postBalances": ["994375240", "2074080", "2074080", "1141440"],
+    // !tooltip[/postTokenBalances/] postTokenBalances
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] fromOwnerPostTokenBalance
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] senderPostTokenBalance
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] toOwnerPostTokenBalance
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] recipientPostTokenBalance
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    // !tooltip[/preBalances/] preBalances
+    "preBalances": ["994380240", "2074080", "2074080", "1141440"],
+    // !tooltip[/preTokenBalances/] preTokenBalances
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] fromOwnerPreTokenBalance
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] senderPreTokenBalance
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] toOwnerPreTokenBalance
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] recipientPreTokenBalance
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "3916",
+  "transaction": {
+    "message": {
+      // !tooltip[/accountKeys/] accountKeys
+      "accountKeys": [
+        "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "6zhjktfYBRUp7fgXLoWU7GFFrCuZa9iQkYTQzDzuvsAS",
+        "G5nNekUhhWFqJAiCMpKHootZ5Bfa7MXwuQ5vvKcvuxKM",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      // !tooltip[/instructions/] instructions
+      "instructions": [
+        {
+          "accounts": [1, 2, 0],
+          "data": "3WBgs5fm8oDy",
+          "programIdIndex": 3,
+          "stackHeight": null
+        }
+      ],
+      // !tooltip[/recentBlockhash/] recentBlockhash
+      "recentBlockhash": "8soh8j2dkEniZW6Jpx9cJaWtnvrGoGUqpbaUVwUkX5R3"
+    },
+    // !tooltip[/signatures/] signatures
+    "signatures": [
+      "3vr6Gj3GnBQmsZW1TtBJ3hvfFMi3h9BxLs2oaZkV41LRWeGWPVmeo16JTN8MdP3ypU5VgWAziYUjybhyZoisryQ6"
+    ]
+  },
+  "version": "0"
+}
+```
+
+### !logMessages
+
+Ohjelman lokit transaktion käsittelyhetkeltä.
+
+Tässä tapauksessa lokit osoittavat, että transaktio kutsuu siirtokäskyä
+Token Program -ohjelmassa.
+
+### !postBalances
+
+Kaikkien transaktioon osallistuvien tilien lamport-saldo transaktion käsittelyn jälkeen.
+
+### !postTokenBalances
+
+Kaikkien transaktioon osallistuvien token accountien token-saldo transaktion käsittelyn jälkeen.
+
+### !preBalances
+
+Kaikkien transaktioon osallistuvien tilien lamport-saldo ennen transaktion käsittelyä.
+
+### !preTokenBalances
+
+Kaikkien transaktioon osallistuvien token accountien token-saldo ennen
+transaktion käsittelyä.
+
+### !rewards
+
+Kaikkien transaktioon osallistuvien tilien palkkiot ennen transaktion käsittelyä.
+
+### !accountKeys
+
+Luettelo transaktion käskyyn tarvittavista tilien osoitteista.
+
+### !instructions
+
+Luettelo transaktion käskyistä. Tässä tapauksessa on vain yksi
+käsky: token-siirtokäsky.
+
+### !recentBlockhash
+
+Viimeisimmän käsitellyn lohkon lohkohash transaktion lähettämishetkellä.
+
+### !senderPostTokenBalance
+
+Lähettäjän token accountin lopullinen saldo on 0 tokenia.
+
+### !recipientPostTokenBalance
+
+Vastaanottajan token accountin lopullinen saldo on 100 tokenin perusyksikköä.
+
+Mintillä on 2 desimaalia, joten vastaanottajan token accountin lopullinen saldo on
+1 token.
+
+### !senderPreTokenBalance
+
+Lähettäjän token accountin alkusaldo oli 100 tokenin perusyksikköä.
+
+Mintillä on 2 desimaalia, joten lähettäjän token accountin alkusaldo oli 1
+token.
+
+### !recipientPreTokenBalance
+
+Vastaanottajan token accountin alkusaldo oli 0 tokenia.
+
+### !fromOwnerPreTokenBalance
+
+Tämä on tokeneita lähettävän token accountin omistaja ennen transaktion
+käsittelyä.
+
+### !fromOwnerPostTokenBalance
+
+Tämä on tokeneita lähettävän token accountin omistaja transaktion
+käsittelyn jälkeen.
+
+### !toOwnerPreTokenBalance
+
+Tämä on tokeneita vastaanottavan token accountin omistaja ennen transaktion
+käsittelyä.
+
+### !toOwnerPostTokenBalance
+
+Tämä on tokeneita vastaanottavan token accountin omistaja transaktion
+käsittelyn jälkeen.
+
+### !signatures
+
+Transaktioon sisältyvät allekirjoitukset. Tässä tapauksessa on vain yksi
+allekirjoitus (lähettäjältä).
+
+Ensimmäinen allekirjoitus transaktiossa on transaktion maksajan allekirjoitus. Sitä
+käytetään myös transaktion tunnistamiseen, ja siihen viitataan yleisesti
+transaktion allekirjoituksena.
+
+</WithNotes>
+
+#### Esimerkki 2: Token Accountin luominen ja siirto
+
+Alla oleva transaktiodetaili näyttää esimerkin transaktiosta, jossa
+vastaanottajan token account luodaan samassa transaktiossa kuin token-siirto.
+
+Huomaa, että `preTokenBalances`-taulukko ei sisällä vastaanottajan token
+accountia, koska sitä ei ollut olemassa ennen transaktiota. Vastaanottajan token
+account näkyy vain `postTokenBalances`-taulukossa lopullisella saldollaan
+transaktion valmistuttua.
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1740541705",
+  "meta": {
+    "computeUnitsConsumed": "17416",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [
+      {
+        "index": 0,
+        "instructions": [
+          {
+            "accounts": [4],
+            "data": "84eT",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [0, 1],
+            "data": "11119ExAoTptm6xKUTUcw2V69MKmyEdDmRins3j3bK43o9nHeiYUtSiaT9pc292PhNQvxj",
+            "programIdIndex": 3,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [1],
+            "data": "P",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          },
+          {
+            "accounts": [1, 4],
+            "data": "6b8ZSccu4ezujyhGG8KNmg75iCWbQRyjxeSfi38u8ED8N",
+            "programIdIndex": 7,
+            "stackHeight": 2
+          }
+        ]
+      }
+    ],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+      "Program log: Create",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: GetAccountDataSize",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 928 of 394613 compute units",
+      "Program return: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb qgAAAAAAAAA=",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program 11111111111111111111111111111111 invoke [2]",
+      "Program 11111111111111111111111111111111 success",
+      "Program log: Initialize the associated token account",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeImmutableOwner",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 487 of 388755 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [2]",
+      "Program log: Instruction: InitializeAccount3",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1440 of 385879 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 15865 of 400000 compute units",
+      "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL success",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: Transfer",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1551 of 384135 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    "postBalances": [
+      "994375240",
+      "2074080",
+      "2074080",
+      "1",
+      "1461600",
+      "731913600",
+      "0",
+      "1141440"
+    ],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "EzrmgRNGN9duiDAk3ABSC8eKhd1b2EUFwXVrYZDJw4hQ",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    "preBalances": [
+      "996454320",
+      "0",
+      "2074080",
+      "1",
+      "1461600",
+      "731913600",
+      "0",
+      "1141440"
+    ],
+    "preTokenBalances": [
+      {
+        "accountIndex": 2,
+        "mint": "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "owner": "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "81051",
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "CbJNxBnU9ZWnQq12aVHhbze9nubbDVDV5rYVEqz9qFaS",
+        "571u96hRRmxbRCTmp5oqC5WpJfvZhPaSXEbihLVCR5wQ",
+        "8y8KjtZN9tyGeAeKwr8doSpbBVVgfsZMtMjCGUDH7mmU",
+        "11111111111111111111111111111111",
+        "3RPRXBsdwyHhs2UnTWXoHp6Frwv4eWEbA55qCzbs9nxK",
+        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "EzrmgRNGN9duiDAk3ABSC8eKhd1b2EUFwXVrYZDJw4hQ",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 5,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [0, 1, 6, 4, 3, 7],
+          "data": "1",
+          "programIdIndex": 5,
+          "stackHeight": null
+        },
+        {
+          "accounts": [2, 1, 0],
+          "data": "3WBgs5fm8oDy",
+          "programIdIndex": 7,
+          "stackHeight": null
+        }
+      ],
+      "recentBlockhash": "77QC38Q2hKFYZzUXk8JWmsAqGNKhw4k2Lm2XVUme9uqP"
+    },
+    "signatures": [
+      "4kuGhMeZxBHgEtej4Uv4n2arhe3jqT2GdTDPFri4JLFXYgcAtbeeXdBdzvG98HENe1tZSZqyFkm3SEvB6CfCMaM9"
+    ]
+  },
+  "version": "0"
+}
+```
+
+#### Esimerkki 3: Token Accountin omistajan vaihtaminen
+
+Alla oleva transaktiodetaili näyttää esimerkin transaktiosta, jossa token accountin
+`owner`-kenttää muutetaan.
+
+<Callout type="warn">
+
+Talletusten hyväksyminen sallimalla tallettajien siirtää token accountien
+omistajuus (muuttamalla `owner`-kenttää) on vahvasti lannistettu.
+
+Jos päätät tukea tätä talletusmenetelmänä, sinun on varmistettava, että uusi
+`owner`-kenttä `postTokenBalances`-taulukossa vastaa lompakko-osoitetta, jonka
+pörssisi hallitsee ja jolle sillä on yksityinen avain.
+
+Jos tallettaja muuttaa token accountin `owner`-kentän osoitteeksi, joka ei ole
+lompakko (kuten toinen token account -osoite), varat voivat muuttua
+pysyvästi saavuttamattomiksi.
+
+</Callout>
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+{
+  "blockTime": "1740598556",
+  "meta": {
+    "computeUnitsConsumed": "1167",
+    "err": null,
+    "fee": "5000",
+    "innerInstructions": [],
+    "loadedAddresses": {
+      "readonly": [],
+      "writable": []
+    },
+    "logMessages": [
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb invoke [1]",
+      "Program log: Instruction: SetAuthority",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb consumed 1167 of 200000 compute units",
+      "Program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb success"
+    ],
+    "postBalances": ["996479120", "2039280", "1141440"],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "ELRBdV4gcuxqYb6jHkV4ySJ7dwYx9344cgFNzUSww1ra",
+        // !tooltip[/owner/] postTokenBalances
+        "owner": "A9FK8XxT2Hfefz8H3vQJHLwvbibGQJWErBsqMumgUYeP",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "preBalances": ["996484120", "2039280", "1141440"],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "ELRBdV4gcuxqYb6jHkV4ySJ7dwYx9344cgFNzUSww1ra",
+        // !tooltip[/owner/] preTokenBalances
+        "owner": "DLvpDgEABKfEaRDz5Qh9tSrJhuZzsiiZMcYXmvdek1zV",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "rewards": [],
+    "status": {
+      "Ok": null
+    }
+  },
+  "slot": "137902",
+  "transaction": {
+    "message": {
+      "accountKeys": [
+        "DLvpDgEABKfEaRDz5Qh9tSrJhuZzsiiZMcYXmvdek1zV",
+        "5Qj4uNGuAEBdryPg8k2UTewpnNfYAc9Ux9fCcDrNAjGs",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      ],
+      "addressTableLookups": [],
+      "header": {
+        "numReadonlySignedAccounts": 0,
+        "numReadonlyUnsignedAccounts": 1,
+        "numRequiredSignatures": 1
+      },
+      "instructions": [
+        {
+          "accounts": [1, 0],
+          "data": "bmb6sys4wqZErNeiV7hrM4vQVHF8AVBhi3XeR5TgbQM68MH",
+          "programIdIndex": 2,
+          "stackHeight": null
+        }
+      ],
+      "recentBlockhash": "CvTdX9MSYkqFMkALUHeGPMQN5yBeUdJptRdce2qMEkPr"
+    },
+    "signatures": [
+      "3rHUaKMh4KDDfdaATAL4J5WDEV7oFm7ykkNaMf1Eo5EwvDUjLE6dWsbxNDmyENrhb2w5gE4KqRxZ3ZwQxuM18SVR"
+    ]
+  },
+  "version": "0"
+}
+```
+
+### !postTokenBalances
+
+`postTokenBalances`-taulukon `owner`-kenttä poikkeaa
+`preTokenBalances`-taulukon arvosta. Tämä osoittaa, että token accountin omistajuus on vaihtunut.
+
+### !preTokenBalances
+
+`preTokenBalances`-taulukon `owner`-kenttä on token accountin alkuperäinen omistaja.
+
+</WithNotes>
+
+#### Token-talletuksen laskeminen
+
+Token-talletusten tarkkaan seurantaan sinun on vertailtava `preTokenBalances`- ja
+`postTokenBalance`-kenttiä transaktion metatiedoissa. Nämä kentät näyttävät
+token-saldot ja token accountin omistajan ennen transaktiota ja sen jälkeen,
+mikä mahdollistaa siirrettyjen tokenien tarkan määrän laskemisen. Tämä lähestymistapa
+varmistaa, että todellinen saldomuutos tallennetaan.
+
+- Jos `preTokenBalances`- ja `postTokenBalances`-kenttien `owner`-kenttä
+  pysyy samana, laske `amount`-kenttien erotus.
+- Jos token accountin omistajuus muuttuu (`owner`-kenttä on erilainen
+  `preTokenBalances`- ja `postTokenBalances`-kenttien välillä) ja uusi omistaja
+  `postTokenBalance`-taulukossa vastaa pörssisi odotettua `owner`-osoitetta, pidä
+  `postTokenBalances`-taulukon `amount`-kentässä näkyvää koko saldoa talletettuna summana.
+
+<WithNotes>
+
+```json title="Transaction Metadata"
+"meta": {
+    // --snip--
+    "postBalances": ["994375240", "2074080", "2074080", "1141440"],
+    "postTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      }
+    ],
+    "preBalances": ["994380240", "2074080", "2074080", "1141440"],
+    "preTokenBalances": [
+      {
+        "accountIndex": 1,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "4fvXFPXSL9i7VbiRzoizuW4bhn1dMvRgQzQ6VevssYxw",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "100",
+          "decimals": 2,
+          "uiAmount": "1",
+          "uiAmountString": "1"
+        }
+      },
+      {
+        "accountIndex": 2,
+        "mint": "Fx1JZFeYbCxLrMv7422YSxpr7YzcsAgpU1MkjZTyCKi2",
+        // !tooltip[/owner/] owner
+        "owner": "8fjS2shNWY8xniiEMLNk1Aek4MAu8Qp2LCXJckVwTD4n",
+        "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "uiTokenAmount": {
+          // !tooltip[/amount/] amount
+          "amount": "0",
+          "decimals": 2,
+          "uiAmount": null,
+          "uiAmountString": "0"
+        }
+      }
+    ],
+    // --snip--
+  }
+```
+
+### !owner
+
+Tarkista, vastaako `owner`-kenttä `preTokenBalances`- ja
+`postTokenBalances`-arvojen välillä, jotta voidaan määrittää, onko token account -omistajuus muuttunut
+tapahtuman aikana.
+
+### !amount
+
+Laske token-saldojen muutokset käyttämällä `amount`-kenttää
+`preTokenBalances`- ja `postTokenBalances`-arvoissa kullekin token account -tilille.
+
+Jos samassa tapahtumassa on useita siirtoja, tämä
+erotus edustaa nettomääräisiä siirrettyjä tokeneita kullekin token account -tilille.
+
+</WithNotes>
+
+### Nosto
+
+Käyttäjän antaman nostoosoitteen on oltava heidän SOL-lompakko-osoitteensa.
+
+Ennen nostosiirron [suorittamista](#token-transfers) pörssin tulee
+tarkistaa osoite
+[yllä kuvatulla tavalla](#validating-user-supplied-account-addresses-for-withdrawals).
+Lisäksi tämän osoitteen on oltava System Program -ohjelman omistama eikä siinä saa olla
+tilitietoja. Jos osoitteella ei ole SOL-saldoa, käyttäjältä tulee pyytää vahvistus
+ennen noston jatkamista. Kaikki muut nostoosoitteet
+on hylättävä.
+
+Nostoosoitteesta johdetaan oikean mintin
+[Associated Token Account](https://spl.solana.com/associated-token-account)
+(ATA) ja siirto tehdään kyseiselle tilille
+[TransferChecked](https://github.com/solana-labs/solana-program-library/blob/fc0d6a2db79bd6499f04b9be7ead0c400283845e/token/program/src/instruction.rs#L268)-
+ohjeen avulla. Huomaa, että ATA-osoitetta ei välttämättä vielä ole olemassa,
+jolloin pörssin tulee rahoittaa tili käyttäjän puolesta. SPL Token -tileille
+nostotilin rahoittaminen vaatii 0,00203928 SOL
+(2 039 280 lamportia).
+
+Mallipohja `spl-token transfer` -komennolle nostoa varten:
+
+```shell
+spl-token transfer --fund-recipient <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+### Muita huomioitavia seikkoja
+
+#### Freeze Authority
+
+Sääntelyvaatimusten vuoksi SPL Token -liikkeeseen laskeva taho voi valinnaisesti
+pitää "Freeze Authority" -oikeuden kaikkiin sen minttiin liittyviin tileihin.
+Tämä mahdollistaa tietyn tilin varojen [jäädyttämisen](https://spl.solana.com/token#freezing-accounts) halutulla hetkellä,
+tehden tilistä käyttökelvottoman kunnes se sulatetaan. Jos tämä ominaisuus on
+käytössä, jäädytysvaltuuden pubkey rekisteröidään SPL Token -minttitilille.
+
+### Token Extensions -standardin (SPL Token-2022) perustuki
+
+[SPL Token-2022](https://spl.solana.com/token-2022) on uusin standardi
+kääritettyjen/synteettisten tokeneiden luomiseen ja vaihtoon Solana-lohkoketjussa.
+
+Myös nimellä Token Extensions tunnettu standardi sisältää monia uusia ominaisuuksia, joita
+tokenien luojat ja tilinomistajat voivat valinnaisesti ottaa käyttöön. Näitä ominaisuuksia ovat
+luottamukselliset siirrot, siirtomaksut, minttien sulkeminen, metatiedot, pysyvät
+valtuudet, muuttumaton omistajuus ja paljon muuta. Katso lisätietoja
+[laajennusoppaasta](https://spl.solana.com/token-2022/extensions).
+
+Jos pörssisi tukee SPL Tokenia, SPL Token-2022:n tukeminen ei vaadi paljon lisätyötä:
+
+- CLI-työkalu toimii saumattomasti molempien ohjelmien kanssa versiosta 3.0.0 alkaen.
+- `preTokenBalances` ja `postTokenBalances` sisältävät SPL Token-2022 -saldot
+- RPC indeksoi SPL Token-2022 -tilit, mutta ne on kysyttävä erikseen
+  ohjelmatunnuksella `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`
+
+Associated Token Account toimii samalla tavalla ja laskee oikein
+uuden tilin edellyttämän SOL-talletussumman.
+
+Laajennusten vuoksi tilit voivat kuitenkin olla suurempia kuin 165 tavua, joten
+niiden rahoittaminen saattaa vaatia enemmän kuin 0,00203928 SOL.
+
+Esimerkiksi Associated Token Account -ohjelma sisältää aina "immutable
+owner" -laajennuksen, joten tilit vaativat vähintään 170 tavua, mikä edellyttää
+0,00207408 SOL.
+
+### Laajennuskohtaiset huomiot
+
+Edellinen osio kuvaa SPL Token-2022:n perustuen. Koska
+laajennukset muuttavat tokenien toimintaa, pörssien saattaa olla tarpeen muuttaa tapaa,
+jolla ne käsittelevät tokeneita.
+
+Kaikki laajennukset on mahdollista nähdä mintissä tai token account -tilillä:
+
+```shell
+spl-token display <account address>
+```
+
+#### Siirtomaksu
+
+Tokenille voidaan määrittää siirtomaksu, jolloin osa siirretyistä
+tokeneista pidätetään kohteessa myöhempää keräystä varten.
+
+Jos pörssisi siirtää näitä tokeneita, huomaa, että kaikki eivät välttämättä saavu
+kohteeseen pidätetyn summan vuoksi.
+
+Siirron aikana on mahdollista määrittää odotettu maksu yllätysten välttämiseksi:
+
+```shell
+spl-token transfer --expected-fee <fee amount> --fund-recipient <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+#### Minting Close Authority
+
+Tämän laajennuksen avulla tokenin luoja voi sulkea mintin, edellyttäen että tokenien
+tarjonta on nolla.
+
+Kun mintti suljetaan, saattaa olla olemassa tyhjiä token account -tilejä,
+jotka eivät enää liity kelvolliseen minttiin.
+
+Nämä token account -tilit on turvallista sulkea:
+
+```shell
+spl-token close --address <account address>
+```
+
+#### Luottamuksellinen siirto
+
+Mintit voidaan konfiguroida luottamuksellisia siirtoja varten, jolloin token-määrät
+salataan, mutta tilinomistajat ovat edelleen julkisia.
+
+Pörssit voivat konfiguroida token account -tilit lähettämään ja vastaanottamaan luottamuksellisia
+siirtoja käyttäjämäärien piilottamiseksi. Luottamuksellisten siirtojen käyttöönotto
+token account -tileillä ei ole pakollista, joten pörssit voivat pakottaa käyttäjät
+lähettämään tokeneita ei-luottamuksellisesti.
+
+Luottamuksellisten siirtojen käyttöönottamiseksi tili on konfiguroitava sitä varten:
+
+```shell
+spl-token configure-confidential-transfer-account --address <account address>
+```
+
+Ja siirtoa varten:
+
+```shell
+spl-token transfer --confidential <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+Luottamuksellisen siirron aikana `preTokenBalance`- ja `postTokenBalance`-
+kentät eivät näytä muutosta. Talletustilien tyhjentämiseksi sinun on
+purettava uuden saldon salaus tokenien nostamiseksi:
+
+```shell
+spl-token apply-pending-balance --address <account address>
+spl-token withdraw-confidential-tokens --address <account address> <amount or ALL>
+```
+
+#### Oletustilin tila
+
+Mintit voidaan konfiguroida oletustilin tilalla siten, että kaikki uudet token account -tilit
+jäädytetään oletuksena. Nämä tokenien luojat voivat edellyttää käyttäjiltä
+erillisen prosessin läpikäymistä tilin sulattamiseksi.
+
+#### Ei-siirrettävä
+
+Jotkut tokenit ovat ei-siirrettäviä, mutta ne voidaan silti polttaa ja tili
+voidaan sulkea.
+
+#### Permanent Delegate
+
+Tokenien luojat voivat nimetä pysyvän valtuutetun kaikille tokeneillaan. Pysyvä valtuutettu voi siirtää tai polttaa tokeneita miltä tahansa tililtä, mikä voi
+johtaa varojen varastamiseen.
+
+Tämä on lakisääteinen vaatimus vakaiden valuuttojen osalta tietyillä lainkäyttöalueilla,
+tai sitä voidaan käyttää tokenien takaisinottojärjestelmissä.
+
+Huomaa, että näitä tokeneita voidaan siirtää ilman pörssisi tietoa.
+
+#### Transfer Hook
+
+Tokeneihin voidaan konfiguroida lisäohjelma, jota on kutsuttava siirtojen aikana
+siirron validoimiseksi tai muun logiikan suorittamiseksi.
+
+Koska Solana-ajoympäristö edellyttää kaikkien tilien välittämistä eksplisiittisesti
+ohjelmalle ja transfer hookit vaativat lisätilejä, pörssin on
+luotava siirtoohjeet eri tavalla näille tokeneille.
+
+CLI ja ohjeluojat kuten
+`createTransferCheckedWithTransferHookInstruction` lisäävät ylimääräiset tilit
+automaattisesti, mutta lisätilit voidaan myös määrittää eksplisiittisesti:
+
+```shell
+spl-token transfer --transfer-hook-account <pubkey:role> --transfer-hook-account <pubkey:role> ...
+```
+
+#### Pakollinen muistio siirroissa
+
+Käyttäjät voivat konfiguroida token account -tilinsä edellyttämään muistiota siirroissa.
+
+Pörssien saattaa olla tarpeen liittää muistio-ohje ennen tokenien siirtämistä takaisin
+käyttäjille, tai ne voivat vaatia käyttäjiä liittämään muistio-ohjeen ennen
+lähettämistä pörssiin:
+
+```shell
+spl-token transfer --with-memo <memo text> <exchange token account> <withdrawal amount> <withdrawal address>
+```
+
+## Integraation testaaminen
+
+Muista testata koko työnkulkusi Solana devnet- ja testnet-
+[klustereilla](/docs/references/clusters) ennen siirtymistä tuotantoon mainnetissä.
+Devnet on avoimin ja joustavin, ja ihanteellinen alkukehitykseen, kun taas
+testnet tarjoaa realistisemman klusterikonfiguraation. Sekä devnet että testnet
+tukevat faucetia – aja `solana airdrop 1` saadaksesi devnet- tai testnet-SOL:ia
+kehitystä ja testausta varten.

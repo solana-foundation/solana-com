@@ -1,0 +1,211 @@
+---
+title: Zdarzenia środowiska uruchomieniowego
+description:
+  Obserwuj transakcje, tiki slot, strumieniowanie kont i błędy środowiska
+  uruchomieniowego z poziomu testu. Rust udostępnia kanał; JS udostępnia metodę
+  drain.
+---
+
+Środowisko uruchomieniowe Surfnet emituje strumień ustrukturyzowanych zdarzeń
+obejmujących przetwarzanie transakcji, tiki slot, strumieniowanie kont, podróż w
+czasie i błędy. SDK udostępnia ten strumień, dzięki czemu testy mogą weryfikować
+zachowanie środowiska uruchomieniowego bez konieczności parsowania logów.
+
+## Rust: Odbiornik kanału
+
+`Surfnet::events()` zwraca referencję do
+`crossbeam_channel::Receiver<SimnetEvent>`, do którego środowisko uruchomieniowe
+publikuje zdarzenia. Opróżnij go za pomocą `try_iter()` (nieblokujące) lub
+odczytuj poszczególne zdarzenia za pomocą `recv()` / `recv_timeout()`.
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+
+// Drain whatever has accumulated so far.
+for event in surfnet.events().try_iter() {
+    match event {
+        SimnetEvent::TransactionProcessed(_ts, metadata, error) => {
+            println!("tx {} -> {:?}", metadata.signature, metadata.logs);
+            if let Some(err) = error {
+                eprintln!("  failed: {err:?}");
+            }
+        }
+        SimnetEvent::ErrorLog(_ts, message) => {
+            eprintln!("runtime error: {message}");
+        }
+        other => {
+            println!("event: {other:?}");
+        }
+    }
+}
+```
+
+<Callout type="warn" title="Odbiornik jest współdzielony">
+  Jeśli uruchomisz zadanie w tle do odbioru zdarzeń, nie wywołuj również
+  `try_iter` z głównego wątku. Zdarzenia będą nieprzewidywalnie rozdzielane
+  między dwóch odbiorców.
+</Callout>
+
+## JS: Metoda Drain
+
+Wiązania JS buforują zdarzenia wewnętrznie i udostępniają je za pośrednictwem
+`drainEvents`. Każde wywołanie zwraca wszystko, co zostało zgromadzone od
+poprzedniego wywołania, a następnie czyści bufor.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  // ... do test setup that triggers events ...
+
+  const events = surfnet.drainEvents();
+  for (const event of events) {
+    switch (event.kind) {
+      case "transactionProcessed":
+        console.log("tx", event.transactionSignature, event.logs);
+        break;
+      case "errorLog":
+        console.error("runtime error:", event.message);
+        break;
+      default:
+        console.log(event.kind, event.message ?? "");
+    }
+  }
+} finally {
+  surfnet.stop();
+}
+```
+
+<Callout type="warn" title="Nieograniczony bufor">
+  Jeśli nigdy nie wywołasz `drainEvents`, bufor rośnie przez cały czas życia
+  instancji. To jest w porządku w przypadku krótkich testów, ale wywołuj tę
+  metodę okresowo w przypadku długotrwałych fikstur, aby pamięć nie rosła bez
+  ograniczeń.
+</Callout>
+
+## Struktura SimnetEventValue (JS)
+
+Typ zdarzenia JS to płaski obiekt z dyskryminatorem `kind` i opcjonalnymi
+polami. Nie każde pole jest ustawione dla każdego wariantu — destrukturyzuj na
+podstawie `kind`.
+
+```ts
+interface SimnetEventValue {
+  kind: string; // discriminator, e.g. "TransactionProcessed"
+  message?: string; // human-readable message
+  timestamp?: string; // ISO timestamp
+
+  // startup
+  initialTransactionCount?: number;
+  clock?: ClockValue;
+
+  // slot / clock
+  epochInfo?: EpochInfoValue;
+  clockCommand?: string;
+  slotIntervalMs?: number;
+
+  // accounts
+  accountPubkey?: string;
+
+  // transactions
+  transactionSignature?: string;
+  logs?: string[];
+  computeUnitsConsumed?: number;
+  fee?: number;
+
+  // errors
+  errorMessage?: string;
+
+  // misc
+  tag?: string;
+  profileKey?: string;
+  profileSlot?: number;
+  runbookId?: string;
+  runbookErrors?: string[];
+}
+```
+
+## Rodzaje zdarzeń
+
+Ciągi znaków rodzaju po stronie JS używają notacji camelCase; odpowiadający
+wariant Rust używa PascalCase. Dopasowuj do tych dokładnych ciągów — są wrażliwe
+na wielkość liter i stabilne w kolejnych wersjach.
+
+| JS `kind`                                       | Wariant Rust                                                 | Emitowane gdy                                                                                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`                                         | `SimnetEvent::Ready`                                         | Środowisko uruchomieniowe kończy rozruch; niesie `initialTransactionCount`.                                                                                |
+| `connected`                                     | `SimnetEvent::Connected`                                     | Połączono ze zdalnym RPC nadrzędnym; niesie `message` (adres URL).                                                                                         |
+| `aborted`                                       | `SimnetEvent::Aborted`                                       | Uruchamianie zostało przerwane; niesie `message` (przyczynę).                                                                                              |
+| `shutdown`                                      | `SimnetEvent::Shutdown`                                      | Rozpoczyna się łagodne wyłączanie.                                                                                                                         |
+| `systemClockUpdated`                            | `SimnetEvent::SystemClockUpdated`                            | Zegar systemowy przesunął się do przodu; niesie `clock`.                                                                                                   |
+| `clockUpdate`                                   | `SimnetEvent::ClockUpdate`                                   | Wykonano polecenie zegara (wstrzymaj/wznów/zaktualizuj interwał); niesie `clockCommand` i opcjonalnie `slotIntervalMs`.                                    |
+| `epochInfoUpdate`                               | `SimnetEvent::EpochInfoUpdate`                               | Dostępna jest nowa migawka informacji o epoch; niesie `epochInfo`.                                                                                         |
+| `blockHashExpired`                              | `SimnetEvent::BlockHashExpired`                              | Hash bloku, który był w użyciu, wygasł.                                                                                                                    |
+| `transactionReceived`                           | `SimnetEvent::TransactionReceived`                           | Transakcja została umieszczona w kolejce; niesie `timestamp`, `transactionSignature`.                                                                      |
+| `transactionProcessed`                          | `SimnetEvent::TransactionProcessed`                          | Transakcja została wykonana; niesie `timestamp`, `transactionSignature`, `logs`, `computeUnitsConsumed`, `fee` i `errorMessage` w przypadku niepowodzenia. |
+| `accountUpdate`                                 | `SimnetEvent::AccountUpdate`                                 | Konto uległo zmianie — obejmuje strumieniowane konta i mutacje wywołane przez cheatcode; niesie `timestamp` i `accountPubkey`.                             |
+| `infoLog` / `warnLog` / `errorLog` / `debugLog` | `SimnetEvent::InfoLog` / `WarnLog` / `ErrorLog` / `DebugLog` | Środowisko uruchomieniowe wyemitowało linię logu; niesie `timestamp` i `message`.                                                                          |
+| `pluginLoaded`                                  | `SimnetEvent::PluginLoaded`                                  | Załadowano wtyczkę Geyser; niesie `message` (nazwę wtyczki).                                                                                               |
+| `taggedProfile`                                 | `SimnetEvent::TaggedProfile`                                 | Oznaczono wynik profilera; niesie `tag`, `profileKey`, `profileSlot`, `logs`, `computeUnitsConsumed`.                                                      |
+| `runbookStarted` / `runbookCompleted`           | `SimnetEvent::RunbookStarted` / `RunbookCompleted`           | Runbook został uruchomiony lub zakończony; niesie `runbookId` i (po zakończeniu) opcjonalny `runbookErrors`.                                               |
+
+## Wzorce asercji
+
+### Potwierdź, że transakcja została zrealizowana
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const sig = await sendTransaction(surfnet.rpcUrl /* ... */);
+  // ... wait for confirmation via RPC ...
+
+  const landed = surfnet
+    .drainEvents()
+    .some(
+      (e) => e.kind === "transactionProcessed" && e.transactionSignature === sig
+    );
+
+  console.assert(landed, "expected transaction to land");
+} finally {
+  surfnet.stop();
+}
+```
+
+### Potwierdź brak błędów środowiska uruchomieniowego
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let mut surfnet = Surfnet::start().await?;
+
+// ... run the test ...
+
+let errors: Vec<_> = surfnet
+    .events()
+    .try_iter()
+    .filter(|e| matches!(e, SimnetEvent::ErrorLog(_, _)))
+    .collect();
+
+assert!(errors.is_empty(), "runtime errors: {errors:?}");
+
+surfnet.stop()?;
+```
+
+## Dlaczego zdarzenia przewyższają parsowanie logów
+
+<Callout type="info" title="Preferuj strumień zdarzeń zamiast stdout">
+Środowisko uruchomieniowe wyświetla strukturyzowane zdarzenia przez `tracing`, co może kusić do przechwytywania i parsowania ze stdout. Nie rób tego. Strukturyzowany strumień zdarzeń:
+
+- **Przeżywa zmiany poziomu logowania** — zdarzenia są emitowane niezależnie od
+  `RUST_LOG`.
+- **Zawiera typowane ładunki** — bez parsowania ciągów, bez dryftu formatu
+  między wersjami.
+- **Ma stabilne rodzaje** — linie logów są formatowane dla ludzi i mogą się
+  swobodnie zmieniać; rodzaje zdarzeń są częścią kontraktu SDK.
+
+</Callout>

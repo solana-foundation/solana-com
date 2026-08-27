@@ -1,5 +1,6 @@
 // trigger preview build
 import createNextIntlPlugin from "next-intl/plugin";
+import { withBotId } from "botid/next/config";
 import rewritesAndRedirectsJson from "./rewrites-redirects";
 import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
@@ -79,6 +80,10 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   transpilePackages: ["gsap"],
   serverExternalPackages: ["@databricks/sql", "lz4"],
+  // The epoch1000 OG card reads font files from disk at request time
+  outputFileTracingIncludes: {
+    "/api/epoch1000/og": ["./assets/fonts/epoch1000/*.woff"],
+  },
 
   async rewrites() {
     const baseRewrites = rewritesAndRedirectsJson.rewrites as {
@@ -199,10 +204,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "assets.getriver.io",
-      },
-      {
-        protocol: "https",
         hostname: "placehold.co",
       },
       {
@@ -283,7 +284,7 @@ const moduleExports = (): NextConfig => {
   return plugins.reduce<NextConfig>((acc, next) => next(acc), nextConfig);
 };
 
-export default withSentryConfig(moduleExports, {
+export default withSentryConfig(withBotId(moduleExports), {
   org: "solana-fndn",
   project: "javascript-nextjs",
   silent: !process.env.CI,

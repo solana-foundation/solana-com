@@ -3,22 +3,18 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
-import {
-  sentryBeforeSend,
-  sentryBeforeSendTransaction,
-  sentryDenyUrls,
-  sentryIgnoreErrors,
-  sentryTracesSampler,
-} from "@workspace/sentry";
+import { initBotId } from "botid/client/core";
+import { sentryOptions } from "@workspace/sentry";
 
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  tracesSampler: sentryTracesSampler,
-  debug: false,
-  beforeSend: sentryBeforeSend,
-  beforeSendTransaction: sentryBeforeSendTransaction,
-  ignoreErrors: sentryIgnoreErrors,
-  denyUrls: sentryDenyUrls,
+Sentry.init(sentryOptions);
+
+initBotId({
+  protect: [
+    {
+      path: "/api/university-ambassador",
+      method: "POST",
+    },
+  ],
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

@@ -26,8 +26,8 @@ tiền từ PDA đăng ký được tạo ra.
 
     ```toml
     [dependencies]
-    subscriptions = "^0.1"
-    solana-instruction = "^2"
+    subscriptions = "0.4.0"
+    solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
 
@@ -138,6 +138,16 @@ Người bán có thể cập nhật các trường có thể thay đổi của 
 người đăng ký hiện tại vẫn giữ nguyên các điều khoản họ đã chấp nhận, trong khi
 người đăng ký mới sẽ chấp nhận các điều khoản hiện tại của gói.
 
+Một số quy tắc áp dụng:
+
+- Một `endTs` hữu hạn chỉ có thể được rút ngắn, không bao giờ được gia hạn hoặc
+  xóa (`PlanEndTsCannotExtend`).
+- Trong gói `Sunset`, bạn có thể xóa các puller (tập hợp mới phải là tập con của
+  tập hợp hiện tại) để thu hồi quyền của một puller bị xâm phạm; trạng thái,
+  `endTs` và siêu dữ liệu vẫn bị đóng băng.
+- Các chỉnh sửa có hiệu lực trong kỳ thanh toán cuối cùng của gói miễn là
+  `endTs` không thay đổi.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
 
@@ -172,9 +182,13 @@ người đăng ký mới sẽ chấp nhận các điều khoản hiện tại c
     let updated_metadata_bytes = b"https://example.com/updated-plan.json";
     updated_metadata_uri[..updated_metadata_bytes.len()].copy_from_slice(updated_metadata_bytes);
 
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
+        .event_authority(event_authority)
         .update_plan_data(UpdatePlanData {
             status: PlanStatus::Active as u8,
             end_ts: 0,
@@ -187,10 +201,10 @@ người đăng ký mới sẽ chấp nhận các điều khoản hiện tại c
   </Tab>
 </Tabs>
 
-## Đăng ký
+## Đăng Ký
 
-Người đăng ký chấp nhận các điều khoản của gói hiện tại. PDA đăng ký được tạo ra
-từ PDA gói và địa chỉ người đăng ký.
+Người đăng ký chấp nhận các điều khoản gói hiện tại. PDA đăng ký được suy ra từ
+PDA của gói và địa chỉ người đăng ký.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -311,11 +325,11 @@ từ PDA gói và địa chỉ người đăng ký.
   </Tab>
 </Tabs>
 
-## Thu tiền thanh toán
+## Thu Thanh Toán
 
-Người bán hoặc người rút tiền được phép ký xác nhận việc thu tiền. Khi gói sử
-dụng danh sách đích cho phép, chủ sở hữu của token account nhận phải được liệt
-kê trong `destinations`.
+Người bán hoặc một puller được đưa vào danh sách trắng sẽ ký xác nhận thu tiền.
+Khi gói sử dụng danh sách cho phép đích, chủ sở hữu của token account nhận phải
+được liệt kê trong `destinations`.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -362,10 +376,10 @@ kê trong `destinations`.
   </Tab>
 </Tabs>
 
-## Hủy và Thu hồi
+## Hủy Và Thu Hồi
 
-Hủy bỏ đánh dấu đăng ký là kết thúc. Thu hồi đóng PDA đăng ký sau khi thời hạn
-hủy đã trôi qua. Người đăng ký ký cả hai giao dịch.
+Hủy đánh dấu gói đăng ký là sắp kết thúc. Thu hồi đóng PDA của gói đăng ký sau
+khi thời hạn hủy đã hết. Người đăng ký ký cả hai giao dịch.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -414,14 +428,57 @@ hủy đã trôi qua. Người đăng ký ký cả hai giao dịch.
   </Tab>
 </Tabs>
 
-## Ghi chú
+## Tiếp Tục Gói Đăng Ký
 
-- `amount` được tính theo đơn vị cơ bản. Đối với token có 6 chữ số thập phân,
-  `5_000_000` có nghĩa là `5` token.
-- TypeScript SDK tự động lấy các điều khoản gói hiện tại trong quá trình
-  `subscribe` khi bạn không cung cấp chúng.
-- Rust `SubscribeBuilder` cần các điều khoản gói dự kiến. Hãy lấy và giải mã tài
+Một gói đăng ký đã hủy có thể được kích hoạt lại trước khi bị thu hồi. Sau khi
+bị thu hồi, tài khoản đăng ký sẽ bị đóng và người đăng ký phải
+[đăng ký lại](#subscribe). Tiếp tục yêu cầu `SubscriptionAuthority` của người
+đăng ký cho mint của gói, mà chương trình xác thực (chủ sở hữu, mint và
+`init_id`) và từ chối nếu đã cũ hoặc được khởi tạo lại.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use subscriptions::generated::instructions::*;
+
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
+
+    let resume_ix = ResumeSubscriptionBuilder::new()
+        .subscriber(subscriber)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .event_authority(event_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Lưu Ý
+
+- `amount` tính theo đơn vị cơ sở. Với token có 6 chữ số thập phân, `5_000_000`
+  có nghĩa là `5` token.
+- TypeScript SDK lấy các điều khoản gói trực tiếp trong quá trình `subscribe`
+  khi bạn bỏ qua chúng.
+- `SubscribeBuilder` của Rust cần các điều khoản gói dự kiến. Tải và giải mã tài
   khoản gói trước, sau đó truyền các trường đó qua `SubscribeData`.
-- Chỉ người bán hoặc ví được liệt kê trong `pullers` mới có thể thu thanh toán.
-- Người đăng ký ký các giao dịch thiết lập, hủy và thu hồi. Người bán hoặc bên
+- Chỉ merchant hoặc ví được liệt kê trong `pullers` mới có thể thu thanh toán.
+- Người đăng ký ký các giao dịch thiết lập, hủy và thu hồi. Merchant hoặc puller
   được phê duyệt ký các giao dịch thu tiền.

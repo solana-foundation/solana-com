@@ -1,0 +1,277 @@
+---
+title: البدء السريع
+description:
+  تعلّم كيفية استخدام anchor-litesvm لاختبار برامج Anchor بصيغة مبسّطة
+---
+
+<div className="flex items-center gap-3 mb-6">
+  <a
+    href="https://crates.io/crates/anchor-litesvm"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-2 px-3 py-1.5 bg-fd-muted/50 hover:bg-fd-muted rounded-lg text-sm font-medium transition-colors border border-fd-border/50"
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 512 512"
+      className="w-4 h-4"
+      fill="currentColor"
+    >
+      <path d="M239.1 6.3l-208 78c-18.7 7-31.1 25-31.1 45v225.1c0 18.2 10.3 34.8 26.5 42.9l208 104c13.5 6.8 29.4 6.8 42.9 0l208-104c16.3-8.1 26.5-24.8 26.5-42.9V129.3c0-20-12.4-37.9-31.1-44.9l-208-78C262 2.2 250 2.2 239.1 6.3zM256 68.4l192 72v1.1l-192 78-192-78v-1.1l192-72zm32 356V275.5l160-65v133.9l-160 80z" />
+    </svg>
+    عرض <code>anchor-litesvm</code> على crates.io
+  </a>
+</div>
+
+## التثبيت
+
+أضف التبعيات المطلوبة:
+
+```bash
+cargo add --dev anchor-litesvm litesvm litesvm-utils
+```
+
+## ما هو anchor-litesvm?
+
+توفّر حزمة `anchor-litesvm` **صيغةً مبسّطةً مشابهةً لـ anchor-client** دون أيّ
+عبء ناجم عن استدعاءات RPC. وتحقّق **تقليصاً بنسبة 78% في حجم الكود** مقارنةً بـ
+LiteSVM الخام، مع الحفاظ على سلامة الأنواع باستخدام أنواع Anchor.
+
+<Steps>
+<Step>
+**AnchorContext**
+- سياق اختبار متوافق مع بيئة الإنتاج
+- نفس أنماط الواجهة البرمجية لـ anchor-client
+- يدير نسخة LiteSVM والدافع والبرنامج
+- تنفيذ التعليمات دون عبء RPC
+</Step>
+
+<Step>
+  **واجهة البرنامج** - بناء تعليمات سلس - معالجة آمنة للحسابات والوسائط من حيث
+  الأنواع - صيغة anchor-client المألوفة
+</Step>
+
+<Step>
+  **إلغاء تسلسل الحسابات** - جلب حسابات Anchor وإلغاء تسلسلها - معالجة تلقائية
+  للمُميِّزات - دعم لـ PDAs والتخطيطات المخصصة
+</Step>
+
+<Step>
+**تحليل الأحداث**
+- تحليل الأحداث من سجلات المعاملات
+- التحقق من إطلاق الأحداث
+- إلغاء تسلسل الأحداث بأمان من حيث الأنواع
+</Step>
+</Steps>
+
+## مثال سريع
+
+مع Anchor 1.0، استخدم `declare_program!` لتوليد أنواع العميل من IDL الخاص
+ببرنامجك. يُنشئ هذا الماكرو وحدتَي `client::accounts::*` و `client::args::*`
+لبناء تعليمات آمنة من حيث الأنواع:
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+use anchor_litesvm::{AssertionHelpers, TestHelpers};
+use anchor_lang::system_program;
+use solana_sdk::signature::{read_keypair_file, Signer};
+
+// Generate client types from your program's IDL
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn test_anchor_program() {
+    // One-line setup — reads program keypair for the correct ID
+    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        program_keypair.pubkey(),
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    // Create a funded account via TestHelpers on ctx.svm
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    // Derive PDA
+    let seed: u64 = 42;
+    let pda = ctx.svm.get_pda(
+        &[b"user", user.pubkey().as_ref(), &seed.to_le_bytes()],
+        &program_keypair.pubkey(),
+    );
+
+    // Build instruction using generated client types
+    let ix = ctx.program()
+        .accounts(my_program::client::accounts::Initialize {
+            user: user.pubkey(),
+            user_account: pda,
+            system_program: system_program::ID,
+        })
+        .args(my_program::client::args::Initialize {
+            seed,
+            name: "test".to_string(),
+        })
+        .instruction()
+        .unwrap();
+
+    // Execute and assert in one chain
+    ctx.execute_instruction(ix, &[&user])
+        .unwrap()
+        .assert_success();
+
+    // Fetch and deserialize the account
+    let account: my_program::MyAccount = ctx.get_account(&pda).unwrap();
+    assert_eq!(account.name, "test");
+}
+```
+
+<Callout type="info">
+  يقرأ `declare_program!(my_program)` ملف IDL من `target/idl/my_program.json`
+  أثناء وقت التصريف ويُولِّد وحدتَي `client::accounts::*` و `client::args::*`.
+  يستلزم ذلك بناء برنامجك أولاً.
+</Callout>
+
+## مقارنة: Raw LiteSVM مقابل anchor-litesvm
+
+### قبل (Raw LiteSVM)
+
+```rust
+use litesvm::LiteSVM;
+use solana_keypair::Keypair;
+use solana_signer::Signer;
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_message::Message;
+use solana_transaction::Transaction;
+
+let mut svm = LiteSVM::new();
+svm.add_program(program_id, program_bytes).unwrap();
+
+let payer = Keypair::new();
+svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+// Manually compute 8-byte discriminator
+let discriminator = {
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(b"global:initialize");
+    let result = hasher.finalize();
+    result[..8].to_vec()
+};
+
+// Manually serialize args and build instruction
+let mut data = discriminator;
+data.extend_from_slice(&borsh::to_vec(&args).unwrap());
+
+let accounts = vec![
+    AccountMeta::new(user.pubkey(), true),
+    AccountMeta::new(user_pda, false),
+    AccountMeta::new_readonly(system_program::id(), false),
+];
+
+let ix = Instruction::new_with_bytes(program_id, &data, accounts);
+let tx = Transaction::new_signed_with_payer(
+    &[ix],
+    Some(&payer.pubkey()),
+    &[&payer],
+    svm.latest_blockhash(),
+);
+svm.send_transaction(tx).unwrap();
+
+// Manually deserialize with discriminator skip
+let account_data = svm.get_account(&pda).unwrap().data;
+let account: UserAccount = UserAccount::try_deserialize(
+    &mut &account_data[8..]
+).unwrap();
+```
+
+### بعد (anchor-litesvm)
+
+```rust
+use anchor_litesvm::AnchorLiteSVM;
+
+anchor_lang::declare_program!(my_program);
+
+let mut ctx = AnchorLiteSVM::build_with_program(program_id, program_bytes);
+let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+let ix = ctx.program()
+    .accounts(my_program::client::accounts::Initialize {
+        user: user.pubkey(),
+        user_account: user_pda,
+        system_program: anchor_lang::system_program::ID,
+    })
+    .args(my_program::client::args::Initialize { name: "test".to_string() })
+    .instruction()
+    .unwrap();
+
+ctx.execute_instruction(ix, &[&user]).unwrap().assert_success();
+
+let account: my_program::UserAccount = ctx.get_account(&user_pda).unwrap();
+```
+
+## المكونات الرئيسية
+
+### منشئ AnchorLiteSVM
+
+| الطريقة                         | الوصف                     |
+| ------------------------------- | ------------------------- |
+| `new()`                         | ينشئ نسخة منشئ جديدة      |
+| `with_payer(keypair)`           | يضبط keypair دافع مخصص    |
+| `deploy_program(id, bytes)`     | يضيف برنامجاً للنشر       |
+| `build()`                       | يبني AnchorContext        |
+| `build_with_program(id, bytes)` | وسيلة مختصرة لبرنامج واحد |
+| `build_with_programs(programs)` | نشر برامج متعددة          |
+
+### AnchorContext
+
+| الطريقة                              | الوصف                                            |
+| ------------------------------------ | ------------------------------------------------ |
+| `svm`                                | وصول مباشر إلى نسخة `LiteSVM` الأساسية (حقل عام) |
+| `program_id`                         | معرّف البرنامج (حقل عام)                         |
+| `program()`                          | يُرجع `Program` لبناء التعليمات                  |
+| `payer()`                            | الحصول على keypair الدافع                        |
+| `execute_instruction(ix, signers)`   | تنفيذ تعليمة واحدة                               |
+| `execute_instructions(ixs, signers)` | تنفيذ تعليمات متعددة في معاملة واحدة             |
+| `send_and_confirm_transaction(&tx)`  | إرسال معاملة خام                                 |
+| `get_account<T>(pubkey)`             | جلب حساب Anchor وإلغاء تسلسله                    |
+| `get_account_unchecked<T>(pubkey)`   | الجلب دون فحص المُميِّز                          |
+| `create_funded_account(lamports)`    | إنشاء keypair جديد وتمويله                       |
+| `airdrop(pubkey, lamports)`          | إسقاط SOL إلى عنوان                              |
+| `latest_blockhash()`                 | الحصول على blockhash الحالي                      |
+| `account_exists(pubkey)`             | التحقق من وجود حساب                              |
+| `deploy_program(id, bytes)`          | نشر برنامج إضافي (عبر `ProgramTestExt`)          |
+
+### البرنامج
+
+| الطريقة              | الوصف                                             |
+| -------------------- | ------------------------------------------------- |
+| `accounts(accounts)` | تعيين حسابات التعليمات (أي نوع `ToAccountMetas`)  |
+| `args(args)`         | تعيين وسيطات التعليمات (أي نوع `InstructionData`) |
+| `instruction()`      | بناء `Instruction` النهائي                        |
+| `id()`               | الحصول على معرّف البرنامج                         |
+
+### ctx.svm — TestHelpers وAssertionHelpers
+
+`ctx.svm` هو حقل `LiteSVM` عام يتضمن سمات `TestHelpers` و`AssertionHelpers`
+متاحة عبر `litesvm-utils`:
+
+| الطريقة                                                   | الوصف                       |
+| --------------------------------------------------------- | --------------------------- |
+| `ctx.svm.create_funded_account(lamports)`                 | إنشاء keypair وتمويله       |
+| `ctx.svm.create_token_mint(authority, decimals)`          | إنشاء SPL token mint        |
+| `ctx.svm.create_associated_token_account(mint, owner)`    | إنشاء ATA                   |
+| `ctx.svm.mint_to(mint, token_account, authority, amount)` | سك الرموز المميزة           |
+| `ctx.svm.get_pda(seeds, program_id)`                      | اشتقاق عنوان PDA            |
+| `ctx.svm.get_pda_with_bump(seeds, program_id)`            | اشتقاق PDA مع bump seed     |
+| `ctx.svm.assert_token_balance(token_account, expected)`   | التحقق من رصيد الرمز المميز |
+| `ctx.svm.assert_account_closed(pubkey)`                   | التحقق من إغلاق الحساب      |
+| `ctx.svm.assert_sol_balance(pubkey, expected)`            | التحقق من رصيد SOL          |
+
+## استكشاف الأخطاء وإصلاحها
+
+### الأخطاء الشائعة
+
+| الخطأ                   | السبب                                        | الحل                                                               |
+| ----------------------- | -------------------------------------------- | ------------------------------------------------------------------ |
+| `AccountNotFound`       | الحساب غير موجود                             | تأكد من إنشاء الحساب قبل جلبه                                      |
+| `DiscriminatorMismatch` | نوع حساب خاطئ                                | تحقق من استخدامك لبنية الحساب الصحيحة                              |
+| `DeserializationError`  | بيانات حساب غير صالحة                        | تحقق من تهيئة الحساب بشكل صحيح                                     |
+| No programs added       | تم استدعاء `build()` بدون `deploy_program()` | أضف برنامجاً واحداً على الأقل قبل البناء                           |
+| Missing client types    | لم يتم استدعاء `declare_program!`            | شغّل `anchor build` أولاً لتوليد IDL، ثم استدعِ `declare_program!` |

@@ -1,13 +1,14 @@
+import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 import {
   SHARED_LOCALE_COOKIE,
-  buildSharedLocaleCookie,
+  createMiddleware,
   getFixedProxiedLocation,
   getLocaleFromPathname,
-  getLocaleRedirectPath,
-  getPreferredLocaleCookie,
+  routing,
+  routingWithoutDetection,
 } from "./middleware";
-import { getAlternates } from "./routing";
+import { getAlternates } from "./alternates";
 
 describe("@workspace/i18n middleware", () => {
   it("extracts locale prefixes from localized paths", () => {
@@ -16,30 +17,67 @@ describe("@workspace/i18n middleware", () => {
     expect(getLocaleFromPathname("/docs")).toBeNull();
   });
 
-  it("accepts only supported shared locale cookie values", () => {
-    expect(getPreferredLocaleCookie("es")).toBe("es");
-    expect(getPreferredLocaleCookie("sv")).toBeNull();
-    expect(getPreferredLocaleCookie(null)).toBeNull();
+  it("uses the shared locale cookie when locale detection is enabled", async () => {
+    const handleI18nRouting = createMiddleware(routing);
+    const request = new NextRequest("https://solana.com/breakpoint", {
+      headers: { cookie: `${SHARED_LOCALE_COOKIE}=uk` },
+    });
+
+    const response = await handleI18nRouting(request);
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://solana.com/uk/breakpoint",
+    );
   });
 
-  it("builds localized redirect paths for non-default locales", () => {
-    expect(getLocaleRedirectPath("/", "es")).toBe("/es");
-    expect(getLocaleRedirectPath("/docs/payments", "es")).toBe(
-      "/es/docs/payments",
-    );
-    expect(getLocaleRedirectPath("/docs/payments", "en")).toBe(
-      "/docs/payments",
+  it("defaults unprefixed sub-app routes to English", async () => {
+    const handleI18nRouting = createMiddleware(routingWithoutDetection);
+    const request = new NextRequest("https://solana.com/breakpoint", {
+      headers: {
+        "accept-language": "uk,en;q=0.5",
+        cookie: `${SHARED_LOCALE_COOKIE}=uk; NEXT_LOCALE=uk`,
+      },
+    });
+
+    const response = await handleI18nRouting(request);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-middleware-rewrite")).toContain(
+      "/en/breakpoint",
     );
   });
 
-  it("serializes the shared locale cookie", () => {
-    expect(buildSharedLocaleCookie("es")).toContain(
-      `${SHARED_LOCALE_COOKIE}=es`,
+  it("keeps explicit non-English sub-app routes localized", async () => {
+    const handleI18nRouting = createMiddleware(routingWithoutDetection);
+    const request = new NextRequest("https://solana.com/uk/breakpoint");
+
+    const response = await handleI18nRouting(request);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("does not let a proxied sub-app overwrite the shared locale cookie", async () => {
+    const handleI18nRouting = createMiddleware(routingWithoutDetection, {
+      preserveProxiedLocaleCookie: true,
+    });
+    const request = new NextRequest(
+      "https://solana-com-breakpoint.vercel.app/uk/breakpoint",
+      {
+        headers: {
+          cookie: `${SHARED_LOCALE_COOKIE}=en`,
+          host: "solana-com-breakpoint.vercel.app",
+          "x-forwarded-host": "solana.com",
+          "x-forwarded-proto": "https",
+        },
+      },
     );
-    expect(buildSharedLocaleCookie("es")).toContain("Path=/");
-    expect(buildSharedLocaleCookie("es")).toContain("Max-Age=31536000");
-    expect(buildSharedLocaleCookie("es")).toContain("Expires=");
-    expect(buildSharedLocaleCookie("es")).toContain("SameSite=Lax");
+
+    const response = await handleI18nRouting(request);
+
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 
   it("normalizes canonical and hreflang alternate paths", () => {

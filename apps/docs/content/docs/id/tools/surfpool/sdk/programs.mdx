@@ -1,0 +1,184 @@
+---
+title: Men-deploy Program
+description:
+  Deploy program Solana ke Surfnet dari artefak lokal. Temukan otomatis
+  workspace Anchor atau tentukan jalur .so eksplisit, byte mentah, dan IDL.
+---
+
+SDK dapat men-deploy sebuah program dari artefak build lokal dalam satu
+pemanggilan. Ada dua cara: **penemuan otomatis** untuk workspace Anchor/Agave
+dengan jalur konvensional, dan **deployment eksplisit** ketika Anda ingin
+mengontrol dari mana byte berasal.
+
+Kedua cara mendaftarkan program pada alamat yang dideklarasikan IDL (atau pada
+kunci publik file keypair) dan, jika IDL tersedia, mendaftarkannya ke runtime
+melalui `surfnet_registerIdl` sehingga klien RPC dapat mendekode data akun.
+
+## Temukan Otomatis Workspace Anchor
+
+`deployProgram` / `deploy_program` menerima nama program dan mencari file-file
+berikut relatif terhadap direktori kerja saat ini:
+
+| File                                | Tujuan                                                    |
+| ----------------------------------- | --------------------------------------------------------- |
+| `target/deploy/{name}.so`           | Bytecode program yang dikompilasi (wajib)                 |
+| `target/deploy/{name}-keypair.json` | keypair program — kunci publik menjadi ID program (wajib) |
+| `target/idl/{name}.json`            | Anchor IDL JSON (opsional; didaftarkan jika ada)          |
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let program_id = cheats.deploy_program("my_program")?;
+println!("deployed at {program_id}");
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const programId = surfnet.deployProgram("my_program");
+  console.log("deployed at", programId);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+<Callout type="info" title="Build sebelum deploy">
+  Jalankan `anchor build` (atau `cargo build-sbf`) sebelum memanggil
+  `deployProgram` agar artefak `.so` dan keypair benar-benar ada di disk. SDK
+  tidak menjalankan build untuk Anda.
+</Callout>
+
+## Deployment Eksplisit
+
+Ketika artefak berada di lokasi non-standar — artefak CI yang sudah di-build,
+fixture pengujian yang telah disiapkan, atau potongan byte yang disematkan —
+berikan konfigurasi deploy secara eksplisit.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::Surfnet;
+
+let cheats = Surfnet::start().await?.cheatcodes();
+
+// Derive the program ID from a keypair file.
+let program_id = cheats.deploy(
+    DeployProgram::from_keypair_path("fixtures/my_program-keypair.json")?
+        .so_path("fixtures/my_program.so")
+        .idl_path("fixtures/my_program.idl.json"),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const programId = "DemoProgram111111111111111111111111111111111";
+
+surfnet.deploy({
+  programId,
+  soPath: "fixtures/my_program.so",
+  idlPath: "fixtures/my_program.idl.json"
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## Deploy dari Byte Mentah
+
+Ketika bytecode sudah ada di memori — dihasilkan oleh langkah build, diunduh
+dari penyimpanan artefak, atau disematkan melalui `include_bytes!` — lewati
+sistem file sepenuhnya.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+const PROGRAM_BYTES: &[u8] = include_bytes!("../fixtures/my_program.so");
+
+let cheats = Surfnet::start().await?.cheatcodes();
+let program_id: Pubkey = "DemoProgram111111111111111111111111111111111".parse()?;
+
+cheats.deploy(
+    DeployProgram::new(program_id).so_bytes(PROGRAM_BYTES.to_vec()),
+)?;
+```
+
+```ts !! title="TypeScript"
+import { readFileSync } from "node:fs";
+
+const surfnet = Surfnet.start();
+const programBytes = readFileSync("fixtures/my_program.so");
+
+surfnet.deploy({
+  programId: "DemoProgramID11111111111111111111111111111",
+  soBytes: programBytes
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## Referensi DeployProgram Builder (Rust)
+
+| Konstruktor / setter               | Tanda tangan                                      | Tujuan                                                         |
+| ---------------------------------- | ------------------------------------------------- | -------------------------------------------------------------- |
+| `DeployProgram::new`               | `(program_id: Pubkey) -> Self`                    | Membuat deployment untuk program ID yang sudah diketahui.      |
+| `DeployProgram::from_keypair_path` | `(path: impl AsRef<Path>) -> SurfnetResult<Self>` | Membaca file keypair Solana; kunci publik menjadi program ID.  |
+| `.so_path`                         | `(path: impl Into<PathBuf>)`                      | Path ke artefak `.so` yang telah dikompilasi di disk.          |
+| `.so_bytes`                        | `(bytes: Vec<u8>)`                                | Byte program mentah (saling eksklusif dengan `so_path`).       |
+| `.idl_path`                        | `(path: impl Into<PathBuf>)`                      | IDL JSON Anchor opsional untuk didaftarkan setelah deployment. |
+
+## Referensi Tipe DeployOptions (JS)
+
+```ts
+type ByteArrayLike = Uint8Array | number[];
+
+interface DeployOptions {
+  programId: string; // base58 address to deploy at
+  soPath?: string; // path to .so on disk
+  soBytes?: ByteArrayLike; // or raw bytes in memory
+  idlPath?: string; // optional Anchor IDL JSON
+}
+```
+
+`soPath` dan `soBytes` saling eksklusif — berikan tepat salah satu.
+
+## Yang Terdaftar
+
+Setelah deployment berhasil, runtime melakukan tiga hal:
+
+1. **Menulis program account** di `programId` dengan byte `.so` melalui
+   `surfnet_writeProgram`.
+2. **Menandai akun sebagai executable** sehingga dapat dipanggil melalui
+   panggilan RPC biasa.
+3. **Mendaftarkan IDL** (jika disediakan) melalui `surfnet_registerIdl`, yang
+   memungkinkan klien RPC mendekode data akun menggunakan skema IDL program.
+
+<Callout type="info" title="Jarang: program account non-executable">
+  Jika Anda ingin menulis byte program ke sebuah akun tetapi tetap membuatnya
+  non-executable, gunakan `SetAccount` secara langsung daripada `deploy`. Jalur
+  `deploy` selalu menandai akun sebagai executable.
+</Callout>
+
+## Kesalahan
+
+| Penyebab                                                  | Gejala                                                                        |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| File `.so` hilang atau tidak dapat dibaca                 | `SurfnetError::Cheatcode("...failed to read...")` atau error JS yang dilempar |
+| Program ID tidak cocok dengan file keypair                | `SurfnetError::Cheatcode("...mismatched program id...")`                      |
+| IDL JSON tidak valid                                      | `SurfnetError::Cheatcode("...invalid IDL...")`                                |
+| Surfnet offline dan program account sudah ada di upstream | Deployment tetap berhasil; salinan lokal menggantikan versi upstream          |

@@ -1,0 +1,172 @@
+---
+title: Thiết Lập Tài Khoản
+description: Thiết lập tài khoản kiểm thử và trạng thái với litesvm-go
+---
+
+Minh họa cách khởi tạo trạng thái tài khoản trực tiếp bằng `SetAccount` mà không cần thực thi giao dịch. Cách này nhanh hơn đáng kể so với airdrop và nạp tiền qua runtime khi bạn cần nhiều tài khoản sẵn sàng cho một bài kiểm thử.
+
+## Thiết Lập Tài Khoản Cơ Bản
+
+```go
+package mytest
+
+import (
+    "testing"
+
+    litesvm "github.com/LiteSVM/litesvm-go"
+    solana "github.com/gagliardetto/solana-go"
+)
+
+func TestBasicAccountSetup(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    // Calculate minimum balance for rent exemption.
+    accountData := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+    minBalance, err := svm.MinimumBalanceForRentExemption(len(accountData))
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("minimum balance for %d bytes: %d lamports", len(accountData), minBalance)
+
+    // Owner program (system program in this trivial example).
+    owner := solana.SystemProgramID
+    testAddr := solana.NewWallet().PublicKey()
+
+    // Build the account handle, then store it.
+    acct, err := litesvm.NewAccount(minBalance, accountData, owner, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(testAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+    t.Log("account state set successfully")
+
+    // Retrieve the account back.
+    retrieved := svm.GetAccount(testAddr)
+    if retrieved == nil {
+        t.Fatal("expected account to exist")
+    }
+    defer retrieved.Close()
+
+    t.Logf("  address:    %s", testAddr)
+    t.Logf("  lamports:   %d", retrieved.Lamports())
+    t.Logf("  owner:      %s", retrieved.Owner())
+    t.Logf("  executable: %v", retrieved.Executable())
+    t.Logf("  data:       %v", retrieved.Data())
+
+    // Or just read the balance.
+    bal, _, err := svm.Balance(testAddr)
+    if err != nil {
+        t.Fatal(err)
+    }
+    t.Logf("balance: %d lamports", bal)
+}
+```
+
+## Thiết Lập Nhiều Tài Khoản
+
+```go
+func TestMultipleAccounts(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    owner := solana.SystemProgramID
+
+    // Set up 5 accounts with different data payloads.
+    addrs := make([]solana.PublicKey, 5)
+    for i := range addrs {
+        addrs[i] = solana.NewWallet().PublicKey()
+
+        data := []byte{byte(i), byte(i + 1), byte(i + 2)}
+        rent, err := svm.MinimumBalanceForRentExemption(len(data))
+        if err != nil {
+            t.Fatal(err)
+        }
+
+        acct, err := litesvm.NewAccount(rent, data, owner, false, 0)
+        if err != nil {
+            t.Fatal(err)
+        }
+        if err := svm.SetAccount(addrs[i], acct); err != nil {
+            acct.Close()
+            t.Fatal(err)
+        }
+        acct.Close()
+
+        t.Logf("account %d: %s", i, addrs[i])
+    }
+
+    // Verify each account.
+    for i, addr := range addrs {
+        a := svm.GetAccount(addr)
+        if a == nil {
+            t.Fatalf("account %d missing", i)
+        }
+        t.Logf("  account %d: %d lamports, data[0]=%d", i, a.Lamports(), a.Data()[0])
+        a.Close()
+    }
+}
+```
+
+## Thiết Lập Program Data Account
+
+Thiết lập một tài khoản dữ liệu thuộc sở hữu chương trình bằng cách tuần tự hóa cấu trúc dữ liệu của bạn vào trường `data` của tài khoản. Đoạn mã này cần import thêm `encoding/binary`:
+
+```go
+import "encoding/binary"
+
+func TestProgramDataAccount(t *testing.T) {
+    svm, err := litesvm.New()
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer svm.Close()
+
+    programID := solana.NewWallet().PublicKey()
+    dataAddr := solana.NewWallet().PublicKey()
+
+    // Example layout: [u8 discriminator, u64 counter, 32-byte owner pubkey]
+    data := make([]byte, 1+8+32)
+    data[0] = 0x01                                      // discriminator
+    binary.LittleEndian.PutUint64(data[1:9], 100)       // counter
+    // copy(data[9:], ownerPubkey[:])                   // owner
+
+    rent, err := svm.MinimumBalanceForRentExemption(len(data))
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    acct, err := litesvm.NewAccount(rent, data, programID, false, 0)
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer acct.Close()
+
+    if err := svm.SetAccount(dataAddr, acct); err != nil {
+        t.Fatal(err)
+    }
+
+    t.Logf("program data account set up: %s", dataAddr)
+}
+```
+
+<Callout type="info">
+  `SetAccount` nhanh hơn so với việc thực thi giao dịch khi thiết lập tài khoản hàng loạt, và giúp mã kiểm thử của bạn tập trung vào hành vi cần kiểm thử thay vì các bước chuẩn bị trạng thái.
+</Callout>
+
+## Các Điểm Quan Trọng
+
+1. **Trạng thái trực tiếp** - `SetAccount` ghi trạng thái tài khoản mà không đi qua runtime.
+2. **Miễn phí rent** - sử dụng `MinimumBalanceForRentExemption` để tính toán số lamport trước khi khởi tạo tài khoản.
+3. **Quyền sở hữu** - `NewAccount` trả về một handle mà bạn vẫn sở hữu. SVM lưu bản sao riêng sau khi gọi `SetAccount`; hãy giải phóng bản sao của bạn khi không còn cần thiết.
+4. **Xác minh** - sử dụng `GetAccount` để đọc lại vào một handle, hoặc `Balance` để chỉ kiểm tra số lamport.

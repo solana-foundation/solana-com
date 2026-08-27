@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Install gitleaks
@@ -35,7 +35,20 @@ jobs:
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
           tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+      - name: Scan pull request commits for secrets
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        # Every commit the PR introduces, including side branches merged into
+        # it, but nothing already reachable from the base branch — that
+        # history is covered by the push and weekly full scans below.
+        run: |
+          /tmp/gitleaks git --redact --exit-code 1 \
+            --log-opts "${HEAD_SHA} --not ${BASE_SHA} origin/${BASE_REF}" .
       - name: Scan full git history for secrets
+        if: github.event_name != 'pull_request'
         run: /tmp/gitleaks git --redact --exit-code 1 .
 
   dependency-audit:
@@ -43,17 +56,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: actions/checkout@v5
         with:
-          version: 10.15.1
+          fetch-depth: 0
+      - name: Check for dependency changes
+        id: dependency-changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+            package.json \
+            ':(glob)**/package.json' \
+            pnpm-lock.yaml \
+            pnpm-workspace.yaml \
+            .github/workflows/security.yml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No dependency inputs changed; the full audit runs on main and weekly."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Skip audit for unrelated pull request
+        if:
+          github.event_name == 'pull_request' &&
+          steps.dependency-changes.outputs.changed != 'true'
+        run: echo "Dependency audit not required for this pull request."
+      - name: Install pnpm
+        if:
+          github.event_name != 'pull_request' ||
+          steps.dependency-changes.outputs.changed == 'true'
+        uses: pnpm/action-setup@v6
+        with:
           run_install: false
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        if:
+          github.event_name != 'pull_request' ||
+          steps.dependency-changes.outputs.changed == 'true'
+        uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
       - name: Audit production dependencies
+        if:
+          github.event_name != 'pull_request' ||
+          steps.dependency-changes.outputs.changed == 'true'
         # Fails on High/Critical advisories per the Solana Foundation SDLC.
         # Known-unfixable advisories are ignored via auditConfig.ignoreGhsas
         # in pnpm-workspace.yaml with a documented justification.

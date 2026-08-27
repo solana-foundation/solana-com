@@ -1,4 +1,8 @@
-import { SPONSOR_FORM_HREF, TICKET_TRANSFER_HREF } from "@/content/links";
+import {
+  APPLY_TO_SPEAK_HREF,
+  SPONSOR_FORM_HREF,
+  TICKET_TRANSFER_HREF,
+} from "@/content/links";
 
 export type FAQPageItem = {
   id: string;
@@ -35,8 +39,9 @@ export const faqPageSections = [
       {
         id: "general-speaking",
         question: "How can I apply to speak at Breakpoint?",
-        answer:
-          "Speaker applications are not open yet. More information will be shared in the coming months.",
+        answer: "",
+        answerHref: APPLY_TO_SPEAK_HREF,
+        answerLinkLabel: "Apply to speak",
       },
       {
         id: "general-sponsor",
@@ -104,6 +109,18 @@ export const faqPageSections = [
     ],
   },
   {
+    id: "children-minors",
+    title: "Children & Minors",
+    items: [
+      {
+        id: "children-minors-attendance",
+        question: "Can children attend Breakpoint?",
+        answer:
+          "Children 16 and under are welcome to attend Breakpoint when accompanied by a registered parent or legal guardian. At registration, an adult must sign a waiver for each child to enter the venue. Parents and guardians are responsible for supervising their children at all times. Breakpoint does not provide childcare, and access to certain areas may be restricted.",
+      },
+    ],
+  },
+  {
     id: "travel",
     title: "Travel",
     items: [
@@ -124,6 +141,13 @@ export const faqPageSections = [
         question: "Do I need a visa to attend?",
         answer:
           "Entry requirements depend on your passport and travel plans. Review the official UK visa checker before booking travel.",
+      },
+      {
+        id: "travel-invitation-letter",
+        question: "How do I request an invitation letter?",
+        answer: "Please email",
+        answerHref: "mailto:breakpoint@solana.org",
+        answerLinkLabel: "breakpoint@solana.org",
       },
       {
         id: "travel-venue",

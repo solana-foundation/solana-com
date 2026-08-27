@@ -3,13 +3,7 @@ import { Container } from "@/component-library/container";
 import { cn } from "@/app/components/utils";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-
-const UnicornScene = dynamic(
-  () => import("unicornstudio-react").then((mod) => mod.default),
-  {
-    ssr: false,
-  },
-);
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 
 const EarthAnimation = dynamic(
   () =>
@@ -48,14 +42,13 @@ export const Community: React.FC<CommunityProps> = ({
     <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0 px-2">
       <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative transform-gpu">
         {bgJsonFilePath && (
-          <UnicornScene
+          <SafeUnicornScene
             projectId="community"
             className="!absolute inset-0 z-0"
             jsonFilePath={bgJsonFilePath}
             width="100%"
             height="101%"
             scale={1}
-            dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
             fps={30}
             lazyLoad={true}
             production={true}
@@ -74,6 +67,21 @@ export const Community: React.FC<CommunityProps> = ({
                   }}
                 />
               ) : undefined
+            }
+            fallback={
+              bgImageSrc ? (
+                <Image
+                  className="!absolute inset-0 z-0"
+                  src={bgImageSrc}
+                  alt="Hero background"
+                  fill
+                  sizes="150vw"
+                  priority
+                  style={{
+                    objectFit: "cover",
+                  }}
+                />
+              ) : null
             }
             showPlaceholderOnError
             showPlaceholderWhileLoading

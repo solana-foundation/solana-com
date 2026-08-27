@@ -9,8 +9,9 @@ import { getAllPlaylistItems } from "@/lib/youtube/getYoutubePlaylist";
 import { fetchLatestPosts } from "@/lib/media/post";
 import { YouTubePlaylistItem } from "@/lib/youtube/types";
 import { PostItem } from "@/types/media";
-import { uniqBy } from "lodash";
+import uniqBy from "lodash/uniqBy";
 import { PROJECTS, LINKS, GET_STARTED_LINKS } from "@/data/index/data";
+import { getActiveCampaignId } from "@/components/index/campaigns/config";
 
 export const revalidate = 60;
 
@@ -171,6 +172,7 @@ export default async function Page(_props: Props) {
       firstFeaturedEventIndex={firstFeaturedEventIndex}
       videos={videos}
       news={news}
+      activeCampaign={getActiveCampaignId()}
     />
   );
 }
@@ -185,8 +187,5 @@ export async function generateMetadata({ params }: Props) {
   });
   return {
     ...base,
-    openGraph: {
-      images: ["/src/img/index/og-image.jpeg"],
-    },
   };
 }

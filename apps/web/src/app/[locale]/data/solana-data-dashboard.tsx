@@ -1,20 +1,19 @@
 "use client";
 
-import { motion } from "framer-motion";
-import {
-  Activity,
-  ArrowLeftRight,
-  ChevronLeft,
-  ChevronRight,
-  CircleDollarSign,
-  ExternalLink,
-  Github,
-  Info,
-  Loader2,
-  Network,
-  type LucideIcon,
-} from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { motion } from "motion/react";
+import { Pulse as Activity } from "@boxicons/react/Pulse";
+import { ArrowLeftRight } from "@boxicons/react/ArrowLeftRight";
+import { ChevronLeft } from "@boxicons/react/ChevronLeft";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
+import { DollarCircle as CircleDollarSign } from "@boxicons/react/DollarCircle";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
+import { Github } from "@boxicons/react/Github";
+import { InfoCircle as Info } from "@boxicons/react/InfoCircle";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
+import { NetworkChart as Network } from "@boxicons/react/NetworkChart";
+import { Broadcast as RadioTower } from "@boxicons/react/Broadcast";
+import { Send } from "@boxicons/react/Send";
+import Image from "next/image";
 import {
   Fragment,
   type ReactNode,
@@ -30,6 +29,13 @@ import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { usePathname, useRouter } from "@workspace/i18n/routing";
 
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipPortal,
@@ -37,39 +43,64 @@ import {
   TooltipTrigger,
 } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/components/utils";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 import {
   chartDefinitions,
+  getDefaultRpcRegion,
+  getRpcRegionOptions,
+  getRpcRegionsByInfra,
+  isRpcLatencyFiltersResponse,
   metricColors,
   normalizeProviderName,
+  parseRpcInfra,
+  parseRpcMethod,
+  parseRpcRegion,
+  parseRpcTimeframe,
   providerColors,
   rangeOptions,
+  rpcInfraOptions,
+  rpcMethodOptions,
+  rpcRegionOptions,
+  rpcTimeframeOptions,
+  senderEconomicsMetricNames,
   type Aggregation,
   type ChartDefinition,
   type DashboardTab,
   type DataApiResponse,
-  type MethodologyComment,
   type MetricRow,
   type ProviderName,
+  type RpcLatencyInfra,
+  type RpcLatencyFiltersResponse,
+  type RpcLatencyMethod,
+  type RpcLatencyRegion,
+  type RpcTimeframe,
 } from "./data-config";
 import {
   formatValue,
   TimeSeriesChart,
   type ChartSeries,
 } from "./time-series-chart";
+import { SenderProviderExperience } from "./sender-provider-experience";
+
+export { getSenderEconomicsItems } from "./sender-provider-experience";
 
 const tabOptions = [
   { labelKey: "tabs.overview.label", value: "overview" },
   { labelKey: "tabs.network.label", value: "network" },
   { labelKey: "tabs.stablecoins.label", value: "stablecoins" },
   { labelKey: "tabs.defi.label", value: "defi" },
+  { labelKey: "tabs.rpc.label", value: "rpc" },
+  { labelKey: "tabs.senders.label", value: "senders" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
 
-const tabIcons: Record<DashboardTab, LucideIcon> = {
+const tabIcons: Record<DashboardTab, typeof Activity> = {
   overview: Activity,
   network: Network,
   stablecoins: CircleDollarSign,
   defi: ArrowLeftRight,
+  rpc: RadioTower,
+  senders: Send,
 };
 
 const tabIndicatorSpring = {
@@ -95,9 +126,18 @@ const fallbackProviderColors = [
 ] as const;
 const dataRefreshIntervalMs = 12 * 60 * 60 * 1000;
 const dataDedupingIntervalMs = 60 * 1000;
+const rpcDataRefreshIntervalMs = 60 * 1000;
+const rpcDataDedupingIntervalMs = 15 * 1000;
+const rpcFiltersRefreshIntervalMs = 5 * 60 * 1000;
 const dataAggregatorRepositoryUrl =
   "https://github.com/solana-foundation/solana-data-aggregator";
+const rpcLatencyRepositoryUrl =
+  "https://github.com/solana-foundation/rpc-latency-monitor";
+const rpcLatencyProviderOnboardingUrl = `${rpcLatencyRepositoryUrl}#adding-your-rpc-for-providers`;
+const rpcSenderGrafanaUrl =
+  "https://rpclatency.grafana.net/public-dashboards/6f18bcfc9e0e4e0ea62d10e5e484c50d";
 const backfillRequestsUrl = `${dataAggregatorRepositoryUrl}/issues`;
+const resourceCarouselAutoAdvanceMs = 6000;
 const resourceCardStepFallback = 460;
 const resourceCards = [
   {
@@ -119,6 +159,16 @@ const resourceCards = [
     href: dataAggregatorRepositoryUrl,
     nodeId: "21:105",
     titleKey: "buildSection.cards.aggregator.title",
+  },
+  {
+    analyticsId: "rpc-latency-monitor",
+    backgroundClassName: "scale-[1.12]",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-3.webp",
+    ctaKey: "buildSection.cards.rpcMonitor.cta",
+    descriptionKey: "buildSection.cards.rpcMonitor.description",
+    href: rpcLatencyRepositoryUrl,
+    nodeId: "25:141",
+    titleKey: "buildSection.cards.rpcMonitor.title",
   },
   {
     analyticsId: "allium",
@@ -171,14 +221,24 @@ const resourceCards = [
     titleKey: "buildSection.cards.pay.title",
   },
   {
-    analyticsId: "x402",
+    analyticsId: "defi-monitor",
     backgroundClassName: "",
-    backgroundSrc: "/src/img/data-dashboard/x402-card-bg.webp",
-    ctaKey: "buildSection.cards.x402.cta",
-    descriptionKey: "buildSection.cards.x402.description",
-    href: "/x402",
+    backgroundSrc: "/src/img/solutions/defi/bg-1.webp",
+    ctaKey: "buildSection.cards.defiMonitor.cta",
+    descriptionKey: "buildSection.cards.defiMonitor.description",
+    href: "https://api.topledger.xyz/defi-monitor/",
     nodeId: "8:171",
-    titleKey: "buildSection.cards.x402.title",
+    titleKey: "buildSection.cards.defiMonitor.title",
+  },
+  {
+    analyticsId: "rpc-sender-dashboard",
+    backgroundClassName: "-scale-y-100",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.webp",
+    ctaKey: "buildSection.cards.senderMetrics.cta",
+    descriptionKey: "buildSection.cards.senderMetrics.description",
+    href: rpcSenderGrafanaUrl,
+    nodeId: "25:142",
+    titleKey: "buildSection.cards.senderMetrics.title",
   },
 ] as const;
 const dataSWRConfig = {
@@ -188,12 +248,30 @@ const dataSWRConfig = {
   revalidateOnFocus: false,
   revalidateOnReconnect: false,
 } as const;
+const rpcDataSWRConfig = {
+  ...dataSWRConfig,
+  dedupingInterval: rpcDataDedupingIntervalMs,
+  refreshInterval: rpcDataRefreshIntervalMs,
+} as const;
+const rpcFiltersSWRConfig = {
+  dedupingInterval: rpcFiltersRefreshIntervalMs,
+  keepPreviousData: true,
+  refreshInterval: rpcFiltersRefreshIntervalMs,
+  revalidateOnFocus: false,
+  revalidateOnReconnect: false,
+} as const;
 
 type QueryUpdates = {
   days?: number;
+  infra?: RpcLatencyInfra;
+  method?: RpcLatencyMethod;
   providers?: Set<ProviderName>;
+  region?: RpcLatencyRegion;
   tab?: DashboardTab;
+  timeframe?: RpcTimeframe;
 };
+
+export type KpiAggregation = "median" | "minimum";
 
 type KpiItem = {
   chart: ChartDefinition;
@@ -217,9 +295,39 @@ export function SolanaDataDashboard() {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
   const showProviderControls = useMinWidth("(min-width: 768px)");
-  const { activeTab, providerParam, rangeDays } = useDashboardQueryParams();
+  const {
+    activeTab,
+    providerParam,
+    queryString,
+    rangeDays,
+    rpcInfra,
+    rpcMethod,
+    rpcRegion,
+    rpcTimeframe,
+    setQueryString,
+  } = useDashboardQueryParams();
+  const isRpcTab = activeTab === "rpc";
+  const isSendersTab = activeTab === "senders";
+  const isLiveInfrastructureTab = isRpcTab || isSendersTab;
+  const { data: rpcFilters } = useSWR<RpcLatencyFiltersResponse>(
+    isRpcTab ? "/api/rpc/filters" : null,
+    fetchRpcFilters,
+    rpcFiltersSWRConfig,
+  );
+  const rpcRegionsByInfra = useMemo(
+    () => getRpcRegionsByInfra(rpcFilters),
+    [rpcFilters],
+  );
   const activeTabContent = getTabContent(t, activeTab);
-  const dataUrl = `/api/databricks/data?days=${rangeDays}`;
+  const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
+  const dataUrl = getDashboardDataUrl({
+    activeTab,
+    rpcInfra,
+    rangeDays,
+    rpcMethod,
+    rpcRegion,
+    rpcTimeframe,
+  });
   const errorMessages = useMemo(
     () => ({
       defaultUnavailable: t("errors.defaultUnavailable"),
@@ -234,9 +342,17 @@ export function SolanaDataDashboard() {
   const { data, error, isLoading, isValidating } = useSWR<DataApiResponse>(
     dataUrl,
     fetchDashboardData,
-    dataSWRConfig,
+    isLiveInfrastructureTab ? rpcDataSWRConfig : dataSWRConfig,
   );
-  const rows = data?.rows ?? emptyRows;
+  const rows = useMemo(
+    () =>
+      filterRowsForCharts(
+        data?.rows ?? emptyRows,
+        activeCharts,
+        isSendersTab ? senderEconomicsMetricNames : [],
+      ),
+    [activeCharts, data?.rows, isSendersTab],
+  );
   const availableProviders = useMemo(() => getAvailableProviders(rows), [rows]);
   const selectedProviders = useMemo(
     () => parseProviders(providerParam, availableProviders),
@@ -246,20 +362,71 @@ export function SolanaDataDashboard() {
     () => getSelectedProviderList(selectedProviders, availableProviders),
     [availableProviders, selectedProviders],
   );
-  const updateQuery = useDashboardQueryUpdater(availableProviders);
-  const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
+  const updateQuery = useDashboardQueryUpdater(
+    availableProviders,
+    queryString,
+    setQueryString,
+  );
+  const availableRpcRegionOptions = useMemo(
+    () => getRpcRegionOptions(rpcInfra, rpcRegionsByInfra),
+    [rpcInfra, rpcRegionsByInfra],
+  );
+
+  useEffect(() => {
+    if (
+      !providerParam ||
+      availableProviders.length === 0 ||
+      !hasInvalidProviderParam(providerParam, availableProviders)
+    ) {
+      return;
+    }
+
+    updateQuery({ providers: new Set(availableProviders) });
+  }, [availableProviders, providerParam, updateQuery]);
+
+  useEffect(() => {
+    if (
+      !isRpcTab ||
+      availableRpcRegionOptions.some((option) => option.value === rpcRegion)
+    ) {
+      return;
+    }
+
+    updateQuery({
+      region: getDefaultRpcRegion(rpcInfra, rpcRegionsByInfra),
+    });
+  }, [
+    availableRpcRegionOptions,
+    isRpcTab,
+    rpcInfra,
+    rpcRegion,
+    rpcRegionsByInfra,
+    updateQuery,
+  ]);
   const visibleCharts = useMemo(
     () => getVisibleCharts(activeCharts, rows),
     [activeCharts, rows],
   );
-  const kpis = useMemo(
-    () => getKpis(visibleCharts, rows, selectedProviders),
-    [visibleCharts, rows, selectedProviders],
+  const kpiCharts = useMemo(
+    () => getKpiCharts(visibleCharts, isRpcTab),
+    [isRpcTab, visibleCharts],
   );
-  const isInitialLoading = isLoading && rows.length === 0;
+  const kpiAggregation = isRpcTab ? "minimum" : "median";
+  const kpis = useMemo(
+    () => getKpis(kpiCharts, rows, selectedProviders, kpiAggregation),
+    [kpiAggregation, kpiCharts, rows, selectedProviders],
+  );
+  const hasKpiGrid = !isLiveInfrastructureTab;
+  const isInitialLoading = (isLoading || isValidating) && rows.length === 0;
   const isRefreshing = isValidating && rows.length > 0;
   const footerMetaItems = [
-    <span key="cadence">{t("footer.refreshCadence")}</span>,
+    <span key="cadence">
+      {isRpcTab
+        ? t("footer.rpcRefreshCadence")
+        : isSendersTab
+          ? t("footer.senderRefreshCadence")
+          : t("footer.refreshCadence")}
+    </span>,
     data?.generatedAt ? (
       <span key="refreshed">
         {t("footer.lastRefreshed")}{" "}
@@ -268,8 +435,20 @@ export function SolanaDataDashboard() {
         </span>
       </span>
     ) : null,
-    <span key="lag">{t("footer.lagNotice")}</span>,
-    <span key="backfill">{t("footer.backfillCadence")}</span>,
+    isRpcTab ? (
+      <span key="filter">
+        {t("footer.rpcFilter", {
+          infra: getRpcInfraLabel(rpcInfra),
+          method: rpcMethod,
+          region: getRpcRegionLabel(rpcRegion),
+        })}
+      </span>
+    ) : isSendersTab ? null : (
+      <span key="lag">{t("footer.lagNotice")}</span>
+    ),
+    isLiveInfrastructureTab ? null : (
+      <span key="backfill">{t("footer.backfillCadence")}</span>
+    ),
   ].filter((item): item is React.ReactElement => item !== null);
 
   return (
@@ -293,15 +472,23 @@ export function SolanaDataDashboard() {
 
         <nav
           aria-label={t("controls.ariaLabel")}
-          className="sticky top-[65px] lg:top-[71px] z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
+          className="sticky top-14 z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
         >
           <DashboardControls
             activeTab={activeTab}
             availableProviders={availableProviders}
             isRefreshing={isRefreshing}
             rangeDays={rangeDays}
+            rpcInfra={rpcInfra}
+            rpcMethod={rpcMethod}
+            rpcRegion={rpcRegion}
+            rpcRegionsByInfra={rpcRegionsByInfra}
+            rpcTimeframe={rpcTimeframe}
             selectedProviders={selectedProviders}
-            showProviderControls={showProviderControls}
+            showProviderControls={showProviderControls && !isSendersTab}
+            showRangeControl={!isLiveInfrastructureTab}
+            showRpcFilterControls={isRpcTab}
+            showTimeframeControl={isLiveInfrastructureTab}
             onUpdateQuery={updateQuery}
           />
         </nav>
@@ -323,25 +510,52 @@ export function SolanaDataDashboard() {
           ) : null}
         </section>
 
-        <DataResourceCarousel />
-
         {error ? <DataError error={error} /> : null}
 
         {!error ? (
-          <>
-            <KpiGrid isLoading={isInitialLoading} kpis={kpis} />
-
-            <ChartGrid
-              activeCharts={activeCharts}
-              activeTab={activeTab}
+          isSendersTab ? (
+            <SenderProviderExperience
+              availableProviders={availableProviders}
+              comparisonProviders={
+                providerParam === null
+                  ? new Set<ProviderName>()
+                  : selectedProviders
+              }
+              hasExplicitComparison={providerParam !== null}
               isLoading={isInitialLoading}
               isRefreshing={isRefreshing}
               rows={rows}
-              selectedProviders={selectedProviders}
-              visibleCharts={visibleCharts}
+              onComparisonChange={(providers) =>
+                updateQuery({
+                  providers: providers ?? new Set(availableProviders),
+                })
+              }
             />
-          </>
+          ) : (
+            <>
+              {hasKpiGrid ? (
+                <KpiGrid
+                  aggregation={kpiAggregation}
+                  isLoading={isInitialLoading}
+                  kpis={kpis}
+                />
+              ) : null}
+
+              <ChartGrid
+                activeCharts={activeCharts}
+                activeTab={activeTab}
+                isConnectedToPrevious={hasKpiGrid}
+                isLoading={isInitialLoading}
+                isRefreshing={isRefreshing}
+                rows={rows}
+                selectedProviders={selectedProviders}
+                visibleCharts={visibleCharts}
+              />
+            </>
+          )
         ) : null}
+
+        <DataResourceCarousel />
 
         <footer className="mt-10 xl:mt-14 border-t border-nd-border-light pt-6 flex flex-col gap-5 font-brand-mono text-[12px] md:text-[13px] leading-[1.42] uppercase text-nd-mid-em-text">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -356,28 +570,56 @@ export function SolanaDataDashboard() {
                 aria-hidden="true"
                 className="h-1 w-1 rounded-full bg-nd-border-prominent"
               />
-              {t("footer.lastDays", { days: rangeDays })}
+              {isLiveInfrastructureTab
+                ? t("footer.lastTimeframe", { timeframe: rpcTimeframe })
+                : t("footer.lastDays", { days: rangeDays })}
             </span>
             <span className="flex flex-wrap items-center gap-x-6 gap-y-2 lg:justify-end">
-              <a
-                className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
-                href={dataAggregatorRepositoryUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <Github aria-hidden="true" className="h-3.5 w-3.5" />
-                {t("footer.source")}
-                <ExternalLink aria-hidden="true" className="h-3 w-3" />
-              </a>
-              <a
-                className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
-                href={backfillRequestsUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                {t("footer.backfillRequests")}
-                <ExternalLink aria-hidden="true" className="h-3 w-3" />
-              </a>
+              {isRpcTab ? (
+                <>
+                  <a
+                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                    href={rpcLatencyRepositoryUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <Github aria-hidden="true" className="h-3.5 w-3.5" />
+                    {t("footer.ossRepo")}
+                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                  </a>
+                  <a
+                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                    href={rpcLatencyProviderOnboardingUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {t("footer.addRpcProvider")}
+                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                  </a>
+                </>
+              ) : isSendersTab ? null : (
+                <>
+                  <a
+                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                    href={dataAggregatorRepositoryUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <Github aria-hidden="true" className="h-3.5 w-3.5" />
+                    {t("footer.source")}
+                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                  </a>
+                  <a
+                    className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
+                    href={backfillRequestsUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {t("footer.backfillRequests")}
+                    <ExternalLink aria-hidden="true" className="h-3 w-3" />
+                  </a>
+                </>
+              )}
             </span>
           </div>
 
@@ -408,16 +650,32 @@ function DashboardControls({
   isRefreshing,
   onUpdateQuery,
   rangeDays,
+  rpcInfra,
+  rpcMethod,
+  rpcRegion,
+  rpcRegionsByInfra,
+  rpcTimeframe,
   selectedProviders,
   showProviderControls,
+  showRangeControl,
+  showRpcFilterControls,
+  showTimeframeControl,
 }: {
   activeTab: DashboardTab;
   availableProviders: ProviderName[];
   isRefreshing: boolean;
   onUpdateQuery: (_updates: QueryUpdates) => void;
   rangeDays: number;
+  rpcInfra: RpcLatencyInfra;
+  rpcMethod: RpcLatencyMethod;
+  rpcRegion: RpcLatencyRegion;
+  rpcRegionsByInfra: RpcLatencyFiltersResponse["regionsByInfra"];
+  rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
   showProviderControls: boolean;
+  showRangeControl: boolean;
+  showRpcFilterControls: boolean;
+  showTimeframeControl: boolean;
 }) {
   const t = useTranslations("dataDashboard");
 
@@ -436,15 +694,73 @@ function DashboardControls({
             className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-nd-inverse to-transparent md:hidden"
           />
         </div>
-        <Separator />
-        <div className="-mx-1 flex items-center overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
-          <InlineControl
-            ariaLabel={t("controls.rangeAriaLabel")}
-            options={rangeOptions}
-            value={rangeDays}
-            onChange={(value) => onUpdateQuery({ days: value })}
-          />
-        </div>
+        {showRangeControl ? (
+          <>
+            <Separator />
+            <div className="-mx-1 flex items-center overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
+              <InlineControl
+                ariaLabel={t("controls.rangeAriaLabel")}
+                options={rangeOptions}
+                value={rangeDays}
+                onChange={(value) => onUpdateQuery({ days: value })}
+              />
+            </div>
+          </>
+        ) : null}
+        {showTimeframeControl ? (
+          <>
+            <Separator />
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterSelect
+                ariaLabel={t("controls.rpcTimeframeAriaLabel")}
+                label={t("controls.rpcTimeframeLabel")}
+                options={rpcTimeframeOptions}
+                value={rpcTimeframe}
+                onChange={(value) => onUpdateQuery({ timeframe: value })}
+              />
+            </div>
+          </>
+        ) : null}
+        {showRpcFilterControls ? (
+          <>
+            <Separator />
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterSelect
+                ariaLabel={t("controls.rpcRegionAriaLabel")}
+                label={t("controls.rpcRegionLabel")}
+                options={getRpcRegionOptions(rpcInfra, rpcRegionsByInfra)}
+                value={rpcRegion}
+                onChange={(value) => onUpdateQuery({ region: value })}
+              />
+              <FilterSelect
+                ariaLabel={t("controls.rpcInfraAriaLabel")}
+                label={t("controls.rpcInfraLabel")}
+                options={rpcInfraOptions}
+                value={rpcInfra}
+                onChange={(value) => {
+                  const nextRegionOptions = getRpcRegionOptions(
+                    value,
+                    rpcRegionsByInfra,
+                  );
+                  const nextRegion = nextRegionOptions.some(
+                    (option) => option.value === rpcRegion,
+                  )
+                    ? rpcRegion
+                    : getDefaultRpcRegion(value, rpcRegionsByInfra);
+
+                  onUpdateQuery({ infra: value, region: nextRegion });
+                }}
+              />
+              <FilterSelect
+                ariaLabel={t("controls.rpcMethodAriaLabel")}
+                label={t("controls.rpcMethodLabel")}
+                options={rpcMethodOptions}
+                value={rpcMethod}
+                onChange={(value) => onUpdateQuery({ method: value })}
+              />
+            </div>
+          </>
+        ) : null}
       </div>
 
       {isRefreshing ||
@@ -489,6 +805,14 @@ function TabSwitcher({
   onChange: (_value: DashboardTab) => void;
 }) {
   const t = useTranslations("dataDashboard");
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({
+      block: "nearest",
+      inline: "center",
+    });
+  }, [activeTab]);
 
   return (
     <div
@@ -512,6 +836,7 @@ function TabSwitcher({
             )}
             key={option.value}
             onClick={() => onChange(option.value)}
+            ref={isActive ? activeTabRef : undefined}
             role="tab"
             type="button"
           >
@@ -587,7 +912,15 @@ function ProviderControls({
   );
 }
 
-function KpiGrid({ isLoading, kpis }: { isLoading: boolean; kpis: KpiItem[] }) {
+function KpiGrid({
+  aggregation,
+  isLoading,
+  kpis,
+}: {
+  aggregation: KpiAggregation;
+  isLoading: boolean;
+  kpis: KpiItem[];
+}) {
   const locale = useLocale();
   const t = useTranslations("dataDashboard");
 
@@ -612,7 +945,8 @@ function KpiGrid({ isLoading, kpis }: { isLoading: boolean; kpis: KpiItem[] }) {
                 index={index}
                 key={kpi.chart.id}
                 label={getChartTitle(t, kpi.chart)}
-                summary={getKpiSummary(t, kpi.chart)}
+                lowerIsBetter={kpi.chart.lowerIsBetter}
+                summary={getKpiSummary(t, kpi.chart, aggregation)}
                 unit={getValueLabel(t, kpi.chart.valueLabel)}
                 value={formatValue(kpi.value, kpi.chart.valueLabel, locale)}
               />
@@ -627,12 +961,14 @@ function ChartGrid({
   activeTab,
   isLoading,
   isRefreshing,
+  isConnectedToPrevious,
   rows,
   selectedProviders,
   visibleCharts,
 }: {
   activeCharts: readonly ChartDefinition[];
   activeTab: DashboardTab;
+  isConnectedToPrevious: boolean;
   isLoading: boolean;
   isRefreshing: boolean;
   rows: MetricRow[];
@@ -640,6 +976,7 @@ function ChartGrid({
   visibleCharts: readonly ChartDefinition[];
 }) {
   const t = useTranslations("dataDashboard");
+  const hasLeadingFullWidthChart = activeCharts[0]?.fullWidth === true;
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -648,13 +985,18 @@ function ChartGrid({
           tab: getTabContent(t, activeTab).label,
         })}
         className={cn(
-          "border-x border-b border-nd-border-light grid grid-cols-1 lg:grid-cols-2 divide-y divide-nd-border-light lg:divide-y-0",
-          "[&>*]:border-nd-border-light lg:[&>*:nth-child(even)]:border-l lg:[&>*:nth-child(n+3)]:border-t",
+          "border-x border-b border-nd-border-light grid grid-cols-1 lg:grid-cols-2",
+          isConnectedToPrevious ? "" : "mt-10 border-t xl:mt-14",
         )}
       >
         {isLoading
           ? activeCharts.map((chart, index) => (
               <ChartSkeleton
+                className={getChartGridItemClassName(
+                  chart,
+                  index,
+                  hasLeadingFullWidthChart,
+                )}
                 index={index}
                 key={chart.id}
                 title={getChartTitle(t, chart)}
@@ -663,6 +1005,11 @@ function ChartGrid({
           : visibleCharts.map((chart, index) => (
               <ChartCard
                 chart={chart}
+                className={getChartGridItemClassName(
+                  chart,
+                  index,
+                  hasLeadingFullWidthChart,
+                )}
                 index={index}
                 isRefreshing={isRefreshing}
                 key={chart.id}
@@ -677,7 +1024,15 @@ function ChartGrid({
 
 function DataResourceCarousel() {
   const t = useTranslations("dataDashboard");
+  const carouselRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = useMediaQuery(
+    "(prefers-reduced-motion: reduce)",
+  );
+  const [isCarouselInView, setIsCarouselInView] = useState(false);
+  const [isFocusWithin, setIsFocusWithin] = useState(false);
+  const [isPointerDown, setIsPointerDown] = useState(false);
+  const [isPointerInside, setIsPointerInside] = useState(false);
   const [scrollState, setScrollState] = useState({
     canScrollLeft: false,
     canScrollRight: false,
@@ -719,6 +1074,24 @@ function DataResourceCarousel() {
     };
   }, [updateScrollState]);
 
+  useEffect(() => {
+    const carouselElement = carouselRef.current;
+
+    if (!carouselElement || typeof IntersectionObserver === "undefined") {
+      setIsCarouselInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsCarouselInView(entry.isIntersecting),
+      { threshold: 0.35 },
+    );
+
+    observer.observe(carouselElement);
+
+    return () => observer.disconnect();
+  }, []);
+
   const scrollCards = useCallback((direction: -1 | 1) => {
     const scrollElement = scrollRef.current;
 
@@ -738,14 +1111,74 @@ function DataResourceCarousel() {
     });
   }, []);
 
+  useEffect(() => {
+    const scrollElement = scrollRef.current;
+    const isAutoAdvancePaused =
+      prefersReducedMotion ||
+      !isCarouselInView ||
+      isFocusWithin ||
+      isPointerDown ||
+      isPointerInside;
+
+    if (
+      !scrollElement ||
+      isAutoAdvancePaused ||
+      scrollElement.scrollWidth <= scrollElement.clientWidth + 1
+    ) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const maxScrollLeft =
+        scrollElement.scrollWidth - scrollElement.clientWidth;
+
+      if (scrollElement.scrollLeft < maxScrollLeft - 1) {
+        scrollCards(1);
+        return;
+      }
+
+      scrollElement.scrollTo({ behavior: "smooth", left: 0, top: 0 });
+    }, resourceCarouselAutoAdvanceMs);
+
+    return () => window.clearInterval(intervalId);
+  }, [
+    isCarouselInView,
+    isFocusWithin,
+    isPointerDown,
+    isPointerInside,
+    prefersReducedMotion,
+    scrollCards,
+  ]);
+
   return (
     <section
       aria-labelledby="data-resource-carousel-title"
+      aria-roledescription="carousel"
       className="mt-10 -mx-4 bg-black px-4 py-8 md:-mx-8 md:px-8 md:py-10 xl:-mx-10 xl:px-10 xl:py-11"
       data-node-id="2:1090"
+      onBlurCapture={(event) => {
+        const nextFocusedElement = event.relatedTarget;
+
+        if (
+          !(nextFocusedElement instanceof Node) ||
+          !event.currentTarget.contains(nextFocusedElement)
+        ) {
+          setIsFocusWithin(false);
+        }
+      }}
+      onFocusCapture={() => setIsFocusWithin(true)}
+      onPointerCancel={() => setIsPointerDown(false)}
+      onPointerDown={() => setIsPointerDown(true)}
+      onPointerEnter={() => setIsPointerInside(true)}
+      onPointerLeave={() => {
+        setIsPointerDown(false);
+        setIsPointerInside(false);
+      }}
+      onPointerUp={() => setIsPointerDown(false)}
+      ref={carouselRef}
     >
       <div className="border border-nd-border-light bg-black">
-        <div className="flex items-stretch border-b border-nd-border-light">
+        <div className="flex flex-col border-b border-nd-border-light sm:flex-row sm:items-stretch">
           <div className="flex min-w-0 flex-1 flex-col gap-3 px-5 py-6 md:px-9 md:py-7">
             <h2
               className="text-[28px] leading-[1.25] font-medium tracking-normal text-nd-high-em-text md:text-[32px]"
@@ -758,24 +1191,24 @@ function DataResourceCarousel() {
             </p>
           </div>
 
-          <div className="hidden shrink-0 items-center gap-3 bg-white/[0.02] px-6 py-6 sm:flex md:px-9">
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-nd-border-light bg-white/[0.04] px-5 py-4 sm:border-t-0 sm:border-l sm:px-6 sm:py-6 md:px-9">
             <DataResourceNavButton
               ariaLabel={t("buildSection.previous")}
               disabled={!scrollState.canScrollLeft}
-              icon={<ChevronLeft aria-hidden="true" className="h-4 w-4" />}
+              icon={<ChevronLeft aria-hidden="true" className="h-5 w-5" />}
               onClick={() => scrollCards(-1)}
             />
             <DataResourceNavButton
               ariaLabel={t("buildSection.next")}
               disabled={!scrollState.canScrollRight}
-              icon={<ChevronRight aria-hidden="true" className="h-4 w-4" />}
+              icon={<ChevronRight aria-hidden="true" className="h-5 w-5" />}
               onClick={() => scrollCards(1)}
             />
           </div>
         </div>
 
         <div
-          className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           ref={scrollRef}
         >
           <div className="flex min-w-max xl:min-w-0">
@@ -806,9 +1239,11 @@ function DataResourceNavButton({
     <button
       aria-label={ariaLabel}
       className={cn(
-        "inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.08] text-nd-high-em-text transition-colors",
-        "hover:bg-white/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-        disabled ? "cursor-not-allowed opacity-50 hover:bg-white/[0.08]" : "",
+        "inline-flex h-12 w-12 items-center justify-center rounded-full border shadow-[0_0_24px_rgba(255,255,255,0.12)] transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+        disabled
+          ? "cursor-not-allowed border-white/30 !bg-white/10 text-white/55 shadow-none hover:!bg-white/10"
+          : "border-white !bg-white text-black hover:!bg-white/85",
       )}
       disabled={disabled}
       onClick={onClick}
@@ -834,20 +1269,25 @@ function DataResourceCard({
 
   return (
     <article
+      aria-label={`${index + 1} / ${resourceCards.length}: ${title}`}
+      aria-roledescription="slide"
       className={cn(
-        "relative flex min-h-[186px] shrink-0 basis-[min(84vw,460px)] flex-col items-start gap-7 overflow-hidden px-5 py-6 md:basis-[460px] md:px-9 md:py-7 xl:basis-1/3",
+        "relative flex min-h-[186px] shrink-0 snap-start basis-[min(84vw,460px)] flex-col items-start gap-7 overflow-hidden px-5 py-6 md:basis-[460px] md:px-9 md:py-7 xl:basis-1/3",
         index > 0 ? "border-l border-nd-border-light" : "",
       )}
       data-node-id={card.nodeId}
       ref={cardRef}
+      role="group"
     >
-      <img
+      <Image
         alt=""
         aria-hidden="true"
         className={cn(
           "pointer-events-none absolute inset-0 h-full w-full object-cover object-top opacity-70",
           card.backgroundClassName,
         )}
+        fill
+        sizes="(min-width: 1280px) 33vw, (min-width: 768px) 460px, 84vw"
         src={card.backgroundSrc}
       />
       <div
@@ -1003,12 +1443,14 @@ function DataResourceDecorGrid() {
 
 function ChartCard({
   chart,
+  className,
   index,
   isRefreshing,
   rows,
   selectedProviders,
 }: {
   chart: ChartDefinition;
+  className?: string;
   index: number;
   isRefreshing: boolean;
   rows: MetricRow[];
@@ -1021,31 +1463,53 @@ function ChartCard({
   );
   const valueLabel = getValueLabel(t, chart.valueLabel);
   const title = getChartTitle(t, chart);
-  const methodologyNotes = getMethodologyNotes(chart, selectedProviders);
+  const caption = getChartCaption(t, chart);
+  const resolvedChartHeight =
+    chart.visualization === "bar"
+      ? Math.max(chartHeight, series.length * 56)
+      : chartHeight;
 
   return (
-    <article className="relative p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-2">
-          <h2 className="text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
+    <article
+      className={cn(
+        "relative p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5",
+        className,
+      )}
+    >
+      <div className="grid gap-1.5">
+        <div className="flex items-start justify-between gap-4">
+          <h2 className="m-0 min-w-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
             {title}
           </h2>
-          {methodologyNotes.length > 0 ? (
-            <MethodologyTooltip label={title} notes={methodologyNotes} />
-          ) : null}
+          <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
+            {valueLabel}
+          </span>
         </div>
-        <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
-          {valueLabel}
-        </span>
+        {caption ? (
+          <p className="m-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
+            {caption}
+          </p>
+        ) : null}
       </div>
 
-      <ChartWatermarkFrame>
+      <ChartWatermarkFrame height={resolvedChartHeight}>
         {series.length > 0 ? (
-          <TimeSeriesChart
-            height={chartHeight}
-            series={series}
-            valueLabel={chart.valueLabel}
-          />
+          chart.visualization === "bar" ? (
+            <ProviderBarChart
+              height={resolvedChartHeight}
+              lowerIsBetter={chart.lowerIsBetter}
+              series={series}
+              valueLabel={chart.valueLabel}
+            />
+          ) : (
+            <TimeSeriesChart
+              height={resolvedChartHeight}
+              scaleType={chart.scale}
+              series={series}
+              timeGranularity={chart.timeGranularity}
+              valueLabel={chart.valueLabel}
+            />
+          )
         ) : (
           <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-normal">
             {t("empty.noDataForSelection")}
@@ -1053,28 +1517,143 @@ function ChartCard({
         )}
       </ChartWatermarkFrame>
 
-      <ChartOrdinal index={index} />
+      {chart.visualization === "bar" ? null : <ChartOrdinal index={index} />}
       {isRefreshing ? <ChartRefreshingOverlay /> : null}
     </article>
   );
 }
 
-function ChartWatermarkFrame({ children }: { children: ReactNode }) {
+function ChartWatermarkFrame({
+  children,
+  height,
+}: {
+  children: ReactNode;
+  height: number;
+}) {
   return (
     <div className="relative">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-0 flex h-[320px] items-center justify-center overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-0 flex items-center justify-center overflow-hidden"
+        style={{ height }}
       >
         <img
           alt=""
           className="h-auto w-[45%] min-w-[220px] max-w-[300px] opacity-[0.1] mix-blend-screen brightness-0 invert"
+          height={96}
           src="/src/img/branding/solanaLogo.svg"
+          width={646}
         />
       </div>
       <div className="relative z-[1]">{children}</div>
     </div>
   );
+}
+
+function ProviderBarChart({
+  height,
+  lowerIsBetter = false,
+  series,
+  valueLabel,
+}: {
+  height: number;
+  lowerIsBetter?: boolean;
+  series: ChartSeries[];
+  valueLabel: string;
+}) {
+  const locale = useLocale();
+  const t = useTranslations("dataDashboard");
+  const items = useMemo(
+    () => getLatestSeriesValues(series, lowerIsBetter),
+    [lowerIsBetter, series],
+  );
+  const maxValue = Math.max(...items.map((item) => item.value), 1);
+
+  if (items.length === 0) {
+    return (
+      <div className="flex h-[320px] items-center justify-center border border-dashed border-nd-border-light text-sm text-nd-mid-em-text font-brand-mono uppercase tracking-normal">
+        {t("empty.noDataForSelection")}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      aria-label={t("barChart.ariaLabel")}
+      className="flex min-w-0 flex-col justify-center gap-4"
+      role="list"
+      style={{ height }}
+    >
+      {items.map((item, index) => (
+        <motion.div
+          className="grid min-w-0 gap-2"
+          key={item.id}
+          layout
+          role="listitem"
+          transition={tabIndicatorSpring}
+        >
+          <div className="flex min-w-0 items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="w-6 shrink-0 font-brand-mono text-[10px] leading-none font-bold uppercase text-nd-mid-em-text/60">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0"
+                style={{ backgroundColor: item.color }}
+              />
+              <span className="truncate font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-high-em-text">
+                {item.label}
+              </span>
+            </div>
+            <span className="shrink-0 font-brand-mono text-[12px] leading-[1.42] font-bold tabular-nums text-nd-high-em-text">
+              {formatValue(item.value, valueLabel, locale)}
+            </span>
+          </div>
+          <div className="h-3 overflow-hidden bg-nd-border-light/30">
+            <div
+              className="h-full transition-[width] duration-500 ease-out"
+              style={{
+                backgroundColor: item.color,
+                width: `${getBarWidth(item.value, maxValue)}%`,
+              }}
+            />
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function getLatestSeriesValues(series: ChartSeries[], lowerIsBetter: boolean) {
+  return series
+    .flatMap((item) => {
+      const latestPoint = item.points.at(-1);
+
+      return latestPoint
+        ? [
+            {
+              color: item.color,
+              id: item.id,
+              label: item.label,
+              value: latestPoint.value,
+            },
+          ]
+        : [];
+    })
+    .sort((a, b) =>
+      lowerIsBetter
+        ? a.value - b.value || a.label.localeCompare(b.label)
+        : b.value - a.value || a.label.localeCompare(b.label),
+    );
+}
+
+function getBarWidth(value: number, maxValue: number) {
+  if (maxValue <= 0) {
+    return 0;
+  }
+
+  return Math.min(Math.max((value / maxValue) * 100, 2), 100);
 }
 
 function ChartRefreshingOverlay() {
@@ -1095,52 +1674,11 @@ function ChartRefreshingOverlay() {
   );
 }
 
-function MethodologyTooltip({
-  label,
-  notes,
-}: {
-  label: string;
-  notes: MethodologyComment[];
-}) {
-  const t = useTranslations("dataDashboard");
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          aria-label={t("methodology.ariaLabel", { metric: label })}
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-nd-mid-em-text/70 transition-colors hover:text-nd-high-em-text focus-visible:outline-none focus-visible:text-nd-high-em-text"
-          type="button"
-        >
-          <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
-        </button>
-      </TooltipTrigger>
-      <TooltipPortal>
-        <TooltipContent
-          className="max-w-[340px] border-nd-border-prominent bg-[#1D1D20] px-3 py-2.5 text-xs leading-[1.45] text-nd-high-em-text"
-          side="top"
-        >
-          <span className="sr-only">{label}: </span>
-          <div className="grid gap-2">
-            {notes.map((note) => (
-              <div className="grid gap-0.5" key={note.provider}>
-                <span className="font-brand-mono text-[11px] font-bold uppercase text-nd-mid-em-text">
-                  {note.provider}
-                </span>
-                <span>{note.description}</span>
-              </div>
-            ))}
-          </div>
-        </TooltipContent>
-      </TooltipPortal>
-    </Tooltip>
-  );
-}
-
 function KpiCell({
   delta,
   index,
   label,
+  lowerIsBetter,
   summary,
   unit,
   value,
@@ -1148,11 +1686,13 @@ function KpiCell({
   delta: number;
   index: number;
   label: string;
+  lowerIsBetter?: boolean;
   summary: string;
   unit: string;
   value: string;
 }) {
   const locale = useLocale();
+  const isFavorableTrend = lowerIsBetter ? delta <= 0 : delta >= 0;
 
   return (
     <article className={getKpiCellClassName(index)}>
@@ -1174,7 +1714,9 @@ function KpiCell({
         <p
           className={cn(
             "shrink-0 whitespace-nowrap font-brand-mono text-[12px] md:text-[14px] leading-[1.42] font-bold uppercase tabular-nums",
-            delta >= 0 ? "text-nd-highlight-green" : "text-nd-highlight-orange",
+            isFavorableTrend
+              ? "text-nd-highlight-green"
+              : "text-nd-highlight-orange",
           )}
         >
           {delta >= 0 ? "↑" : "↓"} {formatPercent(Math.abs(delta), locale)}
@@ -1199,7 +1741,7 @@ function KpiSummaryTooltip({
           className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-nd-mid-em-text/70 transition-colors hover:text-nd-high-em-text focus-visible:outline-none focus-visible:text-nd-high-em-text"
           type="button"
         >
-          <Info aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+          <Info aria-hidden="true" className="h-3.5 w-3.5" />
           <span className="sr-only">{summary}</span>
         </button>
       </TooltipTrigger>
@@ -1225,9 +1767,22 @@ function KpiSkeleton({ index }: { index: number }) {
   );
 }
 
-function ChartSkeleton({ index, title }: { index: number; title: string }) {
+function ChartSkeleton({
+  className,
+  index,
+  title,
+}: {
+  className?: string;
+  index: number;
+  title: string;
+}) {
   return (
-    <article className="p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5">
+    <article
+      className={cn(
+        "p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5",
+        className,
+      )}
+    >
       <div className="flex items-baseline justify-between gap-4">
         <div className="h-5 w-40 rounded-sm bg-nd-border-light animate-pulse">
           <span className="sr-only">{title}</span>
@@ -1237,6 +1792,25 @@ function ChartSkeleton({ index, title }: { index: number; title: string }) {
       <div className="h-[352px] animate-pulse bg-nd-border-light/40" />
       <ChartOrdinal index={index} />
     </article>
+  );
+}
+
+function getChartGridItemClassName(
+  chart: ChartDefinition,
+  index: number,
+  hasLeadingFullWidthChart: boolean,
+) {
+  const hasDesktopTopBorder = hasLeadingFullWidthChart ? index > 0 : index >= 2;
+  const hasDesktopLeftBorder = hasLeadingFullWidthChart
+    ? index > 0 && index % 2 === 0
+    : index % 2 === 1;
+
+  return cn(
+    "border-nd-border-light",
+    chart.fullWidth ? "lg:col-span-2" : "",
+    index > 0 ? "border-t" : "",
+    hasDesktopTopBorder ? "lg:border-t" : "lg:border-t-0",
+    hasDesktopLeftBorder ? "lg:border-l" : "",
   );
 }
 
@@ -1304,6 +1878,46 @@ function InlineControl<T extends string | number>({
   );
 }
 
+function FilterSelect<T extends string>({
+  ariaLabel,
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  ariaLabel: string;
+  label: string;
+  onChange: (_value: T) => void;
+  options: readonly { label: string; value: T }[];
+  value: T;
+}) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(nextValue) => onChange(nextValue as T)}
+    >
+      <SelectTrigger
+        aria-label={ariaLabel}
+        className="h-auto w-auto shrink-0 gap-1.5 rounded-none border-nd-border-prominent bg-transparent px-2.5 py-1 font-brand-mono text-[11px] leading-[1.42] font-bold text-nd-high-em-text ring-offset-0 transition-colors hover:bg-nd-border-light/20 focus:ring-1 focus:ring-nd-primary focus:ring-offset-0 [&>svg]:h-3.5 [&>svg]:w-3.5"
+      >
+        <span className="text-nd-mid-em-text/70">{label}</span>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="rounded-none border-nd-border-prominent bg-[#1D1D20] text-nd-high-em-text">
+        {options.map((option) => (
+          <SelectItem
+            className="rounded-none py-1.5 font-brand-mono text-[11px] leading-[1.42] font-bold text-nd-mid-em-text focus:bg-white/10 focus:text-nd-high-em-text data-[state=checked]:text-nd-high-em-text"
+            key={option.value}
+            value={option.value}
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function ProviderToggle({
   active,
   color,
@@ -1340,37 +1954,69 @@ function ProviderToggle({
 }
 
 function useDashboardQueryParams() {
-  const searchParams = useSearchParams();
+  const [queryString, setQueryString] = useState("");
+  const searchParams = useMemo(
+    () => new URLSearchParams(queryString),
+    [queryString],
+  );
+  const rpcInfra = parseRpcInfra(searchParams.get("infra"));
+
+  useEffect(() => {
+    const syncQueryString = () => {
+      setQueryString(window.location.search.replace(/^\?/, ""));
+    };
+
+    syncQueryString();
+    window.addEventListener("popstate", syncQueryString);
+
+    return () => window.removeEventListener("popstate", syncQueryString);
+  }, []);
 
   return {
     activeTab: parseTab(searchParams.get("tab")),
     providerParam: searchParams.get("providers"),
+    queryString,
     rangeDays: parseRangeDays(searchParams.get("days")),
+    rpcInfra,
+    rpcMethod: parseRpcMethod(searchParams.get("method")),
+    rpcRegion: parseRpcRegion(searchParams.get("region"), rpcInfra),
+    rpcTimeframe: parseRpcTimeframe(searchParams.get("timeframe")),
+    setQueryString,
   };
 }
 
-function useDashboardQueryUpdater(availableProviders: readonly ProviderName[]) {
+function useDashboardQueryUpdater(
+  availableProviders: readonly ProviderName[],
+  queryString: string,
+  setQueryString: (_queryString: string) => void,
+) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   return useCallback(
     (updates: QueryUpdates) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(queryString);
 
       applyQueryUpdates(params, updates, availableProviders);
+      setQueryString(params.toString());
       router.replace(getDashboardUrl(pathname, params), { scroll: false });
     },
-    [availableProviders, pathname, router, searchParams],
+    [availableProviders, pathname, queryString, router, setQueryString],
   );
 }
 
-function applyQueryUpdates(
+export function applyQueryUpdates(
   params: URLSearchParams,
   updates: QueryUpdates,
   availableProviders: readonly ProviderName[],
 ) {
   if (updates.tab) {
+    const currentTab = parseTab(params.get("tab"));
+
+    if (getProviderScope(currentTab) !== getProviderScope(updates.tab)) {
+      params.delete("providers");
+    }
+
     params.set("tab", updates.tab);
   }
 
@@ -1378,8 +2024,24 @@ function applyQueryUpdates(
     params.set("days", String(updates.days));
   }
 
+  if (updates.infra) {
+    params.set("infra", updates.infra);
+  }
+
+  if (updates.method) {
+    params.set("method", updates.method);
+  }
+
   if (updates.providers) {
     updateProvidersParam(params, updates.providers, availableProviders);
+  }
+
+  if (updates.region) {
+    params.set("region", updates.region);
+  }
+
+  if (updates.timeframe) {
+    params.set("timeframe", updates.timeframe);
   }
 }
 
@@ -1406,6 +2068,43 @@ function getDashboardUrl(pathname: string, params: URLSearchParams) {
   const queryString = params.toString();
 
   return queryString ? `${pathname}?${queryString}` : pathname;
+}
+
+function getDashboardDataUrl({
+  activeTab,
+  rpcInfra,
+  rangeDays,
+  rpcMethod,
+  rpcRegion,
+  rpcTimeframe,
+}: {
+  activeTab: DashboardTab;
+  rpcInfra: RpcLatencyInfra;
+  rangeDays: number;
+  rpcMethod: RpcLatencyMethod;
+  rpcRegion: RpcLatencyRegion;
+  rpcTimeframe: RpcTimeframe;
+}) {
+  if (activeTab !== "rpc" && activeTab !== "senders") {
+    return `/api/databricks/data?days=${rangeDays}`;
+  }
+
+  if (activeTab === "senders") {
+    const params = new URLSearchParams({
+      timeframe: rpcTimeframe,
+    });
+
+    return `/api/rpc/sender/data?${params.toString()}`;
+  }
+
+  const params = new URLSearchParams({
+    infra: rpcInfra,
+    method: rpcMethod,
+    region: rpcRegion,
+    timeframe: rpcTimeframe,
+  });
+
+  return `/api/rpc/data?${params.toString()}`;
 }
 
 function toggleProvider(
@@ -1471,20 +2170,57 @@ function getVisibleCharts(
     : activeCharts;
 }
 
+function getKpiCharts(
+  visibleCharts: readonly ChartDefinition[],
+  isRpcTab: boolean,
+) {
+  return isRpcTab
+    ? visibleCharts
+        .filter((chart) => chart.valueLabel === "Milliseconds")
+        .slice(0, kpiCount)
+    : visibleCharts.slice(0, kpiCount);
+}
+
+function filterRowsForCharts(
+  rows: readonly MetricRow[],
+  charts: readonly ChartDefinition[],
+  additionalMetrics: readonly string[] = [],
+) {
+  const metricSet = new Set([
+    ...charts.flatMap((chart) => chart.metrics),
+    ...additionalMetrics,
+  ]);
+
+  return rows.filter((row) => isChartDataRow(row, metricSet));
+}
+
 function getKpis(
   charts: readonly ChartDefinition[],
   rows: MetricRow[],
   selectedProviders: Set<ProviderName>,
+  aggregation: KpiAggregation,
 ): KpiItem[] {
-  return charts.slice(0, kpiCount).map((chart) => ({
+  return charts.map((chart) => ({
     chart,
-    ...getKpiValue(chart, rows, selectedProviders),
+    ...getKpiValue(chart, rows, selectedProviders, aggregation),
   }));
 }
 
-function getKpiSummary(t: DashboardTranslator, chart: ChartDefinition) {
+function getKpiSummary(
+  t: DashboardTranslator,
+  chart: ChartDefinition,
+  aggregation: KpiAggregation,
+) {
   if (chart.seriesField === "provider") {
-    return t("kpis.providerTooltip");
+    if (aggregation === "minimum") {
+      return chart.timeGranularity === "hour"
+        ? t("kpis.providerMinimumSampleTooltip")
+        : t("kpis.providerMinimumTooltip");
+    }
+
+    return chart.timeGranularity === "hour"
+      ? t("kpis.providerSampleTooltip")
+      : t("kpis.providerTooltip");
   }
 
   if (chart.metrics.length > 1) {
@@ -1493,9 +2229,13 @@ function getKpiSummary(t: DashboardTranslator, chart: ChartDefinition) {
     });
   }
 
-  return t("kpis.metricTooltip", {
-    metric: chart.metrics[0] ?? getChartTitle(t, chart),
-  });
+  return chart.timeGranularity === "hour"
+    ? t("kpis.metricSampleTooltip", {
+        metric: chart.metrics[0] ?? getChartTitle(t, chart),
+      })
+    : t("kpis.metricTooltip", {
+        metric: chart.metrics[0] ?? getChartTitle(t, chart),
+      });
 }
 
 function getKpiCellClassName(index: number) {
@@ -1523,7 +2263,16 @@ function buildSeries(
   const metricSet = new Set<string>(chart.metrics);
   const buckets = new Map<
     string,
-    Map<string, { color: string; count: number; label: string; sum: number }>
+    Map<
+      string,
+      {
+        color: string;
+        count: number;
+        details?: MetricRow["details"];
+        label: string;
+        sum: number;
+      }
+    >
   >();
 
   for (const row of rows) {
@@ -1553,6 +2302,7 @@ function buildSeries(
 
     bucket.sum += row.value;
     bucket.count += 1;
+    bucket.details = row.details ?? bucket.details;
     seriesBucket.set(row.date, bucket);
     buckets.set(seriesId, seriesBucket);
   }
@@ -1573,22 +2323,30 @@ function buildSeries(
           ? getProviderColor(seriesId)
           : (metricColors[seriesId] ?? "#A78BFA"),
       points: Array.from(seriesBucket.entries())
-        .map(([date, bucket]) => ({
-          date: new Date(`${date}T00:00:00.000Z`),
-          value: aggregate(bucket.sum, bucket.count, chart.aggregation),
-        }))
+        .flatMap(([date, bucket]) => {
+          const parsedDate = parseMetricRowDate(date);
+
+          return parsedDate
+            ? [
+                {
+                  date: parsedDate,
+                  details: bucket.details,
+                  value: aggregate(bucket.sum, bucket.count, chart.aggregation),
+                },
+              ]
+            : [];
+        })
         .sort((a, b) => a.date.getTime() - b.date.getTime()),
     };
   });
 }
 
-function getMethodologyNotes(
-  chart: ChartDefinition,
-  selectedProviders: ReadonlySet<ProviderName>,
-) {
-  return (chart.methodology ?? []).filter((note) =>
-    selectedProviders.has(note.provider),
-  );
+function parseMetricRowDate(value: string) {
+  const parsedDate = value.includes("T")
+    ? new Date(value)
+    : new Date(`${value}T00:00:00.000Z`);
+
+  return Number.isFinite(parsedDate.getTime()) ? parsedDate : undefined;
 }
 
 function isChartDataRow(
@@ -1598,10 +2356,11 @@ function isChartDataRow(
   return metricSet.has(row.metricName) && getRowProviderName(row).length > 0;
 }
 
-function getKpiValue(
+export function getKpiValue(
   chart: ChartDefinition,
   rows: MetricRow[],
   selectedProviders: Set<ProviderName>,
+  aggregation: KpiAggregation = "median",
 ) {
   const series = buildSeries(chart, rows, selectedProviders);
   const dates = Array.from(
@@ -1614,10 +2373,20 @@ function getKpiValue(
   const latestDate = dates.at(-1);
   const previousDate = dates.at(-2);
   const latestValue = latestDate
-    ? getAggregateSeriesValue(series, latestDate, chart.seriesField)
+    ? getAggregateSeriesValue(
+        series,
+        latestDate,
+        chart.seriesField,
+        aggregation,
+      )
     : 0;
   const previousValue = previousDate
-    ? getAggregateSeriesValue(series, previousDate, chart.seriesField)
+    ? getAggregateSeriesValue(
+        series,
+        previousDate,
+        chart.seriesField,
+        aggregation,
+      )
     : latestValue;
 
   return {
@@ -1631,6 +2400,7 @@ function getAggregateSeriesValue(
   series: ChartSeries[],
   date: number,
   seriesField: ChartDefinition["seriesField"],
+  aggregation: KpiAggregation,
 ) {
   const values = series
     .map(
@@ -1644,7 +2414,7 @@ function getAggregateSeriesValue(
   }
 
   if (seriesField === "provider") {
-    return getMedian(values);
+    return aggregation === "minimum" ? Math.min(...values) : getMedian(values);
   }
 
   return values.reduce((sum, value) => sum + value, 0);
@@ -1673,6 +2443,22 @@ async function fetchData(url: string, errorMessages: DataFetchErrorMessages) {
 
   if (!isDataApiResponse(payload)) {
     throw new Error(errorMessages.invalidResponse);
+  }
+
+  return payload;
+}
+
+async function fetchRpcFilters(url: string) {
+  const response = await fetch(url, { cache: "no-store" });
+
+  if (!response.ok) {
+    throw new Error("RPC latency filters are unavailable");
+  }
+
+  const payload = (await response.json()) as unknown;
+
+  if (!isRpcLatencyFiltersResponse(payload)) {
+    throw new Error("RPC latency filters returned an invalid response");
   }
 
   return payload;
@@ -1730,7 +2516,11 @@ function useMinWidth(query: string) {
 }
 
 function parseTab(value: string | null): DashboardTab {
-  return value === "network" || value === "stablecoins" || value === "defi"
+  return value === "network" ||
+    value === "stablecoins" ||
+    value === "defi" ||
+    value === "rpc" ||
+    value === "senders"
     ? value
     : "overview";
 }
@@ -1784,6 +2574,10 @@ export function parseProviders(
     );
   }
 
+  if (hasInvalidProviderParam(value, availableProviders)) {
+    return new Set(availableProviders);
+  }
+
   const availableProviderSet = new Set(availableProviders);
   const selectedProviders = parsedProviders.filter((provider) =>
     availableProviderSet.has(provider),
@@ -1792,6 +2586,31 @@ export function parseProviders(
   return selectedProviders.length > 0
     ? new Set(selectedProviders)
     : new Set(availableProviders);
+}
+
+export function hasInvalidProviderParam(
+  value: string,
+  availableProviders: readonly ProviderName[],
+) {
+  if (value === emptyProvidersParam || availableProviders.length === 0) {
+    return false;
+  }
+
+  const parsedProviders = getOrderedProviderNames(value.split(","));
+  const availableProviderSet = new Set(availableProviders);
+
+  return (
+    parsedProviders.length === 0 ||
+    parsedProviders.some((provider) => !availableProviderSet.has(provider))
+  );
+}
+
+function getProviderScope(tab: DashboardTab) {
+  if (tab === "rpc" || tab === "senders") {
+    return tab;
+  }
+
+  return "warehouse";
 }
 
 function hasAllProvidersSelected(
@@ -1808,6 +2627,18 @@ function getProviderColor(providerName: ProviderName) {
   return (
     providerColors[providerName] ??
     fallbackProviderColors[getStableColorIndex(providerName)]
+  );
+}
+
+function getRpcInfraLabel(value: RpcLatencyInfra) {
+  return (
+    rpcInfraOptions.find((option) => option.value === value)?.label ?? value
+  );
+}
+
+function getRpcRegionLabel(value: RpcLatencyRegion) {
+  return (
+    rpcRegionOptions.find((option) => option.value === value)?.label ?? value
   );
 }
 
@@ -1855,6 +2686,12 @@ function getChartTitle(t: DashboardTranslator, chart: ChartDefinition) {
   return t.has(titleKey) ? t(titleKey) : chart.title;
 }
 
+function getChartCaption(t: DashboardTranslator, chart: ChartDefinition) {
+  const captionKey = `charts.${chart.id}.caption`;
+
+  return t.has(captionKey) ? t(captionKey) : undefined;
+}
+
 function getValueLabel(t: DashboardTranslator, valueLabel: string) {
   switch (valueLabel) {
     case "Count":
@@ -1863,6 +2700,8 @@ function getValueLabel(t: DashboardTranslator, valueLabel: string) {
       return t("valueLabels.computeUnits");
     case "Fees (SOL)":
       return t("valueLabels.feesSol");
+    case "Milliseconds":
+      return t("valueLabels.milliseconds");
     case "Percent":
       return t("valueLabels.percent");
     case "SOL":

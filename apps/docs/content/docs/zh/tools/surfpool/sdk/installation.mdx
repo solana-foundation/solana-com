@@ -1,0 +1,147 @@
+---
+title: 安装
+description:
+  为 Rust 或 TypeScript 安装 Surfpool SDK。JS 包通过 napi-rs 为 macOS 和 Linux
+  提供预构建的原生二进制文件。
+---
+
+Surfpool SDK 以两个封装相同 Rust 运行时的产物形式发布：
+
+| 语言                    | 包                                 | 运行环境                               |
+| ----------------------- | ---------------------------------- | -------------------------------------- |
+| Rust                    | `surfpool-sdk`（发布于 crates.io） | 任意 `#[tokio::test]` 或异步运行时内部 |
+| TypeScript / JavaScript | `@solana/surfpool`（发布于 npm）   | Node.js 18+，通过 napi-rs 原生绑定运行 |
+
+## Rust
+
+将该 crate 添加为开发依赖项。SDK 以异步优先的方式设计，需要 Tokio 运行时，因此请在测试中引入带有
+`full` 特性的 `tokio`。
+
+```toml title="Cargo.toml"
+[dev-dependencies]
+surfpool-sdk = "1"
+tokio = { version = "1", features = ["full"] }
+```
+
+该 crate 重新导出了最常用的 Solana 类型，因此通常只需一条
+`use surfpool_sdk::{...}` 语句即可：
+
+```rust
+use surfpool_sdk::{
+    Keypair, Pubkey, RpcClient, Signer,        // re-exported Solana types
+    Surfnet, SurfnetBuilder, SurfnetError,     // SDK entry points
+    BlockProductionMode, SimnetEvent,          // re-exported surfpool types
+};
+```
+
+如果你需要某个未被重新导出的类型，可直接依赖底层的 Solana crate ——
+SDK 不会将你锁定到 `solana-program` 或 `solana-client` 的任何特定版本。
+
+## TypeScript / JavaScript
+
+使用你喜欢的包管理器将其安装为开发依赖项：
+
+```bash
+npm install --save-dev @solana/surfpool
+# or
+pnpm add -D @solana/surfpool
+# or
+yarn add --dev @solana/surfpool
+```
+
+该包导出单一的 `Surfnet` 类及相关支持类型：
+
+```ts
+import {
+  Surfnet, // entry point
+  type SurfnetConfig, // config for startWithConfig
+  type DeployOptions, // explicit program deploy
+  type SetTokenAccountUpdate,
+  type ResetAccountOptions,
+  type StreamAccountOptions,
+  type SimnetEventValue, // event drained from drainEvents()
+  type KeypairInfo, // shape returned by Surfnet.newKeypair()
+  type EpochInfoValue,
+  type ClockValue
+} from "@solana/surfpool";
+```
+
+### 支持的平台
+
+JS 包依赖平台特定的原生模块，这些模块会作为 `optionalDependencies` 自动安装：
+
+| 平台                 | 目标三元组                 | npm 包                           |
+| -------------------- | -------------------------- | -------------------------------- |
+| macOS Apple Silicon  | `aarch64-apple-darwin`     | `@solana/surfpool-darwin-arm64`  |
+| macOS Intel          | `x86_64-apple-darwin`      | `@solana/surfpool-darwin-x64`    |
+| Linux x86-64 (glibc) | `x86_64-unknown-linux-gnu` | `@solana/surfpool-linux-x64-gnu` |
+
+<Callout type="warn" title="不支持的平台">
+  如果在没有匹配二进制文件的平台上安装该包，安装过程可以完成，但
+  `Surfnet.start()` 在运行时将会抛出异常。如需支持其他目标平台，请提交 issue。
+</Callout>
+
+### 前提条件
+
+- **Node.js 18 或更高版本。** SDK 使用了 `Uint8Array`、原生 `fetch` 以及来自
+  `node:test` 的 `assert/strict`。
+- **可写的临时目录。**
+  每个 Surfnet 实例会分配端口，并可能向操作系统临时目录写入临时数据。
+
+## 验证安装
+
+通过一行简单的冒烟测试，即可确认运行时已启动且 RPC 端点可正常接受请求。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Signer, Surfnet};
+
+#[tokio::test]
+async fn surfpool_sdk_smoke() {
+    let surfnet = Surfnet::start().await.expect("start surfnet");
+    let balance = surfnet
+        .rpc_client()
+        .get_balance(&surfnet.payer().pubkey())
+        .expect("get balance");
+    assert!(balance > 0);
+}
+```
+
+使用 `cargo test --test smoke` 运行。
+
+```ts !! title="TypeScript"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+after(() => surfnet.stop());
+
+test("surfpool sdk smoke", () => {
+  assert.match(surfnet.rpcUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.ok(surfnet.payer.length > 0);
+});
+```
+
+使用 `node --test smoke.test.ts`（配合 TS 加载器）或 `tsx --test smoke.test.ts`
+运行。
+
+</CodeTabs>
+
+## 故障排查
+
+<Callout type="warn" title="`failed to bind to port` on Rust">
+  另一个进程正在抢占式绑定 `0.0.0.0`。请重新运行测试——SDK
+  每次调用时会选取新端口。若问题持续出现，请检查是否存在残留的 `surfpool` 进程。
+</Callout>
+
+<Callout type="warn" title="`Cannot find module '@solana/surfpool-...'`">
+  您当前平台对应的 `optionalDependencies` 条目未能成功安装。请使用
+  `--include=optional` 重新执行安装，或检查您的平台是否在上方的支持列表中。
+</Callout>
+
+<Callout type="warn" title="`stop()` hangs in JS">
+  请确认每个 `start()` 只调用一次 `stop()`。Node 封装层会保持 RPC 和 WebSocket
+  服务器处于绑定状态，直到 `stop()` 返回为止。
+</Callout>

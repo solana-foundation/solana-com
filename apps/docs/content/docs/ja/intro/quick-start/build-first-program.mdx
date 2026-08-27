@@ -1,0 +1,1882 @@
+---
+title: 最初のプログラムを構築する
+description: ローカルのAnchorプログラムを作成し、ビルドとテストを行い、デフォルトのカウンタープログラムの各ファイルを詳しく解説します。
+h1: 最初のSolanaプログラムを構築する
+---
+
+このクイックスタートでは、`anchor init`によって生成された[Anchor フレームワーク](https://www.anchor-lang.com/docs)のスタータープロジェクトを使用します。プロジェクトをローカルに作成し、テストを実行してプログラムをビルドし、Anchorが生成するプログラムコードを詳しく見ていきます。
+
+## 前提条件
+
+開始する前に、[Solana開発ツールをインストールしてください](/docs/intro/installation)。インストールにはRust、Solana
+CLI、およびAnchor CLIが含まれます。
+
+このテンプレートにはAnchor
+CLIバージョン1.1.2以降を使用してください。インストール済みのバージョンを確認するには：
+
+```terminal
+$ anchor --version
+```
+
+<Steps>
+
+<Step>
+
+### プロジェクトの作成
+
+ターミナルで以下のコマンドを実行してください：
+
+```terminal
+$ anchor init my-program
+$ cd my-program
+```
+
+スタータープロジェクトには、`programs/my-program`配下にSolanaプログラムが1つ含まれています。このプログラムにはinstructionsが2つあります：カウンターアカウントを初期化するものと、カウンターをインクリメントするものです。
+
+テンプレートの一部には、一般的なSolanaプログラムのパターンが示されています：[PDA](/docs/core/pda)アカウントアドレスの導出、SOLを転送するためのCross
+Program
+Invocation（[CPI](/docs/core/cpi)）の実行、そして条件が満たされない場合にinstructionsを停止するカスタムエラーチェックの使用です。
+
+<Files>
+  <Folder name="my-program" defaultOpen>
+    <File name="Anchor.toml" />
+    <File name="Cargo.toml" />
+    <Folder name="programs" defaultOpen>
+      <Folder name="my-program" defaultOpen>
+        <File name="Cargo.toml" />
+        <Folder name="src" defaultOpen>
+          <File name="lib.rs" />
+          <File name="constants.rs" />
+          <File name="error.rs" />
+          <File name="instructions.rs" />
+          <Folder name="instructions" defaultOpen>
+            <File name="initialize.rs" />
+            <File name="increment.rs" />
+          </Folder>
+          <File name="state.rs" />
+        </Folder>
+        <Folder name="tests" defaultOpen>
+          <File name="test_initialize.rs" />
+        </Folder>
+      </Folder>
+    </Folder>
+  </Folder>
+</Files>
+
+</Step>
+
+<Step>
+
+### プログラムのビルド
+
+`anchor build`を実行してスタータープログラムをコンパイルします：
+
+```terminal
+$ anchor build
+```
+
+コンパイルされたプログラムは`target/deploy/my_program.so`に書き込まれます。プログラムがデプロイされると、この`.so`ファイルの内容がオンチェーンのアカウントに保存されます。
+
+</Step>
+
+<Step>
+
+### テストの実行
+
+デフォルトのテストを実行します：
+
+```terminal
+$ anchor test
+```
+
+このテンプレートの`Anchor.toml`はRustのテストコマンドを使用します：
+
+```toml title="Anchor.toml"
+skip_local_validator = true
+
+[scripts]
+test = "cargo test"
+```
+
+このテストはコンパイル済みのプログラムを[LiteSVM](https://www.litesvm.com/)に読み込み、ペイヤーを作成し、_rs`initialize`_
+と _rs`increment`_
+のinstructionsを送信し、その後カウンターアカウントの状態を確認します。
+
+`anchor test`を実行するとプログラムもコンパイルされるため、ローカルでテストする際に
+`anchor build`を先に実行する必要はありません。
+
+</Step>
+
+<Step>
+
+### プログラムのデプロイ
+
+ローカルテストは最も素早いフィードバックループです。devnetなどのネットワークへのデプロイの準備ができたら、まずビルドし、その後クラスターへデプロイします。
+
+SolanaプログラムのデプロイにはSOLが必要です。プログラムはアカウントに保存され、そのアカウントは使用するスペースの料金を支払う必要があるためです。devnetでは、[Solana Faucet](https://faucet.solana.com/)またはSolana
+CLIを使って無料のdevnet SOLをリクエストできます：
+
+```terminal
+$ solana airdrop 2 --url devnet
+```
+
+```terminal
+$ anchor build
+$ anchor deploy --provider.cluster devnet
+```
+
+</Step>
+
+</Steps>
+
+## ソースファイル
+
+`src`ディレクトリにはSolanaプログラムが含まれています。Anchorの
+[Program Structure](https://www.anchor-lang.com/docs/basics/program-structure)
+ドキュメントでは、_rs`declare_id!`_、
+_rs`#[program]`_、_rs`#[derive(Accounts)]`_、*rs`#[account]`*などここで使用されているコアマクロについて説明しています。このセクションではテンプレートファイルを順に解説します。
+
+### lib.rs
+
+`lib.rs`はプログラムのエントリーポイントです。ソースファイルを接続し、プログラムアドレスを定義し、ユーザーが呼び出せるプログラムのinstructionsを定義します。
+
+<WithNotes>
+
+```rust title="programs/my-program/src/lib.rs" -w
+// !tooltip[/pub mod constants/] constantsMod
+pub mod constants;
+// !tooltip[/pub mod error/] errorMod
+pub mod error;
+// !tooltip[/pub mod instructions/] instructionsMod
+pub mod instructions;
+// !tooltip[/pub mod state/] stateMod
+pub mod state;
+
+// !tooltip[/anchor_lang::prelude/] prelude
+use anchor_lang::prelude::*;
+
+pub use constants::*;
+pub use instructions::*;
+pub use state::*;
+
+// !tooltip[/declare_id!/] declareId
+declare_id!("82sFkffP9wxwpyfZyeaKHH2chQoJPUGsJZSPi9mrUuXd");
+
+// !tooltip[/#\[program\]/] programMacro
+#[program]
+pub mod my_program {
+    use super::*;
+
+    // !tooltip[/pub fn initialize/] publicInstructions
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        // !tooltip[/handle_initialize/] handlers
+        crate::instructions::initialize::handle_initialize(ctx)
+    }
+
+    // !tooltip[/pub fn increment/] publicInstructions
+    pub fn increment(ctx: Context<Increment>) -> Result<()> {
+        // !tooltip[/handle_increment/] handlers
+        crate::instructions::increment::handle_increment(ctx)
+    }
+}
+```
+
+### !constantsMod
+
+_rs`pub mod constants`_ は `constants.rs`
+をプログラムクレートの一部にします。ここには、PDA
+seed、送金額、カウンターの最大値など、プログラムで共有される値をテンプレートが保持します。
+
+### !errorMod
+
+_rs`pub mod error`_ は `error.rs`
+をプログラムクレートの一部にします。このファイルは、instructionが無効な場合にプログラムが返すカスタムエラーを定義します。
+
+### !instructionsMod
+
+_rs`pub mod instructions`_ は `instructions.rs`
+をプログラムクレートの一部にします。そのファイルは、`src/instructions/`
+内のinstruction固有のファイルのインデックスとして機能します。
+
+### !stateMod
+
+_rs`pub mod state`_ は `state.rs`
+をプログラムクレートの一部にします。このファイルは、_rs`Counter`_
+アカウントを含む、このプログラムが所有するアカウントのデータレイアウトを定義します。
+
+### !prelude
+
+_rs`anchor_lang::prelude::*`_
+は、_rs`Context`_、_rs`Result`_、_rs`Pubkey`_、_rs`Account`_、_rs`Signer`_、および Anchor アカウント属性など、Solana プログラムの定義に使用される Anchor の型とマクロをインポートします。
+
+### !reexports
+
+_rs`pub use`_
+の行は、子モジュールのパブリックアイテムをクレートルートから利用できるようにします。これにより、長いモジュールパスではなく
+_rs`Context<Initialize>`_
+のように、instructionのエントリーポイントを短く保てます。
+
+### !declareId
+
+_rs`declare_id!`_
+はプログラムのアドレスを定義します。`Anchor.toml`、デプロイ済みの program
+account、およびプログラムを呼び出すユーザーやテストのアドレスと一致している必要があります。
+
+### !programMacro
+
+_rs`#[program]`_
+は、Solana プログラムのエントリーポイントおよびinstruction ディスパッチコードを生成するよう Anchor に指示します。このモジュール内のパブリック関数が、ユーザーが呼び出せる instructions になります。
+
+### !publicInstructions
+
+_rs`initialize`_ と _rs`increment`_
+は、ユーザーが呼び出せる2つのinstruction名です。それぞれ _rs`Context<T>`_
+を受け取ります。_rs`Context`_
+内の型はそのinstructionに必要なアカウントを定義し、Anchor はinstruction実行前にそれらのアカウントを検証します。
+
+### !handlers
+
+ハンドラー関数には、instructionsのロジックが含まれています。
+
+</WithNotes>
+
+<SideBySide>
+
+### !left
+
+```toml title="Anchor.toml" -w
+[programs.localnet]
+# !mark
+my_program = "82sFkffP9wxwpyfZyeaKHH2chQoJPUGsJZSPi9mrUuXd"
+```
+
+### !right
+
+```rust title="lib.rs" -w
+// !mark
+declare_id!("82sFkffP9wxwpyfZyeaKHH2chQoJPUGsJZSPi9mrUuXd");
+```
+
+</SideBySide>
+
+同じプログラムアドレスが設定とコードの両方に現れます。`Anchor.toml`は、クラスターに対してデプロイまたは呼び出すアドレスをAnchorに伝えます。*rs`declare_id!`*は、セキュリティチェックのためにプログラム内のプログラムアドレスを定義します。
+
+### constants.rs
+
+`constants.rs`は、共有する値を一か所にまとめます。このテンプレートでは、*rs`COUNTER_SEED`*がカウンターPDAを導出し、*rs`HELLO_WORLD_LAMPORTS`*が初期化時に転送され、*rs`MAX_COUNT`*がインクリメント前にチェックされます。
+
+<WithNotes>
+
+```rust title="programs/my-program/src/constants.rs" -w
+use anchor_lang::prelude::*;
+
+// !tooltip[/#\[constant\]/] anchorConstant
+// !tooltip[/COUNTER_SEED/] counterSeed
+#[constant]
+pub const COUNTER_SEED: &[u8] = b"counter";
+
+// !tooltip[/HELLO_WORLD_LAMPORTS/] helloLamports
+#[constant]
+pub const HELLO_WORLD_LAMPORTS: u64 = 1;
+
+// !tooltip[/MAX_COUNT/] maxCount
+#[constant]
+pub const MAX_COUNT: u64 = 10;
+```
+
+### !anchorConstant
+
+*rs`#[constant]`*は、その値をプログラムIDLに含めるようAnchorに指示します。これにより、重要なプログラム定数が生成されたクライアントやツールから参照できるようになります。
+
+### !counterSeed
+
+*rs`COUNTER_SEED`*は、カウンターPDAを導出するために使用されるバイト文字列です。プログラムとテストの両方がこのseedを使用することで、別途keypairを保存することなくアカウントアドレスを一致させることができます。このテンプレートは固定seedを1つ使用するため、プログラムはカウンターアドレスを1つ持ちます。実際のプログラムでは、多くの関連アカウントを作成するために、seedにユーザーのアドレスや別の識別子を含めることがよくあります。
+
+### !helloLamports
+
+*rs`HELLO_WORLD_LAMPORTS`*は、*rs`initialize`*内でペイヤーからカウンターアカウントへ転送されるlamportの量です。このテンプレートはSystem
+ProgramへのCPIをデモするものであるため、意図的に少額に設定されています。
+
+### !maxCount
+
+*rs`MAX_COUNT`*は、*rs`increment`*によってチェックされる上限値です。ここに定義することで、プログラム、テスト、および生成されたIDLがそのルールに対して1つの共通名を持つことができます。
+
+</WithNotes>
+
+<SideBySide>
+
+### !left
+
+```rust title="initialize.rs" -w
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    // ...
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        // !mark
+        // !mention counter-seed
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    // ...
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    // ...
+
+    // !mark
+    // !mention hello-world-lamports
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    Ok(())
+}
+```
+
+### !right
+
+`initialize.rs` は2つの定数を使用します：
+
+- [_rs`COUNTER_SEED`_](mention:counter-seed)
+  はカウンターPDAアドレスを導出します。
+- [_rs`HELLO_WORLD_LAMPORTS`_](mention:hello-world-lamports)
+  は支払者からカウンターアカウントへ転送される金額を設定します。
+
+</SideBySide>
+
+<SideBySide>
+
+### !left
+
+```rust title="increment.rs" -w
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    // ...
+
+    require!(
+        // !mark
+        // !mention max-count
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    Ok(())
+}
+```
+
+### !right
+
+`increment.rs` は [_rs`MAX_COUNT`_](mention:max-count)
+をカウンターの上限として使用します。現在のカウントがすでに最大値に達している場合、_rs`require!`_
+は _rs`CounterOverflow`_ を返し、アカウントデータは変更されません。
+
+</SideBySide>
+
+### state.rs
+
+`state.rs`
+は、プログラムが作成・所有するアカウントのカスタムデータ型を定義します。プログラムはそのデータを作成・初期化・更新するためのinstructionsを定義しますが、カウンターデータはプログラム自体の内部には保存されません。独自のアドレスを持つ別のアカウントに保存されます。
+
+<WithNotes>
+
+```rust title="programs/my-program/src/state.rs" -w
+use anchor_lang::prelude::*;
+
+// !tooltip[/#\[account\]/] accountMacro
+#[account]
+// !tooltip[/InitSpace/] initSpace
+#[derive(InitSpace)]
+pub struct Counter {
+    // !tooltip[/count/] count
+    pub count: u64,
+    // !tooltip[/authority/] authority
+    pub authority: Pubkey,
+}
+```
+
+### !accountMacro
+
+_rs`#[account]`_
+は、このstructがプログラムによって所有されるオンチェーンアカウントに保存できるデータであることをAnchorに伝えます。Anchorはこれを使用して
+_rs`Counter`_ アカウントのシリアライズ、デシリアライズ、および検証を行います。
+
+### !initSpace
+
+_rs`InitSpace`_ により、Anchorはこのstructのフィールドに必要なバイト数である
+_rs`Counter::INIT_SPACE`_
+を計算できます。8バイトのAnchorアカウントディスクリミネーターは、アカウント作成時に別途追加されます。
+
+### !count
+
+_rs`count`_ はアカウントデータ内に保存されるカウンター値です。
+
+### !authority
+
+_rs`authority`_
+はカウンターをインクリメントすることが許可されたアドレスを保存します。_rs`initialize`_
+がこのアドレスを書き込み、_rs`increment`_ は同じアドレスによる署名を要求します。
+
+</WithNotes>
+
+<SideBySide>
+
+### !left
+
+```rust title="initialize.rs" -w
+#[account(
+    init,
+    payer = payer,
+    // !mark
+    // !mention counter-space
+    space = 8 + Counter::INIT_SPACE,
+    seeds = [COUNTER_SEED],
+    bump
+)]
+pub counter: Account<'info, Counter>,
+// ...
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    // !mark(1:2)
+    // !mention(1:2) initialize-fields
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    Ok(())
+}
+```
+
+```rust title="increment.rs" -w
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    // ...
+
+    // !mark
+    // !mention increment-count
+    ctx.accounts.counter.count += 1;
+    Ok(())
+}
+```
+
+### !right
+
+`state.rs` は _rs`Counter`_
+アカウントデータを定義します。instructionsファイルは、アカウントの作成と更新の際にその型を使用します：
+
+- [_rs`Counter::INIT_SPACE`_](mention:counter-space) は `state.rs`
+  で定義されたフィールドに合わせてアカウントのサイズを設定します。
+- [_rs`count`_ と _rs`authority`_](mention:initialize-fields)
+  は、アカウントの初期化時に書き込まれるフィールド値です。
+- [_rs`count += 1`_](mention:increment-count)
+  は、バリデーションが通過した後にカウンターの保存値を更新します。
+
+</SideBySide>
+
+### error.rs
+
+`error.rs`
+はプログラムのカスタムエラーを定義します。このテンプレートでは、呼び出し元がカウンターを更新する権限を持たない場合、またはカウンターがすでに
+_rs`MAX_COUNT`_
+に達している場合に、instructionハンドラーが停止する仕組みをエラーで示しています。
+
+<WithNotes>
+
+```rust title="programs/my-program/src/error.rs" -w
+use anchor_lang::prelude::*;
+
+// !tooltip[/#\[error_code\]/] errorCode
+#[error_code]
+pub enum ErrorCode {
+    // !tooltip[/Unauthorized/] unauthorized
+    #[msg("Only the counter authority can update this counter")]
+    Unauthorized,
+    // !tooltip[/CounterOverflow/] counterOverflow
+    #[msg("Counter has reached the maximum value")]
+    CounterOverflow,
+}
+```
+
+### !errorCode
+
+_rs`#[error_code]`_
+は、これらのバリアントをカスタムプログラムエラーに変換するよう Anchor に指示します。クライアントやテストは、生のエラーコードを推測する代わりにこれらのエラーを使用できます。
+
+### !unauthorized
+
+_rs`Unauthorized`_
+は、トランザクションの署名者がカウンターアカウントに保存されている権限者でない場合に返されます。
+
+### !counterOverflow
+
+_rs`CounterOverflow`_ は、インクリメントによってプログラムの _rs`MAX_COUNT`_
+ルールが破られる場合に返されます。
+
+</WithNotes>
+
+<SideBySide>
+
+### !left
+
+```rust title="increment.rs" -w
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        // !mark
+        // !mention unauthorized-error
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        // !mark
+        // !mention overflow-error
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+### !right
+
+`error.rs` は、instructionが返す可能性のあるエラーを定義します：
+
+- [_rs`ErrorCode::Unauthorized`_](mention:unauthorized-error)
+  は、署名者がカウンターアカウントに保存されている権限者でない場合に返されます。
+- [_rs`ErrorCode::CounterOverflow`_](mention:overflow-error)
+  は、カウンターがすでに _rs`MAX_COUNT`_ に達している場合に返されます。
+
+</SideBySide>
+
+### instructions.rs
+
+`instructions.rs` は、instructionsファイルをプログラムクレートに接続し、
+`lib.rs` が _rs`initialize`_ および _rs`increment`_
+のinstructionsコードにアクセスできるようにします。各instructionsファイルは、そのinstructionsが必要とするアカウントと、Anchor がそれらのアカウントを検証した後に実行されるハンドラーロジックを定義します。
+
+<WithNotes>
+
+```rust title="programs/my-program/src/instructions.rs" -w
+// !tooltip[/pub mod initialize/] moduleDeclarations
+pub mod initialize;
+pub mod increment;
+
+// !tooltip[/pub use initialize/] reexports
+pub use initialize::*;
+pub use increment::*;
+```
+
+### !moduleDeclarations
+
+_rs`pub mod`_ の行は、`src/instructions/initialize.rs` と
+`src/instructions/increment.rs` をプログラムクレートの一部にします。
+
+### !reexports
+
+_rs`pub use`_
+の行は、それらのファイルからパブリックアイテムを再エクスポートします。これにより、instructionsアカウント構造体とハンドラー関数が
+_rs`instructions`_ モジュールを通じて利用可能になります。
+
+</WithNotes>
+
+### initialize.rs
+
+`initialize.rs`
+は、カウンターアカウントを作成するために必要なアカウントを定義し、アカウントの初期値を書き込みます。_rs`#[derive(Accounts)]`_
+構造体は、Anchor の
+[アカウント制約](https://www.anchor-lang.com/docs/references/account-constraints)
+を使用して、必要なアカウントと新しいカウンターアカウントの作成方法を指定します。
+
+<WithNotes>
+
+```rust title="programs/my-program/src/instructions/initialize.rs" -w
+use anchor_lang::prelude::*;
+
+use crate::{constants::*, state::Counter};
+
+// !tooltip[/derive\(Accounts\)/] accountsStruct
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    // !tooltip[/#\[account\(mut\)\]/] payerMutable
+    #[account(mut)]
+    // !tooltip[/Signer<'info>/] payerSigner
+    pub payer: Signer<'info>,
+    // !tooltip[/#\[account\(/] counterConstraints
+    #[account(
+        // !tooltip[/init/] initConstraint
+        init,
+        // !tooltip[/payer = payer/] payerConstraint
+        payer = payer,
+        // !tooltip[/space = 8 \+ Counter::INIT_SPACE/] space
+        space = 8 + Counter::INIT_SPACE,
+        // !tooltip[/seeds = \[COUNTER_SEED\]/] seeds
+        seeds = [COUNTER_SEED],
+        // !tooltip[/bump/] bump
+        bump
+    )]
+    // !tooltip[/Account<'info, Counter>/] counterAccountType
+    pub counter: Account<'info, Counter>,
+    // !tooltip[/Program<'info, System>/] systemProgram
+    pub system_program: Program<'info, System>,
+}
+
+// !tooltip[/handle_initialize/] handler
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    // !tooltip[/counter.count = 0/] initialCount
+    ctx.accounts.counter.count = 0;
+    // !tooltip[/counter.authority = ctx.accounts.payer.key\(\)/] initialAuthority
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    // !tooltip[/system_program::Transfer/] cpiAccounts
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    // !tooltip[/CpiContext::new/] cpiContext
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    // !tooltip[/system_program::transfer/] transfer
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    // !tooltip[/msg!/] programLog
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+<ScrollyCoding>
+
+## !!steps アカウントコンテキスト
+
+_rs`Initialize`_ 構造体は、ユーザーが _rs`initialize`_
+instructionsを呼び出す際に含めなければならないアカウントを定義します。Anchor はハンドラーが実行される前にこれらのアカウントを検証します。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+// !focus(1:2)
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps ペイヤーアカウント
+
+_rs`payer`_ アカウントは、カウンターアカウントの作成費用を支払います。
+_rs`Signer<'info>`_
+型はペイヤーがトランザクションに署名する必要があることを意味し、
+_rs`#[account(mut)]`_
+は lamport が差し引かれるため、ペイヤーアカウントが変更可能であることを意味します。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    // !focus(1:2)
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps カウンターアカウント
+
+_rs`counter`_ アカウントは、`state.rs` からの _rs`Counter`_ データを格納します。
+_rs`init`_
+はハンドラーが実行される前にこのアカウントを作成するよう Anchor に指示し、
+_rs`payer = payer`_ は作成費用を支払うアカウントを Anchor に伝えます。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    // !focus(1:8)
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps アカウントサイズ
+
+_rs`space`_
+制約は、割り当てるアカウントデータの量をAnchorに伝えます。Anchorはまず8バイトのディスクリミネーターを格納し、次に
+_rs`Counter`_
+フィールドに必要なバイト数を格納します。ディスクリミネーターにより、Anchorはアカウントデータをデシリアライズする前に、このアカウントを
+_rs`Counter`_ アカウントとして識別できます。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        // !focus
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps カウンターアドレス
+
+_rs`seeds`_ と _rs`bump`_
+制約は、カウンターアカウントに期待されるPDAアドレスを定義します。Anchorは、提供された
+_rs`counter`_
+アカウントがそのアドレスと一致することを検証します。このテンプレートはPDAを使用しているため、ユーザーはプログラムIDとseedからカウンターアドレスを導出でき、カウンターアドレスが決定論的になります。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        // !focus(1:2)
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps System Program
+
+新しいアカウントの作成にはSystem Programを使用するため、_rs`system_program`_
+アカウントが必要です。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    // !focus
+    pub system_program: Program<'info, System>,
+}
+```
+
+## !!steps ハンドラー関数
+
+_rs`handle_initialize`_ 関数は、Anchorが _rs`Initialize`_
+内のアカウントを検証した後に実行されます。_rs`ctx`_
+の値により、ハンドラーはそれらの検証済みアカウントにアクセスできます。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+// !focus
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps 初期データ
+
+ハンドラーは新しいカウンターアカウントに初期値を書き込みます。カウントは _rs`0`_
+から始まり、支払者は後でカウンターをインクリメントする権限を持つauthorityになります。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    // !focus(1:2)
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps 転送アカウント
+
+この転送CPIは、CPIが別のプログラムにアカウントを渡す方法を示すためだけに含まれています。_rs`Transfer`_
+構造体は、System Programの転送で使用されるアカウントを一覧表示します。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    // !focus(1:4)
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps CPIコンテキスト
+
+_rs`CpiContext::new`_
+は、呼び出されるプログラムと、そのプログラムに渡されるアカウントを組み合わせます。これがCPIの基本的な形です。呼び出すプログラムを選択し、そのプログラムが必要とするアカウントを収集し、両方を呼び出しに渡します。ここで呼び出されるプログラムはSystem
+Programです。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    // !focus
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps 転送の呼び出し
+
+_rs`anchor_lang::system_program::transfer`_ はSystem
+Programの転送instructionsを呼び出します。このテンプレートでは、転送は自分のプログラムから別のプログラムを呼び出す簡単な例です。転送CPIが失敗すると、_rs`initialize`_
+instructionsも失敗します。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    // !focus
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+## !!steps メッセージのログ記録
+
+_rs`msg!`_ はプログラムログにメッセージを書き込みます。_rs`Ok(())`_
+はinstructionsが正常に返されたことを示します。
+
+<CodePlaceholder title="initialize.rs" />
+
+```rust !! title="initialize.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn handle_initialize(ctx: Context<Initialize>) -> Result<()> {
+    ctx.accounts.counter.count = 0;
+    ctx.accounts.counter.authority = ctx.accounts.payer.key();
+
+    let cpi_accounts = anchor_lang::system_program::Transfer {
+        from: ctx.accounts.payer.to_account_info(),
+        to: ctx.accounts.counter.to_account_info(),
+    };
+    let cpi_ctx = CpiContext::new(anchor_lang::system_program::ID, cpi_accounts);
+    anchor_lang::system_program::transfer(cpi_ctx, HELLO_WORLD_LAMPORTS)?;
+
+    // !focus(1:2)
+    msg!("Hello, world! Counter initialized");
+    Ok(())
+}
+```
+
+</ScrollyCoding>
+
+### !imports
+
+このファイルは共有定数と _rs`Counter`_
+アカウントタイプをインポートします。instructionsはこれらの定義を使用してPDAを導出し、転送額を選択し、適切なデータサイズでアカウントを割り当てます。
+
+### !accountsStruct
+
+_rs`Initialize`_ は _rs`initialize`_
+instructionsのアカウントコンテキストです。struct内の各フィールドは、instructionsが呼び出される際に含める必要がある個別のアカウントを表します。Anchorはstructを使用して、ハンドラーが実行される前にこれらの受信アカウントを検証します。
+
+### !payerMutable
+
+_rs`#[account(mut)]`_
+はAnchorに対して、支払いアカウントが書き込み可能である必要があることを伝えます。アカウント作成と転送CPIの両方が支払い者からlamportを差し引くため、これは必須です。
+
+### !payerSigner
+
+_rs`Signer<'info>`_
+はAnchorに対して、支払い者がトランザクションに署名する必要があることを伝えます。
+
+### !counterConstraints
+
+_rs`#[account(...)]`_
+ブロックは、ハンドラーが実行される前にカウンターアカウントを作成および検証する方法をAnchorに伝えます。
+
+### !initConstraint
+
+_rs`init`_ は、ハンドラーが実行される前に _rs`counter`_
+アカウントを作成するよう Anchor に指示します。新しいアカウントはこのプログラムが所有するため、このプログラムは
+_rs`Counter`_ データをそこに保存できます。
+
+### !payerConstraint
+
+_rs`payer = payer`_ は、新しいカウンターアカウントの作成費用の支払い者として
+_rs`payer`_ アカウントを指定します。
+
+### !space
+
+_rs`space = 8 + Counter::INIT_SPACE`_
+は、Anchor のアカウントディスクリミネーターと `state.rs` の _rs`Counter`_
+フィールド分のバイトを割り当てます。ディスクリミネーターは、アカウントを読み取る前に期待される型が格納されているかどうかを Anchor が確認するのに役立ちます。
+
+### !seeds
+
+_rs`seeds = [COUNTER_SEED]`_
+は、カウンターアカウントのアドレスがこの seed とプログラム ID から導出された PDA でなければならないことを示します。固定の seed が1つであるため、このプログラムに対してカウンター PDA は1つだけ存在します。実際のプログラムで個別のカウンターを作成するには、通常はユーザーのアドレスなど別の seed を追加します。
+
+### !bump
+
+_rs`bump`_
+は、PDA のバンプ（導出アドレスを PDA として有効にする追加の1バイト）を検索して検証するよう Anchor に指示します。
+
+### !counterAccountType
+
+_rs`Account<'info, Counter>`_ は、アカウントデータを `state.rs` の _rs`Counter`_
+型として扱うよう Anchor に指示します。また、Anchor はアカウントがこのプログラムによって所有されていることも確認します。
+
+### !systemProgram
+
+_rs`Program<'info, System>`_ は、呼び出し元に System
+Program の提供を要求します。Anchor は _rs`init`_
+アカウント作成制約のためにこれを使用します。ハンドラーのトランスファー CPI も System
+Program を呼び出します。
+
+### !handler
+
+ハンドラーは Anchor がアカウントを検証してカウンターアカウントを作成した後に実行されるため、アカウントの初期データを安全に書き込むことができます。
+
+### !initialCount
+
+カウンターアカウントの _rs`count`_ フィールドを _rs`0`_ に設定します。
+
+### !initialAuthority
+
+カウンターアカウントの _rs`authority`_
+フィールドを支払い者のアドレスに設定します。
+
+### !cpiAccounts
+
+これらは、System Program のtransfer
+instructionsに渡されるアカウントです。このtransfer
+CPIは、CPIが別のプログラムにアカウントを渡す方法を示すためだけに含まれています。
+
+### !cpiContext
+
+_rs`CpiContext`_ は、Cross Program
+Invocationのためにターゲットプログラムと必要なアカウントをまとめます。コンテキストを作成することで、呼び出したいプログラムとそのプログラムが必要とするアカウントを対応付け、CPIの準備を整えます。
+
+### !transfer
+
+このCPIはSystem Programのtransfer
+instructionsを呼び出し、_rs`HELLO_WORLD_LAMPORTS`_
+をpayerからcounterアカウントに移動します。
+
+### !programLog
+
+_rs`msg!`_
+は、プログラムが呼び出されたときにプログラムログにメッセージを書き込みます。
+
+</WithNotes>
+
+### increment.rs
+
+`increment.rs`
+は、既存のcounterアカウントを更新するために必要なアカウントを定義します。ハンドラーは、署名者が保存されたauthorityと一致するかを確認し、countが指定された*rs`MAX_COUNT`*に達していないかをチェックしたうえで、countをインクリメントします。
+
+<WithNotes>
+
+```rust title="programs/my-program/src/instructions/increment.rs" -w
+use anchor_lang::prelude::*;
+
+use crate::{constants::*, error::ErrorCode, state::Counter};
+
+// !tooltip[/derive\(Accounts\)/] incrementAccounts
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        // !tooltip[/mut/] counterMutable
+        mut,
+        // !tooltip[/seeds = \[COUNTER_SEED\]/] counterSeeds
+        seeds = [COUNTER_SEED],
+        // !tooltip[/bump/] counterBump
+        bump
+    )]
+    // !tooltip[/Account<'info, Counter>/] incrementCounterAccountType
+    pub counter: Account<'info, Counter>,
+    // !tooltip[/Signer/] authoritySigner
+    pub authority: Signer<'info>,
+}
+
+// !tooltip[/handle_increment/] incrementHandler
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    // !tooltip[/require_keys_eq!/] authorityCheck
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    // !tooltip[/require!/] maxCheck
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    // !tooltip[/count \+= 1/] mutateCount
+    ctx.accounts.counter.count += 1;
+    // !tooltip[/msg!/] programLog
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+<ScrollyCoding>
+
+## !!steps アカウントコンテキスト
+
+_rs`Increment`_ 構造体は、ユーザーが _rs`increment`_
+instructions を呼び出す際に含める必要があるアカウントを定義します。Anchor はハンドラーが実行される前にこれらのアカウントを検証します。
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+// !focus(1:2)
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+```
+
+## !!steps Counterアカウント
+
+_rs`counter`_ アカウントは _rs`Counter`_ データを保存します。_rs`mut`_
+制約によりハンドラーは保存されたcountを更新でき、_rs`seeds`_ および _rs`bump`_
+制約はcounterのPDAアドレスを検証します。
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    // !focus(1:6)
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+```
+
+## !!steps Authorityの署名者
+
+_rs`authority`_
+アカウントはトランザクションに署名する必要があります。ハンドラーは後に、この署名者がcounterアカウントに保存されたauthorityと一致するかを確認します。
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    // !focus
+    pub authority: Signer<'info>,
+}
+```
+
+## !!steps ハンドラー関数
+
+_rs`handle_increment`_ 関数は、Anchor が _rs`Increment`_
+内のアカウントを検証した後に実行されます。_rs`ctx`_
+の値により、ハンドラーはそれらの検証済みアカウントにアクセスできます。
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+// !focus
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+## !!steps 権限チェック
+
+最初のチェックでは、署名者がこのカウンターを更新する権限を持っているかを確認します。署名者のアドレスが
+_rs`counter.authority`_ と一致しない場合、instructions は
+_rs`ErrorCode::Unauthorized`_
+で停止します。これはアプリケーションレベルの認可を示しています。プログラムはカウンターデータを所有しますが、どの署名者がそのデータを変更できるかのルールを実装しています。
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    // !focus(1:5)
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+## !!steps 最大カウントチェック
+
+2 番目のチェックでは、カウンターが _rs`MAX_COUNT`_
+を超えないようにします。カウンターがすでに上限に達している場合、instructions は
+_rs`ErrorCode::CounterOverflow`_
+で停止します。この上限はテンプレート内の人為的なルールであり、カスタムエラーがアカウントデータが変更される前に instructions を停止する仕組みを確認できます。
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    // !focus(1:4)
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+## !!steps カウントの更新
+
+両方のチェックが通過した後にのみ、ハンドラーはアカウントデータを更新します。この行は保存されたカウンター値に 1 を加算します。
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    // !focus
+    ctx.accounts.counter.count += 1;
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+## !!steps ログメッセージ
+
+_rs`msg!`_ は更新されたカウントをプログラムログに書き込みます。_rs`Ok(())`_
+は instructions が正常に返されたことを示します。
+
+<CodePlaceholder title="increment.rs" />
+
+```rust !! title="increment.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+pub fn handle_increment(ctx: Context<Increment>) -> Result<()> {
+    require_keys_eq!(
+        ctx.accounts.counter.authority,
+        ctx.accounts.authority.key(),
+        ErrorCode::Unauthorized,
+    );
+    require!(
+        ctx.accounts.counter.count < MAX_COUNT,
+        ErrorCode::CounterOverflow,
+    );
+
+    ctx.accounts.counter.count += 1;
+    // !focus(1:2)
+    msg!("Hello, world! Counter is now {}", ctx.accounts.counter.count);
+    Ok(())
+}
+```
+
+</ScrollyCoding>
+
+### !incrementAccounts
+
+_rs`Increment`_ は _rs`increment`_
+instructions のアカウントコンテキストです。Anchor はこれを使用して、ミュータブルなカウンターアカウントと必要な署名者を検証します。
+
+### !counterMutable
+
+_rs`mut`_ は、ハンドラーが保存された _rs`count`_
+の値を更新するため、カウンターアカウントが書き込み可能でなければならないことを Anchor に伝えます。
+
+### !counterSeeds
+
+_rs`seeds = [COUNTER_SEED]`_
+は、提供されたカウンターアカウントがこの seed とプログラム ID から導出された PDA であることを検証します。
+
+### !counterBump
+
+_rs`bump`_
+は、カウンターアカウントの PDA バンプを検索して検証するよう Anchor に指示します。
+
+### !incrementCounterAccountType
+
+_rs`Account<'info, Counter>`_ は、アカウントデータを `state.rs` の _rs`Counter`_
+型としてデシリアライズするよう Anchor に指示します。また、Anchor はアカウントがこのプログラムによって所有されていることも確認します。
+
+### !authoritySigner
+
+_rs`Signer`_
+は権限者の署名を要求します。ハンドラーはその後、この署名者のアドレスをカウンターアカウントに保存された権限者と比較します。
+
+### !incrementHandler
+
+ハンドラーは、Anchor がアカウントリストを検証し、所有権を確認し、カウンターアカウントをデシリアライズした後に実行されます。
+
+### !authorityCheck
+
+_rs`require_keys_eq!`_
+は2つの公開鍵を比較し、署名者のアドレスがカウンターアカウントに保存された権限者と一致しない限り、instructionを停止します。これはテンプレートのアプリケーションレベルの認可ルールです。
+
+### !maxCheck
+
+_rs`require!`_ はブール値のルールを確認し、カウンターがすでに _rs`MAX_COUNT`_
+に達している場合は _rs`CounterOverflow`_
+でinstructionを停止します。このテンプレートルールは、カスタムエラーとミューテーション前の失敗処理を示しています。
+
+### !mutateCount
+
+両方のチェックが通過した場合にのみ、ハンドラーはカウンターアカウントのデータを更新します。どちらかのチェックが失敗した場合、トランザクションは失敗し、アカウントは変更されません。
+
+### !programLog
+
+_rs`msg!`_
+は、プログラムが呼び出されたときにプログラムログにメッセージを書き込みます。
+
+</WithNotes>
+
+## テストファイル
+
+`programs/my-program/tests/test_initialize.rs`
+は Rust の統合テストです。ローカル validator を起動しません。代わりに、コンパイルされた
+`.so`
+ファイルを LiteSVM に読み込み、プログラムを呼び出すトランザクションを構築し、各トランザクション後にカウンターアカウントを読み取ります。このテストは、呼び出すプログラムのプログラム ID を指定し、instruction
+data を提供し、必要なアカウントを渡すことで、Solana トランザクション用の instructions を構築します。
+
+<SideBySide>
+
+### !left
+
+```rust title="initialize.rs" -w
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    // !mark
+    // !mention initialize-payer
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    // !mark
+    // !mention initialize-counter
+    pub counter: Account<'info, Counter>,
+    // !mark
+    // !mention initialize-system-program
+    pub system_program: Program<'info, System>,
+}
+```
+
+```rust title="test_initialize.rs" -w
+let instruction = Instruction::new_with_bytes(
+    program_id,
+    // !mention initialize-instruction-data
+    &my_program::instruction::Initialize {}.data(),
+    my_program::accounts::Initialize {
+        // !mark
+        // !mention initialize-payer
+        payer: payer.pubkey(),
+        // !mark
+        // !mention initialize-counter
+        counter,
+        // !mark
+        // !mention initialize-system-program
+        system_program: system_program::ID,
+    }
+    .to_account_metas(None),
+);
+```
+
+### !right
+
+_rs`Initialize`_ アカウントコンテキストは、_rs`initialize`_
+instructionに必要なアカウントを定義します。テストはそれらと同じアカウントを生成された
+_rs`my_program::accounts::Initialize`_ ヘルパーに渡します：
+
+- [_rs`payer`_](mention:initialize-payer) は _rs`payer: payer.pubkey()`_
+  として渡されます。
+- [_rs`counter`_](mention:initialize-counter) は _rs`counter`_
+  として渡されます。
+- [_rs`system_program`_](mention:initialize-system-program) は
+  _rs`system_program::ID`_ として渡されます。
+
+[_rs`my_program::instruction::Initialize {}.data()`_](mention:initialize-instruction-data)
+は instruction
+data を作成します。ここでinstructionの引数がエンコードされますが、この
+_rs`initialize`_ instructionは引数を必要としません。
+
+</SideBySide>
+
+<SideBySide>
+
+### !left
+
+```rust title="increment.rs" -w
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [COUNTER_SEED],
+        bump
+    )]
+    // !mark
+    // !mention increment-counter
+    pub counter: Account<'info, Counter>,
+    // !mark
+    // !mention increment-authority
+    pub authority: Signer<'info>,
+}
+```
+
+```rust title="test_initialize.rs" -w
+let instruction = Instruction::new_with_bytes(
+    program_id,
+    // !mention increment-instruction-data
+    &my_program::instruction::Increment {}.data(),
+    my_program::accounts::Increment {
+        // !mark
+        // !mention increment-counter
+        counter,
+        // !mark
+        // !mention increment-authority
+        authority: payer.pubkey(),
+    }
+    .to_account_metas(None),
+);
+```
+
+### !right
+
+_rs`Increment`_ アカウントコンテキストは、_rs`increment`_
+instructionに必要なアカウントを定義します。テストはそれらと同じアカウントを生成された
+_rs`my_program::accounts::Increment`_ ヘルパーに渡します：
+
+- [_rs`counter`_](mention:increment-counter) は _rs`counter`_ として渡されます。
+- [_rs`authority`_](mention:increment-authority) は
+  _rs`authority: payer.pubkey()`_ として渡されます。
+
+[_rs`my_program::instruction::Increment {}.data()`_](mention:increment-instruction-data)
+は instruction
+data を作成します。ここでinstructionの引数がエンコードされますが、この
+_rs`increment`_ instructionは引数を必要としません。
+
+</SideBySide>
+
+<WithNotes>
+
+```rust title="programs/my-program/tests/test_initialize.rs" -w
+use {
+    anchor_lang::{
+        prelude::Pubkey,
+        solana_program::{instruction::Instruction, system_program},
+        AccountDeserialize, InstructionData, ToAccountMetas,
+    },
+    // !tooltip[/litesvm::LiteSVM/] litesvm
+    litesvm::LiteSVM,
+    solana_keypair::Keypair,
+    solana_message::{Message, VersionedMessage},
+    solana_signer::Signer,
+    solana_transaction::versioned::VersionedTransaction,
+};
+
+#[test]
+fn test_initialize() {
+    // !tooltip[/let program_id/] setup
+    let program_id = my_program::id();
+    let payer = Keypair::new();
+    // !tooltip[/Pubkey::find_program_address/] counterPda
+    let counter = Pubkey::find_program_address(
+        &[my_program::constants::COUNTER_SEED],
+        &program_id,
+    )
+    .0;
+    let mut svm = LiteSVM::new();
+    // !tooltip[/include_bytes!/] programBytes
+    let bytes = include_bytes!(concat!(
+        env!("CARGO_TARGET_TMPDIR"),
+        "/../deploy/my_program.so"
+    ));
+    // !tooltip[/svm.add_program/] addProgram
+    svm.add_program(program_id, bytes).unwrap();
+    svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+    // !tooltip[/let instruction/] testInstruction
+    let instruction = Instruction::new_with_bytes(
+        program_id,
+        &my_program::instruction::Initialize {}.data(),
+        my_program::accounts::Initialize {
+            payer: payer.pubkey(),
+            counter,
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
+    );
+
+    // !tooltip[/svm.latest_blockhash/] blockhash
+    let blockhash = svm.latest_blockhash();
+    // !tooltip[/Message::new_with_blockhash/] message
+    let msg = Message::new_with_blockhash(&[instruction], Some(&payer.pubkey()), &blockhash);
+    // !tooltip[/VersionedTransaction::try_new/] transaction
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&payer]).unwrap();
+
+    // !tooltip[/svm.send_transaction/] sendTx
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok());
+
+    // !tooltip[/svm.get_account/] getCounter
+    let counter_account = svm.get_account(&counter).unwrap();
+    let mut data: &[u8] = &counter_account.data;
+    // !tooltip[/Counter::try_deserialize/] deserialize
+    let counter_state = my_program::state::Counter::try_deserialize(&mut data).unwrap();
+    // !tooltip[/assert_eq!\(counter_state.count, 0\)/] initAssert
+    assert_eq!(counter_state.count, 0);
+    assert_eq!(counter_state.authority, payer.pubkey());
+
+    // !tooltip[/let instruction/] testInstruction
+    let instruction = Instruction::new_with_bytes(
+        program_id,
+        &my_program::instruction::Increment {}.data(),
+        my_program::accounts::Increment {
+            counter,
+            authority: payer.pubkey(),
+        }
+        .to_account_metas(None),
+    );
+
+    // !tooltip[/svm.latest_blockhash/] blockhash
+    let blockhash = svm.latest_blockhash();
+    // !tooltip[/Message::new_with_blockhash/] message
+    let msg = Message::new_with_blockhash(&[instruction], Some(&payer.pubkey()), &blockhash);
+    // !tooltip[/VersionedTransaction::try_new/] transaction
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&payer]).unwrap();
+
+    // !tooltip[/svm.send_transaction/] sendTx
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok());
+
+    // !tooltip[/svm.get_account/] getCounter
+    let counter_account = svm.get_account(&counter).unwrap();
+    let mut data: &[u8] = &counter_account.data;
+    // !tooltip[/Counter::try_deserialize/] deserialize
+    let counter_state = my_program::state::Counter::try_deserialize(&mut data).unwrap();
+    // !tooltip[/assert_eq!\(counter_state.count, 1\)/] incrementAssert
+    assert_eq!(counter_state.count, 1);
+    assert_eq!(counter_state.authority, payer.pubkey());
+}
+```
+
+### !litesvm
+
+_rs`LiteSVM`_ はテスト用のインプロセスSolana
+VMです。validator プロセスを起動せずに、コンパイル済みプログラムの登録、アカウントの作成、トランザクションの送信、アカウント状態の確認をテストで行えます。
+
+### !setup
+
+テストは _rs`my_program::id()`_ を通じて _rs`declare_id!`_
+の値からプログラムアドレスを取得し、テストトランザクション用の新しい支払者 keypair を作成します。
+
+### !counterPda
+
+カウンターアドレスは、プログラムが使用するのと同じ _rs`COUNTER_SEED`_
+から導出されます。これにより、テストは `initialize.rs`
+が期待するPDAを対象とします。
+
+### !programBytes
+
+_rs`include_bytes!`_ は、ビルドによって生成されたコンパイル済みの
+`my_program.so`
+ファイルを読み込みます。これらのバイトは、LiteSVMがテストで実行する実行可能なプログラムコードです。
+
+### !addProgram
+
+_rs`svm.add_program`_
+は、コンパイル済みプログラムのバイトをLiteSVM内のプログラムアドレスに登録します。エアドロップにより、支払者はトランザクションおよびアカウント作成に必要な十分なローカルSOLを受け取ります。
+
+### !testInstruction
+
+_rs`Instruction::new_with_bytes`_
+は、プログラムを呼び出すためのinstructionsを作成します。プログラムID、instruction
+data、およびinstructionsアカウントが含まれます。
+
+### !blockhash
+
+すべてのSolanaトランザクションには最新のブロックハッシュが必要です。このテストでは、LiteSVMがトランザクションに使用するブロックハッシュを提供します。
+
+### !message
+
+メッセージにはinstructions、手数料支払者、およびブロックハッシュが含まれます。これは署名されるトランザクションデータです。
+
+### !transaction
+
+_rs`VersionedTransaction::try_new`_
+は、支払者のkeypairでメッセージに署名します。支払者はトランザクション手数料を支払い、新しいカウンターアカウントに資金を提供するため、署名を行います。
+
+### !sendTx
+
+_rs`svm.send_transaction`_ は、LiteSVM内でトランザクションを実行します。
+
+### !getCounter
+
+トランザクション実行後、テストはLiteSVMから直接カウンターアカウントを読み取り、アカウントデータを検査します。
+
+### !deserialize
+
+カウンターアカウントはシリアライズされたデータを格納しています。_rs`Counter::try_deserialize`_
+はAnchorのアカウントディスクリミネーターを確認し、アカウントデータを `state.rs`
+の _rs`Counter`_ 型に戻します。
+
+### !initAssert
+
+_rs`initialize`_
+が成功した後、テストはカウンターアカウントをデシリアライズし、初期状態が
+_rs`handle_initialize`_ が書き込んだ内容と一致することを確認します。
+
+### !incrementAssert
+
+_rs`increment`_ が成功した後、同じカウンターアカウントの _rs`count`_ が _rs`1`_
+に設定され、同じ権限が維持されているはずです。
+
+</WithNotes>
+
+## プロジェクトの設定
+
+ルートプロジェクトファイルは、AnchorとCargoにプログラムのビルド、テスト、デプロイの方法を指示します。完全なリファレンスについては、[Anchor.toml の設定](https://www.anchor-lang.com/docs/references/anchor-toml)および
+[Anchor CLI](https://www.anchor-lang.com/docs/references/cli)
+に関する Anchor ドキュメントをご参照ください。
+
+<WithNotes>
+
+```toml title="Anchor.toml"
+# !tooltip[/skip_local_validator/] skipValidator
+skip_local_validator = true
+
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+# !tooltip[/programs.localnet/] programs
+[programs.localnet]
+my_program = "82sFkffP9wxwpyfZyeaKHH2chQoJPUGsJZSPi9mrUuXd"
+
+# !tooltip[/provider/] provider
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+# !tooltip[/scripts/] scripts
+[scripts]
+test = "cargo test"
+
+[hooks]
+```
+
+### !skipValidator
+
+`skip_local_validator = true` は、`anchor test`
+に対して validator を起動しないよう Anchor に指示します。Rust テストでは代わりに LiteSVM を使用します。
+
+### !programs
+
+`[programs.localnet]`
+は、Rust クレート名をローカルのビルドおよびテストで使用する program
+account のアドレスにマッピングします。
+
+### !provider
+
+`[provider]` は、`anchor deploy`
+などのコマンドに使用するデフォルトのクラスターとウォレットを設定します。
+
+### !scripts
+
+`[scripts]` は、`anchor test`
+が実行する内容を変更します。このテンプレートでは、`anchor test` は `cargo test`
+を実行します。
+
+</WithNotes>

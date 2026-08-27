@@ -71,6 +71,7 @@ export const BLOCK_STYLES = {
       paddingLeft: "50px",
       paddingTop: "20px",
     },
+    small: { paddingRight: "0px", paddingLeft: "0px" },
   },
   [CONTENT_BLOCK_STYLE_KEYS.imageFull]: {
     large: {
@@ -197,7 +198,7 @@ export const NAV_BUTTONS = [
     iconSize: "md",
     startIcon: "none",
     endIcon: "none",
-    url: "https://solana.com/developers/evm-to-svm",
+    url: "/developers/migrate-to-solana/ethereum",
   },
 ] as const;
 
@@ -212,7 +213,7 @@ export const RESOURCE_CARD_DECK = {
         src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fdfb1773873354d118d134beca2334288.png",
       },
       callToAction: {
-        url: "/developers/guides/getstarted/hello-world-in-your-browser",
+        url: "/docs/intro/quick-start",
         endIcon: "arrow-right",
         hierarchy: "outline",
       },

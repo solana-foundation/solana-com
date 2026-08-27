@@ -14,12 +14,14 @@ export default function FAQAnswer({
     ? breakpointHref(item.answerHref)
     : undefined;
 
+  const answerText = item.answer?.trim() ?? "";
+
   return (
     <p className={className}>
-      {item.answer}
+      {answerText}
       {resolvedHref && (
         <>
-          {" "}
+          {answerText ? " " : null}
           <a
             href={resolvedHref}
             className="underline decoration-white/40 underline-offset-4 transition-opacity hover:opacity-80"

@@ -1,0 +1,122 @@
+---
+title: 방치된 위임 및 구독 철회
+description:
+  구독 권한이 사라진 위임 또는 구독에서 rent를 회수하는 방법에 대한
+  가이드입니다.
+---
+
+위임 및 구독은 철회 시 기록된 지불자에게 반환되는 rent를 보유합니다. 스폰서가
+계정에 자금을 제공하고 이후 사용자가 구독 권한을 닫거나 교체한 경우, 해당 계정은
+고립되고 rent가 잠기게 됩니다. `RevokeAbandonedDelegation` 및
+`RevokeAbandonedSubscription`를 통해 기록된 지불자가 이를 회수할 수 있습니다.
+
+## 적용 시기
+
+계정의 구독 권한이 명확히 종료된 경우에만 허용됩니다 — 닫혔거나, 닫힌 후
+재생성된 경우(따라서 `init_id`가 더 이상 일치하지 않는 경우). 활성 위임 또는
+구독은 이 방법으로 절대 닫을 수 없습니다.
+
+|                                | `RevokeAbandonedDelegation`                                                                                       | `RevokeAbandonedSubscription`                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 닫는 대상                      | 고정 또는 반복 위임 PDA                                                                                           | 구독 PDA                                                                                                |
+| 서명자                         | 기록된 지불자                                                                                                     | 기록된 지불자                                                                                           |
+| 계정                           | 위임 + 기록된 권한                                                                                                | 구독 + 기록된 권한 + 플랜                                                                               |
+| 적용 조건                      | 권한이 닫혔거나 재생성된 경우 (`init_id` 불일치)                                                                  | 동일, 플랜의 민트 기준 — 민트는 연결된 플랜에서 읽히므로, 관련 없는 권한으로 강제 종료를 시도할 수 없음 |
+| 대신 일반 철회를 사용하는 경우 | 위임이 [만료되었거나 완전히 소진된 경우](/docs/payments/subscriptions/recurring-delegation#revoke-the-delegation) | 구독이 [취소되고 만료된 경우](/docs/payments/subscriptions/subscription-plan#cancel-and-revoke)         |
+
+`RevokeAbandonedDelegation`는 완전히 소진되지 않은 만료 없는
+위임(`expiry_ts == 0`)에 대한 기록된 지불자의 유일한 복구 수단이기도 합니다.
+일반 철회는 만료 시 또는 고정 위임의 경우 완전 소진 시에만 지불자를 대상으로
+실행됩니다.
+
+## 방치된 위임 철회
+
+기록된 지불자가 서명합니다. 종료된 위임 PDA와 기록된 구독 권한(이미 닫혀 있을 수
+있음)을 전달합니다. Rent는 지불자에게 반환됩니다.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { getRevokeAbandonedDelegationInstruction } from '@solana/subscriptions';
+
+    // Build the instruction and send it in a transaction like any other.
+    const revokeAbandonedIx = getRevokeAbandonedDelegationInstruction({
+      payer: payerSigner,
+      delegationAccount: delegationPda,
+      subscriptionAuthority: subscriptionAuthorityPda,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::generated::instructions::*;
+
+    let payer: Address = address!("PAYER_THAT_FUNDED_RENT_HERE");
+    let delegation_pda: Address = address!("DELEGATION_PDA_ADDRESS_HERE");
+    let subscription_authority: Address = address!("RECORDED_SUBSCRIPTION_AUTHORITY_HERE");
+
+    let revoke_abandoned_ix = RevokeAbandonedDelegationBuilder::new()
+        .payer(payer)
+        .delegation_account(delegation_pda)
+        .subscription_authority(subscription_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## 중단된 구독 취소
+
+기록된 지불자가 서명합니다. 중단된 구독 PDA, 기록된 구독 권한(이미 닫혀 있을 수
+있음), 그리고 해당 구독이 속한 플랜을 전달합니다. rent는 지불자에게 반환됩니다.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { getRevokeAbandonedSubscriptionInstruction } from '@solana/subscriptions';
+
+    // Build the instruction and send it in a transaction like any other.
+    const revokeAbandonedIx = getRevokeAbandonedSubscriptionInstruction({
+      payer: payerSigner,
+      subscriptionAccount: subscriptionPda,
+      subscriptionAuthority: subscriptionAuthorityPda,
+      planPda,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::generated::instructions::*;
+
+    let payer: Address = address!("PAYER_THAT_FUNDED_RENT_HERE");
+    let subscription_pda: Address = address!("SUBSCRIPTION_PDA_ADDRESS_HERE");
+    let subscription_authority: Address = address!("RECORDED_SUBSCRIPTION_AUTHORITY_HERE");
+    let plan_pda: Address = address!("PLAN_PDA_ADDRESS_HERE");
+
+    let revoke_abandoned_ix = RevokeAbandonedSubscriptionBuilder::new()
+        .payer(payer)
+        .subscription_account(subscription_pda)
+        .subscription_authority(subscription_authority)
+        .plan_pda(plan_pda)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## 참고 사항
+
+- 위임자, 수임자 또는 구독자가 아닌 기록된 지불자가 서명합니다.
+- 계정에 대해 구독 권한이 여전히 활성 상태인 경우 두 명령 모두 실패합니다 — 대신
+  일반 취소를 사용하세요.
+- `RevokeAbandonedDelegation`는 고정 및 반복 위임 모두에 적용됩니다.

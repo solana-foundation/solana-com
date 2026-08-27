@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import useReducedMotion from "../../hooks/useReducedMotion";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Button from "../shared/Button";
 import heroTitleImg from "../../../assets/possible/hero/possible-hero-headline_sm.jpg";
 import styles from "./PossibleHero.module.scss";

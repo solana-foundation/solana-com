@@ -1,0 +1,262 @@
+---
+title: 通过 CPI 调用 Token Program
+description:
+  使用 Cross Program Invocation (CPI) 从链上程序调用 Token Program ——
+  转账、铸造和销毁代币，使用 PDA 权限签名，并将多条代币指令批量合并到单个 CPI
+  中。
+url: /docs/tokens/advanced/cpi
+type: tutorial
+related:
+  - /docs/core/cpi
+  - /docs/tokens/basics/transfer-tokens
+  - /docs/tokens/advanced/withdraw-excess-lamports
+  - /docs/tokens/advanced/unwrap-lamports
+---
+
+链上程序通过向 Token Program 发起
+[Cross Program Invocation (CPI)](/docs/core/cpi)
+来转移代币。您的程序构建一条 Token Program 指令，提供所需账户，并调用
+_rs`invoke`_（或在 Program Derived Address 签名时使用
+_rs`invoke_signed`_）。Token Program 随后以您的程序授予的权限执行该指令。
+
+本页面介绍该流程中与代币相关的部分。关于 CPI 机制本身——_rs`invoke`_ 和
+_rs`invoke_signed`_ 的工作原理、签名者与可写权限的传播方式，以及
+[每次 CPI 费用模型](/docs/core/cpi/cpi-cost-model)——请参阅
+[Cross Program Invocation](/docs/core/cpi)。
+
+## 常见模式
+
+大多数 token CPI 遵循相同的结构：构建指令、传入 token
+account 和授权方，然后调用。以下示例使用 _rs`TransferChecked`_
+转移代币，该函数会在转账过程中验证 mint 和小数位数。
+
+<CodeTabs>
+
+```rust !! title="Anchor"
+use anchor_lang::prelude::*;
+use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
+
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod token_cpi {
+    use super::*;
+
+    pub fn transfer(ctx: Context<TokenTransfer>, amount: u64) -> Result<()> {
+        let cpi_accounts = TransferChecked {
+            from: ctx.accounts.source.to_account_info(),
+            mint: ctx.accounts.mint.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            cpi_accounts,
+        );
+
+        transfer_checked(cpi_ctx, amount, ctx.accounts.mint.decimals)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct TokenTransfer<'info> {
+    #[account(mut)]
+    pub source: InterfaceAccount<'info, TokenAccount>,
+    pub mint: InterfaceAccount<'info, Mint>,
+    #[account(mut)]
+    pub destination: InterfaceAccount<'info, TokenAccount>,
+    pub authority: Signer<'info>,
+    pub token_program: Interface<'info, TokenInterface>,
+}
+```
+
+```rust !! title="Native (Pinocchio)"
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::TransferChecked;
+
+/// Account layout:
+///   [0] source      (writable) — source token account
+///   [1] mint                   — token mint
+///   [2] destination (writable) — destination token account
+///   [3] authority   (signer)   — owner or delegate of the source account
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+    if data.len() < 9 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let amount = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let decimals = data[8];
+
+    let source = &accounts[0];
+    let mint = &accounts[1];
+    let destination = &accounts[2];
+    let authority = &accounts[3];
+
+    TransferChecked::new(source, mint, destination, authority, amount, decimals).invoke()?;
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+铸造、销毁和关闭账户遵循相同的模式，只需替换不同的指令——在 Anchor 的
+[`anchor_spl::token`](https://docs.rs/anchor-spl/latest/anchor_spl/token/index.html)
+模块中分别对应 _rs`MintTo`_、_rs`Burn`_ 和 _rs`CloseAccount`_，或使用
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token)
+中对应的构建器。如需查看同时支持 Anchor 和原生 Rust 的完整可运行 CPI 示例程序，请参阅
+[token program 示例](/docs/programs/examples#tokens)，尤其是"Transfer
+Tokens"示例。
+
+## 使用 PDA 权限签名
+
+当 token account 上的授权方是由您的程序拥有的
+[Program Derived Address](/docs/core/pda) 时，程序本身通过 _rs`invoke_signed`_
+签署 CPI，并将 PDA seeds 作为签名者种子传入。在 Anchor 中，使用
+_rs`CpiContext::new_with_signer`_ 并传入 seeds，而非
+_rs`CpiContext::new`_。该指令与上述示例在其他方面完全相同。完整机制说明请参阅
+[带 PDA 签名者的 CPI](/docs/core/cpi/cpi-with-pda)。
+
+## 批处理
+
+_rs`Batch`_ 指令在单次程序调用中执行多个 Token
+Program 指令。由于每次 CPI 都有固定的计算成本，在一次批量 CPI 中运行多个代币操作所消耗的[计算单元](/docs/core/fees/compute-budget)少于为每个操作单独发起 CPI——请参阅
+[CPI 成本模型](/docs/core/cpi/cpi-cost-model)了解每次 CPI 成本的累计方式。
+
+较低的计算用量可减少交易每个计算单元所支付的[优先费用](/docs/core/fees)，并提高交易上链的成功率——这对于在单条指令中执行大量代币操作的程序尤为重要。常见用途包括将转账分发给多个接收方，或在单次 CPI 中执行多步骤代币流程（例如同步、转账和关闭账户）。
+
+<Callout type="info">
+
+_rs`Batch`_ 仅接受 Token
+Program 指令作为子指令，且批处理中不能嵌套另一个批处理。对于涉及代币移动的操作（如转账、铸造和销毁），程序在执行前会验证相关账户是否归属于 Token
+Program。
+
+</Callout>
+
+### 源码参考
+
+| 条目                | 描述                       | 源码                                                                                               |
+| ------------------- | -------------------------- | -------------------------------------------------------------------------------------------------- |
+| _rs`Batch`_         | 批处理指令（判别器 255）。 | [源码](https://github.com/solana-program/token/blob/main/pinocchio/interface/src/instruction.rs)   |
+| _rs`process_batch`_ | 批处理处理器逻辑。         | [源码](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/batch.rs) |
+
+### 通过 CPI 调用批处理
+
+[`pinocchio-token`](https://crates.io/crates/pinocchio-token) crate 在
+_rs`pinocchio_token::instructions::Batch`_ 下提供了一个 _rs`Batch`_
+构建器。您可将每个子指令暂存至批处理的缓冲区，然后使用 _rs`invoke`_
+发起单次 CPI。
+
+一个 _rs`Batch`_ 由三个调用方提供的缓冲区支撑：一个用于序列化的 instruction
+data，一个用于各子指令的账户元数据，一个用于传递给 CPI 的账户视图。将它们构造为
+_rs`MaybeUninit`_ 切片，传入 _rs`Batch::new`_，追加子指令，然后调用：
+
+```rust title="Batch two transfers in one CPI"
+use core::mem::MaybeUninit;
+use pinocchio::{account::AccountView, error::ProgramError, ProgramResult};
+use pinocchio_token::instructions::{Batch, IntoBatch, Transfer};
+
+/// Process SwapBatch.
+///
+/// Performs two transfers in a single batch CPI instead of two separate
+/// `invoke()` calls.
+///
+/// Data layout:
+///   [0..8]  amount_a_to_b (u64 LE)
+///   [8..16] amount_b_to_a (u64 LE)
+///
+/// Account layout:
+///   [0] source_a    (writable) — token account A
+///   [1] source_b    (writable) — token account B
+///   [2] authority_a (signer)   — authority for account A
+///   [3] authority_b (signer)   — authority for account B
+///   [4] token_program          — SPL Token program
+pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if data.len() < 16 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if accounts.len() < 5 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let amount_a_to_b = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let amount_b_to_a = u64::from_le_bytes(data[8..16].try_into().unwrap());
+
+    let source_a = &accounts[0];
+    let source_b = &accounts[1];
+    let authority_a = &accounts[2];
+    let authority_b = &accounts[3];
+
+    // Two child transfers, each with 3 accounts and 9 bytes of data
+    // (1-byte discriminator + 8-byte amount).
+    const NUM_CHILDREN: usize = 2;
+    const CHILD_ACCOUNTS: usize = 3;
+    const CHILD_DATA_LEN: usize = 9;
+
+    // Data buffer: 1-byte batch discriminator + per child (2-byte header + data).
+    const DATA_LEN: usize = 1 + NUM_CHILDREN * (2 + CHILD_DATA_LEN);
+    // Account buffers: total accounts across all children.
+    const ACCOUNTS_LEN: usize = NUM_CHILDREN * CHILD_ACCOUNTS;
+
+    let mut data_buf = [MaybeUninit::uninit(); DATA_LEN];
+    let mut ix_accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+    let mut accounts_buf = [MaybeUninit::uninit(); ACCOUNTS_LEN];
+
+    let mut batch = Batch::new(&mut data_buf, &mut ix_accounts_buf, &mut accounts_buf)?;
+
+    Transfer::new(source_a, source_b, authority_a, amount_a_to_b).into_batch(&mut batch)?;
+    Transfer::new(source_b, source_a, authority_b, amount_b_to_a).into_batch(&mut batch)?;
+
+    batch.invoke()?;
+
+    Ok(())
+}
+```
+
+_rs`Batch::new`_ 将批处理鉴别器写入数据缓冲区的第一个字节，并返回一个
+_rs`Batch`_，用于追踪每个缓冲区已使用的大小。每个 Token Program 指令构建器（例如
+_rs`Transfer`_、_rs`TransferChecked`_、_rs`MintTo`_ 和 _rs`Burn`_）均实现了
+_rs`IntoBatch`_ trait，因此 _rs`into_batch`_
+会将该指令的数据、账户元信息及账户视图追加到批处理中。调用 _rs`invoke`_
+可将组装好的批处理作为一次 CPI 提交到 Token Program。
+
+缓冲区限定了批处理的容量。数据缓冲区的大小应设置为 `1 + Σ(2 + child_data_len)`
+字节（包含鉴别器、2 字节头部以及每个子指令的序列化数据），每个账户缓冲区的大小应为所有子指令账户数量之和。如果某个子指令无法放入，_rs`into_batch`_
+将返回 _rs`ProgramError::InvalidArgument`_。作为参考，_rs`Batch::MAX_DATA_LEN`_
+为 10 KiB，_rs`Batch::MAX_ACCOUNTS_LEN`_ 等于运行时允许的最大 CPI 账户数量。
+
+对于运行时才能确定大小的批处理，请启用 crate 的 `alloc` 特性，并使用
+_rs`BatchState::new(accounts_len, data_len)`_ 在堆上分配缓冲区，然后调用
+_rs`as_batch`_ 以获取 _rs`Batch`_。
+
+当子指令的权限方为您程序所拥有的 PDA 时，请使用 _rs`invoke_signed`_ 而非
+_rs`invoke`_ 进行 CPI 签名，并将 PDA 种子作为 _rs`Signer`_ 条目传入。
+
+### instruction data 布局
+
+批处理在 `255`
+鉴别器之后依次编码各子指令。所有账户按顺序平铺传递，并由每个子指令的
+`num_accounts` 进行切片。构建器生成的正是如下的线路格式：
+
+```text title="Batch Wire Format"
+[255]                    // Batch discriminator
+// For each child instruction, in order:
+//   [num_accounts: u8]  // accounts this instruction consumes
+//   [data_len: u8]      // length of this instruction's data
+//   [data: u8; data_len]// the instruction data (begins with its own discriminator)
+```
+
+<Callout type="warn">
+
+批处理的容量受传入 _rs`Batch::new`_
+的缓冲区限制：数据缓冲区必须能容纳鉴别器以及每个子指令的头部和数据，账户缓冲区必须能容纳每个子指令的所有账户。请按您所构建的最大批处理进行容量规划，或使用
+_rs`BatchState`_（搭配 `alloc`
+特性）在运行时动态确定大小。合并后的 CPI 仍受交易的账户数量和大小限制，因此对于扇出规模较大的场景，请使用地址查找表（Address
+Lookup Tables）来容纳更多账户。
+
+</Callout>

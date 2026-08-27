@@ -1,0 +1,175 @@
+---
+title: 部署程序
+description:
+  从本地构建产物将 Solana 程序部署到 Surfnet。自动发现 Anchor
+  工作区，或传入显式的 .so 路径、原始字节及 IDL。
+---
+
+SDK 可以通过一次调用从本地构建产物部署程序。有两种方式：针对具有常规路径的 Anchor/Agave 工作区的**自动发现**，以及当您需要控制字节来源时的**显式部署**。
+
+两种方式都会在 IDL 声明的地址（或 keypair 文件的公钥）处注册程序，并且如果 IDL 可用，会通过
+`surfnet_registerIdl` 将其注册到运行时，以便 RPC 客户端能够解码账户数据。
+
+## 自动发现 Anchor 工作区
+
+`deployProgram` / `deploy_program`
+接受程序名称，并相对于当前工作目录查找以下文件：
+
+| 文件                                | 用途                                     |
+| ----------------------------------- | ---------------------------------------- |
+| `target/deploy/{name}.so`           | 编译后的程序字节码（必需）               |
+| `target/deploy/{name}-keypair.json` | 程序 keypair — 公钥将成为程序 ID（必需） |
+| `target/idl/{name}.json`            | Anchor IDL JSON（可选；如存在则注册）    |
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::Surfnet;
+
+let surfnet = Surfnet::start().await?;
+let cheats = surfnet.cheatcodes();
+
+let program_id = cheats.deploy_program("my_program")?;
+println!("deployed at {program_id}");
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const programId = surfnet.deployProgram("my_program");
+  console.log("deployed at", programId);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+<Callout type="info" title="部署前请先构建">
+  在调用 `deployProgram` 之前请先运行 `anchor build`（或 `cargo
+  build-sbf`），以确保 `.so` 和 keypair 产物已实际存在于磁盘上。SDK
+  不会自动为您执行构建。
+</Callout>
+
+## 显式部署
+
+当构建产物位于非标准位置时——例如 CI 构建产物、预置测试夹具或嵌入式字节切片——请传入显式的部署配置。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::Surfnet;
+
+let cheats = Surfnet::start().await?.cheatcodes();
+
+// Derive the program ID from a keypair file.
+let program_id = cheats.deploy(
+    DeployProgram::from_keypair_path("fixtures/my_program-keypair.json")?
+        .so_path("fixtures/my_program.so")
+        .idl_path("fixtures/my_program.idl.json"),
+)?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.start();
+const programId = "DemoProgram111111111111111111111111111111111";
+
+surfnet.deploy({
+  programId,
+  soPath: "fixtures/my_program.so",
+  idlPath: "fixtures/my_program.idl.json"
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## 从原始字节部署
+
+当字节码已在内存中——由构建步骤生成、从制品存储中下载，或通过 `include_bytes!`
+嵌入——可完全跳过文件系统。
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::cheatcodes::builders::DeployProgram;
+use surfpool_sdk::{Pubkey, Surfnet};
+
+const PROGRAM_BYTES: &[u8] = include_bytes!("../fixtures/my_program.so");
+
+let cheats = Surfnet::start().await?.cheatcodes();
+let program_id: Pubkey = "DemoProgram111111111111111111111111111111111".parse()?;
+
+cheats.deploy(
+    DeployProgram::new(program_id).so_bytes(PROGRAM_BYTES.to_vec()),
+)?;
+```
+
+```ts !! title="TypeScript"
+import { readFileSync } from "node:fs";
+
+const surfnet = Surfnet.start();
+const programBytes = readFileSync("fixtures/my_program.so");
+
+surfnet.deploy({
+  programId: "DemoProgramID11111111111111111111111111111",
+  soBytes: programBytes
+});
+
+surfnet.stop();
+```
+
+</CodeTabs>
+
+## DeployProgram 构建器参考（Rust）
+
+| 构造函数 / 设置器                  | 签名                                              | 用途                                          |
+| ---------------------------------- | ------------------------------------------------- | --------------------------------------------- |
+| `DeployProgram::new`               | `(program_id: Pubkey) -> Self`                    | 为已知程序 ID 构建部署。                      |
+| `DeployProgram::from_keypair_path` | `(path: impl AsRef<Path>) -> SurfnetResult<Self>` | 读取 Solana keypair 文件；公钥将成为程序 ID。 |
+| `.so_path`                         | `(path: impl Into<PathBuf>)`                      | 磁盘上已编译的 `.so` 产物的路径。             |
+| `.so_bytes`                        | `(bytes: Vec<u8>)`                                | 原始程序字节（与 `so_path` 互斥）。           |
+| `.idl_path`                        | `(path: impl Into<PathBuf>)`                      | 部署后可选注册的 Anchor IDL JSON。            |
+
+## DeployOptions 类型参考（JS）
+
+```ts
+type ByteArrayLike = Uint8Array | number[];
+
+interface DeployOptions {
+  programId: string; // base58 address to deploy at
+  soPath?: string; // path to .so on disk
+  soBytes?: ByteArrayLike; // or raw bytes in memory
+  idlPath?: string; // optional Anchor IDL JSON
+}
+```
+
+`soPath` 与 `soBytes` 互斥——请提供其中之一。
+
+## 注册内容
+
+部署成功后，运行时将执行以下三项操作：
+
+1. **写入 program account**，地址为 `programId`，通过 `surfnet_writeProgram`
+   写入 `.so` 字节。
+2. **将账户标记为可执行**，以便通过常规 RPC 调用进行调用。
+3. **注册 IDL**（如已提供），通过 `surfnet_registerIdl`
+   注册，使 RPC 客户端能够使用程序的 IDL schema 解码账户数据。
+
+<Callout type="info" title="罕见情况：不可执行的 program account">
+  如果您希望将程序字节写入账户但保持其不可执行， 请直接使用 `SetAccount`，而非
+  `deploy`。`deploy` 路径始终会将 账户标记为可执行。
+</Callout>
+
+## 错误
+
+| 原因                                        | 现象                                                             |
+| ------------------------------------------- | ---------------------------------------------------------------- |
+| `.so` 文件缺失或不可读                      | `SurfnetError::Cheatcode("...failed to read...")` 或抛出 JS 错误 |
+| 程序 ID 与 keypair 文件不匹配               | `SurfnetError::Cheatcode("...mismatched program id...")`         |
+| IDL JSON 格式错误                           | `SurfnetError::Cheatcode("...invalid IDL...")`                   |
+| Surfnet 离线且 program account 已在上游存在 | 部署仍然成功；本地副本将覆盖上游版本                             |

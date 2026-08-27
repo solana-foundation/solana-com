@@ -1,0 +1,217 @@
+---
+title: Konfigurasi
+description:
+  Konfigurasikan Surfnet saat startup — fallback RPC jarak jauh, mode produksi
+  blok, pengaturan waktu slot, airdrop, feature gate, dan payer kustom.
+---
+
+`Surfnet::start()` (Rust) dan `Surfnet.start()` (JS) menjalankan Surfnet secara
+offline dengan produksi blok mode transaksi dan payer yang telah didanai sebesar
+10 SOL. Jika Anda membutuhkan hal lain — Surfnet yang di-fork dari mainnet,
+clock yang lebih lambat, pendanaan deterministik, keypair payer tertentu —
+gunakan builder (Rust) atau `startWithConfig` (JS).
+
+## Default
+
+Jika Anda memanggil `start()` tanpa argumen, Anda akan mendapatkan:
+
+| Setting           | Value                                                            |
+| ----------------- | ---------------------------------------------------------------- |
+| Mode              | Offline (tanpa RPC upstream)                                     |
+| Produksi blok     | Transaksi (blok maju setiap tx)                                  |
+| Waktu slot        | 1 ms                                                             |
+| Payer             | keypair acak yang didanai dengan 10 SOL (10.000.000.000 lamport) |
+| RPC URL           | `http://127.0.0.1:<random>`                                      |
+| WS URL            | `ws://127.0.0.1:<random>`                                        |
+| Konfigurasi fitur | Set fitur mainnet default                                        |
+
+## Konfigurasi Kustom
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{BlockProductionMode, Pubkey, Surfnet};
+
+#[tokio::test]
+async fn starts_with_custom_configuration() {
+    let alice = Pubkey::new_unique();
+
+    let surfnet = Surfnet::builder()
+        .remote_rpc_url("https://api.mainnet-beta.solana.com")
+        .block_production_mode(BlockProductionMode::Transaction)
+        .slot_time_ms(10)
+        .airdrop_addresses(vec![alice])
+        .airdrop_sol(5_000_000_000)
+        .skip_blockhash_check(true)
+        .start()
+        .await
+        .unwrap();
+
+    assert_eq!(
+        surfnet.rpc_client().get_balance(&alice).unwrap(),
+        5_000_000_000
+    );
+}
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const alice = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com",
+  blockProductionMode: "transaction",
+  slotTimeMs: 10,
+  airdropAddresses: [alice.publicKey],
+  airdropSol: 5_000_000_000
+});
+
+try {
+  console.log(surfnet.rpcUrl);
+} finally {
+  surfnet.stop();
+}
+```
+
+</CodeTabs>
+
+## Referensi Builder
+
+Builder Rust dan objek konfigurasi JS mengekspos opsi logis yang sama dengan
+penamaan camelCase / snake_case.
+
+| Option            | Rust setter                                  | JS field                                  | Type                                          | Default          |
+| ----------------- | -------------------------------------------- | ----------------------------------------- | --------------------------------------------- | ---------------- |
+| Mode offline      | `offline(bool)`                              | `offline?: boolean`                       | `bool`                                        | `true`           |
+| RPC upstream      | `remote_rpc_url(impl Into<String>)`          | `remoteRpcUrl?: string`                   | String URL                                    | tidak ada        |
+| Produksi blok     | `block_production_mode(BlockProductionMode)` | `blockProductionMode?: string`            | enum / `"manual" \| "clock" \| "transaction"` | `Transaction`    |
+| Waktu slot        | `slot_time_ms(u64)`                          | `slotTimeMs?: number`                     | milidetik                                     | `1`              |
+| Alamat airdrop    | `airdrop_addresses(Vec<Pubkey>)`             | `airdropAddresses?: string[]`             | daftar pubkey                                 | kosong           |
+| Jumlah airdrop    | `airdrop_sol(u64)`                           | `airdropSol?: number`                     | lamport                                       | `10_000_000_000` |
+| Lewati blockhash  | `skip_blockhash_check(bool)`                 | n/a                                       | `bool`                                        | `false`          |
+| Payer kustom      | `payer(Keypair)`                             | `payerSecretKey?: Uint8Array \| number[]` | keypair / bytes                               | dibuat otomatis  |
+| Aktifkan fitur    | `enable_feature(Pubkey)`                     | `enableFeatures?: string[]`               | ID fitur                                      | tidak ada        |
+| Nonaktifkan fitur | `disable_feature(Pubkey)`                    | `disableFeatures?: string[]`              | ID fitur                                      | tidak ada        |
+| Semua fitur       | n/a                                          | `allFeatures?: boolean`                   | `bool`                                        | `false`          |
+| Konfigurasi fitur | `feature_config(SvmFeatureConfig)`           | n/a                                       | konfigurasi lengkap                           | mainnet default  |
+
+### Fallback RPC Jarak Jauh
+
+Mengatur `remoteRpcUrl` (atau `remote_rpc_url` di Rust) mengalihkan Surfnet
+keluar dari mode offline. Akun yang tidak tersedia secara lokal akan diambil
+sesuai permintaan dari RPC upstream, yang merupakan cara kerja pengujian
+mainnet-fork.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+let surfnet = Surfnet::builder()
+    .remote_rpc_url("https://api.mainnet-beta.solana.com")
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  remoteRpcUrl: "https://api.mainnet-beta.solana.com"
+});
+```
+
+</CodeTabs>
+
+<Callout type="info" title="Gunakan RPC upstream berkualitas tinggi">
+  Gunakan endpoint berbayar (Helius, Triton, QuickNode) untuk pengujian yang
+  mengakses banyak akun yang di-fork. `mainnet-beta` publik sangat dibatasi
+  rate-nya dan akan tidak stabil di bawah beban pengujian paralel.
+</Callout>
+
+### Mode Produksi Blok
+
+| Mode                    | Kapan blok maju                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Transaction` (default) | Setelah setiap transaksi. Terbaik untuk pengujian yang mengirim dan langsung melakukan asersi.                                                          |
+| `Clock`                 | Pada interval tetap yang diatur oleh `slot_time_ms`. Terbaik untuk pengujian yang bergantung pada beberapa slot yang berlalu tanpa transaksi eksplisit. |
+| `Manual`                | Hanya ketika `SimnetCommand::AdvanceClock` dikirim. Terbaik untuk pengujian yang sensitif terhadap waktu di mana pengujian mengendalikan clock.         |
+
+### Pembayar Kustom
+
+Secara default, pembayar adalah keypair yang baru dibuat. Berikan milik Anda
+sendiri saat pengujian memerlukan alamat yang diketahui, misalnya untuk membuat
+instruksi yang mereferensikan kunci publik pembayar terlebih dahulu.
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Keypair, Signer, Surfnet};
+
+let payer = Keypair::new();
+let surfnet = Surfnet::builder().payer(payer.insecure_clone()).start().await?;
+
+assert_eq!(surfnet.payer().pubkey(), payer.pubkey());
+```
+
+```ts !! title="TypeScript"
+import { Surfnet } from "@solana/surfpool";
+
+const kp = Surfnet.newKeypair();
+
+const surfnet = Surfnet.startWithConfig({
+  payerSecretKey: kp.secretKey
+});
+
+console.assert(surfnet.payer === kp.publicKey);
+```
+
+</CodeTabs>
+
+### Feature Gates
+
+Aktifkan atau nonaktifkan feature gates SVM individual berdasarkan ID, atau
+aktifkan semua fitur yang diketahui dengan `allFeatures: true` (khusus JS —
+builder Rust menerima `feature_config` untuk set lengkap).
+
+<CodeTabs storage="surfpool-lang">
+
+```rust !! title="Rust"
+use surfpool_sdk::{Pubkey, Surfnet};
+
+let feature_id: Pubkey = "9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"
+    .parse()
+    .unwrap();
+
+let surfnet = Surfnet::builder()
+    .enable_feature(feature_id)
+    .start()
+    .await?;
+```
+
+```ts !! title="TypeScript"
+const surfnet = Surfnet.startWithConfig({
+  enableFeatures: ["9bn2vTJUsUcnpiZWbu2woSKtTGW3ErZC9ERv88SDqQjK"],
+  disableFeatures: ["7Vced5VKEjQGc2GnQDfnNYf4ckEbz9b2gMRsZGYP6JeF"]
+});
+```
+
+</CodeTabs>
+
+### Lewati Pemeriksaan Blockhash
+
+`skip_blockhash_check(true)` (khusus Rust) menonaktifkan validasi blockhash pada
+semua transaksi. Berguna untuk pengujian yang menandatangani transaksi jauh
+sebelum pengiriman atau yang tidak mempedulikan kedaluwarsa.
+
+## Kesalahan
+
+Builder yang salah dikonfigurasi gagal pada `start()`. Rust SDK mengembalikan
+`SurfnetError`:
+
+| Variant                  | Kondisi                                                                   |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `PortAllocation(String)` | Tidak dapat mengikat ke port RPC atau WebSocket yang bebas.               |
+| `Startup(String)`        | Runtime gagal diinisialisasi (konfigurasi buruk, URL remote buruk, dll.). |
+| `Runtime(String)`        | Runtime mengalami crash saat startup sebelum siap digunakan.              |
+| `Aborted(String)`        | Startup dibatalkan (mis., sinyal shutdown saat booting).                  |
+| `Cheatcode(String)`      | Pemanggilan cheatcode di dalam builder gagal.                             |
+
+JS SDK melempar `Error` yang pesannya membungkus varian dasar yang sama.

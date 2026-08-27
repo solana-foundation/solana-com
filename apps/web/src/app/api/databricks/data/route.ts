@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
+import { Buffer } from "node:buffer";
+import {
+  brotliCompressSync,
+  brotliDecompressSync,
+  constants as zlibConstants,
+} from "node:zlib";
 
 import {
   type DatabricksConfig,
@@ -35,6 +41,19 @@ type ErrorResponse = {
   detail?: string;
   invalidEnv?: string[];
   missingEnv?: string[];
+};
+
+type DatabricksData = {
+  generatedAt: string;
+  rows: MetricRow[];
+  truncated: boolean;
+};
+
+type PackedDatabricksData = {
+  compression: "br";
+  generatedAt: string;
+  rows: string;
+  truncated: boolean;
 };
 
 const metricNameSet = new Set<string>(metricNames);
@@ -73,7 +92,7 @@ export async function GET(request: NextRequest) {
 }
 
 function buildDataResponse(
-  result: Awaited<ReturnType<typeof fetchDatabricksData>>,
+  result: DatabricksData,
   rangeDays: number,
 ): DataApiResponse {
   return {
@@ -103,17 +122,17 @@ function filterRowsByRange(rows: MetricRow[], rangeDays: number) {
   });
 }
 
-function getDatabricksData(config: DatabricksConfig) {
+function getDatabricksData(config: DatabricksConfig): Promise<DatabricksData> {
   return IS_PRODUCTION
     ? getCachedDatabricksData(config)
     : fetchDatabricksData(config);
 }
 
-function getCachedDatabricksData(config: DatabricksConfig) {
+async function getCachedDatabricksData(config: DatabricksConfig) {
   const dataCacheKey = getDatabricksCacheKey(config);
   const cacheKeyParts = [DATABRICKS_CACHE_KEY_VERSION, dataCacheKey];
 
-  return unstable_cache(
+  const packedData = await unstable_cache(
     () => getInMemoryCachedDatabricksData(config, cacheKeyParts.join("|")),
     cacheKeyParts,
     {
@@ -121,9 +140,13 @@ function getCachedDatabricksData(config: DatabricksConfig) {
       tags: ["solana-data-databricks"],
     },
   )();
+
+  return unpackDatabricksData(packedData);
 }
 
-async function fetchDatabricksData(config: DatabricksConfig) {
+async function fetchDatabricksData(
+  config: DatabricksConfig,
+): Promise<DatabricksData> {
   const result = await getDatabricksSqlMetricRows(config, {
     lookbackDays: MAX_RANGE_DAYS,
     metricNames,
@@ -135,10 +158,34 @@ async function fetchDatabricksData(config: DatabricksConfig) {
   };
 }
 
-const databricksDataRequests = new Map<
-  string,
-  Promise<Awaited<ReturnType<typeof fetchDatabricksData>>>
->();
+async function fetchPackedDatabricksData(config: DatabricksConfig) {
+  return packDatabricksData(await fetchDatabricksData(config));
+}
+
+function packDatabricksData(data: DatabricksData): PackedDatabricksData {
+  return {
+    compression: "br",
+    generatedAt: data.generatedAt,
+    rows: brotliCompressSync(Buffer.from(JSON.stringify(data.rows)), {
+      params: {
+        [zlibConstants.BROTLI_PARAM_QUALITY]: 5,
+      },
+    }).toString("base64"),
+    truncated: data.truncated,
+  };
+}
+
+function unpackDatabricksData(data: PackedDatabricksData): DatabricksData {
+  return {
+    generatedAt: data.generatedAt,
+    rows: JSON.parse(
+      brotliDecompressSync(Buffer.from(data.rows, "base64")).toString("utf8"),
+    ) as MetricRow[],
+    truncated: data.truncated,
+  };
+}
+
+const databricksDataRequests = new Map<string, Promise<PackedDatabricksData>>();
 
 function getInMemoryCachedDatabricksData(
   config: DatabricksConfig,
@@ -152,7 +199,7 @@ function getInMemoryCachedDatabricksData(
 
   pruneDatabricksDataRequests(cacheKey);
 
-  const request = fetchDatabricksData(config);
+  const request = fetchPackedDatabricksData(config);
 
   request.then(
     () => databricksDataRequests.delete(cacheKey),

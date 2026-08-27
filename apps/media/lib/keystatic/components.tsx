@@ -1,10 +1,13 @@
 import { fields } from "@keystatic/core";
 import {
   block,
+  inline,
   wrapper,
   type ContentComponent,
 } from "@keystatic/core/content-components";
 import React from "react";
+import { Latex } from "@/components/latex";
+import { tweetIdField } from "@/lib/keystatic/tweet-id-field";
 
 // Background options for section blocks
 const backgroundOptions = [
@@ -30,6 +33,95 @@ const backgroundOptions = [
   { label: "Pink", value: "bg-pink-50/80" },
   { label: "Rose", value: "bg-rose-50/80" },
 ] as const;
+
+const latex = block({
+  label: "Display formula (LaTeX)",
+  description: "A centered formula on its own line",
+  schema: {
+    formula: fields.text({
+      label: "LaTeX",
+      description: "Enter TeX without $$ delimiters, for example \\frac{a}{b}",
+      multiline: true,
+      validation: { isRequired: true },
+    }),
+  },
+  ContentView: (props) => (
+    <Latex formula={props.value.formula} displayMode={true} />
+  ),
+});
+
+const inlineLatex = inline({
+  label: "Inline formula (LaTeX)",
+  description: "A formula that flows with surrounding text",
+  schema: {
+    formula: fields.text({
+      label: "LaTeX",
+      description: "Enter TeX without $ delimiters, for example E = mc^2",
+      validation: { isRequired: true },
+    }),
+  },
+  ContentView: (props) => <Latex formula={props.value.formula} />,
+});
+
+const figure = wrapper({
+  label: "Figure (image with caption)",
+  description:
+    "An image with separate accessibility text and a rich-text caption",
+  schema: {
+    src: fields.image({
+      label: "Image",
+      directory: "public/uploads/posts",
+      publicPath: "/uploads/posts",
+      validation: { isRequired: true },
+    }),
+    alt: fields.text({
+      label: "Alt Text",
+      description:
+        "Describe the image for people who cannot see it; do not repeat the caption",
+      validation: { isRequired: true },
+    }),
+  },
+  ContentView: (props) => (
+    <figure
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ padding: "16px" }}>
+        <strong style={{ display: "block", marginBottom: "4px" }}>Image</strong>
+        <span>{props.value.src?.filename || "Choose an image"}</span>
+        {props.value.alt && (
+          <span
+            style={{
+              color: "#6b7280",
+              display: "block",
+              fontSize: "14px",
+              marginTop: "4px",
+            }}
+          >
+            Alt: {props.value.alt}
+          </span>
+        )}
+      </div>
+      <figcaption
+        style={{
+          borderTop: "1px solid #e5e7eb",
+          color: "#6b7280",
+          fontSize: "14px",
+          padding: "12px 16px",
+        }}
+      >
+        <strong style={{ display: "block", marginBottom: "4px" }}>
+          Caption
+        </strong>
+        {props.children}
+      </figcaption>
+    </figure>
+  ),
+});
 
 // Block Quote component - wrapper because it has children
 const blockquote = wrapper({
@@ -356,10 +448,7 @@ const tweet = block({
   label: "Tweet",
   description: "Embed a tweet/X post",
   schema: {
-    id: fields.text({
-      label: "Tweet ID",
-      description: "The ID of the tweet to embed",
-    }),
+    id: tweetIdField,
   },
   ContentView: (props) => (
     <div
@@ -413,6 +502,117 @@ const iframe = block({
   ),
 });
 
+const audienceGroup = wrapper({
+  label: "Audience group",
+  description: "Container for the collapsible per-audience sections",
+  schema: {},
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        Audience group
+      </strong>
+      {props.children}
+    </div>
+  ),
+});
+
+const audience = wrapper({
+  label: "Audience section",
+  description: "One collapsible section addressed to a single audience",
+  schema: {
+    title: fields.text({
+      label: "Title",
+      validation: { isRequired: true },
+    }),
+    summary: fields.text({ label: "Summary" }),
+  },
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        {props.value.title || "Audience section"}
+      </strong>
+      {props.children}
+    </div>
+  ),
+});
+
+// Diagram blocks for upgrade articles. These take no options — each renders a
+// single fixed illustration defined in `components/upgrades/diagrams.tsx` — so
+// they exist here purely to declare the tags as valid in the Keystatic editor.
+const diagramBlock = (label: string, description: string) =>
+  block({
+    label,
+    description,
+    schema: {},
+    ContentView: () => (
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: "8px",
+          color: "#6b7280",
+          fontSize: "14px",
+          margin: "16px 0",
+          padding: "16px",
+        }}
+      >
+        <strong style={{ color: "#14161c", display: "block" }}>Diagram</strong>
+        {label}
+      </div>
+    ),
+  });
+
+const txWireLayout = diagramBlock(
+  "Diagram: transaction wire layout",
+  "Byte layout of legacy, v0 and v1 transactions compared",
+);
+
+const txSimulationTrace = diagramBlock(
+  "Diagram: v1 simulation failure trace",
+  "Where an empty v1 config fails during simulation, and what comes back",
+);
+
+const txAccountBytes = diagramBlock(
+  "Diagram: loaded account bytes running total",
+  "How an account created after estimation pushes the running total past the limit",
+);
+
+const featureActivationStatus = block({
+  label: "Feature activation status",
+  description: "Live feature activation status for each Solana cluster",
+  schema: {},
+  ContentView: () => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        color: "#6b7280",
+        fontSize: "14px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        Feature activation status
+      </strong>
+      Live cluster statuses are shown on the published page.
+    </div>
+  ),
+});
+
 // Export all component blocks
 export const componentBlocks: Record<string, ContentComponent> = {
   blockquote,
@@ -425,6 +625,27 @@ export const componentBlocks: Record<string, ContentComponent> = {
   sup,
   tweet,
   iframe,
+};
+
+// Diagram blocks are intentionally limited to upgrade articles, whose template
+// renders on a permanently dark surface the diagrams are colored for.
+export const upgradeComponentBlocks: Record<string, ContentComponent> = {
+  ...componentBlocks,
+  Audience: audience,
+  AudienceGroup: audienceGroup,
+  FeatureActivationStatus: featureActivationStatus,
+  TxAccountBytes: txAccountBytes,
+  TxSimulationTrace: txSimulationTrace,
+  TxWireLayout: txWireLayout,
+};
+
+// Formula controls are intentionally limited to news posts. Other collections
+// continue to use the shared component set above.
+export const postComponentBlocks: Record<string, ContentComponent> = {
+  ...componentBlocks,
+  Figure: figure,
+  Latex: latex,
+  InlineLatex: inlineLatex,
 };
 
 // Export fields for rendering configuration

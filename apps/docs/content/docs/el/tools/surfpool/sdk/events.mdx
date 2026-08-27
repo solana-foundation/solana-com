@@ -1,0 +1,212 @@
+---
+title: Συμβάντα Χρόνου Εκτέλεσης
+description:
+  Παρακολουθήστε συναλλαγές, ανατολές slot, ροή λογαριασμών και σφάλματα χρόνου
+  εκτέλεσης από το εσωτερικό ενός τεστ. Η Rust εκθέτει ένα κανάλι· η JS εκθέτει
+  μέθοδο drain.
+---
+
+Το περιβάλλον εκτέλεσης Surfnet εκπέμπει μια ροή δομημένων συμβάντων που
+καλύπτουν την επεξεργασία συναλλαγών, ανατολές slot, ροή λογαριασμών, ταξίδια
+στο χρόνο και σφάλματα. Το SDK εκθέτει αυτή τη ροή ώστε τα τεστ να μπορούν να
+επαληθεύουν τη συμπεριφορά χρόνου εκτέλεσης χωρίς ανάλυση αρχείων καταγραφής.
+
+## Rust: Channel Receiver
+
+`Surfnet::events()` επιστρέφει αναφορά στο
+`crossbeam_channel::Receiver<SimnetEvent>` στο οποίο δημοσιεύει το περιβάλλον
+εκτέλεσης. Αδειάστε το με `try_iter()` (μη αποκλειστικό) ή διαβάστε μεμονωμένα
+συμβάντα με `recv()` / `recv_timeout()`.
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let surfnet = Surfnet::start().await?;
+
+// Drain whatever has accumulated so far.
+for event in surfnet.events().try_iter() {
+    match event {
+        SimnetEvent::TransactionProcessed(_ts, metadata, error) => {
+            println!("tx {} -> {:?}", metadata.signature, metadata.logs);
+            if let Some(err) = error {
+                eprintln!("  failed: {err:?}");
+            }
+        }
+        SimnetEvent::ErrorLog(_ts, message) => {
+            eprintln!("runtime error: {message}");
+        }
+        other => {
+            println!("event: {other:?}");
+        }
+    }
+}
+```
+
+<Callout type="warn" title="Ο Receiver είναι κοινόχρηστος">
+  Αν δημιουργήσετε μια εργασία παρασκηνίου για την κατανάλωση συμβάντων, μην
+  καλείτε επίσης `try_iter` από το κύριο νήμα. Τα συμβάντα θα κατανεμηθούν
+  απρόβλεπτα μεταξύ των δύο καταναλωτών.
+</Callout>
+
+## JS: Μέθοδος Drain
+
+Τα JS bindings αποθηκεύουν τα συμβάντα εσωτερικά και τα εκθέτουν μέσω
+`drainEvents`. Κάθε κλήση επιστρέφει ό,τι έχει συσσωρευτεί από την προηγούμενη
+κλήση, και στη συνέχεια εκκαθαρίζει τη μνήμη αποθήκευσης.
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  // ... do test setup that triggers events ...
+
+  const events = surfnet.drainEvents();
+  for (const event of events) {
+    switch (event.kind) {
+      case "transactionProcessed":
+        console.log("tx", event.transactionSignature, event.logs);
+        break;
+      case "errorLog":
+        console.error("runtime error:", event.message);
+        break;
+      default:
+        console.log(event.kind, event.message ?? "");
+    }
+  }
+} finally {
+  surfnet.stop();
+}
+```
+
+<Callout type="warn" title="Απεριόριστη μνήμη αποθήκευσης">
+  Αν δεν καλείτε ποτέ `drainEvents`, η μνήμη αποθήκευσης μεγαλώνει για όλη τη
+  διάρκεια ζωής του instance. Αυτό είναι εντάξει για σύντομα τεστ, αλλά καλέστε
+  τη περιοδικά για μακροχρόνια fixtures ώστε να μην εκτιναχθεί η κατανάλωση
+  μνήμης.
+</Callout>
+
+## Μορφή SimnetEventValue (JS)
+
+Ο τύπος συμβάντος JS είναι ένα επίπεδο αντικείμενο με διακριτή ιδιότητα `kind`
+και προαιρετικά πεδία. Δεν ορίζεται κάθε πεδίο σε κάθε παραλλαγή — κάντε
+αποδόμηση βάσει `kind`.
+
+```ts
+interface SimnetEventValue {
+  kind: string; // discriminator, e.g. "TransactionProcessed"
+  message?: string; // human-readable message
+  timestamp?: string; // ISO timestamp
+
+  // startup
+  initialTransactionCount?: number;
+  clock?: ClockValue;
+
+  // slot / clock
+  epochInfo?: EpochInfoValue;
+  clockCommand?: string;
+  slotIntervalMs?: number;
+
+  // accounts
+  accountPubkey?: string;
+
+  // transactions
+  transactionSignature?: string;
+  logs?: string[];
+  computeUnitsConsumed?: number;
+  fee?: number;
+
+  // errors
+  errorMessage?: string;
+
+  // misc
+  tag?: string;
+  profileKey?: string;
+  profileSlot?: number;
+  runbookId?: string;
+  runbookErrors?: string[];
+}
+```
+
+## Τύποι Συμβάντων
+
+Τα strings τύπου στην πλευρά JS είναι σε camelCase· η αντίστοιχη παραλλαγή Rust
+χρησιμοποιεί PascalCase. Αντιστοιχίστε με αυτά ακριβώς τα strings — είναι
+κεφαλαιοευαίσθητα και σταθερά σε όλες τις εκδόσεις.
+
+| JS `kind`                                       | Παραλλαγή Rust                                               | Εκπέμπεται όταν                                                                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`                                         | `SimnetEvent::Ready`                                         | Το περιβάλλον εκτέλεσης ολοκληρώνει την εκκίνηση· φέρει `initialTransactionCount`.                                                           |
+| `connected`                                     | `SimnetEvent::Connected`                                     | Σύνδεση με το απομακρυσμένο upstream RPC· φέρει `message` (το URL).                                                                          |
+| `aborted`                                       | `SimnetEvent::Aborted`                                       | Η εκκίνηση ακυρώθηκε· φέρει `message` (ο λόγος).                                                                                             |
+| `shutdown`                                      | `SimnetEvent::Shutdown`                                      | Ξεκινά ομαλή τερματισμός.                                                                                                                    |
+| `systemClockUpdated`                            | `SimnetEvent::SystemClockUpdated`                            | Το ρολόι συστήματος προχώρησε· φέρει `clock`.                                                                                                |
+| `clockUpdate`                                   | `SimnetEvent::ClockUpdate`                                   | Εκτελέστηκε εντολή ρολογιού (παύση/συνέχεια/ενημέρωση διαστήματος)· φέρει `clockCommand` και προαιρετικά `slotIntervalMs`.                   |
+| `epochInfoUpdate`                               | `SimnetEvent::EpochInfoUpdate`                               | Νέο στιγμιότυπο πληροφοριών epoch είναι διαθέσιμο· φέρει `epochInfo`.                                                                        |
+| `blockHashExpired`                              | `SimnetEvent::BlockHashExpired`                              | Ένα blockhash που χρησιμοποιούνταν έχει λήξει.                                                                                               |
+| `transactionReceived`                           | `SimnetEvent::TransactionReceived`                           | Μια συναλλαγή τέθηκε σε ουρά· φέρει `timestamp`, `transactionSignature`.                                                                     |
+| `transactionProcessed`                          | `SimnetEvent::TransactionProcessed`                          | Μια συναλλαγή εκτελέστηκε· φέρει `timestamp`, `transactionSignature`, `logs`, `computeUnitsConsumed`, `fee`, και `errorMessage` σε αποτυχία. |
+| `accountUpdate`                                 | `SimnetEvent::AccountUpdate`                                 | Ένας λογαριασμός άλλαξε — καλύπτει λογαριασμούς ροής και μεταλλάξεις μέσω cheatcode· φέρει `timestamp` και `accountPubkey`.                  |
+| `infoLog` / `warnLog` / `errorLog` / `debugLog` | `SimnetEvent::InfoLog` / `WarnLog` / `ErrorLog` / `DebugLog` | Το περιβάλλον εκτέλεσης εξέπεμψε γραμμή καταγραφής· φέρει `timestamp` και `message`.                                                         |
+| `pluginLoaded`                                  | `SimnetEvent::PluginLoaded`                                  | Φορτώθηκε plugin Geyser· φέρει `message` (το όνομα του plugin).                                                                              |
+| `taggedProfile`                                 | `SimnetEvent::TaggedProfile`                                 | Αποτέλεσμα profiler επισημάνθηκε· φέρει `tag`, `profileKey`, `profileSlot`, `logs`, `computeUnitsConsumed`.                                  |
+| `runbookStarted` / `runbookCompleted`           | `SimnetEvent::RunbookStarted` / `RunbookCompleted`           | Ένα runbook ξεκίνησε ή ολοκληρώθηκε· φέρει `runbookId` και (κατά την ολοκλήρωση) προαιρετικό `runbookErrors`.                                |
+
+## Μοτίβα Ισχυρισμών
+
+### Επαλήθευση ότι μια Συναλλαγή Ολοκληρώθηκε
+
+```ts
+import { Surfnet } from "@solana/surfpool";
+
+const surfnet = Surfnet.start();
+try {
+  const sig = await sendTransaction(surfnet.rpcUrl /* ... */);
+  // ... wait for confirmation via RPC ...
+
+  const landed = surfnet
+    .drainEvents()
+    .some(
+      (e) => e.kind === "transactionProcessed" && e.transactionSignature === sig
+    );
+
+  console.assert(landed, "expected transaction to land");
+} finally {
+  surfnet.stop();
+}
+```
+
+### Επαλήθευση ότι δεν Προέκυψαν Σφάλματα Εκτέλεσης
+
+```rust
+use surfpool_sdk::{SimnetEvent, Surfnet};
+
+let mut surfnet = Surfnet::start().await?;
+
+// ... run the test ...
+
+let errors: Vec<_> = surfnet
+    .events()
+    .try_iter()
+    .filter(|e| matches!(e, SimnetEvent::ErrorLog(_, _)))
+    .collect();
+
+assert!(errors.is_empty(), "runtime errors: {errors:?}");
+
+surfnet.stop()?;
+```
+
+## Γιατί τα Events Υπερτερούν του Parsing Αρχείων Καταγραφής
+
+<Callout type="info" title="Προτιμήστε τη ροή events αντί του stdout">
+Το περιβάλλον εκτέλεσης εκτυπώνει δομημένα events μέσω `tracing`, κάτι που μπορεί να είναι δελεαστικό να καταγράψετε και να αναλύσετε από το stdout. Μην το κάνετε. Η δομημένη ροή events:
+
+- **Επιβιώνει από αλλαγές επιπέδου καταγραφής** — τα events εκπέμπονται
+  ανεξάρτητα από το `RUST_LOG`.
+- **Διαθέτει typed payloads** — χωρίς ανάλυση συμβολοσειρών, χωρίς απόκλιση
+  μορφής μεταξύ εκδόσεων.
+- **Έχει σταθερά kinds** — οι γραμμές αρχείου καταγραφής μορφοποιούνται για
+  ανθρώπους και αλλάζουν ελεύθερα· τα kinds των events αποτελούν μέρος της
+  σύμβασης SDK.
+
+</Callout>

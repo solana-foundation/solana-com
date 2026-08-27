@@ -36,16 +36,24 @@ describe("cross-app URL configuration", () => {
     const shouldUseNextLink = await loadShouldUseNextLink("docs");
 
     expect(shouldUseNextLink("/docs")).toBe(true);
-    expect(shouldUseNextLink("/developers/guides")).toBe(true);
+    expect(shouldUseNextLink("/developers/cookbook")).toBe(true);
     expect(shouldUseNextLink("/data")).toBe(false);
   });
 
   it("keeps cross-app and external routes on regular anchors", async () => {
     const shouldUseNextLink = await loadShouldUseNextLink();
 
+    expect(shouldUseNextLink("/changelog")).toBe(false);
     expect(shouldUseNextLink("/docs")).toBe(false);
     expect(shouldUseNextLink("/developers/templates")).toBe(false);
     expect(shouldUseNextLink("https://solana.com/data")).toBe(false);
     expect(shouldUseNextLink("//solana.com/data")).toBe(false);
+  });
+
+  it("treats the changelog as an internal media route", async () => {
+    const shouldUseNextLink = await loadShouldUseNextLink("media");
+
+    expect(shouldUseNextLink("/changelog")).toBe(true);
+    expect(shouldUseNextLink("/changelog/rss.xml")).toBe(true);
   });
 });

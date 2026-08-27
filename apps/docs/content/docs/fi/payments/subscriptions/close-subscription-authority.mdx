@@ -8,13 +8,15 @@ käyttäjän token-tilille. Sulje se, kun käyttäjällä ei ole enää aktiivis
 kiinteitä delegointeja, toistuvia delegointeja tai tilausdelegointeja kyseiselle
 mintille.
 
-Tilin sulkeminen palauttaa sen vuokran tilin lamport-rahoittajalle ja peruuttaa
-ohjelman omistaman token-delegaatin hyväksynnän. Rahoittaja on yleensä käyttäjä,
-mutta se voi olla mikä tahansa maksaja, joka rahoitti Subscription Authority
--tilin. Jos jokin aktiivinen delegointi vielä riippuu valtuutuksesta, sulje nämä
-delegoinnit ensin.
+Sulkeminen palauttaa tilin rent-maksun sen rahoittajalle (käyttäjälle tai muulle
+maksajalle, joka on sen rahoittanut). Sulje kaikki aktiiviset delegoinnit ensin.
 
-## Valtuutuksen sulkeminen
+Sulkeminen **ei** poista SPL Token -valtuutushyväksyntää. Kun PDA on poistettu,
+hyväksyntä on toimeton, mutta se pysyy token account -tilillä kunnes se
+peruutetaan — katso
+[Peruuta Valtuutushyväksyntä](#revoke-the-delegate-approval).
+
+## Sulje Auktoriteetti
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -78,12 +80,74 @@ delegoinnit ensin.
   </Tab>
 </Tabs>
 
-## Huomautukset
+## Peruuta Valtuutushyväksyntä
 
-- Käyttäjä allekirjoittaa sulkemistapahtuman.
-- Jos sponsori rahoitti Subscription Authorityn, välitä kyseinen sponsoritili
-  parametrina `receiver`, jotta vuokra palautuu kirjatulle maksajalle.
-- Sulje kiinteät, toistuvat ja tilausdelegointien PDA:t ennen Subscription
-  Authorityn sulkemista.
+`RevokeSubscriptionAuthority` poistaa jäljelle jääneen valtuutusmerkinnän
+käyttäjän token account -tililtä. Se kutsuu token program -ohjelman
+`Revoke`-funktiota käyttäjän allekirjoittamana, joten se toimii riippumatta
+siitä, onko Subscription Authority vielä olemassa. Lähetä se erillisenä tai
+yhdessä `CloseSubscriptionAuthority`:n kanssa.
+
+Välitä mintin omistava token program: `TOKEN_PROGRAM_ADDRESS` SPL Token
+-minteille tai `TOKEN_2022_PROGRAM_ADDRESS` (paketista
+`@solana-program/token-2022`) Token-2022 -minteille.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+
+    ```ts
+    import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+
+    await client.subscriptions.instructions
+      .revokeSubscriptionAuthority({
+        user: userSigner,
+        tokenMint,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+
+    ```rust
+    use solana_address::{address, Address};
+    use subscriptions::{generated::instructions::*, SUBSCRIPTIONS_ID};
+
+    const TOKEN_PROGRAM_ID: Address = address!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+    let user: Address = address!("USER_WALLET_ADDRESS_HERE");
+    let user_ata: Address = address!("USER_TOKEN_ACCOUNT_ADDRESS_HERE");
+    let token_mint: Address = address!("TOKEN_MINT_ADDRESS_HERE");
+
+    let (subscription_authority, _) = Address::find_program_address(
+        &[b"SubscriptionAuthority", user.as_ref(), token_mint.as_ref()],
+        &SUBSCRIPTIONS_ID,
+    );
+
+    let revoke_ix = RevokeSubscriptionAuthorityBuilder::new()
+        .user(user)
+        .user_ata(user_ata)
+        .token_mint(token_mint)
+        .token_program(TOKEN_PROGRAM_ID)
+        .subscription_authority(subscription_authority)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Huomioita
+
+- Käyttäjä allekirjoittaa sulkemistransaktion.
+- Jos sponsori on rahoittanut Subscription Authority -auktoriteetin, välitä
+  kyseinen sponsoritili `receiver`-parametrina, jotta rent palautuu kirjatulle
+  maksajalle.
+- Sulje kiinteät, toistuvat ja tilausdelegointiin liittyvät PDA:t ennen
+  Subscription Authority -auktoriteetin sulkemista.
 - Jos käyttäjä luo myöhemmin uuden delegoinnin, alusta uusi Subscription
   Authority samalle mintille.
+- Sulkeminen ei poista token-valtuutusmerkintää. Käytä
+  `RevokeSubscriptionAuthority`:ää sen poistamiseen käyttäjän token account
+  -tililtä.

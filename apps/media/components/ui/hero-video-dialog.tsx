@@ -1,6 +1,6 @@
 "use client";
 
-import { Play } from "lucide-react";
+import { Play } from "@boxicons/react/Play";
 import { cn } from "@/lib/utils";
 import { useVideoDialog } from "./VideoDialogContext";
 

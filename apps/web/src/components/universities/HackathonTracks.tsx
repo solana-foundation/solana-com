@@ -1,7 +1,11 @@
 "use client";
 
 import React from "react";
-import { Code, Zap, Server, Tool, Users } from "react-feather";
+import { Code } from "@boxicons/react/Code";
+import { Bolt as Zap } from "@boxicons/react/Bolt";
+import { Server } from "@boxicons/react/Server";
+import { Spanner as Tool } from "@boxicons/react/Spanner";
+import { Group as Users } from "@boxicons/react/Group";
 
 interface HackathonTracksProps {
   translations: {
@@ -23,31 +27,31 @@ export default function HackathonTracks({
 }: HackathonTracksProps) {
   const trackIcons = [
     {
-      icon: <Users size={32} />,
+      icon: <Users width={32} height={32} />,
       color: "text-purple-400",
       bg: "bg-purple-400/10",
       border: "border-purple-400/30",
     },
     {
-      icon: <Zap size={32} />,
+      icon: <Zap width={32} height={32} />,
       color: "text-yellow-400",
       bg: "bg-yellow-400/10",
       border: "border-yellow-400/30",
     },
     {
-      icon: <Server size={32} />,
+      icon: <Server width={32} height={32} />,
       color: "text-blue-400",
       bg: "bg-blue-400/10",
       border: "border-blue-400/30",
     },
     {
-      icon: <Tool size={32} />,
+      icon: <Tool width={32} height={32} />,
       color: "text-green-400",
       bg: "bg-green-400/10",
       border: "border-green-400/30",
     },
     {
-      icon: <Code size={32} />,
+      icon: <Code width={32} height={32} />,
       color: "text-orange-400",
       bg: "bg-orange-400/10",
       border: "border-orange-400/30",

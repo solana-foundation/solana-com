@@ -30,11 +30,14 @@ export function AppModal({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full">
+        <Button
+          variant="outline"
+          className="w-full rounded-none border-white bg-white text-black hover:bg-white/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
+        >
           {title}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[800px] bg-zinc-950 border-white/5">
+      <DialogContent className="border-white/[0.12] bg-[#0C0C0E] text-nd-high-em-text sm:max-w-[800px] sm:rounded-none">
         <DialogHeader>
           {hideTitle ? (
             <VisuallyHidden>
