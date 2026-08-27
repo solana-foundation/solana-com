@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Bungee, Comic_Neue, Space_Mono } from "next/font/google";
 
 /* ------------------------------------------------------------------ *
  * PERPS HACK — CASINO screen
  * Ported from the Claude Design "PERPS HACK.dc.html" casino mode.
  * Modifications from source:
- *   - top ticker shows live hackathon stats (viewers, views, registrations,
- *     "just registered" pings, SOL price) instead of a token list
+ *   - top ticker shows factual hackathon details and live SOL price data
+ *     instead of a token list
  *   - the candlestick chart is SOL / USD
  * ------------------------------------------------------------------ */
 
@@ -47,24 +48,6 @@ const CHECK_ITEMS = [
   "Open-source repo so judges can verify",
   "A short demo video or write-up",
 ];
-const HANDLES = [
-  "0x9f3a",
-  "@solbuilder",
-  "@degen_dev",
-  "0x44c1",
-  "@anon.sol",
-  "@perpchad",
-  "0x7e22",
-  "@gm_ser",
-  "@vaultwiz",
-  "0xbeef",
-  "@liqhunter",
-  "@onchain_kid",
-  "0x1337",
-  "@maxlev",
-  "@ngmi_dev",
-  "0xc0de",
-];
 const SIGNUP_TRACKS = [
   { name: "Phoenix", col: "#ffd700" },
   { name: "Dflow", col: "#2bffd4" },
@@ -97,20 +80,7 @@ function genCandlesAt(n: number, base: number): Candle[] {
   return a;
 }
 
-type Signup = { handle: string; track: string; col: string; time: string };
-function newSignup(): Signup {
-  const h = HANDLES[Math.floor(Math.random() * HANDLES.length)];
-  const tk = SIGNUP_TRACKS[Math.floor(Math.random() * SIGNUP_TRACKS.length)];
-  return {
-    handle: h,
-    track: tk.name,
-    col: tk.col,
-    time: new Date().toLocaleTimeString("en-GB"),
-  };
-}
-
 const KEYFRAMES = `
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bungee&family=Comic+Neue:wght@700&display=swap');
 @keyframes ph-marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @keyframes ph-floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 @keyframes ph-hue{to{filter:hue-rotate(360deg)}}
@@ -119,9 +89,24 @@ const KEYFRAMES = `
 @keyframes ph-glowpulse{0%,100%{box-shadow:0 0 16px rgba(0,240,255,.22)}50%{box-shadow:0 0 34px rgba(255,0,229,.42)}}
 @keyframes ph-flashpnl{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 @keyframes ph-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-@keyframes ph-slidein{from{transform:translateY(-6px);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes ph-tickerflash{0%,100%{opacity:1}50%{opacity:.45}}
 `;
+
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  display: "swap",
+});
+const comicNeue = Comic_Neue({
+  subsets: ["latin"],
+  weight: "700",
+  display: "swap",
+});
+const bungeeFont = Bungee({
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
 
 const FLOATERS = [
   { left: "5%", size: 30, dur: 15, delay: 0, e: "🚀" },
@@ -347,47 +332,23 @@ export function PerpsHackCasino({
 }: {
   registrationUrl?: string;
 }) {
-  const [now, setNow] = useState(SUBMISSION_TARGET - 14 * 86400000);
+  const [now, setNow] = useState(SUBMISSION_TARGET);
   const [, setFrame] = useState(0);
   const [reels, setReels] = useState({ a: 5, b: 0, c: 3 });
   const [spinning, setSpinning] = useState(false);
   const [checks, setChecks] = useState([false, false, false, false, false]);
 
-  // simulation state kept in refs; a frame counter forces re-render
-  const activeViewersRef = useRef(142);
-  const totalViewsRef = useRef(48213);
-  const lastRegRef = useRef(HANDLES[1]);
   const solCandlesRef = useRef<Candle[]>(genCandlesAt(80, 178));
   const livePriceRef = useRef(178); // latest real SOL/USD price from CoinGecko
-  const signupsRef = useRef<Signup[]>(
-    Array.from({ length: 12 }, () => newSignup()),
-  );
-  const regCountRef = useRef(1247);
   const spinTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // live data tick
+  // Keep the deadline clock aligned with wall time instead of incrementing from
+  // an arbitrary initial value.
   useEffect(() => {
-    const tk = setInterval(() => {
-      // live "people on the site" counters
-      activeViewersRef.current = Math.max(
-        60,
-        Math.round(activeViewersRef.current + (Math.random() - 0.48) * 16),
-      );
-      totalViewsRef.current += Math.floor(Math.random() * 7) + 1;
-      // registrations slowly tick up
-      regCountRef.current += Math.random() * 2.4 + 0.2;
-      if (Math.random() < 0.6) {
-        const su = newSignup();
-        lastRegRef.current = su.handle;
-        signupsRef.current = [su, ...signupsRef.current].slice(0, 12);
-      }
-      setFrame((f) => f + 1);
-    }, 850);
-    const cd = setInterval(() => setNow((n) => n + 1000), 1000);
-    return () => {
-      clearInterval(tk);
-      clearInterval(cd);
-    };
+    const updateCountdown = () => setNow(Date.now());
+    updateCountdown();
+    const countdownTimer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(countdownTimer);
   }, []);
 
   useEffect(() => {
@@ -473,8 +434,10 @@ export function PerpsHackCasino({
   // candlestick canvas
   const chartCanvas = useRef<HTMLCanvasElement | null>(null);
   const chartRaf = useRef<number | null>(null);
+  const chartCleanup = useRef<(() => void) | null>(null);
   const solChartRef = useCallback((el: HTMLCanvasElement | null) => {
-    if (chartRaf.current) cancelAnimationFrame(chartRaf.current);
+    chartCleanup.current?.();
+    chartCleanup.current = null;
     chartCanvas.current = el;
     if (!el) return;
     const ctx = el.getContext("2d");
@@ -486,20 +449,28 @@ export function PerpsHackCasino({
       ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     };
     resize();
-    addEventListener("resize", resize);
+    window.addEventListener("resize", resize);
     const loop = () => {
       if (chartCanvas.current !== el) return;
       drawChart(ctx, el, solCandlesRef.current);
       chartRaf.current = requestAnimationFrame(loop);
     };
     chartRaf.current = requestAnimationFrame(loop);
+    chartCleanup.current = () => {
+      window.removeEventListener("resize", resize);
+      if (chartRaf.current !== null) cancelAnimationFrame(chartRaf.current);
+      chartRaf.current = null;
+      if (chartCanvas.current === el) chartCanvas.current = null;
+    };
   }, []);
 
   // particle cursor trail
   const particleCanvas = useRef<HTMLCanvasElement | null>(null);
   const particleRaf = useRef<number | null>(null);
+  const particleCleanup = useRef<(() => void) | null>(null);
   const particleRef = useCallback((el: HTMLCanvasElement | null) => {
-    if (particleRaf.current) cancelAnimationFrame(particleRaf.current);
+    particleCleanup.current?.();
+    particleCleanup.current = null;
     particleCanvas.current = el;
     if (!el) return;
     const ctx = el.getContext("2d");
@@ -518,7 +489,7 @@ export function PerpsHackCasino({
       el.height = innerHeight;
     };
     resize();
-    addEventListener("resize", resize);
+    window.addEventListener("resize", resize);
     const spawn = (x: number, y: number) => {
       for (let i = 0; i < 3; i++) {
         parts.push({
@@ -538,8 +509,8 @@ export function PerpsHackCasino({
       const tt = e.touches[0];
       if (tt) spawn(tt.clientX, tt.clientY);
     };
-    addEventListener("mousemove", onMove);
-    addEventListener("touchmove", onTouch, { passive: true });
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("touchmove", onTouch, { passive: true });
     const loop = () => {
       if (particleCanvas.current !== el) return;
       ctx.clearRect(0, 0, el.width, el.height);
@@ -560,6 +531,23 @@ export function PerpsHackCasino({
       particleRaf.current = requestAnimationFrame(loop);
     };
     particleRaf.current = requestAnimationFrame(loop);
+    particleCleanup.current = () => {
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("touchmove", onTouch);
+      if (particleRaf.current !== null) {
+        cancelAnimationFrame(particleRaf.current);
+      }
+      particleRaf.current = null;
+      if (particleCanvas.current === el) particleCanvas.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      chartCleanup.current?.();
+      particleCleanup.current?.();
+    };
   }, []);
 
   const doSpin = () => {
@@ -581,6 +569,7 @@ export function PerpsHackCasino({
   };
 
   // ---- derived values ----
+  const submissionsClosed = now >= SUBMISSION_TARGET;
   let diff = Math.max(0, SUBMISSION_TARGET - now);
   const cdD = Math.floor(diff / 86400000);
   diff -= cdD * 86400000;
@@ -596,19 +585,13 @@ export function PerpsHackCasino({
   const solChgTxt = (solChgPct >= 0 ? "+" : "") + solChgPct.toFixed(2) + "%";
   const solChgColor = solChgPct >= 0 ? "#2bffd4" : "#ff4d8d";
 
-  const regCount = Math.round(regCountRef.current);
-  const submitted = Math.floor(regCount / 14);
-
   const reelA = PROBLEMS[reels.a];
   const reelB = INTEGR[reels.b];
   const reelC = TWISTS[reels.c];
 
   const checkDone = checks.filter(Boolean).length;
 
-  const activeViewers = activeViewersRef.current;
-  const totalViews = totalViewsRef.current;
-
-  // live hackathon stats ticker (replaces the old token marquee)
+  // Factual hackathon details and live market data
   type TickerItem = {
     icon: string;
     label: string;
@@ -616,30 +599,7 @@ export function PerpsHackCasino({
     color: string;
   };
   const tickerItems: TickerItem[] = [
-    {
-      icon: "🎉",
-      label: `${lastRegRef.current} just registered`,
-      value: "",
-      color: "#ffd700",
-    },
-    {
-      icon: "👀",
-      label: "WATCHING NOW",
-      value: String(activeViewers),
-      color: "#2bffd4",
-    },
-    {
-      icon: "📊",
-      label: "TOTAL VIEWS",
-      value: totalViews.toLocaleString(),
-      color: "#e7d6ff",
-    },
-    {
-      icon: "⚡",
-      label: "REGISTERED",
-      value: regCount.toLocaleString(),
-      color: "#ffd700",
-    },
+    { icon: "🎰", label: "PERPS HACK", value: "", color: "#ffd700" },
     {
       icon: "◎",
       label: "SOL",
@@ -647,18 +607,12 @@ export function PerpsHackCasino({
       color: solChgColor,
     },
     {
-      icon: "📦",
-      label: "SUBMISSIONS",
-      value: submitted.toLocaleString(),
-      color: "#2bffd4",
-    },
-    { icon: "💰", label: "PRIZE POOL", value: "$1,000,000", color: "#ffd700" },
-    {
       icon: "⏳",
-      label: "TO SUBMIT",
-      value: `${cdD}d ${cdH}h`,
+      label: submissionsClosed ? "SUBMISSIONS CLOSED" : "TO SUBMIT",
+      value: submissionsClosed ? "" : `${cdD}d ${cdH}h`,
       color: "#ff4d8d",
     },
+    { icon: "💰", label: "PRIZE POOL", value: "$1,000,000", color: "#ffd700" },
     { icon: "🤝", label: "SPONSORS", value: "3", color: "#ff4d8d" },
     {
       icon: "🌍",
@@ -684,9 +638,9 @@ export function PerpsHackCasino({
       </span>
     ));
 
-  const mono = "'Space Mono', monospace";
-  const comic = "'Comic Neue', cursive";
-  const bungee = "'Bungee', cursive";
+  const mono = spaceMono.style.fontFamily;
+  const comic = comicNeue.style.fontFamily;
+  const bungee = bungeeFont.style.fontFamily;
 
   return (
     <div
@@ -829,17 +783,15 @@ export function PerpsHackCasino({
             }}
           >
             <div>
-              <div style={{ fontSize: 10, color: "#9a86c4" }}>
-                ⚡ REGISTERED
-              </div>
+              <div style={{ fontSize: 10, color: "#9a86c4" }}>📅 HACKING</div>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#2bffd4" }}>
-                {regCount.toLocaleString()}
+                JUL 8–22
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 10, color: "#9a86c4" }}>📦 SUBMITTED</div>
+              <div style={{ fontSize: 10, color: "#9a86c4" }}>👥 TEAMS</div>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>
-                {submitted.toLocaleString()}
+                UP TO 4
               </div>
             </div>
             <div>
@@ -975,31 +927,59 @@ export function PerpsHackCasino({
               flexWrap: "wrap",
             }}
           >
-            {[
-              { v: cdD, l: "DAYS", bd: "#ff4d8d" },
-              { v: String(cdH).padStart(2, "0"), l: "HRS", bd: "#2bffd4" },
-              { v: String(cdM).padStart(2, "0"), l: "MIN", bd: "#ff4d8d" },
-              { v: String(cdS).padStart(2, "0"), l: "SEC", bd: "#ffd700" },
-            ].map((b, i) => (
+            {submissionsClosed ? (
               <div
-                key={i}
                 style={{
                   background: "rgba(0,0,0,.45)",
-                  border: `2px solid ${b.bd}`,
+                  border: "2px solid #ff4d8d",
                   borderRadius: 14,
-                  padding: "10px 14px",
-                  boxShadow: `0 0 20px ${b.bd}80`,
+                  padding: "18px 22px",
+                  boxShadow: "0 0 20px #ff4d8d80",
                   textAlign: "center",
+                  color: "#ffd700",
                 }}
               >
-                <div style={{ fontSize: 28, color: "#ffd700" }}>{b.v}</div>
-                <div
-                  style={{ fontFamily: mono, fontSize: 10, color: "#e7d6ff" }}
-                >
-                  {b.l}
-                </div>
+                SUBMISSIONS CLOSED
               </div>
-            ))}
+            ) : (
+              [
+                { v: cdD, l: "DAYS", bd: "#ff4d8d" },
+                {
+                  v: String(cdH).padStart(2, "0"),
+                  l: "HRS",
+                  bd: "#2bffd4",
+                },
+                {
+                  v: String(cdM).padStart(2, "0"),
+                  l: "MIN",
+                  bd: "#ff4d8d",
+                },
+                {
+                  v: String(cdS).padStart(2, "0"),
+                  l: "SEC",
+                  bd: "#ffd700",
+                },
+              ].map((b, i) => (
+                <div
+                  key={i}
+                  style={{
+                    background: "rgba(0,0,0,.45)",
+                    border: `2px solid ${b.bd}`,
+                    borderRadius: 14,
+                    padding: "10px 14px",
+                    boxShadow: `0 0 20px ${b.bd}80`,
+                    textAlign: "center",
+                  }}
+                >
+                  <div style={{ fontSize: 28, color: "#ffd700" }}>{b.v}</div>
+                  <div
+                    style={{ fontFamily: mono, fontSize: 10, color: "#e7d6ff" }}
+                  >
+                    {b.l}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -1092,7 +1072,7 @@ export function PerpsHackCasino({
             />
           </div>
 
-          {/* signups */}
+          {/* build tracks */}
           <div
             style={{
               background: "rgba(10,5,24,.6)",
@@ -1111,7 +1091,7 @@ export function PerpsHackCasino({
                 marginBottom: 2,
               }}
             >
-              🟢 SIGNUPS
+              🟢 BUILD TRACKS
             </div>
             <div
               style={{
@@ -1122,33 +1102,32 @@ export function PerpsHackCasino({
                 marginBottom: 8,
               }}
             >
-              people aping in · live order flow
+              choose an integration or build in the open track
             </div>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1.3fr 1fr 0.8fr",
+                gridTemplateColumns: "0.4fr 1.6fr 0.8fr",
                 fontFamily: mono,
                 fontSize: 10,
                 color: "#9a86c4",
                 padding: "0 6px 5px",
               }}
             >
-              <span>BUILDER</span>
+              <span>#</span>
               <span>TRACK</span>
-              <span style={{ textAlign: "right" }}>TIME</span>
+              <span style={{ textAlign: "right" }}>STATUS</span>
             </div>
-            {signupsRef.current.map((s, i) => (
+            {SIGNUP_TRACKS.map((track, index) => (
               <div
-                key={s.handle + s.time + i}
+                key={track.name}
                 style={{
                   position: "relative",
                   display: "grid",
-                  gridTemplateColumns: "1.3fr 1fr 0.8fr",
+                  gridTemplateColumns: "0.4fr 1.6fr 0.8fr",
                   fontFamily: mono,
                   fontSize: 12,
-                  padding: "3.5px 6px",
-                  animation: "ph-slidein .3s ease",
+                  padding: "10px 6px",
                   alignItems: "center",
                 }}
               >
@@ -1159,7 +1138,7 @@ export function PerpsHackCasino({
                     left: 0,
                     bottom: 1,
                     width: "100%",
-                    background: "#2bffd4",
+                    background: track.col,
                     opacity: 0.05,
                     borderRadius: 3,
                   }}
@@ -1172,10 +1151,12 @@ export function PerpsHackCasino({
                     fontWeight: 700,
                   }}
                 >
-                  {s.handle}
+                  {String(index + 1).padStart(2, "0")}
                 </span>
-                <span style={{ position: "relative", zIndex: 1, color: s.col }}>
-                  {s.track}
+                <span
+                  style={{ position: "relative", zIndex: 1, color: track.col }}
+                >
+                  {track.name}
                 </span>
                 <span
                   style={{
@@ -1186,7 +1167,7 @@ export function PerpsHackCasino({
                     fontSize: 10,
                   }}
                 >
-                  {s.time}
+                  OPEN
                 </span>
               </div>
             ))}
