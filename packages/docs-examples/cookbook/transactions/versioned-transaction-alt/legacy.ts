@@ -11,7 +11,10 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 
-const connection = new Connection("http://localhost:8899", "confirmed");
+const connection = new Connection(
+  process.env.SOLANA_RPC_URL ?? "http://localhost:8899",
+  "confirmed",
+);
 const payer = Keypair.generate();
 const recipient = Keypair.generate();
 
