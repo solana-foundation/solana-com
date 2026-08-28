@@ -27,20 +27,27 @@ Run the tutorial step against devnet with the pinned CLI
 (`@solana/mosaic-cli@0.1.2`), copy the terminal output verbatim, and overwrite
 the file. Keep it verbatim — do not tidy addresses or reflow it.
 
-| File                                       | Tutorial step                                       | Command to capture                                                                                            |
-| ------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `issuing/inspect-mint-created.output.txt`  | Create the Mint — "Confirm what you built"          | `mosaic inspect-mint --mint-address $MINT --rpc-url https://api.devnet.solana.com`                            |
-| `issuing/inspect-mint-gated.output.txt`    | Gate the Holders — confirm the gate                 | `mosaic inspect-mint --mint-address $MINT --rpc-url https://api.devnet.solana.com`                            |
-| `issuing/abl-fetch-list.output.txt`        | Gate the Holders — read the list back               | `mosaic abl fetch-list --list $LIST --rpc-url https://api.devnet.solana.com`                                  |
-| `issuing/transfer-blocked.output.txt`      | Gate the Holders — transfer to a non-listed address | `mosaic transfer --mint-address $MINT --recipient $OUTSIDER --amount 1 ...`                                   |
-| `issuing/transfer-frozen.output.txt`       | Operate the Token — transfer from a frozen account  | `mosaic transfer --mint-address $MINT --recipient $HOLDER --amount 1 ...`                                     |
-| `issuing/control-status-paused.output.txt` | Operate the Token — pause the mint                  | `mosaic control pause ...` then `mosaic control status ...` - capture both, including the confirmation prompt |
-| `custodian/display-thawed.output.txt`      | Custodian — confirm what you hold                   | `spl-token display $CUSTODY_ATA --url https://api.devnet.solana.com`                                          |
-| `custodian/display-frozen.output.txt`      | Custodian — observe a freeze                        | `spl-token display $CUSTODY_ATA --url https://api.devnet.solana.com`                                          |
-| `vault/transfer-blocked.output.txt`        | Vault — blocked deposit                             | `mosaic transfer --mint-address $MINT --recipient $VAULT --amount 1 ...`                                      |
+| File                                       | Tutorial step                                       | Command to capture                                                                                                           |
+| ------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `issuing/inspect-mint-created.output.txt`  | Create the Mint — "Confirm what you built"          | `mosaic inspect-mint --mint-address $MINT --rpc-url https://api.devnet.solana.com`                                           |
+| `issuing/inspect-mint-gated.output.txt`    | Gate the Holders — confirm the gate                 | `mosaic inspect-mint --mint-address $MINT --rpc-url https://api.devnet.solana.com`                                           |
+| `issuing/abl-fetch-list.output.txt`        | Gate the Holders — read the list back               | `mosaic abl fetch-list --list $LIST --rpc-url https://api.devnet.solana.com` (`$LIST` is the `List` row from `inspect-mint`) |
+| `issuing/transfer-blocked.output.txt`      | Gate the Holders — transfer to a non-listed address | `mosaic transfer --mint-address $MINT --recipient $OUTSIDER --amount 1 ...`                                                  |
+| `issuing/transfer-frozen.output.txt`       | Operate the Token — transfer from a frozen account  | `mosaic transfer --mint-address $MINT --recipient $HOLDER --amount 1 ...`                                                    |
+| `issuing/control-status-paused.output.txt` | Operate the Token — pause the mint                  | `mosaic control pause ...` then `mosaic control status ...` - capture both, including the confirmation prompt                |
+| `custodian/display-thawed.output.txt`      | Custodian — confirm what you hold                   | `spl-token display $CUSTODY_ATA --url https://api.devnet.solana.com`                                                         |
+| `custodian/display-frozen.output.txt`      | Custodian — observe a freeze                        | `spl-token display $CUSTODY_ATA --url https://api.devnet.solana.com`                                                         |
+| `vault/transfer-blocked.output.txt`        | Vault — blocked deposit                             | `mosaic transfer --mint-address $MINT --recipient $VAULT --amount 1 ...`                                                     |
 
 The placeholders share one consistent set of demo values (mint
 `7Nf3XQrmCJ8kVvHxWqLbYd2ZpToaGm4RsUeJc6VnAkPq`, Token ACL program
-`TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP`) so the chain reads coherently
+`TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP`, list
+`6RnKpTvW2nXcJdYbQa5SgLoZe4UhSm7MyXi5B8CrPkWu`) so the chain reads coherently
 until real output replaces them. A real capture will not match those values, and
 does not need to.
+
+They are also reconciled against the commands they sit under: balances match the
+amount minted in the tutorial, the two `inspect-mint` captures differ only by
+what the gating step actually changes, and the holder in the issuing chain is a
+different address from the custodian. Keep that property when you replace them -
+a capture that contradicts the command above it is worse than a placeholder.

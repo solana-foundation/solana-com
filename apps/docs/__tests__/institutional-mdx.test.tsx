@@ -53,6 +53,7 @@ describe("Institutional docs MDX", () => {
       "/docs/institutional/tutorials",
       "/docs/institutional/settlement-finality",
       "/docs/institutional/risk-and-diligence",
+      "/docs/institutional/resources",
     ]) {
       expect(markup).toContain(`href="${href}"`);
     }
