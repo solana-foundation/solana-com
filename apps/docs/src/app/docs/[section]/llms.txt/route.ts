@@ -15,7 +15,7 @@ const SECTION_NOTES: Record<string, string> = {
   tokenization:
     "Issuing stablecoins, tokenizing real-world assets, and operating compliant tokens on Solana.",
   institutional:
-    "Issuing tokens on Solana as a regulated institution - token and authority design, attestation-based compliance and confidential balances, deployment and settlement architecture, custody, transfer-agent and vault integration, building a compliance-ready mint, settling against cash, settlement finality, and risk and compliance diligence.",
+    "Issuing tokens on Solana as a regulated institution - token and authority design, attestation-based compliance and confidential balances, deployment and settlement architecture, custody, transfer-agent and vault integration, building a gated mint, settling against cash, settlement finality, and risk and compliance diligence.",
   defi: "Trading systems, DEX and oracle integration, and financial applications on Solana.",
   rpc: "The complete Solana JSON-RPC reference - HTTP methods and websocket subscriptions.",
   tools:
