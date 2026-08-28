@@ -31,6 +31,7 @@ describe("Finance docs MDX", () => {
       "/docs/institutional",
       "/docs/payments",
       "/docs/defi",
+      "/docs/finance/privacy",
     ]) {
       expect(markup).toContain(`href="${href}"`);
     }
