@@ -178,6 +178,26 @@ const goldSponsors = [
     width: 84,
     height: 95,
   },
+  {
+    companyId: "redotpay",
+    width: 359,
+    height: 66,
+  },
+  {
+    companyId: "collector-crypt",
+    width: 1048,
+    height: 393,
+  },
+  {
+    companyId: "moneygram",
+    width: 1708,
+    height: 431,
+  },
+  {
+    companyId: "paxos",
+    width: 2004,
+    height: 543,
+  },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
