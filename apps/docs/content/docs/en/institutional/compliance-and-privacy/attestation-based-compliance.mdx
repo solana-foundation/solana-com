@@ -1,0 +1,186 @@
+---
+title: Attestation-Based Compliance
+description:
+  How to prove that a KYC, sanctions, or travel-rule check happened without
+  putting personal data onchain - issuing attestations against a schema, wiring
+  them to the token's gate, and handling expiry and revocation.
+seoTitle: Privacy-Preserving KYC and Sanctions Compliance on Solana
+url: /docs/institutional/compliance-and-privacy/attestation-based-compliance
+type: conceptual
+prerequisites:
+  - /docs/institutional/token-design/choosing-controls
+related:
+  - /docs/tools/attestations
+  - /docs/tools/attestations/overview
+  - /docs/tokenization/token-acl
+  - /docs/institutional/compliance-and-privacy/privacy-and-transfer-controls
+  - /docs/institutional/tutorials/issuing/gate-the-holders
+---
+
+<Callout type="info" title="Summary">
+
+Run the KYC, sanctions, and travel-rule checks off-chain exactly as you do
+today. Publish only the _result_ onchain, as an attestation asserting a narrow
+claim - "this address passed sanctions screening, valid until this date." The
+token's gate reads the attestation. The evidence behind the claim never leaves
+your systems.
+
+</Callout>
+
+## The problem this solves
+
+A gated token needs an onchain answer to "may this address hold the token?" The
+inputs to that answer - identity documents, screening hits, beneficial-ownership
+records - are personal data that must not go onchain. Solana's ledger is public
+and permanent; there is no delete.
+
+Attestations separate the two. The check runs where it always ran, inside your
+compliance function or your vendor's. What lands onchain is a signed statement
+that the check ran and what it concluded.
+
+<Callout type="warn">
+
+Attestation data is stored onchain and is public and permanent. The pattern
+protects personal data only because you choose to attest a narrow conclusion.
+Putting a name, a document number, a date of birth, a residential address, or a
+raw screening payload into an attestation defeats the entire design and cannot
+be undone. Attest booleans and coarse categories, never the inputs.
+
+</Callout>
+
+## The three objects
+
+[Solana Attestations](/docs/tools/attestations) is built from three onchain
+objects. Mapping them to who owns what in an issuance:
+
+| Object          | What it is                                                    | Who owns it in practice                                                      |
+| --------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Credential**  | An attestation authority, with a list of authorized signers   | The institution standing behind the check - you, or your KYC provider        |
+| **Schema**      | The shape and field types a valid attestation must conform to | The issuer, so every attester makes the same claim in the same format        |
+| **Attestation** | A signed claim about a subject, conforming to a schema        | Created by an authorized signer of the credential, one per address per claim |
+
+An attestation carries an expiration timestamp and a unique nonce, and can
+optionally be linked to a specific token account. See
+[credentials](/docs/tools/attestations/credentials),
+[schemas](/docs/tools/attestations/schemas), and
+[attestations](/docs/tools/attestations/attestations) for the mechanics.
+
+### Who signs
+
+The credential's authorized-signer list is the compliance decision, not a
+technical one. Two arrangements are common:
+
+- **You attest.** Your compliance function holds the credential and signs. You
+  are asserting your own conclusion, and you carry the responsibility for it.
+- **Your provider attests.** Your KYC or screening vendor holds a credential and
+  signs. You rely on their claim, which means your reliance arrangement with
+  them now has an onchain expression, and you should be able to point at the
+  contract that backs it.
+
+Multiple credentials can coexist for one token - a sanctions attester and an
+accreditation attester, for example, each with its own schema.
+
+## Designing the schema
+
+Schema design determines how much the pattern exposes. Keep every field to the
+narrowest thing that supports the gate decision.
+
+Reasonable fields:
+
+- A boolean: screening passed, accreditation confirmed, eligibility met.
+- A coarse jurisdiction code, where the rule genuinely varies by jurisdiction.
+- A tier or category, where holding limits differ by investor class.
+- A validity window, which the expiration timestamp already gives you.
+- An opaque reference to your own case file, meaningful only inside your systems
+  and not derivable from onchain data.
+
+Fields to keep out: anything identifying a person, anything describing the
+evidence, and anything precise enough to re-identify by combination. A birth
+date plus a postcode is personal data even though neither field is a name.
+
+Version the schema from the start. Rules change, and a schema you cannot
+supersede without invalidating every existing attestation is a migration you may
+end up running under pressure.
+
+## Wiring an attestation to the gate
+
+Two places the claim can be enforced, with different costs.
+
+### Drive the allowlist
+
+Your service watches for attestations, and when a valid one appears for an
+address, it adds that address to the Token ACL allowlist. The holder then thaws
+their own account against the list.
+
+This is the default. Per-transfer cost is nothing, because by transfer time the
+question is already settled - the account is thawed or it is not. The trade is
+latency between the attestation and the list update, and an off-chain service
+you have to keep running and monitored.
+
+See [gate the holders](/docs/institutional/tutorials/issuing/gate-the-holders)
+for the allowlist mechanics.
+
+### Check inside a transfer hook
+
+A [transfer hook](/docs/tokens/extensions/transfer-hook) reads the attestation
+account at transfer time and rejects the transfer if it is missing, expired, or
+revoked.
+
+This gives you enforcement with no lag - a revocation bites on the very next
+transfer - at the cost of compute on every transfer, extra accounts the sender
+must supply, and reduced composability. Choose it when the freshness of the
+claim is itself the requirement.
+
+<Callout type="warn">
+
+If your mint uses confidential balances, a hook cannot see transfer amounts. Any
+rule that depends on the size of a transfer cannot be enforced this way. See
+[privacy and transfer controls](/docs/institutional/compliance-and-privacy/privacy-and-transfer-controls).
+
+</Callout>
+
+## Lifecycle
+
+The attestation is a snapshot of a check, and checks go stale. Decide these
+before you launch:
+
+- **Expiry.** Set an expiration that matches your re-screening cycle. An
+  attestation with no meaningful expiry is a claim you are making indefinitely.
+- **Re-attestation.** Who re-runs the check, on what schedule, and does the
+  holder have to do anything? Prefer renewal that completes without holder
+  action over a lapse discovered at transfer time.
+- **Revocation.** A sanctions hit against an existing holder is the case to plan
+  for. Under the allowlist pattern, removing the address stops new thaws but
+  **does not freeze an already-thawed account** - you must freeze it explicitly.
+  Under the hook pattern, the next transfer fails on its own. Know which
+  behavior you have.
+- **A holder whose attestation lapses while holding a balance.** They still hold
+  the asset. Decide in advance whether that means frozen, transfer-only-to-
+  redeem, or a grace period, and write it into the token's terms rather than
+  discovering it in an incident.
+
+## What this does not give you
+
+- **It is not proof the check was done well.** An attestation is a signature on
+  a claim. Its value is exactly the standing of whoever signed it, so the
+  standing of the attester is what an assessment turns on.
+- **It does not carry travel-rule data.** The travel rule requires originator
+  and beneficiary information to move between institutions. That is personal
+  data and stays off-chain, on your existing rails. What an attestation can do
+  is assert that the counterparty is an institution you have a travel-rule
+  arrangement with - that is, the assurance rather than the underlying data.
+- **It does not hide who holds the token.** Addresses, balances, and the fact
+  that an address carries an attestation are all public. If the holder graph
+  itself is sensitive, that is a separate problem - see
+  [privacy and transfer controls](/docs/institutional/compliance-and-privacy/privacy-and-transfer-controls).
+- **It does not resolve identity across chains or institutions.** An attestation
+  is about an address, not a person. Two addresses attested by the same provider
+  are not linked by the attestations themselves, though issuance patterns may
+  still support inference - and a case-file reference reused across both would
+  link them directly.
+
+## Related
+
+- [Gate the holders](/docs/institutional/tutorials/issuing/gate-the-holders) -
+  the allowlist end to end
+- [Attestations](/docs/tools/attestations) - the program reference

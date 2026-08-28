@@ -1,0 +1,250 @@
+---
+title: Gate the Holders
+description:
+  Put an address on an onchain allowlist so it can thaw its own token account,
+  and confirm that an address which is not on the list cannot hold the token.
+seoTitle: Allowlist Token Holders with Token ACL on Solana
+url: /docs/institutional/tutorials/issuing/gate-the-holders
+type: tutorial
+prerequisites:
+  - /docs/institutional/tutorials/issuing/create-the-mint
+related:
+  - /docs/tokenization/token-acl
+  - /docs/tokens/extensions/default-state
+  - /docs/institutional/tutorials/issuing/operate-the-token
+---
+
+Your mint creates every token account frozen. This tutorial makes that useful:
+an address you approve thaws itself against an onchain list, and an address you
+have not approved cannot.
+
+## How the pieces fit
+
+Three programs cooperate:
+
+1. **Token-2022** holds the mint and enforces that new accounts start frozen.
+2. **The Token ACL program** holds the delegated freeze authority and exposes a
+   permissionless thaw. It does not decide who qualifies.
+3. **A gate program** makes that decision. With an address-based list as the
+   gate, qualifying means being on the list.
+
+You keep an override at every level: freeze or thaw an account directly, swap
+the gate program, or reclaim the freeze authority from Token ACL entirely.
+
+<Callout type="warn">
+
+Token ACL is specified in sRFC-37, which is not finalized. The gate program and
+the list accounts are dependencies distinct from your mint, each with its own
+deployment, upgrade, audit, and availability considerations. Read
+[Token ACL](/docs/tokenization/token-acl) before relying on this design in
+production.
+
+</Callout>
+
+<Steps>
+
+### Confirm the gate is wired up
+
+The `--enable-srfc37 true` flag in the previous tutorial provisioned all of this
+inside the create transaction: it delegated the freeze authority to Token ACL,
+created the address-based list, pointed the gate at it, and enabled
+permissionless thaw. Confirm that before adding anyone.
+
+```bash
+mosaic inspect-mint \
+  --mint-address $MINT \
+  --rpc-url https://api.devnet.solana.com
+```
+
+{/* TODO(devnet): paste the real `mosaic inspect-mint` output here. */}
+
+The freeze authority should read `TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP`,
+the Token ACL program. If it is your own key or none, the mint was created
+without `--enable-srfc37 true` and no account on it can ever be thawed. Go back
+and create a new mint.
+
+<Accordions>
+<Accordion title="Wiring the gate on a mint that was created without it">
+
+Only possible if the mint already has Token ACL as its freeze authority - the
+CLI cannot move a freeze authority after creation. These four commands do what
+`--enable-srfc37 true` does automatically, and take `--mint` rather than
+`--mint-address`:
+
+```bash
+# Create the Token ACL config, pointing it at the address-based list program
+mosaic token-acl create-config \
+  --mint $MINT \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+
+# Create the address-based list that acts as the gate
+mosaic abl create-list \
+  --mint $MINT \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+
+# Point the config at the gate program
+mosaic token-acl set-gating-program \
+  --mint $MINT \
+  --gating-program GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+
+# Allow qualifying wallets to self-thaw
+mosaic token-acl enable-permissionless-thaw \
+  --mint $MINT \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+You may also need `mosaic abl set-extra-metas` so the thaw can resolve the
+list's extra account metas. Run `mosaic token-acl --help` and
+`mosaic abl --help` for the current surface - the CLI is pre-1.0 and the flags
+vary by command.
+
+</Accordion>
+</Accordions>
+
+If permissionless thaw was never enabled on the mint config, `mosaic mint` still
+builds the thaw instruction and the transaction fails onchain. Confirm the gate
+before minting.
+
+### Create a holder to approve
+
+Generate a second keypair to stand in for an onboarded client, and fund it so it
+can pay its own transaction fees.
+
+```bash
+solana-keygen new --no-bip39-passphrase --silent \
+  --outfile ~/.config/solana/demo-holder.json
+
+export HOLDER=$(solana-keygen pubkey ~/.config/solana/demo-holder.json)
+solana airdrop 1 $HOLDER --url https://api.devnet.solana.com
+echo "holder: $HOLDER"
+```
+
+### Add the holder to the allowlist
+
+This step corresponds to the onboarding decision. The preceding steps are setup.
+
+```bash
+mosaic allowlist add \
+  --mint-address $MINT \
+  --account $HOLDER \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+Read the list back to confirm. `abl fetch-list` takes the **list** address, not
+the mint - `mosaic abl fetch-lists` will show you the lists for your mint if you
+did not record it when the list was created:
+
+```bash
+mosaic abl fetch-list \
+  --list <the list address> \
+  --rpc-url https://api.devnet.solana.com
+```
+
+{/* TODO(devnet): paste the real `abl fetch-list` output showing the added address. */}
+
+### Mint to the holder
+
+Minting creates the holder's token account and thaws it in the same transaction:
+`mosaic mint` inserts the Token ACL permissionless thaw between the account
+creation and the mint, and the gate program approves it because the holder is on
+the list. If the holder is not on the list the whole transaction fails, so there
+is no partially minted state.
+
+```bash
+mosaic mint \
+  --mint-address $MINT \
+  --recipient $HOLDER \
+  --amount 1000 \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+This signs with the fee payer, which holds the mint authority on this mint.
+Where the mint authority sits on its own key - as it should in production - this
+is the command that would use it, and no other key can create supply.
+
+### Prove the gate rejects a non-holder
+
+Test the rejection path. Generate a third address, leave it off the list, and
+try to move tokens to it.
+
+```bash
+solana-keygen new --no-bip39-passphrase --silent \
+  --outfile ~/.config/solana/demo-outsider.json
+
+export OUTSIDER=$(solana-keygen pubkey ~/.config/solana/demo-outsider.json)
+
+mosaic transfer \
+  --mint-address $MINT \
+  --recipient $OUTSIDER \
+  --amount 1 \
+  --keypair ~/.config/solana/demo-holder.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+This should fail. The outsider's token account is created frozen and has no
+basis on which to thaw, so the transfer cannot complete. This failure
+demonstrates the control.
+
+{/* TODO(devnet): paste the real error text the failed transfer returns. */}
+
+Now add the outsider to the list and run the same transfer again. It succeeds.
+The only change was the onboarding decision recorded on the list.
+
+```bash
+mosaic allowlist add \
+  --mint-address $MINT \
+  --account $OUTSIDER \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+### Remove an address
+
+Removal is the same operation in reverse.
+
+```bash
+mosaic allowlist remove \
+  --mint-address $MINT \
+  --account $OUTSIDER \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+Removing an address from the list stops it from thawing a new account. An
+account that is already thawed stays thawed; freezing an existing holder is a
+separate action, covered in
+[operate the token](/docs/institutional/tutorials/issuing/operate-the-token). An
+offboarding procedure generally needs both steps.
+
+</Steps>
+
+## Blocklists
+
+The same gate supports a blocklist instead of an allowlist, where every address
+qualifies except those you name:
+
+```bash
+mosaic blocklist add \
+  --mint-address $MINT \
+  --account <address> \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+An allowlist fails closed: an address holds the token only after it has been
+added. A blocklist fails open: an address holds the token unless it has been
+named. Fail-closed is the behavior a supervised issuance normally needs. A
+blocklist suits cases where open holding is the intended design and the list
+acts as a sanctions overlay.
+
+## Next Steps
+
+- [Operate the token](/docs/institutional/tutorials/issuing/operate-the-token) -
+  freeze, pause, force a transfer, and burn

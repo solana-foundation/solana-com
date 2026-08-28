@@ -30,6 +30,7 @@ export default async function Layout({
     "/docs/finance",
     "/docs/payments",
     "/docs/tokenization",
+    "/docs/institutional",
     "/docs/defi",
     "/docs/tools",
   ];

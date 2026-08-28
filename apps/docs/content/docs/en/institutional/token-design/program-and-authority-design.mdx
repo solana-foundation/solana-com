@@ -1,0 +1,189 @@
+---
+title: Program and Authority Design
+description:
+  Choosing between SPL Token, Token-2022, and a custom program, then deciding
+  which authorities sit on a PDA, which on a multisig, and which on a single key
+  - and the audit and upgrade risk each choice carries.
+seoTitle: Token Program and Authority Design for Institutional Issuers
+url: /docs/institutional/token-design/program-and-authority-design
+type: conceptual
+prerequisites:
+  - /docs/institutional/token-design
+related:
+  - /docs/institutional/token-design/choosing-controls
+  - /docs/tokens/extensions
+  - /docs/tools/keychain/adding-signers
+  - /docs/tools/keychain/production-best-practices
+  - /docs/institutional/risk-and-diligence
+---
+
+<Callout type="info" title="Summary">
+
+Issue on Token-2022 unless you have a named requirement it cannot meet. Give
+every authority its own key from the start, and decide for each one whether it
+should be a program-enforced PDA, an onchain multisig, or a single custodied
+key. Every program in your token's transfer path - including a transfer hook you
+write - forms part of the asset's dependency surface.
+
+</Callout>
+
+## Which token program
+
+Three options, in the order you should consider them.
+
+| Option                     | What you get                                                                     | What it costs                                                                                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **SPL Token**              | The original token program. Universal support everywhere on Solana               | No issuer control surface beyond freeze. No default-frozen accounts, pause, or permanent delegate                                                            |
+| **Token-2022**             | The same core behavior plus the extension set that regulated issuance depends on | Support is broad but not universal. Confirm your venues, custodians, and wallets handle it                                                                   |
+| **A custom token program** | Anything you can write                                                           | You own the audit, the upgrade authority, the liveness, and the integration burden. No wallet, indexer, custodian, or venue supports it without bespoke work |
+
+**SPL Token is generally not enough for a supervised issuance.** It has a freeze
+authority and nothing else - no way to make accounts frozen on creation, no
+pause, no permanent delegate, and so no forced transfer for a court order. If
+your token needs none of those, you likely do not need this section.
+
+**Token-2022 is the default.** The controls a regulated issuer reaches for are
+extensions enforced inside the program itself, so they are shared standards
+rather than code you maintain. See [Token Extensions](/docs/tokens/extensions)
+for the full surface and
+[choosing controls](/docs/institutional/token-design/choosing-controls) for
+which ones to turn on.
+
+The constraint with Token-2022 is usually reach rather than capability. Before
+you commit, confirm that your custodian, your transfer agent, the venues you
+expect to list on, and any wallet your holders will use support Token-2022 mints
+**with the specific extensions you intend to enable**. Support for the program
+does not imply support for every extension on it - a venue may handle a plain
+Token-2022 mint and still reject one carrying a transfer hook.
+
+**A custom program is a last resort.** Writing your own means you own an audit
+before launch and after every change, an upgrade authority that becomes its own
+governance question, and the fact that no wallet, indexer, custodian, or venue
+will understand your token without bespoke work. Reach for it only when you can
+name the requirement that Token-2022 plus a transfer hook cannot express, and
+record that requirement.
+
+## Authority design
+
+Token-2022 lets every power sit on a different key.
+[Choosing controls](/docs/institutional/token-design/choosing-controls#split-authorities-from-the-start)
+lists the authorities and who should hold each. This section is about what
+_kind_ of holder each one should be.
+
+There are three shapes, and the choice is a trade between how fast an authority
+can act and how hard it is to misuse.
+
+### A single custodied key
+
+One keypair, held in an HSM or a custody service. Fastest to act, simplest to
+operate, and a single point of compromise.
+
+Appropriate for low-consequence, high-frequency authorities - the metadata
+authority is the clearest example. Also the pragmatic choice for the **pause
+authority**, which is only useful if it can be exercised within minutes of an
+incident. A pause that requires multiple signatures out of hours may not be
+available when the incident occurs.
+
+### An onchain multisig
+
+M-of-N approval enforced by the token program, so no single holder can act
+alone. Slower, auditable, and the right default for anything whose misuse would
+be hard to reverse.
+
+Use it for the **mint authority** (new supply), the **permanent delegate**
+(moving or burning a holder's balance), and the **confidential balances
+authority**. For the permanent delegate in particular, the slowness is
+deliberate: its legitimate uses are court orders, fraud response, and lost-key
+recovery, all of which you should be prepared to evidence afterwards. Court
+orders and lost-key recovery normally allow time to convene a quorum. Active
+fraud may not, so decide in advance whether the pause authority covers that gap
+while the delegate quorum assembles.
+
+See [adding signers](/docs/tools/keychain/adding-signers) for the mechanics and
+[production best practices](/docs/tools/keychain/production-best-practices) for
+how to hold the underlying keys. Do not restate key management here - decide the
+shape, then follow those pages.
+
+### A PDA
+
+A program-derived address has no private key. It can only act when a program
+executes a code path that signs for it, so the policy is enforced by code rather
+than by whoever holds a key.
+
+This is the right shape when the rule is mechanical and you want to remove human
+discretion from it entirely. The clearest case is the **freeze authority under
+Token ACL**: delegating it to the ACL program's PDA turns "the issuer thaws each
+account by hand" into "any address that satisfies the gate thaws itself," which
+removes the issuer as a liveness dependency for every new holder.
+
+The trade is that a PDA can only ever do what the program allows. If the program
+has no code path for the action you need, the authority cannot take it. So
+retain an issuer override wherever the law might require you to act outside the
+policy - with Token ACL, the ability to freeze or thaw directly, swap the gate,
+or reclaim the freeze authority.
+
+<Callout type="warn">
+
+Whatever shape you choose, plan rotation before you mint. Setting an authority
+at creation is straightforward; rotating one afterwards is a separate procedure
+per authority type, and a multisig or PDA rotation is not the same operation as
+a single-key rotation. Rehearse each on devnet before you need it on mainnet.
+
+</Callout>
+
+## Audit and upgrade risk
+
+Every program that can execute in your token's transfer path is a dependency
+your reviewers may treat as part of the asset. For a Token-2022 mint with
+frozen-by-default accounts and Token ACL, that list is at least: the Token-2022
+program, the Token ACL program, and the gate program the ACL delegates to. Add a
+transfer hook and it is your program too.
+
+For each one, be able to answer:
+
+- **Who holds the upgrade authority?** A program whose upgrade authority is a
+  single key held by a third party is a party that can change your token's
+  behavior without your consent.
+- **Is it immutable, and should it be?** Revoking the upgrade authority removes
+  that risk and removes your ability to fix a bug. For a program you wrote and
+  audited against a fixed spec, immutability is often right. For one still
+  tracking a draft standard, it is not.
+- **When was it last audited, and against which version?** An audit covers a
+  commit, not a program. If the deployed program has been upgraded since, the
+  audit is evidence about different code.
+- **What happens if it stops working?** A gate program that becomes unavailable
+  does not freeze existing balances, but it can stop new holders from
+  onboarding. Know which of your operations degrade and which stop.
+
+<Callout type="warn">
+
+Token ACL is specified in sRFC-37, which is not finalized. The standard may
+change before it settles, so treat the ACL and gate programs as dependencies
+with their own deployment, upgrade, audit, and availability characteristics,
+distinct from your mint. See [Token ACL](/docs/tokenization/token-acl) for the
+current state.
+
+</Callout>
+
+If you write a transfer hook, you inherit all four questions for your own
+program, plus the obligation to keep it working. A hook that panics makes every
+transfer of your token fail.
+
+## Decide these before you build
+
+- Which token program, and - if Token-2022 - confirmation of extension support
+  from your custodian, transfer agent, and venues.
+- The shape of every authority: PDA, multisig, or single key, and where the keys
+  live.
+- The rotation procedure for each authority, rehearsed on devnet.
+- The full list of programs in your transfer path, with the upgrade authority
+  and audit status of each.
+
+## Related
+
+- [Create the mint](/docs/institutional/tutorials/issuing/create-the-mint) -
+  build a mint with one key per authority
+- [Attestation-based compliance](/docs/institutional/compliance-and-privacy/attestation-based-compliance) -
+  proving a holder check happened without publishing personal data
+- [Risk and diligence](/docs/institutional/risk-and-diligence) - the wider set
+  of diligence questions

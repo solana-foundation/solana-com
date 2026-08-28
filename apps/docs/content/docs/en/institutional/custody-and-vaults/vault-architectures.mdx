@@ -1,0 +1,164 @@
+---
+title: Vault Architectures
+description:
+  How an asset-manager vault holds a gated token - synchronous versus async
+  request-and-settle designs, why periodically-valued funds need the async
+  shape, and how vault operation interacts with the controls on the mint.
+seoTitle: Vault Architectures for Tokenized Funds on Solana
+url: /docs/institutional/custody-and-vaults/vault-architectures
+type: conceptual
+prerequisites:
+  - /docs/institutional/custody-and-vaults/custody-integration
+related:
+  - /docs/tokenization/nav-strikes
+  - /docs/tokenization/dvp
+  - /docs/institutional/token-design/choosing-controls
+  - /docs/institutional/tutorials/vault
+---
+
+<Callout type="info" title="Summary">
+
+A vault is a program that holds assets and issues claims against them. The
+central design question is whether a deposit or withdrawal can complete in the
+same transaction. If the asset has a price that strikes periodically rather than
+continuously, it cannot, and you need an async request-and-settle design. That
+covers most institutional fund structures.
+
+</Callout>
+
+## Synchronous or async
+
+**A synchronous vault** settles a deposit or withdrawal in one transaction. The
+depositor sends assets and receives shares immediately, priced from state the
+program can read at that moment.
+
+This works when the price is knowable onchain at transaction time - a vault over
+liquid onchain assets with a reliable oracle. It does not work when the price is
+struck off-chain, periodically, by an administrator.
+
+**An async vault** splits the operation in two. The participant submits a
+_request_; later, at a valuation point, the operator _settles_ it at the struck
+price. Between the two, the participant holds a claim, not shares.
+
+This is the shape institutional funds need, because it matches how they already
+work: subscriptions and redemptions accepted against a cut-off, priced at the
+next valuation point, settled after. See
+[NAV strikes](/docs/tokenization/nav-strikes) for a worked implementation of
+this pattern for money market funds, including the delegated authority pattern
+and the subscription and redemption flows.
+
+## The async lifecycle
+
+Four stages, and each has a decision attached.
+
+1. **Request.** A participant commits assets - or shares, for a redemption - and
+   receives a claim to be settled at the next valuation point. _Decide:_ are the
+   committed assets escrowed by the program, or merely pledged? Escrow is
+   simpler to reason about and reduces failure modes at settlement.
+2. **Cut-off.** Requests after a point in time roll to the following valuation.
+   _Decide:_ how the cut-off is enforced. A cut-off enforced only off-chain is
+   not a cut-off if participants can still submit requests onchain.
+3. **Strike.** The valuation is determined and published. _Decide:_ who may
+   publish it, and what constrains them. This is among the most sensitive
+   authorities in the design - it sets the price at which everyone's request
+   settles.
+4. **Settle.** Requests are executed at the struck price; shares are minted or
+   burned and assets move. _Decide:_ what happens to a request that cannot
+   settle - insufficient liquidity for a redemption, or a participant who has
+   become ineligible between request and settlement.
+
+That last case is the one to design deliberately. A participant can be
+allowlisted when they subscribe and removed before settlement. The vault must
+have a defined behavior - reject and return, hold pending, or settle to a
+restricted state - rather than failing in a way that strands the assets.
+
+## A reference implementation
+
+The Solana Foundation publishes
+[Vault Standard Suite](https://github.com/solana-foundation/vault), an
+open-source Anchor program implementing the async shape described above.
+Requests are queued and settled by a vault authority once a valuation is
+published; shares and assets do not move atomically at request time.
+
+The extension modules are opt-in: subscription and redemption queues, pausable
+flows, fees, and minimum subscription and redemption sizes. The share mint is
+supplied by the issuer rather than created by the program, and the program
+composes with Token-2022 and sRFC-37 access control lists, which is what makes
+it usable over a gated token.
+
+Check the extension surface yourself. The program rejects an asset mint carrying
+a nonzero transfer fee, but it does not reject a permanent delegate, a mint
+close authority, or a freeze authority - the controls this section has spent
+several pages recommending. Vetting those against your vault's assumptions is
+left to you.
+
+The repository carries TypeScript and Rust clients generated from the IDL,
+integration tests, and design documentation including sequence diagrams for the
+deposit, redeem and authority-withdraw flows.
+
+<Callout type="warn" title="Not production-ready">
+
+The program has had a security review from Cantina but is not audited for
+mainnet use, and is deployed only on devnet. Treat it as a reference to read and
+adapt, and run your own review before deploying anything derived from it.
+
+</Callout>
+
+## Interaction with the token's controls
+
+A vault over a gated token is subject to that gate like any other holder:
+
+- **The vault's own token account must be allowlisted.** It is an address
+  holding the token; the gate does not exempt programs. Allowlist the vault's
+  account as part of deployment, not after the first failed deposit.
+- **Frozen-by-default applies to the vault too.** Its account is created frozen
+  and must be thawed against the gate before it can receive anything.
+- **A pause halts the vault.** If you pause the token, in-flight requests cannot
+  settle. Decide whether that means they queue or fail, and make sure the
+  incident-response runbook that authorizes a pause knows a vault is downstream.
+- **The permanent delegate can move assets out of the vault's account.** This is
+  expected behavior and occasionally necessary, but the vault's accounting must
+  allow for it.
+- **Share tokens are usually gated too.** If the fund's shares are themselves a
+  restricted token, the participant's share account needs the same treatment as
+  the vault's asset account, and both gates have to be satisfied for a
+  subscription to complete.
+
+Enumerate every account the vault touches and confirm each one's gate status
+before deployment. See
+[choosing controls](/docs/institutional/token-design/choosing-controls) for the
+control surface these interactions come from.
+
+## Settlement against cash
+
+A subscription is an exchange of cash for shares and a redemption is the
+reverse, so both are the delivery-versus-payment problem in
+[payments and interoperability](/docs/institutional/payments-and-interoperability).
+Where settlement happens in a single transaction, the exchange is atomic, so
+neither side can deliver without receiving. A transaction that fails to land is
+still a settlement exposure. [Delivery versus payment](/docs/tokenization/dvp)
+covers the mechanics.
+
+The async shape complicates this: the request and the settlement are separate
+transactions, so atomicity applies to the settlement leg only. The exposure
+between request and settlement is a real position that has to be measured and
+governed.
+
+## Operational questions to close
+
+- Who holds the authority to publish a valuation, and what governs its use?
+- What happens to an unsettleable request, in each failure case?
+- How is the vault's own eligibility maintained if the allowlist changes?
+- What is the recovery procedure if settlement fails partway through a batch?
+- How does the vault's position reconcile against the register of record - see
+  [transfer agent responsibilities](/docs/institutional/custody-and-vaults/transfer-agent-responsibilities).
+
+## Related
+
+- [NAV strikes](/docs/tokenization/nav-strikes) - a full implementation of the
+  async pattern for a periodically-valued fund
+- [Vault Standard Suite](https://github.com/solana-foundation/vault) - the
+  Foundation's open-source async vault program; devnet only, not audited for
+  mainnet
+- [Deploying a vault](/docs/institutional/tutorials/vault) - the flow on devnet
+- [Delivery versus payment](/docs/tokenization/dvp) - atomic exchange mechanics
