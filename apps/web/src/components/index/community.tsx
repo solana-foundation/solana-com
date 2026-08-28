@@ -40,7 +40,7 @@ export const Community: React.FC<CommunityProps> = ({
 }) => {
   return (
     <section className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0 px-2">
-      <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative transform-gpu">
+      <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative">
         {bgJsonFilePath && (
           <SafeUnicornScene
             projectId="community"
