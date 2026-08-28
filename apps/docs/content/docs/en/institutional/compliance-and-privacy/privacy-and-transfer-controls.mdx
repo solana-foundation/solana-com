@@ -1,0 +1,174 @@
+---
+title: Privacy and Transfer Controls
+description:
+  What confidential balances hide and what they leave public, which issuer
+  controls still work when amounts are encrypted, and how to give an auditor or
+  supervisor visibility without publishing the whole ledger.
+seoTitle: Confidential Balances and Compliance Controls for Issuers on Solana
+url: /docs/institutional/compliance-and-privacy/privacy-and-transfer-controls
+type: conceptual
+prerequisites:
+  - /docs/institutional/token-design/choosing-controls
+related:
+  - /docs/tokens/extensions/confidential-transfer
+  - /docs/tokens/extensions/confidential-transfer/issuer-guide
+  - /docs/institutional/compliance-and-privacy/attestation-based-compliance
+  - /docs/institutional/architecture/deployment-decision-guide
+  - /docs/institutional/risk-and-diligence
+---
+
+<Callout type="info" title="Summary">
+
+Confidential balances encrypt amounts. They do not hide who transacted with
+whom, or when. Account-level controls - freeze, default-frozen, pause, permanent
+delegate - are unaffected, because they never depended on amounts. Any policy
+that depends on the size of a transfer cannot be enforced onchain once amounts
+are encrypted. Decide which of those you need before you create the mint,
+because the extension cannot be added later.
+
+</Callout>
+
+## What is hidden and what is not
+
+The
+[confidential transfer extension](/docs/tokens/extensions/confidential-transfer)
+encrypts transfer amounts and account balances. Everything else about a transfer
+stays public.
+
+| Public                                 | Encrypted        |
+| -------------------------------------- | ---------------- |
+| Sender and recipient account addresses | Transfer amounts |
+| Account owners                         | Account balances |
+| The mint                               |                  |
+| That a transfer occurred, and when     |                  |
+
+So an observer cannot see how much moved, but can see that these two parties
+transacted, at this time, in your asset. **The transaction graph is intact.**
+
+This distinction decides whether the extension solves your problem. If the
+concern is commercially sensitive position sizes or payment amounts, it solves
+it. If the concern is that a competitor can see your client list, or that
+counterparty relationships are themselves confidential, it does not - and no
+amount of encryption at the balance layer will, because the addresses are the
+graph. That is a topology question, covered in the
+[deployment decision guide](/docs/institutional/architecture/deployment-decision-guide).
+
+## Which controls still work
+
+The split is between controls that act on _accounts_ and controls that act on
+_amounts_.
+
+| Control                                   | Works with confidential balances                                      |
+| ----------------------------------------- | --------------------------------------------------------------------- |
+| Default account state (frozen by default) | Yes - operates on the account, not its balance                        |
+| Freeze and thaw, including via Token ACL  | Yes - the gate decides who may hold, which is orthogonal to how much  |
+| Pausable                                  | Yes - halts activity token-wide                                       |
+| Permanent delegate                        | Yes - the authority is over the account, not conditioned on an amount |
+| Permissioned burn                         | Yes                                                                   |
+| Attestation-driven allowlisting           | Yes - the claim is about the holder                                   |
+| Any rule conditioned on transfer size     | **No** - see below                                                    |
+
+The pattern is that the whole frozen-by-default plus Token ACL design, which is
+the recommended starting point in
+[choosing controls](/docs/institutional/token-design/choosing-controls), is
+compatible with confidential balances. Who may hold the token and how much they
+move are independent questions.
+
+### Amount-dependent policy
+
+An onchain program cannot evaluate a value it cannot read. Once amounts are
+encrypted, no program in the transfer path can enforce a per-transfer cap, a
+daily volume limit, a threshold that triggers extra approval, or a
+jurisdiction-dependent transfer size. This follows from the extension's design
+rather than from an incomplete implementation: no instruction exposes the amount
+to a program in the transfer path. Treat it as a fixed constraint for planning
+purposes.
+
+If you need those rules, you have three options: drop confidential balances,
+move the rule off-chain to a point where you can see the amount (your own
+issuance and redemption path, which you control), or accept the rule as a
+contractual term enforced by audit rather than by the ledger.
+
+<Callout type="warn">
+
+Before committing to a design that combines confidential balances with a
+transfer hook or any other extension, confirm the extensions can be co-enabled
+at all. Some Token-2022 extensions are mutually exclusive - see
+[Token Extensions](/docs/tokens/extensions). Treat the amount-visibility
+constraint above as certain, and the co-enablement question as one to verify
+against the program for your specific combination.
+
+</Callout>
+
+## Decisions fixed at mint creation
+
+The confidential transfer extension must be initialized **before the mint is
+initialized and cannot be added later**. If there is a realistic chance you will
+want confidentiality, enabling the extension at creation keeps the option open.
+
+Two settings are chosen at creation, though both can be changed afterwards:
+
+- **Approve policy.** Whether accounts may opt into confidential transfers
+  permissionlessly, or must be approved by the mint's confidential transfer
+  authority. Manual approval gives you a second gate on who transacts
+  confidentially; automatic approval removes an operational step.
+- **Auditor key.** An optional global auditor ElGamal public key. When set, the
+  holder of the corresponding secret key can decrypt every transfer amount for
+  the mint.
+
+Confidential transfer fees and confidential mint/burn are companion extensions
+that must also be initialized at creation if you want them.
+
+<Callout type="warn">
+
+Confidential transfers depend on the ZK ElGamal Proof Program for onchain proof
+verification, so the mint is only usable on clusters where that program is
+enabled. Confirm this for your target cluster before you build against it.
+
+</Callout>
+
+## Auditor keys and disclosure
+
+The auditor key is how a confidential token stays supervisable. Set it, and the
+public sees no amounts while the auditor sees every one.
+
+Three things about it matter operationally:
+
+1. **The secret key is a standing decryption capability over the entire mint.**
+   Custody it with the same care as the mint authority. Whoever holds it can
+   read every transfer settled while it was the active auditor key.
+2. **Rotation does not re-key history.** Past transfers stay encrypted to
+   whichever auditor key was active when they executed. If you rotate, retain
+   the old keys or you permanently lose the ability to decrypt historical
+   activity - including for an examination that arrives years later. Build key
+   retention into your records schedule.
+3. **Clearing the auditor is not neutral.** Setting the auditor to none removes
+   amount visibility for everyone except the account owners themselves. That may
+   be the right answer, but document the decision rather than leaving the
+   auditor unset by default.
+
+For disclosure narrower than "the auditor sees everything," you rely on the
+account owner: a holder can demonstrate their own balance and transfers to a
+counterparty or supervisor. Design your processes so a routine query goes to the
+holder, and the auditor key is reserved for cases where you cannot rely on their
+cooperation.
+
+## Choosing
+
+- **You need amount privacy and account-level controls.** Confidential balances
+  plus frozen-by-default and Token ACL. This composes cleanly.
+- **You need amount privacy and amount-dependent rules.** These conflict. Move
+  the rule off-chain or drop the privacy requirement - decide which, explicitly.
+- **You need the counterparty graph hidden.** Confidential balances are not the
+  answer. See the
+  [deployment decision guide](/docs/institutional/architecture/deployment-decision-guide).
+- **You need none of the above.** Do not enable the extension. It adds
+  integration work for holders and venues, and unused complexity is a diligence
+  question you may have to answer.
+
+## Related
+
+- [Confidential transfer issuer guide](/docs/tokens/extensions/confidential-transfer/issuer-guide) -
+  the mechanics of creating and operating a confidential mint
+- [Risk and diligence](/docs/institutional/risk-and-diligence#privacy) -
+  potential answers to the privacy questions in a review

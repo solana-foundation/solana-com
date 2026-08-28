@@ -8,6 +8,7 @@ const SECTION_ROUTES = {
   finance: "/docs/finance",
   tokens: "/docs/tokens",
   tokenization: "/docs/tokenization",
+  institutional: "/docs/institutional",
   payments: "/docs/payments",
   defi: "/docs/defi",
 } as const;
@@ -21,6 +22,7 @@ export function getFinancePageTree(
   const financeFolder = findFolder(tree, SECTION_ROUTES.finance);
   const tokensFolder = findFolder(tree, SECTION_ROUTES.tokens);
   const tokenizationFolder = findFolder(tree, SECTION_ROUTES.tokenization);
+  const institutionalFolder = findFolder(tree, SECTION_ROUTES.institutional);
   const paymentsFolder = findFolder(tree, SECTION_ROUTES.payments);
   const defiFolder = findFolder(tree, SECTION_ROUTES.defi);
 
@@ -33,17 +35,31 @@ export function getFinancePageTree(
       ]
     : [];
 
-  const assetsFolder = getAssetsFolder(
-    tokensFolder,
-    tokenizationFolder,
-    activeSection,
-  );
-
   return {
     ...tree,
     children: [
       ...financePages,
-      ...(assetsFolder ? [assetsFolder] : []),
+      ...(tokensFolder
+        ? [renameFolder(tokensFolder, "Assets", activeSection === "tokens")]
+        : []),
+      ...(tokenizationFolder
+        ? [
+            renameFolder(
+              tokenizationFolder,
+              "Issuance & Tokenization",
+              activeSection === "tokenization",
+            ),
+          ]
+        : []),
+      ...(institutionalFolder
+        ? [
+            renameFolder(
+              institutionalFolder,
+              "Institutional Finance",
+              activeSection === "institutional",
+            ),
+          ]
+        : []),
       ...(paymentsFolder
         ? [
             renameFolder(
@@ -62,33 +78,6 @@ export function getFinancePageTree(
             ),
           ]
         : []),
-    ],
-  };
-}
-
-function getAssetsFolder(
-  tokensFolder: Folder | undefined,
-  tokenizationFolder: Folder | undefined,
-  activeSection: FinanceSection,
-): Folder | undefined {
-  if (!tokensFolder) return tokenizationFolder;
-
-  const tokenizationSection = tokenizationFolder
-    ? renameFolder(
-        tokenizationFolder,
-        "Issuance & Tokenization",
-        activeSection === "tokenization",
-      )
-    : undefined;
-
-  return {
-    ...tokensFolder,
-    name: "Assets",
-    root: false,
-    defaultOpen: activeSection === "tokens" || activeSection === "tokenization",
-    children: [
-      ...tokensFolder.children,
-      ...(tokenizationSection ? [tokenizationSection] : []),
     ],
   };
 }

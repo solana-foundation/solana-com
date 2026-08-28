@@ -1,0 +1,187 @@
+---
+title: Create the Mint
+description:
+  Create a Token-2022 mint for a tokenized security on devnet, with
+  frozen-by-default accounts, pausability, a permanent delegate, an onchain
+  allowlist, and the operational authorities on separate keys.
+seoTitle: Create a Compliance-Ready Token-2022 Mint
+url: /docs/institutional/tutorials/issuing/create-the-mint
+type: tutorial
+prerequisites:
+  - /docs/institutional/token-design/choosing-controls
+  - /docs/institutional/tutorials/issuing
+related:
+  - /docs/institutional/tutorials/issuing/gate-the-holders
+  - /docs/tokens/extensions
+  - /docs/tokenization/quickstart
+---
+
+This tutorial creates the mint. When you finish, you will have a Token-2022 mint
+on devnet carrying the extension set a tokenized security usually needs, gated
+by an onchain allowlist, with its operational powers held on separate keys.
+
+<Steps>
+
+### Generate a key per authority
+
+This step produces three separate keys, one per operational power. A mint where
+one key holds every power concentrates the consequences of a single compromise,
+and separating the powers after the mint exists is harder than doing it now.
+
+```bash
+mkdir -p ~/.config/solana/demo-authorities
+
+for role in metadata pause delegate; do
+  solana-keygen new --no-bip39-passphrase --silent \
+    --outfile ~/.config/solana/demo-authorities/$role.json
+  echo "$role: $(solana-keygen pubkey ~/.config/solana/demo-authorities/$role.json)"
+done
+```
+
+In production each of these would be a separate custody arrangement: an
+incident-response key for pause, a legal and compliance quorum for the permanent
+delegate, a low-privilege operations key for metadata. The tutorial uses local
+files so the separation is visible as you work through it.
+
+<Callout type="warn">
+
+The mint authority is the exception. Mosaic only provisions the Token ACL gate
+when the mint authority is the same key that pays for the transaction, so this
+tutorial leaves the mint authority on your fee payer. That is a property of the
+toolkit, not a recommendation - a supervised issuance should hold the mint
+authority on a treasury quorum. Assigning it separately means building the
+instruction yourself; see
+[program and authority design](/docs/institutional/token-design/program-and-authority-design).
+
+</Callout>
+
+### Create the mint
+
+The `tokenized-security` template enables the extension set described below.
+Point each authority flag at the key you generated for it.
+
+```bash
+mosaic create tokenized-security \
+  --name "Demo Institutional Note" \
+  --symbol "DEMOIN" \
+  --decimals 6 \
+  --uri https://example.com/demoin.json \
+  --acl-mode allowlist \
+  --enable-srfc37 true \
+  --metadata-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/metadata.json) \
+  --pausable-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/pause.json) \
+  --permanent-delegate-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/delegate.json) \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+Two flags carry more weight than their length suggests.
+
+`--enable-srfc37 true` is what makes the mint usable. It sets the freeze
+authority to the Token ACL program, which is the only party that can thaw a
+frozen account. **Omit it and the mint is created with frozen-by-default
+accounts and no freeze authority at all, so no account can ever be thawed and
+the token is permanently unusable.** The flag defaults to off.
+
+`--acl-mode allowlist` selects a fail-closed gate: nobody holds the token until
+they are added. The default is `blocklist`, which fails open. Because the mint
+authority here is also the fee payer, this one transaction additionally creates
+the Token ACL config, creates the list, points the gate at it, and enables
+permissionless thaw - so the next tutorial starts with a working gate.
+
+Save the mint address it prints. Every command in the rest of this section needs
+it.
+
+```bash
+export MINT=<the address printed above>
+```
+
+### Understand what the template turned on
+
+The `tokenized-security` template configures these Token-2022 extensions:
+
+| Extension             | What it gives you                                  | Reference                                                               |
+| --------------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
+| Default Account State | Every new token account is created frozen          | [Default state](/docs/tokens/extensions/default-state)                  |
+| Metadata              | Name, symbol, and URI stored onchain               | [Metadata](/docs/tokens/extensions/metadata)                            |
+| Pausable              | One action halts mint, burn, and transfer          | [Pausable](/docs/tokens/extensions/pausable)                            |
+| Permanent Delegate    | Forced transfer and forced burn from any account   | [Permanent delegate](/docs/tokens/extensions/permanent-delegate)        |
+| Scaled UI Amount      | A multiplier applied to displayed balances         | [Scaled UI amount](/docs/tokens/extensions/scaled-ui-amount)            |
+| Confidential Balances | Balances and amounts hidden from the public ledger | [Confidential transfers](/docs/tokens/extensions/confidential-transfer) |
+
+Two of these warrant a decision before you proceed.
+
+**Scaled UI amount** allows an accrual or a corporate action to change every
+holder's displayed balance without a transfer. It can only be enabled when the
+mint is created. Carrying it unused does not change any balance, but it does
+appear on the mint, so it belongs in the extension-by-extension support
+confirmation described in
+[custody integration](/docs/institutional/custody-and-vaults/custody-integration).
+Adding it later requires a new mint and a migration, so decide deliberately in
+either direction.
+
+**Confidential balances** is configured by the template but not yet active for
+holders. Activating it requires client-side zero-knowledge proof handling on
+every confidential operation. See
+[confidential transfers](/docs/tokens/extensions/confidential-transfer) for what
+that involves before planning around it.
+
+Note what is absent. The template does not enable
+[permissioned burn](/docs/tokens/extensions/permissioned-burn), so holders can
+burn their own balance without your co-signature. If redemption has to be a
+two-party operation for your asset, that is a requirement this template does not
+meet - see
+[choosing controls](/docs/institutional/token-design/choosing-controls).
+
+<Callout type="warn">
+
+The Mosaic CLI has no `set-authority` command. Authorities are assigned when the
+mint is created, and rotating them afterwards - including moving the mint
+authority off your fee payer - means using the Mosaic dashboard or building the
+instruction yourself. Decide your authority layout before you run the create
+command.
+
+</Callout>
+
+### Confirm what you built
+
+Read the mint back and check the extensions and authorities against what you
+intended.
+
+```bash
+mosaic inspect-mint \
+  --mint-address $MINT \
+  --rpc-url https://api.devnet.solana.com
+```
+
+{/* TODO(devnet): paste the real `mosaic inspect-mint` output here. */}
+
+Check four things specifically:
+
+1. The metadata, pausable, and permanent delegate authorities are three
+   different addresses, each matching the key you passed.
+2. The mint authority is your fee payer. That is expected here, per the note
+   above.
+3. **The freeze authority is the Token ACL program, not your own key and not
+   none.** If it is anything else, `--enable-srfc37 true` did not take effect
+   and the mint is unusable - create a new one.
+4. Default account state is frozen, and the extension list matches the table
+   above.
+
+If one of the three operational authorities came back as your fee-payer address
+rather than the key you passed, that flag did not take effect. Create a new mint
+rather than correcting it; on devnet the cost is negligible.
+
+</Steps>
+
+## What you have
+
+A mint whose accounts start frozen, so no address can hold the token yet,
+including your own, and a Token ACL allowlist wired to it with permissionless
+thaw enabled. The list is empty, which is the expected state at this point.
+Adding the first holder is the next tutorial.
+
+## Next Steps
+
+- [Gate the holders](/docs/institutional/tutorials/issuing/gate-the-holders) -
+  decide who is allowed to thaw

@@ -1,0 +1,171 @@
+---
+title: Payments and Interoperability
+description:
+  How a tokenized asset settles against its payment leg on Solana - atomic
+  exchange in one transaction, the choice of cash instrument, and how that
+  choice and the controls on the mint constrain each other.
+seoTitle: Cash Leg Settlement for Tokenized Assets on Solana
+url: /docs/institutional/payments-and-interoperability
+type: conceptual
+prerequisites:
+  - /docs/institutional/token-design
+  - /docs/institutional/token-design/choosing-controls
+related:
+  - /docs/tokenization/dvp
+  - /docs/tokenization/token-acl
+  - /docs/institutional/settlement-finality
+  - /docs/payments
+---
+
+<Callout type="info" title="Summary">
+
+Both legs of a trade can be accounts on the same ledger, so one transaction can
+exchange them or leave both positions unchanged. What remains a decision is
+which cash instrument settles against the asset: a stablecoin, a token
+representing a deposit at a bank, or a payment on existing rails recorded
+onchain. That choice and the controls on the mint constrain each other in both
+directions.
+
+</Callout>
+
+## Atomic exchange is a property of the ledger
+
+The runtime applies every instruction in a transaction or none of them. Where
+the asset and the cash are both token accounts on Solana, a single transaction
+moves the asset one way and the cash the other, and either both transfers take
+effect or neither does. No clearing intermediary sits between the legs, and no
+custom program is required to achieve it -
+[delivery versus payment](/docs/tokenization/dvp) settles a Token-2022 asset
+against standard USDC using extensions alone.
+
+### Someone still has to sign both legs
+
+A transaction that moves two positions needs authority over both. Commonly each
+side approves a delegate for its own leg and a settlement agent signs the
+combined transaction, holding neither position at any point. The issuer can also
+act on the asset leg through a permanent delegate, or one party can sign both
+legs against a delegation granted in advance.
+
+Two constraints follow. A token account carries one delegate at a time, so a
+position pledged to one settlement arrangement is not simultaneously available
+to another. And whoever signs is an operational dependency: their key custody,
+availability, and authorization evidence belong in the same controls review as
+the mint authorities. See
+[choosing controls](/docs/institutional/token-design/choosing-controls#split-authorities-from-the-start).
+
+## Choosing the cash instrument
+
+### Settle in a stablecoin
+
+Both legs are tokens on the same ledger, and the exchange is atomic as described
+above.
+
+- **What you take on.** Exposure to the stablecoin issuer, its reserves, its
+  redemption terms, and its ability to freeze balances. Both parties take that
+  exposure. Whether it is acceptable is a credit assessment.
+- **What it offers.** The widest set of counterparties, since holding the cash
+  leg requires no relationship with a particular bank.
+
+### Settle in a tokenized deposit
+
+The cash leg is a token representing a deposit claim on a specific bank. It
+settles atomically in exactly the same way as a stablecoin, but the claim is on
+a supervised institution and typically sits inside an existing deposit
+relationship.
+
+- **The trade-off is reach.** A deposit token is usually restricted to
+  counterparties who are already customers of the issuing bank, so it settles
+  within a network rather than across the market. A counterparty must satisfy
+  the gate on your asset and the gate on the bank's cash token, and the two
+  lists are maintained by different institutions.
+- **Two deposit tokens from two banks are not fungible.** A venue that accepts
+  more than one introduces a conversion between two claims denominated in the
+  same currency. This is the singleness-of-money problem. It has operational,
+  legal, and accounting dimensions, is not resolved by the settlement mechanism,
+  and is one of the topics
+  [risk and diligence](/docs/institutional/risk-and-diligence) flags as one
+  where no specific standard-setter guidance has been located.
+
+### Settle off-ledger, confirm onchain
+
+The asset leg moves onchain; the cash leg moves through your existing rails. A
+reference recorded with the onchain transfer ties the two together for
+reconciliation. This forgoes the atomicity described above.
+
+- **What you keep.** Your existing payment infrastructure, correspondent
+  relationships, and cash controls, unchanged.
+- **What you give up.** Atomicity. The two legs can diverge, so a documented
+  procedure for that case is needed.
+- **When it is right.** Large-value trades where the cash leg already settles
+  through a central bank system, and pilots where changing the cash
+  infrastructure is out of scope.
+
+## Controls and the cash leg constrain each other
+
+The control surface chosen for the mint determines what can settle against it,
+and the cash instrument you need places limits on how restrictive that surface
+can be.
+
+| Control                       | Effect on settlement                                                                                                                | Effect in the other direction                                                                                       |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Frozen by default + Token ACL | A counterparty needs a thawed account before the exchange. A frozen destination fails the whole transaction, including the cash leg | Permissionless thaw lets a counterparty qualify without the issuer signing for each one                             |
+| Transfer hook                 | The transaction carries the hook's extra accounts and compute, and venues that do not support hooks cannot settle the asset at all  | A cash leg that depends on broad venue support argues for expressing the rule as a list where a list can express it |
+| Permanent delegate            | Gives the issuer a way to move the asset leg without a counterparty delegation                                                      | Reduces the pressure on the single-delegate limit, at the cost of a key that can move any holder's balance          |
+| Confidential balances         | Hides amounts on the asset leg, while a public stablecoin cash leg still shows the payment                                          | A confidential cash leg narrows the instruments available, since it has to be supported on both sides               |
+| Pause                         | A paused asset leg fails the transaction, and a counterparty may have committed cash intent before that happens                     | The pause authority has to be reachable during settlement windows, not only during incidents                        |
+
+## What atomic settlement completes
+
+Where the mint is the register of record, a finalized atomic transaction is the
+settlement. Both entitlements have moved and nothing further is required.
+
+Where the token records an asset held elsewhere, the same transaction settles
+the token leg and the cash leg atomically, but the off-chain register is not
+part of that guarantee. Atomicity covers the two onchain legs and stops there,
+so the register update remains a separate step that can fail on its own. See
+[token design decisions](/docs/institutional/token-design) for the distinction
+and [settlement and finality](/docs/institutional/settlement-finality) for the
+reconciliation exposure this leaves and who has to own it.
+
+## Choosing
+
+| If                                                                           | Then                                                                          |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Counterparties are outside your institution and reach matters most           | Stablecoin                                                                    |
+| Counterparties are your own clients and balance-sheet treatment matters most | Tokenized deposit                                                             |
+| The cash leg must stay on existing rails                                     | Off-ledger with onchain confirmation                                          |
+| You need atomicity but cannot take issuer credit risk                        | Tokenized deposit, or reconsider whether atomicity is the binding requirement |
+
+## What to settle before you build
+
+- **Which balance sheet holds the cash**, and what your treasury policy says
+  about holding it there.
+- **Who signs each leg**, which account is delegated to whom at the point of
+  settlement, and what that delegation blocks while it stands.
+- **What happens on a failed leg**, in each direction, with a named owner.
+- **Which commitment level marks the trade settled in the books**, which may
+  differ from the level an interface displays. See
+  [settlement and finality](/docs/institutional/settlement-finality).
+- **How the cash leg is funded intraday**, and whether that funding is itself
+  atomic.
+
+<Callout type="warn">
+
+Stablecoin and deposit-token regimes differ by jurisdiction and are changing.
+Confirm the treatment of a chosen cash leg with counsel for each relevant
+jurisdiction, including whether an issuer may pay or pass through yield, before
+committing to a design.
+
+</Callout>
+
+## Related
+
+- [Delivery versus payment](/docs/tokenization/dvp) - settling both legs in one
+  transaction
+- [Token ACL](/docs/tokenization/token-acl) - the gate that determines who can
+  stand on the other side of a trade
+- [Settlement and finality](/docs/institutional/settlement-finality) - when the
+  trade is settled
+- [Payments](/docs/payments) - the stablecoin payment surface in detail
+- [Issuing a token](/docs/institutional/tutorials/issuing) - build a mint that
+  settles against the cash leg chosen here

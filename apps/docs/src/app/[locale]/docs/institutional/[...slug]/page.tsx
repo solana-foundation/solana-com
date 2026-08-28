@@ -1,0 +1,26 @@
+import { docsSource } from "@@/src/app/sources/docs";
+import { getMetadataFromSlug, InstitutionalDocsPage } from "../institutional";
+import { toStaticParams } from "@@/src/app/sources/utils";
+
+type Props = {
+  params: Promise<{ slug: string[]; locale: string }>;
+};
+
+export default async function Page(props: Props) {
+  const { slug, locale } = await props.params;
+  return (
+    <InstitutionalDocsPage slug={["institutional", ...slug]} locale={locale} />
+  );
+}
+
+export async function generateStaticParams() {
+  return toStaticParams(docsSource)
+    .filter((param) => param.slug[0] === "institutional")
+    .map((param) => ({ slug: param.slug.slice(1) }))
+    .filter((param) => param.slug.length > 0);
+}
+
+export async function generateMetadata(props: Props) {
+  const { slug, locale } = await props.params;
+  return getMetadataFromSlug(["institutional", ...slug], locale);
+}
