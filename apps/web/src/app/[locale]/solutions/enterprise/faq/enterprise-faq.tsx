@@ -245,9 +245,11 @@ export function EnterpriseFaqPage() {
                       >
                         +
                       </div>
-                      <div className="text-[13px] text-[#ABABBA] leading-[1.55] mt-1">
-                        {item.tldr}
-                      </div>
+                      {!isOpen && (
+                        <div className="text-[13px] text-[#ABABBA] leading-[1.55] mt-1">
+                          {item.tldr}
+                        </div>
+                      )}
                     </button>
                     {isOpen && (
                       <div className="mx-5 pb-5 border-t border-dashed border-white/10">
