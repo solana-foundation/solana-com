@@ -1,0 +1,234 @@
+---
+title: Deploying a Vault Against a Gated Token
+description:
+  Prepare what an asset-manager vault needs against a gated token on devnet -
+  allowlisting every account it touches and proving the gate blocks an outsider.
+seoTitle: Deploy a Fund Vault Against a Gated Token on Solana
+url: /docs/institutional/tutorials/vault
+type: tutorial
+prerequisites:
+  - /docs/institutional/tutorials/issuing/gate-the-holders
+related:
+  - /docs/institutional/custody-and-vaults/vault-architectures
+  - /docs/tokenization/nav-strikes
+  - /docs/tokenization/dvp
+---
+
+An asset-manager vault holding a gated token is subject to that gate like any
+other holder, and a common deployment failure is discovering that only after the
+first deposit fails.
+
+This tutorial does the part that can be done with first-party tooling: prove the
+gate applies to a vault, get every account the vault touches onto the allowlist,
+and verify each one. It continues from
+[gate the holders](/docs/institutional/tutorials/issuing/gate-the-holders), so
+`$MINT` should already be exported.
+
+The verification steps below use `spl-token`, which ships separately from the
+Solana CLI installed in the issuing tutorials:
+
+```bash
+cargo install spl-token-cli
+```
+
+<Callout type="warn" title="Where this tutorial stops">
+
+**Mosaic issues and operates tokens; it does not deploy vaults.** The steps
+below prepare and verify the token-layer conditions a vault needs, using an
+ordinary keypair to stand in for the vault's authority.
+
+For the vault program itself, the Foundation publishes
+[Vault Standard Suite](https://github.com/solana-foundation/vault), a reference
+async vault program deployed on devnet and not audited for mainnet, and
+[NAV strikes](/docs/tokenization/nav-strikes) carries a full worked
+implementation of the async request-and-settle pattern, including the delegated
+authority pattern and the subscription and redemption flows. Read this tutorial
+for the gating conditions, then those for the program.
+
+</Callout>
+
+<Steps>
+
+<Step>
+### Stand up the vault authority
+
+In a deployed vault this address is a PDA owned by the vault program. On devnet
+a keypair stands in, which is enough to demonstrate every gate interaction - the
+gate cares about the address, not what kind of address it is.
+
+```bash
+solana-keygen new --no-bip39-passphrase --silent \
+  --outfile ~/.config/solana/demo-vault.json
+
+export VAULT=$(solana-keygen pubkey ~/.config/solana/demo-vault.json)
+solana airdrop 1 $VAULT --url https://api.devnet.solana.com
+echo "vault authority: $VAULT"
+```
+
+<Callout type="info">
+
+When you move to a real vault, substitute the program's PDA here. Derive it the
+same way the program does and allowlist that, not a wallet - see
+[program and authority design](/docs/institutional/token-design/program-and-authority-design)
+for why the vault's holding account should be a PDA.
+
+</Callout>
+
+</Step>
+
+<Step>
+### Prove the gate blocks an unlisted vault
+
+Before allowlisting, confirm the failure mode. Try to move the asset into the
+vault while it is not on the list.
+
+<CodeTabs flags="r">
+
+```bash !! title="mosaic transfer" output=packages/docs-examples/institutional/vault/transfer-blocked.output.txt
+mosaic transfer \
+  --mint-address $MINT \
+  --recipient $VAULT \
+  --amount 1 \
+  --keypair ~/.config/solana/demo-holder.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+</CodeTabs>
+
+This fails. The vault's token account is created frozen and has no basis to
+thaw. A program is not exempt from the gate, and this is the error a deposit
+would produce on day one.
+
+</Step>
+
+<Step>
+### Allowlist every account the vault touches
+
+Enumerate them before you start. A vault over a gated token typically needs at
+least the vault's own asset account allowlisted, and - if the fund's shares are
+themselves a restricted token - each participant's share account too.
+
+```bash
+mosaic allowlist add \
+  --mint-address $MINT \
+  --account $VAULT \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+Repeat for each address in your enumeration. Missing one produces a failure when
+a participant tries to transact.
+
+</Step>
+
+<Step>
+### Confirm the deposit path now works
+
+```bash
+mosaic transfer \
+  --mint-address $MINT \
+  --recipient $VAULT \
+  --amount 1 \
+  --keypair ~/.config/solana/demo-holder.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+The only change was the onboarding decision recorded on the list.
+
+</Step>
+
+<Step>
+### Verify the gate state of each account
+
+Before going live, read every account the vault depends on and confirm its
+state. This is the pre-deployment check worth automating.
+
+```bash
+export VAULT_ATA=$(spl-token address --token $MINT --owner $VAULT \
+  --url https://api.devnet.solana.com --verbose \
+  | awk '/Associated token address/ {print $NF}')
+
+spl-token display $VAULT_ATA --url https://api.devnet.solana.com
+```
+
+**State** must read `Initialized`. `Frozen` means the account is gated out and
+any deposit or settlement touching it will fail.
+
+</Step>
+
+<Step>
+### Confirm what a pause does to the vault
+
+A token-wide pause stops the vault along with everything else, which matters
+because in-flight requests cannot settle while it holds.
+
+```bash
+# Run by the issuer
+mosaic control pause \
+  --mint-address $MINT \
+  --keypair ~/.config/solana/demo-authorities/pause.json \
+  --rpc-url https://api.devnet.solana.com
+
+mosaic control status \
+  --mint-address $MINT \
+  --rpc-url https://api.devnet.solana.com
+```
+
+With the token paused, retry the transfer from the previous step and watch it
+fail. Then resume:
+
+```bash
+# Run by the issuer
+mosaic control resume \
+  --mint-address $MINT \
+  --keypair ~/.config/solana/demo-authorities/pause.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+Decide, before launch, whether a pause means your in-flight requests queue or
+fail - and make sure whoever is authorized to pause the token knows a vault sits
+downstream.
+
+</Step>
+
+</Steps>
+
+## Building the vault itself
+
+With the gating conditions established, the vault program is the remaining work.
+The decisions are set out in
+[vault architectures](/docs/institutional/custody-and-vaults/vault-architectures):
+whether the design is synchronous or async, what is escrowed at request time,
+how the cut-off is enforced, who may publish a valuation, and what happens to a
+request that cannot settle.
+
+Three references carry implementations:
+
+- [Vault Standard Suite](https://github.com/solana-foundation/vault) - the
+  Foundation's reference async vault program, with generated TypeScript and Rust
+  clients and sequence diagrams for each flow. Devnet only, not audited for
+  mainnet.
+- [NAV strikes](/docs/tokenization/nav-strikes) - the async request-and-settle
+  pattern for a periodically-valued fund, end to end.
+- [Delivery versus payment](/docs/tokenization/dvp) - atomic exchange, which is
+  what the settlement leg of a subscription or redemption is.
+
+## Before mainnet
+
+- Every account the vault touches, enumerated and allowlisted, with the check
+  automated.
+- The vault's holding account is a program PDA, not a wallet.
+- Defined behavior for a participant who becomes ineligible between request and
+  settlement.
+- Defined behavior for in-flight requests during a pause.
+- Reconciliation of the vault's position against the register of record - see
+  [transfer agent responsibilities](/docs/institutional/custody-and-vaults/transfer-agent-responsibilities).
+
+## Next Steps
+
+- [Vault architectures](/docs/institutional/custody-and-vaults/vault-architectures) -
+  the design decisions behind the program
+- [NAV strikes](/docs/tokenization/nav-strikes) - a full async vault
+  implementation
+- [Vault Standard Suite](https://github.com/solana-foundation/vault) - the
+  reference vault program to read and adapt

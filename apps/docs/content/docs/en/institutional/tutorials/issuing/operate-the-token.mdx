@@ -1,0 +1,227 @@
+---
+title: Operate the Token
+description:
+  Exercise the controls an issuer runs day to day - freezing one account,
+  pausing the whole token, and forcing a transfer or a burn with the permanent
+  delegate.
+seoTitle: Operating a Regulated Token on Solana
+url: /docs/institutional/tutorials/issuing/operate-the-token
+type: tutorial
+prerequisites:
+  - /docs/institutional/tutorials/issuing/gate-the-holders
+related:
+  - /docs/institutional/token-design
+  - /docs/institutional/settlement-finality
+  - /docs/institutional/risk-and-diligence
+  - /docs/tokens/extensions/permanent-delegate
+---
+
+You have a mint and an allowlist. This tutorial exercises the powers an issuer
+runs day to day, so each has been used at least once before it is needed in
+production.
+
+Run these on devnet against the token from the previous two tutorials. Note
+which key signs each one: pause and forced transfer use the dedicated
+authorities from the first tutorial, while the gate operations use your fee
+payer.
+
+<Steps>
+
+<Step>
+### Freeze one account
+
+Freezing targets a single holder. Use it when one account needs to stop and the
+rest of the token should keep working - a suspected compromise, a client under
+investigation, an account pending re-documentation.
+
+These commands take the holder's **token account**, not their wallet, so derive
+it first:
+
+```bash
+export HOLDER_ATA=$(spl-token address --token $MINT --owner $HOLDER \
+  --url https://api.devnet.solana.com --verbose \
+  | awk '/Associated token address/ {print $NF}')
+
+mosaic token-acl freeze \
+  --token-account $HOLDER_ATA \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+Confirm the holder cannot transfer. The transfer fails on the _source_ account
+being frozen, so it fails even though the recipient's account is already thawed:
+
+<CodeTabs flags="r">
+
+```bash !! title="mosaic transfer" output=packages/docs-examples/institutional/issuing/transfer-frozen.output.txt
+mosaic transfer \
+  --mint-address $MINT \
+  --recipient $OUTSIDER \
+  --amount 1 \
+  --keypair ~/.config/solana/demo-holder.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+</CodeTabs>
+
+Then thaw:
+
+```bash
+mosaic token-acl thaw \
+  --token-account $HOLDER_ATA \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+As noted in the previous tutorial, freezing an account and removing it from the
+allowlist are different actions. A complete offboarding uses both.
+
+</Step>
+
+<Step>
+### Pause the whole token
+
+Pausing halts mint, burn, and transfer activity across every holder at once.
+This is the incident-response control. Its authority needs to be reachable
+within minutes for it to be useful.
+
+<CodeTabs flags="r">
+
+```bash !! title="mosaic control" output=packages/docs-examples/institutional/issuing/control-status-paused.output.txt
+mosaic control pause \
+  --mint-address $MINT \
+  --keypair ~/.config/solana/demo-authorities/pause.json \
+  --rpc-url https://api.devnet.solana.com
+
+mosaic control status \
+  --mint-address $MINT \
+  --rpc-url https://api.devnet.solana.com
+```
+
+</CodeTabs>
+
+`pause` prompts for confirmation before it halts the token. Pass
+`--skip-warning` to bypass the prompt in a runbook script - but treat an
+unattended pause as a decision that still needs a human behind it.
+
+Try a transfer while paused and watch it fail. Then resume:
+
+```bash
+mosaic control resume \
+  --mint-address $MINT \
+  --keypair ~/.config/solana/demo-authorities/pause.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+Two things worth settling before using this on mainnet: who is authorized to
+invoke it and on what evidence, and what holders are told. Decide the unwind
+before you need the pause.
+
+</Step>
+
+<Step>
+### Force a transfer
+
+The permanent delegate can move any holder's balance without their signature.
+This is the power used to comply with a court order, to recover from a lost key,
+and to move a balance after a fraudulent transfer. It moves tokens onward; the
+original transfer remains on the ledger.
+
+```bash
+mosaic force-transfer \
+  --mint-address $MINT \
+  --from-account $HOLDER \
+  --recipient $OUTSIDER \
+  --amount 10 \
+  --keypair ~/.config/solana/demo-authorities/delegate.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+Each use needs a documented authorization trail created before the transaction
+is signed. Keeping the key offline and behind a quorum means a compromise of
+day-to-day operations keys does not reach it, so it sits on its own keypair.
+
+</Step>
+
+<Step>
+### Burn without the holder
+
+The permanent delegate can burn a balance without the holder's signature, for
+redemptions where there is no cooperating holder - a lost key, an unresponsive
+account, a position being extinguished under a court order.
+
+```bash
+mosaic force-burn \
+  --mint-address $MINT \
+  --from-account $OUTSIDER \
+  --amount 1 \
+  --keypair ~/.config/solana/demo-authorities/delegate.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+<Callout type="warn">
+
+This mint does not carry permissioned burn, so a holder **can** burn their own
+balance unilaterally, and `force-burn` is the only burn the CLI exposes. If
+redemption has to be a two-party operation for your asset, the mint needs the
+[permissioned burn](/docs/tokens/extensions/permissioned-burn) extension, which
+the `tokenized-security` template does not enable and which cannot be added
+after creation.
+
+</Callout>
+
+What a burn completes depends on where your register of record sits. Where the
+mint is the register, the burn is the redemption and the liability is
+extinguished when the transaction finalizes. Where the token records an asset
+held elsewhere, the burn records a redemption that also has to happen in the
+off-chain register, and the two need a shared reference so the pair can be
+reconciled afterwards. See
+[token design decisions](/docs/institutional/token-design).
+
+</Step>
+
+</Steps>
+
+## Scaled UI amount and reconciliation
+
+On a mint carrying the scaled UI amount extension, the raw balance stored
+onchain differs from the balance a holder owns. A multiplier is applied for
+display, and it changes each time a new one is struck.
+
+<Callout type="warn">
+
+Supply, holdings, and valuations on a mint that uses scaled UI amount need the
+current multiplier applied to the raw onchain amount. Tooling that reads the raw
+value without applying the multiplier reports positions that are off by it, in
+either direction, since a multiplier can be below one. Check against
+[scaled UI amount](/docs/tokens/extensions/scaled-ui-amount) before building a
+reconciliation process on a third-party figure.
+
+</Callout>
+
+## Procedures to settle before mainnet
+
+The commands above are the mechanism. The operating procedure around them is
+specific to each issuer:
+
+| Power          | Decide                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------- |
+| Freeze         | Who can request, who approves, how the holder is told                                                         |
+| Pause          | Trigger conditions, who is reachable, unwind and communication                                                |
+| Force transfer | Evidence required before signing, quorum, where the record lives                                              |
+| Forced burn    | Evidence required before signing, and how the redemption is recorded off-chain                                |
+| Mint and burn  | In a mirror structure, which movement in the underlying authorizes each, and who evidences the correspondence |
+| Every power    | Key custody, rotation procedure, and rehearsal schedule                                                       |
+
+Rotation is worth rehearsing in particular. The Mosaic CLI has no
+`set-authority` command, so run authority rotation on devnet through the path
+intended for production before it is needed.
+
+## Next Steps
+
+- [Enabling settlement as a custodian](/docs/institutional/tutorials/custodian) -
+  the counterparty side of the token you just built
+- [Settlement and finality](/docs/institutional/settlement-finality) - when a
+  transfer is settled for your books
+- [Risk and diligence](/docs/institutional/risk-and-diligence) - the wider set
+  of diligence questions

@@ -1,0 +1,193 @@
+---
+title: Settlement and Finality
+description:
+  What processed, confirmed, and finalized mean on Solana, how many slots each
+  takes, and which one a system of record should trust.
+seoTitle: Solana Settlement Finality and Commitment Levels
+url: /docs/institutional/settlement-finality
+type: reference
+related:
+  - /docs/institutional/token-design
+  - /docs/institutional/payments-and-interoperability
+  - /docs/institutional/risk-and-diligence
+  - /docs/payments/production-readiness
+  - /docs/references/terminology
+  - /docs/core/transactions
+---
+
+<Callout type="info" title="Summary">
+
+Solana exposes three commitment levels. A system of record should mark a
+transfer settled at `finalized`, which a block reaches once 31 further slots
+have been built on top of it - so the finalized head trails the tip of the chain
+by 32 slots, the block itself plus the 31 above it. Every figure on this page
+counts slots that way. Your interface may show a user a result at `confirmed`,
+which is much faster. The
+[transaction confirmation & expiration](/developers/cookbook/transactions/confirmation)
+page explains this in more detail.
+
+</Callout>
+
+## The three commitment levels
+
+| Level       | Means                                                        | Reached after          | Can it be reversed?            |
+| ----------- | ------------------------------------------------------------ | ---------------------- | ------------------------------ |
+| `processed` | The transaction is in a block produced by the current leader | 1 slot                 | Yes, routinely                 |
+| `confirmed` | A supermajority of stake has voted for that block            | Typically 1 to 2 slots | Yes, in principle              |
+| `finalized` | The block is rooted and a supermajority has built on it      | 31 further slots       | Only by a supermajority attack |
+
+### Express these in slots, not seconds
+
+Slot time is a protocol parameter that is actively changing, so any figure in
+milliseconds has a short shelf life. **Record the slot count; derive the
+wall-clock; state the slot time you assumed.**
+
+As of August 2026, target slot time is 350ms, following the first step of
+[SIMD-0525](https://github.com/solana-foundation/solana-improvement-documents/pull/525),
+which reduces slot times from 400ms to 200ms in four staged decrements. Each
+step has its own feature gate and activates independently, so the remaining
+steps are not on a fixed timetable. Read the current value from the live
+dashboard at [solana.com/200ms](https://solana.com/200ms).
+
+At 350ms per slot, 31 slots is approximately 10.9 seconds. At 400ms it was
+approximately 12.4 seconds. The slot count is unchanged; only the derived
+wall-clock figure moved.
+
+<Callout type="warn">
+
+The `DEFAULT_MS_PER_SLOT` constant in the Solana SDK is still 400. Any client
+that computes elapsed time as `slots × 400ms` is now silently wrong. Read the
+current slot time from the cluster rather than from a constant, and track the
+rollout at [solana.com/200ms](https://solana.com/200ms) or
+[reduced slot times](/upgrades/reduced-slot-times) - but verify the activation
+state against the feature gate itself, because published status pages can lag
+the chain.
+
+</Callout>
+
+## Which level to use
+
+**For a system of record, use `finalized`.** This is the level at which the
+network's guarantee applies. No finalized transaction has been reversed on
+Solana mainnet-beta.
+
+**For user-facing feedback, `confirmed` is appropriate.** It is fast enough to
+feel immediate, and the risk it carries is acceptable for showing someone that
+their action worked. It is not acceptable for releasing an asset against it.
+
+**Avoid `processed` for anything consequential.** It reflects a single leader's
+view and is routinely superseded.
+
+A treasury system that credits a balance at `confirmed` is taking settlement
+risk. An interface that displays a result at `confirmed` is not.
+
+### What finality completes depends on your register of record
+
+Where the mint is the register of record, a finalized transfer is the
+settlement. Nothing further has to happen for the entitlement to have moved.
+
+Where the token records an asset held elsewhere, a finalized transfer settles
+the onchain leg only. The off-chain register still has to be updated, and the
+interval between the two is a reconciliation exposure that needs a named owner
+and a documented procedure for the case where the second update does not happen.
+This holds even where the trade settled atomically against cash: the two token
+legs move together, and the register update sits outside that transaction. See
+[token design decisions](/docs/institutional/token-design) for the distinction
+and
+[payments and interoperability](/docs/institutional/payments-and-interoperability)
+for what the atomic transaction does and does not complete.
+
+### A practical trap when building transactions
+
+A transaction is valid only while the blockhash it references is recent - the
+network keeps the 150 most recent blockhashes and rejects anything older. If you
+fetch that blockhash at `finalized`, you are starting from a block that is
+already 32 slots old, so roughly a fifth of the 150-slot window is gone before
+you have signed anything.
+
+**Fetch the blockhash at `confirmed`** so the transaction gets its full window,
+and use `finalized` for deciding whether the result counts. The two uses are
+independent.
+
+Real slots run slightly longer than the target, so a window computed from the
+target slot time is an optimistic estimate. Against a 350ms target, mainnet
+slots sampled in August 2026 averaged closer to 365ms; read the current figure
+from [solana.com/200ms](https://solana.com/200ms). Carry the same slack
+proportionally as slot times change, and measure it rather than assuming the
+target.
+
+## Protocol finality is not legal finality
+
+**Protocol finality** is the property described above: the conditions under
+which the network will not reorganize a block. It is precisely defined, publicly
+observable, and the same for everyone.
+
+**Legal finality** is whether a transfer is irrevocable and unwindable-only-by-
+exception under the law of a particular jurisdiction, typically in insolvency.
+It depends on the venue, the governing law, the legal characterization of the
+token, and in many jurisdictions on whether the system is designated under a
+settlement finality regime.
+
+Solana can tell you when a transaction is final under the protocol. It cannot
+tell you when a transfer is final under the law, and no chain can. No technical
+mitigant closes that gap. Each regulatory regime treats settlement finality
+differently, so the question has to be answered for each jurisdiction you settle
+in - see [risk and diligence](/docs/institutional/risk-and-diligence).
+
+In practice: state the protocol property precisely, cite it, and treat the legal
+question as a separate item for review in each relevant jurisdiction.
+
+## What a reorg can and cannot do
+
+Blocks that have not been finalized can be superseded. This is normal operation
+and systems reading the chain should expect it.
+
+- **Before `finalized`**, a transaction you have seen may end up on a fork that
+  is abandoned. The transaction did not fail; the block containing it was
+  superseded by one the network built on instead.
+- **After `finalized`**, superseding a block would require a supermajority of
+  stake to act against the protocol.
+
+Record a superseded transaction as superseded rather than deleting it. Keeping
+the history makes it possible to explain, months later, why an entry that once
+existed no longer appears.
+
+## Ordering
+
+Order events by **slot**, not by block time. Block time is a validator-reported
+estimate and is not monotonic across the cluster. Slot numbers are the ledger's
+own sequence and are unambiguous.
+
+Where two instructions in the same transaction both affect your books, key your
+records on the transaction signature together with the instruction index. A
+signature alone is not a unique key for a ledger entry.
+
+## For a regulatory submission
+
+The statements below are the ones typically needed when documenting Solana's
+settlement properties for a supervisor. Each is independently checkable:
+
+1. Three commitment levels exist, with the meanings above.
+2. Finality is reached once 31 further slots have been built on the block, so
+   the finalized head trails the tip by 32. Slot time is a protocol parameter,
+   350ms as of August 2026 and subject to further staged reduction under
+   SIMD-0525, so state the slot time you assumed alongside any wall-clock
+   figure.
+3. No finalized transaction has been reversed on mainnet-beta.
+4. Finality rests on economic assumptions about the distribution of stake, and
+   is probabilistic in that sense.
+5. Legal finality is a separate question determined by jurisdiction, and the
+   protocol makes no claim about it.
+
+For network liveness history, validator counts, and concentration measures - the
+other figures a supervisor usually asks for alongside these - see
+[risk and diligence](/docs/institutional/risk-and-diligence) and the live
+sources in [resources](/docs/institutional/resources).
+
+## Related
+
+- [Production readiness](/docs/payments/production-readiness) - the same
+  commitment levels from a payment integrator's perspective
+- [Terminology](/docs/references/terminology) - the canonical definitions
+- [Transactions](/docs/core/transactions) - how blockhashes and validity windows
+  work

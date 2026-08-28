@@ -64,6 +64,7 @@ export function DevelopersNav({
                   "/docs/finance",
                   "/docs/payments",
                   "/docs/tokenization",
+                  "/docs/institutional",
                   "/docs/defi",
                   "/docs/tools",
                   localInstallationResourcesPath,
@@ -117,6 +118,7 @@ export function DevelopersNav({
                 partiallyActiveMatch={[
                   "/docs/tokens",
                   "/docs/tokenization",
+                  "/docs/institutional",
                   "/docs/payments",
                   "/docs/defi",
                 ]}

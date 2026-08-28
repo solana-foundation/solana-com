@@ -9,11 +9,13 @@ const SITE_ORIGIN = "https://solana.com";
 /** One-line routing hints shown to agents at the top of each scoped index. */
 const SECTION_NOTES: Record<string, string> = {
   finance:
-    "Financial products on Solana - assets, payments, markets, and DeFi.",
+    "Financial products on Solana - assets, payments, privacy, markets, and DeFi.",
   payments:
     "Sending, accepting, and processing payments on Solana - subscriptions, batching, and agentic flows.",
   tokenization:
     "Issuing stablecoins, tokenizing real-world assets, and operating compliant tokens on Solana.",
+  institutional:
+    "Issuing tokens on Solana as a regulated institution - token and authority design, attestation-based compliance and confidential balances, deployment and settlement architecture, custody, transfer-agent and vault integration, building a gated mint, settling against cash, settlement finality, and risk and compliance diligence.",
   defi: "Trading systems, DEX and oracle integration, and financial applications on Solana.",
   rpc: "The complete Solana JSON-RPC reference - HTTP methods and websocket subscriptions.",
   tools:

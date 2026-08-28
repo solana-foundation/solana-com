@@ -23,5 +23,17 @@ describe("Finance docs MDX", () => {
     expect(markup).toContain(
       "/assets/docs/diagrams/finance-overview-light.svg",
     );
+
+    // The Finance hub links every section in the cluster.
+    for (const href of [
+      "/docs/tokens",
+      "/docs/tokenization",
+      "/docs/institutional",
+      "/docs/payments",
+      "/docs/defi",
+      "/docs/finance/privacy",
+    ]) {
+      expect(markup).toContain(`href="${href}"`);
+    }
   });
 });

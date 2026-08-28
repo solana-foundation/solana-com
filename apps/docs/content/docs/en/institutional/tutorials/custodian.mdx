@@ -1,0 +1,287 @@
+---
+title: Enabling Settlement as a Custodian
+description:
+  Take the custodian side of a gated token on devnet - derive the custody
+  address, get it allowlisted, receive the asset, and observe a freeze.
+seoTitle: Custodian Integration Tutorial for Gated Tokens on Solana
+url: /docs/institutional/tutorials/custodian
+type: tutorial
+prerequisites:
+  - /docs/institutional/tutorials/issuing/gate-the-holders
+related:
+  - /docs/institutional/custody-and-vaults/custody-integration
+  - /docs/institutional/tutorials/issuing/operate-the-token
+  - /docs/defi/exchange
+---
+
+The issuing tutorials build a gated token from the issuer's side. This one takes
+the other side: you are a custodian being onboarded to hold that asset for a
+client, and you need to know what your systems should do and what they may see
+when the issuer exercises a control.
+
+It continues from
+[gate the holders](/docs/institutional/tutorials/issuing/gate-the-holders), so
+you should already have `$MINT` exported and the Token ACL allowlist working.
+
+<Callout type="info" title="Two toolchains, two sides">
+
+Two toolchains appear below. The **custodian-side** commands use `spl-token` and
+`solana`, which is what a custody system reads and writes. The **issuer-side**
+commands use the Mosaic CLI from the issuing tutorials, and are marked where
+they appear - in a real integration another party runs those.
+
+`spl-token` is not part of the Solana CLI install from the issuing tutorials. It
+ships separately:
+
+```bash
+cargo install spl-token-cli
+```
+
+</Callout>
+
+<Steps>
+
+<Step>
+### Create the custody address
+
+A custodian holds the asset at an address it controls. On devnet, a keypair
+stands in for whatever your key-management backend produces - see
+[choosing a backend](/docs/tools/keychain/choosing-a-backend) for what this is
+in production.
+
+```bash
+solana-keygen new --no-bip39-passphrase --silent \
+  --outfile ~/.config/solana/demo-custodian.json
+
+export CUSTODIAN=$(solana-keygen pubkey ~/.config/solana/demo-custodian.json)
+solana airdrop 1 $CUSTODIAN --url https://api.devnet.solana.com
+echo "custodian: $CUSTODIAN"
+```
+
+</Step>
+
+<Step>
+### Derive the token account address before it exists
+
+This is the step that makes custodian onboarding work, and an easy one to miss.
+
+The asset does not sit at your wallet address. It sits in an associated token
+account derived from that wallet and the mint. Two different addresses do two
+different jobs here, and confusing them is the usual cause of a stalled
+onboarding:
+
+- The **wallet** is what the issuer allowlists. That is the onboarding decision.
+- The **associated token account** is what actually holds the balance, what the
+  issuer freezes, and what your reconciliation reads.
+
+The associated token address is deterministic, so you can compute it before the
+account exists - which is what lets you wire up monitoring and reconciliation
+ahead of the first transfer rather than after it.
+
+```bash
+spl-token address \
+  --token $MINT \
+  --owner $CUSTODIAN \
+  --url https://api.devnet.solana.com \
+  --verbose
+```
+
+This prints the wallet address and the associated token address. It works before
+the account exists, because the address is derived rather than assigned.
+
+<Callout type="warn">
+
+If your custody platform rotates wallets per client or per deposit, every one of
+those wallets needs allowlisting before it can receive - a wallet that is not on
+the list gets a token account that is created frozen with no basis to thaw.
+Settle this with the issuer during onboarding, not at first transfer - it is a
+common cause of launch delay - see
+[custody integration](/docs/institutional/custody-and-vaults/custody-integration).
+
+</Callout>
+
+</Step>
+
+<Step>
+### Get the address onto the allowlist
+
+Issuer side. You supply the wallet address - not the token account - and the
+issuer records the onboarding decision.
+
+```bash
+# Run by the issuer, not the custodian. Takes the wallet, not the token account.
+mosaic allowlist add \
+  --mint-address $MINT \
+  --account $CUSTODIAN \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+In production this is a request with a named contact and a committed turnaround
+on the issuer's side, not an ad-hoc command.
+
+</Step>
+
+<Step>
+### Receive the asset
+
+Issuer side again - a mint into the custody address. The token account is
+created and thawed in the same transaction, because the address is on the list.
+
+```bash
+# Run by the issuer
+mosaic mint \
+  --mint-address $MINT \
+  --recipient $CUSTODIAN \
+  --amount 500 \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+</Step>
+
+<Step>
+### Confirm what you are holding
+
+Back on the custodian side. Read the token account directly.
+
+<CodeTabs flags="r">
+
+```bash !! title="spl-token display" output=packages/docs-examples/institutional/custodian/display-thawed.output.txt
+export CUSTODY_ATA=$(spl-token address --token $MINT --owner $CUSTODIAN \
+  --url https://api.devnet.solana.com --verbose \
+  | awk '/Associated token address/ {print $NF}')
+
+spl-token display $CUSTODY_ATA --url https://api.devnet.solana.com
+```
+
+</CodeTabs>
+
+Read two fields. **Balance** is the position. **State** is the one your systems
+must handle: `Initialized` means the account is thawed and usable, `Frozen`
+means it is not. A custody platform that does not surface this field has no way
+to explain a failed withdrawal from the account state alone.
+
+</Step>
+
+<Step>
+### Observe a freeze
+
+The issuer can freeze an account you hold, without your involvement. Your
+systems have to detect it rather than discover it on a failed withdrawal.
+
+```bash
+# Run by the issuer - note this takes the token account, not the wallet
+mosaic token-acl freeze \
+  --token-account $CUSTODY_ATA \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+Now read the account again:
+
+<CodeTabs flags="r">
+
+```bash !! title="spl-token display" output=packages/docs-examples/institutional/custodian/display-frozen.output.txt
+spl-token display $CUSTODY_ATA --url https://api.devnet.solana.com
+```
+
+</CodeTabs>
+
+**State** is now `Frozen`. The balance is unchanged - the assets are still
+there, they cannot move. This distinction matters for client reporting: a frozen
+position should be reported as unavailable, not as zero.
+
+Restore it before continuing:
+
+```bash
+# Run by the issuer
+mosaic token-acl thaw \
+  --token-account $CUSTODY_ATA \
+  --keypair ~/.config/solana/institutional-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+</Step>
+
+<Step>
+### Reconcile at a stated commitment level
+
+Reconciliation against a book of record needs a defined point in time, not
+"now". `spl-token` has no `--commitment` flag. It reads at the commitment set in
+the Solana CLI config, defaulting to `confirmed`. For a finalized read, either
+set it globally with `solana config set --commitment finalized`, or keep a
+separate config file and pass it per invocation.
+
+The config file replaces your settings rather than layering on top of them, so
+it has to carry the cluster as well as the commitment. Omit `json_rpc_url` and
+the read silently goes to mainnet-beta, where `$CUSTODY_ATA` does not exist:
+
+```bash
+cat > ~/.config/solana/finalized.yml <<'EOF'
+json_rpc_url: https://api.devnet.solana.com
+websocket_url: ""
+keypair_path: ~/.config/solana/demo-custodian.json
+commitment: finalized
+EOF
+```
+
+```bash
+# Per-invocation, without changing commitment for every other command
+spl-token display $CUSTODY_ATA -C ~/.config/solana/finalized.yml
+```
+
+The second form is the one to use for a reconciliation job, since it does not
+change the commitment for every other command on the machine.
+
+`solana account` is still useful when you want the raw account bytes and the
+context slot alongside the balance:
+
+```bash
+solana account $CUSTODY_ATA \
+  --url https://api.devnet.solana.com \
+  --commitment finalized \
+  --output json
+```
+
+For a position listing across a client's holdings:
+
+```bash
+spl-token accounts --owner $CUSTODIAN --url https://api.devnet.solana.com
+```
+
+Use `finalized` for anything that feeds a book of record, and see
+[settlement and finality](/docs/institutional/settlement-finality) for why the
+other levels are not appropriate there.
+
+</Step>
+
+</Steps>
+
+## What a real integration adds
+
+Everything above is a read or a single transaction. A production custody
+integration also needs:
+
+- **Continuous detection.** Account state changes because the issuer acted.
+  Subscribe to the accounts you hold so a freeze, a pause, or a
+  permanent-delegate transfer raises an alert rather than surfacing as a failed
+  client instruction.
+- **Handling for a balance that leaves without your instruction.** The permanent
+  delegate can move assets out of an account you hold. Your reconciliation
+  should classify it as an authorized issuer action, not a break or a loss.
+- **Pause awareness.** A token-wide pause stops everything at once, across every
+  client position in that asset.
+- **The issuer's incident contact**, reachable on the timescale their pause
+  authority operates on.
+
+[Exchange integration](/docs/defi/exchange) covers the surrounding operational
+machinery - node operation, deposit and withdrawal handling, offline accounts,
+and withdrawal validation.
+
+## Next Steps
+
+- [Custody integration](/docs/institutional/custody-and-vaults/custody-integration) -
+  what to confirm with an issuer before agreeing to hold an asset
+- [Deploying a vault](/docs/institutional/tutorials/vault) - the asset-manager
+  side of the same token
