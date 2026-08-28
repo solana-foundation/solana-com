@@ -1,10 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link } from "@workspace/i18n/routing";
 import { cn } from "@/app/components/utils";
 import { SelectionColor } from "@/component-library/selection-color";
-import { FAQ_TOPICS, FAQ_TOTAL, type FaqItem } from "@/data/enterprise/faq";
+import {
+  FAQ_TOPICS,
+  FAQ_TOTAL,
+  GLOSSARY,
+  type FaqItem,
+  type FaqSegment,
+} from "@/data/enterprise/faq";
 
 const CONTACT_HREF = "mailto:enterprise@solana.org";
 
@@ -19,8 +25,41 @@ type IndexedTopic = {
   items: IndexedItem[];
 };
 
-function stripTags(html: string): string {
-  return html.replace(/<[^>]+>/g, " ");
+function segmentText(segment: FaqSegment): string {
+  return typeof segment === "string"
+    ? segment
+    : (segment.display ?? segment.term);
+}
+
+function answerText(paragraphs: FaqSegment[][]): string {
+  return paragraphs
+    .map((paragraph) => paragraph.map(segmentText).join(""))
+    .join(" ");
+}
+
+function AnswerParagraphs({ paragraphs }: { paragraphs: FaqSegment[][] }) {
+  return (
+    <>
+      {paragraphs.map((paragraph, paragraphIndex) => (
+        <p key={paragraphIndex}>
+          {paragraph.map((segment, segmentIndex) =>
+            typeof segment === "string" ? (
+              <Fragment key={segmentIndex}>{segment}</Fragment>
+            ) : (
+              <span
+                key={segmentIndex}
+                className="faq-term"
+                tabIndex={0}
+                data-tip={GLOSSARY[segment.term]}
+              >
+                {segment.display ?? segment.term}
+              </span>
+            ),
+          )}
+        </p>
+      ))}
+    </>
+  );
 }
 
 export function EnterpriseFaqPage() {
@@ -37,7 +76,7 @@ export function EnterpriseFaqPage() {
           ...item,
           id: `${topicIndex}-${itemIndex}`,
           searchText:
-            `${item.q} ${item.tldr} ${stripTags(item.a)}`.toLowerCase(),
+            `${item.q} ${item.tldr} ${answerText(item.a)}`.toLowerCase(),
         })),
       })),
     [],
@@ -253,10 +292,9 @@ export function EnterpriseFaqPage() {
                     </button>
                     {isOpen && (
                       <div className="mx-5 pb-5 border-t border-dashed border-white/10">
-                        <div
-                          className="faq-ans"
-                          dangerouslySetInnerHTML={{ __html: item.a }}
-                        />
+                        <div className="faq-ans">
+                          <AnswerParagraphs paragraphs={item.a} />
+                        </div>
                         {item.refs && item.refs.length > 0 && (
                           <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-white/5">
                             <span className="text-[11px] tracking-[0.1em] uppercase text-white/40 mr-1">
