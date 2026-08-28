@@ -113,10 +113,6 @@ function DocumentationTagGrid({
         <h2 className="mb-0 mt-4 text-xl font-semibold text-fd-foreground">
           No documentation tags yet
         </h2>
-        <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-fd-muted-foreground">
-          Tagged documentation will appear here automatically as the taxonomy is
-          rolled out.
-        </p>
       </section>
     );
   }
