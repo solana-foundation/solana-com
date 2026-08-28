@@ -59,6 +59,7 @@ CURATED_SECTIONS = {
         ("Custody Integration", "docs/institutional/custody-and-vaults/custody-integration", "What a custodian must support to hold a gated Token-2022 asset"),
         ("Transfer Agent Responsibilities", "docs/institutional/custody-and-vaults/transfer-agent-responsibilities", "Dividing issuer and transfer-agent duties and reconciling the register"),
         ("Vault Architectures", "docs/institutional/custody-and-vaults/vault-architectures", "Async request-and-settle vaults over a gated token"),
+        ("Payments and Interoperability", "docs/institutional/payments-and-interoperability", "Settling the cash leg against a tokenized asset"),
         ("Create the Mint", "docs/institutional/tutorials/issuing/create-the-mint", "Build a gated Token-2022 mint with split authorities"),
         ("Gate the Holders", "docs/institutional/tutorials/issuing/gate-the-holders", "Allowlist holders and thaw their accounts through Token ACL"),
         ("Operate the Token", "docs/institutional/tutorials/issuing/operate-the-token", "Freeze, pause, force-transfer, and offboard a holder"),
