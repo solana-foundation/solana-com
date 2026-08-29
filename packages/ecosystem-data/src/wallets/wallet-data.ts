@@ -1700,10 +1700,9 @@ const walletRecords = {
       "hardware",
       "multi_chain",
       "solana_native",
-      "multi_sig",
     ],
     description:
-      "Privacy-focused self-custody wallet for iOS and web with privacy-preserving Solana transfers, multi-chain asset management, NFT support, Ledger support, and multisig vault capabilities",
+      "Privacy-focused self-custody wallet for iOS and web with privacy-preserving Solana transfers, multi-chain asset management, NFT support, and Ledger support",
     website: "https://www.nov.ag/",
     icon: novaIcon,
     lastVerified: "2026-08-29",
