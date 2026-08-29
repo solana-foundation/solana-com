@@ -18,6 +18,7 @@ export const redotpay = {
     type: "Company",
     links: {
       website: "https://www.redotpay.com/",
+      x: "https://x.com/RedotPay",
     },
   },
   defaultLogoId: "logo-black",

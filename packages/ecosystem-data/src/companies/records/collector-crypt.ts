@@ -25,6 +25,7 @@ export const collectorCrypt = {
     links: {
       website: "https://collectorcrypt.com/",
       docs: "https://docs.collectorcrypt.com/",
+      x: "https://x.com/Collector_Crypt",
     },
   },
   defaultLogoId: "logo-light",
