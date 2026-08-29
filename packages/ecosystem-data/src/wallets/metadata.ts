@@ -7,6 +7,7 @@ export const WALLET_VERIFICATION_DATES = {
   solflareAudit: "2026-07-16",
   walletResearch20260806: "2026-08-06",
   openSourceAudit20260818: "2026-08-18",
+  novaCorrection20260829: "2026-08-29",
 } as const satisfies Record<string, `${number}-${number}-${number}`>;
 
 export type WalletVerificationDate =

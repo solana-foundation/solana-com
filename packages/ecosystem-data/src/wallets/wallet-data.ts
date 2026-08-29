@@ -1698,14 +1698,15 @@ const walletRecords = {
       "non_custodial",
       "hold_nfts",
       "hardware",
+      "multi_chain",
       "solana_native",
       "multi_sig",
     ],
     description:
-      "Privacy-focused self-custody Solana wallet for iOS and web with NFT management, Ledger support, and multisig vault capabilities",
-    website: "https://www.nshield.org/",
+      "Privacy-focused self-custody wallet for iOS and web with privacy-preserving Solana transfers, multi-chain asset management, NFT support, Ledger support, and multisig vault capabilities",
+    website: "https://www.nov.ag/",
     icon: novaIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-08-29",
   },
   now: {
     name: "NOW Wallet",
