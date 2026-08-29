@@ -18,7 +18,11 @@ export type SponsorTier = {
   id: string;
   title: string;
   mobileColumns: string;
-  mobileLogoScale: number;
+  mobileLogoMaxWidth: number;
+  mobileLogoMaxHeight: number;
+  logoMaxWidth: number;
+  logoMaxHeight: number;
+  cellAspectRatio: number;
   columns: string;
   cellAspect: string;
   sponsors: SponsorLogo[];
@@ -213,7 +217,11 @@ export const sponsorTiers = [
     id: "platinum",
     title: "Platinum",
     mobileColumns: "grid-cols-1",
-    mobileLogoScale: 0.6,
+    mobileLogoMaxWidth: 0.76,
+    mobileLogoMaxHeight: 0.62,
+    logoMaxWidth: 0.72,
+    logoMaxHeight: 0.62,
+    cellAspectRatio: 2,
     columns: "md:grid-cols-4",
     cellAspect: "aspect-[442/221]",
     sponsors: platinumSponsors,
@@ -222,7 +230,11 @@ export const sponsorTiers = [
     id: "gold",
     title: "Gold",
     mobileColumns: "grid-cols-2",
-    mobileLogoScale: 0.64,
+    mobileLogoMaxWidth: 0.7,
+    mobileLogoMaxHeight: 0.56,
+    logoMaxWidth: 0.68,
+    logoMaxHeight: 0.56,
+    cellAspectRatio: 2,
     columns: "md:grid-cols-5",
     cellAspect: "aspect-[256/128]",
     sponsors: goldSponsors,
