@@ -25,6 +25,8 @@ export const collectorCrypt = {
     links: {
       website: "https://collectorcrypt.com/",
       docs: "https://docs.collectorcrypt.com/",
+    },
+    socials: {
       x: "https://x.com/Collector_Crypt",
     },
   },

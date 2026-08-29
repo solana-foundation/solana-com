@@ -18,6 +18,8 @@ export const redotpay = {
     type: "Company",
     links: {
       website: "https://www.redotpay.com/",
+    },
+    socials: {
       x: "https://x.com/RedotPay",
     },
   },
