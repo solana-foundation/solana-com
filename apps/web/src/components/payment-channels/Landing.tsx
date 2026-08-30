@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { createCorridor, depthForExit, DEFAULTS, type SlabParams } from "@/app/million/corridor";
+import VizCanvas from "@/app/gallery/VizCanvas";
+import { CENTRED, stream } from "@/app/gallery/viz/stream";
+import type { VizControls } from "@/app/gallery/viz/types";
 import Globe from "./Globe";
 import s from "./payment-channels.module.css";
 
@@ -69,131 +71,281 @@ const ART = {
   chevDown: A("2ee59c54064ebbfc933a856f22cae9263fcf0c45.svg"),
 } as const;
 
-/* ── the corridor ──
-   Scene one of the main route. In Figma this section's background is a flat
-   screenshot of exactly this shot; here it runs live, which is the one
-   deliberate departure from the frame. */
-const ROOM: SlabParams = {
-  ...DEFAULTS,
-  bg: "#000000",
-  steady: true,
-  camera: "fall",
-  facing: "camera",
-  lens: 0.44,
-  endZ: depthForExit(0.2),
-  exitFade: 0.4,
-  wallsMove: true,
-  grid: true,
-  rings: true,
-  ringMix: 1,
-  gridColor: "#FFFFFF",
-  gridOpacity: 100,
-  cellLink: true,
-  cellSize: 10,
-  cellFill: false,
-  labelCount: 260,
-  plateSize: 9,
-  letterSpacing: 1,
-  plateShow: 1,
-  revealDist: 2.7,
-  hideDist: 1.4,
-  labelFromAvatar: true,
-  labelFilled: true,
-  fillMix: 1,
-  dotCount: 1800,
-  dustShow: 0.22,
-  dotSize: 0.4,
-  particleA: "#FFFFFF",
-  particleB: "#000000",
-  particleAxis: "depth",
-  dustFloorClear: 0.62,
-  dustSidesKeep: 0.22,
-  timeScale: 1,
-  clickable: true,
-  hoverSlow: true,
-  hoverScale: 0.65,
-  links: false,
-  linkHoverOnly: true,
-  threads: false,
-  mark: false,
-  parallax: false,
-  ruler: false,
+/* ── the latest stream hero ──
+   This is the current visual treatment from Saugat's landing: a measured
+   stream of endpoint rows, tuned per viewport and hosted by a small canvas
+   lifecycle component. The page keeps the production copy and shell below. */
+type HeroShot = {
+  from: number;
+  count: number;
+  height: number;
+  gap: number;
+  y: number;
+  amount: number;
+  fan: number;
+  power: number;
+  shift?: number;
+  rows?: number;
+  touch?: boolean;
 };
 
-function Corridor() {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const host = useRef<HTMLDivElement>(null);
-  const room = useRef<ReturnType<typeof createCorridor> | null>(null);
+const SHOTS: HeroShot[] = [
+  {
+    from: 1900,
+    count: 48,
+    height: 27,
+    gap: 47,
+    y: -600,
+    amount: -1260,
+    fan: -200,
+    power: 2.3,
+    shift: 10,
+    rows: 300,
+  },
+  {
+    from: 1600,
+    count: 4,
+    height: 52,
+    gap: 9,
+    y: 322,
+    amount: -270,
+    fan: 78,
+    power: 20,
+  },
+  {
+    from: 1440,
+    count: 4,
+    height: 50,
+    gap: 7,
+    y: 632,
+    amount: -60,
+    fan: 27,
+    power: 20,
+  },
+  {
+    from: 1024,
+    count: 4,
+    height: 44,
+    gap: 7,
+    y: 640,
+    amount: -60,
+    fan: 27,
+    power: 20,
+  },
+  {
+    from: 768,
+    count: 4,
+    height: 71,
+    gap: 6,
+    y: 640,
+    amount: -60,
+    fan: 27,
+    power: 20,
+    touch: true,
+  },
+  {
+    from: 480,
+    count: 4,
+    height: 53,
+    gap: 5,
+    y: 452,
+    amount: -60,
+    fan: 27,
+    power: 20,
+    touch: true,
+  },
+  {
+    from: 0,
+    count: 4,
+    height: 40,
+    gap: 5,
+    y: 252,
+    amount: -190,
+    fan: 27,
+    power: 20,
+    touch: true,
+  },
+];
 
-  /* Production values for the Hero scene. Keeping them here preserves the
-     rendered scene without adding a runtime controls dependency. */
-  const ink = { show: true, opacity: 100, width: 41, height: 53, blur: 79, feather: 13, color: "#000000" };
-  const inkPhone = { opacity: 100, width: 160, height: 57, blur: 79, feather: 47, color: "#000000" };
-  const speed = { normal: 1, hover: 0.1 };
-  const camera = { lens: 0.44, offY: 0, offX: 0 };
-  const cameraPhone = { lens: 1, offY: -0.08, offX: 0 };
+const HERO_CONTROLS = {
+  size: { min: 0.5, max: 6, variance: 45, solids: 7, solidGap: 365 },
+  trail: { often: 39, length: 1.75, density: 7 },
+  colour: { mix: 40, gradient: 186, cycle: 3.33, blend: 36 },
+  gaps: {
+    often: 198,
+    length: 0.65,
+    text: 65,
+    scramble: 0.9,
+    form: 5,
+    rest: 1.4,
+    churn: 4,
+  },
+  row: {
+    count: 4,
+    height: 50,
+    gap: 7,
+    anchor: "join",
+    y: 632,
+    bg: "edge",
+    bgAlpha: 10,
+    topPx: 0.5,
+    topA: 7,
+    botPx: 1.5,
+    botA: 9,
+    hoverTopPx: 0.5,
+    hoverTopA: 14,
+    hoverBotPx: 1,
+    hoverBotA: 16,
+  },
+  /* Saugat's full-screen landing composition: the 47-stave cylinder is what
+     gives the hero its slow vertical sweep. The band preset is the compact
+     bottom strip used by the alternate route. */
+  layout: {
+    arrange: "cylinder",
+    bend: 0,
+    spin: -1.5,
+    staves: 47,
+    shift: 0,
+    rows: 100,
+    radius: 50,
+    band: 31,
+    falloff: 115,
+    flow: 135,
+    fast: true,
+    entry: 190,
+  },
+  /* The full-screen field should feel measured, not like a loading ticker. */
+  motion: {
+    speed: 210,
+    density: 24.5,
+    drift: 15,
+    variation: 100,
+    reverse: true,
+    hoverHold: true,
+    hoverRadius: 20,
+    pinFreeze: false,
+  },
+  curve: { amount: -60, fan: 27, power: 20, tilt: false },
+  fit: { ref: 0, min: 40, max: 100 },
+  cards: {
+    often: 2,
+    gap: 4000,
+    max: 2,
+    drift: 43,
+    hold: 2,
+    size: 90,
+    edge: 0,
+    bg: "#272527",
+    bgAlpha: 80,
+    blur: 8,
+    borderPx: 0.5,
+    borderA: 6,
+    borderBotA: 30,
+    avatar: 92,
+    pad: 2,
+    radius: 1,
+    stagger: 60,
+    fade: 220,
+    rise: 3,
+    riseFee: 2,
+    scramble: 450,
+  },
+  glass: {
+    refract: 82,
+    aberration: 25,
+    edge: 39,
+    tint: 1,
+    bevel: 0.5,
+    patchy: 55,
+  },
+  light: { gain: 101, width: 240, speed: 330, angle: 20, beams: 4 },
+  bloom: {
+    amount: 63,
+    threshold: 56,
+    knee: 12,
+    radius: 0.6,
+    stretch: 15,
+    levels: 5,
+    pulse: 33,
+    rate: 1.5,
+  },
+  paint: {
+    open: "#5cffb8",
+    meter: "#A77CFF",
+    settle: "#FF6BD6",
+    refund: "#aea3ff",
+    close: "#5e5e5e",
+    readouts: false,
+  },
+};
 
-  /* the ink needs a wider, flatter pool on a phone than it does on a desktop */
-  const [phone, setPhone] = useState(false);
+function useHeroStream() {
+  const [shotIndex, setShotIndex] = useState(0);
+  const [bleed, setBleed] = useState(160);
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 900px)");
-    const sync = () => setPhone(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-  const pool = phone ? inkPhone : ink;
-  const shot = phone ? cameraPhone : camera;
-
-  useEffect(() => {
-    const cv = canvas.current;
-    if (!cv) return;
-    const c = createCorridor(cv, ROOM);
-    room.current = c;
-    /* A corridor nobody can see must not keep a GPU warm — but the wrapper is
-       zero-height (the canvas inside it is absolutely positioned), so watching
-       it paused the moment the page moved. Watch the canvas itself, and keep
-       running until it is well clear of the viewport. */
-    const seen = new IntersectionObserver(
-      ([e]) => (e.isIntersecting ? c.resume() : c.pause()),
-      { threshold: 0, rootMargin: "400px 0px" },
-    );
-    seen.observe(cv);
-    return () => {
-      seen.disconnect();
-      room.current = null;
-      c.destroy();
+    const pick = () => {
+      const w = window.innerWidth;
+      const index = Math.max(
+        0,
+        SHOTS.findIndex(
+          (shot, i) => w >= shot.from && (i === 0 || w < SHOTS[i - 1].from),
+        ),
+      );
+      setShotIndex(index);
+      setBleed(Math.min(160, Math.max(56, 0.09 * w)));
     };
+    pick();
+    window.addEventListener("resize", pick);
+    return () => window.removeEventListener("resize", pick);
   }, []);
 
-  /* the two speeds are live — the room reads them without being rebuilt */
-  useEffect(() => {
-    room.current?.update({ timeScale: speed.normal, hoverScale: speed.hover, hoverSlow: true });
-  }, [speed.normal, speed.hover]);
+  const shot = SHOTS[shotIndex] ?? SHOTS[SHOTS.length - 1];
+  const controls = {
+    ...HERO_CONTROLS,
+    row: {
+      ...HERO_CONTROLS.row,
+      count: shot.count,
+      height: shot.height,
+      gap: shot.gap,
+      y: shot.y,
+    },
+    curve: {
+      ...HERO_CONTROLS.curve,
+      amount: shot.amount,
+      fan: shot.fan,
+      power: shot.power,
+    },
+    layout: {
+      ...HERO_CONTROLS.layout,
+      shift: shot.shift ?? 0,
+      rows: shot.rows ?? 100,
+    },
+    /* Cards are an explicit interaction: no transaction detail should appear
+       until a visitor targets a specific strip and clicks it. */
+    cards: { ...HERO_CONTROLS.cards, max: 0, edge: bleed },
+    motion: shot.touch
+      ? { ...HERO_CONTROLS.motion, hoverHold: false, pinFreeze: true }
+      : HERO_CONTROLS.motion,
+  } as unknown as VizControls;
 
-  useEffect(() => {
-    room.current?.update({ lens: shot.lens, offX: shot.offX, offY: shot.offY });
-  }, [shot.lens, shot.offX, shot.offY]);
+  const heroVars = {
+    "--hero-vh": 100,
+    "--hero-max": "1060px",
+    "--bleed": `${bleed}px`,
+  } as CSSProperties;
+  return { controls, heroVars, centred: false, middle: true };
+}
 
+function Stream({ controls }: { controls: VizControls }) {
   return (
-    <div ref={host} aria-hidden="true">
-      <canvas ref={canvas} className={s.canvas} />
-      {ink.show && (
-        <div
-          className={s.ink}
-          style={
-            {
-              "--ink-w": `${pool.width}vw`,
-              "--ink-h": `${pool.height}vh`,
-              "--ink-o": pool.opacity / 100,
-              "--ink-b": `${pool.blur}px`,
-              "--ink-f": `${pool.feather}%`,
-              "--ink-c": pool.color,
-            } as CSSProperties
-          }
-        />
-      )}
-    </div>
+    <VizCanvas
+      viz={stream}
+      quality="full"
+      running
+      controls={controls}
+      maxDpr={2}
+      className={s.canvas}
+    />
   );
 }
 
@@ -233,7 +385,9 @@ const SHADER_PROJECT = "QTGtHSQRXx8jQPnaWrL0";
 
 function Shader() {
   useEffect(() => {
-    const runtimeWindow = window as unknown as { UnicornStudio?: UnicornRuntime };
+    const runtimeWindow = window as unknown as {
+      UnicornStudio?: UnicornRuntime;
+    };
     const start = () => {
       const us = runtimeWindow.UnicornStudio;
       if (us && !us.isInitialized && us.init) {
@@ -255,7 +409,11 @@ function Shader() {
 
   return (
     <div className={s.shader} aria-hidden="true">
-      <div data-us-project={SHADER_PROJECT} data-us-scale="1" data-us-dpi="1.5" />
+      <div
+        data-us-project={SHADER_PROJECT}
+        data-us-scale="1"
+        data-us-dpi="1.5"
+      />
     </div>
   );
 }
@@ -264,20 +422,43 @@ function Shader() {
    The frame's decorative "video" element: 26 white bars stepped along a
    diagonal, laid twice and blended. Coordinates are the frame's. */
 const STREAK: [number, number, number][] = [
-  [246, 0, 1145], [234, 11, 1177], [221, 22, 1190], [213, 33, 1198],
-  [203, 44, 1188], [191, 55, 1194], [180, 66, 1193], [169, 77, 1191],
-  [158, 88, 1196], [147, 99, 1194], [136, 110, 1193], [126, 121, 1196],
-  [114, 132, 1197], [102, 143, 1194], [91, 154, 1194], [81, 165, 1197],
-  [71, 176, 1193], [59, 187, 1194], [48, 198, 1198], [37, 209, 1196],
-  [26, 220, 1195], [15, 231, 1194], [1, 242, 1195], [1, 253, 1189],
-  [1, 264, 1175], [15, 275, 1149],
+  [246, 0, 1145],
+  [234, 11, 1177],
+  [221, 22, 1190],
+  [213, 33, 1198],
+  [203, 44, 1188],
+  [191, 55, 1194],
+  [180, 66, 1193],
+  [169, 77, 1191],
+  [158, 88, 1196],
+  [147, 99, 1194],
+  [136, 110, 1193],
+  [126, 121, 1196],
+  [114, 132, 1197],
+  [102, 143, 1194],
+  [91, 154, 1194],
+  [81, 165, 1197],
+  [71, 176, 1193],
+  [59, 187, 1194],
+  [48, 198, 1198],
+  [37, 209, 1196],
+  [26, 220, 1195],
+  [15, 231, 1194],
+  [1, 242, 1195],
+  [1, 253, 1189],
+  [1, 264, 1175],
+  [15, 275, 1149],
 ];
 
 function StreakLayer({ second = false }: { second?: boolean }) {
   return (
     <div className={`${s.streakLayer} ${second ? s.streakLayer2 : ""}`}>
       {STREAK.map(([l, t, w], i) => (
-        <span key={i} className={s.streakBar} style={{ left: l, top: t, width: w }} />
+        <span
+          key={i}
+          className={s.streakBar}
+          style={{ left: l, top: t, width: w }}
+        />
       ))}
     </div>
   );
@@ -333,7 +514,11 @@ const STEPS: { layers: Layer[]; title: string; body: string }[] = [
   },
   {
     layers: [
-      { outer: "16.67% 12.5% 12.5% 12.5%", inner: "-3.53% -3.33% -4.99% -3.33%", src: ART.iRefund },
+      {
+        outer: "16.67% 12.5% 12.5% 12.5%",
+        inner: "-3.53% -3.33% -4.99% -3.33%",
+        src: ART.iRefund,
+      },
     ],
     title: "Refund",
     body: "Any unused deposit returns to the primary wallet.",
@@ -378,7 +563,14 @@ const MODES: [string, string][] = [
 ];
 
 /* 10 · live at launch — two partner columns beside the statement */
-const PARTNERS: { label: string; logo: string; w: number; h: number; cta: string; href: string }[] = [
+const PARTNERS: {
+  label: string;
+  logo: string;
+  w: number;
+  h: number;
+  cta: string;
+  href: string;
+}[] = [
   {
     label: "Launch partner",
     logo: ART.logoAlibaba,
@@ -410,22 +602,42 @@ const TILES: { name: string; href: string; layers: Layer[] }[] = [
       { outer: "16.67% 16.67% 58.33% 58.33%", inner: "-10%", src: ART.tSlider },
       /* the second knob — Figma writes this one with fraction utilities */
       { outer: "58.33% 50% 16.67% 25%", inner: "-10%", src: ART.tSlider },
-      { outer: "29.17% 43.75% 70.83% 16.67%", inner: "-1px -6.32%", src: ART.tSliderA },
-      { outer: "70.83% 77.08% 29.17% 16.67%", inner: "-1px -40%", src: ART.tSliderB },
-      { outer: "70.83% 16.67% 29.17% 52.08%", inner: "-1px -8%", src: ART.tSliderC },
+      {
+        outer: "29.17% 43.75% 70.83% 16.67%",
+        inner: "-1px -6.32%",
+        src: ART.tSliderA,
+      },
+      {
+        outer: "70.83% 77.08% 29.17% 16.67%",
+        inner: "-1px -40%",
+        src: ART.tSliderB,
+      },
+      {
+        outer: "70.83% 16.67% 29.17% 52.08%",
+        inner: "-1px -8%",
+        src: ART.tSliderC,
+      },
     ],
   },
   {
     name: "SDK + Quickstart",
     href: "https://pay.sh/docs/sdk/typescript",
     layers: [
-      { outer: "20.83% 12.5% 16.67% 12.5%", inner: "-4% -3.33%", src: ART.tWindow },
+      {
+        outer: "20.83% 12.5% 16.67% 12.5%",
+        inner: "-4% -3.33%",
+        src: ART.tWindow,
+      },
       {
         outer: "62.5% 10.42% 10.42% 62.5%",
         inner: "-13.95% -24.73% -24.73% -13.95%",
         src: ART.tWindowA,
       },
-      { outer: "34.38% 40.63% 61.46% 26.04%", inner: "-45% -5.63%", src: ART.tWindowB },
+      {
+        outer: "34.38% 40.63% 61.46% 26.04%",
+        inner: "-45% -5.63%",
+        src: ART.tWindowB,
+      },
     ],
   },
   {
@@ -448,29 +660,38 @@ const TASKS: [string, string, boolean][] = [
 ];
 
 export default function Landing() {
+  const hero = useHeroStream();
+
   return (
     /* `scrolls` is the global unlock: the document is overflow-hidden for the
        fixed full-bleed routes, and this class is how a route that scrolls
        normally asks for the document back */
     <div className={`scrolls ${s.page}`}>
       {/* ── 01 · hero ── */}
-      <section className={s.hero}>
-        <Corridor />
+      <section className={s.hero} style={hero.heroVars}>
+        <Stream controls={hero.controls} />
 
-          <div className={s.heroInner}>
+        <div
+          className={`${s.heroInner} ${hero.middle ? s.heroMiddle : ""} ${s.heroScrimOn}`}
+        >
           <div className={s.heroContent}>
             <div className={s.heroBlock}>
               <h1 className={`${s.hXl} ${s.heroTitle}`}>
-                1 million logical payments
+                1 million payments
                 <br />
                 <span className={s.thin}>every second</span>
               </h1>
               <p className={`${s.bodyL} ${s.heroSub}`}>
-                The next generation of software will not wait at a checkout screen. It will make
-                many small, continuous decisions—and pay for the data, inference, and services it
-                needs as it goes.
+                The next generation of software will not wait at a checkout
+                screen. It will make many small, continuous decisions—and pay
+                for the data, inference, and services it needs as it goes.
               </p>
-              <a className={s.btn} href="https://pay.sh/docs/building-with-pay/payment-channels/concept">Read the docs</a>
+              <a
+                className={s.btn}
+                href="https://pay.sh/docs/building-with-pay/payment-channels/concept"
+              >
+                Read the docs
+              </a>
             </div>
           </div>
         </div>
@@ -505,23 +726,29 @@ export default function Landing() {
                   for agentic traffic.
                 </h2>
                 <p className={`${s.bodyL} ${s.mid} ${s.agentsKicker}`}>
-                  One Proxy completed the full receive, verify, and settlement path on an AMD EPYC
-                  9555P: 64 physical cores and 128 threads. At one million logical payments per
-                  second, it kept 117 threads busy and absorbed about 11 Gbps of inbound traffic.
+                  One Proxy completed the full receive, verify, and settlement
+                  path on an AMD EPYC 9555P: 64 physical cores and 128 threads.
+                  At one million logical payments per second, it kept 117
+                  threads busy and absorbed about 11 Gbps of inbound traffic.
                 </p>
               </div>
               <hr className={s.rule} />
               <p className={`${s.bodyXl} ${s.agentsPull}`}>
-                Scale up a Proxy with more CPU and network bandwidth. Scale out by giving the next
-                Proxy a different channel range; channel state stays local, so the hot path needs
-                no shared state.
+                Scale up a Proxy with more CPU and network bandwidth. Scale out
+                by giving the next Proxy a different channel range; channel
+                state stays local, so the hot path needs no shared state.
               </p>
             </div>
 
             <div className={s.agentsArt}>
               {/* the aurora and its striped streak arrive baked into one export */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className={s.agentsPlate} src={ART.agentsArt} alt="" aria-hidden="true" />
+              <img
+                className={s.agentsPlate}
+                src={ART.agentsArt}
+                alt=""
+                aria-hidden="true"
+              />
               <div className={s.mock}>
                 <div className={s.mockBar}>
                   <span className={s.mockDot} />
@@ -537,9 +764,19 @@ export default function Landing() {
                     <span className={s.balance}>
                       <span className={s.balanceCoin}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img className={s.coinRing} src={ART.usdcRing} alt="" aria-hidden="true" />
+                        <img
+                          className={s.coinRing}
+                          src={ART.usdcRing}
+                          alt=""
+                          aria-hidden="true"
+                        />
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img className={s.coinGlyph} src={ART.usdcGlyph} alt="" aria-hidden="true" />
+                        <img
+                          className={s.coinGlyph}
+                          src={ART.usdcGlyph}
+                          alt=""
+                          aria-hidden="true"
+                        />
                       </span>
                       <span className={s.balanceText}>
                         <b>290.22</b> USDC
@@ -551,19 +788,49 @@ export default function Landing() {
                       <div key={label}>
                         <div className={active ? s.taskActive : s.taskDone}>
                           {active ? (
-                            <svg className={s.taskIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                              <path d="M12 3v3m0 12v3m9-9h-3M6 12H3m14.5-6.5-2 2m-7 7-2 2m0-11 2 2m7 7 2 2" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
+                            <svg
+                              className={s.taskIcon}
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M12 3v3m0 12v3m9-9h-3M6 12H3m14.5-6.5-2 2m-7 7-2 2m0-11 2 2m7 7 2 2"
+                                stroke="#fff"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                              />
                             </svg>
                           ) : (
-                            <svg className={s.taskIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                              <path d="m7 12.5 3.2 3.2L17 9" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                            <svg
+                              className={s.taskIcon}
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="m7 12.5 3.2 3.2L17 9"
+                                stroke="#fff"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
                             </svg>
                           )}
-                          <span className={`${s.bodyS} ${s.taskText}`}>{label}</span>
+                          <span className={`${s.bodyS} ${s.taskText}`}>
+                            {label}
+                          </span>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img className={s.taskAvatar} src={avatar} alt="" aria-hidden="true" />
+                          <img
+                            className={s.taskAvatar}
+                            src={avatar}
+                            alt=""
+                            aria-hidden="true"
+                          />
                         </div>
-                        {i > 0 && i < TASKS.length - 1 && <div className={s.taskRule} />}
+                        {i > 0 && i < TASKS.length - 1 && (
+                          <div className={s.taskRule} />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -587,16 +854,18 @@ export default function Landing() {
                     payments break
                   </h2>
                   <p className={`${s.bodyL} ${s.mid}`}>
-                    While pay-per-request models simplify paid tool use, certain kinds of agentic
-                    spending patterns are a bad fit for settling every request onchain:
+                    While pay-per-request models simplify paid tool use, certain
+                    kinds of agentic spending patterns are a bad fit for
+                    settling every request onchain:
                   </p>
                 </div>
                 <hr className={s.rule} />
               </div>
               <p className={s.bodyL}>
-                  A payment channel amortizes the onchain work down to one open and one settle, no
-                matter how much metering happens in between. Logical payments keep moving at
-                application speed while Solana handles settlement when it matters.
+                A payment channel amortizes the onchain work down to one open
+                and one settle, no matter how much metering happens in between.
+                Logical payments keep moving at application speed while Solana
+                handles settlement when it matters.
               </p>
             </div>
 
@@ -658,18 +927,28 @@ export default function Landing() {
                 <br />
                 <span className={s.thin}>under the hood</span>
               </h2>
-              <a className={s.btn} href="https://github.com/solana-foundation/payment-channels">View the program</a>
+              <a
+                className={s.btn}
+                href="https://github.com/solana-foundation/payment-channels"
+              >
+                View the program
+              </a>
             </div>
             <div className={s.howSteps}>
               {STEPS.map((st, i) => (
-                <div key={st.title} className={`${s.step} ${i === STEPS.length - 1 ? s.stepLast : ""}`}>
+                <div
+                  key={st.title}
+                  className={`${s.step} ${i === STEPS.length - 1 ? s.stepLast : ""}`}
+                >
                   <div className={s.stepHead}>
                     <Glyph layers={st.layers} />
                     <div className={s.stepTitle}>
                       <h3 className={s.hS}>{st.title}</h3>
                     </div>
                   </div>
-                  <p className={`${s.bodyL} ${s.mid} ${s.stepBody}`}>{st.body}</p>
+                  <p className={`${s.bodyL} ${s.mid} ${s.stepBody}`}>
+                    {st.body}
+                  </p>
                 </div>
               ))}
             </div>
@@ -684,7 +963,8 @@ export default function Landing() {
         <div className={s.inner}>
           <div className={s.whyStack}>
             <h2 className={`${s.hL} ${s.whyHead}`}>
-              Settlement is the bill, <span className={s.thin}>not the bottleneck.</span>
+              Settlement is the bill,{" "}
+              <span className={s.thin}>not the bottleneck.</span>
             </h2>
 
             <div className={s.whyCols}>
@@ -699,23 +979,42 @@ export default function Landing() {
             <div className={s.session}>
               {/* the plate arrives with its blended shapes already baked in */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className={s.sessionPlate} src={ART.sessionBg} alt="" aria-hidden="true" />
+              <img
+                className={s.sessionPlate}
+                src={ART.sessionBg}
+                alt=""
+                aria-hidden="true"
+              />
               <div className={s.sessionLeft}>
                 <h3 className={`${s.hM} ${s.sessionTitle}`}>
-                  100,000 channels. 25,000 transactions. One completed settlement cycle.
+                  100,000 channels. 25,000 transactions. One completed
+                  settlement cycle.
                 </h3>
                 <p className={`${s.bodyL} ${s.mid} ${s.sessionIntro}`}>
-                  A settlement transaction carries four channel updates. The full cycle finalized
-                  all 100,000 channels while one million logical payments per second continued at
-                  application speed.
+                  A settlement transaction carries four channel updates. The
+                  full cycle finalized all 100,000 channels while one million
+                  logical payments per second continued at application speed.
                 </p>
-                <a className={s.btn} href="https://pay.sh/docs/sdk/typescript">Run the benchmark</a>
+                <a className={s.btn} href="https://pay.sh/docs/sdk/typescript">
+                  Run the benchmark
+                </a>
               </div>
               <ul className={s.sessionList}>
                 {SETTLEMENT_METRICS.map(([value, label]) => (
                   <li key={label} className={s.sessionItem}>
-                    <svg className={s.sessionTick} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path d="m6 12.6 4 4L18 7.5" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg
+                      className={s.sessionTick}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="m6 12.6 4 4L18 7.5"
+                        stroke="#fff"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                     <span className={s.sessionMetric}>
                       <strong className={s.sessionMetricValue}>{value}</strong>
@@ -732,7 +1031,12 @@ export default function Landing() {
       {/* ── 07 · built open, works everywhere ── */}
       <section className={s.band}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className={s.openPlate} src={ART.plateCta} alt="" aria-hidden="true" />
+        <img
+          className={s.openPlate}
+          src={ART.plateCta}
+          alt=""
+          aria-hidden="true"
+        />
         <div className={s.openInner}>
           <div className={s.openStack}>
             <div className={s.openHead}>
@@ -742,8 +1046,8 @@ export default function Landing() {
                 <span className={s.thin}>works everywhere</span>
               </h2>
               <p className={`${s.bodyL} ${s.mid} ${s.openLede}`}>
-                Payment channels map cleanly onto the open agentic payment standards live on Solana
-                today.
+                Payment channels map cleanly onto the open agentic payment
+                standards live on Solana today.
               </p>
             </div>
             <hr className={s.rule} />
@@ -772,17 +1076,21 @@ export default function Landing() {
                 <span className={s.thin}>with Alibaba Cloud</span>
               </h2>
               <p className={`${s.bodyL} ${s.mid}`}>
-                Inference has been one of the most in demand use cases across agentic payment
-                protocols. We are excited to be launching payment channels with Alibaba Cloud.
-                Their API endpoints are live and payable through Sessions on pay.sh today. Your
-                agent can authorize once and consume their cloud APIs at scale, paying in
-                stablecoins as it goes.
+                Inference has been one of the most in demand use cases across
+                agentic payment protocols. We are excited to be launching
+                payment channels with Alibaba Cloud. Their API endpoints are
+                live and payable through Sessions on pay.sh today. Your agent
+                can authorize once and consume their cloud APIs at scale, paying
+                in stablecoins as it goes.
               </p>
             </div>
 
             <div className={s.partners}>
               {PARTNERS.map((p, i) => (
-                <div key={p.label} className={`${s.partner} ${i === 0 ? s.partnerRule : ""}`}>
+                <div
+                  key={p.label}
+                  className={`${s.partner} ${i === 0 ? s.partnerRule : ""}`}
+                >
                   <div className={s.partnerTop}>
                     <p className={s.bodyS}>{p.label}</p>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -819,7 +1127,8 @@ export default function Landing() {
               </h2>
               <div className={s.getAside}>
                 <p className={s.bodyXl}>
-                  The spec is public and the program is open source for everyone to build on.
+                  The spec is public and the program is open source for everyone
+                  to build on.
                 </p>
               </div>
             </div>
@@ -827,7 +1136,12 @@ export default function Landing() {
             <div className={s.getGrid}>
               <div className={s.getRow}>
                 {TILES.slice(0, 3).map((t) => (
-                  <a key={t.name} className={s.tile} href={t.href} rel="noreferrer">
+                  <a
+                    key={t.name}
+                    className={s.tile}
+                    href={t.href}
+                    rel="noreferrer"
+                  >
                     <Glyph layers={t.layers} />
                     <p className={`${s.bodyXl} ${s.tileName}`}>{t.name}</p>
                   </a>
@@ -835,19 +1149,26 @@ export default function Landing() {
               </div>
               <div className={s.getRow}>
                 {TILES.slice(3).map((t) => (
-                  <a key={t.name} className={s.tile} href={t.href} rel="noreferrer">
+                  <a
+                    key={t.name}
+                    className={s.tile}
+                    href={t.href}
+                    rel="noreferrer"
+                  >
                     <Glyph layers={t.layers} />
                     <p className={`${s.bodyXl} ${s.tileName}`}>{t.name}</p>
                   </a>
                 ))}
                 {/* the frame keeps a third slot on this row, held empty */}
-                <div className={`${s.tile} ${s.tileGhost}`} aria-hidden="true" />
+                <div
+                  className={`${s.tile} ${s.tileGhost}`}
+                  aria-hidden="true"
+                />
               </div>
             </div>
           </div>
         </div>
       </section>
-
     </div>
   );
 }
