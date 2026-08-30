@@ -141,6 +141,7 @@ export default function VizCanvas({
     let raf = 0;
     let alive = true;
     let seen = false;
+    let active = false;
     /* per closure, like the state it fills — see `wake` */
     let wound = false;
 
@@ -239,6 +240,20 @@ export default function VizCanvas({
          it arrives the way it would have if you had been watching. */
       const warmCtl = { ...ctl.current, __warm: true } as VizControls;
       const FINE = 1 / 60;
+      /* A slow, full-screen stream needs a longer live tail than a gallery
+         card. The old fixed six-second tail left the wide hero's right side
+         unwound on first paint: at 210px/s, the visible field can take more
+         than thirteen seconds to cross. Keep enough frame-stepped history to
+         cover the actual travel distance, while retaining the short default
+         for faster/smaller visualisations. */
+      const motion = (ctl.current.motion ?? {}) as { speed?: unknown };
+      const speed =
+        typeof motion.speed === "number" && Number.isFinite(motion.speed)
+          ? Math.max(1, motion.speed)
+          : 480;
+      const travelTail = w / speed + 1;
+      const liveTail = Math.max(LIVE_TAIL, travelTail);
+      const posterTime = Math.max(viz.poster, liveTail + 5);
       let acc = 0;
       const wind = (until: number, step: number) => {
         while (acc < until - 1e-6) {
@@ -247,9 +262,9 @@ export default function VizCanvas({
           frame(ctx, w, h, acc, s, pointer, warmCtl);
         }
       };
-      wind(Math.max(0, viz.poster - LIVE_TAIL), viz.poster / POSTER_STEPS);
-      wind(viz.poster, FINE);
-      clock.current = viz.poster;
+      wind(Math.max(0, posterTime - liveTail), posterTime / POSTER_STEPS);
+      wind(posterTime, FINE);
+      clock.current = posterTime;
       wound = true;
       /* and one that is drawn, so there is a picture before the loop starts */
       frame(ctx, w, h, clock.current, FINE, pointer, ctl.current);
@@ -297,9 +312,11 @@ export default function VizCanvas({
     };
 
     const start = () => {
+      if (active) return;
+      active = true;
       let prev = performance.now();
       const loop = (now: number) => {
-        if (!alive) return;
+        if (!alive || !active) return;
         const interval = now - prev;
         const dt = Math.min(0.05, interval / 1000);
         prev = now;
@@ -312,6 +329,11 @@ export default function VizCanvas({
         raf = requestAnimationFrame(loop);
       };
       raf = requestAnimationFrame(loop);
+    };
+    const stop = () => {
+      active = false;
+      cancelAnimationFrame(raf);
+      raf = 0;
     };
 
     const wake = () => {
@@ -347,9 +369,16 @@ export default function VizCanvas({
 
     const io = new IntersectionObserver(
       ([e]) => {
-        if (!e.isIntersecting || seen) return;
-        seen = true;
-        wake();
+        if (!e.isIntersecting) {
+          stop();
+          return;
+        }
+        if (!seen) {
+          seen = true;
+          wake();
+        } else if (animate) {
+          start();
+        }
       },
       { rootMargin: "300px" },
     );
@@ -371,8 +400,8 @@ export default function VizCanvas({
 
     return () => {
       alive = false;
+      stop();
       remeasure.current = null;
-      cancelAnimationFrame(raf);
       io.disconnect();
       ro.disconnect();
       if (interactive) {

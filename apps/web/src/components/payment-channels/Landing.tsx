@@ -384,31 +384,62 @@ const SHADER_SRC =
 const SHADER_PROJECT = "QTGtHSQRXx8jQPnaWrL0";
 
 function Shader() {
+  const rootRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
     const runtimeWindow = window as unknown as {
       UnicornStudio?: UnicornRuntime;
     };
+    let alive = true;
+    let started = false;
+    let script: HTMLScriptElement | null = null;
     const start = () => {
+      if (!alive) return;
       const us = runtimeWindow.UnicornStudio;
       if (us && !us.isInitialized && us.init) {
         us.init().catch(() => {});
         us.isInitialized = true;
       }
     };
-    if (!runtimeWindow.UnicornStudio) {
-      runtimeWindow.UnicornStudio = { isInitialized: false };
-      const tag = document.createElement("script");
-      tag.src = SHADER_SRC;
-      tag.onload = start;
-      (document.head || document.body).appendChild(tag);
-    } else {
-      start();
-    }
-    return () => runtimeWindow.UnicornStudio?.destroy?.();
+
+    const boot = () => {
+      if (!alive || started) return;
+      started = true;
+      if (!runtimeWindow.UnicornStudio) {
+        runtimeWindow.UnicornStudio = { isInitialized: false };
+        script = document.createElement("script");
+        script.src = SHADER_SRC;
+        script.onload = start;
+        (document.head || document.body).appendChild(script);
+      } else start();
+    };
+
+    /* The shader is decorative and sits below the fold. Defer its external
+       runtime until the card is close to view so it cannot compete with the
+       hero's first render. */
+    const visibility = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) boot();
+      },
+      { rootMargin: "300px" },
+    );
+    visibility.observe(root);
+    const box = root.getBoundingClientRect();
+    if (box.bottom > -300 && box.top < window.innerHeight + 300) boot();
+
+    return () => {
+      alive = false;
+      visibility.disconnect();
+      if (script) script.onload = null;
+      if (started) runtimeWindow.UnicornStudio?.destroy?.();
+    };
   }, []);
 
   return (
-    <div className={s.shader} aria-hidden="true">
+    <div ref={rootRef} className={s.shader} aria-hidden="true">
       <div
         data-us-project={SHADER_PROJECT}
         data-us-scale="1"

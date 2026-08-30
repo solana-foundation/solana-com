@@ -17,8 +17,29 @@ const SPEED_BOOST = 3;
 const SIZE_BOOST = 2;
 const GLOW_BOOST = 1.8;
 const SVG_NS = "http://www.w3.org/2000/svg";
+/* Path measurement is expensive in the browser's SVG implementation. A
+   small, one-time lookup table keeps the moving dots on the same curves while
+   avoiding two getPointAtLength calls for every dot on every frame. */
+const PATH_SAMPLE_STEP = 8;
 
-type Dot = { elem: SVGCircleElement; subIdx: number; offset: number; length: number; baseR: number };
+type SampledPath = {
+  path: SVGPathElement;
+  length: number;
+  samples: Float32Array;
+  sampleCount: number;
+};
+
+type Dot = {
+  elem: SVGCircleElement;
+  subIdx: number;
+  offset: number;
+  length: number;
+  baseR: number;
+  x: number;
+  y: number;
+  lastR: string;
+  lastFilter: string;
+};
 
 export default function Globe({
   dotSize = 1.5,
@@ -47,21 +68,51 @@ export default function Globe({
 
     const rgb = (hex: string) => {
       const h = hex.replace("#", "");
-      const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+      const full =
+        h.length === 3
+          ? h
+              .split("")
+              .map((c) => c + c)
+              .join("")
+          : h;
       const n = parseInt(full, 16);
       return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
     };
 
     /* one path per meridian, kept invisible — they exist to be measured */
-    const subDs = (basePath.getAttribute("d")?.match(/M[^M]+/g) ?? []).map((x) => x.trim());
-    const subpaths = subDs.map((sd) => {
+    const subDs = (basePath.getAttribute("d")?.match(/M[^M]+/g) ?? []).map(
+      (x) => x.trim(),
+    );
+    const subpaths: SampledPath[] = subDs.map((sd) => {
       const p = document.createElementNS(SVG_NS, "path");
       p.setAttribute("d", sd);
       p.setAttribute("fill", "none");
       p.setAttribute("stroke", "none");
       glowSVG.appendChild(p);
-      return { path: p, length: p.getTotalLength() };
+      const length = p.getTotalLength();
+      const sampleCount = Math.max(2, Math.ceil(length / PATH_SAMPLE_STEP) + 1);
+      const samples = new Float32Array(sampleCount * 2);
+      for (let i = 0; i < sampleCount; i++) {
+        const at = p.getPointAtLength(Math.min(length, i * PATH_SAMPLE_STEP));
+        samples[i * 2] = at.x;
+        samples[i * 2 + 1] = at.y;
+      }
+      return { path: p, length, samples, sampleCount };
     });
+
+    const pointAt = (sp: SampledPath, distance: number, dot: Dot) => {
+      const d = Math.max(0, Math.min(sp.length, distance));
+      const segment = Math.min(
+        sp.sampleCount - 2,
+        Math.floor(d / PATH_SAMPLE_STEP),
+      );
+      const start = segment * PATH_SAMPLE_STEP;
+      const f = Math.max(0, Math.min(1, (d - start) / PATH_SAMPLE_STEP));
+      const i = segment * 2;
+      const j = i + 2;
+      dot.x = sp.samples[i] + (sp.samples[j] - sp.samples[i]) * f;
+      dot.y = sp.samples[i + 1] + (sp.samples[j + 1] - sp.samples[i + 1]) * f;
+    };
 
     const { r, g, b } = rgb(dotColor);
     const dots: Dot[] = [];
@@ -75,7 +126,17 @@ export default function Globe({
         c.setAttribute("fill", dotColor);
         c.style.filter = `drop-shadow(0 0 6px rgba(${r},${g},${b},0.95))`;
         dotLayer.appendChild(c);
-        dots.push({ elem: c, subIdx, offset: (i * gap) % L, length: L, baseR: dotSize });
+        dots.push({
+          elem: c,
+          subIdx,
+          offset: (i * gap) % L,
+          length: L,
+          baseR: dotSize,
+          x: 0,
+          y: 0,
+          lastR: "",
+          lastFilter: "",
+        });
       }
     });
 
@@ -103,9 +164,11 @@ export default function Globe({
 
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0;
+    let active = false;
     let lastT = performance.now();
 
     const tick = (now: number) => {
+      if (!active) return;
       const dt = (now - lastT) / 1000;
       lastT = now;
       for (const d of dots) {
@@ -115,8 +178,7 @@ export default function Globe({
         let grow = 1;
         let glow = 1;
         if (accelerateOnHover && cursor.inside) {
-          const pt = sp.path.getPointAtLength(d.offset);
-          const dist = Math.hypot(pt.x - cursor.x, pt.y - cursor.y);
+          const dist = Math.hypot(d.x - cursor.x, d.y - cursor.y);
           if (dist < INFLUENCE_RADIUS) {
             const t = 1 - dist / INFLUENCE_RADIUS;
             const influence = t * t;
@@ -126,26 +188,57 @@ export default function Globe({
           }
         }
         d.offset = (d.offset + stride * dt) % d.length;
-        const at = sp.path.getPointAtLength(d.offset);
-        d.elem.setAttribute("cx", String(at.x));
-        d.elem.setAttribute("cy", String(at.y));
-        d.elem.setAttribute("r", (d.baseR * grow).toFixed(3));
-        d.elem.style.filter = `drop-shadow(0 0 ${(6 * glow).toFixed(2)}px rgba(${r},${g},${b},0.95))`;
+        pointAt(sp, d.offset, d);
+        d.elem.setAttribute("cx", String(d.x));
+        d.elem.setAttribute("cy", String(d.y));
+        const nextR = (d.baseR * grow).toFixed(3);
+        if (nextR !== d.lastR) {
+          d.lastR = nextR;
+          d.elem.setAttribute("r", nextR);
+        }
+        const nextFilter = `drop-shadow(0 0 ${(6 * glow).toFixed(2)}px rgba(${r},${g},${b},0.95))`;
+        if (nextFilter !== d.lastFilter) {
+          d.lastFilter = nextFilter;
+          d.elem.style.filter = nextFilter;
+        }
       }
       raf = requestAnimationFrame(tick);
     };
 
     /* the dots sit where they were seeded when motion is not wanted */
-    if (!still) raf = requestAnimationFrame(tick);
-    else
+    if (still)
       for (const d of dots) {
-        const at = subpaths[d.subIdx].path.getPointAtLength(d.offset);
-        d.elem.setAttribute("cx", String(at.x));
-        d.elem.setAttribute("cy", String(at.y));
+        pointAt(subpaths[d.subIdx], d.offset, d);
+        d.elem.setAttribute("cx", String(d.x));
+        d.elem.setAttribute("cy", String(d.y));
       }
 
-    return () => {
+    const start = () => {
+      if (still || active) return;
+      active = true;
+      /* Do not let time spent off-screen create a jump when the globe returns. */
+      lastT = performance.now();
+      raf = requestAnimationFrame(tick);
+    };
+    const stop = () => {
+      active = false;
       cancelAnimationFrame(raf);
+      raf = 0;
+    };
+    const visibility = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) start();
+        else stop();
+      },
+      { rootMargin: "240px" },
+    );
+    visibility.observe(stack);
+    const box = stack.getBoundingClientRect();
+    if (box.bottom > -240 && box.top < window.innerHeight + 240) start();
+
+    return () => {
+      stop();
+      visibility.disconnect();
       stack.removeEventListener("pointermove", onMove);
       stack.removeEventListener("pointerleave", onLeave);
       dots.forEach((d) => d.elem.remove());
@@ -155,7 +248,11 @@ export default function Globe({
 
   return (
     <div className={s.globe} ref={stackRef} aria-hidden="true">
-      <svg viewBox="0 0 1828 790" preserveAspectRatio="xMidYMax meet" xmlns={SVG_NS}>
+      <svg
+        viewBox="0 0 1828 790"
+        preserveAspectRatio="xMidYMax meet"
+        xmlns={SVG_NS}
+      >
         <g style={{ mixBlendMode: "overlay" }}>
           <path
             ref={baseRef}
@@ -169,7 +266,12 @@ export default function Globe({
           />
         </g>
       </svg>
-      <svg ref={glowRef} viewBox="0 0 1828 790" preserveAspectRatio="xMidYMax meet" xmlns={SVG_NS}>
+      <svg
+        ref={glowRef}
+        viewBox="0 0 1828 790"
+        preserveAspectRatio="xMidYMax meet"
+        xmlns={SVG_NS}
+      >
         <g ref={dotLayerRef} />
       </svg>
     </div>

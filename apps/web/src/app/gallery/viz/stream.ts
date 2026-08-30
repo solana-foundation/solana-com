@@ -1994,6 +1994,13 @@ function create(quality: VizQuality) {
       const fill = warm ? Math.max(1, layout.entry / 100) : 1;
       const slow = slowOf(e);
       if (slow < 0.002) continue;
+      /* A held row intentionally stops, but its neighbouring rows still need
+         enough replenishment to remain visually continuous during a long
+         hover. Without a small floor, a row can lose its last marks before
+         the eased hover field releases it, which reads as the lower edge
+         emptying out. The movement remains fully eased; this only prevents
+         emission starvation in the slowed part of the field. */
+      const emitSlow = held >= 0 ? Math.max(slow, 0.22) : slow;
       const ep = eps[e];
       /* how busy this endpoint runs relative to the others. At variation 0
          every row carries the same traffic; at 100 they range from almost
@@ -2056,7 +2063,7 @@ function create(quality: VizQuality) {
       const perHundred = inTrail
         ? trail.density * ep.gain * appetite
         : motion.density * appetite;
-      const rate = (perHundred / 100) * px * slow * lanes[e].dm * fill;
+      const rate = (perHundred / 100) * px * emitSlow * lanes[e].dm * fill;
 
       ep.acc += dt * rate;
       while (ep.acc >= 1) {
@@ -2153,6 +2160,7 @@ function create(quality: VizQuality) {
            by distance travelled rather than by count, so two never end up
            overlapping on the same row however thick the traffic is running. */
         cd:
+          cards.max > 0 &&
           cards.often > 0 &&
           row.sinceCard > cards.gap &&
           rnd() * 100 < cards.often
@@ -2238,7 +2246,7 @@ function create(quality: VizQuality) {
       const slow = slowOf(row.lane);
       const rowStep = step * slow;
       row.sinceSolid += rowStep;
-      row.sinceCard += rowStep;
+      if (cards.max > 0) row.sinceCard += rowStep;
       let keep = 0;
       for (let j = 0; j < row.ticks.length; j++) {
         const k = row.ticks[j];
@@ -2683,7 +2691,7 @@ function create(quality: VizQuality) {
       row: Row;
       w: number;
     }[] = [];
-    if (!card) {
+    if (!card && cards.max > 0) {
       /* What a card actually covers — as the renderer will actually place it,
          clamps included. The boxes used to be taken from the mark, but near an
          edge the drawn panel slides to stay visible while its box did not: two
@@ -3039,7 +3047,6 @@ function create(quality: VizQuality) {
 
     /* ── present: the base picture, with the bloom pass over it ─────── */
     out.setTransform(1, 0, 0, 1, 0, 0);
-    out.clearRect(0, 0, W, H);
     if (baseCv) {
       const lit =
         pass && (bloom.amount > 0 || glassOn)
@@ -3064,6 +3071,8 @@ function create(quality: VizQuality) {
           : null;
       /* no bloom is a fine outcome; a blank panel is not */
       out.drawImage(lit ?? baseCv, 0, 0, W, H);
+    } else {
+      out.clearRect(0, 0, W, H);
     }
 
     /* The card, on top of the finished picture rather than into it. Drawn on
