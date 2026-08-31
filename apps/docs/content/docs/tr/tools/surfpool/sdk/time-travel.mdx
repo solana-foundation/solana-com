@@ -1,9 +1,7 @@
 ---
 title: Zaman Yolculuğu
 description:
-  Surfnet saatini mutlak bir slot, epoch veya Unix zaman damgasına ileri alın.
-  Hakediş programlarını, kilitleme sürelerini, sona erme pencerelerini veya
-  epoch sınırlarını test eden testler için kullanışlıdır.
+  Surfnet saatini mutlak bir slot, epoch veya Unix zaman damgasına ileri atlatın ya da tamamen durdurun. Hak kazanma takvimlerini, kilitlemeleri, sona erme pencerelerini veya epoch sınırlarını test eden senaryolar için kullanışlıdır.
 ---
 
 Surfpool çalışma zamanı üç zaman yolculuğu yardımcısı sunar. Her biri yerel
@@ -11,16 +9,14 @@ saati mutlak bir hedefe (göreli bir ofset değil) taşır ve testlerin çalış
 zamanının gerçekten istenen zamana ulaştığını doğrulayabilmesi için güncellenmiş
 `EpochInfo` değerini döndürür.
 
-| Yardımcı                                             | Hedef                                   | Döndürür                             |
-| ---------------------------------------------------- | --------------------------------------- | ------------------------------------ |
-| `time_travel_to_slot` / `timeTravelToSlot`           | Mutlak slot numarası                    | Yeni `absolute_slot` ile `EpochInfo` |
-| `time_travel_to_epoch` / `timeTravelToEpoch`         | Mutlak epoch numarası                   | Yeni `epoch` ile `EpochInfo`         |
+| Yardımcı                                               | Hedef                         | Döndürür                                  |
+| ---------------------------------------------------- | ------------------------------ | ---------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Mutlak slot numarası           | Yeni `absolute_slot` ile `EpochInfo` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Mutlak epoch numarası          | Yeni `epoch` ile `EpochInfo`         |
 | `time_travel_to_timestamp` / `timeTravelToTimestamp` | Milisaniye cinsinden Unix zaman damgası | Tahmini slot'u yansıtan `EpochInfo`  |
 
 <Callout type="warn" title="Yalnızca ileri">
-  Zaman yolculuğu saati yalnızca **ileri** alabilir. Bu yöntemleri geçmişteki
-  bir hedefle çağırmak işlevsizdir — yardımcı mevcut `EpochInfo` değerini
-  değiştirmeden döndürür.
+  Zaman yolculuğu saati yalnızca **ileri** taşıyabilir. Geçmişteki bir hedef yoksayılmak yerine reddedilir — Rust yardımcıları `Err` döndürür, JS yardımcıları ise hata fırlatır. Hata mesajı hangi birimin geriye gittiğini belirtir; örneğin `Cannot travel to past slot: target=1000, current=2000`.
 </Callout>
 
 ## Bir Slot'a Atla
@@ -69,8 +65,7 @@ console.assert(info.epoch === 420);
 
 ## Bir Unix Zaman Damgasına Atla
 
-Zaman damgasını saniye değil **milisaniye** cinsinden girin. Çalışma zamanı, o
-zaman damgasına en yakın slot'u hesaplar.
+Unix epoch'undan bu yana geçen süreyi JavaScript'in `Date.now()` işleviyle aynı birim olan **milisaniye** cinsinden geçirin; saniye değil. Çalışma zamanı, o zaman damgasına en yakın slotu hesaplar.
 
 <CodeTabs storage="surfpool-lang">
 
@@ -85,6 +80,42 @@ const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
 ```
 
 </CodeTabs>
+
+<Callout type="warn" title="Saat milisaniye değil saniye raporlar">
+  Çalışma zamanından geri okuduğunuz her zaman damgası **saniye** cinsindendir — zincir üstü `Clock` sysvar'ının `unix_timestamp` değeri ve `systemClockUpdated` olayının taşıdığı [`ClockValue`](/docs/tools/surfpool/sdk/js-reference#clockvalue) dahil. Bu değerlerden birini doğrudan bir zaman yolculuğu yardımcısına beslemek 1970'lerin başındaki bir ana çözümlenir ve çağrı geçmiş hedef olarak reddedilir. Önce 1000 ile çarpın.
+</Callout>
+
+```ts
+// WRONG — `unixTimestamp` is in seconds, so this is a past target.
+surfnet.timeTravelToTimestamp(clock.unixTimestamp + 3600);
+
+// RIGHT — convert to milliseconds.
+surfnet.timeTravelToTimestamp((clock.unixTimestamp + 3600) * 1000);
+```
+
+## Saati Durdur ve Devam Ettir
+
+Zaman yolculuğu belirli bir hedefe atlar; duraklatma ise saatin tamamen ilerlemesini durdurur.
+`surfnet_pauseClock`, `surfnet_resumeClock` çalışana kadar slot üretimini ve zamanın ilerleyişini durdurur — birkaç doğrulama boyunca slot ve zaman damgasının sabit kalması gereken testlerde bu işleve başvurun.
+
+Ne Rust SDK'sı ne de `@solana/surfpool` içindeki `Surfnet` sınıfı bu iki hile kodunu sarmalar. Bunları [Kit eklentisi](/docs/tools/surfpool/sdk/kit-plugin) aracılığıyla veya doğrudan JSON-RPC üzerinden çağırın.
+
+```ts
+const paused = await client.cheatcodes.pauseClock().send();
+
+// Nothing advances until the clock is resumed, so this is the only thing that
+// moves the slot.
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+
+await client.cheatcodes.resumeClock().send();
+```
+
+Her iki hile kodu da `EpochInfo` döndürür — duraklatma anındaki ve devam ettirme sonrasındaki saat durumu. Bu yapının _taşımadığı_ iki hususa dikkat edin:
+
+- **Zaman damgası yok.** `EpochInfo`'nun zaman alanı yoktur. Simüle edilen Unix zamanını bunun yerine `Clock` sysvar'ından okuyun: `jsonParsed` kodlamasıyla `SysvarC1ock11111111111111111111111111111111` üzerinde `getAccountInfo` — yine saniye cinsinden.
+- **Duraklatma bayrağı yok.** Hiçbir RPC yöntemi saatin şu anda duraklatılıp duraklatılmadığını bildirmez. SDK'lardan, bir duraklatma, devam ettirme veya aralık değişikliği çalıştığında `clockCommand` ile tetiklenen [`clockUpdate` olayını](/docs/tools/surfpool/sdk/events) izleyin. Aksi takdirde durumu testinizde kendiniz takip edin.
 
 ## Yaygın Kalıplar
 
@@ -135,11 +166,11 @@ for epoch in 2..=5 {
 
 Her iki SDK de şu alanları içeren bir `EpochInfo` şekilli nesne döndürür:
 
-| Alan                     | Rust                             | JS                          |
-| ------------------------ | -------------------------------- | --------------------------- |
-| Mutlak slot              | `absolute_slot: u64`             | `absoluteSlot: number`      |
-| Epoch içindeki slot      | `slot_index: u64`                | `slotIndex: number`         |
-| Epoch başına slot sayısı | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
-| Epoch numarası           | `epoch: u64`                     | `epoch: number`             |
-| Blok yüksekliği          | `block_height: u64`              | `blockHeight: number`       |
-| İşlem sayısı             | `transaction_count: Option<u64>` | `transactionCount?: number` |
+| Alan             | Rust                             | JS                          |
+| ----------------- | -------------------------------- | --------------------------- |
+| Mutlak slot     | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| Epoch içindeki slot | `slot_index: u64`                | `slotIndex: number`         |
+| Epoch başına slot sayısı   | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Epoch numarası      | `epoch: u64`                     | `epoch: number`             |
+| Blok yüksekliği      | `block_height: u64`              | `blockHeight: number`       |
+| İşlem sayısı | `transaction_count: Option<u64>` | `transactionCount?: number` |

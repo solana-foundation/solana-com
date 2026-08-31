@@ -1,0 +1,367 @@
+---
+title: Kit Eklentisi
+description:
+  Bir Solana Kit istemcisinin arkasında gömülü bir Surfnet çalıştırın. Tek bir eklenti size önceden fonlanmış bir ödeyici, tam RPC yığını ve tiplendirilmiş hile kodları sağlar.
+---
+
+`@solana/surfpool/kit`, test sürecinizin içinde yerel, Solana uyumlu bir ağ olan Surfnet'i çalıştırır ve halihazırda ona yönlendirilmiş bir
+[Solana Kit](https://www.solanakit.com/) istemcisi döndürür. Tek bir
+`.use(surfpool())` çağrısı, normalde kullanacağınız RPC eklentisinin
+(`solanaLocalRpc()`, `litesvm()`) yerini alır ve önceden fonlanmış bir ödeyici ile Surfpool'un
+hile kodlarını ekler:
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+const slot = await client.rpc.getSlot().send();
+await client.cheatcodes.timeTravel({ absoluteSlot: 1_000_000n }).send();
+```
+
+Seçilecek bir port yok, oluşturup fonlanması gereken bir ödeyici yok ve yönetilmesi gereken ayrı bir `surfpool start`
+süreci yok. SDK'ya yeni misiniz? Başlamak için
+[Genel Bakış](/docs/tools/surfpool/sdk/overview)'a göz atın.
+
+## Hangi Giriş Noktasını İstiyorsunuz
+
+| Giriş noktası                       | Ne zaman kullanılır                                                                                         |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `surfpool()`                      | **Testler için varsayılan.** Test dosyası başına izole bir Surfnet; Kit istemcisi zaten bağlı.             |
+| `surfpool({ rpcUrl })`            | Uzun ömürlü bir `surfpool start` örneği süreçler arasında paylaşılıyorsa veya platformunuzda yerel ikili dosya yoksa. |
+| `surfnetCheatcodes()`             | Zaten bir istemciniz var ve yalnızca üzerine hile kodları eklemek istiyorsunuz.                                                 |
+| `@solana/surfpool` paketinden `Surfnet` | Kit kullanmıyorsanız — [JS referansına](/docs/tools/surfpool/sdk/js-reference) bakın.                    |
+
+## Ön Koşullar
+
+- **Node.js 20.18+**, `@solana/kit` v7'nin belirlediği alt sınır. `@solana/surfpool`
+  kendisi 18+ üzerinde çalışır, ancak Kit paketleri çalışmaz. Bazı program eklentileri
+  daha fazlasını gerektirir — `@solana-program/token` 24+ gerektirir.
+- **[Desteklenen bir platform](/docs/tools/surfpool/sdk/installation)** (macOS,
+  Linux x86-64) gömülü mod için gereklidir; bu mod yerel bir ikili dosya yükler. Diğer platformlarda
+  bağlantı modunu kullanın.
+- **Kit'in eklenti bileşimiyle aşinalık** — istemciler `.use()` çağrılarının zincirlenmesiyle oluşturulur
+  ve her eklenti istemciye özellikler ekler.
+
+## Kurulum
+
+```bash
+npm install --save-dev @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+# or
+pnpm add -D @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+```
+
+Bunlar `@solana/surfpool`'un isteğe bağlı eş bağımlılıkları olarak tanımlanmıştır: yalnızca `Surfnet` sınıfını
+doğrudan kullanıyorsanız atlayın; ancak `@solana/surfpool/kit` içe aktarmak `@solana/kit` ve `@solana/kit-plugin-rpc` gerektirir. Platform destek
+matrisi ve sorun giderme için [Kurulum](/docs/tools/surfpool/sdk/installation)'a bakın.
+
+## Gömülü Mod
+
+`rpcUrl` olmadan `surfpool()` çağırmak, dinamik portlarda işlem içi bir Surfnet başlatır ve
+tüm Kit istemcisini buna yönlendirir. Eklenti asenkrondur, bu nedenle
+`.use()` zincirini `await` ile bekleyin:
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+```
+
+<Callout type="info" title="Paralel test dosyaları">
+  Her `surfpool()` çağrısı kendi dinamik portlarını bağlar; böylece her test dosyası
+  kendi izole Surfnet'ini başlatabilir ve test paketi yine de paralel çalışır.
+</Callout>
+
+### Eksiksiz Bir Test
+
+Bir Surfnet başlatın, önceden fonlanmış ödeyici tarafından karşılanan bir transfer gönderin ve
+sonucu doğrulayın. Buradaki örnekler `node:test` kullanmaktadır; Vitest ve Jest de kendi
+`after` / `afterAll` kancalarıyla aynı şekilde çalışır.
+
+```ts title="transfer.test.ts"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+after(() => {
+  client.surfnet.stop();
+});
+
+test("transfers SOL on an embedded Surfnet", async () => {
+  const recipient = await generateKeyPairSigner();
+  const amount = lamports(5_000_000n);
+
+  await client.sendTransaction(
+    getTransferSolInstruction({
+      amount,
+      destination: recipient.address,
+      source: client.payer
+    })
+  );
+
+  const { value: balance } = await client.rpc
+    .getBalance(recipient.address)
+    .send();
+  assert.equal(balance, amount);
+});
+```
+
+### Yaşam Döngüsü
+
+Surfnet'in portlarının ve sunucularının serbest bırakılması için yukarıdaki gibi
+yıkım aşamasında `client.surfnet.stop()` çağırın. `stop()` idempotent ve eşzamanlıdır —
+çalışma zamanı gerçekten kapandıktan sonra döner. Durdurmak kalıcıdır; başka bir
+istemci oluşturmak yeni bir örnek başlatır.
+
+<Callout type="warn" title="Yıkım otomatik değildir">
+  Modül kapsamında tutulan bir istemci — bir test dosyası için yaygın örüntü — hiçbir zaman
+  serbest bırakılmaz; bu nedenle Surfnet'i sizin için hiçbir şey durdurmaz. Bir yıkım kancası olmadan
+  süreç askıda kalabilir veya işletim sistemi çıkışta soketleri kapatırken `connection reset` uyarıları günlüğe yazabilir.
+</Callout>
+
+### Eklentinin Yüklediği Bileşenler
+
+| İstemcide                                        | Geldiği yer                                                   | Ne olduğu                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `client.payer`                                       | `@solana/kit-plugin-signer`                                  | Surfnet'in önceden fonlanmış ödeyici hesabı için bir `KeyPairSigner`                  |
+| `client.rpc` / `client.rpcSubscriptions`             | `@solana/kit-plugin-rpc`                                     | Surfnet'e yönlendirilmiş standart Solana RPC ve abonelik istemcileri |
+| `client.airdrop`                                     | `@solana/kit-plugin-rpc`                                     | Surfnet'e karşı `requestAirdrop`                                      |
+| `client.getMinimumBalance`                           | `@solana/kit-plugin-rpc`                                     | Kira muafiyeti sorgulamaları                                                    |
+| `client.transactionPlanner` / `...PlanExecutor`      | `@solana/kit-plugin-rpc`                                     | İşlem planlama ve yürütme                                        |
+| `client.sendTransaction` / `client.sendTransactions` | `@solana/kit-plugin-rpc` (`kit-plugin-instruction-plan` aracılığıyla) | Talimatları tek bir çağrıda planlayın ve gönderin                                    |
+| `client.rpcUrl` / `client.wsUrl`                     | `@solana/surfpool/kit`                                       | Surfnet'in HTTP ve WebSocket URL'leri                                     |
+| `client.surfnet`                                     | `@solana/surfpool/kit`                                       | Yerel `Surfnet` tanıtıcısı (`fundSol`, `deploy`, `drainEvents`, …)       |
+| `client.cheatcodes`                                  | `@solana/surfpool/kit`                                       | Her `surfnet_*` hile kodunu kapsayan tiplendirilmiş bir RPC                          |
+
+Eklenti bir `identity` yüklemez. Testinizin `client.payer`'dan bağımsız bir yetkiye ihtiyacı varsa
+`.use(identity(...))` ile bir tane ekleyin.
+
+## Hile Kodları
+
+Hile kodları, normal işlem akışını atlayan durum mutasyonlarıdır — test kurulumu için
+ihtiyaç duyduğunuz şey olan anlık olarak çalışırlar, bir blockhash tüketmeden veya ücret ödemeden.
+`client.cheatcodes` bunların tümünü tiplendirilmiş bir RPC olarak sunar.
+
+Metod adları `surfnet_` önekini düşürür; dolayısıyla `surfnet_pauseClock`,
+`client.cheatcodes.pauseClock()` olur ve yanıtlar `{ context, value }` zarfından
+zaten açılmış şekilde gelir.
+
+```ts
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+// Deterministic clock.
+const paused = await client.cheatcodes.pauseClock().send();
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+await client.cheatcodes.resumeClock().send();
+
+// Arbitrary account state. `data` is hex-encoded.
+const account = (await generateKeyPairSigner()).address;
+const owner = (await generateKeyPairSigner()).address;
+await client.cheatcodes
+  .setAccount(account, { data: "aabbcc", lamports: 777_777, owner })
+  .send();
+
+// Token balances, without minting through the token program. The mint must
+// already exist — create it, or clone it from mainnet with cloneProgramAccount.
+const mint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+await client.cheatcodes
+  .setTokenAccount(owner, mint, { amount: 1_000_000n })
+  .send();
+```
+
+`streamAccount`, `cloneProgramAccount`,
+`profileTransaction`, `registerIdl` ve `resetNetwork` dahil tam metod listesi
+[Hile Kodları](/docs/tools/surfpool/sdk/cheatcodes) ve
+[RPC referansı](/docs/tools/surfpool/rpc/cheatcodes) altında belgelenmiştir.
+
+### Codec ile Yapılandırılmış Hesaplar Yazma
+
+`setAccount` ham baytları hex olarak alır; bu da Kit'in program istemcilerinin sunduğu hesap kodlayıcılarıyla
+iyi bir uyum sağlar. Durum oluşturmak için işlem göndermek yerine,
+istediğiniz hesabı kodlayın ve doğrudan yazın — burada, üzerinde zaten bir arz bulunan
+tam başlatılmış bir SPL mint örneği:
+
+```ts
+import {
+  fetchMint,
+  getMintEncoder,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+import {
+  generateKeyPairSigner,
+  getBase16Decoder,
+  none,
+  some
+} from "@solana/kit";
+
+const mint = (await generateKeyPairSigner()).address;
+
+const data = getMintEncoder().encode({
+  decimals: 6,
+  freezeAuthority: none(),
+  isInitialized: true,
+  mintAuthority: some(client.payer.address),
+  supply: 1_000_000_000n
+});
+
+await client.cheatcodes
+  .setAccount(mint, {
+    // getBase16Decoder() turns the encoded bytes into the hex `data` expects.
+    data: getBase16Decoder().decode(data),
+    lamports: 1_461_600, // rent-exempt minimum for an 82-byte mint
+    owner: TOKEN_PROGRAM_ADDRESS
+  })
+  .send();
+
+// Reads back as a normal mint through the program client.
+const account = await fetchMint(client.rpc, mint);
+account.data.decimals; // 6
+account.data.supply; // 1_000_000_000n
+```
+
+Aynı örüntü, Codama tarafından oluşturulmuş herhangi bir istemci için geçerlidir: hesabın
+kodlayıcısıyla kodlayın, hex'e çevirin ve `setAccount`'a verin. Tek bir işlem olmadan
+bir mint ve fonlanmış sahipler oluşturmak için yukarıdaki `setTokenAccount` ile birleştirin.
+
+<Callout type="info" title="Hile kodu yanıtları bigint kullanır">
+  Hile kodları taşıyıcısı her JSON tam sayısını `bigint` olarak ayrıştırır; böylece `rentEpoch`
+  gibi `u64` değerleri 2^53'ün ötesinde hayatta kalır. İstek yükleri `number
+  | bigint` kabul eder.
+</Callout>
+
+### Eklenti Olmadan Hile Kodları
+
+İki daha küçük giriş noktası, tam eklentiyi istemediğiniz durumları kapsar. Her ikisi de
+eşzamanlıdır — yalnızca bir taşıyıcı eklerler, bu nedenle hiçbiri `await` gerektirmez.
+
+```ts
+import {
+  createSurfnetCheatcodesRpc,
+  surfnetCheatcodes
+} from "@solana/surfpool/kit";
+
+// Standalone RPC, no Kit client involved.
+const cheatcodes = createSurfnetCheatcodesRpc("http://127.0.0.1:8899");
+await cheatcodes.pauseClock().send();
+
+// Add `client.cheatcodes` to a client you already composed.
+const client = createClient().use(surfnetCheatcodes());
+```
+
+`surfnetCheatcodes()`, verilmişse `url`'den, ardından mevcut bir `client.rpcUrl`'den
+(böylece bir tane taşıyan herhangi bir istemciyle bileşir) ve son olarak `DEFAULT_SURFNET_ENDPOINT`'ten
+(`http://127.0.0.1:8899`) uç noktasını çözümler. Her ikisi de uzak bir Surfpool'a
+karşı kimlik doğrulamak için bir `headers` seçeneği kabul eder.
+
+## Yapılandırma
+
+Surfnet başlangıç seçenekleri `surfnet` anahtarı altına girer ve
+`Surfnet.startWithConfig()`'e iletilir. Geri kalan her şey yerel Solana
+RPC eklentisine iletilir:
+
+```ts
+const client = await createClient().use(
+  surfpool({
+    surfnet: { offline: true }, // Surfnet startup config
+    skipPreflight: true // forwarded to solanaLocalRpc()
+  })
+);
+```
+
+`surfnet`'i tamamen atlarsanız eklenti, varsayılanlarıyla `Surfnet.start()`'ı çağırır.
+Tam başlangıç seçenekleri — uzak RPC geri dönüşü, blok üretim modu, slot
+zamanlaması, özellik kapıları ve özel ödeyiciler — için [Yapılandırma](/docs/tools/surfpool/sdk/configuration)'ya bakın.
+
+## Program Eklentileriyle Birleştirme
+
+`surfpool()`, `solanaLocalRpc()` ile aynı sözleşmeleri karşıladığından, Kit
+program eklentileri üstüne katmanlanır ve talimatları gömülü Surfnet'e karşı yürütür.
+Yalnızca son sonucun beklenmesi gerekir — asenkron bir istemci üzerinde `use()` başka
+bir asenkron istemci döndürür; bu nedenle senkron ve asenkron eklentiler serbestçe zincirlenebilir.
+
+```ts
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool()).use(tokenProgram());
+
+const newMint = await generateKeyPairSigner();
+await client.token.instructions
+  .createMint({ decimals: 6, mintAuthority: client.payer.address, newMint })
+  .sendTransaction();
+
+await client.token.instructions
+  .mintToATA({
+    amount: 1_000_000n,
+    decimals: 6,
+    mint: newMint.address,
+    mintAuthority: client.payer,
+    owner: client.payer.address
+  })
+  .sendTransaction();
+```
+
+## Bağlantı Modu
+
+`rpcUrl` geçirmek eklentiyi bağlantı moduna geçirir: bir tane başlatmak yerine,
+[`surfpool start`](/docs/tools/surfpool/toolchain/cli) ile başlatılmış,
+zaten çalışan bir Surfpool'a bağlanır.
+Önceden derlenmiş ikili dosyası olmayan platformlarda da çalışması için yerel modül yüklenmez.
+Ayrıca eşzamanlıdır, bu nedenle beklemeye gerek yoktur:
+
+```ts
+import { createKeyPairSignerFromBytes, createClient } from "@solana/kit";
+import { payer } from "@solana/kit-plugin-signer";
+import { surfpool } from "@solana/surfpool/kit";
+import { readFile } from "node:fs/promises";
+
+// Any funded signer works; this loads the local CLI keypair.
+const keypairPath = `${process.env.HOME}/.config/solana/id.json`;
+const myPayer = await createKeyPairSignerFromBytes(
+  new Uint8Array(JSON.parse(await readFile(keypairPath, "utf8")))
+);
+
+const client = createClient()
+  .use(payer(myPayer))
+  .use(surfpool({ rpcUrl: "http://127.0.0.1:8899" }));
+```
+
+Gömülü moddan üç fark:
+
+- **İstemcinin zaten bir `payer`'a sahip olması gerekir.** Bağlantı modunun çalışan
+  örneğin ödeyici gizli anahtarına erişimi yoktur, bu nedenle hiç yüklemez. Hangi imzacıyı
+  sağlıyorsanız `client.cheatcodes.setAccount(...)` veya çalışan örneğin kendi faucet'i ile fonlayın.
+- **`client.surfnet` tanıtıcısı yoktur.** İşlem içi yardımcılar kullanılamaz;
+  bunun yerine durum manipülasyonu için `client.cheatcodes` kullanın.
+- **`surfnet` başlangıç yapılandırması reddedilir.** Örnek zaten çalışıyor; bu nedenle
+  `rpcUrl` ve `surfnet` türlerde birbirini dışlar.
+
+<Callout type="warn" title="WebSocket portu">
+  Surfpool, aboneliklere HTTP portundan bağımsız olarak kendi portunda (varsayılan `8900`, `--ws-port`) hizmet verir.
+  `rpcUrl`'nin açık bir portu varsa, eklenti abonelik URL'sini aynı
+  sunucuda `8900` portu olarak türetir. Port yoksa — örneğin bir proxy arkasındaysa —
+  yalnızca protokol `ws`/`wss` olarak değiştirilir. Hiçbir kural uymadığında
+  `rpcSubscriptionsUrl`'yi kendiniz ayarlayın.
+</Callout>
+
+## Sonraki Adımlar
+
+- [Programlar](/docs/tools/surfpool/sdk/programs) — bir testten önce programınızı
+  Surfnet'e dağıtın
+- [Hile Kodları](/docs/tools/surfpool/sdk/cheatcodes) — tam durum mutasyon
+  yüzeyi
+- [Yapılandırma](/docs/tools/surfpool/sdk/configuration) — mainnet forklama,
+  blok üretimi, özellik kapıları
+- [Kurulum](/docs/tools/surfpool/sdk/installation) — platform desteği ve
+  sorun giderme
+- [JS Referansı](/docs/tools/surfpool/sdk/js-reference) — `client.surfnet`'in
+  arkasındaki `Surfnet` sınıfı

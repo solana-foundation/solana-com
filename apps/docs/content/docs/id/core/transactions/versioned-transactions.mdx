@@ -1,8 +1,7 @@
 ---
 title: Transaksi berversi
 description:
-  Format transaksi legacy vs berversi (V0) di Solana, termasuk Address Lookup
-  Tables (ALTs), deteksi versi, format pesan V0, dan resolusi ALT.
+  Format transaksi legacy, v0, dan v1 di Solana, termasuk Address Lookup Tables (ALT), deteksi versi, konfigurasi transaksi v1, dan batas sumber daya.
 url: /docs/core/transactions/versioned-transactions
 type: conceptual
 prerequisites:
@@ -14,53 +13,107 @@ related:
 ---
 
 <Callout type="info" title="Ringkasan">
-  Transaksi V0 menambahkan Address Lookup Tables (ALTs), memungkinkan referensi
-  ke akun melalui indeks 1-byte alih-alih kunci 32-byte. Ini menghemat 31 byte
-  per akun yang di-resolve ALT.
+  Solana memiliki tiga format transaksi: legacy, v0, dan v1. **v0** menambahkan Address
+  Lookup Tables (ALT) untuk mereferensikan akun melalui indeks 1-byte. **v1**
+  meningkatkan batas ukuran menjadi 4.096 byte, memindahkan batas sumber daya ke dalam pesan
+  itu sendiri, dan menghapus ALT.
 </Callout>
 
-Solana mendukung dua format transaksi: **legacy** dan **berversi** (v0).
+Solana mendukung tiga format transaksi: **legacy**, **v0**, dan **v1**. Masing-masing
+dijelaskan di bawah dengan tiga bagian yang sama: cara byte ditata dalam transmisi,
+cara akun direferensikan, dan dari mana batas sumber dayanya berasal.
 
-Validator menentukan format dengan memeriksa byte pertama dari pesan:
-
-- Jika byte pertama memiliki bit
-  [version prefix](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
-  yang diset, itu adalah **pesan berversi**. Saat ini hanya versi 0 yang
-  didukung. 3 byte berikutnya adalah _`MessageHeader`_.
-- Jika tidak, itu adalah **pesan legacy**. Byte pertama adalah
-  `num_required_signatures`, dan 2 byte berikutnya melengkapi header.
-
-<Callout type="info" title="Kapan menggunakan transaksi V0">
-  Gunakan V0 ketika transaksi Anda mereferensikan banyak akun dan mendekati
-  batas paket 1.232-byte. Jika transaksi Anda muat dalam batas ukuran dengan
-  semua akun inline, transaksi legacy lebih sederhana dan memiliki dukungan
-  tooling yang lebih luas. V0 diperlukan untuk menggunakan Address Lookup
-  Tables.
+<Callout type="warn" title="Status aktivasi v1">
+  [Format v1](https://solana.com/upgrades/larger-transaction-sizes) belum
+  aktif di cluster mana pun. Aktivasi ditargetkan pada Agave v4.2.
+  `solana-test-validator` 4.2+ memungkinkan Anda menguji transaksi v1 secara lokal.
+  Aplikasi yang sudah ada sebaiknya meninjau [persiapan untuk v1](#preparing-for-v1).
 </Callout>
 
-## Format pesan V0
+## Perbandingan format
 
-Pesan v0 memiliki field yang sama dengan pesan legacy, ditambah array
-`address_table_lookups` tambahan yang ditambahkan setelah instruksi:
+| Batas                 | legacy                     | v0                         | v1                 |
+| --------------------- | -------------------------- | -------------------------- | ------------------ |
+| Ukuran transaksi maksimal  | 1.232 byte                | 1.232 byte                | **4.096 byte**    |
+| Alamat akun     | ~32, dibatasi ukuran            | 64, melalui lookup table      | **64, inline**     |
+| Address lookup table | tidak didukung              | didukung                  | **tidak didukung**  |
+| Batas sumber daya       | Instruksi ComputeBudget | Instruksi ComputeBudget | **konfigurasi pesan** |
 
-| Field                   | Ukuran                    | Deskripsi                                        |
-| ----------------------- | ------------------------- | ------------------------------------------------ |
-| `0x80`                  | 1 byte                    | Byte version prefix                              |
-| `header`                | 3 byte                    | MessageHeader (sama dengan legacy)               |
-| `static_account_keys`   | compact-u16 + N x 32 byte | Kunci yang muncul secara literal dalam transaksi |
-| `recent_blockhash`      | 32 byte                   | Blockhash                                        |
-| `instructions`          | compact-u16 + variabel    | Format sama dengan legacy                        |
-| `address_table_lookups` | compact-u16 + variabel    | Referensi ALT (lihat di bawah)                   |
+Langsung ke: [Legacy](#legacy-format) · [v0](#v0-format) · [v1](#v1-format)
+
+## Format legacy
+
+Format asli, dan masih menjadi default di sebagian besar tooling. Format ini sama sekali tidak memiliki
+prefiks versi: byte pertama dari transaksi adalah hitungan compact-u16 dari
+array tanda tangan, dan byte pertama dari pesan adalah `num_required_signatures`,
+yang bit tertingginya selalu tidak disetel.
+
+### Tata letak wire legacy
+
+| Field              | Size                          | Description                                      |
+| ------------------ | ----------------------------- | ------------------------------------------------ |
+| `num_signatures`   | compact-u16                   | Jumlah tanda tangan                             |
+| `signatures`       | `num_signatures` x 64 byte   | Tanda tangan Ed25519                               |
+| `header`           | 3 byte                       | MessageHeader — byte pertama memiliki bit versi yang tidak disetel |
+| `num_account_keys` | compact-u16                   | Jumlah kunci akun                           |
+| `account_keys`     | `num_account_keys` x 32 byte | Kunci publik, semua inline                          |
+| `recent_blockhash` | 32 byte                      | Penentu masa berlaku                               |
+| `num_instructions` | compact-u16                   | Jumlah instruksi                           |
+| `instructions`     | variabel                      | Setiap instruksi diserialisasi secara berurutan         |
+
+Setiap array dengan panjang variabel diawali dengan panjang compact-u16: 1 byte untuk
+nilai 0–127, 2–3 byte untuk nilai yang lebih besar. Untuk tata letak per instruksi dan
+perhitungan ukuran secara rinci, lihat
+[format biner transaksi](/docs/core/transactions/transaction-structure#transaction-binary-format).
+
+### Akun dalam legacy
+
+Setiap akun ditulis sebagai kunci publik 32-byte penuh dalam `account_keys`, dan
+instruksi mereferensikannya dengan indeks 1-byte ke dalam array tersebut. Tidak ada cara untuk
+mereferensikan akun yang tidak tercantum dalam transaksi, itulah yang
+membatasi transaksi legacy pada sekitar 32 akun sebelum kapasitas
+1.232 byte habis.
+
+### Batas sumber daya dalam legacy
+
+Batas unit komputasi, batas ukuran data akun yang dimuat, ukuran heap, dan biaya prioritas
+semuanya diminta dengan menyertakan
+[instruksi program ComputeBudget](/docs/core/fees/compute-budget) dalam
+transaksi. Masing-masing memerlukan satu slot instruksi dan 150 unit komputasi. Menghilangkan
+nya aman: runtime akan menggunakan default 200.000 CU per instruksi
+(dibatasi hingga 1,4M), batas ukuran data 64 MiB, heap 32 KiB, dan biaya prioritas
+nol.
+
+## Format v0
+
+v0 adalah pesan legacy ditambah dua hal: byte prefiks versi `0x80` dan
+array `address_table_lookups` yang ditambahkan setelah instruksi. Semua yang ada sebelumnya
+byte-identik dengan legacy.
+
+### Tata letak wire v0
+
+| Field                   | Ukuran                          | Deskripsi                                     |
+| ----------------------- | ----------------------------- | ----------------------------------------------- |
+| `num_signatures`        | compact-u16                   | Jumlah tanda tangan                            |
+| `signatures`            | `num_signatures` x 64 byte   | Tanda tangan Ed25519                              |
+| `0x80`                  | 1 byte                        | Byte prefiks versi — byte pertama dari pesan |
+| `header`                | 3 byte                       | MessageHeader (sama dengan legacy)                  |
+| `num_account_keys`      | compact-u16                   | Jumlah kunci akun statis                   |
+| `static_account_keys`   | `num_account_keys` x 32 byte | Kunci yang muncul secara literal dalam transaksi   |
+| `recent_blockhash`      | 32 bytes                      | Penentu masa berlaku                              |
+| `num_instructions`      | compact-u16                   | Jumlah instruksi                          |
+| `instructions`          | variabel                      | Format sama dengan legacy                           |
+| `address_table_lookups` | compact-u16 + variabel        | Referensi ALT (lihat di bawah)                      |
 
 Setiap entri pencarian tabel alamat berisi:
 
-| Field              | Size                     | Description                                       |
-| ------------------ | ------------------------ | ------------------------------------------------- |
-| `account_key`      | 32 bytes                 | Kunci publik akun ALT                             |
-| `writable_indexes` | compact-u16 + N x 1 byte | Indeks ke dalam ALT untuk akun yang dapat ditulis |
-| `readonly_indexes` | compact-u16 + N x 1 byte | Indeks ke dalam ALT untuk akun read-only          |
+| Field              | Size                     | Description                                 |
+| ------------------ | ------------------------ | ------------------------------------------- |
+| `account_key`      | 32 byte                 | Kunci publik akun ALT                |
+| `writable_indexes` | compact-u16 + N x 1 byte | Indeks ke dalam ALT untuk akun yang dapat ditulis  |
+| `readonly_indexes` | compact-u16 + N x 1 byte | Indeks ke dalam ALT untuk akun read-only |
 
-## Resolusi tabel pencarian alamat
+### Address lookup table
 
 ALT adalah akun onchain yang menyimpan hingga 256 kunci publik. Dengan
 mereferensikan ALT, sebuah transaksi dapat menyertakan akun tambahan menggunakan
@@ -81,3 +134,128 @@ read-only.
   bersifat writable atau read-only (non-signer); mereka tidak dapat menjadi
   signer.
 </Callout>
+
+### Batas sumber daya dalam v0
+
+Tidak berubah dari legacy: instruksi ComputeBudget, dengan default yang sama ketika
+mereka dihilangkan.
+
+## Format v1
+
+v1 meningkatkan batas ukuran menjadi 4.096 byte dan merestrukturisasi pesan di sekitar
+**konfigurasi transaksi**: batas sumber daya dipindahkan dari instruksi ComputeBudget
+ke field berposisi tetap dalam pesan itu sendiri. Hal ini memungkinkan jaringan mengurutkan
+transaksi berdasarkan biaya prioritas dengan satu pembacaan offset tetap alih-alih
+memindai dan mendeserialisasi daftar instruksinya.
+
+### Tata letak wire v1
+
+| Field                  | Ukuran         | Deskripsi                                                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `0x81`                 | 1 byte       | Byte prefiks versi — byte pertama dari transaksi                            |
+| `header`               | 3 byte      | MessageHeader (sama seperti legacy)                                                     |
+| `config_mask`          | 4 byte      | Bitmask `u32` LE yang menandai nilai konfigurasi mana yang ada                           |
+| `recent_blockhash`     | 32 byte     | Penentu masa berlaku                                                                 |
+| `num_instructions`     | 1 byte       | Hitungan lebar tetap, maksimal 64                                                          |
+| `num_addresses`        | 1 byte       | Hitungan lebar tetap, maksimal 64                                                          |
+| `addresses`            | N x 32 byte | Alamat akun, semua inline — tanpa referensi lookup table                         |
+| `config_values`        | 0–20 byte   | Satu nilai per bit mask yang disetel, dalam urutan bit (lihat di bawah)                               |
+| `instruction_headers`  | N x 4 byte  | Per instruksi: `program_id_index` (u8), `num_accounts` (u8), `data_len` (u16 LE) |
+| `instruction_payloads` | variabel     | Per instruksi: indeks akun, lalu instruction data                            |
+| `signatures`           | N x 64 byte | Di bagian akhir, tanpa prefiks panjang — hitungannya berasal dari header               |
+
+Dua perbedaan struktural dari legacy dan v0 perlu diperhatikan saat menulis
+dekoder. Hitungannya adalah field `u8` lebar tetap, bukan compact-u16, dan
+instruksi dibagi menjadi dua bagian: semua header berukuran tetap terlebih dahulu, kemudian semua
+payload dengan panjang variabel, alih-alih setiap instruksi bersifat berurutan.
+
+### Akun dalam v1: tanpa address lookup table
+
+v1 menghapus dukungan ALT secara sengaja. 64 alamat mentah adalah 2.048 byte,
+masih nyaman di dalam batas 4.096 byte, sehingga setiap alamat bersifat inline seperti dalam
+legacy. Jika aplikasi Anda bergantung pada lookup table, beralih ke v1 berarti
+menginline alamat-alamat tersebut.
+
+### Batas sumber daya dalam v1: konfigurasi transaksi
+
+Konfigurasi adalah bitmask `u32` diikuti oleh nilai lebar tetap untuk setiap field
+yang bitnya disetel:
+
+| Bit | Field                           | Lebar | Catatan                                       |
+| ------ | ------------------------------- | ----- | ------------------------------------------- |
+| 0–1    | Biaya prioritas                    | u64   | **Total lamport** — kedua bit disetel bersamaan |
+| 2      | Batas unit komputasi              | u32   |                                             |
+| 3      | Batas ukuran data akun yang dimuat | u32   |                                             |
+| 4      | Ukuran heap yang diminta             | u32   |                                             |
+
+Bit yang tidak dikenal akan ditolak. Karena pesan ditandatangani, field konfigurasi yang tidak dikenal
+tidak dapat diabaikan secara diam-diam.
+
+<Callout type="warn" title="Biaya prioritas adalah total lamport, bukan harga">
+  Dalam legacy dan v0, biaya prioritas ditetapkan melalui `SetComputeUnitPrice` sebagai
+  **micro-lamport per unit komputasi**, dikalikan dengan batas unit komputasi. Dalam
+  v1, nilainya adalah **total absolut dalam lamport** — tanpa perkalian, tanpa pembulatan.
+  Jangan membawa aritmetika per-CU tersebut. Formula total biaya tidak berubah:
+  `(signatures × lamports_per_signature) + priority_fee`.
+</Callout>
+
+#### Instruksi ComputeBudget adalah no-op dalam v1
+
+Transaksi v1 tidak menolak instruksi ComputeBudget — instruksi tersebut **diabaikan**
+untuk konfigurasi. Instruksi tersebut tetap dieksekusi sebagai no-op yang berhasil, mengonsumsi 150
+unit komputasi dan satu dari 64 slot instruksi tanpa memberikan efek apa pun pada
+anggaran. Hilangkan instruksi tersebut saat membangun transaksi v1, dan hentikan pemindaian terhadapnya
+saat membaca transaksi v1: nilainya ada dalam konfigurasi pesan.
+
+#### Field konfigurasi harus disetel secara eksplisit
+
+Perubahan perilaku terpenting bagi pengirim: tidak seperti legacy dan v0, transaksi v1
+harus menetapkan batas unit komputasi dan batas ukuran data akun yang dimuat
+secara eksplisit, atau transaksi Anda akan gagal.
+
+| Field yang tidak disetel               | legacy / v0                    | v1          | Gejala jika dihilangkan                                              |
+| ------------------------- | ------------------------------ | ----------- | --------------------------------------------------------------- |
+| Batas unit komputasi        | 200k per instruksi, maks 1,4M | **0 CU**    | Langsung gagal, anggaran habis                                |
+| Ukuran data akun yang dimuat | 64 MiB                         | **0 byte** | `MaxLoadedAccountsDataSizeExceeded` pada akun pertama yang dimuat |
+| Biaya prioritas              | 0                              | 0           | —                                                               |
+| Ukuran heap                 | 32 KiB                         | 32 KiB      | —                                                               |
+
+Pendekatan yang direkomendasikan adalah melakukan simulasi sekali dengan kedua batas dimaksimalkan, lalu menulis
+nilai `unitsConsumed` dan `loadedAccountsDataSize` yang dikembalikan ke dalam konfigurasi,
+membulatkan ukuran data ke atas ke halaman 32 KiB berikutnya untuk cadangan (model biaya blok
+menghitung dalam halaman 32 KiB, sehingga cadangan di bawah batas halaman berikutnya
+gratis).
+
+## Persiapan untuk v1
+
+v1 mengubah cara **membaca** transaksi, bukan hanya mengirimnya. Ketika v1 diaktifkan,
+setiap klien yang memanggil `getTransaction` atau `getBlock` tanpa mengaktifkan dukungannya akan
+mulai gagal pada transaksi v1:
+
+- Berikan `maxSupportedTransactionVersion: 1` — **integer** JSON `1`, bukan
+  string `"1"` — ke [`getTransaction`](/docs/rpc/http/gettransaction) dan
+  [`getBlock`](/docs/rpc/http/getblock). Memberikan `0` akan gagal pada transaksi v1
+  sama seperti menghilangkan parameter tersebut, sehingga kode yang diperbarui saat peluncuran v0
+  masih perlu mengubah nilainya.
+- `getTransaction` gagal pada transaksi v1 dengan error `-32015`, dan satu transaksi v1
+  membuat **seluruh** respons `getBlock` gagal dengan error yang sama —
+  tidak ada hasil parsial.
+- [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe) mengembalikan `block: null` dan
+  berhenti maju, sehingga konsumen yang membaca itu sebagai blok kosong secara diam-diam
+  akan tertinggal sejak slot v1 pertama dan seterusnya.
+- `getSignaturesForAddress` tidak pernah memeriksa isi transaksi, sehingga tanda tangan v1
+  terdaftar seperti biasa.
+- Respons yang sudah diaktifkan menyertakan objek `transactionConfig` dalam pesan untuk transaksi v1
+  (tidak ada sama sekali untuk legacy dan v0). Pipeline yang menurunkan
+  biaya prioritas atau batas komputasi dengan memindai instruksi ComputeBudget
+  akan melaporkan **nol** secara diam-diam untuk setiap transaksi v1.
+- Gunakan `encoding: 'base64'` saat mendekode transaksi di sisi klien, dan untuk
+  `sendTransaction`/`simulateTransaction` dengan transaksi di atas 1.232 byte —
+  encoding base58 tetap dibatasi pada ukuran lama.
+- Dukungan library klien memerlukan versi terbaru: `@solana/kit` 8.0+, crate Rust
+  generasi Agave 4.2.x, atau web3.js v3. web3.js v1 membaca v1 mulai dari 1.99.0
+  ke atas, tetapi tidak dapat membangun atau mengirimnya.
+
+Untuk panduan migrasi lengkap — termasuk dukungan library klien, deteksi versi streaming
+(Geyser/gRPC), dan perilaku simulasi — lihat
+[halaman upgrade Format Transaksi v1](https://solana.com/upgrades/larger-transaction-sizes).

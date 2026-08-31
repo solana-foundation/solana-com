@@ -1,0 +1,500 @@
+---
+title: Transfer Hook Integrationsleitfaden
+description:
+  Erfahren Sie, wie Sie Token, die die Transfer Hook-Erweiterung verwenden, in Wallets, Custodians und dApps integrieren – einschließlich der Erkennung der Erweiterung, der Auflösung der zusätzlichen Konten, die ein Hook benötigt, sowie der Behandlung von Simulations- und Ausführungsfehlern.
+url: /docs/tokens/extensions/transfer-hook-integration
+type: conceptual
+prerequisites:
+  - /docs/tokens/extensions
+related:
+  - /docs/tokens/extensions/transfer-hook
+  - /docs/tokens/extensions/permanent-delegate
+  - /docs/tokens/extensions/transfer-fees
+  - /docs/tokens/extensions/confidential-transfer/integration-guide
+---
+
+## Hintergrund
+
+Die Transfer Hook-Erweiterung ermöglicht es einem Token-2022-Mint, bei jeder Token-Übertragung eine Cross Program
+Invocation (CPI) an ein benutzerdefiniertes Programm zu verlangen. Der Mint speichert
+die Adresse des Hook-Programms, und jede Wallet, dApp oder jeder Custodian, der dieses
+Token sendet, muss die Konten einschließen, die das Hook-Programm benötigt, damit die CPI ausgeführt werden kann.
+
+Dieser Leitfaden richtet sich an Teams, die Token **integrieren**, die einen Transfer Hook
+verwenden (Wallets, dApps, Custodians, Börsen, Explorer), und nicht an Teams, die
+ein Hook-Programm **schreiben**. Wenn Sie ein Hook-Programm entwickeln, beginnen Sie mit dem
+[Transfer Hook Interface](https://www.solana-program.com/docs/transfer-hook-interface)
+und dem [Transfer Hook Erweiterungsleitfaden](/docs/tokens/extensions/transfer-hook);
+dieser Leitfaden konzentriert sich darauf, was ein Client tun muss, um Überweisungen eines Hook-fähigen Tokens korrekt zu senden, zu empfangen und zu simulieren.
+
+Anders als die meisten anderen Token-2022-Erweiterungen ist ein Transfer Hook auf der
+Kontenebene nicht optional. Wenn ein Mint einen Transfer Hook konfiguriert hat, **erfordert jede Übertragung
+dieses Tokens die zusätzlichen Konten des Hooks**, unabhängig davon, ob Ihr Produkt
+etwas mit der Logik des Hooks macht. Ein Client, der diese Konten nicht auflöst,
+kann das Token überhaupt nicht senden; die Transfer- Anweisungen schlagen onchain fehl,
+der Hook wird nicht stillschweigend übersprungen. Die vollständigen Funktionen, die Sie in Ihren
+Sendepfad einbauen können, finden Sie unter
+[Senden eines Transfer-Hook-Tokens](#sending-a-transfer-hook-token) weiter unten, sowohl für
+Kit als auch für Web3.js.
+
+### Ressourcen
+
+- [Transfer Hook Interface Referenz](https://www.solana-program.com/docs/transfer-hook-interface)
+- [Erweiterungs-Rust-Code](https://github.com/solana-program/token-2022/tree/main/program/src/extension/transfer_hook)
+- [`@solana-program/token-2022` JS-Client](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  der Kit-basierte Client, empfohlen für neue Integrationen. Native Transfer Hook
+  Auflösung über `getTransferCheckedWithTransferHookInstructionAsync` sowie die
+  untergeordneten Helfer `resolveExtraAccountMetasForExecute` /
+  `findExtraAccountMetaListPda`.
+- [`@solana/spl-token` JS-Client](https://github.com/solana-program/token-2022/tree/main/clients/js-legacy)
+  der Legacy-Client für die veraltete `@solana/web3.js`-Bibliothek. Deckt
+  dieselben Bereiche ab (Erweiterungserkennung, Auflösung zusätzlicher Konten, der High-Level-
+  Helfer `createTransferCheckedWithTransferHookInstruction`) für Teams, die noch
+  web3.js verwenden.
+- [Transfer Hook Erweiterungsleitfaden](/docs/tokens/extensions/transfer-hook)
+  (Schreiben eines Hook-Programms, zum Verständnis dessen, was Emittenten konfigurieren)
+
+## Kurzübersicht
+
+- Ein Transfer Hook-Mint speichert eine **Hook-Programm-Adresse**. Jede Übertragung führt einen CPI
+  in dieses Programm aus, und der CPI benötigt zusätzliche Konten über die standardmäßigen
+  Transfer-Konten hinaus.
+- Die zusätzlichen Konten, die ein Hook benötigt, sind in einem onchain
+  **`ExtraAccountMetaList`**-Konto aufgeführt, einer PDA, die vom Hook-Programm und
+  dem Mint abgeleitet wird. Clients lesen dieses Konto, um zu ermitteln, welche Konten an eine
+  Transfer- Anweisungen angehängt werden sollen.
+- **Die Auflösung ist nicht optional.** Wenn die zusätzlichen Konten fehlen oder veraltet sind, schlagen die
+  Transfer- Anweisungen onchain fehl. Es gibt keinen Fallback, der den Token
+  stillschweigend ohne den Hook sendet.
+- **Sowohl Kit (`@solana-program/token-2022`) als auch Web3.js (`@solana/spl-token`)
+  können eine Hook-fähige Übertragung von Anfang bis Ende durchführen** — siehe die vollständigen Funktionen
+  unter [Senden eines Transfer-Hook-Tokens](#sending-a-transfer-hook-token). Jeder
+  löst die `ExtraAccountMetaList` nativ auf: Kit über
+  `getTransferCheckedWithTransferHookInstructionAsync`, Web3.js über
+  `createTransferCheckedWithTransferHookInstruction`.
+- **Simulieren Sie immer vor dem Senden.** Ein Hook-Programm kann die Übertragung aus
+  beliebigen, selbst definierten Gründen ablehnen (eine Allowlist-Prüfung, ein pausierter Zustand, eine fehlende
+  Delegation), und die Menge der zusätzlichen Konten kann sich ändern, wenn der Emittent den
+  Hook aktualisiert. Die Simulation deckt beide Probleme auf, bevor der Nutzer unterzeichnet.
+- Die Hook-Ausführung verbraucht zusätzliche Compute Units und kann bei Hooks, die vorfinanzierte oder
+  vorab genehmigte Nebenkonten erfordern (ein delegiertes Gebührenkonto, eine Counter-PDA, die der Nutzer
+  noch nicht initialisiert hat), Setup-Transaktionen vor der ersten
+  erfolgreichen Übertragung erfordern.
+
+## Begriffe
+
+- **Hook-Programm**: das Programm, an das ein Mint die Transferzeit-Logik delegiert, festgelegt über
+  die Transfer Hook-Erweiterung des Mints.
+- **`ExtraAccountMetaList`**: eine PDA, die dem Hook-Programm gehört und die Liste der zusätzlichen Konten speichert, die die `Execute`- Anweisungen des Hooks benötigt. Abgeleitet
+  von den Seeds `"extra-account-metas"` und der Mint-Adresse.
+- **`ExtraAccountMeta`**: ein Eintrag in dieser Liste. Er kann auf eine feste
+  Adresse verweisen, auf eine PDA des Hook-Programms, eine PDA eines anderen Programms oder eine PDA,
+  die mit Daten aus einem der eigenen Konten der Übertragung geseedet wird.
+- **`TransferHookAccount`-Erweiterung**: Zustand eines token account, der ein
+  `transferring`-Flag enthält, das nur dann auf `true` gesetzt wird, während das Token-Programm
+  mitten in einem CPI in den Hook ist. Hook-Programme verwenden es, um Aufrufe abzulehnen, die nicht aus
+  einer echten Übertragung stammen.
+- **`Execute`**: die Anweisungen, die das Token-Programm bei jeder Übertragung per CPI aufruft.
+  Clients rufen sie nie direkt auf; sie werden als Teil von `TransferChecked` aufgerufen.
+
+## Senden eines Transfer-Hook-Tokens
+
+Jede Hook-fähige Übertragung muss vier Dinge tun: erkennen, dass der Mint einen
+Transfer Hook hat, die zusätzlichen Konten auflösen, die der CPI des Hooks benötigt, simulieren und
+erst dann senden. Beide nachstehenden Funktionen erledigen alle vier Schritte und sind dafür gedacht, überall dort
+eingesetzt zu werden, wo Ihre App derzeit eine Token-2022-Übertragung aufbaut.
+
+### Kit
+
+Der `@solana-program/token-2022`-Client löst alles nativ über
+`getTransferCheckedWithTransferHookInstructionAsync` auf: Er ruft den Mint ab,
+erkennt, ob ein Transfer Hook konfiguriert ist, löst die
+`ExtraAccountMetaList` auf und hängt die zusätzlichen Konten des Hooks an. Wenn der Mint
+keinen Hook hat, gibt er einen einfachen `transferChecked` zurück, sodass derselbe Aufruf beide Fälle
+abdeckt, ohne auf den Legacy-Client zurückgreifen zu müssen.
+
+```ts title="send-transfer-hook-token-kit.ts"
+import {
+  appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  compileTransaction,
+  createTransactionMessage,
+  getBase64EncodedWireTransaction,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  type Address,
+  type Rpc,
+  type RpcSubscriptions,
+  type SolanaRpcApi,
+  type SolanaRpcSubscriptionsApi,
+  type TransactionSigner
+} from "@solana/kit";
+import { getTransferCheckedWithTransferHookInstructionAsync } from "@solana-program/token-2022";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction with Kit.
+ */
+export async function sendTokenTransfer({
+  rpc,
+  rpcSubscriptions,
+  source,
+  mint,
+  destination,
+  owner,
+  feePayer,
+  amount,
+  decimals
+}: {
+  rpc: Rpc<SolanaRpcApi>;
+  rpcSubscriptions: RpcSubscriptions<SolanaRpcSubscriptionsApi>;
+  source: Address;
+  mint: Address;
+  destination: Address;
+  owner: TransactionSigner; // Authority over the source token account.
+  feePayer: TransactionSigner;
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Build the transfer instruction. When the mint has a transfer hook this
+  // fetches it, resolves the ExtraAccountMetaList, and appends the accounts the
+  // hook's CPI needs; when it doesn't, you get a plain transferChecked. Because
+  // it re-fetches the mint on every call, don't cache the result across sends
+  // -- the hook program and its extra accounts can both change.
+  const instruction = await getTransferCheckedWithTransferHookInstructionAsync(
+    { rpc },
+    {
+      source,
+      mint,
+      destination,
+      authority: owner,
+      amount,
+      decimals
+    }
+  );
+
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+  const message = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstructions([instruction], tx)
+  );
+
+  // 2. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Compiling the message (rather than signing
+  // it) is enough to simulate, and sigVerify: false lets the network run it
+  // without signatures. This catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await rpc
+    .simulateTransaction(
+      getBase64EncodedWireTransaction(compileTransaction(message)),
+      { encoding: "base64", sigVerify: false, replaceRecentBlockhash: true }
+    )
+    .send();
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 3. Sign only after a successful simulation, then send.
+  const signedMessage = await signTransactionMessageWithSigners(message);
+  assertIsTransactionWithBlockhashLifetime(signedMessage);
+  await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+    signedMessage,
+    { commitment: "confirmed" }
+  );
+}
+```
+
+<Callout type="info">
+  `getTransferCheckedWithTransferHookInstructionAsync` umhüllt die untergeordneten Kit-
+  Resolver (`resolveExtraAccountMetasForExecute`,
+  `findExtraAccountMetaListPda`), die unter [Konten manuell
+  zusammenstellen](#assembling-accounts-manually) weiter unten beschrieben sind. Greifen Sie direkt auf diese zurück,
+  nur wenn Sie Hook-Konten an eine Anweisung anhängen, die Sie selbst zusammenstellen.
+</Callout>
+
+### Web3.js
+
+Der Legacy-Client `@solana/spl-token` löst alles nativ auf – kein Bridging
+erforderlich.
+
+```ts title="send-transfer-hook-token.ts"
+import {
+  Connection,
+  PublicKey,
+  Signer,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  createTransferCheckedInstruction,
+  createTransferCheckedWithTransferHookInstruction,
+  getMint,
+  getTransferHook,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction directly.
+ */
+export async function sendTokenTransfer({
+  connection,
+  payer,
+  source,
+  mint,
+  destination,
+  owner,
+  amount,
+  decimals
+}: {
+  connection: Connection;
+  payer: Signer; // Fee payer; can be the same signer as `owner`.
+  source: PublicKey;
+  mint: PublicKey;
+  destination: PublicKey;
+  owner: Signer; // Authority over the source token account.
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Re-check for a transfer hook on every send. The hook program and its
+  // extra accounts can both change, so don't cache this across transfers.
+  const mintInfo = await getMint(
+    connection,
+    mint,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  );
+  const transferHook = getTransferHook(mintInfo);
+
+  // 2. Build the transfer instruction. When a hook is configured, this also
+  // resolves the ExtraAccountMetaList and appends the accounts the hook's
+  // CPI needs -- there's no separate resolution step to call yourself.
+  const instruction = transferHook
+    ? await createTransferCheckedWithTransferHookInstruction(
+        connection,
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [], // Additional signers, only needed for a multisig authority.
+        "confirmed",
+        TOKEN_2022_PROGRAM_ID
+      )
+    : createTransferCheckedInstruction(
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      );
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+  const transaction = new Transaction({
+    feePayer: payer.publicKey,
+    blockhash,
+    lastValidBlockHeight
+  }).add(instruction);
+
+  // 3. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Simulating without signers runs the
+  // transaction unsigned, which catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await connection.simulateTransaction(transaction);
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 4. Sign and send only after a successful simulation.
+  return sendAndConfirmTransaction(connection, transaction, [payer, owner]);
+}
+```
+
+## Erkennen der Erweiterung
+
+Beide oben genannten Funktionen rufen den Mint erneut ab und prüfen bei jedem Senden auf den Hook:
+Web3.js explizit über `getMint`, Kit innerhalb von
+`getTransferCheckedWithTransferHookInstructionAsync`, das den Mint abruft,
+bevor es etwas auflöst.
+
+<Callout type="info">
+  Die Hook-Programm-Adresse des Mints kann von der Transfer Hook-Autorität des Mints
+  (`UpdateTransferHook`) aktualisiert werden, und die zusätzlichen Konten, die sie benötigt, können
+  sich unabhängig ändern (`UpdateExtraAccountMetaList`). Cachen Sie keinen der Werte
+  länger als für einen einzigen Transferablauf; rufen Sie sie erneut ab, wenn der Nutzer einen neuen
+  Sendevorgang einleitet.
+</Callout>
+
+Die zugehörige `TransferHookAccount`-Erweiterung befindet sich auf token account, nicht auf dem
+Mint. Integratoren müssen sie in der Regel nicht direkt lesen. Sie existiert, damit das
+Hook-Programm selbst bestätigen kann, dass ein Aufruf innerhalb einer echten Übertragung stattgefunden hat und nicht
+weil ein Client `Execute` direkt aufgerufen hat.
+
+## Auflösen der zusätzlichen Konten
+
+Jede Hook-fähige Übertragung benötigt die vier Standard-Transfer-Konten (Quelle,
+Mint, Ziel, Eigentümer/Autorität) zuzüglich allem, was das `ExtraAccountMetaList`-
+Konto für diesen Mint vorgibt. Die Liste ist eine PDA, die vom Hook-Programm abgeleitet wird:
+
+```ts title="derive-extra-account-meta-list.ts"
+// Kit (@solana-program/token-2022)
+import { findExtraAccountMetaListPda } from "@solana-program/token-2022";
+
+const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
+  { mint: mintAddress },
+  { programAddress: transferHook.programId }
+);
+
+// Web3.js (@solana/spl-token)
+import { getExtraAccountMetaAddress } from "@solana/spl-token";
+
+const extraAccountMetaListPda = getExtraAccountMetaAddress(
+  mintAddress,
+  transferHook.programId
+);
+```
+
+Jeder Eintrag in diesem Konto wird auf vier Arten zu einem konkreten `AccountMeta` aufgelöst: ein fester pubkey, eine PDA des Hook-Programms, eine PDA eines anderen Programms,
+das früher in der Kontoliste genannt wurde, oder eine PDA, die mit Bytes aus einem der
+eigenen Konten der Übertragung geseedet wird (zum Beispiel der Eigentümer des Quell-token account).
+Die Auflösung des datengeseedeten Falls erfordert das Abrufen von Kontodaten über RPC, weshalb
+die Auflösung asynchron ist und mehr als einen Round-Trip dauern kann.
+
+### Konten manuell zusammenstellen
+
+Wenn Sie die Anweisung selbst zusammenstellen, anstatt die obigen Funktionen zu verwenden,
+stellen beide Clients die untergeordneten Bestandteile bereit, aus denen diese Funktionen aufgebaut sind.
+
+**Kit (`@solana-program/token-2022`)**
+
+- `findExtraAccountMetaListPda({ mint }, { programAddress })`: leitet die PDA des
+  `ExtraAccountMetaList`-Validierungskontos ab.
+- `getExtraAccountMetasDecoder().decode(accountData)`: parst die rohen
+  Validierungskontodaten in eine Liste von `ExtraAccountMeta`-Einträgen.
+- `resolveExtraAccountMeta(meta, previousAddresses, instructionData, hookProgramAddress, rpc)`:
+  löst einen Eintrag in ein `AccountMeta` auf, basierend auf den bisher aufgelösten Adressen
+  (spätere Einträge können auf frühere verweisen).
+- `resolveExtraAccountMetasForExecute({ rpc, transferHookProgramAddress, source, mint, destination, owner, amount })`:
+  löst jeden Eintrag auf und gibt die anzuhängenden Metas zurück – die zusätzlichen Konten, das
+  Hook-Programm und das Validierungskonto. Kit- Anweisungen sind unveränderlich,
+  daher gibt es die Metas zurück, damit Sie sie auf die Anweisung spreaden können, anstatt
+  sie direkt zu mutieren.
+
+**Web3.js (`@solana/spl-token`)**
+
+- `getExtraAccountMetas(account)`: dekodiert die rohen `ExtraAccountMetaList`-
+  Kontodaten in eine Liste von `ExtraAccountMeta`-Einträgen.
+- `resolveExtraAccountMeta(connection, meta, previousMetas, instructionData, hookProgramId)`:
+  löst einen Eintrag in ein `AccountMeta` auf, basierend auf den bisher aufgelösten Konten
+  (spätere Einträge können auf frühere verweisen).
+- `addExtraAccountMetasForExecute(connection, instruction, hookProgramId, source, mint, destination, owner, amount)`:
+  löst jeden Eintrag auf und hängt ihn in einem Aufruf an eine bestehende Anweisung an.
+
+## Simulieren vor dem Senden
+
+Der Simulationsschritt in beiden oben genannten Funktionen ist der Grund, warum dies wichtig ist: Zwei Dinge können
+schiefgehen, die erst zur Ausführungszeit sichtbar werden.
+
+- **Der Hook lehnt die Übertragung ab.** Ein Hook-Programm kann beliebige
+  Bedingungen kodieren (eine Allowlist, einen pausierten Mint, eine Obergrenzen pro Übertragung) und schlägt die
+  gesamte Anweisung fehl – einschließlich Quelle und Ziel –, wenn die Bedingung nicht
+  erfüllt ist. Es gibt keinen Teilerfolg: Ein abgelehnter Hook-Aufruf lehnt die
+  Übertragung ab.
+- **Die zusätzlichen Konten sind veraltet.** Wenn der Emittent das Hook-Programm geändert oder
+  die `ExtraAccountMetaList` aktualisiert hat, nachdem Ihr Client zuletzt etwas gecacht hat und bevor der Nutzer sendet, erzeugt die Auflösung gegen alte Daten die
+  falschen Konten und die Übertragung schlägt mit einem Kontenvalidierungsfehler fehl, nicht mit einem
+  Hook-Logik-Fehler.
+
+Zuerst zu simulieren und erst nach einer erfolgreichen Simulation einzureichen, fängt
+beiden Fällen ab, bevor der Nutzer eine Gebühr für eine fehlgeschlagene Transaktion zahlt. Außerdem können Sie
+dem Nutzer einen klaren Fehler anzeigen (warum die Übertragung nicht abgeschlossen werden kann), anstatt eines rohen
+Transaktionsfehlers.
+
+## Auswirkungen auf Compute und Einrichtung
+
+Der CPI des Hook-Programms läuft innerhalb des Compute-Budgets der Übertragung. Ein Hook, der
+nicht-triviale Arbeit leistet (mehrere Konten lesen, eigene Prüfungen durchführen), fügt über die
+grundlegende Übertragung hinaus reale Compute-Kosten hinzu. Daher reduziert das Anfordern eines angemessen großen
+Compute-Unit-Limits bei hook-aktivierten Übertragungen vermeidbare Fehler.
+
+Einige Hooks erfordern außerdem, dass Konten vor der ersten erfolgreichen Übertragung existieren,
+nicht nur auflösbar sind: ein delegiertes Gebühren-token account, das der Sender finanzieren
+und genehmigen muss (wie bei einem wSOL-Gebühren-Hook), oder ein Zähler- oder Allowlist-Eintrag, den das
+Programm des Emittenten erwartet, bereits für diesen Eigentümer initialisiert zu sein. Client-
+Implementierungen, die nur Konten auflösen und dem Nutzer niemals „Dieses Token benötigt
+eine einmalige Einrichtung, bevor Sie es senden können“ anzeigen, werden Sendefehler aus
+Gründen sehen, die nichts mit dem Guthaben oder den Netzwerkbedingungen zu tun haben.
+
+## Konten sind während des Hook-CPI schreibgeschützt
+
+Wenn das Token Program per CPI in ein Hook-Programm aufruft, übergibt es jedes Konto aus
+der ursprünglichen Übertragung, einschließlich des eigenen Kontos des Senders, als **schreibgeschützt**, und
+die Signer-Privilegien des Senders werden nicht in den Hook übertragen. Ein Hook-Programm
+kann daher keine Token aus den Konten des Senders mit eigener Autorität
+mitten im CPI verschieben. Ein Hook, der eine Nebenzahlung verschieben muss – zum Beispiel eine Gebühr in einem anderen Token –
+tut dies über einen Delegierten, den der Sender vorab genehmigt hat, also die
+gleiche einmalige Einrichtung, die oben beschrieben wurde.
+
+## Abwärtskompatibilität
+
+Transfer-Hooks verhalten sich bei nicht unterstützten Clients anders als die meisten anderen Token-2022-Erweiterungen:
+
+- Ein Wallet oder eine dApp, das/die keine Transfer-Hook-Konten auflöst, **kann keinen**
+  hook-aktivierten Token senden. Die Transaktion schlägt auf der Ebene des Token Program fehl, nicht als
+  stiller Fallback zu einer einfachen Übertragung.
+- Das Empfangen eines hook-aktivierten Tokens erfordert keine besondere Behandlung. Der Hook
+  wird nur bei der Transfer- Anweisung des Senders ausgelöst; ein Wallet benötigt Transfer-
+  Hook-Unterstützung erst dann, wenn sein Nutzer diesen Token weitersenden möchte.
+- Da das Hook-Programm durch die Transfer-Hook-Autorität des Mints aktualisiert werden kann,
+  sollte ein Transfer-Hook-Mint als etwas behandelt werden, das pro Übertragung erneut geprüft wird, und nicht als
+  eine Tatsache, die man einmal lernt und unbegrenzt zwischenspeichert.
+
+## Empfohlene Integrationsprioritäten
+
+### Wallets und dApps
+
+| Anforderung                            | Beschreibung                                                                                                   | Priorität |
+| :------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :------- |
+| Erweiterung erkennen                   | Prüfen Sie `getTransferHook` beim Mint, bevor Sie einen Sendefluss für ein Token-2022-Asset aufbauen.                     | **P0**   |
+| Zusätzliche Konten auflösen                 | Verwenden Sie den High-Level-Helper (oder die manuellen Resolver-Funktionen) anstatt Konten fest zu kodieren.                 | **P0**   |
+| Vor dem Signieren simulieren                | Führen Sie die erstellte Transaktion durch eine Simulation und zeigen Sie Hook-Ablehnungen als klaren Fehler an, nicht als rohen Fehler. | **P0**   |
+| Erforderliche Einrichtung anzeigen                 | Erkennen Sie eine vom Hook benötigte einmalige Einrichtung (Delegierten-Genehmigung, Seitenkonto-Finanzierung) und fordern Sie diese vor dem Senden an.  | **P1**   |
+| Compute-Budget für Hook-Ausführung dimensionieren | Gehen Sie nicht davon aus, dass das Standard-Compute-Limit die Hook-Logik abdeckt; fordern Sie ein Limit an, das auf die beobachteten Kosten ausgerichtet ist.        | **P1**   |
+| Bei Wiederholung erneut auflösen                    | Wenn eine zuvor erstellte Transaktion fehlschlägt, laden Sie die `ExtraAccountMetaList` erneut, anstatt sie unverändert erneut einzureichen.  | **P1**   |
+
+### Verwahrer und Börsen
+
+| Anforderung                           | Beschreibung                                                                                                                                  | Priorität |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| Sendepfade als Mint-spezifisch behandeln          | Ein hook-aktivierter Mint benötigt seinen eigenen getesteten Sendepfad; gehen Sie nicht davon aus, dass ein generischer Token-2022-Übertragungspfad ihn abdeckt.                               | **P0**   |
+| Vor dem Übertragen simulieren          | Besonders wichtig bei automatisierten oder gebündelten Sendevorgängen, bei denen eine Hook-Ablehnung den Batch stoppen sollte und nicht blind wiederholt werden darf.                        | **P0**   |
+| Änderungen am Hook-Programm verfolgen            | Überwachen Sie Mints, die Sie verwahren, auf `UpdateTransferHook`- / `UpdateExtraAccountMetaList`-Aktivitäten, da sich dadurch ändert, was eine gültige Übertragung erfordert. | **P1**   |
+| Erforderliche Einrichtungskonten vorab bereitstellen | Wenn ein Hook einen Delegierten oder ein Seitenkonto pro Einzahler benötigt, stellen Sie es als Teil des Onboardings dieses Assets bereit, nicht erst zum Sendezeitpunkt.                | **P1**   |
+
+### Explorer und Indexer
+
+| Anforderung                         | Beschreibung                                                                                               | Priorität |
+| :---------------------------------- | :-------------------------------------------------------------------------------------------------------- | :------- |
+| Transfer-Hook-Mints kennzeichnen           | Zeigen Sie an, dass ein Mint einen Transfer-Hook erfordert, und welches Programm, deutlich unterschieden von einem einfachen Token-2022-Mint. | **P0**   |
+| Den CPI anzeigen, nicht nur die Übertragung | Eine hook-aktivierte Übertragung beinhaltet einen CPI in das Hook-Programm; stellen Sie ihn in der Anweisungs-Aufschlüsselung dar.  | **P1**   |
+| Aktualisierungen des Hook-Programms verfolgen          | Zeigen Sie `UpdateTransferHook`- / `UpdateExtraAccountMetaList`-Aktivitäten für einen Mint als eigenen Ereignistyp an.    | **P2**   |

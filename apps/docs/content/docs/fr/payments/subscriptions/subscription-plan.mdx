@@ -16,22 +16,18 @@ collecte les paiements depuis le PDA d'abonnement résultant.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```bash
     pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
     ```
-
   </Tab>
 
   <Tab value="Rust">
-
     ```toml
     [dependencies]
-    subscriptions = "0.4.0"
+    subscriptions = "0.5.0"
     solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
-
   </Tab>
 </Tabs>
 
@@ -40,9 +36,10 @@ collecte les paiements depuis le PDA d'abonnement résultant.
 Le commerçant est propriétaire du plan. Le PDA du plan est dérivé de l'adresse
 du commerçant et de `planId`.
 
+Un sponsor peut financer le rent du plan en passant le paramètre optionnel `payer`, tandis que le marchand reste propriétaire du plan. La suppression du plan rembourse le propriétaire, et non le payeur ; gérez donc la logique de parrainage hors chaîne.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { address, createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -84,7 +81,6 @@ du commerçant et de `planId`.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_address::{address, Address};
     use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
@@ -149,10 +145,16 @@ Quelques règles s'appliquent :
   compromis ; le statut, le `endTs` et les métadonnées restent figés.
 - Les modifications sont possibles pendant la dernière période de facturation
   d'un plan, à condition que le `endTs` reste inchangé.
+- L'instruction contient l'état du plan observé au moment de la signature
+  (`expectedCreatedAt`, `expectedEndTs`, `expectedPullers`,
+  `expectedMetadataUri`). Si le plan actif ne correspond plus à cet état, la mise à jour est
+  rejetée (`StalePlanApproval`). Ainsi, une mise à jour signée obsolète ne peut pas restaurer
+  des pullers supprimés ni annuler des modifications ultérieures. Le client plugin `updatePlan`
+  récupère l'état actif pour vous ; si vous construisez manuellement, récupérez le plan et
+  transmettez les champs vous-même.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { PlanStatus } from '@solana/subscriptions';
 
@@ -174,7 +176,6 @@ Quelques règles s'appliquent :
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     let new_puller: Address = address!("NEW_PULLER_WALLET_ADDRESS_HERE");
     let mut updated_pullers = [Address::default(); 4];
@@ -187,6 +188,9 @@ Quelques règles s'appliquent :
     let (event_authority, _) =
         Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
 
+    // Fetch and decode the live plan account before building UpdatePlanData.
+    let fetched_plan: Plan = fetched_plan;
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
@@ -196,6 +200,10 @@ Quelques règles s'appliquent :
             end_ts: 0,
             pullers: updated_pullers,
             metadata_uri: updated_metadata_uri,
+            expected_created_at: fetched_plan.data.terms.created_at,
+            expected_end_ts: fetched_plan.data.end_ts,
+            expected_pullers: fetched_plan.data.pullers,
+            expected_metadata_uri: fetched_plan.data.metadata_uri,
         })
         .instruction();
     ```
@@ -208,9 +216,16 @@ Quelques règles s'appliquent :
 L'abonné accepte les conditions du plan en vigueur. Le PDA d'abonnement est
 dérivé du PDA du plan et de l'adresse de l'abonné.
 
+Pour regrouper l'initialisation de l'autorité et l'abonnement en une seule transaction, passez
+la valeur sentinelle `UNKNOWN_INIT_ID` (exportée par le SDK TypeScript) en tant que
+`expectedSubscriptionAuthorityInitId`. Le programme n'accepte l'autorité que si
+elle a été créée dans le slot actuel ; la sentinelle fonctionne donc pour les nouvelles inscriptions. Un
+utilisateur existant dont l'autorité a été créée dans un slot antérieur doit transmettre le vrai
+`initId` (que le client plugin récupère pour vous), faute de quoi l'appel échoue avec
+`StaleSubscriptionAuthority`.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -271,7 +286,6 @@ dérivé du PDA du plan et de l'adresse de l'abonné.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{accounts::Plan, generated::{instructions::*, types::*}};
 
@@ -335,7 +349,6 @@ récepteur doit être répertorié dans `destinations`.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     const receiverAta = address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE');
 
@@ -356,7 +369,6 @@ récepteur doit être répertorié dans `destinations`.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{TransferData, TransferSubscriptionBuilder};
 
@@ -386,7 +398,6 @@ signe les deux transactions.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     await subscriberClient.subscriptions.instructions
       .cancelSubscription({
@@ -409,7 +420,6 @@ signe les deux transactions.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_instruction::AccountMeta;
     use subscriptions::generated::instructions::*;
@@ -431,6 +441,58 @@ signe les deux transactions.
   </Tab>
 </Tabs>
 
+## Annulation immédiate
+
+Lorsque l'abonné et le propriétaire du plan en cours signent tous les deux,
+`cancelSubscriptionNow` fait expirer l'abonnement au moment de l'annulation, plutôt qu'à
+la fin de la période de facturation. Cette instruction peut également raccourcir une annulation en période de grâce en attente. L'approbation est liée au début de période observé au moment de la signature ; si
+l'abonnement a changé depuis, la transaction est rejetée
+(`StaleSubscriptionApproval`).
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
+    await subscriberClient.subscriptions.instructions
+      .cancelSubscriptionNow({
+        subscriber: subscriberSigner,
+        merchant: merchantSigner,
+        planPda,
+        expectedCurrentPeriodStartTs: subscription.data.currentPeriodStartTs,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use subscriptions::{accounts::SubscriptionDelegation, generated::{instructions::*, types::*}};
+
+    // Fetch and decode the subscription account before building the data.
+    let fetched_subscription: SubscriptionDelegation = fetched_subscription;
+
+    let cancel_now_ix = CancelSubscriptionNowBuilder::new()
+        .subscriber(subscriber)
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .event_authority(event_authority)
+        .cancel_subscription_now_data(CancelSubscriptionNowData {
+            expected_current_period_start_ts: fetched_subscription.current_period_start_ts,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Reprendre un Abonnement
 
 Un abonnement annulé peut être réactivé avant d'être révoqué. Une fois révoqué,
@@ -440,15 +502,27 @@ le compte d'abonnement est clôturé et l'abonné doit
 valide (propriétaire, mint et `init_id`) et rejette s'il est périmé ou
 réinitialisé.
 
+L'instruction contient la date d'expiration observée par l'abonné au moment de la signature
+(`expectedExpiresAtTs`) ; toute discordance est rejetée (`StaleSubscriptionApproval`).
+Ainsi, une reprise signée obsolète ne peut pas annuler une résiliation ultérieure que l'abonné n'a jamais
+approuvée.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
     await subscriberClient.subscriptions.instructions
       .resumeSubscription({
         subscriber: subscriberSigner,
         planPda,
         tokenMint,
+        expectedExpiresAtTs: subscription.data.expiresAtTs,
       })
       .sendTransaction();
     ```
@@ -456,7 +530,6 @@ réinitialisé.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::generated::instructions::*;
 
@@ -469,6 +542,9 @@ réinitialisé.
         .subscription_pda(subscription_pda)
         .subscription_authority(subscription_authority)
         .event_authority(event_authority)
+        .resume_data(ResumeData {
+            expected_expires_at_ts: fetched_subscription.expires_at_ts,
+        })
         .instruction();
     ```
 

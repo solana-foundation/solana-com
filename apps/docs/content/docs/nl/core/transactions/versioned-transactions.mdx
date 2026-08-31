@@ -1,8 +1,7 @@
 ---
 title: Versioned transactions
 description:
-  Legacy versus versioned (V0) transactieformaten op Solana, inclusief Address
-  Lookup Tables (ALTs), versiedetectie, V0-berichtformaat en ALT-resolutie.
+  Legacy-, v0- en v1-transactieformaten op Solana, inclusief Address Lookup Tables (ALTs), versiedetectie, de v1-transactieconfiguratie en resourcelimieten.
 url: /docs/core/transactions/versioned-transactions
 type: conceptual
 prerequisites:
@@ -14,53 +13,103 @@ related:
 ---
 
 <Callout type="info" title="Samenvatting">
-  V0-transacties voegen Address Lookup Tables (ALTs) toe, waardoor accounts
-  kunnen worden gerefereerd via 1-byte indices in plaats van 32-byte sleutels.
-  Dit bespaart 31 bytes per ALT-opgelost account.
+  Solana heeft drie transactieformaten: legacy, v0 en v1. **v0** voegt Address
+  Lookup Tables (ALTs) toe voor het verwijzen naar accounts via 1-byte-indices. **v1**
+  verhoogt de groottelimiet naar 4.096 bytes, verplaatst resourcelimieten naar het bericht
+  zelf en verwijdert ALTs.
 </Callout>
 
-Solana ondersteunt twee transactieformaten: **legacy** en **versioned** (v0).
+Solana ondersteunt drie transactieformaten: **legacy**, **v0** en **v1**. Elk
+formaat wordt hieronder beschreven aan de hand van dezelfde drie onderdelen: hoe de bytes
+op de wire worden ingedeeld, hoe accounts worden gerefereerd en waar de resourcelimieten vandaan komen.
 
-De validator bepaalt het formaat door de eerste byte van het bericht te
-inspecteren:
-
-- Als de eerste byte de
-  [versieprefix](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
-  bit heeft ingesteld, is het een **versioned bericht**. Momenteel wordt alleen
-  versie 0 ondersteund. De volgende 3 bytes zijn de _`MessageHeader`_.
-- Anders is het een **legacy bericht**. De eerste byte is
-  `num_required_signatures`, en de volgende 2 bytes voltooien de header.
-
-<Callout type="info" title="Wanneer V0-transacties gebruiken">
-  Gebruik V0 wanneer je transactie naar veel accounts verwijst en de 1.232-byte
-  pakketlimiet nadert. Als je transactie binnen de groottelimiet past met alle
-  accounts inline, zijn legacy transacties eenvoudiger en hebben ze bredere
-  tooling-ondersteuning. V0 is vereist om Address Lookup Tables te gebruiken.
+<Callout type="warn" title="v1-activeringsstatus">
+  Het [v1-formaat](https://solana.com/upgrades/larger-transaction-sizes) is nog niet
+  actief op enig cluster. Activering is gepland met Agave v4.2.
+  `solana-test-validator` 4.2+ stelt je in staat v1-transacties lokaal te testen.
+  Bestaande apps dienen [voorbereiden op v1](#preparing-for-v1) te bekijken.
 </Callout>
 
-## V0-berichtformaat
+## Formaatoverzicht
 
-Een v0-bericht heeft dezelfde velden als een legacy bericht, plus een extra
-`address_table_lookups`-array toegevoegd na de instructies:
+| Limiet                 | legacy                     | v0                         | v1                 |
+| --------------------- | -------------------------- | -------------------------- | ------------------ |
+| Max. transactiegrootte  | 1.232 bytes                | 1.232 bytes                | **4.096 bytes**    |
+| Accountadressen     | ~32, groottegebonden            | 64, via lookup-tabellen      | **64, inline**     |
+| Address lookup-tabellen | niet ondersteund              | ondersteund                  | **niet ondersteund**  |
+| Resourcelimieten       | ComputeBudget-instructies | ComputeBudget-instructies | **berichtconfiguratie** |
 
-| Veld                    | Grootte                    | Beschrijving                                         |
-| ----------------------- | -------------------------- | ---------------------------------------------------- |
-| `0x80`                  | 1 byte                     | Versieprefixbyte                                     |
-| `header`                | 3 bytes                    | MessageHeader (hetzelfde als legacy)                 |
-| `static_account_keys`   | compact-u16 + N x 32 bytes | Sleutels die letterlijk in de transactie verschijnen |
-| `recent_blockhash`      | 32 bytes                   | Blockhash                                            |
-| `instructions`          | compact-u16 + variabel     | Hetzelfde formaat als legacy                         |
-| `address_table_lookups` | compact-u16 + variabel     | ALT-referenties (zie hieronder)                      |
+Ga naar: [Legacy](#legacy-format) · [v0](#v0-format) · [v1](#v1-format)
+
+## Legacy-formaat
+
+Het originele formaat, en nog steeds de standaard in de meeste tooling. Het heeft helemaal geen versieprefix: de eerste byte van de transactie is de compact-u16-teller van de handtekeningenarray, en de eerste byte van het bericht is `num_required_signatures`, waarvan het hoogste bit altijd niet is ingesteld.
+
+### Legacy wire-indeling
+
+| Veld              | Grootte                          | Beschrijving                                      |
+| ------------------ | ----------------------------- | ------------------------------------------------ |
+| `num_signatures`   | compact-u16                   | Aantal handtekeningen                             |
+| `signatures`       | `num_signatures` x 64 bytes   | Ed25519-handtekeningen                               |
+| `header`           | 3 bytes                       | MessageHeader — eerste byte heeft versiebit niet ingesteld |
+| `num_account_keys` | compact-u16                   | Aantal accountsleutels                           |
+| `account_keys`     | `num_account_keys` x 32 bytes | Publieke sleutels, allemaal inline                          |
+| `recent_blockhash` | 32 bytes                      | Levensduurspecificatie                               |
+| `num_instructions` | compact-u16                   | Aantal instructies                           |
+| `instructions`     | variabel                      | Elke instructie aaneengesloten geserialiseerd         |
+
+Elke array met variabele lengte wordt voorafgegaan door een compact-u16-lengte: 1 byte voor
+waarden 0–127, 2–3 bytes voor grotere waarden. Zie voor de indeling per instructie en een
+uitgewerkte grootteberekening
+[binair transactieformaat](/docs/core/transactions/transaction-structure#transaction-binary-format).
+
+### Accounts in legacy
+
+Elk account wordt als volledige 32-byte publieke sleutel in `account_keys` opgeschreven, en
+instructies verwijzen ernaar via een 1-byte-index in die array. Er is geen manier om
+te verwijzen naar een account dat niet expliciet in de transactie is opgenomen, wat
+bewerkstelligt dat een legacy-transactie beperkt blijft tot ongeveer 32 accounts voordat
+de 1.232 bytes zijn opgebruikt.
+
+### Resourcelimieten in legacy
+
+De limiet voor rekeneenheden, de datalimiet voor geladen accounts, de heapgrootte en de prioriteitstoeslag
+worden allemaal aangevraagd door
+[ComputeBudget-programma-instructies](/docs/core/fees/compute-budget) in de transactie op te nemen.
+Elk kost een instructie-slot en 150 rekeneenheden. Weglaten is veilig: de runtime
+valt terug op standaardwaarden van 200.000 CU per instructie (maximaal 1,4M),
+een datalimiet van 64 MiB, een heap van 32 KiB en een prioriteitstoeslag van nul.
+
+## V0-formaat
+
+v0 is een legacy-bericht plus twee zaken: een versieprefix-byte `0x80` en een
+`address_table_lookups`-array die na de instructies wordt toegevoegd. Alles daarvoor
+is byte-identiek aan legacy.
+
+### V0-wire-indeling
+
+| Veld                   | Grootte                          | Beschrijving                                     |
+| ----------------------- | ----------------------------- | ----------------------------------------------- |
+| `num_signatures`        | compact-u16                   | Aantal handtekeningen                            |
+| `signatures`            | `num_signatures` x 64 bytes   | Ed25519-handtekeningen                              |
+| `0x80`                  | 1 byte                        | Versieprefix-byte — eerste byte van het bericht |
+| `header`                | 3 bytes                       | MessageHeader (hetzelfde als legacy)                  |
+| `num_account_keys`      | compact-u16                   | Aantal statische accountsleutels                   |
+| `static_account_keys`   | `num_account_keys` x 32 bytes | Sleutels die letterlijk in de transactie verschijnen   |
+| `recent_blockhash`      | 32 bytes                      | Levensduurspecificatie                              |
+| `num_instructions`      | compact-u16                   | Aantal instructies                          |
+| `instructions`          | variabel                      | Hetzelfde formaat als legacy                           |
+| `address_table_lookups` | compact-u16 + variabel        | ALT-referenties (zie hieronder)                      |
 
 Elke adrestabel-opzoekvermelding bevat:
 
-| Veld               | Grootte                  | Beschrijving                                 |
-| ------------------ | ------------------------ | -------------------------------------------- |
-| `account_key`      | 32 bytes                 | De publieke sleutel van het ALT-account      |
+| Veld              | Grootte                     | Beschrijving                                 |
+| ------------------ | ------------------------ | ------------------------------------------- |
+| `account_key`      | 32 bytes                 | De publieke sleutel van het ALT-account                |
 | `writable_indexes` | compact-u16 + N x 1 byte | Indices in de ALT voor schrijfbare accounts  |
 | `readonly_indexes` | compact-u16 + N x 1 byte | Indices in de ALT voor alleen-lezen accounts |
 
-## Adrestabel-opzoekresolutie
+### Address lookup-tabellen
 
 Een ALT is een onchain-account dat tot 256 publieke sleutels opslaat. Door naar
 een ALT te verwijzen, kan een transactie aanvullende accounts opnemen met behulp
@@ -80,3 +129,118 @@ statische accounts: schrijfbare opzoekingen komen vóór alleen-lezen opzoekinge
   schrijfbaar of alleen-lezen (niet-ondertekenaar) zijn; ze kunnen geen
   ondertekenaars zijn.
 </Callout>
+
+### Resourcelimieten in v0
+
+Ongewijzigd ten opzichte van legacy: ComputeBudget-instructies, met dezelfde standaardwaarden wanneer ze worden weggelaten.
+
+## V1-formaat
+
+v1 verhoogt de groottelimiet naar 4.096 bytes en herstructureert het bericht rond een
+**transactieconfiguratie**: resourcelimieten verhuizen uit ComputeBudget-instructies
+naar velden op vaste posities in het bericht zelf. Hierdoor kan het netwerk een
+transactie rangschikken op prioriteitstoeslag met één read op een vast offset, in
+plaats van de instructielijst te scannen en te deserialiseren.
+
+### V1-wire-indeling
+
+| Veld                  | Grootte         | Beschrijving                                                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `0x81`                 | 1 byte       | Versieprefix-byte — de eerste byte van de transactie                            |
+| `header`               | 3 bytes      | MessageHeader (zelfde als legacy)                                                     |
+| `config_mask`          | 4 bytes      | `u32` LE-bitmasker dat aangeeft welke configuratiewaarden aanwezig zijn                           |
+| `recent_blockhash`     | 32 bytes     | Levensduurspecificatie                                                                 |
+| `num_instructions`     | 1 byte       | Teller met vaste breedte, max. 64                                                          |
+| `num_addresses`        | 1 byte       | Teller met vaste breedte, max. 64                                                          |
+| `addresses`            | N x 32 bytes | Accountadressen, allemaal inline — geen lookup-tabelverwijzingen                         |
+| `config_values`        | 0–20 bytes   | Één waarde per ingesteld maskerbit, in bitvolgorde (zie hieronder)                               |
+| `instruction_headers`  | N x 4 bytes  | Per instructie: `program_id_index` (u8), `num_accounts` (u8), `data_len` (u16 LE) |
+| `instruction_payloads` | variabel     | Per instructie: accountindices, dan instruction data                            |
+| `signatures`           | N x 64 bytes | Aan het einde, zonder lengteprefix — de teller komt uit de header               |
+
+Twee structurele verschillen ten opzichte van legacy en v0 zijn het vermelden waard bij het schrijven van een decoder. De tellers zijn `u8`-velden met vaste breedte in plaats van compact-u16, en de instructies zijn opgesplitst in twee reeksen: eerst alle headers met vaste grootte, dan alle payloads met variabele lengte, in plaats van elke instructie aaneengesloten.
+
+### Accounts in v1: geen address lookup-tabellen
+
+v1 verwijdert ALT-ondersteuning bewust. 64 ruwe adressen is 2.048 bytes,
+ruimschoots binnen de limiet van 4.096 bytes, dus elk adres is inline zoals in
+legacy. Als je applicatie afhankelijk is van lookup-tabellen, betekent overstappen naar v1
+dat je die adressen inline moet opnemen.
+
+### Resourcelimieten in v1: de transactieconfiguratie
+
+De configuratie is een `u32`-bitmasker gevolgd door waarden met vaste breedte voor elk veld waarvan het bit is ingesteld:
+
+| Bit(s) | Veld                           | Breedte | Opmerkingen                                       |
+| ------ | ------------------------------- | ----- | ------------------------------------------- |
+| 0–1    | Prioriteitstoeslag                    | u64   | **Totaal lamports** — beide bits samen ingesteld |
+| 2      | Limiet voor rekeneenheden              | u32   |                                             |
+| 3      | Datalimiet voor geladen accounts | u32   |                                             |
+| 4      | Gevraagde heapgrootte             | u32   |                                             |
+
+Onbekende bits worden afgewezen. Omdat het bericht ondertekend is, kunnen niet-herkende configuratievelden niet stilzwijgend worden weggelaten.
+
+<Callout type="warn" title="Prioriteitstoeslag is totaal in lamports, geen prijs">
+  In legacy en v0 wordt de prioriteitstoeslag ingesteld via `SetComputeUnitPrice` als
+  **micro-lamports per rekeneenheid**, vermenigvuldigd met de limiet voor rekeneenheden. In
+  v1 is het een **absoluut totaal in lamports** — geen vermenigvuldiging, geen afronding.
+  Gebruik de per-CU-rekenwijze niet over. De totale toeslagformule blijft verder
+  ongewijzigd: `(signatures × lamports_per_signature) + priority_fee`.
+</Callout>
+
+#### ComputeBudget-instructies zijn no-ops in v1
+
+Een v1-transactie wijst ComputeBudget-instructies niet af — ze worden **genegeerd**
+voor configuratie. Ze worden nog steeds uitgevoerd als succesvolle no-ops, verbruiken 150
+rekeneenheden en één van de 64 instructie-slots, zonder enig effect op het budget.
+Verwijder ze bij het bouwen van v1-transacties en stop met het scannen ernaar
+bij het lezen van v1-transacties: de waarden staan in de berichtconfiguratie.
+
+#### Configuratievelden moeten expliciet worden ingesteld
+
+De belangrijkste gedragswijziging voor verzenders: in tegenstelling tot legacy en v0 moeten
+v1-transacties de limiet voor rekeneenheden en de datalimiet voor geladen accounts expliciet
+instellen, anders mislukt je transactie.
+
+| Niet-ingesteld veld               | legacy / v0                    | v1          | Gevolg bij weglaten                                              |
+| ------------------------- | ------------------------------ | ----------- | --------------------------------------------------------------- |
+| Limiet voor rekeneenheden        | 200k per instructie, max. 1,4M | **0 CU**    | Mislukt onmiddellijk, budget uitgeput                                |
+| Datagrootte geladen accounts | 64 MiB                         | **0 bytes** | `MaxLoadedAccountsDataSizeExceeded` bij het eerste geladen account |
+| Prioriteitstoeslag              | 0                              | 0           | —                                                               |
+| Heapgrootte                 | 32 KiB                         | 32 KiB      | —                                                               |
+
+De aanbevolen aanpak is om eenmalig te simuleren met beide limieten gemaximaliseerd, vervolgens de teruggegeven `unitsConsumed` en `loadedAccountsDataSize` terug te schrijven naar de configuratie, waarbij de datagrootte naar boven wordt afgerond naar de volgende 32 KiB-pagina voor marge (het blokkostenmodel rekent in 32 KiB-pagina's, dus marge onder de volgende paginagrens is gratis).
+
+## Voorbereiden op v1
+
+v1 verandert het **lezen** van transacties, niet alleen het verzenden ervan. Wanneer v1 actief wordt,
+zal elke client die `getTransaction` of `getBlock` aanroept zonder in te schrijven
+falen op v1-transacties:
+
+- Geef `maxSupportedTransactionVersion: 1` door — het JSON-**geheel getal** `1`, niet de
+  string `"1"` — aan [`getTransaction`](/docs/rpc/http/gettransaction) en
+  [`getBlock`](/docs/rpc/http/getblock). `0` doorgeven mislukt op v1-transacties
+  net als het weglaten van de parameter, dus een codebase die tijdens de v0-
+  uitrol is bijgewerkt, moet de waarde alsnog wijzigen.
+- `getTransaction` mislukt bij een v1-transactie met fout `-32015`, en één v1-
+  transactie laat een **volledige** `getBlock`-respons mislukken met dezelfde fout —
+  er is geen gedeeltelijk resultaat.
+- [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe) geeft `block: null` terug en
+  stopt met vooruitgaan, zodat een consumer die dit als een leeg blok leest stilzwijgend
+  achteropraakt vanaf de eerste v1-slot.
+- `getSignaturesForAddress` inspecteert nooit transactie-inhoud, dus v1-handtekeningen
+  worden normaal weergegeven.
+- Ingeschreven responses bevatten een `transactionConfig`-object in het bericht voor v1-
+  transacties (volledig afwezig voor legacy en v0). Pipelines die prioriteitstoeslagen of
+  limieten voor rekeneenheden afleiden door te scannen op ComputeBudget-instructies
+  rapporteren stilzwijgend **nul** voor elke v1-transactie.
+- Gebruik `encoding: 'base64'` wanneer je transacties aan clientzijde decodeert, en voor
+  `sendTransaction`/`simulateTransaction` met transacties groter dan 1.232 bytes —
+  base58-codering blijft beperkt tot de oude grootte.
+- Ondersteuning voor clientbibliotheken vereist recente versies: `@solana/kit` 8.0+, Agave
+  4.2.x-generatie Rust-crates, of web3.js v3. web3.js v1 leest v1 vanaf 1.99.0
+  en hoger, maar kan het niet bouwen of verzenden.
+
+Voor de volledige migratiegids — inclusief ondersteuning voor clientbibliotheken, streaming
+(Geyser/gRPC) versiedetectie en simulatiegedrag — zie de
+[upgradepagina voor transactieformaat v1](https://solana.com/upgrades/larger-transaction-sizes).

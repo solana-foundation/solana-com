@@ -1,8 +1,7 @@
 ---
 title: Aggiungi Solana al Tuo Exchange
 description:
-  Learn how to integrate Solana into your exchange with this guide covering node
-  setup and implementation details for deposits and withdrawals.
+  Learn how to integrate Solana into your exchange with this guide covering node setup and implementation details for deposits and withdrawals.
 ---
 
 Questa guida descrive come aggiungere il token nativo di Solana, SOL, al tuo exchange di criptovalute.
@@ -139,10 +138,14 @@ Quando un utente desidera depositare SOL nel tuo exchange, istruiscilo a inviare
 
 Quando la rete Mainnet inizierà a elaborare transazioni con versione, gli exchange **DEVONO** apportare modifiche. Se non vengono apportate modifiche, il rilevamento dei depositi non funzionerà più correttamente, poiché il recupero di una transazione con versione o di un blocco contenente transazioni con versione restituirà un errore.
 
-- `{"maxSupportedTransactionVersion": 0}`
+- `{"maxSupportedTransactionVersion": 1}`
 
   Il parametro `maxSupportedTransactionVersion` deve essere aggiunto alle richieste `getBlock` e
-  `getTransaction` per evitare interruzioni nel rilevamento dei depositi. La versione di transazione più recente è `0` e deve essere specificata come valore massimo supportato della versione di transazione.
+  `getTransaction` per evitare interruzioni nel rilevamento dei depositi. L'ultima versione di transazione disponibile è `0`, con il
+  [formato v1](/docs/core/transactions/versioned-transactions#v1-message-format)
+  che si attiva con Agave v4.2 — imposta subito il valore sull'intero `1` per anticipare l'attivazione (richiedere una versione superiore a quella supportata da un nodo è sicuro). Una singola transazione con versione non supportata fa fallire l'**intera** risposta `getBlock`, mentre `getSignaturesForAddress` non fallisce mai sulla versione — quindi senza l'opt-in, i depositi v1 appaiono negli elenchi delle firme ma non possono essere recuperati.
+
+  Una volta attivato il v1, altri due cambiamenti sono rilevanti per le pipeline di deposito: le transazioni v1 riportano i propri limiti di calcolo e di commissione in un oggetto messaggio `transactionConfig` anziché nelle istruzioni ComputeBudget (qualsiasi pipeline che analizza le istruzioni per le commissioni riporterà zero per il v1), e il v1 non utilizza le tabelle di ricerca degli indirizzi.
 
 È importante capire che le transazioni con versione consentono agli utenti di creare transazioni che utilizzano un altro insieme di chiavi account caricate da tabelle di lookup degli indirizzi on-chain.
 
@@ -465,10 +468,16 @@ Per una maggiore flessibilità, puoi inviare i trasferimenti di prelievo in modo
 
 **Nota:** Ogni transazione contiene un [blockhash recente](/docs/core/transactions/transaction-structure#recent-blockhash) per indicarne la validità temporale. È **fondamentale** attendere la scadenza di questo blockhash prima di riprovare un trasferimento di prelievo che non sembra essere stato confermato o finalizzato dal cluster. In caso contrario, si rischia un double spend. Per ulteriori informazioni consulta la sezione [scadenza del blockhash](#blockhash-expiration) più avanti.
 
-Per prima cosa, ottieni un blockhash recente usando l'endpoint [`getFees`](/docs/rpc/deprecated/getfees) o il comando CLI:
+Prima di tutto, ottieni un blockhash recente e la sua ultima altezza di blocco valida utilizzando l'endpoint
+[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash):
 
 ```shell
-solana fees --url http://localhost:8899
+curl http://localhost:8899 -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getLatestBlockhash",
+  "params":[{"commitment":"finalized"}]
+}'
 ```
 
 Nello strumento da riga di comando, passa l'argomento `--no-wait` per inviare un trasferimento in modo asincrono, e includi il tuo blockhash recente con l'argomento `--blockhash`:
@@ -531,7 +540,8 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 #### Scadenza del blockhash
 
-Puoi verificare se un determinato blockhash è ancora valido inviando una richiesta [`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash) con il blockhash come parametro. Se il valore della risposta è `null`, il blockhash è scaduto e la transazione di prelievo che utilizza quel blockhash non andrà mai a buon fine.
+Puoi verificare se un determinato blockhash è ancora valido inviando una richiesta [`isBlockhashValid`](/docs/rpc/http/isblockhashvalid) con il blockhash
+come parametro. Se il valore della risposta è `false`, il blockhash è scaduto e la transazione di prelievo che utilizza quel blockhash non dovrebbe mai avere successo.
 
 ### Validazione degli indirizzi account forniti dagli utenti per i prelievi
 
@@ -767,11 +777,13 @@ Puoi quindi verificare la versione installata
 spl-token --version
 ```
 
-Il risultato dovrebbe essere simile a
+Questo stampa la versione installata, ad esempio:
 
 ```text
-spl-token-cli 2.0.1
+spl-token-cli 5.6.1
 ```
+
+Usa la versione 5.6.1 o successiva se hai bisogno del supporto per SPL Token-2022.
 
 ### Creazione dell'Account
 
@@ -1548,10 +1560,7 @@ in uso, il pubkey dell'autorità di congelamento sarà registrato nel mint accou
 [SPL Token-2022](https://spl.solana.com/token-2022) è lo standard più recente per
 la creazione e lo scambio di token wrapped/sintetici sulla blockchain Solana.
 
-Conosciuto anche come "Token Extensions", lo standard contiene molte nuove funzionalità che
-i creatori di token e i titolari di account possono abilitare facoltativamente. Queste funzionalità includono
-trasferimenti confidenziali, commissioni sul trasferimento, chiusura dei mint, metadati, delegati permanenti,
-proprietà immutabile e molto altro. Consulta la
+Conosciuto anche come "Token Extensions", lo standard include molte nuove funzionalità che i creatori di token e i titolari di account possono abilitare facoltativamente. Queste funzionalità includono Confidential Balances, commissioni sui trasferimenti, chiusura dei mint, metadati, delegati permanenti, proprietà immutabile e molto altro. Consulta la
 [guida alle estensioni](https://spl.solana.com/token-2022/extensions) per ulteriori
 informazioni.
 
@@ -1613,17 +1622,13 @@ non saranno più associati a un mint valido.
 spl-token close --address <account address>
 ```
 
-#### Trasferimento Confidenziale
+#### Confidential Balances
 
-I mint possono essere configurati per trasferimenti confidenziali, in modo che gli importi dei token siano
-crittografati, ma i proprietari degli account siano ancora pubblici.
+I mint possono essere configurati con Confidential Balances, in modo che gli importi dei token siano crittografati ma i proprietari degli account siano comunque pubblici.
 
-Gli exchange possono configurare i token account per inviare e ricevere trasferimenti confidenziali,
-al fine di nascondere gli importi degli utenti. Non è obbligatorio abilitare i trasferimenti confidenziali
-sui token account, quindi gli exchange possono obbligare gli utenti a inviare token
-in modo non confidenziale.
+Gli exchange possono configurare i token account per inviare e ricevere trasferimenti riservati, al fine di nascondere gli importi degli utenti. Non è obbligatorio abilitare i Confidential Balances sui token account, quindi gli exchange possono obbligare gli utenti a inviare token in modo non riservato.
 
-Per abilitare i trasferimenti confidenziali, l'account deve essere configurato di conseguenza:
+Per abilitare i Confidential Balances, configura l'account:
 
 ```shell
 spl-token configure-confidential-transfer-account --address <account address>

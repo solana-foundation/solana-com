@@ -1,8 +1,7 @@
 ---
 title: 将 Solana 添加到您的交易所
 description:
-  Learn how to integrate Solana into your exchange with this guide covering node
-  setup and implementation details for deposits and withdrawals.
+  Learn how to integrate Solana into your exchange with this guide covering node setup and implementation details for deposits and withdrawals.
 ---
 
 本指南介绍如何将 Solana 的原生代币 SOL 添加到您的加密货币交易所。
@@ -139,10 +138,14 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 当主网开始处理版本化交易时，交易所**必须**进行相应更改。若不进行更改，充值检测将无法正常工作，因为获取版本化交易或包含版本化交易的区块时将返回错误。
 
-- `{"maxSupportedTransactionVersion": 0}`
+- `{"maxSupportedTransactionVersion": 1}`
 
   必须将 `maxSupportedTransactionVersion` 参数添加到 `getBlock` 和
-  `getTransaction` 请求中，以避免充值检测中断。最新的交易版本为 `0`，应将其指定为最大支持的交易版本值。
+  `getTransaction` 请求中，以避免充值检测中断。最新的交易版本为 `0`，
+  [v1 格式](/docs/core/transactions/versioned-transactions#v1-message-format)
+  将随 Agave v4.2 激活——现在将该值设置为整数 `1` 以提前做好准备（请求比节点支持的更高版本是安全的）。单笔不支持版本的交易会导致整个 `getBlock` 响应失败，而 `getSignaturesForAddress` 在版本方面永远不会失败——因此，若不选择启用，v1 充值将出现在签名列表中但无法被获取。
+
+  一旦 v1 激活，还有两项变化对充值处理管道至关重要：v1 交易将其算力和费用限制存储在 `transactionConfig` 消息对象中，而非 ComputeBudget 指令中（任何扫描指令以获取费用的管道对 v1 交易将报告零值），且 v1 不使用地址查找表。
 
 理解版本化交易非常重要，它允许用户创建使用从链上地址查找表加载的另一组账户密钥的交易。
 
@@ -457,10 +460,16 @@ solana transfer <USER_ADDRESS> <AMOUNT> --allow-unfunded-recipient --keypair <KE
 
 **注意：** 每笔交易都包含一个 [最近的 blockhash](/docs/core/transactions/transaction-structure#recent-blockhash) 以表明其有效性。在重试一笔看似未被集群确认或最终完成的提现转账之前，**务必**等待该 blockhash 过期。否则，您将面临双重支付的风险。请参阅下方关于 [blockhash 过期](#blockhash-expiration) 的更多说明。
 
-首先，使用 [`getFees`](/docs/rpc/deprecated/getfees) 端点或 CLI 命令获取最近的 blockhash：
+首先，使用
+[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) 端点获取最近的区块哈希及其最后有效区块高度：
 
 ```shell
-solana fees --url http://localhost:8899
+curl http://localhost:8899 -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getLatestBlockhash",
+  "params":[{"commitment":"finalized"}]
+}'
 ```
 
 在命令行工具中，传入 `--no-wait` 参数以异步发送转账，并通过 `--blockhash` 参数附上您最近获取的 blockhash：
@@ -523,7 +532,8 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 #### Blockhash 过期
 
-您可以通过发送 [`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash) 请求（以 blockhash 作为参数）来检查特定 blockhash 是否仍然有效。如果响应值为 `null`，则该 blockhash 已过期，使用该 blockhash 的提现交易将永远无法成功。
+您可以通过发送
+[`isBlockhashValid`](/docs/rpc/http/isblockhashvalid) 请求并将区块哈希作为参数来检查特定区块哈希是否仍然有效。如果响应值为 `false`，则区块哈希已过期，使用该区块哈希的提现交易将永远无法成功。
 
 ### 验证用户提供的提现账户地址
 
@@ -753,11 +763,13 @@ cargo install spl-token-cli
 spl-token --version
 ```
 
-结果应类似于
+这将打印已安装的版本，例如：
 
 ```text
-spl-token-cli 2.0.1
+spl-token-cli 5.6.1
 ```
+
+如需 SPL Token-2022 支持，请使用 5.6.1 或更高版本。
 
 ### 账户创建
 
@@ -1507,7 +1519,9 @@ spl-token transfer --fund-recipient <exchange token account> <withdrawal amount>
 
 [SPL Token-2022](https://spl.solana.com/token-2022) 是 Solana 区块链上用于封装/合成代币创建和交换的最新标准。
 
-该标准也称为 "Token Extensions"，包含许多代币创建者和账户持有者可选启用的新功能。这些功能包括保密转账、转账手续费、关闭铸币、元数据、永久委托、不可变所有权等更多功能。请参阅 [扩展指南](https://spl.solana.com/token-2022/extensions) 了解更多信息。
+也称为"Token Extensions"，该标准包含许多新功能，代币创建者和账户持有者可以选择性地启用这些功能。这些功能包括机密余额、转账手续费、关闭铸币、元数据、永久委托、不可变所有权等更多特性。请参阅
+[扩展指南](https://spl.solana.com/token-2022/extensions)
+了解更多信息。
 
 如果您的交易所已支持 SPL Token，则支持 SPL Token-2022 所需的额外工作并不多：
 
@@ -1555,13 +1569,13 @@ spl-token transfer --expected-fee <fee amount> --fund-recipient <exchange token 
 spl-token close --address <account address>
 ```
 
-#### 保密转账
+#### 机密余额
 
-铸币可以配置保密转账，使代币金额经过加密，但账户所有者仍然是公开的。
+铸币可配置机密余额，使代币数量经过加密，但账户所有者仍然公开可见。
 
-交易所可以将 token account 配置为发送和接收保密转账，以隐藏用户金额。无需强制为 token account 启用保密转账，因此交易所可以要求用户以非保密方式发送代币。
+交易所可以将 token account 配置为发送和接收机密转账，以隐藏用户金额。在 token account 上启用机密余额并非强制要求，因此交易所可以强制用户以非机密方式发送代币。
 
-要启用保密转账，必须对账户进行相应配置：
+要启用机密余额，请配置账户：
 
 ```shell
 spl-token configure-confidential-transfer-account --address <account address>
