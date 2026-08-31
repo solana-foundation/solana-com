@@ -2,16 +2,12 @@ const DEFAULT_SLOT_MS = 400;
 const RPC_TIMEOUT_MS = 10_000;
 
 function rpcUrl(): string {
-  const key = process.env.HELIUS_API_KEY;
-  if (key) return `https://mainnet.helius-rpc.com/?api-key=${key}`;
   // Local/dev fallback — public RPC is rate-limited, fine for these light calls
   return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
 }
 
 /** WebSocket endpoint matching rpcUrl(), for slotSubscribe. */
 export function rpcWsUrl(): string {
-  const key = process.env.HELIUS_API_KEY;
-  if (key) return `wss://mainnet.helius-rpc.com/?api-key=${key}`;
   const custom = process.env.SOLANA_RPC_URL;
   if (custom) return custom.replace(/^http/, "ws");
   return "wss://api.mainnet-beta.solana.com";
