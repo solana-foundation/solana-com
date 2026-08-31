@@ -266,7 +266,59 @@ function hashFileIfExists(relativePath) {
     .digest("hex");
 }
 
-async function recoverFailedPush(failedResult) {
+function isPatternInScope(pattern, requestedScope) {
+  if (requestedScope === "all") {
+    return true;
+  }
+
+  if (requestedScope === "docs") {
+    return pattern.startsWith("apps/docs/");
+  }
+
+  if (requestedScope === "ui") {
+    return pattern.startsWith("packages/i18n/messages/");
+  }
+
+  return pattern.startsWith(`packages/i18n/messages/${requestedScope}/`);
+}
+
+function getScopePatterns(requestedScope) {
+  if (requestedScope === "all") {
+    return [];
+  }
+
+  return lingoConfig.files
+    .flatMap((fileGroup) => fileGroup.include ?? [fileGroup.pattern])
+    .filter((pattern) => isPatternInScope(pattern, requestedScope));
+}
+
+async function recoverFailedPush(
+  failedResult,
+  requestedScope = "all",
+  { scopedRun = requestedScope === "all" } = {},
+) {
+  if (requestedScope !== "all" && !scopedRun) {
+    console.error(
+      `Refusing Lingo recovery because the most recent push was not proven to be scoped to "${requestedScope}".`,
+    );
+    return failedResult;
+  }
+
+  const failedSourcePatterns = extractFailedSourcePatterns(failedResult.output);
+  const outOfScopeFailures = failedSourcePatterns.filter(
+    (pattern) => !isPatternInScope(pattern, requestedScope),
+  );
+
+  // pull always downloads the most recent push run. Refuse recovery when that
+  // run contains failures outside this invocation's scope; callers must first
+  // establish a scoped retry as the most recent run.
+  if (outOfScopeFailures.length > 0) {
+    console.error(
+      `Refusing Lingo recovery because the failed run includes ${outOfScopeFailures.length} source file(s) outside the "${requestedScope}" scope.`,
+    );
+    return failedResult;
+  }
+
   // Snapshot the targets the CLI reported as failed so a confirmed recovery
   // only clears the failure once those exact files were created or rewritten.
   const failedTargetPaths = extractFailedTargetPaths(failedResult.output);
@@ -342,8 +394,12 @@ async function recoverFailedPush(failedResult) {
   return pullResult;
 }
 
-async function runLingoPush(args = []) {
-  const pushResult = await runLingo(["push", ...args, "--wait"]);
+async function runLingoPush(
+  args = [],
+  requestedScope = "all",
+  { runCommand = runLingo, recover = recoverFailedPush } = {},
+) {
+  const pushResult = await runCommand(["push", ...args, "--wait"]);
 
   if (pushResult.status === 0) {
     return pushResult;
@@ -352,13 +408,27 @@ async function runLingoPush(args = []) {
   // A run can finish with per-target MDX/JSON failures while still producing
   // usable output for the other targets. Retry only the sources named by the
   // CLI, instead of silently accepting an incomplete localization run.
-  const failedSourcePatterns = extractFailedSourcePatterns(pushResult.output);
+  const allFailedSourcePatterns = extractFailedSourcePatterns(
+    pushResult.output,
+  );
+  const failedSourcePatterns = allFailedSourcePatterns.filter((pattern) =>
+    isPatternInScope(pattern, requestedScope),
+  );
+  const ignoredFailureCount =
+    allFailedSourcePatterns.length - failedSourcePatterns.length;
+
+  if (ignoredFailureCount > 0) {
+    console.error(
+      `Leaving ${ignoredFailureCount} failed Lingo source file(s) outside the requested "${requestedScope}" scope untouched.`,
+    );
+  }
+
   if (failedSourcePatterns.length > 0) {
     console.error(
-      `Retrying ${failedSourcePatterns.length} failed Lingo source file(s) with --force.`,
+      `Retrying ${failedSourcePatterns.length} failed Lingo source file(s) in the "${requestedScope}" scope with --force.`,
     );
 
-    const forceResult = await runLingo([
+    const forceResult = await runCommand([
       "push",
       ...failedSourcePatterns,
       "--force",
@@ -370,38 +440,44 @@ async function runLingoPush(args = []) {
       return forceResult;
     }
 
+    const scopedRunEstablished =
+      requestedScope === "all" ||
+      extractFailedSourcePatterns(forceResult.output).length > 0;
+
+    if (!scopedRunEstablished) {
+      console.error(
+        `The targeted Lingo retry failed without target paths; refusing recovery because a scoped "${requestedScope}" run was not established.`,
+      );
+      return forceResult;
+    }
+
     console.error(
       "The targeted Lingo retry failed; recovering any completed outputs before exiting.",
     );
-    return recoverFailedPush(forceResult);
+    return recover(forceResult, requestedScope, { scopedRun: true });
+  }
+
+  if (allFailedSourcePatterns.length > 0) {
+    console.error(
+      `The config-wide push failed only outside the requested "${requestedScope}" scope; continuing to scoped coverage validation.`,
+    );
+    return { ...pushResult, status: 0 };
+  }
+
+  // A scoped command that fails before reporting targets may not have updated
+  // Lingo's saved run ID. Pulling could therefore fetch the previous
+  // config-wide run even when this command included scoped patterns.
+  if (requestedScope !== "all") {
+    console.error(
+      `Lingo push failed without target paths; refusing recovery because a scoped "${requestedScope}" run was not established.`,
+    );
+    return pushResult;
   }
 
   console.error(
     "Lingo push failed without recoverable target paths; recovering any completed outputs before exiting.",
   );
-  return recoverFailedPush(pushResult);
-}
-
-function getScopePatterns(requestedScope) {
-  if (requestedScope === "all") {
-    return [];
-  }
-
-  const inScope = (pattern) => {
-    if (requestedScope === "docs") {
-      return pattern.startsWith("apps/docs/");
-    }
-
-    if (requestedScope === "ui") {
-      return pattern.startsWith("packages/i18n/messages/");
-    }
-
-    return pattern.startsWith(`packages/i18n/messages/${requestedScope}/`);
-  };
-
-  return lingoConfig.files
-    .flatMap((fileGroup) => fileGroup.include ?? [fileGroup.pattern])
-    .filter(inScope);
+  return recover(pushResult, requestedScope, { scopedRun: true });
 }
 
 function verifyTargetCoverage(requestedScope) {
@@ -443,7 +519,7 @@ async function runContinuousLocalization(requestedScope) {
     );
   }
 
-  const pushResult = await runLingoPush(pushArgs);
+  const pushResult = await runLingoPush(pushArgs, requestedScope);
   if (pushResult.status !== 0) {
     process.exit(pushResult.status);
   }
@@ -454,10 +530,10 @@ async function runContinuousLocalization(requestedScope) {
     console.error(
       `Lingo left target coverage incomplete in the "${requestedScope}" scope; retrying once in backfill mode.`,
     );
-    const retryResult = await runLingoPush([
-      ...scopePatterns,
-      "--backfill-missing",
-    ]);
+    const retryResult = await runLingoPush(
+      [...scopePatterns, "--backfill-missing"],
+      requestedScope,
+    );
     if (retryResult.status !== 0) {
       process.exit(retryResult.status);
     }
@@ -505,4 +581,12 @@ async function main() {
   }
 }
 
-await main();
+const isMainModule =
+  process.argv[1] !== undefined &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
+  await main();
+}
+
+export { getScopePatterns, isPatternInScope, recoverFailedPush, runLingoPush };
