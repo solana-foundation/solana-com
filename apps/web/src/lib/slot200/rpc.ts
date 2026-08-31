@@ -8,8 +8,9 @@ function rpcUrl(): string {
 
 /** WebSocket endpoint matching rpcUrl(), for slotSubscribe. */
 export function rpcWsUrl(): string {
-  const custom = process.env.SOLANA_RPC_URL;
-  if (custom) return custom.replace(/^http/, "ws");
+  // Most providers use the same endpoint for HTTP and WebSocket transport.
+  const rpcUrl = process.env.SOLANA_RPC_URL;
+  if (rpcUrl) return rpcUrl.replace(/^http/, "ws");
   return "wss://api.mainnet-beta.solana.com";
 }
 
