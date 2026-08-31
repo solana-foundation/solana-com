@@ -1,20 +1,24 @@
 import { withRelatedProject } from "@vercel/related-projects";
 import { SIDE_EVENTS_HREF, SPONSOR_FORM_HREF } from "@/content/links";
 import { breakpointHref } from "@/lib/links";
+import { APP_TOPOLOGY, getLocalAppUrl } from "@workspace/app-topology";
 
+const mediaApp = APP_TOPOLOGY.media;
 const VERCEL_MEDIA_APP_URL = withRelatedProject({
-  projectName: "solana-com-media",
-  defaultHost: "https://solana-com-media.vercel.app",
+  projectName: mediaApp.vercel.projectName,
+  defaultHost: mediaApp.vercel.defaultHost,
 });
 
 const DEFAULT_MEDIA_APP_URL =
   process.env.NODE_ENV === "production"
     ? VERCEL_MEDIA_APP_URL
-    : "http://localhost:3002";
+    : getLocalAppUrl("media");
 
 const MEDIA_APP_URL =
-  process.env.MEDIA_APP_URL ||
-  process.env.NEXT_PUBLIC_MEDIA_APP_URL ||
+  mediaApp.appUrlEnvironmentVariableAliases
+    .map((environmentVariable) => process.env[environmentVariable])
+    .find(Boolean) ||
+  process.env[mediaApp.appUrlEnvironmentVariable] ||
   DEFAULT_MEDIA_APP_URL;
 
 export interface BreakpointAnnouncementLink {

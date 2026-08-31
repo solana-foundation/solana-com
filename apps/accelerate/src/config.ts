@@ -1,8 +1,10 @@
+import { APP_TOPOLOGY, getLocalAppUrl } from "@workspace/app-topology";
+
 /**
  * Asset prefix for static files (images, etc.) when deployed behind the main solana.com proxy.
  * This matches the assetPrefix in next.config.ts and uses the same proxy path.
  */
-export const ASSET_PREFIX = "/accelerate-assets";
+export const ASSET_PREFIX = APP_TOPOLOGY.accelerate.assetPrefix;
 
 /**
  * Prefixes a path with the asset prefix for static files.
@@ -32,7 +34,7 @@ const PUBLIC_SITE_URL = "https://solana.com/accelerate";
 
 const getSiteUrl = () => {
   if (process.env.NODE_ENV === `development`) {
-    return `http://localhost:3004`;
+    return getLocalAppUrl("accelerate");
   }
   if (process.env.VERCEL_ENV !== "production" && !!process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;

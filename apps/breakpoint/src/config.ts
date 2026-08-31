@@ -1,7 +1,8 @@
 import { defaultLocale } from "@workspace/i18n/config";
+import { APP_TOPOLOGY, getLocalAppUrl } from "@workspace/app-topology";
 
-const routePrefix = "/breakpoint";
-const assetPrefix = "/breakpoint-assets";
+const routePrefix = APP_TOPOLOGY.breakpoint.routes[0].path;
+const assetPrefix = APP_TOPOLOGY.breakpoint.assetPrefix;
 const PUBLIC_SITE_ORIGIN = "https://solana.com";
 const publicAssetDirectories = [
   "/_next/",
@@ -14,7 +15,7 @@ const hasProtocol = (path: string) => /^[a-z][a-z\d+.-]*:/i.test(path);
 
 function getSiteOrigin() {
   if (process.env.NODE_ENV === "development") {
-    return "http://localhost:3005";
+    return getLocalAppUrl("breakpoint");
   }
 
   if (process.env.VERCEL_ENV !== "production" && process.env.VERCEL_URL) {
