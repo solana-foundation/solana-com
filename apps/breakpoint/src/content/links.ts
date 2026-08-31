@@ -28,5 +28,6 @@ export const HEATHROW_AIRPORT_HREF = "https://www.heathrow.com/";
 export const GATWICK_AIRPORT_HREF = "https://www.gatwickairport.com/";
 export const BREAKPOINT_EMAIL_HREF = "mailto:breakpoint@solana.org";
 export const VISA_CHECK_HREF = "https://www.gov.uk/check-uk-visa";
+export const LOCUS_HREF = "https://breakpoint.golocus.xyz/uk-entry";
 export const IAS_HREF =
   "https://iasservices.org.uk/breakpoint-priority-visa-application-centre/";
