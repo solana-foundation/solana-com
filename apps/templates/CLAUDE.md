@@ -115,7 +115,7 @@ Allowed remote image sources:
 
 ## Environment Variables
 
-- `TEMPLATES_APP_URL` - Base URL for the templates app
+- `NEXT_PUBLIC_TEMPLATES_APP_URL` - Base URL for the templates app
 - Standard shared env vars from root turbo.json
 
 ## Build Configuration

@@ -1,7 +1,7 @@
 import {
   MEDIA_APP_URL,
   DOCS_APP_URL,
-  TEMPLATES_APP_URL,
+  templatesAppUrl,
   ACCELERATE_APP_URL,
   BREAKPOINT_APP_URL,
 } from "./apps-urls";
@@ -541,7 +541,7 @@ export default {
       // Templates app assets (required for static assets with assetPrefix: "/templates-assets")
       {
         source: "/templates-assets/:path+",
-        destination: `${TEMPLATES_APP_URL}/templates-assets/:path+`,
+        destination: `${templatesAppUrl}/templates-assets/:path+`,
         locale: false,
       },
       // Accelerate app rewrites
@@ -585,12 +585,12 @@ export default {
       // Templates app rewrites (must come before general /developers rewrites)
       {
         source: "/developers/templates",
-        destination: `${TEMPLATES_APP_URL}/developers/templates`,
+        destination: `${templatesAppUrl}/developers/templates`,
         locale: false,
       },
       {
         source: "/developers/templates/:path*",
-        destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
+        destination: `${templatesAppUrl}/developers/templates/:path*`,
         locale: false,
       },
       // Docs app assets (required for static assets with assetPrefix: "/docs-assets")
