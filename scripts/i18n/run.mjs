@@ -1,22 +1,19 @@
-/* global clearTimeout, console, setTimeout */
+/* global console */
 
-import { spawn, spawnSync } from "node:child_process";
-import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import process from "node:process";
 import path from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "../..");
-const lingoCliPackage = "@lingo.dev/cli@1.12.0";
-const lingoTimeoutBufferMs = 30_000;
-const lingoConfig = JSON.parse(
+const config = JSON.parse(
   fs.readFileSync(path.join(rootDir, ".lingo/config.json"), "utf8"),
 );
-const sourceLocale = lingoConfig.sourceLocale;
-const targetLocales = new Set(lingoConfig.targetLocales);
-const appTargets = new Set([
+const cliVersion = process.env.LINGO_CLI_VERSION ?? "1.16.0";
+const cliBin = process.env.LINGO_CLI_BIN;
+const appScopes = new Set([
   "accelerate",
   "breakpoint",
   "docs",
@@ -24,69 +21,38 @@ const appTargets = new Set([
   "templates",
   "web",
 ]);
-function loadEnvFileIfPresent(filePath) {
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
 
-  process.loadEnvFile(filePath);
+function loadEnvFile(filePath) {
+  if (fs.existsSync(filePath)) {
+    process.loadEnvFile(filePath);
+  }
 }
 
-function loadI18nEnv() {
-  loadEnvFileIfPresent(path.join(rootDir, ".env.local"));
-  loadEnvFileIfPresent(path.join(rootDir, ".env"));
+function loadEnvironment() {
+  loadEnvFile(path.join(rootDir, ".env.local"));
+  loadEnvFile(path.join(rootDir, ".env"));
 
-  // Lingo now prefers LINGO_API_KEY, but keep the older repo convention working.
   if (!process.env.LINGO_API_KEY && process.env.LINGODOTDEV_API_KEY) {
     process.env.LINGO_API_KEY = process.env.LINGODOTDEV_API_KEY;
   }
 }
 
-loadI18nEnv();
-
-// Kept below the workflow's timeout-minutes so every Lingo command, retry,
-// and recovery finishes before the job is killed. Only applied in CI; local
-// runs are only capped by the per-command wait limit.
-const jobTimeoutMinutes = 300;
-const jobDeadlineMs = process.env.CI
-  ? Date.now() + jobTimeoutMinutes * 60_000
-  : undefined;
-
-// Every command must finish before the workflow deadline; commands that wait
-// on Lingo are additionally capped by the wait limit, and repair pushes get
-// a shorter window so recovery still fits inside the deadline.
-const waitTimeoutMinutes = 210;
-
-function computeLingoTimeoutMs(args) {
-  // `resume` re-attaches to an in-flight run and blocks like `push --wait`.
-  const waitsOnLingo = args.includes("--wait") || args[0] === "resume";
-  const isRecoveryPush =
-    args.includes("--force") || args.includes("--backfill-missing");
-  const maxTimeoutMs =
-    (isRecoveryPush ? Math.min(waitTimeoutMinutes, 90) : waitTimeoutMinutes) *
-    60_000;
-  const remainingJobMs =
-    jobDeadlineMs === undefined
-      ? undefined
-      : jobDeadlineMs - Date.now() - lingoTimeoutBufferMs;
-
-  return waitsOnLingo
-    ? Math.min(maxTimeoutMs, remainingJobMs ?? maxTimeoutMs)
-    : remainingJobMs;
-}
-
-function run(command, args, cwd) {
+function run(command, args) {
   const result = spawnSync(command, args, {
-    cwd,
+    cwd: rootDir,
     stdio: "inherit",
     shell: false,
   });
 
+  if (result.error) {
+    console.error(result.error);
+  }
+
   return result.status ?? 1;
 }
 
-function runOrExit(command, args, cwd) {
-  const status = run(command, args, cwd);
+function runOrExit(command, args) {
+  const status = run(command, args);
 
   if (status !== 0) {
     process.exit(status);
@@ -94,499 +60,106 @@ function runOrExit(command, args, cwd) {
 }
 
 function runLingo(args) {
-  return new Promise((resolve) => {
-    const timeoutMs = computeLingoTimeoutMs(args);
-
-    if (timeoutMs !== undefined && timeoutMs <= 0) {
-      console.error(
-        "Not enough workflow time remains to start another bounded Lingo command; stopping it.",
-      );
-      resolve({ status: 124, output: "" });
-      return;
-    }
-
-    const timeoutMinutes = timeoutMs
-      ? Math.round(timeoutMs / 6_000) / 10
-      : undefined;
-    let output = "";
-    let timedOut = false;
-    let settled = false;
-    let timeoutHandle;
-    let killHandle;
-
-    const finish = (status, error) => {
-      if (settled) return;
-      settled = true;
-
-      if (timeoutHandle) clearTimeout(timeoutHandle);
-      if (killHandle) clearTimeout(killHandle);
-      if (error) console.error(error);
-
-      resolve({ status: status ?? (timedOut ? 124 : 1), output });
-    };
-
-    let child;
-    try {
-      child = spawn("npx", ["--yes", lingoCliPackage, ...args], {
-        cwd: rootDir,
-        // npx launches the actual Lingo CLI as a descendant. Give the command
-        // its own process group so a timeout can terminate the wrapper and all
-        // descendants that may still hold stdout/stderr open.
-        detached: process.platform !== "win32",
-        shell: false,
-        stdio: ["inherit", "pipe", "pipe"],
-      });
-    } catch (error) {
-      finish(1, error);
-      return;
-    }
-
-    const forward = (stream) => (chunk) => {
-      const text = chunk.toString();
-      output += text;
-      stream.write(text);
-    };
-
-    child.stdout.on("data", forward(process.stdout));
-    child.stderr.on("data", forward(process.stderr));
-    child.once("error", (error) => finish(1, error));
-    child.once("close", (status) => finish(status));
-
-    const killCommand = (signal) => {
-      try {
-        if (process.platform === "win32") {
-          spawnSync(
-            "taskkill",
-            [
-              "/pid",
-              String(child.pid),
-              "/t",
-              ...(signal === "SIGKILL" ? ["/f"] : []),
-            ],
-            { stdio: "ignore", windowsHide: true },
-          );
-        } else {
-          process.kill(-child.pid, signal);
-        }
-      } catch (error) {
-        if (error?.code !== "ESRCH") {
-          console.error(error);
-        }
-      }
-    };
-
-    if (timeoutMs) {
-      timeoutHandle = setTimeout(() => {
-        timedOut = true;
-        console.error(
-          `Lingo command exceeded its ${timeoutMinutes}-minute time limit; stopping it.`,
-        );
-        killCommand("SIGTERM");
-        killHandle = setTimeout(() => {
-          killCommand("SIGKILL");
-          // Do not wait indefinitely for inherited pipe handles to close after
-          // the operating system has been asked to force-kill the entire tree.
-          finish(124);
-        }, 10_000);
-        killHandle.unref();
-      }, timeoutMs);
-      timeoutHandle.unref();
-    }
-  });
-}
-
-function sourcePathFromTarget(targetPath) {
-  if (targetPath.includes(`/${sourceLocale}/`)) {
-    return targetPath;
+  if (cliBin) {
+    runOrExit(cliBin, args);
+    return;
   }
 
-  for (const locale of targetLocales) {
-    const marker = `/${locale}/`;
-    const localeIndex = targetPath.indexOf(marker);
-    if (localeIndex === -1) continue;
-
-    return `${targetPath.slice(0, localeIndex)}/${sourceLocale}/${targetPath.slice(
-      localeIndex + marker.length,
-    )}`;
-  }
-
-  return null;
+  runOrExit("npx", ["--yes", `@lingo.dev/cli@${cliVersion}`, ...args]);
 }
 
-function extractFailedPushPaths(output) {
-  // Lingo uses ANSI color codes in the failure report.
-  // eslint-disable-next-line no-control-regex
-  const normalizedOutput = output.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
-  const failedPaths = new Set();
-  let collectingFailures = false;
-
-  for (const line of normalizedOutput.split(/\r?\n/)) {
-    if (line.includes("target(s) failed:")) {
-      collectingFailures = true;
-      continue;
-    }
-
-    if (!collectingFailures) continue;
-    if (/^\s*Error:/.test(line)) break;
-
-    for (const match of line.matchAll(
-      /(?:apps\/docs\/content|packages\/i18n\/messages)\/[^\s:]+/g,
-    )) {
-      failedPaths.add(match[0]);
-    }
-  }
-
-  return [...failedPaths];
-}
-
-function extractFailedSourcePatterns(output) {
-  return [
-    ...new Set(
-      extractFailedPushPaths(output).map(sourcePathFromTarget).filter(Boolean),
-    ),
-  ];
-}
-
-function extractFailedTargetPaths(output) {
-  return extractFailedPushPaths(output).filter((failedPath) => {
-    const sourcePath = sourcePathFromTarget(failedPath);
-    return sourcePath !== null && sourcePath !== failedPath;
-  });
-}
-
-function hashFileIfExists(relativePath) {
-  const absolutePath = path.join(rootDir, relativePath);
-  if (!fs.existsSync(absolutePath)) {
-    return undefined;
-  }
-
-  return crypto
-    .createHash("sha256")
-    .update(fs.readFileSync(absolutePath))
-    .digest("hex");
-}
-
-function isPatternInScope(pattern, requestedScope) {
-  if (requestedScope === "all") {
-    return true;
-  }
-
-  if (requestedScope === "docs") {
+function isPatternInScope(pattern, scope) {
+  if (scope === "docs") {
     return pattern.startsWith("apps/docs/");
   }
 
-  if (requestedScope === "ui") {
+  if (scope === "ui") {
     return pattern.startsWith("packages/i18n/messages/");
   }
 
-  return pattern.startsWith(`packages/i18n/messages/${requestedScope}/`);
+  return pattern.startsWith(`packages/i18n/messages/${scope}/`);
 }
 
-function getScopePatterns(requestedScope) {
-  if (requestedScope === "all") {
+function getScopePatterns(scope) {
+  if (scope === "all") {
     return [];
   }
 
-  return lingoConfig.files
+  const patterns = config.files
     .flatMap((fileGroup) => fileGroup.include ?? [fileGroup.pattern])
-    .filter((pattern) => isPatternInScope(pattern, requestedScope));
+    .filter((pattern) => isPatternInScope(pattern, scope));
+
+  if (patterns.length === 0) {
+    console.error(`No Lingo file patterns match the "${scope}" scope.`);
+    process.exit(1);
+  }
+
+  return patterns;
 }
 
-async function recoverFailedPush(
-  failedResult,
-  requestedScope = "all",
-  { scopedRun = requestedScope === "all" } = {},
-) {
-  if (requestedScope !== "all" && !scopedRun) {
-    console.error(
-      `Refusing Lingo recovery because the most recent push was not proven to be scoped to "${requestedScope}".`,
-    );
-    return failedResult;
-  }
-
-  const failedSourcePatterns = extractFailedSourcePatterns(failedResult.output);
-  const outOfScopeFailures = failedSourcePatterns.filter(
-    (pattern) => !isPatternInScope(pattern, requestedScope),
-  );
-
-  // pull always downloads the most recent push run. Refuse recovery when that
-  // run contains failures outside this invocation's scope; callers must first
-  // establish a scoped retry as the most recent run.
-  if (outOfScopeFailures.length > 0) {
-    console.error(
-      `Refusing Lingo recovery because the failed run includes ${outOfScopeFailures.length} source file(s) outside the "${requestedScope}" scope.`,
-    );
-    return failedResult;
-  }
-
-  // Snapshot the targets the CLI reported as failed so a confirmed recovery
-  // only clears the failure once those exact files were created or rewritten.
-  const failedTargetPaths = extractFailedTargetPaths(failedResult.output);
-  const failedTargetHashes = new Map(
-    failedTargetPaths.map((targetPath) => [
-      targetPath,
-      hashFileIfExists(targetPath),
-    ]),
-  );
-
-  const resumeResult = await runLingo(["resume"]);
-
-  if (resumeResult.status !== 0) {
-    console.error(
-      "Lingo resume was not available; attempting to pull the same run anyway.",
-    );
-  }
-
-  const pullResult = await runLingo(["pull"]);
-
-  if (pullResult.status !== 0) {
-    return failedResult;
-  }
-
-  // Lingo's target report is the only authoritative completeness signal for
-  // MDX. A pull can rewrite a failed target (and its lock hash) with partial
-  // output, while the repository-level coverage check can only establish that
-  // the file exists. Keep those recovered files for the next run, but do not
-  // turn a reported MDX failure into a successful localization run.
-  const failedMdxTargets = failedTargetPaths.filter((targetPath) =>
-    targetPath.endsWith(".mdx"),
-  );
-  if (failedMdxTargets.length > 0) {
-    console.error(
-      `The failed push reported ${failedMdxTargets.length} MDX target(s); keeping the failed push status because recovery cannot verify translation completeness.`,
-    );
-    for (const targetPath of failedMdxTargets.slice(0, 20)) {
-      console.error(`- failed MDX target: ${targetPath}`);
-    }
-    return failedResult;
-  }
-
-  // Only a completed resume proves the interrupted run finished; a bare pull
-  // may fetch partial output, and a rewritten target file is not proof of a
-  // complete translation.
-  if (resumeResult.status !== 0) {
-    console.error(
-      "The recovery pull salvaged completed outputs but could not confirm the run finished; keeping the failed push status.",
-    );
-    return failedResult;
-  }
-
-  if (failedTargetPaths.length > 0) {
-    const unrecoveredTargets = failedTargetPaths.filter((targetPath) => {
-      const recoveredHash = hashFileIfExists(targetPath);
-      return (
-        recoveredHash === undefined ||
-        recoveredHash === failedTargetHashes.get(targetPath)
-      );
-    });
-
-    if (unrecoveredTargets.length > 0) {
-      console.error(
-        `The recovery pull left ${unrecoveredTargets.length} failed target(s) unrecovered; keeping the failed push status.`,
-      );
-      for (const targetPath of unrecoveredTargets.slice(0, 20)) {
-        console.error(`- unrecovered target: ${targetPath}`);
-      }
-      return failedResult;
-    }
-  }
-
-  return pullResult;
-}
-
-async function runLingoPush(
-  args = [],
-  requestedScope = "all",
-  { runCommand = runLingo, recover = recoverFailedPush } = {},
-) {
-  const pushResult = await runCommand(["push", ...args, "--wait"]);
-
-  if (pushResult.status === 0) {
-    return pushResult;
-  }
-
-  // A run can finish with per-target MDX/JSON failures while still producing
-  // usable output for the other targets. Retry only the sources named by the
-  // CLI, instead of silently accepting an incomplete localization run.
-  const allFailedSourcePatterns = extractFailedSourcePatterns(
-    pushResult.output,
-  );
-  const failedSourcePatterns = allFailedSourcePatterns.filter((pattern) =>
-    isPatternInScope(pattern, requestedScope),
-  );
-  const ignoredFailureCount =
-    allFailedSourcePatterns.length - failedSourcePatterns.length;
-
-  if (ignoredFailureCount > 0) {
-    console.error(
-      `Leaving ${ignoredFailureCount} failed Lingo source file(s) outside the requested "${requestedScope}" scope untouched.`,
-    );
-  }
-
-  if (failedSourcePatterns.length > 0) {
-    console.error(
-      `Retrying ${failedSourcePatterns.length} failed Lingo source file(s) in the "${requestedScope}" scope with --force.`,
-    );
-
-    const forceResult = await runCommand([
-      "push",
-      ...failedSourcePatterns,
-      "--force",
-      "--yes",
-      "--wait",
-    ]);
-
-    if (forceResult.status === 0) {
-      return forceResult;
-    }
-
-    const scopedRunEstablished =
-      requestedScope === "all" ||
-      extractFailedSourcePatterns(forceResult.output).length > 0;
-
-    if (!scopedRunEstablished) {
-      console.error(
-        `The targeted Lingo retry failed without target paths; refusing recovery because a scoped "${requestedScope}" run was not established.`,
-      );
-      return forceResult;
-    }
-
-    console.error(
-      "The targeted Lingo retry failed; recovering any completed outputs before exiting.",
-    );
-    return recover(forceResult, requestedScope, { scopedRun: true });
-  }
-
-  if (allFailedSourcePatterns.length > 0) {
-    console.error(
-      `The config-wide push failed only outside the requested "${requestedScope}" scope; continuing to scoped coverage validation.`,
-    );
-    return { ...pushResult, status: 0 };
-  }
-
-  // A scoped command that fails before reporting targets may not have updated
-  // Lingo's saved run ID. Pulling could therefore fetch the previous
-  // config-wide run even when this command included scoped patterns.
-  if (requestedScope !== "all") {
-    console.error(
-      `Lingo push failed without target paths; refusing recovery because a scoped "${requestedScope}" run was not established.`,
-    );
-    return pushResult;
-  }
-
-  console.error(
-    "Lingo push failed without recoverable target paths; recovering any completed outputs before exiting.",
-  );
-  return recover(pushResult, requestedScope, { scopedRun: true });
-}
-
-function verifyTargetCoverage(requestedScope) {
-  return run(
-    "node",
-    ["./scripts/i18n/verify-target-coverage.mjs", requestedScope],
-    rootDir,
-  );
-}
-
-function verifyDocsOutput() {
-  runOrExit("node", ["./scripts/i18n/sanitize-docs-frontmatter.mjs"], rootDir);
-  runOrExit("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"], rootDir);
-}
-
-async function runContinuousLocalization(requestedScope) {
-  const lockPath = path.join(rootDir, ".lingo/lock.json");
-  const scopePatterns = getScopePatterns(requestedScope);
-  let pushArgs = [];
-
-  if (!fs.existsSync(lockPath)) {
-    console.log(
-      "No .lingo/lock.json found; adopting existing translations without overwriting them.",
-    );
-    if (verifyTargetCoverage(requestedScope) !== 0) {
-      console.log(
-        `Existing translations in the "${requestedScope}" scope are missing targets; using Lingo backfill mode.`,
-      );
-      pushArgs = [...scopePatterns, "--backfill-missing"];
-    }
-  }
-
-  // Current Lingo releases treat positional patterns as force/new-file scopes
-  // and skip changed keys when target files already exist. Incremental pushes
-  // must be config-wide; the lockfile still limits work to changed sources.
-  if (requestedScope !== "all") {
-    console.log(
-      `Lingo incremental syncs are config-wide; processing changed sources for the requested "${requestedScope}" workflow.`,
-    );
-  }
-
-  const pushResult = await runLingoPush(pushArgs, requestedScope);
-  if (pushResult.status !== 0) {
-    process.exit(pushResult.status);
-  }
-
-  // Keep repair work inside the requested scope even though the lockfile-driven
-  // incremental push itself must be config-wide for current Lingo releases.
-  if (verifyTargetCoverage(requestedScope) !== 0) {
-    console.error(
-      `Lingo left target coverage incomplete in the "${requestedScope}" scope; retrying once in backfill mode.`,
-    );
-    const retryResult = await runLingoPush(
-      [...scopePatterns, "--backfill-missing"],
-      requestedScope,
-    );
-    if (retryResult.status !== 0) {
-      process.exit(retryResult.status);
-    }
-    if (verifyTargetCoverage(requestedScope) !== 0) {
-      console.error(
-        `Lingo target coverage in the "${requestedScope}" scope is still incomplete after the backfill retry.`,
-      );
-      process.exit(1);
-    }
-  }
-
-  // The incremental push can rewrite docs targets under any requested scope,
-  // so always normalize and verify the docs output.
-  verifyDocsOutput();
-}
-
-async function main() {
+function parseScope() {
   const [, , target, app] = process.argv;
 
-  runOrExit("node", ["./scripts/i18n/verify-source-locales.mjs"], rootDir);
-  runOrExit("node", ["./scripts/i18n/verify-config-coverage.mjs"], rootDir);
+  if (["all", "ui", "docs"].includes(target)) {
+    return target;
+  }
 
-  switch (target) {
-    case "all":
-    case "ui":
-    case "docs":
-      await runContinuousLocalization(target);
-      break;
-    case "app":
-      if (!app) {
-        console.error("Usage: pnpm i18n:app <app>");
-        process.exit(1);
-      }
+  if (target === "app" && app && appScopes.has(app)) {
+    return app;
+  }
 
-      if (!appTargets.has(app)) {
-        console.error(`Unknown localization app: ${app}`);
-        process.exit(1);
-      }
+  if (target === "app" && app && !appScopes.has(app)) {
+    console.error(`Unknown localization app: ${app}`);
+  } else if (target === "app") {
+    console.error("Usage: pnpm i18n:app <app>");
+  } else {
+    console.error("Usage: pnpm i18n[:ui|:docs|:app <app>]");
+  }
 
-      await runContinuousLocalization(app);
-      break;
-    default:
-      console.error("Usage: pnpm i18n[:ui|:docs|:app <app>]");
-      process.exit(1);
+  process.exit(1);
+}
+
+function verifyTargetCoverage(scope, missingOnly = false) {
+  return run("node", [
+    "./scripts/i18n/verify-target-coverage.mjs",
+    scope,
+    ...(missingOnly ? ["--missing-only"] : []),
+  ]);
+}
+
+function main() {
+  loadEnvironment();
+  const scope = parseScope();
+  const patterns = getScopePatterns(scope);
+
+  runOrExit("node", ["./scripts/i18n/verify-source-locales.mjs"]);
+  runOrExit("node", ["./scripts/i18n/verify-config-coverage.mjs"]);
+
+  if (!process.env.LINGO_API_KEY) {
+    console.error(
+      "LINGO_API_KEY (or the legacy LINGODOTDEV_API_KEY) is required.",
+    );
+    process.exit(1);
+  }
+
+  // A failed push fails the job. GitHub discards the partial checkout, and a
+  // rerun starts from the last committed lockfile instead of mutating targets
+  // through automatic --force or pull recovery.
+  runLingo(["push", ...patterns, "--wait"]);
+
+  // Plain push handles source deltas. Backfill is reserved for genuinely
+  // missing target files, such as after adding a locale.
+  if (verifyTargetCoverage(scope, true) !== 0) {
+    console.log(`Backfilling missing target files in the "${scope}" scope.`);
+    runLingo(["push", ...patterns, "--backfill-missing", "--wait"]);
+  }
+
+  runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs", scope]);
+
+  if (scope === "all" || scope === "docs") {
+    runOrExit("node", ["./scripts/i18n/sanitize-docs-frontmatter.mjs"]);
+    runOrExit("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"]);
   }
 }
 
-const isMainModule =
-  process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-
-if (isMainModule) {
-  await main();
-}
-
-export { getScopePatterns, isPatternInScope, recoverFailedPush, runLingoPush };
+main();

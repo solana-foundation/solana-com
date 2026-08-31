@@ -15,6 +15,7 @@ const lock = fs.existsSync(lockPath)
   ? JSON.parse(fs.readFileSync(lockPath, "utf8"))
   : null;
 const requestedScope = process.argv[2] ?? "all";
+const missingOnly = process.argv.includes("--missing-only");
 
 function isPatternInScope(pattern) {
   if (requestedScope === "all") {
@@ -82,6 +83,30 @@ const missingTargets = sourceFiles.flatMap((sourcePath) =>
     .map((targetLocale) => getTargetPath(sourcePath, targetLocale))
     .filter((targetPath) => !fs.existsSync(path.join(rootDir, targetPath))),
 );
+const targetCount = sourceFiles.length * config.targetLocales.length;
+
+function reportMissingTargets() {
+  for (const targetPath of missingTargets.slice(0, 20)) {
+    console.error(`- missing file: ${targetPath}`);
+  }
+
+  if (missingTargets.length > 20) {
+    console.error(`- …and ${missingTargets.length - 20} more missing files`);
+  }
+}
+
+if (missingOnly) {
+  if (missingTargets.length > 0) {
+    console.error("Lingo target files are missing.");
+    reportMissingTargets();
+    process.exit(1);
+  }
+
+  console.log(
+    `Lingo target file guard passed for the "${requestedScope}" scope (${targetCount} existing targets).`,
+  );
+  process.exit(0);
+}
 
 function getLeafKeys(value, prefix = "") {
   if (value === null || typeof value !== "object") {
@@ -151,14 +176,7 @@ if (
   divergentLockedTargets.length > 0
 ) {
   console.error("Lingo target coverage is incomplete.");
-
-  for (const targetPath of missingTargets.slice(0, 20)) {
-    console.error(`- missing file: ${targetPath}`);
-  }
-
-  if (missingTargets.length > 20) {
-    console.error(`- …and ${missingTargets.length - 20} more missing files`);
-  }
+  reportMissingTargets();
 
   for (const { targetPath, missingKeys } of incompleteJsonTargets.slice(
     0,
@@ -188,7 +206,6 @@ if (
   process.exit(1);
 }
 
-const targetCount = sourceFiles.length * config.targetLocales.length;
 console.log(
   `Lingo target coverage guard passed for the "${requestedScope}" scope (${sourceFiles.length} sources, ${targetCount} existing targets).`,
 );
