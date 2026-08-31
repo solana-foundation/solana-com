@@ -129,6 +129,10 @@ function runLingo(args) {
     try {
       child = spawn("npx", ["--yes", lingoCliPackage, ...args], {
         cwd: rootDir,
+        // npx launches the actual Lingo CLI as a descendant. Give the command
+        // its own process group so a timeout can terminate the wrapper and all
+        // descendants that may still hold stdout/stderr open.
+        detached: process.platform !== "win32",
         shell: false,
         stdio: ["inherit", "pipe", "pipe"],
       });
@@ -148,14 +152,42 @@ function runLingo(args) {
     child.once("error", (error) => finish(1, error));
     child.once("close", (status) => finish(status));
 
+    const killCommand = (signal) => {
+      try {
+        if (process.platform === "win32") {
+          spawnSync(
+            "taskkill",
+            [
+              "/pid",
+              String(child.pid),
+              "/t",
+              ...(signal === "SIGKILL" ? ["/f"] : []),
+            ],
+            { stdio: "ignore", windowsHide: true },
+          );
+        } else {
+          process.kill(-child.pid, signal);
+        }
+      } catch (error) {
+        if (error?.code !== "ESRCH") {
+          console.error(error);
+        }
+      }
+    };
+
     if (timeoutMs) {
       timeoutHandle = setTimeout(() => {
         timedOut = true;
         console.error(
           `Lingo command exceeded its ${timeoutMinutes}-minute time limit; stopping it.`,
         );
-        child.kill("SIGTERM");
-        killHandle = setTimeout(() => child.kill("SIGKILL"), 10_000);
+        killCommand("SIGTERM");
+        killHandle = setTimeout(() => {
+          killCommand("SIGKILL");
+          // Do not wait indefinitely for inherited pipe handles to close after
+          // the operating system has been asked to force-kill the entire tree.
+          finish(124);
+        }, 10_000);
         killHandle.unref();
       }, timeoutMs);
       timeoutHandle.unref();
@@ -350,8 +382,34 @@ async function runLingoPush(args = []) {
   return recoverFailedPush(pushResult);
 }
 
-function verifyTargetCoverage() {
-  return run("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
+function getScopePatterns(requestedScope) {
+  if (requestedScope === "all") {
+    return [];
+  }
+
+  const inScope = (pattern) => {
+    if (requestedScope === "docs") {
+      return pattern.startsWith("apps/docs/");
+    }
+
+    if (requestedScope === "ui") {
+      return pattern.startsWith("packages/i18n/messages/");
+    }
+
+    return pattern.startsWith(`packages/i18n/messages/${requestedScope}/`);
+  };
+
+  return lingoConfig.files
+    .flatMap((fileGroup) => fileGroup.include ?? [fileGroup.pattern])
+    .filter(inScope);
+}
+
+function verifyTargetCoverage(requestedScope) {
+  return run(
+    "node",
+    ["./scripts/i18n/verify-target-coverage.mjs", requestedScope],
+    rootDir,
+  );
 }
 
 function verifyDocsOutput() {
@@ -361,17 +419,18 @@ function verifyDocsOutput() {
 
 async function runContinuousLocalization(requestedScope) {
   const lockPath = path.join(rootDir, ".lingo/lock.json");
+  const scopePatterns = getScopePatterns(requestedScope);
   let pushArgs = [];
 
   if (!fs.existsSync(lockPath)) {
     console.log(
       "No .lingo/lock.json found; adopting existing translations without overwriting them.",
     );
-    if (verifyTargetCoverage() !== 0) {
+    if (verifyTargetCoverage(requestedScope) !== 0) {
       console.log(
-        "Existing translations are missing targets; using Lingo backfill mode.",
+        `Existing translations in the "${requestedScope}" scope are missing targets; using Lingo backfill mode.`,
       );
-      pushArgs = ["--backfill-missing"];
+      pushArgs = [...scopePatterns, "--backfill-missing"];
     }
   }
 
@@ -389,27 +448,29 @@ async function runContinuousLocalization(requestedScope) {
     process.exit(pushResult.status);
   }
 
-  // The coverage guard and backfill are deliberately repo-wide: incremental
-  // pushes are always config-wide (see above), so any gap they surface was
-  // already inside this run's blast radius regardless of the requested scope.
-  if (verifyTargetCoverage() !== 0) {
+  // Keep repair work inside the requested scope even though the lockfile-driven
+  // incremental push itself must be config-wide for current Lingo releases.
+  if (verifyTargetCoverage(requestedScope) !== 0) {
     console.error(
-      "Lingo left target coverage incomplete; retrying once in backfill mode.",
+      `Lingo left target coverage incomplete in the "${requestedScope}" scope; retrying once in backfill mode.`,
     );
-    const retryResult = await runLingoPush(["--backfill-missing"]);
+    const retryResult = await runLingoPush([
+      ...scopePatterns,
+      "--backfill-missing",
+    ]);
     if (retryResult.status !== 0) {
       process.exit(retryResult.status);
     }
-    if (verifyTargetCoverage() !== 0) {
+    if (verifyTargetCoverage(requestedScope) !== 0) {
       console.error(
-        "Lingo target coverage is still incomplete after the backfill retry.",
+        `Lingo target coverage in the "${requestedScope}" scope is still incomplete after the backfill retry.`,
       );
       process.exit(1);
     }
   }
 
-  // Config-wide pushes and backfills can rewrite docs targets under any
-  // requested scope, so always normalize and verify the docs output.
+  // The incremental push can rewrite docs targets under any requested scope,
+  // so always normalize and verify the docs output.
   verifyDocsOutput();
 }
 

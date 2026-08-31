@@ -1,3 +1,5 @@
+/* global console */
+
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,9 +14,35 @@ const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const lock = fs.existsSync(lockPath)
   ? JSON.parse(fs.readFileSync(lockPath, "utf8"))
   : null;
+const requestedScope = process.argv[2] ?? "all";
+
+function isPatternInScope(pattern) {
+  if (requestedScope === "all") {
+    return true;
+  }
+
+  if (requestedScope === "docs") {
+    return pattern.startsWith("apps/docs/");
+  }
+
+  if (requestedScope === "ui") {
+    return pattern.startsWith("packages/i18n/messages/");
+  }
+
+  return pattern.startsWith(`packages/i18n/messages/${requestedScope}/`);
+}
+
+const scopedFileGroups = config.files.filter((fileGroup) =>
+  (fileGroup.include ?? [fileGroup.pattern]).some(isPatternInScope),
+);
+
+if (scopedFileGroups.length === 0) {
+  console.error(`No Lingo file groups match the "${requestedScope}" scope.`);
+  process.exit(1);
+}
 
 const excludedSources = new Set(
-  config.files.flatMap((fileGroup) =>
+  scopedFileGroups.flatMap((fileGroup) =>
     (fileGroup.exclude ?? []).flatMap((pattern) =>
       fs.globSync(pattern, { cwd: rootDir }),
     ),
@@ -22,7 +50,7 @@ const excludedSources = new Set(
 );
 const sourceFiles = [
   ...new Set(
-    config.files
+    scopedFileGroups
       .flatMap((fileGroup) =>
         (fileGroup.include ?? [fileGroup.pattern]).flatMap((pattern) =>
           fs.globSync(pattern, { cwd: rootDir }),
@@ -162,5 +190,5 @@ if (
 
 const targetCount = sourceFiles.length * config.targetLocales.length;
 console.log(
-  `Lingo target coverage guard passed (${sourceFiles.length} sources, ${targetCount} existing targets).`,
+  `Lingo target coverage guard passed for the "${requestedScope}" scope (${sourceFiles.length} sources, ${targetCount} existing targets).`,
 );
