@@ -66,6 +66,11 @@ export function EnterpriseFaqPage() {
   const [activeTopic, setActiveTopic] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  // While a search is active, matches are expanded by default; this tracks
+  // the ones the user has collapsed. Reset whenever the query changes.
+  const [searchClosedIds, setSearchClosedIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const sections: IndexedTopic[] = useMemo(
     () =>
@@ -102,17 +107,26 @@ export function EnterpriseFaqPage() {
     0,
   );
 
-  const toggleItem = (id: string) => {
-    setOpenIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
+  const toggleSet =
+    (setter: React.Dispatch<React.SetStateAction<Set<string>>>) =>
+    (id: string) => {
+      setter((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
+    };
+
+  const toggleItem = normalizedQuery
+    ? toggleSet(setSearchClosedIds)
+    : toggleSet(setOpenIds);
+
+  const isItemOpen = (id: string) =>
+    normalizedQuery ? !searchClosedIds.has(id) : openIds.has(id);
 
   return (
     <div className="bg-black text-white font-brand">
@@ -157,7 +171,10 @@ export function EnterpriseFaqPage() {
           <input
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSearchClosedIds(new Set());
+            }}
             placeholder="Search questions: custody, privacy, stablecoin, settlement…"
             aria-label="Search FAQ"
             className="bg-transparent border-none outline-none text-white text-[15px] w-full placeholder:text-white/40"
@@ -253,7 +270,7 @@ export function EnterpriseFaqPage() {
                 </span>
               </div>
               {section.items.map((item) => {
-                const isOpen = openIds.has(item.id) || Boolean(normalizedQuery);
+                const isOpen = isItemOpen(item.id);
                 return (
                   <div
                     key={item.id}
