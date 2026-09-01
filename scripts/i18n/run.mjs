@@ -148,11 +148,11 @@ function main() {
   // one cumulative deadline to this runner, including its validation steps.
   runLingo(["push", ...patterns, "--wait"]);
 
-  // Plain push handles source deltas. Backfill is reserved for genuinely
-  // missing target files, such as after adding a locale.
-  if (verifyTargetCoverage(scope, true) !== 0) {
-    console.log(`Backfilling missing target files in the "${scope}" scope.`);
-    runLingo(["push", ...patterns, "--backfill-missing", "--wait"]);
+  // Backfill is config-wide. Scoped pushes rely on their final coverage guard
+  // and fail rather than crossing the requested boundary.
+  if (scope === "all" && verifyTargetCoverage("all", true) !== 0) {
+    console.log("Backfilling missing target files across the full config.");
+    runLingo(["push", "--backfill-missing", "--wait"]);
   }
 
   runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs", scope]);
