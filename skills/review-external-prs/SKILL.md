@@ -156,9 +156,12 @@ python3 skills/review-external-prs/scripts/guarded_close.py <number> \
 
 The first invocation is a dry run. After checking its output and confirming live
 closure authorization, repeat it with `--apply`. The helper refreshes the team
-roster, refuses protected authors, refuses a changed head or non-open PR, uses
-`gh pr close` without deleting the branch, and verifies the resulting state.
-Never bypass the helper with a raw close command.
+roster, refuses protected authors, refuses a changed head or non-open PR,
+rechecks the complete guard immediately before calling `gh pr close`, and does
+not delete the branch. Because GitHub's close operation has no expected-head
+parameter, the helper closes without a comment, requires both `CLOSED` and the
+exact reviewed head afterward, reopens a raced close, and posts the comment only
+after that check succeeds. Never bypass the helper with a raw close command.
 
 If a head SHA changes after review, discard the decision and re-review the new
 head. If any mutation fails ambiguously, query the live PR state before retrying

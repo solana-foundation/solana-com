@@ -122,6 +122,32 @@ def validate_snapshot(
     }
 
 
+def validate_closed_snapshot(
+    snapshot: dict[str, Any], number: int, expected_head: str
+) -> dict[str, Any]:
+    """Require the close result to still refer to the reviewed head."""
+    if snapshot.get("number") != number:
+        raise GuardError("GitHub returned a different PR number after closing")
+    if snapshot.get("state") != "CLOSED":
+        raise GuardError(
+            f"gh returned success but PR #{number} is not closed; "
+            "inspect it before retrying"
+        )
+
+    current_head = snapshot.get("headRefOid")
+    if current_head != expected_head:
+        raise GuardError(
+            f"PR #{number} head changed during close; expected {expected_head}, "
+            f"got {current_head}"
+        )
+
+    return {
+        "number": number,
+        "state": "CLOSED",
+        "headRefOid": current_head,
+    }
+
+
 def read_comment(path: Path) -> str:
     try:
         comment = path.read_text(encoding="utf-8").strip()
@@ -136,18 +162,66 @@ def read_comment(path: Path) -> str:
     return comment
 
 
-def close_pr(number: int, comment: str) -> None:
+def _run_pr_command(arguments: list[str], operation: str) -> None:
+    try:
+        completed = subprocess.run(
+            ["gh", *arguments],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except FileNotFoundError as exc:
+        raise GuardError("GitHub CLI (gh) was not found on PATH") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise GuardError(
+            f"{operation} timed out; inspect the live PR state before retrying"
+        ) from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or "unknown gh error"
+        raise GuardError(
+            f"{operation} returned an error; inspect the live PR state before "
+            f"retrying: {detail}"
+        )
+
+
+def close_pr(number: int, expected_head: str, protected_logins: set[str]) -> None:
+    """Close only after the complete guard has been refreshed.
+
+    GitHub's close command has no expected-head option. Rechecking immediately
+    before the mutation narrows the race, while the caller's post-close check
+    and compensating reopen ensure a raced close is never treated as success.
+    The comment is deliberately posted separately after that check.
+    """
+    validate_snapshot(
+        fetch_pr_snapshot(number), number, expected_head, protected_logins
+    )
+    _run_pr_command(
+        ["pr", "close", str(number), "--repo", TARGET_REPO],
+        "gh pr close",
+    )
+
+
+def reopen_pr(number: int) -> None:
+    _run_pr_command(
+        ["pr", "reopen", str(number), "--repo", TARGET_REPO],
+        "gh pr reopen",
+    )
+
+
+def post_closing_comment(number: int, comment: str) -> None:
     try:
         completed = subprocess.run(
             [
                 "gh",
-                "pr",
-                "close",
-                str(number),
-                "--repo",
-                TARGET_REPO,
-                "--comment",
-                comment,
+                "api",
+                "--hostname",
+                "github.com",
+                "--method",
+                "POST",
+                f"repos/{ORG}/{REPO}/issues/{number}/comments",
+                "-f",
+                f"body={comment}",
             ],
             check=False,
             capture_output=True,
@@ -158,14 +232,37 @@ def close_pr(number: int, comment: str) -> None:
         raise GuardError("GitHub CLI (gh) was not found on PATH") from exc
     except subprocess.TimeoutExpired as exc:
         raise GuardError(
-            "gh pr close timed out; inspect the live PR state before retrying"
+            "posting the closing comment timed out; inspect the live PR before "
+            "retrying"
         ) from exc
     if completed.returncode != 0:
         detail = completed.stderr.strip() or "unknown gh error"
-        raise GuardError(
-            "gh pr close returned an error; inspect the live PR state before "
-            f"retrying: {detail}"
-        )
+        raise GuardError(f"posting the closing comment failed: {detail}")
+
+
+def reconcile_closed_snapshot(
+    number: int, expected_head: str, snapshot: dict[str, Any]
+) -> dict[str, Any]:
+    """Reject and undo a close that completed after the reviewed head moved."""
+    try:
+        return validate_closed_snapshot(snapshot, number, expected_head)
+    except GuardError:
+        if (
+            snapshot.get("state") == "CLOSED"
+            and snapshot.get("headRefOid") != expected_head
+        ):
+            try:
+                reopen_pr(number)
+            except GuardError as exc:
+                raise GuardError(
+                    f"PR #{number} closed after its head changed and could not be "
+                    "reopened; inspect it before retrying"
+                ) from exc
+            raise GuardError(
+                f"PR #{number} head changed during close; the PR was reopened; "
+                "discard the decision and re-review the new head"
+            )
+        raise
 
 
 def parse_args() -> argparse.Namespace:
@@ -218,13 +315,17 @@ def main() -> int:
             print(json.dumps(result, indent=2))
             return 0
 
-        close_pr(args.number, comment)
-        final_snapshot = fetch_pr_snapshot(args.number)
-        if final_snapshot.get("state") != "CLOSED":
-            raise GuardError(
-                "gh returned success but the PR is not closed; inspect it before retrying"
-            )
-        result["state"] = "CLOSED"
+        close_pr(args.number, args.expected_head, protected_logins)
+        closed = reconcile_closed_snapshot(
+            args.number, args.expected_head, fetch_pr_snapshot(args.number)
+        )
+        # Give a force-push that lands immediately after the first result check
+        # the same safe treatment before adding a comment to the PR.
+        closed = reconcile_closed_snapshot(
+            args.number, args.expected_head, fetch_pr_snapshot(args.number)
+        )
+        post_closing_comment(args.number, comment)
+        result.update(closed)
         print(json.dumps(result, indent=2))
         return 0
     except (GuardError, IntakeError) as exc:

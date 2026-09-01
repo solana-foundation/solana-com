@@ -6,8 +6,16 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from guarded_close import GuardError, read_comment, validate_snapshot
+from guarded_close import (
+    GuardError,
+    close_pr,
+    read_comment,
+    reconcile_closed_snapshot,
+    validate_closed_snapshot,
+    validate_snapshot,
+)
 from check_commit_security import CommitSecurityError, evaluate_commit_security, parse_commit_pages
 from list_external_prs import IntakeError, build_output
 from request_commit_security_update import build_comment, marker
@@ -124,6 +132,57 @@ class CloseGuardTests(unittest.TestCase):
     def test_closed_pr_is_refused(self) -> None:
         with self.assertRaises(GuardError):
             validate_snapshot(self.snapshot(state="CLOSED"), 9, "a" * 40, set())
+
+    def test_closed_snapshot_requires_the_reviewed_head(self) -> None:
+        checked = validate_closed_snapshot(
+            self.snapshot(state="CLOSED"), 9, "a" * 40
+        )
+        self.assertEqual(checked["headRefOid"], "a" * 40)
+
+        with self.assertRaises(GuardError):
+            validate_closed_snapshot(
+                self.snapshot(state="CLOSED", headRefOid="b" * 40), 9, "a" * 40
+            )
+
+    @patch("guarded_close.subprocess.run")
+    @patch("guarded_close.fetch_pr_snapshot")
+    def test_close_rechecks_head_and_does_not_attach_comment(
+        self, fetch_snapshot, run
+    ) -> None:
+        fetch_snapshot.return_value = self.snapshot()
+        run.return_value.returncode = 0
+
+        close_pr(9, "a" * 40, {"team-member"})
+
+        command = run.call_args.args[0]
+        self.assertEqual(
+            command,
+            ["gh", "pr", "close", "9", "--repo", "solana-foundation/solana-com"],
+        )
+        self.assertNotIn("--comment", command)
+
+    @patch("guarded_close.subprocess.run")
+    @patch("guarded_close.fetch_pr_snapshot")
+    def test_close_refuses_a_changed_head_before_mutation(
+        self, fetch_snapshot, run
+    ) -> None:
+        fetch_snapshot.return_value = self.snapshot(headRefOid="b" * 40)
+
+        with self.assertRaises(GuardError):
+            close_pr(9, "a" * 40, set())
+
+        run.assert_not_called()
+
+    @patch("guarded_close.reopen_pr")
+    def test_changed_head_after_close_is_reopened_and_rejected(self, reopen) -> None:
+        with self.assertRaises(GuardError):
+            reconcile_closed_snapshot(
+                9,
+                "a" * 40,
+                self.snapshot(state="CLOSED", headRefOid="b" * 40),
+            )
+
+        reopen.assert_called_once_with(9)
 
     def test_closing_comment_must_thank_the_contributor(self) -> None:
         with TemporaryDirectory() as directory:
