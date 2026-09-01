@@ -1,8 +1,7 @@
 ---
 title: 거래소에 Solana 추가하기
 description:
-  Learn how to integrate Solana into your exchange with this guide covering node
-  setup and implementation details for deposits and withdrawals.
+  Learn how to integrate Solana into your exchange with this guide covering node setup and implementation details for deposits and withdrawals.
 ---
 
 이 가이드는 Solana의 네이티브 토큰인 SOL을 암호화폐 거래소에 추가하는 방법을 설명합니다.
@@ -130,9 +129,15 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 메인넷 네트워크가 버전화된 트랜잭션을 처리하기 시작하면, 거래소는 **반드시** 변경 사항을 적용해야 합니다. 변경이 이루어지지 않으면 버전화된 트랜잭션 또는 버전화된 트랜잭션이 포함된 블록을 가져올 때 오류가 반환되어 입금 감지가 더 이상 제대로 작동하지 않게 됩니다.
 
-- `{"maxSupportedTransactionVersion": 0}`
+- `{"maxSupportedTransactionVersion": 1}`
 
-  입금 감지 중단을 방지하려면 `getBlock` 및 `getTransaction` 요청에 `maxSupportedTransactionVersion` 파라미터를 추가해야 합니다. 최신 트랜잭션 버전은 `0`이며 최대 지원 트랜잭션 버전 값으로 지정해야 합니다.
+  `maxSupportedTransactionVersion` 파라미터는 입금 감지 중단을 방지하기 위해 `getBlock` 및
+  `getTransaction` 요청에 추가되어야 합니다. 최신 트랜잭션 버전은 `0`이며,
+  [v1 형식](/docs/core/transactions/versioned-transactions#v1-message-format)은
+  Agave v4.2와 함께 활성화됩니다 — 활성화에 앞서 지금 바로 값을 정수 `1`로 설정하세요
+  (노드가 지원하는 버전보다 높은 버전을 요청하는 것은 안전합니다). 지원되지 않는 버전의 트랜잭션이 하나라도 있으면 **전체** `getBlock` 응답이 실패하며, `getSignaturesForAddress`는 버전으로 인해 실패하지 않습니다 — 따라서 opt-in 없이는 v1 입금이 서명 목록에는 표시되지만 가져올 수 없습니다.
+
+  v1이 활성화되면 입금 파이프라인에 영향을 미치는 두 가지 추가 변경 사항이 있습니다: v1 트랜잭션은 컴퓨팅 및 수수료 한도를 ComputeBudget 명령어 대신 `transactionConfig` 메시지 객체에 담아 전달하므로 (수수료를 위해 명령어를 스캔하는 파이프라인은 v1에 대해 0을 보고합니다), v1은 주소 조회 테이블을 사용하지 않습니다.
 
 버전화된 트랜잭션을 통해 사용자가 온체인 주소 조회 테이블에서 로드된 또 다른 계정 키 세트를 사용하는 트랜잭션을 생성할 수 있다는 점을 이해하는 것이 중요합니다.
 
@@ -445,10 +450,15 @@ solana transfer <USER_ADDRESS> <AMOUNT> --allow-unfunded-recipient --keypair <KE
 
 **참고:** 각 트랜잭션에는 활성 상태를 나타내는 [최근 블록해시](/docs/core/transactions/transaction-structure#recent-blockhash)가 포함됩니다. 클러스터에 의해 확인 또는 최종 확정되지 않은 것으로 보이는 출금 전송을 재시도하기 전에 이 블록해시가 만료될 때까지 기다리는 것이 **중요**합니다. 그렇지 않으면 이중 지출의 위험이 있습니다. 아래 [블록해시 만료](#blockhash-expiration)에 대한 자세한 내용을 참조하세요.
 
-먼저 [`getFees`](/docs/rpc/deprecated/getfees) 엔드포인트 또는 CLI 명령을 사용하여 최근 블록해시를 가져옵니다:
+먼저 [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) 엔드포인트를 사용하여 최근 블록해시와 마지막 유효 블록 높이를 가져옵니다:
 
 ```shell
-solana fees --url http://localhost:8899
+curl http://localhost:8899 -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getLatestBlockhash",
+  "params":[{"commitment":"finalized"}]
+}'
 ```
 
 커맨드라인 도구에서 `--no-wait` 인수를 전달하여 전송을 비동기식으로 보내고, `--blockhash` 인수와 함께 최근 블록해시를 포함합니다:
@@ -511,7 +521,7 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 #### 블록해시 만료
 
-블록해시를 매개변수로 하여 [`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash) 요청을 전송하면 특정 블록해시가 아직 유효한지 확인할 수 있습니다. 응답 값이 `null`이면 블록해시가 만료된 것이며, 해당 블록해시를 사용하는 출금 트랜잭션은 절대 성공할 수 없습니다.
+블록해시를 파라미터로 사용하여 [`isBlockhashValid`](/docs/rpc/http/isblockhashvalid) 요청을 전송하면 특정 블록해시가 여전히 유효한지 확인할 수 있습니다. 응답 값이 `false`이면 블록해시가 만료된 것이며, 해당 블록해시를 사용한 출금 트랜잭션은 절대 성공하지 못합니다.
 
 ### 출금을 위한 사용자 제공 계정 주소 검증
 
@@ -739,11 +749,13 @@ cargo install spl-token-cli
 spl-token --version
 ```
 
-결과는 다음과 유사하게 출력됩니다
+다음과 같이 설치된 버전이 출력됩니다:
 
 ```text
-spl-token-cli 2.0.1
+spl-token-cli 5.6.1
 ```
+
+SPL Token-2022 지원이 필요한 경우 버전 5.6.1 이상을 사용하세요.
 
 ### 계정 생성
 
@@ -1503,7 +1515,7 @@ spl-token transfer --fund-recipient <exchange token account> <withdrawal amount>
 
 [SPL Token-2022](https://spl.solana.com/token-2022)는 Solana 블록체인에서 래핑/합성 토큰 생성 및 교환을 위한 최신 표준입니다.
 
-"Token Extensions"라고도 불리는 이 표준은 토큰 생성자와 계정 보유자가 선택적으로 활성화할 수 있는 많은 새로운 기능을 포함합니다. 이러한 기능에는 기밀 전송, 전송 수수료, 민트 종료, 메타데이터, 영구 위임, 불변 소유권 등이 포함됩니다. 자세한 내용은 [확장 가이드](https://spl.solana.com/token-2022/extensions)를 참조하세요.
+"Token Extensions"라고도 알려진 이 표준에는 토큰 발행자와 계정 보유자가 선택적으로 활성화할 수 있는 다양한 새로운 기능이 포함되어 있습니다. 이러한 기능으로는 기밀 잔액(Confidential Balances), 전송 수수료, 민트 종료, 메타데이터, 영구 위임, 불변 소유권 등이 있습니다. 자세한 내용은 [확장 가이드](https://spl.solana.com/token-2022/extensions)를 참조하세요.
 
 거래소에서 SPL Token을 지원하고 있다면, SPL Token-2022를 지원하기 위해 추가로 필요한 작업이 많지 않습니다:
 
@@ -1551,13 +1563,13 @@ spl-token transfer --expected-fee <fee amount> --fund-recipient <exchange token 
 spl-token close --address <account address>
 ```
 
-#### 기밀 전송
+#### 기밀 잔액(Confidential Balances)
 
-민트는 기밀 전송으로 구성될 수 있으며, 토큰 금액은 암호화되지만 계정 소유자는 여전히 공개됩니다.
+민트는 기밀 잔액(Confidential Balances)으로 구성될 수 있으며, 이 경우 토큰 수량은 암호화되지만 계정 소유자는 여전히 공개됩니다.
 
-거래소는 사용자 금액을 숨기기 위해 기밀 전송을 주고받도록 token account를 구성할 수 있습니다. token account에서 기밀 전송을 활성화하는 것은 필수가 아니므로, 거래소는 사용자에게 토큰을 비기밀 방식으로 전송하도록 강제할 수 있습니다.
+거래소는 사용자 수량을 숨기기 위해 기밀 전송을 주고받도록 token account를 구성할 수 있습니다. token account에 기밀 잔액(Confidential Balances)을 활성화하는 것이 필수는 아니므로, 거래소는 사용자가 토큰을 비기밀 방식으로 전송하도록 강제할 수 있습니다.
 
-기밀 전송을 활성화하려면 계정을 구성해야 합니다:
+기밀 잔액(Confidential Balances)을 활성화하려면 계정을 다음과 같이 구성하세요:
 
 ```shell
 spl-token configure-confidential-transfer-account --address <account address>

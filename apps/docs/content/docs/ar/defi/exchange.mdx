@@ -1,8 +1,7 @@
 ---
 title: أضف سولانا إلى بورصتك
 description:
-  Learn how to integrate Solana into your exchange with this guide covering node
-  setup and implementation details for deposits and withdrawals.
+  Learn how to integrate Solana into your exchange with this guide covering node setup and implementation details for deposits and withdrawals.
 ---
 
 يصف هذا الدليل كيفية إضافة رمز SOL الأصلي لسولانا إلى بورصة العملات المشفرة الخاصة بك.
@@ -130,9 +129,19 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 عندما تبدأ شبكة Mainnet بمعالجة المعاملات ذات الإصدار، **يجب** على البورصات إجراء تغييرات. إذا لم تُجرَ أي تغييرات، فلن تعمل عملية اكتشاف الإيداعات بشكل صحيح لأن جلب معاملة ذات إصدار أو كتلة تحتوي على معاملات ذات إصدار سيُعيد خطأً.
 
-- `{"maxSupportedTransactionVersion": 0}`
+- `{"maxSupportedTransactionVersion": 1}`
 
-  يجب إضافة معامل `maxSupportedTransactionVersion` إلى طلبات `getBlock` و`getTransaction` لتجنب اضطراب عملية اكتشاف الإيداعات. أحدث إصدار للمعاملة هو `0` ويجب تحديده كقيمة أقصى لإصدار المعاملة المدعوم.
+  يجب إضافة المعامل `maxSupportedTransactionVersion` إلى طلبات `getBlock` و
+  `getTransaction` لتجنب أي اضطراب في اكتشاف الإيداعات. أحدث إصدار للمعاملات هو `0`، مع
+  تفعيل
+  [تنسيق v1](/docs/core/transactions/versioned-transactions#v1-message-format)
+  مع Agave v4.2 — اضبط القيمة على العدد الصحيح `1` الآن للبقاء
+  متقدماً على التفعيل (طلب إصدار أعلى مما يدعمه العقدة أمر آمن). تؤدي معاملة واحدة بإصدار غير مدعوم إلى فشل استجابة `getBlock` **بأكملها**،
+  في حين أن `getSignaturesForAddress` لا تفشل أبداً بسبب الإصدار — لذا
+  بدون الاشتراك الاختياري، ستظهر إيداعات v1 في قوائم التوقيعات لكن لا يمكن جلبها.
+
+  بمجرد تفعيل v1، يصبح تغييران آخران مهمَّين لمسارات الإيداع: تحمل معاملات v1
+  حدود الحوسبة والرسوم في كائن رسالة `transactionConfig` بدلاً من تعليمات ComputeBudget (أي مسار يفحص التعليمات بحثاً عن الرسوم سيُبلِّغ عن صفر لـ v1)، ولا يستخدم v1 جداول بحث العناوين.
 
 من المهم فهم أن المعاملات ذات الإصدار تسمح للمستخدمين بإنشاء معاملات تستخدم مجموعة أخرى من مفاتيح الحساب المُحمَّلة من جداول بحث العناوين على السلسلة.
 
@@ -449,11 +458,16 @@ solana transfer <USER_ADDRESS> <AMOUNT> --allow-unfunded-recipient --keypair <KE
 [blockhash حديث](/docs/core/transactions/transaction-structure#recent-blockhash)
 للإشارة إلى صلاحيتها. ومن **الضروري** انتظار انتهاء صلاحية هذا الـ blockhash قبل إعادة محاولة تحويل سحب لم يبدُ أنه تم تأكيده أو اكتمل تأكيده النهائي من قِبل الكلستر. وإلا فقد تتعرض لخطر الإنفاق المزدوج. اطلع على مزيد من المعلومات حول [انتهاء صلاحية الـ blockhash](#blockhash-expiration) أدناه.
 
-أولاً، احصل على blockhash حديث باستخدام نقطة النهاية
-[`getFees`](/docs/rpc/deprecated/getfees) أو أمر CLI:
+أولاً، احصل على أحدث blockhash وآخر ارتفاع للكتلة صالح باستخدام
+نقطة النهاية [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash):
 
 ```shell
-solana fees --url http://localhost:8899
+curl http://localhost:8899 -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getLatestBlockhash",
+  "params":[{"commitment":"finalized"}]
+}'
 ```
 
 في أداة سطر الأوامر، مرر الوسيطة `--no-wait` لإرسال التحويل بشكل غير متزامن، وأضف الـ blockhash الحديث باستخدام الوسيطة `--blockhash`:
@@ -522,9 +536,10 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 #### انتهاء صلاحية الـ Blockhash
 
-يمكنك التحقق من صلاحية blockhash معين عن طريق إرسال طلب
-[`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash)
-مع الـ blockhash كمعامل. إذا كانت قيمة الاستجابة `null`، فهذا يعني أن الـ blockhash قد انتهت صلاحيته، وأن معاملة السحب التي تستخدمه لن تنجح أبداً.
+يمكنك التحقق مما إذا كان blockhash معين لا يزال صالحاً عن طريق إرسال
+طلب [`isBlockhashValid`](/docs/rpc/http/isblockhashvalid) مع تمرير blockhash
+كمعامل. إذا كانت قيمة الاستجابة `false`، فقد انتهت صلاحية blockhash،
+وينبغي ألا تنجح معاملة السحب التي تستخدم هذا blockhash أبداً.
 
 ### التحقق من صحة عناوين الحسابات التي يوفرها المستخدمون لعمليات السحب
 
@@ -767,11 +782,13 @@ cargo install spl-token-cli
 spl-token --version
 ```
 
-والذي يجب أن ينتج شيئاً مشابهاً لـ
+يطبع هذا الإصدار المثبَّت، على سبيل المثال:
 
 ```text
-spl-token-cli 2.0.1
+spl-token-cli 5.6.1
 ```
+
+استخدم الإصدار 5.6.1 أو أحدث إذا كنت بحاجة إلى دعم SPL Token-2022.
 
 ### إنشاء الحساب
 
@@ -1525,7 +1542,12 @@ spl-token transfer --fund-recipient <exchange token account> <withdrawal amount>
 
 [SPL Token-2022](https://spl.solana.com/token-2022) هو أحدث معيار لإنشاء وتبادل الرموز المُغلَّفة/الاصطناعية على سلسلة بلوكشين سولانا.
 
-المعروف أيضًا بـ "Token Extensions"، يحتوي هذا المعيار على العديد من الميزات الجديدة التي يمكن لمنشئي الرموز وأصحاب الحسابات تفعيلها اختياريًا. تشمل هذه الميزات التحويلات السرية، والرسوم على التحويل، وإغلاق الـ mints، والبيانات الوصفية، والمفوضين الدائمين، والملكية غير القابلة للتغيير، وغير ذلك الكثير. يرجى مراجعة [دليل الامتدادات](https://spl.solana.com/token-2022/extensions) لمزيد من المعلومات.
+يُعرف أيضاً بـ "Token Extensions"، ويحتوي المعيار على العديد من الميزات الجديدة التي
+يمكن لمنشئي الرموز وأصحاب الحسابات تفعيلها اختيارياً. تشمل هذه الميزات
+الأرصدة السرية، والرسوم على التحويل، وإغلاق المصادر، والبيانات الوصفية، والمفوَّضين الدائمين،
+والملكية غير القابلة للتغيير، وغير ذلك الكثير. يُرجى الاطلاع على
+[دليل الامتداد](https://spl.solana.com/token-2022/extensions) لمزيد
+من المعلومات.
 
 إذا كانت بورصتك تدعم SPL Token، فلن يكون هناك الكثير من العمل الإضافي المطلوب لدعم SPL Token-2022:
 
@@ -1573,13 +1595,16 @@ spl-token transfer --expected-fee <fee amount> --fund-recipient <exchange token 
 spl-token close --address <account address>
 ```
 
-#### التحويل السري
+#### الأرصدة السرية
 
-يمكن تهيئة الـ mints للتحويلات السرية، بحيث تكون مبالغ الرموز مشفَّرة، في حين لا يزال أصحاب الحسابات معلنين.
+يمكن تهيئة المصادر بميزة الأرصدة السرية، بحيث تكون مبالغ الرموز
+مشفَّرة في حين يظل أصحاب الحسابات عامَّين.
 
-يمكن للبورصات تهيئة token accounts لإرسال واستقبال التحويلات السرية لإخفاء مبالغ المستخدمين. لا يُشترط تفعيل التحويلات السرية على token accounts، لذا يمكن للبورصات إلزام المستخدمين بإرسال الرموز بشكل غير سري.
+يمكن للبورصات تهيئة token account لإرسال واستقبال التحويلات السرية،
+لإخفاء مبالغ المستخدمين. لا يُشترط تفعيل الأرصدة السرية على token account،
+لذا يمكن للبورصات إلزام المستخدمين بإرسال الرموز بشكل غير سري.
 
-لتفعيل التحويلات السرية، يجب تهيئة الحساب لذلك:
+لتفعيل الأرصدة السرية، قم بتهيئة الحساب:
 
 ```shell
 spl-token configure-confidential-transfer-account --address <account address>

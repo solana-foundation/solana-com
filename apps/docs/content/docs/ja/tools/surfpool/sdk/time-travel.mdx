@@ -1,19 +1,19 @@
 ---
 title: タイムトラベル
-description: Surfnetのクロックを絶対slot、epoch、またはUnixタイムスタンプに進めます。ベスティングスケジュール、ロックアップ、有効期限ウィンドウ、またはepoch境界をテストする際に便利です。
+description:
+  Surfnetのクロックを絶対slot、epoch、またはUnixタイムスタンプに進めたり、完全に一時停止したりできます。ベスティングスケジュール、ロックアップ、有効期限ウィンドウ、またはepoch境界をテストする際に便利です。
 ---
 
 Surfpoolランタイムは3つのタイムトラベルヘルパーを提供します。それぞれのヘルパーはローカルクロックを絶対ターゲット（相対オフセットではなく）に移動させ、更新された`EpochInfo`を返すため、テストはランタイムが実際にリクエストされた時刻に到達したことを検証できます。
 
-| ヘルパー                                             | ターゲット                     | 返り値                                 |
-| ---------------------------------------------------- | ------------------------------ | -------------------------------------- |
-| `time_travel_to_slot` / `timeTravelToSlot`           | 絶対slot番号                   | 新しい`absolute_slot`を含む`EpochInfo` |
-| `time_travel_to_epoch` / `timeTravelToEpoch`         | 絶対epoch番号                  | 新しい`epoch`を含む`EpochInfo`         |
-| `time_travel_to_timestamp` / `timeTravelToTimestamp` | ミリ秒単位のUnixタイムスタンプ | 対応するslotを反映した`EpochInfo`      |
+| ヘルパー                                               | ターゲット                         | 返り値                                  |
+| ---------------------------------------------------- | ------------------------------ | ---------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | 絶対slot番号           | 新しい`absolute_slot`を含む`EpochInfo` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | 絶対epoch番号          | 新しい`epoch`を含む`EpochInfo`         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | ミリ秒単位のUnixタイムスタンプ | 対応するslotを反映した`EpochInfo`  |
 
 <Callout type="warn" title="前方方向のみ">
-  タイムトラベルはクロックを**前方**にのみ移動できます。過去のターゲットでこれらのメソッドを呼び出した場合は何も起きません
-  — ヘルパーは現在の`EpochInfo`をそのまま返します。
+  タイムトラベルはクロックを**前方**にのみ移動できます。過去のターゲットは無視されるのではなく、拒否されます — Rustヘルパーは`Err`を返し、JSヘルパーはスローします。メッセージは、どのユニットが後退したかを示します。例：`Cannot travel to past slot: target=1000, current=2000`
 </Callout>
 
 ## slotへジャンプ
@@ -62,7 +62,7 @@ console.assert(info.epoch === 420);
 
 ## Unixタイムスタンプへジャンプ
 
-タイムスタンプは秒ではなく**ミリ秒**で渡してください。ランタイムはそのタイムスタンプに最も近いslotを計算します。
+タイムスタンプはUnix epochからの**ミリ秒**で渡してください — JavaScriptの`Date.now()`と同じ単位であり、秒ではありません。ランタイムはそのタイムスタンプに最も近いslotを計算します。
 
 <CodeTabs storage="surfpool-lang">
 
@@ -77,6 +77,41 @@ const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
 ```
 
 </CodeTabs>
+
+<Callout type="warn" title="クロックはミリ秒ではなく秒を報告します">
+  ランタイムから読み返すタイムスタンプはすべて**秒単位**です — オンチェーンの`Clock` sysvarの`unix_timestamp`、および`systemClockUpdated`イベントが持つ[`ClockValue`](/docs/tools/surfpool/sdk/js-reference#clockvalue)も同様です。これらの値をそのままタイムトラベルヘルパーに渡すと、1970年代初頭の時点に解決されるため、過去のターゲットとして拒否されます。先に1000を掛けてください。
+</Callout>
+
+```ts
+// WRONG — `unixTimestamp` is in seconds, so this is a past target.
+surfnet.timeTravelToTimestamp(clock.unixTimestamp + 3600);
+
+// RIGHT — convert to milliseconds.
+surfnet.timeTravelToTimestamp((clock.unixTimestamp + 3600) * 1000);
+```
+
+## クロックの一時停止と再開
+
+タイムトラベルはターゲットにジャンプしますが、一時停止はクロックの進行を完全に停止します。`surfnet_pauseClock`はslotの生成と時間の進行を停止し、`surfnet_resumeClock`が実行されるまで維持します — テストで複数のアサションにわたってslotとタイムスタンプを固定したい場合に使用してください。
+
+Rust SDKも`@solana/surfpool`の`Surfnet`クラスも、これら2つのチートコードをラップしていません。[Kitプラグイン](/docs/tools/surfpool/sdk/kit-plugin)を通じて、またはJSON-RPCで直接呼び出してください。
+
+```ts
+const paused = await client.cheatcodes.pauseClock().send();
+
+// Nothing advances until the clock is resumed, so this is the only thing that
+// moves the slot.
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+
+await client.cheatcodes.resumeClock().send();
+```
+
+どちらのチートコードも`EpochInfo`を返します — 一時停止時点および再開後のクロック状態です。その型が持た**ない**2つの点に注意してください：
+
+- **タイムスタンプなし。**`EpochInfo`には時刻フィールドがありません。シミュレートされたUnix時刻は、代わりに`Clock` sysvarから読み取ってください：`jsonParsed`エンコーディングを使用して`SysvarC1ock11111111111111111111111111111111`に対して`getAccountInfo`を呼び出します — こちらも秒単位です。
+- **一時停止フラグなし。**クロックが現在一時停止中かどうかを報告するRPCメソッドはありません。SDKからは[`clockUpdate`イベント](/docs/tools/surfpool/sdk/events)を監視してください。このイベントは、一時停止、再開、またはインターバル変更が実行されるたびに`clockCommand`とともに発火します。それ以外の場合は、テスト内で状態を追跡してください。
 
 ## よくある使用パターン
 
@@ -126,11 +161,11 @@ for epoch in 2..=5 {
 
 両方のSDKはこれらのフィールドを持つ`EpochInfo`形式のオブジェクトを返します：
 
-| フィールド          | Rust                             | JS                          |
-| ------------------- | -------------------------------- | --------------------------- |
-| 絶対slot            | `absolute_slot: u64`             | `absoluteSlot: number`      |
-| epoch内のslot       | `slot_index: u64`                | `slotIndex: number`         |
-| epoch当たりのslot数 | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
-| epoch番号           | `epoch: u64`                     | `epoch: number`             |
-| ブロック高          | `block_height: u64`              | `blockHeight: number`       |
-| トランザクション数  | `transaction_count: Option<u64>` | `transactionCount?: number` |
+| フィールド             | Rust                             | JS                          |
+| ----------------- | -------------------------------- | --------------------------- |
+| 絶対slot     | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| epoch内のslot | `slot_index: u64`                | `slotIndex: number`         |
+| epoch当たりのslot数   | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| epoch番号      | `epoch: u64`                     | `epoch: number`             |
+| ブロック高      | `block_height: u64`              | `blockHeight: number`       |
+| トランザクション数 | `transaction_count: Option<u64>` | `transactionCount?: number` |
