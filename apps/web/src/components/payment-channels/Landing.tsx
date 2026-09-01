@@ -216,7 +216,7 @@ const HERO_CONTROLS = {
   },
   /* The full-screen field should feel measured, not like a loading ticker. */
   motion: {
-    speed: 210,
+    speed: 241.5,
     density: 24.5,
     drift: 15,
     variation: 100,
@@ -334,6 +334,89 @@ function useHeroStream() {
     "--bleed": `${bleed}px`,
   } as CSSProperties;
   return { controls, heroVars, centred: false, middle: true };
+}
+
+function easeThroughputProgress(progress: number) {
+  return progress < 0.5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
+}
+
+function useThroughputCounter() {
+  const [value, setValue] = useState(0);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const numberWindowMs = 1000;
+    const endpointHoldMs = 180;
+    const numberCycleMs = numberWindowMs + endpointHoldMs;
+    const progressWindowMs = 1000;
+    const progressHoldMs = 140;
+    const progressCycleMs = progressWindowMs + progressHoldMs;
+    let frame = 0;
+    let lastPaint = 0;
+    let startedAt: number | null = null;
+
+    const tick = (now: number) => {
+      if (startedAt === null) startedAt = now;
+      const elapsed = now - startedAt;
+      const progressPhase = Math.min(
+        (elapsed % progressCycleMs) / progressWindowMs,
+        1,
+      );
+      const numberProgress = Math.min(
+        (elapsed % numberCycleMs) / numberWindowMs,
+        1,
+      );
+
+      // Give the endpoints more screen time: the number eases through the
+      // middle of the range, then holds the exact target before resetting.
+      const numberValue = easeThroughputProgress(numberProgress);
+      const lineProgress = easeThroughputProgress(progressPhase);
+
+      // The readout is illustrative UI. Updating at 30fps keeps the number
+      // readable without adding another full-speed animation loop.
+      if (now - lastPaint >= 33) {
+        setProgress(lineProgress);
+        setValue(Math.round(numberValue * 1_000_000));
+        lastPaint = now;
+      }
+
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  return { value, progress };
+}
+
+function ThroughputCard({
+  value,
+  progress,
+}: {
+  value: number;
+  progress: number;
+}) {
+  return (
+    <div
+      className={s.throughput}
+      aria-label={`${value.toLocaleString("en-US")} payments in the current one second window`}
+    >
+      <div className={s.throughputMeta}>
+        <span className={s.throughputPulse} aria-hidden="true" />
+        Live throughput / 1 second window
+      </div>
+      <div className={s.throughputValue} aria-hidden="true">
+        <span className={s.throughputNumber}>
+          {value.toLocaleString("en-US")}
+        </span>
+        <span className={s.throughputUnit}>payments / sec</span>
+      </div>
+      <div className={s.throughputTrack} aria-hidden="true">
+        <span style={{ transform: `scaleX(${progress})` }} />
+      </div>
+    </div>
+  );
 }
 
 function Stream({ controls }: { controls: VizControls }) {
@@ -691,6 +774,7 @@ const TASKS: [string, string, boolean][] = [
 ];
 
 export default function Landing() {
+  const throughput = useThroughputCounter();
   const hero = useHeroStream();
 
   return (
@@ -723,6 +807,10 @@ export default function Landing() {
               >
                 Read the docs
               </a>
+              <ThroughputCard
+                value={throughput.value}
+                progress={throughput.progress}
+              />
             </div>
           </div>
         </div>
