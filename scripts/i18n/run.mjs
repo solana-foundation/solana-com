@@ -144,7 +144,8 @@ function main() {
 
   // A failed push fails the job. GitHub discards the partial checkout, and a
   // rerun starts from the last committed lockfile instead of mutating targets
-  // through automatic --force or pull recovery.
+  // through automatic --force or pull recovery. The GitHub workflow applies
+  // one cumulative deadline to this runner, including its validation steps.
   runLingo(["push", ...patterns, "--wait"]);
 
   // Plain push handles source deltas. Backfill is reserved for genuinely
