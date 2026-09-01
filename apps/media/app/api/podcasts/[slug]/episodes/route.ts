@@ -3,6 +3,10 @@ import {
   fetchPodcastBySlug,
   fetchEpisodesForPodcast,
 } from "@/lib/podcast-data";
+import {
+  parseEpisodeLimit,
+  parseEpisodeOffset,
+} from "@/lib/podcast-pagination";
 
 export async function GET(
   request: NextRequest,
@@ -10,8 +14,10 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
-    const limit = parseInt(request.nextUrl.searchParams.get("limit") || "12");
-    const offset = parseInt(request.nextUrl.searchParams.get("offset") || "0");
+    const limit = parseEpisodeLimit(request.nextUrl.searchParams.get("limit"));
+    const offset = parseEpisodeOffset(
+      request.nextUrl.searchParams.get("offset"),
+    );
 
     const podcast = await fetchPodcastBySlug(slug);
     if (!podcast) {
