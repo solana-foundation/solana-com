@@ -14,11 +14,17 @@ import {
 const docsContentRoot = path.join(repoRoot, "apps", "docs", "content");
 
 function toRoutePath(baseRoute: string, relativePath: string) {
-  const withoutExtension = relativePath.replace(/\.mdx$/, "");
+  // `path.relative` yields platform separators, so normalize to POSIX before
+  // trimming the extension and any trailing `/index` segment.
+  const withoutExtension = relativePath
+    .split(/[\\/]+/)
+    .join("/")
+    .replace(/\.mdx$/, "");
+
   const routeSuffix =
     withoutExtension === "index"
       ? ""
-      : withoutExtension.replace(/\/index$/, "").replace(/\\/g, "/");
+      : withoutExtension.replace(/\/index$/, "");
 
   return normalizePath(
     routeSuffix ? `${normalizePath(baseRoute)}/${routeSuffix}` : baseRoute,
