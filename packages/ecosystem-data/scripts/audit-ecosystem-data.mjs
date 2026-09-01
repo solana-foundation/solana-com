@@ -245,7 +245,7 @@ const recordSlugSet = new Set(
   records.map((record) => record.slug).filter(Boolean),
 );
 
-const issues = {
+const integrityErrors = {
   filesWithMismatchedSlug: records
     .filter((record) => record.slug && record.fileSlug !== record.slug)
     .map((record) => `${record.fileName} -> slug ${record.slug}`),
@@ -255,15 +255,6 @@ const issues = {
   recordsWithoutAssetFolder: records
     .filter((record) => record.slug && !assetFolderSet.has(record.slug))
     .map((record) => `${record.id} -> ${record.slug}`),
-  recordsWithNullProfile: records
-    .filter((record) => record.profileNull)
-    .map((record) => record.id),
-  recordsMissingWebsite: records
-    .filter((record) => !record.profileNull && !record.hasWebsiteUrl)
-    .map((record) => record.id),
-  recordsMissingSocials: records
-    .filter((record) => !record.profileNull && record.socialCount === 0)
-    .map((record) => record.id),
   recordsWithoutLogos: records
     .filter((record) => record.logos.length === 0)
     .map((record) => record.id),
@@ -279,6 +270,18 @@ const issues = {
   unreferencedAssetFiles: [],
 };
 
+const profileWarnings = {
+  recordsWithNullProfile: records
+    .filter((record) => record.profileNull)
+    .map((record) => record.id),
+  recordsMissingWebsite: records
+    .filter((record) => !record.profileNull && !record.hasWebsiteUrl)
+    .map((record) => record.id),
+  recordsMissingSocials: records
+    .filter((record) => !record.profileNull && record.socialCount === 0)
+    .map((record) => record.id),
+};
+
 for (const record of records) {
   if (!record.slug) {
     continue;
@@ -291,7 +294,7 @@ for (const record of records) {
   for (const logo of record.logos) {
     const diskPath = path.join(folderPath, logo.fileName);
     if (!fs.existsSync(diskPath)) {
-      issues.missingLogoFiles.push(
+      integrityErrors.missingLogoFiles.push(
         `${record.id} -> ${record.slug}/${logo.fileName}`,
       );
     }
@@ -302,7 +305,7 @@ for (const record of records) {
         logo.importedAssetPath,
       );
       if (!fs.existsSync(importedAssetAbsolutePath)) {
-        issues.importedAssetsMissingOnDisk.push(
+        integrityErrors.importedAssetsMissingOnDisk.push(
           `${record.id} -> ${logo.importedAssetPath}`,
         );
       }
@@ -321,7 +324,7 @@ for (const record of records) {
 
   for (const fileName of diskFiles) {
     if (!referencedFiles.has(fileName)) {
-      issues.unreferencedAssetFiles.push(
+      integrityErrors.unreferencedAssetFiles.push(
         `${record.id} -> ${record.slug}/${fileName}`,
       );
     }
@@ -331,8 +334,9 @@ for (const record of records) {
 const summary = {
   companyRecords: records.length,
   assetFolders: assetFolders.length,
-  enrichedRecords: records.length - issues.recordsWithNullProfile.length,
-  nullProfiles: issues.recordsWithNullProfile.length,
+  enrichedRecords:
+    records.length - profileWarnings.recordsWithNullProfile.length,
+  nullProfiles: profileWarnings.recordsWithNullProfile.length,
 };
 
 let hasIssues = false;
@@ -340,7 +344,18 @@ let hasIssues = false;
 console.log("Ecosystem Data Audit");
 console.log(JSON.stringify(summary, null, 2));
 
-for (const [label, values] of Object.entries(issues)) {
+for (const [label, values] of Object.entries(profileWarnings)) {
+  if (values.length === 0) {
+    continue;
+  }
+
+  console.log(`\n${label}:`);
+  for (const value of values) {
+    console.log(`- ${value}`);
+  }
+}
+
+for (const [label, values] of Object.entries(integrityErrors)) {
   if (values.length === 0) {
     continue;
   }
