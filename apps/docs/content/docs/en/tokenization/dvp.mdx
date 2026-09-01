@@ -85,16 +85,17 @@ purposes only. **Do NOT use this code directly in production** without:
 Solana's architecture provides significant advantages over traditional
 securities settlement:
 
-| Aspect            | Traditional (T+2)     | Solana                      |
-| ----------------- | --------------------- | --------------------------- |
-| Settlement Logic  | Clearinghouses        | Atomic transaction bundling |
-| Settlement Time   | 2 days                | &lt;1 second                |
-| Transaction Cost  | $50-500               | &lt;$0.01                   |
-| Counterparty Risk | High (intermediaries) | Zero (atomic execution)     |
-| Finality          | End of day            | ~400ms                      |
+| Aspect             | Traditional (T+2)     | Solana                                                                                      |
+| ------------------ | --------------------- | ------------------------------------------------------------------------------------------- |
+| Settlement Logic   | Clearinghouses        | Atomic transaction bundling                                                                 |
+| Settlement Time    | 2 days                | Near instant                                                                                |
+| Pre-confirmation   | N/A                   | ≈400ms                                                                                      |
+| Consensus Finality | End of day            | ≈12.8 seconds today ([≈150ms target with Alpenglow](https://solana.com/upgrades/alpenglow)) |
+| Transaction Cost   | $50-500               | &lt;$0.01                                                                                   |
+| Counterparty Risk  | High (intermediaries) | Zero (atomic execution)                                                                     |
 
 Solana's atomic transaction bundling eliminates intermediaries while providing
-instant, cheap, and secure settlements.
+fast, low-cost, and secure settlements.
 
 ## Architecture Overview
 
@@ -662,16 +663,14 @@ export class DvPEngine {
 Here's a complete example demonstrating the entire DvP workflow:
 
 ```typescript
-import { Connection, Keypair, clusterApiUrl, PublicKey } from "@solana/web3.js";
+import { Connection, Keypair, clusterApiUrl } from "@solana/web3.js";
 import {
+  createMint,
   getOrCreateAssociatedTokenAccount,
   mintTo,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID
 } from "@solana/spl-token";
-
-// Standard USDC mint address on mainnet
-const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
 async function runDvPExample() {
   // 1. Initialize connection and keypairs
@@ -691,7 +690,20 @@ async function runDvPExample() {
   await dvp.airdropSol(issuer.publicKey, 2);
   await dvp.airdropSol(investor.publicKey, 2);
 
-  // 4. Create commercial paper (bond) token with metadata
+  // 4. Create a devnet settlement mint that stands in for USDC
+  // On mainnet, use the official USDC mint instead
+  const usdcMint = await createMint(
+    connection,
+    issuer,
+    issuer.publicKey,
+    null,
+    6,
+    undefined,
+    { commitment: "confirmed" },
+    TOKEN_PROGRAM_ID
+  );
+
+  // 5. Create commercial paper (bond) token with metadata
   const bondMint = await dvp.createBondToken(issuer, {
     name: "ACME Commercial Paper Series A",
     symbol: "ACME-CP-A",
@@ -702,7 +714,7 @@ async function runDvPExample() {
     description: "https://acme.com/bonds/series-a"
   });
 
-  // 5. Whitelist issuer and mint bonds
+  // 6. Whitelist issuer and mint bonds
   console.log("\n🏦 Whitelisting issuer for bond holding...");
   const issuerBondAccount = await dvp.whitelist(
     bondMint,
@@ -723,15 +735,15 @@ async function runDvPExample() {
     TOKEN_2022_PROGRAM_ID
   );
 
-  // 6. Whitelist investor (KYC/AML approved)
+  // 7. Whitelist investor (KYC/AML approved)
   await dvp.whitelist(bondMint, investor.publicKey, settlementAgent);
 
-  // 7. Setup USDC for investor
-  console.log("\n💵 Setting up USDC for investor...");
+  // 8. Create settlement accounts and fund the investor
+  console.log("\n💵 Setting up the devnet settlement token...");
   const investorUSDCAccount = await getOrCreateAssociatedTokenAccount(
     connection,
     investor,
-    USDC_MINT,
+    usdcMint,
     investor.publicKey,
     false,
     "confirmed",
@@ -739,10 +751,30 @@ async function runDvPExample() {
     TOKEN_PROGRAM_ID
   );
 
-  // In production, investor would acquire USDC from exchange/market
-  // For this example, assume they have 95,000 USDC
+  await getOrCreateAssociatedTokenAccount(
+    connection,
+    issuer,
+    usdcMint,
+    issuer.publicKey,
+    false,
+    "confirmed",
+    { commitment: "confirmed" },
+    TOKEN_PROGRAM_ID
+  );
 
-  // 8. Delegate authority to settlement agent
+  await mintTo(
+    connection,
+    issuer,
+    usdcMint,
+    investorUSDCAccount.address,
+    issuer,
+    95_000n * 1_000_000n,
+    [],
+    { commitment: "confirmed" },
+    TOKEN_PROGRAM_ID
+  );
+
+  // 9. Delegate authority to settlement agent
   console.log("\n🔐 Delegating authority to settlement agent...");
 
   // Issuer delegates bonds
@@ -763,13 +795,13 @@ async function runDvPExample() {
     TOKEN_PROGRAM_ID
   );
 
-  // 9. Execute atomic DvP settlement
+  // 10. Execute atomic DvP settlement
   console.log("\n⚡ Executing atomic DvP settlement...");
   console.log("   Terms: 100 bonds @ $950 each = $95,000\n");
 
   const result = await dvp.executeDvP({
     bondMint,
-    usdcMint: USDC_MINT,
+    usdcMint,
     bondAmount: 100,
     usdcAmount: 95000,
     issuer: issuer.publicKey,
@@ -783,7 +815,7 @@ async function runDvPExample() {
     `   View on explorer: https://explorer.solana.com/tx/${result.signature}?cluster=devnet`
   );
 
-  // 10. Verify balances
+  // 11. Verify balances
   console.log("\n🔍 Verifying final balances...");
 
   const issuerBondInfo = await dvp.getAccountInfo(
@@ -1119,7 +1151,7 @@ foundation for implementing compliant DvP settlements for securities. The
 combination of:
 
 - Native atomic execution (no smart contract risk)
-- Sub-second finality
+- Protocol-level finality
 - Near-zero transaction costs
 - Built-in compliance features (frozen defaults, metadata)
 
