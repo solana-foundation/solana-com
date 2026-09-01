@@ -32,8 +32,8 @@ release them.
 
 - Program ID: `9tgHa1DcnaSSUtmMsst8ovKTe1Gfxzezn27KnH9xXYeU`
 - This ID is compiled into the program binary via `declare_id!()`. Off-chain
-  services (indexer, operator service) are configured to point at it via the
-  `ESCROW_PROGRAM_ID` environment variable.
+  services read the same ID at compile time from the generated client crate, not
+  from an environment variable.
 - Manages `Instance`, `AllowedMint`, and `Operator` PDAs
 - Instructions: `CreateInstance`, `AllowMint`, `BlockMint`, `AddOperator`,
   `RemoveOperator`, `SetNewAdmin`, `Deposit`, `ReleaseFunds`, `ResetSmtRoot`
@@ -47,8 +47,9 @@ withdrawal is pending. The operator then calls `ReleaseFunds` on the Escrow
 Program with a valid SMT proof to complete settlement.
 
 - Program ID: `J231K9UEpS4y4KAPwGc4gsMNCjKFRMYcQBcjVW7vBhVi`
-- This ID is compiled into the program binary. Off-chain services are configured
-  to point at it via the `WITHDRAW_PROGRAM_ID` environment variable.
+- This ID is compiled into the program binary. Off-chain services read the same
+  ID at compile time from the generated client crate, not from an environment
+  variable.
 
 ### Gateway
 
@@ -93,8 +94,10 @@ Roles:
 ### Streamer
 
 The Streamer is a WebSocket server that pushes channel state updates to
-connected clients in real time, eliminating the need to poll the RPC. It runs
-alongside the Gateway and polls PostgreSQL for state changes.
+connected clients in real time, eliminating the need to poll the RPC. It polls
+PostgreSQL for state changes. It's part of the base Docker Compose stack, not
+the devnet stack this guide deploys; see the
+[Configuration reference](/docs/tools/private-channels/operators/configuration#service-port-reference).
 
 - Port: `8902`, configurable via `STREAMER_PORT`
 - Connect: `ws://localhost:8902`
@@ -220,24 +223,31 @@ cycles.
 ## Operational Key Security
 
 <Callout type="warning">
-  Despite its name, the `ADMIN_PRIVATE_KEY` environment variable holds the
-  **operator** keypair, not the instance admin key described in the Security
-  Model above. Never put the actual admin key (used for `CreateInstance` /
-  `AddOperator` / `SetNewAdmin`) into this variable or expose it at runtime.
-  Keep that key cold and offline.
+  The off-chain services use their own signer vocabulary, which is unrelated to
+  the on-chain admin/operator authorities described in the Security Model above.
+  `ADMIN_PRIVATE_KEY` is required for every operator service and pays
+  transaction fees; a separate, optional `OPERATOR_PRIVATE_KEY` supplies the
+  on-chain Operator signature for `ReleaseFunds` and `ResetSmtRoot`, and falls
+  back to `ADMIN_PRIVATE_KEY`'s value when unset. Never put the protocol-level
+  instance admin key (used for `CreateInstance` / `AddOperator` / `SetNewAdmin`)
+  into either variable or expose it at runtime; keep that key cold and offline.
 </Callout>
 
-The `ADMIN_PRIVATE_KEY` environment variable holds the operator keypair that
-signs `ReleaseFunds` and `ResetSmtRoot` on Mainnet. Treat it with the same
-controls as a hot wallet private key:
+`ReleaseFunds` and `ResetSmtRoot` require two on-chain signatures: the fee payer
+(from `ADMIN_PRIVATE_KEY`) and the Operator PDA's authority (from
+`OPERATOR_PRIVATE_KEY`, or `ADMIN_PRIVATE_KEY` if that's unset). This deployment
+guide's devnet walkthrough puts the generated operator keypair into
+`ADMIN_PRIVATE_KEY` and leaves `OPERATOR_PRIVATE_KEY` unset, so the same keypair
+fills both signer roles. Treat whichever key ends up in `ADMIN_PRIVATE_KEY` with
+the same controls as a hot wallet private key:
 
 - Store it only in the gitignored `.env` file, never in `.env.devnet` or any
   committed config
 - For production deployments, consider a secrets manager (AWS Secrets Manager,
   HashiCorp Vault) rather than a plaintext env var
-- The admin keypair (used to call `AddOperator` / `SetNewAdmin`) should be kept
-  cold; it is only needed during instance setup and operator provisioning, not
-  during runtime
+- The protocol-level instance admin keypair (used to call `AddOperator` /
+  `SetNewAdmin`) should be kept cold; it is only needed during instance setup
+  and operator provisioning, not during runtime
 
 `SetNewAdmin` transfers admin rights **irreversibly in a single transaction**:
 the current admin has no recovery path without the new admin's cooperation. Do
