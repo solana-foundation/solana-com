@@ -8,7 +8,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from guarded_close import GuardError, read_comment, validate_snapshot
+from check_commit_security import CommitSecurityError, evaluate_commit_security, parse_commit_pages
 from list_external_prs import IntakeError, build_output
+from request_commit_security_update import build_comment, marker
 
 
 def graphql_page(nodes: list[dict[str, object]]) -> dict[str, object]:
@@ -129,6 +131,50 @@ class CloseGuardTests(unittest.TestCase):
             path.write_text("This submission does not meet the bar.", encoding="utf-8")
             with self.assertRaises(GuardError):
                 read_comment(path)
+
+
+class CommitSecurityTests(unittest.TestCase):
+    def commit(self, sha: str, verified: bool = True, reason: str = "valid") -> dict[str, object]:
+        return {
+            "sha": sha,
+            "commit": {"verification": {"verified": verified, "reason": reason}},
+        }
+
+    def test_one_verified_commit_conforms(self) -> None:
+        report = evaluate_commit_security([self.commit("a" * 40)], "a" * 40)
+        self.assertTrue(report["conforming"])
+
+    def test_unverified_commit_reports_reason(self) -> None:
+        report = evaluate_commit_security(
+            [self.commit("a" * 40, verified=False, reason="unsigned")], "a" * 40
+        )
+        self.assertFalse(report["conforming"])
+        self.assertEqual(report["failures"], [{"sha": "a" * 40, "reason": "unsigned"}])
+
+    def test_multiple_verified_commits_require_squash(self) -> None:
+        report = evaluate_commit_security(
+            [self.commit("a" * 40), self.commit("b" * 40)], "b" * 40
+        )
+        self.assertFalse(report["conforming"])
+        self.assertTrue(report["verified"])
+        self.assertFalse(report["squashed"])
+
+    def test_changed_head_or_malformed_pages_fail_closed(self) -> None:
+        with self.assertRaises(CommitSecurityError):
+            evaluate_commit_security([self.commit("a" * 40)], "b" * 40)
+        with self.assertRaises(CommitSecurityError):
+            parse_commit_pages({"sha": "a" * 40})
+
+    def test_request_comment_uses_a_per_head_marker_and_reason_codes(self) -> None:
+        report = {
+            "head": "a" * 40,
+            "commitCount": 2,
+            "failures": [{"sha": "a" * 40, "reason": "unsigned"}],
+        }
+        comment = build_comment(report)
+        self.assertIn("squash this PR to one commit", comment)
+        self.assertIn("`unsigned`", comment)
+        self.assertIn(marker("a" * 40), comment)
 
 
 if __name__ == "__main__":

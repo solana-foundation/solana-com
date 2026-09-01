@@ -37,6 +37,8 @@ or counts.
 - Reviewed head: `<full SHA>` at `<UTC ISO-8601>`
 - Area and intent: `<workspace/path and one-sentence goal>`
 - State: `<draft/ready; mergeability; review state; CI summary>`
+- Commit integrity:
+  `<verified single commit | non-conforming: count and GitHub verification reason code(s); request state>`
 - Trust screen:
   `<not applicable | no material signal found | factual concern and sources>`
 - Review:

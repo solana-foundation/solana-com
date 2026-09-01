@@ -5,20 +5,49 @@ Every conclusion must be tied to the exact reviewed head SHA.
 
 ## Review order
 
-1. Screen for malicious intent, scam signals, unsafe links, secrets, and
+1. Check commit integrity: the external-contribution security criterion is one
+   GitHub-verified signed commit at the reviewed PR head.
+2. Screen for malicious intent, scam signals, unsafe links, secrets, and
    supply-chain or workflow abuse.
-2. If the PR adds or promotes a product, company, provider, token, event,
+3. If the PR adds or promotes a product, company, provider, token, event,
    community, download, integration, or external link, complete the product
    identity and maturity gate.
-3. Establish the problem and whether the change is wanted, duplicated, already
+4. Establish the problem and whether the change is wanted, duplicated, already
    present on the base branch, or in the wrong repository.
-4. Review correctness, security, accessibility, localization, content quality,
+5. Review correctness, security, accessibility, localization, content quality,
    repository conventions, tests, and CI in proportion to the changed area.
-5. Recommend the narrowest next action that would move a legitimate PR toward a
+6. Recommend the narrowest next action that would move a legitimate PR toward a
    maintainer decision.
 
 First-time status changes priority and the warmth/detail of guidance, not the
 technical or trust threshold.
+
+## Commit integrity gate
+
+Require a PR to have exactly one commit and require GitHub to report that
+commit's `verification.verified` value as `true`. Treat a missing verification
+object, unavailable API response, changed head, or any other value as
+non-conforming; do not replace this check with local GPG/SSH inspection.
+
+For a non-conforming external PR, request a single squashed, GitHub-verified
+signed commit. The request must identify only the observed condition (commit
+count and GitHub verification reason code); never expose signatures, payloads,
+key IDs, or security-sensitive commit details. Do not close an otherwise
+legitimate PR solely because its commit history is unsigned or unsquashed.
+
+Use a per-head marker to avoid duplicate requests. A rewritten branch is a new
+head: repeat the protected-author gate and the complete review before any
+merge-readiness recommendation.
+
+Warm request pattern:
+
+```markdown
+Thanks for the contribution. Before this can proceed through review, please
+squash this PR to one commit and amend/sign that final commit so GitHub shows it
+as **Verified**. The current head has <count> commits and GitHub reports
+<reason(s)> for the commit verification check. Please force-push the updated
+branch when ready; we will re-run the review against the new head.
+```
 
 ## Mandatory scam and abuse screen
 

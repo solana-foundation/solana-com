@@ -2,11 +2,11 @@
 name: review-external-prs
 description:
   Triage open solana-foundation/solana-com pull requests from non-member authors
-  with gh, screen every submission for scams and low-trust products, safely
-  close ineligible cruft when authorized, and write a maintainer report. Use
-  when asked to review, clean up, or summarize external or first-time
-  contributor PRs. Foundation members and explicitly protected collaborators are
-  always excluded.
+  with gh, screen every submission for scams and low-trust products, enforce the
+  repository's signed-and-squashed commit requirement, safely close ineligible
+  cruft when authorized, and write a maintainer report. Use when asked to
+  review, clean up, or summarize external or first-time contributor PRs.
+  Foundation members and explicitly protected collaborators are always excluded.
 ---
 
 # Review External PRs
@@ -67,7 +67,7 @@ Without authorization, prepare the full report and mark closure candidates as
 ## 2. Inspect each external PR
 
 For each number in the intake JSON, capture the current head SHA and inspect
-metadata, conversation, file list, complete patch, and CI:
+metadata, conversation, commit integrity, file list, complete patch, and CI:
 
 ```bash
 gh pr view <number> --repo solana-foundation/solana-com \
@@ -78,6 +78,38 @@ gh pr diff <number> --repo solana-foundation/solana-com --patch
 gh pr checks <number> --repo solana-foundation/solana-com \
   --json bucket,completedAt,link,name,state,workflow
 ```
+
+### Commit integrity gate
+
+The repository's external-contribution security criterion is one GitHub-verified
+signed commit at the reviewed head. Check it before assessing merge readiness:
+
+```bash
+python3 skills/review-external-prs/scripts/check_commit_security.py <number> \
+  --expected-head <full-head-sha>
+```
+
+The helper fetches every PR commit through GitHub's API and fails closed if the
+head changed, commit metadata is unavailable, any commit is not
+`verification.verified: true`, or the PR has more than one commit. Never infer
+signing status from a local checkout or a commit message.
+
+If it reports non-conformance, do not close, merge, approve, or request a
+review. Request that the proposer squash the PR to one commit and amend/re-sign
+that final commit until GitHub displays it as verified. This request is allowed
+when the current user explicitly asks for signed-commit enforcement; otherwise
+record the issue in the report only. Use the guarded helper so the protected
+roster and head SHA are refreshed immediately before the comment:
+
+```bash
+python3 skills/review-external-prs/scripts/request_commit_security_update.py <number> \
+  --expected-head <full-head-sha> \
+  --apply
+```
+
+Run it once without `--apply` first. It deduplicates comments per head SHA;
+after the contributor rewrites the branch, discard the former review and begin
+again from the protected-author gate.
 
 Do not mistake a truncated REST `patch` field for a complete diff. Use
 `gh pr diff --patch`, and record any GitHub size limit that prevents complete
@@ -109,6 +141,7 @@ Use one disposition:
 - `remaining: product or policy decision`
 - `remaining: draft or waiting on CI`
 - `remaining: private security escalation`
+- `remaining: contributor changes suggested (commit integrity)`
 
 Close only with a specific evidence trail and a warm comment that follows the
 policy. Write the comment to a temporary file. Then use the guarded helper with
@@ -141,10 +174,12 @@ remaining external PR with its reviewed head SHA, trust result, concise review,
 evidence, CI/validation state, and a concrete suggested action. Include a short
 audit of closures made or staged.
 
-Never include a protected PR or protected login, even in counts. Avoid calling a
-person or product a scam unless authoritative evidence proves it; report
-observable signals and use `trust threshold not met` for uncertainty or
-insufficient maturity.
+Never include a protected PR or protected login, even in counts. For a remaining
+commit-integrity issue, record the number of commits, GitHub verification reason
+codes (not signatures or payloads), reviewed head SHA, and the requested
+one-commit signed rewrite. Avoid calling a person or product a scam unless
+authoritative evidence proves it; report observable signals and use
+`trust threshold not met` for uncertainty or insufficient maturity.
 
 Before finishing, rerun the intake helper and reconcile the report against the
 current open external set. Refresh each remaining PR's `headRefOid`; re-review
