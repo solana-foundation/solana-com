@@ -192,6 +192,7 @@ export function NewsletterModal({ formId, children }: NewsletterModalProps) {
                   <input
                     type="email"
                     name="email"
+                    aria-label="Email address"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);

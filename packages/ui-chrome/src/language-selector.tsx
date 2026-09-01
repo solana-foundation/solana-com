@@ -5,7 +5,7 @@ import Globe from "./assets/icons/globe.inline.svg";
 import ChevronGrabberVertical from "./assets/icons/chevron-grabber-vertical.inline.svg";
 import { languages } from "@workspace/i18n/config";
 import { Link, usePathname } from "@workspace/i18n/routing";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "./classnames";
 
 interface LanguageSelectorProps {
@@ -20,9 +20,11 @@ const LanguageSelector = ({
   ariaLabel,
 }: LanguageSelectorProps) => {
   const currentLocale = useLocale();
+  const t = useTranslations();
   const asPath = usePathname();
   const currentLanguage =
     languages[currentLocale as keyof typeof languages] ?? currentLocale;
+  const label = ariaLabel ?? t("nav.mobile.language");
 
   return (
     <DropdownMenu.Root>
@@ -36,11 +38,9 @@ const LanguageSelector = ({
             className,
           )}
           type="button"
-          aria-label={
-            ariaLabel ? `${ariaLabel}: ${currentLanguage}` : undefined
-          }
+          aria-label={`${label}: ${currentLanguage}`}
         >
-          <Globe height="20" />
+          <Globe height="20" aria-hidden="true" />
           <span
             className={cn(
               "mx-1 align-middle text-base font-normal",
@@ -49,7 +49,7 @@ const LanguageSelector = ({
           >
             {displayLanguageName ? currentLanguage : currentLocale}
           </span>
-          <ChevronGrabberVertical width="20" height="20" />
+          <ChevronGrabberVertical width="20" height="20" aria-hidden="true" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
