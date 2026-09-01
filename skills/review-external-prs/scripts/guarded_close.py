@@ -191,7 +191,8 @@ def close_pr(number: int, expected_head: str, protected_logins: set[str]) -> Non
     GitHub's close command has no expected-head option. Rechecking immediately
     before the mutation narrows the race, while the caller's post-close check
     and compensating reopen ensure a raced close is never treated as success.
-    The comment is deliberately posted separately after that check.
+    The comment is deliberately posted separately and followed by its own
+    reconciliation, because a force-push can land while it is being posted.
     """
     validate_snapshot(
         fetch_pr_snapshot(number), number, expected_head, protected_logins
@@ -319,12 +320,13 @@ def main() -> int:
         closed = reconcile_closed_snapshot(
             args.number, args.expected_head, fetch_pr_snapshot(args.number)
         )
-        # Give a force-push that lands immediately after the first result check
-        # the same safe treatment before adding a comment to the PR.
+        post_closing_comment(args.number, comment)
+        # Posting the rationale is also a mutation. Reconcile again so a
+        # force-push before or during that request cannot leave a newly
+        # unreviewed head closed with a comment for the reviewed revision.
         closed = reconcile_closed_snapshot(
             args.number, args.expected_head, fetch_pr_snapshot(args.number)
         )
-        post_closing_comment(args.number, comment)
         result.update(closed)
         print(json.dumps(result, indent=2))
         return 0

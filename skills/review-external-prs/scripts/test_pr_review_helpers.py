@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from argparse import Namespace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -11,6 +12,7 @@ from unittest.mock import patch
 from guarded_close import (
     GuardError,
     close_pr,
+    main,
     read_comment,
     reconcile_closed_snapshot,
     validate_closed_snapshot,
@@ -182,6 +184,47 @@ class CloseGuardTests(unittest.TestCase):
                 self.snapshot(state="CLOSED", headRefOid="b" * 40),
             )
 
+        reopen.assert_called_once_with(9)
+
+    @patch("guarded_close.reopen_pr")
+    @patch("guarded_close.post_closing_comment")
+    @patch("guarded_close.close_pr")
+    @patch("guarded_close.fetch_pr_snapshot")
+    @patch("guarded_close.load_static_protected_authors", return_value=set())
+    @patch("guarded_close.parse_team_members", return_value=set())
+    @patch("guarded_close.fetch_team_payload", return_value={})
+    def test_force_push_during_comment_reopens_and_fails(
+        self,
+        fetch_team_payload,
+        parse_team_members,
+        load_static_protected_authors,
+        fetch_pr_snapshot,
+        close,
+        post_comment,
+        reopen,
+    ) -> None:
+        """A post-close comment cannot make a raced close look successful."""
+        with TemporaryDirectory() as directory:
+            comment_file = Path(directory) / "comment.md"
+            comment_file.write_text("Thank you for the contribution.", encoding="utf-8")
+            arguments = Namespace(
+                number=9,
+                expected_head="a" * 40,
+                reason="spam",
+                comment_file=comment_file,
+                apply=True,
+            )
+            fetch_pr_snapshot.side_effect = [
+                self.snapshot(),
+                self.snapshot(state="CLOSED"),
+                self.snapshot(state="CLOSED", headRefOid="b" * 40),
+            ]
+
+            with patch("guarded_close.parse_args", return_value=arguments):
+                self.assertEqual(main(), 2)
+
+        close.assert_called_once_with(9, "a" * 40, set())
+        post_comment.assert_called_once_with(9, "Thank you for the contribution.")
         reopen.assert_called_once_with(9)
 
     def test_closing_comment_must_thank_the_contributor(self) -> None:
