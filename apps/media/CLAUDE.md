@@ -50,6 +50,9 @@ apps/media/
 │   ├── links/                 # Link collections
 │   ├── podcasts/              # Podcast episodes
 │   ├── posts/                 # Blog posts (MDX)
+│   ├── releases/              # Release records for upgrade content
+│   ├── reports/               # Ecosystem research reports
+│   ├── upgrades/              # Network upgrade articles
 │   ├── switchbacks/           # Switchback sections
 │   └── tags/                  # Content tags
 ├── keystatic.config.tsx       # Keystatic configuration
@@ -184,7 +187,13 @@ editing one.
 
 ## API Routes
 
-- `/api/rss` - RSS feed generation
+- `/news/rss.xml`, `/news/google-news.xml`, `/news/sitemap-news.xml` - News
+  feeds and sitemap
+- `/changelog/rss.xml` and `/podcasts/sitemap.xml` - Changelog feed and podcast
+  sitemap
+- `/api/posts/latest`, `/api/reports/latest`, `/api/links/latest` - Content
+  metadata APIs
+- `/api/podcasts/[slug]/episodes` - Podcast episode API
 - `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content
   operations)
 
