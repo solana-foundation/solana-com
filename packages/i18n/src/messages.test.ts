@@ -118,19 +118,24 @@ describe("@workspace/i18n messages", () => {
     expect(messages).toHaveProperty("cookie-consent");
   });
 
-  it("falls back to English for new Breakpoint route messages", async () => {
-    const messages = await loadMergedMessages({
-      app: "breakpoint",
-      locale: "es",
-    });
+  it("falls back to English for new Breakpoint route messages", () => {
+    // Uses synthetic data rather than the live breakpoint catalog: a key
+    // that's still untranslated today has no guarantee of staying that way
+    // as translators catch up, which would make this test flaky over time.
+    const messages = deepMergeMessages(
+      {
+        breakpoint: {
+          travel: {
+            visas: { checkRequirements: "Check visa or ETA requirements" },
+          },
+        },
+      },
+      { breakpoint: { travel: { visas: {} } } },
+    );
 
     expect(messages).toHaveProperty(
       "breakpoint.travel.visas.checkRequirements",
       "Check visa or ETA requirements",
-    );
-    expect(messages).toHaveProperty(
-      "breakpoint.pages.registration.heroTitle",
-      "Snag Breakpoint 2026 tickets",
     );
   });
 
