@@ -16,8 +16,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const RPC_CACHE_REVALIDATE_SECONDS = 60;
+const RPC_CACHE_MAX_AGE_MS = RPC_CACHE_REVALIDATE_SECONDS * 1000;
 const EDGE_STALE_SECONDS = 5 * 60;
-const RPC_CACHE_KEY_VERSION = "solana-data-rpc-latency-v7";
+const RPC_CACHE_KEY_VERSION = "solana-data-rpc-latency-v8";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 const DATA_UNAVAILABLE_ERROR =
@@ -87,8 +88,7 @@ async function getCachedRpcLatencyData(
 ) {
   const dataCacheKey = getRpcLatencyCacheKey(config, options);
   const cacheKeyParts = [RPC_CACHE_KEY_VERSION, dataCacheKey];
-
-  return unstable_cache(
+  const data = await unstable_cache(
     () =>
       getInMemoryCachedRpcLatencyData(config, options, cacheKeyParts.join("|")),
     cacheKeyParts,
@@ -97,6 +97,28 @@ async function getCachedRpcLatencyData(
       tags: ["solana-data-rpc-latency"],
     },
   )();
+
+  if (isFreshRpcLatencyData(data)) {
+    return data;
+  }
+
+  // Next's data cache can return an expired value while it revalidates. Never
+  // expose that value after a quiet period: join its refresh when it is already
+  // in flight, or start one, while retaining normal shared one-minute caching.
+  return getInMemoryCachedRpcLatencyData(
+    config,
+    options,
+    cacheKeyParts.join("|"),
+  );
+}
+
+function isFreshRpcLatencyData(data: RpcLatencyData) {
+  const generatedAt = Date.parse(data.generatedAt);
+  const ageMs = Date.now() - generatedAt;
+
+  return (
+    Number.isFinite(generatedAt) && ageMs >= 0 && ageMs <= RPC_CACHE_MAX_AGE_MS
+  );
 }
 
 function fetchRpcLatencyData(

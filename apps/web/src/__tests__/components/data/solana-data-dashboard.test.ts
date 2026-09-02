@@ -8,6 +8,7 @@ import type {
 import {
   applyQueryUpdates,
   getAvailableProviders,
+  getChartsForTab,
   getKpiValue,
   getMedian,
   getSelectedProviderList,
@@ -534,5 +535,17 @@ describe("KPI aggregation", () => {
     expect(
       getKpiValue(latencyChart, rows, selectedProviders, "minimum").value,
     ).toBe(40);
+  });
+});
+
+describe("RPC chart order", () => {
+  it("places tail latency ahead of the other RPC charts", () => {
+    expect(getChartsForTab("rpc").map((chart) => chart.id)).toEqual([
+      "rpc-p95-latency",
+      "rpc-p99-latency",
+      "rpc-p50-latency",
+      "rpc-avg-latency",
+      "rpc-error-rate",
+    ]);
   });
 });
