@@ -27,19 +27,13 @@ const ART = {
   /* the gradient plates — the designer's own exports, used at native size */
   plateCta: A("cta-plate.png"),
   agentsArt: A("agents-art.png"),
+  channelStatusDot: A("payment-channel-status-dot.svg"),
+  channelDivider: A("payment-channel-divider.svg"),
   /* 06 · the two shapes blended over the session card */
   sessionBg: A("session-bg.png"),
-  /* the USDC mark: glyph over ring, on a #2775ca disc */
-  usdcGlyph: A("a606601138e785abfcf923cceb7f5d70d00e0fa5.svg"),
-  usdcRing: A("7ae292b3c125c01378810f5d67a25d7b30624294.svg"),
   /* 10 · live at launch */
   logoAlibaba: A("3151a097741e4bd16439eb9024b650c4da57909a.svg"),
   logoPaySh: A("a430ee0582fc2f8b41b9457e139706a50308bdfa.svg"),
-  /* 03 · the app mock */
-  avatar1: A("efa996f6c6f7b6cda93052839857fbd2306fa9d1.png"),
-  avatar2: A("8748b5212aa12ade1418f0ce31ad3d4b074195a1.png"),
-  avatar3: A("e12d1568f25667a7be2d321b988c367a5f023122.png"),
-  avatar4: A("be50a75c166b75b0f64ce97f754014acd804a53c.png"),
   /* 06 · why this matters */
   tick: A("5e1982a0801e5bf3672784d490aa5b65625ce4de.svg"),
   /* 08 · get started — tile icons, as re-drawn in the CTA frame */
@@ -93,8 +87,8 @@ const SHOTS: HeroShot[] = [
   {
     from: 1900,
     count: 48,
-    height: 27,
-    gap: 47,
+    height: 50,
+    gap: 7,
     y: -600,
     amount: -1260,
     fan: -200,
@@ -106,7 +100,7 @@ const SHOTS: HeroShot[] = [
     from: 1600,
     count: 4,
     height: 52,
-    gap: 9,
+    gap: 7,
     y: 322,
     amount: -270,
     fan: 78,
@@ -172,7 +166,7 @@ const HERO_CONTROLS = {
   trail: { often: 39, length: 1.75, density: 7 },
   colour: { mix: 40, gradient: 186, cycle: 3.33, blend: 36 },
   gaps: {
-    often: 198,
+    often: 165,
     length: 0.65,
     text: 65,
     scramble: 0.9,
@@ -279,7 +273,7 @@ const HERO_CONTROLS = {
   },
 };
 
-function useHeroStream() {
+function useHeroStream(throughputEpoch: number, throughputPhase: number) {
   const [shotIndex, setShotIndex] = useState(0);
   const [bleed, setBleed] = useState(160);
   useEffect(() => {
@@ -326,6 +320,11 @@ function useHeroStream() {
     motion: shot.touch
       ? { ...HERO_CONTROLS.motion, hoverHold: false, pinFreeze: true }
       : HERO_CONTROLS.motion,
+    /* The card and the stream share one clock. The renderer maps this phase
+       to its own row-slide timing, so the visual treatments stay independent
+       while their one-second reset is the same event. */
+    __throughputEpoch: throughputEpoch,
+    __throughputPhase: throughputPhase,
   } as unknown as VizControls;
 
   const heroVars = {
@@ -343,14 +342,15 @@ function easeThroughputProgress(progress: number) {
 function useThroughputCounter() {
   const [value, setValue] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [clock, setClock] = useState({ epoch: 0, phase: 0 });
 
   useEffect(() => {
-    const numberWindowMs = 1000;
-    const endpointHoldMs = 180;
-    const numberCycleMs = numberWindowMs + endpointHoldMs;
-    const progressWindowMs = 1000;
-    const progressHoldMs = 140;
-    const progressCycleMs = progressWindowMs + progressHoldMs;
+    const windowMs = 1000;
+    /* Keep the number and line on the same one-second clock, but let each
+       treatment reach its endpoint at a slightly different point in the
+       window. Both hold there, then reset together. */
+    const numberEnd = 0.9;
+    const progressEnd = 0.86;
     let frame = 0;
     let lastPaint = 0;
     let startedAt: number | null = null;
@@ -358,14 +358,10 @@ function useThroughputCounter() {
     const tick = (now: number) => {
       if (startedAt === null) startedAt = now;
       const elapsed = now - startedAt;
-      const progressPhase = Math.min(
-        (elapsed % progressCycleMs) / progressWindowMs,
-        1,
-      );
-      const numberProgress = Math.min(
-        (elapsed % numberCycleMs) / numberWindowMs,
-        1,
-      );
+      const epoch = Math.floor(elapsed / windowMs);
+      const phase = (elapsed % windowMs) / windowMs;
+      const progressPhase = Math.min(phase / progressEnd, 1);
+      const numberProgress = Math.min(phase / numberEnd, 1);
 
       // Give the endpoints more screen time: the number eases through the
       // middle of the range, then holds the exact target before resetting.
@@ -375,6 +371,7 @@ function useThroughputCounter() {
       // The readout is illustrative UI. Updating at 30fps keeps the number
       // readable without adding another full-speed animation loop.
       if (now - lastPaint >= 33) {
+        setClock({ epoch, phase });
         setProgress(lineProgress);
         setValue(Math.round(numberValue * 1_000_000));
         lastPaint = now;
@@ -387,7 +384,7 @@ function useThroughputCounter() {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  return { value, progress };
+  return { value, progress, ...clock };
 }
 
 function ThroughputCard({
@@ -590,10 +587,9 @@ function Streak({ style }: { style: CSSProperties }) {
 /* ── content, verbatim from the copy deck ── */
 
 const STATS: [string, string][] = [
-  ["1M+", "Logical payments / second"],
-  ["10 min", "Sustained throughput run"],
-  ["100k", "Unique wallets (devnet)"],
-  ["80B+", "Vouchers ingested in 24h"],
+  ["1M+", "Payments per second"],
+  ["100K", "Unique wallets"],
+  ["80B+", "Payments in 24 hours"],
 ];
 
 const BREAKS: [string, string][] = [
@@ -641,20 +637,16 @@ const STEPS: { layers: Layer[]; title: string; body: string }[] = [
 
 const LIMITS: [string, string][] = [
   [
-    "Simple by design",
-    "Open a channel once. Exchange signed cumulative updates off-chain. Settle the final balance to Solana when it matters.",
+    "Human approvals",
+    "A human ends up back in the loop, approving payments one at a time.",
   ],
   [
-    "Scales cleanly",
-    "Ed25519 verification is the CPU-bound work. Independent channel ownership lets you shard channel ranges across Proxies as demand grows.",
+    "Settlement cost and latency",
+    "Every payment carries settlement cost and latency. When millions of transactions need to be settled, costs add up fast.",
   ],
   [
-    "Cheap at settlement",
-    "The 100k-channel study completed with 25,000 four-channel transactions for 0.625 SOL while the logical payments themselves stayed off-chain.",
-  ],
-  [
-    "Your rules, your clock",
-    "Settle by time, volume, risk, or your own business logic. Fewer settlements lower cost; tighter settlement windows bring faster finality.",
+    "Custodial workarounds",
+    "Prepaid credits mean your balance is gone on the first call and tracked in someone else’s database.",
   ],
 ];
 
@@ -710,7 +702,7 @@ const TILES: { name: string; href: string; layers: Layer[] }[] = [
     layers: [{ outer: "16.67% 8.33%", inner: "-4.55% -4.24%", src: ART.tCode }],
   },
   {
-    name: "Tookit & Playground",
+    name: "Toolkit & Playground",
     href: "https://github.com/solana-foundation/pay-kit",
     layers: [
       { outer: "16.67% 16.67% 58.33% 58.33%", inner: "-10%", src: ART.tSlider },
@@ -766,16 +758,9 @@ const TILES: { name: string; href: string; layers: Layer[] }[] = [
   },
 ];
 
-const TASKS: [string, string, boolean][] = [
-  ["Check if anything in watchlist moved over 15%", ART.avatar1, true],
-  ["Rebalance portfolio to target allocation", ART.avatar2, false],
-  ["Summarise wallet activity across agents", ART.avatar3, false],
-  ["Report daily P&L to Discord", ART.avatar4, false],
-];
-
 export default function Landing() {
   const throughput = useThroughputCounter();
-  const hero = useHeroStream();
+  const hero = useHeroStream(throughput.epoch, throughput.phase);
 
   return (
     /* `scrolls` is the global unlock: the document is overflow-hidden for the
@@ -794,12 +779,12 @@ export default function Landing() {
               <h1 className={`${s.hXl} ${s.heroTitle}`}>
                 1 million payments
                 <br />
-                <span className={s.thin}>every second</span>
+                <span className={s.thin}>per second</span>
               </h1>
               <p className={`${s.bodyL} ${s.heroSub}`}>
-                The next generation of software will not wait at a checkout
-                screen. It will make many small, continuous decisions—and pay
-                for the data, inference, and services it needs as it goes.
+                AI will not wait at a checkout screen. The future of internet
+                payments needs to be built for permissionless, unprecedented
+                scale.
               </p>
               <a
                 className={s.btn}
@@ -838,120 +823,88 @@ export default function Landing() {
             <div className={s.agentsCol}>
               <div className={s.agentsHead}>
                 <h2 className={s.hL}>
-                  Payment channels,
+                  Payment channels
                   <br />
-                  <span className={s.thin}>reintroduced at Solana pace</span>
+                  let agents
                   <br />
-                  for agentic traffic.
+                  <span className={s.thin}>pay as they go.</span>
                 </h2>
                 <p className={`${s.bodyL} ${s.mid} ${s.agentsKicker}`}>
-                  One Proxy completed the full receive, verify, and settlement
-                  path on an AMD EPYC 9555P: 64 physical cores and 128 threads.
-                  At one million logical payments per second, it kept 117
-                  threads busy and absorbed about 11 Gbps of inbound traffic.
+                  Payment Channels are a new Solana primitive built to solve
+                  this across x402 and MPP payment protocols.
                 </p>
               </div>
               <hr className={s.rule} />
               <p className={`${s.bodyXl} ${s.agentsPull}`}>
-                Scale up a Proxy with more CPU and network bandwidth. Scale out
-                by giving the next Proxy a different channel range; channel
-                state stays local, so the hot path needs no shared state.
+                A payment channel lets an agent authorize a spending limit once,
+                spend against the limit, and settle the payment amount once. Put
+                money down up front, run up usage without paying per
+                transaction, and settle the bill once when you leave.
               </p>
             </div>
 
             <div className={s.agentsArt}>
-              {/* the aurora and its striped streak arrive baked into one export */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className={s.agentsPlate}
-                src={ART.agentsArt}
-                alt=""
-                aria-hidden="true"
-              />
-              <div className={s.mock}>
-                <div className={s.mockBar}>
-                  <span className={s.mockDot} />
-                  <span className={s.mockDot} />
-                  <span className={s.mockDot} />
+              {/* the Figma frame keeps the image and black fade inside one clipped card */}
+              <div className={s.channelVisual}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  className={s.agentsPlate}
+                  src={ART.agentsArt}
+                  alt=""
+                  aria-hidden="true"
+                />
+                <div className={s.channelVisualFade} aria-hidden="true" />
+                <div className={s.channelVisualHead}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    className={s.channelLiveDot}
+                    src={ART.channelStatusDot}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                  Active Payment Channel
                 </div>
-                <div className={s.mockBody}>
-                  <div className={s.mockTabs}>
-                    <div className={s.tabGroup}>
-                      <span className={s.tabOn}>Tasks</span>
-                      <span className={s.tabOff}>Workflows</span>
+                <div className={s.channelFlow}>
+                  <div className={s.channelStep}>
+                    <div className={s.channelLabelArea}>
+                      <span className={s.channelNodeTag}>Agent</span>
                     </div>
-                    <span className={s.balance}>
-                      <span className={s.balanceCoin}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          className={s.coinRing}
-                          src={ART.usdcRing}
-                          alt=""
-                          aria-hidden="true"
-                        />
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          className={s.coinGlyph}
-                          src={ART.usdcGlyph}
-                          alt=""
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <span className={s.balanceText}>
-                        <b>290.22</b> USDC
-                      </span>
-                    </span>
+                    <div className={s.channelStepCopy}>
+                      <strong>Authorize once</strong>
+                      <span>Set a spending limit</span>
+                    </div>
                   </div>
-                  <div className={s.tasks}>
-                    {TASKS.map(([label, avatar, active], i) => (
-                      <div key={label}>
-                        <div className={active ? s.taskActive : s.taskDone}>
-                          {active ? (
-                            <svg
-                              className={s.taskIcon}
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M12 3v3m0 12v3m9-9h-3M6 12H3m14.5-6.5-2 2m-7 7-2 2m0-11 2 2m7 7 2 2"
-                                stroke="#fff"
-                                strokeWidth="1.6"
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                          ) : (
-                            <svg
-                              className={s.taskIcon}
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="m7 12.5 3.2 3.2L17 9"
-                                stroke="#fff"
-                                strokeWidth="1.7"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                          <span className={`${s.bodyS} ${s.taskText}`}>
-                            {label}
-                          </span>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            className={s.taskAvatar}
-                            src={avatar}
-                            alt=""
-                            aria-hidden="true"
-                          />
-                        </div>
-                        {i > 0 && i < TASKS.length - 1 && (
-                          <div className={s.taskRule} />
-                        )}
-                      </div>
-                    ))}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    className={s.channelDivider}
+                    src={ART.channelDivider}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                  <div className={s.channelStep}>
+                    <div className={s.channelLabelArea}>
+                      <span className={s.channelNodeTag}>Channel</span>
+                    </div>
+                    <div className={s.channelStepCopy}>
+                      <strong>Pay as you go</strong>
+                      <span>Many signed updates</span>
+                    </div>
+                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    className={s.channelDivider}
+                    src={ART.channelDivider}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                  <div className={s.channelStep}>
+                    <div className={s.channelLabelArea}>
+                      <span className={s.channelNodeTag}>Solana</span>
+                    </div>
+                    <div className={s.channelStepCopy}>
+                      <strong>Settle once</strong>
+                      <span>Return unused funds</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -973,18 +926,17 @@ export default function Landing() {
                     payments break
                   </h2>
                   <p className={`${s.bodyL} ${s.mid}`}>
-                    While pay-per-request models simplify paid tool use, certain
-                    kinds of agentic spending patterns are a bad fit for
-                    settling every request onchain:
+                    While pay-per-request models simplify paid tool use,
+                    allowing access to many APIs and endpoints without an API
+                    key or account creation, certain kinds of agentic spending
+                    patterns are a bad fit for settling every request onchain:
                   </p>
                 </div>
                 <hr className={s.rule} />
               </div>
               <p className={s.bodyL}>
-                A payment channel amortizes the onchain work down to one open
-                and one settle, no matter how much metering happens in between.
-                Logical payments keep moving at application speed while Solana
-                handles settlement when it matters.
+                Payment Channels amortize the onchain work down to one open and
+                one settle, no matter how much metering happens in between.
               </p>
             </div>
 
@@ -1082,7 +1034,8 @@ export default function Landing() {
         <div className={s.inner}>
           <div className={s.whyStack}>
             <h2 className={`${s.hL} ${s.whyHead}`}>
-              Settlement is the bill,{" "}
+              Settlement is the bill,
+              <br />
               <span className={s.thin}>not the bottleneck.</span>
             </h2>
 
@@ -1112,7 +1065,7 @@ export default function Landing() {
                 <p className={`${s.bodyL} ${s.mid} ${s.sessionIntro}`}>
                   A settlement transaction carries four channel updates. The
                   full cycle finalized all 100,000 channels while one million
-                  logical payments per second continued at application speed.
+                  payments per second continued at application speed.
                 </p>
                 <a className={s.btn} href="https://pay.sh/docs/sdk/typescript">
                   Run the benchmark
@@ -1165,7 +1118,7 @@ export default function Landing() {
                 <span className={s.thin}>works everywhere</span>
               </h2>
               <p className={`${s.bodyL} ${s.mid} ${s.openLede}`}>
-                Payment channels map cleanly onto the open agentic payment
+                Payment Channels map cleanly onto the open agentic payment
                 standards live on Solana today.
               </p>
             </div>
@@ -1197,10 +1150,10 @@ export default function Landing() {
               <p className={`${s.bodyL} ${s.mid}`}>
                 Inference has been one of the most in demand use cases across
                 agentic payment protocols. We are excited to be launching
-                payment channels with Alibaba Cloud. Their API endpoints are
-                live and payable through Sessions on pay.sh today. Your agent
-                can authorize once and consume their cloud APIs at scale, paying
-                in stablecoins as it goes.
+                Payment Channels with Alibaba Cloud. Their API endpoints are
+                live and payable on pay.sh today. Your agent can authorize once
+                and consume their cloud APIs at scale, paying in stablecoins as
+                it goes.
               </p>
             </div>
 
@@ -1242,7 +1195,7 @@ export default function Landing() {
               <h2 className={`${s.hL} ${s.getTitle}`}>
                 Get started with
                 <br />
-                <span className={s.thin}>payment channels.</span>
+                <span className={s.thin}>Payment Channels.</span>
               </h2>
               <div className={s.getAside}>
                 <p className={s.bodyXl}>

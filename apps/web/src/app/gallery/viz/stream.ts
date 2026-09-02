@@ -1348,6 +1348,9 @@ function create(quality: VizQuality) {
      traffic and left the surface it sits on rotating. Accumulated, holding it
      is simply declining to add to it. */
   let drumPhase = 0;
+  let throughputEpoch = -1;
+  let throughputVisibleLanes: number[] = [];
+  let throughputIncomingLane = -1;
 
   /* One endpoint per row, up to the dial's ceiling. The base list is only
      fourteen names, so beyond that they repeat with a shard index — an
@@ -1651,6 +1654,11 @@ function create(quality: VizQuality) {
        which is the difference between a stage that is full and one that is
        banded into however many strides it took to get there. */
     const warm = (raw as unknown as { __warm?: boolean }).__warm === true;
+    const throughputClocked =
+      typeof (raw as unknown as { __throughputEpoch?: unknown })
+        .__throughputEpoch === "number";
+    let emergingLane = -1;
+    let emergingPulse = 0;
     const drum = layout.arrange === "cylinder";
     if (drum) {
       const nSt = Math.max(6, Math.round(layout.staves));
@@ -1664,9 +1672,33 @@ function create(quality: VizQuality) {
          cylinder lower, not a smaller one */
       const cy = h / 2 + layout.shift;
       const spin = (layout.spin * Math.PI) / 180;
+      const throughput = raw as unknown as {
+        __throughputEpoch?: number;
+        __throughputPhase?: number;
+      };
+      const sharedEpoch =
+        typeof throughput.__throughputEpoch === "number" &&
+        Number.isFinite(throughput.__throughputEpoch)
+          ? Math.max(0, Math.floor(throughput.__throughputEpoch))
+          : 0;
+      const sharedPhase =
+        typeof throughput.__throughputPhase === "number" &&
+        Number.isFinite(throughput.__throughputPhase)
+          ? Math.min(1, Math.max(0, throughput.__throughputPhase))
+          : 0;
+      /* The new row enters once during the shared second, then holds its
+           position for the rest of the cycle. Keep this a single, monotonic
+           motion: the independent drum spin is disabled below for this hero,
+           so there is no second offset after the row has settled. */
+      const rowProgress = Math.min(1, sharedPhase / 0.28);
+      const rowSlide = easeOut(rowProgress);
+      const throughputPhase = (sharedEpoch + rowSlide) * dPhi;
+      const uniformHeight = Math.max(8, Math.min(52, rowCfg.height));
       /* the same condition the traffic uses, read here because the lane table
-         is built before the hover is resolved */
-      if (!(motion.pinFreeze && pinned !== null)) drumPhase += spin * dt;
+           is built before the hover is resolved */
+      if (!throughputClocked && !(motion.pinFreeze && pinned !== null)) {
+        drumPhase += spin * dt;
+      }
       /* `laneKey` is blanked below for as long as the drum is up, so a
          non-empty one here means the last frame was some other arrangement
          and whatever is in the table describes a different picture — even if
@@ -1692,13 +1724,20 @@ function create(quality: VizQuality) {
         const L = lanes[i];
         /* wrapped into (-pi, pi] so the front of the drum is the middle of
            the range and `cos` is the facing term with no special cases */
-        let phi = (i * dPhi + drumPhase) % (Math.PI * 2);
+        let phi = (i * dPhi + drumPhase - throughputPhase) % (Math.PI * 2);
         if (phi > Math.PI) phi -= Math.PI * 2;
         if (phi < -Math.PI) phi += Math.PI * 2;
         const yTop = cy + R * Math.sin(phi - half);
         const yBot = cy + R * Math.sin(phi + half);
+        const projectedHeight = Math.abs(yBot - yTop);
         L.y = Math.min(yTop, yBot);
-        L.h = Math.max(0.5, Math.abs(yBot - yTop));
+        /* Keep the payment-channel rows visually consistent as they travel
+           around the cylinder. The geometry still controls their position and
+           depth, but it no longer pinches the top and bottom into hairlines or
+           makes the centre rows carry a different visual weight. */
+        L.h = throughputClocked
+          ? uniformHeight
+          : Math.max(0.5, projectedHeight);
         L.x1 = w;
         /* Lambert, near enough: full on where the surface faces you, gone at
            the silhouette.
@@ -1712,11 +1751,95 @@ function create(quality: VizQuality) {
            keeps them faint but legible, which is what a curved surface
            actually looks like. */
         const face = Math.cos(phi);
-        L.dim = face > 0 ? Math.pow(face, fall) : 0;
+        const illumination = face > 0 ? Math.pow(face, fall) : 0;
+        /* The payment-channel hero advances rows into the visible face once
+           per second. Keep those edge rows readable when they arrive: the
+           cylinder still shades from the centre outward, but its silhouette
+           no longer makes a newly surfaced row look under-populated. Other
+           stream arrangements retain the original falloff. */
+        L.dim =
+          throughputClocked && face > 0
+            ? Math.max(0.55, illumination)
+            : illumination;
         /* set here rather than where the lane was built: the table is only
            rebuilt when the stave count changes, so a density left at
            construction would not answer the dial until you touched another */
         L.dm = layout.flow / 100;
+      }
+      if (throughputClocked) {
+        /* Keep one stable queue of lanes for the whole one-second cycle. The
+           old implementation re-selected and re-stacked the visible lanes on
+           every frame, so the cylinder movement and the slot normalization
+           both moved the rows. One incoming lane now follows the existing
+           queue by exactly one slot, making the entire stack share one offset. */
+        const candidates: number[] = [];
+        for (let i = 0; i < nSt; i++) {
+          if (lanes[i].dim > 0.004) candidates.push(i);
+        }
+        candidates.sort((a, b) => lanes[b].dim - lanes[a].dim);
+        const laneGap = Math.max(0, rowCfg.gap);
+        const slotCount = Math.max(
+          1,
+          Math.min(candidates.length, Math.ceil(h / (uniformHeight + laneGap))),
+        );
+
+        const cycleChanged =
+          throughputEpoch !== sharedEpoch ||
+          throughputVisibleLanes.length !== slotCount;
+        if (cycleChanged) {
+          if (throughputVisibleLanes.length !== slotCount) {
+            throughputVisibleLanes = candidates.slice(0, slotCount);
+          } else {
+            const nextLane =
+              throughputIncomingLane >= 0
+                ? throughputIncomingLane
+                : (candidates.find(
+                    (i) => !throughputVisibleLanes.includes(i),
+                  ) ?? 0);
+            throughputVisibleLanes = [
+              ...throughputVisibleLanes.slice(1),
+              nextLane,
+            ];
+          }
+
+          const selected = new Set(throughputVisibleLanes);
+          throughputIncomingLane =
+            candidates.find((i) => !selected.has(i)) ??
+            (throughputVisibleLanes[throughputVisibleLanes.length - 1] + 1) %
+              nSt;
+          throughputEpoch = sharedEpoch;
+        }
+
+        const visibleLanes = throughputVisibleLanes;
+        const fitHeight =
+          (h - Math.max(0, visibleLanes.length - 1) * laneGap) /
+          Math.max(1, visibleLanes.length);
+        const visibleHeight = Math.max(1, fitHeight);
+        const lanePitch = visibleHeight + laneGap;
+        const stackTop = 0;
+        const stackOffset = rowSlide * lanePitch;
+        const activeLanes = new Set([...visibleLanes, throughputIncomingLane]);
+        for (let i = 0; i < nSt; i++) {
+          if (!activeLanes.has(i)) lanes[i].dim = 0;
+        }
+        for (let i = 0; i < visibleLanes.length; i++) {
+          const L = lanes[visibleLanes[i]];
+          L.h = visibleHeight;
+          L.y = stackTop + i * lanePitch - stackOffset;
+          L.dim = Math.max(0.55, L.dim);
+        }
+        if (throughputIncomingLane >= 0) {
+          const L = lanes[throughputIncomingLane];
+          L.h = visibleHeight;
+          L.y = stackTop + visibleLanes.length * lanePitch - stackOffset;
+          L.dim = Math.max(0.55, L.dim);
+        }
+      }
+      if (throughputClocked && sharedPhase < 0.28) {
+        /* The incoming queue item is the only row that should receive the
+           arrival emphasis while it travels into the bottom slot. */
+        emergingLane = throughputIncomingLane;
+        emergingPulse = 1 - rowProgress;
       }
       laneKey = "";
     } else if (lanes.length && laneKey === "") {
@@ -1983,7 +2106,7 @@ function create(quality: VizQuality) {
          where the row is projected to almost no height and is invisible
          regardless. A lane retiring there and refilling as it comes back has
          seconds of travel before it is anything the eye can resolve. */
-      if (fast && lanes[e].dim <= 0.004) continue;
+      if (fast && !throughputClocked && lanes[e].dim <= 0.004) continue;
       /* the wind's extra appetite. Deliberately not applied to the hush roll
          below: silencing rows less often during the wind fills the picture,
          but it fills it as unbroken sheets, and marks composite additively.
@@ -2236,7 +2359,7 @@ function create(quality: VizQuality) {
          minutes it spends hidden and then bring that clump back over the
          horizon; letting it keep moving is the cost this is trying not to
          pay. Retired, it is rebuilt by `emit` when it faces front again. */
-      if (fast && L.dim <= 0.004) {
+      if (fast && !throughputClocked && L.dim <= 0.004) {
         rows[i] = null;
         continue;
       }
@@ -2893,7 +3016,12 @@ function create(quality: VizQuality) {
         }
 
         if (!fast) ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = Math.min(1, amt * mod * lift * L.dim * invSmear);
+        const emergingGlow =
+          emergingLane === row.lane ? 1 + emergingPulse * 0.65 : 1;
+        ctx.globalAlpha = Math.min(
+          1,
+          amt * mod * lift * L.dim * invSmear * emergingGlow,
+        );
         if (!fast || hex !== lastHex) {
           ctx.fillStyle = hex;
           lastHex = hex;
