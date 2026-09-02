@@ -67,6 +67,15 @@ describe("RPC latency query options", () => {
     ).toBe("fluxrpc");
   });
 
+  it("normalizes Flux provider label casing", () => {
+    for (const provider of ["FluxRPC", "flux-rpc"]) {
+      expect(
+        parseRpcLatencyQueryOptions(new URLSearchParams(`provider=${provider}`))
+          .provider,
+      ).toBe("fluxrpc");
+    }
+  });
+
   it("accepts Chainstack as an RPC provider", () => {
     expect(rpcLatencyProviders).toContain("chainstack");
     expect(
@@ -224,11 +233,222 @@ describe("RPC latency query ranges", () => {
       .map(([input]) => new URL(String(input)))
       .filter((url) => url.pathname.endsWith("/query_range"));
 
-    expect(rangeUrls).toHaveLength(5);
+    expect(rangeUrls).toHaveLength(6);
     for (const url of rangeUrls) {
       expect(url.searchParams.get("start")).toBe(String(nowSeconds - 30 * 60));
       expect(url.searchParams.get("end")).toBe(String(nowSeconds));
       expect(url.searchParams.get("step")).toBe("60");
+    }
+  });
+
+  it("keeps average latency providers with valid samples in the selected range", async () => {
+    const nowSeconds = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams.get("query") ?? "";
+      const result = query.includes("rpc_latency_seconds_sum")
+        ? [
+            {
+              metric: { provider: "helius" },
+              values: [
+                [nowSeconds - 300, "42"],
+                [nowSeconds, "43"],
+              ],
+            },
+          ]
+        : [];
+
+      return new Response(
+        JSON.stringify({ status: "success", data: { result } }),
+        { status: 200 },
+      );
+    });
+
+    vi.spyOn(Date, "now").mockReturnValue(nowSeconds * 1000);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { timeframe: "30m" },
+    );
+
+    expect(result.rows).toEqual([
+      {
+        date: new Date((nowSeconds - 300) * 1000).toISOString(),
+        metricName: "RPC Avg Latency",
+        providerName: "helius",
+        unit: "Milliseconds",
+        value: 42,
+      },
+      {
+        date: new Date(nowSeconds * 1000).toISOString(),
+        metricName: "RPC Avg Latency",
+        providerName: "helius",
+        unit: "Milliseconds",
+        value: 43,
+      },
+    ]);
+
+    const avgLatencyUrl = fetchMock.mock.calls
+      .map(([input]) => new URL(String(input)))
+      .find((url) =>
+        (url.searchParams.get("query") ?? "").includes(
+          "rpc_latency_seconds_sum",
+        ),
+      );
+
+    expect(avgLatencyUrl?.pathname).toBe("/api/v1/query_range");
+    expect(avgLatencyUrl?.searchParams.get("start")).toBe(
+      String(nowSeconds - 30 * 60),
+    );
+    expect(avgLatencyUrl?.searchParams.get("end")).toBe(String(nowSeconds));
+    expect(avgLatencyUrl?.searchParams.get("step")).toBe("60");
+  });
+
+  it("keeps a provider whose latest average sample is missing or non-finite", async () => {
+    const nowSeconds = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams.get("query") ?? "";
+      const result = query.includes("rpc_latency_seconds_sum")
+        ? [
+            {
+              metric: { provider: "helius" },
+              values: [
+                [nowSeconds - 600, "21"],
+                [nowSeconds - 300, "NaN"],
+                [nowSeconds, "+Inf"],
+              ],
+            },
+            {
+              metric: { provider: "chainstack" },
+              values: [[nowSeconds, "18"]],
+            },
+          ]
+        : [];
+
+      return new Response(
+        JSON.stringify({ status: "success", data: { result } }),
+        { status: 200 },
+      );
+    });
+
+    vi.spyOn(Date, "now").mockReturnValue(nowSeconds * 1000);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { timeframe: "1h" },
+    );
+
+    expect(
+      result.rows.filter((row) => row.metricName === "RPC Avg Latency"),
+    ).toEqual([
+      {
+        date: new Date((nowSeconds - 600) * 1000).toISOString(),
+        metricName: "RPC Avg Latency",
+        providerName: "helius",
+        unit: "Milliseconds",
+        value: 21,
+      },
+      {
+        date: new Date(nowSeconds * 1000).toISOString(),
+        metricName: "RPC Avg Latency",
+        providerName: "chainstack",
+        unit: "Milliseconds",
+        value: 18,
+      },
+    ]);
+  });
+
+  it("keeps Flux range samples when Prometheus uses a branded provider label", async () => {
+    const timestamp = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams.get("query") ?? "";
+      const result = query.includes("rpc_latency_seconds_sum")
+        ? [
+            {
+              metric: { provider: "FluxRPC" },
+              values: [[timestamp, "42"]],
+            },
+          ]
+        : [];
+
+      return new Response(
+        JSON.stringify({ status: "success", data: { result } }),
+        { status: 200 },
+      );
+    });
+
+    vi.spyOn(Date, "now").mockReturnValue(timestamp * 1000);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { timeframe: "30m" },
+    );
+
+    expect(result.rows).toContainEqual({
+      date: new Date(timestamp * 1000).toISOString(),
+      metricName: "RPC Avg Latency",
+      providerName: "fluxrpc",
+      unit: "Milliseconds",
+      value: 42,
+    });
+  });
+
+  it("keeps branded Flux samples when filtering by provider", async () => {
+    const timestamp = 1_800_000_000;
+    const fetchMock = vi.fn().mockImplementation(async (input: string) => {
+      const query = new URL(input).searchParams.get("query") ?? "";
+      const result = query.includes("rpc_latency_seconds_sum")
+        ? [
+            {
+              metric: { provider: "FluxRPC" },
+              values: [[timestamp, "42"]],
+            },
+          ]
+        : [];
+
+      return new Response(
+        JSON.stringify({ status: "success", data: { result } }),
+        { status: 200 },
+      );
+    });
+
+    vi.spyOn(Date, "now").mockReturnValue(timestamp * 1000);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getRpcLatencyMetricRows(
+      {
+        baseUrl: "https://prometheus.example.com",
+        token: "test-token",
+      },
+      { provider: "fluxrpc", timeframe: "30m" },
+    );
+
+    expect(result.rows).toContainEqual({
+      date: new Date(timestamp * 1000).toISOString(),
+      metricName: "RPC Avg Latency",
+      providerName: "fluxrpc",
+      unit: "Milliseconds",
+      value: 42,
+    });
+
+    const queries = fetchMock.mock.calls.map(
+      ([input]) => new URL(String(input)).searchParams.get("query") ?? "",
+    );
+
+    for (const query of queries) {
+      expect(query).toContain('provider=~"(?i)');
+      expect(query).not.toContain('provider="');
     }
   });
 
@@ -379,6 +599,26 @@ describe("RPC Prometheus queries", () => {
     expect(buildRpcAvgLatencyQuery({ infra: "tsw", region: "pit" })).toContain(
       'region=~"pit1|pitt1"',
     );
+  });
+
+  it("filters providers with a case- and separator-insensitive matcher", () => {
+    const query = buildRpcAvgLatencyQuery({ provider: "fluxrpc" });
+    const matcher = query.match(/provider=~"([^"]+)"/)?.[1];
+
+    expect(matcher).toBeDefined();
+    expect(matcher).toMatch(/^\(\?i\)/);
+
+    const pattern = new RegExp(
+      `^${matcher!.slice("(?i)".length).replace(/\\\\/g, "\\")}$`,
+      "i",
+    );
+
+    for (const label of ["fluxrpc", "FluxRPC", "flux-rpc", "Flux RPC"]) {
+      expect(pattern.test(label)).toBe(true);
+    }
+
+    expect(pattern.test("helius")).toBe(false);
+    expect(pattern.test("notfluxrpc")).toBe(false);
   });
 
   it("computes error rate over success and error outcomes", () => {

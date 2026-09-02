@@ -1,7 +1,7 @@
 import {
   MEDIA_APP_URL,
   DOCS_APP_URL,
-  TEMPLATES_APP_URL,
+  templatesAppUrl,
   ACCELERATE_APP_URL,
   BREAKPOINT_APP_URL,
 } from "./apps-urls";
@@ -80,7 +80,8 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   { source: "/developers/guides/advanced", destination: "/docs" },
   {
     source: "/developers/guides/games",
-    destination: "/developers/cookbook/games",
+    destination:
+      "/developers/cookbook/games/getting-started-with-game-development",
   },
   {
     source: "/developers/guides/getstarted",
@@ -231,6 +232,10 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
     source: "/developers/guides/getstarted/supabase-auth-guide",
     destination: "/developers/cookbook/wallets/supabase-auth",
   },
+  {
+    source: "/developers/guides/permissioned-environments",
+    destination: "https://launch.solana.com/products/private-channels",
+  },
   // token-extensions/* → tokens extensions reference
   {
     source: "/developers/guides/token-extensions/transfer-hook",
@@ -254,6 +259,30 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
   {
     source: "/docs/clients/javascript",
     destination: "/docs/clients/official/javascript",
+  },
+  {
+    source: "/docs/clients/game-sdks",
+    destination: "/docs/clients/community/game-sdks",
+  },
+  {
+    source: "/docs/clients/go",
+    destination: "/docs/clients/community/go",
+  },
+  {
+    source: "/docs/clients/java",
+    destination: "/docs/clients/community/java",
+  },
+  {
+    source: "/docs/clients/python",
+    destination: "/docs/clients/community/python",
+  },
+  {
+    source: "/docs/clients/rust",
+    destination: "/docs/clients/official/rust",
+  },
+  {
+    source: "/docs/frontend/kit",
+    destination: "/docs/frontend/client",
   },
   {
     source: "/docs/intro/quick-start/cross-program-invocation",
@@ -512,7 +541,7 @@ export default {
       // Templates app assets (required for static assets with assetPrefix: "/templates-assets")
       {
         source: "/templates-assets/:path+",
-        destination: `${TEMPLATES_APP_URL}/templates-assets/:path+`,
+        destination: `${templatesAppUrl}/templates-assets/:path+`,
         locale: false,
       },
       // Accelerate app rewrites
@@ -556,12 +585,12 @@ export default {
       // Templates app rewrites (must come before general /developers rewrites)
       {
         source: "/developers/templates",
-        destination: `${TEMPLATES_APP_URL}/developers/templates`,
+        destination: `${templatesAppUrl}/developers/templates`,
         locale: false,
       },
       {
         source: "/developers/templates/:path*",
-        destination: `${TEMPLATES_APP_URL}/developers/templates/:path*`,
+        destination: `${templatesAppUrl}/developers/templates/:path*`,
         locale: false,
       },
       // Docs app assets (required for static assets with assetPrefix: "/docs-assets")
@@ -741,8 +770,30 @@ export default {
     ...dissolvedGuideRedirects,
     ...movedDocsRedirects,
     ...chainMigrationRedirects,
+    {
+      source: "/universities",
+      destination: "/university",
+      permanent: true,
+    },
+    {
+      source: "/universities/:path*",
+      destination: "/university",
+      permanent: true,
+    },
     { source: "/brand", destination: "/branding" },
     { source: "/press", destination: "/branding" },
+    { source: "/wallet", destination: "/wallets" },
+    { source: "/case-studies", destination: "/news" },
+    { source: "/news/tags/case-studies", destination: "/news" },
+    {
+      source: "/developers/moving-to-svm",
+      destination: "/developers/evm-to-svm",
+    },
+    {
+      source: "/developers/moving-to-svm/cosmwasm",
+      destination:
+        "https://rustopian.dev/article/from-cosmwasm-to-solana-rust-blockchain-development",
+    },
     {
       source: "/solana-wallets",
       destination: "/wallets",
@@ -786,6 +837,12 @@ export default {
     { source: "/blog", destination: "/news" },
     { source: "/rss.xml", destination: "/news/rss.xml" },
     { source: "/news/tag/:path*", destination: "/news" },
+    // /upgrades is now the source of truth for network upgrade status;
+    // this hub post is retired.
+    {
+      source: "/news/solana-network-upgrades",
+      destination: "/upgrades",
+    },
     {
       source: "/news/solana-scaffold-part-1-wallet-adapter",
       destination:
@@ -858,7 +915,6 @@ export default {
     { source: "/developers/ai", destination: "/solutions/ai" },
     { source: "/ai", destination: "/solutions/ai" },
     { source: "/developer", destination: "/developers" },
-    { source: "/universities/:path*", destination: "/developers" },
     { source: "/token22", destination: "/solutions/token-extensions" },
     {
       source: "/solutions/token22",
@@ -967,27 +1023,23 @@ export default {
     },
     {
       source: "/docs/intro/economics",
-      destination: "/docs/economics/index",
+      destination: "/staking",
     },
     {
       source: "/docs/economics/inflation/inflation_schedule",
-      destination: "/docs/economics/inflation/inflation-schedule",
-    },
-    {
-      source: "/docs/intro/economics",
-      destination: "/docs/economics/inflation/inflation-schedule",
+      destination: "/staking",
     },
     {
       source: "/docs/intro/history",
-      destination: "/docs/index",
+      destination: "/learn/what-is-solana",
     },
     {
       source: "/docs/intro",
-      destination: "/docs/index",
+      destination: "/docs",
     },
     {
       source: "/docs/intro/overview",
-      destination: "/docs/index",
+      destination: "/docs",
     },
     {
       source: "/developers/guides/getstarted/setup-local-development",
@@ -1019,7 +1071,7 @@ export default {
     },
     {
       source: "/docs/programs/lang-rust",
-      destination: "/docs/programs/rust/index",
+      destination: "/docs/programs/rust",
     },
     {
       source: "/docs/rpc/getConfirmedBlock",
@@ -1495,7 +1547,7 @@ export default {
     },
     {
       source: "/docs/economics/:path*",
-      destination: "/docs/references/economics/:path*",
+      destination: "/staking",
     },
     {
       source: "/docs/advanced/:path*",
@@ -1607,7 +1659,8 @@ export default {
     },
     {
       source: "/developers/cookbook/tokens/create-nft",
-      destination: "https://developers.metaplex.com/core",
+      destination:
+        "https://www.metaplex.com/docs/smart-contracts/core/create-asset",
     },
     {
       source: "/developers/cookbook/tokens/fetch-nft-metadata",

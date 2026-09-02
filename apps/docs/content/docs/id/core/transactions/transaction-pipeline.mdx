@@ -1,9 +1,7 @@
 ---
 title: Pipeline transaksi
 description:
-  Bagaimana transaksi Solana diproses dari pengiriman hingga commit, termasuk
-  pipeline validasi 8 tahap lengkap, membaca detail transaksi dari jaringan, dan
-  kesalahan validasi umum.
+  Bagaimana transaksi Solana diproses dari pengiriman hingga commit, termasuk pipeline validasi 8 tahap lengkap, membaca detail transaksi dari jaringan, dan kesalahan validasi umum.
 url: /docs/core/transactions/transaction-pipeline
 type: reference
 prerequisites:
@@ -34,6 +32,12 @@ Validator menerima byte transaksi melalui UDP/QUIC. Byte mentah harus sesuai
 dalam satu paket (_rs`PACKET_DATA_SIZE`_ = 1.232 byte). Byte tersebut
 dideserialisasi menjadi _rs`VersionedTransaction`_, yang berisi array signature
 dan _rs`VersionedMessage`_ (baik legacy atau v0).
+
+Format
+[v1](/docs/core/transactions/versioned-transactions#v1-message-format)
+yang akan datang meningkatkan batas hingga 4.096 byte. QUIC tidak membatasi ukuran stream, sehingga transaksi v1
+yang melebihi MTU akan dibagi ke beberapa frame QUIC saat
+pengambilan data, alih-alih ditolak.
 
 ### 2. Verifikasi signature (sigverify)
 
@@ -77,6 +81,13 @@ prioritas. Jika anggaran komputasi tidak valid atau bertentangan, transaksi
 gagal dengan error parsing anggaran komputasi seperti
 _rs`DuplicateInstruction`_, `InstructionError(..., InvalidInstructionData)`,
 atau _rs`InvalidLoadedAccountsDataSizeLimit`_.
+
+Untuk
+[transaksi v1](/docs/core/transactions/versioned-transactions#v1-message-format)
+tidak ada instruksi anggaran komputasi yang perlu diurai: batas dan biaya prioritas
+berasal dari konfigurasi pesan, dan instruksi ComputeBudget apa pun dalam pesan
+diabaikam untuk konfigurasi. Kolom konfigurasi yang tidak diatur akan diatur ke nol secara default, yang
+muncul kemudian di [pemuatan akun](#6-load-accounts).
 
 **Usia blockhash**: `recent_blockhash` transaksi dicari di
 [`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33).
@@ -151,6 +162,17 @@ _rs`InvalidProgramForExecution`_.
 
 Program LoaderV3 (upgradeable) secara implisit memuat programdata account
 terkait, yang juga dihitung terhadap batas ukuran data yang dimuat.
+
+<Callout type="warn" title="Transaksi v1 menetapkan batas ini ke nol secara default">
+  Default 64 MiB berlaku untuk transaksi legacy dan v0. Dalam [format
+  v1](/docs/core/transactions/versioned-transactions#v1-message-format), batas ukuran data akun yang dimuat dibaca dari konfigurasi pesan, dan kolom
+  yang tidak diatur akan diatur ke **0 byte** secara default, bukan ke nilai default yang besar. Oleh karena itu, transaksi v1
+  dengan konfigurasi kosong akan gagal pada tahap ini dengan
+  _rs`MaxLoadedAccountsDataSizeExceeded`_ — anggaran yang diminta terlalu kecil
+  untuk akun pertama yang dimuat, sehingga kegagalan terjadi sebelum instruksi apa pun
+  berjalan, dengan kesalahan yang tidak menyebutkan v1 maupun konfigurasi. Selalu tetapkan batas unit komputasi dan batas ukuran data akun yang dimuat secara eksplisit saat
+  membangun transaksi v1.
+</Callout>
 
 Jika pemuatan akun gagal tetapi pembayar biaya berhasil divalidasi, transaksi
 menjadi hasil
@@ -235,44 +257,44 @@ Tabel berikut mencantumkan semua varian
 [`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
 dan pada tahap pipeline mana mereka terjadi:
 
-| Error                                                                                                                                   | Tahap                      | Penyebab                                                                                           |
-| --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------- |
-| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Penjadwalan                | Akun sudah dikunci oleh transaksi lain dalam batch yang sama                                       |
-| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Penjadwalan                | Sebuah pubkey muncul dua kali dalam `account_keys` transaksi                                       |
-| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Validasi pembayar biaya    | Akun pembayar biaya tidak ada                                                                      |
-| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Pemuatan akun              | Program yang dipanggil tidak ada                                                                   |
-| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Validasi pembayar biaya    | Pembayar biaya tidak dapat menutupi biaya + minimum bebas rent                                     |
-| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Validasi pembayar biaya    | Pembayar biaya bukan akun sistem atau nonce                                                        |
-| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Cache status               | Transaksi sudah diproses sebelumnya                                                                |
-| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Pemeriksaan usia           | Blockhash tidak ada dalam antrian dan bukan nonce yang valid                                       |
-| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Eksekusi                   | Terjadi error saat memproses instruksi (termasuk indeks instruksi dan `InstructionError` spesifik) |
-| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Pemuatan akun              | Rantai pemanggilan loader terlalu dalam                                                            |
-| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Sanitasi                   | Transaksi memerlukan biaya tetapi tidak memiliki tanda tangan                                      |
-| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Sanitasi                   | Transaksi berisi referensi akun yang tidak valid                                                   |
-| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Sigverify                  | Tanda tangan Ed25519 tidak terverifikasi (paket dibuang)                                           |
-| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Pemuatan akun              | Program tidak dimiliki oleh loader yang valid                                                      |
-| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Sanitasi                   | Transaksi gagal melakukan sanitasi offset akun dengan benar                                        |
-| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Penjadwalan                | Transaksi saat ini dinonaktifkan karena pemeliharaan cluster                                       |
-| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Eksekusi                   | Pemrosesan transaksi meninggalkan akun dengan referensi pinjaman yang belum selesai                |
-| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Penjadwalan                | Transaksi akan melebihi batas biaya blok maksimum                                                  |
-| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Sanitasi                   | Versi transaksi tidak didukung                                                                     |
-| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Pemuatan akun              | Transaksi memuat akun yang dapat ditulis tetapi tidak dapat ditulis                                |
-| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Penjadwalan                | Transaksi akan melebihi batas biaya akun maksimum dalam blok                                       |
-| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Penjadwalan                | Transaksi akan melebihi batas data akun dalam blok                                                 |
-| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Penjadwalan                | Transaksi mengunci terlalu banyak akun                                                             |
-| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Pemuatan akun              | Akun tabel pencarian alamat tidak ada                                                              |
-| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Pemuatan akun              | Tabel pencarian alamat dimiliki oleh program yang salah                                            |
-| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Pemuatan akun              | Tabel pencarian alamat berisi data yang tidak valid                                                |
-| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Pemuatan akun              | Pencarian tabel alamat menggunakan indeks yang tidak valid                                         |
-| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Pemeriksaan pasca-eksekusi | Akun bertransisi dari bebas rent ke membayar rent                                                  |
-| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Penjadwalan                | Transaksi akan melebihi batas biaya vote maksimum                                                  |
-| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Penjadwalan                | Transaksi akan melebihi batas total data akun                                                      |
-| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Parsing compute budget     | Varian instruksi compute budget duplikat dalam transaksi yang sama                                 |
-| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Pemeriksaan pasca-eksekusi | Akun tidak memiliki cukup lamport untuk menutupi rent untuk ukuran datanya                         |
-| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Pemuatan akun              | Total data yang dimuat melebihi batas 64 MiB                                                       |
-| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Parsing compute budget     | `SetLoadedAccountsDataSizeLimit` diatur ke 0                                                       |
-| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Sanitasi                   | Transaksi berbeda sebelum/sesudah aktivasi fitur dan memerlukan sanitasi ulang                     |
-| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Pemuatan akun              | Eksekusi program dibatasi sementara pada akun yang direferensikan                                  |
-| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Pemeriksaan pasca-eksekusi | Total saldo lamport sebelum transaksi tidak sama dengan saldo setelahnya                           |
-| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Pemuatan akun              | Cache program mencapai batas maksimum                                                              |
-| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Commit                     | Commit dibatalkan secara internal                                                                  |
+| Error                                                                                                                                   | Tahap                  | Penyebab                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Penjadwalan             | Akun sudah dikunci oleh transaksi lain dalam batch yang sama                                                                        |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Penjadwalan             | Sebuah pubkey muncul dua kali dalam `account_keys` transaksi                                                                                |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Validasi pembayar biaya   | Akun pembayar biaya tidak ada                                                                                                          |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Pemuatan akun        | Program yang dipanggil tidak ada                                                                                                         |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Validasi pembayar biaya   | Pembayar biaya tidak dapat menutupi biaya + minimum bebas rent                                                                                          |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Validasi pembayar biaya   | Pembayar biaya bukan akun sistem atau nonce                                                                                                |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Cache status           | Transaksi sudah diproses sebelumnya                                                                                                         |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Pemeriksaan usia              | Blockhash tidak ada dalam antrian dan bukan nonce yang valid                                                                                              |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Eksekusi              | Terjadi error saat memproses instruksi (termasuk indeks instruksi dan `InstructionError` spesifik)                            |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Pemuatan akun        | Rantai pemanggilan loader terlalu dalam                                                                                                             |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Sanitasi               | Transaksi memerlukan biaya tetapi tidak memiliki tanda tangan                                                                                   |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Sanitasi               | Transaksi berisi referensi akun yang tidak valid                                                                                         |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Sigverify              | Tanda tangan Ed25519 tidak terverifikasi (paket dibuang)                                                                                   |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Pemuatan akun        | Program tidak dimiliki oleh loader yang valid                                                                                                    |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Sanitasi               | Transaksi gagal melakukan sanitasi offset akun dengan benar                                                                                 |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Penjadwalan             | Transaksi saat ini dinonaktifkan karena pemeliharaan cluster                                                                            |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Eksekusi              | Pemrosesan transaksi meninggalkan akun dengan referensi pinjaman yang belum selesai                                                             |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Penjadwalan             | Transaksi akan melebihi batas biaya blok maksimum                                                                                             |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Sanitasi               | Versi transaksi tidak didukung                                                                                                        |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Pemuatan akun        | Transaksi memuat akun yang dapat ditulis tetapi tidak dapat ditulis                                                                               |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Penjadwalan             | Transaksi akan melebihi batas biaya akun maksimum dalam blok                                                                          |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Penjadwalan             | Transaksi akan melebihi batas data akun dalam blok                                                                              |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Penjadwalan             | Transaksi mengunci terlalu banyak akun                                                                                                      |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Pemuatan akun        | Akun tabel pencarian alamat tidak ada                                                                                               |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Pemuatan akun        | Tabel pencarian alamat dimiliki oleh program yang salah                                                                                        |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Pemuatan akun        | Tabel pencarian alamat berisi data yang tidak valid                                                                                                |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Pemuatan akun        | Pencarian tabel alamat menggunakan indeks yang tidak valid                                                                                                |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Pemeriksaan pasca-eksekusi   | Akun bertransisi dari bebas rent ke membayar rent                                                                                      |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Penjadwalan             | Transaksi akan melebihi batas biaya vote maksimum                                                                                              |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Penjadwalan             | Transaksi akan melebihi batas total data akun                                                                                         |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Parsing compute budget | Varian instruksi compute budget duplikat dalam transaksi yang sama                                                                      |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Pemeriksaan pasca-eksekusi   | Akun tidak memiliki cukup lamport untuk menutupi rent untuk ukuran datanya                                                                     |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Pemuatan akun        | Total data yang dimuat melebihi batas ukuran data akun yang dimuat dalam transaksi (64 MiB secara default; 0 di v1 kecuali diatur dalam konfigurasi pesan) |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Parsing compute budget | `SetLoadedAccountsDataSizeLimit` diatur ke 0                                                                                                 |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Sanitasi               | Transaksi berbeda sebelum/sesudah aktivasi fitur dan memerlukan sanitasi ulang                                                             |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Pemuatan akun        | Eksekusi program dibatasi sementara pada akun yang direferensikan                                                                     |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Pemeriksaan pasca-eksekusi   | Total saldo lamport sebelum transaksi tidak sama dengan saldo setelahnya                                                             |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Pemuatan akun        | Cache program mencapai batas maksimum                                                                                                               |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Commit                 | Commit dibatalkan secara internal                                                                                                               |

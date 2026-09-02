@@ -1,9 +1,7 @@
 ---
 title: Aikamatka
 description:
-  Hyppää Surfnet-kellon aikaa eteenpäin absoluuttiseen slot-, epoch- tai
-  Unix-aikaleimaan. Hyödyllinen testeille, jotka käsittelevät
-  vesting-aikatauluja, lukitusaikoja, vanhentumisikkunoita tai epoch-rajoja.
+  Hyppää Surfnet-kellon ajassa eteenpäin absoluuttiseen slotiin, epochiin tai Unix-aikaleimaan, tai pysäytä se kokonaan. Hyödyllinen testeissä, jotka käsittelevät vesting-aikatauluja, lukituksia, vanhentumisikkunoita tai epoch-rajoja.
 ---
 
 Surfpool-ajoympäristö tarjoaa kolme aikamatka-apufunktiota. Jokainen siirtää
@@ -11,16 +9,17 @@ paikallisen kellon absoluuttiseen kohteeseen (ei suhteelliseen siirtymään) ja
 palauttaa päivitetyn `EpochInfo`, jotta testit voivat varmistaa, että
 ajoympäristö todella saavutti pyydetyn ajan.
 
-| Helper                                               | Kohde                          | Palauttaa                           |
-| ---------------------------------------------------- | ------------------------------ | ----------------------------------- |
-| `time_travel_to_slot` / `timeTravelToSlot`           | Absoluuttinen slot-numero      | `EpochInfo` uudella `absolute_slot` |
-| `time_travel_to_epoch` / `timeTravelToEpoch`         | Absoluuttinen epoch-numero     | `EpochInfo` uudella `epoch`         |
-| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Unix-aikaleima millisekunteina | `EpochInfo` vastaa laskettua slotia |
+| Helper                                               | Kohde                         | Palauttaa                                  |
+| ---------------------------------------------------- | ------------------------------ | ---------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Absoluuttinen slot-numero           | `EpochInfo` uudella `absolute_slot` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Absoluuttinen epoch-numero          | `EpochInfo` uudella `epoch`         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Unix-aikaleima millisekunteina | `EpochInfo` vastaa laskettua slotia  |
 
 <Callout type="warn" title="Vain eteenpäin">
-  Aikamatka voi siirtää kelloa vain **eteenpäin**. Näiden metodien kutsuminen
-  menneisyyteen osoittavalla kohteella ei tee mitään — apufunktio palauttaa
-  nykyisen `EpochInfo` muuttumattomana.
+  Aikamatka voi siirtää kelloa vain **eteenpäin**. Menneisyyteen osoittava kohde
+  hylätään eikä jätetä huomiotta — Rust-apufunktiot palauttavat `Err`-arvon ja JS-
+  apufunktiot heittävät poikkeuksen. Viesti nimeää yksikön, joka meni taaksepäin, esimerkiksi
+  `Cannot travel to past slot: target=1000, current=2000`.
 </Callout>
 
 ## Hyppää slotiin
@@ -69,8 +68,9 @@ console.assert(info.epoch === 420);
 
 ## Hyppää Unix-aikaleimaan
 
-Anna aikaleima **millisekunteina**, ei sekunteina. Ajoympäristö laskee lähimmän
-slotin kyseiselle ajankohdalle.
+Anna aikaleima **millisekunneissa** Unix-epochista lähtien — sama yksikkö kuin
+JavaScriptin `Date.now()` — ei sekunteina. Ajonaikainen ympäristö laskee lähimmän slotin
+kyseisellä aikaleimalla.
 
 <CodeTabs storage="surfpool-lang">
 
@@ -85,6 +85,58 @@ const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
 ```
 
 </CodeTabs>
+
+<Callout type="warn" title="Kello ilmoittaa sekunteja, ei millisekunteja">
+  Jokainen aikaleima, jonka luet takaisin ajonaikaisesta ympäristöstä, on **sekunteina** —
+  ketjussa olevan `Clock`-syscarin `unix_timestamp` sekä
+  [`ClockValue`](/docs/tools/surfpool/sdk/js-reference#clockvalue), jonka
+  `systemClockUpdated`-tapahtuma välittää. Jos syötät jonkin näistä arvoista suoraan
+  aikamatka-apufunktioon, se ratkaisee hetken vuoden 1970 alkuun, joten kutsu
+  hylätään menneisyyden kohteena. Kerro ensin tuhannella.
+</Callout>
+
+```ts
+// WRONG — `unixTimestamp` is in seconds, so this is a past target.
+surfnet.timeTravelToTimestamp(clock.unixTimestamp + 3600);
+
+// RIGHT — convert to milliseconds.
+surfnet.timeTravelToTimestamp((clock.unixTimestamp + 3600) * 1000);
+```
+
+## Pysäytä ja jatka kelloa
+
+Aikamatka hyppää kohteeseen; pysäyttäminen estää kelloa etenemästä lainkaan.
+`surfnet_pauseClock` keskeyttää slotien tuotannon ja ajan etenemisen, kunnes
+`surfnet_resumeClock` suoritetaan — käytä sitä, kun testin täytyy pitää slotti ja
+aikaleima muuttumattomina useiden väittämien ajan.
+
+Rust SDK eikä `Surfnet`-luokka `@solana/surfpool`-paketissa kääri näitä
+kahta huijaukoodikutsua. Kutsu niitä
+[Kit-laajennuksen](/docs/tools/surfpool/sdk/kit-plugin) kautta tai suoraan JSON-RPC:n välityksellä.
+
+```ts
+const paused = await client.cheatcodes.pauseClock().send();
+
+// Nothing advances until the clock is resumed, so this is the only thing that
+// moves the slot.
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+
+await client.cheatcodes.resumeClock().send();
+```
+
+Molemmat huijaukoodikutsut palauttavat `EpochInfo`-arvon — kellotilan pysäytyshetkellä ja jatkamisen jälkeen. Huomaa kaksi asiaa, joita tuo rakenne _ei_ sisällä:
+
+- **Ei aikaleimaa.** `EpochInfo`-rakenteessa ei ole aikakenttää. Lue simuloitu Unix-aika
+  `Clock`-syscarista: kutsu `getAccountInfo` osoitteelle
+  `SysvarC1ock11111111111111111111111111111111` käyttäen `jsonParsed`-enkoodausta —
+  jälleen sekunteina.
+- **Ei pysäytystilalippua.** Mikään RPC-metodi ei ilmoita, onko kello tällä hetkellä
+  pysäytettynä. SDK:ista voit seurata
+  [`clockUpdate`-tapahtumaa](/docs/tools/surfpool/sdk/events), joka laukeaa `clockCommand`-komennolla
+  aina, kun pysäytys, jatkaminen tai intervallin muutos suoritetaan. Muussa tapauksessa
+  seuraa tilaa itse testissäsi.
 
 ## Yleisiä käyttötapoja
 
@@ -136,11 +188,11 @@ for epoch in 2..=5 {
 
 Molemmat SDK:t palauttavat `EpochInfo`-muotoisen objektin seuraavilla kentillä:
 
-| Kenttä               | Rust                             | JS                          |
-| -------------------- | -------------------------------- | --------------------------- |
-| Absoluuttinen slot   | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| Kenttä             | Rust                             | JS                          |
+| ----------------- | -------------------------------- | --------------------------- |
+| Absoluuttinen slot     | `absolute_slot: u64`             | `absoluteSlot: number`      |
 | Slot epochin sisällä | `slot_index: u64`                | `slotIndex: number`         |
-| Sloteja per epoch    | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
-| Epoch-numero         | `epoch: u64`                     | `epoch: number`             |
-| Lohkokorkeus         | `block_height: u64`              | `blockHeight: number`       |
+| Sloteja per epoch   | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Epoch-numero      | `epoch: u64`                     | `epoch: number`             |
+| Lohkokorkeus      | `block_height: u64`              | `blockHeight: number`       |
 | Transaktioiden määrä | `transaction_count: Option<u64>` | `transactionCount?: number` |

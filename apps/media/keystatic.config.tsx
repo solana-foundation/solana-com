@@ -7,8 +7,8 @@ import {
   type GitHubConfig,
 } from "@keystatic/core";
 import {
-  componentBlocks,
   postComponentBlocks,
+  upgradeComponentBlocks,
 } from "./lib/keystatic/components";
 
 // Keep local filesystem mode for local development only.
@@ -281,7 +281,7 @@ export default config({
               publicPath: "/uploads/upgrades",
             },
           },
-          components: componentBlocks,
+          components: upgradeComponentBlocks,
         }),
       },
     }),

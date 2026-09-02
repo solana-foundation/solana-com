@@ -152,12 +152,11 @@ export function HomePage({
         <Hero
           title={translations.heroTitle}
           subtitle={translations.heroSubtitle}
-          bannerEyebrow="Breakpoint 2026"
-          bannerDescription="Solana's flagship gathering returns to London, November 15-17, 2026."
-          bannerImgSrc="/src/img/index/breakpoint-2026-promo.webp"
-          bannerHref="/breakpoint"
-          bannerLabel="Learn More"
-          bannerExpiryDate="2026-11-17"
+          bannerEyebrow="200ms: Monitoring the situation"
+          bannerDescription="Watch Solana’s measured path to 200ms with live slot-time and network metrics."
+          bannerImgSrc="/src/img/index/slot-200ms-promo.webp"
+          bannerHref="/200ms"
+          bannerLabel="Open live monitor"
           cta={translations.heroCta}
           bgJsonFilePath="/src/img/index/hero-bg.json"
           bgImageSrc="/src/img/index/hero-bg.webp"

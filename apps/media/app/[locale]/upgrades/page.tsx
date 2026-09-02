@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
+import { getTranslations } from "@workspace/i18n/server";
 import { reader } from "@/lib/reader";
-import {
-  UPGRADES_SEO_DESCRIPTION,
-  UPGRADES_SEO_TITLE,
-  upgradesListingMetadata,
-} from "@/lib/metadata";
+import { upgradesListingMetadata } from "@/lib/metadata";
 import { JsonLd } from "@/components/seo/json-ld";
 import { buildUpgradeCollectionJsonLd } from "@/lib/content-structured-data";
 import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
@@ -124,6 +121,7 @@ export default async function UpgradesPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "upgrades" });
   const [upgrades, releases] = await Promise.all([
     getPublishedUpgrades(),
     getReleases(),
@@ -149,8 +147,8 @@ export default async function UpgradesPage({
         publishedAt: upgrade.publishedAt,
       })),
     locale,
-    title: UPGRADES_SEO_TITLE,
-    description: UPGRADES_SEO_DESCRIPTION,
+    title: t("metadata.title"),
+    description: t("metadata.description"),
   });
 
   return (
@@ -159,14 +157,13 @@ export default async function UpgradesPage({
       <div className="mx-auto w-full max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px]">
         <div className="flex max-w-3xl flex-col gap-2 py-8 md:py-10">
           <span className="text-xs font-medium uppercase tracking-[0.28em] text-[#14F195]">
-            Network upgrade notifications
+            {t("listing.kicker")}
           </span>
           <h1 className="m-0 text-[28px] font-medium leading-[1.15] tracking-[-0.5px] md:text-[34px] md:tracking-[-0.6px]">
-            Solana Upgrades
+            {t("listing.title")}
           </h1>
           <p className="m-0 max-w-2xl text-base leading-[1.4] text-[#ABABBA] md:text-lg">
-            Track network changes, validator actions, client support, and
-            rollout status for Solana protocol and performance upgrades.
+            {t("listing.description")}
           </p>
         </div>
       </div>

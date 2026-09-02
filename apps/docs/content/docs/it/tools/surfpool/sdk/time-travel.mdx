@@ -1,9 +1,7 @@
 ---
 title: Viaggio nel Tempo
 description:
-  Porta avanti il clock di Surfnet a un slot assoluto, epoch, o timestamp Unix.
-  Utile per test che verificano piani di vesting, blocchi, finestre di scadenza
-  o confini di epoch.
+  Sposta l'orologio di Surfnet in avanti verso uno slot assoluto, un epoch o un timestamp Unix, oppure mettilo in pausa. Utile per test che riguardano vesting schedule, lockup, finestre di scadenza o confini di epoch.
 ---
 
 Il runtime di Surfpool espone tre helper per il viaggio nel tempo. Ognuno sposta
@@ -11,16 +9,17 @@ il clock locale verso un obiettivo assoluto (non un offset relativo) e
 restituisce il valore aggiornato `EpochInfo` così i test possono verificare che
 il runtime abbia effettivamente raggiunto il tempo richiesto.
 
-| Helper                                               | Obiettivo                      | Restituisce                                |
-| ---------------------------------------------------- | ------------------------------ | ------------------------------------------ |
-| `time_travel_to_slot` / `timeTravelToSlot`           | Numero di slot assoluto        | `EpochInfo` con il nuovo `absolute_slot`   |
-| `time_travel_to_epoch` / `timeTravelToEpoch`         | Numero di epoch assoluto       | `EpochInfo` con il nuovo `epoch`           |
-| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Timestamp Unix in millisecondi | `EpochInfo` che riflette lo slot implicito |
+| Helper                                               | Obiettivo                         | Restituisce                                  |
+| ---------------------------------------------------- | ------------------------------ | ---------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Numero di slot assoluto           | `EpochInfo` con il nuovo `absolute_slot` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Numero di epoch assoluto          | `EpochInfo` con il nuovo `epoch`         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Timestamp Unix in millisecondi | `EpochInfo` che riflette lo slot implicito  |
 
 <Callout type="warn" title="Solo in avanti">
-  Il viaggio nel tempo può spostare il clock solo **in avanti**. Chiamare questi
-  metodi con un obiettivo nel passato non produce alcun effetto — l'helper
-  restituisce il `EpochInfo` corrente invariato.
+  Il viaggio nel tempo può spostare l'orologio solo **in avanti**. Un target nel passato viene
+  rifiutato anziché ignorato — gli helper Rust restituiscono un `Err` e gli helper JS
+  generano un'eccezione. Il messaggio indica quale unità è andata a ritroso, ad esempio
+  `Cannot travel to past slot: target=1000, current=2000`.
 </Callout>
 
 ## Salta a uno Slot
@@ -69,8 +68,9 @@ console.assert(info.epoch === 420);
 
 ## Salta a un Timestamp Unix
 
-Passa il timestamp in **millisecondi**, non in secondi. Il runtime calcola lo
-slot più vicino a quel timestamp.
+Passa il timestamp in **millisecondi** dall'epoch Unix — la stessa unità di
+`Date.now()` in JavaScript — non in secondi. Il runtime calcola lo slot più vicino
+a quel timestamp.
 
 <CodeTabs storage="surfpool-lang">
 
@@ -85,6 +85,59 @@ const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
 ```
 
 </CodeTabs>
+
+<Callout type="warn" title="L'orologio riporta i secondi, non i millisecondi">
+  Ogni timestamp riletto dal runtime è in **secondi** — il
+  `unix_timestamp` della sysvar `Clock` on-chain e il
+  [`ClockValue`](/docs/tools/surfpool/sdk/js-reference#clockvalue) trasportato dall'evento
+  `systemClockUpdated`. Passare direttamente uno di questi valori a un helper di viaggio nel tempo
+  risolve a un momento dell'inizio del 1970, quindi la chiamata viene
+  rifiutata come target nel passato. Moltiplica prima per 1000.
+</Callout>
+
+```ts
+// WRONG — `unixTimestamp` is in seconds, so this is a past target.
+surfnet.timeTravelToTimestamp(clock.unixTimestamp + 3600);
+
+// RIGHT — convert to milliseconds.
+surfnet.timeTravelToTimestamp((clock.unixTimestamp + 3600) * 1000);
+```
+
+## Metti in Pausa e Riprendi l'Orologio
+
+Il viaggio nel tempo salta a un target; la pausa arresta completamente l'avanzamento dell'orologio.
+`surfnet_pauseClock` blocca la produzione di slot e il progresso del tempo fino a quando
+non viene eseguito `surfnet_resumeClock` — usalo quando un test necessita che lo slot e
+il timestamp rimangano fermi durante più asserzioni.
+
+Né l'SDK Rust né la classe `Surfnet` in `@solana/surfpool` racchiudono questi
+due cheatcode. Invocali tramite il
+[plugin Kit](/docs/tools/surfpool/sdk/kit-plugin), oppure direttamente via JSON-RPC.
+
+```ts
+const paused = await client.cheatcodes.pauseClock().send();
+
+// Nothing advances until the clock is resumed, so this is the only thing that
+// moves the slot.
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+
+await client.cheatcodes.resumeClock().send();
+```
+
+Entrambi i cheatcode restituiscono un `EpochInfo` — lo stato dell'orologio al momento della
+pausa e dopo la ripresa. Nota le due cose che quella struttura _non_ contiene:
+
+- **Nessun timestamp.** `EpochInfo` non ha un campo temporale. Leggi il tempo Unix simulato
+  dalla sysvar `Clock`: `getAccountInfo` su
+  `SysvarC1ock11111111111111111111111111111111` con encoding `jsonParsed` —
+  sempre in secondi.
+- **Nessun flag di pausa.** Nessun metodo RPC riporta se l'orologio è attualmente
+  in pausa. Tramite gli SDK, monitora l'evento
+  [`clockUpdate`](/docs/tools/surfpool/sdk/events), che si attiva con un
+  `clockCommand` ogni volta che viene eseguita una pausa, una ripresa o una modifica dell'intervallo. In alternativa,
+  tieni traccia dello stato nel tuo test.
 
 ## Pattern Comuni
 
@@ -136,11 +189,11 @@ for epoch in 2..=5 {
 
 Entrambi gli SDK restituiscono un oggetto di tipo `EpochInfo` con questi campi:
 
-| Campo                 | Rust                             | JS                          |
-| --------------------- | -------------------------------- | --------------------------- |
-| Slot assoluto         | `absolute_slot: u64`             | `absoluteSlot: number`      |
-| Slot nell'epoch       | `slot_index: u64`                | `slotIndex: number`         |
-| Slot per epoch        | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
-| Numero epoch          | `epoch: u64`                     | `epoch: number`             |
-| Altezza blocco        | `block_height: u64`              | `blockHeight: number`       |
+| Campo             | Rust                             | JS                          |
+| ----------------- | -------------------------------- | --------------------------- |
+| Slot assoluto     | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| Slot nell'epoch | `slot_index: u64`                | `slotIndex: number`         |
+| Slot per epoch   | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Numero epoch      | `epoch: u64`                     | `epoch: number`             |
+| Altezza blocco      | `block_height: u64`              | `blockHeight: number`       |
 | Conteggio transazioni | `transaction_count: Option<u64>` | `transactionCount?: number` |

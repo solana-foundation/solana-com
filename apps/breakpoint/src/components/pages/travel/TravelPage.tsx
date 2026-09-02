@@ -15,6 +15,7 @@ import {
   HEATHROW_AIRPORT_HREF,
   IAS_HREF,
   LONDON_CITY_AIRPORT_HREF,
+  LOCUS_HREF,
   VISA_CHECK_HREF,
 } from "@/content/links";
 import { getAnchorLinkProps } from "@/lib/links";
@@ -45,6 +46,11 @@ const AIRPORTS = [
     href: GATWICK_AIRPORT_HREF,
     id: "lgw",
   },
+] as const;
+
+const VISA_SUPPORT_OPTIONS = [
+  { id: "locus", href: LOCUS_HREF },
+  { id: "ias", href: IAS_HREF },
 ] as const;
 
 function FlightsSection() {
@@ -116,7 +122,7 @@ function VisaSection() {
           </div>
           <div className="type-paragraph flex flex-col gap-8 text-white md:col-span-8 md:col-start-9">
             <div className="flex flex-col gap-4">
-              <h3 className="type-p-large text-white">{t("firstStep")}</h3>
+              <h3 className="type-p-large text-white">{t("checkVisaOrEta")}</h3>
               <p>
                 <a
                   href={VISA_CHECK_HREF}
@@ -124,24 +130,34 @@ function VisaSection() {
                   {...getAnchorLinkProps({ href: VISA_CHECK_HREF })}
                 >
                   {t("officialRequirements")}
-                </a>{" "}
-                {t("entrySuffix")}
+                </a>
               </p>
             </div>
             <div className="flex flex-col gap-4">
-              <h3 className="type-p-large text-white">{t("secondStep")}</h3>
-              <p>
-                {t("supportPrefix")}{" "}
-                <a
-                  href={IAS_HREF}
-                  className="text-purple underline decoration-purple underline-offset-4 transition-opacity hover:opacity-80"
-                  {...getAnchorLinkProps({ href: IAS_HREF })}
+              <h3 className="type-p-large text-white">{t("supportHeading")}</h3>
+              {VISA_SUPPORT_OPTIONS.map((option) => (
+                <div
+                  key={option.id}
+                  className="flex flex-col items-start gap-4 border-t border-neutral-700 pb-3 pt-6"
                 >
-                  {t("supportLink")}
-                </a>{" "}
-                {t("supportSuffix")}
-              </p>
+                  <h4 className="type-p-large-bold text-white">
+                    {t(`supportOptions.${option.id}.name`)}
+                  </h4>
+                  <p>{t(`supportOptions.${option.id}.description`)}</p>
+                  <Button
+                    arrow
+                    href={option.href}
+                    label={t(`supportOptions.${option.id}.ctaLabel`)}
+                    variant="inline"
+                  />
+                </div>
+              ))}
               <p>{t("fees")}</p>
+            </div>
+            <div className="flex flex-col gap-4 border-t border-neutral-700 pt-6">
+              <h3 className="type-p-large text-white">
+                {t("invitationHeading")}
+              </h3>
               <p>
                 {t("invitationPrefix")}{" "}
                 <a

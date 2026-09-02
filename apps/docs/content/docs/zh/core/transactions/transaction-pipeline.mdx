@@ -1,8 +1,7 @@
 ---
 title: 交易处理流程
 description:
-  介绍 Solana 交易从提交到确认的处理流程，包括完整的 8
-  阶段验证流程、如何从网络读取交易详情，以及常见的验证错误。
+  介绍 Solana 交易从提交到确认的处理流程，包括完整的 8 阶段验证流程、如何从网络读取交易详情，以及常见的验证错误。
 url: /docs/core/transactions/transaction-pipeline
 type: reference
 prerequisites:
@@ -32,6 +31,12 @@ validator 通过 UDP/QUIC 接收交易字节。原始字节必须在单个数据
 = 1,232 字节）。这些字节会被反序列化为
 _rs`VersionedTransaction`_，其中包含签名数组和 _rs`VersionedMessage`_
 （可以是 legacy 或 v0）。
+
+即将推出的
+[v1 格式](/docs/core/transactions/versioned-transactions#v1-message-format)
+将限制提升至 4,096 字节。QUIC 不对流大小设置上限，因此超过 MTU 的 v1
+交易在摄入时会被拆分为多个 QUIC 帧，
+而不是被拒绝。
 
 ### 2. 签名验证（sigverify）
 
@@ -65,6 +70,13 @@ _rs`RuntimeTransaction`_ 包装器会缓存来自
 **计算预算**：首先解析并验证交易的计算预算指令。费用细节根据预算上限和优先级费用计算得出。如果计算预算无效或存在冲突，交易将因计算预算解析错误（如
 _rs`DuplicateInstruction`_、`InstructionError(..., InvalidInstructionData)` 或
 _rs`InvalidLoadedAccountsDataSizeLimit`_）而失败。
+
+对于
+[v1 交易](/docs/core/transactions/versioned-transactions#v1-message-format)，
+无需解析任何计算预算指令：限制和优先费
+来自消息配置，消息中的任何 ComputeBudget 指令
+在配置方面将被忽略。未设置的配置字段默认为零，这
+会在[账户加载](#6-load-accounts)阶段产生影响。
 
 **区块哈希年龄**：交易的 `recent_blockhash` 会在
 [`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33)
@@ -130,6 +142,17 @@ account 是否存在且归属于有效的 loader（`NativeLoader` 或 _rs`PROGRA
 _rs`InvalidProgramForExecution`_ 失败。
 
 LoaderV3（可升级）program 会自动加载其关联的 programdata 账户，该账户的数据大小也计入已加载数据的限制。
+
+<Callout type="warn" title="v1 交易将此限制默认设为零">
+  64 MiB 的默认值适用于旧版和 v0 交易。在 [v1
+  格式](/docs/core/transactions/versioned-transactions#v1-message-format)中，
+  已加载账户数据大小限制从消息配置中读取，未
+  设置的字段默认为 **0 字节**，而非一个宽松的默认值。因此，配置为空的 v1
+  交易将在此阶段失败，错误为
+  _rs`MaxLoadedAccountsDataSizeExceeded`_ —— 请求的预算对于第一个加载的账户来说太小，
+  因此失败发生在任何指令运行之前，且错误信息既未提及 v1 也未提及配置。在
+  构建 v1 交易时，请务必显式设置计算单元限制和已加载账户数据大小限制。
+</Callout>
 
 如果账户加载失败，但 fee payer 已成功验证，则该交易会变为
 [`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152)
@@ -200,44 +223,44 @@ Receive packet (UDP/QUIC)
 [`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
 变体及其发生的流程阶段：
 
-| 错误                                                                                                                                    | 阶段           | 原因                                                          |
-| --------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------- |
-| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | 调度           | 该账户已被同一批次中的其他交易锁定                            |
-| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | 调度           | 交易中的 pubkey 出现了两次                                    |
-| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | 费用支付人验证 | 费用支付人账户不存在                                          |
-| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | 账户加载       | 被调用的程序不存在                                            |
-| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | 费用支付人验证 | 费用支付人无法支付手续费和 rent 免租金最低额                  |
-| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | 费用支付人验证 | 费用支付人不是系统账户或 nonce 账户                           |
-| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | 状态缓存       | 该交易已被处理                                                |
-| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | 有效期检查     | 区块哈希不在队列中且不是有效的 nonce                          |
-| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | 执行           | 处理指令时发生错误（包含指令索引和具体的 `InstructionError`） |
-| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | 账户加载       | Loader 调用链过深                                             |
-| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | 校验           | 交易需要手续费但未包含签名                                    |
-| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | 校验           | 交易包含无效的账户引用                                        |
-| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | 签名验证       | Ed25519 签名验证失败（数据包被丢弃）                          |
-| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | 账户加载       | 程序不属于有效的 Loader 所有                                  |
-| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | 校验           | 交易未能正确校验账户偏移                                      |
-| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | 调度           | 由于集群维护，当前已禁用交易                                  |
-| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | 执行           | 交易处理后账户存在未清偿的借用引用                            |
-| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | 调度           | 交易将超出区块最大成本限制                                    |
-| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | 校验           | 交易版本不受支持                                              |
-| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | 账户加载       | 交易加载了不可写的可写账户                                    |
-| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | 调度           | 交易将超出区块内最大账户成本限制                              |
-| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | 调度           | 交易将超出区块内账户数据限制                                  |
-| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | 调度           | 交易锁定了过多账户                                            |
-| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | 账户加载       | 地址查找表账户不存在                                          |
-| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | 账户加载       | 地址查找表归属于错误的程序                                    |
-| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | 账户加载       | 地址查找表包含无效数据                                        |
-| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | 账户加载       | 地址查找表查找使用了无效索引                                  |
-| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | 执行后检查     | 账户从 rent 免租金状态变为需支付 rent                         |
-| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | 调度           | 交易将超出最大投票成本限制                                    |
-| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | 调度           | 交易将超出总账户数据限制                                      |
-| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | 计算预算解析   | 同一交易中存在重复的计算预算指令变体                          |
-| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | 执行后检查     | 账户 lamport 不足以支付其数据大小所需的 rent                  |
-| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | 账户加载       | 加载的数据总量超过 64 MiB 限制                                |
-| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | 计算预算解析   | `SetLoadedAccountsDataSizeLimit` 被设置为 0                   |
-| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | 校验           | 交易在功能激活前后存在差异，需要重新校验                      |
-| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | 账户加载       | 参考账户上的程序执行被临时限制                                |
-| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | 执行后检查     | 交易前后的 lamport 总余额不一致                               |
-| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | 账户加载       | 程序缓存达到最大限制                                          |
-| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | 提交           | 提交已在内部取消                                              |
+| 错误                                                                                                                                   | 阶段                  | 原因                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | 调度             | 该账户已被同一批次中的其他交易锁定                                                                        |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | 调度             | 交易中的 pubkey 出现了两次                                                                                |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | 费用支付人验证   | 费用支付人账户不存在                                                                                                          |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | 账户加载        | 被调用的程序不存在                                                                                                         |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | 费用支付人验证   | 费用支付人无法支付手续费和 rent 免租金最低额                                                                                          |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | 费用支付人验证   | 费用支付人不是系统账户或 nonce 账户                                                                                                |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | 状态缓存           | 该交易已被处理                                                                                                         |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | 有效期检查              | 区块哈希不在队列中且不是有效的 nonce                                                                                              |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | 执行              | 处理指令时发生错误（包含指令索引和具体的 `InstructionError`）                            |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | 账户加载        | Loader 调用链过深                                                                                                             |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | 校验               | 交易需要手续费但未包含签名                                                                                   |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | 校验               | 交易包含无效的账户引用                                                                                         |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | 签名验证              | Ed25519 签名验证失败（数据包被丢弃）                                                                                   |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | 账户加载        | 程序不属于有效的 Loader 所有                                                                                                    |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | 校验               | 交易未能正确校验账户偏移                                                                                 |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | 调度             | 由于集群维护，当前已禁用交易                                                                            |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | 执行              | 交易处理后账户存在未清偿的借用引用                                                             |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | 调度             | 交易将超出区块最大成本限制                                                                                             |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | 校验               | 交易版本不受支持                                                                                                        |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | 账户加载        | 交易加载了不可写的可写账户                                                                               |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | 调度             | 交易将超出区块内最大账户成本限制                                                                          |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | 调度             | 交易将超出区块内账户数据限制                                                                              |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | 调度             | 交易锁定了过多账户                                                                                                      |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | 账户加载        | 地址查找表账户不存在                                                                                               |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | 账户加载        | 地址查找表归属于错误的程序                                                                                        |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | 账户加载        | 地址查找表包含无效数据                                                                                                |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | 账户加载        | 地址查找表查找使用了无效索引                                                                                                |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | 执行后检查   | 账户从 rent 免租金状态变为需支付 rent                                                                                      |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | 调度             | 交易将超出最大投票成本限制                                                                                              |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | 调度             | 交易将超出总账户数据限制                                                                                         |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | 计算预算解析 | 同一交易中存在重复的计算预算指令变体                                                                      |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | 执行后检查   | 账户 lamport 不足以支付其数据大小所需的 rent                                                                     |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | 账户加载        | 加载的总数据超过交易的已加载账户数据大小限制（默认为 64 MiB；在 v1 中，除非在消息配置中设置，否则为 0） |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | 计算预算解析 | `SetLoadedAccountsDataSizeLimit` 被设置为 0                                                                                                 |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | 校验               | 交易在功能激活前后存在差异，需要重新校验                                                             |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | 账户加载        | 参考账户上的程序执行被临时限制                                                                     |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | 执行后检查   | 交易前后的 lamport 总余额不一致                                                             |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | 账户加载        | 程序缓存达到最大限制                                                                                                               |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | 提交                 | 提交已在内部取消                                                                                                               |

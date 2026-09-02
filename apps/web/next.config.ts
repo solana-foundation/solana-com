@@ -1,5 +1,6 @@
 // trigger preview build
 import createNextIntlPlugin from "next-intl/plugin";
+import { withBotId } from "botid/next/config";
 import rewritesAndRedirectsJson from "./rewrites-redirects";
 import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
@@ -90,18 +91,6 @@ const nextConfig: NextConfig = {
       afterFiles: Rewrite[];
       fallback: Rewrite[];
     };
-
-    // TODO: In production, add rewrite for /templates/* to templates app
-    // This allows the templates app to be deployed separately while maintaining
-    // the same domain for SEO and UX (prefetching, etc.)
-    // Example:
-    // if (process.env.TEMPLATES_APP_URL) {
-    //   baseRewrites.beforeFiles.push({
-    //     source: '/templates/:path*',
-    //     destination: `${process.env.TEMPLATES_APP_URL}/:path*`,
-    //     locale: false,
-    //   });
-    // }
 
     return baseRewrites;
   },
@@ -283,7 +272,7 @@ const moduleExports = (): NextConfig => {
   return plugins.reduce<NextConfig>((acc, next) => next(acc), nextConfig);
 };
 
-export default withSentryConfig(moduleExports, {
+export default withSentryConfig(withBotId(moduleExports), {
   org: "solana-fndn",
   project: "javascript-nextjs",
   silent: !process.env.CI,

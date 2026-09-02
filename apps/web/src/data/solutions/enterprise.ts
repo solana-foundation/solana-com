@@ -30,24 +30,6 @@ export const TECHNICAL_GUIDES = [
   },
 ];
 
-// FAQ items
-export const FAQ_ITEMS = [
-  {
-    key: "tokenization",
-    link: "/solutions/tokenization",
-  },
-  {
-    key: "custody",
-    link: "/docs/tools/keychain",
-  },
-  {
-    key: "compliance",
-    link: "/docs/tokens/extensions",
-    secondaryLink: "https://github.com/solana-foundation/token-acl",
-    secondaryLinkLabel: "Token ACL",
-  },
-];
-
 // Resource links
 export const RESOURCES = [
   {

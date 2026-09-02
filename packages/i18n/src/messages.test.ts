@@ -126,7 +126,7 @@ describe("@workspace/i18n messages", () => {
 
     expect(messages).toHaveProperty(
       "breakpoint.travel.visas.checkRequirements",
-      "Check visa requirements",
+      "Check visa or ETA requirements",
     );
     expect(messages).toHaveProperty(
       "breakpoint.pages.registration.heroTitle",

@@ -20,6 +20,7 @@ const schema = z.custom<{
   full?: boolean;
   author?: string;
   tags?: string[];
+  documentationTags?: string[];
   date?: string;
   difficulty?: string;
   index?: boolean;

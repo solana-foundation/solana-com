@@ -1,8 +1,7 @@
 ---
 title: 取引所にSolanaを追加する
 description:
-  Learn how to integrate Solana into your exchange with this guide covering node
-  setup and implementation details for deposits and withdrawals.
+  Learn how to integrate Solana into your exchange with this guide covering node setup and implementation details for deposits and withdrawals.
 ---
 
 このガイドでは、SolanaのネイティブトークンであるSOLを暗号資産取引所に追加する方法について説明します。
@@ -130,9 +129,14 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 メインネットがバージョン管理トランザクションの処理を開始した場合、取引所は**必ず**変更を加える必要があります。変更が行われない場合、バージョン管理トランザクションまたはバージョン管理トランザクションを含むブロックの取得時にエラーが返されるため、入金検知が正常に機能しなくなります。
 
-- `{"maxSupportedTransactionVersion": 0}`
+- `{"maxSupportedTransactionVersion": 1}`
 
-  `maxSupportedTransactionVersion` パラメーターは、入金検知の中断を避けるために `getBlock` および `getTransaction` リクエストに追加する必要があります。最新のトランザクションバージョンは `0` であり、サポートされる最大トランザクションバージョン値として指定する必要があります。
+  `maxSupportedTransactionVersion` パラメーターは、デポジット検出の中断を避けるため、`getBlock` および
+  `getTransaction` リクエストに追加する必要があります。最新のトランザクションバージョンは `0` で、
+  [v1 フォーマット](/docs/core/transactions/versioned-transactions#v1-message-format)
+  は Agave v4.2 で有効化されます。有効化の前に備えるため、今すぐ整数値 `1` を設定してください（ノードがサポートするより高いバージョンをリクエストしても安全です）。サポートされていないバージョンのトランザクションが1件でもあると、`getBlock` レスポンス**全体**が失敗します。一方、`getSignaturesForAddress` はバージョンによって失敗することはありません。そのため、オプトインなしでは、v1 のデポジットはシグネチャ一覧には表示されますが、取得することができません。
+
+  v1 が有効化されると、デポジットパイプラインに影響するさらに2つの変更があります。v1 トランザクションでは、コンピューティングおよび手数料の上限が ComputeBudget instructions ではなく `transactionConfig` メッセージオブジェクトに含まれます（手数料を確認するために instructions をスキャンするパイプラインは、v1 に対してゼロを報告します）。また、v1 はアドレスルックアップテーブルを使用しません。
 
 バージョン管理トランザクションを使用すると、ユーザーはオンチェーンのアドレスルックアップテーブルから読み込まれた別のアカウントキーセットを使用するトランザクションを作成できることを理解することが重要です。
 
@@ -445,10 +449,15 @@ solana transfer <USER_ADDRESS> <AMOUNT> --allow-unfunded-recipient --keypair <KE
 
 **注意：** 各トランザクションには、その有効性を示す[最新のブロックハッシュ](/docs/core/transactions/transaction-structure#recent-blockhash)が含まれています。クラスターによって確認またはファイナライズされていないように見える出金送金を再試行する前に、このブロックハッシュが期限切れになるまで待つことが**重要**です。そうしないと、二重支払いのリスクがあります。[ブロックハッシュの有効期限](#blockhash-expiration)については以下を参照してください。
 
-まず、[`getFees`](/docs/rpc/deprecated/getfees)エンドポイントまたはCLIコマンドを使用して最新のブロックハッシュを取得します：
+まず、[`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash) エンドポイントを使用して、最新のブロックハッシュとその最終有効ブロック高を取得します：
 
 ```shell
-solana fees --url http://localhost:8899
+curl http://localhost:8899 -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getLatestBlockhash",
+  "params":[{"commitment":"finalized"}]
+}'
 ```
 
 コマンドラインツールでは、`--no-wait`引数を渡して送金を非同期で送信し、`--blockhash`引数で最新のブロックハッシュを指定します：
@@ -511,7 +520,7 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 #### ブロックハッシュの有効期限
 
-[`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash)リクエストにブロックハッシュをパラメーターとして送信することで、特定のブロックハッシュがまだ有効かどうかを確認できます。レスポンスの値が`null`の場合、ブロックハッシュは期限切れであり、そのブロックハッシュを使用した出金トランザクションは成功しません。
+ブロックハッシュを引数として [`isBlockhashValid`](/docs/rpc/http/isblockhashvalid) リクエストを送信することで、特定のブロックハッシュがまだ有効かどうかを確認できます。レスポンスの値が `false` の場合、そのブロックハッシュは期限切れであり、そのブロックハッシュを使用した出金トランザクションは成功しません。
 
 ### 出金のためのユーザー指定アカウントアドレスの検証
 
@@ -739,11 +748,13 @@ cargo install spl-token-cli
 spl-token --version
 ```
 
-次のような結果が表示されるはずです
+これにより、インストールされているバージョンが表示されます。例：
 
 ```text
-spl-token-cli 2.0.1
+spl-token-cli 5.6.1
 ```
+
+SPL Token-2022 のサポートが必要な場合は、バージョン 5.6.1 以降を使用してください。
 
 ### アカウントの作成
 
@@ -1493,7 +1504,7 @@ spl-token transfer --fund-recipient <exchange token account> <withdrawal amount>
 
 [SPL Token-2022](https://spl.solana.com/token-2022)は、Solanaブロックチェーン上でのラップ/合成トークンの作成と交換に関する最新の標準です。
 
-「Token Extensions」とも呼ばれるこの標準には、トークン作成者およびアカウント保有者が任意で有効化できる多くの新機能が含まれています。これらの機能には、コンフィデンシャル転送、転送手数料、ミントのクローズ、メタデータ、パーマネントデリゲート、イミュータブルオーナーシップなどが含まれます。詳細については、[拡張機能ガイド](https://spl.solana.com/token-2022/extensions)をご参照ください。
+「Token Extensions」とも呼ばれるこの規格には、トークン作成者およびアカウント保有者がオプションで有効化できる多くの新機能が含まれています。これらの機能には、Confidential Balances、転送手数料、ミントのクローズ、メタデータ、永続的なデリゲート、不変の所有権などが含まれます。詳細については、[拡張機能ガイド](https://spl.solana.com/token-2022/extensions)をご参照ください。
 
 取引所がSPL Tokenをサポートしている場合、SPL Token-2022をサポートするために必要な追加作業はそれほど多くありません：
 
@@ -1541,13 +1552,13 @@ spl-token transfer --expected-fee <fee amount> --fund-recipient <exchange token 
 spl-token close --address <account address>
 ```
 
-#### コンフィデンシャル転送
+#### Confidential Balances
 
-ミントはコンフィデンシャル転送用に設定することができ、トークン量は暗号化されますが、アカウント所有者は引き続き公開されます。
+ミントは Confidential Balances を設定することができ、トークンの残高は暗号化されますが、アカウントの所有者は引き続き公開されます。
 
-取引所はtoken accountをコンフィデンシャル転送の送受信用に設定して、ユーザーの金額を非公開にすることができます。token accountでコンフィデンシャル転送を有効にすることは必須ではないため、取引所はユーザーに非コンフィデンシャルでトークンを送信するよう強制することができます。
+取引所は、ユーザーの残高を隠すために、秘密転送の送受信ができるよう token account を設定することができます。token account での Confidential Balances の有効化は必須ではないため、取引所はユーザーに非秘密でトークンを送信させることを強制できます。
 
-コンフィデンシャル転送を有効にするには、アカウントを次のように設定する必要があります：
+Confidential Balances を有効化するには、アカウントを設定します：
 
 ```shell
 spl-token configure-confidential-transfer-account --address <account address>

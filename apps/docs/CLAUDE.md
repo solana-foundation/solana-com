@@ -159,12 +159,6 @@ documentation pages. Inkeep feedback uses a server action under
 - Sentry integration for error tracking
 - Fumadocs MDX processing runs on postinstall
 
-## Environment Variables
-
-- `DEVELOPER_CONTENT_API_KEY` - Content API access
-- `DEVELOPER_DATA_API_KEY` - Data API access
-- `DEVELOPER_DATA_API_URL` - Data API endpoint
-
 ## Content Conventions
 
 ### MDX Frontmatter

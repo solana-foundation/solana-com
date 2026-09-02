@@ -1,3 +1,5 @@
+/* global console */
+
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -12,9 +14,36 @@ const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 const lock = fs.existsSync(lockPath)
   ? JSON.parse(fs.readFileSync(lockPath, "utf8"))
   : null;
+const requestedScope = process.argv[2] ?? "all";
+const missingOnly = process.argv.includes("--missing-only");
+
+function isPatternInScope(pattern) {
+  if (requestedScope === "all") {
+    return true;
+  }
+
+  if (requestedScope === "docs") {
+    return pattern.startsWith("apps/docs/");
+  }
+
+  if (requestedScope === "ui") {
+    return pattern.startsWith("packages/i18n/messages/");
+  }
+
+  return pattern.startsWith(`packages/i18n/messages/${requestedScope}/`);
+}
+
+const scopedFileGroups = config.files.filter((fileGroup) =>
+  (fileGroup.include ?? [fileGroup.pattern]).some(isPatternInScope),
+);
+
+if (scopedFileGroups.length === 0) {
+  console.error(`No Lingo file groups match the "${requestedScope}" scope.`);
+  process.exit(1);
+}
 
 const excludedSources = new Set(
-  config.files.flatMap((fileGroup) =>
+  scopedFileGroups.flatMap((fileGroup) =>
     (fileGroup.exclude ?? []).flatMap((pattern) =>
       fs.globSync(pattern, { cwd: rootDir }),
     ),
@@ -22,7 +51,7 @@ const excludedSources = new Set(
 );
 const sourceFiles = [
   ...new Set(
-    config.files
+    scopedFileGroups
       .flatMap((fileGroup) =>
         (fileGroup.include ?? [fileGroup.pattern]).flatMap((pattern) =>
           fs.globSync(pattern, { cwd: rootDir }),
@@ -54,6 +83,30 @@ const missingTargets = sourceFiles.flatMap((sourcePath) =>
     .map((targetLocale) => getTargetPath(sourcePath, targetLocale))
     .filter((targetPath) => !fs.existsSync(path.join(rootDir, targetPath))),
 );
+const targetCount = sourceFiles.length * config.targetLocales.length;
+
+function reportMissingTargets() {
+  for (const targetPath of missingTargets.slice(0, 20)) {
+    console.error(`- missing file: ${targetPath}`);
+  }
+
+  if (missingTargets.length > 20) {
+    console.error(`- …and ${missingTargets.length - 20} more missing files`);
+  }
+}
+
+if (missingOnly) {
+  if (missingTargets.length > 0) {
+    console.error("Lingo target files are missing.");
+    reportMissingTargets();
+    process.exit(1);
+  }
+
+  console.log(
+    `Lingo target file guard passed for the "${requestedScope}" scope (${targetCount} existing targets).`,
+  );
+  process.exit(0);
+}
 
 function getLeafKeys(value, prefix = "") {
   if (value === null || typeof value !== "object") {
@@ -123,14 +176,7 @@ if (
   divergentLockedTargets.length > 0
 ) {
   console.error("Lingo target coverage is incomplete.");
-
-  for (const targetPath of missingTargets.slice(0, 20)) {
-    console.error(`- missing file: ${targetPath}`);
-  }
-
-  if (missingTargets.length > 20) {
-    console.error(`- …and ${missingTargets.length - 20} more missing files`);
-  }
+  reportMissingTargets();
 
   for (const { targetPath, missingKeys } of incompleteJsonTargets.slice(
     0,
@@ -160,7 +206,6 @@ if (
   process.exit(1);
 }
 
-const targetCount = sourceFiles.length * config.targetLocales.length;
 console.log(
-  `Lingo target coverage guard passed (${sourceFiles.length} sources, ${targetCount} existing targets).`,
+  `Lingo target coverage guard passed for the "${requestedScope}" scope (${sourceFiles.length} sources, ${targetCount} existing targets).`,
 );
