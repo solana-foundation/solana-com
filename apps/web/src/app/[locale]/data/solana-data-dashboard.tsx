@@ -50,6 +50,7 @@ import {
   getDefaultRpcRegion,
   getRpcRegionOptions,
   getRpcRegionsByInfra,
+  getRpcTimeframeOption,
   isRpcLatencyFiltersResponse,
   metricColors,
   normalizeProviderName,
@@ -548,6 +549,7 @@ export function SolanaDataDashboard() {
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
                 rows={rows}
+                rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
                 visibleCharts={visibleCharts}
               />
@@ -963,6 +965,7 @@ function ChartGrid({
   isRefreshing,
   isConnectedToPrevious,
   rows,
+  rpcTimeframe,
   selectedProviders,
   visibleCharts,
 }: {
@@ -972,6 +975,7 @@ function ChartGrid({
   isLoading: boolean;
   isRefreshing: boolean;
   rows: MetricRow[];
+  rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
   visibleCharts: readonly ChartDefinition[];
 }) {
@@ -1014,6 +1018,7 @@ function ChartGrid({
                 isRefreshing={isRefreshing}
                 key={chart.id}
                 rows={rows}
+                rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
               />
             ))}
@@ -1447,6 +1452,7 @@ function ChartCard({
   index,
   isRefreshing,
   rows,
+  rpcTimeframe,
   selectedProviders,
 }: {
   chart: ChartDefinition;
@@ -1454,6 +1460,7 @@ function ChartCard({
   index: number;
   isRefreshing: boolean;
   rows: MetricRow[];
+  rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
 }) {
   const t = useTranslations("dataDashboard");
@@ -1463,7 +1470,9 @@ function ChartCard({
   );
   const valueLabel = getValueLabel(t, chart.valueLabel);
   const title = getChartTitle(t, chart);
-  const caption = getChartCaption(t, chart);
+  const caption = getChartCaption(t, chart, {
+    timeframe: getRpcTimeframeOption(rpcTimeframe).label,
+  });
   const resolvedChartHeight =
     chart.visualization === "bar"
       ? Math.max(chartHeight, series.length * 56)
@@ -2686,10 +2695,14 @@ function getChartTitle(t: DashboardTranslator, chart: ChartDefinition) {
   return t.has(titleKey) ? t(titleKey) : chart.title;
 }
 
-function getChartCaption(t: DashboardTranslator, chart: ChartDefinition) {
+function getChartCaption(
+  t: DashboardTranslator,
+  chart: ChartDefinition,
+  values?: Record<string, string>,
+) {
   const captionKey = `charts.${chart.id}.caption`;
 
-  return t.has(captionKey) ? t(captionKey) : undefined;
+  return t.has(captionKey) ? t(captionKey, values) : undefined;
 }
 
 function getValueLabel(t: DashboardTranslator, valueLabel: string) {
