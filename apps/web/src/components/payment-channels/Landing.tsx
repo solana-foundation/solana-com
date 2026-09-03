@@ -587,9 +587,10 @@ function Streak({ style }: { style: CSSProperties }) {
 /* ── content, verbatim from the copy deck ── */
 
 const STATS: [string, string][] = [
-  ["1M+", "Payments per second"],
   ["100K", "Unique wallets"],
+  ["1M+", "Payments issued every second"],
   ["80B+", "Payments in 24 hours"],
+  ["$0.000000000776", "Payment processing cost / transaction cost"],
 ];
 
 const BREAKS: [string, string][] = [
@@ -619,8 +620,8 @@ const STEPS: { layers: Layer[]; title: string; body: string }[] = [
   },
   {
     layers: [{ outer: "16.67%", inner: "-3.75%", src: ART.iSettle }],
-    title: "Settle",
-    body: "The actual amount consumed is recorded onchain in a single transaction.",
+    title: "Batched settlement",
+    body: "Actual amounts consumed are recorded onchain in one batched transaction.",
   },
   {
     layers: [
@@ -630,8 +631,8 @@ const STEPS: { layers: Layer[]; title: string; body: string }[] = [
         src: ART.iRefund,
       },
     ],
-    title: "Refund",
-    body: "Any unused deposit returns to the primary wallet.",
+    title: "Distribute",
+    body: "Unused deposit returns to the sender, and committed amounts are distributed to all configured recipients.",
   },
 ];
 
@@ -702,8 +703,8 @@ const TILES: { name: string; href: string; layers: Layer[] }[] = [
     layers: [{ outer: "16.67% 8.33%", inner: "-4.55% -4.24%", src: ART.tCode }],
   },
   {
-    name: "Toolkit & Playground",
-    href: "https://github.com/solana-foundation/pay-kit",
+    name: "Toolchain & Deployment",
+    href: "https://github.com/solana-foundation/pay",
     layers: [
       { outer: "16.67% 16.67% 58.33% 58.33%", inner: "-10%", src: ART.tSlider },
       /* the second knob — Figma writes this one with fraction utilities */
@@ -726,8 +727,8 @@ const TILES: { name: string; href: string; layers: Layer[] }[] = [
     ],
   },
   {
-    name: "SDK + Quickstart",
-    href: "https://pay.sh/docs/sdk/typescript",
+    name: "SDK + Playground",
+    href: "https://github.com/solana-foundation/pay-kit",
     layers: [
       {
         outer: "20.83% 12.5% 16.67% 12.5%",
@@ -811,6 +812,11 @@ export default function Landing() {
                 <p className={`${s.bodyM} ${s.med} ${s.statLabel}`}>{label}</p>
               </div>
             ))}
+          </div>
+          <div className={s.statsFooter}>
+            <span className={`${s.bodyS} ${s.mid}`}>
+              Sustained 24h benchmark
+            </span>
           </div>
           <div className={s.statsFade} aria-hidden="true" />
         </div>
@@ -1067,7 +1073,10 @@ export default function Landing() {
                   full cycle finalized all 100,000 channels while one million
                   payments per second continued at application speed.
                 </p>
-                <a className={s.btn} href="https://pay.sh/docs/sdk/typescript">
+                <a
+                  className={s.btn}
+                  href="https://solana.com/developers/templates/pay-high-throughput-proxy"
+                >
                   Run the benchmark
                 </a>
               </div>

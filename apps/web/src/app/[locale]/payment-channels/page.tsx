@@ -13,6 +13,6 @@ export async function generateMetadata({ params }: Props) {
     ...getBaseMetadata(locale),
     title: "Payment channels for agentic payments",
     description:
-      "A visual study of payment channels built to process one million logical payments per second and settle on Solana.",
+      "A visual study of payment channels built to process one million payments per second and settle on Solana.",
   };
 }
