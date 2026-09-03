@@ -111,12 +111,20 @@ async function getLatestRelease(): Promise<ContentEntry | undefined> {
         return undefined;
       }
 
+      const overview = toStringValue(rawEntry.overview);
+      if (
+        !overview ||
+        !isPublishedUpgrade(await reader.collections.upgrades.read(overview))
+      ) {
+        return undefined;
+      }
+
       return {
         slug,
         title: toStringValue(rawEntry.name) || slug,
         description: "",
         publishedAt,
-        overview: toStringValue(rawEntry.overview) || undefined,
+        overview,
       };
     }),
   );

@@ -99,6 +99,11 @@ describe("developer updates endpoint", () => {
             publishedAt: "2026-08-27T00:00:00.000Z",
             status: "published",
           },
+          "agave-4-2-release-overview": {
+            title: "Agave 4.2 Release Overview",
+            publishedAt: "2026-07-24T00:00:00.000Z",
+            status: "published",
+          },
         }[slug],
       ),
     );
@@ -193,4 +198,36 @@ describe("developer updates endpoint", () => {
       expect.objectContaining({ kind: "Release" }),
     );
   });
+
+  it.each([
+    ["draft", { status: "draft", publishedAt: "2026-08-01T00:00:00.000Z" }],
+    [
+      "future-dated",
+      { status: "published", publishedAt: "2026-09-04T00:00:00.000Z" },
+    ],
+  ])(
+    "omits a shipped release with a %s upgrade overview",
+    async (_, overview) => {
+      readerMock.collections.releases.list.mockResolvedValue([
+        "shipped-release",
+      ]);
+      readerMock.collections.releases.read.mockResolvedValue({
+        name: "Agave 4.2",
+        expectedDate: "2026-08-01",
+        status: "shipped",
+        overview: "release-overview",
+      });
+      readerMock.collections.upgrades.read.mockImplementation((slug: string) =>
+        Promise.resolve(slug === "release-overview" ? overview : undefined),
+      );
+
+      const response = (await GET()) as unknown as {
+        body: { updates: Array<{ kind: string }> };
+      };
+
+      expect(response.body.updates).not.toContainEqual(
+        expect.objectContaining({ kind: "Release" }),
+      );
+    },
+  );
 });
