@@ -1,0 +1,202 @@
+---
+title: Rent on Solana has been Reduced. Every Account Is Now Over-Funded. Here's
+  How to Reclaim Excess SOL.
+description: Reclaim SOL above the rent-exempt minimum from token accounts,
+  mints, and program-owned PDAs as Solana’s five-phase rent reduction begins.
+publishedAt: 2026-09-03T15:15:10.205Z
+categories:
+  - category: upgrades
+status: published
+author: solana-foundation
+tags:
+  - tag: developer
+  - tag: token
+  - tag: solana
+  - tag: technology
+---
+
+# Rent on Solana has been Reduced. Every Account Is Now Over-Funded. Here's How to Reclaim Excess SOL.
+
+[Rent on Solana is getting cheaper](https://solana.com/upgrades/reduced-rent), and that means you and your users are now sitting on excess lamports that can be reclaimed.
+
+If you manage a wallet or other utility service (e.g., token account closing), you may want to allow your users to reclaim excess rent on their token accounts and token mints. If you operate a program, you may want to allow users to reclaim excess rent on PDAs that your program owns. Let’s walk through how to do both.
+
+## Reclaiming from Token Accounts and Mints
+
+The Token Program was recently reimplemented using Pinocchio (called [P-token](https://solana.com/upgrades/p-token)). When P-token went live on mainnet, several new instructions were added to the program, including one that was built exactly for this: WithdrawExcessLamports.
+
+It recovers SOL sitting above the rent-exempt minimum from a token account, mint, or multisig account — without touching token balances and without closing the account. The account stays open and functional; only the surplus lamports move.
+
+The on-chain logic is simple. Conceptually, the processor computes the source account's rent-exempt floor, and moves everything above it to the destination:
+
+// Simplified from the Token Program's withdraw\_excess\_lamports processor.
+
+// The source keeps exactly its rent-exempt minimum; the rest moves out.
+
+let rent\_exempt\_reserve = Rent::get()?.minimum\_balance(source\_account\_info.data\_len());
+
+let excess = source\_account\_info
+
+.lamports()
+
+.checked\_sub(rent\_exempt\_reserve)
+
+.ok\_or(TokenError::Overflow)?;
+
+// Credit the destination, debit the source.
+
+\*destination\_account\_info.borrow\_mut\_lamports\_unchecked() += excess;
+
+\*source\_account\_info.borrow\_mut\_lamports\_unchecked() = rent\_exempt\_reserve;
+
+
+
+The withdrawal must be signed by the account's authority:
+
+- For a token account, that's the account owner.
+
+- For a mint, that's the mint authority
+
+- For a mint whose authority has been revoked, authorization can instead come from the mint account itself signing — i.e. the transaction is signed with the mint's own key.
+
+### Client-side (TypeScript)
+
+WithdrawExcessLamports is exposed through the [@solana-program/token](https://www.npmjs.com/package/@solana-program/token) client. The shape of the call is:
+
+import \{
+
+getWithdrawExcessLamportsInstruction,
+
+\} from '@solana-program/token';
+
+// Move all lamports above the rent-exempt floor out of \`sourceAccount\`
+
+// (a token account or mint) into \`destination\`, authorized by \`authority\`.
+
+const instruction = getWithdrawExcessLamportsInstruction(\{
+
+source: sourceAddress, // the token account or mint holding excess SOL
+
+destination: destinationAddress, // where the reclaimed lamports land
+
+authority: authoritySigner, // owner / mint authority / the mint itself
+
+\});
+
+// Drop \`instruction\` into a transaction message and send as usual.
+
+
+
+That's the entire flow for anything the Token Program owns. The Token 2022 program has the same instruction accessible via the @solana-program/token-2022.
+
+## Reclaiming from your own program's PDAs
+
+The Token Program can only help with accounts it owns. For your own program-owned accounts (e.g., DeFi position PDAs, config accounts, escrow vaults), your program is the owner, so you will need to write the reclaim logic as an instruction in your program. The good news is it's the same idea that they token program uses, following the realloc pattern you already use when resizing an account.
+
+Two things determine an account's rent floor: its data size and the current lamports\_per\_byte. You reclaim by (1) shrinking the account to the size it actually needs, then (2) moving any lamports above the new rent-exempt minimum out to a destination.
+
+### Shrinking / reclaiming: you pull lamports out
+
+For a program-owned account, you can't use a System Program transfer to move lamports out (System only moves lamports out of accounts it owns). Instead, because your program owns the account, you mutate the lamport balances directly (like the token program's WithdrawExcessLamports instruction). Debit the account and credit the destination in the same instruction; the runtime enforces that the two sides balance.
+
+use solana\_program::\{rent::Rent, sysvar::Sysvar\};
+
+pub fn reclaim\_excess(
+
+target\_account: &AccountInfo, // owned by THIS program
+
+destination: &AccountInfo, // e.g. the user's wallet
+
+authority: &AccountInfo, // authority
+
+) -&gt; ProgramResult \{
+
+// 1. Validate Authority & PDA
+
+// Program-specific logic for validating your PDA & authority
+
+// 2. Compute the rent-exempt floor at the CURRENT lamports\_per\_byte.
+
+// Reading from the Rent sysvar means you pick up the reduced rate
+
+// automatically — never hardcode the constant.
+
+let rent\_exempt\_reserve = Rent::get()?.minimum\_balance(target\_account.data\_len());
+
+// 3. Everything above the floor is reclaimable.
+
+let excess = target\_account
+
+.lamports()
+
+.saturating\_sub(rent\_exempt\_reserve);
+
+if excess == 0 \{
+
+return Ok(());
+
+\}
+
+// 4. Direct lamport movement — legal because this program owns target\_account.
+
+\*\*destination.try\_borrow\_mut\_lamports()? += excess;
+
+\*\*target\_account.try\_borrow\_mut\_lamports()? -= excess;
+
+Ok(())
+
+\}
+
+
+
+The full checklist for a safe reclaim instruction:
+
+1. Verify ownership — the target account must be owned by your program, or the direct lamport mutation will fail.
+
+1. Verify the authority signer — decide who is allowed to reclaim (the position owner, an admin, etc.) and check they signed.
+
+1. Read the floor from the Rent sysvar — this is what makes your program automatically correct across each phase of the rent reduction rollout.
+
+1. Move only the excess — leave the rent-exempt reserve in place so the account stays alive.
+
+1. Balance the transaction — the sum of lamports across accounts must be conserved; credit the destination by exactly what you debit.
+
+This works identically whether your program is written in Anchor, native Rust, or Pinocchio — the framework only changes the surrounding boilerplate (account validation, (de)serialization), not the core lamport arithmetic.
+
+## Full code samples
+
+For complete, runnable programs and clients:
+
+- Token Program WithdrawExcessLamports — on-chain processor source: [solana-program/token](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/withdraw_excess_lamports.rs) [· withdraw\_excess\_lamports.rs](https://github.com/solana-program/token/blob/main/pinocchio/program/src/processor/withdraw_excess_lamports.rs). Client docs: [Advanced Token Instructions → Withdraw Excess Lamports](https://solana.com/docs/tokens/advanced/withdraw-excess-lamports).
+
+- Custom realloc / reclaim for your own PDAs — Anchor, native, and Pinocchio examples: [solana-foundation/program-examples](https://github.com/solana-foundation/program-examples/tree/main/basics/realloc) [· basics/realloc](https://github.com/solana-foundation/program-examples/tree/main/basics/realloc).
+
+## Make sure new accounts are sized properly
+
+One thing to look out for in your existing codebases is rent constants. Since rent is changing (and likely to change again in the future), best practice is to always fetch the current rent exempt amount rather than hard-coding rent amounts:
+
+// Program Requests
+
+// https://docs.rs/solana-rent/latest/solana\_rent/index.html
+
+let lamports\_required = (Rent::get()?).try\_minimum\_balance(account\_span)?;
+
+// Client Requests
+
+// [https://solana.com/docs/rpc/http/getminimumbalanceforrentexemption](https://solana.com/docs/rpc/http/getminimumbalanceforrentexemption)
+
+// Kit Example:
+
+let minBalForRentExemption = await rpc
+
+.getMinimumBalanceForRentExemption(dataLength)
+
+.send();
+
+
+
+## Looking ahead
+
+Today marks the first phase of a 5-phased rent reduction roll-out. Follow the full rollout at [https://solana.com/upgrades/reduced-rent](https://solana.com/upgrades/reduced-rent).
+
+The core teams working on Solana are shipping fast, so expect more changes like these that improve the builder and user experience. To stay up with the latest, subscribe to [https://x.com/solana\_devs](https://x.com/solana_devs) and check out [https://solana.com/upgrades](https://solana.com/upgrades).
