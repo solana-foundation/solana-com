@@ -590,7 +590,7 @@ const STATS: [string, string][] = [
   ["100K", "Unique wallets"],
   ["1M+", "Payments issued every second"],
   ["80B+", "Payments in 24 hours"],
-  ["$0.000000000776", "Payment processing cost / transaction cost"],
+  ["$0.0078", "Per 1M payments"],
 ];
 
 const BREAKS: [string, string][] = [
