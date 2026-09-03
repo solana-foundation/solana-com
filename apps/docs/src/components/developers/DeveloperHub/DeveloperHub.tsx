@@ -331,7 +331,7 @@ const partners: HubLink[] = [
     id: "moonsong",
     titleKey: "partners.items.moonsong.title",
     descriptionKey: "partners.items.moonsong.description",
-    href: "",
+    href: "https://www.moonsonglabs.com/",
   },
   {
     id: "turbine3",
