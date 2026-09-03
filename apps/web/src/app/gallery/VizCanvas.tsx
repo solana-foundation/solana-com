@@ -226,7 +226,16 @@ export default function VizCanvas({
 
     /* these are stateful sketches — a still can only be reached by running
        them there, so wind the clock forward in coarse steps */
-    const poster = () => {
+    const poster = async () => {
+      /* Let the page paint its stable black field before warming a full-screen
+         poster. Without this first yield, the synchronous wind blocks the
+         browser and the canvas appears to jump from a black screen to a fully
+         populated scene. */
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      if (!alive) return;
+
       /* Two speeds, because the two halves of the wind are doing different
          jobs. The early part only has to get the endpoints into a plausible
          mood — how busy each is, where it sits in its slow swell — and coarse
@@ -255,19 +264,34 @@ export default function VizCanvas({
       const liveTail = Math.max(LIVE_TAIL, travelTail);
       const posterTime = Math.max(viz.poster, liveTail + 5);
       let acc = 0;
-      const wind = (until: number, step: number) => {
+      const wind = async (until: number, step: number) => {
         while (acc < until - 1e-6) {
-          const s = Math.min(step, until - acc);
-          acc += s;
-          frame(ctx, w, h, acc, s, pointer, warmCtl);
+          const sliceStart = performance.now();
+          while (acc < until - 1e-6 && performance.now() - sliceStart < 8) {
+            const s = Math.min(step, until - acc);
+            acc += s;
+            frame(ctx, w, h, acc, s, pointer, warmCtl);
+          }
+          if (acc < until - 1e-6) {
+            await new Promise<void>((resolve) =>
+              requestAnimationFrame(() => resolve()),
+            );
+            if (!alive) return;
+          }
         }
       };
-      wind(Math.max(0, posterTime - liveTail), posterTime / POSTER_STEPS);
-      wind(posterTime, FINE);
+      await wind(Math.max(0, posterTime - liveTail), posterTime / POSTER_STEPS);
+      if (!alive) return;
+      await wind(posterTime, FINE);
+      if (!alive) return;
       clock.current = posterTime;
       wound = true;
       /* and one that is drawn, so there is a picture before the loop starts */
       frame(ctx, w, h, clock.current, FINE, pointer, ctl.current);
+      /* Arm the fade only after the final poster frame is on the canvas. The
+         fine tail is still advancing the stream, so revealing before it ends
+         makes the rows look like they fly in from the left on refresh. */
+      cv.dataset.vizReady = "true";
     };
 
     /* ── the governor ──
@@ -352,10 +376,15 @@ export default function VizCanvas({
            up looking at is the one that was never filled. It showed as a hero
            that starts bare and fills from the entry edge over the few seconds
            it takes a mark to cross. */
-        if (!wound) poster();
-        start();
+        if (!wound) {
+          void poster().then(() => {
+            if (alive) start();
+          });
+        } else {
+          start();
+        }
       } else {
-        poster();
+        void poster();
       }
     };
 
@@ -401,6 +430,7 @@ export default function VizCanvas({
     return () => {
       alive = false;
       stop();
+      delete cv.dataset.vizReady;
       remeasure.current = null;
       io.disconnect();
       ro.disconnect();
