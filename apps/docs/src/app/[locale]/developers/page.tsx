@@ -1,83 +1,23 @@
-import { DevelopersPage } from "./developers";
-import { YT_PLAYLIST_CHANGELOG } from "@/constants/developerContentConfig";
-import { getYTVideos } from "@/utils/followerFunctions";
-import { getIndexMetadata } from "@@/src/app/metadata";
+import type { Metadata } from "next";
+import { getAlternates } from "@workspace/i18n/routing";
+import { DeveloperHub } from "@/components/developers/DeveloperHub/DeveloperHub";
+import { getLatestDeveloperUpdates } from "@/lib/developer-media";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export const revalidate = 3600;
-
-const featuredResources = [
-  {
-    category: "Payments",
-    title: "Accept payments on Solana",
-    description:
-      "Take stablecoin payments with instant settlement and sub-cent fees.",
-    href: "/docs/payments",
-  },
-  {
-    category: "Assets",
-    title: "Launch a Token-2022 asset",
-    description:
-      "Create a mint with metadata, pausability, and built-in controls.",
-    href: "/docs/tokenization/quickstart",
-  },
-  {
-    category: "Assets",
-    title: "Explore tokenized assets",
-    description: "Issue, control, settle, and operate assets onchain.",
-    href: "/docs/tokenization",
-  },
-  {
-    category: "Games",
-    title: "Get started with game development",
-    description: "Build onchain games with the Solana games cookbook.",
-    href: "/developers/cookbook/games/getting-started-with-game-development",
-  },
-  {
-    category: "Infrastructure",
-    title: "Explore developer tools",
-    description: "Find SDKs, local testing, infrastructure, and references.",
-    href: "/docs/tools",
-  },
-];
+export const revalidate = 900;
 
 export default async function Page() {
-  const latestChangelogVideo = await getLatestChangelogVideo();
-  return (
-    <DevelopersPage
-      latestChangelogVideo={latestChangelogVideo ?? undefined}
-      guides={featuredResources}
-    />
-  );
+  const updates = await getLatestDeveloperUpdates();
+  return <DeveloperHub updates={updates} />;
 }
 
-async function getLatestChangelogVideo() {
-  try {
-    let latestChangelogVideo = null;
-    const videos = await getYTVideos(undefined, YT_PLAYLIST_CHANGELOG);
-    if (videos.length) {
-      latestChangelogVideo = videos.sort((a, b) => {
-        if (!b.snippet.publishedAt || !a.snippet.publishedAt) return 0;
-        return (
-          new Date(b.snippet.publishedAt).getTime() -
-          new Date(a.snippet.publishedAt).getTime()
-        );
-      })[0];
-    }
-    return latestChangelogVideo;
-  } catch (error) {
-    console.error("Error fetching YouTube videos:", error);
-    return null;
-  }
-}
-
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  return await getIndexMetadata({
-    titleKey: "developers.title",
-    descriptionKey: "developers.description",
-    path: "/developers",
-    locale,
-  });
+  return {
+    title: "Build on Solana",
+    description:
+      "Start building on Solana with core documentation, templates, migration guides, developer products, implementation partners, and the latest engineering updates.",
+    alternates: getAlternates("/developers", locale),
+  };
 }

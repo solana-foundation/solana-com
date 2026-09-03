@@ -195,6 +195,11 @@ const nextConfig: NextConfig = {
   // a missing snippet throws IncludeError, and a missing .output.txt silently
   // leaves the Run console with nothing to print.
   outputFileTracingIncludes: {
+    "/[locale]/developers": [
+      "../media/content/posts/**/*.mdx",
+      "../media/content/upgrades/**/*.mdx",
+      "../media/content/releases/**/*.mdx",
+    ],
     "/[locale]/developers/cookbook/**/*": [
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
