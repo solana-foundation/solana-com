@@ -22,33 +22,28 @@ If you manage a wallet or other utility service (e.g., token account closing), y
 
 ## Reclaiming from Token Accounts and Mints
 
-The Token Program was recently reimplemented using Pinocchio (called [P-token](https://solana.com/upgrades/p-token)). When P-token went live on mainnet, several new instructions were added to the program, including one that was built exactly for this: WithdrawExcessLamports.
+```
+The Token Program was recently reimplemented using Pinocchio (called P-token). When P-token went live on mainnet, several new instructions were added to the program, including one that was built exactly for this: WithdrawExcessLamports.
+```
 
 It recovers SOL sitting above the rent-exempt minimum from a token account, mint, or multisig account — without touching token balances and without closing the account. The account stays open and functional; only the surplus lamports move.
 
 The on-chain logic is simple. Conceptually, the processor computes the source account's rent-exempt floor, and moves everything above it to the destination:
 
-// Simplified from the Token Program's withdraw\_excess\_lamports processor.
-
+```rust
+// Simplified from the Token Program's withdraw_excess_lamports processor.
 // The source keeps exactly its rent-exempt minimum; the rest moves out.
 
-let rent\_exempt\_reserve = Rent::get()?.minimum\_balance(source\_account\_info.data\_len());
-
-let excess = source\_account\_info
-
-.lamports()
-
-.checked\_sub(rent\_exempt\_reserve)
-
-.ok\_or(TokenError::Overflow)?;
+let rent_exempt_reserve = Rent::get()?.minimum_balance(source_account_info.data_len());
+let excess = source_account_info
+    .lamports()
+    .checked_sub(rent_exempt_reserve)
+    .ok_or(TokenError::Overflow)?;
 
 // Credit the destination, debit the source.
-
-\*destination\_account\_info.borrow\_mut\_lamports\_unchecked() += excess;
-
-\*source\_account\_info.borrow\_mut\_lamports\_unchecked() = rent\_exempt\_reserve;
-
-
+*destination_account_info.borrow_mut_lamports_unchecked() += excess;
+*source_account_info.borrow_mut_lamports_unchecked() = rent_exempt_reserve;
+```
 
 The withdrawal must be signed by the account's authority:
 
@@ -60,31 +55,23 @@ The withdrawal must be signed by the account's authority:
 
 WithdrawExcessLamports is exposed through the [@solana-program/token](https://www.npmjs.com/package/@solana-program/token) client. The shape of the call is:
 
-import \{
-
-getWithdrawExcessLamportsInstruction,
-
+```typescript
+import {
+  getWithdrawExcessLamportsInstruction,
 } from '@solana-program/token';
 
-// Move all lamports above the rent-exempt floor out of \`sourceAccount\`
-
-// (a token account or mint) into \`destination\`, authorized by \`authority\`.
-
-const instruction = getWithdrawExcessLamportsInstruction(\{
-
-source: sourceAddress, // the token account or mint holding excess SOL
-
-destination: destinationAddress, // where the reclaimed lamports land
-
-authority: authoritySigner, // owner / mint authority / the mint itself
-
+// Move all lamports above the rent-exempt floor out of `sourceAccount`
+// (a token account or mint) into `destination`, authorized by `authority`.
+const instruction = getWithdrawExcessLamportsInstruction({
+  source: sourceAddress,   // the token account or mint holding excess SOL
+  destination: destinationAddress, // where the reclaimed lamports land
+  authority: authoritySigner,      // owner / mint authority / the mint itself
 });
 
-// Drop \`instruction\` into a transaction message and send as usual.
+// Drop `instruction` into a transaction message and send as usual.
+```
 
-
-
-That's the entire flow for anything the Token Program owns. The Token 2022 program has the same instruction accessible via the @solana-program/token-2022.
+That's the entire flow for anything the Token Program owns. The Token 2022 program has the same instruction accessible via the `@solana-program/token-2022`.
 
 ## Reclaiming from your own program's PDAs
 
@@ -96,55 +83,37 @@ Two things determine an account's rent floor: its data size and the current lamp
 
 For a program-owned account, you can't use a System Program transfer to move lamports out (System only moves lamports out of accounts it owns). Instead, because your program owns the account, you mutate the lamport balances directly (like the token program's WithdrawExcessLamports instruction). Debit the account and credit the destination in the same instruction; the runtime enforces that the two sides balance.
 
-use solana\_program::\{rent::Rent, sysvar::Sysvar};
+```rust
+use solana_program::{rent::Rent, sysvar::Sysvar};
 
-pub fn reclaim\_excess(
+pub fn reclaim_excess(
+    target_account: &AccountInfo, // owned by THIS program
+    destination: &AccountInfo,    // e.g. the user's wallet
+    authority: &AccountInfo,	 // authority
+) -> ProgramResult {
+    // 1. Validate Authority & PDA
+    //    Program-specific logic for validating your PDA & authority
 
-target\_account: \&AccountInfo, // owned by THIS program
+    // 2. Compute the rent-exempt floor at the CURRENT lamports_per_byte.
+    //    Reading from the Rent sysvar means you pick up the reduced rate
+    //    automatically — never hardcode the constant.
+    let rent_exempt_reserve = Rent::get()?.minimum_balance(target_account.data_len());
 
-destination: \&AccountInfo, // e.g. the user's wallet
+    // 3. Everything above the floor is reclaimable.
+    let excess = target_account
+        .lamports()
+        .saturating_sub(rent_exempt_reserve);
+    if excess == 0 {
+        return Ok(());
+    }
 
-authority: \&AccountInfo, // authority
+    // 4. Direct lamport movement — legal because this program owns target_account.
+    **destination.try_borrow_mut_lamports()? += excess;
+    **target_account.try_borrow_mut_lamports()? -= excess;
 
-) -> ProgramResult \{
-
-// 1. Validate Authority & PDA
-
-// Program-specific logic for validating your PDA & authority
-
-// 2. Compute the rent-exempt floor at the CURRENT lamports\_per\_byte.
-
-// Reading from the Rent sysvar means you pick up the reduced rate
-
-// automatically — never hardcode the constant.
-
-let rent\_exempt\_reserve = Rent::get()?.minimum\_balance(target\_account.data\_len());
-
-// 3. Everything above the floor is reclaimable.
-
-let excess = target\_account
-
-.lamports()
-
-.saturating\_sub(rent\_exempt\_reserve);
-
-if excess == 0 \{
-
-return Ok(());
-
+    Ok(())
 }
-
-// 4. Direct lamport movement — legal because this program owns target\_account.
-
-\*\*destination.try\_borrow\_mut\_lamports()? += excess;
-
-\*\*target\_account.try\_borrow\_mut\_lamports()? -= excess;
-
-Ok(())
-
-}
-
-
+```
 
 The full checklist for a safe reclaim instruction:
 
