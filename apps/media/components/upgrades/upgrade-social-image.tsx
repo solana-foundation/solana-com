@@ -39,6 +39,11 @@ const stageColorMap: Record<
     borderColor: "rgba(96, 165, 250, 0.35)",
     color: "#93C5FD",
   },
+  partially_active: {
+    backgroundColor: "rgba(45, 212, 191, 0.08)",
+    borderColor: "rgba(45, 212, 191, 0.35)",
+    color: "#5EEAD4",
+  },
   live: {
     backgroundColor: "rgba(20, 241, 149, 0.08)",
     borderColor: "rgba(20, 241, 149, 0.35)",

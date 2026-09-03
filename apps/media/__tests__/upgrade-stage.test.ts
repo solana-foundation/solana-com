@@ -14,11 +14,12 @@ const messages = JSON.parse(
 );
 
 describe("upgrade stage helper", () => {
-  it("has a translated label and badge class for all four stages", () => {
+  it("has a translated label and badge class for all stages", () => {
     const stages = [
       "planned",
       "in_development",
       "pending_activation",
+      "partially_active",
       "live",
     ] as const;
     for (const stage of stages) {
@@ -30,6 +31,7 @@ describe("upgrade stage helper", () => {
   it("validates stage values from untrusted content data", () => {
     expect(isUpgradeStage("live")).toBe(true);
     expect(isUpgradeStage("pending_activation")).toBe(true);
+    expect(isUpgradeStage("partially_active")).toBe(true);
     expect(isUpgradeStage("mainnet-live")).toBe(false);
     expect(isUpgradeStage("action_required")).toBe(false);
     expect(isUpgradeStage(undefined)).toBe(false);
