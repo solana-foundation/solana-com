@@ -1,9 +1,5 @@
 import "server-only";
 
-import { readdir, readFile } from "node:fs/promises";
-import path from "node:path";
-import matter from "gray-matter";
-
 export type DeveloperUpdate = {
   kind: "News" | "Changelog" | "Upgrade" | "Release";
   title: string;
@@ -12,151 +8,61 @@ export type DeveloperUpdate = {
   publishedAt?: string;
 };
 
-type ContentEntry = {
-  slug: string;
-  title: string;
-  description: string;
-  publishedAt?: string;
-  categories: string[];
-  status: string;
-  overview?: string;
-};
+const REVALIDATE_SECONDS = 300;
+const DEFAULT_MEDIA_APP_URL =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:3002"
+    : "https://solana-com-media.vercel.app";
 
-const MEDIA_CONTENT_DIRECTORY = path.join(process.cwd(), "../media/content");
+function getDeveloperUpdatesUrl(): string {
+  const mediaAppUrl =
+    process.env.NEXT_PUBLIC_MEDIA_APP_URL || DEFAULT_MEDIA_APP_URL;
 
-function toString(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value instanceof Date) return value.toISOString();
-  return "";
+  return new URL("/api/developer-updates/latest", mediaAppUrl).toString();
 }
 
-function taxonomyValues(value: unknown, key: string): string[] {
-  if (!Array.isArray(value)) return [];
-
-  return value.flatMap((item) => {
-    if (typeof item !== "object" || item === null) return [];
-    const entry = item as Record<string, unknown>;
-    const taxonomyValue = entry[key];
-    return typeof taxonomyValue === "string" ? [taxonomyValue] : [];
-  });
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
-async function getCollection(name: "posts" | "upgrades" | "releases") {
-  const directory = path.join(MEDIA_CONTENT_DIRECTORY, name);
+function isDeveloperUpdate(value: unknown): value is DeveloperUpdate {
+  if (!isRecord(value)) return false;
 
-  try {
-    const files = await readdir(directory);
-    const entries = await Promise.all(
-      files
-        .filter((file) => file.endsWith(".mdx"))
-        .map(async (file): Promise<ContentEntry> => {
-          const source = await readFile(path.join(directory, file), "utf8");
-          const { data } = matter(source);
-          const frontmatter = data as Record<string, unknown>;
-
-          return {
-            slug: file.replace(/\.mdx$/, ""),
-            title: toString(frontmatter.title) || toString(frontmatter.name),
-            description: toString(frontmatter.description),
-            publishedAt:
-              toString(frontmatter.publishedAt) ||
-              toString(frontmatter.expectedDate) ||
-              undefined,
-            categories: taxonomyValues(frontmatter.categories, "category"),
-            status: toString(frontmatter.status),
-            overview: toString(frontmatter.overview) || undefined,
-          };
-        }),
-    );
-
-    return entries;
-  } catch (error) {
-    console.error(`Unable to load developer ${name} content`, error);
-    return [];
-  }
-}
-
-function newest(entries: ContentEntry[]) {
-  return [...entries].sort((left, right) => {
-    const leftTime = left.publishedAt ? Date.parse(left.publishedAt) : 0;
-    const rightTime = right.publishedAt ? Date.parse(right.publishedAt) : 0;
-    return rightTime - leftTime;
-  })[0];
-}
-
-function toUpdate(
-  entry: ContentEntry | undefined,
-  kind: DeveloperUpdate["kind"],
-  href: string,
-  fallbackDescription: string,
-): DeveloperUpdate | undefined {
-  if (!entry || !entry.title) return undefined;
-
-  return {
-    kind,
-    title: entry.title,
-    description: entry.description || fallbackDescription,
-    href,
-    publishedAt: entry.publishedAt,
-  };
+  return (
+    (value.kind === "News" ||
+      value.kind === "Changelog" ||
+      value.kind === "Upgrade" ||
+      value.kind === "Release") &&
+    typeof value.title === "string" &&
+    typeof value.description === "string" &&
+    typeof value.href === "string" &&
+    (value.publishedAt === undefined || typeof value.publishedAt === "string")
+  );
 }
 
 /**
- * Reads the media app's published content directly, keeping the hub's signal
- * current without maintaining another editorial feed or network dependency.
+ * Fetches the Media-owned developer feed at runtime. A failed or malformed
+ * response leaves the rest of the developer hub available.
  */
 export async function getLatestDeveloperUpdates(): Promise<DeveloperUpdate[]> {
-  const [posts, upgrades, releases] = await Promise.all([
-    getCollection("posts"),
-    getCollection("upgrades"),
-    getCollection("releases"),
-  ]);
+  try {
+    const response = await fetch(getDeveloperUpdatesUrl(), {
+      headers: { accept: "application/json" },
+      next: { revalidate: REVALIDATE_SECONDS },
+    });
 
-  const developerNews = newest(
-    posts.filter(
-      (entry) =>
-        entry.status === "published" &&
-        entry.categories.includes("developers") &&
-        !entry.categories.includes("changelog"),
-    ),
-  );
-  const changelog = newest(
-    posts.filter(
-      (entry) =>
-        entry.status === "published" && entry.categories.includes("changelog"),
-    ),
-  );
-  const upgrade = newest(
-    upgrades.filter((entry) => entry.status === "published"),
-  );
-  const release = newest(
-    releases.filter((entry) => entry.status === "shipped"),
-  );
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
 
-  return [
-    toUpdate(
-      developerNews,
-      "News",
-      `/news/${developerNews?.slug}`,
-      "Recent news for developers building on Solana.",
-    ),
-    toUpdate(
-      changelog,
-      "Changelog",
-      `/news/${changelog?.slug}`,
-      "Weekly engineering, tooling, and network updates.",
-    ),
-    toUpdate(
-      upgrade,
-      "Upgrade",
-      `/upgrades/${upgrade?.slug}`,
-      "A current network improvement for Solana builders.",
-    ),
-    toUpdate(
-      release,
-      "Release",
-      `/upgrades/${release?.overview ?? release?.slug}`,
-      "The latest shipped software release for the Solana network.",
-    ),
-  ].filter((update): update is DeveloperUpdate => Boolean(update));
+    const data: unknown = await response.json();
+    if (!isRecord(data) || !Array.isArray(data.updates)) {
+      throw new Error("Invalid developer updates response");
+    }
+
+    return data.updates.filter(isDeveloperUpdate);
+  } catch (error) {
+    console.error("Failed to fetch latest developer updates:", error);
+    return [];
+  }
 }

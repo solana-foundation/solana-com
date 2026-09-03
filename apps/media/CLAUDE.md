@@ -193,6 +193,8 @@ editing one.
   sitemap
 - `/api/posts/latest`, `/api/reports/latest`, `/api/links/latest` - Content
   metadata APIs
+- `/api/developer-updates/latest` - Runtime feed for the developer hub,
+  aggregating the latest developer news, changelog, upgrade, and release records
 - `/api/podcasts/[slug]/episodes` - Podcast episode API
 - `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content
   operations)
