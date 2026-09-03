@@ -1207,7 +1207,7 @@ const ARRANGEMENTS: Record<string, ClusterDef[] | null> = {
      screen — the frame cuts it off from the set it belongs to, so what you
      see is a stray bar above the headline rather than the far edge of the
      halo. The whole set sits below the type, which is what leaves the middle
-     of the frame free for the type to be centred into — see `CENTRED`.
+     of the frame free for the type to be centred into.
 
      The crowns come out evenly spaced whatever the fan does to the ends: a
      row's crown is `y + amt + i × (pitch + fan)`, and with the pitch carrying
@@ -1228,12 +1228,6 @@ const ARRANGEMENTS: Record<string, ClusterDef[] | null> = {
     },
   ],
 };
-
-/* The ones built about the frame's vertical centre line, which want the
-   type centred with them. Ranged left, a headline sits off the axis every
-   ring in the picture is drawn around, and the composition reads as two
-   things that have not been introduced. */
-export const CENTRED: ReadonlySet<string> = new Set(["halo", "cylinder"]);
 
 /** the corridor counts its money this way, and one card cannot read two ways */
 const money = (v: number) =>
