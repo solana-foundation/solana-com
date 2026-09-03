@@ -16,44 +16,43 @@ import { Link } from "@solana-com/ui-chrome/link";
 import Globe from "./Globe";
 import s from "./payment-channels.module.css";
 
-/* Assets exported from the Figma frame and served from /public/landing. Names
-   are the frame's own; hashes are Figma's content addresses, kept so a
-   re-export maps back cleanly. */
-const A = (h: string) => `/landing/${h}`;
+const PAYMENT_CHANNELS_ART = (name: string) =>
+  `/src/img/landings/payment-channels/${name}`;
+const SHARED_ICON = (name: string) => `/src/img/icons/${name}.inline.svg`;
 
 const ART = {
   /* 04 · where per-call payments break */
-  chartGrid: A("4d93aa3c8840c4f89aaed45a3948c4c972008ce3.svg"),
-  stepFill: A("932cb0660065a67cb67996906f2e2758b93bb18d.svg"),
-  stepEdge: A("f617851cc0a488f13cc4c572c991f9161ae55faa.svg"),
-  stepLine: A("18bdc610b284e2c09fc80153af965b89ade35c6b.svg"),
-  stepDot: A("d4ae654faa99a90203383784d569dc6ee47eb0ca.svg"),
+  chartGrid: PAYMENT_CHANNELS_ART("chart-grid.svg"),
+  stepFill: PAYMENT_CHANNELS_ART("step-fill.svg"),
+  stepEdge: PAYMENT_CHANNELS_ART("step-edge.svg"),
+  stepLine: PAYMENT_CHANNELS_ART("step-line.svg"),
+  stepDot: PAYMENT_CHANNELS_ART("step-dot.svg"),
   /* 05 · how it works — one icon per step */
-  iOpen: A("5efa6e17b7218bdc82d5ec40e86b643b4eeccfd1.svg"),
-  iMeter: A("7b18dc10259067a29a27407d4e61f3149ca3ea84.svg"),
-  iSettle: A("04534e208d92d2731848ecc7351f34fbc283975f.svg"),
-  iRefund: A("fc83aa5325f68708fa57c2ac6fa33f8fbb018b5a.svg"),
+  howOpen: SHARED_ICON("payment-channel-open"),
+  howMeter: SHARED_ICON("payment-channel-meter"),
+  howSettle: SHARED_ICON("payment-channel-settle"),
+  howRefund: SHARED_ICON("payment-channel-refund"),
   /* the gradient plates — the designer's own exports, used at native size */
-  plateCta: A("cta-plate.png"),
-  agentsArt: A("agents-art.png"),
-  channelStatusDot: A("payment-channel-status-dot.svg"),
-  channelDivider: A("payment-channel-divider.svg"),
+  plateCta: PAYMENT_CHANNELS_ART("cta-plate.png"),
+  agentsArt: PAYMENT_CHANNELS_ART("agents-art.png"),
+  channelStatusDot: PAYMENT_CHANNELS_ART("channel-status-dot.svg"),
+  channelDivider: PAYMENT_CHANNELS_ART("channel-divider.svg"),
   /* 06 · the two shapes blended over the session card */
-  sessionBg: A("session-bg.png"),
+  sessionBg: PAYMENT_CHANNELS_ART("session-bg.png"),
   /* 10 · live at launch */
-  logoAlibaba: A("3151a097741e4bd16439eb9024b650c4da57909a.svg"),
-  logoPaySh: A("a430ee0582fc2f8b41b9457e139706a50308bdfa.svg"),
+  logoAlibabaCloud: PAYMENT_CHANNELS_ART("alibaba-cloud-logo.svg"),
+  logoPaySh: PAYMENT_CHANNELS_ART("pay-sh-logo.svg"),
   /* 08 · get started — tile icons, as re-drawn in the CTA frame */
-  tCode: A("79c0756e25176b355de82f1afa4a17140acdfbb8.svg"),
-  tSlider: A("e85c0b0be0d5374dce6fcca8483f2dfb99fea909.svg"),
-  tSliderA: A("3a3292ec86bde19f3f9c8b3d78c4868eb68eb97a.svg"),
-  tSliderB: A("8df75810fb8651d4a097f3d0be169b1ce74342dc.svg"),
-  tSliderC: A("ad4ab043d1931be393b7da77eec3385b766d3a62.svg"),
-  tWindow: A("a826672b8feb97f162fd8da382886e22ac8908aa.svg"),
-  tWindowA: A("32f61ea63411b879a930b885c093ef370a200eea.svg"),
-  tWindowB: A("334af01e7b4e3b5d88befb7554a9dcf9a8804ca6.svg"),
-  tFile: A("08e7bf6f7bdb69ee01b579f5a6ebc685f3b4bc4c.svg"),
-  tChecklist: A("1a87cc5d962c927ced20e269cec181a8d4a30427.svg"),
+  programIcon: PAYMENT_CHANNELS_ART("program-icon.svg"),
+  toolchainIcon: PAYMENT_CHANNELS_ART("toolchain.svg"),
+  toolchainAccentA: PAYMENT_CHANNELS_ART("toolchain-accent-a.svg"),
+  toolchainAccentB: PAYMENT_CHANNELS_ART("toolchain-accent-b.svg"),
+  toolchainAccentC: PAYMENT_CHANNELS_ART("toolchain-accent-c.svg"),
+  playgroundIcon: PAYMENT_CHANNELS_ART("playground.svg"),
+  playgroundAccentA: PAYMENT_CHANNELS_ART("playground-accent-a.svg"),
+  playgroundAccentB: PAYMENT_CHANNELS_ART("playground-accent-b.svg"),
+  docsIcon: PAYMENT_CHANNELS_ART("docs-icon.svg"),
+  checklistIcon: PAYMENT_CHANNELS_ART("checklist-icon.svg"),
 } as const;
 
 const PAYMENT_CHANNELS_DOCS_URL =
@@ -602,17 +601,19 @@ const BAR_HEIGHTS = [211, 108, 50, 20, 183, 38, 86, 279, 31, 86];
 
 const STEPS: { layers: Layer[]; title: string; body: string }[] = [
   {
-    layers: [{ outer: "16.67% 12.5%", inner: "-3.75% -3.33%", src: ART.iOpen }],
+    layers: [
+      { outer: "16.67% 12.5%", inner: "-3.75% -3.33%", src: ART.howOpen },
+    ],
     title: "Open",
     body: "Deposit a ceiling amount into onchain escrow. Funds stay non-custodial, held by the program, not the operator.",
   },
   {
-    layers: [{ outer: "12.5%", inner: "-3.33%", src: ART.iMeter }],
+    layers: [{ outer: "12.5%", inner: "-3.33%", src: ART.howMeter }],
     title: "Meter off-chain",
     body: "The agent authorizes spending with signed messages, not transactions. Every call is a signature and incurs no transaction costs.",
   },
   {
-    layers: [{ outer: "16.67%", inner: "-3.75%", src: ART.iSettle }],
+    layers: [{ outer: "16.67%", inner: "-3.75%", src: ART.howSettle }],
     title: "Batched settlement",
     body: "Actual amounts consumed are recorded onchain in one batched transaction.",
   },
@@ -621,7 +622,7 @@ const STEPS: { layers: Layer[]; title: string; body: string }[] = [
       {
         outer: "16.67% 12.5% 12.5% 12.5%",
         inner: "-3.53% -3.33% -4.99% -3.33%",
-        src: ART.iRefund,
+        src: ART.howRefund,
       },
     ],
     title: "Distribute",
@@ -673,7 +674,7 @@ const PARTNERS: {
 }[] = [
   {
     label: "Launch partner",
-    logo: ART.logoAlibaba,
+    logo: ART.logoAlibabaCloud,
     w: 198,
     h: 25,
     cta: "View APIs",
@@ -693,29 +694,43 @@ const TILES: { name: string; href: string; layers: Layer[] }[] = [
   {
     name: "Program",
     href: PAYMENT_CHANNELS_PROGRAM_URL,
-    layers: [{ outer: "16.67% 8.33%", inner: "-4.55% -4.24%", src: ART.tCode }],
+    layers: [
+      {
+        outer: "16.67% 8.33%",
+        inner: "-4.55% -4.24%",
+        src: ART.programIcon,
+      },
+    ],
   },
   {
     name: "Toolchain & Deployment",
     href: "https://github.com/solana-foundation/pay",
     layers: [
-      { outer: "16.67% 16.67% 58.33% 58.33%", inner: "-10%", src: ART.tSlider },
+      {
+        outer: "16.67% 16.67% 58.33% 58.33%",
+        inner: "-10%",
+        src: ART.toolchainIcon,
+      },
       /* the second knob — Figma writes this one with fraction utilities */
-      { outer: "58.33% 50% 16.67% 25%", inner: "-10%", src: ART.tSlider },
+      {
+        outer: "58.33% 50% 16.67% 25%",
+        inner: "-10%",
+        src: ART.toolchainIcon,
+      },
       {
         outer: "29.17% 43.75% 70.83% 16.67%",
         inner: "-1px -6.32%",
-        src: ART.tSliderA,
+        src: ART.toolchainAccentA,
       },
       {
         outer: "70.83% 77.08% 29.17% 16.67%",
         inner: "-1px -40%",
-        src: ART.tSliderB,
+        src: ART.toolchainAccentB,
       },
       {
         outer: "70.83% 16.67% 29.17% 52.08%",
         inner: "-1px -8%",
-        src: ART.tSliderC,
+        src: ART.toolchainAccentC,
       },
     ],
   },
@@ -726,29 +741,35 @@ const TILES: { name: string; href: string; layers: Layer[] }[] = [
       {
         outer: "20.83% 12.5% 16.67% 12.5%",
         inner: "-4% -3.33%",
-        src: ART.tWindow,
+        src: ART.playgroundIcon,
       },
       {
         outer: "62.5% 10.42% 10.42% 62.5%",
         inner: "-13.95% -24.73% -24.73% -13.95%",
-        src: ART.tWindowA,
+        src: ART.playgroundAccentA,
       },
       {
         outer: "34.38% 40.63% 61.46% 26.04%",
         inner: "-45% -5.63%",
-        src: ART.tWindowB,
+        src: ART.playgroundAccentB,
       },
     ],
   },
   {
     name: "Concept + docs",
     href: PAYMENT_CHANNELS_DOCS_URL,
-    layers: [{ outer: "12.5% 20.83%", inner: "-3.33% -4.29%", src: ART.tFile }],
+    layers: [
+      {
+        outer: "12.5% 20.83%",
+        inner: "-3.33% -4.29%",
+        src: ART.docsIcon,
+      },
+    ],
   },
   {
     name: "Spec",
     href: "https://paymentauth.org/draft-solana-session-00.html",
-    layers: [{ outer: "16.67%", inner: "-3.75%", src: ART.tChecklist }],
+    layers: [{ outer: "16.67%", inner: "-3.75%", src: ART.checklistIcon }],
   },
 ];
 
