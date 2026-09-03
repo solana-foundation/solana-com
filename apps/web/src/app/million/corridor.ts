@@ -287,14 +287,36 @@ const BONE = "#E9E4D8";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const AGENTS = [
-  "FETCH-7F", "ROUTER-14C", "OPS-3A", "VISION-9D", "SCHED-2E", "INDEX-11B",
-  "AUDIT-5C", "EDGE-8A", "CRAWL-6F", "PLAN-12D", "RELAY-1B", "SENSE-4E",
-  "INFER-22A", "TALLY-9C",
+  "FETCH-7F",
+  "ROUTER-14C",
+  "OPS-3A",
+  "VISION-9D",
+  "SCHED-2E",
+  "INDEX-11B",
+  "AUDIT-5C",
+  "EDGE-8A",
+  "CRAWL-6F",
+  "PLAN-12D",
+  "RELAY-1B",
+  "SENSE-4E",
+  "INFER-22A",
+  "TALLY-9C",
 ];
 const ENDPOINTS = [
-  "NOAA.API", "TILES.OSM", "INFER.Q4", "STORE.PX", "RPC.NODE", "OCR.BATCH",
-  "VEC.SEARCH", "TTS.STREAM", "GEO.REV", "FEED.PX", "SIGN.HSM", "CACHE.W3",
-  "EMBED.V2", "ROUTE.OPT",
+  "NOAA.API",
+  "TILES.OSM",
+  "INFER.Q4",
+  "STORE.PX",
+  "RPC.NODE",
+  "OCR.BATCH",
+  "VEC.SEARCH",
+  "TTS.STREAM",
+  "GEO.REV",
+  "FEED.PX",
+  "SIGN.HSM",
+  "CACHE.W3",
+  "EMBED.V2",
+  "ROUTE.OPT",
 ];
 
 interface Rec {
@@ -331,7 +353,10 @@ const RECS: Rec[] = (() => {
       amtS:
         amt >= 100
           ? Math.round(amt).toLocaleString("en-US")
-          : amt.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          : amt.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
       fee: "$" + (0.0001 + r() * 0.0008).toFixed(4),
       ms: (318 + r() * 126) | 0,
       slot: 328441900 + ((r() * 90000) | 0),
@@ -341,9 +366,16 @@ const RECS: Rec[] = (() => {
 })();
 
 interface Point {
-  x: number; y: number; z: number;
-  b: number; alt: number; r: number;
-  big: boolean; lab: boolean; res: number; exit: number;
+  x: number;
+  y: number;
+  z: number;
+  b: number;
+  alt: number;
+  r: number;
+  big: boolean;
+  lab: boolean;
+  res: number;
+  exit: number;
   /** how far through its fall this plate is, 0..1 — read again when it is
       drawn, so what is falling can also be going red */
   fall: number;
@@ -351,7 +383,9 @@ interface Point {
       this point has to include it: a trail drawn from the standing position to
       the fallen one is a streak the length of the whole drop. */
   fy: number;
-  px: number; py: number; vis: number;
+  px: number;
+  py: number;
+  vis: number;
 }
 
 interface Thread {
@@ -378,7 +412,8 @@ function place(p: Point) {
 
 /** stable per-cell noise, keyed to the cell's absolute position in the chain */
 function cellHash(f: number, d: number, k: number, a: number) {
-  let h = (f * 374761393 + d * 668265263 + k * 2246822519 + a * 3266489917) >>> 0;
+  let h =
+    (f * 374761393 + d * 668265263 + k * 2246822519 + a * 3266489917) >>> 0;
   h = ((h ^ (h >>> 15)) * 2246822519) >>> 0;
   h = ((h ^ (h >>> 13)) * 3266489917) >>> 0;
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
@@ -410,10 +445,15 @@ function springAt(t: number, stiffness: number, damping: number) {
   const z = damping / (2 * Math.sqrt(stiffness));
   if (z < 1) {
     const wd = w0 * Math.sqrt(1 - z * z);
-    return 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + ((z * w0) / wd) * Math.sin(wd * t));
+    return (
+      1 -
+      Math.exp(-z * w0 * t) *
+        (Math.cos(wd * t) + ((z * w0) / wd) * Math.sin(wd * t))
+    );
   }
   const rt = w0 * Math.sqrt(z * z - 1);
-  const a = -z * w0 + rt, b = -z * w0 - rt;
+  const a = -z * w0 + rt,
+    b = -z * w0 - rt;
   if (Math.abs(a - b) < 1e-6) return 1 - Math.exp(a * t) * (1 - a * t);
   return 1 - (b * Math.exp(a * t) - a * Math.exp(b * t)) / (b - a);
 }
@@ -425,7 +465,10 @@ const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const GLYPH = new Map<string, number>();
 if (typeof document !== "undefined" && document.fonts) {
   /* metrics measured before the face loads come from the fallback and are wrong */
-  document.fonts.load('400 12px "ABC Schengen"').then(() => GLYPH.clear()).catch(() => {});
+  document.fonts
+    .load('400 12px "ABC Schengen"')
+    .then(() => GLYPH.clear())
+    .catch(() => {});
   document.fonts.ready.then(() => GLYPH.clear()).catch(() => {});
 }
 function glyphW(ctx: CanvasRenderingContext2D, ch: string) {
@@ -439,7 +482,8 @@ function glyphW(ctx: CanvasRenderingContext2D, ch: string) {
 }
 
 function scrChar(i: number, tick: number, salt: number) {
-  const h = (((i + 1) * 2654435761) ^ (tick * 40503) ^ ((salt + 1) * 2246822519)) >>> 0;
+  const h =
+    (((i + 1) * 2654435761) ^ (tick * 40503) ^ ((salt + 1) * 2246822519)) >>> 0;
   return B58.charAt(h % B58.length);
 }
 
@@ -474,12 +518,16 @@ function hashStr(str: string, salt: number) {
 /* The look a payment's avatar was drawn in, so its plate can carry the same
    colourway. oklch() is resolved to rgb through a 1x1 canvas rather than
    converted by hand — the browser already knows the maths. */
-const LOOK_RGB = new Map<number, { fig: string; grd: string; ink: string; line: string }>();
+const LOOK_RGB = new Map<
+  number,
+  { fig: string; grd: string; ink: string; line: string }
+>();
 let probeCtx: CanvasRenderingContext2D | null = null;
 function resolveRgb(css: string) {
   if (!probeCtx) {
     const c = document.createElement("canvas");
-    c.width = 1; c.height = 1;
+    c.width = 1;
+    c.height = 1;
     probeCtx = c.getContext("2d", { willReadFrequently: true });
   }
   if (!probeCtx) return "255,255,255";
@@ -495,7 +543,9 @@ function resolveRgb(css: string) {
 function mixWhite(rgb: string, t: number) {
   if (t <= 0) return rgb;
   const p = rgb.split(",");
-  const r = +p[0], g = +p[1], b = +p[2];
+  const r = +p[0],
+    g = +p[1],
+    b = +p[2];
   const u = t > 1 ? 1 : t;
   return `${Math.round(r + (255 - r) * u)},${Math.round(g + (255 - g) * u)},${Math.round(b + (255 - b) * u)}`;
 }
@@ -513,7 +563,8 @@ function lum(rgb: string) {
   return 0.2126 * f(p[0]) + 0.7152 * f(p[1]) + 0.0722 * f(p[2]);
 }
 function contrast(a: string, b: string) {
-  const la = lum(a), lb = lum(b);
+  const la = lum(a),
+    lb = lum(b);
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
@@ -529,7 +580,8 @@ function lookRgbFor(recIdx: number) {
 
   /* filled plates: keep the colourway's own ground as ink when it is legible,
      otherwise fall back to whichever end of the range actually reads */
-  const INK_DARK = "12,12,14", INK_LIGHT = "245,245,245";
+  const INK_DARK = "12,12,14",
+    INK_LIGHT = "245,245,245";
   const ink =
     contrast(fig, grd) >= 4.5
       ? grd
@@ -608,17 +660,33 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let ctx = canvas.getContext("2d")!;
-  let W = 0, H = 0, raf = 0, t0 = 0, running = false;
+  let W = 0,
+    H = 0,
+    raf = 0,
+    t0 = 0,
+    running = false;
 
   let P: Point[] = [];
   /** where the labels end and the dust begins in that pool */
   let nLab = 0;
   let nDust = 0;
   let TH: Thread[] = [];
-  let cam = 0, th = 0, thT = 0, spd = 1, spdT = 1;
-  let last = 0, pxn = 0, pyn = 0;
-  let mx = -1, my = -1, hov = -1, pin = -1, settled = 0;
-  let hovering = false, tsCur = initial.timeScale, hoverAmt = 0;
+  let cam = 0,
+    th = 0,
+    thT = 0,
+    spd = 1,
+    spdT = 1;
+  let last = 0,
+    pxn = 0,
+    pyn = 0;
+  let mx = -1,
+    my = -1,
+    hov = -1,
+    pin = -1,
+    settled = 0;
+  let hovering = false,
+    tsCur = initial.timeScale,
+    hoverAmt = 0;
 
   /* Per-frame pools, allocated once. A frame that allocates a few dozen
      arrays and sets every sixteen milliseconds pays for them all at once,
@@ -627,7 +695,14 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
   const GSTEPS = 7;
   const BK: number[][] = [];
   for (let g = 0; g < GSTEPS * 4; g++) BK.push([]);
-  const plates: { i: number; p: Point; rz: number; a: number; X: number; Y: number }[] = [];
+  const plates: {
+    i: number;
+    p: Point;
+    rz: number;
+    a: number;
+    X: number;
+    Y: number;
+  }[] = [];
   const faceList: { p: Point; rz: number; a: number; fy: number }[] = [];
   const linkSeen = new Set<number>();
   const linkDone = new Set<number>();
@@ -648,8 +723,11 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
     markKey = color;
     markReady = false;
     const img = new Image();
-    img.onload = () => { if (markKey === color) markReady = true; };
-    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(markSvg(color));
+    img.onload = () => {
+      if (markKey === color) markReady = true;
+    };
+    img.src =
+      "data:image/svg+xml;charset=utf-8," + encodeURIComponent(markSvg(color));
     markImg = img;
   }
 
@@ -660,9 +738,21 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
     const total = nLab + nDust;
     for (let i = 0; i < total; i++) {
       const p: Point = {
-        x: 0, y: 0, z: 0.25 + Math.random() * (SPAN - 0.3),
-        b: 0, alt: 0, r: 0, big: false, lab: false, res: -1, exit: -1, px: -1, py: -1, vis: 0,
-        fall: 0, fy: 0,
+        x: 0,
+        y: 0,
+        z: 0.25 + Math.random() * (SPAN - 0.3),
+        b: 0,
+        alt: 0,
+        r: 0,
+        big: false,
+        lab: false,
+        res: -1,
+        exit: -1,
+        px: -1,
+        py: -1,
+        vis: 0,
+        fall: 0,
+        fy: 0,
       };
       const z = p.z;
       place(p);
@@ -699,10 +789,16 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
   }
 
   function applyCamera() {
-    thT = params.tilt != null
-      ? params.tilt
-      : params.camera === "section" ? 1.18 : params.camera === "hold" ? 0.24 : 0;
-    spdT = params.camera === "section" ? 0.34 : params.camera === "hold" ? 0.03 : 1;
+    thT =
+      params.tilt != null
+        ? params.tilt
+        : params.camera === "section"
+          ? 1.18
+          : params.camera === "hold"
+            ? 0.24
+            : 0;
+    spdT =
+      params.camera === "section" ? 0.34 : params.camera === "hold" ? 0.03 : 1;
   }
 
   function draw(t: number) {
@@ -743,20 +839,30 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
     /* the camera moves inside the corridor; it never rotates and the
        vanishing point stays locked to the centre of frame, so the grid
        always reads as a straight, centred rectangle */
-    const camX = (params.steady
-      ? 0
-      : Math.sin(t * 0.29) * 0.020 + Math.sin(t * 0.113 + 1.3) * 0.012 + pxn * 0.26)
-      + params.offX;
-    const camY = (params.steady
-      ? 0
-      : Math.sin(t * 0.211 + 0.7) * 0.024 + Math.sin(t * 0.089) * 0.013 + pyn * 0.19)
-      + params.offY;
+    const camX =
+      (params.steady
+        ? 0
+        : Math.sin(t * 0.29) * 0.02 +
+          Math.sin(t * 0.113 + 1.3) * 0.012 +
+          pxn * 0.26) + params.offX;
+    const camY =
+      (params.steady
+        ? 0
+        : Math.sin(t * 0.211 + 0.7) * 0.024 +
+          Math.sin(t * 0.089) * 0.013 +
+          pyn * 0.19) + params.offY;
 
     const f = W * params.lens;
-    const cx = W / 2, cy = H / 2;
-    const ct = Math.cos(th), st = Math.sin(th);
+    const cx = W / 2,
+      cy = H / 2;
+    const ct = Math.cos(th),
+      st = Math.sin(th);
 
-    const P3 = (x: number, y: number, zr: number): [number, number, number, number] | null => {
+    const P3 = (
+      x: number,
+      y: number,
+      zr: number,
+    ): [number, number, number, number] | null => {
       const wx = x - camX;
       const a0 = zr - params.pivot;
       const rx = wx * ct + a0 * st;
@@ -820,13 +926,25 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
         return (e >= 1 ? 1 : e * e * (3 - 2 * e)) * end;
       };
 
-      const gx: number[] = [], gy: number[] = [];
+      const gx: number[] = [],
+        gy: number[] = [];
       for (let i = 0; i <= GNX; i++) gx.push(-BX + i * ((2 * BX) / GNX));
       for (let i = 0; i <= GNY; i++) gy.push(-BY + i * ((2 * BY) / GNY));
 
-      const seg = (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number) => {
-        const a = P3(x1, y1, z1), b = P3(x2, y2, z2);
-        if (a && b) { ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+      const seg = (
+        x1: number,
+        y1: number,
+        z1: number,
+        x2: number,
+        y2: number,
+        z2: number,
+      ) => {
+        const a = P3(x1, y1, z1),
+          b = P3(x2, y2, z2);
+        if (a && b) {
+          ctx.moveTo(a[0], a[1]);
+          ctx.lineTo(b[0], b[1]);
+        }
       };
 
       /* Lit cells sit on a WORLD-space lattice along the corridor and are then
@@ -852,7 +970,8 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
           if (zc < 0.16 || zc > SPAN) continue;
           /* the grid cell containing this band */
           const gr = Math.floor((zc + camG) / dz);
-          const z0 = gr * dz - camG, z1 = (gr + 1) * dz - camG;
+          const z0 = gr * dz - camG,
+            z1 = (gr + 1) * dz - camG;
           if (z1 < 0.16) continue;
           const zc0 = Math.max(0.16, z0);
           taken.length = 0;
@@ -861,7 +980,8 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
             const hFace = cellHash(1, n, j, 0);
             const hSide = cellHash(2, n, j, 0);
             const hAcross = cellHash(3, n, j, 0);
-            const f = hFace < bias ? (hSide < 0.5 ? 0 : 1) : (hSide < 0.5 ? 2 : 3);
+            const f =
+              hFace < bias ? (hSide < 0.5 ? 0 : 1) : hSide < 0.5 ? 2 : 3;
             const across = f < 2 ? GNY : GNX;
             let a = Math.floor(hAcross * across);
             if (a >= across) a = across - 1;
@@ -869,14 +989,23 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
             /* keep picks in the same band apart from one another */
             let clash = false;
             for (const t of taken) {
-              if (t.f === f && Math.abs(t.a - a) <= gap) { clash = true; break; }
+              if (t.f === f && Math.abs(t.a - a) <= gap) {
+                clash = true;
+                break;
+              }
             }
             if (clash) continue;
             taken.push({ f, a });
 
             const gArr = f < 2 ? gy : gx;
             const wallC =
-              f === 0 ? -BX * 0.998 : f === 1 ? BX * 0.998 : f === 2 ? BY * 0.998 : -BY * 0.998;
+              f === 0
+                ? -BX * 0.998
+                : f === 1
+                  ? BX * 0.998
+                  : f === 2
+                    ? BY * 0.998
+                    : -BY * 0.998;
             const onWall = f < 2;
             const pt = (acrossV: number, zV: number) =>
               onWall ? P3(wallC, acrossV, zV) : P3(acrossV, wallC, zV);
@@ -901,23 +1030,39 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
 
               /* axis perpendicular to the averaged edge direction, so the bands
                  run parallel to the panel's own edges on a trapezoid */
-              let ex: number, ey: number, s0x: number, s0y: number, s1x: number, s1y: number;
+              let ex: number,
+                ey: number,
+                s0x: number,
+                s0y: number,
+                s1x: number,
+                s1y: number;
               if (alongAcross) {
-                ex = (p4[0] - p1[0]) + (p3[0] - p2[0]);
-                ey = (p4[1] - p1[1]) + (p3[1] - p2[1]);
-                s0x = (p1[0] + p4[0]) / 2; s0y = (p1[1] + p4[1]) / 2;
-                s1x = (p2[0] + p3[0]) / 2; s1y = (p2[1] + p3[1]) / 2;
+                ex = p4[0] - p1[0] + (p3[0] - p2[0]);
+                ey = p4[1] - p1[1] + (p3[1] - p2[1]);
+                s0x = (p1[0] + p4[0]) / 2;
+                s0y = (p1[1] + p4[1]) / 2;
+                s1x = (p2[0] + p3[0]) / 2;
+                s1y = (p2[1] + p3[1]) / 2;
               } else {
-                ex = (p2[0] - p1[0]) + (p3[0] - p4[0]);
-                ey = (p2[1] - p1[1]) + (p3[1] - p4[1]);
-                s0x = (p1[0] + p2[0]) / 2; s0y = (p1[1] + p2[1]) / 2;
-                s1x = (p4[0] + p3[0]) / 2; s1y = (p4[1] + p3[1]) / 2;
+                ex = p2[0] - p1[0] + (p3[0] - p4[0]);
+                ey = p2[1] - p1[1] + (p3[1] - p4[1]);
+                s0x = (p1[0] + p2[0]) / 2;
+                s0y = (p1[1] + p2[1]) / 2;
+                s1x = (p4[0] + p3[0]) / 2;
+                s1y = (p4[1] + p3[1]) / 2;
               }
               const el = Math.hypot(ex, ey) || 1;
-              ex /= el; ey /= el;
-              const nx = -ey, ny = ex;
+              ex /= el;
+              ey /= el;
+              const nx = -ey,
+                ny = ex;
               const proj = (s1x - s0x) * nx + (s1y - s0y) * ny;
-              const gd = ctx.createLinearGradient(s0x, s0y, s0x + nx * proj, s0y + ny * proj);
+              const gd = ctx.createLinearGradient(
+                s0x,
+                s0y,
+                s0x + nx * proj,
+                s0y + ny * proj,
+              );
               const STOPS = 12;
               for (let q = 0; q <= STOPS; q++) {
                 let u = q / STOPS;
@@ -927,8 +1072,13 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
                 const cr = Math.round(faR + (fbR - faR) * ue);
                 const cg = Math.round(faG + (fbG - faG) * ue);
                 const cb = Math.round(faB + (fbB - faB) * ue);
-                const ca = params.cellGradFade ? al * Math.pow(1 - ue, fadeCurve) : al;
-                gd.addColorStop(q / STOPS, `rgba(${cr},${cg},${cb},${ca.toFixed(4)})`);
+                const ca = params.cellGradFade
+                  ? al * Math.pow(1 - ue, fadeCurve)
+                  : al;
+                gd.addColorStop(
+                  q / STOPS,
+                  `rgba(${cr},${cg},${cb},${ca.toFixed(4)})`,
+                );
               }
               ctx.fillStyle = gd;
             } else {
@@ -957,16 +1107,25 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
           const md = mw / MARK_ASPECT;
           const spacing = Math.max(0.5, params.markSpacing);
           const SL = 20;
-          const srcW = markImg.naturalWidth, srcH = markImg.naturalHeight;
-          const faces: number[] = params.markSurfaces === "floor" ? [2]
-            : params.markSurfaces === "ceiling" ? [3] : [2, 3];
+          const srcW = markImg.naturalWidth,
+            srcH = markImg.naturalHeight;
+          const faces: number[] =
+            params.markSurfaces === "floor"
+              ? [2]
+              : params.markSurfaces === "ceiling"
+                ? [3]
+                : [2, 3];
           const first = Math.floor(cam / spacing) - 1;
 
           for (const f of faces) {
             const wy = (f === 2 ? BY : -BY) * 0.997;
             /* nothing is back-facing here — the quad is projected and the image
                drawn into it, so both surfaces use the same mapping */
-            for (let n = first; n < first + Math.ceil(SPAN / spacing) + 2; n++) {
+            for (
+              let n = first;
+              n < first + Math.ceil(SPAN / spacing) + 2;
+              n++
+            ) {
               const zFar = n * spacing - cam + md;
               if (zFar < 0.2 || zFar - md > SPAN) continue;
               const fade =
@@ -987,14 +1146,23 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
                 if (!o || !ux || !vx) continue;
                 ctx.save();
                 ctx.transform(
-                  ux[0] - o[0], ux[1] - o[1],
-                  vx[0] - o[0], vx[1] - o[1],
-                  o[0], o[1],
+                  ux[0] - o[0],
+                  ux[1] - o[1],
+                  vx[0] - o[0],
+                  vx[1] - o[1],
+                  o[0],
+                  o[1],
                 );
                 ctx.drawImage(
                   markImg,
-                  0, (i / SL) * srcH, srcW, srcH / SL,
-                  0, 0, 1, 1.02,
+                  0,
+                  (i / SL) * srcH,
+                  srcW,
+                  srcH / SL,
+                  0,
+                  0,
+                  1,
+                  1.02,
                 );
                 ctx.restore();
               }
@@ -1007,7 +1175,8 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       /* longitudinal wall lines, segmented per slot so depth falloff reads */
       ctx.lineWidth = Math.max(1, DPR * 0.7);
       for (let m = 0; m <= SPAN; m++) {
-        const za = Math.max(0.16, m - fracG), zc = Math.max(0.18, m + 1 - fracG);
+        const za = Math.max(0.16, m - fracG),
+          zc = Math.max(0.18, m + 1 - fracG);
         if (za > SPAN) break;
         const depthFade = Math.min(1, (SPAN - zc) / (SPAN * 0.62));
         if (depthFade <= 0.02) continue;
@@ -1032,7 +1201,11 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
              its own arrival — the segment index is folded in so a single run
              does not land all the way down the corridor at once */
           const run = (
-            x1: number, y1: number, x2: number, y2: number, k: number,
+            x1: number,
+            y1: number,
+            x2: number,
+            y2: number,
+            k: number,
           ) => {
             const a = base * built(zc, k);
             if (a <= 0.02) return;
@@ -1053,8 +1226,17 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       }
 
       /* rings: every cell boundary in depth, with slot boundaries emphasised */
-      const corners: [number, number][] = [[-BX, -BY], [BX, -BY], [BX, BY], [-BX, BY]];
-      for (let m = 0; params.rings && params.ringMix > 0.004 && m <= SPAN; m++) {
+      const corners: [number, number][] = [
+        [-BX, -BY],
+        [BX, -BY],
+        [BX, BY],
+        [-BX, BY],
+      ];
+      for (
+        let m = 0;
+        params.rings && params.ringMix > 0.004 && m <= SPAN;
+        m++
+      ) {
         for (let k = 0; k < ringsPerSlot; k++) {
           const zb = m + k * dz - fracG;
           if (zb < 0.14 || zb > SPAN) continue;
@@ -1063,14 +1245,18 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
           let ok = true;
           for (const c of corners) {
             const pc = P3(c[0], c[1], zb);
-            if (!pc) { ok = false; break; }
+            if (!pc) {
+              ok = false;
+              break;
+            }
             cs.push(pc);
           }
           if (!ok) continue;
           /* depth falloff only — no approach flash, so a boundary never reads
              as a plane rushing the camera. It is just the grid's other axis. */
           const fade =
-            Math.min(1, (SPAN - zb) / (SPAN * 0.55)) * built(zb, (m * ringsPerSlot + k) * 7919);
+            Math.min(1, (SPAN - zb) / (SPAN * 0.55)) *
+            built(zb, (m * ringsPerSlot + k) * 7919);
           const aa = fade * (isSlot ? 0.3 : 0.2) * params.ringMix;
           if (aa <= 0.012) continue;
           ctx.lineWidth = Math.max(1, DPR * (isSlot ? 0.75 : 0.6));
@@ -1099,8 +1285,8 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
         const u = g / (GSTEPS - 1);
         RAMP.push(
           `${Math.round(pBr + (pAr - pBr) * u)},` +
-          `${Math.round(pBg + (pAg - pBg) * u)},` +
-          `${Math.round(pBb + (pAb - pBb) * u)}`,
+            `${Math.round(pBg + (pAg - pBg) * u)},` +
+            `${Math.round(pBb + (pAb - pBb) * u)}`,
         );
       }
     }
@@ -1115,14 +1301,18 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
     for (let g = 0; g < BK.length; g++) BK[g].length = 0;
     plates.length = 0;
     faceList.length = 0;
-    let bestD = 1e9, bestI = -1;
+    let bestD = 1e9,
+      bestI = -1;
     const hitR = 15 * DPR;
 
     for (let i = 0; i < P.length; i++) {
       const p = P[i];
       p.z -= step;
       if (p.z < 0.14) {
-        if (i === pin) { pin = -1; settled = t; }
+        if (i === pin) {
+          pin = -1;
+          settled = t;
+        }
         const z = p.z + SPAN;
         place(p);
         p.z = z;
@@ -1134,7 +1324,12 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
          coherent underneath, and it keeps its place in the pool, so the count
          can be moved without reseeding. */
       if (p.lab && params.plateShow < 1) {
-        if (nLab > 0 && i / nLab >= params.plateShow) { p.vis = 0; p.res = -1; p.exit = -1; continue; }
+        if (nLab > 0 && i / nLab >= params.plateShow) {
+          p.vis = 0;
+          p.res = -1;
+          p.exit = -1;
+          continue;
+        }
       }
 
       /* And when they give way they fall — properly, one at a time, and onto
@@ -1154,7 +1349,9 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       if (p.lab && params.plateFall > 0) {
         const standing = Math.max(1, params.plateShow * nLab);
         const turn = Math.min(1, i / standing) * params.fallWave;
-        const q = clamp01((params.plateFall - turn) / Math.max(0.02, params.fallEach));
+        const q = clamp01(
+          (params.plateFall - turn) / Math.max(0.02, params.fallEach),
+        );
         /* It keeps accelerating and it does not stop at the corridor floor.
            Stopping there was the obvious thing and it was wrong: payments are
            placed by fee, which piles most of them along the bottom already, so
@@ -1168,17 +1365,31 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       }
 
       const pr = P3(p.x, p.y + fy, p.z);
-      if (!pr) { p.vis = 0; continue; }
+      if (!pr) {
+        p.vis = 0;
+        continue;
+      }
       const [X, Y, rz, sc] = pr;
-      p.px = X; p.py = Y;
-      if (X < -90 || X > W + 90 || Y < -90 || Y > H + 90) { p.vis = 0; continue; }
-      const depth = Math.min(1, (SPAN - rz) / (SPAN * 0.72)) * Math.min(1, (rz - 0.14) / 0.55);
+      p.px = X;
+      p.py = Y;
+      if (X < -90 || X > W + 90 || Y < -90 || Y > H + 90) {
+        p.vis = 0;
+        continue;
+      }
+      const depth =
+        Math.min(1, (SPAN - rz) / (SPAN * 0.72)) *
+        Math.min(1, (rz - 0.14) / 0.55);
       const a = depth * p.b * dim;
       p.vis = a;
       if (a <= 0.028) continue;
       if (mx >= 0 && params.clickable) {
-        const dx = X - mx, dy = Y - my, d2 = dx * dx + dy * dy;
-        if (d2 < bestD && d2 < hitR * hitR) { bestD = d2; bestI = i; }
+        const dx = X - mx,
+          dy = Y - my,
+          d2 = dx * dx + dy * dy;
+        if (d2 < bestD && d2 < hitR * hitR) {
+          bestD = d2;
+          bestI = i;
+        }
       }
       const u =
         params.particleAxis === "depth"
@@ -1221,7 +1432,8 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
           a2 = a * gate;
         }
         const pr0 = P3(p.x, p.y + fy, p.z + step * 0.42);
-        const X0 = pr0 ? pr0[0] : X, Y0 = pr0 ? pr0[1] : Y;
+        const X0 = pr0 ? pr0[0] : X,
+          Y0 = pr0 ? pr0[1] : Y;
         const ab = a2 > 0.6 ? 3 : a2 > 0.38 ? 2 : a2 > 0.18 ? 1 : 0;
         BK[gi * 4 + ab].push(X0, Y0, X, Y);
       }
@@ -1253,9 +1465,11 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       for (const thr of TH) {
         const nodes = thr.n;
         nodes[0].z -= step;
-        for (let n = 1; n < nodes.length; n++) nodes[n].z = nodes[0].z + n * 0.98;
+        for (let n = 1; n < nodes.length; n++)
+          nodes[n].z = nodes[0].z + n * 0.98;
         if (nodes[nodes.length - 1].z < 0.2) {
-          const bx = (Math.random() * 2 - 1) * BX * 0.85, by = feeY();
+          const bx = (Math.random() * 2 - 1) * BX * 0.85,
+            by = feeY();
           nodes[0].z += SPAN;
           for (let n = 0; n < nodes.length; n++) {
             nodes[n].x = bx + (Math.random() - 0.5) * 0.3;
@@ -1282,22 +1496,30 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
 
     /* ── plates ── */
     plates.sort((u, v) => v.rz - u.rz);
-    const shown = plates.length > 70 ? plates.slice(plates.length - 70) : plates;
+    const shown =
+      plates.length > 70 ? plates.slice(plates.length - 70) : plates;
 
     const ls = params.letterSpacing;
     const tick = (t * 13) | 0;
 
     /* the whole plate is a target, not just its anchor point */
-    let hitPlate = -1, hitPlateZ = Infinity;
+    let hitPlate = -1,
+      hitPlateZ = Infinity;
     const inQuad = (
-      px: number, py: number,
-      q1: number[], q2: number[], q3: number[], q4: number[],
+      px: number,
+      py: number,
+      q1: number[],
+      q2: number[],
+      q3: number[],
+      q4: number[],
     ) => {
       let sign = 0;
       const q = [q1, q2, q3, q4];
       for (let e = 0; e < 4; e++) {
-        const a1 = q[e], b1 = q[(e + 1) & 3];
-        const cross = (b1[0] - a1[0]) * (py - a1[1]) - (b1[1] - a1[1]) * (px - a1[0]);
+        const a1 = q[e],
+          b1 = q[(e + 1) & 3];
+        const cross =
+          (b1[0] - a1[0]) * (py - a1[1]) - (b1[1] - a1[1]) * (px - a1[0]);
         if (cross === 0) continue;
         const sg = cross > 0 ? 1 : -1;
         if (sign === 0) sign = sg;
@@ -1321,7 +1543,9 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
         for (let j = 0; j < shown.length; j++) {
           if (i === j) continue;
           const b = shown[j];
-          const dx = a.p.x - b.p.x, dy = a.p.y - b.p.y, dz = a.p.z - b.p.z;
+          const dx = a.p.x - b.p.x,
+            dy = a.p.y - b.p.y,
+            dz = a.p.z - b.p.z;
           const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
           if (d < maxD) linkCand.push({ j, d });
         }
@@ -1351,7 +1575,8 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
         const ns = Math.max(1, params.linkNodeSize) * DPR;
         for (const idx of linkDone) {
           const nd = shown[idx];
-          const na = Math.min(1, nd.a * 1.7) * params.linkOpacity * linkAmt * 2.2;
+          const na =
+            Math.min(1, nd.a * 1.7) * params.linkOpacity * linkAmt * 2.2;
           if (na <= 0.02) continue;
           ctx.fillStyle = `rgba(${lkR},${lkG},${lkB},${Math.min(0.95, na).toFixed(3)})`;
           ctx.fillRect(nd.X - ns / 2, nd.Y - ns / 2, ns, ns);
@@ -1370,7 +1595,8 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
     const L_DUR = 0.2;
 
     for (const pl of shown) {
-      const p = pl.p, rec = RECS[p.r];
+      const p = pl.p,
+        rec = RECS[p.r];
       const hh = PH / 2;
       const chars = rec.h.split("");
       const n = chars.length;
@@ -1391,29 +1617,45 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
          box retracts into the dot */
       const exitAge = p.exit < 0 ? -1 : t - p.exit;
       const letterOut = (n - 1) * L_STAG + 0.12;
-      const wExit = exitAge < 0 ? 0 : easeOut(clamp01((exitAge - letterOut) / 0.26));
+      const wExit =
+        exitAge < 0 ? 0 : easeOut(clamp01((exitAge - letterOut) / 0.26));
       if (wExit >= 1) continue;
 
-      const uw = PH / 20;                 /* world units per design px */
+      const uw = PH / 20; /* world units per design px */
       const boxH = PH;
       /* a colour chip sits before the text: 10 square + 4 gap, in design px */
       const chip = params.labelSwatch ? 14 : 0;
       const boxW = (tw + 12 + chip) * uw * wS * (1 - wExit);
       if (boxW < uw) continue;
       /* v runs down the box, u runs along its length */
-      let ux = 0, uz = 0, vx = 0, vy = 0;
+      let ux = 0,
+        uz = 0,
+        vx = 0,
+        vy = 0;
       /* the plate is built flat in the corridor's frame, so these two stay put */
-      const uy = 0, vz = 0;
-      let ox = 0, oy = 0, oz = 0;
+      const uy = 0,
+        vz = 0;
+      let ox = 0,
+        oy = 0,
+        oz = 0;
       if (params.facing === "walls") {
-        uz = boxW; vy = boxH;
-        ox = p.x; oy = p.y - boxH / 2; oz = p.z;
+        uz = boxW;
+        vy = boxH;
+        ox = p.x;
+        oy = p.y - boxH / 2;
+        oz = p.z;
       } else if (params.facing === "floor") {
-        uz = boxW; vx = boxH;
-        ox = p.x - boxH / 2; oy = p.y; oz = p.z;
+        uz = boxW;
+        vx = boxH;
+        ox = p.x - boxH / 2;
+        oy = p.y;
+        oz = p.z;
       } else {
-        ux = boxW; vy = boxH;
-        ox = p.x; oy = p.y - boxH / 2; oz = p.z;
+        ux = boxW;
+        vy = boxH;
+        ox = p.x;
+        oy = p.y - boxH / 2;
+        oz = p.z;
       }
       const k1 = P3(ox, oy, oz);
       const k2 = P3(ox + ux, oy + uy, oz + uz);
@@ -1429,7 +1671,8 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       /* Stroked or filled is decided per plate against a threshold hashed from
          its record, so a rising mix converts the field one plate at a time and
          in a fixed order rather than flipping the whole corridor at once. */
-      const isFilled = params.labelFilled || fillThreshold(p.r) < params.fillMix;
+      const isFilled =
+        params.labelFilled || fillThreshold(p.r) < params.fillMix;
       /* The outline/text colour is contrast-corrected; the fill keeps the raw
          figure tone so the plate still reads as its avatar's colourway. On top
          of that, two crossfades: the whole field can be drained toward
@@ -1443,7 +1686,12 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       /* red where they stand, redder still on the way down */
       const drop = Math.max(clamp01(params.plateRed), p.fall);
       const tone = (avatar: string, flatTone: string, red: string) => {
-        let out = flat <= 0 ? avatar : flat >= 1 ? flatTone : mixRgb(avatar, flatTone, flat);
+        let out =
+          flat <= 0
+            ? avatar
+            : flat >= 1
+              ? flatTone
+              : mixRgb(avatar, flatTone, flat);
         if (drop > 0.002) out = mixRgb(out, red, drop);
         return out;
       };
@@ -1455,7 +1703,10 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
 
       const pv = P3(p.x, p.y + p.fy, p.z + step);
       const mv = pv ? Math.hypot(pv[0] - pl.X, pv[1] - pl.Y) : 0;
-      const reps = Math.max(1, Math.min(3, Math.round(mv / Math.max(2, lhp * 0.9))));
+      const reps = Math.max(
+        1,
+        Math.min(3, Math.round(mv / Math.max(2, lhp * 0.9))),
+      );
       let lastQ: [number, number, number, number][] | null = null;
       let lastA = al;
 
@@ -1485,10 +1736,18 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
           ctx.strokeStyle = `rgba(${mixWhite(PC, hot)},${Math.min(0.95, aRep * (1 + glow * 0.6)).toFixed(3)})`;
           ctx.stroke();
         }
-        if (rp === reps - 1) { lastQ = [g1, g2, g3, g4]; lastA = aRep; }
+        if (rp === reps - 1) {
+          lastQ = [g1, g2, g3, g4];
+          lastA = aRep;
+        }
       }
-      if (lastQ && mx >= 0 && params.clickable && pl.rz < hitPlateZ &&
-          inQuad(mx, my, lastQ[0], lastQ[1], lastQ[2], lastQ[3])) {
+      if (
+        lastQ &&
+        mx >= 0 &&
+        params.clickable &&
+        pl.rz < hitPlateZ &&
+        inQuad(mx, my, lastQ[0], lastQ[1], lastQ[2], lastQ[3])
+      ) {
         hitPlate = pl.i;
         hitPlateZ = pl.rz;
       }
@@ -1499,15 +1758,25 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       if (p.res < 0) continue;
 
       const o1 = lastQ[0];
-      const UX = lastQ[1][0] - o1[0], UY = lastQ[1][1] - o1[1];
-      const VX = lastQ[3][0] - o1[0], VY = lastQ[3][1] - o1[1];
-      const lw = Math.hypot(UX, UY), lh = Math.hypot(VX, VY);
+      const UX = lastQ[1][0] - o1[0],
+        UY = lastQ[1][1] - o1[1];
+      const VX = lastQ[3][0] - o1[0],
+        VY = lastQ[3][1] - o1[1];
+      const lw = Math.hypot(UX, UY),
+        lh = Math.hypot(VX, VY);
       if (lw < 10 || lh < 4) continue;
 
       /* local space: 100 units = box height, isotropic across both axes */
       const asp = lw / lh;
       ctx.save();
-      ctx.transform(UX / (100 * asp), UY / (100 * asp), VX / 100, VY / 100, o1[0], o1[1]);
+      ctx.transform(
+        UX / (100 * asp),
+        UY / (100 * asp),
+        VX / 100,
+        VY / 100,
+        o1[0],
+        o1[1],
+      );
       ctx.font = '400 60px "ABC Schengen", monospace';
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
@@ -1528,14 +1797,14 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       for (let i = 0; i < n; i++) {
         const lp = clamp01((age - L_DELAY - i * L_STAG) / L_DUR);
         if (lp <= 0) continue;
-        const out = exitAge < 0 ? 0 : clamp01((exitAge - (n - 1 - i) * L_STAG) / 0.12);
+        const out =
+          exitAge < 0 ? 0 : clamp01((exitAge - (n - 1 - i) * L_STAG) / 0.12);
         if (out >= 1) continue;
         const e = easeOut(lp);
         const a = textBoost * e * (1 - out);
         if (a < 0.02) continue;
-        const ch = params.scramble && lp < 0.6
-          ? scrChar(i, tick, p.r)
-          : chars[i];
+        const ch =
+          params.scramble && lp < 0.6 ? scrChar(i, tick, p.r) : chars[i];
         ctx.fillStyle = `rgba(${baseCol},${a.toFixed(3)})`;
         ctx.fillText(ch, 30 + chip * 5 + adv[i] * 5, 50 + 20 * (1 - e));
       }
@@ -1575,9 +1844,14 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
         try {
           ctx.drawImage(
             avatarFor(p.r, step),
-            -half * U, -half * U, half * 2 * U, half * 2 * U,
+            -half * U,
+            -half * U,
+            half * 2 * U,
+            half * 2 * U,
           );
-        } catch { /* a face that will not draw is skipped */ }
+        } catch {
+          /* a face that will not draw is skipped */
+        }
         /* the name, in a chip hung off the bottom-right corner of the face and
            touching it — its top on the face's bottom edge, its left on the
            face's right. Padding is a third of the type size, which is the 4px
@@ -1608,17 +1882,22 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
     /* ── section ruler ── */
     if (params.ruler && th > 0.55) {
       const sa = Math.min(1, (th - 0.55) / 0.4);
-      const r1 = P3(0, 0, 2 - frac), r2 = P3(0, 0, 3 - frac);
+      const r1 = P3(0, 0, 2 - frac),
+        r2 = P3(0, 0, 3 - frac);
       if (r1 && r2 && Math.abs(r2[0] - r1[0]) > 26 * DPR) {
         const by = H * 0.86;
-        const xa = Math.min(r1[0], r2[0]), xb = Math.max(r1[0], r2[0]);
+        const xa = Math.min(r1[0], r2[0]),
+          xb = Math.max(r1[0], r2[0]);
         ctx.globalAlpha = sa;
         ctx.strokeStyle = "rgba(233,228,216,0.7)";
         ctx.lineWidth = Math.max(1, DPR);
         ctx.beginPath();
-        ctx.moveTo(xa, by); ctx.lineTo(xb, by);
-        ctx.moveTo(xa, by - 8 * DPR); ctx.lineTo(xa, by + 8 * DPR);
-        ctx.moveTo(xb, by - 8 * DPR); ctx.lineTo(xb, by + 8 * DPR);
+        ctx.moveTo(xa, by);
+        ctx.lineTo(xb, by);
+        ctx.moveTo(xa, by - 8 * DPR);
+        ctx.lineTo(xa, by + 8 * DPR);
+        ctx.moveTo(xb, by - 8 * DPR);
+        ctx.lineTo(xb, by + 8 * DPR);
         ctx.stroke();
         ctx.font = `400 ${(12.5 * DPR).toFixed(1)}px "ABC Schengen", monospace`;
         ctx.textAlign = "center";
@@ -1648,8 +1927,12 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
         /* Figma 10910:8474 — 80px face, agent / amount, rule, fee.
            All measurements are design px scaled by DPR. */
         const k = DPR;
-        const AV = 80 * k, PADL = 4 * k, PADR = 12 * k, PADY = 4 * k;
-        const GAP = 12 * k, COL = 100 * k;
+        const AV = 80 * k,
+          PADL = 4 * k,
+          PADR = 12 * k,
+          PADY = 4 * k;
+        const GAP = 12 * k,
+          COL = 100 * k;
         const cw = PADL + AV + GAP + COL + PADR;
         const chh = AV + PADY * 2;
         /* column content: 20+20 text, 9 gap, 0 rule, 9 gap, 12 fee = 70 */
@@ -1666,7 +1949,10 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(pp.px + 8 * DPR, pp.py);
-        ctx.lineTo(cx0, Math.min(cy0 + chh - 6 * k, Math.max(cy0 + 6 * k, pp.py)));
+        ctx.lineTo(
+          cx0,
+          Math.min(cy0 + chh - 6 * k, Math.max(cy0 + 6 * k, pp.py)),
+        );
         ctx.stroke();
 
         ctx.fillStyle = "#2A2A2A";
@@ -1691,14 +1977,23 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
 
         /* the rule is w-full of the 100px column, and hairline */
         ctx.fillStyle = "rgba(255,255,255,0.04)";
-        ctx.fillRect(tx, colTop + 49 * k, COL, Math.max(1, Math.round(k * 0.5)));
+        ctx.fillRect(
+          tx,
+          colTop + 49 * k,
+          COL,
+          Math.max(1, Math.round(k * 0.5)),
+        );
 
         /* the fee row is justify-center inside the column's 16px right inset,
            so it sits centred rather than flush left like the two lines above */
         ctx.font = `400 ${(12 * k).toFixed(1)}px "ABC Schengen", monospace`;
         ctx.fillStyle = "rgba(255,255,255,0.58)";
         ctx.textAlign = "center";
-        ctx.fillText(`${rec.fee} FEE`, tx + (COL - 16 * k) / 2, colTop + 64 * k);
+        ctx.fillText(
+          `${rec.fee} FEE`,
+          tx + (COL - 16 * k) / 2,
+          colTop + 64 * k,
+        );
         ctx.textAlign = "left";
 
         ctx.letterSpacing = "0px";
@@ -1717,7 +2012,14 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
     const vigWant = `${W}|${H}|${BGC}`;
     if (!vig || vigKey !== vigWant) {
       vigKey = vigWant;
-      vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.34, W / 2, H / 2, Math.max(W, H) * 0.74);
+      vig = ctx.createRadialGradient(
+        W / 2,
+        H / 2,
+        Math.min(W, H) * 0.34,
+        W / 2,
+        H / 2,
+        Math.max(W, H) * 0.74,
+      );
       vig.addColorStop(0, `rgba(${BGC},0)`);
       vig.addColorStop(1, `rgba(${BGC},0.62)`);
     }
@@ -1748,14 +2050,22 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
     my = (e.clientY - r.top) * (canvas.height / r.height);
     hovering = true;
   };
-  const onEnter = () => { hovering = true; };
-  const onLeave = () => { mx = -1; my = -1; hovering = false; };
+  const onEnter = () => {
+    hovering = true;
+  };
+  const onLeave = () => {
+    mx = -1;
+    my = -1;
+    hovering = false;
+  };
   const onDown = (e: PointerEvent) => {
     if (!params.clickable) return;
     onMove(e);
     pin = hov >= 0 ? hov : -1;
   };
-  const onResize = () => { size(); };
+  const onResize = () => {
+    size();
+  };
 
   canvas.addEventListener("pointerenter", onEnter);
   canvas.addEventListener("pointermove", onMove);
@@ -1794,7 +2104,10 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
      * Does nothing if one is already open — a click always outranks this.
      */
     hold(on: boolean) {
-      if (!on) { pin = -1; return false; }
+      if (!on) {
+        pin = -1;
+        return false;
+      }
       /* an open payment is left alone until its plate leaves the frame —
          a plate can drift out sideways long before it reaches the camera, and
          holding on to it would mean no card at all until it settled */
@@ -1805,7 +2118,8 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
       let open: number[] = [];
       for (let i = 0; i < P.length; i++) {
         const p = P[i];
-        if (p.lab && p.res >= 0 && p.exit < 0 && p.vis > 0 && p.z > 1.5) open.push(i);
+        if (p.lab && p.res >= 0 && p.exit < 0 && p.vis > 0 && p.z > 1.5)
+          open.push(i);
       }
       if (!open.length) return false;
       /* the card opens to the right of its plate, so a plate is wanted in the
@@ -1813,7 +2127,11 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
          frame edge, far enough out that it does not land on the copy, and away
          from the top and bottom so it does not read as a corner label */
       const band = open.filter(
-        (i) => P[i].px > W * 0.48 && P[i].px < W * 0.72 && P[i].py > H * 0.24 && P[i].py < H * 0.68,
+        (i) =>
+          P[i].px > W * 0.48 &&
+          P[i].px < W * 0.72 &&
+          P[i].py > H * 0.24 &&
+          P[i].py < H * 0.68,
       );
       if (band.length) open = band;
       /* and take one of the furthest few — a plate picked close to the camera
@@ -1824,8 +2142,10 @@ export function createCorridor(canvas: HTMLCanvasElement, initial: SlabParams) {
     },
     update(next: Partial<SlabParams>) {
       const densityChanged =
-        (next.dotCount != null && Math.round(next.dotCount) !== Math.round(params.dotCount)) ||
-        (next.labelCount != null && Math.round(next.labelCount) !== Math.round(params.labelCount));
+        (next.dotCount != null &&
+          Math.round(next.dotCount) !== Math.round(params.dotCount)) ||
+        (next.labelCount != null &&
+          Math.round(next.labelCount) !== Math.round(params.labelCount));
       Object.assign(params, next);
       applyCamera();
       if (densityChanged) seed();
