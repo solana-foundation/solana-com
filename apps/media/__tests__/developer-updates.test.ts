@@ -176,4 +176,21 @@ describe("developer updates endpoint", () => {
       category: "changelog",
     });
   });
+
+  it("omits a shipped release without a published upgrade overview", async () => {
+    readerMock.collections.releases.list.mockResolvedValue(["shipped-release"]);
+    readerMock.collections.releases.read.mockResolvedValue({
+      name: "Agave 4.2",
+      expectedDate: "2026-08-01",
+      status: "shipped",
+    });
+
+    const response = (await GET()) as unknown as {
+      body: { updates: Array<{ kind: string }> };
+    };
+
+    expect(response.body.updates).not.toContainEqual(
+      expect.objectContaining({ kind: "Release" }),
+    );
+  });
 });

@@ -167,13 +167,13 @@ export async function fetchLatestDeveloperUpdates(): Promise<
           publishedAt: upgrade.publishedAt,
         }
       : undefined,
-    release
+    release?.overview
       ? {
           kind: "Release",
           title: release.title,
           description:
             "The latest shipped software release for the Solana network.",
-          href: `/upgrades/${release.overview ?? release.slug}`,
+          href: `/upgrades/${release.overview}`,
           publishedAt: release.publishedAt,
         }
       : undefined,
