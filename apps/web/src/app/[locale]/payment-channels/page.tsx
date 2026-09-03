@@ -1,10 +1,10 @@
 import { getBaseMetadata } from "@/app/metadata";
-import { PaymentChannelsPage } from "@/components/payment-channels/payment-channels";
+import Landing from "@/components/payment-channels/Landing";
 
 type Props = { params: Promise<{ locale: string }> };
 
 export default function Page() {
-  return <PaymentChannelsPage />;
+  return <Landing />;
 }
 
 export async function generateMetadata({ params }: Props) {

@@ -1,15 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  Fragment,
+  type ReactNode,
+  useEffect,
+  useState,
+  type AnchorHTMLAttributes,
+  type CSSProperties,
+} from "react";
 import VizCanvas from "@/app/gallery/VizCanvas";
-import { CENTRED, stream } from "@/app/gallery/viz/stream";
+import { stream } from "@/app/gallery/viz/stream";
 import type { VizControls } from "@/app/gallery/viz/types";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
+import { Link } from "@solana-com/ui-chrome/link";
 import Globe from "./Globe";
 import s from "./payment-channels.module.css";
 
-/* Assets exported from the Figma frame and served from /public/alt. Names are
-   the frame's own; hashes are Figma's content addresses, kept so a re-export
-   maps back cleanly. */
+/* Assets exported from the Figma frame and served from /public/landing. Names
+   are the frame's own; hashes are Figma's content addresses, kept so a
+   re-export maps back cleanly. */
 const A = (h: string) => `/landing/${h}`;
 
 const ART = {
@@ -34,8 +43,6 @@ const ART = {
   /* 10 · live at launch */
   logoAlibaba: A("3151a097741e4bd16439eb9024b650c4da57909a.svg"),
   logoPaySh: A("a430ee0582fc2f8b41b9457e139706a50308bdfa.svg"),
-  /* 06 · why this matters */
-  tick: A("5e1982a0801e5bf3672784d490aa5b65625ce4de.svg"),
   /* 08 · get started — tile icons, as re-drawn in the CTA frame */
   tCode: A("79c0756e25176b355de82f1afa4a17140acdfbb8.svg"),
   tSlider: A("e85c0b0be0d5374dce6fcca8483f2dfb99fea909.svg"),
@@ -47,23 +54,67 @@ const ART = {
   tWindowB: A("334af01e7b4e3b5d88befb7554a9dcf9a8804ca6.svg"),
   tFile: A("08e7bf6f7bdb69ee01b579f5a6ebc685f3b4bc4c.svg"),
   tChecklist: A("1a87cc5d962c927ced20e269cec181a8d4a30427.svg"),
-  getPlate: A("60b5428ee135e6e99432c85973aba6c18a08cd01.svg"),
-  /* 09 · footer */
-  wordmark: A("c87e1320a7ea42865b343b3605ccfc51f5c50b99.svg"),
-  /* the Solana Foundation lockup: mark then wordmark */
-  fdnMark: A("8056b059c2cbcae9fcfb6177f0cda6e04b440fc5.svg"),
-  fdnWord: A("e962ce7505138f0e8870cd9b2aee076d00734c1b.svg"),
-  soYoutube: A("fdf2c9e4f0290c5db97861e2f40eb87eb2f771f5.svg"),
-  soX: A("5071168676b8caac776b0218f95b9e6bdae706ed.svg"),
-  soDiscord: A("9b1b2495350c1018d7c803dbd77ebf76fd665c83.svg"),
-  soReddit: A("12f6242e8ce040e4b223cd073b017715f9f660af.svg"),
-  soGithub: A("c1ee19783679c381736ef975cc5427ffe298ff9e.svg"),
-  soTelegram: A("6d8a3716856cdc3dbfa86163a734cd737fe35f88.svg"),
-  globeRing: A("6f2663ce5a6b07a3afe9821ca05f929041970b57.svg"),
-  globeBar: A("96fba0329b2b138228d80f1f1a7b29ac6a51a829.svg"),
-  chevUp: A("56239ac4d989ba0db7a5ea2c12a6f8766793b18e.svg"),
-  chevDown: A("2ee59c54064ebbfc933a856f22cae9263fcf0c45.svg"),
 } as const;
+
+const PAYMENT_CHANNELS_DOCS_URL =
+  "https://pay.sh/docs/building-with-pay/payment-channels/concept";
+const PAYMENT_CHANNELS_PROGRAM_URL =
+  "https://github.com/solana-foundation/payment-channels";
+const PAY_SH_URL = "https://pay.sh";
+const BENCHMARK_URL =
+  "https://solana.com/developers/templates/pay-high-throughput-proxy";
+
+type PageLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
+  href: string;
+  children: ReactNode;
+};
+
+function PageLink({ href, target, ...props }: PageLinkProps) {
+  const isExternal = /^(https?:)?\/\//i.test(href);
+
+  return (
+    <Link
+      href={href}
+      target={isExternal ? (target ?? "_self") : target}
+      {...props}
+    />
+  );
+}
+
+function ActionLink({
+  className,
+  variant = "primary",
+  ...props
+}: PageLinkProps & { variant?: "primary" | "ghost" }) {
+  return (
+    <PageLink
+      {...props}
+      className={[variant === "ghost" ? s.btnGhost : s.btn, className]
+        .filter(Boolean)
+        .join(" ")}
+    />
+  );
+}
+
+function ArtImage({
+  className,
+  src,
+  style,
+}: {
+  className?: string;
+  src: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <img
+      className={className}
+      src={src}
+      alt=""
+      aria-hidden="true"
+      style={style}
+    />
+  );
+}
 
 /* ── the latest stream hero ──
    This is the current visual treatment from Saugat's landing: a measured
@@ -332,7 +383,7 @@ function useHeroStream(throughputEpoch: number, throughputPhase: number) {
     "--hero-max": "1060px",
     "--bleed": `${bleed}px`,
   } as CSSProperties;
-  return { controls, heroVars, centred: false, middle: true };
+  return { controls, heroVars };
 }
 
 function easeThroughputProgress(progress: number) {
@@ -440,8 +491,7 @@ function Glyph({ layers }: { layers: Layer[] }) {
       {layers.map((l, i) => (
         <span key={i} className={s.iconLayer} style={{ inset: l.outer }}>
           <span className={s.iconInner} style={{ inset: l.inner }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={l.src} alt="" />
+            <ArtImage src={l.src} />
           </span>
         </span>
       ))}
@@ -449,85 +499,7 @@ function Glyph({ layers }: { layers: Layer[] }) {
   );
 }
 
-/* ── the get-started shader ──
-   The CTA repo backs this card with a Unicorn Studio scene rather than a still.
-   It pulls its runtime from a CDN at mount and tears the scene down on unmount;
-   the static plate stays underneath as the fallback if the script never lands. */
-type UnicornRuntime = {
-  isInitialized?: boolean;
-  init?: () => Promise<unknown>;
-  destroy?: () => void;
-};
-
-const SHADER_SRC =
-  "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.5.2/dist/unicornStudio.umd.js";
 const SHADER_PROJECT = "QTGtHSQRXx8jQPnaWrL0";
-
-function Shader() {
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-
-    const runtimeWindow = window as unknown as {
-      UnicornStudio?: UnicornRuntime;
-    };
-    let alive = true;
-    let started = false;
-    let script: HTMLScriptElement | null = null;
-    const start = () => {
-      if (!alive) return;
-      const us = runtimeWindow.UnicornStudio;
-      if (us && !us.isInitialized && us.init) {
-        us.init().catch(() => {});
-        us.isInitialized = true;
-      }
-    };
-
-    const boot = () => {
-      if (!alive || started) return;
-      started = true;
-      if (!runtimeWindow.UnicornStudio) {
-        runtimeWindow.UnicornStudio = { isInitialized: false };
-        script = document.createElement("script");
-        script.src = SHADER_SRC;
-        script.onload = start;
-        (document.head || document.body).appendChild(script);
-      } else start();
-    };
-
-    /* The shader is decorative and sits below the fold. Defer its external
-       runtime until the card is close to view so it cannot compete with the
-       hero's first render. */
-    const visibility = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) boot();
-      },
-      { rootMargin: "300px" },
-    );
-    visibility.observe(root);
-    const box = root.getBoundingClientRect();
-    if (box.bottom > -300 && box.top < window.innerHeight + 300) boot();
-
-    return () => {
-      alive = false;
-      visibility.disconnect();
-      if (script) script.onload = null;
-      if (started) runtimeWindow.UnicornStudio?.destroy?.();
-    };
-  }, []);
-
-  return (
-    <div ref={rootRef} className={s.shader} aria-hidden="true">
-      <div
-        data-us-project={SHADER_PROJECT}
-        data-us-scale="1"
-        data-us-dpi="1.5"
-      />
-    </div>
-  );
-}
 
 /* ── the streak plate ──
    The frame's decorative "video" element: 26 white bars stepped along a
@@ -584,6 +556,21 @@ function Streak({ style }: { style: CSSProperties }) {
   );
 }
 
+const STREAK_POSITIONS: CSSProperties[] = [
+  { left: -383, top: 961 },
+  { left: 2161, top: 763 },
+];
+
+function StreakPair() {
+  return (
+    <>
+      {STREAK_POSITIONS.map((style) => (
+        <Streak key={`${style.left}-${style.top}`} style={style} />
+      ))}
+    </>
+  );
+}
+
 /* ── content, verbatim from the copy deck ── */
 
 const STATS: [string, string][] = [
@@ -603,6 +590,12 @@ const BREAKS: [string, string][] = [
     "A token-by-token streaming response, or a burst of hundreds of cheap calls in a short time period.",
   ],
 ];
+
+const CHANNEL_STEPS = [
+  { label: "Agent", title: "Authorize once", body: "Set a spending limit" },
+  { label: "Channel", title: "Pay as you go", body: "Many signed updates" },
+  { label: "Solana", title: "Settle once", body: "Return unused funds" },
+] as const;
 
 /* the second chart, bar for bar */
 const BAR_HEIGHTS = [211, 108, 50, 20, 183, 38, 86, 279, 31, 86];
@@ -684,7 +677,7 @@ const PARTNERS: {
     w: 198,
     h: 25,
     cta: "View APIs",
-    href: "https://pay.sh",
+    href: PAY_SH_URL,
   },
   {
     label: "Platform for pay-per-use APIs",
@@ -692,14 +685,14 @@ const PARTNERS: {
     w: 108,
     h: 32,
     cta: "Explore pay.sh",
-    href: "https://pay.sh",
+    href: PAY_SH_URL,
   },
 ];
 
 const TILES: { name: string; href: string; layers: Layer[] }[] = [
   {
     name: "Program",
-    href: "https://github.com/solana-foundation/payment-channels",
+    href: PAYMENT_CHANNELS_PROGRAM_URL,
     layers: [{ outer: "16.67% 8.33%", inner: "-4.55% -4.24%", src: ART.tCode }],
   },
   {
@@ -749,7 +742,7 @@ const TILES: { name: string; href: string; layers: Layer[] }[] = [
   },
   {
     name: "Concept + docs",
-    href: "https://pay.sh/docs/building-with-pay/payment-channels/concept",
+    href: PAYMENT_CHANNELS_DOCS_URL,
     layers: [{ outer: "12.5% 20.83%", inner: "-3.33% -4.29%", src: ART.tFile }],
   },
   {
@@ -758,6 +751,29 @@ const TILES: { name: string; href: string; layers: Layer[] }[] = [
     layers: [{ outer: "16.67%", inner: "-3.75%", src: ART.tChecklist }],
   },
 ];
+
+function ChannelStep({ label, title, body }: (typeof CHANNEL_STEPS)[number]) {
+  return (
+    <div className={s.channelStep}>
+      <div className={s.channelLabelArea}>
+        <span className={s.channelNodeTag}>{label}</span>
+      </div>
+      <div className={s.channelStepCopy}>
+        <strong>{title}</strong>
+        <span>{body}</span>
+      </div>
+    </div>
+  );
+}
+
+function ResourceTile({ tile }: { tile: (typeof TILES)[number] }) {
+  return (
+    <PageLink className={s.tile} href={tile.href} rel="noreferrer">
+      <Glyph layers={tile.layers} />
+      <p className={`${s.bodyXl} ${s.tileName}`}>{tile.name}</p>
+    </PageLink>
+  );
+}
 
 export default function Landing() {
   const throughput = useThroughputCounter();
@@ -772,9 +788,7 @@ export default function Landing() {
       <section className={s.hero} style={hero.heroVars}>
         <Stream controls={hero.controls} />
 
-        <div
-          className={`${s.heroInner} ${hero.middle ? s.heroMiddle : ""} ${s.heroScrimOn}`}
-        >
+        <div className={`${s.heroInner} ${s.heroScrimOn}`}>
           <div className={s.heroContent}>
             <div className={s.heroBlock}>
               <h1 className={`${s.hXl} ${s.heroTitle}`}>
@@ -787,12 +801,9 @@ export default function Landing() {
                 payments needs to be built for permissionless, unprecedented
                 scale.
               </p>
-              <a
-                className={s.btn}
-                href="https://pay.sh/docs/building-with-pay/payment-channels/concept"
-              >
+              <ActionLink href={PAYMENT_CHANNELS_DOCS_URL}>
                 Read the docs
-              </a>
+              </ActionLink>
               <ThroughputCard
                 value={throughput.value}
                 progress={throughput.progress}
@@ -852,66 +863,27 @@ export default function Landing() {
             <div className={s.agentsArt}>
               {/* the Figma frame keeps the image and black fade inside one clipped card */}
               <div className={s.channelVisual}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  className={s.agentsPlate}
-                  src={ART.agentsArt}
-                  alt=""
-                  aria-hidden="true"
-                />
+                <ArtImage className={s.agentsPlate} src={ART.agentsArt} />
                 <div className={s.channelVisualFade} aria-hidden="true" />
                 <div className={s.channelVisualHead}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <ArtImage
                     className={s.channelLiveDot}
                     src={ART.channelStatusDot}
-                    alt=""
-                    aria-hidden="true"
                   />
                   Active Payment Channel
                 </div>
                 <div className={s.channelFlow}>
-                  <div className={s.channelStep}>
-                    <div className={s.channelLabelArea}>
-                      <span className={s.channelNodeTag}>Agent</span>
-                    </div>
-                    <div className={s.channelStepCopy}>
-                      <strong>Authorize once</strong>
-                      <span>Set a spending limit</span>
-                    </div>
-                  </div>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className={s.channelDivider}
-                    src={ART.channelDivider}
-                    alt=""
-                    aria-hidden="true"
-                  />
-                  <div className={s.channelStep}>
-                    <div className={s.channelLabelArea}>
-                      <span className={s.channelNodeTag}>Channel</span>
-                    </div>
-                    <div className={s.channelStepCopy}>
-                      <strong>Pay as you go</strong>
-                      <span>Many signed updates</span>
-                    </div>
-                  </div>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className={s.channelDivider}
-                    src={ART.channelDivider}
-                    alt=""
-                    aria-hidden="true"
-                  />
-                  <div className={s.channelStep}>
-                    <div className={s.channelLabelArea}>
-                      <span className={s.channelNodeTag}>Solana</span>
-                    </div>
-                    <div className={s.channelStepCopy}>
-                      <strong>Settle once</strong>
-                      <span>Return unused funds</span>
-                    </div>
-                  </div>
+                  {CHANNEL_STEPS.map((step, i) => (
+                    <Fragment key={step.label}>
+                      <ChannelStep {...step} />
+                      {i < CHANNEL_STEPS.length - 1 && (
+                        <ArtImage
+                          className={s.channelDivider}
+                          src={ART.channelDivider}
+                        />
+                      )}
+                    </Fragment>
+                  ))}
                 </div>
               </div>
             </div>
@@ -950,16 +922,11 @@ export default function Landing() {
               {/* the step chart — cost climbing per call */}
               <div className={s.breakCol}>
                 <div className={s.chartFrame} aria-hidden="true">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className={s.chartGrid} src={ART.chartGrid} alt="" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className={s.stepFill} src={ART.stepFill} alt="" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className={s.stepLine} src={ART.stepLine} alt="" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className={s.stepEdge} src={ART.stepEdge} alt="" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className={s.stepDot} src={ART.stepDot} alt="" />
+                  <ArtImage className={s.chartGrid} src={ART.chartGrid} />
+                  <ArtImage className={s.stepFill} src={ART.stepFill} />
+                  <ArtImage className={s.stepLine} src={ART.stepLine} />
+                  <ArtImage className={s.stepEdge} src={ART.stepEdge} />
+                  <ArtImage className={s.stepDot} src={ART.stepDot} />
                 </div>
                 <div className={s.breakCaption}>
                   <h3 className={s.hS}>{BREAKS[0][0]}</h3>
@@ -970,8 +937,7 @@ export default function Landing() {
               {/* the bar chart — many small deliveries */}
               <div className={s.breakCol}>
                 <div className={s.chartFrame} aria-hidden="true">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img className={s.chartGrid} src={ART.chartGrid} alt="" />
+                  <ArtImage className={s.chartGrid} src={ART.chartGrid} />
                   <div className={s.bars}>
                     {BAR_HEIGHTS.map((h, i) => (
                       <span key={i} className={s.bar} style={{ height: h }} />
@@ -991,8 +957,7 @@ export default function Landing() {
       {/* ── 05 · how it works ── */}
       <section className={s.band}>
         <div className={s.plateWrap} aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className={s.plate} src={ART.plateCta} alt="" />
+          <ArtImage className={s.plate} src={ART.plateCta} />
           <div className={s.plateMask} />
         </div>
 
@@ -1004,12 +969,9 @@ export default function Landing() {
                 <br />
                 <span className={s.thin}>under the hood</span>
               </h2>
-              <a
-                className={s.btn}
-                href="https://github.com/solana-foundation/payment-channels"
-              >
+              <ActionLink href={PAYMENT_CHANNELS_PROGRAM_URL}>
                 View the program
-              </a>
+              </ActionLink>
             </div>
             <div className={s.howSteps}>
               {STEPS.map((st, i) => (
@@ -1035,8 +997,7 @@ export default function Landing() {
 
       {/* ── 06 · why this matters ── */}
       <section className={s.band}>
-        <Streak style={{ left: -383, top: 961 }} />
-        <Streak style={{ left: 2161, top: 763 }} />
+        <StreakPair />
         <div className={s.inner}>
           <div className={s.whyStack}>
             <h2 className={`${s.hL} ${s.whyHead}`}>
@@ -1056,13 +1017,7 @@ export default function Landing() {
 
             <div className={s.session}>
               {/* the plate arrives with its blended shapes already baked in */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                className={s.sessionPlate}
-                src={ART.sessionBg}
-                alt=""
-                aria-hidden="true"
-              />
+              <ArtImage className={s.sessionPlate} src={ART.sessionBg} />
               <div className={s.sessionLeft}>
                 <h3 className={`${s.hM} ${s.sessionTitle}`}>
                   100,000 channels. 25,000 transactions. One completed
@@ -1073,12 +1028,7 @@ export default function Landing() {
                   full cycle finalized all 100,000 channels while one million
                   payments per second continued at application speed.
                 </p>
-                <a
-                  className={s.btn}
-                  href="https://solana.com/developers/templates/pay-high-throughput-proxy"
-                >
-                  Run the benchmark
-                </a>
+                <ActionLink href={BENCHMARK_URL}>Run the benchmark</ActionLink>
               </div>
               <ul className={s.sessionList}>
                 {SETTLEMENT_METRICS.map(([value, label]) => (
@@ -1111,13 +1061,7 @@ export default function Landing() {
 
       {/* ── 07 · built open, works everywhere ── */}
       <section className={s.band}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          className={s.openPlate}
-          src={ART.plateCta}
-          alt=""
-          aria-hidden="true"
-        />
+        <ArtImage className={s.openPlate} src={ART.plateCta} />
         <div className={s.openInner}>
           <div className={s.openStack}>
             <div className={s.openHead}>
@@ -1146,8 +1090,7 @@ export default function Landing() {
 
       {/* ── 10 · live at launch ── */}
       <section className={`${s.band} ${s.noRule}`}>
-        <Streak style={{ left: -383, top: 961 }} />
-        <Streak style={{ left: 2161, top: 763 }} />
+        <StreakPair />
         <div className={s.inner}>
           <div className={s.launchRow}>
             <div className={s.launchLeft}>
@@ -1174,18 +1117,15 @@ export default function Landing() {
                 >
                   <div className={s.partnerTop}>
                     <p className={s.bodyS}>{p.label}</p>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <ArtImage
                       className={s.partnerLogo}
                       src={p.logo}
-                      alt=""
-                      aria-hidden="true"
                       style={{ width: p.w, height: p.h }}
                     />
                   </div>
-                  <a className={s.btnGhost} href={p.href} rel="noreferrer">
+                  <ActionLink variant="ghost" href={p.href} rel="noreferrer">
                     {p.cta}
-                  </a>
+                  </ActionLink>
                 </div>
               ))}
             </div>
@@ -1196,7 +1136,16 @@ export default function Landing() {
       {/* ── 08 · get started ── */}
       <section className={s.getBand}>
         <div className={s.getCard}>
-          <Shader />
+          <SafeUnicornScene
+            projectId={SHADER_PROJECT}
+            className={s.shader}
+            width="100%"
+            height="100%"
+            scale={1}
+            dpi={1.5}
+            lazyLoad
+            production
+          />
           <Globe />
           <div className={s.getShade} aria-hidden="true" />
           <div className={s.getStack}>
@@ -1216,29 +1165,13 @@ export default function Landing() {
 
             <div className={s.getGrid}>
               <div className={s.getRow}>
-                {TILES.slice(0, 3).map((t) => (
-                  <a
-                    key={t.name}
-                    className={s.tile}
-                    href={t.href}
-                    rel="noreferrer"
-                  >
-                    <Glyph layers={t.layers} />
-                    <p className={`${s.bodyXl} ${s.tileName}`}>{t.name}</p>
-                  </a>
+                {TILES.slice(0, 3).map((tile) => (
+                  <ResourceTile key={tile.name} tile={tile} />
                 ))}
               </div>
               <div className={s.getRow}>
-                {TILES.slice(3).map((t) => (
-                  <a
-                    key={t.name}
-                    className={s.tile}
-                    href={t.href}
-                    rel="noreferrer"
-                  >
-                    <Glyph layers={t.layers} />
-                    <p className={`${s.bodyXl} ${s.tileName}`}>{t.name}</p>
-                  </a>
+                {TILES.slice(3).map((tile) => (
+                  <ResourceTile key={tile.name} tile={tile} />
                 ))}
                 {/* the frame keeps a third slot on this row, held empty */}
                 <div
