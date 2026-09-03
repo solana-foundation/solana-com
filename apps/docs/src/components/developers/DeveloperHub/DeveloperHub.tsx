@@ -21,6 +21,7 @@ import { Rocket } from "@boxicons/react/Rocket";
 import { Spanner } from "@boxicons/react/Spanner";
 import { Video } from "@boxicons/react/Video";
 import { Wallet } from "@boxicons/react/Wallet";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Link } from "@solana-com/ui-chrome/link";
 import EmailSubscribeForm from "@/components/shared/EmailSubscribeForm";
@@ -373,6 +374,25 @@ const updateKindKeys: Record<DeveloperUpdate["kind"], string> = {
   Release: "updates.kinds.release",
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isDeveloperUpdate(value: unknown): value is DeveloperUpdate {
+  if (!isRecord(value)) return false;
+
+  return (
+    (value.kind === "News" ||
+      value.kind === "Changelog" ||
+      value.kind === "Upgrade" ||
+      value.kind === "Release") &&
+    typeof value.title === "string" &&
+    typeof value.description === "string" &&
+    typeof value.href === "string" &&
+    (value.publishedAt === undefined || typeof value.publishedAt === "string")
+  );
+}
+
 function formatDate(value: string | undefined, locale: string) {
   if (!value) return null;
   const date = new Date(value);
@@ -423,9 +443,61 @@ function Arrow({ external = false }: { external?: boolean }) {
   );
 }
 
-export function DeveloperHub({ updates }: { updates: DeveloperUpdate[] }) {
+export function DeveloperHub({
+  updates: initialUpdates,
+}: {
+  updates: DeveloperUpdate[];
+}) {
   const t = useTranslations("developers.hub");
   const locale = useLocale();
+  const [previewUpdates, setPreviewUpdates] = useState<
+    DeveloperUpdate[] | null
+  >(null);
+
+  // A page rendered through the web app can reach this endpoint through the
+  // web app's media rewrite, even when the Docs-to-Media server request is
+  // blocked by Vercel preview protection.
+  useEffect(() => {
+    if (initialUpdates.length > 0 || previewUpdates !== null) {
+      return;
+    }
+
+    let isMounted = true;
+
+    fetch("/api/developer-updates/latest", {
+      headers: { accept: "application/json" },
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(response.statusText);
+        }
+
+        const data: unknown = await response.json();
+        if (!isRecord(data) || !Array.isArray(data.updates)) {
+          throw new Error("Invalid developer updates response");
+        }
+
+        return data.updates.filter(isDeveloperUpdate);
+      })
+      .then((nextUpdates) => {
+        if (isMounted) {
+          setPreviewUpdates(nextUpdates);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch preview developer updates:", error);
+        if (isMounted) {
+          // Prevent a failed preview request from being retried on every render.
+          setPreviewUpdates([]);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialUpdates, previewUpdates]);
+
+  const updates = previewUpdates ?? initialUpdates;
 
   return (
     <main className={styles.hub}>

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { withRelatedProject } from "@vercel/related-projects";
+
 export type DeveloperUpdate = {
   kind: "News" | "Changelog" | "Upgrade" | "Release";
   title: string;
@@ -9,10 +11,14 @@ export type DeveloperUpdate = {
 };
 
 const REVALIDATE_SECONDS = 300;
+const vercelMediaUrl = withRelatedProject({
+  projectName: "solana-com-media",
+  defaultHost: "https://solana-com-media.vercel.app",
+});
 const DEFAULT_MEDIA_APP_URL =
   process.env.NODE_ENV === "development"
     ? "http://localhost:3002"
-    : "https://solana-com-media.vercel.app";
+    : vercelMediaUrl;
 
 function getDeveloperUpdatesUrl(): string {
   const mediaAppUrl =
