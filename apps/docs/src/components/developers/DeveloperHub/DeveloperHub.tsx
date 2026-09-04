@@ -39,6 +39,7 @@ type HubLink = {
 
 type Pathway = HubLink & {
   labelKey: string;
+  ctaKey: string;
   links: HubLink[];
 };
 
@@ -48,6 +49,7 @@ const pathways: Pathway[] = [
     labelKey: "pathways.items.learnStack.label",
     titleKey: "pathways.items.learnStack.title",
     descriptionKey: "pathways.items.learnStack.description",
+    ctaKey: "pathways.items.learnStack.cta",
     href: "/docs",
     icon: BookOpen,
     links: [
@@ -77,6 +79,7 @@ const pathways: Pathway[] = [
     labelKey: "pathways.items.buildByExample.label",
     titleKey: "pathways.items.buildByExample.title",
     descriptionKey: "pathways.items.buildByExample.description",
+    ctaKey: "pathways.items.buildByExample.cta",
     href: "/developers/templates",
     icon: CodeAlt,
     links: [
@@ -108,6 +111,7 @@ const pathways: Pathway[] = [
     labelKey: "pathways.items.moveToSolana.label",
     titleKey: "pathways.items.moveToSolana.title",
     descriptionKey: "pathways.items.moveToSolana.description",
+    ctaKey: "pathways.items.moveToSolana.cta",
     href: "/developers/migrate-to-solana",
     icon: GitCompare,
     links: [
@@ -550,7 +554,7 @@ export function DeveloperHub({
                 <h3>{t(pathway.titleKey)}</h3>
                 <p>{t(pathway.descriptionKey)}</p>
                 <Link to={pathway.href} className={styles.pathwayCta}>
-                  {t("pathways.explore")} <Arrow />
+                  {t(pathway.ctaKey)} <Arrow />
                 </Link>
                 <ul>
                   {pathway.links.map((link) => (
