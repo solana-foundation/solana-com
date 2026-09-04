@@ -1,1 +1,70 @@
-019d70a9-798a-7c21-a3fc-72e0bb0e06ff
+export interface Entity {
+  id: string;
+  createdAt: number;
+}
+
+export interface MarketObservation extends Entity {
+  symbol: string;
+  price: number;
+  source: string;
+  oracle: string;
+  timestamp: number;
+}
+
+export interface AuditRecord extends Entity {
+  action: "CREATE" | "READ" | "VALIDATE" | "STORE" | "EXPOSE";
+  symbol: string;
+  actor: string;
+}
+
+const CACHE_TTL_SECONDS = 300;
+
+export class MarketRepository {
+  constructor(
+    private readonly kv: KVNamespace,
+  ) {}
+
+  async getLatest(symbol: string): Promise<MarketObservation | null> {
+    return await this.kv.get<MarketObservation>(`market:${symbol}:latest`, "json");
+  }
+
+  async save(
+    observation: MarketObservation
+  ): Promise<void> {
+    this.validate(observation);
+    await this.kv.put(
+      `market:${observation.symbol}:latest`,
+      JSON.stringify(observation),
+      { expirationTtl: CACHE_TTL_SECONDS }
+    );
+    await this.kv.put(
+      `market:${observation.symbol}:history:${observation.timestamp}`,
+      JSON.stringify(observation)
+    );
+    await this.audit("STORE", observation.symbol, observation.source);
+  }
+
+  private validate(observation: MarketObservation): void {
+    if (!observation.symbol || !observation.source || !observation.oracle) {
+      throw new Error("Invalid market observation");
+    }
+    if (!Number.isFinite(observation.price) || observation.price < 0) {
+      throw new Error("Invalid market price");
+    }
+  }
+
+  private async audit(
+    action: AuditRecord["action"],
+    symbol: string,
+    actor: string,
+  ): Promise<void> {
+    const record: AuditRecord = {
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      action,
+      symbol,
+      actor,
+    };
+    await this.kv.put(`audit:${record.id}`, JSON.stringify(record));
+  }
+}
