@@ -172,7 +172,7 @@ fn main() -> Result<()> {
     let (mint, token_account) = setup_withdrawable_account(&rpc_client, &owner, amount, decimals)?;
 
     // Derive the owner's keys and read the current confidential available balance.
-    let (elgamal_keypair, aes_key) = derive_confidential_keys(&owner, &token_account.to_bytes())
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(&owner, b"")
         .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
 
     let account_data = rpc_client.get_account(&token_account)?;
@@ -387,7 +387,7 @@ fn configure_confidential_token_account(
         &[ExtensionType::ConfidentialTransferAccount],
     )?;
 
-    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner, &token_account.to_bytes())
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner, b"")
         .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
     let decryptable_balance: PodAeCiphertext = aes_key.encrypt(0).into();
 
@@ -447,7 +447,7 @@ fn apply_pending_balance_for_account(
     owner: &Keypair,
     token_account: &Pubkey,
 ) -> Result<()> {
-    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner, &token_account.to_bytes())
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner, b"")
         .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
 
     let account_data = rpc_client.get_account(token_account)?;
@@ -547,8 +547,8 @@ serde_json = "1.0"
 // !collapse(1:31) collapsed
 // Imports: dependencies used by this example.
 import {
-  deriveAeKeyForOwnerMint,
-  deriveElGamalKeypairForOwnerMint,
+  deriveAeKey,
+  deriveElGamalKeypair,
   getApplyConfidentialPendingBalanceInstructionFromToken,
   getConfidentialWithdrawInstructionPlan,
   getCreateConfidentialTransferAccountInstructionPlan
@@ -598,10 +598,10 @@ const mint = await createConfidentialMint(client, owner, decimals);
 const token = await createConfidentialTokenAccount(client, owner, mint);
 await mintPublicTokens(client, owner, mint, token, depositAmount);
 await depositTokens(client, owner, mint, token, depositAmount, decimals);
-await applyPendingBalance(client, owner, mint, token);
+await applyPendingBalance(client, owner, token);
 
-// Derive the owner's recoverable ElGamal and AES keys, bound to (owner, mint).
-const { elgamalKeypair, aesKey } = await deriveConfidentialKeys(owner, mint);
+// Derive the owner's recoverable ElGamal and AES keys, bound to the wallet.
+const { elgamalKeypair, aesKey } = await deriveConfidentialKeys(owner);
 
 const tokenAccount = (await fetchToken(client.rpc, token)).data;
 
@@ -635,11 +635,7 @@ async function createConfidentialMint(
   decimals: number
 ) {
   const mint = await generateKeyPairSigner();
-  const auditor = await deriveElGamalKeypairForOwnerMint({
-    signer: payer,
-    owner: payer.address,
-    mint: mint.address
-  });
+  const auditor = await deriveElGamalKeypair({ signer: payer });
 
   const plan = getCreateMintInstructionPlan({
     payer,
@@ -672,10 +668,7 @@ async function createConfidentialTokenAccount(
     tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
     mint
   });
-  const { elgamalKeypair, aesKey } = await deriveConfidentialKeys(
-    accountOwner,
-    mint
-  );
+  const { elgamalKeypair, aesKey } = await deriveConfidentialKeys(accountOwner);
 
   const plan = await getCreateConfidentialTransferAccountInstructionPlan({
     rpc: kitClient.rpc,
@@ -733,13 +726,10 @@ async function depositTokens(
 async function applyPendingBalance(
   kitClient: typeof client,
   accountOwner: typeof owner,
-  mint: Awaited<ReturnType<typeof createConfidentialMint>>,
   token: Awaited<ReturnType<typeof createConfidentialTokenAccount>>
 ) {
-  const { elgamalSecretKey, aesKey } = await deriveConfidentialKeys(
-    accountOwner,
-    mint
-  );
+  const { elgamalSecretKey, aesKey } =
+    await deriveConfidentialKeys(accountOwner);
   const tokenAccount = await fetchToken(kitClient.rpc, token);
   await kitClient.sendTransaction([
     getApplyConfidentialPendingBalanceInstructionFromToken({
@@ -753,24 +743,13 @@ async function applyPendingBalance(
   await pauseForPublicRpc();
 }
 
-async function deriveConfidentialKeys(
-  accountOwner: typeof owner,
-  mint: Awaited<ReturnType<typeof createConfidentialMint>>
-) {
-  const derivedElGamal = await deriveElGamalKeypairForOwnerMint({
-    signer: accountOwner,
-    owner: accountOwner.address,
-    mint
+async function deriveConfidentialKeys(accountOwner: typeof owner) {
+  const derivedElGamal = await deriveElGamalKeypair({
+    signer: accountOwner
   });
   const elgamalSecretKey = ElGamalSecretKey.fromBytes(derivedElGamal.secretKey);
   const elgamalKeypair = ElGamalKeypair.fromSecretKey(elgamalSecretKey);
-  const aesKey = AeKey.fromBytes(
-    await deriveAeKeyForOwnerMint({
-      signer: accountOwner,
-      owner: accountOwner.address,
-      mint
-    })
-  );
+  const aesKey = AeKey.fromBytes(await deriveAeKey({ signer: accountOwner }));
 
   return { elgamalKeypair, elgamalSecretKey, aesKey };
 }

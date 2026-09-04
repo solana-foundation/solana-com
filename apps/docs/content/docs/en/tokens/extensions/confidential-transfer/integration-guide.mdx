@@ -63,9 +63,9 @@ not anonymity.
 
 ## Terms
 
-- **ElGamal keypair**: per-account public-key keypair used to encrypt balances
-  and build ZK proofs. The public key is stored on the account.
-- **AES key**: per-account symmetric key used to encrypt the "decryptable
+- **ElGamal keypair**: the owner's public-key keypair used to encrypt balances
+  and build ZK proofs. The public key is stored on each configured account.
+- **AES key**: the owner's symmetric key used to encrypt the "decryptable
   available balance" so the owner can read their available balance in constant
   time, without solving a discrete log.
 - **Pending balance**: encrypted balance of funds received via deposits or
@@ -111,10 +111,12 @@ store those keys is an integration choice. A few common options:
 - **Derive from a wallet signature (recommended default).** The owner signs a
   canonical, domain-separated message and the keys are derived from that
   signature, so they are reproducible from the wallet alone and you do not have
-  to store them. The seed is deterministic per account: the JS helpers below
-  bind it to the `(owner, mint)` pair, while the Rust example seeds from the
-  token account address (for an associated token account these are equivalent,
-  since that address is itself derived from the owner and mint).
+  to store them. The standard derivation binds the keys to the main wallet only
+  (an empty public seed), so one wallet maps to one ElGamal keypair and one AES
+  key across all mints and token accounts. Earlier revisions of the helpers
+  seeded from the `(owner, mint)` pair or the token account address; those
+  variants are deprecated and should only be kept for decrypting balances that
+  were encrypted under them.
 - **Derive from independent key material.** For passkeys, secure enclaves, or
   MPC setups, derive the keys from a WebAuthn PRF output or other input key
   material so that the confidential keys are not tied to the account's signing
@@ -129,32 +131,25 @@ The `@solana-program/token-2022` client ships helpers for the recommended path:
 
 ```ts !! title="JS-derive-keys.ts"
 import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+  deriveAeKey,
+  deriveElGamalKeypair
+} from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs a domain-separated message; the keys are bound to the wallet.
+const { elgamalPubkey, secretKey } = await deriveElGamalKeypair({
+  signer: owner
 });
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
+const aesKey = await deriveAeKey({ signer: owner });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
+// `signer` is the account owner; the standard derivation uses an empty public
+// seed. This is the same canonical, domain-separated derivation the JS helpers
 // use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer, b"")
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
@@ -510,7 +505,10 @@ from the mint config (the high-level helpers read it for you).
 If your product is the auditor (for example a regulated issuer or a compliance
 provider), you decrypt transfer amounts with the auditor secret key the same way
 an owner decrypts their own balance. Owners can also selectively share their
-per-account keys with a specific party without exposing them publicly.
+keys with a specific party without exposing them publicly — though under the
+standard wallet-bound derivation, the same keys cover all of the owner's
+confidential balances, so sharing them discloses every confidential account, not
+just one.
 
 ### Transaction monitoring (KYT)
 
@@ -604,4 +602,4 @@ is observable, not the overall model:
 | Address and graph screening   | Screen senders, recipients, mints, and owners and run counterparty graph analysis; these stay public.            | **P0**   |
 | Track public deposit/withdraw | Monitor cleartext deposit and withdraw amounts as the observable entry and exit points of the confidential pool. | **P0**   |
 | Auditor-key amount visibility | For auditor-enabled mints, decrypt transfer amounts using the auditor key to support amount-based detection.     | **P1**   |
-| Selective disclosure intake   | Support amount disclosures shared by users or issuers via per-account keys.                                      | **P2**   |
+| Selective disclosure intake   | Support amount disclosures shared by users or issuers via the owner's keys.                                      | **P2**   |
