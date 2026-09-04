@@ -1,0 +1,146 @@
+---
+title: 发送转账
+description:
+  通过 Private Channels 网关发送链下 SPL 代币转账
+---
+
+## 概述
+
+Channel 转账是标准的 SPL 代币转账，提交至网关后无需专用的 Private Channels 转账指令。网关将交易路由至写入节点，由其在 Channel 的链下账户层执行。转账在序列器处理时即确认，而非等待 Solana 区块确认，且不会出现在主网上。
+
+## 切换钱包 RPC
+
+在发送转账之前，请将钱包的 RPC 端点切换为网关 URL，而非 Solana Devnet：
+
+```
+http://localhost:8899
+```
+
+发送至公共 Solana RPC 的交易将落在主网上，而非 Channel。
+
+## 身份验证
+
+如果您在启动堆栈时未使用 `--profile auth`（默认 devnet 配置），网关将以开放模式运行，无需令牌——请跳过本节。
+
+当 Auth Service 启用后（网关上已设置 `JWT_SECRET`），所有请求均需在 `Authorization` 标头中携带 JWT Bearer 令牌：
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+请参阅 **[Authentication & Roles](/docs/tools/private-channels/concepts/auth)**，了解如何注册、登录及获取令牌。
+
+## 构建并发送转账
+
+如果收款方的 associated token account 在 Channel 上尚不存在，请在转账指令之前添加 `createAssociatedTokenAccountIdempotent` 指令。以下代码同时处理两种情况：
+
+```typescript
+import {
+  address,
+  createSolanaRpc,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstruction,
+  getTransferInstruction
+} from "@solana-program/token";
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+// Derive source and destination associated token accounts
+const [sourceAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(senderAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const [destinationAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(recipientAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const transferInstruction = getTransferInstruction({
+  source: sourceAta,
+  destination: destinationAta,
+  authority: transactionSigner,
+  amount: 1_000_000n // 1 USDC (6 decimals)
+});
+
+// Create the destination ATA on the channel if it does not exist yet
+const destinationAtaInfo = await privateChannelRpc
+  .getAccountInfo(destinationAta, { encoding: "base64" })
+  .send();
+
+const { value: latestBlockhash } = await privateChannelRpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Sent to the Private Channels gateway (not Solana RPC directly), which
+// expects the legacy transaction format - do not switch this to version 0.
+const transactionMessage = !destinationAtaInfo.value
+  ? pipe(
+      createTransactionMessage({ version: "legacy" }),
+      (m) => setTransactionMessageFeePayerSigner(transactionSigner, m),
+      (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+      (m) =>
+        appendTransactionMessageInstruction(
+          getCreateAssociatedTokenIdempotentInstruction({
+            payer: transactionSigner,
+            ata: destinationAta,
+            owner: address(recipientAddress),
+            mint: address(mintAddress)
+          }),
+          m
+        ),
+      (m) => appendTransactionMessageInstruction(transferInstruction, m)
+    )
+  : pipe(
+      createTransactionMessage({ version: "legacy" }),
+      (m) => setTransactionMessageFeePayerSigner(transactionSigner, m),
+      (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+      (m) => appendTransactionMessageInstruction(transferInstruction, m)
+    );
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Transfer signature:", signature);
+```
+
+## 验证转账
+
+通过网关查询收款方的 Channel 余额，以确认转账已成功落账：
+
+```typescript
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(recipientAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(recipientAta)
+  .send();
+console.log(balance.value.uiAmountString);
+```
+
+## 后续步骤
+
+**[Withdraw Funds](/docs/tools/private-channels/quickstart/withdraw)** —
+将代币提取回您的 Solana 钱包

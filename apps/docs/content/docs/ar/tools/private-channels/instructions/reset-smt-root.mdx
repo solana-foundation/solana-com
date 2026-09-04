@@ -1,0 +1,64 @@
+---
+title: إعادة تعيين جذر SMT
+description:
+  يقوم بتدوير شجرة Merkle المتفرقة، وإعادة تعيين جذر السحب لـ epoch جديدة من الشجرة
+---
+
+تعليمة مخصصة للمشغّل فقط، تقوم بتدوير شجرة Merkle المتفرقة عبر زيادة
+`Instance.current_tree_index` وإعادة تعيين جذر السحب، مما يتيح
+epoch جديدة من 65,536 عملية سحب.
+
+<Callout type="info">
+  يجري نقل برنامج الضمان من تصميم شجرة Merkle المتفرقة هذا إلى
+  خريطة نونس على السلسلة (يُتتبَّع في المستودع الأصلي)، حيث ستصبح هذه التعليمة
+  `RotateBitmap`. هذه الصفحة دقيقة بالنسبة لبرنامج الضمان الحالي
+  وستُعاد صياغتها بمجرد تطبيق هذا التغيير.
+</Callout>
+
+## الحسابات
+
+| الحساب                          | قابل للكتابة | موقِّع | الوصف                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | دافع الرسوم                                              |
+| `operator`                       |          | ✓      | موقِّع المشغّل                                        |
+| `instance`                       | ✓        |        | PDA لنسخة الضمان (يتم زيادة `current_tree_index`) |
+| `operator_pda`                   |          |        | PDA المشغّل الذي يُثبت أن الموقِّع مُوفَّر         |
+| `event_authority`                |          |        | PDA سلطة الأحداث لـ `EmitEvent` CPI                |
+| `private_channel_escrow_program` |          |        | برنامج الضمان (مرجع ذاتي لـ CPI)                |
+
+## المعاملات
+
+| المعامل                     | النوع  | الوصف                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | حارس إعادة التشغيل؛ يجب أن يتطابق مع `Instance.current_tree_index` وإلا فشل الاستدعاء |
+
+## القيم المُعادة
+
+يُعيد `TransactionBuilder` يمكن استخدامه لبناء المعاملة وإرسالها.
+
+## مثال
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## ملاحظات مهمة
+
+- مخصص للمشغّل فقط: يتطلب `operator_pda` صالحاً؛ وإلا يرمي `InvalidOperatorPda`
+- يجب أن يساوي `expected_current_tree_index` قيمة `Instance.current_tree_index` وقت الاستدعاء؛ وإلا يرمي `UnexpectedTreeIndex`، مما يحمي من إعادة تشغيل عملية إعادة تعيين تمت بالفعل
+- يزيد `Instance.current_tree_index`؛ تصبح النونسات الصالحة في epoch الشجرة السابقة غير صالحة بعد التدوير
+- تستدعي خدمة `operator-private-channel` هذه التعليمة تلقائياً عند
+  `transaction_nonce % 65536 == 0` (و`nonce > 0`)، مما يشير إلى بداية
+  epoch جديدة؛ ولا ينبغي الحاجة إلى استدعائها يدوياً في الظروف الاعتيادية
+- بعد التدوير، يُعاد تعيين جذر السحب إلى الشجرة الفارغة، وبالتالي تبدأ عمليات السحب الجديدة من SMT جديدة
+- يُصدر حدثاً عبر `EmitEvent` CPI

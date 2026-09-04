@@ -1,0 +1,86 @@
+---
+title: スパース・マークル木
+description:
+  プライベートチャネルがスパース・マークル木を使用して出金における二重使用を防止する方法
+---
+
+<Callout type="info">
+  ユーザーと開発者はSMTに直接アクセスしません。除外証明は`operator-private-channel`サービスによって自動的に計算・送信されます。このページはオペレーターおよびオペレーターツールを構築する方向けのリファレンス資料です。
+</Callout>
+
+<Callout type="info">
+  エスクロープログラムは、このスパース・マークル木の設計からオンチェーンのノンスビットマップ（上流で追跡中）へ移行しています。このページは現在のエスクロープログラムに対して正確であり、変更が適用され次第、改訂される予定です。
+</Callout>
+
+## 目的
+
+プライベートチャネルは、スパース・マークル木（SMT）を使用して、各出金ノンスが一度のみ決済されることを保証します。オペレーターが`ReleaseFunds`を呼び出す際、2つの証明を提供する必要があります。現在のルートに対してノンスがまだ存在しないことを示す除外証明と、呼び出し元が提供した新しいルートにノンスが存在することを示す包含証明です。両方のチェックが通過した場合にのみ、プログラムは新しいルートを保存し、将来的なノンスの再利用を証明可能な形で無効にします。
+
+## ツリーパラメータ
+
+- ツリーの高さ: `16`
+- 最大リーフ数: `65,536`（2^16）
+- ハッシュ関数: SHA-256
+- 空のリーフ値: `[0u8; 32]`（32バイトのゼロ）
+- 非空のリーフ値: `SHA256([1u8; 32])`、定数`NON_EMPTY_LEAF_HASH`として保存
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## リーフ構造
+
+各出金は正確に1つのリーフを占有します。リーフの位置は以下によって決定されます：
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+リーフの値が`NON_EMPTY_LEAF_HASH`（すなわち`SHA256([1u8; 32])`）と等しい場合、そのリーフは非空とみなされます。空のリーフはすべてゼロです。
+
+## ノンスとリーフ位置
+
+`ReleaseFunds`内の`transaction_nonce`は`u64`です。ツリー内での位置は`nonce % 65536`です。期待されるepochは`nonce / 65536`です。オンチェーンプログラムは、この計算されたepochが`Instance.current_tree_index`と等しいことを検証します。不一致の場合は`InvalidTransactionNonceForCurrentTreeIndex`がスローされます。
+
+## ツリーローテーション
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+SMTは65,536リーフの固定容量を持ちます。オペレーターサービスは、`nonce > 0`の場合に`nonce % 65536 == 0`かどうかを確認することでローテーションが必要かどうかを検出します。この境界は新しいepochの開始を示します。その時点で、`operator-private-channel`は次の`ReleaseFunds`を送信する前に`ResetSmtRoot`を呼び出します：
+
+- `Instance.current_tree_index`がインクリメントされる
+- 出金ルートが空のツリーにリセットされる
+- 前のツリーepochのノンスが無効化される
+
+オペレーターサービスはまた、各`ReleaseFunds`呼び出しの前に、ローカルのSMTルートがオンチェーンの`Instance.withdrawal_transactions_root`と一致することを検証します。不一致の場合は、潜在的に無効な証明を送信するのではなく、安全シャットダウンが起動されます。
+
+ツリーローテーションはオンチェーンに保存された`Instance.current_tree_index: u64`によって追跡されます。
+
+## ReleaseFundsにおける検証
+
+`ReleaseFunds`内の`sibling_proofs`引数は正確に`[u8; 512]`です。これは16の兄弟ハッシュ × 各32バイトで、ツリーの高さ16に対応しています。
+
+オンチェーンの検証プロセスは、順番に2つの独立したチェックを実行します：
+
+1. `verify_smt_exclusion_proof`は、現在の`Instance.withdrawal_transactions_root`に対してノンスのリーフが現在空であることを証明します
+2. `verify_smt_inclusion_proof`は、呼び出し元が提供した`new_withdrawal_root`引数にノンスのリーフが存在することを証明します
+3. 両方のチェックが通過した場合にのみ、プログラムは`new_withdrawal_root`を新しい`Instance.withdrawal_transactions_root`として保存し、トークンをリリースします
+
+いずれかのチェックが失敗すると`InvalidSmtProof`がスローされます。ステップ3のルート更新は各`ReleaseFunds`呼び出しとアトミックです。

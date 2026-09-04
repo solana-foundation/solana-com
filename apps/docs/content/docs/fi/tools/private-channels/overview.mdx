@@ -1,0 +1,277 @@
+---
+title: Yleiskatsaus
+description: Private Channels -protokollan arkkitehtuuri ja tiedonkulku
+---
+
+<Callout type="warning">
+  Private Channels -protokollaa ei ole tietoturvatarkastettu, eikä sitä suositella
+  tuotantokäyttöön oikeilla varoilla ilman perusteellista tietoturva-arviointia.
+</Callout>
+
+<Callout type="info">
+  **Otatko käyttöön oman instanssin?** Siirry [operaattorin
+  oppaaseen](/docs/tools/private-channels/operators). **Integroitko olemassa olevaan
+  instanssiin?** Siirry
+  [Pikaoppaaseen](/docs/tools/private-channels/quickstart/installation). Tämä sivu
+  on arkkitehtuuriviite molemmille kohderyhmille.
+</Callout>
+
+## Arkkitehtuuri
+
+Private Channels koostuu neljästä komponentista: kahdesta ketjussa toimivasta Solana-ohjelmasta
+(Escrow ja Withdraw) sekä kahdesta ketjun ulkopuolisesta palvelusta (Gateway ja Auth Service).
+Yhdessä ne muodostavat tilakanavaprotokollan, jossa varat sijaitsevat Mainnetissä mutta
+siirrot selvitetään ketjun ulkopuolella.
+
+### Escrow-ohjelma
+
+Escrow-ohjelma on ketjussa toimiva Solana-ohjelma, joka hallitsee tallennettuja SPL-
+tokeneita. Se on järjestelmän luottamusankkuri: kaikki varat sijaitsevat viime kädessä
+escrow'ssa, kunnes operaattori toimittaa kelvollisen Sparse Merkle Tree -poissulkemistodisteen
+niiden vapauttamiseksi.
+
+- Ohjelma-ID: `9tgHa1DcnaSSUtmMsst8ovKTe1Gfxzezn27KnH9xXYeU`
+- Tämä ID käännetään ohjelmabinääriin `declare_id!()`-makron kautta. Ketjun ulkopuoliset
+  palvelut lukevat saman ID:n käännösaikana generoidusta asiakaskirjastosta, eivät
+  ympäristömuuttujasta.
+- Hallitsee `Instance`-, `AllowedMint`- ja `Operator`-PDA:ita
+- Ohjeet: `CreateInstance`, `AllowMint`, `BlockMint`, `AddOperator`,
+  `RemoveOperator`, `SetNewAdmin`, `Deposit`, `ReleaseFunds`, `ResetSmtRoot`
+
+### Withdraw-ohjelma
+
+Withdraw-ohjelma toimii yksityisessä kanavaverkossa, ei Solana Mainnetissä.
+Käyttäjät kutsuvat `WithdrawFunds`-funktiota polttaakseen kanavapuolen token-saldoaan. Tämä poltto
+ei vapauta varoja automaattisesti; se ilmoittaa operaattorille, että
+nosto on odottamassa. Tämän jälkeen operaattori kutsuu `ReleaseFunds`-funktiota Escrow-
+ohjelmassa kelvollisella SMT-todisteella selvityksen viimeistelemiseksi.
+
+- Ohjelma-ID: `J231K9UEpS4y4KAPwGc4gsMNCjKFRMYcQBcjVW7vBhVi`
+- Tämä ID käännetään ohjelmabinääriin. Ketjun ulkopuoliset palvelut lukevat saman
+  ID:n käännösaikana generoidusta asiakaskirjastosta, eivät ympäristömuuttujasta.
+
+### Gateway
+
+Gateway on Solana JSON-RPC -yhteensopiva välityspalvelin, joka reitittää asiakaspyynnöt
+kanaverkon kirjoitussolmulle (tapahtumien lähettämistä varten) ja lukusolmulle (kyselyitä
+varten). Se konfiguroidaan ympäristömuuttujilla: `GATEWAY_PORT`,
+`GATEWAY_WRITE_URL`, `GATEWAY_READ_URL`.
+
+Tilantarkistuspäätepisteet (ei vaadi todennusta):
+
+- `GET /health` - elävyystarkistus; palauttaa `200 {"status":"ok"}`
+- `GET /ready` - syvä valmiustarkistus, testaa kirjoitus- ja lukusolmuja; palauttaa
+  `200 {"status":"ready"}` tai `503 {"status":"degraded"}`
+
+#### RPC-metodien reititys ja käyttöoikeudet
+
+Gateway reitittää `sendTransaction`-kutsut kirjoitussolmulle ja kaikki muut metodit
+lukusolmulle. Yli 64 kt:n pyynnöt hylätään HTTP 413 -virheellä. Kun
+todennus on käytössä, metodien käyttöoikeudet perustuvat JWT-rooliin. Katso
+**[Todennus ja roolit](/docs/tools/private-channels/concepts/auth)** saadaksesi
+täydellisen metodimatriisin.
+
+### Auth Service
+
+Auth Service on valinnainen komponentti, joka myöntää HS256 JWT -tokeneita (24 tunnin
+voimassaoloajalla) gatewayn käytönhallintaa varten. Se otetaan käyttöön, kun `JWT_SECRET`-
+ympäristömuuttuja on asetettu. Ilman sitä gateway hyväksyy kaikki yhteydet.
+
+JWT-kentät: `sub` (käyttäjän UUID), `role` (`"user"` tai `"operator"`), `iss`
+(`"private-channel-auth"`), `aud` (`"private-channel-gateway"`), `exp` (Unix-
+aikaleima). Kentät `iss` ja `aud` validoi gatewayn JWT-konfiguraatio,
+eikä niitä deserialisoida sovelluksen claims-rakenteeseen: vain `sub`, `role` ja
+`exp` ovat sovellustason koodin käytettävissä.
+
+Roolit:
+
+- `user` - käyttöoikeudet rajoitettu omiin vahvistettuihin lompakkoihin; ei voi kutsua `getBlock`-,
+  `getTransaction`- tai `simulateTransaction`-metodeja
+- `operator` - ohittaa kaikki omistajuustarkistukset; täysi RPC-metodien käyttöoikeus; täytyy
+  provisioida tietokantaan (ei omatoimista oikeuksien korottamista)
+
+### Streamer
+
+Streamer on WebSocket-palvelin, joka työntää kanavan tilapäivitykset
+yhdistettyihin asiakkaisiin reaaliajassa, poistaen tarpeen pollata RPC:tä. Se pollaa
+PostgreSQLiä tilamuutoksia varten. Se on osa Docker Compose -peruspinoa, eikä
+devnet-pinoa, jonka tämä opas ottaa käyttöön; katso
+[Konfiguraatioviite](/docs/tools/private-channels/operators/configuration#service-port-reference).
+
+- Portti: `8902`, konfiguroitavissa `STREAMER_PORT`-muuttujalla
+- Yhdistä: `ws://localhost:8902`
+- Tilantarkistuspäätepisteen: `GET /health` - palauttaa `503`, jos jokin sisäinen poll-silmukka
+  pysähtyy yli 30 sekunniksi
+
+<Callout type="warning">
+  WebSocket-tapahtumaskeemaa ei ole vielä julkisesti dokumentoitu. Katso
+  [`core/src/bin/streamer.rs`](https://github.com/solana-foundation/solana-private-channels/blob/main/core/src/bin/streamer.rs)
+  toteutuksen yksityiskohtia varten, kunnes virallinen dokumentaatio on saatavilla.
+</Callout>
+
+```mermaid
+flowchart TB
+    Wallet([User Wallet])
+    Escrow[Escrow Program<br/><i>Solana Mainnet</i>]
+    IS[Solana Mainnet Indexer]
+    IC[Private Channel Indexer]
+    PG_I[(Indexer DB)]
+    OS[Operator - Solana Side]
+    OC[Operator - Channel Side]
+    GW[Gateway :8899]
+    WN[Write Node :8900]
+    WP[Withdraw Program]
+    PG_P[(Postgres Primary)]
+    PG_R[(Postgres Replica)]
+    RN[Read Node :8901]
+    ST[Streamer :8902]
+
+    Wallet -- deposit --> Escrow
+    Wallet -- transact / withdraw --> GW
+    ST -. WebSocket .-> Wallet
+
+    Escrow -- watch --> IS
+    IS -- deposit events --> PG_I
+    PG_I -- pending deposits --> OS
+    OS -- mint --> GW
+
+    GW -- sendTransaction --> WN
+    WN --> WP
+    GW -- watch --> IC
+    IC -- withdrawal events --> PG_I
+    PG_I -- pending withdrawals --> OC
+    OC -- release --> Escrow
+
+    WN -- settle --> PG_P
+    PG_P -- replication --> PG_R
+    PG_R --> RN
+    RN --> GW
+    PG_P --> ST
+```
+
+## Tapahtumien käsittelyputki
+
+```text
+Transaction -> [1:Dedup] -> [2:SigVerify] -> [3:Sequencer] -> [4:Executor] -> [5:Settler] -> Database
+```
+
+Gatewaylle lähetetyt tapahtumat kulkevat viisivaiheisen putken läpi ennen
+kuin niiden tila vahvistetaan:
+
+1. **Dedup** - suodattaa kaksoiskappaleet ennen kuin ne astuvat putkeen
+2. **SigVerify** - validoi tapahtumien allekirjoitukset allekirjoittajan julkista
+   avainta vasten
+3. **Sequencer** - järjestää kelvolliset tapahtumat deterministisesti kanonisen
+   historian muodostamiseksi
+4. **Executor** - suorittaa tapahtumat kanavan tilikerroksen
+   (BOB Cache + AccountsDB) avulla, päivittäen saldot ketjun ulkopuolella
+5. **Settler** - vahvistaa kertyneet tapahtumatulokset PostgreSQL:ään ja
+   päivittää Redis-välimuistin; generoi uudet lohkotiivisteet seuraavaa lohkosykliä varten.
+   Mainnet-selvitystä (kutsumalla `ReleaseFunds`) hallinnoi erillisesti
+   `operator-private-channel`-palvelu
+
+## Keskeiset ominaisuudet
+
+### Yksityisyys
+
+Siirrot kanavaosallistujien välillä eivät tallennu Solana Mainnetiin. Vain
+talletukset (kanavalle siirtyminen) ja lopulliset nostot (kanavalta poistuminen)
+näkyvät ketjussa. Vastapuolten henkilöllisyydet ja siirtomäärät eivät ole
+ulkopuolisten tarkkailijoiden nähtävissä kanavan toiminnan aikana.
+
+### Suorituskyky
+
+Ketjun ulkopuolinen käsittelyputki poistaa Solanan lohkoajan kriittiseltä polulta.
+Siirrot vahvistuvat, kun sekvensseri käsittelee ne, eikä vasta kun Solana-lohko
+vahvistuu. Tämä mahdollistaa alle sekunnin finalisointiajan ja sovellustason siirtojen
+läpäisykyvyn, joka ylittää Solanan natiivin TPS:n.
+
+### Selvitys
+
+Jokainen nosto on suojattu ketjussa olevalla Sparse Merkle Tree -todisteella. SMT-
+juuri on tallennettu `Instance.withdrawal_transactions_root`-kenttään Escrow-ohjelmassa.
+Kun `ReleaseFunds`-funktiota kutsutaan, ohjelma ensin tarkistaa poissulkemistodisteen
+näkemättömälle nonce-arvolle nykyistä ketjussa olevaa juurta vasten, sitten tarkistaa erillisen
+sisällyttämistodisteen kyseiselle nonce-arvolle kutsujan toimittamaa uutta juurta vasten. Vasta kun
+molemmat tarkistukset läpäistään, uusi juuri tallennetaan, mikä tekee kaksinkertaisen kulutuksen
+mahdottomaksi, vaikka operaattorin avain vaarantuisi.
+
+## Turvallisuusmalli
+
+**Admin-avain** - hallitsee instanssien luontia (`CreateInstance`) ja operaattorien
+provisointia (`AddOperator` / `RemoveOperator`). Admin-avaimen vaarantuminen
+mahdollistaa mielivaltaisen operaattorien provisioinnin. `SetNewAdmin` siirtää admin-valtuuden
+peruuttamattomasti yhdessä vaiheessa; suojaa admin-avain sen mukaisesti.
+
+**Operaattoriavaimet** - voivat kutsua `ReleaseFunds`- ja `ResetSmtRoot`-funktioita. Ne eivät
+voi vapauttaa varoja ilman kelvollista SMT-poissulkemistodistetta nykyistä ketjussa olevaa
+juurta vasten. Ketjussa oleva `verify_smt_exclusion_proof`-tarkistus on viimeinen puolustuslinja
+luvattomia nostoja vastaan: vaarantunut operaattoriavain yksinään ei riitä tyhjentämään escrow'ta.
+
+**SMT-juuri** - tallennettu ketjussa `Instance.withdrawal_transactions_root`-kenttään.
+Päivitetään atomisesti jokaisen `ReleaseFunds`-kutsun yhteydessä. Koska jokaisen todisteen
+täytyy viitata näkemättömään nonce-arvoon, saman kanavan saldon kaksinkertainen kulutus on
+mahdotonta, vaikka operaattoriavain vaarantuisi.
+
+**Puun kierto** - `Instance.current_tree_index` seuraa puun epoch-arvoja. Kun
+`ResetSmtRoot`-funktiota kutsutaan, se kasvattaa puuindeksiä ja mitätöi kaikki
+edellisen puun epoch-arvon nonce-arvot, tarjoten puhtaan lähtötilanteen uusille selvityssykleille.
+
+## Operatiivisten avainten turvallisuus
+
+<Callout type="warning">
+  Ketjun ulkopuoliset palvelut käyttävät omaa allekirjoittajasanastoaan, joka ei liity
+  Turvallisuusmallissa kuvattuihin ketjussa oleviin admin/operaattori-valtuuksiin.
+  `ADMIN_PRIVATE_KEY` vaaditaan jokaiselle operaattoripalvelulle ja se maksaa
+  tapahtumakulut; erillinen, valinnainen `OPERATOR_PRIVATE_KEY` toimittaa
+  ketjussa olevan Operator-allekirjoituksen `ReleaseFunds`- ja `ResetSmtRoot`-funktioille, ja
+  palautuu `ADMIN_PRIVATE_KEY`:n arvoon, kun sitä ei ole asetettu. Älä koskaan laita protokollatason
+  instanssin admin-avainta (jota käytetään `CreateInstance`- / `AddOperator`- / `SetNewAdmin`-kutsuihin)
+  kumpaankaan muuttujaan tai paljasta sitä ajon aikana; pidä kyseinen avain kylmänä ja offline-tilassa.
+</Callout>
+
+`ReleaseFunds` ja `ResetSmtRoot` vaativat kaksi ketjussa olevaa allekirjoitusta: maksajan
+(from `ADMIN_PRIVATE_KEY`) ja Operator PDA:n valtuuden (from
+`OPERATOR_PRIVATE_KEY`, tai `ADMIN_PRIVATE_KEY`, jos se on asettamatta). Tämän käyttöönotto-
+oppaan devnet-läpikäynti laittaa generoidun operaattorin keypair-arvon
+`ADMIN_PRIVATE_KEY`:hyn ja jättää `OPERATOR_PRIVATE_KEY`:n asettamatta, joten sama keypair
+täyttää molemmat allekirjoittajaroolit. Käsittele mitä tahansa avainta, joka päätyy `ADMIN_PRIVATE_KEY`:hyn,
+samoin kontrollein kuin hot wallet -yksityisavainta:
+
+- Tallenna se vain gitignore-suojattuun `.env`-tiedostoon, ei koskaan `.env.devnet`-tiedostoon tai
+  mihinkään versionhallintaan tallennettuun konfiguraatioon
+- Tuotantokäyttöönotoissa harkitse salaisuuksien hallintajärjestelmää (AWS Secrets Manager,
+  HashiCorp Vault) pelkkätekstimuuttujan sijaan
+- Protokollatason instanssin admin-keypair (jota käytetään `AddOperator`- /
+  `SetNewAdmin`-kutsuihin) tulisi pitää kylmänä; sitä tarvitaan vain instanssin
+  asennuksen ja operaattorien provisioinnin aikana, ei ajon aikana
+
+`SetNewAdmin` siirtää admin-oikeudet **peruuttamattomasti yhdessä tapahtumassa**:
+nykyisellä adminilla ei ole palautumispolkua ilman uuden adminin yhteistyötä. Älä
+kutsu sitä tarkistamatta kohdeosoitetta.
+
+## Seuraavat vaiheet
+
+<Cards>
+  <Card
+    title="Pikaopas"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    Määritä ympäristösi ja generoi TypeScript-asiakaskirjastot.
+  </Card>
+  <Card title="Kanavat" href="/docs/tools/private-channels/concepts/channels">
+    Tutustu osallistujiin ja kanavan elinkaareen.
+  </Card>
+  <Card
+    title="Sparse Merkle Tree"
+    href="/docs/tools/private-channels/concepts/smt"
+  >
+    Tutustu siihen, miten nostotodisteet varmennetaan ketjussa.
+  </Card>
+  <Card
+    title="Ohjeet"
+    href="/docs/tools/private-channels/instructions/deposit"
+  >
+    Täydellinen ohjeviite kaikille ohjelmille.
+  </Card>
+</Cards>

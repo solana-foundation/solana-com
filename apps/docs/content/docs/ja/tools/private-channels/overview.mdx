@@ -1,0 +1,186 @@
+---
+title: 概要
+description: Private Channelsプロトコルのアーキテクチャとデータフロー
+---
+
+<Callout type="warning">
+  Private Channelsはセキュリティ監査を受けておらず、十分なセキュリティレビューなしに実際の資金を使う本番環境での使用は推奨されません。
+</Callout>
+
+<Callout type="info">
+  **インスタンスをデプロイする場合は、** [オペレーターガイド](/docs/tools/private-channels/operators)をご覧ください。**既存のインスタンスに統合する場合は、**[クイックスタート](/docs/tools/private-channels/quickstart/installation)をご覧ください。このページは両方の読者向けのアーキテクチャリファレンスです。
+</Callout>
+
+## アーキテクチャ
+
+Private Channelsは4つのコンポーネントで構成されています。オンチェーンのSolanaプログラムが2つ（EscrowとWithdraw）、オフチェーンのサービスが2つ（GatewayとAuth Service）です。これらが連携してステートチャネルプロトコルを形成し、資金はMainnet上に保持されますが、送金はオフチェーンで決済されます。
+
+### Escrowプログラム
+
+Escrowプログラムは、預け入れられたSPLトークンを保持するオンチェーンのSolanaプログラムです。システムのトラストアンカーとして機能し、オペレーターが有効なSparse Merkle Treeの除外証明を提供するまで、すべての資金は最終的にエスクローに保管されます。
+
+- プログラムID: `9tgHa1DcnaSSUtmMsst8ovKTe1Gfxzezn27KnH9xXYeU`
+- このIDは`declare_id!()`を通じてプログラムバイナリにコンパイルされます。オフチェーンサービスは、環境変数からではなく、生成されたクライアントクレートからコンパイル時に同じIDを読み取ります。
+- `Instance`、`AllowedMint`、`Operator` PDAを管理します
+- instructions: `CreateInstance`、`AllowMint`、`BlockMint`、`AddOperator`、`RemoveOperator`、`SetNewAdmin`、`Deposit`、`ReleaseFunds`、`ResetSmtRoot`
+
+### Withdrawプログラム
+
+Withdrawプログラムは、Solana Mainnetではなくプライベートチャネルネットワーク上で動作します。ユーザーは`WithdrawFunds`を呼び出してチャネル側のトークン残高をバーンします。このバーンは自動的に資金を解放しません。オペレーターに出金が保留中であることを通知するシグナルとなります。その後、オペレーターはEscrowプログラムの`ReleaseFunds`を有効なSMT証明とともに呼び出して決済を完了します。
+
+- プログラムID: `J231K9UEpS4y4KAPwGc4gsMNCjKFRMYcQBcjVW7vBhVi`
+- このIDはプログラムバイナリにコンパイルされます。オフチェーンサービスは、環境変数からではなく、生成されたクライアントクレートからコンパイル時に同じIDを読み取ります。
+
+### Gateway
+
+GatewayはSolana JSON-RPC互換のプロキシで、クライアントリクエストをチャネルネットワークの書き込みノード（トランザクション送信用）と読み取りノード（クエリ用）にルーティングします。環境変数`GATEWAY_PORT`、`GATEWAY_WRITE_URL`、`GATEWAY_READ_URL`で設定します。
+
+ヘルスエンドポイント（認証不要）：
+
+- `GET /health` - 死活確認。`200 {"status":"ok"}`を返します
+- `GET /ready` - 深いレディネス確認。書き込みノードと読み取りノードをプローブし、`200 {"status":"ready"}`または`503 {"status":"degraded"}`を返します
+
+#### RPCメソッドのルーティングとアクセス
+
+Gatewayは`sendTransaction`を書き込みノードにルーティングし、その他すべてのメソッドを読み取りノードにルーティングします。64 KBを超えるリクエストはHTTP 413で拒否されます。認証が有効な場合、メソッドアクセスはJWTロールによってゲートされます。完全なメソッドマトリックスについては**[認証とロール](/docs/tools/private-channels/concepts/auth)**をご覧ください。
+
+### Auth Service
+
+Auth Serviceは、Gatewayのアクセス制御用にHS256 JWT（有効期限24時間）を発行するオプションのコンポーネントです。環境変数`JWT_SECRET`が設定されている場合に有効になります。設定されていない場合、Gatewayはすべての接続を受け入れます。
+
+JWTクレーム: `sub`（ユーザーUUID）、`role`（`"user"`または`"operator"`）、`iss`（`"private-channel-auth"`）、`aud`（`"private-channel-gateway"`）、`exp`（Unixタイムスタンプ）。`iss`と`aud`はGatewayのJWT設定によって検証され、アプリケーションのクレーム構造体にデシリアライズされません。アプリケーション層のコードから利用できるのは`sub`、`role`、`exp`のみです。
+
+ロール：
+
+- `user` - 自身の確認済みウォレットへのアクセスのみ。`getBlock`、`getTransaction`、`simulateTransaction`は呼び出し不可
+- `operator` - すべての所有権チェックをバイパス。RPCメソッドへの完全なアクセス。データベースでプロビジョニングが必要（セルフサービスによる権限昇格は不可）
+
+### Streamer
+
+StreamerはWebSocketサーバーで、チャネルの状態更新をリアルタイムで接続クライアントにプッシュし、RPCのポーリングを不要にします。PostgreSQLをポーリングして状態変化を検知します。このガイドがデプロイするdevnetスタックではなく、ベースのDocker Composeスタックに含まれています。詳細は[設定リファレンス](/docs/tools/private-channels/operators/configuration#service-port-reference)をご覧ください。
+
+- ポート: `8902`、`STREAMER_PORT`で変更可能
+- 接続先: `ws://localhost:8902`
+- ヘルスエンドポイント: `GET /health` - 内部ポーリングループが30秒を超えてストールした場合に`503`を返します
+
+<Callout type="warning">
+  WebSocketイベントスキーマはまだ公式にドキュメント化されていません。正式なドキュメントが公開されるまでは、実装の詳細については[`core/src/bin/streamer.rs`](https://github.com/solana-foundation/solana-private-channels/blob/main/core/src/bin/streamer.rs)を参照してください。
+</Callout>
+
+```mermaid
+flowchart TB
+    Wallet([User Wallet])
+    Escrow[Escrow Program<br/><i>Solana Mainnet</i>]
+    IS[Solana Mainnet Indexer]
+    IC[Private Channel Indexer]
+    PG_I[(Indexer DB)]
+    OS[Operator - Solana Side]
+    OC[Operator - Channel Side]
+    GW[Gateway :8899]
+    WN[Write Node :8900]
+    WP[Withdraw Program]
+    PG_P[(Postgres Primary)]
+    PG_R[(Postgres Replica)]
+    RN[Read Node :8901]
+    ST[Streamer :8902]
+
+    Wallet -- deposit --> Escrow
+    Wallet -- transact / withdraw --> GW
+    ST -. WebSocket .-> Wallet
+
+    Escrow -- watch --> IS
+    IS -- deposit events --> PG_I
+    PG_I -- pending deposits --> OS
+    OS -- mint --> GW
+
+    GW -- sendTransaction --> WN
+    WN --> WP
+    GW -- watch --> IC
+    IC -- withdrawal events --> PG_I
+    PG_I -- pending withdrawals --> OC
+    OC -- release --> Escrow
+
+    WN -- settle --> PG_P
+    PG_P -- replication --> PG_R
+    PG_R --> RN
+    RN --> GW
+    PG_P --> ST
+```
+
+## トランザクションパイプライン
+
+```text
+Transaction -> [1:Dedup] -> [2:SigVerify] -> [3:Sequencer] -> [4:Executor] -> [5:Settler] -> Database
+```
+
+Gatewayに送信されたトランザクションは、状態がコミットされる前に5段階のパイプラインを通過します：
+
+1. **Dedup** - パイプラインに入る前に重複トランザクションをフィルタリング
+2. **SigVerify** - トランザクション署名を署名者の公開鍵と照合して検証
+3. **Sequencer** - 有効なトランザクションを決定論的に並べて正規の履歴を確立
+4. **Executor** - チャネルのアカウント層（BOBキャッシュ + AccountsDB）に対してトランザクションを実行し、オフチェーンで残高を更新
+5. **Settler** - 蓄積されたトランザクション結果をPostgreSQLにコミットしてRedisキャッシュを更新。次のブロックサイクル用に新しいブロックハッシュを生成します。Mainnetの決済（`ReleaseFunds`の呼び出し）は`operator-private-channel`サービスが個別に処理します
+
+## 主な機能
+
+### プライバシー
+
+チャネル参加者間の送金はSolana Mainnetに記録されません。オンチェーンに記録されるのは、デポジット（チャネルへの入金）と最終的な出金（チャネルからの出金）のみです。チャネル運用中、取引相手の身元や送金額は外部の観察者からは見えません。
+
+### パフォーマンス
+
+オフチェーンパイプラインにより、Solanaのブロック時間がクリティカルパスから除外されます。送金はSolanaブロックが確認されたときではなく、シーケンサーが処理した時点で確定します。これにより、アプリケーション層の送金においてサブ秒のファイナリティとSolanaのネイティブTPSを超えるスループットが実現します。
+
+### 決済
+
+すべての出金はオンチェーンのSparse Merkle Tree証明によって保護されています。SMTルートはEscrowプログラムの`Instance.withdrawal_transactions_root`に保存されます。`ReleaseFunds`が呼び出されると、プログラムはまず現在のオンチェーンルートに対して未使用のノンスの除外証明を検証し、次にそのノンスについて呼び出し元が提供する新しいルートに対して別の包含証明を検証します。両方のチェックが通過して初めて新しいルートが保存されるため、オペレーターキーが侵害された場合でも二重支払いは不可能です。
+
+## セキュリティモデル
+
+**管理者キー** - インスタンス作成（`CreateInstance`）とオペレータープロビジョニング（`AddOperator` / `RemoveOperator`）を制御します。管理者キーが侵害されると、任意のオペレータープロビジョニングが可能になります。`SetNewAdmin`は管理者権限を単一のステップで不可逆的に移転します。管理者キーは適切に保護してください。
+
+**オペレーターキー** - `ReleaseFunds`と`ResetSmtRoot`を呼び出せます。現在のオンチェーンルートに対して有効なSMT除外証明なしには資金を解放できません。オンチェーンの`verify_smt_exclusion_proof`チェックが不正な出金に対する最後の防衛ラインです。オペレーターキーが侵害されただけでは、エスクローを空にすることはできません。
+
+**SMTルート** - `Instance.withdrawal_transactions_root`にオンチェーンで保存されます。`ReleaseFunds`の呼び出しごとにアトミックに更新されます。各証明は未使用のノンスを参照する必要があるため、オペレーターキーが侵害された場合でも同じチャネル残高の二重支払いは不可能です。
+
+**ツリーローテーション** - `Instance.current_tree_index`がツリーのepochを追跡します。`ResetSmtRoot`が呼び出されると、ツリーインデックスがインクリメントされ、前のツリーepochのすべてのノンスが無効化され、新しい決済サイクルのためのクリーンな状態が提供されます。
+
+## 運用キーのセキュリティ
+
+<Callout type="warning">
+  オフチェーンサービスは独自の署名者語彙を使用しており、上記のセキュリティモデルで説明したオンチェーンの管理者/オペレーター権限とは無関係です。`ADMIN_PRIVATE_KEY`はすべてのオペレーターサービスに必須であり、トランザクション手数料を支払います。オプションの`OPERATOR_PRIVATE_KEY`は`ReleaseFunds`と`ResetSmtRoot`のオンチェーンOperator署名を提供し、未設定の場合は`ADMIN_PRIVATE_KEY`の値にフォールバックします。プロトコルレベルのインスタンス管理者キー（`CreateInstance` / `AddOperator` / `SetNewAdmin`に使用）は、どちらの変数にも設定したり、実行時に公開したりしないでください。そのキーはコールドでオフラインに保管してください。
+</Callout>
+
+`ReleaseFunds`と`ResetSmtRoot`には2つのオンチェーン署名が必要です。手数料支払者（`ADMIN_PRIVATE_KEY`から）とOperator PDAの権限（`OPERATOR_PRIVATE_KEY`から、または未設定の場合は`ADMIN_PRIVATE_KEY`から）です。このデプロイガイドのdevnetウォークスルーでは、生成されたオペレーターkeypairを`ADMIN_PRIVATE_KEY`に設定し、`OPERATOR_PRIVATE_KEY`は未設定のままにするため、同じkeypairが両方の署名者ロールを担います。`ADMIN_PRIVATE_KEY`に設定されるキーは、ホットウォレットの秘密鍵と同等の管理を行ってください：
+
+- gitignoreされた`.env`ファイルにのみ保存し、`.env.devnet`やコミットされた設定ファイルには絶対に保存しないでください
+- 本番環境のデプロイでは、プレーンテキストの環境変数ではなく、シークレットマネージャー（AWS Secrets Manager、HashiCorp Vault）の使用を検討してください
+- プロトコルレベルのインスタンス管理者keypair（`AddOperator` / `SetNewAdmin`の呼び出しに使用）はコールドに保管してください。インスタンスのセットアップとオペレータープロビジョニング時にのみ必要で、実行時には不要です
+
+`SetNewAdmin`は管理者権限を**単一のトランザクションで不可逆的に**移転します。現在の管理者は、新しい管理者の協力なしに回復する手段がありません。対象アドレスを確認せずに呼び出さないでください。
+
+## 次のステップ
+
+<Cards>
+  <Card
+    title="クイックスタート"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    環境をセットアップしてTypeScriptクライアントを生成します。
+  </Card>
+  <Card title="チャネル" href="/docs/tools/private-channels/concepts/channels">
+    参加者とチャネルのライフサイクルを理解します。
+  </Card>
+  <Card
+    title="Sparse Merkle Tree"
+    href="/docs/tools/private-channels/concepts/smt"
+  >
+    出金証明がオンチェーンでどのように検証されるかを理解します。
+  </Card>
+  <Card
+    title="instructions"
+    href="/docs/tools/private-channels/instructions/deposit"
+  >
+    すべてのプログラムの完全なinstructionリファレンス。
+  </Card>
+</Cards>

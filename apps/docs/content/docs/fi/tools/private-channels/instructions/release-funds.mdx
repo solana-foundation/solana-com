@@ -1,0 +1,82 @@
+---
+title: Vapauta varat
+description:
+  Vapauttaa tokeneja escrow-tililtä käyttäjän lompakkoon SMT-poissulkemistodistuksen vahvistamisen jälkeen
+---
+
+Provisioidun operaattorin kutsuma funktio, joka vapauttaa escrow-tokeneja käyttäjän Mainnet-lompakkoon edellyttäen, että nostotransaktiolle on voimassa oleva Sparse Merkle Tree -poissulkemistodistus.
+
+<Callout type="info">
+  Escrow-ohjelma on siirtymässä tästä Sparse Merkle Tree -rakenteesta
+  ketjussa olevaan nonce-bittikarttatoteutukseen (seurataan ylävirrassa). Tämä sivu vastaa
+  nykyistä escrow-ohjelmaa ja päivitetään, kun muutos otetaan käyttöön.
+</Callout>
+
+## Tilit
+
+| Tili                          | Kirjoitettava | Allekirjoittaja | Kuvaus                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Maksun maksaja                                                          |
+| `operator`                       |          | ✓      | Operaattorin allekirjoittaja                                                    |
+| `instance`                       | ✓        |        | Escrow-instanssin PDA (juuri päivitetään ketjussa)                        |
+| `operator_pda`                   |          |        | Operaattorin PDA, joka todistaa allekirjoittajan olevan provisioitu                     |
+| `mint`                           |          |        | SPL-tokenin mint                                                     |
+| `allowed_mint`                   |          |        | AllowedMint PDA – vahvistaa, että mint on sallittu tässä instanssissa |
+| `user_ata`                       | ✓        |        | Vastaanottajan associated token account (kohde)                 |
+| `instance_ata`                   | ✓        |        | Escrow'n associated token account (lähde)                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | Tapahtumavaltuuden PDA `EmitEvent`-CPI:lle                            |
+| `private_channel_escrow_program` |          |        | Escrow-ohjelma (itsensä viittaus CPI:lle)                            |
+
+## Parametrit
+
+| Parametri             | Tyyppi        | Kuvaus                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Vapautettavien tokenien määrä                                   |
+| `user`                | `Pubkey`    | Vastaanottajan lompakko Mainnetissä                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Päivitetty SMT-juuri tämän noston noncen lisäämisen jälkeen      |
+| `transaction_nonce`   | `u64`       | Yksilöllinen nonce, joka tunnistaa tämän noston lehden SMT:ssä      |
+| `sibling_proofs`      | `[u8; 512]` | 16 sisarushashia (32 tavua kukin) SMT-poissulkemistodistukselle |
+
+## Palautusarvo
+
+Palauttaa `TransactionBuilder`-olion, jota voidaan käyttää transaktion rakentamiseen ja lähettämiseen.
+
+## Esimerkki
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Tärkeät huomiot
+
+- Kutsujalla on oltava provisioitu operaattori: `operator_pda`:n on oltava olemassa (luotu
+  `AddOperator`-funktiolla); virheellinen PDA heittää `InvalidOperatorPda`-virheen
+- `sibling_proofs` on tarkalleen 512 tavua (16 × 32 tavun hashia, vastaten SMT:n
+  puun korkeutta 16)
+- `new_withdrawal_root` on päivitetty SMT-juuri tämän noston noncen lisäämisen jälkeen. Laske se ketjun ulkopuolella ennen kutsua
+- `transaction_nonce`:n on oltava voimassa `Instance.current_tree_index`:lle; virheellinen nonce heittää `InvalidTransactionNonceForCurrentTreeIndex`-virheen
+- Ohjelma suorittaa ensin `verify_smt_exclusion_proof`-funktion, joka todistaa, että nonce EI vielä ole olemassa nykyisessä juuressa, sitten suorittaa erillisen `verify_smt_inclusion_proof`-funktion, joka todistaa, että nonce ON olemassa kutsujantoimittamassa `new_withdrawal_root`-juuressa. Kummankaan tarkistuksen epäonnistuminen heittää `InvalidSmtProof`-virheen
+- Vasta molempien tarkistusten läpäisyn jälkeen `Instance.withdrawal_transactions_root` päivitetään atomisesti; nonce-arvoa ei voi käyttää uudelleen
+- Lähettää tapahtuman `EmitEvent`-CPI:n kautta

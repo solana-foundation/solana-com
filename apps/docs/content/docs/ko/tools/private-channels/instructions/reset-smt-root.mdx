@@ -1,0 +1,57 @@
+---
+title: SMT 루트 재설정
+description:
+  Sparse Merkle Tree를 교체하여 새로운 트리 epoch의 출금 루트를 초기화합니다
+---
+
+Sparse Merkle Tree를 교체하는 오퍼레이터 전용 명령어로, `Instance.current_tree_index`를 증가시키고 출금 루트를 초기화하여 65,536건의 출금으로 구성된 새로운 epoch를 허용합니다.
+
+<Callout type="info">
+  에스크로 프로그램은 이 Sparse Merkle Tree 설계에서 온체인 논스 비트맵(업스트림에서 추적 중)으로 마이그레이션되고 있으며, 이 경우 해당 명령어는 `RotateBitmap`이 됩니다. 이 페이지는 현재 에스크로 프로그램을 기준으로 정확하며, 변경 사항이 반영되면 재작성될 예정입니다.
+</Callout>
+
+## 계정
+
+| 계정                          | 쓰기 가능 | 서명자 | 설명                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | 수수료 납부자                                              |
+| `operator`                       |          | ✓      | 오퍼레이터 서명자                                        |
+| `instance`                       | ✓        |        | 에스크로 인스턴스 PDA (`current_tree_index` 증가) |
+| `operator_pda`                   |          |        | 서명자가 프로비저닝되었음을 증명하는 오퍼레이터 PDA         |
+| `event_authority`                |          |        | `EmitEvent` CPI용 이벤트 권한 PDA                |
+| `private_channel_escrow_program` |          |        | 에스크로 프로그램 (CPI를 위한 자기 참조)                |
+
+## 파라미터
+
+| 파라미터                     | 타입  | 설명                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | 리플레이 가드; `Instance.current_tree_index`와 일치해야 하며 그렇지 않으면 호출이 실패합니다 |
+
+## 반환값
+
+트랜잭션을 빌드하고 전송하는 데 사용할 수 있는 `TransactionBuilder`를 반환합니다.
+
+## 예제
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## 중요 참고 사항
+
+- 오퍼레이터 전용: 유효한 `operator_pda`가 필요하며, 그렇지 않으면 `InvalidOperatorPda`가 발생합니다
+- `expected_current_tree_index`는 호출 시점에 `Instance.current_tree_index`와 일치해야 하며, 오래된 값이 전달되면 `UnexpectedTreeIndex`가 발생하여 이미 완료된 재설정의 리플레이를 방지합니다
+- `Instance.current_tree_index`를 증가시키며, 이전 트리 epoch에서 유효했던 논스는 교체 후 무효화됩니다
+- `operator-private-channel` 서비스는 `transaction_nonce % 65536 == 0` (및 `nonce > 0`)일 때 자동으로 이 명령어를 호출하여 새로운 epoch의 시작을 알리므로, 정상적인 운영 환경에서는 수동으로 호출할 필요가 없습니다
+- 교체 후 출금 루트가 빈 트리로 초기화되므로, 새로운 출금은 새로운 SMT에서 시작됩니다
+- `EmitEvent` CPI를 통해 이벤트를 발행합니다

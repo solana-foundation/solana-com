@@ -1,0 +1,81 @@
+---
+title: Fonları Serbest Bırak
+description:
+  Bir SMT dışlama kanıtı doğrulandıktan sonra emanet hesabındaki token'ları kullanıcının cüzdanına serbest bırakır
+---
+
+Emanet edilen token'ları, çekim nonce'u için geçerli bir Seyrek Merkle Ağacı dışlama kanıtı koşuluyla bir kullanıcının Mainnet
+cüzdanına serbest bırakmak amacıyla sağlanmış bir operatör tarafından çağrılır.
+
+<Callout type="info">
+  Emanet programı, bu Seyrek Merkle Ağacı tasarımından zincir üstü bir
+  nonce bitmap'e (yukarı akışta izlenmektedir) geçiş yapmaktadır. Bu sayfa mevcut
+  emanet programını doğru şekilde yansıtmakta olup söz konusu değişiklik uygulandığında güncellenecektir.
+</Callout>
+
+## Hesaplar
+
+| Hesap                          | Yazılabilir | İmzalayan | Açıklama                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Ücret ödeyici                                                          |
+| `operator`                       |          | ✓      | Operatör imzalayıcı                                                    |
+| `instance`                       | ✓        |        | Emanet örneği PDA (kök zincir üstünde güncellenir)                        |
+| `operator_pda`                   |          |        | İmzalayanın sağlanmış olduğunu kanıtlayan operatör PDA                     |
+| `mint`                           |          |        | SPL token mint                                                     |
+| `allowed_mint`                   |          |        | AllowedMint PDA - mint'in bu örnek için izinli olduğunu doğrular |
+| `user_ata`                       | ✓        |        | Alıcının associated token account'u (hedef)                 |
+| `instance_ata`                   | ✓        |        | Emanet hesabının associated token account'u (kaynak)                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | `EmitEvent` CPI için etkinlik yetkilisi PDA                            |
+| `private_channel_escrow_program` |          |        | Emanet Programı (CPI için öz referans)                            |
+
+## Parametreler
+
+| Parametre             | Tür        | Açıklama                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Serbest bırakılacak token miktarı                                   |
+| `user`                | `Pubkey`    | Mainnet'teki alıcı cüzdan                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Bu çekimin nonce'u dahil edildikten sonra güncellenen SMT kökü      |
+| `transaction_nonce`   | `u64`       | SMT'deki bu çekim yaprağını tanımlayan benzersiz nonce      |
+| `sibling_proofs`      | `[u8; 512]` | SMT dışlama kanıtı için 16 kardeş hash (her biri 32 bayt) |
+
+## Dönüş Değeri
+
+İşlemi oluşturmak ve göndermek için kullanılabilecek bir `TransactionBuilder` döndürür.
+
+## Örnek
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Önemli Notlar
+
+- Çağıran sağlanmış bir operatör olmalıdır: `operator_pda` mevcut olmalıdır (`AddOperator` tarafından oluşturulmuş); geçersiz PDA `InvalidOperatorPda` hatası fırlatır
+- `sibling_proofs` tam olarak 512 bayttır (16 × 32 baytlık hash, SMT ağaç yüksekliği olan 16 ile eşleşir)
+- `new_withdrawal_root`, bu çekimin nonce'u dahil edildikten sonra güncellenen SMT köküdür. Çağrı yapmadan önce zincir dışında hesaplayın
+- `transaction_nonce`, `Instance.current_tree_index` için geçerli olmalıdır; geçersiz bir nonce `InvalidTransactionNonceForCurrentTreeIndex` hatası fırlatır
+- Program önce `verify_smt_exclusion_proof` çalıştırarak nonce'un mevcut köke karşı henüz VAR OLMADIĞINI kanıtlar, ardından ayrı bir `verify_smt_inclusion_proof` çalıştırarak nonce'un çağıran tarafından sağlanan `new_withdrawal_root` içinde VAR OLDUĞUNU kanıtlar. Her iki kontrolden herhangi birinin başarısız olması `InvalidSmtProof` hatasını fırlatır
+- Her iki kontrol de geçildikten sonra `Instance.withdrawal_transactions_root` atomik olarak güncellenir; nonce yeniden kullanılamaz
+- `EmitEvent` CPI aracılığıyla bir etkinlik yayınlar

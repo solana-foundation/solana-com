@@ -1,0 +1,90 @@
+---
+title: Mittel freigeben
+description:
+  Gibt Token aus dem Treuhandkonto an die Wallet eines Benutzers frei, nachdem ein SMT-Ausschlussbeweis verifiziert wurde
+---
+
+Wird von einem bereitgestellten Operator aufgerufen, um treuhänderisch verwaltete Token an die Mainnet-Wallet eines Benutzers freizugeben, abhängig von einem gültigen Sparse-Merkle-Tree-Ausschlussbeweis für den Auszahlungs-Nonce.
+
+<Callout type="info">
+  Das Treuhandprogramm migriert von diesem Sparse-Merkle-Tree-Design zu einer
+  On-Chain-Nonce-Bitmap (upstream verfolgt). Diese Seite ist korrekt gegenüber dem
+  aktuellen Treuhandprogramm und wird überarbeitet, sobald diese Änderung einfließt.
+</Callout>
+
+## Konten
+
+| Konten                          | Beschreibbar | Signer | Beschreibung                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Gebührenzahler                                                          |
+| `operator`                       |          | ✓      | Operator-Signer                                                    |
+| `instance`                       | ✓        |        | Treuhand-Instanz-PDA (Root wird On-Chain aktualisiert)                        |
+| `operator_pda`                   |          |        | Operator-PDA, der nachweist, dass der Signer bereitgestellt ist                     |
+| `mint`                           |          |        | SPL-Token-Mint                                                     |
+| `allowed_mint`                   |          |        | AllowedMint-PDA – prüft, ob der Mint für diese Instanz zulässig ist |
+| `user_ata`                       | ✓        |        | associated token account des Empfängers (Ziel)                 |
+| `instance_ata`                   | ✓        |        | associated token account des Treuhandkontos (Quelle)                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | Event-Authority-PDA für `EmitEvent`-CPI                            |
+| `private_channel_escrow_program` |          |        | Treuhandprogramm (Selbstreferenz für CPI)                            |
+
+## Parameter
+
+| Parameter             | Typ        | Beschreibung                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Anzahl der freizugebenden Token                                   |
+| `user`                | `Pubkey`    | Empfänger-Wallet auf dem Mainnet                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Aktualisierter SMT-Root nach Aufnahme des Nonce dieser Auszahlung      |
+| `transaction_nonce`   | `u64`       | Eindeutiger Nonce zur Identifizierung dieses Auszahlungsblatts im SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 Geschwister-Hashes (je 32 Byte) für den SMT-Ausschlussbeweis |
+
+## Rückgabe
+
+Gibt einen `TransactionBuilder` zurück, der zum Erstellen und Senden der
+Transaktion verwendet werden kann.
+
+## Beispiel
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Wichtige Hinweise
+
+- Der Aufrufer muss ein bereitgestellter Operator sein: `operator_pda` muss vorhanden sein (erstellt durch
+  `AddOperator`); ein ungültiger PDA wirft `InvalidOperatorPda`
+- `sibling_proofs` ist genau 512 Byte groß (16 × 32-Byte-Hashes, entsprechend der SMT-
+  Baumhöhe von 16)
+- `new_withdrawal_root` ist der aktualisierte SMT-Root nach Aufnahme des
+  Nonce dieser Auszahlung. Berechnen Sie ihn Off-Chain vor dem Aufruf
+- `transaction_nonce` muss für `Instance.current_tree_index` gültig sein; ein
+  ungültiger Nonce wirft `InvalidTransactionNonceForCurrentTreeIndex`
+- Das Programm führt zunächst `verify_smt_exclusion_proof` aus und beweist, dass der Nonce
+  noch NICHT gegen den aktuellen Root existiert, dann führt es separat
+  `verify_smt_inclusion_proof` aus und beweist, dass der Nonce im
+  vom Aufrufer bereitgestellten `new_withdrawal_root` VORHANDEN ist. Schlägt eine der beiden Prüfungen fehl, wird
+  `InvalidSmtProof` geworfen
+- Erst nachdem beide Prüfungen bestanden sind, wird `Instance.withdrawal_transactions_root` atomar
+  aktualisiert; der Nonce kann nicht wiederverwendet werden
+- Gibt ein Ereignis über `EmitEvent`-CPI aus

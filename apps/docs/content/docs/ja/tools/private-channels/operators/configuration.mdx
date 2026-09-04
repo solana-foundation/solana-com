@@ -1,0 +1,99 @@
+---
+title: 設定リファレンス
+description:
+  すべての Private Channels サービスに関する環境変数、サービス一覧、およびポート割り当て
+---
+
+## サービス
+
+Private Channels インスタンスを実行するということは、以下の Docker Compose
+サービスを管理することを意味します：
+
+| コンテナ                                  | 役割                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `private-channel-postgres-primary`         | 書き込みノードの状態データベース（PostgreSQL 16）                               |
+| `private-channel-postgres-replica`         | 読み取りノードの状態データベース（ストリーミングレプリカ）                            |
+| `private-channel-postgres-indexer`         | インデクサーおよびオペレーターのデータベース                                           |
+| `private-channel-write-node`               | トランザクションを受信・実行する（ポート 8900、ループバックのみ）           |
+| `private-channel-read-node`                | RPC 読み取りクエリを処理する（ポート 8901、ループバックのみ）                     |
+| `private-channel-gateway`                  | 書き込みノードと読み取りノード間のリクエストをルーティングし、RBAC を適用する（ポート 8899） |
+| `private-channel-indexer-solana`           | Yellowstone gRPC 経由で Solana の `Deposit` イベントを監視する                |
+| `private-channel-indexer-private-channel`  | RPC ポーリング経由でチャンネルの `Burn` イベントを監視する                   |
+| `private-channel-operator-solana`          | デポジットが確認された際にチャンネルトークンをミントする                        |
+| `private-channel-operator-private-channel` | 出金が確認された際にメインネットで `ReleaseFunds` を呼び出す          |
+| `private-channel-auth`                     | オプションの JWT/RBAC サービス（Docker プロファイル: `auth`）                      |
+
+オブザーバビリティコンテナ（`prometheus`、`grafana`、`cadvisor`）も
+含まれています。
+
+## ゲートウェイ
+
+これらは devnet Docker Compose セットアップ向けの適切なデフォルト値を持っています。Docker 外でゲートウェイを実行する場合や本番環境にデプロイする場合にのみ上書きしてください。
+
+| 環境変数                         | デフォルト                                                             | 必須            | 説明                                        |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `GATEWAY_PORT`                  | `8899`（devnet）                                                     | いいえ                  | リッスンポート                                        |
+| `GATEWAY_WRITE_URL`             | `http://write-node:8900`（devnet 環境ファイルの値；バイナリのデフォルトなし） | **はい**             | 書き込みノード URL - `sendTransaction` はここにルーティングされる     |
+| `GATEWAY_READ_URL`              | `http://read-node:8901`（devnet 環境ファイルの値；バイナリのデフォルトなし）  | **はい**             | 読み取りノード URL - その他すべての RPC メソッドはここにルーティングされる   |
+| `GATEWAY_CORS_ALLOWED_ORIGIN`   | `*`                                                                 | いいえ                  | `Access-Control-Allow-Origin` ヘッダーの値         |
+| `JWT_SECRET`                    | -                                                                   | いいえ                  | RBAC を有効にする；認証サービスの `JWT_SECRET` と一致している必要がある |
+| `AUTH_DATABASE_URL`             | -                                                                   | `JWT_SECRET` が設定されている場合 | ウォレット所有権チェック用の認証データベース                |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | `10`                                                                | いいえ                  | 認証データベースの接続プールサイズ                       |
+| `METRICS_PORT`                  | `9101`                                                              | いいえ                  | Prometheus メトリクスポート                            |
+| `RUST_LOG`                      | `info`                                                              | いいえ                  | ログレベル                                          |
+
+> `GATEWAY_WRITE_URL` および `GATEWAY_READ_URL` は、Docker 内で実行する場合に Docker Compose サービス
+> ホスト名（`write-node`、`read-node`）を使用します。`localhost` の
+> 同等の値は、Docker 外でゲートウェイバイナリを直接実行する場合にのみ使用してください。
+>
+> ゲートウェイバイナリ自体に組み込まれた `GATEWAY_PORT` のデフォルト値は `8898` です。
+> `.env.example` および `.env.devnet` はどちらも `8899` に設定しており、これが
+> Docker Compose セットアップで実際に使用される値です（`versions.env` にはツールチェーンと
+> イメージバージョンのピンのみが含まれており、サービスポートは含まれません）。`8898` のデフォルトは、環境ファイルなしでバイナリを直接実行した場合にのみ適用されます。
+
+<Callout type="warning">
+  `GATEWAY_CORS_ALLOWED_ORIGIN` のデフォルトは `*` であり、あらゆるオリジンがブラウザから
+  ゲートウェイを呼び出せるようになっています。本番環境へのデプロイ前に、
+  アプリケーションの実際のオリジンのみに制限してください。
+</Callout>
+
+## 書き込みノードと読み取りノード
+
+書き込みノードおよび読み取りノードの完全な設定リファレンスは、リポジトリ内の
+[`docs/CONFIG.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/CONFIG.md)
+にあります。
+
+## 認証サービス
+
+| 環境変数                         | 必須            | 説明                                                                                                                  |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                    | **はい**             | HS256 署名シークレット；ゲートウェイの `JWT_SECRET` と一致している必要がある                                                                  |
+| `AUTH_PORT`                     | いいえ（デフォルト `8903`） | リッスンポート                                                                                                                  |
+| `AUTH_DATABASE_URL`             | **はい**             | 認証データベース用の PostgreSQL 接続文字列                                                                           |
+| `CORS_ALLOWED_ORIGIN`           | いいえ（デフォルト `*`）    | このサービスの `Access-Control-Allow-Origin` ヘッダー値（ゲートウェイ自体の `GATEWAY_CORS_ALLOWED_ORIGIN` とは独立している） |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | いいえ（デフォルト `10`）   | 認証データベースの接続プールサイズ                                                                                                 |
+
+## サービスポートリファレンス
+
+| サービス          | ホストポート  | バインディング                                                                           |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| ゲートウェイ          | 8899       | すべてのインターフェース                                                                    |
+| 書き込みノード       | 8900       | ループバックのみ                                                                     |
+| 読み取りノード        | 8901       | ループバックのみ                                                                     |
+| ストリーマー         | 8902       | 内部のみ（`expose` のみ、ホストには公開されない）；devnet スタックには含まれない |
+| 認証サービス     | 8903       | すべてのインターフェース                                                                    |
+| オペレーターメトリクス | 9102、9103 | すべてのインターフェース                                                                    |
+| Grafana          | 37429      | すべてのインターフェース                                                                    |
+| Prometheus       | 9090       | すべてのインターフェース                                                                    |
+| cAdvisor         | 8080       | すべてのインターフェース                                                                    |
+
+> **セキュリティに関する注意：** 書き込みノードおよび読み取りノードのポートはループバック
+> （`127.0.0.1`）のみにバインドされています。ゲートウェイ、認証サービス、オペレーターメトリクス、Grafana、
+> Prometheus、および cAdvisor はすべて、devnet Docker Compose セットアップにおいてすべてのネットワークインターフェースに公開されています。ローカル開発を超えた用途では、ホストまたはネットワークレベルでファイアウォールを設定してください。RBAC はゲートウェイ自身の JSON-RPC
+> メソッドのみをカバーしており、これらの他のサービスはカバーしません。ストリーマーは例外であり、Docker がホストに公開しない未認証の内部フィードです。
+
+## ネットワーク要件
+
+ファイアウォールルールおよび帯域幅要件については、リポジトリ内の
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+を参照してください。

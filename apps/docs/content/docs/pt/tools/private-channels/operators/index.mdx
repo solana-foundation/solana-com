@@ -1,0 +1,370 @@
+---
+title: Operadores
+description: Implante e opere uma instância de Private Channels com Docker Compose
+---
+
+## O que é um Operador de Private Channels?
+
+Um operador é uma entidade confiável com permissão on-chain que faz a ponte entre a Mainnet da Solana e a rede de canais privados. Os operadores são provisionados pelo administrador da instância via `AddOperator`, que cria um PDA `Operator` on-chain; sem isso, nenhuma parte pode chamar `ReleaseFunds`. Na prática, um operador é uma organização ou equipe que executa os serviços responsáveis por monitorar depósitos, cunhar tokens no canal, detectar saques e liquidar fundos de volta à Mainnet. Executar uma instância oferece aos seus usuários transferências privadas de alto volume que não aparecem na Mainnet da Solana, throughput instantâneo sem taxas além do TPS nativo da Solana, e acesso controlado via RBAC.
+
+<Callout type="info">
+  Se você é um desenvolvedor integrando uma instância existente de Private Channels em vez de implantar uma, comece pelo
+  [Quickstart](/docs/tools/private-channels/quickstart/installation).
+</Callout>
+
+## Antes de Começar
+
+### Pré-requisitos
+
+Fixe estas versões no host para corresponder às imagens Docker:
+
+- Docker Engine 26+ (macOS Apple Silicon: ative "Docker VMM" em Configurações ->
+  Opções de Máquina Virtual)
+- Node.js **24.7.0** e pnpm **10.15.1**
+- Solana CLI **3.1.13** (Agave)
+- Rust **1.91.0**
+- Um endpoint Yellowstone gRPC para Devnet (disponível na Helius, Triton,
+  QuickNode)
+
+Para requisitos de rede e atribuições de portas padrão, consulte
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+no repositório.
+
+Instale o toolchain Solana fixado e aqueça o cache SBF:
+
+```bash
+make install-toolchain
+```
+
+### Serviços
+
+Executar uma instância de Private Channels significa assumir cinco responsabilidades contínuas,
+cada uma gerenciada por contêineres dedicados na stack do Docker Compose:
+
+1. **Indexar a Mainnet para depósitos** - `indexer-solana` monitora a Mainnet da Solana em busca de
+   eventos `Deposit` via Yellowstone gRPC; `operator-solana` processa os
+   depósitos confirmados e cunha o saldo de tokens equivalente na rede do canal
+2. **Indexar o canal para saques** - `indexer-private-channel` consulta o
+   canal a cada segundo em busca de eventos de queima `WithdrawFunds` e grava registros de
+   saque pendentes no banco de dados
+3. **Liberar fundos na Mainnet** - `operator-private-channel` processa os
+   registros pendentes e chama `ReleaseFunds` no Programa de Escrow com uma prova de
+   exclusão SMT válida
+4. **Gerenciar a raiz SMT** - `operator-private-channel` chama `ResetSmtRoot`
+   automaticamente quando os epochs da árvore são rotacionados; a verificação
+   on-chain `verify_smt_exclusion_proof` é a última linha de defesa contra
+   saques não autorizados
+5. **Executar o gateway e o serviço de autenticação** - o gateway é o único endpoint
+   público para todo o tráfego de clientes; o serviço de autenticação (opcional) aplica
+   JWT/RBAC quando `JWT_SECRET` está configurado
+
+Para o inventário completo de serviços e atribuições de portas, consulte a
+[Referência de Configuração](/docs/tools/private-channels/operators/configuration).
+
+> **Nota de segurança:** As portas de write-node e read-node estão vinculadas apenas ao loopback
+> (`127.0.0.1`), mas vários outros serviços (gateway, auth, métricas do operador,
+> Grafana, Prometheus, cAdvisor) são publicados em todas as interfaces de rede por padrão. Consulte a
+> [Referência de Configuração](/docs/tools/private-channels/operators/configuration#service-port-reference)
+> para a tabela completa de portas e proteja-as com firewall antes de qualquer
+> implantação pública. O RBAC cobre apenas os métodos JSON-RPC do próprio gateway, não esses
+> outros serviços.
+
+### Controle de Acesso: Aberto vs. RBAC
+
+Por padrão, o gateway aceita todas as conexões; nenhum token é necessário. Para habilitar
+RBAC baseado em JWT, defina `JWT_SECRET` e inicie a stack com `--profile auth`. Consulte
+**[Autenticação e Funções](/docs/tools/private-channels/concepts/auth)** para a
+referência completa de configuração, incluindo como provisionar a função `operator` e
+registrar carteiras de usuários.
+
+Se for habilitar a autenticação, adicione estes valores ao seu ambiente antes de iniciar a stack:
+
+```bash
+JWT_SECRET=<openssl rand -hex 32>   # must match on gateway and auth service
+AUTH_PORT=8903
+```
+
+## Configuração do Ambiente
+
+`.env.devnet` já está rastreado no repositório com os valores padrão específicos de devnet
+preenchidos; edite-o diretamente em vez de regenerá-lo a partir de `.env.example`,
+o que sobrescreveria esses valores padrão.
+
+Preencha os valores restantes conforme você avança pelas etapas de implantação abaixo; alguns
+estão disponíveis apenas durante a implantação. Segredos vão no arquivo `.env` ignorado pelo git;
+variáveis não secretas vão em `.env.devnet`.
+
+**Segredos - defina-os imediatamente:**
+
+```bash
+POSTGRES_PASSWORD=<openssl rand -hex 32>
+POSTGRES_REPLICATION_PASSWORD=<openssl rand -hex 32>
+```
+
+**Variáveis obtidas durante a implantação:**
+
+```bash
+ESCROW_INSTANCE_ID=<instance address - from Step 3>
+ADMIN_PRIVATE_KEY=<operator keypair as u8 array or base58 - from Step 4>
+DEVNET_RPC_URL=https://api.devnet.solana.com
+DEVNET_YELLOWSTONE_ENDPOINT=<your Yellowstone gRPC endpoint>
+INDEXER_YELLOWSTONE_TOKEN=<your Yellowstone auth token>
+```
+
+<Callout type="warning">
+  `ADMIN_PRIVATE_KEY` é o assinante de pagador de taxas próprio e obrigatório dos serviços off-chain,
+  sem relação com o administrador da instância on-chain da Etapa 3. Este guia coloca o
+  keypair do **operador** gerado na Etapa 4 abaixo em `ADMIN_PRIVATE_KEY` e
+  deixa o `OPERATOR_PRIVATE_KEY` opcional sem definição, fazendo com que o assinante do operador
+  recorra à mesma chave. Nunca coloque o keypair do administrador da instância a nível de protocolo da
+  Etapa 3 em nenhuma das variáveis.
+</Callout>
+
+Para a referência completa de variáveis de ambiente, consulte
+**[Configuração](/docs/tools/private-channels/operators/configuration)**.
+
+## Implantação
+
+<Steps>
+
+<Step>
+
+### Compilar imagens
+
+```bash
+make docker-devnet-build
+```
+
+Este comando compila todos os serviços Rust em uma imagem Docker compartilhada. A primeira compilação
+leva de 30 minutos a uma hora.
+
+</Step>
+
+<Step>
+
+### Configurar o Admin UI
+
+O Admin UI é uma ferramenta baseada em navegador para criar e configurar a instância de escrow:
+um utilitário de desenvolvimento e administração, não um produto voltado ao usuário
+e não um componente de runtime obrigatório. Todas as operações que ele realiza
+(`CreateInstance`, `AllowMint`, `AddOperator`) também podem ser executadas via scripts de CLI
+no repositório.
+
+```bash
+cd admin-ui
+pnpm install
+echo "PRIVATE_CHANNEL_RPC_URL=http://localhost:8899" > .env
+pnpm dev   # opens at http://localhost:5173
+```
+
+</Step>
+
+<Step>
+
+### Criar uma instância de escrow
+
+1. Configure sua carteira do navegador para **Devnet** e certifique-se de ter SOL de Devnet para taxas
+2. No Admin UI, clique em **Criar Nova Instância** e aprove a transação
+3. Copie o **Endereço da Instância** e defina-o como `ESCROW_INSTANCE_ID` em
+   `.env.devnet`
+
+Alternativamente, use o script CLI:
+
+```bash
+cargo run --bin create_instance -- https://api.devnet.solana.com ./keypairs/admin.json
+```
+
+</Step>
+
+<Step>
+
+### Gerar um keypair de operador
+
+```bash
+solana-keygen new -o operator-keypair.json -s --no-bip39-passphrase
+solana-keygen pubkey operator-keypair.json
+```
+
+Defina o conteúdo do keypair como `ADMIN_PRIVATE_KEY` no seu ambiente. A chave
+pública não é uma variável de ambiente; você a passará diretamente como o
+pubkey do operador na etapa "Configurar a instância" abaixo.
+
+</Step>
+
+<Step>
+
+### Finalizar variáveis de ambiente
+
+Atualize `.env.devnet` com `ESCROW_INSTANCE_ID`, `DEVNET_RPC_URL`,
+`DEVNET_YELLOWSTONE_ENDPOINT` e `INDEXER_YELLOWSTONE_TOKEN`. Coloque os segredos
+(`POSTGRES_PASSWORD`, `POSTGRES_REPLICATION_PASSWORD`, `ADMIN_PRIVATE_KEY`) no
+arquivo `.env` ignorado pelo git.
+
+Se você decidiu habilitar o RBAC
+([Controle de Acesso: Aberto vs. RBAC](#access-control-open-vs-rbac)), adicione também
+`JWT_SECRET` e `AUTH_PORT` agora.
+
+</Step>
+
+<Step>
+
+### Iniciar todos os serviços
+
+Sem autenticação:
+
+```bash
+make docker-devnet-up
+```
+
+Com autenticação:
+
+```bash
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+```
+
+O Compose desativa o carregamento automático do `.env` assim que qualquer flag `--env-file` é
+passada, portanto o `--env-file .env` no final é obrigatório. Sem ele,
+`POSTGRES_PASSWORD`, `ADMIN_PRIVATE_KEY` e `JWT_SECRET` (que você colocou em
+`.env` acima) ficam vazios e a stack falha ao iniciar corretamente.
+
+> Inicie os serviços antes de configurar a instância. O indexador transmite eventos em
+> tempo real, portanto subir a stack primeiro garante que `AllowMint` e seu primeiro
+> depósito sejam indexados em ordem, sem necessidade de reprocessamento retroativo.
+
+</Step>
+
+<Step>
+
+### Configurar a instância
+
+Com a stack em execução, adicione um mint de token à lista de permissões e adicione seu operador via
+Admin UI:
+
+1. **Allow Mint**: Funções de Admin -> Gerenciamento de Mint -> insira o endereço do mint ->
+   Allow Mint
+2. **Add Operator**: Funções de Admin -> Gerenciamento de Operadores -> insira o
+   pubkey do operador -> Add Operator
+
+Ou via CLI:
+
+```bash
+cargo run --bin add_operator -- \
+  https://api.devnet.solana.com \
+  ./keypairs/admin.json \
+  <INSTANCE_ID> \
+  <OPERATOR_PUBKEY>
+```
+
+</Step>
+
+</Steps>
+
+<Callout type="warning">
+
+Este guia tem como alvo a devnet da Solana. Para a Mainnet:
+
+- Os IDs de programa são compilados via `declare_id!()`: verifique se você está usando os
+  IDs de Mainnet corretos do repositório
+- Os endpoints Yellowstone gRPC exigem um plano Mainnet; endpoints de devnet não
+  transmitirão eventos da Mainnet
+- A carteira do operador paga taxas em SOL para cada chamada de `ReleaseFunds`, portanto dimensione o
+  saldo de SOL de acordo com seu volume esperado de saques
+- Altere todas as credenciais padrão (Grafana, PostgreSQL) antes de qualquer implantação
+  pública
+
+</Callout>
+
+## Operações
+
+### Comandos Úteis
+
+```bash
+# View logs (all services)
+make docker-devnet-logs
+
+# View logs (specific service)
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana
+
+# Stop services
+make docker-devnet-down
+
+# Stop and wipe all state (volumes)
+make docker-devnet-clean
+```
+
+### Observabilidade
+
+A stack inclui Prometheus, Grafana e cAdvisor para métricas e monitoramento de contêineres. O Grafana está acessível na porta `37429`.
+
+<Callout type="warning">
+  A senha padrão do Grafana é `admin`. Altere-a antes de expor a porta 37429
+  a qualquer rede além do localhost.
+</Callout>
+
+## Solução de Problemas
+
+### Saldo do canal não atualiza após depósito
+
+1. Confirme se a transação de depósito na Mainnet foi registrada em um explorador da Mainnet
+2. Verifique se `indexer-solana` está em execução:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana`
+3. Verifique se `operator-solana` está em execução:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-solana`
+4. Verifique se seu endpoint Yellowstone gRPC está acessível e se o token é válido
+   (`DEVNET_YELLOWSTONE_ENDPOINT`, `INDEXER_YELLOWSTONE_TOKEN`)
+5. Aguarde até 30 segundos após a confirmação on-chain, pois o indexador aplica
+   um atraso de segurança de finalidade antes de creditar
+
+### Saque não liquidando na Mainnet
+
+1. Verifique se `indexer-private-channel` está em execução:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-private-channel`
+2. Verifique se `operator-private-channel` está em execução:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-private-channel`
+3. Confirme se o keypair do operador em `ADMIN_PRIVATE_KEY` corresponde à chave
+   registrada com `AddOperator` on-chain
+4. Se os logs exibirem "SMT root mismatch", o serviço é encerrado em vez de enviar
+   uma prova inválida. Pare a stack, restaure a partir de um estado consistente e
+   reinicie
+
+### Falhas de autenticação JWT (401 em todas as requisições)
+
+1. Confirme se `JWT_SECRET` é idêntico nos contêineres do gateway e do serviço de
+   autenticação
+2. Confirme se a stack foi iniciada com `--profile auth`
+3. Os tokens expiram após 24 horas; autentique-se novamente para obter um token atualizado
+
+### Primeira compilação demora muito
+
+Esperado. O primeiro `make docker-devnet-build` compila todos os serviços Rust e
+pode levar de 30 a 60 minutos em hardware típico. Compilações subsequentes utilizam o cache de
+camadas do Docker e são significativamente mais rápidas.
+
+## Próximos Passos
+
+<Cards>
+  <Card
+    title="Quickstart"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    Teste sua implantação: deposite, transfira e saque na devnet.
+  </Card>
+  <Card
+    title="Configuração"
+    href="/docs/tools/private-channels/operators/configuration"
+  >
+    Referência completa de variáveis de ambiente para todos os serviços.
+  </Card>
+  <Card
+    title="Autenticação e Funções"
+    href="/docs/tools/private-channels/concepts/auth"
+  >
+    Configure a autenticação JWT e provisione usuários com função de operador.
+  </Card>
+  <Card
+    title="Instruções"
+    href="/docs/tools/private-channels/instructions/create-instance"
+  >
+    Referência completa para todas as instruções on-chain.
+  </Card>
+</Cards>

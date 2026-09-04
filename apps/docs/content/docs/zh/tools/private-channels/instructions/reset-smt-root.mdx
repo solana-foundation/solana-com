@@ -1,0 +1,57 @@
+---
+title: 重置 SMT 根
+description:
+  轮换稀疏默克尔树，为新的树 epoch 重置提款根
+---
+
+仅限运营商的指令，通过递增 `Instance.current_tree_index` 并重置提款根来轮换稀疏默克尔树，从而允许新一轮共 65,536 次提款的 epoch。
+
+<Callout type="info">
+  托管程序正在从此稀疏默克尔树设计迁移至链上 nonce 位图（在上游跟踪），届时此指令将变为 `RotateBitmap`。本页内容与当前托管程序保持一致，待该变更落地后将重新修订。
+</Callout>
+
+## 账户
+
+| 账户                          | 可写 | 签名者 | 描述                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | 手续费支付方                                              |
+| `operator`                       |          | ✓      | 运营商签名者                                        |
+| `instance`                       | ✓        |        | 托管实例 PDA（`current_tree_index` 已递增） |
+| `operator_pda`                   |          |        | 证明签名者已配置的运营商 PDA         |
+| `event_authority`                |          |        | 用于 `EmitEvent` CPI 的事件权限 PDA                |
+| `private_channel_escrow_program` |          |        | 托管程序（CPI 自引用）                |
+
+## 参数
+
+| 参数                     | 类型  | 描述                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | 重放保护；必须与 `Instance.current_tree_index` 匹配，否则调用失败 |
+
+## 返回值
+
+返回一个 `TransactionBuilder`，可用于构建并发送交易。
+
+## 示例
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## 重要说明
+
+- 仅限运营商：需要有效的 `operator_pda`，否则抛出 `InvalidOperatorPda`
+- `expected_current_tree_index` 在调用时必须等于 `Instance.current_tree_index`；过期值将抛出 `UnexpectedTreeIndex`，以防止重放已完成的重置操作
+- 递增 `Instance.current_tree_index`；在上一个树 epoch 中有效的 nonce 在轮换后将失效
+- `operator-private-channel` 服务会在 `transaction_nonce % 65536 == 0`（且 `nonce > 0`）时自动调用此指令，标志着新 epoch 的开始；在正常操作下无需手动调用
+- 轮换后，提款根将重置为空树，新的提款将从全新的 SMT 开始
+- 通过 `EmitEvent` CPI 触发事件

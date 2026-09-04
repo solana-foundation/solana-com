@@ -1,0 +1,113 @@
+---
+title: トークンのデポジット
+description:
+  devnet上のPrivate ChannelsエスクローインスタンスにSPLトークンをデポジットする
+---
+
+## 概要
+
+`Deposit` instructionsは、ユーザーのassociated token accountからエスクローのassociated token accountへSPLトークンを移動します。デポジット後、トークンはゲートウェイを通じたオフチェーン転送に利用可能になります。オプションの`recipient`パラメーターを使用すると、デポジット者が別のユーザーのチャネル残高にクレジットできます。
+
+## 前提条件
+
+- インストールおよびクライアント生成の完了
+- SOL（トランザクション手数料用）とデポジットしたいSPLトークンを持つdevnetウォレット
+- ミントがアローリストに登録されたアクティブなPrivate Channelsインスタンス
+
+## コード
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## 確認
+
+devnetトランザクションが確認された後、インデクサーはYellowstone gRPC経由でデポジットイベントを検出し、オペレーターがチャネル上に同等の残高をミントします。クレジットされる前にファイナリティ安全遅延が適用されるため、チャネル残高が利用可能になるまで**約15秒**かかることをご了承ください。
+
+ゲートウェイ（devnet RPCではなく）を通じて残高を照会し、確認してください：
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+残高がゼロ以外であれば、デポジットがインデックスされクレジットされたことを確認できます。30秒後も残高がゼロの場合は、`indexer-solana`と`operator-solana`が起動中であることを確認してください（`make docker-devnet-logs`）。
+
+## 次のステップ
+
+**[転送を送信する](/docs/tools/private-channels/quickstart/transfer)** - 最初のオフチェーン転送を送信する

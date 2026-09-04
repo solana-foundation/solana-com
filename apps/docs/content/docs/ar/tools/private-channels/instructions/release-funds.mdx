@@ -1,0 +1,85 @@
+---
+title: تحرير الأموال
+description:
+  يُحرر الرموز المميزة من الضمان إلى محفظة المستخدم بعد التحقق من دليل استبعاد SMT
+---
+
+يُستدعى بواسطة مشغّل مُزوَّد لتحرير الرموز المميزة المحتجزة في الضمان إلى محفظة المستخدم على الشبكة الرئيسية،
+مشروطًا بدليل استبعاد صالح من Sparse Merkle Tree لنونس السحب.
+
+<Callout type="info">
+  يجري برنامج الضمان حاليًا الترحيل من تصميم Sparse Merkle Tree هذا إلى
+  خريطة بت نونس على السلسلة (يُتتبع في المستودع الرئيسي). هذه الصفحة دقيقة وفق
+  برنامج الضمان الحالي وستُعاد صياغتها بمجرد تطبيق هذا التغيير.
+</Callout>
+
+## الحسابات
+
+| الحساب                          | قابل للكتابة | موقِّع | الوصف                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | دافع الرسوم                                                          |
+| `operator`                       |          | ✓      | موقِّع المشغّل                                                    |
+| `instance`                       | ✓        |        | PDA نسخة الضمان (يُحدَّث الجذر على السلسلة)                        |
+| `operator_pda`                   |          |        | PDA المشغّل الذي يُثبت أن الموقِّع مُزوَّد                     |
+| `mint`                           |          |        | سك رمز SPL                                                     |
+| `allowed_mint`                   |          |        | PDA AllowedMint - يتحقق من أن السك مسموح به في هذه النسخة |
+| `user_ata`                       | ✓        |        | associated token account الخاص بالمستلم (الوجهة)                 |
+| `instance_ata`                   | ✓        |        | associated token account الخاص بالضمان (المصدر)                         |
+| `token_program`                  |          |        | Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | PDA صلاحية الحدث لـ CPI الخاص بـ `EmitEvent`                            |
+| `private_channel_escrow_program` |          |        | برنامج الضمان (مرجع ذاتي لـ CPI)                            |
+
+## المعاملات
+
+| المعامل             | النوع        | الوصف                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | كمية الرموز المميزة المراد تحريرها                                   |
+| `user`                | `Pubkey`    | محفظة المستلم على الشبكة الرئيسية                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | جذر SMT المحدَّث بعد تضمين نونس عملية السحب هذه      |
+| `transaction_nonce`   | `u64`       | نونس فريد يُعرِّف ورقة السحب هذه في SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 تجزئة أخوية (32 بايت لكل منها) لدليل استبعاد SMT |
+
+## القيم المُعادة
+
+يُعيد `TransactionBuilder` يمكن استخدامه لبناء المعاملة وإرسالها.
+
+## مثال
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## ملاحظات مهمة
+
+- يجب أن يكون المُستدعي مشغّلًا مُزوَّدًا: يجب أن يكون `operator_pda` موجودًا (أُنشئ بواسطة
+  `AddOperator`)؛ يُطلق PDA غير الصالح `InvalidOperatorPda`
+- `sibling_proofs` بحجم 512 بايت بالضبط (16 × تجزئات بحجم 32 بايت، تتطابق مع ارتفاع شجرة SMT البالغ 16)
+- `new_withdrawal_root` هو جذر SMT المحدَّث بعد تضمين نونس عملية السحب هذه. احسبه خارج السلسلة قبل الاستدعاء
+- يجب أن يكون `transaction_nonce` صالحًا لـ `Instance.current_tree_index`؛ يُطلق النونس غير الصالح `InvalidTransactionNonceForCurrentTreeIndex`
+- يُشغِّل البرنامج أولًا `verify_smt_exclusion_proof`، مما يُثبت أن النونس
+  غير موجود بعد مقارنةً بالجذر الحالي، ثم يُشغِّل `verify_smt_inclusion_proof` منفصلًا يُثبت أن النونس
+  موجود في `new_withdrawal_root` الذي يوفره المُستدعي. يُطلق فشل أي من الفحصين `InvalidSmtProof`
+- فقط بعد اجتياز كلا الفحصين يُحدَّث `Instance.withdrawal_transactions_root`
+  بصورة ذرية؛ ولا يمكن إعادة استخدام النونس
+- يُصدر حدثًا عبر CPI الخاص بـ `EmitEvent`

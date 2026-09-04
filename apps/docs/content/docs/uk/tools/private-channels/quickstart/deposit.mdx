@@ -1,0 +1,113 @@
+---
+title: Поповнення токенів
+description:
+  Поповнення SPL-токенів в екземпляр ескроу Private Channels у devnet
+---
+
+## Огляд
+
+Інструкція `Deposit` переміщує SPL-токени з associated token account користувача до associated token account ескроу. Після поповнення токени стають доступними для позамережевих переказів через шлюз. Необов'язковий параметр `recipient` дозволяє депоненту зарахувати кошти на баланс каналу іншого користувача.
+
+## Передумови
+
+- Завершено встановлення та генерацію клієнта
+- Гаманець у devnet із SOL (для оплати комісій за транзакції) та SPL-токеном, який ви хочете внести
+- Активний екземпляр Private Channels із вашим мінтом у списку дозволених
+
+## Код
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## Перевірка
+
+Після підтвердження транзакції в devnet індексер виявляє подію поповнення через Yellowstone gRPC, і оператор карбує еквівалентний баланс у каналі. Перед зарахуванням застосовується затримка безпеки фінальності, тому **очікуйте ~15 секунд** до того, як баланс каналу стане доступним.
+
+Перевірте свій баланс через шлюз (не через devnet RPC):
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+Ненульовий баланс підтверджує, що поповнення було проіндексовано та зараховано. Якщо баланс залишається нульовим після 30 секунд, перевірте, чи запущені `indexer-solana` та `operator-solana` (`make docker-devnet-logs`).
+
+## Наступні кроки
+
+**[Надіслати переказ](/docs/tools/private-channels/quickstart/transfer)** — надішліть свій перший позамережевий переказ

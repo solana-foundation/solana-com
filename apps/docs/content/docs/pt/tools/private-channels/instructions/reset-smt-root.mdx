@@ -1,0 +1,66 @@
+---
+title: Redefinir Raiz SMT
+description:
+  Rotaciona a Sparse Merkle Tree, redefinindo a raiz de saque para um novo epoch da árvore
+---
+
+Instrução exclusiva para operadores que rotaciona a Sparse Merkle Tree incrementando
+`Instance.current_tree_index` e redefinindo a raiz de saque, permitindo um novo
+epoch de 65.536 saques.
+
+<Callout type="info">
+  O programa de custódia está migrando deste design de Sparse Merkle Tree para um
+  bitmap de nonce on-chain (rastreado upstream), onde esta instrução se torna
+  `RotateBitmap`. Esta página está atualizada em relação ao programa de custódia atual e
+  será revisada quando essa alteração entrar em vigor.
+</Callout>
+
+## Contas
+
+| Conta                          | Gravável | Assinante | Descrição                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Pagador de taxa                                              |
+| `operator`                       |          | ✓      | Assinante operador                                        |
+| `instance`                       | ✓        |        | PDA da instância de custódia (`current_tree_index` incrementado) |
+| `operator_pda`                   |          |        | PDA do operador que comprova que o assinante está provisionado         |
+| `event_authority`                |          |        | PDA de autoridade de evento para CPI `EmitEvent`                |
+| `private_channel_escrow_program` |          |        | Programa de Custódia (auto-referência para CPI)                |
+
+## Parâmetros
+
+| Parâmetro                     | Tipo  | Descrição                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Proteção contra replay; deve corresponder a `Instance.current_tree_index` ou a chamada falha |
+
+## Retornos
+
+Retorna um `TransactionBuilder` que pode ser usado para construir e enviar a
+transação.
+
+## Exemplo
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Notas Importantes
+
+- Exclusivo para operadores: requer um `operator_pda` válido; caso contrário, lança `InvalidOperatorPda`
+- `expected_current_tree_index` deve ser igual a `Instance.current_tree_index` no momento da chamada; um valor desatualizado lança `UnexpectedTreeIndex`, protegendo contra o replay de uma redefinição que já foi aplicada
+- Incrementa `Instance.current_tree_index`; nonces válidos no epoch anterior da árvore são invalidados após a rotação
+- O serviço `operator-private-channel` chama isso automaticamente quando
+  `transaction_nonce % 65536 == 0` (e `nonce > 0`), sinalizando o início de um
+  novo epoch; não deve ser necessário chamá-lo manualmente em operação normal
+- Após a rotação, a raiz de saque é redefinida para a árvore vazia, de modo que novos
+  saques começam a partir de uma SMT limpa
+- Emite um evento via CPI `EmitEvent`

@@ -1,0 +1,116 @@
+---
+title: Token Yatır
+description:
+  Devnet üzerindeki bir Private Channels escrow örneğine SPL token yatırın
+---
+
+## Genel Bakış
+
+`Deposit` talimatı, SPL token'ları kullanıcının associated token
+account hesabından escrow'un associated token account hesabına taşır. Yatırıldıktan sonra token'lar,
+ağ geçidi aracılığıyla zincir dışı transferler için kullanılabilir hale gelir. İsteğe bağlı `recipient`
+parametresi, bir yatırımcının farklı bir kullanıcının kanal bakiyesine kredi eklemesine olanak tanır.
+
+## Ön Koşullar
+
+- Kurulum ve istemci oluşturma tamamlandı
+- SOL (işlem ücretleri için) ve yatırmak istediğiniz SPL token'ına sahip bir devnet cüzdanı
+- İzin listesinde mint'iniz bulunan aktif bir Private Channels örneği
+
+## Kod
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## Doğrula
+
+Devnet işleminiz onaylandıktan sonra, indeksleyici Yellowstone gRPC aracılığıyla yatırma olayını algılar ve operatör, kanalda eşdeğer bakiyeyi basar. Kredi verilmeden önce bir kesinlik güvenlik gecikmesi uygulanır; bu nedenle kanal bakiyesinin kullanılabilir hale gelmesi için **yaklaşık 15 saniye** bekleyin.
+
+Onaylamak için bakiyenizi ağ geçidi üzerinden (devnet RPC üzerinden değil) sorgulayın:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+Sıfırdan farklı bir bakiye, yatırmanın indekslendiğini ve kredilendirildiğini doğrular. 30 saniye sonra bakiye hâlâ sıfırsa, `indexer-solana` ve `operator-solana` servislerinin çalışıp çalışmadığını kontrol edin (`make docker-devnet-logs`).
+
+## Sonraki Adımlar
+
+**[Transfer Gönder](/docs/tools/private-channels/quickstart/transfer)** - ilk zincir dışı transferinizi gönderin

@@ -1,0 +1,123 @@
+---
+title: Κατάθεση Tokens
+description:
+  Κατάθεση SPL tokens σε μια παρουσία escrow του Private Channels στο devnet
+---
+
+## Επισκόπηση
+
+Η εντολή `Deposit` μεταφέρει SPL tokens από το associated token
+account του χρήστη στο associated token account του escrow. Μόλις κατατεθούν, τα tokens είναι
+διαθέσιμα για μεταφορές εκτός αλυσίδας μέσω του gateway. Η προαιρετική παράμετρος `recipient`
+επιτρέπει σε έναν καταθέτη να πιστώσει το υπόλοιπο καναλιού ενός διαφορετικού χρήστη.
+
+## Προαπαιτούμενα
+
+- Ολοκληρωμένη εγκατάσταση και δημιουργία client
+- Ένα πορτοφόλι devnet με SOL (για χρεώσεις συναλλαγών) και το SPL token που θέλετε να
+  καταθέσετε
+- Μια ενεργή παρουσία Private Channels με το mint σας στη λίστα επιτρεπόμενων
+
+## Κώδικας
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## Επαλήθευση
+
+Αφού επιβεβαιωθεί η συναλλαγή σας στο devnet, ο indexer εντοπίζει το συμβάν κατάθεσης
+μέσω του Yellowstone gRPC και ο operator κόβει το ισοδύναμο υπόλοιπο στο
+κανάλι. Εφαρμόζεται καθυστέρηση ασφαλείας οριστικοποίησης πριν από την πίστωση, επομένως **αναμένετε ~15
+δευτερόλεπτα** πριν το υπόλοιπο του καναλιού γίνει διαθέσιμο.
+
+Υποβάλετε ερώτημα για το υπόλοιπό σας μέσω του gateway (όχι μέσω του devnet RPC) για επιβεβαίωση:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+Ένα μη μηδενικό υπόλοιπο επιβεβαιώνει ότι η κατάθεση καταχωρήθηκε και πιστώθηκε. Εάν το υπόλοιπο
+είναι μηδέν μετά από 30 δευτερόλεπτα, ελέγξτε ότι οι `indexer-solana` και `operator-solana` εκτελούνται
+(`make docker-devnet-logs`).
+
+## Επόμενα Βήματα
+
+**[Αποστολή Μεταφοράς](/docs/tools/private-channels/quickstart/transfer)** - στείλτε
+την πρώτη σας μεταφορά εκτός αλυσίδας

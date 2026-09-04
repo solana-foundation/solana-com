@@ -1,0 +1,104 @@
+---
+title: Tài liệu tham khảo cấu hình
+description:
+  Biến môi trường, danh mục dịch vụ và phân công cổng cho tất cả các dịch vụ Private Channels
+---
+
+## Các dịch vụ
+
+Chạy một phiên bản Private Channels có nghĩa là sở hữu các dịch vụ Docker Compose
+sau đây:
+
+| Container                                  | Vai trò                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `private-channel-postgres-primary`         | Cơ sở dữ liệu trạng thái node ghi (PostgreSQL 16)                               |
+| `private-channel-postgres-replica`         | Cơ sở dữ liệu trạng thái node đọc (bản sao streaming)                            |
+| `private-channel-postgres-indexer`         | Cơ sở dữ liệu indexer và operator                                           |
+| `private-channel-write-node`               | Nhận và thực thi giao dịch (cổng 8900, chỉ loopback)           |
+| `private-channel-read-node`                | Xử lý các truy vấn đọc RPC (cổng 8901, chỉ loopback)                     |
+| `private-channel-gateway`                  | Định tuyến các yêu cầu giữa node ghi và node đọc; thực thi RBAC (cổng 8899) |
+| `private-channel-indexer-solana`           | Theo dõi Solana để nhận các sự kiện `Deposit` qua Yellowstone gRPC                |
+| `private-channel-indexer-private-channel`  | Theo dõi kênh để nhận các sự kiện `Burn` qua RPC polling                   |
+| `private-channel-operator-solana`          | Phát hành token kênh khi các khoản nạp tiền được xác nhận                        |
+| `private-channel-operator-private-channel` | Gọi `ReleaseFunds` trên Mainnet khi các lệnh rút tiền được xác nhận          |
+| `private-channel-auth`                     | Dịch vụ JWT/RBAC tùy chọn (Docker profile: `auth`)                      |
+
+Các container quan sát (`prometheus`, `grafana`, `cadvisor`) cũng
+được bao gồm.
+
+## Gateway
+
+Các cài đặt này có giá trị mặc định hợp lý cho thiết lập Docker Compose trên devnet. Chỉ ghi đè
+nếu chạy gateway bên ngoài Docker hoặc triển khai lên môi trường production.
+
+| Biến môi trường                         | Mặc định                                                             | Bắt buộc            | Mô tả                                        |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `GATEWAY_PORT`                  | `8899` (devnet)                                                     | Không                  | Cổng lắng nghe                                        |
+| `GATEWAY_WRITE_URL`             | `http://write-node:8900` (giá trị file env devnet; không có giá trị mặc định nhị phân) | **Có**             | URL node ghi - các yêu cầu `sendTransaction` được định tuyến đến đây     |
+| `GATEWAY_READ_URL`              | `http://read-node:8901` (giá trị file env devnet; không có giá trị mặc định nhị phân)  | **Có**             | URL node đọc - tất cả các phương thức RPC khác được định tuyến đến đây   |
+| `GATEWAY_CORS_ALLOWED_ORIGIN`   | `*`                                                                 | Không                  | Giá trị header `Access-Control-Allow-Origin`         |
+| `JWT_SECRET`                    | -                                                                   | Không                  | Kích hoạt RBAC; phải khớp với `JWT_SECRET` của dịch vụ auth |
+| `AUTH_DATABASE_URL`             | -                                                                   | Nếu `JWT_SECRET` được đặt | DB auth để kiểm tra quyền sở hữu ví                |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | `10`                                                                | Không                  | Kích thước connection pool DB auth                       |
+| `METRICS_PORT`                  | `9101`                                                              | Không                  | Cổng metrics Prometheus                            |
+| `RUST_LOG`                      | `info`                                                              | Không                  | Cấp độ log                                          |
+
+> `GATEWAY_WRITE_URL` và `GATEWAY_READ_URL` sử dụng tên hostname của dịch vụ Docker Compose
+> (`write-node`, `read-node`) khi chạy trong Docker. Chỉ sử dụng các giá trị tương đương `localhost`
+> khi chạy binary gateway trực tiếp bên ngoài Docker.
+>
+> Giá trị mặc định tích hợp sẵn của binary gateway cho `GATEWAY_PORT` là `8898`.
+> Cả `.env.example` và `.env.devnet` đều đặt thành `8899`, đây là giá trị mà
+> thiết lập Docker Compose thực sự sử dụng (`versions.env` chỉ chứa các phiên bản toolchain và
+> image, không chứa cổng dịch vụ). Giá trị mặc định `8898` chỉ áp dụng nếu bạn
+> chạy binary trực tiếp mà không có file env.
+
+<Callout type="warning">
+  `GATEWAY_CORS_ALLOWED_ORIGIN` mặc định là `*`, cho phép bất kỳ origin nào gọi
+  gateway từ trình duyệt. Hãy giới hạn giá trị này về origin thực tế của ứng dụng
+  trước khi triển khai lên môi trường production.
+</Callout>
+
+## Node ghi và Node đọc
+
+Tài liệu tham khảo cấu hình đầy đủ cho node ghi và node đọc nằm trong
+[`docs/CONFIG.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/CONFIG.md)
+trong repository.
+
+## Dịch vụ Auth
+
+| Biến môi trường                         | Bắt buộc            | Mô tả                                                                                                                  |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                    | **Có**             | Khóa ký HS256; phải khớp với `JWT_SECRET` của gateway                                                                  |
+| `AUTH_PORT`                     | Không (mặc định `8903`) | Cổng lắng nghe                                                                                                                  |
+| `AUTH_DATABASE_URL`             | **Có**             | Chuỗi kết nối PostgreSQL cho cơ sở dữ liệu auth                                                                           |
+| `CORS_ALLOWED_ORIGIN`           | Không (mặc định `*`)    | Giá trị header `Access-Control-Allow-Origin` cho dịch vụ này (độc lập với `GATEWAY_CORS_ALLOWED_ORIGIN` của gateway) |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | Không (mặc định `10`)   | Kích thước connection pool DB auth                                                                                                 |
+
+## Tham khảo cổng dịch vụ
+
+| Dịch vụ          | Cổng host  | Ràng buộc                                                                           |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| Gateway          | 8899       | Tất cả các giao diện mạng                                                                    |
+| Node ghi       | 8900       | Chỉ loopback                                                                     |
+| Node đọc        | 8901       | Chỉ loopback                                                                     |
+| Streamer         | 8902       | Chỉ nội bộ (`expose`, không publish ra host); không thuộc devnet stack |
+| Dịch vụ Auth     | 8903       | Tất cả các giao diện mạng                                                                    |
+| Metrics operator | 9102, 9103 | Tất cả các giao diện mạng                                                                    |
+| Grafana          | 37429      | Tất cả các giao diện mạng                                                                    |
+| Prometheus       | 9090       | Tất cả các giao diện mạng                                                                    |
+| cAdvisor         | 8080       | Tất cả các giao diện mạng                                                                    |
+
+> **Lưu ý bảo mật:** Các cổng của node ghi và node đọc được ràng buộc chỉ với loopback
+> (`127.0.0.1`). Gateway, dịch vụ Auth, metrics operator, Grafana,
+> Prometheus và cAdvisor đều được publish ra mọi giao diện mạng trong
+> thiết lập Docker Compose devnet. Hãy tường lửa các dịch vụ này ở cấp host hoặc mạng cho
+> bất kỳ môi trường nào ngoài phát triển cục bộ; RBAC chỉ bảo vệ các phương thức JSON-RPC của gateway,
+> không bảo vệ các dịch vụ khác này. Streamer là ngoại lệ: đây là
+> luồng nội bộ không xác thực mà Docker không bao giờ publish ra host.
+
+## Yêu cầu mạng
+
+Xem
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+trong repository để biết các quy tắc tường lửa và yêu cầu băng thông.

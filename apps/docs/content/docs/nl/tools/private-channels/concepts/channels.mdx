@@ -1,0 +1,118 @@
+---
+title: Kanaallevenscyclus
+description:
+  Hoe privébetalingskanalen werken, wie de deelnemers zijn en wanneer je ze gebruikt
+---
+
+## Wat is een privékanaal?
+
+Een privékanaal is een off-chain betalingsnetwerk dat verankerd is aan Solana. Gebruikers storten SPL-tokens in een on-chain escrow-programma en voeren vervolgens off-chain transacties uit via een gateway met hoge snelheid en zonder kosten per overdracht. Afwikkeling naar Solana Mainnet verloopt via een Sparse Merkle Tree-bewijs, wat garandeert dat fondsen altijd inwisselbaar zijn en dubbele uitgaven onmogelijk zijn.
+
+Anders dan bij de native betalingsstroom van Solana verschijnen overdrachten binnen een kanaal pas on-chain wanneer een gebruiker opneemt. Het kanalennetwerk draait zijn eigen transactiepijplijn (dedup -> sig verify -> sequencer -> executor -> settler) die transacties onafhankelijk van de bloktijd van Solana verwerkt.
+
+## Deelnemers
+
+### Instance-beheerder
+
+De beheerder implementeert de `Instance`-PDA via `CreateInstance` en bepaalt welke SPL-token-mints worden geaccepteerd (`AllowMint` / `BlockMint`). De beheerder beheert en trekt operators in via `AddOperator` / `RemoveOperator`, en kan beheerdersrechten overdragen via `SetNewAdmin`. Er is één beheerder per instantie. De overdracht van beheerdersrechten is onomkeerbaar in één stap: de huidige beheerder kan de rol niet terugkrijgen zonder medewerking van de nieuwe beheerder.
+
+### Operators
+
+Operators worden ingericht door de beheerder. Ze hebben een `Operator`-PDA en zijn de enige accounts die `ReleaseFunds` (voor het afwikkelen van opnames naar Mainnet) en `ResetSmtRoot` (voor het roteren van de Sparse Merkle Tree) mogen aanroepen. Operators omzeilen alle eigendomscontroles in de gateway en hebben toegang tot alle JSON-RPC-methoden, inclusief `getBlock`, `getTransaction` en `simulateTransaction`. JWT-rol: `"operator"`. Operators moeten rechtstreeks in de database worden ingericht; er is geen zelfbediende escalatie mogelijk. Zie de
+[Operators-handleiding](/docs/tools/private-channels/operators) voor implementatie- en configuratiedetails.
+
+### Gebruikers
+
+Gebruikers registreren zichzelf via de Auth Service. JWT-rol: `"user"`. Gebruikers kunnen `Deposit` rechtstreeks aanroepen op het Escrow-programma en opnames initiëren via de kanaalzijdige `WithdrawFunds`-instructie op het Withdraw-programma. Gatewaytoegang is beperkt tot hun eigen geverifieerde wallets; ze kunnen `getBlock`, `getTransaction` of `simulateTransaction` niet aanroepen.
+
+## Kanaallevenscyclus
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Alice
+    participant Mainnet as Solana Mainnet
+    participant Channel as Private Channel Network
+
+    Note over Admin,Channel: SETUP (one time)
+    Admin->>Mainnet: CreateInstance
+    Admin->>Mainnet: AllowMint
+    Admin->>Mainnet: AddOperator
+
+    Note over Alice,Channel: DEPOSIT
+    Alice->>Mainnet: Deposit (tokens to escrow ATA)
+    Note over Channel: Indexer detects deposit event,<br/>credits Alice's channel balance
+
+    Note over Alice,Channel: OFF-CHAIN TRANSFERS
+    Alice->>Channel: SPL token transfer (via gateway)
+    Channel-->>Alice: Confirmed (~100 ms, no Mainnet fee)
+
+    Note over Alice,Mainnet: WITHDRAWAL
+    Alice->>Channel: WithdrawFunds (burns channel balance)
+    Note over Channel: Indexer detects burn (~1 s),<br/>operator submits ReleaseFunds
+    Channel->>Mainnet: ReleaseFunds (with SMT exclusion proof)
+    Mainnet-->>Alice: Tokens released to Mainnet wallet
+```
+
+1. **Instantie aanmaken** - Beheerder roept `CreateInstance` aan, waarmee de `Instance`-PDA wordt aangemaakt en de toegestane mints worden geconfigureerd.
+2. **Storting** - Gebruikers storten SPL-tokens in de escrow via de `Deposit`-instructie. Tokens worden overgebracht naar de associated token account van de instantie.
+3. **Off-chain overdrachten** - Gebruikers versturen overdrachten via de gateway. Overdrachten worden gesequenced en uitgevoerd op het kanalennetwerk zonder Mainnet te raken.
+4. **Opname initiëren** - Een gebruiker roept `WithdrawFunds` aan op het Withdraw-programma (kanaalzijde) om zijn saldo te verbranden en een opname te signaleren.
+5. **Mainnet-afwikkeling** - Een operator levert een geldig SMT-uitsluitingsbewijs en roept `ReleaseFunds` aan op het Escrow-programma (Mainnet), waardoor tokens worden vrijgegeven naar de wallet van de gebruiker.
+6. **Boomrotatie** - Wanneer de SMT de capaciteit nadert (65.536 bladeren), roept de operator `ResetSmtRoot` aan om de boom te roteren en een nieuwe epoch te starten.
+
+### Overdracht
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    participant GW as Gateway
+    participant Pipeline as Write Node Pipeline
+    participant DB as Channel State
+
+    Alice->>GW: SPL token transfer to Bob
+    GW->>Pipeline: Route to write node
+
+    Note over Pipeline: 1. Dedup - reject duplicates and replays<br/>2. SigVerify - validate signatures<br/>3. Sequencer - order into conflict-free batch<br/>4. Executor - apply to off-chain account state<br/>5. Settler - commit to database, update blockhash
+
+    Pipeline->>DB: Commit updated balances
+    GW-->>Alice: Confirmed (off-chain, not recorded on Mainnet)
+    Note over Bob: Balance updated in channel state
+```
+
+### Opname
+
+```mermaid
+sequenceDiagram
+    participant Bob
+    participant Channel as Private Channel Network
+    participant Indexer as indexer-private-channel
+    participant Operator as operator-private-channel
+    participant Mainnet as Solana Mainnet
+
+    Bob->>Channel: WithdrawFunds (burns channel-side balance)
+    Channel-->>Bob: Burn confirmed off-chain
+
+    Note over Indexer: Polls gateway every 1 s
+    Indexer->>Channel: Detect burn event
+    Indexer->>Indexer: Write pending withdrawal to database
+
+    Operator->>Indexer: Pick up pending record
+    Operator->>Mainnet: ReleaseFunds (SMT exclusion proof)
+    Mainnet-->>Bob: Tokens transferred to Mainnet ATA
+```
+
+## Wanneer privékanalen gebruiken
+
+Gebruik privékanalen wanneer uw applicatie het volgende nodig heeft:
+
+- **Off-chain doorvoer** - uw overdrachtsvolume zou de Solana TPS verzadigen of u heeft bevestiging in minder dan een seconde nodig
+- **Privacy** - identiteiten van tegenpartijen en overdrachtsbedragen mogen niet on-chain verschijnen
+- **Geen kosten per overdracht** - bij frequente overdrachten waarbij de SOL-kosten per transactie te hoog zijn
+
+Gebruik in plaats daarvan native SPL-overdrachten wanneer:
+
+- **On-chain samenstelbaarheid** vereist is (DeFi, swaps, leningen; andere programma's moeten de overdracht kunnen waarnemen of erop kunnen reageren)
+- **Afwikkeling met één overdracht** volstaat en privacy geen vereiste is
+- **Geen gateway-infrastructuur** beschikbaar of operationeel haalbaar is

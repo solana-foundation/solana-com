@@ -1,0 +1,280 @@
+---
+title: Przegląd
+description: Architektura i przepływ danych protokołu Private Channels
+---
+
+<Callout type="warning">
+  Private Channels nie przeszło audytu bezpieczeństwa i nie jest zalecane do
+  użytku produkcyjnego z prawdziwymi środkami bez dokładnego przeglądu bezpieczeństwa.
+</Callout>
+
+<Callout type="info">
+  **Wdrażasz instancję?** Przejdź do [przewodnika
+  dla operatorów](/docs/tools/private-channels/operators). **Integrujesz się z
+  istniejącą instancją?** Przejdź do
+  [Quickstart](/docs/tools/private-channels/quickstart/installation). Ta strona
+  jest dokumentacją architektury przeznaczoną dla obu grup odbiorców.
+</Callout>
+
+## Architektura
+
+Private Channels składa się z czterech komponentów: dwóch programów on-chain Solana
+(Escrow i Withdraw) oraz dwóch usług off-chain (Gateway i Auth Service).
+Razem tworzą protokół kanału stanowego, w którym środki przechowywane są w sieci Mainnet,
+ale rozliczenia odbywają się off-chain.
+
+### Program Escrow
+
+Program Escrow to program on-chain Solana przechowujący zdeponowane tokeny SPL.
+Jest on kotwicą zaufania systemu: wszystkie środki ostatecznie pozostają w depozycie,
+dopóki operator nie dostarczy ważnego dowodu wykluczenia Sparse Merkle Tree
+um ich zwolnienia.
+
+- ID programu: `9tgHa1DcnaSSUtmMsst8ovKTe1Gfxzezn27KnH9xXYeU`
+- To ID jest kompilowane do pliku binarnego programu za pomocą `declare_id!()`. Usługi off-chain
+  odczytują to samo ID w czasie kompilacji z wygenerowanego crate'u klienta, nie
+  ze zmiennej środowiskowej.
+- Zarządza PDA: `Instance`, `AllowedMint` i `Operator`
+- Instrukcje: `CreateInstance`, `AllowMint`, `BlockMint`, `AddOperator`,
+  `RemoveOperator`, `SetNewAdmin`, `Deposit`, `ReleaseFunds`, `ResetSmtRoot`
+
+### Program Withdraw
+
+Program Withdraw działa w sieci prywatnego kanału, nie w sieci Solana Mainnet.
+Użytkownicy wywołują `WithdrawFunds`, aby spalić saldo tokenów po stronie kanału. To spalenie
+nie zwalnia automatycznie środków — sygnalizuje operatorowi, że wypłata
+oczekuje na realizację. Operator wywołuje następnie `ReleaseFunds` w Programie Escrow
+z ważnym dowodem SMT, aby zakończyć rozliczenie.
+
+- ID programu: `J231K9UEpS4y4KAPwGc4gsMNCjKFRMYcQBcjVW7vBhVi`
+- To ID jest kompilowane do pliku binarnego programu. Usługi off-chain odczytują to samo
+  ID w czasie kompilacji z wygenerowanego crate'u klienta, nie ze zmiennej
+  środowiskowej.
+
+### Gateway
+
+Gateway to proxy kompatybilne z Solana JSON-RPC, które kieruje żądania klientów do
+węzła zapisu sieci kanałowej (do przesyłania transakcji) i węzła odczytu (do
+zapytań). Konfigurowany jest za pomocą zmiennych środowiskowych: `GATEWAY_PORT`,
+`GATEWAY_WRITE_URL`, `GATEWAY_READ_URL`.
+
+Punkty końcowe health (bez wymaganego uwierzytelniania):
+
+- `GET /health` - sprawdzenie żywotności; zwraca `200 {"status":"ok"}`
+- `GET /ready` - dogłębne sprawdzenie gotowości, sonduje węzły zapisu i odczytu; zwraca
+  `200 {"status":"ready"}` lub `503 {"status":"degraded"}`
+
+#### Routing i dostęp do metod RPC
+
+Gateway kieruje `sendTransaction` do węzła zapisu, a wszystkie pozostałe metody do
+węzła odczytu. Żądania większe niż 64 KB są odrzucane z kodem HTTP 413. Gdy
+uwierzytelnianie jest włączone, dostęp do metod jest kontrolowany przez rolę JWT. Zobacz
+**[Uwierzytelnianie i role](/docs/tools/private-channels/concepts/auth)**, aby zapoznać się z
+pełną macierzą metod.
+
+### Auth Service
+
+Auth Service to opcjonalny komponent, który wystawia tokeny JWT HS256 (ważność 24 godziny)
+do kontroli dostępu do gateway. Jest aktywowany, gdy ustawiona jest zmienna środowiskowa
+`JWT_SECRET`. Bez niej gateway akceptuje wszystkie połączenia.
+
+Pola JWT: `sub` (UUID użytkownika), `role` (`"user"` lub `"operator"`), `iss`
+(`"private-channel-auth"`), `aud` (`"private-channel-gateway"`), `exp` (znacznik czasu Unix).
+`iss` i `aud` są walidowane przez konfigurację JWT gateway,
+a nie deserializowane do struktury pól aplikacji: tylko `sub`, `role` i
+`exp` są dostępne dla kodu warstwy aplikacji.
+
+Role:
+
+- `user` - dostęp ograniczony do własnych zweryfikowanych portfeli; nie może wywoływać `getBlock`,
+  `getTransaction` ani `simulateTransaction`
+- `operator` - pomija wszystkie sprawdzenia własności; pełny dostęp do metod RPC; musi być
+  skonfigurowany w bazie danych (brak możliwości samodzielnego podniesienia uprawnień)
+
+### Streamer
+
+Streamer to serwer WebSocket, który wysyła aktualizacje stanu kanału do
+podłączonych klientów w czasie rzeczywistym, eliminując potrzebę odpytywania RPC. Odpytuje
+PostgreSQL w poszukiwaniu zmian stanu. Jest częścią bazowego stosu Docker Compose, nie
+stosu devnet, który wdraża ten przewodnik; patrz
+[dokumentacja konfiguracji](/docs/tools/private-channels/operators/configuration#service-port-reference).
+
+- Port: `8902`, konfigurowalny przez `STREAMER_PORT`
+- Połączenie: `ws://localhost:8902`
+- Punkt końcowy health: `GET /health` - zwraca `503`, jeśli którakolwiek wewnętrzna pętla odpytywania
+  zatrzyma się na dłużej niż 30 sekund
+
+<Callout type="warning">
+  Schemat zdarzeń WebSocket nie jest jeszcze publicznie udokumentowany. Zajrzyj do
+  [`core/src/bin/streamer.rs`](https://github.com/solana-foundation/solana-private-channels/blob/main/core/src/bin/streamer.rs)
+  po szczegóły implementacji do czasu udostępnienia formalnej dokumentacji.
+</Callout>
+
+```mermaid
+flowchart TB
+    Wallet([User Wallet])
+    Escrow[Escrow Program<br/><i>Solana Mainnet</i>]
+    IS[Solana Mainnet Indexer]
+    IC[Private Channel Indexer]
+    PG_I[(Indexer DB)]
+    OS[Operator - Solana Side]
+    OC[Operator - Channel Side]
+    GW[Gateway :8899]
+    WN[Write Node :8900]
+    WP[Withdraw Program]
+    PG_P[(Postgres Primary)]
+    PG_R[(Postgres Replica)]
+    RN[Read Node :8901]
+    ST[Streamer :8902]
+
+    Wallet -- deposit --> Escrow
+    Wallet -- transact / withdraw --> GW
+    ST -. WebSocket .-> Wallet
+
+    Escrow -- watch --> IS
+    IS -- deposit events --> PG_I
+    PG_I -- pending deposits --> OS
+    OS -- mint --> GW
+
+    GW -- sendTransaction --> WN
+    WN --> WP
+    GW -- watch --> IC
+    IC -- withdrawal events --> PG_I
+    PG_I -- pending withdrawals --> OC
+    OC -- release --> Escrow
+
+    WN -- settle --> PG_P
+    PG_P -- replication --> PG_R
+    PG_R --> RN
+    RN --> GW
+    PG_P --> ST
+```
+
+## Potok transakcji
+
+```text
+Transaction -> [1:Dedup] -> [2:SigVerify] -> [3:Sequencer] -> [4:Executor] -> [5:Settler] -> Database
+```
+
+Transakcje przesłane do Gateway przechodzą przez pięcioetapowy potok przed
+zatwierdzeniem ich stanu:
+
+1. **Dedup** - filtruje zduplikowane transakcje przed ich wejściem do potoku
+2. **SigVerify** - weryfikuje podpisy transakcji względem klucza publicznego podpisującego
+3. **Sequencer** - porządkuje prawidłowe transakcje w sposób deterministyczny, ustalając
+   kanoniczną historię
+4. **Executor** - wykonuje transakcje na warstwie kont kanału
+   (BOB Cache + AccountsDB), aktualizując salda off-chain
+5. **Settler** - zatwierdza skumulowane wyniki transakcji w PostgreSQL i
+   aktualizuje cache Redis; generuje nowe blockhashi dla kolejnego cyklu bloków.
+   Rozliczenie w sieci Mainnet (wywoływanie `ReleaseFunds`) jest obsługiwane oddzielnie przez
+   usługę `operator-private-channel`
+
+## Kluczowe funkcje
+
+### Prywatność
+
+Transfery między uczestnikami kanału nie są rejestrowane w sieci Solana Mainnet. Tylko
+depozyty (wejście do kanału) i ostateczne wypłaty (wyjście z kanału)
+pojawiają się on-chain. Tożsamości stron i kwoty transferów nie są widoczne dla
+zewnętrznych obserwatorów podczas działania kanału.
+
+### Wydajność
+
+Potok off-chain usuwa czas bloku Solany z krytycznej ścieżki.
+Transfery są potwierdzane w momencie przetworzenia ich przez sekwencer, nie w momencie potwierdzenia
+bloku Solany. Umożliwia to finalizację w czasie poniżej sekundy oraz przepustowość przekraczającą
+native TPS Solany dla transferów na poziomie aplikacji.
+
+### Rozliczenie
+
+Każda wypłata jest chroniona dowodem Sparse Merkle Tree on-chain. Korzeń SMT
+jest przechowywany w `Instance.withdrawal_transactions_root` w Programie Escrow.
+Podczas wywoływania `ReleaseFunds` program najpierw weryfikuje dowód wykluczenia dla
+niewidzianego nonce względem bieżącego korzenia on-chain, a następnie weryfikuje oddzielny
+dowód włączenia dla tego nonce względem nowego korzenia dostarczonego przez wywołującego. Dopiero po
+pomyślnym przejściu obu sprawdzeń zapisuje nowy korzeń, co sprawia, że podwójne wydanie jest niemożliwe, nawet
+jeśli klucz operatora zostanie skompromitowany.
+
+## Model bezpieczeństwa
+
+**Klucz administratora** - kontroluje tworzenie instancji (`CreateInstance`) i nadawanie uprawnień
+operatorom (`AddOperator` / `RemoveOperator`). Kompromitacja klucza administratora
+umożliwia dowolne nadawanie uprawnień operatorom. `SetNewAdmin` przenosi uprawnienia administratora
+nieodwracalnie w jednym kroku; odpowiednio chroń klucz administratora.
+
+**Klucze operatora** - mogą wywoływać `ReleaseFunds` i `ResetSmtRoot`. Nie mogą
+zwalniać środków bez ważnego dowodu wykluczenia SMT względem bieżącego korzenia on-chain.
+Sprawdzenie `verify_smt_exclusion_proof` on-chain jest ostatnią linią obrony
+przed nieautoryzowanymi wypłatami: skompromitowany klucz operatora sam w sobie
+nie wystarczy do opróżnienia depozytu.
+
+**Korzeń SMT** - przechowywany on-chain w `Instance.withdrawal_transactions_root`.
+Aktualizowany atomowo przy każdym wywołaniu `ReleaseFunds`. Ponieważ każdy dowód musi
+odwoływać się do niewidzianego nonce, podwójne wydanie tego samego salda kanału jest
+niemożliwe, nawet jeśli klucz operatora zostanie skompromitowany.
+
+**Rotacja drzewa** - `Instance.current_tree_index` śledzi epoch drzewa. Gdy
+`ResetSmtRoot` jest wywoływany, inkrementuje indeks drzewa i unieważnia wszystkie
+nonce z poprzedniego epoch drzewa, zapewniając czysty punkt startowy dla nowych cykli
+rozliczeniowych.
+
+## Bezpieczeństwo operacyjnych kluczy
+
+<Callout type="warning">
+  Usługi off-chain używają własnego słownictwa podpisującego, które nie jest powiązane
+  z uprawnieniami administratora/operatora on-chain opisanymi w Modelu bezpieczeństwa powyżej.
+  `ADMIN_PRIVATE_KEY` jest wymagany dla każdej usługi operatora i pokrywa
+  opłaty transakcyjne; oddzielny, opcjonalny `OPERATOR_PRIVATE_KEY` dostarcza podpis
+  on-chain Operatora dla `ReleaseFunds` i `ResetSmtRoot`, a w przypadku braku ustawienia
+  przechodzi do wartości `ADMIN_PRIVATE_KEY`. Nigdy nie umieszczaj klucza administratora instancji
+  na poziomie protokołu (używanego do `CreateInstance` / `AddOperator` / `SetNewAdmin`)
+  w żadnej z tych zmiennych ani nie udostępniaj go w czasie działania; przechowuj ten klucz
+  w trybie cold i offline.
+</Callout>
+
+`ReleaseFunds` i `ResetSmtRoot` wymagają dwóch podpisów on-chain: płatnika opłat
+(z `ADMIN_PRIVATE_KEY`) i uprawnień PDA Operatora (z
+`OPERATOR_PRIVATE_KEY` lub `ADMIN_PRIVATE_KEY`, jeśli tamten nie jest ustawiony). Przewodnik wdrożeniowy
+dla devnet umieszcza wygenerowany keypair operatora w
+`ADMIN_PRIVATE_KEY` i pozostawia `OPERATOR_PRIVATE_KEY` nieustawiony, więc ten sam keypair
+pełni obie role podpisującego. Traktuj klucz, który trafi do `ADMIN_PRIVATE_KEY`, z
+takimi samymi zabezpieczeniami jak prywatny klucz gorącego portfela:
+
+- Przechowuj go wyłącznie w pliku `.env` dodanym do gitignore, nigdy w `.env.devnet` ani
+  w żadnej zatwierdzonej konfiguracji
+- W przypadku wdrożeń produkcyjnych rozważ menedżera sekretów (AWS Secrets Manager,
+  HashiCorp Vault) zamiast zmiennej środowiskowej w postaci zwykłego tekstu
+- keypair administratora instancji na poziomie protokołu (używany do wywołania `AddOperator` /
+  `SetNewAdmin`) powinien być przechowywany w trybie cold; jest potrzebny tylko podczas konfiguracji instancji
+  i nadawania uprawnień operatorom, nie podczas działania systemu
+
+`SetNewAdmin` przenosi prawa administratora **nieodwracalnie w jednej transakcji**:
+bieżący administrator nie ma ścieżki odzyskania bez współpracy nowego administratora. Nie
+wywołuj go bez weryfikacji adresu docelowego.
+
+## Następne kroki
+
+<Cards>
+  <Card
+    title="Quickstart"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    Skonfiguruj środowisko i wygeneruj klientów TypeScript.
+  </Card>
+  <Card title="Kanały" href="/docs/tools/private-channels/concepts/channels">
+    Poznaj uczestników i cykl życia kanału.
+  </Card>
+  <Card
+    title="Sparse Merkle Tree"
+    href="/docs/tools/private-channels/concepts/smt"
+  >
+    Dowiedz się, jak dowody wypłat są weryfikowane on-chain.
+  </Card>
+  <Card
+    title="Instrukcje"
+    href="/docs/tools/private-channels/instructions/deposit"
+  >
+    Pełna dokumentacja instrukcji dla wszystkich programów.
+  </Card>
+</Cards>

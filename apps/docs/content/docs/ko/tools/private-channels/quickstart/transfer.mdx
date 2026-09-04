@@ -1,0 +1,158 @@
+---
+title: 전송 보내기
+description:
+  Private Channels 게이트웨이를 통해 오프체인 SPL 토큰 전송 보내기
+---
+
+## 개요
+
+채널 전송은 게이트웨이에 제출되는 표준 SPL 토큰 전송입니다 —
+전용 Private Channels 전송 명령어는 없습니다. 게이트웨이는
+트랜잭션을 라이트 노드로 라우팅하며, 라이트 노드는 채널의
+오프체인 계정 레이어에서 이를 실행합니다. 전송은 Solana 블록이 확인될 때가 아니라
+시퀀서가 처리할 때 확정되며, 메인넷에는 표시되지 않습니다.
+
+## 지갑 RPC 전환
+
+전송을 보내기 전에 지갑의 RPC 엔드포인트를 Solana Devnet 대신
+게이트웨이 URL로 전환하세요:
+
+```
+http://localhost:8899
+```
+
+공개 Solana RPC로 전송된 트랜잭션은 채널이 아닌 메인넷에 기록됩니다.
+
+## 인증
+
+`--profile auth` 없이 스택을 시작한 경우(기본 devnet
+구성), 게이트웨이는 개방 모드로 작동하며 토큰이 필요하지 않습니다 —
+이 섹션을 건너뛰세요.
+
+Auth Service가 활성화된 경우(게이트웨이에 `JWT_SECRET`이 설정됨), 모든
+요청은 `Authorization` 헤더에 JWT 베어러 토큰이 필요합니다:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+등록, 로그인 및 토큰 획득 방법은 **[인증 및 역할](/docs/tools/private-channels/concepts/auth)**을
+참조하세요.
+
+## 전송 빌드 및 보내기
+
+수신자의 associated token account가 아직 채널에 존재하지 않는 경우,
+전송 전에 `createAssociatedTokenAccountIdempotent` 명령어를 추가하세요.
+아래 코드는 두 가지 경우를 모두 처리합니다:
+
+```typescript
+import {
+  address,
+  createSolanaRpc,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstruction,
+  getTransferInstruction
+} from "@solana-program/token";
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+// Derive source and destination associated token accounts
+const [sourceAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(senderAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const [destinationAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(recipientAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const transferInstruction = getTransferInstruction({
+  source: sourceAta,
+  destination: destinationAta,
+  authority: transactionSigner,
+  amount: 1_000_000n // 1 USDC (6 decimals)
+});
+
+// Create the destination ATA on the channel if it does not exist yet
+const destinationAtaInfo = await privateChannelRpc
+  .getAccountInfo(destinationAta, { encoding: "base64" })
+  .send();
+
+const { value: latestBlockhash } = await privateChannelRpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Sent to the Private Channels gateway (not Solana RPC directly), which
+// expects the legacy transaction format - do not switch this to version 0.
+const transactionMessage = !destinationAtaInfo.value
+  ? pipe(
+      createTransactionMessage({ version: "legacy" }),
+      (m) => setTransactionMessageFeePayerSigner(transactionSigner, m),
+      (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+      (m) =>
+        appendTransactionMessageInstruction(
+          getCreateAssociatedTokenIdempotentInstruction({
+            payer: transactionSigner,
+            ata: destinationAta,
+            owner: address(recipientAddress),
+            mint: address(mintAddress)
+          }),
+          m
+        ),
+      (m) => appendTransactionMessageInstruction(transferInstruction, m)
+    )
+  : pipe(
+      createTransactionMessage({ version: "legacy" }),
+      (m) => setTransactionMessageFeePayerSigner(transactionSigner, m),
+      (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+      (m) => appendTransactionMessageInstruction(transferInstruction, m)
+    );
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Transfer signature:", signature);
+```
+
+## 전송 확인
+
+게이트웨이를 통해 수신자의 채널 잔액을 조회하여
+전송이 완료되었는지 확인하세요:
+
+```typescript
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(recipientAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(recipientAta)
+  .send();
+console.log(balance.value.uiAmountString);
+```
+
+## 다음 단계
+
+**[자금 출금](/docs/tools/private-channels/quickstart/withdraw)** —
+토큰을 Solana 지갑으로 출금하기

@@ -1,0 +1,114 @@
+---
+title: Sparse Merkle Tree
+description:
+  Como os Canais Privados utilizam uma Sparse Merkle Tree para prevenir gastos duplos em saques
+---
+
+<Callout type="info">
+  Utilizadores e programadores não interagem diretamente com a SMT; as provas de exclusão
+  são calculadas e submetidas automaticamente pelo serviço `operator-private-channel`.
+  Esta página é material de referência para operadores e para quem desenvolve
+  ferramentas de operação.
+</Callout>
+
+<Callout type="info">
+  O programa de escrow está a ser migrado desta estrutura de Sparse Merkle Tree para um
+  bitmap de nonces on-chain (rastreado upstream). Esta página é precisa em relação ao
+  programa de escrow atual e será revista quando essa alteração for implementada.
+</Callout>
+
+## Finalidade
+
+Os Canais Privados utilizam uma Sparse Merkle Tree (SMT) para garantir que cada
+nonce de saque só pode ser liquidado uma vez. Quando um operador chama
+`ReleaseFunds`, deve fornecer duas provas: uma prova de exclusão de que o nonce
+NÃO existe ainda em relação à raiz atual, e uma prova de inclusão de que o
+nonce EXISTE na nova raiz fornecida pelo chamador. Apenas após ambas as verificações passarem
+o programa armazena a nova raiz, tornando qualquer tentativa futura de reutilização do
+nonce provavelmente inválida.
+
+## Parâmetros da Árvore
+
+- Altura da árvore: `16`
+- Número máximo de folhas: `65.536` (2^16)
+- Função de hash: SHA-256
+- Valor de folha vazia: `[0u8; 32]` (32 bytes a zero)
+- Valor de folha não vazia: `SHA256([1u8; 32])`, armazenado como a constante
+  `NON_EMPTY_LEAF_HASH`
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## Estrutura da Folha
+
+Cada saque ocupa exatamente uma folha. A posição da folha é determinada por:
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+Uma folha é considerada não vazia quando o seu valor é igual a `NON_EMPTY_LEAF_HASH`
+(ou seja, `SHA256([1u8; 32])`). Uma folha vazia tem todos os bytes a zero.
+
+## Nonce e Posição da Folha
+
+O `transaction_nonce` em `ReleaseFunds` é um `u64`. A sua posição na árvore
+é `nonce % 65536`. O seu epoch esperado é `nonce / 65536`. O programa on-chain
+valida que este epoch calculado é igual a `Instance.current_tree_index`; uma
+discrepância lança `InvalidTransactionNonceForCurrentTreeIndex`.
+
+## Rotação da Árvore
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+A SMT tem uma capacidade fixa de 65.536 folhas. O serviço do operador deteta quando
+é necessária uma rotação verificando se `nonce % 65536 == 0` (para `nonce > 0`);
+essa fronteira assinala o início de um novo epoch. Nesse momento,
+`operator-private-channel` chama `ResetSmtRoot` antes de submeter o próximo
+`ReleaseFunds`:
+
+- `Instance.current_tree_index` é incrementado
+- A raiz de saques é redefinida para a árvore vazia
+- Os nonces do epoch da árvore anterior são invalidados
+
+O serviço do operador também verifica se a sua raiz SMT local corresponde a
+`Instance.withdrawal_transactions_root` on-chain antes de cada chamada a `ReleaseFunds`;
+uma discrepância desencadeia um encerramento de segurança em vez de uma
+submissão de prova potencialmente inválida.
+
+A rotação da árvore é rastreada por `Instance.current_tree_index: u64`, armazenado on-chain.
+
+## Verificação em ReleaseFunds
+
+O argumento `sibling_proofs` em `ReleaseFunds` tem exatamente `[u8; 512]`: 16
+hashes de irmãos × 32 bytes cada, correspondendo à altura da árvore de 16.
+
+O processo de verificação on-chain executa duas verificações separadas em sequência:
+
+1. `verify_smt_exclusion_proof` prova que a folha do nonce está atualmente vazia em relação
+   à `Instance.withdrawal_transactions_root` atual
+2. `verify_smt_inclusion_proof` prova que a folha do nonce está presente na
+   `new_withdrawal_root` fornecida pelo chamador
+3. Apenas se ambas as verificações passarem é que o programa armazena `new_withdrawal_root` como a
+   nova `Instance.withdrawal_transactions_root` e liberta os tokens
+
+A falha em qualquer das verificações lança `InvalidSmtProof`. A atualização da raiz no passo 3 é
+atómica com cada chamada a `ReleaseFunds`.

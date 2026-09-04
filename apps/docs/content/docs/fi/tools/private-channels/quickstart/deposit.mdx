@@ -1,0 +1,123 @@
+---
+title: Talleta tokeneita
+description:
+  Talleta SPL-tokeneita Private Channels -escrow-instanssiin devnetissä
+---
+
+## Yleiskatsaus
+
+`Deposit`-instruktio siirtää SPL-tokeneita käyttäjän associated token
+account -tililtä escrow'n associated token account -tilille. Talletuksen jälkeen tokenit ovat
+saatavilla off-chain-siirtoja varten gatewayn kautta. Valinnaisen `recipient`-
+parametrin avulla tallettaja voi hyvittää toisen käyttäjän kanavan saldon.
+
+## Edellytykset
+
+- Asennus ja asiakasgenerointi suoritettu
+- Devnet-lompakko, jossa on SOL (transaktiomaksuja varten) sekä SPL-token, jonka haluat
+  tallettaa
+- Aktiivinen Private Channels -instanssi, jossa oma mintisi on sallittujen listalla
+
+## Koodi
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## Varmistus
+
+Kun devnet-transaktiosi on vahvistettu, indeksoija havaitsee talletustapahtuman
+Yellowstone gRPC:n kautta ja operaattori luo vastaavan saldon
+kanavalle. Ennen hyvitystä sovelletaan finality-turvaviivettä, joten **odota noin 15
+sekuntia** ennen kuin kanavan saldo on käytettävissä.
+
+Tarkista saldosi gatewayn kautta (ei devnet RPC:n kautta) vahvistaaksesi:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+Nollasta poikkeava saldo vahvistaa, että talletus on indeksoitu ja hyvitetty. Jos saldo
+on nolla 30 sekunnin jälkeen, tarkista, että `indexer-solana` ja `operator-solana` ovat
+käynnissä (`make docker-devnet-logs`).
+
+## Seuraavat vaiheet
+
+**[Lähetä siirto](/docs/tools/private-channels/quickstart/transfer)** – lähetä
+ensimmäinen off-chain-siirtosi

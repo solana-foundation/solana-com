@@ -1,0 +1,283 @@
+---
+title: Uwierzytelnianie i role
+description:
+  Uwierzytelnianie JWT i kontrola dostępu oparta na rolach w Private Channels
+---
+
+## Przegląd
+
+Private Channels zawiera opcjonalną usługę Auth Service, która chroni dostęp do bramki
+za pomocą uwierzytelniania JWT i kontroli dostępu opartej na rolach (RBAC). Gdy
+uwierzytelnianie jest wyłączone, bramka akceptuje wszystkie połączenia. Gdy jest włączone,
+klienci muszą przedstawiać ważny token JWT w każdym żądaniu.
+
+Ta strona obejmuje dwie grupy odbiorców:
+
+- **Deweloperzy** – rejestracja, logowanie, weryfikacja portfela i wykonywanie
+  uwierzytelnionych żądań
+- **Operatorzy** – włączanie usługi auth, konfigurowanie `JWT_SECRET` i
+  nadawanie roli `operator`
+
+## Włączanie uwierzytelniania
+
+Uwierzytelnianie jest włączane przez ustawienie `JWT_SECRET` (niepustego) zarówno na
+bramce, jak i w Auth Service. Auth Service wymaga również
+`AUTH_DATABASE_URL`.
+
+Gdy `JWT_SECRET` nie jest ustawiony, bramka działa w trybie otwartym; żaden token nie jest
+wymagany.
+
+> **Docker Compose:** Usługa auth jest profilem Docker Compose i **nie
+> jest uruchamiana domyślnie**. Aby ją uwzględnić, przekaż `--profile auth` do
+> polecenia `docker compose`, w tym `--env-file .env`, aby sekrety takie jak
+> `JWT_SECRET` i `POSTGRES_PASSWORD` były poprawnie rozwiązywane (Compose wyłącza automatyczne
+> ładowanie pliku `.env` po przekazaniu flagi `--env-file`):
+>
+> ```bash
+> docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+> ```
+
+## API Auth Service
+
+Wszystkie punkty końcowe znajdują się pod `/auth`. Usługa auth nasłuchuje na `AUTH_PORT`
+(domyślnie `8903`).
+
+### `POST /auth/register`
+
+Utwórz nowe konto. Wszyscy użytkownicy są rejestrowani z rolą `user`.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+- Nazwa użytkownika: 5–32 znaki, alfanumeryczne oraz `_` i `-`
+- Hasło: 6–128 znaków
+- Zwraca utworzonego użytkownika; hasło nigdy nie jest zwracane
+
+### `POST /auth/login`
+
+Uwierzytelnij się i otrzymaj podpisany token JWT ważny przez 24 godziny.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+Zwraca `{ "token": "<jwt>" }`. Zarówno błędna nazwa użytkownika, jak i błędne hasło zwracają
+`401`, aby zapobiec enumeracji nazw użytkowników.
+
+### `POST /auth/challenge-wallet`
+
+Zażądaj wyzwania podpisowego, aby udowodnić własność portfela Solana. Wymaga
+ważnego tokenu JWT.
+
+Zwraca wiadomość, nonce i czas wygaśnięcia. Wyzwanie wygasa po 10 minutach.
+
+```json
+{
+  "message": "PrivateChannel wallet verification\nuser: <uuid>\nnonce: <uuid>\nexpires: <unix>",
+  "nonce": "<uuid>",
+  "expires_at": "<iso8601>"
+}
+```
+
+### `POST /auth/verify-wallet`
+
+Prześlij podpisane wyzwanie, aby zarejestrować portfel jako zweryfikowany. Wymaga ważnego
+tokenu JWT.
+
+```json
+{
+  "pubkey": "<base58 pubkey>",
+  "nonce": "<uuid from challenge>",
+  "signature": "<base58 Ed25519 signature>"
+}
+```
+
+Usługa rekonstruuje wiadomość wyzwania, weryfikuje podpis Ed25519
+i zapisuje portfel. Każdy nonce może zostać wykorzystany tylko raz; ponowne użycie jest
+odrzucane.
+
+Zwraca `{ "pubkey": "<base58>", "created_at": "<iso8601>" }`.
+
+### `GET /auth/wallets`
+
+Wyświetl wszystkie zweryfikowane portfele uwierzytelnionego użytkownika. Wymaga ważnego tokenu JWT.
+
+### `DELETE /auth/wallets/{pubkey}`
+
+Usuń zweryfikowany portfel z konta uwierzytelnionego użytkownika. Wymaga ważnego
+tokenu JWT.
+
+### `GET /health`
+
+Sprawdzenie dostępności. Zwraca `200 ok`. Uwierzytelnianie nie jest wymagane.
+
+## Struktura JWT
+
+Tokeny używają algorytmu HS256 i wygasają 24 godziny po wystawieniu.
+
+| Claim  | Wartość                           |
+| ------ | ------------------------------- |
+| `sub`  | UUID użytkownika                       |
+| `role` | `"user"` lub `"operator"`        |
+| `iss`  | `"private-channel-auth"`        |
+| `aud`  | `"private-channel-gateway"`     |
+| `exp`  | Znacznik czasu Unix (24h od wystawienia) |
+
+> `iss` i `aud` są obecne w payloadzie JWT, ale są weryfikowane przez
+> konfigurację JWT bramki, a nie deserializowane do struktury claimów aplikacji.
+> Kod warstwy aplikacji ma dostęp wyłącznie do `sub`, `role` i `exp`.
+
+Przekaż token w nagłówku `Authorization`:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+## Role
+
+### user
+
+Domyślna rola przy rejestracji.
+
+- Dostęp jest ograniczony do własnych zweryfikowanych portfeli użytkownika
+- Zablokowany dostęp do: `getBlock`, `getTransaction`, `simulateTransaction`
+- Może: wywoływać `Deposit` na Escrow Program, inicjować wypłaty za pomocą
+  `WithdrawFunds`
+
+### operator
+
+Rola z podwyższonymi uprawnieniami. Musi być nadana bezpośrednio; nie istnieje ścieżka samoobsługowa
+pozwalająca na eskalację z `user` do `operator`.
+
+**Nadaj rolę**, korzystając z Admin CLI (`private-channel-auth-admin`):
+
+```bash
+private-channel-auth-admin set-role --username alice --role operator
+```
+
+lub za pomocą bezpośredniego SQL:
+
+<Callout type="warning">
+  Jest to operacja bazodanowa wymagająca uprawnień. Odpowiednio ogranicz dostęp do bazy danych Auth Service
+  i przeprowadzaj audyt wszelkich zmian ról.
+</Callout>
+
+```sql
+UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice';
+```
+
+**Zarejestruj portfel bez procesu samodzielnej weryfikacji (Admin CLI,
+`private-channel-auth-admin`):**
+
+```bash
+private-channel-auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
+```
+
+To polecenie wstawia zweryfikowany portfel bezpośrednio do tabeli `verified_wallets`,
+omijając proces challenge/verify. Wymusza unikalność kombinacji
+`(user_id, pubkey)`. **Nie** nadaje samo w sobie roli `operator`; do tego celu użyj
+`set-role` lub powyższej aktualizacji SQL. To polecenie służy do przypisywania portfela
+do konta (np. konta serwisowego) bez konieczności przechodzenia przez interaktywny
+proces challenge/verify.
+
+**Możliwości:**
+
+- Omija wszystkie sprawdzenia własności portfela
+- Pełny dostęp do wszystkich metod RPC bramki, w tym `getBlock`,
+  `getTransaction`, `simulateTransaction`
+- Wymagana dla: `ReleaseFunds`, `ResetSmtRoot`
+
+## Pełny przepływ uwierzytelniania
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Auth as Auth Service
+
+    Client->>Auth: POST /auth/register { username, password }
+    Auth-->>Client: created user (role: "user")
+
+    Client->>Auth: POST /auth/login { username, password }
+    Auth-->>Client: { token: "<jwt>" }
+
+    Note over Client: Include JWT in subsequent requests:<br/>Authorization: Bearer <token>
+
+    Client->>Auth: POST /auth/challenge-wallet
+    Auth-->>Client: { message, nonce, expires_at }
+
+    Note over Client: Sign message with wallet private key (Ed25519)
+
+    Client->>Auth: POST /auth/verify-wallet { pubkey, nonce, signature }
+    Auth-->>Client: { pubkey, created_at }
+
+    Note over Client: Wallet verified - gateway now allows access<br/>to accounts owned by this wallet
+```
+
+## Wykonywanie uwierzytelnionych żądań
+
+```typescript
+const response = await fetch("http://localhost:8899/", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${jwtToken}`
+  },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getBalance",
+    params: [walletAddress]
+  })
+});
+const data = await response.json();
+```
+
+## Punkty końcowe bramki
+
+Te punkty końcowe nie wymagają uwierzytelniania:
+
+| Punkt końcowy  | Metoda | Opis                               | Sukces                  | Błąd                     |
+| --------- | ------ | ----------------------------------------- | ------------------------ | --------------------------- |
+| `/health` | GET    | Sprawdzenie dostępności                            | `200 {"status":"ok"}`    | -                           |
+| `/ready`  | GET    | Pełne sprawdzenie gotowości; sonduje węzły zapisu i odczytu | `200 {"status":"ready"}` | `503 {"status":"degraded"}` |
+
+Informacje o zmiennej środowiskowej `JWT_SECRET` i referencji środowiskowej bramki znajdują się w
+[dokumentacji konfiguracji](/docs/tools/private-channels/operators/configuration).
+
+## Macierz dostępu do metod RPC
+
+Następujące metody są rozpoznawane przez bramkę. Gdy `JWT_SECRET` jest ustawiony,
+dostęp zależy od roli JWT:
+
+| Metoda                        | Trasa      | Brak JWT | `user`           | `operator` |
+| ----------------------------- | ---------- | ------ | ---------------- | ---------- |
+| `sendTransaction`             | Węzeł zapisu | ✓      | ✓                | ✓          |
+| `getLatestBlockhash`          | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getSlot`                     | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getRecentBlockhash`          | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getSignatureStatuses`        | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getTransactionCount`         | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getFirstAvailableBlock`      | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getBlocks`                   | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getEpochInfo`                | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getEpochSchedule`            | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getRecentPerformanceSamples` | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getBlockTime`                | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getVoteAccounts`             | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getSupply`                   | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getSlotLeaders`              | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `isBlockhashValid`            | Węzeł odczytu  | ✓      | ✓                | ✓          |
+| `getAccountInfo`              | Węzeł odczytu  | 401    | z kontrolą własności¹ | ✓          |
+| `getTokenAccountBalance`      | Węzeł odczytu  | 401    | z kontrolą własności¹ | ✓          |
+| `getSignaturesForAddress`     | Węzeł odczytu  | 401    | z kontrolą własności¹ | ✓          |
+| `getBlock`                    | Węzeł odczytu  | 401    | 403              | ✓          |
+| `getTransaction`              | Węzeł odczytu  | 401    | 403              | ✓          |
+| `simulateTransaction`         | Węzeł odczytu  | 401    | 403              | ✓          |
+
+¹ **Z kontrolą własności**: dla konta SPL Token (pole owner to `TokenkegQ...`
+lub `TokenzQ...`, dane o rozmiarze co najmniej 165 bajtów), bramka sprawdza, czy
+pole `owner` lub `delegate` odpowiada jednemu ze zweryfikowanych portfeli uwierzytelnionego użytkownika. Dla każdego innego typu konta (portfela System Program lub nieznanego
+PDA) sprawdza natomiast, czy sam odpytywany pubkey należy do zweryfikowanych portfeli użytkownika,
+ponieważ takie konta nie posiadają pola owner/delegate do sprawdzenia.
+Niepowodzenie któregokolwiek ze sprawdzeń skutkuje odpowiedzią 403.

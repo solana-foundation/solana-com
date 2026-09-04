@@ -1,0 +1,90 @@
+---
+title: Liberar Fondos
+description:
+  Libera tokens del escrow a la billetera de un usuario tras verificar una prueba de exclusión SMT
+---
+
+Invocado por un operador aprovisionado para liberar tokens en escrow a la billetera de Mainnet de un usuario, condicionado a una prueba de exclusión válida del Sparse Merkle Tree para el nonce de retiro.
+
+<Callout type="info">
+  El programa de escrow está migrando de este diseño de Sparse Merkle Tree a un
+  mapa de bits de nonce en cadena (rastreado upstream). Esta página es precisa respecto al
+  programa de escrow actual y será revisada una vez que ese cambio entre en vigor.
+</Callout>
+
+## Cuentas
+
+| Cuenta                          | Modificable | Firmante | Descripción                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Pagador de comisiones                                                          |
+| `operator`                       |          | ✓      | Firmante del operador                                                    |
+| `instance`                       | ✓        |        | PDA de la instancia de escrow (raíz actualizada en cadena)                        |
+| `operator_pda`                   |          |        | PDA del operador que acredita que el firmante está aprovisionado                     |
+| `mint`                           |          |        | Mint del token SPL                                                     |
+| `allowed_mint`                   |          |        | PDA AllowedMint - valida que el mint está permitido en esta instancia |
+| `user_ata`                       | ✓        |        | associated token account del destinatario (destino)                 |
+| `instance_ata`                   | ✓        |        | associated token account del escrow (origen)                         |
+| `token_program`                  |          |        | Token Program de SPL                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | PDA de autoridad de eventos para el CPI `EmitEvent`                            |
+| `private_channel_escrow_program` |          |        | Programa de Escrow (autorreferencia para CPI)                            |
+
+## Parámetros
+
+| Parámetro             | Tipo        | Descripción                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Cantidad de tokens a liberar                                   |
+| `user`                | `Pubkey`    | Billetera destinataria en Mainnet                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Raíz SMT actualizada tras incluir el nonce de este retiro      |
+| `transaction_nonce`   | `u64`       | Nonce único que identifica esta hoja de retiro en el SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 hashes hermanos (32 bytes cada uno) para la prueba de exclusión SMT |
+
+## Retorno
+
+Devuelve un `TransactionBuilder` que puede utilizarse para construir y enviar la
+transacción.
+
+## Ejemplo
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Notas Importantes
+
+- El llamador debe ser un operador aprovisionado: `operator_pda` debe existir (creado por
+  `AddOperator`); un PDA inválido lanza `InvalidOperatorPda`
+- `sibling_proofs` tiene exactamente 512 bytes (16 × hashes de 32 bytes, coincidiendo con la
+  altura del árbol SMT de 16)
+- `new_withdrawal_root` es la raíz SMT actualizada tras incluir el nonce de este
+  retiro. Calcúlela fuera de cadena antes de invocar
+- `transaction_nonce` debe ser válido para `Instance.current_tree_index`; un
+  nonce inválido lanza `InvalidTransactionNonceForCurrentTreeIndex`
+- El programa primero ejecuta `verify_smt_exclusion_proof`, comprobando que el nonce
+  NO existe aún contra la raíz actual, y luego ejecuta un
+  `verify_smt_inclusion_proof` separado que verifica que el nonce SÍ existe en la
+  `new_withdrawal_root` proporcionada por el llamador. Si alguna de las verificaciones falla, se lanza
+  `InvalidSmtProof`
+- Solo tras superar ambas verificaciones se actualiza `Instance.withdrawal_transactions_root`
+  de forma atómica; el nonce no puede reutilizarse
+- Emite un evento mediante el CPI `EmitEvent`

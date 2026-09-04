@@ -1,0 +1,282 @@
+---
+title: Authenticatie & Rollen
+description:
+  JWT-authenticatie en rolgebaseerde toegangscontrole in Private Channels
+---
+
+## Overzicht
+
+Private Channels bevat een optionele Auth Service die toegang tot de gateway beperkt
+met JWT-authenticatie en rolgebaseerde toegangscontrole (RBAC). Wanneer
+authenticatie is uitgeschakeld, accepteert de gateway alle verbindingen. Wanneer ingeschakeld,
+moeten clients bij elk verzoek een geldig JWT meesturen.
+
+Deze pagina behandelt beide doelgroepen:
+
+- **Ontwikkelaars** - registratie, inloggen, walletverificatie en het uitvoeren van
+  geverifieerde verzoeken
+- **Operators** - het inschakelen van de auth service, het configureren van `JWT_SECRET` en
+  het toewijzen van de `operator`-rol
+
+## Authenticatie inschakelen
+
+Authenticatie wordt ingeschakeld door `JWT_SECRET` (niet leeg) in te stellen op zowel de
+gateway als de Auth Service. De Auth Service vereist ook
+`AUTH_DATABASE_URL`.
+
+Wanneer `JWT_SECRET` niet is ingesteld, werkt de gateway in open modus; er is geen token
+vereist.
+
+> **Docker Compose:** De auth service is een Docker Compose-profiel en wordt **niet
+> standaard gestart**. Om deze mee te nemen, geef je `--profile auth` mee aan je
+> `docker compose`-opdracht, inclusief `--env-file .env` zodat geheimen zoals
+> `JWT_SECRET` en `POSTGRES_PASSWORD` daadwerkelijk worden opgelost (Compose schakelt het
+> automatisch laden van `.env` uit zodra een `--env-file`-vlag wordt meegegeven):
+>
+> ```bash
+> docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+> ```
+
+## Auth Service API
+
+Alle eindpunten bevinden zich onder `/auth`. De auth service luistert op `AUTH_PORT`
+(standaard `8903`).
+
+### `POST /auth/register`
+
+Maak een nieuw account aan. Alle gebruikers worden geregistreerd met de `user`-rol.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+- Gebruikersnaam: 5-32 tekens, alfanumeriek plus `_` en `-`
+- Wachtwoord: 6-128 tekens
+- Geeft de aangemaakte gebruiker terug; wachtwoord wordt nooit geretourneerd
+
+### `POST /auth/login`
+
+Authenticeer en ontvang een ondertekend JWT dat 24 uur geldig is.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+Geeft `{ "token": "<jwt>" }` terug. Zowel een onjuiste gebruikersnaam als een onjuist wachtwoord retourneren
+`401` om het enumereren van gebruikersnamen te voorkomen.
+
+### `POST /auth/challenge-wallet`
+
+Vraag een ondertekeningsuitdaging aan om eigenaarschap van een Solana-wallet te bewijzen. Vereist een
+geldig JWT.
+
+Geeft een bericht, nonce en vervaldatum terug. De uitdaging verloopt na 10 minuten.
+
+```json
+{
+  "message": "PrivateChannel wallet verification\nuser: <uuid>\nnonce: <uuid>\nexpires: <unix>",
+  "nonce": "<uuid>",
+  "expires_at": "<iso8601>"
+}
+```
+
+### `POST /auth/verify-wallet`
+
+Stuur de ondertekende uitdaging in om een wallet als geverifieerd te registreren. Vereist een geldig
+JWT.
+
+```json
+{
+  "pubkey": "<base58 pubkey>",
+  "nonce": "<uuid from challenge>",
+  "signature": "<base58 Ed25519 signature>"
+}
+```
+
+De service reconstrueert het uitdagingsbericht, verifieert de Ed25519-handtekening
+en slaat de wallet op. Elke nonce kan slechts eenmaal worden gebruikt; herhalingen worden
+afgewezen.
+
+Geeft `{ "pubkey": "<base58>", "created_at": "<iso8601>" }` terug.
+
+### `GET /auth/wallets`
+
+Geef alle geverifieerde wallets van de geverifieerde gebruiker weer. Vereist een geldig JWT.
+
+### `DELETE /auth/wallets/{pubkey}`
+
+Verwijder een geverifieerde wallet van het account van de geverifieerde gebruiker. Vereist een geldig
+JWT.
+
+### `GET /health`
+
+Liveness-controle. Geeft `200 ok` terug. Geen authenticatie vereist.
+
+## JWT-structuur
+
+Tokens gebruiken het HS256-algoritme en verlopen 24 uur na uitgifte.
+
+| Claim  | Waarde                           |
+| ------ | ------------------------------- |
+| `sub`  | Gebruikers-UUID                       |
+| `role` | `"user"` of `"operator"`        |
+| `iss`  | `"private-channel-auth"`        |
+| `aud`  | `"private-channel-gateway"`     |
+| `exp`  | Unix-tijdstempel (24u na uitgifte) |
+
+> `iss` en `aud` zijn aanwezig in de JWT-payload, maar worden gevalideerd door de
+> JWT-configuratie van de gateway, niet gedeserialiseerd in de applicatieclaimstructuur.
+> Applicatielaagcode heeft alleen toegang tot `sub`, `role` en `exp`.
+
+Geef het token mee in de `Authorization`-header:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+## Rollen
+
+### user
+
+Standaardrol bij registratie.
+
+- Toegang is beperkt tot de eigen geverifieerde wallets van de gebruiker
+- Geblokkeerd voor: `getBlock`, `getTransaction`, `simulateTransaction`
+- Kan: `Deposit` aanroepen op het Escrow Program, opnames initiëren via
+  `WithdrawFunds`
+
+### operator
+
+Verhoogde rol. Moet rechtstreeks worden toegewezen; er is geen zelfbedieningspad om
+te escaleren van `user` naar `operator`.
+
+**Ken de rol toe**, hetzij via de Admin CLI (`private-channel-auth-admin`):
+
+```bash
+private-channel-auth-admin set-role --username alice --role operator
+```
+
+of met directe SQL:
+
+<Callout type="warning">
+  Dit is een bevoorrechte databaseoperatie. Beperk de toegang tot de Auth Service-database
+  dienovereenkomstig en controleer eventuele rolwijzigingen.
+</Callout>
+
+```sql
+UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice';
+```
+
+**Registreer een wallet zonder de zelfverificatiestroom (Admin CLI,
+`private-channel-auth-admin`):**
+
+```bash
+private-channel-auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
+```
+
+Dit voegt een geverifieerde wallet rechtstreeks in de tabel `verified_wallets` in,
+waarbij de challenge/verify-stroom wordt omzeild. Handhaaft een unieke beperking op
+`(user_id, pubkey)`. Dit kent de `operator`-rol **niet** op zichzelf toe; gebruik
+`set-role` of de bovenstaande SQL-update daarvoor. Dit commando is bedoeld om een
+wallet aan een account (bijvoorbeeld een serviceaccount) te koppelen zonder dat de
+interactieve challenge/verify-stroom vereist is.
+
+**Mogelijkheden:**
+
+- Omzeilt alle controles op walletbezit
+- Volledige toegang tot alle gateway RPC-methoden, inclusief `getBlock`,
+  `getTransaction`, `simulateTransaction`
+- Vereist voor: `ReleaseFunds`, `ResetSmtRoot`
+
+## Volledige authenticatiestroom
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Auth as Auth Service
+
+    Client->>Auth: POST /auth/register { username, password }
+    Auth-->>Client: created user (role: "user")
+
+    Client->>Auth: POST /auth/login { username, password }
+    Auth-->>Client: { token: "<jwt>" }
+
+    Note over Client: Include JWT in subsequent requests:<br/>Authorization: Bearer <token>
+
+    Client->>Auth: POST /auth/challenge-wallet
+    Auth-->>Client: { message, nonce, expires_at }
+
+    Note over Client: Sign message with wallet private key (Ed25519)
+
+    Client->>Auth: POST /auth/verify-wallet { pubkey, nonce, signature }
+    Auth-->>Client: { pubkey, created_at }
+
+    Note over Client: Wallet verified - gateway now allows access<br/>to accounts owned by this wallet
+```
+
+## Geverifieerde verzoeken uitvoeren
+
+```typescript
+const response = await fetch("http://localhost:8899/", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${jwtToken}`
+  },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getBalance",
+    params: [walletAddress]
+  })
+});
+const data = await response.json();
+```
+
+## Gateway-eindpunten
+
+Deze eindpunten vereisen geen authenticatie:
+
+| Eindpunt  | Methode | Beschrijving                               | Geslaagd                  | Mislukt                     |
+| --------- | ------ | ----------------------------------------- | ------------------------ | --------------------------- |
+| `/health` | GET    | Liveness-controle                            | `200 {"status":"ok"}`    | -                           |
+| `/ready`  | GET    | Diepe gereedheidscontrole; test schrijf- en leesknooppunten | `200 {"status":"ready"}` | `503 {"status":"degraded"}` |
+
+Voor de `JWT_SECRET`- en gateway-omgevingsvariabelenreferentie, zie de
+[Configuratiereferentie](/docs/tools/private-channels/operators/configuration).
+
+## RPC-methode toegangsmatrix
+
+De volgende methoden worden herkend door de gateway. Wanneer `JWT_SECRET` is ingesteld,
+hangt toegang af van de JWT-rol:
+
+| Methode                        | Route      | Geen JWT | `user`           | `operator` |
+| ----------------------------- | ---------- | ------ | ---------------- | ---------- |
+| `sendTransaction`             | Schrijfknooppunt | ✓      | ✓                | ✓          |
+| `getLatestBlockhash`          | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getSlot`                     | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getRecentBlockhash`          | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getSignatureStatuses`        | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getTransactionCount`         | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getFirstAvailableBlock`      | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getBlocks`                   | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getEpochInfo`                | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getEpochSchedule`            | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getRecentPerformanceSamples` | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getBlockTime`                | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getVoteAccounts`             | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getSupply`                   | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getSlotLeaders`              | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `isBlockhashValid`            | Leesknooppunt  | ✓      | ✓                | ✓          |
+| `getAccountInfo`              | Leesknooppunt  | 401    | eigenaarschap-beperkt¹ | ✓          |
+| `getTokenAccountBalance`      | Leesknooppunt  | 401    | eigenaarschap-beperkt¹ | ✓          |
+| `getSignaturesForAddress`     | Leesknooppunt  | 401    | eigenaarschap-beperkt¹ | ✓          |
+| `getBlock`                    | Leesknooppunt  | 401    | 403              | ✓          |
+| `getTransaction`              | Leesknooppunt  | 401    | 403              | ✓          |
+| `simulateTransaction`         | Leesknooppunt  | 401    | 403              | ✓          |
+
+¹ **Eigenaarschap-beperkt**: voor een SPL Token account (eigenaarsveld is `TokenkegQ...`
+of `TokenzQ...`, data van minimaal 165 bytes), controleert de gateway of het
+veld `owner` of `delegate` overeenkomt met een van de geverifieerde wallets van de geverifieerde gebruiker. Voor elk ander accounttype (een System Program-wallet of een onbekende
+PDA) wordt in plaats daarvan gecontroleerd of de opgevraagde pubkey zelf een van de geverifieerde wallets van de gebruiker is, aangezien dergelijke accounts geen eigenaar-/delegatieveld hebben om te inspecteren.
+Als een van beide controles mislukt, wordt 403 geretourneerd.

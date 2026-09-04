@@ -1,0 +1,117 @@
+---
+title: Kanal Yaşam Döngüsü
+description:
+  Özel ödeme kanallarının nasıl çalıştığı, katılımcıların kimler olduğu ve ne zaman kullanılacağı
+---
+
+## Özel Kanal Nedir?
+
+Özel kanal, Solana'ya bağlı zincir dışı bir ödeme ağıdır. Kullanıcılar SPL token'larını zincir üstü bir emanet programına yatırır, ardından yüksek hız ve sıfır transfer maliyetiyle bir ağ geçidi üzerinden zincir dışı işlem yapar. Solana Mainnet'e geri uzlaşma, fonların her zaman kullanılabilir olmasını ve çift harcamanın imkânsız olmasını sağlayan bir Seyrek Merkle Ağacı (Sparse Merkle Tree) kanıtı aracılığıyla gerçekleşir.
+
+Solana'nın yerel ödeme akışından farklı olarak, bir kanal içindeki transferler kullanıcı çekim yapana kadar zincir üzerinde görünmez. Kanal ağı, işlemleri Solana'nın blok süresinden bağımsız olarak işleyen kendi işlem hattını (dedup -> sig verify -> sequencer -> executor -> settler) çalıştırır.
+
+## Katılımcılar
+
+### Instance Admin
+
+Admin, `CreateInstance` aracılığıyla `Instance` PDA'sını dağıtır ve hangi SPL token mint'lerinin kabul edileceğini (`AllowMint` / `BlockMint`) kontrol eder. Admin, `AddOperator` / `RemoveOperator` aracılığıyla operatörleri yetkilendirir ve iptal eder; `SetNewAdmin` aracılığıyla admin haklarını devredebilir. Her instance için bir admin bulunur. Admin hakları devri tek adımda geri alınamaz: mevcut admin, yeni adminin iş birliği olmadan rolü geri alamaz.
+
+### Operatörler
+
+Operatörler admin tarafından yetkilendirilir. Bir `Operator` PDA'sına sahiptirler ve `ReleaseFunds` (Mainnet'e çekimleri uzlaştırmak için) ile `ResetSmtRoot` (Seyrek Merkle Ağacını döndürmek için) çağrısı yapmasına izin verilen tek hesaplardır. Operatörler, ağ geçidindeki tüm sahiplik kontrollerini atlar ve `getBlock`, `getTransaction` ile `simulateTransaction` dahil tüm JSON-RPC yöntemlerine erişime sahiptir. JWT rolü: `"operator"`. Operatörler doğrudan veritabanına kaydedilmelidir; self-servis yetki yükseltme mevcut değildir. Dağıtım ve yapılandırma ayrıntıları için [Operatörler kılavuzuna](/docs/tools/private-channels/operators) bakın.
+
+### Kullanıcılar
+
+Kullanıcılar Kimlik Doğrulama Servisi aracılığıyla kendi kendine kayıt olur. JWT rolü: `"user"`. Kullanıcılar, Emanet Programı üzerinde doğrudan `Deposit` çağrısı yapabilir ve Çekim Programındaki kanal taraflı `WithdrawFunds` talimatı aracılığıyla çekim başlatabilir. Ağ geçidi erişimi yalnızca kendi doğrulanmış cüzdanlarıyla sınırlıdır; `getBlock`, `getTransaction` veya `simulateTransaction` çağrısı yapamazlar.
+
+## Kanal Yaşam Döngüsü
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Alice
+    participant Mainnet as Solana Mainnet
+    participant Channel as Private Channel Network
+
+    Note over Admin,Channel: SETUP (one time)
+    Admin->>Mainnet: CreateInstance
+    Admin->>Mainnet: AllowMint
+    Admin->>Mainnet: AddOperator
+
+    Note over Alice,Channel: DEPOSIT
+    Alice->>Mainnet: Deposit (tokens to escrow ATA)
+    Note over Channel: Indexer detects deposit event,<br/>credits Alice's channel balance
+
+    Note over Alice,Channel: OFF-CHAIN TRANSFERS
+    Alice->>Channel: SPL token transfer (via gateway)
+    Channel-->>Alice: Confirmed (~100 ms, no Mainnet fee)
+
+    Note over Alice,Mainnet: WITHDRAWAL
+    Alice->>Channel: WithdrawFunds (burns channel balance)
+    Note over Channel: Indexer detects burn (~1 s),<br/>operator submits ReleaseFunds
+    Channel->>Mainnet: ReleaseFunds (with SMT exclusion proof)
+    Mainnet-->>Alice: Tokens released to Mainnet wallet
+```
+
+1. **Instance oluşturma** - Admin, `Instance` PDA'sını oluşturmak ve izin verilen mint'leri yapılandırmak için `CreateInstance` çağrısını yapar.
+2. **Yatırma** - Kullanıcılar, `Deposit` talimatı aracılığıyla emanete SPL token yatırır. Token'lar instance'ın associated token account adresine taşınır.
+3. **Zincir dışı transferler** - Kullanıcılar transferleri ağ geçidi üzerinden gönderir. Transferler, Mainnet'e dokunmadan kanal ağında sıralanır ve yürütülür.
+4. **Çekim başlatma** - Kullanıcı, bakiyesini yakmak ve çekim sinyali vermek için Çekim Programında (kanal tarafı) `WithdrawFunds` çağrısını yapar.
+5. **Mainnet uzlaşması** - Bir operatör geçerli bir SMT dışlama kanıtı sağlar ve token'ları kullanıcının cüzdanına serbest bırakmak için Emanet Programında (Mainnet) `ReleaseFunds` çağrısını yapar.
+6. **Ağaç döndürme** - SMT kapasite sınırına (65.536 yaprak) yaklaştığında, operatör ağacı döndürmek ve yeni bir epoch başlatmak için `ResetSmtRoot` çağrısını yapar.
+
+### Transfer
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    participant GW as Gateway
+    participant Pipeline as Write Node Pipeline
+    participant DB as Channel State
+
+    Alice->>GW: SPL token transfer to Bob
+    GW->>Pipeline: Route to write node
+
+    Note over Pipeline: 1. Dedup - reject duplicates and replays<br/>2. SigVerify - validate signatures<br/>3. Sequencer - order into conflict-free batch<br/>4. Executor - apply to off-chain account state<br/>5. Settler - commit to database, update blockhash
+
+    Pipeline->>DB: Commit updated balances
+    GW-->>Alice: Confirmed (off-chain, not recorded on Mainnet)
+    Note over Bob: Balance updated in channel state
+```
+
+### Çekim
+
+```mermaid
+sequenceDiagram
+    participant Bob
+    participant Channel as Private Channel Network
+    participant Indexer as indexer-private-channel
+    participant Operator as operator-private-channel
+    participant Mainnet as Solana Mainnet
+
+    Bob->>Channel: WithdrawFunds (burns channel-side balance)
+    Channel-->>Bob: Burn confirmed off-chain
+
+    Note over Indexer: Polls gateway every 1 s
+    Indexer->>Channel: Detect burn event
+    Indexer->>Indexer: Write pending withdrawal to database
+
+    Operator->>Indexer: Pick up pending record
+    Operator->>Mainnet: ReleaseFunds (SMT exclusion proof)
+    Mainnet-->>Bob: Tokens transferred to Mainnet ATA
+```
+
+## Özel Kanallar Ne Zaman Kullanılır
+
+Uygulamanızın aşağıdakilere ihtiyaç duyduğu durumlarda özel kanalları kullanın:
+
+- **Zincir dışı verim** - transfer hacminiz Solana TPS'ini doyuracak düzeydeyse veya saniyenin altında onay süresine ihtiyaç duyuyorsanız
+- **Gizlilik** - karşı taraf kimlikleri ve transfer tutarlarının zincir üzerinde görünmemesi gerekiyorsa
+- **Sıfır transfer ücreti** - işlem başına SOL maliyetinin yüksek olduğu durumlarda sık sık transfer yapılıyorsa
+
+Bunun yerine yerel SPL transferlerini şu durumlarda kullanın:
+
+- **Zincir üstü birleştirilebilirlik** gerekli olduğunda (DeFi, takas, kredi; diğer programların transferi gözlemleyebilmesi veya üzerine işlem yapabilmesi gerekiyorsa)
+- **Tek transferli uzlaşma** yeterliyse ve gizlilik bir endişe değilse
+- **Ağ geçidi altyapısı** mevcut değilse veya operasyonel açıdan uygulanabilir değilse

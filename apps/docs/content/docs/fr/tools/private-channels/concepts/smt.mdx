@@ -1,0 +1,113 @@
+---
+title: Arbre de Merkle Creux
+description:
+  Comment Private Channels utilise un Arbre de Merkle Creux pour prévenir les doubles dépenses lors des retraits
+---
+
+<Callout type="info">
+  Les utilisateurs et les développeurs n'interagissent pas directement avec le SMT ; les preuves d'exclusion
+  sont calculées et soumises automatiquement par le service `operator-private-channel`.
+  Cette page constitue une documentation de référence destinée aux opérateurs et à toute personne
+  développant des outils d'opérateur.
+</Callout>
+
+<Callout type="info">
+  Le programme d'entiercement est en cours de migration depuis cette conception d'Arbre de Merkle Creux vers
+  un bitmap de nonces on-chain (suivi en amont). Cette page est exacte par rapport au
+  programme d'entiercement actuel et sera remise à jour une fois ce changement déployé.
+</Callout>
+
+## Objectif
+
+Private Channels utilise un Arbre de Merkle Creux (SMT) pour garantir que chaque
+nonce de retrait ne peut être réglé qu'une seule fois. Lorsqu'un opérateur appelle
+`ReleaseFunds`, il doit fournir deux preuves : une preuve d'exclusion attestant que le nonce
+n'existe PAS encore dans la racine courante, et une preuve d'inclusion attestant que le
+nonce EXISTE bien dans la nouvelle racine fournie par l'appelant. Ce n'est qu'après la validation
+des deux vérifications que le programme stocke la nouvelle racine, rendant toute tentative
+ultérieure de réutilisation du nonce invalide de manière prouvable.
+
+## Paramètres de l'Arbre
+
+- Hauteur de l'arbre : `16`
+- Nombre maximal de feuilles : `65 536` (2^16)
+- Fonction de hachage : SHA-256
+- Valeur de feuille vide : `[0u8; 32]` (32 octets nuls)
+- Valeur de feuille non vide : `SHA256([1u8; 32])`, stockée en tant que constante
+  `NON_EMPTY_LEAF_HASH`
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## Structure des Feuilles
+
+Chaque retrait occupe exactement une feuille. La position de la feuille est déterminée par :
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+Une feuille est considérée comme non vide lorsque sa valeur est égale à `NON_EMPTY_LEAF_HASH`
+(c'est-à-dire `SHA256([1u8; 32])`). Une feuille vide est entièrement composée de zéros.
+
+## Nonce et Position de la Feuille
+
+Le `transaction_nonce` dans `ReleaseFunds` est un `u64`. Sa position dans l'arbre
+est `nonce % 65536`. Son epoch attendu est `nonce / 65536`. Le programme on-chain
+valide que cet epoch calculé est égal à `Instance.current_tree_index` ; une
+incohérence génère l'erreur `InvalidTransactionNonceForCurrentTreeIndex`.
+
+## Rotation de l'Arbre
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+Le SMT a une capacité fixe de 65 536 feuilles. Le service opérateur détecte quand
+une rotation est nécessaire en vérifiant si `nonce % 65536 == 0` (pour `nonce > 0`) ;
+cette limite signale le début d'un nouvel epoch. À ce moment,
+`operator-private-channel` appelle `ResetSmtRoot` avant de soumettre le prochain
+`ReleaseFunds` :
+
+- `Instance.current_tree_index` est incrémenté
+- La racine de retrait est réinitialisée à l'arbre vide
+- Les nonces de l'epoch d'arbre précédent sont invalidés
+
+Le service opérateur vérifie également que sa racine SMT locale correspond à
+`Instance.withdrawal_transactions_root` on-chain avant chaque appel à `ReleaseFunds` ;
+une incohérence déclenche un arrêt de sécurité plutôt qu'une soumission de preuve potentiellement invalide.
+
+La rotation de l'arbre est suivie par `Instance.current_tree_index: u64`, stocké on-chain.
+
+## Vérification dans ReleaseFunds
+
+L'argument `sibling_proofs` dans `ReleaseFunds` est exactement `[u8; 512]` : 16
+hachages frères × 32 octets chacun, correspondant à la hauteur d'arbre de 16.
+
+Le processus de vérification on-chain exécute deux vérifications distinctes en séquence :
+
+1. `verify_smt_exclusion_proof` prouve que la feuille du nonce est actuellement vide par rapport
+   à l'actuel `Instance.withdrawal_transactions_root`
+2. `verify_smt_inclusion_proof` prouve que la feuille du nonce est présente dans
+   l'argument `new_withdrawal_root` fourni par l'appelant
+3. Ce n'est que si les deux vérifications réussissent que le programme stocke `new_withdrawal_root` en tant que
+   nouveau `Instance.withdrawal_transactions_root` et libère les tokens
+
+L'échec de l'une ou l'autre vérification génère l'erreur `InvalidSmtProof`. La mise à jour de la racine à l'étape 3 est
+atomique avec chaque appel à `ReleaseFunds`.

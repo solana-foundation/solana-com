@@ -1,0 +1,66 @@
+---
+title: Скидання кореня SMT
+description:
+  Виконує ротацію розрідженого дерева Меркла, скидаючи корінь виведення для нового epoch дерева
+---
+
+Інструкція лише для оператора, яка виконує ротацію розрідженого дерева Меркла шляхом збільшення
+`Instance.current_tree_index` та скидання кореня виведення, дозволяючи новий
+epoch із 65 536 виведень.
+
+<Callout type="info">
+  Програма ескроу мігрує з цього дизайну розрідженого дерева Меркла на
+  побітову карту nonce в мережі (відстежується вище за потоком), де ця інструкція стає
+  `RotateBitmap`. Ця сторінка відповідає поточній програмі ескроу та
+  буде переопрацьована після впровадження цих змін.
+</Callout>
+
+## Акаунти
+
+| Акаунт                          | Записуваний | Підписант | Опис                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Платник комісії                                              |
+| `operator`                       |          | ✓      | Підписант оператора                                        |
+| `instance`                       | ✓        |        | PDA екземпляра ескроу (збільшується `current_tree_index`) |
+| `operator_pda`                   |          |        | PDA оператора, що підтверджує наявність прав підписанта         |
+| `event_authority`                |          |        | PDA авторизації подій для CPI `EmitEvent`                |
+| `private_channel_escrow_program` |          |        | Програма ескроу (самопосилання для CPI)                |
+
+## Параметри
+
+| Параметр                     | Тип  | Опис                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Захист від повторного відтворення; повинен збігатися з `Instance.current_tree_index`, інакше виклик завершується помилкою |
+
+## Повертає
+
+Повертає `TransactionBuilder`, який можна використовувати для побудови та надсилання
+транзакції.
+
+## Приклад
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Важливі примітки
+
+- Лише для оператора: вимагає дійсного `operator_pda`; інакше викидає `InvalidOperatorPda`
+- `expected_current_tree_index` повинен дорівнювати `Instance.current_tree_index` на момент виклику; застаріле значення викидає `UnexpectedTreeIndex`, захищаючи від повторного відтворення вже виконаного скидання
+- Збільшує `Instance.current_tree_index`; nonce, дійсні в попередньому epoch дерева, стають недійсними після ротації
+- Сервіс `operator-private-channel` викликає це автоматично, коли
+  `transaction_nonce % 65536 == 0` (і `nonce > 0`), сигналізуючи про початок нового
+  epoch; у штатному режимі роботи викликати вручну не потрібно
+- Після ротації корінь виведення скидається до порожнього дерева, тому нові
+  виведення починаються з чистого SMT
+- Генерує подію через CPI `EmitEvent`

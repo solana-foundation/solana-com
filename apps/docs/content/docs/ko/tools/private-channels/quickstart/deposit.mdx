@@ -1,0 +1,119 @@
+---
+title: 토큰 입금
+description:
+  devnet의 Private Channels 에스크로 인스턴스에 SPL 토큰 입금
+---
+
+## 개요
+
+`Deposit` 명령어는 사용자의 associated token
+account에서 에스크로의 associated token account로 SPL 토큰을 이동합니다. 입금된 토큰은
+게이트웨이를 통한 오프체인 전송에 사용할 수 있습니다. 선택적 `recipient`
+파라미터를 사용하면 입금자가 다른 사용자의 채널 잔액으로 입금할 수 있습니다.
+
+## 사전 요구 사항
+
+- 설치 및 클라이언트 생성 완료
+- SOL(트랜잭션 수수료용)과 입금할 SPL 토큰이 있는 devnet 지갑
+- 허용 목록에 민트가 등록된 활성 Private Channels 인스턴스
+
+## 코드
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## 확인
+
+devnet 트랜잭션이 확인되면, 인덱서가 Yellowstone gRPC를 통해 입금 이벤트를
+감지하고 운영자가 채널에 동등한 잔액을 발행합니다. 입금 전에 최종성 안전 지연이
+적용되므로, 채널 잔액을 사용할 수 있게 되기까지 **약 15초**가 소요됩니다.
+
+게이트웨이를 통해(devnet RPC가 아닌) 잔액을 조회하여 확인하세요:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+잔액이 0이 아니면 입금이 인덱싱되고 처리된 것입니다. 30초 후에도 잔액이
+0이라면 `indexer-solana`와 `operator-solana`가 실행 중인지 확인하세요(`make docker-devnet-logs`).
+
+## 다음 단계
+
+**[전송 보내기](/docs/tools/private-channels/quickstart/transfer)** - 첫 번째 오프체인 전송 실행

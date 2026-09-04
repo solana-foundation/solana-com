@@ -1,0 +1,103 @@
+---
+title: Référence de configuration
+description:
+  Variables d'environnement, inventaire des services et affectations de ports pour tous les services Private Channels
+---
+
+## Services
+
+Exécuter une instance Private Channels implique de posséder les services
+Docker Compose suivants :
+
+| Conteneur                                  | Rôle                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `private-channel-postgres-primary`         | Base de données d'état du nœud en écriture (PostgreSQL 16)                               |
+| `private-channel-postgres-replica`         | Base de données d'état du nœud en lecture (réplica en streaming)                            |
+| `private-channel-postgres-indexer`         | Base de données de l'indexeur et de l'opérateur                                           |
+| `private-channel-write-node`               | Reçoit et exécute les transactions (port 8900, loopback uniquement)           |
+| `private-channel-read-node`                | Gère les requêtes RPC en lecture (port 8901, loopback uniquement)                     |
+| `private-channel-gateway`                  | Achemine les requêtes entre les nœuds d'écriture et de lecture ; applique le RBAC (port 8899) |
+| `private-channel-indexer-solana`           | Surveille Solana pour les événements `Deposit` via Yellowstone gRPC                |
+| `private-channel-indexer-private-channel`  | Surveille le canal pour les événements `Burn` via sondage RPC                   |
+| `private-channel-operator-solana`          | Émet des tokens de canal lorsque les dépôts sont confirmés                        |
+| `private-channel-operator-private-channel` | Appelle `ReleaseFunds` sur le Mainnet lorsque les retraits sont confirmés          |
+| `private-channel-auth`                     | Service JWT/RBAC optionnel (profil Docker : `auth`)                      |
+
+Les conteneurs d'observabilité (`prometheus`, `grafana`, `cadvisor`) sont
+également inclus.
+
+## Gateway
+
+Ces valeurs disposent de valeurs par défaut appropriées pour la configuration Docker Compose du devnet. Ne les modifiez que si vous exécutez la gateway en dehors de Docker ou si vous déployez en production.
+
+| Variable d'env.                         | Défaut                                                             | Requis            | Description                                        |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `GATEWAY_PORT`                  | `8899` (devnet)                                                     | Non                  | Port d'écoute                                        |
+| `GATEWAY_WRITE_URL`             | `http://write-node:8900` (valeur du fichier env devnet ; pas de valeur par défaut binaire) | **Oui**             | URL du nœud d'écriture - les requêtes `sendTransaction` sont acheminées ici     |
+| `GATEWAY_READ_URL`              | `http://read-node:8901` (valeur du fichier env devnet ; pas de valeur par défaut binaire)  | **Oui**             | URL du nœud de lecture - toutes les autres méthodes RPC sont acheminées ici   |
+| `GATEWAY_CORS_ALLOWED_ORIGIN`   | `*`                                                                 | Non                  | Valeur de l'en-tête `Access-Control-Allow-Origin`         |
+| `JWT_SECRET`                    | -                                                                   | Non                  | Active le RBAC ; doit correspondre au `JWT_SECRET` du service d'authentification |
+| `AUTH_DATABASE_URL`             | -                                                                   | Si `JWT_SECRET` est défini | Base de données d'authentification pour les vérifications de propriété de portefeuille                |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | `10`                                                                | Non                  | Taille du pool de connexions à la base de données d'authentification                       |
+| `METRICS_PORT`                  | `9101`                                                              | Non                  | Port des métriques Prometheus                            |
+| `RUST_LOG`                      | `info`                                                              | Non                  | Niveau de journalisation                                          |
+
+> `GATEWAY_WRITE_URL` et `GATEWAY_READ_URL` utilisent les noms d'hôtes des services
+> Docker Compose (`write-node`, `read-node`) lors de l'exécution dans Docker. Utilisez les
+> équivalents `localhost` uniquement lorsque vous exécutez le binaire de la gateway directement en dehors de Docker.
+>
+> La valeur par défaut intégrée du binaire de la gateway pour `GATEWAY_PORT` est `8898`.
+> `.env.example` et `.env.devnet` la définissent tous deux à `8899`, ce qui est ce que
+> la configuration Docker Compose utilise réellement (`versions.env` ne contient que les versions
+> des outils et des images, pas les ports de service). La valeur par défaut `8898` ne s'applique que si vous
+> exécutez le binaire directement sans fichier env.
+
+<Callout type="warning">
+  `GATEWAY_CORS_ALLOWED_ORIGIN` est défini par défaut à `*`, ce qui permet à n'importe quelle origine d'appeler
+  la gateway depuis un navigateur. Limitez cette valeur à l'origine réelle de votre application
+  avant tout déploiement en production.
+</Callout>
+
+## Nœud d'écriture et nœud de lecture
+
+La référence complète de configuration du nœud d'écriture et du nœud de lecture se trouve dans
+[`docs/CONFIG.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/CONFIG.md)
+dans le dépôt.
+
+## Service d'authentification
+
+| Variable d'env.                         | Requis            | Description                                                                                                                  |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                    | **Oui**             | Secret de signature HS256 ; doit correspondre au `JWT_SECRET` de la gateway                                                                  |
+| `AUTH_PORT`                     | Non (défaut : `8903`) | Port d'écoute                                                                                                                  |
+| `AUTH_DATABASE_URL`             | **Oui**             | Chaîne de connexion PostgreSQL pour la base de données d'authentification                                                                           |
+| `CORS_ALLOWED_ORIGIN`           | Non (défaut : `*`)    | Valeur de l'en-tête `Access-Control-Allow-Origin` pour ce service (indépendante du `GATEWAY_CORS_ALLOWED_ORIGIN` de la gateway) |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | Non (défaut : `10`)   | Taille du pool de connexions à la base de données d'authentification                                                                                                 |
+
+## Référence des ports de service
+
+| Service          | Port hôte  | Liaison                                                                           |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| Gateway          | 8899       | Toutes les interfaces                                                                    |
+| Nœud d'écriture       | 8900       | Loopback uniquement                                                                     |
+| Nœud de lecture        | 8901       | Loopback uniquement                                                                     |
+| Streamer         | 8902       | Interne uniquement (`expose`, non publié vers l'hôte) ; ne fait pas partie de la pile devnet |
+| Service d'authentification     | 8903       | Toutes les interfaces                                                                    |
+| Métriques opérateur | 9102, 9103 | Toutes les interfaces                                                                    |
+| Grafana          | 37429      | Toutes les interfaces                                                                    |
+| Prometheus       | 9090       | Toutes les interfaces                                                                    |
+| cAdvisor         | 8080       | Toutes les interfaces                                                                    |
+
+> **Note de sécurité :** Les ports du nœud d'écriture et du nœud de lecture sont liés au loopback
+> (`127.0.0.1`) uniquement. La gateway, le service d'authentification, les métriques opérateur, Grafana,
+> Prometheus et cAdvisor sont tous publiés sur toutes les interfaces réseau dans la
+> configuration Docker Compose du devnet. Protégez-les par un pare-feu au niveau de l'hôte ou du réseau pour
+> tout usage au-delà du développement local ; le RBAC ne couvre que les méthodes JSON-RPC propres à la gateway,
+> pas ces autres services. Le Streamer est l'exception : il s'agit d'un flux interne
+> non authentifié que Docker ne publie jamais vers l'hôte.
+
+## Exigences réseau
+
+Consultez
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+dans le dépôt pour les règles de pare-feu et les exigences en matière de bande passante.

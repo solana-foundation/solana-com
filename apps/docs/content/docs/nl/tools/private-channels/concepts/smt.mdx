@@ -1,0 +1,114 @@
+---
+title: Sparse Merkle Tree
+description:
+  Hoe Private Channels een Sparse Merkle Tree gebruikt om dubbele uitgaven bij opnames te voorkomen
+---
+
+<Callout type="info">
+  Gebruikers en ontwikkelaars werken niet rechtstreeks met de SMT; uitsluitingsbewijzen
+  worden automatisch berekend en ingediend door de `operator-private-channel`
+  service. Deze pagina is referentiemateriaal voor operators en iedereen die
+  operatortooling bouwt.
+</Callout>
+
+<Callout type="info">
+  Het escrow-programma migreert van dit Sparse Merkle Tree-ontwerp naar een
+  on-chain nonce-bitmap (bijgehouden upstream). Deze pagina is accuraat ten opzichte van het
+  huidige escrow-programma en wordt herzien zodra die wijziging wordt doorgevoerd.
+</Callout>
+
+## Doel
+
+Private Channels gebruikt een Sparse Merkle Tree (SMT) om te garanderen dat elke
+opname-nonce slechts eenmaal kan worden afgewikkeld. Wanneer een operator
+`ReleaseFunds` aanroept, moeten twee bewijzen worden geleverd: een uitsluitingsbewijs dat de nonce
+NOG NIET bestaat in de huidige root, en een inclusiebewijs dat de
+nonce WEL bestaat in de door de aanroeper opgegeven nieuwe root. Pas nadat beide controles zijn geslaagd
+slaat het programma de nieuwe root op, waardoor elke toekomstige poging om de
+nonce opnieuw te gebruiken aantoonbaar ongeldig is.
+
+## Boomparameters
+
+- Boomhoogte: `16`
+- Maximum aantal bladeren: `65.536` (2^16)
+- Hashfunctie: SHA-256
+- Waarde leeg blad: `[0u8; 32]` (32 nul-bytes)
+- Waarde niet-leeg blad: `SHA256([1u8; 32])`, opgeslagen als de constante
+  `NON_EMPTY_LEAF_HASH`
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## Bladstructuur
+
+Elke opname beslaat precies één blad. De bladpositie wordt bepaald door:
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+Een blad wordt als niet-leeg beschouwd wanneer de waarde gelijk is aan `NON_EMPTY_LEAF_HASH`
+(d.w.z. `SHA256([1u8; 32])`). Een leeg blad bestaat volledig uit nullen.
+
+## Nonce en bladpositie
+
+De `transaction_nonce` in `ReleaseFunds` is een `u64`. De positie in de boom
+is `nonce % 65536`. De verwachte epoch is `nonce / 65536`. Het on-chain programma
+valideert dat deze berekende epoch gelijk is aan `Instance.current_tree_index`; een
+verschil gooit `InvalidTransactionNonceForCurrentTreeIndex`.
+
+## Boomrotatie
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+De SMT heeft een vaste capaciteit van 65.536 bladeren. De operatorservice detecteert wanneer
+een rotatie nodig is door te controleren of `nonce % 65536 == 0` (voor `nonce > 0`);
+die grens geeft het begin van een nieuwe epoch aan. Op dat moment
+roept `operator-private-channel` `ResetSmtRoot` aan vóór het indienen van de volgende
+`ReleaseFunds`:
+
+- `Instance.current_tree_index` wordt verhoogd
+- De opname-root wordt teruggezet naar de lege boom
+- Nonces van de vorige boom-epoch worden ongeldig gemaakt
+
+De operatorservice verifieert ook of de lokale SMT-root overeenkomt met
+`Instance.withdrawal_transactions_root` on-chain vóór elke `ReleaseFunds`-
+aanroep; een verschil triggert een veiligheidsafsluiting in plaats van een mogelijk ongeldige
+bewijsindiening.
+
+Boomrotatie wordt bijgehouden door `Instance.current_tree_index: u64`, on-chain opgeslagen.
+
+## Verificatie in ReleaseFunds
+
+Het `sibling_proofs`-argument in `ReleaseFunds` is precies `[u8; 512]`: 16
+zusternodes-hashes × 32 bytes elk, overeenkomend met de boomhoogte van 16.
+
+Het on-chain verificatieproces voert twee afzonderlijke controles uit in volgorde:
+
+1. `verify_smt_exclusion_proof` bewijst dat het nonce-blad momenteel leeg is ten opzichte van
+   de huidige `Instance.withdrawal_transactions_root`
+2. `verify_smt_inclusion_proof` bewijst dat het nonce-blad aanwezig is in de
+   door de aanroeper opgegeven `new_withdrawal_root`-argument
+3. Alleen als beide controles slagen slaat het programma `new_withdrawal_root` op als de
+   nieuwe `Instance.withdrawal_transactions_root` en worden de tokens vrijgegeven
+
+Als een van beide controles mislukt, wordt `InvalidSmtProof` gegenereerd. De root-update in stap 3 is
+atomair met elke `ReleaseFunds`-aanroep.

@@ -1,0 +1,282 @@
+---
+title: Αυθεντικοποίηση & Ρόλοι
+description:
+  Αυθεντικοποίηση JWT και έλεγχος πρόσβασης βάσει ρόλων στα Private Channels
+---
+
+## Επισκόπηση
+
+Το Private Channels περιλαμβάνει ένα προαιρετικό Auth Service που ελέγχει την πρόσβαση στο gateway
+με αυθεντικοποίηση JWT και έλεγχο πρόσβασης βάσει ρόλων (RBAC). Όταν
+η αυθεντικοποίηση είναι απενεργοποιημένη, το gateway δέχεται όλες τις συνδέσεις. Όταν είναι ενεργοποιημένη,
+οι clients πρέπει να παρουσιάζουν ένα έγκυρο JWT σε κάθε αίτημα.
+
+Αυτή η σελίδα καλύπτει και τα δύο κοινά:
+
+- **Developers** - εγγραφή, σύνδεση, επαλήθευση wallet και εκτέλεση
+  αυθεντικοποιημένων αιτημάτων
+- **Operators** - ενεργοποίηση του auth service, ρύθμιση του `JWT_SECRET` και
+  παροχή του ρόλου `operator`
+
+## Ενεργοποίηση Αυθεντικοποίησης
+
+Η αυθεντικοποίηση ενεργοποιείται ορίζοντας το `JWT_SECRET` (μη κενό) τόσο στο
+gateway όσο και στο Auth Service. Το Auth Service απαιτεί επίσης
+`AUTH_DATABASE_URL`.
+
+Όταν το `JWT_SECRET` δεν έχει οριστεί, το gateway λειτουργεί σε ανοιχτή λειτουργία· δεν απαιτείται
+κανένα token.
+
+> **Docker Compose:** Το auth service είναι ένα Docker Compose profile και **δεν
+> ξεκινά από προεπιλογή**. Για να το συμπεριλάβετε, περάστε `--profile auth` στην
+> εντολή `docker compose`, συμπεριλαμβανομένου του `--env-file .env` ώστε τα secrets όπως
+> `JWT_SECRET` και `POSTGRES_PASSWORD` να επιλυθούν σωστά (το Compose απενεργοποιεί την
+> αυτόματη φόρτωση `.env` μόλις περαστεί οποιοδήποτε flag `--env-file`):
+>
+> ```bash
+> docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+> ```
+
+## API Auth Service
+
+Όλα τα endpoints βρίσκονται κάτω από το `/auth`. Το auth service ακούει στο `AUTH_PORT`
+(προεπιλογή `8903`).
+
+### `POST /auth/register`
+
+Δημιουργεί έναν νέο λογαριασμό. Όλοι οι χρήστες εγγράφονται με τον ρόλο `user`.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+- Username: 5-32 χαρακτήρες, αλφαριθμητικοί συν `_` και `-`
+- Password: 6-128 χαρακτήρες
+- Επιστρέφει τον δημιουργηθέντα χρήστη· ο κωδικός πρόσβασης δεν επιστρέφεται ποτέ
+
+### `POST /auth/login`
+
+Πραγματοποιεί αυθεντικοποίηση και λαμβάνετε ένα υπογεγραμμένο JWT ισχύος 24 ωρών.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+Επιστρέφει `{ "token": "<jwt>" }`. Τόσο λανθασμένο username όσο και λανθασμένος κωδικός επιστρέφουν
+`401` για να αποτραπεί η απαρίθμηση usernames.
+
+### `POST /auth/challenge-wallet`
+
+Αιτείται μια πρόκληση υπογραφής για να αποδειχθεί η κυριότητα ενός Solana wallet. Απαιτεί
+έγκυρο JWT.
+
+Επιστρέφει ένα μήνυμα, nonce και ημερομηνία λήξης. Η πρόκληση λήγει σε 10 λεπτά.
+
+```json
+{
+  "message": "PrivateChannel wallet verification\nuser: <uuid>\nnonce: <uuid>\nexpires: <unix>",
+  "nonce": "<uuid>",
+  "expires_at": "<iso8601>"
+}
+```
+
+### `POST /auth/verify-wallet`
+
+Υποβάλλει την υπογεγραμμένη πρόκληση για να καταχωρίσει ένα wallet ως επαληθευμένο. Απαιτεί
+έγκυρο JWT.
+
+```json
+{
+  "pubkey": "<base58 pubkey>",
+  "nonce": "<uuid from challenge>",
+  "signature": "<base58 Ed25519 signature>"
+}
+```
+
+Η υπηρεσία ανακατασκευάζει το μήνυμα πρόκλησης, επαληθεύει την υπογραφή Ed25519
+και αποθηκεύει το wallet. Κάθε nonce μπορεί να χρησιμοποιηθεί μόνο μία φορά· οι επαναλήψεις
+απορρίπτονται.
+
+Επιστρέφει `{ "pubkey": "<base58>", "created_at": "<iso8601>" }`.
+
+### `GET /auth/wallets`
+
+Εμφανίζει όλα τα επαληθευμένα wallets για τον αυθεντικοποιημένο χρήστη. Απαιτεί έγκυρο JWT.
+
+### `DELETE /auth/wallets/{pubkey}`
+
+Αφαιρεί ένα επαληθευμένο wallet από τον λογαριασμό του αυθεντικοποιημένου χρήστη. Απαιτεί
+έγκυρο JWT.
+
+### `GET /health`
+
+Έλεγχος διαθεσιμότητας. Επιστρέφει `200 ok`. Δεν απαιτείται αυθεντικοποίηση.
+
+## Δομή JWT
+
+Τα tokens χρησιμοποιούν τον αλγόριθμο HS256 και λήγουν 24 ώρες μετά την έκδοσή τους.
+
+| Claim  | Τιμή                           |
+| ------ | ------------------------------- |
+| `sub`  | UUID Χρήστη                       |
+| `role` | `"user"` ή `"operator"`        |
+| `iss`  | `"private-channel-auth"`        |
+| `aud`  | `"private-channel-gateway"`     |
+| `exp`  | Unix timestamp (24h από την έκδοση) |
+
+> `iss` και `aud` υπάρχουν στο payload του JWT αλλά επαληθεύονται από
+> τη ρύθμιση JWT του gateway, χωρίς να αποσειριοποιούνται στο struct των claims της εφαρμογής.
+> Ο κώδικας επιπέδου εφαρμογής έχει πρόσβαση μόνο στα `sub`, `role` και `exp`.
+
+Περάστε το token στην κεφαλίδα `Authorization`:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+## Ρόλοι
+
+### user
+
+Προεπιλεγμένος ρόλος κατά την εγγραφή.
+
+- Η πρόσβαση περιορίζεται στα δικά του επαληθευμένα wallets του χρήστη
+- Αποκλείεται από: `getBlock`, `getTransaction`, `simulateTransaction`
+- Μπορεί να: καλεί `Deposit` στο Escrow Program, να εκκινεί αναλήψεις μέσω
+  `WithdrawFunds`
+
+### operator
+
+Ανυψωμένος ρόλος. Πρέπει να παραχωρηθεί άμεσα· δεν υπάρχει μονοπάτι αυτοεξυπηρέτησης
+για κλιμάκωση από `user` σε `operator`.
+
+**Παραχώρηση του ρόλου**, είτε μέσω του Admin CLI (`private-channel-auth-admin`):
+
+```bash
+private-channel-auth-admin set-role --username alice --role operator
+```
+
+ή με άμεση SQL:
+
+<Callout type="warning">
+  Αυτή είναι μια προνομιακή λειτουργία βάσης δεδομένων. Περιορίστε την πρόσβαση στη βάση δεδομένων του Auth Service
+  αναλόγως και ελέγχετε τυχόν αλλαγές ρόλων.
+</Callout>
+
+```sql
+UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice';
+```
+
+**Καταχώριση wallet χωρίς τη ροή αυτο-επαλήθευσης (Admin CLI,
+`private-channel-auth-admin`):**
+
+```bash
+private-channel-auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
+```
+
+Αυτό εισάγει απευθείας ένα επαληθευμένο wallet στον πίνακα `verified_wallets`,
+παρακάμπτοντας τη ροή challenge/verify. Επιβάλλει μοναδικό περιορισμό στο
+`(user_id, pubkey)`. **Δεν** παραχωρεί τον ρόλο `operator` από μόνο του· χρησιμοποιήστε
+`set-role` ή την παραπάνω ενημέρωση SQL γι' αυτό. Αυτή η εντολή προορίζεται για την επισύναψη
+ενός wallet σε έναν λογαριασμό (π.χ. έναν λογαριασμό υπηρεσίας) χωρίς να απαιτείται
+η διαδραστική ροή challenge/verify.
+
+**Δυνατότητες:**
+
+- Παρακάμπτει όλους τους ελέγχους κυριότητας wallet
+- Πλήρης πρόσβαση σε όλες τις μεθόδους RPC του gateway, συμπεριλαμβανομένων των `getBlock`,
+  `getTransaction`, `simulateTransaction`
+- Απαιτείται για: `ReleaseFunds`, `ResetSmtRoot`
+
+## Πλήρης Ροή Αυθεντικοποίησης
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Auth as Auth Service
+
+    Client->>Auth: POST /auth/register { username, password }
+    Auth-->>Client: created user (role: "user")
+
+    Client->>Auth: POST /auth/login { username, password }
+    Auth-->>Client: { token: "<jwt>" }
+
+    Note over Client: Include JWT in subsequent requests:<br/>Authorization: Bearer <token>
+
+    Client->>Auth: POST /auth/challenge-wallet
+    Auth-->>Client: { message, nonce, expires_at }
+
+    Note over Client: Sign message with wallet private key (Ed25519)
+
+    Client->>Auth: POST /auth/verify-wallet { pubkey, nonce, signature }
+    Auth-->>Client: { pubkey, created_at }
+
+    Note over Client: Wallet verified - gateway now allows access<br/>to accounts owned by this wallet
+```
+
+## Εκτέλεση Αυθεντικοποιημένων Αιτημάτων
+
+```typescript
+const response = await fetch("http://localhost:8899/", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${jwtToken}`
+  },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getBalance",
+    params: [walletAddress]
+  })
+});
+const data = await response.json();
+```
+
+## Endpoints Gateway
+
+Αυτά τα endpoints δεν απαιτούν αυθεντικοποίηση:
+
+| Endpoint  | Μέθοδος | Περιγραφή                               | Επιτυχία                  | Αποτυχία                     |
+| --------- | ------ | ----------------------------------------- | ------------------------ | --------------------------- |
+| `/health` | GET    | Έλεγχος διαθεσιμότητας                            | `200 {"status":"ok"}`    | -                           |
+| `/ready`  | GET    | Βαθύς έλεγχος ετοιμότητας· δοκιμάζει κόμβους εγγραφής + ανάγνωσης | `200 {"status":"ready"}` | `503 {"status":"degraded"}` |
+
+Για την αναφορά του `JWT_SECRET` και των μεταβλητών περιβάλλοντος του gateway, δείτε την
+[Αναφορά Ρυθμίσεων](/docs/tools/private-channels/operators/configuration).
+
+## Πίνακας Πρόσβασης Μεθόδων RPC
+
+Οι παρακάτω μέθοδοι αναγνωρίζονται από το gateway. Όταν έχει οριστεί το `JWT_SECRET`,
+η πρόσβαση εξαρτάται από τον ρόλο JWT:
+
+| Μέθοδος                        | Διαδρομή      | Χωρίς JWT | `user`           | `operator` |
+| ----------------------------- | ---------- | ------ | ---------------- | ---------- |
+| `sendTransaction`             | Κόμβος εγγραφής | ✓      | ✓                | ✓          |
+| `getLatestBlockhash`          | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getSlot`                     | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getRecentBlockhash`          | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getSignatureStatuses`        | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getTransactionCount`         | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getFirstAvailableBlock`      | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getBlocks`                   | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getEpochInfo`                | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getEpochSchedule`            | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getRecentPerformanceSamples` | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getBlockTime`                | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getVoteAccounts`             | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getSupply`                   | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getSlotLeaders`              | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `isBlockhashValid`            | Κόμβος ανάγνωσης  | ✓      | ✓                | ✓          |
+| `getAccountInfo`              | Κόμβος ανάγνωσης  | 401    | ownership-gated¹ | ✓          |
+| `getTokenAccountBalance`      | Κόμβος ανάγνωσης  | 401    | ownership-gated¹ | ✓          |
+| `getSignaturesForAddress`     | Κόμβος ανάγνωσης  | 401    | ownership-gated¹ | ✓          |
+| `getBlock`                    | Κόμβος ανάγνωσης  | 401    | 403              | ✓          |
+| `getTransaction`              | Κόμβος ανάγνωσης  | 401    | 403              | ✓          |
+| `simulateTransaction`         | Κόμβος ανάγνωσης  | 401    | 403              | ✓          |
+
+¹ **Ownership-gated**: για έναν SPL Token account (το πεδίο owner είναι `TokenkegQ...`
+ή `TokenzQ...`, δεδομένα τουλάχιστον 165 bytes), το gateway ελέγχει ότι το πεδίο
+`owner` ή `delegate` αντιστοιχεί σε ένα από τα επαληθευμένα wallets του αυθεντικοποιημένου χρήστη. Για οποιονδήποτε άλλο τύπο λογαριασμού (ένα System Program wallet ή ένα άγνωστο
+PDA), ελέγχει αντ' αυτού αν το ίδιο το pubkey του ερωτήματος είναι ένα από τα επαληθευμένα wallets του χρήστη, καθώς τέτοιοι λογαριασμοί δεν διαθέτουν πεδίο owner/delegate για επιθεώρηση.
+Αποτυχία οποιουδήποτε ελέγχου επιστρέφει 403.

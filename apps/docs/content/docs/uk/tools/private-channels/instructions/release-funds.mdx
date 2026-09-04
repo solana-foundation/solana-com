@@ -1,0 +1,91 @@
+---
+title: Вивільнення коштів
+description:
+  Вивільняє токени з ескроу до гаманця користувача після перевірки доказу виключення SMT
+---
+
+Викликається підготовленим оператором для вивільнення токенів з ескроу до гаманця користувача в Mainnet,
+за умови наявності дійсного доказу виключення з Sparse Merkle Tree для
+нонсу виведення.
+
+<Callout type="info">
+  Програма ескроу мігрує з цього дизайну Sparse Merkle Tree на
+  побітову карту нонсів у мережі (відстежується вище за течією). Ця сторінка відповідає
+  поточній програмі ескроу та буде переопрацьована після впровадження цієї зміни.
+</Callout>
+
+## Акаунти
+
+| Акаунт                          | Записуваний | Підписант | Опис                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Платник комісії                                                          |
+| `operator`                       |          | ✓      | Підписант-оператор                                                    |
+| `instance`                       | ✓        |        | PDA екземпляра ескроу (корінь оновлюється в мережі)                        |
+| `operator_pda`                   |          |        | PDA оператора, що підтверджує підготовленість підписанта                     |
+| `mint`                           |          |        | Мінт SPL-токена                                                     |
+| `allowed_mint`                   |          |        | PDA AllowedMint — перевіряє, що мінт дозволений для цього екземпляра |
+| `user_ata`                       | ✓        |        | associated token account отримувача (призначення)                 |
+| `instance_ata`                   | ✓        |        | associated token account ескроу (джерело)                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | PDA авторитету подій для CPI `EmitEvent`                            |
+| `private_channel_escrow_program` |          |        | Програма ескроу (самопосилання для CPI)                            |
+
+## Параметри
+
+| Параметр             | Тип        | Опис                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Кількість токенів для вивільнення                                   |
+| `user`                | `Pubkey`    | Гаманець отримувача в Mainnet                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Оновлений корінь SMT після включення нонсу цього виведення      |
+| `transaction_nonce`   | `u64`       | Унікальний нонс, що ідентифікує листок цього виведення в SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 хешів сусідніх вузлів (по 32 байти кожен) для доказу виключення SMT |
+
+## Повертає
+
+Повертає `TransactionBuilder`, який можна використати для побудови та надсилання
+транзакції.
+
+## Приклад
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Важливі примітки
+
+- Викликач повинен бути підготовленим оператором: `operator_pda` має існувати (створений
+  `AddOperator`); недійсний PDA викидає `InvalidOperatorPda`
+- `sibling_proofs` має рівно 512 байт (16 × 32-байтні хеші, що відповідають висоті дерева SMT рівній 16)
+- `new_withdrawal_root` — це оновлений корінь SMT після включення нонсу цього
+  виведення. Обчисліть його поза мережею перед викликом
+- `transaction_nonce` має бути дійсним для `Instance.current_tree_index`;
+  недійсний нонс викидає `InvalidTransactionNonceForCurrentTreeIndex`
+- Програма спочатку виконує `verify_smt_exclusion_proof`, доводячи, що нонс ще
+  НЕ існує відносно поточного кореня, а потім виконує окремий
+  `verify_smt_inclusion_proof`, доводячи, що нонс ІСНУЄ в
+  `new_withdrawal_root`, наданому викликачем. Збій будь-якої перевірки викидає
+  `InvalidSmtProof`
+- Лише після проходження обох перевірок `Instance.withdrawal_transactions_root` оновлюється
+  атомарно; нонс не може бути повторно використаний
+- Емітує подію через CPI `EmitEvent`

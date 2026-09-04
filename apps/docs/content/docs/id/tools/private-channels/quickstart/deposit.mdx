@@ -1,0 +1,114 @@
+---
+title: Deposit Token
+description:
+  Deposit token SPL ke dalam instance escrow Private Channels di devnet
+---
+
+## Ikhtisar
+
+Instruksi `Deposit` memindahkan token SPL dari associated token account pengguna ke associated token account escrow. Setelah didepositkan, token tersedia untuk transfer off-chain melalui gateway. Parameter `recipient` yang bersifat opsional memungkinkan depositor mengkredit saldo channel pengguna lain.
+
+## Prasyarat
+
+- Instalasi dan pembuatan klien telah selesai
+- Dompet devnet dengan SOL (untuk biaya transaksi) dan token SPL yang ingin Anda
+  depositkan
+- Instance Private Channels yang aktif dengan mint Anda pada daftar yang diizinkan
+
+## Kode
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## Verifikasi
+
+Setelah transaksi devnet Anda dikonfirmasi, indexer mendeteksi event deposit melalui Yellowstone gRPC dan operator mencetak saldo yang setara di channel. Penundaan keamanan finalitas diterapkan sebelum pengkreditan, jadi **perkirakan ~15 detik** sebelum saldo channel tersedia.
+
+Kueri saldo Anda melalui gateway (bukan RPC devnet) untuk konfirmasi:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+Saldo yang tidak nol mengonfirmasi bahwa deposit telah diindeks dan dikreditkan. Jika saldo masih nol setelah 30 detik, periksa apakah `indexer-solana` dan `operator-solana` sedang berjalan (`make docker-devnet-logs`).
+
+## Langkah Selanjutnya
+
+**[Kirim Transfer](/docs/tools/private-channels/quickstart/transfer)** - kirim transfer off-chain pertama Anda

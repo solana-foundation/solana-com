@@ -1,0 +1,70 @@
+---
+title: Réinitialisation de la racine SMT
+description:
+  Fait pivoter le Sparse Merkle Tree, réinitialisant la racine de retrait pour un nouvel epoch de l'arbre
+---
+
+Instruction réservée à l'opérateur qui fait pivoter le Sparse Merkle Tree en incrémentant
+`Instance.current_tree_index` et en réinitialisant la racine de retrait, permettant un nouvel
+epoch de 65 536 retraits.
+
+<Callout type="info">
+  Le programme d'entiercement migre de cette conception de Sparse Merkle Tree vers un
+  bitmap de nonce on-chain (suivi en amont), où cette instruction devient
+  `RotateBitmap`. Cette page est exacte par rapport au programme d'entiercement actuel et
+  sera remaniée une fois ce changement appliqué.
+</Callout>
+
+## Comptes
+
+| Compte                          | Modifiable | Signataire | Description                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Payeur des frais                                              |
+| `operator`                       |          | ✓      | Signataire opérateur                                        |
+| `instance`                       | ✓        |        | PDA de l'instance d'entiercement (`current_tree_index` incrémenté) |
+| `operator_pda`                   |          |        | PDA de l'opérateur prouvant que le signataire est provisionné         |
+| `event_authority`                |          |        | PDA de l'autorité d'événement pour le CPI `EmitEvent`                |
+| `private_channel_escrow_program` |          |        | Programme d'entiercement (auto-référence pour CPI)                |
+
+## Paramètres
+
+| Paramètre                     | Type  | Description                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Protection contre le rejeu ; doit correspondre à `Instance.current_tree_index` ou l'appel échoue |
+
+## Retours
+
+Retourne un `TransactionBuilder` pouvant être utilisé pour construire et envoyer la
+transaction.
+
+## Exemple
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Notes importantes
+
+- Réservé à l'opérateur : nécessite un `operator_pda` valide ; lève `InvalidOperatorPda`
+  dans le cas contraire
+- `expected_current_tree_index` doit être égal à `Instance.current_tree_index` au moment de l'appel ;
+  une valeur obsolète lève `UnexpectedTreeIndex`, protégeant contre le rejeu d'une
+  réinitialisation déjà effectuée
+- Incrémente `Instance.current_tree_index` ; les nonces valides dans l'epoch précédent de l'arbre
+  sont invalidés après la rotation
+- Le service `operator-private-channel` appelle ceci automatiquement lorsque
+  `transaction_nonce % 65536 == 0` (et `nonce > 0`), signalant le début d'un
+  nouvel epoch ; il ne devrait pas être nécessaire de l'appeler manuellement dans des conditions normales
+- Après la rotation, la racine de retrait se réinitialise à l'arbre vide, de sorte que les nouveaux
+  retraits démarrent depuis un SMT vierge
+- Émet un événement via le CPI `EmitEvent`

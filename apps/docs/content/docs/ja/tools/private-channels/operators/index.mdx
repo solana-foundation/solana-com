@@ -1,0 +1,302 @@
+---
+title: オペレーター
+description: Docker ComposeでPrivate Channelsインスタンスをデプロイ・運用する
+---
+
+## Private Channelsオペレーターとは？
+
+オペレーターは、Solana Mainnetとプライベートチャンネルネットワークをブリッジするオンチェーン許可済みの信頼できるエンティティです。オペレーターはインスタンス管理者が`AddOperator`を通じてプロビジョニングし、オンチェーンの`Operator` PDAを作成します。これがなければ、いかなる当事者も`ReleaseFunds`を呼び出すことができません。実際には、オペレーターはデポジットを監視し、チャンネル側のトークンをミントし、出金を検出し、資金をMainnetに決済するサービスを運営する組織やチームです。インスタンスを運用することで、ユーザーはSolana Mainnetに表示されないプライベートな大量転送、ネイティブSolana TPSを超えた即時のゼロ手数料スループット、およびRBACによるアクセス制御を利用できます。
+
+<Callout type="info">
+  既存のPrivate Channelsインスタンスにインテグレーションする開発者で、デプロイではなく利用が目的の場合は、代わりに
+  [クイックスタート](/docs/tools/private-channels/quickstart/installation)から始めてください。
+</Callout>
+
+## 開始する前に
+
+### 前提条件
+
+Dockerイメージに合わせて、ホストで以下のバージョンを固定してください：
+
+- Docker Engine 26以上（macOS Apple Silicon：設定 -> Virtual Machine Optionsで「Docker VMM」を有効にする）
+- Node.js **24.7.0** および pnpm **10.15.1**
+- Solana CLI **3.1.13**（Agave）
+- Rust **1.91.0**
+- Devnet用のYellowstone gRPCエンドポイント（Helius、Triton、QuickNodeから入手可能）
+
+ネットワーク要件とデフォルトのポート割り当てについては、リポジトリ内の
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+を参照してください。
+
+固定されたSolanaツールチェーンをインストールし、SBFキャッシュをウォームアップします：
+
+```bash
+make install-toolchain
+```
+
+### サービス
+
+Private Channelsインスタンスを運用するということは、Docker Composeスタック内の専用コンテナがそれぞれ担当する5つの継続的な責務を所有することを意味します：
+
+1. **Mainnetのデポジットをインデックス化** - `indexer-solana`はYellowstone gRPC経由でSolana Mainnetの`Deposit`イベントを監視し、`operator-solana`は確認済みのデポジットを取得してチャンネルネットワーク上に同等のトークン残高をミントします
+2. **出金のためにチャンネルをインデックス化** - `indexer-private-channel`は毎秒チャンネルをポーリングして`WithdrawFunds`バーンイベントを検出し、保留中の出金レコードをデータベースに書き込みます
+3. **Mainnetで資金をリリース** - `operator-private-channel`は保留中のレコードを取得し、有効なSMT排除証明とともにエスクロープログラムの`ReleaseFunds`を呼び出します
+4. **SMTルートを管理** - `operator-private-channel`はツリーのepochがローテートする際に自動的に`ResetSmtRoot`を呼び出します。オンチェーンの`verify_smt_exclusion_proof`チェックは、不正な出金に対する最後の防衛ラインです
+5. **ゲートウェイと認証サービスを実行** - ゲートウェイはすべてのクライアントトラフィックの唯一の公開エンドポイントです。認証サービス（オプション）は`JWT_SECRET`が設定されている場合にJWT/RBACを適用します
+
+完全なサービス一覧とポート割り当てについては、
+[設定リファレンス](/docs/tools/private-channels/operators/configuration)を参照してください。
+
+> **セキュリティに関する注意：** ライトノードとリードノードのポートはループバック（`127.0.0.1`）のみにバインドされていますが、他のいくつかのサービス（ゲートウェイ、認証、オペレーターメトリクス、Grafana、Prometheus、cAdvisor）はデフォルトですべてのネットワークインターフェースに公開されています。完全なポートテーブルについては[設定リファレンス](/docs/tools/private-channels/operators/configuration#service-port-reference)を参照し、公開向けデプロイの前にこれらをファイアウォールで保護してください。RBACはゲートウェイ自身のJSON-RPCメソッドのみをカバーし、これらの他のサービスはカバーしません。
+
+### アクセス制御：オープンvsRBAC
+
+デフォルトでは、ゲートウェイはすべての接続を受け入れます。トークンは不要です。JWTベースのRBACを有効にするには、`JWT_SECRET`を設定し、`--profile auth`でスタックを起動してください。`operator`ロールのプロビジョニングとユーザーウォレットの登録方法を含む完全な設定リファレンスについては、**[認証とロール](/docs/tools/private-channels/concepts/auth)**を参照してください。
+
+認証を有効にする場合は、スタックを起動する前に以下を環境に追加してください：
+
+```bash
+JWT_SECRET=<openssl rand -hex 32>   # must match on gateway and auth service
+AUTH_PORT=8903
+```
+
+## 環境のセットアップ
+
+`.env.devnet`はdevnet固有のデフォルト値が記入された状態でリポジトリに既にトラッキングされています。それらのデフォルト値を上書きしてしまう`.env.example`から再生成するのではなく、直接編集してください。
+
+以下のデプロイ手順を進める中で残りの値を入力してください。一部はデプロイの途中でのみ取得できます。シークレットはgitignore対象の`.env`ファイルに、非シークレットの変数は`.env.devnet`に記載してください。
+
+**シークレット - すぐに設定してください：**
+
+```bash
+POSTGRES_PASSWORD=<openssl rand -hex 32>
+POSTGRES_REPLICATION_PASSWORD=<openssl rand -hex 32>
+```
+
+**デプロイ中に取得する変数：**
+
+```bash
+ESCROW_INSTANCE_ID=<instance address - from Step 3>
+ADMIN_PRIVATE_KEY=<operator keypair as u8 array or base58 - from Step 4>
+DEVNET_RPC_URL=https://api.devnet.solana.com
+DEVNET_YELLOWSTONE_ENDPOINT=<your Yellowstone gRPC endpoint>
+INDEXER_YELLOWSTONE_TOKEN=<your Yellowstone auth token>
+```
+
+<Callout type="warning">
+  `ADMIN_PRIVATE_KEY`はオフチェーンサービス自身が必要とする手数料支払い署名者であり、ステップ3のオンチェーンインスタンス管理者とは無関係です。このガイドでは、ステップ4で生成した**オペレーター**keypairを`ADMIN_PRIVATE_KEY`に設定し、オプションの`OPERATOR_PRIVATE_KEY`は未設定のままにするため、オペレーター署名者は同じキーにフォールバックします。ステップ3のプロトコルレベルのインスタンス管理者keypairは、いずれの変数にも絶対に入力しないでください。
+</Callout>
+
+完全な環境変数リファレンスについては、**[設定](/docs/tools/private-channels/operators/configuration)**を参照してください。
+
+## デプロイ
+
+<Steps>
+
+<Step>
+
+### イメージのビルド
+
+```bash
+make docker-devnet-build
+```
+
+これにより、すべてのRustサービスが共有Dockerイメージにコンパイルされます。初回ビルドには30分から1時間かかります。
+
+</Step>
+
+<Step>
+
+### Admin UIのセットアップ
+
+Admin UIは、エスクローインスタンスの作成と設定を行うブラウザベースのツールです。開発および管理ユーティリティであり、ユーザー向けプロダクトでも必須のランタイムコンポーネントでもありません。Admin UIが実行するすべての操作（`CreateInstance`、`AllowMint`、`AddOperator`）は、リポジトリ内のCLIスクリプトからも実行できます。
+
+```bash
+cd admin-ui
+pnpm install
+echo "PRIVATE_CHANNEL_RPC_URL=http://localhost:8899" > .env
+pnpm dev   # opens at http://localhost:5173
+```
+
+</Step>
+
+<Step>
+
+### エスクローインスタンスの作成
+
+1. ブラウザウォレットを**Devnet**に設定し、手数料用のDevnet SOLを持っていることを確認してください
+2. Admin UIで**Create New Instance**をクリックし、トランザクションを承認します
+3. **Instance Address**をコピーして`.env.devnet`の`ESCROW_INSTANCE_ID`として設定します
+
+または、CLIスクリプトを使用してください：
+
+```bash
+cargo run --bin create_instance -- https://api.devnet.solana.com ./keypairs/admin.json
+```
+
+</Step>
+
+<Step>
+
+### オペレーターkeypairの生成
+
+```bash
+solana-keygen new -o operator-keypair.json -s --no-bip39-passphrase
+solana-keygen pubkey operator-keypair.json
+```
+
+keypairの内容を環境の`ADMIN_PRIVATE_KEY`として設定してください。公開鍵は環境変数ではなく、後述の「インスタンスの設定」ステップでオペレーターpubkeyとして直接渡します。
+
+</Step>
+
+<Step>
+
+### 環境変数の最終設定
+
+`.env.devnet`を`ESCROW_INSTANCE_ID`、`DEVNET_RPC_URL`、`DEVNET_YELLOWSTONE_ENDPOINT`、`INDEXER_YELLOWSTONE_TOKEN`で更新してください。シークレット（`POSTGRES_PASSWORD`、`POSTGRES_REPLICATION_PASSWORD`、`ADMIN_PRIVATE_KEY`）はgitignore対象の`.env`ファイルに記載してください。
+
+RBACを有効にすることにした場合（[アクセス制御：オープンvsRBAC](#access-control-open-vs-rbac)）、ここで`JWT_SECRET`と`AUTH_PORT`も追加してください。
+
+</Step>
+
+<Step>
+
+### すべてのサービスを起動
+
+認証なし：
+
+```bash
+make docker-devnet-up
+```
+
+認証あり：
+
+```bash
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+```
+
+`--env-file`フラグが渡されると、Composeは自動的な`.env`の自動読み込みを無効にします。そのため、末尾の`--env-file .env`が必要です。これがないと、（`.env`に記載した）`POSTGRES_PASSWORD`、`ADMIN_PRIVATE_KEY`、`JWT_SECRET`が空として解決され、スタックが正常に起動しません。
+
+> インスタンスを設定する前にサービスを起動してください。インデクサーはリアルタイムでイベントをストリームするため、スタックを先に起動することで、`AllowMint`と最初のデポジットがバックフィルなしに順番通りインデックス化されます。
+
+</Step>
+
+<Step>
+
+### インスタンスの設定
+
+スタックが起動した状態で、Admin UIからトークンミントをホワイトリストに登録し、オペレーターを追加します：
+
+1. **Allow Mint**：Admin Functions -> Mint Management -> ミントアドレスを入力 -> Allow Mint
+2. **Add Operator**：Admin Functions -> Operator Management -> オペレーターpubkeyを入力 -> Add Operator
+
+またはCLI経由で：
+
+```bash
+cargo run --bin add_operator -- \
+  https://api.devnet.solana.com \
+  ./keypairs/admin.json \
+  <INSTANCE_ID> \
+  <OPERATOR_PUBKEY>
+```
+
+</Step>
+
+</Steps>
+
+<Callout type="warning">
+
+このガイドはSolana devnetを対象としています。Mainnetの場合：
+
+- プログラムIDは`declare_id!()`を通じてコンパイル時に組み込まれます。リポジトリから正しいMainnet IDを使用していることを確認してください
+- Yellowstone gRPCエンドポイントはMainnetプランが必要です。devnetエンドポイントはMainnetのイベントをストリームしません
+- オペレーターウォレットはすべての`ReleaseFunds`呼び出しにSOL手数料を支払うため、予想される出金量に合わせてSOL残高を確保してください
+- 公開向けデプロイの前に、すべてのデフォルト認証情報（Grafana、PostgreSQL）を変更してください
+
+</Callout>
+
+## 運用
+
+### 便利なコマンド
+
+```bash
+# View logs (all services)
+make docker-devnet-logs
+
+# View logs (specific service)
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana
+
+# Stop services
+make docker-devnet-down
+
+# Stop and wipe all state (volumes)
+make docker-devnet-clean
+```
+
+### オブザーバビリティ
+
+スタックには、メトリクスとコンテナ監視のためにPrometheus、Grafana、cAdvisorが含まれています。Grafanaはポート`37429`でアクセスできます。
+
+<Callout type="warning">
+  Grafanaのデフォルトパスワードは`admin`です。ポート37429をlocalhost以外のネットワークに公開する前に変更してください。
+</Callout>
+
+## トラブルシューティング
+
+### デポジット後にチャンネル残高が更新されない
+
+1. MainnetのデポジットトランザクションがMainnetエクスプローラーに反映されていることを確認する
+2. `indexer-solana`が実行中であることを確認する：
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana`
+3. `operator-solana`が実行中であることを確認する：
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-solana`
+4. Yellowstone gRPCエンドポイントに到達可能であり、トークンが有効であることを確認する（`DEVNET_YELLOWSTONE_ENDPOINT`、`INDEXER_YELLOWSTONE_TOKEN`）
+5. オンチェーンの確認後、インデクサーが入金を記録する前に最終性の安全遅延を適用するため、最大30秒待機する
+
+### 出金がMainnetに決済されない
+
+1. `indexer-private-channel`が実行中であることを確認する：
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-private-channel`
+2. `operator-private-channel`が実行中であることを確認する：
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-private-channel`
+3. `ADMIN_PRIVATE_KEY`のオペレーターkeypairが`AddOperator`でオンチェーンに登録されたキーと一致していることを確認する
+4. ログに「SMT root mismatch」と表示される場合、サービスは無効な証明を送信する代わりにシャットダウンします。スタックを停止し、一貫した状態から復元して再起動してください
+
+### JWT認証の失敗（すべてのリクエストで401エラー）
+
+1. ゲートウェイと認証サービスのコンテナで`JWT_SECRET`が同一であることを確認する
+2. スタックが`--profile auth`で起動されていることを確認する
+3. トークンは24時間後に期限切れになります。新しいトークンを取得するには再認証してください
+
+### 初回ビルドに時間がかかりすぎる
+
+これは想定内です。初回の`make docker-devnet-build`はすべてのRustサービスをコンパイルするため、一般的なハードウェアで30〜60分かかることがあります。以降のビルドはDockerレイヤーキャッシュを使用するため、大幅に高速化されます。
+
+## 次のステップ
+
+<Cards>
+  <Card
+    title="クイックスタート"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    デプロイのテスト：devnetでデポジット、転送、出金を行います。
+  </Card>
+  <Card
+    title="設定"
+    href="/docs/tools/private-channels/operators/configuration"
+  >
+    すべてのサービスの完全な環境変数リファレンス。
+  </Card>
+  <Card
+    title="認証とロール"
+    href="/docs/tools/private-channels/concepts/auth"
+  >
+    JWT認証を設定し、オペレーターロールのユーザーをプロビジョニングします。
+  </Card>
+  <Card
+    title="instructions"
+    href="/docs/tools/private-channels/instructions/create-instance"
+  >
+    すべてのオンチェーンinstructionsの完全なリファレンス。
+  </Card>
+</Cards>

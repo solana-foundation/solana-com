@@ -1,0 +1,57 @@
+---
+title: SMTルートのリセット
+description:
+  スパースマークルツリーをローテーションし、新しいツリーエポックに向けて出金ルートをリセットします
+---
+
+オペレーター専用のinstructionsで、`Instance.current_tree_index`をインクリメントしてスパースマークルツリーをローテーションし、出金ルートをリセットすることで、65,536件の出金からなる新しいエポックを開始できるようにします。
+
+<Callout type="info">
+  エスクロープログラムは、このスパースマークルツリー設計からオンチェーンのnonceビットマップ（上流で追跡中）へ移行しており、このinstructionsは`RotateBitmap`になる予定です。このページは現在のエスクロープログラムに対して正確な内容を記載しており、変更が適用され次第、改訂される予定です。
+</Callout>
+
+## アカウント
+
+| アカウント                          | 書き込み可能 | 署名者 | 説明                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | 手数料支払者                                              |
+| `operator`                       |          | ✓      | オペレーター署名者                                        |
+| `instance`                       | ✓        |        | エスクローインスタンスPDA（`current_tree_index`がインクリメントされる） |
+| `operator_pda`                   |          |        | 署名者がプロビジョニング済みであることを証明するオペレーターPDA         |
+| `event_authority`                |          |        | `EmitEvent` CPI用のイベント権限PDA                |
+| `private_channel_escrow_program` |          |        | エスクロープログラム（CPI用の自己参照）                |
+
+## パラメーター
+
+| パラメーター                     | 型  | 説明                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | リプレイガード。`Instance.current_tree_index`と一致する必要があり、一致しない場合は呼び出しが失敗します |
+
+## 戻り値
+
+トランザクションのビルドおよび送信に使用できる`TransactionBuilder`を返します。
+
+## 使用例
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## 重要事項
+
+- オペレーター専用：有効な`operator_pda`が必要です。それ以外の場合は`InvalidOperatorPda`がスローされます
+- `expected_current_tree_index`は呼び出し時点で`Instance.current_tree_index`と一致する必要があります。古い値の場合は`UnexpectedTreeIndex`がスローされ、すでに適用済みのリセットのリプレイを防ぎます
+- `Instance.current_tree_index`をインクリメントします。前のツリーエポックで有効だったnonceはローテーション後に無効になります
+- `operator-private-channel`サービスは、`transaction_nonce % 65536 == 0`（かつ`nonce > 0`）のとき、新しいエポックの開始を示すものとして自動的にこれを呼び出します。通常の運用では手動で呼び出す必要はありません
+- ローテーション後、出金ルートは空のツリーにリセットされるため、新しい出金は新規のSMTから開始されます
+- `EmitEvent` CPIを介してイベントを発行します

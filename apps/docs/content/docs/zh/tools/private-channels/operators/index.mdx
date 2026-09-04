@@ -1,0 +1,308 @@
+---
+title: 运营商
+description: 使用 Docker Compose 部署和运营 Private Channels 实例
+---
+
+## 什么是 Private Channels 运营商？
+
+运营商是一个受信任的、经过链上授权的实体，负责桥接 Solana 主网与私有通道网络。运营商由实例管理员通过 `AddOperator` 进行配置，该操作会在链上创建一个 `Operator` PDA；若未完成此步骤，任何方均无法调用 `ReleaseFunds`。在实际应用中，运营商是一个组织或团队，负责运行以下服务：监听存款、在通道侧铸造等值代币、检测提款，以及将资金结算回主网。运行一个实例可为您的用户提供私密、高吞吐量的转账（不会出现在 Solana 主网上）、超越原生 Solana TPS 的即时零费用吞吐量，以及通过 RBAC 实现的受控访问。
+
+<Callout type="info">
+  如果您是开发者，需要集成现有 Private Channels 实例而非自行部署，请先阅读
+  [快速入门](/docs/tools/private-channels/quickstart/installation)。
+</Callout>
+
+## 开始之前
+
+### 前提条件
+
+在主机上固定以下版本以匹配 Docker 镜像：
+
+- Docker Engine 26+（macOS Apple Silicon：在 设置 -> 虚拟机选项 中启用"Docker VMM"）
+- Node.js **24.7.0** 和 pnpm **10.15.1**
+- Solana CLI **3.1.13**（Agave）
+- Rust **1.91.0**
+- 用于 Devnet 的 Yellowstone gRPC 端点（可从 Helius、Triton、QuickNode 获取）
+
+有关网络要求和默认端口分配，请参阅仓库中的
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)。
+
+安装固定版本的 Solana 工具链并预热 SBF 缓存：
+
+```bash
+make install-toolchain
+```
+
+### 服务
+
+运行 Private Channels 实例意味着需要承担五项持续职责，每项职责由 Docker Compose 栈中的专用容器负责处理：
+
+1. **索引主网存款** - `indexer-solana` 通过 Yellowstone gRPC 监听 Solana 主网上的 `Deposit` 事件；`operator-solana` 获取已确认的存款并在通道网络上铸造等值代币余额
+2. **索引通道提款** - `indexer-private-channel` 每秒轮询一次通道，检测 `WithdrawFunds` 销毁事件，并将待处理的提款记录写入数据库
+3. **在主网释放资金** - `operator-private-channel` 获取待处理记录，并携带有效的 SMT 排除证明调用托管程序上的 `ReleaseFunds`
+4. **管理 SMT 根** - `operator-private-channel` 在树的 epoch 轮换时自动调用 `ResetSmtRoot`；链上的 `verify_smt_exclusion_proof` 检查是防止未授权提款的最后一道防线
+5. **运行网关和认证服务** - 网关是所有客户端流量的唯一公共端点；认证服务（可选）在设置 `JWT_SECRET` 时强制执行 JWT/RBAC
+
+有关完整的服务清单和端口分配，请参阅
+[配置参考](/docs/tools/private-channels/operators/configuration)。
+
+> **安全提示：** 写节点和读节点端口仅绑定到回环地址
+> （`127.0.0.1`），但其他几项服务（网关、认证、运营商指标、Grafana、Prometheus、cAdvisor）默认发布到所有网络接口。完整端口列表请参阅
+> [配置参考](/docs/tools/private-channels/operators/configuration#service-port-reference)，
+> 并在任何面向公众的部署前配置防火墙规则。RBAC 仅覆盖网关自身的 JSON-RPC 方法，不涵盖这些其他服务。
+
+### 访问控制：开放模式与 RBAC
+
+默认情况下，网关接受所有连接，无需令牌。要启用基于 JWT 的 RBAC，请设置 `JWT_SECRET` 并使用 `--profile auth` 启动服务栈。完整配置参考（包括如何配置 `operator` 角色和注册用户钱包）请参阅 **[认证与角色](/docs/tools/private-channels/concepts/auth)**。
+
+如果启用认证，请在启动服务栈前将以下内容添加到您的环境中：
+
+```bash
+JWT_SECRET=<openssl rand -hex 32>   # must match on gateway and auth service
+AUTH_PORT=8903
+```
+
+## 环境配置
+
+`.env.devnet` 已在仓库中被跟踪，并预填了 devnet 专用的默认值；请直接编辑该文件，而不要从 `.env.example` 重新生成，否则会覆盖这些默认值。
+
+在执行以下部署步骤时，逐步填写剩余的值；部分值仅在部署过程中途才可获得。密钥存放在已被 gitignore 的 `.env` 文件中；非密钥变量存放在 `.env.devnet` 中。
+
+**密钥 - 请立即设置：**
+
+```bash
+POSTGRES_PASSWORD=<openssl rand -hex 32>
+POSTGRES_REPLICATION_PASSWORD=<openssl rand -hex 32>
+```
+
+**部署过程中获取的变量：**
+
+```bash
+ESCROW_INSTANCE_ID=<instance address - from Step 3>
+ADMIN_PRIVATE_KEY=<operator keypair as u8 array or base58 - from Step 4>
+DEVNET_RPC_URL=https://api.devnet.solana.com
+DEVNET_YELLOWSTONE_ENDPOINT=<your Yellowstone gRPC endpoint>
+INDEXER_YELLOWSTONE_TOKEN=<your Yellowstone auth token>
+```
+
+<Callout type="warning">
+  `ADMIN_PRIVATE_KEY` 是链下服务自身所需的费用支付签名者，与第 3 步中的链上实例管理员无关。本指南将第 4 步生成的**运营商** keypair 填入 `ADMIN_PRIVATE_KEY`，并保留可选的 `OPERATOR_PRIVATE_KEY` 为空，使运营商签名者回退到同一密钥。请勿将第 3 步中的协议级实例管理员 keypair 填入任一变量。
+</Callout>
+
+有关完整的环境变量参考，请参阅
+**[配置](/docs/tools/private-channels/operators/configuration)**。
+
+## 部署
+
+<Steps>
+
+<Step>
+
+### 构建镜像
+
+```bash
+make docker-devnet-build
+```
+
+此命令将所有 Rust 服务编译到一个共享的 Docker 镜像中。首次构建需要 30 分钟到一个小时。
+
+</Step>
+
+<Step>
+
+### 配置 Admin UI
+
+Admin UI 是一个基于浏览器的工具，用于创建和配置托管实例：它是一个开发和管理工具，而非面向用户的产品，也不是必需的运行时组件。它执行的所有操作（`CreateInstance`、`AllowMint`、`AddOperator`）也可以通过仓库中的 CLI 脚本运行。
+
+```bash
+cd admin-ui
+pnpm install
+echo "PRIVATE_CHANNEL_RPC_URL=http://localhost:8899" > .env
+pnpm dev   # opens at http://localhost:5173
+```
+
+</Step>
+
+<Step>
+
+### 创建托管实例
+
+1. 将浏览器钱包切换到 **Devnet**，并确保您有用于支付手续费的 Devnet SOL
+2. 在 Admin UI 中，点击 **Create New Instance** 并批准交易
+3. 复制 **Instance Address** 并将其设置为 `.env.devnet` 中的 `ESCROW_INSTANCE_ID`
+
+或者，使用 CLI 脚本：
+
+```bash
+cargo run --bin create_instance -- https://api.devnet.solana.com ./keypairs/admin.json
+```
+
+</Step>
+
+<Step>
+
+### 生成运营商 keypair
+
+```bash
+solana-keygen new -o operator-keypair.json -s --no-bip39-passphrase
+solana-keygen pubkey operator-keypair.json
+```
+
+将 keypair 内容设置为环境中的 `ADMIN_PRIVATE_KEY`。公钥不是环境变量；您将在下方"配置实例"步骤中直接将其作为运营商 pubkey 传入。
+
+</Step>
+
+<Step>
+
+### 完成环境变量配置
+
+在 `.env.devnet` 中填入 `ESCROW_INSTANCE_ID`、`DEVNET_RPC_URL`、`DEVNET_YELLOWSTONE_ENDPOINT` 和 `INDEXER_YELLOWSTONE_TOKEN`。将密钥（`POSTGRES_PASSWORD`、`POSTGRES_REPLICATION_PASSWORD`、`ADMIN_PRIVATE_KEY`）存放在已被 gitignore 的 `.env` 文件中。
+
+如果您决定启用 RBAC
+（[访问控制：开放模式与 RBAC](#access-control-open-vs-rbac)），现在还需添加
+`JWT_SECRET` 和 `AUTH_PORT`。
+
+</Step>
+
+<Step>
+
+### 启动所有服务
+
+不启用认证：
+
+```bash
+make docker-devnet-up
+```
+
+启用认证：
+
+```bash
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+```
+
+一旦传入任何 `--env-file` 参数，Compose 将禁用其自动加载 `.env` 的功能，因此末尾的 `--env-file .env` 是必须的。若缺少它，`POSTGRES_PASSWORD`、`ADMIN_PRIVATE_KEY` 和 `JWT_SECRET`（您之前存放在 `.env` 中的值）将解析为空，导致服务栈无法正常启动。
+
+> 请在配置实例之前先启动服务。索引器实时流式处理事件，因此先启动服务栈可确保 `AllowMint` 和您的第一笔存款按顺序被索引，无需进行回填。
+
+</Step>
+
+<Step>
+
+### 配置实例
+
+服务栈运行后，通过 Admin UI 将代币铸造地址加入白名单并添加您的运营商：
+
+1. **允许铸造**：管理功能 -> 铸造管理 -> 输入铸造地址 -> 允许铸造
+2. **添加运营商**：管理功能 -> 运营商管理 -> 输入运营商 pubkey -> 添加运营商
+
+或通过 CLI：
+
+```bash
+cargo run --bin add_operator -- \
+  https://api.devnet.solana.com \
+  ./keypairs/admin.json \
+  <INSTANCE_ID> \
+  <OPERATOR_PUBKEY>
+```
+
+</Step>
+
+</Steps>
+
+<Callout type="warning">
+
+本指南面向 Solana devnet。对于主网：
+
+- 程序 ID 通过 `declare_id!()` 编译内置：请验证您使用的是仓库中正确的主网 ID
+- Yellowstone gRPC 端点需要主网订阅方案；devnet 端点无法流式传输主网事件
+- 运营商钱包为每次 `ReleaseFunds` 调用支付 SOL 手续费，请根据预期提款量合理配置 SOL 余额
+- 在任何面向公众的部署前，请更改所有默认凭据（Grafana、PostgreSQL）
+
+</Callout>
+
+## 运维
+
+### 常用命令
+
+```bash
+# View logs (all services)
+make docker-devnet-logs
+
+# View logs (specific service)
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana
+
+# Stop services
+make docker-devnet-down
+
+# Stop and wipe all state (volumes)
+make docker-devnet-clean
+```
+
+### 可观测性
+
+服务栈内置了 Prometheus、Grafana 和 cAdvisor，用于指标监控和容器监控。Grafana 可通过端口 `37429` 访问。
+
+<Callout type="warning">
+  Grafana 默认密码为 `admin`。在将端口 37429 暴露给 localhost 以外的任何网络之前，请务必更改此密码。
+</Callout>
+
+## 故障排查
+
+### 存款后通道余额未更新
+
+1. 在主网浏览器上确认主网存款交易已上链
+2. 验证 `indexer-solana` 正在运行：
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana`
+3. 验证 `operator-solana` 正在运行：
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-solana`
+4. 检查您的 Yellowstone gRPC 端点是否可达，以及令牌是否有效
+   （`DEVNET_YELLOWSTONE_ENDPOINT`、`INDEXER_YELLOWSTONE_TOKEN`）
+5. 链上确认后请等待最多 30 秒，因为索引器在入账前会应用最终性安全延迟
+
+### 提款未结算到主网
+
+1. 验证 `indexer-private-channel` 正在运行：
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-private-channel`
+2. 验证 `operator-private-channel` 正在运行：
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-private-channel`
+3. 确认 `ADMIN_PRIVATE_KEY` 中的运营商 keypair 与链上通过 `AddOperator` 注册的密钥一致
+4. 如果日志显示"SMT root mismatch"，服务将关闭而不是提交无效证明。请停止服务栈，从一致状态恢复，然后重新启动
+
+### JWT 认证失败（所有请求返回 401）
+
+1. 确认网关容器和认证服务容器上的 `JWT_SECRET` 完全一致
+2. 确认服务栈是使用 `--profile auth` 启动的
+3. 令牌在 24 小时后过期；请重新认证以获取新令牌
+
+### 首次构建耗时过长
+
+这是正常现象。首次执行 `make docker-devnet-build` 会编译所有 Rust 服务，在普通硬件上可能需要 30 至 60 分钟。后续构建会使用 Docker 层缓存，速度会显著加快。
+
+## 下一步
+
+<Cards>
+  <Card
+    title="快速入门"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    测试您的部署：在 devnet 上进行存款、转账和提款。
+  </Card>
+  <Card
+    title="配置"
+    href="/docs/tools/private-channels/operators/configuration"
+  >
+    所有服务的完整环境变量参考。
+  </Card>
+  <Card
+    title="认证与角色"
+    href="/docs/tools/private-channels/concepts/auth"
+  >
+    配置 JWT 身份验证并预置操作员角色用户。
+  </Card>
+  <Card
+    title="说明"
+    href="/docs/tools/private-channels/instructions/create-instance"
+  >
+    所有链上指令的完整参考文档。
+  </Card>
+</Cards>
