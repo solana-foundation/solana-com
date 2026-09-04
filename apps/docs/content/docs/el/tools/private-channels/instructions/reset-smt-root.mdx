@@ -1,0 +1,66 @@
+---
+title: Επαναφορά Ρίζας SMT
+description:
+  Περιστρέφει το Sparse Merkle Tree, επαναφέροντας τη ρίζα αναλήψεων για ένα νέο epoch δέντρου
+---
+
+Εντολή αποκλειστικά για τον Operator που περιστρέφει το Sparse Merkle Tree αυξάνοντας
+το `Instance.current_tree_index` και επαναφέροντας τη ρίζα αναλήψεων, επιτρέποντας ένα νέο
+epoch 65.536 αναλήψεων.
+
+<Callout type="info">
+  Το πρόγραμμα escrow μεταφέρεται από αυτή τη σχεδίαση Sparse Merkle Tree σε ένα
+  on-chain nonce bitmap (παρακολουθείται upstream), όπου αυτή η εντολή γίνεται
+  `RotateBitmap`. Αυτή η σελίδα είναι ακριβής σε σχέση με το τρέχον πρόγραμμα escrow και
+  θα αναθεωρηθεί μόλις εφαρμοστεί αυτή η αλλαγή.
+</Callout>
+
+## Λογαριασμοί
+
+| Λογαριασμός                          | Εγγράψιμος | Υπογράφων | Περιγραφή                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Πληρωτής τελών                                              |
+| `operator`                       |          | ✓      | Υπογράφων Operator                                        |
+| `instance`                       | ✓        |        | PDA instance escrow (το `current_tree_index` αυξάνεται) |
+| `operator_pda`                   |          |        | PDA Operator που αποδεικνύει ότι ο υπογράφων είναι εξουσιοδοτημένος         |
+| `event_authority`                |          |        | PDA αρχής συμβάντων για `EmitEvent` CPI                |
+| `private_channel_escrow_program` |          |        | Πρόγραμμα Escrow (αυτο-αναφορά για CPI)                |
+
+## Παράμετροι
+
+| Παράμετρος                     | Τύπος  | Περιγραφή                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Φρουρός επανάληψης· πρέπει να αντιστοιχεί στο `Instance.current_tree_index` αλλιώς η κλήση αποτυγχάνει |
+
+## Επιστρεφόμενη τιμή
+
+Επιστρέφει ένα `TransactionBuilder` που μπορεί να χρησιμοποιηθεί για τη δημιουργία και αποστολή της
+συναλλαγής.
+
+## Παράδειγμα
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Σημαντικές Σημειώσεις
+
+- Αποκλειστικά για Operator: απαιτεί έγκυρο `operator_pda`· διαφορετικά εκπέμπει `InvalidOperatorPda`
+- Το `expected_current_tree_index` πρέπει να ισούται με το `Instance.current_tree_index` κατά τη στιγμή της κλήσης· μια παρωχημένη τιμή εκπέμπει `UnexpectedTreeIndex`, προστατεύοντας από την επανάληψη μιας επαναφοράς που έχει ήδη εφαρμοστεί
+- Αυξάνει το `Instance.current_tree_index`· τα nonces που ήταν έγκυρα στο προηγούμενο epoch δέντρου ακυρώνονται μετά την περιστροφή
+- Η υπηρεσία `operator-private-channel` καλεί αυτόματα αυτή την εντολή όταν
+  `transaction_nonce % 65536 == 0` (και `nonce > 0`), σηματοδοτώντας την έναρξη ενός
+  νέου epoch· δεν θα πρέπει να χρειάζεται να κληθεί χειροκίνητα υπό κανονική λειτουργία
+- Μετά την περιστροφή, η ρίζα αναλήψεων επαναφέρεται στο κενό δέντρο, οπότε οι νέες
+  αναλήψεις ξεκινούν από ένα νέο SMT
+- Εκπέμπει ένα συμβάν μέσω `EmitEvent` CPI

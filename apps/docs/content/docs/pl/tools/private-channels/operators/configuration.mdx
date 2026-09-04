@@ -1,0 +1,105 @@
+---
+title: Dokumentacja konfiguracji
+description:
+  Zmienne środowiskowe, spis usług i przypisania portów dla wszystkich usług Private Channels
+---
+
+## Usługi
+
+Uruchomienie instancji Private Channels oznacza zarządzanie następującymi usługami
+Docker Compose:
+
+| Kontener                                  | Rola                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `private-channel-postgres-primary`         | Baza danych stanu węzła zapisu (PostgreSQL 16)                               |
+| `private-channel-postgres-replica`         | Baza danych stanu węzła odczytu (replika strumieniowa)                            |
+| `private-channel-postgres-indexer`         | Baza danych indeksera i operatora                                           |
+| `private-channel-write-node`               | Odbiera i wykonuje transakcje (port 8900, tylko pętla zwrotna)           |
+| `private-channel-read-node`                | Obsługuje zapytania odczytu RPC (port 8901, tylko pętla zwrotna)                     |
+| `private-channel-gateway`                  | Kieruje żądania między węzłami zapisu i odczytu; wymusza RBAC (port 8899) |
+| `private-channel-indexer-solana`           | Monitoruje Solana pod kątem zdarzeń `Deposit` przez Yellowstone gRPC                |
+| `private-channel-indexer-private-channel`  | Monitoruje kanał pod kątem zdarzeń `Burn` przez odpytywanie RPC                   |
+| `private-channel-operator-solana`          | Mintuje tokeny kanału po potwierdzeniu depozytów                        |
+| `private-channel-operator-private-channel` | Wywołuje `ReleaseFunds` na Mainnecie po potwierdzeniu wypłat          |
+| `private-channel-auth`                     | Opcjonalna usługa JWT/RBAC (profil Docker: `auth`)                      |
+
+Kontenery do obserwacji (`prometheus`, `grafana`, `cadvisor`) są również
+zawarte.
+
+## Gateway
+
+Te ustawienia mają sensowne wartości domyślne dla konfiguracji Docker Compose w sieci devnet. Nadpisuj je tylko
+jeśli uruchamiasz gateway poza Dockerem lub wdrażasz na produkcję.
+
+| Zmienna środowiskowa                         | Domyślna                                                             | Wymagana            | Opis                                        |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `GATEWAY_PORT`                  | `8899` (devnet)                                                     | Nie                  | Port nasłuchiwania                                        |
+| `GATEWAY_WRITE_URL`             | `http://write-node:8900` (wartość z pliku env devnet; brak domyślnej wartości w binarce) | **Tak**             | URL węzła zapisu – żądania `sendTransaction` są tutaj kierowane     |
+| `GATEWAY_READ_URL`              | `http://read-node:8901` (wartość z pliku env devnet; brak domyślnej wartości w binarce)  | **Tak**             | URL węzła odczytu – wszystkie pozostałe metody RPC są tutaj kierowane   |
+| `GATEWAY_CORS_ALLOWED_ORIGIN`   | `*`                                                                 | Nie                  | Wartość nagłówka `Access-Control-Allow-Origin`         |
+| `JWT_SECRET`                    | -                                                                   | Nie                  | Włącza RBAC; musi być zgodny z `JWT_SECRET` usługi auth |
+| `AUTH_DATABASE_URL`             | -                                                                   | Jeśli ustawiono `JWT_SECRET` | Baza danych auth do sprawdzania własności portfeli                |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | `10`                                                                | Nie                  | Rozmiar puli połączeń bazy danych auth                       |
+| `METRICS_PORT`                  | `9101`                                                              | Nie                  | Port metryk Prometheus                            |
+| `RUST_LOG`                      | `info`                                                              | Nie                  | Poziom logowania                                          |
+
+> `GATEWAY_WRITE_URL` i `GATEWAY_READ_URL` używają nazw hostów usług Docker Compose
+> (`write-node`, `read-node`) podczas działania w Dockerze. Używaj odpowiedników
+> `localhost` tylko wtedy, gdy uruchamiasz binarny plik gateway bezpośrednio poza Dockerem.
+>
+> Wbudowana domyślna wartość portu `GATEWAY_PORT` w binarce gateway wynosi `8898`.
+> Zarówno `.env.example`, jak i `.env.devnet` ustawiają go na `8899`, co jest wartością
+> faktycznie używaną przez konfigurację Docker Compose (`versions.env` przechowuje jedynie
+> oznaczenia wersji toolchainu i obrazów, nie porty usług). Wartość domyślna `8898`
+> ma zastosowanie tylko wtedy, gdy uruchamiasz binarny plik bezpośrednio bez pliku env.
+
+<Callout type="warning">
+  `GATEWAY_CORS_ALLOWED_ORIGIN` domyślnie przyjmuje wartość `*`, co pozwala dowolnemu
+  źródłu na wywołanie gateway z przeglądarki. Ogranicz to do rzeczywistego źródła
+  swojej aplikacji przed każdym wdrożeniem produkcyjnym.
+</Callout>
+
+## Węzeł zapisu i węzeł odczytu
+
+Pełna dokumentacja konfiguracji węzła zapisu i węzła odczytu znajduje się w
+[`docs/CONFIG.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/CONFIG.md)
+w repozytorium.
+
+## Usługa Auth
+
+| Zmienna środowiskowa                         | Wymagana            | Opis                                                                                                                  |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                    | **Tak**             | Sekret podpisywania HS256; musi być zgodny z `JWT_SECRET` gateway                                                                  |
+| `AUTH_PORT`                     | Nie (domyślnie `8903`) | Port nasłuchiwania                                                                                                                  |
+| `AUTH_DATABASE_URL`             | **Tak**             | Ciąg połączenia PostgreSQL dla bazy danych auth                                                                           |
+| `CORS_ALLOWED_ORIGIN`           | Nie (domyślnie `*`)    | Wartość nagłówka `Access-Control-Allow-Origin` dla tej usługi (niezależna od `GATEWAY_CORS_ALLOWED_ORIGIN` gateway) |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | Nie (domyślnie `10`)   | Rozmiar puli połączeń bazy danych auth                                                                                                 |
+
+## Dokumentacja portów usług
+
+| Usługa          | Port hosta  | Powiązanie                                                                           |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| Gateway          | 8899       | Wszystkie interfejsy                                                                    |
+| Węzeł zapisu       | 8900       | Tylko pętla zwrotna                                                                     |
+| Węzeł odczytu        | 8901       | Tylko pętla zwrotna                                                                     |
+| Streamer         | 8902       | Tylko wewnętrzny (`expose`, niepublikowany na hoście); nie jest częścią stosu devnet |
+| Usługa Auth     | 8903       | Wszystkie interfejsy                                                                    |
+| Metryki operatora | 9102, 9103 | Wszystkie interfejsy                                                                    |
+| Grafana          | 37429      | Wszystkie interfejsy                                                                    |
+| Prometheus       | 9090       | Wszystkie interfejsy                                                                    |
+| cAdvisor         | 8080       | Wszystkie interfejsy                                                                    |
+
+> **Uwaga dotycząca bezpieczeństwa:** Porty węzła zapisu i węzła odczytu są powiązane
+> wyłącznie z pętlą zwrotną (`127.0.0.1`). Gateway, usługa Auth, metryki operatora,
+> Grafana, Prometheus i cAdvisor są publikowane na wszystkich interfejsach sieciowych
+> w konfiguracji Docker Compose devnet. Zabezpiecz je zaporą sieciową na poziomie hosta
+> lub sieci dla wszystkiego poza lokalnym środowiskiem programistycznym; RBAC obejmuje
+> jedynie własne metody JSON-RPC gateway, a nie te pozostałe usługi. Streamer stanowi
+> wyjątek: jest to nieuwierzytelniony wewnętrzny strumień danych, który Docker nigdy
+> nie publikuje na hoście.
+
+## Wymagania sieciowe
+
+Zobacz
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+w repozytorium, aby zapoznać się z regułami zapory sieciowej i wymaganiami dotyczącymi przepustowości.

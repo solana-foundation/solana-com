@@ -1,0 +1,118 @@
+---
+title: Життєвий цикл каналу
+description:
+  Як працюють приватні платіжні канали, хто є їх учасниками та коли їх використовувати
+---
+
+## Що таке приватний канал?
+
+Приватний канал — це позамережева платіжна мережа, прив'язана до Solana. Користувачі вносять SPL-токени до смарт-контракту ескроу в мережі, після чого здійснюють транзакції поза мережею через шлюз із високою швидкістю та нульовою вартістю кожного переказу. Розрахунок із Solana Mainnet відбувається через доказ Sparse Merkle Tree, що гарантує можливість повернення коштів у будь-який момент та унеможливлює подвійне витрачання.
+
+На відміну від нативного платіжного потоку Solana, перекази всередині каналу не з'являються в мережі до моменту виведення коштів користувачем. Мережа каналів використовує власний конвеєр обробки транзакцій (dedup -> sig verify -> sequencer -> executor -> settler), що обробляє транзакції незалежно від часу блоку Solana.
+
+## Учасники
+
+### Адміністратор екземпляра
+
+Адміністратор розгортає PDA `Instance` через `CreateInstance` та контролює, які SPL-токени дозволено приймати (`AllowMint` / `BlockMint`). Адміністратор надає та відкликає права операторів через `AddOperator` / `RemoveOperator`, а також може передавати права адміністратора через `SetNewAdmin`. На один екземпляр припадає один адміністратор. Передача прав адміністратора є незворотною і відбувається в один крок: поточний адміністратор не може повернути собі роль без участі нового адміністратора.
+
+### Оператори
+
+Оператори призначаються адміністратором. Вони мають PDA `Operator` і є єдиними обліковими записами, яким дозволено викликати `ReleaseFunds` (для розрахунку виведень у Mainnet) та `ResetSmtRoot` (для ротації Sparse Merkle Tree). Оператори обходять усі перевірки права власності у шлюзі та мають доступ до всіх методів JSON-RPC, включно з `getBlock`, `getTransaction` та `simulateTransaction`. Роль JWT: `"operator"`. Оператори повинні бути призначені безпосередньо в базі даних; самостійне підвищення прав не передбачено. Деталі розгортання та налаштування описані в
+[посібнику для операторів](/docs/tools/private-channels/operators).
+
+### Користувачі
+
+Користувачі реєструються самостійно через Auth Service. Роль JWT: `"user"`. Користувачі можуть викликати `Deposit` безпосередньо в програмі ескроу та ініціювати виведення коштів через інструкцію `WithdrawFunds` на стороні каналу у програмі виведення. Доступ до шлюзу обмежений їхніми власними верифікованими гаманцями; їм недоступні виклики `getBlock`, `getTransaction` або `simulateTransaction`.
+
+## Життєвий цикл каналу
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Alice
+    participant Mainnet as Solana Mainnet
+    participant Channel as Private Channel Network
+
+    Note over Admin,Channel: SETUP (one time)
+    Admin->>Mainnet: CreateInstance
+    Admin->>Mainnet: AllowMint
+    Admin->>Mainnet: AddOperator
+
+    Note over Alice,Channel: DEPOSIT
+    Alice->>Mainnet: Deposit (tokens to escrow ATA)
+    Note over Channel: Indexer detects deposit event,<br/>credits Alice's channel balance
+
+    Note over Alice,Channel: OFF-CHAIN TRANSFERS
+    Alice->>Channel: SPL token transfer (via gateway)
+    Channel-->>Alice: Confirmed (~100 ms, no Mainnet fee)
+
+    Note over Alice,Mainnet: WITHDRAWAL
+    Alice->>Channel: WithdrawFunds (burns channel balance)
+    Note over Channel: Indexer detects burn (~1 s),<br/>operator submits ReleaseFunds
+    Channel->>Mainnet: ReleaseFunds (with SMT exclusion proof)
+    Mainnet-->>Alice: Tokens released to Mainnet wallet
+```
+
+1. **Створення екземпляра** — адміністратор викликає `CreateInstance`, створюючи PDA `Instance` та налаштовуючи дозволені токени.
+2. **Депозит** — користувачі вносять SPL-токени до ескроу через інструкцію `Deposit`. Токени переміщуються на associated token account екземпляра.
+3. **Позамережеві перекази** — користувачі надсилають перекази через шлюз. Перекази секвенуються та виконуються в мережі каналів без взаємодії з Mainnet.
+4. **Ініціювання виведення** — користувач викликає `WithdrawFunds` у програмі виведення (на стороні каналу), щоб списати свій баланс і ініціювати виведення коштів.
+5. **Розрахунок у Mainnet** — оператор надає дійсний доказ виключення SMT та викликає `ReleaseFunds` у програмі ескроу (Mainnet), вивільняючи токени на гаманець користувача.
+6. **Ротація дерева** — коли SMT наближається до максимальної ємності (65 536 листів), оператор викликає `ResetSmtRoot`, щоб виконати ротацію дерева та розпочати новий epoch.
+
+### Переказ
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    participant GW as Gateway
+    participant Pipeline as Write Node Pipeline
+    participant DB as Channel State
+
+    Alice->>GW: SPL token transfer to Bob
+    GW->>Pipeline: Route to write node
+
+    Note over Pipeline: 1. Dedup - reject duplicates and replays<br/>2. SigVerify - validate signatures<br/>3. Sequencer - order into conflict-free batch<br/>4. Executor - apply to off-chain account state<br/>5. Settler - commit to database, update blockhash
+
+    Pipeline->>DB: Commit updated balances
+    GW-->>Alice: Confirmed (off-chain, not recorded on Mainnet)
+    Note over Bob: Balance updated in channel state
+```
+
+### Виведення
+
+```mermaid
+sequenceDiagram
+    participant Bob
+    participant Channel as Private Channel Network
+    participant Indexer as indexer-private-channel
+    participant Operator as operator-private-channel
+    participant Mainnet as Solana Mainnet
+
+    Bob->>Channel: WithdrawFunds (burns channel-side balance)
+    Channel-->>Bob: Burn confirmed off-chain
+
+    Note over Indexer: Polls gateway every 1 s
+    Indexer->>Channel: Detect burn event
+    Indexer->>Indexer: Write pending withdrawal to database
+
+    Operator->>Indexer: Pick up pending record
+    Operator->>Mainnet: ReleaseFunds (SMT exclusion proof)
+    Mainnet-->>Bob: Tokens transferred to Mainnet ATA
+```
+
+## Коли використовувати приватні канали
+
+Використовуйте приватні канали, якщо ваш застосунок потребує:
+
+- **Позамережевої пропускної здатності** — обсяг ваших переказів може перевантажити TPS Solana або вам потрібне підтвердження швидше ніж за секунду
+- **Конфіденційності** — особистості контрагентів та суми переказів не повинні з'являтися в мережі
+- **Нульових комісій за переказ** — часті перекази, де вартість SOL за транзакцію є надмірною
+
+Натомість використовуйте нативні SPL-перекази, якщо:
+
+- **Потрібна компонованість у мережі** (DeFi, свопи, кредитування; інші програми мають можливість спостерігати за переказом або діяти на його основі)
+- **Розрахунок в один переказ** є прийнятним і конфіденційність не є пріоритетом
+- **Інфраструктура шлюзу** недоступна або її розгортання є операційно нецільовим

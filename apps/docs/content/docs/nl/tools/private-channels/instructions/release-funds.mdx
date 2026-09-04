@@ -1,0 +1,90 @@
+---
+title: Fondsen Vrijgeven
+description:
+  Geeft tokens vrij uit escrow naar de wallet van een gebruiker na verificatie van een SMT-uitsluitingsbewijs
+---
+
+Aangeroepen door een ingerichte operator om tokens in escrow vrij te geven aan de Mainnet-wallet van een gebruiker, afhankelijk van een geldig Sparse Merkle Tree-uitsluitingsbewijs voor de opname-nonce.
+
+<Callout type="info">
+  Het escrow-programma migreert van dit Sparse Merkle Tree-ontwerp naar een
+  on-chain nonce-bitmap (bijgehouden upstream). Deze pagina is accuraat ten opzichte van het
+  huidige escrow-programma en wordt herzien zodra die wijziging van kracht is.
+</Callout>
+
+## Accounts
+
+| Account                          | Schrijfbaar | Ondertekenaar | Beschrijving                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Betaler van de transactiekosten                                                          |
+| `operator`                       |          | ✓      | Operator-ondertekenaar                                                    |
+| `instance`                       | ✓        |        | Escrow-instantie PDA (root on-chain bijgewerkt)                        |
+| `operator_pda`                   |          |        | Operator-PDA die bewijst dat de ondertekenaar is ingericht                     |
+| `mint`                           |          |        | SPL-token mint                                                     |
+| `allowed_mint`                   |          |        | AllowedMint PDA - valideert dat de mint is toegestaan op deze instantie |
+| `user_ata`                       | ✓        |        | associated token account van de ontvanger (bestemming)                 |
+| `instance_ata`                   | ✓        |        | associated token account van de escrow (bron)                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | Event authority PDA voor `EmitEvent` CPI                            |
+| `private_channel_escrow_program` |          |        | Escrow-programma (zelfverwijzing voor CPI)                            |
+
+## Parameters
+
+| Parameter             | Type        | Beschrijving                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Aantal vrij te geven tokens                                   |
+| `user`                | `Pubkey`    | Ontvangende wallet op Mainnet                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Bijgewerkte SMT-root na opname van de nonce van deze opname      |
+| `transaction_nonce`   | `u64`       | Unieke nonce die dit opnameblad in de SMT identificeert      |
+| `sibling_proofs`      | `[u8; 512]` | 16 sibling-hashes (elk 32 bytes) voor het SMT-uitsluitingsbewijs |
+
+## Retourwaarden
+
+Retourneert een `TransactionBuilder` die gebruikt kan worden om de
+transactie te bouwen en te verzenden.
+
+## Voorbeeld
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Belangrijke Opmerkingen
+
+- De aanroeper moet een ingerichte operator zijn: `operator_pda` moet bestaan (aangemaakt door
+  `AddOperator`); een ongeldige PDA gooit `InvalidOperatorPda`
+- `sibling_proofs` is exact 512 bytes (16 × 32-byte hashes, overeenkomend met de SMT-
+  boomhoogte van 16)
+- `new_withdrawal_root` is de bijgewerkte SMT-root na opname van de nonce van deze
+  opname. Bereken deze off-chain voor het aanroepen
+- `transaction_nonce` moet geldig zijn voor `Instance.current_tree_index`; een
+  ongeldige nonce gooit `InvalidTransactionNonceForCurrentTreeIndex`
+- Het programma voert eerst `verify_smt_exclusion_proof` uit, waarmee wordt bewezen dat de nonce
+  NOG NIET bestaat ten opzichte van de huidige root, en vervolgens een afzonderlijke
+  `verify_smt_inclusion_proof` die bewijst dat de nonce WEL bestaat in de
+  door de aanroeper opgegeven `new_withdrawal_root`. Als een van beide controles mislukt, wordt
+  `InvalidSmtProof` gegenereerd
+- Pas nadat beide controles zijn geslaagd, wordt `Instance.withdrawal_transactions_root` atomisch bijgewerkt;
+  de nonce kan niet opnieuw worden gebruikt
+- Genereert een event via `EmitEvent` CPI

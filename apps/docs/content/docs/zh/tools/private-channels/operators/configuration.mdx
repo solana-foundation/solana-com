@@ -1,0 +1,97 @@
+---
+title: 配置参考
+description:
+  所有 Private Channels 服务的环境变量、服务清单及端口分配
+---
+
+## 服务
+
+运行 Private Channels 实例意味着需要管理以下 Docker Compose
+服务：
+
+| 容器                                  | 角色                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `private-channel-postgres-primary`         | 写节点状态数据库（PostgreSQL 16）                               |
+| `private-channel-postgres-replica`         | 读节点状态数据库（流式副本）                            |
+| `private-channel-postgres-indexer`         | 索引器与运营商数据库                                           |
+| `private-channel-write-node`               | 接收并执行交易（端口 8900，仅限回环）           |
+| `private-channel-read-node`                | 处理 RPC 读取查询（端口 8901，仅限回环）                     |
+| `private-channel-gateway`                  | 在写节点与读节点之间路由请求；执行 RBAC（端口 8899） |
+| `private-channel-indexer-solana`           | 通过 Yellowstone gRPC 监听 Solana 上的 `Deposit` 事件                |
+| `private-channel-indexer-private-channel`  | 通过 RPC 轮询监听通道上的 `Burn` 事件                   |
+| `private-channel-operator-solana`          | 存款确认后铸造通道代币                        |
+| `private-channel-operator-private-channel` | 提款确认后在主网上调用 `ReleaseFunds`          |
+| `private-channel-auth`                     | 可选 JWT/RBAC 服务（Docker profile：`auth`）                      |
+
+可观测性容器（`prometheus`、`grafana`、`cadvisor`）也
+已包含在内。
+
+## 网关
+
+以下配置对 devnet Docker Compose 环境已有合理默认值。仅在网关运行于 Docker 之外或部署至生产环境时才需覆盖。
+
+| 环境变量                         | 默认值                                                             | 是否必填            | 描述                                        |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `GATEWAY_PORT`                  | `8899`（devnet）                                                     | 否                  | 监听端口                                        |
+| `GATEWAY_WRITE_URL`             | `http://write-node:8900`（devnet 环境文件值；无二进制默认值） | **是**             | 写节点 URL——`sendTransaction` 请求路由至此     |
+| `GATEWAY_READ_URL`              | `http://read-node:8901`（devnet 环境文件值；无二进制默认值）  | **是**             | 读节点 URL——所有其他 RPC 方法路由至此   |
+| `GATEWAY_CORS_ALLOWED_ORIGIN`   | `*`                                                                 | 否                  | `Access-Control-Allow-Origin` 标头值         |
+| `JWT_SECRET`                    | -                                                                   | 否                  | 启用 RBAC；必须与认证服务的 `JWT_SECRET` 一致 |
+| `AUTH_DATABASE_URL`             | -                                                                   | 若设置了 `JWT_SECRET` | 用于钱包归属校验的认证数据库                |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | `10`                                                                | 否                  | 认证数据库连接池大小                       |
+| `METRICS_PORT`                  | `9101`                                                              | 否                  | Prometheus 指标端口                            |
+| `RUST_LOG`                      | `info`                                                              | 否                  | 日志级别                                          |
+
+> `GATEWAY_WRITE_URL` 和 `GATEWAY_READ_URL` 在 Docker 内运行时使用 Docker Compose 服务
+> 主机名（`write-node`、`read-node`）。仅在网关二进制文件直接运行于 Docker 之外时，才使用 `localhost`
+> 等效地址。
+>
+> 网关二进制文件内置的 `GATEWAY_PORT` 默认值为 `8898`。
+> `.env.example` 和 `.env.devnet` 均将其设置为 `8899`，这也是
+> Docker Compose 实际使用的值（`versions.env` 仅保存工具链和
+> 镜像版本标识，不包含服务端口）。`8898` 默认值仅在不使用环境文件直接运行二进制文件时生效。
+
+<Callout type="warning">
+  `GATEWAY_CORS_ALLOWED_ORIGIN` 默认值为 `*`，允许任意来源通过浏览器调用
+  网关。在任何生产部署之前，请将其限制为应用程序的实际来源。
+</Callout>
+
+## 写节点与读节点
+
+完整的写节点和读节点配置参考位于仓库中的
+[`docs/CONFIG.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/CONFIG.md)。
+
+## 认证服务
+
+| 环境变量                         | 是否必填            | 描述                                                                                                                  |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                    | **是**             | HS256 签名密钥；必须与网关的 `JWT_SECRET` 一致                                                                  |
+| `AUTH_PORT`                     | 否（默认 `8903`） | 监听端口                                                                                                                  |
+| `AUTH_DATABASE_URL`             | **是**             | 认证数据库的 PostgreSQL 连接字符串                                                                           |
+| `CORS_ALLOWED_ORIGIN`           | 否（默认 `*`）    | 此服务的 `Access-Control-Allow-Origin` 标头值（独立于网关自身的 `GATEWAY_CORS_ALLOWED_ORIGIN`） |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | 否（默认 `10`）   | 认证数据库连接池大小                                                                                                 |
+
+## 服务端口参考
+
+| 服务          | 主机端口  | 绑定方式                                                                           |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| 网关          | 8899       | 所有接口                                                                    |
+| 写节点       | 8900       | 仅限回环                                                                     |
+| 读节点        | 8901       | 仅限回环                                                                     |
+| 流处理器         | 8902       | 仅限内部（`expose`，不发布至主机）；不属于 devnet 技术栈 |
+| 认证服务     | 8903       | 所有接口                                                                    |
+| 运营商指标 | 9102, 9103 | 所有接口                                                                    |
+| Grafana          | 37429      | 所有接口                                                                    |
+| Prometheus       | 9090       | 所有接口                                                                    |
+| cAdvisor         | 8080       | 所有接口                                                                    |
+
+> **安全说明：** 写节点和读节点端口仅绑定至回环地址
+> （`127.0.0.1`）。网关、认证服务、运营商指标、Grafana、
+> Prometheus 和 cAdvisor 在 devnet Docker Compose 环境中均发布至所有网络接口。对于本地开发以外的任何场景，请在主机或网络层级对其配置防火墙；RBAC 仅覆盖网关自身的 JSON-RPC
+> 方法，不涵盖这些其他服务。流处理器是例外：它是一个未经认证的内部数据流，Docker 不会将其发布至主机。
+
+## 网络要求
+
+请参阅仓库中的
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+以了解防火墙规则和带宽要求。

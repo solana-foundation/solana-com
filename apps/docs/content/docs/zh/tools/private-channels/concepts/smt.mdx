@@ -1,0 +1,86 @@
+---
+title: 稀疏默克尔树
+description:
+  私有通道如何使用稀疏默克尔树防止提款双花
+---
+
+<Callout type="info">
+  用户和开发者不直接与 SMT 交互；排除证明由 `operator-private-channel` 服务自动计算并提交。本页面是面向运营商及构建运营商工具的开发者的参考资料。
+</Callout>
+
+<Callout type="info">
+  托管程序正在从当前的稀疏默克尔树设计迁移至链上 nonce 位图（上游跟踪中）。本页面内容与当前托管程序保持一致，待变更落地后将进行修订。
+</Callout>
+
+## 用途
+
+私有通道使用稀疏默克尔树（SMT）来确保每个提款 nonce 只能被结算一次。当运营商调用 `ReleaseFunds` 时，必须提供两个证明：一个排除证明，证明该 nonce 在当前根中尚不存在；以及一个包含证明，证明该 nonce 存在于调用方提供的新根中。只有两项检查均通过后，程序才会存储新根，使任何未来复用该 nonce 的尝试均可被证明无效。
+
+## 树参数
+
+- 树高度：`16`
+- 最大叶子数：`65,536`（2^16）
+- 哈希函数：SHA-256
+- 空叶子值：`[0u8; 32]`（32 个零字节）
+- 非空叶子值：`SHA256([1u8; 32])`，以常量 `NON_EMPTY_LEAF_HASH` 的形式存储
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## 叶子结构
+
+每笔提款恰好占用一个叶子。叶子位置由以下方式决定：
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+当叶子的值等于 `NON_EMPTY_LEAF_HASH`（即 `SHA256([1u8; 32])`）时，该叶子被视为非空。空叶子的值全为零。
+
+## Nonce 与叶子位置
+
+`ReleaseFunds` 中的 `transaction_nonce` 为 `u64` 类型。其在树中的位置为 `nonce % 65536`，对应的预期 epoch 为 `nonce / 65536`。链上程序会验证该计算所得的 epoch 是否等于 `Instance.current_tree_index`；若不匹配，则抛出 `InvalidTransactionNonceForCurrentTreeIndex`。
+
+## 树轮换
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+SMT 的固定容量为 65,536 个叶子。运营商服务通过检查 `nonce % 65536 == 0`（且 `nonce > 0`）来判断是否需要进行轮换；该边界标志着新 epoch 的开始。届时，`operator-private-channel` 会在提交下一个 `ReleaseFunds` 之前调用 `ResetSmtRoot`：
+
+- `Instance.current_tree_index` 递增
+- 提款根重置为空树
+- 前一树 epoch 的 nonce 被作废
+
+运营商服务在每次 `ReleaseFunds` 调用前，还会验证本地 SMT 根与链上 `Instance.withdrawal_transactions_root` 是否一致；若不匹配，则触发安全关闭，而非提交可能无效的证明。
+
+树轮换由链上存储的 `Instance.current_tree_index: u64` 进行跟踪。
+
+## ReleaseFunds 中的验证
+
+`ReleaseFunds` 中的 `sibling_proofs` 参数恰好为 `[u8; 512]`：16 个兄弟哈希 × 每个 32 字节，与树高度 16 相匹配。
+
+链上验证流程按顺序执行两项独立检查：
+
+1. `verify_smt_exclusion_proof` 证明 nonce 叶子在当前 `Instance.withdrawal_transactions_root` 下目前为空
+2. `verify_smt_inclusion_proof` 证明 nonce 叶子存在于调用方提供的 `new_withdrawal_root` 参数中
+3. 只有两项检查均通过，程序才会将 `new_withdrawal_root` 存储为新的 `Instance.withdrawal_transactions_root` 并释放代币
+
+任一检查失败均会抛出 `InvalidSmtProof`。第 3 步的根更新与每次 `ReleaseFunds` 调用是原子性的。

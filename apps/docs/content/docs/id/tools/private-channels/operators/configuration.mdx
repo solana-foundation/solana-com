@@ -1,0 +1,104 @@
+---
+title: Referensi Konfigurasi
+description:
+  Variabel lingkungan, inventaris layanan, dan penetapan port untuk semua layanan Private Channels
+---
+
+## Layanan
+
+Menjalankan instans Private Channels berarti memiliki layanan Docker Compose
+berikut:
+
+| Container                                  | Peran                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `private-channel-postgres-primary`         | Database status node tulis (PostgreSQL 16)                               |
+| `private-channel-postgres-replica`         | Database status node baca (streaming replica)                            |
+| `private-channel-postgres-indexer`         | Database indexer dan operator                                           |
+| `private-channel-write-node`               | Menerima dan mengeksekusi transaksi (port 8900, loopback saja)           |
+| `private-channel-read-node`                | Menangani kueri baca RPC (port 8901, loopback saja)                     |
+| `private-channel-gateway`                  | Merutekan permintaan antara node tulis dan baca; menerapkan RBAC (port 8899) |
+| `private-channel-indexer-solana`           | Memantau Solana untuk event `Deposit` melalui Yellowstone gRPC                |
+| `private-channel-indexer-private-channel`  | Memantau channel untuk event `Burn` melalui polling RPC                   |
+| `private-channel-operator-solana`          | Mencetak token channel ketika deposit dikonfirmasi                        |
+| `private-channel-operator-private-channel` | Memanggil `ReleaseFunds` di Mainnet ketika penarikan dikonfirmasi          |
+| `private-channel-auth`                     | Layanan JWT/RBAC opsional (profil Docker: `auth`)                      |
+
+Container observabilitas (`prometheus`, `grafana`, `cadvisor`) juga
+disertakan.
+
+## Gateway
+
+Pengaturan ini memiliki nilai default yang sesuai untuk konfigurasi Docker Compose devnet. Ganti hanya
+jika menjalankan gateway di luar Docker atau melakukan deploy ke produksi.
+
+| Env Var                         | Default                                                             | Wajib            | Deskripsi                                        |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `GATEWAY_PORT`                  | `8899` (devnet)                                                     | Tidak                  | Port listen                                        |
+| `GATEWAY_WRITE_URL`             | `http://write-node:8900` (nilai env file devnet; tidak ada default biner) | **Ya**             | URL node tulis - `sendTransaction` diarahkan ke sini     |
+| `GATEWAY_READ_URL`              | `http://read-node:8901` (nilai env file devnet; tidak ada default biner)  | **Ya**             | URL node baca - semua metode RPC lainnya diarahkan ke sini   |
+| `GATEWAY_CORS_ALLOWED_ORIGIN`   | `*`                                                                 | Tidak                  | Nilai header `Access-Control-Allow-Origin`         |
+| `JWT_SECRET`                    | -                                                                   | Tidak                  | Mengaktifkan RBAC; harus cocok dengan `JWT_SECRET` layanan auth |
+| `AUTH_DATABASE_URL`             | -                                                                   | Jika `JWT_SECRET` diset | DB Auth untuk pemeriksaan kepemilikan wallet                |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | `10`                                                                | Tidak                  | Ukuran pool koneksi DB Auth                       |
+| `METRICS_PORT`                  | `9101`                                                              | Tidak                  | Port metrik Prometheus                            |
+| `RUST_LOG`                      | `info`                                                              | Tidak                  | Level log                                          |
+
+> `GATEWAY_WRITE_URL` dan `GATEWAY_READ_URL` menggunakan nama host layanan
+> Docker Compose (`write-node`, `read-node`) saat berjalan di dalam Docker. Gunakan padanan
+> `localhost` hanya saat menjalankan biner gateway secara langsung di luar Docker.
+>
+> Default bawaan biner gateway untuk `GATEWAY_PORT` adalah `8898`.
+> `.env.example` dan `.env.devnet` keduanya menetapkannya ke `8899`, yang merupakan nilai
+> yang sebenarnya digunakan oleh konfigurasi Docker Compose (`versions.env` hanya menyimpan pin
+> versi toolchain dan image, bukan port layanan). Default `8898` hanya berlaku jika Anda
+> menjalankan biner secara langsung tanpa env file.
+
+<Callout type="warning">
+  `GATEWAY_CORS_ALLOWED_ORIGIN` secara default bernilai `*`, yang mengizinkan origin mana pun untuk memanggil
+  gateway dari browser. Batasi ini ke origin aktual aplikasi Anda
+  sebelum deployment produksi apa pun.
+</Callout>
+
+## Write Node dan Read Node
+
+Referensi konfigurasi lengkap write node dan read node terdapat di
+[`docs/CONFIG.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/CONFIG.md)
+dalam repositori.
+
+## Layanan Auth
+
+| Env Var                         | Wajib            | Deskripsi                                                                                                                  |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                    | **Ya**             | Rahasia penandatanganan HS256; harus cocok dengan `JWT_SECRET` gateway                                                                  |
+| `AUTH_PORT`                     | Tidak (default `8903`) | Port listen                                                                                                                  |
+| `AUTH_DATABASE_URL`             | **Ya**             | String koneksi PostgreSQL untuk database auth                                                                           |
+| `CORS_ALLOWED_ORIGIN`           | Tidak (default `*`)    | Nilai header `Access-Control-Allow-Origin` untuk layanan ini (independen dari `GATEWAY_CORS_ALLOWED_ORIGIN` milik gateway) |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | Tidak (default `10`)   | Ukuran pool koneksi DB Auth                                                                                                 |
+
+## Referensi Port Layanan
+
+| Layanan          | Port Host  | Binding                                                                           |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| Gateway          | 8899       | Semua antarmuka                                                                    |
+| Write node       | 8900       | Loopback saja                                                                     |
+| Read node        | 8901       | Loopback saja                                                                     |
+| Streamer         | 8902       | Internal saja (`expose`, tidak dipublikasikan ke host); bukan bagian dari stack devnet |
+| Layanan Auth     | 8903       | Semua antarmuka                                                                    |
+| Metrik operator | 9102, 9103 | Semua antarmuka                                                                    |
+| Grafana          | 37429      | Semua antarmuka                                                                    |
+| Prometheus       | 9090       | Semua antarmuka                                                                    |
+| cAdvisor         | 8080       | Semua antarmuka                                                                    |
+
+> **Catatan keamanan:** Port write-node dan read-node terikat ke loopback
+> (`127.0.0.1`) saja. Gateway, layanan Auth, metrik operator, Grafana,
+> Prometheus, dan cAdvisor semuanya dipublikasikan ke setiap antarmuka jaringan dalam
+> konfigurasi Docker Compose devnet. Lindungi ini dengan firewall di level host atau jaringan untuk
+> penggunaan apa pun di luar pengembangan lokal; RBAC hanya mencakup metode JSON-RPC milik gateway itu sendiri,
+> bukan layanan lain ini. Streamer adalah pengecualian: ini adalah feed internal
+> yang tidak terautentikasi dan tidak pernah dipublikasikan Docker ke host.
+
+## Persyaratan Jaringan
+
+Lihat
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+dalam repositori untuk aturan firewall dan persyaratan bandwidth.

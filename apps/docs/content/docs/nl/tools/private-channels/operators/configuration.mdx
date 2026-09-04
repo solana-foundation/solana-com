@@ -1,0 +1,104 @@
+---
+title: Configuratiereferentie
+description:
+  Omgevingsvariabelen, service-inventaris en poorttoewijzingen voor alle Private Channels-services
+---
+
+## Services
+
+Het uitvoeren van een Private Channels-instantie betekent dat u de volgende Docker Compose-services
+beheerd:
+
+| Container                                  | Rol                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `private-channel-postgres-primary`         | Schrijfknooppunt statusdatabase (PostgreSQL 16)                               |
+| `private-channel-postgres-replica`         | Leesknooppunt statusdatabase (streaming replica)                            |
+| `private-channel-postgres-indexer`         | Indexer- en operatordatabase                                           |
+| `private-channel-write-node`               | Ontvangt en verwerkt transacties (poort 8900, alleen loopback)           |
+| `private-channel-read-node`                | Verwerkt RPC-leesquery's (poort 8901, alleen loopback)                     |
+| `private-channel-gateway`                  | Routeert verzoeken tussen schrijf- en leesknooppunten; handhaaft RBAC (poort 8899) |
+| `private-channel-indexer-solana`           | Bewaakt Solana op `Deposit`-events via Yellowstone gRPC                |
+| `private-channel-indexer-private-channel`  | Bewaakt het kanaal op `Burn`-events via RPC-polling                   |
+| `private-channel-operator-solana`          | Mint kanaaltokens wanneer stortingen zijn bevestigd                        |
+| `private-channel-operator-private-channel` | Roept `ReleaseFunds` aan op Mainnet wanneer opnames zijn bevestigd          |
+| `private-channel-auth`                     | Optionele JWT/RBAC-service (Docker-profiel: `auth`)                      |
+
+Observability-containers (`prometheus`, `grafana`, `cadvisor`) zijn ook
+bijgevoegd.
+
+## Gateway
+
+Deze hebben verstandige standaardinstellingen voor de devnet Docker Compose-opzet. Overschrijf alleen
+als de gateway buiten Docker wordt uitgevoerd of naar productie wordt geïmplementeerd.
+
+| Omgevingsvariabele                         | Standaard                                                             | Vereist            | Beschrijving                                        |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `GATEWAY_PORT`                  | `8899` (devnet)                                                     | Nee                  | Luisterpoort                                        |
+| `GATEWAY_WRITE_URL`             | `http://write-node:8900` (devnet env-bestandswaarde; geen binaire standaard) | **Ja**             | Schrijfknooppunt-URL – `sendTransaction` wordt hierheen gerouteerd     |
+| `GATEWAY_READ_URL`              | `http://read-node:8901` (devnet env-bestandswaarde; geen binaire standaard)  | **Ja**             | Leesknooppunt-URL – alle overige RPC-methoden worden hierheen gerouteerd   |
+| `GATEWAY_CORS_ALLOWED_ORIGIN`   | `*`                                                                 | Nee                  | Waarde van de `Access-Control-Allow-Origin`-header         |
+| `JWT_SECRET`                    | -                                                                   | Nee                  | Schakelt RBAC in; moet overeenkomen met de `JWT_SECRET` van de auth-service |
+| `AUTH_DATABASE_URL`             | -                                                                   | Als `JWT_SECRET` is ingesteld | Auth-DB voor controles van walletbezit                |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | `10`                                                                | Nee                  | Verbindingspoolgrootte van de auth-DB                       |
+| `METRICS_PORT`                  | `9101`                                                              | Nee                  | Prometheus-metriekenpoort                            |
+| `RUST_LOG`                      | `info`                                                              | Nee                  | Logniveau                                          |
+
+> `GATEWAY_WRITE_URL` en `GATEWAY_READ_URL` gebruiken Docker Compose-service-
+> hostnamen (`write-node`, `read-node`) wanneer ze in Docker worden uitgevoerd. Gebruik `localhost`-
+> equivalenten alleen wanneer de gateway-binary rechtstreeks buiten Docker wordt uitgevoerd.
+>
+> De ingebouwde standaard van de gateway-binary voor `GATEWAY_PORT` is `8898`.
+> `.env.example` en `.env.devnet` stellen dit beide in op `8899`, wat de
+> Docker Compose-opzet feitelijk gebruikt (`versions.env` bevat alleen toolchain- en
+> imageversie-pins, geen servicepoorten). De standaard `8898` is alleen van toepassing als u
+> de binary rechtstreeks uitvoert zonder env-bestand.
+
+<Callout type="warning">
+  `GATEWAY_CORS_ALLOWED_ORIGIN` staat standaard op `*`, waardoor elke origin de
+  gateway vanuit een browser kan aanroepen. Beperk dit tot de werkelijke origin van uw applicatie
+  vóór elke productie-implementatie.
+</Callout>
+
+## Schrijfknooppunt en leesknooppunt
+
+De volledige configuratiereferentie voor het schrijfknooppunt en het leesknooppunt staat in
+[`docs/CONFIG.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/CONFIG.md)
+in de repository.
+
+## Auth-service
+
+| Omgevingsvariabele                         | Vereist            | Beschrijving                                                                                                                  |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                    | **Ja**             | HS256-ondertekeningsgeheim; moet overeenkomen met de `JWT_SECRET` van de gateway                                                                  |
+| `AUTH_PORT`                     | Nee (standaard `8903`) | Luisterpoort                                                                                                                  |
+| `AUTH_DATABASE_URL`             | **Ja**             | PostgreSQL-verbindingsstring voor de auth-database                                                                           |
+| `CORS_ALLOWED_ORIGIN`           | Nee (standaard `*`)    | Waarde van de `Access-Control-Allow-Origin`-header voor deze service (onafhankelijk van de `GATEWAY_CORS_ALLOWED_ORIGIN` van de gateway) |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | Nee (standaard `10`)   | Verbindingspoolgrootte van de auth-DB                                                                                                 |
+
+## Servicepoortoverzicht
+
+| Service          | Hostpoort  | Binding                                                                           |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| Gateway          | 8899       | Alle interfaces                                                                    |
+| Schrijfknooppunt       | 8900       | Alleen loopback                                                                     |
+| Leesknooppunt        | 8901       | Alleen loopback                                                                     |
+| Streamer         | 8902       | Alleen intern (`expose`, niet gepubliceerd naar de host); geen onderdeel van de devnet-stack |
+| Auth-service     | 8903       | Alle interfaces                                                                    |
+| Operator-metrieken | 9102, 9103 | Alle interfaces                                                                    |
+| Grafana          | 37429      | Alle interfaces                                                                    |
+| Prometheus       | 9090       | Alle interfaces                                                                    |
+| cAdvisor         | 8080       | Alle interfaces                                                                    |
+
+> **Beveiligingsopmerking:** Poorten van het schrijfknooppunt en het leesknooppunt zijn gebonden aan loopback
+> (`127.0.0.1`) alleen. Gateway, auth-service, operator-metrieken, Grafana,
+> Prometheus en cAdvisor worden allemaal gepubliceerd naar elk netwerkinterface in de
+> devnet Docker Compose-opzet. Beveilig deze met een firewall op host- of netwerkniveau voor
+> alles buiten lokale ontwikkeling; RBAC dekt alleen de eigen JSON-RPC-methoden van de gateway,
+> niet deze andere services. De Streamer vormt de uitzondering: het is een
+> niet-geverifieerde interne feed die Docker nooit naar de host publiceert.
+
+## Netwerkvereisten
+
+Zie
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+in de repository voor firewallregels en bandbreedtevereisten.

@@ -1,0 +1,113 @@
+---
+title: Cây Merkle Thưa
+description:
+  Cách Private Channels sử dụng Cây Merkle Thưa để ngăn chặn chi tiêu đúp khi rút tiền
+---
+
+<Callout type="info">
+  Người dùng và nhà phát triển không tương tác trực tiếp với SMT; các bằng chứng loại trừ
+  được tính toán và gửi tự động bởi dịch vụ `operator-private-channel`.
+  Trang này là tài liệu tham khảo dành cho các nhà vận hành và bất kỳ ai xây dựng
+  công cụ vận hành.
+</Callout>
+
+<Callout type="info">
+  Chương trình ký quỹ đang được chuyển đổi từ thiết kế Cây Merkle Thưa này sang
+  một bitmap nonce trên chuỗi (được theo dõi ở upstream). Trang này phản ánh chính xác
+  chương trình ký quỹ hiện tại và sẽ được cập nhật lại khi thay đổi đó được áp dụng.
+</Callout>
+
+## Mục Đích
+
+Private Channels sử dụng Cây Merkle Thưa (SMT) để đảm bảo rằng mỗi
+nonce rút tiền chỉ có thể được thanh toán một lần. Khi một nhà vận hành gọi
+`ReleaseFunds`, họ phải cung cấp hai bằng chứng: một bằng chứng loại trừ rằng nonce
+CHƯA tồn tại trong root hiện tại, và một bằng chứng bao gồm rằng nonce
+ĐÃ tồn tại trong root mới do người gọi cung cấp. Chỉ sau khi cả hai kiểm tra đều vượt qua
+chương trình mới lưu trữ root mới, khiến mọi nỗ lực tái sử dụng nonce trong tương lai
+trở nên không hợp lệ một cách có thể chứng minh được.
+
+## Tham Số Cây
+
+- Chiều cao cây: `16`
+- Số lá tối đa: `65.536` (2^16)
+- Hàm băm: SHA-256
+- Giá trị lá rỗng: `[0u8; 32]` (32 byte không)
+- Giá trị lá không rỗng: `SHA256([1u8; 32])`, được lưu trữ dưới dạng hằng số
+  `NON_EMPTY_LEAF_HASH`
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## Cấu Trúc Lá
+
+Mỗi lần rút tiền chiếm đúng một lá. Vị trí lá được xác định bởi:
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+Một lá được coi là không rỗng khi giá trị của nó bằng `NON_EMPTY_LEAF_HASH`
+(tức là, `SHA256([1u8; 32])`). Một lá rỗng là tất cả các số không.
+
+## Nonce và Vị Trí Lá
+
+`transaction_nonce` trong `ReleaseFunds` là một `u64`. Vị trí của nó trong cây
+là `nonce % 65536`. epoch dự kiến của nó là `nonce / 65536`. Chương trình trên chuỗi
+xác thực rằng epoch được tính toán này bằng với `Instance.current_tree_index`; sự
+không khớp sẽ ném ra `InvalidTransactionNonceForCurrentTreeIndex`.
+
+## Xoay Vòng Cây
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+SMT có dung lượng cố định là 65.536 lá. Dịch vụ vận hành phát hiện khi nào
+cần xoay vòng bằng cách kiểm tra xem `nonce % 65536 == 0` (với `nonce > 0`);
+ranh giới đó báo hiệu sự bắt đầu của một epoch mới. Tại thời điểm đó,
+`operator-private-channel` gọi `ResetSmtRoot` trước khi gửi
+`ReleaseFunds` tiếp theo:
+
+- `Instance.current_tree_index` được tăng lên
+- Root rút tiền được đặt lại về cây rỗng
+- Các nonce từ epoch cây trước bị vô hiệu hóa
+
+Dịch vụ vận hành cũng xác minh rằng root SMT cục bộ của nó khớp với
+`Instance.withdrawal_transactions_root` trên chuỗi trước mỗi lần gọi `ReleaseFunds`;
+sự không khớp sẽ kích hoạt tắt an toàn thay vì gửi bằng chứng có khả năng không hợp lệ.
+
+Xoay vòng cây được theo dõi bởi `Instance.current_tree_index: u64`, được lưu trữ trên chuỗi.
+
+## Xác Minh trong ReleaseFunds
+
+Đối số `sibling_proofs` trong `ReleaseFunds` chính xác là `[u8; 512]`: 16
+hàm băm anh chị em × 32 byte mỗi cái, khớp với chiều cao cây là 16.
+
+Quá trình xác minh trên chuỗi chạy hai kiểm tra riêng biệt theo thứ tự:
+
+1. `verify_smt_exclusion_proof` chứng minh lá nonce hiện đang rỗng so với
+   `Instance.withdrawal_transactions_root` hiện tại
+2. `verify_smt_inclusion_proof` chứng minh lá nonce có mặt trong
+   đối số `new_withdrawal_root` do người gọi cung cấp
+3. Chỉ khi cả hai kiểm tra đều vượt qua, chương trình mới lưu trữ `new_withdrawal_root` làm
+   `Instance.withdrawal_transactions_root` mới và giải phóng token
+
+Nếu một trong hai kiểm tra thất bại sẽ ném ra `InvalidSmtProof`. Việc cập nhật root ở bước 3 là
+nguyên tử với mỗi lần gọi `ReleaseFunds`.

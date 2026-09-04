@@ -1,0 +1,366 @@
+---
+title: Operator
+description: Deploy dan operasikan instance Private Channels dengan Docker Compose
+---
+
+## Apa itu Operator Private Channels?
+
+Operator adalah entitas tepercaya yang memiliki izin on-chain dan berfungsi sebagai jembatan antara Solana Mainnet dengan jaringan saluran privat. Operator disediakan oleh admin instance melalui `AddOperator`, yang membuat `Operator` PDA on-chain; tanpa ini, tidak ada pihak yang dapat memanggil `ReleaseFunds`. Dalam praktiknya, operator adalah organisasi atau tim yang menjalankan layanan yang memantau deposit, mencetak token di sisi saluran, mendeteksi penarikan, dan menyelesaikan dana kembali ke Mainnet. Menjalankan sebuah instance memberikan pengguna Anda transfer privat bervolume tinggi yang tidak muncul di Solana Mainnet, throughput instan tanpa biaya di luar TPS Solana native, dan akses terkontrol melalui RBAC.
+
+<Callout type="info">
+  Jika Anda adalah developer yang mengintegrasikan instance Private Channels yang sudah ada, bukan yang mendeploy-nya, mulailah dengan
+  [Quickstart](/docs/tools/private-channels/quickstart/installation).
+</Callout>
+
+## Sebelum Memulai
+
+### Prasyarat
+
+Tetapkan versi-versi ini di host agar sesuai dengan Docker image:
+
+- Docker Engine 26+ (macOS Apple Silicon: aktifkan "Docker VMM" di Settings ->
+  Virtual Machine Options)
+- Node.js **24.7.0** dan pnpm **10.15.1**
+- Solana CLI **3.1.13** (Agave)
+- Rust **1.91.0**
+- Endpoint Yellowstone gRPC untuk Devnet (tersedia dari Helius, Triton,
+  QuickNode)
+
+Untuk persyaratan jaringan dan penetapan port default, lihat
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+di repositori.
+
+Instal toolchain Solana yang telah ditetapkan dan panaskan cache SBF:
+
+```bash
+make install-toolchain
+```
+
+### Layanan
+
+Menjalankan instance Private Channels berarti memiliki lima tanggung jawab berkelanjutan,
+masing-masing ditangani oleh container khusus dalam stack Docker Compose:
+
+1. **Indeks Mainnet untuk deposit** - `indexer-solana` memantau Solana Mainnet untuk
+   event `Deposit` melalui Yellowstone gRPC; `operator-solana` mengambil
+   deposit yang terkonfirmasi dan mencetak saldo token yang setara di jaringan saluran
+2. **Indeks saluran untuk penarikan** - `indexer-private-channel` melakukan polling
+   saluran setiap detik untuk event burn `WithdrawFunds` dan menulis catatan penarikan
+   yang tertunda ke database
+3. **Lepaskan dana di Mainnet** - `operator-private-channel` mengambil catatan yang
+   tertunda dan memanggil `ReleaseFunds` pada Escrow Program dengan bukti eksklusi SMT yang valid
+4. **Kelola root SMT** - `operator-private-channel` memanggil `ResetSmtRoot`
+   secara otomatis ketika epoch tree berotasi; pemeriksaan
+   `verify_smt_exclusion_proof` on-chain adalah lini pertahanan terakhir terhadap
+   penarikan tidak sah
+5. **Jalankan gateway dan layanan auth** - gateway adalah endpoint publik tunggal
+   untuk semua lalu lintas klien; layanan auth (opsional) menerapkan
+   JWT/RBAC ketika `JWT_SECRET` diatur
+
+Untuk inventaris layanan lengkap dan penetapan port, lihat
+[Referensi Konfigurasi](/docs/tools/private-channels/operators/configuration).
+
+> **Catatan keamanan:** Port write-node dan read-node hanya terikat ke loopback
+> (`127.0.0.1`), tetapi beberapa layanan lain (gateway, auth, metrik operator,
+> Grafana, Prometheus, cAdvisor) dipublikasikan ke semua antarmuka jaringan secara default. Lihat
+> [Referensi Konfigurasi](/docs/tools/private-channels/operators/configuration#service-port-reference)
+> untuk tabel port lengkap dan amankan dengan firewall sebelum deployment yang menghadap publik.
+> RBAC hanya mencakup metode JSON-RPC gateway sendiri, bukan layanan-layanan lain ini.
+
+### Kontrol Akses: Terbuka vs. RBAC
+
+Secara default, gateway menerima semua koneksi; tidak diperlukan token. Untuk mengaktifkan
+RBAC berbasis JWT, atur `JWT_SECRET` dan mulai stack dengan `--profile auth`. Lihat
+**[Autentikasi & Peran](/docs/tools/private-channels/concepts/auth)** untuk
+referensi konfigurasi lengkap, termasuk cara menyediakan peran `operator` dan
+mendaftarkan wallet pengguna.
+
+Jika mengaktifkan auth, tambahkan ini ke environment Anda sebelum memulai stack:
+
+```bash
+JWT_SECRET=<openssl rand -hex 32>   # must match on gateway and auth service
+AUTH_PORT=8903
+```
+
+## Pengaturan Environment
+
+`.env.devnet` sudah dilacak di repositori dengan default khusus devnet
+yang telah diisi; edit langsung daripada membuatnya ulang dari `.env.example`,
+yang akan menimpa default tersebut.
+
+Isi nilai-nilai yang tersisa saat Anda mengerjakan langkah-langkah deploy di bawah; beberapa
+hanya tersedia di pertengahan deployment. Rahasia disimpan di file `.env` yang ada di gitignore;
+variabel non-rahasia disimpan di `.env.devnet`.
+
+**Rahasia - atur segera:**
+
+```bash
+POSTGRES_PASSWORD=<openssl rand -hex 32>
+POSTGRES_REPLICATION_PASSWORD=<openssl rand -hex 32>
+```
+
+**Variabel yang diperoleh selama deployment:**
+
+```bash
+ESCROW_INSTANCE_ID=<instance address - from Step 3>
+ADMIN_PRIVATE_KEY=<operator keypair as u8 array or base58 - from Step 4>
+DEVNET_RPC_URL=https://api.devnet.solana.com
+DEVNET_YELLOWSTONE_ENDPOINT=<your Yellowstone gRPC endpoint>
+INDEXER_YELLOWSTONE_TOKEN=<your Yellowstone auth token>
+```
+
+<Callout type="warning">
+  `ADMIN_PRIVATE_KEY` adalah penanda tangan fee-payer wajib milik layanan off-chain,
+  tidak terkait dengan admin instance on-chain dari Langkah 3. Panduan ini menempatkan
+  keypair **operator** yang dibuat di Langkah 4 di bawah ke dalam `ADMIN_PRIVATE_KEY` dan
+  membiarkan `OPERATOR_PRIVATE_KEY` opsional tidak diatur, sehingga penanda tangan operator
+  menggunakan kunci yang sama. Jangan pernah menempatkan keypair admin instance tingkat protokol dari
+  Langkah 3 ke salah satu variabel.
+</Callout>
+
+Untuk referensi variabel environment lengkap, lihat
+**[Konfigurasi](/docs/tools/private-channels/operators/configuration)**.
+
+## Deploy
+
+<Steps>
+
+<Step>
+
+### Build image
+
+```bash
+make docker-devnet-build
+```
+
+Ini mengompilasi semua layanan Rust ke dalam Docker image bersama. Build pertama
+membutuhkan waktu 30 menit hingga satu jam.
+
+</Step>
+
+<Step>
+
+### Siapkan Admin UI
+
+Admin UI adalah alat berbasis browser untuk membuat dan mengonfigurasi instance escrow:
+sebuah utilitas pengembangan dan administrasi, bukan produk yang menghadap pengguna
+dan bukan komponen runtime yang wajib ada. Semua operasi yang dilakukannya
+(`CreateInstance`, `AllowMint`, `AddOperator`) juga dapat dijalankan melalui skrip CLI
+di repositori.
+
+```bash
+cd admin-ui
+pnpm install
+echo "PRIVATE_CHANNEL_RPC_URL=http://localhost:8899" > .env
+pnpm dev   # opens at http://localhost:5173
+```
+
+</Step>
+
+<Step>
+
+### Buat instance escrow
+
+1. Atur wallet browser Anda ke **Devnet** dan pastikan Anda memiliki SOL Devnet untuk biaya
+2. Di Admin UI, klik **Create New Instance** dan setujui transaksinya
+3. Salin **Instance Address** dan atur sebagai `ESCROW_INSTANCE_ID` di
+   `.env.devnet`
+
+Sebagai alternatif, gunakan skrip CLI:
+
+```bash
+cargo run --bin create_instance -- https://api.devnet.solana.com ./keypairs/admin.json
+```
+
+</Step>
+
+<Step>
+
+### Buat keypair operator
+
+```bash
+solana-keygen new -o operator-keypair.json -s --no-bip39-passphrase
+solana-keygen pubkey operator-keypair.json
+```
+
+Atur isi keypair sebagai `ADMIN_PRIVATE_KEY` di environment Anda. Public key
+bukan variabel environment; Anda akan meneruskannya langsung sebagai pubkey operator
+di langkah "Konfigurasikan instance" di bawah.
+
+</Step>
+
+<Step>
+
+### Finalisasi variabel environment
+
+Perbarui `.env.devnet` dengan `ESCROW_INSTANCE_ID`, `DEVNET_RPC_URL`,
+`DEVNET_YELLOWSTONE_ENDPOINT`, dan `INDEXER_YELLOWSTONE_TOKEN`. Simpan rahasia
+(`POSTGRES_PASSWORD`, `POSTGRES_REPLICATION_PASSWORD`, `ADMIN_PRIVATE_KEY`) di
+file `.env` yang ada di gitignore.
+
+Jika Anda memutuskan untuk mengaktifkan RBAC
+([Kontrol Akses: Terbuka vs. RBAC](#access-control-open-vs-rbac)), tambahkan juga
+`JWT_SECRET` dan `AUTH_PORT` sekarang.
+
+</Step>
+
+<Step>
+
+### Mulai semua layanan
+
+Tanpa auth:
+
+```bash
+make docker-devnet-up
+```
+
+Dengan auth:
+
+```bash
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+```
+
+Compose menonaktifkan auto-load `.env` otomatis setelah flag `--env-file` mana pun
+dilewatkan, sehingga `--env-file .env` di bagian akhir wajib ada. Tanpanya,
+`POSTGRES_PASSWORD`, `ADMIN_PRIVATE_KEY`, dan `JWT_SECRET` (yang Anda simpan di
+`.env` di atas) akan kosong dan stack gagal dimulai dengan benar.
+
+> Mulai layanan sebelum mengonfigurasi instance. Indexer melakukan streaming event secara
+> real time, sehingga menjalankan stack terlebih dahulu memastikan `AllowMint` dan deposit
+> pertama Anda diindeks secara berurutan tanpa perlu backfill.
+
+</Step>
+
+<Step>
+
+### Konfigurasikan instance
+
+Dengan stack yang berjalan, masukkan token mint ke daftar putih dan tambahkan operator Anda melalui
+Admin UI:
+
+1. **Allow Mint**: Admin Functions -> Mint Management -> masukkan alamat mint ->
+   Allow Mint
+2. **Add Operator**: Admin Functions -> Operator Management -> masukkan pubkey operator -> Add Operator
+
+Atau melalui CLI:
+
+```bash
+cargo run --bin add_operator -- \
+  https://api.devnet.solana.com \
+  ./keypairs/admin.json \
+  <INSTANCE_ID> \
+  <OPERATOR_PUBKEY>
+```
+
+</Step>
+
+</Steps>
+
+<Callout type="warning">
+
+Panduan ini menargetkan Solana devnet. Untuk Mainnet:
+
+- ID Program dikompilasi melalui `declare_id!()`: pastikan Anda menggunakan
+  ID Mainnet yang benar dari repositori
+- Endpoint Yellowstone gRPC memerlukan paket Mainnet; endpoint devnet tidak akan
+  melakukan streaming event Mainnet
+- Wallet operator membayar biaya SOL untuk setiap panggilan `ReleaseFunds`, jadi sesuaikan
+  saldo SOL dengan volume penarikan yang Anda perkirakan
+- Ubah semua kredensial default (Grafana, PostgreSQL) sebelum deployment yang menghadap publik
+
+</Callout>
+
+## Operasi
+
+### Perintah Berguna
+
+```bash
+# View logs (all services)
+make docker-devnet-logs
+
+# View logs (specific service)
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana
+
+# Stop services
+make docker-devnet-down
+
+# Stop and wipe all state (volumes)
+make docker-devnet-clean
+```
+
+### Observabilitas
+
+Stack mencakup Prometheus, Grafana, dan cAdvisor untuk pemantauan metrik dan container.
+Grafana dapat diakses di port `37429`.
+
+<Callout type="warning">
+  Password Grafana default adalah `admin`. Ubah sebelum mengekspos port 37429
+  ke jaringan apa pun di luar localhost.
+</Callout>
+
+## Pemecahan Masalah
+
+### Saldo saluran tidak diperbarui setelah deposit
+
+1. Konfirmasi bahwa transaksi deposit Mainnet telah masuk di explorer Mainnet
+2. Verifikasi bahwa `indexer-solana` sedang berjalan:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana`
+3. Verifikasi bahwa `operator-solana` sedang berjalan:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-solana`
+4. Periksa apakah endpoint Yellowstone gRPC Anda dapat dijangkau dan token valid
+   (`DEVNET_YELLOWSTONE_ENDPOINT`, `INDEXER_YELLOWSTONE_TOKEN`)
+5. Tunggu hingga 30 detik setelah konfirmasi on-chain, karena indexer menerapkan
+   penundaan keamanan finalitas sebelum mengkreditkan
+
+### Penarikan tidak terselesaikan ke Mainnet
+
+1. Verifikasi bahwa `indexer-private-channel` sedang berjalan:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-private-channel`
+2. Verifikasi bahwa `operator-private-channel` sedang berjalan:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-private-channel`
+3. Konfirmasi bahwa keypair operator di `ADMIN_PRIVATE_KEY` sesuai dengan kunci
+   yang terdaftar dengan `AddOperator` on-chain
+4. Jika log menampilkan "SMT root mismatch", layanan mati daripada mengirimkan
+   bukti yang tidak valid. Hentikan stack, pulihkan dari status yang konsisten, dan
+   mulai ulang
+
+### Kegagalan autentikasi JWT (401 pada semua permintaan)
+
+1. Konfirmasi bahwa `JWT_SECRET` identik pada container gateway maupun auth service
+2. Konfirmasi bahwa stack dimulai dengan `--profile auth`
+3. Token kedaluwarsa setelah 24 jam; autentikasi ulang untuk mendapatkan token baru
+
+### Build pertama membutuhkan waktu terlalu lama
+
+Sudah diperkirakan. `make docker-devnet-build` pertama mengompilasi semua layanan Rust dan
+dapat memakan waktu 30-60 menit pada hardware tipikal. Build berikutnya menggunakan cache layer Docker
+dan jauh lebih cepat.
+
+## Langkah Selanjutnya
+
+<Cards>
+  <Card
+    title="Quickstart"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    Uji deployment Anda: deposit, transfer, dan tarik di devnet.
+  </Card>
+  <Card
+    title="Konfigurasi"
+    href="/docs/tools/private-channels/operators/configuration"
+  >
+    Referensi variabel environment lengkap untuk semua layanan.
+  </Card>
+  <Card
+    title="Autentikasi & Peran"
+    href="/docs/tools/private-channels/concepts/auth"
+  >
+    Konfigurasikan autentikasi JWT dan provisikan pengguna dengan peran operator.
+  </Card>
+  <Card
+    title="Instruksi"
+    href="/docs/tools/private-channels/instructions/create-instance"
+  >
+    Referensi lengkap untuk semua instruksi on-chain.
+  </Card>
+</Cards>

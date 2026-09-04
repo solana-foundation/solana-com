@@ -1,0 +1,183 @@
+---
+title: Вывод средств
+description:
+  Вывод токенов из экземпляра Private Channels обратно в ваш кошелёк Solana
+---
+
+## Обзор
+
+Вывод из Private Channels — это двухэтапный процесс. Сначала пользователь сжигает
+баланс токенов на стороне канала, вызывая `WithdrawFunds` в Withdraw
+Program. Затем оператор вызывает `ReleaseFunds` в Escrow Program (devnet,
+в этом руководстве) с действительным доказательством исключения Sparse Merkle Tree для высвобождения
+средств. Доказательство SMT гарантирует, что каждый одноразовый номер вывода может быть использован только один раз,
+предотвращая двойное расходование.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Channel as Private Channel Network
+    participant Operator as operator-private-channel
+    participant Devnet as Solana Devnet
+
+    User->>Channel: WithdrawFunds (burns channel-side balance)
+    Channel-->>User: Burn confirmed off-chain
+
+    Operator->>Channel: Poll for burn events
+    Operator->>Operator: Write pending withdrawal to database
+    Operator->>Devnet: ReleaseFunds (with SMT exclusion proof)
+    Devnet-->>User: Tokens released to devnet ATA
+```
+
+## Шаг 1: Инициация вывода на канале
+
+Вызовите `WithdrawFunds` в Withdraw Program, чтобы сжечь баланс на стороне канала.
+Используйте вариант `Async`, который автоматически определяет PDA `tokenAccount` и является
+рекомендуемой формой для использования в продакшене:
+
+```typescript
+import { getWithdrawFundsInstructionAsync } from "../private-channel-withdraw-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const withdrawIx = await getWithdrawFundsInstructionAsync({
+  user: userSigner,
+  mint: address(mintAddress),
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  destination: null // null = release to signer's devnet wallet
+});
+
+const { value: latestBlockhash } = await privateChannelRpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Sent to the Private Channels gateway (not Solana RPC directly), which
+// expects the legacy transaction format - do not switch this to version 0.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: "legacy" }),
+  (m) => setTransactionMessageFeePayerSigner(userSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(withdrawIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Withdrawal initiated:", signature);
+```
+
+- ID Withdraw Program: `J231K9UEpS4y4KAPwGc4gsMNCjKFRMYcQBcjVW7vBhVi`
+- Отправляйте эту транзакцию на шлюз (`http://localhost:8899`), а не на
+  публичный Solana RPC
+- Если указан `destination`, высвобождённые средства поступают в этот кошелёк, а не
+  подписанту
+
+## Чего ожидать
+
+После вызова `WithdrawFunds` никаких дополнительных действий не требуется. Операторские
+сервисы выполняют расчёт автоматически:
+
+1. `indexer-private-channel` опрашивает канал каждую 1 секунду на наличие событий сжигания
+   и записывает ожидающую запись о выводе при их обнаружении
+2. `operator-private-channel` опрашивает базу данных каждую 1 секунду на наличие ожидающих
+   записей и отправляет `ReleaseFunds` в Escrow Program на Solana devnet
+   с необходимым доказательством исключения SMT; он опрашивает подтверждение devnet до
+   5 раз с интервалами 400 мс перед повторной попыткой
+
+Средства, как правило, появляются в вашем кошельке devnet в течение нескольких секунд при нормальных
+условиях.
+
+## Как оператор выполняет расчёт (справочная информация)
+
+После сжигания на стороне канала подготовленный оператор должен вызвать `ReleaseFunds` в
+Escrow Program с действительным доказательством исключения SMT; оператор не может высвободить
+средства, не доказав, что одноразовый номер вывода не использовался ранее. Этот шаг
+выполняется автоматически с помощью `operator-private-channel`; вам не нужно вызывать
+его самостоятельно.
+
+Оператор предоставляет:
+
+- `amount`: должен совпадать со сожжённой суммой
+- `user`: кошелёк получателя на devnet
+- `new_withdrawal_root`: обновлённый корень SMT после этого вывода
+- `transaction_nonce`: уникальный одноразовый номер для этого листа
+- `sibling_proofs`: 512 байт (16 x 32-байтные хэши соседних узлов для доказательства дерева)
+
+## Проверка
+
+После подтверждения вызова оператора проверьте баланс токенов на devnet:
+
+```bash
+spl-token balance <MINT_ADDRESS> --owner <YOUR_WALLET>
+```
+
+Или через RPC:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Query devnet directly; ReleaseFunds settles here, not through the gateway
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const [yourDevnetAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(userSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await rpc.getTokenAccountBalance(yourDevnetAta).send();
+console.log(balance.value.uiAmountString);
+```
+
+## Вы завершили быстрый старт
+
+Вы прошли полный цикл Private Channels на devnet: внесли SPL-токены в
+эскроу, выполнили внецепочечный перевод через шлюз и вывели средства
+обратно в свой кошелёк devnet.
+
+<Cards>
+  <Card
+    title="Жизненный цикл канала"
+    href="/docs/tools/private-channels/concepts/channels"
+  >
+    Подробно изучите участников и полный процесс от депозита до вывода средств.
+  </Card>
+  <Card
+    title="Аутентификация и роли"
+    href="/docs/tools/private-channels/concepts/auth"
+  >
+    Добавьте JWT-аутентификацию в вашу интеграцию.
+  </Card>
+  <Card
+    title="Справочник по высвобождению средств"
+    href="/docs/tools/private-channels/instructions/release-funds"
+  >
+    Полный справочник по инструкции ReleaseFunds для операторских инструментов.
+  </Card>
+  <Card
+    title="Sparse Merkle Tree"
+    href="/docs/tools/private-channels/concepts/smt"
+  >
+    Узнайте, как доказательства вывода предотвращают двойное расходование.
+  </Card>
+</Cards>

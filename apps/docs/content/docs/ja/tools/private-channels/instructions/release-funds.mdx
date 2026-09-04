@@ -1,0 +1,78 @@
+---
+title: 資金のリリース
+description:
+  SMT除外証明を検証した後、エスクローからユーザーのウォレットにトークンをリリースします
+---
+
+プロビジョニングされたオペレーターによって呼び出され、出金ノンスに対する有効なSparse Merkle Tree除外証明を条件に、エスクローされたトークンをユーザーのMainnetウォレットにリリースします。
+
+<Callout type="info">
+  エスクロープログラムは、このSparse Merkle Treeの設計からオンチェーンのノンスビットマップ（上流で追跡中）へ移行中です。このページは現在のエスクロープログラムに対して正確であり、その変更が適用され次第、改訂される予定です。
+</Callout>
+
+## アカウント
+
+| アカウント                          | 書き込み可能 | 署名者 | 説明                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | 手数料支払者                                                          |
+| `operator`                       |          | ✓      | オペレーター署名者                                                    |
+| `instance`                       | ✓        |        | エスクローインスタンスPDA（オンチェーンでルートが更新される）                        |
+| `operator_pda`                   |          |        | 署名者がプロビジョニング済みであることを証明するオペレーターPDA                     |
+| `mint`                           |          |        | SPLトークンミント                                                     |
+| `allowed_mint`                   |          |        | AllowedMint PDA - このインスタンスでミントが許可されていることを検証します |
+| `user_ata`                       | ✓        |        | 受取人のassociated token account（送金先）                 |
+| `instance_ata`                   | ✓        |        | エスクローのassociated token account（送金元）                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | `EmitEvent` CPI用のイベントオーソリティPDA                            |
+| `private_channel_escrow_program` |          |        | エスクロープログラム（CPI用の自己参照）                            |
+
+## パラメーター
+
+| パラメーター             | 型        | 説明                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | リリースするトークンの数量                                   |
+| `user`                | `Pubkey`    | Mainnet上の受取人ウォレット                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | この出金のノンスを含めた後の更新済みSMTルート      |
+| `transaction_nonce`   | `u64`       | SMT内のこの出金リーフを識別する一意のノンス      |
+| `sibling_proofs`      | `[u8; 512]` | SMT除外証明用の16個の兄弟ハッシュ（各32バイト） |
+
+## 戻り値
+
+トランザクションのビルドおよび送信に使用できる `TransactionBuilder` を返します。
+
+## 例
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## 重要事項
+
+- 呼び出し元はプロビジョニング済みのオペレーターである必要があります：`operator_pda` が存在している必要があります（`AddOperator` によって作成）。無効なPDAは `InvalidOperatorPda` をスローします
+- `sibling_proofs` はちょうど512バイトです（16 × 32バイトのハッシュで、SMTのツリー高16に対応）
+- `new_withdrawal_root` はこの出金のノンスを含めた後の更新済みSMTルートです。呼び出し前にオフチェーンで計算してください
+- `transaction_nonce` は `Instance.current_tree_index` に対して有効である必要があります。無効なノンスは `InvalidTransactionNonceForCurrentTreeIndex` をスローします
+- プログラムはまず `verify_smt_exclusion_proof` を実行し、現在のルートに対してノンスがまだ存在しないことを証明します。その後、呼び出し元が提供した `new_withdrawal_root` にノンスが存在することを証明する `verify_smt_inclusion_proof` を別途実行します。いずれかのチェックが失敗した場合、`InvalidSmtProof` をスローします
+- 両方のチェックが通過した後にのみ、`Instance.withdrawal_transactions_root` がアトミックに更新されます。ノンスは再利用できません
+- `EmitEvent` CPIを通じてイベントを発行します

@@ -1,0 +1,118 @@
+---
+title: Channel-Lebenszyklus
+description:
+  Wie private Zahlungskanäle funktionieren, wer die Teilnehmer sind und wann sie eingesetzt werden sollten
+---
+
+## Was ist ein privater Channel?
+
+Ein privater Channel ist ein Off-Chain-Zahlungsnetzwerk, das auf Solana verankert ist. Nutzer hinterlegen SPL-Token in einem On-Chain-Escrow-Programm und führen anschließend Off-Chain-Transaktionen über ein Gateway mit hoher Geschwindigkeit und ohne Kosten pro Übertragung durch. Die Abrechnung zurück zum Solana Mainnet erfolgt über einen Sparse-Merkle-Tree-Beweis, der sicherstellt, dass Gelder jederzeit einlösbar sind und doppelte Ausgaben ausgeschlossen sind.
+
+Im Gegensatz zum nativen Zahlungsfluss von Solana erscheinen Überweisungen innerhalb eines Channels erst dann On-Chain, wenn ein Nutzer eine Auszahlung vornimmt. Das Channel-Netzwerk betreibt eine eigene Transaktions-Pipeline (Dedup -> Signaturprüfung -> Sequencer -> Executor -> Settler), die Transaktionen unabhängig von Solanas Blockzeit verarbeitet.
+
+## Teilnehmer
+
+### Instanz-Admin
+
+Der Admin stellt die `Instance`-PDA über `CreateInstance` bereit und kontrolliert, welche SPL-Token-Mints akzeptiert werden (`AllowMint` / `BlockMint`). Der Admin verwaltet Operatoren über `AddOperator` / `RemoveOperator` und kann Admin-Rechte über `SetNewAdmin` übertragen. Es gibt einen Admin pro Instanz. Die Übertragung von Admin-Rechten ist in einem einzigen Schritt unwiderruflich: Der aktuelle Admin kann die Rolle ohne Mitwirkung des neuen Admins nicht zurückfordern.
+
+### Operatoren
+
+Operatoren werden vom Admin bereitgestellt. Sie besitzen eine `Operator`-PDA und sind die einzigen Konten, die berechtigt sind, `ReleaseFunds` (zur Abwicklung von Auszahlungen an das Mainnet) und `ResetSmtRoot` (zur Rotation des Sparse Merkle Tree) aufzurufen. Operatoren umgehen alle Eigentümerprüfungen im Gateway und haben Zugriff auf alle JSON-RPC-Methoden, einschließlich `getBlock`, `getTransaction` und `simulateTransaction`. JWT-Rolle: `"operator"`. Operatoren müssen direkt in der Datenbank bereitgestellt werden; es gibt keine Self-Service-Eskalation. Siehe den
+[Operatoren-Leitfaden](/docs/tools/private-channels/operators) für Deployment- und Konfigurationsdetails.
+
+### Nutzer
+
+Nutzer registrieren sich selbst über den Auth-Service. JWT-Rolle: `"user"`. Nutzer können `Deposit` direkt im Escrow-Programm aufrufen und Auszahlungen über die channel-seitige `WithdrawFunds`-Anweisung im Withdraw-Programm einleiten. Der Gateway-Zugriff ist auf ihre eigenen verifizierten Wallets beschränkt; sie können `getBlock`, `getTransaction` oder `simulateTransaction` nicht aufrufen.
+
+## Channel-Lebenszyklus
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Alice
+    participant Mainnet as Solana Mainnet
+    participant Channel as Private Channel Network
+
+    Note over Admin,Channel: SETUP (one time)
+    Admin->>Mainnet: CreateInstance
+    Admin->>Mainnet: AllowMint
+    Admin->>Mainnet: AddOperator
+
+    Note over Alice,Channel: DEPOSIT
+    Alice->>Mainnet: Deposit (tokens to escrow ATA)
+    Note over Channel: Indexer detects deposit event,<br/>credits Alice's channel balance
+
+    Note over Alice,Channel: OFF-CHAIN TRANSFERS
+    Alice->>Channel: SPL token transfer (via gateway)
+    Channel-->>Alice: Confirmed (~100 ms, no Mainnet fee)
+
+    Note over Alice,Mainnet: WITHDRAWAL
+    Alice->>Channel: WithdrawFunds (burns channel balance)
+    Note over Channel: Indexer detects burn (~1 s),<br/>operator submits ReleaseFunds
+    Channel->>Mainnet: ReleaseFunds (with SMT exclusion proof)
+    Mainnet-->>Alice: Tokens released to Mainnet wallet
+```
+
+1. **Instanzerstellung** – Der Admin ruft `CreateInstance` auf, erstellt die `Instance`-PDA und konfiguriert die zulässigen Mints.
+2. **Einzahlung** – Nutzer hinterlegen SPL-Token über die `Deposit`-Anweisung im Escrow. Token werden auf das associated token account der Instanz übertragen.
+3. **Off-Chain-Überweisungen** – Nutzer senden Überweisungen über das Gateway. Überweisungen werden im Channel-Netzwerk sequenziert und ausgeführt, ohne das Mainnet zu berühren.
+4. **Einleitung der Auszahlung** – Ein Nutzer ruft `WithdrawFunds` im Withdraw-Programm (Channel-Seite) auf, um sein Guthaben zu verbrennen und eine Auszahlung zu signalisieren.
+5. **Mainnet-Abwicklung** – Ein Operator stellt einen gültigen SMT-Ausschlussbeweis bereit und ruft `ReleaseFunds` im Escrow-Programm (Mainnet) auf, um Token an die Wallet des Nutzers freizugeben.
+6. **Tree-Rotation** – Wenn der SMT seine Kapazität erreicht (65.536 Blätter), ruft der Operator `ResetSmtRoot` auf, um den Tree zu rotieren und ein neues epoch zu starten.
+
+### Übertragung
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    participant GW as Gateway
+    participant Pipeline as Write Node Pipeline
+    participant DB as Channel State
+
+    Alice->>GW: SPL token transfer to Bob
+    GW->>Pipeline: Route to write node
+
+    Note over Pipeline: 1. Dedup - reject duplicates and replays<br/>2. SigVerify - validate signatures<br/>3. Sequencer - order into conflict-free batch<br/>4. Executor - apply to off-chain account state<br/>5. Settler - commit to database, update blockhash
+
+    Pipeline->>DB: Commit updated balances
+    GW-->>Alice: Confirmed (off-chain, not recorded on Mainnet)
+    Note over Bob: Balance updated in channel state
+```
+
+### Auszahlung
+
+```mermaid
+sequenceDiagram
+    participant Bob
+    participant Channel as Private Channel Network
+    participant Indexer as indexer-private-channel
+    participant Operator as operator-private-channel
+    participant Mainnet as Solana Mainnet
+
+    Bob->>Channel: WithdrawFunds (burns channel-side balance)
+    Channel-->>Bob: Burn confirmed off-chain
+
+    Note over Indexer: Polls gateway every 1 s
+    Indexer->>Channel: Detect burn event
+    Indexer->>Indexer: Write pending withdrawal to database
+
+    Operator->>Indexer: Pick up pending record
+    Operator->>Mainnet: ReleaseFunds (SMT exclusion proof)
+    Mainnet-->>Bob: Tokens transferred to Mainnet ATA
+```
+
+## Wann private Channels verwendet werden sollten
+
+Verwenden Sie private Channels, wenn Ihre Anwendung Folgendes benötigt:
+
+- **Off-Chain-Durchsatz** – Ihr Übertragungsvolumen würde Solanas TPS auslasten, oder Sie benötigen eine Bestätigung in unter einer Sekunde
+- **Datenschutz** – Identitäten der Gegenparteien und Überweisungsbeträge dürfen nicht On-Chain erscheinen
+- **Keine Gebühren pro Übertragung** – häufige Überweisungen, bei denen die SOL-Kosten pro Transaktion prohibitiv sind
+
+Verwenden Sie stattdessen native SPL-Überweisungen, wenn:
+
+- **On-Chain-Komposabilität** erforderlich ist (DeFi, Swaps, Lending; andere Programme müssen die Übertragung beobachten oder darauf reagieren können)
+- **Einzeltransaktions-Abwicklung** ausreicht und Datenschutz kein Anliegen ist
+- **Keine Gateway-Infrastruktur** verfügbar oder betrieblich umsetzbar ist

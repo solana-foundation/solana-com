@@ -1,0 +1,247 @@
+---
+title: Kimlik Doğrulama ve Roller
+description:
+  Özel Kanallarda JWT kimlik doğrulaması ve rol tabanlı erişim kontrolü
+---
+
+## Genel Bakış
+
+Private Channels, ağ geçidi erişimini JWT kimlik doğrulaması ve rol tabanlı erişim kontrolü (RBAC) ile kısıtlayan isteğe bağlı bir Auth Service içerir. Kimlik doğrulama devre dışı bırakıldığında, ağ geçidi tüm bağlantıları kabul eder. Etkinleştirildiğinde, istemcilerin her istekte geçerli bir JWT sunması gerekir.
+
+Bu sayfa her iki kitleyi de kapsamaktadır:
+
+- **Geliştiriciler** - kayıt, giriş, cüzdan doğrulama ve kimliği doğrulanmış istekler yapma
+- **Operatörler** - auth servisini etkinleştirme, `JWT_SECRET` yapılandırma ve `operator` rolü sağlama
+
+## Kimlik Doğrulamayı Etkinleştirme
+
+Kimlik doğrulama, hem ağ geçidinde hem de Auth Service'te `JWT_SECRET` (boş olmayan) ayarlanarak etkinleştirilir. Auth Service ayrıca `AUTH_DATABASE_URL` gerektirir.
+
+`JWT_SECRET` ayarlanmadığında, ağ geçidi açık modda çalışır; herhangi bir token gerekmez.
+
+> **Docker Compose:** Auth servisi bir Docker Compose profilidir ve varsayılan olarak **başlatılmaz**. Dahil etmek için `docker compose` komutunuza `--profile auth` ekleyin; `JWT_SECRET` ve `POSTGRES_PASSWORD` gibi gizli bilgilerin düzgün çözümlenmesi için `--env-file .env` de ekleyin (Compose, herhangi bir `--env-file` bayrağı geçirildiğinde otomatik `.env` yüklemeyi devre dışı bırakır):
+>
+> ```bash
+> docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+> ```
+
+## Auth Service API
+
+Tüm uç noktalar `/auth` altındadır. Auth servisi `AUTH_PORT` üzerinde dinler (varsayılan `8903`).
+
+### `POST /auth/register`
+
+Yeni bir hesap oluşturur. Tüm kullanıcılar `user` rolüyle kaydedilir.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+- Kullanıcı adı: 5-32 karakter, alfanümerik ve `_` ile `-`
+- Parola: 6-128 karakter
+- Oluşturulan kullanıcıyı döndürür; parola hiçbir zaman döndürülmez
+
+### `POST /auth/login`
+
+Kimlik doğrulama yapın ve 24 saat geçerli imzalı bir JWT alın.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+`{ "token": "<jwt>" }` döndürür. Yanlış kullanıcı adı ve yanlış parola, kullanıcı adı tespitini önlemek için her ikisi de `401` döndürür.
+
+### `POST /auth/challenge-wallet`
+
+Bir Solana cüzdanının sahipliğini kanıtlamak için imzalama challenge'ı talep edin. Geçerli bir JWT gerektirir.
+
+Bir mesaj, nonce ve son kullanma tarihi döndürür. Challenge 10 dakika içinde sona erer.
+
+```json
+{
+  "message": "PrivateChannel wallet verification\nuser: <uuid>\nnonce: <uuid>\nexpires: <unix>",
+  "nonce": "<uuid>",
+  "expires_at": "<iso8601>"
+}
+```
+
+### `POST /auth/verify-wallet`
+
+İmzalanmış challenge'ı göndererek bir cüzdanı doğrulanmış olarak kaydedin. Geçerli bir JWT gerektirir.
+
+```json
+{
+  "pubkey": "<base58 pubkey>",
+  "nonce": "<uuid from challenge>",
+  "signature": "<base58 Ed25519 signature>"
+}
+```
+
+Servis, challenge mesajını yeniden oluşturur, Ed25519 imzasını doğrular ve cüzdanı depolar. Her nonce yalnızca bir kez kullanılabilir; tekrar oynatma saldırıları reddedilir.
+
+`{ "pubkey": "<base58>", "created_at": "<iso8601>" }` döndürür.
+
+### `GET /auth/wallets`
+
+Kimliği doğrulanmış kullanıcının tüm doğrulanmış cüzdanlarını listeler. Geçerli bir JWT gerektirir.
+
+### `DELETE /auth/wallets/{pubkey}`
+
+Kimliği doğrulanmış kullanıcının hesabından doğrulanmış bir cüzdanı kaldırır. Geçerli bir JWT gerektirir.
+
+### `GET /health`
+
+Canlılık kontrolü. `200 ok` döndürür. Kimlik doğrulama gerekmez.
+
+## JWT Yapısı
+
+Token'lar HS256 algoritmasını kullanır ve yayımlanmadan 24 saat sonra sona erer.
+
+| Talep  | Değer                           |
+| ------ | ------------------------------- |
+| `sub`  | Kullanıcı UUID'si                       |
+| `role` | `"user"` veya `"operator"`        |
+| `iss`  | `"private-channel-auth"`        |
+| `aud`  | `"private-channel-gateway"`     |
+| `exp`  | Unix zaman damgası (yayımlanmadan 24 saat sonra) |
+
+> `iss` ve `aud`, JWT yükünde bulunur ancak uygulama talepleri yapısına seri dışı bırakılmak yerine ağ geçidinin JWT yapılandırması tarafından doğrulanır. Uygulama katmanı kodu yalnızca `sub`, `role` ve `exp` alanlarına erişebilir.
+
+Token'ı `Authorization` başlığında iletin:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+## Roller
+
+### user
+
+Kayıt sırasında atanan varsayılan rol.
+
+- Erişim, kullanıcının kendi doğrulanmış cüzdanlarıyla sınırlıdır
+- Engellenenler: `getBlock`, `getTransaction`, `simulateTransaction`
+- Yapabilecekleri: Escrow Program üzerinde `Deposit` çağrısı yapma, `WithdrawFunds` aracılığıyla para çekme başlatma
+
+### operator
+
+Yükseltilmiş rol. Doğrudan sağlanması gerekir; `user`'dan `operator`'e yükselmek için self-servis yolu yoktur.
+
+**Rolü atayın**, Admin CLI (`private-channel-auth-admin`) aracılığıyla:
+
+```bash
+private-channel-auth-admin set-role --username alice --role operator
+```
+
+veya doğrudan SQL ile:
+
+<Callout type="warning">
+  Bu ayrıcalıklı bir veritabanı işlemidir. Auth Service veritabanına erişimi buna göre kısıtlayın ve tüm rol değişikliklerini denetleyin.
+</Callout>
+
+```sql
+UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice';
+```
+
+**Self-verify akışı olmadan cüzdan kaydedin (Admin CLI,
+`private-channel-auth-admin`):**
+
+```bash
+private-channel-auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
+```
+
+Bu işlem, challenge/verify akışını atlayarak doğrulanmış bir cüzdanı doğrudan `verified_wallets` tablosuna ekler. `(user_id, pubkey)` üzerinde benzersiz kısıtlamayı zorunlu kılar. Tek başına `operator` rolünü **vermez**; bunun için `set-role` veya yukarıdaki SQL güncellemesini kullanın. Bu komut, etkileşimli challenge/verify akışına gerek kalmadan bir hesaba (örneğin bir servis hesabına) cüzdan eklemek içindir.
+
+**Yetenekler:**
+
+- Tüm cüzdan sahipliği kontrollerini atlar
+- `getBlock`, `getTransaction`, `simulateTransaction` dahil tüm ağ geçidi RPC yöntemlerine tam erişim
+- Gerekli olduğu durumlar: `ReleaseFunds`, `ResetSmtRoot`
+
+## Tam Kimlik Doğrulama Akışı
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Auth as Auth Service
+
+    Client->>Auth: POST /auth/register { username, password }
+    Auth-->>Client: created user (role: "user")
+
+    Client->>Auth: POST /auth/login { username, password }
+    Auth-->>Client: { token: "<jwt>" }
+
+    Note over Client: Include JWT in subsequent requests:<br/>Authorization: Bearer <token>
+
+    Client->>Auth: POST /auth/challenge-wallet
+    Auth-->>Client: { message, nonce, expires_at }
+
+    Note over Client: Sign message with wallet private key (Ed25519)
+
+    Client->>Auth: POST /auth/verify-wallet { pubkey, nonce, signature }
+    Auth-->>Client: { pubkey, created_at }
+
+    Note over Client: Wallet verified - gateway now allows access<br/>to accounts owned by this wallet
+```
+
+## Kimliği Doğrulanmış İstekler Yapma
+
+```typescript
+const response = await fetch("http://localhost:8899/", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${jwtToken}`
+  },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getBalance",
+    params: [walletAddress]
+  })
+});
+const data = await response.json();
+```
+
+## Ağ Geçidi Uç Noktaları
+
+Bu uç noktalar kimlik doğrulama gerektirmez:
+
+| Uç Nokta  | Yöntem | Açıklama                               | Başarı                  | Hata                     |
+| --------- | ------ | ----------------------------------------- | ------------------------ | --------------------------- |
+| `/health` | GET    | Canlılık kontrolü                            | `200 {"status":"ok"}`    | -                           |
+| `/ready`  | GET    | Derin hazırlık kontrolü; yazma ve okuma düğümlerini araştırır | `200 {"status":"ready"}` | `503 {"status":"degraded"}` |
+
+`JWT_SECRET` ve ağ geçidi ortam değişkeni referansı için
+[Yapılandırma referansına](/docs/tools/private-channels/operators/configuration) bakın.
+
+## RPC Yöntemi Erişim Matrisi
+
+Aşağıdaki yöntemler ağ geçidi tarafından tanınmaktadır. `JWT_SECRET` ayarlandığında, erişim JWT rolüne bağlıdır:
+
+| Yöntem                        | Rota      | JWT Yok | `user`           | `operator` |
+| ----------------------------- | ---------- | ------ | ---------------- | ---------- |
+| `sendTransaction`             | Yazma düğümü | ✓      | ✓                | ✓          |
+| `getLatestBlockhash`          | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getSlot`                     | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getRecentBlockhash`          | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getSignatureStatuses`        | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getTransactionCount`         | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getFirstAvailableBlock`      | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getBlocks`                   | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getEpochInfo`                | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getEpochSchedule`            | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getRecentPerformanceSamples` | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getBlockTime`                | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getVoteAccounts`             | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getSupply`                   | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getSlotLeaders`              | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `isBlockhashValid`            | Okuma düğümü  | ✓      | ✓                | ✓          |
+| `getAccountInfo`              | Okuma düğümü  | 401    | sahiplik kısıtlı¹ | ✓          |
+| `getTokenAccountBalance`      | Okuma düğümü  | 401    | sahiplik kısıtlı¹ | ✓          |
+| `getSignaturesForAddress`     | Okuma düğümü  | 401    | sahiplik kısıtlı¹ | ✓          |
+| `getBlock`                    | Okuma düğümü  | 401    | 403              | ✓          |
+| `getTransaction`              | Okuma düğümü  | 401    | 403              | ✓          |
+| `simulateTransaction`         | Okuma düğümü  | 401    | 403              | ✓          |
+
+¹ **Sahiplik kısıtlı**: Bir SPL Token hesabı için (owner alanı `TokenkegQ...` veya `TokenzQ...` ve en az 165 bayt veri), ağ geçidi `owner` veya `delegate` alanının kimliği doğrulanmış kullanıcının doğrulanmış cüzdanlarından biriyle eşleşip eşleşmediğini kontrol eder. Diğer hesap türleri için (bir System Program cüzdanı veya bilinmeyen bir PDA), incelenecek owner/delegate alanı bulunmadığından, sorgulanmış pubkey'in kendisinin kullanıcının doğrulanmış cüzdanlarından biri olup olmadığını kontrol eder. Her iki kontrolün başarısız olması 403 döndürür.

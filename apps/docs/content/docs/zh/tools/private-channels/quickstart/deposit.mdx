@@ -1,0 +1,114 @@
+---
+title: 存入代币
+description:
+  将 SPL 代币存入 devnet 上的 Private Channels 托管实例
+---
+
+## 概述
+
+`Deposit` 指令将 SPL 代币从用户的 associated token
+account 转移至托管的 associated token account。代币存入后，即可通过网关进行链下转账。可选参数 `recipient` 允许存款人将金额记入另一位用户的频道余额。
+
+## 前提条件
+
+- 已完成安装和客户端生成
+- 一个持有 SOL（用于支付交易费用）及您希望存入的 SPL 代币的 devnet 钱包
+- 一个已将您的 mint 加入白名单的活跃 Private Channels 实例
+
+## 代码
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## 验证
+
+您的 devnet 交易确认后，索引器将通过 Yellowstone gRPC 检测到存款事件，运营商随即在频道上铸造等额余额。在记账前会施加一个最终性安全延迟，因此**预计约需 15 秒**后频道余额才可用。
+
+通过网关（而非 devnet RPC）查询您的余额以进行确认：
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+余额非零即表明存款已被索引并记账。若 30 秒后余额仍为零，请检查 `indexer-solana` 和 `operator-solana` 是否正在运行（`make docker-devnet-logs`）。
+
+## 后续步骤
+
+**[发送转账](/docs/tools/private-channels/quickstart/transfer)** - 发送您的第一笔链下转账

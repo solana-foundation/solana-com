@@ -1,0 +1,187 @@
+---
+title: Vue d'ensemble
+description: Architecture et flux de données du protocole Private Channels
+---
+
+<Callout type="warning">
+  Private Channels n'a pas fait l'objet d'un audit de sécurité et n'est pas recommandé pour une utilisation en production avec de vrais fonds sans une révision approfondie de la sécurité.
+</Callout>
+
+<Callout type="info">
+  **Vous déployez une instance ?** Consultez le [guide des opérateurs](/docs/tools/private-channels/operators). **Vous intégrez une instance existante ?** Consultez le [Démarrage rapide](/docs/tools/private-channels/quickstart/installation). Cette page est la référence d'architecture pour les deux audiences.
+</Callout>
+
+## Architecture
+
+Private Channels est composé de quatre composants : deux programmes Solana on-chain (Escrow et Withdraw) et deux services off-chain (Gateway et Auth Service). Ensemble, ils forment un protocole de canal d'état où les fonds résident sur le Mainnet mais les transferts sont réglés off-chain.
+
+### Programme Escrow
+
+Le programme Escrow est un programme Solana on-chain qui détient les tokens SPL déposés. Il constitue l'ancre de confiance du système : tous les fonds résident en séquestre jusqu'à ce qu'un opérateur fournisse une preuve d'exclusion Sparse Merkle Tree valide pour les libérer.
+
+- ID du programme : `9tgHa1DcnaSSUtmMsst8ovKTe1Gfxzezn27KnH9xXYeU`
+- Cet ID est compilé dans le binaire du programme via `declare_id!()`. Les services off-chain lisent le même ID au moment de la compilation depuis le crate client généré, et non depuis une variable d'environnement.
+- Gère les PDAs `Instance`, `AllowedMint` et `Operator`
+- Instructions : `CreateInstance`, `AllowMint`, `BlockMint`, `AddOperator`,
+  `RemoveOperator`, `SetNewAdmin`, `Deposit`, `ReleaseFunds`, `ResetSmtRoot`
+
+### Programme Withdraw
+
+Le programme Withdraw s'exécute sur le réseau de canaux privés, et non sur le Mainnet Solana. Les utilisateurs appellent `WithdrawFunds` pour brûler leur solde de tokens côté canal. Cette destruction ne libère pas automatiquement les fonds ; elle signale à l'opérateur qu'un retrait est en attente. L'opérateur appelle ensuite `ReleaseFunds` sur le programme Escrow avec une preuve SMT valide pour finaliser le règlement.
+
+- ID du programme : `J231K9UEpS4y4KAPwGc4gsMNCjKFRMYcQBcjVW7vBhVi`
+- Cet ID est compilé dans le binaire du programme. Les services off-chain lisent le même ID au moment de la compilation depuis le crate client généré, et non depuis une variable d'environnement.
+
+### Gateway
+
+La Gateway est un proxy compatible Solana JSON-RPC qui achemine les requêtes des clients vers le nœud d'écriture (pour la soumission de transactions) et le nœud de lecture (pour les requêtes) du réseau de canaux. Elle est configurée via des variables d'environnement : `GATEWAY_PORT`, `GATEWAY_WRITE_URL`, `GATEWAY_READ_URL`.
+
+Points de terminaison de santé (aucune authentification requise) :
+
+- `GET /health` - vérification de vivacité ; renvoie `200 {"status":"ok"}`
+- `GET /ready` - disponibilité approfondie, sonde les nœuds d'écriture et de lecture ; renvoie `200 {"status":"ready"}` ou `503 {"status":"degraded"}`
+
+#### Routage et accès aux méthodes RPC
+
+La gateway achemine `sendTransaction` vers le nœud d'écriture et toutes les autres méthodes vers le nœud de lecture. Les requêtes supérieures à 64 Ko sont rejetées avec une erreur HTTP 413. Lorsque l'authentification est activée, l'accès aux méthodes est conditionné par le rôle JWT. Consultez **[Authentification & Rôles](/docs/tools/private-channels/concepts/auth)** pour la matrice complète des méthodes.
+
+### Auth Service
+
+L'Auth Service est un composant optionnel qui émet des JWT HS256 (expiration à 24 heures) pour le contrôle d'accès à la gateway. Il est activé lorsque la variable d'environnement `JWT_SECRET` est définie. Sans celle-ci, la gateway accepte toutes les connexions.
+
+Claims JWT : `sub` (UUID utilisateur), `role` (`"user"` ou `"operator"`), `iss` (`"private-channel-auth"`), `aud` (`"private-channel-gateway"`), `exp` (horodatage Unix). `iss` et `aud` sont validés par la configuration JWT de la gateway, sans désérialisation dans la structure des claims applicatifs : seuls `sub`, `role` et `exp` sont accessibles au code de la couche applicative.
+
+Rôles :
+
+- `user` - accès limité aux portefeuilles vérifiés de l'utilisateur ; ne peut pas appeler `getBlock`, `getTransaction` ni `simulateTransaction`
+- `operator` - contourne toutes les vérifications de propriété ; accès complet aux méthodes RPC ; doit être provisionné dans la base de données (pas d'escalade en libre-service)
+
+### Streamer
+
+Le Streamer est un serveur WebSocket qui pousse les mises à jour d'état du canal vers les clients connectés en temps réel, éliminant ainsi le besoin d'interroger le RPC. Il interroge PostgreSQL pour détecter les changements d'état. Il fait partie de la stack Docker Compose de base, et non de la stack devnet déployée par ce guide ; consultez la [référence de configuration](/docs/tools/private-channels/operators/configuration#service-port-reference).
+
+- Port : `8902`, configurable via `STREAMER_PORT`
+- Connexion : `ws://localhost:8902`
+- Point de terminaison de santé : `GET /health` - renvoie `503` si une boucle d'interrogation interne se bloque pendant plus de 30 secondes
+
+<Callout type="warning">
+  Le schéma d'événements WebSocket n'est pas encore documenté publiquement. Référez-vous à [`core/src/bin/streamer.rs`](https://github.com/solana-foundation/solana-private-channels/blob/main/core/src/bin/streamer.rs) pour les détails d'implémentation jusqu'à ce que la documentation formelle soit disponible.
+</Callout>
+
+```mermaid
+flowchart TB
+    Wallet([User Wallet])
+    Escrow[Escrow Program<br/><i>Solana Mainnet</i>]
+    IS[Solana Mainnet Indexer]
+    IC[Private Channel Indexer]
+    PG_I[(Indexer DB)]
+    OS[Operator - Solana Side]
+    OC[Operator - Channel Side]
+    GW[Gateway :8899]
+    WN[Write Node :8900]
+    WP[Withdraw Program]
+    PG_P[(Postgres Primary)]
+    PG_R[(Postgres Replica)]
+    RN[Read Node :8901]
+    ST[Streamer :8902]
+
+    Wallet -- deposit --> Escrow
+    Wallet -- transact / withdraw --> GW
+    ST -. WebSocket .-> Wallet
+
+    Escrow -- watch --> IS
+    IS -- deposit events --> PG_I
+    PG_I -- pending deposits --> OS
+    OS -- mint --> GW
+
+    GW -- sendTransaction --> WN
+    WN --> WP
+    GW -- watch --> IC
+    IC -- withdrawal events --> PG_I
+    PG_I -- pending withdrawals --> OC
+    OC -- release --> Escrow
+
+    WN -- settle --> PG_P
+    PG_P -- replication --> PG_R
+    PG_R --> RN
+    RN --> GW
+    PG_P --> ST
+```
+
+## Pipeline de transactions
+
+```text
+Transaction -> [1:Dedup] -> [2:SigVerify] -> [3:Sequencer] -> [4:Executor] -> [5:Settler] -> Database
+```
+
+Les transactions soumises à la Gateway traversent un pipeline en cinq étapes avant que leur état ne soit validé :
+
+1. **Déduplication** - filtre les transactions en double avant qu'elles n'entrent dans le pipeline
+2. **SigVerify** - valide les signatures de transactions par rapport à la clé publique du signataire
+3. **Séquenceur** - ordonne les transactions valides de manière déterministe pour établir un historique canonique
+4. **Exécuteur** - exécute les transactions sur la couche de comptes du canal (BOB Cache + AccountsDB), en mettant à jour les soldes off-chain
+5. **Settler** - valide les résultats de transactions accumulés dans PostgreSQL et met à jour le cache Redis ; génère de nouveaux blockhashes pour le prochain cycle de blocs. Le règlement sur le Mainnet (appel à `ReleaseFunds`) est géré séparément par le service `operator-private-channel`
+
+## Fonctionnalités clés
+
+### Confidentialité
+
+Les transferts entre participants du canal ne sont pas enregistrés sur le Mainnet Solana. Seuls les dépôts (entrée dans le canal) et les retraits finaux (sortie du canal) apparaissent on-chain. Les identités des contreparties et les montants des transferts ne sont pas visibles par des observateurs extérieurs pendant le fonctionnement du canal.
+
+### Performance
+
+Le pipeline off-chain supprime le temps de bloc de Solana du chemin critique. Les transferts sont confirmés lorsque le séquenceur les traite, et non lorsqu'un bloc Solana est confirmé. Cela permet une finalité inférieure à la seconde et un débit dépassant le TPS natif de Solana pour les transferts au niveau applicatif.
+
+### Règlement
+
+Chaque retrait est protégé par une preuve Sparse Merkle Tree on-chain. La racine SMT est stockée dans `Instance.withdrawal_transactions_root` sur le programme Escrow. Lorsque `ReleaseFunds` est appelé, le programme vérifie d'abord une preuve d'exclusion pour un nonce inédit par rapport à la racine on-chain actuelle, puis vérifie une preuve d'inclusion distincte pour ce nonce par rapport à la nouvelle racine fournie par l'appelant. Ce n'est qu'après la validation des deux vérifications qu'il stocke la nouvelle racine, rendant la double dépense impossible même si une clé d'opérateur est compromise.
+
+## Modèle de sécurité
+
+**Clé admin** - contrôle la création d'instances (`CreateInstance`) et le provisionnement des opérateurs (`AddOperator` / `RemoveOperator`). La compromission de la clé admin permet un provisionnement arbitraire des opérateurs. `SetNewAdmin` transfère l'autorité admin de manière irréversible en une seule étape ; protégez la clé admin en conséquence.
+
+**Clés opérateur** - peuvent appeler `ReleaseFunds` et `ResetSmtRoot`. Elles ne peuvent pas libérer des fonds sans une preuve d'exclusion SMT valide par rapport à la racine on-chain actuelle. La vérification on-chain `verify_smt_exclusion_proof` constitue la dernière ligne de défense contre les retraits non autorisés : une clé d'opérateur compromise seule n'est pas suffisante pour vider le séquestre.
+
+**Racine SMT** - stockée on-chain dans `Instance.withdrawal_transactions_root`. Mise à jour de manière atomique à chaque appel de `ReleaseFunds`. Étant donné que chaque preuve doit référencer un nonce inédit, la double dépense du même solde de canal est impossible même si une clé d'opérateur est compromise.
+
+**Rotation de l'arbre** - `Instance.current_tree_index` suit les epoch de l'arbre. Lorsque `ResetSmtRoot` est appelé, il incrémente l'index de l'arbre et invalide tous les nonces de l'epoch d'arbre précédente, offrant une table rase pour les nouveaux cycles de règlement.
+
+## Sécurité opérationnelle des clés
+
+<Callout type="warning">
+  Les services off-chain utilisent leur propre vocabulaire de signataire, sans lien avec les autorités admin/opérateur on-chain décrites dans le modèle de sécurité ci-dessus. `ADMIN_PRIVATE_KEY` est requise pour chaque service opérateur et couvre les frais de transaction ; une `OPERATOR_PRIVATE_KEY` distincte et optionnelle fournit la signature on-chain de l'Opérateur pour `ReleaseFunds` et `ResetSmtRoot`, et utilise par défaut la valeur de `ADMIN_PRIVATE_KEY` si elle n'est pas définie. Ne placez jamais la clé admin de l'instance au niveau protocole (utilisée pour `CreateInstance` / `AddOperator` / `SetNewAdmin`) dans l'une ou l'autre variable, ni ne l'exposez au moment de l'exécution ; conservez cette clé hors ligne, en stockage à froid.
+</Callout>
+
+`ReleaseFunds` et `ResetSmtRoot` requièrent deux signatures on-chain : le payeur des frais (depuis `ADMIN_PRIVATE_KEY`) et l'autorité du PDA Opérateur (depuis `OPERATOR_PRIVATE_KEY`, ou `ADMIN_PRIVATE_KEY` si celle-ci n'est pas définie). Le guide de déploiement de ce devnet place le keypair d'opérateur généré dans `ADMIN_PRIVATE_KEY` et laisse `OPERATOR_PRIVATE_KEY` non définie, de sorte que le même keypair remplit les deux rôles de signataire. Appliquez les mêmes contrôles que pour une clé privée de portefeuille actif à la clé qui se retrouve dans `ADMIN_PRIVATE_KEY` :
+
+- Stockez-la uniquement dans le fichier `.env` ignoré par git, jamais dans `.env.devnet` ni dans aucune configuration versionnée
+- Pour les déploiements en production, privilégiez un gestionnaire de secrets (AWS Secrets Manager, HashiCorp Vault) plutôt qu'une variable d'environnement en clair
+- Le keypair admin de l'instance au niveau protocole (utilisé pour appeler `AddOperator` / `SetNewAdmin`) doit être conservé à froid ; il n'est nécessaire que lors de la configuration de l'instance et du provisionnement des opérateurs, pas pendant l'exécution
+
+`SetNewAdmin` transfère les droits admin **de manière irréversible en une seule transaction** : l'admin actuel n'a aucune voie de recours sans la coopération du nouvel admin. Ne l'appelez pas sans avoir vérifié l'adresse cible.
+
+## Prochaines étapes
+
+<Cards>
+  <Card
+    title="Démarrage rapide"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    Configurez votre environnement et générez les clients TypeScript.
+  </Card>
+  <Card title="Canaux" href="/docs/tools/private-channels/concepts/channels">
+    Comprendre les participants et le cycle de vie des canaux.
+  </Card>
+  <Card
+    title="Sparse Merkle Tree"
+    href="/docs/tools/private-channels/concepts/smt"
+  >
+    Comprendre comment les preuves de retrait sont vérifiées on-chain.
+  </Card>
+  <Card
+    title="Instructions"
+    href="/docs/tools/private-channels/instructions/deposit"
+  >
+    Référence complète des instructions pour tous les programmes.
+  </Card>
+</Cards>

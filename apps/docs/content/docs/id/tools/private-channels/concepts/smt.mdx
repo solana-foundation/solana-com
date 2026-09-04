@@ -1,0 +1,113 @@
+---
+title: Sparse Merkle Tree
+description:
+  Bagaimana Private Channels menggunakan Sparse Merkle Tree untuk mencegah double-spend pada penarikan dana
+---
+
+<Callout type="info">
+  Pengguna dan pengembang tidak berinteraksi langsung dengan SMT; bukti eksklusi
+  dihitung dan dikirimkan secara otomatis oleh layanan `operator-private-channel`.
+  Halaman ini adalah materi referensi untuk operator dan siapa pun yang membangun
+  perangkat operator.
+</Callout>
+
+<Callout type="info">
+  Program escrow sedang bermigrasi dari desain Sparse Merkle Tree ini ke
+  nonce bitmap on-chain (dilacak di upstream). Halaman ini akurat terhadap
+  program escrow saat ini dan akan diperbarui setelah perubahan tersebut diterapkan.
+</Callout>
+
+## Tujuan
+
+Private Channels menggunakan Sparse Merkle Tree (SMT) untuk memastikan bahwa setiap
+nonce penarikan hanya dapat diselesaikan satu kali. Ketika operator memanggil
+`ReleaseFunds`, mereka harus menyediakan dua bukti: bukti eksklusi bahwa nonce
+BELUM ada terhadap root saat ini, dan bukti inklusi bahwa nonce SUDAH ada
+dalam root baru yang disediakan oleh pemanggil. Hanya setelah kedua pemeriksaan
+lolos, program menyimpan root baru, membuat setiap upaya penggunaan ulang nonce
+di masa mendatang menjadi tidak valid secara kriptografis.
+
+## Parameter Pohon
+
+- Tinggi pohon: `16`
+- Jumlah daun maksimum: `65.536` (2^16)
+- Fungsi hash: SHA-256
+- Nilai daun kosong: `[0u8; 32]` (32 byte nol)
+- Nilai daun tidak kosong: `SHA256([1u8; 32])`, disimpan sebagai konstanta
+  `NON_EMPTY_LEAF_HASH`
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## Struktur Daun
+
+Setiap penarikan menempati tepat satu daun. Posisi daun ditentukan oleh:
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+Sebuah daun dianggap tidak kosong apabila nilainya sama dengan `NON_EMPTY_LEAF_HASH`
+(yaitu, `SHA256([1u8; 32])`). Daun kosong bernilai semua nol.
+
+## Nonce dan Posisi Daun
+
+`transaction_nonce` dalam `ReleaseFunds` bertipe `u64`. Posisinya dalam pohon
+adalah `nonce % 65536`. epoch yang diharapkan adalah `nonce / 65536`. Program
+on-chain memvalidasi bahwa epoch yang dihitung ini sama dengan `Instance.current_tree_index`;
+ketidakcocokan akan melempar `InvalidTransactionNonceForCurrentTreeIndex`.
+
+## Rotasi Pohon
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+SMT memiliki kapasitas tetap sebesar 65.536 daun. Layanan operator mendeteksi kapan
+rotasi diperlukan dengan memeriksa apakah `nonce % 65536 == 0` (untuk `nonce > 0`);
+batas tersebut menandai dimulainya epoch baru. Pada saat itu,
+`operator-private-channel` memanggil `ResetSmtRoot` sebelum mengirimkan
+`ReleaseFunds` berikutnya:
+
+- `Instance.current_tree_index` ditingkatkan
+- Root penarikan direset ke pohon kosong
+- Nonce dari epoch pohon sebelumnya dinonaktifkan
+
+Layanan operator juga memverifikasi bahwa root SMT lokalnya cocok dengan
+`Instance.withdrawal_transactions_root` on-chain sebelum setiap panggilan `ReleaseFunds`;
+ketidakcocokan memicu penghentian keamanan daripada pengiriman bukti yang berpotensi tidak valid.
+
+Rotasi pohon dilacak oleh `Instance.current_tree_index: u64`, yang disimpan on-chain.
+
+## Verifikasi dalam ReleaseFunds
+
+Argumen `sibling_proofs` dalam `ReleaseFunds` adalah tepat `[u8; 512]`: 16
+hash saudara × 32 byte masing-masing, sesuai dengan tinggi pohon 16.
+
+Proses verifikasi on-chain menjalankan dua pemeriksaan terpisah secara berurutan:
+
+1. `verify_smt_exclusion_proof` membuktikan bahwa daun nonce saat ini kosong terhadap
+   `Instance.withdrawal_transactions_root` yang berlaku
+2. `verify_smt_inclusion_proof` membuktikan bahwa daun nonce terdapat dalam
+   argumen `new_withdrawal_root` yang disediakan oleh pemanggil
+3. Hanya jika kedua pemeriksaan lolos, program menyimpan `new_withdrawal_root` sebagai
+   `Instance.withdrawal_transactions_root` yang baru dan melepaskan token
+
+Salah satu pemeriksaan yang gagal akan melempar `InvalidSmtProof`. Pembaruan root pada langkah 3
+bersifat atomik dengan setiap panggilan `ReleaseFunds`.

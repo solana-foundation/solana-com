@@ -1,0 +1,89 @@
+---
+title: Αποδέσμευση Κεφαλαίων
+description:
+  Αποδεσμεύει tokens από το escrow στο πορτοφόλι ενός χρήστη μετά την επαλήθευση απόδειξης αποκλεισμού SMT
+---
+
+Καλείται από έναν εξουσιοδοτημένο χειριστή για την αποδέσμευση tokens υπό εγγύηση στο πορτοφόλι Mainnet
+ενός χρήστη, υπό την προϋπόθεση έγκυρης απόδειξης αποκλεισμού Sparse Merkle Tree για το
+nonce ανάληψης.
+
+<Callout type="info">
+  Το πρόγραμμα escrow μεταναστεύει από αυτόν τον σχεδιασμό Sparse Merkle Tree σε
+  ένα on-chain nonce bitmap (παρακολουθείται upstream). Αυτή η σελίδα είναι ακριβής σε σχέση με το
+  τρέχον πρόγραμμα escrow και θα αναθεωρηθεί μόλις εφαρμοστεί αυτή η αλλαγή.
+</Callout>
+
+## Λογαριασμοί
+
+| Λογαριασμός                          | Εγγράψιμος | Υπογράφων | Περιγραφή                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Πληρωτής τελών                                                          |
+| `operator`                       |          | ✓      | Υπογράφων χειριστής                                                    |
+| `instance`                       | ✓        |        | PDA περίπτωσης escrow (η ρίζα ενημερώνεται on-chain)                        |
+| `operator_pda`                   |          |        | PDA χειριστή που αποδεικνύει ότι ο υπογράφων είναι εξουσιοδοτημένος                     |
+| `mint`                           |          |        | SPL token mint                                                     |
+| `allowed_mint`                   |          |        | PDA AllowedMint - επαληθεύει ότι το mint επιτρέπεται σε αυτήν την περίπτωση |
+| `user_ata`                       | ✓        |        | associated token account παραλήπτη (προορισμός)                 |
+| `instance_ata`                   | ✓        |        | associated token account escrow (πηγή)                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | PDA αρχής συμβάντων για `EmitEvent` CPI                            |
+| `private_channel_escrow_program` |          |        | Πρόγραμμα Escrow (αυτο-αναφορά για CPI)                            |
+
+## Παράμετροι
+
+| Παράμετρος             | Τύπος        | Περιγραφή                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Ποσό tokens προς αποδέσμευση                                   |
+| `user`                | `Pubkey`    | Πορτοφόλι παραλήπτη στο Mainnet                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Ενημερωμένη ρίζα SMT μετά την συμπερίληψη του nonce αυτής της ανάληψης      |
+| `transaction_nonce`   | `u64`       | Μοναδικό nonce που προσδιορίζει αυτό το φύλλο ανάληψης στο SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 sibling hashes (32 bytes έκαστο) για την απόδειξη αποκλεισμού SMT |
+
+## Επιστρεφόμενη Τιμή
+
+Επιστρέφει ένα `TransactionBuilder` που μπορεί να χρησιμοποιηθεί για τη δημιουργία και αποστολή της
+συναλλαγής.
+
+## Παράδειγμα
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Σημαντικές Σημειώσεις
+
+- Ο καλών πρέπει να είναι εξουσιοδοτημένος χειριστής: το `operator_pda` πρέπει να υπάρχει (δημιουργείται από
+  το `AddOperator`)· μη έγκυρο PDA προκαλεί `InvalidOperatorPda`
+- Το `sibling_proofs` έχει ακριβώς 512 bytes (16 × 32-byte hashes, που αντιστοιχούν στο ύψος δέντρου SMT ίσο με 16)
+- Το `new_withdrawal_root` είναι η ενημερωμένη ρίζα SMT μετά την συμπερίληψη του
+  nonce αυτής της ανάληψης. Υπολογίστε το off-chain πριν την κλήση
+- Το `transaction_nonce` πρέπει να είναι έγκυρο για το `Instance.current_tree_index`· ένα
+  μη έγκυρο nonce προκαλεί `InvalidTransactionNonceForCurrentTreeIndex`
+- Το πρόγραμμα εκτελεί πρώτα το `verify_smt_exclusion_proof`, αποδεικνύοντας ότι το nonce ΔΕΝ
+  υπάρχει ακόμα σε σχέση με την τρέχουσα ρίζα, στη συνέχεια εκτελεί ξεχωριστό
+  `verify_smt_inclusion_proof` που αποδεικνύει ότι το nonce ΥΠΑΡΧΕΙ στη
+  `new_withdrawal_root` που παρέχει ο καλών. Αποτυχία οποιουδήποτε ελέγχου προκαλεί `InvalidSmtProof`
+- Μόνο αφού περάσουν και οι δύο έλεγχοι ενημερώνεται ατομικά το `Instance.withdrawal_transactions_root`· το nonce δεν μπορεί να επαναχρησιμοποιηθεί
+- Εκπέμπει συμβάν μέσω `EmitEvent` CPI

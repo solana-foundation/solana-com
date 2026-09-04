@@ -1,0 +1,81 @@
+---
+title: Освобождение средств
+description:
+  Освобождает токены из эскроу в кошелёк пользователя после проверки доказательства исключения SMT
+---
+
+Вызывается подготовленным оператором для освобождения токенов из эскроу в кошелёк пользователя в основной сети (Mainnet), при условии наличия действительного доказательства исключения Sparse Merkle Tree для нонса вывода.
+
+<Callout type="info">
+  Эскроу-программа переходит с данной схемы на основе Sparse Merkle Tree на
+  побитовую карту нонсов на блокчейне (отслеживается в вышестоящем репозитории). Эта страница актуальна для
+  текущей эскроу-программы и будет обновлена после внедрения соответствующих изменений.
+</Callout>
+
+## Аккаунты
+
+| Аккаунт                          | Записываемый | Подписант | Описание                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Плательщик комиссии                                                          |
+| `operator`                       |          | ✓      | Подписант-оператор                                                    |
+| `instance`                       | ✓        |        | PDA экземпляра эскроу (корень обновляется на блокчейне)                        |
+| `operator_pda`                   |          |        | PDA оператора, подтверждающий, что подписант является подготовленным                     |
+| `mint`                           |          |        | Минт SPL-токена                                                     |
+| `allowed_mint`                   |          |        | PDA AllowedMint — проверяет, что минт разрешён для данного экземпляра |
+| `user_ata`                       | ✓        |        | associated token account получателя (назначение)                 |
+| `instance_ata`                   | ✓        |        | associated token account эскроу (источник)                         |
+| `token_program`                  |          |        | Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | PDA авторизации событий для CPI `EmitEvent`                            |
+| `private_channel_escrow_program` |          |        | Эскроу-программа (самоссылка для CPI)                            |
+
+## Параметры
+
+| Параметр             | Тип        | Описание                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Количество токенов для освобождения                                   |
+| `user`                | `Pubkey`    | Кошелёк получателя в основной сети (Mainnet)                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Обновлённый корень SMT после включения нонса данного вывода      |
+| `transaction_nonce`   | `u64`       | Уникальный нонс, идентифицирующий данный лист вывода в SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 хешей соседних узлов (по 32 байта каждый) для доказательства исключения SMT |
+
+## Возвращаемое значение
+
+Возвращает `TransactionBuilder`, который можно использовать для построения и отправки транзакции.
+
+## Пример
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Важные замечания
+
+- Вызывающая сторона должна быть подготовленным оператором: `operator_pda` должен существовать (создан с помощью
+  `AddOperator`); недействительный PDA вызывает ошибку `InvalidOperatorPda`
+- `sibling_proofs` имеет ровно 512 байт (16 × 32-байтных хеша, соответствующих высоте дерева SMT, равной 16)
+- `new_withdrawal_root` — это обновлённый корень SMT после включения нонса данного вывода. Вычислите его вне блокчейна перед вызовом
+- `transaction_nonce` должен быть действительным для `Instance.current_tree_index`; недействительный нонс вызывает ошибку `InvalidTransactionNonceForCurrentTreeIndex`
+- Программа сначала выполняет `verify_smt_exclusion_proof`, доказывая, что нонс ещё НЕ существует относительно текущего корня, затем выполняет отдельный `verify_smt_inclusion_proof`, доказывая, что нонс ДЕЙСТВИТЕЛЬНО существует в предоставленном вызывающей стороной `new_withdrawal_root`. Сбой любой из проверок вызывает ошибку `InvalidSmtProof`
+- Только после успешного прохождения обеих проверок `Instance.withdrawal_transactions_root` обновляется атомарно; нонс не может быть использован повторно
+- Генерирует событие через CPI `EmitEvent`

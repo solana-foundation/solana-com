@@ -1,0 +1,117 @@
+---
+title: 通道生命周期
+description:
+  私有支付通道的工作原理、参与者及其适用场景
+---
+
+## 什么是私有通道？
+
+私有通道是一种锚定于 Solana 的链下支付网络。用户将 SPL 代币存入链上托管程序，然后通过网关以高速、零转账费用的方式进行链下交易。结算回 Solana 主网时通过稀疏默克尔树（Sparse Merkle Tree）证明完成，确保资金始终可赎回且无法双花。
+
+与 Solana 原生支付流程不同，通道内的转账在用户提款之前不会出现在链上。通道网络运行自己的交易处理流水线（去重 -> 签名验证 -> 排序器 -> 执行器 -> 结算器），独立于 Solana 的出块时间处理交易。
+
+## 参与者
+
+### 实例管理员
+
+管理员通过 `CreateInstance` 部署 `Instance` PDA，并控制哪些 SPL 代币铸币地址被接受（`AllowMint` / `BlockMint`）。管理员通过 `AddOperator` / `RemoveOperator` 配置和撤销操作员权限，并可通过 `SetNewAdmin` 转让管理员权限。每个实例只有一位管理员。管理员权限转让为单步不可逆操作：当前管理员在未获得新管理员配合的情况下无法重新获得该角色。
+
+### 操作员
+
+操作员由管理员配置。他们持有 `Operator` PDA，是唯一被允许调用 `ReleaseFunds`（用于将提款结算到主网）和 `ResetSmtRoot`（用于轮换稀疏默克尔树）的账户。操作员绕过网关中的所有所有权检查，并可访问所有 JSON-RPC 方法，包括 `getBlock`、`getTransaction` 和 `simulateTransaction`。JWT 角色：`"operator"`。操作员必须直接在数据库中配置，不支持自助提权。部署和配置详情请参阅[操作员指南](/docs/tools/private-channels/operators)。
+
+### 用户
+
+用户通过 Auth Service 自行注册。JWT 角色：`"user"`。用户可直接在托管程序上调用 `Deposit`，并通过提款程序的通道端 `WithdrawFunds` 指令发起提款。网关访问仅限于其自身经过验证的钱包；用户无法调用 `getBlock`、`getTransaction` 或 `simulateTransaction`。
+
+## 通道生命周期
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Alice
+    participant Mainnet as Solana Mainnet
+    participant Channel as Private Channel Network
+
+    Note over Admin,Channel: SETUP (one time)
+    Admin->>Mainnet: CreateInstance
+    Admin->>Mainnet: AllowMint
+    Admin->>Mainnet: AddOperator
+
+    Note over Alice,Channel: DEPOSIT
+    Alice->>Mainnet: Deposit (tokens to escrow ATA)
+    Note over Channel: Indexer detects deposit event,<br/>credits Alice's channel balance
+
+    Note over Alice,Channel: OFF-CHAIN TRANSFERS
+    Alice->>Channel: SPL token transfer (via gateway)
+    Channel-->>Alice: Confirmed (~100 ms, no Mainnet fee)
+
+    Note over Alice,Mainnet: WITHDRAWAL
+    Alice->>Channel: WithdrawFunds (burns channel balance)
+    Note over Channel: Indexer detects burn (~1 s),<br/>operator submits ReleaseFunds
+    Channel->>Mainnet: ReleaseFunds (with SMT exclusion proof)
+    Mainnet-->>Alice: Tokens released to Mainnet wallet
+```
+
+1. **实例创建** - 管理员调用 `CreateInstance`，创建 `Instance` PDA 并配置允许的铸币地址。
+2. **存款** - 用户通过 `Deposit` 指令将 SPL 代币存入托管账户。代币转移至实例的 associated token account。
+3. **链下转账** - 用户通过网关发送转账。转账在通道网络上完成排序和执行，无需触及主网。
+4. **发起提款** - 用户在提款程序（通道端）调用 `WithdrawFunds`，销毁其余额并发出提款信号。
+5. **主网结算** - 操作员提供有效的 SMT 排除证明，并在托管程序（主网）上调用 `ReleaseFunds`，将代币释放至用户钱包。
+6. **树轮换** - 当 SMT 接近容量上限（65,536 个叶节点）时，操作员调用 `ResetSmtRoot` 轮换树结构并开始新的 epoch。
+
+### 转账
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    participant GW as Gateway
+    participant Pipeline as Write Node Pipeline
+    participant DB as Channel State
+
+    Alice->>GW: SPL token transfer to Bob
+    GW->>Pipeline: Route to write node
+
+    Note over Pipeline: 1. Dedup - reject duplicates and replays<br/>2. SigVerify - validate signatures<br/>3. Sequencer - order into conflict-free batch<br/>4. Executor - apply to off-chain account state<br/>5. Settler - commit to database, update blockhash
+
+    Pipeline->>DB: Commit updated balances
+    GW-->>Alice: Confirmed (off-chain, not recorded on Mainnet)
+    Note over Bob: Balance updated in channel state
+```
+
+### 提款
+
+```mermaid
+sequenceDiagram
+    participant Bob
+    participant Channel as Private Channel Network
+    participant Indexer as indexer-private-channel
+    participant Operator as operator-private-channel
+    participant Mainnet as Solana Mainnet
+
+    Bob->>Channel: WithdrawFunds (burns channel-side balance)
+    Channel-->>Bob: Burn confirmed off-chain
+
+    Note over Indexer: Polls gateway every 1 s
+    Indexer->>Channel: Detect burn event
+    Indexer->>Indexer: Write pending withdrawal to database
+
+    Operator->>Indexer: Pick up pending record
+    Operator->>Mainnet: ReleaseFunds (SMT exclusion proof)
+    Mainnet-->>Bob: Tokens transferred to Mainnet ATA
+```
+
+## 何时使用私有通道
+
+当您的应用程序有以下需求时，请使用私有通道：
+
+- **链下吞吐量** - 您的转账量将使 Solana TPS 达到饱和，或您需要亚秒级确认
+- **隐私保护** - 交易对手身份和转账金额不得出现在链上
+- **零转账费用** - 频繁转账且每笔交易的 SOL 费用难以承受
+
+在以下情况下请改用原生 SPL 转账：
+
+- **链上可组合性**是必要条件（DeFi、兑换、借贷；其他程序必须能够观察或处理该转账）
+- **单次转账即可完成结算**，且隐私不是问题
+- **没有可用的网关基础设施**，或在运营上不可行

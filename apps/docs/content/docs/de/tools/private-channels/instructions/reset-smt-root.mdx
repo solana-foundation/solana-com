@@ -1,0 +1,70 @@
+---
+title: SMT-Root zurücksetzen
+description:
+  Rotiert den Sparse Merkle Tree und setzt die Auszahlungswurzel für eine neue Baum-Epoche zurück
+---
+
+Nur für Operatoren verfügbare Anweisung, die den Sparse Merkle Tree rotiert, indem
+`Instance.current_tree_index` inkrementiert und die Auszahlungswurzel zurückgesetzt wird, wodurch eine neue
+Epoche von 65.536 Auszahlungen ermöglicht wird.
+
+<Callout type="info">
+  Das Escrow-Programm wird von diesem Sparse Merkle Tree-Design zu einer
+  On-Chain-Nonce-Bitmap (upstream verfolgt) migriert, wobei diese Anweisung zu
+  `RotateBitmap` wird. Diese Seite ist korrekt gegenüber dem aktuellen Escrow-Programm und
+  wird überarbeitet, sobald diese Änderung eintritt.
+</Callout>
+
+## Konten
+
+| Konten                          | Beschreibbar | Signer | Beschreibung                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Gebührenzahler                                              |
+| `operator`                       |          | ✓      | Operator-Signer                                        |
+| `instance`                       | ✓        |        | Escrow-Instanz-PDA (`current_tree_index` inkrementiert) |
+| `operator_pda`                   |          |        | Operator-PDA, der bestätigt, dass der Signer bereitgestellt ist         |
+| `event_authority`                |          |        | Ereignisautoritäts-PDA für `EmitEvent`-CPI                |
+| `private_channel_escrow_program` |          |        | Escrow-Programm (Selbstreferenz für CPI)                |
+
+## Parameter
+
+| Parameter                     | Typ  | Beschreibung                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Replay-Schutz; muss mit `Instance.current_tree_index` übereinstimmen, sonst schlägt der Aufruf fehl |
+
+## Rückgabewert
+
+Gibt einen `TransactionBuilder` zurück, der zum Erstellen und Senden der
+Transaktion verwendet werden kann.
+
+## Beispiel
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Wichtige Hinweise
+
+- Nur für Operatoren: erfordert ein gültiges `operator_pda`; andernfalls wird `InvalidOperatorPda`
+  ausgelöst
+- `expected_current_tree_index` muss zum Zeitpunkt des Aufrufs mit `Instance.current_tree_index` übereinstimmen;
+  ein veralteter Wert löst `UnexpectedTreeIndex` aus und schützt so vor der Wiederholung eines
+  bereits durchgeführten Zurücksetzens
+- Inkrementiert `Instance.current_tree_index`; Nonces, die in der vorherigen Baum-Epoche gültig waren,
+  werden nach der Rotation ungültig
+- Der Dienst `operator-private-channel` ruft dies automatisch auf, wenn
+  `transaction_nonce % 65536 == 0` (und `nonce > 0`) ist, was den Beginn einer
+  neuen Epoche signalisiert; unter normalen Betriebsbedingungen sollte ein manueller Aufruf nicht erforderlich sein
+- Nach der Rotation wird die Auszahlungswurzel auf den leeren Baum zurückgesetzt, sodass neue
+  Auszahlungen von einem neuen SMT aus beginnen
+- Gibt ein Ereignis über `EmitEvent`-CPI aus

@@ -1,0 +1,111 @@
+---
+title: Harva Merkle-puu
+description:
+  Kuinka Private Channels käyttää harvaa Merkle-puuta estääkseen kaksinkertaiset nostot
+---
+
+<Callout type="info">
+  Käyttäjät ja kehittäjät eivät ole suoraan vuorovaikutuksessa SMT:n kanssa; poissulkemistodisteet
+  lasketaan ja lähetetään automaattisesti `operator-private-channel`
+  -palvelun toimesta. Tämä sivu on viitemateriaalia operaattoreille ja kaikille,
+  jotka rakentavat operaattorityökaluja.
+</Callout>
+
+<Callout type="info">
+  Escrow-ohjelma siirtyy tästä harvan Merkle-puun rakenteesta
+  ketjussa olevaan nonce-bittikartalle (seurataan ylävirrassa). Tämä sivu vastaa
+  nykyistä escrow-ohjelmaa ja päivitetään, kun muutos otetaan käyttöön.
+</Callout>
+
+## Tarkoitus
+
+Private Channels käyttää harvaa Merkle-puuta (SMT) varmistaakseen, että jokainen
+noston nonce voidaan selvittää vain kerran. Kun operaattori kutsuu
+`ReleaseFunds`-funktiota, heidän on esitettävä kaksi todistetta: poissulkemistodiste siitä, että nonce
+EI vielä ole nykyisessä juuressa, sekä sisällyttämistodiste siitä, että nonce ON olemassa kutsujan toimittamassa uudessa juuressa. Vasta molempien tarkistusten läpäisyn jälkeen ohjelma tallentaa uuden juuren, mikä tekee kaikista tulevista yrityksistä käyttää nonce:a uudelleen todistettavasti virheellisiä.
+
+## Puun parametrit
+
+- Puun korkeus: `16`
+- Maksimilehdet: `65 536` (2^16)
+- Hajautusfunktio: SHA-256
+- Tyhjän lehden arvo: `[0u8; 32]` (32 nollatavua)
+- Ei-tyhjän lehden arvo: `SHA256([1u8; 32])`, tallennettu vakiona
+  `NON_EMPTY_LEAF_HASH`
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## Lehtirakenne
+
+Jokainen nosto vie täsmälleen yhden lehden. Lehden sijainti määräytyy seuraavasti:
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+Lehti katsotaan ei-tyhjäksi, kun sen arvo on yhtä suuri kuin `NON_EMPTY_LEAF_HASH`
+(eli `SHA256([1u8; 32])`). Tyhjä lehti koostuu pelkistä nollista.
+
+## Nonce ja lehden sijainti
+
+`ReleaseFunds`-funktion `transaction_nonce` on tyyppiä `u64`. Sen sijainti puussa
+on `nonce % 65536`. Odotettu epoch on `nonce / 65536`. Ketjussa oleva ohjelma
+tarkistaa, että tämä laskettu epoch vastaa `Instance.current_tree_index`-arvoa;
+epäsuhta aiheuttaa `InvalidTransactionNonceForCurrentTreeIndex`-virheen.
+
+## Puun kierrätys
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+SMT:llä on kiinteä kapasiteetti 65 536 lehteä. Operaattoripalvelu havaitsee
+kierrätystarve tarkistamalla, onko `nonce % 65536 == 0` (kun `nonce > 0`);
+tämä raja merkitsee uuden epoch:n alkua. Tässä kohtaa
+`operator-private-channel` kutsuu `ResetSmtRoot`-funktiota ennen seuraavan
+`ReleaseFunds`-kutsun lähettämistä:
+
+- `Instance.current_tree_index`-arvoa kasvatetaan
+- Nostojuuri palautetaan tyhjäksi puuksi
+- Edellisen puun epoch:n noncet mitätöidään
+
+Operaattoripalvelu tarkistaa myös, että sen paikallinen SMT-juuri vastaa
+ketjussa olevaa `Instance.withdrawal_transactions_root`-arvoa ennen jokaista `ReleaseFunds`-
+kutsua; epäsuhta käynnistää turvasammutuksen mahdollisesti virheellisen
+todisteen lähettämisen sijaan.
+
+Puun kierrätystä seurataan `Instance.current_tree_index: u64` -arvolla, joka on tallennettu ketjuun.
+
+## Varmennus ReleaseFunds-funktiossa
+
+`ReleaseFunds`-funktion `sibling_proofs`-argumentti on täsmälleen `[u8; 512]`: 16
+sisarushajautusta × 32 tavua kutakin, vastaten puun korkeutta 16.
+
+Ketjussa oleva varmennusprosessi suorittaa kaksi erillistä tarkistusta järjestyksessä:
+
+1. `verify_smt_exclusion_proof` todistaa, että nonce-lehti on tällä hetkellä tyhjä
+   nykyistä `Instance.withdrawal_transactions_root`-arvoa vasten
+2. `verify_smt_inclusion_proof` todistaa, että nonce-lehti on läsnä
+   kutsujan toimittamassa `new_withdrawal_root`-argumentissa
+3. Vain jos molemmat tarkistukset läpäistään, ohjelma tallentaa `new_withdrawal_root`-arvon
+   uudeksi `Instance.withdrawal_transactions_root`-arvoksi ja vapauttaa tokenit
+
+Jommankumman tarkistuksen epäonnistuminen aiheuttaa `InvalidSmtProof`-virheen. Juuren päivitys vaiheessa 3 on
+atomiinen jokaisen `ReleaseFunds`-kutsun kanssa.

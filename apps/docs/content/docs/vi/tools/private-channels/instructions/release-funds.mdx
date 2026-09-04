@@ -1,0 +1,88 @@
+---
+title: Giải Phóng Quỹ
+description:
+  Giải phóng token từ escrow vào ví của người dùng sau khi xác minh bằng chứng loại trừ SMT
+---
+
+Được gọi bởi một operator đã được cấp phép để giải phóng các token escrow vào ví Mainnet
+của người dùng, với điều kiện có bằng chứng loại trừ Sparse Merkle Tree hợp lệ cho
+nonce rút tiền.
+
+<Callout type="info">
+  Chương trình escrow đang chuyển đổi từ thiết kế Sparse Merkle Tree này sang
+  bitmap nonce on-chain (được theo dõi ở upstream). Trang này phản ánh chính xác
+  chương trình escrow hiện tại và sẽ được cập nhật khi thay đổi đó được triển khai.
+</Callout>
+
+## Tài Khoản
+
+| Tài khoản                          | Có thể ghi | Người ký | Mô tả                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Người trả phí                                                          |
+| `operator`                       |          | ✓      | Người ký operator                                                    |
+| `instance`                       | ✓        |        | PDA của instance escrow (root được cập nhật on-chain)                        |
+| `operator_pda`                   |          |        | PDA operator xác minh người ký đã được cấp phép                     |
+| `mint`                           |          |        | Mint token SPL                                                     |
+| `allowed_mint`                   |          |        | PDA AllowedMint - xác thực mint được phép trên instance này |
+| `user_ata`                       | ✓        |        | associated token account của người nhận (đích đến)                 |
+| `instance_ata`                   | ✓        |        | associated token account của escrow (nguồn)                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | PDA event authority dùng cho CPI `EmitEvent`                            |
+| `private_channel_escrow_program` |          |        | Chương trình Escrow (tự tham chiếu cho CPI)                            |
+
+## Tham Số
+
+| Tham số             | Kiểu        | Mô tả                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Số lượng token cần giải phóng                                   |
+| `user`                | `Pubkey`    | Ví người nhận trên Mainnet                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Root SMT đã được cập nhật sau khi bao gồm nonce của lần rút tiền này      |
+| `transaction_nonce`   | `u64`       | Nonce duy nhất xác định lá rút tiền này trong SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 hash sibling (mỗi hash 32 byte) cho bằng chứng loại trừ SMT |
+
+## Trả Về
+
+Trả về một `TransactionBuilder` có thể được dùng để xây dựng và gửi
+giao dịch.
+
+## Ví Dụ
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Lưu Ý Quan Trọng
+
+- Người gọi phải là operator đã được cấp phép: `operator_pda` phải tồn tại (được tạo bởi
+  `AddOperator`); PDA không hợp lệ sẽ ném lỗi `InvalidOperatorPda`
+- `sibling_proofs` có đúng 512 byte (16 × 32 byte hash, khớp với chiều cao cây SMT là 16)
+- `new_withdrawal_root` là root SMT đã được cập nhật sau khi bao gồm nonce của lần rút tiền này. Hãy tính toán off-chain trước khi gọi
+- `transaction_nonce` phải hợp lệ với `Instance.current_tree_index`; nonce không hợp lệ sẽ ném lỗi `InvalidTransactionNonceForCurrentTreeIndex`
+- Chương trình trước tiên chạy `verify_smt_exclusion_proof`, xác minh rằng nonce CHƯA tồn tại so với root hiện tại, sau đó chạy riêng
+  `verify_smt_inclusion_proof` xác minh rằng nonce ĐÃ tồn tại trong
+  `new_withdrawal_root` do người gọi cung cấp. Nếu một trong hai kiểm tra thất bại sẽ ném lỗi
+  `InvalidSmtProof`
+- Chỉ sau khi cả hai kiểm tra đều qua thì `Instance.withdrawal_transactions_root` mới được cập nhật
+  theo cách nguyên tử; nonce không thể được tái sử dụng
+- Phát ra một sự kiện thông qua CPI `EmitEvent`

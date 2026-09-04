@@ -1,0 +1,92 @@
+---
+title: Lepaskan Dana
+description:
+  Melepaskan token dari escrow ke dompet pengguna setelah memverifikasi bukti eksklusi SMT
+---
+
+Dipanggil oleh operator yang telah disediakan untuk melepaskan token escrow ke dompet Mainnet
+pengguna, bergantung pada bukti eksklusi Sparse Merkle Tree yang valid untuk
+nonce penarikan.
+
+<Callout type="info">
+  Program escrow sedang dimigrasikan dari desain Sparse Merkle Tree ini ke
+  bitmap nonce on-chain (dilacak di upstream). Halaman ini akurat terhadap
+  program escrow saat ini dan akan diperbarui setelah perubahan tersebut diterapkan.
+</Callout>
+
+## Akun
+
+| Akun                          | Dapat Ditulis | Penanda Tangan | Deskripsi                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Pembayar biaya                                                          |
+| `operator`                       |          | ✓      | Penanda tangan operator                                                    |
+| `instance`                       | ✓        |        | PDA instance escrow (root diperbarui on-chain)                        |
+| `operator_pda`                   |          |        | PDA operator yang membuktikan penanda tangan telah disediakan                     |
+| `mint`                           |          |        | Mint token SPL                                                     |
+| `allowed_mint`                   |          |        | PDA AllowedMint - memvalidasi bahwa mint diizinkan pada instance ini |
+| `user_ata`                       | ✓        |        | associated token account penerima (tujuan)                 |
+| `instance_ata`                   | ✓        |        | associated token account escrow (sumber)                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | PDA otoritas event untuk CPI `EmitEvent`                            |
+| `private_channel_escrow_program` |          |        | Program Escrow (referensi diri untuk CPI)                            |
+
+## Parameter
+
+| Parameter             | Tipe        | Deskripsi                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | Jumlah token yang akan dilepaskan                                   |
+| `user`                | `Pubkey`    | Dompet penerima di Mainnet                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | Root SMT yang diperbarui setelah menyertakan nonce penarikan ini      |
+| `transaction_nonce`   | `u64`       | Nonce unik yang mengidentifikasi leaf penarikan ini dalam SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 hash sibling (masing-masing 32 byte) untuk bukti eksklusi SMT |
+
+## Nilai Kembalian
+
+Mengembalikan `TransactionBuilder` yang dapat digunakan untuk membangun dan mengirim
+transaksi.
+
+## Contoh
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## Catatan Penting
+
+- Pemanggil harus merupakan operator yang telah disediakan: `operator_pda` harus ada (dibuat oleh
+  `AddOperator`); PDA yang tidak valid akan memunculkan `InvalidOperatorPda`
+- `sibling_proofs` berukuran tepat 512 byte (16 × hash 32-byte, sesuai dengan tinggi
+  pohon SMT yaitu 16)
+- `new_withdrawal_root` adalah root SMT yang diperbarui setelah menyertakan
+  nonce penarikan ini. Hitung secara off-chain sebelum memanggil
+- `transaction_nonce` harus valid untuk `Instance.current_tree_index`; nonce
+  yang tidak valid akan memunculkan `InvalidTransactionNonceForCurrentTreeIndex`
+- Program pertama-tama menjalankan `verify_smt_exclusion_proof`, membuktikan bahwa nonce
+  BELUM ada terhadap root saat ini, kemudian menjalankan `verify_smt_inclusion_proof`
+  secara terpisah yang membuktikan nonce SUDAH ada dalam
+  `new_withdrawal_root` yang diberikan pemanggil. Jika salah satu pemeriksaan gagal, akan memunculkan
+  `InvalidSmtProof`
+- Hanya setelah kedua pemeriksaan lulus, `Instance.withdrawal_transactions_root` diperbarui
+  secara atomik; nonce tidak dapat digunakan kembali
+- Memancarkan event melalui CPI `EmitEvent`

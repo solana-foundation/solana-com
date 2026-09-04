@@ -1,0 +1,113 @@
+---
+title: Nạp Token
+description:
+  Nạp token SPL vào một phiên bản escrow của Private Channels trên devnet
+---
+
+## Tổng quan
+
+Lệnh `Deposit` chuyển token SPL từ associated token account của người dùng vào associated token account của escrow. Sau khi được nạp, token sẽ sẵn sàng cho các giao dịch off-chain thông qua gateway. Tham số `recipient` tùy chọn cho phép người nạp ghi có số dư kênh cho một người dùng khác.
+
+## Điều kiện tiên quyết
+
+- Đã hoàn tất cài đặt và tạo client
+- Một ví devnet có SOL (để trả phí giao dịch) và token SPL bạn muốn nạp
+- Một phiên bản Private Channels đang hoạt động với mint của bạn trong danh sách cho phép
+
+## Mã nguồn
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## Xác minh
+
+Sau khi giao dịch devnet của bạn được xác nhận, trình lập chỉ mục phát hiện sự kiện nạp tiền qua Yellowstone gRPC và operator đúc số dư tương đương trên kênh. Một khoảng trễ an toàn về tính chung cuộc được áp dụng trước khi ghi có, vì vậy **hãy chờ khoảng ~15 giây** trước khi số dư kênh khả dụng.
+
+Truy vấn số dư của bạn qua gateway (không phải devnet RPC) để xác nhận:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+Số dư khác không xác nhận rằng khoản nạp đã được lập chỉ mục và ghi có. Nếu số dư vẫn bằng không sau 30 giây, hãy kiểm tra xem `indexer-solana` và `operator-solana` có đang chạy không (`make docker-devnet-logs`).
+
+## Các bước tiếp theo
+
+**[Gửi một Giao dịch chuyển](/docs/tools/private-channels/quickstart/transfer)** - gửi giao dịch off-chain đầu tiên của bạn

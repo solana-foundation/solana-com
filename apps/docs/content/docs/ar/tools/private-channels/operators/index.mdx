@@ -1,0 +1,375 @@
+---
+title: المشغّلون
+description: نشر وتشغيل نسخة من القنوات الخاصة باستخدام Docker Compose
+---
+
+## ما هو مشغّل القنوات الخاصة؟
+
+المشغّل هو كيان موثوق به يتمتع بصلاحيات على السلسلة، ويعمل كجسر بين سولانا
+Mainnet وشبكة القنوات الخاصة. يتم توفير المشغّلين من قِبل مدير النسخة
+عبر `AddOperator`، الذي ينشئ `Operator` PDA على السلسلة؛
+بدون ذلك، لا يمكن لأي طرف استدعاء `ReleaseFunds`. من الناحية العملية، المشغّل هو
+منظمة أو فريق يُشغّل الخدمات التي تراقب الإيداعات، وتسكّ رموز جانب القناة،
+وتكتشف عمليات السحب، وتسوّي الأموال عبر العودة إلى Mainnet.
+تشغيل نسخة يمنح مستخدميك تحويلات خاصة وعالية الحجم لا تظهر
+على سولانا Mainnet، وإنتاجية فورية بدون رسوم تتجاوز TPS سولانا الأصلي،
+وتحكماً في الوصول عبر RBAC.
+
+<Callout type="info">
+  إذا كنت مطوراً تتكامل مع نسخة قنوات خاصة قائمة بدلاً من نشرها،
+  فابدأ بـ [البداية السريعة](/docs/tools/private-channels/quickstart/installation) عوضاً عن ذلك.
+</Callout>
+
+## قبل البدء
+
+### المتطلبات الأساسية
+
+ثبّت هذه الإصدارات على المضيف لتتطابق مع صور Docker:
+
+- Docker Engine 26+ (macOS Apple Silicon: فعّل "Docker VMM" في الإعدادات ->
+  خيارات الجهاز الافتراضي)
+- Node.js **24.7.0** و pnpm **10.15.1**
+- Solana CLI **3.1.13** (Agave)
+- Rust **1.91.0**
+- نقطة نهاية Yellowstone gRPC لـ Devnet (متاحة من Helius أو Triton أو
+  QuickNode)
+
+للاطلاع على متطلبات الشبكة وتعيينات المنافذ الافتراضية، راجع
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+في المستودع.
+
+ثبّت سلسلة أدوات سولانا المحددة وسخّن ذاكرة تخزين SBF المؤقتة:
+
+```bash
+make install-toolchain
+```
+
+### الخدمات
+
+تشغيل نسخة من القنوات الخاصة يعني تحمّل خمس مسؤوليات مستمرة،
+يتولى كل منها حاوية مخصصة في مكدس Docker Compose:
+
+1. **فهرسة Mainnet للإيداعات** - يراقب `indexer-solana` سولانا Mainnet
+   لأحداث `Deposit` عبر Yellowstone gRPC؛ ويلتقط `operator-solana` الإيداعات
+   المؤكدة ويسكّ رصيد الرموز المكافئ على شبكة القناة
+2. **فهرسة القناة لعمليات السحب** - يستطلع `indexer-private-channel`
+   القناة كل ثانية لأحداث الحرق `WithdrawFunds` ويكتب سجلات السحب المعلقة
+   في قاعدة البيانات
+3. **إطلاق الأموال على Mainnet** - يلتقط `operator-private-channel` السجلات
+   المعلقة ويستدعي `ReleaseFunds` على برنامج الضمان مع إثبات استبعاد SMT صالح
+4. **إدارة جذر SMT** - يستدعي `operator-private-channel` دالة `ResetSmtRoot`
+   تلقائياً عند تدوير epochs الشجرة؛ وفحص `verify_smt_exclusion_proof` على السلسلة
+   هو خط الدفاع الأخير ضد عمليات السحب غير المصرح بها
+5. **تشغيل البوابة وخدمة المصادقة** - البوابة هي نقطة النهاية العامة الوحيدة
+   لجميع حركة مرور العملاء؛ وخدمة المصادقة (اختيارية) تطبّق
+   JWT/RBAC عند تعيين `JWT_SECRET`
+
+للاطلاع على قائمة الخدمات الكاملة وتعيينات المنافذ، راجع
+[مرجع التهيئة](/docs/tools/private-channels/operators/configuration).
+
+> **ملاحظة أمنية:** منافذ العقدة للكتابة والقراءة مرتبطة بـ loopback
+> (`127.0.0.1`) فقط، لكن عدة خدمات أخرى (البوابة، المصادقة، مقاييس المشغّل،
+> Grafana، Prometheus، cAdvisor) منشورة على جميع واجهات الشبكة
+> افتراضياً. راجع
+> [مرجع التهيئة](/docs/tools/private-channels/operators/configuration#service-port-reference)
+> للاطلاع على جدول المنافذ الكامل وقم بتأمينها بجدار الحماية قبل أي
+> نشر يواجه الإنترنت. يغطي RBAC فقط أساليب JSON-RPC الخاصة بالبوابة، وليس هذه
+> الخدمات الأخرى.
+
+### التحكم في الوصول: مفتوح مقابل RBAC
+
+تقبل البوابة افتراضياً جميع الاتصالات دون الحاجة إلى رموز. لتفعيل
+RBAC المستند إلى JWT، عيّن `JWT_SECRET` وابدأ تشغيل المكدس بـ `--profile auth`. راجع
+**[المصادقة والأدوار](/docs/tools/private-channels/concepts/auth)** للاطلاع على
+مرجع التهيئة الكامل، بما في ذلك كيفية توفير دور `operator`
+وتسجيل محافظ المستخدمين.
+
+إذا كنت تفعّل المصادقة، أضف هذه المتغيرات إلى بيئتك قبل تشغيل المكدس:
+
+```bash
+JWT_SECRET=<openssl rand -hex 32>   # must match on gateway and auth service
+AUTH_PORT=8903
+```
+
+## إعداد البيئة
+
+`.env.devnet` مُتتبَّع بالفعل في المستودع مع الإعدادات الافتراضية الخاصة بـ devnet
+معبأة مسبقاً؛ قم بتعديله مباشرة بدلاً من إعادة توليده من `.env.example`،
+لأن ذلك سيُعيد كتابة تلك الإعدادات الافتراضية.
+
+أكمل القيم المتبقية أثناء تنفيذ خطوات النشر أدناه؛ بعضها
+لا يتوفر إلا في منتصف عملية النشر. تذهب الأسرار إلى ملف `.env` المُدرج في gitignore؛
+أما المتغيرات غير السرية فتذهب إلى `.env.devnet`.
+
+**الأسرار - عيّنها فوراً:**
+
+```bash
+POSTGRES_PASSWORD=<openssl rand -hex 32>
+POSTGRES_REPLICATION_PASSWORD=<openssl rand -hex 32>
+```
+
+**المتغيرات التي يتم الحصول عليها أثناء النشر:**
+
+```bash
+ESCROW_INSTANCE_ID=<instance address - from Step 3>
+ADMIN_PRIVATE_KEY=<operator keypair as u8 array or base58 - from Step 4>
+DEVNET_RPC_URL=https://api.devnet.solana.com
+DEVNET_YELLOWSTONE_ENDPOINT=<your Yellowstone gRPC endpoint>
+INDEXER_YELLOWSTONE_TOKEN=<your Yellowstone auth token>
+```
+
+<Callout type="warning">
+  `ADMIN_PRIVATE_KEY` هو موقّع دفع الرسوم المطلوب الخاص بالخدمات غير المتصلة،
+  وهو غير مرتبط بمدير النسخة على السلسلة من الخطوة 3. يضع هذا الدليل
+  keypair **المشغّل** المُولَّد في الخطوة 4 أدناه في `ADMIN_PRIVATE_KEY`
+  ويترك `OPERATOR_PRIVATE_KEY` الاختياري غير مُعيَّن، بحيث يعود موقّع المشغّل
+  إلى المفتاح نفسه. لا تضع keypair مدير النسخة على مستوى البروتوكول من
+  الخطوة 3 في أي من المتغيرَين.
+</Callout>
+
+للاطلاع على مرجع متغيرات البيئة الكامل، راجع
+**[التهيئة](/docs/tools/private-channels/operators/configuration)**.
+
+## النشر
+
+<Steps>
+
+<Step>
+
+### بناء الصور
+
+```bash
+make docker-devnet-build
+```
+
+يقوم هذا الأمر بتجميع جميع خدمات Rust في صورة Docker مشتركة. يستغرق البناء الأول
+من 30 دقيقة إلى ساعة.
+
+</Step>
+
+<Step>
+
+### إعداد واجهة مستخدم الإدارة
+
+واجهة مستخدم الإدارة هي أداة تعمل في المتصفح لإنشاء وتهيئة نسخة الضمان:
+أداة تطوير وإدارة، وليست منتجاً موجهاً للمستخدمين وليست مكوناً أساسياً
+لوقت التشغيل. يمكن تنفيذ جميع العمليات التي تؤديها
+(`CreateInstance`، `AllowMint`، `AddOperator`) أيضاً عبر سكريبتات CLI
+في المستودع.
+
+```bash
+cd admin-ui
+pnpm install
+echo "PRIVATE_CHANNEL_RPC_URL=http://localhost:8899" > .env
+pnpm dev   # opens at http://localhost:5173
+```
+
+</Step>
+
+<Step>
+
+### إنشاء نسخة ضمان
+
+1. عيّن محفظة المتصفح الخاصة بك على **Devnet** وتأكد من امتلاكك SOL على Devnet للرسوم
+2. في واجهة مستخدم الإدارة، انقر على **إنشاء نسخة جديدة** وافق على المعاملة
+3. انسخ **عنوان النسخة** وعيّنه كـ `ESCROW_INSTANCE_ID` في
+   `.env.devnet`
+
+بديلاً عن ذلك، استخدم سكريبت CLI:
+
+```bash
+cargo run --bin create_instance -- https://api.devnet.solana.com ./keypairs/admin.json
+```
+
+</Step>
+
+<Step>
+
+### توليد keypair المشغّل
+
+```bash
+solana-keygen new -o operator-keypair.json -s --no-bip39-passphrase
+solana-keygen pubkey operator-keypair.json
+```
+
+عيّن محتويات keypair كـ `ADMIN_PRIVATE_KEY` في بيئتك. المفتاح العام
+ليس متغير بيئة؛ ستمرره مباشرةً باعتباره pubkey المشغّل في خطوة
+"تهيئة النسخة" أدناه.
+
+</Step>
+
+<Step>
+
+### إتمام متغيرات البيئة
+
+حدّث `.env.devnet` بـ `ESCROW_INSTANCE_ID` و `DEVNET_RPC_URL` و
+`DEVNET_YELLOWSTONE_ENDPOINT` و `INDEXER_YELLOWSTONE_TOKEN`. ضع الأسرار
+(`POSTGRES_PASSWORD`، `POSTGRES_REPLICATION_PASSWORD`، `ADMIN_PRIVATE_KEY`) في
+ملف `.env` المُدرج في gitignore.
+
+إذا قررت تفعيل RBAC
+([التحكم في الوصول: مفتوح مقابل RBAC](#access-control-open-vs-rbac))، أضف أيضاً
+`JWT_SECRET` و `AUTH_PORT` الآن.
+
+</Step>
+
+<Step>
+
+### تشغيل جميع الخدمات
+
+بدون مصادقة:
+
+```bash
+make docker-devnet-up
+```
+
+مع المصادقة:
+
+```bash
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+```
+
+يُعطّل Compose تحميل ملف `.env` التلقائي بمجرد تمرير أي علامة `--env-file`،
+لذا فإن `--env-file .env` الزائدة في النهاية مطلوبة. بدونها،
+تُحلَّل كل من `POSTGRES_PASSWORD` و `ADMIN_PRIVATE_KEY` و `JWT_SECRET` (التي وضعتها في
+`.env` أعلاه) إلى قيم فارغة ويفشل المكدس في البدء بشكل صحيح.
+
+> ابدأ تشغيل الخدمات قبل تهيئة النسخة. يبثّ المُفهرس الأحداث في
+> الوقت الفعلي، لذا فإن تشغيل المكدس أولاً يضمن فهرسة `AllowMint` وأول
+> إيداع بالترتيب دون الحاجة إلى ملء مسبق للبيانات.
+
+</Step>
+
+<Step>
+
+### تهيئة النسخة
+
+مع تشغيل المكدس، أدرج عنوان mint رمزي في القائمة البيضاء وأضف مشغّلك عبر
+واجهة مستخدم الإدارة:
+
+1. **السماح بـ Mint**: وظائف الإدارة -> إدارة Mint -> أدخل عنوان mint ->
+   السماح بـ Mint
+2. **إضافة مشغّل**: وظائف الإدارة -> إدارة المشغّلين -> أدخل pubkey المشغّل -> إضافة مشغّل
+
+أو عبر CLI:
+
+```bash
+cargo run --bin add_operator -- \
+  https://api.devnet.solana.com \
+  ./keypairs/admin.json \
+  <INSTANCE_ID> \
+  <OPERATOR_PUBKEY>
+```
+
+</Step>
+
+</Steps>
+
+<Callout type="warning">
+
+يستهدف هذا الدليل سولانا devnet. بالنسبة لـ Mainnet:
+
+- معرّفات البرامج مُدمجة عبر `declare_id!()`: تحقق من استخدامك
+  معرّفات Mainnet الصحيحة من المستودع
+- نقاط نهاية Yellowstone gRPC تتطلب خطة Mainnet؛ نقاط نهاية devnet لن
+  تبثّ أحداث Mainnet
+- تدفع محفظة المشغّل رسوم SOL لكل استدعاء `ReleaseFunds`، لذا حجّم
+  رصيد SOL وفق حجم السحوبات المتوقعة لديك
+- غيّر جميع بيانات الاعتماد الافتراضية (Grafana، PostgreSQL) قبل أي نشر
+  يواجه الإنترنت
+
+</Callout>
+
+## العمليات
+
+### أوامر مفيدة
+
+```bash
+# View logs (all services)
+make docker-devnet-logs
+
+# View logs (specific service)
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana
+
+# Stop services
+make docker-devnet-down
+
+# Stop and wipe all state (volumes)
+make docker-devnet-clean
+```
+
+### المراقبة
+
+يتضمن المكدس Prometheus وGrafana وcAdvisor لمقاييس الأداء ومراقبة الحاويات.
+يمكن الوصول إلى Grafana على المنفذ `37429`.
+
+<Callout type="warning">
+  كلمة مرور Grafana الافتراضية هي `admin`. غيّرها قبل كشف المنفذ 37429
+  لأي شبكة خارج localhost.
+</Callout>
+
+## استكشاف الأخطاء وإصلاحها
+
+### رصيد القناة لا يُحدَّث بعد الإيداع
+
+1. تأكد من أن معاملة الإيداع على Mainnet قد نُفّذت على مستكشف Mainnet
+2. تحقق من أن `indexer-solana` يعمل:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana`
+3. تحقق من أن `operator-solana` يعمل:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-solana`
+4. تأكد من أن نقطة نهاية Yellowstone gRPC الخاصة بك قابلة للوصول وأن الرمز صالح
+   (`DEVNET_YELLOWSTONE_ENDPOINT`، `INDEXER_YELLOWSTONE_TOKEN`)
+5. انتظر ما يصل إلى 30 ثانية بعد التأكيد على السلسلة، إذ يُطبّق المُفهرس
+   تأخير أمان النهائية قبل إضافة الرصيد
+
+### السحب لا يُسوَّى إلى Mainnet
+
+1. تحقق من أن `indexer-private-channel` يعمل:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-private-channel`
+2. تحقق من أن `operator-private-channel` يعمل:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-private-channel`
+3. تأكد من أن keypair المشغّل في `ADMIN_PRIVATE_KEY` يطابق المفتاح
+   المسجّل مع `AddOperator` على السلسلة
+4. إذا أظهرت السجلات "SMT root mismatch"، تُوقف الخدمة نفسها بدلاً من إرسال
+   إثبات غير صالح. أوقف المكدس، واستعد من حالة متسقة، وأعد التشغيل
+
+### فشل مصادقة JWT (خطأ 401 على جميع الطلبات)
+
+1. تأكد من أن `JWT_SECRET` متطابق في كل من حاوية البوابة وحاوية خدمة المصادقة
+2. تأكد من أن المكدس قد بدأ بـ `--profile auth`
+3. تنتهي صلاحية الرموز بعد 24 ساعة؛ أعد المصادقة للحصول على رمز جديد
+
+### البناء الأول يستغرق وقتاً طويلاً
+
+هذا متوقع. أول `make docker-devnet-build` يُجمّع جميع خدمات Rust
+ويمكن أن يستغرق من 30 إلى 60 دقيقة على الأجهزة الاعتيادية. تستخدم عمليات البناء اللاحقة
+ذاكرة التخزين المؤقتة لطبقات Docker وتكون أسرع بشكل ملحوظ.
+
+## الخطوات التالية
+
+<Cards>
+  <Card
+    title="البداية السريعة"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    اختبر نشرك: أودع وحوّل واسحب على devnet.
+  </Card>
+  <Card
+    title="التهيئة"
+    href="/docs/tools/private-channels/operators/configuration"
+  >
+    مرجع متغيرات البيئة الكامل لجميع الخدمات.
+  </Card>
+  <Card
+    title="المصادقة والأدوار"
+    href="/docs/tools/private-channels/concepts/auth"
+  >
+    قم بتكوين مصادقة JWT وتزويد المستخدمين بدور المشغّل.
+  </Card>
+  <Card
+    title="التعليمات"
+    href="/docs/tools/private-channels/instructions/create-instance"
+  >
+    مرجع كامل لجميع التعليمات على السلسلة.
+  </Card>
+</Cards>

@@ -1,0 +1,118 @@
+---
+title: Ciclo de Vida do Canal
+description:
+  Como funcionam os canais de pagamento privados, quem são os participantes e quando utilizá-los
+---
+
+## O que é um Canal Privado?
+
+Um canal privado é uma rede de pagamento off-chain ancorada à Solana. Os utilizadores depositam tokens SPL num programa de custódia on-chain e, em seguida, realizam transações off-chain através de um gateway com alta velocidade e custo zero por transferência. A liquidação de volta à Mainnet da Solana ocorre através de uma prova de Sparse Merkle Tree, garantindo que os fundos são sempre resgatáveis e que o gasto duplo é impossível.
+
+Ao contrário do fluxo de pagamento nativo da Solana, as transferências dentro de um canal não aparecem on-chain até que um utilizador efetue um levantamento. A rede do canal executa o seu próprio pipeline de transações (dedup -> sig verify -> sequencer -> executor -> settler) que processa as transações de forma independente do tempo de bloco da Solana.
+
+## Participantes
+
+### Administrador da Instância
+
+O administrador implementa o PDA `Instance` através do `CreateInstance` e controla quais os mints de tokens SPL aceites (`AllowMint` / `BlockMint`). O administrador provisiona e revoga operadores através de `AddOperator` / `RemoveOperator`, e pode transferir os direitos de administração através de `SetNewAdmin`. Existe um administrador por instância. A transferência de direitos de administração é irreversível num único passo: o administrador atual não pode reclamar o cargo sem a cooperação do novo administrador.
+
+### Operadores
+
+Os operadores são provisionados pelo administrador. Detêm um PDA `Operator` e são as únicas contas autorizadas a chamar `ReleaseFunds` (para liquidar levantamentos para a Mainnet) e `ResetSmtRoot` (para rodar a Sparse Merkle Tree). Os operadores contornam todas as verificações de propriedade no gateway e têm acesso a todos os métodos JSON-RPC, incluindo `getBlock`, `getTransaction` e `simulateTransaction`. Papel JWT: `"operator"`. Os operadores devem ser provisionados diretamente na base de dados; não existe escalada de privilégios self-service. Consulte o
+[guia de Operadores](/docs/tools/private-channels/operators) para detalhes de implementação e configuração.
+
+### Utilizadores
+
+Os utilizadores registam-se autonomamente através do Serviço de Autenticação. Papel JWT: `"user"`. Os utilizadores podem chamar `Deposit` diretamente no Programa de Custódia e iniciar levantamentos através da instrução `WithdrawFunds` do lado do canal no Programa de Levantamento. O acesso ao gateway está limitado às suas próprias carteiras verificadas; não podem chamar `getBlock`, `getTransaction` nem `simulateTransaction`.
+
+## Ciclo de Vida do Canal
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Alice
+    participant Mainnet as Solana Mainnet
+    participant Channel as Private Channel Network
+
+    Note over Admin,Channel: SETUP (one time)
+    Admin->>Mainnet: CreateInstance
+    Admin->>Mainnet: AllowMint
+    Admin->>Mainnet: AddOperator
+
+    Note over Alice,Channel: DEPOSIT
+    Alice->>Mainnet: Deposit (tokens to escrow ATA)
+    Note over Channel: Indexer detects deposit event,<br/>credits Alice's channel balance
+
+    Note over Alice,Channel: OFF-CHAIN TRANSFERS
+    Alice->>Channel: SPL token transfer (via gateway)
+    Channel-->>Alice: Confirmed (~100 ms, no Mainnet fee)
+
+    Note over Alice,Mainnet: WITHDRAWAL
+    Alice->>Channel: WithdrawFunds (burns channel balance)
+    Note over Channel: Indexer detects burn (~1 s),<br/>operator submits ReleaseFunds
+    Channel->>Mainnet: ReleaseFunds (with SMT exclusion proof)
+    Mainnet-->>Alice: Tokens released to Mainnet wallet
+```
+
+1. **Criação da instância** - O administrador chama `CreateInstance`, criando o PDA `Instance` e configurando os mints permitidos.
+2. **Depósito** - Os utilizadores depositam tokens SPL na custódia através da instrução `Deposit`. Os tokens são movidos para o associated token account da instância.
+3. **Transferências off-chain** - Os utilizadores enviam transferências através do gateway. As transferências são sequenciadas e executadas na rede do canal sem interagir com a Mainnet.
+4. **Iniciação do levantamento** - Um utilizador chama `WithdrawFunds` no Programa de Levantamento (lado do canal) para queimar o seu saldo e sinalizar um levantamento.
+5. **Liquidação na Mainnet** - Um operador fornece uma prova de exclusão SMT válida e chama `ReleaseFunds` no Programa de Custódia (Mainnet), libertando os tokens para a carteira do utilizador.
+6. **Rotação da árvore** - Quando a SMT se aproxima da capacidade máxima (65.536 folhas), o operador chama `ResetSmtRoot` para rodar a árvore e iniciar um novo epoch.
+
+### Transferência
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    participant GW as Gateway
+    participant Pipeline as Write Node Pipeline
+    participant DB as Channel State
+
+    Alice->>GW: SPL token transfer to Bob
+    GW->>Pipeline: Route to write node
+
+    Note over Pipeline: 1. Dedup - reject duplicates and replays<br/>2. SigVerify - validate signatures<br/>3. Sequencer - order into conflict-free batch<br/>4. Executor - apply to off-chain account state<br/>5. Settler - commit to database, update blockhash
+
+    Pipeline->>DB: Commit updated balances
+    GW-->>Alice: Confirmed (off-chain, not recorded on Mainnet)
+    Note over Bob: Balance updated in channel state
+```
+
+### Levantamento
+
+```mermaid
+sequenceDiagram
+    participant Bob
+    participant Channel as Private Channel Network
+    participant Indexer as indexer-private-channel
+    participant Operator as operator-private-channel
+    participant Mainnet as Solana Mainnet
+
+    Bob->>Channel: WithdrawFunds (burns channel-side balance)
+    Channel-->>Bob: Burn confirmed off-chain
+
+    Note over Indexer: Polls gateway every 1 s
+    Indexer->>Channel: Detect burn event
+    Indexer->>Indexer: Write pending withdrawal to database
+
+    Operator->>Indexer: Pick up pending record
+    Operator->>Mainnet: ReleaseFunds (SMT exclusion proof)
+    Mainnet-->>Bob: Tokens transferred to Mainnet ATA
+```
+
+## Quando Utilizar Canais Privados
+
+Utilize canais privados quando a sua aplicação necessitar de:
+
+- **Débito off-chain** - o volume de transferências saturaria o TPS da Solana ou necessita de confirmação em menos de um segundo
+- **Privacidade** - as identidades das contrapartes e os valores das transferências não devem aparecer on-chain
+- **Zero de taxas por transferência** - transferências frequentes em que o custo de SOL por transação é proibitivo
+
+Utilize transferências SPL nativas quando:
+
+- **A composabilidade on-chain** for necessária (DeFi, swaps, empréstimos; outros programas precisam de observar ou agir sobre a transferência)
+- **A liquidação numa única transferência** for suficiente e a privacidade não for uma preocupação
+- **Não houver infraestrutura de gateway** disponível ou operacionalmente viável

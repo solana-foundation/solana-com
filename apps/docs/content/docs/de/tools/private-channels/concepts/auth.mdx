@@ -1,0 +1,282 @@
+---
+title: Authentifizierung & Rollen
+description:
+  JWT-Authentifizierung und rollenbasierte Zugriffskontrolle in Private Channels
+---
+
+## Übersicht
+
+Private Channels enthält einen optionalen Auth-Dienst, der den Gateway-Zugang
+mit JWT-Authentifizierung und rollenbasierter Zugriffskontrolle (RBAC) absichert. Wenn
+die Authentifizierung deaktiviert ist, akzeptiert das Gateway alle Verbindungen. Wenn sie aktiviert ist,
+müssen Clients bei jeder Anfrage ein gültiges JWT vorweisen.
+
+Diese Seite richtet sich an zwei Zielgruppen:
+
+- **Entwickler** – Registrierung, Anmeldung, Wallet-Verifizierung und das Ausführen
+  authentifizierter Anfragen
+- **Betreiber** – Aktivierung des Auth-Dienstes, Konfiguration von `JWT_SECRET` und
+  Bereitstellung der `operator`-Rolle
+
+## Authentifizierung aktivieren
+
+Die Authentifizierung wird aktiviert, indem `JWT_SECRET` (nicht leer) sowohl auf dem
+Gateway als auch auf dem Auth-Dienst gesetzt wird. Der Auth-Dienst benötigt zusätzlich
+`AUTH_DATABASE_URL`.
+
+Wenn `JWT_SECRET` nicht gesetzt ist, läuft das Gateway im offenen Modus; es wird kein Token
+benötigt.
+
+> **Docker Compose:** Der Auth-Dienst ist ein Docker-Compose-Profil und wird **nicht
+> standardmäßig gestartet**. Um ihn einzubinden, übergeben Sie `--profile auth` an Ihren
+> `docker compose`-Befehl, einschließlich `--env-file .env`, damit Secrets wie
+> `JWT_SECRET` und `POSTGRES_PASSWORD` tatsächlich aufgelöst werden (Compose deaktiviert das
+> automatische Laden der `.env`-Datei, sobald ein `--env-file`-Flag übergeben wird):
+>
+> ```bash
+> docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+> ```
+
+## Auth-Dienst-API
+
+Alle Endpunkte befinden sich unter `/auth`. Der Auth-Dienst lauscht auf `AUTH_PORT`
+(Standard `8903`).
+
+### `POST /auth/register`
+
+Erstellt ein neues Konten. Alle Benutzer werden mit der Rolle `user` registriert.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+- Benutzername: 5–32 Zeichen, alphanumerisch plus `_` und `-`
+- Passwort: 6–128 Zeichen
+- Gibt den erstellten Benutzer zurück; das Passwort wird niemals zurückgegeben
+
+### `POST /auth/login`
+
+Authentifizierung und Empfang eines signierten JWT, das 24 Stunden gültig ist.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+Gibt `{ "token": "<jwt>" }` zurück. Sowohl ein falscher Benutzername als auch ein falsches Passwort geben
+`401` zurück, um eine Benutzernamen-Enumeration zu verhindern.
+
+### `POST /auth/challenge-wallet`
+
+Fordert eine Signierungsherausforderung an, um den Besitz einer Solana-Wallet nachzuweisen. Erfordert ein
+gültiges JWT.
+
+Gibt eine Nachricht, eine Nonce und ein Ablaufdatum zurück. Die Herausforderung läuft nach 10 Minuten ab.
+
+```json
+{
+  "message": "PrivateChannel wallet verification\nuser: <uuid>\nnonce: <uuid>\nexpires: <unix>",
+  "nonce": "<uuid>",
+  "expires_at": "<iso8601>"
+}
+```
+
+### `POST /auth/verify-wallet`
+
+Übermittelt die signierte Herausforderung, um eine Wallet als verifiziert zu registrieren. Erfordert ein gültiges
+JWT.
+
+```json
+{
+  "pubkey": "<base58 pubkey>",
+  "nonce": "<uuid from challenge>",
+  "signature": "<base58 Ed25519 signature>"
+}
+```
+
+Der Dienst rekonstruiert die Herausforderungsnachricht, verifiziert die Ed25519-Signatur
+und speichert die Wallet. Jede Nonce kann nur einmal verwendet werden; Wiederholungsversuche werden
+abgelehnt.
+
+Gibt `{ "pubkey": "<base58>", "created_at": "<iso8601>" }` zurück.
+
+### `GET /auth/wallets`
+
+Listet alle verifizierten Wallets des authentifizierten Benutzers auf. Erfordert ein gültiges JWT.
+
+### `DELETE /auth/wallets/{pubkey}`
+
+Entfernt eine verifizierte Wallet aus dem Konten des authentifizierten Benutzers. Erfordert ein gültiges
+JWT.
+
+### `GET /health`
+
+Liveness-Prüfung. Gibt `200 ok` zurück. Keine Authentifizierung erforderlich.
+
+## JWT-Struktur
+
+Token verwenden den HS256-Algorithmus und laufen 24 Stunden nach der Ausstellung ab.
+
+| Claim  | Wert                           |
+| ------ | ------------------------------- |
+| `sub`  | Benutzer-UUID                       |
+| `role` | `"user"` oder `"operator"`        |
+| `iss`  | `"private-channel-auth"`        |
+| `aud`  | `"private-channel-gateway"`     |
+| `exp`  | Unix-Zeitstempel (24h ab Ausstellung) |
+
+> `iss` und `aud` sind im JWT-Payload vorhanden, werden jedoch durch die
+> JWT-Konfiguration des Gateways validiert und nicht in den Anwendungs-Claims-Struct
+> deserialisiert. Der Anwendungsschicht-Code hat nur Zugriff auf `sub`, `role` und `exp`.
+
+Übergeben Sie das Token im `Authorization`-Header:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+## Rollen
+
+### user
+
+Standardrolle bei der Registrierung.
+
+- Der Zugriff ist auf die eigenen verifizierten Wallets des Benutzers beschränkt
+- Gesperrt für: `getBlock`, `getTransaction`, `simulateTransaction`
+- Kann: `Deposit` auf dem Escrow Program aufrufen, Auszahlungen über
+  `WithdrawFunds` einleiten
+
+### operator
+
+Erhöhte Rolle. Muss direkt bereitgestellt werden; es gibt keinen Self-Service-Weg,
+um von `user` zu `operator` zu eskalieren.
+
+**Rolle vergeben**, entweder über das Admin-CLI (`private-channel-auth-admin`):
+
+```bash
+private-channel-auth-admin set-role --username alice --role operator
+```
+
+oder mit direktem SQL:
+
+<Callout type="warning">
+  Dies ist eine privilegierte Datenbankoperation. Beschränken Sie den Zugriff auf die Auth-Dienst-Datenbank
+  entsprechend und prüfen Sie alle Rollenänderungen.
+</Callout>
+
+```sql
+UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice';
+```
+
+**Wallet ohne den Self-Verify-Ablauf registrieren (Admin-CLI,
+`private-channel-auth-admin`):**
+
+```bash
+private-channel-auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
+```
+
+Dies fügt eine verifizierte Wallet direkt in die Tabelle `verified_wallets` ein und
+umgeht dabei den Challenge/Verify-Ablauf. Es wird eine Unique-Constraint auf
+`(user_id, pubkey)` erzwungen. Dadurch wird die `operator`-Rolle **nicht** automatisch vergeben; verwenden Sie
+dafür `set-role` oder das obige SQL-Update. Dieser Befehl dient dazu, eine
+Wallet an ein Konten (z. B. ein Service-Konten) anzuhängen, ohne den
+interaktiven Challenge/Verify-Ablauf durchführen zu müssen.
+
+**Berechtigungen:**
+
+- Umgeht alle Wallet-Besitzprüfungen
+- Vollständiger Zugriff auf alle Gateway-RPC-Methoden, einschließlich `getBlock`,
+  `getTransaction`, `simulateTransaction`
+- Erforderlich für: `ReleaseFunds`, `ResetSmtRoot`
+
+## Vollständiger Authentifizierungsablauf
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Auth as Auth Service
+
+    Client->>Auth: POST /auth/register { username, password }
+    Auth-->>Client: created user (role: "user")
+
+    Client->>Auth: POST /auth/login { username, password }
+    Auth-->>Client: { token: "<jwt>" }
+
+    Note over Client: Include JWT in subsequent requests:<br/>Authorization: Bearer <token>
+
+    Client->>Auth: POST /auth/challenge-wallet
+    Auth-->>Client: { message, nonce, expires_at }
+
+    Note over Client: Sign message with wallet private key (Ed25519)
+
+    Client->>Auth: POST /auth/verify-wallet { pubkey, nonce, signature }
+    Auth-->>Client: { pubkey, created_at }
+
+    Note over Client: Wallet verified - gateway now allows access<br/>to accounts owned by this wallet
+```
+
+## Authentifizierte Anfragen stellen
+
+```typescript
+const response = await fetch("http://localhost:8899/", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${jwtToken}`
+  },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getBalance",
+    params: [walletAddress]
+  })
+});
+const data = await response.json();
+```
+
+## Gateway-Endpunkte
+
+Diese Endpunkte erfordern keine Authentifizierung:
+
+| Endpunkt  | Methode | Beschreibung                               | Erfolg                  | Fehler                     |
+| --------- | ------ | ----------------------------------------- | ------------------------ | --------------------------- |
+| `/health` | GET    | Liveness-Prüfung                            | `200 {"status":"ok"}`    | -                           |
+| `/ready`  | GET    | Tiefe Bereitschaftsprüfung; testet Schreib- und Leseknoten | `200 {"status":"ready"}` | `503 {"status":"degraded"}` |
+
+Die Referenz für `JWT_SECRET` und Gateway-Umgebungsvariablen finden Sie in der
+[Konfigurationsreferenz](/docs/tools/private-channels/operators/configuration).
+
+## RPC-Methoden-Zugriffsmatrix
+
+Die folgenden Methoden werden vom Gateway erkannt. Wenn `JWT_SECRET` gesetzt ist,
+hängt der Zugriff von der JWT-Rolle ab:
+
+| Methode                        | Route      | Kein JWT | `user`           | `operator` |
+| ----------------------------- | ---------- | ------ | ---------------- | ---------- |
+| `sendTransaction`             | Schreibknoten | ✓      | ✓                | ✓          |
+| `getLatestBlockhash`          | Leseknoten  | ✓      | ✓                | ✓          |
+| `getSlot`                     | Leseknoten  | ✓      | ✓                | ✓          |
+| `getRecentBlockhash`          | Leseknoten  | ✓      | ✓                | ✓          |
+| `getSignatureStatuses`        | Leseknoten  | ✓      | ✓                | ✓          |
+| `getTransactionCount`         | Leseknoten  | ✓      | ✓                | ✓          |
+| `getFirstAvailableBlock`      | Leseknoten  | ✓      | ✓                | ✓          |
+| `getBlocks`                   | Leseknoten  | ✓      | ✓                | ✓          |
+| `getEpochInfo`                | Leseknoten  | ✓      | ✓                | ✓          |
+| `getEpochSchedule`            | Leseknoten  | ✓      | ✓                | ✓          |
+| `getRecentPerformanceSamples` | Leseknoten  | ✓      | ✓                | ✓          |
+| `getBlockTime`                | Leseknoten  | ✓      | ✓                | ✓          |
+| `getVoteAccounts`             | Leseknoten  | ✓      | ✓                | ✓          |
+| `getSupply`                   | Leseknoten  | ✓      | ✓                | ✓          |
+| `getSlotLeaders`              | Leseknoten  | ✓      | ✓                | ✓          |
+| `isBlockhashValid`            | Leseknoten  | ✓      | ✓                | ✓          |
+| `getAccountInfo`              | Leseknoten  | 401    | besitzgeprüft¹ | ✓          |
+| `getTokenAccountBalance`      | Leseknoten  | 401    | besitzgeprüft¹ | ✓          |
+| `getSignaturesForAddress`     | Leseknoten  | 401    | besitzgeprüft¹ | ✓          |
+| `getBlock`                    | Leseknoten  | 401    | 403              | ✓          |
+| `getTransaction`              | Leseknoten  | 401    | 403              | ✓          |
+| `simulateTransaction`         | Leseknoten  | 401    | 403              | ✓          |
+
+¹ **Besitzgeprüft**: Bei einem SPL-token account (Eigentümerfeld ist `TokenkegQ...`
+oder `TokenzQ...`, Daten von mindestens 165 Bytes) prüft das Gateway, ob das
+Feld `owner` oder `delegate` mit einer der verifizierten Wallets des authentifizierten Benutzers übereinstimmt. Bei jedem anderen Kontotyp (einem System Program-Wallet oder einer unbekannten
+PDA) wird stattdessen geprüft, ob der abgefragte pubkey selbst eine der verifizierten Wallets des Benutzers ist, da solche Konten kein owner/delegate-Feld zur Überprüfung besitzen.
+Schlägt eine der Prüfungen fehl, wird 403 zurückgegeben.

@@ -1,0 +1,123 @@
+---
+title: Deposita Token
+description:
+  Deposita token SPL in un'istanza escrow di Private Channels su devnet
+---
+
+## Panoramica
+
+L'istruzione `Deposit` sposta i token SPL dall'associated token
+account di un utente all'associated token account dell'escrow. Una volta depositati, i token sono
+disponibili per i trasferimenti off-chain tramite il gateway. Il parametro opzionale `recipient`
+consente a un depositante di accreditare il saldo del canale di un altro utente.
+
+## Prerequisiti
+
+- Installazione e generazione del client completate
+- Un wallet devnet con SOL (per le commissioni di transazione) e il token SPL che si desidera
+  depositare
+- Un'istanza attiva di Private Channels con il proprio mint nella allowlist
+
+## Codice
+
+```typescript
+import { getDepositInstructionAsync } from "../private-channel-escrow-program/clients/typescript/src/generated";
+import {
+  createSolanaRpc,
+  address,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Derive the user's associated token account
+const [userAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+// Build the deposit instruction - allowedMint and instanceAta are auto-derived
+const depositIx = await getDepositInstructionAsync({
+  payer: payerSigner,
+  user: payerSigner,
+  instance: address(instancePda),
+  mint: address(mintAddress),
+  userAta,
+  amount: 1_000_000n, // 1 USDC (6 decimals)
+  recipient: null // null = credit the depositing user's channel balance
+});
+
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Deposit is an ordinary Solana instruction sent to Solana RPC directly
+// (not the gateway), so the versioned (v0) transaction format applies here.
+const transactionMessage = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payerSigner, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(depositIx, m)
+);
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Deposit signature:", signature);
+```
+
+## Verifica
+
+Dopo la conferma della transazione su devnet, l'indexer rileva l'evento di deposito
+tramite Yellowstone gRPC e l'operatore conia il saldo equivalente sul
+canale. Prima dell'accredito viene applicato un ritardo di sicurezza per la finalità, quindi **si prevedono circa 15
+secondi** prima che il saldo del canale sia disponibile.
+
+Interroga il tuo saldo tramite il gateway (non tramite l'RPC devnet) per confermare:
+
+```typescript
+import { createSolanaRpc, address } from "@solana/kit";
+import { findAssociatedTokenPda } from "@solana-program/token";
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(payerSigner.address),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(channelAta)
+  .send();
+console.log("Channel balance:", balance.value.uiAmountString);
+```
+
+Un saldo diverso da zero conferma che il deposito è stato indicizzato e accreditato. Se il saldo
+è zero dopo 30 secondi, verifica che `indexer-solana` e `operator-solana` siano
+in esecuzione (`make docker-devnet-logs`).
+
+## Prossimi Passi
+
+**[Invia un Trasferimento](/docs/tools/private-channels/quickstart/transfer)** - invia
+il tuo primo trasferimento off-chain

@@ -1,0 +1,78 @@
+---
+title: 释放资金
+description:
+  在验证 SMT 排除证明后，将代币从托管账户释放至用户钱包
+---
+
+由已配置的运营商调用，在验证提款 nonce 的有效稀疏默克尔树排除证明后，将托管代币释放至用户的主网钱包。
+
+<Callout type="info">
+  托管程序正在从此稀疏默克尔树设计迁移至链上 nonce 位图（上游跟踪中）。本页内容与当前托管程序保持一致，待该变更落地后将进行修订。
+</Callout>
+
+## 账户
+
+| 账户                          | 可写 | 签名者 | 描述                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | 手续费支付方                                                          |
+| `operator`                       |          | ✓      | 运营商签名者                                                    |
+| `instance`                       | ✓        |        | 托管实例 PDA（链上根已更新）                        |
+| `operator_pda`                   |          |        | 运营商 PDA，用于证明签名者已完成配置                     |
+| `mint`                           |          |        | SPL 代币铸造账户                                                     |
+| `allowed_mint`                   |          |        | AllowedMint PDA —— 验证该铸造账户在此实例中是否被允许 |
+| `user_ata`                       | ✓        |        | 接收方的 associated token account（目标账户）                 |
+| `instance_ata`                   | ✓        |        | 托管的 associated token account（来源账户）                         |
+| `token_program`                  |          |        | SPL Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | `EmitEvent` CPI 的事件授权 PDA                            |
+| `private_channel_escrow_program` |          |        | 托管程序（CPI 自引用）                            |
+
+## 参数
+
+| 参数             | 类型        | 描述                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | 待释放的代币数量                                   |
+| `user`                | `Pubkey`    | 主网上的接收方钱包                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | 纳入本次提款 nonce 后更新的 SMT 根      |
+| `transaction_nonce`   | `u64`       | 标识 SMT 中本次提款叶节点的唯一 nonce      |
+| `sibling_proofs`      | `[u8; 512]` | SMT 排除证明所需的 16 个兄弟哈希（每个 32 字节） |
+
+## 返回值
+
+返回一个 `TransactionBuilder`，可用于构建并发送交易。
+
+## 示例
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## 重要说明
+
+- 调用方必须是已配置的运营商：`operator_pda` 必须存在（由 `AddOperator` 创建）；无效 PDA 将抛出 `InvalidOperatorPda`
+- `sibling_proofs` 的长度恰好为 512 字节（16 × 32 字节哈希，与 SMT 树高 16 对应）
+- `new_withdrawal_root` 是纳入本次提款 nonce 后更新的 SMT 根，需在链下调用前完成计算
+- `transaction_nonce` 必须对 `Instance.current_tree_index` 有效；无效 nonce 将抛出 `InvalidTransactionNonceForCurrentTreeIndex`
+- 程序首先执行 `verify_smt_exclusion_proof`，证明该 nonce 在当前根中尚不存在，随后执行独立的 `verify_smt_inclusion_proof`，证明该 nonce 确实存在于调用方提供的 `new_withdrawal_root` 中。任一检查失败均将抛出 `InvalidSmtProof`
+- 仅在两项检查均通过后，`Instance.withdrawal_transactions_root` 才会原子性更新；该 nonce 不可重复使用
+- 通过 `EmitEvent` CPI 发出事件

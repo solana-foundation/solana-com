@@ -1,0 +1,86 @@
+---
+title: Seyrek Merkle Ağacı
+description:
+  Özel Kanallar'ın çekim işlemlerinde çift harcamayı önlemek için Seyrek Merkle Ağacı'nı nasıl kullandığı
+---
+
+<Callout type="info">
+  Kullanıcılar ve geliştiriciler SMT ile doğrudan etkileşime girmez; dışlama kanıtları `operator-private-channel` servisi tarafından otomatik olarak hesaplanıp gönderilir. Bu sayfa, operatörler ve operatör araçları geliştiren herkes için referans materyalidir.
+</Callout>
+
+<Callout type="info">
+  Emanet programı, bu Seyrek Merkle Ağacı tasarımından zincir üstü bir nonce bitmap yapısına geçiş yapıyor (upstream'de takip ediliyor). Bu sayfa mevcut emanet programını doğru biçimde yansıtmakta olup söz konusu değişiklik uygulandığında güncellenecektir.
+</Callout>
+
+## Amaç
+
+Özel Kanallar, her çekim nonce'unun yalnızca bir kez işleme alınabilmesini garantilemek için bir Seyrek Merkle Ağacı (SMT) kullanır. Bir operatör `ReleaseFunds` çağırdığında iki kanıt sunması gerekir: nonce'un mevcut kök karşısında henüz VAR OLMADIĞINI gösteren bir dışlama kanıtı ve nonce'un çağıran tarafından sağlanan yeni kök içinde VAR OLDUĞUNU gösteren bir dahil etme kanıtı. Yalnızca her iki kontrol de geçildikten sonra program yeni kökü depolar; bu sayede nonce'u yeniden kullanmaya yönelik gelecekteki her girişim kanıtlanabilir biçimde geçersiz kılınır.
+
+## Ağaç Parametreleri
+
+- Ağaç yüksekliği: `16`
+- Maksimum yaprak sayısı: `65.536` (2^16)
+- Hash fonksiyonu: SHA-256
+- Boş yaprak değeri: `[0u8; 32]` (32 sıfır bayt)
+- Boş olmayan yaprak değeri: `SHA256([1u8; 32])`, `NON_EMPTY_LEAF_HASH` sabiti olarak depolanır
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## Yaprak Yapısı
+
+Her çekim işlemi tam olarak bir yaprak kaplar. Yaprağın konumu şu şekilde belirlenir:
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+Bir yaprağın değeri `NON_EMPTY_LEAF_HASH` değerine eşit olduğunda (yani `SHA256([1u8; 32])`), o yaprak boş olmayan olarak kabul edilir. Boş bir yaprak tamamen sıfırlardan oluşur.
+
+## Nonce ve Yaprak Konumu
+
+`ReleaseFunds` içindeki `transaction_nonce` bir `u64` değeridir. Ağaçtaki konumu `nonce % 65536` şeklinde hesaplanır. Beklenen epoch değeri ise `nonce / 65536` formülüyle elde edilir. Zincir üstü program, hesaplanan bu epoch değerinin `Instance.current_tree_index` ile eşleştiğini doğrular; uyuşmazlık durumunda `InvalidTransactionNonceForCurrentTreeIndex` hatası fırlatılır.
+
+## Ağaç Rotasyonu
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+SMT'nin sabit kapasitesi 65.536 yapraktır. Operatör servisi, `nonce % 65536 == 0` koşulunu kontrol ederek (`nonce > 0` için) bir rotasyona ihtiyaç duyulup duyulmadığını tespit eder; bu sınır yeni bir epoch'un başlangıcına işaret eder. Bu noktada `operator-private-channel`, bir sonraki `ReleaseFunds` işlemini göndermeden önce `ResetSmtRoot` çağrısı yapar:
+
+- `Instance.current_tree_index` artırılır
+- Çekim kökü boş ağaca sıfırlanır
+- Önceki ağaç epoch'una ait nonce'lar geçersiz kılınır
+
+Operatör servisi, her `ReleaseFunds` çağrısından önce yerel SMT kökünün zincir üstündeki `Instance.withdrawal_transactions_root` ile eşleştiğini de doğrular; bir uyuşmazlık, potansiyel olarak geçersiz bir kanıt gönderimi yerine güvenlik kapatmasını tetikler.
+
+Ağaç rotasyonu, zincir üstünde depolanan `Instance.current_tree_index: u64` ile takip edilir.
+
+## ReleaseFunds'ta Doğrulama
+
+`ReleaseFunds` içindeki `sibling_proofs` argümanı tam olarak `[u8; 512]` boyutundadır: 16 ağaç yüksekliğiyle eşleşen, her biri 32 bayt olan 16 kardeş hash değeri.
+
+Zincir üstü doğrulama süreci, iki ayrı kontrolü sırasıyla çalıştırır:
+
+1. `verify_smt_exclusion_proof`, nonce yaprağının mevcut `Instance.withdrawal_transactions_root` karşısında şu anda boş olduğunu kanıtlar
+2. `verify_smt_inclusion_proof`, nonce yaprağının çağıran tarafından sağlanan `new_withdrawal_root` argümanında mevcut olduğunu kanıtlar
+3. Yalnızca her iki kontrol de geçildiğinde program `new_withdrawal_root` değerini yeni `Instance.withdrawal_transactions_root` olarak depolar ve token'ları serbest bırakır
+
+Kontrollerden herhangi birinin başarısız olması `InvalidSmtProof` hatasını fırlatır. 3. adımdaki kök güncellemesi her `ReleaseFunds` çağrısıyla atomik olarak gerçekleşir.

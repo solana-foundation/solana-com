@@ -1,0 +1,86 @@
+---
+title: 희소 머클 트리
+description:
+  Private Channels가 출금 이중 지출 방지를 위해 희소 머클 트리를 사용하는 방법
+---
+
+<Callout type="info">
+  사용자와 개발자는 SMT와 직접 상호작용하지 않습니다. 제외 증명은 `operator-private-channel` 서비스에 의해 자동으로 계산되고 제출됩니다. 이 페이지는 운영자 및 운영자 도구를 개발하는 모든 분들을 위한 참고 자료입니다.
+</Callout>
+
+<Callout type="info">
+  에스크로 프로그램은 이 희소 머클 트리 설계에서 온체인 논스 비트맵으로 마이그레이션 중입니다(업스트림에서 추적 중). 이 페이지는 현재 에스크로 프로그램 기준으로 정확하며, 해당 변경 사항이 반영되면 수정될 예정입니다.
+</Callout>
+
+## 목적
+
+Private Channels는 희소 머클 트리(SMT)를 사용하여 각 출금 논스가 한 번만 정산될 수 있도록 보장합니다. 운영자가 `ReleaseFunds`를 호출할 때, 두 가지 증명을 제공해야 합니다: 논스가 현재 루트에 아직 존재하지 않는다는 제외 증명과, 호출자가 제공한 새 루트에 논스가 존재한다는 포함 증명입니다. 두 검사가 모두 통과된 후에만 프로그램이 새 루트를 저장하며, 이후 논스를 재사용하려는 모든 시도는 증명 가능하게 무효화됩니다.
+
+## 트리 파라미터
+
+- 트리 높이: `16`
+- 최대 리프 수: `65,536` (2^16)
+- 해시 함수: SHA-256
+- 빈 리프 값: `[0u8; 32]` (32 영(0) 바이트)
+- 비어 있지 않은 리프 값: `SHA256([1u8; 32])`, 상수 `NON_EMPTY_LEAF_HASH`로 저장됨
+
+```text
+                        Root Hash (32 bytes)
+                       /                    \
+                 Hash(L, R)                Hash(L, R)
+                /         \                /         \
+          Hash(L, R)   Hash(L, R)   Hash(L, R)   Hash(L, R)
+          /      \      /      \      /      \      /      \
+        ...    ...    ...    ...    ...    ...    ...    ...
+       /  \   /  \   /  \   /  \   /  \   /  \   /  \   /  \
+   Leaf0  1  2   3  4   5  6   7  8   9  10 11 12 13 14 15 ...
+   (nonces recorded as leaf positions using their value modulo 65536)
+```
+
+## 리프 구조
+
+각 출금은 정확히 하나의 리프를 차지합니다. 리프 위치는 다음에 의해 결정됩니다:
+
+```
+leaf_position = transaction_nonce % 65536
+```
+
+리프의 값이 `NON_EMPTY_LEAF_HASH`(즉, `SHA256([1u8; 32])`)와 같을 때 비어 있지 않은 것으로 간주됩니다. 빈 리프는 모두 0으로 채워집니다.
+
+## 논스 및 리프 위치
+
+`ReleaseFunds`의 `transaction_nonce`는 `u64` 타입입니다. 트리에서의 위치는 `nonce % 65536`입니다. 예상 epoch는 `nonce / 65536`입니다. 온체인 프로그램은 이 계산된 epoch가 `Instance.current_tree_index`와 일치하는지 검증하며, 불일치 시 `InvalidTransactionNonceForCurrentTreeIndex`를 발생시킵니다.
+
+## 트리 로테이션
+
+```text
+Tree Index 0 (nonces 0-65,535)              Tree Index 1 (nonces 65,536-131,071)
+┌────────────────────────────┐             ┌────────────────────────────┐
+│ Root: 0x8fe6...            │             │  Root: 0x8fe6... (reset)   │
+│ Nonces Used: 65,536/65,536 │   Rotate    │  Nonces Used: 0/65,536     │
+│ Status: FULL               │   ──────>   │  Status: ACTIVE            │
+└────────────────────────────┘             └────────────────────────────┘
+         (Tree exhausted)                          (Fresh tree)
+```
+
+SMT는 65,536개의 리프로 고정된 용량을 가집니다. 운영자 서비스는 `nonce % 65536 == 0`(`nonce > 0`인 경우)인지 확인하여 로테이션이 필요한 시점을 감지합니다. 이 경계는 새로운 epoch의 시작을 알립니다. 그 시점에 `operator-private-channel`은 다음 `ReleaseFunds`를 제출하기 전에 `ResetSmtRoot`를 호출합니다:
+
+- `Instance.current_tree_index`가 증가합니다
+- 출금 루트가 빈 트리로 재설정됩니다
+- 이전 트리 epoch의 논스가 무효화됩니다
+
+운영자 서비스는 각 `ReleaseFunds` 호출 전에 로컬 SMT 루트가 온체인의 `Instance.withdrawal_transactions_root`와 일치하는지 검증합니다. 불일치가 발생하면 잠재적으로 유효하지 않은 증명 제출 대신 안전 종료가 트리거됩니다.
+
+트리 로테이션은 온체인에 저장된 `Instance.current_tree_index: u64`로 추적됩니다.
+
+## ReleaseFunds에서의 검증
+
+`ReleaseFunds`의 `sibling_proofs` 인수는 정확히 `[u8; 512]`입니다: 16개의 형제 해시 × 각 32바이트로, 트리 높이 16에 맞게 구성됩니다.
+
+온체인 검증 프로세스는 두 가지 별도의 검사를 순서대로 실행합니다:
+
+1. `verify_smt_exclusion_proof`는 현재 `Instance.withdrawal_transactions_root`에 대해 논스 리프가 현재 비어 있음을 증명합니다
+2. `verify_smt_inclusion_proof`는 호출자가 제공한 `new_withdrawal_root` 인수에 논스 리프가 존재함을 증명합니다
+3. 두 검사가 모두 통과된 경우에만 프로그램이 `new_withdrawal_root`를 새로운 `Instance.withdrawal_transactions_root`로 저장하고 토큰을 해제합니다
+
+어느 한 검사가 실패하면 `InvalidSmtProof`가 발생합니다. 3단계의 루트 업데이트는 각 `ReleaseFunds` 호출과 원자적으로 처리됩니다.
