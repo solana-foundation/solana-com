@@ -1,4 +1,5 @@
 import { PodcastEpisode } from "@/types/media";
+import { buildEpisodesUrl } from "./episode-query";
 
 export default class PodcastApi {
   static HEADERS: Record<string, string> = {
@@ -90,11 +91,13 @@ export default class PodcastApi {
     }
 
     const response = await fetch(
-      [
-        `https://api.simplecast.com/podcasts/${process.env.SIMPLECAST_PODCAST_ID}`,
-        `/episodes?status=published`,
-        `&limit=${limit}&offset=${offset}&search=${query}&sort=${sort}`,
-      ].join(""),
+      buildEpisodesUrl({
+        podcastId: process.env.SIMPLECAST_PODCAST_ID ?? "",
+        limit,
+        offset,
+        query,
+        sort,
+      }),
       {
         headers: PodcastApi.HEADERS,
       },
