@@ -1,5 +1,6 @@
 import { EnterpriseFaqPage } from "./enterprise-faq";
 import { getAlternates } from "@workspace/i18n/routing";
+import { getTranslations } from "@workspace/i18n/server";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -11,11 +12,11 @@ export default function Page() {
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
+  const t = await getTranslations();
 
   return {
-    title: "Enterprise FAQ | Solana",
-    description:
-      "Common questions from institutions exploring Solana — chain migration, privacy, tokenized funds, payments and settlement, custody, compliance, and yield — answered in plain language for business and partnership teams.",
+    title: t("enterpriseFaq.meta.seoTitle"),
+    description: t("enterpriseFaq.meta.seoDescription"),
     alternates: getAlternates("/solutions/enterprise/faq", locale),
   };
 }

@@ -1,68 +1,33 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Link } from "@workspace/i18n/routing";
 import { cn } from "@/app/components/utils";
 import { SelectionColor } from "@/component-library/selection-color";
-import {
-  FAQ_TOPICS,
-  FAQ_TOTAL,
-  GLOSSARY,
-  type FaqItem,
-  type FaqSegment,
-} from "@/data/enterprise/faq";
+import { FAQ_TOPICS, FAQ_TOTAL, type FaqItemMeta } from "@/data/enterprise/faq";
 
 const CONTACT_HREF = "mailto:enterprise@solana.org";
 
-type IndexedItem = FaqItem & {
+type IndexedItem = FaqItemMeta & {
   id: string;
+  topicKey: string;
   searchText: string;
 };
 
 type IndexedTopic = {
-  topic: string;
+  key: string;
+  title: string;
   icon: string;
   items: IndexedItem[];
 };
 
-function segmentText(segment: FaqSegment): string {
-  return typeof segment === "string"
-    ? segment
-    : (segment.display ?? segment.term);
-}
-
-function answerText(paragraphs: FaqSegment[][]): string {
-  return paragraphs
-    .map((paragraph) => paragraph.map(segmentText).join(""))
-    .join(" ");
-}
-
-function AnswerParagraphs({ paragraphs }: { paragraphs: FaqSegment[][] }) {
-  return (
-    <>
-      {paragraphs.map((paragraph, paragraphIndex) => (
-        <p key={paragraphIndex}>
-          {paragraph.map((segment, segmentIndex) =>
-            typeof segment === "string" ? (
-              <Fragment key={segmentIndex}>{segment}</Fragment>
-            ) : (
-              <span
-                key={segmentIndex}
-                className="faq-term"
-                tabIndex={0}
-                data-tip={GLOSSARY[segment.term]}
-              >
-                {segment.display ?? segment.term}
-              </span>
-            ),
-          )}
-        </p>
-      ))}
-    </>
-  );
+function stripIcuTags(message: string): string {
+  return message.replace(/<[^>]+>/g, " ");
 }
 
 export function EnterpriseFaqPage() {
+  const t = useTranslations("enterpriseFaq");
   const [activeTopic, setActiveTopic] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
@@ -74,17 +39,24 @@ export function EnterpriseFaqPage() {
 
   const sections: IndexedTopic[] = useMemo(
     () =>
-      FAQ_TOPICS.map((topic, topicIndex) => ({
-        topic: topic.topic,
+      FAQ_TOPICS.map((topic) => ({
+        key: topic.key,
+        title: t(`topics.${topic.key}`),
         icon: topic.icon,
-        items: topic.items.map((item, itemIndex) => ({
+        items: topic.items.map((item) => ({
           ...item,
-          id: `${topicIndex}-${itemIndex}`,
-          searchText:
-            `${item.q} ${item.tldr} ${answerText(item.a)}`.toLowerCase(),
+          id: `${topic.key}-${item.key}`,
+          topicKey: topic.key,
+          searchText: [
+            t(`items.${topic.key}.${item.key}.q`),
+            t(`items.${topic.key}.${item.key}.tldr`),
+            stripIcuTags(t.raw(`items.${topic.key}.${item.key}.a`) as string),
+          ]
+            .join(" ")
+            .toLowerCase(),
         })),
       })),
-    [],
+    [t],
   );
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -93,7 +65,7 @@ export function EnterpriseFaqPage() {
     .map((section) => ({
       ...section,
       items:
-        activeTopic === "all" || activeTopic === section.topic
+        activeTopic === "all" || activeTopic === section.key
           ? section.items.filter(
               (item) =>
                 !normalizedQuery || item.searchText.includes(normalizedQuery),
@@ -128,6 +100,28 @@ export function EnterpriseFaqPage() {
   const isItemOpen = (id: string) =>
     normalizedQuery ? !searchClosedIds.has(id) : openIds.has(id);
 
+  const renderAnswer = (item: IndexedItem): ReactNode => {
+    const termHandlers = Object.fromEntries(
+      Object.entries(item.terms ?? {}).map(([tag, glossaryKey]) => [
+        tag,
+        (children: ReactNode) => (
+          <span
+            className="faq-term"
+            tabIndex={0}
+            data-tip={t(`glossary.${glossaryKey}`)}
+          >
+            {children}
+          </span>
+        ),
+      ]),
+    );
+
+    return t.rich(`items.${item.topicKey}.${item.key}.a`, {
+      p: (children) => <p>{children}</p>,
+      ...termHandlers,
+    });
+  };
+
   return (
     <div className="bg-black text-white font-brand">
       <SelectionColor selectionColor="#14F195" selectionTextColor="#000000" />
@@ -138,17 +132,16 @@ export function EnterpriseFaqPage() {
           href="/solutions/enterprise"
           className="text-[13px] text-[#ABABBA] hover:text-white no-underline transition-colors"
         >
-          ← Enterprise
+          {t("hero.back")}
         </Link>
         <h1 className="font-bold text-[clamp(28px,4.4vw,44px)] leading-[1.12] tracking-[-0.015em] max-w-[700px] mt-4 mb-0">
-          How Solana?{" "}
+          {t("hero.titleLead")}{" "}
           <em className="not-italic bg-gradient-to-r from-[#9945FF] to-[#14F195] bg-clip-text text-transparent">
-            Answered.
+            {t("hero.titleAccent")}
           </em>
         </h1>
         <p className="text-[#ABABBA] max-w-[580px] mt-3 mb-0 text-[15px]">
-          Common questions from institutions exploring Solana, answered in plain
-          language for business and partnership teams.
+          {t("hero.subtitle")}
         </p>
       </div>
 
@@ -175,18 +168,20 @@ export function EnterpriseFaqPage() {
               setQuery(event.target.value);
               setSearchClosedIds(new Set());
             }}
-            placeholder="Search questions: custody, privacy, stablecoin, settlement…"
-            aria-label="Search FAQ"
+            placeholder={t("search.placeholder")}
+            aria-label={t("search.placeholder")}
             className="bg-transparent border-none outline-none text-white text-[15px] w-full placeholder:text-white/40"
           />
         </div>
         <div className="text-[13px] text-white/40 mt-2 min-h-[19px]">
-          {normalizedQuery && (
-            <>
-              <b className="text-[#14F195] font-medium">{visibleCount}</b> match
-              {visibleCount === 1 ? "" : "es"} for “{query.trim()}”
-            </>
-          )}
+          {normalizedQuery &&
+            t.rich("search.matches", {
+              count: visibleCount,
+              query: query.trim(),
+              b: (children) => (
+                <b className="text-[#14F195] font-medium">{children}</b>
+              ),
+            })}
         </div>
       </div>
 
@@ -195,7 +190,7 @@ export function EnterpriseFaqPage() {
         {/* Mobile: topic dropdown */}
         <div className="lg:hidden mb-6">
           <label htmlFor="faq-topic" className="sr-only">
-            Topic
+            {t("nav.topicsLabel")}
           </label>
           <div className="relative">
             <select
@@ -205,15 +200,15 @@ export function EnterpriseFaqPage() {
               className="w-full appearance-none bg-white/[0.04] border border-white/10 rounded-[14px] px-4 py-3 pr-10 text-[15px] text-white outline-none cursor-pointer transition-colors focus:border-[#9945FF]"
             >
               <option value="all" className="bg-[#101014] text-white">
-                All questions ({FAQ_TOTAL})
+                {t("nav.allQuestions")} ({FAQ_TOTAL})
               </option>
               {sections.map((section) => (
                 <option
-                  key={section.topic}
-                  value={section.topic}
+                  key={section.key}
+                  value={section.key}
                   className="bg-[#101014] text-white"
                 >
-                  {section.topic} ({section.items.length})
+                  {section.title} ({section.items.length})
                 </option>
               ))}
             </select>
@@ -225,7 +220,7 @@ export function EnterpriseFaqPage() {
               stroke="currentColor"
               strokeWidth="2"
               aria-hidden="true"
-              className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-white/40"
+              className="absolute right-4 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none"
             >
               <path d="m6 9 6 6 6-6" />
             </svg>
@@ -234,39 +229,38 @@ export function EnterpriseFaqPage() {
 
         {/* Desktop: sidebar topic nav */}
         <nav
-          aria-label="Topics"
+          aria-label={t("nav.topicsLabel")}
           className="hidden lg:block lg:sticky lg:top-[110px]"
         >
           <div className="text-[11px] tracking-[0.12em] uppercase text-white/40 mb-3 pl-3">
-            Topics
+            {t("nav.topicsLabel")}
           </div>
           <TopicButton
-            label="All questions"
+            label={t("nav.allQuestions")}
             count={FAQ_TOTAL}
             active={activeTopic === "all"}
             onClick={() => setActiveTopic("all")}
           />
           {sections.map((section) => (
             <TopicButton
-              key={section.topic}
-              label={section.topic}
+              key={section.key}
+              label={section.title}
               count={section.items.length}
-              active={activeTopic === section.topic}
-              onClick={() => setActiveTopic(section.topic)}
+              active={activeTopic === section.key}
+              onClick={() => setActiveTopic(section.key)}
             />
           ))}
         </nav>
 
         <main>
           {visibleSections.map((section) => (
-            <section key={section.topic} className="mb-10">
+            <section key={section.key} className="mb-10">
               <div className="flex items-baseline gap-3 mb-4 pb-3 border-b border-white/10">
                 <h2 className="font-semibold text-[19px] m-0">
-                  {section.topic}
+                  {section.title}
                 </h2>
                 <span className="text-[13px] text-white/40">
-                  {section.items.length} question
-                  {section.items.length === 1 ? "" : "s"}
+                  {t("counts.questions", { count: section.items.length })}
                 </span>
               </div>
               {section.items.map((item) => {
@@ -288,7 +282,7 @@ export function EnterpriseFaqPage() {
                       className="w-full text-left bg-transparent border-none cursor-pointer px-5 py-[17px] grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 items-start text-inherit"
                     >
                       <div className="font-medium text-[15.5px] leading-[1.4]">
-                        {item.q}
+                        {t(`items.${item.topicKey}.${item.key}.q`)}
                       </div>
                       <div
                         aria-hidden="true"
@@ -303,31 +297,24 @@ export function EnterpriseFaqPage() {
                       </div>
                       {!isOpen && (
                         <div className="text-[13px] text-[#ABABBA] leading-[1.55] mt-1">
-                          {item.tldr}
+                          {t(`items.${item.topicKey}.${item.key}.tldr`)}
                         </div>
                       )}
                     </button>
                     {isOpen && (
                       <div className="mx-5 pb-5 border-t border-dashed border-white/10">
-                        <div className="faq-ans">
-                          <AnswerParagraphs paragraphs={item.a} />
-                        </div>
+                        <div className="faq-ans">{renderAnswer(item)}</div>
                         {item.refs && item.refs.length > 0 && (
                           <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-white/5">
                             <span className="text-[11px] tracking-[0.1em] uppercase text-white/40 mr-1">
-                              References
+                              {t("referencesLabel")}
                             </span>
                             {item.refs.map((ref) => {
-                              const external = ref.href?.startsWith("http");
+                              const external = ref.href.startsWith("http");
                               return (
                                 <a
-                                  key={`${ref.type}-${ref.label}`}
+                                  key={`${ref.typeKey}-${ref.labelKey}`}
                                   href={ref.href}
-                                  onClick={(event) => {
-                                    if (ref.href === "#") {
-                                      event.preventDefault();
-                                    }
-                                  }}
                                   {...(external
                                     ? {
                                         target: "_blank",
@@ -337,9 +324,9 @@ export function EnterpriseFaqPage() {
                                   className="group/ref inline-flex items-center gap-1.5 text-[12px] text-[#ABABBA] hover:text-white border border-white/10 hover:border-[#14F195]/50 bg-white/[0.03] rounded-full px-3 py-1 no-underline transition-colors"
                                 >
                                   <span className="text-[#14F195] text-[10.5px] uppercase tracking-[0.06em]">
-                                    {ref.type}
+                                    {t(`refTypes.${ref.typeKey}`)}
                                   </span>
-                                  {ref.label}
+                                  {t(`refLabels.${ref.labelKey}`)}
                                   <span
                                     aria-hidden="true"
                                     className="text-white/40 group-hover/ref:text-[#14F195] text-[11px]"
@@ -360,7 +347,7 @@ export function EnterpriseFaqPage() {
           ))}
           {visibleSections.length === 0 && (
             <div className="text-white/40 text-center py-12">
-              No questions match your search.
+              {t("search.noResults")}
             </div>
           )}
         </main>
@@ -370,13 +357,13 @@ export function EnterpriseFaqPage() {
       <div className="max-w-[1140px] mx-auto px-5 md:px-8 pb-24">
         <div className="border-t border-white/10 pt-8 flex flex-wrap items-center justify-between gap-4">
           <p className="text-[#ABABBA] text-[15px] m-0">
-            Have a question that isn&apos;t covered here?
+            {t("contact.prompt")}
           </p>
           <a
             href={CONTACT_HREF}
             className="inline-flex items-center gap-2 text-base font-medium text-black bg-white hover:bg-white/90 rounded-full px-5 py-2.5 no-underline tracking-[-0.16px] transition-colors"
           >
-            Get in touch
+            {t("contact.cta")}
           </a>
         </div>
       </div>
