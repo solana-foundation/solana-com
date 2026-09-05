@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@workspace/i18n/routing";
 import { cn } from "@/app/components/utils";
 import { SelectionColor } from "@/component-library/selection-color";
@@ -28,6 +28,7 @@ function stripIcuTags(message: string): string {
 
 export function EnterpriseFaqPage() {
   const t = useTranslations("enterpriseFaq");
+  const locale = useLocale();
   const [activeTopic, setActiveTopic] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
@@ -53,13 +54,13 @@ export function EnterpriseFaqPage() {
             stripIcuTags(t.raw(`items.${topic.key}.${item.key}.a`) as string),
           ]
             .join(" ")
-            .toLowerCase(),
+            .toLocaleLowerCase(locale),
         })),
       })),
-    [t],
+    [t, locale],
   );
 
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = query.trim().toLocaleLowerCase(locale);
 
   const visibleSections = sections
     .map((section) => ({
