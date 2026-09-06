@@ -12,8 +12,8 @@ export const purgefi = {
       "PurgeFi is a non-custodial Solana utility tool that scans and closes empty or inactive token accounts to reclaim locked rent SOL directly to your wallet.",
     description:
       "PurgeFi enables Solana users to safely recover locked rent SOL by identifying and burning zero-balance, spam, or abandoned token accounts. Built with user security as a top priority, PurgeFi is non-custodial, open-source, and requires zero sensitive wallet permissions. Users can batch-close accounts with transparent transaction simulation before signing.",
-    sector: "Tools",
-    type: "Application",
+    sector: "Infrastructure",
+    type: "Tool",
     links: {
       website: "https://purgefi.com",
     },
