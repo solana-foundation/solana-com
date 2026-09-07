@@ -24,6 +24,9 @@ Use this app for the main `solana.com` experience.
 - Next.js App Router with `next-intl`
 - Shared navigation and cross-app linking come from `@solana-com/ui-chrome`
 - A lot of behavior depends on `rewrites-redirects.ts`
+- Localized general-learning MDX is owned by `content/learn`
+- English-only Learn pages may use the default-locale fallback until localized
+  sources are available; these are explicit exclusions in `.lingo/config.json`
 - Vitest is used here for unit tests
 - Wallet-directory records are owned by `packages/ecosystem-data`, while this
   app owns their presentation and filtering UI

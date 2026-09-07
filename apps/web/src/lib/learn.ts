@@ -38,6 +38,9 @@ function getLearnFilePath(locale: string, slug: string[]) {
     return null;
   }
 
+  // Keep a localized URL usable while a newly published page is waiting for
+  // its translated source. English-only pages are explicitly excluded from
+  // Lingo coverage until those translations are ready.
   const fallbackPath = path.join(
     learnContentRoot,
     defaultLocale,

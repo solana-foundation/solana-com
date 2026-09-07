@@ -121,8 +121,9 @@ inspect `packages/ui-chrome` and the target app `next.config.ts` together.
 
 ## Content Ownership
 
-- `apps/docs/content`: source of truth for docs, cookbook, learn, and developer
+- `apps/docs/content`: source of truth for docs, cookbook, and developer
   bootcamp content
+- `apps/web/content/learn`: source of truth for general learning content
 - `apps/media/content`: source of truth for posts, podcasts, reports, upgrades,
   releases, authors, tags, and global CMS content
 - `packages/i18n/messages/*`: shared UI message catalogs by app
