@@ -955,6 +955,7 @@ function PaymentSimulation() {
 
 export function WsopPage({ stories }: WsopPageProps) {
   const t = useTranslations("wsop");
+  const walletT = useTranslations("wallets.hero");
   const eventDetails = EVENT_DETAIL_IDS.map((id) => ({
     id,
     label: t(`event.details.${id}.label`),
@@ -1464,25 +1465,44 @@ export function WsopPage({ stories }: WsopPageProps) {
         <section className="wsop-start" aria-labelledby="get-started-heading">
           <Reveal className="wsop-start__inner">
             <SectionLabel suit="diamond">{t("start.label")}</SectionLabel>
-            <div className="wsop-start__content">
-              <h2 id="get-started-heading">{t("start.title")}</h2>
-              <p>{t("start.description")}</p>
-              <div className="wsop-start__actions">
-                <Link
-                  className="wsop-button wsop-button--light"
-                  href="/wallets"
-                >
-                  <span>{t("start.findWallet")}</span>
-                  <ArrowUpRight aria-hidden="true" />
-                </Link>
-                <CrossAppLink
-                  className="wsop-button wsop-button--guide"
-                  href="/learn/poker-players-guide-to-crypto"
-                >
-                  <span>{t("start.guide")}</span>
-                  <ArrowUpRight aria-hidden="true" />
-                </CrossAppLink>
-              </div>
+            <div className="wsop-start__grid">
+              <article className="wsop-start__card wsop-start__card--guide">
+                <div className="wsop-start__content">
+                  <div className="wsop-start__guide-copy">
+                    <h3>{t("start.guide")}</h3>
+                    <p>{t("start.guideDescription")}</p>
+                  </div>
+                  <div className="wsop-start__actions">
+                    <CrossAppLink
+                      className="wsop-button wsop-start__guide-action"
+                      href="/learn/poker-players-guide-to-crypto"
+                    >
+                      <span>{t("start.guideCta")}</span>
+                      <ArrowUpRight aria-hidden="true" />
+                    </CrossAppLink>
+                  </div>
+                </div>
+              </article>
+
+              <article className="wsop-start__card wsop-start__card--onboarding">
+                <div className="wsop-start__content">
+                  <h2 id="get-started-heading">{t("start.title")}</h2>
+                  <p>{t("start.description")}</p>
+                  <div className="wsop-start__actions">
+                    <Link
+                      className="wsop-button wsop-button--light"
+                      href="/wallets"
+                    >
+                      <span>{t("start.findWallet")}</span>
+                      <ArrowUpRight aria-hidden="true" />
+                    </Link>
+                    <CrossAppLink className="wsop-button" href="/learn">
+                      <span>{walletT("learnBasics")}</span>
+                      <ArrowUpRight aria-hidden="true" />
+                    </CrossAppLink>
+                  </div>
+                </div>
+              </article>
             </div>
           </Reveal>
         </section>
