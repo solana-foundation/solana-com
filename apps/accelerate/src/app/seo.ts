@@ -64,6 +64,7 @@ export function buildEventSeriesStructuredData() {
     subEvent: [
       buildEventStructuredData(config.events.hongKong, "/hong-kong"),
       buildEventStructuredData(config.events.miami, "/miami"),
+      buildEventStructuredData(config.events.china, "/china"),
     ],
   };
 }

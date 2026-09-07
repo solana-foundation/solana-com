@@ -5,7 +5,8 @@ import { Link } from "@workspace/i18n/routing";
 import { getImagePath } from "@/config";
 
 interface EventCardProps {
-  image: string;
+  image?: string;
+  imageContent?: React.ReactNode;
   city: string;
   subtitle: string;
   dateLocation: string;
@@ -16,6 +17,7 @@ interface EventCardProps {
 
 function CardContent({
   image,
+  imageContent,
   city,
   subtitle,
   dateLocation,
@@ -25,12 +27,15 @@ function CardContent({
     <div className="group flex h-[398px] w-full flex-col overflow-hidden rounded-[10px] bg-[#0c0c0c] md:h-[620px] md:rounded-[22px] lg:h-[736px]">
       {/* Photo top half with gradient overlay */}
       <div className="relative aspect-[242/191] w-full overflow-hidden rounded-t-[10px] md:aspect-[529/352] md:rounded-t-[22px]">
-        <Image
-          src={image}
-          alt={city}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+        {imageContent ??
+          (image ? (
+            <Image
+              src={image}
+              alt={city}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : null)}
         {/* Gradient overlay on photo */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-transparent" />
 
@@ -139,6 +144,7 @@ function CardContent({
 
 export function EventCard({
   image,
+  imageContent,
   city,
   subtitle,
   dateLocation,
@@ -146,7 +152,14 @@ export function EventCard({
   external = false,
   active = true,
 }: EventCardProps) {
-  const cardProps = { image, city, subtitle, dateLocation, active };
+  const cardProps = {
+    image,
+    imageContent,
+    city,
+    subtitle,
+    dateLocation,
+    active,
+  };
 
   if (external) {
     return (

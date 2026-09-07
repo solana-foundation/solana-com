@@ -58,6 +58,12 @@ export function HomepageFooter() {
             {/* Event links */}
             <div className="flex flex-col items-center gap-8 md:flex-row">
               <Link
+                href="/accelerate/china"
+                className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
+              >
+                China
+              </Link>
+              <Link
                 href="/accelerate/hong-kong"
                 className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
               >

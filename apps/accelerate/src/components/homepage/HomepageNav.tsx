@@ -37,16 +37,22 @@ export function HomepageNav() {
           {/* Right nav */}
           <nav className="flex items-center gap-4 xl:gap-10">
             <Link
+              href="/accelerate/china"
+              className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
+            >
+              China
+            </Link>
+            <Link
               href="/accelerate/hong-kong"
               className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
-              Hong Kong (APAC)
+              Hong Kong
             </Link>
             <Link
               href="/accelerate/miami"
               className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
-              Miami (USA)
+              Miami
             </Link>
 
             {/* LIVE NOW button */}
@@ -122,13 +128,18 @@ export function HomepageNav() {
 
           <nav className="mx-auto mt-[68px] flex w-full max-w-[1024px] flex-col gap-8">
             <Link
+              href="/accelerate/china"
+              onClick={closeMobileMenu}
+              className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
+            >
+              China
+            </Link>
+            <Link
               href="/accelerate/hong-kong"
               onClick={closeMobileMenu}
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
             >
               Hong Kong
-              <br />
-              (APAC)
             </Link>
             <Link
               href="/accelerate/miami"
@@ -136,8 +147,6 @@ export function HomepageNav() {
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
             >
               Miami
-              <br />
-              (USA)
             </Link>
           </nav>
         </div>

@@ -48,8 +48,8 @@ const assetBaseUrl = siteUrl.replace(/\/accelerate$/, "");
 export const config = {
   siteMetadata: {
     title: `Solana Accelerate 2026`,
-    description: `Solana Accelerate brings together the global Solana community across multiple events in 2026. Join us in Hong Kong and Miami.`,
-    shortDescription: `Solana Accelerate 2026 — Hong Kong & Miami`,
+    description: `Solana Accelerate brings together the global Solana community across multiple events in 2026, including Hong Kong, Miami, and China.`,
+    shortDescription: `Solana Accelerate 2026 — Global event series`,
     keywords: [
       "Solana",
       "blockchain",
@@ -57,6 +57,11 @@ export const config = {
       "web3",
       "Hong Kong",
       "Miami",
+      "China",
+      "Shanghai",
+      "Hangzhou",
+      "Shenzhen",
+      "Beijing",
       "APAC",
       "conference",
       "event",
@@ -97,6 +102,19 @@ export const config = {
       description:
         "Solana Accelerate comes to Miami on 5 May 2026. Connect with builders, developers, and the global Solana community.",
       lumaUrl: "https://lu.ma/accelerate-miami",
+    },
+    china: {
+      name: "Solana Accelerate Shanghai",
+      location: {
+        name: "Jing An Grand Ballroom (5F)",
+        address:
+          "Jing An Shangri-La, West Shanghai, 1218 Middle Yan'an Road, Jing'an District, Shanghai 200040, China",
+      },
+      startDate: "2026-10-16T10:00:00+08:00",
+      endDate: "2026-10-16T18:00:00+08:00",
+      description:
+        "Solana Accelerate China begins in Shanghai on October 16, 2026, followed by roadshow stops in Hangzhou, Shenzhen, and Beijing.",
+      lumaUrl: "https://luma.com/acc-shanghai-26",
     },
   },
   event: {
