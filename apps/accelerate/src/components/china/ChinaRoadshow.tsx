@@ -1,82 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
 import { getImagePath } from "@/config";
+import { chinaStops, type ChinaStop } from "@/data/china-stops";
+import { CarouselArrow } from "../homepage/CarouselArrow";
 import { EventCard } from "../homepage/EventCard";
-
-type Stop = {
-  city: string;
-  date: string;
-  time: string;
-  venue: string;
-  address: string;
-  description: string;
-  registrationUrl: string;
-  mapUrl: string;
-  capacity: string;
-  image: string;
-};
-
-const stops: Stop[] = [
-  {
-    city: "Shanghai",
-    date: "Oct 16, 2026",
-    time: "10:00–18:00 GMT+8",
-    venue: "Jing An Grand Ballroom (5F)",
-    address:
-      "Jing An Shangri-La, West Shanghai, 1218 Middle Yan'an Road, Jing'an District, Shanghai 200040, China",
-    description:
-      "A global city defined by ambition, innovation and culture. From the historic Bund to the Pudong skyline, Shanghai is a natural meeting point for ideas, connections and what comes next.",
-    registrationUrl: "https://luma.com/acc-shanghai-26",
-    mapUrl: "https://maps.app.goo.gl/EfLgSuTm9W81Dpuu6",
-    capacity: "400 attendees",
-    image: "/images/china/shanghai-card.webp",
-  },
-  {
-    city: "Hangzhou",
-    date: "Oct 18, 2026",
-    time: "10:00–17:00 GMT+8",
-    venue: "Grand Ballroom (2F)",
-    address:
-      "Midtown Shangri-La, Hangzhou, 6 Changshou Road, Gongshu District, Hangzhou 310006, China",
-    description:
-      "A city where natural beauty, rich heritage and modern innovation come together. From West Lake to its technology ecosystem, Hangzhou pairs imagination with progress.",
-    registrationUrl: "https://luma.com/acc-hangzhou-26",
-    mapUrl: "https://maps.app.goo.gl/87zVXbEPBkt2fPp17",
-    capacity: "480 attendees",
-    image: "/images/china/hangzhou-card.webp",
-  },
-  {
-    city: "Shenzhen",
-    date: "Oct 20, 2026",
-    time: "10:00–17:00 GMT+8",
-    venue: "Seaworld Grand Ballroom (1F)",
-    address:
-      "Hilton Shenzhen Shekou Nanhai, 1177 Wanghai Road, Nanshan District, Shenzhen 518067, China",
-    description:
-      "A city built on bold ideas and entrepreneurial energy. Shenzhen is a dynamic meeting point for technology, creativity and the people building what comes next.",
-    registrationUrl: "https://luma.com/acc-shenzhen-26",
-    mapUrl: "https://maps.app.goo.gl/AEU5NUBQ8FwhZ2Z58",
-    capacity: "480 attendees",
-    image: "/images/china/shenzhen-card.webp",
-  },
-  {
-    city: "Beijing",
-    date: "Oct 22, 2026",
-    time: "10:00–17:00 GMT+8",
-    venue: "Astor Ballroom (1F)",
-    address:
-      "The St. Regis Beijing, 21 Jianguomenwai Street, Chaoyang District, Beijing 100020, China",
-    description:
-      "A city where centuries of history meet bold ideas and modern ambition. Beijing brings together heritage, influence and forward-thinking energy.",
-    registrationUrl: "https://luma.com/acc-beijing-26",
-    mapUrl: "https://maps.app.goo.gl/5bCoYaoxG72q1aeW8",
-    capacity: "480 attendees",
-    image: "/images/china/beijing-card.webp",
-  },
-];
+import { useHorizontalCarousel } from "../homepage/useHorizontalCarousel";
 
 function Arrow() {
   return (
@@ -239,9 +169,13 @@ function ChinaHero() {
                 top: `${(layer.y / 1389) * 100}%`,
                 width: `${(layer.width / 1920) * 100}%`,
                 maskImage:
-                  "linear-gradient(to bottom, #000 0%, #000 80%, transparent 100%)",
+                  layer.src === "/images/china/hero-layer-8.svg"
+                    ? "none"
+                    : "linear-gradient(to bottom, #000 0%, #000 80%, transparent 100%)",
                 WebkitMaskImage:
-                  "linear-gradient(to bottom, #000 0%, #000 80%, transparent 100%)",
+                  layer.src === "/images/china/hero-layer-8.svg"
+                    ? "none"
+                    : "linear-gradient(to bottom, #000 0%, #000 80%, transparent 100%)",
               }}
             />
           ))}
@@ -318,7 +252,7 @@ function ChinaHero() {
   );
 }
 
-function StopCard({ stop }: { stop: Stop }) {
+function StopCard({ stop }: { stop: ChinaStop }) {
   return (
     <EventCard
       image={getImagePath(stop.image)}
@@ -332,101 +266,13 @@ function StopCard({ stop }: { stop: Stop }) {
   );
 }
 
-function LineupArrow({
-  direction,
-  disabled,
-  onClick,
-}: {
-  direction: "left" | "right";
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={direction === "left" ? "Previous city" : "Next city"}
-      aria-controls="lineup-carousel"
-      className="group flex h-12 w-12 items-center justify-center rounded-full border border-accelerate-gray-200 bg-black/60 text-accelerate-gray-200 transition-colors hover:border-accelerate-green hover:text-accelerate-green disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-accelerate-gray-200 disabled:hover:text-accelerate-gray-200"
-    >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 18 18"
-        fill="none"
-        className={direction === "left" ? "rotate-180" : ""}
-        aria-hidden="true"
-      >
-        <path
-          d="M6.75 3.75 12 9l-5.25 5.25"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </button>
-  );
-}
-
 function RoadshowLineup() {
   return <RoadshowCarousel />;
 }
 
 function RoadshowCarousel() {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
-
-  const updateScrollState = useCallback(() => {
-    const carousel = scrollRef.current;
-    if (!carousel) return;
-
-    const maxScrollLeft = carousel.scrollWidth - carousel.clientWidth;
-    setCanScrollLeft(carousel.scrollLeft > 1);
-    setCanScrollRight(maxScrollLeft - carousel.scrollLeft > 1);
-  }, []);
-
-  useEffect(() => {
-    const carousel = scrollRef.current;
-    if (!carousel) return;
-
-    updateScrollState();
-    carousel.addEventListener("scroll", updateScrollState, { passive: true });
-    window.addEventListener("resize", updateScrollState);
-
-    const resizeObserver = new ResizeObserver(updateScrollState);
-    resizeObserver.observe(carousel);
-
-    return () => {
-      carousel.removeEventListener("scroll", updateScrollState);
-      window.removeEventListener("resize", updateScrollState);
-      resizeObserver.disconnect();
-    };
-  }, [updateScrollState]);
-
-  const scroll = (direction: "left" | "right") => {
-    const carousel = scrollRef.current;
-    if (!carousel) return;
-
-    const firstCard = carousel.firstElementChild;
-    const cardWidth =
-      firstCard instanceof HTMLElement ? firstCard.offsetWidth : 0;
-    const styles = getComputedStyle(carousel);
-    const gap = parseFloat(styles.columnGap || styles.gap) || 0;
-    const distance = cardWidth + gap || carousel.clientWidth * 0.8;
-    const maxScrollLeft = carousel.scrollWidth - carousel.clientWidth;
-    const nextScrollLeft = Math.min(
-      maxScrollLeft,
-      Math.max(
-        0,
-        carousel.scrollLeft + (direction === "left" ? -distance : distance),
-      ),
-    );
-
-    carousel.scrollTo({ left: nextScrollLeft, behavior: "smooth" });
-  };
+  const { scrollRef, canScrollLeft, canScrollRight, scroll } =
+    useHorizontalCarousel();
 
   return (
     <section
@@ -440,42 +286,45 @@ function RoadshowCarousel() {
         className="pointer-events-none object-cover opacity-80"
       />
       <div className="relative mx-auto max-w-[1480px] px-6 md:px-10">
-        <div className="relative">
-          <h2 className="mx-auto max-w-[980px] text-center text-[38px] font-light uppercase leading-[1.13] tracking-[2px] text-accelerate-gray-100 sm:text-[52px] md:text-[80px] md:tracking-[4px]">
-            2026 Accelerate China
-            <br />
-            Lineup
-          </h2>
-          <div
-            className="mt-8 flex justify-center gap-3 md:absolute md:right-0 md:top-1/2 md:mt-0 md:-translate-y-1/2"
-            role="group"
-            aria-label="Lineup carousel controls"
-          >
-            <LineupArrow
+        <h2 className="mx-auto max-w-[980px] text-center text-[38px] font-light uppercase leading-[1.13] tracking-[2px] text-accelerate-gray-100 sm:text-[52px] md:text-[80px] md:tracking-[4px]">
+          2026 Accelerate China
+          <br />
+          Lineup
+        </h2>
+
+        <div className="relative mt-12 md:mt-20">
+          {/* Shared carousel controls */}
+          <div className="absolute -left-2 top-1/2 z-10 hidden -translate-y-1/2 md:block lg:-left-4">
+            <CarouselArrow
               direction="left"
               disabled={!canScrollLeft}
               onClick={() => scroll("left")}
+              ariaControls="china-lineup-carousel"
             />
-            <LineupArrow
+          </div>
+          <div className="absolute -right-2 top-1/2 z-10 hidden -translate-y-1/2 md:block lg:-right-4">
+            <CarouselArrow
               direction="right"
               disabled={!canScrollRight}
               onClick={() => scroll("right")}
+              ariaControls="china-lineup-carousel"
             />
           </div>
-        </div>
-        <div
-          ref={scrollRef}
-          id="lineup-carousel"
-          className="mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-5 pt-2 scrollbar-hide md:mt-20 md:gap-6"
-        >
-          {stops.map((stop) => (
-            <div
-              key={stop.city}
-              className="w-[242px] max-w-[529px] flex-shrink-0 snap-center md:w-[calc(100vw-48px)]"
-            >
-              <StopCard stop={stop} />
-            </div>
-          ))}
+
+          <div
+            ref={scrollRef}
+            id="china-lineup-carousel"
+            className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-5 pt-2 scrollbar-hide md:gap-6"
+          >
+            {chinaStops.map((stop) => (
+              <div
+                key={stop.city}
+                className="w-[242px] max-w-[529px] flex-shrink-0 snap-center md:w-[calc(100vw-48px)]"
+              >
+                <StopCard stop={stop} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

@@ -50,16 +50,7 @@ function CardContent({
 
         {/* Upcoming badge */}
         {active && (
-          <div
-            className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border px-3 py-1.5 backdrop-blur-md md:left-5 md:top-5 md:gap-2 md:px-4 md:py-2"
-            style={{
-              borderColor: "rgba(153, 69, 255, 0.35)",
-              background:
-                "linear-gradient(135deg, rgba(153, 69, 255, 0.2) 0%, rgba(0, 212, 255, 0.1) 100%)",
-              boxShadow:
-                "0 4px 16px rgba(153, 69, 255, 0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}
-          >
+          <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-[#c4a0ff] bg-[#160725] px-3 py-1.5 shadow-[0_4px_16px_rgba(153,69,255,0.3)] md:left-5 md:top-5 md:gap-2 md:px-4 md:py-2">
             {/* Pulsing dot */}
             <span className="relative flex h-2 w-2 md:h-2.5 md:w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#9945FF] opacity-50" />
@@ -67,7 +58,7 @@ function CardContent({
             </span>
             <span
               className="text-[10px] font-semibold uppercase tracking-[1.5px] md:text-xs"
-              style={{ color: "#c4a0ff" }}
+              style={{ color: "#ffffff" }}
             >
               Upcoming
             </span>
@@ -76,16 +67,7 @@ function CardContent({
 
         {/* Retrospective badge for past events */}
         {!active && (
-          <div
-            className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border px-3 py-1.5 backdrop-blur-md md:left-5 md:top-5 md:gap-2 md:px-4 md:py-2"
-            style={{
-              borderColor: "rgba(25, 251, 155, 0.3)",
-              background:
-                "linear-gradient(135deg, rgba(25, 251, 155, 0.15) 0%, rgba(153, 69, 255, 0.1) 100%)",
-              boxShadow:
-                "0 4px 16px rgba(25, 251, 155, 0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}
-          >
+          <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-[#75ffd0] bg-[#061a14] px-3 py-1.5 shadow-[0_4px_16px_rgba(25,251,155,0.3)] md:left-5 md:top-5 md:gap-2 md:px-4 md:py-2">
             {/* Play/recap icon */}
             <svg
               className="h-2.5 w-2.5 md:h-3 md:w-3"
@@ -102,7 +84,7 @@ function CardContent({
             </svg>
             <span
               className="text-[10px] font-semibold uppercase tracking-[1.5px] md:text-xs"
-              style={{ color: "#19fb9b" }}
+              style={{ color: "#ffffff" }}
             >
               Watch the Recap
             </span>
