@@ -253,7 +253,7 @@ export function VideoCarousel({
       <section className="relative overflow-hidden bg-black py-10 lg:py-16">
         <div className="pointer-events-none absolute inset-0 opacity-25">
           <Image
-            src={getImagePath("/images/homepage/acc-hero-bg.png")}
+            src={getImagePath("/images/homepage/acc-hero-bg.webp")}
             alt=""
             fill
             className="object-cover"

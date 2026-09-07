@@ -10,7 +10,7 @@ export function HomepageFooter() {
       {/* acc-hero 2 - inverted globe glow behind planet dots */}
       <div className="pointer-events-none absolute inset-0 -scale-y-100 opacity-50">
         <Image
-          src={getImagePath("/images/homepage/acc-hero-bg.png")}
+          src={getImagePath("/images/homepage/acc-hero-bg.webp")}
           alt=""
           fill
           className="object-cover"
@@ -30,7 +30,7 @@ export function HomepageFooter() {
         style={{ width: 1345, height: 359 }}
       >
         <img
-          src={getImagePath("/images/homepage/planet-dots.png")}
+          src={getImagePath("/images/homepage/planet-dots.webp")}
           alt=""
           style={{
             position: "absolute",

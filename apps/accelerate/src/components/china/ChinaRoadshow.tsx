@@ -32,7 +32,7 @@ const stops: Stop[] = [
     registrationUrl: "https://luma.com/acc-shanghai-26",
     mapUrl: "https://maps.app.goo.gl/EfLgSuTm9W81Dpuu6",
     capacity: "400 attendees",
-    image: "/images/china/shanghai-card.png",
+    image: "/images/china/shanghai-card.webp",
   },
   {
     city: "Hangzhou",
@@ -46,7 +46,7 @@ const stops: Stop[] = [
     registrationUrl: "https://luma.com/acc-hangzhou-26",
     mapUrl: "https://maps.app.goo.gl/87zVXbEPBkt2fPp17",
     capacity: "480 attendees",
-    image: "/images/china/hangzhou-card.png",
+    image: "/images/china/hangzhou-card.webp",
   },
   {
     city: "Shenzhen",
@@ -60,7 +60,7 @@ const stops: Stop[] = [
     registrationUrl: "https://luma.com/acc-shenzhen-26",
     mapUrl: "https://maps.app.goo.gl/AEU5NUBQ8FwhZ2Z58",
     capacity: "480 attendees",
-    image: "/images/china/shenzhen-card.png",
+    image: "/images/china/shenzhen-card.webp",
   },
   {
     city: "Beijing",
@@ -74,7 +74,7 @@ const stops: Stop[] = [
     registrationUrl: "https://luma.com/acc-beijing-26",
     mapUrl: "https://maps.app.goo.gl/5bCoYaoxG72q1aeW8",
     capacity: "480 attendees",
-    image: "/images/china/beijing-card.png",
+    image: "/images/china/beijing-card.webp",
   },
 ];
 
@@ -116,7 +116,7 @@ function ChinaHeader() {
   return (
     <header className="absolute inset-x-0 top-0 z-30 h-[88px] overflow-hidden bg-black/70 backdrop-blur-sm md:h-[138px]">
       <Image
-        src={getImagePath("/images/china/header-bg.png")}
+        src={getImagePath("/images/china/header-bg.webp")}
         alt=""
         fill
         priority
@@ -169,7 +169,7 @@ function ChinaHero() {
   return (
     <section className="relative min-h-[780px] overflow-hidden bg-black pt-[88px] text-white md:min-h-[920px] md:pt-[138px]">
       <Image
-        src={getImagePath("/images/china/hero-bg.png")}
+        src={getImagePath("/images/china/hero-bg.webp")}
         alt=""
         fill
         priority
@@ -459,14 +459,14 @@ function ChinaFooter() {
   return (
     <footer className="relative min-h-[460px] overflow-hidden bg-black px-6 pb-14 pt-36 md:px-10 md:pt-44">
       <Image
-        src={getImagePath("/images/china/hero-bg.png")}
+        src={getImagePath("/images/china/hero-bg.webp")}
         alt=""
         fill
         className="pointer-events-none -scale-y-100 object-cover opacity-45"
       />
       <div className="pointer-events-none absolute inset-x-1/2 bottom-0 h-[320px] w-[760px] -translate-x-1/2 overflow-hidden md:h-[359px] md:w-[1345px]">
         <Image
-          src={getImagePath("/images/china/footer-planet.png")}
+          src={getImagePath("/images/china/footer-planet.webp")}
           alt=""
           width={2000}
           height={2000}

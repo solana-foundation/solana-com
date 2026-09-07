@@ -8,7 +8,7 @@ import { getImagePath } from "@/config";
 
 const events = [
   {
-    image: getImagePath("/images/china/shanghai-card.png"),
+    image: getImagePath("/images/china/shanghai-card.webp"),
     city: "Shanghai",
     subtitle: "Solana Accelerate China",
     dateLocation: "Oct 16 / Shanghai",
@@ -26,7 +26,7 @@ const events = [
     active: false,
   },
   {
-    image: getImagePath("/images/homepage/ai-miami-card-photo.png"),
+    image: getImagePath("/images/homepage/ai-miami-card-photo.webp"),
     city: "AI Miami",
     subtitle: "Solana Accelerate AI",
     dateLocation: "May 6 / Miami",

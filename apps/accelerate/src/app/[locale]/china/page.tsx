@@ -51,17 +51,17 @@ export default function ChinaPage() {
           {
             id: "mIGoTSdkEww",
             title: "Welcome to Solana Accelerate APAC",
-            thumbnail: getImagePath("/images/china/video-1.png"),
+            thumbnail: getImagePath("/images/china/video-1.webp"),
           },
           {
             id: "rmSoC2H4-64",
             title: "Accelerate APAC Opening",
-            thumbnail: getImagePath("/images/china/video-2.png"),
+            thumbnail: getImagePath("/images/china/video-2.webp"),
           },
           {
             id: "HBLEqLRpSiA",
             title: "Accelerate APAC Opening Fireside",
-            thumbnail: getImagePath("/images/china/video-3.png"),
+            thumbnail: getImagePath("/images/china/video-3.webp"),
           },
         ]}
       />
