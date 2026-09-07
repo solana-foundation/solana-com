@@ -10,43 +10,43 @@ export const pokerGuideSlug = "poker-players-guide-to-crypto";
 const chapters = [
   {
     id: "poker-edge",
-    number: "01",
+    number: "1",
     label: "The edge",
     title: "Your poker instincts",
   },
   {
     id: "first-trade",
-    number: "02",
+    number: "2",
     label: "Before you trade",
     title: "Get table-ready",
   },
   {
     id: "mechanics",
-    number: "03",
+    number: "3",
     label: "The mechanics",
     title: "Spot and perps",
   },
   {
     id: "poker-player",
-    number: "04",
+    number: "4",
     label: "Trade like a poker player",
     title: "Size the risk",
   },
   {
     id: "venue",
-    number: "05",
+    number: "5",
     label: "Choose where to trade",
     title: "Read the venue",
   },
   {
     id: "protect",
-    number: "06",
+    number: "6",
     label: "Protect your bankroll",
     title: "Keep the keys",
   },
   {
     id: "next-steps",
-    number: "07",
+    number: "7",
     label: "Next steps",
     title: "Take your seat",
   },
@@ -124,20 +124,6 @@ export default function PokerGuidePage({
                 See the WSOP story <span aria-hidden="true">↗</span>
               </Link>
             </div>
-            <dl className={styles.heroStats}>
-              <div>
-                <dt>01</dt>
-                <dd>Know the odds</dd>
-              </div>
-              <div>
-                <dt>02</dt>
-                <dd>Size the risk</dd>
-              </div>
-              <div>
-                <dt>03</dt>
-                <dd>Protect the roll</dd>
-              </div>
-            </dl>
           </div>
           <div className={styles.heroArt}>
             <Image
@@ -167,7 +153,7 @@ export default function PokerGuidePage({
             >
               {chapters.map((chapter) => (
                 <option key={chapter.id} value={chapter.id}>
-                  {chapter.number} / {chapter.title}
+                  {chapter.number}/ {chapter.title}
                 </option>
               ))}
             </select>
@@ -196,7 +182,6 @@ export default function PokerGuidePage({
                     className={`${styles.railItem} ${isActive ? styles.railItemActive : ""}`}
                     aria-current={isActive ? "location" : undefined}
                   >
-                    <span className={styles.railNumber}>{chapter.number}</span>
                     <span>
                       <span className={styles.railLabel}>{chapter.label}</span>
                       <span className={styles.railTitle}>{chapter.title}</span>

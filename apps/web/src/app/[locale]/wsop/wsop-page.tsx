@@ -32,6 +32,7 @@ import { WalletCards } from "@boxicons/react/WalletCards";
 import { Bolt as Zap } from "@boxicons/react/Bolt";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
+import { Link as CrossAppLink } from "@solana-com/ui-chrome/link";
 import { Button } from "@/app/components/ui/button";
 import type { LinkItem } from "@/types/media";
 
@@ -1474,12 +1475,13 @@ export function WsopPage({ stories }: WsopPageProps) {
                   <span>{t("start.findWallet")}</span>
                   <ArrowUpRight aria-hidden="true" />
                 </Link>
-                <span className="wsop-coming-soon">
-                  <span className="wsop-coming-soon__label">
-                    {t("start.guide")}
-                  </span>
-                  <small>{t("start.comingSoon")}</small>
-                </span>
+                <CrossAppLink
+                  className="wsop-button wsop-button--guide"
+                  href="/learn/poker-players-guide-to-crypto"
+                >
+                  <span>{t("start.guide")}</span>
+                  <ArrowUpRight aria-hidden="true" />
+                </CrossAppLink>
               </div>
             </div>
           </Reveal>
