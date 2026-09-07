@@ -1,35 +1,43 @@
 import { notFound } from "next/navigation";
-import { learnSource } from "@@/src/app/sources/learn";
-import { mdxComponents } from "@@/src/app/mdx-components";
-import { tutorialOrder, learnTutorials } from "@@/src/utils/learn-tutorials";
-import ChapterIndicator from "@@/src/components/learn/chapter-indicator";
-import ChapterNavigation from "@@/src/components/learn/chapter-navigation";
-import MobileChapterNavigation from "@@/src/components/learn/mobile-chapter-navigation";
-import TutorialNavigation from "@@/src/components/learn/tutorial-navigation";
-import PokerGuidePage from "@@/src/components/learn/poker-guide-page";
+import { getAlternates } from "@workspace/i18n/routing";
+import { locales } from "@workspace/i18n/config";
 import { getTranslations } from "next-intl/server";
+import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
+import { getLearnPage, getLearnSlugs } from "@/lib/learn";
+import { tutorialOrder, learnTutorials } from "@/utils/learn-tutorials";
+import ChapterIndicator from "@/components/learn/chapter-indicator";
+import ChapterNavigation from "@/components/learn/chapter-navigation";
+import MobileChapterNavigation from "@/components/learn/mobile-chapter-navigation";
+import TutorialNavigation from "@/components/learn/tutorial-navigation";
+import PokerGuidePage from "@/components/learn/poker-guide-page";
+import { learnMdxComponents } from "@/components/learn/learn-mdx-components";
+import styles from "@/components/learn/learn-content.module.scss";
 
 type Props = {
   params: Promise<{ locale: string; slug: string[] }>;
 };
 
 export async function generateStaticParams() {
-  return learnSource.generateParams();
+  return locales.flatMap((locale) =>
+    getLearnSlugs().map((slug) => ({ locale, slug: [slug] })),
+  );
 }
 
 export async function generateMetadata(props: Props) {
   const { locale, slug } = await props.params;
-  const page = learnSource.getPage(slug, locale);
+  const page = getLearnPage(slug, locale);
 
   if (!page) {
     notFound();
   }
 
-  const data = await page.data;
+  const { data } = page;
 
   return {
     title: data.seoTitle || data.title,
     description: data.description,
+    alternates: getAlternates(`/learn/${slug.join("/")}`, locale),
   };
 }
 
@@ -37,14 +45,20 @@ export default async function LearnContentPage(props: Props) {
   const { locale, slug } = await props.params;
   const t = await getTranslations();
 
-  const page = learnSource.getPage(slug, locale);
+  const page = getLearnPage(slug, locale);
 
   if (!page) {
     notFound();
   }
 
-  const data = await page.data;
-  const { body: MDX } = await data.load();
+  const { data } = page;
+  const mdx = (
+    <MDXRemote
+      source={page.content}
+      components={learnMdxComponents}
+      options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }}
+    />
+  );
 
   if (slug[0] === "poker-players-guide-to-crypto") {
     return (
@@ -52,7 +66,7 @@ export default async function LearnContentPage(props: Props) {
         title={data.h1 || data.title}
         description={data.description || ""}
       >
-        <MDX components={mdxComponents} />
+        {mdx}
       </PokerGuidePage>
     );
   }
@@ -137,9 +151,7 @@ export default async function LearnContentPage(props: Props) {
                 )}
               </header>
 
-              <div className="prose prose-xl max-w-none">
-                <MDX components={mdxComponents} />
-              </div>
+              <div className={styles.content}>{mdx}</div>
 
               <TutorialNavigation
                 prevSlug={prevSlug}

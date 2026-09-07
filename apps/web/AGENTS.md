@@ -7,8 +7,8 @@ Use this app for the main `solana.com` experience.
 - Workspace: `apps/web`
 - Package: `solana-com`
 - Default dev port: `3000`
-- Public route ownership: `/`, `/solutions`, `/ecosystem`, `/events`, selected
-  `/developers/*` routes, and other top-level marketing routes
+- Public route ownership: `/`, `/solutions`, `/ecosystem`, `/events`, `/learn`,
+  selected `/developers/*` routes, and other top-level marketing routes
 
 ## First Files To Open
 

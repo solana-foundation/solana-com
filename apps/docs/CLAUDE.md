@@ -5,7 +5,7 @@
 ## Overview
 
 The Solana developer documentation site, providing comprehensive guides, API
-references, cookbook recipes, and learning resources for building on Solana.
+references, cookbook recipes, and bootcamp resources for building on Solana.
 
 **Package name**: `solana-docs` **Default port**: 3003 **Asset prefix**:
 `/docs-assets`
@@ -30,7 +30,6 @@ apps/docs/
 │   │       ├── developers/
 │   │       │   ├── cookbook/     # Code recipes
 │   │       │   └── bootcamp/     # Developer learning tracks
-│   │       ├── learn/             # General learning content
 │   │       └── docs/
 │   │           ├── (main)/       # Core documentation
 │   │           └── rpc/          # RPC API reference
@@ -53,7 +52,6 @@ apps/docs/
 │   ├── docs/                     # Main docs (localized)
 │   │   ├── en/                   # English docs
 │   │   ├── ar/, de/, es/...      # Translated docs
-│   ├── learn/                    # General learning content
 │   └── developers-learn/         # Bootcamp companion content
 ├── assets/                       # Static assets
 └── public/                       # Public files
@@ -103,9 +101,7 @@ Content is organized using Fumadocs conventions:
    - Transaction handling
    - Wallet integration
 
-3. **Learn** (`/learn/*`) - General Solana learning resources
-
-4. **Developer bootcamp** (`/developers/bootcamp/*`) - Structured learning
+3. **Developer bootcamp** (`/developers/bootcamp/*`) - Structured learning
    tracks and companion material
 
 ### Localization

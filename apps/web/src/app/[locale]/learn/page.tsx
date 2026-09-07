@@ -1,7 +1,23 @@
 import React from "react";
-import LearnPageContent from "@@/src/components/learn/learn-page-content";
-import { learnTutorials } from "@@/src/utils/learn-tutorials";
+import { getIndexMetadata } from "@/app/metadata";
+import LearnPageContent from "@/components/learn/learn-page-content";
+import { learnTutorials } from "@/utils/learn-tutorials";
 import { getTranslations } from "next-intl/server";
+
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: Props) {
+  const { locale } = await params;
+
+  return getIndexMetadata({
+    titleKey: "learn.hero.title",
+    descriptionKey: "learn.hero.subtitle",
+    locale,
+    path: "/learn",
+  });
+}
 
 export default async function LearnPage() {
   const t = await getTranslations();

@@ -12,6 +12,7 @@ import {
 } from "../utils";
 
 const docsContentRoot = path.join(repoRoot, "apps", "docs", "content");
+const learnContentRoot = path.join(repoRoot, "apps", "web", "content", "learn");
 
 function toRoutePath(baseRoute: string, relativePath: string) {
   const withoutExtension = relativePath.replace(/\.mdx$/, "");
@@ -112,10 +113,7 @@ export const docsRoutes: RouteGenerator = () => {
         path.join(docsContentRoot, "docs"),
         "/docs",
       ),
-      ...getLocalizedContentEntries(
-        path.join(docsContentRoot, "learn"),
-        "/learn",
-      ),
+      ...getLocalizedContentEntries(learnContentRoot, "/learn"),
       ...getDefaultLocaleContentEntries(
         path.join(docsContentRoot, "cookbook"),
         "/developers/cookbook",

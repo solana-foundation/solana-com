@@ -20,14 +20,14 @@ Most apps are not standalone product islands. They share:
 
 Pick the app first. That usually cuts exploration time in half.
 
-| Area                  | Workspace                                   | Local Port | Key Route Prefixes                                                               |
-| --------------------- | ------------------------------------------- | ---------- | -------------------------------------------------------------------------------- |
-| Main marketing site   | `apps/web` / `solana-com`                   | `3000`     | `/`, `/solutions`, `/ecosystem`, `/events`, selected `/developers/*` routes      |
-| Developer docs        | `apps/docs` / `solana-docs`                 | `3003`     | `/docs`, `/learn`, `/developers`, `/developers/cookbook`, `/developers/bootcamp` |
-| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/changelog`, `/reports`, `/upgrades`, `/podcasts`, `/keystatic`        |
-| Templates showcase    | `apps/templates` / `solana-templates`       | `3001`     | `/developers/templates` via rewrites                                             |
-| Accelerate event site | `apps/accelerate` / `solana-com-accelerate` | `3004`     | `/accelerate` via rewrites                                                       |
-| Breakpoint event site | `apps/breakpoint` / `solana-com-breakpoint` | `3005`     | `/breakpoint` via rewrites                                                       |
+| Area                  | Workspace                                   | Local Port | Key Route Prefixes                                                                    |
+| --------------------- | ------------------------------------------- | ---------- | ------------------------------------------------------------------------------------- |
+| Main marketing site   | `apps/web` / `solana-com`                   | `3000`     | `/`, `/solutions`, `/ecosystem`, `/events`, `/learn`, selected `/developers/*` routes |
+| Developer docs        | `apps/docs` / `solana-docs`                 | `3003`     | `/docs`, `/developers`, `/developers/cookbook`, `/developers/bootcamp`                |
+| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/changelog`, `/reports`, `/upgrades`, `/podcasts`, `/keystatic`             |
+| Templates showcase    | `apps/templates` / `solana-templates`       | `3001`     | `/developers/templates` via rewrites                                                  |
+| Accelerate event site | `apps/accelerate` / `solana-com-accelerate` | `3004`     | `/accelerate` via rewrites                                                            |
+| Breakpoint event site | `apps/breakpoint` / `solana-com-breakpoint` | `3005`     | `/breakpoint` via rewrites                                                            |
 
 ## Repo Layout
 
@@ -35,6 +35,7 @@ Pick the app first. That usually cuts exploration time in half.
 
 - `apps/web`: main `solana.com` app, large surface area, mix of marketing,
   ecosystem, events, news aggregation, and developer entry points
+- `apps/web/content/learn`: localized general learning content for `/learn`
 - `apps/docs`: Fumadocs-based developer docs with MDX content under `content/`
 - `apps/media`: Keystatic-backed news and podcast site with content in
   `content/`
