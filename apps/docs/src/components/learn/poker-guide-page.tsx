@@ -11,8 +11,8 @@ const chapters = [
   {
     id: "poker-edge",
     number: "1",
-    label: "The edge",
-    title: "Your poker instincts",
+    label: "The edge you already have",
+    title: "Why poker players make natural traders",
   },
   {
     id: "first-trade",
@@ -29,8 +29,8 @@ const chapters = [
   {
     id: "poker-player",
     number: "4",
-    label: "Trade like a poker player",
-    title: "Size the risk",
+    label: "The habits transfer",
+    title: "Trade like a poker player",
   },
   {
     id: "venue",
@@ -47,8 +47,8 @@ const chapters = [
   {
     id: "next-steps",
     number: "7",
-    label: "Next steps",
-    title: "Take your seat",
+    label: "Take your seat",
+    title: "Start with what you know",
   },
 ];
 
@@ -168,7 +168,7 @@ export default function PokerGuidePage({
 
           <aside className={styles.rail} aria-label="Guide chapters">
             <div className={styles.railHeader}>
-              <span className={styles.railKicker}>Your route</span>
+              <span className={styles.railKicker}>Guide</span>
               <span className={styles.railCount}>7 chapters</span>
             </div>
             <nav>
@@ -182,8 +182,10 @@ export default function PokerGuidePage({
                     className={`${styles.railItem} ${isActive ? styles.railItemActive : ""}`}
                     aria-current={isActive ? "location" : undefined}
                   >
-                    <span>
-                      <span className={styles.railLabel}>{chapter.label}</span>
+                    <span className={styles.railItemContent}>
+                      <span className={styles.railLabel}>
+                        {chapter.number}/ {chapter.label}
+                      </span>
                       <span className={styles.railTitle}>{chapter.title}</span>
                     </span>
                   </a>
