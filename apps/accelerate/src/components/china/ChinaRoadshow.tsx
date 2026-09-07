@@ -94,17 +94,21 @@ function GradientButton({
   href,
   children,
   className = "",
+  variant = "outline",
+  large = false,
 }: {
   href: string;
   children: React.ReactNode;
   className?: string;
+  variant?: "outline" | "filled";
+  large?: boolean;
 }) {
   return (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
-      className={`btn-outline-gradient inline-flex h-[52px] items-center justify-between gap-8 px-6 text-[13px] font-semibold uppercase tracking-[0.8px] md:h-[58px] md:px-7 md:text-[16px] ${className}`}
+      className={`${variant === "filled" ? "btn-cta" : "btn-outline-gradient"} inline-flex items-center justify-between gap-8 px-6 text-[13px] font-semibold uppercase tracking-[0.8px] md:px-7 md:text-[16px] ${large ? "h-[58px] md:h-[66px]" : "h-[52px] md:h-[58px]"} ${className}`}
     >
       {children}
       <Arrow />
@@ -165,81 +169,102 @@ function ChinaHeader() {
   );
 }
 
+const heroLayers = [
+  {
+    src: "/images/china/hero-layer-10.svg",
+    width: 133.289,
+    height: 858.732,
+    x: 1098,
+    y: 138,
+  },
+  {
+    src: "/images/china/hero-layer-8.svg",
+    width: 493,
+    height: 500.494,
+    x: 1151,
+    y: 495.392,
+  },
+  {
+    src: "/images/china/hero-layer-4.svg",
+    width: 234.439,
+    height: 690.376,
+    x: 552,
+    y: 314.688,
+  },
+  {
+    src: "/images/china/hero-union.svg",
+    width: 88.113,
+    height: 524.456,
+    x: 798.703,
+    y: 480.319,
+  },
+  {
+    src: "/images/china/hero-group.svg",
+    width: 111.456,
+    height: 582.427,
+    x: 927.532,
+    y: 422.985,
+  },
+  {
+    src: "/images/china/hero-layer-6.svg",
+    width: 586.216,
+    height: 260.782,
+    x: -9,
+    y: 739,
+  },
+  {
+    src: "/images/china/hero-vector.svg",
+    width: 1283,
+    height: 507,
+    x: 1353,
+    y: 485,
+  },
+] as const;
+
 function ChinaHero() {
   return (
-    <section className="relative min-h-[780px] overflow-hidden bg-black pt-[88px] text-white md:min-h-[920px] md:pt-[138px]">
-      <Image
-        src={getImagePath("/images/china/hero-bg.webp")}
-        alt=""
-        fill
-        priority
-        className="pointer-events-none object-cover opacity-75"
-      />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_60%_55%,rgba(61,20,111,0.25),transparent_42%),linear-gradient(180deg,rgba(0,0,0,0)_25%,#000_91%)]" />
+    <section className="relative h-[clamp(1040px,calc(72.34vw+217px),1389px)] overflow-hidden bg-black pt-[88px] text-white md:pt-[138px]">
+      <div className="pointer-events-none absolute left-1/2 top-0 aspect-[1920/1389] w-[clamp(1200px,calc(100vw+300px),1920px)] max-w-none -translate-x-1/2">
+        <div className="absolute inset-0">
+          {heroLayers.map((layer) => (
+            <Image
+              key={layer.src}
+              src={getImagePath(layer.src)}
+              alt=""
+              width={layer.width}
+              height={layer.height}
+              className="absolute h-auto max-w-none origin-bottom scale-[0.8] sm:scale-[0.82] md:scale-[0.86] lg:scale-[0.88] xl:scale-90 2xl:scale-95 min-[1800px]:scale-100"
+              style={{
+                left: `${(layer.x / 1920) * 100}%`,
+                top: `${(layer.y / 1389) * 100}%`,
+                width: `${(layer.width / 1920) * 100}%`,
+                maskImage:
+                  "linear-gradient(to bottom, #000 0%, #000 80%, transparent 100%)",
+                WebkitMaskImage:
+                  "linear-gradient(to bottom, #000 0%, #000 80%, transparent 100%)",
+              }}
+            />
+          ))}
+        </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-[116px] h-[520px] overflow-hidden opacity-80 md:bottom-[60px]">
         <Image
-          src={getImagePath("/images/china/hero-layer-10.svg")}
+          src={getImagePath("/images/china/hero-wave.svg")}
           alt=""
-          width={133}
-          height={859}
-          className="absolute left-[59%] top-[4%] h-[440px] w-auto opacity-80 md:h-[650px]"
-        />
-        <Image
-          src={getImagePath("/images/china/hero-layer-8.svg")}
-          alt=""
-          width={493}
-          height={500}
-          className="absolute right-[11%] top-[17%] h-[330px] w-auto md:h-[500px]"
-        />
-        <Image
-          src={getImagePath("/images/china/hero-layer-4.svg")}
-          alt=""
-          width={234}
-          height={690}
-          className="absolute left-[28%] top-[7%] h-[390px] w-auto md:h-[590px]"
-        />
-        <Image
-          src={getImagePath("/images/china/hero-union.svg")}
-          alt=""
-          width={88}
-          height={524}
-          className="absolute left-[44%] top-[22%] h-[300px] w-auto md:h-[470px]"
-        />
-        <Image
-          src={getImagePath("/images/china/hero-group.svg")}
-          alt=""
-          width={111}
-          height={582}
-          className="absolute left-[53%] top-[14%] h-[340px] w-auto md:h-[510px]"
-        />
-        <Image
-          src={getImagePath("/images/china/hero-layer-6.svg")}
-          alt=""
-          width={586}
-          height={261}
-          className="absolute -left-[18%] bottom-[0%] h-[165px] w-auto md:-left-[3%] md:h-[240px]"
-        />
-        <Image
-          src={getImagePath("/images/china/hero-vector.svg")}
-          alt=""
-          width={1283}
-          height={507}
-          className="absolute -right-[55%] bottom-[0%] h-[190px] w-auto md:-right-[28%] md:h-[390px]"
+          width={2246}
+          height={993}
+          className="absolute z-10 max-w-none"
+          style={{
+            left: `${(-181 / 1920) * 100}%`,
+            top: `${(656 / 1189) * 100}%`,
+            width: `${(2219.425 / 1920) * 100}%`,
+            height: `${(977.96 / 1389) * 100}%`,
+          }}
         />
       </div>
 
-      <Image
-        src={getImagePath("/images/china/hero-wave.svg")}
-        alt=""
-        width={2219}
-        height={978}
-        className="pointer-events-none absolute bottom-[-34px] left-1/2 z-10 h-auto w-[1150px] max-w-none -translate-x-1/2 md:bottom-[-120px] md:w-[1800px] lg:w-[2200px]"
-      />
-
-      <div className="relative z-20 mx-auto max-w-[1480px] px-6 pb-[280px] pt-24 md:px-10 md:pb-[350px] md:pt-[124px]">
+      <div className="relative z-20 mx-auto max-w-[1560px] px-6 pt-24 md:px-10 md:pt-[124px]">
         <div className="max-w-[660px]">
-          <h1 className="text-[54px] font-normal leading-[0.9] tracking-[-2px] text-accelerate-gray-light sm:text-[72px] md:text-[90px] md:tracking-[-4px]">
+          <h1 className="text-[54px] font-normal leading-[0.98] tracking-[-2px] text-accelerate-gray-light sm:text-[72px] md:text-[90px] md:tracking-[-4px]">
             Solana
             <br />
             Accelerate
@@ -251,11 +276,11 @@ function ChinaHero() {
           </p>
         </div>
 
-        <div className="mt-16 ml-auto max-w-[500px] md:mt-8">
+        <div className="mt-16 ml-auto max-w-[500px] md:mt-[14px] 2xl:mr-14">
           <p className="mb-4 text-right text-[13px] font-medium uppercase tracking-[0.8px] text-white md:text-[16px]">
             Next event
           </p>
-          <div className="flex flex-col gap-5 rounded-[12px] border border-accelerate-gray-dark bg-black/60 p-5 backdrop-blur-sm md:flex-row md:items-center md:justify-between md:px-5 md:py-8">
+          <div className="flex flex-col gap-5 rounded-[12px] border border-accelerate-gray-dark bg-black/60 p-5 backdrop-blur-sm md:flex-row md:items-center md:justify-between md:px-5 md:py-[31px]">
             <div>
               <p className="text-[26px] font-light uppercase leading-none tracking-[1.4px] text-accelerate-gray-light md:text-[28px]">
                 Shanghai
@@ -267,11 +292,13 @@ function ChinaHero() {
             <GradientButton
               href="https://luma.com/acc-shanghai-26"
               className="w-full md:w-[240px]"
+              variant="filled"
+              large
             >
               Get tickets
             </GradientButton>
           </div>
-          <div className="mt-5 flex items-center justify-end gap-3">
+          <div className="mt-6 flex items-center justify-end gap-3">
             <a
               href="#lineup"
               className="inline-flex items-center gap-3 text-[16px] font-normal uppercase tracking-[0.8px] leading-none text-white transition-colors hover:text-white/80"
