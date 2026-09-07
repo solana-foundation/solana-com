@@ -4,9 +4,14 @@ import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
 import { getImagePath } from "@/config";
 
+const conferenceImageOverlayClass =
+  "bg-[linear-gradient(103deg,#9945FF_10.43%,#8752F3_30.85%,#5497D5_49.41%,#43B4CA_58.69%,#28E0B9_69.83%,#19FB9B_93.03%)] mix-blend-color";
+
 interface EventCardProps {
   image?: string;
   imageContent?: React.ReactNode;
+  /** Optional art direction for the photo layer without affecting other cards. */
+  imageOverlayClassName?: string;
   city: string;
   subtitle: string;
   dateLocation: string;
@@ -18,6 +23,7 @@ interface EventCardProps {
 function CardContent({
   image,
   imageContent,
+  imageOverlayClassName = conferenceImageOverlayClass,
   city,
   subtitle,
   dateLocation,
@@ -37,7 +43,10 @@ function CardContent({
             />
           ) : null)}
         {/* Gradient overlay on photo */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-transparent" />
+        <div
+          className={`pointer-events-none absolute inset-0 ${imageOverlayClassName}`}
+          aria-hidden="true"
+        />
 
         {/* Upcoming badge */}
         {active && (
@@ -145,6 +154,7 @@ function CardContent({
 export function EventCard({
   image,
   imageContent,
+  imageOverlayClassName,
   city,
   subtitle,
   dateLocation,
@@ -155,6 +165,7 @@ export function EventCard({
   const cardProps = {
     image,
     imageContent,
+    imageOverlayClassName,
     city,
     subtitle,
     dateLocation,
