@@ -6,6 +6,7 @@ import ChapterIndicator from "@@/src/components/learn/chapter-indicator";
 import ChapterNavigation from "@@/src/components/learn/chapter-navigation";
 import MobileChapterNavigation from "@@/src/components/learn/mobile-chapter-navigation";
 import TutorialNavigation from "@@/src/components/learn/tutorial-navigation";
+import PokerGuidePage from "@@/src/components/learn/poker-guide-page";
 import { getTranslations } from "next-intl/server";
 
 type Props = {
@@ -44,6 +45,17 @@ export default async function LearnContentPage(props: Props) {
 
   const data = await page.data;
   const { body: MDX } = await data.load();
+
+  if (slug[0] === "poker-players-guide-to-crypto") {
+    return (
+      <PokerGuidePage
+        title={data.h1 || data.title}
+        description={data.description || ""}
+      >
+        <MDX components={mdxComponents} />
+      </PokerGuidePage>
+    );
+  }
 
   // Get current tutorial index and navigation info
   const currentSlug = slug[0];
