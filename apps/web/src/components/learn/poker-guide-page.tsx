@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
+import Button from "@/components/shared/Button";
 import styles from "./poker-guide-page.module.css";
 
 export const pokerGuideSlug = "poker-players-guide-to-crypto";
@@ -117,12 +118,12 @@ export default function PokerGuidePage({
             </h1>
             <p className={styles.heroDescription}>{description}</p>
             <div className={styles.heroActions}>
-              <a className={styles.primaryAction} href="#poker-edge">
+              <Button to="#poker-edge" variant="secondary">
                 Deal me in <span aria-hidden="true">↓</span>
-              </a>
-              <Link className={styles.secondaryAction} href="/wsop">
+              </Button>
+              <Button to="/wsop">
                 See the WSOP story <span aria-hidden="true">↗</span>
-              </Link>
+              </Button>
             </div>
           </div>
           <div className={styles.heroArt}>
