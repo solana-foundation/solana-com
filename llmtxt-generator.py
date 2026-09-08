@@ -109,7 +109,6 @@ CURATED_SECTIONS = {
         ("Privacy", "docs/finance/privacy", "Compare Confidential Balances, the Solana Privacy Protocol, and Private Channels"),
         ("Finance Developer Tools", "docs/finance/developer-tools", "Issuance toolkits, client libraries, signing backends, and network infrastructure"),
         ("Finance AI Development", "docs/finance/ai-development", "Agent frameworks that hold keys and transact on Solana"),
-        ("Finance Production Readiness", "docs/finance/production-readiness", "What to settle before a financial application moves to mainnet"),
     ],
     "Payments": [
         ("Payments Overview", "docs/payments", "Build payment systems with instant settlement"),
@@ -119,7 +118,6 @@ CURATED_SECTIONS = {
         ("Send Payments", "docs/payments/send-payments", "Send stablecoin payments with memos and batching"),
         ("Accept Payments", "docs/payments/accept-payments", "Integrate checkout and payment acceptance"),
         ("Developer Tools", "docs/payments/developer-tools", "Libraries and services for building payment flows"),
-        ("Production Readiness", "docs/payments/production-readiness", "Prepare payment systems for mainnet"),
         ("Agentic Payments", "docs/payments/agentic-payments", "Enable autonomous payments for AI agents with x402"),
     ],
     "DeFi": [
@@ -130,6 +128,7 @@ CURATED_SECTIONS = {
     ],
     "Tools": [
         ("Tools", "docs/tools", "Developer tool documentation"),
+        ("Production Readiness", "docs/tools/production-readiness", "What to settle before an application moves to mainnet"),
         ("Install Dependencies", "docs/intro/installation/dependencies", "Install Rust, the Solana CLI, and Anchor"),
         ("Solana CLI Basics", "docs/intro/installation/solana-cli-basics", "Common commands for the Solana CLI"),
         ("Anchor CLI Basics", "docs/intro/installation/anchor-cli-basics", "Common commands for the Anchor CLI"),
