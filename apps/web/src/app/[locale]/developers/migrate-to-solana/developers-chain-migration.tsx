@@ -182,14 +182,14 @@ export function DevelopersChainMigrationPage() {
         id="resources"
         className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0 px-2 scroll-mt-24"
       >
-        <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative transform-gpu">
+        <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative">
           <UnicornScene
             projectId="migration-resources"
             className="!absolute inset-0 z-0"
             jsonFilePath="/src/img/index/community-bg.json"
             width="100%"
             height="101%"
-            scale={1}
+            scale={0.8}
             dpi={typeof window !== "undefined" ? window.devicePixelRatio : 2}
             fps={30}
             lazyLoad={true}

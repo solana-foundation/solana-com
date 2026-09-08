@@ -1,0 +1,66 @@
+---
+title: Сброс корня SMT
+description:
+  Выполняет ротацию разреженного дерева Меркла, сбрасывая корень вывода средств для нового epoch дерева
+---
+
+Инструкция только для оператора, которая выполняет ротацию разреженного дерева Меркла путём инкрементирования
+`Instance.current_tree_index` и сброса корня вывода средств, позволяя начать новый
+epoch из 65 536 выводов.
+
+<Callout type="info">
+  Программа эскроу мигрирует с данного дизайна разреженного дерева Меркла на
+  побитовую карту нонсов on-chain (отслеживается upstream), при этом инструкция станет
+  `RotateBitmap`. Эта страница актуальна для текущей программы эскроу и
+  будет переработана после внесения соответствующих изменений.
+</Callout>
+
+## Аккаунты
+
+| Аккаунт                          | Записываемый | Подписант | Описание                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Плательщик комиссии                                              |
+| `operator`                       |          | ✓      | Подписант оператора                                        |
+| `instance`                       | ✓        |        | PDA экземпляра эскроу (с инкрементированным `current_tree_index`) |
+| `operator_pda`                   |          |        | PDA оператора, подтверждающий, что подписант инициализирован         |
+| `event_authority`                |          |        | PDA авторитета события для CPI `EmitEvent`                |
+| `private_channel_escrow_program` |          |        | Программа эскроу (самоссылка для CPI)                |
+
+## Параметры
+
+| Параметр                     | Тип  | Описание                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Защита от повторного воспроизведения; должен совпадать с `Instance.current_tree_index`, иначе вызов завершится ошибкой |
+
+## Возвращаемое значение
+
+Возвращает `TransactionBuilder`, который можно использовать для построения и отправки
+транзакции.
+
+## Пример
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Важные замечания
+
+- Только для оператора: требует действительного `operator_pda`; в противном случае выбрасывает `InvalidOperatorPda`
+- `expected_current_tree_index` должен быть равен `Instance.current_tree_index` на момент вызова; устаревшее значение выбрасывает `UnexpectedTreeIndex`, защищая от повторного применения уже выполненного сброса
+- Инкрементирует `Instance.current_tree_index`; нонсы, действительные в предыдущем epoch дерева, аннулируются после ротации
+- Сервис `operator-private-channel` вызывает это автоматически при
+  `transaction_nonce % 65536 == 0` (и `nonce > 0`), сигнализируя о начале нового
+  epoch; при штатной работе вручную вызывать не требуется
+- После ротации корень вывода средств сбрасывается до пустого дерева, поэтому новые
+  выводы начинаются с чистого SMT
+- Генерирует событие через CPI `EmitEvent`

@@ -8,7 +8,8 @@ media-specific APIs.
 - Workspace: `apps/media`
 - Package: `solana-com-media`
 - Default dev port: `3002`
-- Public route ownership: `/news`, `/changelog`, `/podcasts`, `/keystatic`
+- Public route ownership: `/news`, `/changelog`, `/reports`, `/upgrades`,
+  `/podcasts`, `/keystatic`
 
 ## First Files To Open
 
@@ -30,7 +31,12 @@ media-specific APIs.
 
 - `content/posts/*`: article content
 - `content/podcasts/*`: podcast show and episode metadata
+- `content/reports/*`: ecosystem research reports
+- `content/upgrades/*`: network upgrade articles
+- `content/releases/*`: release records referenced by upgrade content
 - `content/authors/*`, `content/categories/*`, `content/tags/*`: taxonomies
+- `content/ctas/*`, `content/links/*`, `content/switchbacks/*`: reusable CMS
+  content blocks
 - `content/global/*`: site-wide CMS content
 - `public/uploads/*`: uploaded media assets
 

@@ -4,7 +4,7 @@ import {
   BREAKPOINT_APP_URL,
   DOCS_APP_URL,
   MEDIA_APP_URL,
-  TEMPLATES_APP_URL,
+  templatesAppUrl,
 } from "@@/apps-urls";
 import rewritesAndRedirects from "@@/rewrites-redirects";
 
@@ -62,7 +62,7 @@ describe("Cross-app rewrites", () => {
     );
     expectBeforeFileRewrite(
       "/developers/templates/:path*",
-      `${TEMPLATES_APP_URL}/developers/templates/:path*`,
+      `${templatesAppUrl}/developers/templates/:path*`,
     );
     expectBeforeFileRewrite(
       "/accelerate/:path*",
@@ -106,7 +106,7 @@ describe("Cross-app rewrites", () => {
     );
     expectBeforeFileRewrite(
       "/templates-assets/:path+",
-      `${TEMPLATES_APP_URL}/templates-assets/:path+`,
+      `${templatesAppUrl}/templates-assets/:path+`,
     );
     expectBeforeFileRewrite(
       "/accelerate-assets/_next/:path+",
