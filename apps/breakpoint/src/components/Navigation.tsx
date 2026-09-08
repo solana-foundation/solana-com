@@ -137,6 +137,7 @@ export default function Navigation({
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const navItems = [
+    { label: t("navigation.speakers"), href: "/speakers" },
     { label: t("navigation.travel"), href: "/travel" },
     { label: t("navigation.sponsors"), href: "/sponsors" },
     { label: t("navigation.faq"), href: "/faq" },

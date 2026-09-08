@@ -11,22 +11,18 @@ description: サブスクリプションプラントランザクションの設�
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```bash
     pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
     ```
-
   </Tab>
 
   <Tab value="Rust">
-
     ```toml
     [dependencies]
-    subscriptions = "0.4.0"
+    subscriptions = "0.5.0"
     solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
-
   </Tab>
 </Tabs>
 
@@ -35,9 +31,11 @@ description: サブスクリプションプラントランザクションの設�
 販売者がプランを所有します。プランPDAは、販売者アドレスと
 `planId`から派生します。
 
+スポンサーはオプションの `payer` を渡すことでプランのrentを負担できますが、
+マーチャントはプランのオーナーであり続けます。プランを削除した場合、返金はオーナーに対して行われ、payerには行われません。そのため、スポンサーシップの管理はオフチェーンで行ってください。
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { address, createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -79,7 +77,6 @@ description: サブスクリプションプラントランザクションの設�
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_address::{address, Address};
     use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
@@ -140,10 +137,13 @@ description: サブスクリプションプラントランザクションの設�
 - `Sunset`
   プランでは、プラーを削除することができます（新しいセットは現在のセットのサブセットである必要があります）。これにより、侵害されたプラーへのアクセスを取り消すことができます。ただし、ステータス、`endTs`、およびメタデータは変更されません。
 - 編集は、`endTs` が変更されていない限り、プランの最終請求期間中に有効です。
+- このinstructionsは、署名時に観測されたプランの状態
+  （`expectedCreatedAt`、`expectedEndTs`、`expectedPullers`、
+  `expectedMetadataUri`）を保持します。ライブのプランが一致しない場合、更新は
+  拒否されます（`StalePlanApproval`）。そのため、古い署名済み更新によって削除されたpullerを復元したり、後の編集を元に戻したりすることはできません。プラグインクライアントの `updatePlan` は自動的にライブ状態を取得しますが、手動で構築する場合はプランを取得してフィールドを自分で渡してください。
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { PlanStatus } from '@solana/subscriptions';
 
@@ -165,7 +165,6 @@ description: サブスクリプションプラントランザクションの設�
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     let new_puller: Address = address!("NEW_PULLER_WALLET_ADDRESS_HERE");
     let mut updated_pullers = [Address::default(); 4];
@@ -178,6 +177,9 @@ description: サブスクリプションプラントランザクションの設�
     let (event_authority, _) =
         Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
 
+    // Fetch and decode the live plan account before building UpdatePlanData.
+    let fetched_plan: Plan = fetched_plan;
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
@@ -187,6 +189,10 @@ description: サブスクリプションプラントランザクションの設�
             end_ts: 0,
             pullers: updated_pullers,
             metadata_uri: updated_metadata_uri,
+            expected_created_at: fetched_plan.data.terms.created_at,
+            expected_end_ts: fetched_plan.data.end_ts,
+            expected_pullers: fetched_plan.data.pullers,
+            expected_metadata_uri: fetched_plan.data.metadata_uri,
         })
         .instruction();
     ```
@@ -198,9 +204,10 @@ description: サブスクリプションプラントランザクションの設�
 
 サブスクライバーは現在のプランの条件に同意します。サブスクリプション PDA は、プラン PDA とサブスクライバーアドレスから導出されます。
 
+認証局の初期化とサブスクライブを単一のトランザクションにまとめるには、`expectedSubscriptionAuthorityInitId` としてセンチネル値 `UNKNOWN_INIT_ID`（TypeScript SDKからエクスポートされています）を渡します。プログラムは、認証局が現在のslotで作成された場合にのみ受け付けるため、このセンチネル値は新規サインアップに有効です。それ以前のslotで認証局が作成された既存ユーザーは、実際の `initId`（プラグインクライアントが自動取得します）を渡す必要があり、渡さない場合は `StaleSubscriptionAuthority` エラーで失敗します。
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -261,7 +268,6 @@ description: サブスクリプションプラントランザクションの設�
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{accounts::Plan, generated::{instructions::*, types::*}};
 
@@ -324,7 +330,6 @@ account のオーナーが `destinations` にリストされている必要が�
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     const receiverAta = address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE');
 
@@ -345,7 +350,6 @@ account のオーナーが `destinations` にリストされている必要が�
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{TransferData, TransferSubscriptionBuilder};
 
@@ -373,7 +377,6 @@ account のオーナーが `destinations` にリストされている必要が�
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     await subscriberClient.subscriptions.instructions
       .cancelSubscription({
@@ -396,7 +399,6 @@ account のオーナーが `destinations` にリストされている必要が�
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_instruction::AccountMeta;
     use subscriptions::generated::instructions::*;
@@ -418,19 +420,26 @@ account のオーナーが `destinations` にリストされている必要が�
   </Tab>
 </Tabs>
 
-## サブスクリプションの再開
+## 即時キャンセル
 
-キャンセルされたサブスクリプションは、失効する前に再アクティブ化できます。一度失効すると、サブスクリプションアカウントは閉鎖され、サブスクライバーは再度[サブスクライブ](#subscribe)する必要があります。再開には、プログラムが検証するプランのミントに対するサブスクライバーの`SubscriptionAuthority`が必要です（オーナー、ミント、および`init_id`）。古くなっているか再初期化されている場合は拒否されます。
+サブスクライバーと現在のプランオーナーの両方が署名した場合、`cancelSubscriptionNow` は請求期間の終了時ではなく、キャンセル時点でサブスクリプションを失効させます。また、保留中のグレースピリオドキャンセルを短縮することもできます。この承認は署名時に観測された期間開始時刻に紐付けられており、それ以降にサブスクリプションが変更されていた場合、トランザクションは拒否されます（`StaleSubscriptionApproval`）。
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
     await subscriberClient.subscriptions.instructions
-      .resumeSubscription({
+      .cancelSubscriptionNow({
         subscriber: subscriberSigner,
+        merchant: merchantSigner,
         planPda,
-        tokenMint,
+        expectedCurrentPeriodStartTs: subscription.data.currentPeriodStartTs,
       })
       .sendTransaction();
     ```
@@ -438,7 +447,56 @@ account のオーナーが `destinations` にリストされている必要が�
   </Tab>
 
   <Tab value="Rust">
+    ```rust
+    use subscriptions::{accounts::SubscriptionDelegation, generated::{instructions::*, types::*}};
 
+    // Fetch and decode the subscription account before building the data.
+    let fetched_subscription: SubscriptionDelegation = fetched_subscription;
+
+    let cancel_now_ix = CancelSubscriptionNowBuilder::new()
+        .subscriber(subscriber)
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .event_authority(event_authority)
+        .cancel_subscription_now_data(CancelSubscriptionNowData {
+            expected_current_period_start_ts: fetched_subscription.current_period_start_ts,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## サブスクリプションの再開
+
+キャンセルされたサブスクリプションは、失効する前に再アクティブ化できます。一度失効すると、サブスクリプションアカウントは閉鎖され、サブスクライバーは再度[サブスクライブ](#subscribe)する必要があります。再開には、プログラムが検証するプランのミントに対するサブスクライバーの`SubscriptionAuthority`が必要です（オーナー、ミント、および`init_id`）。古くなっているか再初期化されている場合は拒否されます。
+
+このinstructionsは、サブスクライバーが署名時に観測した有効期限（`expectedExpiresAtTs`）を保持します。不一致の場合は拒否されます（`StaleSubscriptionApproval`）。そのため、古い署名済みの再開によって、サブスクライバーが承認していない後のキャンセルをクリアすることはできません。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
+    await subscriberClient.subscriptions.instructions
+      .resumeSubscription({
+        subscriber: subscriberSigner,
+        planPda,
+        tokenMint,
+        expectedExpiresAtTs: subscription.data.expiresAtTs,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
     ```rust
     use subscriptions::generated::instructions::*;
 
@@ -451,6 +509,9 @@ account のオーナーが `destinations` にリストされている必要が�
         .subscription_pda(subscription_pda)
         .subscription_authority(subscription_authority)
         .event_authority(event_authority)
+        .resume_data(ResumeData {
+            expected_expires_at_ts: fetched_subscription.expires_at_ts,
+        })
         .instruction();
     ```
 

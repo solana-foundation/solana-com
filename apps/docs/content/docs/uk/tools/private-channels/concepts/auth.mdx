@@ -1,0 +1,254 @@
+---
+title: Автентифікація та ролі
+description:
+  JWT-автентифікація та рольовий контроль доступу в Private Channels
+---
+
+## Огляд
+
+Private Channels включає необов'язковий Auth Service, який обмежує доступ до шлюзу за допомогою JWT-автентифікації та рольового контролю доступу (RBAC). Коли автентифікацію вимкнено, шлюз приймає всі з'єднання. Коли увімкнено, клієнти повинні надавати дійсний JWT у кожному запиті.
+
+Ця сторінка охоплює обидві аудиторії:
+
+- **Розробники** — реєстрація, вхід, верифікація гаманця та виконання автентифікованих запитів
+- **Оператори** — увімкнення auth service, налаштування `JWT_SECRET` і надання ролі `operator`
+
+## Увімкнення автентифікації
+
+Автентифікацію увімкнено шляхом встановлення `JWT_SECRET` (непорожнього) як на шлюзі, так і в Auth Service. Auth Service також вимагає `AUTH_DATABASE_URL`.
+
+Якщо `JWT_SECRET` не встановлено, шлюз працює у відкритому режимі; токен не потрібен.
+
+> **Docker Compose:** Auth service є профілем Docker Compose і **не
+> запускається за замовчуванням**. Щоб увімкнути його, передайте `--profile auth` до команди
+> `docker compose`, включаючи `--env-file .env`, щоб секрети на кшталт
+> `JWT_SECRET` і `POSTGRES_PASSWORD` дійсно підставлялися (Compose вимикає
+> автоматичне завантаження `.env` після передачі будь-якого прапора `--env-file`):
+>
+> ```bash
+> docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+> ```
+
+## API Auth Service
+
+Усі ендпоінти знаходяться під `/auth`. Auth service слухає на `AUTH_PORT`
+(за замовчуванням `8903`).
+
+### `POST /auth/register`
+
+Створення нового облікового запису. Усі користувачі реєструються з роллю `user`.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+- Ім'я користувача: 5–32 символи, літерно-цифрові плюс `_` та `-`
+- Пароль: 6–128 символів
+- Повертає створеного користувача; пароль ніколи не повертається
+
+### `POST /auth/login`
+
+Автентифікація та отримання підписаного JWT, дійсного протягом 24 годин.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+Повертає `{ "token": "<jwt>" }`. Як неправильне ім'я користувача, так і неправильний пароль повертають `401`, щоб запобігти перебору імен користувачів.
+
+### `POST /auth/challenge-wallet`
+
+Запит підписувального виклику для підтвердження права власності на гаманець Solana. Потрібен дійсний JWT.
+
+Повертає повідомлення, nonce та термін дії. Виклик дійсний протягом 10 хвилин.
+
+```json
+{
+  "message": "PrivateChannel wallet verification\nuser: <uuid>\nnonce: <uuid>\nexpires: <unix>",
+  "nonce": "<uuid>",
+  "expires_at": "<iso8601>"
+}
+```
+
+### `POST /auth/verify-wallet`
+
+Надіслати підписаний виклик для реєстрації гаманця як верифікованого. Потрібен дійсний JWT.
+
+```json
+{
+  "pubkey": "<base58 pubkey>",
+  "nonce": "<uuid from challenge>",
+  "signature": "<base58 Ed25519 signature>"
+}
+```
+
+Сервіс відновлює повідомлення виклику, перевіряє підпис Ed25519 та зберігає гаманець. Кожен nonce може бути використаний лише один раз; повторні запити відхиляються.
+
+Повертає `{ "pubkey": "<base58>", "created_at": "<iso8601>" }`.
+
+### `GET /auth/wallets`
+
+Список усіх верифікованих гаманців автентифікованого користувача. Потрібен дійсний JWT.
+
+### `DELETE /auth/wallets/{pubkey}`
+
+Видалення верифікованого гаманця з облікового запису автентифікованого користувача. Потрібен дійсний JWT.
+
+### `GET /health`
+
+Перевірка працездатності. Повертає `200 ok`. Автентифікація не потрібна.
+
+## Структура JWT
+
+Токени використовують алгоритм HS256 і закінчуються через 24 години після видачі.
+
+| Claim  | Значення                           |
+| ------ | ------------------------------- |
+| `sub`  | UUID користувача                       |
+| `role` | `"user"` або `"operator"`        |
+| `iss`  | `"private-channel-auth"`        |
+| `aud`  | `"private-channel-gateway"`     |
+| `exp`  | Unix timestamp (24 год. від видачі) |
+
+> `iss` і `aud` присутні в payload JWT, але перевіряються конфігурацією JWT
+> шлюзу, а не десеріалізуються у структуру claims застосунку. Код на рівні застосунку має доступ лише до `sub`, `role` та `exp`.
+
+Передайте токен у заголовку `Authorization`:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+## Ролі
+
+### user
+
+Роль за замовчуванням при реєстрації.
+
+- Доступ обмежено власними верифікованими гаманцями користувача
+- Заблоковано: `getBlock`, `getTransaction`, `simulateTransaction`
+- Може: викликати `Deposit` на Escrow Program, ініціювати виведення коштів через `WithdrawFunds`
+
+### operator
+
+Підвищена роль. Надається виключно вручну; самостійного шляху для підвищення з `user` до `operator` не існує.
+
+**Надати роль**, або через Admin CLI (`private-channel-auth-admin`):
+
+```bash
+private-channel-auth-admin set-role --username alice --role operator
+```
+
+або за допомогою прямого SQL:
+
+<Callout type="warning">
+  Це привілейована операція з базою даних. Обмежте доступ до бази даних Auth Service відповідним чином і ведіть аудит будь-яких змін ролей.
+</Callout>
+
+```sql
+UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice';
+```
+
+**Реєстрація гаманця без самостійного процесу верифікації (Admin CLI,
+`private-channel-auth-admin`):**
+
+```bash
+private-channel-auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
+```
+
+Ця команда безпосередньо вставляє верифікований гаманець до таблиці `verified_wallets`, обходячи процес challenge/verify. Забезпечує унікальне обмеження на `(user_id, pubkey)`. Вона **не** надає роль `operator` сама по собі; використовуйте `set-role` або наведений вище SQL-запит для цього. Ця команда призначена для прив'язки гаманця до облікового запису (наприклад, службового акаунта) без необхідності проходити інтерактивний процес challenge/verify.
+
+**Можливості:**
+
+- Обходить усі перевірки права власності на гаманець
+- Повний доступ до всіх RPC-методів шлюзу, включаючи `getBlock`,
+  `getTransaction`, `simulateTransaction`
+- Обов'язково для: `ReleaseFunds`, `ResetSmtRoot`
+
+## Повний процес автентифікації
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Auth as Auth Service
+
+    Client->>Auth: POST /auth/register { username, password }
+    Auth-->>Client: created user (role: "user")
+
+    Client->>Auth: POST /auth/login { username, password }
+    Auth-->>Client: { token: "<jwt>" }
+
+    Note over Client: Include JWT in subsequent requests:<br/>Authorization: Bearer <token>
+
+    Client->>Auth: POST /auth/challenge-wallet
+    Auth-->>Client: { message, nonce, expires_at }
+
+    Note over Client: Sign message with wallet private key (Ed25519)
+
+    Client->>Auth: POST /auth/verify-wallet { pubkey, nonce, signature }
+    Auth-->>Client: { pubkey, created_at }
+
+    Note over Client: Wallet verified - gateway now allows access<br/>to accounts owned by this wallet
+```
+
+## Виконання автентифікованих запитів
+
+```typescript
+const response = await fetch("http://localhost:8899/", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${jwtToken}`
+  },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getBalance",
+    params: [walletAddress]
+  })
+});
+const data = await response.json();
+```
+
+## Ендпоінти шлюзу
+
+Ці ендпоінти не потребують автентифікації:
+
+| Ендпоінт  | Метод | Опис                               | Успіх                  | Помилка                     |
+| --------- | ------ | ----------------------------------------- | ------------------------ | --------------------------- |
+| `/health` | GET    | Перевірка працездатності                            | `200 {"status":"ok"}`    | -                           |
+| `/ready`  | GET    | Глибока перевірка готовності; зондує вузли запису та читання | `200 {"status":"ready"}` | `503 {"status":"degraded"}` |
+
+Довідник щодо `JWT_SECRET` та змінних середовища шлюзу наведено в
+[довіднику конфігурації](/docs/tools/private-channels/operators/configuration).
+
+## Матриця доступу до RPC-методів
+
+Наступні методи розпізнаються шлюзом. Якщо встановлено `JWT_SECRET`, доступ залежить від ролі JWT:
+
+| Метод                        | Маршрут      | Без JWT | `user`           | `operator` |
+| ----------------------------- | ---------- | ------ | ---------------- | ---------- |
+| `sendTransaction`             | Вузол запису | ✓      | ✓                | ✓          |
+| `getLatestBlockhash`          | Вузол читання  | ✓      | ✓                | ✓          |
+| `getSlot`                     | Вузол читання  | ✓      | ✓                | ✓          |
+| `getRecentBlockhash`          | Вузол читання  | ✓      | ✓                | ✓          |
+| `getSignatureStatuses`        | Вузол читання  | ✓      | ✓                | ✓          |
+| `getTransactionCount`         | Вузол читання  | ✓      | ✓                | ✓          |
+| `getFirstAvailableBlock`      | Вузол читання  | ✓      | ✓                | ✓          |
+| `getBlocks`                   | Вузол читання  | ✓      | ✓                | ✓          |
+| `getEpochInfo`                | Вузол читання  | ✓      | ✓                | ✓          |
+| `getEpochSchedule`            | Вузол читання  | ✓      | ✓                | ✓          |
+| `getRecentPerformanceSamples` | Вузол читання  | ✓      | ✓                | ✓          |
+| `getBlockTime`                | Вузол читання  | ✓      | ✓                | ✓          |
+| `getVoteAccounts`             | Вузол читання  | ✓      | ✓                | ✓          |
+| `getSupply`                   | Вузол читання  | ✓      | ✓                | ✓          |
+| `getSlotLeaders`              | Вузол читання  | ✓      | ✓                | ✓          |
+| `isBlockhashValid`            | Вузол читання  | ✓      | ✓                | ✓          |
+| `getAccountInfo`              | Вузол читання  | 401    | обмежено правом власності¹ | ✓          |
+| `getTokenAccountBalance`      | Вузол читання  | 401    | обмежено правом власності¹ | ✓          |
+| `getSignaturesForAddress`     | Вузол читання  | 401    | обмежено правом власності¹ | ✓          |
+| `getBlock`                    | Вузол читання  | 401    | 403              | ✓          |
+| `getTransaction`              | Вузол читання  | 401    | 403              | ✓          |
+| `simulateTransaction`         | Вузол читання  | 401    | 403              | ✓          |
+
+¹ **Обмежено правом власності**: для SPL Token account (поле owner має значення `TokenkegQ...` або `TokenzQ...`, дані щонайменше 165 байт) шлюз перевіряє, що поле `owner` або `delegate` збігається з одним із верифікованих гаманців автентифікованого користувача. Для будь-якого іншого типу акаунта (гаманець System Program або невідомий PDA) замість цього перевіряється, чи є запитуваний pubkey одним із верифікованих гаманців користувача, оскільки такі акаунти не мають поля owner/delegate для перевірки. Якщо будь-яка з перевірок не проходить — повертається 403.

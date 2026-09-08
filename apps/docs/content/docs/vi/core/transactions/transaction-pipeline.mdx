@@ -1,9 +1,7 @@
 ---
 title: Quy trình xử lý giao dịch
 description:
-  Cách các giao dịch Solana được xử lý từ khi gửi đến khi commit, bao gồm quy
-  trình xác thực 8 giai đoạn đầy đủ, đọc chi tiết giao dịch từ mạng lưới và các
-  lỗi xác thực phổ biến.
+  Cách các giao dịch Solana được xử lý từ khi gửi đến khi commit, bao gồm quy trình xác thực 8 giai đoạn đầy đủ, đọc chi tiết giao dịch từ mạng lưới và các lỗi xác thực phổ biến.
 url: /docs/core/transactions/transaction-pipeline
 type: reference
 prerequisites:
@@ -35,6 +33,12 @@ Validator nhận các byte giao dịch qua UDP/QUIC. Các byte thô phải vừa
 gói tin duy nhất (_rs`PACKET_DATA_SIZE`_ = 1.232 byte). Các byte được giải mã
 thành một _rs`VersionedTransaction`_, chứa mảng chữ ký và một
 _rs`VersionedMessage`_ (legacy hoặc v0).
+
+Định dạng
+[v1](/docs/core/transactions/versioned-transactions#v1-message-format)
+sắp ra mắt sẽ nâng giới hạn lên 4.096 byte. QUIC không giới hạn kích thước luồng, vì vậy một giao dịch v1
+vượt quá MTU sẽ được chia thành nhiều khung QUIC khi
+nạp vào thay vì bị từ chối.
 
 ### 2. Xác minh chữ ký (sigverify)
 
@@ -78,6 +82,13 @@ tích và xác thực trước. Chi tiết phí được tính toán từ giới
 bại với các lỗi phân tích ngân sách tính toán như _rs`DuplicateInstruction`_,
 `InstructionError(..., InvalidInstructionData)`, hoặc
 _rs`InvalidLoadedAccountsDataSizeLimit`_.
+
+Đối với
+[giao dịch v1](/docs/core/transactions/versioned-transactions#v1-message-format),
+không có lệnh compute budget nào cần phân tích cú pháp: giới hạn và phí ưu tiên
+đến từ cấu hình thông điệp, và mọi lệnh ComputeBudget trong thông điệp
+đều bị bỏ qua khi cấu hình. Các trường cấu hình không được đặt sẽ mặc định là không, điều này
+sẽ xuất hiện sau tại [bước tải tài khoản](#6-load-accounts).
 
 **Tuổi blockhash**: `recent_blockhash` của giao dịch được tra cứu trong
 [`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33).
@@ -154,6 +165,17 @@ _rs`InvalidProgramForExecution`_.
 
 Các chương trình LoaderV3 (có thể nâng cấp) ngầm định tải tài khoản programdata
 liên quan của chúng, cũng được tính vào giới hạn kích thước dữ liệu đã tải.
+
+<Callout type="warn" title="Giao dịch v1 mặc định giới hạn này là không">
+  Giá trị mặc định 64 MiB áp dụng cho các giao dịch legacy và v0. Trong [định dạng
+  v1](/docs/core/transactions/versioned-transactions#v1-message-format), giới hạn kích thước dữ liệu tài khoản đã tải được đọc từ cấu hình thông điệp, và một trường
+  không được đặt sẽ mặc định là **0 byte** thay vì một giá trị mặc định lớn hơn. Do đó, một giao dịch v1
+  với cấu hình trống sẽ thất bại ở giai đoạn này với lỗi
+  _rs`MaxLoadedAccountsDataSizeExceeded`_ — ngân sách yêu cầu quá nhỏ
+  cho tài khoản đầu tiên được tải, nên lỗi xảy ra trước khi bất kỳ lệnh nào
+  chạy, với thông báo lỗi không đề cập đến v1 hay cấu hình. Luôn đặt giới hạn đơn vị tính toán và giới hạn kích thước dữ liệu tài khoản đã tải một cách tường minh khi
+  xây dựng giao dịch v1.
+</Callout>
 
 Nếu việc tải tài khoản thất bại nhưng người trả phí đã được xác thực thành công,
 giao dịch sẽ trở thành kết quả
@@ -239,44 +261,44 @@ Bảng sau liệt kê tất cả các biến thể
 [`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
 và giai đoạn pipeline mà chúng xảy ra:
 
-| Lỗi                                                                                                                                     | Giai đoạn                     | Nguyên nhân                                                                         |
-| --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------- |
-| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Lập lịch                      | Tài khoản đã bị khóa bởi giao dịch khác trong cùng một lô                           |
-| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Lập lịch                      | Một pubkey xuất hiện hai lần trong `account_keys` của giao dịch                     |
-| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Xác thực người trả phí        | Tài khoản người trả phí không tồn tại                                               |
-| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Tải tài khoản                 | Chương trình được gọi không tồn tại                                                 |
-| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Xác thực người trả phí        | Người trả phí không đủ để chi trả phí + mức tối thiểu miễn rent                     |
-| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Xác thực người trả phí        | Người trả phí không phải là tài khoản hệ thống hoặc tài khoản nonce                 |
-| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Bộ nhớ đệm trạng thái         | Giao dịch đã được xử lý trước đó                                                    |
-| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Kiểm tra tuổi                 | Blockhash không có trong hàng đợi và không phải là nonce hợp lệ                     |
-| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Thực thi                      | Đã xảy ra lỗi khi xử lý một lệnh (bao gồm chỉ số lệnh và `InstructionError` cụ thể) |
-| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Tải tài khoản                 | Chuỗi gọi loader quá sâu                                                            |
-| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Sanitize                      | Giao dịch yêu cầu phí nhưng không có chữ ký                                         |
-| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Sanitize                      | Giao dịch chứa tham chiếu tài khoản không hợp lệ                                    |
-| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Sigverify                     | Chữ ký Ed25519 không xác minh được (gói tin bị loại bỏ)                             |
-| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Tải tài khoản                 | Chương trình không thuộc sở hữu của loader hợp lệ                                   |
-| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Sanitize                      | Giao dịch không sanitize được offset tài khoản một cách chính xác                   |
-| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Lập lịch                      | Giao dịch hiện đang bị vô hiệu hóa do bảo trì cластер                               |
-| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Thực thi                      | Xử lý giao dịch để lại tài khoản với tham chiếu mượn chưa giải quyết                |
-| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Lập lịch                      | Giao dịch sẽ vượt quá giới hạn chi phí khối tối đa                                  |
-| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Sanitize                      | Phiên bản giao dịch không được hỗ trợ                                               |
-| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Tải tài khoản                 | Giao dịch tải tài khoản có thể ghi nhưng không thể ghi được                         |
-| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Lập lịch                      | Giao dịch sẽ vượt quá giới hạn chi phí tài khoản tối đa trong khối                  |
-| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Lập lịch                      | Giao dịch sẽ vượt quá giới hạn dữ liệu tài khoản trong khối                         |
-| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Lập lịch                      | Giao dịch khóa quá nhiều tài khoản                                                  |
-| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Tải tài khoản                 | Tài khoản bảng tra cứu địa chỉ không tồn tại                                        |
-| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Tải tài khoản                 | Bảng tra cứu địa chỉ thuộc sở hữu của chương trình sai                              |
-| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Tải tài khoản                 | Bảng tra cứu địa chỉ chứa dữ liệu không hợp lệ                                      |
-| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Tải tài khoản                 | Tra cứu bảng địa chỉ sử dụng chỉ số không hợp lệ                                    |
-| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Kiểm tra sau thực thi         | Tài khoản chuyển từ miễn rent sang phải trả rent                                    |
-| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Lập lịch                      | Giao dịch sẽ vượt quá giới hạn chi phí bỏ phiếu tối đa                              |
-| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Lập lịch                      | Giao dịch sẽ vượt quá tổng giới hạn dữ liệu tài khoản                               |
-| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Phân tích ngân sách tính toán | Biến thể lệnh ngân sách tính toán trùng lặp trong cùng một giao dịch                |
-| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Kiểm tra sau thực thi         | Tài khoản không có đủ lamport để chi trả rent cho kích thước dữ liệu của nó         |
-| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Tải tài khoản                 | Tổng dữ liệu đã tải vượt quá giới hạn 64 MiB                                        |
-| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Phân tích ngân sách tính toán | `SetLoadedAccountsDataSizeLimit` được đặt thành 0                                   |
-| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Sanitize                      | Giao dịch khác nhau trước/sau khi kích hoạt tính năng và cần sanitize lại           |
-| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Tải tài khoản                 | Thực thi chương trình tạm thời bị hạn chế trên tài khoản được tham chiếu            |
-| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Kiểm tra sau thực thi         | Tổng số dư lamport trước giao dịch không bằng số dư sau                             |
-| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Tải tài khoản                 | Bộ nhớ đệm chương trình đạt giới hạn tối đa                                         |
-| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Commit                        | Commit bị hủy nội bộ                                                                |
+| Lỗi                                                                                                                                   | Giai đoạn                  | Nguyên nhân                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Lập lịch             | Tài khoản đã bị khóa bởi giao dịch khác trong cùng một lô                                                                        |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Lập lịch             | Một pubkey xuất hiện hai lần trong `account_keys` của giao dịch                                                                                |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Xác thực người trả phí   | Tài khoản người trả phí không tồn tại                                                                                                          |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Tải tài khoản        | Chương trình được gọi không tồn tại                                                                                                         |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Xác thực người trả phí   | Người trả phí không đủ để chi trả phí + mức tối thiểu miễn rent                                                                                          |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Xác thực người trả phí   | Người trả phí không phải là tài khoản hệ thống hoặc tài khoản nonce                                                                                                |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Bộ nhớ đệm trạng thái           | Giao dịch đã được xử lý trước đó                                                                                                         |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Kiểm tra tuổi              | Blockhash không có trong hàng đợi và không phải là nonce hợp lệ                                                                                              |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Thực thi              | Đã xảy ra lỗi khi xử lý một lệnh (bao gồm chỉ số lệnh và `InstructionError` cụ thể)                            |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Tải tài khoản        | Chuỗi gọi loader quá sâu                                                                                                             |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Sanitize               | Giao dịch yêu cầu phí nhưng không có chữ ký                                                                                   |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Sanitize               | Giao dịch chứa tham chiếu tài khoản không hợp lệ                                                                                         |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Sigverify              | Chữ ký Ed25519 không xác minh được (gói tin bị loại bỏ)                                                                                   |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Tải tài khoản        | Chương trình không thuộc sở hữu của loader hợp lệ                                                                                                    |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Sanitize               | Giao dịch không sanitize được offset tài khoản một cách chính xác                                                                                 |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Lập lịch             | Giao dịch hiện đang bị vô hiệu hóa do bảo trì cластер                                                                            |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Thực thi              | Xử lý giao dịch để lại tài khoản với tham chiếu mượn chưa giải quyết                                                             |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Lập lịch             | Giao dịch sẽ vượt quá giới hạn chi phí khối tối đa                                                                                             |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Sanitize               | Phiên bản giao dịch không được hỗ trợ                                                                                                        |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Tải tài khoản        | Giao dịch tải tài khoản có thể ghi nhưng không thể ghi được                                                                               |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Lập lịch             | Giao dịch sẽ vượt quá giới hạn chi phí tài khoản tối đa trong khối                                                                          |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Lập lịch             | Giao dịch sẽ vượt quá giới hạn dữ liệu tài khoản trong khối                                                                              |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Lập lịch             | Giao dịch khóa quá nhiều tài khoản                                                                                                      |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Tải tài khoản        | Tài khoản bảng tra cứu địa chỉ không tồn tại                                                                                               |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Tải tài khoản        | Bảng tra cứu địa chỉ thuộc sở hữu của chương trình sai                                                                                        |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Tải tài khoản        | Bảng tra cứu địa chỉ chứa dữ liệu không hợp lệ                                                                                                |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Tải tài khoản        | Tra cứu bảng địa chỉ sử dụng chỉ số không hợp lệ                                                                                                |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Kiểm tra sau thực thi   | Tài khoản chuyển từ miễn rent sang phải trả rent                                                                                      |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Lập lịch             | Giao dịch sẽ vượt quá giới hạn chi phí bỏ phiếu tối đa                                                                                              |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Lập lịch             | Giao dịch sẽ vượt quá tổng giới hạn dữ liệu tài khoản                                                                                         |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Phân tích ngân sách tính toán | Biến thể lệnh ngân sách tính toán trùng lặp trong cùng một giao dịch                                                                      |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Kiểm tra sau thực thi   | Tài khoản không có đủ lamport để chi trả rent cho kích thước dữ liệu của nó                                                                     |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Tải tài khoản        | Tổng dữ liệu đã tải vượt quá giới hạn kích thước dữ liệu tài khoản đã tải của giao dịch (mặc định 64 MiB; 0 trong v1 trừ khi được đặt trong cấu hình thông điệp) |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Phân tích ngân sách tính toán | `SetLoadedAccountsDataSizeLimit` được đặt thành 0                                                                                                 |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Sanitize               | Giao dịch khác nhau trước/sau khi kích hoạt tính năng và cần sanitize lại                                                             |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Tải tài khoản        | Thực thi chương trình tạm thời bị hạn chế trên tài khoản được tham chiếu                                                                     |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Kiểm tra sau thực thi   | Tổng số dư lamport trước giao dịch không bằng số dư sau                                                             |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Tải tài khoản        | Bộ nhớ đệm chương trình đạt giới hạn tối đa                                                                                                               |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Commit                 | Commit bị hủy nội bộ                                                                                                               |

@@ -25,6 +25,7 @@ import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
 import { colosseum } from "./records/colosseum";
 import { comicbook } from "./records/comicbook";
+import { collectorCrypt } from "./records/collector-crypt";
 import { d3 } from "./records/d3";
 import { dabba } from "./records/dabba";
 import { delorean } from "./records/delorean";
@@ -59,11 +60,13 @@ import { meta } from "./records/meta";
 import { metaplex } from "./records/metaplex";
 import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
+import { moneygram } from "./records/moneygram";
 import { nodit } from "./records/nodit";
 import { openmined } from "./records/openmined";
 import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
 import { pancakeswap } from "./records/pancakeswap";
+import { paxos } from "./records/paxos";
 import { phantom } from "./records/phantom";
 import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
@@ -74,6 +77,7 @@ import { rain } from "./records/rain";
 import { ramp } from "./records/ramp";
 import { raydium } from "./records/raydium";
 import { reap } from "./records/reap";
+import { redotpay } from "./records/redotpay";
 import { renderNetwork } from "./records/render-network";
 import { rockawayx } from "./records/rockawayx";
 import { ryder } from "./records/ryder";
@@ -138,6 +142,7 @@ export const companies = [
   coinbase,
   colosseum,
   comicbook,
+  collectorCrypt,
   d3,
   dabba,
   delorean,
@@ -172,11 +177,13 @@ export const companies = [
   metaplex,
   monkeDao,
   morganStanley,
+  moneygram,
   nodit,
   openmined,
   orbitflare,
   osl,
   pancakeswap,
+  paxos,
   phantom,
   pipeNetwork,
   playSolana,
@@ -187,6 +194,7 @@ export const companies = [
   ramp,
   raydium,
   reap,
+  redotpay,
   renderNetwork,
   rockawayx,
   ryder,

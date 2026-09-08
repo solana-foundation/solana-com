@@ -1,0 +1,384 @@
+---
+title: Transfer Hook統合ガイド
+description:
+  Transfer Hook拡張機能を使用するトークンをウォレット、カストディアン、dappに統合する方法を学びます。拡張機能の検出、フックが必要とする追加アカウントの解決、シミュレーションと実行エラーの処理を含みます。
+url: /docs/tokens/extensions/transfer-hook-integration
+type: conceptual
+prerequisites:
+  - /docs/tokens/extensions
+related:
+  - /docs/tokens/extensions/transfer-hook
+  - /docs/tokens/extensions/permanent-delegate
+  - /docs/tokens/extensions/transfer-fees
+  - /docs/tokens/extensions/confidential-transfer/integration-guide
+---
+
+## 背景
+
+Transfer Hook拡張機能を使用すると、Token-2022 mintはすべてのトークン転送時にカスタムプログラムへのCross Program
+Invocation (CPI)を必須にできます。mintはフックプログラムのアドレスを保存し、そのトークンを送信するウォレット、dapp、またはカストディアンはいずれも、CPIが実行できるようにフックプログラムが必要とするアカウントを含める必要があります。
+
+このガイドは、transfer hookを使用するトークンを**統合する**チーム（ウォレット、dapp、カストディアン、取引所、エクスプローラー）を対象としており、フックプログラムを**作成する**チームを対象としたものではありません。フックプログラムを構築している場合は、[Transfer Hook Interface](https://www.solana-program.com/docs/transfer-hook-interface)および[Transfer Hook拡張機能ガイド](/docs/tokens/extensions/transfer-hook)から始めてください。このガイドは、フック対応トークンの送受信およびシミュレーションをクライアントが正しく行うために必要なことに焦点を当てています。
+
+他のほとんどのToken-2022拡張機能とは異なり、transfer hookはアカウントレベルでオプションではありません。mintにtransfer hookが設定されている場合、**そのトークンのすべての転送にフックの追加アカウントが必要**であり、あなたのプロダクトがフックのロジックを使用するかどうかにかかわらず必須です。これらのアカウントを解決しないクライアントはトークンを送信できません。転送instructionsはオンチェーンで失敗し、フックが暗黙的にスキップされるわけではありません。これに対応する完全な関数は、KitおよびWeb3.jsの両方に対して、以下の[transfer-hookトークンの送信](#sending-a-transfer-hook-token)に記載されています。
+
+### リソース
+
+- [Transfer Hook Interfaceリファレンス](https://www.solana-program.com/docs/transfer-hook-interface)
+- [Extension Rustコード](https://github.com/solana-program/token-2022/tree/main/program/src/extension/transfer_hook)
+- [`@solana-program/token-2022` JSクライアント](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  Kitベースのクライアントで、新規統合に推奨されます。`getTransferCheckedWithTransferHookInstructionAsync`を通じたネイティブなtransfer hook解決に加え、低レベルヘルパーとして`resolveExtraAccountMetasForExecute` /
+  `findExtraAccountMetaListPda`を提供します。
+- [`@solana/spl-token` JSクライアント](https://github.com/solana-program/token-2022/tree/main/clients/js-legacy)
+  非推奨の`@solana/web3.js`ライブラリ向けのレガシークライアントです。web3.jsを引き続き使用しているチーム向けに、同じ機能（拡張機能の検出、追加アカウントの解決、高レベルヘルパー`createTransferCheckedWithTransferHookInstruction`）を提供します。
+- [Transfer Hook拡張機能ガイド](/docs/tokens/extensions/transfer-hook)
+  （フックプログラムの作成方法。発行者が設定する内容についての参考情報）
+
+## 要約
+
+- Transfer hook mintは**フックプログラムアドレス**を保存します。すべての転送はそのプログラムにCPIし、CPIには標準の転送アカウントに加えて追加アカウントが必要です。
+- フックが必要とする追加アカウントは、オンチェーンの**`ExtraAccountMetaList`**アカウントに記載されています。これはフックプログラムとmintから導出されたPDAです。クライアントはこのアカウントを読み取り、転送instructionsに追加するアカウントを解決します。
+- **解決はオプションではありません。** 追加アカウントが不足しているか古い場合、転送instructionsはオンチェーンで失敗します。フックなしで暗黙的にトークンを送信するフォールバックは存在しません。
+- **KitおよびWeb3.js（`@solana/spl-token`）はどちらも、フック対応の転送をエンドツーエンドで送信できます** — 完全な関数は[transfer-hookトークンの送信](#sending-a-transfer-hook-token)を参照してください。いずれもネイティブに`ExtraAccountMetaList`を解決します。Kitは`getTransferCheckedWithTransferHookInstructionAsync`、Web3.jsは`createTransferCheckedWithTransferHookInstruction`を使用します。
+- **送信前に必ずシミュレーションを行ってください。** フックプログラムは独自に定義した任意の条件（許可リストチェック、一時停止状態、委任の欠如）で転送を失敗させる可能性があり、発行者がフックを更新すると追加アカウントのセットが変わる場合があります。シミュレーションによって、ユーザーが署名する前に両方の問題を検出できます。
+- フックの実行によりコンピュートユニットが追加され、事前に資金供給または事前承認されたサイドアカウント（委任された手数料アカウント、ユーザーがまだ初期化していないカウンターPDAなど）を必要とするフックの場合、最初の転送が成功する前にセットアップトランザクションが必要になることがあります。
+
+## 用語
+
+- **フックプログラム**: mintが転送時のロジックを委任するプログラムで、mintのTransfer Hook拡張機能を通じて設定されます。
+- **`ExtraAccountMetaList`**: フックプログラムが所有するPDAで、フックの`Execute` instructionsが必要とする追加アカウントのリストを保存します。シード`"extra-account-metas"`とmintアドレスから導出されます。
+- **`ExtraAccountMeta`**: そのリスト内の1エントリです。固定アドレス、フックプログラムからのPDA、別のプログラムからのPDA、または転送自身のアカウント内のデータからシードされたPDAを参照できます。
+- **`TransferHookAccount`拡張機能**: token accountの状態で、`transferring`フラグを含みます。このフラグは、token programがフックへのCPI処理中のときのみ`true`に設定されます。フックプログラムはこれを使用して、実際の転送に起因しない呼び出し（クライアントが直接`Execute`を呼び出した場合など）を拒否します。
+- **`Execute`**: token programがすべての転送時にCPIする instructions です。クライアントが直接呼び出すことはなく、`TransferChecked`の一部として呼び出されます。
+
+## transfer-hookトークンの送信
+
+フック対応の転送では4つのことを行う必要があります。mintにtransfer hookがあることの検出、フックのCPIが必要とする追加アカウントの解決、シミュレーション、そして送信です。以下の両関数はこの4つをすべて実行するもので、アプリが現在Token-2022転送を構築している箇所にそのまま組み込むことを想定しています。
+
+### Kit
+
+`@solana-program/token-2022`クライアントは`getTransferCheckedWithTransferHookInstructionAsync`を通じてすべてをネイティブに解決します。mintを取得し、transfer hookが設定されているかどうかを検出し、`ExtraAccountMetaList`を解決して、フックの追加アカウントを追加します。mintにフックがない場合は通常の`transferChecked`を返すため、同じ呼び出しでレガシークライアントへのブリッジなしに両方のケースに対応できます。
+
+```ts title="send-transfer-hook-token-kit.ts"
+import {
+  appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  compileTransaction,
+  createTransactionMessage,
+  getBase64EncodedWireTransaction,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  type Address,
+  type Rpc,
+  type RpcSubscriptions,
+  type SolanaRpcApi,
+  type SolanaRpcSubscriptionsApi,
+  type TransactionSigner
+} from "@solana/kit";
+import { getTransferCheckedWithTransferHookInstructionAsync } from "@solana-program/token-2022";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction with Kit.
+ */
+export async function sendTokenTransfer({
+  rpc,
+  rpcSubscriptions,
+  source,
+  mint,
+  destination,
+  owner,
+  feePayer,
+  amount,
+  decimals
+}: {
+  rpc: Rpc<SolanaRpcApi>;
+  rpcSubscriptions: RpcSubscriptions<SolanaRpcSubscriptionsApi>;
+  source: Address;
+  mint: Address;
+  destination: Address;
+  owner: TransactionSigner; // Authority over the source token account.
+  feePayer: TransactionSigner;
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Build the transfer instruction. When the mint has a transfer hook this
+  // fetches it, resolves the ExtraAccountMetaList, and appends the accounts the
+  // hook's CPI needs; when it doesn't, you get a plain transferChecked. Because
+  // it re-fetches the mint on every call, don't cache the result across sends
+  // -- the hook program and its extra accounts can both change.
+  const instruction = await getTransferCheckedWithTransferHookInstructionAsync(
+    { rpc },
+    {
+      source,
+      mint,
+      destination,
+      authority: owner,
+      amount,
+      decimals
+    }
+  );
+
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+  const message = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstructions([instruction], tx)
+  );
+
+  // 2. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Compiling the message (rather than signing
+  // it) is enough to simulate, and sigVerify: false lets the network run it
+  // without signatures. This catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await rpc
+    .simulateTransaction(
+      getBase64EncodedWireTransaction(compileTransaction(message)),
+      { encoding: "base64", sigVerify: false, replaceRecentBlockhash: true }
+    )
+    .send();
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 3. Sign only after a successful simulation, then send.
+  const signedMessage = await signTransactionMessageWithSigners(message);
+  assertIsTransactionWithBlockhashLifetime(signedMessage);
+  await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+    signedMessage,
+    { commitment: "confirmed" }
+  );
+}
+```
+
+<Callout type="info">
+  `getTransferCheckedWithTransferHookInstructionAsync`は、[アカウントの手動アセンブル](#assembling-accounts-manually)で説明する低レベルKitリゾルバー（`resolveExtraAccountMetasForExecute`、`findExtraAccountMetaListPda`）をラップしています。自分でアセンブルするinstructionsにフックアカウントを追加する場合にのみ、これらを直接使用してください。
+</Callout>
+
+### Web3.js
+
+レガシーの`@solana/spl-token`クライアントはブリッジ不要ですべてをネイティブに解決します。
+
+```ts title="send-transfer-hook-token.ts"
+import {
+  Connection,
+  PublicKey,
+  Signer,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  createTransferCheckedInstruction,
+  createTransferCheckedWithTransferHookInstruction,
+  getMint,
+  getTransferHook,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction directly.
+ */
+export async function sendTokenTransfer({
+  connection,
+  payer,
+  source,
+  mint,
+  destination,
+  owner,
+  amount,
+  decimals
+}: {
+  connection: Connection;
+  payer: Signer; // Fee payer; can be the same signer as `owner`.
+  source: PublicKey;
+  mint: PublicKey;
+  destination: PublicKey;
+  owner: Signer; // Authority over the source token account.
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Re-check for a transfer hook on every send. The hook program and its
+  // extra accounts can both change, so don't cache this across transfers.
+  const mintInfo = await getMint(
+    connection,
+    mint,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  );
+  const transferHook = getTransferHook(mintInfo);
+
+  // 2. Build the transfer instruction. When a hook is configured, this also
+  // resolves the ExtraAccountMetaList and appends the accounts the hook's
+  // CPI needs -- there's no separate resolution step to call yourself.
+  const instruction = transferHook
+    ? await createTransferCheckedWithTransferHookInstruction(
+        connection,
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [], // Additional signers, only needed for a multisig authority.
+        "confirmed",
+        TOKEN_2022_PROGRAM_ID
+      )
+    : createTransferCheckedInstruction(
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      );
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+  const transaction = new Transaction({
+    feePayer: payer.publicKey,
+    blockhash,
+    lastValidBlockHeight
+  }).add(instruction);
+
+  // 3. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Simulating without signers runs the
+  // transaction unsigned, which catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await connection.simulateTransaction(transaction);
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 4. Sign and send only after a successful simulation.
+  return sendAndConfirmTransaction(connection, transaction, [payer, owner]);
+}
+```
+
+## 拡張機能の検出
+
+上記の両関数は、送信のたびにmintを再取得してフックを確認します。Web3.jsは`getMint`を通じて明示的に、Kitは`getTransferCheckedWithTransferHookInstructionAsync`内部で解決前にmintを取得します。
+
+<Callout type="info">
+  mint上のフックプログラムアドレスはmintのtransfer hook authority（`UpdateTransferHook`）によって更新される可能性があり、必要な追加アカウントも独立して変更される可能性があります（`UpdateExtraAccountMetaList`）。どちらの値も1回の転送フローを超えてキャッシュしないでください。ユーザーが新しい送信を開始するときに再取得してください。
+</Callout>
+
+対応する`TransferHookAccount`拡張機能はmintではなくtoken accountに存在します。統合者が直接読み取る必要は通常ありません。これは、フックプログラム自身が、クライアントが直接`Execute`を呼び出したのではなく、実際の転送内で呼び出しが発生したことを確認するために存在します。
+
+## 追加アカウントの解決
+
+フック対応のすべての転送には、標準の4つの転送アカウント（送信元、mint、送信先、所有者/authority）に加えて、そのmintの`ExtraAccountMetaList`アカウントが指定するアカウントが必要です。リストはフックプログラムから導出されたPDAです：
+
+```ts title="derive-extra-account-meta-list.ts"
+// Kit (@solana-program/token-2022)
+import { findExtraAccountMetaListPda } from "@solana-program/token-2022";
+
+const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
+  { mint: mintAddress },
+  { programAddress: transferHook.programId }
+);
+
+// Web3.js (@solana/spl-token)
+import { getExtraAccountMetaAddress } from "@solana/spl-token";
+
+const extraAccountMetaListPda = getExtraAccountMetaAddress(
+  mintAddress,
+  transferHook.programId
+);
+```
+
+そのアカウントの各エントリは、固定pubkey、フックプログラムからのPDA、アカウントリスト内で前に指定された別のプログラムからのPDA、または転送自身のアカウント（例：送信元token accountの所有者）から読み取ったバイトからシードされたPDAのいずれかの方法で、具体的な`AccountMeta`に解決されます。データシードのケースを解決するにはRPC経由でアカウントデータを取得する必要があるため、解決は非同期であり、複数回のラウンドトリップが必要になる場合があります。
+
+### アカウントの手動アセンブル
+
+上記の関数を使用せず自分でinstructionsをアセンブルする場合、両クライアントはそれらの関数の基盤となる低レベルの構成要素を公開しています。
+
+**Kit（`@solana-program/token-2022`）**
+
+- `findExtraAccountMetaListPda({ mint }, { programAddress })`: `ExtraAccountMetaList`検証アカウントのPDAを導出します。
+- `getExtraAccountMetasDecoder().decode(accountData)`: 生の検証アカウントデータを`ExtraAccountMeta`エントリのリストにパースします。
+- `resolveExtraAccountMeta(meta, previousAddresses, instructionData, hookProgramAddress, rpc)`:
+  1つのエントリを`AccountMeta`に解決します。これまでに解決されたアドレスを受け取り（後のエントリは前のエントリを参照できます）。
+- `resolveExtraAccountMetasForExecute({ rpc, transferHookProgramAddress, source, mint, destination, owner, amount })`:
+  すべてのエントリを解決し、追加するメタ（追加アカウント、フックプログラム、検証アカウント）を返します。Kitのinstructionsはイミュータブルであるため、インプレースで変更するのではなく、instructionsにスプレッドするためのメタを返します。
+
+**Web3.js（`@solana/spl-token`）**
+
+- `getExtraAccountMetas(account)`: 生の`ExtraAccountMetaList`アカウントデータを`ExtraAccountMeta`エントリのリストにデコードします。
+- `resolveExtraAccountMeta(connection, meta, previousMetas, instructionData, hookProgramId)`:
+  1つのエントリを`AccountMeta`に解決します。これまでに解決されたアカウントを受け取り（後のエントリは前のエントリを参照できます）。
+- `addExtraAccountMetasForExecute(connection, instruction, hookProgramId, source, mint, destination, owner, amount)`:
+  1回の呼び出しですべてのエントリを解決し、既存のinstructionsに追加します。
+
+## 送信前のシミュレーション
+
+上記の両関数におけるシミュレーションステップが重要な理由は、実行時にのみ表面化する2つの問題があるためです。
+
+- **フックが転送を拒否する。** フックプログラムは任意の条件（許可リスト、一時停止されたmint、転送ごとの上限）をエンコードでき、条件が満たされない場合は送信元と送信先を含むinstructions全体を失敗させます。部分的成功のケースはありません。拒否されたフック呼び出しは転送を拒否します。
+- **追加アカウントが古い。** クライアントが最後にキャッシュした時点とユーザーが送信する時点の間に発行者がフックプログラムを変更したり`ExtraAccountMetaList`を更新したりした場合、古いデータに対して解決を行うと誤ったアカウントが生成され、フックロジックエラーではなくアカウント検証エラーで転送が失敗します。
+
+最初にシミュレーションを行い、シミュレーションが成功した場合にのみ送信することで、ユーザーが失敗したトランザクションの手数料を支払う前に両方のケースを検出できます。また、生のトランザクション失敗ではなく、明確なエラー（なぜ送金が完了できないか）をユーザーに表示することができます。
+
+## コンピュートとセットアップへの影響
+
+フックプログラムのCPIは、送金のコンピュートバジェット内で実行されます。複数のアカウントの読み取りや独自のチェックの実行など、非自明な処理を行うフックは、基本送金に加えて実際のコンピュートコストを追加します。そのため、フック対応の送金に対して適切なサイズのコンピュートユニット制限をリクエストすることで、不必要な失敗を減らすことができます。
+
+一部のフックでは、最初の送金が成功する前に、アカウントが解決可能なだけでなく実際に存在している必要があります。たとえば、送信者が資金を提供して承認する必要がある委任手数料 token account（wSOL手数料フックの場合）や、発行者のプログラムがそのオーナーに対してすでに初期化されていることを期待するカウンターまたは許可リストエントリなどです。アカウントを解決するだけで「このトークンを送信するには1回限りのセットアップが必要です」とユーザーに通知しないクライアント実装では、残高やネットワーク状況とは無関係な理由で送金が失敗することになります。
+
+## フックCPI中はアカウントが読み取り専用になる
+
+Token ProgramがフックプログラムにCPIする際、送信者自身のアカウントを含む元の送金のすべてのアカウントを**読み取り専用**として渡し、送信者の署名者権限はフックに引き継がれません。したがって、フックプログラムはCPI中に独自の権限で送信者のアカウントからトークンを移動することはできません。別のトークンでの手数料など、サイドペイメントを移動する必要があるフックは、送信者が事前に承認した委任者を通じて行います。これは上記で説明した同じ1回限りのセットアップです。
+
+## 後方互換性
+
+転送フックは、サポートされていないクライアントに関して、他のほとんどのToken-2022拡張機能とは異なる動作をします：
+
+- 転送フックのアカウントを解決しないウォレットやdappは、フック対応トークンを**送信できません**。トランザクションは、通常の送金へのサイレントフォールバックではなく、Token Programレベルで失敗します。
+- フック対応トークンを受け取る場合、特別な処理は必要ありません。フックは送信者の送金instructionsでのみ実行されます。ウォレットが転送フックのサポートを必要とするのは、ユーザーがそのトークンを送信しようとするときだけです。
+- フックプログラムはミントの転送フック権限によって更新される可能性があるため、転送フックミントは一度学習してキャッシュする事実としてではなく、送金ごとに再確認すべきものとして扱ってください。
+
+## 推奨される統合の優先順位
+
+### ウォレットとdapp
+
+| 要件                            | 説明                                                                                                   | 優先度 |
+| :------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :------- |
+| 拡張機能の検出                   | Token-2022アセットの送金フローを構築する前に、ミントの`getTransferHook`を確認してください。                     | **P0**   |
+| 追加アカウントの解決                 | アカウントをハードコーディングせず、高レベルヘルパー（または手動リゾルバー関数）を使用してください。                 | **P0**   |
+| 署名前のシミュレーション                | 構築したトランザクションをシミュレーションにかけ、フックの拒否を生の失敗としてではなく明確なエラーとして表示してください。 | **P0**   |
+| 必要なセットアップの表示                 | 送信前に、フックが必要とする1回限りのセットアップ（委任承認、サイドアカウントへの資金供給）を検出してユーザーに促してください。  | **P1**   |
+| フック実行のコンピュートバジェットのサイズ設定 | デフォルトのコンピュート制限がフックのロジックをカバーすると仮定せず、観測されたコストに合わせた制限をリクエストしてください。        | **P1**   |
+| リトライ時の再解決                    | 以前に構築したトランザクションが失敗した場合、そのまま再送信せず、`ExtraAccountMetaList`を再取得してください。  | **P1**   |
+
+### カストディアンと取引所
+
+| 要件                           | 説明                                                                                                                                  | 優先度 |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| 送金パスをミントごとに扱う          | フック対応ミントには専用のテスト済み送金パスが必要です。汎用のToken-2022送金パスでカバーできると仮定しないでください。                               | **P0**   |
+| ブロードキャスト前のシミュレーション          | 自動化またはバッチ送信の場合に特に重要です。フックの拒否はバッチを停止させる必要があり、盲目的にリトライしてはなりません。                        | **P0**   |
+| フックプログラムの変更追跡            | 有効な送金に必要な条件が変わるため、カストディしているミントの`UpdateTransferHook` / `UpdateExtraAccountMetaList`アクティビティを監視してください。 | **P1**   |
+| 必要なセットアップアカウントの事前準備 | フックが入金者ごとに委任者またはサイドアカウントを必要とする場合、送金時ではなく、そのアセットのオンボーディング時に準備してください。                | **P1**   |
+
+### エクスプローラーとインデクサー
+
+| 要件                         | 説明                                                                                               | 優先度 |
+| :---------------------------------- | :-------------------------------------------------------------------------------------------------------- | :------- |
+| 転送フックミントのラベル付け           | ミントが転送フックを必要とすること、およびどのプログラムかを、通常のToken-2022ミントとは明確に区別して表示してください。 | **P0**   |
+| 送金だけでなくCPIも表示 | フック対応の送金にはフックプログラムへのCPIが含まれます。instructionsの内訳にそれを表示してください。  | **P1**   |
+| フックプログラムの更新追跡          | ミントの`UpdateTransferHook` / `UpdateExtraAccountMetaList`アクティビティを独立したイベントタイプとして表示してください。    | **P2**   |
