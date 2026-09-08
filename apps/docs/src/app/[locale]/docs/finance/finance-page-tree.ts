@@ -8,12 +8,23 @@ const SECTION_ROUTES = {
   finance: "/docs/finance",
   tokens: "/docs/tokens",
   tokenization: "/docs/tokenization",
-  institutional: "/docs/institutional",
   payments: "/docs/payments",
   defi: "/docs/defi",
 } as const;
 
 export type FinanceSection = keyof typeof SECTION_ROUTES;
+
+/**
+ * Finance pages that render after the section folders rather than above them.
+ * Reference and operational material reads better once the asset sections have
+ * had their say. Order follows the finance meta.json.
+ */
+const TRAILING_FINANCE_PAGES = [
+  "privacy",
+  "developer-tools",
+  "ai-development",
+  "production-readiness",
+] as const;
 
 export function getFinancePageTree(
   tree: Root,
@@ -22,18 +33,17 @@ export function getFinancePageTree(
   const financeFolder = findFolder(tree, SECTION_ROUTES.finance);
   const tokensFolder = findFolder(tree, SECTION_ROUTES.tokens);
   const tokenizationFolder = findFolder(tree, SECTION_ROUTES.tokenization);
-  const institutionalFolder = findFolder(tree, SECTION_ROUTES.institutional);
   const paymentsFolder = findFolder(tree, SECTION_ROUTES.payments);
   const defiFolder = findFolder(tree, SECTION_ROUTES.defi);
   const financeChildren = financeFolder?.children ?? [];
-  const privacyPages = financeChildren.filter(isPrivacyPage);
+  const trailingPages = financeChildren.filter(isTrailingFinancePage);
 
   const financePages: Node[] = financeFolder
     ? [
         ...(financeFolder.index
           ? [{ ...financeFolder.index, name: "Overview" }]
           : []),
-        ...financeChildren.filter((child) => !isPrivacyPage(child)),
+        ...financeChildren.filter((child) => !isTrailingFinancePage(child)),
       ]
     : [];
 
@@ -50,15 +60,6 @@ export function getFinancePageTree(
               tokenizationFolder,
               "Issuance & Tokenization",
               activeSection === "tokenization",
-            ),
-          ]
-        : []),
-      ...(institutionalFolder
-        ? [
-            renameFolder(
-              institutionalFolder,
-              "Institutional Finance",
-              activeSection === "institutional",
             ),
           ]
         : []),
@@ -80,15 +81,17 @@ export function getFinancePageTree(
             ),
           ]
         : []),
-      ...privacyPages,
+      ...trailingPages,
     ],
   };
 }
 
-function isPrivacyPage(node: Node): boolean {
+function isTrailingFinancePage(node: Node): boolean {
   return (
     node.type === "page" &&
-    node.url.includes(`${SECTION_ROUTES.finance}/privacy`)
+    TRAILING_FINANCE_PAGES.some((slug) =>
+      node.url.includes(`${SECTION_ROUTES.finance}/${slug}`),
+    )
   );
 }
 

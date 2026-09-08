@@ -28,10 +28,12 @@ describe("Finance docs MDX", () => {
     for (const href of [
       "/docs/tokens",
       "/docs/tokenization",
-      "/docs/institutional",
       "/docs/payments",
       "/docs/defi",
       "/docs/finance/privacy",
+      "/docs/finance/developer-tools",
+      "/docs/finance/ai-development",
+      "/docs/finance/production-readiness",
     ]) {
       expect(markup).toContain(`href="${href}"`);
     }

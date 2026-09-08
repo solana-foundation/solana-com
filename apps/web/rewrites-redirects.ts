@@ -249,6 +249,18 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
 
 const movedDocsRedirects: RedirectInput[] = withMdVariants([
   {
+    source: "/docs/tokenization/dvp",
+    destination: "/docs/tokenization/settlement/dvp",
+  },
+  {
+    source: "/docs/tokenization/nav-strikes",
+    destination: "/docs/tokenization/tokenized-funds/nav-strikes",
+  },
+  {
+    source: "/docs/tokenization/token-acl",
+    destination: "/docs/tokenization/compliance/token-acl",
+  },
+  {
     source: "/docs/tools/ai",
     destination: "/docs/intro/coding-with-agents",
   },
