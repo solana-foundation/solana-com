@@ -123,11 +123,10 @@ export function SolutionsEnterprisePage() {
               >
                 <div>
                   <p className="font-brand font-medium text-white text-lg md:text-2xl mb-1">
-                    Browse all {FAQ_TOTAL} questions
+                    {t("enterpriseFaq.cta.title", { count: FAQ_TOTAL })}
                   </p>
                   <p className="text-[#ABABBA] text-base md:text-lg mb-0">
-                    Chain migration, privacy, tokenized funds, payments,
-                    custody, and compliance.
+                    {t("enterpriseFaq.cta.description")}
                   </p>
                 </div>
                 <span
