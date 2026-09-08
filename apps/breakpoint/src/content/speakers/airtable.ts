@@ -11,6 +11,7 @@ import type { BreakpointSpeaker } from "@/content/speakers/types";
 
 const SPEAKER_FIELDS = [
   "Publish To Web",
+  "Sort Order",
   "Name",
   "Role or Title",
   "Company",
@@ -127,7 +128,10 @@ async function fetchAirtableSpeakers(): Promise<BreakpointSpeaker[] | null> {
     if (!deduped.has(speaker.slug)) deduped.set(speaker.slug, speaker);
   }
 
-  return [...deduped.values()];
+  return [...deduped.values()].sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 export const getAirtableSpeakers = fetchAirtableSpeakers;

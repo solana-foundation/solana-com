@@ -2,7 +2,7 @@ import { getTranslations } from "@workspace/i18n/server";
 import SpeakersCarousel from "@/components/sections/SpeakersCarousel";
 import { getAirtableSpeakers } from "@/content/speakers/airtable";
 
-const HOMEPAGE_SPEAKER_COUNT = 5;
+const HOMEPAGE_SPEAKER_COUNT = 6;
 
 export default async function SpeakersSection() {
   const [t, airtableSpeakers] = await Promise.all([
