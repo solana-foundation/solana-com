@@ -343,6 +343,30 @@ const partners: HubLink[] = [
     descriptionKey: "partners.items.turbine3.description",
     href: "https://turbin3.org/",
   },
+  {
+    id: "ardanLabs",
+    titleKey: "partners.items.ardanLabs.title",
+    descriptionKey: "partners.items.ardanLabs.description",
+    href: "https://www.ardanlabs.com/",
+  },
+  {
+    id: "sevenLabs",
+    titleKey: "partners.items.sevenLabs.title",
+    descriptionKey: "partners.items.sevenLabs.description",
+    href: "https://www.sevenlabs.com/",
+  },
+  {
+    id: "limeChain",
+    titleKey: "partners.items.limeChain.title",
+    descriptionKey: "partners.items.limeChain.description",
+    href: "https://limechain.tech/",
+  },
+  {
+    id: "solbound",
+    titleKey: "partners.items.solbound.title",
+    descriptionKey: "partners.items.solbound.description",
+    href: "https://solbound.dev/",
+  },
 ];
 
 const updateTopics = [
