@@ -1,0 +1,110 @@
+---
+title: Partial Signing
+description:
+  Build one immutable Solana transaction message, collect its signatures from
+  independent signers, verify and merge them, then submit the transaction.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+Partial signing lets multiple parties sign the same transaction at different
+times or on different devices. A coordinator builds the message, each required
+signer signs the exact serialized message bytes, and the coordinator verifies
+and merges the signatures before submission.
+
+<Callout type="warn" title="Signatures authorize bytes, not intent">
+  Changing the fee payer, blockhash, instruction order, account list, or any
+  instruction data produces a different message and invalidates every signature
+  already collected.
+</Callout>
+
+## Partial signing flow
+
+1. Agree on the transaction instructions and who will pay the fee.
+2. Set the transaction lifetime and fee payer.
+3. Serialize the message once. Treat those bytes as immutable.
+4. Distribute the message bytes and a human-readable summary to each signer.
+5. Collect and verify each Ed25519 signature against the same message bytes.
+6. Attach signatures to their required signer addresses.
+7. Confirm that every required signature is present and valid, then submit.
+
+## Complete example
+
+The fee payer and SOL sender below sign independently. The coordinator verifies
+both signatures, merges them, and submits the completed transaction.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+The example uses raw Ed25519 signing to make the boundary between the
+coordinator and each signer explicit. A wallet, hardware device, custody
+service, or offline signer can replace either local keypair as long as it signs
+the exact same message bytes.
+
+## Freeze the message before signing
+
+Every signature covers the serialized transaction message. The message includes
+all of the following:
+
+- the fee payer
+- the recent blockhash or durable nonce
+- every program and account address
+- account signer and writable permissions
+- instruction order and instruction data
+
+Build these fields first, serialize the message once, and distribute that byte
+array to every signer. It is useful to store a digest of the message alongside
+each signing request so the coordinator can reject a signature returned for a
+different message.
+
+Do not deserialize a message, change it, and expect previously collected
+signatures to remain valid. Even a change that appears operational, such as
+replacing an expired blockhash or changing the fee payer, requires every signer
+to sign again.
+
+## Coordinate the fee payer
+
+The fee payer is always a required signer and must be chosen before the message
+is frozen. Confirm that the account has enough SOL for the base fee and any
+priority fee. If a sponsor or backend will pay the fee, put that address in the
+message before collecting the user's signature; adding the sponsor later changes
+the signed bytes.
+
+The coordinator should verify that an incoming signature belongs to an address
+listed as a required signer. Never accept an arbitrary public key and append it
+to the transaction.
+
+## Manage transaction lifetime
+
+A recent blockhash transaction is only valid while its blockhash remains in the
+validator's recent blockhash queue. Before starting a multi-party signing flow,
+estimate whether all signers can respond before `lastValidBlockHeight`.
+
+If the blockhash expires, build a new message with a fresh blockhash and collect
+all signatures again. For workflows that may take longer or include offline
+signers, use a [durable nonce](/docs/core/transactions/durable-nonces). A
+durable nonce avoids the recent blockhash window, but advancing or otherwise
+consuming that nonce still invalidates the pending transaction.
+
+## Verify before submission
+
+For every returned signature:
+
+1. Verify the signature against the frozen message bytes and the expected
+   signer's public key.
+2. Attach it to that signer's slot in the transaction signature array.
+3. Verify the assembled transaction has valid signatures for every required
+   signer.
+4. Submit the serialized transaction without rebuilding its message.
+
+After submission, confirm using the same lifetime information that was included
+in the signed message. If confirmation reports an expired blockhash or consumed
+nonce, do not retry with a modified transaction; restart the signing flow.
