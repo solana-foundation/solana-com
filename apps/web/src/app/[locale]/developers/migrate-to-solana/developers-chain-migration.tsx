@@ -182,7 +182,7 @@ export function DevelopersChainMigrationPage() {
         id="resources"
         className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0 px-2 scroll-mt-24"
       >
-        <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative transform-gpu">
+        <div className="max-w-[1828px] mx-auto rounded-xl overflow-hidden relative">
           <UnicornScene
             projectId="migration-resources"
             className="!absolute inset-0 z-0"
