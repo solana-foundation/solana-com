@@ -1,9 +1,7 @@
 ---
 title: Transações versionadas
 description:
-  Formatos de transação legados vs versionados (V0) na Solana, incluindo tabelas
-  de pesquisa de endereços (ALTs), deteção de versão, formato de mensagem V0 e
-  resolução de ALT.
+  Formatos de transação legacy, v0 e v1 no Solana, incluindo Address Lookup Tables (ALTs), detecção de versão, a configuração de transação v1 e limites de recursos.
 url: /docs/core/transactions/versioned-transactions
 type: conceptual
 prerequisites:
@@ -15,53 +13,107 @@ related:
 ---
 
 <Callout type="info" title="Resumo">
-  As transações V0 adicionam tabelas de pesquisa de endereços (ALTs), permitindo
-  referências a contas através de índices de 1 byte em vez de chaves de 32
-  bytes. Isto poupa 31 bytes por conta resolvida por ALT.
+  O Solana possui três formatos de transação: legacy, v0 e v1. O **v0** adiciona
+  Address Lookup Tables (ALTs) para referenciar contas por índices de 1 byte. O **v1**
+  aumenta o limite de tamanho para 4.096 bytes, move os limites de recursos para a
+  própria mensagem e remove as ALTs.
 </Callout>
 
-A Solana suporta dois formatos de transação: **legado** e **versionado** (v0).
+O Solana suporta três formatos de transação: **legacy**, **v0** e **v1**. Cada
+um é descrito abaixo com as mesmas três partes: como organiza seus bytes na
+rede, como referencia contas e de onde vêm seus limites de recursos.
 
-O validator determina o formato ao inspecionar o primeiro byte da mensagem:
-
-- Se o primeiro byte tiver o
-  [prefixo de versão](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
-  bit definido, é uma **mensagem versionada**. Atualmente apenas a versão 0 é
-  suportada. Os próximos 3 bytes são o _`MessageHeader`_.
-- Caso contrário, é uma **mensagem legada**. O primeiro byte é
-  `num_required_signatures`, e os próximos 2 bytes completam o cabeçalho.
-
-<Callout type="info" title="Quando usar transações V0">
-  Use V0 quando a sua transação referenciar muitas contas e se aproximar do
-  limite de pacote de 1.232 bytes. Se a sua transação couber dentro do limite de
-  tamanho com todas as contas inline, as transações legadas são mais simples e
-  têm suporte de ferramentas mais amplo. V0 é necessário para usar tabelas de
-  pesquisa de endereços.
+<Callout type="warn" title="Status de ativação do v1">
+  O [formato v1](https://solana.com/upgrades/larger-transaction-sizes) ainda não está
+  ativo em nenhum cluster. A ativação está prevista para o Agave v4.2.
+  O `solana-test-validator` 4.2+ permite testar transações v1 localmente.
+  Aplicações existentes devem revisar [como se preparar para o v1](#preparing-for-v1).
 </Callout>
 
-## Formato de mensagem V0
+## Comparação de formatos
 
-Uma mensagem v0 tem os mesmos campos que uma mensagem legada, mais um array
-adicional `address_table_lookups` anexado após as instruções:
+| Limite                 | legacy                     | v0                         | v1                 |
+| --------------------- | -------------------------- | -------------------------- | ------------------ |
+| Tamanho máximo da transação  | 1.232 bytes                | 1.232 bytes                | **4.096 bytes**    |
+| Endereços de contas     | ~32, limitado pelo tamanho            | 64, via tabelas de lookup      | **64, inline**     |
+| Address lookup tables | não suportado              | suportado                  | **não suportado**  |
+| Limites de recursos       | Instruções ComputeBudget | Instruções ComputeBudget | **configuração da mensagem** |
 
-| Campo                   | Tamanho                    | Descrição                                     |
-| ----------------------- | -------------------------- | --------------------------------------------- |
-| `0x80`                  | 1 byte                     | Byte de prefixo de versão                     |
-| `header`                | 3 bytes                    | MessageHeader (igual ao legado)               |
-| `static_account_keys`   | compact-u16 + N x 32 bytes | Chaves que aparecem literalmente na transação |
-| `recent_blockhash`      | 32 bytes                   | Blockhash                                     |
-| `instructions`          | compact-u16 + variável     | Mesmo formato que o legado                    |
-| `address_table_lookups` | compact-u16 + variável     | Referências ALT (ver abaixo)                  |
+Ir para: [Legacy](#legacy-format) · [v0](#v0-format) · [v1](#v1-format)
+
+## Formato legacy
+
+O formato original, e ainda o padrão na maioria das ferramentas. Não possui
+nenhum prefixo de versão: o primeiro byte da transação é a contagem compact-u16 do
+array de assinaturas, e o primeiro byte da mensagem é `num_required_signatures`,
+cujo bit mais significativo está sempre desativado.
+
+### Layout de bytes do formato legacy
+
+| Campo              | Tamanho                          | Descrição                                      |
+| ------------------ | ----------------------------- | ------------------------------------------------ |
+| `num_signatures`   | compact-u16                   | Número de assinaturas                             |
+| `signatures`       | `num_signatures` x 64 bytes   | Assinaturas Ed25519                               |
+| `header`           | 3 bytes                       | MessageHeader — o primeiro byte tem o bit de versão desativado |
+| `num_account_keys` | compact-u16                   | Número de chaves de conta                           |
+| `account_keys`     | `num_account_keys` x 32 bytes | Chaves públicas, todas inline                          |
+| `recent_blockhash` | 32 bytes                      | Especificador de tempo de vida                               |
+| `num_instructions` | compact-u16                   | Número de instruções                           |
+| `instructions`     | variável                      | Cada instrução serializada de forma contígua         |
+
+Todo array de comprimento variável é prefixado com um comprimento compact-u16: 1 byte para
+valores de 0 a 127, 2 a 3 bytes para valores maiores. Para o layout por instrução e um
+cálculo de tamanho detalhado, consulte
+[formato binário de transação](/docs/core/transactions/transaction-structure#transaction-binary-format).
+
+### Contas no formato legacy
+
+Cada conta é escrita como uma chave pública completa de 32 bytes em `account_keys`, e
+as instruções as referenciam por um índice de 1 byte nesse array. Não há como
+referenciar uma conta que não esteja explicitada na transação, o que
+limita uma transação legacy a aproximadamente 32 contas antes de esgotar seus
+1.232 bytes.
+
+### Limites de recursos no formato legacy
+
+O limite de unidades de computação, o limite de tamanho dos dados de contas carregadas, o tamanho do heap e a taxa de prioridade
+são todos solicitados incluindo
+[instruções do programa ComputeBudget](/docs/core/fees/compute-budget) na
+transação. Cada uma consome um slot de instrução e 150 unidades de computação. Omiti-las
+é seguro: o runtime utiliza os padrões de 200.000 CU por instrução
+(limitado a 1,4M), um limite de tamanho de dados de 64 MiB, um heap de 32 KiB e uma taxa de prioridade
+zero.
+
+## Formato v0
+
+O v0 é uma mensagem legacy acrescida de dois elementos: um byte de prefixo de versão `0x80` e um
+array `address_table_lookups` anexado após as instruções. Tudo antes
+desses elementos é byte a byte idêntico ao legacy.
+
+### Layout de bytes do formato v0
+
+| Campo                   | Tamanho                          | Descrição                                     |
+| ----------------------- | ----------------------------- | ----------------------------------------------- |
+| `num_signatures`        | compact-u16                   | Número de assinaturas                            |
+| `signatures`            | `num_signatures` x 64 bytes   | Assinaturas Ed25519                              |
+| `0x80`                  | 1 byte                        | Byte de prefixo de versão — primeiro byte da mensagem |
+| `header`                | 3 bytes                       | MessageHeader (igual ao legado)                  |
+| `num_account_keys`      | compact-u16                   | Número de chaves de conta estáticas                   |
+| `static_account_keys`   | `num_account_keys` x 32 bytes | Chaves que aparecem literalmente na transação   |
+| `recent_blockhash`      | 32 bytes                      | Especificador de tempo de vida                              |
+| `num_instructions`      | compact-u16                   | Número de instruções                          |
+| `instructions`          | variável                      | Mesmo formato que o legado                           |
+| `address_table_lookups` | compact-u16 + variável        | Referências ALT (ver abaixo)                      |
 
 Cada entrada da tabela de pesquisa de endereços contém:
 
-| Campo              | Tamanho                  | Descrição                                  |
-| ------------------ | ------------------------ | ------------------------------------------ |
-| `account_key`      | 32 bytes                 | A chave pública da conta ALT               |
-| `writable_indexes` | compact-u16 + N x 1 byte | Índices na ALT para contas graváveis       |
+| Campo              | Tamanho                     | Descrição                                 |
+| ------------------ | ------------------------ | ------------------------------------------- |
+| `account_key`      | 32 bytes                 | A chave pública da conta ALT                |
+| `writable_indexes` | compact-u16 + N x 1 byte | Índices na ALT para contas graváveis  |
 | `readonly_indexes` | compact-u16 + N x 1 byte | Índices na ALT para contas somente leitura |
 
-## Resolução da tabela de pesquisa de endereços
+### Address lookup tables
 
 Uma ALT é uma conta on-chain que armazena até 256 chaves públicas. Ao
 referenciar uma ALT, uma transação pode incluir contas adicionais usando índices
@@ -81,3 +133,128 @@ estáticas: pesquisas graváveis vêm antes das pesquisas somente leitura.
   resolvidas por ALT podem ser apenas graváveis ou somente leitura (não
   signatárias); elas não podem ser signatárias.
 </Callout>
+
+### Limites de recursos no v0
+
+Sem alterações em relação ao legacy: instruções ComputeBudget, com os mesmos valores padrão quando
+omitidas.
+
+## Formato v1
+
+O v1 aumenta o limite de tamanho para 4.096 bytes e reestrutura a mensagem em torno de uma
+**configuração de transação**: os limites de recursos saem das instruções ComputeBudget
+e passam para campos de posição fixa na própria mensagem. Isso permite que a rede classifique
+uma transação por taxa de prioridade com uma única leitura de offset fixo, em vez de
+varrer e desserializar sua lista de instruções.
+
+### Layout de bytes do formato v1
+
+| Campo                  | Tamanho         | Descrição                                                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `0x81`                 | 1 byte       | Byte de prefixo de versão — o primeiro byte da transação                            |
+| `header`               | 3 bytes      | MessageHeader (mesmo que o legacy)                                                     |
+| `config_mask`          | 4 bytes      | Bitmask `u32` LE indicando quais valores de configuração estão presentes                           |
+| `recent_blockhash`     | 32 bytes     | Especificador de tempo de vida                                                                 |
+| `num_instructions`     | 1 byte       | Contagem de largura fixa, máx. 64                                                          |
+| `num_addresses`        | 1 byte       | Contagem de largura fixa, máx. 64                                                          |
+| `addresses`            | N x 32 bytes | Endereços de contas, todos inline — sem referências a tabelas de lookup                         |
+| `config_values`        | 0–20 bytes   | Um valor por bit de máscara definido, em ordem de bits (ver abaixo)                               |
+| `instruction_headers`  | N x 4 bytes  | Por instrução: `program_id_index` (u8), `num_accounts` (u8), `data_len` (u16 LE) |
+| `instruction_payloads` | variável     | Por instrução: índices de contas, depois instruction data                            |
+| `signatures`           | N x 64 bytes | No final, sem prefixo de comprimento — a contagem vem do header               |
+
+Duas diferenças estruturais em relação ao legacy e ao v0 merecem atenção ao escrever um
+decodificador. As contagens são campos `u8` de largura fixa em vez de compact-u16, e as
+instruções são divididas em duas sequências: primeiro todos os headers de tamanho fixo, depois todos os
+payloads de comprimento variável, em vez de cada instrução ser contígua.
+
+### Contas no v1: sem address lookup tables
+
+O v1 remove o suporte a ALTs intencionalmente. 64 endereços brutos correspondem a 2.048 bytes,
+confortavelmente dentro do limite de 4.096 bytes, portanto todo endereço é inline como no
+legacy. Se sua aplicação depende de tabelas de lookup, migrar para o v1 significa
+incluir esses endereços inline.
+
+### Limites de recursos no v1: a configuração de transação
+
+A configuração é uma bitmask `u32` seguida de valores de largura fixa para cada campo
+cujo bit está definido:
+
+| Bit(s) | Campo                           | Largura | Notas                                       |
+| ------ | ------------------------------- | ----- | ------------------------------------------- |
+| 0–1    | Taxa de prioridade                    | u64   | **Total em lamports** — ambos os bits definidos juntos |
+| 2      | Limite de unidades de computação              | u32   |                                             |
+| 3      | Limite de tamanho dos dados de contas carregadas | u32   |                                             |
+| 4      | Tamanho de heap solicitado             | u32   |                                             |
+
+Bits desconhecidos são rejeitados. Como a mensagem é assinada, campos de configuração não reconhecidos
+não podem ser silenciosamente descartados.
+
+<Callout type="warn" title="A taxa de prioridade é o total em lamports, não um preço">
+  No legacy e no v0, a taxa de prioridade é definida via `SetComputeUnitPrice` como
+  **micro-lamports por unidade de computação**, multiplicada pelo limite de unidades de computação. No
+  v1, é um **total absoluto em lamports** — sem multiplicação, sem arredondamento.
+  Não aplique a aritmética por CU aqui. A fórmula total da taxa permanece
+  inalterada: `(signatures × lamports_per_signature) + priority_fee`.
+</Callout>
+
+#### Instruções ComputeBudget são no-ops no v1
+
+Uma transação v1 não rejeita instruções ComputeBudget — ela as **ignora**
+para fins de configuração. Elas ainda são executadas como no-ops bem-sucedidos, consumindo 150
+unidades de computação e um dos 64 slots de instrução sem qualquer efeito no
+orçamento. Remova-as ao construir transações v1, e pare de buscá-las
+ao ler transações v1: os valores estão na configuração da mensagem.
+
+#### Os campos de configuração devem ser definidos explicitamente
+
+A mudança comportamental mais importante para remetentes: ao contrário do legacy e do v0, as transações v1
+devem definir explicitamente o limite de unidades de computação e o limite de tamanho dos dados de contas carregadas,
+caso contrário a transação falhará.
+
+| Campo não definido               | legacy / v0                    | v1          | Sintoma se omitido                                              |
+| ------------------------- | ------------------------------ | ----------- | --------------------------------------------------------------- |
+| Limite de unidades de computação        | 200k por instrução, máx. 1,4M | **0 CU**    | Falha imediatamente, sem orçamento                                |
+| Tamanho dos dados de contas carregadas | 64 MiB                         | **0 bytes** | `MaxLoadedAccountsDataSizeExceeded` na primeira conta carregada |
+| Taxa de prioridade              | 0                              | 0           | —                                                               |
+| Tamanho do heap                 | 32 KiB                         | 32 KiB      | —                                                               |
+
+A abordagem recomendada é simular uma vez com ambos os limites no máximo, depois gravar
+os valores retornados de `unitsConsumed` e `loadedAccountsDataSize` de volta na configuração,
+arredondando o tamanho dos dados para cima até a próxima página de 32 KiB para folga (o modelo de custo
+do bloco cobra em páginas de 32 KiB, portanto a folga abaixo do próximo limite de página é
+gratuita).
+
+## Preparando-se para o v1
+
+O v1 muda a **leitura** de transações, não apenas o envio. Quando o v1 for ativado,
+qualquer cliente que chame `getTransaction` ou `getBlock` sem optar por participar
+começará a falhar em transações v1:
+
+- Passe `maxSupportedTransactionVersion: 1` — o **inteiro** JSON `1`, não a
+  string `"1"` — para [`getTransaction`](/docs/rpc/http/gettransaction) e
+  [`getBlock`](/docs/rpc/http/getblock). Passar `0` falha em transações v1
+  exatamente como omitir o parâmetro, portanto uma base de código atualizada durante o
+  lançamento do v0 ainda precisa ter o valor alterado.
+- `getTransaction` falha em uma transação v1 com o erro `-32015`, e uma transação v1
+  falha em **toda** a resposta de `getBlock` com o mesmo erro —
+  não há resultado parcial.
+- [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe) emite `block: null` e
+  para de avançar, portanto um consumidor que interprete isso como um bloco vazio ficará
+  silenciosamente para trás a partir do primeiro slot v1 em diante.
+- `getSignaturesForAddress` nunca inspeciona os corpos das transações, portanto assinaturas v1
+  são listadas normalmente.
+- Respostas com opt-in incluem um objeto `transactionConfig` na mensagem para transações v1
+  (totalmente ausente para legacy e v0). Pipelines que derivam
+  taxas de prioridade ou limites de computação varrendo instruções ComputeBudget
+  reportarão silenciosamente **zero** para cada transação v1.
+- Use `encoding: 'base64'` ao decodificar transações no lado do cliente, e para
+  `sendTransaction`/`simulateTransaction` com transações acima de 1.232 bytes —
+  a codificação base58 permanece limitada ao tamanho antigo.
+- O suporte em bibliotecas de cliente requer versões recentes: `@solana/kit` 8.0+, crates Rust
+  da geração Agave 4.2.x, ou web3.js v3. O web3.js v1 lê v1 a partir da versão 1.99.0
+  em diante, mas não consegue construir nem enviar transações v1.
+
+Para o guia completo de migração — incluindo suporte em bibliotecas de cliente, detecção de versão
+em streaming (Geyser/gRPC) e comportamento de simulação — consulte a
+[página de atualização para o Formato de Transação v1](https://solana.com/upgrades/larger-transaction-sizes).

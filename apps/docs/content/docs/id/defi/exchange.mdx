@@ -1,8 +1,7 @@
 ---
 title: Tambahkan Solana ke Bursa Anda
 description:
-  Learn how to integrate Solana into your exchange with this guide covering node
-  setup and implementation details for deposits and withdrawals.
+  Learn how to integrate Solana into your exchange with this guide covering node setup and implementation details for deposits and withdrawals.
 ---
 
 Panduan ini menjelaskan cara menambahkan token asli Solana, SOL, ke bursa kripto
@@ -173,7 +172,7 @@ Kami menyarankan penggunaan akun deposit unik untuk setiap pengguna Anda.
 Akun Solana harus dibuat bebas rent dengan menyimpan saldo setara rent selama
 2 tahun dalam SOL. Untuk menemukan saldo minimum bebas rent bagi akun deposit
 Anda, lakukan kueri pada
-[endpoint `getMinimumBalanceForRentExemption`](/docs/rpc/http/getminimumbalanceforrentexemption):
+[endpoint `getMinimumBalanceForRentExemption`](/docs/core/accounts/account-structure):
 
 ```shell
 curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -d '{
@@ -209,12 +208,22 @@ melakukan perubahan. Jika tidak ada perubahan yang dilakukan, deteksi deposit
 tidak akan lagi berfungsi dengan benar karena pengambilan transaksi berversi
 atau blok yang berisi transaksi berversi akan mengembalikan kesalahan.
 
-- `{"maxSupportedTransactionVersion": 0}`
+- `{"maxSupportedTransactionVersion": 1}`
 
-  Parameter `maxSupportedTransactionVersion` harus ditambahkan ke permintaan
-  `getBlock` dan `getTransaction` untuk menghindari gangguan pada deteksi deposit.
-  Versi transaksi terbaru adalah `0` dan harus ditentukan sebagai nilai versi
-  transaksi maksimum yang didukung.
+  Parameter `maxSupportedTransactionVersion` harus ditambahkan ke permintaan `getBlock` dan
+  `getTransaction` untuk menghindari gangguan pada deteksi deposit. Versi transaksi terbaru adalah `0`, dengan
+  [format v1](/docs/core/transactions/versioned-transactions#v1-message-format)
+  yang akan aktif bersama Agave v4.2 — tetapkan nilainya ke integer `1` sekarang untuk
+  mengantisipasi aktivasi tersebut (meminta versi yang lebih tinggi dari yang didukung node adalah
+  aman). Satu transaksi dengan versi yang tidak didukung akan menggagalkan **seluruh**
+  respons `getBlock`, sedangkan `getSignaturesForAddress` tidak pernah gagal karena versi — jadi
+  tanpa opt-in, deposit v1 akan muncul dalam daftar tanda tangan tetapi tidak dapat
+  diambil.
+
+  Setelah v1 aktif, ada dua perubahan lagi yang perlu diperhatikan untuk pipeline deposit: transaksi v1
+  membawa batas komputasi dan biaya dalam objek pesan `transactionConfig`
+  alih-alih instruksi ComputeBudget (pipeline mana pun yang memindai
+  instruksi untuk biaya akan melaporkan nol untuk v1), dan v1 tidak menggunakan tabel pencarian alamat.
 
 Penting untuk dipahami bahwa transaksi berversi memungkinkan pengguna membuat
 transaksi yang menggunakan kumpulan kunci akun lain yang dimuat dari tabel
@@ -546,10 +555,16 @@ Untuk fleksibilitas yang lebih besar, Anda dapat mengirimkan transfer penarikan 
 
 **Catatan:** Setiap transaksi berisi [blockhash terkini](/docs/core/transactions/transaction-structure#recent-blockhash) untuk menunjukkan aktualitasnya. Sangat **penting** untuk menunggu hingga blockhash ini kedaluwarsa sebelum mencoba kembali transfer penarikan yang tampaknya belum dikonfirmasi atau difinalisasi oleh klaster. Jika tidak, Anda berisiko melakukan pengeluaran ganda. Lihat selengkapnya tentang [kedaluwarsa blockhash](#blockhash-expiration) di bawah ini.
 
-Pertama, dapatkan blockhash terkini menggunakan endpoint [`getFees`](/docs/rpc/deprecated/getfees) atau perintah CLI:
+Pertama, dapatkan blockhash terbaru beserta tinggi blok terakhir yang valid menggunakan
+[endpoint `getLatestBlockhash`](/docs/rpc/http/getlatestblockhash):
 
 ```shell
-solana fees --url http://localhost:8899
+curl http://localhost:8899 -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getLatestBlockhash",
+  "params":[{"commitment":"finalized"}]
+}'
 ```
 
 Pada alat baris perintah, tambahkan argumen `--no-wait` untuk mengirim transfer secara asinkron, dan sertakan blockhash terkini Anda dengan argumen `--blockhash`:
@@ -612,7 +627,10 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 
 #### Kedaluwarsa Blockhash
 
-Anda dapat memeriksa apakah blockhash tertentu masih valid dengan mengirimkan permintaan [`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash) dengan blockhash sebagai parameter. Jika nilai respons adalah `null`, blockhash telah kedaluwarsa, dan transaksi penarikan yang menggunakan blockhash tersebut tidak akan pernah berhasil.
+Anda dapat memeriksa apakah suatu blockhash tertentu masih valid dengan mengirimkan permintaan
+[`isBlockhashValid`](/docs/rpc/http/isblockhashvalid) dengan blockhash
+sebagai parameter. Jika nilai respons adalah `false`, blockhash telah kedaluwarsa, dan
+transaksi penarikan yang menggunakan blockhash tersebut seharusnya tidak akan pernah berhasil.
 
 ### Memvalidasi Alamat Akun yang Diberikan Pengguna untuk Penarikan
 
@@ -845,11 +863,13 @@ Anda kemudian dapat memeriksa versi yang terinstal untuk memverifikasi
 spl-token --version
 ```
 
-Yang seharusnya menghasilkan sesuatu seperti
+Ini akan mencetak versi yang terpasang, misalnya:
 
 ```text
-spl-token-cli 2.0.1
+spl-token-cli 5.6.1
 ```
+
+Gunakan versi 5.6.1 atau yang lebih baru jika Anda memerlukan dukungan SPL Token-2022.
 
 ### Pembuatan Akun
 
@@ -1639,10 +1659,10 @@ digunakan, pubkey dari freeze authority akan terdaftar di mint account SPL Token
 [SPL Token-2022](https://spl.solana.com/token-2022) adalah standar terbaru untuk
 pembuatan dan pertukaran token wrapped/sintetis di blockchain Solana.
 
-Juga dikenal sebagai "Token Extensions", standar ini berisi banyak fitur baru yang
+Juga dikenal sebagai "Token Extensions", standar ini memiliki banyak fitur baru yang
 dapat diaktifkan secara opsional oleh pembuat token dan pemegang akun. Fitur-fitur ini mencakup
-transfer rahasia, biaya transfer, penutupan mint, metadata, permanent
-delegates, immutable ownership, dan masih banyak lagi. Silakan lihat
+Confidential Balances, biaya transfer, penutupan mint, metadata, delegasi permanen,
+kepemilikan tidak dapat diubah, dan masih banyak lagi. Silakan lihat
 [panduan ekstensi](https://spl.solana.com/token-2022/extensions) untuk informasi
 lebih lanjut.
 
@@ -1704,17 +1724,17 @@ Aman untuk menutup token account tersebut:
 spl-token close --address <account address>
 ```
 
-#### Transfer Rahasia
+#### Saldo Rahasia
 
-Mint dapat dikonfigurasi untuk transfer rahasia, sehingga jumlah token
-dienkripsi, tetapi pemilik akun tetap bersifat publik.
+Mint dapat dikonfigurasi dengan Confidential Balances, sehingga jumlah token
+dienkripsi tetapi pemilik akun tetap bersifat publik.
 
-Exchange dapat mengonfigurasi token account untuk mengirim dan menerima transfer
-rahasia, guna menyembunyikan jumlah pengguna. Tidak diwajibkan untuk mengaktifkan transfer
-rahasia pada token account, sehingga exchange dapat memaksa pengguna untuk mengirim token
+Bursa dapat mengonfigurasi token account untuk mengirim dan menerima transfer rahasia,
+guna menyembunyikan jumlah pengguna. Tidak diperlukan untuk mengaktifkan Confidential Balances
+pada token account, sehingga bursa dapat memaksa pengguna mengirim token
 secara non-rahasia.
 
-Untuk mengaktifkan transfer rahasia, akun harus dikonfigurasi untuk itu:
+Untuk mengaktifkan Confidential Balances, konfigurasikan akun:
 
 ```shell
 spl-token configure-confidential-transfer-account --address <account address>
