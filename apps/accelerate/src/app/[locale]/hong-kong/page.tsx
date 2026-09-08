@@ -80,7 +80,7 @@ export default async function HongKongPage({ params }: PageProps) {
       <Sponsors sponsors={sponsors as Sponsor[]} />
       <FAQ />
       <GettingThere />
-      <FooterCTA />
+      <FooterCTA showCta={false} />
     </>
   );
 }

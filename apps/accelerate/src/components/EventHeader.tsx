@@ -88,7 +88,9 @@ export function EventHeader({
   logoImage,
   logoAlt,
   showSpeakersNav = true,
-  showCta = true,
+  // Accelerate events that have concluded should remain navigational archives,
+  // rather than presenting an unavailable ticket flow.
+  showCta = false,
   ctaLabel,
   lumaId = "accelerate-miami",
   activeNav,
@@ -132,7 +134,7 @@ export function EventHeader({
   const logoHeight = isHero ? "lg:h-[100px]" : "lg:h-[80px]";
   const headerContent = (
     <>
-      <Link href={homePath} className="flex items-center">
+      <Link href="/accelerate" className="flex items-center">
         <Image
           src={getImagePath(logoImage)}
           alt={logoAlt}

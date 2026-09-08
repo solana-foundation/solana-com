@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
 import { getImagePath } from "@/config";
@@ -50,6 +51,21 @@ function GradientButton({
 
 function ChinaHeader() {
   const t = useTranslations("accelerate.china");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : previousOverflow;
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
+
+  const eventLinks = [
+    { href: "/accelerate/hong-kong", label: t("hongKong") },
+    { href: "/accelerate/miami", label: t("miami") },
+  ];
 
   return (
     <header className="absolute inset-x-0 top-0 z-30 h-[88px] overflow-hidden bg-black/70 backdrop-blur-sm md:h-[138px]">
@@ -76,29 +92,94 @@ function ChinaHeader() {
           />
         </Link>
         <nav
-          className="flex items-center gap-4 md:gap-8"
+          className="hidden items-center gap-4 md:gap-8 lg:flex"
           aria-label={t("eventsAria")}
         >
-          <Link
-            href="/accelerate/hong-kong"
-            className="hidden text-[14px] font-semibold uppercase tracking-[0.8px] text-white transition-colors hover:text-accelerate-green lg:block"
-          >
-            {t("hongKong")}
-          </Link>
-          <Link
-            href="/accelerate/miami"
-            className="hidden text-[14px] font-semibold uppercase tracking-[0.8px] text-white transition-colors hover:text-accelerate-green lg:block"
-          >
-            {t("miami")}
-          </Link>
-          <GradientButton
-            href="https://luma.com/acc-shanghai-26"
-            className="w-[164px] md:w-auto"
-          >
+          {eventLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-[14px] font-semibold uppercase tracking-[0.8px] text-white transition-colors hover:text-accelerate-green"
+            >
+              {link.label}
+            </Link>
+          ))}
+          <GradientButton href="https://luma.com/acc-shanghai-26">
             {t("getTickets")}
           </GradientButton>
         </nav>
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center text-accelerate-green lg:hidden"
+          aria-label={t("eventsAria")}
+          aria-expanded={mobileMenuOpen}
+          onClick={() => setMobileMenuOpen(true)}
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       </div>
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 bg-black px-6 py-7 lg:hidden">
+          <div className="mx-auto flex w-full max-w-[1024px] items-center justify-between">
+            <Link href="/accelerate" onClick={() => setMobileMenuOpen(false)}>
+              <Image
+                src={getImagePath("/images/china/china-logo.svg")}
+                alt={t("logoAlt")}
+                width={187}
+                height={103}
+                className="h-auto w-[136px]"
+              />
+            </Link>
+            <button
+              type="button"
+              className="flex h-10 w-10 items-center justify-center text-accelerate-green"
+              aria-label={t("eventsAria")}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <nav
+            className="mx-auto mt-16 flex w-full max-w-[1024px] flex-col gap-8"
+            aria-label={t("eventsAria")}
+          >
+            {eventLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <GradientButton
+              href="https://luma.com/acc-shanghai-26"
+              className="mt-2 w-full sm:w-auto"
+            >
+              {t("getTickets")}
+            </GradientButton>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

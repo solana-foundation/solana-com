@@ -148,17 +148,19 @@ export function HomepageHero() {
 
       {/* Scroll-driven logo — shrinks from hero size toward the header slot */}
       <motion.div
-        className="pointer-events-none absolute z-10"
+        className="absolute z-10"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
         style={{ top: logoTop, left: logoLeft }}
       >
-        <motion.img
-          src={getImagePath("/images/solana-accelerate-logo.svg")}
-          alt={t("hero.logoAlt")}
-          style={{ height: logoHeight, width: "auto" }}
-        />
+        <Link href="/accelerate" aria-label={t("hero.logoAlt")}>
+          <motion.img
+            src={getImagePath("/images/solana-accelerate-logo.svg")}
+            alt={t("hero.logoAlt")}
+            style={{ height: logoHeight, width: "auto" }}
+          />
+        </Link>
       </motion.div>
 
       {/* Main content */}

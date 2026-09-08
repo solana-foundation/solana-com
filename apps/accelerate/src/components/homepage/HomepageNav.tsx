@@ -103,14 +103,16 @@ export function HomepageNav() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[60] bg-black px-6 py-7">
           <div className="mx-auto flex w-full max-w-[1024px] items-start justify-between">
-            <Image
-              src={getImagePath("/images/solana-accelerate-logo.svg")}
-              alt={t("nav.logoAlt")}
-              width={166}
-              height={94}
-              className="h-auto w-[120px] md:w-[166px]"
-              priority
-            />
+            <Link href="/accelerate" onClick={closeMobileMenu}>
+              <Image
+                src={getImagePath("/images/solana-accelerate-logo.svg")}
+                alt={t("nav.logoAlt")}
+                width={166}
+                height={94}
+                className="h-auto w-[120px] md:w-[166px]"
+                priority
+              />
+            </Link>
             <button
               type="button"
               onClick={closeMobileMenu}

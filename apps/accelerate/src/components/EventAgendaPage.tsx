@@ -4,8 +4,7 @@ import { motion } from "motion/react";
 import { Link } from "@workspace/i18n/routing";
 import { useTranslations } from "@workspace/i18n/client";
 import { Agenda } from "./Agenda";
-import { EventCtaArrow, EventHeader } from "./EventHeader";
-import { LumaModal } from "./LumaModal";
+import { EventHeader } from "./EventHeader";
 import { fadeInUp, stagger } from "@/lib/animations";
 import type { AgendaData } from "@/lib/miami-agenda";
 import type { AccelerateEvent } from "@/data/events";
@@ -136,14 +135,6 @@ export function EventAgendaPage({ event, data }: EventAgendaPageProps) {
               </span>
               ?
             </motion.h2>
-            <motion.div variants={fadeInUp} className="mt-8">
-              <LumaModal lumaId={event.lumaId ?? "accelerate-miami"}>
-                <button className="btn-outline-gradient px-8 py-4 text-button">
-                  <span>{t("requestToJoin")}</span>
-                  <EventCtaArrow className="ml-2" />
-                </button>
-              </LumaModal>
-            </motion.div>
             <motion.p
               variants={fadeInUp}
               className="mt-12 text-sm text-white/40"

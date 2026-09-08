@@ -36,7 +36,7 @@ export function Hero({
   agendaPath = "/accelerate/hong-kong/agenda",
   showSpeakersNav = true,
   showVideo = true,
-  showCta = true,
+  showCta = false,
   videoId = "LsfnC62q8oE",
   videoPlatform = "youtube",
   vimeoHash,

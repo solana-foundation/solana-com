@@ -10,6 +10,7 @@ const ITERABLE_BASE_URL =
   "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
 
 const ITERABLE_FORM_ID = "fdd4a0db-f4af-4b29-90f9-98b0556d4c89";
+const ITERABLE_ACTION_URL = `${ITERABLE_BASE_URL}${ITERABLE_FORM_ID}`;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,7 +28,9 @@ export function StayUpdated() {
       e.preventDefault();
       setErrorMsg("");
 
-      if (!EMAIL_REGEX.test(email)) {
+      const trimmedEmail = email.trim();
+
+      if (!EMAIL_REGEX.test(trimmedEmail)) {
         setErrorMsg(t("stayUpdated.invalidEmail"));
         return;
       }
@@ -41,15 +44,12 @@ export function StayUpdated() {
 
       try {
         const data = new FormData();
-        data.append("email", email);
+        data.append("email", trimmedEmail);
 
-        const response = await fetch(
-          `${ITERABLE_BASE_URL}${ITERABLE_FORM_ID}`,
-          {
-            method: "POST",
-            body: data,
-          },
-        );
+        const response = await fetch(ITERABLE_ACTION_URL, {
+          method: "POST",
+          body: data,
+        });
 
         if (!response.ok) {
           throw new Error("Subscription failed");
@@ -100,25 +100,41 @@ export function StayUpdated() {
           </div>
 
           {status === "success" ? (
-            <p className="text-[18px] text-accelerate-green">
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-[18px] text-accelerate-green"
+            >
               {t("stayUpdated.success")}
             </p>
           ) : (
             <>
               {/* Email input + subscribe button */}
               <form
+                name="iterable-optin"
+                action={ITERABLE_ACTION_URL}
+                method="post"
+                target="_blank"
                 onSubmit={handleSubmit}
                 className="w-full max-w-[296px] md:max-w-full"
               >
                 <div className="flex w-full flex-col items-stretch gap-4 md:flex-row md:items-center md:justify-between md:gap-0 md:rounded-[66px] md:border md:border-accelerate-gray-200 md:p-4">
                   {/* Email input - separate pill on mobile */}
                   <div className="flex h-[48px] items-center justify-center rounded-[39px] border border-accelerate-gray-200 px-4 md:border-0 md:p-2.5">
+                    <label htmlFor="accelerate-email" className="sr-only">
+                      {t("stayUpdated.emailPlaceholder")}
+                    </label>
                     <input
+                      id="accelerate-email"
                       type="email"
                       name="email"
+                      autoComplete="email"
                       placeholder={t("stayUpdated.emailPlaceholder")}
                       value={email}
                       onChange={handleEmailChange}
+                      aria-describedby={
+                        errorMsg ? "accelerate-email-error" : undefined
+                      }
                       className="w-full bg-transparent text-center text-[13px] font-medium uppercase tracking-[0.65px] leading-none text-white placeholder-white outline-none md:text-left md:text-[16px] md:tracking-[0.8px]"
                     />
                   </div>
@@ -140,13 +156,17 @@ export function StayUpdated() {
                 <div className="mx-auto mt-8 flex max-w-full items-start gap-3 md:mt-6 md:w-[445px]">
                   <div className="flex items-center py-[2px]">
                     <input
+                      id="accelerate-consent"
                       type="checkbox"
                       checked={consent}
                       onChange={(e) => setConsent(e.target.checked)}
                       className="mt-0 h-[19px] w-[19px] flex-shrink-0 cursor-pointer rounded-none border border-accelerate-gray-200 bg-black md:h-[22px] md:w-[22px]"
                     />
                   </div>
-                  <p className="font-diatype text-left text-[12px] font-light leading-none tracking-[0.6px] text-accelerate-gray-200 md:text-[16px] md:tracking-[0.8px]">
+                  <label
+                    htmlFor="accelerate-consent"
+                    className="font-diatype text-left text-[12px] font-light leading-none tracking-[0.6px] text-accelerate-gray-200 md:text-[16px] md:tracking-[0.8px]"
+                  >
                     {t.rich("stayUpdated.consent", {
                       privacyPolicy: (chunks) => (
                         <a
@@ -159,11 +179,17 @@ export function StayUpdated() {
                         </a>
                       ),
                     })}
-                  </p>
+                  </label>
                 </div>
 
                 {errorMsg && (
-                  <p className="mt-3 text-sm text-red-400">{errorMsg}</p>
+                  <p
+                    id="accelerate-email-error"
+                    role="alert"
+                    className="mt-3 text-sm text-red-400"
+                  >
+                    {errorMsg}
+                  </p>
                 )}
               </form>
             </>
