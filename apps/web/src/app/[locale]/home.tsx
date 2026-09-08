@@ -67,11 +67,31 @@ const HERO_BANNERS = [
 
 type HeroBanner = (typeof HERO_BANNERS)[number];
 
-const getRandomHeroBanner = (): HeroBanner =>
-  HERO_BANNERS[Math.floor(Math.random() * HERO_BANNERS.length)] ??
-  HERO_BANNERS[0];
-
 const DEFAULT_HERO_BANNER = HERO_BANNERS[0];
+
+const isHeroBannerActive = (banner: HeroBanner, now = new Date()): boolean => {
+  const expiry =
+    "bannerExpiryDate" in banner ? banner.bannerExpiryDate : undefined;
+  if (!expiry) return true;
+
+  const today = new Date(now);
+  const expiryDate = new Date(expiry);
+  today.setHours(0, 0, 0, 0);
+  expiryDate.setHours(0, 0, 0, 0);
+
+  return today <= expiryDate;
+};
+
+const getRandomHeroBanner = (): HeroBanner => {
+  const activeBanners = HERO_BANNERS.filter((banner) =>
+    isHeroBannerActive(banner),
+  );
+
+  return (
+    activeBanners[Math.floor(Math.random() * activeBanners.length)] ??
+    DEFAULT_HERO_BANNER
+  );
+};
 
 interface HomePageProps {
   translations: {
