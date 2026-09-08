@@ -5,6 +5,7 @@ import Marquee from "@/components/Marquee";
 import NarrativeSection from "@/components/sections/NarrativeSection";
 import TicketsSection from "@/components/sections/TicketsSection";
 import ParticipateSection from "@/components/sections/ParticipateSection";
+import SpeakersSection from "@/components/sections/SpeakersSection";
 import WhyAttendSection from "@/components/sections/WhyAttendSection";
 import GallerySection from "@/components/sections/GallerySection";
 import StatsSection from "@/components/sections/StatsSection";
@@ -50,6 +51,7 @@ export default async function HomePage({
       <ParticipateSection />
       <WhyAttendSection />
       <SponsorsSection />
+      <SpeakersSection />
       <GallerySection />
       <StatsSection />
       <Marquee />
