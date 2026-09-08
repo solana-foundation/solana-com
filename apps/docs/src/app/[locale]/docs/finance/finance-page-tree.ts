@@ -23,13 +23,15 @@ export function getFinancePageTree(
   const tokenizationFolder = findFolder(tree, SECTION_ROUTES.tokenization);
   const paymentsFolder = findFolder(tree, SECTION_ROUTES.payments);
   const defiFolder = findFolder(tree, SECTION_ROUTES.defi);
+  const financeChildren = financeFolder?.children ?? [];
+  const privacyPages = financeChildren.filter(isPrivacyPage);
 
   const financePages: Node[] = financeFolder
     ? [
         ...(financeFolder.index
           ? [{ ...financeFolder.index, name: "Overview" }]
           : []),
-        ...financeFolder.children,
+        ...financeChildren.filter((child) => !isPrivacyPage(child)),
       ]
     : [];
 
@@ -62,8 +64,16 @@ export function getFinancePageTree(
             ),
           ]
         : []),
+      ...privacyPages,
     ],
   };
+}
+
+function isPrivacyPage(node: Node): boolean {
+  return (
+    node.type === "page" &&
+    node.url.includes(`${SECTION_ROUTES.finance}/privacy`)
+  );
 }
 
 function getAssetsFolder(

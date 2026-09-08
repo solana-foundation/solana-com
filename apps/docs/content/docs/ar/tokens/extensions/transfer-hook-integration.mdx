@@ -1,0 +1,468 @@
+---
+title: دليل دمج Transfer Hook
+description:
+  تعلّم كيفية دمج الرموز التي تستخدم امتداد Transfer Hook في المحافظ وجهات الحضانة والتطبيقات اللامركزية، بما في ذلك اكتشاف الامتداد، وحل الحسابات الإضافية التي يتطلبها الخطاف، ومعالجة أخطاء المحاكاة والتنفيذ.
+url: /docs/tokens/extensions/transfer-hook-integration
+type: conceptual
+prerequisites:
+  - /docs/tokens/extensions
+related:
+  - /docs/tokens/extensions/transfer-hook
+  - /docs/tokens/extensions/permanent-delegate
+  - /docs/tokens/extensions/transfer-fees
+  - /docs/tokens/extensions/confidential-transfer/integration-guide
+---
+
+## الخلفية
+
+يتيح امتداد Transfer Hook لعملية سك Token-2022 اشتراط Cross Program
+Invocation (CPI) إلى برنامج مخصص عند كل عملية نقل للرمز. تخزّن عملية السك
+عنوان برنامج الخطاف، ويجب على أي محفظة أو تطبيق لامركزي أو جهة حضانة ترسل
+ذلك الرمز تضمين الحسابات التي يحتاجها برنامج الخطاف حتى يتمكن CPI من التنفيذ.
+
+هذا الدليل موجَّه للفرق التي تعمل على **دمج** الرموز التي تستخدم transfer hook
+(المحافظ والتطبيقات اللامركزية وجهات الحضانة والبورصات والمستكشفات)، لا للفرق التي **تكتب**
+برنامج خطاف. إن كنت تبني برنامج خطاف، فابدأ بـ
+[Transfer Hook Interface](https://www.solana-program.com/docs/transfer-hook-interface)
+و[دليل امتداد Transfer Hook](/docs/tokens/extensions/transfer-hook)؛
+يركّز هذا الدليل على ما يحتاجه العميل للإرسال والاستقبال ومحاكاة
+عمليات نقل الرمز الممكَّن للخطاف بشكل صحيح.
+
+على خلاف معظم امتدادات Token-2022 الأخرى، لا يُعدّ transfer hook اختياريًا على
+مستوى الحساب. إذا كانت عملية السك تحتوي على transfer hook مُهيَّأ، فإن **كل عملية نقل
+لذلك الرمز تستلزم الحسابات الإضافية للخطاف**، بغض النظر عمّا إذا كان منتجك
+يتفاعل مع منطق الخطاف أم لا. العميل الذي لا يُحلّ تلك الحسابات لن يتمكن من إرسال الرمز
+إطلاقًا؛ تعليمات النقل ستفشل على السلسلة، ولن يتجاهل الخطاف بصمت. الدوال
+الكاملة التي يمكنك إضافتها إلى مسار الإرسال لديك موجودة تحت
+[إرسال رمز transfer-hook](#sending-a-transfer-hook-token) أدناه، لكلٍّ من
+Kit وWeb3.js.
+
+### الموارد
+
+- [مرجع Transfer Hook Interface](https://www.solana-program.com/docs/transfer-hook-interface)
+- [كود Rust للامتداد](https://github.com/solana-program/token-2022/tree/main/program/src/extension/transfer_hook)
+- [عميل JS لـ `@solana-program/token-2022`](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  العميل المبني على Kit، الموصى به للتكاملات الجديدة. يدعم حل transfer hook
+  أصليًا عبر `getTransferCheckedWithTransferHookInstructionAsync` إضافةً إلى
+  المساعدَين ذوَي المستوى الأدنى `resolveExtraAccountMetasForExecute` /
+  `findExtraAccountMetaListPda`.
+- [عميل JS لـ `@solana/spl-token`](https://github.com/solana-program/token-2022/tree/main/clients/js-legacy)
+  العميل القديم لمكتبة `@solana/web3.js` المهجورة. يغطي نفس المحاور
+  (اكتشاف الامتداد، وحل الحسابات الإضافية، ومساعد المستوى الأعلى
+  `createTransferCheckedWithTransferHookInstruction`) للفرق التي لا تزال تستخدم web3.js.
+- [دليل امتداد Transfer Hook](/docs/tokens/extensions/transfer-hook)
+  (كتابة برنامج الخطاف، للسياق حول ما يُهيّئه المُصدِرون)
+
+## ملخص سريع
+
+- تخزّن عملية سك transfer hook **عنوان برنامج الخطاف**. تُجري كل عملية نقل CPI
+  إلى ذلك البرنامج، ويحتاج CPI إلى حسابات إضافية تتخطى حسابات النقل المعيارية.
+- الحسابات الإضافية التي يحتاجها الخطاف مُدرَجة في حساب
+  **`ExtraAccountMetaList`** على السلسلة، وهو PDA مشتق من برنامج الخطاف
+  وعملية السك. يقرأ العملاء هذا الحساب لتحديد الحسابات التي يجب إلحاقها بتعليمات النقل.
+- **الحل ليس اختياريًا.** إذا كانت الحسابات الإضافية مفقودة أو قديمة، فستفشل
+  تعليمات النقل على السلسلة. لا يوجد مسار احتياطي يُرسل الرمز بصمت دون الخطاف.
+- **كلٌّ من Kit (`@solana-program/token-2022`) وWeb3.js (`@solana/spl-token`)
+  قادرَان على إرسال نقل ممكَّن للخطاف من البداية إلى النهاية** — راجع الدوال الكاملة
+  تحت [إرسال رمز transfer-hook](#sending-a-transfer-hook-token). يحلّ كل منهما
+  `ExtraAccountMetaList` بشكل أصلي: Kit عبر
+  `getTransferCheckedWithTransferHookInstructionAsync`، وWeb3.js عبر
+  `createTransferCheckedWithTransferHookInstruction`.
+- **احرص دائمًا على المحاكاة قبل الإرسال.** يمكن لبرنامج الخطاف أن يُفشل النقل لأي
+  سبب يحدده (فحص قائمة مسموح بها، أو حالة إيقاف مؤقت، أو تفويض مفقود)، وقد تتغير
+  مجموعة الحسابات الإضافية إذا قام المُصدِر بتحديث الخطاف. تكشف المحاكاة عن كلا
+  المشكلتين قبل أن يوقّع المستخدم.
+- يضيف تنفيذ الخطاف وحدات حوسبة، وبالنسبة للخطافات التي تتطلب حسابات جانبية
+  ممولة مسبقًا أو معتمدة مسبقًا (حساب رسوم مفوَّض، أو PDA عداد لم يُهيّئه المستخدم بعد)،
+  قد يستلزم إجراء معاملات إعداد قبل نجاح النقل الأول.
+
+## المصطلحات
+
+- **برنامج الخطاف**: البرنامج الذي تُفوَّض إليه عملية السك منطق وقت النقل، ويُعيَّن
+  عبر امتداد Transfer Hook على عملية السك.
+- **`ExtraAccountMetaList`**: PDA مملوك لبرنامج الخطاف، يخزّن قائمة الحسابات
+  الإضافية التي تحتاجها تعليمة `Execute` الخاصة بالخطاف. مشتق من البذور
+  `"extra-account-metas"` وعنوان عملية السك.
+- **`ExtraAccountMeta`**: إدخال واحد في تلك القائمة. يمكنه الإشارة إلى عنوان ثابت،
+  أو PDA من برنامج الخطاف، أو PDA من برنامج مختلف، أو PDA مشتق من بيانات
+  في أحد حسابات النقل ذاتها.
+- **امتداد `TransferHookAccount`**: حالة على token account تتضمن
+  علامة `transferring`، تُضبط على `true` فقط أثناء إجراء token program لـ CPI
+  إلى الخطاف. تستخدمها برامج الخطاف لرفض الاستدعاءات التي لا تنشأ من
+  عملية نقل فعلية.
+- **`Execute`**: التعليمة التي يُجري إليها token program CPI عند كل عملية نقل.
+  لا يستدعيها العملاء مباشرةً؛ بل تُستدعى كجزء من `TransferChecked`.
+
+## إرسال رمز transfer-hook
+
+يجب على كل عملية نقل ممكَّنة للخطاف القيام بأربعة أشياء: اكتشاف وجود transfer hook
+على عملية السك، وحل الحسابات الإضافية التي يحتاجها CPI الخاص بالخطاف، والمحاكاة،
+ثم الإرسال فقط بعد ذلك. تقوم كلتا الدالتَين أدناه بالخطوات الأربع وهما مُعَدَّتان للإضافة مباشرةً
+في أي مكان تبني فيه تطبيقك حاليًا عملية نقل Token-2022.
+
+### Kit
+
+يحلّ عميل `@solana-program/token-2022` كل شيء بشكل أصلي عبر
+`getTransferCheckedWithTransferHookInstructionAsync`: يجلب عملية السك،
+ويكتشف ما إذا كان transfer hook مُهيَّأً، ويحلّ `ExtraAccountMetaList`،
+ويُلحق الحسابات الإضافية للخطاف. عندما لا تحتوي عملية السك على خطاف يُعيد
+`transferChecked` عاديًا، فيغطي نفس الاستدعاء كلا الحالتين دون الحاجة إلى التحويل
+للعميل القديم.
+
+```ts title="send-transfer-hook-token-kit.ts"
+import {
+  appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  compileTransaction,
+  createTransactionMessage,
+  getBase64EncodedWireTransaction,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  type Address,
+  type Rpc,
+  type RpcSubscriptions,
+  type SolanaRpcApi,
+  type SolanaRpcSubscriptionsApi,
+  type TransactionSigner
+} from "@solana/kit";
+import { getTransferCheckedWithTransferHookInstructionAsync } from "@solana-program/token-2022";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction with Kit.
+ */
+export async function sendTokenTransfer({
+  rpc,
+  rpcSubscriptions,
+  source,
+  mint,
+  destination,
+  owner,
+  feePayer,
+  amount,
+  decimals
+}: {
+  rpc: Rpc<SolanaRpcApi>;
+  rpcSubscriptions: RpcSubscriptions<SolanaRpcSubscriptionsApi>;
+  source: Address;
+  mint: Address;
+  destination: Address;
+  owner: TransactionSigner; // Authority over the source token account.
+  feePayer: TransactionSigner;
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Build the transfer instruction. When the mint has a transfer hook this
+  // fetches it, resolves the ExtraAccountMetaList, and appends the accounts the
+  // hook's CPI needs; when it doesn't, you get a plain transferChecked. Because
+  // it re-fetches the mint on every call, don't cache the result across sends
+  // -- the hook program and its extra accounts can both change.
+  const instruction = await getTransferCheckedWithTransferHookInstructionAsync(
+    { rpc },
+    {
+      source,
+      mint,
+      destination,
+      authority: owner,
+      amount,
+      decimals
+    }
+  );
+
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+  const message = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstructions([instruction], tx)
+  );
+
+  // 2. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Compiling the message (rather than signing
+  // it) is enough to simulate, and sigVerify: false lets the network run it
+  // without signatures. This catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await rpc
+    .simulateTransaction(
+      getBase64EncodedWireTransaction(compileTransaction(message)),
+      { encoding: "base64", sigVerify: false, replaceRecentBlockhash: true }
+    )
+    .send();
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 3. Sign only after a successful simulation, then send.
+  const signedMessage = await signTransactionMessageWithSigners(message);
+  assertIsTransactionWithBlockhashLifetime(signedMessage);
+  await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+    signedMessage,
+    { commitment: "confirmed" }
+  );
+}
+```
+
+<Callout type="info">
+  `getTransferCheckedWithTransferHookInstructionAsync` يُغلِّف محلِّلات Kit
+  ذات المستوى الأدنى (`resolveExtraAccountMetasForExecute`،
+  `findExtraAccountMetaListPda`) المشمولة تحت [تجميع الحسابات
+  يدويًا](#assembling-accounts-manually) أدناه. استخدم تلك مباشرةً فقط
+  عندما تُلحق حسابات الخطاف بتعليمة تُجمّعها بنفسك.
+</Callout>
+
+### Web3.js
+
+يحلّ عميل `@solana/spl-token` القديم كل شيء بشكل أصلي — لا حاجة لأي تحويل.
+
+```ts title="send-transfer-hook-token.ts"
+import {
+  Connection,
+  PublicKey,
+  Signer,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  createTransferCheckedInstruction,
+  createTransferCheckedWithTransferHookInstruction,
+  getMint,
+  getTransferHook,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction directly.
+ */
+export async function sendTokenTransfer({
+  connection,
+  payer,
+  source,
+  mint,
+  destination,
+  owner,
+  amount,
+  decimals
+}: {
+  connection: Connection;
+  payer: Signer; // Fee payer; can be the same signer as `owner`.
+  source: PublicKey;
+  mint: PublicKey;
+  destination: PublicKey;
+  owner: Signer; // Authority over the source token account.
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Re-check for a transfer hook on every send. The hook program and its
+  // extra accounts can both change, so don't cache this across transfers.
+  const mintInfo = await getMint(
+    connection,
+    mint,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  );
+  const transferHook = getTransferHook(mintInfo);
+
+  // 2. Build the transfer instruction. When a hook is configured, this also
+  // resolves the ExtraAccountMetaList and appends the accounts the hook's
+  // CPI needs -- there's no separate resolution step to call yourself.
+  const instruction = transferHook
+    ? await createTransferCheckedWithTransferHookInstruction(
+        connection,
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [], // Additional signers, only needed for a multisig authority.
+        "confirmed",
+        TOKEN_2022_PROGRAM_ID
+      )
+    : createTransferCheckedInstruction(
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      );
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+  const transaction = new Transaction({
+    feePayer: payer.publicKey,
+    blockhash,
+    lastValidBlockHeight
+  }).add(instruction);
+
+  // 3. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Simulating without signers runs the
+  // transaction unsigned, which catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await connection.simulateTransaction(transaction);
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 4. Sign and send only after a successful simulation.
+  return sendAndConfirmTransaction(connection, transaction, [payer, owner]);
+}
+```
+
+## اكتشاف الامتداد
+
+تُعيد كلتا الدالتَين أعلاه جلب عملية السك والتحقق من الخطاف عند كل إرسال:
+Web3.js بشكل صريح عبر `getMint`، وKit داخل
+`getTransferCheckedWithTransferHookInstructionAsync`، الذي يجلب عملية السك
+قبل حل أي شيء.
+
+<Callout type="info">
+  يمكن تحديث عنوان برنامج الخطاف على عملية السك بواسطة صلاحية transfer hook
+  الخاصة بعملية السك (`UpdateTransferHook`)، كما يمكن أن تتغير الحسابات
+  الإضافية التي يتطلبها بشكل مستقل (`UpdateExtraAccountMetaList`). لا
+  تخزّن أيًا من القيمتَين مؤقتًا لفترة أطول من دورة نقل واحدة؛ أعد الجلب عندما
+  يبدأ المستخدم إرسالًا جديدًا.
+</Callout>
+
+يوجد امتداد `TransferHookAccount` المقترن على token accounts، لا على عملية السك.
+عمومًا لا يحتاج المدمجون لقراءته مباشرةً. وجوده يمكّن برنامج الخطاف من التحقق من
+أن الاستدعاء جرى ضمن عملية نقل حقيقية، لا لأن عميلًا استدعى `Execute` مباشرةً.
+
+## حل الحسابات الإضافية
+
+تحتاج كل عملية نقل ممكَّنة للخطاف إلى الحسابات الأربعة المعيارية للنقل (المصدر،
+عملية السك، الوجهة، المالك/الصلاحية) إضافةً إلى ما يحدده حساب `ExtraAccountMetaList`
+لتلك العملية. القائمة هي PDA مشتق من برنامج الخطاف:
+
+```ts title="derive-extra-account-meta-list.ts"
+// Kit (@solana-program/token-2022)
+import { findExtraAccountMetaListPda } from "@solana-program/token-2022";
+
+const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
+  { mint: mintAddress },
+  { programAddress: transferHook.programId }
+);
+
+// Web3.js (@solana/spl-token)
+import { getExtraAccountMetaAddress } from "@solana/spl-token";
+
+const extraAccountMetaListPda = getExtraAccountMetaAddress(
+  mintAddress,
+  transferHook.programId
+);
+```
+
+يُحلَّل كل إدخال في ذلك الحساب إلى `AccountMeta` ملموس بإحدى أربع طرق: pubkey
+ثابت، أو PDA من برنامج الخطاف، أو PDA من برنامج مختلف مُسمَّى سابقًا في قائمة
+الحسابات، أو PDA مشتق من بايتات مقروءة من أحد حسابات النقل ذاتها (على سبيل المثال،
+مالك token account المصدر). يستلزم حل الحالة المشتقة من البيانات جلب بيانات الحساب
+عبر RPC، وهذا ما يجعل الحل غير متزامن وقد يستغرق أكثر من رحلة ذهاب وإياب واحدة.
+
+### تجميع الحسابات يدويًا
+
+إن كنت تُجمّع التعليمة بنفسك بدلًا من استخدام الدوال أعلاه، يوفر كلا العميلَين
+الأجزاء ذات المستوى الأدنى التي تُبنى منها تلك الدوال.
+
+**Kit (`@solana-program/token-2022`)**
+
+- `findExtraAccountMetaListPda({ mint }, { programAddress })`: يشتق
+  PDA حساب التحقق من `ExtraAccountMetaList`.
+- `getExtraAccountMetasDecoder().decode(accountData)`: يحلل بيانات
+  حساب التحقق الخام إلى قائمة من إدخالات `ExtraAccountMeta`.
+- `resolveExtraAccountMeta(meta, previousAddresses, instructionData, hookProgramAddress, rpc)`:
+  يحلّ إدخالًا واحدًا إلى `AccountMeta`، بالنظر إلى العناوين المحلولة حتى الآن
+  (يمكن للإدخالات اللاحقة الإشارة إلى الإدخالات السابقة).
+- `resolveExtraAccountMetasForExecute({ rpc, transferHookProgramAddress, source, mint, destination, owner, amount })`:
+  يحلّ كل إدخال ويُعيد البيانات الوصفية للإلحاق — الحسابات الإضافية وبرنامج
+  الخطاف وحساب التحقق. تعليمات Kit غير قابلة للتغيير، لذا يُعيد البيانات الوصفية
+  لتوزيعها على التعليمة بدلًا من تعديلها في مكانها.
+
+**Web3.js (`@solana/spl-token`)**
+
+- `getExtraAccountMetas(account)`: يفكّ ترميز بيانات حساب `ExtraAccountMetaList`
+  الخام إلى قائمة من إدخالات `ExtraAccountMeta`.
+- `resolveExtraAccountMeta(connection, meta, previousMetas, instructionData, hookProgramId)`:
+  يحلّ إدخالًا واحدًا إلى `AccountMeta`، بالنظر إلى الحسابات المحلولة حتى الآن
+  (يمكن للإدخالات اللاحقة الإشارة إلى الإدخالات السابقة).
+- `addExtraAccountMetasForExecute(connection, instruction, hookProgramId, source, mint, destination, owner, amount)`:
+  يحلّ كل إدخال ويُلحقه بتعليمة موجودة في استدعاء واحد.
+
+## المحاكاة قبل الإرسال
+
+خطوة المحاكاة في كلتا الدالتَين أعلاه هي سبب أهمية هذا: هناك أمران يمكن أن
+يسيرا بشكل خاطئ ولا يظهران إلا عند وقت التنفيذ.
+
+- **الخطاف يرفض النقل.** يمكن لبرنامج الخطاف ترميز شروط اعتباطية
+  (قائمة مسموح بها، أو عملية سك موقوفة مؤقتًا، أو حد لكل نقل) ويُفشل
+  التعليمة بأكملها، المصدر والوجهة معًا، إذا لم يُستوفَ الشرط. لا يوجد
+  حالة نجاح جزئي: رفض استدعاء الخطاف يرفض النقل.
+- **الحسابات الإضافية قديمة.** إذا قام المُصدِر بتغيير برنامج الخطاف أو تحديث
+  `ExtraAccountMetaList` بين آخر مرة خزّن فيها عميلك أي شيء وبين إرسال
+  المستخدم، فإن الحل بناءً على بيانات قديمة يُنتج حسابات خاطئة ويفشل النقل
+  بخطأ التحقق من الحساب، لا بخطأ منطق الخطاف.
+
+إجراء المحاكاة أولاً، ثم الإرسال فقط بعد نجاحها، يكشف كلتا الحالتين قبل أن يدفع المستخدم رسوماً على معاملة فاشلة. كما يتيح لك عرض رسالة خطأ واضحة (توضّح سبب تعذّر إتمام التحويل) بدلاً من إظهار فشل معاملة خام للمستخدم.
+
+## تداعيات الحوسبة والإعداد
+
+يعمل استدعاء CPI الخاص ببرنامج الخطاف ضمن ميزانية الحوسبة للتحويل. فالخطاف الذي يُنجز عملاً غير تافه (قراءة حسابات متعددة، وتشغيل فحوصاته الخاصة) يُضيف تكلفة حوسبة حقيقية فوق تكلفة التحويل الأساسية، لذا فإن طلب حد وحدات حوسبة مناسب للتحويلات التي تعمل بالخطاف يُقلل من حالات الفشل التي يمكن تجنّبها.
+
+تتطلب بعض الخطافات أيضاً أن تكون الحسابات موجودة قبل نجاح أول تحويل، وليس فقط قابلة للتحليل: كـ token account مُفوَّض للرسوم يحتاج المُرسِل إلى تمويله والموافقة عليه (كما في خطاف رسوم wSOL)، أو إدخال عداد أو قائمة مسموح بها يتوقع برنامج المُصدِر أن يكون مُهيَّأً مسبقاً لذلك المالك. ستشهد التطبيقات التي تكتفي بتحليل الحسابات دون إبلاغ المستخدم بأن "هذا الرمز يحتاج إعداداً لمرة واحدة قبل أن تتمكن من إرساله" فشلاً في عمليات الإرسال لأسباب لا علاقة لها بالرصيد أو حالة الشبكة.
+
+## الحسابات للقراءة فقط خلال CPI الخطاف
+
+عندما يستدعي token program برنامجَ الخطاف عبر CPI، فإنه يمرر جميع الحسابات من التحويل الأصلي، بما فيها حساب المُرسِل نفسه، بصفة **للقراءة فقط**، ولا تنتقل صلاحيات التوقيع الخاصة بالمُرسِل إلى الخطاف. لذا لا يستطيع برنامج الخطاف نقل الرموز من حسابات المُرسِل بسلطته الخاصة أثناء CPI. أما الخطاف الذي يحتاج إلى نقل دفعة جانبية، كرسوم بعملة رمزية أخرى على سبيل المثال، فيتم ذلك عبر مُفوَّض وافق عليه المُرسِل مسبقاً، وهو الإعداد لمرة واحدة المذكور أعلاه.
+
+## التوافق مع الإصدارات السابقة
+
+تتصرف خطافات التحويل بشكل مختلف عن معظم امتدادات Token-2022 الأخرى فيما يتعلق بالعملاء غير المدعومين:
+
+- المحفظة أو التطبيق اللامركزي الذي لا يُحلّل حسابات خطاف التحويل **لا يستطيع إرسال** رمز مُفعَّل بخطاف. تفشل المعاملة على مستوى token program، وليس كتراجع صامت إلى تحويل عادي.
+- استقبال رمز مُفعَّل بخطاف لا يتطلب أي معالجة خاصة. لا يُشغَّل الخطاف إلا عند تعليمة التحويل الصادرة من المُرسِل؛ لا تحتاج المحفظة إلى دعم خطاف التحويل إلا حين يريد مستخدمها إرسال ذلك الرمز.
+- نظراً لأن برنامج الخطاف يمكن تحديثه من قِبَل سلطة خطاف التحويل الخاصة بالـ mint، تعامل مع mint خطاف التحويل باعتباره شيئاً يستوجب إعادة التحقق عند كل تحويل، وليس حقيقة تتعلمها مرة واحدة وتخزّنها إلى أجل غير مسمى.
+
+## أولويات التكامل الموصى بها
+
+### المحافظ والتطبيقات اللامركزية
+
+| المتطلب                            | الوصف                                                                                                   | الأولوية |
+| :------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :------- |
+| اكتشاف الامتداد                   | تحقق من `getTransferHook` على الـ mint قبل بناء تدفق الإرسال لأي أصل من Token-2022.                     | **P0**   |
+| تحليل الحسابات الإضافية                 | استخدم المساعد عالي المستوى (أو دوال التحليل اليدوي) بدلاً من ترميز الحسابات بشكل ثابت.                 | **P0**   |
+| المحاكاة قبل التوقيع                | شغّل المعاملة المبنية عبر المحاكاة وأظهر رفض الخطاف كخطأ واضح، لا كفشل خام. | **P0**   |
+| إظهار الإعداد المطلوب                 | اكتشف أي إعداد لمرة واحدة يحتاجه الخطاف (الموافقة على التفويض، تمويل الحساب الجانبي) وأطلب منه قبل الإرسال.  | **P1**   |
+| ضبط ميزانية الحوسبة لتنفيذ الخطاف | لا تفترض أن حد الحوسبة الافتراضي يغطي منطق الخطاف؛ اطلب حداً مناسباً للتكلفة الفعلية الملاحظة.        | **P1**   |
+| إعادة التحليل عند إعادة المحاولة                    | إذا فشلت معاملة سبق بناؤها، أعد جلب `ExtraAccountMetaList` بدلاً من إعادة إرسالها كما هي.  | **P1**   |
+
+### الحُرّاس والبورصات
+
+| المتطلب                           | الوصف                                                                                                                                  | الأولوية |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| التعامل مع مسارات الإرسال بحسب كل mint          | يحتاج الـ mint المُفعَّل بخطاف إلى مسار إرسال مختبر خاص به؛ لا تفترض أن مسار تحويل Token-2022 العام يغطيه.                               | **P0**   |
+| المحاكاة قبل البث          | هذا مهم بشكل خاص لعمليات الإرسال الآلية أو المجمّعة، حيث يجب أن يوقف رفض الخطاف الدُّفعة بأكملها، لا أن يُعيد المحاولة بصورة عمياء.                        | **P0**   |
+| تتبع تغييرات برنامج الخطاف            | راقب الـ mints التي تحتضنها بحثاً عن نشاط `UpdateTransferHook` / `UpdateExtraAccountMetaList`، إذ يغيّر ذلك متطلبات التحويل الصحيح. | **P1**   |
+| التوفير المسبق للحسابات الإعدادية المطلوبة | إذا كان الخطاف يتطلب حساب مُفوَّض أو حساباً جانبياً لكل مودِع، فوفّره كجزء من عملية إعداد ذلك الأصل، لا عند وقت الإرسال.                | **P1**   |
+
+### المستكشفات والمفهرسات
+
+| المتطلب                         | الوصف                                                                                               | الأولوية |
+| :---------------------------------- | :-------------------------------------------------------------------------------------------------------- | :------- |
+| تصنيف mints خطاف التحويل           | أظهر أن الـ mint يتطلب خطاف تحويل وأيّ برنامج يستخدم، بشكل مميّز عن mint Token-2022 العادي. | **P0**   |
+| إظهار CPI، لا مجرد التحويل | يتضمن التحويل المُفعَّل بخطاف استدعاء CPI إلى برنامج الخطاف؛ مثّله في تفصيل التعليمات.  | **P1**   |
+| تتبع تحديثات برنامج الخطاف          | أظهر نشاط `UpdateTransferHook` / `UpdateExtraAccountMetaList` لأي mint باعتباره نوع حدث مستقلاً.    | **P2**   |
