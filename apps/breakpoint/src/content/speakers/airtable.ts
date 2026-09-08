@@ -11,7 +11,6 @@ import type { BreakpointSpeaker } from "@/content/speakers/types";
 
 const SPEAKER_FIELDS = [
   "Publish To Web",
-  "Sort Order",
   "Name",
   "Role or Title",
   "Company",

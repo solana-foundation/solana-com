@@ -196,7 +196,10 @@ async function fetchAirtableRecords(
       );
 
       if (!response.ok) {
-        throw new Error(`Airtable request failed (${response.status})`);
+        const errorBody = await response.text();
+        throw new Error(
+          `Airtable request failed (${response.status}): ${errorBody}`,
+        );
       }
 
       const payload = (await response.json()) as AirtableListResponse;
