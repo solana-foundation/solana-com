@@ -22,6 +22,10 @@ export function shouldShowDevelopersNav(pathname: string | null | undefined) {
 export function shouldShowDocsSidebarToggle(
   pathname: string | null | undefined,
 ) {
+  if (matchesRouteSegment(pathname, "/docs/roadmap")) {
+    return false;
+  }
+
   return (
     matchesRouteSegment(pathname, "/docs") ||
     matchesRouteSegment(pathname, "/developers/cookbook")
