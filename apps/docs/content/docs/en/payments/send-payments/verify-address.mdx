@@ -6,8 +6,9 @@ description:
 ---
 
 Sending funds to the wrong address can result in permanent loss. Address
-verification ensures you only send to addresses that can properly receive and
-access the funds.
+verification ensures you and your users only send to addresses that can properly
+receive and access the funds. If you operate an exchange, it is recommended to
+run these checks and have your user verify the address before sending.
 
 Validation depends on what you send:
 
@@ -42,6 +43,10 @@ program ID and seeds. These addresses:
 - Do **not** have a corresponding private key
 - Can only be signed for by the program the address was derived from
 
+Program-controlled wallets, commonly referred to as smart wallets or smart
+accounts, have off-curve addresses. This guide uses the term "smart wallet"
+throughout.
+
 ## Account Types in Payments
 
 Use the address to fetch an [account](/docs/core/accounts) from the network,
@@ -65,6 +70,10 @@ If the ATA does not exist, you can include an instruction to create the
 recipient's token account in the same transaction as the transfer. However, this
 requires paying rent for the new token account. Since the recipient owns the
 ATA, the SOL paid for the rent cannot be recovered by the sender.
+
+System accounts can exist off-curve. If your user wants to send tokens to an
+off-curve address, it is recommended to prompt the user to verify they intend to
+send funds to a smart wallet.
 
 <Callout type="warn">
   Without safeguards, subsidizing ATA creation can be exploited. A malicious
@@ -95,9 +104,9 @@ mint address results in a failed transaction, but no funds are lost.
 
 ### Other Accounts
 
-Accounts owned by other programs require a policy decision. Some accounts (e.g.
-multisig wallets) may be valid token account owners, while others should be
-rejected.
+Accounts owned by other programs are valid but are governed by the authority
+rules set forth by the respective owning program. It is recommended to prompt
+the user to verify they intend to send funds to a smart wallet.
 
 ## Sending native SOL
 
@@ -137,7 +146,7 @@ flowchart TD
 
     %% --- Non-existent account path ---
     C -- "No" --> D{"Is address off-curve (PDA)?"}
-    D -- "Yes" --> R1["REJECT: PDA doesn't exist as an account, cannot verify account type"]
+    D -- "Yes" --> V1["VERIFY: Confirm the recipient intends to use a smart wallet"]
     D -- "No" --> W1["IS_WALLET: Valid unfunded public key address"]
 
     %% --- Existing account path ---
@@ -145,13 +154,15 @@ flowchart TD
 
     F -- "Token Program / Token-2022" --> G{"Is token account for expected mint?"}
     G -- "Yes" --> T1["IS_TOKEN_ACCOUNT: Send directly"]
-    G -- "No" --> R2["REJECT: Wrong account type or mint"]
+    G -- "No" --> R1["REJECT: Wrong account type or mint"]
 
-    F -- "System Program" --> W2["IS_WALLET: Derive ATA and send"]
+    F -- "System Program" --> H{"Is address off-curve?"}
+    H -- "No" --> W2["IS_WALLET: Derive ATA and send"]
+    H -- "Yes" --> V3["VERIFY: Confirm the recipient intends to use a smart wallet"]
 
     F -- "Other Program" --> K{"Allowed by policy?"}
     K -- "Yes" --> W3["IS_WALLET: Derive ATA and send"]
-    K -- "No" --> R3["REJECT: Unknown program owner"]
+    K -- "No" --> V2["VERIFY: Confirm the recipient intends to use a smart wallet"]
 ```
 
 <Steps>
@@ -169,11 +180,10 @@ Use the address to fetch the account details from the network.
 If no account exists at this address, check whether the address is on-curve or
 off-curve:
 
-- **Off-curve (PDA)**: Conservatively reject the address to avoid sending to an
-  ATA that may be inaccessible. Without an existing account, you cannot
+- **Off-curve (PDA)**: Require explicit recipient verification before creating
+  an ATA or sending SPL tokens. Without an existing account, you cannot
   determine from the address alone which program derived this PDA or whether the
-  address is for an ATA. Deriving an ATA for this address to send tokens could
-  result in funds being locked in an inaccessible token account.
+  recipient's program can access its ATA.
 
 - **On-curve**: This is a valid wallet address (public key) that hasn't been
   funded yet. Derive the ATA, check if it exists, and send tokens to it. You
@@ -196,9 +206,16 @@ If an account exists, check which program owns it:
   send tokens directly to this address. If it's a mint account or a token
   account for a different mint, reject the address.
 
-- **Other Program**: This requires a policy decision. Some programs like
-  multisig wallets may be acceptable owners of token accounts. If your policy
-  allows it, derive the ATA and send. Otherwise, reject the address.
+- **Other Program**: Programs like multisig wallets are acceptable owners of
+  token accounts. Require the user to confirm they intend to send to a smart
+  wallet.
+
+  Some common smart wallets:
+
+| Wallet                                              | Program Address                                                                                                                |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| [Squads](https://squads.xyz/)                       | [SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf](https://explorer.solana.com/address/SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf) |
+| [Swig](https://github.com/anagrambuild/swig-wallet) | [swigypWHEksbC64pWKwah1WTeh9JXwx8H1rJHLdbQMB](https://explorer.solana.com/address/swigypWHEksbC64pWKwah1WTeh9JXwx8H1rJHLdbQMB) |
 
 </Step>
 </Steps>
@@ -218,14 +235,17 @@ code for illustration purposes.
 
 The demo below uses three possible outcomes:
 
-| Result             | Meaning              | Action                                      |
-| ------------------ | -------------------- | ------------------------------------------- |
-| `IS_WALLET`        | Valid wallet address | Derive and send to associated token account |
-| `IS_TOKEN_ACCOUNT` | Valid token account  | Send tokens directly to this address        |
-| `REJECT`           | Invalid address      | Do not send                                 |
+| Result              | Meaning                                 | Action                                                              |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------- |
+| `IS_WALLET`         | Valid wallet address                    | Derive and send to associated token account                         |
+| `IS_TOKEN_ACCOUNT`  | Valid token account                     | Send tokens directly to this address                                |
+| `USER_VERIFICATION` | Address requires recipient confirmation | Require explicit review before sending SPL tokens or funding an ATA |
+| `REJECT`            | Invalid address                         | Do not send                                                         |
 
 It then maps each result to per-asset acceptability with `canReceiveNativeSol`
-(wallets only) and `canReceiveSplToken` (wallets or token accounts). A token
+(wallets only) and `canReceiveSplToken` (wallets or token accounts). A
+`USER_VERIFICATION` result is not automatically accepted; your application
+should have a user confirm their intent before sending SPL tokens. A token
 account returns `IS_TOKEN_ACCOUNT`, so it can receive SPL tokens but **not**
 native SOL — the distinction that prevents SOL from being locked.
 
@@ -266,16 +286,19 @@ const TOKEN_2022_PROGRAM =
 export type ValidationResult =
   | { type: "IS_TOKEN_ACCOUNT" }
   | { type: "IS_WALLET" }
+  | { type: "USER_VERIFICATION"; reason: string }
   | { type: "REJECT"; reason: string };
 
 /**
- * Validates an input address and classifies it as a wallet, token account, or invalid.
+ * Validates an input address and classifies it as a wallet, token account,
+ * address requiring recipient verification, or invalid.
  *
  * @param inputAddress - The address to validate
  * @param rpc - Optional RPC client (defaults to mainnet)
  * @returns Classification result:
  *   - IS_WALLET: Valid wallet address
  *   - IS_TOKEN_ACCOUNT: Valid token account
+ *   - USER_VERIFICATION: Require explicit review before sending SPL tokens
  *   - REJECT: Invalid address for transfers
  */
 export async function validateAddress(
@@ -288,10 +311,14 @@ export async function validateAddress(
 
   // Account doesn't exist onchain
   if (!account.exists) {
-    // Off-curve = PDA that doesn't exist as an account
-    // Reject conservatively to avoid sending to an address that may be inaccessible.
+    // An unfunded PDA may belong to a smart wallet, but the address
+    // alone cannot prove that its program can access a newly-created ATA.
     if (isOffCurveAddress(inputAddress)) {
-      return { type: "REJECT", reason: "PDA doesn't exist as an account" };
+      return {
+        type: "USER_VERIFICATION",
+        reason:
+          "Unfunded PDA: confirm the recipient is using a smart wallet and controls this address"
+      };
     }
     // On-curve = valid keypair address, treat as unfunded wallet
     return { type: "IS_WALLET" };
@@ -300,8 +327,17 @@ export async function validateAddress(
   // Account exists, check program owner
   const owner = account.programAddress;
 
-  // System Program = wallet
+  // A System Program account can be a standard wallet or an off-curve smart
+  // wallet. Require verification before automatically sending to the
+  // latter.
   if (owner === SYSTEM_PROGRAM) {
+    if (isOffCurveAddress(inputAddress)) {
+      return {
+        type: "USER_VERIFICATION",
+        reason:
+          "Off-curve System Program account: confirm recipient is using a smart wallet"
+      };
+    }
     return { type: "IS_WALLET" };
   }
 
@@ -321,8 +357,12 @@ export async function validateAddress(
     };
   }
 
-  // Unknown program owner
-  return { type: "REJECT", reason: "Unknown program owner" };
+  // An account owned by another program can be a smart wallet.
+  return {
+    type: "USER_VERIFICATION",
+    reason:
+      "Program-owned account: confirm the recipient is using a smart wallet"
+  };
 }
 
 /**
@@ -359,13 +399,13 @@ const PYUSD_TOKEN_ACCOUNT =
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address;
 const PYUSD_MINT = "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo" as Address;
 
-// PDA that doesn't exist (should be rejected)
+// PDA that doesn't exist (requires recipient verification)
 const [NON_EXISTENT_PDA] = await getProgramDerivedAddress({
   programAddress: (await generateKeyPairSigner()).address,
   seeds: ["seed"]
 });
 
-// Program account (should be rejected)
+// Program account (requires recipient verification)
 const PROGRAM_ACCOUNT =
   "p1exdMJcjVao65QdewkaZRUnU6VPSXhus9n2GzWfh98" as Address;
 
@@ -400,13 +440,18 @@ await runExample("USDC token account (Token Program)", USDC_TOKEN_ACCOUNT);
 await runExample("PYUSD token account (Token-2022)", PYUSD_TOKEN_ACCOUNT);
 
 console.log("\n" + "═".repeat(60));
+console.log("  USER_VERIFICATION Examples");
+console.log("═".repeat(60));
+
+await runExample("Non-existent PDA", NON_EXISTENT_PDA);
+await runExample("Program account", PROGRAM_ACCOUNT);
+
+console.log("\n" + "═".repeat(60));
 console.log("  REJECT Examples");
 console.log("═".repeat(60));
 
 await runExample("USDC mint address", USDC_MINT);
 await runExample("PYUSD mint address", PYUSD_MINT);
-await runExample("Non-existent PDA", NON_EXISTENT_PDA);
-await runExample("Program account", PROGRAM_ACCOUNT);
 
 console.log("\n" + "═".repeat(60));
 console.log("  Done!");

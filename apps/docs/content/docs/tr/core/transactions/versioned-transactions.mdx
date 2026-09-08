@@ -1,8 +1,7 @@
 ---
 title: Sürümlü işlemler
 description:
-  Solana'da eski ve sürümlü (V0) işlem formatları, Adres Arama Tabloları
-  (ALT'ler), sürüm algılama, V0 mesaj formatı ve ALT çözümlemesi dahil.
+  Solana üzerinde legacy, v0 ve v1 işlem formatları; Adres Arama Tabloları (ALT'lar), sürüm algılama, v1 işlem yapılandırması ve kaynak limitleri dahil.
 url: /docs/core/transactions/versioned-transactions
 type: conceptual
 prerequisites:
@@ -14,52 +13,105 @@ related:
 ---
 
 <Callout type="info" title="Özet">
-  V0 işlemleri, 32 baytlık anahtarlar yerine 1 baytlık indeksler aracılığıyla
-  hesaplara referans vermeyi sağlayan Adres Arama Tablolarını (ALT'ler) ekler.
-  Bu, ALT ile çözümlenen her hesap için 31 bayt tasarruf sağlar.
+  Solana'nın üç işlem formatı vardır: legacy, v0 ve v1. **v0**, hesaplara 1 baytlık indeksler aracılığıyla başvurmak için Adres
+  Arama Tablolarını (ALT'lar) ekler. **v1**
+  boyut limitini 4.096 bayta çıkarır, kaynak limitlerini mesajın
+  içine taşır ve ALT'ları kaldırır.
 </Callout>
 
-Solana iki işlem formatını destekler: **eski** ve **sürümlü** (v0).
+Solana üç işlem formatını destekler: **legacy**, **v0** ve **v1**. Her biri
+aşağıda aynı üç başlıkla açıklanmaktadır: baytların kablo üzerinde nasıl
+düzenlendiği, hesaplara nasıl başvurulduğu ve kaynak limitlerinin nereden geldiği.
 
-Validator, mesajın ilk baytını inceleyerek formatı belirler:
-
-- İlk bayt
-  [sürüm öneki](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
-  bitini içeriyorsa, bu bir **sürümlü mesajdır**. Şu anda yalnızca sürüm 0
-  desteklenmektedir. Sonraki 3 bayt `MessageHeader`'dir.
-- Aksi takdirde, bu bir **eski mesajdır**. İlk bayt
-  `num_required_signatures`'dir ve sonraki 2 bayt başlığı tamamlar.
-
-<Callout type="info" title="V0 işlemleri ne zaman kullanılmalı">
-  İşleminiz birçok hesaba referans veriyorsa ve 1.232 baytlık paket sınırına
-  yaklaşıyorsa V0 kullanın. İşleminiz tüm hesaplar satır içi olarak boyut
-  sınırına sığıyorsa, eski işlemler daha basittir ve daha geniş araç desteğine
-  sahiptir. Adres Arama Tablolarını kullanmak için V0 gereklidir.
+<Callout type="warn" title="v1 etkinleştirme durumu">
+  [v1 formatı](https://solana.com/upgrades/larger-transaction-sizes) henüz hiçbir kümede
+  etkin değildir. Etkinleştirme, Agave v4.2 ile hedeflenmektedir.
+  `solana-test-validator` 4.2 ve üzeri, v1 işlemlerini yerel olarak test etmenize olanak tanır.
+  Mevcut uygulamalar [v1'e hazırlık](#preparing-for-v1) sayfasını incelemelidir.
 </Callout>
 
-## V0 mesaj formatı
+## Format karşılaştırması
 
-Bir v0 mesajı, eski mesajla aynı alanlara sahiptir ve talimatlardan sonra
-eklenen ek bir `address_table_lookups` dizisi içerir:
+| Limit                 | legacy                     | v0                         | v1                 |
+| --------------------- | -------------------------- | -------------------------- | ------------------ |
+| Maksimum işlem boyutu  | 1.232 bayt                | 1.232 bayt                | **4.096 bayt**    |
+| Hesap adresleri     | ~32, boyutla sınırlı            | 64, arama tabloları aracılığıyla      | **64, satır içi**     |
+| Adres arama tabloları | desteklenmiyor              | destekleniyor                  | **desteklenmiyor**  |
+| Kaynak limitleri       | ComputeBudget talimatları | ComputeBudget talimatları | **mesaj yapılandırması** |
 
-| Alan                    | Boyut                     | Açıklama                            |
-| ----------------------- | ------------------------- | ----------------------------------- |
-| `0x80`                  | 1 bayt                    | Sürüm öneki baytı                   |
-| `header`                | 3 bayt                    | MessageHeader (eski ile aynı)       |
-| `static_account_keys`   | compact-u16 + N x 32 bayt | İşlemde doğrudan görünen anahtarlar |
-| `recent_blockhash`      | 32 bayt                   | Blockhash                           |
-| `instructions`          | compact-u16 + değişken    | Eski ile aynı format                |
-| `address_table_lookups` | compact-u16 + değişken    | ALT referansları (aşağıya bakın)    |
+Atla: [Legacy](#legacy-format) · [v0](#v0-format) · [v1](#v1-format)
+
+## Legacy format
+
+Özgün format olup çoğu araçta hâlâ varsayılandır. Hiçbir sürüm
+ön ekine sahip değildir: işlemin ilk baytı imza dizisinin compact-u16 sayısıdır,
+mesajın ilk baytı ise yüksek biti her zaman sıfır olan `num_required_signatures` alanıdır.
+
+### Legacy kablo düzeni
+
+| Alan              | Boyut                          | Açıklama                                      |
+| ------------------ | ----------------------------- | ------------------------------------------------ |
+| `num_signatures`   | compact-u16                   | İmza sayısı                             |
+| `signatures`       | `num_signatures` x 64 bayt   | Ed25519 imzaları                               |
+| `header`           | 3 bayt                       | MessageHeader — ilk baytın sürüm biti sıfırdır |
+| `num_account_keys` | compact-u16                   | Hesap anahtarı sayısı                           |
+| `account_keys`     | `num_account_keys` x 32 bayt | Ortak anahtarlar, tamamı satır içi                          |
+| `recent_blockhash` | 32 bayt                      | Yaşam süresi belirleyici                               |
+| `num_instructions` | compact-u16                   | Talimat sayısı                           |
+| `instructions`     | değişken                      | Her talimat ardışık olarak serileştirilir         |
+
+Her değişken uzunluklu dizi, compact-u16 uzunluk önekiyle başlar: 0–127 arası
+değerler için 1 bayt, daha büyük değerler için 2–3 bayt. Talimat başına düzen ve
+çalışılmış bir boyut hesabı için bkz.
+[işlem ikili formatı](/docs/core/transactions/transaction-structure#transaction-binary-format).
+
+### Legacy'de hesaplar
+
+Her hesap, `account_keys` içinde tam 32 baytlık bir ortak anahtar olarak yazılır;
+talimatlar bu diziye 1 baytlık indeksle başvurur. İşlemde açıkça belirtilmemiş bir
+hesaba başvurmanın yolu yoktur; bu durum, legacy işlemlerin 1.232 baytı dolmadan
+yaklaşık 32 hesapla sınırlanmasının nedenidir.
+
+### Legacy'de kaynak limitleri
+
+Hesaplama birimi limiti, yüklenen hesap verisi boyutu limiti, yığın boyutu ve
+öncelik ücreti; işleme
+[ComputeBudget program talimatları](/docs/core/fees/compute-budget) eklenerek
+talep edilir. Her biri bir talimat slot'u ve 150 hesaplama birimi tüketir. Bunları
+atlamak güvenlidir: çalışma zamanı varsayılan değerlere döner — talimat başına
+200.000 CU (en fazla 1,4M), 64 MiB veri boyutu limiti, 32 KiB yığın ve sıfır
+öncelik ücreti.
+
+## V0 formatı
+
+v0, bir legacy mesajına iki şey ekler: bir `0x80` sürüm ön eki baytı ve
+talimatların ardından eklenen bir `address_table_lookups` dizisi. Bunlardan önceki
+her şey legacy ile bayt düzeyinde aynıdır.
+
+### V0 kablo düzeni
+
+| Alan                   | Boyut                          | Açıklama                                     |
+| ----------------------- | ----------------------------- | ----------------------------------------------- |
+| `num_signatures`        | compact-u16                   | İmza sayısı                            |
+| `signatures`            | `num_signatures` x 64 bayt   | Ed25519 imzaları                              |
+| `0x80`                  | 1 bayt                        | Sürüm ön eki baytı — mesajın ilk baytı |
+| `header`                | 3 bayt                       | MessageHeader (eski ile aynı)                  |
+| `num_account_keys`      | compact-u16                   | Statik hesap anahtarı sayısı                   |
+| `static_account_keys`   | `num_account_keys` x 32 bayt | İşlemde doğrudan görünen anahtarlar   |
+| `recent_blockhash`      | 32 bayt                      | Yaşam süresi belirleyici                              |
+| `num_instructions`      | compact-u16                   | Talimat sayısı                          |
+| `instructions`          | değişken                      | Eski ile aynı format                           |
+| `address_table_lookups` | compact-u16 + değişken        | ALT referansları (aşağıya bakın)                      |
 
 Her adres tablosu arama girişi şunları içerir:
 
-| Alan               | Boyut                    | Açıklama                                         |
-| ------------------ | ------------------------ | ------------------------------------------------ |
-| `account_key`      | 32 bayt                  | ALT hesabının genel anahtarı                     |
-| `writable_indexes` | compact-u16 + N x 1 bayt | Yazılabilir hesaplar için ALT içindeki indeksler |
+| Alan              | Boyut                     | Açıklama                                 |
+| ------------------ | ------------------------ | ------------------------------------------- |
+| `account_key`      | 32 bayt                 | ALT hesabının genel anahtarı                |
+| `writable_indexes` | compact-u16 + N x 1 bayt | Yazılabilir hesaplar için ALT içindeki indeksler  |
 | `readonly_indexes` | compact-u16 + N x 1 bayt | Salt okunur hesaplar için ALT içindeki indeksler |
 
-## Adres arama tablosu çözümlemesi
+### Adres arama tabloları
 
 ALT, 256'ya kadar açık anahtar saklayan zincir üstü bir hesaptır. Bir ALT
 referans alınarak, bir işlem 32-baytlık açık anahtarlar yerine 1-baytlık
@@ -79,3 +131,130 @@ aramalardan önce gelir.
   yazılabilir veya salt okunur (imzalayıcı olmayan) olabilir; imzalayıcı
   olamazlar.
 </Callout>
+
+### V0'da kaynak limitleri
+
+Legacy'den farklı değildir: ComputeBudget talimatları kullanılır; atlandığında
+aynı varsayılan değerler geçerlidir.
+
+## V1 formatı
+
+v1, boyut limitini 4.096 bayta çıkarır ve mesajı bir **işlem yapılandırması**
+etrafında yeniden düzenler: kaynak limitleri ComputeBudget talimatlarından
+çıkarılarak mesajın içindeki sabit konumlu alanlara taşınır. Bu sayede ağ,
+talimat listesini tarayıp seriden çıkarmak yerine tek bir sabit ofset okumasıyla
+bir işlemi öncelik ücretine göre sıralayabilir.
+
+### V1 kablo düzeni
+
+| Alan                  | Boyut         | Açıklama                                                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `0x81`                 | 1 bayt       | Sürüm ön eki baytı — işlemin ilk baytı                            |
+| `header`               | 3 bayt      | MessageHeader (legacy ile aynı)                                                     |
+| `config_mask`          | 4 bayt      | Hangi yapılandırma değerlerinin mevcut olduğunu işaretleyen `u32` LE bit maskesi                           |
+| `recent_blockhash`     | 32 bayt     | Yaşam süresi belirleyici                                                                 |
+| `num_instructions`     | 1 bayt       | Sabit genişlikli sayı, en fazla 64                                                          |
+| `num_addresses`        | 1 bayt       | Sabit genişlikli sayı, en fazla 64                                                          |
+| `addresses`            | N x 32 bayt | Hesap adresleri, tamamı satır içi — arama tablosu başvurusu yok                         |
+| `config_values`        | 0–20 bayt   | Ayarlı her bit maskesi için bir değer, bit sırasına göre (aşağıya bakın)                               |
+| `instruction_headers`  | N x 4 bayt  | Talimat başına: `program_id_index` (u8), `num_accounts` (u8), `data_len` (u16 LE) |
+| `instruction_payloads` | değişken     | Talimat başına: hesap indeksleri, ardından instruction data                            |
+| `signatures`           | N x 64 bayt | Sonda yer alır, uzunluk öneki yoktur — sayı başlıktan alınır               |
+
+Bir çözücü yazarken legacy ve v0'dan iki yapısal fark dikkat çeker. Sayılar
+compact-u16 yerine sabit genişlikli `u8` alanlarıdır; talimatlar ise her talimatın
+ardışık olduğu yapı yerine iki ayrı bölüme ayrılır: önce tüm sabit boyutlu başlıklar,
+sonra tüm değişken uzunluklu payload'lar.
+
+### V1'de hesaplar: adres arama tablosu yok
+
+v1, ALT desteğini kasıtlı olarak kaldırır. 64 ham adres 2.048 bayt eder ve bu
+4.096 baytlık limitin içinde rahatlıkla yer alır; dolayısıyla her adres legacy'de
+olduğu gibi satır içidir. Uygulamanız arama tablolarına bağımlıysa v1'e geçmek,
+bu adresleri satır içine almanızı gerektirir.
+
+### V1'de kaynak limitleri: işlem yapılandırması
+
+Yapılandırma, biti ayarlı her alan için sabit genişlikli değerlerin izlediği bir
+`u32` bit maskesinden oluşur:
+
+| Bit(ler) | Alan                           | Genişlik | Notlar                                       |
+| ------ | ------------------------------- | ----- | ------------------------------------------- |
+| 0–1    | Öncelik ücreti                    | u64   | **Toplam lamport** — her iki bit birlikte ayarlanır |
+| 2      | Hesaplama birimi limiti              | u32   |                                             |
+| 3      | Yüklenen hesap verisi boyutu limiti | u32   |                                             |
+| 4      | İstenen yığın boyutu             | u32   |                                             |
+
+Bilinmeyen bitler reddedilir. Mesaj imzalandığından, tanınmayan yapılandırma
+alanları sessizce atılamaz.
+
+<Callout type="warn" title="Öncelik ücreti toplam lamport'tur, fiyat değil">
+  Legacy ve v0'da öncelik ücreti, `SetComputeUnitPrice` aracılığıyla
+  hesaplama birimi limiti ile çarpılan **hesaplama birimi başına mikro-lamport**
+  olarak belirlenir. v1'de ise **lamport cinsinden mutlak bir toplam** olarak
+  ifade edilir — çarpma işlemi yoktur, yuvarlama yoktur.
+  CU başına aritmetiği taşımayın. Toplam ücret formülü bunun dışında değişmez:
+  `(signatures × lamports_per_signature) + priority_fee`.
+</Callout>
+
+#### ComputeBudget talimatları v1'de işlemsizdir
+
+Bir v1 işlemi ComputeBudget talimatlarını reddetmez — yapılandırma için
+onları **yok sayar**. Bu talimatlar bütçe üzerinde hiçbir etkisi olmaksızın
+150 hesaplama birimi ve 64 talimat slot'undan birini tüketerek başarılı
+birer işlemsiz olarak yürütülmeye devam eder. v1 işlemleri oluştururken
+bunları çıkarın; v1 işlemlerini okurken onları aramayı bırakın: değerler
+mesaj yapılandırmasında yer alır.
+
+#### Yapılandırma alanları açıkça ayarlanmalıdır
+
+Gönderenler açısından en önemli davranış değişikliği şudur: legacy ve v0'ın
+aksine, v1 işlemlerinde hesaplama birimi limiti ve yüklenen hesap verisi boyutu
+limiti açıkça ayarlanmazsa işleminiz başarısız olur.
+
+| Ayarlanmamış alan               | legacy / v0                    | v1          | Atlandığında belirti                                              |
+| ------------------------- | ------------------------------ | ----------- | --------------------------------------------------------------- |
+| Hesaplama birimi limiti        | Talimat başına 200k, en fazla 1,4M | **0 CU**    | Hemen başarısız olur, bütçe aşıldı                                |
+| Yüklenen hesap verisi boyutu | 64 MiB                         | **0 bayt** | İlk yüklenen hesapta `MaxLoadedAccountsDataSizeExceeded` |
+| Öncelik ücreti              | 0                              | 0           | —                                                               |
+| Yığın boyutu                 | 32 KiB                         | 32 KiB      | —                                                               |
+
+Önerilen yaklaşım şudur: her iki limiti de maksimuma ayarlayarak bir kez simüle edin,
+ardından dönen `unitsConsumed` ve `loadedAccountsDataSize` değerlerini yapılandırmaya
+geri yazın; veri boyutunu biraz pay bırakmak amacıyla bir sonraki 32 KiB sayfasına
+yuvarlatın (blok maliyet modeli 32 KiB sayfa birimi üzerinden ücretlendirir, dolayısıyla
+sonraki sayfa sınırının altındaki pay ücretsizdir).
+
+## V1'e hazırlık
+
+v1, yalnızca işlem göndermekle kalmayıp **okuma** işlemlerini de etkiler. v1
+etkinleştiğinde, `getTransaction` veya `getBlock` çağrısı yapan ve buna
+katılmayan her istemci v1 işlemlerinde başarısız olmaya başlar:
+
+- [`getTransaction`](/docs/rpc/http/gettransaction) ve
+  [`getBlock`](/docs/rpc/http/getblock) çağrılarına `maxSupportedTransactionVersion: 1` — JSON **tam sayısı** `1`, `"1"` dizesi değil — parametresini geçin. `0` değeri
+  parametreyi atlamakla aynı şekilde v1 işlemlerinde başarısız olur; bu nedenle
+  v0 kullanıma alınırken güncellenen bir kod tabanında değerin değiştirilmesi
+  gerekir.
+- `getTransaction`, bir v1 işleminde `-32015` hatasıyla başarısız olur; tek bir v1
+  işlemi, tüm `getBlock` yanıtını aynı hatayla başarısız kılar —
+  kısmi sonuç döndürülmez.
+- [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe), `block: null` yayar ve
+  ilerlemeyi durdurur; dolayısıyla bunu boş blok olarak okuyan bir tüketici,
+  ilk v1 slot'undan itibaren sessizce geri kalmaya başlar.
+- `getSignaturesForAddress` işlem gövdelerini hiçbir zaman incelemez, bu nedenle
+  v1 imzaları normal şekilde listelenir.
+- Katılım sağlayan yanıtlar, v1 işlemleri için mesaj içinde bir `transactionConfig`
+  nesnesi içerir (legacy ve v0 için bu nesne tamamen yoktur). Öncelik ücretlerini
+  veya hesaplama limitlerini ComputeBudget talimatlarını tarayarak türeten
+  pipeline'lar, her v1 işlemi için sessizce **sıfır** bildirir.
+- İstemci tarafında işlem çözümlerken `encoding: 'base64'` kullanın; 1.232 baytı
+  aşan işlemler için `sendTransaction`/`simulateTransaction` çağrılarında da
+  aynısını yapın — base58 kodlaması eski boyut sınırında kalmaya devam eder.
+- İstemci kütüphanesi desteği için güncel sürümler gereklidir: `@solana/kit` 8.0+,
+  Agave 4.2.x nesli Rust crate'leri veya web3.js v3. web3.js v1, 1.99.0 sürümünden
+  itibaren v1'i okuyabilir ancak oluşturamaz veya gönderemez.
+
+Tam geçiş kılavuzu için — istemci kütüphanesi desteği, akış
+(Geyser/gRPC) sürüm algılama ve simülasyon davranışı dahil — bkz.
+[İşlem Formatı v1 yükseltme sayfası](https://solana.com/upgrades/larger-transaction-sizes).

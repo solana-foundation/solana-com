@@ -1,9 +1,7 @@
 ---
 title: Perjalanan Waktu
 description:
-  Majukan jam Surfnet ke slot absolut, epoch, atau stempel waktu Unix. Berguna
-  untuk pengujian yang melibatkan jadwal vesting, lockup, jendela kedaluwarsa,
-  atau batas epoch.
+  Majukan jam Surfnet ke depan ke slot absolut, epoch, atau stempel waktu Unix, atau hentikan sepenuhnya. Berguna untuk pengujian yang melibatkan jadwal vesting, lockup, jendela kedaluwarsa, atau batas epoch.
 ---
 
 Runtime Surfpool menyediakan tiga helper perjalanan waktu. Masing-masing
@@ -11,16 +9,17 @@ memindahkan jam lokal ke target absolut (bukan offset relatif) dan mengembalikan
 `EpochInfo` yang telah diperbarui sehingga pengujian dapat memverifikasi bahwa
 runtime benar-benar mencapai waktu yang diminta.
 
-| Helper                                               | Target                             | Mengembalikan                                    |
-| ---------------------------------------------------- | ---------------------------------- | ------------------------------------------------ |
-| `time_travel_to_slot` / `timeTravelToSlot`           | Nomor slot absolut                 | `EpochInfo` dengan `absolute_slot` baru          |
-| `time_travel_to_epoch` / `timeTravelToEpoch`         | Nomor epoch absolut                | `EpochInfo` dengan `epoch` baru                  |
-| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Stempel waktu Unix dalam milidetik | `EpochInfo` yang mencerminkan slot yang tersirat |
+| Helper                                               | Target                         | Mengembalikan                                  |
+| ---------------------------------------------------- | ------------------------------ | ---------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Nomor slot absolut           | `EpochInfo` dengan `absolute_slot` baru |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Nomor epoch absolut          | `EpochInfo` dengan `epoch` baru         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Stempel waktu Unix dalam milidetik | `EpochInfo` yang mencerminkan slot yang tersirat  |
 
 <Callout type="warn" title="Hanya maju">
-  Perjalanan waktu hanya dapat memajukan jam. Memanggil metode ini dengan target
-  di masa lalu tidak akan berpengaruh — helper mengembalikan `EpochInfo` saat
-  ini tanpa perubahan.
+  Time travel hanya dapat memajukan jam **ke depan**. Target yang berada di masa lalu akan
+  ditolak, bukan diabaikan — helper Rust mengembalikan `Err` dan helper JS
+  akan melempar pengecualian. Pesan kesalahan menyebutkan unit mana yang mundur ke belakang, misalnya
+  `Cannot travel to past slot: target=1000, current=2000`.
 </Callout>
 
 ## Lompat Ke Slot
@@ -69,8 +68,9 @@ console.assert(info.epoch === 420);
 
 ## Lompat Ke Stempel Waktu Unix
 
-Masukkan stempel waktu dalam **milidetik**, bukan detik. Runtime akan menghitung
-slot terdekat pada stempel waktu tersebut.
+Berikan stempel waktu dalam **milidetik** sejak Unix epoch — satuan yang sama dengan
+`Date.now()` JavaScript — bukan detik. Runtime akan menghitung slot terdekat
+pada stempel waktu tersebut.
 
 <CodeTabs storage="surfpool-lang">
 
@@ -85,6 +85,58 @@ const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
 ```
 
 </CodeTabs>
+
+<Callout type="warn" title="Jam melaporkan dalam detik, bukan milidetik">
+  Setiap stempel waktu yang Anda baca kembali dari runtime berada dalam **detik** — `unix_timestamp` dari
+  sysvar `Clock` on-chain, dan
+  [`ClockValue`](/docs/tools/surfpool/sdk/js-reference#clockvalue) yang dibawa oleh
+  event `systemClockUpdated`. Memasukkan salah satu nilai tersebut langsung ke dalam
+  helper time travel akan mengarah ke momen di awal tahun 1970, sehingga panggilan tersebut
+  ditolak sebagai target masa lalu. Kalikan dengan 1000 terlebih dahulu.
+</Callout>
+
+```ts
+// WRONG — `unixTimestamp` is in seconds, so this is a past target.
+surfnet.timeTravelToTimestamp(clock.unixTimestamp + 3600);
+
+// RIGHT — convert to milliseconds.
+surfnet.timeTravelToTimestamp((clock.unixTimestamp + 3600) * 1000);
+```
+
+## Jeda dan Lanjutkan Jam
+
+Time travel melompat ke target; menjeda menghentikan jam agar tidak maju sama sekali.
+`surfnet_pauseClock` menghentikan produksi slot dan perkembangan waktu hingga
+`surfnet_resumeClock` dijalankan — gunakan ini ketika pengujian membutuhkan slot dan
+stempel waktu tetap diam selama beberapa asersi.
+
+Baik Rust SDK maupun kelas `Surfnet` di `@solana/surfpool` tidak membungkus kedua
+cheatcode ini. Panggil melalui
+[plugin Kit](/docs/tools/surfpool/sdk/kit-plugin), atau langsung melalui JSON-RPC.
+
+```ts
+const paused = await client.cheatcodes.pauseClock().send();
+
+// Nothing advances until the clock is resumed, so this is the only thing that
+// moves the slot.
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+
+await client.cheatcodes.resumeClock().send();
+```
+
+Kedua cheatcode mengembalikan `EpochInfo` — status jam pada saat dijeda, dan setelah dilanjutkan. Perhatikan dua hal yang _tidak_ dibawa oleh bentuk tersebut:
+
+- **Tidak ada stempel waktu.** `EpochInfo` tidak memiliki field waktu. Baca waktu Unix yang disimulasikan
+  dari sysvar `Clock`: `getAccountInfo` pada
+  `SysvarC1ock11111111111111111111111111111111` dengan encoding `jsonParsed` —
+  sekali lagi, dalam detik.
+- **Tidak ada flag jeda.** Tidak ada metode RPC yang melaporkan apakah jam sedang
+  dijeda. Dari SDK, pantau
+  event [`clockUpdate`](/docs/tools/surfpool/sdk/events), yang dipicu dengan
+  `clockCommand` setiap kali perintah jeda, lanjutkan, atau perubahan interval dijalankan. Jika tidak,
+  lacak statusnya dalam pengujian Anda.
 
 ## Pola Umum
 
@@ -136,8 +188,8 @@ for epoch in 2..=5 {
 
 Kedua SDK mengembalikan objek berbentuk `EpochInfo` dengan field-field berikut:
 
-| Field            | Rust                             | JS                          |
-| ---------------- | -------------------------------- | --------------------------- |
+| Field             | Rust                             | JS                          |
+| ----------------- | -------------------------------- | --------------------------- |
 | Slot absolut     | `absolute_slot: u64`             | `absoluteSlot: number`      |
 | Slot dalam epoch | `slot_index: u64`                | `slotIndex: number`         |
 | Slot per epoch   | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
