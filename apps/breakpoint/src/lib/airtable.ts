@@ -177,15 +177,22 @@ async function fetchAirtableRecords(
 
       const response = await fetch(
         `${AIRTABLE_API_BASE}/${source.baseId}/${encodeURIComponent(source.tableId)}?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${source.token}`,
-          },
-          next: {
-            revalidate: AIRTABLE_CACHE_SECONDS,
-            tags: [source.cacheTag],
-          },
-        },
+        process.env.NODE_ENV === "production"
+          ? {
+              headers: {
+                Authorization: `Bearer ${source.token}`,
+              },
+              next: {
+                revalidate: AIRTABLE_CACHE_SECONDS,
+                tags: [source.cacheTag],
+              },
+            }
+          : {
+              cache: "no-store",
+              headers: {
+                Authorization: `Bearer ${source.token}`,
+              },
+            },
       );
 
       if (!response.ok) {
