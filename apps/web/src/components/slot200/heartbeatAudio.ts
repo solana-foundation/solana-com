@@ -17,7 +17,17 @@ export class HeartbeatAudio {
       this.ctx = null;
       return false;
     }
-    this.ctx = new AudioContext();
+
+    const AudioContextConstructor =
+      typeof window !== "undefined"
+        ? (window.AudioContext ??
+          (window as Window & { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext)
+        : undefined;
+
+    if (!AudioContextConstructor) return false;
+
+    this.ctx = new AudioContextConstructor();
     return true;
   }
 
