@@ -363,10 +363,10 @@ fn main() -> Result<()> {
     )?;
 
     // 3. Derive the owner's ElGamal keypair and AES key from a wallet
-    //    signature with the standard empty seed. The same signer always
-    //    derives the same keys, so the owner can recover them from their
-    //    wallet.
-    let (elgamal_keypair, aes_key) = derive_confidential_keys(&payer, b"")
+    //    signature over the constant solana-conf-bal/v1 message. The standard
+    //    derivation takes no seed, so the same signer always derives the same
+    //    keys and the owner can recover them from their wallet.
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(&payer)
         .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
 
     // Initial decryptable available balance of 0, encrypted with the AES key.
@@ -547,11 +547,10 @@ serde_json = "1.0"
 <CodeTabs>
 
 ```ts !! title="index.ts"
-// !collapse(1:21) collapsed
+// !collapse(1:20) collapsed
 // Imports: dependencies used by this example.
 import {
-  deriveAeKey,
-  deriveElGamalKeypair,
+  deriveConfidentialKeys,
   getCreateConfidentialTransferAccountInstructionPlan
 } from "@solana-program/token-2022/confidential";
 import {
@@ -592,14 +591,15 @@ const [tokenAccount] = await findAssociatedTokenPda({
   mint
 });
 
-// Derive recoverable ElGamal and AES keys bound to the main wallet. Re-deriving
-// from the same wallet always yields the same keys, so the owner can recover
-// them rather than having to back up a separate secret.
-const derivedElGamal = await deriveElGamalKeypair({ signer: owner });
+// Derive recoverable ElGamal and AES keys bound to the main wallet. One
+// signature over the constant solana-conf-bal/v1 message derives both keys, and
+// re-deriving from the same wallet always yields the same keys, so the owner
+// can recover them rather than having to back up a separate secret.
+const derivedKeys = await deriveConfidentialKeys({ signer: owner });
 const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(derivedElGamal.secretKey)
+  ElGamalSecretKey.fromBytes(derivedKeys.elgamalKeypair.secretKey)
 );
-const aesKey = AeKey.fromBytes(await deriveAeKey({ signer: owner }));
+const aesKey = AeKey.fromBytes(derivedKeys.aeKey);
 
 // Build the create-ATA + reallocate + verify-proof + configure plan, then send.
 // The helper returns an instruction plan because the steps may span more than
@@ -626,7 +626,9 @@ async function createConfidentialMint(
   decimals: number
 ) {
   const mint = await generateKeyPairSigner();
-  const auditor = await deriveElGamalKeypair({ signer: payer });
+  const { elgamalKeypair: auditor } = await deriveConfidentialKeys({
+    signer: payer
+  });
 
   const plan = getCreateMintInstructionPlan({
     payer,

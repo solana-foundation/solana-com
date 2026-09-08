@@ -210,7 +210,7 @@ fn main() -> Result<()> {
             .transpose()?;
 
     // Derive the sender's keys and read their current confidential balance.
-    let (sender_elgamal, sender_aes) = derive_confidential_keys(&sender, b"")
+    let (sender_elgamal, sender_aes) = derive_confidential_keys(&sender)
         .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
 
     let sender_acc = rpc_client.get_account(&sender_token_account)?;
@@ -469,7 +469,7 @@ fn configure_confidential_token_account(
         &[ExtensionType::ConfidentialTransferAccount],
     )?;
 
-    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner, b"")
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner)
         .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
     let decryptable_balance: PodAeCiphertext = aes_key.encrypt(0).into();
 
@@ -529,7 +529,7 @@ fn apply_pending_balance_for_account(
     owner: &Keypair,
     token_account: &Pubkey,
 ) -> Result<()> {
-    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner, b"")
+    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner)
         .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
 
     let account_data = rpc_client.get_account(token_account)?;
@@ -626,11 +626,10 @@ serde_json = "1.0"
 <CodeTabs>
 
 ```ts !! title="index.ts"
-// !collapse(1:46) collapsed
+// !collapse(1:45) collapsed
 // Imports: dependencies used by this example.
 import {
-  deriveAeKey,
-  deriveElGamalKeypair,
+  deriveConfidentialKeys,
   getApplyConfidentialPendingBalanceInstructionFromToken,
   getConfidentialTransferInstructionPlan,
   getCreateConfidentialTransferAccountInstructionPlan
@@ -747,7 +746,7 @@ await applyPendingBalance(client, owner, sourceToken);
 
 // Derive the sender's recoverable ElGamal and AES keys, bound to the wallet.
 const { elgamalKeypair: sourceElgamalKeypair, aesKey } =
-  await deriveConfidentialKeys(owner);
+  await deriveConfidentialWasmKeys(owner);
 
 // The helper reads the recipient key from the destination account; pass the
 // configured auditor key so the proof matches the mint configuration.
@@ -809,7 +808,9 @@ async function createConfidentialMint(
   decimals: number
 ) {
   const mint = await generateKeyPairSigner();
-  const auditor = await deriveElGamalKeypair({ signer: payer });
+  const { elgamalKeypair: auditor } = await deriveConfidentialKeys({
+    signer: payer
+  });
 
   const plan = getCreateMintInstructionPlan({
     payer,
@@ -842,7 +843,8 @@ async function createConfidentialTokenAccount(
     tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
     mint
   });
-  const { elgamalKeypair, aesKey } = await deriveConfidentialKeys(accountOwner);
+  const { elgamalKeypair, aesKey } =
+    await deriveConfidentialWasmKeys(accountOwner);
 
   const plan = await getCreateConfidentialTransferAccountInstructionPlan({
     rpc: kitClient.rpc,
@@ -903,7 +905,7 @@ async function applyPendingBalance(
   token: Awaited<ReturnType<typeof createConfidentialTokenAccount>>
 ) {
   const { elgamalSecretKey, aesKey } =
-    await deriveConfidentialKeys(accountOwner);
+    await deriveConfidentialWasmKeys(accountOwner);
   const tokenAccount = await fetchToken(kitClient.rpc, token);
   await kitClient.sendTransaction([
     getApplyConfidentialPendingBalanceInstructionFromToken({
@@ -917,15 +919,19 @@ async function applyPendingBalance(
   await pauseForPublicRpc();
 }
 
-async function deriveConfidentialKeys(accountOwner: typeof owner) {
-  const derivedElGamal = await deriveElGamalKeypair({
+async function deriveConfidentialWasmKeys(accountOwner: typeof owner) {
+  // One signature over the constant solana-conf-bal/v1 message derives both
+  // keys, bound to the wallet alone.
+  const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
     signer: accountOwner
   });
-  const elgamalSecretKey = ElGamalSecretKey.fromBytes(derivedElGamal.secretKey);
-  const elgamalKeypair = ElGamalKeypair.fromSecretKey(elgamalSecretKey);
-  const aesKey = AeKey.fromBytes(await deriveAeKey({ signer: accountOwner }));
+  const elgamalSecretKey = ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey);
 
-  return { elgamalKeypair, elgamalSecretKey, aesKey };
+  return {
+    elgamalKeypair: ElGamalKeypair.fromSecretKey(elgamalSecretKey),
+    elgamalSecretKey,
+    aesKey: AeKey.fromBytes(aeKey)
+  };
 }
 
 async function pauseForPublicRpc() {

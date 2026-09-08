@@ -112,11 +112,12 @@ store those keys is an integration choice. A few common options:
   canonical, domain-separated message and the keys are derived from that
   signature, so they are reproducible from the wallet alone and you do not have
   to store them. The standard derivation binds the keys to the main wallet only
-  (an empty public seed), so one wallet maps to one ElGamal keypair and one AES
-  key across all mints and token accounts. Earlier revisions of the helpers
-  seeded from the `(owner, mint)` pair or the token account address; those
-  variants are deprecated and should only be kept for decrypting balances that
-  were encrypted under them.
+  and takes no seed at all, so clients cannot accidentally derive different
+  keys: one wallet maps to one ElGamal keypair and one AES key across all mints
+  and token accounts. Earlier revisions of the helpers seeded from the
+  `(owner, mint)` pair or the token account address; those variants are
+  deprecated and should only be kept for decrypting balances that were encrypted
+  under them.
 - **Derive from independent key material.** For passkeys, secure enclaves, or
   MPC setups, derive the keys from a WebAuthn PRF output or other input key
   material so that the confidential keys are not tied to the account's signing
@@ -130,25 +131,22 @@ The `@solana-program/token-2022` client ships helpers for the recommended path:
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveAeKey,
-  deriveElGamalKeypair
-} from "@solana-program/token-2022/confidential";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to the wallet.
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypair({
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
   signer: owner
 });
-const aesKey = await deriveAeKey({ signer: owner });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the standard derivation uses an empty public
-// seed. This is the same canonical, domain-separated derivation the JS helpers
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer, b"")
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
     .expect("Failed to derive confidential keys");
 ```
 
@@ -158,7 +156,10 @@ let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer, b"")
   Confidential keys are decryption keys. Treat a request to sign the derivation
   message like unlocking a private view of the user's balances. Prefer deriving
   on demand over storing them; if you do store them (for example in a custodial
-  service), protect them with the same rigor as signing keys.
+  service), protect them with the same rigor as signing keys. Wallets should
+  expose this signature through a dedicated derivation flow and refuse generic
+  signMessage requests for messages starting with `solana-conf-bal/v1`, since
+  that signature is the input key material for the user's decryption keys.
 </Callout>
 
 The derivation helpers return serialized key material. The high-level operation
@@ -172,10 +173,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## Creating and configuring accounts
