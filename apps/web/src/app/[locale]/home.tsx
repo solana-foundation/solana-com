@@ -74,12 +74,7 @@ const isHeroBannerActive = (banner: HeroBanner, now = new Date()): boolean => {
     "bannerExpiryDate" in banner ? banner.bannerExpiryDate : undefined;
   if (!expiry) return true;
 
-  const today = new Date(now);
-  const expiryDate = new Date(expiry);
-  today.setHours(0, 0, 0, 0);
-  expiryDate.setHours(0, 0, 0, 0);
-
-  return today <= expiryDate;
+  return now.toISOString().slice(0, 10) <= expiry;
 };
 
 const getRandomHeroBanner = (): HeroBanner => {
