@@ -45,6 +45,49 @@ const TransactionsStat = dynamic(
   },
 );
 
+const HERO_BANNERS = [
+  {
+    bannerEyebrow: "200ms: Monitoring the situation",
+    bannerDescription:
+      "Watch Solana’s measured path to 200ms with live slot-time and network metrics.",
+    bannerImgSrc: "/src/img/index/slot-200ms-promo.webp",
+    bannerHref: "/200ms",
+    bannerLabel: "Open live monitor",
+  },
+  {
+    bannerEyebrow: "Breakpoint 2026",
+    bannerDescription:
+      "Solana's flagship gathering returns to London, November 15-17, 2026.",
+    bannerImgSrc: "/src/img/index/breakpoint-2026-promo.webp",
+    bannerHref: "/breakpoint",
+    bannerLabel: "Learn More",
+    bannerExpiryDate: "2026-11-17",
+  },
+] as const;
+
+type HeroBanner = (typeof HERO_BANNERS)[number];
+
+const DEFAULT_HERO_BANNER = HERO_BANNERS[0];
+
+const isHeroBannerActive = (banner: HeroBanner, now = new Date()): boolean => {
+  const expiry =
+    "bannerExpiryDate" in banner ? banner.bannerExpiryDate : undefined;
+  if (!expiry) return true;
+
+  return now.toISOString().slice(0, 10) <= expiry;
+};
+
+const getRandomHeroBanner = (): HeroBanner => {
+  const activeBanners = HERO_BANNERS.filter((banner) =>
+    isHeroBannerActive(banner),
+  );
+
+  return (
+    activeBanners[Math.floor(Math.random() * activeBanners.length)] ??
+    DEFAULT_HERO_BANNER
+  );
+};
+
 interface HomePageProps {
   translations: {
     heroTitle: React.ReactNode;
@@ -97,6 +140,11 @@ export function HomePage({
   activeCampaign,
 }: HomePageProps) {
   const [newsFallback, setNewsFallback] = useState<PostItem[] | null>(null);
+  const [heroBanner, setHeroBanner] = useState<HeroBanner>(DEFAULT_HERO_BANNER);
+
+  useEffect(() => {
+    setHeroBanner(getRandomHeroBanner());
+  }, []);
 
   // Workaround for Vercel preview mode
   // Fetch news fallback if news is empty
@@ -152,11 +200,7 @@ export function HomePage({
         <Hero
           title={translations.heroTitle}
           subtitle={translations.heroSubtitle}
-          bannerEyebrow="200ms: Monitoring the situation"
-          bannerDescription="Watch Solana’s measured path to 200ms with live slot-time and network metrics."
-          bannerImgSrc="/src/img/index/slot-200ms-promo.webp"
-          bannerHref="/200ms"
-          bannerLabel="Open live monitor"
+          {...heroBanner}
           cta={translations.heroCta}
           bgJsonFilePath="/src/img/index/hero-bg.json"
           bgImageSrc="/src/img/index/hero-bg.webp"

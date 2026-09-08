@@ -1,5 +1,11 @@
 import type { FAQPageItem } from "@/content/faq-page";
-import { breakpointHref, getAnchorLinkProps } from "@/lib/links";
+import { localizedRoutePath } from "@/config";
+import { useLocale } from "@workspace/i18n/client";
+import {
+  breakpointHref,
+  getAnchorLinkProps,
+  isRelativeHref,
+} from "@/lib/links";
 
 type FAQAnswerProps = {
   className?: string;
@@ -10,8 +16,11 @@ export default function FAQAnswer({
   className = "type-paragraph text-white md:pr-2xl",
   item,
 }: FAQAnswerProps) {
+  const locale = useLocale();
   const resolvedHref = item.answerHref
-    ? breakpointHref(item.answerHref)
+    ? isRelativeHref(item.answerHref)
+      ? localizedRoutePath(locale, item.answerHref)
+      : breakpointHref(item.answerHref)
     : undefined;
 
   const answerText = item.answer?.trim() ?? "";
