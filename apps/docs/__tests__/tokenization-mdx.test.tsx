@@ -90,9 +90,11 @@ describe("Tokenization docs MDX", () => {
 
   it("documents no unreleased or unspecified architecture", async () => {
     // Feedback on the first PR: these docs cover released products only.
+    // Private Channels and the Solana Privacy Protocol are released and carry
+    // their own pages, so deployment options names them and defers the model
+    // comparison to /docs/finance/privacy. A Permissioned Environment has no
+    // docs page and stays out.
     const banned = [
-      "Private Channels",
-      "Solana Privacy Protocol",
       "designs under discussion",
       "does not cover yet",
       "Permissioned Environment",
