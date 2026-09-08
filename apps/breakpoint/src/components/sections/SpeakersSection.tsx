@@ -1,7 +1,6 @@
 import { getTranslations } from "@workspace/i18n/server";
 import SpeakersCarousel from "@/components/sections/SpeakersCarousel";
 import { getAirtableSpeakers } from "@/content/speakers/airtable";
-import { fallbackSpeakers } from "@/content/speakers/fallback-speakers";
 
 const HOMEPAGE_SPEAKER_COUNT = 5;
 
@@ -10,10 +9,7 @@ export default async function SpeakersSection() {
     getTranslations("breakpoint"),
     getAirtableSpeakers(),
   ]);
-  const speakers = (
-    airtableSpeakers ??
-    (process.env.NODE_ENV === "production" ? [] : fallbackSpeakers)
-  ).slice(0, HOMEPAGE_SPEAKER_COUNT);
+  const speakers = (airtableSpeakers ?? []).slice(0, HOMEPAGE_SPEAKER_COUNT);
 
   if (speakers.length === 0) return null;
 

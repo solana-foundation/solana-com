@@ -127,10 +127,7 @@ async function fetchAirtableSpeakers(): Promise<BreakpointSpeaker[] | null> {
     if (!deduped.has(speaker.slug)) deduped.set(speaker.slug, speaker);
   }
 
-  return [...deduped.values()].sort((a, b) => {
-    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-    return a.name.localeCompare(b.name);
-  });
+  return [...deduped.values()];
 }
 
 export const getAirtableSpeakers = fetchAirtableSpeakers;
