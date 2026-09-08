@@ -24,7 +24,7 @@ Pick the app first. That usually cuts exploration time in half.
 | --------------------- | ------------------------------------------- | ---------- | -------------------------------------------------------------------------------- |
 | Main marketing site   | `apps/web` / `solana-com`                   | `3000`     | `/`, `/solutions`, `/ecosystem`, `/events`, selected `/developers/*` routes      |
 | Developer docs        | `apps/docs` / `solana-docs`                 | `3003`     | `/docs`, `/learn`, `/developers`, `/developers/cookbook`, `/developers/bootcamp` |
-| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/changelog`, `/podcasts`, `/keystatic`                                 |
+| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/changelog`, `/reports`, `/upgrades`, `/podcasts`, `/keystatic`        |
 | Templates showcase    | `apps/templates` / `solana-templates`       | `3001`     | `/developers/templates` via rewrites                                             |
 | Accelerate event site | `apps/accelerate` / `solana-com-accelerate` | `3004`     | `/accelerate` via rewrites                                                       |
 | Breakpoint event site | `apps/breakpoint` / `solana-com-breakpoint` | `3005`     | `/breakpoint` via rewrites                                                       |
@@ -49,9 +49,12 @@ Pick the app first. That usually cuts exploration time in half.
 - `packages/i18n`: locale list, routing helpers, shared message loading
 - `packages/ui`: reusable UI primitives
 - `packages/ui-chrome`: shared nav/footer/theme/cross-app link behavior
+- `packages/docs-examples`: tested source snippets embedded in cookbook pages
 - `packages/ecosystem-data`: canonical company, wallet, and logo registry used
   by apps
+- `packages/fab-menu`: reusable Solana property menu
 - `packages/sentry`: shared Sentry helpers
+- `packages/sitemap`: shared sitemap generation helpers
 - `packages/config-eslint`, `packages/config-typescript`: shared configs
 
 ## First Commands To Reach For
@@ -119,8 +122,8 @@ inspect `packages/ui-chrome` and the target app `next.config.ts` together.
 
 - `apps/docs/content`: source of truth for docs, cookbook, learn, and developer
   bootcamp content
-- `apps/media/content`: source of truth for posts, podcasts, authors, tags, and
-  global CMS content
+- `apps/media/content`: source of truth for posts, podcasts, reports, upgrades,
+  releases, authors, tags, and global CMS content
 - `packages/i18n/messages/*`: shared UI message catalogs by app
 - `packages/ecosystem-data`: shared company metadata, wallet-directory records,
   and logos, not app-specific marketing copy

@@ -154,14 +154,19 @@ export type BreakpointMessages = {
       headline: string;
       summary: string;
       checkRequirements: string;
-      firstStep: string;
+      checkVisaOrEta: string;
       officialRequirements: string;
-      entrySuffix: string;
-      secondStep: string;
-      supportPrefix: string;
-      supportLink: string;
-      supportSuffix: string;
+      supportHeading: string;
+      supportOptions: Record<
+        string,
+        {
+          name: string;
+          description: string;
+          ctaLabel: string;
+        }
+      >;
       fees: string;
+      invitationHeading: string;
       invitationPrefix: string;
       invitationLink: string;
       invitationSuffix: string;
