@@ -102,15 +102,15 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   // advanced/* → verticals, programs, tools, and cookbook
   {
     source: "/developers/guides/advanced/acl",
-    destination: "/docs/tokenization/token-acl",
+    destination: "/docs/tokenization/compliance/token-acl",
   },
   {
     source: "/developers/guides/advanced/dvp",
-    destination: "/docs/tokenization/dvp",
+    destination: "/docs/tokenization/settlement/dvp",
   },
   {
     source: "/developers/guides/advanced/nav-strikes",
-    destination: "/docs/tokenization/nav-strikes",
+    destination: "/docs/tokenization/tokenized-funds/nav-strikes",
   },
   {
     source: "/developers/guides/advanced/exchange",
@@ -248,6 +248,18 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
 ]);
 
 const movedDocsRedirects: RedirectInput[] = withMdVariants([
+  {
+    source: "/docs/tokenization/dvp",
+    destination: "/docs/tokenization/settlement/dvp",
+  },
+  {
+    source: "/docs/tokenization/nav-strikes",
+    destination: "/docs/tokenization/tokenized-funds/nav-strikes",
+  },
+  {
+    source: "/docs/tokenization/token-acl",
+    destination: "/docs/tokenization/compliance/token-acl",
+  },
   {
     source: "/docs/tools/ai",
     destination: "/docs/intro/coding-with-agents",

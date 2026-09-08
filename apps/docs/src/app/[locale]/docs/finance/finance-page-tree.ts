@@ -14,6 +14,18 @@ const SECTION_ROUTES = {
 
 export type FinanceSection = keyof typeof SECTION_ROUTES;
 
+/**
+ * Finance pages that render after the section folders rather than above them.
+ * Reference and operational material reads better once the asset sections have
+ * had their say. Order follows the finance meta.json.
+ */
+const TRAILING_FINANCE_PAGES = [
+  "privacy",
+  "developer-tools",
+  "ai-development",
+  "production-readiness",
+] as const;
+
 export function getFinancePageTree(
   tree: Root,
   activeSection: FinanceSection = "finance",
@@ -24,28 +36,33 @@ export function getFinancePageTree(
   const paymentsFolder = findFolder(tree, SECTION_ROUTES.payments);
   const defiFolder = findFolder(tree, SECTION_ROUTES.defi);
   const financeChildren = financeFolder?.children ?? [];
-  const privacyPages = financeChildren.filter(isPrivacyPage);
+  const trailingPages = financeChildren.filter(isTrailingFinancePage);
 
   const financePages: Node[] = financeFolder
     ? [
         ...(financeFolder.index
           ? [{ ...financeFolder.index, name: "Overview" }]
           : []),
-        ...financeChildren.filter((child) => !isPrivacyPage(child)),
+        ...financeChildren.filter((child) => !isTrailingFinancePage(child)),
       ]
     : [];
-
-  const assetsFolder = getAssetsFolder(
-    tokensFolder,
-    tokenizationFolder,
-    activeSection,
-  );
 
   return {
     ...tree,
     children: [
       ...financePages,
-      ...(assetsFolder ? [assetsFolder] : []),
+      ...(tokensFolder
+        ? [renameFolder(tokensFolder, "Assets", activeSection === "tokens")]
+        : []),
+      ...(tokenizationFolder
+        ? [
+            renameFolder(
+              tokenizationFolder,
+              "Issuance & Tokenization",
+              activeSection === "tokenization",
+            ),
+          ]
+        : []),
       ...(paymentsFolder
         ? [
             renameFolder(
@@ -64,43 +81,18 @@ export function getFinancePageTree(
             ),
           ]
         : []),
-      ...privacyPages,
+      ...trailingPages,
     ],
   };
 }
 
-function isPrivacyPage(node: Node): boolean {
+function isTrailingFinancePage(node: Node): boolean {
   return (
     node.type === "page" &&
-    node.url.includes(`${SECTION_ROUTES.finance}/privacy`)
+    TRAILING_FINANCE_PAGES.some((slug) =>
+      node.url.includes(`${SECTION_ROUTES.finance}/${slug}`),
+    )
   );
-}
-
-function getAssetsFolder(
-  tokensFolder: Folder | undefined,
-  tokenizationFolder: Folder | undefined,
-  activeSection: FinanceSection,
-): Folder | undefined {
-  if (!tokensFolder) return tokenizationFolder;
-
-  const tokenizationSection = tokenizationFolder
-    ? renameFolder(
-        tokenizationFolder,
-        "Issuance & Tokenization",
-        activeSection === "tokenization",
-      )
-    : undefined;
-
-  return {
-    ...tokensFolder,
-    name: "Assets",
-    root: false,
-    defaultOpen: activeSection === "tokens" || activeSection === "tokenization",
-    children: [
-      ...tokensFolder.children,
-      ...(tokenizationSection ? [tokenizationSection] : []),
-    ],
-  };
 }
 
 function findFolder(tree: Root, route: string): Folder | undefined {
