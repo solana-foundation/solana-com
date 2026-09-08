@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@workspace/i18n/routing";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 
 export default function NotFound() {
   const t = useTranslations("accelerate.notFound");

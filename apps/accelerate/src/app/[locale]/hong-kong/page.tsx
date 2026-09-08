@@ -16,6 +16,8 @@ import { config } from "@/config";
 import { SeoJsonLd } from "@/components/SeoJsonLd";
 import { getPageMetadata } from "../../metadata";
 import { buildEventStructuredData } from "../../seo";
+import { accelerateEvents } from "@/data/events";
+import { getTranslations } from "@workspace/i18n/server";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -25,13 +27,18 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "accelerate.metadata",
+  });
 
   return getPageMetadata({
     locale,
     path: "/hong-kong",
-    title: "Solana Accelerate APAC 2026 in Hong Kong",
-    description:
-      "Join Solana Accelerate APAC in Hong Kong on February 11, 2026 for a full-day conference covering payments, institutional finance, tokenization, and blockchain infrastructure.",
+    title: t("hongKong.title"),
+    description: t("hongKong.description"),
+    siteTitle: t("site.title"),
+    siteDescription: t("site.description"),
     keywords: [
       "Solana Accelerate APAC",
       "Solana Hong Kong 2026",
@@ -41,7 +48,12 @@ export async function generateMetadata({
   });
 }
 
-export default function HongKongPage() {
+export default async function HongKongPage({ params }: PageProps) {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "accelerate.metadata",
+  });
   const sponsors = composeSponsors(
     sponsorsData.sponsors as SponsorAugmentation[],
   );
@@ -49,10 +61,20 @@ export default function HongKongPage() {
   return (
     <>
       <SeoJsonLd
-        data={buildEventStructuredData(config.events.hongKong, "/hong-kong")}
+        data={buildEventStructuredData(
+          {
+            ...config.events.hongKong,
+            name: t("hongKong.eventName"),
+            description: t("hongKong.eventDescription"),
+          },
+          "/hong-kong",
+        )}
       />
       <HashScroll />
-      <Hero showSpeakersNav={false} />
+      <Hero
+        homePath={accelerateEvents.hongKong.homePath}
+        showSpeakersNav={false}
+      />
       <EventDetails />
       <AgendaBanner showSpeakersCount={false} />
       <Sponsors sponsors={sponsors as Sponsor[]} />

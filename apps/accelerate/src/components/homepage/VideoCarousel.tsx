@@ -4,112 +4,111 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
 import { getImagePath } from "@/config";
+import { useTranslations } from "@workspace/i18n/client";
 
 export type VideoCarouselItem = {
   id: string;
-  title: string;
+  title?: string;
+  translationKey?: string;
   thumbnail?: string;
 };
 
 const defaultVideos: VideoCarouselItem[] = [
-  { id: "mIGoTSdkEww", title: "Welcome to Solana Accelerate APAC" },
-  { id: "rmSoC2H4-64", title: "Opening" },
-  { id: "HBLEqLRpSiA", title: "Opening Fireside" },
+  { id: "mIGoTSdkEww", translationKey: "titles.welcome" },
+  { id: "rmSoC2H4-64", translationKey: "titles.opening" },
+  { id: "HBLEqLRpSiA", translationKey: "titles.openingFireside" },
   {
     id: "3RRrMEq3TKY",
-    title:
-      "Partnering to Build Next-Gen Financial Infrastructure For Onchain Assets",
+    translationKey: "titles.nextGenFinancialInfrastructure",
   },
-  { id: "lr_KBUzQ_os", title: "ETF from East to West" },
-  { id: "BobmmVMD_M4", title: "Bridging The Gap" },
-  { id: "LplcpJ3pPOQ", title: "SGB – Lightning Product Talk" },
+  { id: "lr_KBUzQ_os", translationKey: "titles.etfEastToWest" },
+  { id: "BobmmVMD_M4", translationKey: "titles.bridgingTheGap" },
+  { id: "LplcpJ3pPOQ", translationKey: "titles.sgbLightning" },
   {
     id: "B_ZIRsr669g",
-    title: "Anza - Engineering Internet Capital Markets",
+    translationKey: "titles.anza",
   },
-  { id: "F2qbEHmXr-E", title: "2WA - Lightning Product Talk" },
+  { id: "F2qbEHmXr-E", translationKey: "titles.twoWay" },
   {
     id: "EH8NWFbex3k",
-    title: "Sunrise - Day One, Minute One, How Assets List On Solana",
+    translationKey: "titles.sunrise",
   },
-  { id: "t4LwRDDM2F4", title: "DFlow Product Lightning Talk" },
-  { id: "G2SwIv9hh6s", title: "Safepal Lightning Product Talk" },
+  { id: "t4LwRDDM2F4", translationKey: "titles.dflow" },
+  { id: "G2SwIv9hh6s", translationKey: "titles.safepal" },
   {
     id: "qCk5aAbtrfc",
-    title: "Digital Assets Trading And Liquidity in 2026",
+    translationKey: "titles.digitalAssets",
   },
-  { id: "JS_gdZLMt4g", title: "Trends.Fun" },
-  { id: "-jgT62zTZ1Y", title: "Building New Financial Rails" },
+  { id: "JS_gdZLMt4g", translationKey: "titles.trendsFun" },
+  { id: "-jgT62zTZ1Y", translationKey: "titles.financialRails" },
   {
     id: "Q_BSNleN3u0",
-    title: "Solana Stablecoins: How Solana Can Win Cards",
+    translationKey: "titles.stablecoinsCards",
   },
   {
     id: "I_qRlEObdeY",
-    title: "Beyond The Hype: Building Compliant And Scalable Stablecoin Rails",
+    translationKey: "titles.compliantStablecoinRails",
   },
   {
     id: "m1bzEGvDPBI",
-    title:
-      "ByReal - Transforming Liquidity & Infra for Internet Capital Markets Era",
+    translationKey: "titles.byreal",
   },
   {
     id: "d_tOrVEpBeY",
-    title: "Institutional Finance Accelerating Tokenization",
+    translationKey: "titles.institutionalFinance",
   },
   {
     id: "X70DIWMrppA",
-    title: "Korean STO Market Outlook & Global Partnership Strategy",
+    translationKey: "titles.koreanSto",
   },
-  { id: "ac6upzfmwGY", title: "Jupiter - The Onchain Super App" },
+  { id: "ac6upzfmwGY", translationKey: "titles.jupiter" },
   {
     id: "O1rHOAVg4Is",
-    title: "Jito - Building The Market Layer of Solana",
+    translationKey: "titles.jito",
   },
-  { id: "0WYpENQFS40", title: "Tokenize Everything on Solana" },
-  { id: "TjWJxWq501A", title: "Accelerate APAC 2026" },
-  { id: "eHHPKk2cWBA", title: "Matrixdock - Digital Gold on Solana" },
+  { id: "0WYpENQFS40", translationKey: "titles.tokenizeEverything" },
+  { id: "TjWJxWq501A", translationKey: "titles.accelerateApac" },
+  { id: "eHHPKk2cWBA", translationKey: "titles.matrixdock" },
   {
     id: "23v5QTyYeLg",
-    title: "Solana DeFi: The Execution Layer For Global Finance",
+    translationKey: "titles.solanaDefi",
   },
   {
     id: "ovM3u1q563Q",
-    title: "DeBridge Universal Execution To Make Infrastructure Disappear",
+    translationKey: "titles.debridge",
   },
-  { id: "6jVYIAlzvr0", title: "Solflare" },
-  { id: "9kJU_dtXOa8", title: "ICM Infrastructure Talk" },
+  { id: "6jVYIAlzvr0", translationKey: "titles.solflare" },
+  { id: "9kJU_dtXOa8", translationKey: "titles.icmInfrastructure" },
   {
     id: "pMobZ1uMJBQ",
-    title:
-      "The New Global Reserve: Why Solana is the OS for Digital Asset Treasuries",
+    translationKey: "titles.globalReserve",
   },
   {
     id: "lyi48CMrC2E",
-    title: "HSDT Solana Company - The Solana Supercycle Starts in Asia",
+    translationKey: "titles.hsdt",
   },
   {
     id: "Fe4ZETLDfaE",
-    title: "Bitcoin Is the Asset, Solana is the Infrastructure",
+    translationKey: "titles.bitcoinSolana",
   },
-  { id: "pJlWEd0n0pY", title: "Infrastructure of AI" },
-  { id: "k9a6emVTxLY", title: "Introducing Lightspeed" },
+  { id: "pJlWEd0n0pY", translationKey: "titles.aiInfrastructure" },
+  { id: "k9a6emVTxLY", translationKey: "titles.lightspeed" },
   {
     id: "nNWrGePQLqk",
-    title: "Fosun Finloop and Finchain Introduction",
+    translationKey: "titles.fosun",
   },
   {
     id: "iKQp-Y3v4BI",
-    title: "Consumer App And Creator Economy on Solana",
+    translationKey: "titles.consumerCreator",
   },
-  { id: "RpHfsh5TJhU", title: "Internet Capital Showcase" },
+  { id: "RpHfsh5TJhU", translationKey: "titles.internetCapital" },
   {
     id: "R0OPT-EExrQ",
-    title: "DoubleZero - The Internet in Internet Capital Markets",
+    translationKey: "titles.doubleZero",
   },
   {
     id: "9mK84MOIyns",
-    title: "What Wall Street Wants: Metrics That Matter",
+    translationKey: "titles.wallStreet",
   },
 ].map((v) => ({
   ...v,
@@ -128,10 +127,12 @@ const getYoutubeEmbedUrl = (id: string) => {
 function VideoModal({
   videoId,
   title,
+  closeLabel,
   onClose,
 }: {
   videoId: string;
   title: string;
+  closeLabel: string;
   onClose: () => void;
 }) {
   const handleKeyDown = useCallback(
@@ -169,7 +170,7 @@ function VideoModal({
         <button
           onClick={onClose}
           className="absolute -right-2 -top-10 flex h-8 w-8 items-center justify-center text-white/70 transition-colors hover:text-white"
-          aria-label="Close video"
+          aria-label={closeLabel}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path
@@ -202,12 +203,14 @@ function ArrowButton({
   direction: "left" | "right";
   onClick: () => void;
 }) {
+  const t = useTranslations("accelerate.homepage.video");
+
   return (
     <button
       type="button"
       onClick={onClick}
       className="group flex h-12 w-12 items-center justify-center rounded-full border border-accelerate-gray-200 bg-black/60 text-accelerate-gray-200 transition-colors hover:border-accelerate-green hover:text-accelerate-green"
-      aria-label={`Scroll ${direction}`}
+      aria-label={t(direction === "left" ? "scrollLeft" : "scrollRight")}
     >
       <svg
         width="18"
@@ -230,16 +233,22 @@ function ArrowButton({
 
 export function VideoCarousel({
   videos = defaultVideos,
-  heading = "Accelerate APAC 2026",
+  heading,
+  headingKey,
 }: {
   videos?: VideoCarouselItem[];
   heading?: string;
+  headingKey?: string;
 }) {
+  const t = useTranslations("accelerate.homepage.video");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [modalVideo, setModalVideo] = useState<{
     id: string;
     title: string;
   } | null>(null);
+  const resolvedHeading = headingKey
+    ? t(headingKey)
+    : (heading ?? t("heading"));
 
   const scroll = (direction: "left" | "right") => {
     const el = scrollRef.current;
@@ -271,7 +280,7 @@ export function VideoCarousel({
           {/* Header row */}
           <div className="mb-6 flex items-center justify-between">
             <h3 className="text-[25px] font-light uppercase leading-none tracking-[1.25px] text-accelerate-gray-100 md:text-[32px] lg:text-[40px]">
-              {heading}
+              {resolvedHeading}
             </h3>
 
             {/* Circular navigation arrows */}
@@ -286,43 +295,47 @@ export function VideoCarousel({
             ref={scrollRef}
             className="scrollbar-hide flex snap-x gap-3 overflow-x-auto pb-4"
           >
-            {videos.map((video) => (
-              <div
-                key={video.id}
-                className="w-[300px] flex-shrink-0 snap-start md:w-[400px] lg:w-[524px]"
-              >
+            {videos.map((video) => {
+              const title = video.translationKey
+                ? t(video.translationKey)
+                : (video.title ?? "");
+
+              return (
                 <div
-                  className="group relative aspect-[524/295] cursor-pointer overflow-hidden bg-white/5"
-                  onClick={() =>
-                    setModalVideo({ id: video.id, title: video.title })
-                  }
+                  key={video.id}
+                  className="w-[300px] flex-shrink-0 snap-start md:w-[400px] lg:w-[524px]"
                 >
-                  <Image
-                    src={
-                      video.thumbnail ??
-                      getImagePath(`/images/homepage/videos/${video.id}.jpg`)
-                    }
-                    alt={video.title}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  {/* Play button overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accelerate-gradient">
-                      <svg
-                        width="18"
-                        height="20"
-                        viewBox="0 0 22 26"
-                        fill="none"
-                        className="ml-0.5"
-                      >
-                        <path d="M22 13L0 26V0L22 13Z" fill="white" />
-                      </svg>
+                  <div
+                    className="group relative aspect-[524/295] cursor-pointer overflow-hidden bg-white/5"
+                    onClick={() => setModalVideo({ id: video.id, title })}
+                  >
+                    <Image
+                      src={
+                        video.thumbnail ??
+                        getImagePath(`/images/homepage/videos/${video.id}.jpg`)
+                      }
+                      alt={title}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    {/* Play button overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accelerate-gradient">
+                        <svg
+                          width="18"
+                          height="20"
+                          viewBox="0 0 22 26"
+                          fill="none"
+                          className="ml-0.5"
+                        >
+                          <path d="M22 13L0 26V0L22 13Z" fill="white" />
+                        </svg>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -333,6 +346,7 @@ export function VideoCarousel({
           <VideoModal
             videoId={modalVideo.id}
             title={modalVideo.title}
+            closeLabel={t("closeVideo")}
             onClose={() => setModalVideo(null)}
           />
         )}

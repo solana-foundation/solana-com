@@ -10,6 +10,7 @@ import { SeoJsonLd } from "@/components/SeoJsonLd";
 import { config, getImagePath } from "@/config";
 import { getPageMetadata } from "../../metadata";
 import { buildEventStructuredData } from "../../seo";
+import { getTranslations } from "@workspace/i18n/server";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -19,13 +20,18 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "accelerate.metadata",
+  });
 
   return getPageMetadata({
     locale,
     path: "/china",
-    title: "Solana Accelerate China 2026",
-    description:
-      "Solana Accelerate China brings the Solana community to Shanghai, Hangzhou, Shenzhen, and Beijing in October 2026.",
+    title: t("china.title"),
+    description: t("china.description"),
+    siteTitle: t("site.title"),
+    siteDescription: t("site.description"),
     keywords: [
       "Solana Accelerate China",
       "Solana China 2026",
@@ -37,30 +43,47 @@ export async function generateMetadata({
   });
 }
 
-export default function ChinaPage() {
+export default async function ChinaPage({ params }: PageProps) {
+  const { locale } = await params;
+  const metadataT = await getTranslations({
+    locale,
+    namespace: "accelerate.metadata",
+  });
+  const chinaT = await getTranslations({
+    locale,
+    namespace: "accelerate.china",
+  });
+
   return (
     <>
       <SeoJsonLd
-        data={buildEventStructuredData(config.events.china, "/china")}
+        data={buildEventStructuredData(
+          {
+            ...config.events.china,
+            name: metadataT("china.eventName"),
+            description: metadataT("china.eventDescription"),
+          },
+          "/china",
+        )}
       />
       <ChinaRoadshow />
       <Highlights />
       <VideoCarousel
-        heading="Accelerate China 2026"
+        heading={chinaT("videoHeading")}
         videos={[
           {
             id: "mIGoTSdkEww",
-            title: "Welcome to Solana Accelerate APAC",
+            title: chinaT("videos.welcome"),
             thumbnail: getImagePath("/images/china/video-1.webp"),
           },
           {
             id: "rmSoC2H4-64",
-            title: "Accelerate APAC Opening",
+            title: chinaT("videos.opening"),
             thumbnail: getImagePath("/images/china/video-2.webp"),
           },
           {
             id: "HBLEqLRpSiA",
-            title: "Accelerate APAC Opening Fireside",
+            title: chinaT("videos.openingFireside"),
             thumbnail: getImagePath("/images/china/video-3.webp"),
           },
         ]}

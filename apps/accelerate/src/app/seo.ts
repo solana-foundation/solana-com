@@ -1,6 +1,6 @@
 import { config } from "@/config";
 
-type EventConfig = {
+export type EventConfig = {
   name: string;
   description: string;
   startDate: string;
@@ -48,12 +48,24 @@ export function buildEventStructuredData(event: EventConfig, path: string) {
   };
 }
 
-export function buildEventSeriesStructuredData() {
+export function buildEventSeriesStructuredData({
+  name = config.siteMetadata.title,
+  description = config.siteMetadata.description,
+  events = [
+    { event: config.events.hongKong, path: "/hong-kong" },
+    { event: config.events.miami, path: "/miami" },
+    { event: config.events.china, path: "/china" },
+  ],
+}: {
+  name?: string;
+  description?: string;
+  events?: Array<{ event: EventConfig; path: string }>;
+} = {}) {
   return {
     "@context": "https://schema.org",
     "@type": "EventSeries",
-    name: config.siteMetadata.title,
-    description: config.siteMetadata.description,
+    name,
+    description,
     url: config.publicUrl,
     image: [config.siteMetadata.socialShare],
     organizer: {
@@ -61,10 +73,8 @@ export function buildEventSeriesStructuredData() {
       name: "Solana Foundation",
       url: "https://solana.com",
     },
-    subEvent: [
-      buildEventStructuredData(config.events.hongKong, "/hong-kong"),
-      buildEventStructuredData(config.events.miami, "/miami"),
-      buildEventStructuredData(config.events.china, "/china"),
-    ],
+    subEvent: events.map(({ event, path }) =>
+      buildEventStructuredData(event, path),
+    ),
   };
 }

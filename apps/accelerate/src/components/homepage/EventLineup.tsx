@@ -7,53 +7,60 @@ import { CarouselArrow } from "./CarouselArrow";
 import { useHorizontalCarousel } from "./useHorizontalCarousel";
 import { getImagePath } from "@/config";
 import { chinaStops } from "@/data/china-stops";
-
-const chinaEvents = chinaStops.map((stop) => ({
-  image: getImagePath(stop.image),
-  city: stop.city,
-  subtitle: "Solana Accelerate China",
-  dateLocation: `${stop.date.replace(", 2026", "")} / ${stop.city}`,
-  href: stop.city === "Shanghai" ? "/accelerate/china" : stop.registrationUrl,
-  external: stop.city !== "Shanghai",
-  active: true,
-}));
-
-const events = [
-  ...chinaEvents,
-  {
-    image: getImagePath("/images/homepage/miami-card-photo.jpg"),
-    city: "Miami",
-    subtitle: "Solana Accelerate USA",
-    dateLocation: "May 5 / Miami",
-    href: "/accelerate/miami",
-    external: false,
-    active: false,
-  },
-  {
-    image: getImagePath("/images/homepage/ai-miami-card-photo.webp"),
-    city: "AI Miami",
-    subtitle: "Solana Accelerate AI",
-    dateLocation: "May 6 / Miami",
-    href: "https://luma.com/acc-ai-mia",
-    external: true,
-    active: true,
-  },
-  {
-    image: getImagePath("/images/homepage/hk-card-photo.jpg"),
-    city: "Hong Kong",
-    subtitle: "Solana Accelerate APAC",
-    dateLocation: "Feb 11 / Hong Kong @ Consensus",
-    href: "/accelerate/hong-kong",
-    external: false,
-    active: false,
-  },
-];
+import { useTranslations } from "@workspace/i18n/client";
 
 interface EventLineupProps {
   futureOnly?: boolean;
 }
 
 export function EventLineup({ futureOnly = false }: EventLineupProps) {
+  const t = useTranslations("accelerate.homepage");
+  const chinaEvents = chinaStops.map((stop) => {
+    const eventCopy = t.raw(
+      `eventLineup.events.${stop.city.toLowerCase()}`,
+    ) as { subtitle: string; dateLocation: string };
+
+    return {
+      image: getImagePath(stop.image),
+      city: stop.city,
+      subtitle: eventCopy.subtitle,
+      dateLocation: eventCopy.dateLocation,
+      href:
+        stop.city === "Shanghai" ? "/accelerate/china" : stop.registrationUrl,
+      external: stop.city !== "Shanghai",
+      active: true,
+    };
+  });
+  const events = [
+    ...chinaEvents,
+    {
+      image: getImagePath("/images/homepage/miami-card-photo.jpg"),
+      city: t("eventLineup.events.miami.city"),
+      subtitle: t("eventLineup.events.miami.subtitle"),
+      dateLocation: t("eventLineup.events.miami.dateLocation"),
+      href: "/accelerate/miami",
+      external: false,
+      active: false,
+    },
+    {
+      image: getImagePath("/images/homepage/ai-miami-card-photo.webp"),
+      city: t("eventLineup.events.aiMiami.city"),
+      subtitle: t("eventLineup.events.aiMiami.subtitle"),
+      dateLocation: t("eventLineup.events.aiMiami.dateLocation"),
+      href: "https://www.youtube.com/watch?v=OycUj-Z32dM",
+      external: true,
+      active: false,
+    },
+    {
+      image: getImagePath("/images/homepage/hk-card-photo.jpg"),
+      city: t("eventLineup.events.hongKong.city"),
+      subtitle: t("eventLineup.events.hongKong.subtitle"),
+      dateLocation: t("eventLineup.events.hongKong.dateLocation"),
+      href: "/accelerate/hong-kong",
+      external: false,
+      active: false,
+    },
+  ];
   const displayEvents = futureOnly ? events.filter((e) => e.active) : events;
   const { scrollRef, canScrollLeft, canScrollRight, scroll } =
     useHorizontalCarousel();
@@ -78,7 +85,7 @@ export function EventLineup({ futureOnly = false }: EventLineupProps) {
           viewport={{ once: true }}
           className="mb-12 text-center text-[40px] font-light uppercase leading-[1.2] tracking-[4px] text-accelerate-gray-100 md:text-[60px] lg:mb-16 lg:text-[80px]"
         >
-          2026 Accelerate Lineup
+          {t("eventLineup.heading")}
         </motion.h2>
 
         {/* Cards with scroll arrows */}

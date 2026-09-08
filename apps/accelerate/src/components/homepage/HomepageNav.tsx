@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "@workspace/i18n/routing";
+import { useTranslations } from "@workspace/i18n/client";
 import Image from "next/image";
 import { getImagePath } from "@/config";
 
@@ -12,6 +13,7 @@ import { getImagePath } from "@/config";
  */
 export function HomepageNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const t = useTranslations("accelerate.homepage");
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -40,19 +42,19 @@ export function HomepageNav() {
               href="/accelerate/china"
               className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
-              China
+              {t("nav.china")}
             </Link>
             <Link
               href="/accelerate/hong-kong"
               className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
-              Hong Kong
+              {t("nav.hongKong")}
             </Link>
             <Link
               href="/accelerate/miami"
               className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
-              Miami
+              {t("nav.miami")}
             </Link>
 
             {/* LIVE NOW button */}
@@ -83,7 +85,7 @@ export function HomepageNav() {
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               className="inline-flex h-[44px] w-[44px] items-center justify-center border border-[#2e2e2e] text-accelerate-green transition-colors hover:border-accelerate-green xl:hidden"
-              aria-label="Open navigation menu"
+              aria-label={t("nav.openMenu")}
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path
@@ -103,7 +105,7 @@ export function HomepageNav() {
           <div className="mx-auto flex w-full max-w-[1024px] items-start justify-between">
             <Image
               src={getImagePath("/images/solana-accelerate-logo.svg")}
-              alt="Solana Accelerate"
+              alt={t("nav.logoAlt")}
               width={166}
               height={94}
               className="h-auto w-[120px] md:w-[166px]"
@@ -113,7 +115,7 @@ export function HomepageNav() {
               type="button"
               onClick={closeMobileMenu}
               className="inline-flex h-[44px] w-[44px] items-center justify-center text-accelerate-green"
-              aria-label="Close navigation menu"
+              aria-label={t("nav.closeMenu")}
             >
               <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
                 <path
@@ -132,21 +134,21 @@ export function HomepageNav() {
               onClick={closeMobileMenu}
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
             >
-              China
+              {t("nav.china")}
             </Link>
             <Link
               href="/accelerate/hong-kong"
               onClick={closeMobileMenu}
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
             >
-              Hong Kong
+              {t("nav.hongKong")}
             </Link>
             <Link
               href="/accelerate/miami"
               onClick={closeMobileMenu}
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
             >
-              Miami
+              {t("nav.miami")}
             </Link>
           </nav>
         </div>

@@ -3,8 +3,11 @@
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
 import { getImagePath } from "@/config";
+import { useTranslations } from "@workspace/i18n/client";
 
 export function HomepageFooter() {
+  const t = useTranslations("accelerate.homepage");
+
   return (
     <footer className="relative overflow-hidden bg-black pb-16 pt-20 lg:pb-16 lg:pt-[82px]">
       {/* acc-hero 2 - inverted globe glow behind planet dots */}
@@ -61,19 +64,19 @@ export function HomepageFooter() {
                 href="/accelerate/china"
                 className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
               >
-                China
+                {t("nav.china")}
               </Link>
               <Link
                 href="/accelerate/hong-kong"
                 className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
               >
-                Hong Kong
+                {t("nav.hongKong")}
               </Link>
               <Link
                 href="/accelerate/miami"
                 className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
               >
-                Miami
+                {t("nav.miami")}
               </Link>
             </div>
           </div>
@@ -121,7 +124,7 @@ export function HomepageFooter() {
 
         {/* Copyright */}
         <p className="mt-16 text-center font-diatype text-[13px] font-normal leading-[1.4] text-accelerate-gray-100 lg:mt-[101px] lg:text-[20px]">
-          &copy; Solana Foundation 2026
+          {t("footer.copyright")}
         </p>
       </div>
     </footer>

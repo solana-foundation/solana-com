@@ -4,6 +4,7 @@ import { useState, useCallback, FormEvent, ChangeEvent } from "react";
 import Image from "next/image";
 import { motion } from "motion/react";
 import { getImagePath } from "@/config";
+import { useTranslations } from "@workspace/i18n/client";
 
 const ITERABLE_BASE_URL =
   "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
@@ -13,6 +14,7 @@ const ITERABLE_FORM_ID = "fdd4a0db-f4af-4b29-90f9-98b0556d4c89";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function StayUpdated() {
+  const t = useTranslations("accelerate.homepage");
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [status, setStatus] = useState<
@@ -26,12 +28,12 @@ export function StayUpdated() {
       setErrorMsg("");
 
       if (!EMAIL_REGEX.test(email)) {
-        setErrorMsg("Please enter a valid email address.");
+        setErrorMsg(t("stayUpdated.invalidEmail"));
         return;
       }
 
       if (!consent) {
-        setErrorMsg("Please accept the privacy policy to continue.");
+        setErrorMsg(t("stayUpdated.consentRequired"));
         return;
       }
 
@@ -57,10 +59,10 @@ export function StayUpdated() {
         setEmail("");
       } catch {
         setStatus("error");
-        setErrorMsg("Something went wrong. Please try again.");
+        setErrorMsg(t("stayUpdated.error"));
       }
     },
-    [email, consent],
+    [consent, email, t],
   );
 
   const handleEmailChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
@@ -89,18 +91,17 @@ export function StayUpdated() {
           <div className="flex w-[345px] max-w-full flex-col gap-6 text-center md:w-[586px] md:gap-10">
             {/* Heading */}
             <h2 className="text-[29px] font-light uppercase leading-none tracking-[1.5px] text-accelerate-gray-100 md:text-[42px] lg:text-[50px]">
-              Stay Updated
+              {t("stayUpdated.heading")}
             </h2>
             {/* Subtitle */}
             <p className="font-diatype text-[18px] font-light leading-[1.2] text-accelerate-gray-light md:text-[24px]">
-              Be the first to know about speaker announcements, schedule
-              releases, and exclusive offers.
+              {t("stayUpdated.description")}
             </p>
           </div>
 
           {status === "success" ? (
             <p className="text-[18px] text-accelerate-green">
-              Thanks for subscribing! We&apos;ll keep you updated.
+              {t("stayUpdated.success")}
             </p>
           ) : (
             <>
@@ -115,7 +116,7 @@ export function StayUpdated() {
                     <input
                       type="email"
                       name="email"
-                      placeholder="Your Email"
+                      placeholder={t("stayUpdated.emailPlaceholder")}
                       value={email}
                       onChange={handleEmailChange}
                       className="w-full bg-transparent text-center text-[13px] font-medium uppercase tracking-[0.65px] leading-none text-white placeholder-white outline-none md:text-left md:text-[16px] md:tracking-[0.8px]"
@@ -128,7 +129,9 @@ export function StayUpdated() {
                     className="flex h-[48px] items-center justify-center rounded-[32px] border border-accelerate-gray-dark px-5 py-[17.5px] text-center transition-colors hover:border-white/40 disabled:opacity-50 md:min-w-[240px] md:px-7 md:py-6"
                   >
                     <span className="text-[9.5px] font-semibold uppercase tracking-[0.48px] leading-none text-accelerate-gray-dark md:text-[18px] md:tracking-[0.9px]">
-                      {status === "submitting" ? "..." : "Subscribe"}
+                      {status === "submitting"
+                        ? t("stayUpdated.submitting")
+                        : t("stayUpdated.subscribe")}
                     </span>
                   </button>
                 </div>
@@ -144,16 +147,18 @@ export function StayUpdated() {
                     />
                   </div>
                   <p className="font-diatype text-left text-[12px] font-light leading-none tracking-[0.6px] text-accelerate-gray-200 md:text-[16px] md:tracking-[0.8px]">
-                    I consent to my information being collected in accordance
-                    with the Solana{" "}
-                    <a
-                      href="https://solana.com/privacy-policy"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline transition-colors hover:text-white"
-                    >
-                      Privacy policy
-                    </a>
+                    {t.rich("stayUpdated.consent", {
+                      privacyPolicy: (chunks) => (
+                        <a
+                          href="https://solana.com/privacy-policy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline transition-colors hover:text-white"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                    })}
                   </p>
                 </div>
 

@@ -3,6 +3,7 @@
 import { useRef, useEffect, useLayoutEffect } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
+import { useTranslations } from "@workspace/i18n/client";
 
 const useBrowserLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -15,6 +16,7 @@ import {
 import { getImagePath } from "@/config";
 
 export function HomepageHero() {
+  const t = useTranslations("accelerate.homepage");
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollY } = useScroll();
 
@@ -154,7 +156,7 @@ export function HomepageHero() {
       >
         <motion.img
           src={getImagePath("/images/solana-accelerate-logo.svg")}
-          alt="Solana Accelerate"
+          alt={t("hero.logoAlt")}
           style={{ height: logoHeight, width: "auto" }}
         />
       </motion.div>
@@ -175,7 +177,7 @@ export function HomepageHero() {
         >
           {/* Event label */}
           <p className="mb-5 text-right text-[16px] font-normal uppercase tracking-[0.8px] text-white">
-            Next Event
+            {t("hero.nextEvent")}
           </p>
 
           {/* Card container */}
@@ -187,10 +189,10 @@ export function HomepageHero() {
               {/* City + Date */}
               <div className="flex flex-col gap-[2.5px]">
                 <p className="text-[25px] font-light uppercase leading-none tracking-[1.25px] text-accelerate-gray-light md:text-2xl lg:text-[28px]">
-                  Shanghai
+                  {t("hero.city")}
                 </p>
                 <p className="font-diatype text-[22px] leading-[1.2] text-accelerate-green md:text-xl lg:text-[24px]">
-                  Oct 16
+                  {t("hero.date")}
                 </p>
               </div>
 
@@ -199,7 +201,7 @@ export function HomepageHero() {
                 className="btn-outline-gradient h-[48px] w-full justify-between px-5 md:w-[200px] md:px-7 lg:w-[240px]"
               >
                 <span className="text-[13.43px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[18px]">
-                  Get Tickets
+                  {t("hero.getTickets")}
                 </span>
                 <svg width="9" height="9" viewBox="0 0 11 11" fill="none">
                   <path
@@ -220,7 +222,7 @@ export function HomepageHero() {
               href="/accelerate/china"
               className="inline-flex items-center gap-3 text-[16px] font-normal uppercase tracking-[0.8px] leading-none text-white transition-colors hover:text-white/80"
             >
-              Explore China
+              {t("hero.exploreChina")}
               <Image
                 src={getImagePath("/images/homepage/circle-plus.svg")}
                 alt=""

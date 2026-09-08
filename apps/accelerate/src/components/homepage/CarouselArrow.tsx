@@ -1,3 +1,5 @@
+import { useTranslations } from "@workspace/i18n/client";
+
 interface CarouselArrowProps {
   direction: "left" | "right";
   disabled: boolean;
@@ -11,12 +13,14 @@ export function CarouselArrow({
   onClick,
   ariaControls,
 }: CarouselArrowProps) {
+  const t = useTranslations("accelerate.homepage.accessibility");
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={`Scroll ${direction}`}
+      aria-label={t(direction === "left" ? "scrollLeft" : "scrollRight")}
       aria-controls={ariaControls}
       className="flex h-9 w-9 shrink-0 items-center justify-center transition-opacity focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accelerate-green disabled:cursor-not-allowed disabled:opacity-30"
     >

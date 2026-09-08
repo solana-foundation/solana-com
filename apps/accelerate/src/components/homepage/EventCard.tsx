@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
+import { useTranslations } from "@workspace/i18n/client";
 import { getImagePath } from "@/config";
 
 const conferenceImageOverlayClass =
@@ -29,6 +30,8 @@ function CardContent({
   dateLocation,
   active = true,
 }: Omit<EventCardProps, "href" | "external">) {
+  const t = useTranslations("accelerate.homepage.eventCard");
+
   return (
     <div className="group flex h-[398px] w-full flex-col overflow-hidden rounded-[10px] bg-[#0c0c0c] md:h-[620px] md:rounded-[22px] lg:h-[736px]">
       {/* Photo top half with gradient overlay */}
@@ -60,7 +63,7 @@ function CardContent({
               className="text-[10px] font-semibold uppercase tracking-[1.5px] md:text-xs"
               style={{ color: "#ffffff" }}
             >
-              Upcoming
+              {t("upcoming")}
             </span>
           </div>
         )}
@@ -86,7 +89,7 @@ function CardContent({
               className="text-[10px] font-semibold uppercase tracking-[1.5px] md:text-xs"
               style={{ color: "#ffffff" }}
             >
-              Watch the Recap
+              {t("watchRecap")}
             </span>
           </div>
         )}
@@ -118,7 +121,7 @@ function CardContent({
         {/* CTA button */}
         <div className="btn-outline-gradient flex w-[157px] items-center justify-between px-6 py-[13px] md:w-[186px] md:px-[28px] md:py-[16px]">
           <span className="whitespace-nowrap text-[13.5px] font-semibold uppercase tracking-[0.67px] leading-none text-white md:text-[16px] md:tracking-[0.8px]">
-            {active ? "Learn More" : "Catch Up"}
+            {active ? t("learnMore") : t("catchUp")}
           </span>
           <Image
             src={getImagePath("/images/homepage/header-arrow.svg")}

@@ -7,8 +7,9 @@ import { chinaStops, type ChinaStop } from "@/data/china-stops";
 import { CarouselArrow } from "../homepage/CarouselArrow";
 import { EventCard } from "../homepage/EventCard";
 import { useHorizontalCarousel } from "../homepage/useHorizontalCarousel";
+import { useTranslations } from "@workspace/i18n/client";
 
-function Arrow() {
+function Arrow({ dark }: { dark?: boolean }) {
   return (
     <Image
       src={getImagePath("/images/china/arrow-small.svg")}
@@ -16,6 +17,7 @@ function Arrow() {
       width={8}
       height={8}
       aria-hidden="true"
+      className={dark ? "brightness-0" : undefined}
     />
   );
 }
@@ -41,12 +43,14 @@ function GradientButton({
       className={`${variant === "filled" ? "btn-cta" : "btn-outline-gradient"} inline-flex items-center justify-between gap-8 px-6 text-[13px] font-semibold uppercase tracking-[0.8px] md:px-7 md:text-[16px] ${large ? "h-[58px] md:h-[66px]" : "h-[52px] md:h-[58px]"} ${className}`}
     >
       {children}
-      <Arrow />
+      <Arrow dark={variant === "filled"} />
     </a>
   );
 }
 
 function ChinaHeader() {
+  const t = useTranslations("accelerate.china");
+
   return (
     <header className="absolute inset-x-0 top-0 z-30 h-[88px] overflow-hidden bg-black/70 backdrop-blur-sm md:h-[138px]">
       <Image
@@ -59,12 +63,12 @@ function ChinaHeader() {
       <div className="relative mx-auto flex h-full max-w-[1480px] items-center justify-between gap-6 px-6 md:px-10">
         <Link
           href="/accelerate"
-          aria-label="Solana Accelerate home"
+          aria-label={t("homeAria")}
           className="shrink-0"
         >
           <Image
             src={getImagePath("/images/china/china-logo.svg")}
-            alt="Solana Accelerate China"
+            alt={t("logoAlt")}
             width={187}
             height={103}
             className="h-auto w-[136px] md:w-[220px]"
@@ -73,25 +77,25 @@ function ChinaHeader() {
         </Link>
         <nav
           className="flex items-center gap-4 md:gap-8"
-          aria-label="Accelerate events"
+          aria-label={t("eventsAria")}
         >
           <Link
             href="/accelerate/hong-kong"
             className="hidden text-[14px] font-semibold uppercase tracking-[0.8px] text-white transition-colors hover:text-accelerate-green lg:block"
           >
-            Hong Kong
+            {t("hongKong")}
           </Link>
           <Link
             href="/accelerate/miami"
             className="hidden text-[14px] font-semibold uppercase tracking-[0.8px] text-white transition-colors hover:text-accelerate-green lg:block"
           >
-            Miami
+            {t("miami")}
           </Link>
           <GradientButton
             href="https://luma.com/acc-shanghai-26"
             className="w-[164px] md:w-auto"
           >
-            Get tickets
+            {t("getTickets")}
           </GradientButton>
         </nav>
       </div>
@@ -152,6 +156,8 @@ const heroLayers = [
 ] as const;
 
 function ChinaHero() {
+  const t = useTranslations("accelerate.china");
+
   return (
     <section className="relative h-[clamp(1040px,calc(72.34vw+217px),1389px)] overflow-hidden bg-black pt-[88px] text-white md:pt-[138px]">
       <div className="pointer-events-none absolute left-1/2 top-0 aspect-[1920/1389] w-[clamp(1200px,calc(100vw+300px),1920px)] max-w-none -translate-x-1/2">
@@ -199,28 +205,28 @@ function ChinaHero() {
       <div className="relative z-20 mx-auto max-w-[1560px] px-6 pt-24 md:px-10 md:pt-[124px]">
         <div className="max-w-[660px]">
           <h1 className="text-[54px] font-normal leading-[0.98] tracking-[-2px] text-accelerate-gray-light sm:text-[72px] md:text-[90px] md:tracking-[-4px]">
-            Solana
+            {t("titleSolana")}
             <br />
-            Accelerate
+            {t("titleAccelerate")}
             <br />
-            <span className="text-accelerate-green">China</span>
+            <span className="text-accelerate-green">{t("titleChina")}</span>
           </h1>
           <p className="mt-10 text-[16px] font-normal uppercase tracking-[1.2px] text-white md:mt-14 md:text-[24px]">
-            October 2026
+            {t("date")}
           </p>
         </div>
 
         <div className="mt-16 ml-auto max-w-[500px] md:mt-[14px] 2xl:mr-14">
           <p className="mb-4 text-right text-[13px] font-medium uppercase tracking-[0.8px] text-white md:text-[16px]">
-            Next event
+            {t("nextEvent")}
           </p>
           <div className="flex flex-col gap-5 rounded-[12px] border border-accelerate-gray-dark bg-black/60 p-5 backdrop-blur-sm md:flex-row md:items-center md:justify-between md:px-5 md:py-[31px]">
             <div>
               <p className="text-[26px] font-light uppercase leading-none tracking-[1.4px] text-accelerate-gray-light md:text-[28px]">
-                Shanghai
+                {t("city")}
               </p>
               <p className="mt-1 font-diatype text-[20px] text-accelerate-green md:text-[24px]">
-                Oct 16
+                {t("dateValue")}
               </p>
             </div>
             <GradientButton
@@ -229,7 +235,7 @@ function ChinaHero() {
               variant="filled"
               large
             >
-              Get tickets
+              {t("getTickets")}
             </GradientButton>
           </div>
           <div className="mt-6 flex items-center justify-end gap-3">
@@ -237,7 +243,7 @@ function ChinaHero() {
               href="#lineup"
               className="inline-flex items-center gap-3 text-[16px] font-normal uppercase tracking-[0.8px] leading-none text-white transition-colors hover:text-white/80"
             >
-              Learn More
+              {t("learnMore")}
               <Image
                 src={getImagePath("/images/homepage/circle-plus.svg")}
                 alt=""
@@ -253,12 +259,15 @@ function ChinaHero() {
 }
 
 function StopCard({ stop }: { stop: ChinaStop }) {
+  const t = useTranslations("accelerate.china");
+  const stopKey = stop.city.toLowerCase();
+
   return (
     <EventCard
       image={getImagePath(stop.image)}
       city={stop.city}
-      subtitle="Solana Accelerate China"
-      dateLocation={`${stop.date.replace(", 2026", "")} / ${stop.city}`}
+      subtitle={t("subtitle")}
+      dateLocation={t(`stops.${stopKey}`)}
       href={stop.registrationUrl}
       external
       active
@@ -271,6 +280,7 @@ function RoadshowLineup() {
 }
 
 function RoadshowCarousel() {
+  const t = useTranslations("accelerate.china");
   const { scrollRef, canScrollLeft, canScrollRight, scroll } =
     useHorizontalCarousel();
 
@@ -287,9 +297,7 @@ function RoadshowCarousel() {
       />
       <div className="relative mx-auto max-w-[1480px] px-6 md:px-10">
         <h2 className="mx-auto max-w-[980px] text-center text-[38px] font-light uppercase leading-[1.13] tracking-[2px] text-accelerate-gray-100 sm:text-[52px] md:text-[80px] md:tracking-[4px]">
-          2026 Accelerate China
-          <br />
-          Lineup
+          {t("lineupHeading")}
         </h2>
 
         <div className="relative mt-12 md:mt-20">
@@ -332,6 +340,8 @@ function RoadshowCarousel() {
 }
 
 function ChinaFooter() {
+  const t = useTranslations("accelerate.china");
+
   return (
     <footer className="relative min-h-[460px] overflow-hidden bg-black px-6 pb-14 pt-36 md:px-10 md:pt-44">
       <Image
@@ -393,7 +403,7 @@ function ChinaFooter() {
         </div>
       </div>
       <p className="relative mt-44 text-center font-diatype text-[15px] text-accelerate-gray-100 md:mt-[176px] md:text-[20px]">
-        © Solana Foundation 2026
+        {t("footerCopyright")}
       </p>
     </footer>
   );
