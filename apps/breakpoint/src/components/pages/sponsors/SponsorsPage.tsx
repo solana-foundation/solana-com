@@ -313,19 +313,33 @@ function SponsorModalBody({
 function SponsorCard({
   sponsor,
   cellAspect,
-  mobileLogoScale,
+  mobileLogoMaxWidth,
+  mobileLogoMaxHeight,
+  logoMaxWidth,
+  logoMaxHeight,
+  cellAspectRatio,
   onClick,
 }: {
   sponsor: SponsorLogo;
   cellAspect: string;
-  mobileLogoScale: number;
+  mobileLogoMaxWidth: number;
+  mobileLogoMaxHeight: number;
+  logoMaxWidth: number;
+  logoMaxHeight: number;
+  cellAspectRatio: number;
   onClick: () => void;
 }) {
   const t = useTranslations("breakpoint.pages.sponsors");
   const logo = getLogo(sponsor);
+  const logoAspectRatio = sponsor.width / sponsor.height;
+  const getFittedLogoWidth = (maxWidth: number, maxHeight: number) =>
+    `${Math.min(maxWidth, (maxHeight * logoAspectRatio) / cellAspectRatio) * 100}%`;
   const logoStyle = {
-    "--logo-width": `${sponsor.width}px`,
-    "--logo-width-mobile": `${sponsor.width * mobileLogoScale}px`,
+    "--logo-width": getFittedLogoWidth(logoMaxWidth, logoMaxHeight),
+    "--logo-width-mobile": getFittedLogoWidth(
+      mobileLogoMaxWidth,
+      mobileLogoMaxHeight,
+    ),
     "--logo-ratio": `${sponsor.width} / ${sponsor.height}`,
   } as CSSProperties;
 
@@ -337,7 +351,7 @@ function SponsorCard({
       className={`group flex ${cellAspect} min-w-0 cursor-pointer items-center justify-center overflow-hidden border-0 bg-white/[0.05] p-[10px] transition-colors hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
     >
       <span
-        className="block w-[min(var(--logo-width-mobile),78%)] max-w-[78%] transition-transform duration-200 group-hover:scale-[1.025] md:w-[min(var(--logo-width),78%)]"
+        className="block w-[var(--logo-width-mobile)] transition-transform duration-200 group-hover:scale-[1.025] md:w-[var(--logo-width)]"
         style={{
           ...logoStyle,
           aspectRatio: "var(--logo-ratio)",
@@ -383,7 +397,11 @@ function SponsorTierSection({
               key={sponsor.companyId}
               sponsor={sponsor}
               cellAspect={tier.cellAspect}
-              mobileLogoScale={tier.mobileLogoScale}
+              mobileLogoMaxWidth={tier.mobileLogoMaxWidth}
+              mobileLogoMaxHeight={tier.mobileLogoMaxHeight}
+              logoMaxWidth={tier.logoMaxWidth}
+              logoMaxHeight={tier.logoMaxHeight}
+              cellAspectRatio={tier.cellAspectRatio}
               onClick={() => onSponsorClick(sponsor)}
             />
           ))}

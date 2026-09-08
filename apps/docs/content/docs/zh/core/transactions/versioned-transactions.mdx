@@ -1,8 +1,7 @@
 ---
 title: 版本化交易
 description:
-  Solana 上的传统与版本化（V0）交易格式，包括地址查找表（ALT）、版本检测、V0
-  消息格式和 ALT 解析。
+  Solana 上的 Legacy、v0 和 v1 交易格式，包括地址查找表（ALT）、版本检测、v1 交易配置及资源限制。
 url: /docs/core/transactions/versioned-transactions
 type: conceptual
 prerequisites:
@@ -14,50 +13,81 @@ related:
 ---
 
 <Callout type="info" title="摘要">
-  V0 交易引入了地址查找表（ALT），允许通过 1 字节索引引用账户，而不是 32
-  字节密钥。每个通过 ALT 解析的账户可节省 31 字节。
+  Solana 有三种交易格式：legacy、v0 和 v1。**v0** 新增了地址查找表（ALT），可通过 1 字节索引引用账户。**v1** 将大小限制提升至 4,096 字节，将资源限制移入消息本身，并移除了 ALT。
 </Callout>
 
-Solana 支持两种交易格式：**传统** 和 **版本化**（v0）。
+Solana 支持三种交易格式：**legacy**、**v0** 和 **v1**。以下将分别从三个方面介绍每种格式：字节在网络上的布局方式、账户的引用方式，以及资源限制的来源。
 
-validator 通过检查消息的第一个字节来判断格式：
-
-- 如果第一个字节设置了
-  [版本前缀](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
-  位，则为**版本化消息**。目前仅支持版本 0。接下来的 3 个字节为
-  _rs`MessageHeader`_。
-- 否则为**传统消息**。第一个字节为
-  `num_required_signatures`，接下来的 2 个字节补全头部。
-
-<Callout type="info" title="何时使用 V0 交易">
-  当交易引用了大量账户并接近 1,232 字节数据包限制时，建议使用
-  V0。如果所有账户都内联且交易大小未超限，传统交易更简单且工具支持更广泛。使用地址查找表时必须采用
-  V0。
+<Callout type="warn" title="v1 激活状态">
+  [v1 格式](https://solana.com/upgrades/larger-transaction-sizes)目前尚未在任何集群上激活。计划随 Agave v4.2 一同激活。`solana-test-validator` 4.2+ 版本支持在本地测试 v1 交易。现有应用请查阅[为 v1 做准备](#preparing-for-v1)。
 </Callout>
 
-## V0 消息格式
+## 格式对比
 
-v0 消息与传统消息字段相同，但在指令后追加了一个额外的 `address_table_lookups`
-数组：
+| 限制                 | legacy                     | v0                         | v1                 |
+| --------------------- | -------------------------- | -------------------------- | ------------------ |
+| 最大交易大小  | 1,232 字节                | 1,232 字节                | **4,096 字节**    |
+| 账户地址     | ~32，受大小限制            | 64，通过查找表      | **64，内联**     |
+| 地址查找表 | 不支持              | 支持                  | **不支持**  |
+| 资源限制       | ComputeBudget 指令 | ComputeBudget 指令 | **消息配置** |
 
-| 字段                    | 大小                      | 描述                 |
-| ----------------------- | ------------------------- | -------------------- |
-| `0x80`                  | 1 字节                    | 版本前缀字节         |
-| `header`                | 3 字节                    | 消息头（与传统相同） |
-| `static_account_keys`   | compact-u16 + N × 32 字节 | 交易中直接出现的密钥 |
-| `recent_blockhash`      | 32 字节                   | 区块哈希             |
-| `instructions`          | compact-u16 + 可变长度    | 与传统格式相同       |
-| `address_table_lookups` | compact-u16 + 可变长度    | ALT 引用（见下文）   |
+跳转至：[Legacy](#legacy-format) · [v0](#v0-format) · [v1](#v1-format)
+
+## Legacy 格式
+
+这是原始格式，目前仍是大多数工具的默认格式。它没有任何版本前缀：交易的第一个字节是签名数组的 compact-u16 计数，消息的第一个字节是 `num_required_signatures`，其高位始终未置位。
+
+### Legacy 线格式布局
+
+| 字段              | 大小                          | 描述                                      |
+| ------------------ | ----------------------------- | ------------------------------------------------ |
+| `num_signatures`   | compact-u16                   | 签名数量                             |
+| `signatures`       | `num_signatures` x 64 字节   | Ed25519 签名                               |
+| `header`           | 3 字节                       | MessageHeader — 第一个字节的版本位未置位 |
+| `num_account_keys` | compact-u16                   | 账户密钥数量                           |
+| `account_keys`     | `num_account_keys` x 32 字节 | 公钥，全部内联                          |
+| `recent_blockhash` | 32 字节                      | 生命周期指定符                               |
+| `num_instructions` | compact-u16                   | 指令数量                           |
+| `instructions`     | 可变长度                      | 每条指令连续序列化         |
+
+每个可变长度数组都以 compact-u16 长度为前缀：值 0–127 使用 1 字节，较大值使用 2–3 字节。关于单条指令的布局及大小计算示例，请参阅[交易二进制格式](/docs/core/transactions/transaction-structure#transaction-binary-format)。
+
+### Legacy 中的账户
+
+每个账户在 `account_keys` 中以完整的 32 字节公钥写出，指令通过 1 字节索引引用该数组中的账户。无法引用未在交易中明确列出的账户，这也是 legacy 交易在耗尽 1,232 字节前大约只能容纳 32 个账户的原因。
+
+### Legacy 中的资源限制
+
+计算单元限制、已加载账户数据大小限制、堆大小和优先费均通过在交易中包含 [ComputeBudget 程序指令](/docs/core/fees/compute-budget)来请求设置。每条指令占用一个指令 slot 和 150 个计算单元。省略这些指令是安全的：运行时将回退到默认值——每条指令 200,000 CU（上限 1.4M）、64 MiB 数据大小限制、32 KiB 堆，以及零优先费。
+
+## V0 格式
+
+v0 是在 legacy 消息基础上新增了两项内容：一个 `0x80` 版本前缀字节，以及附加在指令之后的 `address_table_lookups` 数组。此前的所有内容与 legacy 格式字节完全相同。
+
+### V0 线格式布局
+
+| 字段                   | 大小                          | 描述                                     |
+| ----------------------- | ----------------------------- | ----------------------------------------------- |
+| `num_signatures`        | compact-u16                   | 签名数量                            |
+| `signatures`            | `num_signatures` x 64 字节   | Ed25519 签名                              |
+| `0x80`                  | 1 字节                        | 版本前缀字节 — 消息的第一个字节 |
+| `header`                | 3 字节                       | 消息头（与传统相同）                  |
+| `num_account_keys`      | compact-u16                   | 静态账户密钥数量                   |
+| `static_account_keys`   | `num_account_keys` x 32 字节 | 交易中直接出现的密钥   |
+| `recent_blockhash`      | 32 字节                      | 生命周期指定符                              |
+| `num_instructions`      | compact-u16                   | 指令数量                          |
+| `instructions`          | 可变长度                      | 与传统格式相同                           |
+| `address_table_lookups` | compact-u16 + 可变长度        | ALT 引用（见下文）                      |
 
 每个地址表查找项包含：
 
-| 字段               | 大小                     | 描述                 |
-| ------------------ | ------------------------ | -------------------- |
-| `account_key`      | 32 字节                  | ALT 账户的公钥       |
-| `writable_indexes` | compact-u16 + N × 1 字节 | ALT 中可写账户的索引 |
+| 字段              | 大小                     | 描述                                 |
+| ------------------ | ------------------------ | ------------------------------------------- |
+| `account_key`      | 32 字节                 | ALT 账户的公钥                |
+| `writable_indexes` | compact-u16 + N × 1 字节 | ALT 中可写账户的索引  |
 | `readonly_indexes` | compact-u16 + N × 1 字节 | ALT 中只读账户的索引 |
 
-## 地址查找表解析
+### 地址查找表
 
 ALT 是一个链上账户,最多可存储 256 个公钥。通过引用 ALT,交易可以使用 1 字节索引而非 32 字节公钥来包含额外账户,从而显著减少每个账户的开销。
 
@@ -67,3 +97,81 @@ ALT 是一个链上账户,最多可存储 256 个公钥。通过引用 ALT,交�
   地址查找表只影响账户在链上传输时的引用方式。在执行时，运行时会将所有索引解析为完整账户地址。ALT
   解析账户只能是可写或只读（非签名者）；不能作为签名者。
 </Callout>
+
+### v0 中的资源限制
+
+与 legacy 相同：使用 ComputeBudget 指令，省略时采用相同的默认值。
+
+## V1 格式
+
+v1 将大小限制提升至 4,096 字节，并围绕**交易配置**对消息结构进行了重构：资源限制从 ComputeBudget 指令中移出，转移到消息本身的固定位置字段中。这使得网络可以通过单次固定偏移读取来按优先费对交易进行排序，而无需扫描并反序列化指令列表。
+
+### V1 线格式布局
+
+| 字段                  | 大小         | 描述                                                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `0x81`                 | 1 字节       | 版本前缀字节 — 交易的第一个字节                            |
+| `header`               | 3 字节      | MessageHeader（与 legacy 相同）                                                     |
+| `config_mask`          | 4 字节      | `u32` 小端位掩码，标记哪些配置值存在                           |
+| `recent_blockhash`     | 32 字节     | 生命周期指定符                                                                 |
+| `num_instructions`     | 1 字节       | 固定宽度计数，最大 64                                                          |
+| `num_addresses`        | 1 字节       | 固定宽度计数，最大 64                                                          |
+| `addresses`            | N x 32 字节 | 账户地址，全部内联 — 无查找表引用                         |
+| `config_values`        | 0–20 字节   | 每个已置位的掩码位对应一个值，按位顺序排列（见下文）                               |
+| `instruction_headers`  | N x 4 字节  | 每条指令：`program_id_index`（u8）、`num_accounts`（u8）、`data_len`（u16 小端） |
+| `instruction_payloads` | 可变长度     | 每条指令：账户索引，然后是 instruction data                            |
+| `signatures`           | N x 64 字节 | 位于末尾，无长度前缀 — 数量来自 header               |
+
+编写解码器时，有两处与 legacy 和 v0 的结构差异值得注意。计数使用固定宽度的 `u8` 字段而非 compact-u16，且指令被拆分为两段：先是所有固定大小的 header，然后是所有可变长度的 payload，而非每条指令连续存放。
+
+### v1 中的账户：无地址查找表
+
+v1 有意移除了 ALT 支持。64 个原始地址共 2,048 字节，在 4,096 字节限制内绰绰有余，因此每个地址均如 legacy 一样内联存储。如果您的应用依赖查找表，迁移至 v1 意味着需要将这些地址内联。
+
+### v1 中的资源限制：交易配置
+
+配置由一个 `u32` 位掩码加上每个已置位字段的固定宽度值组成：
+
+| 位 | 字段                           | 宽度 | 备注                                       |
+| ------ | ------------------------------- | ----- | ------------------------------------------- |
+| 0–1    | 优先费                    | u64   | **lamport 总量** — 两位同时置位 |
+| 2      | 计算单元限制              | u32   |                                             |
+| 3      | 已加载账户数据大小限制 | u32   |                                             |
+| 4      | 请求的堆大小             | u32   |                                             |
+
+未知位将被拒绝。由于消息已签名，无法识别的配置字段不能被静默丢弃。
+
+<Callout type="warn" title="优先费是 lamport 总量，而非单价">
+  在 legacy 和 v0 中，优先费通过 `SetComputeUnitPrice` 以**每计算单元的 micro-lamport 数**设置，再乘以计算单元限制。在 v1 中，优先费是**以 lamport 为单位的绝对总量** — 无需乘法，无需取整。请勿将按 CU 计算的算术逻辑迁移过来。总费用公式其余部分不变：`(signatures × lamports_per_signature) + priority_fee`。
+</Callout>
+
+#### ComputeBudget 指令在 v1 中为空操作
+
+v1 交易不会拒绝 ComputeBudget 指令 — 它会**忽略**这些指令的配置作用。这些指令仍会作为成功的空操作执行，消耗 150 个计算单元和 64 个指令 slot 中的一个，但对预算没有任何影响。构建 v1 交易时请将其去除，读取 v1 交易时也无需扫描这些指令：相关值已存放在消息配置中。
+
+#### 配置字段必须显式设置
+
+对于发送方而言，最重要的行为变化是：与 legacy 和 v0 不同，v1 交易必须显式设置计算单元限制和已加载账户数据大小限制，否则交易将失败。
+
+| 未设置字段               | legacy / v0                    | v1          | 省略时的后果                                              |
+| ------------------------- | ------------------------------ | ----------- | --------------------------------------------------------------- |
+| 计算单元限制        | 每条指令 200k，最大 1.4M | **0 CU**    | 立即失败，计算单元耗尽                                |
+| 已加载账户数据大小 | 64 MiB                         | **0 字节** | 第一个加载的账户触发 `MaxLoadedAccountsDataSizeExceeded` |
+| 优先费              | 0                              | 0           | —                                                               |
+| 堆大小                 | 32 KiB                         | 32 KiB      | —                                                               |
+
+推荐做法是：先以两个限制均设为最大值进行一次模拟，然后将返回的 `unitsConsumed` 和 `loadedAccountsDataSize` 写回配置中，并将数据大小向上取整到下一个 32 KiB 页边界以留出余量（区块费用模型按 32 KiB 页计费，因此低于下一个页边界的余量是免费的）。
+
+## 为 v1 做准备
+
+v1 不仅影响交易的**发送**，也影响交易的**读取**。当 v1 激活后，任何未选择支持的客户端在调用 `getTransaction` 或 `getBlock` 时，将开始在 v1 交易上报错：
+
+- 向 [`getTransaction`](/docs/rpc/http/gettransaction) 和 [`getBlock`](/docs/rpc/http/getblock) 传入 `maxSupportedTransactionVersion: 1` — JSON **整数** `1`，而非字符串 `"1"`。传入 `0` 与省略该参数的效果相同，同样会在 v1 交易上失败，因此在 v0 推出期间已更新的代码库仍需修改此值。
+- `getTransaction` 在处理 v1 交易时将返回错误 `-32015`，且一笔 v1 交易将导致整个 `getBlock` 响应失败并返回相同错误 — 不会有部分结果。
+- [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe) 将发出 `block: null` 并停止推进，因此将其解读为空区块的消费者将从第一个 v1 slot 起静默落后。
+- `getSignaturesForAddress` 从不检查交易体，因此 v1 签名可正常列出。
+- 选择支持后，响应中将在 v1 交易的消息里包含一个 `transactionConfig` 对象（legacy 和 v0 交易中完全不存在该对象）。通过扫描 ComputeBudget 指令来推算优先费或计算单元限制的处理流程，将对每笔 v1 交易静默报告**零值**。
+- 在客户端解码交易时请使用 `encoding: 'base64'`，对于超过 1,232 字节的交易在使用 `sendTransaction`/`simulateTransaction` 时也应如此 — base58 编码仍受旧大小限制约束。
+- 客户端库支持需要较新版本：`@solana/kit` 8.0+、Agave 4.2.x 世代的 Rust crate，或 web3.js v3。web3.js v1 从 1.99.0 起支持读取 v1，但无法构建或发送 v1 交易。
+
+完整迁移指南 — 包括客户端库支持、流式（Geyser/gRPC）版本检测及模拟行为 — 请参阅[交易格式 v1 升级页面](https://solana.com/upgrades/larger-transaction-sizes)。

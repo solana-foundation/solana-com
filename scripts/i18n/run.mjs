@@ -1,13 +1,19 @@
+/* global console */
+
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import process from "node:process";
 import path from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "../..");
-const lingoCliPackage = "@lingo.dev/cli@1.12.0";
-const appTargets = new Set([
+const config = JSON.parse(
+  fs.readFileSync(path.join(rootDir, ".lingo/config.json"), "utf8"),
+);
+const cliVersion = process.env.LINGO_CLI_VERSION ?? "1.16.0";
+const cliBin = process.env.LINGO_CLI_BIN;
+const appScopes = new Set([
   "accelerate",
   "breakpoint",
   "docs",
@@ -15,38 +21,38 @@ const appTargets = new Set([
   "templates",
   "web",
 ]);
-function loadEnvFileIfPresent(filePath) {
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
 
-  process.loadEnvFile(filePath);
+function loadEnvFile(filePath) {
+  if (fs.existsSync(filePath)) {
+    process.loadEnvFile(filePath);
+  }
 }
 
-function loadI18nEnv() {
-  loadEnvFileIfPresent(path.join(rootDir, ".env.local"));
-  loadEnvFileIfPresent(path.join(rootDir, ".env"));
+function loadEnvironment() {
+  loadEnvFile(path.join(rootDir, ".env.local"));
+  loadEnvFile(path.join(rootDir, ".env"));
 
-  // Lingo now prefers LINGO_API_KEY, but keep the older repo convention working.
   if (!process.env.LINGO_API_KEY && process.env.LINGODOTDEV_API_KEY) {
     process.env.LINGO_API_KEY = process.env.LINGODOTDEV_API_KEY;
   }
 }
 
-loadI18nEnv();
-
-function run(command, args, cwd) {
+function run(command, args) {
   const result = spawnSync(command, args, {
-    cwd,
+    cwd: rootDir,
     stdio: "inherit",
     shell: false,
   });
 
+  if (result.error) {
+    console.error(result.error);
+  }
+
   return result.status ?? 1;
 }
 
-function runOrExit(command, args, cwd) {
-  const status = run(command, args, cwd);
+function runOrExit(command, args) {
+  const status = run(command, args);
 
   if (status !== 0) {
     process.exit(status);
@@ -54,108 +60,107 @@ function runOrExit(command, args, cwd) {
 }
 
 function runLingo(args) {
-  return run("npx", ["--yes", lingoCliPackage, ...args], rootDir);
-}
-
-function runLingoPush(args) {
-  const pushStatus = runLingo(["push", ...args, "--wait"]);
-
-  if (pushStatus === 0) {
+  if (cliBin) {
+    runOrExit(cliBin, args);
     return;
   }
 
-  console.error(
-    "Lingo push ended before its outputs were downloaded; recovering and attaching to the same run.",
-  );
-  const resumeStatus = runLingo(["resume"]);
-
-  if (resumeStatus !== 0) {
-    console.error(
-      "Lingo resume was not available; attempting to pull the same run anyway.",
-    );
-  }
-
-  const pullStatus = runLingo(["pull"]);
-
-  if (pullStatus !== 0) {
-    process.exit(pushStatus);
-  }
+  runOrExit("npx", ["--yes", `@lingo.dev/cli@${cliVersion}`, ...args]);
 }
 
-function verifyTargetCoverage() {
-  return run("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
+function isPatternInScope(pattern, scope) {
+  if (scope === "docs") {
+    return pattern.startsWith("apps/docs/");
+  }
+
+  if (scope === "ui") {
+    return pattern.startsWith("packages/i18n/messages/");
+  }
+
+  return pattern.startsWith(`packages/i18n/messages/${scope}/`);
 }
 
-function runContinuousLocalization(requestedScope) {
-  const lockPath = path.join(rootDir, ".lingo/lock.json");
-
-  if (!fs.existsSync(lockPath)) {
-    console.log(
-      "No .lingo/lock.json found; adopting existing translations without overwriting them.",
-    );
-    runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
-    runLingoPush([]);
-
-    if (requestedScope === "all" || requestedScope === "docs") {
-      runOrExit(
-        "node",
-        ["./scripts/i18n/verify-docs-frontmatter.mjs"],
-        rootDir,
-      );
-    }
-
-    return;
+function getScopePatterns(scope) {
+  if (scope === "all") {
+    return [];
   }
 
-  // Current Lingo releases treat positional patterns as force/new-file scopes
-  // and skip changed keys when target files already exist. Incremental pushes
-  // must be config-wide; the lockfile still limits work to changed sources.
-  if (requestedScope !== "all") {
-    console.log(
-      `Lingo incremental syncs are config-wide; processing changed sources for the requested "${requestedScope}" workflow.`,
-    );
-  }
+  const patterns = config.files
+    .flatMap((fileGroup) => fileGroup.include ?? [fileGroup.pattern])
+    .filter((pattern) => isPatternInScope(pattern, scope));
 
-  runLingoPush([]);
-
-  if (requestedScope === "all" && verifyTargetCoverage() !== 0) {
-    console.error(
-      "Lingo left target coverage incomplete; retrying once with the updated lockfile.",
-    );
-    runLingoPush([]);
-    runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs"], rootDir);
-  }
-
-  if (requestedScope === "all" || requestedScope === "docs") {
-    runOrExit("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"], rootDir);
-  }
-}
-
-const [, , target, app] = process.argv;
-
-runOrExit("node", ["./scripts/i18n/verify-source-locales.mjs"], rootDir);
-runOrExit("node", ["./scripts/i18n/verify-config-coverage.mjs"], rootDir);
-
-switch (target) {
-  case "all":
-  case "ui":
-  case "docs":
-    runContinuousLocalization(target);
-    break;
-  case "app":
-    if (!app) {
-      console.error("Usage: pnpm i18n:app <app>");
-      process.exit(1);
-    }
-
-    if (!appTargets.has(app)) {
-      console.error(`Unknown localization app: ${app}`);
-      process.exit(1);
-    }
-
-    runContinuousLocalization(app);
-    break;
-  default:
-    console.error("Usage: pnpm i18n[:ui|:docs|:app <app>]");
+  if (patterns.length === 0) {
+    console.error(`No Lingo file patterns match the "${scope}" scope.`);
     process.exit(1);
+  }
+
+  return patterns;
 }
+
+function parseScope() {
+  const [, , target, app] = process.argv;
+
+  if (["all", "ui", "docs"].includes(target)) {
+    return target;
+  }
+
+  if (target === "app" && app && appScopes.has(app)) {
+    return app;
+  }
+
+  if (target === "app" && app && !appScopes.has(app)) {
+    console.error(`Unknown localization app: ${app}`);
+  } else if (target === "app") {
+    console.error("Usage: pnpm i18n:app <app>");
+  } else {
+    console.error("Usage: pnpm i18n[:ui|:docs|:app <app>]");
+  }
+
+  process.exit(1);
+}
+
+function verifyTargetCoverage(scope, missingOnly = false) {
+  return run("node", [
+    "./scripts/i18n/verify-target-coverage.mjs",
+    scope,
+    ...(missingOnly ? ["--missing-only"] : []),
+  ]);
+}
+
+function main() {
+  loadEnvironment();
+  const scope = parseScope();
+  const patterns = getScopePatterns(scope);
+
+  runOrExit("node", ["./scripts/i18n/verify-source-locales.mjs"]);
+  runOrExit("node", ["./scripts/i18n/verify-config-coverage.mjs"]);
+
+  if (!process.env.LINGO_API_KEY) {
+    console.error(
+      "LINGO_API_KEY (or the legacy LINGODOTDEV_API_KEY) is required.",
+    );
+    process.exit(1);
+  }
+
+  // A failed push fails the job. GitHub discards the partial checkout, and a
+  // rerun starts from the last committed lockfile instead of mutating targets
+  // through automatic --force or pull recovery. The GitHub workflow applies
+  // one cumulative deadline to this runner, including its validation steps.
+  runLingo(["push", ...patterns, "--wait"]);
+
+  // Backfill is config-wide. Scoped pushes rely on their final coverage guard
+  // and fail rather than crossing the requested boundary.
+  if (scope === "all" && verifyTargetCoverage("all", true) !== 0) {
+    console.log("Backfilling missing target files across the full config.");
+    runLingo(["push", "--backfill-missing", "--wait"]);
+  }
+
+  runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs", scope]);
+
+  if (scope === "all" || scope === "docs") {
+    runOrExit("node", ["./scripts/i18n/sanitize-docs-frontmatter.mjs"]);
+    runOrExit("node", ["./scripts/i18n/verify-docs-frontmatter.mjs"]);
+  }
+}
+
+main();

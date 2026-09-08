@@ -210,6 +210,7 @@ export default config({
               label: "Pending Feature Activation",
               value: "pending_activation",
             },
+            { label: "Partially Activated", value: "partially_active" },
             { label: "Live on Mainnet", value: "live" },
           ],
           defaultValue: "in_development",
