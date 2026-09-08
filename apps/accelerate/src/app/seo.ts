@@ -9,6 +9,7 @@ export type EventConfig = {
     name: string;
     address: string;
   };
+  url?: string;
 };
 
 function getAbsoluteUrl(path: string = "/") {
@@ -30,7 +31,7 @@ export function buildEventStructuredData(event: EventConfig, path: string) {
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: "https://schema.org/EventScheduled",
     image: [config.siteMetadata.socialShare],
-    url: getAbsoluteUrl(path),
+    url: event.url ?? getAbsoluteUrl(path),
     organizer: {
       "@type": "Organization",
       name: "Solana Foundation",

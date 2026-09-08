@@ -7,10 +7,11 @@ import {
   VideoCarousel,
 } from "@/components/homepage";
 import { SeoJsonLd } from "@/components/SeoJsonLd";
-import { config, getImagePath } from "@/config";
+import { getImagePath } from "@/config";
 import { getPageMetadata } from "../../metadata";
 import { buildEventStructuredData } from "../../seo";
 import { getTranslations } from "@workspace/i18n/server";
+import { chinaStops } from "@/data/china-stops";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -45,10 +46,6 @@ export async function generateMetadata({
 
 export default async function ChinaPage({ params }: PageProps) {
   const { locale } = await params;
-  const metadataT = await getTranslations({
-    locale,
-    namespace: "accelerate.metadata",
-  });
   const chinaT = await getTranslations({
     locale,
     namespace: "accelerate.china",
@@ -57,14 +54,25 @@ export default async function ChinaPage({ params }: PageProps) {
   return (
     <>
       <SeoJsonLd
-        data={buildEventStructuredData(
-          {
-            ...config.events.china,
-            name: metadataT("china.eventName"),
-            description: metadataT("china.eventDescription"),
-          },
-          "/china",
-        )}
+        data={{
+          "@context": "https://schema.org",
+          "@graph": chinaStops.map((stop) =>
+            buildEventStructuredData(
+              {
+                name: `Solana Accelerate ${stop.city}`,
+                description: stop.description,
+                startDate: stop.startDate,
+                endDate: stop.endDate,
+                location: {
+                  name: stop.venue,
+                  address: stop.address,
+                },
+                url: stop.registrationUrl,
+              },
+              "/china",
+            ),
+          ),
+        }}
       />
       <ChinaRoadshow />
       <Highlights />

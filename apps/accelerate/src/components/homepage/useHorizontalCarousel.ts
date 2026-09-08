@@ -4,6 +4,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type ScrollDirection = "left" | "right";
 
+function getLogicalScrollLeft(carousel: HTMLDivElement, maxScrollLeft: number) {
+  return getComputedStyle(carousel).direction === "rtl"
+    ? maxScrollLeft + carousel.scrollLeft
+    : carousel.scrollLeft;
+}
+
+function getNativeScrollLeft(
+  carousel: HTMLDivElement,
+  logicalScrollLeft: number,
+  maxScrollLeft: number,
+) {
+  return getComputedStyle(carousel).direction === "rtl"
+    ? logicalScrollLeft - maxScrollLeft
+    : logicalScrollLeft;
+}
+
 export function useHorizontalCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -17,8 +33,9 @@ export function useHorizontalCarousel() {
       0,
       carousel.scrollWidth - carousel.clientWidth,
     );
-    setCanScrollLeft(carousel.scrollLeft > 1);
-    setCanScrollRight(maxScrollLeft - carousel.scrollLeft > 1);
+    const logicalScrollLeft = getLogicalScrollLeft(carousel, maxScrollLeft);
+    setCanScrollLeft(logicalScrollLeft > 1);
+    setCanScrollRight(maxScrollLeft - logicalScrollLeft > 1);
   }, []);
 
   useEffect(() => {
@@ -56,15 +73,19 @@ export function useHorizontalCarousel() {
       0,
       carousel.scrollWidth - carousel.clientWidth,
     );
+    const logicalScrollLeft = getLogicalScrollLeft(carousel, maxScrollLeft);
     const nextScrollLeft = Math.min(
       maxScrollLeft,
       Math.max(
         0,
-        carousel.scrollLeft + (direction === "left" ? -distance : distance),
+        logicalScrollLeft + (direction === "left" ? -distance : distance),
       ),
     );
 
-    carousel.scrollTo({ left: nextScrollLeft, behavior: "smooth" });
+    carousel.scrollTo({
+      left: getNativeScrollLeft(carousel, nextScrollLeft, maxScrollLeft),
+      behavior: "smooth",
+    });
   }, []);
 
   return {

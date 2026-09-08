@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
+import { LanguageSelector } from "@solana-com/ui-chrome";
 import { getImagePath } from "@/config";
 import { chinaStops, type ChinaStop } from "@/data/china-stops";
 import { CarouselArrow } from "../homepage/CarouselArrow";
@@ -104,6 +105,7 @@ function ChinaHeader() {
               {link.label}
             </Link>
           ))}
+          <LanguageSelector className="!text-white/60 hover:!text-white" />
           <GradientButton href="https://luma.com/acc-shanghai-26">
             {t("getTickets")}
           </GradientButton>
@@ -171,6 +173,9 @@ function ChinaHeader() {
                 {link.label}
               </Link>
             ))}
+            <div className="mt-2">
+              <LanguageSelector className="!text-white/60 hover:!text-white" />
+            </div>
             <GradientButton
               href="https://luma.com/acc-shanghai-26"
               className="mt-2 w-full sm:w-auto"

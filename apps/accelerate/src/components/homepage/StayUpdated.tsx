@@ -3,14 +3,15 @@
 import { useState, useCallback, FormEvent, ChangeEvent } from "react";
 import Image from "next/image";
 import { motion } from "motion/react";
+import {
+  getIterableActionUrl,
+  sendIterableFormRequest,
+  SOLANA_NEWSLETTER_FORM_ID,
+} from "@solana-com/ui-chrome/iterable";
 import { getImagePath } from "@/config";
 import { useTranslations } from "@workspace/i18n/client";
 
-const ITERABLE_BASE_URL =
-  "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
-
-const ITERABLE_FORM_ID = "fdd4a0db-f4af-4b29-90f9-98b0556d4c89";
-const ITERABLE_ACTION_URL = `${ITERABLE_BASE_URL}${ITERABLE_FORM_ID}`;
+const ITERABLE_ACTION_URL = getIterableActionUrl(SOLANA_NEWSLETTER_FORM_ID);
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -43,17 +44,9 @@ export function StayUpdated() {
       setStatus("submitting");
 
       try {
-        const data = new FormData();
-        data.append("email", trimmedEmail);
-
-        const response = await fetch(ITERABLE_ACTION_URL, {
-          method: "POST",
-          body: data,
+        await sendIterableFormRequest(ITERABLE_ACTION_URL, {
+          email: trimmedEmail,
         });
-
-        if (!response.ok) {
-          throw new Error("Subscription failed");
-        }
 
         setStatus("success");
         setEmail("");

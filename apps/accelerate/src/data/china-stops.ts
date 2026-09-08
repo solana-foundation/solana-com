@@ -2,6 +2,8 @@ export type ChinaStop = {
   city: string;
   date: string;
   time: string;
+  startDate: string;
+  endDate: string;
   venue: string;
   address: string;
   description: string;
@@ -16,6 +18,8 @@ export const chinaStops: ChinaStop[] = [
     city: "Shanghai",
     date: "Oct 16, 2026",
     time: "10:00–18:00 GMT+8",
+    startDate: "2026-10-16T10:00:00+08:00",
+    endDate: "2026-10-16T18:00:00+08:00",
     venue: "Jing An Grand Ballroom (5F)",
     address:
       "Jing An Shangri-La, West Shanghai, 1218 Middle Yan'an Road, Jing'an District, Shanghai 200040, China",
@@ -30,6 +34,8 @@ export const chinaStops: ChinaStop[] = [
     city: "Hangzhou",
     date: "Oct 18, 2026",
     time: "10:00–17:00 GMT+8",
+    startDate: "2026-10-18T10:00:00+08:00",
+    endDate: "2026-10-18T17:00:00+08:00",
     venue: "Grand Ballroom (2F)",
     address:
       "Midtown Shangri-La, Hangzhou, 6 Changshou Road, Gongshu District, Hangzhou 310006, China",
@@ -44,6 +50,8 @@ export const chinaStops: ChinaStop[] = [
     city: "Shenzhen",
     date: "Oct 20, 2026",
     time: "10:00–17:00 GMT+8",
+    startDate: "2026-10-20T10:00:00+08:00",
+    endDate: "2026-10-20T17:00:00+08:00",
     venue: "Seaworld Grand Ballroom (1F)",
     address:
       "Hilton Shenzhen Shekou Nanhai, 1177 Wanghai Road, Nanshan District, Shenzhen 518067, China",
@@ -58,6 +66,8 @@ export const chinaStops: ChinaStop[] = [
     city: "Beijing",
     date: "Oct 22, 2026",
     time: "10:00–17:00 GMT+8",
+    startDate: "2026-10-22T10:00:00+08:00",
+    endDate: "2026-10-22T17:00:00+08:00",
     venue: "Astor Ballroom (1F)",
     address:
       "The St. Regis Beijing, 21 Jianguomenwai Street, Chaoyang District, Beijing 100020, China",

@@ -47,8 +47,8 @@ export function EventLineup({ futureOnly = false }: EventLineupProps) {
       city: t("eventLineup.events.aiMiami.city"),
       subtitle: t("eventLineup.events.aiMiami.subtitle"),
       dateLocation: t("eventLineup.events.aiMiami.dateLocation"),
-      href: "https://www.youtube.com/watch?v=OycUj-Z32dM",
-      external: true,
+      href: "/accelerate/miami",
+      external: false,
       active: false,
     },
     {
