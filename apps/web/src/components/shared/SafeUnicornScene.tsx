@@ -48,11 +48,14 @@ export function getSafeUnicornDpi() {
 }
 
 type SafeUnicornSceneProps = Omit<UnicornSceneProps, "dpi"> & {
+  /** Optional page-specific override, still clamped to the safe range. */
+  dpi?: number;
   fallback?: ReactNode;
 };
 
 export function SafeUnicornScene({
   fallback = null,
+  dpi,
   ...props
 }: SafeUnicornSceneProps) {
   const [isSupported, setIsSupported] = useState(false);
@@ -65,5 +68,10 @@ export function SafeUnicornScene({
     return fallback;
   }
 
-  return <UnicornScene {...props} dpi={getSafeUnicornDpi()} />;
+  return (
+    <UnicornScene
+      {...props}
+      dpi={clampUnicornDpi(dpi ?? getSafeUnicornDpi())}
+    />
+  );
 }

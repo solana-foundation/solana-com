@@ -27,9 +27,11 @@ CURATED_SECTIONS = {
         ("Transactions", "docs/core/transactions", "The fundamental building blocks for interacting with Solana"),
         ("Signing in Production", "docs/core/transactions/signing-in-production", "Where signing keys live in production and how to choose a backend"),
         ("Programs", "docs/core/programs", "Smart contracts on Solana"),
+        ("Instructions", "docs/core/instructions", "Instruction structure and introspection"),
         ("Program Derived Addresses", "docs/core/pda", "Deterministic addresses for program-controlled accounts"),
         ("Cross Program Invocation", "docs/core/cpi", "How programs invoke other programs"),
         ("Fees on Solana", "docs/core/fees", "Transaction costs and priority fees"),
+        ("Constants Reference", "docs/core/constants-reference", "Reference for Solana runtime constants"),
     ],
     "Getting Started": [
         ("Introduction", "docs/intro", "Overview of Solana development"),
@@ -37,9 +39,15 @@ CURATED_SECTIONS = {
         ("Installation", "docs/intro/installation", "Set up your local development environment"),
     ],
     "Tokens": [
+        ("Assets on Solana", "docs/tokens", "Token programs, accounts, and extensions on Solana"),
+        ("Token Quickstart", "docs/tokens/quickstart", "Create a token with the Solana CLI"),
         ("Token Basics", "docs/tokens/basics", "SPL Token fundamentals"),
         ("Create Mint", "docs/tokens/basics/create-mint", "Create new token mints"),
+        ("How to Verify a Token", "docs/tokens/how-to-verify-a-token", "Verify a token and display it in Solana Explorer"),
         ("Token Extensions", "docs/tokens/extensions", "Token-2022 program features"),
+        ("Transfer Hook Integration", "docs/tokens/extensions/transfer-hook-integration", "Integrate Transfer Hook tokens in wallets, custodians, and dapps"),
+        ("Advanced Token Instructions", "docs/tokens/advanced", "Advanced instructions for Solana token accounts"),
+        ("Metaplex Metadata", "docs/tokens/metaplex", "Add and read metadata for Solana tokens"),
     ],
     "Tokenization": [
         ("Asset Issuance & Tokenization", "docs/tokenization", "Issue and operate tokenized assets on Solana"),
@@ -58,6 +66,8 @@ CURATED_SECTIONS = {
         ("JavaScript/TypeScript SDK", "docs/clients/official/javascript", "Official TypeScript SDK for Solana"),
         ("Rust SDK", "docs/clients/official/rust", "Official Rust crates for Solana"),
         ("Python SDK", "docs/clients/community/python", "Community-maintained Python client"),
+        ("Java SDK", "docs/clients/community/java", "Community-maintained Java client"),
+        ("Go SDK", "docs/clients/community/go", "Community-maintained Go client"),
         ("Solana Gaming SDKs", "docs/clients/community/game-sdks", "Community SDKs for Solana game development"),
     ],
     "References": [
@@ -66,17 +76,23 @@ CURATED_SECTIONS = {
         ("Terminology", "docs/references/terminology", "Glossary of Solana terms and definitions"),
     ],
     "RPC API": [
+        ("JSON Reference", "docs/rpc/json-structures", "Shared response structures for Solana RPC"),
         ("HTTP Methods", "docs/rpc/http", "JSON-RPC API reference"),
         ("WebSocket Methods", "docs/rpc/websocket", "Real-time subscriptions"),
+        ("Removed RPC Methods", "docs/rpc/deprecated", "Migration reference for removed RPC methods"),
     ],
     "Finance": [
         ("Finance on Solana", "docs/finance", "Build tokenized assets, payments, and onchain markets"),
+        ("Privacy", "docs/finance/privacy", "Compare privacy tools for financial applications on Solana"),
     ],
     "Payments": [
         ("Payments Overview", "docs/payments", "Build payment systems with instant settlement"),
+        ("Payments Quickstart", "docs/payments/quickstart", "Build a first stablecoin payment flow"),
         ("How Payments Work", "docs/payments/how-payments-work", "Core concepts for Solana payments"),
+        ("Interacting with Solana", "docs/payments/interacting-with-solana", "Send and confirm payments through Solana"),
         ("Send Payments", "docs/payments/send-payments", "Send stablecoin payments with memos and batching"),
         ("Accept Payments", "docs/payments/accept-payments", "Integrate checkout and payment acceptance"),
+        ("Developer Tools", "docs/payments/developer-tools", "Libraries and services for building payment flows"),
         ("Production Readiness", "docs/payments/production-readiness", "Prepare payment systems for mainnet"),
         ("Agentic Payments", "docs/payments/agentic-payments", "Enable autonomous payments for AI agents with x402"),
     ],
@@ -88,6 +104,10 @@ CURATED_SECTIONS = {
     ],
     "Tools": [
         ("Tools", "docs/tools", "Developer tool documentation"),
+        ("Install Dependencies", "docs/intro/installation/dependencies", "Install Rust, the Solana CLI, and Anchor"),
+        ("Solana CLI Basics", "docs/intro/installation/solana-cli-basics", "Common commands for the Solana CLI"),
+        ("Anchor CLI Basics", "docs/intro/installation/anchor-cli-basics", "Common commands for the Anchor CLI"),
+        ("Surfpool CLI Basics", "docs/intro/installation/surfpool-cli-basics", "Common commands for the Surfpool CLI"),
         ("Kora", "docs/tools/kora", "Solana signing infrastructure"),
         ("Keychain", "docs/tools/keychain", "Unified Solana signing across key management backends"),
         ("Choosing a Signing Backend", "docs/tools/keychain/choosing-a-backend", "Compare custody models and pick a Keychain backend"),
@@ -97,11 +117,17 @@ CURATED_SECTIONS = {
         ("Private Channels", "docs/tools/private-channels", "Enterprise layer for internet capital markets"),
         ("LiteSVM", "docs/tools/litesvm", "Test Solana programs with an in-process virtual machine"),
         ("Surfpool", "docs/tools/surfpool", "Simulate Solana programs locally with mainnet accounts"),
+        ("Surfpool Kit Plugin", "docs/tools/surfpool/sdk/kit-plugin", "Run a local Surfnet behind a Solana Kit client"),
+        ("Actions and Blinks", "docs/tools/actions", "Build Solana Actions APIs and shareable blinks"),
+        ("AI Tools and Agents", "docs/tools/ai", "Use AI tools and agents when building on Solana"),
     ],
 }
 
 # Additional English-only sections
 ENGLISH_EXTRAS = {
+    "Documentation": [
+        ("Documentation Tags", "docs/tags", "Browse documentation pages grouped by topic tags"),
+    ],
     "Learn": [
         ("What is Solana", "learn/what-is-solana", "Introduction to Solana for beginners"),
         ("What is a Wallet", "learn/what-is-a-wallet", "Understanding crypto wallets"),
@@ -137,10 +163,16 @@ ENGLISH_EXTRAS = {
         ("Developing Programs", "docs/programs", "Build onchain programs"),
         ("Anchor Framework", "docs/programs/anchor", "High-level framework for Solana programs"),
         ("Testing Programs", "docs/programs/testing", "Test programs with bankrun and other tools"),
+        ("Rust Programs", "docs/programs/rust", "Build Solana programs in Rust"),
+        ("Deploying Programs", "docs/programs/deploying", "Deploy Solana programs to a cluster"),
+        ("IDLs", "docs/programs/idls", "Define interfaces for Solana programs"),
+        ("Verifying Programs", "docs/programs/verified-builds", "Verify deployed Solana program builds"),
+        ("Program Examples", "docs/programs/examples", "Examples for building Solana programs"),
+        ("Program Limitations", "docs/programs/limitations", "Runtime and resource limits for Solana programs"),
     ],
     "EVM to SVM": [
         ("Solana for EVM Developers", "developers/evm-to-svm", "Learn about the key differences in building between Solana and Ethereum"),
-        ("Complete Guide", "developers/evm-to-svm/complete-guide", "A complete guide to Solana development for Ethereum developers"),
+        ("Complete Guide", "developers/migrate-to-solana/complete-guide", "A complete guide to Solana development for Ethereum developers"),
         ("Accounts", "developers/evm-to-svm/accounts", "See how accounts differ between Ethereum and Solana"),
         ("Client Differences", "developers/evm-to-svm/client-differences", "See the difference between clients and types in SVM vs EVM"),
         ("Consensus", "developers/evm-to-svm/consensus", "Learn how consensus works on Solana compared to Ethereum"),

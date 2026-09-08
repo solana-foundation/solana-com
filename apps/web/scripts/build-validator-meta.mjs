@@ -7,7 +7,7 @@
 //
 // Run manually when the snapshot gets stale:
 //   node apps/web/scripts/build-validator-meta.mjs
-// Uses HELIUS_API_KEY when set, else the public mainnet RPC.
+// Uses SOLANA_RPC_URL when set, else the public mainnet RPC.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,9 +16,7 @@ const OUT = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "../src/data/slot200/validator-meta.json",
 );
-const RPC = process.env.HELIUS_API_KEY
-  ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
-  : (process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com");
+const RPC = process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
 
 async function rpc(method, params = []) {
   const res = await fetch(RPC, {

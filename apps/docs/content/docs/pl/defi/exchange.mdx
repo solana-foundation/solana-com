@@ -1,8 +1,7 @@
 ---
 title: Dodaj Solanę do swojej giełdy
 description:
-  Learn how to integrate Solana into your exchange with this guide covering node
-  setup and implementation details for deposits and withdrawals.
+  Learn how to integrate Solana into your exchange with this guide covering node setup and implementation details for deposits and withdrawals.
 ---
 
 Ten przewodnik opisuje, jak dodać natywny token SOL sieci Solana do swojej giełdy kryptowalut.
@@ -201,12 +200,23 @@ Gdy sieć Mainnet zacznie przetwarzać transakcje wersjonowane, giełdy
 działać prawidłowo, ponieważ pobieranie transakcji wersjonowanej lub bloku zawierającego
 transakcje wersjonowane zwróci błąd.
 
-- `{"maxSupportedTransactionVersion": 0}`
+- `{"maxSupportedTransactionVersion": 1}`
 
   Parametr `maxSupportedTransactionVersion` musi zostać dodany do żądań `getBlock` i
   `getTransaction`, aby uniknąć zakłóceń w wykrywaniu depozytów. Najnowsza
-  wersja transakcji to `0` i powinna być podana jako maksymalna obsługiwana
-  wartość wersji transakcji.
+  wersja transakcji to `0`, a
+  [format v1](/docs/core/transactions/versioned-transactions#v1-message-format)
+  zostanie aktywowany wraz z Agave v4.2 — ustaw teraz wartość na liczbę całkowitą `1`, aby
+  wyprzedzić aktywację (żądanie wyższej wersji niż obsługiwana przez węzeł jest
+  bezpieczne). Pojedyncza transakcja w nieobsługiwanej wersji powoduje niepowodzenie **całej**
+  odpowiedzi `getBlock`, natomiast `getSignaturesForAddress` nigdy nie zwraca błędu ze względu na wersję — więc
+  bez tej opcji depozyty v1 pojawiają się na listach sygnatur, ale nie mogą zostać
+  pobrane.
+
+  Po aktywacji v1 dwie kolejne zmiany mają znaczenie dla potoków depozytów: transakcje v1
+  przechowują limity obliczeń i opłat w obiekcie komunikatu `transactionConfig`
+  zamiast w instrukcjach ComputeBudget (każdy potok skanujący
+  instrukcje pod kątem opłat będzie zgłaszał zero dla v1), a v1 nie używa tabel wyszukiwania adresów.
 
 Ważne jest, aby zrozumieć, że transakcje wersjonowane pozwalają użytkownikom tworzyć
 transakcje korzystające z dodatkowego zestawu kluczy kont ładowanych z onchain
@@ -568,11 +578,16 @@ wygaśnie, przed ponowną próbą wypłaty, która nie wydaje się być potwierd
 lub sfinalizowana przez klaster. W przeciwnym razie ryzykujesz podwójne
 wydatkowanie. Więcej informacji o [wygasaniu blockhash](#blockhash-expiration) znajdziesz poniżej.
 
-Najpierw pobierz ostatni blockhash za pomocą punktu końcowego
-[`getFees`](/docs/rpc/deprecated/getfees) lub polecenia CLI:
+Najpierw pobierz niedawny blockhash i jego ostatnią prawidłową wysokość bloku za pomocą
+endpointu [`getLatestBlockhash`](/docs/rpc/http/getlatestblockhash):
 
 ```shell
-solana fees --url http://localhost:8899
+curl http://localhost:8899 -X POST -H "Content-Type: application/json" -d '{
+  "jsonrpc":"2.0",
+  "id":1,
+  "method":"getLatestBlockhash",
+  "params":[{"commitment":"finalized"}]
+}'
 ```
 
 W narzędziu wiersza poleceń użyj argumentu `--no-wait`, aby wysłać transfer
@@ -644,10 +659,9 @@ curl https://api.devnet.solana.com -X POST -H "Content-Type: application/json" -
 #### Wygasanie blockhash
 
 Możesz sprawdzić, czy dany blockhash jest nadal ważny, wysyłając żądanie
-[`getFeeCalculatorForBlockhash`](/docs/rpc/deprecated/getfeecalculatorforblockhash)
-z blockhash jako parametrem. Jeśli wartość odpowiedzi wynosi `null`, blockhash
-wygasł i transakcja wypłaty używająca tego blockhash nigdy nie powinna się
-nie powieść.
+[`isBlockhashValid`](/docs/rpc/http/isblockhashvalid) z blockhash
+em jako parametrem. Jeśli wartość odpowiedzi wynosi `false`, blockhash wygasł i
+transakcja wypłaty używająca tego blockhasha nigdy nie powinna się powieść.
 
 ### Weryfikacja adresów kont podanych przez użytkownika do wypłat
 
@@ -966,11 +980,13 @@ Następnie możesz sprawdzić zainstalowaną wersję, aby to potwierdzić
 spl-token --version
 ```
 
-Co powinno dać wynik podobny do
+Wyświetla to zainstalowaną wersję, na przykład:
 
 ```text
-spl-token-cli 2.0.1
+spl-token-cli 5.6.1
 ```
+
+Użyj wersji 5.6.1 lub nowszej, jeśli potrzebujesz obsługi SPL Token-2022.
 
 ### Tworzenie Konta
 
@@ -1803,8 +1819,8 @@ tworzenia i wymiany tokenów opakowanych/syntetycznych w blockchainie Solana.
 
 Znany również jako "Token Extensions", standard ten zawiera wiele nowych funkcji, które
 twórcy tokenów i posiadacze kont mogą opcjonalnie włączyć. Funkcje te obejmują
-poufne transfery, opłaty za transfer, zamykanie mintów, metadane, stałych
-delegatów, niezmienną własność i wiele więcej. Więcej informacji znajdziesz w
+Poufne Salda, opłaty za transfer, zamykanie mintów, metadane, stałych
+delegatów, niezmienne właścicielstwo i wiele więcej. Więcej informacji znajdziesz w
 [przewodniku po rozszerzeniach](https://spl.solana.com/token-2022/extensions).
 
 Jeśli Twoja giełda obsługuje SPL Token, wdrożenie obsługi SPL Token-2022 nie wymaga
@@ -1865,16 +1881,17 @@ Takie token accounts można bezpiecznie zamknąć:
 spl-token close --address <account address>
 ```
 
-#### Poufny transfer
+#### Poufne Salda
 
-Minty mogą być skonfigurowane do poufnych transferów, tak aby kwoty tokenów były
-szyfrowane, ale właściciele kont pozostawali publiczni.
+Minty mogą być skonfigurowane z Poufnymi Saldami, dzięki czemu kwoty tokenów są
+szyfrowane, ale właściciele kont są nadal publiczni.
 
-Giełdy mogą konfigurować token accounts do wysyłania i odbierania poufnych
-transferów, aby ukryć kwoty użytkowników. Włączenie poufnych transferów na token accounts nie jest wymagane, więc giełdy mogą wymagać od użytkowników przesyłania tokenów
+Giełdy mogą konfigurować token account do wysyłania i odbierania poufnych
+przelewów, aby ukryć kwoty użytkowników. Włączenie Poufnych Sald na token account nie jest wymagane,
+dzięki czemu giełdy mogą zmuszać użytkowników do wysyłania tokenów
 jawnie.
 
-Aby włączyć poufne transfery, konto musi być odpowiednio skonfigurowane:
+Aby włączyć Poufne Salda, skonfiguruj konto:
 
 ```shell
 spl-token configure-confidential-transfer-account --address <account address>

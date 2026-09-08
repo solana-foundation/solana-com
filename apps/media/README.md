@@ -70,9 +70,14 @@ Content is stored in the `content/` directory:
 
 - `content/posts/` - News articles (MDX)
 - `content/podcasts/` - Podcast metadata (MDX)
+- `content/reports/` - Ecosystem research reports (MDX)
+- `content/upgrades/` - Network upgrade articles (MDX)
+- `content/releases/` - Release records used by upgrade content (MDX)
 - `content/authors/` - Author profiles (MDX)
 - `content/tags/` - Tag definitions (MDX)
 - `content/categories/` - Category definitions (MDX)
+- `content/ctas/`, `content/links/`, `content/switchbacks/` - Reusable CMS
+  content blocks
 - `content/global/` - Global site settings (JSON)
 
 Podcast episodes are fetched from RSS feeds configured in podcast metadata.

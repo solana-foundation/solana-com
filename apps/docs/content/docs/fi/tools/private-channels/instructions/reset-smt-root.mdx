@@ -1,0 +1,63 @@
+---
+title: Nollaa SMT-juuri
+description:
+  Kierrättää Sparse Merkle Tree -rakenteen ja nollaa nostojuuren uutta puun epoch-jaksoa varten
+---
+
+Vain operaattorille tarkoitettu instruktio, joka kierrättää Sparse Merkle Tree -rakenteen kasvattamalla
+`Instance.current_tree_index`-arvoa ja nollaamalla nostojuuren, mahdollistaen uuden
+65 536 noston epoch-jakson.
+
+<Callout type="info">
+  Escrow-ohjelma on siirtymässä tästä Sparse Merkle Tree -rakenteesta
+  ketjussa olevaan nonce-bittikartaksi (seurataan ylävirrassa), jolloin tästä instruktiosta tulee
+  `RotateBitmap`. Tämä sivu vastaa nykyistä escrow-ohjelmaa ja
+  päivitetään kun muutos on otettu käyttöön.
+</Callout>
+
+## Tilit
+
+| Tili                          | Kirjoitettava | Allekirjoittaja | Kuvaus                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Maksun maksaja                                              |
+| `operator`                       |          | ✓      | Operaattorin allekirjoittaja                                        |
+| `instance`                       | ✓        |        | Escrow-instanssin PDA (`current_tree_index` kasvatettu) |
+| `operator_pda`                   |          |        | Operaattorin PDA, joka todistaa allekirjoittajan olevan provisioitu         |
+| `event_authority`                |          |        | `EmitEvent` CPI:n tapahtumavaltuus-PDA                |
+| `private_channel_escrow_program` |          |        | Escrow-ohjelma (itsensä viittaus CPI:tä varten)                |
+
+## Parametrit
+
+| Parametri                     | Tyyppi  | Kuvaus                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Toistohyökkäyssuoja; täytyy vastata `Instance.current_tree_index`-arvoa tai kutsu epäonnistuu |
+
+## Palautusarvo
+
+Palauttaa `TransactionBuilder`-olion, jota voidaan käyttää transaktion rakentamiseen ja lähettämiseen.
+
+## Esimerkki
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Tärkeät huomiot
+
+- Vain operaattorille: vaatii kelvollisen `operator_pda`:n; muutoin heittää `InvalidOperatorPda`-virheen
+- `expected_current_tree_index` täytyy olla yhtä suuri kuin `Instance.current_tree_index` kutsun hetkellä; vanhentunut arvo heittää `UnexpectedTreeIndex`-virheen, suojaten jo toteutuneen nollauksen toistamiselta
+- Kasvattaa `Instance.current_tree_index`-arvoa; edellisen puun epoch-jaksossa kelvolliset noncet mitätöidään kierron jälkeen
+- `operator-private-channel`-palvelu kutsuu tätä automaattisesti kun
+  `transaction_nonce % 65536 == 0` (ja `nonce > 0`), merkaten uuden epoch-jakson alun; tätä ei normaalikäytössä tarvitse kutsua manuaalisesti
+- Kierron jälkeen nostojuuri nollautuu tyhjäksi puuksi, joten uudet nostot alkavat tuoreesta SMT:stä
+- Lähettää tapahtuman `EmitEvent` CPI:n kautta
