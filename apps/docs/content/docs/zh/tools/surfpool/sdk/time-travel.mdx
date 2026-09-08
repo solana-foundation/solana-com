@@ -1,22 +1,20 @@
 ---
 title: 时间旅行
 description:
-  将 Surfnet 时钟向前跳转至指定的绝对 slot、epoch 或 Unix
-  时间戳。适用于测试归属计划、锁定期、过期窗口或 epoch 边界等场景。
+  将 Surfnet 时钟向前跳转到指定的绝对 slot、epoch 或 Unix 时间戳，或直接暂停时钟。适用于测试归属计划、锁仓期、到期窗口或 epoch 边界等场景。
 ---
 
 Surfpool 运行时提供了三个时间旅行辅助函数。每个函数均将本地时钟移动至绝对目标时间（而非相对偏移量），并返回更新后的
 `EpochInfo`，以便测试用例验证运行时是否确实到达了请求的时间。
 
-| 辅助函数                                             | 目标               | 返回值                                |
-| ---------------------------------------------------- | ------------------ | ------------------------------------- |
-| `time_travel_to_slot` / `timeTravelToSlot`           | 绝对 slot 编号     | 包含新 `absolute_slot` 的 `EpochInfo` |
-| `time_travel_to_epoch` / `timeTravelToEpoch`         | 绝对 epoch 编号    | 包含新 `epoch` 的 `EpochInfo`         |
-| `time_travel_to_timestamp` / `timeTravelToTimestamp` | 毫秒级 Unix 时间戳 | 反映对应 slot 的 `EpochInfo`          |
+| 辅助函数                                               | 目标                         | 返回值                                  |
+| ---------------------------------------------------- | ------------------------------ | ---------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | 绝对 slot 编号           | 包含新 `absolute_slot` 的 `EpochInfo` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | 绝对 epoch 编号          | 包含新 `epoch` 的 `EpochInfo`         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | 毫秒级 Unix 时间戳 | 反映对应 slot 的 `EpochInfo`  |
 
 <Callout type="warn" title="仅支持向前跳转">
-  时间旅行只能将时钟**向前**移动。若目标时间早于当前时间，该方法将不执行任何操作——辅助函数将返回当前
-  `EpochInfo`，保持不变。
+  时间旅行只能将时钟**向前**拨动。目标时间若位于过去则会被拒绝而非忽略——Rust 辅助函数将返回 `Err`，JS 辅助函数将抛出异常。错误消息会指明哪个单位发生了回退，例如 `Cannot travel to past slot: target=1000, current=2000`。
 </Callout>
 
 ## 跳转至指定 Slot
@@ -65,7 +63,7 @@ console.assert(info.epoch === 420);
 
 ## 跳转至指定 Unix 时间戳
 
-请以**毫秒**为单位传入时间戳，而非秒。运行时将计算该时间戳所对应的最近 slot。
+请以**毫秒**为单位传入 Unix 纪元以来的时间戳——与 JavaScript 的 `Date.now()` 单位相同——而非秒。运行时将计算该时间戳对应的最近 slot。
 
 <CodeTabs storage="surfpool-lang">
 
@@ -80,6 +78,41 @@ const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
 ```
 
 </CodeTabs>
+
+<Callout type="warn" title="时钟返回的是秒，而非毫秒">
+  从运行时读取回来的每个时间戳均以**秒**为单位——包括链上 `Clock` sysvar 的 `unix_timestamp`，以及 `systemClockUpdated` 事件携带的 [`ClockValue`](/docs/tools/surfpool/sdk/js-reference#clockvalue)。若将这些值直接传入时间旅行辅助函数，会被解析为 1970 年初的某个时刻，导致调用因目标时间在过去而被拒绝。请先乘以 1000。
+</Callout>
+
+```ts
+// WRONG — `unixTimestamp` is in seconds, so this is a past target.
+surfnet.timeTravelToTimestamp(clock.unixTimestamp + 3600);
+
+// RIGHT — convert to milliseconds.
+surfnet.timeTravelToTimestamp((clock.unixTimestamp + 3600) * 1000);
+```
+
+## 暂停与恢复时钟
+
+时间旅行跳转到目标时间；暂停则完全停止时钟的推进。`surfnet_pauseClock` 会停止 slot 生产和时间推进，直到 `surfnet_resumeClock` 运行——当测试需要 slot 和时间戳在多个断言期间保持不变时，可使用此功能。
+
+Rust SDK 和 `@solana/surfpool` 中的 `Surfnet` 类均未封装这两个作弊码。请通过 [Kit 插件](/docs/tools/surfpool/sdk/kit-plugin)调用它们，或直接通过 JSON-RPC 调用。
+
+```ts
+const paused = await client.cheatcodes.pauseClock().send();
+
+// Nothing advances until the clock is resumed, so this is the only thing that
+// moves the slot.
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+
+await client.cheatcodes.resumeClock().send();
+```
+
+两个作弊码均返回一个 `EpochInfo`——分别对应暂停时刻和恢复后的时钟状态。请注意该结构体**不**包含以下两项信息：
+
+- **无时间戳。** `EpochInfo` 没有时间字段。请改从 `Clock` sysvar 读取模拟的 Unix 时间：对 `SysvarC1ock11111111111111111111111111111111` 使用 `jsonParsed` 编码调用 `getAccountInfo`——同样以秒为单位。
+- **无暂停标志。** 没有任何 RPC 方法能报告时钟当前是否处于暂停状态。在 SDK 层面，可监听 [`clockUpdate` 事件](/docs/tools/surfpool/sdk/events)，每当执行暂停、恢复或间隔变更操作时该事件会携带 `clockCommand` 触发。否则，请在测试中自行跟踪状态。
 
 ## 常见使用模式
 
@@ -128,11 +161,11 @@ for epoch in 2..=5 {
 
 两个 SDK 均返回一个 `EpochInfo` 结构的对象，包含以下字段：
 
-| 字段                | Rust                             | JS                          |
-| ------------------- | -------------------------------- | --------------------------- |
-| 绝对 slot           | `absolute_slot: u64`             | `absoluteSlot: number`      |
-| epoch 内的 slot     | `slot_index: u64`                | `slotIndex: number`         |
-| 每 epoch 的 slot 数 | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
-| epoch 编号          | `epoch: u64`                     | `epoch: number`             |
-| 区块高度            | `block_height: u64`              | `blockHeight: number`       |
-| 交易数量            | `transaction_count: Option<u64>` | `transactionCount?: number` |
+| 字段             | Rust                             | JS                          |
+| ----------------- | -------------------------------- | --------------------------- |
+| 绝对 slot     | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| epoch 内的 slot | `slot_index: u64`                | `slotIndex: number`         |
+| 每 epoch 的 slot 数   | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| epoch 编号      | `epoch: u64`                     | `epoch: number`             |
+| 区块高度      | `block_height: u64`              | `blockHeight: number`       |
+| 交易数量 | `transaction_count: Option<u64>` | `transactionCount?: number` |

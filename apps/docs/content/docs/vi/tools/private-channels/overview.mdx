@@ -1,0 +1,277 @@
+---
+title: Tổng quan
+description: Kiến trúc và luồng dữ liệu của giao thức Private Channels
+---
+
+<Callout type="warning">
+  Private Channels chưa được kiểm toán bảo mật và không được khuyến nghị sử dụng trong môi trường production với tài sản thực mà không có đánh giá bảo mật kỹ lưỡng.
+</Callout>
+
+<Callout type="info">
+  **Bạn đang triển khai một instance?** Hãy xem [hướng dẫn
+  cho Operators](/docs/tools/private-channels/operators). **Bạn đang tích hợp với một
+  instance có sẵn?** Hãy xem
+  [Quickstart](/docs/tools/private-channels/quickstart/installation). Trang này
+  là tài liệu tham khảo kiến trúc dành cho cả hai đối tượng.
+</Callout>
+
+## Kiến trúc
+
+Private Channels được cấu thành từ bốn thành phần: hai chương trình Solana on-chain
+(Escrow và Withdraw) và hai dịch vụ off-chain (Gateway và Auth Service).
+Cùng nhau, chúng tạo thành một giao thức state channel, trong đó tài sản tồn tại trên Mainnet nhưng
+các giao dịch chuyển tiền được thanh toán off-chain.
+
+### Chương trình Escrow
+
+Chương trình Escrow là một chương trình Solana on-chain lưu giữ các token SPL
+đã được nạp vào. Đây là điểm neo tin cậy của hệ thống: toàn bộ tài sản cuối cùng đều nằm trong
+escrow cho đến khi operator cung cấp bằng chứng loại trừ Sparse Merkle Tree hợp lệ để
+giải phóng chúng.
+
+- Program ID: `9tgHa1DcnaSSUtmMsst8ovKTe1Gfxzezn27KnH9xXYeU`
+- ID này được biên dịch vào nhị phân của chương trình thông qua `declare_id!()`. Các
+  dịch vụ off-chain đọc cùng ID này tại thời điểm biên dịch từ crate client được tạo ra, không
+  phải từ biến môi trường.
+- Quản lý các PDA `Instance`, `AllowedMint` và `Operator`
+- Các lệnh: `CreateInstance`, `AllowMint`, `BlockMint`, `AddOperator`,
+  `RemoveOperator`, `SetNewAdmin`, `Deposit`, `ReleaseFunds`, `ResetSmtRoot`
+
+### Chương trình Withdraw
+
+Chương trình Withdraw chạy trên mạng private channel, không phải trên Solana Mainnet.
+Người dùng gọi `WithdrawFunds` để đốt số dư token phía channel của họ. Việc đốt này
+không tự động giải phóng tài sản; nó báo hiệu cho operator rằng một
+yêu cầu rút tiền đang chờ xử lý. Operator sau đó gọi `ReleaseFunds` trên Chương trình Escrow
+với bằng chứng SMT hợp lệ để hoàn tất thanh toán.
+
+- Program ID: `J231K9UEpS4y4KAPwGc4gsMNCjKFRMYcQBcjVW7vBhVi`
+- ID này được biên dịch vào nhị phân của chương trình. Các dịch vụ off-chain đọc cùng
+  ID này tại thời điểm biên dịch từ crate client được tạo ra, không phải từ biến
+  môi trường.
+
+### Gateway
+
+Gateway là một proxy tương thích Solana JSON-RPC, định tuyến các yêu cầu từ client đến
+nút ghi của mạng channel (để gửi giao dịch) và nút đọc (để
+truy vấn). Nó được cấu hình qua các biến môi trường: `GATEWAY_PORT`,
+`GATEWAY_WRITE_URL`, `GATEWAY_READ_URL`.
+
+Các endpoint kiểm tra sức khỏe (không yêu cầu xác thực):
+
+- `GET /health` - kiểm tra liveness; trả về `200 {"status":"ok"}`
+- `GET /ready` - kiểm tra readiness sâu, thăm dò cả nút ghi + nút đọc; trả về
+  `200 {"status":"ready"}` hoặc `503 {"status":"degraded"}`
+
+#### Định tuyến và Kiểm soát Truy cập Phương thức RPC
+
+Gateway định tuyến `sendTransaction` đến nút ghi và tất cả các phương thức khác đến
+nút đọc. Các yêu cầu lớn hơn 64 KB sẽ bị từ chối với HTTP 413. Khi
+xác thực được bật, quyền truy cập phương thức được kiểm soát bởi vai trò JWT. Xem
+**[Authentication & Roles](/docs/tools/private-channels/concepts/auth)** để biết
+ma trận phương thức đầy đủ.
+
+### Auth Service
+
+Auth Service là một thành phần tùy chọn phát hành JWT HS256 (hết hạn sau 24 giờ)
+cho kiểm soát truy cập gateway. Nó được kích hoạt khi biến môi trường `JWT_SECRET`
+được đặt. Nếu không có nó, gateway chấp nhận tất cả các kết nối.
+
+Các claim JWT: `sub` (UUID người dùng), `role` (`"user"` hoặc `"operator"`), `iss`
+(`"private-channel-auth"`), `aud` (`"private-channel-gateway"`), `exp` (Unix
+timestamp). `iss` và `aud` được xác thực bởi cấu hình JWT của gateway,
+không được deserialize vào struct claim của ứng dụng: chỉ có `sub`, `role` và
+`exp` là khả dụng cho code ở tầng ứng dụng.
+
+Các vai trò:
+
+- `user` - truy cập bị giới hạn trong các ví đã xác minh của chính họ; không thể gọi `getBlock`,
+  `getTransaction` hoặc `simulateTransaction`
+- `operator` - bỏ qua tất cả kiểm tra quyền sở hữu; toàn quyền truy cập phương thức RPC; phải được
+  cấp phép trong cơ sở dữ liệu (không có cơ chế tự nâng cấp quyền)
+
+### Streamer
+
+Streamer là một máy chủ WebSocket đẩy các cập nhật trạng thái channel đến
+các client đang kết nối theo thời gian thực, loại bỏ nhu cầu polling RPC. Nó thăm dò
+PostgreSQL để lấy các thay đổi trạng thái. Đây là một phần của stack Docker Compose cơ sở, không
+phải stack devnet mà hướng dẫn này triển khai; xem
+[tài liệu tham khảo Cấu hình](/docs/tools/private-channels/operators/configuration#service-port-reference).
+
+- Cổng: `8902`, có thể cấu hình qua `STREAMER_PORT`
+- Kết nối: `ws://localhost:8902`
+- Endpoint kiểm tra sức khỏe: `GET /health` - trả về `503` nếu bất kỳ vòng lặp poll nội bộ nào
+  bị đình trệ quá 30 giây
+
+<Callout type="warning">
+  Schema sự kiện WebSocket chưa được tài liệu hóa công khai. Hãy tham khảo
+  [`core/src/bin/streamer.rs`](https://github.com/solana-foundation/solana-private-channels/blob/main/core/src/bin/streamer.rs)
+  để biết chi tiết triển khai cho đến khi có tài liệu chính thức.
+</Callout>
+
+```mermaid
+flowchart TB
+    Wallet([User Wallet])
+    Escrow[Escrow Program<br/><i>Solana Mainnet</i>]
+    IS[Solana Mainnet Indexer]
+    IC[Private Channel Indexer]
+    PG_I[(Indexer DB)]
+    OS[Operator - Solana Side]
+    OC[Operator - Channel Side]
+    GW[Gateway :8899]
+    WN[Write Node :8900]
+    WP[Withdraw Program]
+    PG_P[(Postgres Primary)]
+    PG_R[(Postgres Replica)]
+    RN[Read Node :8901]
+    ST[Streamer :8902]
+
+    Wallet -- deposit --> Escrow
+    Wallet -- transact / withdraw --> GW
+    ST -. WebSocket .-> Wallet
+
+    Escrow -- watch --> IS
+    IS -- deposit events --> PG_I
+    PG_I -- pending deposits --> OS
+    OS -- mint --> GW
+
+    GW -- sendTransaction --> WN
+    WN --> WP
+    GW -- watch --> IC
+    IC -- withdrawal events --> PG_I
+    PG_I -- pending withdrawals --> OC
+    OC -- release --> Escrow
+
+    WN -- settle --> PG_P
+    PG_P -- replication --> PG_R
+    PG_R --> RN
+    RN --> GW
+    PG_P --> ST
+```
+
+## Pipeline Giao dịch
+
+```text
+Transaction -> [1:Dedup] -> [2:SigVerify] -> [3:Sequencer] -> [4:Executor] -> [5:Settler] -> Database
+```
+
+Các giao dịch được gửi đến Gateway sẽ đi qua một pipeline năm giai đoạn trước
+khi trạng thái của chúng được cam kết:
+
+1. **Dedup** - lọc các giao dịch trùng lặp trước khi chúng vào pipeline
+2. **SigVerify** - xác thực chữ ký giao dịch đối chiếu với khóa công khai của người ký
+3. **Sequencer** - sắp xếp các giao dịch hợp lệ theo thứ tự xác định để thiết lập
+   lịch sử chính tắc
+4. **Executor** - thực thi các giao dịch đối với lớp tài khoản của channel
+   (BOB Cache + AccountsDB), cập nhật số dư off-chain
+5. **Settler** - cam kết kết quả giao dịch tích lũy vào PostgreSQL và
+   cập nhật cache Redis; tạo blockhash mới cho chu kỳ block tiếp theo.
+   Việc thanh toán trên Mainnet (gọi `ReleaseFunds`) được xử lý riêng bởi dịch vụ
+   `operator-private-channel`
+
+## Tính năng Nổi bật
+
+### Quyền riêng tư
+
+Các giao dịch chuyển tiền giữa các thành viên channel không được ghi lại trên Solana Mainnet. Chỉ có
+các lệnh nạp tiền (vào channel) và rút tiền cuối cùng (rời channel)
+mới xuất hiện on-chain. Danh tính đối tác và số tiền chuyển không hiển thị với
+người quan sát bên ngoài trong quá trình vận hành channel.
+
+### Hiệu năng
+
+Pipeline off-chain loại bỏ thời gian block của Solana khỏi đường dẫn quan trọng.
+Các giao dịch chuyển tiền được xác nhận khi sequencer xử lý chúng, không phải khi một block Solana
+được xác nhận. Điều này cho phép tính chung cuộc dưới một giây và thông lượng vượt qua TPS
+native của Solana cho các giao dịch ở tầng ứng dụng.
+
+### Thanh toán
+
+Mọi lệnh rút tiền đều được bảo vệ bởi một bằng chứng Sparse Merkle Tree on-chain. Root SMT
+được lưu trữ trong `Instance.withdrawal_transactions_root` trên Chương trình Escrow.
+Khi `ReleaseFunds` được gọi, chương trình trước tiên xác minh bằng chứng loại trừ cho
+một nonce chưa được thấy đối chiếu với root on-chain hiện tại, sau đó xác minh một
+bằng chứng bao gồm riêng biệt cho nonce đó đối chiếu với root mới do người gọi cung cấp. Chỉ sau khi
+cả hai kiểm tra vượt qua thì root mới được lưu trữ, khiến việc chi tiêu gấp đôi là không thể ngay cả khi
+khóa operator bị xâm phạm.
+
+## Mô hình Bảo mật
+
+**Khóa Admin** - kiểm soát việc tạo instance (`CreateInstance`) và cấp phép operator
+(`AddOperator` / `RemoveOperator`). Việc xâm phạm khóa admin
+cho phép cấp phép operator tùy ý. `SetNewAdmin` chuyển quyền admin
+không thể đảo ngược trong một bước duy nhất; hãy bảo vệ khóa admin tương ứng.
+
+**Khóa Operator** - có thể gọi `ReleaseFunds` và `ResetSmtRoot`. Chúng không thể
+giải phóng tài sản mà không có bằng chứng loại trừ SMT hợp lệ đối chiếu với root on-chain
+hiện tại. Kiểm tra `verify_smt_exclusion_proof` on-chain là hàng rào bảo vệ cuối cùng
+chống lại các lệnh rút tiền trái phép: một khóa operator bị xâm phạm đơn lẻ là
+không đủ để rút cạn escrow.
+
+**SMT root** - được lưu trữ on-chain trong `Instance.withdrawal_transactions_root`.
+Được cập nhật nguyên tử với mỗi lần gọi `ReleaseFunds`. Vì mỗi bằng chứng phải
+tham chiếu một nonce chưa được thấy, việc chi tiêu gấp đôi cùng một số dư channel là
+không thể ngay cả khi khóa operator bị xâm phạm.
+
+**Luân chuyển Tree** - `Instance.current_tree_index` theo dõi các epoch của tree. Khi
+`ResetSmtRoot` được gọi, nó tăng chỉ số tree và vô hiệu hóa tất cả
+các nonce từ epoch tree trước đó, tạo ra một khởi đầu sạch sẽ cho các chu kỳ thanh toán mới.
+
+## Bảo mật Khóa Vận hành
+
+<Callout type="warning">
+  Các dịch vụ off-chain sử dụng bộ từ vựng ký riêng của chúng, không liên quan đến
+  các quyền admin/operator on-chain được mô tả trong Mô hình Bảo mật ở trên.
+  `ADMIN_PRIVATE_KEY` là bắt buộc đối với mọi dịch vụ operator và thanh toán
+  phí giao dịch; một `OPERATOR_PRIVATE_KEY` tùy chọn riêng biệt cung cấp
+  chữ ký Operator on-chain cho `ReleaseFunds` và `ResetSmtRoot`, và sẽ
+  dùng giá trị của `ADMIN_PRIVATE_KEY` khi không được đặt. Không bao giờ đặt khóa admin
+  instance ở cấp giao thức (dùng cho `CreateInstance` / `AddOperator` / `SetNewAdmin`)
+  vào bất kỳ biến nào hoặc để lộ nó lúc runtime; hãy giữ khóa đó lạnh và offline.
+</Callout>
+
+`ReleaseFunds` và `ResetSmtRoot` yêu cầu hai chữ ký on-chain: người trả phí
+(từ `ADMIN_PRIVATE_KEY`) và quyền của Operator PDA (từ
+`OPERATOR_PRIVATE_KEY`, hoặc `ADMIN_PRIVATE_KEY` nếu biến đó không được đặt). Hướng dẫn
+triển khai này trong phần devnet walkthrough đặt keypair operator được tạo ra vào
+`ADMIN_PRIVATE_KEY` và để `OPERATOR_PRIVATE_KEY` không được đặt, do đó cùng một keypair
+đóng vai trò cả hai signer. Hãy áp dụng các biện pháp kiểm soát tương tự như khóa riêng ví nóng
+cho bất kỳ khóa nào cuối cùng được đặt vào `ADMIN_PRIVATE_KEY`:
+
+- Chỉ lưu trữ nó trong tệp `.env` được thêm vào gitignore, không bao giờ trong `.env.devnet` hay bất kỳ
+  config đã được commit nào
+- Đối với các triển khai production, hãy cân nhắc sử dụng secrets manager (AWS Secrets Manager,
+  HashiCorp Vault) thay vì biến môi trường dạng plaintext
+- keypair admin instance ở cấp giao thức (dùng để gọi `AddOperator` /
+  `SetNewAdmin`) nên được giữ lạnh; nó chỉ cần thiết trong quá trình thiết lập instance
+  và cấp phép operator, không phải trong lúc runtime
+
+`SetNewAdmin` chuyển quyền admin **không thể đảo ngược trong một giao dịch duy nhất**:
+admin hiện tại không có đường phục hồi nếu không có sự hợp tác của admin mới. Không
+gọi lệnh này mà không xác minh địa chỉ đích.
+
+## Các Bước Tiếp theo
+
+<Cards>
+  <Card
+    title="Quickstart"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    Thiết lập môi trường và tạo các client TypeScript.
+  </Card>
+  <Card title="Channels" href="/docs/tools/private-channels/concepts/channels">
+    Tìm hiểu về các thành viên tham gia và vòng đời channel.
+  </Card>
+  <Card
+    title="Sparse Merkle Tree"
+    href="/docs/tools/private-channels/concepts/smt"
+  >
+    Tìm hiểu cách các bằng chứng rút tiền được xác minh on-chain.
+  </Card>
+  <Card
+    title="Instructions"
+    href="/docs/tools/private-channels/instructions/deposit"
+  >
+    Tài liệu tham khảo lệnh đầy đủ cho tất cả các chương trình.
+  </Card>
+</Cards>

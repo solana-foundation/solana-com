@@ -199,7 +199,7 @@ const walletRecords = {
       "Non-custodial wallet for desktop, mobile, and Chrome covering 1000+ assets, with bank-card purchases, built-in swaps, NFT storage, and SOL staking",
     website: "https://atomicwallet.io/",
     icon: atomicwalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   arculus: {
     name: "Arculus",
@@ -217,7 +217,7 @@ const walletRecords = {
     website:
       "https://www.getarculus.com/products/arculus-cold-storage-wallet.html",
     icon: arculusIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   avici: {
     name: "Avici",
@@ -234,7 +234,7 @@ const walletRecords = {
       "Self-custody mobile wallet for Solana and EVM networks with social sign-in, passkey approvals, sponsored Solana transactions, and built-in stablecoin transfers and swaps",
     website: "https://avici.money/",
     icon: aviciIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   backpack: {
     name: "Backpack",
@@ -258,7 +258,7 @@ const walletRecords = {
       "Self-custody wallet for Solana and multiple EVM networks with browser and mobile apps, in-wallet MoonPay purchases and sales, staking and NFT controls, and Ledger, Trezor, and Keystone-backed multisig workflows",
     website: "https://backpack.app/",
     icon: backpackIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "bc-vault": {
     name: "BC Vault",
@@ -269,7 +269,7 @@ const walletRecords = {
       "Hardware wallet with an encrypted desktop application, Solana versioned-transaction support, WalletConnect-based SOL staking, and support for multiple blockchain networks",
     website: "https://bc-vault.com/",
     icon: bcVaultIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   binance: {
     name: "Binance",
@@ -281,7 +281,7 @@ const walletRecords = {
       "Self-custody MPC wallet built into the Binance app with a Chrome extension, covering EVM, Solana, and TRON networks with cross-chain swaps and in-wallet SOL staking via BNSOL",
     website: "https://web3.binance.com/",
     icon: binanceIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   bitget: {
     name: "Bitget",
@@ -303,7 +303,7 @@ const walletRecords = {
       "Self-custody wallet spanning 130+ blockchains with MPC security, gas-free Solana transfers via GetGas, Solana Pay QR payments, native SOL staking, and card-based fiat on/off-ramps",
     website: "https://web3.bitget.com/en/",
     icon: bitgetIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   bitgo: {
     name: "BitGo SDK",
@@ -324,7 +324,7 @@ const walletRecords = {
       "Wallet-as-a-service APIs and SDKs for 1700+ assets with custodial and client-key wallet options, TSS signing for Solana, velocity controls and whitelisting, and in-platform SOL staking",
     website: "https://www.bitgo.com/products/wallet-as-a-service",
     icon: bitgoIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   bitnovo: {
     name: "Bitnovo",
@@ -341,7 +341,7 @@ const walletRecords = {
       "Self-custodial mobile wallet from Spanish platform Bitnovo supporting SOL among 15 assets, with card, SEPA, and cash-voucher purchases, euro cash-out, and NFT management",
     website: "https://www.bitnovo.com/en/wallet",
     icon: bitnovoIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "bitpanda-vision": {
     name: "Bitpanda Vision",
@@ -358,7 +358,7 @@ const walletRecords = {
       "Non-custodial mobile wallet from Bitpanda for one-click swaps across 5,000+ tokens on Solana, Ethereum, and six other chains, with sponsored gas on eligible transactions and optional encrypted two-shard backup",
     website: "https://www.bitpanda.com/en/web3/defi-wallet",
     icon: bitpandaVisionIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   bitpay: {
     name: "BitPay",
@@ -377,7 +377,7 @@ const walletRecords = {
       "Open-source self-custody wallet from payments processor BitPay supporting SOL, SPL tokens, and Solana stablecoins for merchant payments, gift cards, and bill pay, with partner on-ramps, swaps, cash-out to bank or PayPal, and optional multisig",
     website: "https://www.bitpay.com/wallet",
     icon: bitpayIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "blockchain-com": {
     name: "Blockchain.com",
@@ -395,7 +395,7 @@ const walletRecords = {
       "Wallet app pairing a custodial trading account with a non-custodial DeFi Wallet, supporting SOL and Solana tokens, card and bank purchases, fiat withdrawals, and in-wallet swaps",
     website: "https://www.blockchain.com/crypto-wallet",
     icon: blockchainComIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   blockradar: {
     name: "Blockradar",
@@ -412,7 +412,7 @@ const walletRecords = {
       "Stablecoin wallet and checkout infrastructure API for fintechs, with non-custodial deposit addresses and payment links on Solana and other chains, auto-sweeping, sponsored gas fees, and built-in AML screening",
     website: "https://www.blockradar.co/",
     icon: blockradarIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   brave: {
     name: "Brave",
@@ -433,7 +433,7 @@ const walletRecords = {
       "Self-custody wallet built into the Brave browser with Solana and EVM chains, DEX-aggregated swaps, an NFT gallery, Ramp and Transak fiat on/off-ramps, and desktop Ledger and Trezor support",
     website: "https://brave.com/wallet/",
     icon: braveIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   bron: {
     name: "Bron",
@@ -456,7 +456,7 @@ const walletRecords = {
       "Self-custodial MPC treasury wallet for teams and family offices with 2-of-3 key shards, guardian recovery, approval policies, SOL staking, and fiat ramps across 15 networks",
     website: "https://bron.org/",
     icon: bronIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "cactus-custody": {
     name: "Cactus Custody",
@@ -479,7 +479,7 @@ const walletRecords = {
       "Matrixport's Hong Kong-licensed institutional custodian with HSM cold storage, a self-custody MPC-TSS option, approval workflows, and Cactus Link DeFi access spanning Solana, Bitcoin, and 25+ EVM chains",
     website: "https://www.mycactus.com/",
     icon: cactusCustodyIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   cake: {
     name: "Cake Wallet",
@@ -498,7 +498,7 @@ const walletRecords = {
       "Open-source, MIT-licensed non-custodial wallet for Monero, Bitcoin, Ethereum, and Solana with built-in swaps, buy and sell flows, and hardware wallet support",
     website: "https://cakewallet.com/",
     icon: cakewalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   cdp: {
     name: "CDP SDK",
@@ -522,7 +522,7 @@ const walletRecords = {
       "Coinbase's wallet infrastructure with TEE-secured server wallets and email or social login embedded wallets, policy-enforced spending limits, and full Solana mainnet support",
     website: "https://www.coinbase.com/developer-platform/products/wallets",
     icon: cdpIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   cfx: {
     name: "CFX",
@@ -539,7 +539,7 @@ const walletRecords = {
       "Digital-dollar payments platform built natively on Solana, offering a whitelabel self-custodial wallet-as-a-service, the MoveUSD stablecoin, USDC and USDT settlement, and REST APIs for payouts across 220+ markets",
     website: "https://cfx.to/",
     icon: cfxIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   circle: {
     name: "Circle SDK",
@@ -558,7 +558,7 @@ const walletRecords = {
       "Wallet-as-a-service APIs with MPC key management, user- or developer-controlled custody, Gas Station fee sponsorship for Solana accounts, and wallet-layer spending policies",
     website: "https://www.circle.com/programmable-wallets",
     icon: circleIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "civic-auth": {
     name: "Civic Auth SDK",
@@ -575,7 +575,7 @@ const walletRecords = {
       "Embedded wallet SDK for React and Next.js that provisions non-custodial Solana and EVM wallets behind SSO login, with user-approved signing and identity-provider recovery",
     website: "https://docs.civic.com/web3/embedded-wallets",
     icon: civicAuthIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   cobo: {
     name: "Cobo Portal",
@@ -593,7 +593,7 @@ const walletRecords = {
       "Institutional platform combining custodial, MPC, smart contract, and exchange wallets across 80+ chains including Solana, with role-based transaction policies and approval workflows",
     website: "https://www.cobo.com/products/portal",
     icon: coboIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   coca: {
     name: "COCA",
@@ -612,7 +612,7 @@ const walletRecords = {
       "Non-custodial MPC wallet and self-banking app with a Visa debit card for spending stablecoins, seedless biometric recovery, and Solana among 15 supported blockchains",
     website: "https://www.coca.xyz/",
     icon: cocaIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   coin: {
     name: "Coin Wallet",
@@ -629,7 +629,7 @@ const walletRecords = {
       "Self-custodial, MIT-licensed open-source wallet dating to 2015 with mobile, desktop, and web apps plus in-app buy, sell, and swaps across Solana and 20+ other chains",
     website: "https://coin.space/",
     icon: coinwalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   coin98: {
     name: "Coin98",
@@ -646,7 +646,7 @@ const walletRecords = {
       "Non-custodial multi-chain wallet with mobile apps, a Chrome extension, and a web wallet covering 140+ blockchains including Solana, with NFT management, cross-chain swaps via its SpaceGate bridge, and Ledger and Trezor support",
     website: "https://coin98.com/",
     icon: coin98Icon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   coinbase: {
     name: "Base",
@@ -667,7 +667,7 @@ const walletRecords = {
       "Coinbase's self-custody everything app, formerly Coinbase Wallet, trading Bitcoin, Ethereum, and Solana with card and bank purchases, gasless USDC sends, and passkey cloud backups",
     website: "https://base.app/",
     icon: coinbaseIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "coinbase-prime-onchain": {
     name: "Coinbase Prime",
@@ -687,7 +687,7 @@ const walletRecords = {
     website:
       "https://help.coinbase.com/en/prime/onchain-wallet/introduction-to-coinbase-prime-onchain-wallet",
     icon: coinbaseIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   "coinex-wallet": {
     name: "CoinEx",
@@ -699,7 +699,7 @@ const walletRecords = {
       "Self-custody mobile wallet from CoinEx Group, formerly ViaWallet, managing 50+ chains including Solana with NFT send and receive, cross-chain swaps, and a dApp browser",
     website: "https://wallet.coinex.com/",
     icon: coinexWalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   coinflip: {
     name: "CoinFlip",
@@ -710,7 +710,7 @@ const walletRecords = {
       "Self-custody mobile wallet from Bitcoin ATM operator CoinFlip for holding SOL, BTC, ETH, and 20+ assets, with cash buy and sell at 5,500+ CoinFlip ATMs",
     website: "https://coinflip.tech/wallet",
     icon: coinflipIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   coinpayments: {
     name: "CoinPayments",
@@ -721,7 +721,7 @@ const walletRecords = {
       "Crypto payment gateway with custodial web and mobile Personal Wallets for storing, sending, and receiving SOL, USDC, and USDT on Solana alongside Bitcoin, Ethereum, and stablecoins",
     website: "https://www.coinpayments.net/",
     icon: coinpaymentsIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   coolwallet: {
     name: "CoolWallet",
@@ -740,7 +740,7 @@ const walletRecords = {
       "Card-shaped hardware wallet family (Pro, Go, S) with a companion app for SOL staking via Everstake or Figment, NFTs, fiat purchases, and 10+ blockchains including Solana",
     website: "https://www.coolwallet.io/pages/coolwallet-app",
     icon: coolwalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   cregis: {
     name: "Cregis",
@@ -758,7 +758,7 @@ const walletRecords = {
       "Enterprise self-custody MPC wallet and wallet-as-a-service API with multi-level approval rules and a merchant payment engine accepting SOL, USDT, and USDC on Solana",
     website: "https://www.cregis.com/",
     icon: cregisIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   cropty: {
     name: "Cropty",
@@ -769,7 +769,7 @@ const walletRecords = {
       "Custodial multi-chain wallet with iOS, Android, web, and Chrome extension apps, card and Apple Pay purchases, crypto-backed loans, and Solana among nine supported networks",
     website: "https://cropty.io/",
     icon: croptyIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   crossmint: {
     name: "Crossmint SDK",
@@ -795,7 +795,7 @@ const walletRecords = {
       "Embedded wallet API and SDK for Solana and 50+ chains, with custodial, non-custodial, hybrid, and Crossmint-managed MPC configurations through one integration, plus gas sponsorship, recovery signers, onramps, and programmable approval controls",
     website: "https://www.crossmint.com/products/wallet-infrastructure",
     icon: crossmintIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "crypto-com-onchain": {
     name: "Crypto.com Onchain",
@@ -813,7 +813,7 @@ const walletRecords = {
       "Self-custody wallet for Solana and 40+ other networks with mobile, browser, and web access, card purchases, NFT and dApp support, and hardware-wallet connectivity",
     website: "https://crypto.com/us/onchain",
     icon: cryptoComOnchainIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   cryptomus: {
     name: "Cryptomus",
@@ -824,7 +824,7 @@ const walletRecords = {
       "Custodial hot wallet and merchant payment platform with web and mobile apps, SOL invoices and checkout, fee-free internal transfers, conversion, and card or bank crypto purchases",
     website: "https://cryptomus.com/",
     icon: cryptomusIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   cwallet: {
     name: "Cwallet",
@@ -846,7 +846,7 @@ const walletRecords = {
       "Hybrid wallet app spanning 60+ chains including Solana, with custodial and self-custody accounts, fiat buy and sell ramps, NFT support, and payment links or QR codes for accepting crypto tips",
     website: "https://cwallet.com",
     icon: cwalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   cypherock: {
     name: "Cypherock",
@@ -864,7 +864,7 @@ const walletRecords = {
       "Seedless hardware wallet splitting keys across an X1 Vault and four NFC cards via Shamir Secret Sharing, with the open-source cySync desktop app covering Solana among 9,000+ assets",
     website: "https://www.cypherock.com/",
     icon: cypherockIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   d3fenders: {
     name: "D3fenders",
@@ -875,7 +875,7 @@ const walletRecords = {
       "Self-custody browser wallet for Solana and multiple EVM networks with NFT support, Wallet Standard compatibility, and optional multi-approval vault protection",
     website: "https://d3fenders.com/",
     icon: d3fendersIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   dcent: {
     name: "D'CENT",
@@ -887,7 +887,7 @@ const walletRecords = {
       "Biometric hardware wallet with a mobile companion app for SOL and SPL assets, Solana dApps and NFTs, and a broad set of additional blockchain networks",
     website: "https://store.dcentwallet.com/pages/solana-wallet",
     icon: dcentIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   decaf: {
     name: "Decaf",
@@ -907,7 +907,7 @@ const walletRecords = {
       "Non-custodial payments wallet on Solana and Stellar for USDC and USDT, with gasless transfers, payment links, bank withdrawals, and MoneyGram cash-out in 184 currencies",
     website: "https://www.decaf.so/",
     icon: decafIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   dfns: {
     name: "DFNS SDK",
@@ -927,7 +927,7 @@ const walletRecords = {
       "Wallet-as-a-service API with MPC key shares distributed across enclaved nodes, org- or user-controlled custody, and a policy engine for velocity limits and M-of-N quorums across 100+ networks including Solana",
     website: "https://www.dfns.co/wallet-as-a-service",
     icon: dfnsIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   dynamic: {
     name: "Dynamic SDK",
@@ -947,7 +947,7 @@ const walletRecords = {
       "Non-custodial embedded wallet infrastructure with TSS-MPC signing, passkey and social login, onramp funding, and sponsored Solana transaction fees across EVM, Solana, Bitcoin, and Sui",
     website: "https://www.dynamic.xyz/",
     icon: dynamicIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   edge: {
     name: "Edge",
@@ -965,7 +965,7 @@ const walletRecords = {
       "Open-source self-custody mobile wallet with client-side encryption, supporting Solana with custom SPL tokens among 14+ chains, plus in-app buy and sell through partners like MoonPay and Simplex",
     website: "https://edge.app/",
     icon: edgeIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   ellipal: {
     name: "ELLIPAL",
@@ -984,7 +984,7 @@ const walletRecords = {
       "Air-gapped cold wallet family (Titan 2.0, Titan Mini, X Card) with a non-custodial mobile app for card and Apple Pay buys, sells, swaps, and NFTs across 45+ blockchains including Solana",
     website: "https://www.ellipal.com/",
     icon: ellipalIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   emcd: {
     name: "EMCD",
@@ -1002,7 +1002,7 @@ const walletRecords = {
       "Custodial multi-asset wallet from mining-pool company EMCD holding SOL among 50+ coins, with card purchases, zero-fee P2P buy and sell, NFT storage, and Coinhold yield",
     website: "https://emcd.io/crypto-wallet",
     icon: emcdIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   enkrypt: {
     name: "Enkrypt",
@@ -1022,7 +1022,7 @@ const walletRecords = {
       "Open-source self-custody browser extension by MyEtherWallet spanning 70+ chains, with in-wallet SOL staking, MoonPay buy and sell, NFT management, and Ledger support",
     website: "https://www.enkrypt.com/",
     icon: enkryptIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   ethos: {
     name: "Ethos",
@@ -1039,7 +1039,7 @@ const walletRecords = {
       "Self-custody mobile trading wallet with cross-chain swaps over nine blockchains, gasless Solana trades paid in the token being sold, and seedless Magic Key recovery from three words",
     website: "https://www.ethosdefi.com/",
     icon: ethosIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   exodus: {
     name: "Exodus",
@@ -1060,7 +1060,7 @@ const walletRecords = {
       "Self-custody wallet for desktop, mobile, and browser with card and Apple Pay buys and sells, swaps, SOL staking via Everstake, an NFT gallery, and Trezor integration",
     website: "https://www.exodus.com/",
     icon: exodusIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "fireblocks-embedded": {
     name: "Fireblocks SDK",
@@ -1080,7 +1080,7 @@ const walletRecords = {
       "Non-custodial embedded wallet infrastructure with MPC key management, web, iOS, and Android SDKs, seedless cloud-backup recovery, and gas sponsorship across Solana, Bitcoin, and EVM chains",
     website: "https://www.fireblocks.com/platforms/embedded-wallets",
     icon: fireblocksEmbeddedIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "fireblocks-platform": {
     name: "Fireblocks",
@@ -1098,7 +1098,7 @@ const walletRecords = {
       "Institutional MPC wallet and treasury platform with policy-controlled signing, API and SDK access, and support for Solana payments, custody operations, and other blockchain networks",
     website: "https://www.fireblocks.com/customers/solana",
     icon: fireblocksEmbeddedIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   fordefi: {
     name: "Fordefi",
@@ -1115,7 +1115,7 @@ const walletRecords = {
       "Institutional non-custodial MPC wallet with a browser extension, web console, APIs and SDKs, configurable transaction policies, and native Solana and EVM support",
     website: "https://www.fordefi.com/",
     icon: fordefiIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   foxwallet: {
     name: "FoxWallet",
@@ -1127,7 +1127,7 @@ const walletRecords = {
       "Self-custody mobile wallet covering 100+ chains including Solana, Bitcoin, and Aleo, with locally encrypted keys, NFT support, phishing-site blocking, and a companion Chrome extension",
     website: "https://foxwallet.com/",
     icon: foxwalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   fuse: {
     name: "Fuse",
@@ -1153,7 +1153,7 @@ const walletRecords = {
       "Solana smart wallet on Squads Protocol with multifactor approvals and recovery keys, programmable spending limits, sponsored transactions, SOL staking, bank on/off-ramps, and a virtual Visa card",
     website: "https://www.fusewallet.com/",
     icon: fuseIcon,
-    lastVerified: "2026-08-18",
+    lastVerified: "2026-09-02",
   },
   fxwallet: {
     name: "FxWallet",
@@ -1164,7 +1164,7 @@ const walletRecords = {
       "Decentralized mobile wallet covering 80+ blockchains including Solana, with hardware wallet integration, an offline cold-wallet signing mode, curated dApps, and cross-chain swaps with MEV protection",
     website: "https://www.fxwallet.com/",
     icon: fxwalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   gate: {
     name: "Gate",
@@ -1175,7 +1175,7 @@ const walletRecords = {
       "Self-custodial wallet from the Gate exchange spanning mobile, web, and a Chrome extension, with swaps, bridging, and dApp access across 100+ chains including Solana",
     website: "https://web3.gate.com/",
     icon: gateIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   gem: {
     name: "Gem Wallet",
@@ -1194,7 +1194,7 @@ const walletRecords = {
       "Fully open-source self-custodial mobile wallet for 100+ chains including Solana, with built-in swaps, fiat on-ramp in 170+ countries, NFTs, and SOL staking via validator delegation",
     website: "https://gemwallet.com/",
     icon: gemIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   guarda: {
     name: "Guarda Wallet",
@@ -1214,7 +1214,7 @@ const walletRecords = {
       "Non-custodial wallet for 70+ blockchains across web, desktop, mobile, and a browser extension, with in-app SOL staking, card-based buy and sell, multisig protection, and Ledger integration",
     website: "https://guarda.com/",
     icon: guardaIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   helium: {
     name: "Helium",
@@ -1226,7 +1226,7 @@ const walletRecords = {
       "Open-source mobile wallet for the Solana-based Helium network, managing HNT, MOBILE, IOT, SOL, and USDC with Hotspot NFT transfers, reward claims, and governance voting",
     website: "https://docs.helium.com/wallets/helium-wallet-app/",
     icon: heliumIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "hex-trust": {
     name: "Hex Trust",
@@ -1244,7 +1244,7 @@ const walletRecords = {
       "Regulated institutional custody wallet with MPC and HSM-backed key management, approval policies, API access, and support for Solana assets and SOL staking",
     website: "https://www.hextrust.com/services/custody/wallets",
     icon: hexTrustIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   "hot-wallet": {
     name: "HOT Wallet",
@@ -1263,7 +1263,7 @@ const walletRecords = {
       "Non-custodial MPC wallet spanning mobile, Chrome extension, and Telegram, with in-app SOL staking, Jupiter-powered Solana swaps, and gas paid in any token across 140+ chains",
     website: "https://hot-labs.org/wallet/",
     icon: hotWalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   hotcoin: {
     name: "Hotcoin",
@@ -1275,7 +1275,7 @@ const walletRecords = {
       "Web3 wallet built into the Hotcoin exchange mobile apps, adding Solana chain assets alongside swaps, DApp access, and NFT management under user-controlled asset custody",
     website: "https://www.hotcoin.com/en_US/web3",
     icon: hotcoinIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   infinex: {
     name: "Infinex",
@@ -1293,7 +1293,7 @@ const walletRecords = {
       "Passkey-secured non-custodial account app spanning 26 networks including Solana, with gasless cross-chain swaps, jupSOL liquid staking yield, select NFT support, and email-based recovery",
     website: "https://infinex.xyz/?ref=solwf",
     icon: infinexIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   iopay: {
     name: "ioPay",
@@ -1305,7 +1305,7 @@ const walletRecords = {
       "Self-custody mobile wallet from the IoTeX team covering Solana, Bitcoin, Ethereum, and other default networks, with in-wallet trading, a dApp browser, and native Polymarket prediction access",
     website: "https://iopay.me/",
     icon: iopayIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   jupiter: {
     name: "Jupiter",
@@ -1330,7 +1330,7 @@ const walletRecords = {
       "Non-custodial Solana-only wallet from Jupiter with mobile apps and a browser extension, gasless swaps and sends, shareable payment links, fiat on- and off-ramps, and hardware-wallet support",
     website: "https://jup.ag/wallet",
     icon: jupiterIcon,
-    lastVerified: "2026-08-06",
+    lastVerified: "2026-09-02",
   },
   keepkey: {
     name: "KeepKey",
@@ -1342,7 +1342,7 @@ const walletRecords = {
       "Hardware wallet with open-source firmware, the KeepKey Vault desktop app for send, receive, and no-KYC cross-chain swaps across Solana and 10 other native chains, and an iOS companion app for portfolio monitoring",
     website: "https://keepkey.com/",
     icon: keepkeyIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   keystone: {
     name: "Keystone",
@@ -1361,7 +1361,7 @@ const walletRecords = {
       "Air-gapped hardware wallet family signing via QR codes, with open-source firmware, the Keystone Nexus companion app, Solflare integration covering SOL staking, and 5,500+ assets across 45+ chains",
     website: "https://keyst.one/",
     icon: keystoneIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   klever: {
     name: "Klever Wallet",
@@ -1380,24 +1380,18 @@ const walletRecords = {
       "Self-custody wallet for Solana and 40+ blockchains with mobile and Chromium browser apps, integrated fiat on- and off-ramps, NFT support, and optional KleverSafe hardware signing",
     website: "https://klever.io/crypto-wallet/solana-sol/",
     icon: kleverIcon,
-    lastVerified: "2026-08-06",
+    lastVerified: "2026-09-02",
   },
   kraken: {
     name: "Kraken",
     category: "consumer",
     platforms: ["ios", "android"],
-    features: [
-      "non_custodial",
-      "te",
-      "hold_nfts",
-      "open_source",
-      "multi_chain",
-    ],
+    features: ["non_custodial", "hold_nfts", "open_source", "multi_chain"],
     description:
-      "Self-custody mobile wallet from Kraken with open-source code, NFT management, cross-chain swaps between EVM networks and Solana, and support for sending Solana Token-2022 assets",
+      "Self-custody mobile wallet from Kraken with open-source code, NFT management, cross-chain swaps between EVM networks and Solana, and support for SOL and SPL assets",
     website: "https://www.kraken.com/wallet",
     icon: krakenIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   kryptogo: {
     name: "KryptoGO",
@@ -1414,7 +1408,7 @@ const walletRecords = {
       "Self-custodial mobile wallet with MPC keyless sign-in via phone, email, or Google, covering Solana among 10 blockchains with NFT management, swaps, and stablecoin payments",
     website: "https://www.kryptogo.com/products/wallet",
     icon: kryptogoIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   lazorkit: {
     name: "LazorKit SDK",
@@ -1432,7 +1426,7 @@ const walletRecords = {
       "Passkey wallet SDK for Solana apps with user-controlled signing, sponsored transaction fees, and scoped agent permissions limited by amount and time",
     website: "https://www.lazorkit.com/",
     icon: lazorkitIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   ledger: {
     name: "Ledger",
@@ -1441,7 +1435,6 @@ const walletRecords = {
     platforms: ["ios", "android", "desktop", "hardware"],
     features: [
       "non_custodial",
-      "te",
       "buy_crypto",
       "sell_crypto",
       "card_spending",
@@ -1452,10 +1445,10 @@ const walletRecords = {
       "multi_chain",
     ],
     description:
-      "Secure Element hardware signer family with the Ledger Wallet app for buying SOL by card, off-ramp selling, validator staking, SPL and Token-2022 assets, and thousands of coins",
+      "Secure Element hardware signer family with the Ledger Wallet app for buying SOL by card, off-ramp selling, validator staking, SPL assets, and thousands of coins",
     website: "https://www.ledger.com/",
     icon: ledgerIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   lemon: {
     name: "Lemon",
@@ -1473,7 +1466,7 @@ const walletRecords = {
       "Custodial crypto app for Argentina, Brazil, and Latin America with SOL buying and selling in local currency, withdrawals over the native Solana network, and a Visa card with cashback",
     website: "https://lemon.me/",
     icon: lemonIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   liminal: {
     name: "Liminal",
@@ -1493,7 +1486,7 @@ const walletRecords = {
       "Institutional custody and wallet infrastructure with MPC and multisig hot or cold vaults, a Firewall policy engine with spending limits, REST APIs, and SOL staking through Figment validators",
     website: "https://www.liminalcustody.com/",
     icon: liminalIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   loyal: {
     name: "Loyal",
@@ -1509,7 +1502,7 @@ const walletRecords = {
       "Open-source self-custody Solana wallet with browser, web, and Android access, smart-account security, configurable spending caps, and destination allowlists",
     website: "https://askloyal.com/",
     icon: loyalIcon,
-    lastVerified: "2026-08-18",
+    lastVerified: "2026-09-02",
   },
   magic: {
     name: "Magic SDK",
@@ -1526,7 +1519,7 @@ const walletRecords = {
       "Embedded wallet infrastructure provisioning non-custodial wallets behind email, social, or passkey login, with TEE-based key management, over 53M wallets created, and a dedicated Solana SDK extension",
     website: "https://magic.link/",
     icon: magicIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   mathwallet: {
     name: "MathWallet",
@@ -1538,7 +1531,7 @@ const walletRecords = {
       "Multichain wallet covering 228+ networks including Solana, with mobile apps, Chrome, Brave, and Edge extensions, a web wallet, NFT support, and Ledger and WOOKONG hardware integration",
     website: "https://mathwallet.org/",
     icon: mathwalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   metamask: {
     name: "MetaMask",
@@ -1560,7 +1553,7 @@ const walletRecords = {
       "Consensys self-custody wallet with native Solana accounts across its extension and mobile apps, offering SOL and SPL swaps, SOL staking via Figment, and fiat on- and off-ramps",
     website: "https://metamask.io/",
     icon: metamaskIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   moongate: {
     name: "Moongate",
@@ -1578,7 +1571,7 @@ const walletRecords = {
       "Hosted multichain wallet and trading app with social sign-in, card purchases, cross-chain swaps, tokenized assets, and an SDK for embedding its wallet experience in other apps",
     website: "https://moongate.one/",
     icon: moongateIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   moonpay: {
     name: "MoonPay",
@@ -1591,7 +1584,7 @@ const walletRecords = {
     website:
       "https://support.moonpay.com/en/articles/383215-managing-your-wallets",
     icon: moonpayIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   moonshot: {
     name: "Moonshot",
@@ -1602,7 +1595,7 @@ const walletRecords = {
       "Self-custodial Solana wallet app for discovering and trading memecoins, with Apple Pay, card, and bank deposits, USDC cash balances, bank cash-outs, and exportable wallet keys",
     website: "https://moonshot.com/",
     icon: moonshotIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   morse: {
     name: "Morse",
@@ -1621,7 +1614,7 @@ const walletRecords = {
       "Self-custody Solana payments app, formerly Sling Money, for holding stablecoins, getting paid, sending money, and cashing out through bank and local payment rails, with exportable keys and a virtual Visa card",
     website: "https://morsemoney.com/",
     icon: morseIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   mpcvault: {
     name: "MPCVault",
@@ -1639,7 +1632,7 @@ const walletRecords = {
       "Non-custodial MPC wallet for Web3 teams that splits keys across three shares, with multi-approval policies by amount and destination, batch transfers, Solana support alongside Bitcoin, Ethereum, TON, and TRON, and REST/gRPC APIs",
     website: "https://mpcvault.com/",
     icon: mpcvaultIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   nabox: {
     name: "Nabox",
@@ -1651,7 +1644,7 @@ const walletRecords = {
       "Non-custodial cross-chain wallet with mobile apps and a Chrome extension, SwapBox DEX-aggregated cross-chain swaps, NFT management, and supported coins including SOL across 50+ blockchains",
     website: "https://nabox.io/",
     icon: naboxIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   ngrave: {
     name: "NGRAVE",
@@ -1668,7 +1661,7 @@ const walletRecords = {
       "Fully air-gapped, EAL7-certified ZERO hardware wallet with QR-code signing, the LIQUID companion mobile app, and GRAPHENE steel backup, supporting SOL since firmware v1.2 alongside BTC, ETH, and 15+ networks",
     website: "https://ngrave.io/",
     icon: ngraveIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   nightly: {
     name: "Nightly",
@@ -1687,7 +1680,7 @@ const walletRecords = {
       "Self-custody extension and mobile wallet for Solana, Sui, Aptos, Near, and Movement with SOL staking, Token-2022 support, an NFT gallery, social login, and Ledger integration",
     website: "https://nightly.app/",
     icon: nightlyIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   nova: {
     name: "NOVA",
@@ -1705,7 +1698,7 @@ const walletRecords = {
       "Privacy-focused self-custody Solana wallet for iOS and web with NFT management, Ledger support, and multisig vault capabilities",
     website: "https://www.nshield.org/",
     icon: novaIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   now: {
     name: "NOW Wallet",
@@ -1724,7 +1717,7 @@ const walletRecords = {
       "Non-custodial mobile and desktop wallet by ChangeNOW covering 70+ coins, with SOL staking, Ethereum and Solana NFT storage, and card or bank buy and sell flows",
     website: "https://walletnow.app/",
     icon: nowwalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   nufi: {
     name: "NuFi",
@@ -1744,7 +1737,7 @@ const walletRecords = {
       "Non-custodial web wallet and Chrome extension with SOL, ADA, and FLOW staking, bank-card buy and sell via MoonPay, an NFT gallery, social-login onboarding, and support for six hardware wallet brands",
     website: "https://nu.fi/",
     icon: nufiIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   okx: {
     name: "OKX",
@@ -1761,7 +1754,7 @@ const walletRecords = {
       "Self-custodial OKX wallet spanning 130+ chains including Solana, with DEX swaps, SOL staking through DeFi Earn, a multi-chain NFT marketplace, and account-abstraction smart accounts",
     website: "https://web3.okx.com/",
     icon: okxIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   omni: {
     name: "Omni",
@@ -1779,7 +1772,7 @@ const walletRecords = {
       "Non-custodial mobile wallet formerly known as Steakwallet, covering 25+ networks including Solana, with a three-tap SOL staking flow, Solana NFT support, swaps and bridging, and Ledger cold-storage sync",
     website: "https://omni.app/",
     icon: omniIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   onekey: {
     name: "OneKey",
@@ -1799,7 +1792,7 @@ const walletRecords = {
       "Open-source hardware wallet family with companion apps on mobile, desktop, web, and Chrome, offering SOL staking, NFT storage, and fiat on- and off-ramps across 60+ chains",
     website: "https://onekey.so/",
     icon: onekeyIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   onto: {
     name: "ONTO",
@@ -1811,7 +1804,7 @@ const walletRecords = {
       "Self-custodial multi-chain identity wallet with mobile and browser access, private-key import and transfer support for Solana, and integrated dApp connectivity",
     website: "https://onto.app/en",
     icon: ontoIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   openfort: {
     name: "Openfort SDK",
@@ -1830,7 +1823,7 @@ const walletRecords = {
       "Open-source embedded wallet and key-management infrastructure for Solana and EVM chains, with self-hostable signing, email and social login, Solana paymaster gas sponsorship, and policy controls",
     website: "https://www.openfort.io/",
     icon: openfortIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   opensigner: {
     name: "OpenSigner SDK",
@@ -1847,7 +1840,7 @@ const walletRecords = {
       "Open-source, self-hostable key management system from Openfort issuing non-custodial user keys via 2-of-3 Shamir secret sharing, with passkey and OTP recovery, for Ethereum and Solana",
     website: "https://opensigner.dev/",
     icon: opensignerIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   owallet: {
     name: "OWallet",
@@ -1859,7 +1852,7 @@ const walletRecords = {
       "Oraichain's open-source self-custody wallet for Oraichain, Bitcoin, Ethereum, BNB Chain, and Solana, with SOL and SPL token transfers and transaction signing on Raydium and Pump.fun",
     website: "https://owallet.io/",
     icon: owalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   ownbit: {
     name: "Ownbit",
@@ -1870,7 +1863,7 @@ const walletRecords = {
       "Self-custody mobile multisig and cold wallet supporting SOL and SPL tokens, with QR offline signing on an air-gapped spare phone and threshold approvals for family and team treasuries",
     website: "https://ownbit.io/",
     icon: ownbitIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   oxapay: {
     name: "OxaPay",
@@ -1881,7 +1874,7 @@ const walletRecords = {
       "Custodial wallet and payment gateway with web, Telegram, and Chrome access, plus SOL payment links, invoices, merchant checkout, zero-fee internal transfers, and built-in swaps",
     website: "https://oxapay.com/wallet",
     icon: oxapayIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   para: {
     name: "Para SDK",
@@ -1902,7 +1895,7 @@ const walletRecords = {
       "Embedded wallet and authentication suite with MPC distributed key generation, passkey login, gas sponsorship, a permissions engine with spending limits, and on/off-ramp APIs across Solana and 15+ chains",
     website: "https://www.getpara.com/",
     icon: paraIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "particle-network": {
     name: "Particle Network SDK",
@@ -1921,7 +1914,7 @@ const walletRecords = {
       "Chain abstraction infrastructure giving users one Universal Account and balance across EVM chains and Solana, with 2/2 MPC-TSS social-login wallets, gas sponsorship, and master-password recovery",
     website: "https://particle.network/",
     icon: particleNetworkIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   passimpay: {
     name: "PassimPay",
@@ -1932,7 +1925,7 @@ const walletRecords = {
       "Account-based e-wallet and merchant payment gateway used via web, PWA, or Telegram, with built-in exchange and payment acceptance for SOL among 70+ supported coins",
     website: "https://passimpay.io/",
     icon: passimpayIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "passkeys-wallet": {
     name: "Passkeys SDK",
@@ -1950,7 +1943,7 @@ const walletRecords = {
       "Embedded wallet SDK using passkeys and MPC self-custody instead of seed phrases, auto-discovered by Solana Wallet Adapter via Wallet Standard, spanning Bitcoin, Ethereum, Solana, and major L2s",
     website: "https://passkeys.foundation/",
     icon: passkeysWalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "paybis-wallet": {
     name: "Paybis",
@@ -1962,7 +1955,7 @@ const walletRecords = {
       "Custodial multi-chain wallet built into the Paybis fiat gateway with MPC-fragmented key storage, dedicated per-user on-chain addresses, in-account swaps, and card, PayPal, and bank rails to buy and sell SOL",
     website: "https://paybis.com/crypto-wallet",
     icon: paybisWalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "paypal-cryptocurrency-services": {
     name: "PayPal",
@@ -1974,7 +1967,7 @@ const walletRecords = {
       "Custodial crypto service in the PayPal app and website for buying, selling, holding, transferring, and checking out with SOL, PYUSD, Bitcoin, Ethereum, and other supported tokens",
     website: "https://www.paypal.com/us/digital-wallet/manage-money/crypto",
     icon: paypalCryptocurrencyServicesIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   phantom: {
     name: "Phantom",
@@ -2002,7 +1995,7 @@ const walletRecords = {
       "Self-custody wallet for Solana and other networks with mobile apps and Chromium browser extensions, Google and Apple account recovery, gasless Solana transactions, and in-app crypto purchases plus bank cash-out for eligible US users",
     website: "https://phantom.com/",
     icon: phantomIcon,
-    lastVerified: "2026-08-18",
+    lastVerified: "2026-09-02",
   },
   "phantom-connect": {
     name: "Phantom SDK",
@@ -2020,7 +2013,7 @@ const walletRecords = {
       "Client SDKs for embedding Phantom wallet creation and signing in web and React Native apps, with full Solana network support and social-login onboarding",
     website: "https://docs.phantom.com/wallet-sdks-overview",
     icon: phantomIcon,
-    lastVerified: "2026-08-18",
+    lastVerified: "2026-09-02",
   },
   pontem: {
     name: "Pontem",
@@ -2032,7 +2025,7 @@ const walletRecords = {
       "Non-custodial mobile and browser-extension wallet for Ethereum, Solana, Movement, and Aptos with NFT viewing and trading, built-in swaps, and native Ledger support",
     website: "https://pontem.network/pontem-wallet",
     icon: pontemIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   portal: {
     name: "Portal SDK",
@@ -2051,7 +2044,7 @@ const walletRecords = {
       "Embedded wallet infrastructure with non-custodial TSS MPC signing in AWS Nitro enclaves, Solana gas sponsorship, and passkey or cloud-drive backup across Solana, EVM chains, and Bitcoin",
     website: "https://www.portalhq.io/platform/mpc-wallet-as-a-service",
     icon: portalIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   porto: {
     name: "Porto",
@@ -2070,7 +2063,7 @@ const walletRecords = {
       "Institutional self-custody wallet from Anchorage Digital with Solana and multichain dApp access, native SOL staking, configurable transaction policies, and quorum approvals",
     website: "https://www.anchorage.com/platform/self-custody",
     icon: portoIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   privy: {
     name: "Privy SDK",
@@ -2090,7 +2083,7 @@ const walletRecords = {
       "Embedded wallet infrastructure with TEE-secured key management, server-controlled wallets via API, Solana gas sponsorship, programmable transaction policies, and built-in fiat onramps",
     website: "https://www.privy.io/",
     icon: privyIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "pump-wallet": {
     name: "Pump Wallet",
@@ -2101,7 +2094,7 @@ const walletRecords = {
       "Self-custodial MPC wallet for iPhone designed for Solana assets and transactions, with key material split across independently secured shares",
     website: "https://pumpwallet.com/",
     icon: pumpWalletIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   redotpay: {
     name: "RedotPay",
@@ -2118,7 +2111,7 @@ const walletRecords = {
       "Custodial payment wallet and stablecoin Visa card app for spending SOL and Solana stablecoins at 130M+ merchants, with bank on-ramps, ATM withdrawals, and payouts to local currency",
     website: "https://www.redotpay.com/",
     icon: redotpayIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   reown: {
     name: "WalletConnect SDK",
@@ -2136,7 +2129,7 @@ const walletRecords = {
       "Open-source WalletConnect SDK for wallet builders, connecting wallets to 80,000+ onchain apps with Solana transaction and message signing across Web, iOS, Android, Flutter, React Native, and .NET",
     website: "https://walletconnect.network/sdk",
     icon: reownIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "republic-wallet": {
     name: "Republic",
@@ -2154,7 +2147,7 @@ const walletRecords = {
       "Self-custody wallet available through Republic's web platform and iOS app, holding tokenized equity, funds, and crypto across Solana, Ethereum, and other chains with passkey and Face ID login instead of seed phrases",
     website: "https://republic.com/wallet",
     icon: republicWalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   robinhood: {
     name: "Robinhood",
@@ -2165,7 +2158,7 @@ const walletRecords = {
       "Self-custody mobile wallet from Robinhood for Solana, Ethereum, Bitcoin, and other networks, with in-app swaps, NFTs, dApp connections, and card or bank crypto purchases",
     website: "https://robinhood.com/us/en/wallet/",
     icon: robinhoodIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   ryder: {
     name: "Ryder",
@@ -2183,7 +2176,7 @@ const walletRecords = {
       "Seed-phrase-free hardware wallet with an EAL6+ secure element, Shamir-based TapSafe recovery, and a companion app for SPL tokens, swaps, and in-app Solana staking",
     website: "https://ryder.id/",
     icon: ryderIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   safeheron: {
     name: "Safeheron",
@@ -2200,7 +2193,7 @@ const walletRecords = {
       "Enterprise MPC self-custody platform with iOS and Android apps, a web console, TEE-hardened key sharding, approval policies, wallet-as-a-service APIs, and Solana access alongside EVM, TRON, and TON",
     website: "https://safeheron.com/",
     icon: safeheronIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   safepal: {
     name: "SafePal",
@@ -2222,7 +2215,7 @@ const walletRecords = {
       "Hardware wallet family (S1, S1 Pro, X1) with a companion mobile app and browser extension covering 100+ blockchains, SOL staking via Kiln, NFTs, and MoonPay fiat on- and off-ramps",
     website: "https://www.safepal.com/",
     icon: safepalIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   salmon: {
     name: "Salmon",
@@ -2234,7 +2227,7 @@ const walletRecords = {
       "Open-source self-custody wallet built around Solana with Android, browser-extension, and web releases plus Bitcoin support, swaps, and bridges",
     website: "https://www.salmonwallet.io/",
     icon: salmonIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   samui: {
     name: "Samui",
@@ -2245,7 +2238,7 @@ const walletRecords = {
       "Open-source MIT-licensed Solana wallet and toolbox for builders, with SOL airdrops, token creation, NFT management, devnet and localnet switching, and a hosted web app",
     website: "https://samui.build/",
     icon: samuiIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   secux: {
     name: "SecuX",
@@ -2264,7 +2257,7 @@ const walletRecords = {
       "Hardware wallet family (V20, W20, Nifty) with a companion app for SOL and SPL tokens, Solana Token-2022 assets, on-device Solana NFT display, and in-app fiat purchases",
     website: "https://secuxtech.com/",
     icon: secuxIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "seed-vault-wallet": {
     name: "Seed Vault Wallet",
@@ -2283,7 +2276,7 @@ const walletRecords = {
       "Solana Seeker's native self-custody wallet with built-in token swaps, fiat purchases, SOL staking, NFT management, and hardware-backed Seed Vault signing isolated from Android",
     website: "https://wallet-help.solanamobile.com/en/",
     icon: seedVaultWalletIcon,
-    lastVerified: "2026-08-06",
+    lastVerified: "2026-09-02",
   },
   siid: {
     name: "SIID",
@@ -2295,7 +2288,7 @@ const walletRecords = {
       "Self-custody Solana browser wallet for SOL, SPL tokens, and NFTs with encrypted wallet-to-wallet chat, swaps, and in-chat payment requests",
     website: "https://siid.me/",
     icon: siidIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   solflare: {
     name: "Solflare",
@@ -2320,7 +2313,7 @@ const walletRecords = {
       "Solana self-custody wallet with mobile, web, and browser-extension apps supporting Token Extensions, Actions and Blinks, Solana Pay, staking, NFTs, hardware-wallet integrations, and a gasless USDC Mastercard debit card",
     website: "https://www.solflare.com/",
     icon: solflareIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   "solflare-shield": {
     name: "Solflare Shield",
@@ -2340,7 +2333,7 @@ const walletRecords = {
       "Non-custodial NFC card hardware wallet for Solana with an EAL6+ certified secure chip that keeps private keys offline and uses the Solflare mobile app for PIN-protected tap-to-sign transactions",
     website: "https://www.solflare.com/hardware-wallet/",
     icon: solflareIcon,
-    lastVerified: "2026-08-06",
+    lastVerified: "2026-09-02",
   },
   speed: {
     name: "Speed",
@@ -2352,7 +2345,7 @@ const walletRecords = {
       "Custodial Bitcoin Lightning wallet for everyday payments with card and Apple Pay purchases, gift cards with BTC cashback, and USDT and USDC transfers on Solana, Ethereum, and Tron",
     website: "https://www.speed.app/",
     icon: speedIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   squadsx: {
     name: "SquadsX",
@@ -2372,7 +2365,7 @@ const walletRecords = {
     website:
       "https://chromewebstore.google.com/detail/squadsx/jhmfofkpljgmilikdmkglcmekjnlekda",
     icon: squadsxIcon,
-    lastVerified: "2026-08-18",
+    lastVerified: "2026-09-02",
   },
   starkey: {
     name: "StarKey",
@@ -2390,7 +2383,7 @@ const walletRecords = {
       "Supra's official self-custodial wallet for Supra, Ethereum, Aptos, Sui, and Solana, with a Chrome extension, mobile apps, Banxa fiat purchases, and Split Key Recovery across cloud, device, and a guardian",
     website: "https://starkey.app/",
     icon: starkeyIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   talisman: {
     name: "Talisman",
@@ -2409,7 +2402,7 @@ const walletRecords = {
       "Open-source self-custody browser extension for the Solana, EVM, and Polkadot ecosystems with multi-chain NFT viewing, fiat on and off-ramps, and Ledger account import",
     website: "https://talisman.xyz/",
     icon: talismanIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   tangem: {
     name: "Tangem",
@@ -2431,7 +2424,7 @@ const walletRecords = {
       "NFC card and ring hardware wallets with an open-source non-custodial mobile app for 14,000+ tokens on 90 blockchains, including SOL staking, Solana NFTs, and buy, sell, and swap flows",
     website: "https://tangem.com/",
     icon: tangemIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "tatum-wallets": {
     name: "Tatum SDK",
@@ -2450,7 +2443,7 @@ const walletRecords = {
       "MPC smart-wallet infrastructure for Solana, Bitcoin, and EVM networks with configurable custody, gas sponsorship, encrypted recovery shares, and an open-source SDK",
     website: "https://tatum.io/products/wallets",
     icon: tatumWalletsIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   tiplink: {
     name: "Tiplink",
@@ -2469,7 +2462,7 @@ const walletRecords = {
       "Non-custodial Solana link wallet for sending SOL, SPL tokens, NFTs, and SFTs as shareable URLs, with Google-login claiming, Solana Pay checkout flows, and a wallet adapter for dApp sign-in",
     website: "https://tiplink.io/",
     icon: tiplinkIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   tokenpocket: {
     name: "TokenPocket",
@@ -2488,7 +2481,7 @@ const walletRecords = {
       "Multi-chain self-custody wallet with 30M+ users, a dApp browser, credit-card crypto buys, SOL staking, three daily gas-free Solana transfers, and the KeyPal hardware wallet",
     website: "https://tokenpocket.pro/",
     icon: tokenpocketIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   tomo: {
     name: "Tomo",
@@ -2500,7 +2493,7 @@ const walletRecords = {
       "Social wallet with Google and email login, MPC-sharded key storage, and a mobile app, Chrome extension, and Telegram bot covering Solana, Bitcoin, Ethereum, and 20+ chains",
     website: "https://tomo.inc/",
     icon: tomoIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   totalsig: {
     name: "TotalSig",
@@ -2511,7 +2504,7 @@ const walletRecords = {
       "Non-custodial multisig wallet delivered as a Chrome extension, using MPC signing with up to 32 co-signers and NFT support across Solana, Bitcoin, Ethereum, and 13 blockchains",
     website: "https://www.totalsig.com",
     icon: totalsigIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   trezor: {
     name: "Trezor",
@@ -2532,7 +2525,7 @@ const walletRecords = {
       "Open-source hardware wallets (Safe family and Model T) with the Trezor Suite desktop and web app supporting SOL and SPL tokens, Everstake-delegated SOL staking, and fiat buy and sell flows",
     website: "https://trezor.io/",
     icon: trezorIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   tria: {
     name: "Tria",
@@ -2551,7 +2544,7 @@ const walletRecords = {
       "Self-custodial trading and spending app with Visa cards, cross-chain swaps, and on-chain yield across Solana and 15+ networks, plus TSS-based embedded wallet SDKs with gasless transactions",
     website: "https://tria.so",
     icon: triaIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   trust: {
     name: "Trust",
@@ -2570,7 +2563,7 @@ const walletRecords = {
       "Self-custody wallet for 100+ blockchains with iOS and Android apps and a Chrome, Brave, and Edge extension, offering SOL staking, fiat buy and sell, swaps, and NFT management",
     website: "https://trustwallet.com/download",
     icon: trustwalletcoreIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "trustee-wallet": {
     name: "Trustee Wallet",
@@ -2591,7 +2584,7 @@ const walletRecords = {
       "Open-source non-custodial mobile wallet for 30+ blockchains including Solana and SPL tokens, with Visa card buy and card withdrawal flows, NFT support, and validator-delegated SOL staking",
     website: "https://trusteeglobal.eu/",
     icon: trusteeWalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   turnkey: {
     name: "Turnkey SDK",
@@ -2610,7 +2603,7 @@ const walletRecords = {
       "Non-custodial embedded wallet and key management infrastructure running signing inside TEEs, with a policy engine, passkey and social login, and Solana fee and rent sponsorship",
     website: "https://www.turnkey.com/",
     icon: turnkeyIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "umbra-wallet": {
     name: "Umbra",
@@ -2622,7 +2615,7 @@ const walletRecords = {
       "Privacy-focused self-custody Solana wallet for iPhone with private transfer flows, sponsored transaction fees, and SPL and Token-2022 asset support",
     website: "https://app.umbraprivacy.com/",
     icon: umbraWalletIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   unhosted: {
     name: "Unhosted",
@@ -2643,7 +2636,7 @@ const walletRecords = {
       "Self-custodial smart-account wallet in beta on iOS through TestFlight and as a Chrome extension, with social or email sign-in, passkey recovery, modular account abstraction, and buy, sell, and swap coverage listing Solana",
     website: "https://unhosted.com/",
     icon: unhostedIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   unitywallet: {
     name: "UnityWallet",
@@ -2662,7 +2655,7 @@ const walletRecords = {
       "Self-custodial mobile wallet for 250+ assets including SOL and SPL tokens, with card and bank on and off-ramps in 110+ fiat currencies, Solana staking rewards, NFT storage, and an encrypted messenger",
     website: "https://www.unitywallet.com/",
     icon: unitywalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   unruggable: {
     name: "Unruggable",
@@ -2679,7 +2672,7 @@ const walletRecords = {
       "Hardware wallet engineered specifically for Solana with open-source hardware, firmware, and a companion app for macOS, Windows, Linux, and Android, including validator staking",
     website: "https://www.unruggable.io/",
     icon: unruggableIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   utila: {
     name: "Utila",
@@ -2695,7 +2688,7 @@ const walletRecords = {
       "Institutional MPC wallet and treasury platform with role-based approval policies, transaction limits, API automation, and support for Solana and other networks",
     website: "https://utila.io/product/treasury-management",
     icon: utilaIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   venly: {
     name: "Venly SDK",
@@ -2715,7 +2708,7 @@ const walletRecords = {
       "Wallet-as-a-service platform offering custodial or non-custodial wallets across 14+ blockchains including Solana, with social login, integrated fiat onramps, and gasless meta transactions",
     website: "https://www.venly.io/product/wallet-as-a-service",
     icon: venlyIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   vultisig: {
     name: "Vultisig",
@@ -2732,7 +2725,7 @@ const walletRecords = {
       "Open-source self-custody MPC wallet for Solana and 30+ chains, using threshold vault shares across multiple devices with mobile, desktop, and Chromium browser apps",
     website: "https://vultisig.com/",
     icon: vultisigIcon,
-    lastVerified: "2026-08-06",
+    lastVerified: "2026-09-02",
   },
   waiaas: {
     name: "WAIaaS SDK",
@@ -2750,7 +2743,7 @@ const walletRecords = {
       "Open-source self-hosted wallet daemon for AI agents with locally controlled keys, policy-enforced transaction limits, APIs and SDKs, and Solana and EVM support",
     website: "https://waiaas.ai/",
     icon: waiaasIcon,
-    lastVerified: "2026-07-16",
+    lastVerified: "2026-09-02",
   },
   walletverse: {
     name: "Walletverse",
@@ -2768,7 +2761,7 @@ const walletRecords = {
       "Self-custody mobile wallet for 700+ cryptocurrencies with SOL staking, card and bank purchases, DEX-aggregator swaps, NFT support, and WalletConnect integration",
     website: "https://walletverse.io",
     icon: walletverseIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   web3auth: {
     name: "Web3Auth SDK",
@@ -2789,7 +2782,7 @@ const walletRecords = {
       "Embedded wallet and MPC key management infrastructure, now MetaMask Embedded Wallets under Consensys, with social login, a fiat onramp aggregator, and Solana SDK support alongside EVM, Bitcoin, and more",
     website: "https://web3auth.io/",
     icon: web3authIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   "wisdomtree-prime": {
     name: "WisdomTree Prime",
@@ -2808,7 +2801,7 @@ const walletRecords = {
       "Regulated digital wallet app from asset manager WisdomTree for Bitcoin, Ether, and tokenized funds, with USDC on-ramps, self-custody, and gas-free transfers across Solana and seven other chains",
     website: "https://www.wisdomtreeprime.com",
     icon: wisdomtreePrimeIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   xrocket: {
     name: "xRocket",
@@ -2825,7 +2818,7 @@ const walletRecords = {
       "Custodial Telegram wallet and exchange with bot, mini app, and web versions, bank-card P2P buying and selling, crypto cheques and invoices, and SOL, USDC, and SPL tokens among six networks",
     website: "https://xrocket.exchange/",
     icon: xrocketIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   zar: {
     name: "ZAR",
@@ -2842,7 +2835,7 @@ const walletRecords = {
       "Self-custody dollar wallet for emerging markets holding USDC on Solana, with cash-to-stablecoin exchange at local merchant agents, a Visa card, and cash-out to banks in 70+ countries",
     website: "https://www.zar.app/",
     icon: zarIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   zendwallet: {
     name: "ZendWallet",
@@ -2854,7 +2847,7 @@ const walletRecords = {
       "Custodial mobile wallet for Africa handling USDT and USDC on networks including Solana, with instant stablecoin-to-local-currency swaps in NGN, KES, ZAR, and GHS and global business payments",
     website: "https://zendwallet.com/",
     icon: zendwalletIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   zengo: {
     name: "Zengo",
@@ -2874,7 +2867,7 @@ const walletRecords = {
       "Seedless mobile wallet using two-share MPC threshold signing instead of a private key, with SOL and Solana token support among 14 networks, in-app buy and sell, and email plus 3D FaceLock recovery",
     website: "https://zengo.com/",
     icon: zengoIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   zerion: {
     name: "Zerion",
@@ -2892,7 +2885,7 @@ const walletRecords = {
       "Non-custodial wallet for Ethereum, Solana, and 50+ EVM networks with mobile apps, a GPL-licensed open-source Chrome and Firefox extension, card purchases, DEX swaps, and NFT tracking",
     website: "https://zerion.io/",
     icon: zerionIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
   zypto: {
     name: "Zypto",
@@ -2910,7 +2903,7 @@ const walletRecords = {
       "Self-custody mobile wallet and payments super-app covering Solana among 70+ blockchains, with crypto cards, bill pay, fiat on/off-ramps, and an optional NFC Vault Key Card for cold storage",
     website: "https://zypto.com/",
     icon: zyptoIcon,
-    lastVerified: "2026-07-15",
+    lastVerified: "2026-09-02",
   },
 } satisfies Record<string, WalletRecord>;
 

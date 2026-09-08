@@ -9,7 +9,7 @@ export function SkillsHeroBackground() {
       jsonFilePath="/src/img/solutions/icm/hero-bg.json"
       width="100%"
       height="100%"
-      scale={1}
+      scale={0.8}
       fps={30}
       lazyLoad={true}
       production={true}

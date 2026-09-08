@@ -1,9 +1,7 @@
 ---
 title: Giao dịch có phiên bản
 description:
-  So sánh định dạng giao dịch legacy và versioned (V0) trên Solana, bao gồm
-  Address Lookup Tables (ALTs), phát hiện phiên bản, định dạng message V0 và
-  phân giải ALT.
+  Các định dạng giao dịch legacy, v0 và v1 trên Solana, bao gồm Address Lookup Tables (ALT), phát hiện phiên bản, cấu hình giao dịch v1 và giới hạn tài nguyên.
 url: /docs/core/transactions/versioned-transactions
 type: conceptual
 prerequisites:
@@ -15,52 +13,105 @@ related:
 ---
 
 <Callout type="info" title="Tóm tắt">
-  Giao dịch V0 bổ sung Address Lookup Tables (ALTs), cho phép tham chiếu đến các
-  tài khoản thông qua chỉ số 1 byte thay vì khóa 32 byte. Điều này tiết kiệm 31
-  byte cho mỗi tài khoản được phân giải bằng ALT.
+  Solana có ba định dạng giao dịch: legacy, v0 và v1. **v0** bổ sung Address
+  Lookup Tables (ALTs) để tham chiếu các tài khoản qua chỉ mục 1 byte. **v1**
+  nâng giới hạn kích thước lên 4.096 byte, chuyển giới hạn tài nguyên vào trong
+  chính thông điệp và loại bỏ ALTs.
 </Callout>
 
-Solana hỗ trợ hai định dạng giao dịch: **legacy** và **versioned** (v0).
+Solana hỗ trợ ba định dạng giao dịch: **legacy**, **v0** và **v1**. Mỗi định dạng
+được mô tả bên dưới với ba phần giống nhau: cách bố trí byte trên đường truyền,
+cách tham chiếu tài khoản và nguồn gốc của các giới hạn tài nguyên.
 
-Validator xác định định dạng bằng cách kiểm tra byte đầu tiên của message:
-
-- Nếu byte đầu tiên có bit
-  [version prefix](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)
-  được đặt, đó là **versioned message**. Hiện tại chỉ hỗ trợ phiên bản 0. 3 byte
-  tiếp theo là _rs`MessageHeader`_.
-- Ngược lại, đó là **legacy message**. Byte đầu tiên là
-  `num_required_signatures`, và 2 byte tiếp theo hoàn thành header.
-
-<Callout type="info" title="Khi nào nên sử dụng giao dịch V0">
-  Sử dụng V0 khi giao dịch của bạn tham chiếu nhiều tài khoản và tiệm cận giới
-  hạn gói 1.232 byte. Nếu giao dịch của bạn vừa với giới hạn kích thước với tất
-  cả tài khoản inline, giao dịch legacy đơn giản hơn và có hỗ trợ công cụ rộng
-  rãi hơn. V0 là bắt buộc để sử dụng Address Lookup Tables.
+<Callout type="warn" title="Trạng thái kích hoạt của v1">
+  [Định dạng v1](https://solana.com/upgrades/larger-transaction-sizes) chưa
+  được kích hoạt trên bất kỳ cluster nào. Việc kích hoạt dự kiến cùng với Agave v4.2.
+  `solana-test-validator` 4.2+ cho phép bạn kiểm thử giao dịch v1 cục bộ.
+  Các ứng dụng hiện tại nên xem lại [chuẩn bị cho v1](#preparing-for-v1).
 </Callout>
 
-## Định dạng message V0
+## So sánh định dạng
 
-Message v0 có các trường giống như message legacy, cộng thêm một mảng
-`address_table_lookups` được thêm vào sau các instruction:
+| Giới hạn                 | legacy                     | v0                         | v1                 |
+| --------------------- | -------------------------- | -------------------------- | ------------------ |
+| Kích thước giao dịch tối đa  | 1.232 byte                | 1.232 byte                | **4.096 byte**    |
+| Địa chỉ tài khoản     | ~32, bị giới hạn bởi kích thước            | 64, qua lookup tables      | **64, nội tuyến**     |
+| Address lookup tables | không hỗ trợ              | hỗ trợ                  | **không hỗ trợ**  |
+| Giới hạn tài nguyên       | Lệnh ComputeBudget | Lệnh ComputeBudget | **cấu hình thông điệp** |
 
-| Trường                  | Kích thước                | Mô tả                                        |
-| ----------------------- | ------------------------- | -------------------------------------------- |
-| `0x80`                  | 1 byte                    | Byte tiền tố phiên bản                       |
-| `header`                | 3 byte                    | MessageHeader (giống như legacy)             |
-| `static_account_keys`   | compact-u16 + N x 32 byte | Các khóa xuất hiện trực tiếp trong giao dịch |
-| `recent_blockhash`      | 32 byte                   | Blockhash                                    |
-| `instructions`          | compact-u16 + biến thiên  | Định dạng giống như legacy                   |
-| `address_table_lookups` | compact-u16 + biến thiên  | Tham chiếu ALT (xem bên dưới)                |
+Chuyển đến: [Legacy](#legacy-format) · [v0](#v0-format) · [v1](#v1-format)
+
+## Định dạng legacy
+
+Định dạng gốc và vẫn là mặc định trong hầu hết các công cụ. Định dạng này không có
+bất kỳ tiền tố phiên bản nào: byte đầu tiên của giao dịch là số đếm compact-u16 của
+mảng chữ ký, và byte đầu tiên của thông điệp là `num_required_signatures`,
+trong đó bit cao luôn không được đặt.
+
+### Bố cục wire của legacy
+
+| Trường              | Kích thước                          | Mô tả                                      |
+| ------------------ | ----------------------------- | ------------------------------------------------ |
+| `num_signatures`   | compact-u16                   | Số lượng chữ ký                             |
+| `signatures`       | `num_signatures` x 64 byte   | Chữ ký Ed25519                               |
+| `header`           | 3 byte                       | MessageHeader — byte đầu tiên có bit phiên bản không được đặt |
+| `num_account_keys` | compact-u16                   | Số lượng khóa tài khoản                           |
+| `account_keys`     | `num_account_keys` x 32 byte | Khóa công khai, tất cả nội tuyến                          |
+| `recent_blockhash` | 32 byte                      | Bộ xác định vòng đời                               |
+| `num_instructions` | compact-u16                   | Số lượng lệnh                           |
+| `instructions`     | biến đổi                      | Mỗi lệnh được tuần tự hóa liên tiếp         |
+
+Mỗi mảng có độ dài biến đổi đều được đứng trước bởi độ dài compact-u16: 1 byte cho
+giá trị 0–127, 2–3 byte cho các giá trị lớn hơn. Để xem bố cục từng lệnh và
+cách tính kích thước, hãy xem
+[định dạng nhị phân giao dịch](/docs/core/transactions/transaction-structure#transaction-binary-format).
+
+### Tài khoản trong legacy
+
+Mỗi tài khoản được ghi đầy đủ dưới dạng khóa công khai 32 byte trong `account_keys`,
+và các lệnh tham chiếu chúng bằng chỉ mục 1 byte vào mảng đó. Không có cách nào để
+tham chiếu một tài khoản không được ghi rõ trong giao dịch, đó là lý do giới hạn
+giao dịch legacy ở khoảng 32 tài khoản trước khi vượt quá 1.232 byte.
+
+### Giới hạn tài nguyên trong legacy
+
+Giới hạn đơn vị tính toán, giới hạn kích thước dữ liệu tài khoản được nạp, kích thước heap và phí ưu tiên
+đều được yêu cầu bằng cách đưa
+[các lệnh chương trình ComputeBudget](/docs/core/fees/compute-budget) vào
+giao dịch. Mỗi lệnh chiếm một instruction slot và 150 đơn vị tính toán. Bỏ qua
+chúng vẫn an toàn: runtime sẽ dùng các giá trị mặc định là 200.000 CU mỗi lệnh
+(giới hạn tối đa 1,4M), giới hạn kích thước dữ liệu 64 MiB, heap 32 KiB và phí ưu tiên bằng
+không.
+
+## Định dạng V0
+
+v0 là một thông điệp legacy cộng thêm hai thứ: byte tiền tố phiên bản `0x80` và mảng
+`address_table_lookups` được thêm vào sau các lệnh. Mọi thứ trước đó đều giống hệt byte với legacy.
+
+### Bố cục wire của V0
+
+| Trường                   | Kích thước                          | Mô tả                                     |
+| ----------------------- | ----------------------------- | ----------------------------------------------- |
+| `num_signatures`        | compact-u16                   | Số lượng chữ ký                            |
+| `signatures`            | `num_signatures` x 64 byte   | Chữ ký Ed25519                              |
+| `0x80`                  | 1 byte                        | Byte tiền tố phiên bản — byte đầu tiên của thông điệp |
+| `header`                | 3 byte                       | MessageHeader (giống như legacy)                  |
+| `num_account_keys`      | compact-u16                   | Số lượng khóa tài khoản tĩnh                   |
+| `static_account_keys`   | `num_account_keys` x 32 byte | Các khóa xuất hiện trực tiếp trong giao dịch   |
+| `recent_blockhash`      | 32 byte                      | Bộ xác định vòng đời                              |
+| `num_instructions`      | compact-u16                   | Số lượng lệnh                          |
+| `instructions`          | biến đổi                      | Định dạng giống như legacy                           |
+| `address_table_lookups` | compact-u16 + biến thiên        | Tham chiếu ALT (xem bên dưới)                      |
 
 Mỗi mục tra cứu bảng địa chỉ chứa:
 
-| Trường             | Kích thước               | Mô tả                                         |
-| ------------------ | ------------------------ | --------------------------------------------- |
-| `account_key`      | 32 byte                  | Khóa công khai của tài khoản ALT              |
-| `writable_indexes` | compact-u16 + N x 1 byte | Chỉ số trong ALT cho các tài khoản có thể ghi |
-| `readonly_indexes` | compact-u16 + N x 1 byte | Chỉ số trong ALT cho các tài khoản chỉ đọc    |
+| Trường              | Kích thước                     | Mô tả                                 |
+| ------------------ | ------------------------ | ------------------------------------------- |
+| `account_key`      | 32 byte                 | Khóa công khai của tài khoản ALT                |
+| `writable_indexes` | compact-u16 + N x 1 byte | Chỉ số trong ALT cho các tài khoản có thể ghi  |
+| `readonly_indexes` | compact-u16 + N x 1 byte | Chỉ số trong ALT cho các tài khoản chỉ đọc |
 
-## Phân giải bảng tra cứu địa chỉ
+### Address lookup tables
 
 ALT là một tài khoản onchain lưu trữ tối đa 256 khóa công khai. Bằng cách tham
 chiếu đến một ALT, một giao dịch có thể bao gồm các tài khoản bổ sung bằng cách
@@ -80,3 +131,126 @@ tĩnh: các tra cứu có thể ghi đứng trước các tra cứu chỉ đọc
   chỉ có thể là có thể ghi hoặc chỉ đọc (không phải người ký); chúng không thể
   là người ký.
 </Callout>
+
+### Giới hạn tài nguyên trong v0
+
+Không thay đổi so với legacy: các lệnh ComputeBudget, với các giá trị mặc định tương tự khi bị bỏ qua.
+
+## Định dạng V1
+
+v1 nâng giới hạn kích thước lên 4.096 byte và tái cơ cấu thông điệp xung quanh một
+**cấu hình giao dịch**: giới hạn tài nguyên được chuyển ra khỏi các lệnh ComputeBudget
+vào các trường có vị trí cố định trong chính thông điệp. Điều này cho phép mạng xếp hạng
+một giao dịch theo phí ưu tiên bằng một lần đọc offset cố định thay vì
+quét và giải tuần tự hóa danh sách lệnh.
+
+### Bố cục wire của V1
+
+| Trường                  | Kích thước         | Mô tả                                                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `0x81`                 | 1 byte       | Byte tiền tố phiên bản — byte đầu tiên của giao dịch                            |
+| `header`               | 3 byte      | MessageHeader (giống như legacy)                                                     |
+| `config_mask`          | 4 byte      | Bitmask `u32` LE đánh dấu các giá trị cấu hình nào hiện diện                           |
+| `recent_blockhash`     | 32 byte     | Bộ xác định vòng đời                                                                 |
+| `num_instructions`     | 1 byte       | Số đếm độ rộng cố định, tối đa 64                                                          |
+| `num_addresses`        | 1 byte       | Số đếm độ rộng cố định, tối đa 64                                                          |
+| `addresses`            | N x 32 byte | Địa chỉ tài khoản, tất cả nội tuyến — không có tham chiếu lookup table                         |
+| `config_values`        | 0–20 byte   | Một giá trị cho mỗi bit mask được đặt, theo thứ tự bit (xem bên dưới)                               |
+| `instruction_headers`  | N x 4 byte  | Mỗi lệnh: `program_id_index` (u8), `num_accounts` (u8), `data_len` (u16 LE) |
+| `instruction_payloads` | biến đổi     | Mỗi lệnh: các chỉ mục tài khoản, sau đó là instruction data                            |
+| `signatures`           | N x 64 byte | Ở cuối, không có tiền tố độ dài — số đếm lấy từ header               |
+
+Hai điểm khác biệt về cấu trúc so với legacy và v0 đáng chú ý khi viết
+bộ giải mã. Các số đếm là trường `u8` độ rộng cố định thay vì compact-u16, và
+các lệnh được chia thành hai phần: tất cả header kích thước cố định trước, sau đó là tất cả
+payload độ dài biến đổi, thay vì mỗi lệnh được liên tiếp.
+
+### Tài khoản trong v1: không có address lookup tables
+
+v1 loại bỏ hỗ trợ ALT một cách có chủ ý. 64 địa chỉ thô là 2.048 byte,
+nằm thoải mái trong giới hạn 4.096 byte, vì vậy mọi địa chỉ đều nội tuyến như trong
+legacy. Nếu ứng dụng của bạn phụ thuộc vào lookup tables, việc chuyển sang v1 có nghĩa là
+phải nội tuyến các địa chỉ đó.
+
+### Giới hạn tài nguyên trong v1: cấu hình giao dịch
+
+Cấu hình là một bitmask `u32` theo sau là các giá trị độ rộng cố định cho từng trường
+có bit được đặt:
+
+| Bit | Trường                           | Độ rộng | Ghi chú                                       |
+| ------ | ------------------------------- | ----- | ------------------------------------------- |
+| 0–1    | Phí ưu tiên                    | u64   | **Tổng lamport** — cả hai bit được đặt cùng nhau |
+| 2      | Giới hạn đơn vị tính toán              | u32   |                                             |
+| 3      | Giới hạn kích thước dữ liệu tài khoản được nạp | u32   |                                             |
+| 4      | Kích thước heap được yêu cầu             | u32   |                                             |
+
+Các bit không xác định sẽ bị từ chối. Vì thông điệp được ký, các trường cấu hình không nhận dạng được không thể bị loại bỏ âm thầm.
+
+<Callout type="warn" title="Phí ưu tiên là tổng lamport, không phải đơn giá">
+  Trong legacy và v0, phí ưu tiên được đặt qua `SetComputeUnitPrice` dưới dạng
+  **micro-lamport trên mỗi đơn vị tính toán**, nhân với giới hạn đơn vị tính toán. Trong
+  v1 đây là **tổng tuyệt đối tính bằng lamport** — không nhân, không làm tròn.
+  Đừng mang phép tính theo CU sang. Công thức tính tổng phí không thay đổi:
+  `(signatures × lamports_per_signature) + priority_fee`.
+</Callout>
+
+#### Các lệnh ComputeBudget là no-op trong v1
+
+Một giao dịch v1 không từ chối các lệnh ComputeBudget — nó **bỏ qua**
+chúng cho mục đích cấu hình. Chúng vẫn thực thi thành công dưới dạng no-op, tiêu thụ 150
+đơn vị tính toán và một trong 64 instruction slot trong khi không có tác dụng gì đến
+ngân sách. Hãy loại bỏ chúng khi xây dựng giao dịch v1, và ngừng quét tìm chúng
+khi đọc giao dịch v1: các giá trị nằm trong cấu hình thông điệp.
+
+#### Các trường cấu hình phải được đặt rõ ràng
+
+Thay đổi hành vi quan trọng nhất đối với người gửi: không giống như legacy và v0, giao dịch v1
+phải đặt rõ ràng giới hạn đơn vị tính toán và giới hạn kích thước dữ liệu tài khoản được nạp,
+nếu không giao dịch sẽ thất bại.
+
+| Trường chưa đặt               | legacy / v0                    | v1          | Triệu chứng nếu bị bỏ qua                                              |
+| ------------------------- | ------------------------------ | ----------- | --------------------------------------------------------------- |
+| Giới hạn đơn vị tính toán        | 200k mỗi lệnh, tối đa 1,4M | **0 CU**    | Thất bại ngay lập tức, hết ngân sách                                |
+| Kích thước dữ liệu tài khoản được nạp | 64 MiB                         | **0 byte** | `MaxLoadedAccountsDataSizeExceeded` ở tài khoản đầu tiên được nạp |
+| Phí ưu tiên              | 0                              | 0           | —                                                               |
+| Kích thước heap                 | 32 KiB                         | 32 KiB      | —                                                               |
+
+Cách tiếp cận được khuyến nghị là mô phỏng một lần với cả hai giới hạn ở mức tối đa, sau đó ghi
+`unitsConsumed` và `loadedAccountsDataSize` được trả về vào cấu hình,
+làm tròn kích thước dữ liệu lên trang 32 KiB tiếp theo để có biên độ dự phòng (mô hình
+chi phí block tính theo các trang 32 KiB, vì vậy biên độ dự phòng dưới ranh giới trang tiếp theo là
+miễn phí).
+
+## Chuẩn bị cho v1
+
+v1 thay đổi cách **đọc** giao dịch, không chỉ cách gửi chúng. Khi v1 được kích hoạt,
+bất kỳ client nào gọi `getTransaction` hoặc `getBlock` mà không chọn tham gia sẽ
+bắt đầu thất bại trên các giao dịch v1:
+
+- Truyền `maxSupportedTransactionVersion: 1` — **số nguyên** JSON là `1`, không phải
+  chuỗi `"1"` — cho [`getTransaction`](/docs/rpc/http/gettransaction) và
+  [`getBlock`](/docs/rpc/http/getblock). Truyền `0` sẽ thất bại trên giao dịch v1
+  giống như bỏ qua tham số, vì vậy một codebase đã được cập nhật trong quá trình
+  triển khai v0 vẫn cần thay đổi giá trị này.
+- `getTransaction` thất bại trên giao dịch v1 với lỗi `-32015`, và một giao dịch v1
+  khiến toàn bộ phản hồi `getBlock` thất bại với cùng lỗi —
+  không có kết quả một phần.
+- [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe) phát ra `block: null` và
+  ngừng tiến, vì vậy một consumer đọc điều đó như một block rỗng sẽ âm thầm
+  bị tụt lại từ slot v1 đầu tiên trở đi.
+- `getSignaturesForAddress` không bao giờ kiểm tra nội dung giao dịch, vì vậy các chữ ký v1
+  được liệt kê bình thường.
+- Các phản hồi đã chọn tham gia bao gồm đối tượng `transactionConfig` trong thông điệp cho các giao dịch v1
+  (hoàn toàn vắng mặt với legacy và v0). Các pipeline dẫn xuất
+  phí ưu tiên hoặc giới hạn tính toán bằng cách quét tìm lệnh ComputeBudget
+  sẽ âm thầm báo cáo **không** cho mọi giao dịch v1.
+- Sử dụng `encoding: 'base64'` khi bạn giải mã giao dịch phía client, và cho
+  `sendTransaction`/`simulateTransaction` với các giao dịch vượt quá 1.232 byte —
+  mã hóa base58 vẫn bị giới hạn ở kích thước cũ.
+- Hỗ trợ thư viện client yêu cầu các phiên bản gần đây: `@solana/kit` 8.0+, các crate Rust
+  thế hệ Agave 4.2.x, hoặc web3.js v3. web3.js v1 đọc v1 từ phiên bản 1.99.0
+  trở đi, nhưng không thể xây dựng hoặc gửi v1.
+
+Để xem hướng dẫn di chuyển đầy đủ — bao gồm hỗ trợ thư viện client, phát hiện phiên bản streaming
+(Geyser/gRPC) và hành vi mô phỏng — hãy xem
+[trang nâng cấp định dạng giao dịch v1](https://solana.com/upgrades/larger-transaction-sizes).
