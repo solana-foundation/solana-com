@@ -15,8 +15,8 @@ import { Button } from "@/components/ui/button";
 
 interface ReportFormModalProps {
   buttonLabel: string;
-  portalId: string;
-  formId: string;
+  portalId?: string;
+  formId?: string;
   formUrl?: string;
   title?: string;
 }
@@ -54,8 +54,8 @@ export function ReportFormModal({
   const parsedForm = useMemo(
     () =>
       ({
-        portalId,
-        formId,
+        portalId: portalId ?? "",
+        formId: formId ?? "",
         region: "na1" as const,
       }) satisfies ParsedHubSpotForm,
     [formId, portalId],

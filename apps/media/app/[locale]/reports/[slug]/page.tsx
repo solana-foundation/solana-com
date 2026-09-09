@@ -72,6 +72,10 @@ export default async function ReportPage({
         )
       ).filter((tagName): tagName is string => Boolean(tagName))
     : [];
+  const hubspotForm = report.hubspotForm;
+  const hasHubspotForm = Boolean(
+    hubspotForm?.formUrl || (hubspotForm?.portalId && hubspotForm?.formId),
+  );
   const structuredData = buildReportJsonLd({
     slug,
     locale,
@@ -147,16 +151,24 @@ export default async function ReportPage({
 
               {/* CTA buttons */}
               <div className="flex flex-wrap gap-3 mt-8 md:mt-10">
-                {report.hubspotForm?.portalId && report.hubspotForm?.formId && (
+                {hasHubspotForm && (
                   <ReportFormModal
                     buttonLabel={
-                      report.hubspotForm.buttonLabel || "Get the full report"
+                      hubspotForm?.buttonLabel || "Get the full report"
                     }
-                    portalId={String(report.hubspotForm.portalId)}
-                    formId={String(report.hubspotForm.formId)}
+                    portalId={
+                      hubspotForm?.portalId
+                        ? String(hubspotForm.portalId)
+                        : undefined
+                    }
+                    formId={
+                      hubspotForm?.formId
+                        ? String(hubspotForm.formId)
+                        : undefined
+                    }
                     formUrl={
-                      report.hubspotForm.formUrl
-                        ? String(report.hubspotForm.formUrl)
+                      hubspotForm?.formUrl
+                        ? String(hubspotForm.formUrl)
                         : undefined
                     }
                     title={headline}
