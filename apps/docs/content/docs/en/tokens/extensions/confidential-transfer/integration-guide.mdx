@@ -178,24 +178,37 @@ const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
 const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
-### Accounts configured with legacy owner-mint keys
+### Accounts configured with legacy seeded keys
 
 Accounts configured before the wallet-only standard store an ElGamal public key
-derived from an `(owner, mint)` seed, and their `decryptable_available_balance`
-is encrypted under the matching AES key. The no-seed derivation cannot reproduce
+derived from a public seed, and their `decryptable_available_balance` is
+encrypted under the matching AES key. The no-seed derivation cannot reproduce
 either one, so on those accounts AES decryption yields garbage and any proof
-built from the standard keys fails verification. Detect the case by comparing
-the account's stored `elgamal_pubkey` against the standard key for the owner: if
-they differ, the account is on legacy keys and must keep using the deprecated
-seeded helpers (`deriveElGamalKeypairForOwnerMint` and `deriveAeKeyForOwnerMint`
-in JS, `derive_confidential_keys_with_seed` with the concatenated owner and mint
-bytes in Rust).
+built from the standard keys fails verification.
+
+Two seeds were in circulation, and a migration has to handle both:
+
+- **The `(owner, mint)` pair**, used by the deprecated JS helpers
+  `deriveElGamalKeypairForOwnerMint` and `deriveAeKeyForOwnerMint`. Reproduce it
+  with those same helpers, or in Rust with `derive_confidential_keys_with_seed`
+  over the concatenated owner and mint bytes.
+- **The token account address**, used by the earlier Rust examples on these
+  pages. Reproduce it with
+  `derive_confidential_keys_with_seed(&owner, &token_account.to_bytes())`.
+
+Detect which derivation an account is on by comparing its stored
+`elgamal_pubkey` against the standard key for the owner, then against each
+legacy candidate. Whichever matches is the derivation that account must keep
+using. If none match, the key came from somewhere else (a randomly generated
+keypair, an ElGamal registry entry, or a custom seed) and only its holder can
+supply it.
 
 There is no in-place rekey. `ConfigureAccount` fails with
 `ExtensionAlreadyInitialized` on an account that already has the extension, so
 moving an account onto the standard keys means draining and recreating it:
 
-1. Derive the legacy keys with the deprecated seeded helpers.
+1. Derive the legacy keys with whichever seed matched the account's stored
+   `elgamal_pubkey`.
 2. Apply any pending balance, then withdraw the full available balance to the
    public balance, using those legacy keys throughout.
 3. Empty the confidential balance and close the token account.
