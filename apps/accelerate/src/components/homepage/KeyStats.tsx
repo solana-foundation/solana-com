@@ -14,6 +14,7 @@ interface StatCard {
 type StatDefinition = Omit<StatCard, "label"> & {
   labelKey: "builders" | "companies" | "policymakers" | "startups";
 };
+type StatKey = StatDefinition["labelKey"];
 
 const stats: StatDefinition[] = [
   {
@@ -59,8 +60,9 @@ function StatCardItem({ stat, index }: { stat: StatCard; index: number }) {
   );
 }
 
-export function KeyStats() {
+export function KeyStats({ exclude = [] }: { exclude?: StatKey[] }) {
   const t = useTranslations("accelerate.homepage");
+  const visibleStats = stats.filter((stat) => !exclude.includes(stat.labelKey));
 
   return (
     <section className="relative overflow-hidden bg-black py-16 lg:py-24">
@@ -84,7 +86,7 @@ export function KeyStats() {
           </h3>
 
           <div className="flex flex-col gap-4 md:gap-5">
-            {stats.map((stat, i) => (
+            {visibleStats.map((stat, i) => (
               <StatCardItem
                 key={stat.value}
                 stat={{ ...stat, label: t(`keyStats.${stat.labelKey}`) }}

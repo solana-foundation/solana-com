@@ -96,7 +96,7 @@ export default async function ChinaPage({ params }: PageProps) {
           },
         ]}
       />
-      <KeyStats />
+      <KeyStats exclude={["policymakers", "startups"]} />
       <StayUpdated />
       <ChinaFooter />
     </>
