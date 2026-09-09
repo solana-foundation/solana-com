@@ -9,7 +9,7 @@ type EmailModalProps = {
 };
 
 const HUBSPOT_FORM_URL =
-  "https://5lohw.share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw?bd_vertical=depin";
+  "https://share.hsforms.com/2eu8rKcY_RCe8GKjBX7_0mw5lohw?report=DePIN";
 
 export const EmailModal = ({ isOpen, onClose, formUrl }: EmailModalProps) => {
   const url = formUrl || HUBSPOT_FORM_URL;
