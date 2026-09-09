@@ -21,6 +21,8 @@ export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
 export { NewsletterModal } from "./newsletter-modal";
 export { CookieConsentBanner } from "./cookie-consent-banner";
+export { GoogleAnalyticsTag } from "./google-analytics-tag";
+export { isProductionAnalyticsEnabled } from "./analytics";
 export {
   getBrowserStorage,
   safeStorageGetItem,

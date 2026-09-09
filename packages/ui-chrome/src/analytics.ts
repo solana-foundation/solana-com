@@ -30,6 +30,14 @@ declare global {
 
 const MAX_VALUE_LENGTH = 100;
 
+/** Production is the only environment permitted to send analytics. */
+export function isProductionAnalyticsEnabled() {
+  return (
+    process.env.NODE_ENV === "production" &&
+    process.env.NEXT_PUBLIC_VERCEL_ENV === "production"
+  );
+}
+
 function sanitizeValue(value: AnalyticsValue) {
   if (typeof value !== "string") return value;
   return value.trim().slice(0, MAX_VALUE_LENGTH);
@@ -48,7 +56,13 @@ export function trackAnalyticsEvent(
   eventName: AnalyticsEventName,
   parameters: AnalyticsParameters & { app_name: AnalyticsAppName },
 ) {
-  if (typeof window === "undefined" || !window.gtag) return;
+  if (
+    !isProductionAnalyticsEnabled() ||
+    typeof window === "undefined" ||
+    !window.gtag
+  ) {
+    return;
+  }
 
   window.gtag("event", eventName, sanitizeParameters(parameters));
 }

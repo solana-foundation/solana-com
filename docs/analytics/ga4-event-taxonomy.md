@@ -5,6 +5,10 @@ Templates, Accelerate, and Breakpoint. Application code emits these events via
 `@solana-com/ui-chrome/analytics`; GTM forwards them to the appropriate GA4
 Google tag.
 
+Analytics scripts and event emission are disabled for local development, preview
+deployments, and non-production builds. Production remains subject to the
+existing Consent Mode gate.
+
 ## Events
 
 | Event               | Use                                                                  | Required parameters                        |
@@ -37,8 +41,9 @@ because it means the request actually succeeded.
 
 ## GTM configuration checklist
 
-1. In each app's container, create or retain exactly one Google tag with the
-   intended GA4 measurement ID and an All Pages trigger.
+1. In each app's implementation, use exactly one Google tag with the intended
+   GA4 measurement ID and an All Pages trigger. The primary property may use a
+   direct Google tag; Breakpoint uses its separate GTM container.
 2. Do not load a second direct `gtag.js` implementation when that Google tag is
    present in GTM; two implementations duplicate automatic page views.
 3. Ensure the Google tag observes the consent default before it fires. The apps
@@ -54,6 +59,11 @@ because it means the request actually succeeded.
 
 ## Container ownership
 
-Container IDs must be maintained per application. Do not infer that a tag
-installed on `solana.com` also covers a separately deployed app behind a route
-rewrite. The final mapping is required before changing an ID in source or GTM.
+Container IDs must be maintained per application. Breakpoint uses the existing
+live container `GTM-TNX63HZ`; do not infer that a tag installed on `solana.com`
+also covers a separately deployed app behind a route rewrite.
+
+Configure the vendor's Meta, LinkedIn, and X tags in `GTM-TNX63HZ`, alongside
+the existing GA4 and scroll-depth triggers. Test with GTM Preview on
+`/breakpoint` before publishing. This preserves the established measurement
+history and avoids duplicate vendor tags.
