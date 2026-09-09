@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { ChinaFooter, ChinaHeader } from "@/components/china/ChinaRoadshow";
-import { ChinaTravelGuide } from "@/components/china/ChinaTravelGuide";
+import { notFound } from "next/navigation";
 import { getPageMetadata } from "../../../metadata";
 import { getTranslations } from "@workspace/i18n/server";
 
@@ -33,13 +32,5 @@ export async function generateMetadata({
 }
 
 export default function ChinaTravelPage() {
-  return (
-    <>
-      <main className="overflow-x-clip bg-black text-white">
-        <ChinaHeader />
-        <ChinaTravelGuide standalone />
-      </main>
-      <ChinaFooter />
-    </>
-  );
+  notFound();
 }
