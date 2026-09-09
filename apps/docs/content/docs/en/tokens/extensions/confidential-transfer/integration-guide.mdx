@@ -178,6 +178,34 @@ const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
 const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
+### Accounts configured with legacy owner-mint keys
+
+Accounts configured before the wallet-only standard store an ElGamal public key
+derived from an `(owner, mint)` seed, and their `decryptable_available_balance`
+is encrypted under the matching AES key. The no-seed derivation cannot reproduce
+either one, so on those accounts AES decryption yields garbage and any proof
+built from the standard keys fails verification. Detect the case by comparing
+the account's stored `elgamal_pubkey` against the standard key for the owner: if
+they differ, the account is on legacy keys and must keep using the deprecated
+seeded helpers (`deriveElGamalKeypairForOwnerMint` and `deriveAeKeyForOwnerMint`
+in JS, `derive_confidential_keys_with_seed` with the concatenated owner and mint
+bytes in Rust).
+
+There is no in-place rekey. `ConfigureAccount` fails with
+`ExtensionAlreadyInitialized` on an account that already has the extension, so
+moving an account onto the standard keys means draining and recreating it:
+
+1. Derive the legacy keys with the deprecated seeded helpers.
+2. Apply any pending balance, then withdraw the full available balance to the
+   public balance, using those legacy keys throughout.
+3. Empty the confidential balance and close the token account.
+4. Recreate the token account and configure it with the standard wallet-only
+   keys, then deposit and apply again.
+
+Retain the legacy keys afterwards if you need to read historical activity: past
+transfer ciphertexts stay encrypted under whichever key was active when they
+executed.
+
 ## Creating and configuring accounts
 
 Before an account can hold a confidential balance it needs the
