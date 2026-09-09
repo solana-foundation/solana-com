@@ -69,7 +69,7 @@ export function ChinaHeader() {
   ];
 
   return (
-    <header className="absolute inset-x-0 top-0 z-30 h-[88px] overflow-hidden bg-black/70 backdrop-blur-sm md:h-[138px]">
+    <header className="absolute inset-x-0 top-0 z-30 h-[88px] bg-black/70 md:h-[138px] lg:backdrop-blur-sm">
       <Image
         src={getImagePath("/images/china/header-bg.webp")}
         alt=""
@@ -245,7 +245,7 @@ function ChinaHero() {
   const t = useTranslations("accelerate.china");
 
   return (
-    <section className="relative h-[clamp(1040px,calc(72.34vw+217px),1389px)] overflow-hidden bg-black pt-[88px] text-white md:pt-[138px]">
+    <section className="relative h-[clamp(920px,calc(72.34vw+217px),1389px)] overflow-hidden bg-black pt-[88px] text-white md:pt-[138px]">
       <div className="pointer-events-none absolute left-1/2 top-0 aspect-[1920/1389] w-[clamp(1200px,calc(100vw+300px),1920px)] max-w-none -translate-x-1/2">
         <div className="absolute inset-0">
           {heroLayers.map((layer) => (
