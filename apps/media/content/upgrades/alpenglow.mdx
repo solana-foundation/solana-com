@@ -213,14 +213,23 @@ Votor guarantees you never have to arbitrate between them yourself. Two blocks
 can never both cross the 60% notarization threshold for the same slot, because
 that would require 120% of the stake to exist. By the time a `Confirmed` status
 reaches your gRPC stream, the race is already decided. Your job is only to have
-kept the losing candidate's data separate from the winner's:
+kept the losing candidate's data separate from the winner's. One tracker per
+gRPC connection, always — the `ConnectionId` tag exists to make that
+enforceable rather than a rule someone has to remember:
 
 ```rust
+use std::collections::HashMap;
+
 type Slot = u64;
 type BankId = u64;
 
-/// Everything buffered for one candidate bank, before we know whether it wins.
-/// The blockhash arrives separately, on block meta — see the next section.
+/// A tag you assign per physical gRPC connection — e.g. ConnectionId(0) for
+/// the first endpoint you dial, ConnectionId(1) for the second, and so on.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct ConnectionId(u8);
+
+/// Everything we've buffered for one candidate bank, before we know if it wins.
+/// `blockhash` is what makes a bank comparable *across* connections — see below.
 #[derive(Default)]
 struct BankBuffer {
     transactions: Vec<Vec<u8>>,
@@ -229,17 +238,31 @@ struct BankBuffer {
 
 #[derive(Default)]
 struct SlotTracker {
-    /// Every candidate bank seen for a slot. More than one entry per slot is
-    /// normal while the network has not settled.
+    /// Whichever ConnectionId this tracker saw first — every later call must match it.
+    connection: Option<ConnectionId>,
+    /// Every bank_id seen so far for a slot, keyed off (slot, bank_id) — there
+    /// can be more than one entry per slot while the network hasn't settled.
     pending: HashMap<Slot, HashMap<BankId, BankBuffer>>,
-    /// The one bank per slot that got confirmed, and its buffered data.
+    /// The one bank_id per slot that actually got confirmed, and its data.
     confirmed: HashMap<Slot, (BankId, BankBuffer)>,
 }
 
 impl SlotTracker {
-    /// Accumulate under whichever bank_id the event is tagged with. No
-    /// judgment yet about which bank is going to win.
-    fn on_transaction(&mut self, slot: Slot, bank_id: BankId, tx: Vec<u8>) {
+    fn check_connection(&mut self, connection: ConnectionId) {
+        match self.connection {
+            None => self.connection = Some(connection),
+            Some(seen) => assert_eq!(
+                seen, connection,
+                "SlotTracker fed bank_id from two different gRPC connections — \
+                 bank_id isn't comparable across connections, reconcile by blockhash instead"
+            ),
+        }
+    }
+
+    /// Called for every transaction update — just accumulates into whichever
+    /// bank_id it's tagged with, no judgment made yet about who's going to win.
+    fn on_transaction(&mut self, connection: ConnectionId, slot: Slot, bank_id: BankId, tx: Vec<u8>) {
+        self.check_connection(connection);
         self.pending
             .entry(slot)
             .or_default()
@@ -249,22 +272,92 @@ impl SlotTracker {
             .push(tx);
     }
 
-    /// The first bank_id to reach Confirmed becomes that slot's block.
-    /// Every other bank_id buffered for the same slot lost the race.
-    fn on_slot_status(&mut self, slot: Slot, bank_id: BankId, status: SlotStatus) {
+    /// Called on every slot-status update. The first bank_id to reach
+    /// `Confirmed` for a slot becomes that slot's representative; every other
+    /// bank_id buffered for the same slot is equivocation that lost and can
+    /// be thrown away.
+    fn on_slot_status(&mut self, connection: ConnectionId, slot: Slot, bank_id: BankId, status: SlotStatus) {
+        self.check_connection(connection);
         if status != SlotStatus::Confirmed || self.confirmed.contains_key(&slot) {
             return;
         }
-        if let Some(buffer) = self
-            .pending
-            .remove(&slot)
-            .and_then(|mut banks| banks.remove(&bank_id))
-        {
+        if let Some(buffer) = self.pending.remove(&slot).and_then(|mut banks| banks.remove(&bank_id)) {
             self.confirmed.insert(slot, (bank_id, buffer));
+        }
+    }
+
+    /// Called on `SubscribeUpdateBlockMeta` — the only place a blockhash shows
+    /// up. It's the one thing about a bank that two different connections can
+    /// actually compare, so we just stash it on whichever buffer it belongs to.
+    fn on_block_meta(&mut self, connection: ConnectionId, slot: Slot, bank_id: BankId, blockhash: String) {
+        self.check_connection(connection);
+        if let Some(buffer) = self.pending.get_mut(&slot).and_then(|banks| banks.get_mut(&bank_id)) {
+            buffer.blockhash = blockhash;
+        } else if let Some((confirmed_bank_id, buffer)) = self.confirmed.get_mut(&slot) {
+            if *confirmed_bank_id == bank_id {
+                buffer.blockhash = blockhash;
+            }
+        }
+    }
+}
+
+#[derive(PartialEq)]
+enum SlotStatus {
+    Processed,
+    Confirmed,
+    Finalized,
+}
+```
+
+Wired into an actual subscription, the dispatch loop routes each update by its
+`bank_id` and lets `SlotTracker` decide who won — `connection` is the
+`ConnectionId` the caller assigned to this particular stream:
+
+```rust
+use futures::StreamExt;
+use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
+
+async fn run(
+    connection: ConnectionId,
+    mut stream: impl futures::Stream<Item = Result<yellowstone_grpc_proto::geyser::SubscribeUpdate, tonic::Status>> + Unpin,
+    tracker: &mut SlotTracker,
+) {
+    while let Some(update) = stream.next().await {
+        let Ok(update) = update else { continue };
+        match update.update_oneof {
+            Some(UpdateOneof::Transaction(tx)) => {
+                let signature = tx.transaction.as_ref().map(|t| t.signature.clone()).unwrap_or_default();
+                tracker.on_transaction(connection, tx.slot, tx.bank_id, signature);
+            }
+            Some(UpdateOneof::Slot(slot_update)) => {
+                let status = match slot_update.status {
+                    0 => SlotStatus::Processed,
+                    1 => SlotStatus::Confirmed,
+                    2 => SlotStatus::Finalized,
+                    _ => continue,
+                };
+                tracker.on_slot_status(connection, slot_update.slot, slot_update.bank_id, status);
+            }
+            Some(UpdateOneof::BlockMeta(meta)) => {
+                tracker.on_block_meta(connection, meta.slot, meta.bank_id, meta.blockhash);
+            }
+            _ => {}
         }
     }
 }
 ```
+
+Called for a single connection it is unremarkable:
+`run(ConnectionId(0), stream, &mut tracker).await;`. No merkle-root arithmetic
+is needed on the consumer side — `bank_id` does the disambiguation, and "first
+bank_id confirmed wins" is the same 60%-of-stake argument from above, already
+resolved for you by the time the `Confirmed` status reaches gRPC.
+
+One thing the sketch deliberately leaves out is deciding when the winning bank
+is **complete**. Block meta carries `executed_transaction_count` and
+`entries_count` for exactly that check, and until a buffer matches them, more
+of the winner's events may still be on the way. That bookkeeping, and the rest
+of the slot-lifecycle edge cases, is what the implementations below exist for.
 
 Yellowstone's own implementation of this is
 [`block_reconstruction_v2.rs`](https://github.com/rpcpool/yellowstone-grpc/blob/4.3-transition/yellowstone-grpc-geyser/src/block_reconstruction_v2.rs)
@@ -304,56 +397,96 @@ locally. Key that merged buffer on `(slot, bank_id)` and you will corrupt your
 view silently: splitting one real bank across two entries, or fusing two
 genuinely different banks into one.
 
-The only property of a bank that two connections can actually compare is the
-**blockhash**, which arrives on `SubscribeUpdateBlockMeta`. So:
+Running two Yellowstone connections for redundancy is completely normal.
+Feeding both into the same `SlotTracker` is not — and there are two different
+ways to accidentally do it, which get caught two different ways.
 
-- Run one tracker per physical connection, each keyed on its own
-  `(slot, bank_id)`.
-- Decide two confirmed banks from two connections are the same bank only once
-  their blockhashes match.
+**Attempt 1: run both connections concurrently against one tracker.** This
+doesn't even compile:
 
 ```rust
+let mut client_a = GeyserGrpcClient::connect("http://rpc-a.example:10000").await?;
+let mut client_b = GeyserGrpcClient::connect("http://rpc-b.example:10000").await?;
+
+let (_, stream_a) = client_a.subscribe_once(request.clone()).await?;
+let (_, stream_b) = client_b.subscribe_once(request).await?;
+
+let mut tracker = SlotTracker::default();
+
+// 🚫 illegal — won't compile: `tracker` can't be borrowed mutably twice at once.
+tokio::join!(
+    run(ConnectionId(0), stream_a, &mut tracker),
+    run(ConnectionId(1), stream_b, &mut tracker),
+);
+```
+
+Rust's borrow checker rejects this outright — two futures both holding
+`&mut tracker` alive at the same time. That's the easy case: the type system
+makes it _actually_ illegal, not just inadvisable.
+
+**Attempt 2: merge the two streams into one, sequentially.** Tag each event with
+where it came from, `select` the two streams together, and feed the merged,
+single-threaded-through-time stream to one tracker:
+
+```rust
+let mut tracker = SlotTracker::default();
+let mut merged = futures::stream::select(
+    stream_a.map(|update| (ConnectionId(0), update)),
+    stream_b.map(|update| (ConnectionId(1), update)),
+);
+
+while let Some((connection, update)) = merged.next().await {
+    let Ok(update) = update else { continue };
+    if let Some(UpdateOneof::Transaction(tx)) = update.update_oneof {
+        let signature = tx.transaction.as_ref().map(|t| t.signature.clone()).unwrap_or_default();
+        tracker.on_transaction(connection, tx.slot, tx.bank_id, signature); // 🚫 panics
+    }
+}
+```
+
+This one _does_ compile — there's only ever one `&mut tracker` borrow at a time,
+so the borrow checker has nothing to object to. It's `check_connection` that
+catches it instead: the moment a `(ConnectionId(1), _)` event reaches `tracker`
+after it already locked onto `ConnectionId(0)`, `assert_eq!` panics immediately,
+with a message pointing straight at the bug — instead of `tracker` quietly
+splicing connection B's `bank_id = 7` onto connection A's data and handing back
+a `confirmed` block that's a silent fusion of two unrelated banks.
+
+The actual fix is what it's been all along — one tracker per connection,
+reconciled afterwards by blockhash rather than by `bank_id`:
+
+```rust
+let mut tracker_a = SlotTracker::default();
+let mut tracker_b = SlotTracker::default();
+
+tokio::join!(
+    run(ConnectionId(0), stream_a, &mut tracker_a),
+    run(ConnectionId(1), stream_b, &mut tracker_b),
+);
+```
+
+This one compiles _and_ never panics, because neither tracker's `ConnectionId`
+ever changes.
+
+One last thing to nail down: "reconciled by blockhash" needs a source for that
+blockhash, and it isn't on the transaction or slot-status events — it only shows
+up on `SubscribeUpdateBlockMeta`, which is why `on_block_meta` above exists at
+all. Two confirmed banks from two different connections are the _same_ real bank
+if and only if their blockhashes match — nothing else about them is comparable,
+`bank_id` least of all:
+
+```rust
+let slot = 123;
 match (tracker_a.confirmed.get(&slot), tracker_b.confirmed.get(&slot)) {
     (Some((_, a)), Some((_, b))) if a.blockhash == b.blockhash => {
-        // Same bank seen through two connections — safe to treat as one.
+        // same bank, seen through two different connections — safe to treat as one
     }
     (Some(_), Some(_)) => {
-        // Both connections confirmed something for this slot, but not the
-        // same bank. Do not merge them.
+        // both connections confirmed *something* for this slot, but not the same bank
     }
-    _ => {} // At least one connection has not confirmed this slot yet.
+    _ => {} // at least one connection hasn't confirmed this slot yet
 }
 ```
-
-Make that first rule enforceable rather than a convention someone has to
-remember. The obvious form of the mistake — two streams driving one tracker
-concurrently — is caught for you, because both futures would need `&mut tracker`
-alive at once and the borrow checker rejects it. The form that slips through is
-merging the two streams into one and feeding that sequentially: only one borrow
-is ever live, so it compiles and runs. Tag each connection and have the tracker
-refuse the second one:
-
-```rust
-/// A tag you assign per physical connection — nothing on the wire carries it,
-/// because it is about which socket the bytes arrived on, not what is in them.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-struct ConnectionId(u8);
-
-// on SlotTracker, called at the top of every on_* method
-fn check_connection(&mut self, connection: ConnectionId) {
-    match self.connection {
-        None => self.connection = Some(connection),
-        Some(seen) => assert_eq!(
-            seen, connection,
-            "SlotTracker fed bank_id from two different connections — \
-             bank_id is not comparable across them, reconcile by blockhash",
-        ),
-    }
-}
-```
-
-That turns a silent fusion of two unrelated banks into an immediate panic that
-names the bug.
 
 The cost is that reconciliation cannot happen until block meta arrives, which is
 precisely what a pipeline built for minimum latency does not want to wait for.
