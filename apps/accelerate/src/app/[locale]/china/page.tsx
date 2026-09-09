@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ChinaFooter, ChinaRoadshow } from "@/components/china/ChinaRoadshow";
+import { ChinaTravelPromo } from "@/components/china/ChinaTravelGuide";
 import {
   Highlights,
   KeyStats,
@@ -75,6 +76,7 @@ export default async function ChinaPage({ params }: PageProps) {
         }}
       />
       <ChinaRoadshow />
+      <ChinaTravelPromo />
       <Highlights />
       <VideoCarousel
         heading={chinaT("videoHeading")}

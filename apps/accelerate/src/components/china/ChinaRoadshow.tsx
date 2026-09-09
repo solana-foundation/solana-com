@@ -50,7 +50,7 @@ function GradientButton({
   );
 }
 
-function ChinaHeader() {
+export function ChinaHeader() {
   const t = useTranslations("accelerate.china");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
