@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { motion } from "motion/react";
 import { getImagePath } from "@/config";
+import { useTranslations } from "@workspace/i18n/client";
 
 interface StatCard {
   value: string;
@@ -10,15 +11,20 @@ interface StatCard {
   variant: "outline" | "gradient";
 }
 
-const stats: StatCard[] = [
+type StatDefinition = Omit<StatCard, "label"> & {
+  labelKey: "builders" | "companies" | "policymakers" | "startups";
+};
+type StatKey = StatDefinition["labelKey"];
+
+const stats: StatDefinition[] = [
   {
     value: "3000+",
-    label: "Builders, Executives, and Attendees",
+    labelKey: "builders",
     variant: "outline",
   },
-  { value: "100+", label: "Fintech and Tech Companies", variant: "gradient" },
-  { value: "20+", label: "Policymakers", variant: "outline" },
-  { value: "50+", label: "Disruptive Crypto Startups", variant: "outline" },
+  { value: "100+", labelKey: "companies", variant: "gradient" },
+  { value: "20+", labelKey: "policymakers", variant: "outline" },
+  { value: "50+", labelKey: "startups", variant: "outline" },
 ];
 
 function StatCardItem({ stat, index }: { stat: StatCard; index: number }) {
@@ -54,12 +60,15 @@ function StatCardItem({ stat, index }: { stat: StatCard; index: number }) {
   );
 }
 
-export function KeyStats() {
+export function KeyStats({ exclude = [] }: { exclude?: StatKey[] }) {
+  const t = useTranslations("accelerate.homepage");
+  const visibleStats = stats.filter((stat) => !exclude.includes(stat.labelKey));
+
   return (
     <section className="relative overflow-hidden bg-black py-16 lg:py-24">
       <div className="pointer-events-none absolute inset-0 opacity-25">
         <Image
-          src={getImagePath("/images/homepage/acc-hero-bg.png")}
+          src={getImagePath("/images/homepage/acc-hero-bg.webp")}
           alt=""
           fill
           className="object-cover"
@@ -73,12 +82,16 @@ export function KeyStats() {
           className="flex flex-col gap-6 md:gap-8"
         >
           <h3 className="text-[20px] font-normal uppercase leading-none tracking-[1.2px] text-[#8d8d8d] md:text-[24px]">
-            Key Stats
+            {t("keyStats.heading")}
           </h3>
 
           <div className="flex flex-col gap-4 md:gap-5">
-            {stats.map((stat, i) => (
-              <StatCardItem key={stat.value} stat={stat} index={i} />
+            {visibleStats.map((stat, i) => (
+              <StatCardItem
+                key={stat.value}
+                stat={{ ...stat, label: t(`keyStats.${stat.labelKey}`) }}
+                index={i}
+              />
             ))}
           </div>
         </motion.div>

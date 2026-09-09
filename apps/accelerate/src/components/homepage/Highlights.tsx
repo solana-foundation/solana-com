@@ -3,13 +3,16 @@
 import Image from "next/image";
 import { motion } from "motion/react";
 import { getImagePath } from "@/config";
+import { useTranslations } from "@workspace/i18n/client";
 
 export function Highlights() {
+  const t = useTranslations("accelerate.homepage");
+
   return (
     <section className="relative overflow-hidden bg-black py-16 lg:py-24">
       <div className="pointer-events-none absolute inset-0 opacity-25">
         <Image
-          src={getImagePath("/images/homepage/acc-hero-bg.png")}
+          src={getImagePath("/images/homepage/acc-hero-bg.webp")}
           alt=""
           fill
           className="object-cover"
@@ -23,7 +26,7 @@ export function Highlights() {
           viewport={{ once: true }}
           className="mb-10 text-[32px] font-light uppercase leading-none tracking-[2.5px] text-accelerate-gray-100 md:text-[44px] lg:mb-14 lg:text-[50px]"
         >
-          Highlights
+          {t("highlights.heading")}
         </motion.h2>
 
         {/* Two-column layout */}
@@ -37,8 +40,11 @@ export function Highlights() {
           <div className="flex flex-col gap-10">
             {/* Title text with green highlight */}
             <p className="text-[25px] font-normal uppercase leading-[1.1] tracking-[1.25px] text-accelerate-gray-light md:text-[34px] lg:w-[605px] lg:text-[40px]">
-              Watch the recordings from Accelerate APAC{" "}
-              <span className="text-accelerate-green">Hong Kong 2026</span>
+              {t.rich("highlights.description", {
+                highlight: (chunks) => (
+                  <span className="text-accelerate-green">{chunks}</span>
+                ),
+              })}
             </p>
 
             {/* Watch Now CTA - gradient button */}
@@ -49,7 +55,7 @@ export function Highlights() {
               className="btn-cta h-[48px] w-[208px] justify-between px-5 py-[17.9px] md:h-[66px] md:w-[240px] md:px-7 md:py-6"
             >
               <span className="text-[13.43px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[18px] md:tracking-[0.9px]">
-                Watch Now
+                {t("highlights.watchNow")}
               </span>
               <Image
                 src={getImagePath("/images/homepage/cta-arrow.svg")}
@@ -64,7 +70,7 @@ export function Highlights() {
           <div className="relative h-[308px] w-[350px] overflow-hidden rounded-[10px] md:h-[340px] md:w-full lg:h-[410px] lg:w-[730px] lg:flex-shrink-0 lg:rounded-[20px]">
             <Image
               src={getImagePath("/images/homepage/highlights-photo.jpg")}
-              alt="Accelerate APAC Hong Kong 2026 highlights"
+              alt={t("highlights.imageAlt")}
               fill
               className="object-cover"
             />

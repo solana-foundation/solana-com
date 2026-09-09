@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import { ArrowOutUpRightSquare as ExternalLinkIcon } from "@boxicons/react/ArrowOutUpRightSquare";
 import { BookOpen } from "@boxicons/react/BookOpen";
 import { Github } from "@boxicons/react/Github";
