@@ -6,7 +6,7 @@ import {
   Footer,
   PersistentPodcastPlayer,
   ThemeProvider,
-  isProductionAnalyticsEnabled,
+  GoogleTagManagerNoScript,
 } from "@solana-com/ui-chrome";
 import { loadMergedMessages } from "@workspace/i18n/messages";
 import { getLangDir } from "rtl-detect";
@@ -52,16 +52,7 @@ export default async function RootLayout({ children }: Props) {
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        {isProductionAnalyticsEnabled() && (
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerID}`}
-              height="0"
-              width="0"
-              style={{ display: "none", visibility: "hidden" }}
-            ></iframe>
-          </noscript>
-        )}
+        <GoogleTagManagerNoScript containerId={googleTagManagerID} />
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             <GTMTrackingSnippet />

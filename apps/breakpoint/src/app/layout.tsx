@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import "@/app/globals.css";
 import { config, publicAssetPath } from "@/config";
 import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";
-import { isProductionAnalyticsEnabled } from "@solana-com/ui-chrome";
+import { GoogleTagManagerNoScript } from "@solana-com/ui-chrome";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const googleTagManagerID = config.siteMetadata.googleTagManagerID;
@@ -18,16 +18,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
-        {isProductionAnalyticsEnabled() && (
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerID}`}
-              height="0"
-              width="0"
-              style={{ display: "none", visibility: "hidden" }}
-            ></iframe>
-          </noscript>
-        )}
+        <GoogleTagManagerNoScript containerId={googleTagManagerID} />
         <GTMTrackingSnippet />
         {children}
       </body>
