@@ -372,6 +372,20 @@ export default function ImageTreatment({
   const [fgImage, setFgImage] = useState<HTMLImageElement | null>(null);
   const [inView, setInView] = useState(false);
   const [containerSize, setContainerSize] = useState<CanvasSize | null>(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -445,9 +459,6 @@ export default function ImageTreatment({
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
-    const prefersReducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const animate = motion && !prefersReducedMotion;
     const shouldFlicker = flicker && !prefersReducedMotion;
 
@@ -959,6 +970,7 @@ export default function ImageTreatment({
     mouseReactive,
     mouseRadius,
     objectFit,
+    prefersReducedMotion,
     containerSize?.width,
     containerSize?.height,
     overridesKey,

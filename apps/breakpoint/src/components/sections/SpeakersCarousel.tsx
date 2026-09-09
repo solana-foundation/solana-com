@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/components/Button";
 import CarouselControls from "@/components/CarouselControls";
-import ImageTreatment from "@/components/ImageTreatment";
 import SectionHeadline from "@/components/SectionHeadline";
 import { publicAssetPath } from "@/config";
 import type { BreakpointSpeaker } from "@/content/speakers/types";
@@ -46,6 +45,7 @@ function SpeakerMedia({ speaker }: { speaker: BreakpointSpeaker }) {
   const [loadVideo, setLoadVideo] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const imageSrc = speaker.headshotPng
     ? publicAssetPath(speaker.headshotPng)
     : undefined;
@@ -54,7 +54,20 @@ function SpeakerMedia({ speaker }: { speaker: BreakpointSpeaker }) {
     : undefined;
 
   useEffect(() => {
-    if (!webmSrc || shouldPreferStillImage()) return;
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    if (!webmSrc || prefersReducedMotion || shouldPreferStillImage()) {
+      setLoadVideo(false);
+      setVideoReady(false);
+      return;
+    }
 
     const element = mediaRef.current;
     if (!element || !("IntersectionObserver" in window)) {
@@ -73,9 +86,10 @@ function SpeakerMedia({ speaker }: { speaker: BreakpointSpeaker }) {
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, [webmSrc]);
+  }, [prefersReducedMotion, webmSrc]);
 
-  const showVideo = loadVideo && !videoFailed && Boolean(webmSrc);
+  const showVideo =
+    !prefersReducedMotion && loadVideo && !videoFailed && Boolean(webmSrc);
 
   return (
     <div
