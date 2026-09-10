@@ -9,7 +9,7 @@ import { SkipPrevious as SkipBack } from "@boxicons/react/SkipPrevious";
 import { SkipNext as SkipForward } from "@boxicons/react/SkipNext";
 import { Button } from "@/components/ui/button";
 import { usePlayerOptional } from "./player-context";
-import { trackPodcastPlay, trackPodcastPause } from "@/lib/podcast-analytics";
+import { trackPodcastPlay } from "@/lib/podcast-analytics";
 import { cn } from "@/lib/utils";
 import type { PodcastEpisode } from "@/lib/podcast-types";
 
@@ -69,9 +69,7 @@ export const AudioPlayer = ({
       };
 
       if (isGlobalEpisode) {
-        if (isPlaying) {
-          trackPodcastPause(eventParams);
-        } else {
+        if (!isPlaying) {
           trackPodcastPlay(eventParams);
         }
         globalPlayer.togglePlayPause();

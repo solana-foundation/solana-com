@@ -4,6 +4,7 @@ import {
   getIterableActionUrl,
   sendIterableFormRequest,
 } from "@solana-com/ui-chrome/iterable";
+import { trackLead } from "@solana-com/ui-chrome/analytics";
 import { useTranslations } from "next-intl";
 import { DialogTitle, DialogDescription } from "@radix-ui/react-dialog";
 
@@ -108,14 +109,12 @@ const ArtistsAndCreatorsNewsletter = ({
         setIsSuccess(true);
         modalActionCompleted.current = true;
 
-        // track form submission
-        if (typeof window.gtag !== "undefined") {
-          window.gtag("event", "newsletter_sign_up", {
-            event_category: "engagement",
-            event_action: "Submitted",
-            event_label: "artistsAndCreatorsNewsletter",
-          });
-        }
+        trackLead({
+          appName: "web",
+          leadType: "newsletter",
+          formId: "artists_and_creators_newsletter",
+          placement: "modal",
+        });
       } catch (err) {
         console.error(err);
         setError("Something went wrong, please try again.");

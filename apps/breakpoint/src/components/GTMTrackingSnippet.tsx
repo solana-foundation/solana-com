@@ -4,10 +4,13 @@ import Script from "next/script";
 import {
   getCookieConsentBootstrapScript,
   getCookieConsentDefaultScript,
+  isProductionAnalyticsEnabled,
 } from "@solana-com/ui-chrome";
 import { config } from "@/config";
 
 export default function GTMTrackingSnippet() {
+  if (!isProductionAnalyticsEnabled()) return null;
+
   const id = config.siteMetadata.googleTagManagerID;
 
   return (

@@ -86,6 +86,11 @@ export default function IterableEmailSubscribeForm({
     formId,
     schema,
     initialValues,
+    analytics: {
+      appName: "web",
+      leadType: "newsletter",
+      placement: "email_subscribe_form",
+    },
   });
 
   const isInvalid = useMemo(() => {
