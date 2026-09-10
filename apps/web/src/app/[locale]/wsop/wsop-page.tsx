@@ -1475,7 +1475,7 @@ export function WsopPage({ stories }: WsopPageProps) {
                   <div className="wsop-start__actions">
                     <CrossAppLink
                       className="wsop-button wsop-start__guide-action"
-                      href="/learn/poker-players-guide-to-crypto"
+                      href="/poker-players-guide-to-crypto"
                     >
                       <span>{t("start.guideCta")}</span>
                       <ArrowUpRight aria-hidden="true" />
