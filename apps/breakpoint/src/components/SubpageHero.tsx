@@ -39,6 +39,7 @@ type SubpageHeroImageConfig = {
 };
 
 export type SubpageHeroImageKey =
+  | "awards"
   | "schedule"
   | "speakers"
   | "travel"
@@ -47,6 +48,11 @@ export type SubpageHeroImageKey =
 
 const SUBPAGE_HERO_IMAGES: Record<SubpageHeroImageKey, SubpageHeroImageConfig> =
   {
+    awards: {
+      color: "purple",
+      heightClassName: "h-[540px] md:h-[520px]",
+      src: "/img/gallery/photo-2.jpg",
+    },
     schedule: {
       color: "purple",
       heightClassName: "h-[480px] md:h-[467px]",
