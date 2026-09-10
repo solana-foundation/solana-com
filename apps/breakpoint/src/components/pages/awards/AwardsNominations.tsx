@@ -5,19 +5,10 @@ import Button from "@/components/Button";
 import { awardCategories } from "@/content/awards";
 
 type Nomination = { handle: string; submittedAt: string };
-const STORAGE_KEY = "breakpoint-community-awards-nominations";
-const IDENTITY_KEY = "breakpoint-community-awards-user-id";
+type CampaignStatus = "open" | "not_started" | "closed";
 
 function normaliseHandle(value: string) {
   return value.trim().replace(/^@+/, "").toLowerCase();
-}
-
-function getIdentity() {
-  const existing = window.localStorage.getItem(IDENTITY_KEY);
-  if (existing) return existing;
-  const identity = crypto.randomUUID();
-  window.localStorage.setItem(IDENTITY_KEY, identity);
-  return identity;
 }
 
 export default function AwardsNominations() {
@@ -28,7 +19,9 @@ export default function AwardsNominations() {
   const [handle, setHandle] = useState("");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
-  const [userId, setUserId] = useState<string>();
+  const [sessionReady, setSessionReady] = useState(false);
+  const [campaignStatus, setCampaignStatus] = useState<CampaignStatus>();
+  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const activeCategory = awardCategories[activeIndex]!;
   const nominationCount = Object.keys(nominations).length;
@@ -45,32 +38,18 @@ export default function AwardsNominations() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      let identity: string;
       try {
-        identity = getIdentity();
-        setUserId(identity);
-        const saved = window.localStorage.getItem(STORAGE_KEY);
-        if (saved && !cancelled) {
-          setNominations(JSON.parse(saved) as Record<string, Nomination>);
-        }
-      } catch {
-        setError(
-          "Your browser storage is unavailable, so nominations cannot be saved.",
-        );
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `/breakpoint/api/nominations?userId=${encodeURIComponent(identity)}`,
-        );
-        if (!response.ok) return;
+        const response = await fetch("/breakpoint/api/nominations", {
+          credentials: "same-origin",
+        });
+        if (!response.ok) throw new Error("Unable to load nominations");
         const data = (await response.json()) as {
           nominations: Array<{
             category: string;
             twitterHandle: string;
             submittedAt: string;
           }>;
+          campaignStatus: CampaignStatus;
         };
         const persisted = Object.fromEntries(
           data.nominations.map((nomination) => [
@@ -83,10 +62,15 @@ export default function AwardsNominations() {
         ) as Record<string, Nomination>;
         if (!cancelled) {
           setNominations(persisted);
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+          setCampaignStatus(data.campaignStatus);
+          setSessionReady(true);
         }
       } catch {
-        // A local cache remains available while the development database is offline.
+        if (!cancelled) {
+          setError(
+            "Unable to prepare your nominations. Please refresh the page.",
+          );
+        }
       }
     };
     void load();
@@ -114,8 +98,8 @@ export default function AwardsNominations() {
       );
       return;
     }
-    if (!userId) {
-      setError("Preparing your nomination identity. Please try again.");
+    if (!sessionReady) {
+      setError("Preparing your nominations. Please try again.");
       return;
     }
     setSubmitting(true);
@@ -126,7 +110,7 @@ export default function AwardsNominations() {
         body: JSON.stringify({
           categoryId: activeCategory.id,
           twitterHandle: normalized,
-          userId,
+          website,
         }),
       });
       const data = (await response.json()) as {
@@ -150,11 +134,8 @@ export default function AwardsNominations() {
       };
       setNominations(next);
       setEditing(false);
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {
-      setError(
-        "Unable to save nomination. Check that the development database is running.",
-      );
+      setError("Unable to save nomination. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -182,7 +163,8 @@ export default function AwardsNominations() {
           </p>
           <div className="md:col-span-9 md:col-start-7">
             <h2 className="type-h3 max-w-[780px]" id="nominations-title">
-              Your vote puts the ecosystem&apos;s best work in the spotlight.
+              Your nominations put the ecosystem&apos;s best work in the
+              spotlight.
             </h2>
             <p className="mt-s max-w-[620px] text-p-large text-text-secondary">
               Choose a category and enter an X username. You can submit one
@@ -195,7 +177,7 @@ export default function AwardsNominations() {
           <aside className="md:col-span-5 md:sticky md:top-[88px] md:h-fit">
             <div className="flex items-end justify-between border-y border-stroke-primary py-s">
               <div>
-                <p className="type-eyebrow text-white">Your ballot</p>
+                <p className="type-eyebrow text-white">Your nominations</p>
                 <p className="mt-2xs text-paragraph text-text-secondary">
                   {nominationCount} of {awardCategories.length} nominated
                 </p>
@@ -320,6 +302,13 @@ export default function AwardsNominations() {
               </div>
 
               <div className="border-t border-stroke-primary p-s md:p-l">
+                {campaignStatus && campaignStatus !== "open" ? (
+                  <p className="text-p-large text-text-secondary" role="status">
+                    {campaignStatus === "closed"
+                      ? "Nominations are now closed. Thank you for taking part."
+                      : "Nominations have not opened yet. Please check back soon."}
+                  </p>
+                ) : null}
                 {nomination && !editing ? (
                   <div
                     className={`${accentBackgroundClassName} p-s text-black md:p-m`}
@@ -333,7 +322,7 @@ export default function AwardsNominations() {
                       </div>
                       <div className="flex flex-col gap-3 sm:flex-row">
                         <Button
-                          label="Share on X"
+                          label="Share Community Awards"
                           onClick={share}
                           variant="secondary"
                           className="border-black text-black hover:bg-black hover:text-white"
@@ -350,7 +339,7 @@ export default function AwardsNominations() {
                       </div>
                     </div>
                   </div>
-                ) : (
+                ) : campaignStatus === "open" ? (
                   <form
                     onSubmit={(event) => {
                       event.preventDefault();
@@ -358,6 +347,16 @@ export default function AwardsNominations() {
                     }}
                   >
                     <div className="flex flex-col gap-s md:flex-row md:items-end md:justify-between">
+                      <input
+                        aria-hidden="true"
+                        autoComplete="off"
+                        className="sr-only"
+                        name="website"
+                        onChange={(event) => setWebsite(event.target.value)}
+                        tabIndex={-1}
+                        type="text"
+                        value={website}
+                      />
                       <div className="w-full md:max-w-[520px]">
                         <label
                           className="mb-2xs block font-mono text-button-small uppercase"
@@ -385,7 +384,11 @@ export default function AwardsNominations() {
                       </div>
                       <Button
                         className="w-full md:w-auto"
-                        disabled={submitting || !userId}
+                        disabled={
+                          submitting ||
+                          !sessionReady ||
+                          campaignStatus !== "open"
+                        }
                         label={submitting ? "Submitting…" : "Submit nomination"}
                         type="submit"
                       />
@@ -396,7 +399,7 @@ export default function AwardsNominations() {
                       </p>
                     )}
                   </form>
-                )}
+                ) : null}
               </div>
             </article>
             <div className="mt-m grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-stroke-primary pb-m">

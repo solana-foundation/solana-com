@@ -26,4 +26,27 @@ pnpm prisma:migrate # create a new migration after editing schema.prisma
 ```
 
 For deployed environments, set `POSTGRES_URL` to the managed Postgres connection
-string and run `pnpm prisma:deploy` as part of the release process.
+string. Production Vercel builds run `pnpm prisma:deploy` before `next build`
+and fail before deployment if the connection string is absent. Preview builds do
+not migrate a database automatically.
+
+## Production safeguards
+
+The nominations route requires these sensitive Vercel environment variables in
+Production and Preview:
+
+- `AWARDS_COOKIE_SECRET`: a unique 32+ character value used to sign the
+  HTTP-only ballot cookie.
+- `AWARDS_IP_HASH_SECRET`: a unique 32+ character value used to derive a
+  pseudonymous network identifier for fraud review. New records do not store raw
+  IP addresses.
+
+Configure `AWARDS_NOMINATIONS_OPENS_AT` and `AWARDS_NOMINATIONS_CLOSES_AT` as
+ISO-8601 UTC timestamps before opening the campaign. The API enforces those
+boundaries even when clients have an existing ballot.
+
+The `solana-com-breakpoint-2` Vercel project also needs WAF rate-limit rules
+named `Limit Community Awards submission bursts`,
+`Limit Community Awards hourly submissions`, and
+`Limit Community Awards ballot reads`. The submission-rule IDs are enforced by
+the API, so production fails closed if either is missing.

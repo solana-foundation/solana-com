@@ -1,43 +1,33 @@
+import { checkBotId } from "botid/server";
 import { NextRequest, NextResponse } from "next/server";
 import { awardCategories } from "@/content/awards";
+import {
+  clientCountry,
+  clientIp,
+  enforceSubmissionRateLimit,
+  hasSameOrigin,
+  hashIp,
+} from "@/lib/awards-abuse";
+import {
+  campaignMessage,
+  getAwardsCampaignStatus,
+} from "@/lib/awards-campaign";
 import { awardsPrisma } from "@/lib/awards-db";
+import {
+  awardsBallotCookie,
+  newAwardsBallot,
+  readAwardsBallot,
+} from "@/lib/awards-session";
 
-const MAX_REQUESTS = 5;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const requests = new Map<string, { count: number; resetAt: number }>();
 const categoryIds = new Set(awardCategories.map((category) => category.id));
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
+const MAX_BODY_BYTES = 2_048;
 
 type NominationBody = {
   categoryId?: unknown;
   twitterHandle?: unknown;
-  userId?: unknown;
+  website?: unknown;
 };
-
-function clientIp(request: NextRequest) {
-  return (
-    request.headers.get("cf-connecting-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "unknown"
-  );
-}
-
-function clientCountry(request: NextRequest) {
-  const country = request.headers.get("cf-ipcountry");
-  return country && /^[a-z]{2}$/i.test(country) ? country.toUpperCase() : null;
-}
-
-function isAllowed(ip: string) {
-  const now = Date.now();
-  const current = requests.get(ip);
-  if (!current || now >= current.resetAt) {
-    requests.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-  if (current.count >= MAX_REQUESTS) return false;
-  current.count += 1;
-  return true;
-}
 
 function handle(value: unknown) {
   if (typeof value !== "string") return null;
@@ -45,63 +35,163 @@ function handle(value: unknown) {
   return /^[a-z0-9_]{1,15}$/i.test(normalized) ? `@${normalized}` : null;
 }
 
-function userId(value: unknown) {
-  return typeof value === "string" && /^[a-f0-9-]{36}$/i.test(value)
-    ? value
-    : null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 export async function GET(request: NextRequest) {
-  const id = userId(new URL(request.url).searchParams.get("userId"));
-  if (!id)
+  let ballotId: string | null;
+  let cookie: ReturnType<typeof newAwardsBallot> | null = null;
+  try {
+    ballotId = readAwardsBallot(request);
+    if (!ballotId) {
+      cookie = newAwardsBallot();
+      ballotId = cookie.ballotId;
+    }
+  } catch (error) {
+    console.error("Unable to initialize awards ballot", error);
     return NextResponse.json(
-      { error: "A valid userId is required." },
-      { status: 400 },
+      { error: "Nominations are temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
     );
+  }
 
   try {
     const user = await awardsPrisma.user.findUnique({
-      where: { browserUuid: id },
+      where: { browserUuid: ballotId },
     });
-    if (!user) return NextResponse.json({ nominations: [] });
+    const campaignStatus = getAwardsCampaignStatus();
+    if (!user) {
+      const response = NextResponse.json(
+        { nominations: [], campaignStatus },
+        { headers: NO_STORE_HEADERS },
+      );
+      if (cookie)
+        response.cookies.set(
+          awardsBallotCookie.name,
+          cookie.value,
+          awardsBallotCookie.options,
+        );
+      return response;
+    }
     const nominations = await awardsPrisma.nomination.findMany({
       where: { userId: user.id },
       select: { category: true, twitterHandle: true, submittedAt: true },
       orderBy: { submittedAt: "desc" },
     });
-    return NextResponse.json({ nominations });
+    const response = NextResponse.json(
+      { nominations, campaignStatus },
+      { headers: NO_STORE_HEADERS },
+    );
+    if (cookie)
+      response.cookies.set(
+        awardsBallotCookie.name,
+        cookie.value,
+        awardsBallotCookie.options,
+      );
+    return response;
   } catch (error) {
     console.error("Unable to fetch awards nominations", error);
     return NextResponse.json(
       { error: "Unable to load nominations." },
-      { status: 503 },
+      { status: 503, headers: NO_STORE_HEADERS },
     );
   }
 }
 
 export async function POST(request: NextRequest) {
-  const ip = clientIp(request);
-  if (!isAllowed(ip))
+  if (!hasSameOrigin(request))
     return NextResponse.json(
-      { error: "Too many requests. Please try again shortly." },
-      { status: 429 },
+      { error: "This nomination request was not accepted." },
+      { status: 403, headers: NO_STORE_HEADERS },
     );
+  if (!request.headers.get("content-type")?.startsWith("application/json")) {
+    return NextResponse.json(
+      { error: "Invalid request format." },
+      { status: 415, headers: NO_STORE_HEADERS },
+    );
+  }
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json(
+      { error: "Request is too large." },
+      { status: 413, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  let ballotId: string | null;
+  try {
+    ballotId = readAwardsBallot(request);
+  } catch (error) {
+    console.error("Unable to validate awards ballot", error);
+    return NextResponse.json(
+      { error: "Nominations are temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
+  if (!ballotId) {
+    return NextResponse.json(
+      { error: "Please refresh the page before submitting a nomination." },
+      { status: 400, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  try {
+    const campaignStatus = getAwardsCampaignStatus();
+    if (campaignStatus !== "open") {
+      return NextResponse.json(
+        { error: campaignMessage(campaignStatus) },
+        { status: 403, headers: NO_STORE_HEADERS },
+      );
+    }
+    if (await enforceSubmissionRateLimit(request)) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again shortly." },
+        { status: 429, headers: { ...NO_STORE_HEADERS, "Retry-After": "60" } },
+      );
+    }
+    const botCheck = await checkBotId();
+    if (botCheck.isBot) {
+      return NextResponse.json(
+        { error: "We could not verify this nomination. Please try again." },
+        { status: 403, headers: NO_STORE_HEADERS },
+      );
+    }
+  } catch (error) {
+    console.error("Unable to verify awards nomination request", error);
+    return NextResponse.json(
+      { error: "Nominations are temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
 
   let body: NominationBody;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid JSON body." },
+      { status: 400, headers: NO_STORE_HEADERS },
+    );
   }
+
+  if (!isRecord(body)) {
+    return NextResponse.json(
+      { error: "Invalid JSON body." },
+      { status: 400, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  if (body.website)
+    return NextResponse.json({ ok: true }, { headers: NO_STORE_HEADERS });
 
   const categoryId =
     typeof body.categoryId === "string" ? body.categoryId : null;
   const twitterHandle = handle(body.twitterHandle);
-  const browserUuid = userId(body.userId);
   if (!categoryId || !categoryIds.has(categoryId))
     return NextResponse.json(
       { error: "Unknown award category." },
-      { status: 400 },
+      { status: 400, headers: NO_STORE_HEADERS },
     );
   if (!twitterHandle)
     return NextResponse.json(
@@ -109,20 +199,23 @@ export async function POST(request: NextRequest) {
         error:
           "Enter a valid X username (up to 15 letters, numbers, or underscores).",
       },
-      { status: 400 },
-    );
-  if (!browserUuid)
-    return NextResponse.json(
-      { error: "A valid userId is required." },
-      { status: 400 },
+      { status: 400, headers: NO_STORE_HEADERS },
     );
 
   try {
+    const ipHash = hashIp(clientIp(request));
     const country = clientCountry(request);
     const user = await awardsPrisma.user.upsert({
-      where: { browserUuid },
-      create: { browserUuid, ipAddress: ip, country },
-      update: { ...(country ? { country } : {}) },
+      where: { browserUuid: ballotId },
+      create: { browserUuid: ballotId, ipHash, country },
+      update: {
+        ...(ipHash ? { ipHash } : {}),
+        ...(country ? { country } : {}),
+      },
+    });
+    const existingNomination = await awardsPrisma.nomination.findUnique({
+      where: { userId_category: { userId: user.id, category: categoryId } },
+      select: { id: true },
     });
     const nomination = await awardsPrisma.nomination.upsert({
       where: { userId_category: { userId: user.id, category: categoryId } },
@@ -130,28 +223,41 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         category: categoryId,
         twitterHandle,
-        ipAddress: ip,
+        ipHash,
         country,
       },
       update: {
         twitterHandle,
-        ipAddress: ip,
+        ipHash,
         country,
         submittedAt: new Date(),
       },
     });
-    return NextResponse.json({
-      nomination: {
-        category: nomination.category,
-        twitterHandle: nomination.twitterHandle,
-        submittedAt: nomination.submittedAt,
+    await awardsPrisma.nominationAttempt.create({
+      data: {
+        userId: user.id,
+        category: categoryId,
+        twitterHandle,
+        ipHash,
+        country,
+        action: existingNomination ? "updated" : "created",
       },
     });
+    return NextResponse.json(
+      {
+        nomination: {
+          category: nomination.category,
+          twitterHandle: nomination.twitterHandle,
+          submittedAt: nomination.submittedAt,
+        },
+      },
+      { headers: NO_STORE_HEADERS },
+    );
   } catch (error) {
     console.error("Unable to save awards nomination", error);
     return NextResponse.json(
       { error: "Unable to save nomination." },
-      { status: 503 },
+      { status: 503, headers: NO_STORE_HEADERS },
     );
   }
 }
