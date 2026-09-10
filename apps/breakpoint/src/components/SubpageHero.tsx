@@ -51,7 +51,7 @@ const SUBPAGE_HERO_IMAGES: Record<SubpageHeroImageKey, SubpageHeroImageConfig> =
     awards: {
       color: "purple",
       heightClassName: "h-[540px] md:h-[520px]",
-      src: "/img/gallery/photo-2.jpg",
+      src: "/img/subpage-heroes/schedule-hero.webp",
     },
     schedule: {
       color: "purple",
