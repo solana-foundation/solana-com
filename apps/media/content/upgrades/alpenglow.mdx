@@ -41,6 +41,453 @@ propagation protocol.
 | Breaking Change?                 | Yes       |
 | Indexing Changes Required?       | Yes       |
 
+**Breaking Changes:**
+
+| If your app                                     | Breaking? | What you have to do                                                                                                                                                                                      |
+| ----------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Streams** data through Geyser / gRPC          | **Yes**   | Stop assuming one block per slot. Buffer per `(slot, bank_id)` and promote a single bank once it is confirmed. [Learn more](#breaking-change-one-slot-can-contain-more-than-one-bank)                    |
+| **Merges** streams from more than one provider  | **Yes**   | `bank_id` is a node-local counter. Reconcile across connections on the blockhash, never on `bank_id`. [Learn more](#breaking-change-merging-streams-from-multiple-providers)                             |
+| **Reads** at the `confirmed` commitment         | Not yet   | `confirmed` and `finalized` become the same thing. Existing clients keep working unchanged; `confirmed` is removed in a later release. [Learn more](#commitment-levels-confirmed-and-finalized-converge) |
+| **Counts or parses** transactions in a block    | **Yes**   | Vote transactions leave the block entirely. Re-baseline any metric that counted them. [Learn more](#breaking-change-vote-transactions-leave-the-block)                                                   |
+| **Sends** transactions or runs onchain programs | No        | Alpenglow changes consensus, not execution. The SVM, transaction formats, and fee mechanics are untouched.                                                                                               |
+
+**When each piece lands:** Agave v4.3 adds the `bank_id` field to Geyser and
+turns on Votor. It does **not** change how often a slot carries more than one
+bank — as far as read-layer deduplication goes, v4.3 behaves the same as
+TowerBFT does today. Fast leader handoff, the Alpenglow mechanism that makes
+multiple banks per slot a routine occurrence rather than a rare one, ships in
+Agave v4.4. `bank_id` is exposed a release early on purpose: v4.3 is the window
+to adopt it while the edge case is still rare.
+
+## Migration Checklist
+
+<AudienceGroup>
+<Audience title="For Users" summary="No action needed.">
+
+Nothing about signing, sending, or approving a transaction changes. Wallets and
+applications keep working exactly as they do today.
+
+What you get is time. Finality drops from 12.8 seconds under TowerBFT to roughly
+150ms, which means the point at which a payment can never be reversed arrives
+before you have taken your hand off the card reader. Applications that today
+show you an optimistic "confirmed" state and quietly hope it holds can show you
+a genuinely final one instead.
+
+</Audience>
+
+<Audience title="For Developers" summary="Reading and streaming block data changes. Execution does not.">
+
+Alpenglow does not touch the SVM, transaction formats, fees, or account model.
+If your application only sends transactions and reads account state, you have
+nothing to migrate. The changes are all in how blocks are produced, streamed,
+and finalized.
+
+**If you stream data through Geyser or gRPC** — indexers, explorers, trading
+infrastructure, block builders
+([details](#breaking-change-one-slot-can-contain-more-than-one-bank)):
+
+- Regenerate your protobuf stubs from the `4.3-transition` proto to pick up
+  `bank_id` on transaction, account, slot-status, entry, and block-meta
+  updates. It is `optional` on the slot and account messages.
+- Key your buffers on `(slot, bank_id)` rather than on `slot` alone.
+- Promote one bank per slot when it reaches `Confirmed`, and drop everything
+  buffered under the other `bank_id` values for that slot.
+- If you use Yellowstone's block subscription rather than reconstructing blocks
+  yourself, upgrade — the buffering is done on your behalf.
+
+**If you fan in multiple RPC or gRPC providers for redundancy**
+([details](#breaking-change-merging-streams-from-multiple-providers)):
+
+- Run one buffer per physical connection. `bank_id` means nothing outside the
+  stream it arrived on.
+- Reconcile across connections only on the blockhash, which arrives on
+  `SubscribeUpdateBlockMeta`. Two banks from two connections are the same bank
+  if and only if their blockhashes match.
+- Audit any existing merge that keys on `(slot, bank_id)` across streams. It
+  fails silently rather than loudly.
+
+**If you read at the `confirmed` commitment**
+([details](#commitment-levels-confirmed-and-finalized-converge)):
+
+- Nothing breaks on activation day. `processed`, `confirmed`, and `finalized`
+  all keep working, and `confirmed` keeps meaning what it means today.
+- Point new code at `finalized`, and plan to migrate existing code. Under
+  Alpenglow the two are equivalent, and `confirmed` is scheduled for removal in
+  a release after Alpenglow ships.
+- Re-check any timeout, retry, or UX delay that was tuned around a 12.8-second
+  finality assumption.
+
+**If you index blocks or report throughput**
+([details](#breaking-change-vote-transactions-leave-the-block)):
+
+- Re-baseline transaction counts and TPS dashboards. Vote transactions vanish
+  from blocks, so the number drops sharply without any drop in real activity.
+- Replace anything that derives validator participation by parsing Vote program
+  instructions out of blocks. Participation now lives in the certificates
+  carried in the Alpenglow block footer, exposed through Geyser.
+
+**To find out when a cluster has actually migrated**
+([details](#checking-whether-alpenglow-is-active)):
+
+- Call the new `getAgGenesisCert` RPC method, or run
+  `solana alpenglow-genesis-info`. It returns `null` while the cluster is still
+  on TowerBFT and the Alpenglow genesis certificate once it has migrated.
+- Gate feature detection on that call rather than on a date or a version
+  string — devnet, testnet, and mainnet each flip at their own slot.
+
+You can test against the Alpenglow community cluster, which validators and core
+developers have been running for months. Its explorer is at
+[ag.validblocks.com](https://ag.validblocks.com/) — expect it to be down
+regularly, since the cluster is taken offline to rehearse the switch from
+TowerBFT to Alpenglow.
+
+</Audience>
+
+<Audience title="For Validator Operators" summary="Register a BLS pubkey, then upgrade to Agave 4.3.">
+
+- Register a BLS pubkey on your vote account if you have not already. The
+  Validator Admission Ticket (SIMD-0357) activated on mainnet July 22, 2026, and
+  operators without a registered BLS pubkey are excluded from the admitted
+  validator set and stop participating in consensus. See
+  [BLS Pubkeys and the Validator Admission Ticket](/upgrades/bls-pubkey-vat).
+- Upgrade to Agave 4.3 on Anza's
+  [v4.3 release schedule](https://github.com/anza-xyz/agave/wiki/v4.3-Release-Schedule).
+- Confirm the cluster's consensus state with `solana alpenglow-genesis-info`
+  ([details](#checking-whether-alpenglow-is-active)).
+- Budget for the loss of vote transaction traffic in any capacity planning that
+  assumed it, and expect vote costs to move off the ledger entirely.
+- If you run a hot spare alongside your primary, make sure only one of them is
+  ever active. Accidental double block production is the most common source of
+  equivocation on mainnet today, and it is exactly what `bank_id` now makes
+  visible to everyone downstream of you.
+
+</Audience>
+
+</AudienceGroup>
+
+The details of each change, and of how to tell when the switch has actually
+happened:
+
+<AudienceGroup>
+<Audience title="For Streaming Consumers" summary="A slot is a window of time. A block is what fills it. They are not the same thing.">
+
+### Breaking Change: One Slot Can Contain More Than One Bank
+
+A slot is a fixed window of network time in which one pre-assigned leader gets
+an exclusive turn to build. A block is the bundle of transactions that comes out
+of it. The network is designed to produce exactly one block per slot and, in
+practice, has done so reliably enough for long enough that a great deal of
+production code treats "slot" and "block" as synonyms. They are not synonyms,
+and Alpenglow makes the difference matter.
+
+A **bank** is a validator's in-progress state for one candidate block. Banks are
+not new. What is new in Agave 4.3 is that every Geyser event coming out of the
+replay stage carries a `bank_id`, so a consumer can finally tell which candidate
+a given transaction, account update, or block-meta message belongs to. Before
+that field existed there was no way to disambiguate at all: a pipeline keyed on
+slot alone would fuse two competing banks into a single block and never notice.
+
+A slot ends up with more than one candidate bank in three ways:
+
+- **Asynchrony.** No malice required. Votor is event-driven — nodes react to
+  whatever shred, vote, or certificate reaches them next. A node whose network
+  path to the leader is slow can time out and vote to skip a slot before the
+  block ever arrives, while its neighbors are already voting to notarize it.
+- **Equivocation.** A leader signs two different blocks and hands each to part
+  of the network. On mainnet this has so far only happened by accident, when an
+  operator's primary and hot spare were both live at once.
+- **Fast leader handoff, from Agave v4.4.** A leader can start building
+  optimistically on a parent it expects to be notarized. If the network votes to
+  skip that parent instead, the leader restarts for the time remaining in its
+  window. The whitepaper describes this as the same block continuing under a new
+  parent; in a validator it produces a new bank, and to Geyser a new bank is a
+  new block.
+
+<AgBanksPerSlot />
+
+Alpenglow tightens the ceiling on this: no correct node ever needs to store more
+than seven distinct blocks for a single slot, down from ten under TowerBFT. That
+is Corollary 50 of the Alpenglow whitepaper, and it is a bound on what a correct
+node has to keep — not a cap the protocol enforces on how many blocks can exist.
+
+Votor guarantees you never have to arbitrate between them yourself. Two blocks
+can never both cross the 60% notarization threshold for the same slot, because
+that would require 120% of the stake to exist. By the time a `Confirmed` status
+reaches your gRPC stream, the race is already decided. Your job is only to have
+kept the losing candidate's data separate from the winner's: buffer per
+`(slot, bank_id)`, promote the bank that reaches `Confirmed`, and drop whatever
+was buffered under the other `bank_id` values for that slot.
+
+Resist the urge to write that buffering yourself. Deciding a bank is
+**complete** is where the real difficulty lives, and it takes more than
+watching for a status: a bank is only ready to seal once the buffer matches the
+`executed_transaction_count` and `entries_count` its block meta carries, and
+once the sysvar account updates you expect have arrived. If they never arrive,
+you connected in the middle of an in-flight block.
+
+How much ordering you can rely on depends on the commitment you subscribe at.
+At **confirmed or finalized**, Yellowstone reorders on your behalf and delays
+block meta if it would arrive early, so the sequence you observe is
+deterministic — sysvar accounts, bank created, transactions and entries and
+accounts, block meta, then slot status `Processed`, then `Confirmed`. At
+**processed**, you get no such guarantee. Geyser itself promises none: the
+plugin hooks take `&self` because transactions, entries, and block meta travel
+over separate channels and are consumed on different threads, and block meta
+can reach you ahead of the last few transactions of its own block.
+
+One wrinkle when wiring this to generated types: `bank_id` is a plain `uint64`
+on transaction, entry, block-meta and block updates, but **`optional`** on
+`SubscribeUpdateSlot` and `SubscribeUpdateAccount`, so those two arrive as
+`Option<u64>`.
+
+The field is not in a tagged Yellowstone release yet. It lives on the
+`4.3-transition` branch, which is at release-candidate stage. Yellowstone tags
+its releases against the Agave version they target — the current one is
+`v15.2.0+solana.4.2.2` — so the thing to wait for is the first
+`+solana.4.3.x` release, and to generate from the branch until it lands. That
+release necessarily arrives before providers move their nodes to 4.3, because a
+Geyser plugin is compiled against the validator's own crates: for 4.2, the
+matching Yellowstone release was published the same day Anza recommended
+general mainnet adoption.
+
+Yellowstone's own implementation of this is
+[`block_reconstruction_v2.rs`](https://github.com/rpcpool/yellowstone-grpc/blob/4.3-transition/yellowstone-grpc-geyser/src/block_reconstruction_v2.rs)
+on the `4.3-transition` branch, and
+[yellowstone-block-machine](https://github.com/rpcpool/yellowstone-block-machine/tree/4.3-transition)
+packages the same state machine as a library, with a runnable consumer in
+[`examples/dragonsmouth`](https://github.com/rpcpool/yellowstone-block-machine/tree/4.3-transition/examples/dragonsmouth)
+on the same branch. Both are worth reading for their doc comments as much as
+their code — between them they already implement the sealing rules above, which
+is why writing a block reconstructor from scratch is rarely the right call. If
+you subscribe to blocks rather than reassembling them from individual updates,
+upgrading is the whole migration — the buffering happens on the provider's
+side.
+
+</Audience>
+
+<Audience title="For Multi-Provider Pipelines" summary="bank_id is a local counter. It is not an identifier you can compare across connections.">
+
+### Breaking Change: Merging Streams From Multiple Providers
+
+`bank_id` is a locally-assigned atomic counter, much like `write_version` is for
+account updates. Each validator hands out its own as it creates banks during
+replay. It is stable and meaningful within a single connection's stream, and
+meaningless outside it.
+
+This is the easiest mistake to make with the new field, and it is worth being
+blunt about: connection A's `bank_id = 7` and connection B's `bank_id = 7` are
+almost certainly two unrelated banks, and one real bank can appear as
+`bank_id = 7` on one connection and `bank_id = 12` on another. There is no
+global registry behind the number.
+
+<AgBankIdAcrossConnections />
+
+That matters because fanning in several providers is standard practice. Because
+Solana's propagation is stake-weighted, an account update can reach provider A
+before provider B on one slot and the other way round on the next, so
+consumers that care about latency subscribe to several and deduplicate
+locally.
+
+Running two Yellowstone connections that way is completely normal. Feeding both
+into one buffer is not — and nothing stops you: merging two streams and handing
+the result to a single tracker compiles and runs perfectly well. It just
+quietly splices connection B's `bank_id = 7` onto connection A's data, and
+hands back a block that is a fusion of two unrelated banks.
+
+So keep one buffer per physical connection, keyed on that connection's own
+`(slot, bank_id)`, and tag each connection so mixing them is an error your code
+can catch rather than a convention someone has to remember. Reconcile the two
+afterwards on the blockhash, which arrives on `SubscribeUpdateBlockMeta` — and
+only once both sides are sealed, since two unsealed banks both carry an empty
+blockhash and would compare equal.
+
+The cost is that reconciliation cannot happen until block meta arrives, which is
+precisely what a pipeline built for minimum latency does not want to wait for.
+That trade-off is real and there is no way around it: a merged view that is
+correct under forks is a view that waits for the blockhash. If you cannot wait,
+treat one stream as authoritative per slot and use the others for liveness
+rather than merging their contents.
+
+[yellowstone-block-machine](https://github.com/rpcpool/yellowstone-block-machine/tree/4.3-transition)
+is worth building on for the per-connection half of this — it handles
+out-of-order events, forks, dead slots, and commitment ordering for **one**
+Geyser stream. Note where it stops: nothing in it merges or deduplicates across
+providers. Reconciling two connections on the blockhash is still yours to
+write.
+
+</Audience>
+
+<Audience title="For RPC Consumers" summary="Nothing breaks on day one, but confirmed and finalized stop being different states.">
+
+### Commitment Levels: Confirmed and Finalized Converge
+
+**Clients keep working unchanged.** `processed`, `confirmed`, and `finalized`
+all still exist under Alpenglow and still mean what they mean today. There is
+no code change required on activation day.
+
+What changes is the distance between them. Under TowerBFT the choice was
+between `confirmed`, available in roughly 400ms but optimistic, and `finalized`,
+irreversible but 12.8 seconds away — so nearly everything interactive picked
+`confirmed` and absorbed the small risk, because 12.8 seconds is not a user
+experience. Alpenglow closes that gap: finality arrives in roughly 150ms, and
+`confirmed` and `finalized` become the same thing. `confirmed` will be
+deprecated and removed in a release after Alpenglow. Point new code at
+`finalized` and migrate existing code when convenient.
+
+<AgCommitmentLevels />
+
+Note what Anza deliberately did **not** do: `confirmed` was not redefined as
+first-round notarization (60% of stake). That would break the guarantee
+`confirmed` carries today, and it would let a client observe `finalized` before
+`confirmed` for the same transaction. `processed` is unchanged and still means
+only that the transaction executed in a bank.
+
+Whether a block takes the fast path (80% of stake notarizes in one round) or
+goes to a second round (60% thresholds) is invisible from the outside. There is
+no new status between `processed` and `finalized`, and which path wins depends
+on network latency and topology rather than on anything the transaction did — a
+tightly-clustered 60% of stake can complete two rounds before a
+geographically-spread 80% completes one.
+
+Pre-confirmation streaming is also unaffected. Alpenglow does not touch
+execution, so anything that watches transactions as a block is still being
+built — Geyser `processed` notifications, Triton's Whirligig-style streams —
+sees the same data at the same point in the pipeline. The difference only starts
+after voting.
+
+Finality can also be observed directly rather than inferred. A leader embeds the
+most recent finalization certificate it holds in the **Alpenglow block footer**,
+which Geyser exposes through
+[`notify_block_footer`](https://github.com/anza-xyz/agave/blob/master/geyser-plugin-interface/src/geyser_plugin_interface.rs#L789)
+(opt in with `block_footer_notifications_enabled()`). `BlockFooterV1` carries the
+bank hash, block production time, the producer's user agent, and up to three
+optional certificates: `block_final_cert`, plus the `notar_reward_cert` and
+`skip_reward_cert` used for vote rewards. Two caveats worth building around:
+
+- Every certificate field is optional. A footer without one is normal, not an
+  error — the leader including a certificate is a convenience for the read layer
+  and for debugging, not something the protocol depends on.
+- `block_final_cert` carries its own `slot` and `block_id`. They are not
+  necessarily those of the block containing the footer; a leader cannot know its
+  own block is final while building it, so what it embeds is the latest
+  certificate it had at that moment.
+
+Certificates are not privileged information from the leader either. Any
+validator that collects enough votes assembles a certificate itself and
+broadcasts it, and anyone holding the votes and the validators' BLS public keys
+can verify one independently.
+
+</Audience>
+
+<Audience title="For Indexers" summary="Votes stop being transactions, so block contents and transaction counts change.">
+
+### Breaking Change: Vote Transactions Leave the Block
+
+Alpenglow validators send votes directly to each other and aggregate them into
+certificates. Votes are no longer transactions, so they no longer appear in
+blocks at all. Consequences for anything that reads blocks:
+
+- **Transaction counts and TPS drop sharply.** Vote traffic has historically
+  been a large share of the transactions in a block. Removing it is an
+  accounting change, not a throughput regression, but every dashboard,
+  benchmark, alert threshold, and historical comparison whose baseline included
+  votes needs re-baselining. Benchmarking tools that have not been updated will
+  report the change as a collapse in network activity.
+- **Vote filtering becomes a no-op.** Pipelines that filter out the Vote program
+  or set Geyser's vote filter keep working; they simply have nothing left to
+  filter.
+- **Validator participation needs a new source.** Anything that measures which
+  validators are voting, or how they voted, by parsing Vote program instructions
+  out of blocks stops seeing data. That information now lives in the
+  certificates in the Alpenglow block footer — `notar_reward_cert` and
+  `skip_reward_cert` each carry an aggregate BLS signature plus the bitmap of
+  the validators it covers
+  ([details](#commitment-levels-confirmed-and-finalized-converge)).
+
+</Audience>
+
+<Audience title="For Anyone Tracking the Rollout" summary="The cluster will tell you whether it has migrated. There is a CLI command and an RPC call to get the consensus status.">
+
+### Checking Whether Alpenglow Is Active
+
+Alpenglow does not switch on at a wall-clock time you can hard-code, and each
+cluster migrates on its own schedule. The way to find out is to ask the cluster.
+
+Agave v4.3 adds a **`getAgGenesisCert`** RPC method that returns Alpenglow's
+genesis certificate — the certificate covering the first block produced under
+the new consensus. It takes no parameters and reads from the finalized bank:
+
+- `null` — the cluster is still running TowerBFT.
+- A certificate object — the cluster has migrated, and `block.slot` is the slot
+  where Alpenglow consensus began.
+
+```bash
+curl https://api.mainnet-beta.solana.com -s -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getAgGenesisCert"}'
+```
+
+While the cluster is still on TowerBFT, the result is simply `null`:
+
+```json
+{ "jsonrpc": "2.0", "result": null, "id": 1 }
+```
+
+Once it has migrated, the result carries the certificate:
+
+- `block.slot` and `block.blockId` — the slot of the first block produced under
+  Alpenglow, and its block ID as a 32-byte array.
+- `signature.signature` and `signature.bitmap` — the 192-byte aggregate BLS
+  signature, and the bitmap of the ranks of the validators it covers.
+
+The Solana CLI wraps the same call, from v4.3 onwards:
+
+```bash
+solana alpenglow-genesis-info
+```
+
+Both ends have to be on 4.3. An older CLI does not have the subcommand at all,
+and an RPC node running an earlier version answers `getAgGenesisCert` with a
+`Method not found` error (`-32601`) rather than with `null` — which is a
+different thing from "still on TowerBFT", and worth distinguishing in any
+detection code you write. Check the two versions with `solana --version` and
+`solana cluster-version`.
+
+Before the migration the command prints `still running tower`. After it, the epoch the
+feature gate activated in, the genesis block's slot and block ID, and how many
+validators signed:
+
+```text
+Alpenglow genesis information:
+  Feature flag activation: Epoch 987
+  Genesis Block - Slot 412300800, Block ID 7Yx3...9Qk2
+  Genesis Vote - 1183 validators participated, Signature 8f2a...
+```
+
+[`@solana/kit`](https://github.com/anza-xyz/kit/releases/tag/v8.3.0) exposes it
+from **8.3.0** onwards, typed and on the default RPC API:
+
+```ts
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.mainnet-beta.solana.com");
+const cert = await rpc.getAgGenesisCert().send();
+
+if (cert === null) {
+  // The cluster is still running TowerBFT.
+} else {
+  console.log(`Alpenglow has been active since slot ${cert.block.slot}`);
+}
+```
+
+Gate any Alpenglow-specific behavior on this call rather than on a date or a
+client version string. SDKs other than Kit do not expose the method yet, so
+elsewhere it is a raw JSON-RPC request for now.
+
+</Audience>
+
+</AudienceGroup>
+
 ## Technical Details
 
 ### Votor, Voting and Certificates
@@ -82,6 +529,8 @@ certificates depending on the vote state:
   notarize or notarize fallback in the second round
 - Skip - >= 60% of stake votes to either skip in the first or second round
 
+<AgVotorCertificates />
+
 ### Alpenglow Community Cluster
 
 After running several tests for months, validators and the core development team
@@ -89,6 +538,11 @@ are testing the new consensus algorithm on a community cluster. This will ensure
 a smooth migration from the old consensus protocol to the new one. There are
 already issues that were identified by the initiative and core devs are working
 to ensure that the network does not experience downtime during the transition.
+
+The cluster has its own explorer at
+[ag.validblocks.com](https://ag.validblocks.com/). It goes offline regularly,
+because taking the cluster down and bringing it back is how the TowerBFT to
+Alpenglow switch itself gets rehearsed. Alpenglow will soon be testable on testnet.
 
 ### Alpenglow SIMDs
 

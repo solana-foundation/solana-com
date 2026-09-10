@@ -1,5 +1,13 @@
 import React, { ComponentPropsWithoutRef } from "react";
-import { TxAccountBytes, TxSimulationTrace, TxWireLayout } from "./diagrams";
+import {
+  AgBankIdAcrossConnections,
+  AgBanksPerSlot,
+  AgCommitmentLevels,
+  AgVotorCertificates,
+  TxAccountBytes,
+  TxSimulationTrace,
+  TxWireLayout,
+} from "./diagrams";
 import { FeatureActivationStatus } from "./feature-activation-status";
 
 export function StatusBadge({
@@ -67,7 +75,15 @@ export function Audience({
   children: React.ReactNode;
 }) {
   return (
-    <details className="group bg-white/[0.02] open:bg-white/[0.04]">
+    // Chrome auto-expands a <details> when the page is opened at a fragment
+    // inside it, which sets `open` on the DOM before React hydrates. The
+    // expansion is what we want — a "Learn more" link should land on an open
+    // section — but React sees an attribute the server never rendered and
+    // reports a mismatch. Nothing else here can diverge, so suppress it.
+    <details
+      suppressHydrationWarning
+      className="group bg-white/[0.02] open:bg-white/[0.04]"
+    >
       <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 px-6 py-5 [&::-webkit-details-marker]:hidden">
         <span>
           <span className="text-xl font-semibold text-white">{title}</span>
@@ -89,6 +105,10 @@ export function Audience({
 export const upgradeMdxComponents = {
   Audience,
   AudienceGroup,
+  AgBanksPerSlot,
+  AgBankIdAcrossConnections,
+  AgCommitmentLevels,
+  AgVotorCertificates,
   FeatureActivationStatus,
   TxAccountBytes,
   TxSimulationTrace,
