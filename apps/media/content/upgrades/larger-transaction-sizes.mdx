@@ -89,27 +89,29 @@ enabled on:
 
 These are the first releases that handle v1 transactions. Upgrade your dependencies to avoid errors.
 
-| Library                                                                                                             | Minimum supported version | v1 support                                             |
-| ------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------ |
-| [`@solana/kit`](https://www.npmjs.com/package/@solana/kit) (Typescript)                                             | 8.0.0                     | Read and send                                          |
-| [`@solana/web3.js`](https://www.npmjs.com/package/@solana/web3.js/v/3.0.0-rc.3) (Typescript) 3.x                    | 3.0.0-rc.3                | Read and send                                          |
-| [`@solana/web3.js`](https://www.npmjs.com/package/@solana/web3.js/v/1.99.0) (Typescript) 1.x                        | 1.99.0                    | **Read only** — cannot build, sign, or send            |
-| [`solana-*` crates](https://crates.io/users/anza-team?sort=recent-downloads) (Rust)                                 | 4.2.x                     | Read and send                                          |
-| [`solders`](https://pypi.org/project/solders/) (Python)                                                             | 0.29.0                    | Read and send                                          |
-| [`solana-foundation/solana-go`](https://github.com/solana-foundation/solana-go) (Go)                                | 1.23.0                    | Read and send — also in 2.0.0 on the `/v2` module path |
-| [`yellowstone-grpc-proto`](https://github.com/rpcpool/yellowstone-grpc/tree/master/yellowstone-grpc-proto) (Rust)   | 12.6.0                    | First generated code carrying `Message.config`         |
-| [Yellowstone geyser plugin](https://github.com/rpcpool/yellowstone-grpc/tree/master/yellowstone-grpc-geyser) (Rust) | 15.1.1                    | Earlier builds downgrade v1 to v0 before the wire      |
-| [`yellowstone-grpc-client`](https://github.com/rpcpool/yellowstone-grpc/tree/master/yellowstone-grpc-client) (Rust) | 12.0.0                    | Latest is 13.3.0                                       |
-| [`@triton-one/yellowstone-grpc`](https://www.npmjs.com/package/@triton-one/yellowstone-grpc) (Typescript)           | 6.0.0                     | Decodes field 7                                        |
+| Library                                                                                                             | Minimum supported version | v1 support                                                   |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------ |
+| [`@solana/kit`](https://www.npmjs.com/package/@solana/kit) (Typescript)                                             | 8.0.0                     | Read and send                                                |
+| [`@solana/web3.js`](https://www.npmjs.com/package/@solana/web3.js/v/3.0.0-rc.3) (Typescript) 3.x                    | 3.0.0-rc.3                | Read and send                                                |
+| [`@solana/web3.js`](https://www.npmjs.com/package/@solana/web3.js/v/1.99.0) (Typescript) 1.x                        | 1.99.0                    | **Read only** — cannot build, sign, or send                  |
+| [`@solana/wallet-standard-features`](https://www.npmjs.com/package/@solana/wallet-standard-features) (Typescript)   | 1.5.0                     | Lets a wallet advertise v1 in `supportedTransactionVersions` |
+| [`solana-*` crates](https://crates.io/users/anza-team?sort=recent-downloads) (Rust)                                 | 4.2.x                     | Read and send                                                |
+| [`solders`](https://pypi.org/project/solders/) (Python)                                                             | 0.29.0                    | Read and send                                                |
+| [`solana-foundation/solana-go`](https://github.com/solana-foundation/solana-go) (Go)                                | 1.23.0                    | Read and send — also in 2.0.0 on the `/v2` module path       |
+| [`yellowstone-grpc-proto`](https://github.com/rpcpool/yellowstone-grpc/tree/master/yellowstone-grpc-proto) (Rust)   | 12.6.0                    | First generated code carrying `Message.config`               |
+| [Yellowstone geyser plugin](https://github.com/rpcpool/yellowstone-grpc/tree/master/yellowstone-grpc-geyser) (Rust) | 15.1.1                    | Earlier builds downgrade v1 to v0 before the wire            |
+| [`yellowstone-grpc-client`](https://github.com/rpcpool/yellowstone-grpc/tree/master/yellowstone-grpc-client) (Rust) | 12.0.0                    | Latest is 13.3.0                                             |
+| [`@triton-one/yellowstone-grpc`](https://www.npmjs.com/package/@triton-one/yellowstone-grpc) (Typescript)           | 6.0.0                     | Decodes field 7                                              |
 
 ## Migration Checklist
 
 <AudienceGroup>
-<Audience title="For Users" summary="No action needed.">
+<Audience title="For Users" summary="Update your wallets.">
 
 Wallets and applications keep working exactly as they do today. The `legacy` and
 `v0` transaction formats are unchanged, and nothing about how you approve, sign,
-or send a transaction changes.
+or send a transaction changes. To benefit from Dapps use of v1 transactions, you
+will want to make sure your wallets are up to date.
 
 What the upgrade buys you is headroom. Work that previously had to be split
 across several chained transactions — ZK proofs such as those used by
@@ -160,6 +162,19 @@ onchain programs, relayers, paymasters, and anyone who sponsors a fee
   up to the next 32 KiB page.
 - Convert priority fees from micro-lamports-per-CU to total lamports.
 - Pass `encoding: 'base64'` when simulating and sending.
+- If a wallet signs the transaction, check that it advertises v1 support before
+  building one, and fall back to v0 if it does not
+  ([details](#wallets-must-advertise-the-versions-they-sign)).
+- Build v1 with `@solana/kit` or `@solana/web3.js` 3.x.
+
+**If you build a wallet** — browser extension, mobile wallet, or embedded
+signer ([details](#wallets-must-advertise-the-versions-they-sign)):
+
+- Advertise `1` in `supportedTransactionVersions` only once the wallet actually
+  parses and signs v1. Advertising it early makes dapps send transactions the
+  wallet will reject.
+- Show the user the v1 compute limits and priority fee from the message config,
+  not from ComputeBudget instructions.
 
 The [technical details](#technical-details) below explain each of these in full.
 Sample code is available [here](https://github.com/solana-foundation/transaction-v1-examples).
@@ -314,6 +329,75 @@ Three more sending changes:
   requires `encoding: "base64"`. base58 stays capped at 1232 bytes regardless of
   transaction version, and was deliberately not raised on deprecation grounds,
   so the 4096-byte ceiling is only reachable over base64.
+
+If you are sending transactions to a wallet, you must first make sure the wallet
+supports v1 transactions.
+Version support is per-wallet and may vary based on the version
+of that wallet installed by the user.
+
+Wallet Standard surfaces the wallet's `supportedTransactionVersions`
+information as a read-only set on the adapter. Your dapp must read the
+field before attempting to send a v1 transaction:
+
+```ts
+import {
+  SolanaSignAndSendTransaction,
+  SolanaSignTransaction
+} from "@solana/wallet-standard-features";
+import { getWallets } from "@wallet-standard/app";
+import type { Wallet } from "@wallet-standard/base";
+
+const wallets = getWallets();
+
+export function supportedTransactionVersions(wallet: Wallet): ReadonlySet<string> {
+  const versions = new Set<string>();
+  for (const name of [SolanaSignAndSendTransaction, SolanaSignTransaction] as const) {
+    const feature = wallet.features[name] as
+      | { supportedTransactionVersions?: readonly unknown[] }
+      | undefined;
+    for (const version of feature?.supportedTransactionVersions ?? [])
+      versions.add(String(version));
+  }
+  return versions;
+}
+
+export function supportsV1(wallet: Wallet): boolean {
+  return supportedTransactionVersions(wallet).has("1");
+}
+```
+
+Just because a wallet has added support for v1 does not mean that the user has
+the latest version of that wallet. So if a `supportedTransactionVersions` check yields
+an unexpected response, you might prompt your user to upgrade their wallet.
+
+A dapp that sends v1 builds the transaction with
+[`@solana/kit`](https://www.npmjs.com/package/@solana/kit) or
+[`@solana/web3.js` 3.x](https://www.npmjs.com/package/@solana/web3.js/v/3.0.0-rc.3),
+and use [`@solana/react`](https://www.npmjs.com/package/@solana/react) or
+[`@solana/wallet-adapter` 3.x (coming soon)](https://github.com/solana-foundation/solana-web3.js/pull/3886)
+
+</Audience>
+
+<Audience title="For Wallets" summary="Advertise v1 only once you can actually sign it.">
+
+### Wallets Must Advertise the Versions They Sign
+
+A dapp cannot ask a wallet to sign a version the wallet does not understand, so
+the wallet has to declare what it supports and the dapp has to check.
+
+Under the
+[Wallet Standard](https://github.com/anza-xyz/wallet-standard), the
+`solana:signTransaction` and `solana:signAndSendTransaction` features each carry
+a `supportedTransactionVersions` array.
+
+**A wallet must only advertise a version it can actually sign.**
+
+Wallets should also surface v1 resource limits correctly in the approval UI. A
+v1 transaction's compute unit limit, loaded accounts data size, and priority fee
+live in the message config, and its priority fee is a total in lamports rather
+than a price per compute unit. A wallet that reads ComputeBudget instructions to
+build its approval screen will misrepresent a v1 transaction, since
+those instructions are no-ops there.
 
 </Audience>
 
