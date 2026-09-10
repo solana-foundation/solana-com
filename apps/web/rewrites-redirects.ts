@@ -499,6 +499,11 @@ export default {
         locale: false,
       },
       {
+        source: "/api/developer-updates/latest",
+        destination: `${MEDIA_APP_URL}/api/developer-updates/latest`,
+        locale: false,
+      },
+      {
         source: "/api/posts/:path*",
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
         locale: false,
