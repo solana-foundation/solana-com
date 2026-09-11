@@ -3,6 +3,7 @@ import { recmaCodeHike, remarkCodeHike } from "codehike/mdx";
 import { rehypeToc } from "fumadocs-core/mdx-plugins";
 import remarkIncludeCode from "@devrelkit/remark-include-code";
 import remarkExampleOutput from "./src/lib/remark-example-output.mjs";
+import remarkWeb3jsSpecifier from "./src/lib/remark-web3js-specifier.mjs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -79,6 +80,8 @@ export default defineConfig({
       // Runs first: it reads the `file=` token that remarkIncludeCode consumes.
       [remarkExampleOutput, { rootDir: includeRoot }],
       [remarkIncludeCode, { rootDir: includeRoot, highlightStyle: "codehike" }],
+      // Runs after the include: it rewrites specifiers in the inlined source.
+      remarkWeb3jsSpecifier,
       [remarkCodeHike, chConfig],
       ...v,
     ],

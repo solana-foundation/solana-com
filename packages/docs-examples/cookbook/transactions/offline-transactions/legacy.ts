@@ -6,7 +6,7 @@ import {
   SystemProgram,
   LAMPORTS_PER_SOL,
   Message,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 import nacl from "tweetnacl";
 import bs58 from "bs58";
 

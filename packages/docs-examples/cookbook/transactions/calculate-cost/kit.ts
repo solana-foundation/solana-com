@@ -5,7 +5,6 @@ import {
   compileTransactionMessage,
   createClient,
   createTransactionMessage,
-  estimateComputeUnitLimitFactory,
   generateKeyPairSigner,
   getBase64Decoder,
   getCompiledTransactionMessageEncoder,
@@ -22,6 +21,7 @@ import {
 import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
 import { airdropPayer, payer } from "@solana/kit-plugin-signer";
 import {
+  estimateComputeUnitLimitFactory,
   getSetComputeUnitLimitInstruction,
   getSetComputeUnitPriceInstruction,
 } from "@solana-program/compute-budget";

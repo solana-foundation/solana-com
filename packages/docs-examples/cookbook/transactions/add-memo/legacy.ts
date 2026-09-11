@@ -5,7 +5,7 @@ import {
   LAMPORTS_PER_SOL,
   Transaction,
   sendAndConfirmTransaction,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 
 import { createMemoInstruction } from "@solana/spl-memo";
 

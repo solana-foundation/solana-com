@@ -1,5 +1,5 @@
 // #region sponsor
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js-legacy";
 import {
   createMint,
   createAssociatedTokenAccount,
