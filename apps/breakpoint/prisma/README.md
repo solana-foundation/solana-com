@@ -1,8 +1,8 @@
 # Community Awards database
 
 The nominations endpoint uses the Postgres database defined in
-`docker-compose.dev.yml`. It is deliberately separate from other local services
-and listens on host port `54329`.
+`docker-compose.yml`. It is deliberately separate from other local services and
+listens on host port `54329`.
 
 From `apps/breakpoint`, create an ignored local environment file and start the
 database and migrations:

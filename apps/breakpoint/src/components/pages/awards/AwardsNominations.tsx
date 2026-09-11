@@ -320,9 +320,9 @@ export default function AwardsNominations() {
                         </p>
                         <p className="type-h4 mt-2xs">{nomination.handle}</p>
                       </div>
-                      <div className="flex flex-col gap-3 sm:flex-row">
+                      <div className="flex flex-col gap-3 lg:flex-row">
                         <Button
-                          label="Share Community Awards"
+                          label="Share Nomination"
                           onClick={share}
                           variant="secondary"
                           className="border-black text-black hover:bg-black hover:text-white"
