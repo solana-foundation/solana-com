@@ -205,43 +205,46 @@ export async function POST(request: NextRequest) {
   try {
     const ipHash = hashIp(clientIp(request));
     const country = clientCountry(request);
-    const user = await awardsPrisma.user.upsert({
-      where: { browserUuid: ballotId },
-      create: { browserUuid: ballotId, ipHash, country },
-      update: {
-        ...(ipHash ? { ipHash } : {}),
-        ...(country ? { country } : {}),
-      },
-    });
-    const existingNomination = await awardsPrisma.nomination.findUnique({
-      where: { userId_category: { userId: user.id, category: categoryId } },
-      select: { id: true },
-    });
-    const nomination = await awardsPrisma.nomination.upsert({
-      where: { userId_category: { userId: user.id, category: categoryId } },
-      create: {
-        userId: user.id,
-        category: categoryId,
-        twitterHandle,
-        ipHash,
-        country,
-      },
-      update: {
-        twitterHandle,
-        ipHash,
-        country,
-        submittedAt: new Date(),
-      },
-    });
-    await awardsPrisma.nominationAttempt.create({
-      data: {
-        userId: user.id,
-        category: categoryId,
-        twitterHandle,
-        ipHash,
-        country,
-        action: existingNomination ? "updated" : "created",
-      },
+    const { nomination } = await awardsPrisma.$transaction(async (tx) => {
+      const user = await tx.user.upsert({
+        where: { browserUuid: ballotId },
+        create: { browserUuid: ballotId, ipHash, country },
+        update: {
+          ...(ipHash ? { ipHash } : {}),
+          ...(country ? { country } : {}),
+        },
+      });
+      const existingNomination = await tx.nomination.findUnique({
+        where: { userId_category: { userId: user.id, category: categoryId } },
+        select: { id: true },
+      });
+      const nomination = await tx.nomination.upsert({
+        where: { userId_category: { userId: user.id, category: categoryId } },
+        create: {
+          userId: user.id,
+          category: categoryId,
+          twitterHandle,
+          ipHash,
+          country,
+        },
+        update: {
+          twitterHandle,
+          ipHash,
+          country,
+          submittedAt: new Date(),
+        },
+      });
+      await tx.nominationAttempt.create({
+        data: {
+          userId: user.id,
+          category: categoryId,
+          twitterHandle,
+          ipHash,
+          country,
+          action: existingNomination ? "updated" : "created",
+        },
+      });
+      return { nomination };
     });
     return NextResponse.json(
       {

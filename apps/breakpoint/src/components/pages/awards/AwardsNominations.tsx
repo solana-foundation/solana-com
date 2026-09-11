@@ -337,6 +337,7 @@ export default function AwardsNominations() {
                           className="border-black text-black hover:bg-black hover:text-white"
                         />
                         <Button
+                          disabled={campaignStatus !== "open"}
                           label="Change nomination"
                           onClick={() => {
                             setHandle(nomination.handle.slice(1));
