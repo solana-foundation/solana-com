@@ -257,6 +257,12 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/references/clusters",
   },
   {
+    // "Developing Programs" section has no index.mdx, same as /docs/references
+    // above; redirect the bare section root to its first page.
+    source: "/docs/programs",
+    destination: "/docs/programs/rust",
+  },
+  {
     source: "/docs/clients/javascript",
     destination: "/docs/clients/official/javascript",
   },
