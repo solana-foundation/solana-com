@@ -2,40 +2,44 @@ import PageShell from "@/components/PageShell";
 import Marquee from "@/components/Marquee";
 import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
+import { getTranslations } from "@workspace/i18n/server";
 import AwardsNominations from "./AwardsNominations";
 
-const AWARDS_MARQUEE_HIGHLIGHTS = [
-  "COMMUNITY",
-  "CULTURE",
-  "CREATORS",
-  "BUILDERS",
-  "BP26 AWARDS",
-];
+const AWARDS_MARQUEE_KEYS = [
+  "community",
+  "culture",
+  "creators",
+  "builders",
+  "awards",
+] as const;
 
-export default function AwardsPage() {
+export default async function AwardsPage({ locale }: { locale: string }) {
+  const t = await getTranslations({ locale, namespace: "breakpoint" });
+
   return (
     <PageShell
       contentId="breakpoint-awards-content"
       navigation={{
         ctaAlwaysVisible: true,
         ctaHref: "/registration",
-        ctaLabel: "Register",
+        ctaLabel: t("menu.items.register"),
         showMenuButton: true,
       }}
     >
       <SubpageHero
-        eyebrow="Breakpoint 2026"
+        eyebrow={t("awards.hero.eyebrow")}
         heroImage="awards"
-        title="Community Awards"
+        title={t("awards.hero.title")}
       >
         <p className="max-w-[620px] text-p-large text-white">
-          Put the people, projects, and communities moving Solana forward in the
-          spotlight.
+          {t("awards.hero.description")}
         </p>
       </SubpageHero>
       <Marquee
         highlightClassName="text-purple"
-        highlights={AWARDS_MARQUEE_HIGHLIGHTS}
+        highlights={AWARDS_MARQUEE_KEYS.map((key) =>
+          t(`awards.marquee.${key}`),
+        )}
       />
       <AwardsNominations />
       <Footer backgroundColor="purple" />

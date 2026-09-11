@@ -19,7 +19,9 @@ import {
   readAwardsBallot,
 } from "@/lib/awards-session";
 
-const categoryIds = new Set(awardCategories.map((category) => category.id));
+const categoryIds = new Set<string>(
+  awardCategories.map((category) => category.id),
+);
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 const MAX_BODY_BYTES = 2_048;
 

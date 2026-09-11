@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import { publicAssetPath } from "@/config";
-import { awardCategories } from "@/content/awards";
+import { awardCategories, type AwardCategory } from "@/content/awards";
 
 type Nomination = { handle: string; submittedAt: string };
 type CampaignStatus = "open" | "not_started" | "closed";
+type AwardCategoryCopy = { name: string; description: string };
 
 function normaliseHandle(value: string) {
   return value.trim().replace(/^@+/, "").toLowerCase();
 }
 
 export default function AwardsNominations() {
+  const t = useTranslations("breakpoint.awards");
   const [activeIndex, setActiveIndex] = useState(0);
   const [nominations, setNominations] = useState<Record<string, Nomination>>(
     {},
@@ -25,14 +28,17 @@ export default function AwardsNominations() {
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const activeCategory = awardCategories[activeIndex]!;
+  const activeCategoryCopy = t.raw(
+    `categories.${activeCategory.id}`,
+  ) as AwardCategoryCopy;
   const nominationCount = Object.keys(nominations).length;
   const activeNumber = String(activeIndex + 1).padStart(2, "0");
   const accentTextClassName =
-    activeCategory.section === "Individual"
+    activeCategory.section === "individual"
       ? "text-core-purple"
       : "text-core-green";
   const accentBackgroundClassName =
-    activeCategory.section === "Individual"
+    activeCategory.section === "individual"
       ? "bg-core-purple"
       : "bg-core-green";
 
@@ -43,7 +49,7 @@ export default function AwardsNominations() {
         const response = await fetch("/breakpoint/api/nominations", {
           credentials: "same-origin",
         });
-        if (!response.ok) throw new Error("Unable to load nominations");
+        if (!response.ok) throw new Error();
         const data = (await response.json()) as {
           nominations: Array<{
             category: string;
@@ -68,9 +74,7 @@ export default function AwardsNominations() {
         }
       } catch {
         if (!cancelled) {
-          setError(
-            "Unable to prepare your nominations. Please refresh the page.",
-          );
+          setError(t("nominations.errors.load"));
         }
       }
     };
@@ -78,7 +82,7 @@ export default function AwardsNominations() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     setHandle(nominations[activeCategory.id]?.handle.replace(/^@/, "") ?? "");
@@ -86,21 +90,19 @@ export default function AwardsNominations() {
     setEditing(false);
   }, [activeCategory.id, nominations]);
 
-  const categoriesBySection = useMemo(
-    () => ["Individual", "Community"] as const,
-    [],
-  );
+  const categoriesBySection: AwardCategory["section"][] = [
+    "individual",
+    "community",
+  ];
 
   const saveNomination = async () => {
     const normalized = normaliseHandle(handle);
     if (!/^[a-z0-9_]{1,15}$/i.test(normalized)) {
-      setError(
-        "Enter a valid X username (up to 15 letters, numbers, or underscores).",
-      );
+      setError(t("nominations.errors.invalidUsername"));
       return;
     }
     if (!sessionReady) {
-      setError("Preparing your nominations. Please try again.");
+      setError(t("nominations.errors.session"));
       return;
     }
     setSubmitting(true);
@@ -115,7 +117,6 @@ export default function AwardsNominations() {
         }),
       });
       const data = (await response.json()) as {
-        error?: string;
         nomination?: {
           category: string;
           twitterHandle: string;
@@ -123,7 +124,7 @@ export default function AwardsNominations() {
         };
       };
       if (!response.ok || !data.nomination) {
-        setError(data.error ?? "Unable to save nomination. Please try again.");
+        setError(t("nominations.errors.save"));
         return;
       }
       const next = {
@@ -136,7 +137,7 @@ export default function AwardsNominations() {
       setNominations(next);
       setEditing(false);
     } catch {
-      setError("Unable to save nomination. Please try again.");
+      setError(t("nominations.errors.save"));
     } finally {
       setSubmitting(false);
     }
@@ -144,7 +145,10 @@ export default function AwardsNominations() {
 
   const nomination = nominations[activeCategory.id];
   const share = () => {
-    const text = `I nominated ${nomination?.handle} for ${activeCategory.name} at @SolanaConf. 🏆`;
+    const text = t("nominations.shareText", {
+      handle: nomination?.handle ?? "",
+      category: activeCategoryCopy.name,
+    });
     window.open(
       `https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`,
       "_blank",
@@ -160,16 +164,14 @@ export default function AwardsNominations() {
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
         <header className="grid gap-m border-t border-stroke-primary pt-m md:grid-cols-bp-desktop md:gap-x-s md:pt-l">
           <p className="type-eyebrow text-core-green md:col-span-4">
-            Community Spotlights
+            {t("nominations.eyebrow")}
           </p>
           <div className="md:col-span-9 md:col-start-7">
             <h2 className="type-h3 max-w-[780px]" id="nominations-title">
-              Your nominations put the ecosystem&apos;s best work in the
-              spotlight.
+              {t("nominations.headline")}
             </h2>
             <p className="mt-s max-w-[620px] text-p-large text-text-secondary">
-              Choose a category and enter an X username. You can submit one
-              nomination in every category and update it at any time.
+              {t("nominations.description")}
             </p>
           </div>
         </header>
@@ -178,9 +180,14 @@ export default function AwardsNominations() {
           <aside className="md:col-span-5 md:sticky md:top-[88px] md:h-fit">
             <div className="flex items-end justify-between border-y border-stroke-primary py-s">
               <div>
-                <p className="type-eyebrow text-white">Your nominations</p>
+                <p className="type-eyebrow text-white">
+                  {t("nominations.yourNominations")}
+                </p>
                 <p className="mt-2xs text-paragraph text-text-secondary">
-                  {nominationCount} of {awardCategories.length} nominated
+                  {t("nominations.nominatedCount", {
+                    count: nominationCount,
+                    total: awardCategories.length,
+                  })}
                 </p>
               </div>
               <span className="font-bp26 text-h3 text-white" aria-hidden="true">
@@ -193,7 +200,7 @@ export default function AwardsNominations() {
                 className="mb-2xs block font-mono text-button-small uppercase text-text-secondary"
                 htmlFor="award-category"
               >
-                Choose category
+                {t("nominations.chooseCategory")}
               </label>
               <div className="relative border border-stroke-tertiary bg-black">
                 <select
@@ -206,7 +213,14 @@ export default function AwardsNominations() {
                 >
                   {awardCategories.map((category, index) => (
                     <option key={category.id} value={index}>
-                      {String(index + 1).padStart(2, "0")} — {category.name}
+                      {String(index + 1).padStart(2, "0")} —{" "}
+                      {
+                        (
+                          t.raw(
+                            `categories.${category.id}`,
+                          ) as AwardCategoryCopy
+                        ).name
+                      }
                     </option>
                   ))}
                 </select>
@@ -219,15 +233,18 @@ export default function AwardsNominations() {
               </div>
             </div>
 
-            <nav className="mt-m hidden md:block" aria-label="Award categories">
+            <nav
+              className="mt-m hidden md:block"
+              aria-label={t("nominations.categoryNavigation")}
+            >
               {categoriesBySection.map((section) => (
                 <div className="mb-l last:mb-0" key={section}>
                   <p className="mb-2xs font-mono text-button-small uppercase text-text-secondary">
-                    {section}
+                    {t(`nominations.sections.${section}`)}
                   </p>
                   <ul
                     className="unstyled-list border-t border-stroke-primary"
-                    aria-label={section}
+                    aria-label={t(`nominations.sections.${section}`)}
                   >
                     {awardCategories
                       .filter((category) => category.section === section)
@@ -246,11 +263,17 @@ export default function AwardsNominations() {
                                 {String(index + 1).padStart(2, "0")}
                               </span>
                               <span className="flex-1 text-sm leading-tight">
-                                {category.name}
+                                {
+                                  (
+                                    t.raw(
+                                      `categories.${category.id}`,
+                                    ) as AwardCategoryCopy
+                                  ).name
+                                }
                               </span>
                               {nominations[category.id] && (
                                 <span
-                                  aria-label="Nominated"
+                                  aria-label={t("nominations.nominated")}
                                   className={
                                     selected ? "text-black" : "text-core-green"
                                   }
@@ -290,14 +313,14 @@ export default function AwardsNominations() {
                       —
                     </span>
                     <span className="font-mono text-button-small uppercase text-text-secondary">
-                      {activeCategory.section}
+                      {t(`nominations.sections.${activeCategory.section}`)}
                     </span>
                   </div>
                   <h3 className="type-h3 mt-s max-w-[720px] pr-l">
-                    {activeCategory.name}
+                    {activeCategoryCopy.name}
                   </h3>
                   <p className="mt-s max-w-[560px] text-p-large text-text-secondary">
-                    {activeCategory.description}
+                    {activeCategoryCopy.description}
                   </p>
                 </div>
               </div>
@@ -305,9 +328,11 @@ export default function AwardsNominations() {
               <div className="border-t border-stroke-primary p-s md:p-l">
                 {campaignStatus && campaignStatus !== "open" ? (
                   <p className="text-p-large text-text-secondary" role="status">
-                    {campaignStatus === "closed"
-                      ? "Nominations are now closed. Thank you for taking part."
-                      : "Nominations have not opened yet. Please check back soon."}
+                    {t(
+                      campaignStatus === "closed"
+                        ? "nominations.status.closed"
+                        : "nominations.status.notStarted",
+                    )}
                   </p>
                 ) : null}
                 {nomination && !editing ? (
@@ -317,7 +342,7 @@ export default function AwardsNominations() {
                     <div className="flex flex-col justify-between gap-m md:flex-row md:items-end">
                       <div>
                         <p className="font-mono text-button-small uppercase">
-                          Nomination submitted
+                          {t("nominations.submitted")}
                         </p>
                         <p className="type-h4 mt-2xs">{nomination.handle}</p>
                       </div>
@@ -331,14 +356,14 @@ export default function AwardsNominations() {
                               className="block size-4 brightness-0 invert"
                             />
                           }
-                          label="Share Nomination"
+                          label={t("nominations.share")}
                           onClick={share}
                           variant="secondary"
                           className="border-black text-black hover:bg-black hover:text-white"
                         />
                         <Button
                           disabled={campaignStatus !== "open"}
-                          label="Change nomination"
+                          label={t("nominations.change")}
                           onClick={() => {
                             setHandle(nomination.handle.slice(1));
                             setEditing(true);
@@ -372,7 +397,7 @@ export default function AwardsNominations() {
                           className="mb-2xs block font-mono text-button-small uppercase"
                           htmlFor="x-handle"
                         >
-                          Nominee&apos;s X username
+                          {t("nominations.nomineeUsername")}
                         </label>
                         <div className="flex h-12 items-center border border-stroke-tertiary bg-black px-4 focus-within:outline focus-within:outline-1 focus-within:outline-offset-4 focus-within:outline-core-green">
                           <span
@@ -387,7 +412,7 @@ export default function AwardsNominations() {
                             id="x-handle"
                             maxLength={15}
                             onChange={(event) => setHandle(event.target.value)}
-                            placeholder="username"
+                            placeholder={t("nominations.usernamePlaceholder")}
                             value={handle}
                           />
                         </div>
@@ -399,7 +424,11 @@ export default function AwardsNominations() {
                           !sessionReady ||
                           campaignStatus !== "open"
                         }
-                        label={submitting ? "Submitting…" : "Submit nomination"}
+                        label={
+                          submitting
+                            ? t("nominations.submitting")
+                            : t("nominations.submit")
+                        }
                         type="submit"
                       />
                     </div>
@@ -415,7 +444,7 @@ export default function AwardsNominations() {
             <div className="mt-m grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-stroke-primary pb-m">
               <Button
                 className="justify-self-start"
-                label="Previous"
+                label={t("nominations.previous")}
                 onClick={() =>
                   setActiveIndex((index) => Math.max(0, index - 1))
                 }
@@ -431,7 +460,7 @@ export default function AwardsNominations() {
               </p>
               <Button
                 className="justify-self-end"
-                label="Next"
+                label={t("nominations.next")}
                 onClick={() =>
                   setActiveIndex((index) =>
                     Math.min(awardCategories.length - 1, index + 1),
