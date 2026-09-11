@@ -49,8 +49,10 @@ rent-exempt reserve.
 
 ### Typescript
 
-The `Kit` examples below show the recommended approach using `@solana/kit`.
-Legacy examples using `@solana/web3.js` are included for reference.
+The `Kit` examples show the recommended approach. `Web3.js v3` examples use the
+class-based `@solana/web3.js` v3 API with `@solana-program` instruction
+builders; `Web3.js (legacy)` examples use `@solana/web3.js` v1 with
+`@solana/spl-token`.
 
 #### Kit
 
@@ -183,7 +185,105 @@ console.log("\nTransaction Signature:", result.context.signature);
 
 </CodeTabs>
 
-#### Web3.js
+#### Web3.js v3
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstructionAsync,
+  getSyncNativeInstruction,
+  getTokenDecoder,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const NATIVE_MINT = new PublicKey(
+  "So11111111111111111111111111111111111111112"
+).toBase58();
+
+// !collapse(1:38) collapsed
+// Setup: create a WSOL ATA before wrapping and syncing SOL.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = await Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  2 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    await getCreateAssociatedTokenIdempotentInstructionAsync({
+      payer: feePayer,
+      owner: feePayer.publicKey.toBase58(),
+      mint: NATIVE_MINT
+    })
+  ),
+  [feePayer]
+);
+
+const [associatedTokenAccount] = await findAssociatedTokenPda({
+  mint: NATIVE_MINT,
+  owner: feePayer.publicKey.toBase58(),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+const syncBlockhash = await connection.getLatestBlockhash();
+
+// !mark(1:18)
+const result = await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: syncBlockhash.blockhash,
+    lastValidBlockHeight: syncBlockhash.lastValidBlockHeight
+  }).add(
+    SystemProgram.transfer({
+      fromPubkey: feePayer.publicKey, // Account sending the SOL to wrap.
+      toPubkey: new PublicKey(associatedTokenAccount), // WSOL token account receiving the SOL.
+      lamports: 1_000_000 // SOL amount in lamports.
+    }),
+    getSyncNativeInstruction({
+      account: associatedTokenAccount // WSOL token account to synchronize.
+    })
+  ),
+  [feePayer]
+);
+
+const tokenAccountInfo = await connection.getAccountInfo(
+  new PublicKey(associatedTokenAccount)
+);
+const tokenAccountData = getTokenDecoder().decode(tokenAccountInfo!.data);
+
+console.log("WSOL Token Account Address:", associatedTokenAccount);
+console.log("WSOL Token Account:", tokenAccountData);
+console.log("\nTransaction Signature:", result);
+```
+
+</CodeTabs>
+
+#### Web3.js (legacy)
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 
