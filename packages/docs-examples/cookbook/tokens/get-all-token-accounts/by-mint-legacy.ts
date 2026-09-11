@@ -1,5 +1,5 @@
 // #region by-mint
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js-legacy";
 
 // connection
 const connection = new Connection("http://localhost:8899", "confirmed");

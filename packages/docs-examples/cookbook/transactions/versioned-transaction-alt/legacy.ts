@@ -9,7 +9,7 @@ import {
   Transaction,
   TransactionMessage,
   VersionedTransaction,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 
 const connection = new Connection(
   process.env.SOLANA_RPC_URL ?? "http://localhost:8899",
