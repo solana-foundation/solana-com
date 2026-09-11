@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/Button";
+import { publicAssetPath } from "@/config";
 import { awardCategories } from "@/content/awards";
 
 type Nomination = { handle: string; submittedAt: string };
@@ -322,6 +323,14 @@ export default function AwardsNominations() {
                       </div>
                       <div className="flex flex-col gap-3 lg:flex-row">
                         <Button
+                          iconLeft={
+                            <img
+                              src={publicAssetPath("/assets/icon-x.svg")}
+                              alt=""
+                              aria-hidden="true"
+                              className="block size-4 brightness-0 invert"
+                            />
+                          }
                           label="Share Nomination"
                           onClick={share}
                           variant="secondary"
