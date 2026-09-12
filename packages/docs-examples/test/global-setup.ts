@@ -8,7 +8,7 @@ import {
 } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { Surfnet } from "surfpool-sdk";
+import { Surfnet } from "@solana/surfpool";
 
 const RPC_PORT = 8899;
 const WS_PORT = 8900;
@@ -27,6 +27,13 @@ export async function setup(): Promise<void> {
     remoteRpcUrl:
       process.env.SURFPOOL_DATASOURCE_RPC_URL ??
       "https://api.mainnet-beta.solana.com",
+    // The whole cookbook suite runs in parallel against this one instance, and
+    // the embedded runtime shares the Node process with the test workers. At
+    // surfpool's default slot time the block height climbs faster than a
+    // loaded instance serves requests, so examples intermittently lose the
+    // race against their blockhash's 150-block validity window. A longer slot
+    // buys wall-clock headroom for every example to land.
+    slotTimeMs: 1_200,
   });
 
   // The SDK binds dynamic ports. Examples in the cookbook hardcode 8899/8900
