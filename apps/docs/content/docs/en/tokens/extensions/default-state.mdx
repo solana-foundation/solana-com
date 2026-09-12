@@ -553,7 +553,178 @@ console.log(
 
 </CodeTabs>
 
-#### Web3.js
+#### Web3.js v3
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
+import {
+  AccountState,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstruction,
+  getInitializeDefaultAccountStateInstruction,
+  getInitializeMint2Instruction,
+  getMintDecoder,
+  getMintSize,
+  getTokenDecoder,
+  getUpdateDefaultAccountStateInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = await Keypair.generate();
+
+const getTokenAccountStateLabel = (state: AccountState) => AccountState[state];
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mint = await Keypair.generate();
+const mintLength = getMintSize([
+  { __kind: "DefaultAccountState", state: AccountState.Frozen }
+]);
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
+
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new mint account.
+  newAccountPubkey: mint.publicKey, // New mint account to create.
+  space: mintLength, // Account size in bytes for the mint plus DefaultAccountState.
+  lamports: mintRent, // Lamports funding the mint account rent.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+});
+
+// !mark(1:5)
+const initializeDefaultStateInstruction =
+  getInitializeDefaultAccountStateInstruction({
+    mint: mint.publicKey.toBase58(), // Mint account that stores the DefaultAccountState extension.
+    state: AccountState.Frozen // Default state assigned to new token accounts.
+  });
+
+const initializeMintInstruction = getInitializeMint2Instruction({
+  mint: mint.publicKey.toBase58(), // Mint account to initialize.
+  decimals: 0, // Number of decimals for the token.
+  mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+  freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    createMintAccountInstruction,
+    initializeDefaultStateInstruction,
+    initializeMintInstruction
+  ),
+  [feePayer, mint]
+);
+
+const [tokenAccount] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: feePayer.publicKey.toBase58(),
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer, // Account funding the associated token account creation.
+      ata: tokenAccount, // Associated token account address to create.
+      owner: feePayer.publicKey.toBase58(), // Owner of the token account.
+      mint: mint.publicKey.toBase58() // Mint for the associated token account.
+    })
+  ),
+  [feePayer],
+  {
+    commitment: "confirmed"
+  }
+);
+
+const readDefaultAccountState = async () => {
+  const mintAccountInfo = await connection.getAccountInfo(
+    mint.publicKey,
+    "confirmed"
+  );
+  const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+  return (unwrapOption(mintAccount.extensions) ?? []).find(
+    (extension) => extension.__kind === "DefaultAccountState"
+  );
+};
+
+const readTokenAccountState = async () => {
+  const tokenAccountInfo = await connection.getAccountInfo(
+    new PublicKey(tokenAccount),
+    "confirmed"
+  );
+  return getTokenDecoder().decode(tokenAccountInfo!.data).state;
+};
+
+const tokenAccountStateBeforeUpdate = await readTokenAccountState();
+const defaultAccountStateBeforeUpdate = await readDefaultAccountState();
+
+// !mark(1:5)
+const updateDefaultStateInstruction = getUpdateDefaultAccountStateInstruction({
+  mint: mint.publicKey.toBase58(), // Mint account that stores the DefaultAccountState extension.
+  state: AccountState.Initialized, // New default state assigned to later token accounts.
+  freezeAuthority: feePayer // Freeze authority authorized to update the default state.
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(updateDefaultStateInstruction),
+  [feePayer],
+  {
+    commitment: "confirmed"
+  }
+);
+
+const tokenAccountStateAfterUpdate = await readTokenAccountState();
+const defaultAccountStateAfterUpdate = await readDefaultAccountState();
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log(
+  "Default Account State Before Update:",
+  defaultAccountStateBeforeUpdate
+);
+console.log(
+  "Token Account State Before Update:",
+  getTokenAccountStateLabel(tokenAccountStateBeforeUpdate)
+);
+console.log(
+  "Default Account State After Update:",
+  defaultAccountStateAfterUpdate
+);
+console.log(
+  "Token Account State After Update:",
+  getTokenAccountStateLabel(tokenAccountStateAfterUpdate)
+);
+```
+
+</CodeTabs>
+
+#### Web3.js (legacy)
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 

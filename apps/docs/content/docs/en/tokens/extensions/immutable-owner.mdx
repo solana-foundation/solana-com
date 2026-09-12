@@ -484,7 +484,153 @@ console.log("SetAuthority Failure:", failure);
 
 </CodeTabs>
 
-#### Web3.js
+#### Web3.js v3
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
+import {
+  AuthorityType,
+  getInitializeAccountInstruction,
+  getInitializeImmutableOwnerInstruction,
+  getInitializeMint2Instruction,
+  getMintSize,
+  getSetAuthorityInstruction,
+  getTokenDecoder,
+  getTokenSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const feePayer = await Keypair.generate();
+const newOwner = await Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+const latestBlockhash = await connection.getLatestBlockhash();
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mint = await Keypair.generate();
+
+const mintLength = getMintSize();
+
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
+
+const tokenAccount = await Keypair.generate();
+const tokenAccountLen = getTokenSize([{ __kind: "ImmutableOwner" }]);
+const tokenAccountRent =
+  await connection.getMinimumBalanceForRentExemption(tokenAccountLen);
+
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new mint account.
+  newAccountPubkey: mint.publicKey, // New mint account to create.
+  space: mintLength, // Account size in bytes for the mint.
+  lamports: mintRent, // Lamports funding the mint account rent.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+});
+
+const initializeMintInstruction = getInitializeMint2Instruction({
+  mint: mint.publicKey.toBase58(), // Mint account to initialize.
+  decimals: 0, // Number of decimals for the token.
+  mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+  freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+});
+
+const createTokenAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new token account.
+  newAccountPubkey: tokenAccount.publicKey, // New token account to create.
+  space: tokenAccountLen, // Account size in bytes for the token account plus ImmutableOwner.
+  lamports: tokenAccountRent, // Lamports funding the token account rent.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the token account.
+});
+
+// !mark(1:4)
+const initializeImmutableOwnerInstruction =
+  getInitializeImmutableOwnerInstruction({
+    account: tokenAccount.publicKey.toBase58() // Token account that stores the ImmutableOwner extension.
+  });
+
+const initializeTokenAccountInstruction = getInitializeAccountInstruction({
+  account: tokenAccount.publicKey.toBase58(), // Token account to initialize.
+  mint: mint.publicKey.toBase58(), // Mint for the token account.
+  owner: feePayer.publicKey.toBase58() // Owner of the token account.
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createMintAccountInstruction,
+    initializeMintInstruction
+  ),
+  [feePayer, mint]
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createTokenAccountInstruction,
+    initializeImmutableOwnerInstruction,
+    initializeTokenAccountInstruction
+  ),
+  [feePayer, tokenAccount]
+);
+
+let failure: string | undefined;
+try {
+  await sendAndConfirmTransaction(
+    connection,
+    new Transaction().add(
+      // !mark(1:6)
+      getSetAuthorityInstruction({
+        owned: tokenAccount.publicKey.toBase58(), // Token account whose authority is being updated.
+        owner: feePayer, // Current token account owner signing the instruction.
+        authorityType: AuthorityType.AccountOwner, // Account authority field to change.
+        newAuthority: newOwner.publicKey.toBase58() // New token account owner to set.
+      })
+    ),
+    [feePayer]
+  );
+} catch (error) {
+  failure = String(error);
+}
+if (!failure) {
+  throw new Error("Expected the owner change to fail");
+}
+
+const tokenAccountInfo = await connection.getAccountInfo(
+  tokenAccount.publicKey,
+  "confirmed"
+);
+const tokenAccountData = getTokenDecoder().decode(tokenAccountInfo!.data);
+const immutableOwnerExtension = (
+  unwrapOption(tokenAccountData.extensions) ?? []
+).find((extension) => extension.__kind === "ImmutableOwner");
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Token Account:", tokenAccount.publicKey.toBase58());
+console.log("ImmutableOwner Extension:", immutableOwnerExtension);
+console.log("SetAuthority Failure:", failure);
+```
+
+</CodeTabs>
+
+#### Web3.js (legacy)
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 
