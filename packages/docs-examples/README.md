@@ -26,7 +26,8 @@ See
 pnpm --filter @workspace/docs-examples test
 ```
 
-Requires the `surfpool` CLI on `$PATH`:
+Requires the `surfpool` CLI on `$PATH`, version 1.5.0 or later — earlier
+releases reject transaction v1 on the wire:
 
 ```sh
 cargo install --git https://github.com/solana-foundation/surfpool --locked surfpool-cli

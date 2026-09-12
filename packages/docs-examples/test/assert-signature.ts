@@ -56,7 +56,7 @@ async function fetchTxWithRetry(sig: Signature) {
       .getTransaction(sig, {
         commitment: "confirmed",
         encoding: "json",
-        maxSupportedTransactionVersion: 0,
+        maxSupportedTransactionVersion: 1,
       })
       .send();
     if (tx) return tx;
