@@ -1,6 +1,4 @@
 -- Store only a keyed pseudonymous network identifier for new submissions.
--- Existing IP-address columns remain for backward compatibility; application
--- code no longer writes to them.
 ALTER TABLE "awards_users" ADD COLUMN "ipHash" VARCHAR(43);
 ALTER TABLE "awards_nominations" ADD COLUMN "ipHash" VARCHAR(43);
 

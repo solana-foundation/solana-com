@@ -447,7 +447,7 @@ export default function AwardsNominations() {
                         >
                           {t("nominations.nomineeUsername")}
                         </label>
-                        <div className="flex h-12 items-center border border-stroke-tertiary bg-black px-4 focus-within:outline focus-within:outline-1 focus-within:outline-offset-4 focus-within:outline-core-green">
+                        <div className="flex h-10 items-center border border-stroke-tertiary bg-black px-4 focus-within:outline focus-within:outline-1 focus-within:outline-offset-4 focus-within:outline-core-green">
                           <span
                             aria-hidden="true"
                             className="text-text-secondary"

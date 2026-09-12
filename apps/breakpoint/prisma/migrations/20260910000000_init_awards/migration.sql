@@ -1,7 +1,6 @@
 CREATE TABLE "awards_users" (
     "id" UUID NOT NULL,
     "browserUuid" VARCHAR(255) NOT NULL,
-    "ipAddress" VARCHAR(45),
     "country" VARCHAR(2),
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "awards_users_pkey" PRIMARY KEY ("id")
@@ -13,7 +12,6 @@ CREATE TABLE "awards_nominations" (
     "category" VARCHAR(100) NOT NULL,
     "twitterHandle" VARCHAR(15) NOT NULL,
     "submittedAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "ipAddress" VARCHAR(45),
     "country" VARCHAR(2),
     CONSTRAINT "awards_nominations_pkey" PRIMARY KEY ("id")
 );

@@ -241,16 +241,14 @@ export async function POST(request: NextRequest) {
     );
 
   try {
-    const ipAddress = clientIp(request);
-    const ipHash = hashIp(ipAddress);
+    const ipHash = hashIp(clientIp(request));
     const country = clientCountry(request);
     const { nomination } = await awardsPrisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
         const user = await tx.user.upsert({
           where: { browserUuid: ballotId },
-          create: { browserUuid: ballotId, ipAddress, ipHash, country },
+          create: { browserUuid: ballotId, ipHash, country },
           update: {
-            ...(ipAddress ? { ipAddress } : {}),
             ...(ipHash ? { ipHash } : {}),
             ...(country ? { country } : {}),
           },
@@ -265,13 +263,11 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             category: categoryId,
             twitterHandle,
-            ipAddress,
             ipHash,
             country,
           },
           update: {
             twitterHandle,
-            ipAddress,
             ipHash,
             country,
             submittedAt: new Date(),
@@ -282,7 +278,6 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             category: categoryId,
             twitterHandle,
-            ipAddress,
             ipHash,
             country,
             action: existingNomination ? "updated" : "created",

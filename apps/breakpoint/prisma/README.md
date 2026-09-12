@@ -38,9 +38,8 @@ Production and Preview:
 - `AWARDS_COOKIE_SECRET`: a unique 32+ character value used to sign the
   HTTP-only ballot cookie.
 - `AWARDS_IP_HASH_SECRET`: a unique 32+ character value used to derive a
-  pseudonymous network identifier for fraud review. Raw IP addresses and their
-  keyed hashes are retained on nominations and nomination-attempt audit records
-  for duplicate-submission review.
+  pseudonymous network identifier for fraud review. New records do not store raw
+  IP addresses.
 
 Configure `AWARDS_NOMINATIONS_OPENS_AT` and `AWARDS_NOMINATIONS_CLOSES_AT` as
 ISO-8601 UTC timestamps before opening the campaign. The API enforces those
