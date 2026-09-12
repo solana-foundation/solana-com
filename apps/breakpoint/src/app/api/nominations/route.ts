@@ -1,4 +1,5 @@
 import { checkBotId } from "botid/server";
+import type { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { awardCategories } from "@/content/awards";
 import {
@@ -25,11 +26,40 @@ const categoryIds = new Set<string>(
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 const MAX_BODY_BYTES = 2_048;
 
-type NominationBody = {
-  categoryId?: unknown;
-  twitterHandle?: unknown;
-  website?: unknown;
-};
+class RequestBodyTooLargeError extends Error {}
+
+async function parseJsonBody(request: NextRequest): Promise<unknown> {
+  if (!request.body) throw new SyntaxError("Request body is missing.");
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bodyLength = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      bodyLength += value.byteLength;
+      if (bodyLength > MAX_BODY_BYTES) {
+        await reader.cancel();
+        throw new RequestBodyTooLargeError();
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(bodyLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return JSON.parse(new TextDecoder().decode(body));
+}
 
 function handle(value: unknown) {
   if (typeof value !== "string") return null;
@@ -167,10 +197,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: NominationBody;
+  let body: unknown;
   try {
-    body = await request.json();
-  } catch {
+    body = await parseJsonBody(request);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json(
+        { error: "Request is too large." },
+        { status: 413, headers: NO_STORE_HEADERS },
+      );
+    }
     return NextResponse.json(
       { error: "Invalid JSON body." },
       { status: 400, headers: NO_STORE_HEADERS },
@@ -207,47 +243,49 @@ export async function POST(request: NextRequest) {
   try {
     const ipHash = hashIp(clientIp(request));
     const country = clientCountry(request);
-    const { nomination } = await awardsPrisma.$transaction(async (tx) => {
-      const user = await tx.user.upsert({
-        where: { browserUuid: ballotId },
-        create: { browserUuid: ballotId, ipHash, country },
-        update: {
-          ...(ipHash ? { ipHash } : {}),
-          ...(country ? { country } : {}),
-        },
-      });
-      const existingNomination = await tx.nomination.findUnique({
-        where: { userId_category: { userId: user.id, category: categoryId } },
-        select: { id: true },
-      });
-      const nomination = await tx.nomination.upsert({
-        where: { userId_category: { userId: user.id, category: categoryId } },
-        create: {
-          userId: user.id,
-          category: categoryId,
-          twitterHandle,
-          ipHash,
-          country,
-        },
-        update: {
-          twitterHandle,
-          ipHash,
-          country,
-          submittedAt: new Date(),
-        },
-      });
-      await tx.nominationAttempt.create({
-        data: {
-          userId: user.id,
-          category: categoryId,
-          twitterHandle,
-          ipHash,
-          country,
-          action: existingNomination ? "updated" : "created",
-        },
-      });
-      return { nomination };
-    });
+    const { nomination } = await awardsPrisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const user = await tx.user.upsert({
+          where: { browserUuid: ballotId },
+          create: { browserUuid: ballotId, ipHash, country },
+          update: {
+            ...(ipHash ? { ipHash } : {}),
+            ...(country ? { country } : {}),
+          },
+        });
+        const existingNomination = await tx.nomination.findUnique({
+          where: { userId_category: { userId: user.id, category: categoryId } },
+          select: { id: true },
+        });
+        const nomination = await tx.nomination.upsert({
+          where: { userId_category: { userId: user.id, category: categoryId } },
+          create: {
+            userId: user.id,
+            category: categoryId,
+            twitterHandle,
+            ipHash,
+            country,
+          },
+          update: {
+            twitterHandle,
+            ipHash,
+            country,
+            submittedAt: new Date(),
+          },
+        });
+        await tx.nominationAttempt.create({
+          data: {
+            userId: user.id,
+            category: categoryId,
+            twitterHandle,
+            ipHash,
+            country,
+            action: existingNomination ? "updated" : "created",
+          },
+        });
+        return { nomination };
+      },
+    );
     return NextResponse.json(
       {
         nomination: {
