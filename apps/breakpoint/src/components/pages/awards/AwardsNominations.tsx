@@ -17,6 +17,9 @@ function normaliseHandle(value: string) {
 export default function AwardsNominations() {
   const t = useTranslations("breakpoint.awards");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [openSection, setOpenSection] = useState<
+    AwardCategory["section"] | undefined
+  >(awardCategories[0]!.section);
   const [nominations, setNominations] = useState<Record<string, Nomination>>(
     {},
   );
@@ -89,6 +92,10 @@ export default function AwardsNominations() {
     setError("");
     setEditing(false);
   }, [activeCategory.id, nominations]);
+
+  useEffect(() => {
+    setOpenSection(activeCategory.section);
+  }, [activeCategory.section]);
 
   const categoriesBySection: AwardCategory["section"][] = [
     "individual",
@@ -238,12 +245,53 @@ export default function AwardsNominations() {
               aria-label={t("nominations.categoryNavigation")}
             >
               {categoriesBySection.map((section) => (
-                <div className="mb-l last:mb-0" key={section}>
-                  <p className="mb-2xs font-mono text-button-small uppercase text-text-secondary">
+                <div className="mb-s last:mb-0" key={section}>
+                  <button
+                    aria-controls={`award-category-section-${section}`}
+                    aria-expanded={openSection === section}
+                    className={`mb-2xs flex min-h-12 w-full items-center justify-between border-y border-stroke-primary px-2xs font-mono text-button-small uppercase transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-green ${
+                      openSection === section
+                        ? "bg-neutral-800 text-core-green"
+                        : "text-core-green hover:bg-neutral-800"
+                    }`}
+                    onClick={() =>
+                      setOpenSection((current) =>
+                        current === section ? undefined : section,
+                      )
+                    }
+                    type="button"
+                  >
                     {t(`nominations.sections.${section}`)}
-                  </p>
+                    <span
+                      aria-hidden="true"
+                      className="flex size-6 shrink-0 items-center justify-center border border-current"
+                    >
+                      <svg
+                        className="size-3"
+                        fill="none"
+                        viewBox="0 0 12 12"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M2 6H10"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                        />
+                        {openSection !== section && (
+                          <path
+                            d="M6 2V10"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                          />
+                        )}
+                      </svg>
+                    </span>
+                  </button>
                   <ul
-                    className="unstyled-list border-t border-stroke-primary"
+                    className={`unstyled-list border-t border-stroke-primary ${
+                      openSection === section ? "" : "hidden"
+                    }`}
+                    id={`award-category-section-${section}`}
                     aria-label={t(`nominations.sections.${section}`)}
                   >
                     {awardCategories
