@@ -1689,7 +1689,292 @@ console.dir(
 
 </CodeTabs>
 
-#### Web3.js
+#### Web3.js v3
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction
+} from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstruction,
+  getHarvestWithheldTokensToMintInstruction,
+  getInitializeMint2Instruction,
+  getInitializeTransferFeeConfigInstruction,
+  getMintDecoder,
+  getMintSize,
+  getMintToCheckedInstruction,
+  getSetTransferFeeInstruction,
+  getTokenDecoder,
+  getTransferCheckedWithFeeInstruction,
+  getWithdrawWithheldTokensFromAccountsInstruction,
+  getWithdrawWithheldTokensFromMintInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = await Keypair.generate();
+const recipientA = await Keypair.generate();
+const recipientB = await Keypair.generate();
+const feeReceiver = await Keypair.generate();
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mint = await Keypair.generate();
+const transferFee = {
+  epoch: 0n,
+  maximumFee: 10n,
+  transferFeeBasisPoints: 150
+};
+const mintLen = getMintSize([
+  {
+    __kind: "TransferFeeConfig",
+    transferFeeConfigAuthority: feePayer.publicKey.toBase58(),
+    withdrawWithheldAuthority: feePayer.publicKey.toBase58(),
+    withheldAmount: 0n,
+    olderTransferFee: transferFee,
+    newerTransferFee: transferFee
+  }
+]);
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLen);
+
+const deriveAta = async (owner: PublicKey) => {
+  const [ata] = await findAssociatedTokenPda({
+    mint: mint.publicKey.toBase58(),
+    owner: owner.toBase58(),
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+  return ata;
+};
+
+const sourceToken = await deriveAta(feePayer.publicKey);
+const destinationAToken = await deriveAta(recipientA.publicKey);
+const destinationBToken = await deriveAta(recipientB.publicKey);
+const feeReceiverToken = await deriveAta(feeReceiver.publicKey);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: mint.publicKey, // New mint account to create.
+      lamports: mintRent, // Lamports funding the mint account rent.
+      space: mintLen, // Account size in bytes for the mint plus TransferFeeConfig.
+      programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+    }),
+    // !mark(1:7)
+    getInitializeTransferFeeConfigInstruction({
+      mint: mint.publicKey.toBase58(), // Mint account that stores the TransferFeeConfig extension.
+      transferFeeConfigAuthority: feePayer.publicKey.toBase58(), // Authority allowed to update the transfer fee later.
+      withdrawWithheldAuthority: feePayer.publicKey.toBase58(), // Value stored in the mint's `withdraw_withheld_authority` field.
+      transferFeeBasisPoints: 150, // Transfer fee in basis points.
+      maximumFee: 10n // Maximum fee charged on each transfer.
+    }),
+    getInitializeMint2Instruction({
+      mint: mint.publicKey.toBase58(), // Mint account to initialize.
+      decimals: 2, // Number of decimals for the token.
+      mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+      freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+    })
+  ),
+  [feePayer, mint],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer,
+      ata: sourceToken,
+      owner: feePayer.publicKey.toBase58(),
+      mint: mint.publicKey.toBase58()
+    }),
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer,
+      ata: destinationAToken,
+      owner: recipientA.publicKey.toBase58(),
+      mint: mint.publicKey.toBase58()
+    }),
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer,
+      ata: destinationBToken,
+      owner: recipientB.publicKey.toBase58(),
+      mint: mint.publicKey.toBase58()
+    }),
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer,
+      ata: feeReceiverToken,
+      owner: feeReceiver.publicKey.toBase58(),
+      mint: mint.publicKey.toBase58()
+    }),
+    getMintToCheckedInstruction({
+      mint: mint.publicKey.toBase58(),
+      token: sourceToken,
+      mintAuthority: feePayer,
+      amount: 1_000,
+      decimals: 2
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:9)
+    getTransferCheckedWithFeeInstruction({
+      source: sourceToken, // Token account sending the transfer.
+      mint: mint.publicKey.toBase58(), // Mint with the transfer fee configuration.
+      destination: destinationAToken, // Token account receiving the transfer.
+      authority: feePayer, // Signer approving the transfer.
+      amount: 200n, // Token amount in base units.
+      decimals: 2, // Decimals defined on the mint.
+      fee: 3n // Expected transfer fee for this transfer.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:7)
+    getWithdrawWithheldTokensFromAccountsInstruction({
+      mint: mint.publicKey.toBase58(), // Mint with the transfer fee configuration.
+      feeReceiver: feeReceiverToken, // Token account receiving the withdrawn fees.
+      withdrawWithheldAuthority: feePayer, // Signer matching the mint's `withdraw_withheld_authority`.
+      sources: [destinationAToken], // Token accounts to withdraw withheld fees from.
+      numTokenAccounts: 1 // Number of token accounts to withdraw from.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:9)
+    getTransferCheckedWithFeeInstruction({
+      source: sourceToken, // Token account sending the transfer.
+      mint: mint.publicKey.toBase58(), // Mint with the transfer fee configuration.
+      destination: destinationBToken, // Token account receiving the transfer.
+      authority: feePayer, // Signer approving the transfer.
+      amount: 200n, // Token amount in base units.
+      decimals: 2, // Decimals defined on the mint.
+      fee: 3n // Expected transfer fee for this transfer.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:4)
+    getHarvestWithheldTokensToMintInstruction({
+      mint: mint.publicKey.toBase58(), // Mint that collects harvested withheld fees.
+      sources: [destinationBToken] // Token accounts to harvest withheld fees from.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:5)
+    getWithdrawWithheldTokensFromMintInstruction({
+      mint: mint.publicKey.toBase58(), // Mint storing harvested withheld fees.
+      feeReceiver: feeReceiverToken, // Token account receiving withdrawn fees.
+      withdrawWithheldAuthority: feePayer // Signer matching the mint's `withdraw_withheld_authority`.
+    }),
+    // !mark(1:6)
+    getSetTransferFeeInstruction({
+      mint: mint.publicKey.toBase58(), // Mint whose next transfer fee configuration is updated.
+      transferFeeConfigAuthority: feePayer, // Authority allowed to update the transfer fee later.
+      transferFeeBasisPoints: 250, // New transfer fee in basis points.
+      maximumFee: 25n // New maximum fee for the next transfer fee configuration.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const readTokenAccount = async (address: string) => {
+  const info = await connection.getAccountInfo(
+    new PublicKey(address),
+    "confirmed"
+  );
+  return getTokenDecoder().decode(info!.data);
+};
+
+type TokenAccount = Awaited<ReturnType<typeof readTokenAccount>>;
+
+const withheldAmountOf = (account: TokenAccount) =>
+  (unwrapOption(account.extensions) ?? []).find(
+    (extension) => extension.__kind === "TransferFeeAmount"
+  );
+
+const destinationAAccount = await readTokenAccount(destinationAToken);
+const destinationBAccount = await readTokenAccount(destinationBToken);
+const feeReceiverAccount = await readTokenAccount(feeReceiverToken);
+const mintAccountInfo = await connection.getAccountInfo(
+  mint.publicKey,
+  "confirmed"
+);
+const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Destination A Amount:", destinationAAccount.amount.toString());
+console.log(
+  "Destination A Transfer Fee Amount:",
+  withheldAmountOf(destinationAAccount)
+);
+console.log("Destination B Amount:", destinationBAccount.amount.toString());
+console.log(
+  "Destination B Transfer Fee Amount:",
+  withheldAmountOf(destinationBAccount)
+);
+console.log("Fee Receiver Amount:", feeReceiverAccount.amount.toString());
+console.log(
+  "Fee Receiver Transfer Fee Amount:",
+  withheldAmountOf(feeReceiverAccount)
+);
+console.log(
+  "Transfer Fee Config:",
+  (unwrapOption(mintAccount.extensions) ?? []).find(
+    (extension) => extension.__kind === "TransferFeeConfig"
+  )
+);
+```
+
+</CodeTabs>
+
+#### Web3.js (legacy)
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 
