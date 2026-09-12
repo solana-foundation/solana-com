@@ -1,21 +1,16 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
-import {
-  createConnection,
-  createServer,
-  type Server,
-  type Socket,
-} from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { Surfnet } from "surfpool-sdk";
 
+// Cookbook examples hardcode these ports because that is what a reader would
+// type, so surfpool is bound to them directly.
 const RPC_PORT = 8899;
 const WS_PORT = 8900;
 
-let surfnet: Surfnet | null = null;
-let rpcProxy: Server | null = null;
-let wsProxy: Server | null = null;
+const READY_TIMEOUT_MS = 120_000;
+
+let surfpool: ChildProcess | null = null;
 
 export async function setup(): Promise<void> {
   ensureCliKeypair();
@@ -23,61 +18,76 @@ export async function setup(): Promise<void> {
   // Mainnet datasource so cookbook examples that look up real accounts
   // (USDC mint, Token Program, Metaplex Token Metadata, etc.) resolve via
   // surfpool's lazy account cloning.
-  surfnet = Surfnet.startWithConfig({
-    remoteRpcUrl:
-      process.env.SURFPOOL_DATASOURCE_RPC_URL ??
-      "https://api.mainnet-beta.solana.com",
+  //
+  // The forked cluster also supplies the feature set, which is what makes
+  // transaction v1 examples executable: surfpool reports a feature gate as
+  // active exactly when the cluster it forks does.
+  const datasourceRpcUrl =
+    process.env.SURFPOOL_DATASOURCE_RPC_URL ??
+    "https://api.mainnet-beta.solana.com";
+
+  surfpool = spawn(
+    "surfpool",
+    [
+      "start",
+      "--no-tui",
+      "--port",
+      String(RPC_PORT),
+      "--ws-port",
+      String(WS_PORT),
+      "--rpc-url",
+      datasourceRpcUrl,
+    ],
+    { stdio: "ignore" },
+  );
+
+  surfpool.once("exit", (code) => {
+    if (surfpool !== null) {
+      throw new Error(`surfpool exited before teardown with code ${code}`);
+    }
   });
 
-  // The SDK binds dynamic ports. Examples in the cookbook hardcode 8899/8900
-  // because that is what a reader would type. Proxy the canonical ports onto
-  // the SDK's actual ports so example code runs as-shipped.
-  const { host: rpcHost, port: rpcPort } = parseUrl(surfnet.rpcUrl);
-  const { host: wsHost, port: wsPort } = parseUrl(surfnet.wsUrl);
-  rpcProxy = await startProxy(RPC_PORT, rpcHost, rpcPort);
-  wsProxy = await startProxy(WS_PORT, wsHost, wsPort);
+  await waitForRpc();
 }
 
 export async function teardown(): Promise<void> {
-  await Promise.all([closeServer(rpcProxy), closeServer(wsProxy)]);
-  rpcProxy = null;
-  wsProxy = null;
-  surfnet = null;
-}
+  const child = surfpool;
+  surfpool = null;
+  if (child === null) return;
 
-function startProxy(
-  listenPort: number,
-  targetHost: string,
-  targetPort: number,
-): Promise<Server> {
-  const server = createServer((client: Socket) => {
-    const upstream = createConnection({ host: targetHost, port: targetPort });
-    client.on("error", () => upstream.destroy());
-    upstream.on("error", () => client.destroy());
-    client.pipe(upstream).pipe(client);
-  });
-  return new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(listenPort, "127.0.0.1", () => {
-      server.removeListener("error", reject);
-      resolve(server);
-    });
+  child.kill("SIGTERM");
+  await new Promise<void>((resolve) => {
+    child.once("exit", () => resolve());
+    setTimeout(() => {
+      child.kill("SIGKILL");
+      resolve();
+    }, 5_000).unref();
   });
 }
 
-function closeServer(server: Server | null): Promise<void> {
-  if (!server) return Promise.resolve();
-  return new Promise((resolve) => {
-    server.close(() => resolve());
-  });
-}
-
-function parseUrl(url: string): { host: string; port: number } {
-  const u = new URL(url);
-  return {
-    host: u.hostname,
-    port: Number(u.port),
-  };
+/** Polls `getHealth` until surfpool serves RPC, so examples never race startup. */
+async function waitForRpc(): Promise<void> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${RPC_PORT}`, {
+        body: JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "getHealth",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      if (response.ok) return;
+    } catch {
+      // Connection refused until the listener is bound; keep polling.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(
+    `surfpool did not serve RPC on port ${RPC_PORT} within ${READY_TIMEOUT_MS}ms. Install the CLI: cargo install --git https://github.com/txtx/surfpool --locked surfpool-cli`,
+  );
 }
 
 /**
