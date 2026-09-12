@@ -11,6 +11,10 @@ To use the Scaled UI Amount extension, you need to enable it on a token mint or
 token account. Note that once a token is created, you cannot modify which
 extensions are enabled.
 
+The TypeScript examples come in two variants. `Web3.js v3` uses the class-based
+`@solana/web3.js` v3 API with `@solana-program/token-2022` instruction builders;
+`Web3.js (legacy)` uses `@solana/web3.js` v1 with `@solana/spl-token`.
+
 ### Enable the Scaled UI Amount extension on a token mint
 
 To enable the Scaled UI Amount extension on a token mint, you need to set the
@@ -30,7 +34,104 @@ Decimals:  9
 Signature: 2sPziXu9M3duTCvsDvxQE9UKC9nBiLayi8muDvnjhA2qYvfXSZuaUieoq39MFjg4kf8xFrw6crmYSkPyV59dvudF
 ```
 
-```ts !! title="create-token.ts"
+```ts !! title="Web3.js v3"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  getInitializeMint2Instruction,
+  getInitializeScaledUiAmountMintInstruction,
+  getMintSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+/**
+ * Creates a new SPL-Token 2022 mint with the Scaled UI extension enabled
+ * and a UI multiplier of 1.1.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param payer      – Signer paying for fees and rent.
+ * @returns The newly created mint PublicKey.
+ */
+export async function createScaledUiMint(
+  connection: Connection,
+  payer: Keypair
+): Promise<PublicKey> {
+  // 1) Generate a new mint Keypair
+  const mint = await Keypair.generate();
+  const mintLen = getMintSize([
+    {
+      __kind: "ScaledUiAmountConfig",
+      authority: payer.publicKey.toBase58(),
+      multiplier: 1.1,
+      newMultiplierEffectiveTimestamp: 0n,
+      newMultiplier: 1.1
+    }
+  ]);
+  const mintLamports =
+    await connection.getMinimumBalanceForRentExemption(mintLen);
+  const mintTransaction = new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space: mintLen,
+      lamports: mintLamports,
+      programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS)
+    }),
+    getInitializeScaledUiAmountMintInstruction({
+      mint: mint.publicKey.toBase58(),
+      authority: payer.publicKey.toBase58(),
+      multiplier: 1.1
+    }),
+    getInitializeMint2Instruction({
+      mint: mint.publicKey.toBase58(),
+      decimals: 0,
+      mintAuthority: payer.publicKey.toBase58(),
+      freezeAuthority: null
+    })
+  );
+  await sendAndConfirmTransaction(
+    connection,
+    mintTransaction,
+    [payer, mint],
+    undefined
+  );
+
+  console.log(
+    "✅ Created mint w/ scaled-UI extension:",
+    mint.publicKey.toBase58()
+  );
+  return mint.publicKey;
+}
+(async () => {
+  // 1) Establish a connection to the Solana devnet
+  const connection = new Connection(
+    "https://api.devnet.solana.com",
+    "confirmed"
+  );
+
+  // 2) Generate a new fee-payer Keypair
+  const payer = await Keypair.generate();
+
+  // 3) Airdrop 1 SOL to the fee-payer so it has funds for transactions
+  const airdropSignature = await connection.requestAirdrop(
+    payer.publicKey,
+    1_000_000_000 // 1 SOL in lamports
+  );
+
+  // 4) Create the scaled-UI mint using our helper
+  const mintPubkey = await createScaledUiMint(connection, payer);
+})().catch((err) => {
+  console.error("Error running example:", err);
+});
+```
+
+```ts !! title="Web3.js (legacy)"
 import {
   Connection,
   Keypair,
@@ -161,7 +262,77 @@ $ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XN
 $ spl-token update-ui-amount-multiplier 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM 1.5 -- 1746471400
 ```
 
-```ts !! title="update-ui-amount-multiplier.ts"
+```ts !! title="Web3.js v3"
+import { getUpdateMultiplierScaledUiMintInstruction } from "@solana-program/token-2022";
+
+/**
+ * Updates the scaled UI multiplier for an existing SPL-Token 2022 mint.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param payer      – Signer paying for fees and rent.
+ * @param mint       – PublicKey of the mint to update.
+ * @param multiplier – New multiplier value to set.
+ * @returns The transaction signature.
+ */
+export async function updateScaledUiMultiplier(
+  connection: Connection,
+  payer: Keypair,
+  mint: PublicKey,
+  multiplier: number,
+  effectiveTimestamp: bigint,
+  previousMultiplier: number,
+  previousEffectiveTimestamp: bigint
+): Promise<string> {
+  const transaction = new Transaction()
+    .add(
+      // Set the previous multiplier to the current multiplier
+      // This is temporarily needed until PR 522 is deployed to mainnet
+      getUpdateMultiplierScaledUiMintInstruction({
+        mint: mint.toBase58(),
+        authority: payer,
+        multiplier: previousMultiplier,
+        effectiveTimestamp: previousEffectiveTimestamp
+      })
+    )
+    .add(
+      getUpdateMultiplierScaledUiMintInstruction({
+        mint: mint.toBase58(),
+        authority: payer,
+        multiplier,
+        effectiveTimestamp
+      })
+    );
+
+  const signature = await sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [payer],
+    undefined
+  );
+
+  console.log(
+    `✅ Updated scaled-UI multiplier to ${multiplier} for mint:`,
+    mint.toBase58()
+  );
+  return signature;
+}
+const multiplier = 1.5;
+const effectiveTimestamp = BigInt(Math.floor(Date.now() / 1000));
+const previousMultiplier = 1.2;
+const previousEffectiveTimestamp = BigInt(1746470000);
+const updateSignature = await updateScaledUiMultiplier(
+  connection,
+  payer,
+  mintPubkey,
+  multiplier,
+  effectiveTimestamp,
+  previousMultiplier,
+  previousEffectiveTimestamp
+);
+console.log("Update signature:", updateSignature);
+```
+
+```ts !! title="Web3.js (legacy)"
 /**
  * Updates the scaled UI multiplier for an existing SPL-Token 2022 mint.
  *
@@ -245,7 +416,51 @@ To fetch the balance, you need to use the `balance` command.
 $ spl-token balance 66EV4CaihdqyQ1fbsr51wBsoqKLgAG5KiYz7r5XNrxUM
 ```
 
-```ts !! title="balance.ts"
+```ts !! title="Web3.js v3"
+import {
+  findAssociatedTokenPda,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+/**
+ * Gets the scaled UI amount balance for a token holder.
+ *
+ * @param connection – An initialized Solana Connection.
+ * @param mint       – PublicKey of the mint to check.
+ * @param owner      – PublicKey of the token holder.
+ * @returns The scaled UI amount balance.
+ */
+export async function getScaledUiAmountBalance(
+  connection: Connection,
+  mint: PublicKey,
+  owner: PublicKey
+): Promise<number> {
+  // Get the token account for this mint/owner pair
+  const [tokenAccount] = await findAssociatedTokenPda({
+    mint: mint.toBase58(),
+    owner: owner.toBase58(),
+    tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+  });
+
+  // Get the token account info
+  const accountInfo = await connection.getAccountInfo(
+    new PublicKey(tokenAccount)
+  );
+  if (!accountInfo) {
+    throw new Error("Token account not found");
+  }
+
+  const info = await connection.getTokenAccountBalance(
+    new PublicKey(tokenAccount)
+  );
+  if (info.value.uiAmount == null) throw new Error("No balance found");
+  console.log("Balance: ", info.value.uiAmount);
+  return info.value.uiAmount;
+}
+const balance = await getScaledUiAmountBalance(connection, mint, owner);
+```
+
+```ts !! title="Web3.js (legacy)"
 /**
  * Gets the scaled UI amount balance for a token holder.
  *
