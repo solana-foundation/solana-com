@@ -282,6 +282,7 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             category: categoryId,
             twitterHandle,
+            ipAddress,
             ipHash,
             country,
             action: existingNomination ? "updated" : "created",
