@@ -81,8 +81,10 @@ the mint account data.
 
 ### Typescript
 
-The `Kit` examples below show the recommended approach using `@solana/kit`.
-Legacy examples using `@solana/web3.js` are included for reference.
+The `Kit` examples show the recommended approach. `Web3.js v3` examples use the
+class-based `@solana/web3.js` v3 API with `@solana-program` instruction
+builders; `Web3.js (legacy)` examples use `@solana/web3.js` v1 with
+`@solana/spl-token`.
 
 #### Kit
 
@@ -222,7 +224,149 @@ console.log("\nTransaction Signature:", result.context.signature);
 
 </CodeTabs>
 
-#### Web3.js
+#### Web3.js v3
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Helper Function"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  getCreateMintInstructionPlan,
+  getMintDecoder
+} from "@solana-program/token";
+
+// !collapse(1:17) collapsed
+// Setup: create and fund the fee payer before creating the mint.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = await Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mint = await Keypair.generate();
+
+const result = await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    // !mark(1:13)
+    await getCreateMintInstructionPlan(
+      {
+        getMinimumBalance: (space: number) =>
+          connection.getMinimumBalanceForRentExemption(space)
+      },
+      {
+        payer: feePayer, // Account funding account creation.
+        newMint: mint, // New mint account to create.
+        decimals: 9, // Decimals to define on the mint account.
+        mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+        freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+      }
+    )
+  ),
+  [feePayer, mint]
+);
+
+const mintAccountInfo = await connection.getAccountInfo(mint.publicKey);
+const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Mint Account:", mintAccount);
+console.log("\nTransaction Signature:", result);
+```
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  getInitializeMint2Instruction,
+  getMintDecoder,
+  getMintSize,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+// !collapse(1:19) collapsed
+// Setup: create and fund the fee payer before creating the mint.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = await Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mint = await Keypair.generate();
+const space = getMintSize();
+const mintRent = await connection.getMinimumBalanceForRentExemption(space);
+
+const result = await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    // !mark(1:13)
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: mint.publicKey, // New mint account to create.
+      space, // Account size in bytes.
+      lamports: mintRent, // Lamports funding the new account rent.
+      programId: new PublicKey(TOKEN_PROGRAM_ADDRESS) // Program that owns the new account.
+    }),
+    getInitializeMint2Instruction({
+      mint: mint.publicKey.toBase58(), // Mint account to initialize.
+      decimals: 9, // Decimals to define on the mint account.
+      mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+      freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+    })
+  ),
+  [feePayer, mint]
+);
+
+const mintAccountInfo = await connection.getAccountInfo(mint.publicKey);
+const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Mint Account:", mintAccount);
+console.log("\nTransaction Signature:", result);
+```
+
+</CodeTabs>
+
+#### Web3.js (legacy)
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 
