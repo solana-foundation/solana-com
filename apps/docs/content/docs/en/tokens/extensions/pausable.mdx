@@ -577,7 +577,216 @@ console.log("\nConfig After Resume:", configAfterResume);
 
 </CodeTabs>
 
-#### Web3.js
+#### Web3.js v3
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction
+} from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstruction,
+  getInitializeMint2Instruction,
+  getInitializePausableConfigInstruction,
+  getMintDecoder,
+  getMintSize,
+  getMintToCheckedInstruction,
+  getPauseInstruction,
+  getResumeInstruction,
+  getTransferCheckedInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = await Keypair.generate();
+const mint = await Keypair.generate();
+const recipient = await Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mintSpace = getMintSize([
+  {
+    __kind: "PausableConfig",
+    authority: feePayer.publicKey.toBase58(),
+    paused: false
+  }
+]);
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: mint.publicKey, // New mint account to create.
+      space: mintSpace, // Account size in bytes for the mint plus PausableConfig.
+      lamports: mintRent, // Lamports funding the mint account rent.
+      programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+    }),
+    // !mark(1:4)
+    getInitializePausableConfigInstruction({
+      mint: mint.publicKey.toBase58(), // Mint account that stores the PausableConfig extension.
+      authority: feePayer.publicKey.toBase58() // Authority allowed to pause and resume the mint.
+    }),
+    getInitializeMint2Instruction({
+      mint: mint.publicKey.toBase58(), // Mint account to initialize.
+      decimals: 0, // Number of decimals for the token.
+      mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+      freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+    })
+  ),
+  [feePayer, mint],
+  { commitment: "confirmed" }
+);
+
+const [sourceToken] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: feePayer.publicKey.toBase58(),
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+const [destinationToken] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: recipient.publicKey.toBase58(),
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer, // Account funding the associated token account creation.
+      ata: sourceToken, // Associated token account address to create.
+      owner: feePayer.publicKey.toBase58(), // Owner of the associated token account.
+      mint: mint.publicKey.toBase58() // Mint for the associated token account.
+    }),
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer, // Account funding the associated token account creation.
+      ata: destinationToken, // Associated token account address to create.
+      owner: recipient.publicKey.toBase58(), // Owner of the associated token account.
+      mint: mint.publicKey.toBase58() // Mint for the associated token account.
+    }),
+    getMintToCheckedInstruction({
+      mint: mint.publicKey.toBase58(), // Mint account that issues the tokens.
+      token: sourceToken, // Token account receiving the newly minted tokens.
+      mintAuthority: feePayer, // Signer authorized to mint new tokens.
+      amount: 1, // Token amount in base units.
+      decimals: 0 // Decimals defined on the mint.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:4)
+    getPauseInstruction({
+      mint: mint.publicKey.toBase58(), // Mint account to pause.
+      authority: feePayer // Authority allowed to pause the mint.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const readPausableConfig = async () => {
+  const mintAccountInfo = await connection.getAccountInfo(
+    mint.publicKey,
+    "confirmed"
+  );
+  const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+  return (unwrapOption(mintAccount.extensions) ?? []).find(
+    (extension) => extension.__kind === "PausableConfig"
+  );
+};
+
+const configAfterPause = await readPausableConfig();
+
+let pausedTransferFailure: string | undefined;
+try {
+  await sendAndConfirmTransaction(
+    connection,
+    new Transaction().add(
+      getTransferCheckedInstruction({
+        source: sourceToken, // Token account sending the transfer.
+        mint: mint.publicKey.toBase58(), // Mint with the pausable configuration.
+        destination: destinationToken, // Token account receiving the transfer.
+        authority: feePayer, // Signer approving the transfer.
+        amount: 1, // Token amount in base units.
+        decimals: 0 // Decimals defined on the mint.
+      })
+    ),
+    [feePayer],
+    { commitment: "confirmed" }
+  );
+} catch (error) {
+  pausedTransferFailure =
+    error instanceof Error ? error.message : String(error);
+}
+if (!pausedTransferFailure) {
+  throw new Error("Expected the paused transfer to fail");
+}
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:4)
+    getResumeInstruction({
+      mint: mint.publicKey.toBase58(), // Mint account to resume.
+      authority: feePayer // Authority allowed to resume the mint.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    getTransferCheckedInstruction({
+      source: sourceToken, // Token account sending the transfer.
+      mint: mint.publicKey.toBase58(), // Mint with the pausable configuration.
+      destination: destinationToken, // Token account receiving the transfer.
+      authority: feePayer, // Signer approving the transfer.
+      amount: 1, // Token amount in base units.
+      decimals: 0 // Decimals defined on the mint.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const configAfterResume = await readPausableConfig();
+
+console.log("\nMint Address:", mint.publicKey.toBase58());
+console.log("\nConfig After Pause:", configAfterPause);
+console.log("\nError From Failed Transaction:", pausedTransferFailure);
+console.log("\nConfig After Resume:", configAfterResume);
+```
+
+</CodeTabs>
+
+#### Web3.js (legacy)
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 

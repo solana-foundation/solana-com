@@ -589,7 +589,251 @@ console.log(
 
 </CodeTabs>
 
-#### Web3.js
+#### Web3.js v3
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  Transaction,
+  SystemProgram,
+  PublicKey,
+  LAMPORTS_PER_SOL,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
+import {
+  TOKEN_2022_PROGRAM_ADDRESS,
+  getMintSize,
+  getMintDecoder,
+  getInitializeMint2Instruction,
+  getInitializeGroupPointerInstruction,
+  getInitializeTokenGroupInstruction,
+  getInitializeGroupMemberPointerInstruction,
+  getInitializeTokenGroupMemberInstruction
+} from "@solana-program/token-2022";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const authority = await Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  authority.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+const groupMint = await Keypair.generate();
+
+const spaceWithGroupPointerExtensions = getMintSize([
+  {
+    __kind: "GroupPointer",
+    authority: authority.publicKey.toBase58(),
+    groupAddress: groupMint.publicKey.toBase58()
+  }
+]);
+
+const spaceWithGroupAndGroupPointerExtensions = getMintSize([
+  {
+    __kind: "GroupPointer",
+    authority: authority.publicKey.toBase58(),
+    groupAddress: groupMint.publicKey.toBase58()
+  },
+  {
+    __kind: "TokenGroup",
+    updateAuthority: authority.publicKey.toBase58(),
+    mint: groupMint.publicKey.toBase58(),
+    size: 0n,
+    maxSize: 10n
+  }
+]);
+
+const groupMintRent = await connection.getMinimumBalanceForRentExemption(
+  spaceWithGroupAndGroupPointerExtensions
+);
+
+const { blockhash: latestBlockhash } = await connection.getLatestBlockhash();
+
+const createGroupMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: authority.publicKey, // Account funding the new mint account.
+  newAccountPubkey: groupMint.publicKey, // New group mint account to create.
+  lamports: groupMintRent, // Lamports funding the mint account rent.
+  space: spaceWithGroupPointerExtensions, // Account size in bytes for the mint plus GroupPointer.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+});
+
+// !mark(1:5)
+const initializeGroupPointerInstruction = getInitializeGroupPointerInstruction({
+  mint: groupMint.publicKey.toBase58(), // Mint account that stores the GroupPointer extension.
+  authority: authority.publicKey.toBase58(), // Authority allowed to update the group pointer later.
+  groupAddress: groupMint.publicKey.toBase58() // Account address that stores the group data.
+});
+
+const initializeGroupMintInstruction = getInitializeMint2Instruction({
+  mint: groupMint.publicKey.toBase58(), // Mint account to initialize.
+  decimals: 0, // Number of decimals for the token.
+  mintAuthority: authority.publicKey.toBase58(), // Authority allowed to mint new tokens.
+  freezeAuthority: authority.publicKey.toBase58() // Authority allowed to freeze token accounts.
+});
+
+// !mark(1:7)
+const initializeGroupInstruction = getInitializeTokenGroupInstruction({
+  group: groupMint.publicKey.toBase58(), // Mint account that stores the group data.
+  mint: groupMint.publicKey.toBase58(), // Mint that the group data describes.
+  mintAuthority: authority, // Signer authorizing group initialization for the mint.
+  updateAuthority: authority.publicKey.toBase58(), // Authority allowed to update the group later.
+  maxSize: 10n // Maximum number of members allowed in the group.
+});
+
+const groupTransaction = new Transaction({
+  feePayer: authority.publicKey,
+  recentBlockhash: latestBlockhash
+}).add(
+  createGroupMintAccountInstruction,
+  initializeGroupPointerInstruction,
+  initializeGroupMintInstruction,
+  initializeGroupInstruction
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  groupTransaction,
+  [authority, groupMint],
+  {
+    commitment: "confirmed",
+    skipPreflight: true
+  }
+);
+
+const memberMint = await Keypair.generate();
+
+const spaceWithMemberPointerExtension = getMintSize([
+  {
+    __kind: "GroupMemberPointer",
+    authority: authority.publicKey.toBase58(),
+    memberAddress: memberMint.publicKey.toBase58()
+  }
+]);
+
+const spaceWithMemberAndMemberPointerExtensions = getMintSize([
+  {
+    __kind: "GroupMemberPointer",
+    authority: authority.publicKey.toBase58(),
+    memberAddress: memberMint.publicKey.toBase58()
+  },
+  {
+    __kind: "TokenGroupMember",
+    mint: memberMint.publicKey.toBase58(),
+    group: groupMint.publicKey.toBase58(),
+    memberNumber: 1n
+  }
+]);
+
+const memberMintRent = await connection.getMinimumBalanceForRentExemption(
+  spaceWithMemberAndMemberPointerExtensions
+);
+
+const { blockhash: memberLatestBlockhash } =
+  await connection.getLatestBlockhash();
+
+const createMemberMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: authority.publicKey, // Account funding the new mint account.
+  newAccountPubkey: memberMint.publicKey, // New member mint account to create.
+  lamports: memberMintRent, // Lamports funding the mint account rent.
+  space: spaceWithMemberPointerExtension, // Account size in bytes for the mint plus GroupMemberPointer.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+});
+
+// !mark(1:6)
+const initializeMemberPointerInstruction =
+  getInitializeGroupMemberPointerInstruction({
+    mint: memberMint.publicKey.toBase58(), // Mint account that stores the GroupMemberPointer extension.
+    authority: authority.publicKey.toBase58(), // Authority allowed to update the member pointer later.
+    memberAddress: memberMint.publicKey.toBase58() // Account address that stores the member data.
+  });
+
+const initializeMemberMintInstruction = getInitializeMint2Instruction({
+  mint: memberMint.publicKey.toBase58(), // Mint account to initialize.
+  decimals: 0, // Number of decimals for the token.
+  mintAuthority: authority.publicKey.toBase58(), // Authority allowed to mint new tokens.
+  freezeAuthority: authority.publicKey.toBase58() // Authority allowed to freeze token accounts.
+});
+
+// !mark(1:7)
+const initializeMemberInstruction = getInitializeTokenGroupMemberInstruction({
+  member: memberMint.publicKey.toBase58(), // Mint account that stores the member data.
+  memberMint: memberMint.publicKey.toBase58(), // Mint that the member data describes.
+  memberMintAuthority: authority, // Signer authorizing member initialization for the mint.
+  group: groupMint.publicKey.toBase58(), // Group mint that this member belongs to.
+  groupUpdateAuthority: authority // Signer matching the group's update authority.
+});
+
+const memberTransaction = new Transaction({
+  feePayer: authority.publicKey,
+  recentBlockhash: memberLatestBlockhash
+}).add(
+  createMemberMintAccountInstruction,
+  initializeMemberPointerInstruction,
+  initializeMemberMintInstruction,
+  initializeMemberInstruction
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  memberTransaction,
+  [authority, memberMint],
+  {
+    commitment: "confirmed",
+    skipPreflight: true
+  }
+);
+
+const groupMintAccountInfo = await connection.getAccountInfo(
+  groupMint.publicKey,
+  "confirmed"
+);
+const groupMintExtensions =
+  unwrapOption(
+    getMintDecoder().decode(groupMintAccountInfo!.data).extensions
+  ) ?? [];
+const memberMintAccountInfo = await connection.getAccountInfo(
+  memberMint.publicKey,
+  "confirmed"
+);
+const memberMintExtensions =
+  unwrapOption(
+    getMintDecoder().decode(memberMintAccountInfo!.data).extensions
+  ) ?? [];
+
+console.log(
+  JSON.stringify(
+    {
+      groupMint: groupMint.publicKey,
+      groupPointer: groupMintExtensions.find(
+        (extension) => extension.__kind === "GroupPointer"
+      ),
+      group: groupMintExtensions.find(
+        (extension) => extension.__kind === "TokenGroup"
+      ),
+      memberMint: memberMint.publicKey,
+      memberPointer: memberMintExtensions.find(
+        (extension) => extension.__kind === "GroupMemberPointer"
+      ),
+      member: memberMintExtensions.find(
+        (extension) => extension.__kind === "TokenGroupMember"
+      )
+    },
+    (_, value) => (typeof value === "bigint" ? value.toString() : value),
+    2
+  )
+);
+```
+
+</CodeTabs>
+
+#### Web3.js (legacy)
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 
