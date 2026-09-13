@@ -16,7 +16,6 @@ import {
   Footer,
   ThemeProvider,
   SitewideTopAlert,
-  InkeepChatButton,
   InkeepSearchBar,
   NewsletterModal,
   DocsSidebarToggleIcon,
@@ -52,15 +51,9 @@ Provides dark/light theme context to the app.
 Announcement banner at the top of the page. Configurable via
 `sitewideTopAlertConfig` (see [Site-Wide Alerts](#site-wide-alerts)).
 
-### InkeepChatButton
-
-Floating or inline button that opens the Inkeep AI search + chat modal. Requires
-`NEXT_PUBLIC_INKEEP_API_KEY`. Supports `variant`: `"fixed"` (default) or
-`"inline"`.
-
 ### InkeepSearchBar
 
-Search button that opens the same Inkeep modal and displays its `⌘ K` keyboard
+Search button that opens the Inkeep search modal and displays its `⌘ K` keyboard
 shortcut on larger viewports. The optional `expanded` prop adds a visible label
 and full-width styling.
 
@@ -99,16 +92,16 @@ Apps often re-export these from their own `utils/Link` (e.g. `apps/web`,
   under solana.com via rewrites; this keeps cross-app navigation as full loads
   and in-app as client nav. Depends on `NEXT_PUBLIC_APP_NAME` in non-web apps.
 
-## Inkeep (AI search & chat)
+## Inkeep (search)
 
-Inkeep is wired in `src/inkeep-config.ts` and used by `InkeepChatButton` and
-`InkeepSearchBar`. The modal is themed for Solana (dark/light) and uses
+Inkeep is wired in `src/inkeep-config.ts` and used by `InkeepSearchBar`. The
+modal is search-only — it is themed for Solana (dark/light) and uses
 `@inkeep/cxkit-react`.
 
 - **Env**: Set `NEXT_PUBLIC_INKEEP_API_KEY` in apps that use Inkeep (e.g. web,
   docs).
-- **Components**: Use `InkeepChatButton` and/or `InkeepSearchBar`; no extra
-  setup in app code beyond env and layout placement.
+- **Components**: Use `InkeepSearchBar`; no extra setup in app code beyond env
+  and layout placement.
 
 ## Site-Wide Alerts
 
@@ -173,7 +166,6 @@ import {
   Footer,
   ThemeProvider,
   SitewideTopAlert,
-  InkeepChatButton,
 } from "@solana-com/ui-chrome";
 
 export default function RootLayout({ children }) {
@@ -183,7 +175,6 @@ export default function RootLayout({ children }) {
       <Header />
       {children}
       <Footer />
-      <InkeepChatButton />
     </ThemeProvider>
   );
 }

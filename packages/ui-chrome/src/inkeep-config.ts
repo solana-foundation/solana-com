@@ -1,21 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import faviconPng from "./assets/favicon.png";
 import type {
   InkeepBaseSettings,
-  InkeepAIChatSettings,
   InkeepSearchSettings,
 } from "@inkeep/cxkit-react";
-import LongArrowUp from "./assets/long-arrow-up.svg";
 
 const baseSettings: InkeepBaseSettings = {
   apiKey: process.env.NEXT_PUBLIC_INKEEP_API_KEY!,
   primaryBrandColor: "#9945ff",
-  customIcons: {
-    chatSubmit: {
-      custom: LongArrowUp,
-    },
-  },
   theme: {
     styles: [
       {
@@ -35,10 +27,6 @@ const baseSettings: InkeepBaseSettings = {
           [data-theme="dark"] .ikp-ai-search-results__scroll-area {
             --ikp-color-gray-dark-950: #101010E5 !important;
           }
-          [data-theme="dark"] .ikp-ai-chat-footer,
-          [data-theme="dark"] .ikp-ai-chat-header {
-            --ikp-color-gray-dark-950: #101010E5 !important;
-          }
           .ikp-modal__content {
             border: 1px solid #ECE4FD1F !important;
             backdrop-filter: blur(24px);
@@ -53,7 +41,6 @@ const baseSettings: InkeepBaseSettings = {
           [data-theme="dark"] .ikp-modal__content {
             background-color: #19181BA3 !important;
           }
-          .ikp-ai-chat-wrapper,
           .ikp-ai-search-wrapper {
             background-color: transparent !important;
             border-radius: 24px !important;
@@ -67,63 +54,10 @@ const baseSettings: InkeepBaseSettings = {
           .ikp-ai-search-input-group {
             padding: 20px;
           }
-          .ikp-view_toggle {
-            padding: 4px;
-            border-radius: 800px;
-          }
-          [data-theme="dark"] .ikp-view_toggle {
-            border: 1px solid rgba(240, 228, 255, 0.20);
-          }
-          [data-theme="light"] .ikp-view_toggle {
-            border: 1px solid rgba(15, 27, 0, 0.20);
-          }
           .ikp-ai-search-input {
             padding: 0;
             font-size: 18px;
             caret-color: #CA9FF5;
-          }
-          .ikp-ai-ask-ai-trigger__indicator-text {
-            opacity: 0;
-            width: 0 !important;
-            overflow: hidden;
-          }
-          .ikp-ai-ask-ai-trigger__indicator {
-            opacity: 0.64 !important;
-          }
-          [data-theme="dark"] .ikp-ai-ask-ai-trigger__indicator {
-            color: #fff;
-          }
-          [data-theme="light"] .ikp-ai-ask-ai-trigger__indicator {
-            color: #000;
-          }
-          .ikp-ai-ask-ai-trigger {
-            margin: 0 20px 20px;
-            padding: 16px 20px !important;
-            border-radius: 12px;
-            line-height: 24px;
-            border: 0 none;
-            height: 56px !important;
-            font-size: 18px;
-          }
-          [data-theme="dark"] .ikp-ai-ask-ai-trigger {
-            background-color: #ECE4FD1F !important;
-          }
-          [data-theme="light"] .ikp-ai-ask-ai-trigger {
-            background-color: rgba(15, 27, 0, 0.10) !important;
-          }
-          .ikp-view_toggle_button {
-            display: flex;
-            padding: 4px 16px 4px 8px;
-            align-items: center;
-            gap: 6px;
-            border-radius: 800px;
-            height: 32px;
-            font-size: 16px;
-            font-weight: 400;
-            color: #ABABBC !important;
-          }
-          [data-theme="dark"] .ikp-view_toggle_button {
-            color: #ABABBC !important;
           }
           .ikp-ai-search-results__tab {
             font-size: 16px;
@@ -142,34 +76,13 @@ const baseSettings: InkeepBaseSettings = {
           .ikp-ai-search-results__tab-list {
             padding-bottom: 16px;
           }
-          .ikp-view_toggle_button {
-            flex: 1 1;
-          }
-          .ikp-ai-chat-message-source-item__breadcrumb-icon,
           .ikp-ai-search-results__item-breadcrumb-icon {
             display: inline-block;
             width: 14px;
             height: 14px;
           }
-          [data-theme="dark"] .ikp-view_toggle_button[data-active] {
-            border-top: 1px solid rgba(240, 228, 255, 0.12);
-            background: rgba(240, 228, 255, 0.20);
-            color: #fff !important;
-          }
-          [data-theme="light"] .ikp-view_toggle_button[data-active] {
-            border-top: 1px solid rgba(15, 27, 0, 0.12);
-            background: rgba(15, 27, 0, 0.10);
-            color: #000 !important;
-          }
-          .ikp-ai-chat-message-sources__list,
           .ikp-ai-search-results__list {
             gap: 4px;
-          }
-          .ikp-view_toggle_icon {
-            width: 18px;
-            height: 18px;
-            color: inherit !important;
-            flex-shrink: 0;
           }
           .ikp-search-bar__container {
             margin: 0 0 0 16px;
@@ -177,33 +90,26 @@ const baseSettings: InkeepBaseSettings = {
           .ikp-search-bar__button {
             padding: 0px 8px;
           }
-          .ikp-ai-chat-message-source-item,
           .ikp-ai-search-results__item {
             border-radius: 16px;
             padding: 20px;
           }
-          .ikp-ai-chat-message-source-item__indicator,
           .ikp-ai-search-results__item .ikp-ai-search-results__item-indicator {
             align-self: start;
           }
-          .ikp-ai-chat-message-source-item,
           .ikp-ai-search-results__item[data-selected="false"] {
             border-color: transparent;
             --ikp-color-white-alpha-200: transparent;
           }
-          [data-theme="dark"] .ikp-ai-chat-message-source-item,
           [data-theme="dark"] .ikp-ai-search-results__item[data-selected="false"] {
             background: rgba(240, 228, 255, 0.06) !important;
           }
-          [data-theme="light"] .ikp-ai-chat-message-source-item,
           [data-theme="light"] .ikp-ai-search-results__item[data-selected="false"] {
             background: rgba(15, 27, 0, 0.06) !important;
           }
-          .ikp-ai-chat-message-source-item:focus,
           .ikp-ai-search-results__item[data-selected="true"] {
             background: none !important;
           }
-          .ikp-ai-chat-message-source-item__breadcrumbs,
           .ikp-ai-search-results__item-breadcrumbs {
             padding-bottom: 4px;
             font-size: 14px;
@@ -212,19 +118,16 @@ const baseSettings: InkeepBaseSettings = {
           [data-theme="dark"] .ikp-ai-search-results__item-breadcrumbs {
             color: #ABABBC;
           }
-          .ikp-ai-chat-message-source-item__title,
           .ikp-ai-search-results__item-title {
             font-size: 18px;
           }
           .ikp-ai-search-results__item-description {
             font-size: 16px;
           }
-          [data-theme="dark"] .ikp-ai-search-results__item-icon,
-          [data-theme="dark"] .ikp-ai-chat-message-source-item__icon {
+          [data-theme="dark"] .ikp-ai-search-results__item-icon {
             color: #fff;
           }
-          .ikp-ai-search-results__item-icon,
-          .ikp-ai-chat-message-source-item__icon {
+          .ikp-ai-search-results__item-icon {
             color: inherit;
             width: 18px;
             height: 18px;
@@ -233,194 +136,17 @@ const baseSettings: InkeepBaseSettings = {
             padding-top: 10px;
             padding-bottom: 20px;
           }
-          .ikp-ai-chat-tagline__text,
           .ikp-ai-search-tagline__text {
             font-size: 16px;
             font-weight: 500;
           }
-          [data-theme="dark"] .ikp-ai-chat-footer,
           [data-theme="dark"] .ikp-ai-search-footer {
             --ikp-color-white-alpha-600: #fff !important;
             --ikp-color-white-alpha-500: #fff !important;
           }
-          [data-theme="light"] .ikp-ai-chat-footer,
           [data-theme="light"] .ikp-ai-search-footer {
             --ikp-color-gray-500: #000 !important;
             --ikp-color-gray-400: #000 !important;
-          }
-          .ikp-ai-chat-header__toolbar-header {
-            font-size: 18px;
-          }
-          [data-theme="dark"] .ikp-ai-chat-header__toolbar-header {
-            color: #fff;
-          }
-          [data-theme="light"] .ikp-ai-chat-header__toolbar-header {
-            color: #000;
-          }
-          .ikp-ai-chat-header {
-            background: none !important;
-          }
-          .ikp-ai-chat-header__toolbar {
-            padding: 20px 20px 4px;
-          }
-          .ikp-ai-chat-disclaimer-trigger svg {
-            width: 20px;
-            height: 20px;
-            color: #ABABBC;
-          }
-          .ikp-ai-chat-message-wrapper {
-            padding-top: 24px;
-            padding-bottom: 24px;
-          }
-          .ikp-ai-chat-footer {
-            padding: 16px 20px 20px;
-          }
-          .ikp-ai-chat-input__fieldset {
-            border-radius: 20px;
-            font-size: 18px;
-            caret-color: #CA9FF5;
-          }
-          [data-theme="dark"] .ikp-ai-chat-input__fieldset {
-            background: rgba(240, 228, 255, 0.12) !important;
-            color: #fff;
-          }
-          [data-theme="light"] .ikp-ai-chat-input__fieldset {
-            background: rgba(15, 27, 0, 0.10) !important;
-            color: #000;
-          }
-          .ikp-ai-chat-action-bar {
-            margin-top: 20px;
-          }
-          .ikp-ai-chat__chat-action,
-          .ikp-ai-chat-help-action {
-            border-radius: 800px;
-            font-size: 16px;
-            font-weight: 500;
-            line-height: 24px;
-            padding: 4px 12px;
-            height: 32px;
-          }
-          [data-theme="dark"] .ikp-ai-chat__chat-action,
-          [data-theme="dark"] .ikp-ai-chat-help-action {
-            border: 1px solid rgba(240, 228, 255, 0.12);
-            background: rgba(240, 228, 255, 0.06);
-            color: #fff;
-          }
-          [data-theme="light"] .ikp-ai-chat__chat-action,
-          [data-theme="light"] .ikp-ai-chat-help-action {
-            border: 1px solid rgba(15, 27, 0, 0.12);
-            background: rgba(15, 27, 0, 0.06);
-            color: #000;
-          }
-          .ikp-ai-chat-input__send-button {
-            border-radius: 50%;
-          }
-          .ikp-ai-chat-input__send-button > svg,
-          .ikp-ai-chat-input__send-button > img {
-            transform: none !important;
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-            max-width: 20px;
-          }
-          [data-theme="dark"] .ikp-ai-chat-input__send-button {
-            background-color: #fff !important;
-            color: #000 !important;
-          }
-          [data-theme="dark"] .ikp-ai-chat-input__send-button.disabled,
-          [data-theme="dark"] .ikp-ai-chat-input__send-button:disabled {
-            background-color: rgba(240, 228, 255, 0.06) !important;
-            color: #ABABBA !important;
-            opacity: 1 !important;
-          }
-          [data-theme="dark"] .ikp-ai-chat-input__send-button.disabled img,
-          [data-theme="dark"] .ikp-ai-chat-input__send-button:disabled img {
-            filter: invert(1);
-            opacity: 0.64 !important;
-          }
-          [data-theme="light"] .ikp-ai-chat-input__send-button {
-            background-color: rgba(15, 27, 0, 0.20) !important;
-            color: #fff !important;
-          }
-          .ikp-ai-chat-message-content + .ikp-ai-chat-disclaimer {
-            display: none !important;
-          }
-          .ikp-ai-chat-message-loading > div,
-          .ikp-ai-chat-message {
-            font-size: 18px;
-          }
-          .ikp-ai-chat-message-avatar-content {
-            display: flex;
-            width: 48px;
-            height: 48px;
-            padding: 0 9px;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-            border-radius: 800px;
-          }
-          [data-theme="dark"] .ikp-ai-chat-message-wrapper:after {
-            border-color: rgba(240, 228, 255, 0.12) !important;
-          }
-          [data-theme="light"] .ikp-ai-chat-message-wrapper:after {
-            border-color: rgba(15, 27, 0, 0.12) !important;
-          }
-          .ikp-ai-chat-message-avatar-content svg {
-            color: inherit !important;
-          }
-          [data-theme="dark"] .ikp-ai-chat-message-avatar-content {
-            background: linear-gradient(180deg, #000 0%, #003B1B 100%);
-            box-shadow: 0 -4px 12px 0 #255321 inset;
-            color: #14F195 !important;
-          }
-          [data-theme="light"] .ikp-ai-chat-message-avatar-content {
-            background: linear-gradient(180deg, #fff 0%, #14F195 100%);
-            box-shadow: 0 -4px 12px 0 #14F195 inset;
-            color: #255321 !important;
-          }
-          [data-theme="dark"] [data-role="assistant"].ikp-ai-chat-message-avatar-content {
-            background: linear-gradient(180deg, #000 0%, #2A013C 100%);
-            box-shadow: 0 -4px 12px 0 #482654 inset;
-          }
-          [data-theme="light"] [data-role="assistant"].ikp-ai-chat-message-avatar-content {
-            background: linear-gradient(180deg, #fff 0%, #DAACDE 100%);
-            box-shadow: 0 -4px 12px 0 #DAACDE inset;
-          }
-          .ikp-ai-chat-example-questions-label {
-            color: #ABABBC !important;
-            font-size: 14px;
-            letter-spacing: 1px;
-            font-weight: 400;
-          }
-          .ikp-ai-chat-example-question {
-            width: 100%;
-          }
-          .ikp-ai-chat-example-question-button {
-            padding: 12px 20px;
-            font-size: 16px;
-            font-weight: 500;
-            text-align: left;
-            justify-content: start;
-          }
-          .ikp-ai-chat-example-questions-list {
-            gap: 4px;
-          }
-          .ikp-ai-chat-example-question-button,
-          .ikp-ai-chat-example-question {
-            border-radius: 16px;
-          }
-          .ikp-ai-chat-example-question:after {
-            border-radius: 16px;
-          }
-          [data-theme="dark"] .ikp-ai-chat-example-question:after {
-            background: #1D1C1F;
-          }
-          [data-theme="dark"] .ikp-ai-chat-example-question:first-child .ikp-ai-chat-example-question-button {
-            --ikp-color-white-alpha-200: rgba(240, 228, 255, 0.06);
-          }
-          [data-theme="dark"] .ikp-ai-chat-example-question:not(:first-child) .ikp-ai-chat-example-question-button {
-            border-color: transparent;
           }
           .ikp-markdown-link {
             min-width: 16px;
@@ -436,13 +162,6 @@ const baseSettings: InkeepBaseSettings = {
           }
           .ikp-markdown-source-link {
             top: 0 !important;
-          }
-          .ikp-ai-chat-message-sources__header {
-            color: #ABABBC !important;
-            font-size: 14px;
-            font-weight: 400!important;
-            letter-spacing: 1px;
-            text-transform: uppercase;
           }
 
           @media (min-width: 768px) {
@@ -476,10 +195,6 @@ const baseSettings: InkeepBaseSettings = {
               height: 40px;
               margin: 0;
             }
-            .ikp-view_toggle_button {
-              height: 28px;
-              font-size: 14px;
-            }
             .ikp-modal__close svg {
               width: 24px;
               height: 24px;
@@ -495,7 +210,6 @@ const baseSettings: InkeepBaseSettings = {
               width: calc(100% - 8px) !important;
               height: calc(100% - 8px) !important;
             }
-            .ikp-ai-chat-wrapper,
             .ikp-ai-search-wrapper {
               // height: auto !important;
             }
@@ -517,17 +231,8 @@ const baseSettings: InkeepBaseSettings = {
             .ikp-ai-search-input-group .ikp-ai-search-input {
               order: 4; width: calc(100% - 56px);
             }
-            .ikp-ai-search-input-group .ikp-view_toggle {
-              order: 1; width: calc(100% - 56px);
-            }
             .ikp-ai-search-input-group .ikp-modal__close {
               order: 2;
-            }
-            .ikp-ai-ask-ai-trigger {
-              margin: 0 16px 16px;
-              padding: 12px 20px !important;
-              height: 44px !important;
-              font-size: 16px;
             }
             .ikp-ai-search-input {
               font-size: 14px;
@@ -545,23 +250,19 @@ const baseSettings: InkeepBaseSettings = {
               --ask-ai-trigger-height: 60px !important;
               --footer-height: 47px !important;
             }
-            .ikp-ai-chat-message-source-item__breadcrumbs,
             .ikp-ai-search-results__item-breadcrumbs {
               font-size: 12px;
             }
-            .ikp-ai-chat-message-source-item__title,
             .ikp-ai-search-results__item-title {
               font-size: 16px;
             }
             .ikp-ai-search-results__item-description {
               font-size: 14px;
             }
-            .ikp-ai-search-results__item-icon,
-            .ikp-ai-chat-message-source-item__icon {
+            .ikp-ai-search-results__item-icon {
               width: 16px;
               height: 16px;
             }
-            .ikp-ai-chat-tagline__text,
             .ikp-ai-search-tagline__text {
               font-size: 14px;
             }
@@ -569,48 +270,6 @@ const baseSettings: InkeepBaseSettings = {
               padding-top: 10px;
               padding-bottom: 16px !important;
               height: auto !important;
-            }
-            .ikp-ai-chat-header__toolbar-header-wrapper {
-              display: none;
-            }
-            .ikp-ai-chat-header__toolbar .ikp-view_toggle {
-              flex-grow: 1;
-            }
-            .ikp-ai-chat-header__toolbar {
-              padding: 16px 16px 4px;
-            }
-            .ikp-ai-chat-footer {
-              padding: 16px 16px 16px;
-            }
-            .ikp-ai-chat__chat-action,
-            .ikp-ai-chat-help-action {
-              font-size: 14px;
-              line-height: 20px;
-              height: 28px;
-            }
-            .ikp-ai-chat-input__fieldset {
-              font-size: 16px;
-            }
-            .ikp-ai-chat-message-name {
-              display: none;
-            }
-            [data-role="user"].ikp-ai-chat-message-avatar-content {
-              display: flex;
-            }
-            .ikp-ai-chat-message-header {
-              margin-bottom: 20px;
-            }
-            .ikp-ai-chat-message-loading > div,
-            .ikp-ai-chat-message {
-              font-size: 16px;
-            }
-            .ikp-ai-chat-example-questions-label {
-              font-size: 12px;
-            }
-            .ikp-ai-chat-example-question {
-            }
-            .ikp-ai-chat-example-question-button {
-              font-size: 14px;
             }
             .ikp-ai-search-results:not([data-has-content]) {
               height: 0 !important;
@@ -730,42 +389,9 @@ const searchSettings: InkeepSearchSettings = {
   ],
 };
 
-const aiChatSettings: InkeepAIChatSettings = {
-  chatSubjectName: "Solana",
-  introMessage:
-    "I'm an AI assistant trained on documentation, github repos, and other content. Ask me anything about `Solana`.",
-  aiAssistantAvatar: faviconPng.src,
-  disclaimerSettings: {
-    isEnabled: true,
-    label: "",
-  },
-  toolbarButtonLabels: {
-    getHelp: "Get Support",
-  },
-  getHelpOptions: [
-    {
-      name: "Stack Exchange",
-      action: {
-        type: "open_link",
-        url: "https://solana.stackexchange.com/",
-      },
-      icon: {
-        builtIn: "FaStackOverflow",
-      },
-    },
-  ],
-  exampleQuestions: [
-    "How to quickly install Solana dependencies for local development?",
-    "What is the Solana Account Model?",
-    "What is a Solana Token?",
-  ],
-};
-
 export function useInkeepConfig(): {
   baseSettings: InkeepBaseSettings;
   searchSettings: InkeepSearchSettings;
-  aiChatSettings: InkeepAIChatSettings;
-  shouldForceSearchView: boolean;
   modalSettings: {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
@@ -779,7 +405,7 @@ export function useInkeepConfig(): {
     focusInput: () => void;
   } | null>(null);
   const searchQuery = searchParams.get("search")?.trim() ?? "";
-  const shouldForceSearchView = searchQuery.length > 0;
+  const hasSearchQuery = searchQuery.length > 0;
 
   // We do this because document is not available in the server
   useEffect(() => {
@@ -787,17 +413,17 @@ export function useInkeepConfig(): {
   }, []);
 
   useEffect(() => {
-    if (!shouldForceSearchView) return;
+    if (!hasSearchQuery) return;
 
     setIsOpen(true);
-  }, [shouldForceSearchView]);
+  }, [hasSearchQuery]);
 
   useEffect(() => {
-    if (!shouldForceSearchView || !isOpen) return;
+    if (!hasSearchQuery || !isOpen) return;
 
     searchFunctionsRef.current?.updateQuery(searchQuery);
     searchFunctionsRef.current?.focusInput();
-  }, [isOpen, searchQuery, shouldForceSearchView]);
+  }, [isOpen, searchQuery, hasSearchQuery]);
 
   return {
     baseSettings: {
@@ -814,12 +440,10 @@ export function useInkeepConfig(): {
       isOpen,
       onOpenChange: setIsOpen,
     },
-    shouldForceSearchView,
     searchSettings: {
       ...searchSettings,
       defaultQuery: searchQuery,
       searchFunctionsRef,
     },
-    aiChatSettings,
   };
 }

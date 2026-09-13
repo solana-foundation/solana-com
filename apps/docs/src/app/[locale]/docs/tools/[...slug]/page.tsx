@@ -1,6 +1,5 @@
 import { docsSource } from "@@/src/app/sources/docs";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
-import { InkeepChatButton } from "@solana-com/ui-chrome";
 import { getMetadataFromSlug, ToolsDocsPage } from "../tools";
 import { toStaticParams } from "@@/src/app/sources/utils";
 import {
@@ -25,7 +24,6 @@ export default async function Page(props: Props) {
         locale={locale}
         pageTree={navigationTree}
       />
-      <InkeepChatButton />
     </DocsLayout>
   );
 }

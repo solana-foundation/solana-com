@@ -17,7 +17,6 @@ export {
 export { Footer } from "./footer";
 export { Header } from "./header";
 export { ThemeProvider } from "./theme-provider";
-export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
 export { NewsletterModal } from "./newsletter-modal";
 export { CookieConsentBanner } from "./cookie-consent-banner";

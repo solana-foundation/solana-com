@@ -5,9 +5,8 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { cn } from "./classnames";
 
-const InkeepModalSearchAndChat = dynamic(
-  () =>
-    import("@inkeep/cxkit-react").then((mod) => mod.InkeepModalSearchAndChat),
+const InkeepModalSearch = dynamic(
+  () => import("@inkeep/cxkit-react").then((mod) => mod.InkeepModalSearch),
   {
     ssr: false,
   },
@@ -76,12 +75,9 @@ export function InkeepSearchBar({ className, expanded }: InkeepSearchBarProps) {
         </button>
       </div>
 
-      <InkeepModalSearchAndChat
-        defaultView="search"
-        forceDefaultView={inkeepConfig.shouldForceSearchView}
+      <InkeepModalSearch
         baseSettings={inkeepConfig.baseSettings}
         searchSettings={inkeepConfig.searchSettings}
-        aiChatSettings={inkeepConfig.aiChatSettings}
         modalSettings={{
           isOpen: inkeepConfig.modalSettings.isOpen,
           onOpenChange: inkeepConfig.modalSettings.onOpenChange,
