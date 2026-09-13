@@ -1433,7 +1433,7 @@ export function AgCommitmentLevels() {
       <svg
         viewBox="0 0 900 316"
         role="img"
-        aria-label="Under TowerBFT a transaction goes from processed to confirmed at roughly 400 milliseconds, then to finalized at 12.8 seconds. Under Alpenglow, processed is followed by a single state in which confirmed and finalized are equivalent, reached in roughly 150 milliseconds. A block reaches that state either by the fast path, 80 percent notarizing in one round, or by two rounds of 60 percent, and the two paths are indistinguishable to a client."
+        aria-label="Under TowerBFT a transaction goes from processed to confirmed in one slot, 200 to 400 milliseconds, then to finalized at 12.8 seconds. Under Alpenglow, processed is followed by a single state in which confirmed and finalized are equivalent, reached in roughly 150 milliseconds. A block reaches that state either by the fast path, 80 percent notarizing in one round, or by two rounds of 60 percent, and the two paths are indistinguishable to a client."
       >
         <defs>
           <marker
@@ -1470,7 +1470,7 @@ export function AgCommitmentLevels() {
         <g fontFamily="ui-monospace, monospace" textAnchor="middle">
           {[
             { x: 8, label: "processed", sub: "executed" },
-            { x: 156, label: "confirmed", sub: "~400ms, optimistic" },
+            { x: 156, label: "confirmed", sub: "200–400ms, optimistic" },
             { x: 304, label: "finalized", sub: "12.8s" },
           ].map((node) => (
             <g key={node.label}>

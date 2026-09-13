@@ -28,18 +28,19 @@ Q3 2026 • Solana Foundation
 Solana is replacing its consensus protocol with Alpenglow, beginning with
 Votor. Alpenglow aims to simplify Solana consensus at network scale, improve
 performance, and provide faster finality. The target is roughly 150ms finality,
-compared with Solana's current roughly 400ms pre-confirmation latency and
-12.8-second TowerBFT finality.
+against TowerBFT's 12.8 seconds. Pre-confirmation takes about one slot, which
+[reduced slot times](/upgrades/reduced-slot-times) is separately cutting from
+400ms to 200ms in stages.
 
 A later Alpenglow phase is expected to replace Turbine with Rotor, a new block
 propagation protocol.
 
-|                                  |           |
-| -------------------------------- | --------- |
-| Expected Mainnet Activation Date | Q3 2026   |
-| Devnet Activation                | Agave 4.3 |
-| Breaking Change?                 | Yes       |
-| Indexing Changes Required?       | Yes       |
+|                                  |                                                                                                          |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Expected Mainnet Activation Date | Q3 2026, on Anza's [v4.3 release schedule](https://github.com/anza-xyz/agave/wiki/v4.3-Release-Schedule) |
+| Devnet Activation                | Agave 4.3                                                                                                |
+| Breaking Change?                 | Yes                                                                                                      |
+| Indexing Changes Required?       | Yes                                                                                                      |
 
 **Breaking Changes:**
 
@@ -69,9 +70,8 @@ applications keep working exactly as they do today.
 
 What you get is time. Finality drops from 12.8 seconds under TowerBFT to roughly
 150ms, which means the point at which a payment can never be reversed arrives
-before you have taken your hand off the card reader. Applications that today
-show you an optimistic "confirmed" state and quietly hope it holds can show you
-a genuinely final one instead.
+before you have taken your hand off the card reader — less than half the time a
+transaction takes to reach `confirmed` today.
 
 </Audience>
 
@@ -90,41 +90,36 @@ infrastructure, block builders
   `bank_id` on transaction, account, slot-status, entry, and block-meta
   updates. It is `optional` on the slot and account messages.
 - Key your buffers on `(slot, bank_id)` rather than on `slot` alone.
-- Promote one bank per slot when it reaches `Confirmed`, and drop everything
-  buffered under the other `bank_id` values for that slot.
-- If you use Yellowstone's block subscription rather than reconstructing blocks
-  yourself, upgrade — the buffering is done on your behalf.
+- Promote the first bank to reach `Confirmed`; drop the rest.
+- If you use Yellowstone's block subscription, upgrading is the whole migration
+  — it buffers on your behalf. Watch for the first
+  [`+solana.4.3.x` release](https://github.com/rpcpool/yellowstone-grpc/releases).
 
 **If you fan in multiple RPC or gRPC providers for redundancy**
 ([details](#breaking-change-merging-streams-from-multiple-providers)):
 
-- Run one buffer per physical connection. `bank_id` means nothing outside the
-  stream it arrived on.
-- Reconcile across connections only on the blockhash, which arrives on
-  `SubscribeUpdateBlockMeta`. Two banks from two connections are the same bank
-  if and only if their blockhashes match.
-- Audit any existing merge that keys on `(slot, bank_id)` across streams. It
-  fails silently rather than loudly.
+- Run one buffer per connection. `bank_id` means nothing outside the stream it
+  arrived on.
+- Reconcile across connections on the blockhash and nothing else.
+- Audit any existing merge keyed on `(slot, bank_id)` across streams. It fails
+  silently.
 
 **If you read at the `confirmed` commitment**
 ([details](#commitment-levels-confirmed-and-finalized-converge)):
 
-- Nothing breaks on activation day. `processed`, `confirmed`, and `finalized`
-  all keep working, and `confirmed` keeps meaning what it means today.
-- Point new code at `finalized`, and plan to migrate existing code. Under
-  Alpenglow the two are equivalent, and `confirmed` is scheduled for removal in
-  a release after Alpenglow ships.
-- Re-check any timeout, retry, or UX delay that was tuned around a 12.8-second
-  finality assumption.
+- Nothing breaks on activation day; all three levels keep working as they do
+  today.
+- Point new code at `finalized`. `confirmed` becomes equivalent to it and is
+  removed in a later release.
+- Re-check any timeout, retry, or UX delay tuned around 12.8-second finality.
 
 **If you index blocks or report throughput**
 ([details](#breaking-change-vote-transactions-leave-the-block)):
 
 - Re-baseline transaction counts and TPS dashboards. Vote transactions vanish
   from blocks, so the number drops sharply without any drop in real activity.
-- Replace anything that derives validator participation by parsing Vote program
-  instructions out of blocks. Participation now lives in the certificates
-  carried in the Alpenglow block footer, exposed through Geyser.
+- Replace anything that reads validator participation out of Vote program
+  instructions. It now lives in the block footer's certificates.
 
 **To find out when a cluster has actually migrated**
 ([details](#checking-whether-alpenglow-is-active)):
@@ -135,11 +130,9 @@ infrastructure, block builders
 - Gate feature detection on that call rather than on a date or a version
   string — devnet, testnet, and mainnet each flip at their own slot.
 
-You can test against the Alpenglow community cluster, which validators and core
-developers have been running for months. Its explorer is at
-[ag.validblocks.com](https://ag.validblocks.com/) — expect it to be down
-regularly, since the cluster is taken offline to rehearse the switch from
-TowerBFT to Alpenglow.
+Test against the [Alpenglow community cluster](https://ag.validblocks.com/),
+which goes offline regularly because taking it down is how the switch gets
+rehearsed.
 
 </Audience>
 
@@ -184,7 +177,7 @@ A **bank** is a validator's in-progress state for one candidate block. Banks are
 not new. What is new in Agave 4.3 is that every Geyser event coming out of the
 replay stage carries a `bank_id`, so a consumer can finally tell which candidate
 a given transaction, account update, or block-meta message belongs to. Before
-that field existed there was no way to disambiguate at all: a pipeline keyed on
+that field existed there was no way to disambiguate at all. A pipeline keyed on
 slot alone would fuse two competing banks into a single block and never notice.
 
 A slot ends up with more than one candidate bank in three ways:
@@ -242,13 +235,13 @@ on transaction, entry, block-meta and block updates, but **`optional`** on
 
 The field is not in a tagged Yellowstone release yet. It lives on the
 `4.3-transition` branch, which is at release-candidate stage. Yellowstone tags
-its releases against the Agave version they target — the current one is
-`v15.2.0+solana.4.2.2` — so the thing to wait for is the first
-`+solana.4.3.x` release, and to generate from the branch until it lands. That
-release necessarily arrives before providers move their nodes to 4.3, because a
-Geyser plugin is compiled against the validator's own crates: for 4.2, the
-matching Yellowstone release was published the same day Anza recommended
-general mainnet adoption.
+each release against the Agave version it targets — `+solana.4.2.2`,
+`+solana.4.3.x`, and so on — so what to watch for is the first
+[`+solana.4.3.x` release](https://github.com/rpcpool/yellowstone-grpc/releases);
+generate from the branch until it lands. It arrives before providers move their
+nodes to 4.3, because a Geyser plugin is compiled against the validator's own
+crates: for 4.2, the matching Yellowstone release was published the same day
+Anza recommended general mainnet adoption.
 
 Yellowstone's own implementation of this is
 [`block_reconstruction_v2.rs`](https://github.com/rpcpool/yellowstone-grpc/blob/4.3-transition/yellowstone-grpc-geyser/src/block_reconstruction_v2.rs)
@@ -325,14 +318,16 @@ write.
 all still exist under Alpenglow and still mean what they mean today. There is
 no code change required on activation day.
 
-What changes is the distance between them. Under TowerBFT the choice was
-between `confirmed`, available in roughly 400ms but optimistic, and `finalized`,
-irreversible but 12.8 seconds away — so nearly everything interactive picked
-`confirmed` and absorbed the small risk, because 12.8 seconds is not a user
-experience. Alpenglow closes that gap: finality arrives in roughly 150ms, and
-`confirmed` and `finalized` become the same thing. `confirmed` will be
-deprecated and removed in a release after Alpenglow. Point new code at
-`finalized` and migrate existing code when convenient.
+In production almost everyone reads at `confirmed`, which lands in about one
+slot, and there has never been a confirmed block that did not finalize. The
+guarantee was always weaker than that record, though: a confirmed block could in
+principle still be dropped, and ruling that out meant waiting the 12.8 seconds
+TowerBFT needed to finalize.
+
+Alpenglow closes the gap. Finality arrives in roughly 150ms, so you can listen
+for `finalized` directly and take the stronger guarantee at no cost in latency.
+`confirmed` will be deprecated and removed in a release after Alpenglow — point
+new code at `finalized` and migrate the rest when convenient.
 
 <AgCommitmentLevels />
 
