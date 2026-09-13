@@ -15,7 +15,6 @@ import { notFound } from "next/navigation";
 import {
   ThemeProvider,
   SitewideTopAlert,
-  InkeepChatButton,
   PersistentPodcastPlayer,
 } from "@solana-com/ui-chrome";
 import { ChromeWrapper } from "@/components/ChromeWrapper";
@@ -64,7 +63,6 @@ export default async function RootLayout({ children, params }: Props) {
                 <Footer />
               </ChromeWrapper>
               <PersistentPodcastPlayer />
-              <InkeepChatButton />
               <Script
                 id="signals-script"
                 strategy="afterInteractive"

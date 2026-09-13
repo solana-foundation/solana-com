@@ -1,6 +1,5 @@
 import { docsSource } from "@@/src/app/sources/docs";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
-import { InkeepChatButton } from "@solana-com/ui-chrome";
 import type { ReactNode } from "react";
 import { getToolsSidebarTree } from "../../../tools/tools-page-tree";
 
@@ -19,7 +18,6 @@ export default async function Layout({
   return (
     <DocsLayout tree={sidebarTree} locale={locale}>
       {children}
-      <InkeepChatButton />
     </DocsLayout>
   );
 }
