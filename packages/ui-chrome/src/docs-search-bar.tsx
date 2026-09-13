@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as VisuallyHiddenPrimitive from "@radix-ui/react-visually-hidden";
 import { useSearchParams } from "next/navigation";
@@ -46,6 +46,23 @@ function captureSearch(query: string, resultCount: number) {
   posthog?.capture?.("docs_search", { query, result_count: resultCount });
 }
 
+/**
+ * useSearchParams() opts its caller out of static prerendering unless it sits
+ * under a Suspense boundary, and this bar is mounted by the shared Header in
+ * every app's root layout. Isolating the read here keeps that boundary tight
+ * around the only thing that needs it, so the layouts around it stay static.
+ */
+function DeepLinkQuery({ onQuery }: { onQuery: (query: string) => void }) {
+  const searchParams = useSearchParams();
+  const deepLinkQuery = searchParams.get("search")?.trim() ?? "";
+
+  useEffect(() => {
+    if (deepLinkQuery) onQuery(deepLinkQuery);
+  }, [deepLinkQuery, onQuery]);
+
+  return null;
+}
+
 interface DocsSearchBarProps {
   className?: string;
   /** Show a full-width button with a visible text label. */
@@ -54,13 +71,11 @@ interface DocsSearchBarProps {
 
 export function DocsSearchBar({ className, expanded }: DocsSearchBarProps) {
   const t = useTranslations();
-  const searchParams = useSearchParams();
-  const deepLinkQuery = searchParams.get("search")?.trim() ?? "";
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-  const { results, state } = useDocsSearch(query);
+  const { results, resultsQuery, state } = useDocsSearch(query);
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const itemRefs = useRef<(HTMLLIElement | null)[]>([]);
@@ -70,11 +85,10 @@ export function DocsSearchBar({ className, expanded }: DocsSearchBarProps) {
   const hasQuery = trimmed.length > 0;
 
   // ?search= deep link: open the modal with the query seeded.
-  useEffect(() => {
-    if (!deepLinkQuery) return;
+  const onDeepLinkQuery = useCallback((deepLinkQuery: string) => {
     setQuery(deepLinkQuery);
     setOpen(true);
-  }, [deepLinkQuery]);
+  }, []);
 
   // Cmd/Ctrl-K from anywhere on the page.
   useEffect(() => {
@@ -102,12 +116,12 @@ export function DocsSearchBar({ className, expanded }: DocsSearchBarProps) {
   // One event per settled query — the debounce in the hook is what makes this
   // a "submission" rather than one event per keystroke.
   useEffect(() => {
-    if (state !== "idle" || !hasQuery) return;
-    if (reportedQuery.current === trimmed) return;
+    if (state !== "idle" || !resultsQuery) return;
+    if (reportedQuery.current === resultsQuery) return;
 
-    reportedQuery.current = trimmed;
-    captureSearch(trimmed, results.length);
-  }, [state, hasQuery, trimmed, results.length]);
+    reportedQuery.current = resultsQuery;
+    captureSearch(resultsQuery, results.length);
+  }, [state, resultsQuery, results.length]);
 
   // Each opening starts clean; a deep link re-seeds itself via its own effect.
   const onOpenChange = useCallback((next: boolean) => {
@@ -137,12 +151,22 @@ export function DocsSearchBar({ className, expanded }: DocsSearchBarProps) {
   };
 
   const showResults = results.length > 0;
-  const showNoResults = hasQuery && state === "idle" && results.length === 0;
-  const showLoading = hasQuery && state === "loading" && results.length === 0;
+  // A throttled query leaves the previous query's results on screen; say so
+  // rather than letting them read as answers to what was just typed.
+  const isStale = showResults && resultsQuery !== trimmed;
+  const answered = resultsQuery === trimmed;
   const showError = state === "error";
+  const showNoResults =
+    !showError && hasQuery && state === "idle" && !showResults && answered;
+  // Covers both "still debouncing" and "throttled with nothing cached yet".
+  const showBusy = !showError && hasQuery && !showResults && !showNoResults;
 
   return (
     <>
+      <Suspense fallback={null}>
+        <DeepLinkQuery onQuery={onDeepLinkQuery} />
+      </Suspense>
+
       <div
         data-expanded={expanded || undefined}
         className={cn(
@@ -214,10 +238,16 @@ export function DocsSearchBar({ className, expanded }: DocsSearchBarProps) {
             </div>
 
             <div role="status" aria-live="polite" className="sr-only">
-              {state === "idle" && hasQuery
+              {state === "idle" && resultsQuery
                 ? t("commands.searchResultsCount", { count: results.length })
                 : ""}
             </div>
+
+            {isStale && (
+              <p className="px-5 pt-4 text-sm text-black/60 dark:text-[#ABABBC]">
+                {t("commands.searchShowingResultsFor", { query: resultsQuery })}
+              </p>
+            )}
 
             {showResults && (
               <ul
@@ -260,11 +290,11 @@ export function DocsSearchBar({ className, expanded }: DocsSearchBarProps) {
               </ul>
             )}
 
-            {(showLoading || showNoResults || showError || !hasQuery) && (
+            {(showBusy || showNoResults || showError || !hasQuery) && (
               <p className="px-5 py-8 text-center text-base opacity-60">
                 {showError
                   ? t("commands.searchUnavailable")
-                  : showLoading
+                  : showBusy
                     ? t("commands.searching")
                     : showNoResults
                       ? t("commands.searchNoResults", { query: trimmed })

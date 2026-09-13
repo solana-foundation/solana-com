@@ -6,13 +6,24 @@ export const dynamic = "force-dynamic";
 const ASK_API_URL = process.env.ASK_API_URL;
 const ASK_PROXY_SECRET = process.env.ASK_PROXY_SECRET;
 
-// Vercel's edge writes the visitor IP into the incoming request; the LEFTMOST
-// x-forwarded-for entry is the client here. We forward it as a dedicated
-// single-value header so the agent's rightmost-entry parse reads exactly this.
+// Vercel sets x-real-ip to the socket peer address, so it is the trustworthy
+// identity; the x-forwarded-for chain can carry client-supplied entries, so
+// only its last hop is believable. Same resolution order as the throttle in
+// api/slot-time/stream/route.ts — taking the leftmost x-forwarded-for entry
+// would let a caller spoof the header to dodge limits or burn another
+// visitor's allowance. Forwarded as a dedicated single-value header so the
+// agent's rightmost-entry parse reads exactly this one value.
 function visitorIp(req: NextRequest): string {
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp?.trim()) return realIp.trim();
+
   const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
-  return req.headers.get("x-real-ip") ?? "";
+  if (xff?.trim()) {
+    const hops = xff.split(",");
+    return hops[hops.length - 1].trim();
+  }
+
+  return "";
 }
 
 async function proxy(req: NextRequest, path: string[]) {
