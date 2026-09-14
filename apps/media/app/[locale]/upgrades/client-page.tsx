@@ -201,12 +201,10 @@ function TableView({ groups }: { groups: ReleaseGroup[] }) {
                       <td className="p-4 px-5 align-top">
                         <Link
                           href={`/upgrades/${upgrade.slug}`}
-                          className="absolute inset-0"
-                          aria-label={upgrade.title}
-                        />
-                        <div className="text-[15px] font-semibold group-hover:underline">
+                          className="block text-[15px] font-semibold group-hover:underline"
+                        >
                           {upgrade.title}
-                        </div>
+                        </Link>
                         <div className="mt-1 text-[13px] leading-5 text-[#ABABBA]">
                           {upgrade.subtitle || upgrade.description}
                         </div>
