@@ -268,7 +268,9 @@ export function RequestForStartupsPage() {
       <section id="build" className={styles.build}>
         <p className={styles.eyebrow}>Your turn</p>
         <div>
-          <h2>Start where the request ends.</h2>
+          <h2>
+            Start where the <em>request ends.</em>
+          </h2>
           <p>
             Bring an idea to life with the people, tools, and capital that can
             help it move. The build challenge is coming next.
