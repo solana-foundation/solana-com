@@ -2,6 +2,7 @@ import React, { ComponentPropsWithoutRef } from "react";
 import {
   AgBankIdAcrossConnections,
   AgBanksPerSlot,
+  AgBlockLifecycle,
   AgCommitmentLevels,
   AgVotorCertificates,
   TxAccountBytes,
@@ -107,6 +108,7 @@ export const upgradeMdxComponents = {
   AudienceGroup,
   AgBanksPerSlot,
   AgBankIdAcrossConnections,
+  AgBlockLifecycle,
   AgCommitmentLevels,
   AgVotorCertificates,
   FeatureActivationStatus,

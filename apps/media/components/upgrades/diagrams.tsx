@@ -996,7 +996,7 @@ export function AgBanksPerSlot() {
       <svg
         viewBox="0 0 900 348"
         role="img"
-        aria-label="One slot during replay carrying three candidate banks, tagged bank_id 7, 8 and 9. Only bank_id 7 reaches Confirmed; the other two are never confirmed. Keying a buffer on the slot alone fuses all three banks' events into a single block with no error raised. Keying on slot and bank_id together yields only bank 7's events, and the other two banks are dropped."
+        aria-label="One slot during replay carrying three candidate banks, tagged bank_id 7, 8 and 9. Only bank_id 7 reaches Confirmed; the other two are never confirmed. Keying a buffer on the slot alone puts events from all three banks into a single block, including transactions from banks 8 and 9 that were never confirmed, with no error raised. Keying on slot and bank_id together yields only bank 7's events, and the other two banks are dropped."
       >
         <defs>
           <marker
@@ -1174,10 +1174,10 @@ export function AgBanksPerSlot() {
             key = slot
           </text>
           <text x="26" y="264" fontSize="10.5" fill="#FF8080">
-            nine events from three banks, fused into one block
+            events from all three banks land in one block
           </text>
           <text x="26" y="284" fontSize="10.5" fill="#FF8080">
-            no error, no warning, no way to notice
+            banks 8 and 9 were never confirmed, but nothing flags them
           </text>
           <text x="26" y="308" fontSize="10" fill="#79828F">
             every pipeline written before Agave 4.3
@@ -1960,6 +1960,156 @@ export function AgVotorCertificates() {
             vote, never a replacement, and only once it is safe to add.
           </text>
         </g>
+      </svg>
+    </Figure>
+  );
+}
+
+export function AgBlockLifecycle() {
+  const stages = [
+    {
+      x: 8,
+      label: "leader builds",
+      sub: "a block",
+      note: "unchanged",
+      tone: "muted",
+    },
+    {
+      x: 184,
+      label: "propagation",
+      sub: "Turbine",
+      note: "Phase 2: Rotor, later",
+      tone: "plain",
+    },
+    {
+      x: 360,
+      label: "execution",
+      sub: "SVM",
+      note: "unchanged",
+      tone: "muted",
+    },
+    {
+      x: 536,
+      label: "consensus",
+      sub: "TowerBFT",
+      note: "Phase 1: Votor, Agave 4.3",
+      tone: "green",
+    },
+    {
+      x: 712,
+      label: "final",
+      sub: "12.8s today",
+      note: "~150ms",
+      tone: "green",
+    },
+  ] as const;
+
+  return (
+    <Figure
+      caption={
+        <>
+          Alpenglow replaces how a block is agreed on and, later, how it is
+          spread across the network. How transactions execute does not change.
+        </>
+      }
+      minWidth={720}
+    >
+      <svg
+        viewBox="0 0 900 190"
+        role="img"
+        aria-label="The life of a block in five stages: a leader builds it, Turbine propagates it, the SVM executes it, TowerBFT reaches consensus on it, and it becomes final after 12.8 seconds. Alpenglow Phase 1, Votor, replaces the consensus stage in Agave 4.3 and brings finality to roughly 150 milliseconds. Phase 2, Rotor, later replaces the propagation stage. Building and execution are unchanged."
+      >
+        <defs>
+          <marker
+            id="agLife"
+            markerWidth="7"
+            markerHeight="7"
+            refX="6"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0,0 7,3.5 0,7" fill="currentColor" />
+          </marker>
+        </defs>
+
+        <text
+          x="8"
+          y="20"
+          fontFamily="ui-monospace, monospace"
+          fontSize="10"
+          fill="#79828F"
+        >
+          the life of one block, and where Alpenglow changes it
+        </text>
+
+        {stages.map((st, i) => {
+          const green = st.tone === "green";
+          const cx = st.x + 75;
+          return (
+            <g
+              key={st.label}
+              fontFamily="ui-monospace, monospace"
+              textAnchor="middle"
+            >
+              <rect
+                x={st.x}
+                y="40"
+                width="150"
+                height="54"
+                rx="4"
+                fill={green ? "#0F2E24" : "#161A20"}
+                stroke={green ? "#14F195" : "#272D36"}
+                strokeWidth={green ? 1.4 : 1}
+              />
+              <text
+                x={cx}
+                y="62"
+                fontSize="10.5"
+                fontWeight="600"
+                fill={green ? "#14F195" : "currentColor"}
+              >
+                {st.label}
+              </text>
+              <text x={cx} y="80" fontSize="9.5" fill="#79828F">
+                {st.sub}
+              </text>
+              <text
+                x={cx}
+                y="128"
+                fontSize="10"
+                fill={
+                  st.tone === "green"
+                    ? "#14F195"
+                    : st.tone === "muted"
+                      ? "#79828F"
+                      : "currentColor"
+                }
+                fontWeight={st.tone === "muted" ? undefined : "600"}
+              >
+                {st.note}
+              </text>
+              {i < stages.length - 1 ? (
+                <path
+                  d={`M ${st.x + 150} 67 L ${st.x + 178} 67`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.3"
+                  markerEnd="url(#agLife)"
+                />
+              ) : null}
+            </g>
+          );
+        })}
+
+        <text
+          x="8"
+          y="172"
+          fontFamily="ui-monospace, monospace"
+          fontSize="10"
+          fill="#79828F"
+        >
+          green: replaced by Alpenglow · grey: untouched
+        </text>
       </svg>
     </Figure>
   );

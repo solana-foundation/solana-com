@@ -580,6 +580,11 @@ const txWireLayout = diagramBlock(
   "Byte layout of legacy, v0 and v1 transactions compared",
 );
 
+const agBlockLifecycle = diagramBlock(
+  "Diagram: where Alpenglow sits",
+  "The life of a block, with the stages Alpenglow replaces",
+);
+
 const agBanksPerSlot = diagramBlock(
   "Diagram: candidate banks in one slot",
   "Why keying a buffer on the slot alone fuses several banks into one block",
@@ -654,6 +659,7 @@ export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   Audience: audience,
   AudienceGroup: audienceGroup,
   AgBanksPerSlot: agBanksPerSlot,
+  AgBlockLifecycle: agBlockLifecycle,
   AgBankIdAcrossConnections: agBankIdAcrossConnections,
   AgCommitmentLevels: agCommitmentLevels,
   AgVotorCertificates: agVotorCertificates,
