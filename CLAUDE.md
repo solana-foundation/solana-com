@@ -82,7 +82,7 @@ their source files during the build:
 
 - `@workspace/i18n` - i18n configuration and utilities
 - `@workspace/ui` - Shared UI components (Button, Dialog, Accordion, etc.)
-- `@solana-com/ui-chrome` - Header, Footer, ThemeProvider, InkeepChatButton
+- `@solana-com/ui-chrome` - Header, Footer, ThemeProvider, InkeepSearchBar
 - `@workspace/ecosystem-data` - Canonical company metadata and logos
 - `@workspace/sentry` - Shared Sentry configuration helpers
 - `@workspace/docs-examples` - Tested code embedded in cookbook pages

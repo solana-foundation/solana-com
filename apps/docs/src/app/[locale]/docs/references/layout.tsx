@@ -2,7 +2,6 @@ import { docsSource } from "@@/src/app/sources/docs";
 import type { ReactNode } from "react";
 import type { PageTree } from "fumadocs-core/server";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
-import { InkeepChatButton } from "@solana-com/ui-chrome";
 
 const SIDEBAR_ROUTES = ["/docs/references"];
 
@@ -36,7 +35,6 @@ export default async function Layout({
   return (
     <DocsLayout tree={pageTree} locale={locale}>
       {children}
-      <InkeepChatButton />
     </DocsLayout>
   );
 }
