@@ -1686,22 +1686,32 @@ export default {
       source: "/docs/references/feature-gates/consume-cus-on-sbpf-failure",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0182-conditional-cu-metering.md",
+      permanent: true,
     },
     {
       source: "/docs/references/feature-gates/direct-mapping",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md",
+      permanent: true,
     },
     {
       source: "/docs/references/feature-gates/reserve-minimal-cus-for-builtins",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md",
+      permanent: true,
     },
     {
       source:
         "/docs/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0138-deprecate-legacy-vote-instructions.md",
+      permanent: true,
+    },
+    {
+      source: "/docs/references/feature-gates/:path*",
+      destination:
+        "https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule",
+      permanent: true,
     },
     {
       source: "/developers/cookbook/tokens/approve-token-delegate",
