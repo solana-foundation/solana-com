@@ -25,6 +25,8 @@ describe("developer route matching", () => {
   it("keeps the docs sidebar toggle scoped to docs-owned routes", () => {
     expect(shouldShowDocsSidebarToggle("/docs")).toBe(true);
     expect(shouldShowDocsSidebarToggle("/fr/docs/rpc")).toBe(true);
+    expect(shouldShowDocsSidebarToggle("/docs/roadmap")).toBe(false);
+    expect(shouldShowDocsSidebarToggle("/fr/docs/roadmap")).toBe(false);
     expect(shouldShowDocsSidebarToggle("/developers/cookbook")).toBe(true);
     expect(shouldShowDocsSidebarToggle("/data")).toBe(false);
   });
