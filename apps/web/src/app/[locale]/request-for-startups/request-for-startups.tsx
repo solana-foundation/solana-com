@@ -29,7 +29,7 @@ const REQUESTS: Request[] = [
     title: "The wallet that knows you",
     thesis: "Make the first onchain experience feel like a favorite app.",
     description:
-      "A personal financial home that understands context, protects the user, and makes every payment, credential, collectible, and community membership feel native—not technical.",
+      "A personal financial home that understands context, protects the user, and makes every payment, credential, collectible, and community membership feel native - not technical.",
     whyNow:
       "Wallets have become capable, but they still ask people to think like infrastructure operators. The next wave needs an interface that feels personal from the first tap.",
     whySolana:
@@ -65,11 +65,11 @@ const REQUESTS: Request[] = [
     title: "The business of being a fan",
     thesis: "Turn audience participation into durable creative economies.",
     description:
-      "Fans already create value around the people and worlds they love. Build tools that let communities collect, contribute, trade access, and share in the upside—with taste.",
+      "Fans already create value around the people and worlds they love. Build tools that let communities collect, contribute, trade access, and share in the upside - with taste.",
     whyNow:
       "Creators have global audiences but rent the relationship from platforms. Fans want participation that means more than another subscription tier.",
     whySolana:
-      "Programmable assets and inexpensive interactions can make membership, collecting, and contribution part of the product—not a separate marketplace.",
+      "Programmable assets and inexpensive interactions can make membership, collecting, and contribution part of the product - not a separate marketplace.",
     prompts: [
       "Build for fandom, not financialization.",
       "Make ownership feel like belonging.",
@@ -90,7 +90,7 @@ const REQUESTS: Request[] = [
       "Fast execution and low transaction costs let agents coordinate and pay in real time, while programmable accounts can keep humans in control.",
     prompts: [
       "Make an agent’s limits clear and controllable.",
-      "Create tiny, useful transactions—not a token wrapper.",
+      "Create tiny, useful transactions - not a token wrapper.",
       "Design for accountability from the first interaction.",
     ],
     accent: "blue",
@@ -101,7 +101,7 @@ const REQUESTS: Request[] = [
     title: "Proof without paperwork",
     thesis: "Make trust portable, private, and useful in the real world.",
     description:
-      "A person should be able to prove what matters—age, membership, reputation, qualifications—without handing over a life story. Build the rails that make that possible.",
+      "A person should be able to prove what matters - age, membership, reputation, qualifications - without handing over a life story. Build the rails that make that possible.",
     whyNow:
       "Digital identity is becoming more important just as people are losing control of where their personal data travels and how long it stays there.",
     whySolana:
