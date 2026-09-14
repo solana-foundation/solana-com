@@ -124,6 +124,7 @@ export default function AwardsNominations() {
         }),
       });
       const data = (await response.json()) as {
+        error?: string;
         nomination?: {
           category: string;
           twitterHandle: string;
@@ -131,7 +132,7 @@ export default function AwardsNominations() {
         };
       };
       if (!response.ok || !data.nomination) {
-        setError(t("nominations.errors.save"));
+        setError(data.error ?? t("nominations.errors.save"));
         return;
       }
       const next = {

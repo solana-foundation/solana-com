@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Enter a valid X username (up to 15 letters, numbers, or underscores).",
+          "Check the spelling and enter a valid X username (up to 15 letters, numbers, or underscores).",
       },
       { status: 400, headers: NO_STORE_HEADERS },
     );
