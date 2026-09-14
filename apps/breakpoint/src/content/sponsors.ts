@@ -9,6 +9,7 @@ export type SponsorLogoVariant = LogoSelectorOptions;
 
 export type SponsorLogo = {
   companyId: CompanyId;
+  displayName?: string;
   logoVariant?: SponsorLogoVariant;
   width: number;
   height: number;
@@ -151,6 +152,24 @@ const goldSponsors = [
     companyId: "raiku",
     width: 2646,
     height: 768,
+  },
+  {
+    companyId: "titan",
+    width: 806,
+    height: 302,
+  },
+  {
+    companyId: "phoenix",
+    logoVariant: { id: "breakpoint-2026-orange" },
+    width: 377,
+    height: 61,
+  },
+  {
+    companyId: "jito",
+    displayName: "Jito JTX",
+    logoVariant: { id: "breakpoint-2026-jtx-white" },
+    width: 965,
+    height: 332,
   },
   {
     companyId: "sec3",
