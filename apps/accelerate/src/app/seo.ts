@@ -1,6 +1,6 @@
 import { config } from "@/config";
 
-type EventConfig = {
+export type EventConfig = {
   name: string;
   description: string;
   startDate: string;
@@ -9,6 +9,7 @@ type EventConfig = {
     name: string;
     address: string;
   };
+  url?: string;
 };
 
 function getAbsoluteUrl(path: string = "/") {
@@ -30,7 +31,7 @@ export function buildEventStructuredData(event: EventConfig, path: string) {
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: "https://schema.org/EventScheduled",
     image: [config.siteMetadata.socialShare],
-    url: getAbsoluteUrl(path),
+    url: event.url ?? getAbsoluteUrl(path),
     organizer: {
       "@type": "Organization",
       name: "Solana Foundation",
@@ -48,12 +49,24 @@ export function buildEventStructuredData(event: EventConfig, path: string) {
   };
 }
 
-export function buildEventSeriesStructuredData() {
+export function buildEventSeriesStructuredData({
+  name = config.siteMetadata.title,
+  description = config.siteMetadata.description,
+  events = [
+    { event: config.events.hongKong, path: "/hong-kong" },
+    { event: config.events.miami, path: "/miami" },
+    { event: config.events.china, path: "/china" },
+  ],
+}: {
+  name?: string;
+  description?: string;
+  events?: Array<{ event: EventConfig; path: string }>;
+} = {}) {
   return {
     "@context": "https://schema.org",
     "@type": "EventSeries",
-    name: config.siteMetadata.title,
-    description: config.siteMetadata.description,
+    name,
+    description,
     url: config.publicUrl,
     image: [config.siteMetadata.socialShare],
     organizer: {
@@ -61,9 +74,8 @@ export function buildEventSeriesStructuredData() {
       name: "Solana Foundation",
       url: "https://solana.com",
     },
-    subEvent: [
-      buildEventStructuredData(config.events.hongKong, "/hong-kong"),
-      buildEventStructuredData(config.events.miami, "/miami"),
-    ],
+    subEvent: events.map(({ event, path }) =>
+      buildEventStructuredData(event, path),
+    ),
   };
 }

@@ -2,8 +2,11 @@ import { clsx as classNames } from "clsx";
 import { useTranslations } from "next-intl";
 import { memo, useMemo } from "react";
 import * as Yup from "yup";
+import {
+  IterableActionForm as ActionForm,
+  useIterableSignUp,
+} from "@solana-com/ui-chrome/iterable-signup";
 import Button from "../Button";
-import useIterableSignUp, { ActionForm } from "../Iterable/useIterableSignUp";
 
 import styles from "./IterableEmailSubscribeForm.module.scss";
 

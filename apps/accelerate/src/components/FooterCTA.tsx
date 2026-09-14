@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import { LumaModal } from "./LumaModal";
 import { getImagePath } from "@/config";
 import { fadeInUp, stagger } from "@/lib/animations";
@@ -16,7 +16,7 @@ interface FooterCTAProps {
 
 export function FooterCTA({
   translationPrefix = "accelerate.footerCta",
-  backgroundImage = "/images/hk-characters.png",
+  backgroundImage = "/images/hk-characters.webp",
   lumaId = "accelerate-miami",
   showCta = true,
 }: FooterCTAProps = {}) {
@@ -44,7 +44,7 @@ export function FooterCTA({
             }}
           >
             <Image
-              src={getImagePath("/images/solana-palm.png")}
+              src={getImagePath("/images/solana-palm.webp")}
               alt=""
               width={759}
               height={1275}
@@ -65,7 +65,7 @@ export function FooterCTA({
             }}
           >
             <Image
-              src={getImagePath("/images/solana-palm.png")}
+              src={getImagePath("/images/solana-palm.webp")}
               alt=""
               width={580}
               height={975}

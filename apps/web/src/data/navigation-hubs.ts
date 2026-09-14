@@ -662,6 +662,10 @@ const navigationHubStaticConfigs = {
             external: true,
           },
           {
+            href: "https://www.blockchain.com/explorer/assets/sol",
+            external: true,
+          },
+          {
             href: "https://status.solana.com/",
             external: true,
           },
