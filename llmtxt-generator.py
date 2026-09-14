@@ -193,6 +193,14 @@ ENGLISH_EXTRAS = {
         ("Shipping & Production", "developers/bootcamp/shipping-production", "Prepare Solana applications for production"),
         ("DePIN", "developers/bootcamp/depin", "Build decentralized physical infrastructure applications"),
     ],
+    "Accelerate": [
+        ("Solana Accelerate", "accelerate", "Solana's global community event series in 2026"),
+        ("Accelerate APAC", "accelerate/hong-kong", "Solana Accelerate APAC in Hong Kong"),
+        ("APAC Agenda", "accelerate/hong-kong/agenda", "Sessions and speakers for Accelerate APAC"),
+        ("Accelerate Miami", "accelerate/miami", "Solana Accelerate USA in Miami"),
+        ("Miami Agenda", "accelerate/miami/agenda", "Sessions and speakers for Accelerate Miami"),
+        ("Accelerate China", "accelerate/china", "Solana Accelerate roadshow across China"),
+    ],
 }
 
 def normalize_llms_urls(content: str) -> str:

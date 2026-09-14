@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/components/Button";
 import CarouselControls from "@/components/CarouselControls";
 import SectionHeadline from "@/components/SectionHeadline";
@@ -23,11 +23,118 @@ function displayName(speaker: BreakpointSpeaker) {
     : speaker.name;
 }
 
-function SpeakerCard({ speaker }: { speaker: BreakpointSpeaker }) {
-  const name = displayName(speaker);
+type NetworkInformation = {
+  effectiveType?: string;
+  saveData?: boolean;
+};
+
+function shouldPreferStillImage() {
+  const connection = (
+    navigator as Navigator & { connection?: NetworkInformation }
+  ).connection;
+
+  return (
+    connection?.saveData === true ||
+    ["slow-2g", "2g"].includes(connection?.effectiveType ?? "") ||
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+function SpeakerMedia({ speaker }: { speaker: BreakpointSpeaker }) {
+  const mediaRef = useRef<HTMLDivElement>(null);
+  const [loadVideo, setLoadVideo] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const imageSrc = speaker.headshotPng
     ? publicAssetPath(speaker.headshotPng)
     : undefined;
+  const webmSrc = speaker.headshotWebm
+    ? publicAssetPath(speaker.headshotWebm)
+    : undefined;
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    if (!webmSrc || prefersReducedMotion || shouldPreferStillImage()) {
+      setLoadVideo(false);
+      setVideoReady(false);
+      return;
+    }
+
+    const element = mediaRef.current;
+    if (!element || !("IntersectionObserver" in window)) {
+      setLoadVideo(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        setLoadVideo(true);
+        observer.disconnect();
+      },
+      { rootMargin: "160px 0px" },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [prefersReducedMotion, webmSrc]);
+
+  const showVideo =
+    !prefersReducedMotion && loadVideo && !videoFailed && Boolean(webmSrc);
+
+  return (
+    <div
+      ref={mediaRef}
+      className="relative aspect-square overflow-hidden bg-neutral-800"
+    >
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt=""
+          width={460}
+          height={460}
+          loading="lazy"
+          decoding="async"
+          className={[
+            "absolute inset-0 h-full w-full object-cover transition-opacity duration-500 motion-reduce:transition-none",
+            videoReady && !videoFailed ? "opacity-0" : "opacity-100",
+          ].join(" ")}
+        />
+      ) : (
+        <div aria-hidden="true" className="absolute inset-0 bg-neutral-800" />
+      )}
+
+      {showVideo && (
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="none"
+          poster={imageSrc}
+          aria-hidden="true"
+          onCanPlay={() => setVideoReady(true)}
+          onError={() => setVideoFailed(true)}
+          className="absolute inset-0 h-full w-full object-cover"
+        >
+          <source src={webmSrc} type="video/webm" />
+        </video>
+      )}
+    </div>
+  );
+}
+
+function SpeakerCard({ speaker }: { speaker: BreakpointSpeaker }) {
+  const name = displayName(speaker);
 
   return (
     <li
@@ -35,24 +142,10 @@ function SpeakerCard({ speaker }: { speaker: BreakpointSpeaker }) {
       className="w-[calc(100%-20px)] shrink-0 snap-start md:w-[calc((100%-48px)/3)]"
     >
       <article>
-        <div className="relative aspect-square overflow-hidden bg-neutral-800">
-          {imageSrc ? (
-            <img
-              src={imageSrc}
-              alt=""
-              width={460}
-              height={460}
-              loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div aria-hidden="true" className="absolute inset-0" />
-          )}
-        </div>
+        <SpeakerMedia speaker={speaker} />
 
-        <div className="flex h-[106px] flex-col items-start gap-3xs py-xs text-white">
-          <h3 className="text-lg font-bold leading-[1.45]">{name}</h3>
+        <div className="flex min-h-[106px] flex-col items-start gap-3xs py-xs text-white">
+          <h3 className="type-p-large text-white">{name}</h3>
           <div className="flex flex-col gap-4xs">
             {speaker.company && (
               <p className="type-eyebrow text-white">{speaker.company}</p>

@@ -6,6 +6,7 @@ import { Link } from "@workspace/i18n/routing";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { Envelope as Mail } from "@boxicons/react/Envelope";
 import { Rss } from "@boxicons/react/Rss";
+import { sendIterableFormRequest } from "@solana-com/ui-chrome/iterable";
 import {
   DescriptionContent,
   type DescriptionContentProps,
@@ -94,17 +95,9 @@ function SubscribeForm() {
     setStatus("submitting");
 
     try {
-      const data = new FormData();
-      data.append("email", email.trim());
-
-      const response = await fetch(CHANGELOG_SUBSCRIBE_URL, {
-        method: "POST",
-        body: data,
+      await sendIterableFormRequest(CHANGELOG_SUBSCRIBE_URL, {
+        email: email.trim(),
       });
-
-      if (!response.ok) {
-        throw new Error("Changelog subscription failed");
-      }
 
       setEmail("");
       setStatus("success");

@@ -6,9 +6,7 @@ import { cn } from "./classnames";
 import { useTranslations } from "next-intl";
 import { X } from "@boxicons/react/X";
 import { useTheme } from "./theme-provider";
-
-const ITERABLE_BASE_URL =
-  "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
+import { getIterableActionUrl, sendIterableFormRequest } from "./iterable";
 
 const Status = {
   Idle: "idle",
@@ -33,7 +31,7 @@ export function NewsletterModal({ formId, children }: NewsletterModalProps) {
   const [email, setEmail] = React.useState("");
   const [status, setStatus] = React.useState<StatusType>(Status.Idle);
 
-  const actionUrl = `${ITERABLE_BASE_URL}${formId}`;
+  const actionUrl = getIterableActionUrl(formId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,17 +44,7 @@ export function NewsletterModal({ formId, children }: NewsletterModalProps) {
     setStatus(Status.Sending);
 
     try {
-      const data = new FormData();
-      data.append("email", email);
-
-      const response = await fetch(actionUrl, {
-        method: "POST",
-        body: data,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to subscribe");
-      }
+      await sendIterableFormRequest(actionUrl, { email });
 
       setStatus(Status.Success);
       setEmail("");

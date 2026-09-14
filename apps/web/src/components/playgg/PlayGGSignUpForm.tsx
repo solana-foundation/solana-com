@@ -1,10 +1,11 @@
 import { clsx as classNames } from "clsx";
 import { useMemo } from "react";
 import * as Yup from "yup";
+import {
+  IterableActionForm as ActionForm,
+  useIterableSignUp,
+} from "@solana-com/ui-chrome/iterable-signup";
 
-import useIterableSignUp, {
-  ActionForm,
-} from "../shared/Iterable/useIterableSignUp";
 import { useTranslations } from "next-intl";
 
 import ArrowSubmit from "../../../assets/playgg/arrow-submit.inline.svg";

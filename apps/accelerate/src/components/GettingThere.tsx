@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import { fadeInUp, stagger } from "@/lib/animations";
 
 interface InfoRowProps {
@@ -118,7 +118,13 @@ const cardVariants = {
   }),
 };
 
-function DiscountBadge({ discount }: { discount: number }) {
+function DiscountBadge({
+  discount,
+  label,
+}: {
+  discount: number;
+  label: string;
+}) {
   // Higher discounts get green, lower get purple/blue tones
   const isHighDiscount = discount >= 30;
   return (
@@ -141,7 +147,7 @@ function DiscountBadge({ discount }: { discount: number }) {
           fill="currentColor"
         />
       </svg>
-      {discount}% off
+      {label}
     </div>
   );
 }
@@ -149,9 +155,15 @@ function DiscountBadge({ discount }: { discount: number }) {
 function HotelCard({
   hotel,
   index,
+  bookNowLabel,
+  locationLabel,
+  discountLabel,
 }: {
   hotel: (typeof HOTEL_DEALS)[number];
   index: number;
+  bookNowLabel: string;
+  locationLabel: string;
+  discountLabel: string;
 }) {
   const bookingUrl = `https://nomadz.xyz/property/${hotel.propertyId}${NOMADZ_PARAMS}`;
 
@@ -192,7 +204,7 @@ function HotelCard({
       <div className="relative z-10 flex flex-1 flex-col p-6 lg:p-7">
         {/* Header: badge + hotel name */}
         <div className="mb-6">
-          <DiscountBadge discount={hotel.discount} />
+          <DiscountBadge discount={hotel.discount} label={discountLabel} />
           <h3 className="mt-3 text-lg font-medium leading-tight text-white lg:text-xl">
             {hotel.name}
           </h3>
@@ -203,7 +215,7 @@ function HotelCard({
 
         {/* Location */}
         <p className="mb-6 mt-auto font-diatype text-sm text-white/40">
-          Miami, US
+          {locationLabel}
         </p>
 
         {/* CTA */}
@@ -213,7 +225,7 @@ function HotelCard({
           rel="noopener noreferrer"
           className="btn-outline-gradient group/btn flex h-[44px] items-center justify-center gap-2 text-sm font-semibold uppercase tracking-[0.05em]"
         >
-          Book now
+          {bookNowLabel}
           <svg
             className="h-3.5 w-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5"
             fill="none"
@@ -237,8 +249,8 @@ interface GettingThereProps {
   translationPrefix?: string;
   showHotelDeals?: boolean;
   hotelDealsLink?: {
-    text: string;
     href: string;
+    text?: string;
   };
 }
 
@@ -281,7 +293,10 @@ export function GettingThere({
                 label={t("accommodationsLabel")}
                 value={t("accommodationsValue")}
                 subValue={t("accommodationsSubValue")}
-                link={hotelDealsLink}
+                link={{
+                  href: hotelDealsLink.href,
+                  text: hotelDealsLink.text ?? t("hotelDealsLink"),
+                }}
               />
             </div>
           )}
@@ -296,7 +311,7 @@ export function GettingThere({
                     {t("accommodationsLabel")}
                   </p>
                   <p className="text-p mt-2 !text-base text-white/50">
-                    Curated deals near the venue &middot; May 4&ndash;7
+                    {t("curatedDeals")}
                   </p>
                 </div>
                 <a
@@ -305,7 +320,7 @@ export function GettingThere({
                   rel="noopener noreferrer"
                   className="group/nomadz flex items-center gap-2 text-sm text-white/40 transition-colors hover:text-white/70"
                 >
-                  Powered by
+                  {t("poweredBy")}
                   <span className="font-semibold tracking-wide text-white/60 transition-colors group-hover/nomadz:text-white">
                     NOMADZ
                   </span>
@@ -328,7 +343,16 @@ export function GettingThere({
               {/* Hotel cards grid */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
                 {HOTEL_DEALS.map((hotel, i) => (
-                  <HotelCard key={hotel.name} hotel={hotel} index={i} />
+                  <HotelCard
+                    key={hotel.name}
+                    hotel={hotel}
+                    index={i}
+                    bookNowLabel={t("bookNow")}
+                    locationLabel={t("location")}
+                    discountLabel={t("discountOff", {
+                      discount: hotel.discount,
+                    })}
+                  />
                 ))}
               </div>
 
@@ -340,7 +364,7 @@ export function GettingThere({
                   rel="noopener noreferrer"
                   className="btn-outline-gradient group/btn flex h-[48px] items-center gap-2 px-8 text-sm font-semibold uppercase tracking-[0.05em]"
                 >
-                  More stays
+                  {t("moreStays")}
                   <svg
                     className="h-3.5 w-3.5 transition-transform duration-300 group-hover/btn:translate-x-0.5"
                     fill="none"

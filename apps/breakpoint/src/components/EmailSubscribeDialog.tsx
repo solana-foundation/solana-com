@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useEffect, useId, useRef, useState } from "react";
+import {
+  getIterableActionUrl,
+  sendIterableFormRequest,
+} from "@solana-com/ui-chrome/iterable";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 
-const ITERABLE_BASE_URL =
-  "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
 const NEWSLETTER_FORM_ID = "16189fcd-ac6c-4cc9-ac4a-94aa102fccc1";
-const NEWSLETTER_ACTION_URL = `${ITERABLE_BASE_URL}${NEWSLETTER_FORM_ID}`;
+const NEWSLETTER_ACTION_URL = getIterableActionUrl(NEWSLETTER_FORM_ID);
 
 interface Props {
   open: boolean;
@@ -89,17 +91,9 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
     setStatus("sending");
 
     try {
-      const data = new FormData();
-      data.append("email", trimmedEmail);
-
-      const response = await fetch(NEWSLETTER_ACTION_URL, {
-        method: "POST",
-        body: data,
+      await sendIterableFormRequest(NEWSLETTER_ACTION_URL, {
+        email: trimmedEmail,
       });
-
-      if (!response.ok) {
-        throw new Error("Newsletter signup failed");
-      }
 
       setEmail("");
       setStatus("done");
