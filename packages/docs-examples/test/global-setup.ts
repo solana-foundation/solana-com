@@ -46,9 +46,12 @@ export async function setup(): Promise<void> {
 }
 
 export async function teardown(): Promise<void> {
+  // Proxies first, so the surfnet sees no in-flight client sockets when it
+  // shuts down.
   await Promise.all([closeServer(rpcProxy), closeServer(wsProxy)]);
   rpcProxy = null;
   wsProxy = null;
+  surfnet?.stop();
   surfnet = null;
 }
 
