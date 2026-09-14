@@ -7,7 +7,7 @@ import { usePathname } from "@workspace/i18n/routing";
 import { Link } from "./link";
 import { HeaderList } from "./header-list";
 import { DevelopersNav } from "./developers-nav";
-import { InkeepSearchBar } from "./inkeep-searchbar";
+import { DocsSearchBar } from "./docs-search-bar";
 import { LanguageSelector } from "./language-selector";
 import { MobileMenu } from "./mobile-menu";
 import { shouldShowDevelopersNav } from "./developer-routes";
@@ -60,7 +60,7 @@ function Header({
 
               {/* Desktop Search and Language */}
               <div className="flex items-center gap-3">
-                <InkeepSearchBar />
+                <DocsSearchBar />
                 {showLanguage && (
                   <div className="relative items-center hidden xl:flex">
                     <LanguageSelector />
