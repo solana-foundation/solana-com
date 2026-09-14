@@ -1,4 +1,12 @@
 import type { Metadata } from "next";
+import {
+  FileCheck2,
+  Globe2,
+  GraduationCap,
+  Handshake,
+  Rocket,
+  Target,
+} from "lucide-react";
 import Link from "next/link";
 import styles from "./scholars.module.css";
 
@@ -13,39 +21,40 @@ export default function ScholarsPage() {
     <main className={styles.page}>
       {/* Hero */}
       <header className={styles.hero}>
-        <p className={styles.eyebrow}>
-          Call for applications · PhD students · Open year-round
-        </p>
-        <h1 className={styles.title}>
-          Do research that <span className={styles.grad}>ships.</span>
-        </h1>
-        <p className={styles.authors}>
-          Solana Scholars · Q. Kniep &amp; R. Wattenhofer
-        </p>
-        <div className={styles.abstract}>
-          <span className={styles.abstractLabel}>Abstract</span>
-          <p>
-            Solana Scholars builds a bridge between Solana and the academic
-            community. We fund focused research internships carried out in close
-            collaboration with the people building the system. Your work
-            doesn&apos;t end at a PDF. It ends up in production. We put the ship
-            in internship.
+        <div className={styles.heroContent}>
+          <p className={styles.eyebrow}>
+            Call for applications · PhD students · Open year-round
           </p>
-        </div>
-        <div className={styles.heroCta}>
-          <Link className={styles.btn} href="/scholars/apply">
-            Apply to the program
-          </Link>
-          <span className={styles.note}>
-            PhD students only · Rolling admissions
-          </span>
+          <h1 className={styles.title}>
+            Do research that <span className={styles.grad}>ships.</span>
+          </h1>
+          <p className={styles.authors}>
+            Solana Scholars · Q. Kniep &amp; R. Wattenhofer
+          </p>
+          <div className={styles.abstract}>
+            <span className={styles.abstractLabel}>Abstract</span>
+            <p>
+              Solana Scholars builds a bridge between Solana and the academic
+              community. We fund focused research internships carried out in
+              close collaboration with the people building the system. Your work
+              doesn&apos;t end at a PDF. It ends up in production. We put the
+              ship in internship.
+            </p>
+          </div>
+          <div className={styles.heroCta}>
+            <Link className={styles.btn} href="/scholars/apply">
+              Apply to the program
+            </Link>
+            <span className={styles.note}>
+              PhD students only · Rolling admissions
+            </span>
+          </div>
         </div>
       </header>
 
-      {/* §1 Why */}
+      {/* Why */}
       <section className={styles.section} id="program">
         <div className={styles.secHead}>
-          <span className={styles.secNum}>§1</span>
           <h2>Why this program exists</h2>
         </div>
         <p className={styles.lede}>
@@ -65,6 +74,7 @@ export default function ScholarsPage() {
 
         <div className={styles.grid}>
           <div className={styles.cell}>
+            <Target aria-hidden="true" className={styles.cellIcon} />
             <h3>Real problems</h3>
             <p>
               Internship topics come from what the system actually needs next —
@@ -72,6 +82,7 @@ export default function ScholarsPage() {
             </p>
           </div>
           <div className={styles.cell}>
+            <Handshake aria-hidden="true" className={styles.cellIcon} />
             <h3>Close collaboration</h3>
             <p>
               You work directly with Solana engineers and researchers throughout
@@ -79,6 +90,7 @@ export default function ScholarsPage() {
             </p>
           </div>
           <div className={styles.cell}>
+            <FileCheck2 aria-hidden="true" className={styles.cellIcon} />
             <h3>Publishable results</h3>
             <p>
               Internships are scoped so the outcome fits your PhD: papers,
@@ -86,6 +98,7 @@ export default function ScholarsPage() {
             </p>
           </div>
           <div className={styles.cell}>
+            <Rocket aria-hidden="true" className={styles.cellIcon} />
             <h3>Impact you can point to</h3>
             <p>
               The best outcome of an internship is code, protocol changes, or
@@ -93,6 +106,7 @@ export default function ScholarsPage() {
             </p>
           </div>
           <div className={styles.cell}>
+            <Globe2 aria-hidden="true" className={styles.cellIcon} />
             <h3>On-site or virtual</h3>
             <p>
               Join us in person — for example in Zurich, Switzerland or New
@@ -101,6 +115,7 @@ export default function ScholarsPage() {
             </p>
           </div>
           <div className={styles.cell}>
+            <GraduationCap aria-hidden="true" className={styles.cellIcon} />
             <h3>Built around your PhD</h3>
             <p>
               Internships run for 3 months, with a possible extension. Timing is
@@ -111,10 +126,9 @@ export default function ScholarsPage() {
         </div>
       </section>
 
-      {/* §2 How */}
+      {/* How */}
       <section className={styles.section} id="how">
         <div className={styles.secHead}>
-          <span className={styles.secNum}>§2</span>
           <h2>How it works</h2>
         </div>
         <ol className={styles.steps}>
@@ -160,10 +174,9 @@ export default function ScholarsPage() {
         </ol>
       </section>
 
-      {/* §3 Who */}
+      {/* Who */}
       <section className={styles.section} id="eligibility">
         <div className={styles.secHead}>
-          <span className={styles.secNum}>§3</span>
           <h2>Who can apply</h2>
         </div>
         <p className={styles.lede}>
@@ -187,10 +200,9 @@ export default function ScholarsPage() {
         </p>
       </section>
 
-      {/* §4 Apply */}
+      {/* Apply */}
       <section className={styles.section} id="apply">
         <div className={styles.secHead}>
-          <span className={styles.secNum}>§4</span>
           <h2>How to apply</h2>
         </div>
         <p className={styles.lede}>
