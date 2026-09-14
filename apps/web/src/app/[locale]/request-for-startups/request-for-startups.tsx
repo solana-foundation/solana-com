@@ -1,7 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+  Button,
+} from "@workspace/ui";
 import styles from "./request-for-startups.module.scss";
 
 type Request = {
@@ -128,8 +134,6 @@ function VideoPlaceholder({ request }: { request: Request }) {
 }
 
 export function RequestForStartupsPage() {
-  const [openRequest, setOpenRequest] = useState<string>(REQUESTS[0].slug);
-
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
@@ -147,9 +151,10 @@ export function RequestForStartupsPage() {
           <div>
             <p className={styles.kicker}>Worth building</p>
             <h1>
-              What would you
-              <br />
-              build <em>now?</em>
+              <span>What would</span>
+              <span>
+                you build <em>now?</em>
+              </span>
             </h1>
           </div>
           <div className={styles.heroAside}>
@@ -184,41 +189,41 @@ export function RequestForStartupsPage() {
         </div>
       </section>
 
-      <section
+      <Accordion
         id="requests"
         className={styles.requests}
         aria-label="Startup requests"
+        type="single"
+        defaultValue={REQUESTS[0].slug}
+        collapsible
       >
         <div className={styles.indexHeader}>
           <span>Ideas worth building</span>
           <span>Focus</span>
           <span>Interview</span>
         </div>
-        {REQUESTS.map((request) => {
-          const isOpen = openRequest === request.slug;
-          return (
-            <article
-              className={`${styles.request} ${isOpen ? styles.requestOpen : ""}`}
-              key={request.slug}
+        {REQUESTS.map((request) => (
+          <AccordionItem
+            className={styles.request}
+            key={request.slug}
+            value={request.slug}
+          >
+            <AccordionTrigger
+              className={styles.requestTrigger}
+              aria-controls={`request-${request.slug}`}
             >
-              <button
-                className={styles.requestTrigger}
-                onClick={() => setOpenRequest(isOpen ? "" : request.slug)}
-                aria-expanded={isOpen}
-                aria-controls={`request-${request.slug}`}
-              >
-                <span className={styles.requestTitle}>{request.title}</span>
-                <span className={styles.category}>{request.category}</span>
-                <span className={styles.interviewStatus}>Coming soon</span>
-                <span className={styles.toggle} aria-hidden="true">
-                  {isOpen ? "−" : "+"}
-                </span>
-              </button>
-              <div
-                id={`request-${request.slug}`}
-                className={styles.requestDetail}
-                hidden={!isOpen}
-              >
+              <span className={styles.requestTitle}>{request.title}</span>
+              <span className={styles.category}>{request.category}</span>
+              <span className={styles.interviewStatus}>Coming soon</span>
+              <span className={styles.toggle} aria-hidden="true">
+                +
+              </span>
+            </AccordionTrigger>
+            <AccordionContent
+              id={`request-${request.slug}`}
+              className={styles.requestDetail}
+            >
+              <div className={styles.detailInner}>
                 <div className={styles.brief}>
                   <div className={styles.copy}>
                     <p className={styles.detailLabel}>The opportunity</p>
@@ -243,16 +248,22 @@ export function RequestForStartupsPage() {
                       ))}
                     </ul>
                   </div>
-                  <Link href="/developers" className={styles.briefLink}>
-                    Build from this request <span aria-hidden="true">↗</span>
-                  </Link>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className={styles.briefLink}
+                  >
+                    <Link href="/developers">
+                      Build from this request <span aria-hidden="true">↗</span>
+                    </Link>
+                  </Button>
                 </div>
                 <VideoPlaceholder request={request} />
               </div>
-            </article>
-          );
-        })}
-      </section>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
 
       <section id="build" className={styles.build}>
         <p className={styles.eyebrow}>Your turn</p>
@@ -262,9 +273,11 @@ export function RequestForStartupsPage() {
             Bring an idea to life with the people, tools, and capital that can
             help it move. The build challenge is coming next.
           </p>
-          <Link href="/developers" className={styles.cta}>
-            Start building <span aria-hidden="true">↗</span>
-          </Link>
+          <Button asChild className={styles.cta}>
+            <Link href="/developers">
+              Start building <span aria-hidden="true">↗</span>
+            </Link>
+          </Button>
         </div>
         <div className={styles.buildMark} aria-hidden="true">
           <i />
