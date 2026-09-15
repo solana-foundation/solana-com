@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -134,6 +135,30 @@ function VideoPlaceholder({ request }: { request: Request }) {
 }
 
 export function RequestForStartupsPage() {
+  const handleRequestChange = useCallback((value: string) => {
+    if (!value) return;
+
+    window.requestAnimationFrame(() => {
+      const request = document.getElementById(`request-item-${value}`);
+      const headerHeight = document
+        .querySelector("header")
+        ?.getBoundingClientRect().height;
+
+      if (!request) return;
+
+      window.scrollTo({
+        top: Math.max(
+          0,
+          request.getBoundingClientRect().top +
+            window.scrollY -
+            (headerHeight ?? 0) -
+            24,
+        ),
+        behavior: "auto",
+      });
+    });
+  }, []);
+
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
@@ -196,6 +221,7 @@ export function RequestForStartupsPage() {
         type="single"
         defaultValue={REQUESTS[0].slug}
         collapsible
+        onValueChange={handleRequestChange}
       >
         <div className={styles.indexHeader}>
           <span>Ideas worth building</span>
@@ -205,6 +231,7 @@ export function RequestForStartupsPage() {
         {REQUESTS.map((request) => (
           <AccordionItem
             className={styles.request}
+            id={`request-item-${request.slug}`}
             key={request.slug}
             value={request.slug}
           >
