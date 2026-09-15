@@ -83,6 +83,8 @@ const nextConfig: NextConfig = {
   // The epoch1000 OG card reads font files from disk at request time
   outputFileTracingIncludes: {
     "/api/epoch1000/og": ["./assets/fonts/epoch1000/*.woff"],
+    // The Markdown endpoint reads localized Learn MDX from disk at request time.
+    "/api/markdown/[...slug]": ["./content/learn/**/*.mdx"],
   },
 
   async rewrites() {

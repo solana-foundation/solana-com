@@ -3,6 +3,7 @@ module.exports = {
   darkMode: ["class"],
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./content/**/*.{js,ts,jsx,tsx,mdx}",
     "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
     "../../packages/ui-chrome/src/**/*.{js,ts,jsx,tsx}",
     "../../packages/templates/src/**/*.{js,ts,jsx,tsx}",
