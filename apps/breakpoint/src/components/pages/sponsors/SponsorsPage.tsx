@@ -31,6 +31,7 @@ function getLogo(sponsor: SponsorLogo) {
   return {
     company: resolved.company,
     alt: resolved.alt,
+    name: resolved.name,
     src: resolved.src,
   };
 }
@@ -209,22 +210,22 @@ function getSponsorTags(company: CompanyRecord) {
 }
 
 function SponsorModalBody({
-  company,
   decorative = false,
   description,
   descriptionId,
   logo,
   modalLogoStyle,
+  name,
   socialLinks,
   tags,
   titleId,
 }: {
-  company: CompanyRecord;
   decorative?: boolean;
   description?: string;
   descriptionId?: string;
   logo: ReturnType<typeof getLogo>;
   modalLogoStyle: CSSProperties;
+  name: string;
   socialLinks: SponsorSocialLink[];
   tags: string[];
   titleId?: string;
@@ -254,7 +255,7 @@ function SponsorModalBody({
             id={decorative ? undefined : titleId}
             className="type-h5 text-white"
           >
-            {company.name}
+            {name}
           </h2>
 
           {socialLinks.length > 0 && (
@@ -273,7 +274,7 @@ function SponsorModalBody({
                     href={link.href}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`${company.name} ${link.label}`}
+                    aria-label={`${name} ${link.label}`}
                     className="inline-flex size-5 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
                   >
                     {link.icon}
@@ -547,11 +548,11 @@ function SponsorModal({
         </button>
 
         <SponsorModalBody
-          company={company}
           description={description}
           descriptionId={descriptionId}
           logo={logo}
           modalLogoStyle={modalLogoStyle}
+          name={logo.name}
           socialLinks={socialLinks}
           tags={tags}
           titleId={titleId}
@@ -568,11 +569,11 @@ function SponsorModal({
               <CloseIcon />
             </span>
             <SponsorModalBody
-              company={company}
               decorative
               description={description}
               logo={logo}
               modalLogoStyle={modalLogoStyle}
+              name={logo.name}
               socialLinks={socialLinks}
               tags={tags}
             />

@@ -68,6 +68,7 @@ import { osl } from "./records/osl";
 import { pancakeswap } from "./records/pancakeswap";
 import { paxos } from "./records/paxos";
 import { phantom } from "./records/phantom";
+import { phoenix } from "./records/phoenix";
 import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { pyth } from "./records/pyth";
@@ -102,6 +103,7 @@ import { switchboard } from "./records/switchboard";
 import { syndica } from "./records/syndica";
 import { tala } from "./records/tala";
 import { theGraph } from "./records/the-graph";
+import { titan } from "./records/titan";
 import { trojan } from "./records/trojan";
 import { triton } from "./records/triton";
 import { unclaimedSol } from "./records/unclaimed-sol";
@@ -185,6 +187,7 @@ export const companies = [
   pancakeswap,
   paxos,
   phantom,
+  phoenix,
   pipeNetwork,
   playSolana,
   pyth,
@@ -219,6 +222,7 @@ export const companies = [
   syndica,
   tala,
   theGraph,
+  titan,
   trojan,
   triton,
   unclaimedSol,

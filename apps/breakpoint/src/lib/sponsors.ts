@@ -83,9 +83,9 @@ export function resolveSponsorLogo(sponsor: SponsorLogo): ResolvedSponsorLogo {
 
   return {
     ...sponsor,
-    alt: company.name,
+    alt: sponsor.displayName ?? company.name,
     company,
-    name: company.name,
+    name: sponsor.displayName ?? company.name,
     src,
   };
 }
