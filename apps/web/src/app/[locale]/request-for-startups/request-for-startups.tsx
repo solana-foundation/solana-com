@@ -247,6 +247,16 @@ const heroItem: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
 };
 
+const sectionContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.04 } },
+};
+
+const sectionItem: Variants = {
+  hidden: { y: 28 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.65, ease: EASE } },
+};
+
 function PointField({ compact = false }: { compact?: boolean }) {
   const dotPatternId = compact ? "rfs-dots-compact" : "rfs-dots";
   const accentPatternId = compact
@@ -397,6 +407,15 @@ export function RequestForStartupsPage() {
         animate: "show" as const,
       };
   const itemMotion = reduceMotion ? {} : { variants: heroItem };
+  const sectionMotion = reduceMotion
+    ? {}
+    : {
+        variants: sectionContainer,
+        initial: "hidden" as const,
+        whileInView: "show" as const,
+        viewport: { amount: 0.18, once: true },
+      };
+  const sectionItemMotion = reduceMotion ? {} : { variants: sectionItem };
 
   return (
     <main className={styles.page}>
@@ -440,11 +459,11 @@ export function RequestForStartupsPage() {
         </motion.div>
       </section>
 
-      <section className={styles.intro}>
-        <div className={styles.introLabel}>
+      <motion.section className={styles.intro} {...sectionMotion}>
+        <motion.div className={styles.introLabel} {...sectionItemMotion}>
           <p className={styles.eyebrow}>The starting point</p>
-        </div>
-        <div className={styles.introCopy}>
+        </motion.div>
+        <motion.div className={styles.introCopy} {...sectionItemMotion}>
           <p>
             We asked people shaping the ecosystem one question: what should
             exist that Solana makes possible now?
@@ -469,101 +488,111 @@ export function RequestForStartupsPage() {
               <i /> Company
             </span>
           </div>
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
-      <section id="requests" className={styles.requestsSection}>
-        <div className={styles.requestsHeading}>
+      <motion.section
+        id="requests"
+        className={styles.requestsSection}
+        {...sectionMotion}
+      >
+        <motion.div className={styles.requestsHeading} {...sectionItemMotion}>
           <p className={styles.eyebrow}>The requests</p>
           <h2>Ideas worth building</h2>
           <p>Eleven starting points. None of them are finished.</p>
-        </div>
-        <Accordion
-          className={styles.requests}
-          aria-label="Startup requests"
-          type="single"
-          defaultValue={REQUESTS[0].slug}
-          collapsible
-          onValueChange={handleRequestChange}
-        >
-          <div className={styles.indexHeader}>
-            <span>Request</span>
-            <span>Focus</span>
-            <span>Point of view</span>
-            <span aria-hidden="true" />
-          </div>
-          {REQUESTS.map((request) => (
-            <AccordionItem
-              className={styles.request}
-              id={`request-item-${request.slug}`}
-              key={request.slug}
-              value={request.slug}
-              style={
-                { "--request-accent": ACCENTS[request.accent] } as CSSProperties
-              }
-            >
-              <AccordionTrigger
-                className={styles.requestTrigger}
-                aria-controls={`request-${request.slug}`}
+        </motion.div>
+        <motion.div {...sectionItemMotion}>
+          <Accordion
+            className={styles.requests}
+            aria-label="Startup requests"
+            type="single"
+            defaultValue={REQUESTS[0].slug}
+            collapsible
+            onValueChange={handleRequestChange}
+          >
+            <div className={styles.indexHeader}>
+              <span>Request</span>
+              <span>Focus</span>
+              <span>Point of view</span>
+              <span aria-hidden="true" />
+            </div>
+            {REQUESTS.map((request) => (
+              <AccordionItem
+                className={styles.request}
+                id={`request-item-${request.slug}`}
+                key={request.slug}
+                value={request.slug}
+                style={
+                  {
+                    "--request-accent": ACCENTS[request.accent],
+                  } as CSSProperties
+                }
               >
-                <span className={styles.requestTitle}>{request.title}</span>
-                <span className={styles.category}>{request.category}</span>
-                <span className={styles.requestSummary}>{request.thesis}</span>
-                <span className={styles.toggle} aria-hidden="true">
-                  +
-                </span>
-              </AccordionTrigger>
-              <AccordionContent
-                id={`request-${request.slug}`}
-                className={styles.requestDetail}
-              >
-                <div className={styles.detailInner}>
-                  <div className={styles.brief}>
-                    <div className={styles.copy}>
-                      <p className={styles.detailLabel}>The opportunity</p>
-                      <p className={styles.thesis}>{request.thesis}</p>
-                      <p>{request.description}</p>
-                    </div>
-                    <dl className={styles.context}>
-                      <div>
-                        <dt>Why now</dt>
-                        <dd>{request.whyNow}</dd>
+                <AccordionTrigger
+                  className={styles.requestTrigger}
+                  aria-controls={`request-${request.slug}`}
+                >
+                  <span className={styles.requestTitle}>{request.title}</span>
+                  <span className={styles.category}>{request.category}</span>
+                  <span className={styles.requestSummary}>
+                    {request.thesis}
+                  </span>
+                  <span className={styles.toggle} aria-hidden="true">
+                    +
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent
+                  id={`request-${request.slug}`}
+                  className={styles.requestDetail}
+                >
+                  <div className={styles.detailInner}>
+                    <div className={styles.brief}>
+                      <div className={styles.copy}>
+                        <p className={styles.detailLabel}>The opportunity</p>
+                        <p className={styles.thesis}>{request.thesis}</p>
+                        <p>{request.description}</p>
                       </div>
-                      <div>
-                        <dt>Why Solana</dt>
-                        <dd>{request.whySolana}</dd>
+                      <dl className={styles.context}>
+                        <div>
+                          <dt>Why now</dt>
+                          <dd>{request.whyNow}</dd>
+                        </div>
+                        <div>
+                          <dt>Why Solana</dt>
+                          <dd>{request.whySolana}</dd>
+                        </div>
+                      </dl>
+                      <div className={styles.startingPoints}>
+                        <p className={styles.detailLabel}>Starting points</p>
+                        <ul>
+                          {request.prompts.map((prompt) => (
+                            <li key={prompt}>{prompt}</li>
+                          ))}
+                        </ul>
                       </div>
-                    </dl>
-                    <div className={styles.startingPoints}>
-                      <p className={styles.detailLabel}>Starting points</p>
-                      <ul>
-                        {request.prompts.map((prompt) => (
-                          <li key={prompt}>{prompt}</li>
-                        ))}
-                      </ul>
+                      <Button
+                        asChild
+                        variant="outline"
+                        className={styles.briefLink}
+                      >
+                        <Link href="/developers">
+                          Build from this request{" "}
+                          <ArrowUpRight aria-hidden="true" />
+                        </Link>
+                      </Button>
                     </div>
-                    <Button
-                      asChild
-                      variant="outline"
-                      className={styles.briefLink}
-                    >
-                      <Link href="/developers">
-                        Build from this request{" "}
-                        <ArrowUpRight aria-hidden="true" />
-                      </Link>
-                    </Button>
+                    <SignalArtwork request={request} />
                   </div>
-                  <SignalArtwork request={request} />
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </section>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </motion.div>
+      </motion.section>
 
-      <section id="build" className={styles.build}>
+      <motion.section id="build" className={styles.build} {...sectionMotion}>
         <PointField compact />
-        <div className={styles.buildInner}>
+        <motion.div className={styles.buildInner} {...sectionItemMotion}>
           <p className={styles.eyebrow}>Your signal starts here</p>
           <h2>
             Start where the <em>request ends.</em>
@@ -577,8 +606,8 @@ export function RequestForStartupsPage() {
               Start building <ArrowUpRight aria-hidden="true" />
             </a>
           </Button>
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
     </main>
   );
 }
