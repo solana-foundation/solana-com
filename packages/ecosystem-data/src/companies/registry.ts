@@ -44,6 +44,7 @@ import { galaxy } from "./records/galaxy";
 import { gmgn } from "./records/gmgn";
 import { gradient } from "./records/gradient";
 import { hamiltonLane } from "./records/hamilton-lane";
+import { hostdefi } from "./records/hostdefi";
 import { jito } from "./records/jito";
 import { jpmorgan } from "./records/jpmorgan";
 import { jupiter } from "./records/jupiter";
@@ -163,6 +164,7 @@ export const companies = [
   gmgn,
   gradient,
   hamiltonLane,
+  hostdefi,
   jito,
   jpmorgan,
   jupiter,
