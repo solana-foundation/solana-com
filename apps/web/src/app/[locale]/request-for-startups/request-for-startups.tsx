@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { type CSSProperties, useCallback } from "react";
+import { ArrowDown } from "@boxicons/react/ArrowDown";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import {
   Accordion,
@@ -262,19 +264,19 @@ function PointField({ compact = false }: { compact?: boolean }) {
       <defs>
         <pattern
           id={dotPatternId}
-          width="13"
-          height="13"
+          width="8.5"
+          height="8.5"
           patternUnits="userSpaceOnUse"
         >
-          <circle cx="2" cy="2" r="1.55" fill="#f4f3f6" />
+          <rect x="1" y="1" width="1.45" height="1.45" fill="#f4f3f6" />
         </pattern>
         <pattern
           id={accentPatternId}
-          width="13"
-          height="13"
+          width="8.5"
+          height="8.5"
           patternUnits="userSpaceOnUse"
         >
-          <circle cx="2" cy="2" r="1.55" fill="#14f195" />
+          <rect x="1" y="1" width="1.45" height="1.45" fill="#14f195" />
         </pattern>
         <linearGradient id={lineGradientId} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#9945ff" stopOpacity="0" />
@@ -324,11 +326,17 @@ function SignalArtwork({ request }: { request: Request }) {
         <defs>
           <pattern
             id={`signal-${request.slug}`}
-            width="12"
-            height="12"
+            width="7.5"
+            height="7.5"
             patternUnits="userSpaceOnUse"
           >
-            <circle cx="2" cy="2" r="1.7" fill="var(--request-accent)" />
+            <rect
+              x="1"
+              y="1"
+              width="1.35"
+              height="1.35"
+              fill="var(--request-accent)"
+            />
           </pattern>
         </defs>
         <g className={styles.signalArtworkDots}>
@@ -415,9 +423,11 @@ export function RequestForStartupsPage() {
                 questions we want the next generation of Solana builders to
                 answer.
               </p>
-              <a href="#requests" className={styles.textLink}>
-                Explore the requests <span aria-hidden="true">↓</span>
-              </a>
+              <Button asChild variant="outline" className={styles.textLink}>
+                <a href="#requests">
+                  Explore the requests <ArrowDown aria-hidden="true" />
+                </a>
+              </Button>
             </motion.div>
           </div>
           <motion.div className={styles.manifesto} {...itemMotion}>
@@ -479,7 +489,7 @@ export function RequestForStartupsPage() {
           <div className={styles.indexHeader}>
             <span>Request</span>
             <span>Focus</span>
-            <span>Status</span>
+            <span>Point of view</span>
             <span aria-hidden="true" />
           </div>
           {REQUESTS.map((request) => (
@@ -498,9 +508,7 @@ export function RequestForStartupsPage() {
               >
                 <span className={styles.requestTitle}>{request.title}</span>
                 <span className={styles.category}>{request.category}</span>
-                <span className={styles.interviewStatus}>
-                  <i /> Open request
-                </span>
+                <span className={styles.requestSummary}>{request.thesis}</span>
                 <span className={styles.toggle} aria-hidden="true">
                   +
                 </span>
@@ -541,7 +549,7 @@ export function RequestForStartupsPage() {
                     >
                       <Link href="/developers">
                         Build from this request{" "}
-                        <span aria-hidden="true">↗</span>
+                        <ArrowUpRight aria-hidden="true" />
                       </Link>
                     </Button>
                   </div>
@@ -565,9 +573,9 @@ export function RequestForStartupsPage() {
             help it move. The build challenge is coming next.
           </p>
           <Button asChild className={styles.cta}>
-            <Link href="/developers">
-              Start building <span aria-hidden="true">↗</span>
-            </Link>
+            <a href="https://solana.com/llms.txt">
+              Start building <ArrowUpRight aria-hidden="true" />
+            </a>
           </Button>
         </div>
       </section>
