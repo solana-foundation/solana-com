@@ -130,6 +130,15 @@ binary is installed; CI performs the authoritative secrets scan.
 - SVG handling: Use `.inline.svg` suffix for React components, regular `.svg`
   for assets
 
+## Public Content Authoring
+
+Before generating or materially rewriting reader-facing English copy, read and
+follow
+[`skills/solana-tone-of-voice/SKILL.md`](./skills/solana-tone-of-voice/SKILL.md).
+It covers UI strings, landing-page and documentation prose, Media content,
+metadata, CTAs, and social copy. Also follow the owning app's instructions,
+which may set stricter format or sourcing rules.
+
 ## PR Guidelines
 
 PRs should include:

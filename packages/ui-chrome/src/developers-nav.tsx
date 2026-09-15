@@ -39,8 +39,10 @@ export function DevelopersNav({
       data-developers-nav
       className="relative z-[1] text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[#ababbc] border-t border-b border-[rgba(255,255,255,0.05)] light:!bg-[rgba(255,255,255,0.95)] light:text-[#7f8391] light:border-[rgba(0,0,0,0.05)]"
     >
-      <div className={`mx-auto w-full max-w-[1440px] ${containerClassName}`}>
-        <div className="py-2 text-[17px] font-light ml-3 xl:ml-0">
+      <div
+        className={`mx-auto w-full max-w-[1440px] px-4 sm:px-5 xl:px-6 ${containerClassName}`}
+      >
+        <div className="py-2 text-[17px] font-light">
           <div className="flex items-center">
             {showSidebarToggleSlot ? (
               <div

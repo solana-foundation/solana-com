@@ -132,7 +132,11 @@ describe("Cross-app rewrites", () => {
     );
   });
 
-  it("proxies media post APIs used by tweet embeds", () => {
+  it("proxies media content APIs", () => {
+    expectBeforeFileRewrite(
+      "/api/developer-updates/latest",
+      `${MEDIA_APP_URL}/api/developer-updates/latest`,
+    );
     expectBeforeFileRewrite(
       "/api/posts/:path*",
       `${MEDIA_APP_URL}/api/posts/:path*`,
