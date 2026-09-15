@@ -4,10 +4,13 @@ import Script from "next/script";
 import {
   getCookieConsentBootstrapScript,
   getCookieConsentDefaultScript,
+  isProductionAnalyticsEnabled,
 } from "@solana-com/ui-chrome";
 import { config } from "src/config";
 
 const GTMTrackingSnippet = () => {
+  if (!isProductionAnalyticsEnabled()) return null;
+
   const id = config.siteMetadata.googleTagManagerID;
 
   return (
@@ -25,7 +28,6 @@ const GTMTrackingSnippet = () => {
         })(window,document,'script','dataLayer','${id}');
       `}
       </Script>
-      {/* The consent */}
       <Script strategy="afterInteractive" id="gtag-invocation">
         {getCookieConsentBootstrapScript()}
       </Script>

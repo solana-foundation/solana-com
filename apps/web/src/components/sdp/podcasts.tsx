@@ -5,6 +5,7 @@ import Carousel, { CarouselControls } from "@/component-library/carousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useRef } from "react";
 import FormattedDate from "../shared/FormattedDate";
+import { trackContentSelection } from "@solana-com/ui-chrome/analytics";
 
 export interface PodcastItem {
   title: string;
@@ -39,13 +40,12 @@ const PlayIcon = () => (
 );
 
 const trackSdpPodcastClick = (title: string) => {
-  if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("event", "podcast_episode_click", {
-      episode_title: title,
-      podcast_slug: "sdp",
-      platform: "youtube",
-    });
-  }
+  trackContentSelection({
+    appName: "web",
+    contentType: "podcast_episode",
+    contentName: title,
+    placement: "solana_data_podcasts",
+  });
 };
 
 const PodcastCard = ({ title, img, href, date, duration }: PodcastItem) => {
