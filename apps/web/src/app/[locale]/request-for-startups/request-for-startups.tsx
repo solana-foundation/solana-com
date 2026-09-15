@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback } from "react";
+import { type CSSProperties, useCallback } from "react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import {
   Accordion,
   AccordionContent,
@@ -224,25 +225,138 @@ const REQUESTS: Request[] = [
   },
 ];
 
-function VideoPlaceholder({ request }: { request: Request }) {
+const ACCENTS: Record<Request["accent"], string> = {
+  violet: "#9945ff",
+  green: "#14f195",
+  pink: "#ff70d7",
+  blue: "#80ecff",
+  orange: "#ffb45c",
+};
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+const heroContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.09, delayChildren: 0.12 } },
+};
+
+const heroItem: Variants = {
+  hidden: { opacity: 0.72, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
+};
+
+function PointField({ compact = false }: { compact?: boolean }) {
+  const dotPatternId = compact ? "rfs-dots-compact" : "rfs-dots";
+  const accentPatternId = compact
+    ? "rfs-accent-dots-compact"
+    : "rfs-accent-dots";
+  const lineGradientId = compact ? "rfs-line-compact" : "rfs-line";
+
   return (
-    <div className={`${styles.video} ${styles[`video${request.accent}`]}`}>
-      <div className={styles.videoTopline}>
-        <span>YouTube premiere</span>
-        <span>Coming soon</span>
+    <svg
+      className={`${styles.pointField} ${compact ? styles.pointFieldCompact : ""}`}
+      viewBox="0 0 1440 760"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      <defs>
+        <pattern
+          id={dotPatternId}
+          width="13"
+          height="13"
+          patternUnits="userSpaceOnUse"
+        >
+          <circle cx="2" cy="2" r="1.55" fill="#f4f3f6" />
+        </pattern>
+        <pattern
+          id={accentPatternId}
+          width="13"
+          height="13"
+          patternUnits="userSpaceOnUse"
+        >
+          <circle cx="2" cy="2" r="1.55" fill="#14f195" />
+        </pattern>
+        <linearGradient id={lineGradientId} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9945ff" stopOpacity="0" />
+          <stop offset="0.32" stopColor="#9945ff" />
+          <stop offset="0.7" stopColor="#14f195" />
+          <stop offset="1" stopColor="#14f195" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      <g className={styles.pointCloudPrimary}>
+        <path
+          d="M-80 430C54 263 176 213 328 246c127 28 171 123 306 142 83 12 133-21 177-48-101 126-242 188-420 187-185-1-341-34-471-97Z"
+          fill={`url(#${dotPatternId})`}
+        />
+        <path
+          d="M1520 325c-123-82-246-101-354-54-97 43-135 128-250 163-80 25-153 4-219-30 108 128 264 194 449 164 160-27 281-105 374-243Z"
+          fill={`url(#${dotPatternId})`}
+        />
+      </g>
+      <g className={styles.pointCloudAccent}>
+        <path
+          d="M-36 501c159-58 275-52 383 7 101 55 179 57 292 16-103 98-225 130-373 96-113-26-214-66-302-119Z"
+          fill={`url(#${accentPatternId})`}
+        />
+        <path
+          d="M1476 426c-146-20-249 8-326 82-60 58-141 83-244 75 99 60 213 70 344 28 95-31 170-93 226-185Z"
+          fill={`url(#${accentPatternId})`}
+        />
+      </g>
+      <g className={styles.signalLines} stroke={`url(#${lineGradientId})`}>
+        <path d="M-30 448C201 332 334 349 518 423s339 70 493-7 292-91 481-17" />
+        <path d="M-20 478c216-92 354-74 520 4s341 88 509 9 302-102 483-53" />
+        <path d="M-12 508c187-63 322-44 492 25s350 102 531 26 311-105 481-81" />
+      </g>
+    </svg>
+  );
+}
+
+function SignalArtwork({ request }: { request: Request }) {
+  return (
+    <div className={styles.signalArtwork}>
+      <div className={styles.signalArtworkTopline}>
+        <span>Founder signal</span>
+        <span>Interview / coming soon</span>
       </div>
-      <div className={styles.play} aria-hidden="true">
-        <span />
-      </div>
-      <div className={styles.videoCaption}>
-        <span>From the Solana ecosystem</span>
-        <span>{request.category}</span>
+      <svg viewBox="0 0 640 360" aria-hidden="true">
+        <defs>
+          <pattern
+            id={`signal-${request.slug}`}
+            width="12"
+            height="12"
+            patternUnits="userSpaceOnUse"
+          >
+            <circle cx="2" cy="2" r="1.7" fill="var(--request-accent)" />
+          </pattern>
+        </defs>
+        <g className={styles.signalArtworkDots}>
+          <path
+            d="M-35 232c75-103 154-132 243-86 73 38 103 107 191 96 76-9 114-76 176-79 42-2 76 18 101 60v106H-35Z"
+            fill={`url(#signal-${request.slug})`}
+          />
+        </g>
+        <g className={styles.signalMark}>
+          <path d="m235 155 184-43" />
+          <path d="m220 190 184-43" />
+          <path d="m205 225 184-43" />
+        </g>
+        <path
+          className={styles.signalOrbit}
+          d="M43 255c102-101 194-118 276-52s175 67 278 0"
+        />
+      </svg>
+      <div className={styles.signalArtworkCaption}>
+        <span>Request / {request.category}</span>
+        <span>Signal incoming</span>
       </div>
     </div>
   );
 }
 
 export function RequestForStartupsPage() {
+  const reduceMotion = useReducedMotion();
   const handleRequestChange = useCallback((value: string) => {
     if (!value) return;
 
@@ -267,49 +381,59 @@ export function RequestForStartupsPage() {
     });
   }, []);
 
+  const containerMotion = reduceMotion
+    ? {}
+    : {
+        variants: heroContainer,
+        initial: "hidden" as const,
+        animate: "show" as const,
+      };
+  const itemMotion = reduceMotion ? {} : { variants: heroItem };
+
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
-        <div className={styles.signalField} aria-hidden="true">
-          <i />
-          <i />
-          <i />
-          <i />
-        </div>
-        <div className={styles.heroMeta}>
-          <span>Solana / Requests for startups</span>
-          <span>For the curious and the committed</span>
-        </div>
-        <div className={styles.heroGrid}>
-          <div>
-            <p className={styles.kicker}>Worth building</p>
-            <h1>
-              <span>What would</span>
-              <span>
-                you build <em>now?</em>
-              </span>
-            </h1>
+        <PointField />
+        <motion.div className={styles.heroInner} {...containerMotion}>
+          <motion.div className={styles.heroMeta} {...itemMotion}>
+            <span>Solana / Requests for startups</span>
+            <span>Open call / {REQUESTS.length} requests</span>
+          </motion.div>
+          <div className={styles.heroCenter}>
+            <motion.div {...itemMotion}>
+              <p className={styles.kicker}>Worth building</p>
+              <h1>
+                <span>What would</span>
+                <span>
+                  you build <em>now?</em>
+                </span>
+              </h1>
+            </motion.div>
+            <motion.div className={styles.heroAside} {...itemMotion}>
+              <p>
+                The next great company could begin with a question. Here are the
+                questions we want the next generation of Solana builders to
+                answer.
+              </p>
+              <a href="#requests" className={styles.textLink}>
+                Explore the requests <span aria-hidden="true">↓</span>
+              </a>
+            </motion.div>
           </div>
-          <div className={styles.heroAside}>
-            <p>
-              The next great company could begin with a question. Here are the
-              questions we want the next generation of Solana builders to
-              answer.
-            </p>
-            <a href="#requests" className={styles.textLink}>
-              Explore the requests <span aria-hidden="true">↓</span>
-            </a>
-          </div>
-        </div>
-        <div className={styles.manifesto}>
-          <span>Build what matters.</span>
-          <span>Build on Solana.</span>
-          <span className={styles.manifestoMark}>✦</span>
-        </div>
+          <motion.div className={styles.manifesto} {...itemMotion}>
+            <span>Questions become signals.</span>
+            <span>Signals become companies.</span>
+            <span className={styles.liveSignal}>
+              <i /> Listening now
+            </span>
+          </motion.div>
+        </motion.div>
       </section>
 
       <section className={styles.intro}>
-        <p className={styles.eyebrow}>The starting point</p>
+        <div className={styles.introLabel}>
+          <p className={styles.eyebrow}>The starting point</p>
+        </div>
         <div className={styles.introCopy}>
           <p>
             We asked people shaping the ecosystem one question: what should
@@ -319,90 +443,120 @@ export function RequestForStartupsPage() {
             These requests are points of view, not prescriptions. Take one,
             challenge it, and make something only you would make.
           </p>
+          <div
+            className={styles.signalLegend}
+            aria-label="From idea to company"
+          >
+            <span>
+              <i /> Question
+            </span>
+            <b aria-hidden="true" />
+            <span>
+              <i /> Point of view
+            </span>
+            <b aria-hidden="true" />
+            <span>
+              <i /> Company
+            </span>
+          </div>
         </div>
       </section>
 
-      <Accordion
-        id="requests"
-        className={styles.requests}
-        aria-label="Startup requests"
-        type="single"
-        defaultValue={REQUESTS[0].slug}
-        collapsible
-        onValueChange={handleRequestChange}
-      >
-        <div className={styles.indexHeader}>
-          <span>Ideas worth building</span>
-          <span>Focus</span>
-          <span>Interview</span>
+      <section id="requests" className={styles.requestsSection}>
+        <div className={styles.requestsHeading}>
+          <p className={styles.eyebrow}>The requests</p>
+          <h2>Ideas worth building</h2>
+          <p>Eleven starting points. None of them are finished.</p>
         </div>
-        {REQUESTS.map((request) => (
-          <AccordionItem
-            className={styles.request}
-            id={`request-item-${request.slug}`}
-            key={request.slug}
-            value={request.slug}
-          >
-            <AccordionTrigger
-              className={styles.requestTrigger}
-              aria-controls={`request-${request.slug}`}
+        <Accordion
+          className={styles.requests}
+          aria-label="Startup requests"
+          type="single"
+          defaultValue={REQUESTS[0].slug}
+          collapsible
+          onValueChange={handleRequestChange}
+        >
+          <div className={styles.indexHeader}>
+            <span>Request</span>
+            <span>Focus</span>
+            <span>Status</span>
+            <span aria-hidden="true" />
+          </div>
+          {REQUESTS.map((request) => (
+            <AccordionItem
+              className={styles.request}
+              id={`request-item-${request.slug}`}
+              key={request.slug}
+              value={request.slug}
+              style={
+                { "--request-accent": ACCENTS[request.accent] } as CSSProperties
+              }
             >
-              <span className={styles.requestTitle}>{request.title}</span>
-              <span className={styles.category}>{request.category}</span>
-              <span className={styles.interviewStatus}>Coming soon</span>
-              <span className={styles.toggle} aria-hidden="true">
-                +
-              </span>
-            </AccordionTrigger>
-            <AccordionContent
-              id={`request-${request.slug}`}
-              className={styles.requestDetail}
-            >
-              <div className={styles.detailInner}>
-                <div className={styles.brief}>
-                  <div className={styles.copy}>
-                    <p className={styles.detailLabel}>The opportunity</p>
-                    <p className={styles.thesis}>{request.thesis}</p>
-                    <p>{request.description}</p>
-                  </div>
-                  <dl className={styles.context}>
-                    <div>
-                      <dt>Why now</dt>
-                      <dd>{request.whyNow}</dd>
+              <AccordionTrigger
+                className={styles.requestTrigger}
+                aria-controls={`request-${request.slug}`}
+              >
+                <span className={styles.requestTitle}>{request.title}</span>
+                <span className={styles.category}>{request.category}</span>
+                <span className={styles.interviewStatus}>
+                  <i /> Open request
+                </span>
+                <span className={styles.toggle} aria-hidden="true">
+                  +
+                </span>
+              </AccordionTrigger>
+              <AccordionContent
+                id={`request-${request.slug}`}
+                className={styles.requestDetail}
+              >
+                <div className={styles.detailInner}>
+                  <div className={styles.brief}>
+                    <div className={styles.copy}>
+                      <p className={styles.detailLabel}>The opportunity</p>
+                      <p className={styles.thesis}>{request.thesis}</p>
+                      <p>{request.description}</p>
                     </div>
-                    <div>
-                      <dt>Why Solana</dt>
-                      <dd>{request.whySolana}</dd>
+                    <dl className={styles.context}>
+                      <div>
+                        <dt>Why now</dt>
+                        <dd>{request.whyNow}</dd>
+                      </div>
+                      <div>
+                        <dt>Why Solana</dt>
+                        <dd>{request.whySolana}</dd>
+                      </div>
+                    </dl>
+                    <div className={styles.startingPoints}>
+                      <p className={styles.detailLabel}>Starting points</p>
+                      <ul>
+                        {request.prompts.map((prompt) => (
+                          <li key={prompt}>{prompt}</li>
+                        ))}
+                      </ul>
                     </div>
-                  </dl>
-                  <div className={styles.startingPoints}>
-                    <p className={styles.detailLabel}>Starting points</p>
-                    <ul>
-                      {request.prompts.map((prompt) => (
-                        <li key={prompt}>{prompt}</li>
-                      ))}
-                    </ul>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className={styles.briefLink}
+                    >
+                      <Link href="/developers">
+                        Build from this request{" "}
+                        <span aria-hidden="true">↗</span>
+                      </Link>
+                    </Button>
                   </div>
-                  <Button
-                    asChild
-                    variant="outline"
-                    className={styles.briefLink}
-                  >
-                    <Link href="/developers">
-                      Build from this request <span aria-hidden="true">↗</span>
-                    </Link>
-                  </Button>
+                  <SignalArtwork request={request} />
                 </div>
-                <VideoPlaceholder request={request} />
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </section>
 
       <section id="build" className={styles.build}>
-        <p className={styles.eyebrow}>Your turn</p>
-        <div>
+        <PointField compact />
+        <div className={styles.buildInner}>
+          <p className={styles.eyebrow}>Your signal starts here</p>
           <h2>
             Start where the <em>request ends.</em>
           </h2>
@@ -415,11 +569,6 @@ export function RequestForStartupsPage() {
               Start building <span aria-hidden="true">↗</span>
             </Link>
           </Button>
-        </div>
-        <div className={styles.buildMark} aria-hidden="true">
-          <i />
-          <i />
-          <i />
         </div>
       </section>
     </main>
