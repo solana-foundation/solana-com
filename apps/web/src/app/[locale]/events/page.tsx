@@ -48,6 +48,16 @@ const staticEvents: CalendarEvent[] = [
   },
 ];
 
+const upcomingStaticEvents = () => {
+  const now = Date.now();
+
+  return staticEvents.filter((event) => {
+    const endTime = event.schedule.to || event.schedule.from;
+
+    return endTime ? new Date(endTime).getTime() >= now : true;
+  });
+};
+
 const sortByStartDate = (events: CalendarEvent[]) =>
   orderBy(
     events,
@@ -116,7 +126,7 @@ export default async function Page({ params }: Props) {
 
   // sorted and unique main events
   const sorted = sortByStartDate([
-    ...staticEvents,
+    ...upcomingStaticEvents(),
     ...mainEvents,
     ...breakpointEvents,
     ...solanaAccelerateEvents,
