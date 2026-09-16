@@ -225,7 +225,11 @@ export function RequestForStartupsPage() {
           </motion.div>
           <div className={styles.heroCenter}>
             <motion.div {...itemMotion}>
-              <p className={styles.kicker}>{t("hero.kicker")}</p>
+              <img
+                className={styles.heroLockup}
+                src="/src/img/request-for-startups/request-for-startups-lockup.svg"
+                alt="Request for Startups"
+              />
               <h1>
                 <span>{t("hero.headlineFirst")}</span>
                 <span>
