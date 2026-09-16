@@ -5,6 +5,7 @@ import {
   getIterableActionUrl,
   sendIterableFormRequest,
 } from "@solana-com/ui-chrome/iterable";
+import { trackLead } from "@solana-com/ui-chrome/analytics";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 
@@ -97,6 +98,12 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
 
       setEmail("");
       setStatus("done");
+      trackLead({
+        appName: "breakpoint",
+        leadType: "newsletter",
+        formId: "breakpoint_newsletter",
+        placement: "subscribe_dialog",
+      });
     } catch {
       setStatus("error");
     }

@@ -8,6 +8,7 @@ import {
   sendIterableFormRequest,
   SOLANA_NEWSLETTER_FORM_ID,
 } from "@solana-com/ui-chrome/iterable";
+import { trackLead } from "@solana-com/ui-chrome/analytics";
 import { getImagePath } from "@/config";
 import { useTranslations } from "@workspace/i18n/client";
 
@@ -50,6 +51,12 @@ export function StayUpdated() {
 
         setStatus("success");
         setEmail("");
+        trackLead({
+          appName: "accelerate",
+          leadType: "newsletter",
+          formId: "solana_newsletter",
+          placement: "homepage_stay_updated",
+        });
       } catch {
         setStatus("error");
         setErrorMsg(t("stayUpdated.error"));

@@ -1,11 +1,9 @@
 import { ReactNode } from "react";
-import Script from "next/script";
 import type { AbstractIntlMessages } from "next-intl";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import {
   CookieConsentBanner,
-  getCookieConsentBootstrapScript,
-  getCookieConsentDefaultScript,
+  GoogleAnalyticsTag,
   PersistentPodcastPlayer,
   ThemeProvider,
 } from "@solana-com/ui-chrome";
@@ -124,19 +122,7 @@ export default async function RootLayout({ children, params }: Props) {
       suppressHydrationWarning
     >
       <body className={spaceGrotesk.className} suppressHydrationWarning>
-        <Script strategy="beforeInteractive" id="consent-default">
-          {getCookieConsentDefaultScript()}
-        </Script>
-        {/* Google tag (gtag.js) */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-1YDTXXYYQ4"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {getCookieConsentBootstrapScript({
-            gaMeasurementId: "G-1YDTXXYYQ4",
-          })}
-        </Script>
+        <GoogleAnalyticsTag measurementId="G-1YDTXXYYQ4" />
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             <main className="min-h-screen">{children}</main>

@@ -9,6 +9,7 @@ export type SponsorLogoVariant = LogoSelectorOptions;
 
 export type SponsorLogo = {
   companyId: CompanyId;
+  displayName?: string;
   logoVariant?: SponsorLogoVariant;
   width: number;
   height: number;
@@ -72,6 +73,11 @@ const platinumSponsors = [
     companyId: "nodit",
     width: 1000,
     height: 381.62,
+  },
+  {
+    companyId: "render-network",
+    width: 1933,
+    height: 233,
   },
 ] satisfies SponsorLogo[];
 
@@ -148,9 +154,22 @@ const goldSponsors = [
     height: 768,
   },
   {
-    companyId: "render-network",
-    width: 1933,
-    height: 233,
+    companyId: "titan",
+    width: 806,
+    height: 302,
+  },
+  {
+    companyId: "phoenix",
+    logoVariant: { id: "breakpoint-2026-orange" },
+    width: 377,
+    height: 61,
+  },
+  {
+    companyId: "jito",
+    displayName: "Jito JTX",
+    logoVariant: { id: "breakpoint-2026-jtx-white" },
+    width: 965,
+    height: 332,
   },
   {
     companyId: "sec3",
@@ -161,11 +180,6 @@ const goldSponsors = [
     companyId: "quicknode",
     width: 2193,
     height: 512,
-  },
-  {
-    companyId: "galaxy",
-    width: 3602,
-    height: 1031,
   },
   {
     companyId: "colosseum",
