@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { scrollRequestIntoView } from "@/app/[locale]/request-for-startups/request-scroll";
+import {
+  scrollRequestIntoView,
+  updateRequestHash,
+} from "@/app/[locale]/request-for-startups/request-scroll";
 
 const originalRequestAnimationFrame = window.requestAnimationFrame;
 const originalScrollTo = window.scrollTo;
@@ -13,10 +16,10 @@ afterEach(() => {
 describe("request-for-startups accordion scroll behavior", () => {
   it("keeps each newly expanded request beneath the header", () => {
     const first = document.createElement("div");
-    first.id = "request-item-exotic-rwas";
+    first.id = "exotic-rwas";
     first.getBoundingClientRect = () => DOMRect.fromRect({ y: 240 });
     const second = document.createElement("div");
-    second.id = "request-item-ai";
+    second.id = "ai";
     second.getBoundingClientRect = () => DOMRect.fromRect({ y: 520 });
     const header = document.createElement("header");
     header.getBoundingClientRect = () => DOMRect.fromRect({ height: 80 });
@@ -51,5 +54,20 @@ describe("request-for-startups accordion scroll behavior", () => {
 
     expect(window.requestAnimationFrame).not.toHaveBeenCalled();
     expect(window.scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("keeps the expanded request in the URL hash", () => {
+    window.history.replaceState(null, "", "/request-for-startups?source=hero");
+
+    updateRequestHash("agentic-security");
+
+    expect(window.location.href).toContain(
+      "/request-for-startups?source=hero#agentic-security",
+    );
+
+    updateRequestHash("");
+
+    expect(window.location.href).toContain("/request-for-startups?source=hero");
+    expect(window.location.hash).toBe("");
   });
 });

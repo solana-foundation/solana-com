@@ -2,7 +2,7 @@ export function scrollRequestIntoView(value: string) {
   if (!value) return;
 
   window.requestAnimationFrame(() => {
-    const request = document.getElementById(`request-item-${value}`);
+    const request = document.getElementById(value);
     const headerHeight = document
       .querySelector("header")
       ?.getBoundingClientRect().height;
@@ -20,4 +20,12 @@ export function scrollRequestIntoView(value: string) {
       behavior: "auto",
     });
   });
+}
+
+export function updateRequestHash(value: string) {
+  const url = `${window.location.pathname}${window.location.search}${
+    value ? `#${value}` : ""
+  }`;
+
+  window.history.replaceState(null, "", url);
 }

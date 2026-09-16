@@ -2,7 +2,7 @@
 
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
-import { type CSSProperties, useCallback } from "react";
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { motion, useReducedMotion, type Variants } from "motion/react";
@@ -13,7 +13,7 @@ import {
   AccordionTrigger,
   Button,
 } from "@workspace/ui";
-import { scrollRequestIntoView } from "./request-scroll";
+import { scrollRequestIntoView, updateRequestHash } from "./request-scroll";
 import styles from "./request-for-startups.module.scss";
 
 type Request = {
@@ -194,7 +194,28 @@ function SignalArtwork({
 export function RequestForStartupsPage() {
   const t = useTranslations("request-for-startups");
   const reduceMotion = useReducedMotion();
-  const handleRequestChange = useCallback(scrollRequestIntoView, []);
+  const [openRequest, setOpenRequest] = useState(REQUESTS[0].slug);
+  const handleRequestChange = useCallback((value: string) => {
+    setOpenRequest(value);
+    updateRequestHash(value);
+    scrollRequestIntoView(value);
+  }, []);
+
+  useEffect(() => {
+    const syncRequestFromHash = () => {
+      const requestSlug = window.location.hash.slice(1);
+
+      if (!REQUESTS.some((request) => request.slug === requestSlug)) return;
+
+      setOpenRequest(requestSlug);
+      scrollRequestIntoView(requestSlug);
+    };
+
+    syncRequestFromHash();
+    window.addEventListener("hashchange", syncRequestFromHash);
+
+    return () => window.removeEventListener("hashchange", syncRequestFromHash);
+  }, []);
 
   const containerMotion = reduceMotion
     ? {}
@@ -242,11 +263,20 @@ export function RequestForStartupsPage() {
               {t("intro.first")}
             </motion.p>
             <motion.div className={styles.heroAside} {...itemMotion}>
-              <Button asChild variant="outline" className={styles.textLink}>
-                <a href="#requests">
-                  {t("hero.explore")} <ArrowDown aria-hidden="true" />
-                </a>
-              </Button>
+              <div className={styles.heroActionGroup}>
+                <Button asChild className={styles.heroAgentLink}>
+                  <a href="/request-for-startups.md">
+                    Agents: choose what to build{" "}
+                    <ArrowUpRight aria-hidden="true" />
+                  </a>
+                </Button>
+                <Button asChild variant="outline" className={styles.textLink}>
+                  <a href="#requests">
+                    Humans: {t("hero.explore").toLowerCase()}{" "}
+                    <ArrowDown aria-hidden="true" />
+                  </a>
+                </Button>
+              </div>
             </motion.div>
           </div>
         </motion.div>
@@ -267,7 +297,7 @@ export function RequestForStartupsPage() {
             className={styles.requests}
             aria-label={t("requests.label")}
             type="single"
-            defaultValue={REQUESTS[0].slug}
+            value={openRequest}
             collapsible
             onValueChange={handleRequestChange}
           >
@@ -280,7 +310,7 @@ export function RequestForStartupsPage() {
             {REQUESTS.map((request) => (
               <AccordionItem
                 className={styles.request}
-                id={`request-item-${request.slug}`}
+                id={request.slug}
                 key={request.slug}
                 value={request.slug}
                 style={
@@ -347,16 +377,24 @@ export function RequestForStartupsPage() {
                           ))}
                         </ul>
                       </div>
-                      <Button
-                        asChild
-                        variant="outline"
-                        className={styles.briefLink}
-                      >
-                        <Link href="/developers">
-                          {t("requests.build")}{" "}
-                          <ArrowUpRight aria-hidden="true" />
-                        </Link>
-                      </Button>
+                      <div className={styles.briefCtaGroup}>
+                        <Button
+                          asChild
+                          variant="outline"
+                          className={styles.briefLink}
+                        >
+                          <Link href="/docs/intro/quick-start">
+                            Humans: open the quickstart{" "}
+                            <ArrowUpRight aria-hidden="true" />
+                          </Link>
+                        </Button>
+                        <Button asChild className={styles.briefLinkAgent}>
+                          <a href={`/request-for-startups.md#${request.slug}`}>
+                            Agents: choose this request{" "}
+                            <ArrowUpRight aria-hidden="true" />
+                          </a>
+                        </Button>
+                      </div>
                     </div>
                     <SignalArtwork
                       request={request}
