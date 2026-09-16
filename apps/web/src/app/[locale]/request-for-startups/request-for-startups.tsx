@@ -5,6 +5,8 @@ import { Link } from "@workspace/i18n/routing";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Terminal } from "@boxicons/react/Terminal";
+import { User } from "@boxicons/react/User";
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import {
   Accordion,
@@ -266,14 +268,16 @@ export function RequestForStartupsPage() {
               <div className={styles.heroActionGroup}>
                 <Button asChild className={styles.heroAgentLink}>
                   <a href="/request-for-startups.md">
+                    <Terminal pack="filled" aria-hidden="true" />
                     Agents: choose what to build{" "}
-                    <ArrowUpRight aria-hidden="true" />
+                    <ArrowUpRight pack="filled" aria-hidden="true" />
                   </a>
                 </Button>
                 <Button asChild variant="outline" className={styles.textLink}>
                   <a href="#requests">
+                    <User pack="filled" aria-hidden="true" />
                     Humans: {t("hero.explore").toLowerCase()}{" "}
-                    <ArrowDown aria-hidden="true" />
+                    <ArrowDown pack="filled" aria-hidden="true" />
                   </a>
                 </Button>
               </div>
@@ -384,14 +388,16 @@ export function RequestForStartupsPage() {
                           className={styles.briefLink}
                         >
                           <Link href="/docs/intro/quick-start">
+                            <User pack="filled" aria-hidden="true" />
                             Humans: open the quickstart{" "}
-                            <ArrowUpRight aria-hidden="true" />
+                            <ArrowUpRight pack="filled" aria-hidden="true" />
                           </Link>
                         </Button>
                         <Button asChild className={styles.briefLinkAgent}>
                           <a href={`/request-for-startups.md#${request.slug}`}>
+                            <Terminal pack="filled" aria-hidden="true" />
                             Agents: choose this request{" "}
-                            <ArrowUpRight aria-hidden="true" />
+                            <ArrowUpRight pack="filled" aria-hidden="true" />
                           </a>
                         </Button>
                       </div>
@@ -423,12 +429,16 @@ export function RequestForStartupsPage() {
           <div className={styles.ctaGroup}>
             <Button asChild className={styles.cta}>
               <a href="https://solana.com/llms.txt">
-                Agents: read llms.txt <ArrowUpRight aria-hidden="true" />
+                <Terminal pack="filled" aria-hidden="true" />
+                Agents: read llms.txt{" "}
+                <ArrowUpRight pack="filled" aria-hidden="true" />
               </a>
             </Button>
             <Button asChild variant="outline" className={styles.ctaSecondary}>
               <Link href="/docs/intro/quick-start">
-                Humans: open the quickstart <ArrowUpRight aria-hidden="true" />
+                <User pack="filled" aria-hidden="true" />
+                Humans: open the quickstart{" "}
+                <ArrowUpRight pack="filled" aria-hidden="true" />
               </Link>
             </Button>
           </div>
