@@ -601,11 +601,18 @@ export function RequestForStartupsPage() {
             Bring an idea to life with the people, tools, and capital that can
             help it move. The build challenge is coming next.
           </p>
-          <Button asChild className={styles.cta}>
-            <a href="https://solana.com/llms.txt">
-              Start building <ArrowUpRight aria-hidden="true" />
-            </a>
-          </Button>
+          <div className={styles.ctaGroup}>
+            <Button asChild className={styles.cta}>
+              <a href="https://solana.com/llms.txt">
+                Agents: read llms.txt <ArrowUpRight aria-hidden="true" />
+              </a>
+            </Button>
+            <Button asChild variant="outline" className={styles.ctaSecondary}>
+              <Link href="/docs/intro/quick-start">
+                Humans: open the quickstart <ArrowUpRight aria-hidden="true" />
+              </Link>
+            </Button>
+          </div>
         </motion.div>
       </motion.section>
     </main>
