@@ -173,9 +173,10 @@ infrastructure, block builders
   measure from first-shred arrival against the slot duration instead.
 - If a program or indexer depends on how closely `Clock.unix_timestamp` tracks
   real time, re-read [how it is now set](#the-clock-sysvar-has-a-new-source).
-  The leader sets it within a bounded range above the parent's, so it can run
-  a few seconds ahead under a dishonest leader. Reading it needs no code
-  change.
+  The leader sets it between the parent's timestamp and the parent's plus twice
+  the elapsed slot duration, so the room for a dishonest leader to run it ahead
+  grows with skipped slots rather than being a fixed number. Reading it needs
+  no code change.
 
 **To find out when a cluster has actually migrated**
 ([details](#checking-whether-alpenglow-is-active)):
@@ -428,28 +429,33 @@ transactions. Vote transactions leave the ledger under Alpenglow
 disappears with them.
 
 Under Alpenglow the leader sets the timestamp for its block directly, within a
-bounded range above the parent's: no earlier than the parent, and no more than
-a fixed amount later (on the order of 2.5 seconds; the exact bound is being
-settled in
-[SIMD PR #363](https://github.com/solana-foundation/solana-improvement-documents/pull/363)).
-Validators reject a block whose timestamp falls outside that range. The value
-lands in the block footer for indexers and in the same `Clock` sysvar programs
-already read, so no code change is needed to keep reading it.
+range that depends on how much slot time has passed since the parent. The lower
+bound is the parent's timestamp. The upper bound is the parent's timestamp plus
+**twice the elapsed slot duration**: for a block directly after its parent on
+200ms slots that is `parent + 400ms`, and if four slots were skipped in between
+it is `parent + 2s`. Validators reject a block whose timestamp falls outside
+that range. The rule is specified in
+[SIMD PR #363](https://github.com/solana-foundation/solana-improvement-documents/pull/363);
+check it before hard-coding any number. The value lands in the block footer for
+indexers and in the same `Clock` sysvar programs already read, so no code
+change is needed to keep reading it.
 
 **Who is affected:** programs and indexers that depend on how closely the
 timestamp tracks real time, not on the fact that it exists. The trust model
 shifts from a stake-weighted median to one leader per block:
 
-- A dishonest leader can push the clock ahead, but only by the bound, once, in
-  its own block. It cannot move it backwards.
+- A dishonest leader can push the clock ahead, but only up to the bound, once,
+  in its own block. It cannot move it backwards. Because the bound scales with
+  elapsed slot time, the room to skew is largest right after a run of skipped
+  slots.
 - Honest leaders correct for that by setting `parent + 0` until real time has
   caught up, so a run of dishonest leaders can accumulate skew and a run of
   honest ones bleeds it off. Over an honest majority the clock converges on
   real time.
 - The value stays monotonic, updates once per slot, and remains a coarse clock.
-  Anything that assumed a tighter drift envelope than "a few seconds ahead at
-  worst" should be re-checked. Nothing about `Clock.slot`, `Clock.epoch`, or
-  the other fields changes.
+  There is no fixed drift guarantee to code against; treat the envelope as a
+  function of slot duration and skipped slots, not as a constant. Nothing about
+  `Clock.slot`, `Clock.epoch`, or the other fields changes.
 
 </Audience>
 
