@@ -1,5 +1,6 @@
 import { RequestForStartupsPage } from "./request-for-startups";
 import { getAlternates } from "@workspace/i18n/routing";
+import { getTranslations } from "next-intl/server";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -9,11 +10,14 @@ export default function Page() {
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "request-for-startups.meta",
+  });
 
   return {
-    title: "Request for Startups | Solana",
-    description:
-      "The things we want to see built next on Solana, from people shaping the ecosystem.",
+    title: t("title"),
+    description: t("description"),
     alternates: getAlternates("/request-for-startups", locale),
   };
 }
