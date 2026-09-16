@@ -148,7 +148,7 @@ function SignalArtwork({
         <span>{t("requests.founderSignal")}</span>
         <span>{t("requests.interview")}</span>
       </div>
-      <svg viewBox="0 0 640 360" aria-hidden="true">
+      <svg viewBox="0 0 360 640" aria-hidden="true">
         <defs>
           <pattern
             id={`signal-${request.slug}`}
@@ -167,18 +167,18 @@ function SignalArtwork({
         </defs>
         <g className={styles.signalArtworkDots}>
           <path
-            d="M-35 232c75-103 154-132 243-86 73 38 103 107 191 96 76-9 114-76 176-79 42-2 76 18 101 60v106H-35Z"
+            d="M-20 486c46-117 103-167 174-150 58 14 91 103 151 95 34-4 60-35 75-76v309H-20Z"
             fill={`url(#signal-${request.slug})`}
           />
         </g>
         <g className={styles.signalMark}>
-          <path d="m235 155 184-43" />
-          <path d="m220 190 184-43" />
-          <path d="m205 225 184-43" />
+          <path d="m94 250 174-41" />
+          <path d="m81 287 174-41" />
+          <path d="m68 324 174-41" />
         </g>
         <path
           className={styles.signalOrbit}
-          d="M43 255c102-101 194-118 276-52s175 67 278 0"
+          d="M-16 489c79-89 143-106 193-51s113 58 199-10"
         />
       </svg>
       <div className={styles.signalArtworkCaption}>
@@ -238,8 +238,10 @@ export function RequestForStartupsPage() {
                 </span>
               </h1>
             </motion.div>
+            <motion.p className={styles.heroStrapline} {...itemMotion}>
+              {t("intro.first")}
+            </motion.p>
             <motion.div className={styles.heroAside} {...itemMotion}>
-              <p>{t("hero.body")}</p>
               <Button asChild variant="outline" className={styles.textLink}>
                 <a href="#requests">
                   {t("hero.explore")} <ArrowDown aria-hidden="true" />
@@ -247,38 +249,8 @@ export function RequestForStartupsPage() {
               </Button>
             </motion.div>
           </div>
-          <motion.div className={styles.manifesto} {...itemMotion}>
-            <span>{t("hero.manifestoQuestion")}</span>
-            <span>{t("hero.manifestoSignal")}</span>
-            <span className={styles.liveSignal}>
-              <i /> {t("hero.listening")}
-            </span>
-          </motion.div>
         </motion.div>
       </section>
-
-      <motion.section className={styles.intro} {...sectionMotion}>
-        <motion.div className={styles.introLabel} {...sectionItemMotion}>
-          <p className={styles.eyebrow}>{t("intro.eyebrow")}</p>
-        </motion.div>
-        <motion.div className={styles.introCopy} {...sectionItemMotion}>
-          <p>{t("intro.first")}</p>
-          <p>{t("intro.second")}</p>
-          <div className={styles.signalLegend} aria-label={t("intro.legend")}>
-            <span>
-              <i /> {t("intro.question")}
-            </span>
-            <b aria-hidden="true" />
-            <span>
-              <i /> {t("intro.pointOfView")}
-            </span>
-            <b aria-hidden="true" />
-            <span>
-              <i /> {t("intro.company")}
-            </span>
-          </div>
-        </motion.div>
-      </motion.section>
 
       <motion.section
         id="requests"
