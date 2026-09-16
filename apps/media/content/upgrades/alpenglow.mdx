@@ -60,6 +60,8 @@ production, streaming, and finality do:
   streaming interface, now tags every event with the bank it came from.
 - `confirmed` and `finalized` become the same thing.
 - Vote transactions are no longer in blocks.
+- Proof of History no longer paces block production, so tick entries leave the
+  shred stream and the `Clock` sysvar's timestamp gets a new source.
 
 Start with the [migration checklist](#migration-checklist) for your role, then
 the [breaking changes in detail](#breaking-changes-in-detail). The
@@ -78,12 +80,14 @@ the [community cluster](#alpenglow-community-cluster); and the
 
 **Breaking Changes:**
 
-| If your app                                    | When                                                                    | What you have to do                                                                                                                                                                   |
-| ---------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Streams** data through Geyser / gRPC         | Agave 4.3 adds `bank_id`; multiple banks per slot become routine in 4.4 | Stop assuming one block per slot. Buffer per `(slot, bank_id)` and promote a single bank once it is confirmed. [Learn more](#breaking-change-one-slot-can-contain-more-than-one-bank) |
-| **Merges** streams from more than one provider | As soon as you consume `bank_id`                                        | `bank_id` is a node-local counter. Reconcile across connections on the blockhash, never on `bank_id`. [Learn more](#breaking-change-merging-streams-from-multiple-providers)          |
-| **Reads** at the `confirmed` commitment        | Nothing at activation; `confirmed` is removed in a later release        | `confirmed` and `finalized` become the same thing. Move to `finalized` only after Alpenglow is live. [Learn more](#commitment-levels-confirmed-and-finalized-converge)                |
-| **Counts or parses** transactions in a block   | At activation                                                           | Vote transactions leave the block entirely. Re-baseline any metric that counted them. [Learn more](#breaking-change-vote-transactions-leave-the-block)                                |
+| If your app                                    | When                                                                        | What you have to do                                                                                                                                                                   |
+| ---------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Streams** data through Geyser / gRPC         | Agave 4.3 adds `bank_id`; multiple banks per slot become more common in 4.4 | Stop assuming one block per slot. Buffer per `(slot, bank_id)` and promote a single bank once it is confirmed. [Learn more](#breaking-change-one-slot-can-contain-more-than-one-bank) |
+| **Merges** streams from more than one provider | As soon as you consume `bank_id`                                            | `bank_id` is a node-local counter. Reconcile across connections on the blockhash, never on `bank_id`. [Learn more](#breaking-change-merging-streams-from-multiple-providers)          |
+| **Reads** at the `confirmed` commitment        | Nothing at activation; `confirmed` is removed in a later release            | `confirmed` and `finalized` become the same thing. Move to `finalized` only after Alpenglow is live. [Learn more](#commitment-levels-confirmed-and-finalized-converge)                |
+| **Counts or parses** transactions in a block   | At activation                                                               | Vote transactions leave the block entirely. Re-baseline any metric that counted them. [Learn more](#breaking-change-vote-transactions-leave-the-block)                                |
+| **Reads time** from ticks in shreds or entries | At activation                                                               | PoH is gone, and tick entries go with it. Take block boundaries from block meta and the block footer instead. [Learn more](#breaking-change-ticks-leave-the-ledger)                   |
+| **Reads** `Clock.unix_timestamp` in a program  | At activation                                                               | The timestamp is no longer the stake-weighted median of vote timestamps. Re-check any logic tuned to the old behavior. [Learn more](#the-clock-sysvar-has-a-new-source)               |
 
 Sending transactions and running onchain programs are not affected. Alpenglow
 changes consensus, not execution; the SVM, transaction formats, and fee
@@ -91,8 +95,10 @@ mechanics are untouched.
 
 `bank_id` arrives a release early on purpose. Agave v4.3 adds the field and
 turns on Votor but does not change how often a slot carries more than one bank;
-fast leader handoff, which makes that routine, ships in Agave v4.4. v4.3 is the
-window to adopt `bank_id` while the edge case is still rare.
+fast leader handoff, which makes it happen more often, ships in Agave v4.4.
+Even then it stays the exception, not the rule: expect it in well under 1% of
+slots. v4.3 is the window to adopt `bank_id` while the case is still rare
+enough that a bug in your buffering would go unnoticed.
 
 ## Migration Checklist
 
@@ -156,6 +162,20 @@ infrastructure, block builders
   from blocks, so the number drops sharply without any drop in real activity.
 - Replace anything that reads validator participation out of Vote program
   instructions. It now lives in the block footer's certificates.
+
+**If you read time from the ledger** — tick counting in shreds or entries, or
+`Clock.unix_timestamp` in a program
+([details](#breaking-change-ticks-leave-the-ledger)):
+
+- Stop counting ticks. PoH no longer paces block production, so tick entries
+  leave the shred stream. If you used ticks to judge how far into a slot the
+  leader is (for example, to decide when to start routing to the next leader),
+  measure from first-shred arrival against the slot duration instead.
+- If a program or indexer depends on how closely `Clock.unix_timestamp` tracks
+  real time, re-read [how it is now set](#the-clock-sysvar-has-a-new-source).
+  The leader sets it within a bounded range above the parent's, so it can run
+  a few seconds ahead under a dishonest leader. Reading it needs no code
+  change.
 
 **To find out when a cluster has actually migrated**
 ([details](#checking-whether-alpenglow-is-active)):
@@ -285,7 +305,9 @@ means something within one connection's stream and nothing outside it:
 connection A's `bank_id = 7` and connection B's `bank_id = 7` are almost
 certainly two unrelated banks, and one real bank can appear as `bank_id = 7` on
 one connection and `bank_id = 12` on another. There is no global registry
-behind the number.
+behind the number. Arrival order alone is enough to cause this: if blocks A and
+B both claim slot 100, a node that received A first gives A the lower `bank_id`,
+and a node that received B first does the reverse.
 
 <AgBankIdAcrossConnections />
 
@@ -365,6 +387,69 @@ blocks. For anything that reads blocks:
   Alpenglow block footer: `notar_reward_cert` and `skip_reward_cert` each carry
   an aggregate BLS signature plus the bitmap of the validators it covers
   ([details](#finality-under-votor)).
+
+</Audience>
+
+<Audience title="For Anyone Reading Time From the Ledger" summary="PoH no longer paces blocks. Ticks leave the shred stream, and the Clock sysvar's timestamp gets a new source.">
+
+### Breaking Change: Ticks Leave the Ledger
+
+Today a leader's Proof of History stream emits 64 tick entries per slot, spaced
+evenly through it, and the tick count in each shred tells anyone watching the
+stream how far into the slot the leader is. Under Alpenglow, Votor's timeouts
+and certificates pace block production instead of PoH, so leaders stop emitting
+ticks. The ledger keeps its slot-level notion of time and loses the sub-slot
+one.
+
+**Who is affected:** anyone who read ticks as a finer clock than the slot.
+The common case is transaction routing. With 200ms slots, a sender that knows
+it is 100ms away from the current leader, sees the leader's last slot, and sees
+a shred at tick 32 of 64 can infer there are only 100ms left and start routing
+to the next leader. That inference has nothing to read after activation.
+Anything else that treated an entry with no transactions as a tick, or waited
+for a final tick to consider a block complete, is affected the same way.
+
+**What to do instead:**
+
+- For block completeness, use the block footer and block meta's `entries_count`
+  and `executed_transaction_count`
+  ([details](#breaking-change-one-slot-can-contain-more-than-one-bank)).
+- For time inside a slot, measure it yourself: note when the first shred of a
+  slot reaches you and count against the known slot duration. There is no
+  replacement signal in the ledger; the block footer's production time is set
+  once per block, not as the block fills.
+
+### The Clock Sysvar Has a New Source
+
+Programs read wall-clock time from `Clock.unix_timestamp`. Today that value is
+the stake-weighted median of the timestamps validators attach to their vote
+transactions. Vote transactions leave the ledger under Alpenglow
+([why](#breaking-change-vote-transactions-leave-the-block)), so that input
+disappears with them.
+
+Under Alpenglow the leader sets the timestamp for its block directly, within a
+bounded range above the parent's: no earlier than the parent, and no more than
+a fixed amount later (on the order of 2.5 seconds; the exact bound is being
+settled in
+[SIMD PR #363](https://github.com/solana-foundation/solana-improvement-documents/pull/363)).
+Validators reject a block whose timestamp falls outside that range. The value
+lands in the block footer for indexers and in the same `Clock` sysvar programs
+already read, so no code change is needed to keep reading it.
+
+**Who is affected:** programs and indexers that depend on how closely the
+timestamp tracks real time, not on the fact that it exists. The trust model
+shifts from a stake-weighted median to one leader per block:
+
+- A dishonest leader can push the clock ahead, but only by the bound, once, in
+  its own block. It cannot move it backwards.
+- Honest leaders correct for that by setting `parent + 0` until real time has
+  caught up, so a run of dishonest leaders can accumulate skew and a run of
+  honest ones bleeds it off. Over an honest majority the clock converges on
+  real time.
+- The value stays monotonic, updates once per slot, and remains a coarse clock.
+  Anything that assumed a tighter drift envelope than "a few seconds ahead at
+  worst" should be re-checked. Nothing about `Clock.slot`, `Clock.epoch`, or
+  the other fields changes.
 
 </Audience>
 
@@ -506,21 +591,31 @@ and "block" as synonyms. They are not, and Alpenglow makes the difference
 matter.
 
 A **bank** is a validator's in-progress state for one candidate block. A slot
-ends up with more than one candidate bank in three ways:
+ends up with more than one candidate bank in two ways: one that exists today,
+and one that arrives with Agave v4.4.
 
-- **Asynchrony.** No malice required. Votor is event-driven: nodes react to
-  whatever shred, vote, or certificate reaches them next. A node whose network
-  path to the leader is slow can time out and vote to skip a slot before the
-  block arrives, while its neighbors are already voting to notarize it.
-- **Equivocation.** A leader signs two different blocks and hands each to part
-  of the network. On mainnet this has so far only happened by accident, when an
-  operator's primary and hot spare were both live at once.
+- **Equivocation.** A leader signs two different blocks for the same slot and
+  hands each to part of the network. Every validator that sees both builds a
+  bank for each. On mainnet this has so far only happened by accident, when an
+  operator's primary and hot spare were both live at once. Under Agave v4.3
+  this is the only way a slot gets two banks.
 - **Fast leader handoff, from Agave v4.4.** A leader can start building
   optimistically on a parent it expects to be notarized. If the network votes to
   skip that parent instead, the leader restarts for the time remaining in its
   window. The whitepaper describes this as the same block continuing under a new
   parent; in a validator it produces a new bank, and to Geyser a new bank is a
   new block.
+
+Neither case is routine. Equivocation is rare today, and fast leader handoff
+will make a second bank more common but still the exception: expect it in well
+under 1% of slots.
+
+Network delay does not add a third way. A node with a slow path to the leader
+can time out and vote to skip before the block arrives while its neighbors
+notarize it, but the votes settle that: the block is notarized or the slot is
+skipped, and no extra bank appears. What delay does affect is the **order** in
+which a node sees competing banks, which is why `bank_id` differs from node to
+node ([details](#breaking-change-merging-streams-from-multiple-providers)).
 
 Alpenglow tightens the ceiling on this: no correct node ever needs to store more
 than seven distinct blocks for a single slot, down from ten under TowerBFT. That
@@ -538,10 +633,10 @@ candidate crosses it wins; the rest are dropped. Downstream, this is what
 Under TowerBFT, `confirmed` meant an optimistic supermajority about one slot
 out, and `finalized` meant 12.8 seconds of lockout. Under Votor a block is
 final once a finalization certificate exists, roughly 150ms after it was
-proposed, and `confirmed` and `finalized` describe the same state. The 150ms
-is an expectation, not a constant: it was measured against the stake
-distribution at the time of testing, moves as that distribution changes, and is
-lower when a block finalizes in one round than in two.
+proposed, and `confirmed` and `finalized` describe the same state. The 150ms is an
+expectation, not a constant: it was measured against the stake distribution at
+the time of testing, moves as that distribution changes, and is lower when a
+block finalizes in one round than in two.
 
 <AgCommitmentLevels />
 
