@@ -4,7 +4,7 @@ import { getLocaleFromPathname, getPathnameWithoutLocale } from "./pathname";
 
 describe("@workspace/i18n pathname helpers", () => {
   it("extracts locale prefixes from localized paths", () => {
-    expect(getLocaleFromPathname("/es/docs")).toBe("fr");
+    expect(getLocaleFromPathname("/es/docs")).toBe("es");
     expect(getLocaleFromPathname("/")).toBeNull();
     expect(getLocaleFromPathname("/docs")).toBeNull();
   });
