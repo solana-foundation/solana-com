@@ -5,7 +5,7 @@ import {
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
 
-const MARKDOWN_PREFIXES = ["/news"] as const;
+const MARKDOWN_PREFIXES = ["/news", "/upgrades"] as const;
 
 function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
