@@ -1,0 +1,743 @@
+---
+date: 2025-10-28T00:00:00Z
+difficulty: beginner
+title: "Hoe te beginnen met x402 op Solana"
+description:
+  "This guide explains what x402 is and how to build a simple 'HTTP 402 Payment
+  Required' flow on Solana with a minimal server verifier and a client that pays
+  and then accesses the endpoint."
+tags:
+  - ts
+  - payments
+  - http402
+  - x402
+keywords:
+  - tutorial
+  - payments
+  - http 402
+  - x402
+  - solana pay
+---
+
+## Wat is x402?
+
+Het [x402](https://www.x402.org/)-protocol is een open protocol voor betalingen die native op het internet plaatsvinden. De HTTP-foutcode 402 staat voor "Payment Required" en bestaat al lange tijd in de HTTP-specificaties, maar pas nu is het haalbaar geworden om deze te gebruiken, dankzij de opkomst van blockchainnetwerken. Het 402-protocol verwijst nu naar de implementatie van het HTTP 402 Payment Required-patroon: de server vereist een betaling voordat een beveiligd antwoord wordt teruggegeven. Op Solana wordt dit doorgaans geïmplementeerd door de client te vragen een kleine transactie in te dienen, waarna de server dit on-chain verifieert en de inhoud serveert.
+
+Op dit moment is het nog niet duidelijk welke van de 402-SDK's het populairst zal worden. In deze gids laten we zien hoe je x402 kunt implementeren met een minimale server en client, en geven we een overzicht van alle beschikbare 402-SDK's met de huidige ondersteuning voor Solana.
+
+## Hoe werkt het?
+
+Er zijn verschillende manieren om x402 te implementeren, variërend van zeer minimalistisch tot volledig beheerd.
+
+**Protocolidee**: Gebruik gewone HTTP. Een client benadert jouw URL → jij antwoordt met 402 Payment Required met een JSON Payment Requirements-object → de client betaalt en probeert opnieuw met een X-PAYMENT-header → jij verifieert/verwerkt → antwoordt met 200 OK. Geen accounts, geen OAuth.
+
+![x402 Stroomdiagram](/assets/guides/x402/x402-flow-diagram.png)
+
+Opmerking: De facilitator is volledig optioneel en je kunt ook je eigen validatielogica implementeren met een paar regels code. De facilitator abstraheert de blockchainintegratiedetails van de server en client, wat de implementatie eenvoudiger maakt.
+
+**Specificatiepunten om te kennen**: De PaymentRequirements-structuur, base64-gecodeerde X-PAYMENT-header, optionele X-PAYMENT-RESPONSE bij succes, en de (optionele) facilitator-API voor /verify, /settle, /supported. Het huidige concrete schema is exact (betaal een specifiek bedrag). Andere varianten zoals `upto` zijn voorgesteld.
+
+**Solana-ondersteuning**: Het protocol zelf is chain-agnostisch; op Solana ondersteunt het alle SPL-tokens. Solana-ondersteuning is beschikbaar of in ontwikkeling voor de meeste 402-SDK's.
+
+Verderop staat een lijst van de
+[beschikbare 402-SDK's](#sdks-en-hun-ondersteuning-voor-solana) met hun huidige ondersteuning voor Solana.
+
+## Gebruiksscenario's
+
+x402 maakt een breed scala aan microbetalings- en pay-per-use-scenario's mogelijk die voorheen economisch niet haalbaar waren via blockchain. Stel je voor dat Netflix betaalt per weergave, of Spotify per nummer in plaats van een abonnement. Hier zijn enkele mogelijke ideeën. Maar het volledige spectrum aan mogelijkheden staat open voor de verbeelding:
+
+**AI & Agenthandel:**
+
+- **AI-agent API-toegang**: Betaal per LLM-inferentie, beeldgeneratie of AI-model API-aanroep (Zie [ACK-voorbeeld](#ack))
+- **MCP Server-monetisatie**: Reken kosten aan voor Model Context Protocol-tools, gegevensbronnen en gespecialiseerde agentmogelijkheden (Zie [MCPay.tech](#mcpaytech))
+- **Agent-naar-agent-betalingen**: Stel autonome agents in staat om met elkaar te transacteren voor diensten en gegevens (Zie [a2a-x402-voorbeeld](#a2a-x402-google))
+- **Premium AI-trainingsdata**: Verkoop toegang tot gecureerde datasets op basis van per query
+
+**Content & Media:**
+
+- **Artikelen achter betaalmuur**: Reken microbetalingen per artikel in plaats van volledige abonnementen
+- **Video/audio streaming**: Betaal per weergave of per minuut content
+- **Afbeeldingen in hoge resolutie**: Ontgrendel downloads in volledige resolutie na betaling
+  (zie [ACK-voorbeeld](#ack)) of
+  [x402 Coinbase-voorbeeld](https://github.com/x402-foundation/x402/tree/main/typescript/packages/http/paywall)
+- **Premium nieuwsbrief-toegang**: Monetiseer individuele nieuwsbriefedities
+
+**Ontwikkelaarsdiensten:**
+
+- **API-meting**: Betaal per RPC-aanroep, databasequery of compute-eenheid (Zie
+  [Corbits-voorbeeld](#corbits))
+- **Serverloze functies**: Reken kosten aan voor individuele functie-uitvoeringen
+
+**Data & Analyse:**
+
+- **Realtime marktdata**: Prijsfeeds per koers of per tick
+- **Analysedashboards**: Ontgrendel specifieke rapporten of data-exports
+- **IoT-sensordata**: Microbetalingen voor sensormetingen van DePIN-netwerken
+
+**Gaming & Virtuele goederen:**
+
+- **Toegang tot gameservers**: Betaal per sessie of per uur
+- **Mod/asset-downloads**: Monetiseer door gebruikers gegenereerde content
+- **Toernooikosten**: Geautomatiseerde prijzenpooluitkering
+
+**Overig:**
+
+- **E-mail/DM-filtering**: Vereis betaling om je inbox te bereiken (spampreventie)
+- **Rekenresources**: Betaal per CPU-uur, GPU-minuut of opslag-GB
+- **VPN/proxy-toegang**: Bandbreedte geprijsd per GB
+- **Eenmalige bestandsdownloads**: Verkoop digitale bestanden zonder abonnementsoverhead
+  (Zie [ACK-voorbeeld](#ack))
+
+Het belangrijkste voordeel van x402 op Solana zijn de **lage transactiekosten** (fracties van een cent), waardoor echte microbetalingen haalbaar worden, plus **directe afwikkeling** die realtime toegangscontrole mogelijk maakt.
+
+## SDK's en hun ondersteuning voor Solana
+
+Dit is een evoluerende lijst die wordt bijgewerkt naarmate er meer SDK's worden uitgebracht of Solana-ondersteuning wordt toegevoegd.
+
+| SDK / Project                           | Solana-ondersteuning           | Opmerkingen                                                      | Documentatie / URL                                                    |
+| --------------------------------------- | ------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------- |
+| [Corbits](#corbits)                     | Ja                      | Handige SDK voor 402 op Solana                           | [Docs](https://corbits.dev/)                                  |
+| [MCPay.tech](#mcpaytech)                | Ja                      | Betaal voor MCP-servers via microbetalingen                       | [Website](https://mcpay.tech/)                                |
+| [PayAI Facilitator](#payai-facilitator) | Ja                      | x402-facilitator met Solana-ondersteuning                       | [payai.network](https://payai.network/)                       |
+| [Coinbase](#coinbase)                   | Ja / Python in ontwikkeling | De Coinbase-referentie-implementatie van het x402-protocol | [GitHub](https://github.com/coinbase/x402)                    |
+| [ACK](#ack)                             | In PR                    | Een agentbetalingsprotocol met x402-ondersteuning                | [GitHub](https://github.com/agentcommercekit/ack)             |
+| [Crossmint](#crossmint)                 | In ontwikkeling           | Betalingen, wallets; agentische financiën; niet x402-specifiek      | [crossmint.com](https://www.crossmint.com/)                   |
+| [A2A x402 (Google)](#a2a-x402-google)   | In ontwikkeling           | Agent-naar-agent-betalingen met behulp van Google AI                    | [GitHub](https://github.com/google-agentic-commerce/a2a-x402) |
+| [Nexus (Thirdweb)](#nexus-thirdweb)     | In ontwikkeling           | x402-wrapper rondom API-sleutels                               | [Nexus](https://nexus.thirdweb.com/)                          |
+| [x402scan](#x402scan)                   | N.v.t. (Verkenner)           | x402-ecosysteemverkenner (geen SDK)                       | [x402scan.com](https://x402scan.com/)                         |
+| [Natief voorbeeld](#natief-voorbeeld)       | Ja                      | Minimaal voorbeeld zonder afhankelijkheden                       | [Voorbeelden](https://github.com/Woody4618/x402-solana-examples) |
+
+### Corbits
+
+Solana-first SDK om snel x402-flows op Solana te implementeren. Zie de documentatie:
+https://corbits.dev/
+
+Voorbeeld waarmee je betaalt voor Solana RPC-verzoeken.
+
+```bash
+npm install @faremeter/payment-solana @faremeter/fetch @faremeter/info
+@solana/web3.js
+```
+
+Maak een `payer-wallet.json` aan en laad deze met wat USDC en wat mainnet SOL.
+
+```ts filename=e2e.ts
+import {
+  Keypair,
+  PublicKey,
+  VersionedTransaction,
+  Connection
+} from "@solana/web3.js";
+import { createPaymentHandler } from "@faremeter/payment-solana/exact";
+import { wrap } from "@faremeter/fetch";
+import { lookupKnownSPLToken } from "@faremeter/info/solana";
+import * as fs from "fs";
+
+// Load keypair from file
+const keypairData = JSON.parse(fs.readFileSync("./payer-wallet.json", "utf-8"));
+const keypair = Keypair.fromSecretKey(Uint8Array.from(keypairData));
+
+const network = "mainnet-beta";
+const connection = new Connection("https://api.mainnet.solana.com");
+const usdcInfo = lookupKnownSPLToken(network, "USDC");
+const usdcMint = new PublicKey(usdcInfo.address);
+
+// Create wallet interface
+const wallet = {
+  network,
+  publicKey: keypair.publicKey,
+  updateTransaction: async (tx: VersionedTransaction) => {
+    tx.sign([keypair]);
+    return tx;
+  }
+};
+
+// Setup payment handler
+const handler = createPaymentHandler(wallet, usdcMint, connection);
+const fetchWithPayer = wrap(fetch, { handlers: [handler] });
+
+// Call the API - payment happens automatically
+const response = await fetchWithPayer("https://helius.api.corbits.dev", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getBlockHeight"
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```bash
+npx tsx e2e.ts
+```
+
+Dit betaalt voor het RPC-verzoek en retourneert de blokhoogte, betaald via het corbits 402-protocol.
+
+### Coinbase
+
+[De referentie-implementatie van Coinbase](https://github.com/coinbase/x402) van het
+x402-protocol biedt TypeScript-bibliotheken en voorbeelden voor zowel client- als
+serverflows. De repository bevat end-to-end tests die 6 verschillende SVM
+(Solana Virtual Machine)-scenario's omvatten. De implementatie omvat betalingsverificatie, ontvangstgeneratie en foutafhandeling.
+
+Belangrijkste kenmerken:
+
+- TypeScript client- en server-implementaties
+- Hulpprogramma's voor betalingsverificatie
+- Ondersteuning voor meerdere betalingsschema's (exact bedrag, tot een bepaald bedrag)
+- Testpakket met Solana-transactievoorbeelden
+- Scheiding tussen protocollogica en bedrijfslogica
+
+Je kunt een eenvoudig te gebruiken voorbeeld met een minimale server en client
+[hier](https://github.com/Woody4618/x402-solana-examples/tree/main/pay-using-coinbase) vinden.
+
+```ts filename=server.ts
+const app = express();
+const PORT = 3000;
+
+// Apply x402 payment middleware
+// This automatically handles:
+// - 402 responses with payment requirements
+// - Payment verification (pre-flight checks)
+// - Transaction submission via facilitator
+// - Settlement confirmation
+app.use(
+  paymentMiddleware(RECIPIENT, {
+    // Protected endpoint: requires $0.001 USDC payment
+    "GET /premium": {
+      price: "$0.0001", // Price in USD (converted to USDC)
+      network: "solana-devnet" // Solana devnet
+    },
+
+    // Another endpoint with different price
+    "GET /expensive": {
+      price: "$0.001",
+      network: "solana-devnet"
+    }
+  })
+);
+
+// Protected endpoints - only accessible after payment
+app.get("/premium", (req, res) => {
+  res.json({
+    message: "🎉 Premium content accessed!",
+    data: {
+      secret: "This is premium content",
+      timestamp: new Date().toISOString()
+    }
+  });
+});
+```
+
+Python-ondersteuning is in ontwikkeling en een werkend end-to-end voorbeeld is beschikbaar
+[hier](https://github.com/Woody4618/x402/tree/solana-python).
+
+### ACK
+
+De Agent Commerce Kit (ACK) ondersteunt het x402-protocol, maar voegt cruciale lagen toe voor de agenteconomie: verifieerbare agentidentiteit (ACK-ID) met behulp van W3C DIDs/VCs en cryptografisch beveiligde ontvangstbewijzen (ACK-Pay) als Verifiable Credentials. Dit stelt agents in staat om eigendom te bewijzen, autonoom te authenticeren en complianceklare betalingsbewijzen te genereren, waarmee de identiteitscrisis en transactiedrempels worden aangepakt die AI-agents belemmeren om deel te nemen aan handel.
+
+![ACK-stroomdiagram](/assets/guides/x402/ack-flow-diagram.png)
+
+Er is een PR met een e2e-voorbeeld dat nog niet is samengevoegd, maar wel werkt. Er is ook een [Live voorbeeld](https://solana-paywal.vercel.app/) dat laat zien hoe je afbeeldingen achter een betaalmuur plaatst, een jukebox en een API die afbeeldingen kan animeren. De broncode voor de voorbeelden, samen met een Twitter-bot die de API gebruikt om afbeeldingen op de tijdlijn te animeren, is [hier](https://github.com/Woody4618/solana-paywal-x402) te vinden.
+
+### MCPay.tech
+
+Pay-per-request-microbetalingen voor MCP (Model Context Protocol)-servers via x402-achtige flows. Stelt ontwikkelaars in staat om MCP-tools en -resources te monetiseren door kleine betalingen te vereisen voor elke API-aanroep of tool-aanroep, waardoor het eenvoudig wordt om kosten te rekenen voor AI-agenttoegang tot premium gegevensbronnen, gespecialiseerde tools of rekenresources. Site: https://mcpay.tech/
+
+### PayAI Facilitator
+
+Solana-first x402-facilitator met een live echo-merchant om betalingen te testen en terug te betalen. PayAI neemt momenteel alle transactiekosten op zich. Site:
+https://payai.network/
+
+### A2A x402 (Google)
+
+Agent-naar-agent 402-initiatief dat gestandaardiseerde payment-required-flows verkent.
+Solana-ondersteuning is momenteel in ontwikkeling en een werkend chatvoorbeeld is te vinden
+[hier](https://github.com/Woody4618/a2a-x402/tree/solana)
+
+### Crossmint
+
+Crossmint is een alles-in-één platform voor bedrijven en agents om crypto-infrastructuur te integreren — inclusief wallets, on-ramps, stablecoin-orkestratie en meer. Solana x402-ondersteuning is momenteel in ontwikkeling en zou afgerond moeten zijn per 30-10-2025. Site: https://www.crossmint.com/
+
+### x402scan
+
+Verkenner voor het x402-ecosysteem die uitgebreide statistieken, projectvermeldingen en analyses biedt voor x402-implementaties. Volg transactievolumes, ontdek actieve handelaren en monitor de groei van payment-required-eindpunten over verschillende netwerken. Site: https://x402scan.com/
+
+### Nexus (Thirdweb)
+
+Thirdweb Nexus ontwikkelt een x402-wrapper rondom API-sleutels (momenteel in ontwikkeling). Site: https://nexus.thirdweb.com/
+
+## Natief voorbeeld
+
+Een natief voorbeeld zonder afhankelijkheden en met een minimale server en client.
+
+Je kunt de repository klonen en het voorbeeld uitvoeren:
+
+```bash
+git clone https://github.com/Woody4618/x402-solana-examples
+
+npm install
+
+# Terminal 1: Start server
+npm run usdc:server
+
+# Terminal 2: Run client (requires devnet USDC)
+npm run usdc:client
+```
+
+### Stroomoverzicht
+
+1. Client vraagt `/premium` op.
+2. Server antwoordt met 402 met betalingsvoorwaarden: ontvanger, bedrag.
+3. Client maakt een transactie aan met een overdrachtinstructie naar de ontvanger.
+4. Client probeert `/premium` opnieuw met de transactiepayload.
+5. Server verifieert de transactie en verzendt de transactie naar het netwerk.
+6. Zodra deze bevestigd is, antwoordt de server met 200.
+
+**Solana-specifiek alternatief:** Op Solana kun je een variant implementeren waarbij
+de client de transactie rechtstreeks naar het netwerk stuurt met een memo-instructie
+(in plaats van deze naar de server te sturen), en vervolgens alleen de
+transactiehandtekening naar de server stuurt ter verificatie. Dit lost het probleem van verbindingsverlies op — als de client de verbinding verbreekt na betaling maar vóór
+ontvangst van de inhoud, kan hij het opnieuw proberen met dezelfde handtekening, omdat de betaling
+al onchain is bevestigd. Deze aanpak wijkt echter af van de standaardflow van x402.org
+(waarbij de server de transactie verstuurt), dus gebruiken we
+in dit voorbeeld de standaardaanpak.
+
+Let op: de code van dit voorbeeld is niet geauditeerd, is niet klaar voor productie en is
+bedoeld voor demonstratiedoeleinden. Het laat zien dat je x402 kunt implementeren zonder
+afhankelijkheden en zonder gebruik van een facilitator. Een facilitator gebruiken is prettig omdat
+ze complexiteit verbergen en transactiekosten kunnen overnemen, maar ze kunnen ook een
+enkel storingspunt zijn, bijvoorbeeld wanneer de facilitator-wallet geen fondsen meer heeft.
+De voorbeeldserver verwerkt door de client ondertekende transacties. Mogelijk moet je deze
+valideren.
+
+### Minimale server (Express)
+
+```ts filename=server.ts
+// x402-compliant server with USDC (SPL Token) payments
+import express from "express";
+import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+
+// Devnet USDC mint address
+const USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+
+// Your recipient wallet address (same as SOL example)
+const RECIPIENT_WALLET = new PublicKey(
+  "seFkxFkXEY9JGEpCyPfCWTuPZG9WK6ucf95zvKCfsRX"
+);
+
+// Derive the recipient's USDC token account (Associated Token Account)
+const RECIPIENT_TOKEN_ACCOUNT = await getAssociatedTokenAddress(
+  USDC_MINT,
+  RECIPIENT_WALLET
+);
+
+// Picking a small USDC price
+const PRICE_USDC = 100; // 0.0001 USDC
+
+const app = express();
+app.use(express.json());
+
+// x402 endpoint - Quote or verify payment
+app.get("/premium", async (req, res) => {
+  const xPaymentHeader = req.header("X-Payment");
+
+  // If client provided X-Payment header, verify and submit transaction
+  if (xPaymentHeader) {
+    try {
+      // Decode base64 and parse JSON (x402 standard)
+      const paymentData = JSON.parse(
+        Buffer.from(xPaymentHeader, "base64").toString("utf-8")
+      ) as {
+        x402Version: number;
+        scheme: string;
+        network: string;
+        payload: {
+          serializedTransaction: string;
+        };
+      };
+
+      console.log("Received USDC payment proof from client");
+      console.log(`  Network: ${paymentData.network}`);
+
+      // Deserialize the transaction
+      const txBuffer = Buffer.from(
+        paymentData.payload.serializedTransaction,
+        "base64"
+      );
+      const tx = Transaction.from(txBuffer);
+
+      console.log("Verifying SPL Token transfer instructions...");
+
+      // Step 1: Introspect and decode SPL Token transfer instruction
+      const instructions = tx.instructions;
+      let validTransfer = false;
+      let transferAmount = 0;
+
+      for (const ix of instructions) {
+        // Check if this is a Token Program instruction
+        if (ix.programId.equals(TOKEN_PROGRAM_ID)) {
+          // SPL Token Transfer instruction layout:
+          // [0] = instruction type (3 for Transfer)
+          // [1-8] = amount (u64, little-endian)
+          if (ix.data.length >= 9 && ix.data[0] === 3) {
+            // Read the amount (u64 in little-endian, starts at byte 1)
+            transferAmount = Number(ix.data.readBigUInt64LE(1));
+
+            // Verify accounts: [source, destination, owner]
+            if (ix.keys.length >= 2) {
+              const destAccount = ix.keys[1].pubkey;
+              if (
+                destAccount.equals(RECIPIENT_TOKEN_ACCOUNT) &&
+                transferAmount >= PRICE_USDC
+              ) {
+                validTransfer = true;
+                console.log(
+                  `  ✓ Valid USDC transfer: ${transferAmount / 1000000} USDC`
+                );
+                console.log(`    To: ${RECIPIENT_TOKEN_ACCOUNT.toBase58()}`);
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (!validTransfer) {
+        return res.status(402).json({
+          error:
+            "Transaction does not contain valid USDC transfer to recipient with correct amount",
+          details:
+            transferAmount > 0
+              ? `Found transfer of ${transferAmount}, expected ${PRICE_USDC}`
+              : "No valid token transfer instruction found"
+        });
+      }
+
+      // Step 2: Simulate the transaction BEFORE submitting
+      console.log("Simulating transaction...");
+      try {
+        const simulation = await connection.simulateTransaction(tx);
+
+        if (simulation.value.err) {
+          console.error("Simulation failed:", simulation.value.err);
+          return res.status(402).json({
+            error: "Transaction simulation failed",
+            details: simulation.value.err,
+            logs: simulation.value.logs
+          });
+        }
+
+        console.log("  ✓ Simulation successful");
+      } catch (simError) {
+        console.error("Simulation error:", simError);
+        return res.status(402).json({
+          error: "Failed to simulate transaction",
+          details:
+            simError instanceof Error ? simError.message : "Unknown error"
+        });
+      }
+
+      // Step 3: Submit the transaction (only if verified and simulated successfully)
+      // Note: Solana blockchain automatically rejects duplicate transaction signatures
+      console.log("Submitting transaction to network...");
+
+      const signature = await connection.sendRawTransaction(txBuffer, {
+        skipPreflight: false,
+        preflightCommitment: "confirmed"
+      });
+
+      console.log(`Transaction submitted: ${signature}`);
+
+      // Wait for confirmation
+      const confirmation = await connection.confirmTransaction(
+        signature,
+        "confirmed"
+      );
+
+      if (confirmation.value.err) {
+        return res.status(402).json({
+          error: "Transaction failed onchain",
+          details: confirmation.value.err
+        });
+      }
+
+      // Fetch the transaction to verify payment details
+      const confirmedTx = await connection.getTransaction(signature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0
+      });
+
+      if (!confirmedTx) {
+        return res.status(402).json({
+          error: "Could not fetch confirmed transaction"
+        });
+      }
+
+      // Verify token balance changes from transaction metadata
+      const postTokenBalances = confirmedTx.meta?.postTokenBalances ?? [];
+      const preTokenBalances = confirmedTx.meta?.preTokenBalances ?? [];
+
+      // Find the recipient's token account in the balance changes
+      let amountReceived = 0;
+      for (let i = 0; i < postTokenBalances.length; i++) {
+        const postBal = postTokenBalances[i];
+        const preBal = preTokenBalances.find(
+          (pre) => pre.accountIndex === postBal.accountIndex
+        );
+
+        // Check if this is the recipient's account
+        const accountKey =
+          confirmedTx.transaction.message.staticAccountKeys[
+            postBal.accountIndex
+          ];
+        if (accountKey && accountKey.equals(RECIPIENT_TOKEN_ACCOUNT)) {
+          const postAmount = postBal.uiTokenAmount.amount;
+          const preAmount = preBal?.uiTokenAmount.amount ?? "0";
+          amountReceived = Number(postAmount) - Number(preAmount);
+          break;
+        }
+      }
+
+      if (amountReceived < PRICE_USDC) {
+        return res.status(402).json({
+          error: `Insufficient payment: received ${amountReceived}, expected ${PRICE_USDC}`
+        });
+      }
+
+      console.log(
+        `Payment verified: ${amountReceived / 1000000} USDC received`
+      );
+      console.log(
+        `View transaction: https://explorer.solana.com/tx/${signature}?cluster=devnet`
+      );
+
+      // Payment verified! Return premium content
+      return res.json({
+        data: "Premium content - USDC payment verified!",
+        paymentDetails: {
+          signature,
+          amount: amountReceived,
+          amountUSDC: amountReceived / 1000000,
+          recipient: RECIPIENT_TOKEN_ACCOUNT.toBase58(),
+          explorerUrl: `https://explorer.solana.com/tx/${signature}?cluster=devnet`
+        }
+      });
+    } catch (e) {
+      console.error("Payment verification error:", e);
+      return res.status(402).json({
+        error: "Payment verification failed",
+        details: e instanceof Error ? e.message : "Unknown error"
+      });
+    }
+  }
+
+  // No payment provided - return 402 with payment details
+  console.log("New USDC payment quote requested");
+
+  return res.status(402).json({
+    payment: {
+      recipientWallet: RECIPIENT_WALLET.toBase58(),
+      tokenAccount: RECIPIENT_TOKEN_ACCOUNT.toBase58(),
+      mint: USDC_MINT.toBase58(),
+      amount: PRICE_USDC,
+      amountUSDC: PRICE_USDC / 1000000,
+      cluster: "devnet",
+      message: "Send USDC to the token account"
+    }
+  });
+});
+
+app.listen(3001, () => console.log("x402 USDC server listening on :3001"));
+```
+
+### Minimale client (Node)
+
+```ts filename=client.ts
+import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import {
+  createTransferInstruction,
+  getOrCreateAssociatedTokenAccount,
+  createAssociatedTokenAccountInstruction,
+  getAccount
+} from "@solana/spl-token";
+import fetch from "node-fetch";
+import { readFileSync } from "fs";
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+
+const keypairData = JSON.parse(
+  readFileSync("./pay-in-usdc/client.json", "utf-8")
+);
+const payer = Keypair.fromSecretKey(Uint8Array.from(keypairData));
+
+async function run() {
+  // 1) Request payment quote from server
+  const quote = await fetch("http://localhost:3001/premium");
+  const q = (await quote.json()) as {
+    payment: {
+      tokenAccount: string;
+      mint: string;
+      amount: number;
+      amountUSDC: number;
+      cluster: string;
+    };
+  };
+  if (quote.status !== 402) throw new Error("Expected 402 quote");
+
+  const recipientTokenAccount = new PublicKey(q.payment.tokenAccount);
+  const mint = new PublicKey(q.payment.mint);
+  const amount = q.payment.amount;
+
+  console.log("USDC Payment required:");
+  console.log(`  Recipient Token Account: ${q.payment.tokenAccount}`);
+  console.log(`  Mint (USDC): ${q.payment.mint}`);
+  console.log(
+    `  Amount: ${q.payment.amountUSDC} USDC (${amount} smallest units)`
+  );
+
+  // 2) Get or create the payer's associated token account
+  console.log("\nChecking/creating associated token account...");
+  const payerTokenAccount = await getOrCreateAssociatedTokenAccount(
+    connection,
+    payer,
+    mint,
+    payer.publicKey
+  );
+
+  console.log(`  Payer Token Account: ${payerTokenAccount.address.toBase58()}`);
+
+  // Check if payer has enough USDC
+  const balance = await connection.getTokenAccountBalance(
+    payerTokenAccount.address
+  );
+  console.log(`  Current Balance: ${balance.value.uiAmountString} USDC`);
+
+  if (Number(balance.value.amount) < amount) {
+    throw new Error(
+      `Insufficient USDC balance. Have: ${balance.value.uiAmountString}, Need: ${q.payment.amountUSDC}`
+    );
+  }
+
+  // 3) Check if recipient token account exists, create if not
+  console.log("\nChecking recipient token account...");
+  let recipientAccountExists = false;
+  try {
+    await getAccount(connection, recipientTokenAccount);
+    recipientAccountExists = true;
+    console.log("  ✓ Recipient token account exists");
+  } catch (error) {
+    console.log("  ⚠ Recipient token account doesn't exist, will create it");
+  }
+
+  // 4) Create USDC transfer transaction (but DON'T submit it)
+  const { blockhash } = await connection.getLatestBlockhash();
+  const tx = new Transaction({
+    feePayer: payer.publicKey,
+    blockhash,
+    lastValidBlockHeight: (await connection.getLatestBlockhash())
+      .lastValidBlockHeight
+  });
+
+  // Add create account instruction if needed
+  if (!recipientAccountExists) {
+    // We need to know the recipient wallet address to create the ATA
+    // The server should provide this, so let's get it from the wallet address
+    // Usually the server will already have the token account, but to be sure for the examples
+    // lets create one.
+    const recipientWallet = new PublicKey(
+      "seFkxFkXEY9JGEpCyPfCWTuPZG9WK6ucf95zvKCfsRX"
+    );
+
+    const createAccountIx = createAssociatedTokenAccountInstruction(
+      payer.publicKey, // payer
+      recipientTokenAccount, // associated token account address
+      recipientWallet, // owner
+      mint // mint
+    );
+
+    tx.add(createAccountIx);
+    console.log("  + Added create token account instruction");
+  }
+
+  // Add transfer instruction
+  const transferIx = createTransferInstruction(
+    payerTokenAccount.address, // source
+    recipientTokenAccount, // destination
+    payer.publicKey, // owner
+    amount // amount in smallest units
+  );
+
+  tx.add(transferIx);
+
+  // Sign the transaction (but don't send it, the server will do that)
+  tx.sign(payer);
+
+  // Serialize the signed transaction
+  const serializedTx = tx.serialize().toString("base64");
+
+  console.log("\nTransaction created and signed (not submitted yet)");
+  console.log(`  Instructions: ${tx.instructions.length}`);
+
+  // 4) Send X-Payment header with serialized transaction (x402 standard)
+  const paymentProof = {
+    x402Version: 1,
+    scheme: "exact",
+    network:
+      q.payment.cluster === "devnet" ? "solana-devnet" : "solana-mainnet",
+    payload: {
+      serializedTransaction: serializedTx
+    }
+  };
+
+  // Base64 encode the payment proof
+  const xPaymentHeader = Buffer.from(JSON.stringify(paymentProof)).toString(
+    "base64"
+  );
+
+  console.log(
+    "\nSending payment proof to server (server will submit transaction)..."
+  );
+  const paid = await fetch("http://localhost:3001/premium", {
+    headers: {
+      "X-Payment": xPaymentHeader
+    }
+  });
+
+  const result = (await paid.json()) as {
+    data?: string;
+    error?: string;
+    paymentDetails?: {
+      signature: string;
+      amount: number;
+      amountUSDC: number;
+      recipient: string;
+      explorerUrl: string;
+    };
+  };
+
+  console.log("\nServer response:");
+  console.log(result);
+
+  // Display explorer link if payment was successful
+  if (result.paymentDetails?.explorerUrl) {
+    console.log("\n🔗 View transaction on Solana Explorer:");
+    console.log(result.paymentDetails.explorerUrl);
+  }
+}
+
+run().catch(console.error);
+```
+
+### Verbeteringen
+
+- Overweeg een JWT terug te sturen na betaling, zodat clients toegang kort kunnen hergebruiken.
+  ACK maakt dat heel eenvoudig.
+- Zorg ervoor dat je sleutels niet uitlekken en sla ze op in omgevingsvariabelen.
