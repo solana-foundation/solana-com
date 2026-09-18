@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import config, { githubStorage } from "../keystatic.config";
+import { upgradeComponentBlocks } from "../lib/keystatic/components";
 
 describe("Keystatic GitHub storage", () => {
   it("passes the dedicated staging branch policy to Keystatic", () => {
@@ -32,5 +33,9 @@ describe("upgrades schema", () => {
     expect(upgradeFields).toEqual(
       expect.arrayContaining(["stage", "release", "order"]),
     );
+  });
+
+  it("allows HTML line breaks in MDX table cells", () => {
+    expect(upgradeComponentBlocks).toHaveProperty("br");
   });
 });

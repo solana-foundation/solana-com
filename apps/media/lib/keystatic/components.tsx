@@ -63,6 +63,17 @@ const inlineLatex = inline({
   ContentView: (props) => <Latex formula={props.value.formula} />,
 });
 
+// MDX treats <br /> as a component. Declaring it here lets writers use line
+// breaks in table cells without Keystatic rejecting the document as having an
+// unknown component. The published MDX renderer continues to render the native
+// HTML line break.
+const lineBreak = inline({
+  label: "Line break",
+  description: "Starts the following text on a new line",
+  schema: {},
+  ContentView: () => <br />,
+});
+
 const figure = wrapper({
   label: "Figure (image with caption)",
   description:
@@ -640,6 +651,7 @@ const featureActivationStatus = block({
 
 // Export all component blocks
 export const componentBlocks: Record<string, ContentComponent> = {
+  br: lineBreak,
   blockquote,
   datetime,
   newslettersignup,
