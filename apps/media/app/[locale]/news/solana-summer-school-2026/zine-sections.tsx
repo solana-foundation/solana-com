@@ -321,61 +321,37 @@ const lecturers = [
     name: "Cat McGee",
     role: "Developer Relations Engineer · Solana Foundation",
     position: { left: "10.3%", top: "23.4%" },
-    layers: [
-      "cat-mcgee-back.webp",
-      "cat-mcgee-middle.webp",
-      "cat-mcgee-front.webp",
-    ],
+    portrait: "cat-mcgee-front.webp",
   },
   {
     name: "Dev Bharel",
     role: "Developer Relations Engineer, AI · Solana Foundation",
     position: { left: "52.6%", top: "10.9%" },
-    layers: [
-      "dev-bharel-back.webp",
-      "dev-bharel-middle.webp",
-      "dev-bharel-front.webp",
-    ],
+    portrait: "dev-bharel-front.webp",
   },
   {
     name: "Dean Little",
     role: "Founder · Blueshift",
     position: { left: "10.3%", top: "48.5%" },
-    layers: [
-      "dean-little-back.webp",
-      "dean-little-middle.webp",
-      "dean-little-front.webp",
-    ],
+    portrait: "dean-little-front.webp",
   },
   {
     name: "Jacob Creech",
     role: "VP Technology · Solana Foundation",
     position: { left: "52.6%", top: "36%" },
-    layers: [
-      "jacob-creech-back.webp",
-      "jacob-creech-middle.webp",
-      "jacob-creech-front.webp",
-    ],
+    portrait: "jacob-creech-front.webp",
   },
   {
     name: "Chaerin Kim",
     role: "DevRel · Solana Foundation",
     position: { left: "10.3%", top: "71.8%" },
-    layers: [
-      "chaerin-kim-back.webp",
-      "chaerin-kim-middle.webp",
-      "chaerin-kim-front.webp",
-    ],
+    portrait: "chaerin-kim-front.webp",
   },
   {
     name: "André Correia",
     role: "Head of DevRel · Solana Foundation",
     position: { left: "52.6%", top: "61.1%" },
-    layers: [
-      "andre-correia-back.webp",
-      "andre-correia-middle.webp",
-      "andre-correia-front.webp",
-    ],
+    portrait: "andre-correia-front.webp",
   },
 ] as const;
 
@@ -405,7 +381,7 @@ export function SummerSchoolLecturers() {
           width: "6.75%",
         }}
       />
-      {lecturers.map(({ name, role, position, layers }) => (
+      {lecturers.map(({ name, role, position, portrait }) => (
         <article key={name} className={styles.lecturerCard} style={position}>
           <Image
             src={`${figmaRoot}/lecturers/name-cloud.svg`}
@@ -417,16 +393,13 @@ export function SummerSchoolLecturers() {
           <h3 className={styles.lecturerName}>{name}</h3>
           <p className={styles.lecturerRole}>{role}</p>
           <div className={styles.lecturerPortrait} aria-hidden="true">
-            {layers.map((asset) => (
-              <Image
-                key={asset}
-                src={`${figmaRoot}/lecturers/${asset}`}
-                alt=""
-                width={312}
-                height={312}
-                loading="eager"
-              />
-            ))}
+            <Image
+              src={`${figmaRoot}/lecturers/${portrait}`}
+              alt=""
+              width={312}
+              height={312}
+              loading="eager"
+            />
           </div>
         </article>
       ))}
