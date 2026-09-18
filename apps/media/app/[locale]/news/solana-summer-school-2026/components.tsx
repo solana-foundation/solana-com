@@ -1,8 +1,6 @@
-import Image from "next/image";
 import type { ComponentPropsWithoutRef } from "react";
 import { StudentProjects } from "./student-projects";
 import { StudentVoicesCarousel } from "./student-voices-carousel";
-import styles from "./summer-school.module.css";
 import {
   SummerSchoolCurriculum,
   SummerSchoolHero,
@@ -10,34 +8,6 @@ import {
   SummerSchoolNextSteps,
   SummerSchoolNumbers,
 } from "./zine-sections";
-
-const uploadRoot = "/uploads/posts/solana-summer-school-2026";
-
-export function ZineCredits() {
-  return (
-    <section className={`not-prose ${styles.canvas} ${styles.credits}`}>
-      <h2>Credits</h2>
-      <p className={styles.creditsIntro}>program team, instructors, design</p>
-      <p className={styles.creditsTbu}>TBU</p>
-      <Image
-        src={`${uploadRoot}/credit-cloud.webp`}
-        alt="Solana.com"
-        width={390}
-        height={270}
-        className={styles.creditsCloud}
-        loading="eager"
-      />
-      <Image
-        src={`${uploadRoot}/credit-solana.webp`}
-        alt="Solana"
-        width={190}
-        height={80}
-        className={styles.creditsSolana}
-        loading="eager"
-      />
-    </section>
-  );
-}
 
 const Paragraph = (props: ComponentPropsWithoutRef<"p">) => (
   <p {...props} className="m-0" />
@@ -58,7 +28,6 @@ export const summerSchoolMdxComponents = {
   SummerSchoolCurriculum,
   SummerSchoolLecturers,
   SummerSchoolNextSteps,
-  ZineCredits,
   p: Paragraph,
   a: Anchor,
   strong: (props: ComponentPropsWithoutRef<"strong">) => (

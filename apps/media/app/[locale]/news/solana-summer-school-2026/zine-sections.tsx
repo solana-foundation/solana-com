@@ -166,8 +166,25 @@ export function SummerSchoolHero() {
         style={{ right: "-2%", bottom: "-4%", width: "31%", height: "47%" }}
       />
       <div className={styles.heroTitle}>
-        <small>Solana</small>
-        <h2 id="summer-school-title">Summer School</h2>
+        <Image
+          src={`${figmaRoot}/hero/solana-logo.svg`}
+          alt="Solana"
+          width={646}
+          height={96}
+          priority
+          className={styles.heroTitleLogo}
+        />
+        <h2 id="summer-school-title">
+          <span className="sr-only">Summer School</span>
+          <Image
+            src={`${figmaRoot}/hero/summer-school-title.svg`}
+            alt=""
+            width={320}
+            height={207}
+            priority
+            className={styles.heroTitleArt}
+          />
+        </h2>
       </div>
       <p className={styles.heroIntro}>
         Students from around the world.
@@ -452,11 +469,7 @@ export function SummerSchoolNextSteps() {
         Next
       </h2>
       {nextSteps.map(({ title, poster, frame }) => (
-        <a
-          key={title}
-          href="https://solana.com/developers"
-          className={styles.nextCard}
-        >
+        <article key={title} className={styles.nextCard}>
           <Image
             src={`${figmaRoot}/next/${frame}`}
             alt=""
@@ -474,7 +487,7 @@ export function SummerSchoolNextSteps() {
             loading="eager"
           />
           <p className={styles.nextCardLabel}>{title}</p>
-        </a>
+        </article>
       ))}
     </section>
   );
