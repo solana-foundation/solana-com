@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { checkChangelogSubscribeRateLimit } from "@/lib/changelog-subscribe-rate-limit";
 import { CHANGELOG_SUBSCRIBE_URL } from "@/lib/changelog";
 
 const subscribeSchema = z.object({
@@ -18,6 +19,20 @@ export async function POST(request: Request) {
   const parsed = subscribeSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+  }
+
+  const rateLimit = checkChangelogSubscribeRateLimit({
+    headers: request.headers,
+    email: parsed.data.email,
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: "Too many subscription attempts" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfter) },
+      },
+    );
   }
 
   const data = new FormData();
@@ -39,5 +54,7 @@ export async function POST(request: Request) {
     return new NextResponse(null, { status: 204 });
   } catch {
     return NextResponse.json({ error: "Subscription failed" }, { status: 502 });
+  } finally {
+    rateLimit.release();
   }
 }
