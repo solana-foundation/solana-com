@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { ChevronLeft } from "@boxicons/react/ChevronLeft";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import styles from "./summer-school.module.css";
 
 const figmaRoot = "/uploads/posts/solana-summer-school-2026/figma/voices";
@@ -75,7 +77,7 @@ export function StudentVoicesCarousel() {
           className={styles.quoteArrow}
           onClick={() => move(-1)}
         >
-          ◀
+          <ChevronLeft aria-hidden="true" />
         </button>
         <blockquote
           aria-live="polite"
@@ -92,7 +94,7 @@ export function StudentVoicesCarousel() {
           className={styles.quoteArrow}
           onClick={() => move(1)}
         >
-          ▶
+          <ChevronRight aria-hidden="true" />
         </button>
         <div className={styles.quoteDots} aria-label="Choose a student quote">
           {quotes.map((quote, index) => (
