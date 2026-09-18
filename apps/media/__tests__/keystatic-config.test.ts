@@ -1,3 +1,5 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import config, { githubStorage } from "../keystatic.config";
@@ -35,7 +37,41 @@ describe("upgrades schema", () => {
     );
   });
 
-  it("allows HTML line breaks in MDX table cells", () => {
-    expect(upgradeComponentBlocks).toHaveProperty("br");
+  it("renders the MDX line-break component inside a table cell", () => {
+    const lineBreak = upgradeComponentBlocks.br;
+
+    expect(lineBreak).toMatchObject({ kind: "inline", schema: {} });
+    if (
+      !lineBreak ||
+      lineBreak.kind !== "inline" ||
+      !("ContentView" in lineBreak) ||
+      !lineBreak.ContentView
+    ) {
+      throw new Error("Expected br to be an inline component with a preview");
+    }
+
+    const html = renderToStaticMarkup(
+      createElement(
+        "table",
+        null,
+        createElement(
+          "tbody",
+          null,
+          createElement(
+            "tr",
+            null,
+            createElement(
+              "td",
+              null,
+              "first line",
+              createElement(lineBreak.ContentView, { value: {} }),
+              "second line",
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(html).toContain("<td>first line<br/>second line</td>");
   });
 });
