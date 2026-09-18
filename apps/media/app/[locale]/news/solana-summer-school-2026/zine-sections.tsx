@@ -1,159 +1,298 @@
 import Image from "next/image";
+import styles from "./summer-school.module.css";
 
 const uploadRoot = "/uploads/posts/solana-summer-school-2026";
+const figmaRoot = `${uploadRoot}/figma`;
 
-function ArtworkCrop({
-  src,
-  alt,
-  position = "center",
-  className = "",
-}: {
-  src: string;
-  alt: string;
-  position?: string;
-  className?: string;
-}) {
-  return (
-    <div className={`relative overflow-hidden ${className}`}>
-      <Image
-        src={`${uploadRoot}/${src}`}
-        alt={alt}
-        fill
-        className="object-cover"
-        sizes="(max-width: 767px) 100vw, 50vw"
-        style={{ objectPosition: position }}
-      />
-    </div>
-  );
-}
+const curriculum = [
+  {
+    week: "Week 1:",
+    detail:
+      "Intro to Solana. Architecture, transactions, PDAs, Rust, Anchor. First vault and escrow programs.",
+    icon: "5c564.svg",
+  },
+  {
+    week: "Week 2:",
+    detail:
+      "Token Extensions. Token 2022, transfer hooks, rate limits. Challenge: build a stablecoin.",
+    icon: "3cecf.svg",
+  },
+  {
+    week: "Week 3:",
+    detail:
+      "Pinocchio. Dropping Anchor for native Rust. Zero-copy patterns, compute unit optimization.",
+    icon: "6c1ee.svg",
+  },
+  {
+    week: "Week 4:",
+    detail:
+      "Metaplex & Codama. NFT standards, cNFTs, custom candy machines, generating TypeScript clients from IDLs.",
+    icon: "5b54d.svg",
+  },
+  {
+    week: "Week 5:",
+    detail:
+      "Indexing. Anchor events, Geyser/Yellowstone gRPC streams, real-time event listeners.",
+    icon: "c3f79.svg",
+  },
+  {
+    week: "Weeks 6–9:",
+    detail: "Project-focused office hours.",
+    icon: "923d6.svg",
+  },
+] as const;
 
 export function SummerSchoolHero() {
   return (
-    <section className="not-prose mx-auto grid w-full max-w-[1512px] overflow-hidden border-y border-white/15 bg-[#191918] md:grid-cols-[1fr_1.12fr_1fr]">
-      <ArtworkCrop
-        src="hero-left.webp"
-        alt="Hand-drawn Summer School sneaker illustration"
-        className="min-h-64 md:min-h-[560px]"
+    <section
+      aria-labelledby="summer-school-title"
+      className={`not-prose ${styles.canvas} ${styles.hero}`}
+    >
+      <Image
+        src={`${figmaRoot}/hero/d4bbc.svg`}
+        alt=""
+        width={676}
+        height={689}
+        priority
+        className={styles.heroArt}
+        style={{ left: "-3%", top: "-13%", width: "45%", height: "78%" }}
       />
-      <div className="relative flex min-h-80 flex-col items-center justify-center px-6 py-16 text-center md:min-h-[560px] md:px-10">
-        <p className="mb-5 text-xs font-bold uppercase tracking-[0.28em] text-[#14f195]">
-          Solana presents
-        </p>
-        <h2 className="max-w-md text-5xl leading-[0.82] text-white md:text-7xl">
-          Summer School
-        </h2>
-        <p className="mt-7 max-w-[23rem] text-base leading-7 text-white/85 md:text-lg">
-          Students from around the world. Five weeks of live classes. Four weeks
-          of capstone building. One demo day.
-        </p>
-        <p className="mt-8 text-xl text-[#14f195] md:text-3xl">
-          June 15—August 15, 2026
-        </p>
+      <Image
+        src={`${figmaRoot}/hero/ef80b.webp`}
+        alt="A tree branch woven through browser symbols"
+        width={2000}
+        height={2000}
+        priority
+        className={styles.heroArt}
+        style={{ left: "-6%", top: "-7%", width: "46%", height: "61%" }}
+      />
+      <Image
+        src={`${figmaRoot}/hero/ab645.webp`}
+        alt=""
+        width={287}
+        height={326}
+        priority
+        className={styles.heroArt}
+        style={{ left: "8%", top: "5%", width: "7%", height: "14%" }}
+      />
+      <Image
+        src={`${figmaRoot}/hero/ab645.webp`}
+        alt=""
+        width={287}
+        height={326}
+        priority
+        className={styles.heroArt}
+        style={{
+          left: "20%",
+          top: "28%",
+          width: "6%",
+          height: "12%",
+          transform: "rotate(22deg)",
+        }}
+      />
+      <Image
+        src={`${figmaRoot}/hero/20ba1.webp`}
+        alt=""
+        width={1564}
+        height={1599}
+        priority
+        className={styles.heroArt}
+        style={{ left: "3%", top: "24%", width: "4.2%", height: "8%" }}
+      />
+      <Image
+        src={`${figmaRoot}/hero/20ba1.webp`}
+        alt=""
+        width={1564}
+        height={1599}
+        priority
+        className={styles.heroArt}
+        style={{ left: "27%", top: "10%", width: "4.2%", height: "8%" }}
+      />
+      <Image
+        src={`${figmaRoot}/hero/047f2.webp`}
+        alt="A volume slider collage"
+        width={1227}
+        height={379}
+        priority
+        className={styles.heroArt}
+        style={{
+          right: "3%",
+          top: "17%",
+          width: "27%",
+          height: "11%",
+          transform: "rotate(-16deg)",
+        }}
+      />
+      <Image
+        src={`${figmaRoot}/hero/10c18.webp`}
+        alt=""
+        width={2451}
+        height={629}
+        priority
+        className={styles.heroArt}
+        style={{
+          right: "-5%",
+          top: "8%",
+          width: "30%",
+          height: "8%",
+          transform: "rotate(-16deg)",
+        }}
+      />
+      <Image
+        src={`${figmaRoot}/hero/57498.webp`}
+        alt="At-sign sticker"
+        width={816}
+        height={817}
+        priority
+        className={styles.heroArt}
+        style={{ right: "1%", top: "8%", width: "8%", height: "15%" }}
+      />
+      <Image
+        src={`${figmaRoot}/hero/9052c.svg`}
+        alt=""
+        width={632}
+        height={503}
+        priority
+        className={styles.heroArt}
+        style={{ right: "-2%", bottom: "-8%", width: "38%", height: "54%" }}
+      />
+      <Image
+        src={`${figmaRoot}/hero/da4fa.webp`}
+        alt="A modem replacing a person's brain"
+        width={860}
+        height={688}
+        priority
+        className={styles.heroArt}
+        style={{ right: "-2%", bottom: "-4%", width: "31%", height: "47%" }}
+      />
+      <div className={styles.heroTitle}>
+        <small>Solana</small>
+        <h2 id="summer-school-title">Summer School</h2>
       </div>
-      <ArtworkCrop
-        src="hero-right.webp"
-        alt="Hand-drawn Summer School technology collage"
-        className="min-h-64 md:min-h-[560px]"
-      />
+      <p className={styles.heroIntro}>
+        Students from around the world.
+        <br />
+        Five weeks of classes.
+        <br />
+        Four weeks of capstones.
+        <br />
+        One demo day.
+      </p>
+      <p className={styles.heroDate}>
+        June 15 – August 15
+        <br />
+        2026
+      </p>
+      <p className={styles.heroScroll}>⌁ Scroll</p>
     </section>
   );
 }
 
-const numbers = [
+const numberStats = [
   ["1,164", "applicants"],
   ["69", "countries"],
   ["5", "weeks of live classes"],
-  ["4", "weeks building"],
-  ["20", "demo-day teams"],
+  ["4", "weeks of capstone builds"],
+  ["20", "teams presented at demo day"],
 ] as const;
 
 export function SummerSchoolNumbers() {
   return (
-    <section className="not-prose mx-auto grid w-full max-w-[1512px] overflow-hidden border-y border-white/15 bg-[#191918] md:grid-cols-[1.25fr_0.75fr]">
-      <ArtworkCrop
-        src="numbers-map.webp"
+    <section
+      aria-labelledby="numbers-title"
+      className={`not-prose ${styles.canvas} ${styles.numbers}`}
+    >
+      <h2
+        id="numbers-title"
+        className={`${styles.zineHeading} ${styles.numbersHeading}`}
+      >
+        the Numbers
+      </h2>
+      <Image
+        src={`${figmaRoot}/numbers/fa91e.svg`}
         alt="Hand-drawn world map"
-        className="min-h-80 md:min-h-[600px]"
+        width={800}
+        height={520}
+        className={styles.numbersMap}
       />
-      <div className="flex flex-col justify-center px-7 py-14 md:px-12">
-        <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#9945ff]">
-          Field report
-        </p>
-        <h2 className="mt-4 text-5xl leading-none text-white md:text-7xl">
-          The numbers
-        </h2>
-        <dl className="mt-10 grid grid-cols-2 gap-x-6 gap-y-8 border-t border-white/20 pt-8">
-          {numbers.map(([value, label]) => (
-            <div key={label} className="last:col-span-2">
-              <dt className="text-xs uppercase tracking-[0.16em] text-white/55">
-                {label}
-              </dt>
-              <dd className="m-0 mt-1 text-4xl leading-none text-[#14f195] md:text-5xl">
-                {value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+      <Image
+        src={`${figmaRoot}/numbers/95ad6.svg`}
+        alt=""
+        width={780}
+        height={501}
+        className={styles.numbersArrows}
+      />
+      <Image
+        src={`${figmaRoot}/numbers/a027b.webp`}
+        alt="Solana cassette illustration"
+        width={193}
+        height={195}
+        className={styles.numbersSticker}
+        style={{ left: "4.4%", top: "18.7%", width: "12.7%" }}
+      />
+      <Image
+        src={`${figmaRoot}/numbers/b6895.webp`}
+        alt="Payphone and globe collage"
+        width={268}
+        height={223}
+        className={styles.numbersSticker}
+        style={{ left: "3.2%", top: "55.6%", width: "17.7%" }}
+      />
+      <Image
+        src={`${figmaRoot}/numbers/04e5a.webp`}
+        alt="Futuristic wristwatch collage"
+        width={214}
+        height={198}
+        className={styles.numbersSticker}
+        style={{ right: "3.9%", top: "54.3%", width: "14.2%" }}
+      />
+      <Image
+        src={`${figmaRoot}/numbers/f85c2.svg`}
+        alt=""
+        width={90}
+        height={106}
+        className={styles.numbersSticker}
+        style={{ left: "5.5%", top: "44.2%", width: "6%" }}
+      />
+      <dl className={styles.numbersStats}>
+        {numberStats.map(([value, label]) => (
+          <div key={label}>
+            <dd>{value}</dd>
+            <dt>{label}</dt>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }
 
-const curriculum = [
-  [
-    "Week 1",
-    "Solana architecture, transactions, PDAs, Rust, Anchor",
-    "curriculum-01.webp",
-  ],
-  [
-    "Week 2",
-    "Token Extensions, Token-2022, transfer hooks",
-    "curriculum-02.webp",
-  ],
-  [
-    "Week 3",
-    "Pinocchio, native Rust, zero-copy, compute units",
-    "curriculum-03.webp",
-  ],
-  ["Week 4", "Metaplex, Codama, NFTs, generated clients", "curriculum-04.webp"],
-  [
-    "Week 5",
-    "Events, Geyser, Yellowstone, real-time listeners",
-    "curriculum-05.webp",
-  ],
-  [
-    "Weeks 6–9",
-    "Project-focused office hours and demo-day prep",
-    "curriculum-06.webp",
-  ],
-] as const;
-
 export function SummerSchoolCurriculum() {
   return (
-    <section className="not-prose mx-auto w-full max-w-[1512px] border-y border-white/15 bg-[#191918] px-6 py-16 md:px-12 md:py-24">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#ffe45e]">
-          Syllabus
-        </p>
-        <h2 className="mt-4 text-5xl leading-none text-white md:text-7xl">
-          The curriculum
-        </h2>
-      </div>
-      <ol className="mt-12 grid list-none gap-px overflow-hidden border border-white/15 bg-white/15 p-0 md:grid-cols-2 lg:grid-cols-3">
-        {curriculum.map(([week, detail, image], index) => (
-          <li key={week} className="min-h-48 bg-[#191918] p-6 md:p-8">
-            <div className="flex items-center justify-between">
-              <span className="text-[#14f195]">0{index + 1}</span>
-              <Image
-                src={`${uploadRoot}/${image}`}
-                alt=""
-                width={55}
-                height={55}
-                className="size-11 object-contain"
-              />
+    <section
+      aria-labelledby="curriculum-title"
+      className={`not-prose ${styles.canvas} ${styles.curriculum}`}
+    >
+      <h2
+        id="curriculum-title"
+        className={`${styles.zineHeading} ${styles.curriculumHeading}`}
+      >
+        the
+        <br />
+        Curriculum
+      </h2>
+      <ol className={styles.curriculumGrid}>
+        {curriculum.map(({ week, detail, icon }) => (
+          <li key={week} className={styles.curriculumItem}>
+            <Image
+              src={`${figmaRoot}/curriculum/${icon}`}
+              alt=""
+              width={64}
+              height={64}
+            />
+            <div>
+              <h3>{week}</h3>
+              <p>{detail}</p>
             </div>
-            <h3 className="mt-5 text-3xl leading-none text-white">{week}</h3>
-            <p className="mt-4 text-sm leading-6 text-white/70">{detail}</p>
           </li>
         ))}
       </ol>
@@ -162,103 +301,158 @@ export function SummerSchoolCurriculum() {
 }
 
 const lecturers = [
-  ["Cat McGee", "Developer Relations Engineer", "lecturer-cat.webp"],
-  ["Dev Bharel", "Developer Relations Engineer, AI", "lecturer-dev.webp"],
-  ["Dean Little", "Founder, Blueshift", "lecturer-dean.webp"],
-  ["Chaerin Kim", "Developer Relations", "lecturer-chaerin.webp"],
-  ["André Correia", "Head of Developer Relations", "lecturer-andre.webp"],
-  ["Jacob Creech", "VP of Technology", "lecturer-jacob.webp"],
+  {
+    name: "Cat McGee",
+    role: "Developer Relations Engineer · Solana Foundation",
+    position: { left: "10.3%", top: "23.4%" },
+    layers: ["4bb51.webp", "6257f.webp", "3006a.webp"],
+  },
+  {
+    name: "Dev Bharel",
+    role: "Developer Relations Engineer, AI · Solana Foundation",
+    position: { left: "52.6%", top: "10.9%" },
+    layers: ["a2037.webp", "a2bdc.webp", "c90bb.webp"],
+  },
+  {
+    name: "Dean Little",
+    role: "Founder · Blueshift",
+    position: { left: "10.3%", top: "48.5%" },
+    layers: ["9bcf5.webp", "a6ebd.webp", "e4f9b.webp"],
+  },
+  {
+    name: "Jacob Creech",
+    role: "VP Technology · Solana Foundation",
+    position: { left: "52.6%", top: "36%" },
+    layers: ["78a09.webp", "d246c.webp", "97978.webp"],
+  },
+  {
+    name: "Chaerin Kim",
+    role: "DevRel · Solana Foundation",
+    position: { left: "10.3%", top: "71.8%" },
+    layers: ["70585.webp", "f856b.webp", "7110b.webp"],
+  },
+  {
+    name: "André Correia",
+    role: "Head of DevRel · Solana Foundation",
+    position: { left: "52.6%", top: "61.1%" },
+    layers: ["73943.webp", "fb495.webp", "05ffe.webp"],
+  },
 ] as const;
 
 export function SummerSchoolLecturers() {
   return (
-    <section className="not-prose mx-auto w-full max-w-[1512px] border-y border-white/15 bg-[#191918] px-6 py-16 md:px-12 md:py-24">
-      <div className="flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#ffe45e]">
-            Office hours
-          </p>
-          <h2 className="mt-4 text-5xl leading-none text-white md:text-7xl">
-            Guest lecturers
-          </h2>
-        </div>
-        <p className="max-w-sm text-sm leading-6 text-white/65">
-          Six people building and teaching across the Solana ecosystem.
-        </p>
-      </div>
-      <ul className="mt-12 grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
-        {lecturers.map(([name, role, image]) => (
-          <li
-            key={name}
-            className="overflow-hidden border border-white/15 bg-[#151514]"
-          >
-            <ArtworkCrop
-              src={image}
-              alt={`Portrait of ${name}`}
-              className="aspect-[1.55/1]"
-            />
-            <div className="border-t border-white/15 p-5">
-              <h3 className="text-2xl leading-none text-white">{name}</h3>
-              <p className="mt-2 text-sm text-white/60">{role}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+    <section
+      aria-labelledby="lecturers-title"
+      className={`not-prose ${styles.canvas} ${styles.lecturers}`}
+    >
+      <h2
+        id="lecturers-title"
+        className={`${styles.zineHeading} ${styles.lecturersHeading}`}
+      >
+        Guest
+        <br />
+        Lecturers
+      </h2>
+      <Image
+        src={`${figmaRoot}/lecturers/a14b6.svg`}
+        alt=""
+        width={102}
+        height={120}
+        style={{
+          position: "absolute",
+          left: "32.5%",
+          top: "8.2%",
+          width: "6.75%",
+        }}
+      />
+      {lecturers.map(({ name, role, position, layers }) => (
+        <article key={name} className={styles.lecturerCard} style={position}>
+          <Image
+            src={`${figmaRoot}/lecturers/61150.svg`}
+            alt=""
+            width={332}
+            height={154}
+            className={styles.lecturerCloud}
+          />
+          <h3 className={styles.lecturerName}>{name}</h3>
+          <p className={styles.lecturerRole}>{role}</p>
+          <div className={styles.lecturerPortrait} aria-hidden="true">
+            {layers.map((asset) => (
+              <Image
+                key={asset}
+                src={`${figmaRoot}/lecturers/${asset}`}
+                alt=""
+                width={312}
+                height={312}
+                loading="eager"
+              />
+            ))}
+          </div>
+        </article>
+      ))}
     </section>
   );
 }
 
 const nextSteps = [
-  [
-    "Solana School",
-    "Fall class",
-    "Continue from first principles to a finished build.",
-    "next-fall-class.webp",
-  ],
-  [
-    "University Ambassador",
-    "Program",
-    "Bring Solana education to your campus.",
-    "next-ambassador.webp",
-  ],
+  {
+    title: "Solana School Fall Class",
+    poster: "ce2e5.webp",
+    frame: "0aa79.svg",
+  },
+  {
+    title: "University Ambassador Program",
+    poster: "fc81c.webp",
+    frame: "27113.svg",
+  },
 ] as const;
 
 export function SummerSchoolNextSteps() {
   return (
-    <section className="not-prose mx-auto w-full max-w-[1512px] border-y border-white/15 bg-[#191918] px-6 py-16 md:px-12 md:py-24">
-      <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#14f195]">
-        Next semester
-      </p>
-      <h2 className="mt-4 text-5xl leading-none text-white md:text-7xl">
-        What’s next?
+    <section
+      aria-labelledby="next-title"
+      className={`not-prose ${styles.canvas} ${styles.next}`}
+    >
+      <Image
+        src={`${figmaRoot}/next/4c5f1.svg`}
+        alt=""
+        width={306}
+        height={171}
+        className={styles.nextCircle}
+      />
+      <h2
+        id="next-title"
+        className={`${styles.zineHeading} ${styles.nextHeading}`}
+      >
+        What’s
+        <br />
+        Next
       </h2>
-      <div className="mt-12 grid gap-6 md:grid-cols-2">
-        {nextSteps.map(([eyebrow, title, description, image]) => (
-          <a
-            key={title}
-            href="https://solana.com/developers"
-            className="group overflow-hidden border border-white/15 text-white no-underline transition-colors hover:border-[#14f195] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#14f195]"
-          >
-            <ArtworkCrop
-              src={image}
-              alt={`${eyebrow} illustrated card`}
-              className="aspect-[1.25/1]"
-            />
-            <div className="p-6 md:p-8">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#14f195]">
-                {eyebrow}
-              </p>
-              <h3 className="mt-3 text-4xl leading-none">{title}</h3>
-              <p className="mt-5 max-w-md text-sm leading-6 text-white/65">
-                {description}
-              </p>
-              <span className="mt-7 inline-block text-sm font-bold text-[#14f195]">
-                Learn more ↗
-              </span>
-            </div>
-          </a>
-        ))}
-      </div>
+      {nextSteps.map(({ title, poster, frame }) => (
+        <a
+          key={title}
+          href="https://solana.com/developers"
+          className={styles.nextCard}
+        >
+          <Image
+            src={`${figmaRoot}/next/${frame}`}
+            alt=""
+            width={556}
+            height={520}
+            className={styles.nextFrame}
+            loading="eager"
+          />
+          <Image
+            src={`${figmaRoot}/next/${poster}`}
+            alt=""
+            width={800}
+            height={800}
+            className={styles.nextPoster}
+            loading="eager"
+          />
+          <p className={styles.nextCardLabel}>{title}</p>
+        </a>
+      ))}
     </section>
   );
 }

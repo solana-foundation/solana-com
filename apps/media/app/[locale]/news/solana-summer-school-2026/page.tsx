@@ -6,7 +6,6 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import { Link } from "@workspace/i18n/routing";
 import ErrorBoundary from "@/components/error-boundary";
-import { SocialShare } from "@/components/ui/social-share";
 import { JsonLd } from "@/components/seo/json-ld";
 import { buildArticleJsonLd } from "@/lib/content-structured-data";
 import { newsPostMetadata } from "@/lib/metadata";
@@ -94,10 +93,6 @@ export default async function SolanaSummerSchoolRecapPage({
             }}
           />
         </article>
-
-        <div className="mx-auto w-full max-w-[840px] px-6 pb-16 md:px-10 md:pb-24">
-          <SocialShare title={title} variant="card" />
-        </div>
       </main>
     </ErrorBoundary>
   );

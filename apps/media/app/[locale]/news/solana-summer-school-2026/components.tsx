@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { StudentProjects } from "./student-projects";
 import { StudentVoicesCarousel } from "./student-voices-carousel";
+import styles from "./summer-school.module.css";
 import {
   SummerSchoolCurriculum,
   SummerSchoolHero,
@@ -179,26 +180,27 @@ export function LecturerLinks() {
 }
 
 export function ZineCredits() {
-  const plate = plates.credits;
-
   return (
-    <section className="not-prose relative mx-auto w-full max-w-[1512px] overflow-hidden">
+    <section className={`not-prose ${styles.canvas} ${styles.credits}`}>
+      <h2>Credits</h2>
+      <p className={styles.creditsIntro}>program team, instructors, design</p>
+      <p className={styles.creditsTbu}>TBU</p>
       <Image
-        src={plate.src}
-        alt=""
-        width={plate.width}
-        height={plate.height}
-        className="block h-auto w-full max-w-none select-none"
-        sizes="(max-width: 1512px) 100vw, 1512px"
+        src={`${uploadRoot}/credit-cloud.webp`}
+        alt="Solana.com"
+        width={390}
+        height={270}
+        className={styles.creditsCloud}
+        loading="eager"
       />
-      <div
-        className="absolute left-1/2 top-[25%] flex h-[18%] w-[34%] -translate-x-1/2 items-center justify-center bg-[#191918] bg-cover text-center"
-        style={{ backgroundImage: `url(${uploadRoot}/texture.webp)` }}
-      >
-        <p className="text-[clamp(0.65rem,1.4vw,1.1rem)] uppercase tracking-[0.22em] text-[#ffe45e]">
-          Program team · instructors · student builders
-        </p>
-      </div>
+      <Image
+        src={`${uploadRoot}/credit-solana.webp`}
+        alt="Solana"
+        width={190}
+        height={80}
+        className={styles.creditsSolana}
+        loading="eager"
+      />
     </section>
   );
 }
