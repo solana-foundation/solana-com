@@ -398,7 +398,6 @@ export function SummerSchoolLecturers() {
               alt=""
               width={312}
               height={312}
-              loading="eager"
             />
           </div>
         </article>
@@ -449,7 +448,6 @@ export function SummerSchoolNextSteps() {
             width={556}
             height={520}
             className={styles.nextFrame}
-            loading="eager"
           />
           <Image
             src={`${figmaRoot}/next/${poster}`}
@@ -457,7 +455,6 @@ export function SummerSchoolNextSteps() {
             width={800}
             height={800}
             className={styles.nextPoster}
-            loading="eager"
           />
           <p className={styles.nextCardLabel}>{title}</p>
         </article>

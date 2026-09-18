@@ -59,7 +59,6 @@ export function StudentVoicesCarousel() {
         width={366}
         height={259}
         className={styles.voicesSmile}
-        loading="eager"
       />
       <Image
         src={`${figmaRoot}/smartwatch-collage.webp`}
@@ -67,7 +66,6 @@ export function StudentVoicesCarousel() {
         width={486}
         height={445}
         className={styles.voicesWatch}
-        loading="eager"
       />
 
       <div className={styles.quoteArea}>

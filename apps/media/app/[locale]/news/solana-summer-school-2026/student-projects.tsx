@@ -73,14 +73,13 @@ export function StudentProjects() {
       />
 
       <div className={styles.projectEditorialCollage}>
-        {projects.map((project, index) => (
+        {projects.map((project) => (
           <figure key={project.image} className={styles.projectEditorialShot}>
             <span className={styles.projectEditorialImage}>
               <Image
                 src={`${uploadRoot}/${project.image}`}
                 alt={`${project.name} capstone presentation`}
                 fill
-                priority={index < 2}
                 sizes="(max-width: 640px) 88vw, 48vw"
               />
             </span>
