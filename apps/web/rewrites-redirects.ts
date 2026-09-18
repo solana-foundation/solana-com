@@ -511,6 +511,11 @@ export default {
         locale: false,
       },
       {
+        source: "/api/changelog/:path*",
+        destination: `${MEDIA_APP_URL}/api/changelog/:path*`,
+        locale: false,
+      },
+      {
         source: "/api/posts/:path*",
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
         locale: false,
