@@ -183,7 +183,6 @@ export function SummerSchoolHero() {
         <br />
         2026
       </p>
-      <p className={styles.heroScroll}>⌁ Scroll</p>
     </section>
   );
 }
@@ -206,7 +205,7 @@ export function SummerSchoolNumbers() {
         id="numbers-title"
         className={`${styles.zineHeading} ${styles.numbersHeading}`}
       >
-        the Numbers
+        The Numbers
       </h2>
       <Image
         src={`${figmaRoot}/numbers/world-map.svg`}
@@ -276,7 +275,7 @@ export function SummerSchoolCurriculum() {
         id="curriculum-title"
         className={`${styles.zineHeading} ${styles.curriculumHeading}`}
       >
-        the
+        The
         <br />
         Curriculum
       </h2>
