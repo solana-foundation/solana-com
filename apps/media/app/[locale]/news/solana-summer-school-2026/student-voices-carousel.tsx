@@ -52,7 +52,7 @@ export function StudentVoicesCarousel() {
         Voices
       </h2>
       <Image
-        src={`${figmaRoot}/79b03.webp`}
+        src={`${figmaRoot}/yellow-smiley.webp`}
         alt="Hand-painted yellow smiley face"
         width={366}
         height={259}
@@ -60,7 +60,7 @@ export function StudentVoicesCarousel() {
         loading="eager"
       />
       <Image
-        src={`${figmaRoot}/84e66.webp`}
+        src={`${figmaRoot}/smartwatch-collage.webp`}
         alt="A wristwatch collage with hand-drawn arrows"
         width={486}
         height={445}

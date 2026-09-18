@@ -139,14 +139,14 @@ export function StudentProjects() {
         Student Projects
       </h2>
       <Image
-        src={`${figmaRoot}/0b380.svg`}
+        src={`${figmaRoot}/project-collage-left-doodle.svg`}
         alt=""
         width={197}
         height={145}
         style={{ position: "absolute", left: "5.7%", top: "15%", width: "13%" }}
       />
       <Image
-        src={`${figmaRoot}/8b2f7.svg`}
+        src={`${figmaRoot}/lightning-bolt.svg`}
         alt=""
         width={51}
         height={116}

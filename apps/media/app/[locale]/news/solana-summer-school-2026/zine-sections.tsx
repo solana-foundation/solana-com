@@ -9,36 +9,36 @@ const curriculum = [
     week: "Week 1:",
     detail:
       "Intro to Solana. Architecture, transactions, PDAs, Rust, Anchor. First vault and escrow programs.",
-    icon: "5c564.svg",
+    icon: "week-1-star.svg",
   },
   {
     week: "Week 2:",
     detail:
       "Token Extensions. Token 2022, transfer hooks, rate limits. Challenge: build a stablecoin.",
-    icon: "3cecf.svg",
+    icon: "week-2-heart.svg",
   },
   {
     week: "Week 3:",
     detail:
       "Pinocchio. Dropping Anchor for native Rust. Zero-copy patterns, compute unit optimization.",
-    icon: "6c1ee.svg",
+    icon: "week-3-lightning.svg",
   },
   {
     week: "Week 4:",
     detail:
       "Metaplex & Codama. NFT standards, cNFTs, custom candy machines, generating TypeScript clients from IDLs.",
-    icon: "5b54d.svg",
+    icon: "week-4-smiley.svg",
   },
   {
     week: "Week 5:",
     detail:
       "Indexing. Anchor events, Geyser/Yellowstone gRPC streams, real-time event listeners.",
-    icon: "c3f79.svg",
+    icon: "week-5-burst.svg",
   },
   {
     week: "Weeks 6–9:",
     detail: "Project-focused office hours.",
-    icon: "923d6.svg",
+    icon: "weeks-6-9-symbol.svg",
   },
 ] as const;
 
@@ -49,7 +49,7 @@ export function SummerSchoolHero() {
       className={`not-prose ${styles.canvas} ${styles.hero}`}
     >
       <Image
-        src={`${figmaRoot}/hero/d4bbc.svg`}
+        src={`${figmaRoot}/hero/green-zigzag-backdrop.svg`}
         alt=""
         width={676}
         height={689}
@@ -58,7 +58,7 @@ export function SummerSchoolHero() {
         style={{ left: "-3%", top: "-13%", width: "45%", height: "78%" }}
       />
       <Image
-        src={`${figmaRoot}/hero/ef80b.webp`}
+        src={`${figmaRoot}/hero/tree-branch.webp`}
         alt="A tree branch woven through browser symbols"
         width={2000}
         height={2000}
@@ -67,7 +67,7 @@ export function SummerSchoolHero() {
         style={{ left: "-6%", top: "-7%", width: "46%", height: "61%" }}
       />
       <Image
-        src={`${figmaRoot}/hero/ab645.webp`}
+        src={`${figmaRoot}/hero/cursor.webp`}
         alt=""
         width={287}
         height={326}
@@ -76,7 +76,7 @@ export function SummerSchoolHero() {
         style={{ left: "8%", top: "5%", width: "7%", height: "14%" }}
       />
       <Image
-        src={`${figmaRoot}/hero/ab645.webp`}
+        src={`${figmaRoot}/hero/cursor.webp`}
         alt=""
         width={287}
         height={326}
@@ -91,7 +91,7 @@ export function SummerSchoolHero() {
         }}
       />
       <Image
-        src={`${figmaRoot}/hero/20ba1.webp`}
+        src={`${figmaRoot}/hero/rainbow-browser-orb.webp`}
         alt=""
         width={1564}
         height={1599}
@@ -100,7 +100,7 @@ export function SummerSchoolHero() {
         style={{ left: "3%", top: "24%", width: "4.2%", height: "8%" }}
       />
       <Image
-        src={`${figmaRoot}/hero/20ba1.webp`}
+        src={`${figmaRoot}/hero/rainbow-browser-orb.webp`}
         alt=""
         width={1564}
         height={1599}
@@ -109,7 +109,7 @@ export function SummerSchoolHero() {
         style={{ left: "27%", top: "10%", width: "4.2%", height: "8%" }}
       />
       <Image
-        src={`${figmaRoot}/hero/047f2.webp`}
+        src={`${figmaRoot}/hero/volume-slider.webp`}
         alt="A volume slider collage"
         width={1227}
         height={379}
@@ -124,7 +124,7 @@ export function SummerSchoolHero() {
         }}
       />
       <Image
-        src={`${figmaRoot}/hero/10c18.webp`}
+        src={`${figmaRoot}/hero/mountain-strip.webp`}
         alt=""
         width={2451}
         height={629}
@@ -139,7 +139,7 @@ export function SummerSchoolHero() {
         }}
       />
       <Image
-        src={`${figmaRoot}/hero/57498.webp`}
+        src={`${figmaRoot}/hero/at-sign-orb.webp`}
         alt="At-sign sticker"
         width={816}
         height={817}
@@ -148,7 +148,7 @@ export function SummerSchoolHero() {
         style={{ right: "1%", top: "8%", width: "8%", height: "15%" }}
       />
       <Image
-        src={`${figmaRoot}/hero/9052c.svg`}
+        src={`${figmaRoot}/hero/modem-head-backdrop.svg`}
         alt=""
         width={632}
         height={503}
@@ -157,7 +157,7 @@ export function SummerSchoolHero() {
         style={{ right: "-2%", bottom: "-8%", width: "38%", height: "54%" }}
       />
       <Image
-        src={`${figmaRoot}/hero/da4fa.webp`}
+        src={`${figmaRoot}/hero/modem-head.webp`}
         alt="A modem replacing a person's brain"
         width={860}
         height={688}
@@ -209,21 +209,21 @@ export function SummerSchoolNumbers() {
         the Numbers
       </h2>
       <Image
-        src={`${figmaRoot}/numbers/fa91e.svg`}
+        src={`${figmaRoot}/numbers/world-map.svg`}
         alt="Hand-drawn world map"
         width={800}
         height={520}
         className={styles.numbersMap}
       />
       <Image
-        src={`${figmaRoot}/numbers/95ad6.svg`}
+        src={`${figmaRoot}/numbers/map-arrows.svg`}
         alt=""
         width={780}
         height={501}
         className={styles.numbersArrows}
       />
       <Image
-        src={`${figmaRoot}/numbers/a027b.webp`}
+        src={`${figmaRoot}/numbers/solana-cassette.webp`}
         alt="Solana cassette illustration"
         width={193}
         height={195}
@@ -231,7 +231,7 @@ export function SummerSchoolNumbers() {
         style={{ left: "4.4%", top: "18.7%", width: "12.7%" }}
       />
       <Image
-        src={`${figmaRoot}/numbers/b6895.webp`}
+        src={`${figmaRoot}/numbers/payphone-globe.webp`}
         alt="Payphone and globe collage"
         width={268}
         height={223}
@@ -239,7 +239,7 @@ export function SummerSchoolNumbers() {
         style={{ left: "3.2%", top: "55.6%", width: "17.7%" }}
       />
       <Image
-        src={`${figmaRoot}/numbers/04e5a.webp`}
+        src={`${figmaRoot}/numbers/dual-watch.webp`}
         alt="Futuristic wristwatch collage"
         width={214}
         height={198}
@@ -247,7 +247,7 @@ export function SummerSchoolNumbers() {
         style={{ right: "3.9%", top: "54.3%", width: "14.2%" }}
       />
       <Image
-        src={`${figmaRoot}/numbers/f85c2.svg`}
+        src={`${figmaRoot}/numbers/compass.svg`}
         alt=""
         width={90}
         height={106}
@@ -305,37 +305,61 @@ const lecturers = [
     name: "Cat McGee",
     role: "Developer Relations Engineer · Solana Foundation",
     position: { left: "10.3%", top: "23.4%" },
-    layers: ["4bb51.webp", "6257f.webp", "3006a.webp"],
+    layers: [
+      "cat-mcgee-back.webp",
+      "cat-mcgee-middle.webp",
+      "cat-mcgee-front.webp",
+    ],
   },
   {
     name: "Dev Bharel",
     role: "Developer Relations Engineer, AI · Solana Foundation",
     position: { left: "52.6%", top: "10.9%" },
-    layers: ["a2037.webp", "a2bdc.webp", "c90bb.webp"],
+    layers: [
+      "dev-bharel-back.webp",
+      "dev-bharel-middle.webp",
+      "dev-bharel-front.webp",
+    ],
   },
   {
     name: "Dean Little",
     role: "Founder · Blueshift",
     position: { left: "10.3%", top: "48.5%" },
-    layers: ["9bcf5.webp", "a6ebd.webp", "e4f9b.webp"],
+    layers: [
+      "dean-little-back.webp",
+      "dean-little-middle.webp",
+      "dean-little-front.webp",
+    ],
   },
   {
     name: "Jacob Creech",
     role: "VP Technology · Solana Foundation",
     position: { left: "52.6%", top: "36%" },
-    layers: ["78a09.webp", "d246c.webp", "97978.webp"],
+    layers: [
+      "jacob-creech-back.webp",
+      "jacob-creech-middle.webp",
+      "jacob-creech-front.webp",
+    ],
   },
   {
     name: "Chaerin Kim",
     role: "DevRel · Solana Foundation",
     position: { left: "10.3%", top: "71.8%" },
-    layers: ["70585.webp", "f856b.webp", "7110b.webp"],
+    layers: [
+      "chaerin-kim-back.webp",
+      "chaerin-kim-middle.webp",
+      "chaerin-kim-front.webp",
+    ],
   },
   {
     name: "André Correia",
     role: "Head of DevRel · Solana Foundation",
     position: { left: "52.6%", top: "61.1%" },
-    layers: ["73943.webp", "fb495.webp", "05ffe.webp"],
+    layers: [
+      "andre-correia-back.webp",
+      "andre-correia-middle.webp",
+      "andre-correia-front.webp",
+    ],
   },
 ] as const;
 
@@ -354,7 +378,7 @@ export function SummerSchoolLecturers() {
         Lecturers
       </h2>
       <Image
-        src={`${figmaRoot}/lecturers/a14b6.svg`}
+        src={`${figmaRoot}/lecturers/microphone.svg`}
         alt=""
         width={102}
         height={120}
@@ -368,7 +392,7 @@ export function SummerSchoolLecturers() {
       {lecturers.map(({ name, role, position, layers }) => (
         <article key={name} className={styles.lecturerCard} style={position}>
           <Image
-            src={`${figmaRoot}/lecturers/61150.svg`}
+            src={`${figmaRoot}/lecturers/name-cloud.svg`}
             alt=""
             width={332}
             height={154}
@@ -397,13 +421,13 @@ export function SummerSchoolLecturers() {
 const nextSteps = [
   {
     title: "Solana School Fall Class",
-    poster: "ce2e5.webp",
-    frame: "0aa79.svg",
+    poster: "fall-class-poster.webp",
+    frame: "fall-class-frame.svg",
   },
   {
     title: "University Ambassador Program",
-    poster: "fc81c.webp",
-    frame: "27113.svg",
+    poster: "ambassador-program-poster.webp",
+    frame: "ambassador-program-frame.svg",
   },
 ] as const;
 
@@ -414,7 +438,7 @@ export function SummerSchoolNextSteps() {
       className={`not-prose ${styles.canvas} ${styles.next}`}
     >
       <Image
-        src={`${figmaRoot}/next/4c5f1.svg`}
+        src={`${figmaRoot}/next/whats-next-circle.svg`}
         alt=""
         width={306}
         height={171}
