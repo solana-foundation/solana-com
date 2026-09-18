@@ -12,7 +12,7 @@ import { newsPostMetadata } from "@/lib/metadata";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
 import { toPlainText } from "@/lib/structured-data";
 import { summerSchoolMdxComponents } from "./components";
-import { summerSchoolBody, summerSchoolTitle } from "./fonts";
+import { summerSchoolBody } from "./fonts";
 import styles from "./summer-school.module.css";
 
 const slug = "solana-summer-school-2026";
@@ -58,7 +58,7 @@ export default async function SolanaSummerSchoolRecapPage({
     <ErrorBoundary>
       <JsonLd data={structuredData} />
       <main
-        className={`${styles.root} ${summerSchoolBody.variable} ${summerSchoolTitle.variable} relative isolate overflow-hidden bg-[#191918] text-white`}
+        className={`${styles.root} ${summerSchoolBody.variable} relative isolate overflow-hidden bg-[#191918] text-white`}
       >
         <div
           aria-hidden="true"
