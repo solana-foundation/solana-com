@@ -648,21 +648,6 @@ export default {
         locale: false,
       },
       {
-        source: "/learn",
-        destination: `${DOCS_APP_URL}/learn`,
-        locale: false,
-      },
-      {
-        source: "/learn/:path*.md",
-        destination: `${DOCS_APP_URL}/learn/:path*.md`,
-        locale: false,
-      },
-      {
-        source: "/learn/:path*",
-        destination: `${DOCS_APP_URL}/learn/:path*`,
-        locale: false,
-      },
-      {
         source: "/developers",
         destination: `${DOCS_APP_URL}/developers`,
         locale: false,
@@ -716,21 +701,6 @@ export default {
       {
         source: "/:locale/docs/:path*",
         destination: `${DOCS_APP_URL}/:locale/docs/:path*`,
-        locale: false,
-      },
-      {
-        source: "/:locale/learn",
-        destination: `${DOCS_APP_URL}/:locale/learn`,
-        locale: false,
-      },
-      {
-        source: "/:locale/learn/:path*.md",
-        destination: `${DOCS_APP_URL}/:locale/learn/:path*.md`,
-        locale: false,
-      },
-      {
-        source: "/:locale/learn/:path*",
-        destination: `${DOCS_APP_URL}/:locale/learn/:path*`,
         locale: false,
       },
       {
