@@ -618,8 +618,13 @@ const txAccountBytes = diagramBlock(
 const featureActivationStatus = block({
   label: "Feature activation status",
   description: "Live feature activation status for each Solana cluster",
-  schema: {},
-  ContentView: () => (
+  schema: {
+    featureAddress: fields.text({
+      label: "Feature address",
+      description: "The Solana feature account address to check",
+    }),
+  },
+  ContentView: (props) => (
     <div
       style={{
         border: "1px solid #e5e7eb",
@@ -633,6 +638,18 @@ const featureActivationStatus = block({
       <strong style={{ color: "#14161c", display: "block" }}>
         Feature activation status
       </strong>
+      {props.value.featureAddress && (
+        <code
+          style={{
+            color: "#14161c",
+            display: "block",
+            margin: "8px 0",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {props.value.featureAddress}
+        </code>
+      )}
       Live cluster statuses are shown on the published page.
     </div>
   ),
