@@ -773,6 +773,17 @@ export default {
         destination: `${DOCS_APP_URL}/:locale/developers/bootcamp/:path*`,
         locale: false,
       },
+      // Hack the North – single-page masked proxy to the external HTN site
+      {
+        source: "/hack-the-north",
+        destination: "https://solana-htn.com",
+        locale: false,
+      },
+      {
+        source: "/:locale/hack-the-north",
+        destination: "https://solana-htn.com",
+        locale: false,
+      },
     ],
     afterFiles: [],
     fallback: [],
