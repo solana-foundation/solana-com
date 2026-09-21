@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle } from "@boxicons/react/CheckCircle";
 import { useTranslations } from "@workspace/i18n/client";
-import Button from "@/components/Button";
-import GlitchOverlay from "@/components/GlitchOverlay";
+import Button, { useButtonScramble } from "@/components/Button";
 import { publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
 import { resolveSponsorLogo } from "@/lib/sponsors";
@@ -13,7 +12,6 @@ type Nomination = { handle: string; submittedAt: string };
 type CampaignStatus = "open" | "not_started" | "closed";
 type AwardCategoryCopy = { name: string; description: string };
 
-const CATEGORY_GLITCH_MS = 520;
 const presentingSponsor = resolveSponsorLogo({
   companyId: "solflare",
   width: 230.648,
@@ -22,6 +20,59 @@ const presentingSponsor = resolveSponsorLogo({
 
 function normaliseHandle(value: string) {
   return value.trim().replace(/^@+/, "").toLowerCase();
+}
+
+type AwardCategoryButtonProps = {
+  index: number;
+  name: string;
+  nominated: boolean;
+  nominatedLabel: string;
+  onSelect: () => void;
+  selected: boolean;
+};
+
+function AwardCategoryButton({
+  index,
+  name,
+  nominated,
+  nominatedLabel,
+  onSelect,
+  selected,
+}: AwardCategoryButtonProps) {
+  const [scrambleRunKey, setScrambleRunKey] = useState(0);
+  const displayName = useButtonScramble(name, scrambleRunKey);
+  const triggerScramble = () => setScrambleRunKey((key) => key + 1);
+
+  return (
+    <li>
+      <button
+        aria-current={selected ? "step" : undefined}
+        className={`group flex w-full items-center gap-s overflow-hidden border-b border-stroke-primary px-2xs py-2xs text-left transition-colors duration-200 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple ${selected ? "bg-white text-black hover:bg-neutral-200" : "text-text-secondary hover:bg-neutral-800 hover:text-white"}`}
+        onClick={onSelect}
+        onFocus={triggerScramble}
+        onMouseEnter={triggerScramble}
+        type="button"
+      >
+        <span className="w-m shrink-0 font-mono text-button-small">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        <span className="flex-1 text-sm leading-tight">
+          <span className="sr-only">{name}</span>
+          <span aria-hidden="true">{displayName}</span>
+        </span>
+        {nominated && (
+          <CheckCircle
+            pack="filled"
+            role="img"
+            aria-label={nominatedLabel}
+            className={`h-4 w-4 shrink-0 ${
+              selected ? "text-black" : "text-core-purple"
+            }`}
+          />
+        )}
+      </button>
+    </li>
+  );
 }
 
 export default function AwardsNominations() {
@@ -40,8 +91,6 @@ export default function AwardsNominations() {
   const [campaignStatus, setCampaignStatus] = useState<CampaignStatus>();
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [glitchingCategoryId, setGlitchingCategoryId] = useState<string>();
-  const categoryGlitchTimeoutRef = useRef<number | null>(null);
   const activeCategory = awardCategories[activeIndex]!;
   const activeCategoryCopy = t.raw(
     `categories.${activeCategory.id}`,
@@ -50,31 +99,6 @@ export default function AwardsNominations() {
   const activeNumber = String(activeIndex + 1).padStart(2, "0");
   const accentTextClassName = "text-core-purple";
   const accentBackgroundClassName = "bg-core-purple";
-
-  const clearCategoryGlitchTimeout = useCallback(() => {
-    if (categoryGlitchTimeoutRef.current != null) {
-      window.clearTimeout(categoryGlitchTimeoutRef.current);
-      categoryGlitchTimeoutRef.current = null;
-    }
-  }, []);
-
-  const triggerCategoryGlitch = useCallback(
-    (categoryId: string) => {
-      setGlitchingCategoryId(categoryId);
-      clearCategoryGlitchTimeout();
-      categoryGlitchTimeoutRef.current = window.setTimeout(() => {
-        setGlitchingCategoryId(undefined);
-        categoryGlitchTimeoutRef.current = null;
-      }, CATEGORY_GLITCH_MS);
-    },
-    [clearCategoryGlitchTimeout],
-  );
-
-  useEffect(() => {
-    return () => {
-      clearCategoryGlitchTimeout();
-    };
-  }, [clearCategoryGlitchTimeout]);
 
   useEffect(() => {
     let cancelled = false;
@@ -339,61 +363,22 @@ export default function AwardsNominations() {
                       .map((category) => {
                         const index = awardCategories.indexOf(category);
                         const selected = index === activeIndex;
-                        const isGlitching = glitchingCategoryId === category.id;
-                        const categoryContent = (
-                          <>
-                            <span className="w-m shrink-0 font-mono text-button-small">
-                              {String(index + 1).padStart(2, "0")}
-                            </span>
-                            <span className="flex-1 text-sm leading-tight">
-                              {
-                                (
-                                  t.raw(
-                                    `categories.${category.id}`,
-                                  ) as AwardCategoryCopy
-                                ).name
-                              }
-                            </span>
-                            {nominations[category.id] && (
-                              <CheckCircle
-                                pack="filled"
-                                role="img"
-                                aria-label={t("nominations.nominated")}
-                                className={`h-4 w-4 shrink-0 ${
-                                  selected ? "text-black" : "text-core-purple"
-                                }`}
-                              />
-                            )}
-                          </>
-                        );
+                        const name = (
+                          t.raw(
+                            `categories.${category.id}`,
+                          ) as AwardCategoryCopy
+                        ).name;
 
                         return (
-                          <li className="relative" key={category.id}>
-                            <button
-                              aria-current={selected ? "step" : undefined}
-                              className={`group flex w-full items-center gap-s overflow-hidden border-b border-stroke-primary px-2xs py-2xs text-left transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple ${selected ? "bg-white text-black" : "text-text-secondary hover:bg-neutral-800 hover:text-white"} ${isGlitching ? "bp-glitch-jitter" : ""}`}
-                              onClick={() => setActiveIndex(index)}
-                              onFocus={() => triggerCategoryGlitch(category.id)}
-                              onMouseEnter={() =>
-                                triggerCategoryGlitch(category.id)
-                              }
-                              type="button"
-                            >
-                              {categoryContent}
-                            </button>
-
-                            <GlitchOverlay
-                              active={isGlitching}
-                              durationMs={CATEGORY_GLITCH_MS}
-                              size="sm"
-                            >
-                              <span
-                                className={`flex h-full w-full items-center gap-s border-b border-stroke-primary px-2xs py-2xs text-left ${selected ? "bg-white text-black" : "bg-neutral-800 text-white"}`}
-                              >
-                                {categoryContent}
-                              </span>
-                            </GlitchOverlay>
-                          </li>
+                          <AwardCategoryButton
+                            index={index}
+                            key={category.id}
+                            name={name}
+                            nominated={Boolean(nominations[category.id])}
+                            nominatedLabel={t("nominations.nominated")}
+                            onSelect={() => setActiveIndex(index)}
+                            selected={selected}
+                          />
                         );
                       })}
                   </ul>
