@@ -96,7 +96,7 @@ export default function AwardsNominations() {
     `categories.${activeCategory.id}`,
   ) as AwardCategoryCopy;
   const nominationCount = Object.keys(nominations).length;
-  const activeNumber = String(activeIndex + 1).padStart(2, "0");
+  const activeNumber = activeIndex + 1;
   const accentTextClassName = "text-core-purple";
   const accentBackgroundClassName = "bg-core-purple";
 
@@ -396,8 +396,7 @@ export default function AwardsNominations() {
                     <span
                       className={`font-mono text-button-small uppercase ${accentTextClassName}`}
                     >
-                      {activeNumber} /{" "}
-                      {String(awardCategories.length).padStart(2, "0")}
+                      {activeNumber} / {awardCategories.length}
                     </span>
                     <span className="text-text-secondary" aria-hidden="true">
                       —
@@ -545,8 +544,7 @@ export default function AwardsNominations() {
                 className="font-mono text-button-small text-text-secondary"
                 aria-live="polite"
               >
-                {activeNumber} /{" "}
-                {String(awardCategories.length).padStart(2, "0")}
+                {activeNumber} / {awardCategories.length}
               </p>
               <Button
                 className="justify-self-end"
