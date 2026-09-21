@@ -230,7 +230,9 @@ export default function AwardsNominations() {
               {t("nominations.eyebrow")}
             </p>
             <div className="flex flex-wrap items-center gap-x-3xs gap-y-3xs">
-              <p className="type-caption text-text-secondary">Presented by</p>
+              <p className="type-caption text-text-secondary">
+                {t("nominations.presentedBy")}
+              </p>
               <img
                 alt={presentingSponsor.alt}
                 className="block h-auto w-[120px] max-w-full lg:w-[150px]"
