@@ -17,6 +17,43 @@ pnpm dev
 `/breakpoint/awards`, submit an X username, and refresh: the nomination is read
 back from Postgres using the anonymous browser ID.
 
+## Use the production database from local development
+
+This connects the local app directly to the live Community Awards database.
+Reading and submitting nominations locally reads and writes production data. You
+need Google Cloud access to the `breakpoint-26-awards-db` project and the
+`awards_app` database password from the team's approved secret store.
+
+From `apps/breakpoint`, set the following value in the ignored `.env` file. Do
+not add the real password to `.env.example` or commit it:
+
+```dotenv
+POSTGRES_URL=postgresql://awards_app:<password>@127.0.0.1:5432/breakpoint_awards?sslmode=require
+```
+
+In a separate terminal, authenticate with Google Cloud if necessary and keep an
+IAP tunnel open:
+
+```bash
+gcloud auth login
+gcloud compute start-iap-tunnel postgres-01 5432 \
+  --local-host-port=127.0.0.1:5432 \
+  --zone=us-central1-a \
+  --project=breakpoint-26-awards-db
+```
+
+Then start the app without starting the local Docker database:
+
+```bash
+pnpm dev
+```
+
+Do not run `pnpm db:up`, `pnpm db:reset`, `pnpm prisma:migrate`, or
+`pnpm prisma:deploy` while `.env` points at production. Those commands may run
+schema migrations against the live database. When finished, stop the tunnel and
+restore the local `POSTGRES_URL` from `.env.example` before using the local
+database commands again.
+
 Useful commands:
 
 ```bash
