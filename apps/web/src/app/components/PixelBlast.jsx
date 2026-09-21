@@ -619,7 +619,8 @@ function mountPixelBlast(container, options = {}) {
     hasRendered = false;
     renderer.domElement.style.visibility = "visible";
     setState("initializing");
-    if (!reduceMotion) raf = requestAnimationFrame(animate);
+    if (reduceMotion) redrawStill?.();
+    else raf = requestAnimationFrame(animate);
   };
   renderer.domElement.addEventListener("webglcontextlost", onContextLost);
   renderer.domElement.addEventListener(

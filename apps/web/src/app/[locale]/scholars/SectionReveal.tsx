@@ -10,15 +10,24 @@ export default function SectionReveal() {
       document.querySelectorAll<HTMLElement>(selector),
     );
 
-    if (!("IntersectionObserver" in window)) {
+    const reduceMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (reduceMotion || !("IntersectionObserver" in window)) {
       sections.forEach((section) => {
         section.dataset.revealState = "visible";
       });
       return;
     }
 
-    sections.forEach((section) => {
-      section.dataset.revealState = "pending";
+    // Do not hide a section that has already reached the viewport during
+    // hydration. Only sections still below the fold are eligible to reveal.
+    const pendingSections = sections.filter((section) => {
+      const rect = section.getBoundingClientRect();
+      const isVisible = rect.bottom > 0 && rect.top < window.innerHeight;
+      section.dataset.revealState = isVisible ? "visible" : "pending";
+      return !isVisible;
     });
 
     const observer = new IntersectionObserver(
@@ -35,7 +44,7 @@ export default function SectionReveal() {
     );
 
     const frame = requestAnimationFrame(() => {
-      sections.forEach((section) => observer.observe(section));
+      pendingSections.forEach((section) => observer.observe(section));
     });
 
     return () => {
