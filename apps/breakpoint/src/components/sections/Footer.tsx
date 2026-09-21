@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { Copyright } from "@boxicons/react/Copyright";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
@@ -260,8 +261,13 @@ export default function Footer({
             ))}
           </div>
 
-          <p className="type-button whitespace-nowrap text-neutral-900">
-            {t("copyright")}
+          <p className="type-button inline-flex items-center gap-1 whitespace-nowrap text-neutral-900">
+            <Copyright
+              aria-hidden="true"
+              pack="basic"
+              className="size-[14px] shrink-0"
+            />
+            {t("copyright").replace(/^©\s*/, "")}
           </p>
 
           <div className="flex flex-col items-start gap-l md:flex-row md:items-center md:gap-l">
