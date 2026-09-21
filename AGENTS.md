@@ -128,6 +128,15 @@ inspect `packages/ui-chrome` and the target app `next.config.ts` together.
 - `packages/ecosystem-data`: shared company metadata, wallet-directory records,
   and logos, not app-specific marketing copy
 
+## Public Content Authoring
+
+Before generating or materially rewriting reader-facing English copy, load and
+follow
+[`skills/solana-tone-of-voice/SKILL.md`](./skills/solana-tone-of-voice/SKILL.md).
+This applies to UI strings, landing-page and documentation prose, Media content,
+metadata, CTAs, and social copy. Read the owning app's instructions as well;
+they may impose more specific content, source, or format requirements.
+
 ## Best Next File
 
 After reading this file:
