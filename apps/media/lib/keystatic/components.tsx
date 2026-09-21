@@ -580,6 +580,31 @@ const txWireLayout = diagramBlock(
   "Byte layout of legacy, v0 and v1 transactions compared",
 );
 
+const agBlockLifecycle = diagramBlock(
+  "Diagram: where Alpenglow sits",
+  "The life of a block, with the stages Alpenglow replaces",
+);
+
+const agBanksPerSlot = diagramBlock(
+  "Diagram: candidate banks in one slot",
+  "Why keying a buffer on the slot alone fuses several banks into one block",
+);
+
+const agBankIdAcrossConnections = diagramBlock(
+  "Diagram: bank_id across two connections",
+  "Why bank_id cannot be compared between providers, and blockhash can",
+);
+
+const agCommitmentLevels = diagramBlock(
+  "Diagram: commitment levels under Alpenglow",
+  "How confirmed and finalized converge, and the two paths to finality",
+);
+
+const agVotorCertificates = diagramBlock(
+  "Diagram: Votor votes and certificates",
+  "The three routes out of a proposed block and the certificate each produces",
+);
+
 const txSimulationTrace = diagramBlock(
   "Diagram: v1 simulation failure trace",
   "Where an empty v1 config fails during simulation, and what comes back",
@@ -593,8 +618,13 @@ const txAccountBytes = diagramBlock(
 const featureActivationStatus = block({
   label: "Feature activation status",
   description: "Live feature activation status for each Solana cluster",
-  schema: {},
-  ContentView: () => (
+  schema: {
+    featureAddress: fields.text({
+      label: "Feature address",
+      description: "The Solana feature account address to check",
+    }),
+  },
+  ContentView: (props) => (
     <div
       style={{
         border: "1px solid #e5e7eb",
@@ -608,6 +638,18 @@ const featureActivationStatus = block({
       <strong style={{ color: "#14161c", display: "block" }}>
         Feature activation status
       </strong>
+      {props.value.featureAddress && (
+        <code
+          style={{
+            color: "#14161c",
+            display: "block",
+            margin: "8px 0",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {props.value.featureAddress}
+        </code>
+      )}
       Live cluster statuses are shown on the published page.
     </div>
   ),
@@ -633,6 +675,11 @@ export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   ...componentBlocks,
   Audience: audience,
   AudienceGroup: audienceGroup,
+  AgBanksPerSlot: agBanksPerSlot,
+  AgBlockLifecycle: agBlockLifecycle,
+  AgBankIdAcrossConnections: agBankIdAcrossConnections,
+  AgCommitmentLevels: agCommitmentLevels,
+  AgVotorCertificates: agVotorCertificates,
   FeatureActivationStatus: featureActivationStatus,
   TxAccountBytes: txAccountBytes,
   TxSimulationTrace: txSimulationTrace,

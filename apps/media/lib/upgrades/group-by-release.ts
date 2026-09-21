@@ -120,7 +120,7 @@ export function groupUpgradesByRelease(
 
   const plannedGroups = nonEmptyGroups
     .filter((group) => group.status === "planned")
-    .sort((a, b) => dateValue(a.expectedDate) - dateValue(b.expectedDate));
+    .sort((a, b) => dateValue(b.expectedDate) - dateValue(a.expectedDate));
 
   const shippedGroups = nonEmptyGroups
     .filter((group) => group.status === "shipped")

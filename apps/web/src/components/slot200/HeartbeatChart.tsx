@@ -6,7 +6,7 @@ import { Panel } from "./Panel";
 import type { SlotEvent } from "./useSlotFeed";
 
 const KEEP = 240;
-const GUIDES = [400, 350, 300] as const;
+const GUIDES = [400, 350, 300, 250] as const;
 
 interface HeartbeatChartProps {
   subscribe: (_fn: (_ev: SlotEvent) => void) => () => void;
@@ -40,7 +40,7 @@ export const HeartbeatChart: React.FC<HeartbeatChartProps> = React.memo(
         ctx.clearRect(0, 0, w, h);
 
         const data = gaps.current;
-        const lo = 250;
+        const lo = 225;
         // one long gap must not own the visual range — outliers clip instead
         const hi = Math.min(900, Math.max(560, ...data.slice(-KEEP)));
         const toY = (v: number) =>
@@ -52,7 +52,7 @@ export const HeartbeatChart: React.FC<HeartbeatChartProps> = React.memo(
         for (const g of GUIDES) {
           const y = toY(g);
           ctx.strokeStyle =
-            g === 300 ? "rgba(20,241,149,0.35)" : "rgba(148,163,184,0.25)";
+            g === 250 ? "rgba(20,241,149,0.35)" : "rgba(148,163,184,0.25)";
           ctx.setLineDash([4, 4]);
           ctx.beginPath();
           ctx.moveTo(0, y);
@@ -60,7 +60,7 @@ export const HeartbeatChart: React.FC<HeartbeatChartProps> = React.memo(
           ctx.stroke();
           ctx.setLineDash([]);
           ctx.fillStyle =
-            g === 300 ? "rgba(20,241,149,0.7)" : "rgba(148,163,184,0.6)";
+            g === 250 ? "rgba(20,241,149,0.7)" : "rgba(148,163,184,0.6)";
           ctx.fillText(String(g), w - 26, y + 3);
         }
 
