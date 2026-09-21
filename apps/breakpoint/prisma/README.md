@@ -87,3 +87,21 @@ named `Limit Community Awards submission bursts`,
 `Limit Community Awards hourly submissions`, and
 `Limit Community Awards ballot reads`. The submission-rule IDs are enforced by
 the API, so production fails closed if either is missing.
+
+## Production database operations
+
+Vercel Fluid Compute and elastic concurrency are enabled for the Breakpoint
+project. The awards API keeps one process-wide Prisma client per warm function
+instance and forces its runtime pool to one database connection with a 10-second
+pool timeout. Prisma migrations continue to use `POSTGRES_URL` directly and do
+not inherit the runtime pool override. The PostgreSQL `awards_app` role is
+capped at 80 concurrent sessions, leaving headroom under the server's
+100-connection limit for migrations and administration.
+
+The Compute Engine data disk `postgres-01-data` has the regional resource policy
+`breakpoint-awards-postgres-daily-3d` attached. It creates one snapshot each day
+at 03:00 UTC, stores snapshots in the US multi-region, and expires snapshots
+after three days (approximately the latest three daily backups). Automatic
+snapshots are retained if the source disk is deleted. PostgreSQL stores its data
+under `/var/lib/postgresql` on this disk; the boot disk is not part of this
+backup policy.
