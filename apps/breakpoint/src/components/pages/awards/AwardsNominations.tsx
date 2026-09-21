@@ -65,7 +65,7 @@ function AwardCategoryButton({
             pack="filled"
             role="img"
             aria-label={nominatedLabel}
-            className={`h-4 w-4 shrink-0 ${
+            className={`h-8 w-8 shrink-0 ${
               selected ? "text-black" : "text-core-purple"
             }`}
           />
