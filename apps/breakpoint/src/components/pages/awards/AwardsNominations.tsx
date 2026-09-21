@@ -1,14 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CheckCircle } from "@boxicons/react/CheckCircle";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
+import GlitchOverlay from "@/components/GlitchOverlay";
 import { publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
+import { resolveSponsorLogo } from "@/lib/sponsors";
 
 type Nomination = { handle: string; submittedAt: string };
 type CampaignStatus = "open" | "not_started" | "closed";
 type AwardCategoryCopy = { name: string; description: string };
+
+const CATEGORY_GLITCH_MS = 520;
+const presentingSponsor = resolveSponsorLogo({
+  companyId: "solflare",
+  width: 230.648,
+  height: 55.2,
+});
 
 function normaliseHandle(value: string) {
   return value.trim().replace(/^@+/, "").toLowerCase();
@@ -30,20 +40,41 @@ export default function AwardsNominations() {
   const [campaignStatus, setCampaignStatus] = useState<CampaignStatus>();
   const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [glitchingCategoryId, setGlitchingCategoryId] = useState<string>();
+  const categoryGlitchTimeoutRef = useRef<number | null>(null);
   const activeCategory = awardCategories[activeIndex]!;
   const activeCategoryCopy = t.raw(
     `categories.${activeCategory.id}`,
   ) as AwardCategoryCopy;
   const nominationCount = Object.keys(nominations).length;
   const activeNumber = String(activeIndex + 1).padStart(2, "0");
-  const accentTextClassName =
-    activeCategory.section === "individual"
-      ? "text-core-purple"
-      : "text-core-green";
-  const accentBackgroundClassName =
-    activeCategory.section === "individual"
-      ? "bg-core-purple"
-      : "bg-core-green";
+  const accentTextClassName = "text-core-purple";
+  const accentBackgroundClassName = "bg-core-purple";
+
+  const clearCategoryGlitchTimeout = useCallback(() => {
+    if (categoryGlitchTimeoutRef.current != null) {
+      window.clearTimeout(categoryGlitchTimeoutRef.current);
+      categoryGlitchTimeoutRef.current = null;
+    }
+  }, []);
+
+  const triggerCategoryGlitch = useCallback(
+    (categoryId: string) => {
+      setGlitchingCategoryId(categoryId);
+      clearCategoryGlitchTimeout();
+      categoryGlitchTimeoutRef.current = window.setTimeout(() => {
+        setGlitchingCategoryId(undefined);
+        categoryGlitchTimeoutRef.current = null;
+      }, CATEGORY_GLITCH_MS);
+    },
+    [clearCategoryGlitchTimeout],
+  );
+
+  useEffect(() => {
+    return () => {
+      clearCategoryGlitchTimeout();
+    };
+  }, [clearCategoryGlitchTimeout]);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,9 +201,21 @@ export default function AwardsNominations() {
     >
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
         <header className="grid gap-m border-t border-stroke-primary pt-m md:grid-cols-bp-desktop md:gap-x-s md:pt-l">
-          <p className="type-eyebrow text-core-green md:col-span-4">
-            {t("nominations.eyebrow")}
-          </p>
+          <div className="flex flex-col items-start gap-xs md:col-span-4">
+            <p className="type-eyebrow text-core-purple">
+              {t("nominations.eyebrow")}
+            </p>
+            <div className="flex flex-wrap items-center gap-x-3xs gap-y-3xs">
+              <p className="type-caption text-text-secondary">Presented by</p>
+              <img
+                alt={presentingSponsor.alt}
+                className="block h-auto w-[120px] max-w-full lg:w-[150px]"
+                height={presentingSponsor.height}
+                src={publicAssetPath(presentingSponsor.src)}
+                width={presentingSponsor.width}
+              />
+            </div>
+          </div>
           <div className="md:col-span-9 md:col-start-7">
             <h2 className="type-h3 max-w-[780px]" id="nominations-title">
               {t("nominations.headline")}
@@ -197,9 +240,6 @@ export default function AwardsNominations() {
                   })}
                 </p>
               </div>
-              <span className="font-bp26 text-h3 text-white" aria-hidden="true">
-                {String(nominationCount).padStart(2, "0")}
-              </span>
             </div>
 
             <div className="mt-s md:hidden">
@@ -211,7 +251,7 @@ export default function AwardsNominations() {
               </label>
               <div className="relative border border-stroke-tertiary bg-black">
                 <select
-                  className="h-12 w-full appearance-none bg-transparent px-4 pr-12 font-mono text-button-small uppercase text-white outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-core-green"
+                  className="h-12 w-full appearance-none bg-transparent px-4 pr-12 font-mono text-button-small uppercase text-white outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-core-purple"
                   id="award-category"
                   onChange={(event) =>
                     setActiveIndex(Number(event.target.value))
@@ -249,10 +289,10 @@ export default function AwardsNominations() {
                   <button
                     aria-controls={`award-category-section-${section}`}
                     aria-expanded={openSection === section}
-                    className={`mb-2xs flex min-h-12 w-full items-center justify-between border-y border-stroke-primary px-2xs font-mono text-button-small uppercase transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-green ${
+                    className={`mb-2xs flex min-h-12 w-full items-center justify-between border-y border-stroke-primary px-2xs font-mono text-button-small uppercase transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple ${
                       openSection === section
-                        ? "bg-neutral-800 text-core-green"
-                        : "text-core-green hover:bg-neutral-800"
+                        ? "bg-neutral-800 text-core-purple"
+                        : "text-core-purple hover:bg-neutral-800"
                     }`}
                     onClick={() =>
                       setOpenSection((current) =>
@@ -299,37 +339,60 @@ export default function AwardsNominations() {
                       .map((category) => {
                         const index = awardCategories.indexOf(category);
                         const selected = index === activeIndex;
+                        const isGlitching = glitchingCategoryId === category.id;
+                        const categoryContent = (
+                          <>
+                            <span className="w-m shrink-0 font-mono text-button-small">
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span className="flex-1 text-sm leading-tight">
+                              {
+                                (
+                                  t.raw(
+                                    `categories.${category.id}`,
+                                  ) as AwardCategoryCopy
+                                ).name
+                              }
+                            </span>
+                            {nominations[category.id] && (
+                              <CheckCircle
+                                pack="filled"
+                                role="img"
+                                aria-label={t("nominations.nominated")}
+                                className={`h-4 w-4 shrink-0 ${
+                                  selected ? "text-black" : "text-core-purple"
+                                }`}
+                              />
+                            )}
+                          </>
+                        );
+
                         return (
-                          <li key={category.id}>
+                          <li className="relative" key={category.id}>
                             <button
                               aria-current={selected ? "step" : undefined}
-                              className={`group flex w-full items-center gap-s border-b border-stroke-primary px-2xs py-2xs text-left transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-green ${selected ? "bg-white text-black" : "text-text-secondary hover:bg-neutral-800 hover:text-white"}`}
+                              className={`group flex w-full items-center gap-s overflow-hidden border-b border-stroke-primary px-2xs py-2xs text-left transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple ${selected ? "bg-white text-black" : "text-text-secondary hover:bg-neutral-800 hover:text-white"} ${isGlitching ? "bp-glitch-jitter" : ""}`}
                               onClick={() => setActiveIndex(index)}
+                              onFocus={() => triggerCategoryGlitch(category.id)}
+                              onMouseEnter={() =>
+                                triggerCategoryGlitch(category.id)
+                              }
                               type="button"
                             >
-                              <span className="w-m shrink-0 font-mono text-button-small">
-                                {String(index + 1).padStart(2, "0")}
-                              </span>
-                              <span className="flex-1 text-sm leading-tight">
-                                {
-                                  (
-                                    t.raw(
-                                      `categories.${category.id}`,
-                                    ) as AwardCategoryCopy
-                                  ).name
-                                }
-                              </span>
-                              {nominations[category.id] && (
-                                <span
-                                  aria-label={t("nominations.nominated")}
-                                  className={
-                                    selected ? "text-black" : "text-core-green"
-                                  }
-                                >
-                                  ✓
-                                </span>
-                              )}
+                              {categoryContent}
                             </button>
+
+                            <GlitchOverlay
+                              active={isGlitching}
+                              durationMs={CATEGORY_GLITCH_MS}
+                              size="sm"
+                            >
+                              <span
+                                className={`flex h-full w-full items-center gap-s border-b border-stroke-primary px-2xs py-2xs text-left ${selected ? "bg-white text-black" : "bg-neutral-800 text-white"}`}
+                              >
+                                {categoryContent}
+                              </span>
+                            </GlitchOverlay>
                           </li>
                         );
                       })}
@@ -343,13 +406,7 @@ export default function AwardsNominations() {
             <article className="overflow-hidden border border-stroke-primary bg-background-secondary">
               <div className={`${accentBackgroundClassName} h-2 w-full`} />
               <div className="relative min-h-[320px] overflow-hidden p-s md:min-h-[400px] md:p-l">
-                <span
-                  aria-hidden="true"
-                  className={`pointer-events-none absolute -right-2 -top-6 font-bp26 text-[128px] leading-none opacity-10 md:right-m md:top-0 md:text-[220px] ${accentTextClassName}`}
-                >
-                  {activeNumber}
-                </span>
-                <div className="relative z-10 flex h-full flex-col">
+                <div className="flex h-full flex-col">
                   <div className="flex items-center gap-2xs">
                     <span
                       className={`font-mono text-button-small uppercase ${accentTextClassName}`}
@@ -401,7 +458,7 @@ export default function AwardsNominations() {
                               src={publicAssetPath("/assets/icon-x.svg")}
                               alt=""
                               aria-hidden="true"
-                              className="block size-4 brightness-0 invert"
+                              className="block size-4 brightness-0 group-hover/button:invert"
                             />
                           }
                           label={t("nominations.share")}
@@ -447,7 +504,7 @@ export default function AwardsNominations() {
                         >
                           {t("nominations.nomineeUsername")}
                         </label>
-                        <div className="flex h-10 items-center border border-stroke-tertiary bg-black px-4 focus-within:outline focus-within:outline-1 focus-within:outline-offset-4 focus-within:outline-core-green">
+                        <div className="flex h-10 items-center border border-stroke-tertiary bg-black px-4 focus-within:outline focus-within:outline-1 focus-within:outline-offset-4 focus-within:outline-core-purple">
                           <span
                             aria-hidden="true"
                             className="text-text-secondary"
