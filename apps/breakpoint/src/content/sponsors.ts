@@ -40,6 +40,16 @@ export type SponsorMarqueeRow = {
 
 const platinumSponsors = [
   {
+    companyId: "seeker",
+    width: 1800,
+    height: 600,
+  },
+  {
+    companyId: "sunrise",
+    width: 1809,
+    height: 449,
+  },
+  {
     companyId: "jito",
     width: 817,
     height: 335,
@@ -82,6 +92,16 @@ const platinumSponsors = [
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
+  {
+    companyId: "huma-finance",
+    width: 109,
+    height: 32,
+  },
+  {
+    companyId: "soilonic",
+    width: 1693,
+    height: 929,
+  },
   {
     companyId: "cherry-servers",
     width: 213,
