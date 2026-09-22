@@ -502,7 +502,195 @@ console.log("MemoTransfer Extension:", memoTransferExtension);
 
 </CodeTabs>
 
-#### Web3.js
+#### Web3.js v3
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  PublicKey,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstruction,
+  getDisableMemoTransfersInstruction,
+  getEnableMemoTransfersInstruction,
+  getInitializeAccountInstruction,
+  getInitializeMint2Instruction,
+  getMintSize,
+  getMintToCheckedInstruction,
+  getTokenDecoder,
+  getTokenSize,
+  getTransferCheckedInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+import { getAddMemoInstruction } from "@solana-program/memo";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+
+const feePayer = await Keypair.generate();
+const tokenOwner = await Keypair.generate();
+const tokenAmount = 1;
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction(airdropSignature, "confirmed");
+
+const mint = await Keypair.generate();
+
+const mintLength = getMintSize();
+
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
+const tokenAccount = await Keypair.generate();
+const tokenAccountLen = getTokenSize([
+  { __kind: "MemoTransfer", requireIncomingTransferMemos: true }
+]);
+const tokenAccountRent =
+  await connection.getMinimumBalanceForRentExemption(tokenAccountLen);
+
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new mint account.
+  newAccountPubkey: mint.publicKey, // New mint account to create.
+  space: mintLength, // Account size in bytes for the mint.
+  lamports: mintRent, // Lamports funding the mint account rent.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+});
+
+const initializeMintInstruction = getInitializeMint2Instruction({
+  mint: mint.publicKey.toBase58(), // Mint account to initialize.
+  decimals: 0, // Number of decimals for the token.
+  mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+  freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+});
+
+const [sourceToken] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(), // Mint for the source token account.
+  owner: feePayer.publicKey.toBase58(), // Owner of the source token account.
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS // Token program that owns the token account.
+});
+
+const createSourceTokenInstruction = getCreateAssociatedTokenInstruction({
+  payer: feePayer, // Account funding the associated token account creation.
+  ata: sourceToken, // Associated token account address to create.
+  owner: feePayer.publicKey.toBase58(), // Owner of the associated token account.
+  mint: mint.publicKey.toBase58() // Mint for the associated token account.
+});
+
+const mintToInstruction = getMintToCheckedInstruction({
+  mint: mint.publicKey.toBase58(), // Mint account that issues the tokens.
+  token: sourceToken, // Token account receiving the newly minted tokens.
+  mintAuthority: feePayer, // Signer authorized to mint new tokens.
+  amount: tokenAmount, // Token amount in base units.
+  decimals: 0 // Decimals defined on the mint.
+});
+
+const createTokenAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new token account.
+  newAccountPubkey: tokenAccount.publicKey, // New token account to create.
+  space: tokenAccountLen, // Account size in bytes for the token account plus MemoTransfer.
+  lamports: tokenAccountRent, // Lamports funding the token account rent.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the token account.
+});
+
+const initializeTokenAccountInstruction = getInitializeAccountInstruction({
+  account: tokenAccount.publicKey.toBase58(), // Token account to initialize.
+  mint: mint.publicKey.toBase58(), // Mint for the token account.
+  owner: tokenOwner.publicKey.toBase58() // Owner of the token account.
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createMintAccountInstruction,
+    initializeMintInstruction
+  ),
+  [feePayer, mint]
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createSourceTokenInstruction,
+    mintToInstruction,
+    createTokenAccountInstruction,
+    initializeTokenAccountInstruction
+  ),
+  [feePayer, tokenAccount]
+);
+
+// !mark(1:5)
+const enableMemoTransferExtensionInstruction =
+  getEnableMemoTransfersInstruction({
+    token: tokenAccount.publicKey.toBase58(), // Token account that stores the MemoTransfer extension.
+    owner: tokenOwner // Token account owner authorized to toggle memo requirements.
+  });
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(enableMemoTransferExtensionInstruction),
+  [feePayer, tokenOwner]
+);
+
+const memoIx = getAddMemoInstruction({
+  memo: "memo required", // Memo string required by the destination token account.
+  signers: [feePayer] // Signers to include in the memo instruction.
+});
+
+const transferInstruction = getTransferCheckedInstruction({
+  source: sourceToken, // Token account sending the transfer.
+  mint: mint.publicKey.toBase58(), // Mint for the transfer.
+  destination: tokenAccount.publicKey.toBase58(), // Token account receiving the transfer.
+  authority: feePayer, // Owner of the source token account.
+  amount: tokenAmount, // Token amount in base units.
+  decimals: 0 // Decimals defined on the mint.
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(memoIx, transferInstruction),
+  [feePayer]
+);
+
+// !mark(1:5)
+const disableMemoTransferExtensionInstruction =
+  getDisableMemoTransfersInstruction({
+    token: tokenAccount.publicKey.toBase58(), // Token account that stores the MemoTransfer extension.
+    owner: tokenOwner // Token account owner authorized to toggle memo requirements.
+  });
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(disableMemoTransferExtensionInstruction),
+  [feePayer, tokenOwner]
+);
+
+const tokenAccountInfo = await connection.getAccountInfo(
+  tokenAccount.publicKey,
+  "confirmed"
+);
+const tokenAccountData = getTokenDecoder().decode(tokenAccountInfo!.data);
+const memoTransferExtension = (
+  unwrapOption(tokenAccountData.extensions) ?? []
+).find((extension) => extension.__kind === "MemoTransfer");
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Token Account:", tokenAccount.publicKey.toBase58());
+console.log("Destination Amount:", tokenAccountData.amount.toString());
+console.log("MemoTransfer Extension:", memoTransferExtension);
+```
+
+</CodeTabs>
+
+#### Web3.js (legacy)
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 

@@ -570,7 +570,154 @@ console.log("\nDisabled CPI Guard:", disabledCpiGuard);
 
 </CodeTabs>
 
-#### Web3.js
+#### Web3.js v3
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction
+} from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
+import {
+  getDisableCpiGuardInstruction,
+  getEnableCpiGuardInstruction,
+  getInitializeAccountInstruction,
+  getInitializeMint2Instruction,
+  getMintSize,
+  getTokenDecoder,
+  getTokenSize,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = await Keypair.generate();
+const mint = await Keypair.generate();
+const tokenAccount = await Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mintSpace = getMintSize();
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: mint.publicKey, // New mint account to create.
+      space: mintSpace, // Account size in bytes for the mint account.
+      lamports: mintRent, // Lamports funding the mint account rent.
+      programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+    }),
+    getInitializeMint2Instruction({
+      mint: mint.publicKey.toBase58(), // Mint account to initialize.
+      decimals: 0, // Number of decimals for the token.
+      mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+      freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+    })
+  ),
+  [feePayer, mint],
+  { commitment: "confirmed" }
+);
+
+const tokenAccountSpace = getTokenSize([
+  { __kind: "CpiGuard", lockCpi: false }
+]);
+const tokenAccountRent =
+  await connection.getMinimumBalanceForRentExemption(tokenAccountSpace);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: tokenAccount.publicKey, // New token account to create.
+      space: tokenAccountSpace, // Account size in bytes for the token account plus CpiGuard.
+      lamports: tokenAccountRent, // Lamports funding the token account rent.
+      programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the token account.
+    }),
+    getInitializeAccountInstruction({
+      account: tokenAccount.publicKey.toBase58(), // Token account to initialize.
+      mint: mint.publicKey.toBase58(), // Mint for the token account.
+      owner: feePayer.publicKey.toBase58() // Owner allowed to control the token account.
+    })
+  ),
+  [feePayer, tokenAccount],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:4)
+    getEnableCpiGuardInstruction({
+      token: tokenAccount.publicKey.toBase58(), // Token account that stores the CpiGuard extension.
+      owner: feePayer // Token account owner authorized to enable CPI guard.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const enabledAccountInfo = await connection.getAccountInfo(
+  tokenAccount.publicKey,
+  "confirmed"
+);
+const enabledTokenAccount = getTokenDecoder().decode(enabledAccountInfo!.data);
+const enabledCpiGuard = (
+  unwrapOption(enabledTokenAccount.extensions) ?? []
+).find((extension) => extension.__kind === "CpiGuard");
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:4)
+    getDisableCpiGuardInstruction({
+      token: tokenAccount.publicKey.toBase58(), // Token account that stores the CpiGuard extension.
+      owner: feePayer // Token account owner authorized to disable CPI guard.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const disabledAccountInfo = await connection.getAccountInfo(
+  tokenAccount.publicKey,
+  "confirmed"
+);
+const disabledTokenAccount = getTokenDecoder().decode(
+  disabledAccountInfo!.data
+);
+const disabledCpiGuard = (
+  unwrapOption(disabledTokenAccount.extensions) ?? []
+).find((extension) => extension.__kind === "CpiGuard");
+
+console.log("\nMint Address:", mint.publicKey.toBase58());
+console.log("\nToken Account:", tokenAccount.publicKey.toBase58());
+console.log("\nEnabled CPI Guard:", enabledCpiGuard);
+console.log("\nDisabled CPI Guard:", disabledCpiGuard);
+```
+
+</CodeTabs>
+
+#### Web3.js (legacy)
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 
