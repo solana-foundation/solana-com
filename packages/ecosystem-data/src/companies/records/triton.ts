@@ -1,6 +1,12 @@
 import type { CompanyRecord } from "../../types";
 import tritonBreakpoint2026White from "../../../assets/companies/triton/breakpoint-2026-white.svg";
+import tritonLogoDark from "../../../assets/companies/triton/logo-dark.svg";
+import tritonLogoDarkPng from "../../../assets/companies/triton/logo-dark.png";
+import tritonLogoLight from "../../../assets/companies/triton/logo-light.svg";
+import tritonLogoLightPng from "../../../assets/companies/triton/logo-light.png";
 import tritonLogo from "../../../assets/companies/triton/logo.svg";
+import tritonMark from "../../../assets/companies/triton/mark.svg";
+import tritonMarkPng from "../../../assets/companies/triton/mark.png";
 
 export const triton = {
   id: "triton",
@@ -39,6 +45,52 @@ export const triton = {
       fileName: "logo.svg",
       format: "svg",
       source: tritonLogo,
+    },
+    {
+      id: "logo-light",
+      fileName: "logo-light.svg",
+      format: "svg",
+      source: tritonLogoLight,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-light-png",
+      fileName: "logo-light.png",
+      format: "png",
+      source: tritonLogoLightPng,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-dark",
+      fileName: "logo-dark.svg",
+      format: "svg",
+      source: tritonLogoDark,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "logo-dark-png",
+      fileName: "logo-dark.png",
+      format: "png",
+      source: tritonLogoDarkPng,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "mark",
+      fileName: "mark.svg",
+      format: "svg",
+      source: tritonMark,
+      kind: "mark",
+    },
+    {
+      id: "mark-png",
+      fileName: "mark.png",
+      format: "png",
+      source: tritonMarkPng,
+      kind: "mark",
     },
   ],
 } satisfies CompanyRecord;

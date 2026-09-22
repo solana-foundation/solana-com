@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
 import reflectMoneyBreakpoint2026White from "../../../assets/companies/reflect-money/breakpoint-2026-white.png";
+import reflectMoneyLogoDark from "../../../assets/companies/reflect-money/logo-dark.png";
 
 export const reflectMoney = {
   id: "reflect-money",
@@ -21,7 +22,7 @@ export const reflectMoney = {
       linkedin: "https://www.linkedin.com/company/reflectmoney",
     },
   },
-  defaultLogoId: "breakpoint-2026-white",
+  defaultLogoId: "logo-dark",
   logos: [
     {
       id: "breakpoint-2026-white",
@@ -29,6 +30,14 @@ export const reflectMoney = {
       format: "png",
       source: reflectMoneyBreakpoint2026White,
       theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-dark",
+      fileName: "logo-dark.png",
+      format: "png",
+      source: reflectMoneyLogoDark,
+      theme: "light",
       kind: "logo",
     },
   ],

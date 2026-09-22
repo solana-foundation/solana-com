@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../../types";
 import openseaBreakpoint2026White from "../../../assets/companies/opensea/breakpoint-2026-white.svg";
+import openseaLogoLight from "../../../assets/companies/opensea/logo-light.svg";
 
 export const opensea = {
   id: "opensea",
@@ -21,13 +22,21 @@ export const opensea = {
       linkedin: "https://www.linkedin.com/company/opensea/",
     },
   },
-  defaultLogoId: "breakpoint-2026-white",
+  defaultLogoId: "logo-light",
   logos: [
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.svg",
       format: "svg",
       source: openseaBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-light",
+      fileName: "logo-light.svg",
+      format: "svg",
+      source: openseaLogoLight,
       theme: "dark",
       kind: "logo",
     },
