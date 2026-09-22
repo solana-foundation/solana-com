@@ -54,7 +54,7 @@ function fixtureSignature(slot: number, index: number) {
 function fixtureBlock(
   slot: number,
   now: number,
-  count = 180,
+  count = 2_900,
 ): AlpenglowEvent[] {
   const blockhash = `fixture-block-${slot}`;
   const signatures = Array.from({ length: count }, (_, index) =>
@@ -96,7 +96,7 @@ async function runFixture(
       type: "stream_status",
       status: "simulated",
       protocol: "tower-bft",
-      sampled: true,
+      sampled: false,
       message: "Deterministic recorded fixture",
     }),
   );
@@ -174,7 +174,7 @@ async function runLive(
     protocol = "unknown";
   }
   controller.enqueue(
-    sse({ type: "stream_status", status: "live", protocol, sampled: true }),
+    sse({ type: "stream_status", status: "live", protocol, sampled: false }),
   );
 
   while (!signal.aborted) {
@@ -282,7 +282,7 @@ async function runLive(
           type: "stream_status",
           status: "reconnecting",
           protocol,
-          sampled: true,
+          sampled: false,
           message: error instanceof Error ? error.message : "RPC unavailable",
         }),
       );
@@ -300,7 +300,7 @@ export async function GET(request: Request) {
           type: "stream_status",
           status: "connecting",
           protocol: "unknown",
-          sampled: true,
+          sampled: false,
         }),
       );
       const runner = rpcUrl

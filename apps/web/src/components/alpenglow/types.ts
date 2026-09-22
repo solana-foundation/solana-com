@@ -59,7 +59,3 @@ export function signatureSeed(value: string) {
   }
   return hash >>> 0;
 }
-
-export function shouldRenderSignature(signature: string, rate = 0.08) {
-  return signatureSeed(signature) / 0xffffffff < rate;
-}

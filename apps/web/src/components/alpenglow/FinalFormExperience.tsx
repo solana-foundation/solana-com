@@ -46,7 +46,7 @@ export default function FinalFormExperience() {
     type: "stream_status",
     status: "connecting",
     protocol: "unknown",
-    sampled: true,
+    sampled: false,
   });
   const [telemetry, setTelemetry] = useState(EMPTY_TELEMETRY);
   const [tps, setTps] = useState(0);
@@ -155,7 +155,7 @@ export default function FinalFormExperience() {
           <div>
             <span>01</span>
             <b>Live transactions</b>
-            <small>Each mark is one sampled transaction</small>
+            <small>Each mark is one transaction</small>
           </div>
           <div>
             <span>02</span>
@@ -230,9 +230,8 @@ export default function FinalFormExperience() {
         )}
 
         <p className="ff-disclosure">
-          {status.sampled
-            ? "Deterministic visual sample · totals remain exact"
-            : "All received transactions rendered"}
+          Every received transaction rendered
+          {tps ? ` · paced at ${tps.toLocaleString()} TPS` : ""}
           <span>{protocol}</span>
         </p>
 
@@ -313,10 +312,11 @@ export default function FinalFormExperience() {
             part of that measurement.
           </p>
           <p>
-            The browser receives a deterministic signature-based visual sample
-            to protect frame rate. The displayed TPS, block transaction counts,
-            and cohort totals are not derived from rendered point count. Without
-            a configured provider, the installation identifies its recorded
+            Every transaction received from a block is rendered as its own
+            signature-derived glyph. The live TPS measurement paces their entry;
+            it never creates transactions when the source queue is empty. Short
+            lifetimes and stable lanes keep mainnet-scale density legible.
+            Without a configured provider, the installation identifies its
             deterministic fixture as simulated.
           </p>
           <div className="ff-links">

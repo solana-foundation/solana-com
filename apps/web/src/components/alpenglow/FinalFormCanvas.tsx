@@ -7,10 +7,13 @@ import type {
   BlockConfirmed,
   TransactionObserved,
 } from "./types";
-import { shouldRenderSignature, signatureSeed } from "./types";
+import { signatureSeed } from "./types";
 
 const COHORT_SIZE = 30;
-const MAX_GLYPHS = 280;
+const MAX_GLYPHS = 18_000;
+const GLYPH_MIN_LIFETIME_MS = 2_200;
+const GLYPH_MAX_LIFETIME_MS = 3_200;
+const GLYPH_LANES = 52;
 const FINAL_CELLS = 1_400;
 
 type Glyph = TransactionObserved & { born: number; confirmedAt?: number };
@@ -144,7 +147,172 @@ function formatSignature(signature: string) {
   return `${signature.slice(0, 7)}…${signature.slice(-6)}`;
 }
 
-function mountCanvasFallback(host: HTMLDivElement, getProgress: () => number) {
+function glyphLifetime(seed: number) {
+  return (
+    GLYPH_MIN_LIFETIME_MS +
+    (seed % (GLYPH_MAX_LIFETIME_MS - GLYPH_MIN_LIFETIME_MS + 1))
+  );
+}
+
+function seedUnit(seed: number, shift: number) {
+  return ((seed >>> shift) & 0xff) / 255;
+}
+
+function glyphPosition(seed: number, slot: number, progress: number) {
+  const lane = (seed >>> 8) % GLYPH_LANES;
+  const laneUnit = lane / (GLYPH_LANES - 1);
+  const slotSeed = signatureSeed(String(slot));
+  const phase = seedUnit(slotSeed, 8) * Math.PI * 2;
+  const frequency = 0.75 + seedUnit(slotSeed, 16) * 1.8;
+  const current =
+    Math.sin(progress * Math.PI * frequency + phase) *
+    (0.008 + seedUnit(slotSeed, 0) * 0.025) *
+    Math.sin(progress * Math.PI);
+  const arc = (seedUnit(seed, 0) - 0.5) * 0.045 * Math.sin(progress * Math.PI);
+  const laneJitter = (seedUnit(seed, 20) - 0.5) * 0.018;
+  const entryOffset = (seedUnit(seed, 4) - 0.5) * 0.045;
+
+  return {
+    x:
+      -1.42 +
+      entryOffset +
+      Math.min(0.95, progress) * 0.95 +
+      Math.sin(progress * Math.PI * 2 + phase) * 0.004,
+    y: -0.72 + laneUnit * 1.44 + laneJitter + current + arc,
+  };
+}
+
+function pushGlyphSegment(
+  vertices: number[],
+  x: number,
+  y: number,
+  cosine: number,
+  sine: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+) {
+  vertices.push(
+    x + ax * cosine - ay * sine,
+    y + ax * sine + ay * cosine,
+    0,
+    x + bx * cosine - by * sine,
+    y + bx * sine + by * cosine,
+    0,
+  );
+}
+
+function pushGlyphShape(
+  vertices: number[],
+  x: number,
+  y: number,
+  cosine: number,
+  sine: number,
+  size: number,
+  variant: number,
+) {
+  if (variant === 0)
+    pushGlyphSegment(vertices, x, y, cosine, sine, -size, 0, size, 0);
+  else if (variant === 1) {
+    pushGlyphSegment(vertices, x, y, cosine, sine, -size, 0, -size * 0.55, 0);
+    pushGlyphSegment(vertices, x, y, cosine, sine, size * 0.25, 0, size, 0);
+  } else if (variant === 2) {
+    pushGlyphSegment(vertices, x, y, cosine, sine, -size, -size * 0.7, 0, size);
+    pushGlyphSegment(vertices, x, y, cosine, sine, 0, size, size, -size * 0.25);
+  } else if (variant === 3) {
+    pushGlyphSegment(vertices, x, y, cosine, sine, -size, -size, size, -size);
+    pushGlyphSegment(vertices, x, y, cosine, sine, size, -size, size, size);
+    pushGlyphSegment(vertices, x, y, cosine, sine, size, size, -size, size);
+  } else if (variant === 4) {
+    pushGlyphSegment(
+      vertices,
+      x,
+      y,
+      cosine,
+      sine,
+      -size,
+      0,
+      -size * 0.45,
+      size * 0.7,
+    );
+    pushGlyphSegment(
+      vertices,
+      x,
+      y,
+      cosine,
+      sine,
+      -size * 0.45,
+      size * 0.7,
+      size * 0.2,
+      -size * 0.65,
+    );
+    pushGlyphSegment(
+      vertices,
+      x,
+      y,
+      cosine,
+      sine,
+      size * 0.2,
+      -size * 0.65,
+      size,
+      0,
+    );
+  } else if (variant === 5) {
+    pushGlyphSegment(
+      vertices,
+      x,
+      y,
+      cosine,
+      sine,
+      -size,
+      -size * 0.35,
+      -size * 0.7,
+      size * 0.35,
+    );
+    pushGlyphSegment(
+      vertices,
+      x,
+      y,
+      cosine,
+      sine,
+      size * 0.7,
+      -size * 0.35,
+      size,
+      size * 0.35,
+    );
+  } else {
+    pushGlyphSegment(vertices, x, y, cosine, sine, -size, 0, -size * 0.65, 0);
+    pushGlyphSegment(
+      vertices,
+      x,
+      y,
+      cosine,
+      sine,
+      -size * 0.05,
+      0,
+      size * 0.2,
+      0,
+    );
+    pushGlyphSegment(vertices, x, y, cosine, sine, size * 0.7, 0, size, 0);
+  }
+}
+
+type FallbackState = {
+  queue: TransactionObserved[];
+  queueIndex: number;
+  glyphs: Glyph[];
+  targetTps: number;
+  emissionCredit: number;
+  lastDraw: number;
+  paused: boolean;
+};
+
+function mountCanvasFallback(
+  host: HTMLDivElement,
+  getProgress: () => number,
+  state: FallbackState,
+) {
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
   host.appendChild(canvas);
@@ -154,6 +322,32 @@ function mountCanvasFallback(host: HTMLDivElement, getProgress: () => number) {
 
   function draw(now: number) {
     if (!context) return;
+    const elapsed = Math.min(50, now - state.lastDraw);
+    state.lastDraw = now;
+    if (!state.paused) {
+      state.emissionCredit += (state.targetTps * elapsed) / 1_000;
+      const emitCount = Math.min(
+        Math.floor(state.emissionCredit),
+        state.queue.length - state.queueIndex,
+      );
+      if (emitCount > 0) {
+        state.emissionCredit -= emitCount;
+        for (let index = 0; index < emitCount; index += 1) {
+          state.glyphs.push({
+            ...state.queue[state.queueIndex++]!,
+            born: now - elapsed + (index / emitCount) * elapsed,
+          });
+        }
+      }
+      if (state.queueIndex > 10_000) {
+        state.queue.splice(0, state.queueIndex);
+        state.queueIndex = 0;
+      }
+    }
+    state.glyphs = state.glyphs.filter((glyph) => {
+      const seed = signatureSeed(glyph.signature);
+      return now - glyph.born <= glyphLifetime(seed);
+    });
     const ratio = Math.min(window.devicePixelRatio, 1.5);
     const width = host.clientWidth;
     const height = host.clientHeight;
@@ -183,19 +377,22 @@ function mountCanvasFallback(host: HTMLDivElement, getProgress: () => number) {
       }
       context.stroke();
     });
-    context.strokeStyle = "rgba(20,241,149,.78)";
-    for (let index = 0; index < 75; index += 1) {
-      const seed = signatureSeed(`fallback-${index}`);
-      const phase = (now * 0.00008 * (1 + (seed % 5))) % 1;
+    context.strokeStyle = "rgba(20,241,149,.48)";
+    for (const glyph of state.glyphs) {
+      const seed = signatureSeed(glyph.signature);
+      const progress = Math.min(1, (now - glyph.born) / glyphLifetime(seed));
+      const position = glyphPosition(seed, glyph.slot, progress);
       const x = portrait
-        ? width * (0.15 + (seed % 700) / 1_000)
-        : width * (0.03 + phase * 0.27);
+        ? width * (0.1 + ((position.y + 0.72) / 1.44) * 0.8)
+        : width * (0.03 + ((position.x + 1.42) / 0.95) * 0.27);
       const y = portrait
-        ? height * (0.23 + phase * 0.12)
-        : height * (0.39 + (seed % 440) / 1_000);
+        ? height * (0.28 + ((position.x + 1.42) / 0.95) * 0.1)
+        : height * (0.39 + ((position.y + 0.72) / 1.44) * 0.38);
+      const size = 1 + (seed % 3);
+      const angle = seedUnit(seed, 12) * 1.2 - 0.6;
       context.beginPath();
-      context.moveTo(x, y);
-      context.lineTo(x + 5 + (seed % 13), y + ((seed % 3) - 1) * 4);
+      context.moveTo(x - Math.cos(angle) * size, y - Math.sin(angle) * size);
+      context.lineTo(x + Math.cos(angle) * size, y + Math.sin(angle) * size);
       context.stroke();
     }
     for (let lane = 0; lane < 7; lane += 1) {
@@ -277,9 +474,26 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         const holding = new Map<string, BlockConfirmed>();
         let finalized = 0;
         let currentFinalityMs = 0;
-        let fallbackPaused = false;
+        const fallbackState: FallbackState = {
+          queue: [],
+          queueIndex: 0,
+          glyphs: [],
+          targetTps: 3_000,
+          emissionCredit: 0,
+          lastDraw: performance.now(),
+          paused: false,
+        };
         runtimeRef.current = {
           push(event) {
+            if (event.type === "transaction_observed") {
+              fallbackState.queue.push(event);
+            }
+            if (event.type === "performance_sample") {
+              fallbackState.targetTps = Math.max(
+                1,
+                Math.min(12_000, event.totalTps),
+              );
+            }
             if (event.type === "block_confirmed") {
               holding.set(event.blockhash, event);
             }
@@ -301,15 +515,16 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             }
           },
           get paused() {
-            return fallbackPaused;
+            return fallbackState.paused;
           },
           set paused(value: boolean) {
-            fallbackPaused = value;
+            fallbackState.paused = value;
           },
         };
         const cleanup = mountCanvasFallback(
           hostElement,
           () => finalized / COHORT_SIZE,
+          fallbackState,
         );
         return () => {
           runtimeRef.current = null;
@@ -323,12 +538,12 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       const lineMaterial = new THREE.LineBasicMaterial({
         color: 0x14f195,
         transparent: true,
-        opacity: 0.76,
+        opacity: 0.48,
       });
       const dimMaterial = new THREE.LineBasicMaterial({
         color: 0x55e9ab,
         transparent: true,
-        opacity: 0.3,
+        opacity: 0.14,
       });
       const waveMaterial = new THREE.LineBasicMaterial({
         color: 0x9945ff,
@@ -396,6 +611,8 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         territory,
       }));
       const glyphs = new Map<string, Glyph>();
+      const pendingGlyphs: TransactionObserved[] = [];
+      const confirmedSlots = new Map<number, number>();
       const blocks = new Map<string, WaitingBlock>();
       const finalityValues: number[] = [];
       const cohort: WaitingBlock[] = [];
@@ -413,6 +630,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       let cycleAt = 0;
       let flashAt = 0;
       let paused = false;
+      let pendingGlyphIndex = 0;
+      let targetTps = 3_000;
+      let emissionCredit = 0;
       let lastTelemetry = 0;
       let lastFrame = performance.now();
       let reducedMotion = window.matchMedia(
@@ -474,11 +694,11 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       function push(event: AlpenglowEvent) {
         const now = performance.now();
         if (event.type === "transaction_observed") {
-          if (shouldRenderSignature(event.signature, 0.08)) {
-            glyphs.set(event.signature, { ...event, born: now });
-            while (glyphs.size > MAX_GLYPHS)
-              glyphs.delete(glyphs.keys().next().value!);
-          }
+          pendingGlyphs.push(event);
+          return;
+        }
+        if (event.type === "performance_sample") {
+          targetTps = Math.max(1, Math.min(12_000, event.totalTps));
           return;
         }
         if (event.type === "block_confirmed") {
@@ -488,6 +708,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             seed: signatureSeed(event.blockhash),
           };
           blocks.set(event.blockhash, waiting);
+          confirmedSlots.set(event.slot, now);
           event.transactionSignatures.forEach((signature) => {
             const glyph = glyphs.get(signature);
             if (glyph) glyph.confirmedAt = now;
@@ -547,9 +768,13 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         let closest: { distance: number; value: Inspection } | undefined;
         for (const glyph of glyphs.values()) {
           const seed = signatureSeed(glyph.signature);
-          const x =
-            -1.2 + Math.min(0.72, (performance.now() - glyph.born) / 5_000);
-          const y = -0.7 + ((seed % 1_000) / 1_000) * 1.4;
+          const age = performance.now() - glyph.born;
+          const position = glyphPosition(
+            seed,
+            glyph.slot,
+            age / glyphLifetime(seed),
+          );
+          const { x, y } = position;
           const distance = Math.hypot(pointer.x - x, pointer.y - y);
           if (distance < 0.08 && (!closest || distance < closest.distance)) {
             closest = {
@@ -639,6 +864,27 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         lastFrame = now;
         const time = now * 0.001;
         if (!paused) {
+          emissionCredit += (targetTps * delta) / 1_000;
+          const available = pendingGlyphs.length - pendingGlyphIndex;
+          const emitCount = Math.min(Math.floor(emissionCredit), available);
+          if (emitCount > 0) {
+            emissionCredit -= emitCount;
+            for (let index = 0; index < emitCount; index += 1) {
+              const transaction = pendingGlyphs[pendingGlyphIndex++]!;
+              glyphs.set(transaction.signature, {
+                ...transaction,
+                born: now - delta + (index / emitCount) * delta,
+                confirmedAt: confirmedSlots.get(transaction.slot),
+              });
+            }
+          }
+          if (pendingGlyphIndex > 10_000) {
+            pendingGlyphs.splice(0, pendingGlyphIndex);
+            pendingGlyphIndex = 0;
+          }
+          while (glyphs.size > MAX_GLYPHS) {
+            glyphs.delete(glyphs.keys().next().value!);
+          }
           if (cycleState === "holding" && now - cycleAt > 2_000) {
             cycleState = "dissolving";
             cycleAt = now;
@@ -652,94 +898,32 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         const relationVertices: number[] = [];
         for (const [signature, glyph] of glyphs) {
           const age = now - glyph.born;
-          if (age > 8_000) {
+          const seed = signatureSeed(signature);
+          const lifetime = glyphLifetime(seed);
+          if (age > lifetime) {
             glyphs.delete(signature);
             continue;
           }
-          const seed = signatureSeed(signature);
-          const baseX = -1.42 + Math.min(0.95, age / 6_700);
-          const baseY = -0.72 + ((seed % 1_000) / 1_000) * 1.44;
-          const dx =
-            pointer.distanceTo(new THREE.Vector2(baseX, baseY)) < 0.13
-              ? (baseX - pointer.x) * 0.45
-              : 0;
-          const dy =
-            pointer.distanceTo(new THREE.Vector2(baseX, baseY)) < 0.13
-              ? (baseY - pointer.y) * 0.45
-              : 0;
+          const position = glyphPosition(seed, glyph.slot, age / lifetime);
+          const baseX = position.x;
+          const baseY = position.y;
+          const pointerDistance = Math.hypot(
+            pointer.x - baseX,
+            pointer.y - baseY,
+          );
+          const dx = pointerDistance < 0.13 ? (baseX - pointer.x) * 0.45 : 0;
+          const dy = pointerDistance < 0.13 ? (baseY - pointer.y) * 0.45 : 0;
           const x = baseX + dx;
           const y = baseY + dy;
           const size =
-            0.012 + Math.min(0.034, (glyph.computeUnits ?? 20_000) / 3_000_000);
-          const variant = seed % 5;
-          if (variant === 0) glyphVertices.push(x - size, y, 0, x + size, y, 0);
-          else if (variant === 1)
-            glyphVertices.push(
-              x - size,
-              y,
-              0,
-              x - size * 0.6,
-              y,
-              0,
-              x + size * 0.4,
-              y,
-              0,
-              x + size,
-              y,
-              0,
-            );
-          else if (variant === 2)
-            glyphVertices.push(
-              x - size,
-              y - size,
-              0,
-              x,
-              y + size,
-              0,
-              x,
-              y + size,
-              0,
-              x + size,
-              y - size * 0.2,
-              0,
-            );
-          else if (variant === 3)
-            glyphVertices.push(
-              x - size,
-              y - size,
-              0,
-              x + size,
-              y - size,
-              0,
-              x + size,
-              y - size,
-              0,
-              x + size,
-              y + size,
-              0,
-              x + size,
-              y + size,
-              0,
-              x - size,
-              y + size,
-              0,
-            );
-          else
-            glyphVertices.push(
-              x - size,
-              y,
-              0,
-              x,
-              y + size,
-              0,
-              x,
-              y + size,
-              0,
-              x + size,
-              y - size,
-              0,
-            );
-          if (glyph.confirmedAt)
+            0.0028 +
+            Math.min(0.006, (glyph.computeUnits ?? 20_000) / 12_000_000);
+          const angle = seedUnit(seed, 12) * 1.2 - 0.6;
+          const cosine = Math.cos(angle);
+          const sine = Math.sin(angle);
+          const variant = seed % 7;
+          pushGlyphShape(glyphVertices, x, y, cosine, sine, size, variant);
+          if (glyph.confirmedAt && seed % 64 === 0)
             relationVertices.push(
               x,
               y,
