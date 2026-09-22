@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
-const CUSTOM_LAYOUT_PATTERNS = ["/playgg", "/alpenglow"];
+const CUSTOM_LAYOUT_PATTERNS = ["/playgg"];
 
 export function ChromeWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

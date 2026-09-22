@@ -133,12 +133,8 @@ export default function FinalFormExperience() {
           onTelemetry={handleTelemetry}
         />
         <header className="ff-topline">
-          <a
-            href="#ff-method"
-            className="ff-wordmark"
-            aria-label="Final Form methodology"
-          >
-            FINAL FORM
+          <a href="#ff-method" className="ff-wordmark">
+            ALPENGLOW · FINAL FORM
           </a>
           <div className="ff-live">
             <StatusLabel status={status} />
@@ -147,30 +143,38 @@ export default function FinalFormExperience() {
         </header>
 
         <div className="ff-thesis">
-          <p className="ff-kicker">ALPENGLOW / CONSENSUS STUDY</p>
-          <h1 id="ff-title">
-            Everything here happened.
-            <br />
-            Only the points on the right are final.
-          </h1>
+          <p className="ff-kicker">LIVE SOLANA CONSENSUS</p>
+          <h1 id="ff-title">Watch a Solana block become final.</h1>
+          <p className="ff-dek">
+            Live transactions group into confirmed blocks. When a block becomes
+            irreversible, it locks into the Solana mark.
+          </p>
         </div>
 
         <div className="ff-zone-labels" aria-hidden="true">
           <div>
             <span>01</span>
-            <b>Transactions</b>
-            <small>observed / processed</small>
+            <b>Live transactions</b>
+            <small>Each mark is one sampled transaction</small>
           </div>
           <div>
             <span>02</span>
-            <b>Holding</b>
-            <small>confirmed</small>
+            <b>Confirmed blocks</b>
+            <small>Each waveform is one block awaiting finality</small>
           </div>
           <div>
             <span>03</span>
-            <b>Final</b>
-            <small>irreversible</small>
+            <b className="ff-final-label">
+              <i className="ff-solana-mark" aria-hidden="true" />
+              Finalized on Solana
+            </b>
+            <small>Each point territory belongs to one final block</small>
           </div>
+        </div>
+
+        <div className="ff-boundary-labels" aria-hidden="true">
+          <span>CONFIRMED → GROUPED BY BLOCK</span>
+          <span>FINALIZED → LOCKED IN PLACE</span>
         </div>
 
         <div className="ff-readout" aria-label="Current network state">
@@ -201,7 +205,7 @@ export default function FinalFormExperience() {
 
         <div className="ff-form-caption">
           <span>FINAL FORM {String(telemetry.form).padStart(4, "0")}</span>
-          <span>{telemetry.finalizedBlocks}/32 blocks</span>
+          <span>{telemetry.finalizedBlocks}/30 blocks</span>
           <span>{Math.round(telemetry.progress * 100)}% formed</span>
         </div>
 

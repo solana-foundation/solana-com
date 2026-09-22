@@ -9,9 +9,9 @@ import type {
 } from "./types";
 import { shouldRenderSignature, signatureSeed } from "./types";
 
-const COHORT_SIZE = 32;
+const COHORT_SIZE = 30;
 const MAX_GLYPHS = 280;
-const FINAL_CELLS = 1_260;
+const FINAL_CELLS = 1_400;
 
 type Glyph = TransactionObserved & { born: number; confirmedAt?: number };
 type WaitingBlock = BlockConfirmed & {
@@ -23,6 +23,7 @@ type WaitingBlock = BlockConfirmed & {
 type Cell = {
   x: number;
   y: number;
+  territory: number;
   blockhash?: string;
   slot?: number;
   born?: number;
@@ -71,21 +72,66 @@ type Props = {
 };
 
 function makeMask() {
-  const points: Array<{ x: number; y: number }> = [];
-  for (let row = 0; row < 54; row += 1) {
-    for (let column = 0; column < 74; column += 1) {
-      const x = -0.72 + (column / 73) * 1.44;
-      const y = -0.62 + (row / 53) * 1.24;
-      const top =
-        y > 0.25 && y < 0.51 && x > -0.59 + y * 0.34 && x < 0.59 + y * 0.34;
-      const middle =
-        y > -0.13 && y < 0.13 && x > -0.59 - y * 0.34 && x < 0.59 - y * 0.34;
-      const bottom =
-        y > -0.51 && y < -0.25 && x > -0.59 + y * 0.34 && x < 0.59 + y * 0.34;
-      if (top || middle || bottom) points.push({ x, y });
+  const bands = [
+    [
+      [20, 0],
+      [99, 0],
+      [100.5, 3.2],
+      [83.8, 20.6],
+      [81, 21.8],
+      [1.9, 21.8],
+      [0.5, 18.6],
+      [17.2, 1.2],
+    ],
+    [
+      [1.9, 33.1],
+      [81, 33.1],
+      [83.8, 34.3],
+      [100.5, 51.7],
+      [99.1, 54.9],
+      [20, 54.9],
+      [17.2, 53.7],
+      [0.5, 36.3],
+    ],
+    [
+      [20, 66.2],
+      [99.1, 66.2],
+      [100.5, 69.4],
+      [83.8, 86.8],
+      [81, 88],
+      [1.9, 88],
+      [0.5, 84.8],
+      [17.2, 67.4],
+    ],
+  ];
+  const inside = (x: number, y: number, polygon: number[][]) => {
+    let contained = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const [xi, yi] = polygon[i]!;
+      const [xj, yj] = polygon[j]!;
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+        contained = !contained;
+      }
+    }
+    return contained;
+  };
+  const points: Array<{ x: number; y: number; territory: number }> = [];
+  for (let row = 0; row < 45; row += 1) {
+    for (let column = 0; column < 47; column += 1) {
+      const markX = (column / 46) * 101;
+      const markY = (row / 44) * 88;
+      const band = bands.findIndex((polygon) => inside(markX, markY, polygon));
+      if (band >= 0) {
+        const segment = Math.min(9, Math.floor((markX / 101) * 10));
+        points.push({
+          x: -0.72 + (markX / 101) * 1.44,
+          y: 0.62 - (markY / 88) * 1.24,
+          territory: segment * 3 + band,
+        });
+      }
     }
   }
-  return points.slice(0, FINAL_CELLS);
+  return points.sort((a, b) => a.territory - b.territory || b.y - a.y);
 }
 
 function median(values: number[]) {
@@ -118,9 +164,9 @@ function mountCanvasFallback(host: HTMLDivElement, getProgress: () => number) {
       canvas.style.height = `${height}px`;
     }
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.fillStyle = "#050505";
+    context.fillStyle = "#000000";
     context.fillRect(0, 0, width, height);
-    context.strokeStyle = "rgba(115,119,122,.35)";
+    context.strokeStyle = "rgba(236,228,253,.2)";
     context.lineWidth = 1;
     const portrait = width < 720;
     const boundaries = portrait
@@ -137,7 +183,7 @@ function mountCanvasFallback(host: HTMLDivElement, getProgress: () => number) {
       }
       context.stroke();
     });
-    context.strokeStyle = "rgba(183,186,184,.75)";
+    context.strokeStyle = "rgba(20,241,149,.78)";
     for (let index = 0; index < 75; index += 1) {
       const seed = signatureSeed(`fallback-${index}`);
       const phase = (now * 0.00008 * (1 + (seed % 5))) % 1;
@@ -153,6 +199,7 @@ function mountCanvasFallback(host: HTMLDivElement, getProgress: () => number) {
       context.stroke();
     }
     for (let lane = 0; lane < 7; lane += 1) {
+      context.strokeStyle = "rgba(153,69,255,.8)";
       context.beginPath();
       for (let point = 0; point < 42; point += 1) {
         const unit = point / 41;
@@ -169,7 +216,11 @@ function mountCanvasFallback(host: HTMLDivElement, getProgress: () => number) {
       }
       context.stroke();
     }
-    context.fillStyle = "#f1f1ec";
+    const logoGradient = context.createLinearGradient(0, height, width, 0);
+    logoGradient.addColorStop(0, "#9945ff");
+    logoGradient.addColorStop(0.52, "#00d4ff");
+    logoGradient.addColorStop(1, "#14f195");
+    context.fillStyle = logoGradient;
     const visibleFallbackCells = Math.floor(
       fallbackMask.length * getProgress(),
     );
@@ -266,26 +317,26 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         };
       }
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-      renderer.setClearColor(0x050505, 1);
+      renderer.setClearColor(0x000000, 1);
       host.appendChild(renderer.domElement);
 
       const lineMaterial = new THREE.LineBasicMaterial({
-        color: 0xb7bab8,
+        color: 0x14f195,
         transparent: true,
         opacity: 0.76,
       });
       const dimMaterial = new THREE.LineBasicMaterial({
-        color: 0x73777a,
+        color: 0x55e9ab,
         transparent: true,
         opacity: 0.3,
       });
       const waveMaterial = new THREE.LineBasicMaterial({
-        color: 0xb7bab8,
+        color: 0x9945ff,
         transparent: true,
         opacity: 0.68,
       });
       const dividerMaterial = new THREE.LineBasicMaterial({
-        color: 0x73777a,
+        color: 0xece4fd,
         transparent: true,
         opacity: 0.25,
       });
@@ -313,7 +364,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
 
       const cellGeometry = new THREE.PlaneGeometry(0.012, 0.012);
       const cellMaterial = new THREE.MeshBasicMaterial({
-        color: 0xf1f1ec,
+        color: 0xffffff,
         transparent: true,
       });
       const cellsMesh = new THREE.InstancedMesh(
@@ -325,7 +376,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       artwork.add(cellsMesh);
 
       const flashMaterial = new THREE.LineBasicMaterial({
-        color: 0x66e6d1,
+        color: 0x14f195,
         transparent: true,
         opacity: 0,
       });
@@ -339,8 +390,11 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       artwork.add(flash);
 
       const mask = makeMask();
-      const cells: Cell[] = mask.map(({ x, y }) => ({ x, y }));
-      const shuffled = cells.map((_, index) => index);
+      const cells: Cell[] = mask.map(({ x, y, territory }) => ({
+        x,
+        y,
+        territory,
+      }));
       const glyphs = new Map<string, Glyph>();
       const blocks = new Map<string, WaitingBlock>();
       const finalityValues: number[] = [];
@@ -348,6 +402,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       const buffered: WaitingBlock[] = [];
       const pointer = new THREE.Vector2(99, 99);
       const temp = new THREE.Object3D();
+      const cellColor = new THREE.Color();
+      const logoPurple = new THREE.Color(0x9945ff);
+      const logoCyan = new THREE.Color(0x00d4ff);
+      const logoGreen = new THREE.Color(0x14f195);
       let finalBlocks = 0;
       let cohortTransactions = 0;
       let form = 147;
@@ -361,12 +419,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         "(prefers-reduced-motion: reduce)",
       ).matches;
 
-      function resetMask(seed: number) {
-        shuffled.sort((a, b) => {
-          const av = signatureSeed(`${seed}:${a}`);
-          const bv = signatureSeed(`${seed}:${b}`);
-          return av - bv;
-        });
+      function resetMask(_seed: number) {
         cells.forEach((cell) => {
           delete cell.blockhash;
           delete cell.slot;
@@ -399,15 +452,14 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           cohortIndex = cohort.length - 1;
         }
         if (cohortIndex < 0) return;
-        const start = Math.floor((cohortIndex / COHORT_SIZE) * cells.length);
-        const end = Math.floor(
-          ((cohortIndex + 1) / COHORT_SIZE) * cells.length,
+        const territory = cells.filter(
+          (cell) => cell.territory === cohortIndex,
         );
-        for (let index = start; index < end; index += 1) {
-          const cell = cells[shuffled[index] ?? index];
+        for (let index = 0; index < territory.length; index += 1) {
+          const cell = territory[index]!;
           cell.blockhash = block.blockhash;
           cell.slot = block.slot;
-          cell.born = now + (index - start) * (reducedMotion ? 0 : 6);
+          cell.born = now + index * (reducedMotion ? 0 : 6);
           cell.fromY = -0.68 + block.lane * 0.11;
         }
         finalBlocks += 1;
@@ -777,10 +829,25 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           temp.scale.setScalar(Math.max(0.001, scale));
           temp.updateMatrix();
           cellsMesh.setMatrixAt(visibleCells, temp.matrix);
+          const colorPosition = Math.max(
+            0,
+            Math.min(1, (cell.x - cell.y + 1.34) / 2.68),
+          );
+          if (colorPosition < 0.5) {
+            cellColor.lerpColors(logoPurple, logoCyan, colorPosition * 2);
+          } else {
+            cellColor.lerpColors(
+              logoCyan,
+              logoGreen,
+              (colorPosition - 0.5) * 2,
+            );
+          }
+          cellsMesh.setColorAt(visibleCells, cellColor);
           visibleCells += 1;
         }
         cellsMesh.count = visibleCells;
         cellsMesh.instanceMatrix.needsUpdate = true;
+        if (cellsMesh.instanceColor) cellsMesh.instanceColor.needsUpdate = true;
         flashMaterial.opacity = Math.max(0, 1 - (now - flashAt) / 520);
 
         if (now - lastTelemetry > 500) {
