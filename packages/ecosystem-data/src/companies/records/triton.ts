@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import tritonBreakpoint2026White from "../../../assets/companies/triton/breakpoint-2026-white.svg";
 import tritonLogo from "../../../assets/companies/triton/logo.svg";
 
 export const triton = {
@@ -25,6 +26,14 @@ export const triton = {
   },
   defaultLogoId: "logo",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: tritonBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo",
       fileName: "logo.svg",
