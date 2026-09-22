@@ -38,6 +38,9 @@ export type SponsorMarqueeRow = {
   sponsors: SponsorLogo[];
 };
 
+// Keep every tier in sponsorship-action order. Add newly actioned sponsors to
+// the end of their tier so the same order carries through to the page and
+// marquee rows below.
 const platinumSponsors = [
   {
     companyId: "jito",
@@ -78,6 +81,16 @@ const platinumSponsors = [
     companyId: "render-network",
     width: 1933,
     height: 233,
+  },
+  {
+    companyId: "seeker",
+    width: 1800,
+    height: 600,
+  },
+  {
+    companyId: "sunrise",
+    width: 1809,
+    height: 449,
   },
 ] satisfies SponsorLogo[];
 
@@ -215,6 +228,16 @@ const goldSponsors = [
     companyId: "paxos",
     width: 2004,
     height: 543,
+  },
+  {
+    companyId: "huma-finance",
+    width: 109,
+    height: 32,
+  },
+  {
+    companyId: "soilonic",
+    width: 1693,
+    height: 929,
   },
 ] satisfies SponsorLogo[];
 

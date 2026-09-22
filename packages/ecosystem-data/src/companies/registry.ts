@@ -44,6 +44,7 @@ import { galaxy } from "./records/galaxy";
 import { gmgn } from "./records/gmgn";
 import { gradient } from "./records/gradient";
 import { hamiltonLane } from "./records/hamilton-lane";
+import { humaFinance } from "./records/huma-finance";
 import { jito } from "./records/jito";
 import { jpmorgan } from "./records/jpmorgan";
 import { jupiter } from "./records/jupiter";
@@ -85,7 +86,9 @@ import { ryder } from "./records/ryder";
 import { safepalWallet } from "./records/safepal-wallet";
 import { sanctum } from "./records/sanctum";
 import { sec3 } from "./records/sec3";
+import { seeker } from "./records/seeker";
 import { sidley } from "./records/sidley";
+import { soilonic } from "./records/soilonic";
 import { societeGenerale } from "./records/societe-generale";
 import { sofi } from "./records/sofi";
 import { solanaSpaces } from "./records/solana-spaces";
@@ -163,6 +166,7 @@ export const companies = [
   gmgn,
   gradient,
   hamiltonLane,
+  humaFinance,
   jito,
   jpmorgan,
   jupiter,
@@ -204,7 +208,9 @@ export const companies = [
   safepalWallet,
   sanctum,
   sec3,
+  seeker,
   sidley,
+  soilonic,
   societeGenerale,
   sofi,
   solanaSpaces,
