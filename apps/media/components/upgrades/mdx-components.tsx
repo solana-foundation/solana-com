@@ -11,6 +11,31 @@ import {
 } from "./diagrams";
 import { FeatureActivationStatus } from "./feature-activation-status";
 
+function SoftWrappingCode({
+  children,
+  ...props
+}: ComponentPropsWithoutRef<"code">) {
+  const content = React.Children.map(children, (child) => {
+    if (typeof child !== "string") return child;
+
+    return child.split(/([/\\._:=+-]+)/).map((part, index) => (
+      <React.Fragment key={`${part}-${index}`}>
+        {part}
+        {/^[/\\._:=+-]+$/.test(part) ? <wbr /> : null}
+      </React.Fragment>
+    ));
+  });
+
+  return (
+    <code
+      className="max-w-full whitespace-normal break-normal bg-gray-800 px-2 py-1 rounded text-sm font-mono text-[#14F195]"
+      {...props}
+    >
+      {content}
+    </code>
+  );
+}
+
 export function StatusBadge({
   children,
   color = "green",
@@ -155,22 +180,17 @@ export const upgradeMdxComponents = {
   a: (props: ComponentPropsWithoutRef<"a">) => (
     <a className="text-[#14F195] hover:underline font-medium" {...props} />
   ),
-  code: (props: ComponentPropsWithoutRef<"code">) => (
-    <code
-      className="bg-gray-800 px-2 py-1 rounded text-sm font-mono text-[#14F195]"
-      {...props}
-    />
-  ),
+  code: SoftWrappingCode,
   pre: (props: ComponentPropsWithoutRef<"pre">) => (
     <pre
-      className="bg-gray-900 p-6 rounded-lg overflow-x-auto mb-6 border border-white/10"
+      className="max-w-full bg-gray-900 p-6 rounded-lg overflow-x-auto mb-6 border border-white/10 [&>code]:whitespace-pre [&>code]:break-normal [&>code]:[overflow-wrap:normal]"
       {...props}
     />
   ),
   table: (props: ComponentPropsWithoutRef<"table">) => (
-    <div className="overflow-x-auto mb-8">
+    <div className="w-full max-w-full overflow-x-auto mb-8">
       <table
-        className="w-full border-collapse border border-white/10 rounded-lg"
+        className="w-full table-fixed border-collapse border border-white/10 rounded-lg"
         {...props}
       />
     </div>
@@ -184,12 +204,15 @@ export const upgradeMdxComponents = {
   ),
   th: (props: ComponentPropsWithoutRef<"th">) => (
     <th
-      className="px-6 py-4 text-left text-sm font-semibold text-white"
+      className="min-w-0 px-2 py-3 sm:px-6 sm:py-4 text-left text-sm font-semibold text-white break-normal"
       {...props}
     />
   ),
   td: (props: ComponentPropsWithoutRef<"td">) => (
-    <td className="px-6 py-4 text-base text-gray-300" {...props} />
+    <td
+      className="min-w-0 px-2 py-3 sm:px-6 sm:py-4 align-top text-sm sm:text-base text-gray-300 break-normal"
+      {...props}
+    />
   ),
   hr: (props: ComponentPropsWithoutRef<"hr">) => (
     <hr className="my-12 border-white/20" {...props} />
