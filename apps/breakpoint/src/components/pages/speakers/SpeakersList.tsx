@@ -306,7 +306,7 @@ function SpeakerRow({
           <div className="flex w-full min-w-0 flex-col gap-m md:flex-row md:items-center md:gap-[120px]">
             <div className="flex min-w-0 flex-1 flex-col items-start gap-4">
               <h2 className="type-h5 w-full text-white">{name}</h2>
-              <div className="flex items-center gap-6">
+              <div className="flex flex-wrap items-center gap-6">
                 <SocialLink
                   href={speaker.xUrl}
                   icon={<XIcon />}
