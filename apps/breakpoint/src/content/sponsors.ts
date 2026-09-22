@@ -239,6 +239,26 @@ const goldSponsors = [
     width: 1693,
     height: 929,
   },
+  {
+    companyId: "triton",
+    width: 1028,
+    height: 323,
+  },
+  {
+    companyId: "opensea",
+    width: 1160,
+    height: 302,
+  },
+  {
+    companyId: "reflect-money",
+    width: 759,
+    height: 186,
+  },
+  {
+    companyId: "beezie",
+    width: 1514,
+    height: 646,
+  },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [

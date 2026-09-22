@@ -11,6 +11,7 @@ import { banxa } from "./records/banxa";
 import { arcium } from "./records/arcium";
 import { asymmetricResearch } from "./records/asymmetric-research";
 import { atxp } from "./records/atxp";
+import { beezie } from "./records/beezie";
 import { bhutan } from "./records/bhutan";
 import { blackrock } from "./records/blackrock";
 import { blockzero } from "./records/blockzero";
@@ -64,6 +65,7 @@ import { morganStanley } from "./records/morgan-stanley";
 import { moneygram } from "./records/moneygram";
 import { nodit } from "./records/nodit";
 import { openmined } from "./records/openmined";
+import { opensea } from "./records/opensea";
 import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
 import { pancakeswap } from "./records/pancakeswap";
@@ -80,6 +82,7 @@ import { ramp } from "./records/ramp";
 import { raydium } from "./records/raydium";
 import { reap } from "./records/reap";
 import { redotpay } from "./records/redotpay";
+import { reflectMoney } from "./records/reflect-money";
 import { renderNetwork } from "./records/render-network";
 import { rockawayx } from "./records/rockawayx";
 import { ryder } from "./records/ryder";
@@ -133,6 +136,7 @@ export const companies = [
   arcium,
   asymmetricResearch,
   atxp,
+  beezie,
   bhutan,
   blackrock,
   blockzero,
@@ -186,6 +190,7 @@ export const companies = [
   moneygram,
   nodit,
   openmined,
+  opensea,
   orbitflare,
   osl,
   pancakeswap,
@@ -202,6 +207,7 @@ export const companies = [
   raydium,
   reap,
   redotpay,
+  reflectMoney,
   renderNetwork,
   rockawayx,
   ryder,
