@@ -4,17 +4,47 @@ import styles from "./summer-school.module.css";
 const uploadRoot = "/uploads/posts/solana-summer-school-2026";
 const figmaRoot = `${uploadRoot}/figma`;
 
-const projects = [
-  { image: "project-01.webp", name: "Quant Royale" },
-  { image: "project-02.webp", name: "Polaris Oracle" },
+type Project = {
+  image: string;
+  name: string;
+  href?: string;
+};
+
+const projects: readonly Project[] = [
+  {
+    image: "project-01.webp",
+    name: "Quant Royale",
+    href: "https://quantroyale.com",
+  },
+  {
+    image: "project-02.webp",
+    name: "Auron",
+    href: "https://auron-mocha.vercel.app/",
+  },
   { image: "project-03.webp", name: "P-Loop" },
   { image: "project-04.webp", name: "ZKGate" },
   { image: "project-05.webp", name: "ZKGate" },
-  { image: "project-06.webp", name: "Grail" },
+  {
+    image: "project-06.webp",
+    name: "Riveseek",
+    href: "https://riveseek.vercel.app/",
+  },
   { image: "project-07.webp", name: "AgentVault" },
-  { image: "project-08.webp", name: "Quant Royale" },
-  { image: "project-09.webp", name: "Polaris Oracle" },
-  { image: "project-10.webp", name: "Ashlar" },
+  {
+    image: "project-08.webp",
+    name: "Quant Royale",
+    href: "https://quantroyale.com",
+  },
+  {
+    image: "project-09.webp",
+    name: "Polaris Oracle",
+    href: "https://polaris-oracle.xyz/",
+  },
+  {
+    image: "project-10.webp",
+    name: "Agentic Commerce Platform",
+    href: "https://acp-full-frontend-pwq1-swart.vercel.app/agents",
+  },
   { image: "project-11.webp", name: "Backr" },
   { image: "project-12.webp", name: "Polaris Oracle" },
   { image: "project-13.webp", name: "Ashlar" },
@@ -73,15 +103,32 @@ export function StudentProjects() {
       />
 
       <div className={styles.projectEditorialCollage}>
-        {projects.map((project) => (
-          <figure key={project.image} className={styles.projectEditorialShot}>
+        {projects.map(({ image, name, href }) => (
+          <figure key={image} className={styles.projectEditorialShot}>
             <span className={styles.projectEditorialImage}>
-              <Image
-                src={`${uploadRoot}/${project.image}`}
-                alt={`${project.name} capstone presentation`}
-                fill
-                sizes="(max-width: 640px) 88vw, 48vw"
-              />
+              {href ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Visit ${name}`}
+                  className={styles.projectEditorialLink}
+                >
+                  <Image
+                    src={`${uploadRoot}/${image}`}
+                    alt={`${name} capstone presentation`}
+                    fill
+                    sizes="(max-width: 640px) 88vw, 48vw"
+                  />
+                </a>
+              ) : (
+                <Image
+                  src={`${uploadRoot}/${image}`}
+                  alt={`${name} capstone presentation`}
+                  fill
+                  sizes="(max-width: 640px) 88vw, 48vw"
+                />
+              )}
             </span>
           </figure>
         ))}
