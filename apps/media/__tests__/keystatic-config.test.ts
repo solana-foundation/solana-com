@@ -74,4 +74,26 @@ describe("upgrades schema", () => {
 
     expect(html).toContain("<td>first line<br/>second line</td>");
   });
+
+  it("parses MDX line-break components inside table cells", () => {
+    const body = config.collections?.upgrades?.schema.body;
+
+    if (!body) {
+      throw new Error("Expected the upgrades body field to be configured");
+    }
+
+    const content = new TextEncoder().encode(`| API |
+| --- |
+| \`firstCall\`<br />\`secondCall\` |
+`);
+
+    expect(() =>
+      body.parse(body.defaultValue, {
+        content,
+        external: new Map(),
+        other: new Map(),
+        slug: "line-break-table",
+      }),
+    ).not.toThrow();
+  });
 });
