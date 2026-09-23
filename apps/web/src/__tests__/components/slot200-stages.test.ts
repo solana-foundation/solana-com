@@ -92,8 +92,20 @@ describe("the 350ms to 300ms rollout", () => {
       to: 250,
       phase: "pre",
       stepsDone: 2,
-      targetEpoch: null,
+      targetEpoch: 1037,
     });
+  });
+
+  it("keeps the 250ms activation window tied to its effective epoch", () => {
+    const rollout = rolloutState(300, 300);
+
+    expect(rollout).toMatchObject({
+      from: 300,
+      to: 250,
+      targetEpoch: 1037,
+    });
+    expect(isActivationWindow(rollout, 1036)).toBe(false);
+    expect(isActivationWindow(rollout, 1037)).toBe(true);
   });
 
   it("keeps the rollout complete at the terminal 200ms step", () => {

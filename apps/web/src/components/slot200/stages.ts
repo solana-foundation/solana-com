@@ -10,13 +10,15 @@ export const STEPS = [400, 350, 300, 250, 200] as const;
 type Step = (typeof STEPS)[number];
 
 /**
- * Activation epochs confirmed by Anza, keyed by target ms. Later steps stay
- * absent until scheduled; the hero switches from countdown to "epoch not yet
- * scheduled" on its own.
+ * The target epoch is when each timing reduction takes effect, not when its
+ * feature is activated. SIMD-0525 features activate one epoch beforehand.
+ * Later steps stay absent until scheduled; the hero switches from countdown
+ * to "epoch not yet scheduled" on its own.
  */
 export const CONFIRMED_EPOCHS: Partial<Record<number, number>> = {
   350: 1020,
   300: 1024,
+  250: 1037,
 };
 
 export type FlipPhase = "pre" | "flipping" | "flipped";

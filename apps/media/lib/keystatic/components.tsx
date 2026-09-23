@@ -63,6 +63,17 @@ const inlineLatex = inline({
   ContentView: (props) => <Latex formula={props.value.formula} />,
 });
 
+// MDX treats <br /> as a component. Declaring it here lets writers use line
+// breaks in table cells without Keystatic rejecting the document as having an
+// unknown component. The published MDX renderer continues to render the native
+// HTML line break.
+const lineBreak = inline({
+  label: "Line break",
+  description: "Starts the following text on a new line",
+  schema: {},
+  ContentView: () => <br />,
+});
+
 const figure = wrapper({
   label: "Figure (image with caption)",
   description:
@@ -618,8 +629,13 @@ const txAccountBytes = diagramBlock(
 const featureActivationStatus = block({
   label: "Feature activation status",
   description: "Live feature activation status for each Solana cluster",
-  schema: {},
-  ContentView: () => (
+  schema: {
+    featureAddress: fields.text({
+      label: "Feature address",
+      description: "The Solana feature account address to check",
+    }),
+  },
+  ContentView: (props) => (
     <div
       style={{
         border: "1px solid #e5e7eb",
@@ -633,6 +649,18 @@ const featureActivationStatus = block({
       <strong style={{ color: "#14161c", display: "block" }}>
         Feature activation status
       </strong>
+      {props.value.featureAddress && (
+        <code
+          style={{
+            color: "#14161c",
+            display: "block",
+            margin: "8px 0",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {props.value.featureAddress}
+        </code>
+      )}
       Live cluster statuses are shown on the published page.
     </div>
   ),
@@ -640,6 +668,7 @@ const featureActivationStatus = block({
 
 // Export all component blocks
 export const componentBlocks: Record<string, ContentComponent> = {
+  br: lineBreak,
   blockquote,
   datetime,
   newslettersignup,

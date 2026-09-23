@@ -4,8 +4,6 @@ import { createSolanaRpc, signature, type Signature } from "@solana/kit";
 // Base58 signatures are 87 or 88 chars; the alphabet excludes 0 O I l.
 const SIGNATURE_RE = /[1-9A-HJ-NP-Za-km-z]{87,88}/g;
 
-const rpc = createSolanaRpc("http://127.0.0.1:8899");
-
 /**
  * Run a cookbook example and assert every signature it logs is real.
  * Use this for any example that ends with `console.log("...:", signature)`.
@@ -51,6 +49,9 @@ export async function expectExampleLogsSignature(
 }
 
 async function fetchTxWithRetry(sig: Signature) {
+  const rpc = createSolanaRpc(
+    process.env.SOLANA_RPC_URL ?? "http://127.0.0.1:8899",
+  );
   for (let i = 0; i < 20; i++) {
     const tx = await rpc
       .getTransaction(sig, {

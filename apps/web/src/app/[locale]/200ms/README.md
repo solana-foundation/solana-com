@@ -121,7 +121,14 @@ scheduled" message during this short measurement window.
 ### 300ms → 250ms
 
 The same sequence repeats. The landed copy reports `20.0%` faster and points to
-200ms. After settling, the holding state reports 3 of 4 steps live.
+200ms. The 250ms feature activates in epoch 1036 and takes effect at the epoch
+1037 boundary, approximately 05:01 UTC on Friday, September 18:
+
+```ts
+CONFIRMED_EPOCHS = { 250: 1037 };
+```
+
+After settling, the holding state reports 3 of 4 steps live.
 
 ### 250ms → 200ms
 
@@ -152,11 +159,11 @@ not prove that the network has reached a particular timing stage.
 
 ## Current limitations
 
-- The 350ms and 300ms targets have confirmed epochs. Later countdowns require
-  adding their target epochs to `CONFIRMED_EPOCHS`.
-- The Hero supports all four future transitions, but the heartbeat and history
-  charts have guide lines hardcoded to 400ms, 350ms, and 300ms.
-- The heartbeat chart clamps its lower display range at 250ms, so 200ms values
+- The 350ms, 300ms, and 250ms targets have confirmed effective epochs. Later
+  countdowns require adding their target epoch to `CONFIRMED_EPOCHS`.
+- The Hero and charts support the scheduled 250ms transition. The heartbeat
+  chart still needs a lower range update once 200ms is scheduled.
+- The heartbeat chart clamps its lower display range at 225ms, so 200ms values
   will be visually clipped until that chart is updated.
 - Page metadata and social-card copy are intentionally evergreen; they do not
   update from live measurements.
