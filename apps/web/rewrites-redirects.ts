@@ -823,6 +823,12 @@ export default {
       destination: "/upgrades/larger-transaction-sizes",
     },
 
+    // /scholars applications moved from the built-in form to Typeform
+    {
+      source: "/scholars/apply",
+      destination: "https://solanafoundation.typeform.com/scholars",
+    },
+
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
     {
