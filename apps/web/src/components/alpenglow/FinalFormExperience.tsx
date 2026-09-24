@@ -152,7 +152,6 @@ export default function FinalFormExperience() {
         </div>
 
         <div className="ff-scene">
-          <FinalFormCanvas ref={canvasRef} onTelemetry={handleTelemetry} />
           <aside className="ff-rpc-panel" aria-label="Live RPC data">
             <p className="ff-rpc-heading">RPC feed</p>
             <dl>
@@ -195,16 +194,19 @@ export default function FinalFormExperience() {
               </p>
             )}
           </aside>
-          <div className="ff-stage-labels" aria-hidden="true">
-            <p>
-              <span>01</span> Streaming
-            </p>
-            <p>
-              <span>02</span> Confirmed
-            </p>
-            <p>
-              <span>03</span> Finalized
-            </p>
+          <div className="ff-canvas-stage">
+            <FinalFormCanvas ref={canvasRef} onTelemetry={handleTelemetry} />
+            <div className="ff-stage-labels" aria-hidden="true">
+              <p>
+                <span>01</span> Streaming
+              </p>
+              <p>
+                <span>02</span> Confirmed
+              </p>
+              <p>
+                <span>03</span> Finalized
+              </p>
+            </div>
           </div>
         </div>
 
