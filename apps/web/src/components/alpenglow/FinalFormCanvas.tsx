@@ -20,8 +20,9 @@ const VOXEL_SIZE = 0.024;
 const MIN_LOGO_POPULATION = 18_000;
 const COLOR_BUCKETS = 256;
 const STAGE_X = [-2, 0, 2] as const;
-const HAZE_GLYPHS = ["+", "-", ">", "<", "%", "#"] as const;
-const HAZE_POINTS = 420;
+const HAZE_GLYPHS = ["0", "1"] as const;
+const HAZE_COLUMNS = 120;
+const HAZE_ROWS = 62;
 
 type FinalityMode = "legacy" | "alpenglow";
 type CycleState = "forming" | "holding" | "melting";
@@ -142,23 +143,26 @@ function createVoxelMaterial() {
   return material;
 }
 
-function createGlyphTexture(glyph: string) {
+function createDigitAtlas() {
   const canvas = document.createElement("canvas");
-  canvas.width = 64;
+  canvas.width = 64 * HAZE_GLYPHS.length;
   canvas.height = 64;
   const context = canvas.getContext("2d");
   if (context) {
-    context.clearRect(0, 0, 64, 64);
+    context.clearRect(0, 0, canvas.width, canvas.height);
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.font = '500 30px "Courier New", monospace';
-    context.fillStyle = "rgba(255, 255, 255, 0.3)";
-    context.shadowColor = "rgba(255, 255, 255, 0.65)";
-    context.shadowBlur = 12;
-    context.fillText(glyph, 32, 33);
-    context.shadowBlur = 0;
-    context.fillStyle = "white";
-    context.fillText(glyph, 32, 33);
+    context.font = '500 36px "Courier New", monospace';
+    HAZE_GLYPHS.forEach((digit, index) => {
+      const x = index * 64 + 32;
+      context.fillStyle = "rgba(255, 255, 255, 0.3)";
+      context.shadowColor = "rgba(255, 255, 255, 0.65)";
+      context.shadowBlur = 12;
+      context.fillText(digit, x, 33);
+      context.shadowBlur = 0;
+      context.fillStyle = "white";
+      context.fillText(digit, x, 33);
+    });
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -172,81 +176,111 @@ function createTransactionHaze() {
   const materials: THREE.ShaderMaterial[] = [];
   const textures: THREE.Texture[] = [];
   const geometries: THREE.BufferGeometry[] = [];
+  group.position.z = -2.8;
 
-  HAZE_GLYPHS.forEach((glyph, glyphIndex) => {
-    const count = Math.ceil((HAZE_POINTS - glyphIndex) / HAZE_GLYPHS.length);
-    const positions = new Float32Array(count * 3);
-    const seeds = new Float32Array(count);
-    for (let index = 0; index < count; index += 1) {
-      const seed = signatureSeed(`haze-${glyph}-${index}`);
-      positions[index * 3] = (unit(seed, 0) - 0.5) * 7.6;
-      positions[index * 3 + 1] = (unit(seed, 8) - 0.5) * 3.25;
-      positions[index * 3 + 2] = -0.86 - unit(seed, 16) * 0.82;
-      seeds[index] = unit(signatureSeed(`${seed}-pulse`), 0);
+  const positions: number[] = [];
+  const seeds: number[] = [];
+  const densities: number[] = [];
+  for (let row = 0; row < HAZE_ROWS; row += 1) {
+    for (let column = 0; column < HAZE_COLUMNS; column += 1) {
+      const cell = row * HAZE_COLUMNS + column;
+      const seed = signatureSeed(`haze-${cell}`);
+      const x = -1 + (column / (HAZE_COLUMNS - 1)) * 2;
+      const y = 1 - (row / (HAZE_ROWS - 1)) * 2;
+      const main = Math.exp(
+        -Math.pow((x - 0.24) / 0.42, 2) - Math.pow((y + 0.02) / 0.62, 2),
+      );
+      const base = Math.exp(
+        -Math.pow((x + 0.24) / 0.86, 2) - Math.pow((y + 0.58) / 0.3, 2),
+      );
+      const shoulder = Math.exp(
+        -Math.pow((x + 0.56) / 0.32, 2) - Math.pow((y + 0.22) / 0.46, 2),
+      );
+      const edge = Math.min(1 - Math.abs(x), 1 - Math.abs(y));
+      const vignette = Math.max(0, Math.min(1, (edge - 0.08) / 0.2));
+      const density = Math.min(
+        1,
+        (0.06 + main * 0.9 + base * 0.66 + shoulder * 0.34) * vignette,
+      );
+      positions.push(x, y, 0);
+      seeds.push(unit(seed, 0));
+      densities.push(density);
     }
+  }
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
-    const texture = createGlyphTexture(glyph);
-    const material = new THREE.ShaderMaterial({
-      uniforms: {
-        uGlyph: { value: texture },
-        uTime: { value: 0 },
-        uSpeed: { value: 0.6 },
-        uPixelRatio: { value: 1 },
-      },
-      vertexShader: `
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  geometry.setAttribute("aSeed", new THREE.Float32BufferAttribute(seeds, 1));
+  geometry.setAttribute(
+    "aDensity",
+    new THREE.Float32BufferAttribute(densities, 1),
+  );
+  const texture = createDigitAtlas();
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uGlyph: { value: texture },
+      uTime: { value: 0 },
+      uSpeed: { value: 0.6 },
+      uPixelRatio: { value: 1 },
+      uGlyphCount: { value: HAZE_GLYPHS.length },
+    },
+    vertexShader: `
         attribute float aSeed;
+        attribute float aDensity;
         uniform float uTime;
         uniform float uSpeed;
         uniform float uPixelRatio;
+        uniform float uGlyphCount;
         varying float vOpacity;
+        varying float vDigit;
 
         void main() {
           float tempo = 0.18 + uSpeed * 0.82;
           float phase = uTime * tempo + aSeed * 18.0;
-          vec3 transformed = position;
-          transformed.x += sin(phase * 0.72) * (0.035 + aSeed * 0.055);
-          transformed.y += cos(phase + position.x * 0.62) * 0.065;
-          transformed.z += sin(phase * 0.48 + position.y) * 0.045;
+          float pulse = 0.72 + 0.28 * sin(phase + position.x * 7.0);
+          vOpacity = aDensity * pulse * (0.55 + aSeed * 0.35);
+          float refreshRate = 0.6 + uSpeed * 4.4;
+          float generation = floor(uTime * refreshRate);
+          float selection = fract(sin(aSeed * 997.0 + generation * 37.0) * 43758.5453);
+          vDigit = floor(selection * uGlyphCount);
 
-          float oval = length(vec2(transformed.x / 4.0, transformed.y / 1.75));
-          float contour = 0.82 + sin(phase * 0.55 + position.x * 1.35) * 0.1;
-          float edgeFade = 1.0 - smoothstep(contour - 0.28, contour, oval);
-          float pulse = 0.62 + 0.38 * sin(phase * 0.82) * sin(phase * 0.82);
-          vOpacity = edgeFade * pulse * (0.28 + aSeed * 0.5);
-
-          vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPosition;
-          float pointScale = 8.5 / max(1.0, -mvPosition.z);
-          gl_PointSize = (14.0 + aSeed * 15.0) * uPixelRatio * pointScale;
+          gl_PointSize = (7.0 + aDensity * 6.0 + aSeed * 2.0) * uPixelRatio;
         }
       `,
-      fragmentShader: `
+    fragmentShader: `
         uniform sampler2D uGlyph;
+        uniform float uGlyphCount;
         varying float vOpacity;
+        varying float vDigit;
 
         void main() {
-          vec4 glyph = texture2D(uGlyph, gl_PointCoord);
+          vec2 atlasUv = vec2(
+            (gl_PointCoord.x + vDigit) / uGlyphCount,
+            1.0 - gl_PointCoord.y
+          );
+          vec4 glyph = texture2D(uGlyph, atlasUv);
           float bokeh = smoothstep(0.5, 0.0, distance(gl_PointCoord, vec2(0.5)));
-          float alpha = (glyph.a * 0.76 + bokeh * 0.055) * vOpacity;
+          float alpha = (glyph.a * 0.86 + bokeh * 0.045) * vOpacity;
           if (alpha < 0.008) discard;
           gl_FragColor = vec4(vec3(1.0), alpha);
         }
       `,
-      transparent: true,
-      depthTest: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    const points = new THREE.Points(geometry, material);
-    points.renderOrder = -2;
-    group.add(points);
-    materials.push(material);
-    textures.push(texture);
-    geometries.push(geometry);
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
   });
+  const points = new THREE.Points(geometry, material);
+  points.renderOrder = -2;
+  group.add(points);
+  materials.push(material);
+  textures.push(texture);
+  geometries.push(geometry);
 
   return { group, materials, textures, geometries };
 }
@@ -602,7 +636,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       renderer.setClearColor(0x000000, 0);
       hostElement.appendChild(renderer.domElement);
       const transactionHaze = createTransactionHaze();
-      assembly.add(transactionHaze.group);
+      scene.add(transactionHaze.group);
 
       const voxelGeometry = new THREE.BoxGeometry(1, 1, 1);
       const streamingMaterial = createVoxelMaterial();
@@ -819,6 +853,18 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         camera.aspect = width / Math.max(height, 1);
         camera.fov = width < 720 ? 52 : 34;
         camera.updateProjectionMatrix();
+        sizeTransactionHaze();
+      }
+
+      function sizeTransactionHaze() {
+        const distance = camera.position.z - transactionHaze.group.position.z;
+        const halfHeight =
+          Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distance;
+        transactionHaze.group.scale.set(
+          halfHeight * camera.aspect,
+          halfHeight,
+          1,
+        );
       }
 
       function onPointerDown(event: PointerEvent) {
@@ -990,6 +1036,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         assembly.rotation.x += (targetRotationX - assembly.rotation.x) * 0.09;
         assembly.rotation.y += (targetRotationY - assembly.rotation.y) * 0.09;
         camera.position.z += (targetZoom - camera.position.z) * 0.09;
+        sizeTransactionHaze();
         const hazeSpeed = Math.max(0.12, Math.min(1, tps / 5_000));
         for (const material of transactionHaze.materials) {
           material.uniforms.uTime!.value = reduceMotion ? 0 : now * 0.001;

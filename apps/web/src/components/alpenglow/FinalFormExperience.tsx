@@ -98,7 +98,7 @@ export default function FinalFormExperience() {
         <div>
           <p className="ff-kicker">Alpenglow consensus</p>
           <h1 id="ff-title">
-            12 seconds <span aria-hidden="true">→</span> 150 milliseconds.
+            12 sec <span aria-hidden="true">→</span> 150 msec.
           </h1>
         </div>
         <div className="ff-intro">
