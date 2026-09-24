@@ -551,7 +551,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       let pointerY = 0;
       let targetRotationX = assembly.rotation.x;
       let targetRotationY = assembly.rotation.y;
-      let targetZoom = camera.position.z;
       const reduceMotion = window.matchMedia(
         "(prefers-reduced-motion: reduce)",
       ).matches;
@@ -684,7 +683,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       function resetView() {
         targetRotationX = -0.18;
         targetRotationY = -0.28;
-        targetZoom = 8.4;
       }
 
       runtimeRef.current = {
@@ -729,21 +727,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         }
       }
 
-      function onWheel(event: WheelEvent) {
-        event.preventDefault();
-        targetZoom = Math.max(
-          6.6,
-          Math.min(11, targetZoom + event.deltaY * 0.006),
-        );
-      }
-
       renderer.domElement.addEventListener("pointerdown", onPointerDown);
       renderer.domElement.addEventListener("pointermove", onPointerMove);
       renderer.domElement.addEventListener("pointerup", onPointerUp);
       renderer.domElement.addEventListener("pointercancel", onPointerUp);
-      renderer.domElement.addEventListener("wheel", onWheel, {
-        passive: false,
-      });
       window.addEventListener("resize", resize);
       resize();
 
@@ -860,7 +847,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         lastFrame = now;
         assembly.rotation.x += (targetRotationX - assembly.rotation.x) * 0.09;
         assembly.rotation.y += (targetRotationY - assembly.rotation.y) * 0.09;
-        camera.position.z += (targetZoom - camera.position.z) * 0.09;
 
         emissionCredit += (tps * delta) / 1_000;
         const emitCount = Math.min(
@@ -963,7 +949,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         renderer.domElement.removeEventListener("pointermove", onPointerMove);
         renderer.domElement.removeEventListener("pointerup", onPointerUp);
         renderer.domElement.removeEventListener("pointercancel", onPointerUp);
-        renderer.domElement.removeEventListener("wheel", onWheel);
         renderer.dispose();
         voxelGeometry.dispose();
         streamingMaterial.dispose();

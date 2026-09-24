@@ -154,7 +154,7 @@ async function runLive(
   let finalizedCursor =
     (await rpc<number>(url, "getSlot", [{ commitment: "finalized" }])) - 1;
   const confirmedAt = new Map<number, { at: number; hash: string }>();
-  let performanceTick = 0;
+  let performanceTick = 6;
   let protocol: "tower-bft" | "alpenglow" | "unknown" = "unknown";
 
   try {

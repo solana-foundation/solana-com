@@ -10,12 +10,26 @@ import type { AlpenglowEvent, StreamStatus } from "./types";
 
 type FinalityMode = "legacy" | "alpenglow";
 
+type RpcTelemetry = {
+  confirmedSlot: number;
+  latestBlockTransactions: number;
+  nonVoteTps: number;
+  samplePeriodSeconds: number;
+};
+
 const EMPTY_TELEMETRY: ArtworkTelemetry = {
   holding: 0,
   rendered: 0,
   finalizedBlocks: 0,
   currentFinalityMs: 0,
   medianFinalityMs: 0,
+};
+
+const EMPTY_RPC_TELEMETRY: RpcTelemetry = {
+  confirmedSlot: 0,
+  latestBlockTransactions: 0,
+  nonVoteTps: 0,
+  samplePeriodSeconds: 0,
 };
 
 function formatDuration(ms: number) {
@@ -27,6 +41,7 @@ export default function FinalFormExperience() {
   const canvasRef = useRef<FinalFormCanvasHandle>(null);
   const [mode, setMode] = useState<FinalityMode>("alpenglow");
   const [telemetry, setTelemetry] = useState(EMPTY_TELEMETRY);
+  const [rpcTelemetry, setRpcTelemetry] = useState(EMPTY_RPC_TELEMETRY);
   const [tps, setTps] = useState(0);
   const [status, setStatus] = useState<StreamStatus["status"]>("connecting");
 
@@ -40,9 +55,24 @@ export default function FinalFormExperience() {
     source.onmessage = (message) => {
       try {
         const event = JSON.parse(message.data) as AlpenglowEvent;
-        if (event.type === "stream_status") setStatus(event.status);
-        if (event.type === "performance_sample")
+        if (event.type === "stream_status") {
+          setStatus(event.status);
+        }
+        if (event.type === "performance_sample") {
           setTps(Math.round(event.totalTps));
+          setRpcTelemetry((current) => ({
+            ...current,
+            nonVoteTps: Math.round(event.nonVoteTps ?? 0),
+            samplePeriodSeconds: event.samplePeriodSeconds,
+          }));
+        }
+        if (event.type === "block_confirmed") {
+          setRpcTelemetry((current) => ({
+            ...current,
+            confirmedSlot: event.slot,
+            latestBlockTransactions: event.transactionCount,
+          }));
+        }
         canvasRef.current?.push(event);
       } catch {
         setStatus("reconnecting");
@@ -65,7 +95,6 @@ export default function FinalFormExperience() {
         : status === "reconnecting"
           ? "Reconnecting"
           : "Connecting";
-
   return (
     <main className="ff-root">
       <section className="ff-hero" aria-labelledby="ff-title">
@@ -112,7 +141,7 @@ export default function FinalFormExperience() {
             <span aria-hidden="true" /> {statusLabel}
           </p>
           <div className="ff-view-controls">
-            <span>Drag to rotate · Scroll to zoom</span>
+            <span>Drag to rotate · Scroll to continue</span>
             <button
               type="button"
               onClick={() => canvasRef.current?.resetView()}
@@ -124,6 +153,48 @@ export default function FinalFormExperience() {
 
         <div className="ff-scene">
           <FinalFormCanvas ref={canvasRef} onTelemetry={handleTelemetry} />
+          <aside className="ff-rpc-panel" aria-label="Live RPC data">
+            <p className="ff-rpc-heading">RPC feed</p>
+            <dl>
+              <div>
+                <dt>Source</dt>
+                <dd>{statusLabel}</dd>
+              </div>
+              <div>
+                <dt>Total TPS</dt>
+                <dd>{tps ? tps.toLocaleString() : "—"}</dd>
+              </div>
+              <div>
+                <dt>Non-vote TPS</dt>
+                <dd>
+                  {rpcTelemetry.nonVoteTps
+                    ? rpcTelemetry.nonVoteTps.toLocaleString()
+                    : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt>Confirmed slot</dt>
+                <dd>
+                  {rpcTelemetry.confirmedSlot
+                    ? rpcTelemetry.confirmedSlot.toLocaleString()
+                    : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt>Latest block</dt>
+                <dd>
+                  {rpcTelemetry.latestBlockTransactions
+                    ? `${rpcTelemetry.latestBlockTransactions.toLocaleString()} tx`
+                    : "—"}
+                </dd>
+              </div>
+            </dl>
+            {rpcTelemetry.samplePeriodSeconds > 0 && (
+              <p className="ff-rpc-sample">
+                {rpcTelemetry.samplePeriodSeconds}s RPC sample
+              </p>
+            )}
+          </aside>
           <div className="ff-stage-labels" aria-hidden="true">
             <p>
               <span>01</span> Streaming
