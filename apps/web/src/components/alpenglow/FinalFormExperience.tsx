@@ -9,6 +9,7 @@ import { Lock } from "@boxicons/react/Lock";
 import { NetworkChart } from "@boxicons/react/NetworkChart";
 import { Server } from "@boxicons/react/Server";
 import { User } from "@boxicons/react/User";
+import { Button } from "@workspace/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FinalFormCanvas } from "./FinalFormCanvas";
 import type {
@@ -115,13 +116,15 @@ export default function FinalFormExperience() {
             A faster path from transaction to certainty. Follow live Solana
             activity through streaming, confirmation, and finality.
           </p>
-          <a
-            href="https://docs.anza.xyz/alpenglow"
-            target="_blank"
-            rel="noreferrer"
+          <Button
+            asChild
+            variant="outline"
+            className="ff-intro-button rounded-none border-white/40 bg-transparent font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-white shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
           >
-            Explore Alpenglow <span aria-hidden="true">↗</span>
-          </a>
+            <a href="/upgrades/alpenglow">
+              Explore Alpenglow <span aria-hidden="true">↗</span>
+            </a>
+          </Button>
         </div>
       </section>
 
@@ -143,9 +146,6 @@ export default function FinalFormExperience() {
               150 milliseconds
             </button>
           </div>
-          <p className={`ff-status is-${status}`}>
-            <span aria-hidden="true" /> {statusLabel}
-          </p>
           <div className="ff-view-controls">
             <span>Drag to rotate · Ctrl + scroll to zoom</span>
             <button
@@ -373,9 +373,16 @@ export default function FinalFormExperience() {
         <h2 id="ff-read-more-title">
           Migration details, breaking changes, and the full protocol story.
         </h2>
-        <a href="/upgrades/alpenglow">
-          Read the Alpenglow upgrade guide <span aria-hidden="true">↗</span>
-        </a>
+        <Button
+          asChild
+          variant="outline"
+          size="lg"
+          className="ff-read-more-button rounded-none border-white bg-white font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-black shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
+        >
+          <a href="/upgrades/alpenglow">
+            Read the Alpenglow upgrade guide <span aria-hidden="true">↗</span>
+          </a>
+        </Button>
       </section>
 
       <div className="ff-sr-summary" aria-live="polite">
