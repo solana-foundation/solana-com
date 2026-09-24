@@ -27,6 +27,13 @@ export type BlockFinalized = {
   observedFinalityMs: number;
 };
 
+export type BlockOrphaned = {
+  type: "block_orphaned";
+  slot: number;
+  blockhash: string;
+  replacedBy: string;
+};
+
 export type PerformanceSample = {
   type: "performance_sample";
   sampledAt: number;
@@ -47,6 +54,7 @@ export type AlpenglowEvent =
   | TransactionObserved
   | BlockConfirmed
   | BlockFinalized
+  | BlockOrphaned
   | PerformanceSample
   | StreamStatus;
 

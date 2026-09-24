@@ -684,6 +684,15 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               );
               reportFallback();
             }
+            if (event.type === "block_orphaned") {
+              const block = fallbackBlocks.get(event.blockhash);
+              fallbackBlocks.delete(event.blockhash);
+              fallbackState.counts[1] = Math.max(
+                0,
+                fallbackState.counts[1] - (block?.count ?? 0),
+              );
+              reportFallback();
+            }
             if (event.type === "block_finalized") {
               if (mode === "legacy") {
                 finalizeFallback(event.blockhash, event.observedFinalityMs);
@@ -900,11 +909,38 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           }
           return;
         }
+        if (event.type === "block_orphaned") {
+          blocks.delete(event.blockhash);
+          let writeIndex = pendingIndex;
+          for (let index = pendingIndex; index < pending.length; index += 1) {
+            const transaction = pending[index]!;
+            if (transaction.blockhash !== event.blockhash) {
+              pending[writeIndex++] = transaction;
+            }
+          }
+          pending.length = writeIndex;
+          streaming = streaming.filter(
+            (voxel) => voxel.blockhash !== event.blockhash,
+          );
+          confirmed = confirmed.filter(
+            (voxel) => voxel.blockhash !== event.blockhash,
+          );
+          confirmed.forEach((voxel, order) => {
+            voxel.order = order;
+          });
+          confirmedOrder = confirmed.length;
+          final = final.filter((voxel) => voxel.blockhash !== event.blockhash);
+          confirmedDirty = true;
+          finalDirty = true;
+          return;
+        }
         if (event.type === "block_confirmed") {
+          const existing = blocks.get(event.blockhash);
           blocks.set(event.blockhash, {
             ...event,
             observedAt: performance.now(),
-            actualFinalized: false,
+            actualFinalized: existing?.actualFinalized ?? false,
+            finalityMs: existing?.finalityMs,
           });
           return;
         }

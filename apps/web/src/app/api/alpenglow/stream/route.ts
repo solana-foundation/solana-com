@@ -1,6 +1,7 @@
 import type {
   AlpenglowEvent,
   BlockConfirmed,
+  StreamStatus,
   TransactionObserved,
 } from "@/components/alpenglow/types";
 import {
@@ -18,6 +19,8 @@ export const maxDuration = 300;
 const encoder = new TextEncoder();
 const POLL_MS = 700;
 const MAX_BLOCKS_PER_POLL = 64;
+const MAX_CONCURRENT_BLOCK_READS = 8;
+const MAX_RETRY_MS = 10_000;
 const MAX_STREAM_CLIENTS = 64;
 const MAX_PENDING_BYTES_PER_CLIENT = 2 * 1024 * 1024;
 const FIXTURE_SAMPLE_SIZE = 512;
@@ -28,16 +31,24 @@ type Subscriber = {
   pendingBytes: number;
   cleanup: () => void;
 };
+type Producer = { abort: AbortController };
 
 const subscribers = new Set<Subscriber>();
-let producerAbort: AbortController | null = null;
+let producer: Producer | null = null;
+let latestStatus: StreamStatus | null = null;
 
-async function rpc<T>(url: string, method: string, params: unknown[] = []) {
+async function rpc<T>(
+  url: string,
+  method: string,
+  params: unknown[] = [],
+  signal?: AbortSignal,
+) {
   const response = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: method, method, params }),
     cache: "no-store",
+    signal,
   });
   if (!response.ok) throw new Error(`RPC ${response.status}`);
   const payload = (await response.json()) as {
@@ -67,12 +78,12 @@ function removeSubscriber(subscriber: Subscriber) {
   if (!subscribers.delete(subscriber)) return;
   subscriber.cleanup();
   if (subscribers.size === 0) {
-    producerAbort?.abort();
-    producerAbort = null;
+    producer?.abort.abort();
   }
 }
 
 function publish(event: AlpenglowEvent) {
+  if (event.type === "stream_status") latestStatus = event;
   const chunk = sse(event);
   for (const subscriber of [...subscribers]) {
     if (
@@ -191,11 +202,14 @@ async function getBlock(
   url: string,
   slot: number,
   commitment: "confirmed" | "finalized",
+  signal: AbortSignal,
 ) {
-  return rpc<RpcBlock | null>(url, "getBlock", [
-    slot,
-    blockRequestOptions(commitment),
-  ]);
+  return rpc<RpcBlock | null>(
+    url,
+    "getBlock",
+    [slot, blockRequestOptions(commitment)],
+    signal,
+  );
 }
 
 async function getProducedSlots(
@@ -203,9 +217,10 @@ async function getProducedSlots(
   start: number,
   end: number,
   commitment: "confirmed" | "finalized",
+  signal: AbortSignal,
 ) {
   if (end < start) return [];
-  return rpc<number[]>(url, "getBlocks", [start, end, { commitment }]);
+  return rpc<number[]>(url, "getBlocks", [start, end, { commitment }], signal);
 }
 
 async function readBlockRange(
@@ -213,25 +228,47 @@ async function readBlockRange(
   start: number,
   end: number,
   commitment: "confirmed" | "finalized",
+  signal: AbortSignal,
 ) {
-  const producedSlots = await getProducedSlots(url, start, end, commitment);
-  const reads: BlockRead[] = await Promise.all(
-    producedSlots.map(async (slot) => {
-      try {
-        return {
-          slot,
-          block: await getBlock(url, slot, commitment),
-          failed: false,
-        };
-      } catch {
-        return { slot, block: null, failed: true };
-      }
-    }),
+  const producedSlots = await getProducedSlots(
+    url,
+    start,
+    end,
+    commitment,
+    signal,
   );
+  const reads: BlockRead[] = [];
+  for (
+    let index = 0;
+    index < producedSlots.length;
+    index += MAX_CONCURRENT_BLOCK_READS
+  ) {
+    const slots = producedSlots.slice(
+      index,
+      index + MAX_CONCURRENT_BLOCK_READS,
+    );
+    const batch = await Promise.all(
+      slots.map(async (slot) => {
+        try {
+          return {
+            slot,
+            block: await getBlock(url, slot, commitment, signal),
+            failed: false,
+          };
+        } catch (error) {
+          if (signal.aborted) throw error;
+          return { slot, block: null, failed: true };
+        }
+      }),
+    );
+    reads.push(...batch);
+    if (batch.some((read) => read.failed || !read.block)) break;
+  }
   const cursor = cursorAfterBlockReads(end, reads);
   return {
     reads: reads.filter((read) => read.slot <= cursor),
     cursor,
+    failed: cursor < end,
   };
 }
 
@@ -265,15 +302,19 @@ function emitConfirmedBlock(
 
 async function runLive(url: string, emit: Emit, signal: AbortSignal) {
   let confirmedCursor =
-    (await rpc<number>(url, "getSlot", [{ commitment: "confirmed" }])) - 2;
+    (await rpc<number>(url, "getSlot", [{ commitment: "confirmed" }], signal)) -
+    2;
   let finalizedCursor =
-    (await rpc<number>(url, "getSlot", [{ commitment: "finalized" }])) - 1;
+    (await rpc<number>(url, "getSlot", [{ commitment: "finalized" }], signal)) -
+    1;
   const confirmedAt = new Map<number, { at: number; hash: string }>();
   let performanceTick = 6;
   let protocol: "tower-bft" | "alpenglow" | "unknown" = "unknown";
+  let retryMs = POLL_MS;
+  let reconnecting = false;
 
   try {
-    const certificate = await rpc<unknown>(url, "getAgGenesisCert");
+    const certificate = await rpc<unknown>(url, "getAgGenesisCert", [], signal);
     protocol = certificate == null ? "tower-bft" : "alpenglow";
   } catch {
     protocol = "unknown";
@@ -283,9 +324,18 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
   while (!signal.aborted) {
     try {
       const [confirmedHead, finalizedHead] = await Promise.all([
-        rpc<number>(url, "getSlot", [{ commitment: "confirmed" }]),
-        rpc<number>(url, "getSlot", [{ commitment: "finalized" }]),
+        rpc<number>(url, "getSlot", [{ commitment: "confirmed" }], signal),
+        rpc<number>(url, "getSlot", [{ commitment: "finalized" }], signal),
       ]);
+      if (reconnecting) {
+        emit({
+          type: "stream_status",
+          status: "live",
+          protocol,
+          sampled: false,
+        });
+        reconnecting = false;
+      }
       const confirmedEnd = Math.min(
         confirmedHead,
         confirmedCursor + MAX_BLOCKS_PER_POLL,
@@ -295,9 +345,11 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
         confirmedCursor + 1,
         confirmedEnd,
         "confirmed",
+        signal,
       );
       for (const { slot, block } of confirmedRange.reads) {
         if (!block) continue;
+        if (slot <= finalizedCursor) continue;
         const now = Date.now();
         emitConfirmedBlock(emit, slot, block, now);
         confirmedAt.set(slot, { at: now, hash: block.blockhash });
@@ -313,12 +365,21 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
         finalizedCursor + 1,
         finalizedEnd,
         "finalized",
+        signal,
       );
       for (const { slot, block } of finalizedRange.reads) {
         if (!block) continue;
         const observed = confirmedAt.get(slot);
         const now = Date.now();
         if (shouldReplayCanonicalBlock(observed?.hash, block.blockhash)) {
+          if (observed) {
+            emit({
+              type: "block_orphaned",
+              slot,
+              blockhash: observed.hash,
+              replacedBy: block.blockhash,
+            });
+          }
           emitConfirmedBlock(emit, slot, block, now);
         }
         emit({
@@ -331,6 +392,10 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
         confirmedAt.delete(slot);
       }
       finalizedCursor = finalizedRange.cursor;
+      retryMs =
+        confirmedRange.failed || finalizedRange.failed
+          ? Math.min(MAX_RETRY_MS, retryMs * 2)
+          : POLL_MS;
 
       performanceTick += 1;
       if (performanceTick % 7 === 0) {
@@ -340,7 +405,7 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
             numNonVoteTransactions?: number;
             samplePeriodSecs: number;
           }>
-        >(url, "getRecentPerformanceSamples", [1]);
+        >(url, "getRecentPerformanceSamples", [1], signal);
         const sample = samples[0];
         if (sample) {
           emit({
@@ -356,6 +421,9 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
         }
       }
     } catch (error) {
+      if (signal.aborted) return;
+      retryMs = Math.min(MAX_RETRY_MS, retryMs * 2);
+      reconnecting = true;
       emit({
         type: "stream_status",
         status: "reconnecting",
@@ -364,22 +432,27 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
         message: error instanceof Error ? error.message : "RPC unavailable",
       });
     }
-    await wait(POLL_MS, signal);
+    await wait(retryMs, signal);
   }
 }
 
 function ensureProducer() {
-  if (producerAbort) return;
-  producerAbort = new AbortController();
-  const abort = producerAbort;
+  if (producer && !producer.abort.signal.aborted) return;
+  const nextProducer: Producer = { abort: new AbortController() };
+  producer = nextProducer;
+  latestStatus = null;
+  const signal = nextProducer.abort.signal;
+  const emit: Emit = (event) => {
+    if (producer === nextProducer && !signal.aborted) publish(event);
+  };
   const rpcUrl = process.env.SOLANA_RPC_URL;
   const runner = rpcUrl
-    ? runLive(rpcUrl, publish, abort.signal)
-    : runFixture(publish, abort.signal);
+    ? runLive(rpcUrl, emit, signal)
+    : runFixture(emit, signal);
   runner
-    .catch((error) => {
-      if (!abort.signal.aborted) {
-        publish({
+    .catch(async (error) => {
+      if (!signal.aborted) {
+        emit({
           type: "stream_status",
           status: "reconnecting",
           protocol: "unknown",
@@ -387,10 +460,13 @@ function ensureProducer() {
           message:
             error instanceof Error ? error.message : "Stream unavailable",
         });
+        await wait(POLL_MS, signal);
       }
     })
     .finally(() => {
-      if (producerAbort === abort) producerAbort = null;
+      if (producer !== nextProducer) return;
+      producer = null;
+      if (subscribers.size > 0) ensureProducer();
     });
 }
 
@@ -421,14 +497,16 @@ export async function GET(request: Request) {
       };
       subscribers.add(subscriber);
       request.signal.addEventListener("abort", handleAbort, { once: true });
-      controller.enqueue(
-        sse({
-          type: "stream_status",
-          status: "connecting",
-          protocol: "unknown",
-          sampled: false,
-        }),
-      );
+      const initialStatus =
+        producer && !producer.abort.signal.aborted && latestStatus
+          ? latestStatus
+          : ({
+              type: "stream_status",
+              status: "connecting",
+              protocol: "unknown",
+              sampled: false,
+            } satisfies StreamStatus);
+      controller.enqueue(sse(initialStatus));
       ensureProducer();
     },
     pull() {
