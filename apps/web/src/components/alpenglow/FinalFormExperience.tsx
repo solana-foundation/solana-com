@@ -165,40 +165,37 @@ export default function FinalFormExperience() {
           </div>
         </div>
 
-        <div className="ff-metrics" aria-label="Live RPC data">
-          <p>
-            <strong>{statusLabel}</strong>
-            <span>Source</span>
-          </p>
-          <p>
-            <strong>{tps ? tps.toLocaleString() : "—"}</strong>
-            <span>Total TPS</span>
-          </p>
-          <p>
+        <p className="ff-rpc-line" aria-label="Live RPC data">
+          <span className="ff-rpc-label">RPC</span>
+          <span>{statusLabel}</span>
+          <span>
+            <strong>{tps ? tps.toLocaleString() : "—"}</strong> total TPS
+          </span>
+          <span>
             <strong>
               {rpcTelemetry.nonVoteTps
                 ? rpcTelemetry.nonVoteTps.toLocaleString()
                 : "—"}
-            </strong>
-            <span>Non-vote TPS</span>
-          </p>
-          <p>
+            </strong>{" "}
+            non-vote TPS
+          </span>
+          <span>
+            slot{" "}
             <strong>
               {rpcTelemetry.confirmedSlot
                 ? rpcTelemetry.confirmedSlot.toLocaleString()
                 : "—"}
             </strong>
-            <span>Confirmed slot</span>
-          </p>
-          <p>
+          </span>
+          <span>
             <strong>
               {rpcTelemetry.latestBlockTransactions
                 ? rpcTelemetry.latestBlockTransactions.toLocaleString()
                 : "—"}
-            </strong>
-            <span>Transactions in latest block</span>
-          </p>
-        </div>
+            </strong>{" "}
+            tx in latest block
+          </span>
+        </p>
       </section>
 
       <p className="ff-note">

@@ -397,8 +397,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       scene.add(assembly);
       STAGE_X.forEach((x) => addStageFrame(assembly, x));
 
+      const defaultZoom = () => (hostElement.clientWidth < 720 ? 7.2 : 5.2);
       const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 30);
-      camera.position.set(0, 0.2, 8.4);
+      camera.position.set(0, 0.2, defaultZoom());
       let renderer: THREE.WebGLRenderer;
 
       try {
@@ -685,7 +686,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       function resetView() {
         targetRotationX = -0.18;
         targetRotationY = -0.28;
-        targetZoom = 8.4;
+        targetZoom = defaultZoom();
       }
 
       runtimeRef.current = {
@@ -733,9 +734,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       function onWheel(event: WheelEvent) {
         if (!zoomModifierHeld) return;
         event.preventDefault();
+        const minimumZoom = hostElement.clientWidth < 720 ? 6.4 : 4.5;
         targetZoom = Math.max(
-          6.6,
-          Math.min(11, targetZoom + event.deltaY * 0.006),
+          minimumZoom,
+          Math.min(9.5, targetZoom + event.deltaY * 0.006),
         );
       }
 
