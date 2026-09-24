@@ -11,6 +11,8 @@ import { signatureSeed } from "./types";
 
 const MAX_STAGE_VOXELS = 60_000;
 const MAX_PENDING_TRANSACTIONS = MAX_STAGE_VOXELS;
+const MAX_FALLBACK_BLOCKS = 256;
+const FALLBACK_BLOCK_RETENTION_MS = 60_000;
 const LEGACY_FINALITY_SECONDS = 12.8;
 const ALPENGLOW_FINALITY_SECONDS = 0.15;
 const STREAM_HOLD_MS = 900;
@@ -623,11 +625,40 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             finalizedCount: number;
             confirmedAt: number;
             optimisticallyFinalized: boolean;
+            actuallyFinalized: boolean;
           }
         >();
         const fallbackFinalityValues: number[] = [];
         let fallbackFinalizedBlocks = 0;
         let fallbackCurrentFinalityMs = 0;
+        function discardFallbackBlock(blockhash: string) {
+          const block = fallbackBlocks.get(blockhash);
+          if (!block) return;
+          fallbackBlocks.delete(blockhash);
+          fallbackState.counts[1] = Math.max(
+            0,
+            fallbackState.counts[1] - block.confirmedCount,
+          );
+          fallbackState.counts[2] = Math.max(
+            0,
+            fallbackState.counts[2] - block.finalizedCount,
+          );
+        }
+        function pruneFallbackBlocks(now: number) {
+          for (const [blockhash, block] of fallbackBlocks) {
+            if (
+              block.optimisticallyFinalized &&
+              now - block.confirmedAt >= FALLBACK_BLOCK_RETENTION_MS
+            ) {
+              fallbackBlocks.delete(blockhash);
+            }
+          }
+          while (fallbackBlocks.size > MAX_FALLBACK_BLOCKS) {
+            const oldest = fallbackBlocks.keys().next().value;
+            if (!oldest) break;
+            discardFallbackBlock(oldest);
+          }
+        }
         function finalizeFallback(
           blockhash: string,
           observedFinalityMs: number,
@@ -649,6 +680,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           fallbackFinalizedBlocks += 1;
           fallbackCurrentFinalityMs = observedFinalityMs;
           fallbackFinalityValues.push(observedFinalityMs);
+          if (fallbackFinalityValues.length > 48) {
+            fallbackFinalityValues.shift();
+          }
           if (fallbackState.counts[2] >= fallbackState.cyclePopulation) {
             fallbackState.cycleState = "holding";
             fallbackState.cycleAt = performance.now();
@@ -685,35 +719,32 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             if (event.type === "block_confirmed") {
               const renderedCount = Math.min(
                 event.transactionCount,
-                fallbackState.population - fallbackState.counts[1],
+                Math.max(0, fallbackState.population - fallbackState.counts[1]),
               );
               fallbackBlocks.set(event.blockhash, {
                 confirmedCount: renderedCount,
                 finalizedCount: 0,
                 confirmedAt: performance.now(),
                 optimisticallyFinalized: false,
+                actuallyFinalized: false,
               });
               fallbackState.counts[1] += renderedCount;
+              pruneFallbackBlocks(performance.now());
               reportFallback();
             }
             if (event.type === "block_orphaned") {
-              const block = fallbackBlocks.get(event.blockhash);
-              fallbackBlocks.delete(event.blockhash);
-              fallbackState.counts[1] = Math.max(
-                0,
-                fallbackState.counts[1] - (block?.confirmedCount ?? 0),
-              );
-              fallbackState.counts[2] = Math.max(
-                0,
-                fallbackState.counts[2] - (block?.finalizedCount ?? 0),
-              );
+              discardFallbackBlock(event.blockhash);
               reportFallback();
             }
             if (event.type === "block_finalized") {
+              const block = fallbackBlocks.get(event.blockhash);
+              if (block) block.actuallyFinalized = true;
               if (mode === "legacy") {
                 finalizeFallback(event.blockhash, event.observedFinalityMs);
               }
-              fallbackBlocks.delete(event.blockhash);
+              if (block?.optimisticallyFinalized) {
+                fallbackBlocks.delete(event.blockhash);
+              }
             }
           },
           setMode(value) {
@@ -731,8 +762,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               now - block.confirmedAt >= finalityMs(mode)
             ) {
               finalizeFallback(blockhash, finalityMs(mode));
+              if (block.actuallyFinalized) fallbackBlocks.delete(blockhash);
             }
           }
+          pruneFallbackBlocks(now);
         }, 50);
         onReady?.();
         const cleanup = mountFallback(hostElement, fallbackState);
@@ -951,13 +984,23 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           confirmedOrder = confirmed.length;
           const now = performance.now();
           final = final.filter((voxel) => voxel.blockhash !== event.blockhash);
-          targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
-          for (const voxel of final) {
-            voxel.finalFromPosition =
-              logoModel.points[voxel.targetIndex]?.clone() ??
-              voxel.finalFromPosition;
-            voxel.targetIndex = takeLogoTarget(voxel.seed);
-            voxel.finalEnteredAt = now;
+          if (cycleState !== "melting") {
+            targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
+            for (const voxel of final) {
+              const oldTarget = logoModel.points[voxel.targetIndex];
+              if (oldTarget) {
+                const transition = reduceMotion
+                  ? 1
+                  : ease((now - voxel.finalEnteredAt) / STAGE_TRANSITION_MS);
+                voxel.finalFromPosition = new THREE.Vector3().lerpVectors(
+                  voxel.finalFromPosition,
+                  oldTarget,
+                  transition,
+                );
+              }
+              voxel.targetIndex = takeLogoTarget(voxel.seed);
+              voxel.finalEnteredAt = now;
+            }
           }
           confirmedDirty = true;
           finalDirty = true;
