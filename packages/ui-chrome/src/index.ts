@@ -17,8 +17,9 @@ export {
 export { Footer } from "./footer";
 export { Header } from "./header";
 export { ThemeProvider } from "./theme-provider";
-export { InkeepChatButton } from "./inkeep-chat-button";
-export { InkeepSearchBar } from "./inkeep-searchbar";
+export { DocsSearchBar } from "./docs-search-bar";
+export { useDocsSearch } from "./use-docs-search";
+export type { DocsSearchResult, DocsSearchState } from "./use-docs-search";
 export { NewsletterModal } from "./newsletter-modal";
 export { CookieConsentBanner } from "./cookie-consent-banner";
 export { GoogleAnalyticsTag } from "./google-analytics-tag";

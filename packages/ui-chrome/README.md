@@ -1,8 +1,8 @@
 # @solana-com/ui-chrome
 
 Shared UI chrome for the Solana.com monorepo: Header, Footer, ThemeProvider,
-site-wide alerts, Inkeep search/chat, Link with cross-app navigation, and
-supporting components.
+site-wide alerts, docs search, Link with cross-app navigation, and supporting
+components.
 
 ## Installation
 
@@ -16,8 +16,7 @@ import {
   Footer,
   ThemeProvider,
   SitewideTopAlert,
-  InkeepChatButton,
-  InkeepSearchBar,
+  DocsSearchBar,
   NewsletterModal,
   DocsSidebarToggleIcon,
   DOCS_SIDEBAR_TOGGLE_SLOT_ID,
@@ -52,17 +51,20 @@ Provides dark/light theme context to the app.
 Announcement banner at the top of the page. Configurable via
 `sitewideTopAlertConfig` (see [Site-Wide Alerts](#site-wide-alerts)).
 
-### InkeepChatButton
+### DocsSearchBar
 
-Floating or inline button that opens the Inkeep AI search + chat modal. Requires
-`NEXT_PUBLIC_INKEEP_API_KEY`. Supports `variant`: `"fixed"` (default) or
-`"inline"`.
-
-### InkeepSearchBar
-
-Search button that opens the same Inkeep modal and displays its `⌘ K` keyboard
+Search button that opens the docs search modal and displays its `⌘ K` keyboard
 shortcut on larger viewports. The optional `expanded` prop adds a visible label
-and full-width styling.
+and full-width styling. Opens on `⌘/Ctrl-K` from anywhere, and a `?search=`
+query parameter opens it with the query seeded.
+
+### useDocsSearch
+
+The hook behind the bar: debounced, aborts superseded requests, and returns
+`{ results, resultsQuery, state }`. `resultsQuery` is the query the current
+results actually describe — after a rate-limited request the previous results
+stay on screen, so label, announce and report against it rather than against
+whatever is currently typed.
 
 ### NewsletterModal
 
@@ -101,16 +103,22 @@ Apps often re-export these from their own `utils/Link` (e.g. `apps/web`,
   under solana.com via rewrites; this keeps cross-app navigation as full loads
   and in-app as client nav. Depends on `NEXT_PUBLIC_APP_NAME` in non-web apps.
 
-## Inkeep (AI search & chat)
+## Docs search
 
-Inkeep is wired in `src/inkeep-config.ts` and used by `InkeepChatButton` and
-`InkeepSearchBar`. The modal is themed for Solana (dark/light) and uses
-`@inkeep/cxkit-react`.
+`DocsSearchBar` calls the origin-relative `/api/ask/search`, which is served by
+the proxy Route Handler in `apps/web` (`src/app/api/ask/[...path]/route.ts`).
+The browser never talks to the search service directly — it publishes no CORS
+headers, and the upstream credential is server-only.
 
-- **Env**: Set `NEXT_PUBLIC_INKEEP_API_KEY` in apps that use Inkeep (e.g. web,
-  docs).
-- **Components**: Use `InkeepChatButton` and/or `InkeepSearchBar`; no extra
-  setup in app code beyond env and layout placement.
+- **Env (web only, both server-only)**: `ASK_API_URL` and `ASK_PROXY_SECRET`.
+  Never expose either as `NEXT_PUBLIC_*`. Unset, the proxy fails closed with a
+  503 and the bar shows a quiet unavailable state.
+- **Env (other consumers)**: behind solana.com the same-origin call resolves on
+  its own. An app running on its own origin (local port, per-project preview)
+  needs `NEXT_PUBLIC_WEB_APP_URL` so its `next.config.ts` can forward
+  `/api/ask/*` to the web app; otherwise search 404s there.
+- **Components**: Use `DocsSearchBar`; no extra setup in app code beyond env and
+  layout placement.
 
 ## Site-Wide Alerts
 
@@ -175,7 +183,6 @@ import {
   Footer,
   ThemeProvider,
   SitewideTopAlert,
-  InkeepChatButton,
 } from "@solana-com/ui-chrome";
 
 export default function RootLayout({ children }) {
@@ -185,7 +192,6 @@ export default function RootLayout({ children }) {
       <Header />
       {children}
       <Footer />
-      <InkeepChatButton />
     </ThemeProvider>
   );
 }
@@ -194,4 +200,4 @@ export default function RootLayout({ children }) {
 ## Dependencies
 
 - **Peer**: `@workspace/i18n`, `next`, `next-intl`, `react`, `react-dom`
-- **Inkeep**: `@inkeep/cxkit-react`; set `NEXT_PUBLIC_INKEEP_API_KEY` where used
+- **Docs search**: no client SDK; calls `/api/ask/search` on the current origin
