@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function ScholarsApplyPage() {
   return (
     <main className={styles.page}>
-      <header className={styles.hero}>
+      <header className={`${styles.hero} ${styles.applyHero}`}>
         <p className={styles.eyebrow}>
           Application · PhD students · Open year-round
         </p>
@@ -22,9 +22,16 @@ export default function ScholarsApplyPage() {
         <p className={styles.intro}>
           Applications are short — we care about your ideas and your fit, not
           paperwork. There is no deadline; we accept applications throughout the
-          year. New here?{" "}
-          <Link href="/scholars">Read about the program first.</Link>
+          year.
         </p>
+        <Link className={styles.programLink} href="/scholars">
+          <span className={styles.programLinkLabel}>
+            Read about the program first
+          </span>
+          <span aria-hidden="true" className={styles.programLinkArrow}>
+            →
+          </span>
+        </Link>
       </header>
       <ApplyForm />
     </main>
