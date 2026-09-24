@@ -329,8 +329,24 @@ function latticeResolution(population: number) {
   return Math.max(2, Math.ceil(Math.cbrt(population)));
 }
 
-function latticePosition(index: number, population: number, stageX: number) {
-  return setLatticePosition(index, population, stageX, new THREE.Vector3());
+function packedLatticePosition(
+  index: number,
+  population: number,
+  stageX: number,
+) {
+  const resolution = latticeResolution(Math.max(population, index + 1));
+  const planeSize = resolution * resolution;
+  const x = Math.floor(index / planeSize);
+  const withinPlane = index % planeSize;
+  const y = withinPlane % resolution;
+  const z = Math.floor(withinPlane / resolution);
+  const halfExtent = 0.54 - FLOW_VOXEL_SIZE / 2;
+  const step = (halfExtent * 2) / Math.max(1, resolution - 1);
+  return new THREE.Vector3(
+    stageX + halfExtent - x * step,
+    -halfExtent + y * step,
+    -halfExtent + z * step,
+  );
 }
 
 function setLatticePosition(
@@ -910,9 +926,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         const previousPopulation = targetPopulation;
         const now = performance.now();
         for (const voxel of confirmed) {
-          voxel.fromPosition = latticePosition(
+          voxel.fromPosition = packedLatticePosition(
             voxel.order,
-            previousPopulation,
+            Math.max(previousPopulation, confirmed.length),
             STAGE_X[1],
           );
           voxel.enteredAt = now;
@@ -960,9 +976,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             targetIndex: takeLogoTarget(voxel.seed),
             seed: voxel.seed,
             finalEnteredAt: now,
-            finalFromPosition: latticePosition(
+            finalFromPosition: packedLatticePosition(
               voxel.order,
-              targetPopulation,
+              Math.max(targetPopulation, confirmed.length),
               STAGE_X[1],
             ),
           });
@@ -971,9 +987,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         if (!movedAny) return;
         const remaining = confirmed.filter((voxel) => !voxel.moved);
         remaining.forEach((voxel, order) => {
-          voxel.fromPosition = latticePosition(
+          voxel.fromPosition = packedLatticePosition(
             voxel.order,
-            targetPopulation,
+            Math.max(targetPopulation, remaining.length),
             STAGE_X[1],
           );
           voxel.order = order;
@@ -1249,9 +1265,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         if (!confirmedDirty) return;
         let animating = false;
         confirmed.forEach((voxel, index) => {
-          const target = latticePosition(
+          const target = packedLatticePosition(
             voxel.order,
-            targetPopulation,
+            Math.max(targetPopulation, confirmed.length),
             STAGE_X[1],
           );
           const progress = reduceMotion
