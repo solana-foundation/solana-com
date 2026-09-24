@@ -631,6 +631,15 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         const fallbackFinalityValues: number[] = [];
         let fallbackFinalizedBlocks = 0;
         let fallbackCurrentFinalityMs = 0;
+        function recordFallbackFinality(observedFinalityMs: number) {
+          fallbackFinalizedBlocks += 1;
+          fallbackCurrentFinalityMs = observedFinalityMs;
+          fallbackFinalityValues.push(observedFinalityMs);
+          if (fallbackFinalityValues.length > 48) {
+            fallbackFinalityValues.shift();
+          }
+          reportFallback();
+        }
         function discardFallbackBlock(blockhash: string) {
           const block = fallbackBlocks.get(blockhash);
           if (!block) return;
@@ -661,10 +670,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             fallbackBlocks.delete(oldestSettled[0]);
           }
         }
-        function finalizeFallback(
-          blockhash: string,
-          observedFinalityMs: number,
-        ) {
+        function finalizeFallback(blockhash: string) {
           const block = fallbackBlocks.get(blockhash);
           if (!block || block.optimisticallyFinalized) return;
           const moved = Math.min(
@@ -679,12 +685,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           block.confirmedCount -= moved;
           block.finalizedCount += moved;
           block.optimisticallyFinalized = true;
-          fallbackFinalizedBlocks += 1;
-          fallbackCurrentFinalityMs = observedFinalityMs;
-          fallbackFinalityValues.push(observedFinalityMs);
-          if (fallbackFinalityValues.length > 48) {
-            fallbackFinalityValues.shift();
-          }
           if (fallbackState.counts[2] >= fallbackState.cyclePopulation) {
             fallbackState.cycleState = "holding";
             fallbackState.cycleAt = performance.now();
@@ -741,10 +741,11 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               reportFallback();
             }
             if (event.type === "block_finalized") {
+              recordFallbackFinality(event.observedFinalityMs);
               const block = fallbackBlocks.get(event.blockhash);
               if (block) block.actuallyFinalized = true;
               if (mode === "legacy") {
-                finalizeFallback(event.blockhash, event.observedFinalityMs);
+                finalizeFallback(event.blockhash);
               }
               if (block?.optimisticallyFinalized) {
                 fallbackBlocks.delete(event.blockhash);
@@ -765,7 +766,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               !block.optimisticallyFinalized &&
               now - block.confirmedAt >= finalityMs(mode)
             ) {
-              finalizeFallback(blockhash, finalityMs(mode));
+              finalizeFallback(blockhash);
               if (block.actuallyFinalized) fallbackBlocks.delete(blockhash);
             }
           }
