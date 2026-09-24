@@ -104,8 +104,13 @@ export default function FinalFormExperience() {
         <div>
           <p className="ff-kicker">{t("hero.kicker")}</p>
           <h1 id="ff-title">
-            {t("hero.legacyFinality")} <span aria-hidden="true">→</span>{" "}
-            {t("hero.alpenglowFinality")}
+            {t("hero.legacyFinality")}{" "}
+            <span className="ff-finality-target">
+              <span className="ff-finality-arrow" aria-hidden="true">
+                →
+              </span>{" "}
+              {t("hero.alpenglowFinality")}
+            </span>
           </h1>
         </div>
         <div className="ff-intro">
