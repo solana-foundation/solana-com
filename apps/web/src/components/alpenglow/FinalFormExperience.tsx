@@ -82,6 +82,7 @@ export default function FinalFormExperience({
   const locale = useLocale();
   const canvasRef = useRef<FinalFormCanvasHandle>(null);
   const bufferedCanvasEventsRef = useRef<AlpenglowEvent[]>([]);
+  const latestStreamStatusRef = useRef<StreamStatus | null>(null);
   const selectedModeRef = useRef<FinalityMode>("alpenglow");
   const visualizerRef = useRef<HTMLElement>(null);
   const [mode, setMode] = useState<FinalityMode>("alpenglow");
@@ -99,10 +100,14 @@ export default function FinalFormExperience({
     [],
   );
   const pushToCanvas = useCallback((event: AlpenglowEvent) => {
+    if (event.type === "stream_status") {
+      latestStreamStatusRef.current = event;
+    }
     if (canvasRef.current) {
       canvasRef.current.push(event);
       return;
     }
+    if (event.type === "stream_status") return;
     const events = bufferedCanvasEventsRef.current;
     if (events.length >= MAX_BUFFERED_CANVAS_EVENTS) events.shift();
     events.push(event);
@@ -111,6 +116,9 @@ export default function FinalFormExperience({
     const canvas = canvasRef.current;
     if (!canvas) return;
     canvas.setMode(selectedModeRef.current);
+    if (latestStreamStatusRef.current) {
+      canvas.push(latestStreamStatusRef.current);
+    }
     for (const event of bufferedCanvasEventsRef.current) canvas.push(event);
     bufferedCanvasEventsRef.current = [];
   }, []);
