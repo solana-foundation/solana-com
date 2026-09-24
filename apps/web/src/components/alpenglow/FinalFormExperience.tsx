@@ -52,16 +52,13 @@ type FinalFormExperienceProps = {
 
 type NavigatorWithDeviceHints = Navigator & {
   connection?: { saveData?: boolean };
-  deviceMemory?: number;
 };
 
 function shouldUseStaticVisualizer() {
   const device = navigator as NavigatorWithDeviceHints;
   return (
     window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-    device.connection?.saveData === true ||
-    (device.hardwareConcurrency > 0 && device.hardwareConcurrency <= 4) ||
-    (device.deviceMemory != null && device.deviceMemory <= 4)
+    device.connection?.saveData === true
   );
 }
 

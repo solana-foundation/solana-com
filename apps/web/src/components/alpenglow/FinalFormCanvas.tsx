@@ -516,8 +516,12 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
       const dot = Math.max(1.2, size * 0.012);
       for (let index = 0; index < visible; index += 1) {
         const seed = signatureSeed(`${index}`);
-        let x = left + size * (0.15 + unit(seed, 0) * 0.72);
-        let y = top + size * (0.15 + unit(seed, 8) * 0.72);
+        const streamSeed = signatureSeed(`stream-${index}`);
+        const streamProgress = (now * 0.00055 + unit(streamSeed, 0)) % 1;
+        let x = left + size * (-0.2 + streamProgress * 1.05);
+        let y =
+          top +
+          size * (0.15 + unit(signatureSeed(`stream-y-${index}`), 0) * 0.72);
         if (stage === 1) {
           x = left + size * (0.12 + ((index % columns) / columns) * 0.76);
           y =
@@ -1134,15 +1138,34 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         output: THREE.Vector3,
       ) {
         const age = now - voxel.born;
-        const entry = ease(age / 520);
+        const entry = ease(age / 640);
+        const block = voxel.blockhash ? blocks.get(voxel.blockhash) : undefined;
+        const blockPopulation = Math.max(
+          1,
+          Math.min(
+            MAX_STAGE_VOXELS,
+            block?.transactionCount ?? targetPopulation,
+          ),
+        );
+        const target = latticePosition(
+          voxel.indexInBlock ?? voxel.seed % blockPopulation,
+          blockPopulation,
+          STAGE_X[0],
+        );
+        const entryScatter = 1 - entry;
         output.set(
-          -2.8 + entry * (0.8 + unit(voxel.seed, 0) * 0.58),
-          (unit(voxel.seed, 8) - 0.5) * 1.08,
-          (unit(voxel.seed, 16) - 0.5) * 1.08,
+          THREE.MathUtils.lerp(
+            -3.7 - unit(voxel.seed, 24) * 0.45,
+            target.x,
+            entry,
+          ),
+          target.y + (unit(voxel.seed, 8) - 0.5) * 0.22 * entryScatter,
+          target.z + (unit(voxel.seed, 16) - 0.5) * 0.22 * entryScatter,
         );
         if (!reduceMotion) {
-          output.y += Math.sin(now * 0.002 + voxel.seed) * 0.08;
-          output.z += Math.cos(now * 0.0017 + voxel.seed * 0.5) * 0.08;
+          output.y += Math.sin(now * 0.002 + voxel.seed) * 0.08 * entryScatter;
+          output.z +=
+            Math.cos(now * 0.0017 + voxel.seed * 0.5) * 0.08 * entryScatter;
         }
         return output;
       }
