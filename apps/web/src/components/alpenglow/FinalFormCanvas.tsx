@@ -21,8 +21,7 @@ const MIN_LOGO_POPULATION = 18_000;
 const COLOR_BUCKETS = 256;
 const STAGE_X = [-2, 0, 2] as const;
 const HAZE_GLYPHS = ["0", "1"] as const;
-const HAZE_COLUMNS = 120;
-const HAZE_ROWS = 62;
+const HAZE_CELL_SIZE_PX = 12;
 
 type FinalityMode = "legacy" | "alpenglow";
 type CycleState = "forming" | "holding" | "melting";
@@ -171,53 +170,64 @@ function createDigitAtlas() {
   return texture;
 }
 
-function createTransactionHaze() {
+function createTransactionHaze(width: number, height: number) {
   const group = new THREE.Group();
   const materials: THREE.ShaderMaterial[] = [];
   const textures: THREE.Texture[] = [];
-  const geometries: THREE.BufferGeometry[] = [];
   group.position.z = -2.8;
 
-  const positions: number[] = [];
-  const seeds: number[] = [];
-  const densities: number[] = [];
-  for (let row = 0; row < HAZE_ROWS; row += 1) {
-    for (let column = 0; column < HAZE_COLUMNS; column += 1) {
-      const cell = row * HAZE_COLUMNS + column;
-      const seed = signatureSeed(`haze-${cell}`);
-      const x = -1 + (column / (HAZE_COLUMNS - 1)) * 2;
-      const y = 1 - (row / (HAZE_ROWS - 1)) * 2;
-      const main = Math.exp(
-        -Math.pow((x - 0.24) / 0.42, 2) - Math.pow((y + 0.02) / 0.62, 2),
-      );
-      const base = Math.exp(
-        -Math.pow((x + 0.24) / 0.86, 2) - Math.pow((y + 0.58) / 0.3, 2),
-      );
-      const shoulder = Math.exp(
-        -Math.pow((x + 0.56) / 0.32, 2) - Math.pow((y + 0.22) / 0.46, 2),
-      );
-      const edge = Math.min(1 - Math.abs(x), 1 - Math.abs(y));
-      const vignette = Math.max(0, Math.min(1, (edge - 0.08) / 0.2));
-      const density = Math.min(
-        1,
-        (0.06 + main * 0.9 + base * 0.66 + shoulder * 0.34) * vignette,
-      );
-      positions.push(x, y, 0);
-      seeds.push(unit(seed, 0));
-      densities.push(density);
+  function createGeometry(columns: number, rows: number) {
+    const positions: number[] = [];
+    const seeds: number[] = [];
+    const densities: number[] = [];
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        const seed = signatureSeed(`haze-${row}-${column}`);
+        const x = -1 + (column / (columns - 1)) * 2;
+        const y = 1 - (row / (rows - 1)) * 2;
+        const main = Math.exp(
+          -Math.pow((x - 0.24) / 0.42, 2) - Math.pow((y + 0.02) / 0.62, 2),
+        );
+        const base = Math.exp(
+          -Math.pow((x + 0.24) / 0.86, 2) - Math.pow((y + 0.58) / 0.3, 2),
+        );
+        const shoulder = Math.exp(
+          -Math.pow((x + 0.56) / 0.32, 2) - Math.pow((y + 0.22) / 0.46, 2),
+        );
+        const edge = Math.min(1 - Math.abs(x), 1 - Math.abs(y));
+        const vignette = Math.max(0, Math.min(1, (edge - 0.08) / 0.2));
+        const density = Math.min(
+          1,
+          (0.06 + main * 0.9 + base * 0.66 + shoulder * 0.34) * vignette,
+        );
+        positions.push(x, y, 0);
+        seeds.push(unit(seed, 0));
+        densities.push(density);
+      }
     }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(positions, 3),
+    );
+    geometry.setAttribute("aSeed", new THREE.Float32BufferAttribute(seeds, 1));
+    geometry.setAttribute(
+      "aDensity",
+      new THREE.Float32BufferAttribute(densities, 1),
+    );
+    return geometry;
   }
 
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(positions, 3),
-  );
-  geometry.setAttribute("aSeed", new THREE.Float32BufferAttribute(seeds, 1));
-  geometry.setAttribute(
-    "aDensity",
-    new THREE.Float32BufferAttribute(densities, 1),
-  );
+  function gridSize(pixelWidth: number, pixelHeight: number) {
+    return {
+      columns: Math.max(2, Math.ceil(pixelWidth / HAZE_CELL_SIZE_PX) + 1),
+      rows: Math.max(2, Math.ceil(pixelHeight / HAZE_CELL_SIZE_PX) + 1),
+    };
+  }
+
+  let grid = gridSize(width, height);
+  const geometry = createGeometry(grid.columns, grid.rows);
   const texture = createDigitAtlas();
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -280,9 +290,26 @@ function createTransactionHaze() {
   group.add(points);
   materials.push(material);
   textures.push(texture);
-  geometries.push(geometry);
 
-  return { group, materials, textures, geometries };
+  return {
+    group,
+    materials,
+    textures,
+    resize(pixelWidth: number, pixelHeight: number) {
+      const nextGrid = gridSize(pixelWidth, pixelHeight);
+      if (nextGrid.columns === grid.columns && nextGrid.rows === grid.rows) {
+        return;
+      }
+      points.geometry.dispose();
+      points.geometry = createGeometry(nextGrid.columns, nextGrid.rows);
+      grid = nextGrid;
+    },
+    dispose() {
+      points.geometry.dispose();
+      materials.forEach((hazeMaterial) => hazeMaterial.dispose());
+      textures.forEach((hazeTexture) => hazeTexture.dispose());
+    },
+  };
 }
 
 function latticeResolution(population: number) {
@@ -635,7 +662,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
       renderer.setClearColor(0x000000, 0);
       hostElement.appendChild(renderer.domElement);
-      const transactionHaze = createTransactionHaze();
+      const transactionHaze = createTransactionHaze(
+        hostElement.clientWidth,
+        hostElement.clientHeight,
+      );
       scene.add(transactionHaze.group);
 
       const voxelGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -853,6 +883,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         camera.aspect = width / Math.max(height, 1);
         camera.fov = width < 720 ? 52 : 34;
         camera.updateProjectionMatrix();
+        transactionHaze.resize(width, height);
         sizeTransactionHaze();
       }
 
@@ -1154,9 +1185,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         streamingMaterial.dispose();
         confirmedMaterial.dispose();
         finalMaterial.dispose();
-        transactionHaze.materials.forEach((material) => material.dispose());
-        transactionHaze.textures.forEach((texture) => texture.dispose());
-        transactionHaze.geometries.forEach((geometry) => geometry.dispose());
+        transactionHaze.dispose();
         scene.traverse((object3d) => {
           if (object3d instanceof THREE.LineSegments) {
             object3d.geometry.dispose();

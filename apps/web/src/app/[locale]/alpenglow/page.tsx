@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import FinalFormExperience from "@/components/alpenglow/FinalFormExperience";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "@workspace/i18n/server";
+import { fetchAlpenglowNews } from "@/lib/media/alpenglow-news";
 import { buildAlpenglowJsonLd, serializeJsonLd } from "./structured-data";
 
 type Props = {
@@ -10,8 +11,10 @@ type Props = {
 
 const PAGE_PATH = "/alpenglow";
 
+export const revalidate = 60;
+
 export default async function AlpenglowPage({ params }: Props) {
-  const { locale } = await params;
+  const [{ locale }, news] = await Promise.all([params, fetchAlpenglowNews()]);
   const t = await getTranslations({ locale, namespace: "alpenglow.metadata" });
   const alternates = getAlternates(PAGE_PATH, locale);
   const title = t("title");
@@ -32,7 +35,7 @@ export default async function AlpenglowPage({ params }: Props) {
           ),
         }}
       />
-      <FinalFormExperience />
+      <FinalFormExperience news={news} />
     </>
   );
 }

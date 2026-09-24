@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-html-link-for-pages -- /upgrades is owned by the media app and requires a full navigation. */
+/* eslint-disable @next/next/no-html-link-for-pages -- /upgrades and /news are owned by the media app and require a full navigation. */
 "use client";
 
 import { Broadcast } from "@boxicons/react/Broadcast";
@@ -11,7 +11,9 @@ import { Server } from "@boxicons/react/Server";
 import { User } from "@boxicons/react/User";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Button } from "@workspace/ui";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { NewsItem } from "@/components/solutions/latest-news.v2";
 import { FinalFormCanvas } from "./FinalFormCanvas";
 import type {
   ArtworkTelemetry,
@@ -38,7 +40,13 @@ const EMPTY_RPC_TELEMETRY: RpcTelemetry = {
   nonVoteTps: 0,
 };
 
-export default function FinalFormExperience() {
+type FinalFormExperienceProps = {
+  news: NewsItem[];
+};
+
+export default function FinalFormExperience({
+  news,
+}: FinalFormExperienceProps) {
   const t = useTranslations("alpenglow");
   const locale = useLocale();
   const canvasRef = useRef<FinalFormCanvasHandle>(null);
@@ -334,18 +342,52 @@ export default function FinalFormExperience() {
         </div>
       </section>
       <section className="ff-read-more" aria-labelledby="ff-read-more-title">
-        <p className="ff-kicker">{t("readMore.kicker")}</p>
-        <h2 id="ff-read-more-title">{t("readMore.title")}</h2>
-        <Button
-          asChild
-          variant="outline"
-          size="lg"
-          className="ff-read-more-button rounded-none border-white bg-white font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-black shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
-        >
-          <a href="/upgrades/alpenglow">
-            {t("actions.readGuide")} <span aria-hidden="true">↗</span>
-          </a>
-        </Button>
+        <div className="ff-read-more-copy">
+          <p className="ff-kicker">{t("readMore.kicker")}</p>
+          <h2 id="ff-read-more-title">{t("readMore.title")}</h2>
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="ff-read-more-button rounded-none border-white bg-white font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-black shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
+          >
+            <a href="/upgrades/alpenglow">
+              {t("actions.readGuide")} <span aria-hidden="true">↗</span>
+            </a>
+          </Button>
+        </div>
+        {news.length > 0 && (
+          <div className="ff-related-news" aria-label="Related Alpenglow news">
+            {news.map((article) => (
+              <a className="ff-news-card" href={article.link} key={article.id}>
+                <div className="ff-news-image">
+                  <Image
+                    src={article.image}
+                    alt=""
+                    fill
+                    sizes="(max-width: 959px) 100vw, 33vw"
+                  />
+                </div>
+                <div className="ff-news-meta">
+                  <span>{t("readMore.newsLabel")}</span>
+                  {article.date && (
+                    <time dateTime={article.date}>
+                      {new Intl.DateTimeFormat(locale, {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      }).format(new Date(article.date))}
+                    </time>
+                  )}
+                </div>
+                <h3>{article.title}</h3>
+                <span className="ff-news-arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            ))}
+          </div>
+        )}
       </section>
       <div className="ff-sr-summary" aria-live="polite">
         {t("liveData.summary", {
