@@ -834,6 +834,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
 
       let mode: FinalityMode = "alpenglow";
       let tps = 3_000;
+      let sampledStream = false;
       let targetPopulation = populationFor(tps, mode);
       let cyclePopulation = Math.max(targetPopulation, MIN_LOGO_POPULATION);
       let logoModel = createLogoModel(cyclePopulation);
@@ -959,6 +960,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       }
 
       function push(event: AlpenglowEvent) {
+        if (event.type === "stream_status") {
+          sampledStream = event.sampled;
+          return;
+        }
         if (event.type === "transaction_observed") {
           if (pending.length - pendingIndex >= MAX_PENDING_TRANSACTIONS) {
             pendingIndex += 1;
@@ -1159,7 +1164,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           ),
         );
         setLatticePosition(
-          voxel.seed % blockPopulation,
+          sampledStream
+            ? voxel.seed % blockPopulation
+            : (voxel.indexInBlock ?? voxel.seed) % blockPopulation,
           blockPopulation,
           STAGE_X[0],
           output,
