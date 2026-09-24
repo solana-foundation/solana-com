@@ -126,15 +126,31 @@ infrastructure, block builders
 ([details](#breaking-change-one-slot-can-contain-more-than-one-bank)):
 
 - Regenerate your protobuf stubs from the
-  [`4.3-transition` proto](https://github.com/rpcpool/yellowstone-grpc/blob/4.3-transition/yellowstone-grpc-proto/proto/geyser.proto)
+  [`v16.0.0-rc10+solana.4.3.0` proto](https://github.com/rpcpool/yellowstone-grpc/blob/v16.0.0-rc10%2Bsolana.4.3.0/yellowstone-grpc-proto/proto/geyser.proto)
   to pick up `bank_id` on transaction, account, slot-status, entry, and
   block-meta updates. It is `optional` on the slot and account messages.
 - Key your buffers on `(slot, bank_id)` rather than on `slot` alone.
 - Promote the first bank to reach `Confirmed`; drop the rest.
 - If you use Yellowstone's block subscription, upgrading is the whole migration
-  — it buffers on your behalf. Watch the
+  — it buffers on your behalf. The first build against Agave 4.3.0 is
+  [`v16.0.0-rc10+solana.4.3.0`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc10%2Bsolana.4.3.0), published September 22, 2026. It is a release
+  candidate; watch the
   [Yellowstone releases](https://github.com/rpcpool/yellowstone-grpc/releases)
-  for the first `+solana.4.3.x` build; none is published yet.
+  for the final v16.0.0.
+
+**If you maintain a Geyser plugin** — RPC providers, custom indexers compiled
+into the validator
+([details](#breaking-change-geyser-callbacks-become-bank-aware)):
+
+- Move off the four legacy callbacks. Agave 4.3 deprecates `update_account`,
+  `notify_transaction`, `notify_entry`, and `notify_block_metadata`, and slates
+  them for removal in the next major release. The replacements carry a
+  `bank_id`.
+- If you consume entries or deshredded transactions, handle the two new
+  UpdateParent callbacks. They name a bank whose earlier notifications you must
+  discard.
+- If you need Alpenglow consensus metadata such as certificates, opt into
+  `notify_block_footer`.
 
 **If you fan in multiple RPC or gRPC providers for redundancy**
 ([details](#breaking-change-merging-streams-from-multiple-providers)):
@@ -161,7 +177,9 @@ infrastructure, block builders
 - Re-baseline transaction counts and TPS dashboards. Vote transactions vanish
   from blocks, so the number drops sharply without any drop in real activity.
 - Replace anything that reads validator participation out of Vote program
-  instructions. It now lives in the block footer's certificates.
+  instructions. It now lives in the block footer's certificates, which reach
+  you through Geyser's footer callback. Yellowstone's gRPC footer message does
+  not forward them yet.
 
 **If you read time from the ledger** — tick counting in shreds or entries, or
 `Clock.unix_timestamp` in a program
@@ -265,7 +283,11 @@ guarantee. Geyser itself promises none, and never has: the plugin hooks take
 channels and are consumed on different threads, and block meta can reach you
 ahead of the last few transactions of its own block. `processed` is no less
 reliable than before; what is new is that Yellowstone now reorders for you at
-`confirmed` and `finalized`.
+`confirmed` and `finalized`. One new case at `processed`: under fast leader
+handoff a leader can abandon the bank it started and re-parent through an
+UpdateParent marker. Events from the abandoned bank have already reached
+`processed` subscribers by then, and the bank simply never reaches `Confirmed`.
+Buffering per `(slot, bank_id)` handles it; keying on slot alone does not.
 
 When you wire this to generated types, note that `bank_id` is a plain `uint64`
 on transaction, entry, block-meta and block updates but **`optional`** on
@@ -274,15 +296,15 @@ on transaction, entry, block-meta and block updates but **`optional`** on
 and WebSocket methods do not expose banks and are unchanged, so no SDK update
 is needed for it.
 
-The field is not in a tagged Yellowstone release yet. It lives on the
-`4.3-transition` branch, which is at release-candidate stage. Yellowstone tags
-each release against the Agave version it targets (`+solana.4.2.2`,
-`+solana.4.3.x`, and so on), so watch for the first
-[`+solana.4.3.x` release](https://github.com/rpcpool/yellowstone-grpc/releases)
-and generate from the [4.3-transition branch](https://github.com/rpcpool/yellowstone-grpc/tree/4.3-transition)
-until the release. It will arrive before providers move their nodes to 4.3, because a Geyser plugin is compiled against the validator's
-own crates: for 4.2, the matching Yellowstone release was published the same
-day Anza recommended general mainnet adoption.
+`bank_id` is in a tagged Yellowstone release. Yellowstone tags each release
+against the Agave version it targets (`+solana.4.2.2`, `+solana.4.3.0`, and so
+on). [`v16.0.0-rc9+solana.4.3.0.rc.1`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc9%2Bsolana.4.3.0.rc.1) on September 17, 2026 added
+the block footer message, and [`v16.0.0-rc10+solana.4.3.0`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc10%2Bsolana.4.3.0) on September 22 pinned the
+build to the Agave 4.3.0 release. Both are release candidates. Generate your
+stubs from the [release tag's proto](https://github.com/rpcpool/yellowstone-grpc/blob/v16.0.0-rc10%2Bsolana.4.3.0/yellowstone-grpc-proto/proto/geyser.proto) rather than from the
+`4.3-transition` branch, and watch the
+[releases page](https://github.com/rpcpool/yellowstone-grpc/releases) for the
+final v16.0.0.
 
 Yellowstone's own implementation is
 [`block_reconstruction_v2.rs`](https://github.com/rpcpool/yellowstone-grpc/blob/4.3-transition/yellowstone-grpc-geyser/src/block_reconstruction_v2.rs)
@@ -294,6 +316,57 @@ on the same branch. Read the doc comments as well as the code; between them
 they implement the sealing rules above. If you subscribe to blocks rather than
 reassembling them from individual updates, upgrading is the whole migration,
 because the buffering happens on the provider's side.
+
+</Audience>
+
+<Audience title="For Geyser Plugin Authors" summary="Agave 4.3 deprecates the legacy callbacks. The replacements carry bank_id, and two new callbacks tell you what to discard.">
+
+### Breaking Change: Geyser Callbacks Become Bank-Aware
+
+This section is for anyone who compiles a plugin against the validator's
+[Geyser interface](https://github.com/anza-xyz/agave/blob/v4.3.0/geyser-plugin-interface/src/geyser_plugin_interface.rs). If you consume Yellowstone or another gRPC
+provider, the provider's plugin does this work for you, and the
+[streaming section](#breaking-change-one-slot-can-contain-more-than-one-bank)
+above is what applies.
+
+Agave 4.3 adds bank-aware versions of the data callbacks and deprecates the old
+ones. The legacy methods still fire in 4.3, but the
+[4.3.0 changelog](https://github.com/anza-xyz/agave/blob/master/CHANGELOG.md) slates them for removal in the next major
+release.
+
+| Deprecated in 4.3       | Use instead                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `update_account`        | `update_account_from_snapshot` for accounts loaded at startup, `update_account_for_bank` for updates during replay |
+| `notify_transaction`    | `notify_transaction_for_bank`                                                                                      |
+| `notify_entry`          | `notify_entry_for_bank`                                                                                            |
+| `notify_block_metadata` | `notify_block_metadata_for_bank`                                                                                   |
+
+`update_slot_status` stays. `update_bank_status` joins it for the statuses that
+belong to one bank: `CreatedBank`, `Processed`, `Confirmed`, and `Rooted`.
+
+Two callbacks are new rather than replacements:
+
+- **UpdateParent.** Under fast leader handoff, a leader can start building on
+  one parent and then switch, emitting an UpdateParent marker that clears the
+  bank it had started. `notify_entry_update_parent` fires when that happens and
+  names the cleared bank ID. `notify_deshred_update_parent` does the same for
+  deshredded transactions, ahead of the data set that begins at the marker.
+  Entry notifications can race the callback, so reconcile on the cleared bank
+  ID rather than assuming everything you already hold for that bank is valid.
+  If you buffer per `bank_id`, this is one buffer drop.
+- **Block footer.** `notify_block_footer` delivers the complete versioned
+  Alpenglow footer with its slot and bank ID, ordered relative to entry
+  notifications. It is off by default; return `true` from
+  `block_footer_notifications_enabled` to receive it. This is where the
+  certificates described under [Finality Under Votor](#finality-under-votor) come from.
+
+For reference, Yellowstone's own plugin at `v16.0.0-rc10+solana.4.3.0` implements the bank-aware
+callbacks and the footer callback but not the two UpdateParent callbacks. It
+relies on per-`bank_id` buffering and on the fact that only the confirmed bank
+is ever sealed. Its gRPC footer message, `SubscribeUpdateBlockFooter`, forwards
+the slot, `bank_id`, bank hash, producer time, and user agent, but not the
+certificates. If you need certificates over gRPC today, that still takes a
+plugin of your own.
 
 </Audience>
 
