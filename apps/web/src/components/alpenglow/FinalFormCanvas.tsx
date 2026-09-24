@@ -18,8 +18,12 @@ const ALPENGLOW_FINALITY_SECONDS = 0.15;
 const STREAM_HOLD_MS = 900;
 const STAGE_TRANSITION_MS = 850;
 const MELT_DURATION_MS = 3_200;
-const VOXEL_SIZE = 0.024;
-const MIN_LOGO_POPULATION = 18_000;
+const MELT_RELEASE_SPREAD_MS = 280;
+const MELT_GRAVITY = 1.25;
+const MELT_SHRINK_START = 0.72;
+const FLOW_VOXEL_SIZE = 0.016;
+const FINAL_VOXEL_SIZE = 0.032;
+const MIN_LOGO_POPULATION = 8_000;
 const COLOR_BUCKETS = 256;
 const STAGE_X = [-2, 0, 2] as const;
 const HAZE_GLYPHS = ["0", "1"] as const;
@@ -1230,7 +1234,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             now * 0.0013 + unit(voxel.seed, 8) * Math.PI,
             unit(voxel.seed, 16) * Math.PI,
           );
-          object.scale.setScalar(VOXEL_SIZE);
+          object.scale.setScalar(FLOW_VOXEL_SIZE);
           object.updateMatrix();
           streamingMesh.setMatrixAt(index, object.matrix);
           streamingMesh.setColorAt(index, setSolanaColor(voxel.seed, color));
@@ -1256,7 +1260,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           position.lerpVectors(voxel.fromPosition, target, progress);
           object.position.copy(position);
           object.rotation.set(0, 0, 0);
-          object.scale.setScalar(VOXEL_SIZE);
+          object.scale.setScalar(FLOW_VOXEL_SIZE);
           object.updateMatrix();
           confirmedMesh.setMatrixAt(index, object.matrix);
           confirmedMesh.setColorAt(index, setSolanaColor(voxel.seed, color));
@@ -1280,7 +1284,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           position.lerpVectors(voxel.finalFromPosition, target, transition);
           object.position.copy(position);
           object.rotation.set(0, 0, 0);
-          object.scale.setScalar(VOXEL_SIZE);
+          object.scale.setScalar(
+            THREE.MathUtils.lerp(FLOW_VOXEL_SIZE, FINAL_VOXEL_SIZE, transition),
+          );
           object.updateMatrix();
           finalMesh.setMatrixAt(index, object.matrix);
           finalMesh.setColorAt(index, setSolanaColor(voxel.seed, color));
@@ -1295,7 +1301,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
 
       function renderMelting(now: number) {
         if (!melting.length || !meltingLogoModel) return;
-        const melt = Math.min(1, (now - meltStartedAt) / MELT_DURATION_MS);
         melting.forEach((voxel, index) => {
           const target = meltingLogoModel?.points[voxel.targetIndex];
           if (!target) return;
@@ -1303,16 +1308,33 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             ? 1
             : ease((now - voxel.finalEnteredAt) / STAGE_TRANSITION_MS);
           position.lerpVectors(voxel.finalFromPosition, target, transition);
-          position.x += (unit(voxel.seed, 0) - 0.5) * melt * 0.52;
-          position.y -= melt * melt * (0.7 + unit(voxel.seed, 8) * 0.7);
-          position.z += (unit(voxel.seed, 16) - 0.5) * melt * 0.7;
+          const releaseDelay = unit(voxel.seed, 24) * MELT_RELEASE_SPREAD_MS;
+          const fallingMs = Math.max(0, now - meltStartedAt - releaseDelay);
+          const fallingSeconds = fallingMs / 1_000;
+          const melt = Math.min(
+            1,
+            fallingMs / (MELT_DURATION_MS - MELT_RELEASE_SPREAD_MS),
+          );
+          position.x += (unit(voxel.seed, 0) - 0.5) * fallingSeconds * 0.22;
+          position.y -=
+            0.5 *
+            MELT_GRAVITY *
+            (0.85 + unit(voxel.seed, 8) * 0.3) *
+            fallingSeconds *
+            fallingSeconds;
+          position.z += (unit(voxel.seed, 16) - 0.5) * fallingSeconds * 0.28;
           object.position.copy(position);
           object.rotation.set(
-            melt * unit(voxel.seed, 0) * 4,
-            melt * unit(voxel.seed, 8) * 4,
-            melt * unit(voxel.seed, 16) * 4,
+            fallingSeconds * (0.8 + unit(voxel.seed, 0) * 2.4),
+            fallingSeconds * (0.8 + unit(voxel.seed, 8) * 2.4),
+            fallingSeconds * (0.8 + unit(voxel.seed, 16) * 2.4),
           );
-          object.scale.setScalar(VOXEL_SIZE * Math.max(0.001, 1 - ease(melt)));
+          const shrink = ease(
+            Math.max(0, (melt - MELT_SHRINK_START) / (1 - MELT_SHRINK_START)),
+          );
+          object.scale.setScalar(
+            FINAL_VOXEL_SIZE * Math.max(0.001, 1 - shrink),
+          );
           object.updateMatrix();
           meltingMesh.setMatrixAt(index, object.matrix);
           meltingMesh.setColorAt(index, setSolanaColor(voxel.seed, color));
