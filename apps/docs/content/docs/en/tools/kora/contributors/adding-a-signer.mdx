@@ -272,14 +272,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Integration Tests
 
-Kora uses a unified test runner (`tests/src/bin/test_runner.rs`) that manages
-all integration testing phases including TypeScript tests. To add tests for your
-new signer:
+Each integration phase is its own `[[test]]` target in `tests/Cargo.toml`. Every
+target boots an embedded surfnet plus a Kora node through `harness_context`,
+seeded from scratch. Kora keeps config in process-global state, so a new signer
+needs a new target rather than a new module in an existing one.
 
-#### 1. Add Test Configuration
+#### 1. Add a Signer Fixture
 
-Create a new signer configuration file in `tests/src/common/fixtures/` for your
-service:
+Create a signer configuration in `tests/src/common/fixtures/`:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -294,47 +294,50 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Add Test Phase to Test Runner
+#### 2. Add a Test Target
 
-Update `tests/src/test_runner/test_cases.toml` to include a test phase for your
-signer:
+Register the phase in `tests/Cargo.toml`:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Then create `tests/your_service/main.rs`, pointing the harness at your fixture:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::{harness_context, KoraSpec, TestContext};
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+```
+
+`tests/multi_signer/main.rs` is a complete example to copy from.
 
 #### 3. Running Tests
 
-Make sure your environment is set up:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Run tests using the unified test runner:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Documentation Requirements
@@ -397,7 +400,7 @@ Add your service to the main README's signer list.
 - [ ] Exported configuration struct in `mod.rs`
 - [ ] (Optional) Added test mock builder method in `config_mock.rs`
 - [ ] Code compiles without warnings
-- [ ] All tests pass (`make test` and `make test-integration`)
+- [ ] All tests pass (`just test`)
 - [ ] Documentation added following
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] Example configuration files created (`.toml` and `.env.example`)
