@@ -327,6 +327,15 @@ function latticeResolution(population: number) {
 }
 
 function latticePosition(index: number, population: number, stageX: number) {
+  return setLatticePosition(index, population, stageX, new THREE.Vector3());
+}
+
+function setLatticePosition(
+  index: number,
+  population: number,
+  stageX: number,
+  output: THREE.Vector3,
+) {
   const resolution = latticeResolution(population);
   const cell = index % Math.pow(resolution, 3);
   const planeSize = resolution * resolution;
@@ -335,7 +344,7 @@ function latticePosition(index: number, population: number, stageX: number) {
   const y = withinPlane % resolution;
   const z = Math.floor(withinPlane / resolution);
   const step = 1.08 / Math.max(1, resolution - 1);
-  return new THREE.Vector3(
+  return output.set(
     stageX + 0.54 - x * step,
     -0.54 + y * step,
     -0.54 + z * step,
@@ -516,19 +525,21 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
       const dot = Math.max(1.2, size * 0.012);
       for (let index = 0; index < visible; index += 1) {
         const seed = signatureSeed(`${index}`);
-        const streamSeed = signatureSeed(`stream-${index}`);
-        const streamProgress = (now * 0.00055 + unit(streamSeed, 0)) % 1;
-        let x = left + size * (-0.2 + streamProgress * 1.05);
-        let y =
-          top +
-          size * (0.15 + unit(signatureSeed(`stream-y-${index}`), 0) * 0.72);
-        if (stage === 1) {
+        let x: number;
+        let y: number;
+        if (stage === 0) {
+          const streamSeed = signatureSeed(`stream-${index}`);
+          const streamProgress = (now * 0.00055 + unit(streamSeed, 0)) % 1;
+          x = left + size * (-0.2 + streamProgress * 1.05);
+          y =
+            top +
+            size * (0.15 + unit(signatureSeed(`stream-y-${index}`), 0) * 0.72);
+        } else if (stage === 1) {
           x = left + size * (0.12 + ((index % columns) / columns) * 0.76);
           y =
             top +
             size * (0.12 + (Math.floor(index / columns) / columns) * 0.76);
-        }
-        if (stage === 2) {
+        } else {
           const band = Math.floor((index / visible) * 3);
           const bandCount = Math.ceil(visible / 3);
           const bandColumns = Math.max(3, Math.ceil(Math.sqrt(bandCount * 4)));
@@ -1147,20 +1158,24 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             block?.transactionCount ?? targetPopulation,
           ),
         );
-        const target = latticePosition(
-          voxel.indexInBlock ?? voxel.seed % blockPopulation,
+        setLatticePosition(
+          voxel.seed % blockPopulation,
           blockPopulation,
           STAGE_X[0],
+          output,
         );
+        const targetX = output.x;
+        const targetY = output.y;
+        const targetZ = output.z;
         const entryScatter = 1 - entry;
         output.set(
           THREE.MathUtils.lerp(
             -3.7 - unit(voxel.seed, 24) * 0.45,
-            target.x,
+            targetX,
             entry,
           ),
-          target.y + (unit(voxel.seed, 8) - 0.5) * 0.22 * entryScatter,
-          target.z + (unit(voxel.seed, 16) - 0.5) * 0.22 * entryScatter,
+          targetY + (unit(voxel.seed, 8) - 0.5) * 0.22 * entryScatter,
+          targetZ + (unit(voxel.seed, 16) - 0.5) * 0.22 * entryScatter,
         );
         if (!reduceMotion) {
           output.y += Math.sin(now * 0.002 + voxel.seed) * 0.08 * entryScatter;
