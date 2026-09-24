@@ -206,6 +206,9 @@ const navigationHubStaticConfigs = {
             href: "/solutions/enterprise",
           },
           {
+            href: "/solutions/enterprise/faq",
+          },
+          {
             href: "/solutions/institutional-payments",
           },
           {

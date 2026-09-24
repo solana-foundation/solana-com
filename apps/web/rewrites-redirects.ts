@@ -210,11 +210,11 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   // getstarted/* → payments, tools, cookbook
   {
     source: "/developers/guides/getstarted/intro-to-x402",
-    destination: "/docs/payments/agentic-payments/intro-to-x402",
+    destination: "/docs/payments/agentic-payments/x402",
   },
   {
     source: "/developers/guides/getstarted/build-a-x402-facilitator",
-    destination: "/docs/payments/agentic-payments/x402-facilitator",
+    destination: "/docs/tools/x402-facilitator",
   },
   {
     source: "/developers/guides/getstarted/intro-to-ai",
@@ -248,6 +248,18 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
 ]);
 
 const movedDocsRedirects: RedirectInput[] = withMdVariants([
+  {
+    source: "/docs/payments/agentic-payments/intro-to-x402",
+    destination: "/docs/payments/agentic-payments/x402",
+  },
+  {
+    source: "/docs/payments/agentic-payments/x402-quickstart",
+    destination: "/docs/payments/agentic-payments/x402/making-a-payment",
+  },
+  {
+    source: "/docs/payments/agentic-payments/x402-facilitator",
+    destination: "/docs/tools/x402-facilitator",
+  },
   {
     source: "/docs/tools/ai",
     destination: "/docs/intro/coding-with-agents",
@@ -496,6 +508,11 @@ export default {
       {
         source: "/:locale/upgrades/:path+",
         destination: `${MEDIA_APP_URL}/:locale/upgrades/:path+`,
+        locale: false,
+      },
+      {
+        source: "/api/changelog/:path*",
+        destination: `${MEDIA_APP_URL}/api/changelog/:path*`,
         locale: false,
       },
       {
@@ -1686,22 +1703,32 @@ export default {
       source: "/docs/references/feature-gates/consume-cus-on-sbpf-failure",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0182-conditional-cu-metering.md",
+      permanent: true,
     },
     {
       source: "/docs/references/feature-gates/direct-mapping",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md",
+      permanent: true,
     },
     {
       source: "/docs/references/feature-gates/reserve-minimal-cus-for-builtins",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md",
+      permanent: true,
     },
     {
       source:
         "/docs/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0138-deprecate-legacy-vote-instructions.md",
+      permanent: true,
+    },
+    {
+      source: "/docs/references/feature-gates/:path*",
+      destination:
+        "https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule",
+      permanent: true,
     },
     {
       source: "/developers/cookbook/tokens/approve-token-delegate",
