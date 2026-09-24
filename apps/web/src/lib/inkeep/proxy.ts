@@ -386,7 +386,11 @@ function createUpstreamAbortSignal(requestSignal: AbortSignal) {
   const controller = new AbortController();
   let didTimeOut = false;
   const abortFromRequest = () => controller.abort(requestSignal.reason);
-  requestSignal.addEventListener("abort", abortFromRequest, { once: true });
+  if (requestSignal.aborted) {
+    abortFromRequest();
+  } else {
+    requestSignal.addEventListener("abort", abortFromRequest, { once: true });
+  }
   const timeout = setTimeout(() => {
     didTimeOut = true;
     controller.abort(
