@@ -9,6 +9,7 @@ import { Lock } from "@boxicons/react/Lock";
 import { NetworkChart } from "@boxicons/react/NetworkChart";
 import { Server } from "@boxicons/react/Server";
 import { User } from "@boxicons/react/User";
+import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Button } from "@workspace/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FinalFormCanvas } from "./FinalFormCanvas";
@@ -19,13 +20,11 @@ import type {
 import type { AlpenglowEvent, StreamStatus } from "./types";
 
 type FinalityMode = "legacy" | "alpenglow";
-
 type RpcTelemetry = {
   confirmedSlot: number;
   latestBlockTransactions: number;
   nonVoteTps: number;
 };
-
 const EMPTY_TELEMETRY: ArtworkTelemetry = {
   holding: 0,
   rendered: 0,
@@ -33,39 +32,33 @@ const EMPTY_TELEMETRY: ArtworkTelemetry = {
   currentFinalityMs: 0,
   medianFinalityMs: 0,
 };
-
 const EMPTY_RPC_TELEMETRY: RpcTelemetry = {
   confirmedSlot: 0,
   latestBlockTransactions: 0,
   nonVoteTps: 0,
 };
 
-function formatDuration(ms: number) {
-  if (!ms) return "—";
-  return ms < 1_000 ? `${Math.round(ms)} ms` : `${(ms / 1_000).toFixed(1)} s`;
-}
-
 export default function FinalFormExperience() {
+  const t = useTranslations("alpenglow");
+  const locale = useLocale();
   const canvasRef = useRef<FinalFormCanvasHandle>(null);
   const [mode, setMode] = useState<FinalityMode>("alpenglow");
   const [telemetry, setTelemetry] = useState(EMPTY_TELEMETRY);
   const [rpcTelemetry, setRpcTelemetry] = useState(EMPTY_RPC_TELEMETRY);
   const [tps, setTps] = useState(0);
   const [status, setStatus] = useState<StreamStatus["status"]>("connecting");
+  const number = new Intl.NumberFormat(locale);
 
   const handleTelemetry = useCallback(
     (value: ArtworkTelemetry) => setTelemetry(value),
     [],
   );
-
   useEffect(() => {
     const source = new EventSource("/api/alpenglow/stream");
     source.onmessage = (message) => {
       try {
         const event = JSON.parse(message.data) as AlpenglowEvent;
-        if (event.type === "stream_status") {
-          setStatus(event.status);
-        }
+        if (event.type === "stream_status") setStatus(event.status);
         if (event.type === "performance_sample") {
           setTps(Math.round(event.totalTps));
           setRpcTelemetry((current) => ({
@@ -73,13 +66,12 @@ export default function FinalFormExperience() {
             nonVoteTps: Math.round(event.nonVoteTps ?? 0),
           }));
         }
-        if (event.type === "block_confirmed") {
+        if (event.type === "block_confirmed")
           setRpcTelemetry((current) => ({
             ...current,
             confirmedSlot: event.slot,
             latestBlockTransactions: event.transactionCount,
           }));
-        }
         canvasRef.current?.push(event);
       } catch {
         setStatus("reconnecting");
@@ -93,206 +85,185 @@ export default function FinalFormExperience() {
     setMode(value);
     canvasRef.current?.setMode(value);
   }
+  function formatDuration(ms: number) {
+    if (!ms) return "—";
+    return ms < 1_000
+      ? t("duration.milliseconds", { value: number.format(Math.round(ms)) })
+      : t("duration.seconds", {
+          value: new Intl.NumberFormat(locale, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          }).format(ms / 1_000),
+        });
+  }
+  const statusLabel = t(`liveData.status.${status}`);
 
-  const statusLabel =
-    status === "live"
-      ? "Live mainnet"
-      : status === "simulated"
-        ? "Simulated data"
-        : status === "reconnecting"
-          ? "Reconnecting"
-          : "Connecting";
   return (
     <main className="ff-root">
       <section className="ff-hero" aria-labelledby="ff-title">
         <div>
-          <p className="ff-kicker">Alpenglow consensus</p>
+          <p className="ff-kicker">{t("hero.kicker")}</p>
           <h1 id="ff-title">
-            12 sec <span aria-hidden="true">→</span> 150 msec
+            {t("hero.legacyFinality")} <span aria-hidden="true">→</span>{" "}
+            {t("hero.alpenglowFinality")}
           </h1>
         </div>
         <div className="ff-intro">
-          <p>
-            A faster path from transaction to certainty. Follow live Solana
-            activity through streaming, confirmation, and finality.
-          </p>
+          <p>{t("hero.description")}</p>
           <Button
             asChild
             variant="outline"
             className="ff-intro-button rounded-none border-white/40 bg-transparent font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-white shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
           >
             <a href="/upgrades/alpenglow">
-              Explore Alpenglow <span aria-hidden="true">↗</span>
+              {t("actions.explore")} <span aria-hidden="true">↗</span>
             </a>
           </Button>
         </div>
       </section>
-
-      <section className="ff-visualizer" aria-label="Alpenglow finality model">
+      <section className="ff-visualizer" aria-label={t("aria.finalityModel")}>
         <div className="ff-toolbar">
-          <div className="ff-mode" aria-label="Finality timing">
+          <div className="ff-mode" aria-label={t("aria.finalityTiming")}>
             <button
               type="button"
               aria-pressed={mode === "legacy"}
               onClick={() => selectMode("legacy")}
             >
-              12 seconds
+              {t("timing.legacy")}
             </button>
             <button
               type="button"
               aria-pressed={mode === "alpenglow"}
               onClick={() => selectMode("alpenglow")}
             >
-              150 milliseconds
+              {t("timing.alpenglow")}
             </button>
           </div>
           <div className="ff-view-controls">
-            <span>Drag to rotate · Ctrl + scroll to zoom</span>
+            <span>{t("controls.instructions")}</span>
             <button
               type="button"
               onClick={() => canvasRef.current?.resetView()}
             >
-              Reset
+              {t("controls.reset")}
             </button>
           </div>
         </div>
-
         <div className="ff-scene">
           <div className="ff-canvas-stage">
             <FinalFormCanvas ref={canvasRef} onTelemetry={handleTelemetry} />
             <div className="ff-stage-labels" aria-hidden="true">
               <p>
-                <Broadcast pack="filled" /> Streaming
+                <Broadcast pack="filled" /> {t("stages.streaming")}
               </p>
               <p>
-                <CheckCircle pack="filled" /> Confirmed
+                <CheckCircle pack="filled" /> {t("stages.confirmed")}
               </p>
               <p>
-                <Lock pack="filled" /> Finalized
+                <Lock pack="filled" /> {t("stages.finalized")}
               </p>
             </div>
           </div>
         </div>
-
-        <p className="ff-rpc-line" aria-label="Live RPC data">
+        <p className="ff-rpc-line" aria-label={t("aria.liveRpcData")}>
           <span className="ff-rpc-label">RPC</span>
           <span>{statusLabel}</span>
           <span>
-            <strong>{tps ? tps.toLocaleString() : "—"}</strong> total TPS
+            <strong>{tps ? number.format(tps) : "—"}</strong>{" "}
+            {t("liveData.totalTps")}
           </span>
           <span>
             <strong>
               {rpcTelemetry.nonVoteTps
-                ? rpcTelemetry.nonVoteTps.toLocaleString()
+                ? number.format(rpcTelemetry.nonVoteTps)
                 : "—"}
             </strong>{" "}
-            non-vote TPS
+            {t("liveData.nonVoteTps")}
           </span>
           <span>
-            slot{" "}
+            {t("liveData.slot")}{" "}
             <strong>
               {rpcTelemetry.confirmedSlot
-                ? rpcTelemetry.confirmedSlot.toLocaleString()
+                ? number.format(rpcTelemetry.confirmedSlot)
                 : "—"}
             </strong>
           </span>
           <span>
             <strong>
               {rpcTelemetry.latestBlockTransactions
-                ? rpcTelemetry.latestBlockTransactions.toLocaleString()
+                ? number.format(rpcTelemetry.latestBlockTransactions)
                 : "—"}
             </strong>{" "}
-            tx in latest block
+            {t("liveData.transactionsInLatestBlock")}
           </span>
         </p>
       </section>
-
-      <p className="ff-note">
-        Each small cube is one transaction, grouped by its ledger block. The
-        timing control models how many transactions remain in flight at 12
-        seconds versus 150 milliseconds; incoming mainnet data stays live.
-      </p>
-
+      <p className="ff-note">{t("visualizerNote")}</p>
       <section className="ff-shift" aria-labelledby="ff-shift-title">
         <div className="ff-section-heading">
-          <p className="ff-kicker">What Alpenglow changes</p>
+          <p className="ff-kicker">{t("consensus.kicker")}</p>
           <h2 id="ff-shift-title">
-            Consensus, rewritten.
+            {t("consensus.title")}
             <br />
-            <span>Execution, untouched.</span>
+            <span>{t("consensus.titleAccent")}</span>
           </h2>
         </div>
         <div className="ff-shift-copy">
-          <p>
-            Consensus is how validators agree on which block comes next and when
-            it can no longer be undone. Alpenglow replaces TowerBFT with a
-            faster path to that agreement while leaving the way transactions
-            execute exactly as it is.
-          </p>
+          <p>{t("consensus.description")}</p>
           <dl className="ff-unchanged-list">
             <div>
-              <dt>Unchanged</dt>
-              <dd>SVM &amp; programs</dd>
+              <dt>{t("consensus.unchanged")}</dt>
+              <dd>{t("consensus.svmAndPrograms")}</dd>
             </div>
             <div>
-              <dt>Unchanged</dt>
-              <dd>Transactions &amp; fees</dd>
+              <dt>{t("consensus.unchanged")}</dt>
+              <dd>{t("consensus.transactionsAndFees")}</dd>
             </div>
             <div>
-              <dt>For users</dt>
-              <dd>No action needed</dd>
+              <dt>{t("consensus.forUsers")}</dt>
+              <dd>{t("consensus.noActionNeeded")}</dd>
             </div>
           </dl>
         </div>
       </section>
-
       <section className="ff-votor" aria-labelledby="ff-votor-title">
         <div className="ff-votor-copy">
-          <p className="ff-kicker">Phase one · Votor</p>
-          <h2 id="ff-votor-title">Votes become certificates.</h2>
-          <p>
-            Validators send votes directly to one another instead of placing
-            vote transactions inside blocks. Those votes combine into a quorum
-            certificate that finalizes a block in one or two rounds.
-          </p>
-          <p className="ff-votor-note">
-            Alpenglow tolerates 20% malicious stake plus 20% offline stake while
-            still reaching consensus.
-          </p>
+          <p className="ff-kicker">{t("votor.kicker")}</p>
+          <h2 id="ff-votor-title">{t("votor.title")}</h2>
+          <p>{t("votor.description")}</p>
+          <p className="ff-votor-note">{t("votor.note")}</p>
         </div>
-
-        <div className="ff-thresholds" aria-label="Votor voting thresholds">
+        <div className="ff-thresholds" aria-label={t("aria.votorThresholds")}>
           <article className="ff-threshold is-fast">
             <div className="ff-threshold-topline">
-              <p>Fast path</p>
-              <span>One round</span>
+              <p>{t("votor.fastPath.label")}</p>
+              <span>{t("votor.fastPath.rounds")}</span>
             </div>
             <strong>80%</strong>
             <div className="ff-threshold-track" aria-hidden="true">
               <span />
             </div>
-            <p>of stake votes to notarize</p>
-            <small>Block finalizes immediately.</small>
+            <p>{t("votor.fastPath.threshold")}</p>
+            <small>{t("votor.fastPath.description")}</small>
           </article>
           <article className="ff-threshold is-fallback">
             <div className="ff-threshold-topline">
-              <p>Fallback path</p>
-              <span>Two rounds</span>
+              <p>{t("votor.fallbackPath.label")}</p>
+              <span>{t("votor.fallbackPath.rounds")}</span>
             </div>
             <strong>60%</strong>
             <div className="ff-threshold-track" aria-hidden="true">
               <span />
             </div>
-            <p>stake threshold for certificates</p>
-            <small>A second round finalizes or skips.</small>
+            <p>{t("votor.fallbackPath.threshold")}</p>
+            <small>{t("votor.fallbackPath.description")}</small>
           </article>
         </div>
       </section>
-
       <section className="ff-rollout" aria-labelledby="ff-rollout-title">
         <div className="ff-section-heading">
-          <p className="ff-kicker">The rollout</p>
-          <h2 id="ff-rollout-title">Two protocols. One transition.</h2>
+          <p className="ff-kicker">{t("rollout.kicker")}</p>
+          <h2 id="ff-rollout-title">{t("rollout.title")}</h2>
         </div>
         <ol className="ff-phase-list">
           <li>
@@ -300,79 +271,66 @@ export default function FinalFormExperience() {
               <Certification pack="filled" />
             </div>
             <div>
-              <p className="ff-phase-meta">Agave 4.3 · Q3 2026</p>
-              <h3>Votor</h3>
-              <p>
-                Replaces TowerBFT voting with direct validator votes and
-                aggregate certificates. This is the phase that targets roughly
-                150ms finality.
-              </p>
+              <p className="ff-phase-meta">{t("rollout.votor.meta")}</p>
+              <h3>{t("rollout.votor.title")}</h3>
+              <p>{t("rollout.votor.description")}</p>
             </div>
-            <span className="ff-phase-status">In development</span>
+            <span className="ff-phase-status">{t("rollout.votor.status")}</span>
           </li>
           <li>
             <div className="ff-phase-marker" aria-hidden="true">
               <NetworkChart pack="filled" />
             </div>
             <div>
-              <p className="ff-phase-meta">Later release · Unscheduled</p>
-              <h3>Rotor</h3>
-              <p>
-                Follows Votor to replace Turbine&apos;s tree-based block
-                propagation with a single relay layer designed to reduce network
-                latency.
-              </p>
+              <p className="ff-phase-meta">{t("rollout.rotor.meta")}</p>
+              <h3>{t("rollout.rotor.title")}</h3>
+              <p>{t("rollout.rotor.description")}</p>
             </div>
-            <span className="ff-phase-status is-later">Follows Votor</span>
+            <span className="ff-phase-status is-later">
+              {t("rollout.rotor.status")}
+            </span>
           </li>
         </ol>
       </section>
-
       <section className="ff-impact" aria-labelledby="ff-impact-title">
         <div className="ff-section-heading">
-          <p className="ff-kicker">What it means for you</p>
-          <h2 id="ff-impact-title">The transition by role.</h2>
+          <p className="ff-kicker">{t("impact.kicker")}</p>
+          <h2 id="ff-impact-title">{t("impact.title")}</h2>
         </div>
         <div className="ff-impact-list">
           <article>
             <p className="ff-impact-index">
-              <User pack="filled" aria-hidden="true" /> Users
+              <User pack="filled" aria-hidden="true" />{" "}
+              {t("impact.users.label")}
             </p>
-            <h3>No migration.</h3>
+            <h3>{t("impact.users.title")}</h3>
+            <p>{t("impact.users.description")}</p>
+          </article>
+          <article>
+            <p className="ff-impact-index">
+              <Code pack="filled" aria-hidden="true" />{" "}
+              {t("impact.developers.label")}
+            </p>
+            <h3>{t("impact.developers.title")}</h3>
             <p>
-              Signing, sending, and approving transactions stay the same.
-              Finality simply arrives much sooner.
+              {t.rich("impact.developers.description", {
+                bankId: (chunks) => <code>{chunks}</code>,
+              })}
             </p>
           </article>
           <article>
             <p className="ff-impact-index">
-              <Code pack="filled" aria-hidden="true" /> Developers
+              <Server pack="filled" aria-hidden="true" />{" "}
+              {t("impact.validators.label")}
             </p>
-            <h3>Execution stays put.</h3>
-            <p>
-              Apps that only send transactions and read account state need no
-              changes. Block stream consumers should prepare for multiple banks
-              per slot and the new <code>bank_id</code> field.
-            </p>
-          </article>
-          <article>
-            <p className="ff-impact-index">
-              <Server pack="filled" aria-hidden="true" /> Validators
-            </p>
-            <h3>Prepare for Votor.</h3>
-            <p>
-              Operators need a registered BLS public key and Agave 4.3 to join
-              Alpenglow consensus.
-            </p>
+            <h3>{t("impact.validators.title")}</h3>
+            <p>{t("impact.validators.description")}</p>
           </article>
         </div>
       </section>
-
       <section className="ff-read-more" aria-labelledby="ff-read-more-title">
-        <p className="ff-kicker">Go deeper</p>
-        <h2 id="ff-read-more-title">
-          Migration details, breaking changes, and the full protocol story.
-        </h2>
+        <p className="ff-kicker">{t("readMore.kicker")}</p>
+        <h2 id="ff-read-more-title">{t("readMore.title")}</h2>
         <Button
           asChild
           variant="outline"
@@ -380,15 +338,16 @@ export default function FinalFormExperience() {
           className="ff-read-more-button rounded-none border-white bg-white font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-black shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
         >
           <a href="/upgrades/alpenglow">
-            Read the Alpenglow upgrade guide <span aria-hidden="true">↗</span>
+            {t("actions.readGuide")} <span aria-hidden="true">↗</span>
           </a>
         </Button>
       </section>
-
       <div className="ff-sr-summary" aria-live="polite">
-        Solana mainnet is {statusLabel.toLowerCase()}. {telemetry.holding}{" "}
-        blocks are confirming. Current observed finality is{" "}
-        {formatDuration(telemetry.currentFinalityMs)}.
+        {t("liveData.summary", {
+          status: statusLabel.toLocaleLowerCase(locale),
+          blocks: telemetry.holding,
+          finality: formatDuration(telemetry.currentFinalityMs),
+        })}
       </div>
     </main>
   );
