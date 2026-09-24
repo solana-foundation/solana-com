@@ -20,6 +20,8 @@ const VOXEL_SIZE = 0.024;
 const MIN_LOGO_POPULATION = 18_000;
 const COLOR_BUCKETS = 256;
 const STAGE_X = [-2, 0, 2] as const;
+const HAZE_GLYPHS = ["+", "-", ">", "<", "%", "#"] as const;
+const HAZE_POINTS = 420;
 
 type FinalityMode = "legacy" | "alpenglow";
 type CycleState = "forming" | "holding" | "melting";
@@ -138,6 +140,115 @@ function createVoxelMaterial() {
       );
   };
   return material;
+}
+
+function createGlyphTexture(glyph: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  if (context) {
+    context.clearRect(0, 0, 64, 64);
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.font = '500 30px "Courier New", monospace';
+    context.fillStyle = "rgba(255, 255, 255, 0.3)";
+    context.shadowColor = "rgba(255, 255, 255, 0.65)";
+    context.shadowBlur = 12;
+    context.fillText(glyph, 32, 33);
+    context.shadowBlur = 0;
+    context.fillStyle = "white";
+    context.fillText(glyph, 32, 33);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  return texture;
+}
+
+function createTransactionHaze() {
+  const group = new THREE.Group();
+  const materials: THREE.ShaderMaterial[] = [];
+  const textures: THREE.Texture[] = [];
+  const geometries: THREE.BufferGeometry[] = [];
+
+  HAZE_GLYPHS.forEach((glyph, glyphIndex) => {
+    const count = Math.ceil((HAZE_POINTS - glyphIndex) / HAZE_GLYPHS.length);
+    const positions = new Float32Array(count * 3);
+    const seeds = new Float32Array(count);
+    for (let index = 0; index < count; index += 1) {
+      const seed = signatureSeed(`haze-${glyph}-${index}`);
+      positions[index * 3] = (unit(seed, 0) - 0.5) * 7.6;
+      positions[index * 3 + 1] = (unit(seed, 8) - 0.5) * 3.25;
+      positions[index * 3 + 2] = -0.86 - unit(seed, 16) * 0.82;
+      seeds[index] = unit(signatureSeed(`${seed}-pulse`), 0);
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
+    const texture = createGlyphTexture(glyph);
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        uGlyph: { value: texture },
+        uTime: { value: 0 },
+        uSpeed: { value: 0.6 },
+        uPixelRatio: { value: 1 },
+      },
+      vertexShader: `
+        attribute float aSeed;
+        uniform float uTime;
+        uniform float uSpeed;
+        uniform float uPixelRatio;
+        varying float vOpacity;
+
+        void main() {
+          float tempo = 0.18 + uSpeed * 0.82;
+          float phase = uTime * tempo + aSeed * 18.0;
+          vec3 transformed = position;
+          transformed.x += sin(phase * 0.72) * (0.035 + aSeed * 0.055);
+          transformed.y += cos(phase + position.x * 0.62) * 0.065;
+          transformed.z += sin(phase * 0.48 + position.y) * 0.045;
+
+          float oval = length(vec2(transformed.x / 4.0, transformed.y / 1.75));
+          float contour = 0.82 + sin(phase * 0.55 + position.x * 1.35) * 0.1;
+          float edgeFade = 1.0 - smoothstep(contour - 0.28, contour, oval);
+          float pulse = 0.62 + 0.38 * sin(phase * 0.82) * sin(phase * 0.82);
+          vOpacity = edgeFade * pulse * (0.28 + aSeed * 0.5);
+
+          vec4 mvPosition = modelViewMatrix * vec4(transformed, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          float pointScale = 8.5 / max(1.0, -mvPosition.z);
+          gl_PointSize = (14.0 + aSeed * 15.0) * uPixelRatio * pointScale;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uGlyph;
+        varying float vOpacity;
+
+        void main() {
+          vec4 glyph = texture2D(uGlyph, gl_PointCoord);
+          float bokeh = smoothstep(0.5, 0.0, distance(gl_PointCoord, vec2(0.5)));
+          float alpha = (glyph.a * 0.76 + bokeh * 0.055) * vOpacity;
+          if (alpha < 0.008) discard;
+          gl_FragColor = vec4(vec3(1.0), alpha);
+        }
+      `,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const points = new THREE.Points(geometry, material);
+    points.renderOrder = -2;
+    group.add(points);
+    materials.push(material);
+    textures.push(texture);
+    geometries.push(geometry);
+  });
+
+  return { group, materials, textures, geometries };
 }
 
 function latticeResolution(population: number) {
@@ -490,6 +601,8 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
       renderer.setClearColor(0x000000, 0);
       hostElement.appendChild(renderer.domElement);
+      const transactionHaze = createTransactionHaze();
+      assembly.add(transactionHaze.group);
 
       const voxelGeometry = new THREE.BoxGeometry(1, 1, 1);
       const streamingMaterial = createVoxelMaterial();
@@ -877,6 +990,12 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         assembly.rotation.x += (targetRotationX - assembly.rotation.x) * 0.09;
         assembly.rotation.y += (targetRotationY - assembly.rotation.y) * 0.09;
         camera.position.z += (targetZoom - camera.position.z) * 0.09;
+        const hazeSpeed = Math.max(0.12, Math.min(1, tps / 5_000));
+        for (const material of transactionHaze.materials) {
+          material.uniforms.uTime!.value = reduceMotion ? 0 : now * 0.001;
+          material.uniforms.uSpeed!.value = reduceMotion ? 0 : hazeSpeed;
+          material.uniforms.uPixelRatio!.value = renderer.getPixelRatio();
+        }
 
         emissionCredit += (tps * delta) / 1_000;
         const emitCount = Math.min(
@@ -988,6 +1107,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         streamingMaterial.dispose();
         confirmedMaterial.dispose();
         finalMaterial.dispose();
+        transactionHaze.materials.forEach((material) => material.dispose());
+        transactionHaze.textures.forEach((texture) => texture.dispose());
+        transactionHaze.geometries.forEach((geometry) => geometry.dispose());
         scene.traverse((object3d) => {
           if (object3d instanceof THREE.LineSegments) {
             object3d.geometry.dispose();
