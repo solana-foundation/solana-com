@@ -17,7 +17,6 @@ const LEGACY_FINALITY_SECONDS = 12.8;
 const ALPENGLOW_FINALITY_SECONDS = 0.15;
 const STREAM_HOLD_MS = 900;
 const STAGE_TRANSITION_MS = 850;
-const FORM_HOLD_MS = 3_000;
 const MELT_DURATION_MS = 3_200;
 const VOXEL_SIZE = 0.024;
 const MIN_LOGO_POPULATION = 18_000;
@@ -27,7 +26,7 @@ const HAZE_GLYPHS = ["0", "1"] as const;
 const HAZE_CELL_SIZE_PX = 12;
 
 type FinalityMode = "legacy" | "alpenglow";
-type CycleState = "forming" | "holding" | "melting";
+type CycleState = "forming" | "melting";
 
 type StreamVoxel = TransactionObserved & {
   born: number;
@@ -478,10 +477,7 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
   function draw(now: number) {
     if (!running) return;
     if (!context) return;
-    if (state.cycleState === "holding" && now - state.cycleAt >= FORM_HOLD_MS) {
-      state.cycleState = "melting";
-      state.cycleAt = now;
-    } else if (
+    if (
       state.cycleState === "melting" &&
       now - state.cycleAt >= MELT_DURATION_MS
     ) {
@@ -701,7 +697,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           block.finalizedCount += moved;
           block.optimisticallyFinalized = true;
           if (fallbackState.counts[2] >= fallbackState.cyclePopulation) {
-            fallbackState.cycleState = "holding";
+            fallbackState.cycleState = "melting";
             fallbackState.cycleAt = performance.now();
           }
           reportFallback();
@@ -1348,9 +1344,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           final.length >= cyclePopulation &&
           now - lastFinalArrivalAt >= STAGE_TRANSITION_MS
         ) {
-          cycleState = "holding";
-          cycleAt = now;
-        } else if (cycleState === "holding" && now - cycleAt >= FORM_HOLD_MS) {
           cycleState = "melting";
           cycleAt = now;
           finalDirty = true;
