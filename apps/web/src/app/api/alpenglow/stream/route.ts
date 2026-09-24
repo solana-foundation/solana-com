@@ -230,13 +230,18 @@ async function readBlockRange(
   commitment: "confirmed" | "finalized",
   signal: AbortSignal,
 ) {
-  const producedSlots = await getProducedSlots(
-    url,
-    start,
-    end,
-    commitment,
-    signal,
-  );
+  let producedSlots: number[];
+  try {
+    producedSlots = await getProducedSlots(url, start, end, commitment, signal);
+  } catch (error) {
+    if (signal.aborted) throw error;
+    return {
+      reads: [] as BlockRead[],
+      cursor: start - 1,
+      failed: true,
+      error,
+    };
+  }
   const reads: BlockRead[] = [];
   for (
     let index = 0;
@@ -269,6 +274,7 @@ async function readBlockRange(
     reads: reads.filter((read) => read.slot <= cursor),
     cursor,
     failed: cursor < end,
+    error: undefined,
   };
 }
 
@@ -310,7 +316,10 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
   const confirmedAt = new Map<number, { at: number; hash: string }>();
   let performanceTick = 6;
   let protocol: "tower-bft" | "alpenglow" | "unknown" = "unknown";
-  let retryMs = POLL_MS;
+  let confirmedRetryMs = POLL_MS;
+  let finalizedRetryMs = POLL_MS;
+  let confirmedRetryAt = 0;
+  let finalizedRetryAt = 0;
   let reconnecting = false;
 
   try {
@@ -327,75 +336,91 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
         rpc<number>(url, "getSlot", [{ commitment: "confirmed" }], signal),
         rpc<number>(url, "getSlot", [{ commitment: "finalized" }], signal),
       ]);
-      if (reconnecting) {
-        emit({
-          type: "stream_status",
-          status: "live",
-          protocol,
-          sampled: false,
-        });
-        reconnecting = false;
-      }
-      const confirmedEnd = Math.min(
-        confirmedHead,
-        confirmedCursor + MAX_BLOCKS_PER_POLL,
-      );
-      const confirmedRange = await readBlockRange(
-        url,
-        confirmedCursor + 1,
-        confirmedEnd,
-        "confirmed",
-        signal,
-      );
-      for (const { slot, block } of confirmedRange.reads) {
-        if (!block) continue;
-        if (slot <= finalizedCursor) continue;
-        const now = Date.now();
-        emitConfirmedBlock(emit, slot, block, now);
-        confirmedAt.set(slot, { at: now, hash: block.blockhash });
-      }
-      confirmedCursor = confirmedRange.cursor;
+      const pollNow = Date.now();
+      let confirmedComplete = false;
+      let finalizedComplete = false;
+      let pollError: unknown;
 
-      const finalizedEnd = Math.min(
-        finalizedHead,
-        finalizedCursor + MAX_BLOCKS_PER_POLL,
-      );
-      const finalizedRange = await readBlockRange(
-        url,
-        finalizedCursor + 1,
-        finalizedEnd,
-        "finalized",
-        signal,
-      );
-      for (const { slot, block } of finalizedRange.reads) {
-        if (!block) continue;
-        const observed = confirmedAt.get(slot);
-        const now = Date.now();
-        if (shouldReplayCanonicalBlock(observed?.hash, block.blockhash)) {
-          if (observed) {
-            emit({
-              type: "block_orphaned",
-              slot,
-              blockhash: observed.hash,
-              replacedBy: block.blockhash,
-            });
-          }
+      if (pollNow >= confirmedRetryAt) {
+        const confirmedEnd = Math.min(
+          confirmedHead,
+          confirmedCursor + MAX_BLOCKS_PER_POLL,
+        );
+        const confirmedRange = await readBlockRange(
+          url,
+          confirmedCursor + 1,
+          confirmedEnd,
+          "confirmed",
+          signal,
+        );
+        for (const { slot, block } of confirmedRange.reads) {
+          if (!block) continue;
+          if (slot <= finalizedCursor) continue;
+          const now = Date.now();
           emitConfirmedBlock(emit, slot, block, now);
+          confirmedAt.set(slot, { at: now, hash: block.blockhash });
         }
-        emit({
-          type: "block_finalized",
-          slot,
-          blockhash: block.blockhash,
-          finalizedAt: now,
-          observedFinalityMs: observed ? now - observed.at : 0,
-        });
-        confirmedAt.delete(slot);
+        confirmedCursor = confirmedRange.cursor;
+        confirmedComplete = !confirmedRange.failed;
+        if (confirmedRange.failed) {
+          confirmedRetryMs = Math.min(MAX_RETRY_MS, confirmedRetryMs * 2);
+          confirmedRetryAt = pollNow + confirmedRetryMs;
+          pollError =
+            confirmedRange.error ?? new Error("Confirmed block unavailable");
+        } else {
+          confirmedRetryMs = POLL_MS;
+          confirmedRetryAt = 0;
+        }
       }
-      finalizedCursor = finalizedRange.cursor;
-      retryMs =
-        confirmedRange.failed || finalizedRange.failed
-          ? Math.min(MAX_RETRY_MS, retryMs * 2)
-          : POLL_MS;
+
+      if (pollNow >= finalizedRetryAt) {
+        const finalizedEnd = Math.min(
+          finalizedHead,
+          finalizedCursor + MAX_BLOCKS_PER_POLL,
+        );
+        const finalizedRange = await readBlockRange(
+          url,
+          finalizedCursor + 1,
+          finalizedEnd,
+          "finalized",
+          signal,
+        );
+        for (const { slot, block } of finalizedRange.reads) {
+          if (!block) continue;
+          const observed = confirmedAt.get(slot);
+          const now = Date.now();
+          if (shouldReplayCanonicalBlock(observed?.hash, block.blockhash)) {
+            if (observed) {
+              emit({
+                type: "block_orphaned",
+                slot,
+                blockhash: observed.hash,
+                replacedBy: block.blockhash,
+              });
+            }
+            emitConfirmedBlock(emit, slot, block, now);
+          }
+          emit({
+            type: "block_finalized",
+            slot,
+            blockhash: block.blockhash,
+            finalizedAt: now,
+            observedFinalityMs: observed ? now - observed.at : 0,
+          });
+          confirmedAt.delete(slot);
+        }
+        finalizedCursor = finalizedRange.cursor;
+        finalizedComplete = !finalizedRange.failed;
+        if (finalizedRange.failed) {
+          finalizedRetryMs = Math.min(MAX_RETRY_MS, finalizedRetryMs * 2);
+          finalizedRetryAt = pollNow + finalizedRetryMs;
+          pollError ??=
+            finalizedRange.error ?? new Error("Finalized block unavailable");
+        } else {
+          finalizedRetryMs = POLL_MS;
+          finalizedRetryAt = 0;
+        }
+      }
 
       performanceTick += 1;
       if (performanceTick % 7 === 0) {
@@ -420,9 +445,27 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
           });
         }
       }
+      if (pollError) {
+        reconnecting = true;
+        emit({
+          type: "stream_status",
+          status: "reconnecting",
+          protocol,
+          sampled: false,
+          message:
+            pollError instanceof Error ? pollError.message : "RPC unavailable",
+        });
+      } else if (reconnecting && confirmedComplete && finalizedComplete) {
+        emit({
+          type: "stream_status",
+          status: "live",
+          protocol,
+          sampled: false,
+        });
+        reconnecting = false;
+      }
     } catch (error) {
       if (signal.aborted) return;
-      retryMs = Math.min(MAX_RETRY_MS, retryMs * 2);
       reconnecting = true;
       emit({
         type: "stream_status",
@@ -432,7 +475,7 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
         message: error instanceof Error ? error.message : "RPC unavailable",
       });
     }
-    await wait(retryMs, signal);
+    await wait(POLL_MS, signal);
   }
 }
 

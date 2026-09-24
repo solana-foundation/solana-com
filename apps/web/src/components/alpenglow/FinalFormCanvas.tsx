@@ -618,7 +618,12 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         };
         const fallbackBlocks = new Map<
           string,
-          { count: number; confirmedAt: number }
+          {
+            confirmedCount: number;
+            finalizedCount: number;
+            confirmedAt: number;
+            optimisticallyFinalized: boolean;
+          }
         >();
         const fallbackFinalityValues: number[] = [];
         let fallbackFinalizedBlocks = 0;
@@ -628,10 +633,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           observedFinalityMs: number,
         ) {
           const block = fallbackBlocks.get(blockhash);
-          if (!block) return;
-          fallbackBlocks.delete(blockhash);
+          if (!block || block.optimisticallyFinalized) return;
           const moved = Math.min(
-            block.count,
+            block.confirmedCount,
             fallbackState.cyclePopulation - fallbackState.counts[2],
           );
           fallbackState.counts[1] = Math.max(
@@ -639,6 +643,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             fallbackState.counts[1] - moved,
           );
           fallbackState.counts[2] += moved;
+          block.confirmedCount -= moved;
+          block.finalizedCount += moved;
+          block.optimisticallyFinalized = true;
           fallbackFinalizedBlocks += 1;
           fallbackCurrentFinalityMs = observedFinalityMs;
           fallbackFinalityValues.push(observedFinalityMs);
@@ -650,7 +657,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         }
         function reportFallback() {
           onTelemetry({
-            holding: fallbackBlocks.size,
+            holding: [...fallbackBlocks.values()].filter(
+              (block) => !block.optimisticallyFinalized,
+            ).length,
             rendered: fallbackState.counts.reduce(
               (total, count) => total + count,
               0,
@@ -674,14 +683,17 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               );
             }
             if (event.type === "block_confirmed") {
-              fallbackBlocks.set(event.blockhash, {
-                count: event.transactionCount,
-                confirmedAt: performance.now(),
-              });
-              fallbackState.counts[1] = Math.min(
-                fallbackState.population,
-                fallbackState.counts[1] + event.transactionCount,
+              const renderedCount = Math.min(
+                event.transactionCount,
+                fallbackState.population - fallbackState.counts[1],
               );
+              fallbackBlocks.set(event.blockhash, {
+                confirmedCount: renderedCount,
+                finalizedCount: 0,
+                confirmedAt: performance.now(),
+                optimisticallyFinalized: false,
+              });
+              fallbackState.counts[1] += renderedCount;
               reportFallback();
             }
             if (event.type === "block_orphaned") {
@@ -689,7 +701,11 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               fallbackBlocks.delete(event.blockhash);
               fallbackState.counts[1] = Math.max(
                 0,
-                fallbackState.counts[1] - (block?.count ?? 0),
+                fallbackState.counts[1] - (block?.confirmedCount ?? 0),
+              );
+              fallbackState.counts[2] = Math.max(
+                0,
+                fallbackState.counts[2] - (block?.finalizedCount ?? 0),
               );
               reportFallback();
             }
@@ -697,6 +713,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               if (mode === "legacy") {
                 finalizeFallback(event.blockhash, event.observedFinalityMs);
               }
+              fallbackBlocks.delete(event.blockhash);
             }
           },
           setMode(value) {
@@ -709,7 +726,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           if (mode !== "alpenglow") return;
           const now = performance.now();
           for (const [blockhash, block] of fallbackBlocks) {
-            if (now - block.confirmedAt >= finalityMs(mode)) {
+            if (
+              !block.optimisticallyFinalized &&
+              now - block.confirmedAt >= finalityMs(mode)
+            ) {
               finalizeFallback(blockhash, finalityMs(mode));
             }
           }
@@ -929,7 +949,16 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             voxel.order = order;
           });
           confirmedOrder = confirmed.length;
+          const now = performance.now();
           final = final.filter((voxel) => voxel.blockhash !== event.blockhash);
+          targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
+          for (const voxel of final) {
+            voxel.finalFromPosition =
+              logoModel.points[voxel.targetIndex]?.clone() ??
+              voxel.finalFromPosition;
+            voxel.targetIndex = takeLogoTarget(voxel.seed);
+            voxel.finalEnteredAt = now;
+          }
           confirmedDirty = true;
           finalDirty = true;
           return;
