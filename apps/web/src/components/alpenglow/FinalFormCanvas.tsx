@@ -836,7 +836,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       let logoModel = createLogoModel(cyclePopulation);
       let targetBuckets = createTargetBuckets(cyclePopulation);
       let targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
-      let lastFinalArrivalAt = 0;
       const pending: TransactionObserved[] = [];
       let pendingIndex = 0;
       let emissionCredit = 0;
@@ -936,7 +935,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               STAGE_X[1],
             ),
           });
-          lastFinalArrivalAt = now;
           movedAny = true;
         }
         if (!movedAny) return;
@@ -1339,11 +1337,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         streaming = remainingStreaming;
 
         moveReadyVoxels(now);
-        if (
-          cycleState === "forming" &&
-          final.length >= cyclePopulation &&
-          now - lastFinalArrivalAt >= STAGE_TRANSITION_MS
-        ) {
+        if (cycleState === "forming" && final.length >= cyclePopulation) {
           cycleState = "melting";
           cycleAt = now;
           finalDirty = true;
@@ -1357,7 +1351,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           logoModel = createLogoModel(cyclePopulation);
           targetBuckets = createTargetBuckets(cyclePopulation);
           targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
-          lastFinalArrivalAt = 0;
           cycleState = "forming";
           finalDirty = true;
         }
