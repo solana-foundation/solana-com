@@ -14,7 +14,6 @@ type RpcTelemetry = {
   confirmedSlot: number;
   latestBlockTransactions: number;
   nonVoteTps: number;
-  samplePeriodSeconds: number;
 };
 
 const EMPTY_TELEMETRY: ArtworkTelemetry = {
@@ -29,7 +28,6 @@ const EMPTY_RPC_TELEMETRY: RpcTelemetry = {
   confirmedSlot: 0,
   latestBlockTransactions: 0,
   nonVoteTps: 0,
-  samplePeriodSeconds: 0,
 };
 
 function formatDuration(ms: number) {
@@ -63,7 +61,6 @@ export default function FinalFormExperience() {
           setRpcTelemetry((current) => ({
             ...current,
             nonVoteTps: Math.round(event.nonVoteTps ?? 0),
-            samplePeriodSeconds: event.samplePeriodSeconds,
           }));
         }
         if (event.type === "block_confirmed") {
@@ -141,7 +138,7 @@ export default function FinalFormExperience() {
             <span aria-hidden="true" /> {statusLabel}
           </p>
           <div className="ff-view-controls">
-            <span>Drag to rotate · Scroll to continue</span>
+            <span>Drag to rotate · Ctrl + scroll to zoom</span>
             <button
               type="button"
               onClick={() => canvasRef.current?.resetView()}
@@ -152,48 +149,6 @@ export default function FinalFormExperience() {
         </div>
 
         <div className="ff-scene">
-          <aside className="ff-rpc-panel" aria-label="Live RPC data">
-            <p className="ff-rpc-heading">RPC feed</p>
-            <dl>
-              <div>
-                <dt>Source</dt>
-                <dd>{statusLabel}</dd>
-              </div>
-              <div>
-                <dt>Total TPS</dt>
-                <dd>{tps ? tps.toLocaleString() : "—"}</dd>
-              </div>
-              <div>
-                <dt>Non-vote TPS</dt>
-                <dd>
-                  {rpcTelemetry.nonVoteTps
-                    ? rpcTelemetry.nonVoteTps.toLocaleString()
-                    : "—"}
-                </dd>
-              </div>
-              <div>
-                <dt>Confirmed slot</dt>
-                <dd>
-                  {rpcTelemetry.confirmedSlot
-                    ? rpcTelemetry.confirmedSlot.toLocaleString()
-                    : "—"}
-                </dd>
-              </div>
-              <div>
-                <dt>Latest block</dt>
-                <dd>
-                  {rpcTelemetry.latestBlockTransactions
-                    ? `${rpcTelemetry.latestBlockTransactions.toLocaleString()} tx`
-                    : "—"}
-                </dd>
-              </div>
-            </dl>
-            {rpcTelemetry.samplePeriodSeconds > 0 && (
-              <p className="ff-rpc-sample">
-                {rpcTelemetry.samplePeriodSeconds}s RPC sample
-              </p>
-            )}
-          </aside>
           <div className="ff-canvas-stage">
             <FinalFormCanvas ref={canvasRef} onTelemetry={handleTelemetry} />
             <div className="ff-stage-labels" aria-hidden="true">
@@ -210,22 +165,38 @@ export default function FinalFormExperience() {
           </div>
         </div>
 
-        <div className="ff-metrics" aria-label="Current network state">
+        <div className="ff-metrics" aria-label="Live RPC data">
+          <p>
+            <strong>{statusLabel}</strong>
+            <span>Source</span>
+          </p>
           <p>
             <strong>{tps ? tps.toLocaleString() : "—"}</strong>
-            <span>TPS</span>
+            <span>Total TPS</span>
           </p>
           <p>
-            <strong>{telemetry.rendered.toLocaleString()}</strong>
-            <span>Transaction blocks</span>
+            <strong>
+              {rpcTelemetry.nonVoteTps
+                ? rpcTelemetry.nonVoteTps.toLocaleString()
+                : "—"}
+            </strong>
+            <span>Non-vote TPS</span>
           </p>
           <p>
-            <strong>{telemetry.holding}</strong>
-            <span>Blocks confirming</span>
+            <strong>
+              {rpcTelemetry.confirmedSlot
+                ? rpcTelemetry.confirmedSlot.toLocaleString()
+                : "—"}
+            </strong>
+            <span>Confirmed slot</span>
           </p>
           <p>
-            <strong>{formatDuration(telemetry.currentFinalityMs)}</strong>
-            <span>Observed finality</span>
+            <strong>
+              {rpcTelemetry.latestBlockTransactions
+                ? rpcTelemetry.latestBlockTransactions.toLocaleString()
+                : "—"}
+            </strong>
+            <span>Transactions in latest block</span>
           </p>
         </div>
       </section>
