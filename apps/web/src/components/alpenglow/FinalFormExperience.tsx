@@ -11,15 +11,20 @@ import { Server } from "@boxicons/react/Server";
 import { User } from "@boxicons/react/User";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Button } from "@workspace/ui";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { NewsItem } from "@/components/solutions/latest-news.v2";
-import { FinalFormCanvas } from "./FinalFormCanvas";
 import type {
   ArtworkTelemetry,
   FinalFormCanvasHandle,
 } from "./FinalFormCanvas";
 import type { AlpenglowEvent, StreamStatus } from "./types";
+
+const FinalFormCanvas = dynamic(
+  () => import("./FinalFormCanvas").then((module) => module.FinalFormCanvas),
+  { ssr: false },
+);
 
 type FinalityMode = "legacy" | "alpenglow";
 type RpcTelemetry = {
@@ -44,13 +49,42 @@ type FinalFormExperienceProps = {
   news: NewsItem[];
 };
 
+type NavigatorWithDeviceHints = Navigator & {
+  connection?: { saveData?: boolean };
+  deviceMemory?: number;
+};
+
+function shouldUseStaticVisualizer() {
+  const device = navigator as NavigatorWithDeviceHints;
+  return (
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+    device.connection?.saveData === true ||
+    (device.hardwareConcurrency > 0 && device.hardwareConcurrency <= 4) ||
+    (device.deviceMemory != null && device.deviceMemory <= 4)
+  );
+}
+
+function StaticFinalityDiagram() {
+  return (
+    <div className="ff-static-canvas" aria-hidden="true">
+      <span className="ff-static-stage is-streaming" />
+      <span className="ff-static-stage is-confirmed" />
+      <span className="ff-static-stage is-finalized" />
+    </div>
+  );
+}
+
 export default function FinalFormExperience({
   news,
 }: FinalFormExperienceProps) {
   const t = useTranslations("alpenglow");
   const locale = useLocale();
   const canvasRef = useRef<FinalFormCanvasHandle>(null);
+  const visualizerRef = useRef<HTMLElement>(null);
   const [mode, setMode] = useState<FinalityMode>("alpenglow");
+  const [useInteractiveVisualizer, setUseInteractiveVisualizer] =
+    useState(false);
+  const [visualizerIsActive, setVisualizerIsActive] = useState(false);
   const [telemetry, setTelemetry] = useState(EMPTY_TELEMETRY);
   const [rpcTelemetry, setRpcTelemetry] = useState(EMPTY_RPC_TELEMETRY);
   const [tps, setTps] = useState(0);
@@ -62,6 +96,36 @@ export default function FinalFormExperience({
     [],
   );
   useEffect(() => {
+    setUseInteractiveVisualizer(!shouldUseStaticVisualizer());
+  }, []);
+
+  useEffect(() => {
+    const element = visualizerRef.current;
+    if (!element || !useInteractiveVisualizer) {
+      setVisualizerIsActive(false);
+      return;
+    }
+
+    let intersecting = false;
+    const update = () =>
+      setVisualizerIsActive(intersecting && !document.hidden);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        intersecting = entry?.isIntersecting ?? false;
+        update();
+      },
+      { rootMargin: "200px 0px" },
+    );
+    observer.observe(element);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, [useInteractiveVisualizer]);
+
+  useEffect(() => {
+    if (!visualizerIsActive) return;
     const source = new EventSource("/api/alpenglow/stream");
     source.onmessage = (message) => {
       try {
@@ -87,7 +151,7 @@ export default function FinalFormExperience({
     };
     source.onerror = () => setStatus("reconnecting");
     return () => source.close();
-  }, []);
+  }, [visualizerIsActive]);
 
   function selectMode(value: FinalityMode) {
     setMode(value);
@@ -134,8 +198,14 @@ export default function FinalFormExperience({
           </Button>
         </div>
       </section>
-      <section className="ff-visualizer" aria-label={t("aria.finalityModel")}>
-        <div className="ff-toolbar">
+      <section
+        ref={visualizerRef}
+        className="ff-visualizer"
+        aria-label={t("aria.finalityModel")}
+      >
+        <div
+          className={`ff-toolbar${useInteractiveVisualizer ? "" : " is-static"}`}
+        >
           <div className="ff-mode" aria-label={t("aria.finalityTiming")}>
             <button
               type="button"
@@ -164,7 +234,11 @@ export default function FinalFormExperience({
         </div>
         <div className="ff-scene">
           <div className="ff-canvas-stage">
-            <FinalFormCanvas ref={canvasRef} onTelemetry={handleTelemetry} />
+            {useInteractiveVisualizer ? (
+              <FinalFormCanvas ref={canvasRef} onTelemetry={handleTelemetry} />
+            ) : (
+              <StaticFinalityDiagram />
+            )}
             <div className="ff-stage-labels" aria-hidden="true">
               <p>
                 <Broadcast pack="filled" /> {t("stages.streaming")}
@@ -178,7 +252,10 @@ export default function FinalFormExperience({
             </div>
           </div>
         </div>
-        <p className="ff-rpc-line" aria-label={t("aria.liveRpcData")}>
+        <p
+          className={`ff-rpc-line${useInteractiveVisualizer ? "" : " is-static"}`}
+          aria-label={t("aria.liveRpcData")}
+        >
           <span className="ff-rpc-label">RPC</span>
           <span>{statusLabel}</span>
           <span>
@@ -389,13 +466,15 @@ export default function FinalFormExperience({
           </div>
         )}
       </section>
-      <div className="ff-sr-summary" aria-live="polite">
-        {t("liveData.summary", {
-          status: statusLabel.toLocaleLowerCase(locale),
-          blocks: telemetry.holding,
-          finality: formatDuration(telemetry.currentFinalityMs),
-        })}
-      </div>
+      {useInteractiveVisualizer && (
+        <div className="ff-sr-summary" aria-live="polite">
+          {t("liveData.summary", {
+            status: statusLabel.toLocaleLowerCase(locale),
+            blocks: telemetry.holding,
+            finality: formatDuration(telemetry.currentFinalityMs),
+          })}
+        </div>
+      )}
     </main>
   );
 }

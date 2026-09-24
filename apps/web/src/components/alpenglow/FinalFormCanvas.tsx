@@ -453,8 +453,11 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
   const context = canvas.getContext("2d");
   const fallbackColor = new THREE.Color();
   let frame = 0;
+  let running = false;
+  let intersecting = false;
 
   function draw(now: number) {
+    if (!running) return;
     if (!context) return;
     if (state.cycleState === "holding" && now - state.cycleAt >= FORM_HOLD_MS) {
       state.cycleState = "melting";
@@ -537,9 +540,28 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
     frame = requestAnimationFrame(draw);
   }
 
-  frame = requestAnimationFrame(draw);
+  const syncRunning = () => {
+    const shouldRun = intersecting && !document.hidden;
+    if (shouldRun === running) return;
+    running = shouldRun;
+    if (running) frame = requestAnimationFrame(draw);
+    else cancelAnimationFrame(frame);
+  };
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      intersecting = entry?.isIntersecting ?? false;
+      syncRunning();
+    },
+    { rootMargin: "200px 0px" },
+  );
+  const handleVisibility = () => syncRunning();
+  observer.observe(host);
+  document.addEventListener("visibilitychange", handleVisibility);
   return () => {
+    running = false;
     cancelAnimationFrame(frame);
+    observer.disconnect();
+    document.removeEventListener("visibilitychange", handleVisibility);
     canvas.remove();
   };
 }
@@ -724,6 +746,8 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       const position = new THREE.Vector3();
       const color = new THREE.Color();
       let frame = 0;
+      let running = false;
+      let intersecting = false;
       let dragging = false;
       let pointerX = 0;
       let pointerY = 0;
@@ -1061,6 +1085,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       }
 
       function render(now: number) {
+        if (!running) return;
         frame = requestAnimationFrame(render);
         const delta = Math.min(50, now - lastFrame);
         lastFrame = now;
@@ -1166,10 +1191,33 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         }
         renderer.render(scene, camera);
       }
-      frame = requestAnimationFrame(render);
+      const syncRunning = () => {
+        const shouldRun = intersecting && !document.hidden;
+        if (shouldRun === running) return;
+        running = shouldRun;
+        if (running) {
+          lastFrame = performance.now();
+          frame = requestAnimationFrame(render);
+        } else {
+          cancelAnimationFrame(frame);
+        }
+      };
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          intersecting = entry?.isIntersecting ?? false;
+          syncRunning();
+        },
+        { rootMargin: "200px 0px" },
+      );
+      const handleVisibility = () => syncRunning();
+      observer.observe(hostElement);
+      document.addEventListener("visibilitychange", handleVisibility);
 
       return () => {
+        running = false;
         cancelAnimationFrame(frame);
+        observer.disconnect();
+        document.removeEventListener("visibilitychange", handleVisibility);
         runtimeRef.current = null;
         window.removeEventListener("resize", resize);
         renderer.domElement.removeEventListener("pointerdown", onPointerDown);
