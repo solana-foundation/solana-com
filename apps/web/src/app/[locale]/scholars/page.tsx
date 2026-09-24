@@ -7,7 +7,6 @@ import {
   Rocket,
   Target,
 } from "lucide-react";
-import Link from "next/link";
 import PixelBlast from "../../components/PixelBlast";
 import SectionReveal from "./SectionReveal";
 import styles from "./scholars.module.css";
@@ -73,9 +72,12 @@ export default function ScholarsPage() {
               </p>
             </div>
             <div className={styles.heroCta}>
-              <Link className={styles.btn} href="/scholars/apply">
+              <a
+                className={styles.btn}
+                href="https://solanafoundation.typeform.com/scholars"
+              >
                 Apply to the program
-              </Link>
+              </a>
               <span className={styles.note}>
                 PhD students only · Rolling admissions
               </span>
@@ -158,54 +160,6 @@ export default function ScholarsPage() {
         </div>
       </section>
 
-      {/* How */}
-      <section className={styles.section} id="how" data-scholars-reveal>
-        <div className={styles.secHead}>
-          <h2>How it works</h2>
-        </div>
-        <ol className={styles.steps}>
-          <li>
-            <div>
-              <h3>Apply with a direction</h3>
-              <p>
-                Tell us who you are, what you work on, and what you&apos;d want
-                to tackle — pitch your own idea or express interest in one of
-                our topic areas.
-              </p>
-            </div>
-          </li>
-          <li>
-            <div>
-              <h3>Scope the internship together</h3>
-              <p>
-                If there&apos;s a fit, we define a small, focused internship
-                with you: a concrete question, clear deliverables, a realistic
-                timeline — and whether you&apos;ll join on-site or virtually.
-              </p>
-            </div>
-          </li>
-          <li>
-            <div>
-              <h3>Research with us, not near us</h3>
-              <p>
-                The internship is funded, and you have regular working sessions
-                with the Solana-side collaborators. When you&apos;re blocked,
-                you know who to ask.
-              </p>
-            </div>
-          </li>
-          <li>
-            <div>
-              <h3>Ship the result</h3>
-              <p>
-                Publish the paper, release the artifact, present the findings —
-                and see the work feed directly into the system.
-              </p>
-            </div>
-          </li>
-        </ol>
-      </section>
-
       {/* Who */}
       <section className={styles.section} id="eligibility" data-scholars-reveal>
         <div className={styles.secHead}>
@@ -239,14 +193,18 @@ export default function ScholarsPage() {
         </div>
         <p className={styles.lede}>
           Applications are short — we care about your ideas and your fit, not
-          paperwork. There is no application deadline: we accept applications
-          throughout the year. Whenever you&apos;re ready, we&apos;re ready.
+          paperwork. Pitch your own topic or express interest in one of our
+          areas; if there&apos;s a fit, we scope the internship together. There
+          is no application deadline: we accept applications throughout the
+          year. Whenever you&apos;re ready, we&apos;re ready.
         </p>
         <div className={styles.heroCta}>
-          <Link className={styles.btn} href="/scholars/apply">
+          <a
+            className={styles.btn}
+            href="https://solanafoundation.typeform.com/scholars"
+          >
             Go to the application form
-          </Link>
-          <span className={styles.note}>We read everything.</span>
+          </a>
         </div>
       </section>
     </main>
