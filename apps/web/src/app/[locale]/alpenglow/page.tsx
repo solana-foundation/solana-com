@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import FinalFormExperience from "@/components/alpenglow/FinalFormExperience";
 
 export const metadata: Metadata = {
-  title: "Final Form — Live Alpenglow artwork | Solana",
+  title: "Alpenglow finality | Solana",
   description:
-    "A live generative artwork made from the distance between a Solana block appearing and becoming final.",
+    "See live Solana transactions move from streaming to confirmed to finalized, and compare today's finality with Alpenglow.",
 };
 
 export default function AlpenglowPage() {

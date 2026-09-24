@@ -9,132 +9,76 @@ import type {
 } from "./types";
 import { signatureSeed } from "./types";
 
-const COHORT_SIZE = 30;
-const MAX_GLYPHS = 18_000;
-const GLYPH_MIN_LIFETIME_MS = 2_200;
-const GLYPH_MAX_LIFETIME_MS = 3_200;
-const GLYPH_LANES = 52;
-const FINAL_CELLS = 1_400;
+const MAX_STAGE_VOXELS = 60_000;
+const LEGACY_FINALITY_SECONDS = 12;
+const ALPENGLOW_FINALITY_SECONDS = 0.15;
+const STREAM_HOLD_MS = 900;
+const STAGE_TRANSITION_MS = 850;
+const FORM_HOLD_MS = 3_000;
+const MELT_DURATION_MS = 3_200;
+const VOXEL_SIZE = 0.024;
+const MIN_LOGO_POPULATION = 18_000;
+const COLOR_BUCKETS = 256;
+const STAGE_X = [-2, 0, 2] as const;
 
-type Glyph = TransactionObserved & { born: number; confirmedAt?: number };
-type WaitingBlock = BlockConfirmed & {
-  lane: number;
+type FinalityMode = "legacy" | "alpenglow";
+type CycleState = "forming" | "holding" | "melting";
+
+type StreamVoxel = TransactionObserved & {
+  born: number;
   seed: number;
-  finalizedAt?: number;
+};
+
+type ConfirmedVoxel = TransactionObserved & {
+  enteredAt: number;
+  order: number;
+  moved: boolean;
+  seed: number;
+  fromPosition: THREE.Vector3;
+};
+
+type FinalVoxel = ConfirmedVoxel & {
+  targetIndex: number;
+  seed: number;
+  finalEnteredAt: number;
+  finalFromPosition: THREE.Vector3;
+};
+
+type VisualBlock = BlockConfirmed & {
+  observedAt: number;
+  actualFinalized: boolean;
   finalityMs?: number;
 };
-type Cell = {
-  x: number;
-  y: number;
-  territory: number;
-  blockhash?: string;
-  slot?: number;
-  born?: number;
-  fromY?: number;
-};
 
-export type Inspection = {
-  kind: "transaction" | "block" | "final";
-  title: string;
-  lines: string[];
-  href: string;
+type LogoModel = {
+  points: THREE.Vector3[];
 };
 
 export type ArtworkTelemetry = {
   holding: number;
   rendered: number;
   finalizedBlocks: number;
-  form: number;
-  progress: number;
   currentFinalityMs: number;
   medianFinalityMs: number;
-  firstSlot?: number;
-  lastSlot?: number;
-  transactions: number;
-};
-
-const EMPTY_FALLBACK_TELEMETRY: ArtworkTelemetry = {
-  holding: 0,
-  rendered: 0,
-  finalizedBlocks: 0,
-  form: 147,
-  progress: 0,
-  currentFinalityMs: 0,
-  medianFinalityMs: 0,
-  transactions: 0,
 };
 
 export type FinalFormCanvasHandle = {
   push: (_event: AlpenglowEvent) => void;
-  setPaused: (_paused: boolean) => void;
+  setMode: (_mode: FinalityMode) => void;
+  resetView: () => void;
 };
 
 type Props = {
-  onInspect: (_inspection: Inspection | null) => void;
   onTelemetry: (_telemetry: ArtworkTelemetry) => void;
 };
 
-function makeMask() {
-  const bands = [
-    [
-      [20, 0],
-      [99, 0],
-      [100.5, 3.2],
-      [83.8, 20.6],
-      [81, 21.8],
-      [1.9, 21.8],
-      [0.5, 18.6],
-      [17.2, 1.2],
-    ],
-    [
-      [1.9, 33.1],
-      [81, 33.1],
-      [83.8, 34.3],
-      [100.5, 51.7],
-      [99.1, 54.9],
-      [20, 54.9],
-      [17.2, 53.7],
-      [0.5, 36.3],
-    ],
-    [
-      [20, 66.2],
-      [99.1, 66.2],
-      [100.5, 69.4],
-      [83.8, 86.8],
-      [81, 88],
-      [1.9, 88],
-      [0.5, 84.8],
-      [17.2, 67.4],
-    ],
-  ];
-  const inside = (x: number, y: number, polygon: number[][]) => {
-    let contained = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const [xi, yi] = polygon[i]!;
-      const [xj, yj] = polygon[j]!;
-      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
-        contained = !contained;
-      }
-    }
-    return contained;
-  };
-  const points: Array<{ x: number; y: number; territory: number }> = [];
-  for (let row = 0; row < 45; row += 1) {
-    for (let column = 0; column < 47; column += 1) {
-      const markX = (column / 46) * 101;
-      const markY = (row / 44) * 88;
-      const band = bands.findIndex((polygon) => inside(markX, markY, polygon));
-      if (band >= 0) {
-        const segment = Math.min(9, Math.floor((markX / 101) * 10));
-        points.push({
-          x: -0.72 + (markX / 101) * 1.44,
-          y: 0.62 - (markY / 88) * 1.24,
-          territory: segment * 3 + band,
-        });
-      }
-    }
-  }
-  return points.sort((a, b) => a.territory - b.territory || b.y - a.y);
+function unit(seed: number, shift: number) {
+  return ((seed >>> shift) & 0xff) / 255;
+}
+
+function ease(value: number) {
+  const clamped = Math.max(0, Math.min(1, value));
+  return 1 - Math.pow(1 - clamped, 3);
 }
 
 function median(values: number[]) {
@@ -143,211 +87,214 @@ function median(values: number[]) {
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
-function formatSignature(signature: string) {
-  return `${signature.slice(0, 7)}…${signature.slice(-6)}`;
+function populationFor(tps: number, mode: FinalityMode) {
+  const seconds =
+    mode === "legacy" ? LEGACY_FINALITY_SECONDS : ALPENGLOW_FINALITY_SECONDS;
+  return Math.max(256, Math.min(MAX_STAGE_VOXELS, Math.round(tps * seconds)));
 }
 
-function glyphLifetime(seed: number) {
-  return (
-    GLYPH_MIN_LIFETIME_MS +
-    (seed % (GLYPH_MAX_LIFETIME_MS - GLYPH_MIN_LIFETIME_MS + 1))
-  );
-}
+const SOLANA_PURPLE = new THREE.Color(0x9945ff);
+const SOLANA_CYAN = new THREE.Color(0x00d4ff);
+const SOLANA_GREEN = new THREE.Color(0x14f195);
 
-function seedUnit(seed: number, shift: number) {
-  return ((seed >>> shift) & 0xff) / 255;
-}
-
-function glyphPosition(seed: number, slot: number, progress: number) {
-  const lane = (seed >>> 8) % GLYPH_LANES;
-  const laneUnit = lane / (GLYPH_LANES - 1);
-  const slotSeed = signatureSeed(String(slot));
-  const phase = seedUnit(slotSeed, 8) * Math.PI * 2;
-  const frequency = 0.75 + seedUnit(slotSeed, 16) * 1.8;
-  const current =
-    Math.sin(progress * Math.PI * frequency + phase) *
-    (0.008 + seedUnit(slotSeed, 0) * 0.025) *
-    Math.sin(progress * Math.PI);
-  const arc = (seedUnit(seed, 0) - 0.5) * 0.045 * Math.sin(progress * Math.PI);
-  const laneJitter = (seedUnit(seed, 20) - 0.5) * 0.018;
-  const entryOffset = (seedUnit(seed, 4) - 0.5) * 0.045;
-
-  return {
-    x:
-      -1.42 +
-      entryOffset +
-      Math.min(0.95, progress) * 0.95 +
-      Math.sin(progress * Math.PI * 2 + phase) * 0.004,
-    y: -0.72 + laneUnit * 1.44 + laneJitter + current + arc,
-  };
-}
-
-function pushGlyphSegment(
-  vertices: number[],
-  x: number,
-  y: number,
-  cosine: number,
-  sine: number,
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-) {
-  vertices.push(
-    x + ax * cosine - ay * sine,
-    y + ax * sine + ay * cosine,
-    0,
-    x + bx * cosine - by * sine,
-    y + bx * sine + by * cosine,
-    0,
-  );
-}
-
-function pushGlyphShape(
-  vertices: number[],
-  x: number,
-  y: number,
-  cosine: number,
-  sine: number,
-  size: number,
-  variant: number,
-) {
-  if (variant === 0)
-    pushGlyphSegment(vertices, x, y, cosine, sine, -size, 0, size, 0);
-  else if (variant === 1) {
-    pushGlyphSegment(vertices, x, y, cosine, sine, -size, 0, -size * 0.55, 0);
-    pushGlyphSegment(vertices, x, y, cosine, sine, size * 0.25, 0, size, 0);
-  } else if (variant === 2) {
-    pushGlyphSegment(vertices, x, y, cosine, sine, -size, -size * 0.7, 0, size);
-    pushGlyphSegment(vertices, x, y, cosine, sine, 0, size, size, -size * 0.25);
-  } else if (variant === 3) {
-    pushGlyphSegment(vertices, x, y, cosine, sine, -size, -size, size, -size);
-    pushGlyphSegment(vertices, x, y, cosine, sine, size, -size, size, size);
-    pushGlyphSegment(vertices, x, y, cosine, sine, size, size, -size, size);
-  } else if (variant === 4) {
-    pushGlyphSegment(
-      vertices,
-      x,
-      y,
-      cosine,
-      sine,
-      -size,
-      0,
-      -size * 0.45,
-      size * 0.7,
-    );
-    pushGlyphSegment(
-      vertices,
-      x,
-      y,
-      cosine,
-      sine,
-      -size * 0.45,
-      size * 0.7,
-      size * 0.2,
-      -size * 0.65,
-    );
-    pushGlyphSegment(
-      vertices,
-      x,
-      y,
-      cosine,
-      sine,
-      size * 0.2,
-      -size * 0.65,
-      size,
-      0,
-    );
-  } else if (variant === 5) {
-    pushGlyphSegment(
-      vertices,
-      x,
-      y,
-      cosine,
-      sine,
-      -size,
-      -size * 0.35,
-      -size * 0.7,
-      size * 0.35,
-    );
-    pushGlyphSegment(
-      vertices,
-      x,
-      y,
-      cosine,
-      sine,
-      size * 0.7,
-      -size * 0.35,
-      size,
-      size * 0.35,
-    );
+function setSolanaColor(seed: number, output: THREE.Color) {
+  const gradientPosition = unit(seed, 0);
+  if (gradientPosition < 0.5) {
+    output.copy(SOLANA_PURPLE).lerp(SOLANA_CYAN, gradientPosition * 2);
   } else {
-    pushGlyphSegment(vertices, x, y, cosine, sine, -size, 0, -size * 0.65, 0);
-    pushGlyphSegment(
-      vertices,
-      x,
-      y,
-      cosine,
-      sine,
-      -size * 0.05,
-      0,
-      size * 0.2,
-      0,
-    );
-    pushGlyphSegment(vertices, x, y, cosine, sine, size * 0.7, 0, size, 0);
+    output.copy(SOLANA_CYAN).lerp(SOLANA_GREEN, (gradientPosition - 0.5) * 2);
   }
+  return output;
+}
+
+function createVoxelMaterial() {
+  const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nvarying vec3 vVoxelPosition;",
+      )
+      .replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\nvVoxelPosition = position;",
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nvarying vec3 vVoxelPosition;",
+      )
+      .replace(
+        "#include <opaque_fragment>",
+        `vec3 edgeDistance = vec3(0.5) - abs(vVoxelPosition);
+        float nearestFaceEdge = max(
+          min(edgeDistance.x, edgeDistance.y),
+          min(max(edgeDistance.x, edgeDistance.y), edgeDistance.z)
+        );
+        float edgePixels = nearestFaceEdge / max(fwidth(nearestFaceEdge), 0.0001);
+        float blockInterior = smoothstep(0.0, 0.55, edgePixels);
+        diffuseColor.rgb = mix(vec3(0.0), diffuseColor.rgb, blockInterior);
+        #include <opaque_fragment>`,
+      );
+  };
+  return material;
+}
+
+function latticeResolution(population: number) {
+  return Math.max(2, Math.ceil(Math.cbrt(population)));
+}
+
+function latticePosition(index: number, population: number, stageX: number) {
+  const resolution = latticeResolution(population);
+  const cell = index % Math.pow(resolution, 3);
+  const planeSize = resolution * resolution;
+  const x = Math.floor(cell / planeSize);
+  const withinPlane = cell % planeSize;
+  const y = withinPlane % resolution;
+  const z = Math.floor(withinPlane / resolution);
+  const step = 1.08 / Math.max(1, resolution - 1);
+  return new THREE.Vector3(
+    stageX + 0.54 - x * step,
+    -0.54 + y * step,
+    -0.54 + z * step,
+  );
+}
+
+function createLogoModel(population: number): LogoModel {
+  let resolution = Math.max(8, Math.ceil(Math.cbrt(population / 0.4)));
+  let candidates: THREE.Vector3[] = [];
+  const bands = [
+    [
+      [-0.42, 0.46],
+      [0.54, 0.46],
+      [0.42, 0.26],
+      [-0.54, 0.26],
+    ],
+    [
+      [-0.54, 0.1],
+      [0.42, 0.1],
+      [0.54, -0.1],
+      [-0.42, -0.1],
+    ],
+    [
+      [-0.42, -0.26],
+      [0.54, -0.26],
+      [0.42, -0.46],
+      [-0.54, -0.46],
+    ],
+  ];
+
+  function insideBand(x: number, y: number, polygon: number[][]) {
+    let inside = false;
+    for (
+      let index = 0, previous = polygon.length - 1;
+      index < polygon.length;
+      previous = index++
+    ) {
+      const [xi, yi] = polygon[index]!;
+      const [xj, yj] = polygon[previous]!;
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  while (candidates.length < population) {
+    candidates = [];
+    for (let zIndex = 0; zIndex < resolution; zIndex += 1) {
+      for (let yIndex = 0; yIndex < resolution; yIndex += 1) {
+        for (let xIndex = 0; xIndex < resolution; xIndex += 1) {
+          const x = -0.54 + (xIndex / (resolution - 1)) * 1.08;
+          const y = -0.54 + (yIndex / (resolution - 1)) * 1.08;
+          const z = -0.38 + (zIndex / (resolution - 1)) * 0.76;
+          if (bands.some((band) => insideBand(x, y, band))) {
+            candidates.push(new THREE.Vector3(STAGE_X[2] + x, y, z));
+          }
+        }
+      }
+    }
+    if (candidates.length < population) resolution += 1;
+  }
+
+  const points = Array.from({ length: population }, (_, index) => {
+    const candidateIndex = Math.floor((index / population) * candidates.length);
+    return candidates[candidateIndex]!.clone();
+  });
+  points.sort((first, second) => {
+    const firstGradient = -first.x - first.y;
+    const secondGradient = -second.x - second.y;
+    return firstGradient - secondGradient || second.z - first.z;
+  });
+  return { points };
+}
+
+function createTargetBuckets(population: number) {
+  const buckets = Array.from({ length: COLOR_BUCKETS }, () => [] as number[]);
+  for (let index = 0; index < population; index += 1) {
+    const bucket = Math.min(
+      COLOR_BUCKETS - 1,
+      Math.floor((index / population) * COLOR_BUCKETS),
+    );
+    buckets[bucket]!.push(index);
+  }
+  return buckets;
+}
+
+function addStageFrame(group: THREE.Group, x: number) {
+  const geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+  const fill = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: 0x0b0b0d,
+      transparent: true,
+      opacity: 0.42,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geometry),
+    new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.34,
+    }),
+  );
+  fill.position.x = x;
+  edges.position.x = x;
+  group.add(fill, edges);
 }
 
 type FallbackState = {
-  queue: TransactionObserved[];
-  queueIndex: number;
-  glyphs: Glyph[];
-  targetTps: number;
-  emissionCredit: number;
-  lastDraw: number;
-  paused: boolean;
+  counts: [number, number, number];
+  population: number;
+  cyclePopulation: number;
+  cycleState: CycleState;
+  cycleAt: number;
 };
 
-function mountCanvasFallback(
-  host: HTMLDivElement,
-  getProgress: () => number,
-  state: FallbackState,
-) {
+function mountFallback(host: HTMLDivElement, state: FallbackState) {
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
   host.appendChild(canvas);
   const context = canvas.getContext("2d");
-  const fallbackMask = makeMask();
+  const fallbackColor = new THREE.Color();
   let frame = 0;
 
   function draw(now: number) {
     if (!context) return;
-    const elapsed = Math.min(50, now - state.lastDraw);
-    state.lastDraw = now;
-    if (!state.paused) {
-      state.emissionCredit += (state.targetTps * elapsed) / 1_000;
-      const emitCount = Math.min(
-        Math.floor(state.emissionCredit),
-        state.queue.length - state.queueIndex,
-      );
-      if (emitCount > 0) {
-        state.emissionCredit -= emitCount;
-        for (let index = 0; index < emitCount; index += 1) {
-          state.glyphs.push({
-            ...state.queue[state.queueIndex++]!,
-            born: now - elapsed + (index / emitCount) * elapsed,
-          });
-        }
-      }
-      if (state.queueIndex > 10_000) {
-        state.queue.splice(0, state.queueIndex);
-        state.queueIndex = 0;
-      }
+    if (state.cycleState === "holding" && now - state.cycleAt >= FORM_HOLD_MS) {
+      state.cycleState = "melting";
+      state.cycleAt = now;
+    } else if (
+      state.cycleState === "melting" &&
+      now - state.cycleAt >= MELT_DURATION_MS
+    ) {
+      state.counts[2] = 0;
+      state.cyclePopulation = state.population;
+      state.cycleState = "forming";
     }
-    state.glyphs = state.glyphs.filter((glyph) => {
-      const seed = signatureSeed(glyph.signature);
-      return now - glyph.born <= glyphLifetime(seed);
-    });
     const ratio = Math.min(window.devicePixelRatio, 1.5);
     const width = host.clientWidth;
     const height = host.clientHeight;
@@ -358,81 +305,66 @@ function mountCanvasFallback(
       canvas.style.height = `${height}px`;
     }
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.fillStyle = "#000000";
-    context.fillRect(0, 0, width, height);
-    context.strokeStyle = "rgba(236,228,253,.2)";
+    context.clearRect(0, 0, width, height);
+    context.strokeStyle = "rgba(255,255,255,.42)";
     context.lineWidth = 1;
-    const portrait = width < 720;
-    const boundaries = portrait
-      ? [height * 0.39, height * 0.62]
-      : [width / 3, (width / 3) * 2];
-    boundaries.forEach((position) => {
+    const size = Math.min(width * 0.24, height * 0.44);
+    const gap = size * 0.12;
+    const start = width / 2 - (size * 3 + gap * 2) / 2;
+    const top = height / 2 - size / 2;
+
+    for (let stage = 0; stage < 3; stage += 1) {
+      const left = start + stage * (size + gap);
+      context.strokeRect(left, top, size, size);
+      context.strokeRect(left + size * 0.1, top - size * 0.1, size, size);
       context.beginPath();
-      if (portrait) {
-        context.moveTo(0, position);
-        context.lineTo(width, position);
-      } else {
-        context.moveTo(position, height * 0.27);
-        context.lineTo(position, height * 0.82);
+      context.moveTo(left, top);
+      context.lineTo(left + size * 0.1, top - size * 0.1);
+      context.moveTo(left + size, top);
+      context.lineTo(left + size * 1.1, top - size * 0.1);
+      context.moveTo(left + size, top + size);
+      context.lineTo(left + size * 1.1, top + size * 0.9);
+      context.stroke();
+
+      const visible = Math.min(900, state.counts[stage]!);
+      const columns = Math.max(2, Math.ceil(Math.sqrt(visible)));
+      const dot = Math.max(1.2, size * 0.012);
+      for (let index = 0; index < visible; index += 1) {
+        const seed = signatureSeed(`${index}`);
+        let x = left + size * (0.15 + unit(seed, 0) * 0.72);
+        let y = top + size * (0.15 + unit(seed, 8) * 0.72);
+        if (stage === 1) {
+          x = left + size * (0.12 + ((index % columns) / columns) * 0.76);
+          y =
+            top +
+            size * (0.12 + (Math.floor(index / columns) / columns) * 0.76);
+        }
+        if (stage === 2) {
+          const band = Math.floor((index / visible) * 3);
+          const bandCount = Math.ceil(visible / 3);
+          const bandColumns = Math.max(3, Math.ceil(Math.sqrt(bandCount * 4)));
+          const localIndex = index % bandCount;
+          const column = localIndex % bandColumns;
+          const row = Math.floor(localIndex / bandColumns);
+          const progress = column / Math.max(1, bandColumns - 1);
+          const chamfer = Math.abs(row - 2) * 0.008;
+          x = left + size * (0.18 + chamfer + progress * (0.64 - chamfer * 2));
+          y = top + size * (0.23 + band * 0.27 + row * 0.012);
+          if (state.cycleState === "melting") {
+            const melt = Math.min(1, (now - state.cycleAt) / MELT_DURATION_MS);
+            y += melt * melt * size * (0.4 + unit(seed, 16) * 0.35);
+          }
+        }
+        context.fillStyle = `#${setSolanaColor(seed, fallbackColor).getHexString()}`;
+        context.fillRect(x, y, dot, dot);
+        context.strokeStyle = "#000000";
+        context.lineWidth = 0.5;
+        context.strokeRect(x, y, dot, dot);
       }
-      context.stroke();
-    });
-    context.strokeStyle = "rgba(20,241,149,.48)";
-    for (const glyph of state.glyphs) {
-      const seed = signatureSeed(glyph.signature);
-      const progress = Math.min(1, (now - glyph.born) / glyphLifetime(seed));
-      const position = glyphPosition(seed, glyph.slot, progress);
-      const x = portrait
-        ? width * (0.1 + ((position.y + 0.72) / 1.44) * 0.8)
-        : width * (0.03 + ((position.x + 1.42) / 0.95) * 0.27);
-      const y = portrait
-        ? height * (0.28 + ((position.x + 1.42) / 0.95) * 0.1)
-        : height * (0.39 + ((position.y + 0.72) / 1.44) * 0.38);
-      const size = 1 + (seed % 3);
-      const angle = seedUnit(seed, 12) * 1.2 - 0.6;
-      context.beginPath();
-      context.moveTo(x - Math.cos(angle) * size, y - Math.sin(angle) * size);
-      context.lineTo(x + Math.cos(angle) * size, y + Math.sin(angle) * size);
-      context.stroke();
     }
-    for (let lane = 0; lane < 7; lane += 1) {
-      context.strokeStyle = "rgba(153,69,255,.8)";
-      context.beginPath();
-      for (let point = 0; point < 42; point += 1) {
-        const unit = point / 41;
-        const x = portrait
-          ? width * (0.15 + unit * 0.7)
-          : width * (0.36 + unit * 0.27);
-        const y = portrait
-          ? height *
-            (0.43 + lane * 0.025 + Math.sin(point * 0.7 + now * 0.002) * 0.008)
-          : height *
-            (0.4 + lane * 0.045 + Math.sin(point * 0.7 + now * 0.002) * 0.012);
-        if (point === 0) context.moveTo(x, y);
-        else context.lineTo(x, y);
-      }
-      context.stroke();
-    }
-    const logoGradient = context.createLinearGradient(0, height, width, 0);
-    logoGradient.addColorStop(0, "#9945ff");
-    logoGradient.addColorStop(0.52, "#00d4ff");
-    logoGradient.addColorStop(1, "#14f195");
-    context.fillStyle = logoGradient;
-    const visibleFallbackCells = Math.floor(
-      fallbackMask.length * getProgress(),
-    );
-    fallbackMask.forEach((point, index) => {
-      if (index >= visibleFallbackCells) return;
-      const x = portrait
-        ? width * (0.5 + point.x * 0.32)
-        : width * (0.83 + point.x * 0.15);
-      const y = portrait
-        ? height * (0.79 + point.y * 0.13)
-        : height * (0.55 + point.y * 0.25);
-      context.fillRect(x, y, 2, 2);
-    });
     frame = requestAnimationFrame(draw);
   }
+
   frame = requestAnimationFrame(draw);
   return () => {
     cancelAnimationFrame(frame);
@@ -441,618 +373,585 @@ function mountCanvasFallback(
 }
 
 export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
-  function FinalFormCanvas({ onInspect, onTelemetry }, ref) {
+  function FinalFormCanvas({ onTelemetry }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
     const runtimeRef = useRef<{
       push: (_event: AlpenglowEvent) => void;
-      paused: boolean;
+      setMode: (_mode: FinalityMode) => void;
+      resetView: () => void;
     } | null>(null);
 
     useImperativeHandle(ref, () => ({
-      push(event) {
-        runtimeRef.current?.push(event);
-      },
-      setPaused(paused) {
-        if (runtimeRef.current) runtimeRef.current.paused = paused;
-      },
+      push: (event) => runtimeRef.current?.push(event),
+      setMode: (mode) => runtimeRef.current?.setMode(mode),
+      resetView: () => runtimeRef.current?.resetView(),
     }));
 
     useEffect(() => {
       const host = hostRef.current;
       if (!host) return;
       const hostElement = host;
-
       const scene = new THREE.Scene();
-      const artwork = new THREE.Group();
-      scene.add(artwork);
-      const camera = new THREE.OrthographicCamera(-1.65, 1.65, 1, -1, 0.1, 10);
-      camera.position.z = 2;
+      const assembly = new THREE.Group();
+      assembly.rotation.set(-0.18, -0.28, 0);
+      scene.add(assembly);
+      STAGE_X.forEach((x) => addStageFrame(assembly, x));
+
+      const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 30);
+      camera.position.set(0, 0.2, 8.4);
       let renderer: THREE.WebGLRenderer;
+
       try {
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       } catch {
-        const holding = new Map<string, BlockConfirmed>();
-        let finalized = 0;
-        let currentFinalityMs = 0;
+        let mode: FinalityMode = "alpenglow";
+        let tps = 3_000;
         const fallbackState: FallbackState = {
-          queue: [],
-          queueIndex: 0,
-          glyphs: [],
-          targetTps: 3_000,
-          emissionCredit: 0,
-          lastDraw: performance.now(),
-          paused: false,
+          counts: [0, 0, 0],
+          population: populationFor(tps, mode),
+          cyclePopulation: populationFor(tps, mode),
+          cycleState: "forming",
+          cycleAt: 0,
         };
+        const fallbackBlocks = new Map<string, number>();
+        const fallbackFinalityValues: number[] = [];
+        let fallbackFinalizedBlocks = 0;
+        let fallbackCurrentFinalityMs = 0;
+        function reportFallback() {
+          onTelemetry({
+            holding: fallbackBlocks.size,
+            rendered: fallbackState.counts.reduce(
+              (total, count) => total + count,
+              0,
+            ),
+            finalizedBlocks: fallbackFinalizedBlocks,
+            currentFinalityMs: fallbackCurrentFinalityMs,
+            medianFinalityMs: median(fallbackFinalityValues),
+          });
+        }
         runtimeRef.current = {
           push(event) {
-            if (event.type === "transaction_observed") {
-              fallbackState.queue.push(event);
-            }
             if (event.type === "performance_sample") {
-              fallbackState.targetTps = Math.max(
-                1,
-                Math.min(12_000, event.totalTps),
+              tps = event.totalTps;
+              fallbackState.population = populationFor(tps, mode);
+              reportFallback();
+            }
+            if (event.type === "transaction_observed") {
+              fallbackState.counts[0] = Math.min(
+                fallbackState.population,
+                fallbackState.counts[0] + 1,
               );
             }
             if (event.type === "block_confirmed") {
-              holding.set(event.blockhash, event);
+              fallbackBlocks.set(event.blockhash, event.transactionCount);
+              fallbackState.counts[1] = Math.min(
+                fallbackState.population,
+                fallbackState.counts[1] + event.transactionCount,
+              );
+              reportFallback();
             }
             if (event.type === "block_finalized") {
-              const block = holding.get(event.blockhash);
-              if (block) {
-                holding.delete(event.blockhash);
-                finalized = Math.min(COHORT_SIZE, finalized + 1);
-                currentFinalityMs = event.observedFinalityMs;
-                onTelemetry({
-                  ...EMPTY_FALLBACK_TELEMETRY,
-                  holding: holding.size,
-                  finalizedBlocks: finalized,
-                  progress: finalized / COHORT_SIZE,
-                  currentFinalityMs,
-                  medianFinalityMs: currentFinalityMs,
-                });
+              const transactionCount =
+                fallbackBlocks.get(event.blockhash) ?? 1_000;
+              fallbackBlocks.delete(event.blockhash);
+              const moved = Math.min(
+                transactionCount,
+                fallbackState.cyclePopulation - fallbackState.counts[2],
+              );
+              fallbackState.counts[1] = Math.max(
+                0,
+                fallbackState.counts[1] - moved,
+              );
+              fallbackState.counts[2] += moved;
+              fallbackFinalizedBlocks += 1;
+              fallbackCurrentFinalityMs = event.observedFinalityMs;
+              fallbackFinalityValues.push(event.observedFinalityMs);
+              if (fallbackState.counts[2] >= fallbackState.cyclePopulation) {
+                fallbackState.cycleState = "holding";
+                fallbackState.cycleAt = performance.now();
               }
+              reportFallback();
             }
           },
-          get paused() {
-            return fallbackState.paused;
+          setMode(value) {
+            mode = value;
+            fallbackState.population = populationFor(tps, mode);
           },
-          set paused(value: boolean) {
-            fallbackState.paused = value;
-          },
+          resetView() {},
         };
-        const cleanup = mountCanvasFallback(
-          hostElement,
-          () => finalized / COHORT_SIZE,
-          fallbackState,
-        );
+        const cleanup = mountFallback(hostElement, fallbackState);
         return () => {
           runtimeRef.current = null;
           cleanup();
         };
       }
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-      renderer.setClearColor(0x000000, 1);
-      host.appendChild(renderer.domElement);
 
-      const lineMaterial = new THREE.LineBasicMaterial({
-        color: 0x14f195,
-        transparent: true,
-        opacity: 0.48,
-      });
-      const dimMaterial = new THREE.LineBasicMaterial({
-        color: 0x55e9ab,
-        transparent: true,
-        opacity: 0.14,
-      });
-      const waveMaterial = new THREE.LineBasicMaterial({
-        color: 0x9945ff,
-        transparent: true,
-        opacity: 0.68,
-      });
-      const dividerMaterial = new THREE.LineBasicMaterial({
-        color: 0xece4fd,
-        transparent: true,
-        opacity: 0.25,
-      });
-      const glyphGeometry = new THREE.BufferGeometry();
-      const relationGeometry = new THREE.BufferGeometry();
-      const waveGeometry = new THREE.BufferGeometry();
-      const glyphLines = new THREE.LineSegments(glyphGeometry, lineMaterial);
-      const relationLines = new THREE.LineSegments(
-        relationGeometry,
-        dimMaterial,
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+      renderer.setClearColor(0x000000, 0);
+      hostElement.appendChild(renderer.domElement);
+
+      const voxelGeometry = new THREE.BoxGeometry(1, 1, 1);
+      const streamingMaterial = createVoxelMaterial();
+      const confirmedMaterial = createVoxelMaterial();
+      const finalMaterial = createVoxelMaterial();
+      const streamingMesh = new THREE.InstancedMesh(
+        voxelGeometry,
+        streamingMaterial,
+        MAX_STAGE_VOXELS,
       );
-      const waveLines = new THREE.LineSegments(waveGeometry, waveMaterial);
-      artwork.add(glyphLines, relationLines, waveLines);
-
-      const dividers = new THREE.LineSegments(
-        new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(-0.43, -0.82, 0),
-          new THREE.Vector3(-0.43, 0.82, 0),
-          new THREE.Vector3(0.42, -0.82, 0),
-          new THREE.Vector3(0.42, 0.82, 0),
-        ]),
-        dividerMaterial,
+      const confirmedMesh = new THREE.InstancedMesh(
+        voxelGeometry,
+        confirmedMaterial,
+        MAX_STAGE_VOXELS,
       );
-      artwork.add(dividers);
-
-      const cellGeometry = new THREE.PlaneGeometry(0.012, 0.012);
-      const cellMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-      });
-      const cellsMesh = new THREE.InstancedMesh(
-        cellGeometry,
-        cellMaterial,
-        FINAL_CELLS,
+      const finalMesh = new THREE.InstancedMesh(
+        voxelGeometry,
+        finalMaterial,
+        MAX_STAGE_VOXELS,
       );
-      cellsMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      artwork.add(cellsMesh);
+      streamingMesh.count = 0;
+      confirmedMesh.count = 0;
+      finalMesh.count = 0;
+      streamingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      confirmedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      finalMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      assembly.add(streamingMesh, confirmedMesh, finalMesh);
 
-      const flashMaterial = new THREE.LineBasicMaterial({
-        color: 0x14f195,
-        transparent: true,
-        opacity: 0,
-      });
-      const flash = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(0.42, -0.78, 0.2),
-          new THREE.Vector3(0.42, 0.78, 0.2),
-        ]),
-        flashMaterial,
-      );
-      artwork.add(flash);
-
-      const mask = makeMask();
-      const cells: Cell[] = mask.map(({ x, y, territory }) => ({
-        x,
-        y,
-        territory,
-      }));
-      const glyphs = new Map<string, Glyph>();
-      const pendingGlyphs: TransactionObserved[] = [];
-      const confirmedSlots = new Map<number, number>();
-      const blocks = new Map<string, WaitingBlock>();
-      const finalityValues: number[] = [];
-      const cohort: WaitingBlock[] = [];
-      const buffered: WaitingBlock[] = [];
-      const pointer = new THREE.Vector2(99, 99);
-      const temp = new THREE.Object3D();
-      const cellColor = new THREE.Color();
-      const logoPurple = new THREE.Color(0x9945ff);
-      const logoCyan = new THREE.Color(0x00d4ff);
-      const logoGreen = new THREE.Color(0x14f195);
-      let finalBlocks = 0;
-      let cohortTransactions = 0;
-      let form = 147;
-      let cycleState: "forming" | "holding" | "dissolving" = "forming";
-      let cycleAt = 0;
-      let flashAt = 0;
-      let paused = false;
-      let pendingGlyphIndex = 0;
-      let targetTps = 3_000;
+      let mode: FinalityMode = "alpenglow";
+      let tps = 3_000;
+      let targetPopulation = populationFor(tps, mode);
+      let cyclePopulation = Math.max(targetPopulation, MIN_LOGO_POPULATION);
+      let logoModel = createLogoModel(cyclePopulation);
+      let targetBuckets = createTargetBuckets(cyclePopulation);
+      let targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
+      let lastFinalArrivalAt = 0;
+      const pending: TransactionObserved[] = [];
+      let pendingIndex = 0;
       let emissionCredit = 0;
+      let confirmedOrder = 0;
+      let streaming: StreamVoxel[] = [];
+      let confirmed: ConfirmedVoxel[] = [];
+      let final: FinalVoxel[] = [];
+      let confirmedDirty = true;
+      let finalDirty = true;
+      let cycleState: CycleState = "forming";
+      let cycleAt = 0;
+      let finalizedBlocks = 0;
+      let currentFinalityMs = 0;
       let lastTelemetry = 0;
       let lastFrame = performance.now();
-      let reducedMotion = window.matchMedia(
+      const blocks = new Map<string, VisualBlock>();
+      const finalityValues: number[] = [];
+      const object = new THREE.Object3D();
+      const position = new THREE.Vector3();
+      const color = new THREE.Color();
+      let frame = 0;
+      let dragging = false;
+      let pointerX = 0;
+      let pointerY = 0;
+      let targetRotationX = assembly.rotation.x;
+      let targetRotationY = assembly.rotation.y;
+      let targetZoom = camera.position.z;
+      const reduceMotion = window.matchMedia(
         "(prefers-reduced-motion: reduce)",
       ).matches;
 
-      function resetMask(_seed: number) {
-        cells.forEach((cell) => {
-          delete cell.blockhash;
-          delete cell.slot;
-          delete cell.born;
-          delete cell.fromY;
+      function modeFinalityMs() {
+        return mode === "legacy"
+          ? LEGACY_FINALITY_SECONDS * 1_000
+          : ALPENGLOW_FINALITY_SECONDS * 1_000;
+      }
+
+      function updatePopulationModel() {
+        const previousPopulation = targetPopulation;
+        const now = performance.now();
+        for (const voxel of confirmed) {
+          voxel.fromPosition = latticePosition(
+            voxel.order,
+            previousPopulation,
+            STAGE_X[1],
+          );
+          voxel.enteredAt = now;
+        }
+        targetPopulation = populationFor(tps, mode);
+        confirmedDirty = true;
+      }
+
+      function blockIsFinal(block: VisualBlock, now: number) {
+        if (mode === "legacy") return block.actualFinalized;
+        return now - block.observedAt >= modeFinalityMs();
+      }
+
+      function takeLogoTarget(seed: number) {
+        const desiredBucket = seed & 0xff;
+        for (let distance = 0; distance < COLOR_BUCKETS; distance += 1) {
+          const candidates =
+            distance === 0
+              ? [desiredBucket]
+              : [desiredBucket - distance, desiredBucket + distance];
+          for (const bucket of candidates) {
+            if (bucket < 0 || bucket >= COLOR_BUCKETS) continue;
+            const cursor = targetBucketCursors[bucket]!;
+            const targets = targetBuckets[bucket]!;
+            if (cursor >= targets.length) continue;
+            targetBucketCursors[bucket] = cursor + 1;
+            return targets[cursor]!;
+          }
+        }
+        return cyclePopulation - 1;
+      }
+
+      function moveReadyVoxels(now: number) {
+        let movedAny = false;
+        for (const voxel of confirmed) {
+          if (voxel.moved || now - voxel.enteredAt < modeFinalityMs()) continue;
+          const block = voxel.blockhash
+            ? blocks.get(voxel.blockhash)
+            : undefined;
+          if (!block || !blockIsFinal(block, now)) continue;
+          if (cycleState !== "forming" || final.length >= cyclePopulation)
+            continue;
+          voxel.moved = true;
+          final.push({
+            ...voxel,
+            targetIndex: takeLogoTarget(voxel.seed),
+            seed: voxel.seed,
+            finalEnteredAt: now,
+            finalFromPosition: latticePosition(
+              voxel.order,
+              targetPopulation,
+              STAGE_X[1],
+            ),
+          });
+          lastFinalArrivalAt = now;
+          movedAny = true;
+        }
+        if (!movedAny) return;
+        const remaining = confirmed.filter((voxel) => !voxel.moved);
+        remaining.forEach((voxel, order) => {
+          voxel.fromPosition = latticePosition(
+            voxel.order,
+            targetPopulation,
+            STAGE_X[1],
+          );
+          voxel.order = order;
+          voxel.enteredAt = now;
         });
-        cohort.length = 0;
-        finalBlocks = 0;
-        cohortTransactions = 0;
-        cycleState = "forming";
-        while (buffered.length && cohort.length < COHORT_SIZE) {
-          cohort.push(buffered.shift()!);
-        }
-        for (const block of [...cohort]) {
-          if (block.finalizedAt) crystallize(block, performance.now());
-        }
-      }
-
-      function assignBlock(block: WaitingBlock) {
-        const target = cohort.length < COHORT_SIZE ? cohort : buffered;
-        target.push(block);
-      }
-
-      function crystallize(block: WaitingBlock, now: number) {
-        let cohortIndex = cohort.findIndex(
-          (entry) => entry.blockhash === block.blockhash,
-        );
-        if (cohortIndex < 0 && cohort.length < COHORT_SIZE) {
-          cohort.push(block);
-          cohortIndex = cohort.length - 1;
-        }
-        if (cohortIndex < 0) return;
-        const territory = cells.filter(
-          (cell) => cell.territory === cohortIndex,
-        );
-        for (let index = 0; index < territory.length; index += 1) {
-          const cell = territory[index]!;
-          cell.blockhash = block.blockhash;
-          cell.slot = block.slot;
-          cell.born = now + index * (reducedMotion ? 0 : 6);
-          cell.fromY = -0.68 + block.lane * 0.11;
-        }
-        finalBlocks += 1;
-        cohortTransactions += block.transactionCount;
-        flashAt = now;
-        if (finalBlocks >= COHORT_SIZE) {
-          cycleState = "holding";
-          cycleAt = now;
-        }
+        confirmed = remaining;
+        confirmedOrder = confirmed.length;
+        confirmedDirty = true;
+        finalDirty = true;
       }
 
       function push(event: AlpenglowEvent) {
-        const now = performance.now();
         if (event.type === "transaction_observed") {
-          pendingGlyphs.push(event);
+          pending.push(event);
           return;
         }
         if (event.type === "performance_sample") {
-          targetTps = Math.max(1, Math.min(12_000, event.totalTps));
+          const previousPopulation = targetPopulation;
+          tps = Math.max(1, event.totalTps);
+          if (
+            Math.abs(populationFor(tps, mode) - previousPopulation) /
+              previousPopulation >
+            0.08
+          ) {
+            updatePopulationModel();
+          }
           return;
         }
         if (event.type === "block_confirmed") {
-          const waiting: WaitingBlock = {
+          blocks.set(event.blockhash, {
             ...event,
-            lane: event.slot % 9,
-            seed: signatureSeed(event.blockhash),
-          };
-          blocks.set(event.blockhash, waiting);
-          confirmedSlots.set(event.slot, now);
-          event.transactionSignatures.forEach((signature) => {
-            const glyph = glyphs.get(signature);
-            if (glyph) glyph.confirmedAt = now;
+            observedAt: performance.now(),
+            actualFinalized: false,
           });
-          assignBlock(waiting);
           return;
         }
         if (event.type === "block_finalized") {
           const block = blocks.get(event.blockhash);
-          if (!block) return;
-          block.finalizedAt = now;
-          block.finalityMs = event.observedFinalityMs;
+          if (block) {
+            block.actualFinalized = true;
+            block.finalityMs = event.observedFinalityMs;
+          }
+          finalizedBlocks += 1;
+          currentFinalityMs = event.observedFinalityMs;
           finalityValues.push(event.observedFinalityMs);
           if (finalityValues.length > 48) finalityValues.shift();
-          crystallize(block, now);
         }
+      }
+
+      function resetView() {
+        targetRotationX = -0.18;
+        targetRotationY = -0.28;
+        targetZoom = 8.4;
       }
 
       runtimeRef.current = {
         push,
-        get paused() {
-          return paused;
+        setMode(value) {
+          if (mode === value) return;
+          mode = value;
+          updatePopulationModel();
         },
-        set paused(value: boolean) {
-          paused = value;
-        },
+        resetView,
       };
 
       function resize() {
         const width = hostElement.clientWidth;
         const height = hostElement.clientHeight;
         renderer.setSize(width, height, false);
-        const aspect = width / Math.max(height, 1);
-        camera.left = -aspect;
-        camera.right = aspect;
-        camera.top = 1;
-        camera.bottom = -1;
+        camera.aspect = width / Math.max(height, 1);
+        camera.fov = width < 720 ? 52 : 34;
         camera.updateProjectionMatrix();
-        const portrait = width < 720;
-        artwork.rotation.z = portrait ? -Math.PI / 2 : 0;
-        artwork.scale.setScalar(portrait ? 0.78 : 1);
       }
 
-      function pointerPosition(event: PointerEvent) {
-        const rect = renderer.domElement.getBoundingClientRect();
-        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        pointer.x *= camera.right;
-        if (hostElement.clientWidth < 720) {
-          const x = pointer.x;
-          pointer.x = -pointer.y;
-          pointer.y = x;
+      function onPointerDown(event: PointerEvent) {
+        dragging = true;
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+        renderer.domElement.setPointerCapture(event.pointerId);
+      }
+
+      function onPointerMove(event: PointerEvent) {
+        if (!dragging) return;
+        targetRotationY += (event.clientX - pointerX) * 0.006;
+        targetRotationX += (event.clientY - pointerY) * 0.006;
+        targetRotationX = Math.max(-1.15, Math.min(1.15, targetRotationX));
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+      }
+
+      function onPointerUp(event: PointerEvent) {
+        dragging = false;
+        if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+          renderer.domElement.releasePointerCapture(event.pointerId);
         }
       }
 
-      function inspect() {
-        let closest: { distance: number; value: Inspection } | undefined;
-        for (const glyph of glyphs.values()) {
-          const seed = signatureSeed(glyph.signature);
-          const age = performance.now() - glyph.born;
-          const position = glyphPosition(
-            seed,
-            glyph.slot,
-            age / glyphLifetime(seed),
-          );
-          const { x, y } = position;
-          const distance = Math.hypot(pointer.x - x, pointer.y - y);
-          if (distance < 0.08 && (!closest || distance < closest.distance)) {
-            closest = {
-              distance,
-              value: {
-                kind: "transaction",
-                title: formatSignature(glyph.signature),
-                lines: [
-                  `slot ${glyph.slot.toLocaleString()}`,
-                  glyph.success ? "successful" : "failed",
-                  `${glyph.computeUnits?.toLocaleString() ?? "—"} compute units`,
-                ],
-                href: `https://explorer.solana.com/tx/${glyph.signature}`,
-              },
-            };
-          }
-        }
-        for (const block of blocks.values()) {
-          if (block.finalizedAt) continue;
-          const y = 0.48 - block.lane * 0.12;
-          const distance = Math.abs(pointer.y - y) + Math.abs(pointer.x) * 0.15;
-          if (
-            pointer.x > -0.42 &&
-            pointer.x < 0.42 &&
-            distance < 0.08 &&
-            (!closest || distance < closest.distance)
-          ) {
-            closest = {
-              distance,
-              value: {
-                kind: "block",
-                title: `SLOT ${block.slot.toLocaleString()}`,
-                lines: [
-                  `${block.transactionCount.toLocaleString()} transactions`,
-                  `${((Date.now() - block.confirmedAt) / 1_000).toFixed(2)}s since confirmed`,
-                  "waiting for finality",
-                ],
-                href: `https://explorer.solana.com/block/${block.slot}`,
-              },
-            };
-          }
-        }
-        const finalCell = cells.find(
-          (cell) =>
-            cell.blockhash &&
-            Math.hypot(
-              pointer.x - (0.98 + cell.x * 0.62),
-              pointer.y - cell.y * 0.92,
-            ) < 0.035,
+      function onWheel(event: WheelEvent) {
+        event.preventDefault();
+        targetZoom = Math.max(
+          6.6,
+          Math.min(11, targetZoom + event.deltaY * 0.006),
         );
-        if (finalCell) {
-          const block = blocks.get(finalCell.blockhash!);
-          closest = {
-            distance: 0,
-            value: {
-              kind: "final",
-              title: `FINAL · SLOT ${finalCell.slot?.toLocaleString()}`,
-              lines: [
-                `${block?.transactionCount.toLocaleString() ?? "—"} transactions`,
-                `${((block?.finalityMs ?? 0) / 1_000).toFixed(2)}s observed finality`,
-                "irreversible point territory",
-              ],
-              href: `https://explorer.solana.com/block/${finalCell.slot}`,
-            },
-          };
-        }
-        onInspect(closest?.value ?? null);
       }
 
-      renderer.domElement.addEventListener("pointermove", pointerPosition);
-      renderer.domElement.addEventListener("pointerleave", () =>
-        pointer.set(99, 99),
-      );
-      renderer.domElement.addEventListener("click", inspect);
+      renderer.domElement.addEventListener("pointerdown", onPointerDown);
+      renderer.domElement.addEventListener("pointermove", onPointerMove);
+      renderer.domElement.addEventListener("pointerup", onPointerUp);
+      renderer.domElement.addEventListener("pointercancel", onPointerUp);
+      renderer.domElement.addEventListener("wheel", onWheel, {
+        passive: false,
+      });
       window.addEventListener("resize", resize);
-      const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-      const motionChange = () => {
-        reducedMotion = motionQuery.matches;
-      };
-      motionQuery.addEventListener("change", motionChange);
       resize();
 
-      let frame = 0;
+      function getStreamingPosition(
+        voxel: StreamVoxel,
+        now: number,
+        output: THREE.Vector3,
+      ) {
+        const age = now - voxel.born;
+        const entry = ease(age / 520);
+        output.set(
+          -2.8 + entry * (0.8 + unit(voxel.seed, 0) * 0.58),
+          (unit(voxel.seed, 8) - 0.5) * 1.08,
+          (unit(voxel.seed, 16) - 0.5) * 1.08,
+        );
+        if (!reduceMotion) {
+          output.y += Math.sin(now * 0.002 + voxel.seed) * 0.08;
+          output.z += Math.cos(now * 0.0017 + voxel.seed * 0.5) * 0.08;
+        }
+        return output;
+      }
+
+      function renderStreaming(now: number) {
+        for (let index = 0; index < streaming.length; index += 1) {
+          const voxel = streaming[index]!;
+          getStreamingPosition(voxel, now, position);
+          object.position.copy(position);
+          object.rotation.set(
+            now * 0.001 + unit(voxel.seed, 0) * Math.PI,
+            now * 0.0013 + unit(voxel.seed, 8) * Math.PI,
+            unit(voxel.seed, 16) * Math.PI,
+          );
+          object.scale.setScalar(VOXEL_SIZE);
+          object.updateMatrix();
+          streamingMesh.setMatrixAt(index, object.matrix);
+          streamingMesh.setColorAt(index, setSolanaColor(voxel.seed, color));
+        }
+        streamingMesh.count = streaming.length;
+        streamingMesh.instanceMatrix.needsUpdate = true;
+        if (streamingMesh.instanceColor)
+          streamingMesh.instanceColor.needsUpdate = true;
+      }
+
+      function renderConfirmed(now: number) {
+        if (!confirmedDirty) return;
+        let animating = false;
+        confirmed.forEach((voxel, index) => {
+          const target = latticePosition(
+            voxel.order,
+            targetPopulation,
+            STAGE_X[1],
+          );
+          const progress = reduceMotion
+            ? 1
+            : ease((now - voxel.enteredAt) / STAGE_TRANSITION_MS);
+          position.lerpVectors(voxel.fromPosition, target, progress);
+          object.position.copy(position);
+          object.rotation.set(0, 0, 0);
+          object.scale.setScalar(VOXEL_SIZE);
+          object.updateMatrix();
+          confirmedMesh.setMatrixAt(index, object.matrix);
+          confirmedMesh.setColorAt(index, setSolanaColor(voxel.seed, color));
+          if (progress < 1) animating = true;
+        });
+        confirmedMesh.count = confirmed.length;
+        confirmedMesh.instanceMatrix.needsUpdate = true;
+        if (confirmedMesh.instanceColor)
+          confirmedMesh.instanceColor.needsUpdate = true;
+        confirmedDirty = animating;
+      }
+
+      function renderFinal(now: number) {
+        if (!finalDirty && cycleState !== "melting") return;
+        const melt =
+          cycleState === "melting"
+            ? Math.min(1, (now - cycleAt) / MELT_DURATION_MS)
+            : 0;
+        final.forEach((voxel, index) => {
+          const target = logoModel.points[voxel.targetIndex];
+          if (!target) return;
+          const transition = reduceMotion
+            ? 1
+            : ease((now - voxel.finalEnteredAt) / STAGE_TRANSITION_MS);
+          position.lerpVectors(voxel.finalFromPosition, target, transition);
+          let scale = VOXEL_SIZE;
+          if (melt > 0) {
+            position.x += (unit(voxel.seed, 0) - 0.5) * melt * 0.52;
+            position.y -= melt * melt * (0.7 + unit(voxel.seed, 8) * 0.7);
+            position.z += (unit(voxel.seed, 16) - 0.5) * melt * 0.7;
+            scale *= Math.max(0.001, 1 - ease(melt));
+          }
+          object.position.copy(position);
+          object.rotation.set(
+            melt * unit(voxel.seed, 0) * 4,
+            melt * unit(voxel.seed, 8) * 4,
+            melt * unit(voxel.seed, 16) * 4,
+          );
+          object.scale.setScalar(scale);
+          object.updateMatrix();
+          finalMesh.setMatrixAt(index, object.matrix);
+          finalMesh.setColorAt(index, setSolanaColor(voxel.seed, color));
+        });
+        finalMesh.count = final.length;
+        finalMesh.instanceMatrix.needsUpdate = true;
+        if (finalMesh.instanceColor) finalMesh.instanceColor.needsUpdate = true;
+        finalDirty = final.some(
+          (voxel) => now - voxel.finalEnteredAt < STAGE_TRANSITION_MS,
+        );
+      }
+
       function render(now: number) {
         frame = requestAnimationFrame(render);
-        const delta = Math.min(32, now - lastFrame);
+        const delta = Math.min(50, now - lastFrame);
         lastFrame = now;
-        const time = now * 0.001;
-        if (!paused) {
-          emissionCredit += (targetTps * delta) / 1_000;
-          const available = pendingGlyphs.length - pendingGlyphIndex;
-          const emitCount = Math.min(Math.floor(emissionCredit), available);
-          if (emitCount > 0) {
-            emissionCredit -= emitCount;
-            for (let index = 0; index < emitCount; index += 1) {
-              const transaction = pendingGlyphs[pendingGlyphIndex++]!;
-              glyphs.set(transaction.signature, {
-                ...transaction,
-                born: now - delta + (index / emitCount) * delta,
-                confirmedAt: confirmedSlots.get(transaction.slot),
-              });
-            }
-          }
-          if (pendingGlyphIndex > 10_000) {
-            pendingGlyphs.splice(0, pendingGlyphIndex);
-            pendingGlyphIndex = 0;
-          }
-          while (glyphs.size > MAX_GLYPHS) {
-            glyphs.delete(glyphs.keys().next().value!);
-          }
-          if (cycleState === "holding" && now - cycleAt > 2_000) {
-            cycleState = "dissolving";
-            cycleAt = now;
-          } else if (cycleState === "dissolving" && now - cycleAt > 3_200) {
-            form += 1;
-            resetMask(cohort[0]?.seed ?? form);
+        assembly.rotation.x += (targetRotationX - assembly.rotation.x) * 0.09;
+        assembly.rotation.y += (targetRotationY - assembly.rotation.y) * 0.09;
+        camera.position.z += (targetZoom - camera.position.z) * 0.09;
+
+        emissionCredit += (tps * delta) / 1_000;
+        const emitCount = Math.min(
+          Math.floor(emissionCredit),
+          pending.length - pendingIndex,
+          MAX_STAGE_VOXELS - streaming.length,
+        );
+        if (emitCount > 0) {
+          emissionCredit -= emitCount;
+          for (let index = 0; index < emitCount; index += 1) {
+            const transaction = pending[pendingIndex++]!;
+            streaming.push({
+              ...transaction,
+              born: now - delta + (index / emitCount) * delta,
+              seed: signatureSeed(transaction.signature),
+            });
           }
         }
+        if (pendingIndex > 20_000) {
+          pending.splice(0, pendingIndex);
+          pendingIndex = 0;
+        }
 
-        const glyphVertices: number[] = [];
-        const relationVertices: number[] = [];
-        for (const [signature, glyph] of glyphs) {
-          const age = now - glyph.born;
-          const seed = signatureSeed(signature);
-          const lifetime = glyphLifetime(seed);
-          if (age > lifetime) {
-            glyphs.delete(signature);
+        const remainingStreaming: StreamVoxel[] = [];
+        for (const voxel of streaming) {
+          if (now - voxel.born < STREAM_HOLD_MS) {
+            remainingStreaming.push(voxel);
             continue;
           }
-          const position = glyphPosition(seed, glyph.slot, age / lifetime);
-          const baseX = position.x;
-          const baseY = position.y;
-          const pointerDistance = Math.hypot(
-            pointer.x - baseX,
-            pointer.y - baseY,
-          );
-          const dx = pointerDistance < 0.13 ? (baseX - pointer.x) * 0.45 : 0;
-          const dy = pointerDistance < 0.13 ? (baseY - pointer.y) * 0.45 : 0;
-          const x = baseX + dx;
-          const y = baseY + dy;
-          const size =
-            0.0028 +
-            Math.min(0.006, (glyph.computeUnits ?? 20_000) / 12_000_000);
-          const angle = seedUnit(seed, 12) * 1.2 - 0.6;
-          const cosine = Math.cos(angle);
-          const sine = Math.sin(angle);
-          const variant = seed % 7;
-          pushGlyphShape(glyphVertices, x, y, cosine, sine, size, variant);
-          if (glyph.confirmedAt && seed % 64 === 0)
-            relationVertices.push(
-              x,
-              y,
-              0,
-              -0.43,
-              -0.66 + (glyph.slot % 9) * 0.16,
-              0,
-            );
-        }
-        glyphGeometry.setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute(glyphVertices, 3),
-        );
-        relationGeometry.setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute(relationVertices, 3),
-        );
-
-        const waveVertices: number[] = [];
-        for (const [hash, block] of blocks) {
-          if (block.finalizedAt && now - block.finalizedAt > 1_400) {
-            blocks.delete(hash);
+          const block = voxel.blockhash
+            ? blocks.get(voxel.blockhash)
+            : undefined;
+          if (!block || confirmed.length >= MAX_STAGE_VOXELS) {
+            remainingStreaming.push(voxel);
             continue;
           }
-          const yBase = 0.48 - block.lane * 0.12;
-          const fade = block.finalizedAt
-            ? Math.max(0, 1 - (now - block.finalizedAt) / 1_400)
-            : 1;
-          const amplitude =
-            (0.015 + Math.min(0.035, block.transactionCount / 80_000)) * fade;
-          for (let step = 0; step < 40; step += 1) {
-            const x1 = -0.39 + step * 0.0202;
-            const x2 = -0.39 + (step + 1) * 0.0202;
-            const deform1 =
-              Math.abs(pointer.x - x1) < 0.14 &&
-              Math.abs(pointer.y - yBase) < 0.12
-                ? (pointer.y - yBase) * -0.18
-                : 0;
-            const deform2 =
-              Math.abs(pointer.x - x2) < 0.14 &&
-              Math.abs(pointer.y - yBase) < 0.12
-                ? (pointer.y - yBase) * -0.18
-                : 0;
-            const phase =
-              block.seed * 0.0001 + time * (block.finalizedAt ? 0 : 2.1);
-            waveVertices.push(
-              x1,
-              yBase + Math.sin(step * 0.72 + phase) * amplitude + deform1,
-              0,
-              x2,
-              yBase + Math.sin((step + 1) * 0.72 + phase) * amplitude + deform2,
-              0,
-            );
-          }
+          confirmed.push({
+            ...voxel,
+            enteredAt: now,
+            order: confirmedOrder++,
+            moved: false,
+            fromPosition: getStreamingPosition(voxel, now, new THREE.Vector3()),
+          });
+          confirmedDirty = true;
         }
-        waveGeometry.setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute(waveVertices, 3),
-        );
+        streaming = remainingStreaming;
 
-        let visibleCells = 0;
-        for (const cell of cells) {
-          if (!cell.blockhash || !cell.born || now < cell.born) continue;
-          let x = 0.98 + cell.x * 0.62;
-          let y = cell.y * 0.92;
-          let scale = 1;
-          if (!reducedMotion && now - cell.born < 650) {
-            const t = Math.max(0, Math.min(1, (now - cell.born) / 650));
-            const eased = 1 - Math.pow(1 - t, 3);
-            x = 0.45 + (x - 0.45) * eased;
-            y = (cell.fromY ?? 0) + (y - (cell.fromY ?? 0)) * eased;
-            scale = 0.45 + eased * 0.55;
-          }
-          if (cycleState === "dissolving") {
-            const t = Math.min(1, (now - cycleAt) / 3_200);
-            const edge = Math.abs(cell.x) + Math.abs(cell.y);
-            const local = Math.max(0, (t - (0.95 - edge) * 0.28) / 0.72);
-            y -=
-              local *
-              local *
-              (0.5 + (signatureSeed(`${cell.slot}`) % 40) / 100);
-            x += local * (0.08 + cell.y * 0.05);
-            y += Math.sin(cell.x * 8 + time * 1.7) * local * 0.08;
-            scale *= 1 - local;
-          }
-          temp.position.set(x, y, 0.1);
-          temp.scale.setScalar(Math.max(0.001, scale));
-          temp.updateMatrix();
-          cellsMesh.setMatrixAt(visibleCells, temp.matrix);
-          const colorPosition = Math.max(
-            0,
-            Math.min(1, (cell.x - cell.y + 1.34) / 2.68),
-          );
-          if (colorPosition < 0.5) {
-            cellColor.lerpColors(logoPurple, logoCyan, colorPosition * 2);
-          } else {
-            cellColor.lerpColors(
-              logoCyan,
-              logoGreen,
-              (colorPosition - 0.5) * 2,
-            );
-          }
-          cellsMesh.setColorAt(visibleCells, cellColor);
-          visibleCells += 1;
+        moveReadyVoxels(now);
+        if (
+          cycleState === "forming" &&
+          final.length >= cyclePopulation &&
+          now - lastFinalArrivalAt >= STAGE_TRANSITION_MS
+        ) {
+          cycleState = "holding";
+          cycleAt = now;
+        } else if (cycleState === "holding" && now - cycleAt >= FORM_HOLD_MS) {
+          cycleState = "melting";
+          cycleAt = now;
+          finalDirty = true;
+        } else if (
+          cycleState === "melting" &&
+          now - cycleAt >= MELT_DURATION_MS
+        ) {
+          final = [];
+          finalMesh.count = 0;
+          cyclePopulation = Math.max(targetPopulation, MIN_LOGO_POPULATION);
+          logoModel = createLogoModel(cyclePopulation);
+          targetBuckets = createTargetBuckets(cyclePopulation);
+          targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
+          lastFinalArrivalAt = 0;
+          cycleState = "forming";
+          finalDirty = true;
         }
-        cellsMesh.count = visibleCells;
-        cellsMesh.instanceMatrix.needsUpdate = true;
-        if (cellsMesh.instanceColor) cellsMesh.instanceColor.needsUpdate = true;
-        flashMaterial.opacity = Math.max(0, 1 - (now - flashAt) / 520);
+
+        renderStreaming(now);
+        renderConfirmed(now);
+        renderFinal(now);
 
         if (now - lastTelemetry > 500) {
           lastTelemetry = now;
-          const active = [...blocks.values()].filter(
-            (block) => !block.finalizedAt,
-          );
           onTelemetry({
-            holding: active.length,
-            rendered: glyphs.size,
-            finalizedBlocks: finalBlocks,
-            form,
-            progress: finalBlocks / COHORT_SIZE,
-            currentFinalityMs: finalityValues.at(-1) ?? 0,
+            holding: [...blocks.values()].filter(
+              (block) => !block.actualFinalized,
+            ).length,
+            rendered: streaming.length + confirmed.length + final.length,
+            finalizedBlocks,
+            currentFinalityMs,
             medianFinalityMs: median(finalityValues),
-            firstSlot: cohort[0]?.slot,
-            lastSlot: cohort.at(-1)?.slot,
-            transactions: cohortTransactions,
           });
         }
-        if (delta >= 0) renderer.render(scene, camera);
+        renderer.render(scene, camera);
       }
       frame = requestAnimationFrame(render);
 
@@ -1060,21 +959,36 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         cancelAnimationFrame(frame);
         runtimeRef.current = null;
         window.removeEventListener("resize", resize);
-        motionQuery.removeEventListener("change", motionChange);
+        renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+        renderer.domElement.removeEventListener("pointermove", onPointerMove);
+        renderer.domElement.removeEventListener("pointerup", onPointerUp);
+        renderer.domElement.removeEventListener("pointercancel", onPointerUp);
+        renderer.domElement.removeEventListener("wheel", onWheel);
         renderer.dispose();
-        glyphGeometry.dispose();
-        relationGeometry.dispose();
-        waveGeometry.dispose();
-        cellGeometry.dispose();
-        lineMaterial.dispose();
-        dimMaterial.dispose();
-        waveMaterial.dispose();
-        dividerMaterial.dispose();
-        cellMaterial.dispose();
-        flashMaterial.dispose();
-        host.removeChild(renderer.domElement);
+        voxelGeometry.dispose();
+        streamingMaterial.dispose();
+        confirmedMaterial.dispose();
+        finalMaterial.dispose();
+        scene.traverse((object3d) => {
+          if (object3d instanceof THREE.LineSegments) {
+            object3d.geometry.dispose();
+            if (object3d.material instanceof THREE.Material)
+              object3d.material.dispose();
+          }
+          if (
+            object3d instanceof THREE.Mesh &&
+            object3d !== streamingMesh &&
+            object3d !== confirmedMesh &&
+            object3d !== finalMesh
+          ) {
+            object3d.geometry.dispose();
+            if (object3d.material instanceof THREE.Material)
+              object3d.material.dispose();
+          }
+        });
+        renderer.domElement.remove();
       };
-    }, [onInspect, onTelemetry]);
+    }, [onTelemetry]);
 
     return <div ref={hostRef} className="ff-canvas" aria-hidden="true" />;
   },

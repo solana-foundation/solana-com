@@ -14,17 +14,7 @@ const MAX_BLOCKS_PER_POLL = 3;
 
 type RpcBlock = {
   blockhash: string;
-  transactions: Array<{
-    meta: {
-      err: unknown;
-      fee: number;
-      computeUnitsConsumed?: number;
-    } | null;
-    transaction: {
-      signatures: string[];
-      message: { accountKeys: Array<string | { pubkey: string }> };
-    };
-  }>;
+  signatures: string[];
 };
 
 async function rpc<T>(url: string, method: string, params: unknown[] = []) {
@@ -147,7 +137,7 @@ async function getBlock(url: string, slot: number, commitment: string) {
     {
       commitment,
       encoding: "json",
-      transactionDetails: "full",
+      transactionDetails: "signatures",
       rewards: false,
       maxSupportedTransactionVersion: 0,
     },
@@ -192,13 +182,8 @@ async function runLive(
         if (!block) continue;
         const now = Date.now();
         const signatures: string[] = [];
-        block.transactions.forEach((entry, index) => {
-          const signature = entry.transaction.signatures[0];
-          if (!signature) return;
+        block.signatures.forEach((signature, index) => {
           signatures.push(signature);
-          const programIds = entry.transaction.message.accountKeys
-            .slice(-6)
-            .map((key) => (typeof key === "string" ? key : key.pubkey));
           controller.enqueue(
             sse({
               type: "transaction_observed",
@@ -206,10 +191,8 @@ async function runLive(
               slot,
               blockhash: block.blockhash,
               observedAt: now,
-              programIds,
-              success: entry.meta?.err == null,
-              fee: entry.meta?.fee,
-              computeUnits: entry.meta?.computeUnitsConsumed,
+              programIds: [],
+              success: true,
               indexInBlock: index,
             }),
           );
