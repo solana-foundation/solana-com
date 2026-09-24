@@ -397,7 +397,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       scene.add(assembly);
       STAGE_X.forEach((x) => addStageFrame(assembly, x));
 
-      const defaultZoom = () => (hostElement.clientWidth < 720 ? 7.2 : 5.2);
+      const defaultZoom = () => 7.2;
       const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 30);
       camera.position.set(0, 0.2, defaultZoom());
       let renderer: THREE.WebGLRenderer;
