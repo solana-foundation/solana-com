@@ -1,7 +1,9 @@
 "use client";
 import { cn } from "./utils";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
-import { ThumbsDown, ThumbsUp, Loader2 } from "lucide-react";
+import { ThumbDown as ThumbsDown } from "@boxicons/react/ThumbDown";
+import { ThumbUp as ThumbsUp } from "@boxicons/react/ThumbUp";
+import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
 import { useState, FormEvent, useMemo } from "react";
 import {
   Collapsible,

@@ -15,22 +15,18 @@ tiền từ PDA đăng ký được tạo ra.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```bash
     pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
     ```
-
   </Tab>
 
   <Tab value="Rust">
-
     ```toml
     [dependencies]
-    subscriptions = "0.4.0"
+    subscriptions = "0.5.0"
     solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
-
   </Tab>
 </Tabs>
 
@@ -38,9 +34,12 @@ tiền từ PDA đăng ký được tạo ra.
 
 Người bán sở hữu gói. PDA của gói được tạo từ địa chỉ người bán và `planId`.
 
+Nhà tài trợ có thể tài trợ rent của plan bằng cách truyền tham số tùy chọn `payer` trong khi
+người bán vẫn là chủ sở hữu plan. Việc xóa plan sẽ hoàn tiền cho chủ sở hữu, không phải
+payer, vì vậy hãy kiểm soát việc tài trợ ở ngoài chuỗi (off-chain).
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { address, createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -82,7 +81,6 @@ Người bán sở hữu gói. PDA của gói được tạo từ địa chỉ n
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_address::{address, Address};
     use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
@@ -147,10 +145,16 @@ Một số quy tắc áp dụng:
   `endTs` và siêu dữ liệu vẫn bị đóng băng.
 - Các chỉnh sửa có hiệu lực trong kỳ thanh toán cuối cùng của gói miễn là
   `endTs` không thay đổi.
+- Lệnh này mang theo trạng thái plan được quan sát tại thời điểm ký
+  (`expectedCreatedAt`, `expectedEndTs`, `expectedPullers`,
+  `expectedMetadataUri`). Nếu plan hiện tại không còn khớp, bản cập nhật sẽ
+  bị từ chối (`StalePlanApproval`), do đó một bản cập nhật đã ký lỗi thời không thể khôi phục
+  các puller đã bị xóa hoặc hoàn nguyên các chỉnh sửa sau này. Hàm `updatePlan` của plugin client
+  sẽ tự động lấy trạng thái hiện tại cho bạn; khi xây dựng thủ công, hãy lấy plan và
+  tự truyền các trường vào.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { PlanStatus } from '@solana/subscriptions';
 
@@ -172,7 +176,6 @@ Một số quy tắc áp dụng:
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     let new_puller: Address = address!("NEW_PULLER_WALLET_ADDRESS_HERE");
     let mut updated_pullers = [Address::default(); 4];
@@ -185,6 +188,9 @@ Một số quy tắc áp dụng:
     let (event_authority, _) =
         Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
 
+    // Fetch and decode the live plan account before building UpdatePlanData.
+    let fetched_plan: Plan = fetched_plan;
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
@@ -194,6 +200,10 @@ Một số quy tắc áp dụng:
             end_ts: 0,
             pullers: updated_pullers,
             metadata_uri: updated_metadata_uri,
+            expected_created_at: fetched_plan.data.terms.created_at,
+            expected_end_ts: fetched_plan.data.end_ts,
+            expected_pullers: fetched_plan.data.pullers,
+            expected_metadata_uri: fetched_plan.data.metadata_uri,
         })
         .instruction();
     ```
@@ -206,9 +216,16 @@ Một số quy tắc áp dụng:
 Người đăng ký chấp nhận các điều khoản gói hiện tại. PDA đăng ký được suy ra từ
 PDA của gói và địa chỉ người đăng ký.
 
+Để gộp việc khởi tạo authority và đăng ký vào một giao dịch duy nhất, hãy truyền
+giá trị sentinel `UNKNOWN_INIT_ID` (được xuất bởi TypeScript SDK) làm
+`expectedSubscriptionAuthorityInitId`. Chương trình chỉ chấp nhận authority nếu
+nó được tạo trong slot hiện tại, vì vậy sentinel hoạt động cho các đăng ký mới; một
+người dùng quay lại có authority được tạo trong một slot trước đó phải truyền
+`initId` thực sự (plugin client sẽ lấy cho bạn) nếu không lệnh gọi sẽ thất bại với
+`StaleSubscriptionAuthority`.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -269,7 +286,6 @@ PDA của gói và địa chỉ người đăng ký.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{accounts::Plan, generated::{instructions::*, types::*}};
 
@@ -333,7 +349,6 @@ Khi gói sử dụng danh sách cho phép đích, chủ sở hữu của token a
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     const receiverAta = address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE');
 
@@ -354,7 +369,6 @@ Khi gói sử dụng danh sách cho phép đích, chủ sở hữu của token a
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{TransferData, TransferSubscriptionBuilder};
 
@@ -383,7 +397,6 @@ khi thời hạn hủy đã hết. Người đăng ký ký cả hai giao dịch.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     await subscriberClient.subscriptions.instructions
       .cancelSubscription({
@@ -406,7 +419,6 @@ khi thời hạn hủy đã hết. Người đăng ký ký cả hai giao dịch.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_instruction::AccountMeta;
     use subscriptions::generated::instructions::*;
@@ -428,6 +440,58 @@ khi thời hạn hủy đã hết. Người đăng ký ký cả hai giao dịch.
   </Tab>
 </Tabs>
 
+## Hủy Ngay Lập Tức
+
+Khi cả người đăng ký và chủ sở hữu plan hiện tại cùng ký,
+`cancelSubscriptionNow` sẽ cho hết hạn đăng ký tại thời điểm hủy thay vì
+vào cuối kỳ thanh toán. Nó cũng có thể rút ngắn một lần hủy đang trong giai đoạn ân hạn. Phê duyệt được ràng buộc với thời điểm bắt đầu kỳ được quan sát tại lúc ký; nếu
+đăng ký đã thay đổi kể từ đó, giao dịch sẽ bị từ chối
+(`StaleSubscriptionApproval`).
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
+    await subscriberClient.subscriptions.instructions
+      .cancelSubscriptionNow({
+        subscriber: subscriberSigner,
+        merchant: merchantSigner,
+        planPda,
+        expectedCurrentPeriodStartTs: subscription.data.currentPeriodStartTs,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use subscriptions::{accounts::SubscriptionDelegation, generated::{instructions::*, types::*}};
+
+    // Fetch and decode the subscription account before building the data.
+    let fetched_subscription: SubscriptionDelegation = fetched_subscription;
+
+    let cancel_now_ix = CancelSubscriptionNowBuilder::new()
+        .subscriber(subscriber)
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .event_authority(event_authority)
+        .cancel_subscription_now_data(CancelSubscriptionNowData {
+            expected_current_period_start_ts: fetched_subscription.current_period_start_ts,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Tiếp Tục Gói Đăng Ký
 
 Một gói đăng ký đã hủy có thể được kích hoạt lại trước khi bị thu hồi. Sau khi
@@ -436,15 +500,27 @@ bị thu hồi, tài khoản đăng ký sẽ bị đóng và người đăng ký
 đăng ký cho mint của gói, mà chương trình xác thực (chủ sở hữu, mint và
 `init_id`) và từ chối nếu đã cũ hoặc được khởi tạo lại.
 
+Lệnh này mang theo thời hạn hết hạn mà người đăng ký quan sát được tại thời điểm ký
+(`expectedExpiresAtTs`); nếu không khớp sẽ bị từ chối (`StaleSubscriptionApproval`),
+do đó một bản resume đã ký lỗi thời không thể xóa lần hủy sau mà người đăng ký chưa bao giờ
+chấp thuận.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
     await subscriberClient.subscriptions.instructions
       .resumeSubscription({
         subscriber: subscriberSigner,
         planPda,
         tokenMint,
+        expectedExpiresAtTs: subscription.data.expiresAtTs,
       })
       .sendTransaction();
     ```
@@ -452,7 +528,6 @@ bị thu hồi, tài khoản đăng ký sẽ bị đóng và người đăng ký
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::generated::instructions::*;
 
@@ -465,6 +540,9 @@ bị thu hồi, tài khoản đăng ký sẽ bị đóng và người đăng ký
         .subscription_pda(subscription_pda)
         .subscription_authority(subscription_authority)
         .event_authority(event_authority)
+        .resume_data(ResumeData {
+            expected_expires_at_ts: fetched_subscription.expires_at_ts,
+        })
         .instruction();
     ```
 

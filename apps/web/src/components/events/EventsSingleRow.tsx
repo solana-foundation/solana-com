@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 
 import Link from "../../utils/Link";
 import EventsSingleLocation from "./EventsSingleLocation";
@@ -66,7 +66,7 @@ const EventsSingleRow = ({ event }: { event?: CalendarEvent }) => {
             <EventsSingleLocation event={event} />
           </p>
         </div>
-        <ArrowUpRight
+        <ArrowOutUpRightSquare
           aria-hidden
           className="h-4 w-4 shrink-0 text-white/40 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
         />

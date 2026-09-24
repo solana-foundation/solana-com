@@ -1,9 +1,3 @@
-export type SpeakerSocials = {
-  linkedin?: string;
-  website?: string;
-  x?: string;
-};
-
 export type SpeakerSession = {
   day?: string;
   format?: string;
@@ -12,12 +6,37 @@ export type SpeakerSession = {
 
 export type BreakpointSpeaker = {
   company?: string;
+  headshotPng?: string;
+  headshotWebm?: string;
   id: string;
-  image?: string;
   name: string;
+  role?: string;
   session?: SpeakerSession;
   slug: string;
-  socials: SpeakerSocials;
   sortOrder: number;
-  title?: string;
+  xUrl?: string;
 };
+
+export type SpeakerDeliveryItem = {
+  company: string | null;
+  headshotPng: string | null;
+  headshotWebm: string | null;
+  id: string;
+  name: string;
+  role: string | null;
+  xUrl: string | null;
+};
+
+export function toSpeakerDeliveryItem(
+  speaker: BreakpointSpeaker,
+): SpeakerDeliveryItem {
+  return {
+    company: speaker.company ?? null,
+    headshotPng: speaker.headshotPng ?? null,
+    headshotWebm: speaker.headshotWebm ?? null,
+    id: speaker.id,
+    name: speaker.name,
+    role: speaker.role ?? null,
+    xUrl: speaker.xUrl ?? null,
+  };
+}

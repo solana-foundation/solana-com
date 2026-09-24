@@ -211,6 +211,7 @@ function QuoteCard({
   glitchDurationMs?: number;
   glitchIntensity?: number;
 }) {
+  const t = useTranslations("breakpoint");
   const cardRef = useRef<HTMLDivElement>(null);
   const quoteRef = useRef<HTMLQuoteElement>(null);
   const metaRef = useRef<HTMLDivElement>(null);
@@ -338,7 +339,7 @@ function QuoteCard({
             className="type-p-large-bold text-black underline decoration-solid underline-offset-[3px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
           >
             {quote.handle}
-            <span className="sr-only"> (opens in a new tab)</span>
+            <span className="sr-only"> {t("accessibility.opensInNewTab")}</span>
           </a>
           <p className="type-caption text-black/70">
             {quote.author}

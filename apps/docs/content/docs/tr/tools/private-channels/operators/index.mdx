@@ -1,0 +1,323 @@
+---
+title: Operatörler
+description: Docker Compose ile Özel Kanallar örneğini dağıtın ve işletin
+---
+
+## Özel Kanallar Operatörü Nedir?
+
+Bir operatör, Solana Mainnet ile özel kanal ağı arasında köprü kuran, zincir üzerinde izin verilmiş güvenilir bir varlıktır. Operatörler, zincir üzerinde bir `Operator` PDA'sı oluşturan `AddOperator` aracılığıyla örnek yöneticisi tarafından sağlanır; bu olmadan hiçbir taraf `ReleaseFunds` çağrısı yapamaz. Pratikte bir operatör, yatırımları izleyen, kanal tarafı token bakiyelerini basan, çekimleri tespit eden ve fonları Mainnet'e geri ödeyen hizmetleri çalıştıran bir organizasyon veya ekiptir. Bir örnek çalıştırmak, kullanıcılarınıza Solana Mainnet'te görünmeyen özel ve yüksek hacimli transferler, yerel Solana TPS'nin ötesinde anlık sıfır ücretli iş akışı ve RBAC aracılığıyla kontrollü erişim sağlar.
+
+<Callout type="info">
+  Bir örnek dağıtmak yerine mevcut bir Özel Kanallar örneğine
+  entegrasyon yapan bir geliştiriciyseniz, bunun yerine
+  [Hızlı Başlangıç](/docs/tools/private-channels/quickstart/installation) kılavuzuyla başlayın.
+</Callout>
+
+## Başlamadan Önce
+
+### Ön Koşullar
+
+Docker imajlarıyla eşleşmesi için bu sürümleri ana makinede sabitleyin:
+
+- Docker Engine 26+ (macOS Apple Silicon: Ayarlar -> Sanal Makine Seçenekleri'nde "Docker VMM"i etkinleştirin)
+- Node.js **24.7.0** ve pnpm **10.15.1**
+- Solana CLI **3.1.13** (Agave)
+- Rust **1.91.0**
+- Devnet için bir Yellowstone gRPC uç noktası (Helius, Triton, QuickNode'dan temin edilebilir)
+
+Ağ gereksinimleri ve varsayılan port atamaları için depodaki
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+dosyasına bakın.
+
+Sabitlenmiş Solana araç zincirini yükleyin ve SBF önbelleğini ısıtın:
+
+```bash
+make install-toolchain
+```
+
+### Hizmetler
+
+Bir Özel Kanallar örneği çalıştırmak, Docker Compose yığınındaki özel konteynerler tarafından yönetilen beş süregelen sorumluluğa sahip olmak anlamına gelir:
+
+1. **Mainnet'i yatırımlar için indeksle** - `indexer-solana`, Yellowstone gRPC aracılığıyla Solana Mainnet'teki `Deposit` olaylarını izler; `operator-solana` onaylanan yatırımları alır ve kanal ağında eşdeğer token bakiyesini basar
+2. **Çekimler için kanalı indeksle** - `indexer-private-channel`, `WithdrawFunds` burn olayları için kanalı her saniye sorgular ve bekleyen çekim kayıtlarını veritabanına yazar
+3. **Mainnet'te fonları serbest bırak** - `operator-private-channel`, bekleyen kayıtları alır ve geçerli bir SMT dışlama kanıtıyla Escrow Programı'nda `ReleaseFunds` çağrısı yapar
+4. **SMT kökünü yönet** - `operator-private-channel`, ağaç epoch'ları döndüğünde `ResetSmtRoot`'u otomatik olarak çağırır; zincir üzerindeki `verify_smt_exclusion_proof` denetimi, yetkisiz çekimlere karşı son savunma hattıdır
+5. **Ağ geçidini ve kimlik doğrulama hizmetini çalıştır** - ağ geçidi, tüm istemci trafiği için tek genel uç noktadır; kimlik doğrulama hizmeti (isteğe bağlı), `JWT_SECRET` ayarlandığında JWT/RBAC uygular
+
+Tam hizmet envanteri ve port atamaları için
+[Yapılandırma referansına](/docs/tools/private-channels/operators/configuration) bakın.
+
+> **Güvenlik notu:** Yazma düğümü ve okuma düğümü portları yalnızca geri döngüye
+> (`127.0.0.1`) bağlıdır; ancak diğer birçok hizmet (ağ geçidi, kimlik doğrulama, operatör
+> metrikleri, Grafana, Prometheus, cAdvisor) varsayılan olarak tüm ağ
+> arayüzlerinde yayınlanır. Tam port tablosu için
+> [Yapılandırma referansına](/docs/tools/private-channels/operators/configuration#service-port-reference)
+> bakın ve herhangi bir halka açık dağıtımdan önce bunları güvenlik duvarıyla koruyun. RBAC yalnızca ağ geçidinin kendi JSON-RPC yöntemlerini kapsar, bu diğer hizmetleri kapsamaz.
+
+### Erişim Kontrolü: Açık ve RBAC
+
+Varsayılan olarak ağ geçidi tüm bağlantıları kabul eder; token gerekmez. JWT tabanlı RBAC'ı etkinleştirmek için `JWT_SECRET`'ı ayarlayın ve yığını `--profile auth` ile başlatın. `operator` rolünü sağlama ve kullanıcı cüzdanlarını kaydetme dahil tam yapılandırma referansı için **[Kimlik Doğrulama ve Roller](/docs/tools/private-channels/concepts/auth)** bölümüne bakın.
+
+Kimlik doğrulamayı etkinleştiriyorsanız, yığını başlatmadan önce bu değerleri ortamınıza ekleyin:
+
+```bash
+JWT_SECRET=<openssl rand -hex 32>   # must match on gateway and auth service
+AUTH_PORT=8903
+```
+
+## Ortam Kurulumu
+
+`.env.devnet`, devnet'e özgü varsayılanlar doldurulmuş şekilde depoda zaten izlenmektedir; `.env.example` dosyasından yeniden oluşturmak yerine doğrudan düzenleyin, aksi takdirde bu varsayılanların üzerine yazılır.
+
+Aşağıdaki dağıtım adımlarını tamamlarken kalan değerleri doldurun; bazıları yalnızca dağıtım sırasında kullanılabilir. Gizli bilgiler gitignored `.env` dosyasına, gizli olmayan değişkenler ise `.env.devnet` dosyasına gider.
+
+**Gizli bilgiler - bunları hemen ayarlayın:**
+
+```bash
+POSTGRES_PASSWORD=<openssl rand -hex 32>
+POSTGRES_REPLICATION_PASSWORD=<openssl rand -hex 32>
+```
+
+**Dağıtım sırasında elde edilen değişkenler:**
+
+```bash
+ESCROW_INSTANCE_ID=<instance address - from Step 3>
+ADMIN_PRIVATE_KEY=<operator keypair as u8 array or base58 - from Step 4>
+DEVNET_RPC_URL=https://api.devnet.solana.com
+DEVNET_YELLOWSTONE_ENDPOINT=<your Yellowstone gRPC endpoint>
+INDEXER_YELLOWSTONE_TOKEN=<your Yellowstone auth token>
+```
+
+<Callout type="warning">
+  `ADMIN_PRIVATE_KEY`, zincir üzerindeki örnek yöneticisinden bağımsız olarak zincir dışı hizmetlerin kendi gerekli ücret ödeyen imzalayıcısıdır. Bu kılavuz, 4. Adımda oluşturulan **operatör** keypair'ini `ADMIN_PRIVATE_KEY`'e koyar ve isteğe bağlı `OPERATOR_PRIVATE_KEY`'i ayarlamadan bırakır; böylece operatör imzalayıcısı aynı anahtara geri döner. 3. Adımdaki protokol düzeyindeki örnek yöneticisi keypair'ini hiçbir zaman her iki değişkene de koymayın.
+</Callout>
+
+Tam ortam değişkeni referansı için
+**[Yapılandırma](/docs/tools/private-channels/operators/configuration)** bölümüne bakın.
+
+## Dağıtım
+
+<Steps>
+
+<Step>
+
+### İmajları oluştur
+
+```bash
+make docker-devnet-build
+```
+
+Bu, tüm Rust hizmetlerini paylaşılan bir Docker imajında derler. İlk derleme
+30 dakika ile bir saat arasında sürer.
+
+</Step>
+
+<Step>
+
+### Admin Kullanıcı Arayüzünü Kur
+
+Admin Kullanıcı Arayüzü, emanet örneğini oluşturmak ve yapılandırmak için tarayıcı tabanlı bir araçtır: kullanıcıya yönelik bir ürün değil, gerekli bir çalışma zamanı bileşeni de değil, bir geliştirme ve yönetim yardımcı programıdır. Gerçekleştirdiği tüm işlemler (`CreateInstance`, `AllowMint`, `AddOperator`), depodaki CLI betikleri aracılığıyla da çalıştırılabilir.
+
+```bash
+cd admin-ui
+pnpm install
+echo "PRIVATE_CHANNEL_RPC_URL=http://localhost:8899" > .env
+pnpm dev   # opens at http://localhost:5173
+```
+
+</Step>
+
+<Step>
+
+### Bir emanet örneği oluştur
+
+1. Tarayıcı cüzdanınızı **Devnet** olarak ayarlayın ve ücretler için Devnet SOL'unuz olduğundan emin olun
+2. Admin Kullanıcı Arayüzü'nde **Yeni Örnek Oluştur**'a tıklayın ve işlemi onaylayın
+3. **Örnek Adresi**'ni kopyalayın ve `.env.devnet` dosyasında `ESCROW_INSTANCE_ID` olarak ayarlayın
+
+Alternatif olarak CLI betiğini kullanın:
+
+```bash
+cargo run --bin create_instance -- https://api.devnet.solana.com ./keypairs/admin.json
+```
+
+</Step>
+
+<Step>
+
+### Bir operatör keypair'i oluştur
+
+```bash
+solana-keygen new -o operator-keypair.json -s --no-bip39-passphrase
+solana-keygen pubkey operator-keypair.json
+```
+
+Keypair içeriğini ortamınızda `ADMIN_PRIVATE_KEY` olarak ayarlayın. Açık
+anahtar bir ortam değişkeni değildir; aşağıdaki "Örneği yapılandır" adımında
+operatör pubkey'i olarak doğrudan geçireceksiniz.
+
+</Step>
+
+<Step>
+
+### Ortam değişkenlerini tamamla
+
+`.env.devnet` dosyasını `ESCROW_INSTANCE_ID`, `DEVNET_RPC_URL`,
+`DEVNET_YELLOWSTONE_ENDPOINT` ve `INDEXER_YELLOWSTONE_TOKEN` ile güncelleyin. Gizli bilgileri
+(`POSTGRES_PASSWORD`, `POSTGRES_REPLICATION_PASSWORD`, `ADMIN_PRIVATE_KEY`) gitignored `.env` dosyasına koyun.
+
+RBAC'ı etkinleştirmeye karar verdiyseniz
+([Erişim Kontrolü: Açık ve RBAC](#access-control-open-vs-rbac)), şimdi
+`JWT_SECRET` ve `AUTH_PORT`'u da ekleyin.
+
+</Step>
+
+<Step>
+
+### Tüm hizmetleri başlat
+
+Kimlik doğrulama olmadan:
+
+```bash
+make docker-devnet-up
+```
+
+Kimlik doğrulama ile:
+
+```bash
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+```
+
+Compose, herhangi bir `--env-file` bayrağı geçirildiğinde otomatik `.env` yüklemesini devre dışı bırakır; bu nedenle sona eklenen `--env-file .env` gereklidir. Bu olmadan, `.env` dosyasına koyduğunuz `POSTGRES_PASSWORD`, `ADMIN_PRIVATE_KEY` ve `JWT_SECRET` boş çözümlenir ve yığın doğru şekilde başlatılamaz.
+
+> Örneği yapılandırmadan önce hizmetleri başlatın. İndeksleyici olayları gerçek
+> zamanlı olarak akıtır; bu nedenle yığını önce başlatmak, `AllowMint` ve ilk
+> yatırımınızın geri doldurmaya gerek kalmadan sırayla indekslenmesini sağlar.
+
+</Step>
+
+<Step>
+
+### Örneği yapılandır
+
+Yığın çalışırken, Admin Kullanıcı Arayüzü aracılığıyla bir token mint'ini beyaz listeye ekleyin ve operatörünüzü ekleyin:
+
+1. **Mint İzin Ver**: Yönetici İşlevleri -> Mint Yönetimi -> mint adresini girin ->
+   Mint İzin Ver
+2. **Operatör Ekle**: Yönetici İşlevleri -> Operatör Yönetimi -> operatör
+   pubkey'ini girin -> Operatör Ekle
+
+Ya da CLI aracılığıyla:
+
+```bash
+cargo run --bin add_operator -- \
+  https://api.devnet.solana.com \
+  ./keypairs/admin.json \
+  <INSTANCE_ID> \
+  <OPERATOR_PUBKEY>
+```
+
+</Step>
+
+</Steps>
+
+<Callout type="warning">
+
+Bu kılavuz Solana devnet'i hedeflemektedir. Mainnet için:
+
+- Program ID'leri `declare_id!()` aracılığıyla derlenerek yerleştirilir: depodan doğru Mainnet ID'lerini kullandığınızı doğrulayın
+- Yellowstone gRPC uç noktaları bir Mainnet planı gerektirir; devnet uç noktaları Mainnet olaylarını akıtmaz
+- Operatör cüzdanı her `ReleaseFunds` çağrısı için SOL ücreti öder; beklenen çekim hacminize göre SOL bakiyesini boyutlandırın
+- Herhangi bir halka açık dağıtımdan önce tüm varsayılan kimlik bilgilerini (Grafana, PostgreSQL) değiştirin
+
+</Callout>
+
+## Operasyonlar
+
+### Kullanışlı Komutlar
+
+```bash
+# View logs (all services)
+make docker-devnet-logs
+
+# View logs (specific service)
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana
+
+# Stop services
+make docker-devnet-down
+
+# Stop and wipe all state (volumes)
+make docker-devnet-clean
+```
+
+### Gözlemlenebilirlik
+
+Yığın, metrikler ve konteyner izleme için Prometheus, Grafana ve cAdvisor içerir. Grafana, `37429` portunda erişilebilir.
+
+<Callout type="warning">
+  Varsayılan Grafana şifresi `admin`'dir. 37429 portunu localhost dışındaki
+  herhangi bir ağa açmadan önce bunu değiştirin.
+</Callout>
+
+## Sorun Giderme
+
+### Yatırım sonrası kanal bakiyesi güncellenmiyor
+
+1. Mainnet yatırım işleminin bir Mainnet gezgininde gerçekleştiğini doğrulayın
+2. `indexer-solana`'nın çalıştığını doğrulayın:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana`
+3. `operator-solana`'nın çalıştığını doğrulayın:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-solana`
+4. Yellowstone gRPC uç noktanıza erişilebildiğini ve token'ın geçerli olduğunu kontrol edin
+   (`DEVNET_YELLOWSTONE_ENDPOINT`, `INDEXER_YELLOWSTONE_TOKEN`)
+5. İndeksleyici, alacak kaydı oluşturmadan önce bir kesinlik güvenlik gecikmesi uyguladığından, zincir üzerindeki onayın ardından 30 saniyeye kadar bekleyin
+
+### Çekim Mainnet'e oturmuyor
+
+1. `indexer-private-channel`'ın çalıştığını doğrulayın:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-private-channel`
+2. `operator-private-channel`'ın çalıştığını doğrulayın:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-private-channel`
+3. `ADMIN_PRIVATE_KEY`'deki operatör keypair'inin zincir üzerinde `AddOperator` ile kayıtlı anahtarla eşleştiğini doğrulayın
+4. Günlükler "SMT root mismatch" gösteriyorsa, hizmet geçersiz bir kanıt göndermek yerine kapanır. Yığını durdurun, tutarlı bir durumdan geri yükleyin ve yeniden başlatın
+
+### JWT kimlik doğrulama hataları (tüm isteklerde 401)
+
+1. `JWT_SECRET`'ın hem ağ geçidi hem de kimlik doğrulama hizmet
+   konteynerlerinde aynı olduğunu doğrulayın
+2. Yığının `--profile auth` ile başlatıldığını doğrulayın
+3. Token'lar 24 saat sonra sona erer; yeni bir token almak için yeniden kimlik doğrulaması yapın
+
+### İlk derleme çok uzun sürüyor
+
+Bu beklenen bir durumdur. İlk `make docker-devnet-build` tüm Rust hizmetlerini derler ve tipik donanımda 30-60 dakika sürebilir. Sonraki derlemeler Docker katman önbelleğini kullanır ve önemli ölçüde daha hızlıdır.
+
+## Sonraki Adımlar
+
+<Cards>
+  <Card
+    title="Hızlı Başlangıç"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    Dağıtımınızı test edin: devnet'te yatırım yapın, transfer edin ve çekin.
+  </Card>
+  <Card
+    title="Yapılandırma"
+    href="/docs/tools/private-channels/operators/configuration"
+  >
+    Tüm hizmetler için tam ortam değişkeni referansı.
+  </Card>
+  <Card
+    title="Kimlik Doğrulama ve Roller"
+    href="/docs/tools/private-channels/concepts/auth"
+  >
+    JWT kimlik doğrulamasını yapılandırın ve operatör rolü kullanıcıları oluşturun.
+  </Card>
+  <Card
+    title="Talimatlar"
+    href="/docs/tools/private-channels/instructions/create-instance"
+  >
+    Tüm zincir üstü talimatlar için tam referans.
+  </Card>
+</Cards>

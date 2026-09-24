@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { MermaidRenderer } from "./mermaid-renderer";
-import { X } from "lucide-react";
+import { X } from "@boxicons/react/X";
 import { cn } from "@@/src/app/components/utils";
 
 export function MermaidModal({

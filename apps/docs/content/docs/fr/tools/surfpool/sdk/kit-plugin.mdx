@@ -1,0 +1,372 @@
+---
+title: Kit Plugin
+description:
+  Exécutez un Surfnet intégré derrière un client Solana Kit. Un seul plugin vous donne un payeur pré-financé, la pile RPC complète et des cheatcodes typés.
+---
+
+`@solana/surfpool/kit` exécute un Surfnet — un réseau local compatible Solana —
+au sein de votre processus de test et renvoie un client
+[Solana Kit](https://www.solanakit.com/) déjà configuré pour l'utiliser. Un seul
+`.use(surfpool())` remplace le plugin RPC que vous utiliseriez normalement
+(`solanaLocalRpc()`, `litesvm()`) et ajoute un payeur pré-financé ainsi que les
+cheatcodes de Surfpool :
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+const slot = await client.rpc.getSlot().send();
+await client.cheatcodes.timeTravel({ absoluteSlot: 1_000_000n }).send();
+```
+
+Aucun port à choisir, aucun payeur à générer et financer, et aucun processus
+`surfpool start` séparé à gérer. Vous découvrez le SDK ? Commencez par
+l'[aperçu général](/docs/tools/surfpool/sdk/overview).
+
+## Quel point d'entrée utiliser
+
+| Point d'entrée                       | À utiliser quand                                                                                         |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `surfpool()`                      | **Par défaut pour les tests.** Un Surfnet isolé par fichier de test, avec un client Kit déjà configuré.             |
+| `surfpool({ rpcUrl })`            | Une instance `surfpool start` persistante est partagée entre les processus, ou votre plateforme ne dispose pas de binaire natif. |
+| `surfnetCheatcodes()`             | Vous disposez déjà d'un client et souhaitez uniquement y ajouter des cheatcodes.                                                 |
+| `Surfnet` depuis `@solana/surfpool` | Vous n'utilisez pas Kit — consultez la [référence JS](/docs/tools/surfpool/sdk/js-reference).                    |
+
+## Prérequis
+
+- **Node.js 20.18+**, version minimale déclarée par `@solana/kit` v7. `@solana/surfpool`
+  fonctionne à partir de la version 18+, mais pas les packages Kit. Certains plugins de programme exigent
+  davantage — `@solana-program/token` déclare la version 24+.
+- **Une [plateforme prise en charge](/docs/tools/surfpool/sdk/installation)** (macOS,
+  Linux x86-64) pour le mode intégré, qui charge un binaire natif. Sur les autres plateformes, utilisez
+  le mode rattaché.
+- **Une bonne connaissance de la composition de plugins Kit** — les clients sont construits en chaînant
+  des appels `.use()`, et chaque plugin ajoute des propriétés au client.
+
+## Installation
+
+```bash
+npm install --save-dev @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+# or
+pnpm add -D @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+```
+
+Ces dépendances sont déclarées comme dépendances homologues optionnelles de `@solana/surfpool` : ignorez-les
+si vous utilisez uniquement la classe `Surfnet` directement, mais l'importation de
+`@solana/surfpool/kit` nécessite `@solana/kit` et `@solana/kit-plugin-rpc`. Consultez
+[Installation](/docs/tools/surfpool/sdk/installation) pour la matrice de support des plateformes
+et le guide de dépannage.
+
+## Mode intégré
+
+Appeler `surfpool()` sans `rpcUrl` démarre un Surfnet en cours de processus sur des
+ports dynamiques et configure l'ensemble du client Kit pour l'utiliser. Le plugin étant asynchrone, attendez
+la chaîne `.use()` avec `await` :
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+```
+
+<Callout type="info" title="Fichiers de test en parallèle">
+  Chaque appel à `surfpool()` lie ses propres ports dynamiques, de sorte que chaque fichier de test peut
+  démarrer son propre Surfnet isolé et que la suite s'exécute toujours en parallèle.
+</Callout>
+
+### Un test complet
+
+Démarrez un Surfnet, envoyez un transfert réglé par le payeur pré-financé et vérifiez
+le résultat. Les exemples ici utilisent `node:test` ; Vitest et Jest fonctionnent de la même façon
+avec leurs propres hooks `after` / `afterAll`.
+
+```ts title="transfer.test.ts"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+after(() => {
+  client.surfnet.stop();
+});
+
+test("transfers SOL on an embedded Surfnet", async () => {
+  const recipient = await generateKeyPairSigner();
+  const amount = lamports(5_000_000n);
+
+  await client.sendTransaction(
+    getTransferSolInstruction({
+      amount,
+      destination: recipient.address,
+      source: client.payer
+    })
+  );
+
+  const { value: balance } = await client.rpc
+    .getBalance(recipient.address)
+    .send();
+  assert.equal(balance, amount);
+});
+```
+
+### Cycle de vie
+
+Appelez `client.surfnet.stop()` lors du démontage, comme indiqué ci-dessus, afin que les ports et
+serveurs du Surfnet soient libérés. `stop()` est idempotent et synchrone — il retourne une fois
+que le runtime s'est effectivement arrêté. L'arrêt est définitif ; créer un autre client
+démarre une nouvelle instance.
+
+<Callout type="warn" title="Le démontage n'est pas automatique">
+  Un client maintenu au niveau du module — le schéma habituel pour un fichier de test — n'est jamais
+  libéré, donc rien n'arrête le Surfnet à votre place. Sans hook de démontage, le
+  processus peut se bloquer ou afficher des avertissements `connection reset` lorsque l'OS ferme
+  les sockets à la sortie.
+</Callout>
+
+### Ce qu'installe le plugin
+
+| Sur le client                                        | Provient de                                                   | Description                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `client.payer`                                       | `@solana/kit-plugin-signer`                                  | Un `KeyPairSigner` pour le compte payeur pré-financé de Surfnet                  |
+| `client.rpc` / `client.rpcSubscriptions`             | `@solana/kit-plugin-rpc`                                     | Les clients RPC Solana standard et d'abonnements, pointant vers le Surfnet |
+| `client.airdrop`                                     | `@solana/kit-plugin-rpc`                                     | `requestAirdrop` contre le Surfnet                                      |
+| `client.getMinimumBalance`                           | `@solana/kit-plugin-rpc`                                     | Recherches d'exemption de loyer                                                    |
+| `client.transactionPlanner` / `...PlanExecutor`      | `@solana/kit-plugin-rpc`                                     | Planification et exécution de transactions                                        |
+| `client.sendTransaction` / `client.sendTransactions` | `@solana/kit-plugin-rpc` (via `kit-plugin-instruction-plan`) | Planifier et envoyer des instructions en un seul appel                                    |
+| `client.rpcUrl` / `client.wsUrl`                     | `@solana/surfpool/kit`                                       | Les URL HTTP et WebSocket du Surfnet                                     |
+| `client.surfnet`                                     | `@solana/surfpool/kit`                                       | Le handle natif `Surfnet` (`fundSol`, `deploy`, `drainEvents`, …)       |
+| `client.cheatcodes`                                  | `@solana/surfpool/kit`                                       | Un RPC typé couvrant chaque cheatcode `surfnet_*`                          |
+
+Le plugin n'installe pas d'`identity`. Ajoutez-en une avec `.use(identity(...))` si
+votre test nécessite une autorité distincte de `client.payer`.
+
+## Cheatcodes
+
+Les cheatcodes sont des mutations d'état qui contournent le flux de transaction normal — ils
+s'exécutent instantanément, sans consommer de blockhash ni payer de frais, ce qui est idéal
+pour la configuration des tests. `client.cheatcodes` les expose tous sous forme de RPC typé.
+
+Les noms de méthodes omettent le préfixe `surfnet_`, donc `surfnet_pauseClock` devient
+`client.cheatcodes.pauseClock()`, et les réponses arrivent déjà extraites de
+leur enveloppe `{ context, value }`.
+
+```ts
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+// Deterministic clock.
+const paused = await client.cheatcodes.pauseClock().send();
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+await client.cheatcodes.resumeClock().send();
+
+// Arbitrary account state. `data` is hex-encoded.
+const account = (await generateKeyPairSigner()).address;
+const owner = (await generateKeyPairSigner()).address;
+await client.cheatcodes
+  .setAccount(account, { data: "aabbcc", lamports: 777_777, owner })
+  .send();
+
+// Token balances, without minting through the token program. The mint must
+// already exist — create it, or clone it from mainnet with cloneProgramAccount.
+const mint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+await client.cheatcodes
+  .setTokenAccount(owner, mint, { amount: 1_000_000n })
+  .send();
+```
+
+La liste complète des méthodes — incluant `streamAccount`, `cloneProgramAccount`,
+`profileTransaction`, `registerIdl` et `resetNetwork` — est documentée sous
+[Cheatcodes](/docs/tools/surfpool/sdk/cheatcodes) et la
+[référence RPC](/docs/tools/surfpool/rpc/cheatcodes).
+
+### Écriture de comptes structurés avec un codec
+
+`setAccount` prend des octets bruts en hexadécimal, ce qui s'associe bien aux encodeurs de comptes
+fournis par les clients de programmes Kit. Plutôt que d'envoyer des transactions pour construire l'état,
+encodez le compte souhaité et écrivez-le directement — ici, un mint SPL entièrement initialisé
+avec une supply déjà définie :
+
+```ts
+import {
+  fetchMint,
+  getMintEncoder,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+import {
+  generateKeyPairSigner,
+  getBase16Decoder,
+  none,
+  some
+} from "@solana/kit";
+
+const mint = (await generateKeyPairSigner()).address;
+
+const data = getMintEncoder().encode({
+  decimals: 6,
+  freezeAuthority: none(),
+  isInitialized: true,
+  mintAuthority: some(client.payer.address),
+  supply: 1_000_000_000n
+});
+
+await client.cheatcodes
+  .setAccount(mint, {
+    // getBase16Decoder() turns the encoded bytes into the hex `data` expects.
+    data: getBase16Decoder().decode(data),
+    lamports: 1_461_600, // rent-exempt minimum for an 82-byte mint
+    owner: TOKEN_PROGRAM_ADDRESS
+  })
+  .send();
+
+// Reads back as a normal mint through the program client.
+const account = await fetchMint(client.rpc, mint);
+account.data.decimals; // 6
+account.data.supply; // 1_000_000_000n
+```
+
+Le même schéma fonctionne pour tout client généré par Codama : encodez avec l'encodeur
+du compte, convertissez en hexadécimal et transmettez à `setAccount`. Associez-le à
+`setTokenAccount` ci-dessus pour mettre en place un mint et des détenteurs financés sans une seule
+transaction.
+
+<Callout type="info" title="Les réponses des cheatcodes utilisent bigint">
+  Le transport des cheatcodes analyse chaque entier JSON en tant que `bigint`, de sorte que les valeurs `u64`
+  telles que `rentEpoch` survivent au-delà de 2^53. Les charges utiles des requêtes acceptent `number
+  | bigint`.
+</Callout>
+
+### Cheatcodes sans le plugin
+
+Deux points d'entrée plus légers couvrent les cas où vous ne souhaitez pas le plugin complet. Les deux
+sont synchrones — ils n'attachent qu'un transport, donc aucun n'a besoin d'`await`.
+
+```ts
+import {
+  createSurfnetCheatcodesRpc,
+  surfnetCheatcodes
+} from "@solana/surfpool/kit";
+
+// Standalone RPC, no Kit client involved.
+const cheatcodes = createSurfnetCheatcodesRpc("http://127.0.0.1:8899");
+await cheatcodes.pauseClock().send();
+
+// Add `client.cheatcodes` to a client you already composed.
+const client = createClient().use(surfnetCheatcodes());
+```
+
+`surfnetCheatcodes()` résout son endpoint depuis `url` si fourni, puis depuis un
+`client.rpcUrl` existant (il se compose donc avec tout client qui en possède un), et
+enfin depuis `DEFAULT_SURFNET_ENDPOINT` (`http://127.0.0.1:8899`). Les deux acceptent une
+option `headers` pour s'authentifier auprès d'un Surfpool distant.
+
+## Configuration
+
+Les options de démarrage de Surfnet se trouvent sous la clé `surfnet` et sont transmises à
+`Surfnet.startWithConfig()`. Tout le reste est transmis au plugin RPC Solana local :
+
+```ts
+const client = await createClient().use(
+  surfpool({
+    surfnet: { offline: true }, // Surfnet startup config
+    skipPreflight: true // forwarded to solanaLocalRpc()
+  })
+);
+```
+
+Omettez entièrement `surfnet` et le plugin appelle `Surfnet.start()` avec ses
+valeurs par défaut. Consultez [Configuration](/docs/tools/surfpool/sdk/configuration) pour l'ensemble
+complet des options de démarrage — fallback RPC distant, mode de production de blocs, synchronisation des slots,
+portes de fonctionnalités et payeurs personnalisés.
+
+## Composition avec des plugins de programme
+
+Comme `surfpool()` satisfait les mêmes contrats que `solanaLocalRpc()`, les plugins de
+programmes Kit se superposent à lui et leurs instructions s'exécutent contre le Surfnet intégré.
+Seul le résultat final nécessite un await — `use()` sur un client asynchrone retourne un autre client
+asynchrone, donc les plugins synchrones et asynchrones se chaînent librement.
+
+```ts
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool()).use(tokenProgram());
+
+const newMint = await generateKeyPairSigner();
+await client.token.instructions
+  .createMint({ decimals: 6, mintAuthority: client.payer.address, newMint })
+  .sendTransaction();
+
+await client.token.instructions
+  .mintToATA({
+    amount: 1_000_000n,
+    decimals: 6,
+    mint: newMint.address,
+    mintAuthority: client.payer,
+    owner: client.payer.address
+  })
+  .sendTransaction();
+```
+
+## Mode rattaché
+
+Passer `rpcUrl` bascule le plugin en mode rattaché : il se connecte à un Surfpool
+déjà en cours d'exécution — démarré avec
+[`surfpool start`](/docs/tools/surfpool/toolchain/cli) — au lieu d'en démarrer un.
+Aucun module natif n'est chargé, donc ce mode fonctionne sur les plateformes sans binaire précompilé.
+Il est également synchrone, donc rien ne nécessite d'await :
+
+```ts
+import { createKeyPairSignerFromBytes, createClient } from "@solana/kit";
+import { payer } from "@solana/kit-plugin-signer";
+import { surfpool } from "@solana/surfpool/kit";
+import { readFile } from "node:fs/promises";
+
+// Any funded signer works; this loads the local CLI keypair.
+const keypairPath = `${process.env.HOME}/.config/solana/id.json`;
+const myPayer = await createKeyPairSignerFromBytes(
+  new Uint8Array(JSON.parse(await readFile(keypairPath, "utf8")))
+);
+
+const client = createClient()
+  .use(payer(myPayer))
+  .use(surfpool({ rpcUrl: "http://127.0.0.1:8899" }));
+```
+
+Trois différences par rapport au mode intégré :
+
+- **Le client doit déjà avoir un `payer`.** Le mode rattaché n'a pas accès à la
+  clé secrète du payeur de l'instance en cours d'exécution, il n'en installe donc aucune. Financez le
+  signataire que vous fournissez avec `client.cheatcodes.setAccount(...)` ou le robinet
+  de l'instance en cours d'exécution.
+- **Il n'y a pas de handle `client.surfnet`.** Les helpers en cours de processus sont indisponibles ;
+  utilisez `client.cheatcodes` pour la manipulation d'état à la place.
+- **La config de démarrage `surfnet` est rejetée.** L'instance est déjà en cours d'exécution, donc
+  `rpcUrl` et `surfnet` sont mutuellement exclusifs dans les types.
+
+<Callout type="warn" title="Port WebSocket">
+  Surfpool sert les abonnements sur son propre port (par défaut `8900`, `--ws-port`),
+  indépendamment du port HTTP. Lorsque `rpcUrl` a un port explicite, le plugin
+  dérive l'URL des abonnements comme le port `8900` sur le même hôte. Lorsqu'il n'a pas de
+  port — derrière un proxy, par exemple — seul le protocole est remplacé par `ws`/`wss`. Définissez
+  `rpcSubscriptionsUrl` vous-même si aucune règle ne convient.
+</Callout>
+
+## Prochaines étapes
+
+- [Programmes](/docs/tools/surfpool/sdk/programs) — déployez votre programme dans le
+  Surfnet avant un test
+- [Cheatcodes](/docs/tools/surfpool/sdk/cheatcodes) — la surface complète de mutation d'état
+- [Configuration](/docs/tools/surfpool/sdk/configuration) — forking du réseau principal,
+  production de blocs, portes de fonctionnalités
+- [Installation](/docs/tools/surfpool/sdk/installation) — support des plateformes et
+  dépannage
+- [Référence JS](/docs/tools/surfpool/sdk/js-reference) — la classe `Surfnet`
+  derrière `client.surfnet`

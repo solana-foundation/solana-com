@@ -9,7 +9,7 @@ import {
   TelegramShareButton,
   TelegramIcon,
 } from "react-share";
-import CopyLinkIcon from "../../../public/src/img/icons/copyLink.inline.svg";
+import { Link as LinkIcon } from "@boxicons/react/Link";
 
 const SocialShareButtons = ({
   url,
@@ -61,14 +61,14 @@ const SocialShareButtons = ({
         <button
           type="button"
           onClick={() => copyLink(url)}
-          className="cursor-pointer bg-transparent border-none p-0"
+          className="flex size-8 cursor-pointer items-center justify-center rounded-full border-none bg-[#c4c4c4] p-0 text-[#222]"
         >
           {copied ? (
             <span className="text-base text-[#42ba96]">
               {t("commands.copied")}
             </span>
           ) : (
-            <CopyLinkIcon />
+            <LinkIcon width={20} height={20} aria-hidden="true" />
           )}
         </button>
       </div>

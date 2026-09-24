@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { useTranslations } from "next-intl";
 import type { ComponentType, ReactNode } from "react";
 import Image from "next/image";
@@ -10,6 +10,8 @@ import { cn } from "@/app/components/utils";
 export type Product = {
   key: string;
   href?: string;
+  eyebrow?: string;
+  external?: boolean;
   Icon?: ComponentType<{
     className?: string;
     "aria-hidden"?: boolean;
@@ -98,8 +100,9 @@ export const Products = ({
                 !oneColumn,
             })}
           >
-            {products.map(({ key, href, Icon }, index) => {
+            {products.map(({ key, href, eyebrow, external, Icon }, index) => {
               const hasLink = Boolean(href);
+              const opensInNewTab = external !== false;
               const productTitle = t(`${translationBase}.${key}.title`);
               const productDescription = t(
                 `${translationBase}.${key}.description`,
@@ -134,6 +137,14 @@ export const Products = ({
                     )}
                   </div>
                   <div className="grow">
+                    {eyebrow && (
+                      <p
+                        className="text-sm font-medium mb-1 tracking-[-0.14px] leading-[1.4]"
+                        style={{ color: highlightColor }}
+                      >
+                        {eyebrow}
+                      </p>
+                    )}
                     <p className="font-medium mb-0 text-base md:text-2xl tracking-[-0.36px] md:tracking-[-0.48px] leading-[1.5] md:leading-[1.33]">
                       {productTitle}
                     </p>
@@ -145,7 +156,8 @@ export const Products = ({
                     {hasLink && (
                       <ChevronRight
                         className="text-[#ABABBA] group-hover:text-white"
-                        size={22}
+                        width={22}
+                        height={22}
                         aria-hidden={true}
                       />
                     )}
@@ -169,8 +181,8 @@ export const Products = ({
                   {hasLink ? (
                     <a
                       href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      target={opensInNewTab ? "_blank" : undefined}
+                      rel={opensInNewTab ? "noopener noreferrer" : undefined}
                       className="group flex flex-row w-full p-[24px_0] xl:p-[24px_12px] text-inherit focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-xl"
                     >
                       {content}

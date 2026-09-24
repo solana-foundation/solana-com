@@ -1,6 +1,7 @@
 ---
 title: トランザクションパイプライン
-description: Solanaトランザクションが送信からコミットまでどのように処理されるか。8段階の検証パイプライン全体、ネットワークからのトランザクション詳細の読み取り、および一般的な検証エラーについて解説します。
+description:
+  Solanaトランザクションが送信からコミットまでどのように処理されるか。8段階の検証パイプライン全体、ネットワークからのトランザクション詳細の読み取り、および一般的な検証エラーについて解説します。
 url: /docs/core/transactions/transaction-pipeline
 type: reference
 prerequisites:
@@ -28,6 +29,10 @@ validatorはUDP/QUIC経由でトランザクションバイトを受信します
 = 1,232バイト）。バイトは _rs`VersionedTransaction`_
 にデシリアライズされ、これには署名配列と _rs`VersionedMessage`_
 （レガシーまたはv0）が含まれます。
+
+次期
+[v1フォーマット](/docs/core/transactions/versioned-transactions#v1-message-format)
+では上限が4,096バイトに引き上げられます。QUICはストリームサイズを制限しないため、MTUを超えるv1トランザクションは拒否されるのではなく、取り込み時に複数のQUICフレームに分割されます。
 
 ### 2. 署名検証（sigverify）
 
@@ -60,6 +65,9 @@ dataの合計長。
 _rs`DuplicateInstruction`_、`InstructionError(..., InvalidInstructionData)`、または
 _rs`InvalidLoadedAccountsDataSizeLimit`_
 などの計算バジェット解析エラーで失敗します。
+
+[v1トランザクション](/docs/core/transactions/versioned-transactions#v1-message-format)
+には解析すべきコンピュートバジェットのinstructionsはありません。制限と優先手数料はメッセージ設定から取得され、メッセージ内のComputeBudget instructionsは設定のために無視されます。未設定のままにしたコンフィグフィールドはデフォルトでゼロになり、これは後で[アカウントの読み込み](#6-load-accounts)時に現れます。
 
 **ブロックハッシュの経過時間**: トランザクションの `recent_blockhash` が
 [`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33)
@@ -128,6 +136,11 @@ _rs`ProgramAccountNotFound`_ または _rs`InvalidProgramForExecution`_
 
 LoaderV3（アップグレード可能）programは、関連するprogramdata
 accountを暗黙的に読み込みます。これも読み込まれたデータサイズの制限にカウントされます。
+
+<Callout type="warn" title="v1トランザクションはこの制限をデフォルトでゼロに設定します">
+  64 MiBのデフォルトはレガシーおよびv0トランザクションに適用されます。[v1
+  フォーマット](/docs/core/transactions/versioned-transactions#v1-message-format)では、読み込まれたアカウントのデータサイズ制限はメッセージ設定から読み取られ、未設定のフィールドは寛大なデフォルト値ではなく**0バイト**がデフォルトとなります。そのため、設定が空のv1トランザクションはこの段階で_rs`MaxLoadedAccountsDataSizeExceeded`_により失敗します。要求されたバジェットは最初に読み込まれるアカウントに対して小さすぎるため、v1にも設定にも言及しないエラーとともに、instructionsが実行される前に失敗が発生します。v1トランザクションを構築する際は、コンピュートユニット制限と読み込まれたアカウントのデータサイズ制限を常に明示的に設定してください。
+</Callout>
 
 アカウントの読み込みが失敗したが、手数料支払者の検証が成功した場合、トランザクションは[`FeesOnly`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/account_loader.rs#L147-L152)結果となります：手数料は引き続き徴収されますが、instructionsは実行されません。
 
@@ -198,44 +211,44 @@ Receive packet (UDP/QUIC)
 [`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
 バリアントと、それらが発生するパイプラインステージを示しています：
 
-| エラー                                                                                                                                  | ステージ                   | 原因                                                                                         |
-| --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------- |
-| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | スケジューリング           | アカウントは同じバッチ内の別のトランザクションによって既にロックされています                 |
-| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | スケジューリング           | トランザクションの`account_keys`にpubkeyが2回出現しています                                  |
-| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | 手数料支払者の検証         | 手数料支払者アカウントが存在しません                                                         |
-| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | アカウントの読み込み       | 呼び出されたプログラムが存在しません                                                         |
-| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | 手数料支払者の検証         | 手数料支払者は手数料 + rent-exempt最小額をカバーできません                                   |
-| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | 手数料支払者の検証         | 手数料支払者はシステムアカウントまたはnonceアカウントではありません                          |
-| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | ステータスキャッシュ       | トランザクションは既に処理されています                                                       |
-| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | エイジチェック             | ブロックハッシュがキューになく、有効なnonceでもありません                                    |
-| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | 実行                       | 命令の処理中にエラーが発生しました（命令インデックスと具体的な`InstructionError`を含みます） |
-| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | アカウントの読み込み       | ローダーの呼び出しチェーンが深すぎます                                                       |
-| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | サニタイズ                 | トランザクションには手数料が必要ですが、署名がありません                                     |
-| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | サニタイズ                 | トランザクションに無効なアカウント参照が含まれています                                       |
-| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | 署名検証                   | Ed25519署名が検証されません（パケットは破棄されます）                                        |
-| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | アカウントの読み込み       | プログラムが有効なローダーによって所有されていません                                         |
-| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | サニタイズ                 | トランザクションがアカウントオフセットを正しくサニタイズできませんでした                     |
-| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | スケジューリング           | クラスターメンテナンスのため、トランザクションは現在無効になっています                       |
-| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | 実行                       | トランザクション処理により、アカウントに未処理の借用参照が残りました                         |
-| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | スケジューリング           | トランザクションが最大ブロックコスト制限を超過します                                         |
-| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | サニタイズ                 | トランザクションバージョンがサポートされていません                                           |
-| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | アカウントの読み込み       | トランザクションが書き込み不可の書き込み可能アカウントを読み込んでいます                     |
-| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | スケジューリング           | トランザクションがブロック内の最大アカウントコスト制限を超過します                           |
-| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | スケジューリング           | トランザクションがブロック内のアカウントデータ制限を超過します                               |
-| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | スケジューリング           | トランザクションが過剰な数のアカウントをロックしました                                       |
-| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | アカウントの読み込み       | アドレスルックアップテーブルアカウントが存在しません                                         |
-| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | アカウントの読み込み       | アドレスルックアップテーブルが誤ったプログラムによって所有されています                       |
-| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | アカウントの読み込み       | アドレスルックアップテーブルに無効なデータが含まれています                                   |
-| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | アカウントの読み込み       | アドレステーブルルックアップが無効なインデックスを使用しています                             |
-| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | 実行後チェック             | アカウントがrent-exemptからrent支払いに移行しました                                          |
-| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | スケジューリング           | トランザクションが最大投票コスト制限を超過します                                             |
-| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | スケジューリング           | トランザクションが総アカウントデータ制限を超過します                                         |
-| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | コンピュートバジェット解析 | 同じトランザクション内に重複したコンピュートバジェット命令バリアントがあります               |
-| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | 実行後チェック             | アカウントにデータサイズのrentをカバーするのに十分なlamportがありません                      |
-| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | アカウントの読み込み       | 読み込まれたデータの合計が64 MiB制限を超えています                                           |
-| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | コンピュートバジェット解析 | `SetLoadedAccountsDataSizeLimit`が0に設定されています                                        |
-| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | サニタイズ                 | トランザクションが機能有効化の前後で異なっており、再サニタイズが必要です                     |
-| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | アカウントの読み込み       | 参照されたアカウントでのプログラム実行が一時的に制限されています                             |
-| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | 実行後チェック             | トランザクション前のlamport残高合計がトランザクション後の残高と一致しません                  |
-| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | アカウントの読み込み       | プログラムキャッシュが最大制限に達しました                                                   |
-| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | コミット                   | コミットが内部的にキャンセルされました                                                       |
+| エラー                                                                                                                                   | ステージ                  | 原因                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | スケジューリング             | アカウントは同じバッチ内の別のトランザクションによって既にロックされています                                                                        |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | スケジューリング             | トランザクションの`account_keys`にpubkeyが2回出現しています                                                                                |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | 手数料支払者の検証   | 手数料支払者アカウントが存在しません                                                                                                          |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | アカウントの読み込み        | 呼び出されたプログラムが存在しません                                                                                                         |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | 手数料支払者の検証   | 手数料支払者は手数料 + rent-exempt最小額をカバーできません                                                                                          |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | 手数料支払者の検証   | 手数料支払者はシステムアカウントまたはnonceアカウントではありません                                                                                                |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | ステータスキャッシュ           | トランザクションは既に処理されています                                                                                                         |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | エイジチェック              | ブロックハッシュがキューになく、有効なnonceでもありません                                                                                              |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | 実行              | 命令の処理中にエラーが発生しました（命令インデックスと具体的な`InstructionError`を含みます）                            |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | アカウントの読み込み        | ローダーの呼び出しチェーンが深すぎます                                                                                                             |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | サニタイズ               | トランザクションには手数料が必要ですが、署名がありません                                                                                   |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | サニタイズ               | トランザクションに無効なアカウント参照が含まれています                                                                                         |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | 署名検証              | Ed25519署名が検証されません（パケットは破棄されます）                                                                                   |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | アカウントの読み込み        | プログラムが有効なローダーによって所有されていません                                                                                                    |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | サニタイズ               | トランザクションがアカウントオフセットを正しくサニタイズできませんでした                                                                                 |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | スケジューリング             | クラスターメンテナンスのため、トランザクションは現在無効になっています                                                                            |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | 実行              | トランザクション処理により、アカウントに未処理の借用参照が残りました                                                             |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | スケジューリング             | トランザクションが最大ブロックコスト制限を超過します                                                                                             |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | サニタイズ               | トランザクションバージョンがサポートされていません                                                                                                        |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | アカウントの読み込み        | トランザクションが書き込み不可の書き込み可能アカウントを読み込んでいます                                                                               |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | スケジューリング             | トランザクションがブロック内の最大アカウントコスト制限を超過します                                                                          |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | スケジューリング             | トランザクションがブロック内のアカウントデータ制限を超過します                                                                              |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | スケジューリング             | トランザクションが過剰な数のアカウントをロックしました                                                                                                      |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | アカウントの読み込み        | アドレスルックアップテーブルアカウントが存在しません                                                                                               |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | アカウントの読み込み        | アドレスルックアップテーブルが誤ったプログラムによって所有されています                                                                                        |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | アカウントの読み込み        | アドレスルックアップテーブルに無効なデータが含まれています                                                                                                |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | アカウントの読み込み        | アドレステーブルルックアップが無効なインデックスを使用しています                                                                                                |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | 実行後チェック   | アカウントがrent-exemptからrent支払いに移行しました                                                                                      |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | スケジューリング             | トランザクションが最大投票コスト制限を超過します                                                                                              |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | スケジューリング             | トランザクションが総アカウントデータ制限を超過します                                                                                         |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | コンピュートバジェット解析 | 同じトランザクション内に重複したコンピュートバジェット命令バリアントがあります                                                                      |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | 実行後チェック   | アカウントにデータサイズのrentをカバーするのに十分なlamportがありません                                                                     |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | アカウントの読み込み        | 読み込まれたデータの合計がトランザクションの読み込み済みアカウントデータサイズ制限を超えています（デフォルトは64 MiB、メッセージ設定で設定しない限りv1では0） |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | コンピュートバジェット解析 | `SetLoadedAccountsDataSizeLimit`が0に設定されています                                                                                                 |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | サニタイズ               | トランザクションが機能有効化の前後で異なっており、再サニタイズが必要です                                                             |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | アカウントの読み込み        | 参照されたアカウントでのプログラム実行が一時的に制限されています                                                                     |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | 実行後チェック   | トランザクション前のlamport残高合計がトランザクション後の残高と一致しません                                                             |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | アカウントの読み込み        | プログラムキャッシュが最大制限に達しました                                                                                                               |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | コミット                 | コミットが内部的にキャンセルされました                                                                                                               |

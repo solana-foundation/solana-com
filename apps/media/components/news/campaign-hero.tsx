@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { Button } from "@/components/ui/button";
 import { isExternalUrl } from "@/lib/external-url";
 import type { NewsCampaign } from "@/lib/news-campaign";
@@ -74,7 +74,7 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
                 >
                   <span>{t("primaryCta")}</span>
                   {primaryCtaIsExternal && (
-                    <ArrowUpRight aria-hidden className="size-4" />
+                    <ArrowOutUpRightSquare aria-hidden className="size-4" />
                   )}
                 </Link>
               </Button>
@@ -93,7 +93,7 @@ export function CampaignHero({ campaign }: CampaignHeroProps) {
                   >
                     <span>{t("secondaryCta")}</span>
                     {secondaryCtaIsExternal && (
-                      <ArrowUpRight aria-hidden className="size-4" />
+                      <ArrowOutUpRightSquare aria-hidden className="size-4" />
                     )}
                   </Link>
                 </Button>

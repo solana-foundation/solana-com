@@ -8,7 +8,7 @@ import ImageTreatment, {
 import Button from "@/components/Button";
 import SectionHeadline from "@/components/SectionHeadline";
 import WordReveal from "@/components/WordReveal";
-import { BREAKPOINT_2025_ARCHIVES_URL } from "@/content/links";
+import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import { useVariant } from "@/lib/use-variant";
 
 interface StatItem {
@@ -20,22 +20,28 @@ interface StatItem {
 
 const statItems: StatItem[] = [
   {
-    key: "attendees",
-    valueKey: "stats.items.attendees.value",
-    suffixKey: "stats.items.attendees.suffix",
-    labelKey: "stats.items.attendees.label",
+    key: "transactions",
+    valueKey: "stats.items.transactions.value",
+    suffixKey: "stats.items.transactions.suffix",
+    labelKey: "stats.items.transactions.label",
   },
   {
-    key: "countries",
-    valueKey: "stats.items.countries.value",
-    suffixKey: "stats.items.countries.suffix",
-    labelKey: "stats.items.countries.label",
+    key: "stablecoinVolume",
+    valueKey: "stats.items.stablecoinVolume.value",
+    suffixKey: "stats.items.stablecoinVolume.suffix",
+    labelKey: "stats.items.stablecoinVolume.label",
   },
   {
-    key: "settlement",
-    valueKey: "stats.items.settlement.value",
-    suffixKey: "stats.items.settlement.suffix",
-    labelKey: "stats.items.settlement.label",
+    key: "rwaValue",
+    valueKey: "stats.items.rwaValue.value",
+    suffixKey: "stats.items.rwaValue.suffix",
+    labelKey: "stats.items.rwaValue.label",
+  },
+  {
+    key: "tokenizedEquity",
+    valueKey: "stats.items.tokenizedEquity.value",
+    suffixKey: "stats.items.tokenizedEquity.suffix",
+    labelKey: "stats.items.tokenizedEquity.label",
   },
 ];
 
@@ -78,8 +84,8 @@ export default function StatsSection() {
           <SectionHeadline headline={t("stats.headline")} alignment="center">
             <Button
               arrow
-              href={BREAKPOINT_2025_ARCHIVES_URL}
-              label={t("stats.cta")}
+              href={GENERAL_ADMISSION_HREF}
+              label={t("tickets.cta")}
               rel="noreferrer"
               target="_blank"
               variant="primary"

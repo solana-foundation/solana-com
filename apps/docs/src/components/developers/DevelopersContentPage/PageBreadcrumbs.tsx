@@ -1,5 +1,5 @@
 import { Fragment, memo } from "react";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./DevelopersContentPage.module.scss";
 import Link from "next/link";
 import { ComponentWithBreadcrumbs } from "@@/src/types";

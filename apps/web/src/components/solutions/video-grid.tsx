@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { VideoTrigger } from "@/component-library/video-modal";
 import Carousel, {
   CarouselControls,

@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import dynamic from "next/dynamic";
 import styles from "./DevelopersResources.module.scss";
 import DevelopersResourcesGrid from "../DevelopersResourcesGrid/DevelopersResourcesGrid";

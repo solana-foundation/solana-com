@@ -39,7 +39,7 @@ const LINK_ICON_MAP: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/docs/rpc": ApiIcon,
   "/developers/templates": TemplatesIcon,
   "/developers": SchoolIcon,
-  "/developers/evm-to-svm": ComputerIcon,
+  "/developers/migrate-to-solana/ethereum": ComputerIcon,
   "/events": DiamondIcon,
   "/solutions/stablecoins": CoinIcon,
   "/solutions/tokenization": TokenizeIcon,

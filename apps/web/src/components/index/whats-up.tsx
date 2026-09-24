@@ -1,30 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Container } from "@/component-library/container";
 import { cn } from "@/app/components/utils";
-import MagicBrush from "@@/public/src/img/icons/MagicBrush.inline.svg";
-import Statistics from "@@/public/src/img/icons/Statistics.inline.svg";
-import Tasks from "@@/public/src/img/icons/Tasks.inline.svg";
-import Bezier from "@@/public/src/img/icons/Bezier.inline.svg";
-import FileText from "@@/public/src/img/icons/FileText.inline.svg";
-import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
-import ChevronLeft from "@@/public/src/img/icons/ChevronLeft.inline.svg";
-import ChevronRight from "@@/public/src/img/icons/ChevronRight.inline.svg";
+import { MagicWand as MagicBrush } from "@boxicons/react/MagicWand";
+import { BarChart as Statistics } from "@boxicons/react/BarChart";
+import { Task as Tasks } from "@boxicons/react/Task";
+import { NetworkChart as Bezier } from "@boxicons/react/NetworkChart";
+import { FileDetail as FileText } from "@boxicons/react/FileDetail";
+import { CodeAlt as CodeFilled } from "@boxicons/react/CodeAlt";
+import { ChevronLeft } from "@boxicons/react/ChevronLeft";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import SolanaMono from "@@/public/src/img/icons/SolanaMono.inline.svg";
 import { useTranslations } from "next-intl";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import { Button } from "@/app/components/ui/button";
-
-dayjs.extend(utc);
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { useTerminal } from "@/lib/terminal";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 type CategoryDef = {
   id: string;
   name: string;
-  Icon: React.FC<React.SVGProps<SVGSVGElement>>;
+  Icon: React.ElementType<React.SVGProps<SVGSVGElement>>;
   color: string;
   bg: string;
 };
@@ -412,16 +408,6 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
                               {categoryLabel}
                             </span>
                           </div>
-                          {/* Date temporarily removed
-                          <div className="shrink-0 grow-0 px-5 hidden xl:flex items-center justify-start w-[160px]">
-                            <span className="font-brand-mono font-medium text-nd-mid-em-text text-[14px] leading-[1.42] uppercase">
-                              {item.date &&
-                                dayjs
-                                  .utc(item.date, "DD MMM YYYY")
-                                  .format("MMM D YYYY")}
-                            </span>
-                          </div>
-                          */}
                         </>
                       );
 

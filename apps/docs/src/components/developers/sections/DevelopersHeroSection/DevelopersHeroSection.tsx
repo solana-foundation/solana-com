@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Image, { type StaticImageData } from "next/image";
 import type { ReactNode } from "react";
 import Button from "@/components/shared/Button";

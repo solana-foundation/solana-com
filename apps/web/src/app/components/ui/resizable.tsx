@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical } from "lucide-react";
+import { DotsVertical as GripVertical } from "@boxicons/react/DotsVertical";
 import * as ResizablePrimitive from "react-resizable-panels";
 
 import { cn } from "@/app/components/utils";

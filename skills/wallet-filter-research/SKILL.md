@@ -45,6 +45,21 @@ For a full refresh, audit every local record and then run the discovery pass
 below. For a targeted request, audit the requested records and research directly
 related renames, replacements, or product-family changes.
 
+### Maintainer exclusions
+
+Before researching or publishing a discovery candidate, check it against
+`packages/ecosystem-data/src/wallets/excluded-wallets.json`:
+
+```bash
+pnpm --filter @workspace/ecosystem-data wallets:research-queue -- --candidate <name-or-slug>
+```
+
+The exclusion list records deliberate maintainer decisions, including products
+previously removed as inactive. A matching candidate is not publishable and must
+not be re-added unless the maintainer explicitly reverses the decision. The
+research queue fails if a canonical record matches an exclusion, providing a
+guardrail against accidental re-additions.
+
 Do not interpret absence from search results as proof that a local wallet is
 inactive. Look for affirmative evidence before removing or marking a product as
 discontinued.

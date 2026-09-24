@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Shield } from "react-feather";
+import { Shield } from "@boxicons/react/Shield";
 import { Button } from "@workspace/ui";
 import { useCookieConsent } from "./use-cookie-consent";
 import { Link } from "./link";

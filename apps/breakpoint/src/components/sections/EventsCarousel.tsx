@@ -2,7 +2,7 @@
 
 import React, { useCallback, useId, useRef } from "react";
 import Image from "next/image";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import CarouselControls from "@/components/CarouselControls";
 import type { HighlightedEvent } from "@/content/events/types";
@@ -76,6 +76,7 @@ export default function EventsCarousel({
   items,
 }: EventsCarouselProps) {
   const locale = useLocale();
+  const t = useTranslations("breakpoint.accessibility");
   const scrollRef = useRef<HTMLUListElement>(null);
   const headingId = useId();
 
@@ -184,7 +185,7 @@ export default function EventsCarousel({
                       </>
                     )}
                   </span>
-                  <span className="sr-only">(opens in a new tab)</span>
+                  <span className="sr-only">{t("opensInNewTab")}</span>
                 </span>
               </a>
             </li>

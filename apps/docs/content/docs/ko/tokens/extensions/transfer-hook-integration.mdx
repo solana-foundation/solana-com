@@ -1,0 +1,390 @@
+---
+title: Transfer Hook 통합 가이드
+description:
+  Transfer Hook 확장 기능을 사용하는 토큰을 지갑, 커스터디언, dapp에 통합하는 방법을 알아보세요. 확장 기능 감지, 훅에 필요한 추가 계정 확인, 시뮬레이션 및 실행 오류 처리 방법을 다룹니다.
+url: /docs/tokens/extensions/transfer-hook-integration
+type: conceptual
+prerequisites:
+  - /docs/tokens/extensions
+related:
+  - /docs/tokens/extensions/transfer-hook
+  - /docs/tokens/extensions/permanent-delegate
+  - /docs/tokens/extensions/transfer-fees
+  - /docs/tokens/extensions/confidential-transfer/integration-guide
+---
+
+## 배경
+
+Transfer Hook 확장 기능을 사용하면 Token-2022 민트가 모든 토큰 전송 시 사용자 정의 프로그램에 대한 Cross Program
+Invocation (CPI)을 요구할 수 있습니다. 민트는 훅 프로그램의 주소를 저장하며, 해당 토큰을 전송하는 모든 지갑, dapp, 커스터디언은 CPI가 실행될 수 있도록 훅 프로그램에 필요한 계정을 포함해야 합니다.
+
+이 가이드는 transfer hook을 사용하는 토큰을 **통합**하는 팀(지갑, dapp, 커스터디언, 거래소, 익스플로러)을 위한 것이며, 훅 프로그램을 **작성**하는 팀을 위한 것이 아닙니다. 훅 프로그램을 개발 중이라면
+[Transfer Hook Interface](https://www.solana-program.com/docs/transfer-hook-interface)와
+[Transfer Hook 확장 가이드](/docs/tokens/extensions/transfer-hook)부터 시작하세요.
+이 가이드는 클라이언트가 hook이 활성화된 토큰의 전송, 수신 및 시뮬레이션을 올바르게 수행하기 위해 해야 할 일에 초점을 맞춥니다.
+
+다른 대부분의 Token-2022 확장 기능과 달리, transfer hook은 계정 수준에서 선택 사항이 아닙니다. 민트에 transfer hook이 구성되어 있다면, **해당 토큰의 모든 전송에는 훅의 추가 계정이 필요합니다.** 귀하의 제품이 훅의 로직을 활용하는지 여부와 관계없이 마찬가지입니다. 해당 계정을 확인하지 않는 클라이언트는 토큰을 전혀 전송할 수 없습니다. 전송 명령이 온체인에서 실패하며, 훅을 자동으로 건너뛰지 않습니다. 전송 경로에 바로 적용할 수 있는 완전한 함수는
+[transfer-hook 토큰 전송하기](#sending-a-transfer-hook-token) 아래에 Kit와 Web3.js 모두에 대해 제공됩니다.
+
+### 리소스
+
+- [Transfer Hook Interface 레퍼런스](https://www.solana-program.com/docs/transfer-hook-interface)
+- [Extension Rust 코드](https://github.com/solana-program/token-2022/tree/main/program/src/extension/transfer_hook)
+- [`@solana-program/token-2022` JS 클라이언트](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  Kit 기반 클라이언트로, 새로운 통합에 권장됩니다. `getTransferCheckedWithTransferHookInstructionAsync`를 통한 네이티브 transfer hook 확인과 하위 수준의 `resolveExtraAccountMetasForExecute` /
+  `findExtraAccountMetaListPda` 헬퍼를 제공합니다.
+- [`@solana/spl-token` JS 클라이언트](https://github.com/solana-program/token-2022/tree/main/clients/js-legacy)
+  deprecated된 `@solana/web3.js` 라이브러리의 레거시 클라이언트입니다. web3.js를 아직 사용 중인 팀을 위해 동일한 기능(확장 감지, 추가 계정 확인, 고수준의 `createTransferCheckedWithTransferHookInstruction` 헬퍼)을 제공합니다.
+- [Transfer Hook 확장 가이드](/docs/tokens/extensions/transfer-hook)
+  (발행자가 구성하는 내용에 대한 맥락을 위해, 훅 프로그램 작성)
+
+## 요약
+
+- transfer hook 민트는 **훅 프로그램 주소**를 저장합니다. 모든 전송은 해당 프로그램으로 CPI를 수행하며, CPI에는 표준 전송 계정 외에 추가 계정이 필요합니다.
+- 훅에 필요한 추가 계정은 온체인 **`ExtraAccountMetaList`** 계정에 나열되어 있으며, 이는 훅 프로그램과 민트에서 파생된 PDA입니다. 클라이언트는 이 계정을 읽어 전송 명령에 추가할 계정을 확인합니다.
+- **확인은 선택 사항이 아닙니다.** 추가 계정이 누락되거나 오래된 경우, 전송 명령이 온체인에서 실패합니다. 훅 없이 토큰을 자동으로 전송하는 대체 수단은 없습니다.
+- **Kit (`@solana-program/token-2022`)와 Web3.js (`@solana/spl-token`) 모두 hook이 활성화된 전송을 처음부터 끝까지 전송할 수 있습니다** — [transfer-hook 토큰 전송하기](#sending-a-transfer-hook-token) 아래의 완전한 함수를 참고하세요. 각각 `ExtraAccountMetaList`를 네이티브로 확인합니다: Kit는 `getTransferCheckedWithTransferHookInstructionAsync`를 통해, Web3.js는 `createTransferCheckedWithTransferHookInstruction`을 통해 처리합니다.
+- **항상 전송 전에 시뮬레이션을 실행하세요.** 훅 프로그램은 자체적으로 정의한 임의의 조건(허용 목록 확인, 일시 중지 상태, 위임 누락)으로 전송을 실패시킬 수 있으며, 발행자가 훅을 업데이트하면 추가 계정 목록도 변경될 수 있습니다. 시뮬레이션을 통해 사용자가 서명하기 전에 두 가지 문제 모두를 발견할 수 있습니다.
+- 훅 실행은 컴퓨팅 유닛을 추가로 소비하며, 사전 자금이 충전되거나 사전 승인된 사이드 계정(위임된 수수료 계정, 사용자가 아직 초기화하지 않은 카운터 PDA)이 필요한 훅의 경우, 첫 번째 전송이 성공하기 전에 설정 트랜잭션이 필요할 수 있습니다.
+
+## 용어
+
+- **훅 프로그램**: 민트가 전송 시 로직을 위임하는 프로그램으로, 민트의 Transfer Hook 확장을 통해 설정됩니다.
+- **`ExtraAccountMetaList`**: 훅 프로그램이 소유한 PDA로, 훅의 `Execute` 명령에 필요한 추가 계정 목록을 저장합니다. `"extra-account-metas"` 시드와 민트 주소에서 파생됩니다.
+- **`ExtraAccountMeta`**: 해당 목록의 항목 하나입니다. 고정 주소, 훅 프로그램의 PDA, 다른 프로그램의 PDA, 또는 전송의 자체 계정 중 하나에서 데이터로 시드된 PDA를 참조할 수 있습니다.
+- **`TransferHookAccount` 확장**: token account의 상태로, 토큰 프로그램이 훅으로 CPI를 수행하는 동안에만 `true`로 설정되는 `transferring` 플래그를 포함합니다. 훅 프로그램은 이를 사용하여 실제 전송에서 발생하지 않은 호출(클라이언트가 `Execute`를 직접 호출하는 경우)을 거부합니다.
+- **`Execute`**: 토큰 프로그램이 모든 전송 시 CPI로 호출하는 명령입니다. 클라이언트가 직접 호출하지 않으며, `TransferChecked`의 일부로 호출됩니다.
+
+## transfer-hook 토큰 전송하기
+
+hook이 활성화된 모든 전송은 네 가지 작업을 수행해야 합니다: 민트에 transfer hook이 있는지 감지하고, 훅의 CPI에 필요한 추가 계정을 확인하고, 시뮬레이션을 실행한 후 전송합니다. 아래의 두 함수 모두 이 네 가지를 수행하며, 현재 앱에서 Token-2022 전송을 구성하는 곳 어디에나 바로 적용할 수 있도록 설계되었습니다.
+
+### Kit
+
+`@solana-program/token-2022` 클라이언트는 `getTransferCheckedWithTransferHookInstructionAsync`를 통해 모든 것을 네이티브로 확인합니다: 민트를 가져오고, transfer hook이 구성되어 있는지 감지하고, `ExtraAccountMetaList`를 확인하고, 훅의 추가 계정을 추가합니다. 민트에 훅이 없을 경우 일반 `transferChecked`를 반환하므로, 레거시 클라이언트와의 연결 없이 동일한 호출로 두 경우를 모두 처리할 수 있습니다.
+
+```ts title="send-transfer-hook-token-kit.ts"
+import {
+  appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  compileTransaction,
+  createTransactionMessage,
+  getBase64EncodedWireTransaction,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  type Address,
+  type Rpc,
+  type RpcSubscriptions,
+  type SolanaRpcApi,
+  type SolanaRpcSubscriptionsApi,
+  type TransactionSigner
+} from "@solana/kit";
+import { getTransferCheckedWithTransferHookInstructionAsync } from "@solana-program/token-2022";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction with Kit.
+ */
+export async function sendTokenTransfer({
+  rpc,
+  rpcSubscriptions,
+  source,
+  mint,
+  destination,
+  owner,
+  feePayer,
+  amount,
+  decimals
+}: {
+  rpc: Rpc<SolanaRpcApi>;
+  rpcSubscriptions: RpcSubscriptions<SolanaRpcSubscriptionsApi>;
+  source: Address;
+  mint: Address;
+  destination: Address;
+  owner: TransactionSigner; // Authority over the source token account.
+  feePayer: TransactionSigner;
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Build the transfer instruction. When the mint has a transfer hook this
+  // fetches it, resolves the ExtraAccountMetaList, and appends the accounts the
+  // hook's CPI needs; when it doesn't, you get a plain transferChecked. Because
+  // it re-fetches the mint on every call, don't cache the result across sends
+  // -- the hook program and its extra accounts can both change.
+  const instruction = await getTransferCheckedWithTransferHookInstructionAsync(
+    { rpc },
+    {
+      source,
+      mint,
+      destination,
+      authority: owner,
+      amount,
+      decimals
+    }
+  );
+
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+  const message = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstructions([instruction], tx)
+  );
+
+  // 2. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Compiling the message (rather than signing
+  // it) is enough to simulate, and sigVerify: false lets the network run it
+  // without signatures. This catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await rpc
+    .simulateTransaction(
+      getBase64EncodedWireTransaction(compileTransaction(message)),
+      { encoding: "base64", sigVerify: false, replaceRecentBlockhash: true }
+    )
+    .send();
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 3. Sign only after a successful simulation, then send.
+  const signedMessage = await signTransactionMessageWithSigners(message);
+  assertIsTransactionWithBlockhashLifetime(signedMessage);
+  await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+    signedMessage,
+    { commitment: "confirmed" }
+  );
+}
+```
+
+<Callout type="info">
+  `getTransferCheckedWithTransferHookInstructionAsync`는 하위 수준의 Kit 확인기(`resolveExtraAccountMetasForExecute`,
+  `findExtraAccountMetaListPda`)를 래핑하며, 이는 아래 [수동으로 계정 조합하기](#assembling-accounts-manually)에서 다룹니다. 직접 조합하는 명령에 훅 계정을 추가하는 경우에만 해당 함수를 직접 사용하세요.
+</Callout>
+
+### Web3.js
+
+레거시 `@solana/spl-token` 클라이언트는 별도의 연결 없이 모든 것을 네이티브로 확인합니다.
+
+```ts title="send-transfer-hook-token.ts"
+import {
+  Connection,
+  PublicKey,
+  Signer,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  createTransferCheckedInstruction,
+  createTransferCheckedWithTransferHookInstruction,
+  getMint,
+  getTransferHook,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction directly.
+ */
+export async function sendTokenTransfer({
+  connection,
+  payer,
+  source,
+  mint,
+  destination,
+  owner,
+  amount,
+  decimals
+}: {
+  connection: Connection;
+  payer: Signer; // Fee payer; can be the same signer as `owner`.
+  source: PublicKey;
+  mint: PublicKey;
+  destination: PublicKey;
+  owner: Signer; // Authority over the source token account.
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Re-check for a transfer hook on every send. The hook program and its
+  // extra accounts can both change, so don't cache this across transfers.
+  const mintInfo = await getMint(
+    connection,
+    mint,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  );
+  const transferHook = getTransferHook(mintInfo);
+
+  // 2. Build the transfer instruction. When a hook is configured, this also
+  // resolves the ExtraAccountMetaList and appends the accounts the hook's
+  // CPI needs -- there's no separate resolution step to call yourself.
+  const instruction = transferHook
+    ? await createTransferCheckedWithTransferHookInstruction(
+        connection,
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [], // Additional signers, only needed for a multisig authority.
+        "confirmed",
+        TOKEN_2022_PROGRAM_ID
+      )
+    : createTransferCheckedInstruction(
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      );
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+  const transaction = new Transaction({
+    feePayer: payer.publicKey,
+    blockhash,
+    lastValidBlockHeight
+  }).add(instruction);
+
+  // 3. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Simulating without signers runs the
+  // transaction unsigned, which catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await connection.simulateTransaction(transaction);
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 4. Sign and send only after a successful simulation.
+  return sendAndConfirmTransaction(connection, transaction, [payer, owner]);
+}
+```
+
+## 확장 기능 감지
+
+위의 두 함수 모두 매 전송 시마다 민트를 다시 가져와 훅을 확인합니다:
+Web3.js는 `getMint`를 통해 명시적으로, Kit는 `getTransferCheckedWithTransferHookInstructionAsync` 내부에서 처리하며, 이 함수는 무언가를 확인하기 전에 민트를 가져옵니다.
+
+<Callout type="info">
+  민트의 훅 프로그램 주소는 민트의 transfer hook authority(`UpdateTransferHook`)에 의해 업데이트될 수 있으며, 훅이 요구하는 추가 계정도 독립적으로 변경될 수 있습니다(`UpdateExtraAccountMetaList`). 두 값 모두 단일 전송 흐름보다 길게 캐시하지 마세요. 사용자가 새 전송을 시작할 때 다시 가져오세요.
+</Callout>
+
+쌍을 이루는 `TransferHookAccount` 확장은 민트가 아닌 token account에 존재합니다. 통합자는 일반적으로 이를 직접 읽을 필요가 없습니다. 이 확장은 훅 프로그램 자체가 호출이 실제 전송 내에서 발생했는지, 클라이언트가 `Execute`를 직접 호출한 것이 아닌지 확인하기 위해 존재합니다.
+
+## 추가 계정 확인
+
+hook이 활성화된 모든 전송에는 표준 네 가지 전송 계정(소스, 민트, 목적지, 소유자/권한)과 해당 민트의 `ExtraAccountMetaList` 계정이 지정하는 계정이 추가로 필요합니다. 이 목록은 훅 프로그램에서 파생된 PDA입니다:
+
+```ts title="derive-extra-account-meta-list.ts"
+// Kit (@solana-program/token-2022)
+import { findExtraAccountMetaListPda } from "@solana-program/token-2022";
+
+const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
+  { mint: mintAddress },
+  { programAddress: transferHook.programId }
+);
+
+// Web3.js (@solana/spl-token)
+import { getExtraAccountMetaAddress } from "@solana/spl-token";
+
+const extraAccountMetaListPda = getExtraAccountMetaAddress(
+  mintAddress,
+  transferHook.programId
+);
+```
+
+해당 계정의 각 항목은 네 가지 방법 중 하나로 구체적인 `AccountMeta`로 확인됩니다: 고정 pubkey, 훅 프로그램의 PDA, 계정 목록에서 앞서 명명된 다른 프로그램의 PDA, 또는 전송의 자체 계정 중 하나에서 읽은 바이트로 시드된 PDA(예: 소스 token account의 소유자). 데이터 시드 케이스를 확인하려면 RPC를 통해 계정 데이터를 가져와야 하며, 이 때문에 확인이 비동기적이고 여러 번의 왕복이 필요할 수 있습니다.
+
+### 수동으로 계정 조합하기
+
+위의 함수를 사용하지 않고 직접 명령을 조합하는 경우, 두 클라이언트 모두 해당 함수가 기반으로 하는 하위 수준의 구성 요소를 제공합니다.
+
+**Kit (`@solana-program/token-2022`)**
+
+- `findExtraAccountMetaListPda({ mint }, { programAddress })`: `ExtraAccountMetaList` 검증 계정의 PDA를 파생합니다.
+- `getExtraAccountMetasDecoder().decode(accountData)`: 원시 검증 계정 데이터를 `ExtraAccountMeta` 항목 목록으로 파싱합니다.
+- `resolveExtraAccountMeta(meta, previousAddresses, instructionData, hookProgramAddress, rpc)`:
+  지금까지 확인된 주소를 기반으로(이후 항목이 이전 항목을 참조할 수 있음) 항목 하나를 `AccountMeta`로 확인합니다.
+- `resolveExtraAccountMetasForExecute({ rpc, transferHookProgramAddress, source, mint, destination, owner, amount })`:
+  모든 항목을 확인하고 추가할 메타(추가 계정, 훅 프로그램, 검증 계정)를 반환합니다. Kit 명령은 불변이므로, 직접 변경하는 대신 명령에 spread할 수 있도록 메타를 반환합니다.
+
+**Web3.js (`@solana/spl-token`)**
+
+- `getExtraAccountMetas(account)`: 원시 `ExtraAccountMetaList` 계정 데이터를 `ExtraAccountMeta` 항목 목록으로 디코딩합니다.
+- `resolveExtraAccountMeta(connection, meta, previousMetas, instructionData, hookProgramId)`:
+  지금까지 확인된 계정을 기반으로(이후 항목이 이전 항목을 참조할 수 있음) 항목 하나를 `AccountMeta`로 확인합니다.
+- `addExtraAccountMetasForExecute(connection, instruction, hookProgramId, source, mint, destination, owner, amount)`:
+  모든 항목을 확인하고 한 번의 호출로 기존 명령에 추가합니다.
+
+## 전송 전 시뮬레이션
+
+위의 두 함수에서 시뮬레이션 단계가 중요한 이유는 실행 시에만 나타나는 두 가지 문제가 있기 때문입니다.
+
+- **훅이 전송을 거부합니다.** 훅 프로그램은 임의의 조건(허용 목록, 일시 중지된 민트, 전송당 한도)을 인코딩할 수 있으며, 조건이 충족되지 않으면 소스와 목적지를 포함한 전체 명령을 실패시킵니다. 부분 성공 케이스는 없습니다: 훅 호출이 거부되면 전송이 거부됩니다.
+- **추가 계정이 오래되었습니다.** 클라이언트가 마지막으로 캐시한 시점과 사용자가 전송하는 시점 사이에 발행자가 훅 프로그램을 변경하거나 `ExtraAccountMetaList`를 업데이트한 경우, 오래된 데이터를 기반으로 확인하면 잘못된 계정이 생성되어 훅 로직 오류가 아닌 계정 검증 오류로 전송이 실패합니다.
+
+먼저 시뮬레이션을 수행하고 시뮬레이션이 성공한 경우에만 제출하면, 사용자가 실패한 트랜잭션에 수수료를 지불하기 전에 두 가지 경우를 모두 포착할 수 있습니다. 또한 원시 트랜잭션 실패 대신 명확한 오류(전송이 완료될 수 없는 이유)를 사용자에게 표시할 수 있습니다.
+
+## 컴퓨트 및 설정 관련 고려사항
+
+훅 프로그램의 CPI는 전송의 컴퓨트 예산 내에서 실행됩니다. 여러 계정을 읽고 자체 검사를 실행하는 등 복잡한 작업을 수행하는 훅은 기본 전송 비용 외에 실질적인 컴퓨트 비용을 추가하므로, 훅이 활성화된 전송에 적절한 크기의 컴퓨트 유닛 한도를 요청하면 불필요한 실패를 줄일 수 있습니다.
+
+일부 훅은 첫 번째 전송이 성공하기 전에 단순히 계정을 확인할 수 있는 것뿐만 아니라 계정이 실제로 존재해야 하는 경우도 있습니다. 예를 들어 발신자가 자금을 공급하고 승인해야 하는 위임된 수수료 token account(wSOL 수수료 훅의 경우처럼), 또는 발행자의 프로그램이 해당 소유자에 대해 이미 초기화되어 있을 것으로 예상하는 카운터나 허용 목록 항목이 이에 해당합니다. 계정만 확인하고 사용자에게 "이 토큰은 전송하기 전에 일회성 설정이 필요합니다"라는 안내를 표시하지 않는 클라이언트 구현은 잔액이나 네트워크 상태와 무관한 이유로 전송이 실패하는 상황을 겪게 됩니다.
+
+## 훅 CPI 실행 중 계정은 읽기 전용
+
+token program이 훅 프로그램으로 CPI를 수행할 때, 발신자의 계정을 포함한 원래 전송의 모든 계정을 **읽기 전용**으로 전달하며, 발신자의 서명자 권한은 훅으로 이어지지 않습니다. 따라서 훅 프로그램은 CPI 중에 자체 권한으로 발신자의 계정에서 토큰을 이동시킬 수 없습니다. 예를 들어 다른 토큰으로 수수료를 납부하는 등 부수적인 결제를 이동해야 하는 훅은 발신자가 사전에 미리 승인한 위임자를 통해 처리하며, 이는 위에서 설명한 것과 동일한 일회성 설정 방식입니다.
+
+## 하위 호환성
+
+전송 훅은 지원되지 않는 클라이언트와 관련하여 대부분의 다른 Token-2022 확장과는 다르게 동작합니다:
+
+- 전송 훅 계정을 확인하지 않는 지갑이나 dapp은 훅이 활성화된 토큰을 **전송할 수 없습니다**. 트랜잭션은 일반 전송으로 자동 전환되는 것이 아니라 token program 수준에서 실패합니다.
+- 훅이 활성화된 토큰을 수신하는 데는 특별한 처리가 필요하지 않습니다. 훅은 발신자의 전송 인스트럭션에서만 실행되므로, 지갑은 해당 토큰을 실제로 전송하려는 경우에만 전송 훅 지원이 필요합니다.
+- 훅 프로그램은 민트의 전송 훅 권한자에 의해 업데이트될 수 있으므로, 전송 훅 민트는 한 번 파악하고 무기한 캐시하는 정보가 아니라 전송마다 다시 확인해야 할 사항으로 취급하세요.
+
+## 권장 통합 우선순위
+
+### 지갑 및 dapp
+
+| 요구사항                            | 설명                                                                                                   | 우선순위 |
+| :------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :------- |
+| 확장 감지                   | Token-2022 자산의 전송 플로우를 구성하기 전에 민트에서 `getTransferHook`을 확인하세요.                     | **P0**   |
+| 추가 계정 확인                 | 계정을 하드코딩하지 말고 고수준 헬퍼(또는 수동 리졸버 함수)를 사용하세요.                 | **P0**   |
+| 서명 전 시뮬레이션                | 구성된 트랜잭션을 시뮬레이션으로 실행하고, 훅 거부를 원시 실패가 아닌 명확한 오류로 표시하세요. | **P0**   |
+| 필수 설정 안내 표시                 | 전송 전에 훅에 필요한 일회성 설정(위임 승인, 부계정 자금 공급)을 감지하고 사용자에게 안내하세요.  | **P1**   |
+| 훅 실행을 위한 컴퓨트 예산 설정 | 기본 컴퓨트 한도가 훅 로직을 커버한다고 가정하지 말고, 관측된 비용에 맞는 한도를 요청하세요.        | **P1**   |
+| 재시도 시 재확인                    | 이전에 구성된 트랜잭션이 실패한 경우, 그대로 재제출하지 말고 `ExtraAccountMetaList`를 다시 가져오세요.  | **P1**   |
+
+### 수탁기관 및 거래소
+
+| 요구사항                           | 설명                                                                                                                                  | 우선순위 |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| 전송 경로를 민트별로 처리          | 훅이 활성화된 민트는 자체적으로 테스트된 전송 경로가 필요합니다. 일반 Token-2022 전송 경로가 이를 커버한다고 가정하지 마세요.                               | **P0**   |
+| 브로드캐스트 전 시뮬레이션          | 자동화되거나 일괄 전송의 경우 특히 중요하며, 훅 거부 시 무작정 재시도하지 말고 배치를 중단해야 합니다.                        | **P0**   |
+| 훅 프로그램 변경 사항 추적            | 유효한 전송 요건을 변경시키는 `UpdateTransferHook` / `UpdateExtraAccountMetaList` 활동에 대해 수탁 중인 민트를 모니터링하세요. | **P1**   |
+| 필수 설정 계정 사전 준비 | 훅에 입금자별 위임자 또는 부계정이 필요한 경우, 전송 시점이 아니라 해당 자산 온보딩의 일부로 준비하세요.                | **P1**   |
+
+### 익스플로러 및 인덱서
+
+| 요구사항                         | 설명                                                                                               | 우선순위 |
+| :---------------------------------- | :-------------------------------------------------------------------------------------------------------- | :------- |
+| 전송 훅 민트 표시           | 일반 Token-2022 민트와 구분하여 민트에 전송 훅이 필요한지, 어떤 프로그램인지 명확히 표시하세요. | **P0**   |
+| 전송뿐만 아니라 CPI도 표시 | 훅이 활성화된 전송에는 훅 프로그램으로의 CPI가 포함됩니다. 인스트럭션 분석에서 이를 표현하세요.  | **P1**   |
+| 훅 프로그램 업데이트 추적          | 민트의 `UpdateTransferHook` / `UpdateExtraAccountMetaList` 활동을 별도의 이벤트 유형으로 표시하세요.    | **P2**   |

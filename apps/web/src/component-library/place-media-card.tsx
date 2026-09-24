@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { cn } from "@/app/components/utils";
-import CalendarTodayIcon from "@@/public/src/img/icons/CalenderToday.inline.svg";
-import SendIcon from "@@/public/src/img/icons/Send.inline.svg";
+import { CalendarEvent as CalendarTodayIcon } from "@boxicons/react/CalendarEvent";
+import { Send as SendIcon } from "@boxicons/react/Send";
 import { Badge } from "./badge";
 import { format } from "date-fns";
 

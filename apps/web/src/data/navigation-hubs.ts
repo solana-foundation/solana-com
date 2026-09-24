@@ -206,6 +206,9 @@ const navigationHubStaticConfigs = {
             href: "/solutions/enterprise",
           },
           {
+            href: "/solutions/enterprise/faq",
+          },
+          {
             href: "/solutions/institutional-payments",
           },
           {
@@ -528,6 +531,9 @@ const navigationHubStaticConfigs = {
             href: "/breakpoint",
           },
           {
+            href: "/wsop",
+          },
+          {
             href: "/community",
           },
           {
@@ -656,6 +662,10 @@ const navigationHubStaticConfigs = {
           },
           {
             href: "https://web3.okx.com/explorer/solana",
+            external: true,
+          },
+          {
+            href: "https://www.blockchain.com/explorer/assets/sol",
             external: true,
           },
           {

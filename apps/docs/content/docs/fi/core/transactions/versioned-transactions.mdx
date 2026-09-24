@@ -1,8 +1,7 @@
 ---
 title: Versoidut transaktiot
 description:
-  Perinteiset vs. versoidut (V0) transaktiomuodot Solanassa, mukaan lukien
-  osoitehakutaulut (ALT:t), version tunnistus, V0-viestimuoto ja ALT-resoluutio.
+  Legacy-, v0- ja v1-transaktioformaatit Solanassa, mukaan lukien Address Lookup Tables (ALT), versiotunnistus, v1-transaktioasetukset ja resurssirajat.
 url: /docs/core/transactions/versioned-transactions
 type: conceptual
 prerequisites:
@@ -14,52 +13,92 @@ related:
 ---
 
 <Callout type="info" title="Yhteenveto">
-  V0-transaktiot lisäävät osoitehakutaulut (ALT:t), jotka mahdollistavat
-  viittaukset tileille 1-tavuisten indeksien kautta 32-tavuisten avainten
-  sijaan. Tämä säästää 31 tavua per ALT-ratkaistu tili.
+  Solanassa on kolme transaktioformaattia: legacy, v0 ja v1. **v0** lisää Address
+  Lookup Tables (ALT) -taulut, joiden avulla tileihin viitataan 1-tavuisilla indekseillä. **v1**
+  nostaa kokorajaksi 4 096 tavua, siirtää resurssirajat itse viestiin
+  ja poistaa ALT-tuen.
 </Callout>
 
-Solana tukee kahta transaktiomuotoa: **perinteinen** ja **versioitu** (v0).
+Solana tukee kolmea transaktioformaattia: **legacy**, **v0** ja **v1**. Jokainen
+näistä kuvataan alla samalla kolmiosaisella rakenteella: miten tavut järjestetään
+siirtomuodossa, miten tileihin viitataan ja mistä resurssirajat tulevat.
 
-Validator määrittää muodon tarkastelemalla viestin ensimmäistä tavua:
-
-- Jos ensimmäisessä tavussa on
-  [versioprefiksi](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/message/src/versions/mod.rs#L29)-bitti
-  asetettuna, kyseessä on **versioitu viesti**. Tällä hetkellä tuetaan vain
-  versiota 0. Seuraavat 3 tavua ovat _`MessageHeader`_.
-- Muussa tapauksessa kyseessä on **perinteinen viesti**. Ensimmäinen tavu on
-  `num_required_signatures`, ja seuraavat 2 tavua täydentävät otsikon.
-
-<Callout type="info" title="Milloin käyttää V0-transaktioita">
-  Käytä V0:aa, kun transaktiosi viittaa moniin tileihin ja lähestyy 1 232 tavun
-  pakettirajaa. Jos transaktiosi mahtuu kokorajoituksen sisään kaikki tilit
-  sisällytettynä, perinteiset transaktiot ovat yksinkertaisempia ja niillä on
-  laajempi työkalutuki. V0 vaaditaan osoitehakutaulujen käyttöön.
+<Callout type="warn" title="v1-aktivointitila">
+  [v1-formaatti](https://solana.com/upgrades/larger-transaction-sizes) ei ole
+  vielä aktiivinen millään klusterilla. Aktivointi on kohdennettu Agave v4.2:een.
+  `solana-test-validator` 4.2+ mahdollistaa v1-transaktioiden testaamisen paikallisesti.
+  Olemassa olevien sovellusten tulisi tutustua [v1:een valmistautumiseen](#preparing-for-v1).
 </Callout>
 
-## V0-viestimuoto
+## Formaattien vertailu
 
-V0-viestissä on samat kentät kuin perinteisessä viestissä, sekä lisäksi
-`address_table_lookups`-taulukko liitettynä ohjeiden jälkeen:
+| Raja                 | legacy                     | v0                         | v1                 |
+| --------------------- | -------------------------- | -------------------------- | ------------------ |
+| Transaktion enimmäiskoko  | 1 232 tavua                | 1 232 tavua                | **4 096 tavua**    |
+| Tiliosoitteet     | ~32, kokorajoitettu            | 64, hakutaulujen kautta      | **64, suoraan**     |
+| Osoitehakutaulut | ei tuettu              | tuettu                  | **ei tuettu**  |
+| Resurssirajat       | ComputeBudget-ohjeet | ComputeBudget-ohjeet | **viestiasetus** |
 
-| Kenttä                  | Koko                       | Kuvaus                                                   |
-| ----------------------- | -------------------------- | -------------------------------------------------------- |
-| `0x80`                  | 1 tavu                     | Versioprefiksitavu                                       |
-| `header`                | 3 tavua                    | MessageHeader (sama kuin perinteinen)                    |
-| `static_account_keys`   | compact-u16 + N x 32 tavua | Avaimet, jotka esiintyvät kirjaimellisesti transaktiossa |
-| `recent_blockhash`      | 32 tavua                   | Blockhash                                                |
-| `instructions`          | compact-u16 + vaihteleva   | Sama muoto kuin perinteinen                              |
-| `address_table_lookups` | compact-u16 + vaihteleva   | ALT-viittaukset (katso alla)                             |
+Siirry: [Legacy](#legacy-format) · [v0](#v0-format) · [v1](#v1-format)
+
+## Legacy-formaatti
+
+Alkuperäinen formaatti, joka on edelleen useimpien työkalujen oletusarvo. Siinä ei ole lainkaan versioliitettä: transaktion ensimmäinen tavu on allekirjoitustaulukon compact-u16-lukumäärä ja viestin ensimmäinen tavu on `num_required_signatures`, jonka korkein bitti on aina nollattuna.
+
+### Legacy-siirtomuoto
+
+| Kenttä              | Koko                          | Kuvaus                                      |
+| ------------------ | ----------------------------- | ------------------------------------------------ |
+| `num_signatures`   | compact-u16                   | Allekirjoitusten lukumäärä                             |
+| `signatures`       | `num_signatures` × 64 tavua   | Ed25519-allekirjoitukset                               |
+| `header`           | 3 tavua                       | MessageHeader — ensimmäisessä tavussa versiobittiä ei ole asetettu |
+| `num_account_keys` | compact-u16                   | Tiliavainten lukumäärä                           |
+| `account_keys`     | `num_account_keys` × 32 tavua | Julkiset avaimet, kaikki suoraan                          |
+| `recent_blockhash` | 32 tavua                      | Elinajan määrittäjä                               |
+| `num_instructions` | compact-u16                   | Ohjeiden lukumäärä                           |
+| `instructions`     | vaihteleva                      | Jokainen ohje sarjallistettuna peräkkäin         |
+
+Jokainen muuttuvanpituinen taulukko alkaa compact-u16-pituudella: 1 tavu arvoille 0–127, 2–3 tavua suuremmille arvoille. Ohjekohtaisen rakenteen ja koon laskentaesimerkin löydät
+[transaktion binäärimuodosta](/docs/core/transactions/transaction-structure#transaction-binary-format).
+
+### Tilit legacy-formaatissa
+
+Jokainen tili kirjoitetaan `account_keys`-kohtaan täydellisenä 32-tavuisena julkisena avaimena, ja ohjeet viittaavat niihin 1-tavuisella indeksillä kyseiseen taulukkoon. Tiliä ei voi viitata, ellei sitä ole kirjoitettu transaktioon, mikä rajoittaa legacy-transaktion noin 32 tiliin ennen kuin 1 232 tavun raja täyttyy.
+
+### Resurssirajat legacy-formaatissa
+
+Laskentayksikkörajaa, ladattujen tilitietojen kokorajaa, keon kokoa ja prioriteettimaksua pyydetään sisällyttämällä
+[ComputeBudget-ohjelmaohjeita](/docs/core/fees/compute-budget) transaktioon. Jokainen niistä kuluttaa yhden ohjauspaikan ja 150 laskentayksikköä. Niiden pois jättäminen on turvallista: ajonaikainen ympäristö käyttää oletusarvoja — 200 000 laskentayksikköä per ohje (enintään 1,4 M), 64 MiB:n datatietoraja, 32 KiB:n keko ja nolla prioriteettimaksua.
+
+## V0-formaatti
+
+v0 on legacy-viesti lisättynä kahdella asialla: `0x80`-versioliitetavulla ja
+`address_table_lookups`-taulukolla, joka lisätään ohjeiden jälkeen. Kaikki sitä edeltävä on tavutasolla identtinen legacyn kanssa.
+
+### V0-siirtomuoto
+
+| Kenttä                   | Koko                          | Kuvaus                                     |
+| ----------------------- | ----------------------------- | ----------------------------------------------- |
+| `num_signatures`        | compact-u16                   | Allekirjoitusten lukumäärä                            |
+| `signatures`            | `num_signatures` × 64 tavua   | Ed25519-allekirjoitukset                              |
+| `0x80`                  | 1 tavu                        | Versioliitetavu — viestin ensimmäinen tavu |
+| `header`                | 3 tavua                       | MessageHeader (sama kuin perinteinen)                  |
+| `num_account_keys`      | compact-u16                   | Staattisten tiliavainten lukumäärä                   |
+| `static_account_keys`   | `num_account_keys` × 32 tavua | Avaimet, jotka esiintyvät kirjaimellisesti transaktiossa   |
+| `recent_blockhash`      | 32 tavua                      | Elinajan määrittäjä                              |
+| `num_instructions`      | compact-u16                   | Ohjeiden lukumäärä                          |
+| `instructions`          | vaihteleva                      | Sama muoto kuin perinteinen                           |
+| `address_table_lookups` | compact-u16 + vaihteleva        | ALT-viittaukset (katso alla)                      |
 
 Jokainen osoitetaulukon hakumerkintä sisältää:
 
-| Kenttä             | Koko                     | Kuvaus                                                   |
-| ------------------ | ------------------------ | -------------------------------------------------------- |
-| `account_key`      | 32 tavua                 | ALT-tilin julkinen avain                                 |
-| `writable_indexes` | compact-u16 + N x 1 tavu | Indeksit ALT:iin kirjoitettaville tileille               |
+| Kenttä              | Koko                     | Kuvaus                                 |
+| ------------------ | ------------------------ | ------------------------------------------- |
+| `account_key`      | 32 tavua                 | ALT-tilin julkinen avain                |
+| `writable_indexes` | compact-u16 + N x 1 tavu | Indeksit ALT:iin kirjoitettaville tileille  |
 | `readonly_indexes` | compact-u16 + N x 1 tavu | Indeksit ALT:iin vain luku -oikeudella oleville tileille |
 
-## Osoitetaulukon selvitys
+### Osoitehakutaulut
 
 ALT on ketjussa oleva tili, joka tallentaa enintään 256 julkistaavainta.
 Viittaamalla ALT:iin, transaktio voi sisältyttää lisätilejä käyttäen 1-tavuisia
@@ -79,3 +118,103 @@ tilit: kirjoitettavat haut tulevat ennen vain luku -oikeudella olevia hakuja.
   kirjoitettavia tai vain luku -oikeudella olevia (ei-allekirjoittajia); ne
   eivät voi olla allekirjoittajia.
 </Callout>
+
+### Resurssirajat v0:ssa
+
+Sama kuin legacyssä: ComputeBudget-ohjeet, samoilla oletusarvoilla kun ne jätetään pois.
+
+## V1-formaatti
+
+v1 nostaa kokorajaksi 4 096 tavua ja rakentaa viestin uudelleen **transaktioasetusten** ympärille: resurssirajat siirtyvät ComputeBudget-ohjeista viestin omiin kiinteäpaikkaisiin kenttiin. Tämä mahdollistaa verkolle transaktion prioriteetin luokittelun yhdellä kiinteän siirtymän lukuoperaatiolla sen sijaan, että ohjeluettelo pitäisi käydä läpi ja purkaa sarjallistuksesta.
+
+### V1-siirtomuoto
+
+| Kenttä                  | Koko         | Kuvaus                                                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| `0x81`                 | 1 tavu       | Versioliitetavu — transaktion ensimmäinen tavu                            |
+| `header`               | 3 tavua      | MessageHeader (sama kuin legacyssä)                                                     |
+| `config_mask`          | 4 tavua      | `u32` LE -bittipeite, joka merkitsee läsnä olevat asetusarvot                           |
+| `recent_blockhash`     | 32 tavua     | Elinajan määrittäjä                                                                 |
+| `num_instructions`     | 1 tavu       | Kiinteälevyinen laskuri, enintään 64                                                          |
+| `num_addresses`        | 1 tavu       | Kiinteälevyinen laskuri, enintään 64                                                          |
+| `addresses`            | N × 32 tavua | Tiliosoitteet, kaikki suoraan — ei hakutauluviittauksia                         |
+| `config_values`        | 0–20 tavua   | Yksi arvo per asetettu bitti, bittijärjestyksessä (ks. alla)                               |
+| `instruction_headers`  | N × 4 tavua  | Per ohje: `program_id_index` (u8), `num_accounts` (u8), `data_len` (u16 LE) |
+| `instruction_payloads` | vaihteleva     | Per ohje: tili-indeksit, sitten instruction data                            |
+| `signatures`           | N × 64 tavua | Lopussa ilman pituusliitettä — lukumäärä saadaan headerista               |
+
+Kaksi rakenteellista eroa legacyyn ja v0:aan nähden on syytä huomioida dekooderia kirjoitettaessa. Laskurit ovat kiinteälevyisiä `u8`-kenttiä compact-u16:n sijaan, ja ohjeet on jaettu kahteen jaksoon: ensin kaikki kiinteäkokoiset headerit, sitten kaikki vaihtuvanpituiset hyötykuormat — sen sijaan että jokainen ohje olisi peräkkäinen kokonaisuus.
+
+### Tilit v1:ssä: ei osoitehakutauluja
+
+v1 poistaa ALT-tuen harkitusti. 64 raakaosoitetta on 2 048 tavua, mikä mahtuu mukavasti 4 096 tavun rajan sisään, joten jokainen osoite on suoraan kuten legacyssäkin. Jos sovelluksesi käyttää hakutauluja, v1:een siirtyminen tarkoittaa näiden osoitteiden kirjoittamista suoraan transaktioon.
+
+### Resurssirajat v1:ssä: transaktioasetukset
+
+Asetukset koostuvat `u32`-bittipeitteestä, jota seuraa kiinteälevyiset arvot kullekin kentälle, jonka bitti on asetettu:
+
+| Bitti(t) | Kenttä                           | Leveys | Huomiot                                       |
+| ------ | ------------------------------- | ----- | ------------------------------------------- |
+| 0–1    | Prioriteettimaksu                    | u64   | **lamport-kokonaissumma** — molemmat bitit asetetaan yhdessä |
+| 2      | Laskentayksiköraja              | u32   |                                             |
+| 3      | Ladattujen tilitietojen kokoraja | u32   |                                             |
+| 4      | Pyydetty keon koko             | u32   |                                             |
+
+Tuntemattomat bitit hylätään. Koska viesti on allekirjoitettu, tunnistamattomia asetuskenttiä ei voida hiljaisesti pudottaa pois.
+
+<Callout type="warn" title="Prioriteettimaksu on lamport-kokonaissumma, ei yksikköhinta">
+  Legacy- ja v0-formaateissa prioriteettimaksu asetetaan `SetComputeUnitPrice`-komennolla
+  **mikro-lamporteina laskentayksikköä kohti**, kerrottuna laskentayksikkörajalla. V1:ssä se on
+  **absoluuttinen kokonaissumma lamporteissa** — ei kertolaskua, ei pyöristystä.
+  Älä käytä yksikkökohtaista laskukaavaa. Konaismaksukaava on muuten muuttumaton:
+  `(allekirjoitukset × lamports_per_signature) + priority_fee`.
+</Callout>
+
+#### ComputeBudget-ohjeet ovat no-op-toimintoja v1:ssä
+
+V1-transaktio ei hylkää ComputeBudget-ohjeita — se **ohittaa** ne asetusten osalta. Ne suoritetaan edelleen onnistuneina no-op-toimintoina kuluttaen 150 laskentayksikköä ja yhden 64:stä ohjausvälistä ilman vaikutusta budjettiin. Poista ne v1-transaktioita rakentaessasi ja lopeta niiden etsiminen v1-transaktioita lukiessasi: arvot sijaitsevat viestiasetusosiossa.
+
+#### Asetuskentät on asetettava erikseen
+
+Tärkein käyttäytymismuutos lähettäjille: toisin kuin legacy- ja v0-formaateissa, v1-transaktioissa on asetettava laskentayksiköraja ja ladattujen tilitietojen kokoraja erikseen, muuten transaktio epäonnistuu.
+
+| Asettamaton kenttä               | legacy / v0                    | v1          | Oire puuttuessa                                              |
+| ------------------------- | ------------------------------ | ----------- | --------------------------------------------------------------- |
+| Laskentayksiköraja        | 200k per ohje, enintään 1,4M | **0 laskentayksikköä**    | Epäonnistuu välittömästi, budjetti ylitetty                                |
+| Ladattujen tilitietojen koko | 64 MiB                         | **0 tavua** | `MaxLoadedAccountsDataSizeExceeded` ensimmäisellä ladatulla tilillä |
+| Prioriteettimaksu              | 0                              | 0           | —                                                               |
+| Keon koko                 | 32 KiB                         | 32 KiB      | —                                                               |
+
+Suositeltava lähestymistapa on simuloida kerran molemmilla rajoilla maksimoituina, kirjoittaa sitten palautetut `unitsConsumed`- ja `loadedAccountsDataSize`-arvot asetuksiin pyöristäen datatietojen koko ylöspäin seuraavaan 32 KiB:n sivuun pelivaraa varten (lohkon kustannusmalli laskee 32 KiB:n sivuissa, joten varaa seuraavaan sivurajaan asti ei lasketa).
+
+## V1:een valmistautuminen
+
+V1 muuttaa transaktioiden **lukemista**, ei pelkästään lähettämistä. Kun v1 aktivoituu, jokainen asiakas, joka kutsuu `getTransaction`- tai `getBlock`-funktiota ilman siihen osallistumista, alkaa epäonnistua v1-transaktioiden kohdalla:
+
+- Välitä `maxSupportedTransactionVersion: 1` — JSON-**kokonaisluku** `1`, ei
+  merkkijono `"1"` — kohteille [`getTransaction`](/docs/rpc/http/gettransaction) ja
+  [`getBlock`](/docs/rpc/http/getblock). Arvon `0` välittäminen epäonnistuu v1-transaktioilla
+  täsmälleen samoin kuin parametrin pois jättäminen, joten v0-käyttöönoton yhteydessä
+  päivitetty koodipohja tarvitsee silti arvon muuttamisen.
+- `getTransaction` epäonnistuu v1-transaktiolla virheellä `-32015`, ja yksikin v1-
+  transaktio epäonnistuttaa **koko** `getBlock`-vastauksen samalla virheellä —
+  osittaista tulosta ei ole.
+- [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe) lähettää `block: null` ja
+  lakkaa etenemästä, joten kuluttaja, joka tulkitsee sen tyhjäksi lohkoksi, jää
+  hiljaisesti jälkeen ensimmäisestä v1 slot:sta alkaen.
+- `getSignaturesForAddress` ei koskaan tutki transaktioiden sisältöä, joten v1-allekirjoitukset
+  näkyvät normaalisti.
+- Osallistuneet vastaukset sisältävät `transactionConfig`-objektin viestissä v1-transaktioille
+  (puuttuu kokonaan legacy- ja v0-transaktioilta). Putkilinjat, jotka johtavat
+  prioriteettimaksut tai laskentarajat etsimällä ComputeBudget-ohjeita,
+  raportoivat hiljaisesti **nollan** jokaiselle v1-transaktiolle.
+- Käytä `encoding: 'base64'` dekoodatessasi transaktioita asiakaspuolella sekä
+  `sendTransaction`-/`simulateTransaction`-kutsuissa yli 1 232 tavun transaktioille —
+  base58-koodaus on edelleen rajattu vanhaan kokoon.
+- Asiakaskirjastotuki edellyttää tuoreita versioita: `@solana/kit` 8.0+, Agave
+  4.2.x-sukupolven Rust-paketit tai web3.js v3. web3.js v1 lukee v1:tä versiosta 1.99.0
+  eteenpäin, mutta ei pysty rakentamaan tai lähettämään sitä.
+
+Täydellinen siirtymäopas — mukaan lukien asiakaskirjastotuki, suoratoiston
+(Geyser/gRPC) versiotunnistus ja simulointikäyttäytyminen — löytyy
+[Transaction Format v1 -päivityssivulta](https://solana.com/upgrades/larger-transaction-sizes).

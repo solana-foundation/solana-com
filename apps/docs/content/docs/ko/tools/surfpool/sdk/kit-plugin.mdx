@@ -1,0 +1,359 @@
+---
+title: Kit 플러그인
+description:
+  Solana Kit 클라이언트 뒤에 내장형 Surfnet을 실행합니다. 플러그인 하나로 사전 충전된 페이어, 전체 RPC 스택, 타입이 지정된 치트코드를 제공합니다.
+---
+
+`@solana/surfpool/kit`은 테스트 프로세스 내부에서 Surfnet — 로컬 Solana 호환 네트워크 —을 실행하고,
+이미 해당 네트워크를 가리키는
+[Solana Kit](https://www.solanakit.com/) 클라이언트를 반환합니다.
+`.use(surfpool())`  하나로 기존에 사용하던 RPC 플러그인
+(`solanaLocalRpc()`, `litesvm()`)을 대체하고, 사전 충전된 페이어와 Surfpool의
+치트코드를 추가합니다:
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+const slot = await client.rpc.getSlot().send();
+await client.cheatcodes.timeTravel({ absoluteSlot: 1_000_000n }).send();
+```
+
+포트를 직접 선택하거나, 페이어를 생성·충전하거나, 별도의 `surfpool start`
+프로세스를 관리할 필요가 없습니다. SDK가 처음이신가요? 
+[개요](/docs/tools/surfpool/sdk/overview)부터 시작하세요.
+
+## 원하는 진입점 선택
+
+| 진입점                       | 사용 시점                                                                                         |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `surfpool()`                      | **테스트 기본값.** 테스트 파일별로 격리된 Surfnet과 이미 연결된 Kit 클라이언트를 제공합니다.             |
+| `surfpool({ rpcUrl })`            | 장기 실행 중인 `surfpool start` 인스턴스를 여러 프로세스에서 공유하거나, 플랫폼에 네이티브 바이너리가 없는 경우에 사용합니다. |
+| `surfnetCheatcodes()`             | 이미 클라이언트가 있고 치트코드만 추가하고 싶을 때 사용합니다.                                                 |
+| `@solana/surfpool`의 `Surfnet` | Kit을 사용하지 않는 경우 — [JS 레퍼런스](/docs/tools/surfpool/sdk/js-reference)를 참고하세요.                    |
+
+## 사전 요구 사항
+
+- **Node.js 20.18+** — `@solana/kit` v7이 선언한 최소 버전입니다. `@solana/surfpool` 자체는
+  18+ 에서 실행되지만, Kit 패키지는 그렇지 않습니다. 일부 프로그램 플러그인은 더 높은 버전을 요구합니다 —
+  `@solana-program/token`은 24+를 선언합니다.
+- **[지원되는 플랫폼](/docs/tools/surfpool/sdk/installation)** (macOS,
+  Linux x86-64) — 네이티브 바이너리를 로드하는 내장 모드에 필요합니다. 그 외 플랫폼에서는
+  어태치 모드를 사용하세요.
+- **Kit의 플러그인 합성에 대한 이해** — 클라이언트는 `.use()` 호출을 체이닝하여 구성하며,
+  각 플러그인은 클라이언트에 프로퍼티를 추가합니다.
+
+## 설치
+
+```bash
+npm install --save-dev @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+# or
+pnpm add -D @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+```
+
+이 패키지들은 `@solana/surfpool`의 선택적 피어 의존성으로 선언되어 있습니다: `Surfnet` 클래스만
+직접 사용하는 경우에는 생략할 수 있지만, `@solana/surfpool/kit`을 임포트하려면
+`@solana/kit`과 `@solana/kit-plugin-rpc`가 필요합니다. 플랫폼 지원 매트릭스와
+문제 해결 방법은 [설치](/docs/tools/surfpool/sdk/installation)를 참고하세요.
+
+## 내장 모드
+
+`rpcUrl` 없이 `surfpool()`을 호출하면 동적 포트에서 인프로세스 Surfnet을 부팅하고
+Kit 클라이언트 전체를 해당 네트워크에 연결합니다. 플러그인은 비동기이므로
+`.use()` 체인에 `await`를 사용하세요:
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+```
+
+<Callout type="info" title="병렬 테스트 파일">
+  모든 `surfpool()` 호출은 자체 동적 포트에 바인딩되므로, 각 테스트 파일이
+  자체 격리된 Surfnet을 부팅할 수 있고 테스트 스위트는 여전히 병렬로 실행됩니다.
+</Callout>
+
+### 전체 테스트 예시
+
+Surfnet을 부팅하고, 사전 충전된 페이어로 송금을 전송한 후 결과를 검증합니다.
+여기 예시는 `node:test`를 사용합니다; Vitest와 Jest도 각자의 `after` / `afterAll` 훅으로
+동일하게 작동합니다.
+
+```ts title="transfer.test.ts"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+after(() => {
+  client.surfnet.stop();
+});
+
+test("transfers SOL on an embedded Surfnet", async () => {
+  const recipient = await generateKeyPairSigner();
+  const amount = lamports(5_000_000n);
+
+  await client.sendTransaction(
+    getTransferSolInstruction({
+      amount,
+      destination: recipient.address,
+      source: client.payer
+    })
+  );
+
+  const { value: balance } = await client.rpc
+    .getBalance(recipient.address)
+    .send();
+  assert.equal(balance, amount);
+});
+```
+
+### 생명주기
+
+위 예시처럼 테어다운에서 `client.surfnet.stop()`을 호출하여 Surfnet의 포트와
+서버를 해제하세요. `stop()`은 멱등성을 가지며 동기적으로 동작합니다 — 런타임이 실제로 종료된 후에 반환됩니다.
+중지는 최종적입니다; 다른 클라이언트를 생성하면 새 인스턴스가 부팅됩니다.
+
+<Callout type="warn" title="테어다운은 자동으로 수행되지 않습니다">
+  모듈 스코프에서 유지되는 클라이언트 — 테스트 파일의 일반적인 패턴 — 는
+  자동으로 해제되지 않으므로, Surfnet을 자동으로 중지하는 것은 없습니다. 테어다운 훅이 없으면
+  프로세스가 멈추거나, OS가 종료 시 소켓을 정리하면서 `connection reset` 경고가 기록될 수 있습니다.
+</Callout>
+
+### 플러그인이 설치하는 항목
+
+| 클라이언트에 추가되는 항목                                        | 출처                                                   | 설명                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `client.payer`                                       | `@solana/kit-plugin-signer`                                  | Surfnet의 사전 충전된 페이어 계정을 위한 `KeyPairSigner`                  |
+| `client.rpc` / `client.rpcSubscriptions`             | `@solana/kit-plugin-rpc`                                     | Surfnet을 가리키는 표준 Solana RPC 및 구독 클라이언트 |
+| `client.airdrop`                                     | `@solana/kit-plugin-rpc`                                     | Surfnet에 대한 `requestAirdrop`                                      |
+| `client.getMinimumBalance`                           | `@solana/kit-plugin-rpc`                                     | 렌트 면제 조회                                                    |
+| `client.transactionPlanner` / `...PlanExecutor`      | `@solana/kit-plugin-rpc`                                     | 트랜잭션 계획 및 실행                                        |
+| `client.sendTransaction` / `client.sendTransactions` | `@solana/kit-plugin-rpc` (`kit-plugin-instruction-plan` 경유) | 한 번의 호출로 인스트럭션 계획 및 전송                                    |
+| `client.rpcUrl` / `client.wsUrl`                     | `@solana/surfpool/kit`                                       | Surfnet의 HTTP 및 WebSocket URL                                     |
+| `client.surfnet`                                     | `@solana/surfpool/kit`                                       | 네이티브 `Surfnet` 핸들 (`fundSol`, `deploy`, `drainEvents`, …)       |
+| `client.cheatcodes`                                  | `@solana/surfpool/kit`                                       | 모든 `surfnet_*` 치트코드를 포함하는 타입 지정 RPC                          |
+
+이 플러그인은 `identity`를 설치하지 않습니다. `client.payer`와 별도의 권한이 필요한 경우
+`.use(identity(...))`로 추가하세요.
+
+## 치트코드
+
+치트코드는 일반적인 트랜잭션 흐름을 우회하는 상태 변경 기능입니다 —
+블록해시를 소비하거나 수수료를 지불하지 않고 즉시 실행되므로, 테스트 설정에 적합합니다.
+`client.cheatcodes`는 이 모든 기능을 타입 지정 RPC로 노출합니다.
+
+메서드 이름에서 `surfnet_` 접두사가 제거되므로, `surfnet_pauseClock`은
+`client.cheatcodes.pauseClock()`이 되며, 응답은 `{ context, value }` 래퍼에서
+이미 언래핑되어 전달됩니다.
+
+```ts
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+// Deterministic clock.
+const paused = await client.cheatcodes.pauseClock().send();
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+await client.cheatcodes.resumeClock().send();
+
+// Arbitrary account state. `data` is hex-encoded.
+const account = (await generateKeyPairSigner()).address;
+const owner = (await generateKeyPairSigner()).address;
+await client.cheatcodes
+  .setAccount(account, { data: "aabbcc", lamports: 777_777, owner })
+  .send();
+
+// Token balances, without minting through the token program. The mint must
+// already exist — create it, or clone it from mainnet with cloneProgramAccount.
+const mint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+await client.cheatcodes
+  .setTokenAccount(owner, mint, { amount: 1_000_000n })
+  .send();
+```
+
+전체 메서드 목록 — `streamAccount`, `cloneProgramAccount`,
+`profileTransaction`, `registerIdl`, `resetNetwork` 포함 — 은
+[치트코드](/docs/tools/surfpool/sdk/cheatcodes)와
+[RPC 레퍼런스](/docs/tools/surfpool/rpc/cheatcodes)에서 문서화되어 있습니다.
+
+### 코덱을 사용한 구조화된 계정 작성
+
+`setAccount`는 원시 바이트를 16진수로 받으며, 이는 Kit 프로그램 클라이언트에 포함된 계정 인코더와 잘 어울립니다.
+트랜잭션을 전송하여 상태를 쌓는 대신, 원하는 계정을 인코딩하여 직접 작성합니다 —
+예를 들어, 이미 공급량이 설정된 완전히 초기화된 SPL 민트를 다음과 같이 작성할 수 있습니다:
+
+```ts
+import {
+  fetchMint,
+  getMintEncoder,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+import {
+  generateKeyPairSigner,
+  getBase16Decoder,
+  none,
+  some
+} from "@solana/kit";
+
+const mint = (await generateKeyPairSigner()).address;
+
+const data = getMintEncoder().encode({
+  decimals: 6,
+  freezeAuthority: none(),
+  isInitialized: true,
+  mintAuthority: some(client.payer.address),
+  supply: 1_000_000_000n
+});
+
+await client.cheatcodes
+  .setAccount(mint, {
+    // getBase16Decoder() turns the encoded bytes into the hex `data` expects.
+    data: getBase16Decoder().decode(data),
+    lamports: 1_461_600, // rent-exempt minimum for an 82-byte mint
+    owner: TOKEN_PROGRAM_ADDRESS
+  })
+  .send();
+
+// Reads back as a normal mint through the program client.
+const account = await fetchMint(client.rpc, mint);
+account.data.decimals; // 6
+account.data.supply; // 1_000_000_000n
+```
+
+동일한 패턴은 Codama로 생성된 모든 클라이언트에 적용됩니다: 계정의 인코더로 인코딩하고,
+16진수로 변환한 후 `setAccount`에 전달하세요. 위의 `setTokenAccount`와 함께 사용하면
+단 하나의 트랜잭션 없이 민트와 충전된 보유자를 구성할 수 있습니다.
+
+<Callout type="info" title="치트코드 응답은 bigint를 사용합니다">
+  치트코드 전송은 모든 JSON 정수를 `bigint`로 파싱하므로, `rentEpoch`와 같은 `u64`
+  값이 2^53을 초과해도 유실되지 않습니다. 요청 페이로드는 `number
+  | bigint`를 모두 허용합니다.
+</Callout>
+
+### 플러그인 없이 치트코드 사용하기
+
+전체 플러그인이 필요하지 않은 경우를 위한 두 가지 소형 진입점이 있습니다.
+둘 다 동기적으로 동작합니다 — 전송만 연결하므로 `await`가 필요하지 않습니다.
+
+```ts
+import {
+  createSurfnetCheatcodesRpc,
+  surfnetCheatcodes
+} from "@solana/surfpool/kit";
+
+// Standalone RPC, no Kit client involved.
+const cheatcodes = createSurfnetCheatcodesRpc("http://127.0.0.1:8899");
+await cheatcodes.pauseClock().send();
+
+// Add `client.cheatcodes` to a client you already composed.
+const client = createClient().use(surfnetCheatcodes());
+```
+
+`surfnetCheatcodes()`는 `url`이 제공된 경우 해당 값에서, 그다음 기존 `client.rpcUrl`에서
+(하나를 가진 모든 클라이언트와 합성 가능), 마지막으로 `DEFAULT_SURFNET_ENDPOINT`
+(`http://127.0.0.1:8899`)에서 엔드포인트를 결정합니다. 두 함수 모두 원격 Surfpool에 대한
+인증을 위한 `headers` 옵션을 허용합니다.
+
+## 구성
+
+Surfnet 시작 옵션은 `surfnet` 키 아래에 지정하며 `Surfnet.startWithConfig()`로 전달됩니다.
+그 외의 모든 옵션은 로컬 Solana RPC 플러그인으로 전달됩니다:
+
+```ts
+const client = await createClient().use(
+  surfpool({
+    surfnet: { offline: true }, // Surfnet startup config
+    skipPreflight: true // forwarded to solanaLocalRpc()
+  })
+);
+```
+
+`surfnet`을 완전히 생략하면 플러그인이 기본값으로 `Surfnet.start()`를 호출합니다.
+전체 시작 옵션 — 원격 RPC 폴백, 블록 생성 모드, slot 타이밍, 피처 게이트, 커스텀 페이어 — 은
+[구성](/docs/tools/surfpool/sdk/configuration)을 참고하세요.
+
+## 프로그램 플러그인과의 합성
+
+`surfpool()`은 `solanaLocalRpc()`와 동일한 계약을 만족하므로, Kit 프로그램 플러그인이
+그 위에 레이어링되고 인스트럭션은 내장된 Surfnet에 대해 실행됩니다. 최종 결과만 await가 필요합니다 —
+비동기 클라이언트에서의 `use()`는 또 다른 비동기 클라이언트를 반환하므로, 동기 및 비동기 플러그인을 자유롭게 체이닝할 수 있습니다.
+
+```ts
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool()).use(tokenProgram());
+
+const newMint = await generateKeyPairSigner();
+await client.token.instructions
+  .createMint({ decimals: 6, mintAuthority: client.payer.address, newMint })
+  .sendTransaction();
+
+await client.token.instructions
+  .mintToATA({
+    amount: 1_000_000n,
+    decimals: 6,
+    mint: newMint.address,
+    mintAuthority: client.payer,
+    owner: client.payer.address
+  })
+  .sendTransaction();
+```
+
+## 어태치 모드
+
+`rpcUrl`을 전달하면 플러그인이 어태치 모드로 전환됩니다: 새로운 인스턴스를 부팅하는 대신,
+이미 실행 중인 Surfpool — [`surfpool start`](/docs/tools/surfpool/toolchain/cli)로 시작된 — 에 연결합니다.
+네이티브 모듈이 로드되지 않으므로 사전 빌드된 바이너리가 없는 플랫폼에서도 작동합니다.
+또한 동기적으로 동작하므로 await가 필요하지 않습니다:
+
+```ts
+import { createKeyPairSignerFromBytes, createClient } from "@solana/kit";
+import { payer } from "@solana/kit-plugin-signer";
+import { surfpool } from "@solana/surfpool/kit";
+import { readFile } from "node:fs/promises";
+
+// Any funded signer works; this loads the local CLI keypair.
+const keypairPath = `${process.env.HOME}/.config/solana/id.json`;
+const myPayer = await createKeyPairSignerFromBytes(
+  new Uint8Array(JSON.parse(await readFile(keypairPath, "utf8")))
+);
+
+const client = createClient()
+  .use(payer(myPayer))
+  .use(surfpool({ rpcUrl: "http://127.0.0.1:8899" }));
+```
+
+내장 모드와의 세 가지 차이점:
+
+- **클라이언트에 이미 `payer`가 있어야 합니다.** 어태치 모드는 실행 중인 인스턴스의 페이어
+  비밀 키에 접근할 수 없으므로 설치하지 않습니다. 공급하는 서명자는
+  `client.cheatcodes.setAccount(...)`나 실행 중인 인스턴스의 자체 파우셋으로 충전하세요.
+- **`client.surfnet` 핸들이 없습니다.** 인프로세스 헬퍼는 사용할 수 없으므로,
+  상태 조작에는 `client.cheatcodes`를 사용하세요.
+- **`surfnet` 시작 구성은 허용되지 않습니다.** 인스턴스가 이미 실행 중이므로
+  `rpcUrl`과 `surfnet`은 타입 상 상호 배타적입니다.
+
+<Callout type="warn" title="WebSocket 포트">
+  Surfpool은 HTTP 포트와 독립적으로 자체 포트(기본값 `8900`, `--ws-port`)에서
+  구독을 제공합니다. `rpcUrl`에 명시적인 포트가 있으면, 플러그인은 같은 호스트의
+  포트 `8900`으로 구독 URL을 유도합니다. 포트가 없는 경우 — 프록시 뒤에 있는 경우 등 —
+  프로토콜만 `ws`/`wss`로 교체됩니다. 두 규칙이 모두 맞지 않으면
+  `rpcSubscriptionsUrl`을 직접 설정하세요.
+</Callout>
+
+## 다음 단계
+
+- [프로그램](/docs/tools/surfpool/sdk/programs) — 테스트 전에 Surfnet에 프로그램 배포하기
+- [치트코드](/docs/tools/surfpool/sdk/cheatcodes) — 전체 상태 변경 기능
+- [구성](/docs/tools/surfpool/sdk/configuration) — 메인넷 포킹, 블록 생성, 피처 게이트
+- [설치](/docs/tools/surfpool/sdk/installation) — 플랫폼 지원 및 문제 해결
+- [JS 레퍼런스](/docs/tools/surfpool/sdk/js-reference) — `client.surfnet` 뒤의 `Surfnet` 클래스

@@ -1,5 +1,8 @@
-import { Rss } from "lucide-react";
-import { SiApple, SiSpotify, SiYoutube } from "react-icons/si";
+import { Rss } from "@boxicons/react/Rss";
+import { Apple as SiApple } from "@boxicons/react/Apple";
+import { Spotify as SiSpotify } from "@boxicons/react/Spotify";
+import { Youtube as SiYoutube } from "@boxicons/react/Youtube";
+
 import { Button } from "@/components/ui/button";
 import { getSafeExternalUrl } from "@/lib/external-url";
 import { trackPodcastSubscribe } from "@/lib/podcast-analytics";

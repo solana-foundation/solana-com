@@ -1,0 +1,370 @@
+---
+title: Operaattorit
+description: Ota käyttöön ja hallitse Private Channels -instanssia Docker Composen avulla
+---
+
+## Mikä on Private Channels -operaattori?
+
+Operaattori on luotettu, ketjussa oikeuksitettu taho, joka toimii siltana Solana Mainnetin ja yksityisen kanavaverkon välillä. Instanssin ylläpitäjä provisioi operaattorit `AddOperator`-komennolla, joka luo ketjuun `Operator`-PDA:n; ilman tätä mikään osapuoli ei voi kutsua `ReleaseFunds`-toimintoa. Käytännössä operaattori on organisaatio tai tiimi, joka ajaa palveluita, jotka tarkkailevat talletuksia, lyövät kanavapuolen tokeneita, havaitsevat nostot ja tilittävät varat takaisin Mainnetiin. Instanssin ajaminen tarjoaa käyttäjillesi yksityisiä, suuren volyymin siirtoja, jotka eivät näy Solana Mainnetissä, välittömän nollamaksuisen läpimenon natiivin Solana TPS:n ylittämiseksi sekä hallitun pääsynhallinnan RBAC:n kautta.
+
+<Callout type="info">
+  Jos olet kehittäjä, joka integroi olemassa olevaan Private Channels
+  -instanssiin sen sijaan, että ottaisit sellaisen käyttöön, aloita
+  [Pikakäynnistyksestä](/docs/tools/private-channels/quickstart/installation).
+</Callout>
+
+## Ennen aloittamista
+
+### Esitietovaatimukset
+
+Kiinnitä nämä versiot isäntäkoneelle vastaamaan Docker-kuvia:
+
+- Docker Engine 26+ (macOS Apple Silicon: ota käyttöön "Docker VMM" kohdasta Asetukset ->
+  Virtuaalikoneasetukset)
+- Node.js **24.7.0** ja pnpm **10.15.1**
+- Solana CLI **3.1.13** (Agave)
+- Rust **1.91.0**
+- Yellowstone gRPC -päätepiste Devnetille (saatavilla Heliukselta, Tritonilta,
+  QuickNodesta)
+
+Verkkovaatimukset ja oletusporttimääritykset löytyvät
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+-tiedostosta repositoriossa.
+
+Asenna kiinnitetty Solana-työkaluketju ja lämmitä SBF-välimuisti:
+
+```bash
+make install-toolchain
+```
+
+### Palvelut
+
+Private Channels -instanssin ajaminen tarkoittaa viiden jatkuvan vastuualueen hallintaa,
+joista jokainen on omistettu Docker Compose -pinon erillisille konteille:
+
+1. **Indeksoi Mainnet talletuksia varten** - `indexer-solana` tarkkailee Solana Mainnetia
+   `Deposit`-tapahtumien varalta Yellowstone gRPC:n kautta; `operator-solana` poimii vahvistetut
+   talletukset ja lyö vastaavan tokenisaldon kanavaverkkoon
+2. **Indeksoi kanava nostoja varten** - `indexer-private-channel` kyselee
+   kanavalta joka sekunti `WithdrawFunds`-polttotapahtumien varalta ja kirjoittaa odottavat
+   nostotietueet tietokantaan
+3. **Vapauta varat Mainnetissä** - `operator-private-channel` poimii odottavat
+   tietueet ja kutsuu `ReleaseFunds`-toimintoa Escrow-ohjelmalla kelvollisella SMT-
+   poissulkemistodistuksella
+4. **Hallitse SMT-juurta** - `operator-private-channel` kutsuu `ResetSmtRoot`-toimintoa
+   automaattisesti, kun puun epochit kiertyvät; ketjussa oleva
+   `verify_smt_exclusion_proof`-tarkistus on viimeinen puolustuslinja
+   luvattomia nostoja vastaan
+5. **Aja yhdyskäytävää ja auth-palvelua** - yhdyskäytävä on ainoa julkinen
+   päätepiste kaikelle asiakkasliikenteelle; auth-palvelu (valinnainen) pakottaa
+   JWT/RBAC-käytännön, kun `JWT_SECRET` on asetettu
+
+Täydellinen palveluluettelo ja porttimääritykset löytyvät
+[Konfiguraatioviitteestä](/docs/tools/private-channels/operators/configuration).
+
+> **Tietoturvahuomio:** Write-node- ja read-node-portit on sidottu vain loopback-osoitteeseen
+> (`127.0.0.1`), mutta useat muut palvelut (yhdyskäytävä, auth, operaattorimittarit,
+> Grafana, Prometheus, cAdvisor) julkaistaan oletuksena kaikille verkkoliitännöille. Katso
+> [Konfiguraatioviite](/docs/tools/private-channels/operators/configuration#service-port-reference)
+> täydellisestä porttitaulukosta ja suojaa nämä palomuurilla ennen
+> julkiseen verkkoon suunnattua käyttöönottoa. RBAC kattaa vain yhdyskäytävän omat JSON-RPC-metodit, ei näitä
+> muita palveluita.
+
+### Pääsynhallinta: Avoin vs. RBAC
+
+Yhdyskäytävä hyväksyy oletuksena kaikki yhteydet ilman tokeneja. JWT-pohjaisen RBAC:n käyttöönottamiseksi aseta `JWT_SECRET` ja käynnistä pino komennolla `--profile auth`. Katso
+**[Todennus & Roolit](/docs/tools/private-channels/concepts/auth)** -osiosta
+täydellinen konfiguraatioviite, mukaan lukien ohjeet `operator`-roolin provisiointiin ja
+käyttäjälompakoiden rekisteröintiin.
+
+Jos otat autentikoinnin käyttöön, lisää nämä ympäristöön ennen pinon käynnistämistä:
+
+```bash
+JWT_SECRET=<openssl rand -hex 32>   # must match on gateway and auth service
+AUTH_PORT=8903
+```
+
+## Ympäristön asennus
+
+`.env.devnet` on jo seurannassa repositoriossa devnet-kohtaisilla oletusarvoilla
+täytettynä; muokkaa sitä suoraan sen sijaan, että generoisit sen uudelleen `.env.example`-tiedostosta,
+mikä ylikirjoittaisi nuo oletusarvot.
+
+Täytä loput arvot käydessäsi läpi alla olevia käyttöönottovaiheita; osa
+arvoista on saatavilla vasta käyttöönoton aikana. Salaisuudet menevät gitignore-listattuun `.env`-tiedostoon;
+ei-salaiset muuttujat menevät `.env.devnet`-tiedostoon.
+
+**Salaisuudet – aseta nämä välittömästi:**
+
+```bash
+POSTGRES_PASSWORD=<openssl rand -hex 32>
+POSTGRES_REPLICATION_PASSWORD=<openssl rand -hex 32>
+```
+
+**Käyttöönoton aikana saatavat muuttujat:**
+
+```bash
+ESCROW_INSTANCE_ID=<instance address - from Step 3>
+ADMIN_PRIVATE_KEY=<operator keypair as u8 array or base58 - from Step 4>
+DEVNET_RPC_URL=https://api.devnet.solana.com
+DEVNET_YELLOWSTONE_ENDPOINT=<your Yellowstone gRPC endpoint>
+INDEXER_YELLOWSTONE_TOKEN=<your Yellowstone auth token>
+```
+
+<Callout type="warning">
+  `ADMIN_PRIVATE_KEY` on off-chain-palveluiden oma pakollinen maksajan allekirjoittaja,
+  eikä se liity vaiheessa 3 määriteltyyn ketjussa olevaan instanssin ylläpitäjään. Tässä oppaassa
+  vaiheessa 4 generoitu **operaattori**-keypair asetetaan `ADMIN_PRIVATE_KEY`-muuttujaan ja
+  valinnainen `OPERATOR_PRIVATE_KEY` jätetään asettamatta, jolloin operaattorin allekirjoittaja
+  käyttää samaa avainta. Älä koskaan laita vaiheen 3 protokollatason instanssin ylläpitäjän keypairia
+  kumpaan kumpaakaan muuttujaan.
+</Callout>
+
+Täydellinen ympäristömuuttujien viite löytyy
+**[Konfiguraatiosta](/docs/tools/private-channels/operators/configuration)**.
+
+## Käyttöönotto
+
+<Steps>
+
+<Step>
+
+### Rakenna kuvat
+
+```bash
+make docker-devnet-build
+```
+
+Tämä kääntää kaikki Rust-palvelut jaettuun Docker-kuvaan. Ensimmäinen rakennus
+kestää 30 minuutista tuntiin.
+
+</Step>
+
+<Step>
+
+### Asenna Admin UI
+
+Admin UI on selainpohjainen työkalu escrow-instanssin luomiseen ja konfigurointiin:
+se on kehitys- ja hallintaapuväline, ei käyttäjille suunnattu tuote
+eikä pakollinen ajonaikainen komponentti. Kaikki sen suorittamat toiminnot
+(`CreateInstance`, `AllowMint`, `AddOperator`) voidaan suorittaa myös repositorion
+CLI-skriptien kautta.
+
+```bash
+cd admin-ui
+pnpm install
+echo "PRIVATE_CHANNEL_RPC_URL=http://localhost:8899" > .env
+pnpm dev   # opens at http://localhost:5173
+```
+
+</Step>
+
+<Step>
+
+### Luo escrow-instanssi
+
+1. Aseta selainlompakkosi **Devnet**-verkkoon ja varmista, että sinulla on Devnet SOL maksuja varten
+2. Klikkaa Admin UI:ssa **Luo uusi instanssi** ja hyväksy transaktio
+3. Kopioi **Instanssin osoite** ja aseta se `ESCROW_INSTANCE_ID`-muuttujaksi
+   `.env.devnet`-tiedostoon
+
+Vaihtoehtoisesti käytä CLI-skriptiä:
+
+```bash
+cargo run --bin create_instance -- https://api.devnet.solana.com ./keypairs/admin.json
+```
+
+</Step>
+
+<Step>
+
+### Generoi operaattorin keypair
+
+```bash
+solana-keygen new -o operator-keypair.json -s --no-bip39-passphrase
+solana-keygen pubkey operator-keypair.json
+```
+
+Aseta keypair-sisältö `ADMIN_PRIVATE_KEY`-muuttujaksi ympäristössäsi. Julkinen
+avain ei ole ympäristömuuttuja; se välitetään suoraan operaattorin pubkeyna
+jäljempänä olevassa "Konfiguroi instanssi" -vaiheessa.
+
+</Step>
+
+<Step>
+
+### Viimeistele ympäristömuuttujat
+
+Päivitä `.env.devnet` muuttujilla `ESCROW_INSTANCE_ID`, `DEVNET_RPC_URL`,
+`DEVNET_YELLOWSTONE_ENDPOINT` ja `INDEXER_YELLOWSTONE_TOKEN`. Laita salaisuudet
+(`POSTGRES_PASSWORD`, `POSTGRES_REPLICATION_PASSWORD`, `ADMIN_PRIVATE_KEY`)
+gitignore-listattuun `.env`-tiedostoon.
+
+Jos päätit ottaa RBAC:n käyttöön
+([Pääsynhallinta: Avoin vs. RBAC](#access-control-open-vs-rbac)), lisää myös
+`JWT_SECRET` ja `AUTH_PORT` nyt.
+
+</Step>
+
+<Step>
+
+### Käynnistä kaikki palvelut
+
+Ilman autentikointia:
+
+```bash
+make docker-devnet-up
+```
+
+Autentikoinnin kanssa:
+
+```bash
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+```
+
+Compose poistaa käytöstä automaattisen `.env`-latauksen, kun jokin `--env-file`-lippu
+on annettu, joten loppuun lisätty `--env-file .env` on pakollinen. Ilman sitä
+`POSTGRES_PASSWORD`, `ADMIN_PRIVATE_KEY` ja `JWT_SECRET` (jotka laitoit
+`.env`-tiedostoon) jäävät tyhjiksi ja pino epäonnistuu käynnistyksessä.
+
+> Käynnistä palvelut ennen instanssin konfigurointia. Indekseri suoratoistaa tapahtumia
+> reaaliajassa, joten pinon käynnistäminen ensin varmistaa, että `AllowMint` ja ensimmäinen
+> talletuksesi indeksoidaan järjestyksessä ilman täydennyshakua.
+
+</Step>
+
+<Step>
+
+### Konfiguroi instanssi
+
+Pinon ollessa käynnissä, lisää token mint sallittujen listalle ja lisää operaattorisi Admin UI:n kautta:
+
+1. **Salli Mint**: Ylläpitäjätoiminnot -> Mint-hallinta -> syötä mint-osoite ->
+   Salli Mint
+2. **Lisää operaattori**: Ylläpitäjätoiminnot -> Operaattorien hallinta -> syötä operaattorin
+   pubkey -> Lisää operaattori
+
+Tai CLI:n kautta:
+
+```bash
+cargo run --bin add_operator -- \
+  https://api.devnet.solana.com \
+  ./keypairs/admin.json \
+  <INSTANCE_ID> \
+  <OPERATOR_PUBKEY>
+```
+
+</Step>
+
+</Steps>
+
+<Callout type="warning">
+
+Tämä opas kohdistuu Solana devnetiin. Mainnetille:
+
+- Ohjelman tunnisteet käännetään sisään `declare_id!()`-makrolla: varmista, että käytät
+  oikeita Mainnet-tunnuksia repositoriosta
+- Yellowstone gRPC -päätepisteet vaativat Mainnet-suunnitelman; devnet-päätepisteet eivät
+  suoratoista Mainnet-tapahtumia
+- Operaattorilompakko maksaa SOL-maksut jokaisesta `ReleaseFunds`-kutsusta, joten mitoita
+  SOL-saldo odotetun nostomääräsi mukaan
+- Vaihda kaikki oletustunnukset (Grafana, PostgreSQL) ennen julkiseen verkkoon
+  suunnattua käyttöönottoa
+
+</Callout>
+
+## Ylläpitotoiminnot
+
+### Hyödyllisiä komentoja
+
+```bash
+# View logs (all services)
+make docker-devnet-logs
+
+# View logs (specific service)
+docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana
+
+# Stop services
+make docker-devnet-down
+
+# Stop and wipe all state (volumes)
+make docker-devnet-clean
+```
+
+### Havainnointikyky
+
+Pino sisältää Prometheuksen, Grafanan ja cAdvisorin mittareita ja konttien
+seurantaa varten. Grafana on käytettävissä portissa `37429`.
+
+<Callout type="warning">
+  Grafanan oletussalasana on `admin`. Vaihda se ennen kuin avaat portin 37429
+  muulle verkolle kuin localhostille.
+</Callout>
+
+## Vianmääritys
+
+### Kanavan saldo ei päivity talletuksen jälkeen
+
+1. Varmista, että Mainnet-talletustransaktio näkyy Mainnet-selaimessa
+2. Varmista, että `indexer-solana` on käynnissä:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-solana`
+3. Varmista, että `operator-solana` on käynnissä:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-solana`
+4. Tarkista, että Yellowstone gRPC -päätepisteesi on tavoitettavissa ja token on kelvollinen
+   (`DEVNET_YELLOWSTONE_ENDPOINT`, `INDEXER_YELLOWSTONE_TOKEN`)
+5. Odota enintään 30 sekuntia ketjussa tapahtuvan vahvistuksen jälkeen, sillä indekseri soveltaa
+   lopullisuuden turvaviivettä ennen hyvitystä
+
+### Nosto ei tiliinty Mainnetiin
+
+1. Varmista, että `indexer-private-channel` on käynnissä:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f indexer-private-channel`
+2. Varmista, että `operator-private-channel` on käynnissä:
+   `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-private-channel`
+3. Varmista, että `ADMIN_PRIVATE_KEY`-muuttujan operaattorin keypair vastaa
+   `AddOperator`-komennolla ketjuun rekisteröityä avainta
+4. Jos lokit näyttävät "SMT root mismatch" -virheen, palvelu sammuttaa itsensä sen sijaan, että
+   lähettäisi virheellisen todistuksen. Pysäytä pino, palauta johdonmukaisesta tilasta ja
+   käynnistä uudelleen
+
+### JWT-todennusvirheet (401 kaikissa pyynnöissä)
+
+1. Varmista, että `JWT_SECRET` on täsmälleen sama sekä yhdyskäytävän että auth-palvelun
+   konteissa
+2. Varmista, että pino käynnistettiin `--profile auth` -lipulla
+3. Tokenit vanhenevat 24 tunnin jälkeen; todenna uudelleen saadaksesi uuden tokenin
+
+### Ensimmäinen rakennus kestää liian kauan
+
+Tämä on odotettua. Ensimmäinen `make docker-devnet-build` kääntää kaikki Rust-palvelut ja
+voi kestää 30–60 minuuttia tyypillisellä laitteistolla. Myöhemmät rakennukset käyttävät Docker-kerrosvälimuistia
+ja ovat huomattavasti nopeampia.
+
+## Seuraavat vaiheet
+
+<Cards>
+  <Card
+    title="Pikakäynnistys"
+    href="/docs/tools/private-channels/quickstart/installation"
+  >
+    Testaa käyttöönottoasi: talleta, siirrä ja nosta devnetissä.
+  </Card>
+  <Card
+    title="Konfiguraatio"
+    href="/docs/tools/private-channels/operators/configuration"
+  >
+    Täydellinen ympäristömuuttujien viite kaikille palveluille.
+  </Card>
+  <Card
+    title="Todennus & Roolit"
+    href="/docs/tools/private-channels/concepts/auth"
+  >
+    Määritä JWT-todennus ja luo operaattoriroolin käyttäjiä.
+  </Card>
+  <Card
+    title="Ohjeet"
+    href="/docs/tools/private-channels/instructions/create-instance"
+  >
+    Täydellinen viite kaikille ketjussa oleville ohjeille.
+  </Card>
+</Cards>

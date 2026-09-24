@@ -2,7 +2,7 @@
 
 import { Fragment, memo, useCallback, useTransition, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./DevelopersResourcesFilters.module.scss";
 
 export type FilterGroup = {

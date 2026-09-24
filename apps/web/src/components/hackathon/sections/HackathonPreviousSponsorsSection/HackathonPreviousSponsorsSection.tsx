@@ -12,7 +12,7 @@ import samsungLogo from "../../../../../assets/hackathon/previous-sponsors/samsu
 import tsmLogo from "../../../../../assets/hackathon/previous-sponsors/tsm.png";
 import standardCharteredLogo from "../../../../../assets/hackathon/previous-sponsors/standard-chartered.png";
 import styles from "./HackathonPreviousSponsorsSection.module.scss";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import type { StaticImageData } from "next/image";
 
 const pastSponsors: {

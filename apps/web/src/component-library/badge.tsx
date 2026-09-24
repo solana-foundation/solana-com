@@ -7,9 +7,11 @@ export type BadgeProps = {
   title?: React.ReactNode | string;
   LeftIcon?:
     | string
-    | React.ComponentType<{
+    | React.ElementType<{
         className?: string;
-        size?: string | number;
+        width?: string | number;
+        height?: string | number;
+        "aria-hidden"?: boolean;
       }>;
 };
 
@@ -30,7 +32,7 @@ export const Badge: React.FC<BadgeProps> = ({ className, title, LeftIcon }) => {
           alt=""
         />
       ) : LeftIcon ? (
-        <LeftIcon size={20} />
+        <LeftIcon width={20} height={20} aria-hidden={true} />
       ) : null}
       <span className="px-1.5 inline-block align-middle pt-0.5">{title}</span>
     </div>

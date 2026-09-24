@@ -3,9 +3,9 @@ import styles from "./MarkdownPre.module.scss";
 import { CopyToClipBoardButton } from "./CopyToClipBoardButton";
 
 import RustIcon from "@@/public/src/img/icons/Rust.inline.svg";
-import TypescriptIcon from "@@/public/src/img/icons/Typescript.inline.svg";
-import TerminalIcon from "@@/public/src/img/icons/Terminal.inline.svg";
-import FileDiffIcon from "@@/public/src/img/icons/FileDiff.inline.svg";
+import { Typescript as TypescriptIcon } from "@boxicons/react/Typescript";
+import { Terminal as TerminalIcon } from "@boxicons/react/Terminal";
+import { GitCompare as FileDiffIcon } from "@boxicons/react/GitCompare";
 
 /**
  * Listing of the supported custom metadata that can be attached to parsed components via `attachMetadata`
@@ -16,7 +16,10 @@ export type CustomPreMetadataProps = {
   showLineNumbers?: boolean;
 };
 
-const languageIcons: Record<string, React.FC<React.SVGProps<SVGSVGElement>>> = {
+const languageIcons: Record<
+  string,
+  React.ElementType<React.SVGProps<SVGSVGElement>>
+> = {
   typescript: TypescriptIcon,
   javascript: TypescriptIcon,
   ts: TypescriptIcon,
@@ -31,7 +34,7 @@ const languageIcons: Record<string, React.FC<React.SVGProps<SVGSVGElement>>> = {
 
 const getIconForLanguage = (
   language: string | undefined,
-): React.FC<React.SVGProps<SVGSVGElement>> | undefined => {
+): React.ElementType<React.SVGProps<SVGSVGElement>> | undefined => {
   if (!language) return undefined;
   return languageIcons[language];
 };

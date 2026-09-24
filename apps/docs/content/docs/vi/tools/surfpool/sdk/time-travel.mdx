@@ -1,9 +1,7 @@
 ---
 title: Du Hành Thời Gian
 description:
-  Nhảy đồng hồ Surfnet về phía trước đến một slot, epoch, hoặc Unix timestamp
-  tuyệt đối. Hữu ích cho các bài kiểm thử liên quan đến lịch vesting, lockup,
-  cửa sổ hết hạn, hoặc ranh giới epoch.
+  Dịch chuyển đồng hồ Surfnet về phía trước đến một slot tuyệt đối, epoch, hoặc dấu thời gian Unix, hoặc tạm dừng hoàn toàn. Hữu ích cho các bài kiểm thử liên quan đến lịch vesting, lockup, cửa sổ hết hạn, hoặc ranh giới epoch.
 ---
 
 Runtime Surfpool cung cấp ba hàm trợ giúp du hành thời gian. Mỗi hàm di chuyển
@@ -11,16 +9,17 @@ Runtime Surfpool cung cấp ba hàm trợ giúp du hành thời gian. Mỗi hàm
 về `EpochInfo` đã được cập nhật để các bài kiểm thử có thể xác nhận rằng runtime
 đã thực sự đến thời điểm được yêu cầu.
 
-| Hàm trợ giúp                                         | Mục tiêu                           | Trả về                              |
-| ---------------------------------------------------- | ---------------------------------- | ----------------------------------- |
-| `time_travel_to_slot` / `timeTravelToSlot`           | Số slot tuyệt đối                  | `EpochInfo` với `absolute_slot` mới |
-| `time_travel_to_epoch` / `timeTravelToEpoch`         | Số epoch tuyệt đối                 | `EpochInfo` với `epoch` mới         |
-| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Unix timestamp tính bằng mili giây | `EpochInfo` phản ánh slot tương ứng |
+| Hàm trợ giúp                                               | Mục tiêu                         | Trả về                                  |
+| ---------------------------------------------------- | ------------------------------ | ---------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Số slot tuyệt đối           | `EpochInfo` với `absolute_slot` mới |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Số epoch tuyệt đối          | `EpochInfo` với `epoch` mới         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Unix timestamp tính bằng mili giây | `EpochInfo` phản ánh slot tương ứng  |
 
 <Callout type="warn" title="Chỉ tiến về phía trước">
-  Du hành thời gian chỉ có thể di chuyển đồng hồ **về phía trước**. Gọi các
-  phương thức này với mục tiêu trong quá khứ sẽ không có tác dụng — hàm trợ giúp
-  trả về `EpochInfo` hiện tại không thay đổi.
+  Du hành thời gian chỉ có thể di chuyển đồng hồ **về phía trước**. Mục tiêu trong quá khứ sẽ bị
+  từ chối thay vì bị bỏ qua — các hàm trợ giúp Rust trả về `Err` và các hàm trợ giúp JS
+  sẽ throw. Thông báo lỗi sẽ nêu rõ đơn vị nào bị lùi về quá khứ, ví dụ
+  `Cannot travel to past slot: target=1000, current=2000`.
 </Callout>
 
 ## Nhảy Đến Một Slot
@@ -69,8 +68,9 @@ console.assert(info.epoch === 420);
 
 ## Nhảy Đến Một Unix Timestamp
 
-Truyền timestamp tính bằng **mili giây**, không phải giây. Runtime sẽ tính toán
-slot gần nhất tại thời điểm đó.
+Truyền dấu thời gian theo **mili giây** kể từ Unix epoch — cùng đơn vị với
+`Date.now()` của JavaScript — không phải giây. Runtime sẽ tính toán slot gần nhất
+tại dấu thời gian đó.
 
 <CodeTabs storage="surfpool-lang">
 
@@ -85,6 +85,59 @@ const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
 ```
 
 </CodeTabs>
+
+<Callout type="warn" title="Đồng hồ báo cáo theo giây, không phải mili giây">
+  Mọi dấu thời gian bạn đọc lại từ runtime đều tính bằng **giây** — bao gồm
+  `unix_timestamp` của sysvar `Clock` on-chain, và
+  [`ClockValue`](/docs/tools/surfpool/sdk/js-reference#clockvalue) được mang theo bởi
+  sự kiện `systemClockUpdated`. Nếu truyền trực tiếp một trong các giá trị đó vào
+  hàm trợ giúp du hành thời gian sẽ dẫn đến một thời điểm vào đầu năm 1970, khiến lệnh gọi bị
+  từ chối do là mục tiêu trong quá khứ. Hãy nhân với 1000 trước.
+</Callout>
+
+```ts
+// WRONG — `unixTimestamp` is in seconds, so this is a past target.
+surfnet.timeTravelToTimestamp(clock.unixTimestamp + 3600);
+
+// RIGHT — convert to milliseconds.
+surfnet.timeTravelToTimestamp((clock.unixTimestamp + 3600) * 1000);
+```
+
+## Tạm Dừng Và Tiếp Tục Đồng Hồ
+
+Du hành thời gian nhảy đến một mục tiêu; tạm dừng sẽ ngăn đồng hồ tiến lên hoàn toàn.
+`surfnet_pauseClock` dừng việc tạo slot và tiến trình thời gian cho đến khi
+`surfnet_resumeClock` chạy — hãy dùng khi bài kiểm thử cần slot và
+dấu thời gian giữ nguyên trong suốt nhiều lệnh kiểm tra.
+
+Cả Rust SDK lẫn lớp `Surfnet` trong `@solana/surfpool` đều không bọc hai
+cheatcode này. Hãy gọi chúng thông qua
+[Kit plugin](/docs/tools/surfpool/sdk/kit-plugin), hoặc trực tiếp qua JSON-RPC.
+
+```ts
+const paused = await client.cheatcodes.pauseClock().send();
+
+// Nothing advances until the clock is resumed, so this is the only thing that
+// moves the slot.
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+
+await client.cheatcodes.resumeClock().send();
+```
+
+Cả hai cheatcode đều trả về một `EpochInfo` — trạng thái đồng hồ tại thời điểm
+tạm dừng, và sau khi tiếp tục. Lưu ý hai điều mà cấu trúc đó _không_ mang theo:
+
+- **Không có dấu thời gian.** `EpochInfo` không có trường thời gian. Hãy đọc thời gian Unix được mô phỏng
+  từ sysvar `Clock` thay thế: dùng `getAccountInfo` trên
+  `SysvarC1ock11111111111111111111111111111111` với encoding `jsonParsed` —
+  một lần nữa, tính bằng giây.
+- **Không có cờ tạm dừng.** Không có phương thức RPC nào báo cáo liệu đồng hồ có đang
+  tạm dừng hay không. Từ các SDK, hãy theo dõi
+  sự kiện [`clockUpdate`](/docs/tools/surfpool/sdk/events), sự kiện này kích hoạt kèm theo
+  `clockCommand` bất cứ khi nào lệnh tạm dừng, tiếp tục, hoặc thay đổi khoảng thời gian chạy. Nếu không,
+  hãy tự theo dõi trạng thái trong bài kiểm thử của bạn.
 
 ## Các Mẫu Phổ Biến
 
@@ -136,10 +189,10 @@ for epoch in 2..=5 {
 Cả hai SDK đều trả về một đối tượng có dạng `EpochInfo` với các trường sau:
 
 | Trường             | Rust                             | JS                          |
-| ------------------ | -------------------------------- | --------------------------- |
+| ----------------- | -------------------------------- | --------------------------- |
 | Slot tuyệt đối     | `absolute_slot: u64`             | `absoluteSlot: number`      |
-| Slot trong epoch   | `slot_index: u64`                | `slotIndex: number`         |
-| Số slot mỗi epoch  | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
-| Số epoch           | `epoch: u64`                     | `epoch: number`             |
-| Chiều cao khối     | `block_height: u64`              | `blockHeight: number`       |
+| Slot trong epoch | `slot_index: u64`                | `slotIndex: number`         |
+| Số slot mỗi epoch   | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Số epoch      | `epoch: u64`                     | `epoch: number`             |
+| Chiều cao khối      | `block_height: u64`              | `blockHeight: number`       |
 | Số lượng giao dịch | `transaction_count: Option<u64>` | `transactionCount?: number` |

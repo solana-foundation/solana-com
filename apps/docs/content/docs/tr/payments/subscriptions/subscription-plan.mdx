@@ -16,22 +16,18 @@ PDA'sından ödemeleri tahsil eder.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```bash
     pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
     ```
-
   </Tab>
 
   <Tab value="Rust">
-
     ```toml
     [dependencies]
-    subscriptions = "0.4.0"
+    subscriptions = "0.5.0"
     solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
-
   </Tab>
 </Tabs>
 
@@ -40,9 +36,10 @@ PDA'sından ödemeleri tahsil eder.
 Satıcı, planın sahibidir. Plan PDA'sı, satıcı adresinden ve `planId`'den
 türetilir.
 
+Bir sponsor, isteğe bağlı `payer` parametresini geçirerek planın rent bedelini karşılayabilir; bu durumda satıcı, planın sahibi olmaya devam eder. Planın silinmesi durumunda geri ödeme ödeyene değil, sahibine yapılır; bu nedenle sponsorluk işlemlerini zincir dışında kontrol altında tutun.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { address, createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -84,7 +81,6 @@ türetilir.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_address::{address, Address};
     use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
@@ -149,10 +145,12 @@ Birkaç kural geçerlidir:
   `endTs` ve meta veriler dondurulmuş kalır.
 - Düzenlemeler, `endTs` değişmediği sürece bir planın son faturalandırma
   döneminde de geçerlidir.
+- Talimat, imzalama anında gözlemlenen plan durumunu taşır
+  (`expectedCreatedAt`, `expectedEndTs`, `expectedPullers`,
+  `expectedMetadataUri`). Canlı plan artık eşleşmiyorsa güncelleme reddedilir (`StalePlanApproval`); dolayısıyla bayat bir imzalı güncelleme, kaldırılmış çekicileri geri getiremez veya sonraki düzenlemeleri geri alamaz. Eklenti istemcisinin `updatePlan` işlevi canlı durumu sizin için getirir; manuel olarak oluştururken planı kendiniz çekip alanları kendiniz iletmeniz gerekir.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { PlanStatus } from '@solana/subscriptions';
 
@@ -174,7 +172,6 @@ Birkaç kural geçerlidir:
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     let new_puller: Address = address!("NEW_PULLER_WALLET_ADDRESS_HERE");
     let mut updated_pullers = [Address::default(); 4];
@@ -187,6 +184,9 @@ Birkaç kural geçerlidir:
     let (event_authority, _) =
         Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
 
+    // Fetch and decode the live plan account before building UpdatePlanData.
+    let fetched_plan: Plan = fetched_plan;
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
@@ -196,6 +196,10 @@ Birkaç kural geçerlidir:
             end_ts: 0,
             pullers: updated_pullers,
             metadata_uri: updated_metadata_uri,
+            expected_created_at: fetched_plan.data.terms.created_at,
+            expected_end_ts: fetched_plan.data.end_ts,
+            expected_pullers: fetched_plan.data.pullers,
+            expected_metadata_uri: fetched_plan.data.metadata_uri,
         })
         .instruction();
     ```
@@ -208,9 +212,10 @@ Birkaç kural geçerlidir:
 Abone, mevcut plan koşullarını kabul eder. Abonelik PDA'sı, plan PDA'sından ve
 abone adresinden türetilir.
 
+Yetki başlatma ve aboneliği tek bir işlemde birleştirmek için `expectedSubscriptionAuthorityInitId` olarak TypeScript SDK tarafından dışa aktarılan `UNKNOWN_INIT_ID` sentinel değerini geçirin. Program yetkiyi yalnızca mevcut slot içinde oluşturulmuşsa kabul eder; bu nedenle sentinel değeri yeni kayıtlar için geçerlidir. Yetkisi daha önceki bir slot'ta oluşturulmuş olan geri dönen bir kullanıcının gerçek `initId` değerini geçirmesi gerekir (eklenti istemcisi bunu sizin için getirir); aksi takdirde çağrı `StaleSubscriptionAuthority` hatasıyla başarısız olur.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -271,7 +276,6 @@ abone adresinden türetilir.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{accounts::Plan, generated::{instructions::*, types::*}};
 
@@ -335,7 +339,6 @@ almalıdır.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     const receiverAta = address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE');
 
@@ -356,7 +359,6 @@ almalıdır.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{TransferData, TransferSubscriptionBuilder};
 
@@ -386,7 +388,6 @@ imzalar.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     await subscriberClient.subscriptions.instructions
       .cancelSubscription({
@@ -409,7 +410,6 @@ imzalar.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_instruction::AccountMeta;
     use subscriptions::generated::instructions::*;
@@ -431,6 +431,54 @@ imzalar.
   </Tab>
 </Tabs>
 
+## Hemen İptal Et
+
+Hem abonenin hem de mevcut plan sahibinin imzalaması durumunda `cancelSubscriptionNow`, aboneliği fatura döneminin sonunda değil, iptal anında sona erdirir. Aynı zamanda bekleyen bir ek süre iptalini de kısaltabilir. Onay, imzalama anında gözlemlenen dönem başlangıcına bağlıdır; abonelik o tarihten bu yana değişmişse işlem reddedilir (`StaleSubscriptionApproval`).
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
+    await subscriberClient.subscriptions.instructions
+      .cancelSubscriptionNow({
+        subscriber: subscriberSigner,
+        merchant: merchantSigner,
+        planPda,
+        expectedCurrentPeriodStartTs: subscription.data.currentPeriodStartTs,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use subscriptions::{accounts::SubscriptionDelegation, generated::{instructions::*, types::*}};
+
+    // Fetch and decode the subscription account before building the data.
+    let fetched_subscription: SubscriptionDelegation = fetched_subscription;
+
+    let cancel_now_ix = CancelSubscriptionNowBuilder::new()
+        .subscriber(subscriber)
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .event_authority(event_authority)
+        .cancel_subscription_now_data(CancelSubscriptionNowData {
+            expected_current_period_start_ts: fetched_subscription.current_period_start_ts,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Aboneliği Sürdür
 
 İptal edilmiş bir abonelik, yetkisi kaldırılmadan önce yeniden
@@ -440,15 +488,24 @@ planın mint'i için `SubscriptionAuthority` gerektirir; program bu bilgiyi
 (sahip, mint ve `init_id`) doğrular ve bilgi güncel değilse ya da yeniden
 başlatılmışsa reddeder.
 
+Talimat, abonenin imzalama anında gözlemlediği son kullanma tarihini taşır (`expectedExpiresAtTs`); bir uyuşmazlık reddedilir (`StaleSubscriptionApproval`). Bu sayede bayat bir imzalı yeniden başlatma, abonenin hiç onaylamadığı sonraki bir iptali geçersiz kılamaz.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
     await subscriberClient.subscriptions.instructions
       .resumeSubscription({
         subscriber: subscriberSigner,
         planPda,
         tokenMint,
+        expectedExpiresAtTs: subscription.data.expiresAtTs,
       })
       .sendTransaction();
     ```
@@ -456,7 +513,6 @@ başlatılmışsa reddeder.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::generated::instructions::*;
 
@@ -469,6 +525,9 @@ başlatılmışsa reddeder.
         .subscription_pda(subscription_pda)
         .subscription_authority(subscription_authority)
         .event_authority(event_authority)
+        .resume_data(ResumeData {
+            expected_expires_at_ts: fetched_subscription.expires_at_ts,
+        })
         .instruction();
     ```
 

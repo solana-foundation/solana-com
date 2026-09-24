@@ -7,6 +7,7 @@ import { getMdxMetadata } from "@@/src/app/metadata";
 import { DocsCategory } from "fumadocs-ui/page";
 import { TreeContextProvider } from "fumadocs-ui/provider";
 import type { PageTree } from "fumadocs-core/server";
+import { getRpcEndpointToc } from "@/lib/rpc-toc";
 import { getToolBreadcrumbTree } from "./tools-page-tree";
 
 export async function ToolsDocsPage({
@@ -22,6 +23,9 @@ export async function ToolsDocsPage({
   if (!page) notFound();
   const { body: MDX, toc } = await page.data.load();
   const markdown = await page.data.getText("raw");
+  // The Surfpool RPC reference pages render their endpoint headings from a
+  // component, so the compiled `toc` is empty. See `getRpcEndpointToc`.
+  const endpointToc = getRpcEndpointToc(slug);
   const breadcrumbTree = getToolBreadcrumbTree(
     docsSource.pageTree[locale],
     slug[1],
@@ -29,7 +33,7 @@ export async function ToolsDocsPage({
   return (
     <TreeContextProvider tree={breadcrumbTree}>
       <DocsPage
-        toc={toc}
+        toc={endpointToc.length > 0 ? [...toc, ...endpointToc] : toc}
         full={page.data.full}
         title={page.data.h1 || page.data.title}
         filePath={page.data.info.path}

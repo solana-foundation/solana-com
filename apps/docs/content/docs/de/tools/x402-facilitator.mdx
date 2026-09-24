@@ -1,0 +1,567 @@
+---
+date: 2025-09-25T00:00:00Z
+difficulty: beginner
+title: "x402-Integration mit Kora – Vollständige Demo-Anleitung"
+description:
+  "Learn how to integrate the x402 payment protocol with Kora's gasless Solana
+  signing infrastructure, enabling micropayments for API access with zero gas
+  fees."
+tags:
+  - ai
+keywords:
+  - tutorial
+  - ai
+  - AI agents
+  - solana ai
+---
+
+# Solana x402-Protokollintegration mit Kora RPC
+
+## Was Sie erstellen werden
+
+Diese Anleitung führt Sie durch die Implementierung einer vollständigen x402 (HTTP 402 Payment
+Required)-Integration mit Kora, der gasfreien Signierinfrastruktur von Solana. Am
+Ende verfügen Sie über ein funktionsfähiges System, in dem:
+
+- APIs mithilfe des x402-Protokolls Mikrozahlungen für den Zugriff erheben können
+- Nutzer in USDC bezahlen, ohne SOL für Gasgebühren zu benötigen
+- Kora alle Transaktionsgebühren als gasfreier Vermittler übernimmt
+- Zahlungen atomar auf der Solana-Blockchain abgewickelt werden
+
+Das Endergebnis wird eine voll funktionsfähige, zahlungsgeschützte API sein:
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+X402 + KORA PAYMENT FLOW DEMONSTRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/4] Initializing payment signer
+  → Network: solana-devnet
+  → Payer address: BYJV...TbBc
+  ✓ Signer initialized
+
+[2/4] Attempting to access protected endpoint without payment
+  → GET http://localhost:4021/protected
+  → Response: 402 Payment Required
+  ✅ Status code: 402
+
+[3/4] Accessing protected endpoint with x402 payment
+  → Using x402 fetch wrapper
+  → Payment will be processed via Kora facilitator
+  → Transaction submitted to Solana
+  ✅ Status code: 200
+
+[4/4] Processing response data
+  ✓ Payment response decoded
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Payment completed and API accessed
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Response Data:
+{
+    "data": {
+        "message": "Protected endpoint accessed successfully",
+        "timestamp": "2025-09-25T20:14:04.242Z"
+    },
+    "status_code": 200,
+    "payment_response": {
+        "transaction": "5ULZpdeThaMAy6hcEGfAoMFqJqPpCtxdCxb6JYUV6nA4x8Lk2hKEuzofGUPoe1pop6BdWMSmF5oRPrXsbdWmpruf",
+        "success": true,
+        "network": "solana-devnet"
+    }
+}
+```
+
+## Was ist x402?
+
+[x402](https://www.x402.org/) ist ein offener Zahlungsstandard, der nahtlose
+Mikrozahlungen für den API-Zugriff ermöglicht. Anstelle herkömmlicher Abonnementmodelle oder API-Schlüssel
+ermöglicht x402 Servern, für einzelne API-Aufrufe zu berechnen und so eine echte
+Pay-per-Use-Infrastruktur zu schaffen.
+
+Wesentliche Vorteile von x402:
+
+- **Sofortige Mikrozahlungen**: Zahlen Sie Bruchteile eines Cents pro API-Aufruf
+- **KI-Agenten für API-Aufrufe zahlen lassen**: API-Aufrufe mit KI-Agenten bezahlen
+- **Keine Abonnements**: Nutzer zahlen nur für das, was sie verwenden
+- **Web3-Zahlungen**: Transparente, überprüfbare Zahlungen on-chain
+- **Standard-HTTP**: Funktioniert mit bestehender Web-Infrastruktur und verwendet einen HTTP 402-
+  Statuscode, wenn eine Zahlung erforderlich ist
+
+Server, die x402 verwenden, um Mikrozahlungen für den API-Zugriff zu verlangen, geben einen HTTP
+402-Statuscode zurück, wenn eine Zahlung erforderlich ist. Um auf geschützte Endpunkte zuzugreifen, müssen Clients
+eine gültige Zahlung im `X-PAYMENT`-Header an den Server übergeben. x402 nutzt
+"Facilitators", um Transaktionen zu verifizieren und abzuwickeln, sodass Server nicht direkt
+mit der Blockchain-Infrastruktur interagieren müssen.
+
+### Facilitators verstehen
+
+Facilitators sind eine wesentliche Komponente im x402-Ökosystem. Sie fungieren als
+spezialisierte Dienste, die Blockchain-Zahlungen im Auftrag von API-Servern abstrahieren.
+
+**Was Facilitators tun:**
+
+- **Zahlungen verifizieren**: Validieren, dass die Zahlungs-Payloads des Clients korrekt
+  formatiert und ausreichend sind
+- **Komplexität abstrahieren**: Entfernt die Notwendigkeit für Server, direkt mit der
+  Blockchain-Infrastruktur zu interagieren (Signieren und Bezahlen von Netzwerkgebühren)
+- **Transaktionen abwickeln**: Validierte Transaktionen an Solana (oder andere
+  Netzwerke) übermitteln
+
+In unserer Demo erstellen wir einen Facilitator, der Kora zur Verifizierung und Abwicklung von
+Transaktionen nutzt (weitere Details unten).
+
+## Was ist Kora?
+
+Kora ist ein Solana-Signer-Node, der Signier- und gasfreie Transaktionsdienste bereitstellt. Es ermöglicht Anwendungen, Gasgebühren zu abstrahieren, sodass Nutzer Transaktionskosten in anderen Token als SOL bezahlen oder Gebühren vollständig gesponsert werden können.
+
+Wesentliche Funktionen von Kora:
+
+- **Gasfreie Transaktionen**: Nutzer benötigen kein SOL zur Ausführung von Transaktionen
+- **Gebührenabstraktion**: Gebühren in USDC oder anderen SPL-Token bezahlen
+- **JSON-RPC-Schnittstelle**: Einfache HTTP-API für die Transaktionsverarbeitung
+- **Flexible Signer**: Unterstützung für mehrere Signer-Backends (Memory, Vault,
+  Turnkey, Privy)
+- **Policy Engine**: Granulare Kontrolle über Transaktionsvalidierung und Gebühren-
+  Richtlinien
+
+Im Kontext von x402 dient Kora als perfektes Backend für Facilitators: Es übernimmt Netzwerkgebühren, signiert Transaktionen und validiert Transaktionen.
+
+## Architekturüberblick
+
+Unsere x402 + Kora-Integration besteht aus vier miteinander verbundenen Komponenten mit einem
+vollständigen Anfrage-/Antwortzyklus:
+
+Vollständiger Zahlungsablauf:
+
+1. Client fordert geschützte Ressource an → API gibt 402 Payment Required zurück
+2. Client erstellt Zahlungstransaktion mit x402-Fetch-Wrapper (der eine
+   Solana-Transaktion mit einer Zahlungs Anweisung zusammenstellt)
+3. Client sendet Zahlung zur Verifizierung an den Facilitator
+4. Facilitator validiert über Kora, das die Transaktion signiert und an Solana übermittelt
+5. Transaktion on-chain bestätigt, Facilitator benachrichtigt API
+6. API gibt geschützten Inhalt mit Zahlungsbeleg an den Client zurück
+
+### Komponentenübersicht
+
+1. **Kora RPC-Server** (Port 8080)
+   - Zentraler gasfreier Transaktionsdienst
+   - Verarbeitet Transaktionssignierung als Gebührenzahler
+   - Validiert Transaktionen anhand konfigurierter Richtlinien
+
+2. **Facilitator Wrapper/Proxy-Server** (Port 3000)
+   - Passt Kora an das x402-Protokoll an
+   - Implementiert `/verify`-, `/settle`- und `/supported`-Endpunkte
+   - Übersetzt zwischen x402- und Kora-Datenformaten
+
+3. **Geschützte API** (Port 4021)
+   - Demo-API-Server mit zahlungsgeschützten Endpunkten
+   - Verwendet x402-express-Middleware für die Zahlungsverarbeitung
+   - Gibt Daten nur nach erfolgreicher Zahlung zurück
+
+4. **Client-Anwendung**
+   - Demonstriert die Verwendung des x402-Fetch-Wrappers
+   - Signiert Transaktionen mit dem privaten Schlüssel des Nutzers
+
+Der Mehrkomponentenansatz mag komplex erscheinen, spiegelt jedoch reale
+Produktionssysteme wider, in denen Zahlungsverarbeitung, API-Bereitstellung und Client-
+Anwendungen separate Zuständigkeitsbereiche sind.
+
+## Voraussetzungen
+
+Stellen Sie vor dem Start sicher, dass Sie Folgendes haben:
+
+- [**Rust**](https://www.rust-lang.org/tools/install) (neueste stabile Version)
+- [**Node.js**](https://nodejs.org/en/download) (LTS oder neuer)
+- [**pnpm**](https://pnpm.io/installation) (neueste Version)
+- Grundlegendes Verständnis von
+  [Solana-Transaktionen](https://solana.com/docs/core/transactions) und
+  [SPL-Token](https://solana.com/docs/tokens)
+
+## Projekt-Setup
+
+### Schritt 1: Kora klonen und bauen
+
+```bash
+# Clone the repository
+git clone https://github.com/solana-foundation/kora.git
+cd kora
+
+# Checkout the release branch as Kora is currently in a feature freeze for audit
+git checkout release/feature-freeze-for-audit
+
+# Build and install Kora
+make install
+```
+
+Dies installiert das `kora`-Binary auf Ihrem System, das wir zum Ausführen des RPC-
+Servers verwenden werden.
+
+### Schritt 2: Zum Demo-Verzeichnis navigieren
+
+```bash
+cd docs/x402/demo
+```
+
+### Schritt 3: Abhängigkeiten installieren
+
+Node.js-Abhängigkeiten für alle Demo-Komponenten installieren:
+
+```bash
+# Install dependencies for all components (facilitator, API, and client)
+pnpm run install:all
+```
+
+Dieses Skript installiert Abhängigkeiten für:
+
+- Den Facilitator-Wrapper-Dienst
+- Den geschützten API-Server
+- Die Client-Demo-Anwendung
+
+### Schritt 4: Kora SDK bauen
+
+Das Kora SDK bauen, damit wir das Kora TypeScript SDK im Facilitator verwenden können:
+
+```bash
+pnpm run build:kora-sdk
+```
+
+### Schritt 5: Umgebung konfigurieren
+
+Die Demo enthält eine `.env.example`-Datei mit den erforderlichen Umgebungsvariablen.
+Zuerst richten wir die grundlegende Konfiguration ein:
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+```
+
+Nun müssen Sie keypairs für die Demo generieren oder bereitstellen. Führen Sie den folgenden
+Befehl aus, um die keypairs zu generieren:
+
+```bash
+pnpm run setup
+```
+
+Dadurch werden die keypairs generiert und zur `.env`-Datei hinzugefügt:
+
+- `KORA_SIGNER_ADDRESS` – Die Adresse des Kora-Signers
+- `KORA_SIGNER_PRIVATE_KEY` – Der private Schlüssel des Kora-Signers
+- `PAYER_ADDRESS` – Die Adresse des Zahlers, der für den Zugriff auf die
+  geschützte API bezahlt
+- `PAYER_PRIVATE_KEY` – Der private Schlüssel des Zahlers
+
+### Schritt 5: Konfigurationsdateien aktualisieren
+
+#### kora.toml
+
+Die Datei `kora/kora.toml` konfiguriert den Kora RPC-Server. Sie sollten keine Änderungen
+an dieser Datei vornehmen müssen, können jedoch die folgenden Einstellungen überprüfen:
+
+1. **Zahlungs-Token**: Stellen Sie sicher, dass der Devnet-USDC-Mint in der Allowlist enthalten ist:
+
+```toml
+allowed_tokens = [
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", # USDC devnet
+]
+```
+
+2. **API-Authentifizierung**: Die Demo verwendet einen API-Schlüssel für den Kora-Zugriff. Dieser sollte
+   mit dem `KORA_API_KEY` in der `.env`-Datei übereinstimmen:
+
+```toml
+[kora.auth]
+api_key = "kora_facilitator_api_key_example"
+```
+
+3. **Gebührenzahler-Richtlinie**: Konfiguriert, um das Signieren unerwünschter Transaktionen einzuschränken:
+
+```toml
+[validation.fee_payer_policy]
+allow_sol_transfers = false
+# all other settings are false
+```
+
+4. **Erlaubte Programme**: Stellen Sie sicher, dass System Program, Token Program, das zugehörige
+   Token-Programm und das Compute-Budget-Programm in der Allowlist enthalten sind:
+
+```toml
+allowed_programs = [
+    "11111111111111111111111111111111",             # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # Token Program
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", # Associated Token Program
+    "ComputeBudget111111111111111111111111111111",  # Compute Budget Program
+]
+```
+
+#### signers.toml
+
+Die Datei `kora/signers.toml` konfiguriert den Kora-Signer. Sie sollten keine Änderungen
+an dieser Datei vornehmen müssen, können jedoch die folgenden Einstellungen überprüfen:
+
+1. **Signer-Umgebungsvariable**: Stellen Sie sicher, dass die Signer-Umgebungsvariable
+   `private_key_env` auf `KORA_SIGNER_PRIVATE_KEY` gesetzt ist (passend zum
+   Variablennamen in der `.env`-Datei).
+
+```toml
+[[signers]]
+name = "main_signer"
+type = "memory"
+private_key_env = "KORA_SIGNER_PRIVATE_KEY"
+weight = 1
+```
+
+### Schritt 6: Konten aufladen
+
+#### Devnet SOL
+
+Unsere Kora-Signer-Adresse benötigt SOL zur Bezahlung von Transaktionsgebühren. Sie können
+devnet SOL per Airdrop an die Kora-Signer-Adresse über die Solana CLI senden:
+
+```bash
+# Airdrop SOL
+solana airdrop 1 <KORA_SIGNER_ADDRESS> --url devnet
+```
+
+Alternativ können Sie den [Solana Faucet](https://faucet.solana.com/) verwenden, um
+SOL per Airdrop an die Kora-Signer-Adresse zu senden.
+
+#### Devnet USDC
+
+Ihre in der `.env`-Datei festgelegte `PAYER_ADDRESS` benötigt USDC zur Bezahlung von
+Transaktionsgebühren.
+
+Erhalten Sie Devnet USDC vom [Circle's Faucet](https://faucet.circle.com/). Wählen Sie unbedingt
+"Solana Devnet" aus und verwenden Sie Ihre `PAYER_ADDRESS`, um USDC anzufordern.
+
+## Die Demo ausführen
+
+Sie benötigen vier Terminalfenster, um alle Komponenten aus dem
+Verzeichnis `docs/x402/demo` auszuführen.
+
+### Terminal 1: Kora RPC-Server starten
+
+Führen Sie den folgenden Befehl aus, um den Kora RPC-Server zu starten:
+
+```bash
+pnpm run start:kora
+```
+
+Sie sollten eine Reihe von Protokollmeldungen sehen, die anzeigen, dass der Kora RPC-Server läuft,
+einschließlich:
+
+```
+INFO kora_lib::rpc_server::server: RPC server started on 0.0.0.0:8080, port 8080
+```
+
+### Terminal 2: Facilitator starten
+
+Führen Sie den folgenden Befehl aus, um den Facilitator zu starten:
+
+```bash
+pnpm run start:facilitator
+```
+
+Sie sollten Folgendes sehen:
+
+```
+Server listening at http://localhost:3000
+```
+
+### Terminal 3: Geschützte API starten
+
+Führen Sie den folgenden Befehl aus, um die geschützte API zu starten:
+
+```bash
+pnpm run start:api
+```
+
+Sie sollten Folgendes sehen:
+
+```
+Server listening at http://localhost:4021
+```
+
+### Terminal 4: Client-Demo ausführen
+
+```bash
+pnpm run demo
+```
+
+## Die Implementierung verstehen
+
+Hier ist, was während eines erfolgreichen Zahlungsablaufs passiert:
+
+1. **Client-Anfrage** → API gibt 402 mit Zahlungsanforderungen zurück
+2. **Zahlungserstellung** → Client erstellt Solana-Transaktion mit Zahlung
+3. **Zahlungsübermittlung** → Client sendet Anfrage mit Zahlung im
+   `X-PAYMENT`-Header an den Server
+4. **Verifizierung** → Facilitator verifiziert über Koras `signTransaction`
+5. **Abwicklung** → Facilitator wickelt über Koras `signAndSendTransaction` ab
+   (sendet die Zahlungstransaktion an Solana)
+6. **Zugriff gewährt** → Facilitator gibt Transaktionssignatur zurück und API
+   gibt geschützten Inhalt mit Zahlungsbeleg zurück
+
+Lassen Sie uns untersuchen, wie jede Komponente funktioniert:
+
+- **Kora RPC** (Port 8080): Verarbeitet gasfreie Transaktionssignierung
+- **Facilitator** (Port 3000): Verbindet x402-Protokoll mit Kora
+- **Geschützte API** (Port 4021): Ihr monetarisierter API-Endpunkt
+- **Client**: Demonstriert den automatischen Zahlungsablauf
+
+### Der Facilitator Wrapper/Proxy-Server
+
+Der Facilitator läuft auf Port 3000. Dies ist der Server, der die Kommunikation
+mit Solana verarbeitet (in unserem Fall über Kora). Er wird verwendet, um x402-
+Zahlungen zu verifizieren und abzuwickeln.
+
+Der Facilitator (`facilitator/src/facilitator.ts`) ist die Brücke zwischen dem x402-
+Protokoll und dem Kora RPC. Er implementiert drei wichtige Endpunkte:
+
+#### 1. `/verify`-Endpunkt
+
+Dieser Endpunkt:
+
+- Empfängt einen x402-Zahlungs-Payload vom geschützten API-Server
+- Extrahiert die Solana-Transaktion mithilfe von x402-Hilfsfunktionen
+- Verwendet Koras `signTransaction`, um die Gültigkeit ohne Broadcasting zu überprüfen
+- Gibt den Verifizierungsstatus zurück, `isValid`
+
+#### 2. `/settle`-Endpunkt
+
+Dieser Endpunkt:
+
+- Empfängt den x402-Zahlungs-Payload, nachdem die Zahlung vom
+  `/verify`-Endpunkt verifiziert wurde
+- Verwendet Koras `signAndSendTransaction`, um die Transaktion zu signieren und zu übertragen
+- Gibt die Transaktionssignatur als Nachweis der Abwicklung zurück
+
+#### 3. `/supported`-Endpunkt
+
+Dieser Endpunkt bewirbt effektiv die Fähigkeiten des Facilitators, einschließlich:
+
+- Unterstützte x402-Version
+- Zahlungsschema (exakte Zahlungen)
+- Netzwerk (solana-devnet)
+- Gebührenzahler-Adresse, die wir über die `getPayerSigner`-Methode von Kora abrufen
+
+### Die geschützte API
+
+Der API-Server (`api/src/api.ts`) verwendet x402-express-Middleware zum Schutz von
+Endpunkten:
+
+```typescript
+app.use(
+  paymentMiddleware(
+    KORA_PAYER_ADDRESS, // Where payments should go
+    {
+      "GET /protected": {
+        price: "$0.0001", // Price in USD
+        network: NETWORK // solana-devnet
+      }
+    },
+    {
+      url: FACILITATOR_URL // Our facilitator wrapper
+    }
+  )
+);
+```
+
+Die Middleware:
+
+- Fängt Anfragen an geschützte Endpunkte ab (in unserem Fall den `/protected`-
+  Endpunkt)
+- Gibt 402-Status zurück, wenn die Zahlung fehlt
+- Validiert und verarbeitet Zahlungen über den Facilitator
+- Ermöglicht den Zugriff nach erfolgreicher Zahlung
+
+Obwohl wir Express verwenden, unterstützt die x402-Bibliothek Middleware für
+viele gängige Frameworks. Weitere Informationen finden Sie in den
+[x402 TypeScript Packages](https://github.com/coinbase/x402/tree/main/typescript/packages).
+
+### Die Client-Anwendung
+
+Der Client (`client/src/index.ts`) zeigt automatisch, wie x402 funktioniert, indem
+er eine Anfrage mit einem standardmäßigen `fetch`-Aufruf sendet und die Anfrage
+anschließend mit dem Zahlungs-Wrapper wiederholt:
+
+```typescript
+// Create a signer from private key
+const payer = await createSigner(NETWORK, PAYER_PRIVATE_KEY);
+
+// Wrap fetch with x402 payment capabilities
+const fetchWithPayment = wrapFetchWithPayment(fetch, payer);
+
+// First attempt: Regular fetch (will fail with 402)
+const expect402Response = await fetch(PROTECTED_API_URL);
+console.log(`Status: ${expect402Response.status}`); // 402
+
+// Second attempt: Fetch with payment wrapper (succeeds)
+const response = await fetchWithPayment(PROTECTED_API_URL);
+console.log(`Status: ${response.status}`); // 200
+```
+
+Der x402-Fetch-Wrapper:
+
+- Erkennt 402-Antworten
+- Erstellt automatisch eine Zahlungstransaktion basierend auf den Zahlungsanforderungen
+  der geschützten API
+- Signiert mit dem privaten Schlüssel des Benutzers
+- Sendet die Zahlung zur Überprüfung und Verarbeitung an den Facilitator
+- Wiederholt die Anfrage mit dem Zahlungsnachweis im `x-payment-response`-Header
+- Gibt eine erfolgreiche Antwort zurück
+
+## Zusammenfassung
+
+Herzlichen Glückwunsch! 🔥 Sie haben erfolgreich einen vollständigen x402-Zahlungsablauf
+mit Koras gasloser Infrastruktur implementiert. Diese Demonstration zeigt, wie:
+
+- **x402 Protocol** eine reibungslose API-Monetarisierung durch Mikrozahlungen ermöglicht
+- **Kora RPC** als Facilitator für x402-Zahlungen fungiert, indem Transaktionen
+  verifiziert und abgewickelt werden
+- **Benutzer** für den API-Zugang bezahlen können, ohne SOL zu halten oder Gasgebühren zu verwalten
+
+Diese Architektur schafft eine leistungsstarke Grundlage für:
+
+- KI-Agenten-Marktplätze
+- Pay-per-use-APIs
+- Mikrozahlungs-Content-Plattformen
+- Nutzungsbasierte SaaS-Preisgestaltung
+- Jeden Dienst, der sofortige, verifizierbare Zahlungen erfordert
+
+Die Kombination aus x402 und Kora bringt die Leistungsfähigkeit von Solana in die
+herkömmliche Web-Infrastruktur.
+
+### Weiter entwickeln
+
+- **Preise anpassen**: Ändern Sie die API, um unterschiedliche Beträge für
+  verschiedene Endpunkte zu berechnen
+- **Mehrere Token hinzufügen**: Konfigurieren Sie Kora so, dass verschiedene SPL-Token als
+  Zahlungsmittel akzeptiert werden
+- **Production Deployment**: Auf Mainnet mit Produktions-Signern (Vault,
+  Turnkey oder Privy) deployen
+- **Eigene API erstellen**: Entwickeln Sie einen echten Dienst, der über x402-Zahlungen
+  monetarisiert wird
+
+## Weitere Ressourcen
+
+#### x402 Protocol
+
+- [x402 Documentation](https://x402.gitbook.io/x402/)
+- [x402 GitHub](https://github.com/coinbase/x402)
+- [x402 TypeScript SDK](https://www.npmjs.com/package/x402)
+
+#### Solana
+
+- [Solana Documentation](https://solana.com/docs)
+- [SPL Token Program](https://spl.solana.com/token)
+
+## Support
+
+Benötigen Sie Hilfe?
+
+- Stellen Sie Fragen auf [Solana Stack Exchange](https://solana.stackexchange.com/)
+  mit den Tags `kora` und `x402`
+- Öffnen Sie Issues im
+  [Kora GitHub repository](https://github.com/solana-foundation/kora)

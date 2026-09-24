@@ -9,6 +9,7 @@ import {
   SheetTrigger,
   SheetClose,
   SheetTitle,
+  SheetDescription,
   VisuallyHidden,
 } from "./sheet";
 import AngleDown from "./assets/icons/angle-down.inline.svg";
@@ -18,10 +19,12 @@ import NavSwipe from "./assets/nav/nav-swipe.inline.svg";
 import { HEADER_SECTIONS } from "./header-sections";
 import { useSwipeDown } from "./hooks/useSwipeDown";
 import { isNavSectionActive } from "./nav-active";
+import { LanguageSelector } from "./language-selector";
 
 interface MobileMenuProps {
   expanded: boolean;
   setExpanded: (expanded: boolean) => void;
+  showLanguage?: boolean;
 }
 
 interface MenuItemProps {
@@ -33,33 +36,45 @@ interface MenuItemProps {
   onClick?: () => void;
 }
 
-const MenuItem = ({ title, Icon, isActive, onClick }: MenuItemProps) => {
-  return (
-    <button
-      className={`w-full flex items-center text-left gap-3 py-4 text-[16px] font-medium hover:bg-gradient-to-r hover:from-transparent hover:via-[10%] hover:via-white/5 hover:to-transparent`}
-      type="button"
-      onClick={onClick}
-    >
-      {Icon && <Icon className="size-[20px] text-white shrink-0" />}
-      <div className="font-medium text-white grow">{title}</div>
-      <AngleDown
-        className={`transition-transform duration-300 -rotate-90 shrink-0 ${isActive ? "text-white" : ""}`}
-        width={20}
-        height={20}
-        viewBox="0 0 24 24"
-      />
-    </button>
-  );
-};
+const MenuItem = React.forwardRef<HTMLButtonElement, MenuItemProps>(
+  ({ title, Icon, isActive, onClick }, ref) => {
+    return (
+      <button
+        ref={ref}
+        className="flex min-h-14 w-full items-center gap-3 py-4 text-left text-[16px] font-medium hover:bg-gradient-to-r hover:from-transparent hover:via-[10%] hover:via-white/5 hover:to-transparent"
+        type="button"
+        onClick={onClick}
+      >
+        {Icon && <Icon className="size-[20px] shrink-0 text-white" />}
+        <div className="grow font-medium text-white">{title}</div>
+        <AngleDown
+          className={`shrink-0 -rotate-90 transition-transform duration-300 ${isActive ? "text-white" : ""}`}
+          width={20}
+          height={20}
+          viewBox="0 0 24 24"
+        />
+      </button>
+    );
+  },
+);
+MenuItem.displayName = "MenuItem";
 
-export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
+export const MobileMenu = ({
+  expanded,
+  setExpanded,
+  showLanguage = true,
+}: MobileMenuProps) => {
   const t = useTranslations();
   const { asPath } = useRouter();
   const [menu, setMenu] = React.useState<string | null>(null);
+  const backButtonRef = React.useRef<HTMLButtonElement>(null);
+  const sectionButtonRefs = React.useRef(new Map<string, HTMLButtonElement>());
+  const returnFocusSectionRef = React.useRef<string | null>(null);
   const activeSection = HEADER_SECTIONS.find(({ matchRules }) =>
     isNavSectionActive(asPath, matchRules),
   )?.id;
-  const ActiveContent = HEADER_SECTIONS.find(({ id }) => id === menu)?.Content;
+  const selectedSection = HEADER_SECTIONS.find(({ id }) => id === menu);
+  const ActiveContent = selectedSection?.Content;
 
   // Close menu on route change
   React.useEffect(() => {
@@ -70,8 +85,30 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
   React.useEffect(() => {
     if (!expanded) {
       setMenu(null);
+      returnFocusSectionRef.current = null;
     }
   }, [expanded]);
+
+  // Keep keyboard and assistive-technology focus anchored as views change.
+  React.useEffect(() => {
+    if (!expanded) return;
+
+    if (menu) {
+      backButtonRef.current?.focus();
+      return;
+    }
+
+    const sectionToFocus = returnFocusSectionRef.current;
+    if (sectionToFocus) {
+      sectionButtonRefs.current.get(sectionToFocus)?.focus();
+      returnFocusSectionRef.current = null;
+    }
+  }, [expanded, menu]);
+
+  const returnToMainMenu = () => {
+    returnFocusSectionRef.current = menu;
+    setMenu(null);
+  };
 
   // Swipe down to close menu
   const swipeDownRef = useSwipeDown<HTMLDivElement>({
@@ -83,23 +120,23 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
     <Sheet open={expanded} onOpenChange={setExpanded}>
       <SheetTrigger asChild>
         <button
-          className="xl:hidden -m-1.5 border-0 cursor-pointer p-3 h-10 w-10 flex flex-col justify-center items-center gap-1"
-          aria-label="Toggle menu"
+          className="-m-1 flex size-11 cursor-pointer flex-col items-center justify-center gap-1 border-0 p-3 xl:hidden"
+          aria-label={t("nav.mobile.open")}
           type="button"
         >
           <div className="flex w-4 shrink-0 flex-col items-stretch gap-1">
             <span
-              className={`h-0.5 bg-white light:!bg-[#121212] transition-all duration-300 ${
+              className={`h-0.5 bg-white transition-all duration-300 ${
                 expanded ? "rotate-45 translate-y-[6px]" : ""
               }`}
             ></span>
             <span
-              className={`self-end w-[60%] h-0.5 bg-white light:!bg-[#121212] transition-all duration-300 ${
+              className={`self-end w-[60%] h-0.5 bg-white transition-all duration-300 ${
                 expanded ? "opacity-0" : ""
               }`}
             ></span>
             <span
-              className={`h-0.5 bg-white light:!bg-[#121212] transition-all duration-300 ${
+              className={`h-0.5 bg-white transition-all duration-300 ${
                 expanded ? "-rotate-45 -translate-y-[6px]" : ""
               }`}
             ></span>
@@ -108,7 +145,12 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
       </SheetTrigger>
       <SheetContent ref={swipeDownRef}>
         <VisuallyHidden>
-          <SheetTitle>Menu</SheetTitle>
+          <SheetTitle>
+            {selectedSection
+              ? t(selectedSection.titleKey)
+              : t("nav.mobile.menu")}
+          </SheetTitle>
+          <SheetDescription>{t("nav.mobile.description")}</SheetDescription>
         </VisuallyHidden>
         <div className="flex justify-between items-center mb-1">
           {/* Solana logo */}
@@ -120,10 +162,11 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
           {/* Go back button */}
           {menu && (
             <button
-              className="flex items-center justify-center size-10 opacity-[0.64] hover:opacity-100"
+              ref={backButtonRef}
+              className="flex size-11 items-center justify-center opacity-[0.64] hover:opacity-100"
               type="button"
-              aria-label="Go back"
-              onClick={() => setMenu(null)}
+              aria-label={t("nav.mobile.back")}
+              onClick={returnToMainMenu}
             >
               <ArrowLeft width={20} height={20} />
             </button>
@@ -132,8 +175,8 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
           {/* Close Button */}
           <SheetClose asChild>
             <button
-              className="p-2 text-[#848895] hover:text-white transition-colors"
-              aria-label="Close menu"
+              className="flex size-11 items-center justify-center text-[#848895] transition-colors hover:text-white"
+              aria-label={t("commands.close")}
               type="button"
             >
               <svg
@@ -155,19 +198,39 @@ export const MobileMenu = ({ expanded, setExpanded }: MobileMenuProps) => {
 
         {/* Navigation Sections */}
         {!menu && (
-          <nav className="px-3 divide-y divide-[rgba(238,228,255,0.04)]">
+          <nav
+            aria-label={t("nav.mobile.menu")}
+            className="divide-y divide-[rgba(238,228,255,0.04)] px-3"
+          >
             {HEADER_SECTIONS.map(({ id, titleKey, mobileIcon }) => (
               <MenuItem
                 key={id}
+                ref={(node) => {
+                  if (node) sectionButtonRefs.current.set(id, node);
+                  else sectionButtonRefs.current.delete(id);
+                }}
                 title={t(titleKey)}
                 Icon={mobileIcon}
                 isActive={activeSection === id}
                 onClick={() => setMenu(id)}
               />
             ))}
+            {showLanguage && (
+              <div className="py-1">
+                <LanguageSelector
+                  displayLanguageName
+                  ariaLabel={t("nav.mobile.language")}
+                  className="h-11 w-full justify-between px-0 text-white/70 hover:text-white"
+                />
+              </div>
+            )}
           </nav>
         )}
-        {ActiveContent && <ActiveContent isMobile={true} />}
+        {ActiveContent && selectedSection && (
+          <nav aria-label={t(selectedSection.titleKey)}>
+            <ActiveContent isMobile={true} />
+          </nav>
+        )}
       </SheetContent>
     </Sheet>
   );

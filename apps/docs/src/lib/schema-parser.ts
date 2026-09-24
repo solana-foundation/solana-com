@@ -36,6 +36,127 @@ function resolveSchemaReference(
   const refName = ref.split("/").pop();
   return refName ? (schemaSource.$defs?.[refName] ?? null) : null;
 }
+
+/** One arm of a union that carries exactly one named field. */
+interface UnionField {
+  name: string;
+  schema: SchemaNode;
+  description: string;
+}
+
+/**
+ * Splits a one-of union into its fields, but only when every arm is an object
+ * holding exactly one property.
+ *
+ * That is the shape schemars emits for a Rust enum of single-field struct
+ * variants — `TimeTravelConfig` becomes `{absoluteEpoch}` / `{absoluteSlot}` /
+ * `{absoluteTimestamp}`. Those fields each deserve a row in the parameters
+ * table. Any other union (mixed consts, primitives, refs to objects) reads
+ * better as a type expression, so this returns null and the caller falls back
+ * to `describeUnionType`.
+ */
+function splitSingleFieldUnion(
+  def: SchemaNode | null | undefined,
+): UnionField[] | null {
+  const variants = def?.oneOf;
+  if (!variants?.length) return null;
+
+  const fields: UnionField[] = [];
+  for (const variant of variants) {
+    const properties = variant.properties;
+    if (variant.type !== "object" || !properties) return null;
+
+    const names = Object.keys(properties);
+    if (names.length !== 1) return null;
+
+    const schema = properties[names[0]];
+    fields.push({
+      name: names[0],
+      schema,
+      // schemars puts the doc comment on the variant, not on its field.
+      description: variant.description || schema.description || "",
+    });
+  }
+
+  return fields;
+}
+
+/** Renders a schema's own type as a display string, e.g. `integer` or `string | null`. */
+function describeType(schema: SchemaNode | null | undefined): string {
+  if (!schema?.type) return "any";
+  if (!Array.isArray(schema.type)) return schema.type;
+
+  const label = schema.type.filter((t) => t !== "null").join(" | ");
+  return schema.type.includes("null") ? `${label} (optional)` : label;
+}
+
+/**
+ * Renders a referenced definition as a display string: its own type, its enum
+ * values, or — for a union — the alternatives joined with `|`.
+ */
+function describeUnionType(
+  referencedDef: SchemaNode | null,
+  refName: string | undefined,
+): string {
+  if (!referencedDef) return refName || "object";
+
+  if (referencedDef.type) return describeType(referencedDef);
+
+  if (referencedDef.enum) {
+    return referencedDef.enum.map((e) => JSON.stringify(e)).join(" | ");
+  }
+
+  const variants = referencedDef.oneOf ?? referencedDef.anyOf;
+  if (variants) {
+    return variants
+      .map((option) => {
+        // A variant can carry both `const` and `type`; the literal is the
+        // useful half.
+        if (option.const !== undefined) return `"${String(option.const)}"`;
+        if (option.type) return describeType(option);
+        if (option.$ref) return option.$ref.split("/").pop();
+        return "unknown";
+      })
+      .filter((label, index, all) => all.indexOf(label) === index)
+      .join(" | ");
+  }
+
+  return refName || "object";
+}
+
+/**
+ * Builds the parameter rows for a union that `splitSingleFieldUnion` accepted:
+ * a header for the parameter itself, then one row per alternative. None of the
+ * alternatives is individually required — the header says to pick one.
+ */
+function unionFieldRows(
+  fields: UnionField[],
+  displayName: string,
+  description: string,
+  parentName: string,
+  isOptional: boolean,
+): Endpoint["params"] {
+  const pickOne = "Provide exactly one of the fields below.";
+
+  return [
+    {
+      name: displayName,
+      type: isOptional ? "object (optional)" : "object",
+      description: description ? `${description} ${pickOne}` : pickOne,
+      isObjectHeader: true,
+      parentName: parentName || undefined,
+      required: !isOptional,
+    },
+    ...fields.map((field) => ({
+      name: field.name,
+      type: describeType(field.schema),
+      description: field.description,
+      isNested: true,
+      parentName: displayName,
+      required: false,
+    })),
+  ];
+}
 // =================================================================================
 // EXPORTED SCHEMA PARSERS
 // =================================================================================
@@ -115,34 +236,23 @@ export function extractParametersFromSchema(
         return;
       } else {
         const refName = propDef.$ref.split("/").pop();
-        let refType = refName || "object";
-        if (referencedDef) {
-          if (referencedDef.type) {
-            if (Array.isArray(referencedDef.type)) {
-              refType = referencedDef.type
-                .filter((t) => t !== "null")
-                .join(" | ");
-              if (referencedDef.type.includes("null")) refType += " (optional)";
-            } else {
-              refType = referencedDef.type;
-            }
-          } else if (referencedDef.enum) {
-            refType = referencedDef.enum
-              .map((e) => JSON.stringify(e))
-              .join(" | ");
-          } else if (referencedDef.oneOf) {
-            refType = referencedDef.oneOf
-              .map((option) => {
-                if (option.type) return option.type;
-                if (option.const) return `"${String(option.const)}"`;
-                return "unknown";
-              })
-              .join(" | ");
-          }
+        const unionFields = splitSingleFieldUnion(referencedDef);
+        if (unionFields) {
+          params.push(
+            ...unionFieldRows(
+              unionFields,
+              displayName,
+              getBestDescription(propDef, displayName) ||
+                getBestDescription(referencedDef, displayName),
+              parentName,
+              isOptional,
+            ),
+          );
+          return;
         }
         params.push({
           name: displayName,
-          type: refType,
+          type: describeUnionType(referencedDef, refName),
           description:
             getBestDescription(propDef, displayName) ||
             getBestDescription(referencedDef, displayName),
@@ -190,6 +300,39 @@ export function extractParametersFromSchema(
           params.push(...nestedParams);
           return;
         }
+
+        // Not an object with properties — most likely a union. Falling through
+        // here would land in the primitive tail below, which cannot see past
+        // the `anyOf` wrapper and would label the parameter `string`.
+        const description =
+          getBestDescription(propDef, displayName) ||
+          getBestDescription(referencedDef, displayName);
+        const unionFields = splitSingleFieldUnion(referencedDef);
+        if (unionFields) {
+          params.push(
+            ...unionFieldRows(
+              unionFields,
+              displayName,
+              description,
+              parentName,
+              true,
+            ),
+          );
+          return;
+        }
+
+        params.push({
+          name: displayName,
+          type: describeUnionType(
+            referencedDef,
+            nonNullOption.$ref.split("/").pop(),
+          ),
+          description,
+          isNested: nestingLevel > 0,
+          parentName: parentName || undefined,
+          required: false,
+        });
+        return;
       }
     }
 

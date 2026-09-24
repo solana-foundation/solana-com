@@ -1,8 +1,8 @@
 "use client";
 
 import { useTemplateFilterState } from "../../lib/templates";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { ChevronDown } from "@boxicons/react/ChevronDown";
 import { useState } from "react";
 
 export function TemplatesUiFilterKeywords() {
@@ -23,12 +23,13 @@ export function TemplatesUiFilterKeywords() {
     const isExpanded = expandedSections.includes(filter.id);
     return (
       <div
-        className="flex flex-col gap-2 border-b border-white/5 pb-4 last:border-b-0"
+        className="flex flex-col gap-2 border-b border-white/[0.08] pb-4 last:border-b-0 last:pb-0"
         key={filter.id}
       >
         <button
+          type="button"
           onClick={() => toggleSection(filter.id)}
-          className="flex items-center justify-between text-sm font-bold py-1.5 hover:text-purple-400 transition-colors"
+          className="flex items-center justify-between py-1.5 font-brand-mono text-[11px] font-medium uppercase tracking-[0.08em] text-nd-high-em-text transition-colors hover:text-nd-mid-em-text"
         >
           <span>{filter.name}</span>
           <motion.div
@@ -47,19 +48,19 @@ export function TemplatesUiFilterKeywords() {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="flex flex-col gap-1.5 pt-1">
+              <div className="flex flex-col gap-2 pt-1">
                 {filter.keywords.map((keyword) => {
                   const isSelected = selectedKeywords.includes(keyword.id);
                   return (
                     <label
                       key={keyword.id}
-                      className="flex items-center gap-2 cursor-pointer hover:text-purple-400 transition-colors text-xs"
+                      className="group flex cursor-pointer items-center gap-2.5 text-sm text-nd-mid-em-text transition-colors hover:text-nd-high-em-text"
                     >
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleKeyword(keyword.id)}
-                        className="w-3.5 h-3.5 rounded border-white/10 bg-zinc-800/50 checked:bg-purple-500 checked:border-purple-500 cursor-pointer"
+                        className="size-3.5 cursor-pointer rounded-sm border-white/25 bg-white/[0.04] accent-white"
                       />
                       <span>{keyword.name}</span>
                     </label>

@@ -15,22 +15,18 @@ description: 구독 플랜 트랜잭션 설정 가이드.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```bash
     pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
     ```
-
   </Tab>
 
   <Tab value="Rust">
-
     ```toml
     [dependencies]
-    subscriptions = "0.4.0"
+    subscriptions = "0.5.0"
     solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
-
   </Tab>
 </Tabs>
 
@@ -38,9 +34,10 @@ description: 구독 플랜 트랜잭션 설정 가이드.
 
 판매자가 플랜을 소유합니다. 플랜 PDA는 판매자 주소와 `planId`에서 파생됩니다.
 
+스폰서는 선택적 `payer`를 전달하여 플랜의 rent를 대납할 수 있으며, 가맹점은 플랜 소유자로 유지됩니다. 플랜을 삭제하면 환불은 payer가 아닌 소유자에게 이루어지므로, 스폰서십 검증은 오프체인에서 처리하세요.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { address, createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -82,7 +79,6 @@ description: 구독 플랜 트랜잭션 설정 가이드.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_address::{address, Address};
     use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
@@ -145,10 +141,10 @@ description: 구독 플랜 트랜잭션 설정 가이드.
   부분집합이어야 함), 손상된 풀러의 접근을 차단할 수 있습니다. 상태, `endTs`,
   메타데이터는 고정된 상태로 유지됩니다.
 - `endTs`가 변경되지 않는 한, 플랜의 최종 청구 기간 중에도 편집이 가능합니다.
+- 이 명령어는 서명 시점에 확인된 플랜 상태(`expectedCreatedAt`, `expectedEndTs`, `expectedPullers`, `expectedMetadataUri`)를 함께 전달합니다. 실제 플랜이 더 이상 일치하지 않으면 업데이트가 거부(`StalePlanApproval`)되므로, 오래된 서명된 업데이트로는 제거된 puller를 복원하거나 이후 편집을 되돌릴 수 없습니다. 플러그인 클라이언트의 `updatePlan`은 최신 상태를 자동으로 가져오며, 수동으로 빌드할 경우 플랜을 직접 조회하여 필드를 전달하세요.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { PlanStatus } from '@solana/subscriptions';
 
@@ -170,7 +166,6 @@ description: 구독 플랜 트랜잭션 설정 가이드.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     let new_puller: Address = address!("NEW_PULLER_WALLET_ADDRESS_HERE");
     let mut updated_pullers = [Address::default(); 4];
@@ -183,6 +178,9 @@ description: 구독 플랜 트랜잭션 설정 가이드.
     let (event_authority, _) =
         Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
 
+    // Fetch and decode the live plan account before building UpdatePlanData.
+    let fetched_plan: Plan = fetched_plan;
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
@@ -192,6 +190,10 @@ description: 구독 플랜 트랜잭션 설정 가이드.
             end_ts: 0,
             pullers: updated_pullers,
             metadata_uri: updated_metadata_uri,
+            expected_created_at: fetched_plan.data.terms.created_at,
+            expected_end_ts: fetched_plan.data.end_ts,
+            expected_pullers: fetched_plan.data.pullers,
+            expected_metadata_uri: fetched_plan.data.metadata_uri,
         })
         .instruction();
     ```
@@ -204,9 +206,10 @@ description: 구독 플랜 트랜잭션 설정 가이드.
 구독자는 현재 플랜 약관에 동의합니다. 구독 PDA는 플랜 PDA와 구독자 주소로부터
 도출됩니다.
 
+권한 초기화와 구독을 단일 트랜잭션으로 묶으려면, TypeScript SDK에서 내보낸 센티넬 값 `UNKNOWN_INIT_ID`를 `expectedSubscriptionAuthorityInitId`로 전달하세요. 프로그램은 해당 권한이 현재 slot에서 생성된 경우에만 수락하므로, 이 센티넬은 신규 가입에 적합합니다. 이전 slot에서 권한이 생성된 기존 사용자는 실제 `initId`를 전달해야 하며(플러그인 클라이언트가 자동으로 조회함), 그렇지 않으면 `StaleSubscriptionAuthority` 오류가 발생합니다.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -267,7 +270,6 @@ description: 구독 플랜 트랜잭션 설정 가이드.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{accounts::Plan, generated::{instructions::*, types::*}};
 
@@ -331,7 +333,6 @@ description: 구독 플랜 트랜잭션 설정 가이드.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     const receiverAta = address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE');
 
@@ -352,7 +353,6 @@ description: 구독 플랜 트랜잭션 설정 가이드.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{TransferData, TransferSubscriptionBuilder};
 
@@ -381,7 +381,6 @@ PDA를 닫습니다. 구독자는 두 트랜잭션 모두에 서명합니다.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     await subscriberClient.subscriptions.instructions
       .cancelSubscription({
@@ -404,7 +403,6 @@ PDA를 닫습니다. 구독자는 두 트랜잭션 모두에 서명합니다.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_instruction::AccountMeta;
     use subscriptions::generated::instructions::*;
@@ -426,6 +424,54 @@ PDA를 닫습니다. 구독자는 두 트랜잭션 모두에 서명합니다.
   </Tab>
 </Tabs>
 
+## 즉시 취소
+
+구독자와 현재 플랜 소유자가 모두 서명하면, `cancelSubscriptionNow`는 청구 기간 종료 시점이 아닌 취소 시점에 구독을 만료시킵니다. 또한 보류 중인 유예 기간 취소를 단축할 수도 있습니다. 승인은 서명 시점에 확인된 기간 시작 시각에 바인딩되며, 그 이후 구독이 변경된 경우 트랜잭션은 거부(`StaleSubscriptionApproval`)됩니다.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
+    await subscriberClient.subscriptions.instructions
+      .cancelSubscriptionNow({
+        subscriber: subscriberSigner,
+        merchant: merchantSigner,
+        planPda,
+        expectedCurrentPeriodStartTs: subscription.data.currentPeriodStartTs,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use subscriptions::{accounts::SubscriptionDelegation, generated::{instructions::*, types::*}};
+
+    // Fetch and decode the subscription account before building the data.
+    let fetched_subscription: SubscriptionDelegation = fetched_subscription;
+
+    let cancel_now_ix = CancelSubscriptionNowBuilder::new()
+        .subscriber(subscriber)
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .event_authority(event_authority)
+        .cancel_subscription_now_data(CancelSubscriptionNowData {
+            expected_current_period_start_ts: fetched_subscription.current_period_start_ts,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## 구독 재개
 
 취소된 구독은 해지되기 전에 재활성화할 수 있습니다. 해지된 후에는 구독 계정이
@@ -434,15 +480,24 @@ PDA를 닫습니다. 구독자는 두 트랜잭션 모두에 서명합니다.
 (소유자, 민트, `init_id`) 기준으로 검증하고, 오래되었거나 재초기화된 경우
 거부합니다.
 
+이 명령어는 구독자가 서명 시점에 확인한 만료 시각(`expectedExpiresAtTs`)을 함께 전달합니다. 값이 일치하지 않으면 거부(`StaleSubscriptionApproval`)되므로, 오래된 서명된 재개 요청으로는 구독자가 승인하지 않은 이후의 취소를 해제할 수 없습니다.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
     await subscriberClient.subscriptions.instructions
       .resumeSubscription({
         subscriber: subscriberSigner,
         planPda,
         tokenMint,
+        expectedExpiresAtTs: subscription.data.expiresAtTs,
       })
       .sendTransaction();
     ```
@@ -450,7 +505,6 @@ PDA를 닫습니다. 구독자는 두 트랜잭션 모두에 서명합니다.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::generated::instructions::*;
 
@@ -463,6 +517,9 @@ PDA를 닫습니다. 구독자는 두 트랜잭션 모두에 서명합니다.
         .subscription_pda(subscription_pda)
         .subscription_authority(subscription_authority)
         .event_authority(event_authority)
+        .resume_data(ResumeData {
+            expected_expires_at_ts: fetched_subscription.expires_at_ts,
+        })
         .instruction();
     ```
 

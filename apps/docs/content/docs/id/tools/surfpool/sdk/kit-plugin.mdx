@@ -1,0 +1,373 @@
+---
+title: Kit Plugin
+description:
+  Jalankan Surfnet tertanam di balik klien Solana Kit. Satu plugin memberi Anda payer yang sudah didanai, tumpukan RPC lengkap, dan cheatcode bertipe.
+---
+
+`@solana/surfpool/kit` menjalankan Surfnet — jaringan lokal yang kompatibel dengan Solana —
+di dalam proses pengujian Anda dan mengembalikan klien
+[Solana Kit](https://www.solanakit.com/) yang sudah diarahkan ke sana. Satu
+`.use(surfpool())` menggantikan plugin RPC yang biasanya Anda gunakan
+(`solanaLocalRpc()`, `litesvm()`) dan menambahkan payer yang sudah didanai beserta
+cheatcode Surfpool:
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+const slot = await client.rpc.getSlot().send();
+await client.cheatcodes.timeTravel({ absoluteSlot: 1_000_000n }).send();
+```
+
+Tidak perlu memilih port, membuat dan mendanai payer, maupun mengelola proses `surfpool start`
+terpisah. Baru mengenal SDK ini? Mulai dengan
+[Ikhtisar](/docs/tools/surfpool/sdk/overview).
+
+## Entry Point Mana yang Anda Butuhkan
+
+| Entry point                       | Gunakan ketika                                                                                         |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `surfpool()`                      | **Default untuk pengujian.** Surfnet terisolasi per file pengujian, dengan klien Kit yang sudah terhubung.             |
+| `surfpool({ rpcUrl })`            | Instance `surfpool start` yang berjalan lama digunakan bersama antar proses, atau platform Anda tidak memiliki binary native. |
+| `surfnetCheatcodes()`             | Anda sudah memiliki klien dan hanya ingin menambahkan cheatcode padanya.                                                 |
+| `Surfnet` dari `@solana/surfpool` | Anda tidak menggunakan Kit — lihat [referensi JS](/docs/tools/surfpool/sdk/js-reference).                    |
+
+## Prasyarat
+
+- **Node.js 20.18+**, batas minimum yang dideklarasikan oleh `@solana/kit` v7. `@solana/surfpool`
+  sendiri berjalan pada 18+, tetapi paket Kit tidak. Beberapa plugin program memerlukan
+  lebih — `@solana-program/token` mendeklarasikan 24+.
+- **[Platform yang didukung](/docs/tools/surfpool/sdk/installation)** (macOS,
+  Linux x86-64) untuk mode tertanam, yang memuat binary native. Di platform lain, gunakan
+  mode attach.
+- **Familiar dengan komposisi plugin Kit** — klien dibangun dengan merangkai
+  panggilan `.use()`, dan setiap plugin menambahkan properti ke klien.
+
+## Instalasi
+
+```bash
+npm install --save-dev @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+# or
+pnpm add -D @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+```
+
+Ini dideklarasikan sebagai opsional peer dependencies dari `@solana/surfpool`: abaikan
+jika Anda hanya menggunakan kelas `Surfnet` secara langsung, tetapi mengimpor
+`@solana/surfpool/kit` membutuhkan `@solana/kit` dan `@solana/kit-plugin-rpc`. Lihat
+[Instalasi](/docs/tools/surfpool/sdk/installation) untuk matriks dukungan platform
+dan pemecahan masalah.
+
+## Mode Tertanam
+
+Memanggil `surfpool()` tanpa `rpcUrl` akan menjalankan Surfnet dalam proses pada port
+dinamis dan mengarahkan seluruh klien Kit ke sana. Plugin ini bersifat async, jadi `await`
+rantai `.use()`:
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+```
+
+<Callout type="info" title="File pengujian paralel">
+  Setiap panggilan `surfpool()` mengikat port dinamisnya sendiri, sehingga setiap file pengujian dapat
+  menjalankan Surfnet terisolasinya sendiri dan suite tetap berjalan secara paralel.
+</Callout>
+
+### Pengujian Lengkap
+
+Jalankan Surfnet, kirim transfer yang dibayar oleh payer yang sudah didanai, dan periksa
+hasilnya. Contoh di sini menggunakan `node:test`; Vitest dan Jest bekerja dengan cara yang sama
+dengan hook `after` / `afterAll` mereka sendiri.
+
+```ts title="transfer.test.ts"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+after(() => {
+  client.surfnet.stop();
+});
+
+test("transfers SOL on an embedded Surfnet", async () => {
+  const recipient = await generateKeyPairSigner();
+  const amount = lamports(5_000_000n);
+
+  await client.sendTransaction(
+    getTransferSolInstruction({
+      amount,
+      destination: recipient.address,
+      source: client.payer
+    })
+  );
+
+  const { value: balance } = await client.rpc
+    .getBalance(recipient.address)
+    .send();
+  assert.equal(balance, amount);
+});
+```
+
+### Siklus Hidup
+
+Panggil `client.surfnet.stop()` saat teardown, seperti di atas, agar port dan
+server Surfnet dilepaskan. `stop()` bersifat idempotent dan sinkron — ia mengembalikan nilai setelah
+runtime benar-benar ditutup. Penghentian bersifat final; membuat klien lain
+akan menjalankan instance baru.
+
+<Callout type="warn" title="Teardown tidak otomatis">
+  Klien yang disimpan di lingkup modul — pola umum untuk file pengujian — tidak pernah
+  dibuang, sehingga tidak ada yang menghentikan Surfnet untuk Anda. Tanpa hook teardown,
+  proses dapat hang atau mencatat peringatan `connection reset` saat OS menutup
+  soket pada saat keluar.
+</Callout>
+
+### Apa yang Dipasang Plugin
+
+| Pada klien                                        | Berasal dari                                                   | Apa itu                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `client.payer`                                       | `@solana/kit-plugin-signer`                                  | Sebuah `KeyPairSigner` untuk akun payer yang sudah didanai milik Surfnet                  |
+| `client.rpc` / `client.rpcSubscriptions`             | `@solana/kit-plugin-rpc`                                     | Klien RPC dan langganan Solana standar, diarahkan ke Surfnet |
+| `client.airdrop`                                     | `@solana/kit-plugin-rpc`                                     | `requestAirdrop` terhadap Surfnet                                      |
+| `client.getMinimumBalance`                           | `@solana/kit-plugin-rpc`                                     | Pencarian pembebasan sewa                                                    |
+| `client.transactionPlanner` / `...PlanExecutor`      | `@solana/kit-plugin-rpc`                                     | Perencanaan dan eksekusi transaksi                                        |
+| `client.sendTransaction` / `client.sendTransactions` | `@solana/kit-plugin-rpc` (melalui `kit-plugin-instruction-plan`) | Rencanakan dan kirim instruksi dalam satu panggilan                                    |
+| `client.rpcUrl` / `client.wsUrl`                     | `@solana/surfpool/kit`                                       | URL HTTP dan WebSocket Surfnet                                     |
+| `client.surfnet`                                     | `@solana/surfpool/kit`                                       | Handle `Surfnet` native (`fundSol`, `deploy`, `drainEvents`, …)       |
+| `client.cheatcodes`                                  | `@solana/surfpool/kit`                                       | RPC bertipe yang mencakup setiap cheatcode `surfnet_*`                          |
+
+Plugin ini tidak memasang `identity`. Tambahkan dengan `.use(identity(...))` jika
+pengujian Anda memerlukan otoritas terpisah dari `client.payer`.
+
+## Cheatcode
+
+Cheatcode adalah mutasi state yang melewati alur transaksi normal — mereka
+berjalan seketika, tanpa mengonsumsi blockhash atau membayar biaya, yang merupakan hal yang Anda
+inginkan untuk penyiapan pengujian. `client.cheatcodes` mengekspos semuanya sebagai RPC bertipe.
+
+Nama metode menghapus awalan `surfnet_`, sehingga `surfnet_pauseClock` menjadi
+`client.cheatcodes.pauseClock()`, dan respons sudah tiba tanpa dibungkus
+envelope `{ context, value }` mereka.
+
+```ts
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+// Deterministic clock.
+const paused = await client.cheatcodes.pauseClock().send();
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+await client.cheatcodes.resumeClock().send();
+
+// Arbitrary account state. `data` is hex-encoded.
+const account = (await generateKeyPairSigner()).address;
+const owner = (await generateKeyPairSigner()).address;
+await client.cheatcodes
+  .setAccount(account, { data: "aabbcc", lamports: 777_777, owner })
+  .send();
+
+// Token balances, without minting through the token program. The mint must
+// already exist — create it, or clone it from mainnet with cloneProgramAccount.
+const mint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+await client.cheatcodes
+  .setTokenAccount(owner, mint, { amount: 1_000_000n })
+  .send();
+```
+
+Daftar metode lengkap — termasuk `streamAccount`, `cloneProgramAccount`,
+`profileTransaction`, `registerIdl`, dan `resetNetwork` — didokumentasikan di bawah
+[Cheatcode](/docs/tools/surfpool/sdk/cheatcodes) dan
+[referensi RPC](/docs/tools/surfpool/rpc/cheatcodes).
+
+### Menulis Akun Terstruktur Dengan Codec
+
+`setAccount` menerima byte mentah sebagai hex, yang cocok dipadukan dengan encoder akun
+yang dikirimkan klien program Kit. Daripada mengirim transaksi untuk membangun state,
+encode akun yang Anda inginkan dan tuliskan langsung — di sini, mint SPL yang sudah diinisialisasi penuh
+dengan supply yang sudah ada padanya:
+
+```ts
+import {
+  fetchMint,
+  getMintEncoder,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+import {
+  generateKeyPairSigner,
+  getBase16Decoder,
+  none,
+  some
+} from "@solana/kit";
+
+const mint = (await generateKeyPairSigner()).address;
+
+const data = getMintEncoder().encode({
+  decimals: 6,
+  freezeAuthority: none(),
+  isInitialized: true,
+  mintAuthority: some(client.payer.address),
+  supply: 1_000_000_000n
+});
+
+await client.cheatcodes
+  .setAccount(mint, {
+    // getBase16Decoder() turns the encoded bytes into the hex `data` expects.
+    data: getBase16Decoder().decode(data),
+    lamports: 1_461_600, // rent-exempt minimum for an 82-byte mint
+    owner: TOKEN_PROGRAM_ADDRESS
+  })
+  .send();
+
+// Reads back as a normal mint through the program client.
+const account = await fetchMint(client.rpc, mint);
+account.data.decimals; // 6
+account.data.supply; // 1_000_000_000n
+```
+
+Pola yang sama berlaku untuk klien yang dihasilkan Codama mana pun: encode dengan
+encoder akun, ubah ke hex, dan serahkan ke `setAccount`. Padukan dengan
+`setTokenAccount` di atas untuk menyiapkan mint dan pemegang yang sudah didanai tanpa satu
+transaksi pun.
+
+<Callout type="info" title="Respons cheatcode menggunakan bigint">
+  Transport cheatcode mengurai setiap integer JSON sebagai `bigint`, sehingga nilai `u64`
+  seperti `rentEpoch` tetap aman melewati 2^53. Payload permintaan menerima `number
+  | bigint`.
+</Callout>
+
+### Cheatcode Tanpa Plugin
+
+Dua entry point yang lebih kecil mencakup kasus di mana Anda tidak menginginkan plugin penuh. Keduanya
+bersifat sinkron — mereka hanya menempelkan transport, sehingga tidak ada yang memerlukan `await`.
+
+```ts
+import {
+  createSurfnetCheatcodesRpc,
+  surfnetCheatcodes
+} from "@solana/surfpool/kit";
+
+// Standalone RPC, no Kit client involved.
+const cheatcodes = createSurfnetCheatcodesRpc("http://127.0.0.1:8899");
+await cheatcodes.pauseClock().send();
+
+// Add `client.cheatcodes` to a client you already composed.
+const client = createClient().use(surfnetCheatcodes());
+```
+
+`surfnetCheatcodes()` menentukan endpoint-nya dari `url` jika diberikan, lalu dari
+`client.rpcUrl` yang sudah ada (sehingga dapat dikomposisikan dengan klien mana pun yang memilikinya), dan
+akhirnya dari `DEFAULT_SURFNET_ENDPOINT` (`http://127.0.0.1:8899`). Keduanya menerima opsi
+`headers` untuk autentikasi terhadap Surfpool remote.
+
+## Konfigurasi
+
+Opsi startup Surfnet ditempatkan di bawah kunci `surfnet` dan diteruskan ke
+`Surfnet.startWithConfig()`. Semua yang lain diteruskan ke plugin RPC Solana lokal:
+
+```ts
+const client = await createClient().use(
+  surfpool({
+    surfnet: { offline: true }, // Surfnet startup config
+    skipPreflight: true // forwarded to solanaLocalRpc()
+  })
+);
+```
+
+Abaikan `surfnet` sepenuhnya dan plugin akan memanggil `Surfnet.start()` dengan
+default-nya. Lihat [Konfigurasi](/docs/tools/surfpool/sdk/configuration) untuk
+kumpulan opsi startup lengkap — fallback RPC mainnet, mode produksi blok, waktu slot,
+feature gate, dan payer kustom.
+
+## Komposisi Dengan Plugin Program
+
+Karena `surfpool()` memenuhi kontrak yang sama dengan `solanaLocalRpc()`, plugin
+program Kit dapat ditumpuk di atasnya dan instruksi mereka dieksekusi terhadap
+Surfnet tertanam. Hanya hasil akhir yang perlu di-await — `use()` pada klien async mengembalikan
+klien async lain, sehingga plugin sinkron dan async dapat dirantai dengan bebas.
+
+```ts
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool()).use(tokenProgram());
+
+const newMint = await generateKeyPairSigner();
+await client.token.instructions
+  .createMint({ decimals: 6, mintAuthority: client.payer.address, newMint })
+  .sendTransaction();
+
+await client.token.instructions
+  .mintToATA({
+    amount: 1_000_000n,
+    decimals: 6,
+    mint: newMint.address,
+    mintAuthority: client.payer,
+    owner: client.payer.address
+  })
+  .sendTransaction();
+```
+
+## Mode Attach
+
+Mengoper `rpcUrl` mengalihkan plugin ke mode attach: plugin terhubung ke
+Surfpool yang sudah berjalan — yang dimulai dengan
+[`surfpool start`](/docs/tools/surfpool/toolchain/cli) — alih-alih menjalankannya sendiri.
+Tidak ada modul native yang dimuat, sehingga mode ini bekerja di platform tanpa binary bawaan.
+Mode ini juga bersifat sinkron, sehingga tidak ada yang perlu di-await:
+
+```ts
+import { createKeyPairSignerFromBytes, createClient } from "@solana/kit";
+import { payer } from "@solana/kit-plugin-signer";
+import { surfpool } from "@solana/surfpool/kit";
+import { readFile } from "node:fs/promises";
+
+// Any funded signer works; this loads the local CLI keypair.
+const keypairPath = `${process.env.HOME}/.config/solana/id.json`;
+const myPayer = await createKeyPairSignerFromBytes(
+  new Uint8Array(JSON.parse(await readFile(keypairPath, "utf8")))
+);
+
+const client = createClient()
+  .use(payer(myPayer))
+  .use(surfpool({ rpcUrl: "http://127.0.0.1:8899" }));
+```
+
+Tiga perbedaan dari mode tertanam:
+
+- **Klien harus sudah memiliki `payer`.** Mode attach tidak memiliki akses ke
+  kunci rahasia payer instance yang berjalan, sehingga tidak memasang apa pun. Danai signer
+  yang Anda sediakan dengan `client.cheatcodes.setAccount(...)` atau faucet
+  instance yang sedang berjalan.
+- **Tidak ada handle `client.surfnet`.** Helper dalam proses tidak tersedia;
+  gunakan `client.cheatcodes` untuk manipulasi state.
+- **Konfigurasi startup `surfnet` ditolak.** Instance sudah berjalan, sehingga
+  `rpcUrl` dan `surfnet` bersifat saling eksklusif dalam tipe.
+
+<Callout type="warn" title="Port WebSocket">
+  Surfpool melayani langganan pada portnya sendiri (default `8900`, `--ws-port`),
+  terpisah dari port HTTP. Ketika `rpcUrl` memiliki port eksplisit, plugin
+  menurunkan URL langganan sebagai port `8900` pada host yang sama. Ketika tidak memiliki
+  port — di balik proxy, misalnya — hanya protokolnya yang ditukar menjadi `ws`/`wss`. Atur
+  `rpcSubscriptionsUrl` sendiri ketika tidak ada aturan yang sesuai.
+</Callout>
+
+## Langkah Selanjutnya
+
+- [Program](/docs/tools/surfpool/sdk/programs) — deploy program Anda ke dalam
+  Surfnet sebelum pengujian
+- [Cheatcode](/docs/tools/surfpool/sdk/cheatcodes) — permukaan mutasi state
+  lengkap
+- [Konfigurasi](/docs/tools/surfpool/sdk/configuration) — forking mainnet,
+  produksi blok, feature gate
+- [Instalasi](/docs/tools/surfpool/sdk/installation) — dukungan platform dan
+  pemecahan masalah
+- [Referensi JS](/docs/tools/surfpool/sdk/js-reference) — kelas `Surfnet`
+  di balik `client.surfnet`

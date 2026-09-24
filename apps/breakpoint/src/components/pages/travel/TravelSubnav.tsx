@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-const TRAVEL_LINKS = [
-  { href: "#flights", label: "Flights" },
-  { href: "#hotels", label: "Hotels" },
-  { href: "#visas", label: "Visas" },
-] as const;
+import { useTranslations } from "@workspace/i18n/client";
 
 function QuickLink({ href, label }: { href: string; label: string }) {
   return (
@@ -20,8 +15,14 @@ function QuickLink({ href, label }: { href: string; label: string }) {
 }
 
 export default function TravelSubnav() {
+  const t = useTranslations("breakpoint.travel.subnav");
   const navRef = useRef<HTMLElement>(null);
   const [isSubnavPinned, setIsSubnavPinned] = useState(false);
+  const travelLinks = [
+    { href: "#flights", label: t("flights") },
+    { href: "#hotels", label: t("hotels") },
+    { href: "#visas", label: t("visas") },
+  ];
 
   useEffect(() => {
     let animationFrame = 0;
@@ -69,11 +70,11 @@ export default function TravelSubnav() {
       />
       <nav
         ref={navRef}
-        aria-label="Travel sections"
-        className="sticky top-20 z-30 border-b border-neutral-700 bg-black py-3"
+        aria-label={t("label")}
+        className="sticky top-20 z-30 border-b border-neutral-700 bg-black py-[28.5px]"
       >
         <div className="container flex w-full max-w-[1440px] flex-wrap items-center gap-1 md:gap-2">
-          {TRAVEL_LINKS.map((link) => (
+          {travelLinks.map((link) => (
             <QuickLink key={link.href} href={link.href} label={link.label} />
           ))}
         </div>

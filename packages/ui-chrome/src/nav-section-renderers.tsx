@@ -2,14 +2,13 @@ import { useTranslations } from "next-intl";
 import { Link } from "./link";
 import { HeaderItem } from "./header-item";
 import { HeaderBanner } from "./header-banner";
-import { CollapseMenu } from "./collapse-menu";
 import type { NavItemDefinition, NavPromoDefinition } from "./nav-types";
 
 export function SectionHeading({ title }: { title: string }) {
   return (
-    <div className="pt-2 pb-3 xl:pt-1 xl:pb-3 font-brand-mono font-medium text-white/45 text-[11px] tracking-[0.12em] uppercase">
+    <h3 className="m-0 pt-2 pb-3 xl:pt-1 xl:pb-3 font-brand-mono font-medium text-white/45 text-[11px] tracking-[0.12em] uppercase">
       {title}
-    </div>
+    </h3>
   );
 }
 
@@ -63,29 +62,22 @@ export function NavColumns({ columns }: { columns: NavItemDefinition[][] }) {
   );
 }
 
-export function CollapsibleNavGroup({
+export function NavGroup({
   title,
-  isMobile,
   children,
   className = "",
 }: {
   title: string;
-  isMobile?: boolean;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <CollapseMenu
-      className={`text-[rgba(255,255,255,0.64)] data-[state=open]:text-white ${className}`.trim()}
-      title={
-        <div className="py-3 xl:pt-1 xl:pb-3 font-brand-mono font-medium text-[11px] tracking-[0.12em] uppercase">
-          {title}
-        </div>
-      }
-      alwaysOpen={!isMobile}
-    >
+    <section className={className}>
+      <h3 className="m-0 py-3 font-brand-mono text-[11px] font-medium uppercase tracking-[0.12em] text-white/60 xl:pb-3 xl:pt-1">
+        {title}
+      </h3>
       {children}
-    </CollapseMenu>
+    </section>
   );
 }
 

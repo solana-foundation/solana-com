@@ -33,19 +33,19 @@ export const SearchResults = React.memo<SearchResultsProps>(
         }
         className="
         absolute top-full left-0 right-0 mt-2 px-2 py-4
-        bg-[#0d000e] border border-purple-400/10 rounded-2xl shadow-xl
+        bg-[#0D0C11] border border-nd-border-light rounded-xl shadow-2xl
         max-h-96 overflow-y-auto z-50 custom-scrollbar
       "
       >
         {showEmptyState ? (
-          <div className="p-4 text-center text-neutral-400 text-sm">
+          <div className="p-4 text-center text-nd-mid-em-text text-sm">
             No templates found.
           </div>
         ) : (
           <div className="space-y-3">
             {isShowingFeatured && (
               <div className="px-3">
-                <h3 className="text-neutral-300 text-sm font-medium">
+                <h3 className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase tracking-wide text-nd-mid-em-text">
                   Featured Templates
                 </h3>
               </div>

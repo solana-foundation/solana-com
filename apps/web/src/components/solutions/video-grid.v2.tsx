@@ -10,6 +10,7 @@ import { useRef } from "react";
 import { cn } from "@/app/components/utils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { useTranslations } from "next-intl";
+import { VideoBadgeIcon } from "@/component-library/video-badge-icon";
 
 const NAV_BUTTON_CLASSNAME =
   "backdrop-blur-xs !bg-black/80 [&&&]:!shadow-[0_2px_4px_1px_rgba(0,0,0,0.17),0_-4px_12px_0_rgba(255,255,255,0.08)_inset,0_1px_0_0_rgba(255,255,255,0.20)_inset,0_-1px_0_0_rgba(255,255,255,0.12)_inset]";
@@ -31,14 +32,6 @@ export const VideoBadge = {
   Originals: "originals",
   Learn: "learn",
 } as const;
-
-const ICON_MAP = {
-  [VideoBadge.Event]: "/src/img/video-badge/event-icon.svg",
-  [VideoBadge.Interview]: "/src/img/video-badge/interview-icon.svg",
-  [VideoBadge.Learn]: "/src/img/video-badge/learn-icon.svg",
-  [VideoBadge.Originals]: "/src/img/video-badge/originals-icon.svg",
-  [VideoBadge.Podcast]: "/src/img/video-badge/podcast-icon.svg",
-};
 
 const BG_MAP = {
   [VideoBadge.Event]: "#9C71EC",
@@ -134,12 +127,9 @@ export const VideoGrid = ({ title, subtitle, videos }: VideoGridProps) => {
               backgroundColor: BG_MAP[video.badge],
             }}
           >
-            <Image
-              className="inline-block align-middle mr-1.5 max-xl:size-[18px] rounded-[2px]"
-              src={ICON_MAP[video.badge]}
-              width={22}
-              height={22}
-              alt=""
+            <VideoBadgeIcon
+              type={video.badge}
+              className="mr-1.5 max-xl:size-[18px]"
             />
             <span className="pr-1 inline-block align-middle pt-0.5 tracking-[1px]">
               {t(`video-badge.${video.badge}`)}

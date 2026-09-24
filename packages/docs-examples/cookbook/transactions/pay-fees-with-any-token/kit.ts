@@ -29,7 +29,7 @@ const client = await createClient()
   .use(tokenProgram());
 
 // Create the mint and mint 1.00 tokens to sender's ATA
-const createMintIx = client.token.instructions.createMint({
+const createMintIx = await client.token.instructions.createMint({
   newMint: mint,
   decimals: 2,
   mintAuthority: sender.address,

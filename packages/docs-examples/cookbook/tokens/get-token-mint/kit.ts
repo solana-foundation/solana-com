@@ -1,5 +1,5 @@
 // #region fetch
-import { Address, createSolanaRpc } from "@solana/kit";
+import { type Address, createSolanaRpc } from "@solana/kit";
 import { fetchMint } from "@solana-program/token-2022";
 
 const rpc = createSolanaRpc("http://localhost:8899");

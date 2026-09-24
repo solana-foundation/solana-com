@@ -1,5 +1,7 @@
 import styles from "./RampsSearch.module.scss";
 import { useTranslations } from "next-intl";
+import { Search } from "@boxicons/react/Search";
+import { SliderAlt } from "@boxicons/react/SliderAlt";
 
 interface RampsSearchProps {
   mobileClickEvent: () => void;
@@ -28,14 +30,21 @@ const RampsSearch = ({
           onChange={handleInputChange}
           placeholder={t("on-off-ramp.search.search-placeholder")}
         ></input>
-        <div className={`${styles["ramps-search__submit-button"]}`}></div>
+        <Search
+          className={styles["ramps-search__submit-button"]}
+          width={16}
+          height={16}
+          aria-hidden="true"
+        />
       </div>
 
       <button
         className={`${styles["ramps-search__mobile-filters"]}`}
         aria-label={t("on-off-ramp.search.toggle-mobile-filters.aria-label")}
         onClick={mobileClickEvent}
-      ></button>
+      >
+        <SliderAlt width={20} height={20} aria-hidden="true" />
+      </button>
     </div>
   );
 };

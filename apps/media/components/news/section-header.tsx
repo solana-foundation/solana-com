@@ -1,6 +1,6 @@
 import { Link } from "@workspace/i18n/routing";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { cn } from "@/lib/utils";
 
 interface SectionHeaderProps {

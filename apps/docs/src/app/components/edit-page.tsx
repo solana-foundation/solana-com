@@ -1,5 +1,5 @@
 "use client";
-import GithubIcon from "@@/public/src/img/format/github.inline.svg";
+import { Github } from "@boxicons/react/Github";
 import { useI18n } from "fumadocs-ui/provider";
 
 export function EditOnGithub({ href }: { href: string }) {
@@ -11,7 +11,7 @@ export function EditOnGithub({ href }: { href: string }) {
       rel="noreferrer noopener"
       className="pt-2 flex items-center gap-2 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground/80"
     >
-      <GithubIcon width="18" height="18" />
+      <Github width={18} height={18} aria-hidden="true" />
       <span>{text?.editOnGithub}</span>
     </a>
   );

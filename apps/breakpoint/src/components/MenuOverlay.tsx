@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import { Link, usePathname } from "@workspace/i18n/routing";
 import { publicAssetPath } from "@/config";
 import {
@@ -22,13 +23,6 @@ type SocialLink = {
   href: string;
   icon: string;
 };
-
-const MENU_ITEMS: MenuItem[] = [
-  { label: "Home", href: "/" },
-  { label: "Travel", href: "/travel" },
-  { label: "Register", href: "/registration" },
-  { label: "FAQ", href: "/faq" },
-];
 
 const SOCIAL_LINKS: SocialLink[] = [
   {
@@ -157,6 +151,7 @@ function MenuItemRow({
 }
 
 export default function MenuOverlay({ open, onClose }: Props) {
+  const t = useTranslations("breakpoint.menu");
   const pathname = usePathname();
   const containerRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -206,11 +201,18 @@ export default function MenuOverlay({ open, onClose }: Props) {
 
   if (!open) return null;
 
+  const menuItems: MenuItem[] = [
+    { label: t("items.home"), href: "/" },
+    { label: t("items.travel"), href: "/travel" },
+    { label: t("items.register"), href: "/registration" },
+    { label: t("items.faq"), href: "/faq" },
+  ];
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Site menu"
+      aria-label={t("dialogLabel")}
       ref={containerRef}
       className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-black text-white"
     >
@@ -234,7 +236,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
           href={breakpointHref("/")}
           onClick={onClose}
           className="flex h-4 shrink-0 items-center gap-[5.705px] md:h-5 md:gap-[7px]"
-          aria-label="Breakpoint 2026"
+          aria-label={t("siteLabel")}
         >
           <img
             src={publicAssetPath("/assets/nav-solana.svg")}
@@ -258,10 +260,10 @@ export default function MenuOverlay({ open, onClose }: Props) {
           ref={closeRef}
           type="button"
           onClick={onClose}
-          aria-label="Close menu"
+          aria-label={t("closeMenu")}
           className="group inline-flex h-8 shrink-0 items-center gap-2 bg-neutral-800 px-3 font-mono text-button uppercase text-white transition-colors hover:bg-neutral-600 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
         >
-          <span aria-hidden="true">Close</span>
+          <span aria-hidden="true">{t("close")}</span>
           <span aria-hidden="true" className="relative block size-3">
             <svg
               width="12"
@@ -283,16 +285,17 @@ export default function MenuOverlay({ open, onClose }: Props) {
 
       {/* Eyebrow / event meta */}
       <div className="relative z-10 flex items-center justify-between gap-4 px-4 pb-3 pt-6 md:px-8 md:pt-10">
-        <p className="type-button-small text-white/50">Menu</p>
-        <p className="type-button-small text-white/50">
-          Olympia London · Nov 15–17, 2026
-        </p>
+        <p className="type-button-small text-white/50">{t("label")}</p>
+        <p className="type-button-small text-white/50">{t("eventMeta")}</p>
       </div>
 
       {/* Menu items */}
-      <nav aria-label="Site" className="relative z-10 flex-1 px-4 md:px-8">
+      <nav
+        aria-label={t("siteNavLabel")}
+        className="relative z-10 flex-1 px-4 md:px-8"
+      >
         <ul className="unstyled-list border-t border-white/10">
-          {MENU_ITEMS.map((item, idx) => {
+          {menuItems.map((item, idx) => {
             const isCurrent = isCurrentBreakpointHref(pathname, item.href);
             return (
               <li key={item.href}>
@@ -317,7 +320,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
               href={social.href}
               target="_blank"
               rel="noreferrer"
-              aria-label={`${social.name} (opens in a new tab)`}
+              aria-label={t("opensInNewTab", { name: social.name })}
               className="flex size-6 items-center justify-center transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               <img
@@ -335,7 +338,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
             href="mailto:breakpoint@solana.org"
             className="type-button text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
-            Contact Us
+            {t("contact")}
           </a>
           <a
             href={CODE_OF_CONDUCT_HREF}
@@ -343,9 +346,9 @@ export default function MenuOverlay({ open, onClose }: Props) {
             rel="noreferrer"
             className="type-button text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
-            Code of Conduct
+            {t("codeOfConduct")}
           </a>
-          <p className="type-button text-white/50">© Solana Foundation 2026</p>
+          <p className="type-button text-white/50">{t("copyright")}</p>
         </div>
       </div>
     </div>

@@ -2,12 +2,12 @@
 
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
-import { Play, Pause } from "lucide-react";
+import { Play } from "@boxicons/react/Play";
+import { Pause } from "@boxicons/react/Pause";
 import { Badge } from "@/components/ui/badge";
 import { formatDuration, formatEpisodeDate } from "@/lib/podcast-utils";
 import {
   trackPodcastPlay,
-  trackPodcastPause,
   trackPodcastEpisodeClick,
 } from "@/lib/podcast-analytics";
 import { usePlayerOptional } from "./player-context";
@@ -41,9 +41,7 @@ export const EpisodeCard = ({
     };
 
     if (isCurrentEpisode) {
-      if (isPlaying) {
-        trackPodcastPause(eventParams);
-      } else {
+      if (!isPlaying) {
         trackPodcastPlay(eventParams);
       }
       player.togglePlayPause();

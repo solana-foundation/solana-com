@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
-import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
 import ImageTreatment from "@/components/ImageTreatment";
 import TextScramble from "@/components/TextScramble";
 import WordReveal from "@/components/WordReveal";
@@ -17,7 +16,6 @@ export default function HeroSection() {
   const [interacting, setInteracting] = useState(false);
   const [cursorY, setCursorY] = useState(50);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const mediaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -126,10 +124,10 @@ export default function HeroSection() {
               />
             ) : (
               <Button
-                label={t("hero.cta")}
+                label={t("menu.items.register")}
                 variant="primary"
                 arrow
-                onClick={() => setSubscribeOpen(true)}
+                href="/registration"
               />
             )}
           </div>
@@ -159,11 +157,6 @@ export default function HeroSection() {
         width={1440}
         height={146}
         className="pointer-events-none absolute bottom-0 left-0 z-0 h-[146px] w-full object-cover"
-      />
-
-      <EmailSubscribeDialog
-        open={subscribeOpen}
-        onClose={() => setSubscribeOpen(false)}
       />
     </section>
   );

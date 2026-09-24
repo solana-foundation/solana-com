@@ -118,6 +118,29 @@ describe("@workspace/i18n messages", () => {
     expect(messages).toHaveProperty("cookie-consent");
   });
 
+  it("keeps localized Breakpoint route messages", async () => {
+    const messages = await loadMergedMessages({
+      app: "breakpoint",
+      locale: "es",
+    });
+
+    expect(messages).toHaveProperty(
+      "breakpoint.travel.visas.checkRequirements",
+      "Consultar requisitos de visado o ETA",
+    );
+    expect(messages).toHaveProperty(
+      "breakpoint.pages.registration.heroTitle",
+      "Consigue tus entradas para Breakpoint 2026",
+    );
+  });
+
+  it("falls back to English when a Breakpoint locale file is missing", async () => {
+    const messages = await loadAppMessages("breakpoint", "sv");
+    const english = await loadAppMessages("breakpoint", "en");
+
+    expect(messages).toEqual(english);
+  });
+
   it("does not let primitives overwrite structured English objects", () => {
     const merged = deepMergeMessages(
       { nested: { label: "English" } },

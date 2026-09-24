@@ -42,7 +42,8 @@ import React, {
   createContext,
   useCallback,
 } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft } from "@boxicons/react/ChevronLeft";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 
 export type CarouselHandle = {
   next: () => void;

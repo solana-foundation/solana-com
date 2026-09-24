@@ -1,5 +1,10 @@
 import { useCallback, useState, useEffect } from "react";
-import { Input, Button, sendFormRequest } from "@solana-foundation/solana-lib";
+import { Input, Button } from "@solana-foundation/solana-lib";
+import {
+  getIterableActionUrl,
+  sendIterableFormRequest,
+} from "@solana-com/ui-chrome/iterable";
+import { trackLead } from "@solana-com/ui-chrome/analytics";
 import { useTranslations } from "next-intl";
 import { DialogTitle, DialogDescription } from "@radix-ui/react-dialog";
 
@@ -20,8 +25,9 @@ const ArtistsAndCreatorsNewsletter = ({
   modalCloseHandler = null,
   modalActionCompleted,
 }: ArtistsAndCreatorsNewsletterProps) => {
-  const actionUrl =
-    "//links.iterable.com/lists/publicAddSubscriberForm?publicIdString=94b90b1b-b29a-4ad7-9b3b-87331601d030";
+  const actionUrl = getIterableActionUrl(
+    "94b90b1b-b29a-4ad7-9b3b-87331601d030",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | false>(false);
@@ -99,18 +105,16 @@ const ArtistsAndCreatorsNewsletter = ({
 
       try {
         setIsSubmitting(true);
-        await sendFormRequest(actionUrl, formState);
+        await sendIterableFormRequest(actionUrl, formState);
         setIsSuccess(true);
         modalActionCompleted.current = true;
 
-        // track form submission
-        if (typeof window.gtag !== "undefined") {
-          window.gtag("event", "newsletter_sign_up", {
-            event_category: "engagement",
-            event_action: "Submitted",
-            event_label: "artistsAndCreatorsNewsletter",
-          });
-        }
+        trackLead({
+          appName: "web",
+          leadType: "newsletter",
+          formId: "artists_and_creators_newsletter",
+          placement: "modal",
+        });
       } catch (err) {
         console.error(err);
         setError("Something went wrong, please try again.");

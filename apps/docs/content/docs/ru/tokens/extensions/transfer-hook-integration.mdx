@@ -1,0 +1,473 @@
+---
+title: Руководство по интеграции Transfer Hook
+description:
+  "Узнайте, как интегрировать токены, использующие расширение Transfer Hook, в кошельки, кастодианы и dapp-приложения: обнаружение расширения, разрешение дополнительных аккаунтов, необходимых хуку, а также обработка ошибок при симуляции и выполнении."
+url: /docs/tokens/extensions/transfer-hook-integration
+type: conceptual
+prerequisites:
+  - /docs/tokens/extensions
+related:
+  - /docs/tokens/extensions/transfer-hook
+  - /docs/tokens/extensions/permanent-delegate
+  - /docs/tokens/extensions/transfer-fees
+  - /docs/tokens/extensions/confidential-transfer/integration-guide
+---
+
+## Общие сведения
+
+Расширение Transfer Hook позволяет минту Token-2022 требовать Cross Program
+Invocation (CPI) к пользовательской программе при каждой передаче токена. Минт хранит
+адрес программы хука, и любой кошелёк, dapp или кастодиан, отправляющий этот
+токен, должен включить аккаунты, необходимые программе хука, чтобы CPI мог выполниться.
+
+Это руководство предназначено для команд, **интегрирующих** токены с transfer hook
+(кошельки, dapp-приложения, кастодианы, биржи, эксплореры), а не для команд, **разрабатывающих**
+программу хука. Если вы создаёте программу хука, начните с
+[Transfer Hook Interface](https://www.solana-program.com/docs/transfer-hook-interface)
+и [руководства по расширению Transfer Hook](/docs/tokens/extensions/transfer-hook);
+данное руководство сосредоточено на том, что клиент должен делать для отправки, получения и симуляции
+переводов токена с поддержкой хука.
+
+В отличие от большинства других расширений Token-2022, transfer hook не является опциональным на уровне
+аккаунта. Если у минта настроен transfer hook, **каждый перевод этого токена требует дополнительных аккаунтов хука**,
+независимо от того, использует ли ваш продукт логику хука. Клиент, который не разрешает эти
+аккаунты, не сможет отправить токен вообще: инструкция перевода завершится ошибкой onchain,
+а не молча пропустит хук. Готовые функции для добавления в путь отправки
+находятся в разделе
+[Отправка токена с transfer hook](#sending-a-transfer-hook-token) ниже — как для
+Kit, так и для Web3.js.
+
+### Ресурсы
+
+- [Справочник Transfer Hook Interface](https://www.solana-program.com/docs/transfer-hook-interface)
+- [Rust-код расширения](https://github.com/solana-program/token-2022/tree/main/program/src/extension/transfer_hook)
+- [JS-клиент `@solana-program/token-2022`](https://github.com/solana-program/token-2022/tree/main/clients/js)
+  клиент на основе Kit, рекомендуемый для новых интеграций. Нативное разрешение transfer hook
+  через `getTransferCheckedWithTransferHookInstructionAsync` и вспомогательные функции
+  нижнего уровня `resolveExtraAccountMetasForExecute` /
+  `findExtraAccountMetaListPda`.
+- [JS-клиент `@solana/spl-token`](https://github.com/solana-program/token-2022/tree/main/clients/js-legacy)
+  устаревший клиент для библиотеки `@solana/web3.js`. Охватывает те же возможности
+  (обнаружение расширения, разрешение дополнительных аккаунтов, высокоуровневый помощник
+  `createTransferCheckedWithTransferHookInstruction`) для команд, ещё использующих web3.js.
+- [Руководство по расширению Transfer Hook](/docs/tokens/extensions/transfer-hook)
+  (разработка программы хука, для понимания того, что настраивают эмитенты)
+
+## Кратко
+
+- Минт с transfer hook хранит **адрес программы хука**. При каждом переводе выполняется CPI
+  в эту программу, и для CPI требуются дополнительные аккаунты помимо стандартных
+  аккаунтов перевода.
+- Дополнительные аккаунты, необходимые хуку, перечислены в onchain-аккаунте
+  **`ExtraAccountMetaList`** — PDA, производном от программы хука и
+  минта. Клиенты читают этот аккаунт, чтобы определить, какие аккаунты добавить к инструкции перевода.
+- **Разрешение аккаунтов обязательно.** Если дополнительные аккаунты отсутствуют или устарели,
+  инструкция перевода завершится ошибкой onchain. Нет запасного варианта, который молча отправит
+  токен без хука.
+- **Как Kit (`@solana-program/token-2022`), так и Web3.js (`@solana/spl-token`)
+  могут выполнить перевод с поддержкой хука от начала до конца** — смотрите готовые функции
+  в разделе [Отправка токена с transfer hook](#sending-a-transfer-hook-token). Каждый
+  разрешает `ExtraAccountMetaList` нативно: Kit через
+  `getTransferCheckedWithTransferHookInstructionAsync`, Web3.js через
+  `createTransferCheckedWithTransferHookInstruction`.
+- **Всегда выполняйте симуляцию перед отправкой.** Программа хука может отклонить перевод по
+  любой заданной причине (проверка списка разрешённых, приостановленное состояние, отсутствие
+  делегирования), а набор дополнительных аккаунтов может измениться, если эмитент обновит
+  хук. Симуляция позволяет выявить обе проблемы до того, как пользователь подпишет транзакцию.
+- Выполнение хука увеличивает расход compute units и, в случае хуков, требующих предварительно
+  пополненных или предварительно одобренных вспомогательных аккаунтов (делегированный аккаунт комиссии,
+  счётчик PDA, который пользователь ещё не инициализировал), может потребовать подготовительных транзакций
+  перед первым успешным переводом.
+
+## Термины
+
+- **Программа хука**: программа, которой минт делегирует логику времени выполнения перевода, задаётся через
+  расширение Transfer Hook на минте.
+- **`ExtraAccountMetaList`**: PDA, принадлежащий программе хука, который хранит
+  список дополнительных аккаунтов, необходимых инструкции `Execute` хука. Производится
+  из сидов `"extra-account-metas"` и адреса минта.
+- **`ExtraAccountMeta`**: одна запись в этом списке. Она может ссылаться на фиксированный
+  адрес, PDA программы хука, PDA другой программы или PDA,
+  засеянный данными из одного из собственных аккаунтов перевода.
+- **Расширение `TransferHookAccount`**: состояние в token account, которое включает флаг
+  `transferring`, устанавливаемый в `true` только пока token program выполняет CPI
+  в хук. Программы хуков используют его для отклонения вызовов, не исходящих из
+  реального перевода.
+- **`Execute`**: инструкция, в которую token program выполняет CPI при каждом переводе.
+  Клиенты никогда не вызывают её напрямую; она вызывается в рамках `TransferChecked`.
+
+## Отправка токена с transfer hook
+
+Каждый перевод с поддержкой хука должен выполнить четыре действия: обнаружить, что у минта есть
+transfer hook, разрешить дополнительные аккаунты, необходимые для CPI хука, выполнить симуляцию и
+только затем отправить. Обе функции ниже выполняют все четыре шага и предназначены для замены
+того места, где ваше приложение сейчас формирует перевод Token-2022.
+
+### Kit
+
+Клиент `@solana-program/token-2022` разрешает всё нативно через
+`getTransferCheckedWithTransferHookInstructionAsync`: он получает минт,
+определяет, настроен ли transfer hook, разрешает
+`ExtraAccountMetaList` и добавляет дополнительные аккаунты хука. Если у минта нет хука,
+возвращается обычный `transferChecked`, поэтому один и тот же вызов охватывает оба случая
+без необходимости переключения на устаревший клиент.
+
+```ts title="send-transfer-hook-token-kit.ts"
+import {
+  appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  compileTransaction,
+  createTransactionMessage,
+  getBase64EncodedWireTransaction,
+  pipe,
+  sendAndConfirmTransactionFactory,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  type Address,
+  type Rpc,
+  type RpcSubscriptions,
+  type SolanaRpcApi,
+  type SolanaRpcSubscriptionsApi,
+  type TransactionSigner
+} from "@solana/kit";
+import { getTransferCheckedWithTransferHookInstructionAsync } from "@solana-program/token-2022";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction with Kit.
+ */
+export async function sendTokenTransfer({
+  rpc,
+  rpcSubscriptions,
+  source,
+  mint,
+  destination,
+  owner,
+  feePayer,
+  amount,
+  decimals
+}: {
+  rpc: Rpc<SolanaRpcApi>;
+  rpcSubscriptions: RpcSubscriptions<SolanaRpcSubscriptionsApi>;
+  source: Address;
+  mint: Address;
+  destination: Address;
+  owner: TransactionSigner; // Authority over the source token account.
+  feePayer: TransactionSigner;
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Build the transfer instruction. When the mint has a transfer hook this
+  // fetches it, resolves the ExtraAccountMetaList, and appends the accounts the
+  // hook's CPI needs; when it doesn't, you get a plain transferChecked. Because
+  // it re-fetches the mint on every call, don't cache the result across sends
+  // -- the hook program and its extra accounts can both change.
+  const instruction = await getTransferCheckedWithTransferHookInstructionAsync(
+    { rpc },
+    {
+      source,
+      mint,
+      destination,
+      authority: owner,
+      amount,
+      decimals
+    }
+  );
+
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+  const message = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(feePayer, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstructions([instruction], tx)
+  );
+
+  // 2. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Compiling the message (rather than signing
+  // it) is enough to simulate, and sigVerify: false lets the network run it
+  // without signatures. This catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await rpc
+    .simulateTransaction(
+      getBase64EncodedWireTransaction(compileTransaction(message)),
+      { encoding: "base64", sigVerify: false, replaceRecentBlockhash: true }
+    )
+    .send();
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 3. Sign only after a successful simulation, then send.
+  const signedMessage = await signTransactionMessageWithSigners(message);
+  assertIsTransactionWithBlockhashLifetime(signedMessage);
+  await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+    signedMessage,
+    { commitment: "confirmed" }
+  );
+}
+```
+
+<Callout type="info">
+  `getTransferCheckedWithTransferHookInstructionAsync` оборачивает низкоуровневые
+  резолверы Kit (`resolveExtraAccountMetasForExecute`,
+  `findExtraAccountMetaListPda`), описанные в разделе [Ручная сборка аккаунтов](#assembling-accounts-manually) ниже.
+  Обращайтесь к ним напрямую только тогда, когда добавляете аккаунты хука к инструкции,
+  которую собираете самостоятельно.
+</Callout>
+
+### Web3.js
+
+Устаревший клиент `@solana/spl-token` разрешает всё нативно — переключение на другой клиент не требуется.
+
+```ts title="send-transfer-hook-token.ts"
+import {
+  Connection,
+  PublicKey,
+  Signer,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import {
+  createTransferCheckedInstruction,
+  createTransferCheckedWithTransferHookInstruction,
+  getMint,
+  getTransferHook,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction directly.
+ */
+export async function sendTokenTransfer({
+  connection,
+  payer,
+  source,
+  mint,
+  destination,
+  owner,
+  amount,
+  decimals
+}: {
+  connection: Connection;
+  payer: Signer; // Fee payer; can be the same signer as `owner`.
+  source: PublicKey;
+  mint: PublicKey;
+  destination: PublicKey;
+  owner: Signer; // Authority over the source token account.
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Re-check for a transfer hook on every send. The hook program and its
+  // extra accounts can both change, so don't cache this across transfers.
+  const mintInfo = await getMint(
+    connection,
+    mint,
+    "confirmed",
+    TOKEN_2022_PROGRAM_ID
+  );
+  const transferHook = getTransferHook(mintInfo);
+
+  // 2. Build the transfer instruction. When a hook is configured, this also
+  // resolves the ExtraAccountMetaList and appends the accounts the hook's
+  // CPI needs -- there's no separate resolution step to call yourself.
+  const instruction = transferHook
+    ? await createTransferCheckedWithTransferHookInstruction(
+        connection,
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [], // Additional signers, only needed for a multisig authority.
+        "confirmed",
+        TOKEN_2022_PROGRAM_ID
+      )
+    : createTransferCheckedInstruction(
+        source,
+        mint,
+        destination,
+        owner.publicKey,
+        amount,
+        decimals,
+        [],
+        TOKEN_2022_PROGRAM_ID
+      );
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+  const transaction = new Transaction({
+    feePayer: payer.publicKey,
+    blockhash,
+    lastValidBlockHeight
+  }).add(instruction);
+
+  // 3. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Simulating without signers runs the
+  // transaction unsigned, which catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await connection.simulateTransaction(transaction);
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 4. Sign and send only after a successful simulation.
+  return sendAndConfirmTransaction(connection, transaction, [payer, owner]);
+}
+```
+
+## Обнаружение расширения
+
+Обе функции выше повторно получают минт и проверяют наличие хука при каждой отправке:
+Web3.js — явно через `getMint`, Kit — внутри
+`getTransferCheckedWithTransferHookInstructionAsync`, которая получает минт
+перед разрешением чего-либо.
+
+<Callout type="info">
+  Адрес программы хука на минте может быть обновлён authority transfer hook минта
+  (`UpdateTransferHook`), а требуемые дополнительные аккаунты могут изменяться независимо
+  (`UpdateExtraAccountMetaList`). Не кешируйте ни то ни другое дольше, чем на один
+  поток перевода; повторно получайте данные, когда пользователь инициирует новую отправку.
+</Callout>
+
+Парное расширение `TransferHookAccount` находится в token account, а не в минте.
+Интеграторам, как правило, не нужно читать его напрямую. Оно существует для того, чтобы
+программа хука могла убедиться, что вызов произошёл внутри реального перевода, а не
+потому что клиент вызвал `Execute` напрямую.
+
+## Разрешение дополнительных аккаунтов
+
+Каждый перевод с поддержкой хука требует стандартных четырёх аккаунтов перевода (источник,
+минт, получатель, владелец/authority) плюс то, что указывает аккаунт `ExtraAccountMetaList`
+для данного минта. Список является PDA, производным от программы хука:
+
+```ts title="derive-extra-account-meta-list.ts"
+// Kit (@solana-program/token-2022)
+import { findExtraAccountMetaListPda } from "@solana-program/token-2022";
+
+const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
+  { mint: mintAddress },
+  { programAddress: transferHook.programId }
+);
+
+// Web3.js (@solana/spl-token)
+import { getExtraAccountMetaAddress } from "@solana/spl-token";
+
+const extraAccountMetaListPda = getExtraAccountMetaAddress(
+  mintAddress,
+  transferHook.programId
+);
+```
+
+Каждая запись в этом аккаунте разрешается в конкретный `AccountMeta` одним из четырёх
+способов: фиксированный pubkey, PDA программы хука, PDA другой программы,
+указанной ранее в списке аккаунтов, или PDA, засеянный байтами, прочитанными из одного из
+собственных аккаунтов перевода (например, владелец source token account).
+Разрешение случая с данными из аккаунта требует получения данных аккаунта через RPC, поэтому
+разрешение является асинхронным и может занять более одного round trip.
+
+### Ручная сборка аккаунтов
+
+Если вы собираете инструкцию самостоятельно, а не используете функции выше,
+оба клиента предоставляют низкоуровневые компоненты, на которых эти функции построены.
+
+**Kit (`@solana-program/token-2022`)**
+
+- `findExtraAccountMetaListPda({ mint }, { programAddress })`: производит PDA
+  валидационного аккаунта `ExtraAccountMetaList`.
+- `getExtraAccountMetasDecoder().decode(accountData)`: разбирает необработанные данные
+  валидационного аккаунта в список записей `ExtraAccountMeta`.
+- `resolveExtraAccountMeta(meta, previousAddresses, instructionData, hookProgramAddress, rpc)`:
+  разрешает одну запись в `AccountMeta`, используя уже разрешённые адреса
+  (последующие записи могут ссылаться на предыдущие).
+- `resolveExtraAccountMetasForExecute({ rpc, transferHookProgramAddress, source, mint, destination, owner, amount })`:
+  разрешает каждую запись и возвращает меты для добавления — дополнительные аккаунты,
+  программу хука и валидационный аккаунт. Инструкции Kit неизменяемы, поэтому
+  функция возвращает меты для распаковки в инструкцию, а не мутирует её на месте.
+
+**Web3.js (`@solana/spl-token`)**
+
+- `getExtraAccountMetas(account)`: декодирует необработанные данные аккаунта `ExtraAccountMetaList`
+  в список записей `ExtraAccountMeta`.
+- `resolveExtraAccountMeta(connection, meta, previousMetas, instructionData, hookProgramId)`:
+  разрешает одну запись в `AccountMeta`, используя уже разрешённые аккаунты
+  (последующие записи могут ссылаться на предыдущие).
+- `addExtraAccountMetasForExecute(connection, instruction, hookProgramId, source, mint, destination, owner, amount)`:
+  разрешает и добавляет каждую запись к существующей инструкции за один вызов.
+
+## Симуляция перед отправкой
+
+Шаг симуляции в обеих функциях выше важен по следующей причине: два типа ошибок
+проявляются только во время выполнения.
+
+- **Хук отклоняет перевод.** Программа хука может кодировать произвольные
+  условия (список разрешённых, приостановленный минт, ограничение на перевод) и
+  отклоняет всю инструкцию, включая источник и получателя, если условие не
+  выполнено. Частичного успеха не существует: отклонённый вызов хука отклоняет перевод.
+- **Дополнительные аккаунты устарели.** Если эмитент изменил программу хука или
+  обновил `ExtraAccountMetaList` между последним кешированием данных клиентом
+  и моментом отправки пользователем, разрешение по устаревшим данным даёт
+  неверные аккаунты, и перевод завершается ошибкой валидации аккаунта, а не
+  ошибкой логики хука.
+
+Предварительная симуляция с последующей отправкой только при её успешном завершении позволяет выявить оба случая до того, как пользователь заплатит комиссию за неудавшуюся транзакцию. Кроме того, это даёт возможность отобразить понятное сообщение об ошибке (почему перевод не может быть выполнен) вместо необработанного сбоя транзакции.
+
+## Влияние на вычислительные ресурсы и первоначальную настройку
+
+CPI хук-программы выполняется в рамках вычислительного бюджета перевода. Хук, выполняющий нетривиальную работу (чтение нескольких аккаунтов, выполнение собственных проверок), добавляет реальные вычислительные затраты поверх базового перевода, поэтому запрос соответствующего лимита вычислительных единиц для переводов с хуками позволяет избежать лишних сбоев.
+
+Некоторые хуки также требуют, чтобы аккаунты существовали до выполнения первого перевода, а не просто были разрешимы: delegated fee token account, который отправитель должен пополнить и одобрить (как в случае с wSOL-fee хуком), или запись счётчика или списка разрешений, которую программа эмитента ожидает уже инициализированной для данного владельца. Клиентские реализации, которые только разрешают аккаунты и никогда не сообщают пользователю «этот токен требует однократной настройки перед отправкой», будут сталкиваться со сбоями отправки по причинам, не связанным с балансом или состоянием сети.
+
+## Аккаунты доступны только для чтения во время выполнения хук-CPI
+
+Когда Token Program выполняет CPI в хук-программу, она передаёт все аккаунты из исходного перевода, включая собственный аккаунт отправителя, в режиме **только для чтения**, и права подписанта отправителя не переносятся в хук. Таким образом, хук-программа не может самостоятельно перемещать токены из аккаунтов отправителя в ходе CPI. Хук, которому необходимо провести побочный платёж — например, комиссию в другом токене — делает это через делегата, предварительно одобренного отправителем, посредством той самой однократной настройки, описанной выше.
+
+## Обратная совместимость
+
+Хуки перевода ведут себя иначе, чем большинство других расширений Token-2022, когда речь идёт о неподдерживаемых клиентах:
+
+- Кошелёк или dapp, который не разрешает аккаунты хука перевода, **не может отправить** токен с хуком. Транзакция завершается сбоем на уровне Token Program, а не тихо откатывается к обычному переводу.
+- Получение токена с хуком не требует специальной обработки. Хук срабатывает только при инструкции перевода со стороны отправителя; кошельку нужна поддержка хуков перевода лишь тогда, когда его пользователь хочет отправить этот токен дальше.
+- Поскольку хук-программа может быть обновлена уполномоченным по хуку перевода минта, относитесь к минту с хуком перевода как к чему-то, что следует проверять заново при каждом переводе, а не как к факту, который достаточно узнать один раз и кэшировать бессрочно.
+
+## Рекомендуемые приоритеты интеграции
+
+### Кошельки и dapp-приложения
+
+| Требование                            | Описание                                                                                                   | Приоритет |
+| :------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :------- |
+| Определить расширение                   | Проверяйте `getTransferHook` на минте перед построением потока отправки для любого актива Token-2022.                     | **P0**   |
+| Разрешить дополнительные аккаунты                 | Используйте высокоуровневый хелпер (или функции ручного разрешения), а не хардкодируйте аккаунты.                 | **P0**   |
+| Симулировать перед подписанием                | Прогоняйте готовую транзакцию через симуляцию и отображайте отказы хука как понятную ошибку, а не необработанный сбой. | **P0**   |
+| Информировать о необходимой настройке                 | Определяйте и запрашивайте любую однократную настройку, требуемую хуком (подтверждение делегата, пополнение побочного аккаунта), до отправки.  | **P1**   |
+| Задавать вычислительный бюджет с учётом выполнения хука | Не рассчитывайте, что лимит вычислительных единиц по умолчанию покрывает логику хука; запрашивайте лимит, соответствующий наблюдаемым затратам.        | **P1**   |
+| Повторно разрешать аккаунты при повторной попытке                    | Если ранее построенная транзакция завершилась сбоем, повторно получайте `ExtraAccountMetaList`, а не отправляйте её повторно как есть.  | **P1**   |
+
+### Кастодианы и биржи
+
+| Требование                           | Описание                                                                                                                                  | Приоритет |
+| :------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------- | :------- |
+| Рассматривать пути отправки как специфичные для каждого минта          | Минт с хуком требует собственного протестированного пути отправки; не считайте, что универсальный путь перевода Token-2022 его покрывает.                               | **P0**   |
+| Симулировать перед трансляцией          | Особенно важно для автоматических или пакетных отправок, где отказ хука должен останавливать пакет, а не запускать слепые повторные попытки.                        | **P0**   |
+| Отслеживать изменения хук-программы            | Отслеживайте активность `UpdateTransferHook` / `UpdateExtraAccountMetaList` для минтов, находящихся под вашим управлением, поскольку она изменяет требования к валидному переводу. | **P1**   |
+| Заблаговременно подготавливать необходимые аккаунты настройки | Если хук требует делегата или побочного аккаунта для каждого депозитора, подготавливайте его в рамках онбординга актива, а не в момент отправки.                | **P1**   |
+
+### Обозреватели и индексаторы
+
+| Требование                         | Описание                                                                                               | Приоритет |
+| :---------------------------------- | :-------------------------------------------------------------------------------------------------------- | :------- |
+| Помечать минты с хуком перевода           | Отображайте информацию о том, что минт требует хук перевода и какую именно программу, отдельно от обычного минта Token-2022. | **P0**   |
+| Отображать CPI, а не только перевод | Перевод с хуком включает CPI в хук-программу; отображайте его в разбивке инструкций.  | **P1**   |
+| Отслеживать обновления хук-программы          | Отображайте активность `UpdateTransferHook` / `UpdateExtraAccountMetaList` для минта как отдельный тип события.    | **P2**   |

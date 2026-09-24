@@ -1,4 +1,9 @@
-import { SPONSOR_FORM_HREF, TICKET_TRANSFER_HREF } from "@/content/links";
+import {
+  APPLY_TO_SPEAK_HREF,
+  SPONSOR_FORM_HREF,
+  TICKET_TRANSFER_HREF,
+  VISA_CHECK_HREF,
+} from "@/content/links";
 
 export type FAQPageItem = {
   id: string;
@@ -35,8 +40,9 @@ export const faqPageSections = [
       {
         id: "general-speaking",
         question: "How can I apply to speak at Breakpoint?",
-        answer:
-          "Speaker applications are not open yet. More information will be shared in the coming months.",
+        answer: "",
+        answerHref: APPLY_TO_SPEAK_HREF,
+        answerLinkLabel: "Apply to speak",
       },
       {
         id: "general-sponsor",
@@ -111,7 +117,7 @@ export const faqPageSections = [
         id: "children-minors-attendance",
         question: "Can children attend Breakpoint?",
         answer:
-          "Children 16 and under are welcome to attend Breakpoint when accompanied by a registered parent or legal guardian. Parents and guardians are responsible for supervising their children at all times. Breakpoint does not provide childcare, and access to certain areas may be restricted.",
+          "Children 16 and under are welcome to attend Breakpoint when accompanied by a registered parent or legal guardian. At registration, an adult must sign a waiver for each child to enter the venue. Parents and guardians are responsible for supervising their children at all times. Breakpoint does not provide childcare, and access to certain areas may be restricted.",
       },
     ],
   },
@@ -133,9 +139,17 @@ export const faqPageSections = [
       },
       {
         id: "travel-visa",
-        question: "Do I need a visa to attend?",
-        answer:
-          "Entry requirements depend on your passport and travel plans. Review the official UK visa checker before booking travel.",
+        question: "Do I need a visa or ETA to attend?",
+        answer: "",
+        answerHref: VISA_CHECK_HREF,
+        answerLinkLabel: "Check the official UK visa requirements for entry",
+      },
+      {
+        id: "travel-invitation-letter",
+        question: "How do I request an invitation letter?",
+        answer: "Please email",
+        answerHref: "mailto:breakpoint@solana.org",
+        answerLinkLabel: "breakpoint@solana.org",
       },
       {
         id: "travel-venue",
@@ -145,9 +159,11 @@ export const faqPageSections = [
       },
       {
         id: "travel-visa-support",
-        question: "Can Solana Foundation help with visas?",
+        question: "How can I get visa or ETA application support?",
         answer:
-          "Attendees are responsible for their own visa process. Solana Foundation has engaged Immigration Advice Service for attendees who need paid visa support.",
+          "Locus can help attendees apply for a visa or ETA and pay by crypto or card. Solana Foundation has also engaged Immigration Advice Service (IAS) to assist with visa applications. Attendees are responsible for the cost of these services.",
+        answerHref: "/travel#visas",
+        answerLinkLabel: "View visa and ETA support options",
       },
     ],
   },

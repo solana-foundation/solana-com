@@ -1,5 +1,5 @@
 import Image, { StaticImageData } from "next/image";
-import { ArrowRight } from "react-feather";
+import { ArrowRight } from "@boxicons/react/ArrowRight";
 
 import { useTranslations } from "next-intl";
 import Button from "../shared/Button";

@@ -1,0 +1,372 @@
+---
+title: Kit-liitännäinen
+description:
+  Suorita upotettua Surfnettiä Solana Kit -asiakkaan takana. Yksi liitännäinen antaa sinulle valmiiksi rahoitetun maksajan, täyden RPC-pinon ja tyypitetyt huijauskoodit.
+---
+
+`@solana/surfpool/kit` käynnistää Surfnetin — paikallisen, Solana-yhteensopivan verkon —
+testiprosessisi sisällä ja palauttaa
+[Solana Kit](https://www.solanakit.com/) -asiakkaan, joka on jo osoitettu siihen. Yksi
+`.use(surfpool())` korvaa RPC-liitännäisen, jota normaalisti käyttäisit
+(`solanaLocalRpc()`, `litesvm()`), ja lisää valmiiksi rahoitetun maksajan sekä Surfpoolin
+huijauskoodit:
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+const slot = await client.rpc.getSlot().send();
+await client.cheatcodes.timeTravel({ absoluteSlot: 1_000_000n }).send();
+```
+
+Ei porttia valittavana, ei maksajaa generoitavana ja rahoitettavana eikä erillistä `surfpool start`
+-prosessia hallittavana. Uusi SDK:n käyttäjä? Aloita
+[Yleiskatsauksesta](/docs/tools/surfpool/sdk/overview).
+
+## Mikä sisäänkäyntipiste sopii sinulle
+
+| Sisäänkäyntipiste                       | Käytä sitä kun                                                                                         |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `surfpool()`                      | **Oletusarvo testeille.** Eristetty Surfnet per testitiedosto, Kit-asiakkaan kanssa valmiiksi kytkettynä.             |
+| `surfpool({ rpcUrl })`            | Pitkäikäinen `surfpool start` -instanssi jaetaan prosessien välillä, tai alustallasi ei ole natiivibinääriä. |
+| `surfnetCheatcodes()`             | Sinulla on jo asiakas ja haluat vain huijauskoodit siihen.                                                 |
+| `Surfnet` paketista `@solana/surfpool` | Et käytä Kittiä — katso [JS-viite](/docs/tools/surfpool/sdk/js-reference).                    |
+
+## Edellytykset
+
+- **Node.js 20.18+**, jonka `@solana/kit` v7 vaatii vähimmäisversiona. `@solana/surfpool`
+  itse toimii versiolla 18+, mutta Kit-paketit eivät. Jotkin ohjelma-liitännäiset vaativat
+  enemmän — `@solana-program/token` vaatii version 24+.
+- **[Tuettu alusta](/docs/tools/surfpool/sdk/installation)** (macOS,
+  Linux x86-64) upotettua tilaa varten, joka lataa natiivibinäärin. Muualla käytä
+  liitostilaa.
+- **Tuntemus Kitin liitännäiskoostamisesta** — asiakkaat rakennetaan ketjuttamalla
+  `.use()`-kutsuja, ja jokainen liitännäinen lisää ominaisuuksia asiakkaaseen.
+
+## Asennus
+
+```bash
+npm install --save-dev @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+# or
+pnpm add -D @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+```
+
+Nämä on määritelty valinnaisiksi vertaisriippuvuuksiksi paketille `@solana/surfpool`: ohita
+ne, jos käytät vain `Surfnet`-luokkaa suoraan, mutta `@solana/surfpool/kit`-paketin
+tuominen vaatii `@solana/kit`- ja `@solana/kit-plugin-rpc`-paketit. Katso
+[Asennus](/docs/tools/surfpool/sdk/installation) alustatukimatriisista
+ja vianmäärityksestä.
+
+## Upotettu tila
+
+Kutsumalla `surfpool()`-funktiota ilman `rpcUrl`-parametria käynnistetään in-process-Surfnet dynaamisilla
+porteilla ja koko Kit-asiakas osoitetaan siihen. Liitännäinen on asynkroninen, joten `await`
+`.use()`-ketjua:
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+```
+
+<Callout type="info" title="Rinnakkaiset testitiedostot">
+  Jokainen `surfpool()`-kutsu sitoo omat dynaamiset porttinsa, joten jokainen testitiedosto voi
+  käynnistää oman eristetyn Surfnettinsä ja paketti toimii silti rinnakkain.
+</Callout>
+
+### Täydellinen testi
+
+Käynnistä Surfnet, lähetä siirto valmiiksi rahoitetun maksajan maksamana ja tee väite
+tuloksesta. Esimerkit käyttävät `node:test`-moduulia; Vitest ja Jest toimivat samalla tavalla
+omilla `after` / `afterAll`-hookeillaan.
+
+```ts title="transfer.test.ts"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+after(() => {
+  client.surfnet.stop();
+});
+
+test("transfers SOL on an embedded Surfnet", async () => {
+  const recipient = await generateKeyPairSigner();
+  const amount = lamports(5_000_000n);
+
+  await client.sendTransaction(
+    getTransferSolInstruction({
+      amount,
+      destination: recipient.address,
+      source: client.payer
+    })
+  );
+
+  const { value: balance } = await client.rpc
+    .getBalance(recipient.address)
+    .send();
+  assert.equal(balance, amount);
+});
+```
+
+### Elinkaari
+
+Kutsu `client.surfnet.stop()`-funktiota teardownissa, kuten yllä, jotta Surfnetin portit ja
+palvelimet vapautetaan. `stop()` on idempotentti ja synkroninen — se palaa, kun
+suoritusympäristö on tosiasiassa suljettu. Pysäyttäminen on lopullista; uuden asiakkaan
+luominen käynnistää uuden instanssin.
+
+<Callout type="warn" title="Teardown ei ole automaattinen">
+  Moduulitasolla pidetty asiakas — testitiedoston tavallinen malli — ei koskaan
+  vapaudu, joten mikään ei pysäytä Surfnettiä puolestasi. Ilman teardown-hookia
+  prosessi voi jäädä roikkumaan tai kirjata `connection reset` -varoituksia, kun käyttöjärjestelmä
+  sulkee socketit poistumisen yhteydessä.
+</Callout>
+
+### Mitä liitännäinen asentaa
+
+| Asiakkaalle                                        | Tulee paketista                                                   | Mitä se on                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `client.payer`                                       | `@solana/kit-plugin-signer`                                  | `KeyPairSigner` Surfnetin valmiiksi rahoitetulle maksajatilille                  |
+| `client.rpc` / `client.rpcSubscriptions`             | `@solana/kit-plugin-rpc`                                     | Vakio Solana RPC- ja tilausasiakkaat, osoitettu Surfnettiin |
+| `client.airdrop`                                     | `@solana/kit-plugin-rpc`                                     | `requestAirdrop` Surfnettiä vastaan                                      |
+| `client.getMinimumBalance`                           | `@solana/kit-plugin-rpc`                                     | Vuokravapautushakuja                                                    |
+| `client.transactionPlanner` / `...PlanExecutor`      | `@solana/kit-plugin-rpc`                                     | Transaktioiden suunnittelu ja suoritus                                        |
+| `client.sendTransaction` / `client.sendTransactions` | `@solana/kit-plugin-rpc` (via `kit-plugin-instruction-plan`) | Suunnittele ja lähetä ohjeet yhdellä kutsulla                                    |
+| `client.rpcUrl` / `client.wsUrl`                     | `@solana/surfpool/kit`                                       | Surfnetin HTTP- ja WebSocket-URL-osoitteet                                     |
+| `client.surfnet`                                     | `@solana/surfpool/kit`                                       | Natiivi `Surfnet`-kahva (`fundSol`, `deploy`, `drainEvents`, …)       |
+| `client.cheatcodes`                                  | `@solana/surfpool/kit`                                       | Tyypitetty RPC, joka kattaa kaikki `surfnet_*`-huijauskoodit                          |
+
+Liitännäinen ei asenna `identity`-ominaisuutta. Lisää se `.use(identity(...))`-kutsulla, jos
+testisi tarvitsee erillisen auktoriteetin `client.payer`-ominaisuudesta.
+
+## Huijauskoodit
+
+Huijauskoodit ovat tilamuutoksia, jotka ohittavat normaalin transaktiokäsittelyn — ne
+suoritetaan välittömästi, kuluttamatta lohkotiivistettä tai maksamatta maksuja, mikä on juuri sitä mitä
+tarvitset testiasetukseen. `client.cheatcodes` paljastaa ne kaikki tyypitettynä RPC:nä.
+
+Metodien nimet jättävät pois `surfnet_`-etuliitteen, joten `surfnet_pauseClock` on
+`client.cheatcodes.pauseClock()`, ja vastaukset saapuvat jo purettuna
+`{ context, value }` -kuoresta.
+
+```ts
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+// Deterministic clock.
+const paused = await client.cheatcodes.pauseClock().send();
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+await client.cheatcodes.resumeClock().send();
+
+// Arbitrary account state. `data` is hex-encoded.
+const account = (await generateKeyPairSigner()).address;
+const owner = (await generateKeyPairSigner()).address;
+await client.cheatcodes
+  .setAccount(account, { data: "aabbcc", lamports: 777_777, owner })
+  .send();
+
+// Token balances, without minting through the token program. The mint must
+// already exist — create it, or clone it from mainnet with cloneProgramAccount.
+const mint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+await client.cheatcodes
+  .setTokenAccount(owner, mint, { amount: 1_000_000n })
+  .send();
+```
+
+Täydellinen metodilista — mukaan lukien `streamAccount`, `cloneProgramAccount`,
+`profileTransaction`, `registerIdl` ja `resetNetwork` — on dokumentoitu kohdassa
+[Huijauskoodit](/docs/tools/surfpool/sdk/cheatcodes) ja
+[RPC-viite](/docs/tools/surfpool/rpc/cheatcodes).
+
+### Jäsenneltyjen tilien kirjoittaminen koodekilla
+
+`setAccount` ottaa raakatavut heksadesimaalimuodossa, mikä sopii hyvin yhteen
+Kit-ohjelmaasiakkaiden mukana toimitettavien tilienkooderien kanssa. Tilojen rakentamiseen
+tarvittavien transaktioiden lähettämisen sijaan koodaa haluamasi tili ja kirjoita se suoraan —
+tässä täysin alustettu SPL-rahapaja, jossa on jo tarjonta:
+
+```ts
+import {
+  fetchMint,
+  getMintEncoder,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+import {
+  generateKeyPairSigner,
+  getBase16Decoder,
+  none,
+  some
+} from "@solana/kit";
+
+const mint = (await generateKeyPairSigner()).address;
+
+const data = getMintEncoder().encode({
+  decimals: 6,
+  freezeAuthority: none(),
+  isInitialized: true,
+  mintAuthority: some(client.payer.address),
+  supply: 1_000_000_000n
+});
+
+await client.cheatcodes
+  .setAccount(mint, {
+    // getBase16Decoder() turns the encoded bytes into the hex `data` expects.
+    data: getBase16Decoder().decode(data),
+    lamports: 1_461_600, // rent-exempt minimum for an 82-byte mint
+    owner: TOKEN_PROGRAM_ADDRESS
+  })
+  .send();
+
+// Reads back as a normal mint through the program client.
+const account = await fetchMint(client.rpc, mint);
+account.data.decimals; // 6
+account.data.supply; // 1_000_000_000n
+```
+
+Sama malli toimii mille tahansa Codama-generoidulle asiakkaalle: koodaa tilin
+kooderilla, muunna heksadesimaalimuotoon ja anna se `setAccount`-funktiolle. Yhdistä se
+yllä olevan `setTokenAccount`-funktion kanssa luodaksesi rahapajan ja rahoitetut haltijat
+ilman yhtään transaktiota.
+
+<Callout type="info" title="Huijauskoodien vastaukset käyttävät bigint-tyyppiä">
+  Huijauskoodien siirtoprotokolla jäsentää jokaisen JSON-kokonaisluvun `bigint`-tyypiksi, joten `u64`-arvot
+  kuten `rentEpoch` selviävät 2^53:n yli. Pyyntöjen hyötykuormat hyväksyvät `number
+  | bigint`.
+</Callout>
+
+### Huijauskoodit ilman liitännäistä
+
+Kaksi pienempää sisäänkäyntipistettä kattaa tapaukset, joissa et halua koko liitännäistä. Molemmat
+ovat synkronisia — ne liittävät vain siirtoprotokolla, joten kumpikaan ei tarvitse `await`-kutsua.
+
+```ts
+import {
+  createSurfnetCheatcodesRpc,
+  surfnetCheatcodes
+} from "@solana/surfpool/kit";
+
+// Standalone RPC, no Kit client involved.
+const cheatcodes = createSurfnetCheatcodesRpc("http://127.0.0.1:8899");
+await cheatcodes.pauseClock().send();
+
+// Add `client.cheatcodes` to a client you already composed.
+const client = createClient().use(surfnetCheatcodes());
+```
+
+`surfnetCheatcodes()` selvittää päätepisteensä `url`-parametrista, jos se on annettu, sitten
+olemassa olevasta `client.rpcUrl`-ominaisuudesta (joten se koostuu minkä tahansa asiakkaan kanssa, jolla se on), ja
+lopuksi `DEFAULT_SURFNET_ENDPOINT`-arvosta (`http://127.0.0.1:8899`). Molemmat hyväksyvät
+`headers`-vaihtoehdon etä-Surfpoolia vastaan todentamiseen.
+
+## Konfigurointi
+
+Surfnetin käynnistysasetukset menevät `surfnet`-avaimen alle ja välitetään
+`Surfnet.startWithConfig()`-funktiolle. Kaikki muu välitetään paikalliselle Solana
+RPC-liitännäiselle:
+
+```ts
+const client = await createClient().use(
+  surfpool({
+    surfnet: { offline: true }, // Surfnet startup config
+    skipPreflight: true // forwarded to solanaLocalRpc()
+  })
+);
+```
+
+Jätä `surfnet` kokonaan pois ja liitännäinen kutsuu `Surfnet.start()`-funktiota
+oletuksillaan. Katso [Konfigurointi](/docs/tools/surfpool/sdk/configuration) kaikista
+käynnistysasetuksista — etä-RPC-varatoimi, lohkontuotantotila, slot-ajoitus,
+ominaisuusportit ja mukautetut maksajat.
+
+## Koostaminen ohjelma-liitännäisten kanssa
+
+Koska `surfpool()` täyttää samat sopimukset kuin `solanaLocalRpc()`, Kit-ohjelma-liitännäiset
+kerrostuvat sen päälle ja niiden ohjeet suoritetaan upotettua Surfnettiä vastaan. Vain
+loppulopputulosta tarvitsee odottaa — `use()` asynkroniselle asiakkaalle palauttaa toisen
+asynkronisen asiakkaan, joten synkroniset ja asynkroniset liitännäiset ketjuuntuvat vapaasti.
+
+```ts
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool()).use(tokenProgram());
+
+const newMint = await generateKeyPairSigner();
+await client.token.instructions
+  .createMint({ decimals: 6, mintAuthority: client.payer.address, newMint })
+  .sendTransaction();
+
+await client.token.instructions
+  .mintToATA({
+    amount: 1_000_000n,
+    decimals: 6,
+    mint: newMint.address,
+    mintAuthority: client.payer,
+    owner: client.payer.address
+  })
+  .sendTransaction();
+```
+
+## Liitostila
+
+`rpcUrl`-parametrin välittäminen kytkee liitännäisen liitostilaan: se yhdistää jo
+käynnissä olevaan Surfpooliin — sellaiseen, joka on käynnistetty komennolla
+[`surfpool start`](/docs/tools/surfpool/toolchain/cli) — sen sijaan että käynnistäisi uuden.
+Natiiveja moduuleja ei ladata, joten tämä tila toimii alustoilla ilman valmiiksi käännettyä
+binääriä. Se on myös synkroninen, joten mitään ei tarvitse odottaa:
+
+```ts
+import { createKeyPairSignerFromBytes, createClient } from "@solana/kit";
+import { payer } from "@solana/kit-plugin-signer";
+import { surfpool } from "@solana/surfpool/kit";
+import { readFile } from "node:fs/promises";
+
+// Any funded signer works; this loads the local CLI keypair.
+const keypairPath = `${process.env.HOME}/.config/solana/id.json`;
+const myPayer = await createKeyPairSignerFromBytes(
+  new Uint8Array(JSON.parse(await readFile(keypairPath, "utf8")))
+);
+
+const client = createClient()
+  .use(payer(myPayer))
+  .use(surfpool({ rpcUrl: "http://127.0.0.1:8899" }));
+```
+
+Kolme eroa upotettuun tilaan verrattuna:
+
+- **Asiakkaalla täytyy jo olla `payer`.** Liitostilalla ei ole pääsyä käynnissä olevan instanssin
+  maksajan yksityiseen avaimeen, joten se ei asenna sellaista. Rahoita valitsemasi allekirjoittaja
+  `client.cheatcodes.setAccount(...)`-kutsulla tai käynnissä olevan instanssin omalla hanalla.
+- **`client.surfnet`-kahvaa ei ole.** In-process-apufunktiot eivät ole käytettävissä;
+  käytä `client.cheatcodes`-ominaisuutta tilamanipulointiin.
+- **`surfnet`-käynnistysasetukset hylätään.** Instanssi on jo käynnissä, joten
+  `rpcUrl` ja `surfnet` ovat toisensa poissulkevia tyypeissä.
+
+<Callout type="warn" title="WebSocket-portti">
+  Surfpool tarjoaa tilaukset omassa portissaan (oletus `8900`, `--ws-port`),
+  erillään HTTP-portista. Kun `rpcUrl`-osoitteessa on eksplisiittinen portti, liitännäinen
+  johtaa tilausten URL-osoitteen porttina `8900` samalla isännällä. Kun portia ei ole —
+  välityspalvelimen takana esimerkiksi — vain protokolla vaihdetaan `ws`/`wss`-muotoon. Aseta
+  `rpcSubscriptionsUrl` itse, kun kumpikaan sääntö ei sovi.
+</Callout>
+
+## Seuraavat vaiheet
+
+- [Ohjelmat](/docs/tools/surfpool/sdk/programs) — ota ohjelmasi käyttöön
+  Surfnetissä ennen testiä
+- [Huijauskoodit](/docs/tools/surfpool/sdk/cheatcodes) — täydellinen tilamuutospinta
+- [Konfigurointi](/docs/tools/surfpool/sdk/configuration) — pääverkon forkkaus,
+  lohkontuotanto, ominaisuusportit
+- [Asennus](/docs/tools/surfpool/sdk/installation) — alustatuki ja
+  vianmääritys
+- [JS-viite](/docs/tools/surfpool/sdk/js-reference) — `Surfnet`-luokka
+  `client.surfnet`-ominaisuuden takana

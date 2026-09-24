@@ -1,41 +1,14 @@
-import { unstable_cache } from "next/cache";
 import type { AgendaItem, AgendaSpeaker } from "@/content/agenda/types";
+import {
+  asNumber,
+  asString,
+  getAirtableRecords,
+  getField,
+  isPublished,
+  type AirtableRecord,
+} from "@/lib/airtable";
 
-const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
-const AIRTABLE_CACHE_SECONDS = 60 * 30;
-const AIRTABLE_CACHE_TAG = "breakpoint-agenda";
 const LONDON_TIME_ZONE = "Europe/London";
-
-type AirtableRecord = {
-  fields?: Record<string, unknown>;
-  id: string;
-};
-
-type AirtableListResponse = {
-  offset?: string;
-  records?: AirtableRecord[];
-};
-
-function asString(value: unknown): string | undefined {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed || undefined;
-  }
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  if (Array.isArray(value)) {
-    const text = value
-      .map((item) => asString(item))
-      .filter(Boolean)
-      .join(", ");
-    return text || undefined;
-  }
-
-  return undefined;
-}
 
 function isLinkedRecordId(value: string) {
   return /^rec[a-z0-9]{14,}$/i.test(value);
@@ -52,25 +25,6 @@ function asDisplayString(value: unknown): string | undefined {
     .filter((part) => !isLinkedRecordId(part));
 
   return parts.length > 0 ? parts.join(", ") : undefined;
-}
-
-function asNumber(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value.trim());
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return undefined;
-}
-
-function asBoolean(value: unknown): boolean | undefined {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["true", "yes", "1"].includes(normalized)) return true;
-    if (["false", "no", "0"].includes(normalized)) return false;
-  }
-  return undefined;
 }
 
 function asStringList(
@@ -94,61 +48,6 @@ function asStringList(
     .filter(Boolean);
 
   return values.length > 0 ? values : undefined;
-}
-
-function normalizeFieldName(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function getField<T>(
-  fields: Record<string, unknown>,
-  names: string[],
-  parser: (_value: unknown) => T | undefined,
-): T | undefined {
-  for (const name of names) {
-    const parsed = parser(fields[name]);
-    if (parsed !== undefined) return parsed;
-  }
-
-  const normalizedNames = new Set(names.map(normalizeFieldName));
-  for (const [fieldName, value] of Object.entries(fields)) {
-    if (!normalizedNames.has(normalizeFieldName(fieldName))) continue;
-    const parsed = parser(value);
-    if (parsed !== undefined) return parsed;
-  }
-
-  return undefined;
-}
-
-function isPublished(fields: Record<string, unknown>) {
-  const hidden = getField(
-    fields,
-    ["Hidden", "hidden", "Hide", "hide"],
-    asBoolean,
-  );
-  if (hidden === true) return false;
-
-  const publishToWeb = getField(
-    fields,
-    [
-      "Publish To Web",
-      "Publish to Web",
-      "publish to web",
-      "publishToWeb",
-      "publish_to_web",
-    ],
-    asBoolean,
-  );
-  if (publishToWeb === false) return false;
-
-  const published = getField(
-    fields,
-    ["Published", "published", "Visible", "visible", "Live", "live"],
-    asBoolean,
-  );
-  if (published === false) return false;
-
-  return true;
 }
 
 function formatDateTime(value: string): string | undefined {
@@ -525,71 +424,30 @@ function daySortValue(day: string) {
 }
 
 async function fetchAirtableAgenda(): Promise<AgendaItem[] | null> {
-  const token = process.env.AIRTABLE_PAT;
-  const baseId = process.env.AIRTABLE_BASE_ID_AGENDA;
-  const tableId = process.env.AIRTABLE_TABLE_ID_AGENDA;
-  const viewId = process.env.AIRTABLE_VIEW_ID_AGENDA;
+  const records = await getAirtableRecords({
+    baseId: process.env.AIRTABLE_BASE_ID_AGENDA,
+    cacheKey: "breakpoint-agenda",
+    cacheTag: "breakpoint-agenda",
+    label: "Breakpoint agenda",
+    tableId: process.env.AIRTABLE_TABLE_ID_AGENDA,
+    token: process.env.AIRTABLE_PAT,
+    viewId: process.env.AIRTABLE_VIEW_ID_AGENDA,
+  });
 
-  if (!token || !baseId || !tableId || !viewId) {
-    console.warn("Breakpoint agenda Airtable config missing");
-    return null;
+  if (!records) return null;
+
+  const agenda: AgendaItem[] = [];
+  for (const [recordIndex, record] of records.entries()) {
+    const item = normalizeAgendaRecord(record, recordIndex);
+    if (item) agenda.push(item);
   }
 
-  try {
-    const agenda: AgendaItem[] = [];
-    let offset: string | undefined;
-
-    do {
-      const params = new URLSearchParams({
-        pageSize: "100",
-        view: viewId,
-      });
-
-      if (offset) params.set("offset", offset);
-
-      const response = await fetch(
-        `${AIRTABLE_API_BASE}/${baseId}/${encodeURIComponent(tableId)}?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          next: {
-            revalidate: AIRTABLE_CACHE_SECONDS,
-            tags: [AIRTABLE_CACHE_TAG],
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`Airtable request failed (${response.status})`);
-      }
-
-      const payload = (await response.json()) as AirtableListResponse;
-
-      for (const [recordIndex, record] of (payload.records ?? []).entries()) {
-        const item = normalizeAgendaRecord(record, agenda.length + recordIndex);
-        if (item) agenda.push(item);
-      }
-
-      offset = payload.offset;
-    } while (offset);
-
-    return agenda.sort((a, b) => {
-      const byDay = daySortValue(a.day) - daySortValue(b.day);
-      if (byDay !== 0) return byDay;
-      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-      return a.title.localeCompare(b.title);
-    });
-  } catch (error) {
-    console.error("Failed to load Breakpoint agenda from Airtable", error);
-    return null;
-  }
+  return agenda.sort((a, b) => {
+    const byDay = daySortValue(a.day) - daySortValue(b.day);
+    if (byDay !== 0) return byDay;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.title.localeCompare(b.title);
+  });
 }
 
-export const getAirtableAgenda =
-  process.env.NODE_ENV === "production"
-    ? unstable_cache(fetchAirtableAgenda, ["breakpoint-agenda-airtable"], {
-        revalidate: AIRTABLE_CACHE_SECONDS,
-        tags: [AIRTABLE_CACHE_TAG],
-      })
-    : fetchAirtableAgenda;
+export const getAirtableAgenda = fetchAirtableAgenda;

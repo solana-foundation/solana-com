@@ -1,8 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import { LumaModal } from "./LumaModal";
 import { getImagePath } from "@/config";
 import { fadeInUp, stagger } from "@/lib/animations";

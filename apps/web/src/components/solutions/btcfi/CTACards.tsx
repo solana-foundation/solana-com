@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRight as ArrowRightIcon } from "@boxicons/react/ArrowRight";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
@@ -29,7 +29,8 @@ const BannerCTA = ({ href, label, description, image }: BannerCTAProps) => (
     <div className="absolute inset-0 bg-black/40 z-10 pointer-events-none" />
     <ArrowRightIcon
       className="text-[#a084ff] absolute top-1 right-1 transform rotate-[-45deg] group-hover:translate-x-1 transition z-20"
-      size={16}
+      width={16}
+      height={16}
     />
     <div className="text-center relative z-20">
       <span className="text-base font-bold text-white">{label}</span>
@@ -59,14 +60,14 @@ export const CTACards = () => {
               className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
               {t("btcfi.cta.learnTokens")}
-              <ArrowRightIcon size={18} />
+              <ArrowRightIcon width={18} height={18} />
             </Link>
             <Link
               href="/learn/what-is-a-wallet"
               className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
               {t("btcfi.cta.learnWallets")}
-              <ArrowRightIcon size={16} />
+              <ArrowRightIcon width={16} height={16} />
             </Link>
             <div className="flex flex-col h-full justify-end items-end mt-6">
               <Link

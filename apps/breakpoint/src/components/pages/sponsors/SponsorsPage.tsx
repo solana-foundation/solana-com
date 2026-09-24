@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { type CompanyRecord } from "@workspace/ecosystem-data";
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import GlitchOverlay, {
   getGlitchIntensityStyle,
@@ -30,6 +31,7 @@ function getLogo(sponsor: SponsorLogo) {
   return {
     company: resolved.company,
     alt: resolved.alt,
+    name: resolved.name,
     src: resolved.src,
   };
 }
@@ -126,7 +128,10 @@ type SponsorSocialLink = {
   label: string;
 };
 
-function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
+function getSponsorSocialLinks(
+  company: CompanyRecord,
+  t: ReturnType<typeof useTranslations>,
+): SponsorSocialLink[] {
   const profile = company.profile;
   const socials = profile?.socials;
   const links: SponsorSocialLink[] = [];
@@ -135,7 +140,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: profile.links.website,
       icon: <GlobeIcon />,
-      label: "Website",
+      label: t("social.website"),
     });
   }
 
@@ -151,7 +156,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.linkedin,
       icon: <LinkedInIcon />,
-      label: "LinkedIn",
+      label: t("social.linkedin"),
     });
   }
 
@@ -159,7 +164,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.github,
       icon: <AssetIcon src="/assets/icon-github.svg" />,
-      label: "GitHub",
+      label: t("social.github"),
     });
   }
 
@@ -167,7 +172,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.discord,
       icon: <AssetIcon src="/assets/icon-discord.svg" />,
-      label: "Discord",
+      label: t("social.discord"),
     });
   }
 
@@ -175,7 +180,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.telegram,
       icon: <AssetIcon src="/assets/icon-telegram.svg" />,
-      label: "Telegram",
+      label: t("social.telegram"),
     });
   }
 
@@ -183,7 +188,7 @@ function getSponsorSocialLinks(company: CompanyRecord): SponsorSocialLink[] {
     links.push({
       href: socials.youtube,
       icon: <AssetIcon src="/assets/icon-youtube.svg" />,
-      label: "YouTube",
+      label: t("social.youtube"),
     });
   }
 
@@ -205,22 +210,22 @@ function getSponsorTags(company: CompanyRecord) {
 }
 
 function SponsorModalBody({
-  company,
   decorative = false,
   description,
   descriptionId,
   logo,
   modalLogoStyle,
+  name,
   socialLinks,
   tags,
   titleId,
 }: {
-  company: CompanyRecord;
   decorative?: boolean;
   description?: string;
   descriptionId?: string;
   logo: ReturnType<typeof getLogo>;
   modalLogoStyle: CSSProperties;
+  name: string;
   socialLinks: SponsorSocialLink[];
   tags: string[];
   titleId?: string;
@@ -250,7 +255,7 @@ function SponsorModalBody({
             id={decorative ? undefined : titleId}
             className="type-h5 text-white"
           >
-            {company.name}
+            {name}
           </h2>
 
           {socialLinks.length > 0 && (
@@ -269,7 +274,7 @@ function SponsorModalBody({
                     href={link.href}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`${company.name} ${link.label}`}
+                    aria-label={`${name} ${link.label}`}
                     className="inline-flex size-5 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
                   >
                     {link.icon}
@@ -309,18 +314,33 @@ function SponsorModalBody({
 function SponsorCard({
   sponsor,
   cellAspect,
-  mobileLogoScale,
+  mobileLogoMaxWidth,
+  mobileLogoMaxHeight,
+  logoMaxWidth,
+  logoMaxHeight,
+  cellAspectRatio,
   onClick,
 }: {
   sponsor: SponsorLogo;
   cellAspect: string;
-  mobileLogoScale: number;
+  mobileLogoMaxWidth: number;
+  mobileLogoMaxHeight: number;
+  logoMaxWidth: number;
+  logoMaxHeight: number;
+  cellAspectRatio: number;
   onClick: () => void;
 }) {
+  const t = useTranslations("breakpoint.pages.sponsors");
   const logo = getLogo(sponsor);
+  const logoAspectRatio = sponsor.width / sponsor.height;
+  const getFittedLogoWidth = (maxWidth: number, maxHeight: number) =>
+    `${Math.min(maxWidth, (maxHeight * logoAspectRatio) / cellAspectRatio) * 100}%`;
   const logoStyle = {
-    "--logo-width": `${sponsor.width}px`,
-    "--logo-width-mobile": `${sponsor.width * mobileLogoScale}px`,
+    "--logo-width": getFittedLogoWidth(logoMaxWidth, logoMaxHeight),
+    "--logo-width-mobile": getFittedLogoWidth(
+      mobileLogoMaxWidth,
+      mobileLogoMaxHeight,
+    ),
     "--logo-ratio": `${sponsor.width} / ${sponsor.height}`,
   } as CSSProperties;
 
@@ -328,11 +348,11 @@ function SponsorCard({
     <button
       type="button"
       onClick={onClick}
-      aria-label={`View ${logo.alt} sponsor details`}
+      aria-label={t("viewDetails", { name: logo.alt })}
       className={`group flex ${cellAspect} min-w-0 cursor-pointer items-center justify-center overflow-hidden border-0 bg-white/[0.05] p-[10px] transition-colors hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
     >
       <span
-        className="block w-[min(var(--logo-width-mobile),78%)] max-w-[78%] transition-transform duration-200 group-hover:scale-[1.025] md:w-[min(var(--logo-width),78%)]"
+        className="block w-[var(--logo-width-mobile)] transition-transform duration-200 group-hover:scale-[1.025] md:w-[var(--logo-width)]"
         style={{
           ...logoStyle,
           aspectRatio: "var(--logo-ratio)",
@@ -353,22 +373,21 @@ function SponsorTierSection({
   tier,
   first = false,
   onSponsorClick,
+  title,
 }: {
   tier: SponsorTier;
   first?: boolean;
   onSponsorClick: (_sponsor: SponsorLogo) => void;
+  title: string;
 }) {
   return (
     <section
-      aria-labelledby={`${tier.title.toLowerCase()}-sponsors`}
+      aria-labelledby={`${tier.id}-sponsors`}
       className={first ? "pt-xl md:pt-2xl" : "pt-xl md:pt-3xl"}
     >
       <div className="container">
-        <h2
-          id={`${tier.title.toLowerCase()}-sponsors`}
-          className="type-h3 text-white"
-        >
-          {tier.title}
+        <h2 id={`${tier.id}-sponsors`} className="type-h3 text-white">
+          {title}
         </h2>
 
         <div
@@ -379,7 +398,11 @@ function SponsorTierSection({
               key={sponsor.companyId}
               sponsor={sponsor}
               cellAspect={tier.cellAspect}
-              mobileLogoScale={tier.mobileLogoScale}
+              mobileLogoMaxWidth={tier.mobileLogoMaxWidth}
+              mobileLogoMaxHeight={tier.mobileLogoMaxHeight}
+              logoMaxWidth={tier.logoMaxWidth}
+              logoMaxHeight={tier.logoMaxHeight}
+              cellAspectRatio={tier.cellAspectRatio}
               onClick={() => onSponsorClick(sponsor)}
             />
           ))}
@@ -399,9 +422,11 @@ function SponsorTierSection({
 function SponsorModal({
   onClose,
   sponsor,
+  t,
 }: {
   onClose: () => void;
   sponsor: SponsorLogo | null;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -483,7 +508,7 @@ function SponsorModal({
     company.profile?.summary ??
     company.profile?.description ??
     company.profile?.tagline;
-  const socialLinks = getSponsorSocialLinks(company);
+  const socialLinks = getSponsorSocialLinks(company, t);
   const tags = getSponsorTags(company);
   const modalLogoStyle = {
     "--modal-logo-width": `${sponsor.width * 1.3}px`,
@@ -516,18 +541,18 @@ function SponsorModal({
           ref={closeButtonRef}
           type="button"
           onClick={onClose}
-          aria-label="Close sponsor details"
+          aria-label={t("closeDetails")}
           className="absolute right-[11px] top-[11px] z-10 inline-flex size-8 items-center justify-center bg-white text-black transition-colors hover:bg-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white md:right-[15px] md:top-[15px]"
         >
           <CloseIcon />
         </button>
 
         <SponsorModalBody
-          company={company}
           description={description}
           descriptionId={descriptionId}
           logo={logo}
           modalLogoStyle={modalLogoStyle}
+          name={logo.name}
           socialLinks={socialLinks}
           tags={tags}
           titleId={titleId}
@@ -544,11 +569,11 @@ function SponsorModal({
               <CloseIcon />
             </span>
             <SponsorModalBody
-              company={company}
               decorative
               description={description}
               logo={logo}
               modalLogoStyle={modalLogoStyle}
+              name={logo.name}
               socialLinks={socialLinks}
               tags={tags}
             />
@@ -559,8 +584,8 @@ function SponsorModal({
   );
 }
 
-function SponsorsIntro() {
-  const introText = `<span class="text-purple">7,000+</span> high-intent <span class="text-purple">builders</span>, <span class="text-green">investors</span>, and <span class="text-blue">institutions</span> in one room. Direct access to Solana's decision-makers in London's financial hub. Your brand, their attention. ROI starts day one.`;
+function SponsorsIntro({ t }: { t: ReturnType<typeof useTranslations> }) {
+  const introText = t.raw("intro") as string;
 
   return (
     <section className="bg-black pt-l md:pt-xl">
@@ -569,7 +594,7 @@ function SponsorsIntro() {
           as="p"
           className="type-eyebrow text-white"
           stepMs={60}
-          text="WHY SPONSOR BP'26"
+          text={t("eyebrow")}
         />
 
         <div className="w-full max-w-[851px]">
@@ -586,7 +611,7 @@ function SponsorsIntro() {
             arrow
             className="mt-s"
             href={SPONSOR_FORM_HREF}
-            label="Contact us"
+            label={t("contactCta")}
             variant="primary"
           />
         </div>
@@ -596,12 +621,13 @@ function SponsorsIntro() {
 }
 
 export default function SponsorsPage() {
+  const t = useTranslations("breakpoint.pages.sponsors");
   const [activeSponsor, setActiveSponsor] = useState<SponsorLogo | null>(null);
 
   return (
     <PageShell contentId="breakpoint-sponsors-content">
-      <SubpageHero title="Sponsors" heroImage="sponsors" />
-      <SponsorsIntro />
+      <SubpageHero title={t("title")} heroImage="sponsors" />
+      <SponsorsIntro t={t} />
       <div className="pb-xl md:pb-2xl">
         {sponsorTiers.map((tier, index) => (
           <SponsorTierSection
@@ -609,6 +635,7 @@ export default function SponsorsPage() {
             tier={tier}
             first={index === 0}
             onSponsorClick={setActiveSponsor}
+            title={t(`tiers.${tier.id}`)}
           />
         ))}
       </div>
@@ -616,6 +643,7 @@ export default function SponsorsPage() {
       <SponsorModal
         sponsor={activeSponsor}
         onClose={() => setActiveSponsor(null)}
+        t={t}
       />
     </PageShell>
   );

@@ -39,7 +39,12 @@ export function HeaderDropdownLayout({
           const Logo = banner.Logo;
           return (
             <HeaderBanner
-              className={twMerge(BANNER_BASE_CLASS, banner.className)}
+              className={twMerge(
+                BANNER_BASE_CLASS,
+                "max-xl:order-2",
+                position === "left" ? "xl:order-1" : "xl:order-2",
+                banner.className,
+              )}
               backgroundClassName={banner.backgroundClassName}
               logo={
                 Logo ? (
@@ -64,11 +69,15 @@ export function HeaderDropdownLayout({
         className,
       )}
     >
-      {bannerNode && position === "left" && bannerNode}
-      <div className="flex-1 xl:min-w-0 w-full flex flex-col xl:flex-row max-xl:gap-6 xl:gap-5">
+      {bannerNode}
+      <div
+        className={twMerge(
+          "order-1 flex w-full flex-1 flex-col max-xl:gap-6 xl:min-w-0 xl:flex-row xl:gap-5",
+          position === "left" ? "xl:order-2" : "xl:order-1",
+        )}
+      >
         {children}
       </div>
-      {bannerNode && position === "right" && bannerNode}
     </div>
   );
 }

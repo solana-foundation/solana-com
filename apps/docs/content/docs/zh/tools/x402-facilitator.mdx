@@ -1,0 +1,508 @@
+---
+date: 2025-09-25T00:00:00Z
+difficulty: beginner
+title: "x402 与 Kora 集成 - 完整演示指南"
+description:
+  "Learn how to integrate the x402 payment protocol with Kora's gasless Solana
+  signing infrastructure, enabling micropayments for API access with zero gas
+  fees."
+tags:
+  - ai
+keywords:
+  - tutorial
+  - ai
+  - AI agents
+  - solana ai
+---
+
+# Solana x402 协议与 Kora RPC 集成
+
+## 您将构建什么
+
+本指南将带您完整实现 x402（HTTP 402 Payment Required）与 Kora（Solana 免 Gas 签名基础设施）的集成。完成后，您将拥有一个可运行的系统，其中：
+
+- API 可使用 x402 协议对访问收取微支付费用
+- 用户使用 USDC 支付，无需持有 SOL 支付 Gas 费
+- Kora 作为免 Gas 促进者，负责处理所有交易费用
+- 支付在 Solana 区块链上原子性地完成结算
+
+最终成果将是一个功能完整的支付保护 API：
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+X402 + KORA PAYMENT FLOW DEMONSTRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/4] Initializing payment signer
+  → Network: solana-devnet
+  → Payer address: BYJV...TbBc
+  ✓ Signer initialized
+
+[2/4] Attempting to access protected endpoint without payment
+  → GET http://localhost:4021/protected
+  → Response: 402 Payment Required
+  ✅ Status code: 402
+
+[3/4] Accessing protected endpoint with x402 payment
+  → Using x402 fetch wrapper
+  → Payment will be processed via Kora facilitator
+  → Transaction submitted to Solana
+  ✅ Status code: 200
+
+[4/4] Processing response data
+  ✓ Payment response decoded
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Payment completed and API accessed
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Response Data:
+{
+    "data": {
+        "message": "Protected endpoint accessed successfully",
+        "timestamp": "2025-09-25T20:14:04.242Z"
+    },
+    "status_code": 200,
+    "payment_response": {
+        "transaction": "5ULZpdeThaMAy6hcEGfAoMFqJqPpCtxdCxb6JYUV6nA4x8Lk2hKEuzofGUPoe1pop6BdWMSmF5oRPrXsbdWmpruf",
+        "success": true,
+        "network": "solana-devnet"
+    }
+}
+```
+
+## 什么是 x402？
+
+[x402](https://www.x402.org/) 是一种开放支付标准，可为 API 访问提供无缝微支付能力。与传统订阅模式或 API 密钥不同，x402 允许服务器对单次 API 调用收费，从而构建真正的按需付费基础设施。
+
+x402 的核心优势：
+
+- **即时微支付**：每次 API 调用仅需支付极小额费用
+- **赋能 AI 智能体支付 API 调用费用**：通过 AI 智能体为 API 调用付费
+- **无需订阅**：用户只为实际使用付费
+- **Web3 支付**：链上透明、可验证的支付方式
+- **标准 HTTP**：使用现有 Web 基础设施，当需要付款时返回 HTTP 402 状态码
+
+使用 x402 要求微支付的服务器，在需要付款时将返回 HTTP 402 状态码。要访问受保护的端点，客户端必须在 `X-PAYMENT` 请求头中传递有效的支付凭证。x402 依赖"促进者"来验证和结算交易，使服务器无需直接与区块链基础设施交互。
+
+### 理解促进者
+
+促进者是 x402 生态系统中的关键组件，作为专业服务代表 API 服务器抽象处理区块链支付。
+
+**促进者的职责：**
+
+- **验证支付**：校验客户端支付载荷的格式正确性及金额充足性
+- **抽象复杂性**：消除服务器直接与区块链基础设施交互的需要（包括签名和支付网络费用）
+- **结算交易**：将经过验证的交易提交至 Solana（或其他网络）
+
+在本演示中，我们创建了一个利用 Kora 来验证和结算交易的促进者（详情见下文）。
+
+## 什么是 Kora？
+
+Kora 是一个 Solana 签名节点，提供签名和免 Gas 交易服务。它使应用程序能够抽象 Gas 费用，允许用户使用 SOL 以外的代币支付交易费用，或由平台全额赞助费用。
+
+Kora 的核心功能：
+
+- **免 Gas 交易**：用户无需持有 SOL 即可执行交易
+- **费用抽象**：使用 USDC 或其他 SPL 代币支付费用
+- **JSON-RPC 接口**：简洁的 HTTP API，用于处理交易
+- **灵活的签名者**：支持多种签名者后端（内存、Vault、Turnkey、Privy）
+- **策略引擎**：对交易验证和费用策略进行精细化控制
+
+在 x402 的场景中，Kora 是促进者的理想后端：它负责处理网络费用、签署交易并验证交易。
+
+## 架构概览
+
+我们的 x402 + Kora 集成由四个相互关联的组件构成，形成完整的请求/响应循环：
+
+完整支付流程：
+
+1. 客户端请求受保护资源 → API 返回 402 Payment Required
+2. 客户端使用 x402 fetch 封装器创建支付交易（组装一笔包含支付指令的 Solana 交易）
+3. 客户端将支付发送给促进者进行验证
+4. 促进者通过 Kora 完成验证，Kora 签署并提交至 Solana
+5. 交易在链上确认，促进者通知 API
+6. API 向客户端返回受保护内容及支付收据
+
+### 组件详解
+
+1. **Kora RPC 服务器**（端口 8080）
+   - 核心免 Gas 交易服务
+   - 作为手续费付款方处理交易签名
+   - 根据已配置的策略验证交易
+
+2. **促进者封装/代理服务器**（端口 3000）
+   - 将 Kora 适配至 x402 协议
+   - 实现 `/verify`、`/settle` 和 `/supported` 端点
+   - 在 x402 与 Kora 数据格式之间进行转换
+
+3. **受保护 API**（端口 4021）
+   - 带有支付保护端点的演示 API 服务器
+   - 使用 x402-express 中间件处理支付
+   - 仅在支付成功后返回数据
+
+4. **客户端应用程序**
+   - 演示 x402 fetch 封装器的使用方式
+   - 使用用户私钥对交易进行签名
+
+多组件的架构方式看似复杂，但它与真实生产系统高度一致——在生产系统中，支付处理、API 服务与客户端应用程序是相互独立的关注点。
+
+## 前置条件
+
+开始之前，请确保您已具备：
+
+- [**Rust**](https://www.rust-lang.org/tools/install)（最新稳定版本）
+- [**Node.js**](https://nodejs.org/en/download)（LTS 或更高版本）
+- [**pnpm**](https://pnpm.io/installation)（最新版本）
+- 对 [Solana 交易](https://solana.com/docs/core/transactions)和 [SPL 代币](https://solana.com/docs/tokens)有基本了解
+
+## 项目设置
+
+### 第一步：克隆并构建 Kora
+
+```bash
+# Clone the repository
+git clone https://github.com/solana-foundation/kora.git
+cd kora
+
+# Checkout the release branch as Kora is currently in a feature freeze for audit
+git checkout release/feature-freeze-for-audit
+
+# Build and install Kora
+make install
+```
+
+这将把 `kora` 二进制文件安装到您的系统中，供后续启动 RPC 服务器使用。
+
+### 第二步：进入演示目录
+
+```bash
+cd docs/x402/demo
+```
+
+### 第三步：安装依赖
+
+为所有演示组件安装 Node.js 依赖项：
+
+```bash
+# Install dependencies for all components (facilitator, API, and client)
+pnpm run install:all
+```
+
+此脚本将为以下组件安装依赖：
+
+- 促进者封装服务
+- 受保护 API 服务器
+- 客户端演示应用程序
+
+### 第四步：构建 Kora SDK
+
+构建 Kora SDK，以便在促进者中使用 Kora TypeScript SDK：
+
+```bash
+pnpm run build:kora-sdk
+```
+
+### 第五步：配置环境
+
+演示项目包含一个 `.env.example` 文件，其中列出了所需的环境变量。首先，进行基础配置：
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+```
+
+接下来，您需要为演示生成或提供 keypair。运行以下命令来生成 keypair：
+
+```bash
+pnpm run setup
+```
+
+这将生成 keypair 并将其写入 `.env` 文件：
+
+- `KORA_SIGNER_ADDRESS` - Kora 签名者的地址
+- `KORA_SIGNER_PRIVATE_KEY` - Kora 签名者的私钥
+- `PAYER_ADDRESS` - 支付者的地址（用于访问受保护的 API）
+- `PAYER_PRIVATE_KEY` - 支付者的私钥
+
+### 第五步：更新配置文件
+
+#### kora.toml
+
+`kora/kora.toml` 文件用于配置 Kora RPC 服务器。通常无需修改此文件，但您可以验证以下配置项：
+
+1. **支付代币**：确保 Devnet USDC 的 mint 地址已加入许可列表：
+
+```toml
+allowed_tokens = [
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", # USDC devnet
+]
+```
+
+2. **API 身份验证**：演示使用 API 密钥进行 Kora 访问认证，应与 `.env` 文件中的 `KORA_API_KEY` 保持一致：
+
+```toml
+[kora.auth]
+api_key = "kora_facilitator_api_key_example"
+```
+
+3. **手续费付款方策略**：已配置为限制对不需要的交易进行签名：
+
+```toml
+[validation.fee_payer_policy]
+allow_sol_transfers = false
+# all other settings are false
+```
+
+4. **允许的程序**：确保 System Program、Token Program、关联代币程序和计算预算程序已加入许可列表：
+
+```toml
+allowed_programs = [
+    "11111111111111111111111111111111",             # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # Token Program
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", # Associated Token Program
+    "ComputeBudget111111111111111111111111111111",  # Compute Budget Program
+]
+```
+
+#### signers.toml
+
+`kora/signers.toml` 文件用于配置 Kora 签名者。通常无需修改此文件，但您可以验证以下配置项：
+
+1. **签名者环境变量**：确保签名者环境变量 `private_key_env` 设置为 `KORA_SIGNER_PRIVATE_KEY`（与 `.env` 文件中的环境变量名称一致）。
+
+```toml
+[[signers]]
+name = "main_signer"
+type = "memory"
+private_key_env = "KORA_SIGNER_PRIVATE_KEY"
+weight = 1
+```
+
+### 第六步：充值账户
+
+#### Devnet SOL
+
+我们的 Kora 签名者地址需要 SOL 来支付交易费用。您可以使用 Solana CLI 向 Kora 签名者地址空投 Devnet SOL：
+
+```bash
+# Airdrop SOL
+solana airdrop 1 <KORA_SIGNER_ADDRESS> --url devnet
+```
+
+或者，您也可以使用 [Solana Faucet](https://faucet.solana.com/) 向 Kora 签名者地址空投 SOL。
+
+#### Devnet USDC
+
+`.env` 文件中设置的 `PAYER_ADDRESS` 需要 USDC 来支付交易费用。
+
+请从 [Circle 水龙头](https://faucet.circle.com/)获取 Devnet USDC。请确保选择"Solana Devnet"，并使用您的 `PAYER_ADDRESS` 申请 USDC。
+
+## 运行演示
+
+您需要四个终端窗口，在 `docs/x402/demo` 目录下运行所有组件。
+
+### 终端 1：启动 Kora RPC 服务器
+
+运行以下命令以启动 Kora RPC 服务器：
+
+```bash
+pnpm run start:kora
+```
+
+您将看到一系列日志，表明 Kora RPC 服务器正在运行，包括：
+
+```
+INFO kora_lib::rpc_server::server: RPC server started on 0.0.0.0:8080, port 8080
+```
+
+### 终端 2：启动促进者
+
+运行以下命令以启动促进者：
+
+```bash
+pnpm run start:facilitator
+```
+
+您将看到：
+
+```
+Server listening at http://localhost:3000
+```
+
+### 终端 3：启动受保护 API
+
+运行以下命令以启动受保护 API：
+
+```bash
+pnpm run start:api
+```
+
+您将看到：
+
+```
+Server listening at http://localhost:4021
+```
+
+### 终端 4：运行客户端演示
+
+```bash
+pnpm run demo
+```
+
+## 理解实现原理
+
+以下是成功支付流程的完整过程：
+
+1. **客户端请求** → API 返回 402 及支付要求
+2. **创建支付** → 客户端创建包含支付的 Solana 交易
+3. **提交支付** → 客户端在 `X-PAYMENT` 请求头中携带支付信息发送请求至服务器
+4. **验证** → 促进者通过 Kora 的 `signTransaction` 进行验证
+5. **结算** → 促进者通过 Kora 的 `signAndSendTransaction` 完成结算（将支付交易发送至 Solana）
+6. **授权访问** → 促进者返回交易签名，API 返回受保护内容及支付收据
+
+让我们深入了解每个组件的工作原理：
+
+- **Kora RPC**（端口 8080）：处理免 Gas 交易签名
+- **促进者**（端口 3000）：将 x402 协议桥接至 Kora
+- **受保护 API**（端口 4021）：您的商业化 API 端点
+- **客户端**：演示自动支付流程
+
+### 促进者封装/代理服务器
+
+促进者运行在端口 3000，是负责与 Solana 通信（本例中通过 Kora）的服务器，用于验证和结算 x402 支付。
+
+促进者（`facilitator/src/facilitator.ts`）是 x402 协议与 Kora RPC 之间的桥梁，实现了三个关键端点：
+
+#### 1. `/verify` 端点
+
+该端点：
+
+- 从受保护 API 服务器接收 x402 支付载荷
+- 使用 x402 辅助工具提取 Solana 交易
+- 使用 Kora 的 `signTransaction` 在不广播的情况下验证交易有效性
+- 返回验证状态 `isValid`
+
+#### 2. `/settle` 端点
+
+该端点：
+
+- 在 `/verify` 端点完成验证后，接收 x402 支付载荷
+- 使用 Kora 的 `signAndSendTransaction` 对交易进行签名并广播
+- 返回交易签名作为结算证明
+
+#### 3. `/supported` 端点
+
+该端点用于公开促进者的能力，包括：
+
+- 支持的 x402 版本
+- 支付方案（精确支付）
+- 网络（solana-devnet）
+- 手续费付款方地址（通过 Kora 的 `getPayerSigner` 方法获取）
+
+### 受保护 API
+
+API 服务器（`api/src/api.ts`）使用 x402-express 中间件来保护端点：
+
+```typescript
+app.use(
+  paymentMiddleware(
+    KORA_PAYER_ADDRESS, // Where payments should go
+    {
+      "GET /protected": {
+        price: "$0.0001", // Price in USD
+        network: NETWORK // solana-devnet
+      }
+    },
+    {
+      url: FACILITATOR_URL // Our facilitator wrapper
+    }
+  )
+);
+```
+
+该中间件：
+
+- 拦截对受保护端点的请求（本例中为 `/protected` 端点）
+- 若缺少支付信息则返回 402 状态码
+- 通过促进者验证并处理支付
+- 支付成功后允许访问
+
+虽然我们使用的是 Express，但 x402 库为许多常用框架提供了中间件支持。请参阅
+[x402 TypeScript 软件包](https://github.com/coinbase/x402/tree/main/typescript/packages)
+了解更多信息。
+
+### 客户端应用程序
+
+客户端（`client/src/index.ts`）通过发送标准 `fetch` 请求，然后使用支付封装器重试请求，演示了 x402 的工作原理：
+
+```typescript
+// Create a signer from private key
+const payer = await createSigner(NETWORK, PAYER_PRIVATE_KEY);
+
+// Wrap fetch with x402 payment capabilities
+const fetchWithPayment = wrapFetchWithPayment(fetch, payer);
+
+// First attempt: Regular fetch (will fail with 402)
+const expect402Response = await fetch(PROTECTED_API_URL);
+console.log(`Status: ${expect402Response.status}`); // 402
+
+// Second attempt: Fetch with payment wrapper (succeeds)
+const response = await fetchWithPayment(PROTECTED_API_URL);
+console.log(`Status: ${response.status}`); // 200
+```
+
+x402 fetch 封装器：
+
+- 检测 402 响应
+- 根据受保护 API 的支付要求自动创建支付交易
+- 使用用户私钥签名
+- 将支付发送给协调方进行验证和处理
+- 在 `x-payment-response` 请求头中附带支付凭证后重试请求
+- 返回成功响应
+
+## 总结
+
+恭喜！🔥 您已成功实现了基于 Kora 无 Gas 基础设施的完整 x402 支付流程。本示例展示了：
+
+- **x402 协议** 通过小额支付实现无摩擦的 API 货币化
+- **Kora RPC** 作为 x402 支付的协调方，负责验证和结算交易
+- **用户** 无需持有 SOL 或管理 Gas 费用即可支付 API 访问费用
+
+这一架构为以下场景奠定了强大的基础：
+
+- AI 智能体市场
+- 按需付费 API
+- 小额支付内容平台
+- 基于用量的 SaaS 定价
+- 任何需要即时、可验证支付的服务
+
+x402 与 Kora 的结合将 Solana 的强大能力引入传统 Web 基础设施。
+
+### 继续构建
+
+- **自定义定价**：修改 API，为不同端点设置不同的收费金额
+- **支持多种代币**：配置 Kora 以接受多种 SPL 代币作为支付方式
+- **生产部署**：使用生产级签名方（Vault、Turnkey 或 Privy）部署至主网
+- **构建自己的 API**：创建通过 x402 支付实现货币化的真实服务
+
+## 更多资源
+
+#### x402 协议
+
+- [x402 文档](https://x402.gitbook.io/x402/)
+- [x402 GitHub](https://github.com/coinbase/x402)
+- [x402 TypeScript SDK](https://www.npmjs.com/package/x402)
+
+#### Solana
+
+- [Solana 文档](https://solana.com/docs)
+- [SPL Token Program](https://spl.solana.com/token)
+
+## 支持
+
+需要帮助？
+
+- 在 [Solana Stack Exchange](https://solana.stackexchange.com/) 上使用 `kora` 和 `x402` 标签提问
+- 在
+  [Kora GitHub 仓库](https://github.com/solana-foundation/kora)中提交 Issue

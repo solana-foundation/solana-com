@@ -10,8 +10,31 @@ module.exports = {
     extend: {
       fontFamily: {
         brand: ["Diatype", "sans-serif"],
+        "brand-mono": ["DSemi", "monospace"],
       },
       colors: {
+        // New design system colors (shared with apps/web and apps/docs)
+        "nd-bg": "#000000",
+        "nd-cta": "#FFFFFF",
+        "nd-on-cta-high-em-text": "#000000",
+        "nd-on-cta-mid-em-text": "#000000A3",
+        "nd-high-em-text": "#FFFFFF",
+        "nd-mid-em-text": "#ABABBA",
+        "nd-mid-em-text-alpha": "#FFFFFFA3",
+        "nd-primary": "#FFFFFF",
+        "nd-primary-hovered": "#FFFFFFE5",
+        "nd-on-primary": "#000000",
+        "nd-inverse": "#000000",
+        "nd-on-inverse": "#FFFFFF",
+        "nd-border-light": "#ECE4FD1F",
+        "nd-border-prominent": "#ECE4FD33",
+        "nd-border-hovered": "#ECE4FD52",
+        "nd-highlight-lavendar": "#CA9FF5",
+        "nd-highlight-blue": "#6693F7",
+        "nd-highlight-gold": "#FFC526",
+        "nd-highlight-orange": "#F48252",
+        "nd-highlight-green": "#55E9AB",
+        "nd-highlight-lime": "#CFF15E",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {

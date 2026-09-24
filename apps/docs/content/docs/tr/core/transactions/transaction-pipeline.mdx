@@ -1,9 +1,7 @@
 ---
 title: İşlem hattı
 description:
-  Solana işlemlerinin gönderimden taahhüde kadar nasıl işlendiği, 8 aşamalı
-  doğrulama hattının tamamı, ağdan işlem detaylarının okunması ve yaygın
-  doğrulama hataları dahil.
+  Solana işlemlerinin gönderimden taahhüde kadar nasıl işlendiği, 8 aşamalı doğrulama hattının tamamı, ağdan işlem detaylarının okunması ve yaygın doğrulama hataları dahil.
 url: /docs/core/transactions/transaction-pipeline
 type: reference
 prerequisites:
@@ -35,6 +33,12 @@ Validator, UDP/QUIC üzerinden işlem byte'larını alır. Ham byte'lar tek bir 
 içine sığmalıdır (_rs`PACKET_DATA_SIZE`_ = 1.232 byte). Byte'lar, imza dizisi ve
 bir _rs`VersionedMessage`_ (legacy veya v0) içeren bir
 _rs`VersionedTransaction`_ içine deserialize edilir.
+
+Yakında gelecek olan
+[v1 formatı](/docs/core/transactions/versioned-transactions#v1-message-format)
+sınırı 4.096 bayta yükseltiyor. QUIC, akış boyutunu kısıtlamaz; bu nedenle MTU'yu aşan bir v1
+transaction'ı, reddedilmek yerine alım sırasında birden fazla QUIC çerçevesine
+bölünür.
 
 ### 2. İmza doğrulama (sigverify)
 
@@ -75,6 +79,11 @@ hesaplanır. Hesaplama bütçesi geçersiz veya çelişkili ise, işlem
 _rs`DuplicateInstruction`_, `InstructionError(..., InvalidInstructionData)` veya
 _rs`InvalidLoadedAccountsDataSizeLimit`_ gibi hesaplama bütçesi ayrıştırma
 hatalarıyla başarısız olur.
+
+[v1 transaction'ları](/docs/core/transactions/versioned-transactions#v1-message-format)
+için ayrıştırılacak herhangi bir işlem bütçesi talimatı yoktur: limitler ve öncelik ücreti
+mesaj yapılandırmasından gelir ve mesajdaki tüm ComputeBudget talimatları
+yapılandırma için göz ardı edilir. Ayarlanmayan yapılandırma alanları sıfıra varsayılan değer alır; bu durum ilerleyen aşamada [hesap yükleme](#6-load-accounts) sırasında ortaya çıkar.
 
 **Blockhash yaşı**: İşlemin `recent_blockhash` değeri
 [`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33)
@@ -151,6 +160,12 @@ olur.
 
 LoaderV3 (yükseltilebilir) programları, yüklenen veri boyutu limitine dahil olan
 ilişkili programdata hesabını örtük olarak yükler.
+
+<Callout type="warn" title="v1 transaction'larında bu limit varsayılan olarak sıfırdır">
+  64 MiB varsayılanı, eski ve v0 transaction'ları için geçerlidir. [v1
+  formatında](/docs/core/transactions/versioned-transactions#v1-message-format) yüklenen hesap verisi boyut limiti, mesaj yapılandırmasından okunur ve ayarlanmayan bir alan, cömert bir varsayılan yerine **0 bayta** varsayılan değer alır. Dolayısıyla boş bir yapılandırmaya sahip bir v1 transaction'ı bu aşamada
+_rs`MaxLoadedAccountsDataSizeExceeded`_ hatasıyla başarısız olur — talep edilen bütçe, yüklenen ilk hesap için çok küçüktür; bu nedenle hata, herhangi bir talimat çalışmadan önce meydana gelir ve hata mesajında ne v1'den ne de yapılandırmadan söz edilir. v1 transaction'ları oluştururken işlem birimi limitini ve yüklenen hesap verisi boyut limitini her zaman açıkça belirtin.
+</Callout>
 
 Hesap yükleme başarısız olursa ancak ücret ödeyici başarıyla doğrulanmışsa,
 işlem
@@ -236,44 +251,44 @@ Aşağıdaki tablo tüm
 [`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
 varyantlarını ve bunların hangi pipeline aşamasında oluştuğunu listeler:
 
-| Hata                                                                                                                                    | Aşama                     | Neden                                                                                      |
-| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------ |
-| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Zamanlama                 | Hesap aynı toplu işlemdeki başka bir işlem tarafından zaten kilitlenmiş                    |
-| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Zamanlama                 | Bir pubkey işlemin `account_keys` içinde iki kez görünüyor                                 |
-| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Ücret ödeyen doğrulama    | Ücret ödeyen hesap mevcut değil                                                            |
-| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Hesap yükleme             | Çağrılan program mevcut değil                                                              |
-| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Ücret ödeyen doğrulama    | Ücret ödeyen, ücret + rent-exempt minimumunu karşılayamıyor                                |
-| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Ücret ödeyen doğrulama    | Ücret ödeyen bir sistem veya nonce hesabı değil                                            |
-| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Durum önbelleği           | İşlem zaten işlendi                                                                        |
-| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Yaş kontrolü              | Blockhash kuyrukta değil ve geçerli bir nonce değil                                        |
-| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Yürütme                   | Bir talimat işlenirken hata oluştu (talimat indeksi ve spesifik `InstructionError` içerir) |
-| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Hesap yükleme             | Yükleyici çağrı zinciri çok derin                                                          |
-| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Sanitize                  | İşlem ücret gerektiriyor ancak imza mevcut değil                                           |
-| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Sanitize                  | İşlem geçersiz bir hesap referansı içeriyor                                                |
-| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Sigverify                 | Ed25519 imzası doğrulanamıyor (paket atılıyor)                                             |
-| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Hesap yükleme             | Program geçerli bir yükleyiciye ait değil                                                  |
-| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Sanitize                  | İşlem hesap ofsetlerini doğru şekilde sanitize edemedi                                     |
-| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Zamanlama                 | Küme bakımı nedeniyle işlemler şu anda devre dışı                                          |
-| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Yürütme                   | İşlem işleme, bekleyen ödünç alınmış referansa sahip bir hesap bıraktı                     |
-| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Zamanlama                 | İşlem maksimum blok maliyet limitini aşacak                                                |
-| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Sanitize                  | İşlem sürümü desteklenmiyor                                                                |
-| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Hesap yükleme             | İşlem yazılamayan yazılabilir bir hesap yüklüyor                                           |
-| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Zamanlama                 | İşlem blok içindeki maksimum hesap maliyet limitini aşacak                                 |
-| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Zamanlama                 | İşlem blok içindeki hesap veri limitini aşacak                                             |
-| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Zamanlama                 | İşlem çok fazla hesap kilitledi                                                            |
-| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Hesap yükleme             | Adres arama tablosu hesabı mevcut değil                                                    |
-| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Hesap yükleme             | Adres arama tablosu yanlış programa ait                                                    |
-| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Hesap yükleme             | Adres arama tablosu geçersiz veri içeriyor                                                 |
-| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Hesap yükleme             | Adres tablosu araması geçersiz bir indeks kullanıyor                                       |
-| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Yürütme sonrası kontrol   | Hesap rent-exempt'ten rent-paying'e geçiş yaptı                                            |
-| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Zamanlama                 | İşlem maksimum oy maliyet limitini aşacak                                                  |
-| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Zamanlama                 | İşlem toplam hesap veri limitini aşacak                                                    |
-| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Compute budget ayrıştırma | Aynı işlemde yinelenen compute budget talimat varyantı                                     |
-| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Yürütme sonrası kontrol   | Hesap veri boyutu için rent'i karşılayacak yeterli lamport'a sahip değil                   |
-| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Hesap yükleme             | Toplam yüklenen veri 64 MiB limitini aşıyor                                                |
-| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Compute budget ayrıştırma | `SetLoadedAccountsDataSizeLimit` 0 olarak ayarlandı                                        |
-| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Sanitize                  | İşlem özellik aktivasyonundan önce/sonra farklılaştı ve yeniden sanitizasyon gerektiriyor  |
-| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Hesap yükleme             | Program yürütme referans verilen hesapta geçici olarak kısıtlanmış                         |
-| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Yürütme sonrası kontrol   | İşlemden önceki toplam lamport bakiyesi işlem sonrası bakiyeye eşit değil                  |
-| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Hesap yükleme             | Program önbelleği maksimum limite ulaştı                                                   |
-| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Commit                    | Commit dahili olarak iptal edildi                                                          |
+| Hata                                                                                                                                   | Aşama                  | Neden                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | Zamanlama             | Hesap aynı toplu işlemdeki başka bir işlem tarafından zaten kilitlenmiş                                                                        |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | Zamanlama             | Bir pubkey işlemin `account_keys` içinde iki kez görünüyor                                                                                |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | Ücret ödeyen doğrulama   | Ücret ödeyen hesap mevcut değil                                                                                                          |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | Hesap yükleme        | Çağrılan program mevcut değil                                                                                                         |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | Ücret ödeyen doğrulama   | Ücret ödeyen, ücret + rent-exempt minimumunu karşılayamıyor                                                                                          |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | Ücret ödeyen doğrulama   | Ücret ödeyen bir sistem veya nonce hesabı değil                                                                                                |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | Durum önbelleği           | İşlem zaten işlendi                                                                                                         |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | Yaş kontrolü              | Blockhash kuyrukta değil ve geçerli bir nonce değil                                                                                              |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | Yürütme              | Bir talimat işlenirken hata oluştu (talimat indeksi ve spesifik `InstructionError` içerir)                            |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | Hesap yükleme        | Yükleyici çağrı zinciri çok derin                                                                                                             |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | Sanitize               | İşlem ücret gerektiriyor ancak imza mevcut değil                                                                                   |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | Sanitize               | İşlem geçersiz bir hesap referansı içeriyor                                                                                         |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | Sigverify              | Ed25519 imzası doğrulanamıyor (paket atılıyor)                                                                                   |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | Hesap yükleme        | Program geçerli bir yükleyiciye ait değil                                                                                                    |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | Sanitize               | İşlem hesap ofsetlerini doğru şekilde sanitize edemedi                                                                                 |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | Zamanlama             | Küme bakımı nedeniyle işlemler şu anda devre dışı                                                                            |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | Yürütme              | İşlem işleme, bekleyen ödünç alınmış referansa sahip bir hesap bıraktı                                                             |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | Zamanlama             | İşlem maksimum blok maliyet limitini aşacak                                                                                             |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | Sanitize               | İşlem sürümü desteklenmiyor                                                                                                        |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | Hesap yükleme        | İşlem yazılamayan yazılabilir bir hesap yüklüyor                                                                               |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | Zamanlama             | İşlem blok içindeki maksimum hesap maliyet limitini aşacak                                                                          |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | Zamanlama             | İşlem blok içindeki hesap veri limitini aşacak                                                                              |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | Zamanlama             | İşlem çok fazla hesap kilitledi                                                                                                      |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | Hesap yükleme        | Adres arama tablosu hesabı mevcut değil                                                                                               |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | Hesap yükleme        | Adres arama tablosu yanlış programa ait                                                                                        |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | Hesap yükleme        | Adres arama tablosu geçersiz veri içeriyor                                                                                                |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | Hesap yükleme        | Adres tablosu araması geçersiz bir indeks kullanıyor                                                                                                |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | Yürütme sonrası kontrol   | Hesap rent-exempt'ten rent-paying'e geçiş yaptı                                                                                      |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | Zamanlama             | İşlem maksimum oy maliyet limitini aşacak                                                                                              |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | Zamanlama             | İşlem toplam hesap veri limitini aşacak                                                                                         |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | Compute budget ayrıştırma | Aynı işlemde yinelenen compute budget talimat varyantı                                                                      |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | Yürütme sonrası kontrol   | Hesap veri boyutu için rent'i karşılayacak yeterli lamport'a sahip değil                                                                     |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | Hesap yükleme        | Toplam yüklenen veri, transaction'ın yüklenen hesap verisi boyut limitini aşıyor (varsayılan olarak 64 MiB; mesaj yapılandırmasında belirlenmediği sürece v1'de 0) |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | Compute budget ayrıştırma | `SetLoadedAccountsDataSizeLimit` 0 olarak ayarlandı                                                                                                 |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | Sanitize               | İşlem özellik aktivasyonundan önce/sonra farklılaştı ve yeniden sanitizasyon gerektiriyor                                                             |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | Hesap yükleme        | Program yürütme referans verilen hesapta geçici olarak kısıtlanmış                                                                     |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | Yürütme sonrası kontrol   | İşlemden önceki toplam lamport bakiyesi işlem sonrası bakiyeye eşit değil                                                             |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | Hesap yükleme        | Program önbelleği maksimum limite ulaştı                                                                                                               |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | Commit                 | Commit dahili olarak iptal edildi                                                                                                               |

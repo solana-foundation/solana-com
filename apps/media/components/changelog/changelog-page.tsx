@@ -3,7 +3,9 @@
 import { type FormEvent, useCallback, useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowUpRight, Mail, Rss } from "lucide-react";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Envelope as Mail } from "@boxicons/react/Envelope";
+import { Rss } from "@boxicons/react/Rss";
 import {
   DescriptionContent,
   type DescriptionContentProps,
@@ -11,7 +13,7 @@ import {
 import {
   CHANGELOG_CATEGORY,
   CHANGELOG_PAGE_SIZE,
-  CHANGELOG_SUBSCRIBE_URL,
+  CHANGELOG_SUBSCRIBE_PATH,
 } from "@/lib/changelog";
 import type { PageInfo, PostItem } from "@/lib/post-types";
 
@@ -92,12 +94,10 @@ function SubscribeForm() {
     setStatus("submitting");
 
     try {
-      const data = new FormData();
-      data.append("email", email.trim());
-
-      const response = await fetch(CHANGELOG_SUBSCRIBE_URL, {
+      const response = await fetch(CHANGELOG_SUBSCRIBE_PATH, {
         method: "POST",
-        body: data,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
       });
 
       if (!response.ok) {

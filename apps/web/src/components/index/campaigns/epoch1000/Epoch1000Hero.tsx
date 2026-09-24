@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRight as ArrowRightIcon } from "@boxicons/react/ArrowRight";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import { Button } from "@/app/components/ui/button";
@@ -206,7 +206,6 @@ export const Epoch1000Hero: React.FC = () => {
                 <ArrowRightIcon
                   aria-hidden={true}
                   className="!size-[16px] block"
-                  strokeWidth={3}
                 />
               </span>
             </Link>

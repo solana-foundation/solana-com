@@ -1,8 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import Link from "../../utils/Link";
 import FormattedDate from "../shared/FormattedDate";
 import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
@@ -121,7 +122,7 @@ const EventsHeroSection = ({
                 <span className="font-brand text-lg font-medium text-white transition-opacity duration-200 group-hover:opacity-60">
                   {nextEvent.title}
                 </span>
-                <ArrowUpRight
+                <ArrowOutUpRightSquare
                   aria-hidden
                   className="h-4 w-4 text-white/40 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                 />

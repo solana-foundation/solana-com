@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowUpRight, ArrowDown, Lock, Check } from "react-feather";
+import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowDown } from "@boxicons/react/ArrowDown";
+import { Lock } from "@boxicons/react/Lock";
+import { Check } from "@boxicons/react/Check";
 import { Logos } from "@/components/solutions/logos.v2";
 
 interface PrivacyHackPageProps {
@@ -385,7 +388,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
         <div className="container relative z-10 text-center px-4 py-12 md:py-16">
           {/* Terminal-style badge with typing effect */}
           <div className="inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-full border border-green-500/30 bg-green-500/5">
-            <Lock size={14} className="text-green-400" />
+            <Lock width={14} height={14} className="text-green-400" />
             <span className="text-green-400 text-sm font-mono tracking-wider">
               {badgeText}
               <span
@@ -421,7 +424,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
               className="inline-flex items-center gap-2 px-8 py-4 border border-green-400/50 text-green-400 font-semibold rounded-full hover:bg-green-400/10 transition-all"
             >
               {translations.heroResourcesButton}
-              <ArrowDown size={18} />
+              <ArrowDown width={18} height={18} />
             </a>
           </div>
 
@@ -541,7 +544,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
           className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-green-400 text-green-400 hover:bg-green-400 hover:text-black transition-all font-semibold"
         >
           Workshops Timeline
-          <ArrowDown size={18} />
+          <ArrowDown width={18} height={18} />
         </a>
       </div>
 
@@ -713,7 +716,11 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                       className="mt-auto inline-flex items-center text-green-400 font-semibold hover:text-green-300 transition-colors"
                     >
                       Learn more about {bounty.sponsor}
-                      <ArrowUpRight size={16} className="ml-1" />
+                      <ArrowOutUpRightSquare
+                        width={16}
+                        height={16}
+                        className="ml-1"
+                      />
                     </a>
                   )}
                 </div>
@@ -772,7 +779,11 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                       className="mt-auto inline-flex items-center text-green-400 text-sm font-semibold hover:text-green-300 transition-colors"
                     >
                       Learn more about {bounty.sponsor}
-                      <ArrowUpRight size={14} className="ml-1" />
+                      <ArrowOutUpRightSquare
+                        width={14}
+                        height={14}
+                        className="ml-1"
+                      />
                     </a>
                   )}
                 </div>
@@ -840,7 +851,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                       className="inline-flex items-center gap-1 text-green-400 text-sm hover:text-green-300 transition-colors font-mono"
                     >
                       @{mentor.twitter.split("/").pop()}
-                      <ArrowUpRight className="w-3 h-3" />
+                      <ArrowOutUpRightSquare className="w-3 h-3" />
                     </a>
                   )}
                 </div>
@@ -911,7 +922,11 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                   </p>
                   <span className="inline-flex items-center text-green-400 text-sm font-semibold">
                     {translations.resourcesLearnMore}
-                    <ArrowUpRight size={14} className="ml-1" />
+                    <ArrowOutUpRightSquare
+                      width={14}
+                      height={14}
+                      className="ml-1"
+                    />
                   </span>
                 </a>
               ))}
@@ -956,7 +971,7 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                     className="mt-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-green-400 text-green-400 hover:bg-green-400 hover:text-black transition-all font-semibold text-sm"
                   >
                     Watch on 𝕏
-                    <ArrowUpRight size={14} />
+                    <ArrowOutUpRightSquare width={14} height={14} />
                   </a>
                 </div>
               ))}
@@ -994,7 +1009,11 @@ export function PrivacyHackPage({ translations }: PrivacyHackPageProps) {
                   >
                     <div className="flex-shrink-0 mt-1">
                       <div className="w-5 h-5 rounded border border-green-400 flex items-center justify-center">
-                        <Check size={12} className="text-green-400" />
+                        <Check
+                          width={12}
+                          height={12}
+                          className="text-green-400"
+                        />
                       </div>
                     </div>
                     <span className="text-gray-300">{req}</span>

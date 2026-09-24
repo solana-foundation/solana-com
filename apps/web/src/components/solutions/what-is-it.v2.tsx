@@ -4,7 +4,7 @@ import React, { useCallback, useId } from "react";
 import { useScrollTextHighlight } from "../../hooks/useScrollTextHighlight";
 import Image from "next/image";
 import { useViewportVisibility } from "@/hooks/useViewportVisibility";
-import { debounce } from "lodash";
+import debounce from "lodash/debounce";
 import { cn } from "@/app/components/utils";
 
 export type WhatIsItProps = {

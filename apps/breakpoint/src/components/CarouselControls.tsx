@@ -1,11 +1,13 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "@workspace/i18n/client";
 
 interface CarouselControlsProps {
   onPrev: () => void;
   onNext: () => void;
   className?: string;
+  buttonClassName?: string;
   labelPrefix?: string;
 }
 
@@ -13,13 +15,17 @@ export default function CarouselControls({
   onPrev,
   onNext,
   className = "",
+  buttonClassName = "",
   labelPrefix,
 }: CarouselControlsProps) {
+  const t = useTranslations("breakpoint.accessibility");
   const previousLabel = labelPrefix
-    ? `Previous ${labelPrefix}`
-    : "Previous item";
-  const nextLabel = labelPrefix ? `Next ${labelPrefix}` : "Next item";
-  const buttonClassName =
+    ? t("previous", { label: labelPrefix })
+    : t("previousItem");
+  const nextLabel = labelPrefix
+    ? t("next", { label: labelPrefix })
+    : t("nextItem");
+  const buttonBaseClassName =
     "flex size-12 items-center justify-center border border-stroke-secondary text-white transition-colors hover:border-neutral-500 hover:bg-neutral-600 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white disabled:border-stroke-primary disabled:text-neutral-700 disabled:hover:bg-transparent";
 
   return (
@@ -28,7 +34,7 @@ export default function CarouselControls({
         type="button"
         onClick={onPrev}
         aria-label={previousLabel}
-        className={buttonClassName}
+        className={`${buttonBaseClassName} ${buttonClassName}`.trim()}
       >
         <svg
           aria-hidden="true"
@@ -51,7 +57,7 @@ export default function CarouselControls({
         type="button"
         onClick={onNext}
         aria-label={nextLabel}
-        className={buttonClassName}
+        className={`${buttonBaseClassName} ${buttonClassName}`.trim()}
       >
         <svg
           aria-hidden="true"

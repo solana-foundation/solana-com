@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./PossibleGlow.module.scss";
 
 type PossibleGlowProps = {

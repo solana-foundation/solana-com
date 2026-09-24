@@ -1,8 +1,8 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import Image from "next/image";
 import { getImagePath } from "@/config";
 import { fadeInUp, staggerFast } from "@/lib/animations";

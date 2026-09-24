@@ -1,7 +1,7 @@
 import React, { ReactNode, useRef, useEffect } from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import styles from "./MarkdownAccordion.module.scss";
-import AngleDownIcon from "../../../../../public/src/img/icons/Angle-down.inline.svg";
+import { ChevronDown as AngleDownIcon } from "@boxicons/react/ChevronDown";
 
 interface MarkdownAccordionProps {
   children: ReactNode;
@@ -64,7 +64,7 @@ export function MarkdownAccordionItem({
       <AccordionPrimitive.Header>
         <AccordionPrimitive.Trigger className={styles.trigger}>
           {title}
-          <AngleDownIcon className={styles.chevron} />
+          <AngleDownIcon className={styles.chevron} aria-hidden="true" />
         </AccordionPrimitive.Trigger>
       </AccordionPrimitive.Header>
       <AccordionPrimitive.Content className={styles.content}>

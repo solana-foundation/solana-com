@@ -2,18 +2,12 @@
 
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import classNames from "classnames";
-import { twMerge } from "tailwind-merge";
+import { cn } from "./classnames";
 import { useTranslations } from "next-intl";
-import { X } from "react-feather";
+import { X } from "@boxicons/react/X";
 import { useTheme } from "./theme-provider";
-
-function cn(...inputs: classNames.ArgumentArray) {
-  return twMerge(classNames(inputs));
-}
-
-const ITERABLE_BASE_URL =
-  "https://links.iterable.com/lists/publicAddSubscriberForm?publicIdString=";
+import { getIterableActionUrl, sendIterableFormRequest } from "./iterable";
+import { trackLead, type AnalyticsAppName } from "./analytics";
 
 const Status = {
   Idle: "idle",
@@ -26,10 +20,15 @@ type StatusType = (typeof Status)[keyof typeof Status];
 
 interface NewsletterModalProps {
   formId: string;
+  analyticsAppName: AnalyticsAppName;
   children: React.ReactNode;
 }
 
-export function NewsletterModal({ formId, children }: NewsletterModalProps) {
+export function NewsletterModal({
+  formId,
+  analyticsAppName,
+  children,
+}: NewsletterModalProps) {
   const t = useTranslations();
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -38,7 +37,7 @@ export function NewsletterModal({ formId, children }: NewsletterModalProps) {
   const [email, setEmail] = React.useState("");
   const [status, setStatus] = React.useState<StatusType>(Status.Idle);
 
-  const actionUrl = `${ITERABLE_BASE_URL}${formId}`;
+  const actionUrl = getIterableActionUrl(formId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,20 +50,16 @@ export function NewsletterModal({ formId, children }: NewsletterModalProps) {
     setStatus(Status.Sending);
 
     try {
-      const data = new FormData();
-      data.append("email", email);
-
-      const response = await fetch(actionUrl, {
-        method: "POST",
-        body: data,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to subscribe");
-      }
+      await sendIterableFormRequest(actionUrl, { email });
 
       setStatus(Status.Success);
       setEmail("");
+      trackLead({
+        appName: analyticsAppName,
+        leadType: "newsletter",
+        formId,
+        placement: "newsletter_modal",
+      });
     } catch {
       setStatus(Status.Error);
     }
@@ -120,7 +115,7 @@ export function NewsletterModal({ formId, children }: NewsletterModalProps) {
               "focus:outline-none focus:ring-2 focus:ring-[#9945FF]",
             )}
           >
-            <X size={20} />
+            <X width={20} height={20} />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
 

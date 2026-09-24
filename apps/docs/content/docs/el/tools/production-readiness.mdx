@@ -1,0 +1,590 @@
+---
+title: Ετοιμότητα παραγωγής
+description: Μετάβαση από δοκιμές devnet σε ανάπτυξη mainnet
+---
+
+Η τοπική ανάπτυξη και οι δοκιμές στο devnet είναι εξαιρετικοί τρόποι για να
+ξεκινήσετε με τις πληρωμές Solana. Ωστόσο, όταν είστε έτοιμοι να αναπτύξετε στο
+mainnet, πρέπει να γνωρίζετε τις ιδιαιτερότητες του mainnet. Το devnet συγχωρεί
+λάθη. Το mainnet όχι. Αυτός ο οδηγός καλύπτει τις διαφορές που έχουν σημασία για
+να διασφαλίσετε ότι οι χρήστες σας θα έχουν μια ομαλή εμπειρία.
+
+| Devnet                          | Mainnet                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| Δωρεάν SOL από faucets           | [Αποκτήστε πραγματικά SOL](https://solana.com/ecosystem/explore?categories=exchange) για χρεώσεις |
+| Χαμηλός ανταγωνισμός για χώρο block | Οι χρεώσεις προτεραιότητας έχουν σημασία                                                                  |
+| Οι συναλλαγές ολοκληρώνονται εύκολα        | Η διαμόρφωση συναλλαγών είναι κρίσιμη                                                 |
+| Το δημόσιο RPC είναι εντάξει              | Απαιτείται RPC παραγωγής                                                               |
+| Κλειδιά και mints του devnet       | Διαφορετικά κλειδιά και token mints—ενημερώστε τη διαμόρφωσή σας                                     |
+
+## Υποδομή RPC
+
+[Δημόσια endpoints](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet.solana.com`) έχουν περιορισμό ρυθμού χωρίς SLA. Είναι κατάλληλα για
+ανάπτυξη, αλλά θα αποτύχουν σε ροές πληρωμών παραγωγής—όπως το να προσπαθείς να εκτελέσεις έναν επεξεργαστή πληρωμών μέσω ενός κοινόχρηστου API χωρίς εγγύηση διαθεσιμότητας.
+
+<Callout type="caution" title="Ποτέ μην χρησιμοποιείτε δημόσιο RPC για παραγωγή">
+  Χρησιμοποιήστε έναν [ιδιωτικό πάροχο RPC](https://solana.com/rpc) για
+  αξιόπιστη πρόσβαση χαμηλής καθυστέρησης.
+</Callout>
+
+Όταν επιλέγετε έναν πάροχο RPC, αναζητήστε:
+
+- **Αξιοπιστία**: SLA με εγγυήσεις διαθεσιμότητας (99.9%+)
+- **Καθυστέρηση**: Γεωγραφική εγγύτητα στους χρήστες σας
+- **Χαρακτηριστικά**: Χαρακτηριστικά ολοκλήρωσης συναλλαγών, ευρετηρίαση, API
+  χρεώσεων προτεραιότητας
+
+Για πλήρη λίστα παρόχων RPC, δείτε τον οδηγό
+[παρόχων υποδομής RPC](https://solana.com/rpc).
+
+### Πλεονασματική διαμόρφωση RPC
+
+Όπως κάθε πάροχος υπηρεσιών δικτύου, οι πάροχοι RPC μπορεί να αντιμετωπίσουν
+διακοπή λειτουργίας ή περιόδους υποβαθμισμένης απόδοσης. Για να διασφαλίσετε ότι
+η εφαρμογή σας είναι ανθεκτική, θα πρέπει να διαμορφώσετε την εφαρμογή σας να
+χρησιμοποιεί πολλαπλούς παρόχους RPC.
+
+Το
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+παρέχει μια βιβλιοθήκη για την προσαρμογή των μεταφορών RPC που σας επιτρέπει να
+δημιουργήσετε τον δικό σας πλεονασματικό πελάτη RPC. Ακολουθεί ένα παράδειγμα
+του πώς μπορείτε να το χρησιμοποιήσετε για να δημιουργήσετε έναν πλεονασματικό
+πελάτη RPC:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+Εάν προτιμάτε να μην δημιουργήσετε τα δικά σας εργαλεία δρομολόγησης, μπορείτε
+να αξιοποιήσετε μια υπηρεσία τρίτου μέρους όπως το
+[Iron Forge](https://www.ironforge.sanctum.so/) για να χειριστεί τη δρομολόγηση
+για εσάς.
+
+## Προσγείωση συναλλαγών
+
+Στο Devnet, οι συναλλαγές προσγειώνονται αρκετά εύκολα. Στο Mainnet,
+ανταγωνίζεστε για χώρο στο block. Για να αυξήσετε τις πιθανότητες να
+συμπεριληφθεί η συναλλαγή σας σε ένα block, θα πρέπει να βεβαιωθείτε ότι έχετε
+συναρμολογήσει σωστά τη συναλλαγή σας. Αυτό σημαίνει:
+
+- συμπερίληψη ενός πρόσφατου blockhash πριν από την αποστολή της συναλλαγής
+- συμπερίληψη μιας εντολής priority fee στη συναλλαγή με ένα ανταγωνιστικό
+  priority fee
+- συμπερίληψη μιας εντολής compute unit limit στη συναλλαγή με ένα compute unit
+  limit βασισμένο στις εκτιμώμενες compute units που απαιτούνται για τη
+  συναλλαγή
+
+Επιπλέον, θα πρέπει να εξετάσετε άλλα εργαλεία όπως τα Jito Bundles για να
+αυξήσετε τις πιθανότητες να συμπεριληφθεί η συναλλαγή σας σε ένα block. Ας
+εξερευνήσουμε αυτά τα εργαλεία πιο αναλυτικά.
+
+### Διαμόρφωση αποστολής συναλλαγών
+
+Κατά την αποστολή συναλλαγών στο Mainnet, διαμορφώστε αυτές τις παραμέτρους για
+βέλτιστα ποσοστά προσγείωσης:
+
+**Διαχείριση blockhash:**
+
+- Ανάκτηση με `confirmed` commitment
+- Αποθήκευση του `lastValidBlockHeight` που επιστρέφεται από το
+  `getLatestBlockhash`—αυτό σας ενημερώνει πότε λήγει η συναλλαγή σας
+- Τα blockhashes λήγουν μετά από ~150 blocks (~60-90 δευτερόλεπτα)
+
+**Επιλογές αποστολής:**
+
+- `maxRetries: 0` — Απενεργοποίηση αυτόματων επαναπροσπαθειών RPC. Χειριστείτε
+  τις επαναπροσπάθειες μόνοι σας ώστε να μπορείτε να ανανεώσετε το blockhash
+  όταν χρειάζεται.
+- `skipPreflight: true` — Παράκαμψη προσομοίωσης πριν από την αποστολή.
+  Χρησιμοποιήστε το όταν έχετε ήδη επικυρώσει τη συναλλαγή και θέλετε τη
+  χαμηλότερη καθυστέρηση. Διατηρήστε το `false` κατά την ανάπτυξη για να
+  εντοπίσετε σφάλματα νωρίς.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### Χρησιμοποιήστε τέλη προτεραιότητας
+
+Κάθε συναλλαγή στο Solana απαιτεί τέλος συναλλαγής, που πληρώνεται σε SOL. Τα
+τέλη συναλλαγών χωρίζονται σε δύο μέρη: το βασικό τέλος και το τέλος
+προτεραιότητας. Το βασικό τέλος αποζημιώνει τους validators για την επεξεργασία
+της συναλλαγής. Το τέλος προτεραιότητας είναι ένα προαιρετικό τέλος, για να
+αυξήσετε την πιθανότητα ο τρέχων leader να επεξεργαστεί τη συναλλαγή σας.
+Σκεφτείτε το σαν express αποστολή: πληρώνετε περισσότερα για ταχύτερη, πιο
+αξιόπιστη παράδοση.
+
+**Πώς λειτουργούν τα τέλη:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee = Compute units x Price per unit (micro-lamports per compute unit)
+```
+
+**Πραγματικό κόστος:**
+
+- Απλή μεταφορά USDC: ~$0.001-0.005 κατά τις κανονικές συνθήκες
+- Κατά τη συμφόρηση: ~$0.01-0.05
+- Μέγιστη συμφόρηση: μπορεί να αυξηθεί περισσότερο
+
+**Παράδειγμα υλοποίησης:**
+
+Το πακέτο
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+παρέχει μια βοηθητική συνάρτηση για να ενημερώσετε ή να προσθέσετε εύκολα την
+οδηγία τιμής μονάδας υπολογισμού (σε micro-lamports) σε μια συναλλαγή.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**Λήψη εκτιμήσεων τελών:** Οι περισσότεροι πάροχοι RPC προσφέρουν APIs τελών
+προτεραιότητας:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+Για τους πλήρεις μηχανισμούς τελών, δείτε [Τέλη συναλλαγών](/docs/core/fees) και
+τον οδηγό μας:
+[Πώς να προσθέσετε τέλη προτεραιότητας σε μια συναλλαγή](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### Βελτιστοποιήστε τις μονάδες υπολογισμού
+
+Ο υπολογισμός στο Solana είναι ουσιαστικά ένα μέτρο του όγκου εργασίας που
+εκτελεί το πρόγραμμα. Υπάρχει ένα όριο στον όγκο υπολογισμού που μπορεί να
+χρησιμοποιηθεί σε μια συναλλαγή (επί του παρόντος 1,4 εκατομμύρια μονάδες
+υπολογισμού), και ένα όριο στον όγκο υπολογισμού που μπορεί να χρησιμοποιηθεί
+ανά λογαριασμό ανά block (επί του παρόντος 100 εκατομμύρια μονάδες υπολογισμού).
+
+Όταν υποβάλλετε μια συναλλαγή, πρέπει να εκτιμήσετε τον όγκο υπολογισμού που θα
+χρησιμοποιηθεί και να ορίσετε το όριο μονάδων υπολογισμού ανάλογα - αυτό είναι
+ουσιαστικά ένα αίτημα για το πόσο από τη συνολική χωρητικότητα θα πρέπει να
+δεσμευτεί για τη συναλλαγή σας. Στην πράξη, αυτό σημαίνει ότι η σωστή εκτίμηση
+των μονάδων υπολογισμού που απαιτούνται για τη συναλλαγή σας είναι κρίσιμη για
+να συμπεριληφθεί η συναλλαγή σας σε ένα block (και σημαντική για τη διαχείριση
+των τελών προτεραιότητάς σας).
+
+Το Solana JSON RPC API διαθέτει μια μέθοδο
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction) που μπορεί να
+χρησιμοποιηθεί για την εκτίμηση των υπολογιστικών μονάδων που απαιτεί μια
+συναλλαγή, συμπεριλαμβανομένης μιας εκτίμησης των υπολογιστικών μονάδων που θα
+χρησιμοποιηθούν. Το [`@solana/kit`](https://github.com/anza-xyz/kit) παρέχει
+βοηθητικές συναρτήσεις που εκτιμούν τα όρια πόρων μιας συναλλαγής και τα ορίζουν
+στο μήνυμα σε ένα βήμα (χρησιμοποιώντας τη μέθοδο `simulatetransaction`
+εσωτερικά). Για συναλλαγές έκδοσης 1 αυτά τα βοηθητικά εργαλεία εκτιμούν επίσης
+το όριο μεγέθους δεδομένων φορτωμένων λογαριασμών.
+
+```ts
+import {
+  estimateResourceLimitsFactory,
+  estimateAndSetResourceLimitsFactory
+} from "@solana/kit";
+
+const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimits
+);
+const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
+```
+
+<Callout type="info">
+  Εάν δημιουργείτε και αποστέλλετε συναλλαγές με ένα πρόσθετο πρόγραμμα-πελάτη
+  kit, συνήθως δεν χρειάζεστε αυτό το βήμα — το πρόγραμμα-πελάτης προσθέτει
+  οδηγίες προϋπολογισμού υπολογισμού για εσάς κατά την αποστολή
+  (`.sendTransaction()`). Η χειροκίνητη ροή παραπάνω αφορά όταν συναρμολογείτε
+  συναλλαγές απευθείας με `@solana/kit`.
+</Callout>
+
+Στην παραγωγή, εάν επαναλαμβάνετε τον ίδιο τύπο συναλλαγής πολλές φορές, θα
+πρέπει να εξετάσετε την αποθήκευση στην κρυφή μνήμη της εκτίμησης υπολογισμού
+για τον τύπο συναλλαγής, ώστε να αποφύγετε την επιβάρυνση εκτίμησης των
+υπολογιστικών μονάδων κάθε φορά.
+
+### Jito Bundles
+
+Τα Jito bundles είναι ένα εργαλείο για τη διαχείριση ατομικής εκτέλεσης
+πολλαπλών συναλλαγών. Αυτό επιτυγχάνεται με την αποστολή πολλαπλών συναλλαγών
+στο δίκτυο Jito με ένα φιλοδώρημα. Τα φιλοδωρήματα μπορούν να χρησιμοποιηθούν
+για να παρακινήσουν το δίκτυο Jito να συμπεριλάβει τις συναλλαγές σας σε ένα
+μπλοκ.
+
+**Πόροι:**
+
+- [Τεκμηρίωση Jito](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 Βίντεο: Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [Οδηγός QuickNode για Jito bundles](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### Στρατηγικές Επανάληψης
+
+Οι συναλλαγές μπορεί να αποτύχουν για πολλούς λόγους. Σε αντίθεση με τα
+παραδοσιακά API πληρωμών που επιστρέφουν άμεσα αποτέλεσμα επιτυχίας/αποτυχίας,
+οι συναλλαγές blockchain απαιτούν παρακολούθηση επιβεβαίωσης.
+
+**Βασικές έννοιες:**
+
+- **Λήξη blockhash**: Οι συναλλαγές ισχύουν για ~150 μπλοκ (~60-90 δευτερόλεπτα)
+- **Idempotency**: Η ίδια υπογεγραμμένη συναλλαγή παράγει πάντα την ίδια
+  υπογραφή — η επαναποστολή είναι ασφαλής
+- **Εκθετική υποχώρηση**: Αποφύγετε την υπερφόρτωση του δικτύου με γρήγορες
+  επαναλήψεις
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+Το `sendAndConfirmTransactionFactory` από το `@solana/kit` χειρίζεται αυτόματα
+την επιβεβαίωση και την παρακολούθηση ύψους μπλοκ. Εκπέμπει
+`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` όταν λήξει το blockhash της συναλλαγής,
+σηματοδοτώντας ότι πρέπει να αναδομήσετε τη συναλλαγή με ένα νέο blockhash.
+
+### Επιπλέον Πόροι
+
+- [Οδηγός: Επιβεβαίωση & Λήξη Συναλλαγών](https://solana.com/developers/cookbook/transactions/confirmation)
+- [Helius: Πώς να Ολοκληρώσετε Συναλλαγές στο Solana](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Στρατηγικές Βελτιστοποίησης Συναλλαγών Solana](https://www.quicknode.com/docs/solana/transactions)
+
+## Κατανόηση Επιπέδων Επιβεβαίωσης
+
+Το Solana προσφέρει τρία επίπεδα επιβεβαίωσης. Σε όρους παραδοσιακής
+χρηματοδότησης:
+
+| Επίπεδο       | Ορισμός Solana         | Παραδοσιακό Ισοδύναμο | Περίπτωση Χρήσης               |
+| ----------- | ------------------------- | ---------------------- | ---------------------- |
+| `processed` | Σε μπλοκ, χωρίς ψήφο ακόμη | Εκκρεμής εξουσιοδότηση  | Ενημερώσεις UI σε πραγματικό χρόνο   |
+| `confirmed` | Ψηφίστηκε από υπερπλειοψηφία       | Εκκαθαρισμένα κεφάλαια          | **Οι περισσότερες πληρωμές**      |
+| `finalized` | Ριζωμένο, μη αναστρέψιμο      | Διακανονισμένα κεφάλαια          | Υψηλής αξίας, συμμόρφωση |
+
+**Πότε να χρησιμοποιείτε το καθένα:**
+
+- **Ενημερώσεις UI**: Εμφάνιση `processed` για άμεση ανατροφοδότηση ("Η πληρωμή
+  υποβλήθηκε")
+- **Πίστωση λογαριασμού χρήστη**: Αναμονή για `confirmed` (ασφαλές για τις
+  περισσότερες συναλλαγές)
+- **Αποστολή φυσικών αγαθών**: Αναμονή για `finalized`
+- **Μεγάλες αναλήψεις**: Αναμονή για `finalized`
+- **Συμμόρφωση/έλεγχος**: Πάντα καταγράφετε την κατάσταση `finalized`
+
+Για περισσότερες πληροφορίες σχετικά με τον έλεγχο κατάστασης συναλλαγών, δείτε
+[Αλληλεπίδραση με το Solana](/docs/payments/interacting-with-solana).
+
+## Διαχείριση Σφαλμάτων
+
+Το Solana Kit παρέχει τυποποιημένα σφάλματα μέσω του `isSolanaError()`.
+Χρησιμοποιήστε συγκεκριμένους κωδικούς σφαλμάτων αντί για αντιστοίχιση
+συμβολοσειρών:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**Συνηθισμένοι Κωδικοί Σφαλμάτων:**
+
+| Κωδικός Σφάλματος                   | Αιτία                 | Αποκατάσταση                                                                                                 |
+| ---------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Το blockhash έληξε     | Αναδόμηση με νέο blockhash                                                                             |
+| `BLOCKHASH_NOT_FOUND`        | Το blockhash δεν βρέθηκε   | Αναδόμηση με νέο blockhash                                                                             |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | Ανεπαρκές SOL        | Χρηματοδοτήστε τον πληρωτή τελών ή χρησιμοποιήστε [αφαίρεση τελών](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | Ανεπαρκή tokens     | Ο χρήστης χρειάζεται μεγαλύτερο υπόλοιπο                                                                                  |
+| `ACCOUNT_NOT_FOUND`          | Λείπει το token account | Δημιουργήστε ATA στη συναλλαγή                                                                                |
+
+## Συναλλαγές Χωρίς Gas
+
+Οι χρήστες αναμένουν να πληρώνουν σε stablecoins, χωρίς να χρειάζεται να
+αποκτούν SOL για τα έξοδα δικτύου. Οι συναλλαγές χωρίς gas λύνουν αυτό το
+πρόβλημα—παρόμοια με τον τρόπο που οι χρήστες του Venmo δεν σκέφτονται τα έξοδα
+ACH. Δείτε
+[Αφαίρεση Χρεώσεων](/docs/payments/send-payments/payment-processing/fee-abstraction)
+για πλήρη υλοποίηση.
+
+## Ασφάλεια
+
+### Διαχείριση Κλειδιών
+
+- **Μην εκθέτετε ποτέ ιδιωτικά κλειδιά στον κώδικα frontend.** Χρησιμοποιήστε
+  υπογραφή backend, υλικά πορτοφόλια, πορτοφόλια πολλαπλών υπογραφών ή υπηρεσίες
+  διαχείρισης κλειδιών.
+- **Διαχωρίστε τα hot και cold πορτοφόλια.** Hot πορτοφόλι για λειτουργίες, cold
+  για το ταμείο.
+- **Δημιουργήστε αντίγραφα ασφαλείας όλων των κλειδιών παραγωγής.** Αποθηκεύστε
+  κρυπτογραφημένα αντίγραφα σε πολλές ασφαλείς τοποθεσίες. Η απώλεια ενός
+  κλειδιού σημαίνει μόνιμη απώλεια πρόσβασης.
+- **Χρησιμοποιήστε διαφορετικά κλειδιά για devnet και mainnet.** Τα κλειδιά
+  devnet δεν πρέπει να είναι τα κλειδιά mainnet σας. Χρησιμοποιήστε διαμόρφωση
+  βάσει περιβάλλοντος για να διασφαλίσετε ότι τα σωστά κλειδιά φορτώνονται για
+  κάθε δίκτυο.
+
+### Υποδομή Υπογραφής
+
+Για υπογραφή backend σε παραγωγή, χρησιμοποιήστε το
+[Keychain](/docs/tools/keychain)—μια ενοποιημένη βιβλιοθήκη υπογραφής που
+αφαιρεί πολλαπλά backends διαχείρισης κλειδιών μέσω μιας ενιαίας διεπαφής:
+Memory, Vault, Privy, Turnkey, AWS KMS, Fireblocks, GCP KMS, CDP, Para, Dfns,
+Crossmint, Openfort και Utila. Αυτό σας επιτρέπει να αναπτύσσετε τοπικά με
+κλειδιά στη μνήμη και στη συνέχεια να μεταβείτε σε backends επιπέδου παραγωγής
+χωρίς να αλλάξετε τον κώδικα της εφαρμογής.
+
+Δεν είστε σίγουροι ποιο backend σας ταιριάζει; Δείτε
+[Επιλογή backend](/docs/tools/keychain/choosing-a-backend). Το Keychain είναι
+διαθέσιμο τόσο για [Rust](https://crates.io/crates/solana-keychain) όσο και για
+[TypeScript](https://www.npmjs.com/package/@solana/keychain).
+
+### Ασφάλεια RPC
+
+Αντιμετωπίστε τα endpoints RPC όπως τα κλειδιά API—μην τα εκθέτετε σε κώδικα
+frontend όπου μπορούν να εξαχθούν και να χρησιμοποιηθούν καταχρηστικά.
+Χρησιμοποιήστε ένα backend proxy ή μεταβλητές περιβάλλοντος που δεν
+ενσωματώνονται στον κώδικα του client.
+
+- [QuickNode: Βέλτιστες Πρακτικές Ασφάλειας Endpoint](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
+- [Helius: Προστατέψτε τα Κλειδιά API του Solana: Βέλτιστες Πρακτικές Ασφάλειας](https://www.helius.dev/docs/rpc/protect-your-keys)
+
+### Παρακολούθηση
+
+Παρακολουθήστε αυτές τις μετρήσεις σε περιβάλλον παραγωγής:
+
+| Μέτρηση                   | Γιατί                    |
+| ------------------------ | ---------------------- |
+| Ποσοστό επιτυχίας συναλλαγών | Εντοπισμός προβλημάτων νωρίς    |
+| Καθυστέρηση επιβεβαίωσης     | Παρακολούθηση υγείας δικτύου |
+| Δαπάνη προτεραιότητας χρέωσης       | Διαχείριση κόστους        |
+| Ποσοστό σφαλμάτων RPC           | Υγεία παρόχου        |
+
+Ρυθμίστε ειδοποιήσεις για:
+
+- Μεταφορές πάνω από το όριο από το ταμείο
+- Ξαφνικές αυξήσεις ποσοστού αποτυχημένων συναλλαγών
+- Ασυνήθιστα μοτίβα παραληπτών
+- Αυξήσεις ποσοστού σφαλμάτων RPC
+
+Για παρακολούθηση συναλλαγών σε πραγματικό χρόνο σε κλίμακα, δείτε τον
+[Οδηγό Ευρετηρίασης](/docs/payments/accept-payments/indexing).
+
+### Επαλήθευση Διευθύνσεων
+
+Κάθε token και πρόγραμμα έχει ακριβώς μία σωστή διεύθυνση στο mainnet. Πλαστά
+tokens που μιμούνται το USDC ή άλλα stablecoins είναι συνηθισμένα—θα έχουν το
+ίδιο όνομα και σύμβολο αλλά διαφορετικό mint. Η εφαρμογή σας θα πρέπει να έχει
+κωδικοποιημένες ή να επιτρέπει τις διευθύνσεις mint (με βάση τις απαιτήσεις
+σας), χωρίς ποτέ να τις δέχεται δυναμικά από μη αξιόπιστες πηγές.
+
+**Διαμόρφωση βασισμένη στο περιβάλλον:** Τα Devnet και Mainnet συχνά
+χρησιμοποιούν εντελώς διαφορετικά token mints. Ρυθμίστε τη διαμόρφωση της
+εφαρμογής σας να φορτώνει τις σωστές διευθύνσεις ανά περιβάλλον—μην
+κωδικοποιείτε σταθερά τις διευθύνσεις mainnet και ξεχνάτε να τις αλλάξετε κατά
+τη διάρκεια των δοκιμών, ή χειρότερα, μην αποστέλλετε διευθύνσεις devnet στην
+παραγωγή.
+
+Μερικά συνηθισμένα stablecoin mints είναι:
+
+| Token | Εκδότης | Διεύθυνση Mint                                   |
+| ----- | ------ | ---------------------------------------------- |
+| USDC  | Circle | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| USDT  | Tether | `Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB` |
+| PYUSD | PayPal | `2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo` |
+| USDG  | Paxos  | `2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH` |
+
+Οι διευθύνσεις προγραμμάτων έχουν επίσης σημασία. Η αποστολή εντολών στο λάθος
+πρόγραμμα θα αποτύχει—ή χειρότερα, θα οδηγήσει σε μη αναστρέψιμη απώλεια
+κεφαλαίων. Οι διευθύνσεις του Token Program είναι:
+
+| Πρόγραμμα            | Διεύθυνση                                       |
+| ------------------ | --------------------------------------------- |
+| Token Program      | `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` |
+| Token-2022 Program | `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` |
+
+Η καταχώρηση στη λίστα επιτρεπόμενων των σωστών διευθύνσεων προστατεύει από
+πλαστά token, αλλά δεν προστατεύει από αποστολή στο λάθος _είδος_ λογαριασμού.
+Μια διεύθυνση παραλήπτη μπορεί να είναι πορτοφόλι, token account, mint ή
+πρόγραμμα, και το καθένα απαιτεί διαφορετική διαχείριση. Το native SOL που
+αποστέλλεται σε οτιδήποτε άλλο εκτός από πορτοφόλι βγαίνει από τον έλεγχο του
+αποστολέα — χάνεται οριστικά για mint ή πρόγραμμα, ανακτάται μόνο από τον
+ιδιοκτήτη λογαριασμού για ένα token account — χωρίς αποτυχημένη συναλλαγή που να
+προειδοποιεί τον χρήστη.
+
+<Callout type="warn" title="Επαληθεύστε τους παραλήπτες πριν από την αποστολή">
+  Ταξινομήστε κάθε διεύθυνση παραλήπτη πριν υπογράψετε μια μεταφορά. Ανατρέξτε
+  στο [Επαλήθευση Διεύθυνσης](/docs/payments/send-payments/verify-address) για
+  το πλήρες δέντρο αποφάσεων και τον κώδικα αναφοράς που διακρίνει πορτοφόλια,
+  token accounts, mints και προγράμματα.
+</Callout>
+
+## Λίστα Ελέγχου Πριν την Έναρξη
+
+- [ ] Απόκτηση SOL στο Mainnet για χρεώσεις και rent
+- [ ] Ρύθμιση RPC παραγωγής (όχι δημόσιο endpoint)
+- [ ] Ρύθμιση εφεδρικού RPC endpoint
+- [ ] Υλοποίηση προτεραιότητας χρεώσεων με δυναμική τιμολόγηση
+- [ ] Η λογική επανάληψης διαχειρίζεται τη λήξη blockhash
+- [ ] Κατάλληλο επίπεδο επιβεβαίωσης για την περίπτωση χρήσης
+- [ ] Κομψός χειρισμός όλων των συνηθισμένων σφαλμάτων
+- [ ] Ρύθμιση Gasless (εάν ισχύει)
+- [ ] Επαλήθευση διευθύνσεων token στο Mainnet (όχι devnet mints)
+- [ ] Επικύρωση διεύθυνσης παραλήπτη πριν από την αποστολή (πορτοφόλι έναντι
+      token account έναντι mint έναντι προγράμματος)
+- [ ] Ασφαλής δημιουργία αντιγράφων ασφαλείας όλων των κλειδιών
+- [ ] Έλεγχος διαχείρισης κλειδιών (χωρίς κλειδιά στο frontend)
+- [ ] Ενεργή παρακολούθηση και ειδοποιήσεις συναλλαγών
+- [ ] Δοκιμή φορτίου στον αναμενόμενο όγκο
+
+## Ανάπτυξη Προγραμμάτων
+
+Εάν αναπτύσσετε ένα προσαρμοσμένο πρόγραμμα Solana ως μέρος της υποδομής
+πληρωμών σας, υπάρχουν πρόσθετες εκτιμήσεις.
+
+### Προ-ανάπτυξης
+
+- **Έκδοση Solana CLI:** Βεβαιωθείτε ότι χρησιμοποιείτε την πιο πρόσφατη έκδοση
+  του [Solana CLI](https://solana.com/docs/intro/installation).
+- **Program keypair:** Το πρόγραμμά σας θα έχει διαφορετική διεύθυνση στο
+  mainnet σε σχέση με το devnet (εκτός αν επαναχρησιμοποιείτε το ίδιο keypair).
+  Ενημερώστε όλες τις αναφορές στη διαμόρφωση της εφαρμογής σας. Αποθηκεύστε το
+  program keypair σας σε ασφαλή τοποθεσία (σημειώστε ότι η εκτέλεση
+  `cargo clean` ενδέχεται να διαγράψει το program keypair σας).
+- **Αρχικοποίηση λογαριασμών:** Εάν το πρόγραμμά σας απαιτεί λογαριασμούς
+  διαχειριστή, PDAs ή άλλους λογαριασμούς κατάστασης, βεβαιωθείτε ότι έχουν
+  δημιουργηθεί στο mainnet πριν οι χρήστες αλληλεπιδράσουν με την εφαρμογή σας.
+  Το ίδιο ισχύει για τυχόν Associated Token Accounts (ATAs) που χρειάζεται το
+  πρόγραμμά σας.
+
+### Διαδικασία Ανάπτυξης
+
+- **Buffer accounts:** Τα μεγάλα προγράμματα αναπτύσσονται μέσω buffer accounts.
+  Η εντολή `solana program deploy` το χειρίζεται αυτόματα, αλλά να γνωρίζετε ότι
+  η ανάπτυξη δεν είναι ατομική — αν διακοπεί, ενδέχεται να χρειαστεί να
+  ανακτήσετε ή να κλείσετε buffer accounts. Δείτε
+  [Deploying Programs](https://solana.com/docs/programs/deploying).
+- **Upgrade authority:** Αποφασίστε αν το πρόγραμμά σας πρέπει να είναι
+  αναβαθμίσιμο μετά την κυκλοφορία. Για αμετάβλητο χαρακτήρα, ανακαλέστε την
+  εξουσία αναβάθμισης μετά την ανάπτυξη. Για ευελιξία, ασφαλίστε κατάλληλα το
+  κλειδί εξουσίας αναβάθμισης.
+- **Ενοίκιο:** Βεβαιωθείτε ότι το πορτοφόλι ανάπτυξής σας έχει αρκετό SOL για να
+  καλύψει τα ελάχιστα απαλλαγμένα από ενοίκιο ποσά για όλα τα program accounts.
+- **Επαλήθευση:**
+  [Επαληθεύστε](https://solana.com/docs/programs/verified-builds) το πρόγραμμά
+  σας για να βεβαιωθείτε ότι το εκτελέσιμο πρόγραμμα που αναπτύσσετε στο δίκτυο
+  της Solana αντιστοιχεί στον πηγαίο κώδικα του αποθετηρίου σας
+
+Για πλήρη καθοδήγηση σχετικά με την ανάπτυξη προγραμμάτων, δείτε
+[Deploying Programs](https://solana.com/docs/programs/deploying).

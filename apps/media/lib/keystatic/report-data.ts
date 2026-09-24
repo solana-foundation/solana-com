@@ -1,6 +1,5 @@
 import { reader } from "../reader";
-import type { PageInfo, ReportItem } from "../report-types";
-import { SwitchbackItem } from "../switchback-types";
+import type { PageInfo, ReportEntry, ReportItem } from "../report-types";
 import { formatPublishedAt, parsePublishedAt } from "./publishing";
 import { isPublishedReport } from "./report-status";
 
@@ -21,9 +20,7 @@ export interface FeaturedReportResponse {
 }
 
 async function resolveCategoryNames(
-  categories: Awaited<
-    ReturnType<typeof reader.collections.switchbacks.read>
-  >["categories"],
+  categories: ReportEntry["categories"],
 ): Promise<string[]> {
   const categoryNames: string[] = [];
 
@@ -44,9 +41,7 @@ async function resolveCategoryNames(
   return categoryNames;
 }
 
-async function resolveTagNames(
-  tags: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>["tags"],
-): Promise<string[]> {
+async function resolveTagNames(tags: ReportEntry["tags"]): Promise<string[]> {
   const tagNames: string[] = [];
 
   if (!tags) {
@@ -67,9 +62,7 @@ async function resolveTagNames(
 }
 
 async function matchesCategoryOrTag(
-  report: NonNullable<
-    Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
-  >,
+  report: ReportEntry,
   normalizedCategory?: string,
   normalizedTag?: string,
 ): Promise<boolean> {
@@ -118,7 +111,7 @@ async function matchesCategoryOrTag(
 
 async function transformReport(
   slug: string,
-  report: Awaited<ReturnType<typeof reader.collections.switchbacks.read>>,
+  report: ReportEntry | null,
 ): Promise<ReportItem | null> {
   if (!report) return null;
 
@@ -152,7 +145,7 @@ export const fetchLatestReports = async (
   params: LatestReportsParams = {},
 ): Promise<LatestReportsResponse> => {
   try {
-    const allSlugs = await reader.collections.switchbacks.list();
+    const allSlugs = await reader.collections.reports.list();
     const limit = params.limit ?? 10;
     const normalizedCategory = params.category?.trim().toLowerCase();
     const normalizedTag = params.tag?.trim().toLowerCase();
@@ -160,15 +153,14 @@ export const fetchLatestReports = async (
     const reportsWithDates: Array<{
       slug: string;
       date: Date | null;
-      report: NonNullable<
-        Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
-      >;
+      report: ReportEntry;
     }> = [];
 
     for (const slug of allSlugs) {
       try {
-        const report = await reader.collections.switchbacks.read(slug);
-        if (!isPublishedReport(report)) continue;
+        const report: ReportEntry | null =
+          await reader.collections.reports.read(slug);
+        if (!report || !isPublishedReport(report)) continue;
 
         if (
           !(await matchesCategoryOrTag(
@@ -238,20 +230,18 @@ export const fetchLatestReports = async (
 export const fetchFeaturedReport =
   async (): Promise<FeaturedReportResponse> => {
     try {
-      const allSlugs = await reader.collections.switchbacks.list();
+      const allSlugs = await reader.collections.reports.list();
       const featuredCandidates: Array<{
         slug: string;
         date: Date | null;
-        report: NonNullable<
-          Awaited<ReturnType<typeof reader.collections.switchbacks.read>>
-        >;
+        report: ReportEntry;
       }> = [];
 
       for (const slug of allSlugs) {
         try {
-          const report: SwitchbackItem =
-            await reader.collections.switchbacks.read(slug);
-          if (!isPublishedReport(report) || !report.tags) continue;
+          const report: ReportEntry | null =
+            await reader.collections.reports.read(slug);
+          if (!report || !isPublishedReport(report) || !report.tags) continue;
 
           const isFeatured = report.tags.some(
             (tagItem) => tagItem?.tag && String(tagItem.tag) === "featured",

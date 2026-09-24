@@ -1,17 +1,15 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  SkipBack,
-  SkipForward,
-} from "lucide-react";
+import { Play } from "@boxicons/react/Play";
+import { Pause } from "@boxicons/react/Pause";
+import { VolumeFull as Volume2 } from "@boxicons/react/VolumeFull";
+import { VolumeMute as VolumeX } from "@boxicons/react/VolumeMute";
+import { SkipPrevious as SkipBack } from "@boxicons/react/SkipPrevious";
+import { SkipNext as SkipForward } from "@boxicons/react/SkipNext";
 import { Button } from "@/components/ui/button";
 import { usePlayerOptional } from "./player-context";
-import { trackPodcastPlay, trackPodcastPause } from "@/lib/podcast-analytics";
+import { trackPodcastPlay } from "@/lib/podcast-analytics";
 import { cn } from "@/lib/utils";
 import type { PodcastEpisode } from "@/lib/podcast-types";
 
@@ -71,9 +69,7 @@ export const AudioPlayer = ({
       };
 
       if (isGlobalEpisode) {
-        if (isPlaying) {
-          trackPodcastPause(eventParams);
-        } else {
+        if (!isPlaying) {
           trackPodcastPlay(eventParams);
         }
         globalPlayer.togglePlayPause();

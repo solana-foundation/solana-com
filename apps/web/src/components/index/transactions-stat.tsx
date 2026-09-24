@@ -1,4 +1,4 @@
-import Loader from "@@/public/src/img/icons/Loader.inline.svg";
+import { LoaderLines as Loader } from "@boxicons/react/LoaderLines";
 import {
   PERF_UPDATE_SEC,
   SAMPLE_HISTORY_HOURS,
@@ -32,7 +32,11 @@ export const TransactionsStat: React.FC<TransactionsStatProps> = ({
   if (variant === "per-sec") {
     return (
       <span ref={statsRef}>
-        {availableStats ? <FormattedNumber value={avgTps} /> : <Loader />}
+        {availableStats ? (
+          <FormattedNumber value={avgTps} />
+        ) : (
+          <Loader className="animate-spin" aria-hidden="true" />
+        )}
       </span>
     );
   }
@@ -45,7 +49,7 @@ export const TransactionsStat: React.FC<TransactionsStatProps> = ({
           perfUpdateSec={PERF_UPDATE_SEC}
         />
       ) : (
-        <Loader />
+        <Loader className="animate-spin" aria-hidden="true" />
       )}
     </span>
   );

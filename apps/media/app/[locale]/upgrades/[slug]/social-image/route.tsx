@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
+import { getTranslations } from "next-intl/server";
 import { UpgradeSocialImage } from "@/components/upgrades/upgrade-social-image";
 import { reader } from "@/lib/reader";
 import {
@@ -8,6 +9,7 @@ import {
   UPGRADE_SOCIAL_IMAGE_TYPE,
 } from "@/lib/upgrades/social-image";
 import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
+import { isUpgradeStage, type UpgradeStage } from "@/lib/upgrades/stage";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
@@ -35,16 +37,20 @@ function loadFontFiles(): Promise<FontFiles> {
 }
 
 export async function GET(_request: Request, { params }: RouteContext) {
-  const { slug } = await params;
+  const { locale, slug } = await params;
   const entry = await reader.collections.upgrades.read(slug);
 
   if (!isPublishedUpgrade(entry)) {
     return new Response("Upgrade not found", { status: 404 });
   }
 
+  const t = await getTranslations({ locale, namespace: "upgrades.stage" });
   const authorEntry = entry.author
     ? await reader.collections.authors.read(entry.author)
     : null;
+  const stage: UpgradeStage = isUpgradeStage(entry.stage)
+    ? entry.stage
+    : "in_development";
   let regularFont: Buffer;
   let mediumFont: Buffer;
 
@@ -66,7 +72,9 @@ export async function GET(_request: Request, { params }: RouteContext) {
       subtitle={entry.subtitle ? String(entry.subtitle) : null}
       publishedAt={entry.publishedAt ? String(entry.publishedAt) : null}
       authorName={String(authorEntry?.name ?? "Solana Foundation")}
-      badges={entry.badges ?? []}
+      stage={stage}
+      stageLabel={t(stage)}
+      locale={locale}
       metrics={entry.metrics ?? []}
     />,
     {

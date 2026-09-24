@@ -1,22 +1,13 @@
 /**
  * Google Analytics event tracking for podcast interactions.
  *
- * Events are pushed to the dataLayer via gtag() which is initialized
- * by GTMTrackingSnippet. These events can be used in GA4 to build
- * reports around podcast engagement.
+ * These use the shared Solana.com GA4 contract. Do not add a pause event:
+ * pausing is noisy and does not represent a meaningful marketing outcome.
  */
-
-declare global {
-  interface Window {
-    gtag?: (..._args: unknown[]) => void;
-  }
-}
-
-function gtag(...args: unknown[]) {
-  if (typeof window !== "undefined" && window.gtag) {
-    window.gtag(...args);
-  }
-}
+import {
+  trackAnalyticsEvent,
+  trackContentSelection,
+} from "@solana-com/ui-chrome/analytics";
 
 export function trackPodcastPlay(params: {
   episode_title: string;
@@ -24,16 +15,14 @@ export function trackPodcastPlay(params: {
   podcast_title?: string;
   podcast_slug?: string;
 }) {
-  gtag("event", "podcast_play", params);
-}
-
-export function trackPodcastPause(params: {
-  episode_title: string;
-  episode_id?: string;
-  podcast_title?: string;
-  podcast_slug?: string;
-}) {
-  gtag("event", "podcast_pause", params);
+  trackAnalyticsEvent("podcast_play", {
+    app_name: "media",
+    content_type: "podcast_episode",
+    content_id: params.episode_id,
+    content_name: params.episode_title,
+    podcast_name: params.podcast_title,
+    podcast_slug: params.podcast_slug,
+  });
 }
 
 export function trackPodcastSubscribe(params: {
@@ -41,7 +30,13 @@ export function trackPodcastSubscribe(params: {
   podcast_slug?: string;
   platform: string;
 }) {
-  gtag("event", "podcast_subscribe", params);
+  trackAnalyticsEvent("podcast_subscribe", {
+    app_name: "media",
+    content_type: "podcast",
+    content_name: params.podcast_title,
+    podcast_slug: params.podcast_slug,
+    platform: params.platform,
+  });
 }
 
 export function trackPodcastEpisodeClick(params: {
@@ -50,5 +45,11 @@ export function trackPodcastEpisodeClick(params: {
   podcast_title?: string;
   podcast_slug?: string;
 }) {
-  gtag("event", "podcast_episode_click", params);
+  trackContentSelection({
+    appName: "media",
+    contentType: "podcast_episode",
+    contentId: params.episode_id,
+    contentName: params.episode_title,
+    placement: "podcast_card",
+  });
 }

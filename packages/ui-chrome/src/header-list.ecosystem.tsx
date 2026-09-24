@@ -6,7 +6,7 @@ import {
   NavDropdownColumn,
 } from "./header-dropdown-layout";
 import {
-  CollapsibleNavGroup,
+  NavGroup,
   NavItemsList,
   SectionHeading,
 } from "./nav-section-renderers";
@@ -17,7 +17,7 @@ import {
   navBannerConfigs,
 } from "./nav-section-content-config";
 
-const HeaderListEcosystem = ({ isMobile = false }) => {
+const HeaderListEcosystem = () => {
   const t = useTranslations();
 
   return (
@@ -27,20 +27,14 @@ const HeaderListEcosystem = ({ isMobile = false }) => {
         <NavItemsList items={ecosystemNetworkItems} />
       </NavDropdownColumn>
       <NavDropdownColumn>
-        <CollapsibleNavGroup
-          title={t("nav.ecosystem.community.title")}
-          isMobile={isMobile}
-        >
+        <NavGroup title={t("nav.ecosystem.community.title")}>
           <NavItemsList items={ecosystemCommunityItems} />
-        </CollapsibleNavGroup>
+        </NavGroup>
       </NavDropdownColumn>
       <NavDropdownColumn>
-        <CollapsibleNavGroup
-          title={t("nav.ecosystem.categories.title")}
-          isMobile={isMobile}
-        >
+        <NavGroup title={t("nav.ecosystem.categories.title")}>
           <NavItemsList items={ecosystemCategoryItems} />
-        </CollapsibleNavGroup>
+        </NavGroup>
       </NavDropdownColumn>
     </HeaderDropdownLayout>
   );

@@ -59,7 +59,7 @@ const SUBPAGE_HERO_IMAGES: Record<SubpageHeroImageKey, SubpageHeroImageConfig> =
     },
     travel: {
       color: "blue",
-      heightClassName: "h-[480px] md:h-[467px]",
+      heightClassName: "h-[423px] md:h-[395px]",
       pixelEdgeSrc: "/assets/pixel-edge-travel.svg",
       src: "/img/subpage-heroes/travel-hero.webp",
     },

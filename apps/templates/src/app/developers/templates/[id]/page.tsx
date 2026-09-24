@@ -64,13 +64,11 @@ export default async function TemplateDetailPage({
   const templates = await fetchTemplatesFromGitHub();
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-purple-500/5 via-background via-50% to-emerald-400/8">
+    <div className="relative min-h-screen bg-nd-inverse text-nd-high-em-text">
       <BackgroundShapes />
-      <div className="absolute inset-0 bg-gradient-to-t from-transparent via-cyan-400/3 to-transparent pointer-events-none"></div>
-      <div className="absolute inset-0 bg-gradient-to-bl from-pink-400/3 via-transparent to-transparent pointer-events-none"></div>
       <AppProviders>
         <TemplatesProviderWrapper>
-          <div className="relative z-10 container mx-auto px-4 py-8">
+          <div className="relative z-10">
             <TemplatesUiLayoutDetail
               name={id}
               source={templates.find((t) => t.name === id)?.source.id || ""}

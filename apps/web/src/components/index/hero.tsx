@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRight as ArrowRightIcon } from "@boxicons/react/ArrowRight";
 import { cn } from "@/app/components/utils";
 import { Container } from "@/component-library/container";
 import dynamic from "next/dynamic";
@@ -69,13 +69,7 @@ export const Hero: React.FC<HeroProps> = ({
     if (!bannerHref || !bannerLabel) return false;
     if (!bannerExpiryDate) return true; // Show if no expiry date set
 
-    const expiryDate = new Date(bannerExpiryDate);
-    const today = new Date();
-    // Set time to start of day for comparison
-    today.setHours(0, 0, 0, 0);
-    expiryDate.setHours(0, 0, 0, 0);
-
-    return today <= expiryDate;
+    return new Date().toISOString().slice(0, 10) <= bannerExpiryDate;
   }, [bannerHref, bannerLabel, bannerExpiryDate]);
 
   return (
@@ -154,7 +148,6 @@ export const Hero: React.FC<HeroProps> = ({
                       <ArrowRightIcon
                         aria-hidden={true}
                         className="!size-[16px] block"
-                        strokeWidth={3}
                       />
                     </span>
                   </Button>

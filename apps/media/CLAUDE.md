@@ -28,10 +28,12 @@ apps/media/
 ├── app/
 │   ├── [locale]/              # Locale-based routing
 │   │   ├── news/              # Blog posts listing
-│   │   ├── podcast/           # Podcast episodes
-│   │   └── [...slug]/         # Dynamic content pages
+│   │   ├── podcasts/          # Podcast shows and episodes
+│   │   ├── changelog/         # Product changelog
+│   │   ├── reports/           # Report pages
+│   │   └── upgrades/          # Network upgrade articles
 │   ├── keystatic/             # Keystatic admin interface
-│   └── api/                   # API routes (RSS, Keystatic, etc.)
+│   └── api/                   # Keystatic and content metadata APIs
 ├── components/
 │   ├── blocks/                # Content block components
 │   ├── layout/                # Layout components
@@ -48,6 +50,9 @@ apps/media/
 │   ├── links/                 # Link collections
 │   ├── podcasts/              # Podcast episodes
 │   ├── posts/                 # Blog posts (MDX)
+│   ├── releases/              # Release records for upgrade content
+│   ├── reports/               # Ecosystem research reports
+│   ├── upgrades/              # Network upgrade articles
 │   ├── switchbacks/           # Switchback sections
 │   └── tags/                  # Content tags
 ├── keystatic.config.tsx       # Keystatic configuration
@@ -68,8 +73,8 @@ pnpm dev
 # Build for production
 pnpm build
 
-# Format content files
-pnpm format:content
+# Lint and format content files
+pnpm lint:content
 
 # Clean generated files
 pnpm clean
@@ -182,7 +187,13 @@ editing one.
 
 ## API Routes
 
-- `/api/rss` - RSS feed generation
+- `/news/rss.xml`, `/news/google-news.xml`, `/news/sitemap-news.xml` - News
+  feeds and sitemap
+- `/changelog/rss.xml` and `/podcasts/sitemap.xml` - Changelog feed and podcast
+  sitemap
+- `/api/posts/latest`, `/api/reports/latest`, `/api/links/latest` - Content
+  metadata APIs
+- `/api/podcasts/[slug]/episodes` - Podcast episode API
 - `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content
   operations)
 

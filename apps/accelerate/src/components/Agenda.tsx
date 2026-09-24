@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { motion, AnimatePresence } from "motion/react";
+import { Search } from "@boxicons/react/Search";
+import { X } from "@boxicons/react/X";
+import { useTranslations } from "@workspace/i18n/client";
 import defaultAgendaData from "@/data/agenda.json";
 import { fadeInUp } from "@/lib/animations";
-import type { Variants } from "framer-motion";
+import type { Variants } from "motion/react";
 
 const staggerAgenda: Variants = {
   visible: {
@@ -169,15 +170,20 @@ function SpeakerList({
 function SessionCard({
   session,
   typeLabels,
+  formatLabels,
   moderatorLabel,
 }: {
   session: Session;
   typeLabels: Record<string, string>;
+  formatLabels: Record<string, string>;
   moderatorLabel: string;
 }) {
   const isBreak = session.type === "break" || session.type === "closing";
+  const formatGroup = getFormatGroup(session.format);
   const typeLabel =
-    getFormatGroup(session.format) ?? typeLabels[session.type] ?? session.type;
+    (formatGroup && formatLabels[formatGroup]) ??
+    typeLabels[session.type] ??
+    session.type;
 
   return (
     <motion.div
@@ -403,6 +409,16 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
     }),
     [t],
   );
+  const formatLabels = useMemo<Record<string, string>>(
+    () => ({
+      "Open/Close": t("formatTypes.openClose"),
+      Fireside: t("formatTypes.fireside"),
+      Keynote: t("formatTypes.keynote"),
+      Break: t("formatTypes.break"),
+      Panel: t("formatTypes.panel"),
+    }),
+    [t],
+  );
 
   const filterOptions: FilterOption[] = useMemo(() => {
     if (filterMode === "format") {
@@ -419,7 +435,10 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
           items.push({
             id,
             type: session.type,
-            label: formatGroup ?? typeLabels[session.type] ?? session.type,
+            label:
+              (formatGroup && formatLabels[formatGroup]) ??
+              typeLabels[session.type] ??
+              session.type,
           });
           return items;
         },
@@ -427,15 +446,15 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
       );
 
       const formatOrder = new Map(
-        ["Open/Close", "Fireside", "Keynote", "Break", "Panel"].map(
-          (label, index) => [label, index],
+        ["open-close", "fireside", "keynote", "break", "panel"].map(
+          (format, index) => [`format:${format}`, index],
         ),
       );
 
       return options.sort(
         (a, b) =>
-          (formatOrder.get(a.label) ?? Number.MAX_SAFE_INTEGER) -
-          (formatOrder.get(b.label) ?? Number.MAX_SAFE_INTEGER),
+          (formatOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+          (formatOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER),
       );
     }
 
@@ -444,7 +463,7 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
       type,
       label: typeLabels[type] ?? type,
     }));
-  }, [filterMode, sessions, typeLabels]);
+  }, [filterMode, formatLabels, sessions, typeLabels]);
 
   const toggleFilter = (filterId: string) => {
     setSelectedFilters((prev) =>
@@ -558,13 +577,7 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
           {hasActiveFilters && (
             <motion.div variants={fadeInUp} className="mb-4">
               <p className="text-sm text-white/50">
-                {t("showing")}{" "}
-                <span className="font-medium text-white/70">
-                  {sessionCount}
-                </span>{" "}
-                {t("of")}{" "}
-                <span className="font-medium text-white/70">{totalCount}</span>{" "}
-                {t("sessions")}
+                {t("results", { count: sessionCount, total: totalCount })}
               </p>
             </motion.div>
           )}
@@ -594,6 +607,7 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
                     key={session.id}
                     session={session}
                     typeLabels={typeLabels}
+                    formatLabels={formatLabels}
                     moderatorLabel={t("moderator")}
                   />
                 ))

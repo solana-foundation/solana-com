@@ -15,22 +15,18 @@ tilaus-PDA:sta.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```bash
     pnpm add @solana/subscriptions @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
     ```
-
   </Tab>
 
   <Tab value="Rust">
-
     ```toml
     [dependencies]
-    subscriptions = "0.4.0"
+    subscriptions = "0.5.0"
     solana-instruction = "^3"
     solana-address = { version = "^2", features = ["curve25519"] }
     ```
-
   </Tab>
 </Tabs>
 
@@ -39,9 +35,10 @@ tilaus-PDA:sta.
 Kauppias omistaa suunnitelman. Suunnitelma-PDA johdetaan kauppiaan osoitteesta
 ja `planId`.
 
+Sponsori voi rahoittaa suunnitelman rent-maksun välittämällä valinnaisen `payer`-parametrin, jolloin kauppias säilyy suunnitelman omistajana. Suunnitelman poistaminen palauttaa maksun omistajalle, ei maksajalle, joten sponsorointi tulee rajoittaa ketjun ulkopuolisesti.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { address, createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -83,7 +80,6 @@ ja `planId`.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_address::{address, Address};
     use subscriptions::{generated::{instructions::*, types::*}, SUBSCRIPTIONS_ID};
@@ -148,10 +144,16 @@ Muutama sääntö pätee:
   metatiedot pysyvät muuttumattomina.
 - Muokkaukset toimivat suunnitelman viimeisen laskutuskauden aikana, kunhan
   `endTs` pysyy muuttumattomana.
+- Instruktiossa on allekirjoitushetkellä havaittu suunnitelman tila
+  (`expectedCreatedAt`, `expectedEndTs`, `expectedPullers`,
+  `expectedMetadataUri`). Jos live-suunnitelma ei enää vastaa tätä tilaa, päivitys
+  hylätään (`StalePlanApproval`), joten vanhentunut allekirjoitettu päivitys ei voi
+  palauttaa poistettuja pullereita tai kumota myöhempiä muokkauksia. Liitännäisasiakkaan
+  `updatePlan` hakee live-tilan puolestasi; kun rakennat manuaalisesti, hae suunnitelma
+  ja välitä kentät itse.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { PlanStatus } from '@solana/subscriptions';
 
@@ -173,7 +175,6 @@ Muutama sääntö pätee:
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     let new_puller: Address = address!("NEW_PULLER_WALLET_ADDRESS_HERE");
     let mut updated_pullers = [Address::default(); 4];
@@ -186,6 +187,9 @@ Muutama sääntö pätee:
     let (event_authority, _) =
         Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
 
+    // Fetch and decode the live plan account before building UpdatePlanData.
+    let fetched_plan: Plan = fetched_plan;
+
     let update_plan_ix = UpdatePlanBuilder::new()
         .owner(merchant)
         .plan_pda(plan_pda)
@@ -195,6 +199,10 @@ Muutama sääntö pätee:
             end_ts: 0,
             pullers: updated_pullers,
             metadata_uri: updated_metadata_uri,
+            expected_created_at: fetched_plan.data.terms.created_at,
+            expected_end_ts: fetched_plan.data.end_ts,
+            expected_pullers: fetched_plan.data.pullers,
+            expected_metadata_uri: fetched_plan.data.metadata_uri,
         })
         .instruction();
     ```
@@ -207,9 +215,16 @@ Muutama sääntö pätee:
 Tilaaja hyväksyy voimassa olevat suunnitelmaehdot. Tilauksen PDA johdetaan
 suunnitelman PDA:sta ja tilaajan osoitteesta.
 
+Yhdistääksesi auktoriteetin alustuksen ja tilauksen yhdeksi transaktioksi, välitä
+sentineliarvo `UNKNOWN_INIT_ID` (viety TypeScript SDK:sta)
+`expectedSubscriptionAuthorityInitId`-parametrina. Ohjelma hyväksyy auktoriteetin
+vain, jos se luotiin nykyisessä slot-yksikössä, joten sentineliarvo toimii uusille
+rekisteröitymisille; palaavan käyttäjän, jonka auktoriteetti luotiin aiemmassa
+slot-yksikössä, on välitettävä todellinen `initId` (liitännäisasiakas hakee sen
+puolestasi) tai kutsu epäonnistuu virheellä `StaleSubscriptionAuthority`.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     import { createClient } from '@solana/kit';
     import { solanaLocalRpc } from '@solana/kit-plugin-rpc';
@@ -270,7 +285,6 @@ suunnitelman PDA:sta ja tilaajan osoitteesta.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{accounts::Plan, generated::{instructions::*, types::*}};
 
@@ -334,7 +348,6 @@ merkittynä `destinations`:ssä.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     const receiverAta = address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE');
 
@@ -355,7 +368,6 @@ merkittynä `destinations`:ssä.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::{TransferData, TransferSubscriptionBuilder};
 
@@ -385,7 +397,6 @@ molemmat tapahtumat.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
     await subscriberClient.subscriptions.instructions
       .cancelSubscription({
@@ -408,7 +419,6 @@ molemmat tapahtumat.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use solana_instruction::AccountMeta;
     use subscriptions::generated::instructions::*;
@@ -430,6 +440,58 @@ molemmat tapahtumat.
   </Tab>
 </Tabs>
 
+## Peruuta välittömästi
+
+Kun sekä tilaaja että nykyinen suunnitelman omistaja allekirjoittavat,
+`cancelSubscriptionNow` asettaa tilauksen päättymään peruutushetkellä laskutuskauden
+loppuun sijasta. Se voi myös lyhentää odottavaa lisäaikakauden peruutusta. Hyväksyntä
+on sidottu allekirjoitushetkellä havaittuun kauden alkuun; jos tilaus on muuttunut
+sen jälkeen, transaktio hylätään (`StaleSubscriptionApproval`).
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
+    await subscriberClient.subscriptions.instructions
+      .cancelSubscriptionNow({
+        subscriber: subscriberSigner,
+        merchant: merchantSigner,
+        planPda,
+        expectedCurrentPeriodStartTs: subscription.data.currentPeriodStartTs,
+      })
+      .sendTransaction();
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use subscriptions::{accounts::SubscriptionDelegation, generated::{instructions::*, types::*}};
+
+    // Fetch and decode the subscription account before building the data.
+    let fetched_subscription: SubscriptionDelegation = fetched_subscription;
+
+    let cancel_now_ix = CancelSubscriptionNowBuilder::new()
+        .subscriber(subscriber)
+        .merchant(merchant)
+        .plan_pda(plan_pda)
+        .subscription_pda(subscription_pda)
+        .event_authority(event_authority)
+        .cancel_subscription_now_data(CancelSubscriptionNowData {
+            expected_current_period_start_ts: fetched_subscription.current_period_start_ts,
+        })
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
 ## Jatka tilausta
 
 Peruutetun tilauksen voi reaktivoida ennen sen kumoamista. Kun tilaus on
@@ -439,15 +501,27 @@ kumottu, tilaustilin tiedot suljetaan ja tilaajan täytyy
 (omistaja, mintti ja `init_id`) ja hylkää, jos se on vanhentunut tai uudelleen
 alustettu.
 
+Instruktiossa on tilaajan allekirjoitushetkellä havaitsema vanhentumisaika
+(`expectedExpiresAtTs`); ristiriita hylätään (`StaleSubscriptionApproval`),
+joten vanhentunut allekirjoitettu jatkaminen ei voi poistaa myöhempää peruutusta,
+jota tilaaja ei ole hyväksynyt.
+
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
-
     ```ts
+    import { fetchSubscriptionDelegation } from '@solana/subscriptions';
+
+    const subscription = await fetchSubscriptionDelegation(
+      subscriberClient.rpc,
+      subscriptionPda,
+    );
+
     await subscriberClient.subscriptions.instructions
       .resumeSubscription({
         subscriber: subscriberSigner,
         planPda,
         tokenMint,
+        expectedExpiresAtTs: subscription.data.expiresAtTs,
       })
       .sendTransaction();
     ```
@@ -455,7 +529,6 @@ alustettu.
   </Tab>
 
   <Tab value="Rust">
-
     ```rust
     use subscriptions::generated::instructions::*;
 
@@ -468,6 +541,9 @@ alustettu.
         .subscription_pda(subscription_pda)
         .subscription_authority(subscription_authority)
         .event_authority(event_authority)
+        .resume_data(ResumeData {
+            expected_expires_at_ts: fetched_subscription.expires_at_ts,
+        })
         .instruction();
     ```
 

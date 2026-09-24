@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "@workspace/i18n/routing";
+import { useTranslations } from "@workspace/i18n/client";
 import Image from "next/image";
 import { getImagePath } from "@/config";
 
@@ -12,6 +13,7 @@ import { getImagePath } from "@/config";
  */
 export function HomepageNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const t = useTranslations("accelerate.homepage");
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -37,16 +39,22 @@ export function HomepageNav() {
           {/* Right nav */}
           <nav className="flex items-center gap-4 xl:gap-10">
             <Link
+              href="/accelerate/china"
+              className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
+            >
+              {t("nav.china")}
+            </Link>
+            <Link
               href="/accelerate/hong-kong"
               className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
-              Hong Kong (APAC)
+              {t("nav.hongKong")}
             </Link>
             <Link
               href="/accelerate/miami"
               className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
-              Miami (USA)
+              {t("nav.miami")}
             </Link>
 
             {/* LIVE NOW button */}
@@ -77,7 +85,7 @@ export function HomepageNav() {
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               className="inline-flex h-[44px] w-[44px] items-center justify-center border border-[#2e2e2e] text-accelerate-green transition-colors hover:border-accelerate-green xl:hidden"
-              aria-label="Open navigation menu"
+              aria-label={t("nav.openMenu")}
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path
@@ -95,19 +103,21 @@ export function HomepageNav() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[60] bg-black px-6 py-7">
           <div className="mx-auto flex w-full max-w-[1024px] items-start justify-between">
-            <Image
-              src={getImagePath("/images/solana-accelerate-logo.svg")}
-              alt="Solana Accelerate"
-              width={166}
-              height={94}
-              className="h-auto w-[120px] md:w-[166px]"
-              priority
-            />
+            <Link href="/accelerate" onClick={closeMobileMenu}>
+              <Image
+                src={getImagePath("/images/solana-accelerate-logo.svg")}
+                alt={t("nav.logoAlt")}
+                width={166}
+                height={94}
+                className="h-auto w-[120px] md:w-[166px]"
+                priority
+              />
+            </Link>
             <button
               type="button"
               onClick={closeMobileMenu}
               className="inline-flex h-[44px] w-[44px] items-center justify-center text-accelerate-green"
-              aria-label="Close navigation menu"
+              aria-label={t("nav.closeMenu")}
             >
               <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
                 <path
@@ -122,22 +132,25 @@ export function HomepageNav() {
 
           <nav className="mx-auto mt-[68px] flex w-full max-w-[1024px] flex-col gap-8">
             <Link
+              href="/accelerate/china"
+              onClick={closeMobileMenu}
+              className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
+            >
+              {t("nav.china")}
+            </Link>
+            <Link
               href="/accelerate/hong-kong"
               onClick={closeMobileMenu}
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
             >
-              Hong Kong
-              <br />
-              (APAC)
+              {t("nav.hongKong")}
             </Link>
             <Link
               href="/accelerate/miami"
               onClick={closeMobileMenu}
               className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
             >
-              Miami
-              <br />
-              (USA)
+              {t("nav.miami")}
             </Link>
           </nav>
         </div>

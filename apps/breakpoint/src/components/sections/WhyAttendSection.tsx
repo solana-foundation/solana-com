@@ -1,30 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import ImageTreatment from "@/components/ImageTreatment";
 
 const reasons = [
   {
-    title: "The institutional turn",
-    body: "Last year, J.P. Morgan, Goldman Sachs, BlackRock, State Street, and Citigroup all deployed production capital on Solana. At Breakpoint, the teams behind these integrations share what's next - and what they need from builders.",
+    id: "institutional",
     imageSrc: "/img/gallery/photo-6.jpg",
-    imageAlt: "Breakpoint attendees watching a main stage presentation",
   },
   {
-    title: "The infrastructure leap",
-    body: "Alpenglow. Firedancer. P-Token. Constellation. The Solana network is shipping the most significant upgrades in its history. Hear directly from the engineers building the consensus and execution layers that will power global finance.",
+    id: "infrastructure",
     imageSrc: "/img/gallery/photo-1.jpg",
-    imageAlt: "Breakpoint attendees talking with a Solana ecosystem team",
   },
   {
-    title: "The builder economy",
-    body: "75+ products launched at Breakpoint 2025. From tokenized equities and AI agents to stablecoin payroll and machine-to-machine payments - Breakpoint is where the Solana ecosystem ships. This year, it ships in London.",
+    id: "builders",
     imageSrc: "/img/gallery/photo-7.jpg",
-    imageAlt: "Breakpoint attendees entering the general admission area",
   },
 ] as const;
 
-function ImageMask({ activeIndex }: { activeIndex: number }) {
+function ImageMask({
+  activeIndex,
+  t,
+}: {
+  activeIndex: number;
+  t: ReturnType<typeof useTranslations>;
+}) {
   const activeReason = reasons[activeIndex] ?? reasons[0];
 
   return (
@@ -38,7 +39,7 @@ function ImageMask({ activeIndex }: { activeIndex: number }) {
       <ImageTreatment
         key={activeReason.imageSrc}
         src={activeReason.imageSrc}
-        alt={activeReason.imageAlt}
+        alt={t(`items.${activeReason.id}.imageAlt`)}
         glitchPattern="p1"
         intensity={40}
         lighting="even"
@@ -110,25 +111,26 @@ function AccordionItem({
 }
 
 export default function WhyAttendSection() {
+  const t = useTranslations("breakpoint.whyAttend");
   const [activeIndex, setActiveIndex] = useState(0);
 
   return (
     <section className="bg-black pt-[80px] md:pt-[120px] mb-[120px] md:mb-0">
       <div className="mx-auto flex w-full max-w-[1376px] flex-col items-center gap-l px-xs md:px-0">
-        <h2 className="type-h3 text-center text-white">Why Breakpoint</h2>
+        <h2 className="type-h3 text-center text-white">{t("headline")}</h2>
 
         <div className="flex w-full flex-col items-center gap-l md:flex-row md:items-start md:justify-center md:gap-[111px]">
-          <ImageMask activeIndex={activeIndex} />
+          <ImageMask activeIndex={activeIndex} t={t} />
 
           <div className="flex w-full flex-col gap-xs md:w-[676px] md:shrink-0">
             {reasons.map((reason, index) => (
               <AccordionItem
-                key={reason.title}
-                body={reason.body}
+                key={reason.id}
+                body={t(`items.${reason.id}.body`)}
                 index={index}
                 isOpen={activeIndex === index}
                 onSelect={() => setActiveIndex(index)}
-                title={reason.title}
+                title={t(`items.${reason.id}.title`)}
               />
             ))}
           </div>

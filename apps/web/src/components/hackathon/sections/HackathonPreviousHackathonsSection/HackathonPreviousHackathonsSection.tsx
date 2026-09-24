@@ -1,7 +1,7 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { ArrowRightCircle } from "react-feather";
+import { ArrowRightCircle } from "@boxicons/react/ArrowRightCircle";
 import CarouselCards from "../../../shared/CarouselCards";
 import { Link } from "@/utils/Link";
 import renaissanceImg from "../../../../../assets/hackathon/past-hackathons/renaissance.jpg";
@@ -44,7 +44,7 @@ function PreviousHackathonCard({
         <div className={"flex justify-between"}>
           <h3>{title}</h3>
           <button className="btn btn-sm btn-link p-0">
-            <ArrowRightCircle strokeWidth={1} />
+            <ArrowRightCircle />
           </button>
         </div>
         <p>{description}</p>

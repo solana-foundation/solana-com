@@ -3,7 +3,8 @@
 import * as React from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
-import { ChevronRight, ArrowRightIcon } from "lucide-react";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
+import { ArrowRight as ArrowRightIcon } from "@boxicons/react/ArrowRight";
 import { cn } from "@/app/components/utils";
 
 const defaultTitleSizes = {
@@ -188,7 +189,8 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
           </span>
           <ChevronRight
             className="text-white w-3 h-3 md:w-3.5 md:h-3.5"
-            size={14}
+            width={14}
+            height={14}
           />
         </div>
       )}

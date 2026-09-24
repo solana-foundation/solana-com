@@ -3,7 +3,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@@/src/app/components/ui/toggle-group";
-import { TerminalIcon } from "lucide-react";
+import { Terminal as TerminalIcon } from "@boxicons/react/Terminal";
 import { useStateOrLocalStorage } from "@@/src/hooks/useLocalStorage";
 import React from "react";
 import { cn } from "@@/src/app/components/utils";
@@ -32,7 +32,7 @@ export function TerminalClient({
       >
         <div className="flex items-center gap-2 w-full h-5">
           <div className="size-4">
-            <TerminalIcon size={16} className="-mt-1.5" />
+            <TerminalIcon width={16} height={16} className="-mt-1.5" />
           </div>
           <span className="leading-none">Terminal</span>
           {tabs.length > 1 && (

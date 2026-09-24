@@ -1,0 +1,558 @@
+---
+date: 2025-09-25T00:00:00Z
+difficulty: beginner
+title: "x402-integraatio Koran kanssa – täydellinen demoopas"
+description:
+  "Learn how to integrate the x402 payment protocol with Kora's gasless Solana
+  signing infrastructure, enabling micropayments for API access with zero gas
+  fees."
+tags:
+  - ai
+keywords:
+  - tutorial
+  - ai
+  - AI agents
+  - solana ai
+---
+
+# Solana x402 -protokollan integraatio Kora RPC:n kanssa
+
+## Mitä rakennat
+
+Tämä opas ohjaa sinut toteuttamaan täydellisen x402 (HTTP 402 Payment
+Required) -integraation Koran, Solanan kaasuttoman allekirjoitusinfrastruktuurin, kanssa. Oppaan lopussa sinulla on toimiva järjestelmä, jossa:
+
+- API:t voivat veloittaa mikromaksuja käytöstä x402-protokollan avulla
+- Käyttäjät maksavat USDC:llä ilman, että tarvitsevat SOL:ia kaasumaksuihin
+- Kora hoitaa kaikki transaktiomaksut kaasuttomana välittäjänä
+- Maksut selvitetään atomisesti Solana-lohkoketjussa
+
+Lopputulos on täysin toimiva maksusuojattu API:
+
+```shell
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+X402 + KORA PAYMENT FLOW DEMONSTRATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[1/4] Initializing payment signer
+  → Network: solana-devnet
+  → Payer address: BYJV...TbBc
+  ✓ Signer initialized
+
+[2/4] Attempting to access protected endpoint without payment
+  → GET http://localhost:4021/protected
+  → Response: 402 Payment Required
+  ✅ Status code: 402
+
+[3/4] Accessing protected endpoint with x402 payment
+  → Using x402 fetch wrapper
+  → Payment will be processed via Kora facilitator
+  → Transaction submitted to Solana
+  ✅ Status code: 200
+
+[4/4] Processing response data
+  ✓ Payment response decoded
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUCCESS: Payment completed and API accessed
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Response Data:
+{
+    "data": {
+        "message": "Protected endpoint accessed successfully",
+        "timestamp": "2025-09-25T20:14:04.242Z"
+    },
+    "status_code": 200,
+    "payment_response": {
+        "transaction": "5ULZpdeThaMAy6hcEGfAoMFqJqPpCtxdCxb6JYUV6nA4x8Lk2hKEuzofGUPoe1pop6BdWMSmF5oRPrXsbdWmpruf",
+        "success": true,
+        "network": "solana-devnet"
+    }
+}
+```
+
+## Mikä on x402?
+
+[x402](https://www.x402.org/) on avoin maksustandardi, joka mahdollistaa saumattomia
+mikromaksuja API-käyttöön. Perinteisten tilausmallien tai API-avainten sijaan x402 antaa palvelimille mahdollisuuden veloittaa yksittäisistä API-kutsuista, luoden todellisen käytön mukaisen infrastruktuurin.
+
+x402:n tärkeimmät hyödyt:
+
+- **Välittömät mikromaksut**: Maksa murto-osa sentistä per API-kutsu
+- **Mahdollista tekoälyagenteille API-kutsujen maksaminen**: Maksa API-kutsut tekoälyagenteilla
+- **Ei tilauksia**: Käyttäjät maksavat vain siitä, mitä käyttävät
+- **Web3-maksut**: Läpinäkyvät, todennettavat maksut lohkoketjussa
+- **Standardi HTTP**: Toimii olemassa olevan verkkoinfrstruktuurin kanssa käyttäen HTTP 402
+  -tilakoodia, kun maksu vaaditaan
+
+Palvelimet, jotka käyttävät x402:ta mikromaksujen vaatimiseen API-käyttöön, palauttavat HTTP
+402 -tilakoodin, kun maksu vaaditaan. Suojattuihin päätepisteisiin pääsemiseksi asiakkaiden
+on lähetettävä kelvollinen maksu palvelimelle `X-PAYMENT`-otsikossa. x402 nojaa
+"Välittäjiin" transaktioiden varmentamisessa ja selvittämisessä, jotta palvelimien ei tarvitse
+vuorovaikuttaa suoraan lohkoketjuinfrastruktuurin kanssa.
+
+### Välittäjien ymmärtäminen
+
+Välittäjät ovat keskeinen osa x402-ekosysteemiä. Ne toimivat erikoistuneina palveluina,
+jotka abstrahoivat lohkoketjumaksuja API-palvelimien puolesta.
+
+**Mitä välittäjät tekevät:**
+
+- **Varmentavat maksut**: Vahvistavat, että asiakkaan maksukuormat ovat oikein
+  muodostettuja ja riittäviä
+- **Abstrahoivat monimutkaisuuden**: Poistavat palvelimien tarpeen vuorovaikuttaa suoraan
+  lohkoketjuinfrastruktuurin kanssa (allekirjoittaminen ja verkkomaksujen maksaminen)
+- **Selvittävät transaktiot**: Lähettävät vahvistetut transaktiot Solanaan (tai muihin
+  verkkoihin)
+
+Demossamme luomme välittäjän, joka hyödyntää Koraa transaktioiden varmentamiseen ja selvittämiseen
+(lisätietoja alla).
+
+## Mikä on Kora?
+
+Kora on Solana-allekirjoitussolmu, joka tarjoaa allekirjoitus- ja kaasuttomia transaktiopalveluja. Se mahdollistaa sovellusten kaasumaksujen abstrahoinnin, jolloin käyttäjät voivat maksaa transaktiokustannukset muissa tokeneissa kuin SOL:ssa tai saada maksut kokonaan sponsoroituna.
+
+Koran tärkeimmät ominaisuudet:
+
+- **Kaasuttomat transaktiot**: Käyttäjät eivät tarvitse SOL:ia transaktioiden suorittamiseen
+- **Maksun abstrahointi**: Maksa maksut USDC:llä tai muilla SPL-tokeneilla
+- **JSON-RPC-rajapinta**: Yksinkertainen HTTP-API transaktioiden käsittelyyn
+- **Joustavat allekirjoittajat**: Tuki useille allekirjoittajan taustoille (muisti, Vault,
+  Turnkey, Privy)
+- **Käytäntömoottori**: Tarkka hallinta transaktioiden validoinnin ja maksukäytäntöjen suhteen
+
+x402:n kontekstissa Kora toimii täydellisenä taustajärjestelmänä välittäjille: se
+hoitaa verkkomaksut, allekirjoittaa transaktiot ja validoi transaktiot.
+
+## Arkkitehtuurin yleiskatsaus
+
+x402 + Kora -integraatiomme koostuu neljästä toisiinsa yhteydessä olevasta komponentista,
+joilla on täydellinen pyyntö/vastaussykli:
+
+Täydellinen maksuvirta:
+
+1. Asiakas pyytää suojattua resurssia → API palauttaa 402 Payment Required
+2. Asiakas luo maksutransaktion x402 fetch -kääreen avulla (joka kokoaa
+   Solana-transaktion maksukäskyllä)
+3. Asiakas lähettää maksun Välittäjälle varmentamista varten
+4. Välittäjä validoi Koran kautta, joka allekirjoittaa ja lähettää Solanaan
+5. Transaktio vahvistettu lohkoketjussa, Välittäjä ilmoittaa API:lle
+6. API palauttaa suojatun sisällön ja maksukuitin Asiakkaalle
+
+### Komponenttien erittely
+
+1. **Kora RPC -palvelin** (Portti 8080)
+   - Ydinkaasuttomien transaktioiden palvelu
+   - Hoitaa transaktion allekirjoittamisen maksunmaksajana
+   - Validoi transaktiot konfiguroitujen käytäntöjen mukaisesti
+
+2. **Välittäjän kääre-/välityspalvelin** (Portti 3000)
+   - Sovittaa Koran x402-protokollaan
+   - Toteuttaa `/verify`-, `/settle`- ja `/supported`-päätepisteet
+   - Kääntää x402:n ja Koran dataformaattien välillä
+
+3. **Suojattu API** (Portti 4021)
+   - Demo-API-palvelin maksusuojatuilla päätepisteillä
+   - Käyttää x402-express-väliohjelmistoa maksujen käsittelyyn
+   - Palauttaa datan vain onnistuneen maksun jälkeen
+
+4. **Asiakassovellus**
+   - Esittelee x402 fetch -kääreen käytön
+   - Allekirjoittaa transaktiot käyttäjän yksityisellä avaimella
+
+Monikomponenttinen lähestymistapa saattaa vaikuttaa monimutkaiselta, mutta se heijastaa todellisia
+tuotantojärjestelmiä, joissa maksujen käsittely, API-palvelu ja asiakassovellukset ovat erillisiä osa-alueita.
+
+## Esiehdot
+
+Ennen aloittamista varmista, että sinulla on:
+
+- [**Rust**](https://www.rust-lang.org/tools/install) (uusin vakaa versio)
+- [**Node.js**](https://nodejs.org/en/download) (LTS tai uudempi)
+- [**pnpm**](https://pnpm.io/installation) (uusin versio)
+- Perustiedot
+  [Solana-transaktioista](https://solana.com/docs/core/transactions) ja
+  [SPL-tokeneista](https://solana.com/docs/tokens)
+
+## Projektin käyttöönotto
+
+### Vaihe 1: Kloonaa ja rakenna Kora
+
+```bash
+# Clone the repository
+git clone https://github.com/solana-foundation/kora.git
+cd kora
+
+# Checkout the release branch as Kora is currently in a feature freeze for audit
+git checkout release/feature-freeze-for-audit
+
+# Build and install Kora
+make install
+```
+
+Tämä asentaa `kora`-binäärin järjestelmääsi, jota käytämme RPC-palvelimen ajamiseen.
+
+### Vaihe 2: Siirry demo-hakemistoon
+
+```bash
+cd docs/x402/demo
+```
+
+### Vaihe 3: Asenna riippuvuudet
+
+Asenna Node.js-riippuvuudet kaikille demo-komponenteille:
+
+```bash
+# Install dependencies for all components (facilitator, API, and client)
+pnpm run install:all
+```
+
+Tämä skripti asentaa riippuvuudet seuraaville:
+
+- Välittäjän käärepalvelulle
+- Suojatulle API-palvelimelle
+- Asiakkaan demo-sovellukselle
+
+### Vaihe 4: Rakenna Kora SDK
+
+Rakenna Kora SDK, jotta voimme käyttää Kora TypeScript SDK:ta Välittäjässä:
+
+```bash
+pnpm run build:kora-sdk
+```
+
+### Vaihe 5: Konfiguroi ympäristö
+
+Demo sisältää `.env.example`-tiedoston tarvittavilla ympäristömuuttujilla.
+Aloitetaan peruskonfiguraation asettamisesta:
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+```
+
+Sinun täytyy nyt luoda tai tarjota keypair-avainparit demoa varten. Suorita seuraava
+komento avainparien luomiseksi:
+
+```bash
+pnpm run setup
+```
+
+Tämä luo avainparit ja lisää ne `.env`-tiedostoon:
+
+- `KORA_SIGNER_ADDRESS` – Kora-allekirjoittajan osoite
+- `KORA_SIGNER_PRIVATE_KEY` – Kora-allekirjoittajan yksityinen avain
+- `PAYER_ADDRESS` – Maksajan osoite, joka maksaa suojatun API:n käytöstä
+- `PAYER_PRIVATE_KEY` – Maksajan yksityinen avain
+
+### Vaihe 5: Päivitä konfiguraatiotiedostot
+
+#### kora.toml
+
+`kora/kora.toml`-tiedosto konfiguroi Kora RPC -palvelimen. Sinun ei pitäisi tarvita
+tehdä muutoksia tähän tiedostoon, mutta voit tarkistaa seuraavat asetukset:
+
+1. **Maksutoken**: Varmista, että Devnet USDC -mint on sallittujen listalla:
+
+```toml
+allowed_tokens = [
+    "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", # USDC devnet
+]
+```
+
+2. **API-todennus**: Demo käyttää API-avainta Kora-käyttöön. Tämän tulee
+   vastata `.env`-tiedoston `KORA_API_KEY`:tä:
+
+```toml
+[kora.auth]
+api_key = "kora_facilitator_api_key_example"
+```
+
+3. **Maksunmaksajakäytäntö**: Konfiguroitu rajoittamaan ei-toivottujen transaktioiden allekirjoittamista:
+
+```toml
+[validation.fee_payer_policy]
+allow_sol_transfers = false
+# all other settings are false
+```
+
+4. **Sallitut ohjelmat**: Varmista, että System Program, Token Program, associated
+   token program ja compute budget program ovat sallittujen listalla:
+
+```toml
+allowed_programs = [
+    "11111111111111111111111111111111",             # System Program
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",  # Token Program
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL", # Associated Token Program
+    "ComputeBudget111111111111111111111111111111",  # Compute Budget Program
+]
+```
+
+#### signers.toml
+
+`kora/signers.toml`-tiedosto konfiguroi Kora-allekirjoittajan. Sinun ei pitäisi tarvita
+tehdä muutoksia tähän tiedostoon, mutta voit tarkistaa seuraavat asetukset:
+
+1. **Allekirjoittajan ympäristömuuttuja**: Varmista, että allekirjoittajan ympäristömuuttuja,
+   `private_key_env`, on asetettu arvoon `KORA_SIGNER_PRIVATE_KEY` (vastaten
+   `.env`-tiedoston muuttujan nimeä).
+
+```toml
+[[signers]]
+name = "main_signer"
+type = "memory"
+private_key_env = "KORA_SIGNER_PRIVATE_KEY"
+weight = 1
+```
+
+### Vaihe 6: Rahoi tilit
+
+#### Devnet SOL
+
+Kora-allekirjoittajamme osoite tarvitsee SOL:ia transaktiomaksujen maksamiseen. Voit
+lähettää devnet SOL:ia Kora-allekirjoittajan osoitteeseen Solana CLI:n avulla:
+
+```bash
+# Airdrop SOL
+solana airdrop 1 <KORA_SIGNER_ADDRESS> --url devnet
+```
+
+Vaihtoehtoisesti voit käyttää [Solana Faucetia](https://faucet.solana.com/) lähettääksesi
+SOL:ia Kora-allekirjoittajan osoitteeseen.
+
+#### Devnet USDC
+
+`.env`-tiedostossa määritetty `PAYER_ADDRESS` tarvitsee USDC:tä
+transaktiomaksujen maksamiseen.
+
+Hanki Devnet USDC [Circlen Faucetista](https://faucet.circle.com/). Muista valita
+"Solana Devnet" ja käyttää `PAYER_ADDRESS`-osoitettasi USDC:n pyytämiseen.
+
+## Demon ajaminen
+
+Tarvitset neljä terminaali-ikkunaa kaikkien komponenttien ajamiseen
+`docs/x402/demo`-hakemistosta.
+
+### Terminaali 1: Käynnistä Kora RPC -palvelin
+
+Käynnistä Kora RPC -palvelin suorittamalla seuraava komento:
+
+```bash
+pnpm run start:kora
+```
+
+Sinun pitäisi nähdä sarja lokeja, jotka osoittavat Kora RPC -palvelimen olevan käynnissä,
+mukaan lukien:
+
+```
+INFO kora_lib::rpc_server::server: RPC server started on 0.0.0.0:8080, port 8080
+```
+
+### Terminaali 2: Käynnistä Välittäjä
+
+Käynnistä Välittäjä suorittamalla seuraava komento:
+
+```bash
+pnpm run start:facilitator
+```
+
+Sinun pitäisi nähdä:
+
+```
+Server listening at http://localhost:3000
+```
+
+### Terminaali 3: Käynnistä suojattu API
+
+Käynnistä suojattu API suorittamalla seuraava komento:
+
+```bash
+pnpm run start:api
+```
+
+Sinun pitäisi nähdä:
+
+```
+Server listening at http://localhost:4021
+```
+
+### Terminaali 4: Aja asiakkaiden demo
+
+```bash
+pnpm run demo
+```
+
+## Toteutuksen ymmärtäminen
+
+Tässä on mitä tapahtuu onnistuneen maksuvirran aikana:
+
+1. **Asiakkaan pyyntö** → API palauttaa 402 maksun vaatimuksilla
+2. **Maksun luominen** → Asiakas luo Solana-transaktion maksulla
+3. **Maksun lähettäminen** → Asiakas lähettää pyynnön palvelimelle maksun kanssa
+   `X-PAYMENT`-otsikossa
+4. **Varmennus** → Välittäjä varmentaa Koran `signTransaction`-toiminnon kautta
+5. **Selvitys** → Välittäjä selvittää Koran `signAndSendTransaction`-toiminnon kautta
+   (lähettää maksutransaktion Solanaan)
+6. **Pääsy myönnetty** → Välittäjä palauttaa transaktioallekirjoituksen ja API
+   palauttaa suojatun sisällön maksukuitin kanssa
+
+Tutkitaan tarkemmin, miten kukin komponentti toimii:
+
+- **Kora RPC** (Portti 8080): Hoitaa kaasuttoman transaktion allekirjoittamisen
+- **Välittäjä** (Portti 3000): Siltaa x402-protokollan Koraan
+- **Suojattu API** (Portti 4021): Kaupallistettu API-päätepiste
+- **Asiakas**: Esittelee automaattisen maksuvirran
+
+### Välittäjän kääre-/välityspalvelin
+
+Välittäjä toimii portissa 3000. Tämä on palvelin, joka hoitaa viestinnän
+Solanan kanssa (meidän tapauksessamme Koran kautta). Sitä käytetään x402-maksujen
+varmentamiseen ja selvittämiseen.
+
+Välittäjä (`facilitator/src/facilitator.ts`) on silta x402-protokollan ja Kora RPC:n välillä. Se toteuttaa kolme keskeistä päätepistettä:
+
+#### 1. `/verify`-päätepiste
+
+Tämä päätepiste:
+
+- Vastaanottaa x402-maksukuorman suojatulta API-palvelimelta
+- Purkaa Solana-transaktion x402-apuohjelmien avulla
+- Käyttää Koran `signTransaction`-toimintoa validoinnin tekemiseen ilman lähetystä
+- Palauttaa varmentusstauksen, `isValid`
+
+#### 2. `/settle`-päätepiste
+
+Tämä päätepiste:
+
+- Vastaanottaa x402-maksukuorman sen jälkeen, kun maksu on varmennettu
+  `/verify`-päätepisteessä
+- Käyttää Koran `signAndSendTransaction`-toimintoa transaktion allekirjoittamiseen ja lähettämiseen
+- Palauttaa transaktion allekirjoituksen selvityksen todisteena
+
+#### 3. `/supported`-päätepiste
+
+Tämä päätepiste mainostaa tehokkaasti välittäjän ominaisuuksia, mukaan lukien:
+
+- Tuettu x402-versio
+- Maksusuunnitelma (tarkat maksut)
+- Verkko (solana-devnet)
+- Maksunmaksajan osoite, jonka haemme Korasta `getPayerSigner`-metodin avulla
+
+### Suojattu API
+
+API-palvelin (`api/src/api.ts`) käyttää x402-express-väliohjelmistoa päätepisteiden suojaamiseen:
+
+```typescript
+app.use(
+  paymentMiddleware(
+    KORA_PAYER_ADDRESS, // Where payments should go
+    {
+      "GET /protected": {
+        price: "$0.0001", // Price in USD
+        network: NETWORK // solana-devnet
+      }
+    },
+    {
+      url: FACILITATOR_URL // Our facilitator wrapper
+    }
+  )
+);
+```
+
+Väliohjelmisto:
+
+- Sieppaa pyynnöt suojatuille päätepisteille (meidän tapauksessamme `/protected`-päätepisteelle)
+- Palauttaa 402-statuksen, jos maksu puuttuu
+- Validoi ja käsittelee maksut välittäjän kautta
+- Sallii pääsyn onnistuneen maksun jälkeen
+
+Vaikka käytämme Expressiä, x402-kirjasto sisältää väliohjelmistotuen
+monille yleisille kehyksille. Katso lisätietoja
+[x402 TypeScript -paketeista](https://github.com/coinbase/x402/tree/main/typescript/packages).
+
+### Asiakassovellus
+
+Asiakas (`client/src/index.ts`) havainnollistaa automaattisesti, miten x402 toimii
+lähettämällä pyynnön tavallisella `fetch`-kutsulla ja yrittämällä sitten uudelleen
+maksupaketin avulla:
+
+```typescript
+// Create a signer from private key
+const payer = await createSigner(NETWORK, PAYER_PRIVATE_KEY);
+
+// Wrap fetch with x402 payment capabilities
+const fetchWithPayment = wrapFetchWithPayment(fetch, payer);
+
+// First attempt: Regular fetch (will fail with 402)
+const expect402Response = await fetch(PROTECTED_API_URL);
+console.log(`Status: ${expect402Response.status}`); // 402
+
+// Second attempt: Fetch with payment wrapper (succeeds)
+const response = await fetchWithPayment(PROTECTED_API_URL);
+console.log(`Status: ${response.status}`); // 200
+```
+
+x402 fetch -paketti:
+
+- Havaitsee 402-vastaukset
+- Luo automaattisesti maksutapahtuman suojatun API:n maksuvaatimusten
+  perusteella
+- Allekirjoittaa käyttäjän yksityisavaimella
+- Lähettää maksun fasilitaattorille vahvistusta ja käsittelyä varten
+- Yrittää pyyntöä uudelleen maksutodisteen kanssa `x-payment-response`-otsikossa
+- Palauttaa onnistuneen vastauksen
+
+## Yhteenveto
+
+Onnittelut! 🔥 Olet onnistuneesti toteuttanut täydellisen x402-maksuvirran
+Koran kaasuttoman infrastruktuurin avulla. Tämä esittely näyttää, miten:
+
+- **x402-protokolla** mahdollistaa kitkattomat API-ansaintamallit mikromaksujen avulla
+- **Kora RPC** toimii x402-maksujen fasilitaattorina vahvistamalla ja
+  selvittämällä transaktiot
+- **Käyttäjät** voivat maksaa API-käytöstä ilman SOL-varoja tai kaasumaksujen hallinnointia
+
+Tämä arkkitehtuuri luo vahvan pohjan:
+
+- Tekoälyagenttien markkinapaikoille
+- Käyttömäärään perustuvat API:t
+- Mikromaksulliset sisältöalustat
+- Käyttöön perustuva SaaS-hinnoittelu
+- Kaikki palvelut, jotka vaativat välittömiä ja todennettavia maksuja
+
+x402:n ja Koran yhdistelmä tuo Solanan voiman perinteiseen
+web-infrastruktuuriin.
+
+### Jatka rakentamista
+
+- **Mukauta hinnoittelu**: Muokkaa API:a veloittamaan eri summia
+  eri päätepisteistä
+- **Lisää useita tokeneja**: Määritä Kora hyväksymään erilaisia SPL-tokeneja
+  maksuksi
+- **Tuotantoonotto**: Ota käyttöön pääverkossa tuotantosignaajien kanssa (Vault,
+  Turnkey tai Privy)
+- **Rakenna oma API:si**: Luo todellinen palvelu, joka ansaitsee x402-maksujen
+  kautta
+
+## Lisäresurssit
+
+#### x402-protokolla
+
+- [x402-dokumentaatio](https://x402.gitbook.io/x402/)
+- [x402 GitHub](https://github.com/coinbase/x402)
+- [x402 TypeScript SDK](https://www.npmjs.com/package/x402)
+
+#### Solana
+
+- [Solana-dokumentaatio](https://solana.com/docs)
+- [SPL Token Program](https://spl.solana.com/token)
+
+## Tuki
+
+Tarvitsetko apua?
+
+- Esitä kysymyksiä [Solana Stack Exchange](https://solana.stackexchange.com/) -palvelussa
+  käyttäen tunnisteita `kora` ja `x402`
+- Avaa ongelmaraportteja
+  [Koran GitHub-repositoriossa](https://github.com/solana-foundation/kora)

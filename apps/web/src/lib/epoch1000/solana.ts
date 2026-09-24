@@ -6,8 +6,6 @@ export const TARGET_EPOCH = 1000;
 export { isValidSolanaAddress };
 
 function rpcUrl(): string {
-  const key = process.env.HELIUS_API_KEY;
-  if (key) return `https://mainnet.helius-rpc.com/?api-key=${key}`;
   // Local/dev fallback — public RPC is rate-limited, fine for getEpochInfo
   return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
 }

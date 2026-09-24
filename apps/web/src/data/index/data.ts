@@ -1,8 +1,8 @@
-import CoinsAdd from "@@/public/src/img/icons/CoinsAdd.inline.svg";
-import CodeInSquare from "@@/public/src/img/icons/CodeInSquare.inline.svg";
-import Bezier from "@@/public/src/img/icons/Bezier.inline.svg";
-import ShieldCheck from "@@/public/src/img/icons/ShieldCheck.inline.svg";
-import WindowCursor from "@@/public/src/img/icons/WindowCursor.inline.svg";
+import { Coins } from "@boxicons/react/Coins";
+import { Code } from "@boxicons/react/Code";
+import { NetworkChart } from "@boxicons/react/NetworkChart";
+import { CheckShield } from "@boxicons/react/CheckShield";
+import { Window } from "@boxicons/react/Window";
 
 export const LOGOS = [
   {
@@ -89,23 +89,23 @@ export const PROJECTS_LOGOS = [
 export const LINKS = [
   {
     href: "/validators",
-    Icon: Bezier,
+    Icon: NetworkChart,
   },
   {
     href: "/staking",
-    Icon: ShieldCheck,
+    Icon: CheckShield,
   },
   {
     href: "/docs/intro/quick-start",
-    Icon: WindowCursor,
+    Icon: Window,
   },
   {
     href: "https://solana.org/grants-funding",
-    Icon: CodeInSquare,
+    Icon: Code,
   },
   {
     href: "/solutions/tokenization",
-    Icon: CoinsAdd,
+    Icon: Coins,
   },
 ];
 

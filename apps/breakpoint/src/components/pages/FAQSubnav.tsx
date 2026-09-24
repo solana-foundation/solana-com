@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import type { FAQPageSection } from "@/content/faq-page";
 
 type FAQSubnavProps = {
@@ -8,6 +9,7 @@ type FAQSubnavProps = {
 };
 
 export default function FAQSubnav({ sections }: FAQSubnavProps) {
+  const t = useTranslations("breakpoint.pages.faq");
   const navRef = useRef<HTMLElement>(null);
   const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? "");
   const [isSubnavPinned, setIsSubnavPinned] = useState(false);
@@ -80,7 +82,7 @@ export default function FAQSubnav({ sections }: FAQSubnavProps) {
       />
       <nav
         ref={navRef}
-        aria-label="FAQ categories"
+        aria-label={t("categoriesLabel")}
         className="sticky top-10 z-30 border-b border-neutral-700 bg-black px-xs pb-s pt-m md:px-m"
       >
         <div className="scrollbar-hidden mx-auto flex max-w-full gap-2xs overflow-x-auto scroll-px-xs md:justify-center">

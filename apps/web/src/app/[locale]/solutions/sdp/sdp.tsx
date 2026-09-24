@@ -14,13 +14,13 @@ import { Tutorials } from "@/components/sdp/tutorials";
 import { News } from "@/components/sdp/news";
 import { Podcasts } from "@/components/sdp/podcasts";
 import Join from "@/components/sdp/join";
-import Bank from "@@/public/src/img/icons/Bank.inline.svg";
-import Nodes from "@@/public/src/img/icons/Nodes.inline.svg";
-import Law from "@@/public/src/img/icons/Law.inline.svg";
-import Sort from "@@/public/src/img/icons/Sort.inline.svg";
-import Dollar from "@@/public/src/img/icons/Dollar.inline.svg";
-import Steps from "@@/public/src/img/icons/Steps.inline.svg";
-import Switch from "@@/public/src/img/icons/Switch.inline.svg";
+import { Bank } from "@boxicons/react/Bank";
+import { NetworkChart as Nodes } from "@boxicons/react/NetworkChart";
+import { Law } from "@boxicons/react/Law";
+import { ArrowUpDown as Sort } from "@boxicons/react/ArrowUpDown";
+import { Dollar } from "@boxicons/react/Dollar";
+import { BarChart as Steps } from "@boxicons/react/BarChart";
+import { ArrowLeftRight as Switch } from "@boxicons/react/ArrowLeftRight";
 import {
   COMPLIANCE_LOGOS,
   INST_LOGOS,

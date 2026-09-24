@@ -3,7 +3,6 @@
 import React from "react";
 
 import type { TemplateRecord } from "../../types";
-import { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -26,8 +25,6 @@ const TECH_LOGOS = {
 export const SearchCard = React.memo<SearchCardProps>(
   ({ template, isActive = false, onCardClick, id }) => {
     const { name, description, tech, displayName } = template;
-
-    const randomRotation = useMemo(() => Math.floor(Math.random() * 360), []);
 
     const PlaceholderLogo = () => (
       <svg
@@ -70,26 +67,25 @@ export const SearchCard = React.memo<SearchCardProps>(
         onClick={onCardClick}
         id={id}
         className={`
-        block p-4 rounded-xl metallic-border transition duration-200 ease-in-out
+        block p-4 rounded-xl border transition duration-200 ease-in-out
         ${
           isActive
-            ? "bg-neutral-700 opacity-100 ring-2 ring-neutral-500"
-            : "bg-neutral-900 opacity-55 hover:opacity-100 hover:bg-neutral-800"
+            ? "bg-nd-border-prominent opacity-100 ring-1 ring-nd-border-hovered border-nd-border-hovered"
+            : "bg-white/[0.03] border-nd-border-light opacity-70 hover:opacity-100 hover:bg-white/[0.06] hover:border-nd-border-prominent"
         }
-        focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-900
+        focus:outline-none focus:ring-2 focus:ring-nd-highlight-lavendar/40
       `}
-        style={{ "--rotation": `${randomRotation}deg` } as React.CSSProperties}
       >
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 text-neutral-400 mt-0.5">
+          <div className="flex-shrink-0 text-nd-mid-em-text mt-0.5">
             {renderLogo()}
           </div>
 
           <div className="flex-1 min-w-0">
-            <h3 className="text-neutral-100 font-medium text-sm truncate">
+            <h3 className="text-nd-high-em-text font-medium text-sm truncate">
               {displayName || name}
             </h3>
-            <p className="text-neutral-400 text-xs mt-1 line-clamp-2 leading-relaxed">
+            <p className="text-nd-mid-em-text text-xs mt-1 line-clamp-2 leading-relaxed">
               {description}
             </p>
           </div>

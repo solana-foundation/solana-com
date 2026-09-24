@@ -3,8 +3,19 @@
 import React, { useEffect, useRef, useState } from "react";
 import { publicAssetPath } from "@/config";
 
+/**
+ * Selects the kind of distortion applied to the source image.
+ *
+ * `none` keeps the image clean, `p1` creates tears and smears without the
+ * thresholded displacement effect, and `p2` adds thresholded displacement
+ * for a more aggressive, poster-like glitch.
+ */
 export type GlitchPattern = "none" | "p1" | "p2";
+
+/** Selects the exposure and contrast adjustment applied before tinting. */
 export type Lighting = "even" | "contrast" | "exposure";
+
+/** Selects the tint applied to the source image's luminance. */
 export type TreatmentColor =
   | "none"
   | "white"
@@ -14,18 +25,42 @@ export type TreatmentColor =
   | "yellow"
   | "pink";
 
+/** Fine-grained overrides for a glitch preset. */
 export interface TreatmentOverrides {
+  /** Number of horizontal tear slices generated for each frame. */
   iframes?: number;
+
+  /** Number of stretched smear slices generated for each frame. */
   pframes?: number;
+
+  /** Maximum displacement used by tears and smears. */
   shift?: number;
+
+  /** Base height/width of the generated glitch blocks. */
   block?: number;
+
+  /** Luminance cutoff used by the thresholded `p2` effect. */
   threshold?: number;
+
+  /** Initial horizontal displacement used by the thresholded effect. */
   xShift?: number;
+
+  /** Initial vertical displacement used by the thresholded effect. */
   yShift?: number;
+
+  /** Whether the thresholded displacement effect is enabled. */
   showEffect?: boolean;
+
+  /** Whether thresholding uses the distorted image or the base image. */
   preprocess?: "distortion" | "base";
+
+  /** Multiplier applied to source luminance before contrast. */
   exposure?: number;
+
+  /** Contrast adjustment applied to each source pixel. */
   contrast?: number;
+
+  /** Speed multiplier for animated glitch movement and re-seeding. */
   animSpeed?: number;
 }
 
@@ -33,18 +68,43 @@ export interface ImageTreatmentProps extends Omit<
   React.HTMLAttributes<HTMLDivElement>,
   "color"
 > {
+  /** Image URL used as the canvas source. It must be readable by the canvas. */
   src: string;
+
+  /** Accessible label for the treated image. */
   alt?: string;
+
+  /** Distortion preset used to build the glitch slices. */
   glitchPattern?: GlitchPattern;
+
+  /** Preset strength from 0 to 100; scales the number and size of glitches. */
   intensity?: number;
+
+  /** Exposure/contrast preset applied before the color treatment. */
   lighting?: Lighting;
+
+  /** Color used to tint the source's luminance; `none` keeps its original color. */
   color?: TreatmentColor;
+
+  /** Continuously animate the distortion while the image is in view. */
   motion?: boolean;
+
+  /** Periodically switch between clean and glitched frames; disabled for reduced motion. */
   flicker?: boolean;
+
+  /** Move glitch regions toward the pointer while the image is hovered. */
   mouseReactive?: boolean;
+
+  /** Radius, in rendered pixels, used by the pointer-localized glitch effect. */
   mouseRadius?: number;
+
+  /** Optional secondary image composited over the treated source. */
   foregroundSrc?: string;
+
+  /** Fine-tune the selected preset without defining a new preset. */
   overrides?: TreatmentOverrides;
+
+  /** How the source is fitted inside the treatment canvas. */
   objectFit?: "cover" | "contain";
 }
 
@@ -60,6 +120,7 @@ type Preset = {
   yShift: number;
 };
 
+/** Baseline distortion settings for the public `glitchPattern` controls. */
 const PRESETS: Record<GlitchPattern, Preset> = {
   none: {
     iframes: 0,
@@ -96,6 +157,7 @@ const PRESETS: Record<GlitchPattern, Preset> = {
   },
 };
 
+/** Exposure/contrast pairs behind the public `lighting` control. */
 const LIGHTING_PRESETS: Record<
   Lighting,
   { exposure: number; contrast: number }
@@ -105,6 +167,7 @@ const LIGHTING_PRESETS: Record<
   exposure: { exposure: 1.1, contrast: -1 },
 };
 
+/** RGB values behind the public `color` control. */
 const COLOR_PRESETS: Record<TreatmentColor, [number, number, number] | null> = {
   none: null,
   white: [255, 255, 255],
@@ -115,12 +178,14 @@ const COLOR_PRESETS: Record<TreatmentColor, [number, number, number] | null> = {
   pink: [230, 93, 219],
 };
 
+/** Softer overlay colors used when a `foregroundSrc` is supplied. */
 const FG_OVERLAY: Partial<Record<TreatmentColor, [number, number, number]>> = {
   purple: [219, 190, 253],
   blue: [189, 217, 255],
   green: [192, 251, 227],
 };
 
+/** Cap canvas work so large source images do not dominate the render loop. */
 const MAX_DIMENSION = 800;
 
 type CanvasSize = {
@@ -307,6 +372,20 @@ export default function ImageTreatment({
   const [fgImage, setFgImage] = useState<HTMLImageElement | null>(null);
   const [inView, setInView] = useState(false);
   const [containerSize, setContainerSize] = useState<CanvasSize | null>(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -380,10 +459,8 @@ export default function ImageTreatment({
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
-    const prefersReducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const animate = motion && !prefersReducedMotion;
+    const shouldFlicker = flicker && !prefersReducedMotion;
 
     const { w, h } = getRenderSize(image, containerSize);
     canvas.width = w;
@@ -714,7 +791,7 @@ export default function ImageTreatment({
       const el = wrapperRef.current;
       const state = mouseStateRef.current;
       state.hovering = false;
-      let autoGlitching = !flicker && animate;
+      let autoGlitching = !shouldFlicker && animate;
       let timeoutId: number | null = null;
 
       const resetGlitches = () => {
@@ -795,7 +872,7 @@ export default function ImageTreatment({
         }, dur);
       };
 
-      if (flicker) {
+      if (shouldFlicker) {
         autoGlitching = Math.random() < 0.4;
         if (autoGlitching) resetGlitches();
       } else if (autoGlitching) resetGlitches();
@@ -807,7 +884,7 @@ export default function ImageTreatment({
         } else drawClean();
       } else drawClean();
 
-      if (flicker) scheduleFlicker();
+      if (shouldFlicker) scheduleFlicker();
 
       if (animate) {
         const loop = () => {
@@ -846,7 +923,7 @@ export default function ImageTreatment({
       };
     }
 
-    if (flicker && hasGlitch) {
+    if (shouldFlicker && hasGlitch) {
       let timeoutId: number | null = null;
       let isGlitching = Math.random() < 0.4;
       const schedule = () => {
@@ -893,6 +970,7 @@ export default function ImageTreatment({
     mouseReactive,
     mouseRadius,
     objectFit,
+    prefersReducedMotion,
     containerSize?.width,
     containerSize?.height,
     overridesKey,

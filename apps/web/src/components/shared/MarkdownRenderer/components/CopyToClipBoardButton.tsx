@@ -1,8 +1,8 @@
 import styles from "./CopyToClipBoardButton.module.scss";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import CopyIcon from "@@/public/src/img/icons/Copy.inline.svg";
-import CopyConfirmIcon from "@@/public/src/img/icons/CopyConfirm.inline.svg";
+import { Copy as CopyIcon } from "@boxicons/react/Copy";
+import { CopyCheck as CopyConfirmIcon } from "@boxicons/react/CopyCheck";
 
 export function CopyToClipBoardButton() {
   const btnRef = useRef<HTMLButtonElement | null>(null);
@@ -47,7 +47,7 @@ export function CopyToClipBoardButton() {
       onClick={copyToClipboard}
       aria-label="Copy"
     >
-      <IconToUse width={18} height={18} strokeWidth={1.5} />
+      <IconToUse width={18} height={18} aria-hidden="true" />
     </button>
   );
 }

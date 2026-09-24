@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import Link from "next/link";
 import React from "react";
 

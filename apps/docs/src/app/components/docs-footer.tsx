@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft } from "@boxicons/react/ChevronLeft";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { useI18n } from "fumadocs-ui/provider";
 import { ReactNode } from "react";
 

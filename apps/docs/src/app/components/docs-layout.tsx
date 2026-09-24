@@ -12,6 +12,23 @@ import { getTranslations } from "next-intl/server";
 import { DocsSidebarTogglePortal } from "./docs-sidebar-toggle-portal";
 import type { PageTree } from "fumadocs-core/server";
 
+function flattenChildlessFolders(nodes: PageTree.Node[]): PageTree.Node[] {
+  return nodes.map((node) => {
+    if (node.type !== "folder") return node;
+
+    const children = flattenChildlessFolders(node.children);
+
+    if (node.index && children.length === 0) {
+      return {
+        ...node.index,
+        icon: node.index.icon ?? node.icon,
+      } satisfies PageTree.Item;
+    }
+
+    return { ...node, children };
+  });
+}
+
 export async function DocsLayout({
   children,
   tree,
@@ -24,6 +41,10 @@ export async function DocsLayout({
   locale?: string;
 }) {
   const t = await getTranslations();
+  const sidebarTree: PageTree.Root = {
+    ...tree,
+    children: flattenChildlessFolders(tree.children),
+  };
   const translations = {
     toc: t("shared.general.toc"),
     editOnGithub: t("shared.general.edit-page"),
@@ -39,7 +60,7 @@ export async function DocsLayout({
       >
         <div className="container-xl fumadocs">
           <FumaDocsLayout
-            tree={tree}
+            tree={sidebarTree}
             nav={{ enabled: false }}
             sidebar={{
               enabled: sidebarEnabled,
@@ -60,7 +81,7 @@ function CustomSidebar() {
     <>
       <CollapsibleSidebar
         className="md:bg-transparent text-base data-[collapsed=true]:pointer-events-none"
-        style={{ maxHeight: "calc(100vh - 65px)" }}
+        style={{ maxHeight: "calc(100vh - var(--fd-nav-height))" }}
       >
         <SidebarViewport>
           <div className="mt-1">

@@ -33,7 +33,7 @@ import {
   DialogDescription,
 } from "@@/src/app/components/ui/dialog";
 import { useState, useEffect } from "react";
-import { Play } from "lucide-react";
+import { Play } from "@boxicons/react/Play";
 import { Video, VideoProps } from "./video";
 
 const OPEN_VIDEO_EVENT = "open-video-player" as const;
@@ -106,11 +106,7 @@ export const VideoTrigger = React.forwardRef<
             tabIndex={0}
             className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110`}
           >
-            <Play
-              fill="white"
-              strokeWidth={0}
-              className={`w-8 h-8 ${iconClassName ?? ""}`}
-            />
+            <Play fill="white" className={`w-8 h-8 ${iconClassName ?? ""}`} />
           </button>
         </div>
       );
@@ -124,11 +120,7 @@ export const VideoTrigger = React.forwardRef<
         tabIndex={0}
         className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 ${bgColorClass} ${className ?? ""} rounded-full flex items-center justify-center transition group-hover:scale-110 z-10`}
       >
-        <Play
-          fill="white"
-          strokeWidth={0}
-          className={`w-8 h-8 ${iconClassName ?? ""}`}
-        />
+        <Play fill="white" className={`w-8 h-8 ${iconClassName ?? ""}`} />
       </button>
     );
   },

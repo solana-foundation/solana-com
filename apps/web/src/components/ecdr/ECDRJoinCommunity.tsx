@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./ECDRJoinCommunity.module.scss";
 import EmailSubscribeForm from "../shared/EmailSubscribeForm";
 import Link from "../../utils/Link";

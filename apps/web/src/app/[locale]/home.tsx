@@ -26,9 +26,11 @@ import { YouTubePlaylistItem } from "@/lib/youtube/types";
 import { Community } from "@/components/index/community";
 import { WhatsUp } from "@/components/index/whats-up";
 import { Decor } from "@/components/index/decor";
-import Avatar from "@@/public/src/img/icons/Avatar.inline.svg";
-import Bank from "@@/public/src/img/icons/Bank.inline.svg";
-import CodeFilled from "@@/public/src/img/icons/CodeFilled.inline.svg";
+import { UserCircle as Avatar } from "@boxicons/react/UserCircle";
+import { Bank } from "@boxicons/react/Bank";
+import { CodeAlt as CodeFilled } from "@boxicons/react/CodeAlt";
+import { Signal5 } from "@boxicons/react/Signal5";
+import { TachometerAlt } from "@boxicons/react/TachometerAlt";
 import { PostItem } from "@/types/media";
 import { fetchLatestPosts } from "@/lib/media/post";
 import { useEffect, useState, useMemo } from "react";
@@ -42,6 +44,49 @@ const TransactionsStat = dynamic(
     ssr: false,
   },
 );
+
+const HERO_BANNERS = [
+  {
+    bannerEyebrow: "200ms: Monitoring the situation",
+    bannerDescription:
+      "Watch Solana’s measured path to 200ms with live slot-time and network metrics.",
+    bannerImgSrc: "/src/img/index/slot-200ms-promo.webp",
+    bannerHref: "/200ms",
+    bannerLabel: "Open live monitor",
+  },
+  {
+    bannerEyebrow: "Breakpoint 2026",
+    bannerDescription:
+      "Solana's flagship gathering returns to London, November 15-17, 2026.",
+    bannerImgSrc: "/src/img/index/breakpoint-2026-promo.webp",
+    bannerHref: "/breakpoint",
+    bannerLabel: "Learn More",
+    bannerExpiryDate: "2026-11-17",
+  },
+] as const;
+
+type HeroBanner = (typeof HERO_BANNERS)[number];
+
+const DEFAULT_HERO_BANNER = HERO_BANNERS[0];
+
+const isHeroBannerActive = (banner: HeroBanner, now = new Date()): boolean => {
+  const expiry =
+    "bannerExpiryDate" in banner ? banner.bannerExpiryDate : undefined;
+  if (!expiry) return true;
+
+  return now.toISOString().slice(0, 10) <= expiry;
+};
+
+const getRandomHeroBanner = (): HeroBanner => {
+  const activeBanners = HERO_BANNERS.filter((banner) =>
+    isHeroBannerActive(banner),
+  );
+
+  return (
+    activeBanners[Math.floor(Math.random() * activeBanners.length)] ??
+    DEFAULT_HERO_BANNER
+  );
+};
 
 interface HomePageProps {
   translations: {
@@ -95,6 +140,11 @@ export function HomePage({
   activeCampaign,
 }: HomePageProps) {
   const [newsFallback, setNewsFallback] = useState<PostItem[] | null>(null);
+  const [heroBanner, setHeroBanner] = useState<HeroBanner>(DEFAULT_HERO_BANNER);
+
+  useEffect(() => {
+    setHeroBanner(getRandomHeroBanner());
+  }, []);
 
   // Workaround for Vercel preview mode
   // Fetch news fallback if news is empty
@@ -150,12 +200,7 @@ export function HomePage({
         <Hero
           title={translations.heroTitle}
           subtitle={translations.heroSubtitle}
-          bannerEyebrow="Breakpoint 2026"
-          bannerDescription="Solana's flagship gathering returns to London, November 15-17, 2026."
-          bannerImgSrc="/src/img/index/breakpoint-2026-promo.webp"
-          bannerHref="/breakpoint"
-          bannerLabel="Learn More"
-          bannerExpiryDate="2026-11-17"
+          {...heroBanner}
           cta={translations.heroCta}
           bgJsonFilePath="/src/img/index/hero-bg.json"
           bgImageSrc="/src/img/index/hero-bg.webp"
@@ -239,12 +284,12 @@ export function HomePage({
           {
             value: <TransactionsStat variant="total" />,
             label: translations.performanceCounterLabels[0],
-            Icon: "/src/img/index/icons/steps.svg",
+            Icon: Signal5,
           },
           {
             value: <TransactionsStat variant="per-sec" />,
             label: translations.performanceCounterLabels[1],
-            Icon: "/src/img/index/icons/speed.svg",
+            Icon: TachometerAlt,
           },
         ]}
         stats={translations.performanceStats}

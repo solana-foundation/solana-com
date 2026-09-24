@@ -221,6 +221,7 @@ export default function Footer({
   backgroundColor = "purple",
 }: FooterProps = {}) {
   const t = useTranslations("breakpoint.footer");
+  const tAccessibility = useTranslations("breakpoint.accessibility");
   const { days, hours, minutes, seconds } = useCountdown(EVENT_START);
   const footerStyle: FooterStyle = {
     "--footer-background-color": FOOTER_BACKGROUND_COLORS[backgroundColor],
@@ -244,7 +245,9 @@ export default function Footer({
                 href={social.href}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={`${social.name} (opens in a new tab)`}
+                aria-label={tAccessibility("externalLink", {
+                  name: social.name,
+                })}
                 className="flex size-[24px] items-center justify-center transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
               >
                 <img

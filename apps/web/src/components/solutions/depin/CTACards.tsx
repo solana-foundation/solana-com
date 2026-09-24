@@ -1,7 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import { Button } from "@@/src/app/components/ui/button";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRight as ArrowRightIcon } from "@boxicons/react/ArrowRight";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
@@ -68,7 +68,7 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
               className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
               {t("depin.cta.quickstartGuide")}
-              <ArrowRightIcon size={18} />
+              <ArrowRightIcon width={18} height={18} />
             </Link>
             <Link
               href="https://github.com/solana-developers/solana-depin-examples"
@@ -77,7 +77,7 @@ export const CTACards = ({ onEmailClick }: CTACardsProps) => {
               className="text-white flex items-center gap-1 hover:underline transition text-sm"
             >
               {t("depin.cta.examples")}
-              <ArrowRightIcon size={16} />
+              <ArrowRightIcon width={16} height={16} />
             </Link>
           </div>
           <div className="relative w-full flex-1 min-h-[180px]">

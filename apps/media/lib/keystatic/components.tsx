@@ -7,6 +7,7 @@ import {
 } from "@keystatic/core/content-components";
 import React from "react";
 import { Latex } from "@/components/latex";
+import { tweetIdField } from "@/lib/keystatic/tweet-id-field";
 
 // Background options for section blocks
 const backgroundOptions = [
@@ -60,6 +61,17 @@ const inlineLatex = inline({
     }),
   },
   ContentView: (props) => <Latex formula={props.value.formula} />,
+});
+
+// MDX treats <br /> as a component. Declaring it here lets writers use line
+// breaks in table cells without Keystatic rejecting the document as having an
+// unknown component. The published MDX renderer continues to render the native
+// HTML line break.
+const lineBreak = inline({
+  label: "Line break",
+  description: "Starts the following text on a new line",
+  schema: {},
+  ContentView: () => <br />,
 });
 
 const figure = wrapper({
@@ -447,10 +459,7 @@ const tweet = block({
   label: "Tweet",
   description: "Embed a tweet/X post",
   schema: {
-    id: fields.text({
-      label: "Tweet ID",
-      description: "The ID of the tweet to embed",
-    }),
+    id: tweetIdField,
   },
   ContentView: (props) => (
     <div
@@ -504,8 +513,162 @@ const iframe = block({
   ),
 });
 
+const audienceGroup = wrapper({
+  label: "Audience group",
+  description: "Container for the collapsible per-audience sections",
+  schema: {},
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        Audience group
+      </strong>
+      {props.children}
+    </div>
+  ),
+});
+
+const audience = wrapper({
+  label: "Audience section",
+  description: "One collapsible section addressed to a single audience",
+  schema: {
+    title: fields.text({
+      label: "Title",
+      validation: { isRequired: true },
+    }),
+    summary: fields.text({ label: "Summary" }),
+  },
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        {props.value.title || "Audience section"}
+      </strong>
+      {props.children}
+    </div>
+  ),
+});
+
+// Diagram blocks for upgrade articles. These take no options — each renders a
+// single fixed illustration defined in `components/upgrades/diagrams.tsx` — so
+// they exist here purely to declare the tags as valid in the Keystatic editor.
+const diagramBlock = (label: string, description: string) =>
+  block({
+    label,
+    description,
+    schema: {},
+    ContentView: () => (
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: "8px",
+          color: "#6b7280",
+          fontSize: "14px",
+          margin: "16px 0",
+          padding: "16px",
+        }}
+      >
+        <strong style={{ color: "#14161c", display: "block" }}>Diagram</strong>
+        {label}
+      </div>
+    ),
+  });
+
+const txWireLayout = diagramBlock(
+  "Diagram: transaction wire layout",
+  "Byte layout of legacy, v0 and v1 transactions compared",
+);
+
+const agBlockLifecycle = diagramBlock(
+  "Diagram: where Alpenglow sits",
+  "The life of a block, with the stages Alpenglow replaces",
+);
+
+const agBanksPerSlot = diagramBlock(
+  "Diagram: candidate banks in one slot",
+  "Why keying a buffer on the slot alone fuses several banks into one block",
+);
+
+const agBankIdAcrossConnections = diagramBlock(
+  "Diagram: bank_id across two connections",
+  "Why bank_id cannot be compared between providers, and blockhash can",
+);
+
+const agCommitmentLevels = diagramBlock(
+  "Diagram: commitment levels under Alpenglow",
+  "How confirmed and finalized converge, and the two paths to finality",
+);
+
+const agVotorCertificates = diagramBlock(
+  "Diagram: Votor votes and certificates",
+  "The three routes out of a proposed block and the certificate each produces",
+);
+
+const txSimulationTrace = diagramBlock(
+  "Diagram: v1 simulation failure trace",
+  "Where an empty v1 config fails during simulation, and what comes back",
+);
+
+const txAccountBytes = diagramBlock(
+  "Diagram: loaded account bytes running total",
+  "How an account created after estimation pushes the running total past the limit",
+);
+
+const featureActivationStatus = block({
+  label: "Feature activation status",
+  description: "Live feature activation status for each Solana cluster",
+  schema: {
+    featureAddress: fields.text({
+      label: "Feature address",
+      description: "The Solana feature account address to check",
+    }),
+  },
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        color: "#6b7280",
+        fontSize: "14px",
+        margin: "16px 0",
+        padding: "16px",
+      }}
+    >
+      <strong style={{ color: "#14161c", display: "block" }}>
+        Feature activation status
+      </strong>
+      {props.value.featureAddress && (
+        <code
+          style={{
+            color: "#14161c",
+            display: "block",
+            margin: "8px 0",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {props.value.featureAddress}
+        </code>
+      )}
+      Live cluster statuses are shown on the published page.
+    </div>
+  ),
+});
+
 // Export all component blocks
 export const componentBlocks: Record<string, ContentComponent> = {
+  br: lineBreak,
   blockquote,
   datetime,
   newslettersignup,
@@ -516,6 +679,23 @@ export const componentBlocks: Record<string, ContentComponent> = {
   sup,
   tweet,
   iframe,
+};
+
+// Diagram blocks are intentionally limited to upgrade articles, whose template
+// renders on a permanently dark surface the diagrams are colored for.
+export const upgradeComponentBlocks: Record<string, ContentComponent> = {
+  ...componentBlocks,
+  Audience: audience,
+  AudienceGroup: audienceGroup,
+  AgBanksPerSlot: agBanksPerSlot,
+  AgBlockLifecycle: agBlockLifecycle,
+  AgBankIdAcrossConnections: agBankIdAcrossConnections,
+  AgCommitmentLevels: agCommitmentLevels,
+  AgVotorCertificates: agVotorCertificates,
+  FeatureActivationStatus: featureActivationStatus,
+  TxAccountBytes: txAccountBytes,
+  TxSimulationTrace: txSimulationTrace,
+  TxWireLayout: txWireLayout,
 };
 
 // Formula controls are intentionally limited to news posts. Other collections

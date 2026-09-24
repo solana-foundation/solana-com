@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider, useTranslations } from "next-intl";
 import { useParams, usePathname } from "next/navigation";
 import React from "react";
-import { readdirSync, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import path from "path";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { locales } from "@workspace/i18n/config";
@@ -146,27 +146,6 @@ describe("NextIntlClientProvider", () => {
       </NextIntlClientProvider>,
     );
     expect(screen.getByText("Close")).toBeInTheDocument();
-  });
-});
-
-describe.skip("Translations", () => {
-  const localesDir = path.join(
-    __dirname,
-    "../../../../../packages/i18n/messages/web",
-  );
-  const enTranslations = loadMessages("en");
-
-  readdirSync(localesDir).forEach((locale) => {
-    if (locale !== "en") {
-      it(`has no missing keys for ${locale}`, () => {
-        const translations = JSON.parse(
-          readFileSync(`${localesDir}/${locale}/common.json`, "utf8"),
-        );
-        Object.keys(enTranslations).forEach((key) => {
-          expect(translations).toHaveProperty(key);
-        });
-      });
-    }
   });
 });
 

@@ -6,6 +6,7 @@ export interface FetchLatestLinksParams {
   cursor?: string;
   category?: string;
   tag?: string;
+  linkType?: string;
 }
 
 export interface FetchLatestLinksResponse {
@@ -41,6 +42,10 @@ export const fetchLatestLinks = async (
 
     if (params.tag) {
       searchParams.set("tag", params.tag);
+    }
+
+    if (params.linkType) {
+      searchParams.set("linkType", params.linkType);
     }
 
     const query = searchParams.toString();

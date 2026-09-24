@@ -5,13 +5,16 @@ import type { ComponentProps } from "react";
 import { mdxComponents } from "@@/src/app/mdx-components";
 import { getMdxMetadata } from "@@/src/app/metadata";
 import { DocsCategory } from "fumadocs-ui/page";
+import type { PageTree } from "fumadocs-core/server";
 
 export async function MainDocsPage({
   slug,
   locale,
+  pageTree = docsSource.pageTree[locale],
 }: {
   slug: string[];
   locale: string;
+  pageTree?: PageTree.Root;
 }) {
   const page = docsSource.getPage(slug, locale);
   if (!page) notFound();
@@ -27,7 +30,7 @@ export async function MainDocsPage({
       filePath={page.data.info.path}
       hideTableOfContents={page.data.hideTableOfContents}
       hidePageNavigation={page.data.hidePageNavigation}
-      pageTree={docsSource.pageTree[locale]}
+      pageTree={pageTree}
       href={page.url}
       markdown={markdown}
       isRoot={slug.length === 0}

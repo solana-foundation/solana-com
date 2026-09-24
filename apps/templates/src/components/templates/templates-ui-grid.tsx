@@ -5,7 +5,7 @@ import { TemplatesUiGridItem } from "./templates-ui-grid-item";
 
 export function TemplatesUiGrid({ templates }: { templates: Template[] }) {
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-fr">
+    <div className="grid auto-rows-fr gap-px overflow-hidden border border-white/[0.08] bg-white/[0.08] md:grid-cols-2 xl:grid-cols-3">
       {templates.map((template) => (
         <TemplatesUiGridItem
           key={`${template.source.id}-${template.name}`}

@@ -10,7 +10,6 @@ import { DevelopersNav } from "./developers-nav";
 import { InkeepSearchBar } from "./inkeep-searchbar";
 import { LanguageSelector } from "./language-selector";
 import { MobileMenu } from "./mobile-menu";
-import { InkeepChatButton } from "./inkeep-chat-button";
 import { shouldShowDevelopersNav } from "./developer-routes";
 
 import SolanaLogo from "./assets/logotype.inline.svg";
@@ -34,35 +33,34 @@ function Header({
       <header className={`sticky top-0 z-50 ${className}`}>
         <nav
           id="navbar"
-          className={`py-3 transition-colors duration-300 border-b border-[rgba(240,228,255,0.12)] bg-[rgb(18_18_18/95%)] light:bg-white/95`}
+          className="h-14 border-b border-white/10 bg-black/80 backdrop-blur-xl backdrop-saturate-150"
         >
           <div
-            className={`w-full max-w-[1440px] px-[20px] xl:px-[14px] mx-auto flex items-center justify-between gap-x-5 xl:gap-x-12 ${containerClassName}`}
+            className={`mx-auto flex h-full w-full max-w-[1440px] items-center justify-between gap-x-4 px-4 sm:px-5 xl:gap-x-8 xl:px-6 ${containerClassName}`}
           >
             <Link
               to="/"
-              className="block shrink-0 grow-0 !text-white light:!text-[#121212] "
+              className="flex h-11 shrink-0 grow-0 items-center !text-white"
               aria-label="Solana"
             >
               <SolanaLogo
                 style={{ color: "currentColor" }}
-                width={134}
-                height={40}
+                width={120}
+                height={18}
                 viewBox="0 0 149 22"
-                className="block w-[107px] xl:w-[134px]"
+                className="block h-auto w-28 xl:w-[120px]"
               />
             </Link>
 
-            <div className="xl:grow flex items-center max-md:gap-4 md:gap-2">
+            <div className="ml-auto flex items-center gap-1 md:gap-2 xl:grow">
               {/* Desktop Menu */}
               <div className="hidden xl:block flex-1">
                 <HeaderList />
               </div>
 
               {/* Desktop Search and Language */}
-              <div className="flex gap-5 items-center">
-                <InkeepSearchBar className="hidden md:block" />
-                <InkeepChatButton variant="inline" className="md:hidden" />
+              <div className="flex items-center gap-3">
+                <InkeepSearchBar />
                 {showLanguage && (
                   <div className="relative items-center hidden xl:flex">
                     <LanguageSelector />
@@ -71,12 +69,16 @@ function Header({
               </div>
 
               {/* Mobile Menu */}
-              <MobileMenu expanded={expanded} setExpanded={setExpanded} />
+              <MobileMenu
+                expanded={expanded}
+                setExpanded={setExpanded}
+                showLanguage={showLanguage}
+              />
 
               {/* Theme Toggle */}
               {isThemePage && (
                 <button
-                  className="flex border-none ml-[15px] transition-all duration-300 ease-in-out hover:scale-110 hover:rotate-[15deg] hover:[&>svg]:fill-current"
+                  className="ml-1 flex size-11 items-center justify-center border-none text-white transition-transform duration-300 ease-in-out hover:rotate-[15deg] md:size-9"
                   onClick={toggleTheme}
                   aria-label={t("commands.toggle")}
                 >

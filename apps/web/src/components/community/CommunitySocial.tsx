@@ -1,14 +1,14 @@
 import { FormattedNumber } from "../SolFormattedMessage";
-import Telegram from "../../../public/src/img/community/socials-telegram.inline.svg";
+import { Telegram } from "@boxicons/react/Telegram";
 import Twitter from "../../../public/src/img/community/socials-twitter.inline.svg";
-import Youtube from "../../../public/src/img/community/socials-youtube.inline.svg";
-import Weibo from "../../../public/src/img/community/socials-weibo.inline.svg";
-import Discord from "../../../public/src/img/community/socials-discord.inline.svg";
-import Git from "../../../public/src/img/community/socials-git.inline.svg";
-import Sun from "../../../public/src/img/community/socials-sun.inline.svg";
-import Mail from "../../../public/src/img/community/socials-mail.inline.svg";
-import Reddit from "../../../public/src/img/community/socials-reddit.inline.svg";
-import News from "../../../public/src/img/community/socials-news.inline.svg";
+import { Youtube } from "@boxicons/react/Youtube";
+import { Weibo } from "@boxicons/react/Weibo";
+import { Discord } from "@boxicons/react/Discord";
+import { Github } from "@boxicons/react/Github";
+import { Sun } from "@boxicons/react/Sun";
+import { Envelope } from "@boxicons/react/Envelope";
+import { Reddit } from "@boxicons/react/Reddit";
+import { Medium } from "@boxicons/react/Medium";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/component-library/badge";
 
@@ -53,7 +53,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "/telegram",
       category: "Announcements",
-      renderIcon: () => <Telegram />,
+      renderIcon: () => <Telegram width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.telegram",
       memberStrId: "community.socials.approx-members",
       members: telegram,
@@ -61,7 +61,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "/twitter",
       category: "Announcements",
-      renderIcon: () => <Twitter />,
+      renderIcon: () => <Twitter width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.twitter",
       memberStrId: "community.socials.approx-members",
       members: twitter,
@@ -69,7 +69,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "/youtube",
       category: "Announcements",
-      renderIcon: () => <Youtube size={32} className="stroke" />,
+      renderIcon: () => <Youtube width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.youtube",
       memberStrId: "community.socials.yt-subscribers",
       members: youtube,
@@ -77,7 +77,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "/reddit",
       category: "Discussions",
-      renderIcon: () => <Reddit />,
+      renderIcon: () => <Reddit width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.reddit",
       memberStrId: "community.socials.gt-subscribers",
       members: reddit,
@@ -85,7 +85,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "/discord",
       category: "Engineering",
-      renderIcon: () => <Discord />,
+      renderIcon: () => <Discord width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.discord",
       memberStrId: "community.socials.approx-members",
       members: discord,
@@ -93,7 +93,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "/github",
       category: "Engineering",
-      renderIcon: () => <Git />,
+      renderIcon: () => <Github width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.github",
       memberStrId: "community.socials.gt-stars",
       members: github,
@@ -101,7 +101,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "https://www.meetup.com/topics/solana/",
       category: "Meetings",
-      renderIcon: () => <Sun />,
+      renderIcon: () => <Sun width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.meetup",
       memberStrId: "community.socials.gt-members",
       members: meetup,
@@ -109,7 +109,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "https://weibo.com/SolanaNews",
       category: "Announcements",
-      renderIcon: () => <Weibo />,
+      renderIcon: () => <Weibo width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.weibo",
       memberStrId: "community.socials.weibo-subscribers",
       members: weibo,
@@ -117,7 +117,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "/news",
       category: "Discussions",
-      renderIcon: () => <News />,
+      renderIcon: () => <Medium width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.medium",
       memberStrId: "community.socials.approx-write-ups",
       members: news,
@@ -125,7 +125,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     {
       link: "mailto:hello@solana.com",
       category: "Meetings",
-      renderIcon: () => <Mail />,
+      renderIcon: () => <Envelope width={32} height={32} aria-hidden="true" />,
       nameId: "community.socials.email",
       membersStr: "hello@solana.com",
     },

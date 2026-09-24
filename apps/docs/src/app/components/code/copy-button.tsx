@@ -1,6 +1,7 @@
 "use client";
 
-import { Copy, Check } from "lucide-react";
+import { Copy } from "@boxicons/react/Copy";
+import { Check } from "@boxicons/react/Check";
 import { cn } from "@@/src/app/components/utils";
 import { useState } from "react";
 
@@ -27,9 +28,9 @@ export function CopyButton({
       aria-label="Copy to clipboard"
     >
       {copied ? (
-        <Check size={16} className="block" />
+        <Check width={16} height={16} className="block" />
       ) : (
-        <Copy size={16} className="block" />
+        <Copy width={16} height={16} className="block" />
       )}
     </button>
   );

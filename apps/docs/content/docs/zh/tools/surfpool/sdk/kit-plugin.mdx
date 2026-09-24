@@ -1,0 +1,326 @@
+---
+title: Kit 插件
+description:
+  在 Solana Kit 客户端后台运行嵌入式 Surfnet。一个插件即可提供预充值付款方、完整 RPC 栈以及类型化作弊码。
+---
+
+`@solana/surfpool/kit` 在您的测试进程内运行 Surfnet——一个本地的、兼容 Solana 的网络——并返回一个已指向该网络的
+[Solana Kit](https://www.solanakit.com/) 客户端。一个
+`.use(surfpool())` 即可替换您通常使用的 RPC 插件
+（`solanaLocalRpc()`、`litesvm()`），并额外提供预充值付款方以及 Surfpool 的作弊码：
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+const slot = await client.rpc.getSlot().send();
+await client.cheatcodes.timeTravel({ absoluteSlot: 1_000_000n }).send();
+```
+
+无需选择端口，无需生成和充值付款方，也无需管理独立的 `surfpool start` 进程。初次使用此 SDK？请从
+[概览](/docs/tools/surfpool/sdk/overview)开始。
+
+## 选择合适的入口点
+
+| 入口点                       | 适用场景                                                                                         |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `surfpool()`                      | **测试默认选项。** 每个测试文件拥有独立的 Surfnet，并已配置好 Kit 客户端。             |
+| `surfpool({ rpcUrl })`            | 跨进程共享一个长期运行的 `surfpool start` 实例，或当前平台没有原生二进制文件时使用。 |
+| `surfnetCheatcodes()`             | 您已有客户端，仅需在其上添加作弊码。                                                 |
+| `@solana/surfpool` 中的 `Surfnet` | 您未使用 Kit——请参阅 [JS 参考文档](/docs/tools/surfpool/sdk/js-reference)。                    |
+
+## 前提条件
+
+- **Node.js 20.18+**，这是 `@solana/kit` v7 声明的最低版本要求。`@solana/surfpool`
+  本身支持 18+，但 Kit 包不支持。部分程序插件要求更高——`@solana-program/token` 声明需要 24+。
+- **[受支持的平台](/docs/tools/surfpool/sdk/installation)**（macOS、
+  Linux x86-64），用于嵌入模式，该模式会加载原生二进制文件。其他平台请使用附加模式。
+- **熟悉 Kit 的插件组合方式**——客户端通过链式调用
+  `.use()` 构建，每个插件都会向客户端添加属性。
+
+## 安装
+
+```bash
+npm install --save-dev @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+# or
+pnpm add -D @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana/surfpool
+```
+
+这些被声明为 `@solana/surfpool` 的可选对等依赖：如果您只直接使用 `Surfnet` 类，可以跳过它们；但导入
+`@solana/surfpool/kit` 需要 `@solana/kit` 和 `@solana/kit-plugin-rpc`。平台支持矩阵及故障排查请参阅
+[安装](/docs/tools/surfpool/sdk/installation)。
+
+## 嵌入模式
+
+不带 `rpcUrl` 调用 `surfpool()` 会在进程内以动态端口启动一个 Surfnet，并将整个 Kit 客户端指向它。该插件是异步的，因此需要 `await`
+`.use()` 链：
+
+```ts
+import { createClient } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+```
+
+<Callout type="info" title="并行测试文件">
+  每次 `surfpool()` 调用都会绑定自己的动态端口，因此每个测试文件都可以
+  启动独立的 Surfnet，测试套件仍可并行运行。
+</Callout>
+
+### 完整测试示例
+
+启动一个 Surfnet，使用预充值付款方发送转账，并对结果进行断言。
+此处示例使用 `node:test`；Vitest 和 Jest 也以相同方式工作，只需使用各自的 `after` / `afterAll` 钩子。
+
+```ts title="transfer.test.ts"
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { getTransferSolInstruction } from "@solana-program/system";
+import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool());
+
+after(() => {
+  client.surfnet.stop();
+});
+
+test("transfers SOL on an embedded Surfnet", async () => {
+  const recipient = await generateKeyPairSigner();
+  const amount = lamports(5_000_000n);
+
+  await client.sendTransaction(
+    getTransferSolInstruction({
+      amount,
+      destination: recipient.address,
+      source: client.payer
+    })
+  );
+
+  const { value: balance } = await client.rpc
+    .getBalance(recipient.address)
+    .send();
+  assert.equal(balance, amount);
+});
+```
+
+### 生命周期
+
+如上所示，在清理阶段调用 `client.surfnet.stop()`，以释放 Surfnet 占用的端口和服务器。`stop()` 是幂等且同步的——它会在运行时实际关闭后才返回。停止操作是最终的；创建另一个客户端将启动一个全新的实例。
+
+<Callout type="warn" title="清理不会自动执行">
+  在模块作用域持有的客户端——测试文件的常见模式——永远不会被销毁，
+  因此不会有任何机制自动停止 Surfnet。如果没有清理钩子，
+  进程可能会挂起，或在 OS 于退出时关闭套接字时输出 `connection reset` 警告。
+</Callout>
+
+### 插件安装的内容
+
+| 客户端属性                                        | 来源                                                   | 说明                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `client.payer`                                       | `@solana/kit-plugin-signer`                                  | Surfnet 预充值付款方账户的 `KeyPairSigner`                  |
+| `client.rpc` / `client.rpcSubscriptions`             | `@solana/kit-plugin-rpc`                                     | 标准 Solana RPC 及订阅客户端，已指向 Surfnet |
+| `client.airdrop`                                     | `@solana/kit-plugin-rpc`                                     | 针对 Surfnet 的 `requestAirdrop`                                      |
+| `client.getMinimumBalance`                           | `@solana/kit-plugin-rpc`                                     | 租金豁免查询                                                    |
+| `client.transactionPlanner` / `...PlanExecutor`      | `@solana/kit-plugin-rpc`                                     | 交易规划与执行                                        |
+| `client.sendTransaction` / `client.sendTransactions` | `@solana/kit-plugin-rpc`（通过 `kit-plugin-instruction-plan`） | 一次调用即可规划并发送指令                                    |
+| `client.rpcUrl` / `client.wsUrl`                     | `@solana/surfpool/kit`                                       | Surfnet 的 HTTP 和 WebSocket URL                                     |
+| `client.surfnet`                                     | `@solana/surfpool/kit`                                       | 原生 `Surfnet` 句柄（`fundSol`、`deploy`、`drainEvents` 等）       |
+| `client.cheatcodes`                                  | `@solana/surfpool/kit`                                       | 覆盖所有 `surfnet_*` 作弊码的类型化 RPC                          |
+
+该插件不会安装 `identity`。如果您的测试需要一个独立于 `client.payer` 的权限账户，请使用 `.use(identity(...))` 添加。
+
+## 作弊码
+
+作弊码是绕过正常交易流程的状态变更操作——它们即时执行，不消耗 blockhash 也不收取费用，非常适合测试准备阶段。`client.cheatcodes` 以类型化 RPC 的形式公开了所有作弊码。
+
+方法名称省略了 `surfnet_` 前缀，因此 `surfnet_pauseClock` 对应
+`client.cheatcodes.pauseClock()`，响应结果已从
+`{ context, value }` 封装中解包后返回。
+
+```ts
+import { address, generateKeyPairSigner } from "@solana/kit";
+
+// Deterministic clock.
+const paused = await client.cheatcodes.pauseClock().send();
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+await client.cheatcodes.resumeClock().send();
+
+// Arbitrary account state. `data` is hex-encoded.
+const account = (await generateKeyPairSigner()).address;
+const owner = (await generateKeyPairSigner()).address;
+await client.cheatcodes
+  .setAccount(account, { data: "aabbcc", lamports: 777_777, owner })
+  .send();
+
+// Token balances, without minting through the token program. The mint must
+// already exist — create it, or clone it from mainnet with cloneProgramAccount.
+const mint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+await client.cheatcodes
+  .setTokenAccount(owner, mint, { amount: 1_000_000n })
+  .send();
+```
+
+完整方法列表——包括 `streamAccount`、`cloneProgramAccount`、
+`profileTransaction`、`registerIdl` 和 `resetNetwork`——已在
+[作弊码](/docs/tools/surfpool/sdk/cheatcodes)和
+[RPC 参考文档](/docs/tools/surfpool/rpc/cheatcodes)中记录。
+
+### 使用编解码器写入结构化账户
+
+`setAccount` 接受十六进制原始字节，与 Kit 程序客户端提供的账户编码器配合使用效果极佳。无需发送交易来构建状态，直接编码所需账户并写入即可——以下示例为一个已有供应量的完全初始化 SPL mint：
+
+```ts
+import {
+  fetchMint,
+  getMintEncoder,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+import {
+  generateKeyPairSigner,
+  getBase16Decoder,
+  none,
+  some
+} from "@solana/kit";
+
+const mint = (await generateKeyPairSigner()).address;
+
+const data = getMintEncoder().encode({
+  decimals: 6,
+  freezeAuthority: none(),
+  isInitialized: true,
+  mintAuthority: some(client.payer.address),
+  supply: 1_000_000_000n
+});
+
+await client.cheatcodes
+  .setAccount(mint, {
+    // getBase16Decoder() turns the encoded bytes into the hex `data` expects.
+    data: getBase16Decoder().decode(data),
+    lamports: 1_461_600, // rent-exempt minimum for an 82-byte mint
+    owner: TOKEN_PROGRAM_ADDRESS
+  })
+  .send();
+
+// Reads back as a normal mint through the program client.
+const account = await fetchMint(client.rpc, mint);
+account.data.decimals; // 6
+account.data.supply; // 1_000_000_000n
+```
+
+相同的模式适用于任何 Codama 生成的客户端：使用账户的编码器编码，转为十六进制，然后传递给 `setAccount`。结合上面的 `setTokenAccount`，即可在不发送任何交易的情况下建立 mint 和已充值的持有者账户。
+
+<Callout type="info" title="作弊码响应使用 bigint">
+  作弊码传输层将每个 JSON 整数解析为 `bigint`，因此 `u64`
+  类型的值（如 `rentEpoch`）可以正确处理超过 2^53 的数值。请求负载同时接受 `number
+  | bigint`。
+</Callout>
+
+### 不使用插件的作弊码
+
+两个较小的入口点适用于不需要完整插件的场景。两者均为同步——它们只挂载传输层，因此均无需 `await`。
+
+```ts
+import {
+  createSurfnetCheatcodesRpc,
+  surfnetCheatcodes
+} from "@solana/surfpool/kit";
+
+// Standalone RPC, no Kit client involved.
+const cheatcodes = createSurfnetCheatcodesRpc("http://127.0.0.1:8899");
+await cheatcodes.pauseClock().send();
+
+// Add `client.cheatcodes` to a client you already composed.
+const client = createClient().use(surfnetCheatcodes());
+```
+
+`surfnetCheatcodes()` 依次从 `url`（若提供）、现有的 `client.rpcUrl`（因此可与任何携带该属性的客户端组合使用），以及 `DEFAULT_SURFNET_ENDPOINT`（`http://127.0.0.1:8899`）解析其端点。两者均接受 `headers` 选项，用于对远程 Surfpool 进行身份验证。
+
+## 配置
+
+Surfnet 启动选项位于 `surfnet` 键下，并转发给
+`Surfnet.startWithConfig()`。其余选项转发给本地 Solana RPC 插件：
+
+```ts
+const client = await createClient().use(
+  surfpool({
+    surfnet: { offline: true }, // Surfnet startup config
+    skipPreflight: true // forwarded to solanaLocalRpc()
+  })
+);
+```
+
+完全省略 `surfnet` 时，插件将使用默认值调用 `Surfnet.start()`。完整的启动选项——远程 RPC 回退、区块生产模式、slot 时序、特性门控以及自定义付款方——请参阅 [配置](/docs/tools/surfpool/sdk/configuration)。
+
+## 与程序插件组合使用
+
+由于 `surfpool()` 满足与 `solanaLocalRpc()` 相同的契约，Kit 程序插件可以叠加在其之上，其指令将在嵌入的 Surfnet 上执行。只有最终结果需要 await——在异步客户端上调用 `use()` 会返回另一个异步客户端，因此同步和异步插件可以自由链式调用。
+
+```ts
+import { createClient, generateKeyPairSigner } from "@solana/kit";
+import { tokenProgram } from "@solana-program/token";
+import { surfpool } from "@solana/surfpool/kit";
+
+const client = await createClient().use(surfpool()).use(tokenProgram());
+
+const newMint = await generateKeyPairSigner();
+await client.token.instructions
+  .createMint({ decimals: 6, mintAuthority: client.payer.address, newMint })
+  .sendTransaction();
+
+await client.token.instructions
+  .mintToATA({
+    amount: 1_000_000n,
+    decimals: 6,
+    mint: newMint.address,
+    mintAuthority: client.payer,
+    owner: client.payer.address
+  })
+  .sendTransaction();
+```
+
+## 附加模式
+
+传入 `rpcUrl` 可将插件切换为附加模式：它连接到一个已在运行的 Surfpool——即通过
+[`surfpool start`](/docs/tools/surfpool/toolchain/cli) 启动的实例——而无需自行启动。
+该模式不加载原生模块，因此在没有预构建二进制文件的平台上也能运行。它也是同步的，无需任何 await：
+
+```ts
+import { createKeyPairSignerFromBytes, createClient } from "@solana/kit";
+import { payer } from "@solana/kit-plugin-signer";
+import { surfpool } from "@solana/surfpool/kit";
+import { readFile } from "node:fs/promises";
+
+// Any funded signer works; this loads the local CLI keypair.
+const keypairPath = `${process.env.HOME}/.config/solana/id.json`;
+const myPayer = await createKeyPairSignerFromBytes(
+  new Uint8Array(JSON.parse(await readFile(keypairPath, "utf8")))
+);
+
+const client = createClient()
+  .use(payer(myPayer))
+  .use(surfpool({ rpcUrl: "http://127.0.0.1:8899" }));
+```
+
+与嵌入模式的三点区别：
+
+- **客户端必须已有 `payer`。** 附加模式无法访问运行实例的付款方私钥，因此不会安装任何付款方。请使用 `client.cheatcodes.setAccount(...)` 或运行实例自身的水龙头为您提供的签名者充值。
+- **没有 `client.surfnet` 句柄。** 进程内辅助工具不可用；请改用 `client.cheatcodes` 进行状态操作。
+- **`surfnet` 启动配置会被拒绝。** 实例已在运行，因此 `rpcUrl` 和 `surfnet` 在类型上是互斥的。
+
+<Callout type="warn" title="WebSocket 端口">
+  Surfpool 在独立端口（默认 `8900`，`--ws-port`）上提供订阅服务，
+  与 HTTP 端口相互独立。当 `rpcUrl` 包含显式端口时，插件会将订阅 URL 推导为同一主机上的 `8900` 端口。当没有端口时——例如位于代理之后——仅将协议替换为 `ws`/`wss`。若两种规则均不适用，请自行设置 `rpcSubscriptionsUrl`。
+</Callout>
+
+## 后续步骤
+
+- [程序](/docs/tools/surfpool/sdk/programs)——在测试前将您的程序部署到 Surfnet
+- [作弊码](/docs/tools/surfpool/sdk/cheatcodes)——完整的状态变更接口
+- [配置](/docs/tools/surfpool/sdk/configuration)——主网分叉、区块生产、特性门控
+- [安装](/docs/tools/surfpool/sdk/installation)——平台支持与故障排查
+- [JS 参考文档](/docs/tools/surfpool/sdk/js-reference)——`client.surfnet` 背后的 `Surfnet` 类

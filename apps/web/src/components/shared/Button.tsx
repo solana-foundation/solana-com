@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import GetEmArrow from "../../../public/src/img/icons/getemarrow.inline.svg";
+import { ArrowDownRight } from "@boxicons/react/ArrowDownRight";
 import Link from "../../utils/Link";
 
 const buttonVariants = cva(
@@ -125,9 +125,23 @@ const Button = ({
       {...(tagProps as object)}
       {...(props as object)}
     >
-      {arrow && <GetEmArrow width="11" height="11" className="mr-2" />}
+      {arrow && (
+        <ArrowDownRight
+          width={11}
+          height={11}
+          className="mr-2"
+          aria-hidden="true"
+        />
+      )}
       {children}
-      {arrowRight && <GetEmArrow width="11" height="11" className="ml-2" />}
+      {arrowRight && (
+        <ArrowDownRight
+          width={11}
+          height={11}
+          className="ml-2"
+          aria-hidden="true"
+        />
+      )}
     </Tag>
   );
 };

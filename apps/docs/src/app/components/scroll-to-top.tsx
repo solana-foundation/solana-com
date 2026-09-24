@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp } from "@boxicons/react/ArrowUp";
 import { useTranslations } from "next-intl";
 
 export function ScrollToTop() {
@@ -35,7 +35,7 @@ export function ScrollToTop() {
       className="flex items-center gap-2 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground/80"
       aria-label="Scroll to top"
     >
-      <ArrowUp size={18} />
+      <ArrowUp width={18} height={18} />
       <span>{t("shared.general.scroll-to-top")}</span>
     </button>
   );

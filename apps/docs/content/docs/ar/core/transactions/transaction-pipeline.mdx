@@ -1,9 +1,7 @@
 ---
 title: خط معالجة المعاملات
 description:
-  كيفية معالجة معاملات سولانا من الإرسال إلى التثبيت، بما في ذلك خط التحقق
-  الكامل المكون من 8 مراحل، وقراءة تفاصيل المعاملات من الشبكة، وأخطاء التحقق
-  الشائعة.
+  كيفية معالجة معاملات سولانا من الإرسال إلى التثبيت، بما في ذلك خط التحقق الكامل المكون من 8 مراحل، وقراءة تفاصيل المعاملات من الشبكة، وأخطاء التحقق الشائعة.
 url: /docs/core/transactions/transaction-pipeline
 type: reference
 prerequisites:
@@ -34,6 +32,12 @@ related:
 حزمة واحدة (_rs`PACKET_DATA_SIZE`_ = 1,232 بايت). يتم إلغاء تسلسل البايتات إلى
 _rs`VersionedTransaction`_، والذي يحتوي على مصفوفة التوقيعات و
 _rs`VersionedMessage`_ (إما قديم أو v0).
+
+يرفع
+[تنسيق v1](/docs/core/transactions/versioned-transactions#v1-message-format)
+الحد إلى 4,096 بايت. لا يضع QUIC حدًا لحجم الدفق، لذا فإن معاملة v1
+التي تتجاوز MTU يتم تقسيمها عبر إطارات QUIC متعددة عند
+الاستيعاب بدلاً من رفضها.
 
 ### 2. التحقق من التوقيع (sigverify)
 
@@ -75,6 +79,13 @@ Ed25519(`signatures[i]`، `account_keys[i]`، `message_bytes`). إذا كان أ
 الحوسبة مثل _rs`DuplicateInstruction`_، أو
 `InstructionError(..., InvalidInstructionData)`، أو
 _rs`InvalidLoadedAccountsDataSizeLimit`_.
+
+بالنسبة لـ
+[معاملات v1](/docs/core/transactions/versioned-transactions#v1-message-format)
+لا توجد تعليمات ميزانية حوسبة لتحليلها: تأتي الحدود ورسوم الأولوية
+من إعداد الرسالة، ويتم تجاهل أي تعليمات ComputeBudget في الرسالة
+لأغراض الإعداد. تُعيَّن الحقول غير المحددة إلى صفر افتراضيًا، وهو ما
+يظهر لاحقًا عند [تحميل الحسابات](#6-load-accounts).
 
 **عمر تجزئة الكتلة**: يتم البحث عن `recent_blockhash` الخاص بالمعاملة في
 [`BlockhashQueue`](https://github.com/anza-xyz/agave/blob/v3.1.8/accounts-db/src/blockhash_queue.rs#L33).
@@ -147,6 +158,15 @@ _rs`InvalidProgramForExecution`_.
 
 تقوم برامج LoaderV3 (القابلة للترقية) بتحميل حساب programdata المرتبط بها
 ضمنياً، والذي يُحتسب أيضاً ضمن حد حجم البيانات المحملة.
+
+<Callout type="warn" title="تُعيِّن معاملات v1 هذا الحد إلى صفر افتراضيًا">
+  يُطبَّق الحد الافتراضي البالغ 64 ميبيبايت على معاملات legacy وv0. في [تنسيق v1
+  ](/docs/core/transactions/versioned-transactions#v1-message-format)يُقرأ حد حجم بيانات الحسابات المحملة من إعداد الرسالة، والحقل
+  غير المحدد يُعيَّن افتراضيًا إلى **0 بايت** بدلاً من قيمة افتراضية سخية. لذلك تفشل معاملة v1
+  ذات الإعداد الفارغ في هذه المرحلة بخطأ
+  _rs`MaxLoadedAccountsDataSizeExceeded`_ — الميزانية المطلوبة أصغر من أن تستوعب
+  أول حساب يتم تحميله، فيقع الفشل قبل تشغيل أي تعليمة، برسالة خطأ لا تذكر v1 ولا الإعداد. احرص دائمًا على تعيين حد وحدات الحوسبة وحد حجم بيانات الحسابات المحملة بشكل صريح عند بناء معاملات v1.
+</Callout>
 
 إذا فشل تحميل الحساب ولكن تم التحقق من صحة دافع الرسوم بنجاح، تصبح المعاملة
 نتيجة
@@ -230,44 +250,44 @@ Receive packet (UDP/QUIC)
 [`TransactionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L15)
 وفي أي مرحلة من خط الأنابيب تحدث:
 
-| الخطأ                                                                                                                                   | المرحلة                     | السبب                                                                         |
-| --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------- |
-| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | الجدولة                     | الحساب مقفل بالفعل بواسطة معاملة أخرى في نفس الدفعة                           |
-| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | الجدولة                     | يظهر pubkey مرتين في `account_keys` الخاص بالمعاملة                           |
-| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | التحقق من دافع الرسوم       | حساب دافع الرسوم غير موجود                                                    |
-| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | تحميل الحساب                | البرنامج المستدعى غير موجود                                                   |
-| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | التحقق من دافع الرسوم       | دافع الرسوم لا يمكنه تغطية الرسوم + الحد الأدنى المعفى من rent                |
-| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | التحقق من دافع الرسوم       | دافع الرسوم ليس حساب نظام أو حساب nonce                                       |
-| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | ذاكرة التخزين المؤقت للحالة | تمت معالجة المعاملة بالفعل                                                    |
-| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | فحص العمر                   | Blockhash غير موجود في قائمة الانتظار وليس nonce صالحاً                       |
-| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | التنفيذ                     | حدث خطأ أثناء معالجة تعليمة (يتضمن فهرس التعليمة و `InstructionError` المحدد) |
-| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | تحميل الحساب                | سلسلة استدعاء المحمل عميقة جداً                                               |
-| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | التعقيم                     | المعاملة تتطلب رسوماً لكن لا يوجد توقيع                                       |
-| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | التعقيم                     | المعاملة تحتوي على مرجع حساب غير صالح                                         |
-| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | التحقق من التوقيع           | توقيع Ed25519 لا يتحقق (يتم تجاهل الحزمة)                                     |
-| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | تحميل الحساب                | البرنامج غير مملوك بواسطة محمل صالح                                           |
-| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | التعقيم                     | فشلت المعاملة في تعقيم إزاحات الحسابات بشكل صحيح                              |
-| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | الجدولة                     | المعاملات معطلة حالياً بسبب صيانة الشبكة                                      |
-| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | التنفيذ                     | معالجة المعاملة تركت حساباً مع مرجع مستعار معلق                               |
-| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | الجدولة                     | المعاملة ستتجاوز الحد الأقصى لتكلفة الكتلة                                    |
-| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | التعقيم                     | إصدار المعاملة غير مدعوم                                                      |
-| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | تحميل الحساب                | المعاملة تحمل حساباً قابلاً للكتابة لا يمكن الكتابة عليه                      |
-| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | الجدولة                     | المعاملة ستتجاوز الحد الأقصى لتكلفة الحساب داخل الكتلة                        |
-| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | الجدولة                     | المعاملة ستتجاوز حد بيانات الحساب داخل الكتلة                                 |
-| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | الجدولة                     | المعاملة قفلت عدداً كبيراً جداً من الحسابات                                   |
-| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | تحميل الحساب                | حساب جدول البحث عن العناوين غير موجود                                         |
-| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | تحميل الحساب                | جدول البحث عن العناوين مملوك بواسطة برنامج خاطئ                               |
-| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | تحميل الحساب                | جدول البحث عن العناوين يحتوي على بيانات غير صالحة                             |
-| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | تحميل الحساب                | البحث في جدول العناوين يستخدم فهرساً غير صالح                                 |
-| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | الفحص بعد التنفيذ           | انتقل الحساب من معفى من rent إلى دافع rent                                    |
-| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | الجدولة                     | المعاملة ستتجاوز الحد الأقصى لتكلفة التصويت                                   |
-| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | الجدولة                     | المعاملة ستتجاوز الحد الإجمالي لبيانات الحساب                                 |
-| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | تحليل ميزانية الحوسبة       | متغير تعليمة ميزانية الحوسبة مكرر في نفس المعاملة                             |
-| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | الفحص بعد التنفيذ           | الحساب لا يحتوي على lamports كافية لتغطية rent لحجم بياناته                   |
-| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | تحميل الحساب                | إجمالي البيانات المحملة يتجاوز حد 64 ميجابايت                                 |
-| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | تحليل ميزانية الحوسبة       | `SetLoadedAccountsDataSizeLimit` تم تعيينه إلى 0                              |
-| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | التعقيم                     | المعاملة اختلفت قبل/بعد تفعيل الميزة وتحتاج إعادة تعقيم                       |
-| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | تحميل الحساب                | تنفيذ البرنامج مقيد مؤقتاً على الحساب المشار إليه                             |
-| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | الفحص بعد التنفيذ           | إجمالي رصيد lamport قبل المعاملة لا يساوي الرصيد بعدها                        |
-| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | تحميل الحساب                | ذاكرة التخزين المؤقت للبرنامج وصلت للحد الأقصى                                |
-| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | الالتزام                    | تم إلغاء الالتزام داخلياً                                                     |
+| الخطأ                                                                                                                                   | المرحلة                  | السبب                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [`AccountInUse`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L18)                           | الجدولة             | الحساب مقفل بالفعل بواسطة معاملة أخرى في نفس الدفعة                                                                        |
+| [`AccountLoadedTwice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L22)                     | الجدولة             | يظهر pubkey مرتين في `account_keys` الخاص بالمعاملة                                                                                |
+| [`AccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L25)                        | التحقق من دافع الرسوم   | حساب دافع الرسوم غير موجود                                                                                                          |
+| [`ProgramAccountNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L28)                 | تحميل الحساب        | البرنامج المستدعى غير موجود                                                                                                         |
+| [`InsufficientFundsForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L31)                | التحقق من دافع الرسوم   | دافع الرسوم لا يمكنه تغطية الرسوم + الحد الأدنى المعفى من rent                                                                                          |
+| [`InvalidAccountForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L34)                   | التحقق من دافع الرسوم   | دافع الرسوم ليس حساب نظام أو حساب nonce                                                                                                |
+| [`AlreadyProcessed`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L39)                       | ذاكرة التخزين المؤقت للحالة           | تمت معالجة المعاملة بالفعل                                                                                                         |
+| [`BlockhashNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L43)                      | فحص العمر              | Blockhash غير موجود في قائمة الانتظار وليس nonce صالحاً                                                                                              |
+| [`InstructionError`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L47)                       | التنفيذ              | حدث خطأ أثناء معالجة تعليمة (يتضمن فهرس التعليمة و `InstructionError` المحدد)                            |
+| [`CallChainTooDeep`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L50)                       | تحميل الحساب        | سلسلة استدعاء المحمل عميقة جداً                                                                                                             |
+| [`MissingSignatureForFee`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L53)                 | التعقيم               | المعاملة تتطلب رسوماً لكن لا يوجد توقيع                                                                                   |
+| [`InvalidAccountIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L56)                    | التعقيم               | المعاملة تحتوي على مرجع حساب غير صالح                                                                                         |
+| [`SignatureFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L59)                       | التحقق من التوقيع              | توقيع Ed25519 لا يتحقق (يتم تجاهل الحزمة)                                                                                   |
+| [`InvalidProgramForExecution`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L62)             | تحميل الحساب        | البرنامج غير مملوك بواسطة محمل صالح                                                                                                    |
+| [`SanitizeFailure`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L67)                        | التعقيم               | فشلت المعاملة في تعقيم إزاحات الحسابات بشكل صحيح                                                                                 |
+| [`ClusterMaintenance`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L69)                     | الجدولة             | المعاملات معطلة حالياً بسبب صيانة الشبكة                                                                            |
+| [`AccountBorrowOutstanding`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L72)               | التنفيذ              | معالجة المعاملة تركت حساباً مع مرجع مستعار معلق                                                             |
+| [`WouldExceedMaxBlockCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L75)           | الجدولة             | المعاملة ستتجاوز الحد الأقصى لتكلفة الكتلة                                                                                             |
+| [`UnsupportedVersion`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L78)                     | التعقيم               | إصدار المعاملة غير مدعوم                                                                                                        |
+| [`InvalidWritableAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L81)                 | تحميل الحساب        | المعاملة تحمل حساباً قابلاً للكتابة لا يمكن الكتابة عليه                                                                               |
+| [`WouldExceedMaxAccountCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L84)         | الجدولة             | المعاملة ستتجاوز الحد الأقصى لتكلفة الحساب داخل الكتلة                                                                          |
+| [`WouldExceedAccountDataBlockLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L87)       | الجدولة             | المعاملة ستتجاوز حد بيانات الحساب داخل الكتلة                                                                              |
+| [`TooManyAccountLocks`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L90)                    | الجدولة             | المعاملة قفلت عدداً كبيراً جداً من الحسابات                                                                                                      |
+| [`AddressLookupTableNotFound`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L93)             | تحميل الحساب        | حساب جدول البحث عن العناوين غير موجود                                                                                               |
+| [`InvalidAddressLookupTableOwner`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L96)         | تحميل الحساب        | جدول البحث عن العناوين مملوك بواسطة برنامج خاطئ                                                                                        |
+| [`InvalidAddressLookupTableData`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L99)          | تحميل الحساب        | جدول البحث عن العناوين يحتوي على بيانات غير صالحة                                                                                                |
+| [`InvalidAddressLookupTableIndex`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L102)        | تحميل الحساب        | البحث في جدول العناوين يستخدم فهرساً غير صالح                                                                                                |
+| [`InvalidRentPayingAccount`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L105)              | الفحص بعد التنفيذ   | انتقل الحساب من معفى من rent إلى دافع rent                                                                                      |
+| [`WouldExceedMaxVoteCostLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L108)           | الجدولة             | المعاملة ستتجاوز الحد الأقصى لتكلفة التصويت                                                                                              |
+| [`WouldExceedAccountDataTotalLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L111)      | الجدولة             | المعاملة ستتجاوز الحد الإجمالي لبيانات الحساب                                                                                         |
+| [`DuplicateInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L114)                  | تحليل ميزانية الحوسبة | متغير تعليمة ميزانية الحوسبة مكرر في نفس المعاملة                                                                      |
+| [`InsufficientFundsForRent`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L117)              | الفحص بعد التنفيذ   | الحساب لا يحتوي على lamports كافية لتغطية rent لحجم بياناته                                                                     |
+| [`MaxLoadedAccountsDataSizeExceeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L122)     | تحميل الحساب        | إجمالي البيانات المحملة يتجاوز حد حجم بيانات الحسابات المحملة للمعاملة (64 ميبيبايت افتراضيًا؛ 0 في v1 ما لم يتم تعيينه في إعداد الرسالة) |
+| [`InvalidLoadedAccountsDataSizeLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L125)    | تحليل ميزانية الحوسبة | `SetLoadedAccountsDataSizeLimit` تم تعيينه إلى 0                                                                                                 |
+| [`ResanitizationNeeded`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L128)                  | التعقيم               | المعاملة اختلفت قبل/بعد تفعيل الميزة وتحتاج إعادة تعقيم                                                             |
+| [`ProgramExecutionTemporarilyRestricted`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L131) | تحميل الحساب        | تنفيذ البرنامج مقيد مؤقتاً على الحساب المشار إليه                                                                     |
+| [`UnbalancedTransaction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L136)                 | الفحص بعد التنفيذ   | إجمالي رصيد lamport قبل المعاملة لا يساوي الرصيد بعدها                                                             |
+| [`ProgramCacheHitMaxLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L139)               | تحميل الحساب        | ذاكرة التخزين المؤقت للبرنامج وصلت للحد الأقصى                                                                                                               |
+| [`CommitCancelled`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/transaction-error/src/lib.rs#L142)                       | الالتزام                 | تم إلغاء الالتزام داخلياً                                                                                                               |

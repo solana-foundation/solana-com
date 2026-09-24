@@ -1,9 +1,7 @@
 ---
 title: Путешествие во времени
 description:
-  Переведите часы Surfnet вперёд на абсолютный slot, epoch или Unix-временную
-  метку. Полезно для тестов, проверяющих расписания вестинга, блокировки, окна
-  истечения срока или границы epoch.
+  Переместите часы Surfnet вперёд к абсолютному slot, epoch или Unix-временной метке, либо полностью приостановите их. Полезно для тестов, проверяющих расписания вестинга, блокировки, окна истечения срока действия или границы epoch.
 ---
 
 Среда выполнения Surfpool предоставляет три вспомогательных метода для
@@ -12,16 +10,17 @@ description:
 тесты могли убедиться, что среда выполнения действительно достигла запрошенного
 момента времени.
 
-| Вспомогательный метод                                | Цель                                 | Возвращает                               |
-| ---------------------------------------------------- | ------------------------------------ | ---------------------------------------- |
-| `time_travel_to_slot` / `timeTravelToSlot`           | Абсолютный номер slot                | `EpochInfo` с новым `absolute_slot`      |
-| `time_travel_to_epoch` / `timeTravelToEpoch`         | Абсолютный номер epoch               | `EpochInfo` с новым `epoch`              |
-| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Unix-временная метка в миллисекундах | `EpochInfo`, отражающий вычисленный slot |
+| Вспомогательный метод                                               | Цель                         | Возвращает                                  |
+| ---------------------------------------------------- | ------------------------------ | ---------------------------------------- |
+| `time_travel_to_slot` / `timeTravelToSlot`           | Абсолютный номер slot           | `EpochInfo` с новым `absolute_slot` |
+| `time_travel_to_epoch` / `timeTravelToEpoch`         | Абсолютный номер epoch          | `EpochInfo` с новым `epoch`         |
+| `time_travel_to_timestamp` / `timeTravelToTimestamp` | Unix-временная метка в миллисекундах | `EpochInfo`, отражающий вычисленный slot  |
 
 <Callout type="warn" title="Только вперёд">
-  Путешествие во времени может перемещать часы только **вперёд**. Вызов этих
-  методов с целевым значением в прошлом является холостой операцией —
-  вспомогательный метод возвращает текущий `EpochInfo` без изменений.
+  Перемещение во времени может двигать часы только **вперёд**. Цель в прошлом
+  отклоняется, а не игнорируется — Rust-хелперы возвращают `Err`, а JS-хелперы
+  бросают исключение. В сообщении указывается единица, которая оказалась в прошлом, например:
+  `Cannot travel to past slot: target=1000, current=2000`.
 </Callout>
 
 ## Переход к slot
@@ -70,8 +69,9 @@ console.assert(info.epoch === 420);
 
 ## Переход к Unix-временной метке
 
-Передавайте временную метку в **миллисекундах**, а не в секундах. Среда
-выполнения вычисляет ближайший slot для этой временной метки.
+Передавайте временну́ю метку в **миллисекундах** с начала эпохи Unix — в тех же единицах, что
+JavaScript's `Date.now()`, — не в секундах. Среда выполнения вычисляет ближайший slot
+для этой временно́й метки.
 
 <CodeTabs storage="surfpool-lang">
 
@@ -86,6 +86,59 @@ const info = surfnet.timeTravelToTimestamp(1_893_456_000_000);
 ```
 
 </CodeTabs>
+
+<Callout type="warn" title="Часы возвращают секунды, а не миллисекунды">
+  Каждая временна́я метка, считываемая из среды выполнения, указана в **секундах** —
+  `unix_timestamp` on-chain sysvar'а `Clock` и
+  [`ClockValue`](/docs/tools/surfpool/sdk/js-reference#clockvalue), передаваемый
+  событием `systemClockUpdated`. Если передать одно из этих значений напрямую в
+  хелпер перемещения во времени, вызов разрешится в момент начала 1970 года и будет
+  отклонён как цель в прошлом. Сначала умножьте на 1000.
+</Callout>
+
+```ts
+// WRONG — `unixTimestamp` is in seconds, so this is a past target.
+surfnet.timeTravelToTimestamp(clock.unixTimestamp + 3600);
+
+// RIGHT — convert to milliseconds.
+surfnet.timeTravelToTimestamp((clock.unixTimestamp + 3600) * 1000);
+```
+
+## Приостановка и возобновление часов
+
+Перемещение во времени прыгает к цели; приостановка полностью останавливает ход часов.
+`surfnet_pauseClock` прекращает производство slot и ход времени до тех пор, пока не
+выполнится `surfnet_resumeClock` — используйте это, когда тесту нужно, чтобы slot и
+временна́я метка оставались неизменными на протяжении нескольких проверок.
+
+Ни Rust SDK, ни класс `Surfnet` в `@solana/surfpool` не оборачивают эти
+два чит-кода. Вызывайте их через
+[плагин Kit](/docs/tools/surfpool/sdk/kit-plugin) или напрямую через JSON-RPC.
+
+```ts
+const paused = await client.cheatcodes.pauseClock().send();
+
+// Nothing advances until the clock is resumed, so this is the only thing that
+// moves the slot.
+await client.cheatcodes
+  .timeTravel({ absoluteSlot: paused.absoluteSlot + 1_000n })
+  .send();
+
+await client.cheatcodes.resumeClock().send();
+```
+
+Оба чит-кода возвращают `EpochInfo` — состояние часов в момент
+приостановки и после возобновления. Обратите внимание на два параметра, которых эта структура _не_ содержит:
+
+- **Нет временно́й метки.** В `EpochInfo` отсутствует поле времени. Считывайте симулированное Unix-время
+  из sysvar'а `Clock`: вызовите `getAccountInfo` для
+  `SysvarC1ock11111111111111111111111111111111` с кодировкой `jsonParsed` —
+  снова в секундах.
+- **Нет флага паузы.** Ни один RPC-метод не сообщает, приостановлены ли часы в данный момент.
+  Через SDK отслеживайте
+  [событие `clockUpdate`](/docs/tools/surfpool/sdk/events), которое срабатывает с
+  `clockCommand` при каждой паузе, возобновлении или изменении интервала. В противном случае
+  отслеживайте состояние в своём тесте.
 
 ## Типичные сценарии использования
 
@@ -138,11 +191,11 @@ for epoch in 2..=5 {
 
 Оба SDK возвращают объект типа `EpochInfo` со следующими полями:
 
-| Поле              | Rust                             | JS                          |
+| Поле             | Rust                             | JS                          |
 | ----------------- | -------------------------------- | --------------------------- |
-| Абсолютный slot   | `absolute_slot: u64`             | `absoluteSlot: number`      |
+| Абсолютный slot     | `absolute_slot: u64`             | `absoluteSlot: number`      |
 | slot внутри epoch | `slot_index: u64`                | `slotIndex: number`         |
-| slot в epoch      | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
-| Номер epoch       | `epoch: u64`                     | `epoch: number`             |
+| slot в epoch   | `slots_in_epoch: u64`            | `slotsInEpoch: number`      |
+| Номер epoch      | `epoch: u64`                     | `epoch: number`             |
 | Высота блока      | `block_height: u64`              | `blockHeight: number`       |
-| Число транзакций  | `transaction_count: Option<u64>` | `transactionCount?: number` |
+| Число транзакций | `transaction_count: Option<u64>` | `transactionCount?: number` |

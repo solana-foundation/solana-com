@@ -19,7 +19,7 @@ export const SearchInput = React.memo<SearchInputProps>(
       <div className="">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <svg
-            className="h-5 w-5 text-neutral-400"
+            className="h-5 w-5 text-nd-mid-em-text"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -50,9 +50,9 @@ export const SearchInput = React.memo<SearchInputProps>(
           placeholder={t("filter.search_placeholder")}
           className="
           w-full pl-10 pr-4 py-3
-          bg-[#0d000e] border border-neutral-800 rounded-2xl
-          text-neutral-100 placeholder-neutral-400
-          focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:border-transparent
+          bg-black border border-nd-border-prominent rounded-xl
+          text-nd-high-em-text placeholder:text-nd-mid-em-text/60
+          focus:outline-none focus:ring-2 focus:ring-nd-highlight-lavendar/30 focus:border-nd-border-hovered
           transition-colors duration-200
         "
         />

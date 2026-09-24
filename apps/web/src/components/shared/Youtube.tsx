@@ -1,5 +1,5 @@
 import { memo } from "react";
-import Loader from "@@/public/src/img/icons/Loader.inline.svg";
+import { LoaderLines as Loader } from "@boxicons/react/LoaderLines";
 
 function getYoutubeVideoId(url: string) {
   const match = url.match(/[=/]([\w\d_-]{10,12})/);
@@ -44,7 +44,10 @@ export const YoutubeIFrame = memo(function YoutubeIFrame({
       {!loaded && (
         <div className="relative">
           <img src={thumbUrl} alt="" />
-          <Loader className="spinner-icon absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          <Loader
+            className="spinner-icon absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-spin"
+            aria-hidden="true"
+          />
         </div>
       )}
       {enabled && (

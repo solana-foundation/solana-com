@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-
-import InvalidMark from "../../../public/src/img/icons/RedClose.inline.svg";
+import { XCircle } from "@boxicons/react/XCircle";
 
 const BANNED_LOGOS = [
   {
@@ -53,7 +52,14 @@ const BrandingBannedLogos = () => {
               fill
               style={{ objectFit: "contain", padding: "1rem" }}
             />
-            <InvalidMark className="absolute left-2 bottom-2" />
+            <XCircle
+              width={24}
+              height={24}
+              pack="filled"
+              fill="#FF623A"
+              className="absolute left-2 bottom-2"
+              aria-hidden="true"
+            />
             <p className="absolute text-sm top-[calc(100%+0.5rem)] left-0">
               {t(descKey)}
             </p>

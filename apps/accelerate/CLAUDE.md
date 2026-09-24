@@ -4,9 +4,8 @@
 
 ## Overview
 
-Landing pages for Solana Accelerate events, starting with the Hong Kong APAC
-event. Built with Next.js 15, MDX, and Tailwind CSS for easy content management
-and responsive design.
+Landing pages and archived content for Solana Accelerate events, including the
+Hong Kong and Miami experiences. Built with Next.js 15, MDX, and Tailwind CSS.
 
 **Package name**: `solana-com-accelerate` **Default port**: 3004
 
@@ -14,10 +13,10 @@ and responsive design.
 
 - **Framework**: Next.js 15 (App Router) with MDX support
 - **Styling**: Tailwind CSS 3.4, SCSS
-- **Animation**: Framer Motion
+- **Animation**: Motion
 - **i18n**: next-intl (English only for now)
 - **UI Components**: @workspace/ui, @solana-com/ui-chrome
-- **Icons**: Lucide React
+- **Icons**: Boxicons and shared `ui-chrome` icons
 
 ## Project Structure
 
@@ -25,26 +24,21 @@ and responsive design.
 apps/accelerate/
 ├── src/
 │   ├── app/
-│   │   ├── layout.tsx         # Root layout with Header/Footer
-│   │   ├── page.tsx           # Hong Kong event page
+│   │   ├── [locale]/
+│   │   │   ├── page.tsx       # Accelerate event index
+│   │   │   ├── hong-kong/     # Hong Kong event and agenda
+│   │   │   └── miami/         # Miami event and agenda
 │   │   └── globals.css        # Global styles and CSS variables
 │   ├── components/            # React components
-│   │   ├── Hero.tsx           # Hero section with animated gradient
-│   │   ├── EventDetails.tsx   # Date, venue, time info
-│   │   ├── Tickets.tsx        # Ticket tiers
-│   │   ├── Speakers.tsx       # Speaker grid
-│   │   ├── Sponsors.tsx       # Sponsor logos by tier
-│   │   ├── FAQ.tsx            # Accordion FAQ
-│   │   ├── GettingThere.tsx   # Travel & accommodation info
-│   │   └── FooterCTA.tsx      # Final call-to-action
+│   │   └── homepage/          # Shared event-index sections
+│   ├── data/                  # Event-specific agenda and sponsor data
 │   ├── i18n/                  # i18n configuration
 │   └── scss/                  # SCSS stylesheets
 ├── public/
 │   ├── images/
-│   │   ├── accelerate-logo.svg
-│   │   ├── speakers/          # Speaker headshots
-│   │   └── sponsors/          # Sponsor logos
-│   └── locales/en/            # English translations
+│   │   ├── homepage/          # Event-index artwork and thumbnails
+│   │   └── speakers/          # Speaker headshots
+│   └── video/                 # Event video assets
 ├── next.config.ts             # Next.js + MDX config
 ├── tailwind.config.js         # Tailwind configuration
 └── package.json
@@ -100,8 +94,8 @@ Custom Tailwind colors for Accelerate branding:
 
 To add a new event location:
 
-1. Create a new page in `src/app/[location]/page.tsx`
-2. Update event data in the components or create location-specific content
+1. Create a new page in `src/app/[locale]/[location]/page.tsx`
+2. Add location-specific data under `src/data/` when appropriate
 3. Add location-specific images to `public/images/`
 
 ## Image Requirements

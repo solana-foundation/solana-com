@@ -8,7 +8,7 @@ import {
 import {
   NavItemsList,
   SectionHeading,
-  CollapsibleNavGroup,
+  NavGroup,
 } from "./nav-section-renderers";
 import {
   navBannerConfigs,
@@ -16,7 +16,7 @@ import {
   useSolanaWalletItems,
 } from "./nav-section-content-config";
 
-const HeaderListUseSolana = ({ isMobile = false }) => {
+const HeaderListUseSolana = () => {
   const t = useTranslations();
 
   return (
@@ -24,13 +24,12 @@ const HeaderListUseSolana = ({ isMobile = false }) => {
       <NavDropdownColumn width="grow">
         <SectionHeading title={t("nav.useSolana.wallets.title")} />
         <NavItemsList items={useSolanaWalletItems} />
-        <CollapsibleNavGroup
+        <NavGroup
           className="mt-2 xl:mt-4 xl:pt-2 xl:border-t xl:border-white/[0.06]"
           title={t("nav.useSolana.safety.title")}
-          isMobile={isMobile}
         >
           <NavItemsList items={useSolanaSafetyItems} />
-        </CollapsibleNavGroup>
+        </NavGroup>
       </NavDropdownColumn>
     </HeaderDropdownLayout>
   );

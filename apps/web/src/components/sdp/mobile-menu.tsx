@@ -10,7 +10,7 @@ import {
   VisuallyHidden,
 } from "@solana-com/ui-chrome";
 import { useSwipeDown } from "@solana-com/ui-chrome/hooks";
-import NavSwipe from "@@/public/src/img/solutions/sdp/nav-swipe.inline.svg";
+import { DotsHorizontal } from "@boxicons/react/DotsHorizontal";
 import Image from "next/image";
 import { Link } from "@solana-com/ui-chrome/link";
 
@@ -95,7 +95,12 @@ export const MobileMenu = ({
               alt="SDP"
             />
           </div>
-          <NavSwipe className="pointer-events-none" width={30} height={6} />
+          <DotsHorizontal
+            className="pointer-events-none text-[#ECE4FD]/[0.12]"
+            width={30}
+            height={12}
+            aria-hidden="true"
+          />
           {/* Close Button */}
           <SheetClose asChild>
             <button

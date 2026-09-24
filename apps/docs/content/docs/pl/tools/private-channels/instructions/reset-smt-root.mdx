@@ -1,0 +1,66 @@
+---
+title: Reset korzenia SMT
+description:
+  Obraca Rzadkie Drzewo Merkle, resetując korzeń wypłat dla nowego epoch drzewa
+---
+
+Instrukcja dostępna wyłącznie dla operatora, która obraca Rzadkie Drzewo Merkle poprzez inkrementację
+`Instance.current_tree_index` i resetowanie korzenia wypłat, umożliwiając nowy
+epoch 65 536 wypłat.
+
+<Callout type="info">
+  Program escrow migruje z tego projektu Rzadkiego Drzewa Merkle do
+  mapy bitowej nonce on-chain (śledzonej upstream), gdzie ta instrukcja staje się
+  `RotateBitmap`. Ta strona jest zgodna z aktualnym programem escrow i
+  zostanie zaktualizowana po wprowadzeniu tej zmiany.
+</Callout>
+
+## Konta
+
+| Konto                          | Zapisywalne | Podpisujący | Opis                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Płatnik opłat                                              |
+| `operator`                       |          | ✓      | Podpisujący operator                                        |
+| `instance`                       | ✓        |        | PDA instancji escrow (`current_tree_index` inkrementowany) |
+| `operator_pda`                   |          |        | PDA operatora potwierdzający, że podpisujący jest skonfigurowany         |
+| `event_authority`                |          |        | PDA authority zdarzenia dla CPI `EmitEvent`                |
+| `private_channel_escrow_program` |          |        | Program escrow (odwołanie własne dla CPI)                |
+
+## Parametry
+
+| Parametr                     | Typ  | Opis                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Zabezpieczenie przed odtworzeniem; musi być zgodne z `Instance.current_tree_index`, w przeciwnym razie wywołanie kończy się niepowodzeniem |
+
+## Zwraca
+
+Zwraca `TransactionBuilder`, który można wykorzystać do zbudowania i wysłania
+transakcji.
+
+## Przykład
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Ważne uwagi
+
+- Tylko dla operatora: wymaga prawidłowego `operator_pda`; w przeciwnym razie zgłasza błąd `InvalidOperatorPda`
+- `expected_current_tree_index` musi być równe `Instance.current_tree_index` w momencie wywołania; nieaktualna wartość zgłasza błąd `UnexpectedTreeIndex`, chroniąc przed ponownym wykonaniem resetu, który już został zastosowany
+- Inkrementuje `Instance.current_tree_index`; nonce'y ważne w poprzednim epoch drzewa są unieważniane po rotacji
+- Usługa `operator-private-channel` wywołuje to automatycznie, gdy
+  `transaction_nonce % 65536 == 0` (oraz `nonce > 0`), sygnalizując początek
+  nowego epoch; w normalnych warunkach nie powinno być wywoływane ręcznie
+- Po rotacji korzeń wypłat resetuje się do pustego drzewa, dzięki czemu nowe
+  wypłaty zaczynają się od świeżego SMT
+- Emituje zdarzenie poprzez CPI `EmitEvent`

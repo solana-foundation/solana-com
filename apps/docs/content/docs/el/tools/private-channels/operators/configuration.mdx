@@ -1,0 +1,99 @@
+---
+title: Αναφορά Διαμόρφωσης
+description:
+  Μεταβλητές περιβάλλοντος, κατάλογος υπηρεσιών και εκχωρήσεις θυρών για όλες τις υπηρεσίες Private Channels
+---
+
+## Υπηρεσίες
+
+Η εκτέλεση ενός instance Private Channels σημαίνει ότι διαχειρίζεστε τις παρακάτω υπηρεσίες Docker Compose:
+
+| Container                                  | Ρόλος                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `private-channel-postgres-primary`         | Βάση δεδομένων κατάστασης κόμβου εγγραφής (PostgreSQL 16)                               |
+| `private-channel-postgres-replica`         | Βάση δεδομένων κατάστασης κόμβου ανάγνωσης (streaming replica)                            |
+| `private-channel-postgres-indexer`         | Βάση δεδομένων indexer και operator                                           |
+| `private-channel-write-node`               | Λαμβάνει και εκτελεί συναλλαγές (θύρα 8900, μόνο loopback)           |
+| `private-channel-read-node`                | Διαχειρίζεται ερωτήματα ανάγνωσης RPC (θύρα 8901, μόνο loopback)                     |
+| `private-channel-gateway`                  | Δρομολογεί αιτήματα μεταξύ κόμβων εγγραφής και ανάγνωσης· επιβάλλει RBAC (θύρα 8899) |
+| `private-channel-indexer-solana`           | Παρακολουθεί το Solana για συμβάντα `Deposit` μέσω Yellowstone gRPC                |
+| `private-channel-indexer-private-channel`  | Παρακολουθεί το κανάλι για συμβάντα `Burn` μέσω RPC polling                   |
+| `private-channel-operator-solana`          | Εκδίδει tokens καναλιού όταν επιβεβαιώνονται καταθέσεις                        |
+| `private-channel-operator-private-channel` | Καλεί το `ReleaseFunds` στο Mainnet όταν επιβεβαιώνονται αναλήψεις          |
+| `private-channel-auth`                     | Προαιρετική υπηρεσία JWT/RBAC (Docker profile: `auth`)                      |
+
+Περιλαμβάνονται επίσης containers παρατηρησιμότητας (`prometheus`, `grafana`, `cadvisor`).
+
+## Gateway
+
+Αυτές οι ρυθμίσεις έχουν λογικές προεπιλογές για το Docker Compose setup του devnet. Παρακάμψτε τις μόνο εάν εκτελείτε το gateway εκτός Docker ή το αναπτύσσετε σε παραγωγή.
+
+| Μεταβλητή Περιβάλλοντος                         | Προεπιλογή                                                             | Απαιτείται            | Περιγραφή                                        |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `GATEWAY_PORT`                  | `8899` (devnet)                                                     | Όχι                  | Θύρα ακρόασης                                        |
+| `GATEWAY_WRITE_URL`             | `http://write-node:8900` (τιμή αρχείου env devnet· χωρίς προεπιλογή binary) | **Ναι**             | URL κόμβου εγγραφής - οι κλήσεις `sendTransaction` δρομολογούνται εδώ     |
+| `GATEWAY_READ_URL`              | `http://read-node:8901` (τιμή αρχείου env devnet· χωρίς προεπιλογή binary)  | **Ναι**             | URL κόμβου ανάγνωσης - όλες οι υπόλοιπες μέθοδοι RPC δρομολογούνται εδώ   |
+| `GATEWAY_CORS_ALLOWED_ORIGIN`   | `*`                                                                 | Όχι                  | Τιμή κεφαλίδας `Access-Control-Allow-Origin`         |
+| `JWT_SECRET`                    | -                                                                   | Όχι                  | Ενεργοποιεί το RBAC· πρέπει να ταιριάζει με το `JWT_SECRET` της υπηρεσίας auth |
+| `AUTH_DATABASE_URL`             | -                                                                   | Εάν έχει οριστεί το `JWT_SECRET` | Βάση δεδομένων auth για ελέγχους κυριότητας πορτοφολιού                |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | `10`                                                                | Όχι                  | Μέγεθος connection pool βάσης δεδομένων auth                       |
+| `METRICS_PORT`                  | `9101`                                                              | Όχι                  | Θύρα μετρικών Prometheus                            |
+| `RUST_LOG`                      | `info`                                                              | Όχι                  | Επίπεδο καταγραφής                                          |
+
+> Τα `GATEWAY_WRITE_URL` και `GATEWAY_READ_URL` χρησιμοποιούν ονόματα υπηρεσιών Docker Compose
+> (`write-node`, `read-node`) κατά την εκτέλεση εντός Docker. Χρησιμοποιήστε τα αντίστοιχα `localhost`
+> μόνο όταν εκτελείτε το binary του gateway απευθείας εκτός Docker.
+>
+> Η ενσωματωμένη προεπιλογή του binary του gateway για το `GATEWAY_PORT` είναι `8898`.
+> Τόσο το `.env.example` όσο και το `.env.devnet` το ορίζουν σε `8899`, που είναι αυτό που
+> χρησιμοποιεί πραγματικά το Docker Compose setup (το `versions.env` περιέχει μόνο εκδόσεις toolchain και
+> image, όχι θύρες υπηρεσιών). Η προεπιλογή `8898` ισχύει μόνο εάν εκτελέσετε το binary απευθείας χωρίς αρχείο env.
+
+<Callout type="warning">
+  Το `GATEWAY_CORS_ALLOWED_ORIGIN` έχει προεπιλογή `*`, που επιτρέπει σε οποιαδήποτε προέλευση να καλεί
+  το gateway από πρόγραμμα περιήγησης. Περιορίστε το στην πραγματική προέλευση της εφαρμογής σας
+  πριν από οποιαδήποτε ανάπτυξη σε παραγωγή.
+</Callout>
+
+## Κόμβος Εγγραφής και Κόμβος Ανάγνωσης
+
+Η πλήρης αναφορά διαμόρφωσης για τον κόμβο εγγραφής και τον κόμβο ανάγνωσης βρίσκεται στο
+[`docs/CONFIG.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/CONFIG.md)
+του αποθετηρίου.
+
+## Υπηρεσία Auth
+
+| Μεταβλητή Περιβάλλοντος                         | Απαιτείται            | Περιγραφή                                                                                                                  |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                    | **Ναι**             | Μυστικό υπογραφής HS256· πρέπει να ταιριάζει με το `JWT_SECRET` του gateway                                                                  |
+| `AUTH_PORT`                     | Όχι (προεπιλογή `8903`) | Θύρα ακρόασης                                                                                                                  |
+| `AUTH_DATABASE_URL`             | **Ναι**             | Συμβολοσειρά σύνδεσης PostgreSQL για τη βάση δεδομένων auth                                                                           |
+| `CORS_ALLOWED_ORIGIN`           | Όχι (προεπιλογή `*`)    | Τιμή κεφαλίδας `Access-Control-Allow-Origin` για αυτή την υπηρεσία (ανεξάρτητη από το `GATEWAY_CORS_ALLOWED_ORIGIN` του gateway) |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | Όχι (προεπιλογή `10`)   | Μέγεθος connection pool βάσης δεδομένων auth                                                                                                 |
+
+## Αναφορά Θυρών Υπηρεσιών
+
+| Υπηρεσία          | Θύρα Host  | Δέσμευση                                                                           |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| Gateway          | 8899       | Όλες οι διεπαφές                                                                    |
+| Κόμβος εγγραφής       | 8900       | Μόνο loopback                                                                     |
+| Κόμβος ανάγνωσης        | 8901       | Μόνο loopback                                                                     |
+| Streamer         | 8902       | Μόνο εσωτερικά (`expose`, δεν δημοσιεύεται στον host)· δεν αποτελεί μέρος του devnet stack |
+| Υπηρεσία Auth     | 8903       | Όλες οι διεπαφές                                                                    |
+| Μετρικά operator | 9102, 9103 | Όλες οι διεπαφές                                                                    |
+| Grafana          | 37429      | Όλες οι διεπαφές                                                                    |
+| Prometheus       | 9090       | Όλες οι διεπαφές                                                                    |
+| cAdvisor         | 8080       | Όλες οι διεπαφές                                                                    |
+
+> **Σημείωση ασφαλείας:** Οι θύρες του κόμβου εγγραφής και ανάγνωσης δεσμεύονται μόνο στο loopback
+> (`127.0.0.1`). Το Gateway, η υπηρεσία Auth, τα μετρικά operator, το Grafana,
+> το Prometheus και το cAdvisor δημοσιεύονται σε όλες τις διεπαφές δικτύου στο
+> Docker Compose setup του devnet. Προστατέψτε τα με firewall σε επίπεδο host ή δικτύου για
+> οτιδήποτε πέρα από τοπική ανάπτυξη· το RBAC καλύπτει μόνο τις μεθόδους JSON-RPC του ίδιου του gateway,
+> όχι τις υπόλοιπες υπηρεσίες. Εξαίρεση αποτελεί το Streamer: είναι μια μη επαληθευμένη εσωτερική ροή που το Docker δεν δημοσιεύει ποτέ στον host.
+
+## Απαιτήσεις Δικτύου
+
+Ανατρέξτε στο
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+του αποθετηρίου για κανόνες firewall και απαιτήσεις εύρους ζώνης.

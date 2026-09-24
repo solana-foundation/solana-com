@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import { clsx as classNames } from "clsx";
 import styles from "./DevelopersContentPage.module.scss";
 import Link from "next/link";
 import { useTranslations } from "next-intl";

@@ -1,0 +1,66 @@
+---
+title: Reset SMT Root
+description:
+  Ruota lo Sparse Merkle Tree, reimpostando la radice dei prelievi per un nuovo epoch dell'albero
+---
+
+Istruzione riservata all'operatore che ruota lo Sparse Merkle Tree incrementando
+`Instance.current_tree_index` e reimpostando la radice dei prelievi, consentendo un nuovo
+epoch di 65.536 prelievi.
+
+<Callout type="info">
+  Il programma di escrow sta migrando da questo design Sparse Merkle Tree a una
+  bitmap di nonce on-chain (tracciata upstream), dove questa istruzione diventa
+  `RotateBitmap`. Questa pagina è accurata rispetto all'attuale programma di escrow e
+  verrà rielaborata una volta che tale modifica sarà applicata.
+</Callout>
+
+## Account
+
+| Account                          | Scrivibile | Firmatario | Descrizione                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Pagante delle commissioni                                              |
+| `operator`                       |          | ✓      | Firmatario operatore                                        |
+| `instance`                       | ✓        |        | PDA dell'istanza di escrow (`current_tree_index` incrementato) |
+| `operator_pda`                   |          |        | PDA dell'operatore che attesta che il firmatario è abilitato         |
+| `event_authority`                |          |        | PDA dell'autorità eventi per CPI `EmitEvent`                |
+| `private_channel_escrow_program` |          |        | Programma di escrow (auto-riferimento per CPI)                |
+
+## Parametri
+
+| Parametro                     | Tipo  | Descrizione                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Protezione contro i replay; deve corrispondere a `Instance.current_tree_index` altrimenti la chiamata fallisce |
+
+## Valore restituito
+
+Restituisce un `TransactionBuilder` che può essere utilizzato per costruire e inviare la
+transazione.
+
+## Esempio
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Note importanti
+
+- Solo operatore: richiede un `operator_pda` valido; in caso contrario genera `InvalidOperatorPda`
+- `expected_current_tree_index` deve essere uguale a `Instance.current_tree_index` al momento della chiamata; un valore non aggiornato genera `UnexpectedTreeIndex`, proteggendo dal replay di un reset già avvenuto
+- Incrementa `Instance.current_tree_index`; i nonce validi nel precedente epoch dell'albero vengono invalidati dopo la rotazione
+- Il servizio `operator-private-channel` lo chiama automaticamente quando
+  `transaction_nonce % 65536 == 0` (e `nonce > 0`), segnalando l'inizio di un
+  nuovo epoch; non dovrebbe essere necessario chiamarlo manualmente durante il normale funzionamento
+- Dopo la rotazione, la radice dei prelievi viene reimpostata all'albero vuoto, quindi i nuovi
+prelievi ripartono da un SMT nuovo
+- Emette un evento tramite CPI `EmitEvent`

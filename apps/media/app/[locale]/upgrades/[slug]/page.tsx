@@ -1,9 +1,16 @@
 import { notFound } from "next/navigation";
+import { getFormatter, getTranslations } from "next-intl/server";
 import { Link } from "@workspace/i18n/routing";
-import { ArrowLeft, Twitter, Facebook, Linkedin, Send } from "lucide-react";
+import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { Twitter } from "@boxicons/react/Twitter";
+import { Facebook } from "@boxicons/react/Facebook";
+import { Linkedin } from "@boxicons/react/Linkedin";
+import { Send } from "@boxicons/react/Send";
+import { Link as LinkIcon } from "@boxicons/react/Link";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import rehypeSlug from "rehype-slug";
 import { reader } from "@/lib/reader";
 import { upgradeMdxComponents } from "@/components/upgrades/mdx-components";
 import { upgradeMetadata } from "@/lib/metadata";
@@ -11,30 +18,29 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { buildUpgradeJsonLd } from "@/lib/content-structured-data";
 import { getUpgradeSocialImageUrl } from "@/lib/upgrades/social-image";
 import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
+import {
+  isUpgradeStage,
+  STAGE_BADGE_CLASSES,
+  type UpgradeStage,
+} from "@/lib/upgrades/stage";
 
 export const revalidate = 300;
 
 type Props = { params: Promise<{ slug: string; locale: string }> };
 
-const badgeColorMap: Record<string, string> = {
-  green: "bg-[#14F195]/10 border-[#14F195]/30 text-[#14F195]",
-  yellow: "bg-yellow-500/10 border-yellow-500/30 text-yellow-400",
-  red: "bg-red-500/10 border-red-500/30 text-red-400",
-  purple: "bg-purple-500/10 border-purple-500/30 text-purple-400",
-};
-
-function SocialShare({ title, slug }: { title: string; slug: string }) {
+async function SocialShare({ title, slug }: { title: string; slug: string }) {
+  const t = await getTranslations("upgrades.detail");
   const url = encodeURIComponent(`https://solana.com/upgrades/${slug}`);
   const text = encodeURIComponent(title);
   return (
     <div className="flex items-center gap-3 mb-6">
-      <span className="text-sm text-gray-400">Share:</span>
+      <span className="text-sm text-gray-400">{t("share")}</span>
       <a
         href={`https://twitter.com/intent/tweet?text=${text}&url=${url}`}
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
-        aria-label="Share on Twitter"
+        aria-label={t("shareOnTwitter")}
       >
         <Twitter className="size-5" />
       </a>
@@ -43,7 +49,7 @@ function SocialShare({ title, slug }: { title: string; slug: string }) {
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
-        aria-label="Share on Facebook"
+        aria-label={t("shareOnFacebook")}
       >
         <Facebook className="size-5" />
       </a>
@@ -52,7 +58,7 @@ function SocialShare({ title, slug }: { title: string; slug: string }) {
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
-        aria-label="Share on LinkedIn"
+        aria-label={t("shareOnLinkedin")}
       >
         <Linkedin className="size-5" />
       </a>
@@ -61,7 +67,7 @@ function SocialShare({ title, slug }: { title: string; slug: string }) {
         target="_blank"
         rel="noopener noreferrer"
         className="text-gray-400 hover:text-[#14F195] transition-colors"
-        aria-label="Share on Telegram"
+        aria-label={t("shareOnTelegram")}
       >
         <Send className="size-5" />
       </a>
@@ -71,6 +77,8 @@ function SocialShare({ title, slug }: { title: string; slug: string }) {
 
 export default async function Page({ params }: Props) {
   const { locale, slug } = await params;
+  const t = await getTranslations("upgrades");
+  const format = await getFormatter();
   const entry = await reader.collections.upgrades.read(slug);
 
   if (!isPublishedUpgrade(entry)) notFound();
@@ -81,8 +89,11 @@ export default async function Page({ params }: Props) {
     ? await reader.collections.authors.read(entry.author)
     : null;
   const authorName = String(authorEntry?.name ?? "Solana Foundation");
+  const stage: UpgradeStage = isUpgradeStage(entry.stage)
+    ? entry.stage
+    : "in_development";
   const publishedDate = entry.publishedAt
-    ? new Date(entry.publishedAt).toLocaleDateString("en-US", {
+    ? format.dateTime(new Date(entry.publishedAt), {
         month: "long",
         year: "numeric",
       })
@@ -109,31 +120,16 @@ export default async function Page({ params }: Props) {
               className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-[#14F195] transition-colors"
             >
               <ArrowLeft className="size-4" />
-              <span>Back to Upgrades</span>
+              <span>{t("detail.back")}</span>
             </Link>
           </div>
-          {entry.badges && entry.badges.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mb-6">
-              {entry.badges.map(
-                (
-                  badge: { text: string; color: string; variant: string },
-                  i: number,
-                ) =>
-                  badge.variant === "text" ? (
-                    <span key={i} className="text-xs text-gray-500">
-                      {badge.text}
-                    </span>
-                  ) : (
-                    <span
-                      key={i}
-                      className={`text-xs px-3 py-1 rounded-full border font-medium ${badgeColorMap[badge.color] ?? badgeColorMap.green}`}
-                    >
-                      {badge.text}
-                    </span>
-                  ),
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <span
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${STAGE_BADGE_CLASSES[stage]}`}
+            >
+              {t(`stage.${stage}`)}
+            </span>
+          </div>
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
             {titleDisplay}
           </h1>
@@ -143,13 +139,14 @@ export default async function Page({ params }: Props) {
             </p>
           )}
           <SocialShare title={titleDisplay} slug={slug} />
-          {(publishedDate || authorName) && (
-            <p className="text-base text-gray-400 mb-8">
-              {publishedDate && <span>{publishedDate}</span>}
-              {publishedDate && authorName && <span>, by </span>}
-              {authorName && <span>{authorName}</span>}
-            </p>
-          )}
+          <p className="text-base text-gray-400 mb-8">
+            {publishedDate
+              ? t("detail.bylineWithDate", {
+                  date: publishedDate,
+                  author: authorName,
+                })
+              : t("detail.byline", { author: authorName })}
+          </p>
           {entry.metrics && entry.metrics.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
               {entry.metrics.map(
@@ -167,6 +164,25 @@ export default async function Page({ params }: Props) {
               )}
             </div>
           )}
+          {entry.additionalResources &&
+            entry.additionalResources.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                {entry.additionalResources.map(
+                  (resource: { label: string; url: string }, i: number) => (
+                    <a
+                      key={`${resource.url}-${i}`}
+                      href={resource.url}
+                      className="group flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-medium text-white transition-colors hover:border-[#14F195]/50 hover:bg-white/[0.05] hover:text-[#14F195]"
+                    >
+                      <LinkIcon className="size-4 shrink-0 text-[#14F195]" />
+                      <span className="underline-offset-4 group-hover:underline">
+                        {resource.label}
+                      </span>
+                    </a>
+                  ),
+                )}
+              </div>
+            )}
         </div>
       </section>
 
@@ -176,7 +192,12 @@ export default async function Page({ params }: Props) {
             <MDXRemote
               source={rawBody}
               components={upgradeMdxComponents}
-              options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }}
+              options={{
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm],
+                  rehypePlugins: [rehypeSlug],
+                },
+              }}
             />
           </article>
         </div>

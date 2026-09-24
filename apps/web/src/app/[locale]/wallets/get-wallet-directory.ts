@@ -39,6 +39,7 @@ function buildWalletEntries(): WalletDirectoryEntry[] {
       return {
         id: slug,
         name: record.name,
+        tagline: record.tagline,
         slug,
         companyId: record.companyId,
         category: record.category,

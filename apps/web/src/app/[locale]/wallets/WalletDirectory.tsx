@@ -3,61 +3,38 @@
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowUpRight,
-  Check,
-  ExternalLink,
-  Grid2X2,
-  List,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
+import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Check } from "@boxicons/react/Check";
+import { Grid as Grid2X2 } from "@boxicons/react/Grid";
+import { List } from "@boxicons/react/List";
+import { Search } from "@boxicons/react/Search";
+import { SliderAlt as SlidersHorizontal } from "@boxicons/react/SliderAlt";
+import { X } from "@boxicons/react/X";
 import {
   WALLET_CATEGORIES,
   WALLET_FEATURES,
   WALLET_PLATFORMS,
+  getFeaturedEverydayWallets,
   type WalletCategory,
   type WalletDirectoryData,
   type WalletDirectoryEntry,
   type WalletFeature,
   type WalletPlatform,
 } from "./wallet-directory";
+import {
+  buildDirectorySearchParams,
+  DEFAULT_DIRECTORY_STATE,
+  parseDirectoryState,
+  type DirectoryScope,
+  type DirectoryState,
+} from "./wallet-directory-state";
 import styles from "./WalletDirectory.module.scss";
 import { WalletHeroScene } from "./WalletHeroScene";
 
-type DirectoryView = "grid" | "list";
-
-type DirectoryState = {
-  category: WalletCategory | "all";
-  platforms: WalletPlatform[];
-  features: WalletFeature[];
-  search: string;
-  view: DirectoryView;
-};
-
-type FilterGroupId = "platforms";
+type FilterGroupId = "platforms" | "scope";
 
 type QueryUpdateMode = "push" | "replace";
-
-const DEFAULT_STATE: DirectoryState = {
-  category: "all",
-  platforms: [],
-  features: [],
-  search: "",
-  view: "grid",
-};
-
-const FEATURED_WALLET_COUNT = 4;
-const FEATURED_WALLET_IDS = [
-  "solflare",
-  "backpack",
-  "phantom",
-  "squadsx",
-  "fuse",
-  "unruggable",
-  "jupiter",
-] as const;
 
 type FeatureGroupId =
   | "ownership"
@@ -90,7 +67,7 @@ const FEATURE_GROUPS: Array<{
   },
   {
     id: "solana",
-    options: ["solana_native", "te", "blinks_and_actions", "solana_pay"],
+    options: ["te", "blinks_and_actions", "solana_pay"],
   },
   {
     id: "security",
@@ -151,73 +128,10 @@ const LEARN_RESOURCES: Array<{
   },
 ];
 
-function parseCsv<T extends string>(
-  value: string | null,
-  allowedValues: readonly T[],
-) {
-  if (!value) {
-    return [];
-  }
-
-  return value
-    .split(",")
-    .filter((item): item is T => allowedValues.includes(item as T));
-}
-
-function parseDirectoryState(searchParams: URLSearchParams): DirectoryState {
-  const category = searchParams.get("category");
-  const view = searchParams.get("view");
-
-  return {
-    category:
-      category && CATEGORY_ORDER.includes(category as WalletCategory)
-        ? (category as WalletCategory)
-        : "all",
-    platforms: parseCsv(searchParams.get("platform"), WALLET_PLATFORMS),
-    features: parseCsv(searchParams.get("features"), WALLET_FEATURES),
-    search: searchParams.get("q") ?? "",
-    view: view === "list" ? "list" : "grid",
-  };
-}
-
-function buildSearchParams(state: DirectoryState) {
-  const params = new URLSearchParams();
-
-  if (state.category !== "all") {
-    params.set("category", state.category);
-  }
-
-  if (state.platforms.length) {
-    params.set("platform", state.platforms.join(","));
-  }
-
-  if (state.features.length) {
-    params.set("features", state.features.join(","));
-  }
-
-  if (state.search.trim()) {
-    params.set("q", state.search.trim());
-  }
-
-  if (state.view !== DEFAULT_STATE.view) {
-    params.set("view", state.view);
-  }
-
-  return params;
-}
-
 function toggleArrayValue<T extends string>(values: T[], value: T) {
   return values.includes(value)
     ? values.filter((item) => item !== value)
     : [...values, value];
-}
-
-function getInitialFeaturedWallets(wallets: WalletDirectoryEntry[]) {
-  const featuredWalletIds = new Set<string>(FEATURED_WALLET_IDS);
-
-  return wallets
-    .filter((wallet) => featuredWalletIds.has(wallet.id))
-    .slice(0, FEATURED_WALLET_COUNT);
 }
 
 function getWalletCategories(wallet: WalletDirectoryEntry) {
@@ -276,6 +190,14 @@ function walletMatchesState(
   } = {},
 ) {
   const { ignoreGroup, ignoreFeatureGroup } = options;
+
+  if (
+    ignoreGroup !== "scope" &&
+    state.scope === "native" &&
+    !wallet.features.includes("solana_native")
+  ) {
+    return false;
+  }
 
   if (
     ignoreGroup !== "category" &&
@@ -451,7 +373,8 @@ function WalletCard({
       <div className={styles.walletCardTop}>
         <WalletLogo wallet={wallet} />
         <ExternalLink
-          size={16}
+          width={16}
+          height={16}
           aria-hidden="true"
           className={styles.walletCardArrow}
         />
@@ -509,7 +432,8 @@ function WalletRow({
         <WalletTags wallet={wallet} limit={4} />
       </div>
       <ExternalLink
-        size={16}
+        width={16}
+        height={16}
         aria-hidden="true"
         className={styles.walletCardArrow}
       />
@@ -526,10 +450,9 @@ export function WalletDirectory({
 }) {
   const t = useTranslations("wallets");
   const locale = useLocale();
-  const [state, setState] = useState<DirectoryState>(DEFAULT_STATE);
-  const featuredWallets = useMemo(
-    () => getInitialFeaturedWallets(data.wallets),
-    [data.wallets],
+  const [state, setState] = useState<DirectoryState>(DEFAULT_DIRECTORY_STATE);
+  const [featuredWallets, setFeaturedWallets] = useState(() =>
+    getFeaturedEverydayWallets(data.wallets),
   );
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -558,6 +481,12 @@ export function WalletDirectory({
     }),
     [t],
   );
+
+  useEffect(() => {
+    setFeaturedWallets(
+      getFeaturedEverydayWallets(data.wallets, { randomize: true }),
+    );
+  }, [data.wallets]);
 
   useEffect(() => {
     setState(parseDirectoryState(new URLSearchParams(window.location.search)));
@@ -623,7 +552,7 @@ export function WalletDirectory({
   ) => {
     setState(nextState);
 
-    const params = buildSearchParams(nextState);
+    const params = buildDirectorySearchParams(nextState);
     const query = params.toString();
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
 
@@ -670,6 +599,19 @@ export function WalletDirectory({
       );
     }).length;
   };
+
+  const getScopeCount = (scope: DirectoryScope) => {
+    return data.wallets.filter(
+      (wallet) =>
+        walletMatchesState(wallet, state, taxonomyLabels, {
+          ignoreGroup: "scope",
+        }) &&
+        (scope === "all" || wallet.features.includes("solana_native")),
+    ).length;
+  };
+
+  const nativeWalletCount = getScopeCount("native");
+  const ecosystemWalletCount = getScopeCount("all");
 
   const getPlatformCount = (platform: WalletPlatform) => {
     return data.wallets.filter(
@@ -740,7 +682,8 @@ export function WalletDirectory({
 
   const clearFilters = () => {
     updateState((current) => ({
-      ...DEFAULT_STATE,
+      ...DEFAULT_DIRECTORY_STATE,
+      scope: current.scope,
       view: current.view,
     }));
   };
@@ -797,13 +740,11 @@ export function WalletDirectory({
               className={styles.featuredWallet}
             >
               <WalletLogo wallet={wallet} size="small" />
-              <span>
+              <span className={styles.featuredWalletCopy}>
                 <strong>{wallet.name}</strong>
-                <small>
-                  {getWalletCategoryLabel(wallet, taxonomyLabels.categories)}
-                </small>
+                {wallet.tagline ? <small>{wallet.tagline}</small> : null}
               </span>
-              <ExternalLink size={15} aria-hidden="true" />
+              <ExternalLink width={15} height={15} aria-hidden="true" />
             </a>
           ))}
         </div>
@@ -811,9 +752,57 @@ export function WalletDirectory({
 
       <section id="wallet-directory" className={styles.directorySection}>
         <div className={styles.directoryHeader}>
-          <div>
+          <div className={styles.directoryTitle}>
             <p className={styles.eyebrow}>{t("directory.eyebrow")}</p>
             <h2>{t("grid.title")}</h2>
+          </div>
+          <div className={styles.scopeControl}>
+            <div className={styles.scopeCopy}>
+              <p className={styles.scopeLabel}>{t("directory.scope.label")}</p>
+              <p className={styles.scopeCaption}>
+                {t("directory.scope.description")}
+              </p>
+            </div>
+            <div
+              className={styles.scopeSwitch}
+              role="group"
+              aria-label={t("directory.scope.label")}
+            >
+              <button
+                type="button"
+                className={styles.scopeChoice}
+                aria-pressed={state.scope === "native"}
+                onClick={() =>
+                  updateState((current) => ({ ...current, scope: "native" }))
+                }
+              >
+                <span>{t("taxonomy.features.solana_native")}</span>
+                <small
+                  aria-label={t("directory.filters.resultCountAria", {
+                    count: nativeWalletCount,
+                  })}
+                >
+                  {nativeWalletCount}
+                </small>
+              </button>
+              <button
+                type="button"
+                className={styles.scopeChoice}
+                aria-pressed={state.scope === "all"}
+                onClick={() =>
+                  updateState((current) => ({ ...current, scope: "all" }))
+                }
+              >
+                <span>{t("directory.scope.allLabel")}</span>
+                <small
+                  aria-label={t("directory.filters.resultCountAria", {
+                    count: ecosystemWalletCount,
+                  })}
+                >
+                  {ecosystemWalletCount}
+                </small>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -831,6 +820,8 @@ export function WalletDirectory({
               type="button"
               className={styles.audienceOption}
               aria-pressed={state.category === "all"}
+              aria-label={`${t("filters.all-wallets")}. ${t("directory.audience.allDescription")}. ${t("directory.filters.resultCountAria", { count: getCategoryCount("all") })}`}
+              title={t("directory.audience.allDescription")}
               onClick={() =>
                 updateState((current) => ({ ...current, category: "all" }))
               }
@@ -839,10 +830,15 @@ export function WalletDirectory({
                 <strong>{t("filters.all-wallets")}</strong>
                 <small>{getCategoryCount("all")}</small>
               </span>
-              <span>{t("directory.audience.allDescription")}</span>
             </button>
             {CATEGORY_ORDER.map((category) => {
               const count = getCategoryCount(category);
+              const label = t(
+                `directory.audience.categories.${category}.label`,
+              );
+              const description = t(
+                `directory.audience.categories.${category}.description`,
+              );
 
               return (
                 <button
@@ -850,24 +846,29 @@ export function WalletDirectory({
                   type="button"
                   className={styles.audienceOption}
                   aria-pressed={state.category === category}
+                  aria-label={`${label}. ${description}. ${t("directory.filters.resultCountAria", { count })}`}
+                  title={description}
                   disabled={count === 0 && state.category !== category}
                   onClick={() =>
                     updateState((current) => ({ ...current, category }))
                   }
                 >
                   <span className={styles.audienceOptionTop}>
-                    <strong>
-                      {t(`directory.audience.categories.${category}.label`)}
-                    </strong>
+                    <strong>{label}</strong>
                     <small>{count}</small>
-                  </span>
-                  <span>
-                    {t(`directory.audience.categories.${category}.description`)}
                   </span>
                 </button>
               );
             })}
           </div>
+          <p className={styles.audienceSelectionDescription} aria-live="polite">
+            <span aria-hidden="true" />
+            {state.category === "all"
+              ? t("directory.audience.allDescription")
+              : t(
+                  `directory.audience.categories.${state.category}.description`,
+                )}
+          </p>
         </div>
 
         <div className={styles.quickFilterBar}>
@@ -897,7 +898,9 @@ export function WalletDirectory({
                     }))
                   }
                 >
-                  {checked && <Check size={14} aria-hidden="true" />}
+                  {checked && (
+                    <Check width={14} height={14} aria-hidden="true" />
+                  )}
                   {t(`directory.popularNeeds.options.${feature}`)}
                   <small>{count}</small>
                 </button>
@@ -908,7 +911,7 @@ export function WalletDirectory({
 
         <div className={styles.toolbar}>
           <div className={styles.searchField}>
-            <Search size={18} aria-hidden="true" />
+            <Search width={18} height={18} aria-hidden="true" />
             <label className={styles.srOnly} htmlFor="wallet-search">
               {t("directory.search.label")}
             </label>
@@ -936,7 +939,7 @@ export function WalletDirectory({
                   )
                 }
               >
-                <X size={16} aria-hidden="true" />
+                <X width={16} height={16} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -949,7 +952,7 @@ export function WalletDirectory({
             aria-expanded={filtersOpen}
             onClick={() => setFiltersOpen(true)}
           >
-            <SlidersHorizontal size={18} aria-hidden="true" />
+            <SlidersHorizontal width={18} height={18} aria-hidden="true" />
             {t("directory.filters.more")}
             {activeFacets.length > 0 && <span>{activeFacets.length}</span>}
           </button>
@@ -966,7 +969,7 @@ export function WalletDirectory({
                 updateState((current) => ({ ...current, view: "grid" }))
               }
             >
-              <Grid2X2 size={18} aria-hidden="true" />
+              <Grid2X2 width={18} height={18} aria-hidden="true" />
               <span>{t("directory.view.grid")}</span>
             </button>
             <button
@@ -977,7 +980,7 @@ export function WalletDirectory({
                 updateState((current) => ({ ...current, view: "list" }))
               }
             >
-              <List size={18} aria-hidden="true" />
+              <List width={18} height={18} aria-hidden="true" />
               <span>{t("directory.view.list")}</span>
             </button>
           </div>
@@ -994,7 +997,7 @@ export function WalletDirectory({
             {activeFilters.map((filter) => (
               <button key={filter.id} type="button" onClick={filter.remove}>
                 {filter.label}
-                <X size={14} aria-hidden="true" />
+                <X width={14} height={14} aria-hidden="true" />
               </button>
             ))}
             <button
@@ -1044,7 +1047,7 @@ export function WalletDirectory({
                   className={styles.closeFiltersButton}
                   onClick={() => setFiltersOpen(false)}
                 >
-                  <X size={18} aria-hidden="true" />
+                  <X width={18} height={18} aria-hidden="true" />
                   <span className={styles.srOnly}>
                     {t("directory.filters.close")}
                   </span>
@@ -1246,7 +1249,7 @@ export function WalletDirectory({
                   {String(index + 1).padStart(2, "0")} ·{" "}
                   {t(`learn.resources.${resource.id}.topic`)}
                 </span>
-                <ArrowUpRight size={16} aria-hidden="true" />
+                <ArrowUpRight width={16} height={16} aria-hidden="true" />
               </div>
               <h3>{t(`learn.resources.${resource.id}.title`)}</h3>
               <p>{t(`learn.resources.${resource.id}.description`)}</p>
@@ -1264,14 +1267,15 @@ export function WalletDirectory({
         <div className={styles.builderLinks}>
           <a href="https://solana.com/docs/tools/commerce-kit/quickstart/wallet-connection">
             {t("builders.commerceKitWalletConnection")}{" "}
-            <ExternalLink size={15} aria-hidden="true" />
+            <ExternalLink width={15} height={15} aria-hidden="true" />
           </a>
           <a href="https://solana.com/docs/core/transactions/signing-in-production">
             {t("builders.productionSigning")}{" "}
-            <ExternalLink size={15} aria-hidden="true" />
+            <ExternalLink width={15} height={15} aria-hidden="true" />
           </a>
           <a href="https://share.hsforms.com/1GE1hYdApQGaDiCgaiWMXHA5lohw">
-            {t("builders.grant")} <ExternalLink size={15} aria-hidden="true" />
+            {t("builders.grant")}{" "}
+            <ExternalLink width={15} height={15} aria-hidden="true" />
           </a>
         </div>
       </section>
@@ -1313,7 +1317,7 @@ export function WalletDirectory({
           rel="noopener noreferrer"
         >
           {t("methodology.correction")}
-          <ExternalLink size={15} aria-hidden="true" />
+          <ExternalLink width={15} height={15} aria-hidden="true" />
         </a>
       </section>
     </main>

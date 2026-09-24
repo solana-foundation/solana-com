@@ -1,4 +1,7 @@
+"use client";
+
 import type { CSSProperties } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import SectionHeadline from "@/components/SectionHeadline";
 import { publicAssetPath } from "@/config";
@@ -145,6 +148,7 @@ function SponsorRow({ row }: { row: (typeof sponsorRows)[number] }) {
 }
 
 export default function SponsorsSection() {
+  const t = useTranslations("breakpoint.homeSponsors");
   const maskStyle = {
     WebkitMaskImage:
       "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
@@ -158,22 +162,22 @@ export default function SponsorsSection() {
         <div className="mx-auto max-w-[800px]">
           <SectionHeadline
             alignment="center"
-            eyebrow="Sponsors"
-            headline="Become a Breakpoint 2026 sponsor"
+            eyebrow={t("eyebrow")}
+            headline={t("headline")}
           >
             <div className="flex w-full flex-col items-center justify-center gap-xs md:w-auto md:flex-row">
               <Button
                 arrow
                 className="w-full md:w-auto"
                 href={SPONSOR_FORM_HREF}
-                label="Contact us"
+                label={t("contactCta")}
                 variant="primary"
               />
               <Button
                 className="w-full md:w-auto"
                 href="/sponsors"
                 iconRight={<ArrowRightIcon />}
-                label="Our 2026 sponsors"
+                label={t("sponsorsCta")}
                 variant="secondary"
               />
             </div>

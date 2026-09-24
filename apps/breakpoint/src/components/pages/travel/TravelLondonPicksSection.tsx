@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import CarouselControls from "@/components/CarouselControls";
 import { publicAssetPath } from "@/config";
@@ -8,72 +9,51 @@ import { getAnchorLinkProps } from "@/lib/links";
 
 const LONDON_PICKS = [
   {
-    title: "Science Museum",
-    location: "South Kensington",
+    id: "scienceMuseum",
     href: "https://www.sciencemuseum.org.uk/home",
     imageSrc: "/img/travel/london-pick-01.jpg",
-    description:
-      "Exhibitions, engineering history, and space artifacts a short trip from the venue.",
   },
   {
-    title: "Design Museum",
-    location: "Kensington",
+    id: "designMuseum",
     href: "https://designmuseum.org/",
     imageSrc: "/img/travel/london-pick-02.jpg",
-    description:
-      "Contemporary design, product, graphics, and architecture near Holland Park.",
   },
   {
-    title: "Tate Modern",
-    location: "Bankside",
+    id: "tateModern",
     href: "https://www.tate.org.uk/visit/tate-modern",
     imageSrc: "/img/travel/london-pick-03.jpg",
-    description:
-      "Modern and contemporary art in a landmark power station on the Thames.",
   },
   {
-    title: "Victoria and Albert Museum",
-    location: "South Kensington",
+    id: "victoriaAndAlbert",
     href: "https://www.vam.ac.uk/",
     imageSrc: "/img/travel/london-pick-04.jpg",
-    description:
-      "Design, fashion, architecture, and decorative arts near Exhibition Road.",
   },
   {
-    title: "Hyde Park",
-    location: "Westminster",
+    id: "hydePark",
     href: "https://www.royalparks.org.uk/visit/parks/hyde-park",
     imageSrc: "/img/travel/london-pick-05.jpg",
-    description:
-      "Open green space for a walk between sessions or a slower morning reset.",
   },
   {
-    title: "Borough Market",
-    location: "London Bridge",
+    id: "boroughMarket",
     href: "https://boroughmarket.org.uk/",
     imageSrc: "/img/travel/london-pick-06.jpg",
-    description:
-      "Historic food market with stalls, restaurants, coffee, and quick bites.",
   },
   {
-    title: "Royal Albert Hall",
-    location: "South Kensington",
+    id: "royalAlbertHall",
     href: "https://www.royalalberthall.com/",
     imageSrc: "/img/travel/london-pick-07.jpg",
-    description:
-      "A landmark performance venue close to museums and Kensington Gardens.",
   },
 ] satisfies LondonPick[];
 
 type LondonPick = {
-  description: string;
   href: string;
+  id: string;
   imageSrc: string;
-  location: string;
-  title: string;
 };
 
 function LondonPickCard({ pick }: { pick: LondonPick }) {
+  const t = useTranslations("breakpoint.travel.londonPicks");
+
   return (
     <article
       className="flex w-[283.56px] shrink-0 snap-start flex-col items-start md:w-[calc((100%_-_48px)/3)]"
@@ -81,7 +61,9 @@ function LondonPickCard({ pick }: { pick: LondonPick }) {
     >
       <a
         href={pick.href}
-        aria-label={`${pick.title} travel recommendation`}
+        aria-label={t("recommendationLabel", {
+          title: t(`items.${pick.id}.title`),
+        })}
         className="h-[212.67px] w-full overflow-hidden border border-neutral-700 bg-neutral-800 transition-colors hover:border-blue focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:h-auto md:aspect-[400/300]"
         {...getAnchorLinkProps({ href: pick.href })}
       >
@@ -94,17 +76,29 @@ function LondonPickCard({ pick }: { pick: LondonPick }) {
       </a>
       <div className="flex w-full flex-col items-start gap-4 py-5 pr-8 md:py-6 md:pr-10">
         <div className="flex flex-col gap-3">
-          <h3 className="type-p-large-bold text-white">{pick.title}</h3>
-          <p className="type-eyebrow text-blue">{pick.location}</p>
+          <h3 className="type-p-large-bold text-white">
+            {t(`items.${pick.id}.title`)}
+          </h3>
+          <p className="type-eyebrow text-blue">
+            {t(`items.${pick.id}.location`)}
+          </p>
         </div>
-        <p className="type-paragraph text-white">{pick.description}</p>
-        <Button arrow href={pick.href} label="LEARN MORE" variant="inline" />
+        <p className="type-paragraph text-white">
+          {t(`items.${pick.id}.description`)}
+        </p>
+        <Button
+          arrow
+          href={pick.href}
+          label={t("learnMore")}
+          variant="inline"
+        />
       </div>
     </article>
   );
 }
 
 export default function LondonPicksSection() {
+  const t = useTranslations("breakpoint.travel.londonPicks");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scrollBy = useCallback((direction: number) => {
@@ -137,7 +131,7 @@ export default function LondonPicksSection() {
   return (
     <section
       id="london"
-      aria-label="More to see while in London"
+      aria-label={t("regionLabel")}
       aria-roledescription="carousel"
       className="scroll-mt-16 bg-black pt-2xl md:scroll-mt-20 md:pt-[120px]"
       role="region"
@@ -145,13 +139,13 @@ export default function LondonPicksSection() {
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-4 md:px-8">
         <div className="flex flex-col items-start gap-6 md:flex-row md:items-end md:justify-between">
           <div className="flex max-w-[676px] flex-col gap-6">
-            <p className="type-eyebrow text-white">More BP26 events</p>
+            <p className="type-eyebrow text-white">{t("eyebrow")}</p>
             <h2 className="type-h3 max-w-[260px] text-white md:max-w-none">
-              More to see while in London
+              {t("headline")}
             </h2>
           </div>
           <CarouselControls
-            labelPrefix="London picks"
+            labelPrefix={t("carouselLabel")}
             onNext={() => scrollBy(1)}
             onPrev={() => scrollBy(-1)}
           />
@@ -162,7 +156,7 @@ export default function LondonPicksSection() {
           className="flex snap-x snap-mandatory gap-6 overflow-x-auto scrollbar-hidden"
         >
           {LONDON_PICKS.map((pick) => (
-            <LondonPickCard key={pick.title} pick={pick} />
+            <LondonPickCard key={pick.id} pick={pick} />
           ))}
         </div>
       </div>

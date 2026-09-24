@@ -60,13 +60,16 @@ Floating or inline button that opens the Inkeep AI search + chat modal. Requires
 
 ### InkeepSearchBar
 
-Search bar that opens the same Inkeep modal. Used in docs hero and elsewhere.
-Optional `expanded` prop for always-expanded styling.
+Search button that opens the same Inkeep modal and displays its `⌘ K` keyboard
+shortcut on larger viewports. The optional `expanded` prop adds a visible label
+and full-width styling.
 
 ### NewsletterModal
 
-Modal for newsletter sign-up (e.g. Iterable). Props: `formId`, `children`
-(trigger).
+Modal for newsletter sign-up (e.g. Iterable). Props: `formId`,
+`analyticsAppName`, and `children` (trigger). `analyticsAppName` is required so
+a successful subscription can be attributed consistently; use one of `web`,
+`docs`, `media`, `templates`, `accelerate`, or `breakpoint`.
 
 ### DocsSidebarToggleIcon / DOCS_SIDEBAR_TOGGLE_SLOT_ID
 

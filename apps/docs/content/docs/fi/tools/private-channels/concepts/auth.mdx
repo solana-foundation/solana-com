@@ -1,0 +1,283 @@
+---
+title: Todennus ja roolit
+description:
+  JWT-todennus ja roolipohjainen pääsynhallinta Private Channels -palvelussa
+---
+
+## Yleiskatsaus
+
+Private Channels sisältää valinnaisen Auth Service -palvelun, joka suojaa yhdyskäytävän pääsyn
+JWT-todennuksella ja roolipohjaisella pääsynhallinnalla (RBAC). Kun
+todennus on poistettu käytöstä, yhdyskäytävä hyväksyy kaikki yhteydet. Kun se on käytössä,
+asiakkaiden on esitettävä voimassa oleva JWT jokaisessa pyynnössä.
+
+Tämä sivu kattaa molemmat kohderyhmät:
+
+- **Kehittäjät** – rekisteröinti, kirjautuminen, lompakon vahvistus ja
+  todennettujen pyyntöjen tekeminen
+- **Operaattorit** – auth-palvelun käyttöönotto, `JWT_SECRET`-määritys ja
+  `operator`-roolin provisiointi
+
+## Todennuksen käyttöönotto
+
+Todennus otetaan käyttöön asettamalla `JWT_SECRET` (ei-tyhjä) sekä
+yhdyskäytävässä että Auth Service -palvelussa. Auth Service vaatii lisäksi
+`AUTH_DATABASE_URL`-muuttujan.
+
+Kun `JWT_SECRET`-muuttujaa ei ole asetettu, yhdyskäytävä toimii avoimessa tilassa eikä
+tokenia tarvita.
+
+> **Docker Compose:** Auth-palvelu on Docker Compose -profiili eikä käynnisty **oletuksena**.
+Sisällytä se välittämällä `--profile auth` `docker compose` -komennolle,
+mukaan lukien `--env-file .env`, jotta salaisuudet kuten
+`JWT_SECRET` ja `POSTGRES_PASSWORD` oikeasti ratkeavat (Compose poistaa automaattisen
+`.env`-latauksen käytöstä, kun jokin `--env-file`-lippu on annettu):
+>
+> ```bash
+> docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet --env-file .env --profile auth up -d
+> ```
+
+## Auth Service -rajapinta
+
+Kaikki päätepisteet ovat polun `/auth` alla. Auth-palvelu kuuntelee portissa `AUTH_PORT`
+(oletus `8903`).
+
+### `POST /auth/register`
+
+Luo uusi tili. Kaikki käyttäjät rekisteröidään `user`-roolilla.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+- Käyttäjänimi: 5–32 merkkiä, alfanumeerinen sekä `_` ja `-`
+- Salasana: 6–128 merkkiä
+- Palauttaa luodun käyttäjän; salasanaa ei koskaan palauteta
+
+### `POST /auth/login`
+
+Todenna ja vastaanota allekirjoitettu JWT, joka on voimassa 24 tuntia.
+
+```json
+{ "username": "alice", "password": "hunter2" }
+```
+
+Palauttaa `{ "token": "<jwt>" }`. Sekä väärä käyttäjänimi että väärä salasana palauttavat
+`401`-virheen käyttäjänimen luetteloinnin estämiseksi.
+
+### `POST /auth/challenge-wallet`
+
+Pyydä allekirjoitushaaste Solana-lompakon omistajuuden todistamiseksi. Vaatii
+voimassa olevan JWT:n.
+
+Palauttaa viestin, noncen ja vanhenemisajan. Haaste vanhenee 10 minuutissa.
+
+```json
+{
+  "message": "PrivateChannel wallet verification\nuser: <uuid>\nnonce: <uuid>\nexpires: <unix>",
+  "nonce": "<uuid>",
+  "expires_at": "<iso8601>"
+}
+```
+
+### `POST /auth/verify-wallet`
+
+Lähetä allekirjoitettu haaste rekisteröidäksesi lompakon vahvistettuna. Vaatii voimassa
+olevan JWT:n.
+
+```json
+{
+  "pubkey": "<base58 pubkey>",
+  "nonce": "<uuid from challenge>",
+  "signature": "<base58 Ed25519 signature>"
+}
+```
+
+Palvelu rekonstruoi haasteviestin, tarkistaa Ed25519-allekirjoituksen
+ja tallentaa lompakon. Jokainen nonce voidaan kuluttaa vain kerran; uusinnat
+hylätään.
+
+Palauttaa `{ "pubkey": "<base58>", "created_at": "<iso8601>" }`.
+
+### `GET /auth/wallets`
+
+Listaa kaikki todennetun käyttäjän vahvistetut lompakot. Vaatii voimassa olevan JWT:n.
+
+### `DELETE /auth/wallets/{pubkey}`
+
+Poista vahvistettu lompakko todennetun käyttäjän tililtä. Vaatii voimassa olevan JWT:n.
+
+### `GET /health`
+
+Elossaolotarkistus. Palauttaa `200 ok`. Todennusta ei vaadita.
+
+## JWT-rakenne
+
+Tokenit käyttävät HS256-algoritmia ja vanhenevat 24 tuntia myöntämisen jälkeen.
+
+| Väite  | Arvo                           |
+| ------ | ------------------------------- |
+| `sub`  | Käyttäjän UUID                       |
+| `role` | `"user"` tai `"operator"`        |
+| `iss`  | `"private-channel-auth"`        |
+| `aud`  | `"private-channel-gateway"`     |
+| `exp`  | Unix-aikaleima (24h myöntämisestä) |
+
+> `iss` ja `aud` ovat läsnä JWT-hyötykuormassa, mutta ne validoi
+> yhdyskäytävän JWT-konfiguraatio, ei sovelluksen väiterakenne deserialisoinnin yhteydessä.
+> Sovellustason koodi pääsee käsiksi vain kenttiin `sub`, `role` ja `exp`.
+
+Välitä token `Authorization`-otsikossa:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+## Roolit
+
+### user
+
+Oletusrooli rekisteröitymisen yhteydessä.
+
+- Pääsy on rajattu käyttäjän omiin vahvistettuihin lompakkoihin
+- Estetty: `getBlock`, `getTransaction`, `simulateTransaction`
+- Sallittu: `Deposit`-kutsu Escrow Program -ohjelmaan, nostojen aloittaminen
+  `WithdrawFunds`-toiminnolla
+
+### operator
+
+Korotettu rooli. Se on provisioitava suoraan; `user`-roolista `operator`-rooliin
+ei ole olemassa itsepalvelupolkua.
+
+**Myönnä rooli** joko Admin CLI:n (`private-channel-auth-admin`) kautta:
+
+```bash
+private-channel-auth-admin set-role --username alice --role operator
+```
+
+tai suoralla SQL:llä:
+
+<Callout type="warning">
+  Tämä on etuoikeutettu tietokantaoperaatio. Rajoita pääsy Auth Service
+  -tietokantaan asianmukaisesti ja auditoi kaikki roolimuutokset.
+</Callout>
+
+```sql
+UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice';
+```
+
+**Rekisteröi lompakko ilman itse-vahvistusprosessia (Admin CLI,
+`private-channel-auth-admin`):**
+
+```bash
+private-channel-auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
+```
+
+Tämä lisää vahvistetun lompakon suoraan `verified_wallets`-tauluun,
+ohittaen haaste/vahvistus-prosessin. Pakottaa yksilöllisyysrajoitteen
+`(user_id, pubkey)`-parille. Se **ei** myönnä `operator`-roolia itsessään; käytä
+`set-role`-komentoa tai yllä olevaa SQL-päivitystä siihen. Tämä komento on tarkoitettu
+lomakon liittämiseen tilille (esimerkiksi palvelutilille) ilman interaktiivista
+haaste/vahvistus-prosessia.
+
+**Ominaisuudet:**
+
+- Ohittaa kaikki lompakon omistajuustarkistukset
+- Täysi pääsy kaikkiin yhdyskäytävän RPC-metodeihin, mukaan lukien `getBlock`,
+  `getTransaction`, `simulateTransaction`
+- Vaaditaan: `ReleaseFunds`, `ResetSmtRoot`
+
+## Koko todennusprosessi
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Auth as Auth Service
+
+    Client->>Auth: POST /auth/register { username, password }
+    Auth-->>Client: created user (role: "user")
+
+    Client->>Auth: POST /auth/login { username, password }
+    Auth-->>Client: { token: "<jwt>" }
+
+    Note over Client: Include JWT in subsequent requests:<br/>Authorization: Bearer <token>
+
+    Client->>Auth: POST /auth/challenge-wallet
+    Auth-->>Client: { message, nonce, expires_at }
+
+    Note over Client: Sign message with wallet private key (Ed25519)
+
+    Client->>Auth: POST /auth/verify-wallet { pubkey, nonce, signature }
+    Auth-->>Client: { pubkey, created_at }
+
+    Note over Client: Wallet verified - gateway now allows access<br/>to accounts owned by this wallet
+```
+
+## Todennettujen pyyntöjen tekeminen
+
+```typescript
+const response = await fetch("http://localhost:8899/", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${jwtToken}`
+  },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getBalance",
+    params: [walletAddress]
+  })
+});
+const data = await response.json();
+```
+
+## Yhdyskäytävän päätepisteet
+
+Nämä päätepisteet eivät vaadi todennusta:
+
+| Päätepiste  | Metodi | Kuvaus                               | Onnistui                  | Epäonnistui                     |
+| --------- | ------ | ----------------------------------------- | ------------------------ | --------------------------- |
+| `/health` | GET    | Elossaolotarkistus                            | `200 {"status":"ok"}`    | -                           |
+| `/ready`  | GET    | Syvä valmiustarkistus; testaa kirjoitus- ja lukusolmut | `200 {"status":"ready"}` | `503 {"status":"degraded"}` |
+
+Katso `JWT_SECRET`- ja yhdyskäytävän ympäristömuuttujien viitetiedot
+[Konfiguraatioviitteestä](/docs/tools/private-channels/operators/configuration).
+
+## RPC-metodien käyttöoikeusmatriisi
+
+Seuraavat metodit tunnistetaan yhdyskäytävässä. Kun `JWT_SECRET` on asetettu,
+pääsy riippuu JWT-roolista:
+
+| Metodi                        | Reitti      | Ei JWT:tä | `user`           | `operator` |
+| ----------------------------- | ---------- | ------ | ---------------- | ---------- |
+| `sendTransaction`             | Kirjoitussolmu | ✓      | ✓                | ✓          |
+| `getLatestBlockhash`          | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getSlot`                     | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getRecentBlockhash`          | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getSignatureStatuses`        | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getTransactionCount`         | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getFirstAvailableBlock`      | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getBlocks`                   | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getEpochInfo`                | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getEpochSchedule`            | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getRecentPerformanceSamples` | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getBlockTime`                | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getVoteAccounts`             | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getSupply`                   | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getSlotLeaders`              | Lukusolmu  | ✓      | ✓                | ✓          |
+| `isBlockhashValid`            | Lukusolmu  | ✓      | ✓                | ✓          |
+| `getAccountInfo`              | Lukusolmu  | 401    | omistajuusportattu¹ | ✓          |
+| `getTokenAccountBalance`      | Lukusolmu  | 401    | omistajuusportattu¹ | ✓          |
+| `getSignaturesForAddress`     | Lukusolmu  | 401    | omistajuusportattu¹ | ✓          |
+| `getBlock`                    | Lukusolmu  | 401    | 403              | ✓          |
+| `getTransaction`              | Lukusolmu  | 401    | 403              | ✓          |
+| `simulateTransaction`         | Lukusolmu  | 401    | 403              | ✓          |
+
+¹ **Omistajuusportattu**: SPL token account -tilin kohdalla (owner-kenttä on `TokenkegQ...`
+tai `TokenzQ...`, dataa vähintään 165 tavua) yhdyskäytävä tarkistaa, että
+`owner`- tai `delegate`-kenttä vastaa jotakin todennetun käyttäjän vahvistetuista
+lompakoista. Minkä tahansa muun tilin kohdalla (System Program -lompakko tai tuntematon
+PDA) tarkistetaan sen sijaan, onko kysytty pubkey itse jokin käyttäjän vahvistetuista
+lompakoista, koska tällaisilla tileillä ei ole tarkastettavaa owner/delegate-kenttää.
+Kumman tahansa tarkistuksen epäonnistuminen palauttaa 403.

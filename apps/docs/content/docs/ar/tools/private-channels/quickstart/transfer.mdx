@@ -1,0 +1,157 @@
+---
+title: إرسال تحويل
+description:
+  إرسال تحويل SPL token خارج السلسلة عبر بوابة القنوات الخاصة
+---
+
+## نظرة عامة
+
+تحويلات القنوات هي تحويلات SPL token قياسية يتم إرسالها إلى البوابة -
+لا توجد تعليمة تحويل مخصصة للقنوات الخاصة. تقوم البوابة بتوجيه
+المعاملة إلى عقدة الكتابة، التي تنفّذها مقابل طبقة الحسابات خارج السلسلة الخاصة بالقناة. تتأكد التحويلات عندما يعالجها المتسلسل،
+وليس عند تأكيد كتلة سولانا، ولا تظهر على الشبكة الرئيسية.
+
+## تغيير RPC محفظتك
+
+قبل إرسال تحويل، قم بتغيير نقطة نهاية RPC لمحفظتك إلى عنوان URL للبوابة
+bدلاً من سولانا Devnet:
+
+```
+http://localhost:8899
+```
+
+المعاملات المرسلة إلى RPC سولانا العام ستُنفَّذ على الشبكة الرئيسية، وليس على القناة.
+
+## المصادقة
+
+إذا بدأت تشغيل الحزمة بدون `--profile auth` (إعداد devnet الافتراضي)،
+فإن البوابة تعمل في الوضع المفتوح ولا يلزم أي رمز -
+تخطَّ هذا القسم.
+
+عند تفعيل خدمة المصادقة (عند تعيين `JWT_SECRET` على البوابة)، تتطلب جميع
+الطلبات رمز JWT bearer في الترويسة `Authorization`:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+راجع **[المصادقة والأدوار](/docs/tools/private-channels/concepts/auth)** لمعرفة
+كيفية التسجيل وتسجيل الدخول والحصول على رمز.
+
+## إنشاء تحويل وإرساله
+
+إذا لم يكن associated token account الخاص بالمستلم موجوداً على القناة بعد،
+أضف تعليمة `createAssociatedTokenAccountIdempotent` قبل التحويل.
+الكود أدناه يتعامل مع كلتا الحالتين:
+
+```typescript
+import {
+  address,
+  createSolanaRpc,
+  pipe,
+  createTransactionMessage,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  appendTransactionMessageInstruction,
+  signAndSendTransactionMessageWithSigners,
+  assertIsTransactionMessageWithSingleSendingSigner,
+  getBase58Decoder
+} from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstruction,
+  getTransferInstruction
+} from "@solana-program/token";
+
+const TOKEN_PROGRAM_ADDRESS = address(
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+);
+
+// Point to the gateway, not a public Solana RPC
+const privateChannelRpc = createSolanaRpc("http://localhost:8899");
+
+// Derive source and destination associated token accounts
+const [sourceAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(senderAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const [destinationAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(recipientAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const transferInstruction = getTransferInstruction({
+  source: sourceAta,
+  destination: destinationAta,
+  authority: transactionSigner,
+  amount: 1_000_000n // 1 USDC (6 decimals)
+});
+
+// Create the destination ATA on the channel if it does not exist yet
+const destinationAtaInfo = await privateChannelRpc
+  .getAccountInfo(destinationAta, { encoding: "base64" })
+  .send();
+
+const { value: latestBlockhash } = await privateChannelRpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// Sent to the Private Channels gateway (not Solana RPC directly), which
+// expects the legacy transaction format - do not switch this to version 0.
+const transactionMessage = !destinationAtaInfo.value
+  ? pipe(
+      createTransactionMessage({ version: "legacy" }),
+      (m) => setTransactionMessageFeePayerSigner(transactionSigner, m),
+      (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+      (m) =>
+        appendTransactionMessageInstruction(
+          getCreateAssociatedTokenIdempotentInstruction({
+            payer: transactionSigner,
+            ata: destinationAta,
+            owner: address(recipientAddress),
+            mint: address(mintAddress)
+          }),
+          m
+        ),
+      (m) => appendTransactionMessageInstruction(transferInstruction, m)
+    )
+  : pipe(
+      createTransactionMessage({ version: "legacy" }),
+      (m) => setTransactionMessageFeePayerSigner(transactionSigner, m),
+      (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+      (m) => appendTransactionMessageInstruction(transferInstruction, m)
+    );
+
+assertIsTransactionMessageWithSingleSendingSigner(transactionMessage);
+
+const signatureBytes =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+const signature = getBase58Decoder().decode(signatureBytes);
+console.log("Transfer signature:", signature);
+```
+
+## التحقق من التحويل
+
+استعلم عن رصيد القناة الخاص بالمستلم عبر البوابة للتأكد من
+وصول التحويل:
+
+```typescript
+const [recipientAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(recipientAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const balance = await privateChannelRpc
+  .getTokenAccountBalance(recipientAta)
+  .send();
+console.log(balance.value.uiAmountString);
+```
+
+## الخطوات التالية
+
+**[سحب الأموال](/docs/tools/private-channels/quickstart/withdraw)** -
+سحب الرموز إلى محفظة سولانا الخاصة بك

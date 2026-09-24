@@ -47,7 +47,7 @@
  * specify when the video should start playing.
  */
 
-import { Play } from "lucide-react";
+import { Play } from "@boxicons/react/Play";
 import { useState } from "react";
 import Image from "next/image";
 
@@ -158,7 +158,6 @@ export function Video(props: VideoProps) {
         >
           <Play
             fill="white"
-            strokeWidth={0}
             className={`w-8 h-8 ${playButtonIconClassName ?? ""}`}
           />
         </button>
