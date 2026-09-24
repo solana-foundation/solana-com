@@ -654,9 +654,11 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             }
           }
           while (fallbackBlocks.size > MAX_FALLBACK_BLOCKS) {
-            const oldest = fallbackBlocks.keys().next().value;
-            if (!oldest) break;
-            discardFallbackBlock(oldest);
+            const oldestSettled = [...fallbackBlocks].find(
+              ([, block]) => block.optimisticallyFinalized,
+            );
+            if (!oldestSettled) break;
+            fallbackBlocks.delete(oldestSettled[0]);
           }
         }
         function finalizeFallback(
@@ -721,13 +723,15 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
                 event.transactionCount,
                 Math.max(0, fallbackState.population - fallbackState.counts[1]),
               );
-              fallbackBlocks.set(event.blockhash, {
-                confirmedCount: renderedCount,
-                finalizedCount: 0,
-                confirmedAt: performance.now(),
-                optimisticallyFinalized: false,
-                actuallyFinalized: false,
-              });
+              if (renderedCount > 0) {
+                fallbackBlocks.set(event.blockhash, {
+                  confirmedCount: renderedCount,
+                  finalizedCount: 0,
+                  confirmedAt: performance.now(),
+                  optimisticallyFinalized: false,
+                  actuallyFinalized: false,
+                });
+              }
               fallbackState.counts[1] += renderedCount;
               pruneFallbackBlocks(performance.now());
               reportFallback();
