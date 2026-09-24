@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  alpenglowRpcUrl,
   blockRequestOptions,
   cursorAfterBlockReads,
+  DEFAULT_SOLANA_RPC_URL,
   MAX_SUPPORTED_TRANSACTION_VERSION,
   shouldReplayCanonicalBlock,
 } from "@/lib/alpenglow-stream";
@@ -15,6 +17,21 @@ describe("Alpenglow artwork sampling", () => {
 });
 
 describe("Alpenglow stream progression", () => {
+  it("uses an RPC in every environment", () => {
+    expect(
+      alpenglowRpcUrl({
+        SOLANA_RPC_URL: "https://server.example",
+        NEXT_PUBLIC_RPC_ENDPOINT: "https://public.example",
+      }),
+    ).toBe("https://server.example");
+    expect(
+      alpenglowRpcUrl({
+        NEXT_PUBLIC_RPC_ENDPOINT: "https://public.example",
+      }),
+    ).toBe("https://public.example");
+    expect(alpenglowRpcUrl({})).toBe(DEFAULT_SOLANA_RPC_URL);
+  });
+
   it("requests every supported transaction version", () => {
     expect(
       blockRequestOptions("confirmed").maxSupportedTransactionVersion,

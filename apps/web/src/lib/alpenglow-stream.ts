@@ -10,6 +10,20 @@ export type BlockRead = {
 };
 
 export const MAX_SUPPORTED_TRANSACTION_VERSION = 1;
+export const DEFAULT_SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com";
+
+type AlpenglowRpcEnvironment = {
+  SOLANA_RPC_URL?: string;
+  NEXT_PUBLIC_RPC_ENDPOINT?: string;
+};
+
+export function alpenglowRpcUrl(environment: AlpenglowRpcEnvironment) {
+  return (
+    environment.SOLANA_RPC_URL?.trim() ||
+    environment.NEXT_PUBLIC_RPC_ENDPOINT?.trim() ||
+    DEFAULT_SOLANA_RPC_URL
+  );
+}
 
 export function blockRequestOptions(commitment: "confirmed" | "finalized") {
   return {

@@ -48,7 +48,7 @@ type FinalVoxel = ConfirmedVoxel & {
   finalFromPosition: THREE.Vector3;
 };
 
-type VisualBlock = BlockConfirmed & {
+type VisualBlock = Omit<BlockConfirmed, "transactionSignatures"> & {
   observedAt: number;
   actualFinalized: boolean;
   finalityMs?: number;
@@ -1059,8 +1059,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         }
         if (event.type === "block_confirmed") {
           const existing = blocks.get(event.blockhash);
+          const { transactionSignatures: _transactionSignatures, ...block } =
+            event;
           blocks.set(event.blockhash, {
-            ...event,
+            ...block,
             observedAt: performance.now(),
             actualFinalized: existing?.actualFinalized ?? false,
             finalityMs: existing?.finalityMs,

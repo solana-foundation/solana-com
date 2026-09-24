@@ -171,6 +171,20 @@ export default function FinalFormExperience({
             confirmedSlot: event.slot,
             latestBlockTransactions: event.transactionCount,
           }));
+        if (event.type === "block_confirmed") {
+          event.transactionSignatures.forEach((signature, indexInBlock) => {
+            pushToCanvas({
+              type: "transaction_observed",
+              signature,
+              slot: event.slot,
+              blockhash: event.blockhash,
+              observedAt: event.confirmedAt,
+              programIds: [],
+              success: true,
+              indexInBlock,
+            });
+          });
+        }
         pushToCanvas(event);
       } catch {
         setStatus("reconnecting");
