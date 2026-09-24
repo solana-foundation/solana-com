@@ -10,7 +10,8 @@ import type {
 import { signatureSeed } from "./types";
 
 const MAX_STAGE_VOXELS = 60_000;
-const LEGACY_FINALITY_SECONDS = 12;
+const MAX_PENDING_TRANSACTIONS = MAX_STAGE_VOXELS;
+const LEGACY_FINALITY_SECONDS = 12.8;
 const ALPENGLOW_FINALITY_SECONDS = 0.15;
 const STREAM_HOLD_MS = 900;
 const STAGE_TRANSITION_MS = 850;
@@ -72,7 +73,14 @@ export type FinalFormCanvasHandle = {
 
 type Props = {
   onTelemetry: (_telemetry: ArtworkTelemetry) => void;
+  onReady?: () => void;
 };
+
+function finalityMs(mode: FinalityMode) {
+  return mode === "legacy"
+    ? LEGACY_FINALITY_SECONDS * 1_000
+    : ALPENGLOW_FINALITY_SECONDS * 1_000;
+}
 
 function unit(seed: number, shift: number) {
   return ((seed >>> shift) & 0xff) / 255;
@@ -567,7 +575,7 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
 }
 
 export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
-  function FinalFormCanvas({ onTelemetry }, ref) {
+  function FinalFormCanvas({ onTelemetry, onReady }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
     const runtimeRef = useRef<{
       push: (_event: AlpenglowEvent) => void;
@@ -608,10 +616,38 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           cycleState: "forming",
           cycleAt: 0,
         };
-        const fallbackBlocks = new Map<string, number>();
+        const fallbackBlocks = new Map<
+          string,
+          { count: number; confirmedAt: number }
+        >();
         const fallbackFinalityValues: number[] = [];
         let fallbackFinalizedBlocks = 0;
         let fallbackCurrentFinalityMs = 0;
+        function finalizeFallback(
+          blockhash: string,
+          observedFinalityMs: number,
+        ) {
+          const block = fallbackBlocks.get(blockhash);
+          if (!block) return;
+          fallbackBlocks.delete(blockhash);
+          const moved = Math.min(
+            block.count,
+            fallbackState.cyclePopulation - fallbackState.counts[2],
+          );
+          fallbackState.counts[1] = Math.max(
+            0,
+            fallbackState.counts[1] - moved,
+          );
+          fallbackState.counts[2] += moved;
+          fallbackFinalizedBlocks += 1;
+          fallbackCurrentFinalityMs = observedFinalityMs;
+          fallbackFinalityValues.push(observedFinalityMs);
+          if (fallbackState.counts[2] >= fallbackState.cyclePopulation) {
+            fallbackState.cycleState = "holding";
+            fallbackState.cycleAt = performance.now();
+          }
+          reportFallback();
+        }
         function reportFallback() {
           onTelemetry({
             holding: fallbackBlocks.size,
@@ -638,7 +674,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               );
             }
             if (event.type === "block_confirmed") {
-              fallbackBlocks.set(event.blockhash, event.transactionCount);
+              fallbackBlocks.set(event.blockhash, {
+                count: event.transactionCount,
+                confirmedAt: performance.now(),
+              });
               fallbackState.counts[1] = Math.min(
                 fallbackState.population,
                 fallbackState.counts[1] + event.transactionCount,
@@ -646,26 +685,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               reportFallback();
             }
             if (event.type === "block_finalized") {
-              const transactionCount =
-                fallbackBlocks.get(event.blockhash) ?? 1_000;
-              fallbackBlocks.delete(event.blockhash);
-              const moved = Math.min(
-                transactionCount,
-                fallbackState.cyclePopulation - fallbackState.counts[2],
-              );
-              fallbackState.counts[1] = Math.max(
-                0,
-                fallbackState.counts[1] - moved,
-              );
-              fallbackState.counts[2] += moved;
-              fallbackFinalizedBlocks += 1;
-              fallbackCurrentFinalityMs = event.observedFinalityMs;
-              fallbackFinalityValues.push(event.observedFinalityMs);
-              if (fallbackState.counts[2] >= fallbackState.cyclePopulation) {
-                fallbackState.cycleState = "holding";
-                fallbackState.cycleAt = performance.now();
+              if (mode === "legacy") {
+                finalizeFallback(event.blockhash, event.observedFinalityMs);
               }
-              reportFallback();
             }
           },
           setMode(value) {
@@ -674,9 +696,20 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           },
           resetView() {},
         };
+        const fallbackTimer = window.setInterval(() => {
+          if (mode !== "alpenglow") return;
+          const now = performance.now();
+          for (const [blockhash, block] of fallbackBlocks) {
+            if (now - block.confirmedAt >= finalityMs(mode)) {
+              finalizeFallback(blockhash, finalityMs(mode));
+            }
+          }
+        }, 50);
+        onReady?.();
         const cleanup = mountFallback(hostElement, fallbackState);
         return () => {
           runtimeRef.current = null;
+          window.clearInterval(fallbackTimer);
           cleanup();
         };
       }
@@ -760,9 +793,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       ).matches;
 
       function modeFinalityMs() {
-        return mode === "legacy"
-          ? LEGACY_FINALITY_SECONDS * 1_000
-          : ALPENGLOW_FINALITY_SECONDS * 1_000;
+        return finalityMs(mode);
       }
 
       function updatePopulationModel() {
@@ -838,7 +869,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             STAGE_X[1],
           );
           voxel.order = order;
-          voxel.enteredAt = now;
         });
         confirmed = remaining;
         confirmedOrder = confirmed.length;
@@ -848,7 +878,14 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
 
       function push(event: AlpenglowEvent) {
         if (event.type === "transaction_observed") {
+          if (pending.length - pendingIndex >= MAX_PENDING_TRANSACTIONS) {
+            pendingIndex += 1;
+          }
           pending.push(event);
+          if (pendingIndex > 4_096) {
+            pending.splice(0, pendingIndex);
+            pendingIndex = 0;
+          }
           return;
         }
         if (event.type === "performance_sample") {
@@ -899,6 +936,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         },
         resetView,
       };
+      onReady?.();
 
       function resize() {
         const width = hostElement.clientWidth;
@@ -1179,6 +1217,22 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
 
         if (now - lastTelemetry > 500) {
           lastTelemetry = now;
+          const activeBlockhashes = new Set<string>();
+          for (let index = pendingIndex; index < pending.length; index += 1) {
+            const blockhash = pending[index]?.blockhash;
+            if (blockhash) activeBlockhashes.add(blockhash);
+          }
+          for (const voxel of streaming) {
+            if (voxel.blockhash) activeBlockhashes.add(voxel.blockhash);
+          }
+          for (const voxel of confirmed) {
+            if (voxel.blockhash) activeBlockhashes.add(voxel.blockhash);
+          }
+          for (const [blockhash, block] of blocks) {
+            if (block.actualFinalized && !activeBlockhashes.has(blockhash)) {
+              blocks.delete(blockhash);
+            }
+          }
           onTelemetry({
             holding: [...blocks.values()].filter(
               (block) => !block.actualFinalized,
@@ -1253,7 +1307,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         });
         renderer.domElement.remove();
       };
-    }, [onTelemetry]);
+    }, [onReady, onTelemetry]);
 
     return <div ref={hostRef} className="ff-canvas" aria-hidden="true" />;
   },

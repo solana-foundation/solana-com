@@ -28,7 +28,20 @@ function publishedTimestamp(post: PostItem) {
 }
 
 export async function fetchAlpenglowNews(): Promise<NewsItem[]> {
-  const { posts } = await fetchLatestPosts({ limit: QUERY_LIMIT });
+  const posts: PostItem[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+
+  do {
+    const page = await fetchLatestPosts({ limit: QUERY_LIMIT, cursor });
+    posts.push(...page.posts);
+    const nextCursor = page.pageInfo?.hasNextPage
+      ? (page.pageInfo.endCursor ?? undefined)
+      : undefined;
+    if (!nextCursor || seenCursors.has(nextCursor)) break;
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  } while (cursor);
 
   return posts
     .map((post) => ({ post, score: relevanceScore(post) }))

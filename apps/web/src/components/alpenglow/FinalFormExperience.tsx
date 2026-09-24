@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-html-link-for-pages -- /upgrades and /news are owned by the media app and require a full navigation. */
 "use client";
 
 import { Broadcast } from "@boxicons/react/Broadcast";
@@ -10,6 +9,7 @@ import { NetworkChart } from "@boxicons/react/NetworkChart";
 import { Server } from "@boxicons/react/Server";
 import { User } from "@boxicons/react/User";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
+import { defaultLocale } from "@workspace/i18n/config";
 import { Button } from "@workspace/ui";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -44,6 +44,7 @@ const EMPTY_RPC_TELEMETRY: RpcTelemetry = {
   latestBlockTransactions: 0,
   nonVoteTps: 0,
 };
+const MAX_BUFFERED_CANVAS_EVENTS = 10_000;
 
 type FinalFormExperienceProps = {
   news: NewsItem[];
@@ -80,6 +81,8 @@ export default function FinalFormExperience({
   const t = useTranslations("alpenglow");
   const locale = useLocale();
   const canvasRef = useRef<FinalFormCanvasHandle>(null);
+  const bufferedCanvasEventsRef = useRef<AlpenglowEvent[]>([]);
+  const selectedModeRef = useRef<FinalityMode>("alpenglow");
   const visualizerRef = useRef<HTMLElement>(null);
   const [mode, setMode] = useState<FinalityMode>("alpenglow");
   const [useInteractiveVisualizer, setUseInteractiveVisualizer] =
@@ -95,6 +98,22 @@ export default function FinalFormExperience({
     (value: ArtworkTelemetry) => setTelemetry(value),
     [],
   );
+  const pushToCanvas = useCallback((event: AlpenglowEvent) => {
+    if (canvasRef.current) {
+      canvasRef.current.push(event);
+      return;
+    }
+    const events = bufferedCanvasEventsRef.current;
+    if (events.length >= MAX_BUFFERED_CANVAS_EVENTS) events.shift();
+    events.push(event);
+  }, []);
+  const handleCanvasReady = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.setMode(selectedModeRef.current);
+    for (const event of bufferedCanvasEventsRef.current) canvas.push(event);
+    bufferedCanvasEventsRef.current = [];
+  }, []);
   useEffect(() => {
     setUseInteractiveVisualizer(!shouldUseStaticVisualizer());
   }, []);
@@ -144,16 +163,17 @@ export default function FinalFormExperience({
             confirmedSlot: event.slot,
             latestBlockTransactions: event.transactionCount,
           }));
-        canvasRef.current?.push(event);
+        pushToCanvas(event);
       } catch {
         setStatus("reconnecting");
       }
     };
     source.onerror = () => setStatus("reconnecting");
     return () => source.close();
-  }, [visualizerIsActive]);
+  }, [pushToCanvas, visualizerIsActive]);
 
   function selectMode(value: FinalityMode) {
+    selectedModeRef.current = value;
     setMode(value);
     canvasRef.current?.setMode(value);
   }
@@ -169,6 +189,10 @@ export default function FinalFormExperience({
         });
   }
   const statusLabel = t(`liveData.status.${status}`);
+  const localizeMediaHref = (href: string) =>
+    locale === defaultLocale || !href.startsWith("/")
+      ? href
+      : `/${locale}${href}`;
 
   return (
     <main className="ff-root">
@@ -192,7 +216,7 @@ export default function FinalFormExperience({
             variant="outline"
             className="ff-intro-button rounded-none border-white/40 bg-transparent font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-white shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
           >
-            <a href="/upgrades/alpenglow">
+            <a href={localizeMediaHref("/upgrades/alpenglow")}>
               {t("actions.explore")} <span aria-hidden="true">↗</span>
             </a>
           </Button>
@@ -235,7 +259,11 @@ export default function FinalFormExperience({
         <div className="ff-scene">
           <div className="ff-canvas-stage">
             {useInteractiveVisualizer ? (
-              <FinalFormCanvas ref={canvasRef} onTelemetry={handleTelemetry} />
+              <FinalFormCanvas
+                ref={canvasRef}
+                onTelemetry={handleTelemetry}
+                onReady={handleCanvasReady}
+              />
             ) : (
               <StaticFinalityDiagram />
             )}
@@ -428,15 +456,19 @@ export default function FinalFormExperience({
             size="lg"
             className="ff-read-more-button rounded-none border-white bg-white font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-black shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
           >
-            <a href="/upgrades/alpenglow">
+            <a href={localizeMediaHref("/upgrades/alpenglow")}>
               {t("actions.readGuide")} <span aria-hidden="true">↗</span>
             </a>
           </Button>
         </div>
         {news.length > 0 && (
-          <div className="ff-related-news" aria-label="Related Alpenglow news">
+          <div className="ff-related-news" aria-label={t("aria.relatedNews")}>
             {news.map((article) => (
-              <a className="ff-news-card" href={article.link} key={article.id}>
+              <a
+                className="ff-news-card"
+                href={localizeMediaHref(article.link)}
+                key={article.id}
+              >
                 <div className="ff-news-image">
                   <Image
                     src={article.image}
