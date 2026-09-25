@@ -70,11 +70,11 @@ const RPC_ENV_NAMES: Record<
 
 const RANGE_QUERIES = {
   p95FinalityLatencySeconds:
-    "histogram_quantile(0.95, sum by (network, le) (rate(solana_rpc_finality_latency_seconds_bucket[5m]))) or histogram_quantile(0.95, sum by (network, le) (rate(solana_finality_latency_seconds_bucket[5m])))",
+    "histogram_quantile(0.95, sum by (network, le) (rate(solana_rpc_finality_latency_seconds_bucket[2m]))) or histogram_quantile(0.95, sum by (network, le) (rate(solana_finality_latency_seconds_bucket[2m])))",
   transactionsPerSecond:
-    "max(clamp_min(rate(solana_node_transactions_total[5m]), 0))",
+    "max(clamp_min(rate(solana_node_transactions_total[1m]), 0))",
   towerVoteSlotsPerSecond:
-    "avg(clamp_min(deriv(solana_validator_last_vote[5m]), 0))",
+    "avg(clamp_min(deriv(solana_validator_last_vote[2m]), 0))",
   averageVoteRootLag:
     "quantile(0.95, clamp_min(solana_validator_last_vote - solana_validator_root_slot, 0) and on (nodekey, votekey) (solana_validator_delinquent == 0))",
   blockTransactions: "avg by (transaction_type) (solana_validator_block_size)",
@@ -82,9 +82,9 @@ const RANGE_QUERIES = {
 
 const LIVE_QUERIES = {
   recentAverageFinalityLatencySeconds:
-    "(sum(rate(solana_rpc_finality_latency_seconds_sum[1m])) / sum(rate(solana_rpc_finality_latency_seconds_count[1m]))) or (sum(rate(solana_finality_latency_seconds_sum[1m])) / sum(rate(solana_finality_latency_seconds_count[1m])))",
+    "(sum(rate(solana_rpc_finality_latency_seconds_sum[30s])) / sum(rate(solana_rpc_finality_latency_seconds_count[30s]))) or (sum(rate(solana_finality_latency_seconds_sum[30s])) / sum(rate(solana_finality_latency_seconds_count[30s])))",
   transactionsPerSecond:
-    "max(clamp_min(rate(solana_node_transactions_total[1m]), 0))",
+    "max(clamp_min(rate(solana_node_transactions_total[30s]), 0))",
 } as const;
 
 type PrometheusMetric = Record<string, string>;

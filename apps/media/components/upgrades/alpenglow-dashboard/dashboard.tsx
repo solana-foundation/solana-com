@@ -212,7 +212,7 @@ function DashboardSkeleton({
 /** Renders the live Alpenglow transition dashboard. */
 export function AlpenglowDashboard() {
   const [network, setNetwork] = useState<AlpenglowDashboardNetwork>("devnet");
-  const [range, setRange] = useState<AlpenglowDashboardRange>("24h");
+  const [range, setRange] = useState<AlpenglowDashboardRange>("1h");
 
   const statusPoller = useDashboardPoller<AlpenglowDashboardActivationData>({
     url: `/api/upgrades/alpenglow/metrics/status?${new URLSearchParams({ network })}`,
@@ -437,8 +437,8 @@ export function AlpenglowDashboard() {
                       description={
                         // testnet is over rpc, others are using laserstream
                         network === "testnet"
-                          ? "Mean RPC-observed finality over the latest one-minute window"
-                          : "Mean RPC-observed finality over the latest one-minute window, including polling and network delay."
+                          ? "Mean RPC-observed finality over the latest 30-second window"
+                          : "Mean RPC-observed finality over the latest 30-second window, including polling and network delay."
                       }
                     />
                   </dt>
@@ -470,7 +470,7 @@ export function AlpenglowDashboard() {
             label="Observed network throughput"
             value={formatNumber(transactionRate, 1)}
             unit={transactionRate === null ? undefined : "tx/s"}
-            description="The latest total transaction rate observed across the monitored exporter targets, including user and consensus transactions."
+            description="The total transaction rate over the latest 30-second window across the monitored exporter targets, including user and consensus transactions."
             interpretation="Compare this with user transactions per block. A lower total alone does not suggest that user capacity or performance declined."
           />
           <UserMetricCard
@@ -525,13 +525,13 @@ export function AlpenglowDashboard() {
           <div className="mt-4 grid gap-4 xl:grid-cols-2">
             <MetricChart
               title="Observed finality latency (p95)"
-              description="The 95th percentile of RPC-observed finality measurements over a rolling five-minute window. Ninety-five percent of observations completed at or below this value; polling and network delay are included."
+              description="The 95th percentile of RPC-observed finality measurements over a rolling two-minute window. Ninety-five percent of observations completed at or below this value; polling and network delay are included."
               series={detail.charts.p95FinalityLatencySeconds}
               unit="seconds"
             />
             <MetricChart
               title="Transaction throughput"
-              description="Total transactions per second, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
+              description="Total transactions per second over a rolling one-minute window, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
               series={detail.charts.transactionsPerSecond}
               unit="transactions per second"
             />
@@ -543,7 +543,7 @@ export function AlpenglowDashboard() {
             />
             <MetricChart
               title="Vote-account progress"
-              description="The average rate at which sampled validators' vote-account state advances. After Alpenglow activation, this progress derives from Alpenglow certificates rather than Tower votes."
+              description="The average rate at which sampled validators' vote-account state advances over a rolling two-minute window. After Alpenglow activation, this progress derives from Alpenglow certificates rather than Tower votes."
               series={detail.charts.towerVoteSlotsPerSecond}
               unit="slots per second"
             />
