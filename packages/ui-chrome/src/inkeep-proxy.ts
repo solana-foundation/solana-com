@@ -1,15 +1,15 @@
 import "server-only";
 
+import { checkRateLimit } from "@vercel/firewall";
+
 const INKEEP_AI_API_BASE_URL = "https://api.inkeep.com";
 const INKEEP_ANALYTICS_API_BASE_URL = "https://api.io.inkeep.com";
-const REQUEST_TIMEOUT_MS = 25_000;
+const REQUEST_HEADERS_TIMEOUT_MS = 25_000;
 const MAX_BODY_BYTES = 128 * 1024;
 const MAX_MESSAGES = 24;
 const MAX_MESSAGE_CONTENT_LENGTH = 8_000;
 const MAX_TOTAL_MESSAGE_CONTENT_LENGTH = 48_000;
 const MAX_SEARCH_QUERY_LENGTH = 500;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_CLIENTS = 10_000;
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
@@ -18,13 +18,80 @@ const NO_STORE_HEADERS = {
 const ENDPOINTS = {
   chat: {
     upstreamUrl: `${INKEEP_AI_API_BASE_URL}/v1/chat/completions`,
-    rateLimit: 30,
   },
   search: {
     upstreamUrl: `${INKEEP_AI_API_BASE_URL}/graphql`,
-    rateLimit: 120,
   },
 } as const;
+
+const RATE_LIMIT_IDS: Record<InkeepEndpoint, string> = {
+  analytics: "inkeep-analytics",
+  chat: "inkeep-chat",
+  search: "inkeep-search",
+};
+
+const SEARCH_QUERY = `query GetSearchResults($searchInput: SearchInput!) {
+  search(searchInput: $searchInput) {
+    searchHits {
+      id
+      hitOnRoot
+      url
+      title
+      preview
+      ... on DocumentationHit {
+        rootRecord {
+          __typename
+          id
+          title
+          url
+          preview
+          ... on DocumentationRecord {
+            pathBreadcrumbs
+            contentType
+            topLevelHeadings { anchor url content }
+          }
+        }
+        pathHeadings { anchor content }
+        content { anchor content }
+      }
+      ... on StackOverflowHit {
+        rootRecord {
+          __typename
+          id
+          title
+          url
+          preview
+          ... on StackOverflowRecord {
+            body
+            createdAt
+            markedAsCorrectAnswer { url score content }
+          }
+        }
+      }
+      ... on GitHubIssueHit {
+        rootRecord {
+          __typename
+          id
+          title
+          url
+          preview
+          ... on GitHubIssueRecord { createdAt body state }
+        }
+      }
+      ... on DiscourseHit {
+        rootRecord {
+          __typename
+          id
+          title
+          url
+          preview
+          ... on DiscourseRecord { createdAt body }
+        }
+      }
+    }
+    searchQuery
+  }
+}`;
 
 type InkeepEndpoint = keyof typeof ENDPOINTS | "analytics";
 
@@ -32,14 +99,6 @@ type ProxyOptions =
   | { endpoint: "chat" }
   | { endpoint: "search" }
   | { endpoint: "analytics"; path: string[] };
-
-type RateLimitCounter = {
-  count: number;
-  resetAt: number;
-};
-
-const rateLimitCounters = new Map<string, RateLimitCounter>();
-let lastRateLimitPrune = 0;
 
 export async function proxyInkeepRequest(
   request: Request,
@@ -72,19 +131,20 @@ export async function proxyInkeepRequest(
       );
     }
 
-    const rateLimit = checkRateLimit(
-      endpoint,
-      getClientIp(request.headers),
-      Date.now(),
-    );
-    if (!rateLimit.allowed) {
+    const rateLimit = await checkDistributedRateLimit(request, endpoint);
+    if (!rateLimit.ok) {
+      status = rateLimit.status;
+      failureClass = rateLimit.failureClass;
+      return rateLimit.response;
+    }
+    if (rateLimit.rateLimited) {
       status = 429;
       failureClass = "rate_limited";
       return errorResponse(
         status,
         "rate_limited",
         "Too many requests. Please try again shortly.",
-        { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        { "Retry-After": "60" },
       );
     }
 
@@ -119,6 +179,7 @@ export async function proxyInkeepRequest(
         return mapUpstreamError(upstreamResponse.status);
       }
 
+      abort.headersReceived();
       const response = streamUpstreamResponse(upstreamResponse, abort.cleanup);
       return response;
     } catch (error) {
@@ -165,13 +226,6 @@ async function prepareUpstreamRequest(
   | { ok: true; url: string; body: string | undefined }
   | { ok: false; response: Response }
 > {
-  if (options.endpoint === "analytics" && request.method === "GET") {
-    const upstreamUrl = getAnalyticsUrl(options.path);
-    return upstreamUrl
-      ? { ok: true, url: upstreamUrl, body: undefined }
-      : invalidRequest("The analytics request is invalid.");
-  }
-
   if (request.method !== "POST") {
     return {
       ok: false,
@@ -179,7 +233,7 @@ async function prepareUpstreamRequest(
         405,
         "method_not_allowed",
         "This request method is not allowed.",
-        { Allow: options.endpoint === "analytics" ? "GET, POST" : "POST" },
+        { Allow: "POST" },
       ),
     };
   }
@@ -203,7 +257,7 @@ async function prepareUpstreamRequest(
       ? {
           ok: true,
           url: ENDPOINTS.search.upstreamUrl,
-          body: JSON.stringify(parsedBody.value),
+          body: JSON.stringify(buildSearchBody(parsedBody.value)),
         }
       : invalidRequest("The search request is invalid.");
   }
@@ -316,13 +370,7 @@ function validateSearchBody(value: unknown): boolean {
     return false;
   }
 
-  if (
-    typeof value.query !== "string" ||
-    !value.query.includes("query GetSearchResults") ||
-    !value.query.includes("search(searchInput: $searchInput)")
-  ) {
-    return false;
-  }
+  if (typeof value.query !== "string") return false;
 
   const filters = searchInput.filters;
   if (filters !== undefined && !isRecord(filters)) return false;
@@ -340,11 +388,20 @@ function validateSearchBody(value: unknown): boolean {
   return true;
 }
 
+function buildSearchBody(value: unknown): Record<string, unknown> {
+  const searchInput = (value as { variables: { searchInput: object } })
+    .variables.searchInput;
+
+  return {
+    query: SEARCH_QUERY,
+    variables: { searchInput },
+  };
+}
+
 function getAnalyticsUrl(path: string[]): string | null {
   const joinedPath = path.join("/");
   if (
     joinedPath === "conversations" ||
-    /^conversations\/[A-Za-z0-9_-]{1,128}$/.test(joinedPath) ||
     joinedPath === "events" ||
     joinedPath === "feedback"
   ) {
@@ -368,16 +425,27 @@ function streamUpstreamResponse(
     return new Response(null, { status: upstreamResponse.status, headers });
   }
 
-  const body = upstreamResponse.body.pipeThrough(
-    new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        controller.enqueue(chunk);
-      },
-      flush() {
+  const reader = upstreamResponse.body.getReader();
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          cleanup();
+          controller.close();
+          return;
+        }
+        controller.enqueue(value);
+      } catch (error) {
         cleanup();
-      },
-    }),
-  );
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      cleanup();
+      await reader.cancel(reason).catch(() => undefined);
+    },
+  });
 
   return new Response(body, { status: upstreamResponse.status, headers });
 }
@@ -396,11 +464,14 @@ function createUpstreamAbortSignal(requestSignal: AbortSignal) {
     controller.abort(
       new DOMException("Upstream request timed out", "TimeoutError"),
     );
-  }, REQUEST_TIMEOUT_MS);
+  }, REQUEST_HEADERS_TIMEOUT_MS);
 
   return {
     signal: controller.signal,
     timedOut: () => didTimeOut,
+    headersReceived() {
+      clearTimeout(timeout);
+    },
     cleanup() {
       clearTimeout(timeout);
       requestSignal.removeEventListener("abort", abortFromRequest);
@@ -488,58 +559,57 @@ function getClientIp(headers: Headers): string {
   return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 }
 
-function checkRateLimit(
+async function checkDistributedRateLimit(
+  request: Request,
   endpoint: InkeepEndpoint,
-  clientIp: string,
-  now: number,
-): { allowed: true } | { allowed: false; retryAfterSeconds: number } {
-  pruneRateLimits(now);
-  const key = `${endpoint}:${clientIp}`;
-  const maxRequests =
-    endpoint === "analytics" ? 240 : ENDPOINTS[endpoint].rateLimit;
-  const existing = rateLimitCounters.get(key);
-  const counter =
-    existing && existing.resetAt > now
-      ? existing
-      : { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+): Promise<
+  | { ok: true; rateLimited: boolean }
+  | {
+      ok: false;
+      status: number;
+      failureClass: string;
+      response: Response;
+    }
+> {
+  try {
+    const result = await checkRateLimit(RATE_LIMIT_IDS[endpoint], {
+      request,
+      rateLimitKey: getClientIp(request.headers),
+    });
 
-  rateLimitCounters.set(key, counter);
-  if (counter.count >= maxRequests) {
+    if (result.error === "not-found" && process.env.NODE_ENV === "production") {
+      console.error("Inkeep Vercel WAF rate limit is not configured", {
+        endpoint,
+        rateLimitId: RATE_LIMIT_IDS[endpoint],
+      });
+      return rateLimitUnavailable();
+    }
+
     return {
-      allowed: false,
-      retryAfterSeconds: Math.max(
-        1,
-        Math.ceil((counter.resetAt - now) / 1_000),
-      ),
+      ok: true,
+      rateLimited: result.rateLimited,
     };
+  } catch (error) {
+    console.error("Inkeep rate-limit check failed", {
+      endpoint,
+      error: error instanceof Error ? error.message : "unknown_error",
+    });
+    return rateLimitUnavailable();
   }
-
-  counter.count += 1;
-  return { allowed: true };
 }
 
-function pruneRateLimits(now: number) {
-  if (
-    rateLimitCounters.size < RATE_LIMIT_MAX_CLIENTS &&
-    now - lastRateLimitPrune < RATE_LIMIT_WINDOW_MS
-  ) {
-    return;
-  }
-
-  lastRateLimitPrune = now;
-  for (const [key, counter] of rateLimitCounters) {
-    if (counter.resetAt <= now) rateLimitCounters.delete(key);
-  }
-
-  if (rateLimitCounters.size >= RATE_LIMIT_MAX_CLIENTS) {
-    const entriesToDelete = rateLimitCounters.size - RATE_LIMIT_MAX_CLIENTS + 1;
-    let deleted = 0;
-    for (const key of rateLimitCounters.keys()) {
-      rateLimitCounters.delete(key);
-      deleted += 1;
-      if (deleted >= entriesToDelete) break;
-    }
-  }
+function rateLimitUnavailable() {
+  const status = 503;
+  return {
+    ok: false as const,
+    status,
+    failureClass: "rate_limit_unavailable",
+    response: errorResponse(
+      status,
+      "inkeep_unavailable",
+      "Search and chat are temporarily unavailable.",
+    ),
+  };
 }
 
 function logMetric(metric: {
@@ -557,9 +627,4 @@ function isAbortError(error: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-export function resetInkeepRateLimitsForTests() {
-  rateLimitCounters.clear();
-  lastRateLimitPrune = 0;
 }

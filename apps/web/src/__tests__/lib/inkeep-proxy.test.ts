@@ -1,16 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { checkRateLimit } from "@vercel/firewall";
 
-import {
-  proxyInkeepRequest,
-  resetInkeepRateLimitsForTests,
-} from "@/lib/inkeep/proxy";
+import { proxyInkeepRequest } from "@solana-com/ui-chrome/inkeep-proxy";
+
+vi.mock("@vercel/firewall", () => ({
+  checkRateLimit: vi.fn(),
+}));
+
+const checkRateLimitMock = vi.mocked(checkRateLimit);
 
 const TEST_ORIGIN = "https://solana.com";
 const TEST_API_KEY = "test-server-key";
 
 describe("Inkeep API proxy", () => {
   beforeEach(() => {
-    resetInkeepRateLimitsForTests();
+    checkRateLimitMock.mockResolvedValue({ rateLimited: false });
     vi.stubEnv("INKEEP_API_KEY", TEST_API_KEY);
     vi.spyOn(console, "info").mockImplementation(() => undefined);
   });
@@ -77,6 +81,32 @@ describe("Inkeep API proxy", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.inkeep.com/graphql");
   });
 
+  it("replaces the caller's GraphQL document with the supported search operation", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ data: { search: {} } }));
+    const request = searchRequest("transactions");
+    const body = (await request.json()) as Record<string, unknown>;
+    const response = await proxyInkeepRequest(
+      new Request(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify({
+          ...body,
+          query: `${String(body.query)} mutation Unexpected { deleteAll }`,
+        }),
+      }),
+      { endpoint: "search" },
+    );
+
+    expect(response.status).toBe(200);
+    const upstreamBody = JSON.parse(
+      String(fetchMock.mock.calls[0]?.[1]?.body),
+    ) as { query: string };
+    expect(upstreamBody.query).toContain("query GetSearchResults");
+    expect(upstreamBody.query).not.toContain("mutation Unexpected");
+  });
+
   it("rejects invalid and oversized requests before calling Inkeep", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
@@ -100,17 +130,8 @@ describe("Inkeep API proxy", () => {
   });
 
   it("rate limits repeated requests from the same client", async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockImplementation(async () => Response.json({ ok: true }));
-
-    for (let index = 0; index < 30; index += 1) {
-      const response = await proxyInkeepRequest(chatRequest(), {
-        endpoint: "chat",
-      });
-      expect(response.status).toBe(200);
-      await response.text();
-    }
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    checkRateLimitMock.mockResolvedValueOnce({ rateLimited: true });
 
     const response = await proxyInkeepRequest(chatRequest(), {
       endpoint: "chat",
@@ -118,7 +139,11 @@ describe("Inkeep API proxy", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("60");
     expect(await errorCode(response)).toBe("rate_limited");
-    expect(fetchMock).toHaveBeenCalledTimes(30);
+    expect(checkRateLimitMock).toHaveBeenCalledWith(
+      "inkeep-chat",
+      expect.objectContaining({ rateLimitKey: "192.0.2.1" }),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -170,6 +195,37 @@ describe("Inkeep API proxy", () => {
 
     expect(response.status).toBe(504);
     expect(await errorCode(response)).toBe("inkeep_timeout");
+  });
+
+  it("does not abort an active stream after response headers arrive", async () => {
+    vi.useFakeTimers();
+    let upstreamSignal: AbortSignal | null | undefined;
+    const cancel = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+      upstreamSignal = init?.signal;
+      return Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("data: first\n\n"));
+            },
+            cancel,
+          }),
+          { headers: { "Content-Type": "text/event-stream" } },
+        ),
+      );
+    });
+
+    const response = await proxyInkeepRequest(chatRequest(), {
+      endpoint: "chat",
+    });
+    const reader = response.body!.getReader();
+    await reader.read();
+    await vi.advanceTimersByTimeAsync(25_000);
+
+    expect(upstreamSignal?.aborted).toBe(false);
+    await reader.cancel();
+    expect(cancel).toHaveBeenCalledOnce();
   });
 
   it("propagates a client disconnect to the upstream request", async () => {
