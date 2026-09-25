@@ -11,6 +11,7 @@ const checkRateLimitMock = vi.mocked(checkRateLimit);
 
 const TEST_ORIGIN = "https://solana.com";
 const TEST_API_KEY = "test-server-key";
+const TEST_CHALLENGE_SOLUTION = "eyJudW1iZXIiOjF9";
 
 describe("Inkeep API proxy", () => {
   beforeEach(() => {
@@ -49,10 +50,65 @@ describe("Inkeep API proxy", () => {
     );
     expect(new Headers(init?.headers).get("origin")).toBe(TEST_ORIGIN);
     expect(new Headers(init?.headers).get("referer")).toBe(`${TEST_ORIGIN}/`);
+    expect(new Headers(init?.headers).get("x-inkeep-challenge-solution")).toBe(
+      TEST_CHALLENGE_SOLUTION,
+    );
     expect(JSON.parse(String(init?.body))).toMatchObject({
       model: "inkeep-qa-expert",
       messages: [{ role: "user", content: "How do I get started?" }],
     });
+  });
+
+  it("proxies Inkeep challenges needed by domain-restricted web keys", async () => {
+    const challenge = {
+      algorithm: "SHA-256",
+      challenge: "abc123",
+      maxnumber: 100_000,
+      salt: "salt",
+      signature: "signature",
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json(challenge));
+    const request = new Request(`${TEST_ORIGIN}/api/inkeep/v1/challenge`, {
+      headers: {
+        referer: `${TEST_ORIGIN}/docs`,
+        "sec-fetch-site": "same-origin",
+        "x-forwarded-for": "192.0.2.30",
+      },
+    });
+
+    const response = await proxyInkeepRequest(request, {
+      endpoint: "challenge",
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(challenge);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "https://api.inkeep.com/v1/challenge",
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("GET");
+    const upstreamHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(upstreamHeaders.get("origin")).toBe(TEST_ORIGIN);
+    expect(upstreamHeaders.get("referer")).toBe(`${TEST_ORIGIN}/`);
+  });
+
+  it("rejects challenge requests without same-origin browser metadata", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const request = new Request(`${TEST_ORIGIN}/api/inkeep/v1/challenge`, {
+      headers: {
+        referer: "https://example.com/",
+        "sec-fetch-site": "cross-site",
+        "x-forwarded-for": "192.0.2.31",
+      },
+    });
+
+    const response = await proxyInkeepRequest(request, {
+      endpoint: "challenge",
+    });
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("passes document search results and source URLs through", async () => {
@@ -128,6 +184,26 @@ describe("Inkeep API proxy", () => {
     expect(await errorCode(invalidResponse)).toBe("invalid_request");
     expect(oversizedResponse.status).toBe(413);
     expect(await errorCode(oversizedResponse)).toBe("invalid_request");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects chat requests without a valid challenge solution", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const missingChallenge = chatRequest();
+    missingChallenge.headers.delete("x-inkeep-challenge-solution");
+    const invalidChallenge = chatRequest(undefined, {
+      "x-inkeep-challenge-solution": "not base64!",
+    });
+
+    const missingResponse = await proxyInkeepRequest(missingChallenge, {
+      endpoint: "chat",
+    });
+    const invalidResponse = await proxyInkeepRequest(invalidChallenge, {
+      endpoint: "chat",
+    });
+
+    expect(missingResponse.status).toBe(400);
+    expect(invalidResponse.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -342,6 +418,7 @@ function chatRequest(
       "content-type": "application/json",
       origin: TEST_ORIGIN,
       "sec-fetch-site": "same-origin",
+      "x-inkeep-challenge-solution": TEST_CHALLENGE_SOLUTION,
       "x-forwarded-for": "192.0.2.1",
       ...extraHeaders,
     },
