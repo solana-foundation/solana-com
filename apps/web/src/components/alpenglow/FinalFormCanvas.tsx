@@ -15,7 +15,8 @@ const MAX_FALLBACK_BLOCKS = 256;
 const FALLBACK_BLOCK_RETENTION_MS = 60_000;
 const LEGACY_FINALITY_SECONDS = 12.8;
 const ALPENGLOW_FINALITY_SECONDS = 0.15;
-const STREAM_HOLD_MS = 900;
+const STREAM_ENTRY_MS = 180;
+const STREAM_HOLD_MS = 400;
 const STAGE_TRANSITION_MS = 850;
 const MELT_DURATION_MS = 3_200;
 const MELT_RELEASE_SPREAD_MS = 280;
@@ -30,8 +31,6 @@ const HAZE_GLYPHS = ["0", "1"] as const;
 const HAZE_CELL_SIZE_PX = 12;
 
 type FinalityMode = "legacy" | "alpenglow";
-type CycleState = "forming" | "melting";
-
 type StreamVoxel = TransactionObserved & {
   born: number;
   seed: number;
@@ -50,6 +49,11 @@ type FinalVoxel = ConfirmedVoxel & {
   seed: number;
   finalEnteredAt: number;
   finalFromPosition: THREE.Vector3;
+};
+
+type MeltingVoxel = FinalVoxel & {
+  meltTarget: THREE.Vector3;
+  meltStartedAt: number;
 };
 
 type VisualBlock = Omit<BlockConfirmed, "transactionSignatures"> & {
@@ -479,11 +483,9 @@ function addStageFrame(group: THREE.Group, x: number) {
 
 type FallbackState = {
   counts: [number, number, number];
-  meltingCount: number;
+  melting: Array<{ count: number; startedAt: number }>;
   population: number;
   cyclePopulation: number;
-  cycleState: CycleState;
-  cycleAt: number;
 };
 
 function mountFallback(host: HTMLDivElement, state: FallbackState) {
@@ -499,22 +501,13 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
   function draw(now: number) {
     if (!running) return;
     if (!context) return;
-    if (
-      state.cycleState === "melting" &&
-      now - state.cycleAt >= MELT_DURATION_MS
-    ) {
-      state.meltingCount = 0;
-      state.cycleState = "forming";
-    }
-    if (
-      state.cycleState === "forming" &&
-      state.counts[2] >= state.cyclePopulation
-    ) {
-      state.meltingCount = state.counts[2];
+    state.melting = state.melting.filter(
+      (batch) => now - batch.startedAt < MELT_DURATION_MS,
+    );
+    if (state.counts[2] >= state.cyclePopulation) {
+      state.melting.push({ count: state.counts[2], startedAt: now });
       state.counts[2] = 0;
       state.cyclePopulation = state.population;
-      state.cycleState = "melting";
-      state.cycleAt = now;
     }
     const ratio = Math.min(window.devicePixelRatio, 1.5);
     const width = host.clientWidth;
@@ -548,8 +541,12 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
       context.stroke();
 
       const formingVisible = Math.min(900, state.counts[stage]!);
+      const meltingCount = state.melting.reduce(
+        (total, batch) => total + batch.count,
+        0,
+      );
       const meltingVisible =
-        stage === 2 ? Math.min(900 - formingVisible, state.meltingCount) : 0;
+        stage === 2 ? Math.min(900 - formingVisible, meltingCount) : 0;
       const visible = formingVisible + meltingVisible;
       const columns = Math.max(2, Math.ceil(Math.sqrt(visible)));
       const dot = Math.max(1.2, size * 0.012);
@@ -559,7 +556,7 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
         let y: number;
         if (stage === 0) {
           const streamSeed = signatureSeed(`stream-${index}`);
-          const streamProgress = (now * 0.00055 + unit(streamSeed, 0)) % 1;
+          const streamProgress = (now * 0.0018 + unit(streamSeed, 0)) % 1;
           x = left + size * (-0.2 + streamProgress * 1.05);
           y =
             top +
@@ -582,7 +579,11 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
           x = left + size * (0.18 + chamfer + progress * (0.64 - chamfer * 2));
           y = top + size * (0.23 + band * 0.27 + row * 0.012);
           if (isMelting) {
-            const melt = Math.min(1, (now - state.cycleAt) / MELT_DURATION_MS);
+            const latestBatch = state.melting.at(-1);
+            const melt = Math.min(
+              1,
+              (now - (latestBatch?.startedAt ?? now)) / MELT_DURATION_MS,
+            );
             y += melt * melt * size * (0.4 + unit(seed, 16) * 0.35);
           }
         }
@@ -661,11 +662,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         let tps = 3_000;
         const fallbackState: FallbackState = {
           counts: [0, 0, 0],
-          meltingCount: 0,
+          melting: [],
           population: populationFor(tps, mode),
           cyclePopulation: populationFor(tps, mode),
-          cycleState: "forming",
-          cycleAt: 0,
         };
         const fallbackBlocks = new Map<
           string,
@@ -734,15 +733,13 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           block.confirmedCount -= moved;
           block.finalizedCount += moved;
           block.optimisticallyFinalized = true;
-          if (
-            fallbackState.cycleState === "forming" &&
-            fallbackState.counts[2] >= fallbackState.cyclePopulation
-          ) {
-            fallbackState.meltingCount = fallbackState.counts[2];
+          if (fallbackState.counts[2] >= fallbackState.cyclePopulation) {
+            fallbackState.melting.push({
+              count: fallbackState.counts[2],
+              startedAt: performance.now(),
+            });
             fallbackState.counts[2] = 0;
             fallbackState.cyclePopulation = fallbackState.population;
-            fallbackState.cycleState = "melting";
-            fallbackState.cycleAt = performance.now();
           }
           reportFallback();
         }
@@ -753,7 +750,10 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             ).length,
             rendered:
               fallbackState.counts.reduce((total, count) => total + count, 0) +
-              fallbackState.meltingCount,
+              fallbackState.melting.reduce(
+                (total, batch) => total + batch.count,
+                0,
+              ),
             finalizedBlocks: fallbackFinalizedBlocks,
             currentFinalityMs: fallbackCurrentFinalityMs,
             medianFinalityMs: median(fallbackFinalityValues),
@@ -812,11 +812,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           },
           resetStream() {
             fallbackState.counts = [0, 0, 0];
-            fallbackState.meltingCount = 0;
+            fallbackState.melting = [];
             fallbackState.population = populationFor(tps, mode);
             fallbackState.cyclePopulation = fallbackState.population;
-            fallbackState.cycleState = "forming";
-            fallbackState.cycleAt = 0;
             fallbackBlocks.clear();
             fallbackFinalityValues.length = 0;
             fallbackFinalizedBlocks = 0;
@@ -906,11 +904,9 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       let streaming: StreamVoxel[] = [];
       let confirmed: ConfirmedVoxel[] = [];
       let final: FinalVoxel[] = [];
-      let melting: FinalVoxel[] = [];
-      let meltingLogoModel: LogoModel | null = null;
+      let melting: MeltingVoxel[] = [];
       let confirmedDirty = true;
       let finalDirty = true;
-      let meltStartedAt = 0;
       let finalizedBlocks = 0;
       let currentFinalityMs = 0;
       let lastTelemetry = 0;
@@ -1070,7 +1066,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             (voxel) => voxel.blockhash !== event.blockhash,
           );
           if (!melting.length) {
-            meltingLogoModel = null;
             meltingMesh.count = 0;
           }
           targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
@@ -1133,7 +1128,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         confirmed = [];
         final = [];
         melting = [];
-        meltingLogoModel = null;
         blocks.clear();
         finalityValues.length = 0;
         finalizedBlocks = 0;
@@ -1149,7 +1143,6 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         meltingMesh.count = 0;
         confirmedDirty = true;
         finalDirty = true;
-        meltStartedAt = 0;
         lastTelemetry = 0;
         onTelemetry({
           holding: 0,
@@ -1255,7 +1248,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         output: THREE.Vector3,
       ) {
         const age = now - voxel.born;
-        const entry = ease(age / 640);
+        const entry = ease(age / STREAM_ENTRY_MS);
         const block = voxel.blockhash ? blocks.get(voxel.blockhash) : undefined;
         const blockPopulation = Math.max(
           1,
@@ -1369,16 +1362,21 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       }
 
       function renderMelting(now: number) {
-        if (!melting.length || !meltingLogoModel) return;
+        if (!melting.length) return;
         melting.forEach((voxel, index) => {
-          const target = meltingLogoModel?.points[voxel.targetIndex];
-          if (!target) return;
           const transition = reduceMotion
             ? 1
             : ease((now - voxel.finalEnteredAt) / STAGE_TRANSITION_MS);
-          position.lerpVectors(voxel.finalFromPosition, target, transition);
+          position.lerpVectors(
+            voxel.finalFromPosition,
+            voxel.meltTarget,
+            transition,
+          );
           const releaseDelay = unit(voxel.seed, 24) * MELT_RELEASE_SPREAD_MS;
-          const fallingMs = Math.max(0, now - meltStartedAt - releaseDelay);
+          const fallingMs = Math.max(
+            0,
+            now - voxel.meltStartedAt - releaseDelay,
+          );
           const fallingSeconds = fallingMs / 1_000;
           const melt = Math.min(
             1,
@@ -1431,10 +1429,17 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           material.uniforms.uPixelRatio!.value = renderer.getPixelRatio();
         }
 
-        emissionCredit += (tps * delta) / 1_000;
+        const pendingCount = pending.length - pendingIndex;
+        if (pendingCount > 0) {
+          emissionCredit += (tps * delta) / 1_000;
+        } else {
+          // Blocks arrive from RPC in batches. Do not bank idle-time credit and
+          // dump the next block into the scene in a single frame.
+          emissionCredit = 0;
+        }
         const emitCount = Math.min(
           Math.floor(emissionCredit),
-          pending.length - pendingIndex,
+          pendingCount,
           MAX_STAGE_VOXELS - streaming.length,
         );
         if (emitCount > 0) {
@@ -1478,16 +1483,22 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         streaming = remainingStreaming;
 
         moveReadyVoxels(now);
-        if (melting.length && now - meltStartedAt >= MELT_DURATION_MS) {
-          melting = [];
-          meltingLogoModel = null;
-          meltingMesh.count = 0;
-        }
+        melting = melting.filter(
+          (voxel) => now - voxel.meltStartedAt < MELT_DURATION_MS,
+        );
+        if (!melting.length) meltingMesh.count = 0;
         let startedMelt = false;
-        if (!melting.length && final.length >= cyclePopulation) {
-          melting = final;
-          meltingLogoModel = logoModel;
-          meltStartedAt = now;
+        if (final.length >= cyclePopulation) {
+          const completed = final.map(
+            (voxel): MeltingVoxel => ({
+              ...voxel,
+              meltTarget:
+                logoModel.points[voxel.targetIndex]?.clone() ??
+                voxel.finalFromPosition.clone(),
+              meltStartedAt: now,
+            }),
+          );
+          melting = [...melting, ...completed].slice(-MAX_STAGE_VOXELS);
           final = [];
           finalMesh.count = 0;
           cyclePopulation = Math.max(targetPopulation, MIN_LOGO_POPULATION);
