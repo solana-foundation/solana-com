@@ -6,7 +6,7 @@ import {
   SystemProgram,
   Transaction,
   LAMPORTS_PER_SOL,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 import {
   createInitializeMintInstruction,
   MINT_SIZE,

@@ -1,5 +1,5 @@
 // #region bip44
-import { Keypair } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js-legacy";
 import { HDKey } from "micro-ed25519-hdkey";
 import * as bip39 from "bip39";
 
