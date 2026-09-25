@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   try {
     const data = await getAlpenglowDetailData(range, network);
     return NextResponse.json(data, {
-      headers: alpenglowPublicCacheHeaders(15, 60),
+      headers: alpenglowPublicCacheHeaders(8, 24),
     });
   } catch (error) {
     console.error("Failed to load Alpenglow metric details:", error);

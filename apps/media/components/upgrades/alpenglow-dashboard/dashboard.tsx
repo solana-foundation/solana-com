@@ -28,10 +28,10 @@ const RANGE_LABELS: Record<AlpenglowDashboardRange, string> = {
   "7d": "7 days",
 };
 
-const STATUS_POLL_INTERVAL_MS = 10_000;
+const STATUS_POLL_INTERVAL_MS = 2_000;
 const STATUS_MAX_BACKOFF_MS = 60_000;
-const LIVE_POLL_INTERVAL_MS = 3_000;
-const DETAIL_POLL_INTERVAL_MS = 15_000;
+const LIVE_POLL_INTERVAL_MS = 8_000;
+const DETAIL_POLL_INTERVAL_MS = 8_000;
 
 function statusPollInterval(
   data: AlpenglowDashboardActivationData,

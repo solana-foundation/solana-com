@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
   try {
     const data = await getAlpenglowDashboardData(range, network);
     return NextResponse.json(data, {
+      // The legacy combined response includes RPC activation state, so retain
+      // the faster RPC-facing edge cadence. Its Prometheus loaders are still
+      // protected by their independent eight-second server caches.
       headers: alpenglowPublicCacheHeaders(2, 6),
     });
   } catch (error) {

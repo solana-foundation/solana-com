@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const cachePolicy =
       data.alpenglowActive === true
         ? { fresh: 86_400, stale: 86_400 }
-        : { fresh: 10, stale: 30 };
+        : { fresh: 2, stale: 6 };
 
     return NextResponse.json(data, {
       headers: alpenglowPublicCacheHeaders(

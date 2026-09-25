@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   try {
     const data = await getAlpenglowLiveData(network);
     return NextResponse.json(data, {
-      headers: alpenglowPublicCacheHeaders(2, 6),
+      headers: alpenglowPublicCacheHeaders(8, 24),
     });
   } catch (error) {
     console.error("Failed to load live Alpenglow metrics:", error);
