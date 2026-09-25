@@ -223,8 +223,10 @@ export default function FinalFormExperience({
     <main className="ff-root">
       <section className="ff-hero" aria-labelledby="ff-title">
         <div>
-          <p className="ff-kicker">{t("hero.kicker")}</p>
-          <h1 id="ff-title">
+          <h1 className="ff-kicker" id="ff-title">
+            {t("hero.kicker")}
+          </h1>
+          <p className="ff-finality-heading">
             {t("hero.legacyFinality")}{" "}
             <span className="ff-finality-target">
               <span className="ff-finality-arrow" aria-hidden="true">
@@ -232,7 +234,7 @@ export default function FinalFormExperience({
               </span>{" "}
               {t("hero.alpenglowFinality")}
             </span>
-          </h1>
+          </p>
         </div>
         <div className="ff-intro">
           <p>{t("hero.description")}</p>
