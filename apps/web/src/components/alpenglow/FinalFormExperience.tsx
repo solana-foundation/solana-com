@@ -153,7 +153,7 @@ export default function FinalFormExperience({
 
   useEffect(() => {
     if (!visualizerIsActive) return;
-    const source = new EventSource("/api/alpenglow/stream");
+    const source = new EventSource("/api/alpenglow/stream?version=2");
     source.onmessage = (message) => {
       try {
         const event = JSON.parse(message.data) as AlpenglowEvent;
@@ -171,7 +171,10 @@ export default function FinalFormExperience({
             confirmedSlot: event.slot,
             latestBlockTransactions: event.transactionCount,
           }));
-        if (event.type === "block_confirmed") {
+        if (
+          event.type === "block_confirmed" &&
+          Array.isArray(event.transactionSignatures)
+        ) {
           event.transactionSignatures.forEach((signature, indexInBlock) => {
             pushToCanvas({
               type: "transaction_observed",

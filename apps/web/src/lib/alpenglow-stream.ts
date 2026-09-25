@@ -46,3 +46,10 @@ export function shouldReplayCanonicalBlock(
 ) {
   return observedHash !== canonicalHash;
 }
+
+export function shouldDeferFinalizedBlock(
+  finalizedSlot: number,
+  confirmedCursorAtPollStart: number,
+) {
+  return finalizedSlot > confirmedCursorAtPollStart;
+}

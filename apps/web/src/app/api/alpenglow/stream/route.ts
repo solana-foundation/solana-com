@@ -7,6 +7,7 @@ import {
   alpenglowRpcUrl,
   blockRequestOptions,
   cursorAfterBlockReads,
+  shouldDeferFinalizedBlock,
   shouldReplayCanonicalBlock,
   type BlockRead,
   type RpcBlock,
@@ -28,6 +29,7 @@ type Subscriber = {
   controller: ReadableStreamDefaultController<Uint8Array>;
   pending: Uint8Array[];
   pendingBytes: number;
+  streamVersion: 1 | 2;
   cleanup: () => void;
 };
 type Producer = { abort: AbortController };
@@ -81,27 +83,57 @@ function removeSubscriber(subscriber: Subscriber) {
   }
 }
 
+function enqueue(subscriber: Subscriber, chunk: Uint8Array) {
+  if (
+    subscriber.pending.length === 0 &&
+    (subscriber.controller.desiredSize ?? 0) > 0
+  ) {
+    subscriber.controller.enqueue(chunk);
+    return true;
+  }
+  if (
+    subscriber.pendingBytes + chunk.byteLength >
+    MAX_PENDING_BYTES_PER_CLIENT
+  ) {
+    removeSubscriber(subscriber);
+    subscriber.controller.close();
+    return false;
+  }
+  subscriber.pending.push(chunk);
+  subscriber.pendingBytes += chunk.byteLength;
+  return true;
+}
+
+function legacyTransactionChunks(event: BlockConfirmed) {
+  return (event.transactionSignatures ?? []).map((signature, indexInBlock) =>
+    sse({
+      type: "transaction_observed",
+      signature,
+      slot: event.slot,
+      blockhash: event.blockhash,
+      observedAt: event.confirmedAt,
+      programIds: [],
+      success: true,
+      indexInBlock,
+    }),
+  );
+}
+
 function publish(event: AlpenglowEvent) {
   if (event.type === "stream_status") latestStatus = event;
   const chunk = sse(event);
+  const legacyChunks =
+    event.type === "block_confirmed" &&
+    [...subscribers].some((subscriber) => subscriber.streamVersion === 1)
+      ? legacyTransactionChunks(event)
+      : [];
   for (const subscriber of [...subscribers]) {
-    if (
-      subscriber.pending.length === 0 &&
-      (subscriber.controller.desiredSize ?? 0) > 0
-    ) {
-      subscriber.controller.enqueue(chunk);
-      continue;
+    if (subscriber.streamVersion === 1) {
+      for (const legacyChunk of legacyChunks) {
+        if (!enqueue(subscriber, legacyChunk)) break;
+      }
     }
-    if (
-      subscriber.pendingBytes + chunk.byteLength >
-      MAX_PENDING_BYTES_PER_CLIENT
-    ) {
-      removeSubscriber(subscriber);
-      subscriber.controller.close();
-      continue;
-    }
-    subscriber.pending.push(chunk);
-    subscriber.pendingBytes += chunk.byteLength;
+    if (subscribers.has(subscriber)) enqueue(subscriber, chunk);
   }
 }
 
@@ -260,6 +292,7 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
       let confirmedComplete = false;
       let finalizedComplete = false;
       let pollError: unknown;
+      const confirmedCursorAtPollStart = confirmedCursor;
 
       const confirmedEnd = Math.min(
         confirmedHead,
@@ -312,8 +345,13 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
       }
 
       if (finalizedRange) {
+        let deferredFinalizedSlot: number | undefined;
         for (const { slot, block } of finalizedRange.reads) {
           if (!block) continue;
+          if (shouldDeferFinalizedBlock(slot, confirmedCursorAtPollStart)) {
+            deferredFinalizedSlot = slot;
+            break;
+          }
           const observed = confirmedAt.get(slot);
           const now = Date.now();
           if (shouldReplayCanonicalBlock(observed?.hash, block.blockhash)) {
@@ -336,8 +374,11 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
           });
           confirmedAt.delete(slot);
         }
-        finalizedCursor = finalizedRange.cursor;
-        finalizedComplete = !finalizedRange.failed;
+        finalizedCursor = deferredFinalizedSlot
+          ? deferredFinalizedSlot - 1
+          : finalizedRange.cursor;
+        finalizedComplete =
+          !finalizedRange.failed && deferredFinalizedSlot == null;
         if (finalizedRange.failed) {
           finalizedRetryMs = Math.min(MAX_RETRY_MS, finalizedRetryMs * 2);
           finalizedRetryAt = pollNow + finalizedRetryMs;
@@ -449,6 +490,8 @@ export async function GET(request: Request) {
     });
   }
 
+  const streamVersion =
+    new URL(request.url).searchParams.get("version") === "2" ? 2 : 1;
   let subscriber: Subscriber | undefined;
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -464,6 +507,7 @@ export async function GET(request: Request) {
         controller,
         pending: [],
         pendingBytes: 0,
+        streamVersion,
         cleanup: () => request.signal.removeEventListener("abort", handleAbort),
       };
       subscribers.add(subscriber);

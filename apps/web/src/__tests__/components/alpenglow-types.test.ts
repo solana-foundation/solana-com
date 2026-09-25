@@ -5,6 +5,7 @@ import {
   cursorAfterBlockReads,
   DEFAULT_SOLANA_RPC_URL,
   MAX_SUPPORTED_TRANSACTION_VERSION,
+  shouldDeferFinalizedBlock,
   shouldReplayCanonicalBlock,
 } from "@/lib/alpenglow-stream";
 import { signatureSeed } from "@/components/alpenglow/types";
@@ -60,5 +61,10 @@ describe("Alpenglow stream progression", () => {
     expect(shouldReplayCanonicalBlock("orphan", "canonical")).toBe(true);
     expect(shouldReplayCanonicalBlock("canonical", "canonical")).toBe(false);
     expect(shouldReplayCanonicalBlock(undefined, "canonical")).toBe(true);
+  });
+
+  it("defers finalization first observed in the confirmation poll", () => {
+    expect(shouldDeferFinalizedBlock(13, 12)).toBe(true);
+    expect(shouldDeferFinalizedBlock(12, 12)).toBe(false);
   });
 });

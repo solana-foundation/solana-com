@@ -16,7 +16,7 @@ export type BlockConfirmed = {
   slot: number;
   blockhash: string;
   confirmedAt: number;
-  transactionSignatures: string[];
+  transactionSignatures?: string[];
   transactionCount: number;
 };
 
