@@ -245,6 +245,20 @@ function isByteArray(value: unknown): value is number[] {
   );
 }
 
+function unsupportedActivationData(
+  network: AlpenglowDashboardNetwork,
+): AlpenglowDashboardActivationData {
+  return {
+    generatedAt: new Date().toISOString(),
+    network,
+    alpenglowRpcSupported: false,
+    alpenglowActive: null,
+    genesisSlot: null,
+    certificateValidatorCount: null,
+    warnings: [],
+  };
+}
+
 async function loadAlpenglowActivationData(
   network: AlpenglowDashboardNetwork,
 ): Promise<AlpenglowDashboardActivationData> {
@@ -266,6 +280,9 @@ async function loadAlpenglowActivationData(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
+    if (response.status === 404) {
+      return unsupportedActivationData(network);
+    }
     if (!response.ok) {
       throw new Error(`Solana RPC returned HTTP ${response.status}`);
     }
@@ -277,15 +294,7 @@ async function loadAlpenglowActivationData(
 
     const error = rpcError(payload);
     if (error?.code === -32601) {
-      return {
-        generatedAt: new Date().toISOString(),
-        network,
-        alpenglowRpcSupported: false,
-        alpenglowActive: null,
-        genesisSlot: null,
-        certificateValidatorCount: null,
-        warnings: [],
-      };
+      return unsupportedActivationData(network);
     }
     if (error) throw new Error(`Solana RPC error: ${error.message}`);
     if (!("result" in payload)) {
