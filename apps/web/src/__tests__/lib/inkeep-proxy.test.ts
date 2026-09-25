@@ -263,20 +263,30 @@ describe("Inkeep API proxy", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it.each(["origin", "sec-fetch-site"])(
-    "rejects requests without the %s browser header",
-    async (header) => {
-      const fetchMock = vi.spyOn(globalThis, "fetch");
-      const request = chatRequest();
-      request.headers.delete(header);
+  it("rejects requests without an Origin header", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const request = chatRequest();
+    request.headers.delete("origin");
 
-      const response = await proxyInkeepRequest(request, { endpoint: "chat" });
+    const response = await proxyInkeepRequest(request, { endpoint: "chat" });
 
-      expect(response.status).toBe(403);
-      expect(await errorCode(response)).toBe("invalid_origin");
-      expect(fetchMock).not.toHaveBeenCalled();
-    },
-  );
+    expect(response.status).toBe(403);
+    expect(await errorCode(response)).toBe("invalid_origin");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows matching origins when Sec-Fetch-Site is unavailable", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ data: { search: {} } }));
+    const request = searchRequest("transactions");
+    request.headers.delete("sec-fetch-site");
+
+    const response = await proxyInkeepRequest(request, { endpoint: "search" });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
 
   it("does not forward caller-controlled origin metadata to Inkeep", async () => {
     const fetchMock = vi

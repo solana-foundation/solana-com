@@ -539,7 +539,7 @@ function errorResponse(
 
 function isSameOriginBrowserRequest(request: Request): boolean {
   const fetchSite = request.headers.get("sec-fetch-site");
-  if (fetchSite !== "same-origin") return false;
+  if (fetchSite && fetchSite !== "same-origin") return false;
 
   const origin = request.headers.get("origin");
   if (!origin) return false;
