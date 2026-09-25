@@ -47,6 +47,8 @@ describe("Inkeep API proxy", () => {
     expect(new Headers(init?.headers).get("authorization")).toBe(
       `Bearer ${TEST_API_KEY}`,
     );
+    expect(new Headers(init?.headers).get("origin")).toBe(TEST_ORIGIN);
+    expect(new Headers(init?.headers).get("referer")).toBe(`${TEST_ORIGIN}/`);
     expect(JSON.parse(String(init?.body))).toMatchObject({
       model: "inkeep-qa-expert",
       messages: [{ role: "user", content: "How do I get started?" }],
@@ -259,6 +261,46 @@ describe("Inkeep API proxy", () => {
     expect(response.status).toBe(403);
     expect(await errorCode(response)).toBe("invalid_origin");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects requests without an Origin header", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const request = chatRequest();
+    request.headers.delete("origin");
+
+    const response = await proxyInkeepRequest(request, { endpoint: "chat" });
+
+    expect(response.status).toBe(403);
+    expect(await errorCode(response)).toBe("invalid_origin");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows matching origins when Sec-Fetch-Site is unavailable", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ data: { search: {} } }));
+    const request = searchRequest("transactions");
+    request.headers.delete("sec-fetch-site");
+
+    const response = await proxyInkeepRequest(request, { endpoint: "search" });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not forward caller-controlled origin metadata to Inkeep", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ data: { search: {} } }));
+    const request = searchRequest("transactions");
+    request.headers.set("referer", "https://example.com/phishing");
+
+    const response = await proxyInkeepRequest(request, { endpoint: "search" });
+
+    expect(response.status).toBe(200);
+    const upstreamHeaders = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(upstreamHeaders.get("origin")).toBe(TEST_ORIGIN);
+    expect(upstreamHeaders.get("referer")).toBe(`${TEST_ORIGIN}/`);
   });
 
   it("does not expose analytics conversation reads", async () => {
