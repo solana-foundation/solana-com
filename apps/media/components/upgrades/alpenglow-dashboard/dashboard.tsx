@@ -251,10 +251,6 @@ export function AlpenglowDashboard() {
   ].filter(
     (warning, index, allWarnings) => allWarnings.indexOf(warning) === index,
   );
-  const isRefreshing =
-    statusPoller.isRefreshing ||
-    livePoller.isRefreshing ||
-    detailPoller.isRefreshing;
   const hasAnyData = activation !== null || live !== null || detail !== null;
   const isInitialLoading =
     !hasAnyData &&
@@ -367,10 +363,7 @@ export function AlpenglowDashboard() {
     <div className="space-y-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div aria-live="polite">
-          <p className="text-xs text-gray-500">
-            {updateStatus}
-            {isRefreshing ? " · Refreshing…" : ""}
-          </p>
+          <p className="text-xs text-gray-500">{updateStatus}</p>
           {pageErrors[0] && (
             <p className="mt-1 text-xs text-amber-300">{pageErrors[0]}</p>
           )}
