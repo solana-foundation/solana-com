@@ -4,7 +4,7 @@ import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { AlpenglowDashboard } from "@/components/upgrades/alpenglow-dashboard/dashboard";
 
 export const metadata: Metadata = {
-  title: "Alpenglow transition dashboard",
+  title: "Alpenglow Transition Dashboard",
   description:
     "Live Solana consensus metrics tracking the transition from Tower BFT to Alpenglow.",
 };
