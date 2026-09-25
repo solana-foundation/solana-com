@@ -288,6 +288,7 @@ export function AlpenglowDashboard() {
         ? "The cluster can report Alpenglow activation, but no genesis certificate has been observed. Tower BFT remains the active consensus protocol."
         : "This cluster does not currently expose enough information to confirm Alpenglow activation.";
   const transactionRate = live?.transactionsPerSecond ?? null;
+  const voteAccountProgress = live?.voteAccountProgressSlotsPerSecond ?? null;
   const latestFinalityLatency = formatLatency(
     status.latestFinalityLatencySeconds,
   );
@@ -435,7 +436,7 @@ export function AlpenglowDashboard() {
             description="These latest samples separate user activity from Tower consensus traffic. A drop in total transactions can be healthy when Tower votes disappear but non-vote traffic remains steady."
           />
         </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <UserMetricCard
             label="Observed network throughput"
             value={formatNumber(transactionRate, 1)}
@@ -468,6 +469,13 @@ export function AlpenglowDashboard() {
             unit={towerVoteShare === null ? undefined : "% of block tx"}
             description="The share of transactions in the latest finalized block used by Tower votes rather than non-vote activity."
             interpretation="This should approach zero after Alpenglow activates. Its decline is expected consensus overhead leaving the transaction stream."
+          />
+          <UserMetricCard
+            label="Vote-account progress"
+            value={formatNumber(voteAccountProgress, 2)}
+            unit={voteAccountProgress === null ? undefined : "slots/s"}
+            description="The average 15-second advancement rate across non-delinquent validators, based on vote-account samples refreshed every five seconds."
+            interpretation="After activation, this movement comes from Alpenglow certificates rather than Tower votes."
           />
         </div>
       </section>

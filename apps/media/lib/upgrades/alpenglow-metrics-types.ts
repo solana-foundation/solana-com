@@ -51,6 +51,7 @@ export interface AlpenglowDashboardLiveData {
   readonly network: AlpenglowDashboardNetwork;
   readonly latestFinalityLatencySeconds: number | null;
   readonly transactionsPerSecond: number | null;
+  readonly voteAccountProgressSlotsPerSecond: number | null;
   readonly totalTransactionsPerBlock: number | null;
   readonly voteTransactionsPerBlock: number | null;
   readonly nonVoteTransactionsPerBlock: number | null;
