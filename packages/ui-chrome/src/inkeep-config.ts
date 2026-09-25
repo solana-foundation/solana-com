@@ -12,7 +12,9 @@ const baseSettings: InkeepBaseSettings = {
   // CXKit requires a non-empty client identifier even when its API traffic is
   // routed through our server. This is not a credential.
   apiKey: "solana-com-internal-proxy",
-  shouldBypassCaptcha: true,
+  // The current Inkeep credential is a domain-restricted web integration, so
+  // chat requests must complete Inkeep's challenge through our proxy.
+  shouldBypassCaptcha: false,
   primaryBrandColor: "#9945ff",
   customIcons: {
     chatSubmit: {

@@ -10,6 +10,7 @@ const MAX_MESSAGES = 24;
 const MAX_MESSAGE_CONTENT_LENGTH = 8_000;
 const MAX_TOTAL_MESSAGE_CONTENT_LENGTH = 48_000;
 const MAX_SEARCH_QUERY_LENGTH = 500;
+const MAX_CHALLENGE_SOLUTION_LENGTH = 4_096;
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
@@ -19,6 +20,9 @@ const ENDPOINTS = {
   chat: {
     upstreamUrl: `${INKEEP_AI_API_BASE_URL}/v1/chat/completions`,
   },
+  challenge: {
+    upstreamUrl: `${INKEEP_AI_API_BASE_URL}/v1/challenge`,
+  },
   search: {
     upstreamUrl: `${INKEEP_AI_API_BASE_URL}/graphql`,
   },
@@ -27,6 +31,7 @@ const ENDPOINTS = {
 const RATE_LIMIT_IDS: Record<InkeepEndpoint, string> = {
   analytics: "inkeep-analytics",
   chat: "inkeep-chat",
+  challenge: "inkeep-chat",
   search: "inkeep-search",
 };
 
@@ -97,6 +102,7 @@ type InkeepEndpoint = keyof typeof ENDPOINTS | "analytics";
 
 type ProxyOptions =
   | { endpoint: "chat" }
+  | { endpoint: "challenge" }
   | { endpoint: "search" }
   | { endpoint: "analytics"; path: string[] };
 
@@ -121,7 +127,11 @@ export async function proxyInkeepRequest(
       );
     }
 
-    if (!isSameOriginBrowserRequest(request)) {
+    if (
+      !isSameOriginBrowserRequest(request, {
+        allowRefererFallback: endpoint === "challenge",
+      })
+    ) {
       status = 403;
       failureClass = "invalid_origin";
       return errorResponse(
@@ -157,6 +167,9 @@ export async function proxyInkeepRequest(
 
     const abort = createUpstreamAbortSignal(request.signal);
     const siteOrigin = new URL(request.url).origin;
+    const challengeSolution = request.headers.get(
+      "x-inkeep-challenge-solution",
+    );
 
     try {
       const upstreamResponse = await fetch(preparedRequest.url, {
@@ -170,6 +183,9 @@ export async function proxyInkeepRequest(
           // Origin or Referer values.
           Origin: siteOrigin,
           Referer: `${siteOrigin}/`,
+          ...(endpoint === "chat" && challengeSolution
+            ? { "X-INKEEP-CHALLENGE-SOLUTION": challengeSolution }
+            : {}),
         },
         body: preparedRequest.body,
         cache: "no-store",
@@ -232,22 +248,27 @@ async function prepareUpstreamRequest(
   | { ok: true; url: string; body: string | undefined }
   | { ok: false; response: Response }
 > {
+  if (options.endpoint === "challenge") {
+    return request.method === "GET"
+      ? {
+          ok: true,
+          url: ENDPOINTS.challenge.upstreamUrl,
+          body: undefined,
+        }
+      : methodNotAllowed("GET");
+  }
+
   if (request.method !== "POST") {
-    return {
-      ok: false,
-      response: errorResponse(
-        405,
-        "method_not_allowed",
-        "This request method is not allowed.",
-        { Allow: "POST" },
-      ),
-    };
+    return methodNotAllowed("POST");
   }
 
   const parsedBody = await readJsonBody(request);
   if (!parsedBody.ok) return parsedBody;
 
   if (options.endpoint === "chat") {
+    if (!isValidChallengeSolution(request)) {
+      return invalidRequest("The chat challenge solution is invalid.");
+    }
     const body = validateChatBody(parsedBody.value);
     return body
       ? {
@@ -276,6 +297,28 @@ async function prepareUpstreamRequest(
         body: JSON.stringify(parsedBody.value),
       }
     : invalidRequest("The analytics request is invalid.");
+}
+
+function methodNotAllowed(method: "GET" | "POST") {
+  return {
+    ok: false as const,
+    response: errorResponse(
+      405,
+      "method_not_allowed",
+      "This request method is not allowed.",
+      { Allow: method },
+    ),
+  };
+}
+
+function isValidChallengeSolution(request: Request): boolean {
+  const solution = request.headers.get("x-inkeep-challenge-solution");
+  return (
+    solution !== null &&
+    solution.length > 0 &&
+    solution.length <= MAX_CHALLENGE_SOLUTION_LENGTH &&
+    /^[A-Za-z0-9+/]+={0,2}$/.test(solution)
+  );
 }
 
 async function readJsonBody(
@@ -537,17 +580,21 @@ function errorResponse(
   );
 }
 
-function isSameOriginBrowserRequest(request: Request): boolean {
+function isSameOriginBrowserRequest(
+  request: Request,
+  options: { allowRefererFallback: boolean },
+): boolean {
   const fetchSite = request.headers.get("sec-fetch-site");
   if (fetchSite && fetchSite !== "same-origin") return false;
 
   const origin = request.headers.get("origin");
-  if (!origin) return false;
-
   try {
     const requestUrl = new URL(request.url);
-    const originUrl = new URL(origin);
-    return originUrl.origin === requestUrl.origin;
+    if (origin) return new URL(origin).origin === requestUrl.origin;
+    if (!options.allowRefererFallback) return false;
+
+    const referer = request.headers.get("referer");
+    return Boolean(referer && new URL(referer).origin === requestUrl.origin);
   } catch {
     return false;
   }

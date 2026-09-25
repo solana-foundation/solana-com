@@ -108,10 +108,12 @@ Inkeep is wired in `src/inkeep-config.ts` and used by `InkeepChatButton` and
 
 - **Env**: Set the server-only `INKEEP_API_KEY` on the web and docs deployments.
   Never use a `NEXT_PUBLIC_` Inkeep credential.
-- **Internal APIs**: CXKit sends chat, search, and analytics requests to
-  `/api/inkeep/*`. Both apps expose the same-origin routes, validate requests,
-  and authenticate to Inkeep on the server. Conversation analytics are
-  write-only; the public proxy does not expose conversation reads.
+- **Internal APIs**: CXKit sends challenge, chat, search, and analytics requests
+  to `/api/inkeep/*`. Both apps expose the same-origin routes, validate
+  requests, and authenticate to Inkeep on the server. The current
+  domain-restricted web credential requires CXKit to solve Inkeep's challenge
+  before each chat request. Conversation analytics are write-only; the public
+  proxy does not expose conversation reads.
 - **Rate limits**: Configure Vercel WAF rate-limit rules named `inkeep-chat` (30
   requests/minute/IP), `inkeep-search` (120 requests/minute/IP), and
   `inkeep-analytics` (240 requests/minute/IP) on both deployments. Production
