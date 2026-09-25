@@ -88,7 +88,7 @@ const LIVE_QUERIES = {
   transactionsPerSecond:
     'max(clamp_min(irate(solana_node_transactions_total{job="solana-exporter-live"}[10s]), 0)) or max(clamp_min(irate(solana_node_transactions_total[10s]), 0))',
   blockTransactions:
-    'max by (transaction_type) (solana_block_transactions_latest{job="solana-exporter-live"}) or max by (transaction_type) (solana_block_transactions_latest) or avg by (transaction_type) (solana_validator_block_size)',
+    'max by (transaction_type) (solana_block_transactions_latest{job="solana-exporter-live"})',
 } as const;
 
 type PrometheusMetric = Record<string, string>;
