@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  ALPENGLOW_LIVE_MAXIMUM_AGE_SECONDS,
   getAlpenglowLiveData,
   isAlpenglowDashboardNetwork,
 } from "@/lib/upgrades/alpenglow-metrics";
 import {
   ALPENGLOW_NO_STORE_HEADERS,
-  alpenglowPublicCacheHeaders,
+  alpenglowFreshSnapshotCacheHeaders,
 } from "@/lib/upgrades/alpenglow-metrics-http";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,11 @@ export async function GET(request: NextRequest) {
   try {
     const data = await getAlpenglowLiveData(network);
     return NextResponse.json(data, {
-      headers: alpenglowPublicCacheHeaders(8, 24),
+      headers: alpenglowFreshSnapshotCacheHeaders(
+        data.generatedAt,
+        8,
+        ALPENGLOW_LIVE_MAXIMUM_AGE_SECONDS,
+      ),
     });
   } catch (error) {
     console.error("Failed to load live Alpenglow metrics:", error);

@@ -19,7 +19,9 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const ACTIVATION_CACHE_SECONDS = 2;
 const LIVE_CACHE_SECONDS = 8;
 const DETAIL_CACHE_SECONDS = 8;
-const LIVE_MAXIMUM_AGE_MS = 15_000;
+/** Maximum age of a live performance snapshot returned to the dashboard. */
+export const ALPENGLOW_LIVE_MAXIMUM_AGE_SECONDS = 15;
+const LIVE_MAXIMUM_AGE_MS = ALPENGLOW_LIVE_MAXIMUM_AGE_SECONDS * 1_000;
 const DETAIL_MAXIMUM_AGE_MS = 90_000;
 
 const RANGE_CONFIG: Record<
