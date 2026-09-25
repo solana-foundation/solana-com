@@ -132,7 +132,7 @@ describe("Cross-app rewrites", () => {
     );
   });
 
-  it("proxies media APIs used by changelog signup and tweet embeds", () => {
+  it("proxies APIs owned by the media app", () => {
     expectBeforeFileRewrite(
       "/api/changelog/:path*",
       `${MEDIA_APP_URL}/api/changelog/:path*`,
@@ -140,6 +140,10 @@ describe("Cross-app rewrites", () => {
     expectBeforeFileRewrite(
       "/api/posts/:path*",
       `${MEDIA_APP_URL}/api/posts/:path*`,
+    );
+    expectBeforeFileRewrite(
+      "/api/upgrades/alpenglow/:path*",
+      `${MEDIA_APP_URL}/api/upgrades/alpenglow/:path*`,
     );
   });
 });

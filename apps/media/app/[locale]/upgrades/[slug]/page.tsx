@@ -139,6 +139,14 @@ export default async function Page({ params }: Props) {
             </p>
           )}
           <SocialShare title={titleDisplay} slug={slug} />
+          {slug === "alpenglow" && (
+            <Link
+              href="/upgrades/alpenglow/dashboard"
+              className="mb-8 inline-flex items-center rounded-lg border border-[#14F195]/40 bg-[#14F195]/10 px-4 py-2 text-sm font-semibold text-[#14F195] transition-colors hover:bg-[#14F195]/15"
+            >
+              View live transition dashboard
+            </Link>
+          )}
           <p className="text-base text-gray-400 mb-8">
             {publishedDate
               ? t("detail.bylineWithDate", {
