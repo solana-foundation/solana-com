@@ -280,11 +280,7 @@ export function AlpenglowDashboard() {
     latestFinalityLatencySeconds: live?.latestFinalityLatencySeconds ?? null,
   };
   const transitionState =
-    status.alpenglowActive === true
-      ? "Alpenglow active"
-      : status.alpenglowActive === false
-        ? "Alpenglow inactive"
-        : "Alpenglow status unavailable";
+    status.alpenglowActive === true ? "Alpenglow active" : "Alpenglow inactive";
   const transitionExplanation =
     status.alpenglowActive === true
       ? "The cluster has returned an Alpenglow genesis certificate, marking the one-time activation of the new consensus protocol."
