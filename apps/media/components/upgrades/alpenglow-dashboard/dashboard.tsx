@@ -238,11 +238,12 @@ export function AlpenglowDashboard() {
     detailPoller.data?.network === network && detailPoller.data.range === range
       ? detailPoller.data
       : null;
-  const errors = [
-    statusPoller.error,
-    livePoller.error,
-    detailPoller.error,
-  ].filter((value): value is string => value !== null);
+  const pageErrors = [statusPoller.error, livePoller.error].filter(
+    (value): value is string => value !== null,
+  );
+  const allErrors = [...pageErrors, detailPoller.error].filter(
+    (value): value is string => value !== null,
+  );
   const warnings = [
     ...(activation?.warnings ?? []),
     ...(live?.warnings ?? []),
@@ -254,8 +255,12 @@ export function AlpenglowDashboard() {
     statusPoller.isRefreshing ||
     livePoller.isRefreshing ||
     detailPoller.isRefreshing;
+  const hasAnyData = activation !== null || live !== null || detail !== null;
+  const isInitialLoading =
+    !hasAnyData &&
+    (statusPoller.isLoading || livePoller.isLoading || detailPoller.isLoading);
 
-  if (!detail && detailPoller.isLoading) {
+  if (isInitialLoading) {
     return (
       <DashboardSkeleton
         network={network}
@@ -266,7 +271,7 @@ export function AlpenglowDashboard() {
     );
   }
 
-  if (!detail) {
+  if (!hasAnyData) {
     return (
       <div className="space-y-6">
         <div className="flex justify-end">
@@ -282,7 +287,7 @@ export function AlpenglowDashboard() {
             {NETWORK_LABELS[network]} metrics are unavailable
           </h2>
           <p className="mt-2 text-sm text-red-200/70">
-            {detailPoller.error ?? "Unable to load metric details"}
+            {allErrors[0] ?? "Unable to load dashboard metrics"}
           </p>
         </div>
       </div>
@@ -331,14 +336,15 @@ export function AlpenglowDashboard() {
       : heroMetricCount === 2
         ? "sm:w-2/3 sm:grid-cols-2"
         : "sm:w-1/3 sm:grid-cols-1";
-  const nonVoteTransactions = latestMetricValue(
-    detail.charts.blockTransactions,
-    "Non-vote transactions",
-  );
-  const voteTransactions = latestMetricValue(
-    detail.charts.blockTransactions,
-    "Vote transactions",
-  );
+  const nonVoteTransactions = detail
+    ? latestMetricValue(
+        detail.charts.blockTransactions,
+        "Non-vote transactions",
+      )
+    : null;
+  const voteTransactions = detail
+    ? latestMetricValue(detail.charts.blockTransactions, "Vote transactions")
+    : null;
   const blockTransactionTotal =
     nonVoteTransactions !== null && voteTransactions !== null
       ? nonVoteTransactions + voteTransactions
@@ -351,7 +357,11 @@ export function AlpenglowDashboard() {
       : null;
   const updateStatus = live
     ? `Live metrics updated ${new Date(live.generatedAt).toLocaleTimeString()}`
-    : `Trends updated ${new Date(detail.generatedAt).toLocaleTimeString()}`;
+    : detail
+      ? `Trends updated ${new Date(detail.generatedAt).toLocaleTimeString()}`
+      : activation
+        ? `Consensus status updated ${new Date(activation.generatedAt).toLocaleTimeString()}`
+        : "Metrics unavailable";
 
   return (
     <div className="space-y-10">
@@ -361,8 +371,8 @@ export function AlpenglowDashboard() {
             {updateStatus}
             {isRefreshing ? " · Refreshing…" : ""}
           </p>
-          {errors[0] && (
-            <p className="mt-1 text-xs text-amber-300">{errors[0]}</p>
+          {pageErrors[0] && (
+            <p className="mt-1 text-xs text-amber-300">{pageErrors[0]}</p>
           )}
         </div>
         <DashboardControls
@@ -472,14 +482,26 @@ export function AlpenglowDashboard() {
           />
           <UserMetricCard
             label="User transactions per block"
-            value={formatNumber(nonVoteTransactions, 1)}
+            value={
+              detail
+                ? formatNumber(nonVoteTransactions, 1)
+                : detailPoller.isLoading
+                  ? "Loading…"
+                  : "Unavailable"
+            }
             unit={nonVoteTransactions === null ? undefined : "tx/block"}
             description="The latest average count of non-vote transactions in sampled blocks—a close proxy for user activity."
             interpretation="This should remain stable through the switch even as Tower vote transactions leave blocks."
           />
           <UserMetricCard
             label="Tower vote share"
-            value={formatNumber(towerVoteShare, 1)}
+            value={
+              detail
+                ? formatNumber(towerVoteShare, 1)
+                : detailPoller.isLoading
+                  ? "Loading…"
+                  : "Unavailable"
+            }
             unit={towerVoteShare === null ? undefined : "% of block tx"}
             description="The share of sampled block transactions used by Tower vote transactions rather than non-vote activity."
             interpretation="This should approach zero after Alpenglow activates. Its decline is expected consensus overhead leaving the transaction stream."
@@ -496,43 +518,77 @@ export function AlpenglowDashboard() {
               description="Use finality and activity charts together to distinguish user demand from disappearing Tower vote traffic. Tower-only signals indicate when the legacy protocol is winding down."
             />
           </div>
-          <span className="text-xs text-gray-500">
-            Updated {new Date(detail.generatedAt).toLocaleTimeString()} ·
-            Showing {RANGE_LABELS[range]}
+          <span
+            className={`text-xs ${detailPoller.error ? "text-amber-300" : "text-gray-500"}`}
+          >
+            {detail
+              ? `${detailPoller.error ? "Refresh failed · Last updated" : "Updated"} ${new Date(detail.generatedAt).toLocaleTimeString()} · Showing ${RANGE_LABELS[range]}`
+              : detailPoller.isLoading
+                ? `Loading · ${RANGE_LABELS[range]}`
+                : `Unavailable · ${RANGE_LABELS[range]}`}
           </span>
         </div>
-        <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <MetricChart
-            title="Observed finality latency (p95)"
-            description="The 95th percentile of RPC-observed finality measurements over a rolling five-minute window. Ninety-five percent of observations completed at or below this value; polling and network delay are included."
-            series={detail.charts.p95FinalityLatencySeconds}
-            unit="seconds"
-          />
-          <MetricChart
-            title="Transaction throughput"
-            description="Total transactions per second, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
-            series={detail.charts.transactionsPerSecond}
-            unit="transactions per second"
-          />
-          <MetricChart
-            title="Block transaction composition"
-            description="Average vote and non-vote transactions in sampled blocks. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
-            series={detail.charts.blockTransactions}
-            unit="transactions per block"
-          />
-          <MetricChart
-            title="Tower vote advancement"
-            description="The average rate at which sampled validators' last Tower vote moves forward. It should fall to zero when Tower voting stops; that is expected after activation, not an outage signal."
-            series={detail.charts.towerVoteSlotsPerSecond}
-            unit="slots per second"
-          />
-          <MetricChart
-            title="Tower vote-to-root lag"
-            description="The average slot distance from a validator's latest Tower vote to its Tower root. It diagnoses legacy voting during the transition and should not be treated as Alpenglow finality after activation."
-            series={detail.charts.averageVoteRootLag}
-            unit="slots"
-          />
-        </div>
+        {detail ? (
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+            <MetricChart
+              title="Observed finality latency (p95)"
+              description="The 95th percentile of RPC-observed finality measurements over a rolling five-minute window. Ninety-five percent of observations completed at or below this value; polling and network delay are included."
+              series={detail.charts.p95FinalityLatencySeconds}
+              unit="seconds"
+            />
+            <MetricChart
+              title="Transaction throughput"
+              description="Total transactions per second, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
+              series={detail.charts.transactionsPerSecond}
+              unit="transactions per second"
+            />
+            <MetricChart
+              title="Block transaction composition"
+              description="Average vote and non-vote transactions in sampled blocks. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
+              series={detail.charts.blockTransactions}
+              unit="transactions per block"
+            />
+            <MetricChart
+              title="Tower vote advancement"
+              description="The average rate at which sampled validators' last Tower vote moves forward. It should fall to zero when Tower voting stops; that is expected after activation, not an outage signal."
+              series={detail.charts.towerVoteSlotsPerSecond}
+              unit="slots per second"
+            />
+            <MetricChart
+              title="Tower vote-to-root lag"
+              description="The average slot distance from a validator's latest Tower vote to its Tower root. It diagnoses legacy voting during the transition and should not be treated as Alpenglow finality after activation."
+              series={detail.charts.averageVoteRootLag}
+              unit="slots"
+            />
+          </div>
+        ) : detailPoller.isLoading ? (
+          <div
+            className="mt-4 grid gap-4 xl:grid-cols-2"
+            aria-busy="true"
+            aria-label="Loading historical trends"
+          >
+            {[0, 1].map((item) => (
+              <div
+                key={item}
+                className="h-72 rounded-xl border border-white/10 bg-white/[0.03] p-5"
+              >
+                <div className="h-4 w-40 rounded bg-white/[0.06]" />
+                <div className="mt-8 h-48 rounded-lg bg-white/[0.04]" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-5 text-amber-200"
+            role="status"
+          >
+            <p className="font-medium">Historical trends are unavailable</p>
+            <p className="mt-1 text-sm text-amber-200/70">
+              {detailPoller.error ??
+                "The historical metrics source did not return data."}
+            </p>
+          </div>
+        )}
       </section>
 
       {warnings.length > 0 && (
