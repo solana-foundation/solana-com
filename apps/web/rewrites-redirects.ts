@@ -784,6 +784,19 @@ export default {
   },
 
   redirects: withLocaleRedirects([
+    {
+      source:
+        "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.png",
+      destination:
+        "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.webp",
+      permanent: true,
+    },
+    {
+      source: "/uploads/posts/solana-changelog-september-18-2026/heroImage.png",
+      destination:
+        "/uploads/posts/solana-changelog-september-18-2026/heroImage.webp",
+      permanent: true,
+    },
     ...dissolvedGuideRedirects,
     ...movedDocsRedirects,
     ...chainMigrationRedirects,
