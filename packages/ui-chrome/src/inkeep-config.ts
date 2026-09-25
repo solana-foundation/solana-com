@@ -9,7 +9,10 @@ import type {
 import LongArrowUp from "./assets/long-arrow-up.svg";
 
 const baseSettings: InkeepBaseSettings = {
-  apiKey: process.env.NEXT_PUBLIC_INKEEP_API_KEY!,
+  // CXKit requires a non-empty client identifier even when its API traffic is
+  // routed through our server. This is not a credential.
+  apiKey: "solana-com-internal-proxy",
+  shouldBypassCaptcha: true,
   primaryBrandColor: "#9945ff",
   customIcons: {
     chatSubmit: {
@@ -780,6 +783,11 @@ export function useInkeepConfig(): {
   } | null>(null);
   const searchQuery = searchParams.get("search")?.trim() ?? "";
   const shouldForceSearchView = searchQuery.length > 0;
+  const siteOrigin =
+    typeof window === "undefined"
+      ? "https://solana.com"
+      : window.location.origin;
+  const inkeepApiBaseUrl = `${siteOrigin}/api/inkeep`;
 
   // We do this because document is not available in the server
   useEffect(() => {
@@ -802,6 +810,8 @@ export function useInkeepConfig(): {
   return {
     baseSettings: {
       ...baseSettings,
+      aiApiBaseUrl: inkeepApiBaseUrl,
+      analyticsApiBaseUrl: `${inkeepApiBaseUrl}/analytics`,
       colorMode: {
         sync: {
           target: syncTarget,
@@ -817,6 +827,7 @@ export function useInkeepConfig(): {
     shouldForceSearchView,
     searchSettings: {
       ...searchSettings,
+      searchApiBaseUrl: `${inkeepApiBaseUrl}/search`,
       defaultQuery: searchQuery,
       searchFunctionsRef,
     },
