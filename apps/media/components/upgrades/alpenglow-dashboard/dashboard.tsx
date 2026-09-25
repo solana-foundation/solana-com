@@ -29,17 +29,14 @@ const RANGE_LABELS: Record<AlpenglowDashboardRange, string> = {
 };
 
 const STATUS_POLL_INTERVAL_MS = 10_000;
+const STATUS_MAX_BACKOFF_MS = 60_000;
 const LIVE_POLL_INTERVAL_MS = 3_000;
 const DETAIL_POLL_INTERVAL_MS = 15_000;
-const STATUS_UNSUPPORTED_POLL_INTERVAL_MS = 5 * 60_000;
 
 function statusPollInterval(
   data: AlpenglowDashboardActivationData,
 ): number | null {
   if (data.alpenglowActive === true) return null;
-  if (data.alpenglowRpcSupported === false) {
-    return STATUS_UNSUPPORTED_POLL_INTERVAL_MS;
-  }
   return STATUS_POLL_INTERVAL_MS;
 }
 
@@ -254,7 +251,7 @@ export function AlpenglowDashboard() {
   const statusPoller = useDashboardPoller<AlpenglowDashboardActivationData>({
     url: `/api/upgrades/alpenglow/metrics/status?${new URLSearchParams({ network })}`,
     intervalMs: STATUS_POLL_INTERVAL_MS,
-    maxBackoffMs: STATUS_UNSUPPORTED_POLL_INTERVAL_MS,
+    maxBackoffMs: STATUS_MAX_BACKOFF_MS,
     getNextIntervalMs: statusPollInterval,
   });
   const livePoller = useDashboardPoller<AlpenglowDashboardLiveData>({

@@ -28,12 +28,16 @@ export async function GET(request: NextRequest) {
 
   try {
     const data = await getAlpenglowActivationData(network);
+    // A node upgrade can make this method available at any time, so do not pin
+    // an unsupported capability response in the public edge cache.
+    if (data.alpenglowRpcSupported === false) {
+      return NextResponse.json(data, { headers: ALPENGLOW_NO_STORE_HEADERS });
+    }
+
     const cachePolicy =
       data.alpenglowActive === true
         ? { fresh: 86_400, stale: 86_400 }
-        : data.alpenglowRpcSupported === false
-          ? { fresh: 300, stale: 600 }
-          : { fresh: 10, stale: 30 };
+        : { fresh: 10, stale: 30 };
 
     return NextResponse.json(data, {
       headers: alpenglowPublicCacheHeaders(
