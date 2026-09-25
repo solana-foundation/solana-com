@@ -243,8 +243,8 @@ export default function FinalFormExperience({
             variant="outline"
             className="ff-intro-button rounded-none border-white/40 bg-transparent font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-white shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
           >
-            <a href={localizeMediaHref("/upgrades/alpenglow")}>
-              {t("actions.explore")} <span aria-hidden="true">↗</span>
+            <a href={localizeMediaHref("/upgrades/alpenglow/dashboard")}>
+              {t("actions.viewDashboard")} <span aria-hidden="true">↗</span>
             </a>
           </Button>
         </div>
