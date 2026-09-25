@@ -10,10 +10,12 @@ import type { PageTree } from "fumadocs-core/server";
 export async function MainDocsPage({
   slug,
   locale,
+  showPageActions,
   pageTree = docsSource.pageTree[locale],
 }: {
   slug: string[];
   locale: string;
+  showPageActions?: boolean;
   pageTree?: PageTree.Root;
 }) {
   const page = docsSource.getPage(slug, locale);
@@ -34,6 +36,7 @@ export async function MainDocsPage({
       href={page.url}
       markdown={markdown}
       isRoot={slug.length === 0}
+      showPageActions={showPageActions}
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (

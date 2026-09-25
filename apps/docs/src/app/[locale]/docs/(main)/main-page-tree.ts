@@ -2,6 +2,7 @@ import type { PageTree } from "fumadocs-core/server";
 
 const standaloneDocsRoutes = [
   "/docs/core",
+  "/docs/roadmap",
   "/docs/tokens",
   "/docs/references",
   "/docs/rpc",
