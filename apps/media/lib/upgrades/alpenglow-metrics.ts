@@ -79,7 +79,8 @@ const RANGE_QUERIES = {
     "avg(clamp_min(deriv(solana_validator_last_vote[2m]), 0))",
   averageVoteRootLag:
     "quantile(0.95, clamp_min(solana_validator_last_vote - solana_validator_root_slot, 0) and on (nodekey, votekey) (solana_validator_delinquent == 0))",
-  blockTransactions: "avg by (transaction_type) (solana_validator_block_size)",
+  blockTransactions:
+    'sum by (transaction_type) (rate(solana_block_transactions_sum{transaction_type=~"vote|non_vote"}[30s])) / sum by (transaction_type) (rate(solana_block_transactions_count{transaction_type=~"vote|non_vote"}[30s]))',
 } as const;
 
 const LIVE_QUERIES = {
@@ -87,6 +88,8 @@ const LIVE_QUERIES = {
     'max(solana_finality_latency_latest_seconds{job="solana-exporter-live"}) or max(solana_finality_latency_latest_seconds) or (sum(rate(solana_rpc_finality_latency_seconds_sum[30s])) / sum(rate(solana_rpc_finality_latency_seconds_count[30s]))) or (sum(rate(solana_finality_latency_seconds_sum[30s])) / sum(rate(solana_finality_latency_seconds_count[30s])))',
   transactionsPerSecond:
     'max(clamp_min(irate(solana_node_transactions_total{job="solana-exporter-live"}[10s]), 0)) or max(clamp_min(irate(solana_node_transactions_total[10s]), 0))',
+  voteAccountProgressSlotsPerSecond:
+    "avg(clamp_min(irate(solana_validator_last_vote[15s]), 0) and on (nodekey, votekey) (solana_validator_delinquent == 0))",
   blockTransactions:
     'max by (transaction_type) (solana_block_transactions_latest{job="solana-exporter-live"})',
 } as const;
@@ -468,6 +471,9 @@ async function loadAlpenglowLiveData(
       results.latestFinalityLatencySeconds,
     ),
     transactionsPerSecond: vectorValue(results.transactionsPerSecond),
+    voteAccountProgressSlotsPerSecond: vectorValue(
+      results.voteAccountProgressSlotsPerSecond,
+    ),
     totalTransactionsPerBlock: vectorValueByLabel(
       results.blockTransactions,
       "transaction_type",

@@ -280,11 +280,7 @@ export function AlpenglowDashboard() {
     latestFinalityLatencySeconds: live?.latestFinalityLatencySeconds ?? null,
   };
   const transitionState =
-    status.alpenglowActive === true
-      ? "Alpenglow active"
-      : status.alpenglowActive === false
-        ? "Alpenglow inactive"
-        : "Alpenglow status unavailable";
+    status.alpenglowActive === true ? "Alpenglow active" : "Alpenglow inactive";
   const transitionExplanation =
     status.alpenglowActive === true
       ? "The cluster has returned an Alpenglow genesis certificate, marking the one-time activation of the new consensus protocol."
@@ -292,6 +288,7 @@ export function AlpenglowDashboard() {
         ? "The cluster can report Alpenglow activation, but no genesis certificate has been observed. Tower BFT remains the active consensus protocol."
         : "This cluster does not currently expose enough information to confirm Alpenglow activation.";
   const transactionRate = live?.transactionsPerSecond ?? null;
+  const voteAccountProgress = live?.voteAccountProgressSlotsPerSecond ?? null;
   const latestFinalityLatency = formatLatency(
     status.latestFinalityLatencySeconds,
   );
@@ -439,7 +436,7 @@ export function AlpenglowDashboard() {
             description="These latest samples separate user activity from Tower consensus traffic. A drop in total transactions can be healthy when Tower votes disappear but non-vote traffic remains steady."
           />
         </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <UserMetricCard
             label="Observed network throughput"
             value={formatNumber(transactionRate, 1)}
@@ -472,6 +469,13 @@ export function AlpenglowDashboard() {
             unit={towerVoteShare === null ? undefined : "% of block tx"}
             description="The share of transactions in the latest finalized block used by Tower votes rather than non-vote activity."
             interpretation="This should approach zero after Alpenglow activates. Its decline is expected consensus overhead leaving the transaction stream."
+          />
+          <UserMetricCard
+            label="Vote-account progress"
+            value={formatNumber(voteAccountProgress, 2)}
+            unit={voteAccountProgress === null ? undefined : "slots/s"}
+            description="The average 15-second advancement rate across non-delinquent validators, based on vote-account samples refreshed every five seconds."
+            interpretation="After activation, this movement comes from Alpenglow certificates rather than Tower votes."
           />
         </div>
       </section>
@@ -511,7 +515,7 @@ export function AlpenglowDashboard() {
             />
             <MetricChart
               title="Block transaction composition"
-              description="Average vote and non-vote transactions in sampled blocks. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
+              description="Average vote and non-vote transactions across all finalized blocks in a rolling 30-second window. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
               series={detail.charts.blockTransactions}
               unit="transactions per block"
             />
