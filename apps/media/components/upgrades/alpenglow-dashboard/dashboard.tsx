@@ -211,7 +211,7 @@ function DashboardSkeleton({
 
 /** Renders the live Alpenglow transition dashboard. */
 export function AlpenglowDashboard() {
-  const [network, setNetwork] = useState<AlpenglowDashboardNetwork>("testnet");
+  const [network, setNetwork] = useState<AlpenglowDashboardNetwork>("devnet");
   const [range, setRange] = useState<AlpenglowDashboardRange>("24h");
 
   const statusPoller = useDashboardPoller<AlpenglowDashboardActivationData>({
