@@ -507,7 +507,7 @@ export function AlpenglowDashboard() {
             />
             <MetricChart
               title="Block transaction composition"
-              description="Average vote and non-vote transactions in sampled blocks. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
+              description="Average vote and non-vote transactions across all finalized blocks in a rolling 30-second window. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
               series={detail.charts.blockTransactions}
               unit="transactions per block"
             />

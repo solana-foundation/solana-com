@@ -79,7 +79,8 @@ const RANGE_QUERIES = {
     "avg(clamp_min(deriv(solana_validator_last_vote[2m]), 0))",
   averageVoteRootLag:
     "quantile(0.95, clamp_min(solana_validator_last_vote - solana_validator_root_slot, 0) and on (nodekey, votekey) (solana_validator_delinquent == 0))",
-  blockTransactions: "avg by (transaction_type) (solana_validator_block_size)",
+  blockTransactions:
+    'sum by (transaction_type) (rate(solana_block_transactions_sum{transaction_type=~"vote|non_vote"}[30s])) / sum by (transaction_type) (rate(solana_block_transactions_count{transaction_type=~"vote|non_vote"}[30s]))',
 } as const;
 
 const LIVE_QUERIES = {
