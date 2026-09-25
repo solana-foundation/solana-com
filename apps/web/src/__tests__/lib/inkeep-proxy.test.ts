@@ -263,6 +263,21 @@ describe("Inkeep API proxy", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it.each(["origin", "sec-fetch-site"])(
+    "rejects requests without the %s browser header",
+    async (header) => {
+      const fetchMock = vi.spyOn(globalThis, "fetch");
+      const request = chatRequest();
+      request.headers.delete(header);
+
+      const response = await proxyInkeepRequest(request, { endpoint: "chat" });
+
+      expect(response.status).toBe(403);
+      expect(await errorCode(response)).toBe("invalid_origin");
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
   it("does not forward caller-controlled origin metadata to Inkeep", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
