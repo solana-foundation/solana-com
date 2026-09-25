@@ -1,166 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
+import { createContext, useContext, useState } from "react";
+import { LoaderLines } from "@boxicons/react/LoaderLines";
 import { Play } from "@boxicons/react/Play";
+import { X } from "@boxicons/react/X";
 import React from "react";
 import { cn } from "../utils";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@@/src/app/components/ui/resizable";
-import { loadRunner } from "./runners/registry";
-
-function ConsoleHeader({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn(
-        "flex gap-2 justify-between items-center px-2 py-1 h-9 text-sm border-b-[1px] border-ch-border bg-ch-tabs-background min-h-9 shrink-0 text-ch-tab-active-foreground",
-        className,
-      )}
-    >
-      <span>Console</span>
-    </div>
-  );
-}
-
-function EmptyConsole({
-  running,
-  error,
-  handleRun,
-}: {
-  running: boolean;
-  error: string | null;
-  handleRun: () => void;
-}) {
-  return (
-    <div className="flex flex-col gap-2 justify-center items-center py-3 w-full">
-      <span className="md:h-4" />
-      <button
-        onClick={handleRun}
-        className={`w-28 px-3 py-1 relative z-10 rounded bg-[#9945FF] text-white text-sm font-bold cursor-pointer flex justify-center items-center gap-2 ${running ? "opacity-80" : "hover:bg-[#8838e0]"}`}
-        disabled={running}
-      >
-        {running ? (
-          <>
-            <Loader2 className="inline-block w-4 h-4 animate-spin" />
-            <span>Running</span>
-          </>
-        ) : (
-          <>
-            <Play className="w-4 h-4" />
-            <span>Run</span>
-          </>
-        )}
-      </button>
-      <span
-        className={`px-4 text-center text-sm min-h-4 whitespace-pre-wrap ${running ? "opacity-0" : "opacity-80"} transition-opacity duration-100 ${error ? "text-red-500" : ""}`}
-      >
-        {error ?? "Click to execute the code."}
-      </span>
-    </div>
-  );
-}
-
-type CodeRun = {
-  output: React.ReactNode;
-};
-
-type RunnableCodeState = {
-  running: boolean;
-  result: CodeRun | null;
-  error: string | null;
-  handleRun: () => void;
-};
-
-/** How long "Running" stays on screen, so output doesn't appear instantly. */
-const MIN_RUN_MS = 500;
-
-const NO_OUTPUT = "This example doesn't have output to show yet.";
-
-/**
- * Produces the console output for a runnable block. Nothing is executed: a
- * block either has a browser-side runner (for examples whose output is freshly
- * generated data) or a static output captured from the real example.
- */
-function useRunnableCode(example: Example): RunnableCodeState {
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<CodeRun | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleRun = async () => {
-    setRunning(true);
-    setResult(null);
-    setError(null);
-
-    const startedAt = Date.now();
-    try {
-      const output = await resolveOutput(example);
-      await settle(startedAt);
-      setResult({ output });
-    } catch (err) {
-      await settle(startedAt);
-      setError(err instanceof Error ? err.message : "Could not run example");
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  return {
-    running,
-    result,
-    error,
-    handleRun,
-  };
-}
-
-async function resolveOutput({
-  code,
-  language,
-  title,
-  output,
-  runner,
-}: Example): Promise<React.ReactNode> {
-  if (runner) {
-    const run = await loadRunner(runner, { title, language });
-    if (run) return run({ code, language, title });
-  }
-  return output ?? NO_OUTPUT;
-}
-
-function settle(startedAt: number): Promise<void> {
-  const remaining = MIN_RUN_MS - (Date.now() - startedAt);
-  if (remaining <= 0) return Promise.resolve();
-  return new Promise((resolve) => setTimeout(resolve, remaining));
-}
-
-function Console({
-  state,
-  className,
-}: {
-  state: RunnableCodeState;
-  className?: string;
-}) {
-  const { running, result, error, handleRun } = state;
-  return (
-    <div
-      className={cn(
-        "rounded border bg-ch-background border-ch-border",
-        className,
-      )}
-    >
-      <ConsoleHeader />
-      {!result ? (
-        <EmptyConsole running={running} error={error} handleRun={handleRun} />
-      ) : (
-        <pre className="overflow-auto flex-1 p-2 font-mono text-sm text-ch-foreground">
-          {result?.output}
-        </pre>
-      )}
-    </div>
-  );
-}
+import { hasRunners, loadRunner } from "./runners/registry";
 
 type Example = {
   /** The code shown in the active tab. */
@@ -174,42 +20,149 @@ type Example = {
   runner?: string;
 };
 
-export function RunnableLayout({
+type RunnableState = {
+  /** False when the block has neither a captured output nor a runner. */
+  canRun: boolean;
+  running: boolean;
+  output: React.ReactNode | null;
+  error: string | null;
+  consoleOpen: boolean;
+  run: () => void;
+  closeConsole: () => void;
+};
+
+const RunnableContext = createContext<RunnableState | null>(null);
+
+/** How long "Running" stays on screen, so output doesn't appear instantly. */
+const MIN_RUN_MS = 500;
+
+/**
+ * Holds the run state for one code block. Nothing is executed: a block either
+ * has a browser-side runner (for examples whose output is freshly generated
+ * data) or a static output captured from the real example. Blocks with
+ * neither render as a plain code block, with no Run button.
+ */
+export function Runnable({
   children,
-  className,
   ...example
-}: Example & {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const state = useRunnableCode(example);
+}: Example & { children: React.ReactNode }) {
+  const [running, setRunning] = useState(false);
+  const [output, setOutput] = useState<React.ReactNode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [consoleOpen, setConsoleOpen] = useState(false);
+
+  const canRun = example.output !== undefined || hasRunners(example.runner);
+
+  const run = async () => {
+    setRunning(true);
+    setConsoleOpen(true);
+    setOutput(null);
+    setError(null);
+
+    const startedAt = Date.now();
+    try {
+      const result = await resolveOutput(example);
+      await settle(startedAt);
+      setOutput(result);
+    } catch (err) {
+      await settle(startedAt);
+      setError(err instanceof Error ? err.message : "Could not run example");
+    } finally {
+      setRunning(false);
+    }
+  };
 
   return (
-    <>
-      <div className="md:hidden">
-        {children}
-        <Console state={state} className="mt-2" />
-      </div>
-      <div className="hidden wider md:block">
-        <ResizablePanelGroup
-          direction="horizontal"
-          className={cn(
-            "overflow-hidden max-h-[700px] min-h-[275px]",
-            className,
-          )}
+    <RunnableContext.Provider
+      value={{
+        canRun,
+        running,
+        output,
+        error,
+        consoleOpen,
+        run,
+        closeConsole: () => setConsoleOpen(false),
+      }}
+    >
+      {children}
+    </RunnableContext.Provider>
+  );
+}
+
+async function resolveOutput({
+  code,
+  language,
+  title,
+  output,
+  runner,
+}: Example): Promise<React.ReactNode> {
+  if (runner) {
+    const run = await loadRunner(runner, { title, language });
+    if (run) return run({ code, language, title });
+  }
+  return output ?? "";
+}
+
+function settle(startedAt: number): Promise<void> {
+  const remaining = MIN_RUN_MS - (Date.now() - startedAt);
+  if (remaining <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, remaining));
+}
+
+/** Sits in the code block's header beside the copy button. */
+export function RunButton({ className }: { className?: string }) {
+  const state = useContext(RunnableContext);
+  if (!state?.canRun) return null;
+  const { running, run } = state;
+
+  return (
+    <button
+      onClick={run}
+      disabled={running}
+      aria-label="Run example"
+      className={cn(
+        "flex items-center gap-1 px-2 py-0.5 rounded text-xs font-sans font-semibold",
+        "text-[#9945FF] hover:bg-[#9945FF]/10 disabled:opacity-70 disabled:cursor-default",
+        className,
+      )}
+    >
+      {running ? (
+        <LoaderLines width={14} height={14} className="animate-spin" />
+      ) : (
+        <Play width={14} height={14} />
+      )}
+      <span>{running ? "Running" : "Run"}</span>
+    </button>
+  );
+}
+
+/** Opens beneath the code once Run is pressed; closes from its header. */
+export function RunnableConsole() {
+  const state = useContext(RunnableContext);
+  if (!state?.canRun || !state.consoleOpen) return null;
+  const { running, output, error, closeConsole } = state;
+
+  return (
+    <div className="flex flex-col border-t border-ch-border bg-ch-background shrink-0 min-h-0">
+      <div className="flex justify-between items-center px-3 h-8 text-xs border-b border-ch-border bg-ch-tabs-background text-ch-tab-inactive-foreground shrink-0">
+        <span className="font-mono">Console</span>
+        <button
+          onClick={closeConsole}
+          aria-label="Close console"
+          className="p-1 -mr-1 rounded hover:text-ch-tab-active-foreground"
         >
-          <ResizablePanel defaultSize={50} minSize={0}>
-            <div className="min-w-0 h-full min-h-0">{children}</div>
-          </ResizablePanel>
-          <ResizableHandle withHandle className="w-1 bg-transparent" />
-          <ResizablePanel defaultSize={50} minSize={0}>
-            <Console
-              state={state}
-              className="flex overflow-hidden flex-col h-full"
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          <X width={14} height={14} />
+        </button>
       </div>
-    </>
+      <pre
+        className={cn(
+          "overflow-auto m-0 p-3 font-mono text-sm rounded-none !bg-ch-background text-ch-foreground max-h-72 whitespace-pre-wrap",
+          error && "text-red-500",
+          running && "opacity-50",
+        )}
+      >
+        {running ? "Running…" : (error ?? output)}
+      </pre>
+    </div>
   );
 }
