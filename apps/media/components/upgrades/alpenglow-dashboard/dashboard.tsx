@@ -549,14 +549,14 @@ export function AlpenglowDashboard() {
               unit="transactions per block"
             />
             <MetricChart
-              title="Tower vote advancement"
-              description="The average rate at which sampled validators' last Tower vote moves forward. It should fall to zero when Tower voting stops; that is expected after activation, not an outage signal."
+              title="Vote-account progress"
+              description="The average rate at which sampled validators' vote-account state advances. After Alpenglow activation, this progress derives from Alpenglow certificates rather than Tower votes."
               series={detail.charts.towerVoteSlotsPerSecond}
               unit="slots per second"
             />
             <MetricChart
-              title="Tower vote-to-root lag"
-              description="The average slot distance from a validator's latest Tower vote to its Tower root. It diagnoses legacy voting during the transition and should not be treated as Alpenglow finality after activation."
+              title="Finalization-certificate lag"
+              description="The 95th-percentile slot distance between certificate-derived vote-account progress and the finalized root across non-delinquent validators."
               series={detail.charts.averageVoteRootLag}
               unit="slots"
             />

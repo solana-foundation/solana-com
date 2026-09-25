@@ -76,7 +76,7 @@ const RANGE_QUERIES = {
   towerVoteSlotsPerSecond:
     "avg(clamp_min(deriv(solana_validator_last_vote[5m]), 0))",
   averageVoteRootLag:
-    "avg(clamp_min(solana_validator_last_vote - solana_validator_root_slot, 0))",
+    "quantile(0.95, clamp_min(solana_validator_last_vote - solana_validator_root_slot, 0) and on (nodekey, votekey) (solana_validator_delinquent == 0))",
   blockTransactions: "avg by (transaction_type) (solana_validator_block_size)",
 } as const;
 
@@ -495,11 +495,11 @@ async function loadAlpenglowChartData(
       ),
       towerVoteSlotsPerSecond: matrixSeries(
         results.towerVoteSlotsPerSecond,
-        "Tower vote advancement",
+        "Vote-account progress",
       ),
       averageVoteRootLag: matrixSeries(
         results.averageVoteRootLag,
-        "Average vote-root lag",
+        "Finalization-certificate lag (p95)",
       ),
       blockTransactions: matrixSeries(
         results.blockTransactions,
