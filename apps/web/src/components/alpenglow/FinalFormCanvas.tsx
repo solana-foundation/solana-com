@@ -73,6 +73,7 @@ export type ArtworkTelemetry = {
 export type FinalFormCanvasHandle = {
   push: (_event: AlpenglowEvent) => void;
   setMode: (_mode: FinalityMode) => void;
+  resetStream: () => void;
   resetView: () => void;
 };
 
@@ -627,12 +628,14 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
     const runtimeRef = useRef<{
       push: (_event: AlpenglowEvent) => void;
       setMode: (_mode: FinalityMode) => void;
+      resetStream: () => void;
       resetView: () => void;
     } | null>(null);
 
     useImperativeHandle(ref, () => ({
       push: (event) => runtimeRef.current?.push(event),
       setMode: (mode) => runtimeRef.current?.setMode(mode),
+      resetStream: () => runtimeRef.current?.resetStream(),
       resetView: () => runtimeRef.current?.resetView(),
     }));
 
@@ -806,6 +809,19 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           setMode(value) {
             mode = value;
             fallbackState.population = populationFor(tps, mode);
+          },
+          resetStream() {
+            fallbackState.counts = [0, 0, 0];
+            fallbackState.meltingCount = 0;
+            fallbackState.population = populationFor(tps, mode);
+            fallbackState.cyclePopulation = fallbackState.population;
+            fallbackState.cycleState = "forming";
+            fallbackState.cycleAt = 0;
+            fallbackBlocks.clear();
+            fallbackFinalityValues.length = 0;
+            fallbackFinalizedBlocks = 0;
+            fallbackCurrentFinalityMs = 0;
+            reportFallback();
           },
           resetView() {},
         };
@@ -1108,6 +1124,42 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         targetZoom = defaultZoom();
       }
 
+      function resetStream() {
+        pending.length = 0;
+        pendingIndex = 0;
+        emissionCredit = 0;
+        confirmedOrder = 0;
+        streaming = [];
+        confirmed = [];
+        final = [];
+        melting = [];
+        meltingLogoModel = null;
+        blocks.clear();
+        finalityValues.length = 0;
+        finalizedBlocks = 0;
+        currentFinalityMs = 0;
+        targetPopulation = populationFor(tps, mode);
+        cyclePopulation = Math.max(targetPopulation, MIN_LOGO_POPULATION);
+        logoModel = createLogoModel(cyclePopulation);
+        targetBuckets = createTargetBuckets(cyclePopulation);
+        targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
+        streamingMesh.count = 0;
+        confirmedMesh.count = 0;
+        finalMesh.count = 0;
+        meltingMesh.count = 0;
+        confirmedDirty = true;
+        finalDirty = true;
+        meltStartedAt = 0;
+        lastTelemetry = 0;
+        onTelemetry({
+          holding: 0,
+          rendered: 0,
+          finalizedBlocks: 0,
+          currentFinalityMs: 0,
+          medianFinalityMs: 0,
+        });
+      }
+
       runtimeRef.current = {
         push,
         setMode(value) {
@@ -1115,6 +1167,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           mode = value;
           updatePopulationModel();
         },
+        resetStream,
         resetView,
       };
       onReady?.();

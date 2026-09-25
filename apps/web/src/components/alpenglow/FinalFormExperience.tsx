@@ -1,10 +1,7 @@
 "use client";
 
-import { Broadcast } from "@boxicons/react/Broadcast";
 import { Certification } from "@boxicons/react/Certification";
-import { CheckCircle } from "@boxicons/react/CheckCircle";
 import { Code } from "@boxicons/react/Code";
-import { Lock } from "@boxicons/react/Lock";
 import { NetworkChart } from "@boxicons/react/NetworkChart";
 import { Server } from "@boxicons/react/Server";
 import { User } from "@boxicons/react/User";
@@ -200,7 +197,10 @@ export default function FinalFormExperience({
   function selectMode(value: FinalityMode) {
     selectedModeRef.current = value;
     setMode(value);
-    canvasRef.current?.setMode(value);
+    bufferedCanvasEventsRef.current = [];
+    const canvas = canvasRef.current;
+    canvas?.setMode(value);
+    canvas?.resetStream();
   }
   function formatDuration(ms: number) {
     if (!ms) return "—";
@@ -294,13 +294,16 @@ export default function FinalFormExperience({
             )}
             <div className="ff-stage-labels" aria-hidden="true">
               <p>
-                <Broadcast pack="filled" /> {t("stages.streaming")}
+                <span className="ff-stage-index">1</span>
+                {t("stages.streaming")}
               </p>
               <p>
-                <CheckCircle pack="filled" /> {t("stages.confirmed")}
+                <span className="ff-stage-index">2</span>
+                {t("stages.confirmed")}
               </p>
               <p>
-                <Lock pack="filled" /> {t("stages.finalized")}
+                <span className="ff-stage-index">3</span>
+                {t("stages.finalized")}
               </p>
             </div>
           </div>
