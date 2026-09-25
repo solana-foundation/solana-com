@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getAlpenglowDashboardData,
+  getAlpenglowDetailData,
   isAlpenglowDashboardNetwork,
   isAlpenglowDashboardRange,
 } from "@/lib/upgrades/alpenglow-metrics";
@@ -39,14 +39,14 @@ export async function GET(request: NextRequest) {
     : "testnet";
 
   try {
-    const data = await getAlpenglowDashboardData(range, network);
+    const data = await getAlpenglowDetailData(range, network);
     return NextResponse.json(data, {
-      headers: alpenglowPublicCacheHeaders(2, 6),
+      headers: alpenglowPublicCacheHeaders(15, 60),
     });
   } catch (error) {
-    console.error("Failed to build the Alpenglow metrics dashboard:", error);
+    console.error("Failed to load Alpenglow metric details:", error);
     return NextResponse.json(
-      { error: "Unable to load Alpenglow metrics" },
+      { error: "Unable to load Alpenglow metric details" },
       { status: 503, headers: ALPENGLOW_NO_STORE_HEADERS },
     );
   }

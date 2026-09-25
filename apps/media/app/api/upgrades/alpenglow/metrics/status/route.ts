@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getAlpenglowDashboardData,
+  getAlpenglowActivationData,
   isAlpenglowDashboardNetwork,
-  isAlpenglowDashboardRange,
 } from "@/lib/upgrades/alpenglow-metrics";
 import {
   ALPENGLOW_NO_STORE_HEADERS,
@@ -12,15 +11,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const requestedRange = request.nextUrl.searchParams.get("range");
   const requestedNetwork = request.nextUrl.searchParams.get("network");
-
-  if (requestedRange !== null && !isAlpenglowDashboardRange(requestedRange)) {
-    return NextResponse.json(
-      { error: "Unsupported dashboard range" },
-      { status: 400, headers: ALPENGLOW_NO_STORE_HEADERS },
-    );
-  }
   if (
     requestedNetwork !== null &&
     !isAlpenglowDashboardNetwork(requestedNetwork)
@@ -31,22 +22,29 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const range = isAlpenglowDashboardRange(requestedRange)
-    ? requestedRange
-    : "24h";
   const network = isAlpenglowDashboardNetwork(requestedNetwork)
     ? requestedNetwork
     : "testnet";
 
   try {
-    const data = await getAlpenglowDashboardData(range, network);
+    const data = await getAlpenglowActivationData(network);
+    const cachePolicy =
+      data.alpenglowActive === true
+        ? { fresh: 86_400, stale: 86_400 }
+        : data.alpenglowRpcSupported === false
+          ? { fresh: 300, stale: 600 }
+          : { fresh: 10, stale: 30 };
+
     return NextResponse.json(data, {
-      headers: alpenglowPublicCacheHeaders(2, 6),
+      headers: alpenglowPublicCacheHeaders(
+        cachePolicy.fresh,
+        cachePolicy.stale,
+      ),
     });
   } catch (error) {
-    console.error("Failed to build the Alpenglow metrics dashboard:", error);
+    console.error("Failed to load Alpenglow activation status:", error);
     return NextResponse.json(
-      { error: "Unable to load Alpenglow metrics" },
+      { error: "Unable to load Alpenglow activation status" },
       { status: 503, headers: ALPENGLOW_NO_STORE_HEADERS },
     );
   }

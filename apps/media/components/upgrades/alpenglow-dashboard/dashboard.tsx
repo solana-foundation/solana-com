@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { MetricChart } from "./metric-chart";
 import { MetricInfo } from "./metric-info";
+import { useDashboardPoller } from "./use-dashboard-poller";
 import {
   ALPENGLOW_DASHBOARD_NETWORKS,
   ALPENGLOW_DASHBOARD_RANGES,
-  type AlpenglowDashboardData,
+  type AlpenglowDashboardActivationData,
+  type AlpenglowDashboardDetailData,
+  type AlpenglowDashboardLiveData,
   type AlpenglowDashboardNetwork,
   type AlpenglowDashboardRange,
   type MetricSeries,
@@ -25,7 +28,20 @@ const RANGE_LABELS: Record<AlpenglowDashboardRange, string> = {
   "7d": "7 days",
 };
 
-const DASHBOARD_POLL_INTERVAL_MS = 5_000;
+const STATUS_POLL_INTERVAL_MS = 10_000;
+const LIVE_POLL_INTERVAL_MS = 3_000;
+const DETAIL_POLL_INTERVAL_MS = 15_000;
+const STATUS_UNSUPPORTED_POLL_INTERVAL_MS = 5 * 60_000;
+
+function statusPollInterval(
+  data: AlpenglowDashboardActivationData,
+): number | null {
+  if (data.alpenglowActive === true) return null;
+  if (data.alpenglowRpcSupported === false) {
+    return STATUS_UNSUPPORTED_POLL_INTERVAL_MS;
+  }
+  return STATUS_POLL_INTERVAL_MS;
+}
 
 function formatNumber(value: number | null, maximumFractionDigits = 0) {
   if (value === null) return "Unavailable";
@@ -233,88 +249,61 @@ function DashboardSkeleton({
 export function AlpenglowDashboard() {
   const [network, setNetwork] = useState<AlpenglowDashboardNetwork>("testnet");
   const [range, setRange] = useState<AlpenglowDashboardRange>("24h");
-  const [data, setData] = useState<AlpenglowDashboardData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [validatorFilter, setValidatorFilter] = useState("");
 
-  useEffect(() => {
-    let active = true;
-    let requestInFlight = false;
-    let controller: AbortController | null = null;
+  const statusPoller = useDashboardPoller<AlpenglowDashboardActivationData>({
+    url: `/api/upgrades/alpenglow/metrics/status?${new URLSearchParams({ network })}`,
+    intervalMs: STATUS_POLL_INTERVAL_MS,
+    maxBackoffMs: STATUS_UNSUPPORTED_POLL_INTERVAL_MS,
+    getNextIntervalMs: statusPollInterval,
+  });
+  const livePoller = useDashboardPoller<AlpenglowDashboardLiveData>({
+    url: `/api/upgrades/alpenglow/metrics/live?${new URLSearchParams({ network })}`,
+    intervalMs: LIVE_POLL_INTERVAL_MS,
+    maxBackoffMs: 30_000,
+  });
+  const detailPoller = useDashboardPoller<AlpenglowDashboardDetailData>({
+    url: `/api/upgrades/alpenglow/metrics/detail?${new URLSearchParams({ network, range })}`,
+    intervalMs: DETAIL_POLL_INTERVAL_MS,
+    maxBackoffMs: 60_000,
+  });
 
-    async function load() {
-      if (requestInFlight) return;
-      requestInFlight = true;
-      controller = new AbortController();
-      if (active) setIsLoading(true);
-      try {
-        const searchParams = new URLSearchParams({ network, range });
-        const response = await fetch(
-          `/api/upgrades/alpenglow/metrics?${searchParams}`,
-          { signal: controller.signal },
-        );
-        const payload = (await response.json()) as
-          | AlpenglowDashboardData
-          | { error?: string };
-        if (!response.ok) {
-          throw new Error(
-            "error" in payload && payload.error
-              ? payload.error
-              : "Unable to load metrics",
-          );
-        }
-        if (active) {
-          setData(payload as AlpenglowDashboardData);
-          setError(null);
-        }
-      } catch (loadError) {
-        if (
-          active &&
-          !(
-            loadError instanceof DOMException && loadError.name === "AbortError"
-          )
-        ) {
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Unable to load metrics",
-          );
-        }
-      } finally {
-        requestInFlight = false;
-        if (active) setIsLoading(false);
-      }
-    }
-
-    setIsLoading(true);
-    setData(null);
-    setError(null);
-    void load();
-    const interval = window.setInterval(
-      () => void load(),
-      DASHBOARD_POLL_INTERVAL_MS,
-    );
-
-    return () => {
-      active = false;
-      controller?.abort();
-      window.clearInterval(interval);
-    };
-  }, [network, range]);
+  const activation =
+    statusPoller.data?.network === network ? statusPoller.data : null;
+  const live = livePoller.data?.network === network ? livePoller.data : null;
+  const detail =
+    detailPoller.data?.network === network && detailPoller.data.range === range
+      ? detailPoller.data
+      : null;
+  const errors = [
+    statusPoller.error,
+    livePoller.error,
+    detailPoller.error,
+  ].filter((value): value is string => value !== null);
+  const warnings = [
+    ...(activation?.warnings ?? []),
+    ...(live?.warnings ?? []),
+    ...(detail?.warnings ?? []),
+  ].filter(
+    (warning, index, allWarnings) => allWarnings.indexOf(warning) === index,
+  );
+  const isRefreshing =
+    statusPoller.isRefreshing ||
+    livePoller.isRefreshing ||
+    detailPoller.isRefreshing;
 
   const filteredValidators = useMemo(() => {
-    if (!data) return [];
+    if (!detail) return [];
     const needle = validatorFilter.trim().toLowerCase();
-    if (!needle) return data.validators;
-    return data.validators.filter(
+    if (!needle) return detail.validators;
+    return detail.validators.filter(
       (validator) =>
         validator.nodekey.toLowerCase().includes(needle) ||
         validator.votekey.toLowerCase().includes(needle),
     );
-  }, [data, validatorFilter]);
+  }, [detail, validatorFilter]);
 
-  if (!data && isLoading) {
+  if (!detail && detailPoller.isLoading) {
     return (
       <DashboardSkeleton
         network={network}
@@ -325,7 +314,7 @@ export function AlpenglowDashboard() {
     );
   }
 
-  if (!data) {
+  if (!detail) {
     return (
       <div className="space-y-6">
         <div className="flex justify-end">
@@ -340,13 +329,24 @@ export function AlpenglowDashboard() {
           <h2 className="font-semibold">
             {NETWORK_LABELS[network]} metrics are unavailable
           </h2>
-          <p className="mt-2 text-sm text-red-200/70">{error}</p>
+          <p className="mt-2 text-sm text-red-200/70">
+            {detailPoller.error ?? "Unable to load metric details"}
+          </p>
         </div>
       </div>
     );
   }
 
-  const { status } = data;
+  const status = {
+    alpenglowRpcSupported: activation?.alpenglowRpcSupported ?? null,
+    alpenglowActive: activation?.alpenglowActive ?? null,
+    genesisSlot: activation?.genesisSlot ?? null,
+    certificateValidatorCount: activation?.certificateValidatorCount ?? null,
+    recentAverageFinalityLatencySeconds:
+      live?.recentAverageFinalityLatencySeconds ?? null,
+    trackedValidatorCount: detail.status.trackedValidatorCount,
+    delinquentValidatorCount: detail.status.delinquentValidatorCount,
+  };
   const transitionState =
     status.alpenglowActive === true
       ? "Alpenglow active"
@@ -359,7 +359,7 @@ export function AlpenglowDashboard() {
       : status.alpenglowRpcSupported === true
         ? "The cluster can report Alpenglow activation, but no genesis certificate has been observed. Tower BFT remains the active consensus protocol."
         : "This cluster does not currently expose enough information to confirm Alpenglow activation.";
-  const transactionRate = latestMetricValue(data.charts.transactionsPerSecond);
+  const transactionRate = live?.transactionsPerSecond ?? null;
   const recentAverageFinalityLatency = formatLatency(
     status.recentAverageFinalityLatencySeconds,
   );
@@ -382,11 +382,11 @@ export function AlpenglowDashboard() {
         ? "sm:w-2/3 sm:grid-cols-2"
         : "sm:w-1/3 sm:grid-cols-1";
   const nonVoteTransactions = latestMetricValue(
-    data.charts.blockTransactions,
+    detail.charts.blockTransactions,
     "Non-vote transactions",
   );
   const voteTransactions = latestMetricValue(
-    data.charts.blockTransactions,
+    detail.charts.blockTransactions,
     "Vote transactions",
   );
   const blockTransactionTotal =
@@ -399,16 +399,22 @@ export function AlpenglowDashboard() {
     blockTransactionTotal > 0
       ? (voteTransactions / blockTransactionTotal) * 100
       : null;
+  const generatedAt =
+    live && live.generatedAt > detail.generatedAt
+      ? live.generatedAt
+      : detail.generatedAt;
 
   return (
     <div className="space-y-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div aria-live="polite">
           <p className="text-xs text-gray-500">
-            Updated {new Date(data.generatedAt).toLocaleTimeString()}
-            {isLoading ? " · Refreshing…" : ""}
+            Updated {new Date(generatedAt).toLocaleTimeString()}
+            {isRefreshing ? " · Refreshing…" : ""}
           </p>
-          {error && <p className="mt-1 text-xs text-amber-300">{error}</p>}
+          {errors[0] && (
+            <p className="mt-1 text-xs text-amber-300">{errors[0]}</p>
+          )}
         </div>
         <DashboardControls
           network={network}
@@ -426,9 +432,7 @@ export function AlpenglowDashboard() {
             />
             Live consensus state
             <span className="text-gray-600">·</span>
-            <span className="text-gray-500">
-              {NETWORK_LABELS[data.network]}
-            </span>
+            <span className="text-gray-500">{NETWORK_LABELS[network]}</span>
             <MetricInfo
               label="Consensus state"
               description={transitionExplanation}
@@ -551,31 +555,31 @@ export function AlpenglowDashboard() {
           <MetricChart
             title="Observed finality latency (p95)"
             description="The 95th percentile of RPC-observed finality measurements over a rolling five-minute window. Ninety-five percent of observations completed at or below this value; polling and network delay are included."
-            series={data.charts.p95FinalityLatencySeconds}
+            series={detail.charts.p95FinalityLatencySeconds}
             unit="seconds"
           />
           <MetricChart
             title="Transaction throughput"
             description="Total transactions per second, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
-            series={data.charts.transactionsPerSecond}
+            series={detail.charts.transactionsPerSecond}
             unit="transactions per second"
           />
           <MetricChart
             title="Block transaction composition"
             description="Average vote and non-vote transactions in sampled blocks. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
-            series={data.charts.blockTransactions}
+            series={detail.charts.blockTransactions}
             unit="transactions per block"
           />
           <MetricChart
             title="Tower vote advancement"
             description="The average rate at which sampled validators' last Tower vote moves forward. It should fall to zero when Tower voting stops; that is expected after activation, not an outage signal."
-            series={data.charts.towerVoteSlotsPerSecond}
+            series={detail.charts.towerVoteSlotsPerSecond}
             unit="slots per second"
           />
           <MetricChart
             title="Tower vote-to-root lag"
             description="The average slot distance from a validator's latest Tower vote to its Tower root. It diagnoses legacy voting during the transition and should not be treated as Alpenglow finality after activation."
-            series={data.charts.averageVoteRootLag}
+            series={detail.charts.averageVoteRootLag}
             unit="slots"
           />
         </div>
@@ -719,14 +723,14 @@ export function AlpenglowDashboard() {
         </div>
       </section>
 
-      {data.warnings.length > 0 && (
+      {warnings.length > 0 && (
         <details className="rounded-xl border border-amber-300/15 bg-amber-300/5 px-5 py-4 text-sm text-amber-100/80">
           <summary className="cursor-pointer font-medium">
-            {data.warnings.length} metric quer
-            {data.warnings.length === 1 ? "y" : "ies"} unavailable
+            {warnings.length} data source warning
+            {warnings.length === 1 ? "" : "s"}
           </summary>
           <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-amber-100/60">
-            {data.warnings.map((warning) => (
+            {warnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
           </ul>
