@@ -113,6 +113,10 @@ function populationFor(tps: number, mode: FinalityMode) {
   return Math.max(256, Math.min(MAX_STAGE_VOXELS, Math.round(tps * seconds)));
 }
 
+function finalLogoPopulationFor(tps: number) {
+  return Math.max(populationFor(tps, "alpenglow"), MIN_LOGO_POPULATION);
+}
+
 const SOLANA_PURPLE = new THREE.Color(0x9945ff);
 const SOLANA_CYAN = new THREE.Color(0x00d4ff);
 const SOLANA_GREEN = new THREE.Color(0x14f195);
@@ -485,6 +489,7 @@ type FallbackState = {
   counts: [number, number, number];
   melting: Array<{ count: number; startedAt: number }>;
   population: number;
+  logoPopulation: number;
   cyclePopulation: number;
 };
 
@@ -507,7 +512,7 @@ function mountFallback(host: HTMLDivElement, state: FallbackState) {
     if (state.counts[2] >= state.cyclePopulation) {
       state.melting.push({ count: state.counts[2], startedAt: now });
       state.counts[2] = 0;
-      state.cyclePopulation = state.population;
+      state.cyclePopulation = state.logoPopulation;
     }
     const ratio = Math.min(window.devicePixelRatio, 1.5);
     const width = host.clientWidth;
@@ -664,7 +669,8 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           counts: [0, 0, 0],
           melting: [],
           population: populationFor(tps, mode),
-          cyclePopulation: populationFor(tps, mode),
+          logoPopulation: finalLogoPopulationFor(tps),
+          cyclePopulation: finalLogoPopulationFor(tps),
         };
         const fallbackBlocks = new Map<
           string,
@@ -739,7 +745,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
               startedAt: performance.now(),
             });
             fallbackState.counts[2] = 0;
-            fallbackState.cyclePopulation = fallbackState.population;
+            fallbackState.cyclePopulation = fallbackState.logoPopulation;
           }
           reportFallback();
         }
@@ -764,6 +770,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             if (event.type === "performance_sample") {
               tps = event.totalTps;
               fallbackState.population = populationFor(tps, mode);
+              fallbackState.logoPopulation = finalLogoPopulationFor(tps);
               reportFallback();
             }
             if (event.type === "transaction_observed") {
@@ -814,7 +821,8 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
             fallbackState.counts = [0, 0, 0];
             fallbackState.melting = [];
             fallbackState.population = populationFor(tps, mode);
-            fallbackState.cyclePopulation = fallbackState.population;
+            fallbackState.logoPopulation = finalLogoPopulationFor(tps);
+            fallbackState.cyclePopulation = fallbackState.logoPopulation;
             fallbackBlocks.clear();
             fallbackFinalityValues.length = 0;
             fallbackFinalizedBlocks = 0;
@@ -893,7 +901,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
       let tps = 3_000;
       let sampledStream = false;
       let targetPopulation = populationFor(tps, mode);
-      let cyclePopulation = Math.max(targetPopulation, MIN_LOGO_POPULATION);
+      let cyclePopulation = finalLogoPopulationFor(tps);
       let logoModel = createLogoModel(cyclePopulation);
       let targetBuckets = createTargetBuckets(cyclePopulation);
       let targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
@@ -1133,7 +1141,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         finalizedBlocks = 0;
         currentFinalityMs = 0;
         targetPopulation = populationFor(tps, mode);
-        cyclePopulation = Math.max(targetPopulation, MIN_LOGO_POPULATION);
+        cyclePopulation = finalLogoPopulationFor(tps);
         logoModel = createLogoModel(cyclePopulation);
         targetBuckets = createTargetBuckets(cyclePopulation);
         targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
@@ -1501,7 +1509,7 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
           melting = [...melting, ...completed].slice(-MAX_STAGE_VOXELS);
           final = [];
           finalMesh.count = 0;
-          cyclePopulation = Math.max(targetPopulation, MIN_LOGO_POPULATION);
+          cyclePopulation = finalLogoPopulationFor(tps);
           logoModel = createLogoModel(cyclePopulation);
           targetBuckets = createTargetBuckets(cyclePopulation);
           targetBucketCursors = new Uint32Array(COLOR_BUCKETS);
