@@ -156,6 +156,7 @@ export async function proxyInkeepRequest(
     }
 
     const abort = createUpstreamAbortSignal(request.signal);
+    const siteOrigin = new URL(request.url).origin;
 
     try {
       const upstreamResponse = await fetch(preparedRequest.url, {
@@ -164,6 +165,11 @@ export async function proxyInkeepRequest(
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           Accept: request.headers.get("accept") ?? "application/json",
+          // Inkeep web integrations can restrict credentials to an allowed
+          // domain. Preserve that signal without forwarding caller-controlled
+          // Origin or Referer values.
+          Origin: siteOrigin,
+          Referer: `${siteOrigin}/`,
         },
         body: preparedRequest.body,
         cache: "no-store",
