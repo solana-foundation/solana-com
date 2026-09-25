@@ -3,6 +3,7 @@ import type {
   BlockConfirmed,
   StreamStatus,
 } from "@/components/alpenglow/types";
+import { unstable_cache } from "next/cache";
 import {
   alpenglowRpcUrl,
   blockRequestOptions,
@@ -24,6 +25,10 @@ const MAX_CONCURRENT_BLOCK_READS = 8;
 const MAX_RETRY_MS = 10_000;
 const MAX_STREAM_CLIENTS = 64;
 const MAX_PENDING_BYTES_PER_CLIENT = 2 * 1024 * 1024;
+const BLOCK_CACHE_REVALIDATE_SECONDS = 4;
+const PERFORMANCE_CACHE_REVALIDATE_SECONDS = 15;
+const PROTOCOL_CACHE_REVALIDATE_SECONDS = 60;
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 type Emit = (_event: AlpenglowEvent) => void;
 type Subscriber = {
   controller: ReadableStreamDefaultController<Uint8Array>;
@@ -59,6 +64,70 @@ async function rpc<T>(
   if (payload.error) throw new Error(payload.error.message);
   return payload.result as T;
 }
+
+type Commitment = "confirmed" | "finalized";
+type PerformanceSample = {
+  numTransactions: number;
+  numNonVoteTransactions?: number;
+  samplePeriodSecs: number;
+};
+
+async function loadBlock(url: string, slot: number, commitment: Commitment) {
+  const block = await rpc<RpcBlock | null>(url, "getBlock", [
+    slot,
+    blockRequestOptions(commitment),
+  ]);
+  // Do not persist a transient null while a newly confirmed block is still
+  // becoming available. Failed cache fills are retried by the stream loop.
+  if (!block) throw new Error(`Block ${slot} unavailable`);
+  return block;
+}
+
+async function loadProducedSlots(
+  url: string,
+  start: number,
+  end: number,
+  commitment: Commitment,
+) {
+  return rpc<number[]>(url, "getBlocks", [start, end, { commitment }]);
+}
+
+async function loadPerformanceSamples(url: string) {
+  const samples = await rpc<PerformanceSample[]>(
+    url,
+    "getRecentPerformanceSamples",
+    [1],
+  );
+  return { samples, sampledAt: Date.now() };
+}
+
+async function loadProtocolCertificate(url: string) {
+  return rpc<unknown>(url, "getAgGenesisCert");
+}
+
+// As on /200ms, keep local development live while sharing production RPC
+// reads through Vercel's data cache. Slot heads remain uncached because their
+// arrival times are used to measure and render observed finality.
+const getCachedBlock = IS_PRODUCTION
+  ? unstable_cache(loadBlock, ["alpenglow-block-v1"], {
+      revalidate: BLOCK_CACHE_REVALIDATE_SECONDS,
+    })
+  : null;
+const getCachedProducedSlots = IS_PRODUCTION
+  ? unstable_cache(loadProducedSlots, ["alpenglow-produced-slots-v1"], {
+      revalidate: BLOCK_CACHE_REVALIDATE_SECONDS,
+    })
+  : null;
+const getCachedPerformanceSamples = IS_PRODUCTION
+  ? unstable_cache(loadPerformanceSamples, ["alpenglow-performance-v1"], {
+      revalidate: PERFORMANCE_CACHE_REVALIDATE_SECONDS,
+    })
+  : null;
+const getCachedProtocolCertificate = IS_PRODUCTION
+  ? unstable_cache(loadProtocolCertificate, ["alpenglow-protocol-v1"], {
+      revalidate: PROTOCOL_CACHE_REVALIDATE_SECONDS,
+    })
+  : null;
 
 function sse(event: AlpenglowEvent) {
   return encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
@@ -155,33 +224,50 @@ async function wait(ms: number, signal: AbortSignal) {
 async function getBlock(
   url: string,
   slot: number,
-  commitment: "confirmed" | "finalized",
+  commitment: Commitment,
   signal: AbortSignal,
 ) {
-  return rpc<RpcBlock | null>(
-    url,
-    "getBlock",
-    [slot, blockRequestOptions(commitment)],
-    signal,
-  );
+  if (!getCachedBlock) {
+    return rpc<RpcBlock | null>(
+      url,
+      "getBlock",
+      [slot, blockRequestOptions(commitment)],
+      signal,
+    );
+  }
+  signal.throwIfAborted();
+  const block = await getCachedBlock(url, slot, commitment);
+  signal.throwIfAborted();
+  return block;
 }
 
 async function getProducedSlots(
   url: string,
   start: number,
   end: number,
-  commitment: "confirmed" | "finalized",
+  commitment: Commitment,
   signal: AbortSignal,
 ) {
   if (end < start) return [];
-  return rpc<number[]>(url, "getBlocks", [start, end, { commitment }], signal);
+  if (!getCachedProducedSlots) {
+    return rpc<number[]>(
+      url,
+      "getBlocks",
+      [start, end, { commitment }],
+      signal,
+    );
+  }
+  signal.throwIfAborted();
+  const slots = await getCachedProducedSlots(url, start, end, commitment);
+  signal.throwIfAborted();
+  return slots;
 }
 
 async function readBlockRange(
   url: string,
   start: number,
   end: number,
-  commitment: "confirmed" | "finalized",
+  commitment: Commitment,
   signal: AbortSignal,
 ) {
   if (end < start) {
@@ -275,7 +361,11 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
   let reconnecting = false;
 
   try {
-    const certificate = await rpc<unknown>(url, "getAgGenesisCert", [], signal);
+    signal.throwIfAborted();
+    const certificate = getCachedProtocolCertificate
+      ? await getCachedProtocolCertificate(url)
+      : await rpc<unknown>(url, "getAgGenesisCert", [], signal);
+    if (getCachedProtocolCertificate) signal.throwIfAborted();
     protocol = certificate == null ? "tower-bft" : "alpenglow";
   } catch {
     protocol = "unknown";
@@ -392,18 +482,24 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
 
       performanceTick += 1;
       if (performanceTick % 7 === 0) {
-        const samples = await rpc<
-          Array<{
-            numTransactions: number;
-            numNonVoteTransactions?: number;
-            samplePeriodSecs: number;
-          }>
-        >(url, "getRecentPerformanceSamples", [1], signal);
-        const sample = samples[0];
+        signal.throwIfAborted();
+        const performance = getCachedPerformanceSamples
+          ? await getCachedPerformanceSamples(url)
+          : {
+              samples: await rpc<PerformanceSample[]>(
+                url,
+                "getRecentPerformanceSamples",
+                [1],
+                signal,
+              ),
+              sampledAt: Date.now(),
+            };
+        if (getCachedPerformanceSamples) signal.throwIfAborted();
+        const sample = performance.samples[0];
         if (sample) {
           emit({
             type: "performance_sample",
-            sampledAt: Date.now(),
+            sampledAt: performance.sampledAt,
             totalTps: sample.numTransactions / sample.samplePeriodSecs,
             nonVoteTps:
               sample.numNonVoteTransactions == null
