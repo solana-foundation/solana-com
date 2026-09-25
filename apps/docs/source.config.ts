@@ -44,8 +44,10 @@ const cookbookData = defineDocs({
 export const cookbook = cookbookData.docs;
 export const cookbookMeta = cookbookData.meta;
 
+// Learn is rendered by apps/web, but remains part of the shared documentation
+// indexes served by this app.
 const learnData = defineDocs({
-  dir: "content/learn",
+  dir: "../web/content/learn",
   docs: { schema, async: true },
 });
 

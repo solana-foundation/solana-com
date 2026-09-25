@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "../..");
-const contentDir = path.join(rootDir, "apps/docs/content");
+const contentDirs = [
+  path.join(rootDir, "apps/docs/content"),
+  path.join(rootDir, "apps/web/content/learn"),
+];
 const config = JSON.parse(
   fs.readFileSync(path.join(rootDir, ".lingo/config.json"), "utf8"),
 );
@@ -84,7 +87,9 @@ function visit(directory) {
   }
 }
 
-visit(contentDir);
+for (const contentDir of contentDirs) {
+  visit(contentDir);
+}
 
 if (changedLockEntries > 0) {
   fs.writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
