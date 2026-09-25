@@ -15,7 +15,7 @@ import { wordWrap } from "./word-wrap";
 import { MultiCode } from "./code.client";
 import { tooltip } from "./tooltip";
 import { tokenTransitions } from "./token-transitions";
-import { RunnableLayout } from "./code.runnable";
+import { Runnable, RunButton, RunnableConsole } from "./code.runnable";
 import { focus } from "./focus";
 
 export async function Code(props: {
@@ -48,8 +48,7 @@ export function SingleCode({
     <div
       data-ch-container="true"
       className={cn(
-        "tw-border rounded overflow-hidden relative border-ch-border flex flex-col selection:bg-ch-selection !bg-ch-background",
-        isRunnable ? "h-full" : "my-4",
+        "tw-border rounded overflow-hidden relative border-ch-border flex flex-col selection:bg-ch-selection !bg-ch-background my-4",
         className,
       )}
     >
@@ -64,7 +63,8 @@ export function SingleCode({
           <div className="flex items-center w-full h-5 gap-2">
             <div className="size-4">{icon}</div>
             <span className="leading-none">{title}</span>
-            <div className={cn("ml-auto mr-3 items-center flex")}>
+            <div className={cn("ml-auto mr-3 items-center flex gap-1")}>
+              {isRunnable && <RunButton />}
               <CopyButton
                 text={code}
                 className="text-ch-tab-inactive-foreground"
@@ -73,26 +73,26 @@ export function SingleCode({
           </div>
         </div>
       ) : (
-        <CopyButton
-          text={code}
-          className="absolute right-3 my-0 top-2.5 text-ch-tab-inactive-foreground bg-ch-background/90 z-10"
-        />
+        <div className="flex absolute right-3 top-2 z-10 gap-1 items-center rounded bg-ch-background/90 text-ch-tab-inactive-foreground">
+          {isRunnable && <RunButton />}
+          <CopyButton text={code} className="my-0" />
+        </div>
       )}
       {pre}
+      {isRunnable && <RunnableConsole />}
     </div>
   );
 
   return isRunnable ? (
-    <RunnableLayout
+    <Runnable
       code={code}
       language={lang}
       title={title}
       output={output}
       runner={group.runner}
-      className={"my-4"}
     >
       {content}
-    </RunnableLayout>
+    </Runnable>
   ) : (
     content
   );

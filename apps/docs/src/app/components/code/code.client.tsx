@@ -11,7 +11,7 @@ import { CopyButton } from "@@/src/app/components/code/copy-button";
 import React from "react";
 import { useStateOrLocalStorage } from "@@/src/hooks/useLocalStorage";
 import { CodeGroup } from "@@/src/app/components/code/code-group";
-import { RunnableLayout } from "./code.runnable";
+import { Runnable, RunButton, RunnableConsole } from "./code.runnable";
 
 export function MultiCode({
   group,
@@ -37,8 +37,7 @@ export function MultiCode({
       value={currentTitle}
       onValueChange={setCurrentTitle}
       className={cn(
-        "border rounded selection:bg-ch-selection border-ch-border overflow-hidden relative flex flex-col max-h-full min-h-0 !bg-ch-background",
-        runnable ? "h-full" : "my-4",
+        "border rounded selection:bg-ch-selection border-ch-border overflow-hidden relative flex flex-col max-h-full min-h-0 !bg-ch-background my-4",
         className,
       )}
     >
@@ -66,30 +65,29 @@ export function MultiCode({
             <div className="absolute h-[1px] top-full left-0 right-0 transition-colors duration-200" />
           </TabsTrigger>
         ))}
-        {group.options.copyButton && (
-          <div className={cn("ml-auto mr-3 items-center flex shrink-0")}>
-            <CopyButton text={code} />
-          </div>
-        )}
+        <div className={cn("ml-auto mr-3 items-center flex gap-1 shrink-0")}>
+          {runnable && <RunButton />}
+          {group.options.copyButton && <CopyButton text={code} />}
+        </div>
       </TabsList>
       <TabsContent value={current.title} className="min-h-0 mt-0 flex flex-col">
         {current.pre}
       </TabsContent>
+      {runnable && <RunnableConsole />}
     </Tabs>
   );
 
   return runnable ? (
-    <RunnableLayout
+    <Runnable
       code={current.code}
       language={current.lang}
       title={current.title}
       output={current.output}
       runner={group.runner}
       key={current.title}
-      className={"my-4"}
     >
       {tabs}
-    </RunnableLayout>
+    </Runnable>
   ) : (
     tabs
   );
