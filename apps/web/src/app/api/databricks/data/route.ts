@@ -8,9 +8,9 @@ import {
 } from "node:zlib";
 
 import {
-  type DatabricksConfig,
-  getDatabricksSqlMetricRows,
-  getDatabricksConfig,
+  type DataApiConfig,
+  getDataApiMetricRows,
+  getDataApiConfig,
   isProduction,
 } from "@/lib/databricks/server";
 import {
@@ -25,11 +25,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const DATABRICKS_CACHE_REVALIDATE_SECONDS = 12 * 60 * 60;
+const DATA_API_CACHE_REVALIDATE_SECONDS = 12 * 60 * 60;
 const EDGE_STALE_SECONDS = 24 * 60 * 60;
 const DEFAULT_RANGE_DAYS = 90;
 const MAX_RANGE_DAYS = Math.max(...rangeOptions.map((option) => option.value));
-const DATABRICKS_CACHE_KEY_VERSION = "solana-data-databricks-metric-rows-v4";
+const DATA_API_CACHE_KEY_VERSION = "solana-data-data-api-metric-rows-v1";
 const IS_PRODUCTION = isProduction();
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -43,13 +43,13 @@ type ErrorResponse = {
   missingEnv?: string[];
 };
 
-type DatabricksData = {
+type DataApiMetricsData = {
   generatedAt: string;
   rows: MetricRow[];
   truncated: boolean;
 };
 
-type PackedDatabricksData = {
+type PackedDataApiMetricsData = {
   compression: "br";
   generatedAt: string;
   rows: string;
@@ -60,7 +60,7 @@ const metricNameSet = new Set<string>(metricNames);
 const rangeValues = new Set<number>(rangeOptions.map((option) => option.value));
 
 export async function GET(request: NextRequest) {
-  const configResult = getDatabricksConfig();
+  const configResult = getDataApiConfig();
 
   if (!configResult.ok) {
     return json<ErrorResponse>(
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
   const rangeDays = parseRangeDays(request.nextUrl.searchParams.get("days"));
 
   try {
-    const result = await getDatabricksData(configResult.config);
+    const result = await getMetricsData(configResult.config);
 
     return json<DataApiResponse>(
       buildDataResponse(result, rangeDays),
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       getSuccessCacheControl(),
     );
   } catch (error) {
-    console.error("Failed to load Solana Databricks data", error);
+    console.error("Failed to load Solana data from data-api", error);
 
     return json<ErrorResponse>(
       getDataErrorResponse(error),
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
 }
 
 function buildDataResponse(
-  result: DatabricksData,
+  result: DataApiMetricsData,
   rangeDays: number,
 ): DataApiResponse {
   return {
@@ -122,35 +122,32 @@ function filterRowsByRange(rows: MetricRow[], rangeDays: number) {
   });
 }
 
-function getDatabricksData(config: DatabricksConfig): Promise<DatabricksData> {
+function getMetricsData(config: DataApiConfig): Promise<DataApiMetricsData> {
   return IS_PRODUCTION
-    ? getCachedDatabricksData(config)
-    : fetchDatabricksData(config);
+    ? getCachedMetricsData(config)
+    : fetchMetricsData(config);
 }
 
-async function getCachedDatabricksData(config: DatabricksConfig) {
-  const dataCacheKey = getDatabricksCacheKey(config);
-  const cacheKeyParts = [DATABRICKS_CACHE_KEY_VERSION, dataCacheKey];
+async function getCachedMetricsData(config: DataApiConfig) {
+  const dataCacheKey = getMetricsCacheKey(config);
+  const cacheKeyParts = [DATA_API_CACHE_KEY_VERSION, dataCacheKey];
 
   const packedData = await unstable_cache(
-    () => getInMemoryCachedDatabricksData(config, cacheKeyParts.join("|")),
+    () => getInMemoryCachedMetricsData(config, cacheKeyParts.join("|")),
     cacheKeyParts,
     {
-      revalidate: DATABRICKS_CACHE_REVALIDATE_SECONDS,
-      tags: ["solana-data-databricks"],
+      revalidate: DATA_API_CACHE_REVALIDATE_SECONDS,
+      tags: ["solana-data-metrics"],
     },
   )();
 
-  return unpackDatabricksData(packedData);
+  return unpackMetricsData(packedData);
 }
 
-async function fetchDatabricksData(
-  config: DatabricksConfig,
-): Promise<DatabricksData> {
-  const result = await getDatabricksSqlMetricRows(config, {
-    lookbackDays: MAX_RANGE_DAYS,
-    metricNames,
-  });
+async function fetchMetricsData(
+  config: DataApiConfig,
+): Promise<DataApiMetricsData> {
+  const result = await getDataApiMetricRows(config);
 
   return {
     ...result,
@@ -158,11 +155,11 @@ async function fetchDatabricksData(
   };
 }
 
-async function fetchPackedDatabricksData(config: DatabricksConfig) {
-  return packDatabricksData(await fetchDatabricksData(config));
+async function fetchPackedMetricsData(config: DataApiConfig) {
+  return packMetricsData(await fetchMetricsData(config));
 }
 
-function packDatabricksData(data: DatabricksData): PackedDatabricksData {
+function packMetricsData(data: DataApiMetricsData): PackedDataApiMetricsData {
   return {
     compression: "br",
     generatedAt: data.generatedAt,
@@ -175,7 +172,7 @@ function packDatabricksData(data: DatabricksData): PackedDatabricksData {
   };
 }
 
-function unpackDatabricksData(data: PackedDatabricksData): DatabricksData {
+function unpackMetricsData(data: PackedDataApiMetricsData): DataApiMetricsData {
   return {
     generatedAt: data.generatedAt,
     rows: JSON.parse(
@@ -185,48 +182,42 @@ function unpackDatabricksData(data: PackedDatabricksData): DatabricksData {
   };
 }
 
-const databricksDataRequests = new Map<string, Promise<PackedDatabricksData>>();
+const metricsDataRequests = new Map<
+  string,
+  Promise<PackedDataApiMetricsData>
+>();
 
-function getInMemoryCachedDatabricksData(
-  config: DatabricksConfig,
-  cacheKey: string,
-) {
-  const cachedRequest = databricksDataRequests.get(cacheKey);
+function getInMemoryCachedMetricsData(config: DataApiConfig, cacheKey: string) {
+  const cachedRequest = metricsDataRequests.get(cacheKey);
 
   if (cachedRequest) {
     return cachedRequest;
   }
 
-  pruneDatabricksDataRequests(cacheKey);
+  pruneMetricsDataRequests(cacheKey);
 
-  const request = fetchPackedDatabricksData(config);
+  const request = fetchPackedMetricsData(config);
 
   request.then(
-    () => databricksDataRequests.delete(cacheKey),
-    () => databricksDataRequests.delete(cacheKey),
+    () => metricsDataRequests.delete(cacheKey),
+    () => metricsDataRequests.delete(cacheKey),
   );
 
-  databricksDataRequests.set(cacheKey, request);
+  metricsDataRequests.set(cacheKey, request);
 
   return request;
 }
 
-function pruneDatabricksDataRequests(activeCacheKey: string) {
-  for (const cacheKey of databricksDataRequests.keys()) {
+function pruneMetricsDataRequests(activeCacheKey: string) {
+  for (const cacheKey of metricsDataRequests.keys()) {
     if (cacheKey !== activeCacheKey) {
-      databricksDataRequests.delete(cacheKey);
+      metricsDataRequests.delete(cacheKey);
     }
   }
 }
 
-function getDatabricksCacheKey(config: DatabricksConfig) {
-  return [
-    config.serverHostname,
-    config.httpPath,
-    config.warehouseId,
-    MAX_RANGE_DAYS,
-    metricNames.join(","),
-  ].join("|");
+function getMetricsCacheKey(config: DataApiConfig) {
+  return [config.baseUrl, MAX_RANGE_DAYS, metricNames.join(",")].join("|");
 }
 
 function getSuccessCacheControl() {
@@ -237,16 +228,16 @@ function getSuccessCacheControl() {
   return [
     "public",
     "max-age=0",
-    `s-maxage=${DATABRICKS_CACHE_REVALIDATE_SECONDS}`,
+    `s-maxage=${DATA_API_CACHE_REVALIDATE_SECONDS}`,
     `stale-while-revalidate=${EDGE_STALE_SECONDS}`,
   ].join(", ");
 }
 
 function getConfigErrorResponse(
-  configResult: Extract<ReturnType<typeof getDatabricksConfig>, { ok: false }>,
+  configResult: Extract<ReturnType<typeof getDataApiConfig>, { ok: false }>,
 ): ErrorResponse {
   return {
-    error: "The Databricks data source is not configured.",
+    error: "The Solana data API is not configured.",
     ...devOnly({
       invalidEnv: configResult.invalidEnv,
       missingEnv: configResult.missingEnv,

@@ -1,26 +1,21 @@
 import "server-only";
 
-import { DBSQLClient } from "@databricks/sql";
-
 const ENV_KEYS = {
-  serverHostname: "DATABRICKS_SERVER_HOSTNAME",
-  httpPath: "DATABRICKS_HTTP_PATH",
-  token: "DATABRICKS_TOKEN",
+  baseUrl: "DATA_API_URL",
+  apiKey: "DATA_API_KEY",
 } as const;
 
-type DatabricksConfigError = {
+type DataApiConfigError = {
   invalidEnv: string[];
   missingEnv: string[];
 };
 
-export type DatabricksConfig = {
-  serverHostname: string;
-  httpPath: string;
-  warehouseId: string;
-  token: string;
+export type DataApiConfig = {
+  baseUrl: string;
+  apiKey: string;
 };
 
-export type DatabricksMetricRow = {
+export type DataApiMetricRow = {
   date: string;
   metricName: string;
   unit: string;
@@ -28,147 +23,80 @@ export type DatabricksMetricRow = {
   value: number;
 };
 
-export function getDatabricksConfig():
-  | { ok: true; config: DatabricksConfig }
-  | ({ ok: false } & DatabricksConfigError) {
-  const serverHostnameRaw = readEnv(ENV_KEYS.serverHostname);
-  const httpPathRaw = readEnv(ENV_KEYS.httpPath);
-  const serverHostname = serverHostnameRaw
-    ? normalizeServerHostname(serverHostnameRaw)
-    : undefined;
-  const httpPath = httpPathRaw ? normalizeHttpPath(httpPathRaw) : undefined;
-  const token = readEnv(ENV_KEYS.token);
-  const warehouseId = httpPath && getWarehouseIdFromHttpPath(httpPath);
-  const missingEnv = getMissingConfigEnv({
-    httpPathRaw,
-    serverHostnameRaw,
-    token,
-  });
-  const invalidEnv = getInvalidConfigEnv({
-    httpPath,
-    httpPathRaw,
-    serverHostname,
-    serverHostnameRaw,
-  });
+type MetricsResponse = {
+  data?: {
+    rows?: unknown[];
+  };
+};
 
-  if (
-    missingEnv.length > 0 ||
-    invalidEnv.length > 0 ||
-    !serverHostname ||
-    !httpPath ||
-    !token ||
-    !warehouseId
-  ) {
+export function getDataApiConfig():
+  | { ok: true; config: DataApiConfig }
+  | ({ ok: false } & DataApiConfigError) {
+  const baseUrlRaw = readEnv(ENV_KEYS.baseUrl);
+  const apiKey = readEnv(ENV_KEYS.apiKey);
+  const baseUrl = baseUrlRaw ? normalizeBaseUrl(baseUrlRaw) : undefined;
+  const missingEnv = getMissingConfigEnv({ baseUrlRaw, apiKey });
+  const invalidEnv = getInvalidConfigEnv({ baseUrl, baseUrlRaw });
+
+  if (missingEnv.length > 0 || invalidEnv.length > 0 || !baseUrl || !apiKey) {
     return { ok: false, invalidEnv, missingEnv };
   }
 
   return {
     ok: true,
     config: {
-      serverHostname,
-      httpPath,
-      warehouseId,
-      token,
+      baseUrl,
+      apiKey,
     },
   };
 }
 
-export async function getDatabricksSqlMetricRows(
-  config: DatabricksConfig,
-  options: {
-    metricNames: readonly string[];
-    lookbackDays: number;
-  },
-) {
-  const result = await executeDatabricksStatement(
-    config,
-    buildMetricRowsStatement(options),
-  );
+export async function getDataApiMetricRows(config: DataApiConfig) {
+  const data = await fetchDataApiMetrics(config);
 
   return {
-    rows: result.records.flatMap((record) => {
+    rows: data.rows.flatMap((record) => {
       const row = toMetricRow(record);
 
       return row ? [row] : [];
     }),
+    // data-api's `truncated` isn't wired up to anything on the frontend
+    // yet; hardcode it until a follow-up PR drops the field from the
+    // data-api payload entirely.
     truncated: false,
-    statementId: result.statementId,
   };
 }
 
-async function executeDatabricksStatement(
-  config: DatabricksConfig,
-  statement: string,
-) {
-  const client = new DBSQLClient();
-  let session: Awaited<ReturnType<typeof client.openSession>> | undefined;
-  let operation:
-    | Awaited<ReturnType<NonNullable<typeof session>["executeStatement"]>>
-    | undefined;
+async function fetchDataApiMetrics(config: DataApiConfig) {
+  const response = await fetch(`${config.baseUrl}/metrics`, {
+    cache: "no-store",
+    headers: { "x-api-key": config.apiKey },
+  });
 
-  try {
-    const connectedClient = await client.connect({
-      token: config.token,
-      host: config.serverHostname,
-      path: config.httpPath,
-    });
+  const payload = (await response
+    .json()
+    .catch(() => null)) as MetricsResponse | null;
 
-    session = await connectedClient.openSession();
-    operation = await session.executeStatement(statement, { runAsync: true });
-
-    return { records: await operation.fetchAll(), statementId: operation.id };
-  } finally {
-    await closeQuietly(operation, "operation");
-    await closeQuietly(session, "session");
-    await closeQuietly(client, "client");
-  }
-}
-
-function buildMetricRowsStatement({
-  lookbackDays,
-  metricNames,
-}: {
-  metricNames: readonly string[];
-  lookbackDays: number;
-}) {
-  const uniqueMetricNames = Array.from(new Set(metricNames));
-  const safeLookbackDays = Math.max(1, Math.floor(lookbackDays));
-
-  if (uniqueMetricNames.length === 0) {
-    throw new DatabricksResponseError(
-      "Databricks SQL statement request",
-      "missing-metric-names",
+  if (!response.ok) {
+    throw new DataApiResponseError(
+      "data-api metrics request",
+      `${response.status} ${response.statusText}`.trim(),
     );
   }
 
-  return `
-SELECT
-  CAST(mv.date AS DATE) AS date,
-  m.name AS metric_name,
-  m.unit,
-  p.name AS provider_name,
-  CAST(mv.value AS DOUBLE) AS value
-FROM
-  prod.solana_com.metrics_values mv
-    JOIN prod.solana_com.metrics m
-      ON mv.metric_id = m.id
-    JOIN prod.solana_com.providers p
-      ON mv.provider_id = p.id
-WHERE
-  m.name IN (${uniqueMetricNames.map(toSqlStringLiteral).join(", ")})
-  AND mv.date >= date_sub(current_date(), ${safeLookbackDays})
-ORDER BY
-  mv.date ASC,
-  provider_name ASC,
-  metric_name ASC
-`.trim();
+  if (!Array.isArray(payload?.data?.rows)) {
+    throw new DataApiResponseError(
+      "data-api metrics response",
+      "invalid-payload",
+    );
+  }
+
+  return payload.data as { rows: unknown[] };
 }
 
-function toMetricRow(record: object): DatabricksMetricRow | null {
-  const { date, metric_name, provider_name, unit, value } = record as Record<
-    string,
-    unknown
-  >;
+function toMetricRow(record: unknown): DataApiMetricRow | null {
+  const { date, metric_name, provider_name, unit, value } = (record ??
+    {}) as Record<string, unknown>;
   const normalizedDate = normalizeSqlDate(date);
   const normalizedValue = normalizeSqlNumber(value);
 
@@ -216,76 +144,55 @@ function normalizeSqlNumber(value: unknown) {
     : undefined;
 }
 
-function normalizeServerHostname(value: string) {
+function normalizeBaseUrl(value: string) {
   try {
-    const url =
-      value.startsWith("http://") || value.startsWith("https://")
-        ? new URL(value)
-        : new URL(`https://${value}`);
+    const url = new URL(value);
 
-    return url.hostname || undefined;
+    if (url.protocol !== "https:") {
+      return undefined;
+    }
+
+    url.hash = "";
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    url.search = "";
+
+    return url.toString().replace(/\/$/, "");
   } catch {
     return undefined;
   }
 }
 
-function normalizeHttpPath(value: string) {
-  const httpPathFromJdbcUrl = value.match(/(?:^|;)httpPath=([^;]+)/i)?.[1];
-  const rawPath = decodeURIComponent(httpPathFromJdbcUrl ?? value);
-  const path = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
-
-  return getWarehouseIdFromHttpPath(path) ? path : undefined;
-}
-
-function getWarehouseIdFromHttpPath(httpPath: string) {
-  return httpPath.match(/^\/sql\/1\.0\/warehouses\/([^/?#]+)$/)?.[1];
-}
-
 function getInvalidConfigEnv({
-  httpPath,
-  httpPathRaw,
-  serverHostname,
-  serverHostnameRaw,
+  baseUrl,
+  baseUrlRaw,
 }: {
-  httpPath?: string;
-  httpPathRaw?: string;
-  serverHostname?: string;
-  serverHostnameRaw?: string;
+  baseUrl?: string;
+  baseUrlRaw?: string;
 }) {
   const invalidEnv: string[] = [];
 
-  if (serverHostnameRaw && !serverHostname) {
-    invalidEnv.push(ENV_KEYS.serverHostname);
-  }
-
-  if (httpPathRaw && !httpPath) {
-    invalidEnv.push(ENV_KEYS.httpPath);
+  if (baseUrlRaw && !baseUrl) {
+    invalidEnv.push(ENV_KEYS.baseUrl);
   }
 
   return invalidEnv;
 }
 
 function getMissingConfigEnv({
-  httpPathRaw,
-  serverHostnameRaw,
-  token,
+  baseUrlRaw,
+  apiKey,
 }: {
-  httpPathRaw?: string;
-  serverHostnameRaw?: string;
-  token?: string;
+  baseUrlRaw?: string;
+  apiKey?: string;
 }) {
   const missingEnv: string[] = [];
 
-  if (!serverHostnameRaw) {
-    missingEnv.push(ENV_KEYS.serverHostname);
+  if (!baseUrlRaw) {
+    missingEnv.push(ENV_KEYS.baseUrl);
   }
 
-  if (!httpPathRaw) {
-    missingEnv.push(ENV_KEYS.httpPath);
-  }
-
-  if (!token) {
-    missingEnv.push(ENV_KEYS.token);
+  if (!apiKey) {
+    missingEnv.push(ENV_KEYS.apiKey);
   }
 
   return missingEnv;
@@ -312,28 +219,13 @@ function isPlaceholderValue(value: string) {
   );
 }
 
-function toSqlStringLiteral(value: string) {
-  return `'${value.replaceAll("'", "''")}'`;
-}
-
-async function closeQuietly(
-  resource: { close: () => Promise<unknown> } | undefined,
-  label: string,
-) {
-  try {
-    await resource?.close();
-  } catch (error) {
-    console.error(`Failed to close Databricks SQL ${label}`, error);
-  }
-}
-
 export function isProduction() {
   return process.env.NODE_ENV === "production";
 }
 
-export class DatabricksResponseError extends Error {
+export class DataApiResponseError extends Error {
   constructor(context: string, reason: string) {
     super(`${context} returned ${reason}`);
-    this.name = "DatabricksResponseError";
+    this.name = "DataApiResponseError";
   }
 }
