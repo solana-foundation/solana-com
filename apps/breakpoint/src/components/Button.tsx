@@ -12,6 +12,7 @@ import {
 
 const GLYPHS =
   "!<>-_\\/[]{}—=+*^?#ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const BUTTON_SCRAMBLE_DURATION_MS = 400;
 
 export function useScramble(label: string, durationMs: number, runKey: number) {
   const [out, setOut] = useState(label);
@@ -51,6 +52,10 @@ export function useScramble(label: string, durationMs: number, runKey: number) {
   return out;
 }
 
+export function useButtonScramble(label: string, runKey: number) {
+  return useScramble(label, BUTTON_SCRAMBLE_DURATION_MS, runKey);
+}
+
 interface ButtonProps {
   label: string;
   variant?: "primary" | "secondary" | "inline";
@@ -84,8 +89,7 @@ export default function Button({
   const inView = useInView(ref, { amount: 0.35, once: true });
   const [runKey, setRunKey] = useState(0);
 
-  const scrambleDuration = 400;
-  const displayLabel = useScramble(label, scrambleDuration, runKey);
+  const displayLabel = useButtonScramble(label, runKey);
   const isDisabled = disabled || (!href && !onClick && type !== "submit");
 
   const handleHover = () => {

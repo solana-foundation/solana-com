@@ -176,6 +176,65 @@ export type BreakpointMessages = {
       cta: string;
     };
   };
+  awards: {
+    metadata: {
+      title: string;
+      description: string;
+    };
+    hero: {
+      eyebrow: string;
+      title: string;
+      description: string;
+    };
+    marquee: {
+      community: string;
+      culture: string;
+      creators: string;
+      builders: string;
+      awards: string;
+    };
+    nominations: {
+      eyebrow: string;
+      headline: string;
+      description: string;
+      yourNominations: string;
+      nominatedCount: string;
+      chooseCategory: string;
+      categoryNavigation: string;
+      sections: {
+        individual: string;
+        community: string;
+      };
+      nominated: string;
+      status: {
+        closed: string;
+        notStarted: string;
+      };
+      submitted: string;
+      share: string;
+      change: string;
+      nomineeUsername: string;
+      usernamePlaceholder: string;
+      submit: string;
+      submitting: string;
+      previous: string;
+      next: string;
+      shareText: string;
+      errors: {
+        load: string;
+        invalidUsername: string;
+        session: string;
+        save: string;
+      };
+    };
+    categories: Record<
+      string,
+      {
+        name: string;
+        description: string;
+      }
+    >;
+  };
   pages: MessageRecord;
   accessibility: {
     close: string;

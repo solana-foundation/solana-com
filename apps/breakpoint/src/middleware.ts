@@ -8,5 +8,8 @@ export default createMiddleware(routingWithoutDetection, {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
+  // The app is served at /breakpoint in production, while the standalone
+  // dev server rewrites that mounted API path back to /api. Keep both forms
+  // out of locale routing so the rewrite can reach the route handler.
+  matcher: ["/((?!api|breakpoint/api|_next|_vercel|.*\\..*).*)"],
 };
