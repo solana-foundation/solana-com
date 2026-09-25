@@ -548,18 +548,6 @@ export function AlpenglowDashboard() {
           </ul>
         </details>
       )}
-
-      <details className="text-xs text-gray-500">
-        <summary className="w-fit cursor-pointer hover:text-gray-300">
-          Methodology note
-        </summary>
-        <p className="mt-3 max-w-3xl text-pretty leading-5 text-gray-500">
-          The genesis certificate endpoint reports the one-time transition
-          certificate; it does not expose a continuing Alpenglow certificate
-          rate. Tower metrics remain useful as transition indicators and are not
-          treated as Alpenglow voting metrics.
-        </p>
-      </details>
     </div>
   );
 }
