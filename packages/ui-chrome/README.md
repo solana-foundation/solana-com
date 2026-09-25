@@ -106,11 +106,16 @@ Inkeep is wired in `src/inkeep-config.ts` and used by `InkeepChatButton` and
 `InkeepSearchBar`. The modal is themed for Solana (dark/light) and uses
 `@inkeep/cxkit-react`.
 
-- **Env**: Set the server-only `INKEEP_API_KEY` on the web deployment. Never use
-  a `NEXT_PUBLIC_` Inkeep credential.
+- **Env**: Set the server-only `INKEEP_API_KEY` on the web and docs deployments.
+  Never use a `NEXT_PUBLIC_` Inkeep credential.
 - **Internal APIs**: CXKit sends chat, search, and analytics requests to
-  `/api/inkeep/*`. The web app validates and rate limits those requests, then
-  authenticates to Inkeep on the server.
+  `/api/inkeep/*`. Both apps expose the same-origin routes, validate requests,
+  and authenticate to Inkeep on the server. Conversation analytics are
+  write-only; the public proxy does not expose conversation reads.
+- **Rate limits**: Configure Vercel WAF rate-limit rules named `inkeep-chat` (30
+  requests/minute/IP), `inkeep-search` (120 requests/minute/IP), and
+  `inkeep-analytics` (240 requests/minute/IP) on both deployments. Production
+  requests fail closed when a rule is missing or the rate-limit service fails.
 - **Components**: Use `InkeepChatButton` and/or `InkeepSearchBar`; no extra
   setup in app code beyond layout placement.
 - **Verification**: Confirm chat streams an answer with working citations,
@@ -199,5 +204,5 @@ export default function RootLayout({ children }) {
 ## Dependencies
 
 - **Peer**: `@workspace/i18n`, `next`, `next-intl`, `react`, `react-dom`
-- **Inkeep**: `@inkeep/cxkit-react`; the web app requires server-only
-  `INKEEP_API_KEY`
+- **Inkeep**: `@inkeep/cxkit-react`; the web and docs apps require server-only
+  `INKEEP_API_KEY` and the three Vercel WAF rules described above

@@ -260,6 +260,29 @@ describe("Inkeep API proxy", () => {
     expect(await errorCode(response)).toBe("invalid_origin");
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("does not expose analytics conversation reads", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const request = new Request(
+      `${TEST_ORIGIN}/api/inkeep/analytics/conversations/other-visitor`,
+      {
+        headers: {
+          origin: TEST_ORIGIN,
+          "sec-fetch-site": "same-origin",
+          "x-forwarded-for": "192.0.2.20",
+        },
+      },
+    );
+
+    const response = await proxyInkeepRequest(request, {
+      endpoint: "analytics",
+      path: ["conversations", "other-visitor"],
+    });
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("POST");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 function chatRequest(
