@@ -1,0 +1,218 @@
+---
+date: 2026-08-05T00:00:00Z
+difficulty: intermediate
+title: Cross-Network Swap From Solana
+description:
+  Let a Solana user swap SPL assets for tokens on another network with one
+  signed transaction, using an intent-based cross-network SDK.
+tags:
+  - cross-chain
+  - defi
+  - intents
+  - swaps
+  - typescript
+keywords:
+  - cross-chain swap
+  - solana bridge
+  - cross-network
+  - intents
+  - defi
+---
+
+Solana users often want to trade for assets that live on another network. An
+EVM stablecoin, a Sui token, BTC. The usual path (bridge out, wait, swap on
+the other side, bridge back) is slow and asks the user to hold three balances.
+
+This guide shows how to run the whole flow as a single intent from a Solana
+wallet: the user signs one transaction, and the output settles on whichever
+destination network you specify. No new programs on Solana, no token
+approvals, no relayer bookkeeping in your app.
+
+## The Pattern
+
+An intent-based cross-network SDK abstracts three moving parts behind one
+call:
+
+1. **Source-side lock.** The user signs a transaction on Solana that locks the
+   input token and declares what they want on the destination network.
+2. **Solver competition.** A network of solvers picks up the intent and
+   competes to fill it against native liquidity on the destination network.
+3. **Destination settlement.** Output arrives at the recipient address on the
+   destination network. Nothing else is sent back to Solana.
+
+If nothing fills before the deadline, the intent can be cancelled and funds
+returned.
+
+Several projects offer this pattern for Solana today. This guide uses
+[SODAX](https://docs.sodax.com/solana) as its example because its programs
+are already deployed and audited on Solana and the integration is
+TypeScript-only. Other options that let you build a similar flow include
+[deBridge DLN](https://debridge.finance/dln),
+[Wormhole SDK](https://wormhole.com/docs/build/),
+and [LayerZero OFT](https://docs.layerzero.network/v2/developers/solana/oft/overview).
+Pick based on which networks and assets you need to reach and how the fee and
+solver model fits your app.
+
+## Install
+
+<Tabs items={["npm", "pnpm", "yarn"]}>
+<Tab value="npm">
+```bash
+npm install @sodax/sdk
+```
+</Tab>
+<Tab value="pnpm">
+```bash
+pnpm add @sodax/sdk
+```
+</Tab>
+<Tab value="yarn">
+```bash
+yarn add @sodax/sdk
+```
+</Tab>
+</Tabs>
+
+## Wrap the User's Wallet
+
+Any wallet adapter that exposes `publicKey` and `signTransaction` works. In a
+browser app, use whatever your wallet adapter surfaces (Phantom, Solflare,
+Backpack, or any other Standard-Wallet-compatible provider). In a script or
+bot, pass raw keypair bytes.
+
+```typescript
+import { SolanaWalletProvider } from '@sodax/sdk';
+
+// Browser (from a wallet adapter)
+const walletProvider = new SolanaWalletProvider({
+  wallet: walletContextState,
+  endpoint: 'https://api.mainnet-beta.solana.com',
+});
+
+// Script or bot
+const walletProvider = new SolanaWalletProvider({
+  privateKey: keypairBytes, // Uint8Array
+  endpoint: 'https://api.mainnet-beta.solana.com',
+});
+```
+
+## Look Up Tokens
+
+Read supported assets from the SDK config at runtime rather than hard-coding
+mints. The list on Solana is smaller than the total reach across networks:
+the recipient can be on any supported destination even if the input starts as
+SPL.
+
+```typescript
+import { Sodax, ChainKeys } from '@sodax/sdk';
+
+const sodax = new Sodax();
+await sodax.initialize();
+
+const sol = sodax.swaps
+  .getSupportedSwapTokensByChainId(ChainKeys.SOLANA_MAINNET)
+  .find((t) => t.symbol === 'SOL');
+
+const usdcArb = sodax.swaps
+  .getSupportedSwapTokensByChainId(ChainKeys.ARBITRUM_MAINNET)
+  .find((t) => t.symbol === 'USDC');
+```
+
+## Get a Quote
+
+Quotes reflect what the user actually receives. Any configured platform fee is
+already deducted from `quoted_amount`.
+
+```typescript
+const quote = await sodax.swaps.getQuote({
+  token_src: sol.address,
+  token_dst: usdcArb.address,
+  token_src_blockchain_id: ChainKeys.SOLANA_MAINNET,
+  token_dst_blockchain_id: ChainKeys.ARBITRUM_MAINNET,
+  amount: 100_000_000n, // 0.1 SOL (9 decimals)
+  quote_type: 'exact_input',
+});
+
+if (!quote.ok) {
+  throw new Error(`Quote failed: ${quote.error.code}`);
+}
+
+const minOut = (quote.value.quoted_amount * 99n) / 100n; // 1% slippage
+```
+
+Every method in the SDK returns a `Result<T>` rather than throwing. Branch on
+`result.ok` and switch on the typed error code instead of catching exceptions.
+
+## Execute the Swap
+
+`swap()` runs the full lifecycle from a single call: it creates the intent on
+Solana, verifies the transaction landed, submits it to the relay, waits for
+the packet on the hub, and notifies the solver. There is one user signature.
+
+```typescript
+const result = await sodax.swaps.swap({
+  params: {
+    inputToken: sol.address,
+    outputToken: usdcArb.address,
+    inputAmount: 100_000_000n,
+    minOutputAmount: minOut,
+    deadline: 300n,
+    allowPartialFill: false,
+    srcChainKey: ChainKeys.SOLANA_MAINNET,
+    dstChainKey: ChainKeys.ARBITRUM_MAINNET,
+    srcAddress: await walletProvider.getWalletAddress(),
+    dstAddress: recipientEvmAddress,
+    solver: '0x0000000000000000000000000000000000000000',
+    data: '0x',
+  },
+  walletProvider,
+  timeout: 120_000,
+});
+
+if (result.ok) {
+  console.log('Destination tx:', result.value.intentDeliveryInfo.dstTxHash);
+} else {
+  console.error('Swap failed:', result.error.code);
+}
+```
+
+Track a live intent with `sodax.swaps.getStatus(request)`. If nothing fills
+before `deadline` seconds elapse, `sodax.swaps.cancelIntent(...)` returns the
+funds.
+
+## What You Did Not Have to Do
+
+A few Solana-specific properties of this flow are worth calling out:
+
+- **No approval step.** SPL allowances are not used. On Solana,
+  `isAllowanceValid` passes without an on-chain transaction, so the flow goes
+  straight from quote to swap.
+- **No relay bookkeeping.** Manually orchestrated intents (`createIntent` +
+  `submitIntent`) need Solana-specific relay data fetched via
+  `getIntentSubmitTxExtraData`. `swap()` handles this behind the scenes.
+- **No approvals to revoke.** The intent locks only the input amount for this
+  swap.
+
+## React Integration
+
+For a React app, the SDK ships a companion package that discovers connected
+wallets and returns a ready provider through `useWalletProvider`. Skip the
+manual `SolanaWalletProvider` construction and pull the provider from the
+hook.
+
+```typescript
+import { useWalletProvider } from '@sodax/wallet-sdk-react';
+
+const walletProvider = useWalletProvider('solana');
+// pass walletProvider to sodax.swaps.swap({ ... })
+```
+
+## References
+
+- [SODAX Solana integration guide](https://docs.sodax.com/solana)
+- [Swaps on Solana (dedicated overview)](https://docs.sodax.com/solana/swaps)
+- [Quickstart with wallet-adapter setup](https://docs.sodax.com/solana/quickstart)
+- [Solana wallets (Phantom, Backpack, Solflare, etc.)](https://docs.sodax.com/solana/wallets)
+- [Networks and assets on Solana](https://docs.sodax.com/solana/networks-and-assets)
+- [Solana FAQ](https://docs.sodax.com/solana/faq)
+- [Full swaps API reference](https://docs.sodax.com/developers/packages/foundation/sdk/functional-modules/swaps)
