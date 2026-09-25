@@ -196,7 +196,7 @@ export default async function Page({ params }: Props) {
 
       <section className="bg-black border-t border-white/10">
         <div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8 py-12 md:py-16">
-          <article>
+          <article className="min-w-0 max-w-full">
             <MDXRemote
               source={rawBody}
               components={upgradeMdxComponents}
