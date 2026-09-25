@@ -25,18 +25,6 @@ export interface MetricSeries {
   points: MetricPoint[];
 }
 
-/** Tower-era diagnostic values for one monitored validator. */
-export interface ValidatorSnapshot {
-  nodekey: string;
-  votekey: string;
-  lastVote: number | null;
-  rootSlot: number | null;
-  voteRootLag: number | null;
-  delinquent: boolean | null;
-  activeStake: number | null;
-  voteTransactionsPerBlock: number | null;
-}
-
 /** Historical series displayed by the Alpenglow dashboard. */
 export interface AlpenglowDashboardCharts {
   readonly p95FinalityLatencySeconds: MetricSeries[];
@@ -66,22 +54,12 @@ export interface AlpenglowDashboardLiveData {
   readonly warnings: readonly string[];
 }
 
-/** Historical charts and validator diagnostics read from Prometheus. */
+/** Historical charts read from Prometheus. */
 export interface AlpenglowDashboardDetailData {
-  /** Most recent detail timestamp when both data groups succeeded. */
-  readonly generatedAt: string | null;
-  /** Timestamp of the historical chart batch, or null when it failed. */
-  readonly chartsGeneratedAt: string | null;
-  /** Timestamp of the validator batch, or null when it failed. */
-  readonly validatorsGeneratedAt: string | null;
+  readonly generatedAt: string;
   readonly network: AlpenglowDashboardNetwork;
   readonly range: AlpenglowDashboardRange;
-  readonly status: {
-    readonly trackedValidatorCount: number | null;
-    readonly delinquentValidatorCount: number | null;
-  };
   readonly charts: AlpenglowDashboardCharts;
-  readonly validators: readonly ValidatorSnapshot[];
   readonly warnings: readonly string[];
 }
 
@@ -96,10 +74,7 @@ export interface AlpenglowDashboardData {
     readonly genesisSlot: number | null;
     readonly certificateValidatorCount: number | null;
     readonly recentAverageFinalityLatencySeconds: number | null;
-    readonly trackedValidatorCount: number | null;
-    readonly delinquentValidatorCount: number | null;
   };
   readonly charts: AlpenglowDashboardCharts;
-  readonly validators: readonly ValidatorSnapshot[];
   readonly warnings: readonly string[];
 }

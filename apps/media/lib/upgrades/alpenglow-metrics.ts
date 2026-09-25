@@ -12,11 +12,9 @@ import {
   type AlpenglowDashboardNetwork,
   type AlpenglowDashboardRange,
   type MetricSeries,
-  type ValidatorSnapshot,
 } from "./alpenglow-metrics-types";
 
 const REQUEST_TIMEOUT_MS = 10_000;
-const VALIDATOR_LIMIT = 100;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const ACTIVATION_CACHE_SECONDS = 10;
 const LIVE_CACHE_SECONDS = 3;
@@ -87,18 +85,6 @@ const LIVE_QUERIES = {
     "max(clamp_min(rate(solana_node_transactions_total[1m]), 0))",
 } as const;
 
-const VALIDATOR_QUERIES = {
-  trackedValidatorCount: "count(max by (nodekey) (solana_validator_last_vote))",
-  delinquentValidatorCount:
-    "sum(max by (nodekey) (solana_validator_delinquent))",
-  lastVote: "max by (nodekey, votekey) (solana_validator_last_vote)",
-  rootSlot: "max by (nodekey, votekey) (solana_validator_root_slot)",
-  delinquent: "max by (nodekey, votekey) (solana_validator_delinquent)",
-  activeStake: "max by (nodekey, votekey) (solana_validator_active_stake)",
-  voteTransactions:
-    'max by (nodekey) (solana_validator_block_size{transaction_type="vote"})',
-} as const;
-
 type PrometheusMetric = Record<string, string>;
 
 interface PrometheusResult {
@@ -128,14 +114,6 @@ interface AlpenglowChartData {
   network: AlpenglowDashboardNetwork;
   range: AlpenglowDashboardRange;
   charts: AlpenglowDashboardCharts;
-  warnings: string[];
-}
-
-interface AlpenglowValidatorData {
-  generatedAt: string;
-  network: AlpenglowDashboardNetwork;
-  status: AlpenglowDashboardDetailData["status"];
-  validators: ValidatorSnapshot[];
   warnings: string[];
 }
 
@@ -442,89 +420,6 @@ function requireSuccessfulQuery(
   );
 }
 
-function errorReason(error: unknown): string {
-  return error instanceof Error ? error.message : "unknown error";
-}
-
-function emptyCharts(): AlpenglowDashboardCharts {
-  return {
-    p95FinalityLatencySeconds: [],
-    transactionsPerSecond: [],
-    towerVoteSlotsPerSecond: [],
-    averageVoteRootLag: [],
-    blockTransactions: [],
-  };
-}
-
-function mergeValidators(
-  results: Record<string, PrometheusResult[]>,
-): ValidatorSnapshot[] {
-  const validators = new Map<string, ValidatorSnapshot>();
-
-  function update(
-    result: PrometheusResult[],
-    apply: (_validator: ValidatorSnapshot, _value: number) => void,
-  ) {
-    for (const item of result) {
-      const nodekey = item.metric.nodekey;
-      const value = finiteNumber(item.value?.[1]);
-      if (!nodekey || value === null) continue;
-
-      const validator = validators.get(nodekey) ?? {
-        nodekey,
-        votekey: item.metric.votekey ?? "",
-        lastVote: null,
-        rootSlot: null,
-        voteRootLag: null,
-        delinquent: null,
-        activeStake: null,
-        voteTransactionsPerBlock: null,
-      };
-      if (!validator.votekey && item.metric.votekey) {
-        validator.votekey = item.metric.votekey;
-      }
-      apply(validator, value);
-      validators.set(nodekey, validator);
-    }
-  }
-
-  update(results.lastVote ?? [], (validator, value) => {
-    validator.lastVote = value;
-  });
-  update(results.rootSlot ?? [], (validator, value) => {
-    validator.rootSlot = value;
-  });
-  update(results.delinquent ?? [], (validator, value) => {
-    validator.delinquent = value === 1;
-  });
-  update(results.activeStake ?? [], (validator, value) => {
-    validator.activeStake = value;
-  });
-  update(results.voteTransactions ?? [], (validator, value) => {
-    validator.voteTransactionsPerBlock = value;
-  });
-
-  for (const validator of validators.values()) {
-    if (validator.lastVote !== null && validator.rootSlot !== null) {
-      validator.voteRootLag = Math.max(
-        0,
-        validator.lastVote - validator.rootSlot,
-      );
-    }
-  }
-
-  return [...validators.values()]
-    .sort((a, b) => {
-      const statusRank = (delinquent: boolean | null) =>
-        delinquent === true ? 0 : delinquent === false ? 1 : 2;
-      const rankDifference =
-        statusRank(a.delinquent) - statusRank(b.delinquent);
-      if (rankDifference !== 0) return rankDifference;
-      return (b.voteRootLag ?? -1) - (a.voteRootLag ?? -1);
-    })
-    .slice(0, VALIDATOR_LIMIT);
-}
-
 async function loadAlpenglowLiveData(
   network: AlpenglowDashboardNetwork,
 ): Promise<AlpenglowDashboardLiveData> {
@@ -597,38 +492,6 @@ async function loadAlpenglowChartData(
   };
 }
 
-async function loadAlpenglowValidatorData(
-  network: AlpenglowDashboardNetwork,
-): Promise<AlpenglowValidatorData> {
-  prometheusConfig(network);
-  const warnings: string[] = [];
-  const batch = await executeQueries(
-    network,
-    "query",
-    VALIDATOR_QUERIES,
-    warnings,
-  );
-  requireSuccessfulQuery("validator", batch.successfulQueryCount, warnings);
-  const { results } = batch;
-
-  return {
-    generatedAt: new Date().toISOString(),
-    network,
-    status: {
-      trackedValidatorCount: vectorValue(results.trackedValidatorCount),
-      delinquentValidatorCount: vectorValue(results.delinquentValidatorCount),
-    },
-    validators: mergeValidators({
-      lastVote: results.lastVote,
-      rootSlot: results.rootSlot,
-      delinquent: results.delinquent,
-      activeStake: results.activeStake,
-      voteTransactions: results.voteTransactions,
-    }),
-    warnings,
-  };
-}
-
 function coalesce<K, T>(
   requests: Map<K, Promise<T>>,
   key: K,
@@ -655,10 +518,6 @@ const liveRequests = new Map<
   Promise<AlpenglowDashboardLiveData>
 >();
 const chartRequests = new Map<string, Promise<AlpenglowChartData>>();
-const validatorRequests = new Map<
-  AlpenglowDashboardNetwork,
-  Promise<AlpenglowValidatorData>
->();
 
 function uncachedActivationData(network: AlpenglowDashboardNetwork) {
   return coalesce(activationRequests, network, () =>
@@ -679,12 +538,6 @@ function uncachedChartData(
   );
 }
 
-function uncachedValidatorData(network: AlpenglowDashboardNetwork) {
-  return coalesce(validatorRequests, network, () =>
-    loadAlpenglowValidatorData(network),
-  );
-}
-
 const cachedActivationData = unstable_cache(
   uncachedActivationData,
   ["alpenglow-activation-v1"],
@@ -696,11 +549,6 @@ const cachedLiveData = unstable_cache(uncachedLiveData, ["alpenglow-live-v1"], {
 const cachedChartData = unstable_cache(
   uncachedChartData,
   ["alpenglow-charts-v1"],
-  { revalidate: DETAIL_CACHE_SECONDS },
-);
-const cachedValidatorData = unstable_cache(
-  uncachedValidatorData,
-  ["alpenglow-validators-v1"],
   { revalidate: DETAIL_CACHE_SECONDS },
 );
 
@@ -734,64 +582,21 @@ export function getAlpenglowLiveData(
   return IS_PRODUCTION ? cachedLiveData(network) : uncachedLiveData(network);
 }
 
-/** Loads cached historical charts and validator diagnostics for a cluster. */
+/** Loads cached historical charts for a cluster. */
 export async function getAlpenglowDetailData(
   range: AlpenglowDashboardRange,
   network: AlpenglowDashboardNetwork,
 ): Promise<AlpenglowDashboardDetailData> {
-  const [chartResult, validatorResult] = await Promise.allSettled([
-    IS_PRODUCTION
-      ? cachedChartData(range, network)
-      : uncachedChartData(range, network),
-    IS_PRODUCTION
-      ? cachedValidatorData(network)
-      : uncachedValidatorData(network),
-  ]);
-
-  if (
-    chartResult.status === "rejected" &&
-    validatorResult.status === "rejected"
-  ) {
-    throw new Error("Every detail Prometheus query failed");
-  }
-
-  const chartData =
-    chartResult.status === "fulfilled" ? chartResult.value : null;
-  const validatorData =
-    validatorResult.status === "fulfilled" ? validatorResult.value : null;
-  const generatedAt =
-    chartData && validatorData
-      ? chartData.generatedAt > validatorData.generatedAt
-        ? chartData.generatedAt
-        : validatorData.generatedAt
-      : null;
+  const chartData = IS_PRODUCTION
+    ? await cachedChartData(range, network)
+    : await uncachedChartData(range, network);
 
   return {
-    generatedAt,
-    chartsGeneratedAt: chartData?.generatedAt ?? null,
-    validatorsGeneratedAt: validatorData?.generatedAt ?? null,
+    generatedAt: chartData.generatedAt,
     network,
     range,
-    status: validatorData?.status ?? {
-      trackedValidatorCount: null,
-      delinquentValidatorCount: null,
-    },
-    charts: chartData?.charts ?? emptyCharts(),
-    validators: validatorData?.validators ?? [],
-    warnings: [
-      ...(chartData?.warnings ?? []),
-      ...(validatorData?.warnings ?? []),
-      ...(chartResult.status === "rejected"
-        ? [
-            `Historical charts are unavailable: ${errorReason(chartResult.reason)}`,
-          ]
-        : []),
-      ...(validatorResult.status === "rejected"
-        ? [
-            `Validator diagnostics are unavailable: ${errorReason(validatorResult.reason)}`,
-          ]
-        : []),
-    ],
+    charts: chartData.charts,
+    warnings: chartData.warnings,
   };
 }
 
@@ -808,8 +613,8 @@ export async function getAlpenglowDashboardData(
 
   return {
     generatedAt:
-      detail.chartsGeneratedAt && detail.chartsGeneratedAt > live.generatedAt
-        ? detail.chartsGeneratedAt
+      detail.generatedAt > live.generatedAt
+        ? detail.generatedAt
         : live.generatedAt,
     network,
     range,
@@ -820,11 +625,8 @@ export async function getAlpenglowDashboardData(
       certificateValidatorCount: activation.certificateValidatorCount,
       recentAverageFinalityLatencySeconds:
         live.recentAverageFinalityLatencySeconds,
-      trackedValidatorCount: detail.status.trackedValidatorCount,
-      delinquentValidatorCount: detail.status.delinquentValidatorCount,
     },
     charts: detail.charts,
-    validators: detail.validators,
     warnings: [...activation.warnings, ...live.warnings, ...detail.warnings],
   };
 }

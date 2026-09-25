@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { MetricChart } from "./metric-chart";
 import { MetricInfo } from "./metric-info";
 import { useDashboardPoller } from "./use-dashboard-poller";
@@ -51,11 +51,6 @@ function formatLatency(value: number | null) {
     return { value: formatNumber(value * 1_000, 0), unit: "ms" };
   }
   return { value: formatNumber(value, 2), unit: "seconds" };
-}
-
-function shortAddress(address: string) {
-  if (address.length <= 14) return address;
-  return `${address.slice(0, 6)}…${address.slice(-6)}`;
 }
 
 function latestMetricValue(series: MetricSeries[], label?: string) {
@@ -166,34 +161,6 @@ function UserMetricCard({
   );
 }
 
-function TableHeading({
-  label,
-  description,
-  align = "left",
-}: {
-  label: string;
-  description: string;
-  align?: "left" | "right";
-}) {
-  return (
-    <th
-      scope="col"
-      className={`px-4 py-3 font-medium normal-case ${align === "right" ? "text-right" : "text-left"}`}
-    >
-      <span
-        className={`flex items-center gap-1 text-xs text-gray-400 ${align === "right" ? "justify-end" : "justify-start"}`}
-      >
-        {label}
-        <MetricInfo
-          label={label}
-          description={description}
-          align={align === "right" ? "end" : "start"}
-        />
-      </span>
-    </th>
-  );
-}
-
 function DashboardSkeleton({
   network,
   range,
@@ -246,7 +213,6 @@ function DashboardSkeleton({
 export function AlpenglowDashboard() {
   const [network, setNetwork] = useState<AlpenglowDashboardNetwork>("testnet");
   const [range, setRange] = useState<AlpenglowDashboardRange>("24h");
-  const [validatorFilter, setValidatorFilter] = useState("");
 
   const statusPoller = useDashboardPoller<AlpenglowDashboardActivationData>({
     url: `/api/upgrades/alpenglow/metrics/status?${new URLSearchParams({ network })}`,
@@ -289,17 +255,6 @@ export function AlpenglowDashboard() {
     livePoller.isRefreshing ||
     detailPoller.isRefreshing;
 
-  const filteredValidators = useMemo(() => {
-    if (!detail) return [];
-    const needle = validatorFilter.trim().toLowerCase();
-    if (!needle) return detail.validators;
-    return detail.validators.filter(
-      (validator) =>
-        validator.nodekey.toLowerCase().includes(needle) ||
-        validator.votekey.toLowerCase().includes(needle),
-    );
-  }, [detail, validatorFilter]);
-
   if (!detail && detailPoller.isLoading) {
     return (
       <DashboardSkeleton
@@ -341,8 +296,6 @@ export function AlpenglowDashboard() {
     certificateValidatorCount: activation?.certificateValidatorCount ?? null,
     recentAverageFinalityLatencySeconds:
       live?.recentAverageFinalityLatencySeconds ?? null,
-    trackedValidatorCount: detail.status.trackedValidatorCount,
-    delinquentValidatorCount: detail.status.delinquentValidatorCount,
   };
   const transitionState =
     status.alpenglowActive === true
@@ -396,16 +349,9 @@ export function AlpenglowDashboard() {
     blockTransactionTotal > 0
       ? (voteTransactions / blockTransactionTotal) * 100
       : null;
-  const chartsGeneratedAt = detail.chartsGeneratedAt;
-  const validatorsGeneratedAt = detail.validatorsGeneratedAt;
-  const chartsAvailable = chartsGeneratedAt !== null;
   const updateStatus = live
     ? `Live metrics updated ${new Date(live.generatedAt).toLocaleTimeString()}`
-    : chartsGeneratedAt
-      ? `Trends updated ${new Date(chartsGeneratedAt).toLocaleTimeString()}`
-      : validatorsGeneratedAt
-        ? `Validator data updated ${new Date(validatorsGeneratedAt).toLocaleTimeString()}`
-        : "Metrics unavailable";
+    : `Trends updated ${new Date(detail.generatedAt).toLocaleTimeString()}`;
 
   return (
     <div className="space-y-10">
@@ -550,193 +496,42 @@ export function AlpenglowDashboard() {
               description="Use finality and activity charts together to distinguish user demand from disappearing Tower vote traffic. Tower-only signals indicate when the legacy protocol is winding down."
             />
           </div>
-          <span
-            className={`text-xs ${chartsAvailable ? "text-gray-500" : "text-amber-300"}`}
-          >
-            {chartsGeneratedAt
-              ? `Updated ${new Date(chartsGeneratedAt).toLocaleTimeString()} · Showing ${RANGE_LABELS[range]}`
-              : `Trend data unavailable · ${RANGE_LABELS[range]}`}
+          <span className="text-xs text-gray-500">
+            Updated {new Date(detail.generatedAt).toLocaleTimeString()} ·
+            Showing {RANGE_LABELS[range]}
           </span>
         </div>
-        {chartsAvailable ? (
-          <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            <MetricChart
-              title="Observed finality latency (p95)"
-              description="The 95th percentile of RPC-observed finality measurements over a rolling five-minute window. Ninety-five percent of observations completed at or below this value; polling and network delay are included."
-              series={detail.charts.p95FinalityLatencySeconds}
-              unit="seconds"
-            />
-            <MetricChart
-              title="Transaction throughput"
-              description="Total transactions per second, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
-              series={detail.charts.transactionsPerSecond}
-              unit="transactions per second"
-            />
-            <MetricChart
-              title="Block transaction composition"
-              description="Average vote and non-vote transactions in sampled blocks. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
-              series={detail.charts.blockTransactions}
-              unit="transactions per block"
-            />
-            <MetricChart
-              title="Tower vote advancement"
-              description="The average rate at which sampled validators' last Tower vote moves forward. It should fall to zero when Tower voting stops; that is expected after activation, not an outage signal."
-              series={detail.charts.towerVoteSlotsPerSecond}
-              unit="slots per second"
-            />
-            <MetricChart
-              title="Tower vote-to-root lag"
-              description="The average slot distance from a validator's latest Tower vote to its Tower root. It diagnoses legacy voting during the transition and should not be treated as Alpenglow finality after activation."
-              series={detail.charts.averageVoteRootLag}
-              unit="slots"
-            />
-          </div>
-        ) : (
-          <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-5 text-sm text-amber-200">
-            Historical trends are temporarily unavailable. Other dashboard data
-            will continue to refresh.
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-white/10 bg-white/[0.03]">
-        <div className="flex flex-col gap-4 border-b border-white/10 p-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <div className="flex items-center gap-1">
-              <h2 className="text-xl font-semibold text-white">
-                Validator sample
-              </h2>
-              <MetricInfo
-                label="Validator sample"
-                description="Tower transition diagnostics from monitored validator exporters, ordered by delinquency and vote-to-root lag. These signals do not measure Alpenglow certificate participation."
-              />
-            </div>
-            <p className="mt-1 text-xs tabular-nums text-gray-500">
-              {formatNumber(status.trackedValidatorCount)} tracked ·{" "}
-              {formatNumber(status.delinquentValidatorCount)} delinquent · Up to
-              100 shown ·{" "}
-              {validatorsGeneratedAt
-                ? `Updated ${new Date(validatorsGeneratedAt).toLocaleTimeString()}`
-                : "Validator data unavailable"}
-            </p>
-          </div>
-          <label>
-            <span className="sr-only">Filter validators by address</span>
-            <input
-              value={validatorFilter}
-              onChange={(event) => setValidatorFilter(event.target.value)}
-              placeholder="Filter validators"
-              className="block w-full rounded-lg border border-white/10 bg-black px-3 py-2 text-sm text-white outline-none placeholder:text-gray-600 focus:border-[#14F195]/60 md:w-64"
-            />
-          </label>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] border-collapse text-left text-sm">
-            <thead className="text-gray-500">
-              <tr>
-                <TableHeading
-                  label="Validator"
-                  description="Identity and vote account"
-                />
-                <TableHeading
-                  label="Status"
-                  description="Tower delinquency flag"
-                />
-                <TableHeading
-                  label="Last vote"
-                  description="Latest Tower vote slot"
-                  align="right"
-                />
-                <TableHeading
-                  label="Root"
-                  description="Latest rooted Tower slot"
-                  align="right"
-                />
-                <TableHeading
-                  label="Lag"
-                  description="Last vote minus root"
-                  align="right"
-                />
-                <TableHeading
-                  label="Active stake"
-                  description="Stake delegated to validator"
-                  align="right"
-                />
-                <TableHeading
-                  label="Vote tx/block"
-                  description="Tower votes in sampled block"
-                  align="right"
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {filteredValidators.map((validator) => (
-                <tr
-                  key={validator.nodekey}
-                  className="border-t border-white/[0.07] text-gray-300"
-                >
-                  <td
-                    className="px-4 py-3.5 font-mono text-xs"
-                    title={validator.nodekey}
-                  >
-                    {shortAddress(validator.nodekey)}
-                    {validator.votekey && (
-                      <span
-                        className="mt-1 block text-gray-600"
-                        title={validator.votekey}
-                      >
-                        vote {shortAddress(validator.votekey)}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs ${
-                        validator.delinquent
-                          ? "bg-red-400/10 text-red-300"
-                          : validator.delinquent === false
-                            ? "bg-emerald-400/10 text-emerald-300"
-                            : "bg-white/5 text-gray-400"
-                      }`}
-                    >
-                      {validator.delinquent
-                        ? "Delinquent"
-                        : validator.delinquent === false
-                          ? "Current"
-                          : "Unknown"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5 text-right tabular-nums">
-                    {formatNumber(validator.lastVote)}
-                  </td>
-                  <td className="px-4 py-3.5 text-right tabular-nums">
-                    {formatNumber(validator.rootSlot)}
-                  </td>
-                  <td className="px-4 py-3.5 text-right tabular-nums">
-                    {formatNumber(validator.voteRootLag)}
-                  </td>
-                  <td className="px-4 py-3.5 text-right tabular-nums">
-                    {validator.activeStake === null
-                      ? "Unavailable"
-                      : `${formatNumber(validator.activeStake)} SOL`}
-                  </td>
-                  <td className="px-4 py-3.5 text-right tabular-nums">
-                    {formatNumber(validator.voteTransactionsPerBlock, 1)}
-                  </td>
-                </tr>
-              ))}
-              {filteredValidators.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-12 text-center text-gray-500"
-                  >
-                    No sampled validators match this filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <MetricChart
+            title="Observed finality latency (p95)"
+            description="The 95th percentile of RPC-observed finality measurements over a rolling five-minute window. Ninety-five percent of observations completed at or below this value; polling and network delay are included."
+            series={detail.charts.p95FinalityLatencySeconds}
+            unit="seconds"
+          />
+          <MetricChart
+            title="Transaction throughput"
+            description="Total transactions per second, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
+            series={detail.charts.transactionsPerSecond}
+            unit="transactions per second"
+          />
+          <MetricChart
+            title="Block transaction composition"
+            description="Average vote and non-vote transactions in sampled blocks. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
+            series={detail.charts.blockTransactions}
+            unit="transactions per block"
+          />
+          <MetricChart
+            title="Tower vote advancement"
+            description="The average rate at which sampled validators' last Tower vote moves forward. It should fall to zero when Tower voting stops; that is expected after activation, not an outage signal."
+            series={detail.charts.towerVoteSlotsPerSecond}
+            unit="slots per second"
+          />
+          <MetricChart
+            title="Tower vote-to-root lag"
+            description="The average slot distance from a validator's latest Tower vote to its Tower root. It diagnoses legacy voting during the transition and should not be treated as Alpenglow finality after activation."
+            series={detail.charts.averageVoteRootLag}
+            unit="slots"
+          />
         </div>
       </section>
 
