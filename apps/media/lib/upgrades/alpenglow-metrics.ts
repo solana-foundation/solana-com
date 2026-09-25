@@ -19,6 +19,8 @@ const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const ACTIVATION_CACHE_SECONDS = 10;
 const LIVE_CACHE_SECONDS = 3;
 const DETAIL_CACHE_SECONDS = 15;
+const LIVE_MAXIMUM_AGE_MS = 15_000;
+const DETAIL_MAXIMUM_AGE_MS = 90_000;
 
 const RANGE_CONFIG: Record<
   AlpenglowDashboardRange,
@@ -115,6 +117,13 @@ interface AlpenglowChartData {
   range: AlpenglowDashboardRange;
   charts: AlpenglowDashboardCharts;
   warnings: string[];
+}
+
+function exceedsMaximumAge(generatedAt: string, maximumAgeMs: number): boolean {
+  const generatedAtMs = Date.parse(generatedAt);
+  return (
+    !Number.isFinite(generatedAtMs) || Date.now() - generatedAtMs > maximumAgeMs
+  );
 }
 
 function prometheusConfig(network: AlpenglowDashboardNetwork): {
@@ -576,10 +585,21 @@ export function getAlpenglowActivationData(
 }
 
 /** Loads fast-changing finality and throughput values for a cluster. */
-export function getAlpenglowLiveData(
+export async function getAlpenglowLiveData(
   network: AlpenglowDashboardNetwork,
 ): Promise<AlpenglowDashboardLiveData> {
-  return IS_PRODUCTION ? cachedLiveData(network) : uncachedLiveData(network);
+  const liveData = IS_PRODUCTION
+    ? await cachedLiveData(network)
+    : await uncachedLiveData(network);
+
+  if (
+    IS_PRODUCTION &&
+    exceedsMaximumAge(liveData.generatedAt, LIVE_MAXIMUM_AGE_MS)
+  ) {
+    return uncachedLiveData(network);
+  }
+
+  return liveData;
 }
 
 /** Loads cached historical charts for a cluster. */
@@ -587,9 +607,16 @@ export async function getAlpenglowDetailData(
   range: AlpenglowDashboardRange,
   network: AlpenglowDashboardNetwork,
 ): Promise<AlpenglowDashboardDetailData> {
-  const chartData = IS_PRODUCTION
+  let chartData = IS_PRODUCTION
     ? await cachedChartData(range, network)
     : await uncachedChartData(range, network);
+
+  if (
+    IS_PRODUCTION &&
+    exceedsMaximumAge(chartData.generatedAt, DETAIL_MAXIMUM_AGE_MS)
+  ) {
+    chartData = await uncachedChartData(range, network);
+  }
 
   return {
     generatedAt: chartData.generatedAt,
