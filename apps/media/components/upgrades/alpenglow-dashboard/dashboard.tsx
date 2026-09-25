@@ -396,17 +396,23 @@ export function AlpenglowDashboard() {
     blockTransactionTotal > 0
       ? (voteTransactions / blockTransactionTotal) * 100
       : null;
-  const generatedAt =
-    live && live.generatedAt > detail.generatedAt
-      ? live.generatedAt
-      : detail.generatedAt;
+  const chartsGeneratedAt = detail.chartsGeneratedAt;
+  const validatorsGeneratedAt = detail.validatorsGeneratedAt;
+  const chartsAvailable = chartsGeneratedAt !== null;
+  const updateStatus = live
+    ? `Live metrics updated ${new Date(live.generatedAt).toLocaleTimeString()}`
+    : chartsGeneratedAt
+      ? `Trends updated ${new Date(chartsGeneratedAt).toLocaleTimeString()}`
+      : validatorsGeneratedAt
+        ? `Validator data updated ${new Date(validatorsGeneratedAt).toLocaleTimeString()}`
+        : "Metrics unavailable";
 
   return (
     <div className="space-y-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div aria-live="polite">
           <p className="text-xs text-gray-500">
-            Updated {new Date(generatedAt).toLocaleTimeString()}
+            {updateStatus}
             {isRefreshing ? " · Refreshing…" : ""}
           </p>
           {errors[0] && (
@@ -544,42 +550,53 @@ export function AlpenglowDashboard() {
               description="Use finality and activity charts together to distinguish user demand from disappearing Tower vote traffic. Tower-only signals indicate when the legacy protocol is winding down."
             />
           </div>
-          <span className="text-xs text-gray-500">
-            Showing {RANGE_LABELS[range]}
+          <span
+            className={`text-xs ${chartsAvailable ? "text-gray-500" : "text-amber-300"}`}
+          >
+            {chartsGeneratedAt
+              ? `Updated ${new Date(chartsGeneratedAt).toLocaleTimeString()} · Showing ${RANGE_LABELS[range]}`
+              : `Trend data unavailable · ${RANGE_LABELS[range]}`}
           </span>
         </div>
-        <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <MetricChart
-            title="Observed finality latency (p95)"
-            description="The 95th percentile of RPC-observed finality measurements over a rolling five-minute window. Ninety-five percent of observations completed at or below this value; polling and network delay are included."
-            series={detail.charts.p95FinalityLatencySeconds}
-            unit="seconds"
-          />
-          <MetricChart
-            title="Transaction throughput"
-            description="Total transactions per second, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
-            series={detail.charts.transactionsPerSecond}
-            unit="transactions per second"
-          />
-          <MetricChart
-            title="Block transaction composition"
-            description="Average vote and non-vote transactions in sampled blocks. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
-            series={detail.charts.blockTransactions}
-            unit="transactions per block"
-          />
-          <MetricChart
-            title="Tower vote advancement"
-            description="The average rate at which sampled validators' last Tower vote moves forward. It should fall to zero when Tower voting stops; that is expected after activation, not an outage signal."
-            series={detail.charts.towerVoteSlotsPerSecond}
-            unit="slots per second"
-          />
-          <MetricChart
-            title="Tower vote-to-root lag"
-            description="The average slot distance from a validator's latest Tower vote to its Tower root. It diagnoses legacy voting during the transition and should not be treated as Alpenglow finality after activation."
-            series={detail.charts.averageVoteRootLag}
-            unit="slots"
-          />
-        </div>
+        {chartsAvailable ? (
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+            <MetricChart
+              title="Observed finality latency (p95)"
+              description="The 95th percentile of RPC-observed finality measurements over a rolling five-minute window. Ninety-five percent of observations completed at or below this value; polling and network delay are included."
+              series={detail.charts.p95FinalityLatencySeconds}
+              unit="seconds"
+            />
+            <MetricChart
+              title="Transaction throughput"
+              description="Total transactions per second, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
+              series={detail.charts.transactionsPerSecond}
+              unit="transactions per second"
+            />
+            <MetricChart
+              title="Block transaction composition"
+              description="Average vote and non-vote transactions in sampled blocks. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
+              series={detail.charts.blockTransactions}
+              unit="transactions per block"
+            />
+            <MetricChart
+              title="Tower vote advancement"
+              description="The average rate at which sampled validators' last Tower vote moves forward. It should fall to zero when Tower voting stops; that is expected after activation, not an outage signal."
+              series={detail.charts.towerVoteSlotsPerSecond}
+              unit="slots per second"
+            />
+            <MetricChart
+              title="Tower vote-to-root lag"
+              description="The average slot distance from a validator's latest Tower vote to its Tower root. It diagnoses legacy voting during the transition and should not be treated as Alpenglow finality after activation."
+              series={detail.charts.averageVoteRootLag}
+              unit="slots"
+            />
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-5 text-sm text-amber-200">
+            Historical trends are temporarily unavailable. Other dashboard data
+            will continue to refresh.
+          </div>
+        )}
       </section>
 
       <section className="rounded-xl border border-white/10 bg-white/[0.03]">
@@ -597,7 +614,10 @@ export function AlpenglowDashboard() {
             <p className="mt-1 text-xs tabular-nums text-gray-500">
               {formatNumber(status.trackedValidatorCount)} tracked ·{" "}
               {formatNumber(status.delinquentValidatorCount)} delinquent · Up to
-              100 shown
+              100 shown ·{" "}
+              {validatorsGeneratedAt
+                ? `Updated ${new Date(validatorsGeneratedAt).toLocaleTimeString()}`
+                : "Validator data unavailable"}
             </p>
           </div>
           <label>

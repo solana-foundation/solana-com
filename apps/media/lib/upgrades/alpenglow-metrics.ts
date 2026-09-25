@@ -764,14 +764,12 @@ export async function getAlpenglowDetailData(
       ? chartData.generatedAt > validatorData.generatedAt
         ? chartData.generatedAt
         : validatorData.generatedAt
-      : (chartData?.generatedAt ?? validatorData?.generatedAt);
-
-  if (!generatedAt) {
-    throw new Error("Alpenglow metric details are unavailable");
-  }
+      : null;
 
   return {
     generatedAt,
+    chartsGeneratedAt: chartData?.generatedAt ?? null,
+    validatorsGeneratedAt: validatorData?.generatedAt ?? null,
     network,
     range,
     status: validatorData?.status ?? {
@@ -810,9 +808,9 @@ export async function getAlpenglowDashboardData(
 
   return {
     generatedAt:
-      live.generatedAt > detail.generatedAt
-        ? live.generatedAt
-        : detail.generatedAt,
+      detail.chartsGeneratedAt && detail.chartsGeneratedAt > live.generatedAt
+        ? detail.chartsGeneratedAt
+        : live.generatedAt,
     network,
     range,
     status: {

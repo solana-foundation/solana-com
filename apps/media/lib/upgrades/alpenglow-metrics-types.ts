@@ -68,7 +68,12 @@ export interface AlpenglowDashboardLiveData {
 
 /** Historical charts and validator diagnostics read from Prometheus. */
 export interface AlpenglowDashboardDetailData {
-  readonly generatedAt: string;
+  /** Most recent detail timestamp when both data groups succeeded. */
+  readonly generatedAt: string | null;
+  /** Timestamp of the historical chart batch, or null when it failed. */
+  readonly chartsGeneratedAt: string | null;
+  /** Timestamp of the validator batch, or null when it failed. */
+  readonly validatorsGeneratedAt: string | null;
   readonly network: AlpenglowDashboardNetwork;
   readonly range: AlpenglowDashboardRange;
   readonly status: {
