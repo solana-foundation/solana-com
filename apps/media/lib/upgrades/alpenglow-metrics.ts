@@ -113,6 +113,16 @@ interface PrometheusResponse {
   error?: string;
 }
 
+interface PrometheusQueryResult {
+  failed: boolean;
+  result: PrometheusResult[];
+}
+
+interface PrometheusQueryBatch<T extends Record<string, string>> {
+  results: Record<keyof T, PrometheusResult[]>;
+  successfulQueryCount: number;
+}
+
 interface AlpenglowChartData {
   generatedAt: string;
   network: AlpenglowDashboardNetwork;
@@ -384,13 +394,13 @@ async function optionalQuery(
   name: string,
   query: () => Promise<PrometheusResult[]>,
   warnings: string[],
-): Promise<PrometheusResult[]> {
+): Promise<PrometheusQueryResult> {
   try {
-    return await query();
+    return { failed: false, result: await query() };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "unknown error";
     warnings.push(`${name} is unavailable: ${reason}`);
-    return [];
+    return { failed: true, result: [] };
   }
 }
 
@@ -400,19 +410,50 @@ async function executeQueries<T extends Record<string, string>>(
   queries: T,
   warnings: string[],
   options: { start?: number; end?: number; step?: number } = {},
-): Promise<Record<keyof T, PrometheusResult[]>> {
-  return Object.fromEntries(
-    await Promise.all(
-      Object.entries(queries).map(async ([name, query]) => [
+): Promise<PrometheusQueryBatch<T>> {
+  const entries = await Promise.all(
+    Object.entries(queries).map(async ([name, query]) => {
+      const outcome = await optionalQuery(
         name,
-        await optionalQuery(
-          name,
-          () => prometheusQuery(network, endpoint, query, options),
-          warnings,
-        ),
-      ]),
-    ),
-  ) as Record<keyof T, PrometheusResult[]>;
+        () => prometheusQuery(network, endpoint, query, options),
+        warnings,
+      );
+      return { name, outcome };
+    }),
+  );
+
+  return {
+    results: Object.fromEntries(
+      entries.map(({ name, outcome }) => [name, outcome.result]),
+    ) as Record<keyof T, PrometheusResult[]>,
+    successfulQueryCount: entries.filter(({ outcome }) => !outcome.failed)
+      .length,
+  };
+}
+
+function requireSuccessfulQuery(
+  group: string,
+  successfulQueryCount: number,
+  warnings: string[],
+) {
+  if (successfulQueryCount > 0) return;
+  throw new Error(
+    `Every ${group} Prometheus query failed: ${warnings.join("; ")}`,
+  );
+}
+
+function errorReason(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown error";
+}
+
+function emptyCharts(): AlpenglowDashboardCharts {
+  return {
+    p95FinalityLatencySeconds: [],
+    transactionsPerSecond: [],
+    towerVoteSlotsPerSecond: [],
+    averageVoteRootLag: [],
+    blockTransactions: [],
+  };
 }
 
 function mergeValidators(
@@ -489,12 +530,9 @@ async function loadAlpenglowLiveData(
 ): Promise<AlpenglowDashboardLiveData> {
   prometheusConfig(network);
   const warnings: string[] = [];
-  const results = await executeQueries(
-    network,
-    "query",
-    LIVE_QUERIES,
-    warnings,
-  );
+  const batch = await executeQueries(network, "query", LIVE_QUERIES, warnings);
+  requireSuccessfulQuery("live", batch.successfulQueryCount, warnings);
+  const { results } = batch;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -515,7 +553,7 @@ async function loadAlpenglowChartData(
   const warnings: string[] = [];
   const end = Math.floor(Date.now() / 1_000);
   const rangeConfig = RANGE_CONFIG[range];
-  const results = await executeQueries(
+  const batch = await executeQueries(
     network,
     "query_range",
     RANGE_QUERIES,
@@ -526,6 +564,8 @@ async function loadAlpenglowChartData(
       step: rangeConfig.step,
     },
   );
+  requireSuccessfulQuery("historical", batch.successfulQueryCount, warnings);
+  const { results } = batch;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -562,12 +602,14 @@ async function loadAlpenglowValidatorData(
 ): Promise<AlpenglowValidatorData> {
   prometheusConfig(network);
   const warnings: string[] = [];
-  const results = await executeQueries(
+  const batch = await executeQueries(
     network,
     "query",
     VALIDATOR_QUERIES,
     warnings,
   );
+  requireSuccessfulQuery("validator", batch.successfulQueryCount, warnings);
+  const { results } = batch;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -697,7 +739,7 @@ export async function getAlpenglowDetailData(
   range: AlpenglowDashboardRange,
   network: AlpenglowDashboardNetwork,
 ): Promise<AlpenglowDashboardDetailData> {
-  const [chartData, validatorData] = await Promise.all([
+  const [chartResult, validatorResult] = await Promise.allSettled([
     IS_PRODUCTION
       ? cachedChartData(range, network)
       : uncachedChartData(range, network),
@@ -706,17 +748,52 @@ export async function getAlpenglowDetailData(
       : uncachedValidatorData(network),
   ]);
 
-  return {
-    generatedAt:
-      chartData.generatedAt > validatorData.generatedAt
+  if (
+    chartResult.status === "rejected" &&
+    validatorResult.status === "rejected"
+  ) {
+    throw new Error("Every detail Prometheus query failed");
+  }
+
+  const chartData =
+    chartResult.status === "fulfilled" ? chartResult.value : null;
+  const validatorData =
+    validatorResult.status === "fulfilled" ? validatorResult.value : null;
+  const generatedAt =
+    chartData && validatorData
+      ? chartData.generatedAt > validatorData.generatedAt
         ? chartData.generatedAt
-        : validatorData.generatedAt,
+        : validatorData.generatedAt
+      : (chartData?.generatedAt ?? validatorData?.generatedAt);
+
+  if (!generatedAt) {
+    throw new Error("Alpenglow metric details are unavailable");
+  }
+
+  return {
+    generatedAt,
     network,
     range,
-    status: validatorData.status,
-    charts: chartData.charts,
-    validators: validatorData.validators,
-    warnings: [...chartData.warnings, ...validatorData.warnings],
+    status: validatorData?.status ?? {
+      trackedValidatorCount: null,
+      delinquentValidatorCount: null,
+    },
+    charts: chartData?.charts ?? emptyCharts(),
+    validators: validatorData?.validators ?? [],
+    warnings: [
+      ...(chartData?.warnings ?? []),
+      ...(validatorData?.warnings ?? []),
+      ...(chartResult.status === "rejected"
+        ? [
+            `Historical charts are unavailable: ${errorReason(chartResult.reason)}`,
+          ]
+        : []),
+      ...(validatorResult.status === "rejected"
+        ? [
+            `Validator diagnostics are unavailable: ${errorReason(validatorResult.reason)}`,
+          ]
+        : []),
+    ],
   };
 }
 
@@ -732,7 +809,10 @@ export async function getAlpenglowDashboardData(
   ]);
 
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt:
+      live.generatedAt > detail.generatedAt
+        ? live.generatedAt
+        : detail.generatedAt,
     network,
     range,
     status: {
