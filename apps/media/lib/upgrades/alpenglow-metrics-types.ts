@@ -49,8 +49,11 @@ export interface AlpenglowDashboardActivationData {
 export interface AlpenglowDashboardLiveData {
   readonly generatedAt: string;
   readonly network: AlpenglowDashboardNetwork;
-  readonly recentAverageFinalityLatencySeconds: number | null;
+  readonly latestFinalityLatencySeconds: number | null;
   readonly transactionsPerSecond: number | null;
+  readonly totalTransactionsPerBlock: number | null;
+  readonly voteTransactionsPerBlock: number | null;
+  readonly nonVoteTransactionsPerBlock: number | null;
   readonly warnings: readonly string[];
 }
 
@@ -73,7 +76,7 @@ export interface AlpenglowDashboardData {
     readonly alpenglowActive: boolean | null;
     readonly genesisSlot: number | null;
     readonly certificateValidatorCount: number | null;
-    readonly recentAverageFinalityLatencySeconds: number | null;
+    readonly latestFinalityLatencySeconds: number | null;
   };
   readonly charts: AlpenglowDashboardCharts;
   readonly warnings: readonly string[];

@@ -12,7 +12,6 @@ import {
   type AlpenglowDashboardLiveData,
   type AlpenglowDashboardNetwork,
   type AlpenglowDashboardRange,
-  type MetricSeries,
 } from "@/lib/upgrades/alpenglow-metrics-types";
 
 const NETWORK_LABELS: Record<AlpenglowDashboardNetwork, string> = {
@@ -30,7 +29,7 @@ const RANGE_LABELS: Record<AlpenglowDashboardRange, string> = {
 
 const STATUS_POLL_INTERVAL_MS = 2_000;
 const STATUS_MAX_BACKOFF_MS = 60_000;
-const LIVE_POLL_INTERVAL_MS = 8_000;
+const LIVE_POLL_INTERVAL_MS = 1_000;
 const DETAIL_POLL_INTERVAL_MS = 8_000;
 
 function statusPollInterval(
@@ -51,23 +50,6 @@ function formatLatency(value: number | null) {
     return { value: formatNumber(value * 1_000, 0), unit: "ms" };
   }
   return { value: formatNumber(value, 2), unit: "seconds" };
-}
-
-function latestMetricValue(series: MetricSeries[], label?: string) {
-  const candidates = label
-    ? series.filter((item) => item.label === label)
-    : series;
-  let latest: { timestamp: number; value: number } | null = null;
-
-  for (const item of candidates) {
-    for (const [timestamp, value] of item.points) {
-      if (!latest || timestamp > latest.timestamp) {
-        latest = { timestamp, value };
-      }
-    }
-  }
-
-  return latest?.value ?? null;
 }
 
 function DashboardControls({
@@ -295,8 +277,7 @@ export function AlpenglowDashboard() {
     alpenglowActive: activation?.alpenglowActive ?? null,
     genesisSlot: activation?.genesisSlot ?? null,
     certificateValidatorCount: activation?.certificateValidatorCount ?? null,
-    recentAverageFinalityLatencySeconds:
-      live?.recentAverageFinalityLatencySeconds ?? null,
+    latestFinalityLatencySeconds: live?.latestFinalityLatencySeconds ?? null,
   };
   const transitionState =
     status.alpenglowActive === true
@@ -311,20 +292,19 @@ export function AlpenglowDashboard() {
         ? "The cluster can report Alpenglow activation, but no genesis certificate has been observed. Tower BFT remains the active consensus protocol."
         : "This cluster does not currently expose enough information to confirm Alpenglow activation.";
   const transactionRate = live?.transactionsPerSecond ?? null;
-  const recentAverageFinalityLatency = formatLatency(
-    status.recentAverageFinalityLatencySeconds,
+  const latestFinalityLatency = formatLatency(
+    status.latestFinalityLatencySeconds,
   );
   const showGenesisSlot =
     status.alpenglowActive === true && status.genesisSlot !== null;
   const showCertificateSigners =
     status.alpenglowActive === true &&
     status.certificateValidatorCount !== null;
-  const showRecentAverageFinality =
-    status.recentAverageFinalityLatencySeconds !== null;
+  const showLatestFinality = status.latestFinalityLatencySeconds !== null;
   const heroMetricCount = [
     showGenesisSlot,
     showCertificateSigners,
-    showRecentAverageFinality,
+    showLatestFinality,
   ].filter(Boolean).length;
   const heroMetricLayout =
     heroMetricCount >= 3
@@ -332,19 +312,13 @@ export function AlpenglowDashboard() {
       : heroMetricCount === 2
         ? "sm:w-2/3 sm:grid-cols-2"
         : "sm:w-1/3 sm:grid-cols-1";
-  const nonVoteTransactions = detail
-    ? latestMetricValue(
-        detail.charts.blockTransactions,
-        "Non-vote transactions",
-      )
-    : null;
-  const voteTransactions = detail
-    ? latestMetricValue(detail.charts.blockTransactions, "Vote transactions")
-    : null;
+  const nonVoteTransactions = live?.nonVoteTransactionsPerBlock ?? null;
+  const voteTransactions = live?.voteTransactionsPerBlock ?? null;
   const blockTransactionTotal =
-    nonVoteTransactions !== null && voteTransactions !== null
+    live?.totalTransactionsPerBlock ??
+    (nonVoteTransactions !== null && voteTransactions !== null
       ? nonVoteTransactions + voteTransactions
-      : null;
+      : null);
   const towerVoteShare =
     voteTransactions !== null &&
     blockTransactionTotal !== null &&
@@ -428,24 +402,24 @@ export function AlpenglowDashboard() {
                   </dd>
                 </div>
               )}
-              {showRecentAverageFinality && (
+              {showLatestFinality && (
                 <div className="bg-black/85 p-5">
                   <dt className="flex items-center gap-1 text-sm font-medium text-gray-500">
-                    <span>Average observed finality</span>
+                    <span>Latest observed finality</span>
                     <MetricInfo
-                      label="Average observed finality"
+                      label="Latest observed finality"
                       description={
                         // testnet is over rpc, others are using laserstream
                         network === "testnet"
-                          ? "Mean RPC-observed finality over the latest 30-second window"
-                          : "Mean RPC-observed finality over the latest 30-second window, including polling and network delay."
+                          ? "Most recent RPC-observed processed-to-finalized slot latency."
+                          : "Most recent processed-to-finalized slot latency observed from the Alpenglow event stream."
                       }
                     />
                   </dt>
                   <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
-                    {recentAverageFinalityLatency.value}
+                    {latestFinalityLatency.value}
                     <span className="ml-2 text-sm font-normal text-gray-500">
-                      {recentAverageFinalityLatency.unit}
+                      {latestFinalityLatency.unit}
                     </span>
                   </dd>
                 </div>
@@ -470,33 +444,33 @@ export function AlpenglowDashboard() {
             label="Observed network throughput"
             value={formatNumber(transactionRate, 1)}
             unit={transactionRate === null ? undefined : "tx/s"}
-            description="The total transaction rate over the latest 30-second window across the monitored exporter targets, including user and consensus transactions."
+            description="The latest transaction rate calculated from the two newest exporter samples, including user and consensus transactions."
             interpretation="Compare this with user transactions per block. A lower total alone does not suggest that user capacity or performance declined."
           />
           <UserMetricCard
             label="User transactions per block"
             value={
-              detail
+              live
                 ? formatNumber(nonVoteTransactions, 1)
-                : detailPoller.isLoading
+                : livePoller.isLoading
                   ? "Loading…"
                   : "Unavailable"
             }
             unit={nonVoteTransactions === null ? undefined : "tx/block"}
-            description="The latest average count of non-vote transactions in sampled blocks—a close proxy for user activity."
+            description="The non-vote transaction count in the latest finalized block—a close proxy for user activity."
             interpretation="This should remain stable through the switch even as Tower vote transactions leave blocks."
           />
           <UserMetricCard
             label="Tower vote share"
             value={
-              detail
+              live
                 ? formatNumber(towerVoteShare, 1)
-                : detailPoller.isLoading
+                : livePoller.isLoading
                   ? "Loading…"
                   : "Unavailable"
             }
             unit={towerVoteShare === null ? undefined : "% of block tx"}
-            description="The share of sampled block transactions used by Tower vote transactions rather than non-vote activity."
+            description="The share of transactions in the latest finalized block used by Tower votes rather than non-vote activity."
             interpretation="This should approach zero after Alpenglow activates. Its decline is expected consensus overhead leaving the transaction stream."
           />
         </div>

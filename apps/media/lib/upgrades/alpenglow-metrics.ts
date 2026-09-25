@@ -17,10 +17,10 @@ import {
 const REQUEST_TIMEOUT_MS = 10_000;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const ACTIVATION_CACHE_SECONDS = 2;
-const LIVE_CACHE_SECONDS = 8;
+const LIVE_CACHE_SECONDS = 1;
 const DETAIL_CACHE_SECONDS = 8;
 /** Maximum age of a live performance snapshot returned to the dashboard. */
-export const ALPENGLOW_LIVE_MAXIMUM_AGE_SECONDS = 15;
+export const ALPENGLOW_LIVE_MAXIMUM_AGE_SECONDS = 3;
 const LIVE_MAXIMUM_AGE_MS = ALPENGLOW_LIVE_MAXIMUM_AGE_SECONDS * 1_000;
 const DETAIL_MAXIMUM_AGE_MS = 90_000;
 
@@ -83,10 +83,12 @@ const RANGE_QUERIES = {
 } as const;
 
 const LIVE_QUERIES = {
-  recentAverageFinalityLatencySeconds:
-    "(sum(rate(solana_rpc_finality_latency_seconds_sum[30s])) / sum(rate(solana_rpc_finality_latency_seconds_count[30s]))) or (sum(rate(solana_finality_latency_seconds_sum[30s])) / sum(rate(solana_finality_latency_seconds_count[30s])))",
+  latestFinalityLatencySeconds:
+    'max(solana_finality_latency_latest_seconds{job="solana-exporter-live"}) or max(solana_finality_latency_latest_seconds) or (sum(rate(solana_rpc_finality_latency_seconds_sum[30s])) / sum(rate(solana_rpc_finality_latency_seconds_count[30s]))) or (sum(rate(solana_finality_latency_seconds_sum[30s])) / sum(rate(solana_finality_latency_seconds_count[30s])))',
   transactionsPerSecond:
-    "max(clamp_min(rate(solana_node_transactions_total[30s]), 0))",
+    'max(clamp_min(irate(solana_node_transactions_total{job="solana-exporter-live"}[10s]), 0)) or max(clamp_min(irate(solana_node_transactions_total[10s]), 0))',
+  blockTransactions:
+    'max by (transaction_type) (solana_block_transactions_latest{job="solana-exporter-live"}) or max by (transaction_type) (solana_block_transactions_latest) or avg by (transaction_type) (solana_validator_block_size)',
 } as const;
 
 type PrometheusMetric = Record<string, string>;
@@ -368,6 +370,16 @@ function vectorValue(result: PrometheusResult[]): number | null {
   return finiteNumber(result[0]?.value?.[1]);
 }
 
+function vectorValueByLabel(
+  result: PrometheusResult[],
+  label: string,
+  value: string,
+): number | null {
+  return finiteNumber(
+    result.find((item) => item.metric[label] === value)?.value?.[1],
+  );
+}
+
 function matrixSeries(
   result: PrometheusResult[],
   defaultLabel: string,
@@ -452,10 +464,25 @@ async function loadAlpenglowLiveData(
   return {
     generatedAt: new Date().toISOString(),
     network,
-    recentAverageFinalityLatencySeconds: vectorValue(
-      results.recentAverageFinalityLatencySeconds,
+    latestFinalityLatencySeconds: vectorValue(
+      results.latestFinalityLatencySeconds,
     ),
     transactionsPerSecond: vectorValue(results.transactionsPerSecond),
+    totalTransactionsPerBlock: vectorValueByLabel(
+      results.blockTransactions,
+      "transaction_type",
+      "total",
+    ),
+    voteTransactionsPerBlock: vectorValueByLabel(
+      results.blockTransactions,
+      "transaction_type",
+      "vote",
+    ),
+    nonVoteTransactionsPerBlock: vectorValueByLabel(
+      results.blockTransactions,
+      "transaction_type",
+      "non_vote",
+    ),
     warnings,
   };
 }
@@ -661,8 +688,7 @@ export async function getAlpenglowDashboardData(
       alpenglowActive: activation.alpenglowActive,
       genesisSlot: activation.genesisSlot,
       certificateValidatorCount: activation.certificateValidatorCount,
-      recentAverageFinalityLatencySeconds:
-        live.recentAverageFinalityLatencySeconds,
+      latestFinalityLatencySeconds: live.latestFinalityLatencySeconds,
     },
     charts: detail.charts,
     warnings: [...activation.warnings, ...live.warnings, ...detail.warnings],

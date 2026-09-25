@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data, {
       headers: alpenglowFreshSnapshotCacheHeaders(
         data.generatedAt,
-        8,
+        1,
         ALPENGLOW_LIVE_MAXIMUM_AGE_SECONDS,
       ),
     });
