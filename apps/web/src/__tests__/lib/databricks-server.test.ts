@@ -1,131 +1,90 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const databricks = vi.hoisted(() => ({
-  clientClose: vi.fn(),
-  connect: vi.fn(),
-  executeStatement: vi.fn(),
-  fetchAll: vi.fn(),
-  openSession: vi.fn(),
-  operationClose: vi.fn(),
-  sessionClose: vi.fn(),
-}));
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@databricks/sql", () => ({
-  DBSQLClient: class MockDBSQLClient {
-    connect = databricks.connect;
-    close = databricks.clientClose;
-  },
-}));
-
 import {
-  getDatabricksConfig,
-  getDatabricksSqlMetricRows,
+  DataApiResponseError,
+  getDataApiConfig,
+  getDataApiMetricRows,
 } from "@/lib/databricks/server";
 
-describe("Databricks server integration", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+function jsonResponse(status: number, body: unknown) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: "",
+    json: () => Promise.resolve(body),
+  } as Response;
+}
 
-    databricks.fetchAll.mockResolvedValue([]);
-    databricks.executeStatement.mockResolvedValue({
-      close: databricks.operationClose,
-      fetchAll: databricks.fetchAll,
-      id: "statement-123",
-    });
-    databricks.openSession.mockResolvedValue({
-      close: databricks.sessionClose,
-      executeStatement: databricks.executeStatement,
-    });
-    databricks.connect.mockResolvedValue({
-      openSession: databricks.openSession,
-    });
-  });
-
+describe("data-api metrics client", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("normalizes valid environment configuration", () => {
-    vi.stubEnv(
-      "DATABRICKS_SERVER_HOSTNAME",
-      "https://workspace.cloud.databricks.com/ignored-path",
-    );
-    vi.stubEnv(
-      "DATABRICKS_HTTP_PATH",
-      "jdbc:spark://workspace.cloud.databricks.com:443/default;httpPath=%2Fsql%2F1.0%2Fwarehouses%2Fwarehouse-123;AuthMech=3",
-    );
-    vi.stubEnv("DATABRICKS_TOKEN", "test-token");
+    vi.stubEnv("DATA_API_URL", "https://data.solana.com/");
+    vi.stubEnv("DATA_API_KEY", "test-key");
 
-    expect(getDatabricksConfig()).toEqual({
+    expect(getDataApiConfig()).toEqual({
       ok: true,
       config: {
-        httpPath: "/sql/1.0/warehouses/warehouse-123",
-        serverHostname: "workspace.cloud.databricks.com",
-        token: "test-token",
-        warehouseId: "warehouse-123",
+        baseUrl: "https://data.solana.com",
+        apiKey: "test-key",
       },
     });
   });
 
   it("reports missing and invalid environment configuration", () => {
-    vi.stubEnv("DATABRICKS_SERVER_HOSTNAME", "not a valid hostname");
-    vi.stubEnv("DATABRICKS_HTTP_PATH", "/invalid/path");
-    vi.stubEnv("DATABRICKS_TOKEN", "");
+    vi.stubEnv("DATA_API_URL", "http://data.solana.com");
+    vi.stubEnv("DATA_API_KEY", "");
 
-    expect(getDatabricksConfig()).toEqual({
+    expect(getDataApiConfig()).toEqual({
       ok: false,
-      invalidEnv: ["DATABRICKS_SERVER_HOSTNAME", "DATABRICKS_HTTP_PATH"],
-      missingEnv: ["DATABRICKS_TOKEN"],
+      invalidEnv: ["DATA_API_URL"],
+      missingEnv: ["DATA_API_KEY"],
     });
   });
 
-  it("executes a statement through the Databricks 2 client contract", async () => {
-    databricks.fetchAll.mockResolvedValue([
-      {
-        date: new Date("2026-07-20T00:00:00.000Z"),
-        metric_name: "TPS",
-        provider_name: "Dune",
-        unit: "transactions/second",
-        value: "123.5",
-      },
-      {
-        date: "2026-07-20",
-        metric_name: null,
-        provider_name: "Dune",
-        unit: "transactions/second",
-        value: 456,
-      },
-    ]);
-
-    const result = await getDatabricksSqlMetricRows(
-      {
-        httpPath: "/sql/1.0/warehouses/warehouse-123",
-        serverHostname: "workspace.cloud.databricks.com",
-        token: "test-token",
-        warehouseId: "warehouse-123",
-      },
-      {
-        lookbackDays: 7.9,
-        metricNames: ["TPS", "fees' paid", "TPS"],
-      },
+  it("fetches /metrics with the api key header and maps rows", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, {
+        source: "databricks",
+        data: {
+          generatedAt: "2026-09-10T10:08:27.042247+00:00",
+          truncated: false,
+          rows: [
+            {
+              date: "2026-07-20",
+              metric_name: "TPS",
+              provider_name: "Dune",
+              unit: "transactions/second",
+              value: "123.5",
+            },
+            {
+              date: "2026-07-20",
+              metric_name: null,
+              provider_name: "Dune",
+              unit: "transactions/second",
+              value: 456,
+            },
+          ],
+        },
+      }),
     );
 
-    expect(databricks.connect).toHaveBeenCalledWith({
-      host: "workspace.cloud.databricks.com",
-      path: "/sql/1.0/warehouses/warehouse-123",
-      token: "test-token",
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await getDataApiMetricRows({
+      baseUrl: "https://data.solana.com",
+      apiKey: "test-key",
     });
-    expect(databricks.openSession).toHaveBeenCalledOnce();
-    expect(databricks.executeStatement).toHaveBeenCalledOnce();
 
-    const [statement, executeOptions] = databricks.executeStatement.mock
-      .calls[0] as [string, { runAsync: boolean }];
-
-    expect(statement).toContain("m.name IN ('TPS', 'fees'' paid')");
-    expect(statement).toContain("mv.date >= date_sub(current_date(), 7)");
-    expect(executeOptions).toEqual({ runAsync: true });
+    expect(fetchMock).toHaveBeenCalledWith("https://data.solana.com/metrics", {
+      cache: "no-store",
+      headers: { "x-api-key": "test-key" },
+    });
     expect(result).toEqual({
       rows: [
         {
@@ -136,38 +95,37 @@ describe("Databricks server integration", () => {
           value: 123.5,
         },
       ],
-      statementId: "statement-123",
       truncated: false,
     });
-
-    expect(databricks.operationClose).toHaveBeenCalledOnce();
-    expect(databricks.sessionClose).toHaveBeenCalledOnce();
-    expect(databricks.clientClose).toHaveBeenCalledOnce();
-    expect(databricks.operationClose.mock.invocationCallOrder[0]).toBeLessThan(
-      databricks.sessionClose.mock.invocationCallOrder[0],
-    );
-    expect(databricks.sessionClose.mock.invocationCallOrder[0]).toBeLessThan(
-      databricks.clientClose.mock.invocationCallOrder[0],
-    );
   });
 
-  it("closes Databricks resources when fetching results fails", async () => {
-    databricks.fetchAll.mockRejectedValueOnce(new Error("query failed"));
+  it("throws on a non-OK response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        statusText: "Bad Gateway",
+        json: () => Promise.resolve(null),
+      }),
+    );
 
     await expect(
-      getDatabricksSqlMetricRows(
-        {
-          httpPath: "/sql/1.0/warehouses/warehouse-123",
-          serverHostname: "workspace.cloud.databricks.com",
-          token: "test-token",
-          warehouseId: "warehouse-123",
-        },
-        { lookbackDays: 30, metricNames: ["TPS"] },
-      ),
-    ).rejects.toThrow("query failed");
+      getDataApiMetricRows({
+        baseUrl: "https://data.solana.com",
+        apiKey: "test-key",
+      }),
+    ).rejects.toThrow(DataApiResponseError);
+  });
 
-    expect(databricks.operationClose).toHaveBeenCalledOnce();
-    expect(databricks.sessionClose).toHaveBeenCalledOnce();
-    expect(databricks.clientClose).toHaveBeenCalledOnce();
+  it("throws on a malformed payload", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(200, {})));
+
+    await expect(
+      getDataApiMetricRows({
+        baseUrl: "https://data.solana.com",
+        apiKey: "test-key",
+      }),
+    ).rejects.toThrow(DataApiResponseError);
   });
 });
