@@ -93,7 +93,12 @@ async function loadProducedSlots(
 }
 
 async function loadPerformanceSamples(url: string) {
-  return rpc<PerformanceSample[]>(url, "getRecentPerformanceSamples", [1]);
+  const samples = await rpc<PerformanceSample[]>(
+    url,
+    "getRecentPerformanceSamples",
+    [1],
+  );
+  return { samples, sampledAt: Date.now() };
 }
 
 async function loadProtocolCertificate(url: string) {
@@ -478,20 +483,23 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
       performanceTick += 1;
       if (performanceTick % 7 === 0) {
         signal.throwIfAborted();
-        const samples = getCachedPerformanceSamples
+        const performance = getCachedPerformanceSamples
           ? await getCachedPerformanceSamples(url)
-          : await rpc<PerformanceSample[]>(
-              url,
-              "getRecentPerformanceSamples",
-              [1],
-              signal,
-            );
+          : {
+              samples: await rpc<PerformanceSample[]>(
+                url,
+                "getRecentPerformanceSamples",
+                [1],
+                signal,
+              ),
+              sampledAt: Date.now(),
+            };
         if (getCachedPerformanceSamples) signal.throwIfAborted();
-        const sample = samples[0];
+        const sample = performance.samples[0];
         if (sample) {
           emit({
             type: "performance_sample",
-            sampledAt: Date.now(),
+            sampledAt: performance.sampledAt,
             totalTps: sample.numTransactions / sample.samplePeriodSecs,
             nonVoteTps:
               sample.numNonVoteTransactions == null
