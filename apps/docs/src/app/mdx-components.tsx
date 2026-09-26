@@ -5,6 +5,8 @@ import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { MarkdownEmbed } from "@@/src/components/shared/MarkdownRenderer/components/MarkdownEmbed";
+import { VideoChapterList } from "@@/src/components/shared/VideoChapterList";
+import { ProjectCardGrid } from "@@/src/components/shared/ProjectCardGrid";
 import { Code } from "@@/src/app/components/code/code";
 import { WithMentions, MentionLink } from "@@/src/app/components/code/mentions";
 import { WithNotes } from "@@/src/app/components/code/notes";
@@ -38,6 +40,8 @@ export const mdxComponents = {
   ...defaultMdxComponents,
   Callout,
   Embed: MarkdownEmbed,
+  VideoChapterList,
+  ProjectCardGrid,
   Steps,
   Step,
   Accordion,
