@@ -1,0 +1,167 @@
+---
+title: Agave 4.4 Release Overview
+description: >-
+  Agave 4.4 is the largest runtime release in years — block revenue sharing,
+  two new cryptographic syscalls, a cheaper program entrypoint, direct account
+  data mapping, and the end of sBPF v0-v2 deployments. Mainnet adoption is
+  expected November 2, 2026.
+subtitle: Block revenue sharing, a cheaper entrypoint, and the runtime cleanup behind them
+publishedAt: 2026-09-27T00:00:00.000Z
+status: draft
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+metrics:
+  - value: "11"
+    label: CUs to parse any number of accounts, down from 504
+  - value: Nov 2
+    label: Expected mainnet adoption
+  - value: "11"
+    label: Feature-gated changes in the release
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Agave 4.4 Release Overview
+
+Q4 2026 • Solana Foundation
+
+Agave 4.4 is a runtime release. Where
+[4.3](/upgrades/agave-4-3-release-overview) carried consensus,
+4.4 carries almost everything that touches how programs are loaded, how they
+read their inputs, what they can compute, and who gets paid for the block they
+run in.
+
+Anza's [v4.4 release schedule](https://github.com/anza-xyz/agave/wiki/v4.4-Release-Schedule)
+puts testnet adoption at September 28, 2026, devnet at October 5, and mainnet
+general adoption at **November 2**, with feature activation beginning
+**November 9**. The schedule is explicitly tentative and every date on it is
+subject to change.
+
+|                                  |                                                              |
+| -------------------------------- | ------------------------------------------------------------ |
+| Expected Mainnet Activation Date | Feature activation from November 9, 2026                     |
+| Mainnet Adoption Recommended     | November 2, 2026 (tentative)                                 |
+| Devnet Activation                | October 7, 2026 (tentative)                                  |
+| Breaking Change?                 | Yes, for program deployment and for anything reading rewards |
+| Indexing Changes Required?       | Yes, if you track validator or staker rewards                |
+
+## Technical Details
+
+### Program Performance
+
+Three changes make programs cheaper to run, and they compound.
+
+**[Direct account pointers in program input](/upgrades/direct-account-pointers)**
+([SIMD-0449](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0449-direct-account-pointers-in-program-input.md))
+serializes a pointer per instruction account into the program input, so an
+entrypoint no longer walks the accounts section to find its boundaries. The
+entrypoint cost stops scaling with account count: a 64-account instruction goes
+from 504 CUs to 11.
+
+**[Account data direct mapping](/upgrades/account-data-direct-mapping)** maps
+account data into the VM address space instead of copying it in and back out
+again. No SIMD — it is an implementation change behind feature gate
+`CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE`.
+
+**[Virtual address space adjustments](/upgrades/virtual-address-space)**
+([SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md))
+is the half of SIMD-0219 covering address translation and memory mapping. It
+also deactivates stack frame gaps globally, which compacts the stack address
+space. Programs that depend on the old stack layout — absolute addressing,
+addressing across stack frames, or a bug that read past a frame boundary — are
+the ones at risk.
+
+### New Cryptography
+
+Two syscalls expose primitives the validator already links.
+
+**[SHA-512 syscall](/upgrades/sha512-syscall)**
+([SIMD-0512](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0512-sha512-syscall.md))
+adds `sol_sha512` with the same interface as `sol_sha256`. A SHA-512 hash that
+costs thousands of CUs in sBPF costs under 100 through the syscall.
+
+**[Big integer ModExp syscall](/upgrades/modexp-syscall)**
+([SIMD-0529](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0529-big-integer-modexp-syscall.md))
+adds `sol_big_mod_exp`, computing `(base ^ exponent) mod modulus` on operands up
+to 512 bytes — enough for 4096-bit RSA. It is the analogue of Ethereum's
+EIP-198 precompile, with a Solana syscall interface rather than the EVM ABI.
+
+Both join the curve syscalls added in Agave 4.0
+([new cryptography schemes](/upgrades/new-cryptography)).
+
+### Program Deployment
+
+**[sBPFv3 programs](/upgrades/sbpfv3-programs)**
+([SIMD-0500](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0500-disable-deployment-of-sbpf-v0-v1-v2.md))
+makes sBPFv3 the minimum target for new deployments, redeployments, and
+finalization. Programs already onchain keep running.
+
+**[Loader v3: program data sized to the ELF](/upgrades/loader-v3-elf-length)**
+([SIMD-0433](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0433-loader-v3-set-program-data-to-elf-length.md))
+makes `Upgrade` resize the program data account to match the ELF being deployed,
+in both directions. Shrinking refunds the surplus rent to the spill account;
+growing no longer needs a separate `ExtendProgram` first. Anyone deliberately
+over-provisioning program data space loses that space on the next upgrade.
+
+Agave 4.4 also fixes program cache deployment verification. There is no SIMD and
+no feature gate — it is a client fix, not a protocol change.
+
+### Economics
+
+**[Block revenue sharing](/upgrades/block-revenue-sharing)**
+([SIMD-0123](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0123-block-revenue-distribution.md))
+lets a validator share block revenue with its delegators through the protocol
+rather than through a side arrangement. A vote account sets a block revenue
+commission in basis points; the remainder accrues to
+`pending_delegator_rewards` and is paid out at the next epoch boundary through
+the existing partitioned rewards mechanism. Validators that never set a
+commission keep collecting everything into their identity account, as today.
+
+**[Remove inactive stakes from rewards](/upgrades/inactive-stakes-rewards)**
+([SIMD-0599](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0599-rm-inactive-stakes-from-per.md))
+stops including stake accounts with no effective or activating stake in
+partitioned epoch rewards. They never earned anything; they were consensus-
+critical anyway, because they moved the partition count and the lattice hash.
+
+**[Reduced rent](/upgrades/reduced-rent)**
+([SIMD-0437](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0437-incremental-rent-reduction.md))
+continues here with steps 3 through 5 of the five-step cut to
+`lamports_per_byte`. Steps 1 and 2 activated in September 2026 under Agave 4.2.
+
+### Consensus
+
+**[Alpenglow fast leader handover](/upgrades/fast-leader-handover)**
+([SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0326-alpenglow.md),
+section 2.7 of the white paper) lets a leader start building on the parent it
+expects to be ready rather than waiting for the network to confirm one, and
+switch parents mid-block if the network resolves differently. It has its own
+gate, `FLHoAWBDjNh6zwmJ5i1NKK4KyD8otAiv7XxvmnFnVnKH`, separate from the
+`alpenglow` consensus gate. The wire encoding for the parent switch — the
+`BlockHeader` and `UpdateParent` block markers — is specified separately in
+[SIMD-0337](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0337-parent-ready-update-marker.md).
+
+This is what makes more than one bank per slot a routine occurrence rather than
+an equivocation artifact — Anza expects it in under 1% of slots. Agave has
+carried the implementation since v4.3.0, but Anza un-keyed the gate on `master`
+in September 2026, so activation is not scheduled and the address may change.
+It also depends on the [Alpenglow](/upgrades/alpenglow) consensus switch rather
+than on 4.4 alone.
+
+## About This Upgrade
+
+Agave 4.4 is easiest to read as three audiences. Program developers get a
+materially cheaper entrypoint and two cryptographic primitives that were
+previously impractical, and in exchange have to deploy sBPFv3 and stop relying
+on the old stack address layout. Validators and stakers get the first
+protocol-level mechanism for sharing block revenue, replacing arrangements that
+until now depended on the operator's good behavior. Everyone reading rewards data
+gets a new source to read it from.
+
+The release is large, and the feature gates activate independently. Track them
+individually rather than treating "4.4" as a single switch, and read Anza's
+schedule for the current dates — every one of them is tentative.
+
+**Learn more:** [Solana Upgrades](/upgrades)

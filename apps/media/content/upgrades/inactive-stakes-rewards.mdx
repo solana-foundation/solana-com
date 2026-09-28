@@ -1,0 +1,135 @@
+---
+title: Remove Inactive Stakes From Rewards
+description: >-
+  SIMD-0599 stops including inactive stake accounts in partitioned epoch
+  rewards. They earn nothing but are consensus-critical anyway, because they
+  move the partition count and the lattice hash that every client must agree on.
+subtitle: Stakes that earn nothing stop being consensus-critical
+publishedAt: 2026-09-27T00:00:00.000Z
+status: draft
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+order: 9
+metrics:
+  - value: "0"
+    label: Rewards an inactive stake was ever owed
+  - value: "2"
+    label: Consensus values they no longer influence
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Remove Inactive Stakes From Rewards
+
+Q4 2026 • Solana Foundation
+
+Partitioned epoch rewards currently consider every stake account on the network,
+including ones with no effective and no activating stake. Those accounts earn
+nothing — there is no stake to reward. But their presence is not free: the set
+of accounts under consideration determines **how many partitions** the rewards
+period is split into and feeds **the lattice hash**, and both are
+consensus-critical. Every validator implementation therefore has to include
+accounts that cannot possibly receive anything, and has to include them the same
+way, or the cluster forks.
+
+[SIMD-0599](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0599-rm-inactive-stakes-from-per.md)
+removes them. Only activating, active, and deactivating stakes take part in the
+calculation and distribution phases.
+
+|                                  |                                                  |
+| -------------------------------- | ------------------------------------------------ |
+| Expected Mainnet Activation Date | Agave 4.4, feature activation from November 2026 |
+| Devnet Activation                | To be determined                                 |
+| Breaking Change?                 | No — no stake account's rewards change           |
+| Indexing Changes Required?       | No, but partition counts will shift              |
+| Feature Gate                     | `RMsTKfD6hZnBhhNvgGBeKNrqCNkeoP3DYYxNtcuWtRg`    |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="RMsTKfD6hZnBhhNvgGBeKNrqCNkeoP3DYYxNtcuWtRg" />
+
+No staker receives more or less than before. This is a change to which accounts
+the protocol has to carry through an expensive, consensus-critical calculation,
+not to who gets paid.
+
+## Technical Details
+
+### What "Inactive" Means Here
+
+An inactive stake is one with **no effective and no activating stake**. It is
+worth being precise about the boundary, because a deactivating stake still has
+effective stake and is therefore not inactive — it is still earning, and it is
+still included.
+
+### The Rule
+
+During the rollover from epoch `E` to `E + 1`, stakes that were inactive in `E`
+are excluded from partitioned epoch rewards — both the calculation phase and
+the distribution phase. Separately, during account updates, a stake account
+inactive in **both** the current and previous epochs is dropped from
+consideration for a validator's stake weight.
+
+The full matrix:
+
+| Status in E         | Status in E+1       | During rewards for E |
+| ------------------- | ------------------- | -------------------- |
+| Activating / active | Activating / active | Include              |
+| Active              | Inactive            | **Include**          |
+| Inactive            | Inactive            | Exclude              |
+
+### The Edge Case That Decides the Design
+
+Row two is the one that matters. A stake with non-zero effective stake in `E`
+that becomes inactive at the start of `E + 1` **must still be included** and must
+still receive its rewards during the payout.
+
+It earned those rewards in `E`. The fact that it went inactive before the payout
+happened does not un-earn them, and dropping it because of its status at payout
+time would silently underpay a staker who did nothing wrong. This is why the
+rule keys on status in the reward epoch rather than status at distribution time.
+
+Note also that during the calculation and distribution phases of partitioned
+epoch rewards, stake state changes are not permitted through transactions — the
+status cannot shift underneath the calculation once it is running.
+
+### What Changes Observably
+
+Nothing in anyone's balance. What changes is the partition count: with fewer
+accounts in the reward set, the rewards period is divided into fewer partitions,
+so a distribution period may be shorter than an equivalent one before
+activation. Anything that tracks the length of the rewards period, or expects a
+particular number of partitions for a given epoch, is reading a number that
+moves at activation.
+
+The lattice hash also changes as a consequence, which is exactly why this needs
+a feature gate rather than being a client-side optimization.
+
+### Affected Validator Components
+
+The proposal lists one:
+
+| Validator Component             | Impact                            |
+| ------------------------------- | --------------------------------- |
+| Transaction Execution (Runtime) | Partitioned epoch rewards changed |
+
+Conformance will be established with a ledger containing active, inactive, and
+deactivating stakes at epoch `E`, covering every row of the table above.
+
+## About This Upgrade
+
+This is a maintenance change, and the case for it is stated plainly in the
+proposal: including inactive stakes is "useless, but consensus critical." That
+combination is the worst one available. Work that produces no result is merely
+wasteful; work that produces no result and must be replicated bit-for-bit across
+every independent validator implementation is a standing source of divergence
+bugs for no benefit at all.
+
+Removing it makes the rewards period cheaper, makes validator implementations
+simpler, and removes a footgun that every new client has to rediscover. The
+guard rail is the edge case in row two of the table: a stake that earned in the
+reward epoch gets paid, whatever happened to it since.
+
+**Learn more:** [Solana Upgrades](/upgrades)

@@ -1,0 +1,196 @@
+---
+title: "Loader v3: Program Data Sized to the ELF"
+description: >-
+  SIMD-0433 makes the Upgrade instruction resize a program data account to match
+  the ELF being deployed, in both directions. Shrinking refunds surplus rent to
+  the spill account; growing no longer needs a separate ExtendProgram call.
+subtitle: Program upgrades now resize the account, and refund the difference
+publishedAt: 2026-09-27T00:00:00.000Z
+status: draft
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+order: 6
+metrics:
+  - value: Both ways
+    label: Program data accounts can now shrink, not just grow
+  - value: 10 KiB
+    label: CPI growth limit that still applies per instruction
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Loader v3: Program Data Sized to the ELF
+
+Q4 2026 • Solana Foundation
+
+A Loader v3 program data account can grow and cannot shrink. `ExtendProgram`
+makes it bigger; nothing makes it smaller. That was a reasonable asymmetry when
+programs only ever got larger, and it stopped being reasonable when they
+started getting smaller — SDKs like Pinocchio produce substantially more compact
+ELFs, and a program that halves in size keeps paying rent on the space it no
+longer uses, with no way to reclaim it.
+
+[SIMD-0433](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0433-loader-v3-set-program-data-to-elf-length.md)
+makes `Upgrade` set the account to fit the ELF it is deploying, in whichever
+direction that requires. The account ends up at
+`PROGRAMDATA_METADATA_SIZE + elf_length`: the existing metadata header holding
+the slot and upgrade authority, plus exactly the new ELF.
+
+It also removes a step. Upgrading to a larger ELF currently requires issuing
+`ExtendProgram` first; now the `Upgrade` itself extends.
+
+|                                  |                                                      |
+| -------------------------------- | ---------------------------------------------------- |
+| Expected Mainnet Activation Date | Agave 4.4, feature activation from November 2026     |
+| Devnet Activation                | To be determined                                     |
+| Breaking Change?                 | Yes, for anyone deliberately over-provisioning space |
+| Indexing Changes Required?       | No                                                   |
+| Feature Gate                     | `EhisBfVtGvEA8bVCVN5VMaYEaX6iTfoUrmcDi8LY7Kxy`       |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="EhisBfVtGvEA8bVCVN5VMaYEaX6iTfoUrmcDi8LY7Kxy" />
+
+**Breaking Changes:**
+
+| If your app                                       | When          | What you have to do                                                                                                    |
+| ------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Over-provisions** program data space on purpose | At activation | That space is reclaimed on the next upgrade. [Learn more](#breaking-change-reserved-space-does-not-survive-an-upgrade) |
+| **Upgrades** programs via CPI                     | At activation | The 10 KiB per-instruction growth limit still binds. [Learn more](#breaking-change-cpi-upgrades-can-fail-on-growth)    |
+| **Automates** deployments                         | At activation | Check which spill account you pass — it now receives refunds. [Learn more](#the-spill-account-now-receives-money)      |
+
+## Migration Checklist
+
+<AudienceGroup>
+<Audience title="For Program Developers" summary="Mostly a refund. Check your spill account and your deploy scripts.">
+
+- **Check the spill account you pass to `Upgrade`.** On a shrinking upgrade it
+  receives the surplus rent. If your tooling passes a throwaway address, you are
+  sending your own refund somewhere you do not control.
+- **Stop issuing `ExtendProgram` before an `Upgrade` that grows**, unless the
+  growth exceeds 10 KiB and you are upgrading via CPI.
+- **Fund the growth.** On a growing upgrade the extra rent must already be
+  credited to the program data account or available in the buffer account
+  before `Upgrade` executes. If it is not, the upgrade fails with
+  `InsufficientFunds`.
+- **If you were reserving headroom on purpose**, it is gone after the next
+  upgrade ([details](#breaking-change-reserved-space-does-not-survive-an-upgrade)).
+
+</Audience>
+
+<Audience title="For Validators and Infrastructure" summary="Smaller program footprint in AccountsDB.">
+
+No action. The effect on the network side is that program data accounts stop
+carrying unused bytes, which lowers the overall program footprint in AccountsDB
+and reduces program loading overhead.
+
+</Audience>
+
+</AudienceGroup>
+
+## Breaking Changes in Detail
+
+<AudienceGroup>
+<Audience title="For Anyone Reserving Headroom" summary="Deliberately over-provisioned space is reclaimed on upgrade.">
+
+### Breaking Change: Reserved Space Does Not Survive an Upgrade
+
+The change treats all extra space the same way, and it cannot tell deliberate
+headroom from accidental bloat. If you extended a program data account so future
+upgrades would have room, the next `Upgrade` shrinks it back to the ELF you are
+deploying and refunds the difference.
+
+For the common case this is the point of the proposal: developers who
+over-provisioned by accident, or who were forced to by minimum extension
+requirements, get their rent back. For the smaller group who reserved space
+intentionally, the strategy no longer works — plan on `Upgrade` sizing the
+account each time, and fund growth at the point of upgrade rather than in
+advance.
+
+This does not fail. It succeeds and leaves the account smaller than you
+expected.
+
+</Audience>
+
+<Audience title="For CPI-Based Deployment" summary="A big enough ELF cannot grow in one CPI instruction.">
+
+### Breaking Change: CPI Upgrades Can Fail on Growth
+
+The 10 KiB per-instruction account growth limit applies to CPI as it always
+has, and `Upgrade` now performs the growth. So an upgrade invoked via CPI that
+needs the program data account to grow by more than 10 KiB **fails**.
+
+Two ways around it, both from the proposal:
+
+- Perform the upgrade at the top level of the transaction rather than through
+  CPI.
+- Split the growth across multiple instructions with `ExtendProgram` before
+  upgrading — the step the change otherwise makes unnecessary.
+
+This matters for governance programs, deployment automation, and anything that
+upgrades a program from inside another program.
+
+</Audience>
+
+</AudienceGroup>
+
+## Technical Details
+
+### Shrinking and Growing
+
+**Shrinking.** If the new ELF is smaller than the account's current ELF region,
+the account is retracted to the new size and the surplus lamports from the
+reduced rent requirement are refunded to the spill account.
+
+**Growing.** If the new ELF is larger, the account is extended. The lamports for
+the increased rent requirement must be either already credited to the program
+data account or available in the buffer account before `Upgrade` runs.
+Insufficient lamports fail the upgrade with `InsufficientFunds`.
+
+### The Spill Account Now Receives Money
+
+Buffer handling is unchanged: `Upgrade` deallocates the buffer for garbage
+collection, applies the buffer's lamports to the program data account's new rent
+requirement if needed, and sweeps whatever remains to the spill account.
+
+What changes is that the spill account is now also where a shrink refund lands.
+The same account that used to receive only leftover buffer lamports can now
+receive a meaningful rent refund, including lamports that were accidentally sent
+to the program data address at some point in the past.
+
+### Alternatives Considered
+
+**Shrinking only.** An earlier draft supported only retraction, leaving
+`ExtendProgram` as the required precursor for growth. Rejected in favor of
+bidirectional resizing, to simplify upgrade workflows and cut the instruction
+count.
+
+**A separate withdrawal instruction.** A `WithdrawExcessLamports` on the loader,
+in the style of the Token-2022 instruction of the same name, would have let the
+upgrade authority claim surplus after the fact. Rejected in favor of refunding
+automatically during the upgrade.
+
+### Compatibility
+
+The instruction interface does not change, so tooling that builds an `Upgrade`
+keeps working unmodified. What changes is rent and space behavior, which is why
+it needs a feature gate for consensus safety: the same instruction produces a
+different account size and different lamport movements before and after
+activation.
+
+## About This Upgrade
+
+This is a small change with an unusually direct benefit: programs that have
+shrunk get rent back, and every program upgrade gets one instruction shorter.
+The network side benefits too, since program data accounts stop reserving bytes
+nobody uses.
+
+It also creates an incentive worth naming. Because the refund only arrives on
+upgrade, and only for programs that have actually got smaller, the change
+rewards moving to more compact SDKs — the rent saving becomes a reason to adopt
+the thing that produced the smaller ELF in the first place.
+
+**Learn more:** [Solana Upgrades](/upgrades)
