@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import {
-  FileCheck2,
-  Globe2,
-  GraduationCap,
-  Handshake,
-  Rocket,
-  Target,
-} from "lucide-react";
+import { Checklist } from "@boxicons/react/Checklist";
+import { Globe } from "@boxicons/react/Globe";
+import { Handshake } from "@boxicons/react/Handshake";
+import { Rocket } from "@boxicons/react/Rocket";
+import { School } from "@boxicons/react/School";
+import { Target } from "@boxicons/react/Target";
 import PixelBlast from "../../components/PixelBlast";
 import SectionReveal from "./SectionReveal";
 import styles from "./scholars.module.css";
@@ -124,7 +122,7 @@ export default function ScholarsPage() {
             </p>
           </div>
           <div className={styles.cell}>
-            <FileCheck2 aria-hidden="true" className={styles.cellIcon} />
+            <Checklist aria-hidden="true" className={styles.cellIcon} />
             <h3>Publishable results</h3>
             <p>
               Internships are scoped so the outcome fits your PhD: papers,
@@ -140,7 +138,7 @@ export default function ScholarsPage() {
             </p>
           </div>
           <div className={styles.cell}>
-            <Globe2 aria-hidden="true" className={styles.cellIcon} />
+            <Globe aria-hidden="true" className={styles.cellIcon} />
             <h3>On-site or virtual</h3>
             <p>
               Join us in person — for example in Zurich, Switzerland or New
@@ -149,7 +147,7 @@ export default function ScholarsPage() {
             </p>
           </div>
           <div className={styles.cell}>
-            <GraduationCap aria-hidden="true" className={styles.cellIcon} />
+            <School aria-hidden="true" className={styles.cellIcon} />
             <h3>Built around your PhD</h3>
             <p>
               Internships run for 3 months, with a possible extension. Timing is
