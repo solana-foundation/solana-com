@@ -106,12 +106,10 @@ Sending transactions and running onchain programs are not affected. Alpenglow
 changes consensus, not execution; the SVM, transaction formats, and fee
 mechanics are untouched.
 
-`bank_id` arrives a release early on purpose. Agave v4.3 adds the field and
-turns on Votor but does not change how often a slot carries more than one bank;
-fast leader handoff, which makes it happen more often, ships in Agave v4.4.
-Even then it stays the exception, not the rule: Anza expects it in below 1% of
-slots. v4.3 is the window to adopt `bank_id` while the case is still rare
-enough that a bug in your buffering would go unnoticed.
+`bank_id` arrives a release early on purpose. Agave 4.3 adds the field. Fast
+leader handoff, which makes multiple banks per slot more common, ships in 4.4,
+and even then Anza expects it in under 1% of slots. Adopt `bank_id` in 4.3,
+while the case is still rare enough that a buffering bug has little impact.
 
 ## Migration Checklist
 
@@ -138,18 +136,11 @@ streamed, and finalized.
 infrastructure, block builders
 ([details](#breaking-change-one-slot-can-contain-more-than-one-bank)):
 
-- Regenerate your protobuf stubs from the
-  [`v16.0.0-rc10+solana.4.3.0` proto](https://github.com/rpcpool/yellowstone-grpc/blob/v16.0.0-rc10%2Bsolana.4.3.0/yellowstone-grpc-proto/proto/geyser.proto)
-  to pick up `bank_id` on transaction, account, slot-status, entry, and
-  block-meta updates. It is `optional` on the slot and account messages.
-- Key your buffers on `(slot, bank_id)` rather than on `slot` alone.
-- Promote the first bank to reach `Confirmed`; drop the rest.
-- If you use Yellowstone's block subscription, upgrading is the whole migration
-  — it buffers on your behalf. The first build against Agave 4.3.0 is
-  [`v16.0.0-rc10+solana.4.3.0`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc10%2Bsolana.4.3.0), published September 22, 2026. It is a release
-  candidate; watch the
-  [Yellowstone releases](https://github.com/rpcpool/yellowstone-grpc/releases)
-  for the final v16.0.0.
+- If you subscribe to whole blocks through Yellowstone, upgrade to
+  [`v16.0.0-rc10+solana.4.3.0`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc10%2Bsolana.4.3.0) and you are done. It buffers for you.
+- Otherwise, regenerate your protobuf stubs from
+  [that tag's proto](https://github.com/rpcpool/yellowstone-grpc/blob/v16.0.0-rc10%2Bsolana.4.3.0/yellowstone-grpc-proto/proto/geyser.proto), key your buffers on `(slot, bank_id)` instead of
+  `slot`, keep the bank that reaches `Confirmed`, and drop the rest.
 
 **If you maintain a Geyser plugin** — RPC providers, custom indexers compiled
 into the validator
@@ -256,79 +247,52 @@ Each change below, and how to tell when the switch has happened. The mechanics
 behind them are in the [technical details](#technical-details).
 
 <AudienceGroup>
-<Audience title="For Streaming Consumers" summary="A slot is a window of time; a block is what fills it. Geyser now says which block an event belongs to.">
+<Audience title="For Streaming Consumers" summary="One slot can now carry more than one candidate block. Buffer per (slot, bank_id) and keep only the bank that reaches Confirmed.">
 
 ### Breaking Change: One Slot Can Contain More Than One Bank
 
-A slot can carry more than one candidate block, and each candidate is a separate
-**bank** inside the validator ([why](#slots-blocks-and-banks)). Banks are not
-new. What is new in Agave 4.3 is that every event coming out of
-[Geyser](https://docs.anza.xyz/validator/geyser), the validator's plugin
-interface for streaming account, transaction, and block updates as they are
-replayed, carries a `bank_id`, so a consumer can tell which candidate a
-transaction, account update, or block-meta message belongs to. gRPC providers
-such as Yellowstone are built on Geyser and forward the field. Before that
-field existed, a pipeline keyed on slot alone would fuse two competing banks
-into one block and never notice.
+A slot can carry more than one candidate block. Inside the validator each
+candidate is a separate **bank** ([why](#slots-blocks-and-banks)). Starting
+with Agave 4.3, every event from [Geyser](https://docs.anza.xyz/validator/geyser),
+and from gRPC providers built on it such as Yellowstone, carries a `bank_id`
+that says which candidate it belongs to. A pipeline keyed on slot alone fuses
+two competing candidates into one block and never notices.
 
 <AgBanksPerSlot />
 
-Votor decides which candidate wins; you never arbitrate yourself. By the time a
-`Confirmed` status reaches your gRPC stream the race is over. Your job is to
-have kept the losing candidate's data separate from the winner's: buffer per
-`(slot, bank_id)`, promote the bank that reaches `Confirmed`, and drop whatever
-was buffered under the other `bank_id` values for that slot.
+**What to do:**
 
-Writing that buffering yourself is harder than it looks. Deciding that a bank
-is **complete** is the hard part, and a status update alone does not tell you. A bank is ready to
-seal once the buffer matches the `executed_transaction_count` and
-`entries_count` in its block meta and the sysvar account updates you expect
-have arrived. If they never arrive, you connected in the middle of an in-flight
-block.
+1. **Upgrade or regenerate.** If you subscribe to whole blocks through
+   Yellowstone, upgrade to [`v16.0.0-rc10+solana.4.3.0`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc10%2Bsolana.4.3.0) and you are
+   done; the provider does the buffering. Otherwise regenerate your stubs from
+   [that tag's proto](https://github.com/rpcpool/yellowstone-grpc/blob/v16.0.0-rc10%2Bsolana.4.3.0/yellowstone-grpc-proto/proto/geyser.proto) so `bank_id` appears on transaction, account,
+   slot, entry, and block-meta updates.
+2. **Buffer per `(slot, bank_id)`**, never per slot.
+3. **Seal a bank** only when your buffer matches the `executed_transaction_count`
+   and `entries_count` in its block meta and the sysvar account updates you
+   expect have arrived. If they never arrive, you connected in the middle of a
+   block.
+4. **Keep the bank that reaches `Confirmed`** and drop whatever you buffered
+   under other `bank_id` values for that slot. Votor picks the winner; you never
+   arbitrate.
 
-How much ordering you can rely on depends on the commitment you subscribe at.
-At **confirmed or finalized**, Yellowstone reorders on your behalf and delays
-block meta if it would arrive early, so the sequence is deterministic: sysvar
-accounts, bank created, transactions and entries and accounts, block meta, then
-slot status `Processed`, then `Confirmed`. At **processed** there is no such
-guarantee. Geyser itself promises none, and never has: the plugin hooks take
-`&self` because transactions, entries, and block meta travel over separate
-channels and are consumed on different threads, and block meta can reach you
-ahead of the last few transactions of its own block. `processed` is no less
-reliable than before; what is new is that Yellowstone now reorders for you at
-`confirmed` and `finalized`. One new case at `processed`: under fast leader
-handoff a leader can abandon the bank it started and re-parent through an
-UpdateParent marker. Events from the abandoned bank have already reached
-`processed` subscribers by then, and the bank simply never reaches `Confirmed`.
-Buffering per `(slot, bank_id)` handles it; keying on slot alone does not.
+**Good to know:**
 
-When you wire this to generated types, note that `bank_id` is a plain `uint64`
-on transaction, entry, block-meta and block updates but **`optional`** on
-`SubscribeUpdateSlot` and `SubscribeUpdateAccount`, so those two arrive as
-`Option<u64>`. `bank_id` exists only on the Geyser and gRPC surface: JSON-RPC
-and WebSocket methods do not expose banks and are unchanged, so no SDK update
-is needed for it.
-
-`bank_id` is in a tagged Yellowstone release. Yellowstone tags each release
-against the Agave version it targets (`+solana.4.2.2`, `+solana.4.3.0`, and so
-on). [`v16.0.0-rc9+solana.4.3.0.rc.1`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc9%2Bsolana.4.3.0.rc.1) on September 17, 2026 added
-the block footer message, and [`v16.0.0-rc10+solana.4.3.0`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc10%2Bsolana.4.3.0) on September 22 pinned the
-build to the Agave 4.3.0 release. Both are release candidates. Generate your
-stubs from the [release tag's proto](https://github.com/rpcpool/yellowstone-grpc/blob/v16.0.0-rc10%2Bsolana.4.3.0/yellowstone-grpc-proto/proto/geyser.proto) rather than from the
-`4.3-transition` branch, and watch the
-[releases page](https://github.com/rpcpool/yellowstone-grpc/releases) for the
-final v16.0.0.
-
-Yellowstone's own implementation is
-[`block_reconstruction_v2.rs`](https://github.com/rpcpool/yellowstone-grpc/blob/4.3-transition/yellowstone-grpc-geyser/src/block_reconstruction_v2.rs)
-on the `4.3-transition` branch, and
-[yellowstone-block-machine](https://github.com/rpcpool/yellowstone-block-machine/tree/4.3-transition)
-packages the same state machine as a library, with a runnable consumer in
-[`examples/dragonsmouth`](https://github.com/rpcpool/yellowstone-block-machine/tree/4.3-transition/examples/dragonsmouth)
-on the same branch. Read the doc comments as well as the code; between them
-they implement the sealing rules above. If you subscribe to blocks rather than
-reassembling them from individual updates, upgrading is the whole migration,
-because the buffering happens on the provider's side.
+- At `confirmed` and `finalized`, Yellowstone emits each sealed bank in a fixed
+  order: its data, then block meta, then the slot status. At `processed` there
+  is no ordering guarantee, as before, and you may also see events from a bank
+  the leader later abandons through an UpdateParent marker. That bank never
+  reaches `Confirmed`. Per-`bank_id` buffering handles both cases.
+- `bank_id` is `optional` on slot and account updates and a plain `uint64`
+  everywhere else. It exists only on Geyser and gRPC. JSON-RPC and WebSocket are
+  unchanged.
+- Yellowstone [`rc9`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc9%2Bsolana.4.3.0.rc.1) (September 17, 2026) added the block footer message
+  and [`rc10`](https://github.com/rpcpool/yellowstone-grpc/releases/tag/v16.0.0-rc10%2Bsolana.4.3.0) (September 22) pinned the build to Agave 4.3.0. Both are
+  release candidates; watch the [releases page](https://github.com/rpcpool/yellowstone-grpc/releases) for the final v16.0.0.
+- Reference code: Yellowstone's [`block_reconstruction_v2.rs`](https://github.com/rpcpool/yellowstone-grpc/blob/v16.0.0-rc10%2Bsolana.4.3.0/yellowstone-grpc-geyser/src/block_reconstruction_v2.rs) at the
+  rc10 tag, and [yellowstone-block-machine](https://github.com/rpcpool/yellowstone-block-machine/tree/4.3-transition), which packages the same
+  state machine as a library with a runnable [example](https://github.com/rpcpool/yellowstone-block-machine/tree/4.3-transition/examples/dragonsmouth). The doc
+  comments spell out the sealing rules.
 
 </Audience>
 
@@ -383,55 +347,38 @@ plugin of your own.
 
 </Audience>
 
-<Audience title="For Anyone Merging Feeds From Several Providers" summary="bank_id is a local counter. It is not an identifier you can compare across connections.">
+<Audience title="For Anyone Merging Feeds From Several Providers" summary="bank_id is a node-local counter. Buffer per connection and reconcile on the blockhash.">
 
 ### Breaking Change: Merging Streams From Multiple Providers
 
-There are people that use multiple providers simultaneously to merge their streams
-to get the fastest possible updates. The newly introduced `bank_id` helps distinguish
-different banks.
-
-`bank_id` is a locally assigned counter. Each validator hands out its own as it
-creates banks during replay, so like `write_version` for account updates it is
-node-local. Unlike `write_version`, it carries no order: the only thing you may
-do with two `bank_id`s from the same stream is test whether they differ. Do not
-assume the lower one arrived first, is the parent, or won.
-
-It means something within one connection's stream and nothing outside it:
-connection A's `bank_id = 7` and connection B's `bank_id = 7` are almost
-certainly two unrelated banks, and one real bank can appear as `bank_id = 7` on
-one connection and `bank_id = 12` on another. There is no global registry
-behind the number. Arrival order alone is enough to cause this: if blocks A and
-B both claim slot 100, two nodes that received them in opposite order assign
-them different `bank_id`s.
+Latency-sensitive consumers often subscribe to several providers and
+deduplicate locally, because an update can reach provider A first on one slot
+and provider B first on the next. `bank_id` does not help with that merge. Each
+validator assigns its own counter as it creates banks, so the number means
+something inside one connection and nothing across connections. Connection A's
+`bank_id = 7` and connection B's `bank_id = 7` are almost certainly different
+banks, and one real bank can be `7` on one connection and `12` on another. It
+also carries no order: two ids from the same stream only tell you whether they
+differ.
 
 <AgBankIdAcrossConnections />
 
-Fanning in several providers is standard practice. Because propagation is
-stake-weighted, an account update can reach provider A before provider B on one
-slot and the other way round on the next, so latency-sensitive consumers
-subscribe to several and deduplicate locally. Feeding both streams into one
-buffer compiles and runs. It also splices connection B's `bank_id = 7` onto
-connection A's data and hands back a block that is a fusion of two unrelated
-banks.
+**What to do:**
 
-Keep one buffer per physical connection, keyed on that connection's own
-`(slot, bank_id)`, and tag each connection so that mixing them is an error your
-code catches. Reconcile afterwards on the blockhash, which arrives on
-`SubscribeUpdateBlockMeta`, and only once both sides are sealed: two unsealed
-banks both carry an empty blockhash and would compare equal.
+1. **Keep one buffer per connection**, keyed on that connection's own
+   `(slot, bank_id)`, and tag each connection so that mixing them is an error
+   your code catches. Feeding two streams into one buffer runs without
+   complaint and hands back blocks fused from unrelated banks.
+2. **Reconcile on the blockhash**, which arrives in block meta, and only once
+   both sides are sealed. Two unsealed banks both carry an empty blockhash and
+   would compare equal.
+3. **If you cannot wait for block meta**, treat one stream as authoritative per
+   slot and use the others for liveness only. A merged view that stays correct
+   under forks has to wait for the blockhash.
 
-Reconciliation therefore waits for block meta, which a pipeline built for
-minimum latency does not want to do. There is no way around it. A merged view
-that is correct under forks is a view that waits for the blockhash. If you
-cannot wait, treat one stream as authoritative per slot and use the others for
-liveness rather than merging their contents.
-
-[yellowstone-block-machine](https://github.com/rpcpool/yellowstone-block-machine/tree/4.3-transition)
-handles the per-connection half: out-of-order events, forks, dead slots, and
-commitment ordering for **one** Geyser stream. Nothing in it merges or
-deduplicates across providers. Reconciling two connections on the blockhash is
-still yours to write.
+[yellowstone-block-machine](https://github.com/rpcpool/yellowstone-block-machine/tree/4.3-transition) handles the per-connection half:
+out-of-order events, forks, dead slots, and commitment ordering for one stream.
+Reconciling across connections is still yours to write.
 
 </Audience>
 
