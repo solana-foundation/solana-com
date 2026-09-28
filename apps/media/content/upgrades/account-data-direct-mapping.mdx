@@ -1,0 +1,159 @@
+---
+title: Account Data Direct Mapping
+description: >-
+  Direct mapping lets the validator map account payload data into the VM
+  address space instead of copying it in and back out. It removes four copy
+  paths per instruction, and it is what the stricter ABI constraints of
+  SIMD-0219 were written to make possible.
+subtitle: Mapping account data into the VM instead of copying it
+publishedAt: 2026-09-27T00:00:00.000Z
+status: draft
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+order: 4
+metrics:
+  - value: "4"
+    label: Account data copy paths removed
+  - value: No SIMD
+    label: Implementation change behind a feature gate
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Account Data Direct Mapping
+
+Q4 2026 • Solana Foundation
+
+Every time a Solana program runs, its accounts' data is copied. The runtime
+serializes account payloads from host memory into the virtual machine's input
+region before execution, and copies them back out afterwards. A cross-program
+invocation does it twice more, once on the call edge and once on the return. All
+four copies exist so the VM can hand the program a private view of the data and
+reconcile it afterwards.
+
+Direct mapping removes them. Instead of copying account payload data into the
+VM's address space, the validator **maps** it there — the program's reads and
+writes land on the real account data, and there is nothing to copy back.
+
+This has no SIMD of its own. It is an implementation change in the validator,
+behind feature gate `CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE`. What it does
+have is a prerequisite:
+[SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md)
+exists specifically to restrict program behavior enough that mapping is safe,
+and its final piece ships alongside this as
+[virtual address space adjustments](/upgrades/virtual-address-space).
+
+|                                  |                                                          |
+| -------------------------------- | -------------------------------------------------------- |
+| Expected Mainnet Activation Date | Agave 4.4, feature activation from November 2026         |
+| Devnet Activation                | To be determined                                         |
+| Breaking Change?                 | Yes, for programs relying on copy-semantics side effects |
+| Indexing Changes Required?       | No                                                       |
+| Feature Gate                     | `CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE`           |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE" />
+
+Most programs are unaffected and need no change. The ones at risk are those that
+relied — usually unknowingly — on the copy being a copy.
+
+## Technical Details
+
+### The Four Copy Paths
+
+SIMD-0219 enumerates them:
+
+| Path            | Direction                                        |
+| --------------- | ------------------------------------------------ |
+| Serialization   | program runtime (host) → virtual machine (guest) |
+| CPI call edge   | virtual machine (guest) → program runtime (host) |
+| CPI return edge | program runtime (host) → virtual machine (guest) |
+| Deserialization | virtual machine (guest) → program runtime (host) |
+
+Every validator implementation has to perform all four, and compare data as
+well, because the runtime has to detect what the program changed. For an
+instruction touching large accounts this is a substantial share of its cost,
+and it is paid whether or not the program reads a single byte of the data.
+
+Direct mapping collapses all four to zero. The account payload lives in one
+place and the VM's memory map points at it.
+
+### Why It Needs Stricter Rules First
+
+Copying is forgiving in ways that mapping is not. When the program has its own
+copy, the runtime can be relaxed about what the program does to it, because the
+reconciliation step at the end decides what actually happened. SIMD-0219 lists
+the specific behaviors that copying quietly tolerated:
+
+- **Bad reads of account payload go unnoticed** as long as they stay inside the
+  reserved address space, even when they read past the end of the actual
+  payload.
+- **Bad writes go unnoticed** as long as the original value is restored before
+  the runtime compares.
+- **CPI can overwrite `AccountInfo` structures during the call**, producing side
+  effects the program never intended.
+- **Programs can pass `AccountInfo` structures the runtime never serialized**,
+  and CPI verification accepts them.
+
+Under direct mapping none of these are harmless, because there is no separate
+copy to reconcile against. So SIMD-0219 makes them errors: syscall pointers must
+live on the stack or heap or the runtime throws
+`SyscallError::InvalidPointer`; the `key`, `owner`, `lamports`, and `data`
+pointers on an `AccountInfo` must be the ones the runtime actually serialized;
+and a memory access that spans two mapping regions is an access violation rather
+than something that happens to work.
+
+Anza replayed these restrictions against mainnet to find the programs that would
+fail, and contacted their developers — the SIMD notes that most of the affected
+dApps were fixed ahead of time.
+
+### What Can Break
+
+Two shapes are worth checking for:
+
+**Read-before-write on realloc'd space.** Programs using the deprecated account
+realloc helper from the SDKs could read uninitialized memory that direct mapping
+no longer leaves conveniently zeroed. SIMD-0219 calls this out directly: upgrade
+away from the deprecated function.
+
+**Aliasing assumptions.** If the same account appears twice in an instruction,
+copy semantics gave the program two separate buffers that were reconciled at the
+end. Mapped, they are the same memory, and a write through one is immediately
+visible through the other. Code written against the copied behavior can see
+changes it did not expect to see yet.
+
+Neither of these produces a clean error at the point of the mistake. They
+produce different data.
+
+### Relationship to the Other 4.4 Runtime Changes
+
+Three changes in Agave 4.4 act on the same path and are best read together:
+
+- **Direct mapping** removes the copies.
+- **[Virtual address space adjustments](/upgrades/virtual-address-space)**
+  (SIMD-0460) supplies the address translation and mapping rules that make the
+  mapping well-defined, and compacts the stack by removing frame gaps.
+- **[Direct account pointers](/upgrades/direct-account-pointers)** (SIMD-0449)
+  removes the parsing an entrypoint does to locate accounts in the input.
+
+Together they attack the fixed overhead a program pays before and around its own
+logic, rather than the cost of the logic itself.
+
+## About This Upgrade
+
+Direct mapping is the payoff for a multi-year tightening of the program ABI.
+The restrictions in SIMD-0219 looked like housekeeping — removing foot-guns,
+rejecting nonsensical memory accesses — but their purpose was always to make
+account data safe to map rather than copy.
+
+The result is a straight reduction in per-instruction overhead that scales with
+account data size, with no change to what programs can express. The cost is that
+a handful of behaviors that used to be quietly absorbed by the copy-and-compare
+step are now either errors or visible differences, which is why the stricter
+constraints had to land first.
+
+**Learn more:** [Solana Upgrades](/upgrades)

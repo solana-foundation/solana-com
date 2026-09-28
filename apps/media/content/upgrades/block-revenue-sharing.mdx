@@ -1,0 +1,330 @@
+---
+title: Block Revenue Sharing
+description: >-
+  SIMD-0123 lets validators share block revenue with their delegators through
+  the protocol instead of a side arrangement. A commission rate in the vote
+  account splits each block's revenue, and the remainder is paid to stake
+  accounts at the next epoch boundary.
+subtitle: Protocol-enforced sharing of block revenue with stake delegators
+publishedAt: 2026-09-27T00:00:00.000Z
+status: draft
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+order: 2
+metrics:
+  - value: 10,000
+    label: Basis points, the commission cap
+  - value: "100%"
+    label: Default commission — opt in to share
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Block Revenue Sharing
+
+Q4 2026 • Solana Foundation
+
+Delegated stake decides how many blocks a validator produces. More stake means
+more slots in the leader schedule, which means more block revenue — the fees
+collected from the transactions in those blocks. None of that revenue has ever
+reached the delegators whose stake generated it, because the protocol had no
+mechanism to divert it. Inflation rewards are shared; block revenue is not.
+
+[SIMD-0123](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0123-block-revenue-distribution.md)
+adds that mechanism. A validator sets a **block revenue commission** in its vote
+account; the protocol takes that share for the validator and routes the rest to
+its delegators, paid out at the next epoch boundary through the same partitioned
+rewards machinery that already distributes inflation rewards.
+
+This is opt-in and the default keeps today's behavior. A vote account with no
+block revenue commission and no collector set collects everything into the
+validator's identity account, exactly as now.
+
+|                                  |                                                                      |
+| -------------------------------- | -------------------------------------------------------------------- |
+| Expected Mainnet Activation Date | Agave 4.4, feature activation from November 2026                     |
+| Devnet Activation                | To be determined                                                     |
+| Breaking Change?                 | Yes — for reading rewards, and for closing a vote account            |
+| Indexing Changes Required?       | Yes — block revenue has a second destination and a new reward stream |
+| Feature Gate                     | `7MYx95UBiJufqnumyN7HfskJ9vKdcGMmhreVguqrE97K`                       |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="7MYx95UBiJufqnumyN7HfskJ9vKdcGMmhreVguqrE97K" />
+
+**Breaking Changes:**
+
+| If your app                                | When                        | What you have to do                                                                                                                                         |
+| ------------------------------------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Attributes** block revenue to validators | At activation               | Revenue may go to a collector account and a vote account instead of the identity account. [Learn more](#breaking-change-block-revenue-has-new-destinations) |
+| **Reports** staking yield or rewards       | At the first epoch rollover | A second reward stream lands in stake accounts, tracked differently from inflation. [Learn more](#breaking-change-a-second-reward-stream)                   |
+| **Closes** vote accounts programmatically  | At activation               | A vote account with pending delegator rewards cannot be fully withdrawn. [Learn more](#breaking-change-vote-accounts-with-pending-rewards-cannot-close)     |
+
+## Migration Checklist
+
+<AudienceGroup>
+<Audience title="For Users and Stakers" summary="Possibly more yield, but the rewards arrive unstaked.">
+
+If you delegate stake, you may start earning a share of the block revenue your
+validator produces — but only from validators that choose to share it. Ask your
+validator what block revenue commission they have set.
+
+One thing to know: these rewards arrive as **inactive SOL** in your stake
+account. Unlike inflation rewards, they are not automatically added to your
+active delegation. You have to restake them yourself if you want them earning.
+
+</Audience>
+
+<Audience title="For Validator Operators" summary="Opt in by setting a block revenue commission. Nothing changes if you don't.">
+
+Sharing is opt-in and requires vote account state version 4.
+
+- Update your vote account to v4
+  ([SIMD-0185](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0185-vote-account-v4.md)).
+  Until you do, all block revenue keeps going to your identity account.
+- Set a block revenue commission with `UpdateCommissionBps`, using the new
+  `CommissionKind::BlockRevenue` kind. The rate is in basis points and is capped
+  at 10,000 (100%) when applied.
+- Set a commission collector address
+  ([SIMD-0232](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0232-custom-commission-collector.md)).
+  **If the collector is not system-owned, or would not be rent-exempt after the
+  deposit, your commission is burned** — not redirected, burned.
+- Know that the rate is read from the vote account state as of the beginning of
+  the previous epoch, the same state used to build the current leader schedule.
+  A change takes effect an epoch later, not immediately.
+- Do not plan to close a vote account that has pending delegator rewards
+  ([details](#breaking-change-vote-accounts-with-pending-rewards-cannot-close)).
+
+</Audience>
+
+<Audience title="For Indexers and Analytics" summary="Revenue attribution and reward accounting both change.">
+
+**If you attribute block revenue to validators**
+([details](#breaking-change-block-revenue-has-new-destinations)):
+
+- Stop assuming block revenue lands in the block producer's identity account.
+  It may split between a commission collector account and the producer's vote
+  account.
+- Resolve the producer through its vote account
+  ([SIMD-0180](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0180-vote-account-leader-schedule.md)),
+  then read the commission rate and collector from vote state v4.
+
+**If you report rewards or staking yield**
+([details](#breaking-change-a-second-reward-stream)):
+
+- Expect a second stream of rewards into stake accounts at epoch boundaries,
+  distinct from inflation rewards.
+- Do not read it from the epoch rewards sysvar's `total_rewards` or
+  `distributed_rewards` fields. Block revenue deliberately does not touch them —
+  it is tracked through the sysvar's **lamport balance** instead.
+- Expect a stake account's delegation and its balance to diverge, because block
+  rewards land as inactive lamports.
+
+</Audience>
+
+</AudienceGroup>
+
+## Breaking Changes in Detail
+
+<AudienceGroup>
+<Audience title="For Anyone Attributing Revenue" summary="Revenue can now land in three places instead of one.">
+
+### Breaking Change: Block Revenue Has New Destinations
+
+Today all block revenue for a block goes to the producing validator's identity
+account. After activation the runtime looks up the block producer's **vote
+account** and checks whether it declares a block revenue commission rate and a
+collector address.
+
+If it does not — including because the vote account has not been upgraded to
+state version 4 — everything goes to the identity account exactly as before.
+This is the path most validators will be on at activation, which is what makes
+the change easy to miss.
+
+If it does, the revenue splits:
+
+- The **commission** goes to the commission collector account, but only if that
+  account is system-program owned and remains rent-exempt after the deposit.
+  Otherwise the commission is **burned**.
+- The **remainder** is added to the vote account's `pending_delegator_rewards`
+  field and to its lamport balance, but only if the vote account is vote-program
+  owned and initialized at state version 4 or later. Otherwise it too is
+  **burned**.
+
+A pipeline that sums identity account credits to measure validator revenue does
+not error after this change. It reports a number that gets quietly smaller as
+validators opt in, and reads that as declining validator income rather than as
+revenue moving somewhere it is not looking.
+
+</Audience>
+
+<Audience title="For Rewards Reporting" summary="Block rewards are a separate stream with separate accounting.">
+
+### Breaking Change: A Second Reward Stream
+
+Block revenue is accumulated per block but distributed per epoch. At the
+beginning of each epoch the pending delegator rewards are swept out of actively
+staked vote accounts into the epoch rewards sysvar and then paid to stake
+accounts through the partitioned distribution mechanism from
+[SIMD-0118](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0118-partitioned-epoch-reward-distribution.md).
+
+That reuses the inflation rewards pipeline but deliberately **not** its
+accounting. Block revenue does not update the epoch rewards sysvar's
+`total_rewards` or `distributed_rewards` fields. It is tracked entirely through
+the sysvar's lamport balance, which is debited as each partition pays out.
+
+The consequence for anything reading rewards: the sysvar's internal counters
+describe inflation rewards only. Reporting total staker income from those fields
+will now undercount, without erroring, by exactly the amount of block revenue
+being shared.
+
+Rewards also behave differently once they arrive. Inflation rewards are added to
+a stake account's active delegation. Block revenue rewards are not — they land
+as inactive lamports the staker has to restake. A stake account's balance and
+its delegation will diverge, and the delegation calculation accounts for this
+explicitly:
+
+```text
+post_delegation = min(
+    delegation + stake_rewards,
+    balance + stake_rewards + block_rewards - rent_exempt_reserve
+)
+```
+
+This was a deliberate trade. Automatically activating the rewards would have
+required extra protocol complexity;
+[SIMD-0022](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0022-multi-stake.md)
+aims to improve the experience separately by letting stake accounts delegate an
+unstaked balance.
+
+</Audience>
+
+<Audience title="For Validator Tooling" summary="A vote account holding pending rewards is not closeable.">
+
+### Breaking Change: Vote Accounts With Pending Rewards Cannot Close
+
+Pending delegator rewards sit in the vote account's lamport balance between the
+block that earned them and the epoch boundary that distributes them. Those
+lamports are owed to delegators, so they must not be withdrawable.
+
+The `Withdraw` instruction is changed accordingly: while
+`pending_delegator_rewards` is non-zero, the withdrawable balance is the vote
+account's balance minus `pending_delegator_rewards` minus the minimum
+rent-exempt balance. The vote account **cannot be closed by fully withdrawing**
+during that window.
+
+Any automation that closes vote accounts — migration scripts, decommissioning
+tooling — needs to handle a withdrawal that cannot drain the account. The window
+closes at the next epoch boundary, when the pending field resets to zero.
+
+</Audience>
+
+</AudienceGroup>
+
+## Technical Details
+
+### Collection, Per Block
+
+After all transactions in a block are processed, the runtime resolves the block
+producer's vote account
+([SIMD-0180](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0180-vote-account-leader-schedule.md))
+and reads its block revenue commission rate and collector address. Both are read
+from the vote account state **as of the beginning of the previous epoch** — the
+same snapshot used to build the current epoch's leader schedule
+([SIMD-0232](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0232-custom-commission-collector.md)).
+A commission change therefore takes effect an epoch after it is made.
+
+The commission is the revenue multiplied by the lesser of the declared rate and
+10,000 basis points, divided by 10,000 with integer division and the remainder
+discarded. The delegator share is whatever is left.
+
+### Distribution, Per Epoch
+
+Delegator rewards are calculated at the first block of epoch `N` — defined as
+any block whose parent is in the previous epoch — and recalculated if a node
+restarts during the distribution period.
+
+For each vote account, let `A` be its total active stake delegation during epoch
+`N - 1` and `P` its `pending_delegator_rewards` at the end of `N - 1`:
+
+- If `P` is zero, the vote account is skipped.
+- `pending_delegator_rewards` is reset to `0` at the first block of `N`.
+- If `A` is zero, the reset alone effectively returns the rewards to the voter.
+- Otherwise `P` lamports are debited from the vote account and credited to the
+  epoch rewards sysvar, before any transactions or votes are processed.
+
+Each stake account's share is its active stake in `N - 1` multiplied by `P`,
+divided by `A` with integer division, truncating any sub-lamport remainder.
+Those amounts are partitioned and paid out per SIMD-0118, with the sysvar's
+lamport balance debited at each slot. When distribution completes, the sysvar
+balance is reset to its rent exemption and any surplus is burned.
+
+### Vote Program Changes
+
+**`UpdateCommissionBps`**, added in
+[SIMD-0291](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0291-commission-rate-in-basis-points.md),
+gains support for `CommissionKind::BlockRevenue`, which previously returned
+`InstructionError::InvalidInstructionData`. The stored rate may be any `u16`,
+but is capped at 10,000 when the commission is actually calculated.
+
+**`DepositDelegatorRewards`** is new, with discriminant `19u32`:
+
+```rust
+pub enum VoteInstruction {
+    /// # Account references
+    ///   0. `[WRITE]` Vote account to be updated with the deposit
+    ///   1. `[SIGNER, WRITE]` Source account for deposit funds
+    DepositDelegatorRewards { // 19u32
+        deposit: u64,
+    },
+}
+```
+
+It returns `InstructionError::NotEnoughAccountKeys` with fewer than two
+accounts, and `InstructionError::InvalidAccountData` if the vote account fails
+to deserialize or is not at state version 4. On success it performs a system
+transfer CPI of `deposit` lamports into the vote account and increments
+`pending_delegator_rewards`.
+
+### Dependencies
+
+SIMD-0123 builds on five accepted proposals, and none of this works without
+them: SIMD-0180 (vote account keys the leader schedule), SIMD-0185 (vote account
+v4, which holds the new fields), SIMD-0232 (custom commission collector),
+SIMD-0291 (commission rates in basis points), and
+[SIMD-0392](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0392-rent-increase-adaptations.md)
+(the delegation calculation this adapts).
+
+### What It Replaces
+
+Validators have built their own revenue sharing for years, because the protocol
+offered none. Those arrangements work, but they rest on the operator's
+compliance rather than on consensus: Jito's tip distribution program instructs
+operators to divert tips and relies on auditing to catch those who do not, and
+the Cogent validator diverts fee revenue to NFT holders under terms the holders
+have to police themselves. Both also require trusting a third party's reward
+calculation, and Jito's distributes through a merkle tree without restaking the
+result.
+
+Doing it in the protocol removes the trust requirement. The commission rate is
+onchain, the split is computed by every validator, and a rate that is set is a
+rate that is enforced.
+
+## About This Upgrade
+
+Block revenue sharing closes a gap that has been visible since fees became a
+meaningful share of validator income. Stake earns its delegator a share of
+inflation but nothing of the fees that the stake's own leader slots generate,
+and the only fixes available were out-of-protocol and trust-based.
+
+The design is conservative about defaults. Nothing changes for a validator that
+does not act, the commission cap is 100%, and revenue from validators still on
+vote state v3 flows exactly where it flows today. What changes immediately is
+the accounting: block revenue gains two new possible destinations and stakers
+gain a second reward stream that is tracked separately from the first, which
+makes this a breaking change for anyone measuring either.
+
+**Learn more:** [Solana Upgrades](/upgrades)
