@@ -1,0 +1,233 @@
+---
+title: Alpenglow Fast Leader Handover
+description: >-
+  Fast Leader Handover lets an Alpenglow leader start building on a parent
+  before the network has confirmed it, and switch parents mid-block if the
+  network decides otherwise. It is specified in SIMD-0326 and ships behind its
+  own feature gate.
+subtitle: Letting a leader start early, and change its parent mid-block
+publishedAt: 2026-09-27T00:00:00.000Z
+status: draft
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+order: 10
+metrics:
+  - value: "<1%"
+    label: Slots expected to carry a second bank
+  - value: SIMD-0326
+    label: Specified in the Alpenglow white paper, section 2.7
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Alpenglow Fast Leader Handover
+
+Q4 2026 • Solana Foundation
+
+When one leader's window ends and the next begins, the incoming leader has to
+know which block it is building on. Under Alpenglow that answer arrives as a
+**parent-ready** signal: the consensus pool decides that a particular block is
+an acceptable parent for the slot, and only then can the leader safely produce.
+Waiting for it is dead time at every handover — time the new leader could have
+spent streaming its own block.
+
+Fast Leader Handover removes the wait. The leader starts building on the parent
+it _expects_ to be ready, and if the network resolves differently, it switches
+parents partway through its own block.
+
+The mechanism is specified in
+[SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0326-alpenglow.md),
+which adopts the
+[Alpenglow white paper v1.1](https://www.anza.xyz/alpenglow-1-1) in full except
+for three sections — Rotor (2.2), Smart Sampling (3.1) and Lazy Execution (3.2),
+each of which gets its own SIMD. Fast Leader Handover is section 2.7, so it
+falls inside SIMD-0326's scope, and Agave's feature registry names the gate
+exactly that way:
+
+```rust
+(
+    alpenglow_fast_leader_handover::id(),
+    "SIMD-0326: Alpenglow fast leader handover",
+),
+```
+
+One SIMD number therefore maps to more than one feature gate: `alpenglow` turns
+on consensus, and `alpenglow_fast_leader_handover` turns on this optimization
+separately. Anza split them in
+[#13371](https://github.com/anza-xyz/agave/pull/13371) in June 2026, having
+originally shipped the behavior under the single Alpenglow flag.
+
+|                                  |                                                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Expected Mainnet Activation Date | After Alpenglow consensus is live; not yet scheduled                                               |
+| Devnet Activation                | To be determined                                                                                   |
+| Breaking Change?                 | Yes, for anything reassembling blocks from a stream                                                |
+| Indexing Changes Required?       | Yes — see [Alpenglow](/upgrades/alpenglow#breaking-change-one-slot-can-contain-more-than-one-bank) |
+| Feature Gate                     | `FLHoAWBDjNh6zwmJ5i1NKK4KyD8otAiv7XxvmnFnVnKH`                                                     |
+
+**The code has shipped; the gate has been withdrawn.** Agave has carried a
+complete, gated implementation since v4.3.0 — `core/src/replay_stage/update_parent.rs`
+plus six call sites checking `feature_set.snapshot().alpenglow_fast_leader_handover`
+across replay, the blockstore processor, and block component processing. The gate
+address above is what both `v4.3.0` and `v4.4.0-alpha.5` declare, unchanged
+between them.
+
+Then on **September 18, 2026**, after `v4.4.0-alpha.5` was cut,
+[#15390 "flh: unkey feature flag"](https://github.com/anza-xyz/agave/pull/15390)
+replaced the real address on `master` with a placeholder. Un-keying a flag is how
+Anza takes a feature off the activation path without reverting its code, so
+activation is not imminent and the address may change before it happens.
+Firedancer's feature map lists the gate with `"implemented": 0`. Treat every date
+on this page as unsettled.
+
+## Technical Details
+
+### Parent-Ready, and What It Costs to Wait For
+
+Alpenglow's consensus pool tracks when a block becomes an acceptable parent for
+a given slot and raises an event for it. In Agave's `votor` crate that event is:
+
+```rust
+/// The pool has marked the given block as a ready parent for `slot`
+ParentReady { slot: Slot, parent_block: Block },
+```
+
+A leader that has reached parent-ready status for its own window gets a separate
+event telling it to go:
+
+```rust
+/// We are the leader for this window and have reached the parent ready status
+/// Produce the window
+ProduceWindow(LeaderWindowInfo),
+```
+
+The ordering is the cost. `ProduceWindow` waits on `ParentReady`, so the leader
+sits idle through the tail of the previous leader's window while the votes that
+establish the parent are still being aggregated. Fast Leader Handover inverts
+it: produce first on the expected parent, and correct afterwards if needed.
+
+### Switching Parents
+
+The correction path already exists in the code, because a node also has to move
+its own banks when parent-ready resolves to something other than what it was
+replaying. `votor` sends:
+
+```rust
+/// Event sent to replay_stage when a bank needs to be switched as a result of a ParentReady.
+pub enum SwitchBankEvent {
+    /// We need to switch any existing banks to this bank including ancestors.
+    Switch { block: Block },
+}
+```
+
+and the parent-ready handler requests exactly that when the new parent is beyond
+the current root:
+
+```rust
+// We need to ensure that we've replayed the parent bank.
+if parent_block.slot > vctx.sharable_banks.root().slot() {
+    request_switch(&ctx.latest_switch_request, *my_pubkey, parent_block);
+}
+```
+
+For a leader mid-block, switching the parent means the work it has already done
+is no longer on the chain it is building. **In a validator, building on a new
+parent produces a new bank — and to Geyser, a new bank is a new block.** That is
+the whole downstream consequence of this feature, and it is why
+[Alpenglow](/upgrades/alpenglow#breaking-change-one-slot-can-contain-more-than-one-bank)
+adds `bank_id` to the Geyser interface a release ahead of it.
+
+Anza expects a second bank in **under 1% of slots**. Rare, but no longer rare
+enough to leave unhandled: before this, two banks in a slot meant a leader had
+equivocated.
+
+### How Agave Implements It
+
+The replay side lives in `core/src/replay_stage/update_parent.rs`, whose module
+doc is simply "Fast-leader-handover replay helpers". The problem it solves is
+that a node discovering a block which switched parents must decide where to
+start replaying it:
+
+```rust
+/// Replay-start decision for a child bank discovered from blockstore metadata.
+pub(super) enum ChildBankReplayStart {
+    /// Create the bank and replay from shred zero.
+    FromStart,
+    /// Create the bank and begin replay at the `UpdateParent` FEC-set boundary.
+    FromUpdateParent(u64),
+    /// Do not create the bank yet. The local parent information is not
+    /// coherent enough to safely choose a replay start.
+    Defer,
+}
+```
+
+`FromUpdateParent` is the handover case: skip the transactions the leader
+abandoned and start at the FEC-set boundary where the new parent takes over. The
+offset is only honoured for the first slot of a leader window, matching the
+placement rule below:
+
+```rust
+if !slot_meta.has_update_parent() || leader_slot_index(slot) != 0 {
+    return None;
+}
+```
+
+`Defer` is the interesting third state. A node that cannot yet tell which parent
+is coherent does not guess and does not fail — it waits for better metadata.
+
+### Saying So on the Wire
+
+A leader that changes parents mid-block has to tell everyone, and the block has
+to remain parseable by a validator that never replayed the original parent.
+That wire format is a separate proposal,
+[SIMD-0337](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0337-parent-ready-update-marker.md)
+— "Markers for Alpenglow Fast Leader Handover" — which adds two variants to
+`BlockMarkerV1`:
+
+- **`BlockHeader`**, at the start of every block, declaring its parent.
+- **`UpdateParent`**, declaring that the parent has changed.
+
+Both carry the same 40-byte payload, a parent slot and a 32-byte parent block
+ID, and occupy 54 bytes once serialized inside a `BlockComponent`. At most one
+`UpdateParent` is allowed per block, only in the first block of a leader window,
+and only at the start of an FEC set whose predecessor ended with
+`DATA_COMPLETE_SHRED` set — rules that exist so the marker can be spotted at
+shred ingestion without replaying the block up to that point. A block breaking
+any of them is invalid, and a validator seeing one invokes `TrySkipWindow(slot)`,
+which is a protocol action with its own conditions rather than an unconditional
+skip vote.
+
+SIMD-0337 is the encoding. SIMD-0326 is the behavior being encoded.
+
+### What Happens to the Discarded Transactions
+
+Per SIMD-0337's state transition rules:
+
+- State changes from transactions **before** the `UpdateParent` marker are
+  discarded.
+- The marker itself changes no state.
+- Transactions **after** it are built on the new parent's state.
+- **All the pre-marker shred data is still included in the constructed block.**
+
+So a block can contain transactions whose effects were thrown away. Anything
+reassembling blocks from a stream needs to know which candidate it is looking at
+rather than fusing everything under a slot number.
+
+## About This Upgrade
+
+Fast Leader Handover is a throughput optimization invisible to anyone sending a
+transaction and consequential for anyone reading blocks. The consensus benefit
+is simply less dead time between leaders and more time to stream a block.
+
+The visible consequence is that "one slot, one block" stops being a safe
+simplification. It has been approximately true for long enough that a great deal
+of production code treats slot and block as synonyms, and the failure mode when
+that assumption breaks is not an error — it is a block quietly fused from two
+different candidates. The migration for that is in
+[Alpenglow](/upgrades/alpenglow#breaking-change-one-slot-can-contain-more-than-one-bank),
+and it is worth doing before this gate activates rather than after.
+
+**Learn more:** [Solana Upgrades](/upgrades)
