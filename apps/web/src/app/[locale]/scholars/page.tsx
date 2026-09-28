@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { Checklist } from "@boxicons/react/Checklist";
 import { Globe } from "@boxicons/react/Globe";
 import { Handshake } from "@boxicons/react/Handshake";
@@ -8,12 +7,19 @@ import { Target } from "@boxicons/react/Target";
 import PixelBlast from "../../components/PixelBlast";
 import SectionReveal from "./SectionReveal";
 import styles from "./scholars.module.css";
+import { getIndexMetadata } from "@/app/metadata";
 
-export const metadata: Metadata = {
-  title: "Solana Scholars — Research Internships for PhD Students",
-  description:
-    "Solana Scholars offers focused research internships for PhD students — on-site or virtual — in close collaboration with Solana engineers. Apply now.",
-};
+type Props = { params: Promise<{ locale: string }> };
+
+export async function generateMetadata({ params }: Props) {
+  const { locale } = await params;
+  return await getIndexMetadata({
+    titleKey: "scholars.title",
+    descriptionKey: "scholars.description",
+    path: "/scholars",
+    locale,
+  });
+}
 
 export default function ScholarsPage() {
   return (
