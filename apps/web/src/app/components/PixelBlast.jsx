@@ -488,8 +488,12 @@ function mountPixelBlast(container, options = {}) {
     if (composer) composer.setSize(w, h, false);
     if (redrawStill) redrawStill();
   };
-  const ro = new ResizeObserver(setSize);
-  ro.observe(container);
+  // Some WebGL2-capable browsers still lack ResizeObserver; fall back to
+  // window resizes rather than throwing before the fallback state is set.
+  const ro =
+    typeof ResizeObserver === "undefined" ? null : new ResizeObserver(setSize);
+  if (ro) ro.observe(container);
+  else window.addEventListener("resize", setSize);
 
   setSize();
 
@@ -538,15 +542,19 @@ function mountPixelBlast(container, options = {}) {
       passive: true,
     });
 
-  // Offscreen pause — upstream never wires this up.
+  // Offscreen pause — upstream never wires this up. Without
+  // IntersectionObserver the canvas simply never pauses.
   let visible = true;
-  const io = new IntersectionObserver(
-    (entries) => {
-      visible = entries[0]?.isIntersecting ?? true;
-    },
-    { rootMargin: "120px" },
-  );
-  if (o.autoPauseOffscreen) io.observe(container);
+  const io =
+    typeof IntersectionObserver === "undefined"
+      ? null
+      : new IntersectionObserver(
+          (entries) => {
+            visible = entries[0]?.isIntersecting ?? true;
+          },
+          { rootMargin: "120px" },
+        );
+  if (o.autoPauseOffscreen) io?.observe(container);
 
   let raf = 0;
   let failed = false;
@@ -654,8 +662,9 @@ function mountPixelBlast(container, options = {}) {
     },
     destroy() {
       cancelAnimationFrame(raf);
-      io.disconnect();
-      ro.disconnect();
+      io?.disconnect();
+      ro?.disconnect();
+      window.removeEventListener("resize", setSize);
       eventTarget.removeEventListener("pointerdown", onPointerDown);
       eventTarget.removeEventListener("pointermove", onPointerMove);
       // removeEventListener on a never-added listener is a no-op, so both are
