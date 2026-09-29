@@ -63,6 +63,7 @@ interface ButtonProps {
   iconLeft?: React.ReactNode;
   iconRight?: React.ReactNode;
   arrow?: boolean;
+  arrowDirection?: "up-right" | "down";
   onClick?: () => void;
   className?: string;
   disabled?: boolean;
@@ -78,6 +79,7 @@ export default function Button({
   iconLeft,
   iconRight,
   arrow,
+  arrowDirection = "up-right",
   onClick,
   className = "",
   disabled = false,
@@ -122,7 +124,14 @@ export default function Button({
     iconRight ??
     (arrow ? (
       <span className="inline-flex size-[12px] items-center justify-center">
-        <ArrowUpRightIcon />
+        <ArrowUpRightIcon
+          className="block"
+          style={
+            arrowDirection === "down"
+              ? { transform: "rotate(135deg)" }
+              : undefined
+          }
+        />
       </span>
     ) : null);
 

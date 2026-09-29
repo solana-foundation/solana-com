@@ -28,6 +28,7 @@ export default async function AwardsPage({ locale }: { locale: string }) {
     >
       <SubpageHero
         cta={{
+          arrowDirection: "down",
           href: "#voting",
           label: t("awards.hero.cta"),
         }}

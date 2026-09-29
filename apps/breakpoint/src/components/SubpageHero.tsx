@@ -7,6 +7,7 @@ import ImageTreatment, {
 import { publicAssetPath } from "@/config";
 
 type HeroCta = {
+  arrowDirection?: "up-right" | "down";
   href: string;
   label: string;
   rel?: string;
@@ -129,6 +130,7 @@ function HeroBackground({
 }
 
 function HeroCtaLink({
+  arrowDirection,
   href,
   label,
   rel,
@@ -138,6 +140,7 @@ function HeroCtaLink({
   return (
     <Button
       arrow
+      arrowDirection={arrowDirection}
       className="w-full md:w-auto"
       href={href}
       label={label}

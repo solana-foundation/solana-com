@@ -220,9 +220,8 @@ export default function AwardsNominations() {
 
   return (
     <section
-      className="scroll-mt-16 bg-black pb-3xl pt-2xl md:scroll-mt-20 md:pb-4xl md:pt-3xl"
+      className="bg-black pb-3xl pt-2xl md:pb-4xl md:pt-3xl"
       aria-labelledby="nominations-title"
-      id="voting"
     >
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
         <header className="grid gap-m border-t border-stroke-primary pt-m md:grid-cols-bp-desktop md:gap-x-s md:pt-l">
@@ -253,7 +252,10 @@ export default function AwardsNominations() {
           </div>
         </header>
 
-        <div className="mt-2xl grid gap-l md:mt-3xl md:grid-cols-bp-desktop md:gap-x-s">
+        <div
+          className="mt-2xl grid scroll-mt-16 gap-l md:mt-3xl md:grid-cols-bp-desktop md:scroll-mt-20 md:gap-x-s"
+          id="voting"
+        >
           <aside className="md:col-span-5 md:sticky md:top-[88px] md:h-fit">
             <div className="flex items-end justify-between border-y border-stroke-primary py-s">
               <div>
@@ -428,7 +430,7 @@ export default function AwardsNominations() {
                 </div>
               </div>
 
-              <div className="flex min-h-[19.5rem] flex-col justify-center border-t border-stroke-primary p-s md:min-h-[17rem] md:p-l">
+              <div className="flex min-h-[19.5rem] flex-col border-t border-stroke-primary p-s md:min-h-[14rem] md:px-l md:py-m">
                 {campaignStatus && campaignStatus !== "open" ? (
                   <p className="text-p-large text-text-secondary" role="status">
                     {t(
@@ -440,7 +442,7 @@ export default function AwardsNominations() {
                 ) : null}
                 {nomination && !editing ? (
                   <div
-                    className={`${accentBackgroundClassName} p-s text-black md:p-m`}
+                    className={`${accentBackgroundClassName} p-s text-black md:px-m md:py-s`}
                   >
                     <div className="flex flex-col justify-between gap-m md:flex-row md:items-end">
                       <div>
@@ -449,7 +451,7 @@ export default function AwardsNominations() {
                         </p>
                         <p className="type-h4 mt-2xs">{nomination.handle}</p>
                       </div>
-                      <div className="flex flex-col gap-3 lg:flex-row">
+                      <div className="flex flex-col gap-3 md:flex-row">
                         <Button
                           iconLeft={
                             <img
