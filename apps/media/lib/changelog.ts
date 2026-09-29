@@ -2,6 +2,7 @@ import { getIterableActionUrl } from "@solana-com/ui-chrome/iterable";
 
 export const CHANGELOG_CATEGORY = "Changelog";
 export const CHANGELOG_PAGE_SIZE = 13;
+export const CHANGELOG_SUBSCRIBE_PATH = "/api/changelog/subscribe";
 export const CHANGELOG_SUBSCRIBE_URL = getIterableActionUrl(
   "f1bc79b9-a1cd-463a-8c2c-e761b2fa108d",
 );
