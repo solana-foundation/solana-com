@@ -33,7 +33,7 @@ export default {
     ...buildOxlintCommand(files),
     ...buildOxfmtCommand(files),
   ],
-  "*.{md,mdx,json,scss,yml,yaml}": buildOxfmtCommand,
+  "*.{md,mdx,json,scss}": buildOxfmtCommand,
   "apps/media/content/**/*.{png,jpg,jpeg,webp,avif}":
     buildMediaImageCheckCommand,
   "apps/media/public/uploads/posts/**/*.{png,jpg,jpeg,webp,avif}":

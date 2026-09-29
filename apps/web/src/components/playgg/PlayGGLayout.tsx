@@ -38,7 +38,7 @@ const PlayGGLayout = ({ children }: { children?: React.ReactNode }) => {
         </ModalContext.Provider>
       </div>
       <Footer />
-      {/* eslint-disable-next-line react/no-unknown-property*/}
+      {/* oxlint-disable-next-line react/no-unknown-property -- styled-jsx requires the `global` and `jsx` boolean attributes */}
       <style global jsx>{`
         body {
           background: var(--color-playgg-white);
