@@ -208,9 +208,9 @@ The build runs:
 
 Pre-commit formatting:
 
-- JS/TS files: ESLint + Prettier
-- MDX/MD files: Prettier
-- JSON/YAML files: Prettier
+- JS/TS files: oxlint + oxfmt
+- MDX/MD files: oxfmt
+- JSON/YAML files: oxfmt
 
 ## Image Handling
 

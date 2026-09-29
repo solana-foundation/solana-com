@@ -108,12 +108,14 @@ function buildEslintCommands(files) {
   return commands;
 }
 
-function buildPrettierCommand(files) {
+function buildOxfmtCommand(files) {
   if (files.length === 0) {
     return [];
   }
 
-  return [`pnpm -w exec prettier --write ${files.map(quote).join(" ")}`];
+  return [
+    `oxfmt --no-error-on-unmatched-pattern ${files.map(quote).join(" ")}`,
+  ];
 }
 
 function buildMediaImageCheckCommand(files) {
@@ -131,9 +133,9 @@ function buildMediaImageCheckCommand(files) {
 export default {
   "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": (files) => [
     ...buildEslintCommands(files),
-    ...buildPrettierCommand(files),
+    ...buildOxfmtCommand(files),
   ],
-  "*.{md,mdx,json,scss,yml,yaml}": buildPrettierCommand,
+  "*.{md,mdx,json,scss,yml,yaml}": buildOxfmtCommand,
   "apps/media/content/**/*.{png,jpg,jpeg,webp,avif}":
     buildMediaImageCheckCommand,
   "apps/media/public/uploads/posts/**/*.{png,jpg,jpeg,webp,avif}":

@@ -117,12 +117,10 @@ const nextConfig: NextConfig = {
         destination: `/news`,
         permanent: true,
       },
-      ...rewritesAndRedirectsJson.redirects.map(
-        (redirect): Redirect => ({
-          ...redirect,
-          permanent: redirect.permanent ?? true,
-        }),
-      ),
+      ...rewritesAndRedirectsJson.redirects.map((redirect): Redirect => ({
+        ...redirect,
+        permanent: redirect.permanent ?? true,
+      })),
     ];
 
     return existingRedirects;

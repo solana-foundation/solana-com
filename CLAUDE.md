@@ -116,9 +116,9 @@ Key environment variables (defined in `turbo.json`):
 
 ## Git Hooks (Husky)
 
-The pre-commit hook runs `lint-staged`, which applies ESLint and Prettier to
-staged files and checks staged media images. It also runs `gitleaks` when that
-binary is installed; CI performs the authoritative secrets scan.
+The pre-commit hook runs `lint-staged`, which applies ESLint and oxfmt to staged
+files and checks staged media images. It also runs `gitleaks` when that binary
+is installed; CI performs the authoritative secrets scan.
 
 ## Code Conventions
 
