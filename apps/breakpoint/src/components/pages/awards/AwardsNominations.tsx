@@ -285,17 +285,28 @@ export default function AwardsNominations() {
                   }
                   value={activeIndex}
                 >
-                  {awardCategories.map((category, index) => (
-                    <option key={category.id} value={index}>
-                      {String(index + 1).padStart(2, "0")} —{" "}
-                      {
-                        (
-                          t.raw(
-                            `categories.${category.id}`,
-                          ) as AwardCategoryCopy
-                        ).name
-                      }
-                    </option>
+                  {categoriesBySection.map((section) => (
+                    <optgroup
+                      key={section}
+                      label={t(`nominations.sections.${section}`)}
+                    >
+                      {awardCategories
+                        .filter((category) => category.section === section)
+                        .map((category) => {
+                          const index = awardCategories.indexOf(category);
+                          const name = (
+                            t.raw(
+                              `categories.${category.id}`,
+                            ) as AwardCategoryCopy
+                          ).name;
+
+                          return (
+                            <option key={category.id} value={index}>
+                              {String(index + 1).padStart(2, "0")} — {name}
+                            </option>
+                          );
+                        })}
+                    </optgroup>
                   ))}
                 </select>
                 <span
@@ -417,7 +428,7 @@ export default function AwardsNominations() {
                 </div>
               </div>
 
-              <div className="border-t border-stroke-primary p-s md:p-l">
+              <div className="flex min-h-[19.5rem] flex-col justify-center border-t border-stroke-primary p-s md:min-h-[17rem] md:p-l">
                 {campaignStatus && campaignStatus !== "open" ? (
                   <p className="text-p-large text-text-secondary" role="status">
                     {t(
