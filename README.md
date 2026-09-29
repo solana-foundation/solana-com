@@ -130,3 +130,21 @@ The solana.com website is managed and maintained by the Solana Foundation. See
 - [`apps/templates/AGENTS.md`](./apps/templates/AGENTS.md) — Templates
 - [`apps/accelerate/AGENTS.md`](./apps/accelerate/AGENTS.md) — Accelerate
 - [`apps/breakpoint/AGENTS.md`](./apps/breakpoint/AGENTS.md) — Breakpoint
+
+## Using Just
+
+[`just`](https://github.com/casey/just) wraps the common turbo and prettier
+commands (see the [`justfile`](./justfile)). Run `just` to list all recipes.
+Most take an optional target: an app or package name (`docs`, `web`, `media`,
+`ui`, ...), `acc`/`bp`, or a raw turbo filter.
+
+```bash
+just docs                      # dev server for apps/docs (also: web, media, templates, acc, bp)
+just build docs                # build one app (omit the target for everything)
+just lint web                  # lint, typecheck and test work the same way
+just typecheck docs
+just test ui
+just fmt apps/docs/foo.mdx     # prettier --write on files, folders or app names
+just fmt-changed               # format only files changed vs origin/main
+just check docs                # format check + lint + typecheck + test, as CI does
+```
