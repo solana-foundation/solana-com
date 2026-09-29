@@ -73,8 +73,8 @@ pnpm dev
 # Build for production
 pnpm build
 
-# Lint and format content files
-pnpm lint:content
+# Lint and format
+pnpm lint:fix
 
 # Clean generated files
 pnpm clean
