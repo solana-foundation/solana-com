@@ -28,6 +28,8 @@ filter target="":
 [private]
 paths *targets:
     #!/usr/bin/env bash
+    args=(); for t in "$@"; do [ -n "$t" ] && args+=("$t"); done
+    set -- "${args[@]}"
     [ $# -eq 0 ] && { echo "."; exit 0; }
     for t in "$@"; do
       case "$t" in
@@ -79,23 +81,25 @@ fmt *targets:
     set -euo pipefail
     out=$(just paths "$@")
     paths=(); while IFS= read -r p; do paths+=("$p"); done <<< "$out"
-    pnpm exec prettier --ignore-path .prettierignore --write "${paths[@]}"
+    pnpm exec prettier --ignore-path .prettierignore --write -- "${paths[@]}"
 
 # Format files changed vs base (committed, staged, unstaged and untracked)
 fmt-changed base="origin/main":
     #!/usr/bin/env bash
     set -euo pipefail
-    out=$( { git diff --name-only --diff-filter=d "$(git merge-base "$1" HEAD)"; git ls-files --others --exclude-standard; } | sort -u)
+    base=$(git merge-base "$1" HEAD)
+    tracked=$(git diff --name-only --diff-filter=d "$base")
+    out=$( { [ -n "$tracked" ] && echo "$tracked"; git ls-files --others --exclude-standard; } | sort -u)
     [ -z "$out" ] && { echo "No changed files"; exit 0; }
     paths=(); while IFS= read -r p; do paths+=("$p"); done <<< "$out"
-    pnpm exec prettier --ignore-path .prettierignore --ignore-unknown --write "${paths[@]}"
+    pnpm exec prettier --ignore-path .prettierignore --ignore-unknown --write -- "${paths[@]}"
 
 fmt-check *targets:
     #!/usr/bin/env bash
     set -euo pipefail
     out=$(just paths "$@")
     paths=(); while IFS= read -r p; do paths+=("$p"); done <<< "$out"
-    pnpm exec prettier --ignore-path .prettierignore --check "${paths[@]}"
+    pnpm exec prettier --ignore-path .prettierignore --check -- "${paths[@]}"
 
 # Everything CI checks: format, lint, types, tests
 check target="": (fmt-check target) (lint target) (typecheck target) (test target)

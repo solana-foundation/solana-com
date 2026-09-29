@@ -143,7 +143,6 @@ just docs                      # dev server for apps/docs (also: web, media, tem
 just build docs                # build one app (omit the target for everything)
 just lint web                  # lint, typecheck and test work the same way
 just typecheck docs
-just test ui
 just fmt apps/docs/foo.mdx     # prettier --write on files, folders or app names
 just fmt-changed               # format only files changed vs origin/main
 just check docs                # format check + lint + typecheck + test, as CI does
