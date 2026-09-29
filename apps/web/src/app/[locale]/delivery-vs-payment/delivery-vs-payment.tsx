@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Button as SharedButton } from "@workspace/ui/button";
 import { Button } from "@/app/components/ui/button";
 import { Container } from "@/component-library/container";
 import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
@@ -206,10 +207,31 @@ export function DeliveryVsPaymentPage({
                       : demoSteps[stage - 1].detail}
                   </p>
                 </div>
-                <button type="button" onClick={play}>
+                <SharedButton
+                  type="button"
+                  size="lg"
+                  onClick={play}
+                  className="h-11 min-w-[120px] rounded-full bg-white px-6 text-black shadow-none hover:bg-white/90 hover:text-black focus-visible:border-white focus-visible:ring-white/40"
+                >
                   {stage === 0 ? "Start" : "Replay"}
-                </button>
+                </SharedButton>
               </div>
+            </div>
+
+            <div className="flex flex-col gap-4 border-t border-nd-border-light pt-6 sm:flex-row sm:items-center sm:justify-between xl:col-span-2 xl:mt-2">
+              <p className="font-brand-mono text-xs uppercase tracking-[0.12em] text-nd-mid-em-text">
+                Next: create and settle a real trade on Solana devnet.
+              </p>
+              <SharedButton
+                asChild
+                size="lg"
+                className="h-12 rounded-full bg-nd-cta px-5 text-nd-inverse shadow-none hover:bg-nd-primary/90 focus-visible:border-nd-cta focus-visible:ring-nd-cta/40"
+              >
+                <Link href="/delivery-vs-payment/demo">
+                  Open full devnet demo
+                  <ArrowRight className="!size-4" aria-hidden="true" />
+                </Link>
+              </SharedButton>
             </div>
           </div>
         </Container>

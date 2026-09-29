@@ -299,56 +299,74 @@ export function DvpDemo() {
   }
 
   return (
-    <main className="min-h-screen bg-nd-bg text-nd-high-em-text">
-      <section className="border-b border-nd-border-light py-14 md:py-20 xl:py-24">
-        <Container>
-          <Link
-            href="/delivery-vs-payment"
-            className="inline-flex items-center gap-2 text-sm text-nd-mid-em-text hover:text-white"
-          >
+    <main className={styles.page}>
+      <Container>
+        <div className={styles.utilityBar}>
+          <Link href="/delivery-vs-payment" className={styles.backLink}>
             <ArrowLeft className="!size-4" aria-hidden="true" />
             Delivery versus Payment
           </Link>
-          <div className="mt-12 grid gap-8 xl:grid-cols-[1fr_420px] xl:items-end">
-            <div>
-              <div className="flex items-center gap-3 font-brand-mono text-xs uppercase tracking-[0.18em] text-nd-mid-em-text">
-                <span className={styles.liveDot} /> Solana devnet · Real
-                transactions
-              </div>
-              <h1 className="nd-heading-xl mt-5 max-w-[920px]">
-                Watch a trade settle, start to finish.
-              </h1>
-            </div>
-            <div>
-              <p className="nd-body-l text-nd-mid-em-text">
-                One click creates every party, funds both legs, and settles them
-                atomically. Follow each account and transaction in Explorer.
-              </p>
-              <Button
-                onClick={runDemo}
-                disabled={running}
-                className="mt-7 h-12 rounded-full bg-nd-cta px-5 text-nd-inverse hover:bg-nd-primary/90 disabled:opacity-50"
-                size="lg"
-              >
-                {running
-                  ? "Demo running…"
-                  : finished || error
-                    ? "Run again"
-                    : "Start the devnet demo"}
-                {!running && (
-                  <span className="-mr-3 inline-flex size-8 items-center justify-center rounded-full bg-nd-inverse text-nd-cta">
-                    <ArrowRight className="!size-4" aria-hidden="true" />
-                  </span>
-                )}
-              </Button>
-            </div>
+          <div className={styles.networkBadge}>
+            <span className={styles.liveDot} /> Devnet
           </div>
-        </Container>
-      </section>
+        </div>
 
-      <section className="py-12 md:py-16 xl:py-20">
-        <Container>
-          <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <section className={styles.hero}>
+          <div className={styles.heroCopy}>
+            <p className={styles.eyebrow}>Live demo · Atomic settlement</p>
+            <h1>Delivery versus Payment, settled atomically.</h1>
+            <p className={styles.intro}>
+              Watch an asset and its payment cross in one Solana transaction.
+              The demo uses fresh accounts and test tokens—never real funds.
+            </p>
+            <Button
+              onClick={runDemo}
+              disabled={running}
+              className={styles.startButton}
+              size="lg"
+            >
+              {running
+                ? "Settlement in progress…"
+                : finished || error
+                  ? "Run the demo again"
+                  : "Run the devnet demo"}
+              {!running && (
+                <span className={styles.buttonIcon}>
+                  <ArrowRight className="!size-4" aria-hidden="true" />
+                </span>
+              )}
+            </Button>
+          </div>
+
+          <dl className={styles.proofStrip}>
+            <div>
+              <dd>1</dd>
+              <dt>transaction settles both legs</dt>
+            </div>
+            <div>
+              <dd>0</dd>
+              <dt>counterparty risk at settlement</dt>
+            </div>
+            <div>
+              <dd>0</dd>
+              <dt>real funds used in this demo</dt>
+            </div>
+          </dl>
+        </section>
+
+        <section className={styles.workspace} aria-label="Demo progress">
+          <div className={styles.workspaceHeader}>
+            <div>
+              <p>Settlement flow</p>
+              <h2>Follow the trade onchain</h2>
+            </div>
+            <p>
+              Every completed step links to the corresponding transaction in
+              Solana Explorer.
+            </p>
+          </div>
+
+          <div className={styles.workspaceGrid}>
             <div>
               <div className={styles.timeline} aria-live="polite">
                 {STAGES.map((stage, index) => {
@@ -367,7 +385,11 @@ export function DvpDemo() {
                       <div className={styles.stageBody}>
                         <div className={styles.stageHeading}>
                           <h2>{stage.title}</h2>
-                          <span>{state.status}</span>
+                          <span>
+                            {state.status === "waiting"
+                              ? "Ready"
+                              : state.status}
+                          </span>
                         </div>
                         <p>{stage.description}</p>
                         {state.signatures?.length ? (
@@ -419,7 +441,7 @@ export function DvpDemo() {
               )}
             </div>
 
-            <aside className={styles.inspector}>
+            <aside className={styles.inspector} aria-label="Account inspector">
               <div className={styles.inspectorHeader}>
                 <span>Account inspector</span>
                 <span>devnet</span>
@@ -472,8 +494,8 @@ export function DvpDemo() {
               )}
             </aside>
           </div>
-        </Container>
-      </section>
+        </section>
+      </Container>
     </main>
   );
 }
