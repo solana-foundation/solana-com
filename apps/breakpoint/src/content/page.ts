@@ -185,6 +185,7 @@ export type BreakpointMessages = {
       eyebrow: string;
       title: string;
       description: string;
+      cta: string;
     };
     marquee: {
       community: string;

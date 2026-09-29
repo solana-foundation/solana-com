@@ -27,6 +27,10 @@ export default async function AwardsPage({ locale }: { locale: string }) {
       }}
     >
       <SubpageHero
+        cta={{
+          href: "#voting",
+          label: t("awards.hero.cta"),
+        }}
         eyebrow={t("awards.hero.eyebrow")}
         heroImage="awards"
         title={t("awards.hero.title")}

@@ -220,8 +220,9 @@ export default function AwardsNominations() {
 
   return (
     <section
-      className="bg-black pb-3xl pt-2xl md:pb-4xl md:pt-3xl"
+      className="scroll-mt-16 bg-black pb-3xl pt-2xl md:scroll-mt-20 md:pb-4xl md:pt-3xl"
       aria-labelledby="nominations-title"
+      id="voting"
     >
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
         <header className="grid gap-m border-t border-stroke-primary pt-m md:grid-cols-bp-desktop md:gap-x-s md:pt-l">
