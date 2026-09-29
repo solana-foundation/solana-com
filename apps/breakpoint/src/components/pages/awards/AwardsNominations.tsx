@@ -451,7 +451,7 @@ export default function AwardsNominations() {
                         </p>
                         <p className="type-h4 mt-2xs">{nomination.handle}</p>
                       </div>
-                      <div className="flex flex-col gap-3 md:flex-row">
+                      <div className="flex flex-col gap-3 xl:flex-row">
                         <Button
                           iconLeft={
                             <img
