@@ -15,7 +15,7 @@ solana-com/
 │   ├── templates/    # Code templates showcase - port 3001
 │   └── breakpoint/   # Breakpoint event microsite - port 3005
 ├── packages/
-│   ├── config-eslint/       # Shared ESLint configurations
+│   ├── config-oxlint/       # Shared oxlint configurations
 │   ├── config-typescript/   # Shared TypeScript configurations
 │   ├── docs-examples/       # Tested cookbook source snippets
 │   ├── ecosystem-data/      # Shared company and logo registry
@@ -86,7 +86,7 @@ their source files during the build:
 - `@workspace/ecosystem-data` - Canonical company metadata and logos
 - `@workspace/sentry` - Shared Sentry configuration helpers
 - `@workspace/docs-examples` - Tested code embedded in cookbook pages
-- `@workspace/config-eslint` - ESLint configurations
+- `@workspace/config-oxlint` - oxlint configurations
 - `@workspace/config-typescript` - TypeScript configurations
 
 ## Internationalization
@@ -116,7 +116,7 @@ Key environment variables (defined in `turbo.json`):
 
 ## Git Hooks (Husky)
 
-The pre-commit hook runs `lint-staged`, which applies ESLint and oxfmt to staged
+The pre-commit hook runs `lint-staged`, which applies oxlint and oxfmt to staged
 files and checks staged media images. It also runs `gitleaks` when that binary
 is installed; CI performs the authoritative secrets scan.
 

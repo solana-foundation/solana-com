@@ -17,7 +17,7 @@ solana-com/
 │   ├── accelerate/   # Event microsite - port 3004
 │   └── breakpoint/   # Event microsite - port 3005
 ├── packages/
-│   ├── config-eslint/       # Shared ESLint configs
+│   ├── config-oxlint/       # Shared oxlint configs
 │   ├── config-typescript/   # Shared TypeScript configs
 │   ├── docs-examples/       # Tested cookbook source snippets
 │   ├── ecosystem-data/      # Shared company and logo registry

@@ -55,7 +55,7 @@ Pick the app first. That usually cuts exploration time in half.
 - `packages/fab-menu`: reusable Solana property menu
 - `packages/sentry`: shared Sentry helpers
 - `packages/sitemap`: shared sitemap generation helpers
-- `packages/config-eslint`, `packages/config-typescript`: shared configs
+- `packages/config-oxlint`, `packages/config-typescript`: shared configs
 
 ## First Commands To Reach For
 
