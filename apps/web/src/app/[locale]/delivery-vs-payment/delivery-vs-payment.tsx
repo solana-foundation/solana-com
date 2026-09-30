@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Check } from "@boxicons/react/Check";
 import { Button as SharedButton } from "@workspace/ui/button";
 import { Button } from "@/app/components/ui/button";
 import { Container } from "@/component-library/container";
@@ -22,19 +23,105 @@ export type RelatedStory = {
 const demoSteps = [
   {
     title: "Terms defined by maker",
-    detail: "The settlement authority records both sides of the trade",
+    detail: "The maker records both sides of the trade",
   },
   { title: "Asset funded", detail: "Seller transfers TBILL to escrow" },
   { title: "Payment funded", detail: "Buyer transfers dUSD to escrow" },
-  { title: "Settled atomically", detail: "Both legs move in one transaction" },
+  {
+    title: "Settled atomically",
+    detail: "The authority releases both legs in one transaction",
+  },
 ];
 
 const eyebrowClass =
   "font-brand-mono text-xs uppercase tracking-[0.2em] text-nd-mid-em-text";
-const demoMonoClass =
-  "font-brand-mono text-xs uppercase tracking-[0.08em] text-[#ababba]";
-const transitionClass =
-  "transition-[transform,left,box-shadow,background-color] duration-[2000ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
+function VirtualTradeLeg({
+  leg,
+  stage,
+}: {
+  leg: "asset" | "cash";
+  stage: number;
+}) {
+  const isAsset = leg === "asset";
+  const quantity = isAsset ? "100" : "10,000";
+  const symbol = isAsset ? "TBILL" : "dUSD";
+  const funded = stage >= (isAsset ? 2 : 3);
+  const settled = stage === 4;
+  const status = settled
+    ? isAsset
+      ? "Delivered to buyer"
+      : "Paid to seller"
+    : funded
+      ? "Held in escrow"
+      : stage > 0
+        ? "Awaiting deposit"
+        : "Awaiting trade";
+
+  return (
+    <section
+      aria-label={isAsset ? "Delivery leg" : "Payment leg"}
+      className="rounded-2xl bg-white/[0.92] px-4 py-4 text-black sm:px-6 sm:py-5"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="m-0 text-[15px] font-normal tracking-[-0.02em]">
+          {isAsset ? "Delivery" : "Payment"}
+          <span className="ml-2 text-black/50">
+            / Leg {isAsset ? "A" : "B"}
+          </span>
+        </h3>
+        <span className="flex items-center gap-1 text-[11px] text-black/65">
+          {funded && <Check className="!size-3.5" aria-hidden="true" />}
+          {status}
+        </span>
+      </div>
+      <div className="mt-3 grid items-center gap-x-6 gap-y-4 sm:grid-cols-2">
+        <div className="flex items-baseline gap-2.5 whitespace-nowrap">
+          <span className="text-[42px] leading-none tracking-[-0.065em] tabular-nums sm:text-[50px]">
+            {quantity}
+          </span>
+          <span className="text-[15px] tracking-[-0.03em]">{symbol}</span>
+        </div>
+        <div>
+          <div
+            role="progressbar"
+            aria-label={`${symbol} ${settled ? "delivered" : "deposited"}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={funded ? 100 : 0}
+            aria-valuetext={status}
+            className="flex h-9 gap-1 sm:h-10"
+          >
+            {Array.from({ length: 24 }, (_, index) => (
+              <span
+                key={index}
+                className={`h-full min-w-0 flex-1 rounded-full transition-colors duration-700 motion-reduce:transition-none ${funded ? (isAsset ? "bg-nd-highlight-blue" : "bg-nd-highlight-green") : "bg-black/[0.13]"}`}
+              />
+            ))}
+          </div>
+          <div className="mt-2 flex justify-between gap-2 font-brand-mono text-[10px] text-black/60">
+            <span>
+              {funded ? quantity : "0"} / {quantity} {symbol}
+            </span>
+            <span>{settled ? "Delivered" : "In escrow"}</span>
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 flex items-center gap-2 border-t border-black/[0.12] pt-3 text-[11px]">
+        <span className={!funded ? "font-medium" : "text-black/55"}>
+          {isAsset ? "Seller" : "Buyer"}
+        </span>
+        <ArrowRight className="!size-3 text-black/40" aria-hidden="true" />
+        <span className={funded && !settled ? "font-medium" : "text-black/55"}>
+          Escrow
+        </span>
+        <ArrowRight className="!size-3 text-black/40" aria-hidden="true" />
+        <span className={settled ? "font-medium" : "text-black/55"}>
+          {isAsset ? "Buyer" : "Seller"}
+        </span>
+      </div>
+    </section>
+  );
+}
 
 export function DeliveryVsPaymentPage({
   relatedStories,
@@ -167,14 +254,23 @@ export function DeliveryVsPaymentPage({
 
             <div
               ref={virtualDemoRef}
-              className="overflow-hidden rounded-2xl border border-white/[0.2] bg-white/[0.025]"
-              aria-live="polite"
+              role="region"
+              aria-label="Virtual settlement"
+              className="min-w-0 overflow-hidden rounded-2xl border border-nd-border-light bg-white/[0.025] font-brand"
             >
-              <div
-                className={`flex items-center justify-between gap-5 border-b border-white/[0.12] px-5 py-4 ${demoMonoClass}`}
-              >
-                <span>Trade DVP-2048</span>
-                <span className={stage === 4 ? "text-nd-highlight-green" : ""}>
+              <div className="flex items-center justify-between gap-4 border-b border-nd-border-light px-4 py-4 sm:px-5">
+                <span className="font-brand-mono text-[10px] uppercase tracking-[0.12em] text-nd-mid-em-text">
+                  Trade DVP-2048
+                </span>
+                <span
+                  role="status"
+                  className={`flex items-center gap-2 text-[11px] ${stage === 4 ? "text-nd-highlight-green" : "text-nd-mid-em-text"}`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${stage === 4 ? "bg-nd-highlight-green" : "bg-nd-mid-em-text"}`}
+                    aria-hidden="true"
+                  />
+                  Virtual ·{" "}
                   {stage === 0
                     ? "Ready"
                     : stage === 4
@@ -182,101 +278,112 @@ export function DeliveryVsPaymentPage({
                       : "In progress"}
                 </span>
               </div>
-              <div className="relative grid gap-7 px-5 pb-10 pt-7 max-sm:gap-7 max-sm:px-4 max-sm:pb-[34px] max-sm:pt-[22px]">
-                <div className="relative z-[2] mx-auto mb-2 grid w-full max-w-[510px] grid-cols-[max-content_1fr_max-content] items-center gap-3.5 rounded-[10px] border border-nd-border-prominent bg-[#0a0a0c] px-3.5 py-3 text-[13px] max-sm:grid-cols-1 max-sm:gap-[3px]">
-                  <span className="font-brand-mono text-[10px] uppercase tracking-[0.08em] text-[#ababba]">
-                    Trade maker
-                  </span>
-                  <strong className="font-medium">Settlement authority</strong>
-                  <span className="text-right font-brand-mono text-[10px] uppercase tracking-[0.08em] text-[#ababba] max-sm:text-left">
-                    Defines terms · authorizes finality
-                  </span>
-                </div>
-                <span
-                  className={`absolute bottom-0 left-1/2 top-[72px] w-px origin-top bg-gradient-to-b from-solana-purple to-nd-highlight-green opacity-75 ${transitionClass} ${stage > 0 ? "scale-y-100" : "scale-y-[0.12]"} max-sm:top-[104px]`}
-                  aria-hidden="true"
-                />
-                <div className="grid grid-cols-[64px_minmax(160px,1fr)_72px] items-center gap-3.5 text-sm max-sm:grid-cols-[48px_minmax(130px,1fr)_52px] max-sm:gap-[9px]">
-                  <span className="grid font-medium text-[#ababba]">
-                    <small className="mb-0.5 font-brand-mono text-[9px] font-normal uppercase tracking-[0.08em] text-[#72727f]">
-                      From
-                    </small>
-                    Seller
-                  </span>
-                  <span className="relative flex h-9 min-w-0 items-center">
-                    <span
-                      className={`h-px w-full origin-left bg-white/[0.32] ${transitionClass} ${stage >= 2 ? "scale-x-100" : "scale-x-[0.12]"}`}
-                    />
-                    <span
-                      className={`absolute left-0 z-[2] rounded-full border border-current bg-black px-[11px] py-[7px] font-brand-mono text-xs whitespace-nowrap ${transitionClass} ${stage === 4 ? "left-full -translate-x-full" : "text-solana-blue"}`}
+
+              <div className="space-y-3 p-3 sm:p-4">
+                <div className="grid grid-cols-2 gap-2 pb-1 sm:grid-cols-4">
+                  {[
+                    {
+                      name: "Maker",
+                      action: "Defines the terms",
+                      step: 1,
+                      dot: "bg-nd-highlight-lavendar",
+                      active:
+                        "border-nd-highlight-lavendar bg-nd-highlight-lavendar/[0.08]",
+                    },
+                    {
+                      name: "Seller",
+                      action: "Delivers TBILL",
+                      step: 2,
+                      dot: "bg-nd-highlight-blue",
+                      active:
+                        "border-nd-highlight-blue bg-nd-highlight-blue/[0.08]",
+                    },
+                    {
+                      name: "Buyer",
+                      action: "Pays dUSD",
+                      step: 3,
+                      dot: "bg-nd-highlight-green",
+                      active:
+                        "border-nd-highlight-green bg-nd-highlight-green/[0.08]",
+                    },
+                    {
+                      name: "Authority",
+                      action: "Settles both legs",
+                      step: 4,
+                      dot: "bg-nd-highlight-orange",
+                      active:
+                        "border-nd-highlight-orange bg-nd-highlight-orange/[0.08]",
+                    },
+                  ].map((party) => (
+                    <div
+                      key={party.name}
+                      className={`min-w-0 rounded-xl border px-3 py-3 transition-colors motion-reduce:transition-none ${stage === party.step ? party.active : "border-nd-border-light bg-white/[0.025]"}`}
+                      aria-current={stage === party.step ? "step" : undefined}
                     >
-                      100 TBILL
-                    </span>
-                    <span
-                      className={`absolute left-[68%] top-1/2 size-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-black ${transitionClass} ${stage === 4 ? "bg-nd-highlight-green shadow-[0_0_0_8px_rgba(85,233,171,0.14),0_0_30px_rgba(85,233,171,0.5)]" : ""} max-sm:left-[70%]`}
-                      aria-hidden="true"
-                    />
-                  </span>
-                  <span className="grid text-right font-medium text-[#ababba]">
-                    <small className="mb-0.5 font-brand-mono text-[9px] font-normal uppercase tracking-[0.08em] text-[#72727f]">
-                      Final owner
-                    </small>
-                    Buyer
-                  </span>
+                      <span className="flex items-center gap-1.5 text-xs">
+                        <span
+                          className={`size-1.5 shrink-0 rounded-full ${party.dot}`}
+                          aria-hidden="true"
+                        />
+                        {party.name}
+                      </span>
+                      <span className="mt-1.5 block text-[10px] text-nd-mid-em-text">
+                        {party.action}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div className="grid grid-cols-[64px_minmax(160px,1fr)_72px] items-center gap-3.5 text-sm max-sm:grid-cols-[48px_minmax(130px,1fr)_52px] max-sm:gap-[9px]">
-                  <span className="grid font-medium text-[#ababba]">
-                    <small className="mb-0.5 font-brand-mono text-[9px] font-normal uppercase tracking-[0.08em] text-[#72727f]">
-                      From
-                    </small>
-                    Buyer
-                  </span>
-                  <span className="relative flex h-9 min-w-0 items-center">
-                    <span
-                      className={`h-px w-full origin-left bg-white/[0.32] ${transitionClass} ${stage >= 3 ? "scale-x-100" : "scale-x-[0.12]"}`}
-                    />
-                    <span
-                      className={`absolute left-0 z-[2] rounded-full border border-current bg-black px-[11px] py-[7px] font-brand-mono text-xs whitespace-nowrap ${transitionClass} ${stage === 4 ? "left-full -translate-x-full" : "text-nd-highlight-green"}`}
-                    >
-                      10,000 dUSD
-                    </span>
-                    <span
-                      className={`absolute left-[68%] top-1/2 size-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-black ${transitionClass} ${stage === 4 ? "bg-nd-highlight-green shadow-[0_0_0_8px_rgba(85,233,171,0.14),0_0_30px_rgba(85,233,171,0.5)]" : ""} max-sm:left-[70%]`}
-                      aria-hidden="true"
-                    />
-                  </span>
-                  <span className="grid text-right font-medium text-[#ababba]">
-                    <small className="mb-0.5 font-brand-mono text-[9px] font-normal uppercase tracking-[0.08em] text-[#72727f]">
-                      Final owner
-                    </small>
-                    Seller
-                  </span>
-                </div>
+
+                <VirtualTradeLeg leg="asset" stage={stage} />
+                <VirtualTradeLeg leg="cash" stage={stage} />
               </div>
-              <div className="flex items-center justify-between gap-5 border-t border-white/[0.12] px-5 py-4 max-sm:flex-wrap max-sm:items-start">
-                <span className="font-brand-mono text-xs text-nd-mid-em-text">
-                  {String(Math.max(stage, 1)).padStart(2, "0")} / 04
-                </span>
-                <div className="flex-1 font-brand">
-                  <strong className="block text-[15px] font-medium text-white">
-                    {stage === 0
-                      ? "Ready to define the trade"
-                      : demoSteps[stage - 1].title}
-                  </strong>
-                  <p className="mt-0.5 text-[13px] text-[#ababba]">
-                    {stage === 0
-                      ? "No network connection or wallet required."
-                      : demoSteps[stage - 1].detail}
-                  </p>
+
+              <div
+                className={`border-t px-4 py-4 sm:px-5 ${stage === 4 ? "border-nd-highlight-green/30 bg-nd-highlight-green/[0.06]" : "border-nd-border-light"}`}
+              >
+                <div className="mb-4 flex gap-1.5" aria-hidden="true">
+                  {demoSteps.map((step, index) => (
+                    <span
+                      key={step.title}
+                      className={`h-1 flex-1 rounded-full transition-colors duration-500 motion-reduce:transition-none ${stage > index ? "bg-nd-highlight-green" : "bg-white/15"}`}
+                    />
+                  ))}
                 </div>
-                <SharedButton
-                  type="button"
-                  size="lg"
-                  onClick={play}
-                  className="h-11 min-w-[120px] rounded-full !bg-white px-6 !text-black shadow-none hover:!bg-white/90 hover:!text-black focus-visible:border-white focus-visible:ring-white/40"
-                >
-                  {stage === 0 ? "Start" : "Replay"}
-                </SharedButton>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div
+                    className="flex min-w-0 flex-1 items-start gap-3"
+                    aria-live="polite"
+                  >
+                    <span
+                      className={`pt-0.5 font-brand-mono text-[11px] tabular-nums whitespace-nowrap ${stage === 4 ? "text-nd-highlight-green" : "text-nd-mid-em-text"}`}
+                    >
+                      {String(Math.max(stage, 1)).padStart(2, "0")} / 04
+                    </span>
+                    <div className="min-w-0">
+                      <strong className="block text-sm font-normal tracking-[-0.02em]">
+                        {stage === 0
+                          ? "Ready to define the trade"
+                          : demoSteps[stage - 1].title}
+                      </strong>
+                      <p className="mb-0 mt-1 text-xs leading-relaxed text-nd-mid-em-text">
+                        {stage === 0
+                          ? "No network connection or wallet required."
+                          : demoSteps[stage - 1].detail}
+                      </p>
+                    </div>
+                  </div>
+                  <SharedButton
+                    type="button"
+                    size="lg"
+                    onClick={play}
+                    className="h-11 shrink-0 rounded-full !bg-white pl-5 pr-2 !text-black shadow-none hover:!bg-nd-highlight-green hover:!text-black focus-visible:border-nd-highlight-green focus-visible:ring-nd-highlight-green/40 max-sm:w-full"
+                  >
+                    {stage === 0 ? "Start" : "Replay"}
+                    <span className="ml-3 grid size-7 place-items-center rounded-full bg-black text-white">
+                      <ArrowRight className="!size-3.5" aria-hidden="true" />
+                    </span>
+                  </SharedButton>
+                </div>
               </div>
             </div>
 
