@@ -7,6 +7,11 @@ describe("Cross-app middleware routing", () => {
     expect(isProxiedPath("/changelog/rss.xml")).toBe(true);
   });
 
+  it("keeps Learn routes in the main app", () => {
+    expect(isProxiedPath("/learn")).toBe(false);
+    expect(isProxiedPath("/learn/what-is-solana")).toBe(false);
+  });
+
   it("excludes the bare changelog route from the middleware matcher", () => {
     const appRouteMatcher = new RegExp(`^${config.matcher[2]}$`);
 

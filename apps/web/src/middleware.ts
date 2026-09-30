@@ -7,6 +7,21 @@ import { getPathnameWithoutLocale } from "@workspace/i18n/pathname";
 // and doesn't need preserveProxiedLocaleCookie since it's the source of truth
 const handleI18nRouting = createMiddleware(routing);
 
+function matchesLearnMarkdownPath(path: string) {
+  const pathWithoutExtension = path.endsWith(".md") ? path.slice(0, -3) : path;
+
+  return (
+    pathWithoutExtension === "/learn" ||
+    pathWithoutExtension.startsWith("/learn/")
+  );
+}
+
+function rewriteToLearnMarkdownApi(req: NextRequest, segments: string[]) {
+  const url = req.nextUrl.clone();
+  url.pathname = `/api/markdown/${segments.join("/")}`;
+  return NextResponse.rewrite(url);
+}
+
 export function isProxiedPath(normalizedPathname: string) {
   return (
     normalizedPathname.startsWith("/accelerate") ||
@@ -16,7 +31,6 @@ export function isProxiedPath(normalizedPathname: string) {
     normalizedPathname.startsWith("/developers/cookbook") ||
     normalizedPathname.startsWith("/developers/bootcamp") ||
     normalizedPathname.startsWith("/docs") ||
-    normalizedPathname.startsWith("/learn") ||
     (normalizedPathname.startsWith("/news") &&
       !normalizedPathname.startsWith("/newsletter")) ||
     normalizedPathname.startsWith("/changelog") ||
@@ -82,6 +96,34 @@ export default async function middleware(req: NextRequest) {
     );
   }
 
+  const hasLocalePrefix = locales.includes(pathSegments[0]);
+  const normalizedSegments = hasLocalePrefix
+    ? pathSegments.slice(1)
+    : pathSegments;
+  const normalizedPath = `/${normalizedSegments.join("/")}`;
+
+  // Serve Learn pages as raw markdown when requested with the markdown
+  // extension or through content negotiation.
+  const acceptHeader = req.headers.get("accept") || "";
+  const wantsMarkdown = acceptHeader.includes("text/markdown");
+
+  if (
+    wantsMarkdown &&
+    !normalizedPath.endsWith(".md") &&
+    matchesLearnMarkdownPath(normalizedPath)
+  ) {
+    return rewriteToLearnMarkdownApi(req, normalizedSegments);
+  }
+
+  if (
+    normalizedPath.endsWith(".md") &&
+    matchesLearnMarkdownPath(normalizedPath)
+  ) {
+    const segments = [...normalizedSegments];
+    segments[segments.length - 1] = segments[segments.length - 1].slice(0, -3);
+    return rewriteToLearnMarkdownApi(req, segments);
+  }
+
   const localeParam = req.nextUrl?.searchParams?.get("locale");
   if (localeParam && !locales.includes(localeParam)) {
     // An invalid locale search param means that the pages router was trying
@@ -103,7 +145,9 @@ export const config = {
   matcher: [
     "/SKILL.md",
     "/skill.md",
-    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|changelog|docs|learn|news(?!letter)|reports|podcasts|upgrade|upgrades|media-assets|templates-assets|.*\\..*).*)",
+    "/learn/:path*.md",
+    "/:locale/learn/:path*.md",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|changelog|docs|news(?!letter)|reports|podcasts|upgrade|upgrades|media-assets|templates-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

@@ -17,7 +17,6 @@ const MARKDOWN_PREFIXES = [
   "/docs",
   "/developers/cookbook",
   "/developers/bootcamp",
-  "/learn",
 ] as const;
 const MARKDOWN_API_PREFIX = "/api/markdown";
 const SOLANA_SITE_ORIGIN = "https://solana.com";

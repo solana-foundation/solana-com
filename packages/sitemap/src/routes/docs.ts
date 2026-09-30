@@ -12,6 +12,17 @@ import {
 } from "../utils";
 
 const docsContentRoot = path.join(repoRoot, "apps", "docs", "content");
+const learnContentRoot = path.join(repoRoot, "apps", "web", "content", "learn");
+
+const pokerGuideChapterRoutes = [
+  "/poker-players-guide-to-crypto/why-poker-players-make-natural-traders",
+  "/poker-players-guide-to-crypto/getting-ready-to-trade-crypto",
+  "/poker-players-guide-to-crypto/spot-trading-and-perpetual-futures",
+  "/poker-players-guide-to-crypto/trading-like-a-poker-player",
+  "/poker-players-guide-to-crypto/choosing-a-crypto-trading-venue",
+  "/poker-players-guide-to-crypto/keeping-your-crypto-secure",
+  "/poker-players-guide-to-crypto/your-next-trading-steps",
+];
 
 function toRoutePath(baseRoute: string, relativePath: string) {
   const withoutExtension = relativePath.replace(/\.mdx$/, "");
@@ -92,6 +103,12 @@ export const docsRoutes: RouteGenerator = () => {
         changeFrequency: "weekly",
         priority: 0.8,
       }),
+      ...pokerGuideChapterRoutes.flatMap((routePath) =>
+        createLocalizedEntries(routePath, {
+          changeFrequency: "weekly",
+          priority: 0.8,
+        }),
+      ),
       ...createLocalizedEntries("/developers/cookbook", {
         changeFrequency: "weekly",
         priority: 0.8,
@@ -112,10 +129,7 @@ export const docsRoutes: RouteGenerator = () => {
         path.join(docsContentRoot, "docs"),
         "/docs",
       ),
-      ...getLocalizedContentEntries(
-        path.join(docsContentRoot, "learn"),
-        "/learn",
-      ),
+      ...getLocalizedContentEntries(learnContentRoot, "/learn"),
       ...getDefaultLocaleContentEntries(
         path.join(docsContentRoot, "cookbook"),
         "/developers/cookbook",
