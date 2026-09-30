@@ -17,14 +17,12 @@ export function allow(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
   if (buckets.size >= MAX_BUCKETS) {
     for (const [k, b] of buckets) if (now >= b.resetAt) buckets.delete(k);
-    // Still full after expiry sweep: a flood of unique keys. Evict oldest.
-    for (const k of buckets.keys()) {
-      if (buckets.size < MAX_BUCKETS) break;
-      buckets.delete(k);
-    }
   }
   const b = buckets.get(key);
   if (!b || now >= b.resetAt) {
+    // Deny new clients when full. Evicting a live bucket would let a burst of
+    // distinct IPs reset an aggregate spending or RPC limit mid-window.
+    if (!b && buckets.size >= MAX_BUCKETS) return false;
     buckets.set(key, { count: 1, resetAt: now + windowMs });
     return true;
   }

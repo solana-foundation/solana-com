@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { address, type KeyPairSigner } from "@solana/kit";
+import { TOKEN_PROGRAM_ADDRESS } from "@solana-program/token";
 import {
   ASSET_TOKEN,
   CASH_TOKEN,
@@ -11,11 +12,16 @@ import {
 import {
   createDvp,
   fundLeg,
+  cancel,
+  readTradeState,
   setSponsor,
   settle,
   type TradeTerms,
 } from "@/lib/delivery-vs-payment/solana/dvp";
-import type { DvpAddresses } from "@/lib/delivery-vs-payment/solana/pdas";
+import {
+  deriveDvpAddresses,
+  type DvpAddresses,
+} from "@/lib/delivery-vs-payment/solana/pdas";
 import {
   loadOrCreateSeeds,
   resetSeeds,
@@ -29,6 +35,7 @@ import {
   type StageState,
 } from "./demo-state";
 import { DvpDashboard } from "./dvp-dashboard";
+import { clearPendingRun, loadPendingRun, savePendingRun } from "./pending-run";
 
 const wait = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -41,6 +48,7 @@ export function DvpDemo() {
   const [finished, setFinished] = useState(false);
   const [replaying, setReplaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasPendingRun, setHasPendingRun] = useState(false);
   const [roles, setRoles] = useState<Record<RoleKey, string> | null>(null);
   const [mints, setMints] = useState<{ asset: string; cash: string } | null>(
     null,
@@ -48,6 +56,8 @@ export function DvpDemo() {
   const [dvpAddresses, setDvpAddresses] = useState<DvpAddresses | null>(null);
   const [terms, setTerms] = useState<TradeTerms | null>(null);
   const completedRun = useRef<CompletedRun | null>(null);
+
+  useEffect(() => setHasPendingRun(loadPendingRun() !== null), []);
 
   const updateStage = (key: StageKey, next: StageState) =>
     setStages((current) => ({ ...current, [key]: next }));
@@ -110,10 +120,136 @@ export function DvpDemo() {
     }
   }
 
+  async function resumeDemo(snapshot: CompletedRun) {
+    setRunning(true);
+    setError(null);
+    setStages(snapshot.stages);
+    setRoles(snapshot.roles);
+    setMints(snapshot.mints);
+    setTerms(snapshot.terms);
+    setDvpAddresses(snapshot.dvpAddresses);
+
+    let activeStage: StageKey = "trade";
+    try {
+      const signers = await signersFromSeeds(loadOrCreateSeeds());
+      for (const role of ["maker", "partyA", "partyB", "authority"] as const) {
+        if (signers[role].address !== snapshot.roles[role])
+          throw new Error("Saved role keys do not match this trade");
+      }
+      const configResponse = await fetch("/api/dvp-demo/config", {
+        cache: "no-store",
+      });
+      const config = await configResponse.json();
+      if (!configResponse.ok)
+        throw new Error(config.error ?? "Demo is not configured");
+      setSponsor(config.treasury);
+      const rpc = makeRpc();
+      let state = await readTradeState(rpc, snapshot.dvpAddresses);
+      const advance = (stage: StageKey, signatures?: string[]) => {
+        const next = { status: "complete" as const, signatures };
+        snapshot.stages = { ...snapshot.stages, [stage]: next };
+        setStages(snapshot.stages);
+        savePendingRun(snapshot);
+      };
+
+      if (!state.open && snapshot.stages.trade.status !== "complete") {
+        if (
+          BigInt(Math.floor(Date.now() / 1000)) >=
+          snapshot.terms.expiryTimestamp
+        ) {
+          clearPendingRun();
+          setHasPendingRun(false);
+          throw new Error(
+            "The trade terms expired before creation. Start a new demo.",
+          );
+        }
+        activeStage = "trade";
+        updateStage("trade", { status: "running" });
+        const created = await createDvp(rpc, snapshot.terms);
+        advance("trade", [created.signature]);
+        state = await readTradeState(rpc, snapshot.dvpAddresses);
+      }
+
+      if (!state.open) {
+        // A transaction can settle successfully and still time out while the
+        // browser waits for confirmation. A closed trade needs no role keys.
+        advance("settle");
+      } else if (
+        BigInt(Math.floor(Date.now() / 1000)) >= snapshot.terms.expiryTimestamp
+      ) {
+        activeStage = "settle";
+        await cancel(
+          rpc,
+          signers.authority,
+          snapshot.terms,
+          snapshot.dvpAddresses,
+        );
+        clearPendingRun();
+        setHasPendingRun(false);
+        throw new Error(
+          "The expired trade was cancelled and its escrow refunded. Start a new demo.",
+        );
+      } else {
+        advance("trade", snapshot.stages.trade.signatures);
+        if (state.escrowABalance < snapshot.terms.amountA) {
+          activeStage = "asset";
+          updateStage("asset", { status: "running" });
+          const signature = await fundLeg(rpc, signers.partyA, {
+            mint: snapshot.terms.mintA,
+            decimals: snapshot.terms.decimalsA,
+            escrow: snapshot.dvpAddresses.escrowA,
+            amount: snapshot.terms.amountA - state.escrowABalance,
+          });
+          advance("asset", [signature]);
+        } else advance("asset", snapshot.stages.asset.signatures);
+
+        if (state.escrowBBalance < snapshot.terms.amountB) {
+          activeStage = "cash";
+          updateStage("cash", { status: "running" });
+          const signature = await fundLeg(rpc, signers.partyB, {
+            mint: snapshot.terms.mintB,
+            decimals: snapshot.terms.decimalsB,
+            escrow: snapshot.dvpAddresses.escrowB,
+            amount: snapshot.terms.amountB - state.escrowBBalance,
+          });
+          advance("cash", [signature]);
+        } else advance("cash", snapshot.stages.cash.signatures);
+
+        activeStage = "settle";
+        updateStage("settle", { status: "running" });
+        const signature = await settle(
+          rpc,
+          signers.authority,
+          snapshot.terms,
+          snapshot.dvpAddresses,
+        );
+        advance("settle", [signature]);
+      }
+      clearPendingRun();
+      setHasPendingRun(false);
+      completedRun.current = snapshot;
+      setFinished(true);
+    } catch (caught) {
+      const message =
+        caught instanceof Error
+          ? caught.message
+          : "The demo stopped unexpectedly";
+      setError(message);
+      updateStage(activeStage, { status: "error", error: message });
+    } finally {
+      setRunning(false);
+    }
+  }
+
   async function runDemo() {
     if (running) return;
     if (finished && completedRun.current) {
       await replayDemo(completedRun.current);
+      return;
+    }
+    const pending = loadPendingRun();
+    if (pending) {
+      await resumeDemo(pending);
       return;
     }
 
@@ -186,10 +322,36 @@ export function DvpDemo() {
       };
       setTerms(tradeTerms);
 
+      const plannedAddresses = await deriveDvpAddresses({
+        ...tradeTerms,
+        tokenProgram: TOKEN_PROGRAM_ADDRESS,
+      });
+      const checkpoint: CompletedRun = {
+        stages: {
+          ...initialStages(),
+          parties: { status: "complete" },
+          assets: { status: "complete", signatures: funding.setupSignatures },
+        },
+        roles: roleAddresses,
+        mints: funding.mints,
+        dvpAddresses: plannedAddresses,
+        terms: tradeTerms,
+      };
+      savePendingRun(checkpoint);
+      setHasPendingRun(true);
+      const checkpointStage = (stage: StageKey, signature: string) => {
+        checkpoint.stages = {
+          ...checkpoint.stages,
+          [stage]: { status: "complete", signatures: [signature] },
+        };
+        savePendingRun(checkpoint);
+      };
+
       activeStage = "trade";
       updateStage("trade", { status: "running" });
       const created = await createDvp(rpc, tradeTerms);
       setDvpAddresses(created.addresses);
+      checkpointStage("trade", created.signature);
       updateStage("trade", {
         status: "complete",
         signatures: [created.signature],
@@ -207,6 +369,7 @@ export function DvpDemo() {
           amount: tradeTerms.amountA,
         },
       );
+      checkpointStage("asset", assetSignature);
       updateStage("asset", {
         status: "complete",
         signatures: [assetSignature],
@@ -224,6 +387,7 @@ export function DvpDemo() {
           amount: tradeTerms.amountB,
         },
       );
+      checkpointStage("cash", cashSignature);
       updateStage("cash", {
         status: "complete",
         signatures: [cashSignature],
@@ -237,6 +401,9 @@ export function DvpDemo() {
         tradeTerms,
         created.addresses,
       );
+      checkpointStage("settle", settlementSignature);
+      clearPendingRun();
+      setHasPendingRun(false);
       updateStage("settle", {
         status: "complete",
         signatures: [settlementSignature],
@@ -281,6 +448,7 @@ export function DvpDemo() {
       finished={finished}
       replaying={replaying}
       error={error}
+      hasPendingRun={hasPendingRun}
       roles={roles}
       mints={mints}
       dvpAddresses={dvpAddresses}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "@workspace/i18n/client";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
@@ -129,6 +130,7 @@ export function DeliveryVsPaymentPage({
   relatedStories: RelatedStory[];
 }) {
   const [stage, setStage] = useState(0);
+  const locale = useLocale();
   const [run, setRun] = useState(0);
   const virtualDemoRef = useRef<HTMLDivElement>(null);
 
@@ -464,7 +466,7 @@ export function DeliveryVsPaymentPage({
                 transaction primitives.
               </p>
               <Link
-                href="/docs/tokenization/dvp"
+                href={`${locale === "en" ? "" : `/${locale}`}/docs/tokenization/dvp`}
                 className="mt-7 inline-flex items-center gap-2 font-brand-mono text-xs uppercase tracking-[0.1em] text-white transition-colors hover:text-nd-highlight-green focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
               >
                 Read the DvP guide

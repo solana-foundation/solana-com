@@ -149,7 +149,7 @@ const RELAY_PROGRAMS = new Set<string>([
  * Token instruction — it is the mint authority, so a crafted MintTo or
  * Transfer would otherwise spend with its signature.
  */
-function assertRelayable(tx: Transaction, treasuryAddr: string): void {
+export function assertRelayable(tx: Transaction, treasuryAddr: string): void {
   const msg = getCompiledTransactionMessageDecoder().decode(tx.messageBytes);
   if (msg.version === 1) {
     throw new Error("Relay refused: transaction version is not supported");

@@ -497,6 +497,7 @@ export function DvpDashboard({
   finished,
   replaying,
   error,
+  hasPendingRun,
   roles,
   mints,
   dvpAddresses,
@@ -508,6 +509,7 @@ export function DvpDashboard({
   finished: boolean;
   replaying: boolean;
   error: string | null;
+  hasPendingRun: boolean;
   roles: Record<RoleKey, string> | null;
   mints: { asset: string; cash: string } | null;
   dvpAddresses: DvpAddresses | null;
@@ -624,9 +626,11 @@ export function DvpDashboard({
                   : "Settlement in progress…"
                 : finished
                   ? "Replay this settlement"
-                  : error
-                    ? "Try a fresh demo"
-                    : "Run the devnet demo"}
+                  : hasPendingRun
+                    ? "Continue interrupted trade"
+                    : error
+                      ? "Start a new demo"
+                      : "Run the devnet demo"}
               <span className="ml-3 grid size-8 place-items-center rounded-full bg-black text-white">
                 {running ? (
                   <span
@@ -852,8 +856,10 @@ export function DvpDashboard({
               {error}
             </p>
             <p className="mb-0 mt-2 text-xs text-nd-mid-em-text">
-              Only test tokens are involved. Use “Try a fresh demo” to start
-              with new accounts.
+              Only test tokens are involved.{" "}
+              {hasPendingRun
+                ? "Continue this trade with the saved demo identities."
+                : "The trade is closed; start a new demo."}
             </p>
           </div>
         )}
