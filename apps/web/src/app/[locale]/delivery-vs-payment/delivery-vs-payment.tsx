@@ -465,13 +465,13 @@ export function DeliveryVsPaymentPage({
                 Solana using token extensions, delegated authority, and standard
                 transaction primitives.
               </p>
-              <Link
+              <a
                 href={`${locale === "en" ? "" : `/${locale}`}/docs/tokenization/dvp`}
                 className="mt-7 inline-flex items-center gap-2 font-brand-mono text-xs uppercase tracking-[0.1em] text-white transition-colors hover:text-nd-highlight-green focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
               >
                 Read the DvP guide
                 <ArrowUpRight className="!size-4" aria-hidden="true" />
-              </Link>
+              </a>
             </div>
           </div>
         </Container>
