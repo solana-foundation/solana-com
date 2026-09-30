@@ -1,19 +1,43 @@
 import {
-  createSolanaRpc,
+  createSolanaRpcFromTransport,
   type Rpc,
+  type RpcTransport,
   type SolanaRpcApi,
   type Signature,
 } from "@solana/kit";
+import {
+  parseJsonWithBigInts,
+  stringifyJsonWithBigInts,
+  type RpcResponse,
+} from "@solana/rpc-spec-types";
 
 /**
- * Browser RPC. Every call is POSTed to our same-origin /api/rpc proxy, which
- * forwards to the keyed devnet endpoint server-side (the RPC key never reaches
- * the client). Confirmation is by polling — no websocket subscription needed.
+ * Browser RPC. Read calls use a same-origin GET proxy because Vercel's preview
+ * firewall denies POST requests to /api/dvp-demo/rpc. The keyed devnet URL
+ * stays on the server. Confirmation is by polling; no websocket is needed.
  */
 export function makeRpc(): Rpc<SolanaRpcApi> {
   const origin =
     typeof location !== "undefined" ? location.origin : "http://localhost";
-  return createSolanaRpc(new URL("/api/dvp-demo/rpc", origin).href);
+  const transport: RpcTransport = async <TResponse>({
+    payload,
+    signal,
+  }: Parameters<RpcTransport>[0]) => {
+    const url = new URL("/api/dvp-demo/rpc", origin);
+    url.searchParams.set("request", stringifyJsonWithBigInts(payload));
+    const response = await fetch(url, {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Demo RPC request failed (${response.status})`);
+    }
+    return parseJsonWithBigInts(
+      await response.text(),
+    ) as RpcResponse<TResponse>;
+  };
+  return createSolanaRpcFromTransport(transport);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -24,7 +24,7 @@ function rpcError(id: unknown, code: number, message: string, status: number) {
   );
 }
 
-export async function POST(request: Request) {
+async function handleRpc(request: Request, body: string) {
   const rpcUrl = process.env.DVP_DEMO_RPC_URL;
   if (!rpcUrl) {
     return rpcError(null, -32000, "Demo devnet RPC is not configured", 503);
@@ -36,7 +36,6 @@ export async function POST(request: Request) {
     return rpcError(null, -32005, "Too many requests; slow down", 429);
   }
 
-  const body = await request.text();
   if (body.length > MAX_BODY_BYTES) {
     return rpcError(null, -32600, "Request body too large", 413);
   }
@@ -68,7 +67,10 @@ export async function POST(request: Request) {
     if (response.status !== 429 && response.status < 500) {
       return new Response(await response.text(), {
         status: response.status,
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "cache-control": "no-store",
+        },
       });
     }
     lastResponse = response;
@@ -77,6 +79,19 @@ export async function POST(request: Request) {
 
   return new Response(await lastResponse?.text(), {
     status: lastResponse?.status ?? 502,
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+    },
   });
+}
+
+export async function GET(request: Request) {
+  const body = new URL(request.url).searchParams.get("request");
+  if (!body) return rpcError(null, -32600, "Missing RPC request", 400);
+  return handleRpc(request, body);
+}
+
+export async function POST(request: Request) {
+  return handleRpc(request, await request.text());
 }
