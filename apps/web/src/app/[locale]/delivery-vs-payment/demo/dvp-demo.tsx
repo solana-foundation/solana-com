@@ -14,6 +14,7 @@ import {
   fundLeg,
   cancel,
   readTradeState,
+  wasTradeSettled,
   setSponsor,
   settle,
   type TradeTerms,
@@ -49,6 +50,7 @@ export function DvpDemo() {
   const [replaying, setReplaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasPendingRun, setHasPendingRun] = useState(false);
+  const [recoveryUnavailable, setRecoveryUnavailable] = useState(false);
   const [roles, setRoles] = useState<Record<RoleKey, string> | null>(null);
   const [mints, setMints] = useState<{ asset: string; cash: string } | null>(
     null,
@@ -130,11 +132,34 @@ export function DvpDemo() {
     setDvpAddresses(snapshot.dvpAddresses);
 
     let activeStage: StageKey = "trade";
+    const closeRun = (message: string): never => {
+      clearPendingRun();
+      setHasPendingRun(false);
+      setStages(initialStages());
+      setRoles(null);
+      setMints(null);
+      setDvpAddresses(null);
+      setTerms(null);
+      throw new Error(message);
+    };
     try {
-      const signers = await signersFromSeeds(loadOrCreateSeeds());
-      for (const role of ["maker", "partyA", "partyB", "authority"] as const) {
-        if (signers[role].address !== snapshot.roles[role])
-          throw new Error("Saved role keys do not match this trade");
+      let signers: Awaited<ReturnType<typeof signersFromSeeds>>;
+      try {
+        signers = await signersFromSeeds(loadOrCreateSeeds());
+        for (const role of [
+          "maker",
+          "partyA",
+          "partyB",
+          "authority",
+        ] as const) {
+          if (signers[role].address !== snapshot.roles[role])
+            throw new Error("Saved role keys do not match this trade");
+        }
+      } catch {
+        setRecoveryUnavailable(true);
+        throw new Error(
+          "Saved role keys are unavailable. Record the trade address below before starting a new demo; this trade cannot be recovered without its keys.",
+        );
       }
       const configResponse = await fetch("/api/dvp-demo/config", {
         cache: "no-store",
@@ -157,9 +182,7 @@ export function DvpDemo() {
           BigInt(Math.floor(Date.now() / 1000)) >=
           snapshot.terms.expiryTimestamp
         ) {
-          clearPendingRun();
-          setHasPendingRun(false);
-          throw new Error(
+          closeRun(
             "The trade terms expired before creation. Start a new demo.",
           );
         }
@@ -171,8 +194,13 @@ export function DvpDemo() {
       }
 
       if (!state.open) {
-        // A transaction can settle successfully and still time out while the
-        // browser waits for confirmation. A closed trade needs no role keys.
+        // Settlement and cancellation both close the trade account. Check the
+        // two unique demo-token destinations before calling it settled.
+        if (!(await wasTradeSettled(rpc, snapshot.terms))) {
+          closeRun(
+            "This trade closed without both settlement transfers. Check its transaction history in Explorer before starting a new demo.",
+          );
+        }
         advance("settle");
       } else if (
         BigInt(Math.floor(Date.now() / 1000)) >= snapshot.terms.expiryTimestamp
@@ -184,9 +212,7 @@ export function DvpDemo() {
           snapshot.terms,
           snapshot.dvpAddresses,
         );
-        clearPendingRun();
-        setHasPendingRun(false);
-        throw new Error(
+        closeRun(
           "The expired trade was cancelled and its escrow refunded. Start a new demo.",
         );
       } else {
@@ -247,7 +273,13 @@ export function DvpDemo() {
       await replayDemo(completedRun.current);
       return;
     }
-    const pending = loadPendingRun();
+    let pending = loadPendingRun();
+    if (pending && recoveryUnavailable) {
+      clearPendingRun();
+      setHasPendingRun(false);
+      setRecoveryUnavailable(false);
+      pending = null;
+    }
     if (pending) {
       await resumeDemo(pending);
       return;
@@ -255,6 +287,7 @@ export function DvpDemo() {
 
     completedRun.current = null;
     setReplaying(false);
+    setRecoveryUnavailable(false);
     setRunning(true);
     setFinished(false);
     setError(null);
@@ -449,6 +482,7 @@ export function DvpDemo() {
       replaying={replaying}
       error={error}
       hasPendingRun={hasPendingRun}
+      recoveryUnavailable={recoveryUnavailable}
       roles={roles}
       mints={mints}
       dvpAddresses={dvpAddresses}

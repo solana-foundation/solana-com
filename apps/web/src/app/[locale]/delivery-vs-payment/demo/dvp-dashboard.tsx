@@ -498,6 +498,7 @@ export function DvpDashboard({
   replaying,
   error,
   hasPendingRun,
+  recoveryUnavailable,
   roles,
   mints,
   dvpAddresses,
@@ -510,6 +511,7 @@ export function DvpDashboard({
   replaying: boolean;
   error: string | null;
   hasPendingRun: boolean;
+  recoveryUnavailable: boolean;
   roles: Record<RoleKey, string> | null;
   mints: { asset: string; cash: string } | null;
   dvpAddresses: DvpAddresses | null;
@@ -626,11 +628,13 @@ export function DvpDashboard({
                   : "Settlement in progress…"
                 : finished
                   ? "Replay this settlement"
-                  : hasPendingRun
-                    ? "Continue interrupted trade"
-                    : error
-                      ? "Start a new demo"
-                      : "Run the devnet demo"}
+                  : recoveryUnavailable
+                    ? "Start a new demo"
+                    : hasPendingRun
+                      ? "Continue interrupted trade"
+                      : error
+                        ? "Start a new demo"
+                        : "Run the devnet demo"}
               <span className="ml-3 grid size-8 place-items-center rounded-full bg-black text-white">
                 {running ? (
                   <span
@@ -857,10 +861,20 @@ export function DvpDashboard({
             </p>
             <p className="mb-0 mt-2 text-xs text-nd-mid-em-text">
               Only test tokens are involved.{" "}
-              {hasPendingRun
-                ? "Continue this trade with the saved demo identities."
-                : "The trade is closed; start a new demo."}
+              {recoveryUnavailable
+                ? "The saved identities cannot authorize this trade. You can start a new demo, but this trade may remain open."
+                : hasPendingRun
+                  ? "Continue this trade with the saved demo identities."
+                  : "The trade is closed; start a new demo."}
             </p>
+            {recoveryUnavailable && dvpAddresses && (
+              <div className="mt-3">
+                <ExplorerLink
+                  value={dvpAddresses.swapDvp}
+                  label="Interrupted trade"
+                />
+              </div>
+            )}
           </div>
         )}
 

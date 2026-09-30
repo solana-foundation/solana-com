@@ -308,16 +308,20 @@ export interface TradeState {
   escrowBBalance: bigint;
 }
 
-async function tokenBalance(
+async function tokenBalanceIfPresent(
   rpc: Rpc<SolanaRpcApi>,
   account: Address,
-): Promise<bigint> {
-  try {
-    const { value } = await rpc.getTokenAccountBalance(account).send();
-    return BigInt(value.amount);
-  } catch {
-    return 0n;
-  }
+): Promise<bigint | null> {
+  const info = await rpc
+    .getAccountInfo(account, { encoding: "base64", commitment: "confirmed" })
+    .send();
+  if (!info.value) return null;
+  // A missing account means an unfunded or closed escrow. A failed balance
+  // read on an existing account is a transient RPC error, not zero funds.
+  const { value } = await rpc
+    .getTokenAccountBalance(account, { commitment: "confirmed" })
+    .send();
+  return BigInt(value.amount);
 }
 
 export async function readTradeState(
@@ -326,8 +330,32 @@ export async function readTradeState(
 ): Promise<TradeState> {
   const [maybe, escrowABalance, escrowBBalance] = await Promise.all([
     fetchMaybeSwapDvp(rpc, addresses.swapDvp),
-    tokenBalance(rpc, addresses.escrowA),
-    tokenBalance(rpc, addresses.escrowB),
+    tokenBalanceIfPresent(rpc, addresses.escrowA),
+    tokenBalanceIfPresent(rpc, addresses.escrowB),
   ]);
-  return { open: maybe.exists, escrowABalance, escrowBBalance };
+  if (maybe.exists && (escrowABalance === null || escrowBBalance === null)) {
+    throw new Error("Trade escrow accounts are not available yet");
+  }
+  return {
+    open: maybe.exists,
+    escrowABalance: escrowABalance ?? 0n,
+    escrowBBalance: escrowBBalance ?? 0n,
+  };
+}
+
+/** A closed trade settled only when both counterparties received their leg. */
+export async function wasTradeSettled(
+  rpc: Rpc<SolanaRpcApi>,
+  terms: TradeTerms,
+): Promise<boolean> {
+  const [sellerCash, buyerAsset] = await Promise.all([
+    tokenBalanceIfPresent(rpc, await ata(terms.userA, terms.mintB)),
+    tokenBalanceIfPresent(rpc, await ata(terms.userB, terms.mintA)),
+  ]);
+  return (
+    sellerCash !== null &&
+    buyerAsset !== null &&
+    sellerCash >= terms.amountB &&
+    buyerAsset >= terms.amountA
+  );
 }
