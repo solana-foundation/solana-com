@@ -41,12 +41,10 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
 } from "@solana-program/token";
 import { getCreateAccountInstruction } from "@solana-program/system";
-import { ASSET_TOKEN, CASH_TOKEN, PROGRAM_ID } from "../config";
+import { ASSET_TOKEN, CASH_TOKEN, DEMO_BALANCES, PROGRAM_ID } from "../config";
 import { resilientRpc } from "../solana/resilientRpc";
 
 const TOKEN = TOKEN_PROGRAM_ADDRESS;
-const START_ASSET = 250_00n; // 250 TBILL
-const START_CASH = 25_000_000_000n; // 25,000 dUSD
 
 let _secret: Uint8Array | null = null;
 let _treasury: Promise<KeyPairSigner> | null = null;
@@ -310,14 +308,14 @@ export async function fundRoles(addresses: {
       t,
       address(addresses.partyA),
       address(mints.asset),
-      START_ASSET,
+      DEMO_BALANCES.asset,
     )),
     ...(await topUpToken(
       rpc,
       t,
       address(addresses.partyB),
       address(mints.cash),
-      START_CASH,
+      DEMO_BALANCES.cash,
     )),
   ];
   const setupSignature = await send(rpc, t, tokenIxs);

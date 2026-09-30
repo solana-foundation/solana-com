@@ -49,6 +49,12 @@ export const PRESET = {
   expirySeconds: 60 * 60,
 };
 
+/** Starting token balances for each fresh demo run, in base units. */
+export const DEMO_BALANCES = {
+  asset: 250_00n,
+  cash: 25_000_000_000n,
+};
+
 export type RoleKey = "maker" | "partyA" | "partyB" | "authority";
 
 export interface RoleMeta {
