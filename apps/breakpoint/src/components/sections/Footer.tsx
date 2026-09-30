@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { Copyright } from "@boxicons/react/Copyright";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
@@ -153,8 +154,8 @@ function useCountdown(target: number): CountdownParts {
   return parts;
 }
 
-function pad(value: number, width = 2): string {
-  return value.toString().padStart(width, "0");
+function pad(value: number): string {
+  return value.toString().padStart(2, "0");
 }
 
 function SecondaryLink({ href, label }: { href: string; label: string }) {
@@ -260,8 +261,13 @@ export default function Footer({
             ))}
           </div>
 
-          <p className="type-button whitespace-nowrap text-neutral-900">
-            {t("copyright")}
+          <p className="type-button inline-flex items-center gap-1 whitespace-nowrap text-neutral-900">
+            <Copyright
+              aria-hidden="true"
+              pack="basic"
+              className="size-[14px] shrink-0"
+            />
+            {t("copyright").replace(/^©\s*/, "")}
           </p>
 
           <div className="flex flex-col items-start gap-l md:flex-row md:items-center md:gap-l">
@@ -279,7 +285,7 @@ export default function Footer({
 
       <div className="w-full bg-[var(--footer-background-color)] px-[16px] pt-l md:px-[32px] md:py-l">
         <div className="grid grid-cols-2 gap-x-[24px] gap-y-[24px] md:flex md:items-center md:justify-between md:gap-0">
-          <CounterCell value={pad(days, 3)} label={t("countdown.days")} />
+          <CounterCell value={pad(days)} label={t("countdown.days")} />
           <CounterCell value={pad(hours)} label={t("countdown.hours")} />
           <CounterCell value={pad(minutes)} label={t("countdown.minutes")} />
           <CounterCell value={pad(seconds)} label={t("countdown.seconds")} />
