@@ -6,24 +6,17 @@ import {
   PRESET,
   PROGRAM_ID,
 } from "@/lib/delivery-vs-payment/config";
-import {
-  mintAddresses,
-  treasuryAddress,
-} from "@/lib/delivery-vs-payment/server/solana";
+import { treasuryAddress } from "@/lib/delivery-vs-payment/server/solana";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    const [mints, treasury] = await Promise.all([
-      mintAddresses(),
-      treasuryAddress(),
-    ]);
+    const treasury = await treasuryAddress();
 
     return NextResponse.json({
       programId: PROGRAM_ID,
       cluster: CLUSTER,
-      mints,
       treasury,
       tokens: { asset: ASSET_TOKEN, cash: CASH_TOKEN },
       presets: {

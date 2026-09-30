@@ -80,27 +80,11 @@ export function serverRpc(): Rpc<SolanaRpcApi> {
   return resilientRpc(process.env.SOLANA_RPC_URL);
 }
 
-async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", data));
-}
-
-/** Deterministic per-treasury mint keypair, so mint addresses are stable without a DB. */
-async function mintSigner(label: string): Promise<KeyPairSigner> {
-  const tag = new TextEncoder().encode(":dvp-demo-mint:" + label);
-  const seed = await sha256(new Uint8Array([...secretBytes(), ...tag]));
-  return createKeyPairSignerFromPrivateKeyBytes(seed);
-}
-
-/** Derived mint addresses (no on-chain call). */
-export async function mintAddresses(): Promise<{
-  asset: string;
-  cash: string;
-}> {
-  const [asset, cash] = await Promise.all([
-    mintSigner("asset"),
-    mintSigner("cash"),
-  ]);
-  return { asset: asset.address, cash: cash.address };
+/** Create an ephemeral mint signer for one demo run. */
+function mintSigner(): Promise<KeyPairSigner> {
+  return createKeyPairSignerFromPrivateKeyBytes(
+    crypto.getRandomValues(new Uint8Array(32)),
+  );
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -255,10 +239,7 @@ async function ensureMint(
 export async function ensureMints(
   rpc: Rpc<SolanaRpcApi>,
 ): Promise<{ asset: string; cash: string; signatures: string[] }> {
-  const [asset, cash] = await Promise.all([
-    mintSigner("asset"),
-    mintSigner("cash"),
-  ]);
+  const [asset, cash] = await Promise.all([mintSigner(), mintSigner()]);
   const signatures = (
     await Promise.all([
       ensureMint(rpc, asset, ASSET_TOKEN.decimals),

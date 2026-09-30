@@ -29,7 +29,6 @@ import {
   signersFromSeeds,
 } from "@/lib/delivery-vs-payment/solana/roles";
 import { makeRpc } from "@/lib/delivery-vs-payment/solana/rpc";
-import styles from "./dvp-demo.module.css";
 
 type StageKey = "parties" | "assets" | "trade" | "asset" | "cash" | "settle";
 type StageStatus = "waiting" | "running" | "complete" | "error";
@@ -115,7 +114,7 @@ function ExplorerLink({
       }
       target="_blank"
       rel="noopener noreferrer"
-      className={styles.explorerLink}
+      className="inline-flex min-w-0 items-center gap-1 font-brand-mono text-[11px] text-[#f6f4f8] transition-colors hover:text-nd-highlight-green motion-reduce:transition-none"
       title={value}
     >
       {shortAddress(value)}
@@ -299,30 +298,41 @@ export function DvpDemo() {
   }
 
   return (
-    <main className={styles.page}>
+    <main className="min-h-screen bg-[#050506] py-8 pb-24 text-[#f6f4f8] max-sm:py-[22px] max-sm:pb-16">
       <Container>
-        <div className={styles.utilityBar}>
-          <Link href="/delivery-vs-payment" className={styles.backLink}>
+        <div className="mx-auto mb-6 flex max-w-[1080px] items-center justify-between gap-5 max-sm:mb-[18px]">
+          <Link
+            href="/delivery-vs-payment"
+            className="inline-flex items-center gap-2 text-[13px] text-[#a5a3ad] transition-colors hover:text-white motion-reduce:transition-none"
+          >
             <ArrowLeft className="!size-4" aria-hidden="true" />
             Delivery versus Payment
           </Link>
-          <div className={styles.networkBadge}>
-            <span className={styles.liveDot} /> Devnet
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] px-[11px] py-[7px] font-brand-mono text-[10px] uppercase tracking-[0.1em] text-[#a5a3ad]">
+            <span
+              className="size-[7px] rounded-full bg-nd-highlight-green shadow-[0_0_0_4px_rgba(85,233,171,0.1)]"
+              aria-hidden="true"
+            />
+            Devnet
           </div>
         </div>
 
-        <section className={styles.hero}>
-          <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>Live demo · Atomic settlement</p>
-            <h1>Delivery versus Payment, settled atomically.</h1>
-            <p className={styles.intro}>
+        <section className="mx-auto max-w-[1080px] overflow-hidden rounded-[18px] border border-white/[0.13] bg-[#0a0a0d] max-sm:rounded-[14px]">
+          <div className="max-w-[820px] px-10 pb-[54px] pt-[68px] max-sm:px-[22px] max-sm:pb-[38px] max-sm:pt-[42px]">
+            <p className="m-0 font-brand-mono text-[10px] uppercase tracking-[0.19em] text-[#74727d]">
+              Live demo · Atomic settlement
+            </p>
+            <h1 className="m-0 mt-4 max-w-[780px] font-serif text-[clamp(46px,6.2vw,76px)] font-normal leading-[0.98] tracking-[-0.045em] max-sm:text-[clamp(42px,13vw,58px)]">
+              Delivery versus Payment, settled atomically.
+            </h1>
+            <p className="m-0 mt-[18px] max-w-[650px] text-[17px] leading-[1.55] text-[#aaa8b1] max-sm:text-[15px]">
               Watch an asset and its payment cross in one Solana transaction.
               The demo uses fresh accounts and test tokens—never real funds.
             </p>
             <Button
               onClick={runDemo}
               disabled={running}
-              className={styles.startButton}
+              className="mt-[30px] h-12 rounded-full !bg-[#f6f4f8] !px-[19px] !pr-[7px] !text-[13px] !font-semibold !text-[#09090b] hover:!bg-nd-highlight-green disabled:opacity-[0.55]"
               size="lg"
             >
               {running
@@ -331,72 +341,103 @@ export function DvpDemo() {
                   ? "Run the demo again"
                   : "Run the devnet demo"}
               {!running && (
-                <span className={styles.buttonIcon}>
+                <span className="ml-2 inline-flex size-[34px] items-center justify-center rounded-full bg-[#0a0a0d] text-white">
                   <ArrowRight className="!size-4" aria-hidden="true" />
                 </span>
               )}
             </Button>
           </div>
 
-          <dl className={styles.proofStrip}>
-            <div>
-              <dd>1</dd>
-              <dt>transaction settles both legs</dt>
+          <dl className="m-0 grid grid-cols-3 border-t border-white/[0.13] max-sm:grid-cols-1">
+            <div className="min-w-0 px-[26px] pb-[25px] pt-[23px] max-sm:grid max-sm:grid-cols-[36px_1fr] max-sm:items-baseline max-sm:gap-2.5 max-sm:px-[22px] max-sm:py-[17px]">
+              <dd className="m-0 font-serif text-[28px] leading-none text-nd-highlight-green">
+                1
+              </dd>
+              <dt className="m-0 mt-2 text-[13px] leading-[1.4] text-[#8d8b96] max-sm:mt-0">
+                transaction settles both legs
+              </dt>
             </div>
-            <div>
-              <dd>0</dd>
-              <dt>counterparty risk at settlement</dt>
+            <div className="min-w-0 border-l border-white/[0.13] px-[26px] pb-[25px] pt-[23px] max-sm:grid max-sm:grid-cols-[36px_1fr] max-sm:items-baseline max-sm:gap-2.5 max-sm:border-l-0 max-sm:border-t max-sm:px-[22px] max-sm:py-[17px]">
+              <dd className="m-0 font-serif text-[28px] leading-none text-nd-highlight-green">
+                0
+              </dd>
+              <dt className="m-0 mt-2 text-[13px] leading-[1.4] text-[#8d8b96] max-sm:mt-0">
+                counterparty risk at settlement
+              </dt>
             </div>
-            <div>
-              <dd>0</dd>
-              <dt>real funds used in this demo</dt>
+            <div className="min-w-0 border-l border-white/[0.13] px-[26px] pb-[25px] pt-[23px] max-sm:grid max-sm:grid-cols-[36px_1fr] max-sm:items-baseline max-sm:gap-2.5 max-sm:border-l-0 max-sm:border-t max-sm:px-[22px] max-sm:py-[17px]">
+              <dd className="m-0 font-serif text-[28px] leading-none text-nd-highlight-green">
+                0
+              </dd>
+              <dt className="m-0 mt-2 text-[13px] leading-[1.4] text-[#8d8b96] max-sm:mt-0">
+                real funds used in this demo
+              </dt>
             </div>
           </dl>
         </section>
 
-        <section className={styles.workspace} aria-label="Demo progress">
-          <div className={styles.workspaceHeader}>
+        <section
+          className="mx-auto mt-6 max-w-[1080px] rounded-[18px] border border-white/[0.13] bg-[#0a0a0d] p-[34px_40px_40px] max-sm:rounded-[14px] max-sm:p-[28px_22px_30px]"
+          aria-label="Demo progress"
+        >
+          <div className="flex items-end justify-between gap-10 border-b border-white/[0.13] pb-7 max-sm:block">
             <div>
-              <p>Settlement flow</p>
-              <h2>Follow the trade onchain</h2>
+              <p className="m-0 font-brand-mono text-[10px] uppercase tracking-[0.19em] text-[#74727d]">
+                Settlement flow
+              </p>
+              <h2 className="m-0 mt-[7px] font-brand text-[27px] font-medium tracking-[-0.025em]">
+                Follow the trade onchain
+              </h2>
             </div>
-            <p>
+            <p className="m-0 max-w-[390px] text-[13px] leading-[1.5] text-[#85838d] max-sm:mt-3">
               Every completed step links to the corresponding transaction in
               Solana Explorer.
             </p>
           </div>
 
-          <div className={styles.workspaceGrid}>
+          <div className="grid grid-cols-[minmax(0,1fr)_330px] gap-10 pt-2 max-[900px]:grid-cols-1 max-[900px]:gap-7">
             <div>
-              <div className={styles.timeline} aria-live="polite">
+              <div aria-live="polite">
                 {STAGES.map((stage, index) => {
                   const state = stages[stage.key];
+                  const isRunning = state.status === "running";
+                  const isComplete = state.status === "complete";
+                  const isError = state.status === "error";
                   return (
                     <div
-                      className={styles.stage}
+                      className={`grid grid-cols-[44px_1fr] gap-3.5 border-b border-white/[0.11] py-[22px] opacity-[0.62] transition-opacity duration-[220ms] motion-reduce:transition-none max-sm:grid-cols-[38px_1fr] max-sm:gap-2 ${isRunning || isComplete || isError ? "opacity-100" : ""}`}
                       data-status={state.status}
                       key={stage.key}
                     >
-                      <div className={styles.stageMarker}>
-                        {state.status === "complete"
-                          ? "✓"
-                          : String(index + 1).padStart(2, "0")}
+                      <div
+                        className={`grid size-[30px] place-items-center rounded-full border border-white/[0.18] font-brand-mono text-[10px] text-[#8d8b96] ${isRunning ? "animate-pulse border-white text-white motion-reduce:animate-none" : ""} ${isComplete ? "border-nd-highlight-green bg-nd-highlight-green text-[#050506]" : ""} ${isError ? "border-nd-highlight-orange text-nd-highlight-orange" : ""}`}
+                      >
+                        {isComplete ? "✓" : String(index + 1).padStart(2, "0")}
                       </div>
-                      <div className={styles.stageBody}>
-                        <div className={styles.stageHeading}>
-                          <h2>{stage.title}</h2>
-                          <span>
+                      <div className="min-w-0">
+                        <div className="flex items-baseline justify-between gap-4 max-sm:block">
+                          <h2 className="m-0 font-brand text-[18px] font-medium tracking-[-0.015em]">
+                            {stage.title}
+                          </h2>
+                          <span
+                            className={`font-brand-mono text-[9px] uppercase tracking-[0.12em] text-[#6f6d78] max-sm:mt-1 max-sm:block ${isRunning ? "text-white" : ""} ${isComplete ? "text-nd-highlight-green" : ""}`}
+                          >
                             {state.status === "waiting"
                               ? "Ready"
                               : state.status}
                           </span>
                         </div>
-                        <p>{stage.description}</p>
+                        <p className="m-0 mt-1.5 max-w-[620px] text-sm leading-[1.5] text-[#8d8b96]">
+                          {stage.description}
+                        </p>
                         {state.signatures?.length ? (
-                          <div className={styles.transactions}>
+                          <div className="mt-[13px] flex flex-wrap gap-x-4 gap-y-2">
                             {state.signatures.map(
                               (signature, signatureIndex) => (
-                                <span key={signature}>
+                                <span
+                                  className="flex items-center gap-[7px] font-brand-mono text-[10px] uppercase text-[#6f6d78]"
+                                  key={signature}
+                                >
                                   {state.signatures!.length > 1
                                     ? `Transaction ${signatureIndex + 1}`
                                     : "Transaction"}
@@ -410,7 +451,9 @@ export function DvpDemo() {
                           </div>
                         ) : null}
                         {state.error && (
-                          <p className={styles.errorText}>{state.error}</p>
+                          <p className="m-0 mt-1.5 max-w-[620px] text-sm leading-[1.5] !text-nd-highlight-orange">
+                            {state.error}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -419,11 +462,15 @@ export function DvpDemo() {
               </div>
 
               {finished && (
-                <div className={styles.settledMessage}>
-                  <span>✓</span>
+                <div className="mt-6 flex gap-[13px] rounded-xl border border-nd-highlight-green/40 bg-nd-highlight-green/[0.06] p-4">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-nd-highlight-green text-black">
+                    ✓
+                  </span>
                   <div>
-                    <strong>Both legs settled.</strong>
-                    <p>
+                    <strong className="block font-medium">
+                      Both legs settled.
+                    </strong>
+                    <p className="m-0 mt-[3px] text-[13px] text-[#8d8b96]">
                       TBILL reached the buyer as dUSD reached the seller—in the
                       same transaction.
                     </p>
@@ -431,53 +478,73 @@ export function DvpDemo() {
                 </div>
               )}
               {error && !running && (
-                <div className={styles.demoError}>
-                  <strong>The demo stopped.</strong>
-                  <p>{error}</p>
-                  <p>
+                <div className="mt-6 block rounded-xl border border-nd-highlight-orange/40 bg-nd-highlight-orange/[0.06] p-4">
+                  <strong className="block font-medium">
+                    The demo stopped.
+                  </strong>
+                  <p className="m-0 mt-[3px] text-[13px] text-[#8d8b96]">
+                    {error}
+                  </p>
+                  <p className="m-0 mt-[3px] text-[13px] text-[#8d8b96]">
                     No real funds are involved. You can safely run it again.
                   </p>
                 </div>
               )}
             </div>
 
-            <aside className={styles.inspector} aria-label="Account inspector">
-              <div className={styles.inspectorHeader}>
+            <aside
+              className="sticky top-24 mt-[22px] self-start overflow-hidden rounded-[13px] border border-white/[0.14] bg-[#0d0d11] max-[900px]:static max-[900px]:mt-0"
+              aria-label="Account inspector"
+            >
+              <div className="flex justify-between border-b border-white/[0.1] px-4 py-3.5 font-brand-mono text-[9px] uppercase tracking-[0.12em] text-[#85838d]">
                 <span>Account inspector</span>
                 <span>devnet</span>
               </div>
-              <div className={styles.accountList}>
+              <div className="px-4 py-1">
                 {accountRows.map(([label, value]) => (
-                  <div className={styles.accountRow} key={`${label}-${value}`}>
-                    <span>{label}</span>
+                  <div
+                    className="flex items-center justify-between gap-3.5 border-b border-white/[0.08] py-[11px] last:border-b-0"
+                    key={`${label}-${value}`}
+                  >
+                    <span className="text-xs text-[#8d8b96]">{label}</span>
                     <ExplorerLink value={value} />
                   </div>
                 ))}
               </div>
 
               {terms && (
-                <div className={styles.terms}>
-                  <h2>SwapDvp data</h2>
-                  <dl>
-                    <div>
-                      <dt>Asset amount</dt>
-                      <dd>100.00 TBILL</dd>
+                <div className="border-t border-white/[0.1] p-4">
+                  <h2 className="m-0 mb-[11px] font-brand-mono text-[9px] font-normal uppercase tracking-[0.12em]">
+                    SwapDvp data
+                  </h2>
+                  <dl className="m-0">
+                    <div className="m-0 flex justify-between gap-4 py-1 text-[11px]">
+                      <dt className="text-[#6f6d78]">Asset amount</dt>
+                      <dd className="m-0 min-w-0 overflow-hidden truncate whitespace-nowrap font-brand-mono text-white">
+                        100.00 TBILL
+                      </dd>
                     </div>
-                    <div>
-                      <dt>Payment amount</dt>
-                      <dd>10,000.00 dUSD</dd>
+                    <div className="m-0 flex justify-between gap-4 py-1 text-[11px]">
+                      <dt className="text-[#6f6d78]">Payment amount</dt>
+                      <dd className="m-0 min-w-0 overflow-hidden truncate whitespace-nowrap font-brand-mono text-white">
+                        10,000.00 dUSD
+                      </dd>
                     </div>
-                    <div>
-                      <dt>Nonce</dt>
-                      <dd>{terms.nonce.toString()}</dd>
+                    <div className="m-0 flex justify-between gap-4 py-1 text-[11px]">
+                      <dt className="text-[#6f6d78]">Nonce</dt>
+                      <dd className="m-0 min-w-0 overflow-hidden truncate whitespace-nowrap font-brand-mono text-white">
+                        {terms.nonce.toString()}
+                      </dd>
                     </div>
-                    <div>
-                      <dt>Reference</dt>
-                      <dd>{terms.ref}</dd>
+                    <div className="m-0 flex justify-between gap-4 py-1 text-[11px]">
+                      <dt className="text-[#6f6d78]">Reference</dt>
+                      <dd className="m-0 min-w-0 overflow-hidden truncate whitespace-nowrap font-brand-mono text-white">
+                        {terms.ref}
+                      </dd>
                     </div>
-                    <div>
-                      <dt>Expires</dt>
-                      <dd>
+                    <div className="m-0 flex justify-between gap-4 py-1 text-[11px]">
+                      <dt className="text-[#6f6d78]">Expires</dt>
+                      <dd className="m-0 min-w-0 overflow-hidden truncate whitespace-nowrap font-brand-mono text-white">
                         {new Date(
                           Number(terms.expiryTimestamp) * 1000,
                         ).toLocaleTimeString()}
@@ -487,7 +554,7 @@ export function DvpDemo() {
                 </div>
               )}
               {!roles && (
-                <p className={styles.inspectorEmpty}>
+                <p className="m-0 px-4 py-6 text-xs leading-[1.5] text-[#6f6d78]">
                   Start the demo to generate fresh accounts and inspect them
                   here.
                 </p>

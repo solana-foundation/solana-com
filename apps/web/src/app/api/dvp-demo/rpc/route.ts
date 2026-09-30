@@ -25,9 +25,9 @@ function rpcError(id: unknown, code: number, message: string, status: number) {
 }
 
 export async function POST(request: Request) {
-  const rpcUrl = process.env.SOLANA_RPC_URL;
+  const rpcUrl = process.env.DVP_DEMO_RPC_URL;
   if (!rpcUrl) {
-    return rpcError(null, -32000, "Demo RPC is not configured", 503);
+    return rpcError(null, -32000, "Demo devnet RPC is not configured", 503);
   }
   if (
     !allow(`rpc:${clientKey(request)}`, PER_IP.limit, PER_IP.windowMs) ||
