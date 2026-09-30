@@ -6,12 +6,18 @@ import {
 } from "@/app/[locale]/delivery-vs-payment/demo/demo-state";
 import {
   clearPendingRun,
+  clearRecoveryReceipt,
   loadPendingRun,
+  loadRecoveryReceipt,
   savePendingRun,
+  saveRecoveryReceipt,
 } from "@/app/[locale]/delivery-vs-payment/demo/pending-run";
 
 describe("interrupted DvP trade", () => {
-  afterEach(() => clearPendingRun());
+  afterEach(() => {
+    clearPendingRun();
+    clearRecoveryReceipt();
+  });
 
   it("retains trade terms and identities with bigint values across reloads", () => {
     const id = address("11111111111111111111111111111111");
@@ -44,5 +50,15 @@ describe("interrupted DvP trade", () => {
     };
     savePendingRun(snapshot);
     expect(loadPendingRun()).toEqual(snapshot);
+  });
+
+  it("keeps a closed trade and refund link for later inspection", () => {
+    const receipt = {
+      trade: "trade-address",
+      refundSignature: "refund-signature",
+      message: "Trade cancelled",
+    };
+    saveRecoveryReceipt(receipt);
+    expect(loadRecoveryReceipt()).toEqual(receipt);
   });
 });

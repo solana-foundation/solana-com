@@ -342,20 +342,3 @@ export async function readTradeState(
     escrowBBalance: escrowBBalance ?? 0n,
   };
 }
-
-/** A closed trade settled only when both counterparties received their leg. */
-export async function wasTradeSettled(
-  rpc: Rpc<SolanaRpcApi>,
-  terms: TradeTerms,
-): Promise<boolean> {
-  const [sellerCash, buyerAsset] = await Promise.all([
-    tokenBalanceIfPresent(rpc, await ata(terms.userA, terms.mintB)),
-    tokenBalanceIfPresent(rpc, await ata(terms.userB, terms.mintA)),
-  ]);
-  return (
-    sellerCash !== null &&
-    buyerAsset !== null &&
-    sellerCash >= terms.amountB &&
-    buyerAsset >= terms.amountA
-  );
-}

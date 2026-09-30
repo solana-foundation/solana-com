@@ -14,7 +14,6 @@ import {
   fundLeg,
   cancel,
   readTradeState,
-  wasTradeSettled,
   setSponsor,
   settle,
   type TradeTerms,
@@ -36,7 +35,15 @@ import {
   type StageState,
 } from "./demo-state";
 import { DvpDashboard } from "./dvp-dashboard";
-import { clearPendingRun, loadPendingRun, savePendingRun } from "./pending-run";
+import {
+  clearPendingRun,
+  clearRecoveryReceipt,
+  loadPendingRun,
+  loadRecoveryReceipt,
+  savePendingRun,
+  saveRecoveryReceipt,
+  type RecoveryReceipt,
+} from "./pending-run";
 
 const wait = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -51,6 +58,9 @@ export function DvpDemo() {
   const [error, setError] = useState<string | null>(null);
   const [hasPendingRun, setHasPendingRun] = useState(false);
   const [recoveryUnavailable, setRecoveryUnavailable] = useState(false);
+  const [recoveryLinks, setRecoveryLinks] = useState<RecoveryReceipt | null>(
+    null,
+  );
   const [roles, setRoles] = useState<Record<RoleKey, string> | null>(null);
   const [mints, setMints] = useState<{ asset: string; cash: string } | null>(
     null,
@@ -59,7 +69,14 @@ export function DvpDemo() {
   const [terms, setTerms] = useState<TradeTerms | null>(null);
   const completedRun = useRef<CompletedRun | null>(null);
 
-  useEffect(() => setHasPendingRun(loadPendingRun() !== null), []);
+  useEffect(() => {
+    setHasPendingRun(loadPendingRun() !== null);
+    const receipt = loadRecoveryReceipt();
+    if (receipt) {
+      setRecoveryLinks(receipt);
+      setError(receipt.message);
+    }
+  }, []);
 
   const updateStage = (key: StageKey, next: StageState) =>
     setStages((current) => ({ ...current, [key]: next }));
@@ -132,7 +149,14 @@ export function DvpDemo() {
     setDvpAddresses(snapshot.dvpAddresses);
 
     let activeStage: StageKey = "trade";
-    const closeRun = (message: string): never => {
+    const closeRun = (message: string, refundSignature?: string): never => {
+      const receipt = {
+        trade: snapshot.dvpAddresses.swapDvp,
+        refundSignature,
+        message,
+      };
+      saveRecoveryReceipt(receipt);
+      setRecoveryLinks(receipt);
       clearPendingRun();
       setHasPendingRun(false);
       setStages(initialStages());
@@ -194,19 +218,16 @@ export function DvpDemo() {
       }
 
       if (!state.open) {
-        // Settlement and cancellation both close the trade account. Check the
-        // two unique demo-token destinations before calling it settled.
-        if (!(await wasTradeSettled(rpc, snapshot.terms))) {
-          closeRun(
-            "This trade closed without both settlement transfers. Check its transaction history in Explorer before starting a new demo.",
-          );
-        }
-        advance("settle");
+        // Settlement and cancellation both close this account. Balances can
+        // change afterwards, so only the transaction history can distinguish.
+        closeRun(
+          "This trade is closed, but the demo cannot verify whether it settled or was cancelled. Inspect its history in Explorer before starting a new demo.",
+        );
       } else if (
         BigInt(Math.floor(Date.now() / 1000)) >= snapshot.terms.expiryTimestamp
       ) {
         activeStage = "settle";
-        await cancel(
+        const refundSignature = await cancel(
           rpc,
           signers.authority,
           snapshot.terms,
@@ -214,6 +235,7 @@ export function DvpDemo() {
         );
         closeRun(
           "The expired trade was cancelled and its escrow refunded. Start a new demo.",
+          refundSignature,
         );
       } else {
         advance("trade", snapshot.stages.trade.signatures);
@@ -288,6 +310,8 @@ export function DvpDemo() {
     completedRun.current = null;
     setReplaying(false);
     setRecoveryUnavailable(false);
+    setRecoveryLinks(null);
+    clearRecoveryReceipt();
     setRunning(true);
     setFinished(false);
     setError(null);
@@ -483,6 +507,7 @@ export function DvpDemo() {
       error={error}
       hasPendingRun={hasPendingRun}
       recoveryUnavailable={recoveryUnavailable}
+      recoveryLinks={recoveryLinks}
       roles={roles}
       mints={mints}
       dvpAddresses={dvpAddresses}

@@ -1,6 +1,13 @@
 import type { CompletedRun } from "./demo-state";
 
 const STORAGE_KEY = "dvp-demo-pending-v1";
+const RECEIPT_KEY = "dvp-demo-recovery-receipt-v1";
+
+export type RecoveryReceipt = {
+  trade: string;
+  refundSignature?: string;
+  message: string;
+};
 
 export function savePendingRun(run: CompletedRun): void {
   localStorage.setItem(
@@ -38,4 +45,23 @@ export function loadPendingRun(): CompletedRun | null {
 
 export function clearPendingRun(): void {
   localStorage.removeItem(STORAGE_KEY);
+}
+
+export function saveRecoveryReceipt(receipt: RecoveryReceipt): void {
+  localStorage.setItem(RECEIPT_KEY, JSON.stringify(receipt));
+}
+
+export function loadRecoveryReceipt(): RecoveryReceipt | null {
+  try {
+    const stored = localStorage.getItem(RECEIPT_KEY);
+    if (!stored) return null;
+    const receipt = JSON.parse(stored) as RecoveryReceipt;
+    return receipt.trade && receipt.message ? receipt : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearRecoveryReceipt(): void {
+  localStorage.removeItem(RECEIPT_KEY);
 }

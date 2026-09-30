@@ -499,6 +499,7 @@ export function DvpDashboard({
   error,
   hasPendingRun,
   recoveryUnavailable,
+  recoveryLinks,
   roles,
   mints,
   dvpAddresses,
@@ -512,6 +513,7 @@ export function DvpDashboard({
   error: string | null;
   hasPendingRun: boolean;
   recoveryUnavailable: boolean;
+  recoveryLinks: { trade: string; refundSignature?: string } | null;
   roles: Record<RoleKey, string> | null;
   mints: { asset: string; cash: string } | null;
   dvpAddresses: DvpAddresses | null;
@@ -865,7 +867,7 @@ export function DvpDashboard({
                 ? "The saved identities cannot authorize this trade. You can start a new demo, but this trade may remain open."
                 : hasPendingRun
                   ? "Continue this trade with the saved demo identities."
-                  : "The trade is closed; start a new demo."}
+                  : "Start a new demo when ready."}
             </p>
             {recoveryUnavailable && dvpAddresses && (
               <div className="mt-3">
@@ -873,6 +875,21 @@ export function DvpDashboard({
                   value={dvpAddresses.swapDvp}
                   label="Interrupted trade"
                 />
+              </div>
+            )}
+            {recoveryLinks && (
+              <div className="mt-3 flex flex-wrap gap-4">
+                <ExplorerLink
+                  value={recoveryLinks.trade}
+                  label="Closed trade"
+                />
+                {recoveryLinks.refundSignature && (
+                  <ExplorerLink
+                    value={recoveryLinks.refundSignature}
+                    transaction
+                    label="Refund transaction"
+                  />
+                )}
               </div>
             )}
           </div>

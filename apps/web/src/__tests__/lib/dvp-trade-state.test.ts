@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { address, type Rpc, type SolanaRpcApi } from "@solana/kit";
-import {
-  readTradeState,
-  wasTradeSettled,
-  type TradeTerms,
-} from "@/lib/delivery-vs-payment/solana/dvp";
+import { readTradeState } from "@/lib/delivery-vs-payment/solana/dvp";
 import type { DvpAddresses } from "@/lib/delivery-vs-payment/solana/pdas";
 
 const mocks = vi.hoisted(() => ({ fetchMaybeSwapDvp: vi.fn() }));
@@ -20,20 +16,6 @@ const addresses: DvpAddresses = {
   escrowA: id,
   escrowB: id,
 };
-const terms: TradeTerms = {
-  settlementAuthority: id,
-  userA: id,
-  userB: id,
-  mintA: id,
-  mintB: id,
-  amountA: 100n,
-  amountB: 200n,
-  decimalsA: 2,
-  decimalsB: 6,
-  nonce: 1n,
-  expiryTimestamp: 1_900_000_000n,
-};
-
 function rpcWithBalances(
   balances: bigint[],
   readError = false,
@@ -74,12 +56,5 @@ describe("DvP onchain recovery reads", () => {
     await expect(readTradeState(rpc, addresses)).rejects.toThrow(
       "Trade escrow accounts are not available yet",
     );
-  });
-
-  it("checks both unique destination balances before identifying settlement", async () => {
-    const settled = rpcWithBalances([200n, 100n]);
-    await expect(wasTradeSettled(settled.rpc, terms)).resolves.toBe(true);
-    const cancelled = rpcWithBalances([0n, 0n]);
-    await expect(wasTradeSettled(cancelled.rpc, terms)).resolves.toBe(false);
   });
 });

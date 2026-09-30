@@ -8,13 +8,16 @@ import {
 } from "@/app/[locale]/delivery-vs-payment/demo/demo-state";
 import {
   clearPendingRun,
+  clearRecoveryReceipt,
   loadPendingRun,
+  loadRecoveryReceipt,
   savePendingRun,
+  saveRecoveryReceipt,
 } from "@/app/[locale]/delivery-vs-payment/demo/pending-run";
 
 const mocks = vi.hoisted(() => ({
   readTradeState: vi.fn(),
-  wasTradeSettled: vi.fn(),
+  cancel: vi.fn(),
   fundLeg: vi.fn(),
   settle: vi.fn(),
   setSponsor: vi.fn(),
@@ -24,7 +27,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/delivery-vs-payment/solana/dvp", () => ({
   readTradeState: mocks.readTradeState,
-  wasTradeSettled: mocks.wasTradeSettled,
+  cancel: mocks.cancel,
   fundLeg: mocks.fundLeg,
   settle: mocks.settle,
   setSponsor: mocks.setSponsor,
@@ -42,10 +45,12 @@ vi.mock("@/app/[locale]/delivery-vs-payment/demo/dvp-dashboard", () => ({
     onRun,
     error,
     recoveryUnavailable,
+    recoveryLinks,
   }: {
     onRun: () => void;
     error: string | null;
     recoveryUnavailable: boolean;
+    recoveryLinks: { trade: string; refundSignature?: string } | null;
   }) => (
     <div>
       <button onClick={onRun}>
@@ -54,6 +59,11 @@ vi.mock("@/app/[locale]/delivery-vs-payment/demo/dvp-dashboard", () => ({
           : "Continue interrupted trade"}
       </button>
       {error && <p role="alert">{error}</p>}
+      {recoveryLinks && (
+        <span data-testid="recovery-links">
+          {recoveryLinks.trade}:{recoveryLinks.refundSignature}
+        </span>
+      )}
     </div>
   ),
 }));
@@ -111,6 +121,7 @@ function mockConfig() {
 
 afterEach(() => {
   clearPendingRun();
+  clearRecoveryReceipt();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
@@ -149,7 +160,6 @@ describe("DvP partial-run recovery", () => {
       escrowABalance: 0n,
       escrowBBalance: 0n,
     });
-    mocks.wasTradeSettled.mockResolvedValue(false);
 
     render(<DvpDemo />);
     fireEvent.click(
@@ -157,10 +167,54 @@ describe("DvP partial-run recovery", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByRole("alert").textContent).toMatch(/closed without/),
+      expect(screen.getByRole("alert").textContent).toMatch(/cannot verify/),
     );
     expect(mocks.settle).not.toHaveBeenCalled();
     expect(loadPendingRun()).toBeNull();
+    expect(screen.getByTestId("recovery-links").textContent).toContain(id);
+  });
+
+  it("keeps the refund signature visible after cancelling an expired trade", async () => {
+    const snapshot = savedTrade();
+    snapshot.terms.expiryTimestamp = BigInt(Math.floor(Date.now() / 1000) - 1);
+    savePendingRun(snapshot);
+    mockSavedSigners();
+    mockConfig();
+    mocks.readTradeState.mockResolvedValue({
+      open: true,
+      escrowABalance: snapshot.terms.amountA,
+      escrowBBalance: snapshot.terms.amountB,
+    });
+    mocks.cancel.mockResolvedValue("refund-tx");
+
+    render(<DvpDemo />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue interrupted trade" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toMatch(/cancelled/),
+    );
+    expect(screen.getByTestId("recovery-links").textContent).toContain(
+      "refund-tx",
+    );
+    expect(loadRecoveryReceipt()?.refundSignature).toBe("refund-tx");
+    expect(loadPendingRun()).toBeNull();
+  });
+
+  it("restores the closed trade and refund links after a reload", async () => {
+    saveRecoveryReceipt({
+      trade: id,
+      refundSignature: "refund-tx",
+      message: "Trade cancelled",
+    });
+    render(<DvpDemo />);
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Trade cancelled",
+    );
+    expect(screen.getByTestId("recovery-links").textContent).toContain(
+      "refund-tx",
+    );
   });
 
   it("allows a new demo when saved role keys are unavailable", async () => {
