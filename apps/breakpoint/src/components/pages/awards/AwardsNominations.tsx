@@ -6,17 +6,18 @@ import { useTranslations } from "@workspace/i18n/client";
 import Button, { useButtonScramble } from "@/components/Button";
 import { publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
-import { resolveSponsorLogo } from "@/lib/sponsors";
+// import { resolveSponsorLogo } from "@/lib/sponsors";
 
 type Nomination = { handle: string; submittedAt: string };
 type CampaignStatus = "open" | "not_started" | "closed";
 type AwardCategoryCopy = { name: string; description: string };
 
-const presentingSponsor = resolveSponsorLogo({
-  companyId: "solflare",
-  width: 230.648,
-  height: 55.2,
-});
+// Re-enable the sponsor placement once the awards sponsor is finalized.
+// const presentingSponsor = resolveSponsorLogo({
+//   companyId: "solflare",
+//   width: 230.648,
+//   height: 55.2,
+// });
 
 function normaliseHandle(value: string) {
   return value.trim().replace(/^@+/, "").toLowerCase();
@@ -229,18 +230,20 @@ export default function AwardsNominations() {
             <p className="type-eyebrow text-core-purple">
               {t("nominations.eyebrow")}
             </p>
-            <div className="flex flex-wrap items-center gap-x-3xs gap-y-3xs">
-              <p className="type-caption text-text-secondary">
-                {t("nominations.presentedBy")}
-              </p>
-              <img
-                alt={presentingSponsor.alt}
-                className="block h-auto w-[120px] max-w-full lg:w-[150px]"
-                height={presentingSponsor.height}
-                src={publicAssetPath(presentingSponsor.src)}
-                width={presentingSponsor.width}
-              />
-            </div>
+            {/*
+              <div className="flex flex-wrap items-center gap-x-3xs gap-y-3xs">
+                <p className="type-caption text-text-secondary">
+                  {t("nominations.presentedBy")}
+                </p>
+                <img
+                  alt={presentingSponsor.alt}
+                  className="block h-auto w-[120px] max-w-full lg:w-[150px]"
+                  height={presentingSponsor.height}
+                  src={publicAssetPath(presentingSponsor.src)}
+                  width={presentingSponsor.width}
+                />
+              </div>
+            */}
           </div>
           <div className="md:col-span-9 md:col-start-7">
             <h2 className="type-h3 max-w-[780px]" id="nominations-title">
