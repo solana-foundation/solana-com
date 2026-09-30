@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { checkRateLimit } from "@vercel/firewall";
 import type { NextRequest } from "next/server";
+import { config } from "@/config";
 
 const SUBMIT_RATE_LIMIT_IDS = [
   "breakpoint-awards-submit-burst",
@@ -49,5 +50,13 @@ export async function enforceSubmissionRateLimit(request: NextRequest) {
 export function hasSameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (!origin) return process.env.NODE_ENV !== "production";
-  return origin === new URL(request.url).origin;
+
+  if (origin === new URL(request.url).origin) return true;
+
+  // Production serves this app through solana.com, but the external rewrite
+  // gives the route handler the Breakpoint deployment URL as request.url.
+  return (
+    process.env.VERCEL_ENV === "production" &&
+    origin === config.publicSiteOrigin
+  );
 }
