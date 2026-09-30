@@ -272,7 +272,7 @@ export function DeliveryVsPaymentPage({
                   type="button"
                   size="lg"
                   onClick={play}
-                  className="h-11 min-w-[120px] rounded-full bg-white px-6 text-black shadow-none hover:bg-white/90 hover:text-black focus-visible:border-white focus-visible:ring-white/40"
+                  className="h-11 min-w-[120px] rounded-full !bg-white px-6 !text-black shadow-none hover:!bg-white/90 hover:!text-black focus-visible:border-white focus-visible:ring-white/40"
                 >
                   {stage === 0 ? "Start" : "Replay"}
                 </SharedButton>

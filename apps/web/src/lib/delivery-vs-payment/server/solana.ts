@@ -76,8 +76,9 @@ export async function treasuryAddress(): Promise<string> {
 }
 
 export function serverRpc(): Rpc<SolanaRpcApi> {
-  if (!process.env.SOLANA_RPC_URL) throw new Error("SOLANA_RPC_URL is not set");
-  return resilientRpc(process.env.SOLANA_RPC_URL);
+  if (!process.env.DVP_DEMO_RPC_URL)
+    throw new Error("DVP_DEMO_RPC_URL is not set");
+  return resilientRpc(process.env.DVP_DEMO_RPC_URL);
 }
 
 /** Create an ephemeral mint signer for one demo run. */

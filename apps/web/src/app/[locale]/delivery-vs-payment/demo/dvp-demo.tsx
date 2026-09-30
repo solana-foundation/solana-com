@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { address, type KeyPairSigner } from "@solana/kit";
 import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Check } from "@boxicons/react/Check";
 import { Button } from "@/app/components/ui/button";
 import { Container } from "@/component-library/container";
 import {
@@ -37,46 +38,95 @@ type StageState = {
   signatures?: string[];
   error?: string;
 };
+type AccountRow = {
+  label: string;
+  value: string;
+  party?: RoleKey;
+};
+type CompletedRun = {
+  stages: Record<StageKey, StageState>;
+  roles: Record<RoleKey, string>;
+  mints: { asset: string; cash: string };
+  dvpAddresses: DvpAddresses;
+  terms: TradeTerms;
+};
+
+const PARTY_META: Record<
+  RoleKey,
+  { label: string; chipClass: string; dotClass: string }
+> = {
+  maker: {
+    label: "Maker",
+    chipClass:
+      "border-nd-highlight-lavendar/35 bg-nd-highlight-lavendar/[0.08] text-nd-highlight-lavendar",
+    dotClass: "bg-nd-highlight-lavendar",
+  },
+  partyA: {
+    label: "Seller · Party A",
+    chipClass:
+      "border-nd-highlight-blue/35 bg-nd-highlight-blue/[0.08] text-nd-highlight-blue",
+    dotClass: "bg-nd-highlight-blue",
+  },
+  partyB: {
+    label: "Buyer · Party B",
+    chipClass:
+      "border-nd-highlight-green/35 bg-nd-highlight-green/[0.08] text-nd-highlight-green",
+    dotClass: "bg-nd-highlight-green",
+  },
+  authority: {
+    label: "Settlement authority",
+    chipClass:
+      "border-nd-highlight-orange/35 bg-nd-highlight-orange/[0.08] text-nd-highlight-orange",
+    dotClass: "bg-nd-highlight-orange",
+  },
+};
 
 const STAGES: Array<{
   key: StageKey;
   title: string;
   description: string;
+  parties: RoleKey[];
 }> = [
   {
     key: "parties",
     title: "Create the parties",
     description:
       "Generate fresh demo identities for the maker, seller, buyer, and settlement authority.",
+    parties: ["maker", "partyA", "partyB", "authority"],
   },
   {
     key: "assets",
     title: "Prepare the assets",
     description:
       "Issue demo TBILL to the seller and dUSD to the buyer. The treasury sponsors fees.",
+    parties: ["partyA", "partyB"],
   },
   {
     key: "trade",
     title: "Create the trade",
     description:
       "Record the terms and create the DvP account with an escrow account for each leg.",
+    parties: ["maker", "partyA", "partyB", "authority"],
   },
   {
     key: "asset",
     title: "Fund the asset leg",
     description:
       "The seller transfers 100 TBILL to the asset escrow using a standard token transfer.",
+    parties: ["partyA"],
   },
   {
     key: "cash",
     title: "Fund the payment leg",
     description: "The buyer transfers 10,000 dUSD to the payment escrow.",
+    parties: ["partyB"],
   },
   {
     key: "settle",
     title: "Settle atomically",
     description:
       "The authority releases both legs together and closes the DvP and escrow accounts.",
+    parties: ["authority", "partyA", "partyB"],
   },
 ];
 
@@ -88,6 +138,8 @@ const initialStages = (): Record<StageKey, StageState> =>
 const wait = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
+const REPLAY_STAGE_DELAY_MS = 500;
+
 function explorerAddress(value: string) {
   return `https://explorer.solana.com/address/${value}?cluster=devnet`;
 }
@@ -98,6 +150,22 @@ function explorerTransaction(value: string) {
 
 function shortAddress(value: string) {
   return `${value.slice(0, 5)}…${value.slice(-5)}`;
+}
+
+function PartyChip({ party }: { party: RoleKey }) {
+  const meta = PARTY_META[party];
+
+  return (
+    <span
+      className={`inline-flex items-center gap-[7px] rounded-full border px-2 py-1 font-brand-mono text-[9px] uppercase tracking-[0.08em] whitespace-nowrap ${meta.chipClass}`}
+    >
+      <span
+        className={`size-1.5 shrink-0 rounded-full ${meta.dotClass}`}
+        aria-hidden="true"
+      />
+      {meta.label}
+    </span>
+  );
 }
 
 function ExplorerLink({
@@ -134,34 +202,114 @@ export function DvpDemo() {
   );
   const [dvpAddresses, setDvpAddresses] = useState<DvpAddresses | null>(null);
   const [terms, setTerms] = useState<TradeTerms | null>(null);
+  const completedRun = useRef<CompletedRun | null>(null);
 
   const updateStage = (key: StageKey, next: StageState) =>
     setStages((current) => ({ ...current, [key]: next }));
 
   const accountRows = useMemo(() => {
-    const rows: Array<[string, string]> = [["DvP program", PROGRAM_ID]];
+    const rows: AccountRow[] = [{ label: "DvP program", value: PROGRAM_ID }];
     if (roles) {
       rows.push(
-        ["Maker", roles.maker],
-        ["Seller · Party A", roles.partyA],
-        ["Buyer · Party B", roles.partyB],
-        ["Settlement authority", roles.authority],
+        { label: PARTY_META.maker.label, value: roles.maker, party: "maker" },
+        {
+          label: PARTY_META.partyA.label,
+          value: roles.partyA,
+          party: "partyA",
+        },
+        {
+          label: PARTY_META.partyB.label,
+          value: roles.partyB,
+          party: "partyB",
+        },
+        {
+          label: PARTY_META.authority.label,
+          value: roles.authority,
+          party: "authority",
+        },
       );
     }
-    if (mints)
-      rows.push(["TBILL mint", mints.asset], ["dUSD mint", mints.cash]);
+    if (mints) {
+      rows.push(
+        { label: "TBILL mint", value: mints.asset },
+        { label: "dUSD mint", value: mints.cash },
+      );
+    }
     if (dvpAddresses) {
       rows.push(
-        ["SwapDvp account", dvpAddresses.swapDvp],
-        ["Asset escrow", dvpAddresses.escrowA],
-        ["Payment escrow", dvpAddresses.escrowB],
-        ["Nonce tombstone", dvpAddresses.nonceTombstone],
+        { label: "SwapDvp account", value: dvpAddresses.swapDvp },
+        { label: "Asset escrow", value: dvpAddresses.escrowA },
+        { label: "Payment escrow", value: dvpAddresses.escrowB },
+        { label: "Nonce tombstone", value: dvpAddresses.nonceTombstone },
       );
     }
     return rows;
   }, [dvpAddresses, mints, roles]);
 
+  async function replayDemo(snapshot: CompletedRun) {
+    setRunning(true);
+    setFinished(false);
+    setError(null);
+    setStages(initialStages());
+    setRoles(null);
+    setMints(null);
+    setDvpAddresses(null);
+    setTerms(null);
+
+    let activeStage: StageKey = "parties";
+    try {
+      updateStage("parties", { status: "running" });
+      setRoles({ ...snapshot.roles });
+      await wait(REPLAY_STAGE_DELAY_MS);
+      updateStage("parties", snapshot.stages.parties);
+
+      activeStage = "assets";
+      updateStage("assets", { status: "running" });
+      await wait(REPLAY_STAGE_DELAY_MS);
+      setMints({ ...snapshot.mints });
+      updateStage("assets", snapshot.stages.assets);
+
+      setTerms(snapshot.terms);
+      activeStage = "trade";
+      updateStage("trade", { status: "running" });
+      await wait(REPLAY_STAGE_DELAY_MS);
+      setDvpAddresses({ ...snapshot.dvpAddresses });
+      updateStage("trade", snapshot.stages.trade);
+
+      activeStage = "asset";
+      updateStage("asset", { status: "running" });
+      await wait(REPLAY_STAGE_DELAY_MS);
+      updateStage("asset", snapshot.stages.asset);
+
+      activeStage = "cash";
+      updateStage("cash", { status: "running" });
+      await wait(REPLAY_STAGE_DELAY_MS);
+      updateStage("cash", snapshot.stages.cash);
+
+      activeStage = "settle";
+      updateStage("settle", { status: "running" });
+      await wait(REPLAY_STAGE_DELAY_MS);
+      updateStage("settle", snapshot.stages.settle);
+      setFinished(true);
+    } catch (caught) {
+      const message =
+        caught instanceof Error
+          ? caught.message
+          : "The demo stopped unexpectedly";
+      setError(message);
+      updateStage(activeStage, { status: "error", error: message });
+    } finally {
+      setRunning(false);
+    }
+  }
+
   async function runDemo() {
+    if (finished && completedRun.current) {
+      await replayDemo(completedRun.current);
+      return;
+    }
+
+    completedRun.current = null;
     setRunning(true);
     setFinished(false);
     setError(null);
@@ -284,6 +432,26 @@ export function DvpDemo() {
         status: "complete",
         signatures: [settlementSignature],
       });
+      completedRun.current = {
+        stages: {
+          parties: { status: "complete" },
+          assets: {
+            status: "complete",
+            signatures: funding.setupSignatures,
+          },
+          trade: { status: "complete", signatures: [created.signature] },
+          asset: { status: "complete", signatures: [assetSignature] },
+          cash: { status: "complete", signatures: [cashSignature] },
+          settle: {
+            status: "complete",
+            signatures: [settlementSignature],
+          },
+        },
+        roles: roleAddresses,
+        mints: funding.mints,
+        dvpAddresses: created.addresses,
+        terms: tradeTerms,
+      };
       setFinished(true);
     } catch (caught) {
       const message =
@@ -380,19 +548,34 @@ export function DvpDemo() {
           className="mx-auto mt-6 max-w-[1080px] rounded-[18px] border border-white/[0.13] bg-[#0a0a0d] p-[34px_40px_40px] max-sm:rounded-[14px] max-sm:p-[28px_22px_30px]"
           aria-label="Demo progress"
         >
-          <div className="flex items-end justify-between gap-10 border-b border-white/[0.13] pb-7 max-sm:block">
-            <div>
-              <p className="m-0 font-brand-mono text-[10px] uppercase tracking-[0.19em] text-[#74727d]">
-                Settlement flow
+          <div className="border-b border-white/[0.13] pb-7">
+            <div className="flex items-end justify-between gap-10 max-sm:block">
+              <div>
+                <p className="m-0 font-brand-mono text-[10px] uppercase tracking-[0.19em] text-[#74727d]">
+                  Settlement flow
+                </p>
+                <h2 className="m-0 mt-[7px] font-brand text-[27px] font-medium tracking-[-0.025em]">
+                  Follow the trade onchain
+                </h2>
+              </div>
+              <p className="m-0 max-w-[390px] text-[13px] leading-[1.5] text-[#85838d] max-sm:mt-3">
+                Every completed step links to the corresponding transaction in
+                Solana Explorer.
               </p>
-              <h2 className="m-0 mt-[7px] font-brand text-[27px] font-medium tracking-[-0.025em]">
-                Follow the trade onchain
-              </h2>
             </div>
-            <p className="m-0 max-w-[390px] text-[13px] leading-[1.5] text-[#85838d] max-sm:mt-3">
-              Every completed step links to the corresponding transaction in
-              Solana Explorer.
-            </p>
+            <div
+              className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-white/[0.09] pt-4"
+              aria-label="Party color key"
+            >
+              <span className="mr-1 font-brand-mono text-[9px] uppercase tracking-[0.12em] text-[#6f6d78]">
+                Party key
+              </span>
+              {(["maker", "partyA", "partyB", "authority"] as RoleKey[]).map(
+                (party) => (
+                  <PartyChip key={party} party={party} />
+                ),
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)_330px] gap-10 pt-2 max-[900px]:grid-cols-1 max-[900px]:gap-7">
@@ -410,32 +593,50 @@ export function DvpDemo() {
                       key={stage.key}
                     >
                       <div
-                        className={`grid size-[30px] place-items-center rounded-full border border-white/[0.18] font-brand-mono text-[10px] text-[#8d8b96] ${isRunning ? "animate-pulse border-white text-white motion-reduce:animate-none" : ""} ${isComplete ? "border-nd-highlight-green bg-nd-highlight-green text-[#050506]" : ""} ${isError ? "border-nd-highlight-orange text-nd-highlight-orange" : ""}`}
+                        className={`grid size-[30px] place-items-center rounded-full border border-white/[0.18] font-brand-mono text-[10px] text-[#a5a3ad] ${isRunning ? "animate-pulse border-white text-white motion-reduce:animate-none" : ""} ${isComplete ? "border-nd-highlight-green bg-nd-highlight-green text-[#050506]" : ""} ${isError ? "border-nd-highlight-orange text-nd-highlight-orange" : ""}`}
                       >
-                        {isComplete ? "✓" : String(index + 1).padStart(2, "0")}
+                        {isComplete ? (
+                          <Check
+                            className="!size-6 text-white"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          String(index + 1).padStart(2, "0")
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-baseline justify-between gap-4 max-sm:block">
-                          <h2 className="m-0 font-brand text-[18px] font-medium tracking-[-0.015em]">
+                          <h2 className="m-0 font-brand text-[18px] font-medium tracking-[-0.015em] text-white">
                             {stage.title}
                           </h2>
                           <span
-                            className={`font-brand-mono text-[9px] uppercase tracking-[0.12em] text-[#6f6d78] max-sm:mt-1 max-sm:block ${isRunning ? "text-white" : ""} ${isComplete ? "text-nd-highlight-green" : ""}`}
+                            className={`font-brand-mono text-[9px] uppercase tracking-[0.12em] text-[#a5a3ad] max-sm:mt-1 max-sm:block ${isRunning ? "text-white" : ""} ${isComplete ? "text-nd-highlight-green" : ""}`}
                           >
                             {state.status === "waiting"
                               ? "Ready"
                               : state.status}
                           </span>
                         </div>
-                        <p className="m-0 mt-1.5 max-w-[620px] text-sm leading-[1.5] text-[#8d8b96]">
+                        <p className="m-0 mt-1.5 max-w-[620px] text-sm leading-[1.5] text-white">
                           {stage.description}
                         </p>
+                        <div
+                          className="mt-[13px] flex flex-wrap items-center gap-x-2 gap-y-2"
+                          aria-label={`Parties involved in ${stage.title}`}
+                        >
+                          <span className="mr-1 font-brand-mono text-[9px] uppercase tracking-[0.12em] text-[#a5a3ad]">
+                            Parties
+                          </span>
+                          {stage.parties.map((party) => (
+                            <PartyChip key={party} party={party} />
+                          ))}
+                        </div>
                         {state.signatures?.length ? (
-                          <div className="mt-[13px] flex flex-wrap gap-x-4 gap-y-2">
+                          <div className="mt-[11px] flex flex-wrap gap-x-4 gap-y-2">
                             {state.signatures.map(
                               (signature, signatureIndex) => (
                                 <span
-                                  className="flex items-center gap-[7px] font-brand-mono text-[10px] uppercase text-[#6f6d78]"
+                                  className="flex items-center gap-[7px] font-brand-mono text-[10px] uppercase text-[#a5a3ad]"
                                   key={signature}
                                 >
                                   {state.signatures!.length > 1
@@ -463,8 +664,8 @@ export function DvpDemo() {
 
               {finished && (
                 <div className="mt-6 flex gap-[13px] rounded-xl border border-nd-highlight-green/40 bg-nd-highlight-green/[0.06] p-4">
-                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-nd-highlight-green text-black">
-                    ✓
+                  <span className="grid size-7 shrink-0 place-items-center rounded-full bg-nd-highlight-green">
+                    <Check className="!size-6 text-white" aria-hidden="true" />
                   </span>
                   <div>
                     <strong className="block font-medium">
@@ -501,12 +702,20 @@ export function DvpDemo() {
                 <span>devnet</span>
               </div>
               <div className="px-4 py-1">
-                {accountRows.map(([label, value]) => (
+                {accountRows.map(({ label, value, party }) => (
                   <div
                     className="flex items-center justify-between gap-3.5 border-b border-white/[0.08] py-[11px] last:border-b-0"
                     key={`${label}-${value}`}
                   >
-                    <span className="text-xs text-[#8d8b96]">{label}</span>
+                    <span className="flex min-w-0 items-center gap-2 text-xs text-[#8d8b96]">
+                      {party ? (
+                        <span
+                          className={`size-1.5 shrink-0 rounded-full ${PARTY_META[party].dotClass}`}
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                      {label}
+                    </span>
                     <ExplorerLink value={value} />
                   </div>
                 ))}

@@ -12,6 +12,8 @@ export const runtime = "nodejs";
 
 export async function GET() {
   try {
+    if (!process.env.DVP_DEMO_RPC_URL)
+      throw new Error("DVP_DEMO_RPC_URL is not set");
     const treasury = await treasuryAddress();
 
     return NextResponse.json({
