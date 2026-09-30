@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { Button as SharedButton } from "@workspace/ui/button";
@@ -115,7 +116,7 @@ export function DeliveryVsPaymentPage({
             >
               Play virtual settlement
               <span className="-mr-3 inline-flex size-8 items-center justify-center rounded-full bg-nd-inverse text-nd-cta">
-                <ArrowRight className="!size-4" aria-hidden="true" />
+                <ArrowDown className="!size-4" aria-hidden="true" />
               </span>
             </Button>
             <Button
