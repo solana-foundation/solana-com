@@ -4,6 +4,9 @@ import React from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import {
   STEPS,
+  FINAL_TRANSITION_EPOCH,
+  SLOTS_PER_EPOCH,
+  SLOT_200_TRANSITION_TARGET,
   isActivationWindow,
   nextStep,
   pctFaster,
@@ -16,8 +19,6 @@ interface HeroProps {
   feed: FeedState;
   subscribe: (_fn: (_ev: SlotEvent) => void) => () => void;
 }
-
-const SLOTS_PER_EPOCH = 432_000;
 
 function fmtEta(ms: number): string {
   const totalMin = Math.max(0, Math.round(ms / 60000));
@@ -82,7 +83,7 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
       ? Math.max(targetEpoch, feed.epoch)
       : targetEpoch;
 
-  // countdown only against a confirmed epoch, drained by real slots
+  // Count down to a confirmed epoch, drained by real slots.
   const slotsLeft =
     targetEpoch !== null &&
     feed.epoch !== null &&
@@ -165,12 +166,15 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
     lock = " ";
   } else if (counting) {
     under = finalMinute ? t("underFinal", { from }) : t("under", { from });
-    lock = t.rich(stepIndex === 1 ? "lockFirst" : "lockNext", {
+    const key =
+      stepIndex === 1 ? "lockFirst" : to === 200 ? "lockFinal" : "lockNext";
+    lock = t.rich(key, {
       ...rich,
       from,
       to: to ?? from,
       step: stepIndex,
       epoch: String(targetEpoch),
+      slot: nf.format(SLOT_200_TRANSITION_TARGET),
       eta: eta ?? "—",
     });
   } else if (activationPending) {
@@ -213,6 +217,16 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
         <p className="s2-minilock" aria-live="polite">
           {lock}
         </p>
+        {(from === 200 || to === 200) && (
+          <p className="s2-transition-target">
+            {t("slotTransitionTarget", {
+              epoch: FINAL_TRANSITION_EPOCH,
+              slot: nf.format(SLOT_200_TRANSITION_TARGET),
+              from: 250,
+              to: 200,
+            })}
+          </p>
+        )}
         <div className="s2-hero-actions">
           <button type="button" className="s2-soundbtn" onClick={toggleSound}>
             {soundOn ? t("soundOn") : t("soundOff")}
