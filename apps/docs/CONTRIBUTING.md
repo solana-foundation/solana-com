@@ -78,22 +78,22 @@ A TypeScript example comes in up to three flavours, one file each:
 | File        | Library                     | Tab title          |
 | ----------- | --------------------------- | ------------------ |
 | `kit.ts`    | `@solana/kit` (recommended) | `Kit`              |
-| `web3v3.ts` | `@solana/web3.js` v3        | `Web3.js v3`       |
-| `legacy.ts` | `@solana/web3.js` v1        | `Web3.js (legacy)` |
+| `web3v3.ts` | `@solana/web3.js` 3.x       | `Web3.js v3`       |
+| `legacy.ts` | `@solana/web3.js` 1.x       | `Web3.js (legacy)` |
 
-These tab titles and storage keys are the target convention being rolled out
-under DEV-17; existing pages that still use `Legacy` or `#### Web3.js` are being
-migrated to them. Tab selection persists in localStorage by tab title, so use
-these titles verbatim. Token pages additionally split them into `#### Kit` /
-`#### Web3.js v3` / `#### Web3.js (legacy)` sections with the storage keys
-`token-ts-kit` / `token-ts-web3v3` / `token-ts-legacy`.
+Order tabs `Kit` → `Web3.js v3` → `Rust` → `Web3.js (legacy)`; the legacy tab
+always goes last. Tab selection persists in localStorage by tab title, so use
+these titles verbatim. Token pages use one section per language instead, in the
+order `### Kit`, `### Web3.js v3`, `### Rust`, `### Python`,
+`### Web3.js (legacy)`; the TypeScript sections use the storage keys
+`token-ts-kit`, `token-ts-web3v3`, and `token-ts-legacy`.
 
 Both web3.js majors are installed side by side, which pnpm only allows under
 distinct names, so example sources import the aliases `@solana/web3.js-v3` and
 `@solana/web3.js-legacy`. Both are rewritten back to `@solana/web3.js` when the
 snippet is inlined into a page
 (`apps/docs/src/lib/remark-web3js-specifier.mjs`), so readers see the real
-package name. `@solana/spl-token` only runs on v1 and resolves to it
+package name. `@solana/spl-token` depends on legacy web3.js and resolves to it
 automatically; v3 token examples use the `@solana-program/*` clients instead.
 
 1. Put the runnable file under
@@ -137,7 +137,7 @@ Python snippets follow the same layout, one file per rendered block:
 1. Put the snippet in
    `packages/docs-examples/cookbook/<section>/<page>/python.py` — or
    `<variant>-python.py` when the page has more than one runnable block,
-   matching its Kit/Legacy siblings.
+   matching its TypeScript siblings.
 2. Wrap the rendered region in `# #region <name>` / `# #endregion <name>`,
    reusing the region name the other tabs on that block use.
 3. Point the fence at it:
