@@ -33,6 +33,7 @@ const demoSteps = [
     detail: "The authority releases both legs in one transaction",
   },
 ];
+const DEMO_STEP_DURATION_MS = 4000;
 
 const eyebrowClass =
   "font-brand-mono text-xs uppercase tracking-[0.2em] text-nd-mid-em-text";
@@ -138,9 +139,9 @@ export function DeliveryVsPaymentPage({
     if (run === 0) return;
     setStage(1);
     const timers = [
-      window.setTimeout(() => setStage(2), 2000),
-      window.setTimeout(() => setStage(3), 4000),
-      window.setTimeout(() => setStage(4), 6000),
+      window.setTimeout(() => setStage(2), DEMO_STEP_DURATION_MS),
+      window.setTimeout(() => setStage(3), DEMO_STEP_DURATION_MS * 2),
+      window.setTimeout(() => setStage(4), DEMO_STEP_DURATION_MS * 3),
     ];
     return () => timers.forEach(window.clearTimeout);
   }, [run]);
@@ -148,6 +149,11 @@ export function DeliveryVsPaymentPage({
   const play = () => {
     setStage(0);
     setRun((value) => value + 1);
+  };
+
+  const selectStage = (nextStage: number) => {
+    setRun(0);
+    setStage(nextStage);
   };
 
   const playFromHero = () => {
@@ -317,9 +323,11 @@ export function DeliveryVsPaymentPage({
                         "border-nd-highlight-orange bg-nd-highlight-orange/[0.08]",
                     },
                   ].map((party) => (
-                    <div
+                    <button
+                      type="button"
                       key={party.name}
-                      className={`min-w-0 rounded-xl border px-3 py-3 transition-colors motion-reduce:transition-none ${stage === party.step ? party.active : "border-nd-border-light bg-white/[0.025]"}`}
+                      onClick={() => selectStage(party.step)}
+                      className={`min-w-0 rounded-xl border px-3 py-3 text-left font-[inherit] transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nd-highlight-green ${stage === party.step ? party.active : "border-nd-border-light bg-white/[0.025] hover:border-nd-border-prominent"}`}
                       aria-current={stage === party.step ? "step" : undefined}
                     >
                       <span className="flex items-center gap-1.5 text-xs">
@@ -332,7 +340,7 @@ export function DeliveryVsPaymentPage({
                       <span className="mt-1.5 block text-[10px] text-nd-mid-em-text">
                         {party.action}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
 
@@ -343,12 +351,25 @@ export function DeliveryVsPaymentPage({
               <div
                 className={`border-t px-4 py-4 sm:px-5 ${stage === 4 ? "border-nd-highlight-green/30 bg-nd-highlight-green/[0.06]" : "border-nd-border-light"}`}
               >
-                <div className="mb-4 flex gap-1.5" aria-hidden="true">
+                <div
+                  role="group"
+                  aria-label="Choose a settlement step"
+                  className="mb-4 flex gap-1.5"
+                >
                   {demoSteps.map((step, index) => (
-                    <span
+                    <button
+                      type="button"
                       key={step.title}
-                      className={`h-1 flex-1 rounded-full transition-colors duration-500 motion-reduce:transition-none ${stage > index ? "bg-nd-highlight-green" : "bg-white/15"}`}
-                    />
+                      onClick={() => selectStage(index + 1)}
+                      aria-label={`Step ${index + 1} of ${demoSteps.length}: ${step.title}`}
+                      aria-current={stage === index + 1 ? "step" : undefined}
+                      className="group h-5 flex-1 rounded-full focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-nd-highlight-green"
+                    >
+                      <span
+                        className={`block h-1 rounded-full transition-colors duration-500 motion-reduce:transition-none ${stage > index ? "bg-nd-highlight-green" : "bg-white/15 group-hover:bg-white/35"}`}
+                        aria-hidden="true"
+                      />
+                    </button>
                   ))}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -421,7 +442,9 @@ export function DeliveryVsPaymentPage({
               [
                 "02",
                 "Fund each leg",
-                "Each party sends an ordinary token transfer to its escrow account.",
+                "Each party funds its escrow with a standard token transfer from its existing " +
+                  "wallet or custodian. No custom integration is required from a " +
+                  "counterparty's wallet or custodian.",
               ],
               [
                 "03",
