@@ -5,8 +5,8 @@ import {
   safeStorageSetItem,
 } from "@solana-com/ui-chrome";
 
-/* eslint-disable react-hooks/rules-of-hooks */
-/* eslint-disable react-hooks/exhaustive-deps */
+/* oxlint-disable react-hooks/rules-of-hooks */
+/* oxlint-disable react-hooks/exhaustive-deps */
 export function useStateOrLocalStorage(
   key: string | undefined,
   initialState: string,

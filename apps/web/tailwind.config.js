@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+import animate from "tailwindcss-animate";
+
 module.exports = {
   darkMode: ["class"],
   content: [
@@ -85,7 +87,7 @@ module.exports = {
     },
   },
   plugins: [
-    require("tailwindcss-animate"),
+    animate,
     function ({ addVariant }) {
       addVariant("light", ".light &");
     },

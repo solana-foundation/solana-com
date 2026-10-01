@@ -530,6 +530,11 @@ export default {
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
         locale: false,
       },
+      {
+        source: "/api/upgrades/alpenglow/:path*",
+        destination: `${MEDIA_APP_URL}/api/upgrades/alpenglow/:path*`,
+        locale: false,
+      },
       // Proxy /_next/image requests for /uploads/* to the media app's image
       // optimizer. The web app's /_next/image reads from its own filesystem,
       // but /uploads/ files live in the media app's deployment.
@@ -784,6 +789,19 @@ export default {
   },
 
   redirects: withLocaleRedirects([
+    {
+      source:
+        "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.png",
+      destination:
+        "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.webp",
+      permanent: true,
+    },
+    {
+      source: "/uploads/posts/solana-changelog-september-18-2026/heroImage.png",
+      destination:
+        "/uploads/posts/solana-changelog-september-18-2026/heroImage.webp",
+      permanent: true,
+    },
     ...dissolvedGuideRedirects,
     ...movedDocsRedirects,
     ...chainMigrationRedirects,
@@ -821,6 +839,12 @@ export default {
     {
       source: "/upgrades/larger-transaction-size",
       destination: "/upgrades/larger-transaction-sizes",
+    },
+
+    // /scholars applications moved from the built-in form to Typeform
+    {
+      source: "/scholars/apply",
+      destination: "https://solanafoundation.typeform.com/scholars",
     },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
