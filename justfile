@@ -24,7 +24,7 @@ filter target="":
     elif [ -d "packages/$t" ]; then echo "--filter=./packages/$t"
     else echo "--filter=$t"; fi
 
-# Resolve targets (app/package names or file/dir paths) to prettier paths
+# Resolve targets (app/package names or file/dir paths) to oxfmt paths
 [private]
 paths *targets:
     #!/usr/bin/env bash
@@ -75,13 +75,13 @@ lint-fix target="":
 typecheck target="":
     {{ turbo }} check-types $(just filter "$1") {{ flags }}
 
-# Format with prettier (same config as CI); takes app names or file paths
+# Format with oxfmt (same config as CI); takes app names or file paths
 fmt *targets:
     #!/usr/bin/env bash
     set -euo pipefail
     out=$(just paths "$@")
     paths=(); while IFS= read -r p; do paths+=("$p"); done <<< "$out"
-    pnpm exec prettier --ignore-path .prettierignore --write -- "${paths[@]}"
+    pnpm exec oxfmt -- "${paths[@]}"
 
 # Format files changed vs base (committed, staged, unstaged and untracked)
 fmt-changed base="origin/main":
@@ -92,14 +92,14 @@ fmt-changed base="origin/main":
     out=$( { [ -n "$tracked" ] && echo "$tracked"; git ls-files --others --exclude-standard; } | sort -u)
     [ -z "$out" ] && { echo "No changed files"; exit 0; }
     paths=(); while IFS= read -r p; do paths+=("$p"); done <<< "$out"
-    pnpm exec prettier --ignore-path .prettierignore --ignore-unknown --write -- "${paths[@]}"
+    pnpm exec oxfmt --no-error-on-unmatched-pattern -- "${paths[@]}"
 
 fmt-check *targets:
     #!/usr/bin/env bash
     set -euo pipefail
     out=$(just paths "$@")
     paths=(); while IFS= read -r p; do paths+=("$p"); done <<< "$out"
-    pnpm exec prettier --ignore-path .prettierignore --check -- "${paths[@]}"
+    pnpm exec oxfmt --check -- "${paths[@]}"
 
 # Everything CI checks: format, lint, types, tests
 check target="": (fmt-check target) (lint target) (typecheck target) (test target)

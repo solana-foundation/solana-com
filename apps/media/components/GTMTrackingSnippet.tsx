@@ -14,6 +14,7 @@ export const GTMTrackingSnippet = () => {
   const id = config.siteMetadata.googleTagManagerID;
   return (
     <>
+      {/* oxlint-disable-next-line next/no-before-interactive-script-outside-document -- consent script must execute before hydration to gate analytics */}
       <Script strategy="beforeInteractive" id="consent-default">
         {getCookieConsentDefaultScript()}
       </Script>

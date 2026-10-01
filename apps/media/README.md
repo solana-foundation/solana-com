@@ -120,8 +120,8 @@ See `packages/ui-chrome/src/url-config.ts` for the routing logic.
 - `pnpm dev` - Start development server
 - `pnpm build` - Build for production
 - `pnpm start` - Start production server
-- `pnpm lint` - Run ESLint
-- `pnpm lint:fix` - Fix ESLint errors
+- `pnpm lint` - Run oxlint
+- `pnpm lint:fix` - Fix oxlint errors
 - `pnpm check-types` - Generate Next types and check TypeScript
 - `pnpm test` - Run unit tests
 - `pnpm clean` - Clean node_modules and generated files
