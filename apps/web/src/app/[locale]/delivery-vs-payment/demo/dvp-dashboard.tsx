@@ -351,15 +351,23 @@ function SettlementFlow({
   running,
   replaying,
   error,
+  expandedStage,
+  onSelectStage,
 }: {
   stages: Record<StageKey, StageState>;
   running: boolean;
   replaying: boolean;
   error: string | null;
+  expandedStage: StageKey | "none" | null;
+  onSelectStage: (stage: StageKey, isOpen: boolean) => void;
 }) {
   const completed = STAGES.filter(
     ({ key }) => stages[key].status === "complete",
   ).length;
+  const automaticOpenStage = STAGES.find(
+    ({ key }) =>
+      stages[key].status === "running" || stages[key].status === "error",
+  )?.key;
   return (
     <aside
       aria-label="Settlement flow"
@@ -388,6 +396,10 @@ function SettlementFlow({
           const complete = state.status === "complete";
           const active = state.status === "running";
           const failed = state.status === "error";
+          const isOpen =
+            expandedStage === null
+              ? automaticOpenStage === stage.key
+              : expandedStage === stage.key;
           return (
             <li
               key={stage.key}
@@ -401,8 +413,12 @@ function SettlementFlow({
                   aria-hidden="true"
                 />
               )}
-              <details open={active || failed} className="group">
+              <details open={isOpen} className="group">
                 <summary
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onSelectStage(stage.key, isOpen);
+                  }}
                   className={`flex cursor-pointer list-none gap-3 rounded-sm [&::-webkit-details-marker]:hidden ${focusClass}`}
                 >
                   <span
@@ -433,7 +449,7 @@ function SettlementFlow({
                     </span>
                   </span>
                   <span
-                    className="pt-1 text-xs text-nd-mid-em-text group-open:rotate-45"
+                    className="grid size-5 shrink-0 place-items-center text-base leading-none text-nd-mid-em-text transition-transform duration-200 motion-reduce:transition-none group-open:rotate-45"
                     aria-hidden="true"
                   >
                     +
@@ -482,10 +498,10 @@ function SettlementFlow({
         {error
           ? "The run stopped at the highlighted step. Confirmed steps remain visible."
           : running
-            ? "Follow along as each party takes its turn. The demo handles all six steps."
+            ? "Follow along as each party takes its turn. Select a step to preview the trade ticket."
             : completed === 6
-              ? "Every onchain step is confirmed. Expand a step to view its transactions."
-              : "One click runs all six steps. Expand any step to see what happens."}
+              ? "Every onchain step is confirmed. Select a step to revisit the ticket and its transactions."
+              : "One click runs all six steps. Select a step to preview the ticket at that point."}
       </div>
     </aside>
   );
@@ -521,6 +537,10 @@ export function DvpDashboard({
   onRun: () => void;
 }) {
   const [inspectedParty, setInspectedParty] = useState<RoleKey | null>(null);
+  const [selectedStage, setSelectedStage] = useState<StageKey | null>(null);
+  const [expandedStage, setExpandedStage] = useState<StageKey | "none" | null>(
+    null,
+  );
   const activeStage = STAGES.find(
     ({ key }) =>
       stages[key].status === "running" || stages[key].status === "error",
@@ -528,16 +548,35 @@ export function DvpDashboard({
   const selectedParty =
     inspectedParty ?? activeStage?.actor ?? (finished ? "authority" : "maker");
   const selectedMeta = PARTY_META[selectedParty];
-  const assetFunded = stages.asset.status === "complete";
-  const cashFunded = stages.cash.status === "complete";
-  const settled = stages.settle.status === "complete";
+  const selectedStageIndex = selectedStage
+    ? STAGES.findIndex(({ key }) => key === selectedStage)
+    : STAGES.length - 1;
+  const ticketStages = selectedStage
+    ? (Object.fromEntries(
+        STAGES.map(({ key }, index) => [
+          key,
+          index <= selectedStageIndex ? stages[key] : { status: "waiting" },
+        ]),
+      ) as Record<StageKey, StageState>)
+    : stages;
+  const assetFunded = ticketStages.asset.status === "complete";
+  const cashFunded = ticketStages.cash.status === "complete";
+  const settled = ticketStages.settle.status === "complete";
   const fundedLegs = Number(assetFunded) + Number(cashFunded);
-  const tradeCreated = stages.trade.status === "complete";
+  const tradeCreated = ticketStages.trade.status === "complete";
+  const accountsTradeCreated = stages.trade.status === "complete";
+  const accountsSettled = stages.settle.status === "complete";
+  const ticketError =
+    Boolean(error) &&
+    (!selectedStage ||
+      !activeStage ||
+      STAGES.findIndex(({ key }) => key === activeStage.key) <=
+        selectedStageIndex);
   const status = settled
     ? "Settled atomically"
-    : error
+    : ticketError
       ? "Run interrupted"
-      : stages.settle.status === "running"
+      : ticketStages.settle.status === "running"
         ? "Settling both legs"
         : assetFunded && cashFunded
           ? "Ready to settle"
@@ -562,15 +601,15 @@ export function DvpDashboard({
     ...(dvpAddresses
       ? [
           {
-            label: `Trade account${settled ? " · Closed" : ""}`,
+            label: `Trade account${accountsSettled ? " · Closed" : ""}`,
             value: dvpAddresses.swapDvp,
           },
           {
-            label: `Asset escrow${settled ? " · Closed" : ""}`,
+            label: `Asset escrow${accountsSettled ? " · Closed" : ""}`,
             value: dvpAddresses.escrowA,
           },
           {
-            label: `Payment escrow${settled ? " · Closed" : ""}`,
+            label: `Payment escrow${accountsSettled ? " · Closed" : ""}`,
             value: dvpAddresses.escrowB,
           },
           {
@@ -619,6 +658,8 @@ export function DvpDashboard({
             <Button
               onClick={() => {
                 setInspectedParty(null);
+                setSelectedStage(null);
+                setExpandedStage(null);
                 onRun();
               }}
               disabled={running}
@@ -740,10 +781,10 @@ export function DvpDashboard({
                 </h2>
                 <span
                   role="status"
-                  className={`flex items-center gap-1.5 text-[11px] ${error ? "text-nd-highlight-orange" : settled ? "text-nd-highlight-green" : "text-nd-mid-em-text"}`}
+                  className={`flex items-center gap-1.5 text-[11px] ${ticketError ? "text-nd-highlight-orange" : settled ? "text-nd-highlight-green" : "text-nd-mid-em-text"}`}
                 >
                   <span
-                    className={`size-1.5 rounded-full ${error ? "bg-nd-highlight-orange" : settled ? "bg-nd-highlight-green" : "bg-nd-mid-em-text"}`}
+                    className={`size-1.5 rounded-full ${ticketError ? "bg-nd-highlight-orange" : settled ? "bg-nd-highlight-green" : "bg-nd-mid-em-text"}`}
                     aria-hidden="true"
                   />
                   {replaying ? "Replay · " : ""}
@@ -753,17 +794,17 @@ export function DvpDashboard({
               <div className="space-y-3">
                 <TradeLeg
                   leg="asset"
-                  state={stages.asset}
+                  state={ticketStages.asset}
                   tradeCreated={tradeCreated}
                   settled={settled}
-                  escrow={dvpAddresses?.escrowA}
+                  escrow={tradeCreated ? dvpAddresses?.escrowA : undefined}
                 />
                 <TradeLeg
                   leg="cash"
-                  state={stages.cash}
+                  state={ticketStages.cash}
                   tradeCreated={tradeCreated}
                   settled={settled}
-                  escrow={dvpAddresses?.escrowB}
+                  escrow={tradeCreated ? dvpAddresses?.escrowB : undefined}
                 />
                 <div
                   className={`grid gap-4 rounded-[16px] border p-5 sm:grid-cols-[1fr_auto] sm:items-center sm:px-6 ${settled ? "border-nd-highlight-green/30 bg-nd-highlight-green/[0.08]" : "border-nd-border-light bg-white/[0.035]"}`}
@@ -779,11 +820,11 @@ export function DvpDashboard({
                         ? "The trade and both escrows closed in the settlement transaction. Their rent returned to the authority."
                         : "Once both deposits are in escrow, the authority exchanges them in a single transaction. Both transfers succeed together or both revert."}
                     </p>
-                    {settled && stages.settle.signatures?.[0] && (
+                    {settled && ticketStages.settle.signatures?.[0] && (
                       <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-nd-mid-em-text">
                         Settlement transaction{" "}
                         <ExplorerLink
-                          value={stages.settle.signatures[0]}
+                          value={ticketStages.settle.signatures[0]}
                           transaction
                         />
                       </div>
@@ -805,7 +846,7 @@ export function DvpDashboard({
                 <ExpiryClock
                   terms={terms}
                   settled={settled}
-                  replaying={replaying}
+                  replaying={replaying || (selectedStage !== null && !settled)}
                 />
                 <div className="border-l border-nd-border-light pl-3 sm:pl-5">
                   <div className={`${captionClass} text-nd-mid-em-text`}>
@@ -847,6 +888,11 @@ export function DvpDashboard({
             running={running}
             replaying={replaying}
             error={error}
+            expandedStage={expandedStage}
+            onSelectStage={(stage, isOpen) => {
+              setSelectedStage(stage);
+              setExpandedStage(isOpen ? "none" : stage);
+            }}
           />
         </div>
 
@@ -907,7 +953,7 @@ export function DvpDashboard({
               </span>
             </span>
             <span
-              className="text-lg text-nd-mid-em-text group-open:rotate-45"
+              className="grid size-6 shrink-0 place-items-center text-xl leading-none text-nd-mid-em-text transition-transform duration-200 motion-reduce:transition-none group-open:rotate-45"
               aria-hidden="true"
             >
               +
@@ -963,9 +1009,9 @@ export function DvpDashboard({
                       Trade & escrow accounts
                     </dt>
                     <dd className="m-0">
-                      {settled
+                      {accountsSettled
                         ? "Closed"
-                        : tradeCreated
+                        : accountsTradeCreated
                           ? "Open"
                           : "Not yet created"}
                     </dd>
@@ -977,7 +1023,7 @@ export function DvpDashboard({
                   and escrow accounts.
                 </p>
               )}
-              {settled && (
+              {accountsSettled && (
                 <p className="mb-0 mt-5 text-xs leading-relaxed text-nd-mid-em-text">
                   The nonce tombstone stays onchain to prevent this trade from
                   being recreated. Closed accounts may no longer show account
