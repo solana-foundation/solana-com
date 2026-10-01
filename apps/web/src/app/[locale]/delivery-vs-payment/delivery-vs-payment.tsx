@@ -40,14 +40,16 @@ const eyebrowClass =
 function VirtualTradeLeg({
   leg,
   stage,
+  progress,
 }: {
   leg: "asset" | "cash";
   stage: number;
+  progress: number;
 }) {
   const isAsset = leg === "asset";
   const quantity = isAsset ? "100" : "10,000";
   const symbol = isAsset ? "TBILL" : "dUSD";
-  const funded = stage >= (isAsset ? 2 : 3);
+  const funded = progress >= 100;
   const settled = stage === 4;
   const status = settled
     ? isAsset
@@ -55,9 +57,16 @@ function VirtualTradeLeg({
       : "Paid to seller"
     : funded
       ? "Held in escrow"
-      : stage > 0
-        ? "Awaiting deposit"
-        : "Awaiting trade";
+      : progress > 0
+        ? isAsset
+          ? "Transfer in progress"
+          : "Single transaction in progress"
+        : stage > 0
+          ? isAsset
+            ? "Awaiting deposit"
+            : "Awaiting payment"
+          : "Awaiting trade";
+  const color = isAsset ? "bg-nd-highlight-blue" : "bg-nd-highlight-green";
 
   return (
     <section
@@ -86,25 +95,44 @@ function VirtualTradeLeg({
         <div>
           <div
             role="progressbar"
-            aria-label={`${symbol} ${settled ? "delivered" : "deposited"}`}
+            aria-label={
+              isAsset
+                ? `${symbol} transfer timeline`
+                : "Single payment transaction timeline"
+            }
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={funded ? 100 : 0}
-            aria-valuetext={status}
+            aria-valuenow={Math.round(progress)}
+            aria-valuetext={`${Math.round(progress)}% of timeline elapsed · ${status}`}
             className="flex h-9 gap-1 sm:h-10"
           >
             {Array.from({ length: 24 }, (_, index) => (
               <span
                 key={index}
-                className={`h-full min-w-0 flex-1 rounded-full transition-colors duration-700 motion-reduce:transition-none ${funded ? (isAsset ? "bg-nd-highlight-blue" : "bg-nd-highlight-green") : "bg-black/[0.13]"}`}
-              />
+                className="h-full min-w-0 flex-1 overflow-hidden rounded-full bg-black/[0.13]"
+              >
+                <span
+                  className={`block h-full rounded-full transition-[width] duration-100 motion-reduce:transition-none ${color}`}
+                  style={{
+                    width: `${Math.max(0, Math.min(1, (progress / 100) * 24 - index)) * 100}%`,
+                  }}
+                />
+              </span>
             ))}
           </div>
           <div className="mt-2 flex justify-between gap-2 font-brand-mono text-[10px] text-black/60">
+            <span>{isAsset ? "Asset transfer" : "Single transaction"}</span>
             <span>
-              {funded ? quantity : "0"} / {quantity} {symbol}
+              {settled
+                ? isAsset
+                  ? "Delivered"
+                  : "Paid"
+                : funded
+                  ? "In escrow"
+                  : progress > 0
+                    ? "Processing"
+                    : "Awaiting"}
             </span>
-            <span>{settled ? "Delivered" : "In escrow"}</span>
           </div>
         </div>
       </div>
@@ -131,6 +159,7 @@ export function DeliveryVsPaymentPage({
   relatedStories: RelatedStory[];
 }) {
   const [stage, setStage] = useState(0);
+  const [legProgress, setLegProgress] = useState({ asset: 0, cash: 0 });
   const locale = useLocale();
   const [run, setRun] = useState(0);
   const virtualDemoRef = useRef<HTMLDivElement>(null);
@@ -138,12 +167,38 @@ export function DeliveryVsPaymentPage({
   useEffect(() => {
     if (run === 0) return;
     setStage(1);
-    const timers = [
-      window.setTimeout(() => setStage(2), DEMO_STEP_DURATION_MS),
-      window.setTimeout(() => setStage(3), DEMO_STEP_DURATION_MS * 2),
-      window.setTimeout(() => setStage(4), DEMO_STEP_DURATION_MS * 3),
-    ];
-    return () => timers.forEach(window.clearTimeout);
+    setLegProgress({ asset: 0, cash: 0 });
+    const startedAt = performance.now();
+    const timer = window.setInterval(() => {
+      const elapsed = performance.now() - startedAt;
+      const nextStage = Math.min(
+        4,
+        Math.floor(elapsed / DEMO_STEP_DURATION_MS) + 1,
+      );
+
+      setStage(nextStage);
+      setLegProgress({
+        asset: Math.min(
+          100,
+          Math.max(
+            0,
+            ((elapsed - DEMO_STEP_DURATION_MS) / DEMO_STEP_DURATION_MS) * 100,
+          ),
+        ),
+        cash: Math.min(
+          100,
+          Math.max(
+            0,
+            ((elapsed - DEMO_STEP_DURATION_MS * 2) / DEMO_STEP_DURATION_MS) *
+              100,
+          ),
+        ),
+      });
+
+      if (nextStage === 4) window.clearInterval(timer);
+    }, 50);
+
+    return () => window.clearInterval(timer);
   }, [run]);
 
   const play = () => {
@@ -154,6 +209,10 @@ export function DeliveryVsPaymentPage({
   const selectStage = (nextStage: number) => {
     setRun(0);
     setStage(nextStage);
+    setLegProgress({
+      asset: nextStage >= 2 ? 100 : 0,
+      cash: nextStage >= 3 ? 100 : 0,
+    });
   };
 
   const playFromHero = () => {
@@ -344,8 +403,16 @@ export function DeliveryVsPaymentPage({
                   ))}
                 </div>
 
-                <VirtualTradeLeg leg="asset" stage={stage} />
-                <VirtualTradeLeg leg="cash" stage={stage} />
+                <VirtualTradeLeg
+                  leg="asset"
+                  stage={stage}
+                  progress={legProgress.asset}
+                />
+                <VirtualTradeLeg
+                  leg="cash"
+                  stage={stage}
+                  progress={legProgress.cash}
+                />
               </div>
 
               <div
