@@ -128,6 +128,12 @@ inspect `packages/ui-chrome` and the target app `next.config.ts` together.
 - `packages/ecosystem-data`: shared company metadata, wallet-directory records,
   and logos, not app-specific marketing copy
 
+## Styling Constraint
+
+- Use Tailwind utility classes for all styling changes on this branch.
+- CSS Modules (`*.module.css`) are not an option for new or modified surfaces;
+  migrate existing module styles when touching that surface.
+
 ## Best Next File
 
 After reading this file:
