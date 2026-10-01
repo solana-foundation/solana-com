@@ -6,7 +6,7 @@ import {
   SystemProgram,
   Transaction,
   sendAndConfirmTransaction,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 
 const connection = new Connection("http://localhost:8899", "confirmed");
 

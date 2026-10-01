@@ -5,7 +5,7 @@ import {
   LAMPORTS_PER_SOL,
   SystemProgram,
   Transaction,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 import nacl from "tweetnacl";
 
 const connection = new Connection("http://localhost:8899", "confirmed");

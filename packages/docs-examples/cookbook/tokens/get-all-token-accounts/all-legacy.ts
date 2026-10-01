@@ -1,5 +1,5 @@
 // #region all
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js-legacy";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 // connection

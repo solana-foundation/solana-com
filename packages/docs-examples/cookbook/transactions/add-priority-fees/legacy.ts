@@ -7,7 +7,7 @@ import {
   SystemProgram,
   TransactionMessage,
   VersionedTransaction,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 
 // Create connection
 const connection = new Connection("http://localhost:8899", "confirmed");
