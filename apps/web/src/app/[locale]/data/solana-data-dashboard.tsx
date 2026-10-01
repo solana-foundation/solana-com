@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { Pulse as Activity } from "@boxicons/react/Pulse";
 import { ArrowLeftRight } from "@boxicons/react/ArrowLeftRight";
+import { Bank } from "@boxicons/react/Bank";
 import { ChevronLeft } from "@boxicons/react/ChevronLeft";
 import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { DollarCircle as CircleDollarSign } from "@boxicons/react/DollarCircle";
@@ -95,6 +96,7 @@ const tabOptions = [
   { labelKey: "tabs.network.label", value: "network" },
   { labelKey: "tabs.stablecoins.label", value: "stablecoins" },
   { labelKey: "tabs.defi.label", value: "defi" },
+  { labelKey: "tabs.lending.label", value: "lending" },
   { labelKey: "tabs.rpc.label", value: "rpc" },
   { labelKey: "tabs.senders.label", value: "senders" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
@@ -104,6 +106,7 @@ const tabIcons: Record<DashboardTab, typeof Activity> = {
   network: Network,
   stablecoins: CircleDollarSign,
   defi: ArrowLeftRight,
+  lending: Bank,
   rpc: RadioTower,
   senders: Send,
 };
@@ -2561,6 +2564,7 @@ function parseTab(value: string | null): DashboardTab {
   return value === "network" ||
     value === "stablecoins" ||
     value === "defi" ||
+    value === "lending" ||
     value === "rpc" ||
     value === "senders"
     ? value
