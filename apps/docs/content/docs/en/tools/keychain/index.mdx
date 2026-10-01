@@ -6,24 +6,37 @@ description: Unified Solana signing across multiple key management backends
 **Solana Keychain provides a unified interface for signing Solana transactions
 across multiple key management backends.** Develop locally with an in-memory
 key, then switch to enterprise key management, cloud HSMs, or managed wallet
-services in production — without rewriting your signing code.
+services in production, without rewriting your signing code.
 
 ### Why Keychain?
 
-- **Single Interface**: One `SolanaSigner` trait works across all backends
-- **Swap Backends**: Change key management providers through configuration, not
-  code
-- **Zero-Cost Abstraction**: Feature flags include only what you need
-- **Audited**: Security-reviewed by [Accretion](https://accretion.xyz)
+- **Single Interface**: One `SolanaSigner` base interface across all backends,
+  plus one capability per backend: sign, rewrite-and-sign, or sign-and-broadcast
+- **Swap Backends**: Change key management providers through configuration; call
+  sites only change when the new backend has a different capability (Crossmint
+  and Fordefi native modes)
+- **Pay for what you use**: Rust feature flags, per-backend npm packages, Python
+  extras and per-backend Go modules include only the backends you need
+- **Audited**: Rust, TypeScript, Python and Go audited by
+  [OtterSec](https://osec.io) (the opt-in Ledger backend was out of scope); an
+  earlier [Accretion](https://accretion.xyz) audit covered Rust and TypeScript.
+  See
+  [audit status](https://github.com/solana-foundation/solana-keychain/blob/main/audits/AUDIT_STATUS.md).
 
 ### Architecture
 
-- **Languages**: Rust + TypeScript, at full parity
-- **Trait**: Unified `SolanaSigner` interface
+- **Languages**: Rust, TypeScript, Python and Go, at parity (the Ledger backend
+  is Rust-only)
+- **Interface**: `SolanaSigner` base (`pubkey`, `sign_message`, `is_available`)
+  plus exactly one capability per backend: `TransactionSigner`,
+  `ModifyingSigner` or `SendingSigner`
 - **Backends**: Memory, Vault, AWS KMS, GCP KMS, Privy, Turnkey, Fireblocks,
-  CDP, Crossmint, Dfns, Openfort, Para, Utila, Fordefi
-- **Compatibility**: `@solana/kit` and `@solana/signers` compatible (TypeScript)
-  | `solana-sdk` and `solana-sdk-v3` compatible (Rust)
+  CDP, Crossmint, Dfns, Openfort, Para, Utila, Fordefi, Ledger (Rust only,
+  opt-in, unaudited)
+- **Compatibility**: `@solana/kit` and `@solana/signers` 8.1+ (TypeScript) |
+  `solana-sdk` 2.x, 3.x or 4.x via the `sdk-v2` / `sdk-v3` / `sdk-v4` features
+  (Rust; v1 transactions need `sdk-v4`) | `solders` (Python) | `solana-go` v2
+  (Go)
 
 ### Supported Backends
 
@@ -32,22 +45,23 @@ managed or MPC wallet services. See
 [Choosing a backend](/docs/tools/keychain/choosing-a-backend) to compare custody
 models and pick the right one.
 
-| Backend         | Use Case                     | Rust | TypeScript |
-| --------------- | ---------------------------- | ---- | ---------- |
-| Memory          | Development, testing         | ✓    | ✓          |
-| HashiCorp Vault | Self-hosted key management   | ✓    | ✓          |
-| AWS KMS         | Cloud-native (AWS)           | ✓    | ✓          |
-| GCP KMS         | Cloud-native (GCP)           | ✓    | ✓          |
-| Privy           | Embedded wallets             | ✓    | ✓          |
-| Turnkey         | Non-custodial key management | ✓    | ✓          |
-| Fireblocks      | Institutional custody        | ✓    | ✓          |
-| CDP             | Coinbase Developer Platform  | ✓    | ✓          |
-| Crossmint       | Crossmint managed wallets    | ✓    | ✓          |
-| Dfns            | Dfns wallet infrastructure   | ✓    | ✓          |
-| Openfort        | Openfort backend wallets     | ✓    | ✓          |
-| Para            | Para MPC wallets             | ✓    | ✓          |
-| Utila           | Utila MPC custody            | ✓    | ✓          |
-| Fordefi         | Fordefi MPC custody          | ✓    | ✓          |
+| Backend         | Use Case                            | Rust | TypeScript | Python | Go  |
+| --------------- | ----------------------------------- | ---- | ---------- | ------ | --- |
+| Memory          | Development, testing                | ✓    | ✓          | ✓      | ✓   |
+| HashiCorp Vault | Self-hosted key management          | ✓    | ✓          | ✓      | ✓   |
+| AWS KMS         | Cloud-native (AWS)                  | ✓    | ✓          | ✓      | ✓   |
+| GCP KMS         | Cloud-native (GCP)                  | ✓    | ✓          | ✓      | ✓   |
+| Privy           | Embedded wallets                    | ✓    | ✓          | ✓      | ✓   |
+| Turnkey         | Non-custodial key management        | ✓    | ✓          | ✓      | ✓   |
+| Fireblocks      | Institutional custody               | ✓    | ✓          | ✓      | ✓   |
+| CDP             | Coinbase Developer Platform         | ✓    | ✓          | ✓      | ✓   |
+| Crossmint       | Crossmint managed wallets           | ✓    | ✓          | ✓      | ✓   |
+| Dfns            | Dfns wallet infrastructure          | ✓    | ✓          | ✓      | ✓   |
+| Openfort        | Openfort backend wallets            | ✓    | ✓          | ✓      | ✓   |
+| Para            | Para MPC wallets                    | ✓    | ✓          | ✓      | ✓   |
+| Utila           | Utila MPC custody                   | ✓    | ✓          | ✓      | ✓   |
+| Fordefi         | Fordefi MPC custody                 | ✓    | ✓          | ✓      | ✓   |
+| Ledger          | Hardware wallet (opt-in, unaudited) | ✓    |            |        |     |
 
 ## Quick Start
 
@@ -66,10 +80,17 @@ use solana_keychain::{Signer, SolanaSigner};
 
 // Create a signer from any backend
 let signer = Signer::from_memory("base58_private_key")?;
-
-// All signers share the same interface
 let pubkey = signer.pubkey();
-let signature = signer.sign_transaction(&mut tx).await?;
+
+// Transaction signing is a capability; `tx` is a VersionedTransaction
+if let Some(tx_signer) = signer.as_transaction_signer() {
+    let result = tx_signer.sign_transaction(&mut tx).await?;
+}
+
+// Or let the umbrella route any backend shape and supply the RPC hop yourself
+let signature = signer
+    .sign_and_send(&mut tx, |encoded| async move { broadcast(encoded).await })
+    .await?;
 ```
 
 - [Rust Guide](/docs/tools/keychain/getting-started/rust) - Full installation
@@ -110,6 +131,75 @@ const signedTx = await signTransactionWithSigners(
   `@solana/keychain` packages
 - [npm Package](https://www.npmjs.com/package/@solana/keychain) - npm package
 
+To install a Keychain signer on a [Kit](https://github.com/anza-xyz/kit) client
+as its `payer` or `identity`, use `@solana/keychain-kit-plugin` (Crossmint and
+Fordefi native modes are excluded, since they rewrite transactions).
+
+### Python
+
+Install the package (heavier backends ship as extras, for example
+`solana-keychain[aws-kms]`):
+
+```bash
+pip install solana-keychain
+```
+
+Basic usage:
+
+```python
+import os
+
+from solana_keychain import VaultSignerConfig, create_vault_signer
+
+signer = await create_vault_signer(
+    VaultSignerConfig(
+        api_base_url="https://vault.example.com:8200",
+        token=os.environ["VAULT_TOKEN"],
+        key_name="my-solana-key",
+        public_key="base58_public_key",
+    )
+)
+
+# tx is a solders VersionedTransaction
+result = await signer.sign_transaction(tx)
+```
+
+- [Python Guide](/docs/tools/keychain/getting-started/python) - Full
+  installation, extras and backend configuration
+- [PyPI](https://pypi.org/project/solana-keychain/) - Python package
+
+### Go
+
+Each backend is its own Go module, so you only pull the backends you import:
+
+```bash
+go get github.com/solana-foundation/solana-keychain/go/signers/vault/v2@latest
+```
+
+Basic usage:
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/vault/v2"
+
+signer, err := vault.New(vault.Config{
+	VaultAddr: "https://vault.example.com:8200",
+	Token:     os.Getenv("VAULT_TOKEN"),
+	KeyName:   "my-solana-key",
+	Pubkey:    "base58_public_key",
+})
+if err != nil {
+	return err
+}
+
+// tx is a *solana.Transaction from solana-go v2
+res, err := signer.SignTransaction(ctx, tx)
+```
+
+- [Go Guide](/docs/tools/keychain/getting-started/go) - Modules, capabilities
+  and backend configuration
+- [pkg.go.dev](https://pkg.go.dev/github.com/solana-foundation/solana-keychain/go/core/v2) -
+  Go reference
+
 ## Next steps
 
 <Cards>
@@ -121,6 +211,12 @@ const signedTx = await signTransactionWithSigners(
     href="/docs/tools/keychain/getting-started/typescript"
   >
     Install the packages and configure each backend.
+  </Card>
+  <Card title="Python guide" href="/docs/tools/keychain/getting-started/python">
+    Install the package and its extras, and configure each backend.
+  </Card>
+  <Card title="Go guide" href="/docs/tools/keychain/getting-started/go">
+    Add the per-backend modules and configure each backend.
   </Card>
   <Card
     title="Choosing a backend"
@@ -146,6 +242,8 @@ const signedTx = await signTransactionWithSigners(
 
 - [GitHub Repository](https://github.com/solana-foundation/solana-keychain)
 - [Release history](https://github.com/solana-foundation/solana-keychain/releases)
+- [Security model](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+- [Migrating to 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)
 
 Built and maintained by the [Solana Foundation](https://solana.org). Licensed
 under MIT.
