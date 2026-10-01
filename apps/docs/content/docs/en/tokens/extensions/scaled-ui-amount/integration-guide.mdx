@@ -62,7 +62,7 @@ amounts in the program.
   [`amountToUiAmountForMintWithoutSimulation`](https://github.com/solana-program/token-2022/blob/main/clients/js-legacy/src/actions/amountToUiAmount.ts#L164)
   function or simulating a transaction using amountToUiAmount. The same function
   is exported by `@solana-program/token-2022` (taking a Kit RPC) and by
-  `@solana/spl-token` (taking a web3.js v1 `Connection`).
+  `@solana/spl-token` (taking a legacy web3.js `Connection`).
   - Note: amountToUiAmount requires a transaction simulation which means it also
     needs a valid fee payer with balance. Because of this, this should not be
     the default way to get a balance.
@@ -411,14 +411,21 @@ set for a future date, you can automatically poll at this update time
   - To do this conversion you can use the
     [`uiAmountToAmountForMintWithoutSimulation`](https://github.com/solana-program/token-2022/blob/main/clients/js-legacy/src/actions/amountToUiAmount.ts#L312C23-L312C63)
     function or simulating a transaction using amountToUiAmount. On web3.js v3
-    you can also read the multiplier off the decoded mint and convert locally
-    with `uiAmountToAmountForScaledUiAmountMintWithoutSimulation`, as below.
+    you can also read the multiplier off the decoded mint, pick the active one
+    using the cluster's Clock sysvar timestamp, and convert locally with
+    `uiAmountToAmountForScaledUiAmountMintWithoutSimulation`, as below.
 
 <CodeTabs>
 
 ```ts !! title="Web3.js v3"
-import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+import {
+  Connection,
+  PublicKey,
+  SYSVAR_CLOCK_PUBKEY,
+  clusterApiUrl
+} from "@solana/web3.js";
 import { unwrapOption } from "@solana/kit";
+import { getSysvarClockDecoder } from "@solana/sysvars";
 import {
   getMintDecoder,
   uiAmountToAmountForScaledUiAmountMintWithoutSimulation
@@ -428,8 +435,12 @@ const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 const mint = new PublicKey("BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG");
 const uiAmount = "20.2";
 
-const mintAccountInfo = await connection.getAccountInfo(mint, "confirmed");
+const [mintAccountInfo, clockAccountInfo] =
+  await connection.getMultipleAccountsInfo([mint, SYSVAR_CLOCK_PUBKEY]);
 const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+const { unixTimestamp } = getSysvarClockDecoder().decode(
+  clockAccountInfo!.data
+);
 const scaledUiAmountConfig = (unwrapOption(mintAccount.extensions) ?? []).find(
   (extension) => extension.__kind === "ScaledUiAmountConfig"
 );
@@ -438,8 +449,7 @@ if (!scaledUiAmountConfig) {
 }
 
 const multiplier =
-  Date.now() / 1000 >=
-  Number(scaledUiAmountConfig.newMultiplierEffectiveTimestamp)
+  unixTimestamp >= scaledUiAmountConfig.newMultiplierEffectiveTimestamp
     ? scaledUiAmountConfig.newMultiplier
     : scaledUiAmountConfig.multiplier;
 
@@ -449,7 +459,7 @@ const rawAmount = uiAmountToAmountForScaledUiAmountMintWithoutSimulation(
   multiplier
 );
 console.log("Raw Amount:", rawAmount);
-/* Raw Amount: 20200000n */
+/* Raw Amount: 10100000n */
 ```
 
 ```ts !! title="Web3.js (legacy)"
@@ -466,7 +476,7 @@ const rawAmount = await uiAmountToAmountForMintWithoutSimulation(
   uiAmount
 );
 console.log("Raw Amount:", rawAmount);
-/* Raw Amount: 20200000 */
+/* Raw Amount: 10100000n */
 ```
 
 </CodeTabs>
@@ -552,15 +562,25 @@ Current Multiplier: 2
 ```
 
 ```ts !! title="Web3.js v3"
-import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+import {
+  Connection,
+  PublicKey,
+  SYSVAR_CLOCK_PUBKEY,
+  clusterApiUrl
+} from "@solana/web3.js";
 import { unwrapOption } from "@solana/kit";
+import { getSysvarClockDecoder } from "@solana/sysvars";
 import { getMintDecoder } from "@solana-program/token-2022";
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 const mint = new PublicKey("BZCd6HfTbb5ZYJ8hQsm8282tG4QzLyeqFR6tdgQA9EAG");
 
-const mintAccountInfo = await connection.getAccountInfo(mint, "confirmed");
+const [mintAccountInfo, clockAccountInfo] =
+  await connection.getMultipleAccountsInfo([mint, SYSVAR_CLOCK_PUBKEY]);
 const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+const { unixTimestamp } = getSysvarClockDecoder().decode(
+  clockAccountInfo!.data
+);
 
 const scaledUiAmountConfig = (unwrapOption(mintAccount.extensions) ?? []).find(
   (extension) => extension.__kind === "ScaledUiAmountConfig"
@@ -568,8 +588,7 @@ const scaledUiAmountConfig = (unwrapOption(mintAccount.extensions) ?? []).find(
 
 const currentMultiplier =
   scaledUiAmountConfig &&
-  Date.now() / 1000 >=
-    Number(scaledUiAmountConfig.newMultiplierEffectiveTimestamp)
+  unixTimestamp >= scaledUiAmountConfig.newMultiplierEffectiveTimestamp
     ? scaledUiAmountConfig.newMultiplier
     : scaledUiAmountConfig?.multiplier;
 
@@ -580,8 +599,8 @@ Scaled UI Amount Config: {
   __kind: 'ScaledUiAmountConfig',
   authority: 'G7ARQSUCwNrfvTDUCZvM5xdiRdBJiN3qVw2PryD8Wnib',
   multiplier: 2,
-  newMultiplier: 2,
-  newMultiplierEffectiveTimestamp: 1743000000n
+  newMultiplierEffectiveTimestamp: 1743000000n,
+  newMultiplier: 2
 }
 Current Multiplier: 2
 */
