@@ -1,5 +1,5 @@
 // #region from-base58
-import { Keypair } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js-legacy";
 import bs58 from "bs58";
 
 const keypairBase58 =

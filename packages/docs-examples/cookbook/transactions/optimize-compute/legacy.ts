@@ -9,7 +9,7 @@ import {
   PublicKey,
   sendAndConfirmTransaction,
   Transaction,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 
 async function getSimulationComputeUnits(
   connection: Connection,
