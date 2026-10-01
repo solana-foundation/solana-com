@@ -45,6 +45,11 @@ export async function ProjectCardGrid({
               href={project.href}
               placeholderIcon={<ImageIcon className="size-6" />}
             />
+            {project.duration ? (
+              <span className="text-xs font-medium tracking-wide text-fd-muted-foreground uppercase">
+                {project.duration}
+              </span>
+            ) : null}
             <span
               className={`font-semibold leading-snug${placeholder ? "" : " group-hover:underline"}`}
             >

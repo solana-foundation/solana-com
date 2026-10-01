@@ -10,6 +10,15 @@ import {
 
 export type VideoChapter = VideoItem;
 
+function formatTimestamp(href?: string) {
+  const seconds = Number(href?.match(/[?&](?:t|start)=(\d+)/)?.[1] ?? 0);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${h}:${pad(m)}:${pad(s)}`;
+}
+
 /**
  * Use this for content that has a meaningful watch order — a course or
  * roadmap series where each item builds on the last. For a set of
@@ -27,6 +36,7 @@ export async function VideoChapterList({
   playlistLimit,
   label,
   modal = false,
+  timestamps = false,
 }: {
   chapters?: VideoChapter[];
   playlistId?: string;
@@ -34,6 +44,11 @@ export async function VideoChapterList({
   label?: string;
   /** Open videos in an autoplaying modal instead of a new tab. */
   modal?: boolean;
+  /**
+   * For chapters that are timestamps within one video (hrefs like
+   * `...?t=498`): show the start time instead of a repeated thumbnail.
+   */
+  timestamps?: boolean;
 }) {
   const items = playlistId
     ? await getPlaylistVideoItems(playlistId, playlistLimit)
@@ -49,16 +64,24 @@ export async function VideoChapterList({
 
         const content = (
           <>
-            <div className="w-28 shrink-0 sm:w-36">
-              <MediaThumbnail
-                href={chapter.href}
-                placeholderIcon={<PlayCircle className="size-6" />}
-              />
-            </div>
+            {timestamps ? (
+              <span className="w-20 shrink-0 font-mono text-sm tabular-nums text-fd-muted-foreground">
+                {formatTimestamp(chapter.href)}
+              </span>
+            ) : (
+              <div className="w-28 shrink-0 sm:w-36">
+                <MediaThumbnail
+                  href={chapter.href}
+                  placeholderIcon={<PlayCircle className="size-6" />}
+                />
+              </div>
+            )}
             <div className="flex flex-col gap-1">
-              {label ? (
+              {label || chapter.duration ? (
                 <span className="text-xs font-medium tracking-wide text-fd-muted-foreground uppercase">
-                  {label} {i + 1}
+                  {label ? `${label} ${i + 1}` : null}
+                  {label && chapter.duration ? " · " : null}
+                  {chapter.duration}
                 </span>
               ) : null}
               <span

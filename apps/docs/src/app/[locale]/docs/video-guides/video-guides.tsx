@@ -29,6 +29,9 @@ export async function VideoGuidesDocsPage({
       hideTableOfContents={page.data.hideTableOfContents}
       hidePageNavigation={page.data.hidePageNavigation}
       pageTree={pageTree}
+      rootHref="/docs/video-guides"
+      // The landing page is the top of this section, so it has no breadcrumb.
+      breadcrumbEnabled={slug.length > 1}
       href={page.url}
       markdown={markdown}
     >

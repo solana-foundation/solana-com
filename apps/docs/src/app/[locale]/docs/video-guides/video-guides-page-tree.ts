@@ -45,8 +45,10 @@ export function getVideoGuidesPageTree(tree: PageTree.Root): PageTree.Root {
 
   return {
     ...tree,
+    // Breadcrumbs on course pages start at "Video Tutorials" (see rootHref).
+    name: "Video Tutorials",
     children: [
-      sectionGroup("Quick Start", rest),
+      sectionGroup("Foundations", rest),
       sectionGroup("Payments", payments),
       sectionGroup("Privacy", privacy),
       sectionGroup("Hardware & DePIN", depin),

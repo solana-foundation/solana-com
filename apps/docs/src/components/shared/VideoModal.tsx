@@ -29,8 +29,12 @@ export function VideoModalTrigger({
   const [open, setOpen] = useState(false);
 
   let id: string;
+  let start = 0;
   try {
     id = getYoutubeVideoId(href);
+    // Timestamped links (?t=498 or ?start=498) open at that second.
+    const t = href.match(/[?&](?:t|start)=(\d+)/)?.[1];
+    if (t) start = Number(t);
   } catch {
     return (
       <a href={href} target="_blank" rel="noreferrer" className={className}>
@@ -60,7 +64,7 @@ export function VideoModalTrigger({
           </DialogDescription>
           <div className="relative aspect-video w-full">
             <iframe
-              src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1`}
+              src={`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&modestbranding=1${start ? `&start=${start}` : ""}`}
               title={title}
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
               allowFullScreen

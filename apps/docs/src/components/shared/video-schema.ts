@@ -13,6 +13,8 @@ export const videoItemSchema = z.object({
   title: z.string().min(1, "title is required"),
   href: z.string().min(1).optional(),
   subtext: z.string().optional(),
+  /** Display runtime for the item, e.g. "4:44". */
+  duration: z.string().optional(),
 });
 
 export const videoItemListSchema = z.array(videoItemSchema);
