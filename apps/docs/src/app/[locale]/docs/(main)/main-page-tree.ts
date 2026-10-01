@@ -1,5 +1,9 @@
 import type { PageTree } from "fumadocs-core/server";
 
+// Marks folders that the sidebar renders as a collapsible section header
+// (see docs-sidebar-page-tree.tsx) instead of a normal nested folder.
+export const SECTION_GROUP_MARKER = "section-group";
+
 const standaloneDocsRoutes = [
   "/docs/core",
   "/docs/tokens",
@@ -10,6 +14,7 @@ const standaloneDocsRoutes = [
   "/docs/tokenization",
   "/docs/defi",
   "/docs/tools",
+  "/docs/video-guides",
 ];
 
 function folderContainsRoute(node: PageTree.Node, route: string): boolean {
