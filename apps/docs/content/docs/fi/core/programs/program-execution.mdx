@@ -1,8 +1,7 @@
 ---
 title: Ohjelman suoritus
 description:
-  Miten Solana kääntää ja suorittaa ohjelmia, mukaan lukien sBPF VM,
-  laskentayksikön malli, ohjelmavälimuisti ja järjestelmäkutsut.
+  Miten Solana kääntää ja suorittaa ohjelmia, mukaan lukien sBPF-virtuaalikone, laskentayksikkömalli, ohjelmavälimuisti ja syscall-kutsut.
 url: /docs/core/programs/program-execution
 type: conceptual
 prerequisites:
@@ -18,165 +17,159 @@ related:
 {/* TOC: Compilation, Write programs, Program execution model, Program cache, Syscalls */}
 
 <Callout type="info" title="Yhteenveto">
-  Ohjelmat käännetään sBPF:ksi LLVM:n kautta ja suoritetaan eristetyssä VM:ssä,
-  jossa on 1,4M CU:n budjetti per transaktio. Ajoympäristö tallentaa
-  välimuistiin jopa 512 käännettyä ohjelmaa, tarjoaa järjestelmäkutsuja
-  lokitukseen, CPI:hen, kryptografiaan ja muistiin, ja viivästyttää uusia
-  käyttöönottoja 1 slotin verran.
+  Ohjelmat käännetään sBPF-muotoon LLVM:n avulla ja suoritetaan hiekkalaatikoidussa virtuaalikoneessa, jossa on 1,4 miljoonan laskentayksikön budjetti per transaktio. Ajoympäristö tallentaa välimuistiin enintään 512 käännettyä ohjelmaa, tarjoaa syscall-kutsut lokitusta, CPI:tä, kryptografiaa ja muistia varten, ja viivästyttää uusia käyttöönotoja 1 slot.
 </Callout>
 
 ## Kääntäminen
 
-Solana käyttää [LLVM](https://llvm.org/)-työkalua ohjelmien kääntämiseen
+Solana käyttää [LLVM](https://llvm.org/):ää kääntääkseen ohjelmat
 [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)-binääreiksi,
-jotka sisältävät Solana Bytecode Format (sBPF) -muotoista koodia. ELF-binääri
-tallennetaan ketjuun suoritettavalle tilille.
+jotka sisältävät Solana Bytecode Format (sBPF) -muodon. ELF-binääri tallennetaan ketjussa suoritettavaan tiliin.
 
 <Callout>
-  sBPF on Solanan mukautettu versio
-  [eBPF](https://en.wikipedia.org/wiki/EBPF)-tavukoodista, joka on räätälöity
-  Solanan ajoympäristölle. Se ei ole standardia eBPF:ää ja sisältää
-  Solana-spesifisiä muutoksia.
+  sBPF on Solanan mukautettu versio [eBPF](https://en.wikipedia.org/wiki/EBPF)-tavukoodista,
+  räätälöity Solana-ajoympäristöä varten. Se ei ole standardi eBPF ja sisältää
+  Solana-kohtaisia muutoksia.
 </Callout>
 
-## Ohjelmien kirjoittaminen
+## Kirjoita ohjelmia
 
 Solana-ohjelmat kirjoitetaan pääasiassa
-[Rust](https://rust-book.cs.brown.edu/title-page.html)-kielellä käyttäen yhtä
-kahdesta lähestymistavasta:
+[Rust](https://rust-book.cs.brown.edu/title-page.html)-kielellä käyttäen yhtä kolmesta
+lähestymistavasta:
 
 <Cards>
   <Card title="Anchor" href="https://www.anchor-lang.com/docs">
-    Kehys, joka käyttää Rust-makroja vähentääkseen toistuvaa koodia. Suositeltu
+    Viitekehys, joka käyttää Rust-makroja vähentämään toistuvaa koodia. Suositellaan
     useimmille kehittäjille.
   </Card>
-  <Card title="Natiivi Rust" href="/docs/programs/rust">
-    Suora Rust ilman kehyksiä. Tarjoaa täyden hallinnan, mutta vaatii enemmän
-    manuaalista toteutusta.
+  <Card title="Pinocchio" href="/docs/clients/official/rust#program-crates">
+    Kevyt, zero-copy Rust-kirjasto, joka on optimoitu laskentakulutuksen ja
+    binäärikoon suhteen. Sisältää ohjelmakohtaiset kirjastot yleisiä CPI-kutsuja varten.
+  </Card>
+  <Card title="Native Rust" href="/docs/programs/rust">
+    Suora Rust ilman viitekehyksiä. Tarjoaa täyden hallinnan, mutta vaatii enemmän manuaalista
+    toteutusta.
   </Card>
 </Cards>
 
+Katso [Cross-Program Invocations](/docs/core/cpi) CPI-konsepteista ja esimerkeistä,
+jotka pätevät näissä kaikissa lähestymistavoissa.
+
 ## Ohjelman suoritusmalli
 
-Kun transaktio käsitellään, ajoympäristö suorittaa jokaisen käskyn peräkkäin
-[`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15):n
-kautta. Jokaiselle käskylle ajoympäristö:
+Kun transaktiota käsitellään, ajoympäristö suorittaa jokaisen käskyn
+peräkkäin
+[`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15)-funktion kautta.
+Jokaisen käskyn kohdalla ajoympäristö:
 
-1. **Valmistelee käskyn kontekstin.** Kutsuu
-   [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436):ia
-   kartoittaakseen käskyn tili-indeksit, asettaakseen allekirjoittaja- ja
-   kirjoitusliput sekä konfiguroimaan
-   [`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467):n.
+1. **Valmistelee käskykontekstin.** Kutsuu
+   [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)-funktiota
+   kartoittaakseen käskyn tili-indeksit, asettaakseen allekirjoittajan ja kirjoitettavat liput sekä
+   konfiguroidakseen
+   [`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467)-objektin.
 
-2. **Tarkistaa esikäännetyt ohjelmat.** Jos ohjelma on
-   [esikäännetty](/docs/core/programs/precompiles), ajoympäristö kutsuu
-   [`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491):ia,
-   joka silti työntää ja poistaa pinokehyksen (käyttäen _rs`push()`_:ia ja
-   _rs`pop()`_:ia), mutta ohittaa sBPF VM:n ja ohjelmavälimuistin haun
-   suorittaen natiivia koodia suoraan.
+2. **Tarkistaa esikääntäjät.** Jos ohjelma on
+   [esikääntäjä](/docs/core/programs/precompiles), ajoympäristö kutsuu
+   [`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491)-funktiota,
+   joka silti työntää ja noutaa pinokehyksen (_rs`push()`_- ja _rs`pop()`_-kutsujen kautta),
+   mutta ohittaa sBPF-virtuaalikoneen ja ohjelmavälimuistihaun ja suorittaa natiivikoodin
+   suoraan.
 
-3. **Työntää pinokehyksen.** (Vaiheet 3-6 tapahtuvat funktioiden
-   [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)
+3. **Työntää pinokehyksen.** (Vaiheet 3–6 tapahtuvat
+   [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)-
    ja
-   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
-   sisällä, jotka kutsutaan funktiosta _rs`process_message()`_.) Kutsuu
-   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)
-   -funktiota
-   [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184)
-   -oliolla, mikä kasvattaa käskypinon korkeutta ja valvoo
-   uudelleensisääntulosääntöä: ohjelma voi palata itseensä vain, jos **välitön**
-   kutsuja (ohjelma käskypinon nykyisessä huipussa) on sama ohjelma. Syvä
-   itserekursio (A -> A -> A) on sallittu pinon syvyysrajojen puitteissa. Muut
-   uudelleensisääntulomallit (esim. A kutsuu B:tä, joka kutsuu A:ta) palauttavat
-   _rs`InstructionError::ReentrancyNotAllowed`_ -virheen.
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)-funktioiden sisällä,
+   joita kutsutaan _rs`process_message()`_:stä.) Kutsuu
+   [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)-funktiota
+   [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184)-objektille,
+   joka kasvattaa käskypinon korkeutta ja valvoo uudelleensyöttösääntöä: ohjelma voi syöttää itsensä uudelleen vain, jos **välitön** kutsuja (ohjelma käskypinon nykyisessä huipussa) on sama ohjelma.
+   Syvä itserekursio (A -> A -> A) on sallittu pinon syvyysrajojen puitteissa.
+   Muut uudelleensyöttömallit (esim. A kutsuu B:tä, joka kutsuu A:ta) palauttavat
+   _rs`InstructionError::ReentrancyNotAllowed`_.
 
-4. **Selvittää ohjelman.** Ajoympäristö kutsuu
-   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
-   -funktiota, joka määrittää lataajan. Jos ohjelmatilin omistaja on
+4. **Ratkaisee ohjelman.** Ajoympäristö kutsuu
+   [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)-funktiota,
+   joka määrittää lataajan. Jos program account -tilin omistaja on
    [native loader](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L517),
-   ohjelma on sisäänrakennettu ja sen tulopiste haetaan suoraan
-   [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706)
-   -rakenteesta. Jos omistaja on jokin BPF-lataajista (`bpf_loader_deprecated`,
-   `bpf_loader`, `bpf_loader_upgradeable` tai `loader_v4`), kutsutaan sen sijaan
-   lataajan omaa sisäänrakennettua tulopistettä.
+   ohjelma on sisäänrakennettu ja sen aloituspisteFunktio haetaan suoraan
+   [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706)-objektista.
+   Jos omistaja on jokin BPF-lataajista (`bpf_loader_deprecated`,
+   `bpf_loader`, `bpf_loader_upgradeable` tai `loader_v4`), lataajan oma
+   sisäänrakennettu aloituspiste käynnistetään sen sijaan.
 
-5. **Suorittaa BPF-ohjelman.** BPF-ohjelmille
-   [lataajan tulopiste](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
+5. **Suorittaa BPF-ohjelman.** BPF-ohjelmien kohdalla
+   [lataajan aloituspiste](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
    hakee käännetyn suoritettavan tiedoston ohjelmavälimuistista.
-   [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449)
-   -funktio:
-   - Serialisoi tilitiedot litteäksi parametripuskuriksi
-   - Luo sBPF VM:n pinolla, keolla ja muistialueilla
-   - Suorittaa käännetyn koodin kuluttaen laskentayksiköitä suorituksen aikana.
-     Palauttaa _rs`ComputationalBudgetExceeded`_ -virheen, jos budjetti ylittyy.
-   - Deserialisoi tilitiedot puskurista takaisin tilitilaan
+   [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449)-funktio sen jälkeen:
+   - Sarjallistaa tilitiedot litteään parametripuskuriin
+   - Luo sBPF-virtuaalikoneen pino-, keko- ja muistialueilla
+   - Ajaa käännetyn koodin kuluttaen laskentayksiköitä suorituksen aikana. Palauttaa
+     _rs`ComputationalBudgetExceeded`_, jos budjetti ylittyy.
+   - Sarjanpurkaa tilitiedot puskurista takaisin tilitilaan
 
-6. **Poistaa pinokehyksen.** Kutsuu
-   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268)
-   -funktiota, joka varmistaa, että käsky ei rikkonut ajoympäristön
-   kirjanpitosääntöjä (lamport-saldot ovat tasapainossa, vain luku -tilejä ei
-   muokattu, tilitietojen koot ovat rajojen sisällä).
+6. **Noutaa pinokehyksen.** Kutsuu
+   [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268)-funktiota,
+   joka tarkistaa, ettei käsky rikkonut ajoympäristön kirjanpitosääntöjä
+   (lamport-saldot ovat tasapainossa, vain luku -tilejä ei muutettu,
+   tilitietojen koot ovat rajojen sisällä).
 
-7. **Kerää laskentayksiköt.** Käskyn kuluttamat laskentayksiköt lisätään
-   transaktion kokonaismäärään
-   [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53)
-   -funktion kautta.
+7. **Kertää laskentayksiköt.** Käskyn kuluttamat laskentayksiköt
+   lisätään transaktion kokonaismäärään
+   [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53)-funktion kautta.
 
 ## Ohjelmavälimuisti
 
 Ajoympäristö ylläpitää globaalia
-[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677)
-joka tallentaa varmennetut ja käännetyt ohjelmat. Se on
-haarautumisgraafitietoinen ja käsittelee käyttöönoton näkyvyyssääntöjä, häätöä
-ja epoch-rajojen uudelleenkääntämistä.
+[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677)-välimuistia,
+joka tallentaa varmennetut ja käännetyt ohjelmat. Se on haarautumisgraafitietoinen ja käsittelee
+käyttöönoton näkyvyyssäännöt, häätämisen ja epoch-rajalla tapahtuvan uudelleenkääntämisen.
 
 ### Välimuistimerkintätyypit
 
 Jokaisella välimuistissa olevalla ohjelmalla on
-[`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132)
+[`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132),
 joka määrittää sen ajoaikaisen käyttäytymisen:
 
-| Tyyppi                                                                                                            | Kuvaus                                                                                                                                                                                                                                                                                                                       |
-| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | Varmennettu ja käännetty ohjelma, valmis suoritettavaksi.                                                                                                                                                                                                                                                                    |
-| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | Natiivi ohjelma, joka on käännetty osaksi validaattorin binääriä (System, Stake, Vote jne.). Ei tallenneta ketjuun.                                                                                                                                                                                                          |
-| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | Aiemmin varmennettu ohjelma, jonka käännetty suoritettava tiedosto poistettiin muistista tilan vapauttamiseksi. Seuraa edelleen käyttötilastoja. Voidaan ladata uudelleen ilman uudelleenvarmentamista.                                                                                                                      |
-| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | Hautakivi ohjelmille, jotka eivät läpäisseet sBPF-varmentajaa nykyisen ominaisuusjoukon alla. Voi muuttua `Loaded`-tilaan, jos ominaisuuksien aktivoinnit muuttavat varmentamissääntöjä.                                                                                                                                     |
-| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | Hautakivi ohjelmille, jotka on nimenomaisesti suljettu tai joita ei ole koskaan otettu käyttöön. Käytetään myös tileille (kuten puskuritileille), jotka kuuluvat lataajalle, mutta eivät sisällä suoritettavaa koodia.                                                                                                       |
-| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | Synteettinen hautakivi, jonka [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755) palauttaa, kun `Loaded`-merkintä on olemassa, mutta ei ole vielä voimassa (sen `effective_slot` on tulevaisuudessa). Ei koskaan tallenneta suoraan välimuistiin. |
+| Tyyppi                                                                                                              | Kuvaus                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | Varmennettu ja käännetty ohjelma, valmis suoritukseen.                                                                                                                                                                                                                                              |
+| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | Natiivi ohjelma, joka on käännetty validator-binääriin (System, Stake, Vote jne.). Ei tallennettu ketjuun.                                                                                                                                                                                               |
+| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | Aiemmin varmennettu ohjelma, jonka käännetty suoritettava tiedosto on häätty muistista tilan vapauttamiseksi. Seuraa edelleen käyttötilastoja. Voidaan ladata uudelleen ilman uudelleenvarmennusta.                                                                                                                             |
+| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | Hautakivi ohjelmille, jotka eivät läpäisseet sBPF-varmistajaa nykyisellä ominaisuusjoukolla. Saattaa muuttua `Loaded`-tilaan, jos ominaisuuden aktivoinnit muuttavat varmistussääntöjä.                                                                                                                              |
+| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | Hautakivi ohjelmille, jotka on nimenomaisesti suljettu tai joita ei ole koskaan otettu käyttöön. Käytetään myös tileille (kuten puskuritileille), jotka kuuluvat lataajalle mutta eivät sisällä suoritettavaa koodia.                                                                                                               |
+| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | Synteettinen hautakivi, jonka [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755) palauttaa, kun `Loaded`-merkintä on olemassa mutta ei vielä voimassa (sen `effective_slot` on tulevaisuudessa). Ei koskaan tallennettu suoraan välimuistiin. |
 
 ### Näkyvyysviive
 
-Äskettäin käyttöönotetut tai päivitetyt ohjelmat eivät ole voimassa
-välittömästi.
-[`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)
--vakio on `1`, mikä tarkoittaa, että slotissa N käyttöönotettu ohjelma tulee
-voimaan slotissa N+1. Käyttöönoton aikana mikä tahansa yritys kutsua uutta
-versiota palauttaa _rs`DelayVisibility`_-arvon, jolloin ajoympäristö ilmoittaa
-"Program is not deployed."
+Äskettäin käyttöönotetut tai päivitetyt ohjelmat eivät ole heti voimassa.
+[`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)-vakion
+arvo on `1`, mikä tarkoittaa, että slot N:ssä käyttöönotettu ohjelma tulee voimaan slot
+N+1:ssä. Käyttöönottohetkellä mikä tahansa yritys käynnistää uusi versio palauttaa
+_rs`DelayVisibility`_-virheen, jolloin ajoympäristö ilmoittaa "Program is not deployed."
 
-### Häätökäytäntö
+### Häätöpolitiikka
 
 Välimuisti sisältää enintään
 [`MAX_LOADED_ENTRY_COUNT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L31)
 (512) käännettyä ohjelmamerkintää. Kun raja saavutetaan, vähiten käytetyt
-ohjelmat häädetään _rs`Unloaded`_ -tilaan. Käyttöä seurataan
-[`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)
--arvolla (kasvaa joka kerta kun transaktio viittaa ohjelmaan) ja
+ohjelmat häätään _rs`Unloaded`_-tilaan. Käyttöä seurataan
+[`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)-laskurilla
+(kasvatetaan joka kerta, kun transaktio viittaa ohjelmaan) sekä
 [`latest_access_slot`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L199)-arvolla.
 
-### Epoch-rajan uudelleenkääntäminen
+### Epoch-rajalla tapahtuva uudelleenkääntäminen
 
 Jos ominaisuuden aktivointi muuttaa
-[`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)
--arvoa epoch-rajalla, kaikki välimuistissa olevat ohjelmat
+[`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)-ympäristöä
+epoch-rajalla, kaikki välimuistissa olevat ohjelmat
 [käännetään uudelleen](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L1494)
 uutta ympäristöä vasten.
 
-## Paluudata
+## Palautusdata
 
-Ohjelmat voivat asettaa paluudatan `sol_set_return_data`-syskutsun kautta. Data
-tallennetaan transaktiotason
-[`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499)
--rakenteeseen, joka sisältää datatavut ja sen ohjelman `program_id`-arvon, jonka
-instruktio kutsui syskutsua. Maksimikoko on 1 024 tavua (_rs`MAX_RETURN_DATA`_).
+Ohjelmat voivat asettaa palautusdatan `sol_set_return_data`-syscall-kutsun kautta. Data tallennetaan
+transaktiotason
+[`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499)-rakenteeseen,
+joka sisältää datatavut sekä sen ohjelman `program_id`:n, jonka käsky kutsui syscallia. Enimmäiskoko on 1 024 tavua
+(_rs`MAX_RETURN_DATA`_).
