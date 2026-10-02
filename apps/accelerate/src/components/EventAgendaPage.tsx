@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
+import type { ReactNode } from "react";
 import { Link } from "@workspace/i18n/routing";
 import { useTranslations } from "@workspace/i18n/client";
 import { Agenda } from "./Agenda";
@@ -21,6 +22,8 @@ type EventAgendaPageProps = {
   event: AccelerateEvent;
   data?: AgendaData;
   copy?: Partial<Record<AgendaPageCopyKey, string>>;
+  header?: ReactNode;
+  headerOverlay?: boolean;
 };
 
 function BackArrow() {
@@ -43,29 +46,41 @@ function BackArrow() {
   );
 }
 
-export function EventAgendaPage({ event, data, copy }: EventAgendaPageProps) {
+export function EventAgendaPage({
+  event,
+  data,
+  copy,
+  header,
+  headerOverlay = false,
+}: EventAgendaPageProps) {
   const t = useTranslations(event.pageTranslations);
   const text = (key: AgendaPageCopyKey) => copy?.[key] ?? t(key);
   const description = text("description");
 
   return (
     <div className="min-h-screen bg-black">
-      <EventHeader
-        variant="page"
-        translationPrefix={event.navigationTranslations}
-        homePath={event.homePath}
-        agendaPath={event.agendaPath}
-        logoImage={event.logoImage}
-        logoAlt={event.logoAlt}
-        logoHomePath={event.logoHomePath}
-        showSpeakersNav={event.agendaShowSpeakersNav}
-        showSponsorsNav={event.agendaShowSponsorsNav}
-        showFaqNav={event.agendaShowFaqNav}
-        activeNav="agenda"
-        lumaId={event.lumaId}
-      />
+      {header ?? (
+        <EventHeader
+          variant="page"
+          translationPrefix={event.navigationTranslations}
+          homePath={event.homePath}
+          agendaPath={event.agendaPath}
+          logoImage={event.logoImage}
+          logoAlt={event.logoAlt}
+          logoHomePath={event.logoHomePath}
+          showSpeakersNav={event.agendaShowSpeakersNav}
+          activeNav="agenda"
+          lumaId={event.lumaId}
+        />
+      )}
 
-      <section className="relative overflow-hidden bg-black py-12 lg:py-20">
+      <section
+        className={`relative overflow-hidden bg-black ${
+          headerOverlay
+            ? "pt-[136px] pb-12 md:pt-[186px] lg:pb-20"
+            : "py-12 lg:py-20"
+        }`}
+      >
         <div className="pointer-events-none absolute -left-[200px] top-0 h-full w-[600px]">
           <div
             className="absolute inset-0"

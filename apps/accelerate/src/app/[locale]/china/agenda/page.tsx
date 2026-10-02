@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { EventAgendaPage } from "@/components/EventAgendaPage";
+import { ChinaHeader } from "@/components/china/ChinaRoadshow";
 import { accelerateEvents } from "@/data/events";
 import type { AgendaData, AgendaSessionType } from "@/lib/agenda-types";
 import { getShanghaiAgenda } from "@/lib/shanghai-agenda";
@@ -65,6 +66,8 @@ export default async function ShanghaiAgendaPage() {
   return (
     <>
       <EventAgendaPage
+        header={<ChinaHeader />}
+        headerOverlay
         data={data}
         event={accelerateEvents.shanghai}
         copy={{

@@ -7,8 +7,6 @@ export type AccelerateEvent = {
   navigationTranslations: string;
   pageTranslations: string;
   agendaShowSpeakersNav: boolean;
-  agendaShowSponsorsNav?: boolean;
-  agendaShowFaqNav?: boolean;
   logoHomePath?: string;
   agendaDisplay?: {
     filterMode?: "type" | "format";
@@ -49,8 +47,6 @@ export const accelerateEvents = {
     navigationTranslations: "accelerate",
     pageTranslations: "accelerate.agendaPage",
     agendaShowSpeakersNav: false,
-    agendaShowSponsorsNav: false,
-    agendaShowFaqNav: false,
     agendaDisplay: {
       filterMode: "format",
       exactFormatLabels: true,

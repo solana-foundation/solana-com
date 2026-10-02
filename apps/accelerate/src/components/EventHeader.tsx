@@ -23,8 +23,6 @@ type EventHeaderProps = {
   logoAlt: string;
   logoHomePath?: string;
   showSpeakersNav?: boolean;
-  showSponsorsNav?: boolean;
-  showFaqNav?: boolean;
   showCta?: boolean;
   ctaLabel?: string;
   lumaId?: string;
@@ -92,8 +90,6 @@ export function EventHeader({
   logoAlt,
   logoHomePath = "/accelerate",
   showSpeakersNav = true,
-  showSponsorsNav = true,
-  showFaqNav = true,
   // Accelerate events that have concluded should remain navigational archives,
   // rather than presenting an unavailable ticket flow.
   showCta = false,
@@ -121,10 +117,8 @@ export function EventHeader({
     ...(agendaPath
       ? [{ href: agendaPath, label: t("nav.agenda"), id: "agenda" as const }]
       : []),
-    ...(showSponsorsNav
-      ? [{ href: hashPath("sponsors"), label: t("nav.sponsors") }]
-      : []),
-    ...(showFaqNav ? [{ href: hashPath("faq"), label: t("nav.faq") }] : []),
+    { href: hashPath("sponsors"), label: t("nav.sponsors") },
+    { href: hashPath("faq"), label: t("nav.faq") },
   ];
 
   const ticketButton = (mobile = false) => (
