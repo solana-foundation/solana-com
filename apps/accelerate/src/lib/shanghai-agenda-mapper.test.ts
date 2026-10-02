@@ -17,7 +17,6 @@ function record(
       [FIELD.title]: `Session ${id}`,
       [FIELD.description]: `Description ${id}`,
       [FIELD.order]: 1,
-      [FIELD.startTime]: "2026-10-16T02:00:00.000Z",
       [FIELD.publishStatus]: "Live",
       [FIELD.commsReview]: "Cleared",
       [FIELD.event]: [SHANGHAI_EVENT_RECORD_ID],
@@ -89,6 +88,35 @@ test("preview mode ignores publication flags but keeps event and field filters",
   );
 });
 
+test("maps Shanghai time, track, and linked format labels for display", () => {
+  const scheduled = record("rec-display-details", {
+    [FIELD.startTime]: "2026-10-16T02:00:00.000Z",
+    [FIELD.endTime]: "2026-10-16T02:05:00.000Z",
+    [FIELD.track]: "AI × blockchain",
+    [FIELD.format]: ["rec-format-keynote"],
+  });
+
+  assert.deepEqual(
+    mapShanghaiAgendaRecords([scheduled], {
+      formatNames: { "rec-format-keynote": "Keynote" },
+    }),
+    [
+      {
+        id: "rec-display-details",
+        title: "Session rec-display-details",
+        description: "Description rec-display-details",
+        time: {
+          start: "2026-10-16T02:00:00.000Z",
+          end: "2026-10-16T02:05:00.000Z",
+          label: "10:00–10:05",
+        },
+        track: "AI × blockchain",
+        formats: ["Keynote"],
+      },
+    ],
+  );
+});
+
 test("sorts approved sessions by schedule without returning schedule fields", () => {
   const later = record("rec-later", {
     [FIELD.order]: 2,
@@ -109,8 +137,10 @@ test("sorts approved sessions by schedule without returning schedule fields", ()
     assert.deepEqual(Object.keys(session).sort(), [
       "description",
       "id",
+      "time",
       "title",
     ]);
+    assert.equal("order" in session, false);
   }
 });
 

@@ -6,12 +6,21 @@ import { useTranslations } from "@workspace/i18n/client";
 import { Agenda } from "./Agenda";
 import { EventHeader } from "./EventHeader";
 import { fadeInUp, stagger } from "@/lib/animations";
-import type { AgendaData } from "@/lib/miami-agenda";
+import type { AgendaData } from "@/lib/agenda-types";
 import type { AccelerateEvent } from "@/data/events";
+
+type AgendaPageCopyKey =
+  | "backToAccelerate"
+  | "dateLocation"
+  | "conference"
+  | "agendaHighlight"
+  | "description"
+  | "comingSoon";
 
 type EventAgendaPageProps = {
   event: AccelerateEvent;
   data?: AgendaData;
+  copy?: Partial<Record<AgendaPageCopyKey, string>>;
 };
 
 function BackArrow() {
@@ -34,8 +43,10 @@ function BackArrow() {
   );
 }
 
-export function EventAgendaPage({ event, data }: EventAgendaPageProps) {
+export function EventAgendaPage({ event, data, copy }: EventAgendaPageProps) {
   const t = useTranslations(event.pageTranslations);
+  const text = (key: AgendaPageCopyKey) => copy?.[key] ?? t(key);
+  const description = text("description");
 
   return (
     <div className="min-h-screen bg-black">
@@ -46,6 +57,7 @@ export function EventAgendaPage({ event, data }: EventAgendaPageProps) {
         agendaPath={event.agendaPath}
         logoImage={event.logoImage}
         logoAlt={event.logoAlt}
+        logoHomePath={event.logoHomePath}
         showSpeakersNav={event.agendaShowSpeakersNav}
         activeNav="agenda"
         lumaId={event.lumaId}
@@ -71,7 +83,7 @@ export function EventAgendaPage({ event, data }: EventAgendaPageProps) {
                 className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-white/60 transition-colors hover:text-white"
               >
                 <BackArrow />
-                {t("backToAccelerate")}
+                {text("backToAccelerate")}
               </Link>
             </motion.div>
 
@@ -79,36 +91,44 @@ export function EventAgendaPage({ event, data }: EventAgendaPageProps) {
               variants={fadeInUp}
               className="mb-4 text-base font-medium uppercase tracking-[0.08em] text-white/70"
             >
-              {t("dateLocation")}
+              {text("dateLocation")}
             </motion.p>
 
             <motion.h1
               variants={fadeInUp}
               className="max-w-[900px] text-[52px] font-normal leading-none tracking-[-0.03em] text-white sm:text-[72px] lg:text-[96px]"
             >
-              {t("conference")}{" "}
+              {text("conference")}{" "}
               <span className="text-accelerate-green">
-                {t("agendaHighlight")}
+                {text("agendaHighlight")}
               </span>
             </motion.h1>
 
-            <motion.p
-              variants={fadeInUp}
-              className="mt-6 max-w-[650px] text-lg leading-relaxed text-white/70 lg:text-xl"
-            >
-              {t("description")}
-            </motion.p>
+            {description ? (
+              <motion.p
+                variants={fadeInUp}
+                className="mt-6 max-w-[650px] text-lg leading-relaxed text-white/70 lg:text-xl"
+              >
+                {description}
+              </motion.p>
+            ) : null}
           </motion.div>
         </div>
       </section>
 
       {data ? (
         data.sessions.length > 0 ? (
-          <Agenda data={data} filterMode="format" />
+          <Agenda
+            data={data}
+            filterMode={event.agendaDisplay?.filterMode ?? "format"}
+            exactFormatLabels={event.agendaDisplay?.exactFormatLabels}
+            rightColumnLabel={event.agendaDisplay?.rightColumnLabel}
+            timeZoneLabel={event.agendaDisplay?.timeZoneLabel}
+          />
         ) : (
           <section className="bg-black py-12 lg:py-16">
             <div className="mx-auto max-w-[1440px] px-6 lg:px-[60px]">
-              <p className="text-white/60">{t("comingSoon")}</p>
+              <p className="text-white/60">{text("comingSoon")}</p>
             </div>
           </section>
         )

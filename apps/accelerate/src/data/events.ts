@@ -7,6 +7,13 @@ export type AccelerateEvent = {
   navigationTranslations: string;
   pageTranslations: string;
   agendaShowSpeakersNav: boolean;
+  logoHomePath?: string;
+  agendaDisplay?: {
+    filterMode?: "type" | "format";
+    exactFormatLabels?: boolean;
+    rightColumnLabel?: string;
+    timeZoneLabel?: string;
+  };
   lumaId?: string;
 };
 
@@ -28,5 +35,21 @@ export const accelerateEvents = {
     navigationTranslations: "accelerate.miami",
     pageTranslations: "accelerate.miami.agendaPage",
     agendaShowSpeakersNav: true,
+  },
+  shanghai: {
+    homePath: "/accelerate/china",
+    agendaPath: "/accelerate/china/agenda",
+    logoImage: "/images/accelerate-logo.svg",
+    logoAlt: "Solana Accelerate Shanghai",
+    logoHomePath: "/accelerate/china",
+    navigationTranslations: "accelerate",
+    pageTranslations: "accelerate.agendaPage",
+    agendaShowSpeakersNav: false,
+    agendaDisplay: {
+      filterMode: "format",
+      exactFormatLabels: true,
+      rightColumnLabel: "Track",
+      timeZoneLabel: "All times China Standard Time (UTC+8).",
+    },
   },
 } as const satisfies Record<string, AccelerateEvent>;

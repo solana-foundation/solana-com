@@ -8,6 +8,8 @@ import {
 import {
   mapShanghaiAgendaRecords,
   SHANGHAI_AGENDA_FIELD_IDS,
+  SHANGHAI_FORMAT_NAME_FIELD_ID,
+  SHANGHAI_FORMAT_TABLE_ID,
   type ShanghaiAgendaSession,
   type ShanghaiAgendaSourceRecord,
 } from "./shanghai-agenda-mapper";
@@ -16,6 +18,7 @@ const BASE_ID = "applsN0LSl2rps6le";
 const SESSIONS_TABLE_ID = "tblhmC8GAuTrrebqA";
 const SHANGHAI_VIEW_ID = "viwRCpQEfJqc2C2ci";
 const AIRTABLE_CACHE_SECONDS = 60;
+const AIRTABLE_FORMAT_BATCH_SIZE = 50;
 const AIRTABLE_NO_STORE_OPTIONS: AirtableFetchOptions = { cache: "no-store" };
 const PUBLIC_SOURCE_FIELD_IDS = Object.values(SHANGHAI_AGENDA_FIELD_IDS);
 const IGNORE_PUBLICATION_FLAGS =
@@ -25,6 +28,83 @@ type AirtableListResponse = {
   records?: ShanghaiAgendaSourceRecord[];
   offset?: string;
 };
+
+function getLinkedFormatRecordIds(
+  record: ShanghaiAgendaSourceRecord,
+): string[] {
+  const linkedFormats = record.fields?.[SHANGHAI_AGENDA_FIELD_IDS.format];
+  if (!Array.isArray(linkedFormats)) return [];
+
+  return linkedFormats.flatMap((format) => {
+    if (typeof format === "string") return [format];
+    if (
+      format !== null &&
+      typeof format === "object" &&
+      "id" in format &&
+      typeof format.id === "string"
+    ) {
+      return [format.id];
+    }
+    return [];
+  });
+}
+
+async function fetchFormatNames(
+  records: readonly ShanghaiAgendaSourceRecord[],
+  candidateIds: ReadonlySet<string>,
+  token: string,
+): Promise<Record<string, string>> {
+  const formatRecordIds = [
+    ...new Set(
+      records
+        .filter((record) => candidateIds.has(record.id))
+        .flatMap(getLinkedFormatRecordIds),
+    ),
+  ];
+  const names: Record<string, string> = {};
+
+  for (
+    let index = 0;
+    index < formatRecordIds.length;
+    index += AIRTABLE_FORMAT_BATCH_SIZE
+  ) {
+    const batch = formatRecordIds.slice(
+      index,
+      index + AIRTABLE_FORMAT_BATCH_SIZE,
+    );
+    const conditions = batch.map((id) => `RECORD_ID()="${id}"`);
+    const formula =
+      conditions.length === 1 ? conditions[0]! : `OR(${conditions.join(",")})`;
+    const params = new URLSearchParams({
+      pageSize: "100",
+      returnFieldsByFieldId: "true",
+      filterByFormula: formula,
+    });
+    params.append("fields[]", SHANGHAI_FORMAT_NAME_FIELD_ID);
+
+    let offset: string | undefined;
+    do {
+      if (offset) params.set("offset", offset);
+
+      const payload = await fetchAirtableJson<AirtableListResponse>(
+        `${AIRTABLE_API_BASE}/${BASE_ID}/${encodeURIComponent(SHANGHAI_FORMAT_TABLE_ID)}?${params}`,
+        token,
+        AIRTABLE_NO_STORE_OPTIONS,
+        "Shanghai agenda format request",
+      );
+
+      for (const record of payload.records ?? []) {
+        const name = record.fields?.[SHANGHAI_FORMAT_NAME_FIELD_ID];
+        if (typeof name === "string" && name.trim()) {
+          names[record.id] = name.trim();
+        }
+      }
+      offset = payload.offset;
+    } while (offset);
+  }
+
+  return names;
+}
 
 export type ShanghaiAgendaResult =
   | { status: "ready"; sessions: ShanghaiAgendaSession[] }
@@ -61,11 +141,19 @@ async function fetchShanghaiAgenda(): Promise<ShanghaiAgendaSession[]> {
     offset = payload.offset;
   } while (offset);
 
+  const mappingOptions = {
+    ignorePublicationFlags: IGNORE_PUBLICATION_FLAGS,
+  };
+  const candidateSessions = mapShanghaiAgendaRecords(records, mappingOptions);
+  const formatNames = await fetchFormatNames(
+    records,
+    new Set(candidateSessions.map((session) => session.id)),
+    token,
+  );
+
   // Cache only the narrow public mapping. Source records and private Airtable
   // fields never enter the Next.js data cache or the page response.
-  return mapShanghaiAgendaRecords(records, {
-    ignorePublicationFlags: IGNORE_PUBLICATION_FLAGS,
-  });
+  return mapShanghaiAgendaRecords(records, { ...mappingOptions, formatNames });
 }
 
 const loadCachedShanghaiAgenda =
@@ -73,7 +161,7 @@ const loadCachedShanghaiAgenda =
     ? unstable_cache(
         fetchShanghaiAgenda,
         [
-          "shanghai-agenda-airtable-v1",
+          "shanghai-agenda-airtable-v2",
           IGNORE_PUBLICATION_FLAGS ? "preview" : "production",
         ],
         {
