@@ -4,7 +4,7 @@ import { Link } from "@workspace/i18n/routing";
 import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { AlpenglowDashboard } from "@/components/upgrades/alpenglow-dashboard/dashboard";
 
-const isAlpenglowDashboardAvailable = false;
+const isAlpenglowDashboardAvailable = true;
 
 export const metadata: Metadata = {
   title: "Alpenglow Transition Dashboard",
