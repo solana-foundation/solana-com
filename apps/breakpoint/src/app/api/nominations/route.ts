@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof TypeError && error.message === "fetch failed") {
       console.warn(
-        "Vercel Bot ID is unavailable; continuing with awards rate limits",
+        "Bot ID is unavailable; continuing with awards rate limits",
         error,
       );
     } else {
