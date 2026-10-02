@@ -20,6 +20,9 @@ import {
   readAwardsBallot,
 } from "@/lib/awards-session";
 
+const categoryIds = new Set<string>(
+  awardCategories.map((category) => category.id),
+);
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 const MAX_BODY_BYTES = 2_048;
 
@@ -105,12 +108,7 @@ export async function GET(request: NextRequest) {
     }
     const nominations = await awardsPrisma.nomination.findMany({
       where: { userId: user.id },
-      select: {
-        category: true,
-        twitterHandle: true,
-        secondTwitterHandle: true,
-        submittedAt: true,
-      },
+      select: { category: true, twitterHandle: true, submittedAt: true },
       orderBy: { submittedAt: "desc" },
     });
     const response = NextResponse.json(
@@ -243,31 +241,17 @@ export async function POST(request: NextRequest) {
 
   const categoryId =
     typeof body.categoryId === "string" ? body.categoryId : null;
-  const awardCategory = awardCategories.find(
-    (category) => category.id === categoryId,
-  );
   const twitterHandle = handle(body.twitterHandle);
-  const secondTwitterHandle = body.secondTwitterHandle
-    ? handle(body.secondTwitterHandle)
-    : null;
-  if (!categoryId || !awardCategory)
+  if (!categoryId || !categoryIds.has(categoryId))
     return NextResponse.json(
       { error: "Unknown award category." },
       { status: 400, headers: NO_STORE_HEADERS },
     );
-  const requiresSecondHandle =
-    "nomineeCount" in awardCategory && awardCategory.nomineeCount === 2;
-  if (
-    !twitterHandle ||
-    (requiresSecondHandle &&
-      (!secondTwitterHandle || twitterHandle === secondTwitterHandle)) ||
-    (!requiresSecondHandle && secondTwitterHandle)
-  )
+  if (!twitterHandle)
     return NextResponse.json(
       {
-        error: requiresSecondHandle
-          ? "Enter two different, valid X usernames for both collaborators (up to 15 letters, numbers, or underscores)."
-          : "Check the spelling and enter a valid X username (up to 15 letters, numbers, or underscores).",
+        error:
+          "Check the spelling and enter a valid X username (up to 15 letters, numbers, or underscores).",
       },
       { status: 400, headers: NO_STORE_HEADERS },
     );
@@ -295,13 +279,11 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             category: categoryId,
             twitterHandle,
-            secondTwitterHandle,
             ipHash,
             country,
           },
           update: {
             twitterHandle,
-            secondTwitterHandle,
             ipHash,
             country,
             submittedAt: new Date(),
@@ -312,7 +294,6 @@ export async function POST(request: NextRequest) {
             userId: user.id,
             category: categoryId,
             twitterHandle,
-            secondTwitterHandle,
             ipHash,
             country,
             action: existingNomination ? "updated" : "created",
@@ -326,7 +307,6 @@ export async function POST(request: NextRequest) {
         nomination: {
           category: nomination.category,
           twitterHandle: nomination.twitterHandle,
-          secondTwitterHandle: nomination.secondTwitterHandle,
           submittedAt: nomination.submittedAt,
         },
       },

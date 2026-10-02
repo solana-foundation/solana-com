@@ -1,7 +1,6 @@
 export type AwardCategory = {
   id: string;
   section: "individual" | "community";
-  nomineeCount?: 2;
 };
 
 export const awardCategories = [
@@ -15,6 +14,6 @@ export const awardCategories = [
   { id: "solana-meme-community", section: "community" },
   { id: "superteam", section: "community" },
   { id: "seeker-dapp", section: "community" },
-  { id: "collab-of-the-year", section: "community", nomineeCount: 2 },
+  { id: "collab-of-the-year", section: "community" },
   { id: "campaign-of-the-year", section: "community" },
 ] as const satisfies readonly AwardCategory[];

@@ -215,8 +215,6 @@ export type BreakpointMessages = {
       share: string;
       change: string;
       nomineeUsername: string;
-      firstCollaboratorUsername: string;
-      secondCollaboratorUsername: string;
       usernamePlaceholder: string;
       submit: string;
       submitting: string;
@@ -226,7 +224,6 @@ export type BreakpointMessages = {
       errors: {
         load: string;
         invalidUsername: string;
-        invalidCollaborators: string;
         session: string;
         save: string;
       };
