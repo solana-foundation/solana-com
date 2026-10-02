@@ -59,6 +59,8 @@ export function EventAgendaPage({ event, data, copy }: EventAgendaPageProps) {
         logoAlt={event.logoAlt}
         logoHomePath={event.logoHomePath}
         showSpeakersNav={event.agendaShowSpeakersNav}
+        showSponsorsNav={event.agendaShowSponsorsNav}
+        showFaqNav={event.agendaShowFaqNav}
         activeNav="agenda"
         lumaId={event.lumaId}
       />

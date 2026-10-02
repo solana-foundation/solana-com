@@ -20,6 +20,7 @@ export interface AgendaSession {
   subtitle?: string;
   type: AgendaSessionType;
   format?: string;
+  formats?: string[];
   location?: string;
   track?: string;
   duration?: string;

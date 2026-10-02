@@ -47,22 +47,30 @@ function getFormatFilterId(formatGroup: string): string {
   return `format:${formatGroup.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
 
-function getSessionFilterId(
+function getSessionFormats(session: Session): string[] {
+  const formats = session.formats?.length
+    ? session.formats
+    : session.format
+      ? [session.format]
+      : [];
+  return [...new Set(formats.map((format) => format.trim()).filter(Boolean))];
+}
+
+function getSessionFilterIds(
   session: Session,
   filterMode: FilterMode,
   exactFormatLabels = false,
-): string {
-  if (filterMode === "format" && exactFormatLabels && session.format) {
-    return getFormatFilterId(session.format);
+): string[] {
+  if (filterMode === "format") {
+    const formats = getSessionFormats(session);
+    const formatIds = formats
+      .map((format) => (exactFormatLabels ? format : getFormatGroup(format)))
+      .filter((format): format is string => Boolean(format))
+      .map(getFormatFilterId);
+    if (formatIds.length > 0) return [...new Set(formatIds)];
   }
 
-  const formatGroup = getFormatGroup(session.format);
-
-  if (filterMode === "format" && formatGroup) {
-    return getFormatFilterId(formatGroup);
-  }
-
-  return `type:${session.type}`;
+  return [`type:${session.type}`];
 }
 
 function SessionTypeBadge({
@@ -170,9 +178,11 @@ function SessionCard({
   rightColumnLabel?: string;
 }) {
   const isBreak = session.type === "break" || session.type === "closing";
-  const formatGroup = getFormatGroup(session.format);
+  const formats = getSessionFormats(session);
+  const formatLabel = formats.join(", ");
+  const formatGroup = getFormatGroup(formats[0]);
   const typeLabel =
-    (exactFormatLabels ? session.format : undefined) ??
+    (exactFormatLabels ? formatLabel : undefined) ??
     (formatGroup && formatLabels[formatGroup]) ??
     typeLabels[session.type] ??
     session.type;
@@ -431,20 +441,38 @@ export function Agenda({
       const seen = new Set<string>();
       const options = (sessions as Session[]).reduce<FilterOption[]>(
         (items, session) => {
-          const formatGroup = getFormatGroup(session.format);
-          const id = getSessionFilterId(session, filterMode, exactFormatLabels);
-          if (seen.has(id)) return items;
+          const formats = getSessionFormats(session);
+          let hasFormatFilter = false;
+          for (const format of formats) {
+            const formatGroup = getFormatGroup(format);
+            const filterFormat = exactFormatLabels ? format : formatGroup;
+            if (!filterFormat) continue;
+            hasFormatFilter = true;
+            const id = getFormatFilterId(filterFormat);
+            if (seen.has(id)) continue;
 
-          seen.add(id);
-          items.push({
-            id,
-            type: session.type,
-            label:
-              (exactFormatLabels ? session.format : undefined) ??
-              (formatGroup && formatLabels[formatGroup]) ??
-              typeLabels[session.type] ??
-              session.type,
-          });
+            seen.add(id);
+            items.push({
+              id,
+              type: session.type,
+              label:
+                (exactFormatLabels ? format : undefined) ??
+                (formatGroup && formatLabels[formatGroup]) ??
+                typeLabels[session.type] ??
+                session.type,
+            });
+          }
+          if (!hasFormatFilter) {
+            const id = `type:${session.type}`;
+            if (!seen.has(id)) {
+              seen.add(id);
+              items.push({
+                id,
+                type: session.type,
+                label: typeLabels[session.type] ?? session.type,
+              });
+            }
+          }
           return items;
         },
         [],
@@ -490,8 +518,8 @@ export function Agenda({
       // Filter by type or Airtable format.
       if (
         selectedFilters.length > 0 &&
-        !selectedFilters.includes(
-          getSessionFilterId(session, filterMode, exactFormatLabels),
+        !getSessionFilterIds(session, filterMode, exactFormatLabels).some(
+          (filterId) => selectedFilters.includes(filterId),
         )
       ) {
         return false;
@@ -506,6 +534,7 @@ export function Agenda({
           session.location,
           session.track,
           session.format,
+          ...(session.formats ?? []),
           session.moderator?.name,
           session.moderator?.company,
           session.moderator?.title,

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { EventAgendaPage } from "@/components/EventAgendaPage";
-import { ChinaFooter } from "@/components/china/ChinaRoadshow";
 import { accelerateEvents } from "@/data/events";
 import type { AgendaData, AgendaSessionType } from "@/lib/agenda-types";
 import { getShanghaiAgenda } from "@/lib/shanghai-agenda";
@@ -57,7 +56,7 @@ export default async function ShanghaiAgendaPage() {
           title: session.title,
           subtitle: session.description,
           type: getSessionType(session.formats),
-          format: session.formats?.join(", "),
+          formats: session.formats,
           track: session.track,
         }))
       : [];
@@ -80,7 +79,6 @@ export default async function ShanghaiAgendaPage() {
               : "No Shanghai sessions have been published yet. Please check back soon.",
         }}
       />
-      <ChinaFooter />
     </>
   );
 }
