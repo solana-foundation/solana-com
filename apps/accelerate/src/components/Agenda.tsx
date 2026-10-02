@@ -180,9 +180,10 @@ function SessionCard({
   const isBreak = session.type === "break" || session.type === "closing";
   const formats = getSessionFormats(session);
   const formatLabel = formats.join(", ");
+  const exactFormatLabel = formats.length > 0 ? formatLabel : undefined;
   const formatGroup = getFormatGroup(formats[0]);
   const typeLabel =
-    (exactFormatLabels ? formatLabel : undefined) ??
+    (exactFormatLabels ? exactFormatLabel : undefined) ??
     (formatGroup && formatLabels[formatGroup]) ??
     typeLabels[session.type] ??
     session.type;
