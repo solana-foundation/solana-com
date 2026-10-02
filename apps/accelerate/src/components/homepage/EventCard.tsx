@@ -2,10 +2,17 @@
 
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
+import { useTranslations } from "@workspace/i18n/client";
 import { getImagePath } from "@/config";
 
+const conferenceImageOverlayClass =
+  "bg-[linear-gradient(103deg,#9945FF_10.43%,#8752F3_30.85%,#5497D5_49.41%,#43B4CA_58.69%,#28E0B9_69.83%,#19FB9B_93.03%)] mix-blend-color";
+
 interface EventCardProps {
-  image: string;
+  image?: string;
+  imageContent?: React.ReactNode;
+  /** Optional art direction for the photo layer without affecting other cards. */
+  imageOverlayClassName?: string;
   city: string;
   subtitle: string;
   dateLocation: string;
@@ -16,36 +23,37 @@ interface EventCardProps {
 
 function CardContent({
   image,
+  imageContent,
+  imageOverlayClassName = conferenceImageOverlayClass,
   city,
   subtitle,
   dateLocation,
   active = true,
 }: Omit<EventCardProps, "href" | "external">) {
+  const t = useTranslations("accelerate.homepage.eventCard");
+
   return (
     <div className="group flex h-[398px] w-full flex-col overflow-hidden rounded-[10px] bg-[#0c0c0c] md:h-[620px] md:rounded-[22px] lg:h-[736px]">
       {/* Photo top half with gradient overlay */}
       <div className="relative aspect-[242/191] w-full overflow-hidden rounded-t-[10px] md:aspect-[529/352] md:rounded-t-[22px]">
-        <Image
-          src={image}
-          alt={city}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+        {imageContent ??
+          (image ? (
+            <Image
+              src={image}
+              alt={city}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : null)}
         {/* Gradient overlay on photo */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-transparent" />
+        <div
+          className={`pointer-events-none absolute inset-0 ${imageOverlayClassName}`}
+          aria-hidden="true"
+        />
 
         {/* Upcoming badge */}
         {active && (
-          <div
-            className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border px-3 py-1.5 backdrop-blur-md md:left-5 md:top-5 md:gap-2 md:px-4 md:py-2"
-            style={{
-              borderColor: "rgba(153, 69, 255, 0.35)",
-              background:
-                "linear-gradient(135deg, rgba(153, 69, 255, 0.2) 0%, rgba(0, 212, 255, 0.1) 100%)",
-              boxShadow:
-                "0 4px 16px rgba(153, 69, 255, 0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}
-          >
+          <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-[#c4a0ff] bg-[#160725] px-3 py-1.5 shadow-[0_4px_16px_rgba(153,69,255,0.3)] md:left-5 md:top-5 md:gap-2 md:px-4 md:py-2">
             {/* Pulsing dot */}
             <span className="relative flex h-2 w-2 md:h-2.5 md:w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#9945FF] opacity-50" />
@@ -53,25 +61,16 @@ function CardContent({
             </span>
             <span
               className="text-[10px] font-semibold uppercase tracking-[1.5px] md:text-xs"
-              style={{ color: "#c4a0ff" }}
+              style={{ color: "#ffffff" }}
             >
-              Upcoming
+              {t("upcoming")}
             </span>
           </div>
         )}
 
         {/* Retrospective badge for past events */}
         {!active && (
-          <div
-            className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border px-3 py-1.5 backdrop-blur-md md:left-5 md:top-5 md:gap-2 md:px-4 md:py-2"
-            style={{
-              borderColor: "rgba(25, 251, 155, 0.3)",
-              background:
-                "linear-gradient(135deg, rgba(25, 251, 155, 0.15) 0%, rgba(153, 69, 255, 0.1) 100%)",
-              boxShadow:
-                "0 4px 16px rgba(25, 251, 155, 0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}
-          >
+          <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-[#75ffd0] bg-[#061a14] px-3 py-1.5 shadow-[0_4px_16px_rgba(25,251,155,0.3)] md:left-5 md:top-5 md:gap-2 md:px-4 md:py-2">
             {/* Play/recap icon */}
             <svg
               className="h-2.5 w-2.5 md:h-3 md:w-3"
@@ -88,9 +87,9 @@ function CardContent({
             </svg>
             <span
               className="text-[10px] font-semibold uppercase tracking-[1.5px] md:text-xs"
-              style={{ color: "#19fb9b" }}
+              style={{ color: "#ffffff" }}
             >
-              Watch the Recap
+              {t("watchRecap")}
             </span>
           </div>
         )}
@@ -122,7 +121,7 @@ function CardContent({
         {/* CTA button */}
         <div className="btn-outline-gradient flex w-[157px] items-center justify-between px-6 py-[13px] md:w-[186px] md:px-[28px] md:py-[16px]">
           <span className="whitespace-nowrap text-[13.5px] font-semibold uppercase tracking-[0.67px] leading-none text-white md:text-[16px] md:tracking-[0.8px]">
-            {active ? "Learn More" : "Catch Up"}
+            {active ? t("learnMore") : t("catchUp")}
           </span>
           <Image
             src={getImagePath("/images/homepage/header-arrow.svg")}
@@ -139,6 +138,8 @@ function CardContent({
 
 export function EventCard({
   image,
+  imageContent,
+  imageOverlayClassName,
   city,
   subtitle,
   dateLocation,
@@ -146,7 +147,15 @@ export function EventCard({
   external = false,
   active = true,
 }: EventCardProps) {
-  const cardProps = { image, city, subtitle, dateLocation, active };
+  const cardProps = {
+    image,
+    imageContent,
+    imageOverlayClassName,
+    city,
+    subtitle,
+    dateLocation,
+    active,
+  };
 
   if (external) {
     return (

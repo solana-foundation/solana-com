@@ -9,6 +9,7 @@ export type SponsorLogoVariant = LogoSelectorOptions;
 
 export type SponsorLogo = {
   companyId: CompanyId;
+  displayName?: string;
   logoVariant?: SponsorLogoVariant;
   width: number;
   height: number;
@@ -37,6 +38,9 @@ export type SponsorMarqueeRow = {
   sponsors: SponsorLogo[];
 };
 
+// Keep every tier in sponsorship-action order. Add newly actioned sponsors to
+// the end of their tier so the same order carries through to the page and
+// marquee rows below.
 const platinumSponsors = [
   {
     companyId: "jito",
@@ -72,6 +76,21 @@ const platinumSponsors = [
     companyId: "nodit",
     width: 1000,
     height: 381.62,
+  },
+  {
+    companyId: "render-network",
+    width: 1933,
+    height: 233,
+  },
+  {
+    companyId: "seeker",
+    width: 1800,
+    height: 600,
+  },
+  {
+    companyId: "sunrise",
+    width: 1809,
+    height: 449,
   },
 ] satisfies SponsorLogo[];
 
@@ -148,9 +167,22 @@ const goldSponsors = [
     height: 768,
   },
   {
-    companyId: "render-network",
-    width: 1933,
-    height: 233,
+    companyId: "titan",
+    width: 806,
+    height: 302,
+  },
+  {
+    companyId: "phoenix",
+    logoVariant: { id: "breakpoint-2026-orange" },
+    width: 377,
+    height: 61,
+  },
+  {
+    companyId: "jito",
+    displayName: "Jito JTX",
+    logoVariant: { id: "breakpoint-2026-jtx-white" },
+    width: 965,
+    height: 332,
   },
   {
     companyId: "sec3",
@@ -161,11 +193,6 @@ const goldSponsors = [
     companyId: "quicknode",
     width: 2193,
     height: 512,
-  },
-  {
-    companyId: "galaxy",
-    width: 3602,
-    height: 1031,
   },
   {
     companyId: "colosseum",
@@ -201,6 +228,36 @@ const goldSponsors = [
     companyId: "paxos",
     width: 2004,
     height: 543,
+  },
+  {
+    companyId: "huma-finance",
+    width: 109,
+    height: 32,
+  },
+  {
+    companyId: "soilonic",
+    width: 1693,
+    height: 929,
+  },
+  {
+    companyId: "triton",
+    width: 1028,
+    height: 323,
+  },
+  {
+    companyId: "opensea",
+    width: 1160,
+    height: 302,
+  },
+  {
+    companyId: "reflect-money",
+    width: 759,
+    height: 186,
+  },
+  {
+    companyId: "beezie",
+    width: 1514,
+    height: 646,
   },
 ] satisfies SponsorLogo[];
 

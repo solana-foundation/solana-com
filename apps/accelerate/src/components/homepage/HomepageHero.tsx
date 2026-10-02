@@ -3,6 +3,7 @@
 import { useRef, useEffect, useLayoutEffect } from "react";
 import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
+import { useTranslations } from "@workspace/i18n/client";
 
 const useBrowserLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -15,6 +16,7 @@ import {
 import { getImagePath } from "@/config";
 
 export function HomepageHero() {
+  const t = useTranslations("accelerate.homepage");
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollY } = useScroll();
 
@@ -146,17 +148,19 @@ export function HomepageHero() {
 
       {/* Scroll-driven logo — shrinks from hero size toward the header slot */}
       <motion.div
-        className="pointer-events-none absolute z-10"
+        className="absolute z-10"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
         style={{ top: logoTop, left: logoLeft }}
       >
-        <motion.img
-          src={getImagePath("/images/solana-accelerate-logo.svg")}
-          alt="Solana Accelerate"
-          style={{ height: logoHeight, width: "auto" }}
-        />
+        <Link href="/accelerate" aria-label={t("hero.logoAlt")}>
+          <motion.img
+            src={getImagePath("/images/solana-accelerate-logo.svg")}
+            alt={t("hero.logoAlt")}
+            style={{ height: logoHeight, width: "auto" }}
+          />
+        </Link>
       </motion.div>
 
       {/* Main content */}
@@ -175,7 +179,7 @@ export function HomepageHero() {
         >
           {/* Event label */}
           <p className="mb-5 text-right text-[16px] font-normal uppercase tracking-[0.8px] text-white">
-            Latest Event
+            {t("hero.nextEvent")}
           </p>
 
           {/* Card container */}
@@ -187,19 +191,19 @@ export function HomepageHero() {
               {/* City + Date */}
               <div className="flex flex-col gap-[2.5px]">
                 <p className="text-[25px] font-light uppercase leading-none tracking-[1.25px] text-accelerate-gray-light md:text-2xl lg:text-[28px]">
-                  Miami
+                  {t("hero.city")}
                 </p>
                 <p className="font-diatype text-[22px] leading-[1.2] text-accelerate-green md:text-xl lg:text-[24px]">
-                  May 5
+                  {t("hero.date")}
                 </p>
               </div>
 
               <Link
-                href="/accelerate/miami"
+                href="/accelerate/china"
                 className="btn-outline-gradient h-[48px] w-full justify-between px-5 md:w-[200px] md:px-7 lg:w-[240px]"
               >
                 <span className="text-[13.43px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[18px]">
-                  Catch Up
+                  {t("hero.getTickets")}
                 </span>
                 <svg width="9" height="9" viewBox="0 0 11 11" fill="none">
                   <path
@@ -217,10 +221,10 @@ export function HomepageHero() {
           {/* Learn More link */}
           <div className="mt-5 flex items-center justify-end gap-3">
             <Link
-              href="/accelerate/miami"
+              href="/accelerate/china"
               className="inline-flex items-center gap-3 text-[16px] font-normal uppercase tracking-[0.8px] leading-none text-white transition-colors hover:text-white/80"
             >
-              Learn More
+              {t("hero.exploreChina")}
               <Image
                 src={getImagePath("/images/homepage/circle-plus.svg")}
                 alt=""

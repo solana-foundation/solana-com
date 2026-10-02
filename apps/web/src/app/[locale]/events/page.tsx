@@ -21,6 +21,43 @@ export const revalidate = 86400;
 
 const EVENTS_REVALIDATE_SECONDS = revalidate;
 
+// Private Luma events are not included in the calendar API response.
+const staticEvents: CalendarEvent[] = [
+  {
+    key: "sol-suits",
+    title: "Solana & Suits",
+    description: "Solana & Suits",
+    rsvp: "https://luma.com/sol-suits",
+    schedule: {
+      from: "2026-10-05T09:00:00.000Z",
+      to: "2026-10-05T18:30:00.000Z",
+      timezone: "Europe/London",
+    },
+    img: {
+      primary:
+        "https://images.lumacdn.com/uploads/c7/d8ffff05-2be9-4940-8c0f-3b52c9aef378.png",
+      alt: "Solana & Suits",
+    },
+    venue: {
+      city: "London",
+      region: "England",
+      city_state: "London, United Kingdom",
+      country: "United Kingdom",
+      address: null,
+    },
+  },
+];
+
+const upcomingStaticEvents = () => {
+  const now = Date.now();
+
+  return staticEvents.filter((event) => {
+    const endTime = event.schedule.to || event.schedule.from;
+
+    return endTime ? new Date(endTime).getTime() >= now : true;
+  });
+};
+
 const sortByStartDate = (events: CalendarEvent[]) =>
   orderBy(
     events,
@@ -89,6 +126,7 @@ export default async function Page({ params }: Props) {
 
   // sorted and unique main events
   const sorted = sortByStartDate([
+    ...upcomingStaticEvents(),
     ...mainEvents,
     ...breakpointEvents,
     ...solanaAccelerateEvents,

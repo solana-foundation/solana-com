@@ -1,9 +1,9 @@
 ---
 title: Production best practices
-description: >-
-  Operate Keychain signing backends safely in production: separation of duties,
-  key rotation, least-privilege access, availability, transport security,
-  monitoring, and audit.
+description:
+  Operate Keychain signing backends safely in production, covering separation of
+  duties, key rotation, least-privilege access, availability, transport
+  security, monitoring, and audit.
 related:
   - /docs/tools/keychain/choosing-a-backend
   - /docs/tools/production-readiness
@@ -24,7 +24,7 @@ a different backend without changing call sites.
 
 ## Rotate keys deliberately
 
-On Solana the signing key is the account address, so rotating a key produces a
+On Solana the signing key _is_ the account address, so rotating a key produces a
 new address. Plan rotation as a migration: provision a new key, reassign the
 relevant authorities (or move funds) to the new address, then retire the old
 one. Use distinct keys per environment so devnet keys are never reused on
@@ -33,20 +33,43 @@ mainnet.
 ## Grant least-privilege access
 
 Scope each backend's credentials to the minimum needed to sign. For AWS KMS,
-that is `kms:Sign` and `kms:DescribeKey` on the specific key; prefer IAM roles
-over static credentials. Apply the same principle to Vault policies and managed
-wallet API keys.
+that is `kms:Sign`, `kms:DescribeKey` and `kms:GetPublicKey` on the specific key
+(the availability check uses the last two); prefer IAM roles over static
+credentials. Apply the same principle to Vault policies and managed wallet API
+keys.
 
 ## Plan for availability
 
-Remote backends depend on a network service. Call `isAvailable()` before relying
-on a signer, apply retries with backoff on transient failures, and define a
-fallback path for outages. Keychain enforces HTTPS for remote backends and
-applies a default request timeout.
+Remote backends depend on a network service. Check availability before relying
+on a signer (`isAvailable()` in TypeScript, `is_available()` in Rust and Python,
+`IsAvailable(ctx)` in Go), retry sign-only failures with backoff, and define a
+fallback path for outages. Do not blindly retry a broadcasting backend
+(Crossmint, Fordefi native auto mode): see
+[Handle unconfirmed broadcasts](#handle-unconfirmed-broadcasts). Keychain
+enforces HTTPS on configured base URLs, rejects redirects and applies a default
+request timeout.
+
+## Handle unconfirmed broadcasts
+
+Crossmint and Fordefi native auto mode sign and broadcast server-side, so a
+failed call does not mean nothing landed. When the provider may have accepted
+the transaction, Keychain reports `BROADCAST_UNCONFIRMED`
+(`SignerError::BroadcastUnconfirmed` in Rust). The error carries the provider
+transaction id when the create was accepted, and always carries the idempotency
+key the create went out under, derived from the message.
+
+- Reconcile with the provider using the transaction id before doing anything
+  else.
+- Resending the byte-identical transaction is safe: the idempotency key
+  deduplicates it.
+- Rebuilding the transaction (a new blockhash, for example) produces a new key
+  and therefore a new transfer.
 
 ## Protect secrets and transport
 
-- All remote backends communicate over HTTPS; non-HTTPS endpoints are rejected.
+- Remote backends enforce HTTPS on configured base URLs and reject redirects.
+  The one exception is Vault, which accepts plain HTTP on loopback so a local
+  `vault server -dev` works.
 - Supply API keys, tokens, and credentials from a secret manager or environment
   variables. Never hard-code them or commit them to source control.
 - Keychain sanitizes error responses to avoid leaking secrets into logs; keep
@@ -59,3 +82,22 @@ See the metrics in
 [Production readiness](/docs/tools/production-readiness#monitoring-and-reconciliation).
 Enable provider-side audit logs (KMS, Vault, or custodian) and reconcile them
 against the transactions your application submits.
+
+## Know what Keychain checks
+
+- Keychain validates the signing hop, not your transaction: there is no
+  simulation, no transaction-content check and no policy engine. Enforce those
+  in your application or in the provider's policy controls.
+- Fordefi native manual mode rewrites the transaction (blockhash, Compute Budget
+  fee instructions) before signing it. Continue from the transaction it returns,
+  never the one you submitted, and run it before any other signer.
+- Rust zeroizes intermediate key buffers; Python and Go cannot. With the Memory
+  backend in those languages, treat the whole process memory as sensitive.
+- With Ledger, the device screen is the only trustworthy description of what is
+  being signed. Do not enable the `unsafe-debug` feature or `TRACE` logging for
+  `solana_remote_wallet` in production, since both log device and transaction
+  detail.
+
+See the
+[security model](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+for the full picture.

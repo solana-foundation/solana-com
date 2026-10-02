@@ -7,19 +7,20 @@ Command output and example scripts for `/docs/tokenization/tutorials/*`.
   script, or name a variant such as `transfer-kit.blocked.output.txt` where one
   script serves steps with different outcomes. Rendered by
   `apps/docs/src/lib/remark-example-output.mjs`.
-- Each tutorial step carries five tabs, transcluded with
-  `file=<path>#region=<name>` by `@devrelkit/remark-include-code`:
+- Most tutorial steps carry five tabs (the `spl-token` read steps carry four),
+  transcluded with `file=<path>#region=<name>` by
+  `@devrelkit/remark-include-code`:
 
   | Tab        | Files                                          | Builds the transaction with                                                                                                          |
   | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
   | Mosaic CLI | inline command                                 | `@solana/mosaic-cli@0.2.0`                                                                                                           |
   | Mosaic SDK | `issuing/<step>.ts`                            | `@solana/mosaic-sdk@0.2.0` on a `@solana/kit` client                                                                                 |
-  | Kit        | `issuing/<step>-kit.ts`, `custodian/<step>.ts` | `@solana-program/token-2022` plus the generated `@solana/token-acl-sdk` and `@solana/token-acl-gate-sdk` clients, on `@solana/kit` 6 |
+  | Kit        | `issuing/<step>-kit.ts`, `custodian/<step>.ts` | `@solana-program/token-2022` plus the generated `@solana/token-acl-sdk` and `@solana/token-acl-gate-sdk` clients, on `@solana/kit` 8 |
   | Legacy     | `*-legacy.ts`                                  | `@solana/web3.js` 1.x and `@solana/spl-token`; Token ACL and gate instructions encoded directly                                      |
   | Rust       | `rust/src/bin/<step>.rs`                       | `spl-token-2022-interface` 3.x on `solana-sdk` 4; Token ACL and gate instructions encoded directly                                   |
 
-  Every script reads the same keypair files and `$MINT`, `$LIST`, `$HOLDER`
-  variables the CLI tabs export, and takes the varying address or amount as
+  Every script reads the same keypair files and the `$MINT` and `$LIST`
+  variables the CLI tabs export, and takes the holder address and any amount as
   command-line arguments, so all five tabs act on one mint. The Kit, Legacy, and
   Rust scripts reproduce the instruction sequence the Mosaic SDK sends: create
   the token account, thaw it through the gate, then mint or transfer; remove
@@ -33,14 +34,26 @@ Command output and example scripts for `/docs/tokenization/tutorials/*`.
 ## Why the Legacy and Rust tabs encode Token ACL and gate instructions
 
 No web3.js client exists for either program; the `clients/js-legacy` directory
-in the token-acl repository is empty. The Rust clients exist (`token-acl-client`
-and `token-acl-gate-client` 0.3.0) but pin `spl-token-2022-interface` 2.x and
-exact 3.x Solana crates, and the 2.x interface predates the Permissioned Burn
-extension this mint carries. Both tabs therefore build the instructions from
-their published layout: a one-byte discriminator and an account list, verified
-against the transactions the Mosaic SDK sent on devnet (`solana confirm -v`).
-The Kit tab uses the generated clients, which peer on `@solana/kit` 6, the major
-this package already runs.
+in the token-acl repository contains only empty placeholder files and is not
+published. The Rust clients exist (`token-acl-client` and
+`token-acl-gate-client` 0.3.0) but pin `spl-token-2022-interface` 2.x (the gate
+client also pins exact 3.x Solana crates), and the 2.x interface predates the
+Permissioned Burn extension this mint carries. Both tabs therefore build the
+instructions from their published layout: a one-byte discriminator and an
+account list, verified against the transactions the Mosaic SDK sent on devnet
+(`solana confirm -v`). The Kit tab uses the generated clients. They and the
+Mosaic SDK declare `@solana/kit` 6 as a regular dependency;
+`pnpm-workspace.yaml` resolves them onto this package's single Kit 8 copy,
+because a second Kit copy rebrands the nominal RPC types and the scripts stop
+type-checking. The Mosaic SDK scripts use a plain `createSolanaRpc` /
+`createSolanaRpcSubscriptions` pair rather than the RPC plugin client, whose
+object type does not satisfy the SDK's RPC parameter on Kit 8.
+
+Ten of the sixteen steps encode a Token ACL or gate instruction in the Legacy
+and Rust tabs (create config, set gating program, freeze, thaw, permissionless
+thaw, toggle; create list, add wallet, remove wallet, set up extra metas), plus
+the list account layout read. Both programs are pre-1.0 and sRFC-37 is not
+finalized, so revisit those two tabs after a program upgrade.
 
 ## The Rust crate
 
@@ -102,12 +115,13 @@ so every mint fails with `Account is frozen`. Token-2022 has to be cloned as
 well, because the bundled build predates Permissioned Burn and rejects the mint
 creation with `Invalid instruction`.
 
-surfpool 1.5.0 has the same decoder gap (it builds against account decoder 4.0),
-so the chain fails at the first mint there until surfpool moves to 4.2 crates.
-Create, inspect, allowlist changes, list reads, and pause and resume pass on it.
-The Rust chain ran to completion on surfpool 1.5.0 with devnet as the
-datasource, which is how the Rust outputs were captured: those scripts decode
-account bytes directly and never ask the RPC for a parsed mint.
+surfpool 1.5.0 has the same decoder gap (it builds against account decoder
+4.1.2, which still carries the 2.x interface), so the chain fails at the first
+mint there until surfpool moves to 4.2 crates. Create, inspect, allowlist
+changes, list reads, and pause and resume pass on it. The Rust chain ran to
+completion on surfpool 1.5.0 with devnet as the datasource, which is how the
+Rust outputs were captured: those scripts decode account bytes directly and
+never ask the RPC for a parsed mint.
 
 ## Toolchain the tutorials target
 
@@ -120,9 +134,9 @@ capture day and listed in the issuing tutorials overview:
 | Root option `--raw-tx <encoding>` declared with default `'b64'` (`dist/index.js`)                          | Every write command runs in raw-transaction mode: prints an unsigned transaction, or crashes reading `.address`       | Default removed on `main`, unreleased |
 | `create tokenized-security` passes `mintAuthority` as an `Address`                                         | SDK throws `mintAuthority must be a TransactionSigner<string> (or undefined) when TokenMetadata extension is present` | Same in `main` source on 2026-09-10   |
 | `force-transfer` passes `authority.address` and `payer.address`                                            | `Transaction is missing signatures for addresses: <delegate>`                                                         | Same in `main` source on 2026-09-10   |
-| `token-acl freeze` and `token-acl thaw` not registered in `commands/token-acl/index.js`                    | Unknown command                                                                                                       | Same at 0.2.0                         |
+| `token-acl freeze` and `token-acl thaw` not registered in `commands/token-acl/index.js`                    | Unknown command                                                                                                       | Fixed on `main`, unreleased           |
 | Build imports without `.js` extensions                                                                     | `mosaic` fails under Node's ESM loader with `ERR_MODULE_NOT_FOUND`; runs via `tsx`                                    | Same at 0.2.0                         |
-| `--version` prints `0.1.2`                                                                                 | Cosmetic                                                                                                              | Same at 0.2.0                         |
+| `--version` prints `0.1.2`                                                                                 | Cosmetic                                                                                                              | Fixed on `main`, unreleased           |
 | `mosaic transfer` prints a decoded mint config object and a list address before the error on the thaw path | Debug output in `transfer-blocked` captures; kept verbatim                                                            | Same at 0.2.0                         |
 | `control pause` prints literal `\n` sequences                                                              | Visible in `control-status-paused.output.txt`; kept verbatim                                                          | Same at 0.2.0                         |
 

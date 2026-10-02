@@ -53,6 +53,7 @@ describe("Tokenization docs MDX", () => {
       "/docs/tokenization/compliance/token-acl",
       "/docs/tokenization/settlement",
       "/docs/tokenization/settlement/cash-leg",
+      "/docs/tokenization/settlement/dvp-program",
       "/docs/tokenization/settlement/finality",
       "/docs/tokenization/tutorials",
       "/docs/tokenization/quickstart",
@@ -78,6 +79,17 @@ describe("Tokenization docs MDX", () => {
     }
   });
 
+  it("documents the deployed DvP program by its program ID", async () => {
+    const source = await readFile(
+      new URL("settlement/dvp-program/index.mdx", CONTENT_DIR),
+      "utf8",
+    );
+    expect(source).toContain("dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq");
+    // The program section documents the deployed program, not the earlier
+    // extensions-only walkthrough's source repository.
+    expect(source).not.toContain("Woody4618");
+  });
+
   it("retains no reference to the removed institutional section", async () => {
     for (const file of await mdxFiles(CONTENT_DIR)) {
       const source = await readFile(file, "utf8");
@@ -90,7 +102,7 @@ describe("Tokenization docs MDX", () => {
 
   it("documents no unreleased or unspecified architecture", async () => {
     // Feedback on the first PR: these docs cover released products only.
-    // Private Channels and the Solana Privacy Protocol are released and carry
+    // Private Channels and Solana Privacy Rings are released and carry
     // their own pages, so deployment options names them and defers the model
     // comparison to /docs/finance/privacy. A Permissioned Environment has no
     // docs page and stays out.

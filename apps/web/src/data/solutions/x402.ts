@@ -32,7 +32,7 @@ export const TOOLS = [
   },
   {
     key: "1",
-    href: "https://docs.corbits.dev/quickstart",
+    href: "https://github.com/faremeter/faremeter/blob/main/QUICKSTART.md",
   },
   {
     key: "2",
@@ -44,7 +44,7 @@ export const TOOLS = [
   },
   {
     key: "4",
-    href: "https://x402.gitbook.io/x402/guides/mcp-server-with-x402",
+    href: "https://docs.privy.io/recipes/agent-integrations/x402",
   },
   {
     key: "5",

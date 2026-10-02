@@ -89,10 +89,13 @@ say "gate-the-holders: confirm the gate"
 sdkmode && cap issuing/inspect-mint-gated $MOSAIC inspect-mint --mint-address $MINT --rpc-url $RPC
 
 say "gate-the-holders: add the holder, read the list"
-if sdkmode; then cli $MOSAIC allowlist add --mint-address $MINT --account $HOLDER --keypair $PAYER --rpc-url $RPC; ex issuing/allowlist-add $META
+if sdkmode; then cli $MOSAIC allowlist add --mint-address $MINT --account $HOLDER --keypair $PAYER --rpc-url $RPC
 else ex issuing/allowlist-add $HOLDER; fi
 sdkmode && cap issuing/abl-fetch-list $MOSAIC abl fetch-list --list $LIST --rpc-url $RPC
 ex issuing/fetch-list
+# The SDK tab of allowlist-add is exercised on the metadata authority only after
+# the list has been read, so the recorded list matches the tutorial state.
+sdkmode && ex issuing/allowlist-add $META
 
 say "gate-the-holders: mint to the holder"
 if sdkmode; then cli $MOSAIC mint --mint-address $MINT --recipient $HOLDER --amount 1000 --keypair $PAYER --rpc-url $RPC; ex issuing/mint $HOLDER 100
@@ -142,7 +145,8 @@ ex_quiet issuing/freeze $CUSTODIAN
 sdkmode && cap custodian/display-frozen spl-token display $CUSTODY_ATA --url $RPC
 ex_read frozen custodian/read-account $CUSTODY_ATA
 ex_quiet issuing/thaw $CUSTODIAN
-for i in $(seq 1 45); do solana account $CUSTODY_ATA --url $RPC --commitment finalized >/dev/null 2>&1 && break; sleep 2; done
+# Wait until the thaw itself is visible at finalized, otherwise the read lands on a pre-thaw slot.
+for i in $(seq 1 60); do _exec "$(script custodian/read-account)" $CUSTODY_ATA finalized 2>/dev/null | grep -q "State: Initialized" && break; sleep 2; done
 ex_read finalized custodian/read-account $CUSTODY_ATA finalized
 
 say "vault: blocked deposit (expected failure), allowlist, deposit"
@@ -151,6 +155,10 @@ ex_as vault-blocked issuing/transfer $VAULT 1
 if sdkmode; then cli $MOSAIC allowlist add --mint-address $MINT --account $VAULT --keypair $PAYER --rpc-url $RPC
   cli $MOSAIC transfer --mint-address $MINT --recipient $VAULT --amount 1 --keypair $K/demo-holder.json --rpc-url $RPC
 else ex_quiet issuing/allowlist-add $VAULT; ex_quiet issuing/transfer $VAULT 1; fi
+say "vault: verify the gate state of the vault's account"
+export VAULT_ATA=$(ata $VAULT)
+sdkmode && cap vault/display-vault spl-token display $VAULT_ATA --url $RPC
+ex_read vault custodian/read-account $VAULT_ATA
 
 say "operate-the-token: offboard the outsider (remove also freezes the account)"
 if sdkmode; then cli $MOSAIC allowlist remove --mint-address $MINT --account $OUTSIDER --keypair $PAYER --rpc-url $RPC

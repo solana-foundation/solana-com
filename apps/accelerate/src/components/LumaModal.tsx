@@ -7,7 +7,7 @@ import {
   DialogTrigger,
   VisuallyHidden,
 } from "@workspace/ui";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 
 interface LumaModalProps {
   lumaId: string;

@@ -1,0 +1,204 @@
+---
+title: Fund the Legs
+description:
+  Verify the stored terms of a DvP trade, then fund your leg with a plain
+  TransferChecked into its escrow account.
+seoTitle: Fund a DvP Trade on Solana
+url: /docs/tokenization/settlement/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/tokenization/settlement/dvp-program/create-a-trade
+related:
+  - /docs/tokenization/settlement/dvp-program/settle-the-trade
+  - /docs/tokenization/settlement/dvp-program/unwind-a-trade
+---
+
+Each party funds its own leg by transferring tokens into the escrow account for
+that leg. There is no funding instruction on the program, so a custodian,
+treasury system, or wallet that can send a token transfer can fund a leg without
+a program-specific instruction; verifying the terms first still requires reading
+the trade record with the program's client. The program checks the escrow
+balances at settlement; nothing checks the transfer at the time it lands, so the
+funder reads the trade record before transferring.
+
+## Verify the terms
+
+Creating a record is permissionless, and the escrow addresses derive from the
+record and the mint alone, never from the terms. A transfer into an escrow can
+therefore land against terms you never agreed to, including settlement
+destinations that redirect your counterparty's proceeds to a third address.
+Before funding, read the `SwapDvp` account and check it against the agreed
+trade.
+
+`verifySwapDvp` in TypeScript and `verify::decode_swap_dvp_account` in Rust
+confirm that the account is owned by the DvP program, is exactly 458 bytes, and
+sits at the address its own fields derive (`fetchSwapDvpChecked` performs the
+first two checks only). The checks on parties, amounts, times, and destinations
+are done by the caller against the agreed trade.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
+    if (t.expiryTimestamp <= nowSeconds + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+
+    let rpc = RpcClient::new("https://api.devnet.solana.com".to_string());
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+If the record was created by your counterparty or the settlement authority,
+compare every field against the terms you agreed off the ledger. If you created
+it yourself, this read confirms it landed as sent.
+
+## Transfer into the escrow
+
+Fund the leg at exactly the agreed amount. The program clamps settlement to
+`amount_x` and refunds any surplus to the depositor, so a surplus is not lost,
+but it adds a second transfer at settlement and interacts badly with some
+transfer hooks (see the notes below).
+
+Use `TransferChecked`, not an unchecked `Transfer`. Token-2022 mints with
+extensions that depend on the mint account, such as Pausable, reject a transfer
+that does not supply it, and a mint with a transfer hook needs the hook's
+accounts resolved and appended the same way as for any other transfer of that
+token.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    The asset-leg party, signing as `userASigner`, funds escrow A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    The cash-leg party does the same for escrow B with `mintB`, `userB`, and
+    `t.amountB`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    The cash-leg party builds the same instruction for escrow B with `mint_b`,
+    `user_b`, and `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+A funding transfer seen at `confirmed` can still be superseded. The program
+reads the escrow balance onchain at settlement, so a Settle sent against a
+funding transfer that did not land fails with `LegNotFunded` and nothing moves,
+so the exposure is an operational retry. Treat a leg as funded when its transfer
+is `finalized`.
+
+## Notes
+
+- **Wrapped SOL legs.** The program reads a native escrow's balance after
+  syncing it, so lamports sent to a wrapped-SOL escrow by a system transfer are
+  counted. Never send SOL to an escrow for any other mint: the program cannot
+  return it, and it goes to whoever closes the account.
+- **Gated mints.** On a mint with Default Account State frozen, the escrow is
+  created frozen and the transfer fails until the issuer thaws or admits it. The
+  [overview](/docs/tokenization/settlement/dvp-program#gated-assets) describes
+  the interaction with Token ACL.
+- **Transfer hooks.** Fund hook-bearing escrows at exactly the agreed amount. If
+  a surplus forces a refund at settlement, the refund reuses the leg's hook
+  accounts with a different destination and amount, which some hooks reject. The
+  recovery is Reclaim, re-fund at the exact amount, and settle again.
+- **Funding past expiry.** Nothing stops a transfer after `expiry_timestamp`. It
+  lands, settlement is no longer possible, and the depositor recovers it with
+  Reclaim while the trade is open or Recover after it closes. See
+  [unwind a trade](/docs/tokenization/settlement/dvp-program/unwind-a-trade).
+- **Who funds first.** The program does not sequence the two legs. The order is
+  a matter for the parties; either side can reclaim its own leg at any time
+  before settlement, unless the mint's freeze or pause authority holds the
+  escrow.

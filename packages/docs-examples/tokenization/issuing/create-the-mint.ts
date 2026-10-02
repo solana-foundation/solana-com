@@ -5,14 +5,14 @@ import { join } from "node:path";
 import {
   address,
   assertIsTransactionWithBlockhashLifetime,
-  createClient,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  devnet,
   createKeyPairSignerFromBytes,
   getSignatureFromTransaction,
   sendAndConfirmTransactionFactory,
   signTransactionMessageWithSigners,
 } from "@solana/kit";
-import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
-import { signer } from "@solana/kit-plugin-signer";
 import { generateKeyPairSigner } from "@solana/kit";
 import {
   createTokenizedSecurityInitTransaction,
@@ -36,7 +36,12 @@ function env(name: string): string {
 }
 
 const payer = await loadSigner(keypairFile("tokenization-demo.json"));
-const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+// A plain Kit RPC pair: the Mosaic SDK types its RPC parameter as the full
+// cluster API, which the RPC plugin's client object does not satisfy on Kit 8.
+const rpc = createSolanaRpc(devnet("https://api.devnet.solana.com"));
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  devnet("wss://api.devnet.solana.com"),
+);
 
 // One address per operational power, from the keys generated in step 1.
 const authorityAddress = async (role: string) =>
@@ -48,7 +53,7 @@ const mint = await generateKeyPairSigner();
 // The fee payer is also the mint authority here, so the same transaction can
 // provision the Token ACL config, the allowlist, and permissionless thaw.
 const transaction = await createTokenizedSecurityInitTransaction(
-  client.rpc,
+  rpc,
   "Demo Tokenized Note",
   "DEMOTN",
   6,
@@ -70,12 +75,12 @@ const transaction = await createTokenizedSecurityInitTransaction(
 const signed = await signTransactionMessageWithSigners(transaction);
 assertIsTransactionWithBlockhashLifetime(signed);
 await sendAndConfirmTransactionFactory({
-  rpc: client.rpc,
-  rpcSubscriptions: client.rpcSubscriptions,
+  rpc: rpc,
+  rpcSubscriptions: rpcSubscriptions,
 })(signed, { commitment: "confirmed" });
 console.log("Signature:", getSignatureFromTransaction(signed));
 
-const inspection = await inspectToken(client.rpc, mint.address, "confirmed");
+const inspection = await inspectToken(rpc, mint.address, "confirmed");
 console.log("Mint:", mint.address);
 console.log(
   "Freeze authority (Token ACL mint config):",

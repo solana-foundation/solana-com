@@ -5,14 +5,14 @@ import { join } from "node:path";
 import {
   address,
   assertIsTransactionWithBlockhashLifetime,
-  createClient,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  devnet,
   createKeyPairSignerFromBytes,
   getSignatureFromTransaction,
   sendAndConfirmTransactionFactory,
   signTransactionMessageWithSigners,
 } from "@solana/kit";
-import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
-import { signer } from "@solana/kit-plugin-signer";
 import { createRemoveFromAllowlistTransaction } from "@solana/mosaic-sdk";
 
 // The same keypair files and environment variables the CLI tab uses.
@@ -37,14 +37,19 @@ function arg(index: number, name: string): string {
 }
 
 const payer = await loadSigner(keypairFile("tokenization-demo.json"));
-const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+// A plain Kit RPC pair: the Mosaic SDK types its RPC parameter as the full
+// cluster API, which the RPC plugin's client object does not satisfy on Kit 8.
+const rpc = createSolanaRpc(devnet("https://api.devnet.solana.com"));
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  devnet("wss://api.devnet.solana.com"),
+);
 const mint = address(env("MINT"));
 const wallet = address(arg(1, "the wallet address to remove"));
 
 // Removal stops new thaws for this wallet. An account that is already thawed
 // stays thawed until it is frozen explicitly.
 const transaction = await createRemoveFromAllowlistTransaction(
-  client.rpc,
+  rpc,
   mint,
   wallet,
   payer,
@@ -53,8 +58,8 @@ const transaction = await createRemoveFromAllowlistTransaction(
 const signed = await signTransactionMessageWithSigners(transaction);
 assertIsTransactionWithBlockhashLifetime(signed);
 await sendAndConfirmTransactionFactory({
-  rpc: client.rpc,
-  rpcSubscriptions: client.rpcSubscriptions,
+  rpc: rpc,
+  rpcSubscriptions: rpcSubscriptions,
 })(signed, { commitment: "confirmed" });
 console.log("Signature:", getSignatureFromTransaction(signed));
 // #endregion

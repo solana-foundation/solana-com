@@ -58,6 +58,12 @@ and new speeds:
 | 300 → 250  |         275ms |
 | 250 → 200  |         225ms |
 
+The final 250ms → 200ms transition is scheduled for epoch 1052. Mainnet's
+`getEpochSchedule` reports 432,000 slots per epoch, so epoch 1052 starts at slot
+`454,464,000` (`1052 × 432,000`). The hero uses the epoch schedule for its
+countdown and keeps the corresponding slot visible through activation and
+measurement. The heartbeat and history charts include a highlighted 200ms guide.
+
 These midpoint thresholds provide a jitter guard. A normal 400ms network can
 measure slightly above nominal, so a brief dip in the one-minute average should
 not permanently advance the rollout.
@@ -121,11 +127,20 @@ scheduled" message during this short measurement window.
 ### 300ms → 250ms
 
 The same sequence repeats. The landed copy reports `20.0%` faster and points to
-200ms. After settling, the holding state reports 3 of 4 steps live.
+200ms. The 250ms feature activates in epoch 1036 and takes effect at the epoch
+1037 boundary, approximately 05:01 UTC on Friday, September 18:
+
+```ts
+CONFIRMED_EPOCHS = { 250: 1037 };
+```
+
+After settling, the holding state reports 3 of 4 steps live.
 
 ### 250ms → 200ms
 
-The final transition reports `25.0%` faster. Its landed message says that the
+The final transition is scheduled for epoch 1052, whose first slot is
+`454,464,000`. The hero counts down to epoch 1052, then waits for mainnet
+measurements before showing the 200ms timing. Its settled message says that the
 rollout is complete. Once the stable average settles below 225ms, the hero
 shows:
 
@@ -152,11 +167,7 @@ not prove that the network has reached a particular timing stage.
 
 ## Current limitations
 
-- The 350ms and 300ms targets have confirmed epochs. Later countdowns require
-  adding their target epochs to `CONFIRMED_EPOCHS`.
-- The Hero supports all four future transitions, but the heartbeat and history
-  charts have guide lines hardcoded to 400ms, 350ms, and 300ms.
-- The heartbeat chart clamps its lower display range at 250ms, so 200ms values
-  will be visually clipped until that chart is updated.
+- All four reductions have confirmed effective epochs in `CONFIRMED_EPOCHS`. The
+  final 200ms step is epoch 1052, starting at slot `454,464,000`.
 - Page metadata and social-card copy are intentionally evergreen; they do not
   update from live measurements.

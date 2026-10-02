@@ -1,5 +1,6 @@
 "use client";
 
+import { SOLANA_NEWSLETTER_FORM_ID } from "@solana-com/ui-chrome/iterable";
 import EmailSubscribeForm from "@/components/shared/EmailSubscribeForm";
 
 interface NewsletterPageProps {
@@ -17,7 +18,7 @@ export function NewsletterPage({ translations }: NewsletterPageProps) {
           <div className="col-span-12 md:col-span-6 lg:col-span-5 py-12 md:py-24">
             <h3 className="mb-0 font-bold text-white">{translations.signup}</h3>
             <p className="mb-6">{translations.spam}</p>
-            <EmailSubscribeForm formId="fdd4a0db-f4af-4b29-90f9-98b0556d4c89" />
+            <EmailSubscribeForm formId={SOLANA_NEWSLETTER_FORM_ID} />
           </div>
         </div>
       </div>

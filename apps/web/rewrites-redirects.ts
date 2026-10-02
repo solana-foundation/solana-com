@@ -210,11 +210,11 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   // getstarted/* → payments, tools, cookbook
   {
     source: "/developers/guides/getstarted/intro-to-x402",
-    destination: "/docs/payments/agentic-payments/intro-to-x402",
+    destination: "/docs/payments/agentic-payments/x402",
   },
   {
     source: "/developers/guides/getstarted/build-a-x402-facilitator",
-    destination: "/docs/payments/agentic-payments/x402-facilitator",
+    destination: "/docs/tools/x402-facilitator",
   },
   {
     source: "/developers/guides/getstarted/intro-to-ai",
@@ -261,8 +261,16 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/tokenization/compliance/token-acl",
   },
   {
-    source: "/docs/payments/production-readiness",
-    destination: "/docs/tools/production-readiness",
+    source: "/docs/payments/agentic-payments/intro-to-x402",
+    destination: "/docs/payments/agentic-payments/x402",
+  },
+  {
+    source: "/docs/payments/agentic-payments/x402-quickstart",
+    destination: "/docs/payments/agentic-payments/x402/making-a-payment",
+  },
+  {
+    source: "/docs/payments/agentic-payments/x402-facilitator",
+    destination: "/docs/tools/x402-facilitator",
   },
   {
     source: "/docs/tools/ai",
@@ -515,6 +523,11 @@ export default {
         locale: false,
       },
       {
+        source: "/api/changelog/:path*",
+        destination: `${MEDIA_APP_URL}/api/changelog/:path*`,
+        locale: false,
+      },
+      {
         source: "/api/posts/:path*",
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
         locale: false,
@@ -527,6 +540,11 @@ export default {
       {
         source: "/api/links/:path*",
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
+        locale: false,
+      },
+      {
+        source: "/api/upgrades/alpenglow/:path*",
+        destination: `${MEDIA_APP_URL}/api/upgrades/alpenglow/:path*`,
         locale: false,
       },
       // Proxy /_next/image requests for /uploads/* to the media app's image
@@ -783,6 +801,19 @@ export default {
   },
 
   redirects: withLocaleRedirects([
+    {
+      source:
+        "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.png",
+      destination:
+        "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.webp",
+      permanent: true,
+    },
+    {
+      source: "/uploads/posts/solana-changelog-september-18-2026/heroImage.png",
+      destination:
+        "/uploads/posts/solana-changelog-september-18-2026/heroImage.webp",
+      permanent: true,
+    },
     ...dissolvedGuideRedirects,
     ...movedDocsRedirects,
     ...chainMigrationRedirects,
@@ -820,6 +851,12 @@ export default {
     {
       source: "/upgrades/larger-transaction-size",
       destination: "/upgrades/larger-transaction-sizes",
+    },
+
+    // /scholars applications moved from the built-in form to Typeform
+    {
+      source: "/scholars/apply",
+      destination: "https://solanafoundation.typeform.com/scholars",
     },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
@@ -1702,22 +1739,32 @@ export default {
       source: "/docs/references/feature-gates/consume-cus-on-sbpf-failure",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0182-conditional-cu-metering.md",
+      permanent: true,
     },
     {
       source: "/docs/references/feature-gates/direct-mapping",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md",
+      permanent: true,
     },
     {
       source: "/docs/references/feature-gates/reserve-minimal-cus-for-builtins",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md",
+      permanent: true,
     },
     {
       source:
         "/docs/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0138-deprecate-legacy-vote-instructions.md",
+      permanent: true,
+    },
+    {
+      source: "/docs/references/feature-gates/:path*",
+      destination:
+        "https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule",
+      permanent: true,
     },
     {
       source: "/developers/cookbook/tokens/approve-token-delegate",

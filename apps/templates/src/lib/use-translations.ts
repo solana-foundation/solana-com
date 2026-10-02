@@ -7,6 +7,7 @@ import { useTranslations as useNextIntlTranslations } from "next-intl";
 
 export function useTemplatesTranslations() {
   try {
+    // oxlint-disable-next-line react-hooks/rules-of-hooks -- preserve the standalone fallback when next-intl context is unavailable
     const t = useNextIntlTranslations("templates");
     return t;
   } catch {

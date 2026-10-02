@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { withBotId } from "botid/next/config";
 import { locales } from "@workspace/i18n/config";
 import { createNextIntlPlugin } from "@workspace/i18n/plugin";
 
@@ -123,7 +124,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(withNextIntl(nextConfig), {
+export default withSentryConfig(withBotId(withNextIntl(nextConfig)), {
   org: "solana-fndn",
   project: "javascript-nextjs",
   silent: !process.env.CI,

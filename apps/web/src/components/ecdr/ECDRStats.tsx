@@ -4,6 +4,7 @@ import Link from "../../utils/Link";
 import { FormattedNumber } from "../SolFormattedMessage";
 import styles from "./ECDRStats.module.scss";
 import { Clipboard as ClipboardIcon } from "@boxicons/react/Clipboard";
+import { trackContentSelection } from "@solana-com/ui-chrome/analytics";
 
 type StatCardProps = {
   value: string | number;
@@ -61,9 +62,13 @@ const ECDRStats = () => {
                   <Link
                     to="/news/the-values-that-got-us-here-solana-2023"
                     onClick={() => {
-                      gtag("event", "Link click", {
-                        event_category: "Open blog link",
-                        event_label: "EC Developers Report - Blog link",
+                      trackContentSelection({
+                        appName: "web",
+                        contentType: "article",
+                        contentName: "The values that got us here",
+                        placement: "ecdr_stats",
+                        linkUrl:
+                          "/news/the-values-that-got-us-here-solana-2023",
                       });
                     }}
                   >

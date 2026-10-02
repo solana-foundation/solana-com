@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-html-link-for-pages */
+/* oxlint-disable @next/next/no-html-link-for-pages */
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider, useTranslations } from "next-intl";
 import { useParams, usePathname } from "next/navigation";

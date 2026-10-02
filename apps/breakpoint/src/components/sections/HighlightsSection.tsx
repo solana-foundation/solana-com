@@ -1,6 +1,7 @@
 "use client";
 
 import React, {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -89,18 +90,21 @@ export default function HighlightsSection() {
     timeoutsRef.current = [];
   };
 
-  const triggerGlitchTo = (next: number) => {
-    clearPendingTimeouts();
-    if (prefersReducedMotion) {
-      setIndex(next);
-      return;
-    }
-    setIsGlitching(true);
-    timeoutsRef.current.push(
-      setTimeout(() => setIndex(next), TWEET_GLITCH_MS / 2),
-      setTimeout(() => setIsGlitching(false), TWEET_GLITCH_MS),
-    );
-  };
+  const triggerGlitchTo = useCallback(
+    (next: number) => {
+      clearPendingTimeouts();
+      if (prefersReducedMotion) {
+        setIndex(next);
+        return;
+      }
+      setIsGlitching(true);
+      timeoutsRef.current.push(
+        setTimeout(() => setIndex(next), TWEET_GLITCH_MS / 2),
+        setTimeout(() => setIsGlitching(false), TWEET_GLITCH_MS),
+      );
+    },
+    [prefersReducedMotion],
+  );
 
   const handlePrev = () => {
     const next = index === 0 ? HIGHLIGHT_QUOTES.length - 1 : index - 1;
@@ -119,8 +123,7 @@ export default function HighlightsSection() {
       triggerGlitchTo(next);
     }, AUTO_ADVANCE_MS);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, isPaused, prefersReducedMotion]);
+  }, [index, isPaused, prefersReducedMotion, triggerGlitchTo]);
 
   useEffect(() => {
     return () => clearPendingTimeouts();

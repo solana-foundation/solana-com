@@ -5,14 +5,14 @@ import { join } from "node:path";
 import {
   address,
   assertIsTransactionWithBlockhashLifetime,
-  createClient,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  devnet,
   createKeyPairSignerFromBytes,
   getSignatureFromTransaction,
   sendAndConfirmTransactionFactory,
   signTransactionMessageWithSigners,
 } from "@solana/kit";
-import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
-import { signer } from "@solana/kit-plugin-signer";
 import { createForceBurnTransaction } from "@solana/mosaic-sdk";
 
 // The same keypair files and environment variables the CLI tab uses.
@@ -43,7 +43,12 @@ const permanentDelegate = await loadSigner(
 const burnAuthority = await loadSigner(
   keypairFile("demo-authorities/burn.json"),
 );
-const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+// A plain Kit RPC pair: the Mosaic SDK types its RPC parameter as the full
+// cluster API, which the RPC plugin's client object does not satisfy on Kit 8.
+const rpc = createSolanaRpc(devnet("https://api.devnet.solana.com"));
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  devnet("wss://api.devnet.solana.com"),
+);
 const mint = address(env("MINT"));
 const from = address(arg(1, "the wallet to burn from"));
 const amount = Number(arg(2, "the decimal amount"));
@@ -51,7 +56,7 @@ const amount = Number(arg(2, "the decimal amount"));
 // Burns without the holder. The permanent delegate signs, and because the mint
 // carries permissioned burn on a separate key, the burn authority co-signs.
 const transaction = await createForceBurnTransaction(
-  client.rpc,
+  rpc,
   mint,
   from,
   amount,
@@ -63,8 +68,8 @@ const transaction = await createForceBurnTransaction(
 const signed = await signTransactionMessageWithSigners(transaction);
 assertIsTransactionWithBlockhashLifetime(signed);
 await sendAndConfirmTransactionFactory({
-  rpc: client.rpc,
-  rpcSubscriptions: client.rpcSubscriptions,
+  rpc: rpc,
+  rpcSubscriptions: rpcSubscriptions,
 })(signed, { commitment: "confirmed" });
 console.log("Signature:", getSignatureFromTransaction(signed));
 // #endregion

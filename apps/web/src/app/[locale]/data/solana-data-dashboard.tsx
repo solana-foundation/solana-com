@@ -25,6 +25,10 @@ import {
 } from "react";
 import useSWR from "swr";
 import { Link } from "@solana-com/ui-chrome/link";
+import {
+  trackAnalyticsEvent,
+  trackContentSelection,
+} from "@solana-com/ui-chrome/analytics";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import { usePathname, useRouter } from "@workspace/i18n/routing";
 
@@ -1311,7 +1315,7 @@ function DataResourceCard({
         className="relative inline-flex min-h-[31px] items-center justify-center border border-white/55 px-3 py-2 font-brand-mono text-[11px] leading-none font-bold uppercase text-nd-high-em-text transition-colors hover:border-white hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         href={href}
         onClick={() =>
-          trackDataResourceEvent("data_resource_click", {
+          trackDataResourceEvent("click", {
             destinationUrl: href,
             resourceId: card.analyticsId,
             resourceTitle: title,
@@ -1358,7 +1362,7 @@ function useDataResourceImpression(
 
     if (!("IntersectionObserver" in window)) {
       hasTrackedRef.current = true;
-      trackDataResourceEvent("data_resource_view", {
+      trackDataResourceEvent("view", {
         destinationUrl,
         resourceId,
         resourceTitle,
@@ -1373,7 +1377,7 @@ function useDataResourceImpression(
         }
 
         hasTrackedRef.current = true;
-        trackDataResourceEvent("data_resource_view", {
+        trackDataResourceEvent("view", {
           destinationUrl,
           resourceId,
           resourceTitle,
@@ -1392,7 +1396,7 @@ function useDataResourceImpression(
 }
 
 function trackDataResourceEvent(
-  eventName: "data_resource_click" | "data_resource_view",
+  eventName: "click" | "view",
   {
     destinationUrl,
     resourceId,
@@ -1403,17 +1407,24 @@ function trackDataResourceEvent(
     resourceTitle: string;
   },
 ) {
-  if (typeof window === "undefined" || typeof window.gtag === "undefined") {
+  if (eventName === "click") {
+    trackContentSelection({
+      appName: "web",
+      contentType: "data_resource",
+      contentId: resourceId,
+      contentName: resourceTitle,
+      placement: "solana_data_dashboard",
+      linkUrl: destinationUrl,
+    });
     return;
   }
 
-  window.gtag("event", eventName, {
-    destination_url: destinationUrl,
-    event_category: "Solana Data",
-    event_label: resourceTitle,
-    origin_path: `${window.location.pathname}${window.location.search}`,
-    resource_id: resourceId,
-    resource_title: resourceTitle,
+  trackAnalyticsEvent("view_item", {
+    app_name: "web",
+    content_type: "data_resource",
+    content_id: resourceId,
+    content_name: resourceTitle,
+    placement: "solana_data_dashboard",
   });
 }
 
