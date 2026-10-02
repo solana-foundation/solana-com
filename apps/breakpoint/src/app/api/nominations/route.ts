@@ -182,6 +182,15 @@ export async function POST(request: NextRequest) {
         { status: 429, headers: { ...NO_STORE_HEADERS, "Retry-After": "60" } },
       );
     }
+  } catch (error) {
+    console.error("Unable to verify awards nomination request", error);
+    return NextResponse.json(
+      { error: "Nominations are temporarily unavailable." },
+      { status: 503, headers: NO_STORE_HEADERS },
+    );
+  }
+
+  try {
     const botCheck = await checkBotId();
     if (botCheck.isBot) {
       return NextResponse.json(
@@ -190,11 +199,18 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error("Unable to verify awards nomination request", error);
-    return NextResponse.json(
-      { error: "Nominations are temporarily unavailable." },
-      { status: 503, headers: NO_STORE_HEADERS },
-    );
+    if (error instanceof TypeError && error.message === "fetch failed") {
+      console.warn(
+        "Bot ID is unavailable; continuing with awards rate limits",
+        error,
+      );
+    } else {
+      console.error("Unable to verify awards nomination request", error);
+      return NextResponse.json(
+        { error: "Nominations are temporarily unavailable." },
+        { status: 503, headers: NO_STORE_HEADERS },
+      );
+    }
   }
 
   let body: unknown;
