@@ -1,0 +1,247 @@
+---
+title: Agave 4.4 Release Overview
+description: >-
+  Agave 4.4 is the release in which Alpenglow activates on mainnet, replacing
+  TowerBFT and cutting finality from 12.8 seconds to a target of about 150ms.
+  It also carries the largest runtime release in years, including block revenue
+  sharing and a constant-cost program entrypoint.
+subtitle: Alpenglow reaches mainnet, alongside the largest runtime release in years
+publishedAt: 2026-09-27T00:00:00.000Z
+status: published
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+metrics:
+  - value: ~150ms
+    label: Target finality under Alpenglow, down from 12.8 seconds
+  - value: Nov 9
+    label: Mainnet feature activation begins (tentative)
+  - value: "11"
+    label: CUs to parse any number of accounts, down from 504
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Agave 4.4 Release Overview
+
+Q4 2026 • Solana Foundation
+
+Agave 4.4 is the release in which **[Alpenglow](/upgrades/alpenglow) activates
+on mainnet**. It is the largest change to Solana's consensus since launch: the
+network stops running TowerBFT, validators stop voting through transactions, and
+finality drops from 12.8 seconds to a target of roughly 150ms.
+
+Alpenglow is not arriving untested. Its code shipped in
+[Agave 4.3](/upgrades/agave-4-3-release-overview), and it is already running on
+the other two public clusters:
+
+| Cluster | Alpenglow feature activated   | First Alpenglow block |
+| ------- | ----------------------------- | --------------------- |
+| Testnet | September 24, 2026, 17:50 UTC | Slot 444,625,255      |
+| Devnet  | September 25, 2026, 19:40 UTC | Slot 504,148,999      |
+| Mainnet | Not yet — activates with 4.4  | —                     |
+
+The same release also carries the largest set of runtime changes in years: a
+constant-cost program entrypoint, direct mapping of account data, two new
+cryptographic syscalls, the end of sBPF v0-v2 deployments, and protocol-level
+sharing of block revenue with stakers. They activate on their own feature gates
+and are independent of the Alpenglow consensus switch.
+
+Anza's
+[v4.4 release schedule](https://github.com/anza-xyz/agave/wiki/v4.4-Release-Schedule)
+puts testnet adoption at September 28, 2026, devnet at October 5, and mainnet
+general adoption at **November 2**, with feature activation beginning **November
+9**. The schedule is explicitly tentative and may be modified due to the
+schedule's proximity to [Breakpoint 2026](https://solana.com/breakpoint).
+
+|                                  |                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| Expected Mainnet Activation Date | Feature activation from November 9, 2026 (tentative)                          |
+| Mainnet Adoption Recommended     | November 2, 2026 (tentative)                                                  |
+| Devnet Activation                | Alpenglow live since September 25, 2026; runtime features from October 7      |
+| Breaking Change?                 | Yes — the consensus switch, program deployment, and rewards accounting        |
+| Indexing Changes Required?       | Yes — block streaming, commitment levels, vote transactions, and rewards data |
+
+## Technical Details
+
+### Alpenglow Activates on Mainnet
+
+Alpenglow's first phase, **Votor**, replaces TowerBFT. Validators send votes
+directly to each other instead of submitting them as transactions, aggregate
+those votes into BLS certificates, and finalize a block in one or two rounds of
+voting. That is where the finality improvement comes from: a block is final once
+a finalization certificate exists, rather than after 32 slots of stacked votes.
+It tolerates 20% adversarial stake plus a further 20% offline.
+
+It is defined in
+[SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0326-alpenglow.md),
+and the feature gate is `A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS`.
+
+<FeatureActivationStatus featureAddress="A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS" />
+
+**Transaction execution does not change.** The SVM, transaction formats,
+programs, and fees are untouched. If your application only sends transactions
+and reads account state, there is nothing to migrate. What changes is how blocks
+are produced, streamed, and finalized, and that reaches anyone reading the chain
+below the level of account state:
+
+- **Streaming consumers.** A slot can carry more than one candidate block, and
+  Geyser tags every event with a `bank_id`. Buffer per `(slot, bank_id)` rather
+  than per slot
+  ([details](/upgrades/alpenglow#breaking-change-one-slot-can-contain-more-than-one-bank)).
+- **RPC consumers.** `confirmed` and `finalized` converge. Move new code to
+  `finalized` — but only once Alpenglow is live on the cluster you are reading,
+  because on TowerBFT `finalized` still means a 12.8-second wait
+  ([details](/upgrades/alpenglow#commitment-levels-confirmed-and-finalized-converge)).
+- **Indexers and dashboards.** Vote transactions leave blocks entirely, so
+  transaction counts and TPS drop sharply with no drop in real activity.
+  Re-baseline before activation, not after
+  ([details](/upgrades/alpenglow#breaking-change-vote-transactions-leave-the-block)).
+- **Anything reading time from the ledger.** Proof of History stops pacing
+  blocks, so tick entries leave the shred stream, and `Clock.unix_timestamp` is
+  set by the leader within a bounded range instead of from a stake-weighted
+  median of vote timestamps
+  ([details](/upgrades/alpenglow#breaking-change-ticks-leave-the-ledger)).
+
+The full, role-by-role list is the
+[Alpenglow migration checklist](/upgrades/alpenglow#migration-checklist). The
+devnet and testnet clusters above are the place to test against it now.
+
+**Validator operators** must have a BLS pubkey registered on their vote account.
+The [Validator Admission Ticket](/upgrades/bls-pubkey-vat) has been enforced on
+mainnet since July 22, 2026, so an operator without one is already outside the
+admitted validator set.
+
+**To tell whether a cluster has migrated**, ask it rather than checking a date or
+a version string. The
+[`getAgGenesisCert`](https://solana.com/docs/rpc/http/getaggenesiscert) RPC
+method returns `null` while a cluster runs TowerBFT and the Alpenglow genesis
+certificate once it has switched. It returns `null` on mainnet today, and a
+certificate on devnet and testnet
+([details](/upgrades/alpenglow#checking-whether-alpenglow-is-active)).
+
+### Alpenglow Fast Leader Handover
+
+**[Fast leader handover](/upgrades/fast-leader-handover)**
+([SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0326-alpenglow.md),
+section 2.7 of the white paper) lets a leader start building on the parent it
+expects to be ready rather than waiting for the network to confirm one, and
+switch parents mid-block if the network resolves differently. It has its own
+gate, `FLHoAWBDjNh6zwmJ5i1NKK4KyD8otAiv7XxvmnFnVnKH`, separate from the
+`alpenglow` consensus gate, and it can only take effect once Alpenglow itself is
+active. The wire encoding for the parent switch — the `BlockHeader` and
+`UpdateParent` block markers — is specified separately in
+[SIMD-0337](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0337-parent-ready-update-marker.md).
+
+This is what makes more than one bank per slot a routine occurrence rather than
+an equivocation artifact — Anza expects it in under 1% of slots. It is the
+reason the `bank_id` migration above matters even though the case is rare.
+
+### Program Performance
+
+Three changes make programs cheaper to run, and they compound.
+
+**[Direct account pointers in program input](/upgrades/direct-account-pointers)**
+([SIMD-0449](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0449-direct-account-pointers-in-program-input.md))
+serializes a pointer per instruction account into the program input, so an
+entrypoint no longer walks the accounts section to find its boundaries. The
+entrypoint cost stops scaling with account count: a 64-account instruction goes
+from 504 CUs to 11.
+
+**[Account data direct mapping](/upgrades/account-data-direct-mapping)** maps
+account data into the VM address space instead of copying it in and back out
+again. No SIMD — it is an implementation change behind feature gate
+`CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE`.
+
+**[Virtual address space adjustments](/upgrades/virtual-address-space)**
+([SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md))
+is the half of SIMD-0219 covering address translation and memory mapping. It
+also deactivates stack frame gaps globally, which compacts the stack address
+space. Programs that depend on the old stack layout — absolute addressing,
+addressing across stack frames, or a bug that read past a frame boundary — are
+the ones at risk.
+
+### New Cryptography
+
+Two syscalls expose primitives the validator already links.
+
+**[SHA-512 syscall](/upgrades/sha512-syscall)**
+([SIMD-0512](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0512-sha512-syscall.md))
+adds `sol_sha512` with the same interface as `sol_sha256`. A SHA-512 hash that
+costs thousands of CUs in sBPF costs under 100 through the syscall.
+
+**[Big integer ModExp syscall](/upgrades/modexp-syscall)**
+([SIMD-0529](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0529-big-integer-modexp-syscall.md))
+adds `sol_big_mod_exp`, computing `(base ^ exponent) mod modulus` on operands up
+to 512 bytes — enough for 4096-bit RSA. It is the analogue of Ethereum's EIP-198
+precompile, with a Solana syscall interface rather than the EVM ABI.
+
+Both join the curve syscalls added in Agave 4.0
+([new cryptography schemes](/upgrades/new-cryptography)).
+
+### Program Deployment
+
+**[sBPFv3 programs](/upgrades/sbpfv3-programs)**
+([SIMD-0500](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0500-disable-deployment-of-sbpf-v0-v1-v2.md))
+makes sBPFv3 the minimum target for new deployments, redeployments, and
+finalization. Programs already onchain keep running.
+
+**[Loader v3: program data sized to the ELF](/upgrades/loader-v3-elf-length)**
+([SIMD-0433](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0433-loader-v3-set-program-data-to-elf-length.md))
+makes `Upgrade` resize the program data account to match the ELF being deployed,
+in both directions. Shrinking refunds the surplus rent to the spill account;
+growing no longer needs a separate `ExtendProgram` first. Anyone deliberately
+over-provisioning program data space loses that space on the next upgrade.
+
+Agave 4.4 also fixes program cache deployment verification. There is no SIMD and
+no feature gate — it is a client fix, not a protocol change.
+
+### Economics
+
+**[Block revenue sharing](/upgrades/block-revenue-sharing)**
+([SIMD-0123](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0123-block-revenue-distribution.md))
+lets a validator share block revenue with its delegators through the protocol
+rather than through a side arrangement. A vote account sets a block revenue
+commission in basis points; the remainder accrues to `pending_delegator_rewards`
+and is paid out at the next epoch boundary through the existing partitioned
+rewards mechanism. Validators that never set a commission keep collecting
+everything into their identity account, as today.
+
+**[Remove inactive stakes from rewards](/upgrades/inactive-stakes-rewards)**
+([SIMD-0599](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0599-rm-inactive-stakes-from-per.md))
+stops including stake accounts with no effective or activating stake in
+partitioned epoch rewards. They never earned anything; they were
+consensus-critical anyway, because they moved the partition count and the
+lattice hash.
+
+**[Reduced rent](/upgrades/reduced-rent)**
+([SIMD-0437](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0437-incremental-rent-reduction.md))
+continues here with steps 3 through 5 of the five-step cut to
+`lamports_per_byte`. Steps 1 and 2 activated in September 2026 under Agave 4.2.
+
+## About This Upgrade
+
+Agave 4.4 is two releases in one, and they are worth keeping separate in your
+planning.
+
+The first is Alpenglow reaching mainnet. It is the headline, and it is the part
+with a hard deadline for anyone reading chain data: streaming pipelines need
+`bank_id`, dashboards need re-baselining for the loss of vote transactions, and
+code tuned to 12.8-second finality needs revisiting. None of it touches
+transaction execution, and testnet and devnet have been running it since late
+September, so there is a live cluster to test against today.
+
+The second is a runtime release. Program developers get a materially cheaper
+entrypoint and two cryptographic primitives that were previously impractical,
+and in exchange have to deploy sBPFv3 and stop relying on the old stack address
+layout. Validators and stakers get the first protocol-level mechanism for
+sharing block revenue.
+
+Every change activates on its own feature gate. Track them individually rather
+than treating "4.4" as a single switch, confirm Alpenglow with `getAgGenesisCert`
+rather than by version, and read Anza's schedule for current dates — every one of
+them is tentative.
+
+**Learn more:** [Solana Upgrades](/upgrades)

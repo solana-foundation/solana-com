@@ -1,0 +1,120 @@
+---
+title: SHA-512 Syscall
+description: >-
+  SIMD-0512 adds a sol_sha512 syscall with the same interface as sol_sha256,
+  exposing a hash function every validator already links. A SHA-512 hash drops
+  from thousands of compute units in sBPF to under 100.
+subtitle: Exposing a hash the validator already has to onchain programs
+publishedAt: 2026-09-27T00:00:00.000Z
+status: published
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+order: 7
+metrics:
+  - value: <100
+    label: CUs per hash, down from thousands in sBPF
+  - value: "64"
+    label: Byte digest written to the result pointer
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# SHA-512 Syscall
+
+Q4 2026 • Solana Foundation
+
+SHA-512 is already inside every Solana validator. It is a core primitive of
+Ed25519 signature verification, so both Agave and Firedancer link an
+implementation of it as an internal dependency. What has been missing is a way
+for an onchain program to call it.
+[SIMD-0512](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0512-sha512-syscall.md)
+adds `sol_sha512`, a syscall with the same interface as `sol_sha256`, producing
+a 64-byte digest.
+
+Until now a program that needed SHA-512 had to implement it in sBPF. A single
+hash of a short message costs thousands of compute units that way. Through the
+syscall it costs fewer than 100 — the work moves into the validator, where it
+runs as optimized native code rather than as interpreted program bytecode.
+
+|                                  |                                                  |
+| -------------------------------- | ------------------------------------------------ |
+| Expected Mainnet Activation Date | Agave 4.4, feature activation from November 2026 |
+| Devnet Activation                | To be determined                                 |
+| Breaking Change?                 | No — additive, behind a feature gate             |
+| Indexing Changes Required?       | No                                               |
+| Feature Gate                     | `s512oDwgx8hjMnaQjXfqqrZroVj4HvC6TkN3iSSWXCh`    |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="s512oDwgx8hjMnaQjXfqqrZroVj4HvC6TkN3iSSWXCh" />
+
+SIMD-0512 is still at Idea status in the SIMD repository, though its feature
+gate is declared in Agave. Treat the activation timing as provisional and check
+the proposal before depending on it.
+
+## Technical Details
+
+### Syscall Signature
+
+`sol_sha512` follows the interface already used by `sol_sha256`,
+`sol_keccak256`, and `sol_blake3`. It takes an array of byte slices and hashes
+them as if they were one contiguous input, writing the 64-byte digest to the
+caller's `result` pointer.
+
+The syscall aborts the virtual machine if:
+
+- any byte in the slice array itself is unreadable,
+- any byte in any of the referenced slices is unreadable,
+- any of the 64 bytes at `result` is unwritable, or
+- the number of slices exceeds the configured maximum, currently 20,000 per
+  `SVMTransactionExecutionBudget`.
+
+These are aborts, not recoverable errors. There is no error return value to
+check.
+
+### Compute Cost
+
+Compute metering follows the same model and the same parameters as
+`sol_sha256`: a base cost plus a per-byte cost over the input. SHA-512 processes
+1024-bit blocks rather than SHA-256's 512-bit blocks, so for the same input it
+performs fewer compression rounds on wider words.
+
+The comparison that matters is not against `sol_sha256` but against the status
+quo. A software SHA-512 in sBPF costs thousands of CUs for a short message. The
+syscall costs under 100.
+
+### What It Unblocks
+
+The immediate case is Ed25519-adjacent verification logic. Ed25519 uses SHA-512
+internally for key expansion and for the challenge hash, so a program doing
+anything with Ed25519 structure — verifying a variant scheme, deriving from a
+signature, checking a hash chain built on the same primitive — previously had to
+carry its own implementation and pay for it on every call.
+
+The broader case is any protocol that specifies SHA-512, which until now meant
+either eating the sBPF cost or choosing a different hash for Solana. Neither is
+a good option when the function is already sitting in the validator binary.
+
+### Why Not Keep It in sBPF
+
+Programs can implement SHA-512 today; nothing prevents it. The argument for the
+syscall is that the cost is paid for no reason. Every validator already has an
+audited, optimized SHA-512 linked in, and charging programs thousands of compute
+units to recompute what the host could do natively wastes block capacity that
+other transactions could use.
+
+## About This Upgrade
+
+This is the smallest kind of protocol change: no new behavior, no new trust
+assumption, no migration. It is additive and gated, existing syscalls are
+untouched, and a program that never calls `sol_sha512` cannot tell the
+difference.
+
+The security surface is the same as the other hash syscalls — the same input
+validation, the same compute metering — and SHA-512 itself is a standardized,
+well-studied function specified in FIPS 180-4.
+
+**Learn more:** [Solana Upgrades](/upgrades)
