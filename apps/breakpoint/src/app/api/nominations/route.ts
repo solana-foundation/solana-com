@@ -255,7 +255,8 @@ export async function POST(request: NextRequest) {
       { error: "Unknown award category." },
       { status: 400, headers: NO_STORE_HEADERS },
     );
-  const requiresSecondHandle = awardCategory.nomineeCount === 2;
+  const requiresSecondHandle =
+    "nomineeCount" in awardCategory && awardCategory.nomineeCount === 2;
   if (
     !twitterHandle ||
     (requiresSecondHandle &&

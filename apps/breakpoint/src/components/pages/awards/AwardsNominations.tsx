@@ -143,7 +143,8 @@ export default function AwardsNominations() {
   ) as AwardCategoryCopy;
   const nominationCount = Object.keys(nominations).length;
   const activeNumber = activeIndex + 1;
-  const requiresSecondHandle = activeCategory.nomineeCount === 2;
+  const requiresSecondHandle =
+    "nomineeCount" in activeCategory && activeCategory.nomineeCount === 2;
   const accentTextClassName = "text-core-purple";
   const accentBackgroundClassName = "bg-core-purple";
 
