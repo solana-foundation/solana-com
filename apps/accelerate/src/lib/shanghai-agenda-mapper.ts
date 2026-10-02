@@ -21,6 +21,10 @@ export type ShanghaiAgendaSession = {
   description?: string;
 };
 
+export type ShanghaiAgendaMappingOptions = {
+  ignorePublicationFlags?: boolean;
+};
+
 function asString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -108,10 +112,11 @@ function compareSchedule(
  */
 export function mapShanghaiAgendaRecords(
   records: readonly ShanghaiAgendaSourceRecord[],
+  { ignorePublicationFlags = false }: ShanghaiAgendaMappingOptions = {},
 ): ShanghaiAgendaSession[] {
   return records
     .filter(hasShanghaiEvent)
-    .filter(isPubliclyApproved)
+    .filter((record) => ignorePublicationFlags || isPubliclyApproved(record))
     .sort(compareSchedule)
     .flatMap((record) => {
       const title = asString(record.fields?.[SHANGHAI_AGENDA_FIELD_IDS.title]);

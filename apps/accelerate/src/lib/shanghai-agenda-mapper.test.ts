@@ -63,6 +63,32 @@ test("publishes only live, cleared Shanghai titles and descriptions", () => {
   ]);
 });
 
+test("preview mode ignores publication flags but keeps event and field filters", () => {
+  const unpublished = record("rec-preview", {
+    [FIELD.publishStatus]: "Internal only",
+    [FIELD.commsReview]: "Not reviewed",
+    Speakers: ["PRIVATE SPEAKER"],
+    Email: "private@example.com",
+    "BD Notes": "PRIVATE NOTES",
+  });
+  const wrongEvent = record("rec-wrong-event-preview", {
+    [FIELD.event]: ["rec-other-event"],
+  });
+
+  assert.deepEqual(
+    mapShanghaiAgendaRecords([unpublished, wrongEvent], {
+      ignorePublicationFlags: true,
+    }),
+    [
+      {
+        id: "rec-preview",
+        title: "Session rec-preview",
+        description: "Description rec-preview",
+      },
+    ],
+  );
+});
+
 test("sorts approved sessions by schedule without returning schedule fields", () => {
   const later = record("rec-later", {
     [FIELD.order]: 2,

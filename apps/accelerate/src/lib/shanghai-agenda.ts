@@ -18,6 +18,8 @@ const SHANGHAI_VIEW_ID = "viwRCpQEfJqc2C2ci";
 const AIRTABLE_CACHE_SECONDS = 60;
 const AIRTABLE_NO_STORE_OPTIONS: AirtableFetchOptions = { cache: "no-store" };
 const PUBLIC_SOURCE_FIELD_IDS = Object.values(SHANGHAI_AGENDA_FIELD_IDS);
+const IGNORE_PUBLICATION_FLAGS =
+  process.env.NODE_ENV !== "production" || process.env.VERCEL_ENV === "preview";
 
 type AirtableListResponse = {
   records?: ShanghaiAgendaSourceRecord[];
@@ -61,15 +63,24 @@ async function fetchShanghaiAgenda(): Promise<ShanghaiAgendaSession[]> {
 
   // Cache only the narrow public mapping. Source records and private Airtable
   // fields never enter the Next.js data cache or the page response.
-  return mapShanghaiAgendaRecords(records);
+  return mapShanghaiAgendaRecords(records, {
+    ignorePublicationFlags: IGNORE_PUBLICATION_FLAGS,
+  });
 }
 
 const loadCachedShanghaiAgenda =
   process.env.NODE_ENV === "production"
-    ? unstable_cache(fetchShanghaiAgenda, ["shanghai-agenda-airtable-v1"], {
-        revalidate: AIRTABLE_CACHE_SECONDS,
-        tags: ["shanghai-agenda"],
-      })
+    ? unstable_cache(
+        fetchShanghaiAgenda,
+        [
+          "shanghai-agenda-airtable-v1",
+          IGNORE_PUBLICATION_FLAGS ? "preview" : "production",
+        ],
+        {
+          revalidate: AIRTABLE_CACHE_SECONDS,
+          tags: ["shanghai-agenda"],
+        },
+      )
     : fetchShanghaiAgenda;
 
 let inFlightAgendaRequest: Promise<ShanghaiAgendaSession[]> | undefined;
