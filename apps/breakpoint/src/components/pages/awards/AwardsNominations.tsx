@@ -8,7 +8,7 @@ import { publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
 // import { resolveSponsorLogo } from "@/lib/sponsors";
 
-type Nomination = { handle: string; submittedAt: string };
+type Nomination = { handles: string[]; submittedAt: string };
 type CampaignStatus = "open" | "not_started" | "closed";
 type AwardCategoryCopy = { name: string; description: string };
 
@@ -76,6 +76,50 @@ function AwardCategoryButton({
   );
 }
 
+type NomineeInputProps = {
+  id: string;
+  label: string;
+  placeholder: string;
+  required?: boolean;
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function NomineeInput({
+  id,
+  label,
+  placeholder,
+  required = true,
+  value,
+  onChange,
+}: NomineeInputProps) {
+  return (
+    <div className="w-full">
+      <label
+        className="mb-2xs block font-mono text-button-small uppercase"
+        htmlFor={id}
+      >
+        {label}
+      </label>
+      <div className="flex h-10 items-center border border-stroke-tertiary bg-black px-4 focus-within:outline focus-within:outline-1 focus-within:outline-offset-4 focus-within:outline-core-purple">
+        <span aria-hidden="true" className="text-text-secondary">
+          @
+        </span>
+        <input
+          autoComplete="off"
+          className="h-full w-full bg-transparent px-1 text-white outline-none placeholder:text-neutral-500"
+          id={id}
+          maxLength={15}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          required={required}
+          value={value}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function AwardsNominations() {
   const t = useTranslations("breakpoint.awards");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -86,6 +130,7 @@ export default function AwardsNominations() {
     {},
   );
   const [handle, setHandle] = useState("");
+  const [secondHandle, setSecondHandle] = useState("");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
@@ -98,6 +143,7 @@ export default function AwardsNominations() {
   ) as AwardCategoryCopy;
   const nominationCount = Object.keys(nominations).length;
   const activeNumber = activeIndex + 1;
+  const requiresSecondHandle = activeCategory.nomineeCount === 2;
   const accentTextClassName = "text-core-purple";
   const accentBackgroundClassName = "bg-core-purple";
 
@@ -113,6 +159,7 @@ export default function AwardsNominations() {
           nominations: Array<{
             category: string;
             twitterHandle: string;
+            secondTwitterHandle: string | null;
             submittedAt: string;
           }>;
           campaignStatus: CampaignStatus;
@@ -121,7 +168,10 @@ export default function AwardsNominations() {
           data.nominations.map((nomination) => [
             nomination.category,
             {
-              handle: nomination.twitterHandle,
+              handles: [
+                nomination.twitterHandle,
+                nomination.secondTwitterHandle,
+              ].filter((handle): handle is string => Boolean(handle)),
               submittedAt: nomination.submittedAt,
             },
           ]),
@@ -144,7 +194,9 @@ export default function AwardsNominations() {
   }, [t]);
 
   useEffect(() => {
-    setHandle(nominations[activeCategory.id]?.handle.replace(/^@/, "") ?? "");
+    const handles = nominations[activeCategory.id]?.handles ?? [];
+    setHandle(handles[0]?.replace(/^@/, "") ?? "");
+    setSecondHandle(handles[1]?.replace(/^@/, "") ?? "");
     setError("");
     setEditing(false);
   }, [activeCategory.id, nominations]);
@@ -160,8 +212,20 @@ export default function AwardsNominations() {
 
   const saveNomination = async () => {
     const normalized = normaliseHandle(handle);
-    if (!/^[a-z0-9_]{1,15}$/i.test(normalized)) {
-      setError(t("nominations.errors.invalidUsername"));
+    const normalizedSecond = normaliseHandle(secondHandle);
+    if (
+      !/^[a-z0-9_]{1,15}$/i.test(normalized) ||
+      (requiresSecondHandle &&
+        (!/^[a-z0-9_]{1,15}$/i.test(normalizedSecond) ||
+          normalized === normalizedSecond))
+    ) {
+      setError(
+        t(
+          requiresSecondHandle
+            ? "nominations.errors.invalidCollaborators"
+            : "nominations.errors.invalidUsername",
+        ),
+      );
       return;
     }
     if (!sessionReady) {
@@ -176,6 +240,7 @@ export default function AwardsNominations() {
         body: JSON.stringify({
           categoryId: activeCategory.id,
           twitterHandle: normalized,
+          secondTwitterHandle: requiresSecondHandle ? normalizedSecond : null,
           website,
         }),
       });
@@ -183,6 +248,7 @@ export default function AwardsNominations() {
         nomination?: {
           category: string;
           twitterHandle: string;
+          secondTwitterHandle: string | null;
           submittedAt: string;
         };
       };
@@ -193,7 +259,12 @@ export default function AwardsNominations() {
       const next = {
         ...nominations,
         [data.nomination.category]: {
-          handle: data.nomination.twitterHandle,
+          handles: data.nomination.secondTwitterHandle
+            ? [
+                data.nomination.twitterHandle,
+                data.nomination.secondTwitterHandle,
+              ]
+            : [data.nomination.twitterHandle],
           submittedAt: data.nomination.submittedAt,
         },
       };
@@ -209,7 +280,7 @@ export default function AwardsNominations() {
   const nomination = nominations[activeCategory.id];
   const share = () => {
     const text = t("nominations.shareText", {
-      handle: nomination?.handle ?? "",
+      handle: nomination?.handles.join(" and ") ?? "",
       category: activeCategoryCopy.name,
     });
     window.open(
@@ -452,7 +523,9 @@ export default function AwardsNominations() {
                         <p className="font-mono text-button-small uppercase">
                           {t("nominations.submitted")}
                         </p>
-                        <p className="type-h4 mt-2xs">{nomination.handle}</p>
+                        <p className="type-h4 mt-2xs">
+                          {nomination.handles.join(" & ")}
+                        </p>
                       </div>
                       <div className="flex flex-col gap-3 xl:flex-row">
                         <Button
@@ -473,7 +546,12 @@ export default function AwardsNominations() {
                           disabled={campaignStatus !== "open"}
                           label={t("nominations.change")}
                           onClick={() => {
-                            setHandle(nomination.handle.slice(1));
+                            setHandle(
+                              nomination.handles[0]?.replace(/^@/, "") ?? "",
+                            );
+                            setSecondHandle(
+                              nomination.handles[1]?.replace(/^@/, "") ?? "",
+                            );
                             setEditing(true);
                           }}
                           variant="secondary"
@@ -489,7 +567,13 @@ export default function AwardsNominations() {
                       saveNomination();
                     }}
                   >
-                    <div className="flex flex-col gap-s md:flex-row md:items-end md:justify-between">
+                    <div
+                      className={
+                        requiresSecondHandle
+                          ? "flex flex-col gap-s"
+                          : "flex flex-col gap-s md:flex-row md:items-end md:justify-between"
+                      }
+                    >
                       <input
                         aria-hidden="true"
                         autoComplete="off"
@@ -500,33 +584,40 @@ export default function AwardsNominations() {
                         type="text"
                         value={website}
                       />
-                      <div className="w-full md:max-w-[520px]">
-                        <label
-                          className="mb-2xs block font-mono text-button-small uppercase"
-                          htmlFor="x-handle"
-                        >
-                          {t("nominations.nomineeUsername")}
-                        </label>
-                        <div className="flex h-10 items-center border border-stroke-tertiary bg-black px-4 focus-within:outline focus-within:outline-1 focus-within:outline-offset-4 focus-within:outline-core-purple">
-                          <span
-                            aria-hidden="true"
-                            className="text-text-secondary"
-                          >
-                            @
-                          </span>
-                          <input
-                            autoComplete="off"
-                            className="h-full w-full bg-transparent px-1 text-white outline-none placeholder:text-neutral-500"
-                            id="x-handle"
-                            maxLength={15}
-                            onChange={(event) => setHandle(event.target.value)}
+                      <div
+                        className={
+                          requiresSecondHandle
+                            ? "grid gap-s md:grid-cols-2"
+                            : "w-full md:max-w-[520px]"
+                        }
+                      >
+                        <NomineeInput
+                          id="x-handle"
+                          label={
+                            requiresSecondHandle
+                              ? t("nominations.firstCollaboratorUsername")
+                              : t("nominations.nomineeUsername")
+                          }
+                          onChange={setHandle}
+                          placeholder={t("nominations.usernamePlaceholder")}
+                          value={handle}
+                        />
+                        {requiresSecondHandle && (
+                          <NomineeInput
+                            id="x-handle-second"
+                            label={t("nominations.secondCollaboratorUsername")}
+                            onChange={setSecondHandle}
                             placeholder={t("nominations.usernamePlaceholder")}
-                            value={handle}
+                            value={secondHandle}
                           />
-                        </div>
+                        )}
                       </div>
                       <Button
-                        className="w-full md:w-auto"
+                        className={
+                          requiresSecondHandle
+                            ? "w-full md:w-auto md:self-end"
+                            : "w-full md:w-auto"
+                        }
                         disabled={
                           submitting ||
                           !sessionReady ||
