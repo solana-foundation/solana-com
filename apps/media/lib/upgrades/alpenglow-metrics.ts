@@ -87,7 +87,7 @@ const LIVE_QUERIES = {
   latestFinalityLatencySeconds:
     'max(solana_finality_latency_latest_seconds{job="solana-exporter-live"}) or max(solana_finality_latency_latest_seconds) or (sum(rate(solana_rpc_finality_latency_seconds_sum[30s])) / sum(rate(solana_rpc_finality_latency_seconds_count[30s]))) or (sum(rate(solana_finality_latency_seconds_sum[30s])) / sum(rate(solana_finality_latency_seconds_count[30s])))',
   transactionsPerSecond:
-    'max(clamp_min(irate(solana_node_transactions_total{job="solana-exporter-live"}[10s]), 0)) or max(clamp_min(irate(solana_node_transactions_total[10s]), 0))',
+    'max(clamp_min(rate(solana_node_transactions_total{job="solana-exporter-live"}[30s]), 0)) or max(clamp_min(rate(solana_node_transactions_total[30s]), 0))',
   voteAccountProgressSlotsPerSecond:
     "avg(clamp_min(irate(solana_validator_last_vote[15s]), 0) and on (nodekey, votekey) (solana_validator_delinquent == 0))",
   blockTransactions:
