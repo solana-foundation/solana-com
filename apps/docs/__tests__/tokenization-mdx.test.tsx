@@ -139,7 +139,9 @@ describe("Tokenization docs MDX", () => {
     // <CodeTabs flags="r"> renders no console at all. Pin the wrapper here:
     // compileMDX cannot cover this, because it does not run the codehike recma
     // plugin that lifts `!!` fences into the CodeTabs `code` prop.
-    const WRAPPER = '<CodeTabs flags="r">';
+    // The wrapper may carry other props (storage="..."), so match the tag
+    // rather than one exact string.
+    const WRAPPER = /<CodeTabs\b[^>]*\bflags="r"/;
     for (const file of await mdxFiles(CONTENT_DIR)) {
       const lines = (await readFile(file, "utf8")).split("\n");
       lines.forEach((line, index) => {
@@ -155,13 +157,14 @@ describe("Tokenization docs MDX", () => {
         ).toContain("!!");
 
         // Look back for the wrapper rather than pinning an exact offset, so
-        // reflowing a tutorial does not break this guard. The group must not
-        // have closed in between.
-        const preceding = lines.slice(Math.max(0, index - 5), index);
-        const opened = preceding.lastIndexOf(WRAPPER);
+        // reflowing a tutorial does not break this guard. A group holds up to
+        // five tabs of three lines each, so the window is generous. The group
+        // must not have closed in between.
+        const preceding = lines.slice(Math.max(0, index - 40), index);
+        const opened = preceding.findLastIndex((l) => WRAPPER.test(l));
         expect(
           opened,
-          `${file.pathname}:${index + 1} is not wrapped in ${WRAPPER}`,
+          `${file.pathname}:${index + 1} is not wrapped in <CodeTabs flags="r">`,
         ).toBeGreaterThan(-1);
         expect(
           preceding.slice(opened).some((l) => l.includes("</CodeTabs>")),

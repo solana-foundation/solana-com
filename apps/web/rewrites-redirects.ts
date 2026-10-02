@@ -261,6 +261,10 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/tokenization/compliance/token-acl",
   },
   {
+    source: "/docs/payments/production-readiness",
+    destination: "/docs/tools/production-readiness",
+  },
+  {
     source: "/docs/tools/ai",
     destination: "/docs/intro/coding-with-agents",
   },

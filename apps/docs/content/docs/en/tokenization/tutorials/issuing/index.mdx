@@ -15,13 +15,16 @@ related:
 
 These three tutorials build one token, in order. They end with a Token-2022 mint
 on devnet whose accounts start frozen, whose holders are gated by an onchain
-allowlist, and whose pause, forced-transfer, and metadata powers sit on separate
-keys.
+allowlist, and whose pause, forced-transfer, burn, and metadata powers sit on
+separate keys.
 
 They use [Mosaic](https://github.com/solana-foundation/mosaic), the Solana
 Foundation's open-source issuance toolkit. Mosaic encodes extension
 configurations as templates, which keeps the tutorials focused on the decisions
-involved rather than on assembling instructions by hand.
+involved rather than on assembling instructions by hand. Most steps show the
+same operation twice: as a Mosaic CLI command, and as a TypeScript script that
+calls the Mosaic SDK through the standard [`@solana/kit`](/docs/frontend/client)
+client.
 
 <Cards>
   <Card
@@ -29,8 +32,8 @@ involved rather than on assembling instructions by hand.
     href="/docs/tokenization/tutorials/issuing/create-the-mint"
   >
     A tokenized-security mint with metadata, pausability, a permanent delegate,
-    an onchain allowlist, and frozen-by-default accounts - with the operational
-    authorities on different keys.
+    permissioned burn, an onchain allowlist, and frozen-by-default accounts -
+    with the operational authorities on different keys.
   </Card>
   <Card
     title="2. Gate the holders"
@@ -43,15 +46,15 @@ involved rather than on assembling instructions by hand.
     title="3. Operate the token"
     href="/docs/tokenization/tutorials/issuing/operate-the-token"
   >
-    Mint to a holder, freeze one account, pause the token, force a transfer, and
-    burn without the holder.
+    Freeze one account, pause the token, force a transfer, burn with and without
+    the holder, and offboard a wallet.
   </Card>
 </Cards>
 
 ## Before you start
 
-These tutorials need the Solana CLI, Node.js, and a funded devnet keypair.
-Everything below runs on devnet.
+These tutorials need the Solana CLI, Node.js 22 or later, and a funded devnet
+keypair. Everything below runs on devnet.
 
 ```bash
 # Solana CLI, if you do not already have it
@@ -65,22 +68,50 @@ solana airdrop 2 --keypair ~/.config/solana/tokenization-demo.json
 Install the Mosaic CLI:
 
 ```bash
-npm install -g @solana/mosaic-cli@0.1.2
+npm install -g @solana/mosaic-cli@0.2.0
 mosaic --help
 ```
 
 <Callout type="warn">
 
 Mosaic is pre-1.0 and under active development. These tutorials were written
-against `@solana/mosaic-cli@0.1.2`, which the install above pins. Check the
+against `@solana/mosaic-cli@0.2.0` and `@solana/mosaic-sdk@0.2.0`, which the
+install above pins. Check the
 [repository](https://github.com/solana-foundation/mosaic) for the current
 command surface before adapting them beyond devnet, and keep the pin in any
 pipeline that depends on it.
 
-At 0.1.2 the `tokenized-security` template does not enable permissioned burn. If
-you unpin, recheck what
-[operate the token](/docs/tokenization/tutorials/issuing/operate-the-token) says
-about who can burn.
+The published 0.2.0 CLI has defects that stop it sending transactions. On every
+step, the SDK, Kit, Legacy, and Rust tabs run today and the CLI command shows
+the intended surface:
+
+- Every write command behaves as if `--raw-tx` was passed, because that global
+  flag carries a default of `b64`. The command prints an unsigned transaction
+  instead of sending, or fails with
+  `Cannot read properties of undefined (reading 'address')`. The default is
+  removed on Mosaic's main branch and not yet released.
+- `create tokenized-security` passes the mint authority as an address and the
+  SDK rejects it:
+  `mintAuthority must be a TransactionSigner<string> (or undefined) when TokenMetadata extension is present`.
+- `force-transfer` passes the permanent delegate as an address and fails with
+  `Transaction is missing signatures`.
+- `token-acl freeze` and `token-acl thaw` exist in the CLI source but are not
+  registered as subcommands.
+
+Read-only commands (`inspect-mint`, `abl fetch-list`, `control status`) work as
+published. The recorded outputs under the CLI tabs were captured with the
+`--raw-tx` default removed, which is the one-line change on main.
+
+If `mosaic --help` fails with `ERR_MODULE_NOT_FOUND` after a global install, the
+published build is importing its modules without file extensions, which Node's
+ES module loader rejects. Until a corrected build ships, run the CLI through
+`tsx` instead:
+
+```bash
+npm install -g tsx
+alias mosaic="tsx $(npm root -g)/@solana/mosaic-cli/dist/index.js"
+mosaic --help
+```
 
 </Callout>
 
@@ -93,24 +124,63 @@ Every Mosaic command accepts two global flags:
 
 The tutorials pass both explicitly so each command runs on its own.
 
+## Running the SDK tabs
+
+Each SDK tab is a complete script in
+[`packages/docs-examples/tokenization`](https://github.com/solana-foundation/solana-com/tree/main/packages/docs-examples/tokenization).
+The scripts read the same keypair files and the same `$MINT`, `$LIST`, and
+`$HOLDER` variables the CLI tabs export, so the two tabs act on one mint. Run
+one with `npx tsx <file> [arguments]` from a project that has these installed:
+
+```bash
+npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer \
+  @solana-program/token-2022 @solana/mosaic-sdk@0.2.0
+```
+
+The scripts build a client with `createClient()`, hand its RPC to the Mosaic SDK
+to build the transaction, then sign and send with kit. That is the same sequence
+the CLI runs internally, so the two tabs produce the same onchain result.
+
+## Running the Kit, Legacy, and Rust tabs
+
+The remaining three tabs on each step build the same instructions without
+Mosaic, from the Token-2022 client and the Token ACL and gate program clients.
+They take the same environment variables and arguments as the SDK scripts. The
+Kit scripts use the Foundation's generated clients for the two gate programs;
+the Legacy and Rust versions encode those instructions directly, because no
+web3.js client exists for them and the Rust clients pin Solana crate versions
+that conflict with the current Token-2022 interface.
+
+```bash
+# Kit
+npm install @solana/kit@^6 @solana/kit-plugin-rpc @solana/kit-plugin-signer \
+  @solana-program/token-2022 @solana/token-acl-sdk @solana/token-acl-gate-sdk
+
+# Legacy
+npm install @solana/web3.js @solana/spl-token @solana/spl-token-metadata
+```
+
+The Kit tab stays on `@solana/kit` 6 because the Token ACL clients declare that
+major as their peer dependency. The Rust tab is a standalone crate,
+`packages/docs-examples/tokenization/rust`, with one binary per step; build it
+with `cargo build --release` in that directory and run a step with
+`cargo run --release --bin <step> -- [arguments]`.
+
 ## If you cannot run a CLI in your pipeline
 
-Mosaic exposes the same operations as a library, and all of them build ordinary
-Token-2022 and Token ACL instructions. Three paths, in order of increasing
-control:
+All Mosaic operations build ordinary Token-2022 and Token ACL instructions.
+Three paths, in order of increasing control:
 
-1. **The Mosaic CLI** - these tutorials.
-2. **The Mosaic SDK** - `@solana/mosaic-sdk`, the same templates as library
-   calls.
-3. **Direct instruction building** - see
-   [launch a token](/docs/tokenization/quickstart) for the Kit, legacy
-   TypeScript, and Rust equivalents, and
-   [token extensions](/docs/tokens/extensions) for each extension's API.
+1. **The Mosaic CLI** - the first tab on each step.
+2. **The Mosaic SDK** - `@solana/mosaic-sdk`, the second tab on each step. Every
+   `create*Transaction` and `get*Transaction` call returns a transaction message
+   you can sign with your own signer or export unsigned.
+3. **Direct instruction building** - the Kit, Legacy, and Rust tabs on each
+   step, and [launch a token](/docs/tokenization/quickstart) for the mint
+   creation on its own. See [token extensions](/docs/tokens/extensions) for each
+   extension's API.
 
-Where a pre-1.0 CLI cannot be introduced into a build pipeline, these tutorials
-still describe the sequence, which can be implemented with option 2 or 3.
-
-## Next Steps
+## Next steps
 
 - [Create the mint](/docs/tokenization/tutorials/issuing/create-the-mint) - a
   Token-2022 mint with its operational authorities on separate keys

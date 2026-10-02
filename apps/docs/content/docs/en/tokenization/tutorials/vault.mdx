@@ -15,7 +15,7 @@ related:
 ---
 
 An asset-manager vault holding a gated token is subject to that gate like any
-other holder, and a common deployment failure is discovering that only after the
+other holder. If the vault's accounts were not allowlisted at deployment, the
 first deposit fails.
 
 This tutorial does the part that can be done with first-party tooling: prove the
@@ -82,9 +82,9 @@ for why the vault's holding account should be a PDA.
 Before allowlisting, confirm the failure mode. Try to move the asset into the
 vault while it is not on the list.
 
-<CodeTabs flags="r">
+<CodeTabs storage="tokenization" flags="r">
 
-```bash !! title="mosaic transfer" output=packages/docs-examples/tokenization/vault/transfer-blocked.output.txt
+```bash !! title="Mosaic CLI" output=packages/docs-examples/tokenization/vault/transfer-blocked.output.txt
 mosaic transfer \
   --mint-address $MINT \
   --recipient $VAULT \
@@ -93,11 +93,28 @@ mosaic transfer \
   --rpc-url https://api.devnet.solana.com
 ```
 
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/transfer.ts#region=transfer output=packages/docs-examples/tokenization/issuing/transfer.vault-blocked.output.txt
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/transfer-kit.ts#region=transfer output=packages/docs-examples/tokenization/issuing/transfer-kit.vault-blocked.output.txt
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/transfer-legacy.ts#region=transfer output=packages/docs-examples/tokenization/issuing/transfer-legacy.vault-blocked.output.txt
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/transfer.rs#region=transfer output=packages/docs-examples/tokenization/rust/src/bin/transfer.vault-blocked.output.txt
+
+```
+
 </CodeTabs>
 
-This fails. The vault's token account is created frozen and has no basis to
-thaw. A program is not exempt from the gate, and this is the error a deposit
-would produce on day one.
+This fails. The vault's token account is created frozen, and the permissionless
+thaw that `mosaic transfer` inserts for it is rejected by the gate program with
+`Custom program error: #4098` because the vault is not on the list. A program is
+not exempt from the gate, and this is the error a deposit produces.
 
 </Step>
 
@@ -108,13 +125,33 @@ Enumerate them before you start. A vault over a gated token typically needs at
 least the vault's own asset account allowlisted, and - if the fund's shares are
 themselves a restricted token - each participant's share account too.
 
-```bash
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="Mosaic CLI"
 mosaic allowlist add \
   --mint-address $MINT \
   --account $VAULT \
   --keypair ~/.config/solana/tokenization-demo.json \
   --rpc-url https://api.devnet.solana.com
 ```
+
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/allowlist-add.ts#region=allowlist-add
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/allowlist-add-kit.ts#region=allowlist-add
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/allowlist-add-legacy.ts#region=allowlist-add
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/allowlist-add.rs#region=allowlist-add
+
+```
+
+</CodeTabs>
 
 Repeat for each address in your enumeration. Missing one produces a failure when
 a participant tries to transact.
@@ -124,7 +161,9 @@ a participant tries to transact.
 <Step>
 ### Confirm the deposit path now works
 
-```bash
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="Mosaic CLI"
 mosaic transfer \
   --mint-address $MINT \
   --recipient $VAULT \
@@ -132,6 +171,24 @@ mosaic transfer \
   --keypair ~/.config/solana/demo-holder.json \
   --rpc-url https://api.devnet.solana.com
 ```
+
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/transfer.ts#region=transfer
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/transfer-kit.ts#region=transfer
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/transfer-legacy.ts#region=transfer
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/transfer.rs#region=transfer
+
+```
+
+</CodeTabs>
 
 The only change was the onboarding decision recorded on the list.
 
@@ -141,15 +198,31 @@ The only change was the onboarding decision recorded on the list.
 ### Verify the gate state of each account
 
 Before going live, read every account the vault depends on and confirm its
-state. This is the pre-deployment check worth automating.
+state. This is the pre-deployment check to automate.
 
-```bash
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="spl-token"
 export VAULT_ATA=$(spl-token address --token $MINT --owner $VAULT \
   --url https://api.devnet.solana.com --verbose \
   | awk '/Associated token address/ {print $NF}')
 
 spl-token display $VAULT_ATA --url https://api.devnet.solana.com
 ```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/custodian/read-account.ts#region=read-account
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/custodian/read-account-legacy.ts#region=read-account
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/read-account.rs#region=read-account
+
+```
+
+</CodeTabs>
 
 **State** must read `Initialized`. `Frozen` means the account is gated out and
 any deposit or settlement touching it will fail.
@@ -159,13 +232,16 @@ any deposit or settlement touching it will fail.
 <Step>
 ### Confirm what a pause does to the vault
 
-A token-wide pause stops the vault along with everything else, which matters
-because in-flight requests cannot settle while it holds.
+A token-wide pause stops the vault along with everything else: in-flight
+requests cannot settle while it holds.
 
-```bash
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="Mosaic CLI"
 # Run by the issuer
 mosaic control pause \
   --mint-address $MINT \
+  --skip-warning \
   --keypair ~/.config/solana/demo-authorities/pause.json \
   --rpc-url https://api.devnet.solana.com
 
@@ -174,16 +250,54 @@ mosaic control status \
   --rpc-url https://api.devnet.solana.com
 ```
 
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/pause.ts#region=pause
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/pause-kit.ts#region=pause
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/pause-legacy.ts#region=pause
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/pause.rs#region=pause
+
+```
+
+</CodeTabs>
+
 With the token paused, retry the transfer from the previous step and watch it
 fail. Then resume:
 
-```bash
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="Mosaic CLI"
 # Run by the issuer
 mosaic control resume \
   --mint-address $MINT \
   --keypair ~/.config/solana/demo-authorities/pause.json \
   --rpc-url https://api.devnet.solana.com
 ```
+
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/resume.ts#region=resume
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/resume-kit.ts#region=resume
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/resume-legacy.ts#region=resume
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/resume.rs#region=resume
+
+```
+
+</CodeTabs>
 
 Decide, before launch, whether a pause means your in-flight requests queue or
 fail - and make sure whoever is authorized to pause the token knows a vault sits
@@ -211,7 +325,7 @@ Three references carry implementations:
 - [NAV strikes](/docs/tokenization/tokenized-funds/nav-strikes) - the async
   request-and-settle pattern for a periodically-valued fund, end to end.
 - [Delivery versus payment](/docs/tokenization/settlement/dvp) - atomic
-  exchange, which is what the settlement leg of a subscription or redemption is.
+  exchange, the settlement leg of a subscription or redemption.
 
 ## Before mainnet
 
@@ -224,7 +338,7 @@ Three references carry implementations:
 - Reconciliation of the vault's position against the register of record - see
   [transfer agent responsibilities](/docs/tokenization/custody/transfer-agent-responsibilities).
 
-## Next Steps
+## Next steps
 
 - [Vault architectures](/docs/tokenization/custody/vault-architectures) - the
   design decisions behind the program

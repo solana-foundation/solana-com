@@ -23,13 +23,14 @@ have not approved cannot.
 Three programs cooperate:
 
 1. **Token-2022** holds the mint and enforces that new accounts start frozen.
-2. **The Token ACL program** holds the delegated freeze authority and exposes a
-   permissionless thaw. It does not decide who qualifies.
+2. **The Token ACL program** holds the delegated freeze authority, through a
+   per-mint config account, and exposes a permissionless thaw. It does not
+   decide who qualifies.
 3. **A gate program** makes that decision. With an address-based list as the
    gate, qualifying means being on the list.
 
-You keep an override at every level: freeze or thaw an account directly, swap
-the gate program, or reclaim the freeze authority from Token ACL entirely.
+Three overrides remain with the issuer: freeze or thaw an account directly, swap
+the gate program, or reclaim the freeze authority from Token ACL.
 
 <Callout type="warn">
 
@@ -47,48 +48,74 @@ design in production.
 ### Confirm the gate is wired up
 
 The `--enable-srfc37 true` flag in the previous tutorial provisioned all of this
-inside the create transaction: it delegated the freeze authority to Token ACL,
-created the address-based list, pointed the gate at it, and enabled
-permissionless thaw. Confirm that before adding anyone.
+inside the create transaction: it delegated the freeze authority to the Token
+ACL mint config, created the address-based list, pointed the gate at it, and
+enabled permissionless thaw. Confirm that before adding anyone.
 
-<CodeTabs flags="r">
+<CodeTabs storage="tokenization" flags="r">
 
-```bash !! title="mosaic inspect-mint" output=packages/docs-examples/tokenization/issuing/inspect-mint-gated.output.txt
+```bash !! title="Mosaic CLI" output=packages/docs-examples/tokenization/issuing/inspect-mint-gated.output.txt
 mosaic inspect-mint \
   --mint-address $MINT \
   --rpc-url https://api.devnet.solana.com
 ```
 
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/inspect-mint.ts#region=inspect
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/inspect-mint-kit.ts#region=inspect
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/inspect-mint-legacy.ts#region=inspect
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/inspect-mint.rs#region=inspect
+
+```
+
 </CodeTabs>
 
-The freeze authority should read `TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP`,
-the Token ACL program. If it is your own key or none, the mint was created
-without `--enable-srfc37 true`, and as it stands nothing can thaw an account
-through the gate. Whether that is recoverable depends on which of the two it is;
-the note below covers both cases.
+`Freeze Authority` should read `$MINT_CONFIG`, the Token ACL mint config for
+this mint. That address is a program derived address owned by the Token ACL
+program (`TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP`); it is not the program
+ID itself. In the SDK tab, `tokenAcl` is `true` and `aclMode` is `allowlist`.
+
+If the freeze authority is your own key or none, the mint was created without
+`--enable-srfc37 true`, and as it stands nothing can thaw an account through the
+gate. Whether that is recoverable depends on which of the two it is; the note
+below covers both cases.
 
 <Accordions>
 <Accordion title="Wiring the gate on a mint that was created without it">
 
-Start from the `Freeze` row in the `inspect-mint` output above. What it says
-decides whether the mint can be rescued at all:
+Start from the `Freeze Authority` row in the `inspect-mint` output above. What
+it says decides whether the mint can be rescued at all:
 
-- **`TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP`** - the freeze authority is
-  already delegated to Token ACL. The four commands below finish the wiring.
-- **Your own key** - delegate it first with
-  `spl-token authorize $MINT freeze TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP`,
-  then run the four commands. The Mosaic CLI cannot move a freeze authority,
-  which is why this step uses `spl-token`.
+- **Your own key** - recoverable. `mosaic token-acl create` signs with that key
+  and delegates the freeze authority to the mint config as part of creating it.
+  Run all four commands below.
+- **A Token ACL mint config** - the config already exists. Skip the first
+  command and run the other three as needed.
 - **None** - a freeze authority cannot be restored once it is unset. Nothing can
   thaw an account, so the mint cannot be gated. Create a new one.
 
-These four commands do what `--enable-srfc37 true` does automatically, and take
+Do not move the freeze authority with `spl-token authorize` first. The Token ACL
+program requires the current freeze authority to sign its `create` instruction
+and sets the new authority itself; a freeze authority pointed at the program ID
+by hand cannot sign anything, and the mint is then unrecoverable.
+
+These commands do what `--enable-srfc37 true` does automatically, and take
 `--mint` rather than `--mint-address`:
 
 ```bash
-# Create the Token ACL config, pointing it at the address-based list program
-mosaic token-acl create-config \
+# Create the Token ACL config for the mint. Signs with the current freeze
+# authority and delegates it to the mint config.
+mosaic token-acl create \
   --mint $MINT \
+  --gating-program GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz \
   --keypair ~/.config/solana/tokenization-demo.json \
   --rpc-url https://api.devnet.solana.com
 
@@ -98,10 +125,10 @@ mosaic abl create-list \
   --keypair ~/.config/solana/tokenization-demo.json \
   --rpc-url https://api.devnet.solana.com
 
-# Point the config at the gate program
-mosaic token-acl set-gating-program \
+# Register the list's extra account metas so a thaw can resolve it
+mosaic abl set-extra-metas \
   --mint $MINT \
-  --gating-program GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz \
+  --list <the List Config printed by create-list> \
   --keypair ~/.config/solana/tokenization-demo.json \
   --rpc-url https://api.devnet.solana.com
 
@@ -112,10 +139,8 @@ mosaic token-acl enable-permissionless-thaw \
   --rpc-url https://api.devnet.solana.com
 ```
 
-You may also need `mosaic abl set-extra-metas` so the thaw can resolve the
-list's extra account metas. Run `mosaic token-acl --help` and
-`mosaic abl --help` for the current surface - the CLI is pre-1.0 and the flags
-vary by command.
+Run `mosaic token-acl --help` and `mosaic abl --help` for the current surface -
+the CLI is pre-1.0 and the flags vary by command.
 
 </Accordion>
 </Accordions>
@@ -146,9 +171,11 @@ echo "holder: $HOLDER"
 <Step>
 ### Add the holder to the allowlist
 
-This step corresponds to the onboarding decision. The preceding steps are setup.
+This step records the onboarding decision.
 
-```bash
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="Mosaic CLI"
 mosaic allowlist add \
   --mint-address $MINT \
   --account $HOLDER \
@@ -156,24 +183,52 @@ mosaic allowlist add \
   --rpc-url https://api.devnet.solana.com
 ```
 
-Read the list back to confirm. `abl fetch-list` takes the **list** address, not
-the mint. That address is the `List` row in the `inspect-mint` output from the
-first step of this page - export it now:
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/allowlist-add.ts#region=allowlist-add
 
-```bash
-# Copy the List row from the inspect-mint output above
-export LIST=6RnKpTvW2nXcJdYbQa5SgLoZe4UhSm7MyXi5B8CrPkWu
 ```
 
-If you did not record it, `mosaic abl fetch-lists --mint-address $MINT` shows
-every list for your mint.
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/allowlist-add-kit.ts#region=allowlist-add
 
-<CodeTabs flags="r">
+```
 
-```bash !! title="mosaic abl fetch-list" output=packages/docs-examples/tokenization/issuing/abl-fetch-list.output.txt
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/allowlist-add-legacy.ts#region=allowlist-add
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/allowlist-add.rs#region=allowlist-add
+
+```
+
+</CodeTabs>
+
+Read the list back to confirm. `abl fetch-list` takes the **list** address, not
+the mint. That is the `Allowlist Address` the create command printed, which you
+exported as `$LIST` in the previous tutorial. If you did not record it,
+`mosaic abl fetch-lists` prints every list config it finds; pick the one whose
+`Seed` is your mint.
+
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="Mosaic CLI" output=packages/docs-examples/tokenization/issuing/abl-fetch-list.output.txt
 mosaic abl fetch-list \
   --list $LIST \
   --rpc-url https://api.devnet.solana.com
+```
+
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/fetch-list.ts#region=fetch-list
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/fetch-list-kit.ts#region=fetch-list
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/fetch-list-legacy.ts#region=fetch-list
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/fetch-list.rs#region=fetch-list
+
 ```
 
 </CodeTabs>
@@ -189,7 +244,9 @@ creation and the mint, and the gate program approves it because the holder is on
 the list. If the holder is not on the list the whole transaction fails, so there
 is no partially minted state.
 
-```bash
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="Mosaic CLI"
 mosaic mint \
   --mint-address $MINT \
   --recipient $HOLDER \
@@ -198,9 +255,27 @@ mosaic mint \
   --rpc-url https://api.devnet.solana.com
 ```
 
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/mint.ts#region=mint
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/mint-kit.ts#region=mint
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/mint-legacy.ts#region=mint
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/mint.rs#region=mint
+
+```
+
+</CodeTabs>
+
 This signs with the fee payer, which holds the mint authority on this mint.
-Where the mint authority sits on its own key - as it should in production - this
-is the command that would use it, and no other key can create supply.
+Where the mint authority sits on its own key, this is the command that uses it,
+and no other key can create supply.
 
 </Step>
 
@@ -210,9 +285,9 @@ is the command that would use it, and no other key can create supply.
 Test the rejection path. Generate a third address, leave it off the list, and
 try to move tokens to it.
 
-<CodeTabs flags="r">
+<CodeTabs storage="tokenization" flags="r">
 
-```bash !! title="mosaic transfer" output=packages/docs-examples/tokenization/issuing/transfer-blocked.output.txt
+```bash !! title="Mosaic CLI" output=packages/docs-examples/tokenization/issuing/transfer-blocked.output.txt
 solana-keygen new --no-bip39-passphrase --silent \
   --outfile ~/.config/solana/demo-outsider.json
 
@@ -226,16 +301,36 @@ mosaic transfer \
   --rpc-url https://api.devnet.solana.com
 ```
 
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/transfer.ts#region=transfer output=packages/docs-examples/tokenization/issuing/transfer.blocked.output.txt
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/transfer-kit.ts#region=transfer output=packages/docs-examples/tokenization/issuing/transfer-kit.blocked.output.txt
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/transfer-legacy.ts#region=transfer output=packages/docs-examples/tokenization/issuing/transfer-legacy.blocked.output.txt
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/transfer.rs#region=transfer output=packages/docs-examples/tokenization/rust/src/bin/transfer.blocked.output.txt
+
+```
+
 </CodeTabs>
 
-This should fail. The outsider's token account is created frozen and has no
-basis on which to thaw, so the transfer cannot complete. This failure
-demonstrates the control.
+This should fail. `mosaic transfer` inserts a permissionless thaw for the new
+account, Token ACL hands the decision to the gate program, and the gate rejects
+a wallet that is not on the list with `Custom program error: #4098`. The
+transfer instruction never runs. The decoded mint config and the list address
+printed above the error are debugging output the 0.2.0 CLI emits on this path.
 
 Now add the outsider to the list and run the same transfer again. It succeeds.
 The only change was the onboarding decision recorded on the list.
 
-```bash
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="Mosaic CLI"
 mosaic allowlist add \
   --mint-address $MINT \
   --account $OUTSIDER \
@@ -243,26 +338,29 @@ mosaic allowlist add \
   --rpc-url https://api.devnet.solana.com
 ```
 
-</Step>
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/allowlist-add.ts#region=allowlist-add
 
-<Step>
-### Remove an address
-
-Removal is the same operation in reverse.
-
-```bash
-mosaic allowlist remove \
-  --mint-address $MINT \
-  --account $OUTSIDER \
-  --keypair ~/.config/solana/tokenization-demo.json \
-  --rpc-url https://api.devnet.solana.com
 ```
 
-Removing an address from the list stops it from thawing a new account. An
-account that is already thawed stays thawed; freezing an existing holder is a
-separate action, covered in
-[operate the token](/docs/tokenization/tutorials/issuing/operate-the-token). An
-offboarding procedure generally needs both steps.
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/allowlist-add-kit.ts#region=allowlist-add
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/allowlist-add-legacy.ts#region=allowlist-add
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/allowlist-add.rs#region=allowlist-add
+
+```
+
+</CodeTabs>
+
+Leave the outsider on the list. Removing a wallet is the offboarding step at the
+end of
+[operate the token](/docs/tokenization/tutorials/issuing/operate-the-token#offboard-a-holder),
+and in Mosaic it does more than reverse the add: it also freezes the wallet's
+existing token account.
 
 </Step>
 
@@ -287,7 +385,7 @@ named. Fail-closed is the behavior a supervised issuance normally needs. A
 blocklist suits cases where open holding is the intended design and the list
 acts as a sanctions overlay.
 
-## Next Steps
+## Next steps
 
 - [Operate the token](/docs/tokenization/tutorials/issuing/operate-the-token) -
-  freeze, pause, force a transfer, and burn
+  freeze, pause, force a transfer, burn, and offboard a holder

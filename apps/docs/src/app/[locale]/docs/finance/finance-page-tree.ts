@@ -23,7 +23,6 @@ const TRAILING_FINANCE_PAGES = [
   "privacy",
   "developer-tools",
   "ai-development",
-  "production-readiness",
 ] as const;
 
 export function getFinancePageTree(
