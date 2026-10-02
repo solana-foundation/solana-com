@@ -207,6 +207,7 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
         ? t("lockHolding", { from, pct: pctFaster(STEPS[0], from), to })
         : t("lockUnscheduled", { to });
   }
+  const finalCountdownShowsTarget = ready && counting && to === 200;
 
   return (
     <section className="s2-hero" aria-labelledby="s2-hero-title">
@@ -217,7 +218,7 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
         <p className="s2-minilock" aria-live="polite">
           {lock}
         </p>
-        {(from === 200 || to === 200) && (
+        {(from === 200 || (to === 200 && !finalCountdownShowsTarget)) && (
           <p className="s2-transition-target">
             {t("slotTransitionTarget", {
               epoch: FINAL_TRANSITION_EPOCH,
