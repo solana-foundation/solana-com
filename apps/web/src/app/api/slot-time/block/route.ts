@@ -12,9 +12,11 @@ export const runtime = "nodejs";
 
 /** Mainnet per-block compute ceiling (SIMD-0286). */
 const BLOCK_CU_LIMIT = 100_000_000;
-const BLOCK_CACHE_REVALIDATE_SECONDS = 4;
-const BLOCK_EDGE_STALE_SECONDS = 20;
-const BLOCK_CACHE_KEY = "slot200-block-v2";
+const BLOCK_CACHE_REVALIDATE_SECONDS = 30;
+const BLOCK_EDGE_STALE_SECONDS = 60;
+const BLOCK_CACHE_KEY = "slot200-block-v4";
+const BLOCK_RETRY_COOLDOWN_MS = 30_000;
+const BLOCK_STALE_MAX_AGE_MS = 300_000;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 // The eight Jito tip-payment accounts: lamports landing here are MEV tips.
@@ -45,16 +47,41 @@ interface BlockPayload {
 }
 
 const blockRequests = new Map<string, Promise<BlockPayload>>();
+let lastSuccessfulBlock: BlockPayload | null = null;
+let retryAfter = 0;
+
+async function loadBlockWithFallback(): Promise<BlockPayload> {
+  const now = Date.now();
+  const recentBlock =
+    lastSuccessfulBlock &&
+    now - lastSuccessfulBlock.serverTime < BLOCK_STALE_MAX_AGE_MS
+      ? lastSuccessfulBlock
+      : null;
+  if (now < retryAfter) {
+    if (recentBlock) return recentBlock;
+    throw new Error("Block sampling is temporarily unavailable");
+  }
+  try {
+    const block = await loadBlock();
+    lastSuccessfulBlock = block;
+    retryAfter = 0;
+    return block;
+  } catch (error) {
+    retryAfter = Date.now() + BLOCK_RETRY_COOLDOWN_MS;
+    if (recentBlock) return recentBlock;
+    throw error;
+  }
+}
 
 function getCachedBlock() {
-  if (!IS_PRODUCTION) return loadBlock();
+  if (!IS_PRODUCTION) return loadBlockWithFallback();
 
   return unstable_cache(
     () => {
       const cachedRequest = blockRequests.get(BLOCK_CACHE_KEY);
       if (cachedRequest) return cachedRequest;
 
-      const request = loadBlock();
+      const request = loadBlockWithFallback();
       request.then(
         () => blockRequests.delete(BLOCK_CACHE_KEY),
         () => blockRequests.delete(BLOCK_CACHE_KEY),
@@ -71,7 +98,7 @@ function getCachedBlock() {
  * One recent confirmed block, decomposed against the known-program registry:
  * what the blockspace actually carried. Heavier than every other call on
  * this page (a full block is megabytes), so the response is compact and
- * CDN-cached — all viewers polling every few seconds share one RPC hit.
+ * CDN-cached — all viewers polling every 30 seconds share one sampling round.
  */
 async function loadBlock(): Promise<BlockPayload> {
   const tip = await getConfirmedSlot();
