@@ -382,6 +382,8 @@ interface AgendaProps {
   exactFormatLabels?: boolean;
   rightColumnLabel?: string;
   timeZoneLabel?: string;
+  searchPlaceholder?: string;
+  filterByTypeLabel?: string;
 }
 
 export function Agenda({
@@ -390,6 +392,8 @@ export function Agenda({
   exactFormatLabels = false,
   rightColumnLabel,
   timeZoneLabel,
+  searchPlaceholder,
+  filterByTypeLabel,
 }: AgendaProps = {}) {
   const agendaData = data ?? (defaultAgendaData as AgendaData);
   const { event, sessions } = agendaData;
@@ -578,8 +582,8 @@ export function Agenda({
             clearFilters={clearFilters}
             hasActiveFilters={hasActiveFilters}
             filterOptions={filterOptions}
-            searchPlaceholder={t("searchPlaceholder")}
-            filterByTypeLabel={t("filterByType")}
+            searchPlaceholder={searchPlaceholder ?? t("searchPlaceholder")}
+            filterByTypeLabel={filterByTypeLabel ?? t("filterByType")}
             clearLabel={t("clear")}
           />
 

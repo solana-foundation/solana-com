@@ -13,6 +13,8 @@ export type AccelerateEvent = {
     exactFormatLabels?: boolean;
     rightColumnLabel?: string;
     timeZoneLabel?: string;
+    searchPlaceholder?: string;
+    filterByTypeLabel?: string;
   };
   lumaId?: string;
 };
@@ -50,6 +52,8 @@ export const accelerateEvents = {
       exactFormatLabels: true,
       rightColumnLabel: "Track",
       timeZoneLabel: "All times China Standard Time (UTC+8).",
+      searchPlaceholder: "Search sessions...",
+      filterByTypeLabel: "Filter by format:",
     },
   },
 } as const satisfies Record<string, AccelerateEvent>;

@@ -124,6 +124,8 @@ export function EventAgendaPage({ event, data, copy }: EventAgendaPageProps) {
             exactFormatLabels={event.agendaDisplay?.exactFormatLabels}
             rightColumnLabel={event.agendaDisplay?.rightColumnLabel}
             timeZoneLabel={event.agendaDisplay?.timeZoneLabel}
+            searchPlaceholder={event.agendaDisplay?.searchPlaceholder}
+            filterByTypeLabel={event.agendaDisplay?.filterByTypeLabel}
           />
         ) : (
           <section className="bg-black py-12 lg:py-16">
