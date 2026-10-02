@@ -187,3 +187,41 @@ Use CodeHike syntax for enhanced code blocks:
 ### Cross-References
 Link to other docs using relative paths or Fumadocs link syntax.
 ```
+
+### Video Content
+
+- `<Embed url="...">` — a single YouTube video or a whole playlist
+  (`youtube.com/playlist?list=...` or any URL with a `list=` param). Prefer this
+  over a hand-written `<iframe>`; it renders through one shared component
+  (`youtube-nocookie.com`, lazy thumbnail for single videos).
+- `<VideoChapterList chapters={[{title, href, subtext?}]} label="Chapter">` — a
+  sequential course/roadmap, numbered in order. Use for content where watch
+  order matters.
+- `<ProjectCardGrid projects={[{title, href}]}>` — a set of independent,
+  unordered items (projects, demos). Use when order doesn't matter.
+- Both list components also accept a `playlistId` instead of a static array,
+  fetching the real playlist via `YOUTUBE_API_KEY`
+  (`src/components/shared/playlist-to-chapters.ts`) so it stays in sync with
+  YouTube automatically. Prefer this over hand-transcribing a playlist's videos;
+  fall back to a static array only when you need per-item `subtext` or a curated
+  subset/order the playlist itself doesn't have.
+- Omit `href` (don't use `"#"`) to mark a chapter/project as not yet linked — it
+  renders as a non-interactive placeholder card instead of a dead link.
+
+### Sidebar Section Headers
+
+The "Start here" sidebar tree (`src/app/[locale]/docs/(main)/main-page-tree.ts`)
+turns each `"---Label---"` separator in `content/docs/en/meta.json` into a
+collapsible section header (see `groupIntoSections` and
+`docs-sidebar-page-tree.tsx`) — fumadocs' own separators are plain,
+non-collapsible text. To add a new top-level sidebar group, add a
+`"---Label---"` entry to that meta.json; no code changes are needed. This only
+affects the "Start here" tab — other tabs (Resources, RPC, etc.) use fumadocs'
+plain separators unchanged.
+
+Use `"---:Label---"` (leading colon) instead to add a plain, non-collapsible
+sub-divider _inside_ the currently-open group — it clusters a few items visually
+without giving them their own collapse toggle. Example: "Video Guides" is one
+collapsible group containing three plain sub-dividers ("Full Learning Paths",
+"Hardware & DePIN", "More Video Content") rather than three separate top-level
+groups.
