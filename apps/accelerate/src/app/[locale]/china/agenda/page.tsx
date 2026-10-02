@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { EventAgendaPage } from "@/components/EventAgendaPage";
+import { ChinaFooter } from "@/components/china/ChinaRoadshow";
 import { accelerateEvents } from "@/data/events";
 import type { AgendaData, AgendaSessionType } from "@/lib/agenda-types";
 import { getShanghaiAgenda } from "@/lib/shanghai-agenda";
@@ -63,20 +64,23 @@ export default async function ShanghaiAgendaPage() {
   const data: AgendaData = { sessions };
 
   return (
-    <EventAgendaPage
-      data={data}
-      event={accelerateEvents.shanghai}
-      copy={{
-        backToAccelerate: "Back to Accelerate China",
-        dateLocation: "October 16, 2026 / Shanghai",
-        conference: "Shanghai",
-        agendaHighlight: "agenda",
-        description: "",
-        comingSoon:
-          result.status === "unavailable"
-            ? "The Shanghai agenda is temporarily unavailable. Please check back soon."
-            : "No Shanghai sessions have been published yet. Please check back soon.",
-      }}
-    />
+    <>
+      <EventAgendaPage
+        data={data}
+        event={accelerateEvents.shanghai}
+        copy={{
+          backToAccelerate: "Back to Accelerate China",
+          dateLocation: "October 16, 2026 / Shanghai",
+          conference: "Shanghai",
+          agendaHighlight: "agenda",
+          description: "",
+          comingSoon:
+            result.status === "unavailable"
+              ? "The Shanghai agenda is temporarily unavailable. Please check back soon."
+              : "No Shanghai sessions have been published yet. Please check back soon.",
+        }}
+      />
+      <ChinaFooter />
+    </>
   );
 }
