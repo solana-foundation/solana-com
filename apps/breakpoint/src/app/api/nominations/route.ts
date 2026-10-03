@@ -25,6 +25,7 @@ const categoryIds = new Set<string>(
 );
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 const MAX_BODY_BYTES = 2_048;
+const REJECTION_LOG_SAMPLE_RATE = 0.01;
 
 class RequestBodyTooLargeError extends Error {}
 
@@ -50,6 +51,7 @@ function failureResponse(
     method,
     status,
     reason,
+    ...(status < 500 ? { sampleRate: REJECTION_LOG_SAMPLE_RATE } : {}),
     ...(cause !== undefined
       ? {
           errorName: cause instanceof Error ? cause.name : typeof cause,
@@ -61,11 +63,12 @@ function failureResponse(
       : {}),
   };
 
-  // Vercel groups this line with the request and derives its level from the
-  // console method. Avoid logging request bodies, usernames, cookies, or IPs.
+  // Vercel records every response status. Sample expected rejections so
+  // invalid traffic cannot flood function logs; always log server failures.
+  // Avoid logging request bodies, usernames, cookies, or IPs.
   const line = JSON.stringify(entry);
   if (status >= 500) console.error(line);
-  else console.log(line);
+  else if (Math.random() < REJECTION_LOG_SAMPLE_RATE) console.log(line);
 
   return NextResponse.json(
     { error: message },

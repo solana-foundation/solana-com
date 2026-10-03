@@ -35,12 +35,18 @@ vi.mock("@/lib/awards-abuse", async (importOriginal) => ({
   enforceSubmissionRateLimit: rateLimit,
 }));
 
+vi.mock("@/lib/awards-campaign", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/awards-campaign")>()),
+  getAwardsCampaignStatus: vi.fn(() => "open"),
+}));
+
 vi.mock("@/lib/awards-db", () => ({
   awardsPrisma: { $transaction: transaction, user: { findUnique: findUser } },
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(Math, "random").mockReturnValue(0);
   readBallot.mockReturnValue("test-ballot");
   checkBot.mockResolvedValue({ isBot: false });
   rateLimit.mockResolvedValue(false);
@@ -108,7 +114,18 @@ describe("awards nomination submission", () => {
       method: "POST",
       status: 403,
       reason: "origin_rejected",
+      sampleRate: 0.01,
     });
+  });
+
+  it("samples expected rejections without changing the response", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const response = await POST(submission({}, "https://other.example"));
+
+    expect(response.status).toBe(403);
+    expect(log).not.toHaveBeenCalled();
   });
 
   it("logs rate limits with a retry interval", async () => {
