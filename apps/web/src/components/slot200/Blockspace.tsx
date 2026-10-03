@@ -27,7 +27,8 @@ export const Blockspace = React.memo(function Blockspace({
   React.useEffect(() => {
     if (block && block.slot !== lastSlot.current) {
       lastSlot.current = block.slot;
-      seenAt.current = Date.now();
+      // A CDN hit can already be tens of seconds old when first displayed.
+      seenAt.current = block.serverTime;
     }
   }, [block]);
 

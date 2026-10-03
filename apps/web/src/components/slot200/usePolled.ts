@@ -76,6 +76,7 @@ export interface SeriesPoint {
 export interface BlockSample {
   slot: number;
   blockTime: number | null;
+  serverTime: number;
   txs: number;
   votes: number;
   nonVotes: number;

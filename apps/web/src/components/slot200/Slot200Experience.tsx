@@ -26,7 +26,7 @@ export default function Slot200Experience() {
   const { feed, subscribe } = useSlotFeed();
   const { network, lookup } = useLeaderSchedule();
   const attribution = useAttribution(subscribe, lookup);
-  const block = usePolled<BlockSample>("/api/slot-time/block", 5_000);
+  const block = usePolled<BlockSample>("/api/slot-time/block", 30_000);
 
   return (
     <main className="s2-root">
