@@ -6,10 +6,13 @@ import { Video } from "./blocks/video";
 import { Mermaid } from "./blocks/mermaid";
 import { SafeTweet } from "./safe-tweet";
 import { Gallery } from "./ui/gallery";
+import HeroVideoDialog from "./ui/hero-video-dialog";
 import { Stats } from "./blocks/stats";
 import { DocumentRendererProps } from "@keystatic/core/renderer";
 import { Latex } from "./latex";
 import { ArticleFigure } from "./article-figure";
+import { PostCard } from "./post/post-card";
+import { formatPublishedAt } from "@/lib/keystatic/publishing";
 
 // Block types for post body templates
 type VideoBlockData = {
@@ -20,6 +23,21 @@ type VideoBlockData = {
   loop?: boolean;
   controls?: boolean;
   muted?: boolean;
+};
+
+type YouTubeBlockData = {
+  videoSrc?: string;
+  thumbnailSrc?: string;
+  thumbnailAlt?: string;
+};
+
+type PostCardBlockData = {
+  slug?: string;
+  title?: string;
+  description?: string;
+  heroImage?: string;
+  publishedAt?: string;
+  category?: string;
 };
 
 type StatsBlockData = {
@@ -334,6 +352,10 @@ export const components = {
 
     video: (props: VideoBlockData) => <Video data={props} />,
 
+    youtube: (props: YouTubeBlockData) => <YouTubeBlock {...props} />,
+
+    postcard: (props: PostCardBlockData) => <PostCardBlock {...props} />,
+
     tweet: (props: { id: string }) => <SafeTweet id={props.id} />,
 
     iframe: (props: {
@@ -409,6 +431,8 @@ export const components = {
 const CUSTOM_COMPONENT_TAGS = [
   "tweet",
   "video",
+  "youtube",
+  "postcard",
   "iframe",
   "gallery",
   "stats",
@@ -444,6 +468,54 @@ export function preprocessMDX(source: string): string {
 const TweetBlock = (props: { id: string }) => <SafeTweet id={props.id} />;
 
 const VideoBlock = (props: VideoBlockData) => <Video data={props} />;
+
+const YouTubeBlock = ({
+  videoSrc,
+  thumbnailSrc,
+  thumbnailAlt,
+}: YouTubeBlockData) => {
+  if (!videoSrc || !thumbnailSrc) return null;
+
+  return (
+    <HeroVideoDialog
+      videoSrc={videoSrc}
+      thumbnailSrc={thumbnailSrc}
+      thumbnailAlt={thumbnailAlt}
+      className="my-6"
+    />
+  );
+};
+
+const PostCardBlock = ({
+  slug,
+  title,
+  description,
+  heroImage,
+  publishedAt,
+  category,
+}: PostCardBlockData) => {
+  if (!slug || !title) return null;
+
+  return (
+    <div className="my-8">
+      <PostCard
+        variant="horizontal"
+        post={{
+          id: slug,
+          published: formatPublishedAt(publishedAt),
+          publishedAt: publishedAt ?? null,
+          title,
+          tags: [],
+          categories: category ? [category] : [],
+          url: `/news/${slug}`,
+          description: description ?? "",
+          heroImage,
+          author: { name: "", avatar: null },
+        }}
+      />
+    </div>
+  );
+};
 
 const IframeBlock = (props: {
   src: string;
@@ -597,6 +669,8 @@ export const mdxComponents = {
   // Capitalized custom components (resolved by MDX v3 for inline JSX)
   Tweet: TweetBlock,
   Video: VideoBlock,
+  Youtube: YouTubeBlock,
+  Postcard: PostCardBlock,
   Iframe: IframeBlock,
   Gallery: GalleryBlock,
   Stats: StatsBlock,
