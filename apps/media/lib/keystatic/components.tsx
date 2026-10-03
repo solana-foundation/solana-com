@@ -292,6 +292,74 @@ const video = block({
   ),
 });
 
+const youtube = block({
+  label: "YouTube preview",
+  description: "YouTube thumbnail that opens the video player",
+  schema: {
+    videoSrc: fields.text({
+      label: "YouTube embed URL",
+      validation: { isRequired: true },
+    }),
+    thumbnailSrc: fields.text({
+      label: "Thumbnail URL",
+      validation: { isRequired: true },
+    }),
+    thumbnailAlt: fields.text({
+      label: "Thumbnail alt text",
+    }),
+  },
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        padding: "16px",
+        margin: "16px 0",
+        backgroundColor: "#f9fafb",
+        textAlign: "center",
+      }}
+    >
+      <p style={{ margin: 0, fontWeight: "bold" }}>YouTube Preview</p>
+      <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6b7280" }}>
+        {props.value.thumbnailAlt || props.value.videoSrc}
+      </p>
+    </div>
+  ),
+});
+
+const postcard = block({
+  label: "Post card",
+  description: "Link to another Solana news post",
+  schema: {
+    slug: fields.text({ label: "Post slug", validation: { isRequired: true } }),
+    title: fields.text({ label: "Title", validation: { isRequired: true } }),
+    description: fields.text({ label: "Description", multiline: true }),
+    heroImage: fields.text({ label: "Hero image path" }),
+    publishedAt: fields.text({ label: "Published at" }),
+    category: fields.text({ label: "Category" }),
+  },
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        padding: "16px",
+        margin: "16px 0",
+        backgroundColor: "#f9fafb",
+      }}
+    >
+      <p style={{ margin: 0, fontWeight: "bold" }}>
+        {props.value.title || "Post card"}
+      </p>
+      {props.value.description && (
+        <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6b7280" }}>
+          {props.value.description}
+        </p>
+      )}
+    </div>
+  ),
+});
+
 // Gallery component - block (no children)
 const gallery = block({
   label: "Gallery",
@@ -673,6 +741,8 @@ export const componentBlocks: Record<string, ContentComponent> = {
   datetime,
   newslettersignup,
   video,
+  youtube,
+  postcard,
   gallery,
   stats,
   footnotes,
