@@ -116,6 +116,9 @@ node skills/refresh-agent-context/scripts/workspace_inventory.mjs
   in `packages/ui-chrome` uses that to decide cross-app navigation behavior
 - Several apps use `assetPrefix` plus rewrites because they are deployed
   separately behind `solana.com`
+- A few paths are masked rewrites to external sites (for example
+  `/hack-the-north` proxies `https://solana-htn.com`); these live in
+  [`apps/web/rewrites-redirects.ts`](./apps/web/rewrites-redirects.ts)
 - Shared env pass-through is also declared in `turbo.json`
 
 ## Contributing
