@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { PlayCircle } from "@boxicons/react/PlayCircle";
 import { MediaThumbnail } from "./MediaThumbnail";
 import { VideoModalTrigger } from "./VideoModal";
@@ -57,82 +58,95 @@ export async function VideoChapterList({
   return (
     <div className="not-prose flex flex-col gap-6">
       {items.map((chapter, i) => {
-        const placeholder = isPlaceholderHref(chapter.href);
-        const rowClassName = `group -mx-2 flex items-center gap-4 rounded-lg p-2${
-          placeholder ? "" : " hover:bg-fd-accent/50"
-        }`;
+        const row = (() => {
+          const placeholder = isPlaceholderHref(chapter.href);
+          const rowClassName = `group -mx-2 flex items-center gap-4 rounded-lg p-2${
+            placeholder ? "" : " hover:bg-fd-accent/50"
+          }`;
 
-        const content = (
-          <>
-            {timestamps ? (
-              <span className="w-20 shrink-0 font-mono text-sm tabular-nums text-fd-muted-foreground">
-                {formatTimestamp(chapter.href)}
-              </span>
-            ) : (
-              <div className="w-28 shrink-0 sm:w-36">
-                <MediaThumbnail
-                  href={chapter.href}
-                  placeholderIcon={<PlayCircle className="size-6" />}
-                />
+          const content = (
+            <>
+              {timestamps ? (
+                <span className="w-20 shrink-0 font-mono text-sm tabular-nums text-fd-muted-foreground">
+                  {formatTimestamp(chapter.href)}
+                </span>
+              ) : (
+                <div className="w-28 shrink-0 sm:w-36">
+                  <MediaThumbnail
+                    href={chapter.href}
+                    placeholderIcon={<PlayCircle className="size-6" />}
+                  />
+                </div>
+              )}
+              <div className="flex flex-col gap-1">
+                {label || chapter.duration ? (
+                  <span className="text-xs font-medium tracking-wide text-fd-muted-foreground uppercase">
+                    {label ? `${label} ${i + 1}` : null}
+                    {label && chapter.duration ? " · " : null}
+                    {chapter.duration}
+                  </span>
+                ) : null}
+                <span
+                  className={`font-semibold leading-snug${placeholder ? "" : " group-hover:underline"}`}
+                >
+                  {chapter.title}
+                </span>
+                {chapter.subtext ? (
+                  <span className="text-sm text-fd-muted-foreground">
+                    {chapter.subtext}
+                  </span>
+                ) : null}
               </div>
-            )}
-            <div className="flex flex-col gap-1">
-              {label || chapter.duration ? (
-                <span className="text-xs font-medium tracking-wide text-fd-muted-foreground uppercase">
-                  {label ? `${label} ${i + 1}` : null}
-                  {label && chapter.duration ? " · " : null}
-                  {chapter.duration}
-                </span>
-              ) : null}
-              <span
-                className={`font-semibold leading-snug${placeholder ? "" : " group-hover:underline"}`}
+            </>
+          );
+
+          if (placeholder) {
+            return (
+              <div
+                key={`placeholder-${i}`}
+                className={rowClassName}
+                aria-disabled="true"
               >
-                {chapter.title}
-              </span>
-              {chapter.subtext ? (
-                <span className="text-sm text-fd-muted-foreground">
-                  {chapter.subtext}
-                </span>
-              ) : null}
-            </div>
-          </>
-        );
+                {content}
+              </div>
+            );
+          }
 
-        if (placeholder) {
-          return (
-            <div
-              key={`placeholder-${i}`}
-              className={rowClassName}
-              aria-disabled="true"
-            >
-              {content}
-            </div>
-          );
-        }
+          if (modal) {
+            return (
+              <VideoModalTrigger
+                key={chapter.href}
+                href={chapter.href!}
+                title={chapter.title}
+                className={rowClassName}
+              >
+                {content}
+              </VideoModalTrigger>
+            );
+          }
 
-        if (modal) {
           return (
-            <VideoModalTrigger
+            <a
               key={chapter.href}
-              href={chapter.href!}
-              title={chapter.title}
+              href={chapter.href}
+              target="_blank"
+              rel="noreferrer"
               className={rowClassName}
             >
               {content}
-            </VideoModalTrigger>
+            </a>
           );
-        }
+        })();
 
         return (
-          <a
-            key={chapter.href}
-            href={chapter.href}
-            target="_blank"
-            rel="noreferrer"
-            className={rowClassName}
-          >
-            {content}
-          </a>
+          <Fragment key={chapter.href ?? `chapter-${i}`}>
+            {chapter.section ? (
+              <div className="-mb-2 border-t border-fd-border pt-4 text-xs font-semibold tracking-wide text-fd-muted-foreground uppercase first:border-t-0 first:pt-0">
+                {chapter.section}
+              </div>
+            ) : null}
+            {row}
+          </Fragment>
         );
       })}
     </div>

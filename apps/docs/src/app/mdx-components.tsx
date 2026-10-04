@@ -10,6 +10,7 @@ import { ProjectCardGrid } from "@@/src/components/shared/ProjectCardGrid";
 import { CourseCardGrid } from "@@/src/components/shared/CourseCardGrid";
 import { CourseFacts } from "@@/src/components/shared/CourseFacts";
 import { NextUp } from "@@/src/components/shared/NextUp";
+import { VideoWithChapters } from "@@/src/components/shared/VideoWithChapters";
 import { Code } from "@@/src/app/components/code/code";
 import { WithMentions, MentionLink } from "@@/src/app/components/code/mentions";
 import { WithNotes } from "@@/src/app/components/code/notes";
@@ -48,6 +49,7 @@ export const mdxComponents = {
   CourseCardGrid,
   CourseFacts,
   NextUp,
+  VideoWithChapters,
   Steps,
   Step,
   Accordion,

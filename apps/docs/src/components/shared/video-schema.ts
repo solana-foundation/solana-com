@@ -15,6 +15,8 @@ export const videoItemSchema = z.object({
   subtext: z.string().optional(),
   /** Display runtime for the item, e.g. "4:44". */
   duration: z.string().optional(),
+  /** Start a labeled group of chapters at this item (VideoChapterList). */
+  section: z.string().optional(),
 });
 
 export const videoItemListSchema = z.array(videoItemSchema);
