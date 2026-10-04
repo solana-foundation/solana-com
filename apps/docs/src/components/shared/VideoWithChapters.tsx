@@ -1,6 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { Play } from "@boxicons/react/Play";
+import { PlayCircle } from "@boxicons/react/PlayCircle";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
+import { MediaThumbnail } from "./MediaThumbnail";
 
 export type TimedChapter = {
   title: string;
@@ -17,10 +26,12 @@ function formatTime(seconds: number) {
 }
 
 /**
- * One long YouTube video with a scrollable chapter list beside it. The video
- * takes two thirds of the width; the chapter panel takes the remaining third
- * and always matches the video's height, scrolling when the list is longer.
- * Clicking a chapter restarts the player at that timestamp and autoplays.
+ * One long YouTube video with a scrollable chapter list beside it. The
+ * thumbnail takes 70% of the width; the chapter panel takes the
+ * remaining 30% and always matches its height, scrolling when the list is
+ * longer. Pressing play, or clicking a chapter, opens the video in an
+ * autoplaying modal at that timestamp. The iframe only mounts while the modal
+ * is open, so closing it stops playback.
  */
 export function VideoWithChapters({
   videoId,
@@ -32,14 +43,14 @@ export function VideoWithChapters({
   chapters: TimedChapter[];
 }) {
   const [active, setActive] = useState(0);
-  const [autoplay, setAutoplay] = useState(false);
+  const [open, setOpen] = useState(false);
   const start = chapters[active]?.start ?? 0;
 
   return (
-    <div className="not-prose my-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="not-prose my-6 grid grid-cols-1 gap-4 lg:grid-cols-[3fr_7fr]">
       {/* The video sets the row height; the panel is absolutely positioned
           inside its cell so it stretches to match and scrolls. */}
-      <div className="relative order-2 min-h-64 overflow-hidden rounded-lg border border-fd-border lg:order-1 lg:col-span-1 lg:min-h-0">
+      <div className="relative order-2 min-h-64 overflow-hidden rounded-lg border border-fd-border lg:order-1 lg:min-h-0">
         <ol className="absolute inset-0 overflow-y-auto">
           {chapters.map((chapter, i) => (
             <li key={chapter.start}>
@@ -47,7 +58,7 @@ export function VideoWithChapters({
                 type="button"
                 onClick={() => {
                   setActive(i);
-                  setAutoplay(true);
+                  setOpen(true);
                 }}
                 aria-current={i === active ? "true" : undefined}
                 className={`flex w-full cursor-pointer items-baseline gap-3 border-none px-4 py-2.5 text-left text-sm transition-colors hover:bg-fd-accent/50 ${
@@ -65,16 +76,44 @@ export function VideoWithChapters({
           ))}
         </ol>
       </div>
-      <div className="order-1 aspect-video overflow-hidden rounded-lg lg:order-2 lg:col-span-2">
-        <iframe
-          key={`${active}-${autoplay}`}
-          src={`https://www.youtube-nocookie.com/embed/${videoId}?start=${start}&autoplay=${autoplay ? 1 : 0}&rel=0&modestbranding=1`}
-          title={title}
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          allowFullScreen
-          className="h-full w-full border-0"
+      <div className="relative order-1 aspect-video overflow-hidden rounded-lg lg:order-2">
+        <MediaThumbnail
+          href={`https://youtu.be/${videoId}`}
+          placeholderIcon={<PlayCircle className="size-6" />}
         />
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={`Play ${title}`}
+          aria-haspopup="dialog"
+          className="absolute inset-0 flex cursor-pointer items-center justify-center border-none bg-transparent p-0"
+        >
+          <span className="flex h-12 w-[68px] items-center justify-center rounded-xl bg-red-600 text-white transition-colors hover:bg-red-500">
+            <Play className="size-7" aria-hidden />
+          </span>
+        </button>
       </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className="w-full max-w-5xl overflow-hidden border-0 bg-black p-0 shadow-xl md:rounded-2xl"
+          showClose={false}
+        >
+          <DialogTitle className="sr-only">{title}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Playing video: {title}. Press escape to close.
+          </DialogDescription>
+          <div className="relative aspect-video w-full">
+            <iframe
+              key={active}
+              src={`https://www.youtube-nocookie.com/embed/${videoId}?start=${start}&autoplay=1&rel=0&modestbranding=1`}
+              title={title}
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full border-0"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

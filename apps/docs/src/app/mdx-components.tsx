@@ -7,7 +7,11 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { MarkdownEmbed } from "@@/src/components/shared/MarkdownRenderer/components/MarkdownEmbed";
 import { VideoChapterList } from "@@/src/components/shared/VideoChapterList";
 import { ProjectCardGrid } from "@@/src/components/shared/ProjectCardGrid";
-import { CourseCardGrid } from "@@/src/components/shared/CourseCardGrid";
+import {
+  CourseHero,
+  CourseList,
+  SectionHeading,
+} from "@@/src/components/shared/CourseList";
 import { CourseFacts } from "@@/src/components/shared/CourseFacts";
 import { NextUp } from "@@/src/components/shared/NextUp";
 import { VideoWithChapters } from "@@/src/components/shared/VideoWithChapters";
@@ -46,7 +50,9 @@ export const mdxComponents = {
   Embed: MarkdownEmbed,
   VideoChapterList,
   ProjectCardGrid,
-  CourseCardGrid,
+  CourseHero,
+  CourseList,
+  SectionHeading,
   CourseFacts,
   NextUp,
   VideoWithChapters,
