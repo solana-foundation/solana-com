@@ -18,10 +18,26 @@ describe("Finance docs MDX", () => {
     await stream.allReady;
     const markup = await new Response(stream).text();
 
-    expect(markup).toContain("Assets power payments and onchain markets");
+    expect(markup).toContain(
+      "Assets are created through issuance and used in payments and markets",
+    );
     expect(markup).toContain("/assets/docs/diagrams/finance-overview.svg");
     expect(markup).toContain(
       "/assets/docs/diagrams/finance-overview-light.svg",
     );
+
+    // The Finance hub links every section in the cluster.
+    for (const href of [
+      "/docs/tokens",
+      "/docs/tokenization",
+      "/docs/payments",
+      "/docs/defi",
+      "/docs/finance/privacy",
+      "/docs/finance/developer-tools",
+      "/docs/finance/ai-development",
+      "/docs/tools/production-readiness",
+    ]) {
+      expect(markup).toContain(`href="${href}"`);
+    }
   });
 });

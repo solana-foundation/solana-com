@@ -1,0 +1,407 @@
+---
+title: Enabling Settlement as a Custodian
+description:
+  Take the custodian side of a gated token on devnet - derive the custody
+  address, get it allowlisted, receive the asset, and observe a freeze.
+seoTitle: Custodian Integration Tutorial for Gated Tokens on Solana
+url: /docs/tokenization/tutorials/custodian
+type: tutorial
+prerequisites:
+  - /docs/tokenization/tutorials/issuing/gate-the-holders
+related:
+  - /docs/tokenization/custody/custody-integration
+  - /docs/tokenization/tutorials/issuing/operate-the-token
+  - /docs/defi/exchange
+---
+
+The issuing tutorials build a gated token from the issuer's side. This one takes
+the custodian side, where a custody system holds that asset for a client and has
+to handle what the issuer does with its controls.
+
+It continues from
+[gate the holders](/docs/tokenization/tutorials/issuing/gate-the-holders), so
+you should already have `$MINT` exported and the Token ACL allowlist working.
+
+<Callout type="info" title="Issuer-side and custodian-side steps">
+
+The **custodian-side** steps use `spl-token` and `solana`, which is what a
+custody system reads and writes, with Kit, Legacy, and Rust scripts alongside
+for the same read. The **issuer-side** steps use the Mosaic SDK, the Kit,
+Legacy, and Rust scripts, and the Mosaic CLI, from the issuing tutorials, and
+are marked where they appear - in a real integration another party runs those.
+
+The Anza release install from the issuing tutorials includes `spl-token`. If it
+is missing, install it:
+
+```bash
+cargo install spl-token-cli
+```
+
+</Callout>
+
+<Steps>
+
+<Step>
+### Create the custody address
+
+A custodian holds the asset at an address it controls. On devnet, a keypair
+stands in for whatever your key-management backend produces - see
+[choosing a backend](/docs/tools/keychain/choosing-a-backend) for what this is
+in production.
+
+```bash
+solana-keygen new --no-bip39-passphrase --silent \
+  --outfile ~/.config/solana/demo-custodian.json
+
+export CUSTODIAN=$(solana-keygen pubkey ~/.config/solana/demo-custodian.json)
+solana airdrop 1 $CUSTODIAN --url https://api.devnet.solana.com
+echo "custodian: $CUSTODIAN"
+```
+
+</Step>
+
+<Step>
+### Derive the token account address before it exists
+
+The asset does not sit at your wallet address. It sits in an associated token
+account derived from that wallet and the mint. Two addresses are involved:
+
+- The **wallet** is what the issuer allowlists. That is the onboarding decision.
+- The **associated token account** is what holds the balance, what the issuer
+  freezes, and what your reconciliation reads.
+
+The associated token address is deterministic, so you can compute it before the
+account exists, and wire up monitoring and reconciliation ahead of the first
+transfer.
+
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="spl-token"
+spl-token address \
+  --token $MINT \
+  --owner $CUSTODIAN \
+  --url https://api.devnet.solana.com \
+  --verbose
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/custodian/derive-ata.ts#region=derive-ata
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/custodian/derive-ata-legacy.ts#region=derive-ata
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/derive-ata.rs#region=derive-ata
+
+```
+
+</CodeTabs>
+
+This prints the wallet address and the associated token address. It works before
+the account exists, because the address is derived rather than assigned.
+
+If your platform rotates wallets per client or per deposit, each wallet needs
+allowlisting before it can receive (see
+[custody integration](/docs/tokenization/custody/custody-integration)).
+
+</Step>
+
+<Step>
+### Get the address onto the allowlist
+
+Issuer side. You supply the wallet address - not the token account - and the
+issuer records the onboarding decision.
+
+<CodeTabs storage="tokenization" flags="r">
+
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/allowlist-add.ts#region=allowlist-add
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/allowlist-add-kit.ts#region=allowlist-add
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/allowlist-add-legacy.ts#region=allowlist-add
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/allowlist-add.rs#region=allowlist-add
+
+```
+
+```bash !! title="Mosaic CLI"
+# Run by the issuer, not the custodian. Takes the wallet, not the token account.
+mosaic allowlist add \
+  --mint-address $MINT \
+  --account $CUSTODIAN \
+  --keypair ~/.config/solana/tokenization-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+</CodeTabs>
+
+</Step>
+
+<Step>
+### Receive the asset
+
+Issuer side again - a mint into the custody address. The token account is
+created and thawed in the same transaction, because the address is on the list.
+
+<CodeTabs storage="tokenization" flags="r">
+
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/mint.ts#region=mint
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/mint-kit.ts#region=mint
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/mint-legacy.ts#region=mint
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/mint.rs#region=mint
+
+```
+
+```bash !! title="Mosaic CLI"
+# Run by the issuer
+mosaic mint \
+  --mint-address $MINT \
+  --recipient $CUSTODIAN \
+  --amount 500 \
+  --keypair ~/.config/solana/tokenization-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+</CodeTabs>
+
+</Step>
+
+<Step>
+### Confirm what you are holding
+
+Back on the custodian side. Read the token account directly.
+
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="spl-token" output=packages/docs-examples/tokenization/custodian/display-thawed.output.txt
+export CUSTODY_ATA=$(spl-token address --token $MINT --owner $CUSTODIAN \
+  --url https://api.devnet.solana.com --verbose \
+  | awk '/Associated token address/ {print $NF}')
+
+spl-token display $CUSTODY_ATA --url https://api.devnet.solana.com
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/custodian/read-account.ts#region=read-account output=packages/docs-examples/tokenization/custodian/read-account.thawed.output.txt
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/custodian/read-account-legacy.ts#region=read-account output=packages/docs-examples/tokenization/custodian/read-account-legacy.thawed.output.txt
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/read-account.rs#region=read-account output=packages/docs-examples/tokenization/rust/src/bin/read-account.thawed.output.txt
+
+```
+
+</CodeTabs>
+
+Read two fields. **Balance** is the position; the scripts print the raw amount
+in base units: 500 tokens at six decimals prints as 500000000. **State** is the
+field a custody system must handle: `Initialized` means the account is thawed
+and usable, `Frozen` means it is not. Where a custody system does not show this
+field, a failed withdrawal cannot be explained from the account state.
+
+</Step>
+
+<Step>
+### Observe a freeze
+
+The issuer can freeze a held account without the custodian's involvement, so
+detection has to come from account monitoring rather than from a failed
+withdrawal.
+
+<CodeTabs storage="tokenization" flags="r">
+
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/freeze.ts#region=freeze
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/freeze-kit.ts#region=freeze
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/freeze-legacy.ts#region=freeze
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/freeze.rs#region=freeze
+
+```
+
+```bash !! title="Mosaic CLI"
+# Run by the issuer - note this takes the token account, not the wallet
+mosaic token-acl freeze \
+  --token-account $CUSTODY_ATA \
+  --keypair ~/.config/solana/tokenization-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+</CodeTabs>
+
+<Callout type="warn">
+
+At `@solana/mosaic-cli@0.2.0` the `token-acl freeze` and `token-acl thaw`
+subcommands are not yet registered, so the CLI tab returns an unknown-command
+error. The SDK, Kit, Legacy, and Rust tabs, which take the custodian's wallet
+address, run.
+
+</Callout>
+
+Now read the account again:
+
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="spl-token" output=packages/docs-examples/tokenization/custodian/display-frozen.output.txt
+spl-token display $CUSTODY_ATA --url https://api.devnet.solana.com
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/custodian/read-account.ts#region=read-account output=packages/docs-examples/tokenization/custodian/read-account.frozen.output.txt
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/custodian/read-account-legacy.ts#region=read-account output=packages/docs-examples/tokenization/custodian/read-account-legacy.frozen.output.txt
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/read-account.rs#region=read-account output=packages/docs-examples/tokenization/rust/src/bin/read-account.frozen.output.txt
+
+```
+
+</CodeTabs>
+
+**State** is now `Frozen`. The balance is unchanged: the assets are still there
+but cannot move. Report a frozen position as unavailable, not as zero.
+
+Restore it before continuing:
+
+<CodeTabs storage="tokenization" flags="r">
+
+```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/thaw.ts#region=thaw
+
+```
+
+```ts !! title="Kit" file=packages/docs-examples/tokenization/issuing/thaw-kit.ts#region=thaw
+
+```
+
+```ts !! title="Legacy" file=packages/docs-examples/tokenization/issuing/thaw-legacy.ts#region=thaw
+
+```
+
+```rust !! title="Rust" file=packages/docs-examples/tokenization/rust/src/bin/thaw.rs#region=thaw
+
+```
+
+```bash !! title="Mosaic CLI"
+# Run by the issuer
+mosaic token-acl thaw \
+  --token-account $CUSTODY_ATA \
+  --keypair ~/.config/solana/tokenization-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
+</CodeTabs>
+
+</Step>
+
+<Step>
+### Reconcile at a stated commitment level
+
+Reconciliation against a book of record needs a defined point in time, not
+"now". `spl-token` has no `--commitment` flag. It reads at the commitment set in
+the Solana CLI config, defaulting to `confirmed`. For a finalized read, either
+set it globally with `solana config set --commitment finalized`, or keep a
+separate config file and pass it per invocation. The Kit, Legacy, and Rust
+scripts take the commitment as their second argument.
+
+The config file replaces your settings rather than layering on top of them, so
+it has to carry the cluster as well as the commitment. Omit `json_rpc_url` and
+the read silently goes to mainnet-beta, where `$CUSTODY_ATA` does not exist:
+
+```bash
+cat > ~/.config/solana/finalized.yml <<'EOF'
+json_rpc_url: https://api.devnet.solana.com
+websocket_url: ""
+keypair_path: ~/.config/solana/demo-custodian.json
+commitment: finalized
+EOF
+```
+
+<CodeTabs storage="tokenization" flags="r">
+
+```bash !! title="spl-token"
+# Per-invocation, without changing commitment for every other command
+spl-token display $CUSTODY_ATA -C ~/.config/solana/finalized.yml
+```
+
+```bash !! title="Kit" output=packages/docs-examples/tokenization/custodian/read-account.finalized.output.txt
+npx tsx packages/docs-examples/tokenization/custodian/read-account.ts $CUSTODY_ATA finalized
+```
+
+```bash !! title="Legacy" output=packages/docs-examples/tokenization/custodian/read-account-legacy.finalized.output.txt
+npx tsx packages/docs-examples/tokenization/custodian/read-account-legacy.ts $CUSTODY_ATA finalized
+```
+
+```bash !! title="Rust" output=packages/docs-examples/tokenization/rust/src/bin/read-account.finalized.output.txt
+cargo run --release --manifest-path packages/docs-examples/tokenization/rust/Cargo.toml --bin read-account -- $CUSTODY_ATA finalized
+```
+
+</CodeTabs>
+
+Use the per-invocation form for a reconciliation job.
+
+`solana account` returns the raw account bytes and the context slot alongside
+the balance:
+
+```bash
+solana account $CUSTODY_ATA \
+  --url https://api.devnet.solana.com \
+  --commitment finalized \
+  --output json
+```
+
+For a position listing across a client's holdings:
+
+```bash
+spl-token accounts --owner $CUSTODIAN --url https://api.devnet.solana.com
+```
+
+Use `finalized` for anything that feeds a book of record, and see
+[settlement and finality](/docs/tokenization/settlement/finality) for why the
+other levels are not appropriate there.
+
+</Step>
+
+</Steps>
+
+## Production integration requirements
+
+Everything above is a read or a single transaction. A production integration
+also needs continuous detection: subscribe to the accounts you hold and to the
+mint, where a pause is recorded, so a freeze, a pause, or a permanent-delegate
+transfer raises an alert before a client instruction fails on it.
+[Custody integration](/docs/tokenization/custody/custody-integration) lists what
+a custodian's systems have to support.
+
+## Next steps
+
+- [Deploying a vault](/docs/tokenization/tutorials/vault) - the asset-manager
+  side of the same token
+- [Custody integration](/docs/tokenization/custody/custody-integration) - what a
+  custodian has to support to hold a gated asset
