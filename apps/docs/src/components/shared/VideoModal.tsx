@@ -7,7 +7,48 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/app/components/ui/dialog";
-import { getYoutubeVideoId } from "./Youtube";
+
+const YOUTUBE_HOSTS = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "youtube-nocookie.com",
+  "www.youtube-nocookie.com",
+  "youtu.be",
+]);
+const VIDEO_ID = /^[\w-]{11}$/;
+
+/**
+ * Strictly parses a single-video YouTube URL into its id and start time.
+ * Returns null for other hosts, playlists, channels, or anything else
+ * without a valid 11-character video id, so callers can fall back to a
+ * plain link instead of opening a broken player.
+ */
+function parseYoutubeVideo(href: string) {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+  if (!YOUTUBE_HOSTS.has(url.hostname)) return null;
+
+  const parts = url.pathname.split("/").filter(Boolean);
+  const id =
+    url.hostname === "youtu.be"
+      ? parts[0]
+      : parts[0] === "watch"
+        ? url.searchParams.get("v")
+        : parts[0] === "embed" || parts[0] === "shorts"
+          ? parts[1]
+          : null;
+  if (!id || !VIDEO_ID.test(id)) return null;
+
+  // Timestamped links (?t=498 or ?start=498) open at that second.
+  const t = url.searchParams.get("t") ?? url.searchParams.get("start");
+  const start = t && /^\d+$/.test(t) ? Number(t) : 0;
+  return { id, start };
+}
 
 /**
  * Renders `children` as a button that opens the YouTube video at `href` in a
@@ -28,20 +69,15 @@ export function VideoModalTrigger({
 }) {
   const [open, setOpen] = useState(false);
 
-  let id: string;
-  let start = 0;
-  try {
-    id = getYoutubeVideoId(href);
-    // Timestamped links (?t=498 or ?start=498) open at that second.
-    const t = href.match(/[?&](?:t|start)=(\d+)/)?.[1];
-    if (t) start = Number(t);
-  } catch {
+  const video = parseYoutubeVideo(href);
+  if (!video) {
     return (
       <a href={href} target="_blank" rel="noreferrer" className={className}>
         {children}
       </a>
     );
   }
+  const { id, start } = video;
 
   return (
     <>
