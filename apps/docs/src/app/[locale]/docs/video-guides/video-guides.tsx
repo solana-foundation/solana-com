@@ -25,6 +25,8 @@ export async function VideoGuidesDocsPage({
       toc={toc}
       full={page.data.full}
       title={page.data.h1 || page.data.title}
+      description={page.data.description}
+      isRoot={slug.length === 1}
       filePath={page.data.info.path}
       hideTableOfContents={page.data.hideTableOfContents}
       hidePageNavigation={page.data.hidePageNavigation}
