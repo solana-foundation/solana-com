@@ -46,8 +46,9 @@ const rpcSubscriptions = createSolanaRpcSubscriptions(
 const mint = address(env("MINT"));
 const wallet = address(arg(1, "the wallet address to remove"));
 
-// Removal stops new thaws for this wallet. An account that is already thawed
-// stays thawed until it is frozen explicitly.
+// Removal stops new thaws for this wallet, and the same transaction also
+// freezes the wallet's associated token account when it is initialized and
+// thawed.
 const transaction = await createRemoveFromAllowlistTransaction(
   rpc,
   mint,

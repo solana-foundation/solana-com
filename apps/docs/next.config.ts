@@ -185,6 +185,18 @@ const nextConfig: NextConfig = {
         source: "/:locale/docs/payments/production-readiness",
         destination: "/:locale/docs/tools/production-readiness",
       },
+      {
+        source: "/docs/tokenization/dvp",
+        destination: "/docs/tokenization/settlement/dvp",
+      },
+      {
+        source: "/docs/tokenization/nav-strikes",
+        destination: "/docs/tokenization/tokenized-funds/nav-strikes",
+      },
+      {
+        source: "/docs/tokenization/token-acl",
+        destination: "/docs/tokenization/compliance/token-acl",
+      },
     ];
 
     return movedRoutes.flatMap(({ source, destination }) => [

@@ -52,8 +52,8 @@ object type does not satisfy the SDK's RPC parameter on Kit 8.
 Ten of the sixteen steps encode a Token ACL or gate instruction in the Legacy
 and Rust tabs (create config, set gating program, freeze, thaw, permissionless
 thaw, toggle; create list, add wallet, remove wallet, set up extra metas), plus
-the list account layout read. Both programs are pre-1.0 and sRFC-37 is not
-finalized, so revisit those two tabs after a program upgrade.
+the list account layout read. Both programs are pre-1.0 at the time of writing,
+so revisit those two tabs after a program upgrade.
 
 ## The Rust crate
 
@@ -63,17 +63,31 @@ from the cookbook crates and because the CI runner executes every workspace
 binary against surfpool with no arguments. Build it with `cargo build --release`
 in `rust/`; `capture.sh` does that once per run.
 
-## Status as of 2026-09-11
+## Status as of 2026-10-02
 
-Every `*.output.txt` is a verbatim capture from a `capture.sh` run on
-2026-09-11, one run per implementation, each against a mint that run created:
+Every `*.output.txt` is a verbatim capture from a `capture.sh` run, one run per
+implementation, each against a mint that run created. The Mosaic and Kit runs
+were refreshed on 2026-10-02 on `@solana/kit` 8 after the upstream merge; the
+Legacy and Rust runs date from 2026-09-11:
 
-| Implementation     | Runner                                                | Mint                                           | Result                                     |
-| ------------------ | ----------------------------------------------------- | ---------------------------------------------- | ------------------------------------------ |
-| Mosaic CLI and SDK | devnet                                                | `6kYKjkRMThoiDuwyeSALzzPq8WPRg66C8DGWBEQ17m1N` | 39 commands succeeded, 6 expected failures |
-| Kit                | devnet                                                | `33kEeYfLR11zKdi7uRU5fbw8yyp2xspLHopWJyCYYWz9` | 26 commands succeeded, 3 expected failures |
-| Legacy             | devnet                                                | `DBxmHVhU9DbgrsrvkVid1vHmNFrSB4ybf53zXx9vqKt9` | 26 commands succeeded, 3 expected failures |
-| Rust               | surfpool 1.5.0 with devnet as its datasource, locally | `6Hy2tU3GjWkwuSYNsCfHNJjRo5BTDwXsyj7kWixEAR4m` | 26 commands succeeded, 3 expected failures |
+| Implementation     | Runner                                                            | Mint                                           | Result                                     |
+| ------------------ | ----------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------ |
+| Mosaic CLI and SDK | devnet, 2026-10-02                                                | `GU4oiVZ3QCwMAzaZrRUGi62sYfdex2f9BSkcQCB3fF7E` | 41 commands succeeded, 6 expected failures |
+| Kit                | devnet, 2026-10-02                                                | `8pDrhnfLwpRYR4WcESrtHp9HaEv5FHhHctT9FWVSTSDo` | 27 commands succeeded, 3 expected failures |
+| Legacy             | devnet, 2026-09-11                                                | `DBxmHVhU9DbgrsrvkVid1vHmNFrSB4ybf53zXx9vqKt9` | 26 commands succeeded, 3 expected failures |
+| Rust               | surfpool 1.5.0 with devnet as its datasource, locally, 2026-09-11 | `6Hy2tU3GjWkwuSYNsCfHNJjRo5BTDwXsyj7kWixEAR4m` | 26 commands succeeded, 3 expected failures |
+
+The vault tutorial's gate-state read is captured in all four tabs against the
+2026-10-02 Mosaic run's vault account
+(`3pvNyAxXHKErCTjRf6cCun3rk17L4WgFUJ94c1ux7xGE`): `vault/display-vault` and
+`read-account.vault` from the run, and the Legacy and Rust reads by hand on
+devnet against the same account, so the four tabs show one account.
+
+The 2026-10-02 runs include three runner fixes: the `abl fetch-list` capture is
+taken before the SDK tab exercises allowlist-add on the metadata authority, so
+the recorded list holds only the holder; the finalized custodian read waits
+until the thaw itself is visible at `finalized`; and the vault's gate state is
+read after the deposit.
 
 The expected failures are the tutorials' deliberate ones, once per tab in the
 Mosaic run and once in the others: transfer to an unlisted wallet, transfer from

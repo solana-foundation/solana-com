@@ -19,20 +19,19 @@ related:
 
 <Callout type="info" title="Summary">
 
-For most regulated issuance, frozen-by-default accounts combined with Token ACL
-are a reasonable starting point. The freeze-based design adds no per-transfer
-compute and keeps the token usable in venues that do not execute custom code on
-every transfer. A transfer hook suits rules that cannot be expressed as whether
-an account is permitted to hold the token at all.
+Frozen-by-default accounts with Token ACL add no per-transfer compute and keep
+the token usable in venues that do not run custom code on every transfer. A
+transfer hook suits rules that cannot be expressed as whether an account is
+permitted to hold the token at all.
 
 </Callout>
 
 ## Three ways to restrict who holds a token
 
-Transfer restrictions are often implemented as a contract that runs on every
-transfer. On Solana most of these controls are extensions enforced inside the
-[Token-2022 program](/docs/tokens) itself, so they are shared standards rather
-than bespoke code.
+On networks where each token is its own contract, transfer restrictions run as
+code on every transfer. On Solana most of these controls are extensions enforced
+inside the [Token-2022 program](/docs/tokens) itself, so they are shared
+standards rather than bespoke code.
 
 | Approach                          | How it works                                                                                        | Per-transfer cost         | Composability                                                                                                |
 | --------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -40,11 +39,11 @@ than bespoke code.
 | **Transfer hook**                 | A program you write is invoked on every transfer and can reject it                                  | Compute on every transfer | Lower - integrating venues must support hooks and account for your program                                   |
 | **Manual freeze and thaw**        | You hold the freeze authority and act on each account yourself                                      | None                      | High, but you are a liveness dependency for every new holder                                                 |
 
-### Why frozen-by-default fits regulated issuance
+### Frozen by default with Token ACL
 
 [Default Account State](/docs/tokens/extensions/default-state) creates every
-token account frozen. On its own this makes the issuer a bottleneck, since no
-address can hold the token until it is thawed individually.
+token account frozen. On its own, no address can hold the token until the issuer
+thaws it individually.
 
 [Token ACL](/docs/tokenization/compliance/token-acl) removes the issuer's
 signature from each thaw. The freeze authority is delegated to a shared program
@@ -54,16 +53,14 @@ on the allowlist thaws itself; in allowlist mode the issuer, or its operator,
 still adds each holder to the list. The issuer retains an override throughout:
 freeze or thaw directly, swap the gate, or reclaim the freeze authority.
 
-The result behaves like an ordinary Token-2022 mint to an integrator reading it,
-while the holding restriction is enforced by the program. An integrator still
-needs a path for accounts that are created frozen and thaw against the gate.
+Integrators read it as an ordinary Token-2022 mint, but need a path for accounts
+that are created frozen and thaw through the gate.
 
-<Callout type="warn">
+<Callout type="info">
 
-Token ACL is specified in sRFC-37, which is not finalized. Read
-[Token ACL](/docs/tokenization/compliance/token-acl) for the current state
-before you commit to it, and account for the gate program's deployment, upgrade,
-audit, and availability as dependencies distinct from your mint.
+Token ACL is live on mainnet-beta and specified in sRFC-37. Releases are pre-1.0
+at the time of writing; check the latest state on
+[Token ACL](/docs/tokenization/compliance/token-acl).
 
 </Callout>
 
@@ -74,14 +71,20 @@ on the transfer rather than on the holder. Lockups that expire per tranche,
 jurisdiction-dependent limits on transfer size, and holder counts that must stay
 under a statutory cap cannot be expressed as a list of permitted addresses.
 
-The costs are compute on every transfer, a program to audit and maintain, and
-reduced composability, since integrating venues need to account for the hook.
-Where a list would express the rule, a list is the cheaper option.
+A hook is also a program to audit and maintain.
+
+```mermaid
+flowchart TD
+  Q(["The rule depends on"])
+  Q -->|the holder| ACL["Frozen by default + Token ACL<br/>A qualifying wallet thaws itself against an onchain list<br/>Per-transfer cost: none"]
+  Q -->|the transfer| HK["Transfer hook<br/>Invoked on every transfer and can reject it<br/>Per-transfer cost: compute on every transfer"]
+  HK -->|for example| EX["Lockups that expire per tranche<br/>Jurisdiction-dependent limits on transfer size<br/>Holder counts under a statutory cap"]
+```
 
 ### Allowlist or blocklist
 
-Token ACL's gate is pluggable, so the same machinery expresses either. The
-choice is about the default: admitted or denied.
+Token ACL's pluggable gate supports either. They differ in the default: admitted
+or denied.
 
 An **allowlist** defaults to denied: nobody holds the token until they are
 admitted. This suits a supervised issuance, where every holder has been
@@ -93,69 +96,58 @@ This suits a broadly circulating asset where the obligation is to exclude
 specific addresses rather than to vet every holder. It fails open, so the list's
 completeness and freshness determine whether it works.
 
-A blocklist fits where the holder base is open and the obligation is exclusion.
-[Gate the holders](/docs/tokenization/tutorials/issuing/gate-the-holders) covers
-both.
-
 ## Split authorities from the start
 
-Token-2022 allows each power to sit on a different key. A mint where one key is
-mint authority, pause authority, and permanent delegate concentrates the
-consequences of a single compromise, and tends to attract attention in a
-controls review.
+Token-2022 allows each power to sit on a different key. If one key holds the
+mint, pause, and permanent delegate authorities, one compromise exposes all
+three.
 
-| Authority              | What it can do                             | Suggested holder                                   |
-| ---------------------- | ------------------------------------------ | -------------------------------------------------- |
-| Mint                   | Create new supply                          | Treasury quorum, offline                           |
-| Metadata               | Change name, symbol, URI                   | Operations, low privilege                          |
-| Pausable               | Halt all mint, burn, and transfer activity | Incident response, reachable 24/7                  |
-| Permanent delegate     | Move or burn any holder's balance          | Legal and compliance quorum, offline               |
-| Permissioned burn      | Co-sign redemptions                        | Redemption operations                              |
-| Confidential Balances  | Configure confidential transfer settings   | Same quorum as mint                                |
-| Freeze (via Token ACL) | Freeze and thaw accounts                   | Delegated to the ACL program, with issuer override |
+| Authority              | What it can do                                 | Suggested holder                                   |
+| ---------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| Mint                   | Create new supply                              | Treasury quorum, offline                           |
+| Metadata               | Change name, symbol, URI and additional fields | Operations, low privilege                          |
+| Pausable               | Halt all mint, burn, and transfer activity     | Incident response, reachable 24/7                  |
+| Permanent delegate     | Move or burn any holder's balance              | Legal and compliance quorum, offline               |
+| Permissioned burn      | Co-sign redemptions                            | Redemption operations                              |
+| Confidential Balances  | Configure confidential transfer settings       | Same quorum as mint                                |
+| Freeze (via Token ACL) | Freeze and thaw accounts                       | Delegated to the ACL program, with issuer override |
 
-Two of these warrant particular attention. The **pause authority** needs to be
-reachable quickly to be useful in the incident it exists for. The **permanent
-delegate** can move a holder's assets, so a slower, well-witnessed process suits
-it, and its uses should be individually evidenced.
+<DocsDiagram
+  src="/assets/docs/diagrams/tokenization-authority-roles.svg"
+  alt="Each Token-2022 authority and a suggested holder for it, from the table above"
+  mermaid={`
+flowchart LR
+  M["Token-2022 mint"]
+  M --> A1["Mint: treasury quorum, offline"]
+  M --> A2["Metadata: operations, low privilege"]
+  M --> A3["Pausable: incident response, reachable 24/7"]
+  M --> A4["Permanent delegate: legal and compliance quorum, offline"]
+  M --> A5["Permissioned burn: redemption operations"]
+  M --> A6["Confidential Balances: same quorum as mint"]
+  M --> A7["Freeze: delegated to the ACL program, with issuer override"]
+`}
+/>
 
-This table says _who_ should hold each authority.
-[Program and authority design](/docs/tokenization/design/program-and-authority-design)
-covers _what shape_ each holder should take - a program-enforced PDA, an onchain
-multisig, or a single custodied key - along with rotation and the audit and
-upgrade risk carried by every program in your transfer path.
-
-## Controls you may also want
-
-- **Pausable** - one action halts mint, burn, and transfer token-wide. This is
-  the incident-response control.
-- **Permanent delegate** - the forced-transfer and forced-burn power, for court
-  orders, fraud, and lost-key recovery. See
-  [permanent delegate](/docs/tokens/extensions/permanent-delegate).
-- **Permissioned burn** - holders cannot burn unilaterally; you co-sign. See
-  [permissioned burn](/docs/tokens/extensions/permissioned-burn).
-- **Confidential Balances** - balances and transfer amounts are hidden from the
-  public ledger, and a designated auditor key can decrypt transfer amounts. See
-  [confidential transfers](/docs/tokens/extensions/confidential-transfer) and
-  [privacy and transfer controls](/docs/tokenization/compliance/privacy-and-transfer-controls).
-
-<Callout type="warn" title="These two controls do not combine the way they look">
-
-Pairing a permanent delegate with Confidential Balances does not give you forced
-transfer over a hidden balance. Moving a confidential balance requires proofs
-built from the holder's own key, so the delegate reaches the public balance
-only, and permissioned burn has the same limit. If your court-order or recovery
-obligations depend on seizing a position, settle that before you enable
-Confidential Balances - see
+A permanent delegate reaches only the public balance of a confidential account;
+see
 [privacy and transfer controls](/docs/tokenization/compliance/privacy-and-transfer-controls#which-controls-still-work).
+Extension references:
+[permanent delegate](/docs/tokens/extensions/permanent-delegate),
+[permissioned burn](/docs/tokens/extensions/permissioned-burn), and
+[confidential transfers](/docs/tokens/extensions/confidential-transfer).
 
-</Callout>
+[Program and authority design](/docs/tokenization/design/program-and-authority-design)
+covers which option holds each authority - a program-derived address (PDA), an
+onchain multisig, or a single custodied key - along with rotation and the audit
+and upgrade risk carried by every program in your transfer path.
 
 ## Related
 
+- [Program and authority design](/docs/tokenization/design/program-and-authority-design) -
+  which key or multisig holds each authority the controls create
 - [Issuing a token](/docs/tokenization/tutorials/issuing) - build a mint that
   carries these controls
 - [Gate the holders](/docs/tokenization/tutorials/issuing/gate-the-holders) -
   Token ACL end to end
 - [Choosing the cash leg](/docs/tokenization/settlement/cash-leg) - what the
-  control surface chosen here permits the asset to settle against
+  controls chosen here let the asset settle against

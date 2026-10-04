@@ -17,19 +17,18 @@ related:
 ---
 
 This tutorial creates the mint. When you finish, you will have a Token-2022 mint
-on devnet carrying the extension set a tokenized security usually needs, gated
-by an onchain allowlist, with pause, permanent delegate, permissioned burn and
-metadata on separate keys. The mint, Confidential Balances and scaled UI amount
-authorities stay on the fee payer.
+on devnet carrying the extension set Mosaic's tokenized-security template
+configures, gated by an onchain allowlist, with pause, permanent delegate,
+permissioned burn and metadata on separate keys. The mint, Confidential Balances
+and scaled UI amount authorities stay on the fee payer.
 
 <Steps>
 
 <Step>
 ### Generate a key per authority
 
-This step produces four separate keys, one per operational power. A mint where
-one key holds every power concentrates the consequences of a single compromise,
-and separating the powers after the mint exists is harder than doing it now.
+This step produces four separate keys, one per operational power. If one key
+holds every power, one compromise exposes all of them.
 
 ```bash
 mkdir -p ~/.config/solana/demo-authorities
@@ -41,7 +40,7 @@ for role in metadata pause delegate burn; do
 done
 ```
 
-In production each of these would be a separate custody arrangement: an
+In production each can sit in its own custody arrangement, for example: an
 incident-response key for pause, a legal and compliance quorum for the permanent
 delegate, a redemption-operations key for permissioned burn, a low-privilege
 operations key for metadata. The tutorial uses local files so the separation is
@@ -59,6 +58,36 @@ yourself; see
 
 </Callout>
 
+<DocsDiagram
+  src="/assets/docs/diagrams/tokenization-authority-map.svg"
+  alt="Token-2022 authority map for the tokenized-security mint, with the authorities set up in this tutorial highlighted"
+  mermaid={`
+flowchart LR
+  classDef tut stroke-width:3px
+  classDef off stroke-dasharray:6 5
+  subgraph MINT["Token-2022 mint, tokenized-security template"]
+    E1["Mint supply"] --> A1["Mint authority: creates supply<br/>Fee payer"]:::tut
+    E2["Freeze and thaw"] --> A2["Freeze authority: freezes and thaws accounts<br/>Token ACL mint config (PDA)"]:::tut
+    E3["Default Account State"] --> A3["No separate authority: updated by the freeze authority<br/>State: Frozen"]:::tut
+    E4["Confidential Balances"] --> A4["Confidential transfer authority: configures settings and approves accounts<br/>Fee payer"]:::tut
+    E5["Transfer Hook"]:::off -.-> A5["Transfer hook authority: sets the hook program ID<br/>Not in this template"]:::off
+    E6["Permanent Delegate"] --> A6["Permanent delegate: moves or burns any holder's balance<br/>Delegate key"]:::tut
+    E7["Permissioned Burn"] --> A7["Permissioned burn authority: co-signs every burn<br/>Burn key"]:::tut
+    E8["Pausable"] --> A8["Pause authority: halts mint, burn and transfer<br/>Pause key"]:::tut
+    E9["Scaled UI Amount"] --> A9["Multiplier authority: changes the displayed-balance multiplier<br/>Fee payer"]:::tut
+    E10["Metadata"] --> A10["Metadata update and metadata pointer authorities<br/>Metadata key"]:::tut
+  end
+  subgraph ACL["Token ACL and gate, outside the mint"]
+    T1["Token ACL config authority: freezes or thaws directly, swaps the gate, reclaims the freeze authority<br/>Fee payer"]:::tut
+    T2["Allowlist authority: adds and removes wallets<br/>Fee payer"]:::tut
+  end
+  subgraph OPT["Optional, not used here"]
+    O1["Auditor key: optional encryption key for Confidential Balances, not a signer"]:::off
+    O2["Hook program: invoked on every transfer when a hook is set"]:::off
+  end
+`}
+/>
+
 </Step>
 
 <Step>
@@ -68,22 +97,6 @@ The `tokenized-security` template enables the extension set described below.
 Point each authority flag at the key you generated for it.
 
 <CodeTabs storage="tokenization" flags="r">
-
-```bash !! title="Mosaic CLI"
-mosaic create tokenized-security \
-  --name "Demo Tokenized Note" \
-  --symbol "DEMOTN" \
-  --decimals 6 \
-  --uri https://example.com/demotn.json \
-  --acl-mode allowlist \
-  --enable-srfc37 true \
-  --metadata-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/metadata.json) \
-  --pausable-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/pause.json) \
-  --permanent-delegate-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/delegate.json) \
-  --permissioned-burn-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/burn.json) \
-  --keypair ~/.config/solana/tokenization-demo.json \
-  --rpc-url https://api.devnet.solana.com
-```
 
 ```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/create-the-mint.ts#region=create
 
@@ -101,6 +114,22 @@ mosaic create tokenized-security \
 
 ```
 
+```bash !! title="Mosaic CLI"
+mosaic create tokenized-security \
+  --name "Demo Tokenized Note" \
+  --symbol "DEMOTN" \
+  --decimals 6 \
+  --uri https://example.com/demotn.json \
+  --acl-mode allowlist \
+  --enable-srfc37 true \
+  --metadata-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/metadata.json) \
+  --pausable-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/pause.json) \
+  --permanent-delegate-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/delegate.json) \
+  --permissioned-burn-authority $(solana-keygen pubkey ~/.config/solana/demo-authorities/burn.json) \
+  --keypair ~/.config/solana/tokenization-demo.json \
+  --rpc-url https://api.devnet.solana.com
+```
+
 </CodeTabs>
 
 <Callout type="warn">
@@ -109,22 +138,21 @@ At `@solana/mosaic-cli@0.2.0` this command fails before sending, with
 `mintAuthority must be a TransactionSigner<string> (or undefined) when TokenMetadata extension is present`.
 The CLI passes the mint authority as an address and the SDK requires a signer.
 Run the SDK tab to create the mint; it passes the fee payer as the signing mint
-authority. The CLI command stays as the intended surface. See the defect list in
+authority. The CLI command shows the intended usage. See the defect list in
 [the issuing tutorials overview](/docs/tokenization/tutorials/issuing#before-you-start).
 
 </Callout>
 
-Two flags matter here, and both have defaults that a gated issuance needs to
+In the Mosaic CLI tab, two flags have defaults that a gated issuance needs to
 change.
 
-`--enable-srfc37 true` is what makes the mint usable. It delegates the freeze
-authority to the Token ACL program's mint config for this mint, a program
-derived address, which is then the only party that can thaw a frozen account.
-**Omit it and the mint is created with frozen-by-default accounts but no Token
-ACL gate to thaw them, so no account can hold the token.** The flag defaults to
-off. Recovering from that depends on where the freeze authority ended up - see
-the recovery note in
-[gate the holders](/docs/tokenization/tutorials/issuing/gate-the-holders).
+`--enable-srfc37 true` makes the mint usable. It delegates the freeze authority
+to the Token ACL program's mint config for this mint, a program derived address,
+which is then the only party that can thaw a frozen account. **Omit it and the
+mint is created with frozen-by-default accounts but no Token ACL gate to thaw
+them, so no account can hold the token.** The flag defaults to off. Recovering
+from that depends on where the freeze authority ended up - see the recovery note
+in [gate the holders](/docs/tokenization/tutorials/issuing/gate-the-holders).
 
 `--acl-mode allowlist` selects a fail-closed gate: nobody holds the token until
 they are added. The default is `blocklist`, which fails open. Because the mint
@@ -150,27 +178,25 @@ export MINT_CONFIG=<the mint config>
 </Step>
 
 <Step>
-### Understand what the template turned on
+### Review the template's extensions
 
 The `tokenized-security` template configures these Token-2022 extensions:
 
-| Extension             | Effect                                                                                                                             | Reference                                                               |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Default Account State | Every new token account is created frozen                                                                                          | [Default state](/docs/tokens/extensions/default-state)                  |
-| Metadata              | Name, symbol, and URI stored onchain                                                                                               | [Metadata](/docs/tokens/extensions/metadata)                            |
-| Pausable              | One action halts mint, burn, and transfer                                                                                          | [Pausable](/docs/tokens/extensions/pausable)                            |
-| Permanent Delegate    | Forced transfer and forced burn from any account                                                                                   | [Permanent delegate](/docs/tokens/extensions/permanent-delegate)        |
-| Permissioned Burn     | A holder's burn needs the burn authority's co-signature                                                                            | [Permissioned burn](/docs/tokens/extensions/permissioned-burn)          |
-| Scaled UI Amount      | A multiplier applied to displayed balances; blocks settlement through the [DvP program](/docs/tokenization/settlement/dvp-program) | [Scaled UI amount](/docs/tokens/extensions/scaled-ui-amount)            |
-| Confidential Balances | Balances and amounts can be hidden from the public ledger                                                                          | [Confidential transfers](/docs/tokens/extensions/confidential-transfer) |
-
-Three of these warrant a decision before you proceed.
+| Extension             | Effect                                                                                                                                 | Reference                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Default Account State | Every new token account is created frozen                                                                                              | [Default state](/docs/tokens/extensions/default-state)                  |
+| Metadata              | Name, symbol, and URI stored onchain                                                                                                   | [Metadata](/docs/tokens/extensions/metadata)                            |
+| Pausable              | One action halts mint, burn, and transfer                                                                                              | [Pausable](/docs/tokens/extensions/pausable)                            |
+| Permanent Delegate    | Forced transfer and forced burn from any account                                                                                       | [Permanent delegate](/docs/tokens/extensions/permanent-delegate)        |
+| Permissioned Burn     | A holder's burn needs the burn authority's co-signature                                                                                | [Permissioned burn](/docs/tokens/extensions/permissioned-burn)          |
+| Scaled UI Amount      | A multiplier applied to displayed balances; the [DvP program](/docs/tokenization/settlement/dvp-program) does not accept mints with it | [Scaled UI amount](/docs/tokens/extensions/scaled-ui-amount)            |
+| Confidential Balances | Balances and amounts can be hidden from the public ledger                                                                              | [Confidential transfers](/docs/tokens/extensions/confidential-transfer) |
 
 **Permissioned burn** makes redemption a two-party operation: a holder cannot
 extinguish their own balance without the burn authority signing alongside them.
-That is the behavior a redemption process with an off-chain settlement leg
-usually needs, and it is fixed at creation. If holders must be able to burn
-unilaterally, this template is the wrong one - see
+It suits a redemption process with an off-chain settlement leg, and it is fixed
+at creation. If holders must be able to burn unilaterally, this template does
+not fit; use a different template or build the mint directly - see
 [choosing controls](/docs/tokenization/design/choosing-controls).
 
 **Scaled UI amount** allows an accrual or a corporate action to change every
@@ -181,15 +207,16 @@ confirmation described in
 [custody integration](/docs/tokenization/custody/custody-integration). The
 template always adds it, with the multiplier authority on the mint authority
 (your fee payer here). A mint without it needs a different template or direct
-instruction building. Adding it later requires a new mint and a migration.
+instruction building.
 
 **Confidential Balances** is configured by the template but not active for any
-holder until that holder opts in. Activating it requires client-side
-zero-knowledge proof handling on every confidential operation, and it changes
-what the permanent delegate can reach. See
-[confidential transfers](/docs/tokens/extensions/confidential-transfer) and
+holder until that holder configures their account and the confidential transfer
+authority approves it. Activating it requires client-side zero-knowledge proof
+handling on every confidential operation, and it changes what the permanent
+delegate can reach.
+[Confidential transfers](/docs/tokens/extensions/confidential-transfer) and
 [privacy and transfer controls](/docs/tokenization/compliance/privacy-and-transfer-controls)
-before planning around it.
+cover both.
 
 <Callout type="warn">
 
@@ -214,12 +241,6 @@ Kit, Legacy, and Rust tabs as `tokenAcl`, `gatingProgram`, and
 
 <CodeTabs storage="tokenization" flags="r">
 
-```bash !! title="Mosaic CLI" output=packages/docs-examples/tokenization/issuing/inspect-mint-created.output.txt
-mosaic inspect-mint \
-  --mint-address $MINT \
-  --rpc-url https://api.devnet.solana.com
-```
-
 ```ts !! title="Mosaic SDK" file=packages/docs-examples/tokenization/issuing/inspect-mint.ts#region=inspect
 
 ```
@@ -236,9 +257,15 @@ mosaic inspect-mint \
 
 ```
 
+```bash !! title="Mosaic CLI" output=packages/docs-examples/tokenization/issuing/inspect-mint-created.output.txt
+mosaic inspect-mint \
+  --mint-address $MINT \
+  --rpc-url https://api.devnet.solana.com
+```
+
 </CodeTabs>
 
-Check four things specifically:
+Check four things:
 
 1. Under **Mint Details**, `Mint Authority` is your fee payer. That is expected
    here, per the note above.
@@ -252,11 +279,11 @@ Check four things specifically:
    The SDK tab shows them under `authorities` (`permanentDelegate`,
    `pausableAuthority`, `updateAuthority`), with `permissionedBurnAuthority` as
    a fourth.
-4. `DefaultAccountState` shows `State: 2`, which is Frozen, and the extension
-   list matches the table above. The CLI lists `MetadataPointer` and
-   `TokenMetadata` for the metadata row and `Pausable` and `PausableConfig` for
-   the pausable row. In the SDK tab, `aclMode` is `allowlist` and `tokenAcl` is
-   `true`; the Kit, Legacy, and Rust tabs print `tokenAcl: true` and
+4. In the CLI tab, `DefaultAccountState` shows `State: 2`, which is Frozen, and
+   the extension list matches the table above. The CLI lists `MetadataPointer`
+   and `TokenMetadata` for the metadata row and `Pausable` and `PausableConfig`
+   for the pausable row. In the SDK tab, `aclMode` is `allowlist` and `tokenAcl`
+   is `true`; the Kit, Legacy, and Rust tabs print `tokenAcl: true` and
    `permissionlessThaw: true`.
 
 The CLI's `Token Type Detection` section knows only Mosaic's stablecoin and
@@ -270,13 +297,6 @@ than correcting it; on devnet the cost is negligible.
 </Step>
 
 </Steps>
-
-## What you have
-
-A mint whose accounts start frozen, so no address can hold the token yet,
-including your own, and a Token ACL allowlist wired to it with permissionless
-thaw enabled. The list is empty, which is the expected state at this point.
-Adding the first holder is the next tutorial.
 
 ## Next steps
 

@@ -18,7 +18,9 @@ describe("Finance docs MDX", () => {
     await stream.allReady;
     const markup = await new Response(stream).text();
 
-    expect(markup).toContain("Assets power payments and onchain markets");
+    expect(markup).toContain(
+      "Assets are created through issuance and used in payments and markets",
+    );
     expect(markup).toContain("/assets/docs/diagrams/finance-overview.svg");
     expect(markup).toContain(
       "/assets/docs/diagrams/finance-overview-light.svg",

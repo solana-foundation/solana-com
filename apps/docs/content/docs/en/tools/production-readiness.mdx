@@ -1,7 +1,7 @@
 ---
 title: Production Readiness
 description:
-  What to settle before a financial application moves from devnet to mainnet -
+  What to decide before a financial application moves from devnet to mainnet -
   RPC, transaction landing, authority custody, monitoring, and reconciliation.
 seoTitle: Taking a Solana Financial Application to Mainnet
 url: /docs/tools/production-readiness
@@ -27,22 +27,21 @@ Devnet and mainnet differ once real value moves.
 
 [Public endpoints](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
 (`api.mainnet-beta.solana.com`) are rate-limited and carry no SLA. They suit
-development and are not intended for production workloads.
-
-<Callout type="caution" title="Never use public RPC for production">
-  Use a [private RPC provider](https://solana.com/rpc).
-</Callout>
+development and are not intended for production workloads. Use a
+[private RPC provider](https://solana.com/rpc) for production.
 
 Compare providers on:
 
 - **Reliability**: an SLA with an uptime commitment
 - **Latency**: geographic proximity to the application's servers
-- **Method coverage**: the RPC methods and historical depth the workload needs
+- **Method coverage**: the RPC methods the workload needs, and historical depth
+  that covers the reconciliation period
 - **Transaction landing**: staked connections, priority fee APIs, and bundle
   support where the workload depends on them
 - **Credential handling**: per-environment keys and a way to rotate them
 
-[RPC Infrastructure Providers](https://solana.com/rpc) lists the providers.
+[RPC Infrastructure Providers](https://solana.com/rpc) lists the providers, and
+[choosing an RPC provider](/docs/rpc/providers) compares them on these criteria.
 
 ### Redundant RPC configuration
 
@@ -81,7 +80,7 @@ A third-party routing service such as
 
 ## Transaction landing
 
-A transaction that does not land has not failed; it has not happened yet.
+A transaction executes only when a block includes it.
 
 On mainnet you are competing for block space. To increase the chance that a
 transaction is included in a block, assemble it with:
@@ -94,7 +93,7 @@ Jito bundles are a further option for transactions that must execute together.
 
 ### Transaction send configuration
 
-**Blockhash management:**
+#### Blockhash management
 
 - Fetch with `confirmed` commitment
 - Store the `lastValidBlockHeight` returned by `getLatestBlockhash` - this tells
@@ -103,13 +102,14 @@ Jito bundles are a further option for transactions that must execute together.
   current slot time; see
   [settlement and finality](/docs/tokenization/settlement/finality)
 
-**Send options:**
+#### Send options
 
 - `maxRetries: 0` - Disable automatic RPC retries. Handle retries yourself so
   you can refresh the blockhash when needed.
 - `skipPreflight: true` - Bypass simulation before sending. Use it only when the
   transaction has already been simulated, for example to estimate its compute
-  units. Otherwise keep it `false` so errors surface before a fee is spent.
+  units. Otherwise keep it `false` so simulation catches errors before a fee is
+  spent.
 
 ```typescript
 import { createSolanaRpc } from "@solana/kit";
@@ -140,18 +140,18 @@ const { lastValidBlockHeight } = latestBlockhash;
 ```
 
 The [retry strategy](#retry-strategies) below uses
-`sendAndConfirmTransactionFactory`, which does the expiration tracking in step 4
-for you.
+`sendAndConfirmTransactionFactory`, which does the expiration tracking shown in
+the snippet above for you.
 
 ### Use priority fees
 
 Every Solana transaction requires a transaction fee, paid in SOL. Transaction
-fees are split into two parts: the base fee and the priority fee. The base fee
-compensates validators for processing the transaction. The priority fee is an
-optional fee that increases the chance the current leader will process the
-transaction.
+fees are split into two parts: the base fee and the priority fee. Half of the
+base fee is burned and half goes to the validator that processes the
+transaction. The priority fee is an optional fee that increases the chance the
+current leader will process the transaction.
 
-**How fees work:**
+#### How fees work
 
 ```
 Total fee = Base fee (5,000 lamports per signature) + Priority fee
@@ -163,7 +163,7 @@ Priority fee levels move with demand, so read the current distribution from
 `getRecentPrioritizationFees` or a provider's fee API rather than from
 documentation.
 
-**Sample implementation:**
+#### Sample implementation
 
 The
 [`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
@@ -182,7 +182,7 @@ const tx = pipe(
 );
 ```
 
-**Getting fee estimates:** several RPC providers offer priority fee APIs:
+Several RPC providers offer priority fee APIs:
 
 - [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
 - [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
@@ -196,9 +196,9 @@ For the full fee mechanics, see [Transaction Fees](/docs/core/fees) and
 Compute is a measure of the work a program does. A transaction may use at most
 1.4 million compute units, a fixed cap. The per-block and per-writable-account
 limits are feature-gated (SIMD-0286, SIMD-0306) and scale with the slot time
-under SIMD-0525; at the 300ms target they are 75 million and 30 million compute
-units. Verify the current values against the active feature gates;
-[compute budget](/docs/core/fees/compute-budget) explains the mechanism.
+under SIMD-0525; at the current 250ms target they are 62.5 million and 25
+million compute units. Verify the current values against the active feature
+gates; [compute budget](/docs/core/fees/compute-budget) explains the mechanism.
 
 When you submit a transaction, estimate the compute it will use and set the
 compute unit limit accordingly - a request for how much of the block's capacity
@@ -226,10 +226,11 @@ const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
 ```
 
 <Callout type="info">
-  If you build and send transactions with a kit plugin client, you typically
-  don't need this step - the client adds compute budget instructions for you
-  when it sends (`.sendTransaction()`). The manual flow above is for when you
-  assemble transactions directly with `@solana/kit`.
+  If you build and send transactions with a kit plugin client, you typically do
+  not need this step - the client adds the compute unit limit for you when it
+  sends (`.sendTransaction()`); a priority fee is added only if you configure
+  one. The manual flow above is for when you assemble transactions directly with
+  `@solana/kit`.
 </Callout>
 
 If the same type of transaction repeats, cache the compute estimate per
@@ -242,18 +243,14 @@ order when a Jito-connected leader includes them. Bundles are submitted to the
 Jito network with a tip, which is an incentive for inclusion rather than a
 guarantee of it.
 
-**Resources:**
-
 - [Jito documentation](https://docs.jito.wtf/lowlatencytxnsend/)
 - [Video: Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
 - [QuickNode guide on Jito bundles](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
 
 ### Retry strategies
 
-Transactions can fail for many reasons. Unlike an API that returns success or
-failure immediately, a Solana transaction requires confirmation tracking.
-
-**Key concepts:**
+Unlike an API that returns success or failure immediately, a Solana transaction
+requires confirmation tracking.
 
 - **Blockhash expiration**: a transaction is valid for 150 blocks from its
   blockhash
@@ -311,17 +308,16 @@ Further reading:
 
 Solana exposes three commitment levels:
 
-| Level       | Definition                | Use case                                    |
-| ----------- | ------------------------- | ------------------------------------------- |
-| `processed` | In a block, not yet voted | Immediate interface feedback only           |
-| `confirmed` | Supermajority voted       | Crediting a display; most user-facing flows |
-| `finalized` | Rooted                    | Anything that feeds a book of record        |
+| Level       | Definition                | Use case                             |
+| ----------- | ------------------------- | ------------------------------------ |
+| `processed` | In a block, not yet voted | Immediate interface feedback only    |
+| `confirmed` | Supermajority voted       | User-facing display                  |
+| `finalized` | Rooted                    | Anything that feeds a book of record |
 
-Which commitment level the records treat as settled is a decision about the
-books. [Settlement and finality](/docs/tokenization/settlement/finality) is the
-authoritative page on what each level means, how many slots each takes, why a
-blockhash should be fetched at one level and a result judged at another, and why
-protocol finality is not legal finality.
+[Settlement and finality](/docs/tokenization/settlement/finality) covers what
+each level means, how many slots each takes, why a blockhash should be fetched
+at one level and a result judged at another, and why protocol finality is not
+legal finality.
 
 For more on checking transaction status, see
 [Interacting with Solana](/docs/payments/interacting-with-solana).
@@ -375,8 +371,8 @@ function handleTransactionError(error: unknown): {
 }
 ```
 
-`ACCOUNT_NOT_FOUND` on a transfer usually means the recipient's token account
-does not exist yet; create the associated token account in the same transaction.
+`ACCOUNT_NOT_FOUND` on a transfer can mean the recipient's token account does
+not exist yet; create the associated token account in the same transaction.
 Where the fee payer is short of SOL, see
 [fee abstraction](/docs/payments/send-payments/payment-processing/fee-abstraction)
 for sponsoring fees so end users transact without holding SOL.
@@ -422,9 +418,9 @@ Keychain is available for [Rust](https://crates.io/crates/solana-keychain),
 
 ### RPC security
 
-Treat RPC endpoints like API keys - don't expose them in frontend code where
+Treat RPC endpoints like API keys - do not expose them in frontend code where
 they can be extracted and abused. Use a backend proxy or environment variables
-that aren't bundled into client code, and rotate keys per environment.
+that are not bundled into client code, and rotate keys per environment.
 
 - [QuickNode: Endpoint Security Best Practices](https://www.quicknode.com/guides/quicknode-products/endpoint-security/endpoint-security-best-practices)
 - [Helius: Protect Your Solana API Keys: Security Best Practices](https://www.helius.dev/docs/rpc/protect-your-keys)
@@ -433,7 +429,7 @@ that aren't bundled into client code, and rotate keys per environment.
 
 Track these metrics in production:
 
-| Metric                   | Why                    |
+| Metric                   | Purpose                |
 | ------------------------ | ---------------------- |
 | Transaction success rate | Detect issues early    |
 | Confirmation latency     | Monitor network health |
@@ -450,8 +446,8 @@ Set up alerts for:
 For real-time transaction monitoring at scale, see the
 [Indexing Guide](/docs/payments/accept-payments/indexing).
 
-Monitoring shows whether the system is healthy. Reconciliation shows whether the
-records match chain state.
+Reconciliation, separately from monitoring, checks that the records match chain
+state:
 
 - Record the transaction signature and the commitment level at which you
   accepted it, for every state change that matters.
@@ -468,10 +464,6 @@ Each token mint and each deployed program has a single canonical address on
 mainnet. A spoofed token can carry the same name and symbol as a stablecoin
 under a different mint. Hardcode or allowlist the mint addresses the application
 accepts; never take them from an untrusted source at runtime.
-
-**Environment-based configuration:** devnet and mainnet use different token
-mints. Load the correct addresses per environment, so devnet addresses are not
-shipped to production and mainnet addresses are not used in testing.
 
 Common stablecoin mints on mainnet:
 
@@ -496,8 +488,9 @@ Allowlisting the right addresses protects against spoofed tokens, but it does
 not protect against sending to the wrong _kind_ of account. A recipient address
 can be a wallet, a token account, a mint, or a program, and each requires
 different handling. Native SOL sent to anything other than a wallet leaves the
-sender's control - lost outright for a mint or program, recoverable only by the
-account owner for a token account - with no failed transaction to warn the user.
+sender's control - lost for a program; for a Token-2022 mint, recoverable only
+by its mint authority; for a token account, recoverable only by the account
+owner - with no failed transaction to warn the user.
 
 <Callout type="warn" title="Validate recipients before sending">
   Classify every recipient address before signing a transfer. See [Verify
@@ -513,7 +506,6 @@ account owner for a token account - with no failed transaction to warn the user.
 - [ ] Fallback RPC endpoint configured
 - [ ] Priority fees implemented with dynamic pricing
 - [ ] Retry logic handles blockhash expiration
-- [ ] Confirmation level appropriate for use case
 - [ ] All common errors handled
 - [ ] Fee sponsorship configured, if end users will not hold SOL
 - [ ] Mainnet token addresses verified (not devnet mints)
@@ -532,3 +524,10 @@ account owner for a token account - with no failed transaction to warn the user.
 If the application deploys its own program,
 [Deploying Programs](/docs/programs/deploying) covers program keypairs, buffer
 accounts, upgrade authority, and verified builds.
+
+## Related
+
+- [Settlement and finality](/docs/tokenization/settlement/finality) - which
+  commitment level a system of record should treat as settled
+- [Developer tools](/docs/finance/developer-tools) - tooling for building and
+  operating financial applications
