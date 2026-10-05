@@ -6,7 +6,6 @@ import { Video } from "./blocks/video";
 import { Mermaid } from "./blocks/mermaid";
 import { SafeTweet } from "./safe-tweet";
 import { Gallery } from "./ui/gallery";
-import HeroVideoDialog from "./ui/hero-video-dialog";
 import { Stats } from "./blocks/stats";
 import { DocumentRendererProps } from "@keystatic/core/renderer";
 import { Latex } from "./latex";
@@ -23,12 +22,6 @@ type VideoBlockData = {
   loop?: boolean;
   controls?: boolean;
   muted?: boolean;
-};
-
-type YouTubeBlockData = {
-  videoSrc?: string;
-  thumbnailSrc?: string;
-  thumbnailAlt?: string;
 };
 
 type PostCardBlockData = {
@@ -352,8 +345,6 @@ export const components = {
 
     video: (props: VideoBlockData) => <Video data={props} />,
 
-    youtube: (props: YouTubeBlockData) => <YouTubeBlock {...props} />,
-
     postcard: (props: PostCardBlockData) => <PostCardBlock {...props} />,
 
     tweet: (props: { id: string }) => <SafeTweet id={props.id} />,
@@ -431,7 +422,6 @@ export const components = {
 const CUSTOM_COMPONENT_TAGS = [
   "tweet",
   "video",
-  "youtube",
   "postcard",
   "iframe",
   "gallery",
@@ -468,23 +458,6 @@ export function preprocessMDX(source: string): string {
 const TweetBlock = (props: { id: string }) => <SafeTweet id={props.id} />;
 
 const VideoBlock = (props: VideoBlockData) => <Video data={props} />;
-
-const YouTubeBlock = ({
-  videoSrc,
-  thumbnailSrc,
-  thumbnailAlt,
-}: YouTubeBlockData) => {
-  if (!videoSrc || !thumbnailSrc) return null;
-
-  return (
-    <HeroVideoDialog
-      videoSrc={videoSrc}
-      thumbnailSrc={thumbnailSrc}
-      thumbnailAlt={thumbnailAlt}
-      className="my-6"
-    />
-  );
-};
 
 const PostCardBlock = ({
   slug,
@@ -669,7 +642,6 @@ export const mdxComponents = {
   // Capitalized custom components (resolved by MDX v3 for inline JSX)
   Tweet: TweetBlock,
   Video: VideoBlock,
-  Youtube: YouTubeBlock,
   Postcard: PostCardBlock,
   Iframe: IframeBlock,
   Gallery: GalleryBlock,
