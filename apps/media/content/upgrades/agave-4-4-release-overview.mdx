@@ -1,19 +1,19 @@
 ---
 title: Agave 4.4 Release Overview
 description: >-
-  Agave 4.4 is the release in which Alpenglow activates on mainnet, replacing
-  TowerBFT and cutting finality from 12.8 seconds to a target of about 150ms.
-  It also carries the largest runtime release in years, including block revenue
-  sharing and a constant-cost program entrypoint.
-subtitle: Alpenglow reaches mainnet, alongside the largest runtime release in years
+  Agave 4.4 builds on Alpenglow, which activates in Agave 4.3. Its first
+  activation is fast leader handover, followed by the largest runtime release in
+  years: block revenue sharing, a constant-cost program entrypoint, direct
+  account data mapping, and two new cryptographic syscalls.
+subtitle: Fast leader handover first, then the largest runtime release in years
 publishedAt: 2026-09-27T00:00:00.000Z
 status: published
 author: solana-foundation
 stage: in_development
 release: agave-4-4
 metrics:
-  - value: ~150ms
-    label: Target finality under Alpenglow, down from 12.8 seconds
+  - value: "1st"
+    label: Fast leader handover activates first
   - value: Nov 9
     label: Mainnet feature activation begins (tentative)
   - value: "11"
@@ -26,118 +26,68 @@ tags:
 
 # Agave 4.4 Release Overview
 
-Q4 2026 • Solana Foundation
+**Updated October 2026** • Solana Foundation
 
-Agave 4.4 is the release in which **[Alpenglow](/upgrades/alpenglow) activates
-on mainnet**. It is the largest change to Solana's consensus since launch: the
-network stops running TowerBFT, validators stop voting through transactions, and
-finality drops from 12.8 seconds to a target of roughly 150ms.
+Agave 4.4 is the first release after the consensus switch.
+[Alpenglow](/upgrades/alpenglow) activates on mainnet under
+[Agave 4.3](/upgrades/agave-4-3-release-overview), at epoch 1058, so by the time
+4.4 begins activating features the network is already finalizing blocks in
+roughly 150ms.
 
-Alpenglow is not arriving untested. Its code shipped in
-[Agave 4.3](/upgrades/agave-4-3-release-overview), and it is already running on
-the other two public clusters:
-
-| Cluster | Alpenglow feature activated   | First Alpenglow block |
-| ------- | ----------------------------- | --------------------- |
-| Testnet | September 24, 2026, 17:50 UTC | Slot 444,625,255      |
-| Devnet  | September 25, 2026, 19:40 UTC | Slot 504,148,999      |
-| Mainnet | Not yet — activates with 4.4  | —                     |
-
-The same release also carries the largest set of runtime changes in years: a
+The **first** feature to activate in 4.4 is
+**[fast leader handover](/upgrades/fast-leader-handover)**, Alpenglow's next
+step. It lets an incoming leader start building before the network has
+confirmed its parent, and it can only take effect on a cluster already running
+Alpenglow. After that comes the largest set of runtime changes in years: a
 constant-cost program entrypoint, direct mapping of account data, two new
 cryptographic syscalls, the end of sBPF v0-v2 deployments, and protocol-level
-sharing of block revenue with stakers. They activate on their own feature gates
-and are independent of the Alpenglow consensus switch.
+sharing of block revenue with stakers. Each activates on its own feature gate.
 
 Anza's
 [v4.4 release schedule](https://github.com/anza-xyz/agave/wiki/v4.4-Release-Schedule)
 puts testnet adoption at September 28, 2026, devnet at October 5, and mainnet
 general adoption at **November 2**, with feature activation beginning **November
-9**. The schedule is explicitly tentative and may be modified due to the
-schedule's proximity to [Breakpoint 2026](https://solana.com/breakpoint).
+9**. The schedule is explicitly tentative and every date on it is subject to
+change.
 
-|                                  |                                                                               |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| Expected Mainnet Activation Date | Feature activation from November 9, 2026 (tentative)                          |
-| Mainnet Adoption Recommended     | November 2, 2026 (tentative)                                                  |
-| Devnet Activation                | Alpenglow live since September 25, 2026; runtime features from October 7      |
-| Breaking Change?                 | Yes — the consensus switch, program deployment, and rewards accounting        |
-| Indexing Changes Required?       | Yes — block streaming, commitment levels, vote transactions, and rewards data |
+|                                  |                                                                   |
+| -------------------------------- | ----------------------------------------------------------------- |
+| Expected Mainnet Activation Date | From November 9, 2026 (tentative); fast leader handover first     |
+| Mainnet Adoption Recommended     | November 2, 2026 (tentative)                                      |
+| Devnet Activation                | From October 7, 2026 (tentative)                                  |
+| Breaking Change?                 | Yes — block streaming, program deployment, and rewards accounting |
+| Indexing Changes Required?       | Yes — multiple banks per slot, and validator and staker rewards   |
 
 ## Technical Details
 
-### Alpenglow Activates on Mainnet
+### Fast Leader Handover Activates First
 
-Alpenglow's first phase, **Votor**, replaces TowerBFT. Validators send votes
-directly to each other instead of submitting them as transactions, aggregate
-those votes into BLS certificates, and finalize a block in one or two rounds of
-voting. That is where the finality improvement comes from: a block is final once
-a finalization certificate exists, rather than after 32 slots of stacked votes.
-It tolerates 20% adversarial stake plus a further 20% offline.
+Under Alpenglow, a leader waits for a **parent-ready** signal — the consensus
+pool deciding that a block is an acceptable parent for its slot — before it
+produces. That wait is dead time at every handover between leaders.
+[Fast leader handover](/upgrades/fast-leader-handover) removes it: the leader
+starts building on the parent it expects to be ready, and switches parents
+mid-block if the network resolves differently.
 
-It is defined in
+It is specified in
 [SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0326-alpenglow.md),
-and the feature gate is `A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS`.
-
-<FeatureActivationStatus featureAddress="A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS" />
-
-**Transaction execution does not change.** The SVM, transaction formats,
-programs, and fees are untouched. If your application only sends transactions
-and reads account state, there is nothing to migrate. What changes is how blocks
-are produced, streamed, and finalized, and that reaches anyone reading the chain
-below the level of account state:
-
-- **Streaming consumers.** A slot can carry more than one candidate block, and
-  Geyser tags every event with a `bank_id`. Buffer per `(slot, bank_id)` rather
-  than per slot
-  ([details](/upgrades/alpenglow#breaking-change-one-slot-can-contain-more-than-one-bank)).
-- **RPC consumers.** `confirmed` and `finalized` converge. Move new code to
-  `finalized` — but only once Alpenglow is live on the cluster you are reading,
-  because on TowerBFT `finalized` still means a 12.8-second wait
-  ([details](/upgrades/alpenglow#commitment-levels-confirmed-and-finalized-converge)).
-- **Indexers and dashboards.** Vote transactions leave blocks entirely, so
-  transaction counts and TPS drop sharply with no drop in real activity.
-  Re-baseline before activation, not after
-  ([details](/upgrades/alpenglow#breaking-change-vote-transactions-leave-the-block)).
-- **Anything reading time from the ledger.** Proof of History stops pacing
-  blocks, so tick entries leave the shred stream, and `Clock.unix_timestamp` is
-  set by the leader within a bounded range instead of from a stake-weighted
-  median of vote timestamps
-  ([details](/upgrades/alpenglow#breaking-change-ticks-leave-the-ledger)).
-
-The full, role-by-role list is the
-[Alpenglow migration checklist](/upgrades/alpenglow#migration-checklist). The
-devnet and testnet clusters above are the place to test against it now.
-
-**Validator operators** must have a BLS pubkey registered on their vote account.
-The [Validator Admission Ticket](/upgrades/bls-pubkey-vat) has been enforced on
-mainnet since July 22, 2026, so an operator without one is already outside the
-admitted validator set.
-
-**To tell whether a cluster has migrated**, ask it rather than checking a date or
-a version string. The
-[`getAgGenesisCert`](https://solana.com/docs/rpc/http/getaggenesiscert) RPC
-method returns `null` while a cluster runs TowerBFT and the Alpenglow genesis
-certificate once it has switched. It returns `null` on mainnet today, and a
-certificate on devnet and testnet
-([details](/upgrades/alpenglow#checking-whether-alpenglow-is-active)).
-
-### Alpenglow Fast Leader Handover
-
-**[Fast leader handover](/upgrades/fast-leader-handover)**
-([SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0326-alpenglow.md),
-section 2.7 of the white paper) lets a leader start building on the parent it
-expects to be ready rather than waiting for the network to confirm one, and
-switch parents mid-block if the network resolves differently. It has its own
-gate, `FLHoAWBDjNh6zwmJ5i1NKK4KyD8otAiv7XxvmnFnVnKH`, separate from the
-`alpenglow` consensus gate, and it can only take effect once Alpenglow itself is
-active. The wire encoding for the parent switch — the `BlockHeader` and
+section 2.7 of the Alpenglow white paper, and has its own gate,
+`FLHoAWBDjNh6zwmJ5i1NKK4KyD8otAiv7XxvmnFnVnKH`, separate from the `alpenglow`
+consensus gate. The wire encoding for the parent switch — the `BlockHeader` and
 `UpdateParent` block markers — is specified separately in
 [SIMD-0337](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0337-parent-ready-update-marker.md).
 
-This is what makes more than one bank per slot a routine occurrence rather than
-an equivocation artifact — Anza expects it in under 1% of slots. It is the
-reason the `bank_id` migration above matters even though the case is rare.
+<FeatureActivationStatus featureAddress="FLHoAWBDjNh6zwmJ5i1NKK4KyD8otAiv7XxvmnFnVnKH" />
+
+**This is the 4.4 change streaming consumers must be ready for.** Switching
+parents mid-block produces a new bank, and to Geyser a new bank is a new block.
+Before this, a slot carried two banks only when a leader equivocated; after it,
+Anza expects a second bank in under 1% of slots. Rare, but frequent enough that
+a pipeline keyed on slot alone will eventually fuse two candidate blocks into
+one. The fix is the `bank_id` migration that ships with Alpenglow in 4.3: buffer
+per `(slot, bank_id)` and promote the bank that reaches `Confirmed`
+([details](/upgrades/alpenglow#breaking-change-one-slot-can-contain-more-than-one-bank)).
+Adopt it before this gate activates.
 
 ### Program Performance
 
@@ -223,15 +173,13 @@ continues here with steps 3 through 5 of the five-step cut to
 
 ## About This Upgrade
 
-Agave 4.4 is two releases in one, and they are worth keeping separate in your
-planning.
+Agave 4.4 is two things, and they are worth keeping separate in your planning.
 
-The first is Alpenglow reaching mainnet. It is the headline, and it is the part
-with a hard deadline for anyone reading chain data: streaming pipelines need
-`bank_id`, dashboards need re-baselining for the loss of vote transactions, and
-code tuned to 12.8-second finality needs revisiting. None of it touches
-transaction execution, and testnet and devnet have been running it since late
-September, so there is a live cluster to test against today.
+The first is fast leader handover, which activates first. It is the
+consensus-side follow-up to Alpenglow, invisible to anyone sending transactions
+and consequential for anyone reassembling blocks from a stream: it is what turns
+more than one bank per slot from an equivocation artifact into a routine event.
+The `bank_id` migration it depends on is already available in 4.3.
 
 The second is a runtime release. Program developers get a materially cheaper
 entrypoint and two cryptographic primitives that were previously impractical,
@@ -240,8 +188,7 @@ layout. Validators and stakers get the first protocol-level mechanism for
 sharing block revenue.
 
 Every change activates on its own feature gate. Track them individually rather
-than treating "4.4" as a single switch, confirm Alpenglow with `getAgGenesisCert`
-rather than by version, and read Anza's schedule for current dates — every one of
-them is tentative.
+than treating "4.4" as a single switch, and read Anza's schedule for current
+dates — every one of them is tentative.
 
 **Learn more:** [Solana Upgrades](/upgrades)
