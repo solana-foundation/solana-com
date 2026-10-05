@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   getBlockFull,
   getConfirmedSlot,
+  RpcError,
   txProgramIds,
 } from "@/lib/slot200/rpc";
 import { classifyTx } from "@/lib/slot200/programs";
@@ -14,7 +15,7 @@ export const runtime = "nodejs";
 const BLOCK_CU_LIMIT = 100_000_000;
 const BLOCK_CACHE_REVALIDATE_SECONDS = 30;
 const BLOCK_EDGE_STALE_SECONDS = 60;
-const BLOCK_CACHE_KEY = "slot200-block-v4";
+const BLOCK_CACHE_KEY = "slot200-block-v5";
 const BLOCK_RETRY_COOLDOWN_MS = 30_000;
 const BLOCK_STALE_MAX_AGE_MS = 300_000;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -104,7 +105,16 @@ async function loadBlock(): Promise<BlockPayload> {
   const tip = await getConfirmedSlot();
   // a couple of slots back so the block is reliably available
   let slot = tip - 2;
-  let block = await getBlockFull(slot).catch(() => null);
+  let block = await getBlockFull(slot).catch((error: unknown) => {
+    // A skipped or not-yet-available slot warrants trying an older block.
+    // Provider failures and unsupported transaction versions do not.
+    if (
+      error instanceof RpcError &&
+      [-32004, -32007, -32009, -32014].includes(error.code ?? 0)
+    )
+      return null;
+    throw error;
+  });
   if (!block) {
     slot = tip - 4;
     block = await getBlockFull(slot);
