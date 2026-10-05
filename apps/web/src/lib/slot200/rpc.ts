@@ -141,7 +141,7 @@ export async function getBlockFull(slot: number): Promise<SampledBlock | null> {
       transactionDetails: "full",
       rewards: false,
       commitment: "confirmed",
-      maxSupportedTransactionVersion: 0,
+      maxSupportedTransactionVersion: 1,
     },
   ]);
 }
