@@ -1,8 +1,8 @@
 ---
-title: DvP Program
+title: Delivery vs Payment (DvP) program
 description:
   The Solana DvP program settles an asset leg and a cash leg between two parties
-  in one transaction through program-owned escrow accounts - what it does, how a
+  in one transaction through program-owned escrow accounts. What it does, how a
   trade moves through it, and what it leaves to the parties.
 seoTitle: Solana DvP Program for Atomic Delivery versus Payment
 url: /docs/defi/dvp-program
@@ -13,48 +13,55 @@ related:
   - /docs/tokenization/token-acl
 ---
 
-<Callout type="info" title="Overview">
+The DvP program is the standard program for delivery versus payment on Solana,
+maintained by the Solana Foundation and audited by Cantina. Two parties agree on
+a trade, each sends its leg to an escrow account with an ordinary token
+transfer, and a settlement authority settles both legs in one transaction, so
+either both move or neither does. Neither party writes or deploys a program, and
+a wallet or custodian that can send a `TransferChecked` can fund a leg with no
+DvP-specific integration. Until settlement, either party can take its own leg
+back or unwind the trade.
 
-The DvP program is a standard program maintained by the Solana Foundation. Any
-team can use it to create and settle trades between two parties.
-
-- **No custom integration to fund.** Each party funds its leg with an ordinary
-  token transfer into the trade's escrow account. On a frozen-by-default mint,
-  the issuer admits the escrow first.
-- **Atomic settlement.** The settlement authority signs one transaction that
-  moves both legs. Either both legs settle or neither does.
-- **Unwind before settlement.** Until the trade settles, a depositor can reclaim
-  its leg, and either party or the settlement authority can unwind the trade,
-  subject to the mint's authorities listed under
-  [supported tokens](#supported-tokens).
+<Callout type="warn" title="Read the record before acting on it">
 
 Creating a trade record is permissionless, so a record is not proof of
-agreement: each party reads the stored terms before it deposits, and the
-settlement authority before it settles.
+agreement. Each party reads the stored terms before it funds, and the settlement
+authority before it settles (see
+[verification](#verification-before-funding-and-settlement)).
 
 </Callout>
 
-## Purpose
+## Choosing between the program and delegation
 
-Where both legs of a trade are token accounts on Solana, one transaction can
-move the asset one way and the cash the other, and either both transfers take
-effect or neither does. That is a property of Solana
-[transactions](/docs/core/transactions). The DvP program puts it to use through
-escrow. Each trade gets a program-owned record and two escrow accounts, one per
-leg. A party funds its leg by transferring tokens into the escrow account for
-that leg, so a custodian or treasury system needs no program-specific
-instruction to participate. The settlement authority, a third address named in
-the trade, is the only signer that can settle. Settlement transfers the agreed
-amount of each leg to the other side, refunds any surplus to whoever deposited
-it, and closes the record and both escrows. Until then, a depositor can reclaim
-its own leg, and either party or the authority can unwind the trade.
+[Delivery vs Payment (DvP) using delegation](/docs/tokenization/dvp) settles the
+same exchange without a program: each side delegates its position to a
+settlement agent, which moves both legs in one transaction.
 
-The extensions-only pattern in
-[Delivery vs Payment (DvP) using delegation](/docs/tokenization/dvp) has each
-side delegate its position to a settlement agent. The program uses no
-delegation, so the limit of one delegate per token account does not apply. Each
-trade depends on an upgradeable program and its upgrade authority, and leaves a
-permanent marker account (see [State](#state)).
+- **The program** needs no delegation, so the limit of one delegate per token
+  account does not apply, and the settlement authority cannot redirect proceeds.
+  Each trade depends on an upgradeable program and its upgrade authority.
+- **The delegation pattern** has no program dependency and works with mints that
+  carry Scaled UI Amount. The program rejects those mints, which rules out any
+  mint created from Mosaic's `tokenized-security` template (see
+  [mint configuration constraints](#mint-configuration-constraints)).
+
+## How it works
+
+Each trade gets a program-owned record and two escrow accounts, one per leg. The
+asset-leg party (`user_a`) and the cash-leg party (`user_b`) each fund a leg by
+transferring tokens into the escrow account for that leg. The settlement
+authority, a third address named in the trade, is the only signer that can
+settle. Settlement transfers the agreed amount of each leg to the other side,
+returns any surplus to the party that owns the leg, and closes the record and
+both escrows. The atomicity comes from Solana
+[transactions](/docs/core/transactions): both transfers are in one transaction,
+so either both take effect or neither does.
+
+Every refund, reclaim, and surplus return goes to the party's own associated
+token account: `user_a`'s account for `mint_a`, `user_b`'s for `mint_b`. A
+custodian or treasury system can fund a leg from its own account, but anything
+returned lands in the party's account, not back with the custodian. Each trade
+also leaves a permanent marker account (see [State](#state)).
 
 ## Roles
 
@@ -67,7 +74,7 @@ way.
 
 | Role                 | Who                               | Signs                                              | Notes                                                                                                                                                                                                     |
 | -------------------- | --------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Asset-leg party      | `user_a`, delivers `mint_a`       | Its own funding transfer; Reclaim, Reject, Recover | Must be a system-owned, non-executable account (a wallet, or a smart-wallet PDA that signs via CPI), so that it can sign to recover its funds                                                             |
+| Asset-leg party      | `user_a`, delivers `mint_a`       | Its own funding transfer; Reclaim, Reject, Recover | A keypair wallet, or a PDA-based smart wallet such as a multisig vault. An SPL Token multisig account or a program account cannot be a party: Create fails with `PartyNotSignerCapable`                   |
 | Cash-leg party       | `user_b`, delivers `mint_b`       | Its own funding transfer; Reclaim, Reject, Recover | Same requirement                                                                                                                                                                                          |
 | Settlement authority | A third address named at creation | Settle, Cancel                                     | The only signer that can settle. It cannot redirect proceeds, which are fixed at creation. It receives the rent of the closed accounts when it settles or cancels                                         |
 | Rent payer           | Whoever signs `CreateDvp`         | Create                                             | Funds the rent (the SOL deposit that keeps an account open) for the record, the nonce tombstone, and both escrows. Not recorded as a rent recipient: closed-account rent goes to whoever closes the trade |
@@ -85,7 +92,9 @@ dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq
 
 The program is upgradeable on both clusters. The figures above are what
 `solana program show` reported on 2 October 2026; run the same command for
-current values.
+current values. The devnet build is older than the commit the step pages are
+written against (see [Install](/docs/defi/dvp-program/create-a-trade#install)),
+with the same instruction and error set.
 
 ## Lifecycle
 
@@ -98,8 +107,8 @@ flowchart TD
   G -->|settlement authority| S["SettleDvp<br/>cash to A, asset to B,<br/>surplus refunded, accounts closed"]
   G -->|settlement authority| X["CancelDvp<br/>both legs refunded, accounts closed"]
   G -->|either party| R["RejectDvp<br/>both legs refunded, accounts closed"]
-  FA -.->|depositor, while open| L["ReclaimDvp<br/>own leg back, trade stays open"]
-  S -.->|deposit lands after close| V["RecoverDvp<br/>depositor drains the recreated escrow"]
+  FA -.->|asset-leg party, while open| L["ReclaimDvp<br/>own leg back, trade stays open"]
+  S -.->|escrow recreated and funded after close| V["RecoverDvp<br/>party drains the recreated escrow"]
 ```
 
 A trade is open from `CreateDvp` until one of Settle, Cancel, or Reject closes
@@ -149,14 +158,17 @@ The field list is taken from the program's IDL at the commit named under
 
 ## Instructions
 
-| Instruction  | Signer               | Effect                                                                                                                                                            |
-| ------------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CreateDvp`  | Any payer            | Creates the `SwapDvp` record, its nonce tombstone, and both escrow accounts. Moves no tokens                                                                      |
-| `ReclaimDvp` | `user_a` or `user_b` | Returns the signer's own leg from escrow. The trade stays open and the leg can be funded again                                                                    |
-| `SettleDvp`  | Settlement authority | Transfers `amount_a` to `user_b`'s destination and `amount_b` to `user_a`'s destination, refunds any surplus to its depositor, closes the record and both escrows |
-| `CancelDvp`  | Settlement authority | Refunds whatever each escrow holds to its depositor, closes the record and both escrows                                                                           |
-| `RejectDvp`  | `user_a` or `user_b` | Same effect as Cancel, signed by a party                                                                                                                          |
-| `RecoverDvp` | `user_a` or `user_b` | After the trade is closed: drains a recreated escrow back to the depositor and closes it. Covers a deposit that landed after Settle, Cancel, or Reject            |
+| Instruction  | Signer               | Effect                                                                                                                                                              |
+| ------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CreateDvp`  | Any payer            | Creates the `SwapDvp` record, its nonce tombstone, and both escrow accounts. Moves no tokens                                                                        |
+| `ReclaimDvp` | `user_a` or `user_b` | Returns the signer's own leg from escrow. The trade stays open and the leg can be funded again                                                                      |
+| `SettleDvp`  | Settlement authority | Transfers `amount_a` to `user_b`'s destination and `amount_b` to `user_a`'s destination, returns any surplus to the leg's party, closes the record and both escrows |
+| `CancelDvp`  | Settlement authority | Refunds whatever escrow A holds to `user_a` and escrow B to `user_b`, closes the record and both escrows                                                            |
+| `RejectDvp`  | `user_a` or `user_b` | Same effect as Cancel, signed by a party                                                                                                                            |
+| `RecoverDvp` | `user_a` or `user_b` | After the trade is closed: drains a recreated escrow to the signer's own token account and closes it. Covers a deposit that landed after Settle, Cancel, or Reject  |
+
+Every refund goes to the party's own associated token account for that leg's
+mint, whoever funded the escrow.
 
 Each instruction's accounts and arguments are on the page for that step.
 
@@ -203,12 +215,35 @@ the trade.
 A trade can pair an SPL Token leg with a Token-2022 leg; each leg carries its
 own token program. Wrapped SOL legs are supported.
 
-| Token-2022 extension on a leg's mint                                                     | Program behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TransferFee, InterestBearing, ScaledUiAmount, NonTransferable                            | Rejected at Create and Settle with `BlockedMintExtension`. A transfer fee would leave the receiving side short of the agreed amount. Interest Bearing and Scaled UI Amount do not change raw amounts, but their rate or multiplier can change between creating and settling a trade, which changes how the agreed amounts display. NonTransferable would strand both legs                                                                                                           |
-| PermanentDelegate, Pausable, DefaultAccountState, a freeze authority, MintCloseAuthority | Accepted. Each is an authority that can move, freeze, or halt the escrowed tokens for the life of the trade (see below)                                                                                                                                                                                                                                                                                                                                                             |
-| ConfidentialTransfer                                                                     | Accepted. The escrow cannot be configured to receive confidential transfers, so the escrowed and settled amounts on that leg are public                                                                                                                                                                                                                                                                                                                                             |
-| TransferHook                                                                             | Supported. The client resolves the hook's extra accounts and appends them to Settle, Cancel, Reject, Reclaim, and Recover; up to 32 per leg, counting the hook program and its validation account. If the hook authority enlarges the hook's account list past that cap, every transfer on that leg fails, including Reclaim, Cancel, Reject and Recover, until the authority reverses it. The transaction account limit can bind before the per-leg cap when both legs carry hooks |
+| Token-2022 extension on a leg's mint                                                     | Program behavior                                                  |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| TransferFee, InterestBearing, ScaledUiAmount, NonTransferable                            | Rejected at Create and Settle with `BlockedMintExtension`         |
+| PermanentDelegate, Pausable, DefaultAccountState, a freeze authority, MintCloseAuthority | Accepted; each authority can act on the escrowed tokens           |
+| ConfidentialTransfer                                                                     | Accepted; amounts on that leg are public                          |
+| TransferHook                                                                             | Supported, up to 32 extra accounts per leg                        |
+| MemoTransfer on a destination or refund account                                          | Accepted; the program emits the required memo before the transfer |
+
+A transfer fee would leave the receiving side short of the agreed amount.
+Interest Bearing and Scaled UI Amount do not change raw amounts, but their rate
+or multiplier can change between creating and settling a trade, which changes
+how the agreed amounts display. NonTransferable would strand both legs.
+
+The accepted authorities can move, freeze, or halt the escrowed tokens for the
+life of the trade (see below). The escrow cannot be configured to receive
+confidential transfers, so the escrowed and settled amounts on a confidential
+leg are public.
+
+For a hooked mint, the client resolves the hook's extra accounts and appends
+them to Settle, Cancel, Reject, Reclaim, and Recover. The cap of 32 per leg
+counts the hook program and its validation account. If the hook authority
+enlarges the hook's account list past that cap, every transfer on that leg
+fails, including Reclaim, Cancel, Reject and Recover, until the authority
+reverses it. The transaction account limit can bind before the per-leg cap when
+both legs carry hooks.
+
+When a destination or refund account requires memos, the program calls the Memo
+program before the transfer, which is why every instruction that moves tokens
+out of escrow takes a `memo_program` account.
 
 ### Mint configuration constraints
 
@@ -241,7 +276,7 @@ in the devnet snippets.
   the ledger and one of them records them.
 - No netting, and bilateral only: one record is one trade between two parties.
 - No partial fills. Settle moves exactly the agreed amount of each leg and
-  refunds any surplus to its depositor.
+  returns any surplus to the leg's party.
 - No off-ledger leg. Both legs are token accounts on Solana; a cash leg on
   existing rails settles separately and is reconciled.
 - No eligibility check, allowlist, or KYC. The mint's own controls enforce
@@ -249,17 +284,17 @@ in the devnet snippets.
 - No automatic settlement. The settlement authority has to sign.
 - No events, and no protocol fee beyond transaction fees and rent.
 
-The program removes the exposure of one party delivering before the other. The
-issuer exposure of each token, including the credit, redemption and freeze
-exposure of the cash instrument, the mint authorities under
-[supported tokens](#supported-tokens), and the settlement authority as an
-operational dependency all remain.
+The program removes principal risk between the two parties: neither leg moves
+unless both do. It does not remove issuer credit or redemption risk on either
+token, the ability of a mint's freeze, pause, or permanent delegate authority to
+act on escrowed tokens (see [supported tokens](#supported-tokens)), or the
+dependence on the settlement authority being available to sign.
 
 ## Verification before funding and settlement
 
 `CreateDvp` is permissionless: only the payer signs, and the parties and the
 settlement authority do not. Anyone can therefore create a record naming any
-parties and any terms. Before depositing, and again before settling, read the
+parties and any terms. Before funding, and again before settling, read the
 `SwapDvp` account and confirm:
 
 1. The account is owned by the DvP program and is exactly 458 bytes. An account
@@ -269,21 +304,22 @@ parties and any terms. Before depositing, and again before settling, read the
    agreed trade.
 3. `amount_a`, `amount_b`, `expiry_timestamp`, and
    `earliest_settlement_timestamp` match the agreed terms.
-4. Both settlement destinations are the addresses you expect. A forged record
-   can redirect proceeds.
+4. Both settlement destinations are the agreed addresses. A forged record can
+   redirect proceeds.
 
 [Fund the legs](/docs/defi/dvp-program/fund-the-legs#verify-the-terms) lists the
 generated clients' checked readers and shows the check in code.
 
-Treat a trade as settled when the Settle transaction reaches `finalized`. That
-is a network commitment level; whether it also marks settlement finality for
-legal purposes depends on the parties' agreements and the regimes that apply.
+Treat a trade as settled when the Settle transaction reaches
+[`finalized`](/docs/rpc#configuring-state-commitment). That is a network
+commitment level; whether it also marks settlement finality for legal purposes
+depends on the parties' agreements and the regimes that apply.
 
 ## Versioning
 
 The `SwapDvp` account carries no version field. Its layout is fixed at 458 bytes
 (`SwapDvp::LEN`), and the checked readers reject an account of any other length.
-The IDL carries its own version, `0.1.0` at the time of writing.
+The IDL carries its own version, `0.1.0` as of 2 October 2026.
 
 The program is upgradeable on both clusters (see [Program ID](#program-id)). A
 trade record exists only until it is settled, cancelled, or rejected, so check

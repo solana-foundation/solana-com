@@ -1,7 +1,7 @@
 ---
 title: Settle the Trade
 description:
-  Settle a funded DvP trade as the settlement authority - the four recipient
+  Settle a funded DvP trade as the settlement authority: the four recipient
   accounts that must exist, re-validating the terms, hook accounts, and which
   commitment level to treat as settled.
 seoTitle: Settle a DvP Trade on Solana
@@ -16,19 +16,19 @@ related:
 `SettleDvp` is signed by the settlement authority named in the trade record. In
 one transaction it moves `amount_a` of the asset leg to the cash-leg party's
 destination and `amount_b` of the cash leg to the asset-leg party's destination,
-refunds any surplus in either escrow to whoever deposited it, and closes the
-record and both escrows. If any of those transfers cannot complete, the
-instruction fails and nothing moves.
+returns any surplus in either escrow to the leg's party, and closes the record
+and both escrows. If any of those transfers cannot complete, the instruction
+fails and nothing moves.
 
-This page continues from
-[create a trade](/docs/defi/dvp-program/create-a-trade); the client and signers
-carry over.
+This page continues from [create a trade](/docs/defi/dvp-program/create-a-trade)
+and [fund the legs](/docs/defi/dvp-program/fund-the-legs); the client, signers,
+`trade`, and the parties' token accounts carry over.
 
 ## Re-validate before signing
 
 The settlement authority signs the transaction that moves both legs, so it
-performs the same read as a funder before it signs: owner, size, parties, mints,
-amounts, expiry, and both destinations (see
+performs the same read as each party before it signs: owner, size, parties,
+mints, amounts, expiry, and both destinations (see
 [fund the legs](/docs/defi/dvp-program/fund-the-legs#verify-the-terms)). The
 program itself re-checks at settlement that each mint still belongs to the token
 program recorded at creation, carries no blocked extension, and has the same
@@ -47,10 +47,10 @@ Settle writes to four token accounts that the program does not create:
 | `userAAtaA`            | Any surplus on the asset leg | `user_a`                        |
 | `userBAtaB`            | Any surplus on the cash leg  | `user_b`                        |
 
-The program needs the two surplus accounts only when there is a surplus, but
-anyone holding tokens of that mint can create one by sending a few base units
-into an escrow, and a missing refund account then reverts the whole settlement,
-so create all four idempotently in the same transaction.
+The surplus accounts are only used when an escrow holds more than the agreed
+amount, but anyone holding the mint can create a surplus by sending a few base
+units into the escrow. If the refund account doesn't exist, the whole Settle
+fails, so create all four idempotently in the same transaction.
 
 <Tabs items={["TypeScript", "Rust"]}>
   <Tab value="TypeScript">
@@ -73,16 +73,7 @@ so create all four idempotently in the same transaction.
       owner: destinationB,
       tokenProgram: tokenProgramA,
     });
-    const [userAAtaA] = await findAssociatedTokenPda({
-      mint: mintA,
-      owner: userA,
-      tokenProgram: tokenProgramA,
-    });
-    const [userBAtaB] = await findAssociatedTokenPda({
-      mint: mintB,
-      owner: userB,
-      tokenProgram: tokenProgramB,
-    });
+    // userAAtaA and userBAtaB are from fund the legs.
 
     const createRecipientAccounts = [
       { ata: userADestinationAtaB, owner: destinationA, mint: mintB, tokenProgram: tokenProgramB },
@@ -160,18 +151,19 @@ that require a memo.
       legAExtrasCount: 0,
     });
 
-    const { context } = await client.sendTransaction([
+    const { context: settleContext } = await client.sendTransaction([
       ...createRecipientAccounts,
       settleInstruction,
     ]);
-    console.log("Submitted:", context.signature);
+    const settleSignature = settleContext.signature;
+    console.log("Submitted:", settleSignature);
 
     // sendTransaction returns at the client's commitment (confirmed by default).
     // Wait for finalized before recording the trade as settled.
     for (;;) {
       const {
         value: [status],
-      } = await client.rpc.getSignatureStatuses([context.signature]).send();
+      } = await client.rpc.getSignatureStatuses([settleSignature]).send();
       if (status?.err) {
         throw new Error("Settle transaction failed");
       }
@@ -180,7 +172,7 @@ that require a memo.
       }
       await new Promise((resolve) => setTimeout(resolve, 2_000));
     }
-    console.log("Settled:", context.signature);
+    console.log("Settled:", settleSignature);
     ```
 
   </Tab>
@@ -249,9 +241,12 @@ authority.
 
 `LegNotFunded` means an escrow holds less than its agreed amount; `DvpExpired`
 and `SettlementTooEarly` mean the time window was missed; `MintAuthorityChanged`
-and `BlockedMintExtension` mean a mint changed after creation. In every case
-nothing has moved, and the parties can unwind, subject to the mint's authorities
-(see [unwind a trade](/docs/defi/dvp-program/unwind-a-trade)).
+and `BlockedMintExtension` mean a mint changed after creation;
+`RecipientAtaMismatch` means a destination or refund token account is missing or
+no longer belongs to the expected owner and mint, usually because the
+create-account step above was skipped. In every case nothing has moved, and the
+parties can unwind, subject to the mint's authorities (see
+[unwind a trade](/docs/defi/dvp-program/unwind-a-trade)).
 
 ## Next steps
 

@@ -1,7 +1,7 @@
 ---
 title: Fund the Legs
 description:
-  Verify the stored terms of a DvP trade, then fund your leg with a plain
+  Verify the stored terms of a DvP trade, then fund a leg with a plain
   TransferChecked into its escrow account.
 seoTitle: Fund a DvP Trade on Solana
 url: /docs/defi/dvp-program/fund-the-legs
@@ -13,13 +13,11 @@ related:
   - /docs/defi/dvp-program/unwind-a-trade
 ---
 
-Each party funds its own leg by transferring tokens into the escrow account for
-that leg. There is no funding instruction on the program, so a custodian,
-treasury system, or wallet that can send a token transfer can fund a leg without
-a program-specific instruction; verifying the terms first still requires reading
-the trade record with the program's client. The program checks the escrow
-balances at settlement; nothing checks the transfer at the time it lands, so the
-funder reads the trade record before transferring.
+Funding is a plain `TransferChecked` into the leg's escrow, so any wallet or
+custody system that can send a token transfer can fund a leg. Reading the trade
+record first does use the DvP client. The program checks the escrow balances
+only at settlement; nothing checks the transfer when it lands, so each party
+reads the trade record before transferring.
 
 This page continues from
 [create a trade](/docs/defi/dvp-program/create-a-trade); the client and signers
@@ -71,8 +69,7 @@ done by the caller against the agreed trade.
       throw new Error("Stored terms do not match the agreed trade; do not fund");
     }
 
-    const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
-    if (t.expiryTimestamp <= nowSeconds + 60n) {
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
       throw new Error("Trade expires too soon to fund safely");
     }
     ```
@@ -83,8 +80,13 @@ done by the caller against the agreed trade.
     ```rust
     use dvp_swap_program_client::verify::decode_swap_dvp_account;
     use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
 
-    let rpc = RpcClient::new("https://api.devnet.solana.com".to_string());
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
     let account = rpc.get_account(&swap_dvp)?;
     let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
 
@@ -126,7 +128,7 @@ it yourself, this read confirms it landed as sent.
 ## Transfer into the escrow
 
 Fund the leg at exactly the agreed amount. The program clamps settlement to
-`amount_x` and refunds any surplus to the depositor, so a surplus is not lost,
+`amount_x` and returns any surplus to the leg's party, so a surplus is not lost,
 but it adds a second transfer at settlement and can fail against some transfer
 hooks (see the notes below).
 
@@ -151,6 +153,11 @@ token.
       owner: userA,
       tokenProgram: tokenProgramA,
     });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
 
     const fundAssetLeg = getTransferCheckedInstruction({
       source: userAAtaA,
@@ -164,8 +171,8 @@ token.
     await client.sendTransaction([fundAssetLeg]);
     ```
 
-    The cash-leg party does the same for escrow B with `mintB`, `userB`,
-    `t.amountB`, and `{ programAddress: tokenProgramB }`.
+    The cash-leg party does the same for escrow B with `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB`, and `{ programAddress: tokenProgramB }`.
 
   </Tab>
 
@@ -195,11 +202,11 @@ token.
   </Tab>
 </Tabs>
 
-A funding transfer seen at `confirmed` can still be superseded. The program
-reads the escrow balance onchain at settlement, so a Settle sent against a
-funding transfer that did not land fails with `LegNotFunded` and nothing moves;
-the cost is a failed Settle and a retry. Treat a leg as funded when its transfer
-is `finalized`.
+A funding transfer seen at [`confirmed`](/docs/rpc#configuring-state-commitment)
+can still be superseded. The program reads the escrow balance onchain at
+settlement, so a Settle sent against a funding transfer that did not land fails
+with `LegNotFunded` and nothing moves; the cost is a failed Settle and a retry.
+Treat a leg as funded when its transfer is `finalized`.
 
 ## Notes
 
@@ -216,7 +223,7 @@ is `finalized`.
   accounts with a different destination and amount, which some hooks reject. The
   recovery is Reclaim, re-fund at the exact amount, and settle again.
 - **Funding past expiry.** Nothing stops a transfer after `expiry_timestamp`. It
-  lands, settlement is no longer possible, and the depositor recovers it with
+  lands, settlement is no longer possible, and the leg's party recovers it with
   Reclaim while the trade is open or Recover after it closes. See
   [unwind a trade](/docs/defi/dvp-program/unwind-a-trade).
 - **Who funds first.** The program does not sequence the two legs. The order is

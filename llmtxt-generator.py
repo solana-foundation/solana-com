@@ -103,7 +103,7 @@ CURATED_SECTIONS = {
         ("Exchange Integration", "docs/defi/exchange", "Add Solana deposits and withdrawals to an exchange"),
         ("MEV Protection", "docs/defi/mev-protection", "Protect transactions from sandwich attacks with Jito DontFront"),
         ("Stake-weighted QoS", "docs/defi/stake-weighted-qos", "Prioritize transactions through staked validators"),
-        ("DvP Program", "docs/defi/dvp-program", "Escrowed atomic settlement of an asset leg against a cash leg"),
+        ("Delivery vs Payment (DvP) program", "docs/defi/dvp-program", "Escrowed atomic settlement of an asset leg against a cash leg"),
         ("Create a Trade", "docs/defi/dvp-program/create-a-trade", "Set up the DvP clients and record a trade's terms"),
         ("Fund the Legs", "docs/defi/dvp-program/fund-the-legs", "Verify the stored terms and fund a leg with a plain transfer"),
         ("Settle the Trade", "docs/defi/dvp-program/settle-the-trade", "Settle a funded trade as the settlement authority"),
