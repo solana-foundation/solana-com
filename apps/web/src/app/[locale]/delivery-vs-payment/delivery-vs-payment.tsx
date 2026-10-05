@@ -287,7 +287,7 @@ export function DeliveryVsPaymentPage({
       <section className="border-b border-nd-border-light">
         <Container className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between md:py-8">
           <p className="font-brand-mono text-xs uppercase tracking-[0.16em] text-nd-mid-em-text">
-            In partnership with
+            Input provided by
           </p>
           <div
             className="inline-flex items-center gap-3 text-white"
