@@ -83,9 +83,7 @@ CURATED_SECTIONS = {
     ],
     "Finance": [
         ("Finance on Solana", "docs/finance", "Build tokenized assets, payments, and onchain markets"),
-        ("Privacy", "docs/finance/privacy", "Compare Confidential Balances, Solana Privacy Rings, and Private Channels"),
-        ("Finance Developer Tools", "docs/finance/developer-tools", "Issuance toolkits, client libraries, signing backends, and network infrastructure"),
-        ("Finance AI Development", "docs/finance/ai-development", "Agent frameworks that hold keys and transact on Solana"),
+        ("Privacy", "docs/finance/privacy", "Compare privacy tools for financial applications on Solana"),
     ],
     "Payments": [
         ("Payments Overview", "docs/payments", "Build payment systems with instant settlement"),
