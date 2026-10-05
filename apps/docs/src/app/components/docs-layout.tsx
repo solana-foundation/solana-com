@@ -10,6 +10,7 @@ import { RootProvider } from "fumadocs-ui/provider";
 import { I18nProvider } from "fumadocs-ui/i18n";
 import { getTranslations } from "next-intl/server";
 import { DocsSidebarTogglePortal } from "./docs-sidebar-toggle-portal";
+import { DocsSidebarFolder } from "./docs-sidebar-page-tree";
 import type { PageTree } from "fumadocs-core/server";
 
 function flattenChildlessFolders(nodes: PageTree.Node[]): PageTree.Node[] {
@@ -85,7 +86,7 @@ function CustomSidebar() {
       >
         <SidebarViewport>
           <div className="mt-1">
-            <SidebarPageTree />
+            <SidebarPageTree components={{ Folder: DocsSidebarFolder }} />
           </div>
         </SidebarViewport>
       </CollapsibleSidebar>
