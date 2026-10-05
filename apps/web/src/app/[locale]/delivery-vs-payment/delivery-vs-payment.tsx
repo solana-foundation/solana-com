@@ -538,6 +538,35 @@ export function DeliveryVsPaymentPage({
 
       <section className="border-b border-nd-border-light py-16 md:py-24 xl:py-32">
         <Container>
+          <div className="grid gap-10 md:grid-cols-[0.8fr_1.2fr] md:items-center">
+            <div>
+              <p className={eyebrowClass}>Solana Developer Platform</p>
+              <h2 className="nd-heading-l mt-5 max-w-[610px]">
+                Put DvP to work through SDP.
+              </h2>
+            </div>
+            <div className="border border-nd-border-prominent bg-white/[0.03] p-6 md:p-8">
+              <p className="nd-body-l max-w-[650px] text-nd-mid-em-text">
+                DvP is accessible through the Markets module of Solana Developer
+                Platform (SDP), a one-stop shop for enterprises building on
+                Solana. Its three modules—Issuance, Payments, and Markets—bring
+                asset creation, money movement, and settlement together in one
+                platform.
+              </p>
+              <Link
+                href="/solutions/sdp#use-cases"
+                className="mt-7 inline-flex items-center gap-2 font-brand-mono text-xs uppercase tracking-[0.1em] text-white transition-colors hover:text-nd-highlight-green focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+              >
+                Explore Solana Developer Platform
+                <ArrowUpRight className="!size-4" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      <section className="border-b border-nd-border-light py-16 md:py-24 xl:py-32">
+        <Container>
           <div className="grid gap-10 md:grid-cols-[0.7fr_1.3fr] md:items-center">
             <div>
               <p className={eyebrowClass}>For developers</p>
