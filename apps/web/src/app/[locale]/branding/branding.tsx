@@ -43,7 +43,9 @@ const logos = [
 const banned = [
   { file: "bannedLogos-1.svg", key: "shadow", bg: "bg-[#9945FF]" },
   { file: "bannedLogos-2.png", key: "outline", bg: "bg-[#9945FF]" },
+  { file: "bannedLogos-3.svg", key: "stretch", bg: "bg-white" },
   { file: "bannedLogos-4.svg", key: "blur", bg: "bg-white" },
+  { file: "bannedLogos-5.svg", key: "imagery", bg: "bg-white" },
   { file: "bannedLogos-6.svg", key: "contrast", bg: "bg-[#6D86D1]" },
 ] as const;
 
