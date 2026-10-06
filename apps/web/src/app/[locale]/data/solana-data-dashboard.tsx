@@ -216,6 +216,16 @@ const resourceCards = [
     titleKey: "buildSection.cards.dune.title",
   },
   {
+    analyticsId: "zecoin",
+    backgroundClassName: "scale-[1.08]",
+    backgroundSrc: "/src/img/solutions/sdp/feat-bg-2.webp",
+    ctaKey: "buildSection.cards.zecoin.cta",
+    descriptionKey: "buildSection.cards.zecoin.description",
+    href: "https://www.zecoinart.com/tools",
+    nodeId: "zecoin-data-resource",
+    titleKey: "buildSection.cards.zecoin.title",
+  },
+  {
     analyticsId: "pay-sh",
     backgroundClassName: "-scale-y-100",
     backgroundSrc: "/src/img/solutions/sdp/advantages-visual-bg.webp",
