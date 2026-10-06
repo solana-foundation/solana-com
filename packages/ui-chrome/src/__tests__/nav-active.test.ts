@@ -133,4 +133,11 @@ describe("shared header route matching", () => {
       isNavSectionActive("/changelog", buildSection?.matchRules ?? []),
     ).toBe(true);
   });
+
+  it("keeps the hackathons archive active under Build", () => {
+    expect(buildSection).toBeDefined();
+    expect(
+      isNavSectionActive("/hackathons", buildSection?.matchRules ?? []),
+    ).toBe(true);
+  });
 });
