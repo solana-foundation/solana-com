@@ -87,8 +87,13 @@ export default async function middleware(
 
   // The production Vercel alias is also the web app's rewrite target. Only
   // redirect direct visits: rewritten solana.com requests carry their public
-  // host in x-forwarded-host and must continue to render here.
-  if (getEffectiveOrigin(req).hostname === DOCS_VERCEL_HOST) {
+  // host in x-forwarded-host and must continue to render here. Keep the direct
+  // markdown API here because the web app does not proxy /api/markdown.
+  if (
+    pathname !== MARKDOWN_API_PREFIX &&
+    !pathname.startsWith(`${MARKDOWN_API_PREFIX}/`) &&
+    getEffectiveOrigin(req).hostname === DOCS_VERCEL_HOST
+  ) {
     return NextResponse.redirect(
       new URL(`${pathname}${req.nextUrl.search}`, SOLANA_SITE_ORIGIN),
       308,
