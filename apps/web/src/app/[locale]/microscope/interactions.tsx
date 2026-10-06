@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { SelectionColor } from "@/component-library/selection-color";
+import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 import { useScrollTextHighlight } from "@/hooks/useScrollTextHighlight";
 
 export function PageSelectionColor() {
@@ -18,9 +19,27 @@ export function PageSelectionColor() {
   );
 }
 
+export function HeroScene() {
+  return (
+    <SafeUnicornScene
+      projectId="microscope-hero"
+      className="!absolute inset-0 z-0 !h-full !w-full motion-reduce:hidden"
+      jsonFilePath="/src/img/solutions/defi/hero-bg.json"
+      width="100%"
+      height="100%"
+      scale={1}
+      fps={30}
+      lazyLoad
+      production
+      onError={(error) => console.error("UnicornScene error:", error)}
+    />
+  );
+}
+
 export function Lead({ children }: { children: ReactNode }) {
   const { ref } = useScrollTextHighlight<HTMLParagraphElement>({
-    highlightColor: "rgba(20, 241, 149, 0.3)",
+    // solana-green; the hook paints highlighted text black, so it needs a solid fill.
+    highlightColor: "#14F195",
   });
   return (
     <p
@@ -71,7 +90,7 @@ export function Tabs({
       <div
         role="tablist"
         aria-label={label}
-        className="inline-flex max-w-full gap-1 overflow-x-auto rounded-full border border-white/10 bg-white/[0.06] p-1 font-sans"
+        className="inline-flex max-w-full gap-2 overflow-x-auto font-sans"
       >
         {items.map((item, index) => (
           <button
@@ -87,7 +106,7 @@ export function Tabs({
             tabIndex={selected === index ? 0 : -1}
             onClick={() => setSelected(index)}
             onKeyDown={(event) => onKeyDown(event, index)}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium tracking-[-0.14px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195] md:text-base ${selected === index ? "bg-white text-black" : "text-[#ABABBA] hover:bg-white/10 hover:text-white"}`}
+            className={`h-10 whitespace-nowrap rounded-full px-4 text-base leading-[22px] tracking-[-0.16px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195] ${selected === index ? "!bg-white text-black hover:!bg-[#ececec]" : "!bg-white/[0.08] text-white hover:!bg-white/[0.12]"}`}
           >
             {item.name}
           </button>
@@ -215,7 +234,7 @@ export function DashboardCarousel({ panels }: { panels: Panel[] }) {
           type="button"
           onClick={() => go(selected - 1)}
           aria-label="Previous panel"
-          className="grid size-10 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195]"
+          className="grid size-10 place-items-center rounded-full !bg-white/[0.08] text-white transition-colors hover:!bg-white/[0.12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195]"
         >
           <ChevronLeft pack="filled" className="size-5" aria-hidden="true" />
         </button>
@@ -227,7 +246,7 @@ export function DashboardCarousel({ panels }: { panels: Panel[] }) {
               onClick={() => go(index)}
               aria-label={`Go to panel ${index + 1}`}
               aria-current={selected === index ? "true" : undefined}
-              className={`size-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195] ${selected === index ? "bg-white" : "bg-white/30 hover:bg-white/60"}`}
+              className={`size-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195] ${selected === index ? "!bg-white" : "!bg-white/30 hover:!bg-white/60"}`}
             />
           ))}
         </div>
@@ -235,7 +254,7 @@ export function DashboardCarousel({ panels }: { panels: Panel[] }) {
           type="button"
           onClick={() => go(selected + 1)}
           aria-label="Next panel"
-          className="grid size-10 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195]"
+          className="grid size-10 place-items-center rounded-full !bg-white/[0.08] text-white transition-colors hover:!bg-white/[0.12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195]"
         >
           <ChevronRight pack="filled" className="size-5" aria-hidden="true" />
         </button>

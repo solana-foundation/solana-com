@@ -7,6 +7,7 @@ import { ChevronDown } from "@boxicons/react/ChevronDown";
 import { Divider } from "@/components/solutions/divider.v2";
 import {
   DashboardCarousel,
+  HeroScene,
   Lead,
   PageSelectionColor,
   Tabs,
@@ -27,9 +28,9 @@ const muted = "text-[#ABABBA]";
 const code =
   "rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.85em] text-white";
 const primaryButton =
-  "inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-base font-medium tracking-[-0.16px] text-black no-underline transition-colors hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14f195] md:py-3 md:text-lg md:tracking-[-0.18px]";
+  "inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-base font-medium tracking-[-0.16px] text-black no-underline transition-colors hover:bg-[#ececec] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14f195] md:py-3 md:text-lg md:tracking-[-0.18px]";
 const secondaryButton =
-  "inline-flex items-center gap-2 rounded-full bg-white/10 px-5 py-2.5 text-base font-medium tracking-[-0.16px] text-white no-underline transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14f195] md:py-3 md:text-lg md:tracking-[-0.18px]";
+  "inline-flex items-center gap-2 rounded-full bg-white/[0.08] px-5 py-2.5 text-base font-medium tracking-[-0.16px] text-white no-underline transition-colors hover:bg-white/[0.12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14f195] md:py-3 md:text-lg md:tracking-[-0.18px]";
 
 export async function generateMetadata({
   params,
@@ -857,27 +858,32 @@ export default function MicroscopePage() {
           __html: JSON.stringify(structuredData).replaceAll("<", "\\u003c"),
         }}
       />
-      <header className={`${container} py-[64px] md:py-[112px] xl:py-[160px]`}>
-        <div className="mb-4 flex flex-wrap items-center gap-2 text-base font-medium tracking-[-0.16px] text-[#14f195] md:text-lg xl:mb-6">
-          <span>Developer tools</span>
-          <span className={muted}>/</span>
-          <span>Open source</span>
-        </div>
-        <h1 className="m-0 font-brand text-[40px] font-medium leading-[1.1] tracking-[-1.6px] md:text-[56px] md:leading-none md:tracking-[-2.24px] xl:text-[88px] xl:tracking-[-3.52px]">
-          Microscope
-        </h1>
-        <p className="mb-0 mt-[12px] max-w-xl text-lg leading-[1.33] tracking-[-0.36px] text-[#ABABBA] md:text-2xl md:tracking-[-0.48px] xl:mt-[24px]">
-          Monitoring and alerting for Solana programs.
-        </p>
-        <div className="mt-[32px] flex flex-wrap gap-3 xl:mt-[64px]">
-          <a href={repo} className={primaryButton}>
-            Explore on GitHub
-            <ArrowUpRight pack="filled" aria-hidden className="size-5" />
-          </a>
-          <a href="#how-to-start" className={secondaryButton}>
-            Get started
-            <ArrowRight pack="filled" aria-hidden className="size-5" />
-          </a>
+      <header className="relative overflow-hidden">
+        <HeroScene />
+        <div
+          className={`${container} relative z-10 py-[64px] md:py-[112px] xl:py-[160px]`}
+        >
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-base font-medium tracking-[-0.16px] text-[#14f195] md:text-lg xl:mb-6">
+            <span>Developer tools</span>
+            <span className={muted}>/</span>
+            <span>Open source</span>
+          </div>
+          <h1 className="m-0 font-brand text-[40px] font-medium leading-[1.1] tracking-[-1.6px] md:text-[56px] md:leading-none md:tracking-[-2.24px] xl:text-[88px] xl:tracking-[-3.52px]">
+            Microscope
+          </h1>
+          <p className="mb-0 mt-[12px] max-w-xl text-lg leading-[1.33] tracking-[-0.36px] text-[#ABABBA] md:text-2xl md:tracking-[-0.48px] xl:mt-[24px]">
+            Monitoring and alerting for Solana programs.
+          </p>
+          <div className="mt-[32px] flex flex-wrap gap-3 xl:mt-[64px]">
+            <a href={repo} className={primaryButton}>
+              Explore on GitHub
+              <ArrowUpRight pack="filled" aria-hidden className="size-5" />
+            </a>
+            <a href="#how-to-start" className={secondaryButton}>
+              Get started
+              <ArrowRight pack="filled" aria-hidden className="size-5" />
+            </a>
+          </div>
         </div>
       </header>
 
