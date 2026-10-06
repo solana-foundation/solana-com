@@ -945,6 +945,7 @@ export default {
       destination:
         "https://solana.us17.list-manage.com/subscribe?u=dc5b8a6eb6dc3d737579c03c9&id=4a4784c804",
     },
+    { source: "/hackathons", destination: "/hackathon" },
     { source: "/ignition", destination: "/hackathon" },
     { source: "/solanaszn", destination: "/hackathon" },
     { source: "/wormhole-hackathon", destination: "/hackathon" },
