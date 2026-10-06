@@ -1,0 +1,437 @@
+---
+title: Durable Nonce Migration
+description: >-
+  Durable nonce transactions are being replaced by onchain offline-signer
+  programs that verify a cold key's signature and advance their own nonce,
+  removing nonce special cases from the validator. Anza's Programmatic Signer
+  and Blueshift's Vector both implement this approach. No removal date has been
+  set.
+subtitle: Moving offline signing out of the runtime and into onchain programs
+publishedAt: 2026-10-06T00:00:00.000Z
+status: published
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+metrics:
+  - value: 3.1%
+    label: Of transactions used durable nonces (June 2026)
+  - value: 30%
+    label: Of priority fee revenue came from nonce transactions
+  - value: "2"
+    label: Offline signer programs in development
+additionalResources:
+  - label: "SIMD Discussion #456: Nonce Replacement Meta-Proposal"
+    url: https://github.com/solana-foundation/solana-improvement-documents/discussions/456
+  - label: Anza Programmatic Signer docs
+    url: https://www.solana-program.com/docs/programmatic-signer
+  - label: Blueshift Vector repository
+    url: https://github.com/blueshift-gg/vector
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Durable Nonce Migration
+
+October 2026 • Solana Foundation
+
+A normal Solana transaction includes a recent blockhash and expires after about
+150 slots, roughly one minute. [Durable nonces](https://solana.com/docs/core/transactions/durable-nonces)
+remove that expiry: the transaction uses a value stored in a nonce account in
+place of the blockhash, so it stays valid until someone submits it.
+Exchanges, custodians, and stablecoin issuers rely on this to sign
+transactions on air-gapped machines and in approval flows that take longer than
+a minute.
+
+Durable nonces are being removed from the protocol and replaced by onchain
+**offline signer programs**. The key holder still signs offline, but signs a
+message instead of a transaction. A separate hot fee payer then submits that
+message inside an ordinary blockhash transaction. The program checks the
+signature, consumes its own nonce to prevent replay, and executes the
+authorized instructions through CPI with a PDA as signer.
+
+Two implementations are in development:
+[Anza's Programmatic Signer](https://www.solana-program.com/docs/programmatic-signer)
+and [Blueshift's Vector](https://github.com/blueshift-gg/vector). Durable nonces
+keep working until a replacement is available and there has been enough time
+to migrate. **No removal date has been set.**
+
+**Breaking Changes:**
+
+| If your app                                                                      | Breaking?                        | What you have to do                                                                                                                        |
+| -------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Signs with durable nonces** (custody, exchanges, offline or multi-party flows) | **Yes**, when nonces are removed | Move authorities and funds to an offline signer PDA, and run a hot fee payer to relay. [Learn more](#for-custodians-exchanges-and-issuers) |
+| **Builds offline signing or wallet tooling**                                     | **Yes**, when nonces are removed | Decode and display authorization messages instead of nonce transactions. [Learn more](#for-wallets-and-offline-signing-tools)              |
+| **Restricts callers** with CPI guards, stack-height checks, or introspection     | No                               | Offline signer users reach your program through CPI. Decide whether to allow them. [Learn more](#for-program-developers)                   |
+| **Indexes** transactions or attributes them to signers                           | **Yes**, when users migrate      | The cold key no longer signs the transaction. Track the signer PDA in inner instructions. [Learn more](#for-indexers-and-explorers)        |
+| **Sends** normal blockhash transactions                                          | No                               | Nothing.                                                                                                                                   |
+
+|                                  |                                                                                                           |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Expected Mainnet Activation Date | Not scheduled. Durable nonces stay until a replacement is available and a migration window passes         |
+| Devnet Activation                | Anza Programmatic Signer deployed on Devnet (pre-audit)                                                   |
+| Breaking Change?                 | Yes, for durable nonce users, once nonces are removed                                                     |
+| Indexing Changes Required?       | Yes, for indexers that attribute transactions to their signers                                            |
+| Runtime Changes Required?        | None for the replacement. Both implementations are ordinary programs that work today                      |
+| Discussion                       | [SIMD Discussion #456](https://github.com/solana-foundation/solana-improvement-documents/discussions/456) |
+
+## Why Durable Nonces Are Being Removed
+
+Solana prevents a transaction from running twice with two mechanisms. The
+blockhash ties every transaction to a short window, and the status cache
+remembers every signature seen in that window. A duplicate is rejected, and an
+old transaction is rejected because its blockhash has expired.
+
+A durable nonce transaction skips the blockhash part of this check. The
+validator then has to replace it with special rules: read the nonce account,
+check its stored value, advance it even when the transaction fails, and drop
+the transaction under several edge conditions. This causes four problems:
+
+- **Security bugs.** Nonce handling has caused, in the words of one core
+  developer, "a half-dozen or better outages, stealth patches and lof/loa
+  bounty payouts." Each special case in the runtime is another place for a
+  replay bug.
+- **It blocks asynchronous execution.** With asynchronous execution, a leader
+  adds transactions to a block first and executes them later. Some of them
+  turn out to be invalid, for example because the fee payer cannot cover the
+  fee. They stay in the block but fail without charging a fee or changing any
+  state. A normal transaction like this can never land again, because its
+  signature is already recorded for its blockhash. A nonce transaction can:
+  since nothing changed, its nonce was never advanced, so the exact same
+  transaction is still valid and could land in a later block too. The same
+  transaction would then appear onchain twice. This means Solana could no
+  longer guarantee that every transaction is unique, which explorers, RPCs,
+  and indexers rely on when they use the signature as its ID.
+- **Spam during congestion.** A nonce transaction never expires, so it costs
+  nothing to keep resending it while the network is busy. In June 2026, durable
+  nonces were 3.1% of transactions but 30% of priority fee revenue, and the top
+  555 fee payers (0.5% of them) sent 97.5% of nonce volume
+  ([SIMD Discussion #564](https://github.com/solana-foundation/solana-improvement-documents/discussions/564)).
+- **Costly early filtering.** A bad blockhash can be rejected with a cheap
+  lookup. Whether a nonce transaction is valid depends on account data, so it
+  has to travel further down the pipeline before it can be dropped.
+
+This means durable nonces cost the network more than the feature they provide.
+The replacement keeps the feature and removes the runtime special case.
+
+<DnSignerFlow />
+
+### What the Replacement Must Provide
+
+The [meta-proposal](https://github.com/solana-foundation/solana-improvement-documents/discussions/456)
+set these requirements for any replacement. The signed payload is called an
+_artifact_ below.
+
+| Priority | Requirement                                                                                           |
+| -------- | ----------------------------------------------------------------------------------------------------- |
+| Need     | Artifacts can never be replayed, even when a separate fee payer is charged for a failed attempt       |
+| Need     | Artifacts can be produced offline, for example on an air-gapped machine                               |
+| Need     | Artifacts outlive the normal blockhash window                                                         |
+| Need     | The transaction that carries an artifact uses a normal blockhash and does not depend on account state |
+| Want     | Every message hash stays unique                                                                       |
+| Want     | Transaction details are not exposed onchain before execution                                          |
+| Nice     | Artifacts live indefinitely, or at least for several hours to a few days                              |
+| Nice     | Existing keypairs can stay authorities, without moving to PDAs                                        |
+
+Every proposal assumes a **hot fee payer**. This is the account that pays for
+and submits the carrying transaction. It only needs enough SOL for fees, and it
+can be run by the key holder, a relayer, or an RPC provider. A hot fee payer is
+what lets the carrying transaction use a normal blockhash.
+
+## The Agreed Approach: an Offline Signer Program
+
+After the [discussion](https://github.com/solana-foundation/solana-improvement-documents/discussions/456),
+opened in January 2026, core developers converged on the **CPI
+Passthrough** design proposed by Trent Nelson. It is the only proposal that
+removes nonces from the validator entirely and needs no runtime change.
+
+An offline signer program works like this:
+
+1. The authority's address is replaced by a PDA owned by the program. The PDA
+   becomes the mint authority, stake authority, token owner, or wallet.
+2. The key holder signs a message that lists the instructions to run. The
+   message has no blockhash, so it does not expire.
+3. A hot fee payer puts the message and signature into a normal transaction and
+   submits it.
+4. The program verifies the signature and advances a nonce stored in its own
+   account, so the same message cannot run twice.
+5. The program calls each authorized instruction through CPI and signs for the
+   PDA.
+
+This means the validator only sees ordinary blockhash transactions. Replay
+protection becomes program logic that is small enough to audit independently.
+
+This design accepts some costs. Authorities and funds must move to a PDA, and
+the authorized instructions run as CPIs, not as top-level instructions. Two
+other changes reduce the CPI cost.
+[Increased Transaction Limits](/upgrades/increased-transaction-limits) raises
+the maximum CPI depth from 4 to 8, and
+[Larger Transaction Sizes](/upgrades/larger-transaction-sizes) gives the nested
+payload up to 4096 bytes.
+
+### Proposals Considered
+
+| Proposal                                        | How it works                                                                                                                             | Pros                                                                                                                                       | Cons                                                                                                                                                       |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CPI Passthrough** (Trent Nelson) — **chosen** | An onchain program verifies an offline signature over a list of instructions, consumes its own nonce, and runs them through CPI as a PDA | Removes nonces from the validator completely<br />No runtime change, works today<br />Works with any transaction format                    | Authorities and funds move to a PDA<br />Instructions run as CPIs, so programs that only accept top-level calls reject them<br />Needs new offline tooling |
+| **Transaction Envelopes** (Hana)                | A new transaction format with its own fee payer and blockhash wraps a fully signed legacy nonce transaction                              | Existing nonce transactions still execute<br />Keeps existing keypairs<br />Minimal runtime support, the nonce program validates the nonce | Needs a new transaction format<br />Parses a transaction inside a transaction<br />Keeps nonce logic in the protocol                                       |
+| **Sudo Instruction** (Oliver Chalk)             | A v1 transaction carries a legacy nonce transaction as instruction data, and the validator executes it as if it were top-level           | Existing nonce transactions still execute<br />No new transaction format<br />Inner accounts compress to 1 byte each                       | Large amount of special handling inside the validator<br />Execution traces must be altered to hide the wrapper from RPC and explorers                     |
+| **Signer Promotion**                            | A PDA is promoted to signer for the rest of the transaction after an offline signature check                                             | Later instructions stay top-level                                                                                                          | Similar to CPI Passthrough with no clear advantage<br />No proposal owner                                                                                  |
+| **Epoch-scoped transactions**                   | A transaction names the epoch it may run in, in place of a blockhash, with spam limited by higher fees and bonded fee payers             | Very simple for users                                                                                                                      | Gives up message hash uniqueness<br />Needs new economic rules                                                                                             |
+| **Extended blockhash TTL** (Fireblocks)         | Optional, higher-fee transactions keep their blockhash valid for up to about an hour                                                     | The cold signature is the transaction<br />No relayer for short signing ceremonies<br />Still blockhash-based and expiring                 | Does not cover multi-day signing<br />Larger status cache<br />Raised as a complement, not adopted                                                         |
+| **Tiered blockhashes** (Anchorage Digital)      | Blockhashes from slots divisible by 10, 100, 1000 and more stay valid for longer, from minutes up to about 55 hours                      | Limited, predictable supply of long-lived blockhashes<br />No nonce accounts                                                               | Consensus impact unknown<br />Validators must keep more blockhashes<br />Not adopted                                                                       |
+
+### Concerns Raised by Institutions
+
+Custodians including Fireblocks, Unit 410, and Anchorage Digital preferred
+Transaction Envelopes or Sudo. Their concerns shape how the replacement is
+being built:
+
+- **Authority migration at scale.** Millions of token and stake accounts would
+  need new authorities. A stake account with an active lockup cannot change its
+  withdraw authority until the lockup ends.
+- **Programs that reject CPI.** Flash loans in MarginFi and Kamino, Token-2022's
+  CPI Guard, and Drift's swap checks require top-level instructions. Other
+  builders replied that programs often relax these checks for specific
+  integrations.
+- **A program in the signing path.** Some institutions define cold storage as
+  "no smart contract in the critical signing path." Core developers responded
+  that the program should be small enough for any organization to audit and
+  deploy its own copy.
+- **Artifact lifetime.** Offline signing at Unit 410 always takes longer than 60
+  seconds, and they prefer artifacts that live about a week. Both
+  implementations below have no built-in expiry.
+
+Core developers also confirmed that durable nonces stay in place "until a
+suitable replacement is available and ample time to migrate has passed."
+Fireblocks asked for 6 to 12 months between mainnet availability and removal.
+
+## Technical Details
+
+Both implementations follow the CPI Passthrough design. They differ in what the
+signature covers, how the payload is encoded, and how deep the authorized
+instructions run.
+
+### Anza Programmatic Signer
+
+The [Programmatic Signer](https://www.solana-program.com/docs/programmatic-signer)
+is built by Anza as part of the Solana Program Library
+([source](https://github.com/solana-program/ed25519-programmatic-signer)). It
+splits the job across three programs, each with one responsibility:
+
+| Program                 | Devnet address                                 | Role                                                                                         |
+| ----------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Ed25519 Signer          | `EdSigVfK1DkeMrjFNDMjwfQaJPhPTtX7jW8uPv3oKEgN` | Verifies every authority signature and grants the matching PDAs signer privilege for one CPI |
+| Legacy Message Executor | `ExecxgyHYsAXB4c5dZodV1zJZ9hqfsDCYkRDRATrpkFR` | Checks the execution message against the nonce, advances it, and runs each instruction       |
+| Nonce                   | `Noncediea1fH12usShuQAz28UhgAeuE5Maf32LsMUQB`  | Stores 72-byte nonce accounts, separate from System Program durable nonces                   |
+
+The signer PDA is derived from seeds `["programmatic-signer", authority]` under
+the Ed25519 Signer program. It needs no registration, so it can receive SOL and
+tokens like a regular wallet address before it ever signs. Because no program
+creates an account at this address, it stays a plain System Program account,
+just like a normal wallet. To send SOL out, the authority signs an execution
+message containing an ordinary System Program `Transfer` from the PDA. The
+signer program then signs for the PDA when that transfer runs.
+
+Signature checking is kept separate from execution and replay protection.
+Ed25519 is the first signer program, and other signature schemes can be added
+later as new signer programs that reuse the same executor and nonce programs.
+
+A request is built from three nested layers:
+
+1. **Execution message.** A standard v1 message that lists the instructions to
+   run. Its blockhash field holds the current nonce value.
+2. **Authorization message.** Wraps the execution message with the executor and
+   nonce account. Every required authority signs these bytes.
+3. **Relay transaction.** A normal transaction with a recent blockhash, signed
+   by the relayer, which pays the fee.
+
+Because the payload is a regular v1 message, existing transaction parsers can
+decode and display it. One authorization can require several Ed25519
+authorities, who can sign at different times and in any order. The relayer can
+change the fee payer, the blockhash, and instructions placed before or after
+`Submit`, but it cannot change anything inside the authorization message.
+
+Each nonce advance hashes the current nonce with the SHA-256 of the executed
+message. One authority can control any number of nonce accounts, so several
+messages can be in flight at once.
+
+The `spl-programmatic-signer` CLI covers the offline flow with `address`,
+`nonce create` / `nonce show`, and `transaction sign` / `simulate` / `submit`. A
+JavaScript client is published as `@solana-program/ed25519-programmatic-signer`.
+
+The programs are deployed on Devnet. Audits are still to come before the v1
+release, and interfaces may change.
+
+### Blueshift Vector
+
+[Vector](https://github.com/blueshift-gg/vector) is built by Blueshift. It ships
+one program per signature scheme, and all of them share the same instruction
+set, account layout, and execution model:
+
+| Scheme     | Program ID                                     | Advance cost |
+| ---------- | ---------------------------------------------- | ------------ |
+| Ed25519    | `vectorcLBXJ2TuoKuUygkEi6FWqvBnbHDEDWoYamfjV`  | ~14k CUs     |
+| Secp256k1  | `9NCknbW4LpePSZzbZGFk2HHsSH4y4pkmRjEguJo7qqjd` | ~72k CUs     |
+| EIP-191    | `G6okL1MvXx7k5eytY7wRXNupXyYG1QVZW37ygAjMiTTu` | —            |
+| Falcon-512 | `HdkE3dPYgCRZJgLv64mbFmojyCprUim8VRXzK2wR6Qgm` | ~184k CUs    |
+
+This means a Solana keypair, an Ethereum wallet using `personal_sign`, or a
+post-quantum Falcon-512 key can control a Solana account.
+
+A Vector account is a 33-byte header plus the signer's identity, stored at the
+PDA `["vector", identity]`. Because the account stores the nonce, it is owned
+by the Vector program and not by the System Program. Anyone can send SOL to
+it, but a System Program `Transfer` cannot move SOL out, because only the
+owning program can reduce an account's balance. Vector has two instructions
+for this: `Withdraw` sends a chosen amount and keeps the rent-exempt minimum,
+and `Close` sends everything and deletes the account. Both run inside a
+signed `Passthrough`. The client builds the full transaction, puts the
+current nonce and identity where the signature will go, hashes the resulting
+instruction list with SHA-256, and signs the hash. Onchain, Vector rebuilds the
+same hash from the instructions sysvar and checks the signature.
+
+The signature therefore covers **every top-level instruction in the
+transaction**, not only the Vector ones. A relayer cannot add, remove, or
+reorder instructions without invalidating it. A transaction uses two sibling
+top-level instructions:
+
+- **`Advance`** verifies the signature and stores the hash as the next nonce.
+- **`Passthrough`** runs the embedded instructions through CPI, signing as the
+  Vector PDA. It only runs if an `Advance` for the same PDA appears earlier in
+  the transaction.
+
+Because the hash becomes the next nonce, each nonce depends on the exact
+transaction before it. A batch of dependent transactions can be signed in
+advance and can only execute in order. To cancel, the key holder signs an
+`Advance` with no other instructions, which can be prepared ahead of time. It consumes the nonce, so every signature made against
+that nonce stops working. Vector has no built-in expiry. Instead, the signed
+transaction can include a deadline instruction such as
+[sbpf-asm-timeout](https://github.com/deanmlittle/sbpf-asm-timeout).
+
+Each Vector account holds one outstanding nonce. To have several transactions
+in flight at once, you register several identities. Rust (`vector-core`) and
+TypeScript SDKs build, sign, and verify transactions fully offline. Vector is
+MIT-licensed. The repository does not state an audit status.
+
+<DnCallStacks />
+
+### Programmatic Signer vs. Vector
+
+|                              | Anza Programmatic Signer                                                                         | Blueshift Vector                                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Status                       | Devnet, audits pending before v1                                                                 | Program IDs published, audit status not stated                                                  |
+| Signature schemes            | Ed25519 today. More schemes can be added later as new signer programs                            | Ed25519, secp256k1, EIP-191, Falcon-512                                                         |
+| What the signature covers    | The authorization message only                                                                   | Every top-level instruction in the transaction                                                  |
+| Payload format               | Standard v1 message, readable by existing parsers                                                | Instructions sysvar hash, verified with the Vector SDKs                                         |
+| Relayer may add instructions | Yes, before or after `Submit`                                                                    | No                                                                                              |
+| Signer PDA                   | `["programmatic-signer", authority]`, no setup needed                                            | `["vector", identity]`, created by `Initialize`                                                 |
+| Holding SOL                  | The PDA is a normal System Program account. Send SOL out with a signed System Program `Transfer` | The PDA is owned by the Vector program. Send SOL out with a signed Vector `Withdraw` or `Close` |
+| Replay protection            | Separate nonce account, hash chain over each executed message                                    | Nonce stored in the PDA, hash chain over each executed transaction                              |
+| Concurrent transactions      | Many nonce accounts per authority                                                                | One per identity. Register more identities for more parallel transactions                       |
+| Multiple signers             | Yes, several authorities sign one message                                                        | One identity per account                                                                        |
+| Expiry                       | None built in                                                                                    | None built in. Add a deadline instruction to the signed transaction                             |
+| Where your instructions run  | Stack height 3                                                                                   | Stack height 2                                                                                  |
+| Programs                     | 3 (signer, executor, nonce)                                                                      | 1 per scheme                                                                                    |
+| Tooling                      | `spl-programmatic-signer` CLI, Rust and JS clients                                               | Rust and TypeScript SDKs with offline verification                                              |
+| License                      | Apache-2.0                                                                                       | MIT                                                                                             |
+
+In short, the Programmatic Signer is closer to how durable nonces are used
+today. It starts with Ed25519, uses a payload in the existing message format,
+supports several signers, and lets the relayer adjust the transaction around
+the payload. Vector binds the whole transaction to the signature, supports
+non-Solana and post-quantum keys, and runs the authorized instructions one CPI
+level higher.
+
+## Migration Guide
+
+The migration only applies to workflows that use durable nonces. Normal
+blockhash transactions are unaffected.
+
+<AudienceGroup>
+  <Audience title="For Custodians, Exchanges, and Issuers" summary="Move authorities to a signer PDA and run a hot fee payer.">
+    ### For Custodians, Exchanges, and Issuers
+
+    * **Inventory nonce usage.** List every authority that signs through a
+      durable nonce: mint and freeze authorities, stake and withdraw
+      authorities, token owners, and treasury wallets.
+    * **Derive the signer PDA** for each cold key with the implementation you
+      choose. Under Anza's design the address exists before any setup. Under
+      Vector you create it with `Initialize`.
+    * **Reassign authorities while nonces still work.** Use durable nonce
+      transactions for the migration itself, so cold keys keep their current
+      signing flow. Native SOL has no authority field, so it must be
+      transferred to the new address. Stake accounts with an active lockup
+      cannot change their withdraw authority until the lockup ends.
+    * **Run a hot fee payer or relayer.** It only needs enough SOL for fees.
+      Rotate fee payers between clients if wallet clustering is a concern.
+    * **Test on Devnet now.** Interfaces are pre-audit and may change.
+
+  </Audience>
+
+  <Audience title="For Wallets and Offline Signing Tools" summary="Decode and show what a signer message will do before it is signed.">
+    ### For Wallets and Offline Signing Tools
+
+    * **Support the new payloads.** Anza's execution message is a standard v1
+      message, so a v1-aware decoder can display its instructions. Vector
+      signs a SHA-256 hash of the instruction list. Show the full transaction
+      the hash was computed from, and check it with the SDK's offline verify
+      functions.
+    * **Recognize the program IDs** above and show the user which PDA will
+      sign, alongside the cold key.
+    * **Update to v1 transactions.** The nested payload often needs the
+      4096-byte limit. See [Larger Transaction Sizes](/upgrades/larger-transaction-sizes).
+
+  </Audience>
+
+  <Audience title="For Program Developers" summary="Offline signer users reach your program through CPI.">
+    ### For Program Developers
+
+    Instructions authorized through either program reach yours as a CPI, at
+    stack height 2 (Vector) or 3 (Programmatic Signer). The signer is a PDA,
+    not a keypair. If your program does any of the following, these users are
+    locked out:
+
+    * Asserts `sol_get_stack_height() == TRANSACTION_LEVEL_STACK_HEIGHT`
+    * Requires a top-level instruction through the instructions sysvar, for
+      example for flash loan repayment or signature precompiles
+    * Interacts with Token-2022 accounts that have CPI Guard enabled
+
+    Consider allowing the well-known signer program IDs, or offering an
+    alternative path. The CPI depth increase in
+    [Increased Transaction Limits](/upgrades/increased-transaction-limits)
+    leaves room for your own CPIs at these deeper starting heights.
+
+  </Audience>
+
+  <Audience title="For Indexers and Explorers" summary="The account that acts is a PDA in inner instructions.">
+    ### For Indexers and Explorers
+
+    * **The cold key no longer signs the transaction.** The relayer is the fee
+      payer and signer. The account that acts is the signer PDA, which
+      appears in inner instructions.
+    * **Map signer PDAs back to their authorities.** Anza's PDA is derived
+      from the authority key. Vector's account stores its identity at
+      offset 33.
+    * **Read v1 transactions.** Pass `maxSupportedTransactionVersion: 1` on
+      `getTransaction` and `getBlock`.
+
+  </Audience>
+</AudienceGroup>
+
+## About This Upgrade
+
+Durable nonces solved a real problem, signing slower than a blockhash
+lives, by adding replay rules to the validator. Those rules have caused
+security incidents, block asynchronous execution, and attract spam. The
+replacement solves the same problem with an ordinary onchain program. The
+validator sees only normal blockhash transactions. Offline signers also gain
+features that durable nonces never had, such as Vector's ordered pre-signing,
+one-step cancellation, and support for non-Ed25519 keys.
+
+Durable nonces will keep working until a replacement is audited, available on
+mainnet, and has been live long enough to migrate. This page will be updated
+when a removal timeline is set.
+
+**Learn more:** [Solana Upgrades](/upgrades)
