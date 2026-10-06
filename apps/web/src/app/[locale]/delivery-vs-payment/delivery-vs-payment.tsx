@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Link as LocaleLink } from "@workspace/i18n/routing";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
@@ -27,6 +27,25 @@ const DEMO_STEP_DURATION_MS = 4000;
 
 const eyebrowClass =
   "font-brand-mono text-xs uppercase tracking-[0.2em] text-nd-mid-em-text";
+
+const HeroScene = memo(function HeroScene() {
+  return (
+    <SafeUnicornScene
+      projectId="delivery-vs-payment-hero"
+      className="!absolute inset-0 z-0 !h-full !w-full opacity-[0.82] motion-reduce:hidden"
+      jsonFilePath="/src/img/solutions/defi/hero-bg.json"
+      width="100%"
+      height="100%"
+      scale={1}
+      fps={30}
+      lazyLoad
+      production
+      fallback={null}
+      onError={(error) => console.error("UnicornScene error:", error)}
+    />
+  );
+});
+
 function VirtualTradeLeg({
   leg,
   stage,
@@ -176,6 +195,7 @@ export function DeliveryVsPaymentPage({
   const [stage, setStage] = useState(0);
   const [legProgress, setLegProgress] = useState({ asset: 0, cash: 0 });
   const [run, setRun] = useState(0);
+  const isPlaying = run > 0 && stage < 4;
   const virtualDemoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -244,19 +264,7 @@ export function DeliveryVsPaymentPage({
           className="absolute inset-0 opacity-[0.72] [background:radial-gradient(circle_at_78%_42%,rgba(20,241,149,0.12),transparent_7%),linear-gradient(118deg,transparent_58%,rgba(102,147,247,0.08)_58.1%,transparent_58.4%),linear-gradient(62deg,transparent_69%,rgba(85,233,171,0.08)_69.1%,transparent_69.4%)]"
           aria-hidden="true"
         />
-        <SafeUnicornScene
-          projectId="delivery-vs-payment-hero"
-          className="!absolute inset-0 z-0 !h-full !w-full opacity-[0.82] motion-reduce:hidden"
-          jsonFilePath="/src/img/solutions/defi/hero-bg.json"
-          width="100%"
-          height="100%"
-          scale={1}
-          fps={30}
-          lazyLoad
-          production
-          fallback={null}
-          onError={(error) => console.error("UnicornScene error:", error)}
-        />
+        <HeroScene />
         <div
           className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(90deg,#000_0%,rgba(0,0,0,0.82)_72%,transparent),linear-gradient(0deg,rgba(0,0,0,0.55),transparent_55%)] sm:bg-[linear-gradient(90deg,#000_0%,rgba(0,0,0,0.88)_38%,transparent_76%),linear-gradient(0deg,rgba(0,0,0,0.55),transparent_55%)]"
           aria-hidden="true"
@@ -344,19 +352,18 @@ export function DeliveryVsPaymentPage({
                 </span>
                 <span
                   role="status"
-                  className={`flex items-center gap-2 text-[11px] ${stage === 4 ? "text-nd-highlight-green" : "text-nd-mid-em-text"}`}
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${isPlaying ? "bg-nd-highlight-green/[0.12] text-nd-highlight-green" : stage === 4 ? "text-nd-highlight-green" : "text-nd-mid-em-text"}`}
                 >
                   <span
-                    className={`size-1.5 rounded-full ${stage === 4 ? "bg-nd-highlight-green" : "bg-nd-mid-em-text"}`}
+                    className={`size-2 rounded-full ${isPlaying ? "animate-pulse bg-nd-highlight-green motion-reduce:animate-none" : stage === 4 ? "bg-nd-highlight-green" : "bg-nd-mid-em-text"}`}
                     aria-hidden="true"
                   />
                   {t("virtual.statusLabel", {
-                    status:
-                      stage === 0
-                        ? t("virtual.ready")
-                        : stage === 4
-                          ? t("virtual.settled")
-                          : t("virtual.inProgress"),
+                    status: isPlaying
+                      ? t("virtual.inProgress")
+                      : stage === 4
+                        ? t("virtual.settled")
+                        : t("virtual.ready"),
                   })}
                 </span>
               </div>
@@ -492,11 +499,23 @@ export function DeliveryVsPaymentPage({
                     type="button"
                     size="lg"
                     onClick={play}
+                    disabled={isPlaying}
                     className="h-11 shrink-0 rounded-full !bg-white pl-5 pr-2 !text-black shadow-none hover:!bg-nd-highlight-green hover:!text-black focus-visible:border-nd-highlight-green focus-visible:ring-nd-highlight-green/40 max-sm:w-full"
                   >
-                    {stage === 0 ? t("virtual.start") : t("virtual.replay")}
+                    {isPlaying
+                      ? t("virtual.inProgress")
+                      : stage === 0
+                        ? t("virtual.start")
+                        : t("virtual.replay")}
                     <span className="ml-3 grid size-7 place-items-center rounded-full bg-black text-white">
-                      <ArrowRight className="!size-3.5" aria-hidden="true" />
+                      {isPlaying ? (
+                        <span
+                          className="size-3.5 animate-spin rounded-full border border-white/30 border-t-white motion-reduce:animate-none"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <ArrowRight className="!size-3.5" aria-hidden="true" />
+                      )}
                     </span>
                   </SharedButton>
                 </div>
