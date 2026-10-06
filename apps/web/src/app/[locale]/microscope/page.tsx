@@ -1,27 +1,16 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { Link } from "@workspace/i18n/routing";
-import { ArrowLeft } from "@boxicons/react/ArrowLeft";
+import { getAlternates } from "@workspace/i18n/routing";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { ChevronDown } from "@boxicons/react/ChevronDown";
-import { JsonLd } from "@/components/seo/json-ld";
-import { buildArticleJsonLd } from "@/lib/content-structured-data";
-import { newsPostMetadata } from "@/lib/metadata";
-import { fetchPublishedPostBySlug, readPostBySlug } from "@/lib/post-data";
-import { reader } from "@/lib/reader";
 import { DashboardCarousel, Tabs, type Panel } from "./interactions";
 
-const slug = "solana-microscope";
 const repo = "https://github.com/solana-foundation/solana-microscope";
-const asset =
-  "/uploads/posts/microscope-monitoring-and-alerting-for-solana-programs";
-// The media project's Vercel previews require sign-in; production stays gated
-// by the post status and publish timestamp.
-const canPreviewDraft =
-  process.env.NODE_ENV === "development" ||
-  process.env.VERCEL_ENV === "preview";
+const asset = "/microscope";
+const title = "Microscope: Solana Program Monitoring and Alerting";
+const description =
+  "Monitor Solana program instructions, events, and Squads multisig activity with self-hosted dashboards and alerts. Explore setup options and get started with Microscope.";
 
 const link =
   "text-[#14f195] underline decoration-[#14f195]/50 underline-offset-4 transition-colors hover:text-white focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14f195]";
@@ -36,42 +25,40 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  if (canPreviewDraft) {
-    const publishedPost = await fetchPublishedPostBySlug(slug);
-    if (!publishedPost) {
-      const draft = await readPostBySlug(slug);
-      if (draft) {
-        const title = String(draft.title);
-        const description = String(draft.description ?? "");
-        const canonical = "https://solana.com/news/solana-microscope";
-        const previewOrigin =
-          process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : "https://solana.com";
-        const image = `${previewOrigin}${asset}/social.webp`;
-        return {
-          title,
-          description,
-          alternates: { canonical },
-          openGraph: {
-            title,
-            description,
-            url: canonical,
-            type: "article",
-            images: [{ url: image, width: 1200, height: 630 }],
-          },
-          twitter: {
-            card: "summary_large_image",
-            title,
-            description,
-            images: [image],
-          },
-          robots: { index: false, follow: false },
-        };
-      }
-    }
-  }
-  return newsPostMetadata(slug, locale);
+  const alternates = getAlternates("/microscope", locale);
+  const image = {
+    url: `${asset}/social.webp`,
+    width: 1200,
+    height: 630,
+    alt: title,
+  };
+  return {
+    title,
+    description,
+    keywords: [
+      "Solana program monitoring",
+      "Solana alerting",
+      "Solana Microscope",
+      "Solana observability",
+    ],
+    alternates,
+    openGraph: {
+      title,
+      description,
+      url: alternates.canonical,
+      type: "website",
+      siteName: "Solana",
+      locale,
+      images: [image],
+    },
+    twitter: {
+      card: "summary_large_image",
+      creator: "@solana",
+      title,
+      description,
+      images: [image],
+    },
+  };
 }
 
 function Heading({ id, children }: { id: string; children: ReactNode }) {
@@ -523,7 +510,7 @@ function ConfigReference() {
       <ConfigSection letter="C" title="Datasource" optional>
         <p>
           Leave it out to stream from Yellowstone. Set{" "}
-          <InlineCode>mode = "rpc"</InlineCode> to poll your RPC endpoint
+          <InlineCode>{'mode = "rpc"'}</InlineCode> to poll your RPC endpoint
           instead.
         </p>
       </ConfigSection>
@@ -819,82 +806,62 @@ function Resource({
     </a>
   );
 }
-export default async function MicroscopePage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  const publishedPost = await fetchPublishedPostBySlug(slug);
-  const post =
-    publishedPost ?? (canPreviewDraft ? await readPostBySlug(slug) : null);
-  if (!post) notFound();
-  const author = await reader.collections.authors.read("jo-desormeaux");
-  const title = String(post.title);
-  const structuredData = buildArticleJsonLd({
-    slug,
-    locale,
-    title,
-    description: String(post.description),
-    image: post.heroImage,
-    publishedAt: post.publishedAt,
-    authorName: "Jo Desormeaux",
-    category: "Developers",
-    backPath: "/news",
-    backLabel: "News",
-  });
-  const isDraft = !publishedPost;
+export default function MicroscopePage() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Microscope",
+    description,
+    url: "https://solana.com/microscope",
+    applicationCategory: "DeveloperApplication",
+    codeRepository: repo,
+    license: "https://opensource.org/license/mit",
+  };
 
   return (
     <div className="bg-black font-sans text-[#f7f7fb]">
-      {!isDraft && <JsonLd data={structuredData} />}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replaceAll("<", "\\u003c"),
+        }}
+      />
       <div className="mx-auto max-w-[72rem] px-5 pb-28 sm:px-8">
-        <header className="mx-auto max-w-[72rem] pt-12 pb-14 font-sans sm:pt-20 lg:pb-20">
-          <Link
-            href="/news"
-            className="mb-12 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#14f195] no-underline hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#14f195]"
-          >
-            <ArrowLeft pack="filled" aria-hidden className="size-4" /> News
-          </Link>
+        <header className="mx-auto max-w-[72rem] pt-20 pb-14 font-sans sm:pt-28 lg:pb-20">
           <div className="mb-6 flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#14f195]">
-            {isDraft && (
-              <span className="rounded border border-[#e8b76a] px-2 py-0.5 text-[#e8b76a]">
-                Preview
-              </span>
-            )}
-            <span>Solana Foundation</span>
+            <span>Developer tools</span>
             <span className="text-[#9995a7]">/</span>
-            <span>Engineering</span>
+            <span>Open source</span>
           </div>
           <h1 className="max-w-[65rem] text-balance font-sans text-[clamp(3rem,6.5vw,6.5rem)] font-semibold leading-[0.98] tracking-[-0.055em]">
-            {title}
+            Microscope
           </h1>
+          <p className="mt-6 max-w-[48rem] text-balance text-xl leading-relaxed text-[#d0d0dc] sm:text-2xl">
+            Monitoring and alerting for Solana programs.
+          </p>
           <div
             className="mt-12 h-px w-full bg-gradient-to-r from-[#9945ff] via-[#6844f5] to-[#14f195]"
             aria-hidden
           />
-          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#b4b1c1]">
-            {author?.twitterUrl ? (
-              <a className={link} href={author.twitterUrl} rel="author">
-                Jo Desormeaux
-              </a>
-            ) : (
-              <span>Jo Desormeaux</span>
-            )}
-            {!isDraft && (
-              <time dateTime={post.publishedAt}>
-                {new Intl.DateTimeFormat("en", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                  timeZone: "UTC",
-                }).format(new Date(post.publishedAt))}
-              </time>
-            )}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a
+              href={repo}
+              className="inline-flex items-center gap-2 rounded bg-[#14f195] px-5 py-3 text-sm font-semibold text-black no-underline transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14f195]"
+            >
+              Explore on GitHub
+              <ArrowUpRight pack="filled" aria-hidden className="size-4" />
+            </a>
+            <a
+              href="#how-to-start"
+              className="inline-flex items-center gap-2 rounded border border-white/25 px-5 py-3 text-sm font-semibold text-white no-underline transition-colors hover:border-[#14f195] hover:text-[#14f195] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14f195]"
+            >
+              Get started
+              <ArrowRight pack="filled" aria-hidden className="size-4" />
+            </a>
           </div>
         </header>
 
-        <article className="mx-auto max-w-[48rem] space-y-5 text-[1.04rem] leading-[1.75] text-[#d0d0dc]">
+        <main className="mx-auto max-w-[48rem] space-y-5 text-[1.04rem] leading-[1.75] text-[#d0d0dc]">
           <p className="text-[clamp(1.125rem,2vw,1.375rem)] leading-[1.55] text-white">
             <a className={link} href={repo}>
               Microscope
@@ -1173,7 +1140,7 @@ export default async function MicroscopePage({
               </a>
             </div>
           </div>
-        </article>
+        </main>
       </div>
     </div>
   );

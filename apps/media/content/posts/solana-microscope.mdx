@@ -1,184 +1,38 @@
 ---
-title: "Microscope: Monitoring and Alerting for Solana Programs"
+title: "Introducing Solana Microscope: Program Monitoring and Alerts"
 status: draft
 heroImage: /uploads/posts/microscope-monitoring-and-alerting-for-solana-programs/social.webp
 description: >-
-  Set up self-hosted monitoring and alerting for a Solana program with Microscope.
-  Decode instructions, events and Squads activity, then send alerts to your team.
+  Microscope decodes Solana program and Squads multisig activity into Grafana
+  dashboards and alerts for Slack, Telegram, and PagerDuty.
 author: jo-desormeaux
 publishedAt: 2026-12-31T00:00:00.000Z
 categories:
   - category: developers
 ---
-[Microscope](https://github.com/solana-foundation/solana-microscope) is self-hosted monitoring and alerting for Solana programs, open source under MIT. It watches every instruction your program runs and every event it emits, along with the Squads multisig that controls it, and alerts your team on Slack, Telegram or PagerDuty when something you care about happens. Point it at your program and its IDL, and one config file sets up the dashboards and alert rules.
 
-Confirmed transactions reach Microscope on your server through Yellowstone gRPC or Solana RPC. Microscope decodes them, builds dashboards and evaluates alert rules. One deployment watches one program and, optionally, one multisig. Alerts fire on decoded activity, never on raw log strings.
+When a Solana program is live, its transactions tell a detailed story. An instruction can fail, an event can signal a large transfer, or a multisig can approve a change to the program. Finding the activity that matters, and knowing whether the monitoring pipeline itself is healthy, takes more than a stream of raw logs.
 
-## How to start
+[Microscope](/microscope) is an open-source, self-hosted monitoring and alerting tool for Solana programs. It decodes a program's instructions and events using its IDL, turns that activity into Grafana dashboards, and sends alerts to Slack, Telegram, or PagerDuty. It can also watch the Squads multisig that controls the program. The [source code is available on GitHub](https://github.com/solana-foundation/solana-microscope) under the MIT license.
 
-Clone, pick a setup, write the config, then deploy.
+## From transactions to signals
 
-### 1. Clone the repo
+Microscope reads confirmed transactions through a Yellowstone gRPC stream or a Solana RPC endpoint. Its indexer decodes the instructions and events associated with the program, then sends structured records to Loki and metrics to Prometheus. Grafana uses those records and metrics to show program activity over time and evaluate alert rules. One deployment monitors one program and, optionally, one Squads multisig.
 
-```sh
-git clone https://github.com/solana-foundation/solana-microscope.git
-cd solana-microscope
-```
+That decoded data makes alerts more precise. A team can write a rule for a particular instruction or event, check a field such as an amount, and choose which channel receives the notification. A rule can also watch multisig actions, including proposal approvals. Alerts are based on decoded activity rather than matches against raw log text.
 
-### 2. Choose your setup
+The dashboard gives teams another way to investigate. It shows transaction and instruction error rates, decoded instructions by type, recent program events, and multisig activity. If the datasource uses RPC polling, it also shows polling health. A failed on-chain instruction appears as program activity; it does not mean the indexer failed.
 
-Microscope uses five pieces: an indexer to read and decode transactions, Alloy to ship decoded records, Prometheus to store metrics, Loki to store decoded records, and Grafana for dashboards and alerts.
+## Know when the monitoring pipeline needs attention
 
-| Setup | Indexer | Alloy | Prometheus | Loki | Grafana |
-| --- | --- | --- | --- | --- | --- |
-| Docker Compose, on your machine or one host | Included | Included | Included | Included | Included |
-| Terraform, on an AWS or GCP VM | Included | Included | Included | Included | Included |
-| Grafana Cloud, with your existing stack | Included | Included | Your stack | Your stack | Your stack |
-| Kubernetes reference, with your existing observability | Included | Your stack | Your stack | Your stack | Your stack |
+An empty dashboard can mean a program is quiet, but it can also mean data has stopped flowing. Microscope includes health alerts for its own pipeline, covering conditions such as a stalled stream, stale RPC polls, a corrupt checkpoint, or records that are decoded but do not reach Loki. This helps teams check the monitoring system before drawing conclusions about the program.
 
-### 3. Write the config
+Alerts carry a `signal_kind` label. Activity alerts identify an `instruction`, `event`, or `multisig` action; a `datasource` alert points to a problem with the monitoring pipeline. The project also includes a [diagnosis workflow](https://github.com/solana-foundation/solana-microscope/tree/main/.claude/skills/diagnose-incident) and an [operations guide](https://github.com/solana-foundation/solana-microscope/blob/main/docs/operations.md) for working through incidents.
 
-The repo ships a [`setup-deployment` agent skill](https://github.com/solana-foundation/solana-microscope/blob/main/.claude/skills/setup-deployment/SKILL.md). It asks for each value, derives alert rules from your IDL, writes the files needed for your path and validates them. You can also write the config by hand.
+## Get started with Microscope
 
-`microscope.toml` drives a local deployment. Microscope generates the Grafana dashboard, alert rules, contact points and notification policies from it. On Terraform, the same blocks go in `terraform.tfvars`, and Terraform writes `microscope.toml`.
+Microscope can run as a Docker Compose stack on a machine or server, or on an AWS or GCP VM using Terraform. Teams with Grafana Cloud can connect the indexer and Alloy to an existing stack. The project also provides [Kubernetes reference manifests](https://github.com/solana-foundation/solana-microscope/blob/main/docs/kubernetes.md) for teams already operating their own observability infrastructure.
 
-```toml
-program_id = "<PROGRAM_ID>"
-idl_path = "idl/idl1.json"
+To configure a deployment, provide the program ID and IDL, choose a transaction source, and define the activity that should trigger alerts. A Squads multisig is optional. The repository includes a [`setup-deployment` skill](https://github.com/solana-foundation/solana-microscope/blob/main/.claude/skills/setup-deployment/SKILL.md) to help an AI agent prepare and validate the configuration, along with a [Jupiter Lend walkthrough](https://github.com/solana-foundation/solana-microscope/blob/main/docs/examples/jupiter-lend.md) that demonstrates the stack with a sample set of alerts.
 
-[multisig]
-vault_address = "<SQUADS_DEFAULT_VAULT>"
-state_address = "<SQUADS_STATE_ACCOUNT>"
-version = "v4"
-
-[datasource]
-mode = "rpc"
-
-[dashboard]
-event_fields = ["name", "signature", "slot", "failed", "data.amount"]
-
-[alerting]
-lookback_window_seconds = 60
-evaluation_interval_seconds = 10
-explorer_transaction_url = "https://explorer.solana.com/tx/{signature}"
-
-[[alerts]]
-kind = "event"
-name = "payment_settled"
-conditions = [
-  { field = "data.amount", operator = "gte", value = 1000 },
-  { field = "failed", operator = "eq", value = false },
-]
-severity = "warning"
-channels = ["slack"]
-```
-
-The program ID and IDL select what Microscope decodes. Run `just generate` after changing either; the indexer refuses to start if the config and decoder build disagree. The `[multisig]` block is optional, but its vault, state address and version are required together. Squads v3 uses an `Ms` state account, v4 a `Multisig` account, and v5 a `Settings` account. Watching the state account covers every vault in the multisig. To alert on one vault, add a vault index condition, such as `data.data.args.vault_index` on v4.
-
-Leave out `[datasource]` to stream from Yellowstone; set `mode = "rpc"` to poll RPC instead. Dashboard fields are JSON paths into records; missing fields show as empty cells, while full records remain in Loki. Every record also carries `instruction_index`, `instruction_path` and `stack_height`. Evaluation intervals must be multiples of ten seconds. Add `?cluster=devnet` to `explorer_transaction_url` for a devnet deployment.
-
-Each `[[alerts]]` block is one rule. `kind` is `event`, `instruction` or `multisig`; `name` must be a snake_case IDL instruction or event, or a Squads action such as `proposal_approved`. `match` combines conditions with `all` (the default) or `any`. Condition operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains` and `exists`. Severities are `critical`, `error`, `warning` and `info`. Channels are `slack`, `telegram` and `pagerduty`; an empty channel list evaluates the rule without sending a notification.
-
-Take care with these conditions:
-
-- `exists` does not match missing, null or empty string values.
-- `ne` needs the field to be present.
-- Quote integers above 2^53; Loki compares numbers as float64.
-- Multisig alerts fire only on successful activity, and a `failed` condition is rejected.
-- `multisig_created` and `program_*` actions pass validation but reference no state account, so they cannot fire.
-
-After editing, run `just up` again. Grafana reads alert rules at startup; a plain `docker compose up` can leave a running stack on old rules.
-
-### 4. Deploy
-
-For local Docker Compose:
-
-```sh
-cp microscope.toml.example microscope.toml
-# add your endpoint and channel credentials to .env
-just up
-```
-
-Grafana opens at `localhost:3000`.
-
-For AWS or GCP with Terraform:
-
-```sh
-cd infra/aws                # or infra/gcp
-cp terraform.tfvars.example terraform.tfvars
-terraform init              # GCP: add -backend-config for its state bucket
-terraform plan
-terraform apply
-```
-
-The whole config lives in `terraform.tfvars`; reach Grafana through the `grafana_tunnel` output over AWS SSM or GCP IAP.
-
-For Grafana Cloud:
-
-```sh
-# add GRAFANA_CLOUD_* and MICROSCOPE_DEPLOYMENT to .env
-docker compose -f docker-compose.yml -f docker-compose.cloud.yml up -d
-RPC_URL=<endpoint> ./scripts/export-grafana-cloud.sh <deployment> <folder-uid>
-```
-
-Only the indexer and Alloy run locally. Import the exported dashboard and alert rules into your stack. Terraform can also target Grafana Cloud. For Kubernetes, use the [reference manifests](https://github.com/solana-foundation/solana-microscope/blob/main/docs/kubernetes.md) beside observability you already operate.
-
-## What you'll see
-
-The generated dashboard shows transaction and instruction error rates, decoded instructions by type, seconds since the last decoded activity, indexer liveness, Squads multisig activity, decoded event and multisig tables, and RPC polling health when polling runs. A failed on-chain instruction is not an indexer error. "Not Found" in a configured event table column means the record has no such field.
-
-![Transactions per second and on-chain errors per second](/uploads/posts/microscope-monitoring-and-alerting-for-solana-programs/panel-1-rates.webp)
-![Instructions by type](/uploads/posts/microscope-monitoring-and-alerting-for-solana-programs/panel-2-instructions.webp)
-![Seconds since last decoded activity and indexer status](/uploads/posts/microscope-monitoring-and-alerting-for-solana-programs/panel-3-liveness.webp)
-![Squads multisig activity](/uploads/posts/microscope-monitoring-and-alerting-for-solana-programs/panel-4-squads.webp)
-![Decoded program events](/uploads/posts/microscope-monitoring-and-alerting-for-solana-programs/panel-5-events.webp)
-![Squads multisig activity details](/uploads/posts/microscope-monitoring-and-alerting-for-solana-programs/panel-6-squads-details.webp)
-![RPC polling health](/uploads/posts/microscope-monitoring-and-alerting-for-solana-programs/panel-7-rpc-health.webp)
-
-Every alert carries a `signal_kind` label. `datasource` means the monitoring pipeline is degraded; `instruction`, `event` or `multisig` identifies decoded activity. `DatasourceError` means Grafana could not run the rule's query, not that your RPC endpoint is down.
-
-## Try it today
-
-The [Jupiter Lend walkthrough](https://github.com/solana-foundation/solana-microscope/blob/main/docs/examples/jupiter-lend.md) takes about ten minutes with Docker and a Yellowstone endpoint. It decodes deposits, withdrawals, redemptions and rebalances, adds critical alerts for two instructions that change program control, and warns when its Squads v4 multisig creates a proposal. At the end, swap three values to point it at your own program.
-
-This is a teaching example. The Solana Foundation does not operate the deployment, monitor Jupiter Lend on anyone's behalf, or claim affiliation with or endorsement by Jupiter.
-
-## FAQ
-
-### How do I backfill history?
-
-The indexer sees activity only from when it starts. With the stack running, use `RPC_URL=https://your-rpc-endpoint just backfill 7d` to load earlier activity from RPC. It crawls your program and multisig state account with `getSignaturesForAddress`, decodes through the same pipeline and backdates records to block time. Backfilled records never trigger alerts and Prometheus metrics are not backfilled. A failure aborts before anything is written. Windows accept `s`, `m`, `h`, `d` and `w` and cannot exceed Loki retention, 30 days in the bundled config. On Grafana Cloud, push through Alloy and add `--loki-url http://alloy:3100 --loki-max-age 30d`.
-
-### What does it cost to run?
-
-About $50 a month on AWS or GCP for the VM, disk and public IPv4 address, plus your Yellowstone or RPC endpoint. Buckets and secrets cost cents. The stack needs 2 vCPUs, 4 GiB RAM and 40 GiB disk; the first-boot Rust build sets that floor.
-
-### Can I watch more than one program?
-
-Yes, with one deployment per program because each decoder is built from that program's IDL. Each deployment can also watch one Squads multisig. The Terraform modules can run several deployments from the same directory.
-
-### Do I need a Squads multisig?
-
-No. Leave out `[multisig]` to monitor the program only.
-
-### An alert fired. How do I investigate?
-
-The `signal_kind` label tells you whether the pipeline is degraded (`datasource`) or the program performed a watched instruction, event or multisig action. The repo's `diagnose-incident` agent skill classifies the alert, checks upstream alerts, confirms the cause against live metrics and logs, assesses data loss, suggests a runbook fix and writes an incident report. Investigation is read-only and never reads values from `.env`; deployment changes wait for confirmation.
-
-### My dashboard is empty. Is my program quiet, or is Microscope broken?
-
-Every deployment gets health alerts for a stalled stream, stale or failing RPC polls, a corrupt checkpoint and log delivery. Check those alerts and the `Indexer up` panel before concluding the program is quiet.
-
-### Does it work on devnet?
-
-Yes. Point your endpoint at devnet and add `?cluster=devnet` to `explorer_transaction_url`.
-
-### Can I add another alert channel?
-
-Slack, Telegram and PagerDuty are supported. Microscope is open source; see [CONTRIBUTING.md](https://github.com/solana-foundation/solana-microscope/blob/main/CONTRIBUTING.md) to build another channel and contribute upstream.
-
-## Resources
-
-Microscope: [repository](https://github.com/solana-foundation/solana-microscope), [operations guide](https://github.com/solana-foundation/solana-microscope/blob/main/docs/operations.md), [Jupiter Lend walkthrough](https://github.com/solana-foundation/solana-microscope/blob/main/docs/examples/jupiter-lend.md), [Kubernetes reference](https://github.com/solana-foundation/solana-microscope/blob/main/docs/kubernetes.md).
-
-Built on [Carbon](https://github.com/sevenlabs-hq/carbon), [Yellowstone gRPC](https://github.com/rpcpool/yellowstone-grpc), [Prometheus](https://github.com/prometheus/prometheus), [Loki](https://github.com/grafana/loki), [Alloy](https://github.com/grafana/alloy), [Grafana](https://github.com/grafana/grafana), and pinned Squads IDLs: [v4](https://github.com/Squads-Protocol/v4), [Smart Account / v5](https://github.com/Squads-Protocol/smart-account-program), and [v3 (archived)](https://github.com/Squads-Protocol/squads-mpl).
+Explore the [Microscope product page](/microscope) for the deployment options, dashboard examples, and a closer look at its alert configuration. The [GitHub repository](https://github.com/solana-foundation/solana-microscope) has the code and installation instructions.
