@@ -32,6 +32,8 @@ and docs-specific UI.
 ## Content Ownership
 
 - `content/docs/*`: core docs by locale
+- `content/docs/*/video-guides/*`: video tutorials served from
+  `/docs/video-guides`
 - `content/cookbook/*`: recipe-style content
 - `content/learn/*`: general learning content
 - `content/developers-learn/*`: developer bootcamp and companion content
@@ -59,3 +61,5 @@ stale.
   `packages/ui-chrome` and `packages/i18n` too
 - Content-heavy changes may require checking both MDX sources and the Fumadocs
   source config
+- Moved docs routes need matching redirects for both the page and its `.md`
+  variant in `next.config.ts`
