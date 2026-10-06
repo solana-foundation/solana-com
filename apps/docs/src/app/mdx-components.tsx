@@ -152,7 +152,7 @@ function ThemedDiagram({
   const lightSrc = src.replace(/\.svg$/, "-light.svg");
 
   return (
-    <figure className={`not-prose mt-5 mb-8 ${className}`}>
+    <span className={`not-prose mt-5 mb-8 block ${className}`}>
       <img
         {...props}
         src={lightSrc}
@@ -170,11 +170,11 @@ function ThemedDiagram({
         loading="lazy"
       />
       {showCaption && alt ? (
-        <figcaption className="mt-2 text-center text-sm text-fd-muted-foreground">
+        <span className="mt-2 block text-center text-sm text-fd-muted-foreground">
           {alt}
-        </figcaption>
+        </span>
       ) : null}
-    </figure>
+    </span>
   );
 }
 
