@@ -17,6 +17,11 @@ const slug = "solana-microscope";
 const repo = "https://github.com/solana-foundation/solana-microscope";
 const asset =
   "/uploads/posts/microscope-monitoring-and-alerting-for-solana-programs";
+// The media project's Vercel previews require sign-in; production stays gated
+// by the post status and publish timestamp.
+const canPreviewDraft =
+  process.env.NODE_ENV === "development" ||
+  process.env.VERCEL_ENV === "preview";
 
 const link =
   "text-[#14f195] underline decoration-[#14f195]/50 underline-offset-4 transition-colors hover:text-white focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14f195]";
@@ -31,7 +36,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  if (process.env.NODE_ENV === "development") {
+  if (canPreviewDraft) {
     const publishedPost = await fetchPublishedPostBySlug(slug);
     if (!publishedPost) {
       const draft = await readPostBySlug(slug);
@@ -818,10 +823,7 @@ export default async function MicroscopePage({
   const { locale } = await params;
   const publishedPost = await fetchPublishedPostBySlug(slug);
   const post =
-    publishedPost ??
-    (process.env.NODE_ENV === "development"
-      ? await readPostBySlug(slug)
-      : null);
+    publishedPost ?? (canPreviewDraft ? await readPostBySlug(slug) : null);
   if (!post) notFound();
   const author = await reader.collections.authors.read("jo-desormeaux");
   const title = String(post.title);
