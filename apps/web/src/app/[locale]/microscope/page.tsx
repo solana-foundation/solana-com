@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { getAlternates } from "@workspace/i18n/routing";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { ChevronDown } from "@boxicons/react/ChevronDown";
 import { Divider } from "@/components/solutions/divider.v2";
+import { fetchSolutionNews } from "@/lib/media/solution-news";
 import {
   DashboardCarousel,
   HeroScene,
@@ -19,6 +21,8 @@ const asset = "/microscope";
 const title = "Microscope: Solana Program Monitoring and Alerting";
 const description =
   "Monitor Solana program instructions, events, and Squads multisig activity with self-hosted dashboards and alerts. Explore setup options and get started with Microscope.";
+
+export const revalidate = 300;
 
 const container = "mx-auto max-w-[1440px] px-[20px] md:px-[32px] xl:px-[40px]";
 const link =
@@ -837,7 +841,13 @@ function Resource({
     </a>
   );
 }
-export default function MicroscopePage() {
+export default async function MicroscopePage() {
+  const relatedArticles = await fetchSolutionNews({
+    categories: ["developers"],
+    includeLinks: false,
+    limit: 4,
+  });
+
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -860,6 +870,10 @@ export default function MicroscopePage() {
       />
       <header className="relative overflow-hidden">
         <HeroScene />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[120px] bg-gradient-to-b from-transparent to-black md:h-[200px] xl:h-[260px]"
+        />
         <div
           className={`${container} relative z-10 py-[64px] md:py-[112px] xl:py-[160px]`}
         >
@@ -1183,6 +1197,39 @@ export default function MicroscopePage() {
             </div>
           </div>
         </Section>
+        {relatedArticles.length > 0 && (
+          <Section id="related-articles" title="Related developer articles">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {relatedArticles.map((article) => (
+                <a
+                  key={article.id}
+                  href={article.link}
+                  className={`${card} group block overflow-hidden text-white no-underline transition-colors hover:bg-white/[0.08] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14f195]`}
+                >
+                  <div className="relative aspect-video overflow-hidden">
+                    <Image
+                      src={article.image}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1280px) 320px, (min-width: 768px) 50vw, 100vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="flex items-start justify-between gap-4 p-5">
+                    <h3 className="m-0 font-brand text-lg font-medium leading-snug tracking-[-0.36px] md:text-xl">
+                      {article.title}
+                    </h3>
+                    <ArrowUpRight
+                      pack="filled"
+                      aria-hidden
+                      className="mt-0.5 size-5 shrink-0 text-[#14f195]"
+                    />
+                  </div>
+                </a>
+              ))}
+            </div>
+          </Section>
+        )}
       </main>
     </div>
   );
