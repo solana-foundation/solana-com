@@ -53,7 +53,7 @@ CURATED_SECTIONS = {
         ("Asset Issuance & Tokenization", "docs/tokenization", "Issue and operate tokenized assets on Solana"),
         ("Tokenization Quickstart", "docs/tokenization/quickstart", "Launch a compliance-ready Token-2022 mint"),
         ("Token ACL", "docs/tokenization/token-acl", "Build permissioned tokens with allow and block lists"),
-        ("Delivery vs Payment", "docs/tokenization/dvp", "Settle tokenized assets and payments atomically"),
+        ("Delivery vs Payment using delegation", "docs/tokenization/dvp", "Settle tokenized assets and payments atomically through delegated authority"),
         ("NAV Strikes", "docs/tokenization/nav-strikes", "Implement subscriptions and redemptions for tokenized funds"),
     ],
     "Frontend": [
@@ -101,6 +101,11 @@ CURATED_SECTIONS = {
         ("Exchange Integration", "docs/defi/exchange", "Add Solana deposits and withdrawals to an exchange"),
         ("MEV Protection", "docs/defi/mev-protection", "Protect transactions from sandwich attacks with Jito DontFront"),
         ("Stake-weighted QoS", "docs/defi/stake-weighted-qos", "Prioritize transactions through staked validators"),
+        ("Delivery vs Payment (DvP) program", "docs/defi/dvp-program", "Escrowed atomic settlement of an asset leg against a cash leg"),
+        ("Create a Trade", "docs/defi/dvp-program/create-a-trade", "Set up the DvP clients and record a trade's terms"),
+        ("Fund the Legs", "docs/defi/dvp-program/fund-the-legs", "Verify the stored terms and fund a leg with a plain transfer"),
+        ("Settle the Trade", "docs/defi/dvp-program/settle-the-trade", "Settle a funded trade as the settlement authority"),
+        ("Unwind a Trade", "docs/defi/dvp-program/unwind-a-trade", "Reclaim, cancel, reject, and recover late deposits"),
     ],
     "Tools": [
         ("Tools", "docs/tools", "Developer tool documentation"),
