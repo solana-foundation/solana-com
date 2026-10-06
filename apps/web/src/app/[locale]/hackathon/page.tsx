@@ -1,9 +1,11 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@workspace/i18n/server";
+import { getAlternates } from "@workspace/i18n/routing";
+import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 import { Container } from "@/component-library/container";
 import { Link } from "@/utils/Link";
-import { getIndexMetadata } from "@/app/metadata";
 import frontierImg from "@@/assets/hackathon/past-hackathons/frontier.png";
 import cypherpunkImg from "@@/assets/hackathon/past-hackathons/cypherpunk.png";
 import breakoutImg from "@@/assets/hackathon/past-hackathons/breakout.png";
@@ -20,6 +22,7 @@ import inauguralImg from "@@/assets/hackathon/past-hackathons/inaugural.png";
 
 type Props = { params: Promise<{ locale: string }> };
 
+// Dates mark the start of each hackathon, not the winners announcement.
 const archive = [
   {
     key: "frontier",
@@ -47,65 +50,69 @@ const archive = [
   },
   {
     key: "renaissance",
-    date: "2024-05-01",
+    date: "2024-03-04",
     image: renaissanceImg,
     href: "/news/solana-renaissance-winners",
   },
   {
     key: "hyperdrive",
-    date: "2023-11-01",
+    date: "2023-09-06",
     image: hyperdriveImg,
     href: "/news/solana-hyperdrive-hackathon-winners",
   },
   {
     key: "grizzlython",
-    date: "2023-02-01",
+    date: "2023-02-02",
     image: grizzlythonImg,
     href: "/news/solana-grizzlython-winners",
   },
   {
     key: "summercamp",
-    date: "2022-07-01",
+    date: "2022-07-11",
     image: summercampImg,
     href: "/news/solana-summer-camp-winners",
   },
   {
     key: "riptide",
-    date: "2022-02-01",
+    date: "2022-02-02",
     image: riptideImg,
     href: "/news/riptide-hackathon-winners-solana",
   },
   {
     key: "ignition",
-    date: "2021-09-01",
+    date: "2021-08-31",
     image: ignitionImg,
     href: "/news/solana-ignition-hackathon-winners",
   },
   {
     key: "season",
-    date: "2021-05-01",
+    date: "2021-05-15",
     image: seasonImg,
     href: "/news/announcing-winners-of-the-solana-season-hackathon",
   },
   {
     key: "defi",
-    date: "2021-02-01",
+    date: "2021-02-15",
     image: defiImg,
     href: "/news/winners-of-the-solana-x-serum-defi-hackathon",
   },
   {
     key: "inaugural",
-    date: "2020-11-01",
+    date: "2020-10-28",
     image: inauguralImg,
     href: "/news/announcing-the-winners-of-solana-s-inaugural-hackathon",
   },
 ] as const;
 
 const years = [...new Set(archive.map(({ date }) => date.slice(0, 4)))];
+const yearRange = {
+  startYear: years.at(-1)!,
+  endYear: years[0],
+};
 
 export default async function Page({ params }: Props) {
   const { locale } = await params;
-  const t = await getTranslations();
+  const t = await getTranslations({ locale });
   const dateFormatter = new Intl.DateTimeFormat(locale, {
     month: "long",
     year: "numeric",
@@ -121,7 +128,7 @@ export default async function Page({ params }: Props) {
         <Container className="grid gap-12 py-16 md:py-24 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.8fr)] xl:gap-16 xl:py-32">
           <div className="flex flex-col justify-center">
             <p className="mb-6 font-brand-mono text-xs uppercase tracking-[0.16em] text-nd-highlight-lavendar md:text-sm">
-              {t("hackathon.archive.eyebrow")}
+              {t("hackathon.archive.eyebrow", yearRange)}
             </p>
             <h1 id="hackathon-title" className="nd-heading-2xl max-w-[850px]">
               {t("hackathon.archive.title")}
@@ -170,7 +177,7 @@ export default async function Page({ params }: Props) {
             </h2>
           </div>
           <p className="nd-body-xl max-w-[690px] self-end text-nd-mid-em-text">
-            {t("hackathon.archive.primerDescription")}
+            {t("hackathon.archive.primerDescription", yearRange)}
           </p>
         </Container>
       </section>
@@ -179,7 +186,7 @@ export default async function Page({ params }: Props) {
         <Container className="py-16 md:py-24">
           <div className="mb-12 max-w-[680px] md:mb-16">
             <p className="mb-4 font-brand-mono text-xs uppercase tracking-[0.16em] text-nd-highlight-lavendar md:text-sm">
-              {t("hackathon.archive.listEyebrow")}
+              {t("hackathon.archive.listEyebrow", yearRange)}
             </p>
             <h2 id="archive-title" className="nd-heading-l">
               {t("hackathon.archive.listTitle")}
@@ -273,12 +280,33 @@ export default async function Page({ params }: Props) {
   );
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  return getIndexMetadata({
-    titleKey: "hackathon.archive.metaTitle",
-    descriptionKey: "hackathon.archive.metaDescription",
-    path: "/hackathon",
-    locale,
-  });
+  const t = await getTranslations({ locale, namespace: "hackathon.archive" });
+  const title = t("metaTitle");
+  const description = t("metaDescription", yearRange);
+  const alternates = getAlternates("/hackathon", locale);
+  const socialImage = createDefaultSocialImage(title);
+
+  return {
+    title,
+    description,
+    alternates,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: alternates.canonical,
+      siteName: "Solana",
+      locale,
+      images: [socialImage],
+    },
+    twitter: {
+      card: "summary_large_image",
+      creator: "@solana",
+      title,
+      description,
+      images: [socialImage],
+    },
+  };
 }
