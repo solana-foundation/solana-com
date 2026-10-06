@@ -621,14 +621,25 @@ export function DeliveryVsPaymentPage({
               <p className="nd-body-l mt-5 max-w-[650px] text-nd-mid-em-text">
                 {t("developers.description")}
               </p>
-              <ChromeLink
-                href="/docs/defi/dvp-program"
-                hrefLang="en"
-                className="mt-7 inline-flex items-center gap-2 font-brand-mono text-xs uppercase tracking-[0.1em] text-white transition-colors hover:text-nd-highlight-green focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-              >
-                {t("developers.cta")}
-                <ArrowUpRight className="!size-4" aria-hidden="true" />
-              </ChromeLink>
+              <div className="mt-7 flex flex-wrap gap-x-8 gap-y-4">
+                <ChromeLink
+                  href="/docs/defi/dvp-program"
+                  hrefLang="en"
+                  className="inline-flex items-center gap-2 font-brand-mono text-xs uppercase tracking-[0.1em] text-white transition-colors hover:text-nd-highlight-green focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                >
+                  {t("developers.cta")}
+                  <ArrowUpRight className="!size-4" aria-hidden="true" />
+                </ChromeLink>
+                <a
+                  href="https://github.com/solana-foundation/dvp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 font-brand-mono text-xs uppercase tracking-[0.1em] text-white transition-colors hover:text-nd-highlight-green focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                >
+                  {t("developers.github")}
+                  <ArrowUpRight className="!size-4" aria-hidden="true" />
+                </a>
+              </div>
             </div>
           </div>
         </Container>
