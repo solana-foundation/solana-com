@@ -1,11 +1,15 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
-import { getTranslations } from "@workspace/i18n/server";
+import { getFormatter, getTranslations } from "@workspace/i18n/server";
 import { getAlternates } from "@workspace/i18n/routing";
 import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 import { Container } from "@/component-library/container";
 import { Link } from "@/utils/Link";
+import {
+  buildHackathonArchiveJsonLd,
+  serializeJsonLd,
+} from "./structured-data";
 import frontierImg from "@@/assets/hackathon/past-hackathons/frontier.png";
 import cypherpunkImg from "@@/assets/hackathon/past-hackathons/cypherpunk.png";
 import breakoutImg from "@@/assets/hackathon/past-hackathons/breakout.png";
@@ -109,18 +113,30 @@ const yearRange = {
   startYear: years.at(-1)!,
   endYear: years[0],
 };
+const metadataValues = { ...yearRange, eventCount: archive.length };
 
 export default async function Page({ params }: Props) {
   const { locale } = await params;
-  const t = await getTranslations({ locale });
-  const dateFormatter = new Intl.DateTimeFormat(locale, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
+  const [t, format] = await Promise.all([
+    getTranslations({ locale }),
+    getFormatter({ locale }),
+  ]);
+  const structuredData = buildHackathonArchiveJsonLd({
+    locale,
+    title: t("hackathon.archive.metaTitle", metadataValues),
+    description: t("hackathon.archive.metaDescription", metadataValues),
+    events: archive.map(({ key }) => ({
+      name: t(`hackathon.previousHackathons.${key}.title`),
+      description: t(`hackathon.previousHackathons.${key}.description`),
+    })),
   });
 
   return (
     <main className="bg-nd-bg font-brand text-nd-high-em-text">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+      />
       <section
         className="overflow-hidden border-b border-nd-border-light"
         aria-labelledby="hackathon-title"
@@ -228,8 +244,13 @@ export default async function Page({ params }: Props) {
                               dateTime={entry.date}
                               className="font-brand-mono text-xs uppercase tracking-[0.12em] text-nd-highlight-lavendar"
                             >
-                              {dateFormatter.format(
+                              {format.dateTime(
                                 new Date(`${entry.date}T00:00:00Z`),
+                                {
+                                  month: "long",
+                                  year: "numeric",
+                                  timeZone: "UTC",
+                                },
                               )}
                             </time>
                             <div className="mt-4 flex items-start justify-between gap-4">
@@ -283,8 +304,8 @@ export default async function Page({ params }: Props) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "hackathon.archive" });
-  const title = t("metaTitle");
-  const description = t("metaDescription", yearRange);
+  const title = t("metaTitle", metadataValues);
+  const description = t("metaDescription", metadataValues);
   const alternates = getAlternates("/hackathon", locale);
   const socialImage = createDefaultSocialImage(title);
 
