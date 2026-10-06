@@ -9,6 +9,28 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { SelectionColor } from "@/component-library/selection-color";
+import { useScrollTextHighlight } from "@/hooks/useScrollTextHighlight";
+
+export function PageSelectionColor() {
+  return (
+    <SelectionColor selectionColor="#14F195" selectionTextColor="#000000" />
+  );
+}
+
+export function Lead({ children }: { children: ReactNode }) {
+  const { ref } = useScrollTextHighlight<HTMLParagraphElement>({
+    highlightColor: "rgba(20, 241, 149, 0.3)",
+  });
+  return (
+    <p
+      ref={ref}
+      className="mb-0 max-w-[56rem] text-xl font-medium leading-[1.4] tracking-[-0.6px] text-white md:text-[32px] md:leading-[1.25] md:tracking-[-0.96px]"
+    >
+      {children}
+    </p>
+  );
+}
 
 export function Tabs({
   label,
@@ -49,7 +71,7 @@ export function Tabs({
       <div
         role="tablist"
         aria-label={label}
-        className="inline-flex max-w-full gap-1 overflow-x-auto rounded-full border border-white/15 bg-white/[0.04] p-1 font-sans"
+        className="inline-flex max-w-full gap-1 overflow-x-auto rounded-full border border-white/10 bg-white/[0.06] p-1 font-sans"
       >
         {items.map((item, index) => (
           <button
@@ -65,7 +87,7 @@ export function Tabs({
             tabIndex={selected === index ? 0 : -1}
             onClick={() => setSelected(index)}
             onKeyDown={(event) => onKeyDown(event, index)}
-            className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195] sm:px-4 sm:text-sm ${selected === index ? "bg-[#14F195] text-black" : "text-white/65 hover:bg-white/[0.07] hover:text-white"}`}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium tracking-[-0.14px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195] md:text-base ${selected === index ? "bg-white text-black" : "text-[#ABABBA] hover:bg-white/10 hover:text-white"}`}
           >
             {item.name}
           </button>
@@ -164,7 +186,7 @@ export function DashboardCarousel({ panels }: { panels: Panel[] }) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Open ${panel.title} full size`}
-              className="flex h-64 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[#111318] p-2 transition-colors hover:border-[#14F195]/50 focus-visible:outline-2 focus-visible:outline-[#14F195] sm:h-96"
+              className="flex h-64 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] p-2 transition-colors hover:border-white/30 focus-visible:outline-2 focus-visible:outline-[#14F195] sm:h-96"
             >
               <img
                 src={panel.src}
@@ -175,25 +197,25 @@ export function DashboardCarousel({ panels }: { panels: Panel[] }) {
                 className="max-h-full max-w-full rounded object-contain"
               />
             </a>
-            <figcaption className="mt-2 text-sm leading-relaxed text-white/60">
-              <span className="mr-2 font-mono text-[#14F195]">
+            <figcaption className="mt-4 max-w-3xl text-base leading-[1.5] tracking-[-0.16px] text-[#ABABBA]">
+              <span className="mr-2 font-medium tabular-nums text-[#14F195]">
                 {String(index + 1).padStart(2, "0")}
               </span>
-              <strong className="text-white">{panel.title}.</strong>{" "}
+              <strong className="font-medium text-white">{panel.title}.</strong>{" "}
               {panel.caption}
             </figcaption>
           </figure>
         ))}
       </div>
       <div
-        className="flex items-center justify-center gap-4"
+        className="flex items-center justify-start gap-4"
         aria-label="Carousel controls"
       >
         <button
           type="button"
           onClick={() => go(selected - 1)}
           aria-label="Previous panel"
-          className="grid size-9 place-items-center rounded-full border border-white/20 bg-white/[0.04] text-white transition-colors hover:border-[#14F195] hover:text-[#14F195] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195]"
+          className="grid size-10 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195]"
         >
           <ChevronLeft pack="filled" className="size-5" aria-hidden="true" />
         </button>
@@ -205,7 +227,7 @@ export function DashboardCarousel({ panels }: { panels: Panel[] }) {
               onClick={() => go(index)}
               aria-label={`Go to panel ${index + 1}`}
               aria-current={selected === index ? "true" : undefined}
-              className={`size-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195] ${selected === index ? "bg-[#14F195]" : "bg-white/30 hover:bg-white/60"}`}
+              className={`size-2 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195] ${selected === index ? "bg-white" : "bg-white/30 hover:bg-white/60"}`}
             />
           ))}
         </div>
@@ -213,7 +235,7 @@ export function DashboardCarousel({ panels }: { panels: Panel[] }) {
           type="button"
           onClick={() => go(selected + 1)}
           aria-label="Next panel"
-          className="grid size-9 place-items-center rounded-full border border-white/20 bg-white/[0.04] text-white transition-colors hover:border-[#14F195] hover:text-[#14F195] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195]"
+          className="grid size-10 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195]"
         >
           <ChevronRight pack="filled" className="size-5" aria-hidden="true" />
         </button>
