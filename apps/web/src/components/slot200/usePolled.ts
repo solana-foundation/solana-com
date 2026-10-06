@@ -7,7 +7,11 @@ import { useEffect, useState } from "react";
  * sampled block). Pauses while the tab is hidden; keeps the last good
  * payload on failure.
  */
-export function usePolled<T>(url: string, intervalMs: number): T | null {
+export function usePolled<T>(
+  url: string,
+  intervalMs: number,
+  mapResponse?: (data: T, response: Response) => T,
+): T | null {
   const [data, setData] = useState<T | null>(null);
 
   useEffect(() => {
@@ -33,7 +37,7 @@ export function usePolled<T>(url: string, intervalMs: number): T | null {
         const res = await fetch(url, { signal: controller.signal });
         if (res.ok) {
           const json = (await res.json()) as T;
-          if (alive) setData(json);
+          if (alive) setData(mapResponse ? mapResponse(json, res) : json);
         }
       } catch {
         // keep last payload; aborts are expected when a tab is backgrounded
@@ -62,7 +66,7 @@ export function usePolled<T>(url: string, intervalMs: number): T | null {
       if (timer) clearTimeout(timer);
       controller?.abort();
     };
-  }, [url, intervalMs]);
+  }, [url, intervalMs, mapResponse]);
 
   return data;
 }
@@ -76,6 +80,10 @@ export interface SeriesPoint {
 export interface BlockSample {
   slot: number;
   blockTime: number | null;
+  serverTime: number;
+  /** Age derived from HTTP Date and Age headers; null when unavailable. */
+  ageAtReceiptMs?: number | null;
+  receivedAtMonotonicMs?: number;
   txs: number;
   votes: number;
   nonVotes: number;
