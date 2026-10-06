@@ -44,7 +44,11 @@ export async function generateMetadata({
         const title = String(draft.title);
         const description = String(draft.description ?? "");
         const canonical = "https://solana.com/news/solana-microscope";
-        const image = `https://solana.com${asset}/social.webp`;
+        const previewOrigin =
+          process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : "https://solana.com";
+        const image = `${previewOrigin}${asset}/social.webp`;
         return {
           title,
           description,
