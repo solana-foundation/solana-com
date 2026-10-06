@@ -6,24 +6,24 @@ const localePattern =
   "/:locale(en|ar|de|el|es|fi|fr|id|it|ja|ko|nl|pl|pt|ru|tr|uk|vi|zh)";
 
 describe("Hackathon redirects", () => {
-  it("keeps the archive at /hackathon and sends the plural alias there", () => {
+  it("keeps the archive at /hackathons and redirects the singular URL", () => {
     expect(redirects).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          source: "/hackathons",
-          destination: "/hackathon",
+          source: "/hackathon",
+          destination: "/hackathons",
           locale: false,
         }),
         expect.objectContaining({
-          source: `${localePattern}/hackathons`,
-          destination: "/:locale/hackathon",
+          source: `${localePattern}/hackathon`,
+          destination: "/:locale/hackathons",
           locale: false,
         }),
       ]),
     );
     expect(redirects).not.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ source: "/hackathon" }),
+        expect.objectContaining({ source: "/hackathons" }),
       ]),
     );
   });
@@ -42,12 +42,12 @@ describe("Hackathon redirects", () => {
       expect.arrayContaining([
         expect.objectContaining({
           source,
-          destination: "/hackathon",
+          destination: "/hackathons",
           locale: false,
         }),
         expect.objectContaining({
           source: `${localePattern}${source}`,
-          destination: "/:locale/hackathon",
+          destination: "/:locale/hackathons",
           locale: false,
         }),
       ]),

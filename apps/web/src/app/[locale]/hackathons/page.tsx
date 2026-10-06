@@ -306,7 +306,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "hackathon.archive" });
   const title = t("metaTitle", metadataValues);
   const description = t("metaDescription", metadataValues);
-  const alternates = getAlternates("/hackathon", locale);
+  const alternates = getAlternates("/hackathons", locale);
   const socialImage = createDefaultSocialImage(title);
 
   return {

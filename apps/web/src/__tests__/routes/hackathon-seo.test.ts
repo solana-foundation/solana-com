@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildHackathonArchiveJsonLd,
   serializeJsonLd,
-} from "@/app/[locale]/hackathon/structured-data";
+} from "@/app/[locale]/hackathons/structured-data";
 
 describe("hackathon archive structured data", () => {
   const events = [
@@ -20,7 +20,7 @@ describe("hackathon archive structured data", () => {
 
     expect(data).toMatchObject({
       "@type": "CollectionPage",
-      url: "https://solana.com/fr/hackathon",
+      url: "https://solana.com/fr/hackathons",
       inLanguage: "fr",
       mainEntity: {
         "@type": "ItemList",

@@ -17,7 +17,7 @@ export function buildHackathonArchiveJsonLd({
   description: string;
   events: ArchiveItem[];
 }) {
-  const canonicalPath = getAlternates("/hackathon", locale).canonical;
+  const canonicalPath = getAlternates("/hackathons", locale).canonical;
   const pageUrl = new URL(canonicalPath, config.publicUrl).toString();
 
   return {
