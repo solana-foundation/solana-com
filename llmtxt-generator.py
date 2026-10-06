@@ -95,6 +95,8 @@ CURATED_SECTIONS = {
         ("Developer Tools", "docs/payments/developer-tools", "Libraries and services for building payment flows"),
         ("Production Readiness", "docs/payments/production-readiness", "Prepare payment systems for mainnet"),
         ("Agentic Payments", "docs/payments/agentic-payments", "Enable autonomous payments for AI agents with x402"),
+        ("Spend Permissions", "docs/payments/advanced-payments/spend-permissions", "Delegate token spending with a capped allowance"),
+        ("Deferred Execution", "docs/payments/advanced-payments/deferred-execution", "Sign transactions for later submission with durable nonces"),
     ],
     "DeFi": [
         ("Markets & Trading", "docs/defi", "Build trading systems and onchain financial applications"),
@@ -132,6 +134,11 @@ CURATED_SECTIONS = {
 ENGLISH_EXTRAS = {
     "Documentation": [
         ("Documentation Tags", "docs/tags", "Browse documentation pages grouped by topic tags"),
+    ],
+    "Video Tutorials": [
+        ("Video Tutorials", "docs/video-guides", "Courses and hands-on Solana projects"),
+        ("Solana Crash Course", "docs/video-guides/solana-crash-course", "Build from environment setup through program deployment"),
+        ("2026 Developer Bootcamp", "docs/video-guides/2026-developer-bootcamp", "Build Solana projects in a long-form course"),
     ],
     "Learn": [
         ("What is Solana", "learn/what-is-solana", "Introduction to Solana for beginners"),
@@ -171,6 +178,7 @@ ENGLISH_EXTRAS = {
         ("Rust Programs", "docs/programs/rust", "Build Solana programs in Rust"),
         ("Deploying Programs", "docs/programs/deploying", "Deploy Solana programs to a cluster"),
         ("IDLs", "docs/programs/idls", "Define interfaces for Solana programs"),
+        ("Generating Clients", "docs/programs/codama/clients", "Generate TypeScript and Rust clients from a program IDL"),
         ("Verifying Programs", "docs/programs/verified-builds", "Verify deployed Solana program builds"),
         ("Program Examples", "docs/programs/examples", "Examples for building Solana programs"),
         ("Program Limitations", "docs/programs/limitations", "Runtime and resource limits for Solana programs"),
