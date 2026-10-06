@@ -902,7 +902,6 @@ export default async function MicroscopePage() {
       </header>
 
       <main className="pb-[64px] text-base leading-[1.6] text-white/80 md:pb-[112px] md:text-lg xl:pb-[160px]">
-        <Divider />
         <section
           className={`${container} space-y-[48px] py-[64px] md:py-[112px] xl:space-y-[64px] xl:py-[160px]`}
         >
