@@ -43,9 +43,7 @@ const logos = [
 const banned = [
   { file: "bannedLogos-1.svg", key: "shadow", bg: "bg-[#9945FF]" },
   { file: "bannedLogos-2.png", key: "outline", bg: "bg-[#9945FF]" },
-  { file: "bannedLogos-3.svg", key: "stretch", bg: "bg-white" },
-  { file: "bannedLogos-4.svg", key: "lowResolution", bg: "bg-white" },
-  { file: "bannedLogos-5.svg", key: "imagery", bg: "bg-white" },
+  { file: "bannedLogos-4.svg", key: "blur", bg: "bg-white" },
   { file: "bannedLogos-6.svg", key: "contrast", bg: "bg-[#6D86D1]" },
 ] as const;
 
@@ -304,29 +302,31 @@ export async function BrandingPage() {
               <p className="mt-4 text-[#C9C9D4]">
                 {t("branding.banned.description")}
               </p>
-              <ul className="mt-7 grid list-none gap-4 p-0 sm:grid-cols-2 xl:grid-cols-3">
+              <ul className="mt-7 grid list-none gap-4 p-0 sm:grid-cols-2">
                 {banned.map((example) => (
                   <li
                     key={example.file}
                     className="overflow-hidden rounded-xl border border-white/15 bg-[#171721]"
                   >
-                    <div
-                      className={
-                        "flex h-36 items-center justify-center p-5 " +
-                        example.bg
-                      }
-                    >
-                      <Image
-                        src={base + example.file}
-                        alt=""
-                        width={240}
-                        height={110}
-                        className="h-full w-full object-contain"
-                      />
-                    </div>
-                    <p className="m-0 p-4 text-sm text-[#E1E1E8]">
-                      {t("branding.banned." + example.key)}
-                    </p>
+                    <figure className="m-0">
+                      <div
+                        className={
+                          "flex h-36 items-center justify-center p-5 " +
+                          example.bg
+                        }
+                      >
+                        <Image
+                          src={base + example.file}
+                          alt=""
+                          width={240}
+                          height={110}
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
+                      <figcaption className="p-4 text-sm text-[#E1E1E8]">
+                        {t("branding.banned." + example.key)}
+                      </figcaption>
+                    </figure>
                   </li>
                 ))}
               </ul>
