@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getBaseMetadata } from "@/app/metadata";
+import { getTranslations } from "@workspace/i18n/server";
 import { DvpDemo } from "./dvp-demo";
 
 type Props = { params: Promise<{ locale: string }> };
@@ -10,11 +11,14 @@ export default function Page() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "deliveryVsPayment.metadata",
+  });
   return {
     ...getBaseMetadata(locale),
-    title: "DvP devnet demo",
-    description:
-      "Follow a real delivery-versus-payment trade from account creation to atomic settlement on Solana devnet.",
+    title: t("demoTitle"),
+    description: t("demoDescription"),
     robots: { index: false, follow: false },
   };
 }

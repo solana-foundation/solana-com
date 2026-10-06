@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { getBaseMetadata } from "@/app/metadata";
+import { getAlternates } from "@workspace/i18n/routing";
+import { getTranslations } from "@workspace/i18n/server";
 import { fetchLatestPosts } from "@/lib/media/post";
 import type { PostItem } from "@/types/media";
 import {
@@ -54,14 +56,19 @@ const getRelevanceScore = (post: PostItem) => {
   );
 };
 
-const toRelatedStory = (post: PostItem): RelatedStory => ({
-  eyebrow: post.categories[0] ?? post.tags[0] ?? "News",
+const toRelatedStory = (
+  post: PostItem,
+  fallbackEyebrow: string,
+): RelatedStory => ({
+  eyebrow: post.categories[0] ?? post.tags[0] ?? fallbackEyebrow,
   title: post.title,
   description: post.description,
   href: post.url,
 });
 
-async function getRelatedStories(): Promise<RelatedStory[]> {
+async function getRelatedStories(
+  fallbackEyebrow: string,
+): Promise<RelatedStory[]> {
   const responses = await Promise.all(
     RELATED_POST_QUERIES.map((query) =>
       fetchLatestPosts({ ...query, limit: 6 }),
@@ -82,21 +89,49 @@ async function getRelatedStories(): Promise<RelatedStory[]> {
       return true;
     })
     .slice(0, 3)
-    .map(toRelatedStory);
+    .map((post) => toRelatedStory(post, fallbackEyebrow));
 }
 
-export default async function Page() {
-  const relatedStories = await getRelatedStories();
+export default async function Page({ params }: Props) {
+  const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "deliveryVsPayment.stories",
+  });
+  const relatedStories = await getRelatedStories(t("news"));
 
   return <DeliveryVsPaymentPage relatedStories={relatedStories} />;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "deliveryVsPayment.metadata",
+  });
+  const title = t("title");
+  const description = t("description");
+  const alternates = getAlternates("/delivery-vs-payment", locale);
+  const base = getBaseMetadata(locale);
+
   return {
-    ...getBaseMetadata(locale),
-    title: "Delivery versus Payment",
-    description:
-      "Settle an asset and its payment together in one atomic transaction on Solana.",
+    ...base,
+    title,
+    description,
+    alternates,
+    openGraph: {
+      ...base.openGraph,
+      type: "website",
+      title,
+      description,
+      url: alternates.canonical,
+      siteName: "Solana",
+    },
+    twitter: {
+      ...base.twitter,
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
