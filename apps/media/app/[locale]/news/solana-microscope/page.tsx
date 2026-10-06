@@ -10,6 +10,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { buildArticleJsonLd } from "@/lib/content-structured-data";
 import { newsPostMetadata } from "@/lib/metadata";
 import { fetchPublishedPostBySlug, readPostBySlug } from "@/lib/post-data";
+import { reader } from "@/lib/reader";
 import { DashboardCarousel, Tabs, type Panel } from "./interactions";
 
 const slug = "solana-microscope";
@@ -822,6 +823,7 @@ export default async function MicroscopePage({
       ? await readPostBySlug(slug)
       : null);
   if (!post) notFound();
+  const author = await reader.collections.authors.read("jo-desormeaux");
   const title = String(post.title);
   const structuredData = buildArticleJsonLd({
     slug,
@@ -866,7 +868,13 @@ export default async function MicroscopePage({
             aria-hidden
           />
           <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#b4b1c1]">
-            <span>Jo Desormeaux</span>
+            {author?.twitterUrl ? (
+              <a className={link} href={author.twitterUrl} rel="author">
+                Jo Desormeaux
+              </a>
+            ) : (
+              <span>Jo Desormeaux</span>
+            )}
             {!isDraft && (
               <time dateTime={post.publishedAt}>
                 {new Intl.DateTimeFormat("en", {
