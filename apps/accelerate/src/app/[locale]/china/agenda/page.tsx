@@ -26,8 +26,8 @@ export async function generateMetadata({
   return getPageMetadata({
     locale,
     path: "/china/agenda",
-    title: "Shanghai agenda | Solana Accelerate",
-    description: "Solana Accelerate Shanghai sessions, October 16, 2026.",
+    title: t("chinaAgenda.title"),
+    description: t("chinaAgenda.description"),
     siteTitle: t("site.title"),
     siteDescription: t("site.description"),
     keywords: [
@@ -50,6 +50,12 @@ function getSessionType(formats: readonly string[] = []): AgendaSessionType {
 
 export default async function ShanghaiAgendaPage({ params }: PageProps) {
   const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "accelerate.china.agenda",
+  });
+  const formatLabels = t.raw("formats") as Record<string, string>;
+  const trackLabels = t.raw("tracks") as Record<string, string>;
   const result = await getShanghaiAgenda();
   const sessions =
     result.status === "ready"
@@ -64,8 +70,12 @@ export default async function ShanghaiAgendaPage({ params }: PageProps) {
             title,
             subtitle: description,
             type: getSessionType(session.formats),
-            formats: session.formats,
-            track: session.track,
+            formats: session.formats?.map(
+              (format) => formatLabels[format] ?? format,
+            ),
+            track: session.track
+              ? (trackLabels[session.track] ?? session.track)
+              : undefined,
           };
         })
       : [];
@@ -78,16 +88,22 @@ export default async function ShanghaiAgendaPage({ params }: PageProps) {
         headerOverlay
         data={data}
         event={accelerateEvents.shanghai}
+        agendaLabels={{
+          rightColumnLabel: t("track"),
+          timeZoneLabel: t("timeZone"),
+          searchPlaceholder: t("searchPlaceholder"),
+          filterByTypeLabel: t("filterByFormat"),
+        }}
         copy={{
-          backToAccelerate: "Back to Accelerate China",
-          dateLocation: "October 16, 2026 / Shanghai",
-          conference: "Shanghai",
-          agendaHighlight: "agenda",
+          backToAccelerate: t("backToAccelerate"),
+          dateLocation: t("dateLocation"),
+          conference: t("conference"),
+          agendaHighlight: t("agendaHighlight"),
           description: "",
           comingSoon:
             result.status === "unavailable"
-              ? "The Shanghai agenda is temporarily unavailable. Please check back soon."
-              : "No Shanghai sessions have been published yet. Please check back soon.",
+              ? t("unavailable")
+              : t("comingSoon"),
         }}
       />
     </>

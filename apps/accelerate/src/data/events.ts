@@ -11,10 +11,6 @@ export type AccelerateEvent = {
   agendaDisplay?: {
     filterMode?: "type" | "format";
     exactFormatLabels?: boolean;
-    rightColumnLabel?: string;
-    timeZoneLabel?: string;
-    searchPlaceholder?: string;
-    filterByTypeLabel?: string;
   };
   lumaId?: string;
 };
@@ -50,10 +46,6 @@ export const accelerateEvents = {
     agendaDisplay: {
       filterMode: "format",
       exactFormatLabels: true,
-      rightColumnLabel: "Track",
-      timeZoneLabel: "All times China Standard Time (UTC+8).",
-      searchPlaceholder: "Search sessions...",
-      filterByTypeLabel: "Filter by format:",
     },
   },
 } as const satisfies Record<string, AccelerateEvent>;

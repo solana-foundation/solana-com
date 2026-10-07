@@ -22,6 +22,12 @@ type EventAgendaPageProps = {
   event: AccelerateEvent;
   data?: AgendaData;
   copy?: Partial<Record<AgendaPageCopyKey, string>>;
+  agendaLabels?: {
+    rightColumnLabel?: string;
+    timeZoneLabel?: string;
+    searchPlaceholder?: string;
+    filterByTypeLabel?: string;
+  };
   header?: ReactNode;
   headerOverlay?: boolean;
 };
@@ -50,6 +56,7 @@ export function EventAgendaPage({
   event,
   data,
   copy,
+  agendaLabels,
   header,
   headerOverlay = false,
 }: EventAgendaPageProps) {
@@ -139,10 +146,10 @@ export function EventAgendaPage({
             data={data}
             filterMode={event.agendaDisplay?.filterMode ?? "format"}
             exactFormatLabels={event.agendaDisplay?.exactFormatLabels}
-            rightColumnLabel={event.agendaDisplay?.rightColumnLabel}
-            timeZoneLabel={event.agendaDisplay?.timeZoneLabel}
-            searchPlaceholder={event.agendaDisplay?.searchPlaceholder}
-            filterByTypeLabel={event.agendaDisplay?.filterByTypeLabel}
+            rightColumnLabel={agendaLabels?.rightColumnLabel}
+            timeZoneLabel={agendaLabels?.timeZoneLabel}
+            searchPlaceholder={agendaLabels?.searchPlaceholder}
+            filterByTypeLabel={agendaLabels?.filterByTypeLabel}
           />
         ) : (
           <section className="bg-black py-12 lg:py-16">

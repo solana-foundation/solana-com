@@ -44,7 +44,7 @@ function getFormatGroup(format?: string): string | undefined {
 }
 
 function getFormatFilterId(formatGroup: string): string {
-  return `format:${formatGroup.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  return `format:${encodeURIComponent(formatGroup.toLocaleLowerCase())}`;
 }
 
 function getSessionFormats(session: Session): string[] {
@@ -350,6 +350,7 @@ function FilterBar({
         {searchQuery && (
           <button
             onClick={() => setSearchQuery("")}
+            aria-label={clearLabel}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white/70"
           >
             <X className="h-4 w-4" />
@@ -480,8 +481,8 @@ export function Agenda({
       );
 
       const formatOrder = new Map(
-        ["open-close", "fireside", "keynote", "break", "panel"].map(
-          (format, index) => [`format:${format}`, index],
+        ["Open/Close", "Fireside", "Keynote", "Break", "Panel"].map(
+          (format, index) => [getFormatFilterId(format), index],
         ),
       );
 
