@@ -25,6 +25,7 @@ import defiImg from "@@/assets/hackathon/past-hackathons/defi.png";
 import inauguralImg from "@@/assets/hackathon/past-hackathons/inaugural.png";
 
 type Props = { params: Promise<{ locale: string }> };
+const hackathonsSiteUrl = "https://hackathons.solana.com/";
 
 // Dates mark the start of each hackathon, not the winners announcement.
 const archive = [
@@ -167,7 +168,7 @@ export default async function Page({ params }: Props) {
               </p>
             </div>
             <Link
-              to="https://hackathons.solana.com/"
+              to={hackathonsSiteUrl}
               className="group mt-8 inline-flex min-h-14 w-full items-center justify-between gap-4 rounded-full bg-black px-5 py-2 text-base font-medium text-white transition-colors hover:bg-black/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black md:w-auto"
             >
               {t("hackathon.archive.promoCta")}
@@ -294,6 +295,39 @@ export default async function Page({ params }: Props) {
                 </div>
               </div>
             ))}
+          </div>
+        </Container>
+      </section>
+
+      <section
+        className="border-t border-nd-border-light"
+        aria-labelledby="hackathons-final-cta-title"
+      >
+        <Container className="py-16 md:py-24">
+          <div className="flex flex-col gap-10 rounded-2xl bg-nd-highlight-lavendar p-6 text-black md:p-12 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
+            <div className="max-w-[680px]">
+              <p className="font-brand-mono text-xs uppercase tracking-[0.16em] md:text-sm">
+                {t("hackathon.archive.promoEyebrow")}
+              </p>
+              <h2
+                id="hackathons-final-cta-title"
+                className="mt-6 font-brand text-[34px] font-medium leading-[1.08] tracking-[-0.04em] md:text-[48px]"
+              >
+                {t("hackathon.archive.promoTitle")}
+              </h2>
+              <p className="mt-5 max-w-[580px] text-base leading-[1.45] text-black/70 md:text-lg">
+                {t("hackathon.archive.promoDescription")}
+              </p>
+            </div>
+            <Link
+              to={hackathonsSiteUrl}
+              className="group inline-flex min-h-14 w-full shrink-0 items-center justify-between gap-4 rounded-full bg-black px-5 py-2 text-base font-medium text-white transition-colors hover:bg-black/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black md:w-auto"
+            >
+              {t("hackathon.archive.promoCta")}
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-black transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transform-none">
+                <ArrowRight aria-hidden="true" className="size-5" />
+              </span>
+            </Link>
           </div>
         </Container>
       </section>
