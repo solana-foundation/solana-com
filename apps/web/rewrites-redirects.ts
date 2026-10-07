@@ -133,6 +133,10 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/tools/actions",
   },
   {
+    source: "/developers/guides/advanced/security-best-practices",
+    destination: "/docs/tools/production-readiness",
+  },
+  {
     source: "/developers/guides/advanced/confirmation",
     destination: "/developers/cookbook/transactions/confirmation",
   },
@@ -223,6 +227,14 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   {
     source: "/developers/guides/getstarted/how-to-verify-a-token",
     destination: "/docs/tokens/how-to-verify-a-token",
+  },
+  {
+    source: "/developers/guides/getstarted/tokens",
+    destination: "/docs/tokens",
+  },
+  {
+    source: "/developers/guides/getstarted/actions",
+    destination: "/docs/tools/actions",
   },
   {
     source: "/developers/guides/getstarted/solana-token-airdrop-and-faucets",
@@ -882,6 +894,11 @@ export default {
     },
     { source: "/blog", destination: "/news" },
     { source: "/rss.xml", destination: "/news/rss.xml" },
+    { source: "/rss", destination: "/news/rss.xml" },
+    { source: "/feed.xml", destination: "/news/rss.xml" },
+    { source: "/sitemap-0.xml", destination: "/sitemap.xml" },
+    { source: "/sitemap-index.xml", destination: "/sitemap.xml" },
+    { source: "/sitemap_index.xml", destination: "/sitemap.xml" },
     { source: "/news/tag/:path*", destination: "/news" },
     // /upgrades is now the source of truth for network upgrade status;
     // this hub post is retired.
