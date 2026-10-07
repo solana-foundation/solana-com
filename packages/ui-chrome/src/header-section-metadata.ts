@@ -24,7 +24,7 @@ export const HEADER_SECTION_METADATA: Array<
       { type: "equals", value: "/changelog" },
       { type: "equals", value: "/data" },
       { type: "includes", value: "/docs", exclude: ["/docs/tools"] },
-      { type: "equals", value: "/hackathon" },
+      { type: "equals", value: "/hackathons" },
     ],
     contentAlign: "left",
   },
@@ -52,6 +52,7 @@ export const HEADER_SECTION_METADATA: Array<
     titleKey: "nav.products.title",
     matchRules: [
       { type: "equals", value: "/products" },
+      { type: "equals", value: "/microscope" },
       { type: "equals", value: "/solutions/sdp" },
       { type: "equals", value: "/solutions/ai" },
       { type: "equals", value: "/rpc" },

@@ -13,7 +13,7 @@ import {
 import {
   CHANGELOG_CATEGORY,
   CHANGELOG_PAGE_SIZE,
-  CHANGELOG_SUBSCRIBE_URL,
+  CHANGELOG_SUBSCRIBE_PATH,
 } from "@/lib/changelog";
 import type { PageInfo, PostItem } from "@/lib/post-types";
 
@@ -94,12 +94,10 @@ function SubscribeForm() {
     setStatus("submitting");
 
     try {
-      const data = new FormData();
-      data.append("email", email.trim());
-
-      const response = await fetch(CHANGELOG_SUBSCRIBE_URL, {
+      const response = await fetch(CHANGELOG_SUBSCRIBE_PATH, {
         method: "POST",
-        body: data,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
       });
 
       if (!response.ok) {
@@ -338,6 +336,7 @@ export function ChangelogPage({
                 {t("description")}
               </p>
               <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs lowercase">
+                {/* oxlint-disable-next-line next/no-html-link-for-pages -- RSS is a file endpoint, not an in-app page route */}
                 <a
                   href="/changelog/rss.xml"
                   className="inline-flex min-h-11 items-center gap-2 text-white/60 transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"

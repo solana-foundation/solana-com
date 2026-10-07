@@ -55,7 +55,7 @@ Pick the app first. That usually cuts exploration time in half.
 - `packages/fab-menu`: reusable Solana property menu
 - `packages/sentry`: shared Sentry helpers
 - `packages/sitemap`: shared sitemap generation helpers
-- `packages/config-eslint`, `packages/config-typescript`: shared configs
+- `packages/config-oxlint`, `packages/config-typescript`: shared configs
 
 ## First Commands To Reach For
 
@@ -136,6 +136,12 @@ follow
 This applies to UI strings, landing-page and documentation prose, Media content,
 metadata, CTAs, and social copy. Read the owning app's instructions as well;
 they may impose more specific content, source, or format requirements.
+
+## Styling Constraint
+
+- Use Tailwind utility classes for all styling changes on this branch.
+- CSS Modules (`*.module.css`) are not an option for new or modified surfaces;
+  migrate existing module styles when touching that surface.
 
 ## Best Next File
 

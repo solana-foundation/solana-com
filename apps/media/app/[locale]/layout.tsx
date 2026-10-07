@@ -9,6 +9,7 @@ import {
   Footer,
   PersistentPodcastPlayer,
   ThemeProvider,
+  GoogleTagManagerNoScript,
 } from "@solana-com/ui-chrome";
 import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
@@ -103,16 +104,7 @@ export default async function LocaleLayout({ children, params }: Props) {
 
   return (
     <div dir={direction} suppressHydrationWarning>
-      {/* Google Tag Manager (noscript) */}
-      <noscript>
-        <iframe
-          src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerID}`}
-          height="0"
-          width="0"
-          style={{ display: "none", visibility: "hidden" }}
-        ></iframe>
-      </noscript>
-      {/* End Google Tag Manager (noscript) */}
+      <GoogleTagManagerNoScript containerId={googleTagManagerID} />
       <NextIntlClientProvider messages={messages} locale={locale}>
         <ThemeProvider>
           <GTMTrackingSnippet />

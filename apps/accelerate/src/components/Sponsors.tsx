@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import { ArrowOutUpRightSquare as ExternalLinkIcon } from "@boxicons/react/ArrowOutUpRightSquare";
 import { BookOpen } from "@boxicons/react/BookOpen";
 import { Github } from "@boxicons/react/Github";
@@ -393,7 +393,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
     activeSlug && unmatchedSlugs[activeSlug] && !activeManualProfile,
   );
   const activeDisplayName =
-    resolvedProfile?.name ?? activeSponsorData?.name ?? "Sponsor";
+    resolvedProfile?.name ?? activeSponsorData?.name ?? t("fallbackName");
   const dataPageSlug = activeProfile?.dataPageSlug;
   const dataPageUrl = dataPageSlug
     ? `https://thegrid.id/profiles/${dataPageSlug}`
@@ -428,7 +428,8 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
-        setLoadError(error instanceof Error ? error.message : t("loadError"));
+        console.error("Failed to load sponsor profile", error);
+        setLoadError(t("loadError"));
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -523,7 +524,7 @@ export function Sponsors({ sponsors }: { sponsors: Sponsor[] }) {
                   className="text-button mb-8 text-center uppercase tracking-[0.2em]"
                   style={{ color: tier.color }}
                 >
-                  {tier.name}
+                  {t(`tiers.${tier.level}`)}
                 </motion.p>
                 <div
                   className={`flex flex-wrap items-center justify-center ${

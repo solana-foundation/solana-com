@@ -6,6 +6,7 @@ import {
   Footer,
   PersistentPodcastPlayer,
   ThemeProvider,
+  GoogleTagManagerNoScript,
 } from "@solana-com/ui-chrome";
 import { loadMergedMessages } from "@workspace/i18n/messages";
 import { getLangDir } from "rtl-detect";
@@ -14,6 +15,7 @@ import { GTMTrackingSnippet } from "@/components/gtm-tracking-snippet";
 import { CookieConsent } from "@/components/cookie-consent";
 import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 import "../scss/index.scss";
+import "@workspace/ui/scrollbar.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -51,14 +53,7 @@ export default async function RootLayout({ children }: Props) {
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        <noscript>
-          <iframe
-            src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerID}`}
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-          ></iframe>
-        </noscript>
+        <GoogleTagManagerNoScript containerId={googleTagManagerID} />
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             <GTMTrackingSnippet />

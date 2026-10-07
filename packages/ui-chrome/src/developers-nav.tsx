@@ -4,6 +4,7 @@ import { Code as RpcApiIcon } from "@boxicons/react/Code";
 import { Education as CoursesIcon } from "@boxicons/react/Education";
 import { Grid as ToolsIcon } from "@boxicons/react/Grid";
 import { BarChart as StatisticsIcon } from "@boxicons/react/BarChart";
+import { Play as VideoIcon } from "@boxicons/react/Play";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@workspace/i18n/use-router";
 import {
@@ -68,6 +69,7 @@ export function DevelopersNav({
                   "/docs/tokenization",
                   "/docs/defi",
                   "/docs/tools",
+                  "/docs/video-guides",
                   localInstallationResourcesPath,
                 ]}
                 activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
@@ -133,6 +135,22 @@ export function DevelopersNav({
                 />
                 <span className="align-middle">
                   {t("developers.nav.finance")}
+                </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/docs/video-guides"
+                activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <VideoIcon
+                  aria-hidden="true"
+                  height={16}
+                  width={16}
+                  removePadding
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">
+                  {t("developers.nav.videoTutorials")}
                 </span>
               </NavLink>
               <NavLink

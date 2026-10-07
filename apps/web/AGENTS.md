@@ -27,6 +27,9 @@ Use this app for the main `solana.com` experience.
 - Vitest is used here for unit tests
 - Wallet-directory records are owned by `packages/ecosystem-data`, while this
   app owns their presentation and filtering UI
+- All styling changes on this branch must use Tailwind utility classes. CSS
+  Modules (`*.module.css`) are not an option; migrate existing module styles
+  when modifying a surface.
 
 ## Commands
 

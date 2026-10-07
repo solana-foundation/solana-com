@@ -99,6 +99,7 @@ describe("shared header route matching", () => {
     expect(productsSection).toBeDefined();
 
     const productToolRoutes = [
+      "/microscope",
       "/docs/tools/commerce-kit",
       "/docs/tools/kora",
       "/docs/tools/solana-pay",
@@ -131,6 +132,13 @@ describe("shared header route matching", () => {
     );
     expect(
       isNavSectionActive("/changelog", buildSection?.matchRules ?? []),
+    ).toBe(true);
+  });
+
+  it("keeps the hackathons archive active under Build", () => {
+    expect(buildSection).toBeDefined();
+    expect(
+      isNavSectionActive("/hackathons", buildSection?.matchRules ?? []),
     ).toBe(true);
   });
 });

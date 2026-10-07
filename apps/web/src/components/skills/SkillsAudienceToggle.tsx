@@ -2,6 +2,7 @@
 
 import { User } from "@boxicons/react/User";
 import { Terminal } from "@boxicons/react/Terminal";
+import Link from "next/link";
 
 export function SkillsAudienceToggle() {
   return (
@@ -11,13 +12,13 @@ export function SkillsAudienceToggle() {
           <User width={12} height={12} />
           Human
         </span>
-        <a
+        <Link
           href="/SKILL.md"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white/40 hover:text-white/60 hover:bg-white/5 transition-colors"
         >
           <Terminal width={12} height={12} />
           Agent
-        </a>
+        </Link>
       </div>
     </div>
   );

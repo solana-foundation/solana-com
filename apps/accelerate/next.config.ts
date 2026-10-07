@@ -1,7 +1,7 @@
-import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
 import { withSentryConfig } from "@sentry/nextjs";
+import { createNextIntlPlugin } from "@workspace/i18n/plugin";
 
 const prefix = "/accelerate-assets";
 const nextConfig: NextConfig = {

@@ -19,7 +19,28 @@ import {
   SectionDivider,
 } from "./cosmos/cosmos-page-shared";
 
-const FeatureHighlightComponent = FeatureHighlight as any;
+// `FeatureHighlightProps` is unusable upstream (broken `VariantProps`
+// inference), so this alias constrains the props this page actually passes.
+const FeatureHighlightComponent = FeatureHighlight as React.FC<{
+  headingAs?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+  eyebrow?: string;
+  headline?: string;
+  body?: string;
+  cards?: Array<{
+    feature?: string;
+    body?: string;
+    eyebrow?: string;
+    color?: string;
+    stat?: { value?: { statType?: string }; description?: string };
+    button?: {
+      label?: string;
+      hierarchy?: string;
+      size?: string;
+      url?: string;
+    };
+  }>;
+  buttons?: never[];
+}>;
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -109,11 +130,10 @@ export function DevelopersChainMigrationPage() {
         >
           <FeatureHighlightComponent
             headingAs={CHAIN_SELECTOR.headingAs}
-            color={CHAIN_SELECTOR.color}
             eyebrow=""
             headline={t("chainSelector.headline")}
             body=""
-            cards={chainSelectorCards as any}
+            cards={chainSelectorCards}
             buttons={[]}
           />
         </div>
@@ -121,6 +141,7 @@ export function DevelopersChainMigrationPage() {
 
       <SectionDivider />
 
+      {/* oxlint-disable-next-line react/no-unknown-property -- styled-jsx requires the `jsx` and `global` boolean attributes */}
       <style jsx global>{`
         /* Only strip horizontal gutters once max-w-screen-xl centering
            provides its own; below that the section's default responsive

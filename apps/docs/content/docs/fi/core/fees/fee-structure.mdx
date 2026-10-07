@@ -1,7 +1,7 @@
 ---
-title: Maksurakenteen rakenne
+title: Maksurakenne
 description:
-  How Solana transaction fees are calculated, including the base fee per signature, the prioritization fee formula, fee distribution, and how to set fees using compute budget instructions.
+  Miten Solana-tapahtumamaksut lasketaan, mukaan lukien allekirjoituskohtainen perusmaksu, priorisointimaksun kaava, maksujen jakautuminen ja maksujen asettaminen compute budget -ohjeilla.
 url: /docs/core/fees/fee-structure
 type: reference
 prerequisites:
@@ -17,33 +17,34 @@ related:
 {/* TOC: Fee calculation algorithm, Base fee, Fee distribution, Prioritization fee, Prioritization fee formula, Compute unit price, Transaction scheduling priority, Example */}
 
 <Callout type="info" title="Yhteenveto">
-  Kokonaismaksu = perusmaksu (5 000 lamportia/allekirjoitus, 50 % poltetaan) +
-  prioriteettimaksu (CU_price * CU_limit / 1M lamportia, 100 % validatorille).
-  Veloitetaan riippumatta siitä, onnistuuko transaktio vai epäonnistuuko.
+  Kokonaismaksu = perusmaksu (5 000 lamports/allekirjoitus, 50 % poltetaan) + priorisointimaksu
+  (CU_price * CU_limit / 1M lamports, 100 % validatorille). Veloitetaan riippumatta siitä,
+  onnistuuko tapahtuma vai ei.
 </Callout>
 
-## Maksun laskenta-algoritmi
+## Maksunlaskenta-algoritmi
 
-Transaktion kokonaismaksu lasketaan
-[`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72)-funktiolla:
+Tapahtuman kokonaismaksu lasketaan funktiolla
+[`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72):
 
 ```text title="Total fee formula"
 total_fee = base_fee + prioritization_fee
 ```
 
-Syötteinä ovat transaktioviesti, nykyinen `lamports_per_signature` (tällä
-hetkellä 5 000) ja laskentabudjetti-ohjeista johdettu prioriteettimaksu.
-Kokonaismaksu vähennetään maksajalta ennen suorituksen alkamista. Jos transaktio
-epäonnistuu, maksu veloitetaan silti.
+Syötteinä ovat tapahtumaviesti, nykyinen `lamports_per_signature`
+(tällä hetkellä 5 000) ja compute budget -ohjeista johdettu priorisointimaksu. Kokonaismaksu
+vähennetään maksajalta ennen suorituksen alkamista. Jos tapahtuma epäonnistuu, maksu
+veloitetaan silti.
 
 ## Perusmaksu
 
-Perusmaksu kattaa Ed25519-allekirjoituksen vahvistuksen kustannukset sekä
-mahdolliset precompile-allekirjoitusten vahvistukset. Jokainen transaktion
-allekirjoitus veloitetaan, mukaan lukien Ed25519-, Secp256k1- ja
-Secp256r1-precompile-ohjelmien vahvistamat allekirjoitukset.
+Perusmaksu kattaa Ed25519-allekirjoitusten varmentamisen sekä mahdolliset
+esikäännösohjelmakohtaiset allekirjoitusten varmentamiset. Kaikista tapahtuman allekirjoituksista
+veloitetaan maksu, mukaan lukien Ed25519-, Secp256k1- ja Secp256r1-esikäännösohjelmien
+varmentamat allekirjoitukset.
 
-[`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)-funktio
+Funktio
+[`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)
 laskee:
 
 ```text title="Base fee formula"
@@ -55,35 +56,31 @@ signature_count = num_transaction_signatures
 base_fee = signature_count * lamports_per_signature
 ```
 
-- `num_transaction_signatures`: Ed25519-allekirjoitusten määrä transaktiossa
-  (tyypillisesti yksi per allekirjoittaja).
+- `num_transaction_signatures`: tapahtuman Ed25519-allekirjoitusten määrä
+  (yleensä yksi allekirjoittajaa kohti).
 - `num_ed25519_signatures`, `num_secp256k1_signatures`,
-  `num_secp256r1_signatures`: vastaavien precompile-ohjelmien vahvistamat
-  allekirjoitukset.
+  `num_secp256r1_signatures`: vastaavien esikäännösohjelmien varmentamat allekirjoitukset.
 - `lamports_per_signature`: tällä hetkellä
-  [5 000 lamportia](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-structure/src/lib.rs#L210).
+  [5 000 lamports](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-structure/src/lib.rs#L210).
 
 ### Maksujen jakautuminen
 
-Perusmaksu ja prioriteettimaksu jakautuvat eri tavalla.
-[`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)-funktio
-runtimessa laskee:
+Perusmaksu ja priorisointimaksu jakautuvat eri tavoin. Funktion
+[`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)
+laskelmat ajonaikaisessa ympäristössä:
 
 ```text title="Fee distribution"
 burn_amount     = transaction_fee * 50 / 100
 validator_share = (transaction_fee - burn_amount) + priority_fee
 ```
 
-- **Perusmaksu (transaction_fee)**: 50 %
-  [poltetaan](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
-  (poistetaan liikkeessä olevasta tarjonnasta) ja 50 % menee lohkon tuottavalle
-  validatorille. Polttoprosentti on
+- **Perusmaksu (transaction_fee)**: 50 % [poltetaan](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
+  (poistetaan kierrosta) ja 50 % menee lohkon tuottavalle validatorille. Poltettava osuus on
   [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-calculator/src/lib.rs#L70).
-- **Prioriteettimaksu**: 100 % menee validatorille (mitään ei polteta),
-  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md):n
-  mukaisesti.
+- **Priorisointimaksu**: 100 % menee validatorille (mitään ei polteta),
+  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md):n mukaisesti.
 
-Validaattorin kokonaispalkkio transaktiosta on:
+Validatorin kokonaispalkkio tapahtumasta on:
 
 ```text
 validator_reward = (base_fee / 2) + prioritization_fee
@@ -91,7 +88,11 @@ validator_reward = (base_fee / 2) + prioritization_fee
 
 ## Priorisointimaksu
 
-Priorisointimaksu on valinnainen maksu, joka nostaa tapahtuman ajoitusprioriteettiä. Laskentayksikkö (CU) on laskentaoperaation mittayksikkö, jota ajonaikainen ympäristö mittaa tapahtuman suorituksen aikana. Jokainen operaatio (aritmetiikka, muistinkäyttö, järjestelmäkutsu) maksaa kiinteän määrän laskentayksiköitä. Voit asettaa priorisointimaksun sisällyttämällä laskentabudjetin ohjeet tapahtumaasi. (Katso lisätietoja oppaasta [Prioriteettimaksujen käyttö](/docs/core/fees).)
+Priorisointimaksu on valinnainen maksu, joka nostaa tapahtuman ajoitusprioriteettia.
+Laskentayksikkö (CU) on laskentayksikkö, jota ajoympäristö mittaa tapahtuman suorituksen
+aikana. Jokainen operaatio (aritmetiikka, muistin käyttö, syscall) maksaa kiinteän määrän
+CU:ja. Voit asettaa priorisointimaksun sisällyttämällä compute budget -ohjeita tapahtumaasi.
+(Katso [Prioriteettimaksujen käyttöopas](/docs/core/fees) lisätietoja varten.)
 
 ### Priorisointimaksun kaava
 
@@ -104,86 +105,78 @@ micro_lamport_fee = compute_unit_price * compute_unit_limit
 prioritization_fee = ceil(micro_lamport_fee / 1,000,000)
 ```
 
-| Muuttuja             | Kuvaus                                                                                                                                                                       | Oletusarvo                         |
+| Muuttuja             | Kuvaus                                                                                                                                                                       | Oletus                         |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| `compute_unit_price` | Mikrolamporttia per CU, asetetaan komennolla `SetComputeUnitPrice`                                                                                                                              | 0 mikrolamporttia                |
-| `compute_unit_limit` | Maksimimäärä CU:ita, jonka transaktio voi kuluttaa, asetetaan komennolla `SetComputeUnitLimit`                                                                                                            | Ohjekohtaisten oletusarvojen summa |
-| `1,000,000`          | Muuntokerroin mikrolamporteista lamporteiksi ([`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)) | --                              |
+| `compute_unit_price` | Mikro-lamports per CU, asetetaan `SetComputeUnitPrice`-ohjeella                                                                                                                              | 0 mikro-lamports                |
+| `compute_unit_limit` | CU:jen enimmäismäärä, jonka tapahtuma voi kuluttaa, asetetaan `SetComputeUnitLimit`-ohjeella                                                                                                            | Ohjauskohtaisten oletusarvojen summa |
+| `1 000 000`          | Muunnoskerroin mikro-lamportsista lamportsiin ([`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)) | --                              |
 
 <Callout type="info" title="v1-tapahtumat asettavat maksun suoraan">
-  Tämä hinta kertaa raja-arvo -kaava koskee legacy- ja v0-tapahtumia. Tulevassa [v1-formaatissa](/docs/core/transactions/versioned-transactions#v1-message-format) prioriteettimaksu on absoluuttinen kokonaissumma lamporteissa, joka asetetaan suoraan viestin asetuksissa — ei CU-kohtaista hintaa, ei kertolaskua, ei pyöristystä.
+  Tämä hinta kertaa raja -kaava koskee legacy- ja v0-tapahtumia. [v1-formaatissa](/docs/core/transactions/versioned-transactions#v1-format)
+  priorisointimaksu on absoluuttinen kokonaissumma lamportsina, joka asetetaan suoraan
+  viestikonfiguraatiossa — ei CU-kohtaista hintaa, ei kertolaskua, ei pyöristystä.
 </Callout>
 
-### Laskentayksikkörajoitus
+### Laskentayksiköiden raja
 
-Laskentayksikkörajoitus on maksimimäärä CU:ita, jonka transaktio voi kuluttaa.
+Laskentayksiköiden raja on CU:jen enimmäismäärä, jonka tapahtuma voi kuluttaa.
 Jos
 [`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)-ohjetta
-ei ole sisällytetty, oletusarvo lasketaan ohjeiden määrästä ja tyypistä (200 000
-CU:ta per ei-sisäänrakennettu ohje, 3 000 per sisäänrakennettu). Katso
-lisätietoja oletusarvon laskennasta kohdasta
-[Compute Budget](/docs/core/fees/compute-budget).
+ei sisällytetä, oletusarvo lasketaan ohjeiden määrän ja tyypin perusteella
+(200 000 CU:ta ei-sisäänrakennettua ohjetta kohti, 3 000 sisäänrakennettua kohti). Katso
+[Compute Budget](/docs/core/fees/compute-budget) lisätietoja oletusarvon laskennasta.
 
 <Callout type="warn">
-  Prioriteettimaksu perustuu pyydettyyn CU-rajoitukseen, ei todelliseen
-  CU-käyttöön. Tarvittua korkeamman rajoituksen asettaminen tarkoittaa
-  maksamista käyttämättömistä laskentayksiköistä.
+  Priorisointimaksu perustuu pyydettyyn CU-rajaan, ei todelliseen CU-kulutukseen.
+  Korkeamman rajan asettaminen kuin tarvitaan tarkoittaa maksamista käyttämättömistä laskentayksiköistä.
 </Callout>
 
 ### Laskentayksikön hinta
 
-Laskentayksikön hinta on valinnainen mikrolamporttien määrä, joka maksetaan
-jokaisesta pyydetystä CU:sta. CU-hinta määrittää suoraan priorisointimaksun.
-Asettaaksesi CU-hinnan, sisällytä
+Laskentayksikön hinta on valinnainen mikro-lamports-määrä, joka maksetaan jokaisesta
+pyydetystä CU:sta. CU-hinta määrää suoraan priorisointimaksun suuruuden. Aseta CU-hinta
+sisällyttämällä
 [`SetComputeUnitPrice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L35)-ohje
-transaktioosi.
+tapahtumaasi.
 
 <Callout>
-  Oletusarvoinen CU-hinta on 0, mikä tarkoittaa, että myös
-  oletuspriorisointimaksu on 0.
+  CU-hinnan oletusarvo on 0, eli priorisointimaksun oletusarvo on myös 0.
 </Callout>
 
-Reaaliaikaisia CU-hinta-arvioita varten katso alla olevat
-priorisointimaksu-API-tarjoajat.
+Reaaliaikaisia CU-hinta-arvioita varten katso alla olevat prioriteettimaksujen API-palveluntarjoajat.
 
-| Tarjoaja                                | Priorisointimaksu-API                                                                  |
+| Palveluntarjoaja                                | Prioriteettimaksun API                                                                  |
 | --------------------------------------- | --------------------------------------------------------------------------------- |
 | [Helius](https://www.helius.dev/)       | [Dokumentaatio](https://docs.helius.dev/solana-apis/priority-fee-api)             |
 | [QuickNode](https://www.quicknode.com/) | [Dokumentaatio](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
 | [Triton](https://triton.one/)           | [Dokumentaatio](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
 
-### Transaktioiden ajoitusprioriteetti
+### Tapahtumien ajoitusprioriteetti
 
-Ajastin järjestää transaktiot käyttäen
-[`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546)
--funktiota:
+Ajastin järjestää tapahtumat funktiolla
+[`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546):
 
 ```text title="Transaction priority formula"
 Priority = reward * 1,000,000 / (cost + 1)
 ```
 
-- **reward**: validatorin maksutulo = priorisointimaksu + perusmaksun
-  polttamaton osuus. Lasketaan
-  [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83)
-  -funktiolla.
-- **cost**: ajastimen
-  [arvioitu CU-kustannus](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
-  (allekirjoituskustannukset + kirjoituslukkokustannukset + instruction data
-  -kustannukset + ohjelman suorituskustannukset + ladattujen tilien datakoon
-  kustannus). Katso
-  [Compute Budget](/docs/core/fees/compute-budget#scheduler-cost-model)
-  lisätietoja varten.
-- **1 000 000**: kerroin tarkkuuden säilyttämiseksi, koska kustannus ylittää
-  usein tuoton raa'issa lamporteissa.
+- **reward**: validatorin maksutuotto = priorisointimaksu + perusmaksun polttamaton osuus.
+  Lasketaan funktiolla [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83).
+- **cost**: ajastimen [arvioitu CU-kustannus](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
+  (allekirjoituskustannukset + kirjoituslukituskustannukset + instruction data -kustannukset +
+  ohjelman suorituskustannukset + ladattujen tilien datakokokustannus). Katso
+  [Compute Budget](/docs/core/fees/compute-budget#scheduler-cost-model) lisätietoja varten.
+- **1 000 000**: tarkkuuden säilyttämiseksi käytetty kerroin, koska kustannus ylittää usein
+  palkkion raakoina lamportsina.
 - **+1**: estää nollalla jakamisen.
 
-Prioriteetti määrittää järjestyksen, jossa transaktiot poistetaan ajastimen
-puskurista suoritettavaksi.
+Prioriteetti määrittää järjestyksen, jossa tapahtumat poistetaan ajastimen puskurista
+suoritettavaksi.
 
 ## Esimerkki: CU-rajan ja CU-hinnan asettaminen
 
-Alla olevat esimerkit näyttävät, kuinka CU-raja ja CU-hinta asetetaan
-transaktioon käyttäen Solana SDK:ita.
+Alla olevat esimerkit näyttävät, miten CU-raja ja CU-hinta asetetaan tapahtumalle
+Solana SDK:iden avulla.
 
 | SDK                            | Lähdekoodiviite                                                                                                            |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |

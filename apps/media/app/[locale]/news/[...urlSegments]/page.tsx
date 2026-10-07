@@ -297,13 +297,23 @@ export default async function PostPage({
             )}
             actions={
               <>
-                {report.hubspotForm?.portalId && report.hubspotForm?.formId && (
+                {(report.hubspotForm?.formUrl ||
+                  (report.hubspotForm?.portalId &&
+                    report.hubspotForm?.formId)) && (
                   <ReportFormModal
                     buttonLabel={
                       report.hubspotForm.buttonLabel || "Get the full report"
                     }
-                    portalId={String(report.hubspotForm.portalId)}
-                    formId={String(report.hubspotForm.formId)}
+                    portalId={
+                      report.hubspotForm.portalId
+                        ? String(report.hubspotForm.portalId)
+                        : undefined
+                    }
+                    formId={
+                      report.hubspotForm.formId
+                        ? String(report.hubspotForm.formId)
+                        : undefined
+                    }
                     formUrl={
                       report.hubspotForm.formUrl
                         ? String(report.hubspotForm.formUrl)

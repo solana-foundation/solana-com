@@ -3,13 +3,15 @@
 import { motion } from "motion/react";
 import { Link } from "@workspace/i18n/routing";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import { getImagePath } from "@/config";
 import { fadeInUp, stagger } from "@/lib/animations";
 
 interface AgendaBannerProps {
   translationPrefix?: string;
   agendaPath?: string;
+  eventName?: string;
+  variant?: "full" | "cta";
   sessionsCount?: string;
   speakersCount?: string;
   showSpeakersCount?: boolean;
@@ -19,6 +21,8 @@ interface AgendaBannerProps {
 export function AgendaBanner({
   translationPrefix = "accelerate.agendaBanner",
   agendaPath = "/accelerate/hong-kong/agenda",
+  eventName,
+  variant = "full",
   sessionsCount,
   speakersCount,
   showSpeakersCount = true,
@@ -26,24 +30,27 @@ export function AgendaBanner({
 }: AgendaBannerProps = {}) {
   const t = useTranslations(translationPrefix);
 
-  const highlights = [
-    {
-      count: sessionsCount ?? t("sessionsCount"),
-      label: t("sessionsLabel"),
-    },
-    ...(showSpeakersCount
+  const highlights =
+    variant === "full"
       ? [
           {
-            count: speakersCount ?? t("speakersCount"),
-            label: t("speakersLabel"),
+            count: sessionsCount ?? t("sessionsCount"),
+            label: t("sessionsLabel"),
+          },
+          ...(showSpeakersCount
+            ? [
+                {
+                  count: speakersCount ?? t("speakersCount"),
+                  label: t("speakersLabel"),
+                },
+              ]
+            : []),
+          {
+            count: fullDayCount ?? t("fullDayCount"),
+            label: t("fullDayLabel"),
           },
         ]
-      : []),
-    {
-      count: fullDayCount ?? t("fullDayCount"),
-      label: t("fullDayLabel"),
-    },
-  ];
+      : [];
 
   return (
     <section className="relative overflow-hidden bg-black py-16 lg:py-24">
@@ -87,56 +94,60 @@ export function AgendaBanner({
           variants={stagger}
           className="text-center"
         >
-          {/* Eyebrow */}
-          <motion.p
-            variants={fadeInUp}
-            className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-accelerate-green"
-          >
-            {t("eyebrow")}
-          </motion.p>
+          {variant === "full" || eventName ? (
+            <motion.p
+              variants={fadeInUp}
+              className="mb-4 text-sm font-medium uppercase tracking-[0.2em] text-accelerate-green"
+            >
+              {eventName ?? t("eyebrow")}
+            </motion.p>
+          ) : null}
 
           {/* Heading */}
           <motion.h2
             variants={fadeInUp}
-            className="mb-6 text-3xl font-light text-accelerate-gray-light sm:text-4xl md:text-5xl lg:text-6xl"
+            className={`${variant === "cta" ? "mb-8" : "mb-6"} text-3xl font-light text-accelerate-gray-light sm:text-4xl md:text-5xl lg:text-6xl`}
           >
             {t("heading")}{" "}
             <span className="gradient-text">{t("headingHighlight")}</span>
           </motion.h2>
 
-          {/* Description */}
-          <motion.p
-            variants={fadeInUp}
-            className="mx-auto mb-10 max-w-2xl text-lg text-white/60"
-          >
-            {t("description")}
-          </motion.p>
+          {variant === "full" ? (
+            <motion.p
+              variants={fadeInUp}
+              className="mx-auto mb-10 max-w-2xl text-lg text-white/60"
+            >
+              {t("description")}
+            </motion.p>
+          ) : null}
 
-          {/* Stats */}
-          <motion.div
-            variants={fadeInUp}
-            className="mb-10 flex flex-wrap items-center justify-center gap-8 lg:gap-16"
-          >
-            {highlights.map((item) => (
-              <div key={item.label} className="text-center">
-                <p className="gradient-text text-4xl font-semibold lg:text-5xl">
-                  {item.count}
-                </p>
-                <p className="mt-1 text-sm uppercase tracking-wider text-white/50">
-                  {item.label}
-                </p>
-              </div>
-            ))}
-          </motion.div>
+          {variant === "full" ? (
+            <motion.div
+              variants={fadeInUp}
+              className="mb-10 flex flex-wrap items-center justify-center gap-8 lg:gap-16"
+            >
+              {highlights.map((item) => (
+                <div key={item.label} className="text-center">
+                  <p className="gradient-text text-4xl font-semibold lg:text-5xl">
+                    {item.count}
+                  </p>
+                  <p className="mt-1 text-sm uppercase tracking-wider text-white/50">
+                    {item.label}
+                  </p>
+                </div>
+              ))}
+            </motion.div>
+          ) : null}
 
           {/* CTA Button */}
           <motion.div variants={fadeInUp}>
             <Link
               href={agendaPath}
-              className="btn-cta h-[56px] px-8 sm:h-[66px]"
+              className="group btn-cta h-[56px] px-8 sm:h-[66px]"
             >
               <span className="text-sm uppercase font-semibold sm:text-base sm:tracking-[0.9px]">
                 {t("viewFullAgenda")}
+                {eventName ? ` (${eventName})` : ""}
               </span>
               <svg
                 width="16"

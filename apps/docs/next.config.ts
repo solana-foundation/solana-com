@@ -160,6 +160,43 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  async redirects() {
+    // The web app forwards raw-markdown requests with `.md` intact (see
+    // `withMdVariants` in apps/web/rewrites-redirects.ts), so every moved route
+    // needs a `.md` twin here or those URLs 404 instead of redirecting.
+    const movedRoutes = [
+      {
+        source: "/docs/payments/accept-payments/payment-button",
+        destination: "/docs/tools/commerce-kit/quickstart/payment-button",
+      },
+      {
+        source: "/docs/payments/accept-payments/pay-sh",
+        destination: "/docs/payments/pay-sh",
+      },
+      {
+        source: "/docs/payments/subscriptions/pay-sh",
+        destination: "/docs/payments/pay-sh",
+      },
+      {
+        source: "/docs/payments/production-readiness",
+        destination: "/docs/tools/production-readiness",
+      },
+      {
+        source: "/:locale/docs/payments/production-readiness",
+        destination: "/:locale/docs/tools/production-readiness",
+      },
+    ];
+
+    return movedRoutes.flatMap(({ source, destination }) => [
+      { source, destination, permanent: true },
+      {
+        source: `${source}.md`,
+        destination: `${destination}.md`,
+        permanent: true,
+      },
+    ]);
+  },
+
   async rewrites() {
     return {
       beforeFiles: [
