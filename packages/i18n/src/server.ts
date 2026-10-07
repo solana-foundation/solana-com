@@ -1,1 +1,5 @@
-export { getRequestConfig, getTranslations } from "next-intl/server";
+export {
+  getFormatter,
+  getRequestConfig,
+  getTranslations,
+} from "next-intl/server";

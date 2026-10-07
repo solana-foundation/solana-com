@@ -24,7 +24,7 @@ export const HEADER_SECTION_METADATA: Array<
       { type: "equals", value: "/changelog" },
       { type: "equals", value: "/data" },
       { type: "includes", value: "/docs", exclude: ["/docs/tools"] },
-      { type: "equals", value: "/hackathon" },
+      { type: "equals", value: "/hackathons" },
     ],
     contentAlign: "left",
   },
