@@ -4,6 +4,7 @@ import { getLocale } from "next-intl/server";
 import { getLangDir } from "rtl-detect";
 import { cn } from "@/lib/utils";
 
+import "@workspace/ui/scrollbar.css";
 import "@/styles.css";
 
 const fontSans = localFont({

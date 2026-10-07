@@ -99,6 +99,7 @@ describe("shared header route matching", () => {
     expect(productsSection).toBeDefined();
 
     const productToolRoutes = [
+      "/microscope",
       "/docs/tools/commerce-kit",
       "/docs/tools/kora",
       "/docs/tools/solana-pay",
