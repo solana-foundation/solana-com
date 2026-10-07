@@ -39,6 +39,24 @@ new snapshot.
 
 ## Analytics and search interpretation
 
+Use the existing [GA4 event taxonomy](./ga4-event-taxonomy.md) for event names
+and consent rules. Review the following areas separately within the same
+property; use landing-page path for acquisition questions and page path for
+content consumption so a session is not counted as a visit to every page it
+later views.
+
+| Area              | Landing-page paths               | Baseline measures                                                                        |
+| ----------------- | -------------------------------- | ---------------------------------------------------------------------------------------- |
+| Main site         | `/`, `/solutions`, `/ecosystem`  | Sessions, engaged sessions, engagement rate, meaningful CTA selections, successful leads |
+| Developer content | `/docs`, `/learn`, `/developers` | Organic-search landing sessions, engagement rate, resource views                         |
+| Media             | `/news`, `/podcasts`, `/reports` | Organic-search landing sessions, views, engagement rate, podcast plays and subscriptions |
+| Templates         | `/developers/templates`          | Landing sessions, engagement rate, template selections                                   |
+| Events            | `/accelerate`, `/breakpoint`     | Landing sessions, engagement rate, registration or ticket leads                          |
+
+Track key events only after the success events and their GA4 configuration are
+verified. Keep the baseline date range and reporting identity fixed when
+comparing migration changes.
+
 The GA4 engagement dashboard for property `341980704` uses a rolling 28-day
 window, standard GA4 active users, sessions, views, and engagement rate, with
 daily, acquisition-channel, and landing-page views. The baseline showed a large
