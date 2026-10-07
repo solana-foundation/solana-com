@@ -34,12 +34,14 @@ const restoredAssets = new Set([
 ]);
 
 function xmlText(value) {
-  return value
-    .replaceAll("&amp;", "&")
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&apos;", "'");
+  const entities = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+  };
+  return value.replace(/&(amp|lt|gt|quot|apos);/g, (_, name) => entities[name]);
 }
 
 function csvRow(values) {
