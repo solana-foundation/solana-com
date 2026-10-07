@@ -12,6 +12,21 @@ type PageProps = {
   params: Promise<{ locale: string }>;
 };
 
+const SHANGHAI_FORMAT_ORDER = [
+  "Opening Performance",
+  "Opening Remarks",
+  "Closing Remarks",
+  "Fireside Chat",
+  "Keynote (15 min)",
+  "Keynote (30 min)",
+  "Lunch",
+  "Panel",
+  "Builder × Builder",
+  "Product Demo Showcase",
+  "Registration & Networking",
+  "Tech sharing",
+] as const;
+
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
@@ -89,6 +104,9 @@ export default async function ShanghaiAgendaPage({ params }: PageProps) {
         data={data}
         event={accelerateEvents.shanghai}
         agendaLabels={{
+          formatOrder: SHANGHAI_FORMAT_ORDER.map(
+            (format) => formatLabels[format] ?? format,
+          ),
           rightColumnLabel: t("track"),
           timeZoneLabel: t("timeZone"),
           searchPlaceholder: t("searchPlaceholder"),

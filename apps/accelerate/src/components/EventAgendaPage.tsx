@@ -23,6 +23,7 @@ type EventAgendaPageProps = {
   data?: AgendaData;
   copy?: Partial<Record<AgendaPageCopyKey, string>>;
   agendaLabels?: {
+    formatOrder?: readonly string[];
     rightColumnLabel?: string;
     timeZoneLabel?: string;
     searchPlaceholder?: string;
@@ -146,6 +147,7 @@ export function EventAgendaPage({
             data={data}
             filterMode={event.agendaDisplay?.filterMode ?? "format"}
             exactFormatLabels={event.agendaDisplay?.exactFormatLabels}
+            formatOrder={agendaLabels?.formatOrder}
             rightColumnLabel={agendaLabels?.rightColumnLabel}
             timeZoneLabel={agendaLabels?.timeZoneLabel}
             searchPlaceholder={agendaLabels?.searchPlaceholder}

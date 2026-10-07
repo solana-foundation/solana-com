@@ -392,6 +392,7 @@ interface AgendaProps {
   data?: AgendaData;
   filterMode?: FilterMode;
   exactFormatLabels?: boolean;
+  formatOrder?: readonly string[];
   rightColumnLabel?: string;
   timeZoneLabel?: string;
   searchPlaceholder?: string;
@@ -402,6 +403,7 @@ export function Agenda({
   data,
   filterMode = "type",
   exactFormatLabels = false,
+  formatOrder,
   rightColumnLabel,
   timeZoneLabel,
   searchPlaceholder,
@@ -480,16 +482,22 @@ export function Agenda({
         [],
       );
 
-      const formatOrder = new Map(
+      const preferredFormats =
+        formatOrder ??
         ["Open/Close", "Fireside", "Keynote", "Break", "Panel"].map(
-          (format, index) => [getFormatFilterId(format), index],
-        ),
+          (format) => formatLabels[format] ?? format,
+        );
+      const formatRanks = new Map(
+        preferredFormats.map((format, index) => [
+          getFormatFilterId(format),
+          index,
+        ]),
       );
 
       return options.sort(
         (a, b) =>
-          (formatOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
-          (formatOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+          (formatRanks.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+          (formatRanks.get(b.id) ?? Number.MAX_SAFE_INTEGER),
       );
     }
 
@@ -498,7 +506,14 @@ export function Agenda({
       type,
       label: typeLabels[type] ?? type,
     }));
-  }, [exactFormatLabels, filterMode, formatLabels, sessions, typeLabels]);
+  }, [
+    exactFormatLabels,
+    filterMode,
+    formatLabels,
+    formatOrder,
+    sessions,
+    typeLabels,
+  ]);
 
   const toggleFilter = (filterId: string) => {
     setSelectedFilters((prev) =>
