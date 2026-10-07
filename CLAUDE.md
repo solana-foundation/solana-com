@@ -32,7 +32,7 @@ solana-com/
 ## Tech Stack
 
 - **Runtime**: Node.js 24 with pnpm 11.13.1 (workspace protocol)
-- **Framework**: Next.js 15.5.21 with App Router
+- **Framework**: Next.js 15.5.24 with App Router
 - **Language**: TypeScript 5.8.3
 - **UI Library**: React 19.2.6
 - **Styling**: Tailwind CSS 3.4+; use utilities for styling changes on this
