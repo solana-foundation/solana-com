@@ -395,6 +395,18 @@ export const productSurfaceItems: NavItemDefinition[] = [
 
 export const productToolItems: NavItemDefinition[] = [
   {
+    id: "products-developer-tools",
+    titleKey: "nav.products.tools.items.developerTools.title",
+    href: "/docs/tools",
+    icon: MaintenanceIcon,
+  },
+  {
+    id: "products-payment-developer-tools",
+    titleKey: "nav.products.tools.items.paymentDeveloperTools.title",
+    href: "/docs/payments/developer-tools",
+    icon: MoneyIcon,
+  },
+  {
     id: "products-microscope",
     titleKey: "nav.products.tools.items.microscope.title",
     href: "/microscope",

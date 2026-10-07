@@ -100,9 +100,11 @@ describe("shared header route matching", () => {
 
     const productToolRoutes = [
       "/microscope",
+      "/docs/tools",
       "/docs/tools/commerce-kit",
       "/docs/tools/kora",
       "/docs/tools/solana-pay",
+      "/docs/payments/developer-tools",
       "/rpc",
       "/solutions/payments-tooling",
       "/solutions/token-extensions",
