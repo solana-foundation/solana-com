@@ -1,8 +1,10 @@
 export const SHANGHAI_EVENT_RECORD_ID = "recAV2sRCIpOBYOZB";
 
 export const SHANGHAI_AGENDA_FIELD_IDS = {
-  title: "fldU6L4Zb3oQc5jfv",
-  description: "fldFrvbJkVfvGRGmG",
+  titleEn: "fldU6L4Zb3oQc5jfv",
+  titleZh: "fldjScTQVyy8fbpeW",
+  descriptionEn: "fldFrvbJkVfvGRGmG",
+  descriptionZh: "fldPkBetochLpdjQ5",
   startTime: "fldmCK4LYKbAAujB0",
   endTime: "fldEDU8fKeEKMNnZv",
   order: "fldKqtpMaiDhXj9Is",
@@ -24,7 +26,9 @@ export type ShanghaiAgendaSourceRecord = {
 export type ShanghaiAgendaSession = {
   id: string;
   title: string;
+  titleZh?: string;
   description?: string;
+  descriptionZh?: string;
   time?: {
     start: string;
     end?: string;
@@ -38,6 +42,19 @@ export type ShanghaiAgendaMappingOptions = {
   ignorePublicationFlags?: boolean;
   formatNames?: Readonly<Record<string, string>>;
 };
+
+export function getShanghaiAgendaSessionText(
+  session: ShanghaiAgendaSession,
+  locale: string,
+): Pick<ShanghaiAgendaSession, "title" | "description"> {
+  return {
+    title: locale === "zh" ? (session.titleZh ?? session.title) : session.title,
+    description:
+      locale === "zh"
+        ? (session.descriptionZh ?? session.description)
+        : session.description,
+  };
+}
 
 const SHANGHAI_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Asia/Shanghai",
@@ -180,11 +197,20 @@ export function mapShanghaiAgendaRecords(
     .filter((record) => ignorePublicationFlags || isPubliclyApproved(record))
     .sort(compareSchedule)
     .flatMap((record) => {
-      const title = asString(record.fields?.[SHANGHAI_AGENDA_FIELD_IDS.title]);
+      const titleEn = asString(
+        record.fields?.[SHANGHAI_AGENDA_FIELD_IDS.titleEn],
+      );
+      const titleZh = asString(
+        record.fields?.[SHANGHAI_AGENDA_FIELD_IDS.titleZh],
+      );
+      const title = titleEn ?? titleZh;
       if (!title) return [];
 
       const description = asString(
-        record.fields?.[SHANGHAI_AGENDA_FIELD_IDS.description],
+        record.fields?.[SHANGHAI_AGENDA_FIELD_IDS.descriptionEn],
+      );
+      const descriptionZh = asString(
+        record.fields?.[SHANGHAI_AGENDA_FIELD_IDS.descriptionZh],
       );
       const track = getSelectName(
         record.fields?.[SHANGHAI_AGENDA_FIELD_IDS.track],
@@ -198,7 +224,9 @@ export function mapShanghaiAgendaRecords(
         {
           id: record.id,
           title,
+          ...(titleZh ? { titleZh } : {}),
           ...(description ? { description } : {}),
+          ...(descriptionZh ? { descriptionZh } : {}),
           ...(time ? { time } : {}),
           ...(track ? { track } : {}),
           ...(formats.length ? { formats } : {}),

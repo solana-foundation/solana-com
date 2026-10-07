@@ -161,7 +161,7 @@ const loadCachedShanghaiAgenda =
     ? unstable_cache(
         fetchShanghaiAgenda,
         [
-          "shanghai-agenda-airtable-v2",
+          "shanghai-agenda-airtable-v3",
           IGNORE_PUBLICATION_FLAGS ? "preview" : "production",
         ],
         {

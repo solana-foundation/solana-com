@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  getShanghaiAgendaSessionText,
   mapShanghaiAgendaRecords,
   SHANGHAI_AGENDA_FIELD_IDS as FIELD,
   SHANGHAI_EVENT_RECORD_ID,
@@ -14,8 +15,8 @@ function record(
   return {
     id,
     fields: {
-      [FIELD.title]: `Session ${id}`,
-      [FIELD.description]: `Description ${id}`,
+      [FIELD.titleEn]: `Session ${id}`,
+      [FIELD.descriptionEn]: `Description ${id}`,
       [FIELD.order]: 1,
       [FIELD.publishStatus]: "Live",
       [FIELD.commsReview]: "Cleared",
@@ -34,7 +35,7 @@ test("publishes only live, cleared Shanghai titles and descriptions", () => {
     [FIELD.event]: ["rec-other-event"],
   });
   const missingDescription = record("rec-no-description", {
-    [FIELD.description]: "   ",
+    [FIELD.descriptionEn]: "   ",
     [FIELD.order]: 2,
   });
   const uncleared = record("rec-uncleared", {
@@ -146,7 +147,7 @@ test("sorts approved sessions by schedule without returning schedule fields", ()
 
 test("excludes blank titles and records with missing approval state", () => {
   const blankTitle = record("rec-blank-title", {
-    [FIELD.title]: "  ",
+    [FIELD.titleEn]: "  ",
   });
   const noPublicationState = record("rec-no-status", {
     [FIELD.publishStatus]: undefined,
@@ -156,6 +157,40 @@ test("excludes blank titles and records with missing approval state", () => {
     mapShanghaiAgendaRecords([blankTitle, noPublicationState]),
     [],
   );
+});
+
+test("uses Airtable's Chinese title and description for the zh locale", () => {
+  const [session] = mapShanghaiAgendaRecords([
+    record("rec-localized", {
+      [FIELD.titleZh]: "中文标题",
+      [FIELD.descriptionZh]: "中文简介",
+    }),
+  ]);
+
+  assert.ok(session);
+  assert.deepEqual(getShanghaiAgendaSessionText(session, "zh"), {
+    title: "中文标题",
+    description: "中文简介",
+  });
+  assert.deepEqual(getShanghaiAgendaSessionText(session, "en"), {
+    title: "Session rec-localized",
+    description: "Description rec-localized",
+  });
+});
+
+test("falls back to English when a Chinese cell is blank", () => {
+  const [session] = mapShanghaiAgendaRecords([
+    record("rec-partial-translation", {
+      [FIELD.titleZh]: "中文标题",
+      [FIELD.descriptionZh]: "  ",
+    }),
+  ]);
+
+  assert.ok(session);
+  assert.deepEqual(getShanghaiAgendaSessionText(session, "zh"), {
+    title: "中文标题",
+    description: "Description rec-partial-translation",
+  });
 });
 
 test("drops all non-whitelisted private Airtable fields", () => {

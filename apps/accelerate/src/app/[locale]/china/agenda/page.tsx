@@ -4,6 +4,7 @@ import { ChinaHeader } from "@/components/china/ChinaRoadshow";
 import { accelerateEvents } from "@/data/events";
 import type { AgendaData, AgendaSessionType } from "@/lib/agenda-types";
 import { getShanghaiAgenda } from "@/lib/shanghai-agenda";
+import { getShanghaiAgendaSessionText } from "@/lib/shanghai-agenda-mapper";
 import { getPageMetadata } from "../../../metadata";
 import { getTranslations } from "@workspace/i18n/server";
 
@@ -47,19 +48,26 @@ function getSessionType(formats: readonly string[] = []): AgendaSessionType {
   return "panel";
 }
 
-export default async function ShanghaiAgendaPage() {
+export default async function ShanghaiAgendaPage({ params }: PageProps) {
+  const { locale } = await params;
   const result = await getShanghaiAgenda();
   const sessions =
     result.status === "ready"
-      ? result.sessions.map((session) => ({
-          id: session.id,
-          time: session.time?.label,
-          title: session.title,
-          subtitle: session.description,
-          type: getSessionType(session.formats),
-          formats: session.formats,
-          track: session.track,
-        }))
+      ? result.sessions.map((session) => {
+          const { title, description } = getShanghaiAgendaSessionText(
+            session,
+            locale,
+          );
+          return {
+            id: session.id,
+            time: session.time?.label,
+            title,
+            subtitle: description,
+            type: getSessionType(session.formats),
+            formats: session.formats,
+            track: session.track,
+          };
+        })
       : [];
   const data: AgendaData = { sessions };
 
