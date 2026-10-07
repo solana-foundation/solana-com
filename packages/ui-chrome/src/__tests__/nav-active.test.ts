@@ -104,6 +104,8 @@ describe("shared header route matching", () => {
       "/docs/tools/kora",
       "/docs/tools/solana-pay",
       "/docs/payments/developer-tools",
+      "/fr/docs/payments/developer-tools",
+      "/fr/docs/tools/kora",
       "/rpc",
       "/solutions/payments-tooling",
       "/solutions/token-extensions",
