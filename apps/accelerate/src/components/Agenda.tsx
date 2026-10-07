@@ -482,11 +482,13 @@ export function Agenda({
         [],
       );
 
-      const preferredFormats =
-        formatOrder ??
-        ["Open/Close", "Fireside", "Keynote", "Break", "Panel"].map(
-          (format) => formatLabels[format] ?? format,
-        );
+      const preferredFormats = formatOrder ?? [
+        "Open/Close",
+        "Fireside",
+        "Keynote",
+        "Break",
+        "Panel",
+      ];
       const formatRanks = new Map(
         preferredFormats.map((format, index) => [
           getFormatFilterId(format),
