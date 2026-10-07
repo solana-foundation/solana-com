@@ -32,7 +32,7 @@ function release(overrides: Partial<ReleaseInput>): ReleaseInput {
 }
 
 describe("groupUpgradesByRelease", () => {
-  it("orders planned releases latest-first, then shipped most-recent-first, then unscheduled last", () => {
+  it("orders unscheduled first, then planned releases latest-first, then shipped most-recent-first", () => {
     const releases: ReleaseInput[] = [
       release({
         slug: "shipped-old",
@@ -70,11 +70,11 @@ describe("groupUpgradesByRelease", () => {
     const groups = groupUpgradesByRelease(upgrades, releases);
 
     expect(groups.map((group) => group.key)).toEqual([
+      "unscheduled",
       "planned-far",
       "planned-near",
       "shipped-new",
       "shipped-old",
-      "unscheduled",
     ]);
   });
 

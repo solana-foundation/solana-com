@@ -1,5 +1,5 @@
 ---
-title: Durable Nonce Migration
+title: Durable Nonce Deprecation
 description: >-
   Durable nonce transactions are being replaced by onchain offline-signer
   programs that verify a cold key's signature and advance their own nonce,
@@ -11,7 +11,6 @@ publishedAt: 2026-10-06T00:00:00.000Z
 status: published
 author: solana-foundation
 stage: in_development
-release: agave-4-4
 metrics:
   - value: ~6 months
     label: Migration window after the replacement program is ready
@@ -32,7 +31,7 @@ tags:
   - tag: announcements
 ---
 
-# Durable Nonce Migration
+# Durable Nonce Deprecation
 
 October 2026 • Solana Foundation
 
@@ -223,38 +222,24 @@ CPI depth from 4 to 8, and
 [Larger Transaction Sizes](/upgrades/larger-transaction-sizes) allows 4096-byte
 payloads.
 
-### Proposals Considered
-
-| Proposal                                        | How it works                                                                                                     | Pros                                                                                              | Cons                                                                                                       |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **CPI Passthrough** (Trent Nelson) — **chosen** | A program verifies an offline signature over a list of instructions, consumes its own nonce, runs them via CPI   | Removes nonces from the validator<br />No runtime change, works today<br />Any transaction format | Authorities move to a PDA<br />Instructions run as CPIs<br />New offline tooling needed                    |
-| **Transaction Envelopes** (Hana)                | New transaction format with its own fee payer and blockhash wraps a signed legacy nonce transaction              | Existing nonce transactions still run<br />Keeps existing keypairs<br />Minimal runtime support   | New transaction format<br />Transaction inside a transaction<br />Nonce logic stays in the protocol        |
-| **Sudo Instruction** (Oliver Chalk)             | A v1 transaction carries a legacy nonce transaction as instruction data; the validator runs it as if top-level   | Existing nonce transactions still run<br />No new format<br />Inner accounts compress to 1 byte   | Heavy special handling in the validator<br />Execution traces must hide the wrapper from RPC and explorers |
-| **Signer Promotion**                            | A PDA becomes a signer for the rest of the transaction after an offline signature check                          | Later instructions stay top-level                                                                 | No clear advantage over CPI Passthrough<br />No owner                                                      |
-| **Epoch-scoped transactions**                   | A transaction names the epoch it may run in instead of a blockhash; higher fees and bonded fee payers limit spam | Simple for users                                                                                  | Breaks message hash uniqueness<br />New economic rules                                                     |
-| **Extended blockhash TTL** (Fireblocks)         | Optional, higher-fee transactions keep their blockhash valid for up to about an hour                             | The cold signature is the transaction<br />No relayer for short ceremonies<br />Still expires     | Doesn't cover multi-day signing<br />Larger status cache<br />Raised as a complement, not adopted          |
-| **Tiered blockhashes** (Anchorage Digital)      | Blockhashes from slots divisible by 10, 100, 1000… stay valid longer, from minutes to about 55 hours             | Predictable supply of long-lived blockhashes<br />No nonce accounts                               | Consensus impact unknown<br />Validators keep more blockhashes<br />Not adopted                            |
-
 ### Concerns Raised by Institutions
 
-Fireblocks, Unit 410, and Anchorage Digital preferred Envelopes or Sudo. Their
-concerns:
+Concerns raised by custodians and issuers, and how the new programs address
+them:
 
-- **Migration at scale.** Millions of token and stake accounts need new
-  authorities.
-- **Programs that reject CPI.** MarginFi and Kamino flash loans, Token-2022 CPI
-  Guard, Drift swap checks. Other builders replied that programs often relax
-  these checks for specific integrations.
-- **A program in the signing path.** Some institutions define cold storage as
-  "no smart contract in the critical signing path." Core developers' answer:
-  the program is small enough to audit and self-deploy.
-- **Artifact lifetime.** Unit 410's signing always takes over 60 seconds; they
-  want artifacts that live about a week. Neither implementation has a built-in
-  expiry.
+| Concern                                                                                                                                | How the new programs address it                                                                                                                                                                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Migration at scale.** Millions of token and stake accounts need new authorities.                                                     | The signer PDA address is derived from the cold key, so it is known before migration starts. Migrate with durable nonce transactions while they still work, batched in 4096-byte v1 transactions. A hot fee payer covers the fees.                           |
+| **Programs that reject CPI.** Flash loan repayment checks, CPI Guard, and "top-level only" rules lock out signers that arrive via CPI. | Programs can allow the known signer program IDs. CPI depth rises from 4 to 8, and Vector enters at stack height 2, so there is room for the program's own CPIs. Where a protocol insists on top-level calls, withdraw to a hot key first and act from there. |
+| **A program in the signing path.** Cold storage policies often mean "no smart contract between the key and the funds."                 | Both programs are small, open source, and can be audited or self-deployed. Anza's splits signing, execution, and replay protection into three single-purpose programs. Audits precede the v1 release.                                                        |
+| **Artifact lifetime.** Offline signing routinely takes longer than a minute, and some flows need a signed message to live for days.    | Neither program has a built-in expiry. A signed message stays valid until it is used or cancelled. Add a deadline instruction only where you want one.                                                                                                       |
+| **The cold key must be the final approver.** Some policies forbid any party acting after the cold signature.                           | The fee payer only pays and broadcasts. It cannot change what was signed. With Vector it cannot add instructions either. The cold signature remains the authorization.                                                                                       |
+| **Wallet clustering.** A shared fee payer links every wallet it relays for.                                                            | Rotate fee payers per client. Nothing is written onchain before submission, so pending approvals stay private.                                                                                                                                               |
 
 Core developers confirmed durable nonces stay "until a suitable replacement is
-available and ample time to migrate has passed." Fireblocks asked for 6 to 12
-months after mainnet availability.
+available and ample time to migrate has passed." Institutions asked for 6 to 12
+months after mainnet availability. The current plan is roughly six months after
+the replacement program is ready.
 
 ## What the Replacement Unlocks
 
@@ -452,6 +437,22 @@ and verification. MIT license. Audit status not stated.
 flow: v1 message payload, multiple signers, relayer flexibility. Vector binds
 the whole transaction to the signature, supports non-Solana and post-quantum
 keys, and runs instructions one CPI level higher.
+
+## Other Proposals Considered
+
+Seven designs were discussed in
+[SIMD Discussion #456](https://github.com/solana-foundation/solana-improvement-documents/discussions/456)
+before CPI Passthrough was chosen.
+
+| Proposal                                        | How it works                                                                                                     | Pros                                                                                              | Cons                                                                                                       |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **CPI Passthrough** (Trent Nelson) — **chosen** | A program verifies an offline signature over a list of instructions, consumes its own nonce, runs them via CPI   | Removes nonces from the validator<br />No runtime change, works today<br />Any transaction format | Authorities move to a PDA<br />Instructions run as CPIs<br />New offline tooling needed                    |
+| **Transaction Envelopes** (Hana)                | New transaction format with its own fee payer and blockhash wraps a signed legacy nonce transaction              | Existing nonce transactions still run<br />Keeps existing keypairs<br />Minimal runtime support   | New transaction format<br />Transaction inside a transaction<br />Nonce logic stays in the protocol        |
+| **Sudo Instruction** (Oliver Chalk)             | A v1 transaction carries a legacy nonce transaction as instruction data; the validator runs it as if top-level   | Existing nonce transactions still run<br />No new format<br />Inner accounts compress to 1 byte   | Heavy special handling in the validator<br />Execution traces must hide the wrapper from RPC and explorers |
+| **Signer Promotion**                            | A PDA becomes a signer for the rest of the transaction after an offline signature check                          | Later instructions stay top-level                                                                 | No clear advantage over CPI Passthrough<br />No owner                                                      |
+| **Epoch-scoped transactions**                   | A transaction names the epoch it may run in instead of a blockhash; higher fees and bonded fee payers limit spam | Simple for users                                                                                  | Breaks message hash uniqueness<br />New economic rules                                                     |
+| **Extended blockhash TTL** (custodians)         | Optional, higher-fee transactions keep their blockhash valid for up to about an hour                             | The cold signature is the transaction<br />No relayer for short ceremonies<br />Still expires     | Doesn't cover multi-day signing<br />Larger status cache<br />Raised as a complement, not adopted          |
+| **Tiered blockhashes** (custodians)             | Blockhashes from slots divisible by 10, 100, 1000… stay valid longer, from minutes to about 55 hours             | Predictable supply of long-lived blockhashes<br />No nonce accounts                               | Consensus impact unknown<br />Validators keep more blockhashes<br />Not adopted                            |
 
 ## About This Upgrade
 

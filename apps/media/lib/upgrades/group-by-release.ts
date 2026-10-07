@@ -126,9 +126,11 @@ export function groupUpgradesByRelease(
     .filter((group) => group.status === "shipped")
     .sort((a, b) => dateValue(b.expectedDate) - dateValue(a.expectedDate));
 
+  // Unscheduled upgrades have no Agave version yet. List them first so
+  // upcoming work is not buried under shipped releases.
   const unscheduledGroup = nonEmptyGroups.filter(
     (group) => group.status === null,
   );
 
-  return [...plannedGroups, ...shippedGroups, ...unscheduledGroup];
+  return [...unscheduledGroup, ...plannedGroups, ...shippedGroups];
 }
