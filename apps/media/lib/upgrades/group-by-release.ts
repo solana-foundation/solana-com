@@ -126,11 +126,24 @@ export function groupUpgradesByRelease(
     .filter((group) => group.status === "shipped")
     .sort((a, b) => dateValue(b.expectedDate) - dateValue(a.expectedDate));
 
-  // Unscheduled upgrades have no Agave version yet. List them first so
-  // upcoming work is not buried under shipped releases.
   const unscheduledGroup = nonEmptyGroups.filter(
     (group) => group.status === null,
   );
 
-  return [...unscheduledGroup, ...plannedGroups, ...shippedGroups];
+  return [...plannedGroups, ...shippedGroups, ...unscheduledGroup];
+}
+
+/**
+ * A shipped release whose every upgrade is live on mainnet has nothing left
+ * to track. The listing collapses these so the page does not grow without
+ * bound as releases accumulate.
+ */
+export function isReleaseFullyLive(group: ReleaseGroup): boolean {
+  if (group.status !== "shipped") {
+    return false;
+  }
+  const items = group.overview
+    ? [group.overview, ...group.upgrades]
+    : group.upgrades;
+  return items.length > 0 && items.every((item) => item.stage === "live");
 }
