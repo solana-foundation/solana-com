@@ -2,13 +2,14 @@
 
 ## Inventory
 
-- `url-audit-2026-10-08.csv` has 18,798 rows: 18,692 URLs from the live public
-  sitemap, 51 distinct paths in two sampled production 404 log windows, and 55
+- `url-audit-2026-10-08.csv` has 18,800 rows: 18,692 URLs from the live public
+  sitemap, 51 distinct paths in two sampled production 404 log windows, and 57
   known `solana.com` subdomains.
 - `known-subdomains-2026-10-08.csv` combines domain assignments from all 132
   projects visible in the Solana Foundation Vercel team (29 hosts), hostnames
-  referenced by this repository (24 additional hosts), and two redirect
-  destinations. The `source` column identifies the evidence for each host.
+  referenced by this repository (24 additional hosts), two redirect
+  destinations, and two hosts from the supplied operations inventory. The
+  `source` column identifies the evidence for each host.
 - `owner` for sitemap URLs is inferred from route prefixes in the monorepo.
   `migration_candidacy=review` marks main web routes for later review; it is not
   a migration decision. `observed_status=not_checked` means no per-URL HTTP
@@ -22,6 +23,10 @@
   export. Hosts outside Vercel and repository references may be absent. Some
   historical references no longer resolve. The DNS owner should reconcile this
   file with a zone export before treating it as a complete domain register.
+- The supplied operations inventory includes historical route and content
+  references. `/news/feed` currently serves RSS; `/validated` now redirects to
+  `/podcasts/validated-with-austin-federa`. This monorepo's docs source is
+  `apps/docs/content`.
 
 Regenerate the URL audit from source snapshots with:
 
