@@ -195,7 +195,7 @@ const transferFeePayerInstruction = createTransferInstruction(
 // Get a new blockhash for the transfer transaction
 const transferBlockhash = await connection.getLatestBlockhash();
 
-let transferTransaction = new Transaction({
+const transferTransaction = new Transaction({
   feePayer: feePayer.publicKey,
   blockhash: transferBlockhash.blockhash,
   lastValidBlockHeight: transferBlockhash.lastValidBlockHeight,

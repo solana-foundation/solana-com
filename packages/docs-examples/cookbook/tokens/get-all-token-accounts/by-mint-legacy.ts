@@ -7,7 +7,7 @@ const connection = new Connection("http://localhost:8899", "confirmed");
 const owner = new PublicKey("4kg8oh3jdNtn7j2wcS7TrUua31AgbLzDVkBZgTAe44aF");
 const mint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
-let response = await connection.getParsedTokenAccountsByOwner(owner, {
+const response = await connection.getParsedTokenAccountsByOwner(owner, {
   mint: mint,
 });
 

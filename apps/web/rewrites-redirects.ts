@@ -511,6 +511,11 @@ export default {
         locale: false,
       },
       {
+        source: "/api/developer-updates/latest",
+        destination: `${MEDIA_APP_URL}/api/developer-updates/latest`,
+        locale: false,
+      },
+      {
         source: "/api/changelog/:path*",
         destination: `${MEDIA_APP_URL}/api/changelog/:path*`,
         locale: false,

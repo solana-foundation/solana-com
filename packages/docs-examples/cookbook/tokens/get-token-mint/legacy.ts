@@ -8,7 +8,7 @@ const mintAddress = new PublicKey(
   "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
 );
 
-let mintAccount = await getMint(
+const mintAccount = await getMint(
   connection,
   mintAddress,
   undefined,

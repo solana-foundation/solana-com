@@ -32,7 +32,7 @@ solana-com/
 ## Tech Stack
 
 - **Runtime**: Node.js 24 with pnpm 11.13.1 (workspace protocol)
-- **Framework**: Next.js 15.5.21 with App Router
+- **Framework**: Next.js 15.5.24 with App Router
 - **Language**: TypeScript 5.8.3
 - **UI Library**: React 19.2.6
 - **Styling**: Tailwind CSS 3.4+; use utilities for styling changes on this
@@ -134,6 +134,15 @@ is installed; CI performs the authoritative secrets scan. The pre-push hook runs
 - Import shared components from workspace packages, not relative paths
 - SVG handling: Use `.inline.svg` suffix for React components, regular `.svg`
   for assets
+
+## Public Content Authoring
+
+Before generating or materially rewriting reader-facing English copy, read and
+follow
+[`skills/solana-tone-of-voice/SKILL.md`](./skills/solana-tone-of-voice/SKILL.md).
+It covers UI strings, landing-page and documentation prose, Media content,
+metadata, CTAs, and social copy. Also follow the owning app's instructions,
+which may set stricter format or sourcing rules.
 
 ## PR Guidelines
 
