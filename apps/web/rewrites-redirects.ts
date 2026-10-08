@@ -1032,6 +1032,21 @@ export default {
       destination: "/2024outlook",
     },
     {
+      source: "/community/report-2024-newsletter-sign-up",
+      destination: "/news/state-of-solana-breakpoint-2024",
+      permanent: true,
+    },
+    {
+      source: "/nftshowdown",
+      destination: "/news/solana-nft-showdown-winners",
+      permanent: true,
+    },
+    {
+      source: "/playgg",
+      destination: "/news/solana-solstice-2023-community-review",
+      permanent: true,
+    },
+    {
       source: "/collective",
       destination: "https://www.solanacollective.com/",
     },

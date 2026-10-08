@@ -11,6 +11,7 @@ import {
   serializeJsonLd,
 } from "./structured-data";
 import frontierImg from "@@/assets/hackathon/past-hackathons/frontier.png";
+import predictionMarketsImg from "@@/assets/hackathon/past-hackathons/prediction-markets.webp";
 import cypherpunkImg from "@@/assets/hackathon/past-hackathons/cypherpunk.png";
 import breakoutImg from "@@/assets/hackathon/past-hackathons/breakout.png";
 import radarImg from "@@/assets/hackathon/past-hackathons/radar.png";
@@ -34,6 +35,24 @@ const archive = [
     date: "2026-04-06",
     image: frontierImg,
     href: undefined,
+  },
+  {
+    key: "predictionMarketsHack",
+    date: "2026-03-13",
+    image: predictionMarketsImg,
+    href: "/prediction-markets-hack",
+  },
+  {
+    key: "graveyardHack",
+    date: "2026-02-12",
+    image: "/assets/graveyard-hack/background.png",
+    href: "/graveyard-hack",
+  },
+  {
+    key: "privacyHack",
+    date: "2026-01-12",
+    image: "/src/img/index/privacy-hack.webp",
+    href: "/privacyhack",
   },
   {
     key: "cypherpunk",
@@ -270,7 +289,11 @@ export default async function Page({ params }: Props) {
                             </p>
                             {entry.href && (
                               <span className="mt-6 pt-5 text-sm font-medium text-white underline decoration-nd-border-prominent underline-offset-4 group-hover:decoration-white">
-                                {t("hackathon.archive.readRecap")}
+                                {t(
+                                  entry.href.startsWith("/news/")
+                                    ? "hackathon.archive.readRecap"
+                                    : "hackathon.archive.viewArchivedPage",
+                                )}
                               </span>
                             )}
                           </div>
