@@ -7,7 +7,7 @@ export const legacyLandingTheme = [
   "[&_section]:!py-16 md:[&_section]:!py-24 xl:[&_section]:!py-32",
   "[&_h1]:!font-brand [&_h1]:!font-medium [&_h1]:!leading-[1.05] [&_h1]:!tracking-[-0.05em] [&_h1]:!text-5xl md:[&_h1]:!text-7xl xl:[&_h1]:!text-[88px]",
   "[&_h2]:!font-brand [&_h2]:!font-medium [&_h2]:!leading-[1.1] [&_h2]:!tracking-[-0.04em] [&_h2]:!text-4xl md:[&_h2]:!text-5xl xl:[&_h2]:!text-6xl",
-  "[&_h3]:!font-brand [&_h3]:!font-medium [&_h3]:!tracking-[-0.025em] [&_h3]:!text-2xl md:[&_h3]:!text-3xl",
+  "[&_h3]:!font-brand [&_h3]:!font-medium [&_h3]:!tracking-[-0.025em] [&_h3]:!text-white [&_h3]:!text-2xl md:[&_h3]:!text-3xl",
   "[&_.tw-eyebrow]:!font-brand-mono [&_.tw-eyebrow]:!text-xs [&_.tw-eyebrow]:!tracking-[0.12em] [&_.tw-eyebrow]:!text-[#CA9FF5]",
   "[&_.tw-text-body]:!text-[#ABABBA] [&_.tw-text-body]:!leading-relaxed",
   "[&_p]:!leading-relaxed",
