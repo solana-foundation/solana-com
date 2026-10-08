@@ -23,18 +23,14 @@ const diagramComponents = {
   "tx-wire-layout": TxWireLayout,
 } satisfies Record<UpgradeDiagramId, React.ComponentType>;
 
-export function UpgradeDiagram({
-  diagram,
-}: {
-  diagram: UpgradeDiagramId | "";
-}) {
+export function UpgradeDiagram({ diagram }: { diagram: UpgradeDiagramId }) {
   if (!diagram) {
     throw new Error("An upgrade diagram must be selected");
   }
-  const Diagram = diagramComponents[diagram];
-  if (!Diagram) {
+  if (!Object.hasOwn(diagramComponents, diagram)) {
     throw new Error(`Unknown upgrade diagram: ${diagram}`);
   }
+  const Diagram = diagramComponents[diagram];
   return <Diagram />;
 }
 

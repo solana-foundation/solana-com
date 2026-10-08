@@ -68,6 +68,27 @@ describe("upgrades schema", () => {
     );
   });
 
+  it("inserts a diagram that the published renderer can display", () => {
+    const diagram = upgradeComponentBlocks.UpgradeDiagram;
+    if (!diagram || diagram.kind !== "block") {
+      throw new Error("Expected an UpgradeDiagram block");
+    }
+    const field = diagram.schema.diagram;
+    if (!field || field.kind !== "form") {
+      throw new Error("Expected an UpgradeDiagram select field");
+    }
+
+    const initialDiagram = field.defaultValue();
+    const html = renderToStaticMarkup(
+      createElement(UpgradeDiagram, {
+        diagram: initialDiagram as Parameters<
+          typeof UpgradeDiagram
+        >[0]["diagram"],
+      }),
+    );
+    expect(html).toContain("<svg");
+  });
+
   it("replaces the freeform badges field with stage, release, and order", () => {
     const upgradeFields = Object.keys(
       config.collections?.upgrades?.schema ?? {},
@@ -188,5 +209,17 @@ describe("upgrades schema", () => {
     expect(html).toContain("<svg");
     expect(html).toContain('role="img"');
     expect(html).toContain("<figcaption");
+  });
+
+  it("rejects an inherited object key as a diagram ID", () => {
+    expect(() =>
+      renderToStaticMarkup(
+        createElement(UpgradeDiagram, {
+          diagram: "toString" as Parameters<
+            typeof UpgradeDiagram
+          >[0]["diagram"],
+        }),
+      ),
+    ).toThrow("Unknown upgrade diagram: toString");
   });
 });

@@ -602,7 +602,7 @@ const upgradeDiagram = block({
     diagram: fields.select({
       label: "Diagram",
       options: upgradeDiagramOptions,
-      defaultValue: "",
+      defaultValue: upgradeDiagramOptions[0].value,
     }),
   },
   ContentView: (props) => {

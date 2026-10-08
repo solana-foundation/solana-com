@@ -1,7 +1,6 @@
 // Keystatic and the published MDX renderer share these IDs. Keep the former
 // block descriptions here so editors can still see them in the block preview.
 export const upgradeDiagramOptions = [
-  { label: "Choose a diagram", value: "", description: "" },
   {
     label: "where Alpenglow sits",
     value: "ag-block-lifecycle",
@@ -50,7 +49,4 @@ export const upgradeDiagramOptions = [
   },
 ] as const;
 
-export type UpgradeDiagramId = Exclude<
-  (typeof upgradeDiagramOptions)[number]["value"],
-  ""
->;
+export type UpgradeDiagramId = (typeof upgradeDiagramOptions)[number]["value"];
