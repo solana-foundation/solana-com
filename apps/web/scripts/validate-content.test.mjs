@@ -84,6 +84,25 @@ test("rejects impossible local destinations and accepts known cross-app content"
     validateUrl("/developers/cookbook/does-not-exist", "card.url").join("\n"),
     /no local destination/,
   );
+  assert.deepEqual(
+    validateUrl("/developers/bootcamp/foundations", "card.url"),
+    [],
+  );
+  assert.deepEqual(
+    validateUrl("/developers/bootcamp/foundations/bootcamp-intro", "card.url"),
+    [],
+  );
+  assert.match(
+    validateUrl("/developers/bootcamp/does-not-exist", "card.url").join("\n"),
+    /no local destination/,
+  );
+  assert.match(
+    validateUrl(
+      "/developers/bootcamp/foundations/does-not-exist",
+      "card.url",
+    ).join("\n"),
+    /no local destination/,
+  );
   // Rewrite patterns such as /developers/templates/:path* resolve, but a
   // catch-all docs rewrite must not hide a missing docs page.
   assert.deepEqual(
