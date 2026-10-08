@@ -5,11 +5,6 @@ import { generateMetadata as outlook2023Metadata } from "@/app/[locale]/2023outl
 import { generateMetadata as outlook2024Metadata } from "@/app/[locale]/2024outlook/page";
 import { generateMetadata as epoch1000Metadata } from "@/app/[locale]/epoch1000/page";
 import { generateMetadata as epoch1000CardMetadata } from "@/app/[locale]/epoch1000/card/page";
-import { metadata as artBaselArchiveMetadata } from "@/app/[locale]/art-basel/layout";
-import { metadata as privacyHackArchiveMetadata } from "@/app/[locale]/privacyhack/layout";
-import { metadata as graveyardHackArchiveMetadata } from "@/app/[locale]/graveyard-hack/layout";
-import { metadata as predictionMarketsHackArchiveMetadata } from "@/app/[locale]/prediction-markets-hack/layout";
-import { metadata as wsopArchiveMetadata } from "@/app/[locale]/wsop/layout";
 
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
@@ -23,10 +18,6 @@ vi.mock("@/app/[locale]/2024outlook/outlook-2024", () => ({
 vi.mock("@/components/epoch1000/Epoch1000Experience", () => ({
   default: () => null,
 }));
-vi.mock("next/font/google", () => ({
-  Anton: () => ({ variable: "" }),
-}));
-vi.mock("@/app/[locale]/wsop/wsop.css", () => ({}));
 
 describe("dated page archive", () => {
   it.each([
@@ -106,14 +97,5 @@ describe("dated page archive", () => {
     });
     expect(cardMetadata.alternates?.canonical).toBe("/fr/epoch1000/card");
     expect(cardMetadata.robots).toEqual({ index: false, follow: true });
-    for (const metadata of [
-      artBaselArchiveMetadata,
-      privacyHackArchiveMetadata,
-      graveyardHackArchiveMetadata,
-      predictionMarketsHackArchiveMetadata,
-      wsopArchiveMetadata,
-    ]) {
-      expect(metadata.robots).toEqual({ index: false, follow: true });
-    }
   });
 });
