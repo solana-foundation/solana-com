@@ -605,14 +605,20 @@ const upgradeDiagram = block({
       defaultValue: "",
     }),
   },
-  ContentView: (props) => (
-    <div className="my-4 rounded-lg border border-gray-200 p-4 text-sm text-gray-500">
-      <strong className="block text-gray-900">Upgrade diagram</strong>
-      {upgradeDiagramOptions.find(
-        (option) => option.value === props.value.diagram,
-      )?.label ?? "Choose a diagram"}
-    </div>
-  ),
+  ContentView: (props) => {
+    const selected = upgradeDiagramOptions.find(
+      (option) => option.value === props.value.diagram,
+    );
+    return (
+      <div className="my-4 rounded-lg border border-gray-200 p-4 text-sm text-gray-500">
+        <strong className="block text-gray-900">Upgrade diagram</strong>
+        {selected?.label ?? "Choose a diagram"}
+        {selected?.description && (
+          <p className="mt-1">{selected.description}</p>
+        )}
+      </div>
+    );
+  },
 });
 
 const featureActivationStatus = block({

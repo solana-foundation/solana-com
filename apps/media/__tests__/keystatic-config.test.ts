@@ -46,6 +46,28 @@ describe("releases collection", () => {
 });
 
 describe("upgrades schema", () => {
+  it("shows the selected diagram description in the Keystatic preview", () => {
+    const diagram = upgradeComponentBlocks.UpgradeDiagram;
+    if (
+      !diagram ||
+      diagram.kind !== "block" ||
+      !("ContentView" in diagram) ||
+      !diagram.ContentView
+    ) {
+      throw new Error("Expected an UpgradeDiagram block with a preview");
+    }
+
+    const html = renderToStaticMarkup(
+      createElement(diagram.ContentView, {
+        value: { diagram: "tx-wire-layout" },
+      }),
+    );
+    expect(html).toContain("transaction wire layout");
+    expect(html).toContain(
+      "Byte layout of legacy, v0 and v1 transactions compared",
+    );
+  });
+
   it("replaces the freeform badges field with stage, release, and order", () => {
     const upgradeFields = Object.keys(
       config.collections?.upgrades?.schema ?? {},
