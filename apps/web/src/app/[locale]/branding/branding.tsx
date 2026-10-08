@@ -78,6 +78,7 @@ export async function BrandingPage() {
           contentUrl: "https://solana.com" + base + logo.file + ".svg",
           thumbnailUrl: "https://solana.com" + base + logo.file + ".png",
           creditText: "Solana Foundation",
+          license: "https://solana.com/branding#permissions",
         },
       })),
     },
