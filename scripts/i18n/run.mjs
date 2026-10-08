@@ -1,10 +1,14 @@
 /* global console */
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import {
+  failedStructuralTargets,
+  removeFailedTargets,
+} from "./recover-structural-mismatch.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "../..");
@@ -68,6 +72,32 @@ function runLingo(args) {
   runOrExit("npx", ["--yes", `@lingo.dev/cli@${cliVersion}`, ...args]);
 }
 
+function runLingoWithOutput(args) {
+  const command = cliBin ?? "npx";
+  const commandArgs = cliBin
+    ? args
+    : ["--yes", `@lingo.dev/cli@${cliVersion}`, ...args];
+
+  return new Promise((resolve) => {
+    const child = spawn(command, commandArgs, {
+      cwd: rootDir,
+      stdio: ["inherit", "pipe", "pipe"],
+      shell: false,
+    });
+    let output = "";
+    const append = (chunk, stream) => {
+      const text = chunk.toString();
+      stream.write(text);
+      output = (output + text).slice(-128_000);
+    };
+
+    child.stdout.on("data", (chunk) => append(chunk, process.stdout));
+    child.stderr.on("data", (chunk) => append(chunk, process.stderr));
+    child.on("error", (error) => console.error(error));
+    child.on("close", (status) => resolve({ status: status ?? 1, output }));
+  });
+}
+
 function isPatternInScope(pattern, scope) {
   if (scope === "docs") {
     return pattern.startsWith("apps/docs/");
@@ -127,7 +157,7 @@ function verifyTargetCoverage(scope, missingOnly = false) {
   ]);
 }
 
-function main() {
+async function main() {
   loadEnvironment();
   const scope = parseScope();
   const patterns = getScopePatterns(scope);
@@ -142,11 +172,23 @@ function main() {
     process.exit(1);
   }
 
-  // A failed push fails the job. GitHub discards the partial checkout, and a
-  // rerun starts from the last committed lockfile instead of mutating targets
-  // through automatic --force or pull recovery. The GitHub workflow applies
-  // one cumulative deadline to this runner, including its validation steps.
-  runLingo(["push", ...patterns, "--wait"]);
+  // A partial Lingo run can leave only a few MDX targets with incompatible
+  // structure. Backfill those exact files, preserving all other translations.
+  // Other failures still fail the job; GitHub discards the partial checkout.
+  const push = await runLingoWithOutput(["push", ...patterns, "--wait"]);
+  if (push.status !== 0) {
+    const targets =
+      scope === "all"
+        ? failedStructuralTargets(push.output, config, rootDir)
+        : [];
+    if (targets.length === 0) process.exit(push.status);
+
+    console.log(
+      `Backfilling ${targets.length} structurally divergent MDX target(s).`,
+    );
+    removeFailedTargets(targets, rootDir);
+    runLingo(["push", "--backfill-missing", "--wait"]);
+  }
 
   // Backfill is config-wide. Scoped pushes rely on their final coverage guard
   // and fail rather than crossing the requested boundary.
@@ -163,4 +205,7 @@ function main() {
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
