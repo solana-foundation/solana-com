@@ -138,4 +138,51 @@ describe("translated card content", () => {
       requiredTranslatedLabel({}, "readDocs", "developers-defi.hero.buttons"),
     ).toThrow("developers-defi.hero.buttons.readDocs");
   });
+
+  it.each(["", "  ", 42, null])(
+    "rejects an invalid required card field: %s",
+    (value) => {
+      expect(() =>
+        requiredCardContent(
+          { firedancer: { heading: value } },
+          "firedancer",
+          ["heading"],
+          "research.cards",
+        ),
+      ).toThrow("research.cards.firedancer.heading");
+      expect(() =>
+        requiredTranslatedLabel(
+          { readDocs: value },
+          "readDocs",
+          "developers-defi.hero.buttons",
+        ),
+      ).toThrow("developers-defi.hero.buttons.readDocs");
+    },
+  );
+
+  it("rejects arrays in place of keyed card records", () => {
+    expect(() =>
+      requiredCardContent(
+        [{ heading: "Firedancer" }],
+        "firedancer",
+        ["heading"],
+        "research.cards",
+      ),
+    ).toThrow("research.cards.firedancer");
+    expect(() =>
+      requiredCardContent(
+        { firedancer: ["Firedancer"] },
+        "firedancer",
+        ["heading"],
+        "research.cards",
+      ),
+    ).toThrow("research.cards.firedancer");
+    expect(() =>
+      requiredTranslatedLabel(
+        ["Read docs"],
+        "readDocs",
+        "developers-defi.hero.buttons",
+      ),
+    ).toThrow("developers-defi.hero.buttons.readDocs");
+  });
 });
