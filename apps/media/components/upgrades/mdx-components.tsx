@@ -10,6 +10,29 @@ import {
   TxWireLayout,
 } from "./diagrams";
 import { FeatureActivationStatus } from "./feature-activation-status";
+import type { UpgradeDiagramId } from "@/lib/upgrade-diagrams";
+
+const diagramComponents = {
+  "ag-bank-id-across-connections": AgBankIdAcrossConnections,
+  "ag-banks-per-slot": AgBanksPerSlot,
+  "ag-block-lifecycle": AgBlockLifecycle,
+  "ag-commitment-levels": AgCommitmentLevels,
+  "ag-votor-certificates": AgVotorCertificates,
+  "tx-account-bytes": TxAccountBytes,
+  "tx-simulation-trace": TxSimulationTrace,
+  "tx-wire-layout": TxWireLayout,
+} satisfies Record<UpgradeDiagramId, React.ComponentType>;
+
+export function UpgradeDiagram({ diagram }: { diagram: UpgradeDiagramId }) {
+  if (!diagram) {
+    throw new Error("An upgrade diagram must be selected");
+  }
+  if (!Object.hasOwn(diagramComponents, diagram)) {
+    throw new Error(`Unknown upgrade diagram: ${diagram}`);
+  }
+  const Diagram = diagramComponents[diagram];
+  return <Diagram />;
+}
 
 export function StatusBadge({
   children,
@@ -106,15 +129,8 @@ export function Audience({
 export const upgradeMdxComponents = {
   Audience,
   AudienceGroup,
-  AgBanksPerSlot,
-  AgBankIdAcrossConnections,
-  AgBlockLifecycle,
-  AgCommitmentLevels,
-  AgVotorCertificates,
   FeatureActivationStatus,
-  TxAccountBytes,
-  TxSimulationTrace,
-  TxWireLayout,
+  UpgradeDiagram,
   StatusBadge,
   StatusBadgeGroup,
   MetricCard,

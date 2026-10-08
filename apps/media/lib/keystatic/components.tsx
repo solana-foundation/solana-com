@@ -8,6 +8,7 @@ import {
 import React from "react";
 import { Latex } from "@/components/latex";
 import { tweetIdField } from "@/lib/keystatic/tweet-id-field";
+import { upgradeDiagramOptions } from "@/lib/upgrade-diagrams";
 
 // Background options for section blocks
 const backgroundOptions = [
@@ -594,70 +595,31 @@ const audience = wrapper({
   ),
 });
 
-// Diagram blocks for upgrade articles. These take no options — each renders a
-// single fixed illustration defined in `components/upgrades/diagrams.tsx` — so
-// they exist here purely to declare the tags as valid in the Keystatic editor.
-const diagramBlock = (label: string, description: string) =>
-  block({
-    label,
-    description,
-    schema: {},
-    ContentView: () => (
-      <div
-        style={{
-          border: "1px solid #e5e7eb",
-          borderRadius: "8px",
-          color: "#6b7280",
-          fontSize: "14px",
-          margin: "16px 0",
-          padding: "16px",
-        }}
-      >
-        <strong style={{ color: "#14161c", display: "block" }}>Diagram</strong>
-        {label}
+const upgradeDiagram = block({
+  label: "Upgrade diagram",
+  description: "A diagram for an upgrade article",
+  schema: {
+    diagram: fields.select({
+      label: "Diagram",
+      options: upgradeDiagramOptions,
+      defaultValue: upgradeDiagramOptions[0].value,
+    }),
+  },
+  ContentView: (props) => {
+    const selected = upgradeDiagramOptions.find(
+      (option) => option.value === props.value.diagram,
+    );
+    return (
+      <div className="my-4 rounded-lg border border-gray-200 p-4 text-sm text-gray-500">
+        <strong className="block text-gray-900">Upgrade diagram</strong>
+        {selected?.label ?? "Choose a diagram"}
+        {selected?.description && (
+          <p className="mt-1">{selected.description}</p>
+        )}
       </div>
-    ),
-  });
-
-const txWireLayout = diagramBlock(
-  "Diagram: transaction wire layout",
-  "Byte layout of legacy, v0 and v1 transactions compared",
-);
-
-const agBlockLifecycle = diagramBlock(
-  "Diagram: where Alpenglow sits",
-  "The life of a block, with the stages Alpenglow replaces",
-);
-
-const agBanksPerSlot = diagramBlock(
-  "Diagram: candidate banks in one slot",
-  "Why keying a buffer on the slot alone fuses several banks into one block",
-);
-
-const agBankIdAcrossConnections = diagramBlock(
-  "Diagram: bank_id across two connections",
-  "Why bank_id cannot be compared between providers, and blockhash can",
-);
-
-const agCommitmentLevels = diagramBlock(
-  "Diagram: commitment levels under Alpenglow",
-  "How confirmed and finalized converge, and the two paths to finality",
-);
-
-const agVotorCertificates = diagramBlock(
-  "Diagram: Votor votes and certificates",
-  "The three routes out of a proposed block and the certificate each produces",
-);
-
-const txSimulationTrace = diagramBlock(
-  "Diagram: v1 simulation failure trace",
-  "Where an empty v1 config fails during simulation, and what comes back",
-);
-
-const txAccountBytes = diagramBlock(
-  "Diagram: loaded account bytes running total",
-  "How an account created after estimation pushes the running total past the limit",
-);
+    );
+  },
+});
 
 const featureActivationStatus = block({
   label: "Feature activation status",
@@ -715,21 +677,14 @@ export const componentBlocks: Record<string, ContentComponent> = {
   iframe,
 };
 
-// Diagram blocks are intentionally limited to upgrade articles, whose template
-// renders on a permanently dark surface the diagrams are colored for.
+// Diagrams are limited to upgrade articles, whose template has the dark surface
+// these illustrations use.
 export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   ...componentBlocks,
   Audience: audience,
   AudienceGroup: audienceGroup,
-  AgBanksPerSlot: agBanksPerSlot,
-  AgBlockLifecycle: agBlockLifecycle,
-  AgBankIdAcrossConnections: agBankIdAcrossConnections,
-  AgCommitmentLevels: agCommitmentLevels,
-  AgVotorCertificates: agVotorCertificates,
   FeatureActivationStatus: featureActivationStatus,
-  TxAccountBytes: txAccountBytes,
-  TxSimulationTrace: txSimulationTrace,
-  TxWireLayout: txWireLayout,
+  UpgradeDiagram: upgradeDiagram,
 };
 
 // Formula controls are intentionally limited to news posts. Other collections
