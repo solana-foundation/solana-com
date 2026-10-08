@@ -193,6 +193,25 @@ function staticValue(node, declarations) {
   return undefined;
 }
 
+function readStaticExport(sourceText, relativePath, exportName) {
+  const source = ts.createSourceFile(
+    relativePath,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const declarations = new Map();
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.initializer)
+        declarations.set(declaration.name.text, declaration.initializer);
+    }
+  }
+  const initializer = declarations.get(exportName);
+  return initializer ? staticValue(initializer, declarations) : undefined;
+}
+
 export function validateSource(sourceText, relativePath) {
   const source = ts.createSourceFile(
     relativePath,
@@ -297,6 +316,28 @@ export function validateClaims(
   return errors;
 }
 
+export function validateFinancialProjectStats(projects, claims, messages) {
+  if (!Array.isArray(projects))
+    return ["financial institutions: PROJECTS must be a static array"];
+  const errors = [];
+  for (const project of projects) {
+    const path = `financial-institutions-solution.projects.${project.key}.stat`;
+    const claim = claims.find((entry) => entry.path === path);
+    const message = messageAtPath(messages, path);
+    if (
+      !project.statValue ||
+      project.statValue !== message ||
+      project.statValue !== claim?.claim
+    )
+      errors.push(
+        `${path}: displayed stat must match the audited English claim`,
+      );
+    if (!project.statSource || project.statSource !== claim?.sourceUrl)
+      errors.push(`${path}: displayed source must match the audited source`);
+  }
+  return errors;
+}
+
 if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
@@ -313,6 +354,18 @@ if (
   const errors = [
     ...auditedFiles.flatMap(validateFile),
     ...validateClaims(claims, messages),
+    ...validateFinancialProjectStats(
+      readStaticExport(
+        readFileSync(
+          path.join(webRoot, "src/data/solutions/financial-institutions.ts"),
+          "utf8",
+        ),
+        "src/data/solutions/financial-institutions.ts",
+        "PROJECTS",
+      ),
+      claims,
+      messages,
+    ),
   ];
   if (errors.length) {
     console.error(errors.join("\n"));

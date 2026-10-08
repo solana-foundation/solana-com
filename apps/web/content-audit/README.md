@@ -14,5 +14,5 @@ does not appear in the English message, or the review deadline has passed.
 Financial institution project stats also carry a `statSource` link in their
 project data so readers can inspect the evidence beside each figure. Keep the
 display value, English message, source link, and claim record in sync when a
-figure is updated. Localized messages should be reviewed with the English source
-during the same update.
+figure is updated; the validator checks that they match. Localized messages
+should be reviewed with the English source during the same update.

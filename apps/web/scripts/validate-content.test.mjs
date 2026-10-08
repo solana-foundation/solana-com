@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   validateClaims,
+  validateFinancialProjectStats,
   validateLinks,
   validateSource,
   validateUrl,
@@ -24,6 +25,45 @@ test("rejects blank actionable URLs but permits cards without a link", () => {
   assert.match(
     validateLinks({ statSource: "" }, "project").join("\n"),
     /URL is empty/,
+  );
+});
+
+test("financial project cards display their audited figures and sources", () => {
+  const path = "financial-institutions-solution.projects.morganStanley.stat";
+  const projects = [
+    {
+      key: "morganStanley",
+      statValue: "$1.9T",
+      statSource: "https://example.com/report",
+    },
+  ];
+  const claims = [
+    { path, claim: "$1.9T", sourceUrl: "https://example.com/report" },
+  ];
+  const messages = {
+    "financial-institutions-solution": {
+      projects: { morganStanley: { stat: "$1.9T" } },
+    },
+  };
+  assert.deepEqual(
+    validateFinancialProjectStats(projects, claims, messages),
+    [],
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...projects[0], statValue: "$2T" }],
+      claims,
+      messages,
+    ).join("\n"),
+    /displayed stat must match/,
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...projects[0], statSource: "https://example.com/other" }],
+      claims,
+      messages,
+    ).join("\n"),
+    /displayed source must match/,
   );
 });
 

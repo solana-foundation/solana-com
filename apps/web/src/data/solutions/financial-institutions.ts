@@ -10,7 +10,7 @@ export const PROJECTS = [
     statValue: "$1.9T",
     statSource:
       "https://www.morganstanley.com/content/dam/msdotcom/en/about-us-2026ams/2026_Shareholder_Letter.pdf",
-    statSourceNote: "Dec 2025",
+    statSourceNote: "2025-12-31",
   },
   {
     src: getCompanyLogoSrc("jpmorgan") ?? "",
@@ -19,7 +19,7 @@ export const PROJECTS = [
     statValue: "$50M",
     statSource:
       "https://news.bloomberglaw.com/crypto/jpmorgan-uses-solana-blockchain-for-galaxys-dollar-note-deal",
-    statSourceNote: "Dec 2025",
+    statSourceNote: "2025-12-11",
   },
   {
     src: getCompanyLogoSrc("citi") ?? "",
@@ -28,7 +28,7 @@ export const PROJECTS = [
     statValue: "~24/7",
     statSource:
       "https://www.citigroup.com/global/news/press-release/2026/print/citi-supply-chain-financing-report-durable-global-trade-in-the-age-of-ai",
-    statSourceNote: "Pilot potential · Feb 2026",
+    statSourceNote: "2026-02-20",
   },
   {
     src: getCompanyLogoSrc("societe-generale") ?? "",
@@ -44,7 +44,7 @@ export const PROJECTS = [
     statValue: "$50T+",
     statSource:
       "https://www.statestreet.com/web/about/our-story/annual-report/documents/2026-proxy-statement.pdf",
-    statSourceNote: "2025 year end",
+    statSourceNote: "2025-12-31",
   },
 ];
 

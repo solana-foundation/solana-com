@@ -203,9 +203,9 @@ export const Projects = ({
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="underline underline-offset-4 decoration-white/30 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                                  aria-label={`Source for ${t(`${base}.name`)} statistic`}
+                                  aria-label={`${t(`${translationBase}.sourceLabel`)}: ${t(`${base}.name`)}`}
                                 >
-                                  Source ↗
+                                  {t(`${translationBase}.sourceLabel`)} ↗
                                 </a>
                                 {project.statSourceNote && (
                                   <span> · {project.statSourceNote}</span>
