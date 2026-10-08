@@ -36,6 +36,24 @@ const archive = [
     href: undefined,
   },
   {
+    key: "predictionMarketsHack",
+    date: "2026-03-13",
+    image: undefined,
+    href: "/prediction-markets-hack",
+  },
+  {
+    key: "graveyardHack",
+    date: "2026-02-12",
+    image: "/assets/graveyard-hack/background.png",
+    href: "/graveyard-hack",
+  },
+  {
+    key: "privacyHack",
+    date: "2026-01-12",
+    image: "/src/img/index/privacy-hack.webp",
+    href: "/privacyhack",
+  },
+  {
     key: "cypherpunk",
     date: "2025-09-25",
     image: cypherpunkImg,
@@ -232,13 +250,19 @@ export default async function Page({ params }: Props) {
                       const card = (
                         <>
                           <div className="relative aspect-[16/9] overflow-hidden bg-[#17151B]">
-                            <Image
-                              src={entry.image}
-                              alt=""
-                              fill
-                              sizes="(max-width: 1024px) 100vw, 40vw"
-                              className={`object-cover ${entry.href ? "transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transform-none" : ""}`}
-                            />
+                            {entry.image ? (
+                              <Image
+                                src={entry.image}
+                                alt=""
+                                fill
+                                sizes="(max-width: 1024px) 100vw, 40vw"
+                                className={`object-cover ${entry.href ? "transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transform-none" : ""}`}
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_75%_25%,#14f19533,transparent_45%),linear-gradient(135deg,#0d0c11,#282241_65%,#0d0c11)] p-6 text-center font-brand text-2xl font-semibold uppercase tracking-tight text-white md:text-3xl">
+                                {title}
+                              </div>
+                            )}
                           </div>
                           <div className="flex flex-1 flex-col p-5 md:p-6">
                             <time
@@ -270,7 +294,11 @@ export default async function Page({ params }: Props) {
                             </p>
                             {entry.href && (
                               <span className="mt-6 pt-5 text-sm font-medium text-white underline decoration-nd-border-prominent underline-offset-4 group-hover:decoration-white">
-                                {t("hackathon.archive.readRecap")}
+                                {t(
+                                  entry.href.startsWith("/news/")
+                                    ? "hackathon.archive.readRecap"
+                                    : "hackathon.archive.viewArchivedPage",
+                                )}
                               </span>
                             )}
                           </div>
