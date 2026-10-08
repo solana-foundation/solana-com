@@ -11,6 +11,7 @@ import {
   serializeJsonLd,
 } from "./structured-data";
 import frontierImg from "@@/assets/hackathon/past-hackathons/frontier.png";
+import predictionMarketsImg from "@@/assets/hackathon/past-hackathons/prediction-markets.webp";
 import cypherpunkImg from "@@/assets/hackathon/past-hackathons/cypherpunk.png";
 import breakoutImg from "@@/assets/hackathon/past-hackathons/breakout.png";
 import radarImg from "@@/assets/hackathon/past-hackathons/radar.png";
@@ -38,7 +39,7 @@ const archive = [
   {
     key: "predictionMarketsHack",
     date: "2026-03-13",
-    image: undefined,
+    image: predictionMarketsImg,
     href: "/prediction-markets-hack",
   },
   {
@@ -250,19 +251,13 @@ export default async function Page({ params }: Props) {
                       const card = (
                         <>
                           <div className="relative aspect-[16/9] overflow-hidden bg-[#17151B]">
-                            {entry.image ? (
-                              <Image
-                                src={entry.image}
-                                alt=""
-                                fill
-                                sizes="(max-width: 1024px) 100vw, 40vw"
-                                className={`object-cover ${entry.href ? "transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transform-none" : ""}`}
-                              />
-                            ) : (
-                              <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_75%_25%,#14f19533,transparent_45%),linear-gradient(135deg,#0d0c11,#282241_65%,#0d0c11)] p-6 text-center font-brand text-2xl font-semibold uppercase tracking-tight text-white md:text-3xl">
-                                {title}
-                              </div>
-                            )}
+                            <Image
+                              src={entry.image}
+                              alt=""
+                              fill
+                              sizes="(max-width: 1024px) 100vw, 40vw"
+                              className={`object-cover ${entry.href ? "transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transform-none" : ""}`}
+                            />
                           </div>
                           <div className="flex flex-1 flex-col p-5 md:p-6">
                             <time
