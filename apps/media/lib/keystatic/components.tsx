@@ -543,6 +543,10 @@ const audience = wrapper({
       validation: { isRequired: true },
     }),
     summary: fields.text({ label: "Summary" }),
+    id: fields.text({
+      label: "Anchor ID",
+      description: "Optional. Lets other text link to this section with #id.",
+    }),
   },
   ContentView: (props) => (
     <div
