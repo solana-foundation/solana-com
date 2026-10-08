@@ -576,6 +576,10 @@ const audience = wrapper({
       validation: { isRequired: true },
     }),
     summary: fields.text({ label: "Summary" }),
+    id: fields.text({
+      label: "Anchor ID",
+      description: "Optional. Lets other text link to this section with #id.",
+    }),
   },
   ContentView: (props) => (
     <div
@@ -659,6 +663,16 @@ const txAccountBytes = diagramBlock(
   "How an account created after estimation pushes the running total past the limit",
 );
 
+const dnSignerFlow = diagramBlock(
+  "Diagram: durable nonce vs offline signer flow",
+  "How signing and replay protection move from the runtime into a program",
+);
+
+const dnCallStacks = diagramBlock(
+  "Diagram: programmatic signer vs Vector call stacks",
+  "Where the authorized instructions run in each implementation",
+);
+
 const featureActivationStatus = block({
   label: "Feature activation status",
   description: "Live feature activation status for each Solana cluster",
@@ -726,6 +740,8 @@ export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   AgBankIdAcrossConnections: agBankIdAcrossConnections,
   AgCommitmentLevels: agCommitmentLevels,
   AgVotorCertificates: agVotorCertificates,
+  DnCallStacks: dnCallStacks,
+  DnSignerFlow: dnSignerFlow,
   FeatureActivationStatus: featureActivationStatus,
   TxAccountBytes: txAccountBytes,
   TxSimulationTrace: txSimulationTrace,

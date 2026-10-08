@@ -13,9 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { STAGE_BADGE_CLASSES } from "@/lib/upgrades/stage";
-import type {
-  ReleaseGroup,
-  UpgradeListItem,
+import {
+  isReleaseFullyLive,
+  type ReleaseGroup,
+  type UpgradeListItem,
 } from "@/lib/upgrades/group-by-release";
 
 type View = "table" | "cards";
@@ -142,15 +143,30 @@ function OverviewCallout({ overview }: { overview: UpgradeListItem }) {
   );
 }
 
-function ReleaseHeader({ group }: { group: ReleaseGroup }) {
+function ReleaseHeader({
+  group,
+  className,
+  compact = false,
+}: {
+  group: ReleaseGroup;
+  className?: string;
+  /** Smaller heading for releases nested under the Completed section. */
+  compact?: boolean;
+}) {
   const t = useTranslations("upgrades.releaseStatus");
   const dateLabel = useReleaseDateLabel(group);
+  const Heading = compact ? "h3" : "h2";
 
   return (
-    <div className="mb-4 flex flex-wrap items-baseline gap-3">
-      <h2 className="m-0 text-[22px] font-semibold tracking-[-0.3px]">
-        {group.name}
-      </h2>
+    <div className={cn("flex flex-wrap items-baseline gap-3", className)}>
+      <Heading
+        className={cn(
+          "m-0 font-semibold tracking-[-0.3px]",
+          compact ? "text-lg" : "text-[22px]",
+        )}
+      >
+        {group.status === null ? t("unscheduled") : group.name}
+      </Heading>
       {group.status === "planned" && (
         <span className="rounded-full border border-[#14F195]/35 bg-[#14F195]/[0.08] px-2.5 py-0.5 text-[11.5px] font-semibold text-[#14F195]">
           {t("planned")}
@@ -166,14 +182,71 @@ function ReleaseHeader({ group }: { group: ReleaseGroup }) {
   );
 }
 
-function TableView({ groups }: { groups: ReleaseGroup[] }) {
+/**
+ * Wraps one release group. Shipped releases where everything is already live
+ * collapse to a single row under the Completed heading so the page stays
+ * short as releases pile up. Picking that release in the dropdown opens it,
+ * otherwise the selection would show nothing but a header.
+ */
+function ReleaseSection({
+  group,
+  forceOpen,
+  children,
+}: {
+  group: ReleaseGroup;
+  forceOpen: boolean;
+  children: React.ReactNode;
+}) {
+  const t = useTranslations("upgrades.listing");
+
+  if (!isReleaseFullyLive(group)) {
+    return (
+      <section className="mb-12 last:mb-0">
+        <ReleaseHeader group={group} className="mb-4" />
+        {children}
+      </section>
+    );
+  }
+
+  const count = group.upgrades.length + (group.overview ? 1 : 0);
+
+  return (
+    <details
+      key={`${group.key}-${forceOpen}`}
+      open={forceOpen}
+      className="group/release mb-3 border border-white/10 last:mb-0"
+    >
+      <summary className="flex cursor-pointer list-none flex-wrap items-baseline justify-between gap-3 px-5 py-4 hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
+        <ReleaseHeader group={group} compact />
+        <span className="flex items-center gap-3 text-sm text-white/50">
+          {t("collapsedLive", { count })}
+          <span className="text-[#14F195] transition-transform group-open/release:rotate-45">
+            +
+          </span>
+        </span>
+      </summary>
+      <div className="border-t border-white/10 p-5">{children}</div>
+    </details>
+  );
+}
+
+function TableView({
+  groups,
+  selectedRelease,
+}: {
+  groups: ReleaseGroup[];
+  selectedRelease: string;
+}) {
   const t = useTranslations("upgrades.listing");
 
   return (
     <>
       {groups.map((group) => (
-        <section key={group.key} className="mb-12 last:mb-0">
-          <ReleaseHeader group={group} />
+        <ReleaseSection
+          key={group.key}
+          group={group}
+          forceOpen={selectedRelease === group.key}
+        >
           {group.overview && <OverviewCallout overview={group.overview} />}
           <div className="overflow-x-auto border border-white/10">
             <table className="w-full min-w-[480px] table-fixed border-collapse">
@@ -230,13 +303,19 @@ function TableView({ groups }: { groups: ReleaseGroup[] }) {
               </tbody>
             </table>
           </div>
-        </section>
+        </ReleaseSection>
       ))}
     </>
   );
 }
 
-function CardsView({ groups }: { groups: ReleaseGroup[] }) {
+function CardsView({
+  groups,
+  selectedRelease,
+}: {
+  groups: ReleaseGroup[];
+  selectedRelease: string;
+}) {
   return (
     <>
       {groups.map((group) => {
@@ -245,17 +324,33 @@ function CardsView({ groups }: { groups: ReleaseGroup[] }) {
           : group.upgrades;
 
         return (
-          <section key={group.key} className="mb-12 last:mb-0">
-            <ReleaseHeader group={group} />
+          <ReleaseSection
+            key={group.key}
+            group={group}
+            forceOpen={selectedRelease === group.key}
+          >
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
               {items.map((upgrade) => (
                 <UpgradeCard key={upgrade.slug} upgrade={upgrade} />
               ))}
             </div>
-          </section>
+          </ReleaseSection>
         );
       })}
     </>
+  );
+}
+
+function CompletedSection({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("upgrades.listing");
+
+  return (
+    <section className="mt-12">
+      <h2 className="m-0 mb-4 text-[22px] font-semibold tracking-[-0.3px]">
+        {t("completed")}
+      </h2>
+      {children}
+    </section>
   );
 }
 
@@ -269,17 +364,16 @@ export default function UpgradesClientPage({
 
   const releaseOptions = useMemo(
     () =>
-      groups
-        .filter((group) => group.status !== null)
-        .map((group) => ({
-          key: group.key,
-          label: t("releaseOption", {
-            name: group.name,
-            status: tReleaseStatus(
-              group.status === "planned" ? "planned" : "shipped",
-            ),
-          }),
-        })),
+      groups.map((group) => ({
+        key: group.key,
+        label:
+          group.status === null
+            ? tReleaseStatus("unscheduled")
+            : t("releaseOption", {
+                name: group.name,
+                status: tReleaseStatus(group.status),
+              }),
+      })),
     [groups, t, tReleaseStatus],
   );
 
@@ -287,6 +381,13 @@ export default function UpgradesClientPage({
     selectedRelease === "all"
       ? groups
       : groups.filter((group) => group.key === selectedRelease);
+
+  // Releases with nothing left to track sit in their own section at the very
+  // end, after Unscheduled, so current and upcoming work stays at the top.
+  const activeGroups = visibleGroups.filter(
+    (group) => !isReleaseFullyLive(group),
+  );
+  const completedGroups = visibleGroups.filter(isReleaseFullyLive);
 
   if (groups.length === 0) {
     return (
@@ -360,13 +461,36 @@ export default function UpgradesClientPage({
 
       {/* Mobile always gets Grid — the table's horizontal scroll doesn't work well at that width. */}
       <div className="md:hidden">
-        <CardsView groups={visibleGroups} />
+        <CardsView groups={activeGroups} selectedRelease={selectedRelease} />
+        {completedGroups.length > 0 && (
+          <CompletedSection>
+            <CardsView
+              groups={completedGroups}
+              selectedRelease={selectedRelease}
+            />
+          </CompletedSection>
+        )}
       </div>
       <div className="hidden md:block">
         {view === "table" ? (
-          <TableView groups={visibleGroups} />
+          <TableView groups={activeGroups} selectedRelease={selectedRelease} />
         ) : (
-          <CardsView groups={visibleGroups} />
+          <CardsView groups={activeGroups} selectedRelease={selectedRelease} />
+        )}
+        {completedGroups.length > 0 && (
+          <CompletedSection>
+            {view === "table" ? (
+              <TableView
+                groups={completedGroups}
+                selectedRelease={selectedRelease}
+              />
+            ) : (
+              <CardsView
+                groups={completedGroups}
+                selectedRelease={selectedRelease}
+              />
+            )}
+          </CompletedSection>
         )}
       </div>
     </div>
