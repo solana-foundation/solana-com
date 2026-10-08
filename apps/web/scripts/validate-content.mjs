@@ -28,9 +28,12 @@ const requiredExports = {
   ],
   "src/data/pyusd.ts": [
     "HERO_BUTTONS",
-    "PRIMARY_CARD_DECK_CARDS",
-    "SLIDER_CARDS",
-    "SECONDARY_CARD_DECK_CARDS",
+    "STATS",
+    "TRUST_ITEMS",
+    "MINT_EXTENSIONS",
+    "BUILD_STEPS",
+    "RESOURCES",
+    "RELATED_LINKS",
   ],
   "src/data/solutions/financial-institutions.ts": ["PROJECTS"],
 };
@@ -46,6 +49,12 @@ const requiredClaimPaths = [
   "developers-defi.stats.items.stablecoins.value",
   "developers-defi.stats.items.computeUnits.value",
   "developers-defi.stats.items.txSize.value",
+  "pyusd.stats.items.solanaSupply.value",
+  "pyusd.stats.items.reserves.value",
+  "pyusd.stats.items.solanaShare.value",
+  "pyusd.stats.items.backing.value",
+  "pyusd.trust.items.issuer.body",
+  "pyusd.mint.extensions.transferFee.body",
 ];
 
 const redirectSources = new Set();
@@ -380,12 +389,19 @@ export function validateFinancialProjectStats(projects, claims, messages) {
   return errors;
 }
 
-export function validateDefiStats(stats, claims, messages) {
+// Pages whose STATS export renders `<namespace>.stats.items.<id>.value`
+// beside a link to `statSource`.
+const statPages = [
+  { namespace: "developers-defi", file: "src/data/developers/defi.ts" },
+  { namespace: "pyusd", file: "src/data/pyusd.ts" },
+];
+
+export function validatePageStats(namespace, stats, claims, messages) {
   if (!Array.isArray(stats))
-    return ["developers-defi: STATS must be a static array"];
+    return [`${namespace}: STATS must be a static array`];
   const errors = [];
   for (const stat of stats) {
-    const path = `developers-defi.stats.items.${stat.id}.value`;
+    const path = `${namespace}.stats.items.${stat.id}.value`;
     const claim = claims.find((entry) => entry.path === path);
     if (!claim || messageAtPath(messages, path) !== claim.claim)
       errors.push(
@@ -425,14 +441,17 @@ if (
       claims,
       messages,
     ),
-    ...validateDefiStats(
-      readStaticExport(
-        readFileSync(path.join(webRoot, "src/data/developers/defi.ts"), "utf8"),
-        "src/data/developers/defi.ts",
-        "STATS",
+    ...statPages.flatMap(({ namespace, file }) =>
+      validatePageStats(
+        namespace,
+        readStaticExport(
+          readFileSync(path.join(webRoot, file), "utf8"),
+          file,
+          "STATS",
+        ),
+        claims,
+        messages,
       ),
-      claims,
-      messages,
     ),
   ];
   if (errors.length) {

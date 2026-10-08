@@ -24,6 +24,7 @@ import {
   TEMPLATES,
   TEMPLATES_LINK,
 } from "@/data/developers/defi";
+import * as pyusd from "@/data/pyusd";
 import {
   requiredCardContent,
   requiredTranslatedLabel,
@@ -68,6 +69,16 @@ const labelGroups = [
   },
 ] as const;
 
+const withLinks = (
+  base: string,
+  items: readonly { id: string; links: readonly { id: string }[] }[],
+  fields: string[],
+) =>
+  items.flatMap(({ id, links }) => [
+    ...fields.map((field) => `${base}.${id}.${field}`),
+    ...links.map((link) => `${base}.${id}.links.${link.id}`),
+  ]);
+
 function atPath(value: Record<string, unknown>, path: string): unknown {
   return path.split(".").reduce<unknown>((current, segment) => {
     if (!current || typeof current !== "object") return undefined;
@@ -105,15 +116,6 @@ describe("translated card content", () => {
     const messages = JSON.parse(
       readFileSync(resolve(messagesDir, "en", "common.json"), "utf8"),
     ) as Record<string, unknown>;
-    const withLinks = (
-      base: string,
-      items: readonly { id: string; links: readonly { id: string }[] }[],
-      fields: string[],
-    ) =>
-      items.flatMap(({ id, links }) => [
-        ...fields.map((field) => `${base}.${id}.${field}`),
-        ...links.map((link) => `${base}.${id}.links.${link.id}`),
-      ]);
     const paths = [
       ...HERO_BUTTONS.map(({ id }) => `hero.buttons.${id}`),
       ...STATS.flatMap(({ id }) => [
@@ -140,6 +142,43 @@ describe("translated card content", () => {
     ];
     for (const path of paths) {
       const value = atPath(messages, `developers-defi.${path}`);
+      expect(typeof value === "string" && value.trim(), path).toBeTruthy();
+    }
+  });
+
+  it("has English copy for every PYUSD page entry", () => {
+    const messages = JSON.parse(
+      readFileSync(resolve(messagesDir, "en", "common.json"), "utf8"),
+    ) as Record<string, unknown>;
+    const paths = [
+      ...pyusd.HERO_BUTTONS.map(({ id }) => `hero.buttons.${id}`),
+      ...pyusd.MINT_DETAILS.map(({ id }) => `hero.mint.details.${id}`),
+      `hero.mint.links.${pyusd.MINT_EXPLORER_LINK.id}`,
+      ...pyusd.STATS.flatMap(({ id }) => [
+        `stats.items.${id}.value`,
+        `stats.items.${id}.label`,
+      ]),
+      `stats.links.${pyusd.STATS_LIVE_LINK.id}`,
+      ...withLinks("trust.items", pyusd.TRUST_ITEMS, ["title", "body"]),
+      ...pyusd.MINT_EXTENSIONS.flatMap(({ id, status }) => [
+        `mint.extensions.${id}.title`,
+        `mint.extensions.${id}.body`,
+        `mint.status.${status}`,
+      ]),
+      ...pyusd.MINT_LINKS.map(({ id }) => `mint.links.${id}`),
+      ...withLinks("build.steps", pyusd.BUILD_STEPS, [
+        "label",
+        "title",
+        "body",
+      ]),
+      ...pyusd.RESOURCES.flatMap(({ id }) => [
+        `resources.items.${id}.title`,
+        `resources.items.${id}.body`,
+      ]),
+      ...pyusd.RELATED_LINKS.map(({ id }) => `related.items.${id}`),
+    ];
+    for (const path of paths) {
+      const value = atPath(messages, `pyusd.${path}`);
       expect(typeof value === "string" && value.trim(), path).toBeTruthy();
     }
   });

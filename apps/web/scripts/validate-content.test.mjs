@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   validateClaims,
-  validateDefiStats,
   validateFinancialProjectStats,
   validateLinks,
+  validatePageStats,
   validateSource,
   validateUrl,
 } from "./validate-content.mjs";
@@ -100,7 +100,7 @@ test("rejects impossible local destinations and accepts known cross-app content"
   );
 });
 
-test("DeFi stats display their audited figures and sources", () => {
+test("page stats display their audited figures and sources", () => {
   const path = "developers-defi.stats.items.dexVolume.value";
   const stats = [{ id: "dexVolume", statSource: "https://example.com/dex" }];
   const claims = [
@@ -109,9 +109,12 @@ test("DeFi stats display their audited figures and sources", () => {
   const messages = {
     "developers-defi": { stats: { items: { dexVolume: { value: "$76B" } } } },
   };
-  assert.deepEqual(validateDefiStats(stats, claims, messages), []);
+  assert.deepEqual(
+    validatePageStats("developers-defi", stats, claims, messages),
+    [],
+  );
   assert.match(
-    validateDefiStats(stats, claims, {
+    validatePageStats("developers-defi", stats, claims, {
       "developers-defi": {
         stats: { items: { dexVolume: { value: "$80B" } } },
       },
@@ -119,7 +122,8 @@ test("DeFi stats display their audited figures and sources", () => {
     /displayed stat must match/,
   );
   assert.match(
-    validateDefiStats(
+    validatePageStats(
+      "developers-defi",
       [{ ...stats[0], statSource: "https://example.com/other" }],
       claims,
       messages,
@@ -162,6 +166,14 @@ test("claim deadlines include their review day and reject stale or missing sourc
     computeUnits: "100M",
     txSize: "4,096 bytes",
   };
+  const pyusdClaims = {
+    "stats.items.solanaSupply.value": "$702M",
+    "stats.items.reserves.value": "$2.89B",
+    "stats.items.solanaShare.value": "25.8%",
+    "stats.items.backing.value": "1:1",
+    "trust.items.issuer.body": "December 2025",
+    "mint.extensions.transferFee.body": "0 basis points",
+  };
   const claims = [
     ...Object.entries(statValues).map(([project, claim]) => ({
       path: `financial-institutions-solution.projects.${project}.stat`,
@@ -195,6 +207,14 @@ test("claim deadlines include their review day and reject stale or missing sourc
       asOf: "2026-10-08",
       reviewBy: "2026-12-31",
     })),
+    ...Object.entries(pyusdClaims).map(([key, claim]) => ({
+      path: `pyusd.${key}`,
+      claim,
+      owner: "Ecosystem Engineering",
+      sourceUrl: "https://example.com/report",
+      asOf: "2026-10-08",
+      reviewBy: "2026-12-31",
+    })),
   ];
   const messages = {
     "financial-institutions-solution": {
@@ -211,7 +231,21 @@ test("claim deadlines include their review day and reject stale or missing sourc
         },
       },
     },
-    pyusd: { hero: { body: "PYUSD is backed 1:1" } },
+    pyusd: {
+      hero: { body: "PYUSD is backed 1:1" },
+      stats: {
+        items: {
+          solanaSupply: { value: "$702M" },
+          reserves: { value: "$2.89B" },
+          solanaShare: { value: "25.8%" },
+          backing: { value: "1:1" },
+        },
+      },
+      trust: { items: { issuer: { body: "Chartered in December 2025" } } },
+      mint: {
+        extensions: { transferFee: { body: "The fee is 0 basis points" } },
+      },
+    },
     "developers-defi": {
       stats: {
         items: Object.fromEntries(
