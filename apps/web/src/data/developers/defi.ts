@@ -7,11 +7,13 @@ export const HERO_IMAGE =
 
 export const HERO_BUTTONS = [
   {
+    id: "startBuilding",
     hierarchy: "purpleGradient",
     size: "md",
     url: "https://solana.com/developers",
   },
   {
+    id: "readDocs",
     hierarchy: "outline",
     size: "md",
     url: "https://docs.solana.com",
@@ -27,6 +29,7 @@ export const SWITCHBACK_IMAGE =
 
 export const SWITCHBACK_BUTTONS = [
   {
+    id: "readGuide",
     hierarchy: "outline",
     size: "md",
     url: "",
@@ -37,6 +40,7 @@ export const CARD_DECK_COLUMNS = 3;
 
 export const CARD_DECK_CARDS = [
   {
+    id: "walletAdapter",
     type: "standard",
     headingAs: "h3",
     callToAction: {
@@ -47,6 +51,7 @@ export const CARD_DECK_CARDS = [
     },
   },
   {
+    id: "lending",
     type: "standard",
     headingAs: "h3",
     callToAction: {
@@ -57,6 +62,7 @@ export const CARD_DECK_CARDS = [
     },
   },
   {
+    id: "oracles",
     type: "standard",
     headingAs: "h3",
     callToAction: {
@@ -67,6 +73,7 @@ export const CARD_DECK_CARDS = [
     },
   },
   {
+    id: "derivatives",
     type: "standard",
     headingAs: "h3",
     callToAction: {
@@ -77,6 +84,7 @@ export const CARD_DECK_CARDS = [
     },
   },
   {
+    id: "staking",
     type: "standard",
     headingAs: "h3",
     callToAction: {
@@ -87,6 +95,7 @@ export const CARD_DECK_CARDS = [
     },
   },
   {
+    id: "bridges",
     type: "standard",
     headingAs: "h3",
     callToAction: {
@@ -102,6 +111,7 @@ export const CONVERSION_PANEL_PRIMARY = {
   variant: "centered",
   buttons: [
     {
+      id: "documentation",
       hierarchy: "outline",
       size: "md",
       endIcon: "arrow-up-right",
@@ -116,6 +126,7 @@ export const COMMUNITY_GALLERY_CONFIG = {
 
 export const COMMUNITY_GALLERY_CARDS = [
   {
+    id: "jupiter",
     cardType: "image",
     size: "large",
     image: {
@@ -129,6 +140,7 @@ export const COMMUNITY_GALLERY_CARDS = [
     },
   },
   {
+    id: "projectCount",
     cardType: "stat",
     button: {
       hierarchy: "link",
@@ -137,6 +149,7 @@ export const COMMUNITY_GALLERY_CARDS = [
     },
   },
   {
+    id: "allbridge",
     cardType: "image",
     size: "small",
     image: {
@@ -149,6 +162,7 @@ export const COMMUNITY_GALLERY_CARDS = [
     },
   },
   {
+    id: "orca",
     cardType: "image",
     size: "small",
     image: {
@@ -161,6 +175,7 @@ export const COMMUNITY_GALLERY_CARDS = [
     },
   },
   {
+    id: "marinade",
     cardType: "image",
     size: "small",
     image: {
@@ -173,6 +188,7 @@ export const COMMUNITY_GALLERY_CARDS = [
     },
   },
   {
+    id: "mango",
     cardType: "image",
     size: "small",
     image: {
@@ -186,6 +202,7 @@ export const COMMUNITY_GALLERY_CARDS = [
     },
   },
   {
+    id: "hubble",
     cardType: "image",
     size: "small",
     image: {
@@ -205,12 +222,14 @@ export const CONVERSION_PANEL_COMMUNITY = {
   showLogos: false,
   listItems: [
     {
+      id: "discord",
       hierarchy: "link",
       size: "md",
       endIcon: "arrow-up-right",
       url: "https://solana.com/discord",
     },
     {
+      id: "forums",
       hierarchy: "link",
       size: "md",
       endIcon: "arrow-up-right",

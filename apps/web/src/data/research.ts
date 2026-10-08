@@ -11,16 +11,19 @@ export const HERO_SWITCHBACK = {
   },
   buttons: [
     {
+      id: "validatorHealth",
       hierarchy: "secondary",
       size: "md",
       url: "https://solana.com/news/validator-health-report-october-2023",
     },
     {
+      id: "energyImpact",
       hierarchy: "secondary",
       size: "md",
       url: "https://solana.com/environment",
     },
     {
+      id: "networkPerformance",
       hierarchy: "secondary",
       size: "md",
       url: "https://solana.com/news/network-performance-report-july-2023",
@@ -82,6 +85,7 @@ export const VALIDATOR_CARD_DECK = {
   numCols: 3,
   cards: [
     {
+      id: "firedancer",
       type: "gradient",
       headingAs: "h3",
       backgroundGradient: "pink",
@@ -93,6 +97,7 @@ export const VALIDATOR_CARD_DECK = {
       },
     },
     {
+      id: "jitoLabs",
       type: "gradient",
       headingAs: "h3",
       backgroundGradient: "pink",
@@ -104,6 +109,7 @@ export const VALIDATOR_CARD_DECK = {
       },
     },
     {
+      id: "blockZero",
       type: "gradient",
       headingAs: "h3",
       backgroundGradient: "pink",
@@ -122,6 +128,7 @@ export const ENERGY_CARD_DECK = {
   numCols: 3,
   cards: [
     {
+      id: "climateData",
       type: "gradient",
       headingAs: "h3",
       backgroundGradient: "pink",
@@ -133,6 +140,7 @@ export const ENERGY_CARD_DECK = {
       },
     },
     {
+      id: "gainForest",
       type: "gradient",
       headingAs: "h3",
       backgroundGradient: "pink",
@@ -144,6 +152,7 @@ export const ENERGY_CARD_DECK = {
       },
     },
     {
+      id: "climateLeadership",
       type: "gradient",
       headingAs: "h3",
       backgroundGradient: "pink",
@@ -162,6 +171,7 @@ export const PERFORMANCE_CARD_DECK = {
   numCols: 3,
   cards: [
     {
+      id: "networkHealth",
       type: "gradient",
       headingAs: "h3",
       backgroundGradient: "pink",
@@ -173,6 +183,7 @@ export const PERFORMANCE_CARD_DECK = {
       },
     },
     {
+      id: "changelog",
       type: "gradient",
       headingAs: "h3",
       backgroundGradient: "pink",
@@ -184,6 +195,7 @@ export const PERFORMANCE_CARD_DECK = {
       },
     },
     {
+      id: "outageReport",
       type: "gradient",
       headingAs: "h3",
       backgroundGradient: "pink",
@@ -201,6 +213,7 @@ export const ADDITIONAL_CARD_DECK = {
   numCols: 3,
   cards: [
     {
+      id: "validatorUpdate",
       type: "cta",
       headingAs: "h4",
       backgroundGradient: "none",
@@ -212,6 +225,7 @@ export const ADDITIONAL_CARD_DECK = {
       },
     },
     {
+      id: "developerReport",
       type: "cta",
       headingAs: "h4",
       backgroundGradient: "none",
@@ -223,6 +237,7 @@ export const ADDITIONAL_CARD_DECK = {
       },
     },
     {
+      id: "messariReport",
       type: "cta",
       headingAs: "h4",
       backgroundGradient: "none",
@@ -240,11 +255,13 @@ export const CONVERSION_PANEL = {
   variant: "centered",
   buttons: [
     {
+      id: "reachOut",
       hierarchy: "secondary",
       size: "lg",
       url: "mailto:product@solana.org",
     },
     {
+      id: "developerMaterials",
       hierarchy: "outline",
       size: "lg",
       url: "https://solana.com/developers",

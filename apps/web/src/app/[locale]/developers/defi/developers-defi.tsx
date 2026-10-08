@@ -12,6 +12,10 @@ import {
 } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
 import {
+  requiredCardContent,
+  requiredTranslatedLabel,
+} from "@/lib/required-card-content";
+import {
   CARD_DECK_CARDS,
   CARD_DECK_COLUMNS,
   COMMUNITY_GALLERY_CARDS,
@@ -30,63 +34,97 @@ export function DevelopersDefiPage() {
 
   const stats = t.raw("stats") as { stat: string; description: string }[];
 
-  const heroButtons = HERO_BUTTONS.map((button, index) => ({
+  const heroButtonLabels = t.raw("hero.buttons");
+  const heroButtons = HERO_BUTTONS.map(({ id, ...button }) => ({
     ...button,
-    label: t(`hero.buttons.${index}`),
+    label: requiredTranslatedLabel(
+      heroButtonLabels,
+      id,
+      "developers-defi.hero.buttons",
+    ),
   }));
 
-  const switchbackButtons = SWITCHBACK_BUTTONS.map((button, index) => ({
+  const switchbackButtonLabels = t.raw("switchback.buttons");
+  const switchbackButtons = SWITCHBACK_BUTTONS.map(({ id, ...button }) => ({
     ...button,
-    label: t(`switchback.buttons.${index}`),
+    label: requiredTranslatedLabel(
+      switchbackButtonLabels,
+      id,
+      "developers-defi.switchback.buttons",
+    ),
   }));
 
-  const cardDeckCards = CARD_DECK_CARDS.map((card, index) => ({
-    ...card,
-    eyebrow: t(`cardDeck.eyebrows.${index}`),
-    heading: t(`cardDeck.headings.${index}`),
-    callToAction: {
-      ...card.callToAction,
-      label: t(`cardDeck.ctaLabels.${index}`),
-    },
-  }));
-
-  const communityGalleryText = t.raw("communityGallery.cards") as {
-    eyebrow?: string;
-    heading?: string;
-    body?: string;
-    stat?: string;
-    buttonLabel?: string;
-  }[];
-
-  const communityGalleryCards = COMMUNITY_GALLERY_CARDS.map((card, index) => {
-    const text = communityGalleryText[index] ?? {};
-
+  const cardDeckText = t.raw("cardDeck.cards");
+  const cardDeckCards = CARD_DECK_CARDS.map(({ id, ...card }) => {
+    const content = requiredCardContent(
+      cardDeckText,
+      id,
+      ["eyebrow", "heading", "ctaLabel"],
+      "developers-defi.cardDeck.cards",
+    );
     return {
       ...card,
-      eyebrow: text.eyebrow,
-      heading: text.heading,
-      body: text.body,
-      stat: text.stat,
-      button: card.button
-        ? {
-            ...card.button,
-            label: text.buttonLabel ?? "",
-          }
-        : undefined,
+      eyebrow: content.eyebrow,
+      heading: content.heading,
+      callToAction: { ...card.callToAction, label: content.ctaLabel },
     };
   });
 
+  const communityGalleryText = t.raw("communityGallery.cards");
+  const communityGalleryCards = COMMUNITY_GALLERY_CARDS.map(
+    ({ id, ...card }) => {
+      const content =
+        id === "projectCount"
+          ? requiredCardContent(
+              communityGalleryText,
+              id,
+              ["eyebrow", "stat", "buttonLabel"],
+              "developers-defi.communityGallery.cards",
+            )
+          : requiredCardContent(
+              communityGalleryText,
+              id,
+              ["heading", "body", "buttonLabel"],
+              "developers-defi.communityGallery.cards",
+            );
+
+      return {
+        ...card,
+        eyebrow: "eyebrow" in content ? content.eyebrow : undefined,
+        heading: "heading" in content ? content.heading : undefined,
+        body: "body" in content ? content.body : undefined,
+        stat: "stat" in content ? content.stat : undefined,
+        button: card.button
+          ? {
+              ...card.button,
+              label: content.buttonLabel,
+            }
+          : undefined,
+      };
+    },
+  );
+
+  const conversionButtonLabels = t.raw("conversionPanel.buttons");
   const conversionPanelButtons = CONVERSION_PANEL_PRIMARY.buttons.map(
-    (button, index) => ({
+    ({ id, ...button }) => ({
       ...button,
-      label: t(`conversionPanel.buttons.${index}`),
+      label: requiredTranslatedLabel(
+        conversionButtonLabels,
+        id,
+        "developers-defi.conversionPanel.buttons",
+      ),
     }),
   );
 
+  const communityListLabels = t.raw("communityPanel.listItems");
   const communityListItems = CONVERSION_PANEL_COMMUNITY.listItems.map(
-    (item, index) => ({
+    ({ id, ...item }) => ({
       ...item,
-      label: t(`communityPanel.listItems.${index}`),
+      label: requiredTranslatedLabel(
+        communityListLabels,
+        id,
+        "developers-defi.communityPanel.listItems",
+      ),
     }),
   );
 

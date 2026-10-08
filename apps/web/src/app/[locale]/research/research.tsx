@@ -1,6 +1,10 @@
 "use client";
 
 import React from "react";
+import {
+  requiredCardContent,
+  requiredTranslatedLabel,
+} from "@/lib/required-card-content";
 import { Columns } from "@/component-library/columns";
 import {
   CardDeck,
@@ -26,51 +30,40 @@ interface ResearchPageProps {
   translations: {
     heroHeadline: string;
     heroBody: string;
-    heroButtons: string[];
+    heroButtons: unknown;
     validatorHeadline: string;
     validatorBody: string;
     validatorButtonLabel: string;
     validatorStats: { stat: string; description: string }[];
-    validatorCards: {
-      eyebrow: string;
-      heading: string;
-      body: string;
-      ctaLabel: string;
-    }[];
+    validatorCards: unknown;
     energyHeadline: string;
     energyBody: string;
     energyButtonLabel: string;
     energyStats: { stat: string; description: string }[];
-    energyCards: {
-      eyebrow: string;
-      heading: string;
-      body: string;
-      ctaLabel: string;
-    }[];
+    energyCards: unknown;
     performanceHeadline: string;
     performanceBody: string;
     performanceButtonLabel: string;
     performanceStats: { stat: string; description: string }[];
-    performanceCards: {
-      eyebrow: string;
-      heading: string;
-      body: string;
-      ctaLabel: string;
-    }[];
-    additionalCards: { eyebrow: string; heading: string; ctaLabel: string }[];
+    performanceCards: unknown;
+    additionalCards: unknown;
     additionalResearchEyebrow: string;
     additionalResearchHeadline: string;
     additionalResearchBody: string;
     conversionPanelHeading: string;
     conversionPanelBody: string;
-    conversionPanelButtons: string[];
+    conversionPanelButtons: unknown;
   };
 }
 
 export function ResearchPage({ translations }: ResearchPageProps) {
-  const heroButtons = HERO_SWITCHBACK.buttons.map((button, index) => ({
+  const heroButtons = HERO_SWITCHBACK.buttons.map(({ id, ...button }) => ({
     ...button,
-    label: translations.heroButtons[index],
+    label: requiredTranslatedLabel(
+      translations.heroButtons,
+      id,
+      "research.hero.buttons",
+    ),
   }));
 
   const validatorButtons = VALIDATOR_SWITCHBACK.buttons.map((button) => ({
@@ -88,53 +81,74 @@ export function ResearchPage({ translations }: ResearchPageProps) {
     label: translations.performanceButtonLabel,
   }));
 
-  const validatorCards = VALIDATOR_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    eyebrow: translations.validatorCards[index]?.eyebrow ?? "",
-    heading: translations.validatorCards[index]?.heading ?? "",
-    body: translations.validatorCards[index]?.body ?? "",
-    callToAction: {
-      ...card.callToAction,
-      label: translations.validatorCards[index]?.ctaLabel ?? "",
-    },
-  }));
+  const validatorCards = VALIDATOR_CARD_DECK.cards.map(({ id, ...card }) => {
+    const content = requiredCardContent(
+      translations.validatorCards,
+      id,
+      ["eyebrow", "heading", "body", "ctaLabel"],
+      "research.cardDecks.validator.cards",
+    );
+    return {
+      ...card,
+      ...content,
+      callToAction: { ...card.callToAction, label: content.ctaLabel },
+    };
+  });
 
-  const energyCards = ENERGY_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    eyebrow: translations.energyCards[index]?.eyebrow ?? "",
-    heading: translations.energyCards[index]?.heading ?? "",
-    body: translations.energyCards[index]?.body ?? "",
-    callToAction: {
-      ...card.callToAction,
-      label: translations.energyCards[index]?.ctaLabel ?? "",
-    },
-  }));
+  const energyCards = ENERGY_CARD_DECK.cards.map(({ id, ...card }) => {
+    const content = requiredCardContent(
+      translations.energyCards,
+      id,
+      ["eyebrow", "heading", "body", "ctaLabel"],
+      "research.cardDecks.energy.cards",
+    );
+    return {
+      ...card,
+      ...content,
+      callToAction: { ...card.callToAction, label: content.ctaLabel },
+    };
+  });
 
-  const performanceCards = PERFORMANCE_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    eyebrow: translations.performanceCards[index]?.eyebrow ?? "",
-    heading: translations.performanceCards[index]?.heading ?? "",
-    body: translations.performanceCards[index]?.body ?? "",
-    callToAction: {
-      ...card.callToAction,
-      label: translations.performanceCards[index]?.ctaLabel ?? "",
+  const performanceCards = PERFORMANCE_CARD_DECK.cards.map(
+    ({ id, ...card }) => {
+      const content = requiredCardContent(
+        translations.performanceCards,
+        id,
+        ["eyebrow", "heading", "body", "ctaLabel"],
+        "research.cardDecks.performance.cards",
+      );
+      return {
+        ...card,
+        ...content,
+        callToAction: { ...card.callToAction, label: content.ctaLabel },
+      };
     },
-  }));
+  );
 
-  const additionalCards = ADDITIONAL_CARD_DECK.cards.map((card, index) => ({
-    ...card,
-    eyebrow: translations.additionalCards[index]?.eyebrow ?? "",
-    heading: translations.additionalCards[index]?.heading ?? "",
-    callToAction: {
-      ...card.callToAction,
-      label: translations.additionalCards[index]?.ctaLabel ?? "",
-    },
-  }));
+  const additionalCards = ADDITIONAL_CARD_DECK.cards.map(({ id, ...card }) => {
+    const content = requiredCardContent(
+      translations.additionalCards,
+      id,
+      ["eyebrow", "heading", "ctaLabel"],
+      "research.cardDecks.additional.cards",
+    );
+    return {
+      ...card,
+      ...content,
+      callToAction: { ...card.callToAction, label: content.ctaLabel },
+    };
+  });
 
-  const conversionButtons = CONVERSION_PANEL.buttons.map((button, index) => ({
-    ...button,
-    label: translations.conversionPanelButtons[index],
-  }));
+  const conversionButtons = CONVERSION_PANEL.buttons.map(
+    ({ id, ...button }) => ({
+      ...button,
+      label: requiredTranslatedLabel(
+        translations.conversionPanelButtons,
+        id,
+        "research.conversionPanel.buttons",
+      ),
+    }),
+  );
 
   return (
     <>
