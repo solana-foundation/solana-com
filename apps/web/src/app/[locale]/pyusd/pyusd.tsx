@@ -245,7 +245,7 @@ export async function PyusdPage({ locale }: { locale: string }) {
           headline={t("trust.headline")}
           body={t("trust.body")}
         />
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 xl:grid-cols-3">
           {TRUST_ITEMS.map(({ id, links }) => (
             <article
               key={id}
@@ -275,30 +275,28 @@ export async function PyusdPage({ locale }: { locale: string }) {
           <div className="min-w-0">
             <ul className="m-0 list-none divide-y divide-nd-border-light border-y border-nd-border-light p-0">
               {MINT_EXTENSIONS.map(({ id, status, href }) => (
-                <li key={id} className="flex flex-col gap-2 py-6">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="m-0">
-                      <Link
-                        href={href}
-                        className={`group inline-flex items-center gap-1.5 rounded-sm font-brand text-xl font-medium tracking-[-0.02em] text-white no-underline transition-colors hover:text-nd-highlight-green md:text-2xl ${focusRing}`}
-                      >
-                        {t(`mint.extensions.${id}.title`)}
-                        <ArrowRight
-                          aria-hidden
-                          className="!size-5 shrink-0 text-nd-highlight-green transition-transform group-hover:translate-x-0.5"
-                        />
-                      </Link>
-                    </h3>
-                    <span
-                      className={`rounded-full border px-3 py-1 font-brand-mono text-[11px] uppercase tracking-[0.12em] ${
-                        status === "active"
-                          ? "border-nd-highlight-green/40 text-nd-highlight-green"
-                          : "border-nd-border-prominent text-nd-mid-em-text"
-                      }`}
+                <li key={id} className="flex flex-col items-start gap-3 py-6">
+                  <h3 className="m-0 flex font-brand text-xl font-medium leading-tight md:text-2xl">
+                    <Link
+                      href={href}
+                      className={`group inline-flex items-center gap-1.5 rounded-sm font-brand text-xl font-medium leading-tight tracking-[-0.02em] text-white no-underline transition-colors hover:text-nd-highlight-green md:text-2xl ${focusRing}`}
                     >
-                      {t(`mint.status.${status}`)}
-                    </span>
-                  </div>
+                      {t(`mint.extensions.${id}.title`)}
+                      <ArrowRight
+                        aria-hidden
+                        className="!size-5 shrink-0 text-nd-highlight-green transition-transform group-hover:translate-x-0.5"
+                      />
+                    </Link>
+                  </h3>
+                  <span
+                    className={`order-first rounded-full border px-2.5 py-1.5 font-brand-mono leading-none text-[11px] uppercase tracking-[0.12em] ${
+                      status === "active"
+                        ? "border-nd-highlight-green/40 text-nd-highlight-green"
+                        : "border-nd-border-prominent text-nd-mid-em-text"
+                    }`}
+                  >
+                    {t(`mint.status.${status}`)}
+                  </span>
                   <p className={`m-0 text-base leading-relaxed ${muted}`}>
                     {t(`mint.extensions.${id}.body`)}
                   </p>
