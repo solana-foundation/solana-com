@@ -10,6 +10,7 @@ import {
   AccountState,
   extension,
   getCreateMintInstructionPlan,
+  getMintDecoder,
 } from "@solana-program/token-2022";
 
 const payer = await Keypair.generate();
@@ -69,5 +70,16 @@ const signature = await sendAndConfirmTransaction(connection, transaction, [
   mint,
 ]);
 console.log("Transaction Signature:", signature);
+
+// Verify the mint and its extensions
+const mintAccountInfo = await connection.getAccountInfo(mint.publicKey);
+const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+const enabledExtensions =
+  mintAccount.extensions.__option === "Some"
+    ? mintAccount.extensions.value.map(({ __kind }) => __kind)
+    : [];
+
 console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Decimals:", mintAccount.decimals);
+console.log("Extensions:", enabledExtensions.join(", "));
 // #endregion create
