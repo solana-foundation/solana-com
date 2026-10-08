@@ -31,6 +31,11 @@ const requiredExports = {
   "src/data/solutions/financial-institutions.ts": ["PROJECTS"],
 };
 const requiredClaimPaths = [
+  "financial-institutions-solution.projects.morganStanley.stat",
+  "financial-institutions-solution.projects.jpmorgan.stat",
+  "financial-institutions-solution.projects.citi.stat",
+  "financial-institutions-solution.projects.societeGenerale.stat",
+  "financial-institutions-solution.projects.stateStreet.stat",
   "financial-institutions-solution.projects.stateStreet.description",
   "pyusd.hero.body",
 ];
@@ -128,7 +133,7 @@ export function validateLinks(record, location) {
     errors.push(`${location}: actionable object requires a URL`);
   }
   for (const [key, value] of Object.entries(record)) {
-    if (key === "url" || key === "href") {
+    if (key === "url" || key === "href" || key === "statSource") {
       errors.push(...validateUrl(value, `${location}.${key}`));
     } else {
       errors.push(...validateLinks(value, `${location}.${key}`));

@@ -64,7 +64,6 @@ export function SolutionsFinancialInstitutionsPage({
             br: () => <br />,
           })}
           projects={PROJECTS}
-          hideStats
           translationBase="financial-institutions-solution.projects"
           controlsAlign="right"
           bgSrc="/src/img/solutions/icm/ecosystem-bg.webp"

@@ -1,6 +1,7 @@
 "use client";
 
 import { ResponsiveBox } from "@/component-library/responsive-box";
+import { legacyLandingTheme } from "@/components/legacy-landing-theme";
 import {
   CardDeck,
   CommunityGallery,
@@ -125,7 +126,9 @@ export function DevelopersDefiPage() {
   );
 
   return (
-    <>
+    <main
+      className={`${legacyLandingTheme} bg-[radial-gradient(ellipse_70%_28%_at_80%_0%,rgba(153,69,255,0.16),transparent_75%)] [&>*+*]:border-t [&>*+*]:border-white/10`}
+    >
       <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
         <Hero
           headingAs="h1"
@@ -223,6 +226,6 @@ export function DevelopersDefiPage() {
           }
         />
       </ResponsiveBox>
-    </>
+    </main>
   );
 }

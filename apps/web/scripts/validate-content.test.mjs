@@ -21,6 +21,10 @@ test("rejects blank actionable URLs but permits cards without a link", () => {
     validateLinks({ hierarchy: "primary" }, "heroButton").join("\n"),
     /requires a URL/,
   );
+  assert.match(
+    validateLinks({ statSource: "" }, "project").join("\n"),
+    /URL is empty/,
+  );
 });
 
 test("rejects impossible local destinations and accepts known cross-app content", () => {
@@ -54,7 +58,22 @@ test("audited source files cannot hide empty URLs behind satisfies or spreads", 
 });
 
 test("claim deadlines include their review day and reject stale or missing sources", () => {
+  const statValues = {
+    morganStanley: "$1.9T",
+    jpmorgan: "$50M",
+    citi: "~24/7",
+    societeGenerale: "1:1",
+    stateStreet: "$50T+",
+  };
   const claims = [
+    ...Object.entries(statValues).map(([project, claim]) => ({
+      path: `financial-institutions-solution.projects.${project}.stat`,
+      claim,
+      owner: "Ecosystem Engineering",
+      sourceUrl: "https://example.com/report",
+      asOf: "2025-12-31",
+      reviewBy: "2026-12-31",
+    })),
     {
       path: "financial-institutions-solution.projects.stateStreet.description",
       claim: "$50 trillion",
@@ -74,7 +93,18 @@ test("claim deadlines include their review day and reject stale or missing sourc
   ];
   const messages = {
     "financial-institutions-solution": {
-      projects: { stateStreet: { description: "With $50 trillion in assets" } },
+      projects: {
+        ...Object.fromEntries(
+          Object.entries(statValues).map(([project, stat]) => [
+            project,
+            { stat },
+          ]),
+        ),
+        stateStreet: {
+          stat: statValues.stateStreet,
+          description: "With $50 trillion in assets",
+        },
+      },
     },
     pyusd: { hero: { body: "PYUSD is backed 1:1" } },
   };

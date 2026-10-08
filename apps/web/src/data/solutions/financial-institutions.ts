@@ -7,26 +7,44 @@ export const PROJECTS = [
     src: getCompanyLogoSrc("morgan-stanley") ?? "",
     key: "morganStanley",
     href: "https://www.morganstanley.com/im/en-us/individual-investor/insights/press-release/msim-files-initial-registration-statements-for-two-cryptocurrency-etps.html",
+    statValue: "$1.9T",
+    statSource:
+      "https://www.morganstanley.com/content/dam/msdotcom/en/about-us-2026ams/2026_Shareholder_Letter.pdf",
+    statSourceNote: "Dec 2025",
   },
   {
     src: getCompanyLogoSrc("jpmorgan") ?? "",
     key: "jpmorgan",
     href: "https://www.jpmorgan.com/about-us/corporate-news/2025/jpmorgan-commercial-paper-issuance-solana-blockchain",
+    statValue: "$50M",
+    statSource:
+      "https://news.bloomberglaw.com/crypto/jpmorgan-uses-solana-blockchain-for-galaxys-dollar-note-deal",
+    statSourceNote: "Dec 2025",
   },
   {
     src: getCompanyLogoSrc("citi") ?? "",
     key: "citi",
     href: "https://www.citigroup.com/global/insights/supply-chain-financing-2026",
+    statValue: "~24/7",
+    statSource:
+      "https://www.citigroup.com/global/news/press-release/2026/print/citi-supply-chain-financing-report-durable-global-trade-in-the-age-of-ai",
+    statSourceNote: "Pilot potential · Feb 2026",
   },
   {
     src: getCompanyLogoSrc("societe-generale") ?? "",
     key: "societeGenerale",
     href: "https://www.sgforge.com/societe-generale-forge-solana-network/",
+    statValue: "1:1",
+    statSource: "https://www.sgforge.com/product/coinvertible/",
   },
   {
     src: getCompanyLogoSrc("state-street") ?? "",
     key: "stateStreet",
     href: "https://investors.statestreet.com/investor-news-events/press-releases/news-details/2025/State-Street-Investment-Management-and-Galaxy-Digital-Partner-to-Tokenize-Private-Liquidity-Fund-With-Planned-Seed-Investment-from-Ondo/default.aspx",
+    statValue: "$50T+",
+    statSource:
+      "https://www.statestreet.com/web/about/our-story/annual-report/documents/2026-proxy-statement.pdf",
+    statSourceNote: "2025 year end",
   },
 ];
 

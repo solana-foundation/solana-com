@@ -1,6 +1,7 @@
 "use client";
 
 import { ResponsiveBox } from "@/component-library/responsive-box";
+import { legacyLandingTheme } from "@/components/legacy-landing-theme";
 import {
   CardDeck,
   Heading,
@@ -81,7 +82,9 @@ export function PyusdPage({ translations }: PyusdPageProps) {
   }));
 
   return (
-    <>
+    <main
+      className={`${legacyLandingTheme} bg-[radial-gradient(ellipse_70%_28%_at_80%_0%,rgba(74,132,255,0.18),transparent_75%)] [&>*+*]:border-t [&>*+*]:border-white/10`}
+    >
       <Hero
         headingAs="h1"
         centered={false}
@@ -124,6 +127,6 @@ export function PyusdPage({ translations }: PyusdPageProps) {
           numCols={SECONDARY_CARD_DECK_COLUMNS}
         />
       </Section>
-    </>
+    </main>
   );
 }

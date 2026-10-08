@@ -19,6 +19,9 @@ export type Project = {
   src: string;
   href?: string;
   statIcon?: string;
+  statValue?: string;
+  statSource?: string;
+  statSourceNote?: string;
 };
 
 type EcoProjectsProps = {
@@ -188,11 +191,27 @@ export const Projects = ({
                               {t(`${base}.statLabel`)}
                             </dt>
                             <dd className="text-[52px] leading-none mb-1">
-                              {t(`${base}.stat`)}
+                              {project.statValue ?? t(`${base}.stat`)}
                             </dd>
                             <div className="text-base md:text-lg xl:text-xl  tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.375] md:leading-[1.33] xl:leading-[1.4]">
                               {t(`${base}.statLabel`)}
                             </div>
+                            {project.statSource && (
+                              <div className="mt-3 text-xs text-white/50">
+                                <a
+                                  href={project.statSource}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline underline-offset-4 decoration-white/30 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                                  aria-label={`Source for ${t(`${base}.name`)} statistic`}
+                                >
+                                  Source ↗
+                                </a>
+                                {project.statSourceNote && (
+                                  <span> · {project.statSourceNote}</span>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </dl>
