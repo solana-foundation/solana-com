@@ -20,10 +20,6 @@ export const HERO_BUTTONS = [
   },
 ] as const;
 
-export const STATS_CONFIG = {
-  contained: true,
-} as const;
-
 export const SWITCHBACK_IMAGE =
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F873bf74d6e4a43d8a6f83d99f0d0288f.png";
 
@@ -32,7 +28,7 @@ export const SWITCHBACK_BUTTONS = [
     id: "readGuide",
     hierarchy: "outline",
     size: "md",
-    url: "",
+    url: "https://www.anchor-lang.com/docs/quickstart",
   },
 ] as const;
 
@@ -185,20 +181,6 @@ export const COMMUNITY_GALLERY_CARDS = [
       hierarchy: "link",
       url: "https://solana.com/ecosystem/marinade",
       endIcon: "arrow-right",
-    },
-  },
-  {
-    id: "mango",
-    cardType: "image",
-    size: "small",
-    image: {
-      src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Ff09145483d4445bfa4cb85566d20c275.png",
-    },
-    button: {
-      hierarchy: "link",
-      size: "sm",
-      url: "https://solana.com/ecosystem/mango",
-      endIcon: "arrow-up-right",
     },
   },
   {

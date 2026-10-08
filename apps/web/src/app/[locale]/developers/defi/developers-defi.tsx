@@ -7,7 +7,6 @@ import {
   ConversionPanel,
   Heading,
   Hero,
-  Stats,
   Switchback,
 } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
@@ -24,15 +23,12 @@ import {
   CONVERSION_PANEL_PRIMARY,
   HERO_BUTTONS,
   HERO_IMAGE,
-  STATS_CONFIG,
   SWITCHBACK_BUTTONS,
   SWITCHBACK_IMAGE,
 } from "@/data/developers/defi";
 
 export function DevelopersDefiPage() {
   const t = useTranslations("developers-defi");
-
-  const stats = t.raw("stats") as { stat: string; description: string }[];
 
   const heroButtonLabels = t.raw("hero.buttons");
   const heroButtons = HERO_BUTTONS.map(({ id, ...button }) => ({
@@ -144,10 +140,6 @@ export function DevelopersDefiPage() {
             src: HERO_IMAGE,
           }}
         />
-      </ResponsiveBox>
-
-      <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
-        <Stats stats={stats} contained={STATS_CONFIG.contained} />
       </ResponsiveBox>
 
       <Heading
