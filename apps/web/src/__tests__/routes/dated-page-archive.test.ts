@@ -5,7 +5,6 @@ import { generateMetadata as outlook2023Metadata } from "@/app/[locale]/2023outl
 import { generateMetadata as outlook2024Metadata } from "@/app/[locale]/2024outlook/page";
 import { generateMetadata as epoch1000Metadata } from "@/app/[locale]/epoch1000/page";
 import { generateMetadata as epoch1000CardMetadata } from "@/app/[locale]/epoch1000/card/page";
-import { archivedCampaignMetadata } from "@/components/archived-campaign-layout";
 import { metadata as artBaselArchiveMetadata } from "@/app/[locale]/art-basel/layout";
 import { metadata as privacyHackArchiveMetadata } from "@/app/[locale]/privacyhack/layout";
 import { metadata as graveyardHackArchiveMetadata } from "@/app/[locale]/graveyard-hack/layout";
@@ -114,7 +113,7 @@ describe("dated page archive", () => {
       predictionMarketsHackArchiveMetadata,
       wsopArchiveMetadata,
     ]) {
-      expect(metadata.robots).toEqual(archivedCampaignMetadata.robots);
+      expect(metadata.robots).toEqual({ index: false, follow: true });
     }
   });
 });
