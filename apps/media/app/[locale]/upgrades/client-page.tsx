@@ -146,18 +146,27 @@ function OverviewCallout({ overview }: { overview: UpgradeListItem }) {
 function ReleaseHeader({
   group,
   className,
+  compact = false,
 }: {
   group: ReleaseGroup;
   className?: string;
+  /** Smaller heading for releases nested under the Completed section. */
+  compact?: boolean;
 }) {
   const t = useTranslations("upgrades.releaseStatus");
   const dateLabel = useReleaseDateLabel(group);
+  const Heading = compact ? "h3" : "h2";
 
   return (
     <div className={cn("flex flex-wrap items-baseline gap-3", className)}>
-      <h2 className="m-0 text-[22px] font-semibold tracking-[-0.3px]">
-        {group.name}
-      </h2>
+      <Heading
+        className={cn(
+          "m-0 font-semibold tracking-[-0.3px]",
+          compact ? "text-lg" : "text-[22px]",
+        )}
+      >
+        {group.status === null ? t("unscheduled") : group.name}
+      </Heading>
       {group.status === "planned" && (
         <span className="rounded-full border border-[#14F195]/35 bg-[#14F195]/[0.08] px-2.5 py-0.5 text-[11.5px] font-semibold text-[#14F195]">
           {t("planned")}
@@ -175,9 +184,9 @@ function ReleaseHeader({
 
 /**
  * Wraps one release group. Shipped releases where everything is already live
- * collapse to a single header row so the page stays short as releases pile
- * up. Picking that release in the dropdown opens it, otherwise the selection
- * would show nothing but a header.
+ * collapse to a single row under the Completed heading so the page stays
+ * short as releases pile up. Picking that release in the dropdown opens it,
+ * otherwise the selection would show nothing but a header.
  */
 function ReleaseSection({
   group,
@@ -205,10 +214,10 @@ function ReleaseSection({
     <details
       key={`${group.key}-${forceOpen}`}
       open={forceOpen}
-      className="group/release mb-6 border border-white/10 last:mb-0 open:mb-12"
+      className="group/release mb-3 border border-white/10 last:mb-0"
     >
       <summary className="flex cursor-pointer list-none flex-wrap items-baseline justify-between gap-3 px-5 py-4 hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
-        <ReleaseHeader group={group} />
+        <ReleaseHeader group={group} compact />
         <span className="flex items-center gap-3 text-sm text-white/50">
           {t("collapsedLive", { count })}
           <span className="text-[#14F195] transition-transform group-open/release:rotate-45">
@@ -332,6 +341,19 @@ function CardsView({
   );
 }
 
+function CompletedSection({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("upgrades.listing");
+
+  return (
+    <section className="mt-12">
+      <h2 className="m-0 mb-4 text-[22px] font-semibold tracking-[-0.3px]">
+        {t("completed")}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
 export default function UpgradesClientPage({
   groups,
 }: UpgradesClientPageProps) {
@@ -342,17 +364,16 @@ export default function UpgradesClientPage({
 
   const releaseOptions = useMemo(
     () =>
-      groups
-        .filter((group) => group.status !== null)
-        .map((group) => ({
-          key: group.key,
-          label: t("releaseOption", {
-            name: group.name,
-            status: tReleaseStatus(
-              group.status === "planned" ? "planned" : "shipped",
-            ),
-          }),
-        })),
+      groups.map((group) => ({
+        key: group.key,
+        label:
+          group.status === null
+            ? tReleaseStatus("unscheduled")
+            : t("releaseOption", {
+                name: group.name,
+                status: tReleaseStatus(group.status),
+              }),
+      })),
     [groups, t, tReleaseStatus],
   );
 
@@ -360,6 +381,13 @@ export default function UpgradesClientPage({
     selectedRelease === "all"
       ? groups
       : groups.filter((group) => group.key === selectedRelease);
+
+  // Releases with nothing left to track sit in their own section at the very
+  // end, after Unscheduled, so current and upcoming work stays at the top.
+  const activeGroups = visibleGroups.filter(
+    (group) => !isReleaseFullyLive(group),
+  );
+  const completedGroups = visibleGroups.filter(isReleaseFullyLive);
 
   if (groups.length === 0) {
     return (
@@ -433,13 +461,36 @@ export default function UpgradesClientPage({
 
       {/* Mobile always gets Grid — the table's horizontal scroll doesn't work well at that width. */}
       <div className="md:hidden">
-        <CardsView groups={visibleGroups} selectedRelease={selectedRelease} />
+        <CardsView groups={activeGroups} selectedRelease={selectedRelease} />
+        {completedGroups.length > 0 && (
+          <CompletedSection>
+            <CardsView
+              groups={completedGroups}
+              selectedRelease={selectedRelease}
+            />
+          </CompletedSection>
+        )}
       </div>
       <div className="hidden md:block">
         {view === "table" ? (
-          <TableView groups={visibleGroups} selectedRelease={selectedRelease} />
+          <TableView groups={activeGroups} selectedRelease={selectedRelease} />
         ) : (
-          <CardsView groups={visibleGroups} selectedRelease={selectedRelease} />
+          <CardsView groups={activeGroups} selectedRelease={selectedRelease} />
+        )}
+        {completedGroups.length > 0 && (
+          <CompletedSection>
+            {view === "table" ? (
+              <TableView
+                groups={completedGroups}
+                selectedRelease={selectedRelease}
+              />
+            ) : (
+              <CardsView
+                groups={completedGroups}
+                selectedRelease={selectedRelease}
+              />
+            )}
+          </CompletedSection>
         )}
       </div>
     </div>
