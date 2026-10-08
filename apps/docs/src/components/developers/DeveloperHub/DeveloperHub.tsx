@@ -14,6 +14,7 @@ import { Layers } from "@boxicons/react/Layers";
 import { Link as LinkIcon } from "@boxicons/react/Link";
 import { MessageCircle } from "@boxicons/react/MessageCircle";
 import { MessageCircleQuestionMark } from "@boxicons/react/MessageCircleQuestionMark";
+import { Microscope } from "@boxicons/react/Microscope";
 import { Package } from "@boxicons/react/Package";
 import { PlayCircle } from "@boxicons/react/PlayCircle";
 import { Podcast } from "@boxicons/react/Podcast";
@@ -142,11 +143,32 @@ const pathways: Pathway[] = [
 
 const products: HubLink[] = [
   {
+    id: "microscope",
+    titleKey: "products.items.microscope.title",
+    descriptionKey: "products.items.microscope.description",
+    href: "/microscope",
+    icon: Microscope,
+  },
+  {
     id: "kora",
     titleKey: "products.items.kora.title",
     descriptionKey: "products.items.kora.description",
     href: "/docs/tools/kora",
     icon: Bolt,
+  },
+  {
+    id: "keychain",
+    titleKey: "products.items.keychain.title",
+    descriptionKey: "products.items.keychain.description",
+    href: "/docs/tools/keychain",
+    icon: Wallet,
+  },
+  {
+    id: "surfpool",
+    titleKey: "products.items.surfpool.title",
+    descriptionKey: "products.items.surfpool.description",
+    href: "/docs/tools/surfpool",
+    icon: Spanner,
   },
   {
     id: "commerceKit",
@@ -712,6 +734,20 @@ export function DeveloperHub({
                 <p>{t(product.descriptionKey)}</p>
               </Link>
             ))}
+          </div>
+          <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-sm font-semibold">
+            <Link
+              to="/docs/tools"
+              className="inline-flex items-center gap-2 text-white underline underline-offset-4 hover:text-[#14f195] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#14f195]"
+            >
+              {t("products.allTools")} <Arrow />
+            </Link>
+            <Link
+              to="/docs/payments/developer-tools"
+              className="inline-flex items-center gap-2 text-white underline underline-offset-4 hover:text-[#14f195] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#14f195]"
+            >
+              {t("products.paymentTools")} <Arrow />
+            </Link>
           </div>
         </div>
       </section>

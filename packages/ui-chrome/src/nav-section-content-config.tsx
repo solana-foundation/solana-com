@@ -1,4 +1,3 @@
-import { Microscope } from "@boxicons/react/Microscope";
 import NewspaperIcon from "./assets/nav/build/newspaper.inline.svg";
 import ApiConnectionBuildIcon from "./assets/nav/build/api-connection.inline.svg";
 import TemplatesIcon from "./assets/nav/build/templates.inline.svg";
@@ -37,10 +36,6 @@ import type {
   NavPromoDefinition,
   NavTopLevelSectionId,
 } from "./nav-types";
-
-const MicroscopeIcon = ({ className }: { className?: string }) => (
-  <Microscope pack="filled" className={className} />
-);
 
 export const useSolanaWalletItems: NavItemDefinition[] = [
   {
@@ -395,10 +390,16 @@ export const productSurfaceItems: NavItemDefinition[] = [
 
 export const productToolItems: NavItemDefinition[] = [
   {
-    id: "products-microscope",
-    titleKey: "nav.products.tools.items.microscope.title",
-    href: "/microscope",
-    icon: MicroscopeIcon,
+    id: "products-developer-tools",
+    titleKey: "nav.products.tools.items.developerTools.title",
+    href: "/docs/tools",
+    icon: MaintenanceIcon,
+  },
+  {
+    id: "products-payment-developer-tools",
+    titleKey: "nav.products.tools.items.paymentDeveloperTools.title",
+    href: "/docs/payments/developer-tools",
+    icon: MoneyIcon,
   },
   {
     id: "products-commerce-kit",
