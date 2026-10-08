@@ -11,7 +11,7 @@ import { getIndexMetadata } from "@/app/metadata";
 // Keep the route's utility groups together while the surrounding page markup
 // continues to use the same class names and reveal state hooks.
 const styles = {
-  page: "min-h-full overflow-hidden bg-black font-brand font-normal leading-normal text-white antialiased",
+  page: "min-h-full overflow-hidden bg-black font-brand font-normal leading-normal text-white antialiased [&_:is(h1,h2,h3,p,ol)]:mb-0",
   hero: "mx-auto box-border flex w-full max-w-[1440px] flex-col items-start border-b border-nd-border-light bg-black px-10 pb-[88px] pt-[120px] text-left max-[900px]:px-6 max-[900px]:pb-[72px] max-[900px]:pt-24 max-[640px]:px-5 max-[640px]:pb-14 max-[640px]:pt-[72px]",
   heroProgram:
     "relative min-h-[680px] items-end justify-end overflow-hidden pt-[132px] max-[1279px]:min-h-0",
