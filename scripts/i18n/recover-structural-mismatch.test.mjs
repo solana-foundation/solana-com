@@ -71,14 +71,15 @@ test("recovers only a reported MDX structure failure", (t) => {
     [],
   );
 
+  const lockPath = path.join(rootDir, ".lingo/lock.json");
+  const lockBefore = fs.readFileSync(lockPath, "utf8");
   removeFailedTargets([target], rootDir);
   assert.equal(fs.existsSync(path.join(rootDir, target)), false);
   assert.equal(fs.existsSync(path.join(rootDir, otherTarget)), true);
   assert.equal(fs.existsSync(path.join(rootDir, jsonTarget)), true);
-  const lock = JSON.parse(
-    fs.readFileSync(path.join(rootDir, ".lingo/lock.json")),
-  );
-  assert.equal(target in lock.files, false);
+  assert.equal(fs.readFileSync(lockPath, "utf8"), lockBefore);
+  const lock = JSON.parse(lockBefore);
+  assert.equal(target in lock.files, true);
   assert.equal(otherTarget in lock.files, true);
   assert.equal(jsonTarget in lock.files, true);
 });

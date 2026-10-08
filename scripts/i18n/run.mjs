@@ -173,7 +173,8 @@ async function main() {
   }
 
   // A partial Lingo run can leave only a few MDX targets with incompatible
-  // structure. Backfill those exact files, preserving all other translations.
+  // structure. Backfill those exact files, preserving other translations and
+  // the lockfile. Lingo detects missing targets from the filesystem.
   // Other failures still fail the job; GitHub discards the partial checkout.
   const push = await runLingoWithOutput(["push", ...patterns, "--wait"]);
   if (push.status !== 0) {

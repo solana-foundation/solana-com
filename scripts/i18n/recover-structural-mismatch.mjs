@@ -50,13 +50,7 @@ export function failedStructuralTargets(output, config, rootDir) {
 }
 
 export function removeFailedTargets(targets, rootDir) {
-  const lockPath = path.join(rootDir, ".lingo/lock.json");
-  const lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
-
   for (const target of targets) {
     fs.unlinkSync(path.join(rootDir, target));
-    delete lock.files[target];
   }
-
-  fs.writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 }
