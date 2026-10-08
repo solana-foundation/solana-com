@@ -16,35 +16,37 @@ export default async function Page(_props: Props) {
     heroButtons: t.raw("hero.buttons"),
     validatorHeadline: t("sections.validator.headline"),
     validatorBody: t.raw("sections.validator.body") as string,
-    validatorButtonLabel: t("sections.validator.buttonLabel"),
-    validatorStats: t.raw("sections.validator.stats") as {
-      stat: string;
-      description: string;
-    }[],
     validatorCards: t.raw("cardDecks.validator.cards"),
     energyHeadline: t("sections.energy.headline"),
     energyBody: t.raw("sections.energy.body") as string,
-    energyButtonLabel: t("sections.energy.buttonLabel"),
-    energyStats: t.raw("sections.energy.stats") as {
-      stat: string;
-      description: string;
-    }[],
     energyCards: t.raw("cardDecks.energy.cards"),
     performanceHeadline: t("sections.performance.headline"),
     performanceBody: t.raw("sections.performance.body") as string,
-    performanceButtonLabel: t("sections.performance.buttonLabel"),
-    performanceStats: t.raw("sections.performance.stats") as {
-      stat: string;
-      description: string;
-    }[],
     performanceCards: t.raw("cardDecks.performance.cards"),
     additionalCards: t.raw("cardDecks.additional.cards"),
-    additionalResearchEyebrow: t("additionalResearch.eyebrow"),
-    additionalResearchHeadline: t("additionalResearch.headline"),
-    additionalResearchBody: t("additionalResearch.body"),
     conversionPanelHeading: t("conversionPanel.heading"),
     conversionPanelBody: t("conversionPanel.body"),
     conversionPanelButtons: t.raw("conversionPanel.buttons"),
+    evidence: {
+      eyebrow: t("evidence.eyebrow"),
+      latestAnalysis: t("evidence.latestAnalysis"),
+      source: t("evidence.source"),
+      readReport: t("evidence.readReport"),
+      liveDashboard: t("evidence.liveDashboard"),
+      relatedReading: t("evidence.relatedReading"),
+      archiveDescription: t("evidence.archiveDescription"),
+      snapshotNote: t("evidence.snapshotNote"),
+      metrics: {
+        validators: t("evidence.metrics.validators"),
+        nakamoto: t("evidence.metrics.nakamoto"),
+        countries: t("evidence.metrics.countries"),
+        voteParticipation: t("evidence.metrics.voteParticipation"),
+        energyPerTransaction: t("evidence.metrics.energyPerTransaction"),
+        annualizedEnergy: t("evidence.metrics.annualizedEnergy"),
+        slotTarget: t("evidence.metrics.slotTarget"),
+        uptime: t("evidence.metrics.uptime"),
+      },
+    },
   };
 
   return <ResearchPage translations={translations} />;

@@ -14,64 +14,19 @@ export const HERO_SWITCHBACK = {
       id: "validatorHealth",
       hierarchy: "secondary",
       size: "md",
-      url: "https://solana.com/news/validator-health-report-october-2023",
+      url: "#validator",
     },
     {
       id: "energyImpact",
       hierarchy: "secondary",
       size: "md",
-      url: "https://solana.com/environment",
+      url: "#energy",
     },
     {
       id: "networkPerformance",
       hierarchy: "secondary",
       size: "md",
-      url: "https://solana.com/news/network-performance-report-july-2023",
-    },
-  ],
-  placeholder: "",
-  emailError: "",
-  submitError: "",
-  successMessage: "",
-} as const;
-
-export const VALIDATOR_SWITCHBACK = {
-  assetSide: "right",
-  buttons: [
-    {
-      hierarchy: "primary",
-      size: "md",
-      url: "https://solana.com/news/validator-health-report-october-2023",
-    },
-  ],
-  placeholder: "",
-  emailError: "",
-  submitError: "",
-  successMessage: "",
-} as const;
-
-export const ENERGY_SWITCHBACK = {
-  assetSide: "left",
-  buttons: [
-    {
-      hierarchy: "primary",
-      size: "md",
-      url: "https://solana.com/news/solana-energy-use-report-december-2023",
-    },
-  ],
-  placeholder: "",
-  emailError: "",
-  submitError: "",
-  successMessage: "",
-} as const;
-
-export const PERFORMANCE_SWITCHBACK = {
-  assetSide: "right",
-  buttons: [
-    {
-      hierarchy: "primary",
-      size: "md",
-      url: "https://solana.com/news/network-performance-report-july-2023",
+      url: "#performance",
     },
   ],
   placeholder: "",
@@ -136,7 +91,7 @@ export const ENERGY_CARD_DECK = {
         hierarchy: "outline",
         size: "sm",
         endIcon: "arrow-up-right",
-        url: "https://solanaclimate.com/",
+        url: "https://climate.solana.com/",
       },
     },
     {
