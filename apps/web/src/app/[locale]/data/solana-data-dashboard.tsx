@@ -71,6 +71,7 @@ import {
   senderEconomicsMetricNames,
   type Aggregation,
   type ChartDefinition,
+  type ChartPeriodView,
   type DashboardTab,
   type DataApiResponse,
   type MetricRow,
@@ -85,8 +86,10 @@ import {
   formatValue,
   TimeSeriesChart,
   type ChartSeries,
+  type TimeGranularity,
 } from "./time-series-chart";
 import { SenderProviderExperience } from "./sender-provider-experience";
+import { applyPeriodView } from "./chart-period";
 
 export { getSenderEconomicsItems } from "./sender-provider-experience";
 
@@ -552,6 +555,7 @@ export function SolanaDataDashboard() {
                 isConnectedToPrevious={hasKpiGrid}
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
+                rangeDays={rangeDays}
                 rows={rows}
                 rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
@@ -968,6 +972,7 @@ function ChartGrid({
   isLoading,
   isRefreshing,
   isConnectedToPrevious,
+  rangeDays,
   rows,
   rpcTimeframe,
   selectedProviders,
@@ -978,6 +983,7 @@ function ChartGrid({
   isConnectedToPrevious: boolean;
   isLoading: boolean;
   isRefreshing: boolean;
+  rangeDays: number;
   rows: MetricRow[];
   rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
@@ -1021,6 +1027,7 @@ function ChartGrid({
                 index={index}
                 isRefreshing={isRefreshing}
                 key={chart.id}
+                rangeDays={rangeDays}
                 rows={rows}
                 rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
@@ -1462,6 +1469,7 @@ function ChartCard({
   className,
   index,
   isRefreshing,
+  rangeDays,
   rows,
   rpcTimeframe,
   selectedProviders,
@@ -1470,20 +1478,37 @@ function ChartCard({
   className?: string;
   index: number;
   isRefreshing: boolean;
+  rangeDays: number;
   rows: MetricRow[];
   rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
 }) {
   const t = useTranslations("dataDashboard");
-  const series = useMemo(
+  const [selectedPeriodView, setSelectedPeriodView] =
+    useState<ChartPeriodView>("daily");
+  const periodViewOptions = getPeriodViewOptions(chart, rangeDays);
+  // Falls back to daily while the selected view is unavailable (e.g. monthly
+  // on a 30D range) and restores it once the option returns.
+  const periodView = periodViewOptions.includes(selectedPeriodView)
+    ? selectedPeriodView
+    : "daily";
+  const dailySeries = useMemo(
     () => buildSeries(chart, rows, selectedProviders),
     [chart, rows, selectedProviders],
+  );
+  const series = useMemo(
+    () =>
+      chart.periodViews
+        ? applyPeriodView(dailySeries, periodView, chart.periodViews.rollup)
+        : dailySeries,
+    [chart.periodViews, dailySeries, periodView],
   );
   const valueLabel = getValueLabel(t, chart.valueLabel);
   const title = getChartTitle(t, chart);
   const caption = getChartCaption(t, chart, {
     timeframe: getRpcTimeframeOption(rpcTimeframe).label,
   });
+  const periodCaption = getPeriodViewCaption(t, chart, periodView, rangeDays);
   const resolvedChartHeight =
     chart.visualization === "bar"
       ? Math.max(chartHeight, series.length * 56)
@@ -1501,15 +1526,37 @@ function ChartCard({
           <h2 className="m-0 min-w-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
             {title}
           </h2>
-          <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
-            {valueLabel}
-          </span>
+          <div className="flex shrink-0 items-center gap-3">
+            {periodViewOptions.length > 1 ? (
+              <FilterSelect
+                ariaLabel={t("periodViews.ariaLabel", { metric: title })}
+                label=""
+                onChange={(nextView) => {
+                  setSelectedPeriodView(nextView);
+                  trackPeriodViewChange(chart, nextView);
+                }}
+                options={periodViewOptions.map((option) => ({
+                  label: t(`periodViews.${option}`),
+                  value: option,
+                }))}
+                value={periodView}
+              />
+            ) : null}
+            <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
+              {valueLabel}
+            </span>
+          </div>
         </div>
-        {caption ? (
-          <p className="m-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
-            {caption}
-          </p>
-        ) : null}
+        {[caption, periodCaption].map((text) =>
+          text ? (
+            <p
+              className="m-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70"
+              key={text}
+            >
+              {text}
+            </p>
+          ) : null,
+        )}
       </div>
 
       <ChartWatermarkFrame height={resolvedChartHeight}>
@@ -1526,7 +1573,7 @@ function ChartCard({
               height={resolvedChartHeight}
               scaleType={chart.scale}
               series={series}
-              timeGranularity={chart.timeGranularity}
+              timeGranularity={getPeriodTimeGranularity(chart, periodView)}
               valueLabel={chart.valueLabel}
             />
           )
@@ -2736,6 +2783,66 @@ function getChartCaption(
   const captionKey = `charts.${chart.id}.caption`;
 
   return t.has(captionKey) ? t(captionKey, values) : undefined;
+}
+
+export function getPeriodViewOptions(
+  chart: ChartDefinition,
+  rangeDays: number,
+): ChartPeriodView[] {
+  if (!chart.periodViews || chart.visualization === "bar") {
+    return [];
+  }
+
+  return [
+    "daily",
+    "weekly",
+    // A 30D range only spans one or two months.
+    ...(rangeDays > 30 ? (["monthly"] as const) : []),
+    ...(chart.periodViews.cumulative ? (["cumulative"] as const) : []),
+  ];
+}
+
+function getPeriodViewCaption(
+  t: DashboardTranslator,
+  chart: ChartDefinition,
+  periodView: ChartPeriodView,
+  rangeDays: number,
+) {
+  if (!chart.periodViews || periodView === "daily") {
+    return undefined;
+  }
+
+  return periodView === "cumulative"
+    ? t("periodViews.captions.cumulative", { days: rangeDays })
+    : t(`periodViews.captions.${periodView}.${chart.periodViews.rollup}`);
+}
+
+function getPeriodTimeGranularity(
+  chart: ChartDefinition,
+  periodView: ChartPeriodView,
+): TimeGranularity | undefined {
+  if (periodView === "weekly") {
+    return "week";
+  }
+
+  if (periodView === "monthly") {
+    return "month";
+  }
+
+  return chart.timeGranularity;
+}
+
+function trackPeriodViewChange(
+  chart: ChartDefinition,
+  periodView: ChartPeriodView,
+) {
+  trackAnalyticsEvent("select_content", {
+    app_name: "web",
+    content_type: "data_chart_view",
+    content_id: chart.id,
+    content_name: periodView,
+    placement: "solana_data_dashboard",
+  });
 }
 
 function getValueLabel(t: DashboardTranslator, valueLabel: string) {

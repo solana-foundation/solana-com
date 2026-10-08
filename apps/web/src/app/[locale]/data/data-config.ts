@@ -339,6 +339,21 @@ export type SeriesField = "provider" | "metric";
 export type TimeGranularity = "day" | "hour";
 export type ChartVisualization = "line" | "bar";
 export type ChartScale = "linear" | "log";
+export type ChartPeriodView = "daily" | "weekly" | "monthly" | "cumulative";
+
+/**
+ * How daily values combine into a weekly or monthly point:
+ * - sum: flows (fees, transactions, volume) -> period total
+ * - avg: prices, ratios, and unique counts (which can't be summed) -> daily average
+ * - last: balances and levels (supply, stake) -> value on the period's last day
+ */
+export type PeriodRollup = "sum" | "avg" | "last";
+
+export type ChartPeriodViews = {
+  rollup: PeriodRollup;
+  /** Running total over the selected range; only meaningful for `sum` rollups. */
+  cumulative?: boolean;
+};
 
 export type MethodologyComment = {
   provider: ProviderName;
@@ -356,6 +371,8 @@ export type ChartDefinition = {
   fullWidth?: boolean;
   lowerIsBetter?: boolean;
   methodology?: readonly MethodologyComment[];
+  /** Enables the per-chart Daily/Weekly/Monthly(/Cumulative) dropdown. */
+  periodViews?: ChartPeriodViews;
   scale?: ChartScale;
   timeGranularity?: TimeGranularity;
   visualization?: ChartVisualization;
@@ -539,6 +556,7 @@ export const chartDefinitions = [
     metrics: ["Total Supply"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "last" },
     methodology: [
       {
         provider: "Allium",
@@ -573,6 +591,7 @@ export const chartDefinitions = [
     metrics: ["Circulating Supply"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "last" },
     methodology: [
       {
         provider: "Allium",
@@ -612,6 +631,7 @@ export const chartDefinitions = [
     metrics: ["Transfer Count"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
   },
   {
     id: "stablecoin-active-addresses",
@@ -621,6 +641,7 @@ export const chartDefinitions = [
     metrics: ["Active Addresses"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "avg" },
     methodology: [
       {
         provider: "Allium",
@@ -647,6 +668,7 @@ export const chartDefinitions = [
     metrics: ["Transfer Volume"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
     methodology: [
       {
         provider: "Allium",
@@ -672,6 +694,7 @@ export const chartDefinitions = [
     metrics: ["Stablecoin Count"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "last" },
   },
   {
     id: "transaction-count",
@@ -681,6 +704,7 @@ export const chartDefinitions = [
     metrics: ["Transaction Count (Total)"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
   },
   {
     id: "sol-price",
@@ -690,6 +714,7 @@ export const chartDefinitions = [
     metrics: ["SOL Price"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "avg" },
   },
   {
     id: "avg-cost-units",
@@ -699,6 +724,7 @@ export const chartDefinitions = [
     metrics: ["Compute Units"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "avg" },
   },
   {
     id: "daily-fees",
@@ -708,6 +734,7 @@ export const chartDefinitions = [
     metrics: ["Fees"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
   },
   {
     id: "successful-transactions",
@@ -717,6 +744,7 @@ export const chartDefinitions = [
     metrics: ["Non Vote Transaction Count (Success)"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
   },
   {
     id: "failed-transactions",
@@ -726,6 +754,7 @@ export const chartDefinitions = [
     metrics: ["Non Vote Transaction Count (Failed)"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
   },
   {
     id: "vote-transactions",
@@ -735,6 +764,7 @@ export const chartDefinitions = [
     metrics: ["Transaction Count (Vote)"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
   },
   {
     id: "slots",
@@ -744,6 +774,7 @@ export const chartDefinitions = [
     metrics: ["Slots"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
   },
   {
     id: "fee-payers",
@@ -753,6 +784,7 @@ export const chartDefinitions = [
     metrics: ["Fee Payers"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "avg" },
     methodology: [
       {
         provider: "Artemis",
@@ -769,6 +801,7 @@ export const chartDefinitions = [
     metrics: ["Application Revenue"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
     methodology: [
       {
         provider: "Blockworks",
@@ -790,6 +823,7 @@ export const chartDefinitions = [
     metrics: ["Total Stake"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "last" },
   },
   {
     id: "validator-count",
@@ -799,6 +833,7 @@ export const chartDefinitions = [
     metrics: ["Validator Count"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "last" },
   },
   {
     id: "top-asn-share",
@@ -808,6 +843,7 @@ export const chartDefinitions = [
     metrics: ["Top 3 ASN Share"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "avg" },
   },
   {
     id: "sol-price-network",
@@ -817,6 +853,7 @@ export const chartDefinitions = [
     metrics: ["SOL Price (Network)"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "avg" },
   },
   {
     id: "dex-volume",
@@ -826,6 +863,7 @@ export const chartDefinitions = [
     metrics: ["DEX Volume"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
     methodology: [
       {
         provider: "Allium",
@@ -851,6 +889,7 @@ export const chartDefinitions = [
     metrics: ["DEX Transactions"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "sum", cumulative: true },
     methodology: [
       {
         provider: "Allium",
@@ -867,6 +906,7 @@ export const chartDefinitions = [
     metrics: ["DEX Count"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "last" },
     methodology: [
       {
         provider: "Allium",
@@ -892,6 +932,7 @@ export const chartDefinitions = [
     metrics: ["DEX Traders"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: { rollup: "avg" },
     methodology: [
       {
         provider: "Allium",
