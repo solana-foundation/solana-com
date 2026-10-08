@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { type CompanyRecord } from "@workspace/ecosystem-data";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
+import SponsorArtwork from "@/components/SponsorArtwork";
 import GlitchOverlay, {
   getGlitchIntensityStyle,
   type GlitchCssProperties,
@@ -26,14 +27,7 @@ const SPONSOR_MODAL_GLITCH_MS = 650;
 const SPONSOR_MODAL_GLITCH_INTENSITY = 0.76;
 
 function getLogo(sponsor: SponsorLogo) {
-  const resolved = resolveSponsorLogo(sponsor);
-
-  return {
-    company: resolved.company,
-    alt: resolved.alt,
-    name: resolved.name,
-    src: resolved.src,
-  };
+  return resolveSponsorLogo(sponsor);
 }
 
 function CloseIcon() {
@@ -240,12 +234,7 @@ function SponsorModalBody({
             aspectRatio: "var(--modal-logo-ratio)",
           }}
         >
-          <img
-            src={publicAssetPath(logo.src)}
-            alt=""
-            aria-hidden="true"
-            className="block h-full w-full object-contain brightness-0 invert"
-          />
+          <SponsorArtwork sponsor={logo} />
         </span>
       </div>
 
@@ -358,12 +347,7 @@ function SponsorCard({
           aspectRatio: "var(--logo-ratio)",
         }}
       >
-        <img
-          src={publicAssetPath(logo.src)}
-          alt=""
-          aria-hidden="true"
-          className="block h-full w-full object-contain brightness-0 invert"
-        />
+        <SponsorArtwork sponsor={logo} />
       </span>
     </button>
   );
