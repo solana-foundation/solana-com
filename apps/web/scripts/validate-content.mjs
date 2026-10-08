@@ -16,11 +16,15 @@ const auditedFiles = [
 const requiredExports = {
   "src/data/developers/defi.ts": [
     "HERO_BUTTONS",
-    "SWITCHBACK_BUTTONS",
-    "CARD_DECK_CARDS",
-    "CONVERSION_PANEL_PRIMARY",
-    "COMMUNITY_GALLERY_CARDS",
-    "CONVERSION_PANEL_COMMUNITY",
+    "STATS",
+    "NETWORK_PROPERTIES",
+    "STACK_STEPS",
+    "TEMPLATES",
+    "PRIMITIVES",
+    "LANDING_STEPS",
+    "SECURITY_ITEMS",
+    "READING",
+    "COMMUNITY_LINKS",
   ],
   "src/data/pyusd.ts": [
     "HERO_BUTTONS",
@@ -38,9 +42,14 @@ const requiredClaimPaths = [
   "financial-institutions-solution.projects.stateStreet.stat",
   "financial-institutions-solution.projects.stateStreet.description",
   "pyusd.hero.body",
+  "developers-defi.stats.items.dexVolume.value",
+  "developers-defi.stats.items.stablecoins.value",
+  "developers-defi.stats.items.computeUnits.value",
+  "developers-defi.stats.items.txSize.value",
 ];
 
 const redirectSources = new Set();
+const redirectPatterns = [];
 const redirectsFile = path.join(webRoot, "rewrites-redirects.ts");
 const redirectsSource = ts.createSourceFile(
   redirectsFile,
@@ -54,11 +63,34 @@ function collectRedirectSources(node) {
     node.name.getText(redirectsSource) === "source" &&
     ts.isStringLiteral(node.initializer)
   ) {
-    redirectSources.add(node.initializer.text);
+    const source = node.initializer.text;
+    redirectSources.add(source);
+    if (source.includes(":")) redirectPatterns.push(sourcePattern(source));
   }
   ts.forEachChild(node, collectRedirectSources);
 }
 collectRedirectSources(redirectsSource);
+
+// Next.js path params: `:slug` is one segment, `:slug+` one or more and
+// `:slug*` zero or more.
+function sourcePattern(source) {
+  const pattern = source
+    .split("/")
+    .map((segment) => {
+      const param = segment.match(/^:\w+([*+?])?$/);
+      if (!param) return segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (param[1] === "*") return "(?:/.*)?";
+      if (param[1] === "+") return "/.+";
+      if (param[1] === "?") return "(?:/[^/]+)?";
+      return "/[^/]+";
+    })
+    .reduce((joined, part) =>
+      part.startsWith("/") || part.startsWith("(?:/")
+        ? joined + part
+        : `${joined}/${part}`,
+    );
+  return new RegExp(`^${pattern}$`);
+}
 
 function routeExists(pathname) {
   if (redirectSources.has(pathname)) return true;
@@ -69,6 +101,13 @@ function routeExists(pathname) {
       path.join(repoRoot, "apps/media/content/posts", `${slug}.mdx`),
     );
   }
+  if (pathname.startsWith("/developers/cookbook/")) {
+    const slug = pathname.slice("/developers/cookbook/".length);
+    const base = path.join(repoRoot, "apps/docs/content/cookbook", slug);
+    return (
+      existsSync(`${base}.mdx`) || existsSync(path.join(base, "index.mdx"))
+    );
+  }
   if (pathname.startsWith("/docs/")) {
     const slug = pathname.slice("/docs/".length);
     const base = path.join(repoRoot, "apps/docs/content/docs/en", slug);
@@ -76,6 +115,9 @@ function routeExists(pathname) {
       existsSync(`${base}.mdx`) || existsSync(path.join(base, "index.mdx"))
     );
   }
+  // Checked after content-backed prefixes so a catch-all rewrite such as
+  // /docs/:path* cannot hide a missing page.
+  if (redirectPatterns.some((pattern) => pattern.test(pathname))) return true;
   for (const app of ["web", "docs", "media"]) {
     const base = path.join(repoRoot, `apps/${app}/src/app/[locale]`, pathname);
     if (existsSync(path.join(base, "page.tsx"))) return true;
@@ -338,6 +380,23 @@ export function validateFinancialProjectStats(projects, claims, messages) {
   return errors;
 }
 
+export function validateDefiStats(stats, claims, messages) {
+  if (!Array.isArray(stats))
+    return ["developers-defi: STATS must be a static array"];
+  const errors = [];
+  for (const stat of stats) {
+    const path = `developers-defi.stats.items.${stat.id}.value`;
+    const claim = claims.find((entry) => entry.path === path);
+    if (!claim || messageAtPath(messages, path) !== claim.claim)
+      errors.push(
+        `${path}: displayed stat must match the audited English claim`,
+      );
+    if (!stat.statSource || stat.statSource !== claim?.sourceUrl)
+      errors.push(`${path}: displayed source must match the audited source`);
+  }
+  return errors;
+}
+
 if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
@@ -362,6 +421,15 @@ if (
         ),
         "src/data/solutions/financial-institutions.ts",
         "PROJECTS",
+      ),
+      claims,
+      messages,
+    ),
+    ...validateDefiStats(
+      readStaticExport(
+        readFileSync(path.join(webRoot, "src/data/developers/defi.ts"), "utf8"),
+        "src/data/developers/defi.ts",
+        "STATS",
       ),
       claims,
       messages,

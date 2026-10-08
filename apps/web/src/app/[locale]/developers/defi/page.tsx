@@ -5,8 +5,9 @@ type Props = { params: Promise<{ locale: string }> };
 
 export const revalidate = 60;
 
-export default async function Page(_props: Props) {
-  return <DevelopersDefiPage />;
+export default async function Page({ params }: Props) {
+  const { locale } = await params;
+  return <DevelopersDefiPage locale={locale} />;
 }
 
 export async function generateMetadata({ params }: Props) {

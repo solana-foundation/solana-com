@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   validateClaims,
+  validateDefiStats,
   validateFinancialProjectStats,
   validateLinks,
   validateSource,
@@ -75,6 +76,56 @@ test("rejects impossible local destinations and accepts known cross-app content"
   assert.deepEqual(validateUrl("/docs/intro/quick-start", "card.url"), []);
   assert.deepEqual(validateUrl("/solutions/commerce-tooling", "card.url"), []);
   assert.deepEqual(validateUrl("/install", "card.url"), []);
+  assert.deepEqual(
+    validateUrl("/developers/cookbook/transactions/retry", "card.url"),
+    [],
+  );
+  assert.match(
+    validateUrl("/developers/cookbook/does-not-exist", "card.url").join("\n"),
+    /no local destination/,
+  );
+  // Rewrite patterns such as /developers/templates/:path* resolve, but a
+  // catch-all docs rewrite must not hide a missing docs page.
+  assert.deepEqual(
+    validateUrl("/developers/templates/nextjs-anchor", "card.url"),
+    [],
+  );
+  assert.deepEqual(
+    validateUrl("https://solana.com/upgrades/x", "card.url"),
+    [],
+  );
+  assert.match(
+    validateUrl("/not-a-route", "card.url").join("\n"),
+    /no local destination/,
+  );
+});
+
+test("DeFi stats display their audited figures and sources", () => {
+  const path = "developers-defi.stats.items.dexVolume.value";
+  const stats = [{ id: "dexVolume", statSource: "https://example.com/dex" }];
+  const claims = [
+    { path, claim: "$76B", sourceUrl: "https://example.com/dex" },
+  ];
+  const messages = {
+    "developers-defi": { stats: { items: { dexVolume: { value: "$76B" } } } },
+  };
+  assert.deepEqual(validateDefiStats(stats, claims, messages), []);
+  assert.match(
+    validateDefiStats(stats, claims, {
+      "developers-defi": {
+        stats: { items: { dexVolume: { value: "$80B" } } },
+      },
+    }).join("\n"),
+    /displayed stat must match/,
+  );
+  assert.match(
+    validateDefiStats(
+      [{ ...stats[0], statSource: "https://example.com/other" }],
+      claims,
+      messages,
+    ).join("\n"),
+    /displayed source must match/,
+  );
 });
 
 test("audited source files cannot hide empty URLs behind satisfies or spreads", () => {
@@ -105,6 +156,12 @@ test("claim deadlines include their review day and reject stale or missing sourc
     societeGenerale: "1:1",
     stateStreet: "$50T+",
   };
+  const defiStatValues = {
+    dexVolume: "$76B",
+    stablecoins: "$16B",
+    computeUnits: "100M",
+    txSize: "4,096 bytes",
+  };
   const claims = [
     ...Object.entries(statValues).map(([project, claim]) => ({
       path: `financial-institutions-solution.projects.${project}.stat`,
@@ -130,6 +187,14 @@ test("claim deadlines include their review day and reject stale or missing sourc
       asOf: "2026-10-08",
       reviewBy: "2026-12-31",
     },
+    ...Object.entries(defiStatValues).map(([id, claim]) => ({
+      path: `developers-defi.stats.items.${id}.value`,
+      claim,
+      owner: "Ecosystem Engineering",
+      sourceUrl: "https://example.com/report",
+      asOf: "2026-10-08",
+      reviewBy: "2026-12-31",
+    })),
   ];
   const messages = {
     "financial-institutions-solution": {
@@ -147,6 +212,13 @@ test("claim deadlines include their review day and reject stale or missing sourc
       },
     },
     pyusd: { hero: { body: "PYUSD is backed 1:1" } },
+    "developers-defi": {
+      stats: {
+        items: Object.fromEntries(
+          Object.entries(defiStatValues).map(([id, value]) => [id, { value }]),
+        ),
+      },
+    },
   };
   assert.deepEqual(validateClaims(claims, messages, "2026-12-31"), []);
   assert.match(

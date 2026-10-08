@@ -10,12 +10,19 @@ import {
   VALIDATOR_CARD_DECK,
 } from "@/data/research";
 import {
-  CARD_DECK_CARDS,
-  COMMUNITY_GALLERY_CARDS,
-  CONVERSION_PANEL_COMMUNITY,
-  CONVERSION_PANEL_PRIMARY,
+  COMMUNITY_LINKS,
   HERO_BUTTONS,
-  SWITCHBACK_BUTTONS,
+  LANDING_STEPS,
+  NETWORK_PROPERTIES,
+  PRIMITIVES,
+  READING,
+  SECURITY_CHECKLIST_LINK,
+  SECURITY_ITEMS,
+  STACK_STEPS,
+  STATS,
+  STATS_LIVE_LINK,
+  TEMPLATES,
+  TEMPLATES_LINK,
 } from "@/data/developers/defi";
 import {
   requiredCardContent,
@@ -48,16 +55,6 @@ const cardGroups = [
     ids: ADDITIONAL_CARD_DECK.cards.map(({ id }) => id),
     fields: ["eyebrow", "heading", "ctaLabel"],
   },
-  {
-    path: "developers-defi.cardDeck.cards",
-    ids: CARD_DECK_CARDS.map(({ id }) => id),
-    fields: ["eyebrow", "heading", "ctaLabel"],
-  },
-  {
-    path: "developers-defi.communityGallery.cards",
-    ids: COMMUNITY_GALLERY_CARDS.map(({ id }) => id),
-    fields: ["buttonLabel"],
-  },
 ] as const;
 
 const labelGroups = [
@@ -68,22 +65,6 @@ const labelGroups = [
   {
     path: "research.conversionPanel.buttons",
     ids: CONVERSION_PANEL.buttons.map(({ id }) => id),
-  },
-  {
-    path: "developers-defi.hero.buttons",
-    ids: HERO_BUTTONS.map(({ id }) => id),
-  },
-  {
-    path: "developers-defi.switchback.buttons",
-    ids: SWITCHBACK_BUTTONS.map(({ id }) => id),
-  },
-  {
-    path: "developers-defi.conversionPanel.buttons",
-    ids: CONVERSION_PANEL_PRIMARY.buttons.map(({ id }) => id),
-  },
-  {
-    path: "developers-defi.communityPanel.listItems",
-    ids: CONVERSION_PANEL_COMMUNITY.listItems.map(({ id }) => id),
   },
 ] as const;
 
@@ -96,7 +77,7 @@ function atPath(value: Record<string, unknown>, path: string): unknown {
 
 describe("translated card content", () => {
   for (const locale of readdirSync(messagesDir)) {
-    it(`${locale} has every required research and DeFi card`, () => {
+    it(`${locale} has every required research card`, () => {
       const messages = JSON.parse(
         readFileSync(resolve(messagesDir, locale, "common.json"), "utf8"),
       ) as Record<string, unknown>;
@@ -105,14 +86,8 @@ describe("translated card content", () => {
         const cards = atPath(messages, path) as Record<string, unknown>;
         expect(Object.keys(cards).sort(), path).toEqual([...ids].sort());
         for (const id of ids) {
-          const required =
-            path === "developers-defi.communityGallery.cards"
-              ? id === "projectCount"
-                ? ["eyebrow", "stat", "buttonLabel"]
-                : ["heading", "body", "buttonLabel"]
-              : fields;
           expect(() =>
-            requiredCardContent(cards, id, required, path),
+            requiredCardContent(cards, id, fields, path),
           ).not.toThrow();
         }
       }
@@ -125,6 +100,49 @@ describe("translated card content", () => {
       }
     });
   }
+
+  it("has English copy for every DeFi developer page entry", () => {
+    const messages = JSON.parse(
+      readFileSync(resolve(messagesDir, "en", "common.json"), "utf8"),
+    ) as Record<string, unknown>;
+    const withLinks = (
+      base: string,
+      items: readonly { id: string; links: readonly { id: string }[] }[],
+      fields: string[],
+    ) =>
+      items.flatMap(({ id, links }) => [
+        ...fields.map((field) => `${base}.${id}.${field}`),
+        ...links.map((link) => `${base}.${id}.links.${link.id}`),
+      ]);
+    const paths = [
+      ...HERO_BUTTONS.map(({ id }) => `hero.buttons.${id}`),
+      ...STATS.flatMap(({ id }) => [
+        `stats.items.${id}.value`,
+        `stats.items.${id}.label`,
+      ]),
+      `stats.links.${STATS_LIVE_LINK.id}`,
+      ...withLinks("properties.items", NETWORK_PROPERTIES, ["title", "body"]),
+      ...withLinks("stack.steps", STACK_STEPS, ["label", "title", "body"]),
+      ...TEMPLATES.flatMap(({ id }) => [
+        `stack.templates.items.${id}.title`,
+        `stack.templates.items.${id}.body`,
+      ]),
+      `stack.templates.links.${TEMPLATES_LINK.id}`,
+      ...withLinks("primitives.categories", PRIMITIVES, ["title", "body"]),
+      ...withLinks("landing.steps", LANDING_STEPS, ["title", "body"]),
+      ...withLinks("security.items", SECURITY_ITEMS, ["title", "body"]),
+      `security.links.${SECURITY_CHECKLIST_LINK.id}`,
+      ...READING.map(({ id }) => `reading.items.${id}`),
+      ...COMMUNITY_LINKS.flatMap(({ id }) => [
+        `community.items.${id}.title`,
+        `community.items.${id}.body`,
+      ]),
+    ];
+    for (const path of paths) {
+      const value = atPath(messages, `developers-defi.${path}`);
+      expect(typeof value === "string" && value.trim(), path).toBeTruthy();
+    }
+  });
 
   it("throws for a missing card or required field", () => {
     const cards = { firedancer: { heading: "Firedancer" } };
