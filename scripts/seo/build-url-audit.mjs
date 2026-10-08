@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { gunzipSync } from "node:zlib";
 import { locales } from "../../packages/i18n/src/config.ts";
 
 const args = Object.fromEntries(
@@ -88,7 +89,9 @@ function routeInfo(pathname) {
 }
 
 const rows = [];
-const sitemapXml = fs.readFileSync(args.sitemap, "utf8");
+const sitemapXml = args.sitemap.endsWith(".gz")
+  ? gunzipSync(fs.readFileSync(args.sitemap)).toString("utf8")
+  : fs.readFileSync(args.sitemap, "utf8");
 for (const match of sitemapXml.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
   const loc = match[1].match(/<loc>([\s\S]*?)<\/loc>/)?.[1];
   if (!loc) continue;

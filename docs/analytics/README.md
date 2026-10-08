@@ -28,12 +28,22 @@
   `/podcasts/validated-with-austin-federa`. This monorepo's docs source is
   `apps/docs/content`.
 
-Regenerate the URL audit from source snapshots with:
+The dated input snapshots are checked in under `snapshots/`. The sitemap was
+downloaded on 2026-10-07 UTC. The two Vercel 404 samples contain 50 events each:
+21:59:13–22:00:42 UTC and 22:47:45–22:52:49 UTC on 2026-10-07. The JSONL retains
+only each event's timestamp, path, and status code. The SHA-256 hashes are:
+
+| Input                                            | SHA-256                                                            |
+| ------------------------------------------------ | ------------------------------------------------------------------ |
+| `snapshots/solana-com-sitemap-2026-10-08.xml.gz` | `810d755fc2310e6b48a2aa9369f9e6e7173e36d5a98accccc22e36d9a2c94381` |
+| `snapshots/vercel-404-sample-2026-10-07.jsonl`   | `0d7358884a5144af7d35acca1b50331b722fcdedb6fcc3ea95cc66bd9b82bff0` |
+
+Regenerate the URL audit from these snapshots with:
 
 ```bash
 node scripts/seo/build-url-audit.mjs \
-  --sitemap <downloaded-solana.com-sitemap.xml> \
-  --logs <vercel-404-sample.jsonl> \
+  --sitemap docs/analytics/snapshots/solana-com-sitemap-2026-10-08.xml.gz \
+  --logs docs/analytics/snapshots/vercel-404-sample-2026-10-07.jsonl \
   --hosts docs/analytics/known-subdomains-2026-10-08.csv \
   --output docs/analytics/url-audit-2026-10-08.csv
 ```
@@ -91,6 +101,9 @@ The 404 examples also included localized versions of moved payment docs. The
 docs app now applies each moved-route redirect to locale-prefixed paths and
 their `.md` variants, using the same destination locale. The two sampled 5xx
 URLs currently reach valid pages; monitor them rather than redirecting again.
+The translated Pay.sh acceptance and subscription guides are combined at
+`/docs/payments/pay-sh` in each non-English locale before the old paths
+redirect.
 
 The existing [Google News sitemap](https://solana.com/news/sitemap-news.xml) is
 served by `apps/media`, is listed in `robots.txt`, and is submitted in Search

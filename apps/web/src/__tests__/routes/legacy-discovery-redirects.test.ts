@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import rewritesAndRedirects from "@@/rewrites-redirects";
+import { locales } from "@workspace/i18n/config";
 
 describe("legacy discovery URLs", () => {
   it.each([
@@ -15,6 +16,21 @@ describe("legacy discovery URLs", () => {
       ]),
     );
   });
+
+  it.each(["/sitemap-0.xml", "/sitemap-index.xml", "/sitemap_index.xml"])(
+    "redirects localized %s to the root sitemap",
+    (source) => {
+      expect(rewritesAndRedirects.redirects).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            source: `/:locale(${locales.join("|")})${source}`,
+            destination: "/sitemap.xml",
+            locale: false,
+          }),
+        ]),
+      );
+    },
+  );
 
   it.each([
     ["/developers/guides/getstarted/tokens", "/docs/tokens"],

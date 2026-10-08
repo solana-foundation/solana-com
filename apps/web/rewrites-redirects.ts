@@ -12,6 +12,7 @@ const LOCALE_REGEX = locales.join("|");
 type RedirectInput = {
   source: string;
   destination: string;
+  localeDestination?: string;
   permanent?: boolean;
 };
 
@@ -20,32 +21,37 @@ type LocaleRedirect = RedirectInput & { locale: false };
 /**
  * Generates both bare-path and locale-prefixed versions of each redirect.
  * - For internal destinations: `:locale` param is prepended to both source and destination
+ * - `localeDestination` overrides that destination when the resource exists only at the root
  * - For external destinations (http/https): `:locale` param is only prepended to source
  * - All generated redirects use `locale: false` for explicit path control
  */
 function withLocaleRedirects(redirects: RedirectInput[]): LocaleRedirect[] {
-  return redirects.flatMap(({ source, destination, ...rest }) => {
-    const isExternalDest =
-      destination.startsWith("https://") || destination.startsWith("http://");
+  return redirects.flatMap(
+    ({ source, destination, localeDestination: override, ...rest }) => {
+      const isExternalDest =
+        destination.startsWith("https://") || destination.startsWith("http://");
 
-    const localeDestination = isExternalDest
-      ? destination
-      : destination.startsWith("/")
-        ? `/:locale${destination}`
-        : `/:locale/${destination}`;
+      const localeDestination =
+        override ??
+        (isExternalDest
+          ? destination
+          : destination.startsWith("/")
+            ? `/:locale${destination}`
+            : `/:locale/${destination}`);
 
-    return [
-      // Bare path (e.g. /brand → /branding)
-      { source, destination, locale: false, ...rest },
-      // Locale-prefixed (e.g. /:locale/brand → /:locale/branding)
-      {
-        source: `/:locale(${LOCALE_REGEX})${source}`,
-        destination: localeDestination,
-        locale: false,
-        ...rest,
-      },
-    ];
-  });
+      return [
+        // Bare path (e.g. /brand → /branding)
+        { source, destination, locale: false, ...rest },
+        // Locale-prefixed (e.g. /:locale/brand → /:locale/branding)
+        {
+          source: `/:locale(${LOCALE_REGEX})${source}`,
+          destination: localeDestination,
+          locale: false,
+          ...rest,
+        },
+      ];
+    },
+  );
 }
 
 /**
@@ -896,9 +902,21 @@ export default {
     { source: "/rss.xml", destination: "/news/rss.xml" },
     { source: "/rss", destination: "/news/rss.xml" },
     { source: "/feed.xml", destination: "/news/rss.xml" },
-    { source: "/sitemap-0.xml", destination: "/sitemap.xml" },
-    { source: "/sitemap-index.xml", destination: "/sitemap.xml" },
-    { source: "/sitemap_index.xml", destination: "/sitemap.xml" },
+    {
+      source: "/sitemap-0.xml",
+      destination: "/sitemap.xml",
+      localeDestination: "/sitemap.xml",
+    },
+    {
+      source: "/sitemap-index.xml",
+      destination: "/sitemap.xml",
+      localeDestination: "/sitemap.xml",
+    },
+    {
+      source: "/sitemap_index.xml",
+      destination: "/sitemap.xml",
+      localeDestination: "/sitemap.xml",
+    },
     { source: "/news/tag/:path*", destination: "/news" },
     // /upgrades is now the source of truth for network upgrade status;
     // this hub post is retired.
