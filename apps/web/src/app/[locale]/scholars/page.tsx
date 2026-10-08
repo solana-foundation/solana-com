@@ -16,7 +16,7 @@ const styles = {
   heroProgram:
     "relative min-h-[680px] items-end justify-end overflow-hidden pt-[132px] max-[1279px]:min-h-0",
   heroField:
-    "pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-[900ms] [transition-timing-function:cubic-bezier(0.16,0.84,0.34,1)] data-[pixel-blast-state=ready]:opacity-100 data-[pixel-blast-state=fallback]:bg-[radial-gradient(70%_70%_at_62%_45%,rgb(20_241_149_/_0.1),transparent_70%)] data-[pixel-blast-state=fallback]:opacity-100 motion-reduce:!transition-none",
+    "pointer-events-none !absolute inset-0 z-0 opacity-0 transition-opacity duration-[900ms] [transition-timing-function:cubic-bezier(0.16,0.84,0.34,1)] data-[pixel-blast-state=ready]:opacity-100 data-[pixel-blast-state=fallback]:bg-[radial-gradient(70%_70%_at_62%_45%,rgb(20_241_149_/_0.1),transparent_70%)] data-[pixel-blast-state=fallback]:opacity-100 motion-reduce:!transition-none",
   heroScrim: "pointer-events-none absolute inset-0 z-[1]",
   heroScrimLeft:
     "bg-[linear-gradient(100deg,rgb(0_0_0_/_0.96)_0%,rgb(0_0_0_/_0.9)_28%,rgb(0_0_0_/_0.46)_52%,rgb(0_0_0_/_0.14)_72%,transparent_86%)]",
