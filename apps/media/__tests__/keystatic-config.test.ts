@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import config, { githubStorage } from "../keystatic.config";
 import { upgradeComponentBlocks } from "../lib/keystatic/components";
+import { UpgradeDiagram } from "../components/upgrades/mdx-components";
 
 type ProseMirrorNode = {
   content?: ProseMirrorNode[];
@@ -127,5 +128,43 @@ describe("upgrades schema", () => {
       expect(cell, `Expected a table cell containing ${api}`).toBeDefined();
       expect(findNodes(cell!, "br")).toHaveLength(lineBreaks);
     }
+  });
+
+  it("parses the selected diagrams in both upgrade articles", () => {
+    const body = config.collections?.upgrades?.schema.body;
+    if (!body) throw new Error("Expected the upgrades body field");
+
+    for (const [slug, count] of [
+      ["alpenglow", 5],
+      ["larger-transaction-sizes", 2],
+    ] as const) {
+      const source = readFileSync(
+        new URL(`../content/upgrades/${slug}.mdx`, import.meta.url),
+        "utf8",
+      );
+      const content = source.replace(/^---\n[\s\S]*?\n---\n/, "");
+      const parsed = body.parse(
+        {},
+        {
+          content: new TextEncoder().encode(content),
+          external: new Map(),
+          other: new Map(),
+          slug,
+        },
+      ) as { toJSON(): { doc: ProseMirrorNode } };
+
+      expect(findNodes(parsed.toJSON().doc, "UpgradeDiagram")).toHaveLength(
+        count,
+      );
+    }
+  });
+
+  it("renders a selected diagram with its existing accessible SVG", () => {
+    const html = renderToStaticMarkup(
+      createElement(UpgradeDiagram, { diagram: "ag-block-lifecycle" }),
+    );
+    expect(html).toContain("<svg");
+    expect(html).toContain('role="img"');
+    expect(html).toContain("<figcaption");
   });
 });

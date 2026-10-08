@@ -9,9 +9,8 @@ import React from "react";
  * from `currentColor`. Colors are literal rather than CSS custom properties
  * because the upgrades article template renders on a permanently dark surface.
  *
- * Registered as Keystatic component blocks in `lib/keystatic/components.tsx`
- * so the CMS editor accepts them in the article body, and wired into the MDX
- * component map in `./mdx-components.tsx`.
+ * Chosen through the UpgradeDiagram Keystatic block and rendered through the
+ * matching MDX component in `./mdx-components.tsx`.
  */
 
 /** Inline monospace run, matching the accent used for `code` in article prose. */
