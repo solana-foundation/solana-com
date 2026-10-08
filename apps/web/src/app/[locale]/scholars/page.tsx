@@ -6,8 +6,49 @@ import { School } from "@boxicons/react/School";
 import { Target } from "@boxicons/react/Target";
 import PixelBlast from "../../components/PixelBlast";
 import SectionReveal from "./SectionReveal";
-import styles from "./scholars.module.css";
 import { getIndexMetadata } from "@/app/metadata";
+
+// Keep the route's utility groups together while the surrounding page markup
+// continues to use the same class names and reveal state hooks.
+const styles = {
+  page: "min-h-full overflow-hidden bg-black font-brand font-normal leading-normal text-white antialiased [&_:is(h1,h2,h3,p,ol)]:m-0",
+  hero: "mx-auto box-border flex w-full max-w-[1440px] flex-col items-start border-b border-nd-border-light bg-black px-10 pb-[88px] pt-[120px] text-left max-[900px]:px-6 max-[900px]:pb-[72px] max-[900px]:pt-24 max-[640px]:px-5 max-[640px]:pb-14 max-[640px]:pt-[72px]",
+  heroProgram:
+    "relative min-h-[680px] items-end justify-end overflow-hidden pt-[132px] max-[1279px]:min-h-0",
+  heroField:
+    "pointer-events-none absolute inset-0 z-0 opacity-0 transition-opacity duration-[900ms] [transition-timing-function:cubic-bezier(0.16,0.84,0.34,1)] data-[pixel-blast-state=ready]:opacity-100 data-[pixel-blast-state=fallback]:bg-[radial-gradient(70%_70%_at_62%_45%,rgb(20_241_149_/_0.1),transparent_70%)] data-[pixel-blast-state=fallback]:opacity-100 motion-reduce:!transition-none",
+  heroScrim: "pointer-events-none absolute inset-0 z-[1]",
+  heroScrimLeft:
+    "bg-[linear-gradient(100deg,rgb(0_0_0_/_0.96)_0%,rgb(0_0_0_/_0.9)_28%,rgb(0_0_0_/_0.46)_52%,rgb(0_0_0_/_0.14)_72%,transparent_86%)]",
+  heroScrimRight:
+    "bg-[linear-gradient(270deg,rgb(0_0_0_/_0.72)_0%,rgb(0_0_0_/_0.4)_16%,transparent_38%)]",
+  heroScrimBase:
+    "bg-[linear-gradient(to_bottom,rgb(0_0_0_/_0.5)_0%,transparent_22%,transparent_64%,rgb(0_0_0_/_0.86)_100%)]",
+  heroGrid:
+    "relative z-[2] grid w-full grid-cols-[minmax(0,1.37fr)_minmax(540px,1fr)] items-stretch gap-16 [&>div]:min-w-0 [&>div:first-child]:flex [&>div:first-child]:flex-col [&>div:first-child]:justify-center [&>div>*]:animate-scholars-rise [&>div>*:nth-child(1)]:[animation-delay:40ms] [&>div>*:nth-child(2)]:[animation-delay:110ms] [&>div>*:nth-child(3)]:[animation-delay:200ms] motion-reduce:[&>div>*]:!animate-none max-[1279px]:grid-cols-1 max-[1279px]:gap-12",
+  eyebrow:
+    "font-['ABC_Diatype_Mono',ui-monospace,SFMono-Regular,Menlo,monospace] text-xs font-medium uppercase leading-4 tracking-[0.9px] text-solana-green",
+  heroDisplay:
+    "mt-7 text-[clamp(56px,8.6vw,124px)] font-medium leading-[0.92] tracking-[-0.04em]",
+  grad: "font-light text-solana-green",
+  authors: "mt-6 text-base leading-6 text-nd-mid-em-text",
+  abstractCard:
+    "relative block max-w-none border border-nd-border-prominent bg-[linear-gradient(to_bottom,rgb(0_0_0_/_0.74),rgb(0_0_0_/_0.52))] px-7 pb-7 pt-[26px] backdrop-blur-[10px] [&_p]:text-[19px] [&_p]:leading-7 [&_p]:tracking-[-0.01em] [&_p]:text-nd-mid-em-text",
+  abstractLabel:
+    "font-['ABC_Diatype_Mono',ui-monospace,SFMono-Regular,Menlo,monospace] text-xs font-medium uppercase leading-4 tracking-[0.9px] text-white",
+  abstractCardLabel: "mb-4 block",
+  heroCta: "col-start-2 flex flex-wrap items-center max-[900px]:col-start-1",
+  btn: "inline-flex min-h-12 cursor-pointer items-center justify-center rounded-full border border-transparent bg-white px-6 py-[10px] text-lg font-medium leading-6 tracking-[-0.01em] text-black no-underline transition-opacity duration-150 hover:opacity-[0.84] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-solana-green motion-reduce:transition-none",
+  note: "font-['ABC_Diatype_Mono',ui-monospace,SFMono-Regular,Menlo,monospace] text-xs font-medium uppercase leading-4 tracking-[0.9px] text-nd-mid-em-text",
+  section:
+    "mx-auto box-border grid w-full max-w-[1440px] grid-cols-[minmax(180px,0.56fr)_minmax(0,1.44fr)] gap-16 border-b border-nd-border-light px-10 py-[120px] [&[data-reveal-state]>*]:transition-[opacity,transform] [&[data-reveal-state]>*]:[transition-duration:760ms] [&[data-reveal-state]>*]:[transition-timing-function:cubic-bezier(0.16,0.84,0.34,1)] [&[data-reveal-state=pending]>*]:translate-y-[14px] [&[data-reveal-state=pending]>*]:opacity-0 [&[data-reveal-state=visible]>*]:translate-y-0 [&[data-reveal-state=visible]>*]:opacity-100 [&[data-reveal-state]>:nth-child(2)]:[transition-delay:60ms] [&[data-reveal-state]>:nth-child(3)]:[transition-delay:120ms] [&[data-reveal-state]>:nth-child(4)]:[transition-delay:180ms] motion-reduce:[&[data-reveal-state]>*]:transform-none motion-reduce:[&[data-reveal-state]>*]:transition-none max-[900px]:grid-cols-1 max-[900px]:gap-10 max-[900px]:px-6 max-[900px]:py-20 max-[640px]:px-5 max-[640px]:py-16",
+  secHead:
+    "flex flex-col items-start gap-5 [&_h2]:max-w-[360px] [&_h2]:text-[clamp(32px,3vw,48px)] [&_h2]:font-medium [&_h2]:leading-[1.08] [&_h2]:tracking-[-0.03em]",
+  lede: "col-start-2 max-w-[680px] text-xl leading-7 tracking-[-0.01em] text-nd-mid-em-text [&+&]:-mt-[38px] [&_em]:not-italic [&_em]:text-white max-[900px]:col-start-1 max-[640px]:text-lg max-[640px]:leading-[26px]",
+  grid: "col-start-2 mt-4 grid grid-cols-3 border-l border-t border-nd-border-light max-[900px]:col-start-1 max-[640px]:grid-cols-1",
+  cell: "min-h-[236px] border-b border-r border-nd-border-light p-7 [&_h3]:text-xl [&_h3]:font-medium [&_h3]:leading-7 [&_h3]:tracking-[-0.01em] [&_p]:mt-3 [&_p]:text-base [&_p]:leading-6 [&_p]:text-nd-mid-em-text max-[640px]:min-h-0 max-[640px]:p-6",
+  cellIcon: "mb-11 block size-6 text-solana-green max-[640px]:mb-7",
+} as const;
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -75,7 +116,9 @@ export default function ScholarsPage() {
                 the ship in internship.
               </p>
             </div>
-            <div className={styles.heroCta}>
+            <div
+              className={`${styles.heroCta} mt-12 flex-nowrap gap-4 max-[640px]:flex-wrap [&_span]:whitespace-nowrap`}
+            >
               <a
                 className={styles.btn}
                 href="https://solanafoundation.typeform.com/scholars"
