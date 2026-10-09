@@ -84,12 +84,21 @@ test("rejects impossible local destinations and accepts known cross-app content"
     validateUrl("/developers/cookbook/does-not-exist", "card.url").join("\n"),
     /no local destination/,
   );
+  assert.deepEqual(validateUrl("/developers/bootcamp/", "card.url"), []);
   assert.deepEqual(
     validateUrl("/developers/bootcamp/foundations", "card.url"),
     [],
   );
   assert.deepEqual(
+    validateUrl("/developers/bootcamp/foundations/", "card.url"),
+    [],
+  );
+  assert.deepEqual(
     validateUrl("/developers/bootcamp/foundations/bootcamp-intro", "card.url"),
+    [],
+  );
+  assert.deepEqual(
+    validateUrl("/developers/bootcamp/foundations/bootcamp-intro/", "card.url"),
     [],
   );
   assert.match(

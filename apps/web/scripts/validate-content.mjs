@@ -102,6 +102,10 @@ function sourcePattern(source) {
 }
 
 function routeExists(pathname) {
+  // The web app uses trailingSlash: false, so Next redirects a trailing slash
+  // to the same route without it.
+  if (pathname.length > 1 && pathname.endsWith("/"))
+    pathname = pathname.slice(0, -1);
   if (redirectSources.has(pathname)) return true;
   if (pathname.startsWith("/ecosystem/")) return true; // web rewrite to /ecosystem
   if (pathname.startsWith("/news/")) {
