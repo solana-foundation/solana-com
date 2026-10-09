@@ -13,7 +13,8 @@ import type { PageRunners } from "../../types";
 const runners: PageRunners = {
   // `console.log("address: ", signer.address)` — two args, hence two spaces.
   Kit: async () => `address:  ${(await keyPair()).address}`,
-  Legacy: async () => `address: ${(await keyPair()).address}`,
+  "Web3.js v3": async () => `address: ${(await keyPair()).address}`,
+  "Web3.js (legacy)": async () => `address: ${(await keyPair()).address}`,
   Rust: async () => `address: ${(await keyPair()).address}`,
   Python: async () => {
     const { address, privateKeyBytes } = await keyPair();
