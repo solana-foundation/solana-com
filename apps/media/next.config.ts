@@ -120,6 +120,28 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  async redirects() {
+    // Preserve published chart URLs after the PNG-to-WebP conversion.
+    const charts = [
+      "heatmaps_skip_rates_cobined",
+      "maximal_contiguous_leadership_interval",
+      "skip_rate_by_epoch",
+      "skip_rate_by_epoch_oceania",
+      "slot_time_evolution",
+      "solana_dead_time",
+      "vote_credit_deduction_pm",
+      "vote_latency_evolution",
+    ];
+
+    return ["/uploads", `${assetPrefix}/uploads`].flatMap((prefix) =>
+      charts.map((chart) => ({
+        source: `${prefix}/posts/slot-time-reduction-effects/${chart}.png`,
+        destination: `${prefix}/posts/slot-time-reduction-effects/${chart}.webp`,
+        permanent: true,
+      })),
+    );
+  },
+
   async rewrites() {
     return {
       beforeFiles: [
