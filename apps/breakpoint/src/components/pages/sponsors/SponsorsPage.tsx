@@ -571,14 +571,7 @@ function SponsorsIntro({ t }: { t: ReturnType<typeof useTranslations> }) {
 
   return (
     <section className="bg-black pt-l md:pt-xl">
-      <div className="container flex flex-col gap-m md:flex-row md:items-start md:justify-between">
-        <WordReveal
-          as="p"
-          className="type-eyebrow text-white"
-          stepMs={60}
-          text={t("eyebrow")}
-        />
-
+      <div className="container flex md:justify-end">
         <div className="w-full max-w-[851px]">
           <WordReveal
             as="p"
