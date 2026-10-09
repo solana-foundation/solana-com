@@ -54,7 +54,7 @@ export default function ComingSoonPage({
       </SubpageHero>
 
       <section className="bg-black px-xs pt-xl md:px-m md:pt-2xl">
-        <div className="mx-auto grid max-w-[1376px] gap-s md:grid-cols-3">
+        <div className="mx-auto grid max-w-[1376px] gap-s md:grid-cols-2">
           {releaseLinks.map((link) => (
             <div
               key={link.href}
