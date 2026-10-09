@@ -4,7 +4,6 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { type CompanyRecord } from "@workspace/ecosystem-data";
 import { useTranslations } from "@workspace/i18n/client";
-import Button from "@/components/Button";
 import SponsorArtwork from "@/components/SponsorArtwork";
 import GlitchOverlay, {
   getGlitchIntensityStyle,
@@ -15,7 +14,6 @@ import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
 import WordReveal from "@/components/WordReveal";
 import { publicAssetPath } from "@/config";
-import { SPONSOR_FORM_HREF } from "@/content/links";
 import {
   sponsorTiers,
   type SponsorLogo,
@@ -589,14 +587,6 @@ function SponsorsIntro({ t }: { t: ReturnType<typeof useTranslations> }) {
             stepMs={60}
             startDelayMs={250}
             text={introText}
-          />
-
-          <Button
-            arrow
-            className="mt-s"
-            href={SPONSOR_FORM_HREF}
-            label={t("contactCta")}
-            variant="primary"
           />
         </div>
       </div>
