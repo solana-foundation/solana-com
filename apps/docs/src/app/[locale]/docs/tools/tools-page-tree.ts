@@ -39,6 +39,13 @@ export function getToolsNavigationTree(tree: Root, activeTool?: string): Root {
     return withChildren(tree, [toolsFolder]);
   }
 
+  // Top-level resource pages (such as the Production guides) need the full
+  // Resources tree so their previous/next links follow the sidebar order.
+  // Only nested tool folders should scope navigation to their own pages.
+  if (activeNode.type === "page") {
+    return withChildren(tree, [toolsFolder]);
+  }
+
   return withChildren(tree, getToolNavigationChildren(activeNode));
 }
 
