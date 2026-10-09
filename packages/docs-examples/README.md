@@ -1,8 +1,8 @@
 # @workspace/docs-examples
 
-Source of truth for the Kit and Legacy code snippets shown on
-[solana.com cookbook pages](../../apps/docs/content/cookbook). Every file under
-`cookbook/` is real, runnable, and exercised against a local
+Source of truth for the Kit, web3.js v3, and web3.js (legacy) code snippets
+shown on [solana.com cookbook pages](../../apps/docs/content/cookbook). Every
+file under `cookbook/` is real, runnable, and exercised against a local
 [surfpool](https://github.com/solana-foundation/surfpool) instance on every PR —
 so SDK renames or signature changes turn into red CI runs instead of rotted
 documentation.
