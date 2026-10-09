@@ -1,0 +1,230 @@
+---
+title: Relax Fee-Payer Constraint
+description: >-
+  SIMD-0290 stops a transaction with an invalid fee-payer from invalidating the
+  block that carries it. The transaction is included but never executed, which
+  means block inclusion no longer implies execution.
+subtitle: A transaction that cannot pay its fee no longer invalidates the block
+publishedAt: 2026-09-27T00:00:00.000Z
+status: published
+author: solana-foundation
+stage: pending_activation
+release: agave-4-3
+order: 1
+metrics:
+  - value: "0"
+    label: Blocks rejected for an invalid fee-payer, after activation
+  - value: SIMD-0290
+    label: Step toward asynchronous execution
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Relax Fee-Payer Constraint
+
+September 2026 • Solana Foundation
+
+Every transaction names a fee-payer, and the fee is known before the transaction
+runs. Today, if a block contains a blockhash transaction whose fee-payer cannot
+cover that fee, the **entire block is invalid** — not the transaction, the block.
+[SIMD-0290](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0290-relax-fee-payer-constraint.md)
+changes that: the transaction may be included in the block, it is simply not
+executed, and it has no effect on any account.
+
+The reason is asynchronous execution. Deciding whether a block is valid
+currently requires executing some of it, because the only way to know whether
+each fee-payer had the lamports is to look. Removing this constraint means a
+block's validity no longer depends on the outcome of executing it, which is one
+of the preconditions for separating validation from execution.
+
+For almost everyone who sends transactions, nothing changes. For anything that
+reads blocks, one assumption breaks: **a transaction in a block no longer means
+the transaction ran.**
+
+|                            |                                                       |
+| -------------------------- | ----------------------------------------------------- |
+| Mainnet Activation         | Agave 4.3, feature activation from September 28, 2026 |
+| Devnet Activation          | Agave 4.3, from August 26, 2026                       |
+| Breaking Change?           | Yes, for indexers and block validators                |
+| Indexing Changes Required? | Yes — check execution status, not block inclusion     |
+| Feature Gate               | `FEEXbxUuKobtrt1qNK5pjtzbPQhsppBTrNNG74xu4mai`        |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="FEEXbxUuKobtrt1qNK5pjtzbPQhsppBTrNNG74xu4mai" />
+
+**Breaking Changes:**
+
+| If your app                                 | When          | What you have to do                                                                                                                            |
+| ------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Indexes** transactions from blocks        | At activation | Stop treating block inclusion as execution. Read the execution status. [Learn more](#breaking-change-inclusion-no-longer-implies-execution)    |
+| **Runs** a validator or RPC node on 4.2     | At activation | Upgrade. Blocks produced after activation are rejected by earlier versions. [Learn more](#breaking-change-older-clients-reject-the-new-blocks) |
+| **Sends** transactions from a drained payer | At activation | A payer between zero and rent-exemption now fails differently. [Learn more](#what-counts-as-a-valid-fee-payer)                                 |
+
+## Migration Checklist
+
+<AudienceGroup>
+<Audience title="For Users" summary="No action needed.">
+
+Nothing about signing, sending, or paying for a transaction changes. A
+transaction from an account that cannot cover the fee does not land today and
+does not land after this change either — the difference is only in what happens
+to the rest of the block around it.
+
+</Audience>
+
+<Audience title="For Developers" summary="Only block readers are affected. Sending is unchanged.">
+
+If your application sends transactions and reads account state, there is
+nothing to migrate.
+
+**If you index or read blocks**
+([details](#breaking-change-inclusion-no-longer-implies-execution)):
+
+- Read each transaction's execution status rather than inferring it from
+  presence in the block.
+- Expect transactions with no state effect, no logs, and no fee charged.
+- Re-check anything that counts "transactions in a block" as a proxy for
+  activity. The count now includes transactions that did nothing.
+
+**If you sponsor fees or build transactions for other people**
+([details](#what-counts-as-a-valid-fee-payer)):
+
+- A fee-payer is valid with _exactly_ the fee, or with at least the fee plus its
+  rent-exempt reserve. The band in between is not valid. Funding a payer to
+  "fee plus a little" is the shape most likely to surprise you.
+
+</Audience>
+
+<Audience title="For Validator and RPC Operators" summary="Upgrade to Agave 4.3 before activation.">
+
+Blocks produced after activation are valid only under 4.3 and later. A node
+still on 4.2 will reject a block containing an invalid fee-payer transaction
+([details](#breaking-change-older-clients-reject-the-new-blocks)).
+
+There is no configuration change. Upgrade on Anza's
+[v4.3 release schedule](https://github.com/anza-xyz/agave/wiki/v4.3-Release-Schedule).
+
+</Audience>
+
+</AudienceGroup>
+
+## Breaking Changes in Detail
+
+<AudienceGroup>
+<Audience title="For Indexers" summary="A transaction in a block may never have run. Read the status.">
+
+### Breaking Change: Inclusion No Longer Implies Execution
+
+Before this change, a blockhash transaction with an invalid fee-payer could not
+appear in a valid block, because its presence made the block invalid. That gave
+every block reader a free guarantee: if it is in the block, it executed.
+
+After activation the transaction can be in the block and simply not run. It
+produces no state change, no logs, and no fee. It is inert.
+
+This does not error. A pipeline that counts rows, sums transactions, or assumes
+a transaction touched the accounts it references keeps working and quietly
+includes transactions that did nothing. Anything reporting throughput or
+activity from raw block contents will drift upward against reality.
+
+What to do: take execution from the transaction's status in the block's metadata
+rather than from its presence. That is the same field you already read to tell a
+failed transaction from a successful one — an unexecuted transaction is a third
+case, distinct from both, with no fee charged.
+
+One deliberate detail limits the damage. An invalid fee-payer transaction
+**still counts its requested, or default, compute units toward block limits.**
+That makes it strictly more expensive for a leader to pack a block with junk
+than to pack it with real transactions, which is the mitigation for a leader
+spamming invalid fee-payers. It also means these transactions consume block
+capacity you are measuring.
+
+</Audience>
+
+<Audience title="For Node Operators" summary="4.2 and earlier reject blocks that 4.3 considers valid.">
+
+### Breaking Change: Older Clients Reject the New Blocks
+
+The compatibility is one-directional. Every block and transaction that was valid
+before this change is still valid after it. But a block produced after
+activation may contain an invalid fee-payer transaction, and a validator running
+a version without the feature will reject that block outright — the old rule is
+exactly that such a block is invalid.
+
+That is the ordinary shape of a feature gate, and it is why the gate activates
+after Anza recommends the release for general adoption rather than alongside it.
+Upgrade before activation, not after.
+
+</Audience>
+
+</AudienceGroup>
+
+## Technical Details
+
+### What Counts as a Valid Fee-Payer
+
+The rule is defined on two account shapes, both owned by the System program:
+
+- A **System Fee-Payer** is a System-owned account with data length 0.
+- A **Nonce Fee-Payer** is a System-owned account with data length 80 whose
+  first eight bytes are `01 00 00 00 01 00 00 00` (a current initialized nonce)
+  or `00 00 00 00 01 00 00 00` (a legacy initialized nonce). The remaining 72
+  bytes are arbitrary.
+
+A Nonce Fee-Payer is not the same idea as a nonce transaction. A transaction
+that pays from a Nonce Fee-Payer while using a real blockhash is still a
+blockhash transaction, and this SIMD applies to it.
+
+Given a statically determined fee of `fee` lamports, a transaction can pay if:
+
+| Fee-payer shape  | Can pay when                                                      |
+| ---------------- | ----------------------------------------------------------------- |
+| System Fee-Payer | it holds exactly `fee`, or at least `fee` + `rent_exempt_reserve` |
+| Nonce Fee-Payer  | it holds at least `fee` + `rent_exempt_reserve`                   |
+| Anything else    | never — not a valid fee-payer                                     |
+
+The "exactly `fee`" case exists so an account can be fully drained by paying a
+fee. The gap between `fee` and `fee + rent_exempt_reserve` is not payable,
+because paying from it would leave the account below rent exemption without
+closing it. A payer funded to "the fee plus a small buffer" lands in exactly that
+gap.
+
+If the fee-payer does not meet these conditions, the transaction may be included
+in a block but must not be executed.
+
+### Blockhash Transactions Only
+
+This change applies only to blockhash transactions — those using a real
+blockhash as their lifetime specifier. Durable nonce transactions are more
+involved, because a failure there also has to account for nonce account
+validity, and they are deferred to
+[SIMD-0297](https://github.com/solana-foundation/solana-improvement-documents/pull/297),
+which is still a draft.
+
+### Why Not Bond the Fee-Payer
+
+The alternative considered was requiring fee-payers to lock up or bond funds so
+the network could guarantee payment in advance. It was rejected as more complex
+than simply allowing the transaction not to execute.
+
+A second objection raised in discussion is that this lets data propagate through
+the network without a fee being burned. That was judged largely moot: a
+malicious leader could already propagate data for free by using an invalid
+fee-payer, since it controls what goes in its own block.
+
+## About This Upgrade
+
+SIMD-0290 is a small rule change with a large architectural motive. Solana's
+block validation is currently synchronous by necessity — you cannot know a block
+is valid without executing part of it. Each constraint of that kind that gets
+removed brings asynchronous validation and execution closer.
+
+The cost is one assumption that block readers have been able to make for free
+since the beginning: that a transaction in a block is a transaction that ran.
+That assumption is now wrong, it fails quietly, and the fix is to read the
+execution status that was already there.
+
+**Learn more:** [Solana Upgrades](/upgrades)

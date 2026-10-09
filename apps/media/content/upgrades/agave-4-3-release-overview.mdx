@@ -1,0 +1,198 @@
+---
+title: Agave 4.3 Release Overview
+description: >-
+  Agave 4.3 activates Alpenglow on mainnet at epoch 1058, cutting finality from
+  12.8 seconds to a target of about 150ms. A week earlier, at epoch 1051, slot
+  times drop to 200ms. The release also relaxes the fee-payer constraint so an
+  unpayable transaction no longer invalidates its block.
+subtitle: Alpenglow activates on mainnet, after 200ms slots
+publishedAt: 2026-09-27T00:00:00.000Z
+status: published
+author: solana-foundation
+stage: pending_activation
+release: agave-4-3
+metrics:
+  - value: Epoch 1058
+    label: Alpenglow activates on mainnet
+  - value: Epoch 1051
+    label: 200ms slot times activate, a week earlier
+  - value: ~150ms
+    label: Target finality under Alpenglow, down from 12.8 seconds
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Agave 4.3 Release Overview
+
+**Updated October 2026** • Solana Foundation
+
+Agave 4.3 is the release in which **[Alpenglow](/upgrades/alpenglow) activates
+on mainnet**. It is the largest change to Solana's consensus since launch: the
+network stops running TowerBFT, validators stop voting through transactions, and
+finality drops from 12.8 seconds to a target of roughly 150ms. The target is the
+start of **epoch 1058**.
+
+The activations are deliberately sequenced. **200ms slot times** go first, at the
+start of **epoch 1051**, and the network runs at 200ms for about a week before
+the consensus switch. That way each change is observed on its own: if skip rates
+move, it is clear which change moved them.
+
+| Epoch    | Expected (approximate)  | Mainnet activation                                   |
+| -------- | ----------------------- | ---------------------------------------------------- |
+| 1036     | September 16, 2026      | 250ms slot times — already live                      |
+| **1051** | **October 6, 2026**     | **[200ms slot times](/upgrades/reduced-slot-times)** |
+| **1058** | **October 13–14, 2026** | **[Alpenglow](/upgrades/alpenglow) consensus**       |
+
+Dates are estimates. Activations are scheduled by epoch, and an epoch is a fixed
+432,000 slots, so its wall-clock length depends on the slot time in effect: about
+30 hours at 250ms and about 24 hours at 200ms. The seven epochs between 1051 and
+1058 come to roughly a week at 200ms.
+
+Alpenglow is not arriving untested. It is already running on the other two
+public clusters, on this release:
+
+| Cluster | Alpenglow feature activated   | First Alpenglow block |
+| ------- | ----------------------------- | --------------------- |
+| Testnet | September 24, 2026, 17:50 UTC | Slot 444,625,255      |
+| Devnet  | September 25, 2026, 19:40 UTC | Slot 504,148,999      |
+| Mainnet | Epoch 1058                    | —                     |
+
+Agave 4.3 also carries a smaller change with its own feature gate:
+[relax fee-payer constraint](/upgrades/relax-fee-payer-constraint), which stops
+an invalid fee-payer from invalidating a whole block.
+
+|                              |                                                                            |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| Mainnet Adoption Recommended | September 21, 2026                                                         |
+| Mainnet Feature Activation   | 200ms slots at epoch 1051; Alpenglow at epoch 1058                         |
+| Testnet                      | Adopted August 17, 2026; Alpenglow live since September 24                 |
+| Devnet                       | Adopted August 24, 2026; Alpenglow live since September 25                 |
+| Breaking Change?             | Yes — the consensus switch, and invalid fee-payer transactions in blocks   |
+| Indexing Changes Required?   | Yes — block streaming, commitment, vote transactions, and execution status |
+
+Release dates come from Anza's
+[v4.3 release schedule](https://github.com/anza-xyz/agave/wiki/v4.3-Release-Schedule),
+which is revised as the release moves.
+
+## Technical Details
+
+### Alpenglow Activates on Mainnet
+
+Alpenglow's first phase, **Votor**, replaces TowerBFT. Validators send votes
+directly to each other instead of submitting them as transactions, aggregate
+those votes into BLS certificates, and finalize a block in one or two rounds of
+voting. A block is final once a finalization certificate exists, rather than
+after 32 slots of stacked votes. It tolerates 20% adversarial stake plus a
+further 20% offline.
+
+It is defined in
+[SIMD-0326](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0326-alpenglow.md),
+and the feature gate is `A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS`.
+
+<FeatureActivationStatus featureAddress="A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS" />
+
+**Transaction execution does not change.** The SVM, transaction formats,
+programs, and fees are untouched. If your application only sends transactions
+and reads account state, there is nothing to migrate. What changes is how blocks
+are produced, streamed, and finalized, which affects anyone reading the chain
+below the level of account state:
+
+- **Streaming consumers.** A slot can carry more than one candidate block, and
+  Geyser tags every event with a `bank_id`. Buffer per `(slot, bank_id)` rather
+  than per slot
+  ([details](/upgrades/alpenglow#breaking-change-one-slot-can-contain-more-than-one-bank)).
+- **RPC consumers.** `confirmed` and `finalized` converge. Move new code to
+  `finalized`, but only after epoch 1058: until then `finalized` still means a
+  12.8-second wait on mainnet
+  ([details](/upgrades/alpenglow#commitment-levels-confirmed-and-finalized-converge)).
+- **Indexers and dashboards.** Vote transactions leave blocks entirely, so
+  transaction counts and TPS drop sharply with no drop in real activity.
+  Re-baseline before activation
+  ([details](/upgrades/alpenglow#breaking-change-vote-transactions-leave-the-block)).
+- **Anything reading time from the ledger.** Proof of History stops pacing
+  blocks, so tick entries leave the shred stream, and the leader sets
+  `Clock.unix_timestamp` within a bounded range instead of it being a
+  stake-weighted median of vote timestamps
+  ([details](/upgrades/alpenglow#breaking-change-ticks-leave-the-ledger)).
+
+The full, role-by-role list is the
+[Alpenglow migration checklist](/upgrades/alpenglow#migration-checklist). Testnet
+and devnet are the place to test against it now.
+
+**Validator operators** must be running Agave 4.3 and have a BLS pubkey
+registered on their vote account before epoch 1058. Two prerequisites already
+activated on mainnet: BLS pubkey management (SIMD-0387) on July 8, 2026, and the
+[Validator Admission Ticket](/upgrades/bls-pubkey-vat) (SIMD-0357) on July 22. An
+operator without a registered BLS pubkey is already outside the admitted
+validator set.
+
+**To tell whether a cluster has migrated**, ask it rather than checking a date or
+a version string. The
+[`getAgGenesisCert`](https://solana.com/docs/rpc/http/getaggenesiscert) RPC
+method returns `null` while a cluster runs TowerBFT and the Alpenglow genesis
+certificate once it has switched
+([details](/upgrades/alpenglow#checking-whether-alpenglow-is-active)).
+
+### 200ms Slot Times
+
+The final step of
+[SIMD-0525](https://github.com/solana-foundation/solana-improvement-documents/pull/525)
+takes mainnet from 250ms to 200ms slots at the start of epoch 1051. It is the
+fourth of four 50ms reductions; 350ms, 300ms, and 250ms are already live. Feature
+gate: `iBRLjhJnkmDZgNoZRDMW11d8ZV7HvsL3vAyRjZB5npW`.
+
+<FeatureActivationStatus featureAddress="iBRLjhJnkmDZgNoZRDMW11d8ZV7HvsL3vAyRjZB5npW" />
+
+Nothing has to migrate, but anything that converts slots to wall-clock time
+converts at a new rate. Blockhashes expire sooner in seconds, epochs shorten to
+about 24 hours, and the network produces twice as many blocks per day as it did
+at 400ms. Details are in [Reduced Slot Times](/upgrades/reduced-slot-times).
+
+### Relax Fee-Payer Constraint
+
+[SIMD-0290](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0290-relax-fee-payer-constraint.md)
+changes what happens when a blockhash transaction names a fee-payer that cannot
+pay. Today that transaction invalidates the entire block containing it. After
+activation the transaction is simply not executed: it may sit in the block, it
+has no effect on account state, and the block around it stays valid.
+
+The motivation is asynchronous execution. Deciding whether a block is valid
+currently means executing enough of it to learn whether each fee-payer had the
+lamports, which forces validation and execution to stay coupled. Removing the
+constraint decouples them by one step.
+
+For anyone reading blocks, the consequence is that **a transaction appearing in
+a block no longer means it ran.** Full detail, including what a valid fee-payer
+now has to look like, is in
+[Relax Fee-Payer Constraint](/upgrades/relax-fee-payer-constraint).
+
+Feature gate: `FEEXbxUuKobtrt1qNK5pjtzbPQhsppBTrNNG74xu4mai`.
+
+<FeatureActivationStatus featureAddress="FEEXbxUuKobtrt1qNK5pjtzbPQhsppBTrNNG74xu4mai" />
+
+### What Comes Next, in 4.4
+
+[Agave 4.4](/upgrades/agave-4-4-release-overview) builds on the switch. Its first
+activation is [fast leader handover](/upgrades/fast-leader-handover), which only
+works once Alpenglow is live, followed by the runtime and program-facing work:
+the syscalls, the virtual address space changes, direct mapping, the loader
+change, and block revenue sharing.
+
+## About This Upgrade
+
+Agave 4.3 is the release that changes how Solana reaches agreement. Alpenglow
+replaces a consensus protocol that has run the network since launch, and it
+lands on a network that has just moved to 200ms slots, with a week between the
+two so each can be observed on its own.
+
+None of it touches transaction execution. The deadline is for anyone reading
+chain data below the level of account state: streaming pipelines need
+`bank_id`, dashboards need re-baselining for the loss of vote transactions, code
+tuned to 12.8-second finality needs revisiting, and anything treating block
+inclusion as proof of execution needs to read execution status instead. Testnet
+and devnet have been running Alpenglow since late September, so there is a live
+cluster to test against before epoch 1058.
+
+**Learn more:** [Solana Upgrades](/upgrades)
