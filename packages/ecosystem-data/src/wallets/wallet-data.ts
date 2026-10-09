@@ -2557,10 +2557,11 @@ const walletRecords = {
       "sell_crypto",
       "hold_nfts",
       "staking",
+      "hardware",
       "multi_chain",
     ],
     description:
-      "Self-custody wallet for 100+ blockchains with iOS and Android apps and a Chrome, Brave, and Edge extension, offering SOL staking, fiat buy and sell, swaps, and NFT management",
+      "Self-custody wallet for 100+ blockchains with iOS and Android apps and a Chrome, Brave, and Edge extension, offering SOL staking, fiat buy and sell, NFT management, and hardware wallet connections through its browser extension",
     website: "https://trustwallet.com/download",
     icon: trustwalletcoreIcon,
     lastVerified: "2026-09-02",

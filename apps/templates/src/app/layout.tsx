@@ -15,6 +15,7 @@ import { GTMTrackingSnippet } from "@/components/gtm-tracking-snippet";
 import { CookieConsent } from "@/components/cookie-consent";
 import { createDefaultSocialImage } from "@solana-com/ui-chrome/social-image";
 import "../scss/index.scss";
+import "@workspace/ui/scrollbar.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

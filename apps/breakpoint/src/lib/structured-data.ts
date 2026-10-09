@@ -59,11 +59,6 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
       answer: "",
       answerLinkLabel: t("faq.items.q4.answerLinkLabel"),
     },
-    {
-      question: t("faq.items.q5.question"),
-      answer: t("faq.items.q5.answerPrefix"),
-      answerLinkLabel: t("faq.items.q5.answerLinkLabel"),
-    },
   ];
 
   const eventNode: JsonLd = {

@@ -73,8 +73,8 @@ pnpm dev
 # Build for production
 pnpm build
 
-# Lint and format content files
-pnpm lint:content
+# Lint and format
+pnpm lint:fix
 
 # Clean generated files
 pnpm clean
@@ -193,6 +193,8 @@ editing one.
   sitemap
 - `/api/posts/latest`, `/api/reports/latest`, `/api/links/latest` - Content
   metadata APIs
+- `/api/developer-updates/latest` - Runtime feed for the developer hub,
+  aggregating the latest developer news, changelog, upgrade, and release records
 - `/api/podcasts/[slug]/episodes` - Podcast episode API
 - `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content
   operations)
@@ -208,9 +210,9 @@ The build runs:
 
 Pre-commit formatting:
 
-- JS/TS files: ESLint + Prettier
-- MDX/MD files: Prettier
-- JSON/YAML files: Prettier
+- JS/TS files: oxlint + oxfmt
+- MDX/MD files: oxfmt
+- JSON/YAML files: oxfmt
 
 ## Image Handling
 

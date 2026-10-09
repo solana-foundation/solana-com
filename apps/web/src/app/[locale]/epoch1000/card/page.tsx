@@ -53,6 +53,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    robots: { index: false, follow: true },
     alternates: getAlternates("/epoch1000/card", locale),
     openGraph: {
       title,

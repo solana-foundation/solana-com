@@ -4,6 +4,7 @@ import { Code as RpcApiIcon } from "@boxicons/react/Code";
 import { Education as CoursesIcon } from "@boxicons/react/Education";
 import { Grid as ToolsIcon } from "@boxicons/react/Grid";
 import { BarChart as StatisticsIcon } from "@boxicons/react/BarChart";
+import { Play as VideoIcon } from "@boxicons/react/Play";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@workspace/i18n/use-router";
 import {
@@ -39,8 +40,10 @@ export function DevelopersNav({
       data-developers-nav
       className="relative z-[1] text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[#ababbc] border-t border-b border-[rgba(255,255,255,0.05)] light:!bg-[rgba(255,255,255,0.95)] light:text-[#7f8391] light:border-[rgba(0,0,0,0.05)]"
     >
-      <div className={`mx-auto w-full max-w-[1440px] ${containerClassName}`}>
-        <div className="py-2 text-[17px] font-light ml-3 xl:ml-0">
+      <div
+        className={`mx-auto w-full max-w-[1440px] px-4 sm:px-5 xl:px-6 ${containerClassName}`}
+      >
+        <div className="py-2 text-[17px] font-light">
           <div className="flex items-center">
             {showSidebarToggleSlot ? (
               <div
@@ -66,6 +69,7 @@ export function DevelopersNav({
                   "/docs/tokenization",
                   "/docs/defi",
                   "/docs/tools",
+                  "/docs/video-guides",
                   localInstallationResourcesPath,
                 ]}
                 activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.2)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.2)] light:hover:border-[rgba(0,0,0,0.3)]"
@@ -131,6 +135,22 @@ export function DevelopersNav({
                 />
                 <span className="align-middle">
                   {t("developers.nav.finance")}
+                </span>
+              </NavLink>
+              <NavLink
+                partiallyActive
+                to="/docs/video-guides"
+                activeClassName="!text-white light:!text-gray-900 bg-[#0c011d] border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] light:bg-[rgba(204,204,204,0.35)] light:border-[rgba(0,0,0,0.1)] light:hover:border-[rgba(0,0,0,0.3)]"
+              >
+                <VideoIcon
+                  aria-hidden="true"
+                  height={16}
+                  width={16}
+                  removePadding
+                  className="inline-block mr-2"
+                />
+                <span className="align-middle">
+                  {t("developers.nav.videoTutorials")}
                 </span>
               </NavLink>
               <NavLink

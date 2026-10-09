@@ -1497,15 +1497,13 @@ export const FinalFormCanvas = forwardRef<FinalFormCanvasHandle, Props>(
         if (!melting.length) meltingMesh.count = 0;
         let startedMelt = false;
         if (final.length >= cyclePopulation) {
-          const completed = final.map(
-            (voxel): MeltingVoxel => ({
-              ...voxel,
-              meltTarget:
-                logoModel.points[voxel.targetIndex]?.clone() ??
-                voxel.finalFromPosition.clone(),
-              meltStartedAt: now,
-            }),
-          );
+          const completed = final.map((voxel): MeltingVoxel => ({
+            ...voxel,
+            meltTarget:
+              logoModel.points[voxel.targetIndex]?.clone() ??
+              voxel.finalFromPosition.clone(),
+            meltStartedAt: now,
+          }));
           melting = [...melting, ...completed].slice(-MAX_STAGE_VOXELS);
           final = [];
           finalMesh.count = 0;

@@ -7,6 +7,7 @@ import ImageTreatment, {
 import { publicAssetPath } from "@/config";
 
 type HeroCta = {
+  arrowDirection?: "up-right" | "down";
   href: string;
   label: string;
   rel?: string;
@@ -39,6 +40,7 @@ type SubpageHeroImageConfig = {
 };
 
 export type SubpageHeroImageKey =
+  | "awards"
   | "schedule"
   | "speakers"
   | "travel"
@@ -47,6 +49,11 @@ export type SubpageHeroImageKey =
 
 const SUBPAGE_HERO_IMAGES: Record<SubpageHeroImageKey, SubpageHeroImageConfig> =
   {
+    awards: {
+      color: "purple",
+      heightClassName: "h-[600px] md:h-[580px]",
+      src: "/img/subpage-heroes/schedule-hero.webp",
+    },
     schedule: {
       color: "purple",
       heightClassName: "h-[480px] md:h-[467px]",
@@ -123,6 +130,7 @@ function HeroBackground({
 }
 
 function HeroCtaLink({
+  arrowDirection,
   href,
   label,
   rel,
@@ -132,6 +140,7 @@ function HeroCtaLink({
   return (
     <Button
       arrow
+      arrowDirection={arrowDirection}
       className="w-full md:w-auto"
       href={href}
       label={label}

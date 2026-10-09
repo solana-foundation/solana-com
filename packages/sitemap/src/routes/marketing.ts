@@ -19,6 +19,23 @@ const appLocaleRoot = path.join(
   "[locale]",
 );
 
+// Historical landing pages remain available to existing links, but are not
+// promoted as current content through the sitemap.
+const archivedRoutes = new Set([
+  "/2023outlook",
+  "/2024outlook",
+  "/epoch1000",
+  "/epoch1000/card",
+  "/community/report-2024-newsletter-sign-up",
+  "/art-basel",
+  "/privacyhack",
+  "/graveyard-hack",
+  "/prediction-markets-hack",
+  "/wsop",
+  "/nftshowdown",
+  "/playgg",
+]);
+
 function toRoutePath(filePath: string) {
   const relativeDir = path.relative(appLocaleRoot, path.dirname(filePath));
   const segments = relativeDir === "" ? [] : relativeDir.split(path.sep);
@@ -71,7 +88,7 @@ export const marketingRoutes: RouteGenerator = () => {
     const entries = pageFiles.flatMap((filePath) => {
       const routePath = toRoutePath(filePath);
 
-      if (!routePath) {
+      if (!routePath || archivedRoutes.has(routePath)) {
         return [];
       }
 

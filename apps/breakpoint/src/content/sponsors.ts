@@ -92,6 +92,13 @@ const platinumSponsors = [
     width: 1809,
     height: 449,
   },
+  {
+    companyId: "bloomberg-media",
+    displayName: "Bloomberg",
+    logoVariant: { id: "logo-horizontal-light" },
+    width: 666.06,
+    height: 173.85,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -258,6 +265,81 @@ const goldSponsors = [
     companyId: "beezie",
     width: 1514,
     height: 646,
+  },
+  {
+    companyId: "bitwise",
+    logoVariant: { id: "logo-dark" },
+    width: 108.3,
+    height: 23.9,
+  },
+  {
+    companyId: "xash",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1119.3,
+    height: 374.5,
+  },
+  {
+    companyId: "agridex",
+    displayName: "Loam, by Agridex",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 687.54,
+    height: 259.76,
+  },
+  {
+    companyId: "bitget-wallet",
+    displayName: "Bitget Wallet",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1623,
+    height: 256,
+  },
+  {
+    companyId: "accretion",
+    logoVariant: { id: "logo-light" },
+    width: 100,
+    height: 57.3,
+  },
+  {
+    companyId: "hackhack",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1630,
+    height: 533,
+  },
+  {
+    companyId: "birdeye",
+    logoVariant: { id: "logo-light" },
+    width: 300,
+    height: 45,
+  },
+  {
+    companyId: "fidelity",
+    displayName: "Fidelity",
+    logoVariant: { id: "fcat-logo-dark" },
+    width: 636,
+    height: 222,
+  },
+  {
+    companyId: "circle",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1110,
+    height: 284.4,
+  },
+  {
+    companyId: "kilpatrick-townsend",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1350,
+    height: 400,
+  },
+  {
+    companyId: "cooley",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1244,
+    height: 406,
+  },
+  {
+    companyId: "neodyme",
+    logoVariant: { id: "logo-horizontal-dark" },
+    width: 1652.4,
+    height: 528.214,
   },
 ] satisfies SponsorLogo[];
 

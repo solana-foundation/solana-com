@@ -1,8 +1,7 @@
 ---
 title: 费用结构
 description:
-  介绍 Solana
-  交易费用的计算方式，包括每个签名的基础费用、优先级费用公式、费用分配，以及如何通过计算预算指令设置费用。
+  Solana 交易费用的计算方式，包括每个签名的基础费用、优先费用计算公式、费用分配方式，以及如何使用计算预算指令设置费用。
 url: /docs/core/fees/fee-structure
 type: reference
 prerequisites:
@@ -15,33 +14,32 @@ related:
   - /docs/core/constants-reference
 ---
 
-{/* 目录：费用计算算法、基础费用、费用分配、优先级费用、优先级费用公式、计算单元价格、交易调度优先级、示例 */}
+{/* TOC: Fee calculation algorithm, Base fee, Fee distribution, Prioritization fee, Prioritization fee formula, Compute unit price, Transaction scheduling priority, Example */}
 
 <Callout type="info" title="摘要">
-  总费用 = 基础费用（5,000 lamports/签名，50% 销毁）+ 优先级费用 （CU_price ×
-  CU_limit / 1M lamports，100% 归 validator 所有）。无论交易
-  成功或失败，均会收取费用。
+  总费用 = 基础费用（每个签名 5,000 lamports，50% 销毁）+ 优先费用
+  （CU_price * CU_limit / 1M lamports，100% 归 validator）。无论交易
+  成功还是失败，均会收取费用。
 </Callout>
 
 ## 费用计算算法
 
-一笔交易的总费用通过
+交易的总费用由
 [`calculate_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L53-L72)
-计算：
+计算得出：
 
 ```text title="Total fee formula"
 total_fee = base_fee + prioritization_fee
 ```
 
-输入包括交易消息、当前的 `lamports_per_signature`
-（目前为 5,000），以及根据计算预算指令得出的优先级费用。总费用会在执行前从费用支付者账户中扣除。即使交易失败，费用也会被收取。
+输入参数包括交易消息、当前的 `lamports_per_signature`（目前为 5,000），以及从计算预算指令中推导出的优先费用。总费用在执行开始前从付款方扣除。如果交易失败，费用仍会被收取。
 
 ## 基础费用
 
-基础费用覆盖 Ed25519 签名验证以及所有预编译签名验证的成本。交易中的每个签名都会收取费用，包括由 Ed25519、Secp256k1 和 Secp256r1 预编译程序验证的签名。
+基础费用涵盖 Ed25519 签名验证以及任何预编译签名验证的成本。交易中的每个签名均会被收费，包括由 Ed25519、Secp256k1 和 Secp256r1 预编译程序验证的签名。
 
 [`calculate_signature_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/fee/src/lib.rs#L75-L92)
-函数计算如下内容：
+函数的计算内容如下：
 
 ```text title="Base fee formula"
 signature_count = num_transaction_signatures
@@ -52,89 +50,98 @@ signature_count = num_transaction_signatures
 base_fee = signature_count * lamports_per_signature
 ```
 
-- `num_transaction_signatures`：交易中的 Ed25519 签名数量（通常每个签名者一个）。
+- `num_transaction_signatures`：交易上的 Ed25519 签名数量
+  （通常每个签名者一个）。
 - `num_ed25519_signatures`、`num_secp256k1_signatures`、
-  `num_secp256r1_signatures`：由相应预编译程序验证的签名。
-- `lamports_per_signature`：当前为
+  `num_secp256r1_signatures`：由相应预编译程序验证的签名数量。
+- `lamports_per_signature`：目前为
   [5,000 lamports](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-structure/src/lib.rs#L210)。
 
 ### 费用分配
 
-基础费用和优先级费用的分配方式不同。运行时中的
+基础费用和优先费用的分配方式不同。运行时中的
 [`calculate_reward_and_burn_fee_details`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L85-L98)
-函数计算如下内容：
+函数的计算内容如下：
 
 ```text title="Fee distribution"
 burn_amount     = transaction_fee * 50 / 100
 validator_share = (transaction_fee - burn_amount) + priority_fee
 ```
 
-- **基础费用（transaction_fee）**：50%
+- **基础费用（transaction_fee）**：50% 被
   [销毁](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L93)
-  （从流通中移除），50% 归出块 validator 所有。销毁比例为
-  [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-calculator/src/lib.rs#L70)。
-- **优先级费用**：100% 归 validator 所有（不销毁），详见
-  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md)。
+  （从流通供应中移除），50% 归出块
+  validator 所有。销毁比例由
+  [`DEFAULT_BURN_PERCENT = 50`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/fee-calculator/src/lib.rs#L70) 定义。
+- **优先费用**：根据
+  [SIMD-0096](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0096-reward-collected-priority-fee-in-entirety.md)，100% 归 validator 所有（不销毁任何部分）。
 
-该 validator 在一笔交易中获得的总奖励为：
+validator 对一笔交易的总奖励为：
 
 ```text
 validator_reward = (base_fee / 2) + prioritization_fee
 ```
 
-## 优先级费用
+## 优先费用
 
-优先级费用是一项可选费用，用于提升交易的调度优先级。计算单元（CU）是运行时在交易执行过程中计量的计算单位。每个操作（算术、内存访问、系统调用）都会消耗固定数量的 CU。你可以通过在交易中加入 compute
-budget 指令来设置优先级费用。（详见[如何使用优先级费用指南](/docs/core/fees)）
+优先费用是一项可选费用，用于提高交易的调度优先级。计算单元（CU）是运行时在交易执行过程中计量的计算量单位。每项操作（算术运算、内存访问、系统调用）均消耗固定数量的 CU。您可以通过在交易中包含计算预算指令来设置优先费用。（详情请参阅
+[优先费用使用指南](/docs/core/fees)。）
 
-### 优先级费用公式
+### 优先费用计算公式
 
 [`get_prioritization_fee`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L61-L69)
-函数计算如下：
+函数的计算内容如下：
 
 ```text title="Prioritization fee formula"
 micro_lamport_fee = compute_unit_price * compute_unit_limit
 prioritization_fee = ceil(micro_lamport_fee / 1,000,000)
 ```
 
-| 变量                 | 说明                                                                                                                                                                | 默认值           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| `compute_unit_price` | 每个 CU 的微 lamports 数量，通过 `SetComputeUnitPrice` 设置                                                                                                         | 0 微 lamports    |
-| `compute_unit_limit` | 交易可消耗的最大 CU 数量，通过 `SetComputeUnitLimit` 设置                                                                                                           | 各指令默认值之和 |
-| `1,000,000`          | 微 lamports 到 lamports 的换算系数（[`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)） | --               |
+| 变量             | 描述                                                                                                                                                                       | 默认值                         |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `compute_unit_price` | 每个 CU 的微 lamports 数，通过 `SetComputeUnitPrice` 设置                                                                                                                              | 0 微 lamports                |
+| `compute_unit_limit` | 交易可消耗的最大 CU 数，通过 `SetComputeUnitLimit` 设置                                                                                                            | 各指令默认值之和 |
+| `1,000,000`          | 微 lamports 到 lamports 的换算系数（[`MICRO_LAMPORTS_PER_LAMPORT`](https://github.com/anza-xyz/agave/blob/v3.1.8/compute-budget/src/compute_budget_limits.rs#L17)） | --                              |
+
+<Callout type="info" title="v1 交易直接设置费用">
+  此价格乘以上限的公式适用于传统交易和 v0 交易。在
+  [v1 格式](/docs/core/transactions/versioned-transactions#v1-format)中，
+  优先费用是直接在消息配置中以 lamports 为单位设置的绝对总额——无需按 CU 单价计算，无需乘法运算，也无需取整。
+</Callout>
 
 ### 计算单元上限
 
-计算单元上限是指一笔交易最多可消耗的 CU 数量。如果未包含
+计算单元上限是交易可消耗的最大 CU 数量。如果未包含
 [`SetComputeUnitLimit`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L32)
-指令，则默认值根据指令数量和类型计算（每个非内置指令 200,000
-CU，每个内置指令 3,000
-CU）。详情请参见[计算预算](/docs/core/fees/compute-budget)。
+指令，则默认值根据指令的数量和类型计算得出（非内置指令每条 200,000 CU，内置指令每条 3,000 CU）。有关默认计算方式的详细信息，请参阅
+[计算预算](/docs/core/fees/compute-budget)。
 
 <Callout type="warn">
-  优先级费用基于请求的 CU 上限计算，而不是实际使用的
-  CU。设置高于实际需求的上限会导致为未使用的计算单元付费。
+  优先费用基于请求的 CU 上限计算，而非实际消耗的 CU 数量。
+  设置高于所需的上限意味着需要为未使用的计算单元付费。
 </Callout>
 
 ### 计算单元价格
 
-计算单元价格是为每个请求的 CU 支付的可选微 lamports 数额。CU 价格直接决定优先级费用。要设置 CU 价格，请在交易中加入
+计算单元价格是每个请求 CU 所支付的可选微 lamports 金额。CU 价格直接决定优先费用的高低。若要设置 CU 价格，请在交易中包含
 [`SetComputeUnitPrice`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L35)
 指令。
 
-<Callout>默认的 CU 价格为 0，这意味着默认的优先级费用也是 0。</Callout>
+<Callout>
+  默认 CU 价格为 0，这意味着默认优先费用也为 0。
+</Callout>
 
-如需实时 CU 价格估算，请参阅下方的优先级费用 API 提供商。
+如需实时 CU 价格估算，请参阅下方的优先费用 API 提供商。
 
-| Provider                                | Priority Fee API                                                                  |
+| 提供商                                | 优先费用 API                                                                  |
 | --------------------------------------- | --------------------------------------------------------------------------------- |
-| [Helius](https://www.helius.dev/)       | [Documentation](https://docs.helius.dev/solana-apis/priority-fee-api)             |
-| [QuickNode](https://www.quicknode.com/) | [Documentation](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
-| [Triton](https://triton.one/)           | [Documentation](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
+| [Helius](https://www.helius.dev/)       | [文档](https://docs.helius.dev/solana-apis/priority-fee-api)             |
+| [QuickNode](https://www.quicknode.com/) | [文档](https://marketplace.quicknode.com/add-on/solana-priority-fee)     |
+| [Triton](https://triton.one/)           | [文档](https://docs.triton.one/chains/solana/improved-priority-fees-api) |
 
 ### 交易调度优先级
 
-调度器通过
+调度器使用
 [`calculate_priority_and_cost`](https://github.com/anza-xyz/agave/blob/v3.1.8/core/src/banking_stage/transaction_scheduler/receive_and_buffer.rs#L526-L546)
 函数对交易进行排序：
 
@@ -142,27 +149,27 @@ CU）。详情请参见[计算预算](/docs/core/fees/compute-budget)。
 Priority = reward * 1,000,000 / (cost + 1)
 ```
 
-- **reward**： validator 的手续费收入 = 优先级费用 + 基础费用中未销毁的部分。由
+- **reward（奖励）**：validator 的费用收入 = 优先费用 + 基础费用中未销毁的部分。由
   [`calculate_reward_for_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank/fee_distribution.rs#L64-L83)
-  计算。
-- **cost**：调度器的
-  [估算 CU 成本](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
-  （签名成本 + 写锁成本 + instruction
-  data 成本 + 程序执行成本 + 已加载账户数据大小成本）。详情请参阅
-  [Compute Budget](/docs/core/fees/compute-budget#scheduler-cost-model)。
-- **1,000,000**：一个用于保持精度的乘数，因为原始 lamports 中 cost 通常大于 reward。
+  计算得出。
+- **cost（成本）**：调度器的
+  [预估 CU 成本](https://github.com/anza-xyz/agave/blob/v3.1.8/cost-model/src/cost_model.rs#L37-L57)
+  （签名成本 + 写锁成本 + instruction data 成本 + 程序
+  执行成本 + 已加载账户数据大小成本）。详情请参阅
+  [计算预算](/docs/core/fees/compute-budget#scheduler-cost-model)。
+- **1,000,000**：用于保留精度的乘数，因为原始 lamports 中成本通常超过奖励。
 - **+1**：防止除以零。
 
-优先级决定了交易从调度器缓冲区出队执行的顺序。
+优先级决定了交易从调度器缓冲区中出队并执行的顺序。
 
-## 示例：设置 CU 限制和 CU 价格
+## 示例：设置 CU 上限和 CU 价格
 
-以下示例展示了如何使用 Solana SDK 在交易中设置 CU 限制和 CU 价格。
+以下示例展示了如何使用 Solana SDK 在交易中设置 CU 上限和 CU 价格。
 
-| SDK                            | 源代码参考                                                                                                                       |
+| SDK                            | 源代码参考                                                                                                            |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `@solana/web3.js` (Typescript) | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218)   |
-| `solana-sdk` (Rust)            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24) |
+| `@solana/web3.js`（TypeScript） | [`ComputeBudgetProgram`](https://github.com/solana-foundation/solana-web3.js/blob/v1.98.0/src/programs/compute-budget.ts#L218)   |
+| `solana-sdk`（Rust）            | [`ComputeBudgetInstruction`](https://github.com/anza-xyz/solana-sdk/blob/clock%40v2.2.3/compute-budget-interface/src/lib.rs#L24) |
 
 <CodeTabs storage="compute-budget">
 

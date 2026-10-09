@@ -292,6 +292,39 @@ const video = block({
   ),
 });
 
+const postcard = block({
+  label: "Post card",
+  description: "Link to another Solana news post",
+  schema: {
+    slug: fields.text({ label: "Post slug", validation: { isRequired: true } }),
+    title: fields.text({ label: "Title", validation: { isRequired: true } }),
+    description: fields.text({ label: "Description", multiline: true }),
+    heroImage: fields.text({ label: "Hero image path" }),
+    publishedAt: fields.text({ label: "Published at" }),
+    category: fields.text({ label: "Category" }),
+  },
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        padding: "16px",
+        margin: "16px 0",
+        backgroundColor: "#f9fafb",
+      }}
+    >
+      <p style={{ margin: 0, fontWeight: "bold" }}>
+        {props.value.title || "Post card"}
+      </p>
+      {props.value.description && (
+        <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6b7280" }}>
+          {props.value.description}
+        </p>
+      )}
+    </div>
+  ),
+});
+
 // Gallery component - block (no children)
 const gallery = block({
   label: "Gallery",
@@ -543,6 +576,10 @@ const audience = wrapper({
       validation: { isRequired: true },
     }),
     summary: fields.text({ label: "Summary" }),
+    id: fields.text({
+      label: "Anchor ID",
+      description: "Optional. Lets other text link to this section with #id.",
+    }),
   },
   ContentView: (props) => (
     <div
@@ -626,6 +663,16 @@ const txAccountBytes = diagramBlock(
   "How an account created after estimation pushes the running total past the limit",
 );
 
+const dnSignerFlow = diagramBlock(
+  "Diagram: durable nonce vs offline signer flow",
+  "How signing and replay protection move from the runtime into a program",
+);
+
+const dnCallStacks = diagramBlock(
+  "Diagram: programmatic signer vs Vector call stacks",
+  "Where the authorized instructions run in each implementation",
+);
+
 const featureActivationStatus = block({
   label: "Feature activation status",
   description: "Live feature activation status for each Solana cluster",
@@ -673,6 +720,7 @@ export const componentBlocks: Record<string, ContentComponent> = {
   datetime,
   newslettersignup,
   video,
+  postcard,
   gallery,
   stats,
   footnotes,
@@ -692,6 +740,8 @@ export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   AgBankIdAcrossConnections: agBankIdAcrossConnections,
   AgCommitmentLevels: agCommitmentLevels,
   AgVotorCertificates: agVotorCertificates,
+  DnCallStacks: dnCallStacks,
+  DnSignerFlow: dnSignerFlow,
   FeatureActivationStatus: featureActivationStatus,
   TxAccountBytes: txAccountBytes,
   TxSimulationTrace: txSimulationTrace,

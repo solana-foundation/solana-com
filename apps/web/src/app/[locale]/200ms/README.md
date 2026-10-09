@@ -58,6 +58,12 @@ and new speeds:
 | 300 → 250  |         275ms |
 | 250 → 200  |         225ms |
 
+The final 250ms → 200ms transition is scheduled for epoch 1053. Mainnet's
+`getEpochSchedule` reports 432,000 slots per epoch, so epoch 1053 starts at slot
+`454,896,000` (`1053 × 432,000`). The hero uses the epoch schedule for its
+countdown and keeps the corresponding slot visible through activation and
+measurement. The heartbeat and history charts include a highlighted 200ms guide.
+
 These midpoint thresholds provide a jitter guard. A normal 400ms network can
 measure slightly above nominal, so a brief dip in the one-minute average should
 not permanently advance the rollout.
@@ -132,7 +138,9 @@ After settling, the holding state reports 3 of 4 steps live.
 
 ### 250ms → 200ms
 
-The final transition reports `25.0%` faster. Its landed message says that the
+The final transition is scheduled for epoch 1053, whose first slot is
+`454,896,000`. The hero counts down to epoch 1053, then waits for mainnet
+measurements before showing the 200ms timing. Its settled message says that the
 rollout is complete. Once the stable average settles below 225ms, the hero
 shows:
 
@@ -159,11 +167,7 @@ not prove that the network has reached a particular timing stage.
 
 ## Current limitations
 
-- The 350ms, 300ms, and 250ms targets have confirmed effective epochs. Later
-  countdowns require adding their target epoch to `CONFIRMED_EPOCHS`.
-- The Hero and charts support the scheduled 250ms transition. The heartbeat
-  chart still needs a lower range update once 200ms is scheduled.
-- The heartbeat chart clamps its lower display range at 225ms, so 200ms values
-  will be visually clipped until that chart is updated.
+- All four reductions have confirmed effective epochs in `CONFIRMED_EPOCHS`. The
+  final 200ms step is epoch 1053, starting at slot `454,896,000`.
 - Page metadata and social-card copy are intentionally evergreen; they do not
   update from live measurements.

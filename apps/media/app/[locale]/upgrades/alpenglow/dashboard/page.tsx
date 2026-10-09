@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { Link } from "@workspace/i18n/routing";
 import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { AlpenglowDashboard } from "@/components/upgrades/alpenglow-dashboard/dashboard";
+
+const isAlpenglowDashboardAvailable = true;
 
 export const metadata: Metadata = {
   title: "Alpenglow Transition Dashboard",
@@ -10,6 +13,9 @@ export const metadata: Metadata = {
 };
 
 export default function AlpenglowDashboardPage() {
+  // Keep the dashboard implementation ready to restore once its issues are resolved.
+  if (!isAlpenglowDashboardAvailable) notFound();
+
   return (
     <div className="min-h-dvh bg-black text-white">
       <header className="border-b border-white/10">

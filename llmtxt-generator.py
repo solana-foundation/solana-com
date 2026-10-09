@@ -53,7 +53,7 @@ CURATED_SECTIONS = {
         ("Asset Issuance & Tokenization", "docs/tokenization", "Issue and operate tokenized assets on Solana"),
         ("Tokenization Quickstart", "docs/tokenization/quickstart", "Launch a compliance-ready Token-2022 mint"),
         ("Token ACL", "docs/tokenization/token-acl", "Build permissioned tokens with allow and block lists"),
-        ("Delivery vs Payment", "docs/tokenization/dvp", "Settle tokenized assets and payments atomically"),
+        ("Delivery vs Payment using delegation", "docs/tokenization/dvp", "Settle tokenized assets and payments atomically through delegated authority"),
         ("NAV Strikes", "docs/tokenization/nav-strikes", "Implement subscriptions and redemptions for tokenized funds"),
     ],
     "Frontend": [
@@ -95,12 +95,19 @@ CURATED_SECTIONS = {
         ("Developer Tools", "docs/payments/developer-tools", "Libraries and services for building payment flows"),
         ("Production Readiness", "docs/payments/production-readiness", "Prepare payment systems for mainnet"),
         ("Agentic Payments", "docs/payments/agentic-payments", "Enable autonomous payments for AI agents with x402"),
+        ("Spend Permissions", "docs/payments/advanced-payments/spend-permissions", "Delegate token spending with a capped allowance"),
+        ("Deferred Execution", "docs/payments/advanced-payments/deferred-execution", "Sign transactions for later submission with durable nonces"),
     ],
     "DeFi": [
         ("Markets & Trading", "docs/defi", "Build trading systems and onchain financial applications"),
         ("Exchange Integration", "docs/defi/exchange", "Add Solana deposits and withdrawals to an exchange"),
         ("MEV Protection", "docs/defi/mev-protection", "Protect transactions from sandwich attacks with Jito DontFront"),
         ("Stake-weighted QoS", "docs/defi/stake-weighted-qos", "Prioritize transactions through staked validators"),
+        ("Delivery vs Payment (DvP) program", "docs/defi/dvp-program", "Escrowed atomic settlement of an asset leg against a cash leg"),
+        ("Create a Trade", "docs/defi/dvp-program/create-a-trade", "Set up the DvP clients and record a trade's terms"),
+        ("Fund the Legs", "docs/defi/dvp-program/fund-the-legs", "Verify the stored terms and fund a leg with a plain transfer"),
+        ("Settle the Trade", "docs/defi/dvp-program/settle-the-trade", "Settle a funded trade as the settlement authority"),
+        ("Unwind a Trade", "docs/defi/dvp-program/unwind-a-trade", "Reclaim, cancel, reject, and recover late deposits"),
     ],
     "Tools": [
         ("Tools", "docs/tools", "Developer tool documentation"),
@@ -127,6 +134,11 @@ CURATED_SECTIONS = {
 ENGLISH_EXTRAS = {
     "Documentation": [
         ("Documentation Tags", "docs/tags", "Browse documentation pages grouped by topic tags"),
+    ],
+    "Video Tutorials": [
+        ("Video Tutorials", "docs/video-guides", "Courses and hands-on Solana projects"),
+        ("Solana Crash Course", "docs/video-guides/solana-crash-course", "Build from environment setup through program deployment"),
+        ("2026 Developer Bootcamp", "docs/video-guides/2026-developer-bootcamp", "Build Solana projects in a long-form course"),
     ],
     "Learn": [
         ("What is Solana", "learn/what-is-solana", "Introduction to Solana for beginners"),
@@ -166,6 +178,7 @@ ENGLISH_EXTRAS = {
         ("Rust Programs", "docs/programs/rust", "Build Solana programs in Rust"),
         ("Deploying Programs", "docs/programs/deploying", "Deploy Solana programs to a cluster"),
         ("IDLs", "docs/programs/idls", "Define interfaces for Solana programs"),
+        ("Generating Clients", "docs/programs/codama/clients", "Generate TypeScript and Rust clients from a program IDL"),
         ("Verifying Programs", "docs/programs/verified-builds", "Verify deployed Solana program builds"),
         ("Program Examples", "docs/programs/examples", "Examples for building Solana programs"),
         ("Program Limitations", "docs/programs/limitations", "Runtime and resource limits for Solana programs"),

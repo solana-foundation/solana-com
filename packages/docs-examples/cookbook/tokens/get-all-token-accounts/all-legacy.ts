@@ -1,12 +1,12 @@
 // #region all
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js-legacy";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 // connection
 const connection = new Connection("http://localhost:8899", "confirmed");
 
 const owner = new PublicKey("4kg8oh3jdNtn7j2wcS7TrUua31AgbLzDVkBZgTAe44aF");
-let response = await connection.getParsedTokenAccountsByOwner(owner, {
+const response = await connection.getParsedTokenAccountsByOwner(owner, {
   programId: TOKEN_PROGRAM_ID,
 });
 

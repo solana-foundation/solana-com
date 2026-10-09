@@ -7,6 +7,11 @@ import { X } from "@boxicons/react/X";
 import { useTranslations } from "@workspace/i18n/client";
 import defaultAgendaData from "@/data/agenda.json";
 import { fadeInUp } from "@/lib/animations";
+import type {
+  AgendaData,
+  AgendaSession as Session,
+  AgendaSpeaker as Speaker,
+} from "@/lib/agenda-types";
 import type { Variants } from "motion/react";
 
 const staggerAgenda: Variants = {
@@ -16,32 +21,6 @@ const staggerAgenda: Variants = {
     },
   },
 };
-
-interface Speaker {
-  name?: string;
-  title?: string;
-  company?: string;
-}
-
-interface Session {
-  id: string;
-  time: string;
-  title: string;
-  subtitle?: string;
-  type:
-    | "keynote"
-    | "panel"
-    | "fireside"
-    | "lightning"
-    | "break"
-    | "demo"
-    | "closing";
-  format?: string;
-  location: string;
-  duration?: string;
-  moderator?: Speaker;
-  speakers: Speaker[];
-}
 
 type FilterMode = "type" | "format";
 
@@ -65,17 +44,33 @@ function getFormatGroup(format?: string): string | undefined {
 }
 
 function getFormatFilterId(formatGroup: string): string {
-  return `format:${formatGroup.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  return `format:${encodeURIComponent(formatGroup.toLocaleLowerCase())}`;
 }
 
-function getSessionFilterId(session: Session, filterMode: FilterMode): string {
-  const formatGroup = getFormatGroup(session.format);
+function getSessionFormats(session: Session): string[] {
+  const formats = session.formats?.length
+    ? session.formats
+    : session.format
+      ? [session.format]
+      : [];
+  return [...new Set(formats.map((format) => format.trim()).filter(Boolean))];
+}
 
-  if (filterMode === "format" && formatGroup) {
-    return getFormatFilterId(formatGroup);
+function getSessionFilterIds(
+  session: Session,
+  filterMode: FilterMode,
+  exactFormatLabels = false,
+): string[] {
+  if (filterMode === "format") {
+    const formats = getSessionFormats(session);
+    const formatIds = formats
+      .map((format) => (exactFormatLabels ? format : getFormatGroup(format)))
+      .filter((format): format is string => Boolean(format))
+      .map(getFormatFilterId);
+    if (formatIds.length > 0) return [...new Set(formatIds)];
   }
 
-  return `type:${session.type}`;
+  return [`type:${session.type}`];
 }
 
 function SessionTypeBadge({
@@ -172,18 +167,27 @@ function SessionCard({
   typeLabels,
   formatLabels,
   moderatorLabel,
+  exactFormatLabels,
+  rightColumnLabel,
 }: {
   session: Session;
   typeLabels: Record<string, string>;
   formatLabels: Record<string, string>;
   moderatorLabel: string;
+  exactFormatLabels: boolean;
+  rightColumnLabel?: string;
 }) {
   const isBreak = session.type === "break" || session.type === "closing";
-  const formatGroup = getFormatGroup(session.format);
+  const formats = getSessionFormats(session);
+  const formatLabel = formats.join(", ");
+  const exactFormatLabel = formats.length > 0 ? formatLabel : undefined;
+  const formatGroup = getFormatGroup(formats[0]);
   const typeLabel =
+    (exactFormatLabels ? exactFormatLabel : undefined) ??
     (formatGroup && formatLabels[formatGroup]) ??
     typeLabels[session.type] ??
     session.type;
+  const rightColumnValue = rightColumnLabel ? session.track : session.location;
 
   return (
     <motion.div
@@ -202,7 +206,7 @@ function SessionCard({
             isBreak ? "text-white/40" : "text-accelerate-green"
           }`}
         >
-          {session.time}
+          {session.time ?? ""}
         </p>
         <div className="md:hidden">
           <SessionTypeBadge type={session.type} label={typeLabel} />
@@ -232,16 +236,27 @@ function SessionCard({
           </p>
         )}
         <SpeakerList
-          speakers={session.speakers}
+          speakers={session.speakers ?? []}
           moderator={session.moderator}
           moderatorLabel={moderatorLabel}
         />
       </div>
 
-      {/* Location */}
-      <div className="hidden text-right md:block">
-        <p className="text-sm text-white/40">{session.location}</p>
-      </div>
+      {/* Location or event-specific track */}
+      {rightColumnLabel ? (
+        <div className="text-sm text-white/40 md:text-right">
+          {rightColumnValue ? (
+            <p>
+              <span className="md:hidden">{rightColumnLabel}: </span>
+              {rightColumnValue}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="hidden text-right md:block">
+          <p className="text-sm text-white/40">{session.location}</p>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -335,6 +350,7 @@ function FilterBar({
         {searchQuery && (
           <button
             onClick={() => setSearchQuery("")}
+            aria-label={clearLabel}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white/70"
           >
             <X className="h-4 w-4" />
@@ -372,26 +388,30 @@ function FilterBar({
   );
 }
 
-interface AgendaData {
-  event: {
-    name: string;
-    date?: string;
-    venue?: string;
-    hall?: string;
-    mc?: string;
-  };
-  focusTopics: Array<{ title: string; description: string }>;
-  sessions: Session[];
-}
-
 interface AgendaProps {
   data?: AgendaData;
   filterMode?: FilterMode;
+  exactFormatLabels?: boolean;
+  formatOrder?: readonly string[];
+  rightColumnLabel?: string;
+  timeZoneLabel?: string;
+  searchPlaceholder?: string;
+  filterByTypeLabel?: string;
 }
 
-export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
-  const { event, focusTopics, sessions } =
-    data ?? (defaultAgendaData as AgendaData);
+export function Agenda({
+  data,
+  filterMode = "type",
+  exactFormatLabels = false,
+  formatOrder,
+  rightColumnLabel,
+  timeZoneLabel,
+  searchPlaceholder,
+  filterByTypeLabel,
+}: AgendaProps = {}) {
+  const agendaData = data ?? (defaultAgendaData as AgendaData);
+  const { event, sessions } = agendaData;
+  const focusTopics = agendaData.focusTopics ?? [];
   const t = useTranslations("accelerate.agenda");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -425,36 +445,61 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
       const seen = new Set<string>();
       const options = (sessions as Session[]).reduce<FilterOption[]>(
         (items, session) => {
-          const formatGroup = getFormatGroup(session.format);
-          const id = formatGroup
-            ? getFormatFilterId(formatGroup)
-            : getSessionFilterId(session, filterMode);
-          if (seen.has(id)) return items;
+          const formats = getSessionFormats(session);
+          let hasFormatFilter = false;
+          for (const format of formats) {
+            const formatGroup = getFormatGroup(format);
+            const filterFormat = exactFormatLabels ? format : formatGroup;
+            if (!filterFormat) continue;
+            hasFormatFilter = true;
+            const id = getFormatFilterId(filterFormat);
+            if (seen.has(id)) continue;
 
-          seen.add(id);
-          items.push({
-            id,
-            type: session.type,
-            label:
-              (formatGroup && formatLabels[formatGroup]) ??
-              typeLabels[session.type] ??
-              session.type,
-          });
+            seen.add(id);
+            items.push({
+              id,
+              type: session.type,
+              label:
+                (exactFormatLabels ? format : undefined) ??
+                (formatGroup && formatLabels[formatGroup]) ??
+                typeLabels[session.type] ??
+                session.type,
+            });
+          }
+          if (!hasFormatFilter) {
+            const id = `type:${session.type}`;
+            if (!seen.has(id)) {
+              seen.add(id);
+              items.push({
+                id,
+                type: session.type,
+                label: typeLabels[session.type] ?? session.type,
+              });
+            }
+          }
           return items;
         },
         [],
       );
 
-      const formatOrder = new Map(
-        ["open-close", "fireside", "keynote", "break", "panel"].map(
-          (format, index) => [`format:${format}`, index],
-        ),
+      const preferredFormats = formatOrder ?? [
+        "Open/Close",
+        "Fireside",
+        "Keynote",
+        "Break",
+        "Panel",
+      ];
+      const formatRanks = new Map(
+        preferredFormats.map((format, index) => [
+          getFormatFilterId(format),
+          index,
+        ]),
       );
 
       return options.sort(
         (a, b) =>
-          (formatOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
-          (formatOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+          (formatRanks.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+          (formatRanks.get(b.id) ?? Number.MAX_SAFE_INTEGER),
       );
     }
 
@@ -463,7 +508,14 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
       type,
       label: typeLabels[type] ?? type,
     }));
-  }, [filterMode, formatLabels, sessions, typeLabels]);
+  }, [
+    exactFormatLabels,
+    filterMode,
+    formatLabels,
+    formatOrder,
+    sessions,
+    typeLabels,
+  ]);
 
   const toggleFilter = (filterId: string) => {
     setSelectedFilters((prev) =>
@@ -485,7 +537,9 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
       // Filter by type or Airtable format.
       if (
         selectedFilters.length > 0 &&
-        !selectedFilters.includes(getSessionFilterId(session, filterMode))
+        !getSessionFilterIds(session, filterMode, exactFormatLabels).some(
+          (filterId) => selectedFilters.includes(filterId),
+        )
       ) {
         return false;
       }
@@ -497,12 +551,15 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
           session.title,
           session.subtitle,
           session.location,
+          session.track,
+          session.format,
+          ...(session.formats ?? []),
           session.moderator?.name,
           session.moderator?.company,
           session.moderator?.title,
-          ...session.speakers.map((s) => s.name),
-          ...session.speakers.map((s) => s.company),
-          ...session.speakers.map((s) => s.title),
+          ...(session.speakers ?? []).map((s) => s.name),
+          ...(session.speakers ?? []).map((s) => s.company),
+          ...(session.speakers ?? []).map((s) => s.title),
         ]
           .filter(Boolean)
           .join(" ")
@@ -515,7 +572,7 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
 
       return true;
     });
-  }, [filterMode, sessions, searchQuery, selectedFilters]);
+  }, [exactFormatLabels, filterMode, sessions, searchQuery, selectedFilters]);
 
   const sessionCount = filteredSessions.length;
   const totalCount = (sessions as Session[]).length;
@@ -560,6 +617,11 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
           )}
 
           {/* Filter Bar */}
+          {timeZoneLabel ? (
+            <p className="mb-4 text-xs uppercase tracking-[0.12em] text-white/40">
+              {timeZoneLabel}
+            </p>
+          ) : null}
           <FilterBar
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -568,8 +630,8 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
             clearFilters={clearFilters}
             hasActiveFilters={hasActiveFilters}
             filterOptions={filterOptions}
-            searchPlaceholder={t("searchPlaceholder")}
-            filterByTypeLabel={t("filterByType")}
+            searchPlaceholder={searchPlaceholder ?? t("searchPlaceholder")}
+            filterByTypeLabel={filterByTypeLabel ?? t("filterByType")}
             clearLabel={t("clear")}
           />
 
@@ -594,7 +656,7 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
               {t("sessionHeader")}
             </p>
             <p className="text-right text-sm font-medium uppercase tracking-wider text-white/40">
-              {t("locationHeader")}
+              {rightColumnLabel ?? t("locationHeader")}
             </p>
           </motion.div>
 
@@ -609,6 +671,8 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
                     typeLabels={typeLabels}
                     formatLabels={formatLabels}
                     moderatorLabel={t("moderator")}
+                    exactFormatLabels={exactFormatLabels}
+                    rightColumnLabel={rightColumnLabel}
                   />
                 ))
               ) : (
@@ -632,7 +696,7 @@ export function Agenda({ data, filterMode = "type" }: AgendaProps = {}) {
           </div>
 
           {/* MC Note */}
-          {event.mc && (
+          {event?.mc && (
             <motion.div
               variants={fadeInUp}
               className="mt-10 border-t border-white/10 pt-6"

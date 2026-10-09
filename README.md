@@ -17,10 +17,10 @@ solana-com/
 │   ├── accelerate/   # Event microsite - port 3004
 │   └── breakpoint/   # Event microsite - port 3005
 ├── packages/
-│   ├── config-eslint/       # Shared ESLint configs
+│   ├── config-oxlint/       # Shared oxlint configs
 │   ├── config-typescript/   # Shared TypeScript configs
 │   ├── docs-examples/       # Tested cookbook source snippets
-│   ├── ecosystem-data/      # Shared company and logo registry
+│   ├── ecosystem-data/      # Shared company and wallet registry
 │   ├── fab-menu/            # Reusable Solana property menu
 │   ├── i18n/                # Shared i18n utilities (next-intl)
 │   ├── sentry/              # Shared Sentry helpers
@@ -47,7 +47,8 @@ Shared packages worth checking early:
 
 - `packages/ui-chrome` for shared header/footer and cross-app link behavior
 - `packages/i18n` for locale config and message loading
-- `packages/ecosystem-data` for canonical company data and logos
+- `packages/ecosystem-data` for canonical company data, wallet records, and
+  logos
 
 ## Setup
 
@@ -130,3 +131,20 @@ The solana.com website is managed and maintained by the Solana Foundation. See
 - [`apps/templates/AGENTS.md`](./apps/templates/AGENTS.md) — Templates
 - [`apps/accelerate/AGENTS.md`](./apps/accelerate/AGENTS.md) — Accelerate
 - [`apps/breakpoint/AGENTS.md`](./apps/breakpoint/AGENTS.md) — Breakpoint
+
+## Using Just
+
+[`just`](https://github.com/casey/just) wraps the common turbo and oxfmt
+commands (see the [`justfile`](./justfile)). Run `just` to list all recipes.
+Most take an optional target: an app or package name (`docs`, `web`, `media`,
+`ui`, ...), `acc`/`bp`, or a raw turbo filter.
+
+```bash
+just docs                      # dev server for apps/docs (also: web, media, templates, acc, bp)
+just build docs                # build one app (omit the target for everything)
+just lint web                  # lint, typecheck and test work the same way
+just typecheck docs
+just fmt apps/docs/foo.mdx     # oxfmt on files, folders or app names
+just fmt-changed               # format only files changed vs origin/main
+just check docs                # format check + lint + typecheck + test, as CI does
+```

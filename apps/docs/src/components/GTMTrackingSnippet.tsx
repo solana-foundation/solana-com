@@ -15,7 +15,7 @@ const GTMTrackingSnippet = () => {
 
   return (
     <>
-      {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document -- rendered from the app root layout before GTM loads */}
+      {/* oxlint-disable-next-line next/no-before-interactive-script-outside-document -- rendered from the app root layout before GTM loads */}
       <Script strategy="beforeInteractive" id="consent-default">
         {getCookieConsentDefaultScript()}
       </Script>

@@ -8,11 +8,8 @@ export const walletconnect = {
   name: "WalletConnect",
   profile: {
     tagline: "The wallet UX layer for the decentralized web.",
-    summary:
-      "WalletConnect provides wallet connectivity, messaging, and identity infrastructure for web3 applications.",
     description:
-      "WalletConnect is an open protocol and product ecosystem for connecting wallets to decentralized applications. It provides wallet connection, messaging, and identity infrastructure used by apps and wallets across multiple blockchain ecosystems.",
-    sector: "Developer Tools",
+      "WalletConnect is the digital asset infrastructure powering payments, trading, and compliance at global scale. Founded in 2018, the WalletConnect network connects over 900 million users and thousands of institutions across 700+ wallets, all major blockchains, and powered more than $400 billion in transaction volume in 2025.",
     type: "Platform",
     links: {
       website: "https://walletconnect.network/",

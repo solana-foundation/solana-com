@@ -16,6 +16,7 @@ const lock = fs.existsSync(lockPath)
   : null;
 const requestedScope = process.argv[2] ?? "all";
 const missingOnly = process.argv.includes("--missing-only");
+const staleSourcesOnly = process.argv.includes("--stale-json-sources");
 
 function isPatternInScope(pattern) {
   if (requestedScope === "all") {
@@ -142,9 +143,20 @@ for (const sourcePath of sourceFiles.filter((filePath) =>
     const missingKeys = sourceKeys.filter((key) => !targetKeys.has(key));
 
     if (missingKeys.length > 0) {
-      incompleteJsonTargets.push({ targetPath, missingKeys });
+      incompleteJsonTargets.push({ sourcePath, targetPath, missingKeys });
     }
   }
+}
+
+// The Lingo server can report a JSON target as cached while the committed
+// copy still lacks source keys. Print those sources so the runner can force
+// a scoped retranslation of exactly those files.
+if (staleSourcesOnly) {
+  const staleSources = [
+    ...new Set(incompleteJsonTargets.map(({ sourcePath }) => sourcePath)),
+  ];
+  console.log(JSON.stringify(staleSources));
+  process.exit(0);
 }
 
 if (lock) {

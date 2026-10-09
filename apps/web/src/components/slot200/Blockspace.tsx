@@ -20,25 +20,43 @@ export const Blockspace = React.memo(function Blockspace({
     () => new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }),
     [locale],
   );
-  const [agoText, setAgoText] = React.useState("");
-  const seenAt = React.useRef(0);
-  const lastSlot = React.useRef(0);
+  const [agoSeconds, setAgoSeconds] = React.useState<number | null>(null);
+  const seenAt = React.useRef<number | null>(null);
 
   React.useEffect(() => {
-    if (block && block.slot !== lastSlot.current) {
-      lastSlot.current = block.slot;
-      seenAt.current = Date.now();
+    if (block) {
+      // Keep the cached age, then advance it with the browser's monotonic clock.
+      seenAt.current =
+        block.ageAtReceiptMs == null || block.receivedAtMonotonicMs == null
+          ? null
+          : block.receivedAtMonotonicMs - block.ageAtReceiptMs;
+      setAgoSeconds(
+        seenAt.current === null
+          ? null
+          : Math.max(
+              0,
+              Math.round((performance.now() - seenAt.current) / 1000),
+            ),
+      );
     }
   }, [block]);
 
   React.useEffect(() => {
     const timer = setInterval(() => {
-      if (!seenAt.current) return;
-      const ago = Math.max(0, Math.round((Date.now() - seenAt.current) / 1000));
-      setAgoText(ago <= 4 ? t("live") : t("ago", { s: ago }));
+      if (seenAt.current === null) return;
+      setAgoSeconds(
+        Math.max(0, Math.round((performance.now() - seenAt.current) / 1000)),
+      );
     }, 1000);
     return () => clearInterval(timer);
-  }, [t]);
+  }, []);
+
+  const agoText =
+    agoSeconds === null
+      ? ""
+      : agoSeconds <= 4
+        ? t("live")
+        : t("ago", { s: agoSeconds });
 
   const rows = block?.programs.slice(0, MAX_ROWS) ?? [];
   const tail = block ? block.programs.slice(MAX_ROWS) : [];
@@ -54,7 +72,7 @@ export const Blockspace = React.memo(function Blockspace({
               slot: nf.format(block.slot),
               txs: nf.format(block.nonVotes),
               votes: nf.format(block.votes),
-            })} · ${agoText}`
+            })}${agoText ? ` · ${agoText}` : ""}`
           : t("metaSyncing")
       }
     >

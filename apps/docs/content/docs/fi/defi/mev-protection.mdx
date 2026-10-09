@@ -1,48 +1,44 @@
 ---
 title: "MEV-suojaus Jito DontFrontilla"
 description:
-  "Learn how to protect your Solana transactions from sandwich attacks using
-  Jito's dontfront feature. This guide covers how sandwich attacks work, how
-  dontfront prevents front-running, bundle ordering rules, tip strategies, and
-  integration examples in TypeScript and Rust."
+  Opi suojaamaan Solana-transaktiot sandwich-hyökkäyksiltä Jiton dontfront-ominaisuuden avulla. Tämä opas kattaa sandwich-hyökkäysten toimintaperiaatteen, dontfrontin estämän front-runningin, bundle-järjestyyssäännöt, tip-strategiat sekä integrointiesimerkit TypeScriptillä ja Rustilla.
 ---
 
 # MEV-suojaus Jito DontFrontilla
 
-Maximal Extractable Value (MEV) tarkoittaa arvoa, joka voidaan kaapata järjestelemällä, sisällyttämällä tai jättämällä pois transaktioita lohkosta. MEV ei ole yksinomainen minkään tietyn ketjun ominaisuus – se on kaikkien lohkoketjujen perusominaisuus, joissa lohkojen tuottajat hallitsevat transaktioiden järjestystä. Jotkin MEV:n muodot, kuten arbitraasi, auttavat pitämään markkinat tehokkaina korjaamalla hintaeroja DEX-pörssien välillä. Toiset, kuten sandwich-hyökkäykset, vievät arvoa suoraan käyttäjiltä. DeFi-sovelluksia rakentaville kehittäjille tämä voi tarkoittaa heikompaa kaupankäynnin toteutusta ja menetettyä tuottoa.
+Maximal Extractable Value (MEV) tarkoittaa arvoa, jota voidaan kaapata järjestelemällä, sisällyttämällä tai jättämällä pois transaktioita lohkosta. MEV ei ole minkään yksittäisen ketjun erityispiirre – se on perustavanlaatuinen ominaisuus jokaisessa lohkoketjussa, jossa lohkon tuottajat hallitsevat transaktioiden järjestystä. Jotkut MEV:n muodot, kuten arbitraasi, auttavat pitämään markkinat tehokkaina korjaamalla hintaeroja DEX-pörssien välillä. Toiset, kuten sandwich-hyökkäykset, kaappaavat arvoa suoraan käyttäjiltä. DeFi-sovelluksia rakentaville kehittäjille tämä voi tarkoittaa heikompaa kaupankäyntisuorituskykyä ja menetettyä voittoa.
 
-Tämä opas keskittyy sandwich-hyökkäyksiin, yleiseen haitallisen MEV:n muotoon, ja siihen, miten niitä voidaan lieventää Jiton `dontfront`-ominaisuuden avulla.
+Tämä opas keskittyy sandwich-hyökkäyksiin, yleiseen haitallisen MEV:n muotoon, ja niiden lieventämiseen Jiton `dontfront`-ominaisuuden avulla.
 
 Suositellut esitiedot:
 [Jito Bundles](https://solana.com/docs/tools/production-readiness#jito-bundles)
 
 ## MEV Solanassa
 
-Solanan arkkitehtuuri pienentää jo valmiiksi MEV:n pintaa verrattuna ketjuihin, joissa on julkiset mempoolit. Transaktiot välitetään suoraan tulevalle lohkonjohtajalle sen sijaan, että ne odottaisivat jaetussa mempoolissa, ja käsittelemättömät transaktiot vanhenevat noin 150 lohkon (~1 minuutin) jälkeen. Tämä kaventaa merkittävästi aikaikkunaa, jonka aikana hakijat voivat tarkkailla odottavia transaktioita ja toimia niiden perusteella.
+Solanan arkkitehtuuri pienentää jo valmiiksi MEV:n vaikutusaluetta verrattuna julkisen mempoolin ketjuihin. Transaktiot välitetään suoraan tulevalle lohkojohtajalle sen sijaan, että ne odottaisivat jaetussa mempoolissa, ja käsittelemättömät transaktiot vanhenevat noin 150 lohkon (~1 minuutin) jälkeen. Tämä kaventaa merkittävästi hakijoiden aikaikkuna havaita ja reagoida vireillä oleviin transaktioihin.
 
-Siitä huolimatta MEV:n hyödyntämistä tapahtuu edelleen. Optimoidun infrastruktuurin ja suorien validator-yhteyksien avulla hakijat voivat tarkkailla transaktiovirtaa ja reagoida siihen. Suuri osa Solanan MEV-toiminnasta on atomista arbitraasia: botteja, jotka korjaavat hintaeroja DEX-pörssien välillä yhdessä transaktiossa. Tämä MEV:n muoto on yleisesti ottaen hyödyllinen, sillä se parantaa hintajohdonmukaisuutta markkinoiden välillä.
+MEV-kaappaus tapahtuu kuitenkin edelleen. Hakijat, joilla on optimoitu infrastruktuuri ja suorat validator-yhteydet, voivat tarkkailla transaktiovirtaa ja reagoida siihen. Suuri osa Solanan MEV-toiminnasta on atomista arbitraasia: botteja, jotka korjaavat hintaerot DEX-pörssien välillä yhdellä transaktiolla. Tämäntyyppiinen MEV on yleisesti ottaen hyödyllistä, sillä se parantaa hintojen yhdenmukaisuutta markkinoilla.
 
 Haitallinen muoto, sandwich-hyökkäykset, on se, mitä kehittäjien tulisi aktiivisesti suojautua vastaan.
 
 ## Mikä on sandwich-hyökkäys?
 
-Sandwich-hyökkäys tapahtuu, kun hakija havaitsee odottavan swap-transaktiosi ja hyödyntää transaktioiden järjestystä:
+Sandwich-hyökkäys tapahtuu, kun hakija havaitsee vireillä olevan vaihtotransaktiosi ja hyödyntää transaktioiden järjestystä:
 
-1. **Etuajo**: hakija ostaa tokenin ennen kauppaasi nostaen hintaa
-2. **Kauppasi toteutuu** odotettua huonommalla hinnalla
-3. **Takaajo**: hakija myy tokenin kauppasi jälkeen ja taskuttaa erotuksen
+1. **Front-run**: hakija ostaa tokenin ennen kauppaasi, nostaen hintaa
+2. **Kauppasi suoritetaan** odotettua huonommalla hinnalla
+3. **Back-run**: hakija myy tokenin kauppasi jälkeen ja taskuttaa erotuksen
 
 Solanassa tämä voi tapahtua
 [Jito-bundlejen](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles) kautta. Hakija lähettää bundlen, jossa on transaktioita kuten:
-`[frontrun_tx, your_tx, backrun_tx]`, ja lohkomoottori suorittaa ne atomisesti järjestyksessä. Uhri saa huonomman toteutushinnan, kun taas hakija hyötyy leviämisestä.
+`[frontrun_tx, your_tx, backrun_tx]`, ja lohkomoottori suorittaa ne atomisesti järjestyksessä. Uhri saa huonomman suoritushinnan, kun taas hakija hyötyy hintaerosta.
 
-## Miten DontFront toimii
+## DontFrontin toimintaperiaate
 
 [DontFront](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation) on
-Jito-lohkoomoottorin ominaisuus, joka estää hakijoita sijoittamasta
-transaktioita omasi eteen bundlessa.
+Jito-lohkomoottorin ominaisuus, joka estää hakijoita sijoittamasta transaktioita sinun transaktiosi eteen bundlessa.
 
-Mekanismi: lisää mikä tahansa kelvollinen Solanan julkinen avain, joka alkaa merkkijonolla `jitodontfront`, mihin tahansa transaktiosi ohjeeseen. Lohkomoottori tunnistaa tämän etuliitteen ja soveltaa sääntöä: **minkä tahansa transaktiosi sisältävän bundlen on sijoitettava se indeksiin 0**.
+Mekanismi: lisää mikä tahansa kelvollinen Solana-julkinen avain, joka alkaa `jitodontfront`-etuliitteellä, mihin tahansa transaktiosi käskyyn. Lohkomoottori tunnistaa tämän etuliitteen ja pakottaa säännön: **mikä tahansa transaktiosi sisältävä bundle pitää sijoittaa se indeksiin 0**.
 
 ```
 Without dontfront:  [frontrun_tx, your_tx, backrun_tx]  ← sandwich possible
@@ -51,15 +47,15 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
 
 ### Vaihe vaiheelta
 
-1. **Valitse kelvollinen osoite**, joka alkaa merkkijonolla `jitodontfront` (esim.
-   `jitodontfront111111111111111111111111111111`). Tilin ei tarvitse olla olemassa ketjussa; sitä ei koskaan lueta tai kirjoiteta. Voit varmistaa, että merkkijono on kelvollinen osoite, käyttämällä
-   [`assertIsAddress`](https://www.solanakit.com/api/functions/assertIsAddress)-funktiota
-   @solana/kit-paketista, tai voit syöttää osoitteen Solana Exploreriin tarkistaaksesi, ratkeaako se. Tässä on esimerkki
+1. **Valitse kelvollinen osoite**, joka alkaa `jitodontfront`-etuliitteellä (esim.
+   `jitodontfront111111111111111111111111111111`). Tilin ei tarvitse olla olemassa onchainissä; sitä ei koskaan lueta eikä kirjoiteta. Voit tarkistaa, onko merkkijono kelvollinen osoite, käyttämällä
+   [`assertIsAddress`](https://www.solanakit.com/api/functions/assertIsAddress)
+   -funktiota @solana/kit-paketista, tai voit syöttää osoitteen Solana Exploreriin nähdäksesi, ratkeaako se. Tässä on esimerkki
    [virheellisestä osoitteesta](https://explorer.solana.com/address/jitodontfront11111111111111111111111111111INVALID).
 
-2. **Lisää se vain luku -tilassa olevana, ei-allekirjoittavana tilinä** mihin tahansa transaktiosi ohjeeseen. Merkitse se vain luku -tilaan optimaalisen laskeutumisnopeuden saavuttamiseksi. Useimmat ohjelmat (mukaan lukien System Program) ohittavat ylimääräiset tilit, joita ne eivät odota.
+2. **Lisää se vain luku -tilassa olevana, ei-allekirjoittajana** mihin tahansa transaktiosi käskyyn. Merkitse se vain luku -tilaan optimaalisen laskeutumisnopeuden saavuttamiseksi. Useimmat ohjelmat (mukaan lukien System Program) jättävät huomiotta ylimääräiset tilit, joita ne eivät odota.
 
-3. **Lähetä Jito-lohkoomoottorin kautta**:
+3. **Lähetä Jito-lohkomoottorin kautta**:
    - `sendTransaction`:
      `https://mainnet.block-engine.jito.wtf/api/v1/transactions`
    - `sendBundle`: `https://mainnet.block-engine.jito.wtf/api/v1/bundles`
@@ -68,18 +64,18 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
    [sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
    ja [sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
 
-4. Lohkomoottori havaitsee `jitodontfront`-etuliitteen ja soveltaa järjestyssääntöjä.
+4. Lohkomoottori tunnistaa `jitodontfront`-etuliitteen ja pakottaa järjestyyssäännöt.
 
-### Mitä lohkoomoottorin päässä tapahtuu
+### Mitä tapahtuu lohkomoottorissa
 
 Kun lohkomoottori havaitsee transaktion, joka sisältää `jitodontfront`-tilin:
 
-- `sendTransaction`-kautta: transaktio on suojattu. Mikään bundle ei voi sijoittaa toista transaktiota sen eteen
-- `sendBundle`-kautta: transaktion on esiinnyttävä indeksissä 0, tai koko bundle hylätään
+- Via `sendTransaction`: transaktio on suojattu. Mikään bundle ei voi sijoittaa toista transaktiota sen eteen
+- Via `sendBundle`: transaktion on esiinnyttävä indeksissä 0, muuten koko bundle hylätään
 
-Transaktiot ja bundlet, jotka eivät sisällä `jitodontfront`-tiliä, eivät ole tämän vaikutuksen alaisia.
+Transaktiot ja bundlet, jotka eivät sisällä `jitodontfront`-tiliä, eivät ole vaikutuksen alaisia.
 
-## Bundlen järjestyssäännöt
+## Bundle-järjestyyssäännöt
 
 Nämä säännöt pätevät, kun `jitodontfront`-transaktio esiintyy bundlessa.
 
@@ -93,10 +89,11 @@ Nämä säännöt pätevät, kun `jitodontfront`-transaktio esiintyy bundlessa.
 
 ### Useita DontFront-transaktioita yhdessä bundlessa
 
-Useita dontfront-transaktioita yhdessä bundlessa sallitaan, kun **molemmat** ehdot täyttyvät:
+Useita dontfront-transaktioita yhdessä bundlessa sallitaan, kun **molemmat**
+ehdot täyttyvät:
 
-1. Kaikki dontfront-transaktiot ovat **peräkkäisiä bundlen alussa**
-2. Jokaisella dontfront-transaktiolla on **vähintään yksi allekirjoittaja yhteinen** ensimmäisen
+1. Kaikki dontfront-transaktiot ovat **peräkkäin bundlen alussa**
+2. Jokaisella dontfront-transaktiolla on **vähintään yksi yhteinen allekirjoittaja** ensimmäisen
    dontfront-transaktion kanssa
 
 ```
@@ -120,14 +117,14 @@ Useita dontfront-transaktioita yhdessä bundlessa sallitaan, kun **molemmat** eh
    → dontfront tx is not at the front
 ```
 
-## Integrointiesimerkkejä
+## Integrointiesimerkit
 
 Nopean koodireseptin löydät
-[MEV-suojauksen cookbook-merkinnästä](/developers/cookbook/transactions/mev-protection).
+[MEV-suojaus-cookbook-merkinnästä](/developers/cookbook/transactions/mev-protection).
 
 ### TypeScript (@solana/kit)
 
-Perusidea on apufunktio, joka liittää dontfront-tilin mihin tahansa ohjeeseen:
+Ydinajatus on apufunktio, joka liittää dontfront-tilin mihin tahansa käskyyn:
 
 <CodeTabs storage="guide-mev">
 
@@ -176,7 +173,7 @@ fn with_dontfront(ix: &mut Instruction) {
 
 </CodeTabs>
 
-Lähetä sen jälkeen allekirjoitettu transaktio Jito-lohkoomoottorin kautta tavallisen RPC-noden sijaan. Käytä aina base64-enkoodausta. Base58 on vanhentunut Jiton API:ssa.
+Lähetä sitten allekirjoitettu transaktio Jito-lohkomoottorille tavallisen RPC-noden sijaan. Käytä aina base64-koodausta. Base58 on poistettu käytöstä Jiton API:ssa.
 
 <CodeTabs storage="guide-mev">
 
@@ -221,43 +218,45 @@ let response = client
 
 ## Parhaat käytännöt
 
-DontFront on yksi suojauskerros. Kattava MEV-lieventämisstrategia yhdistää useita lähestymistapoja:
+DontFront on yksi suojaustaso. Kattava MEV-lieventämisstrategia yhdistää useita lähestymistapoja:
 
 ### Transaktiotason suojaus
 
-- **Aseta tiukat slippage-toleranssit.** Tehokkain yksittäinen puolustuskeino sandwich-hyökkäyksiä vastaan on hyväksyttävän slippagen rajoittaminen swapauksissa. Pienempi slippage-ikkuna pienentää hyökkääjille saatavilla olevaa tuottomarginaalia, tehden transaktiostasi vähemmän houkuttelevan sandwich-hyökkäykselle.
+- **Aseta tiukat slippage-toleranssit.** Tehokkain yksittäinen puolustus sandwich-hyökkäyksiä vastaan on hyväksyttävän slippagen rajoittaminen vaihtoissa. Pienempi slippage-ikkuna pienentää hyökkääjille saatavilla olevaa voittomarginaalia, tehden transaktiostasi vähemmän houkuttelevan sandwich-kohteen.
 
-- **Aseta sopivat tipit ja prioriteettipalkkiot.** Ruuhkatilanteissa korkeammat tipit ja prioriteettipalkkiot lisäävät todennäköisyyttä, että transaktiosi/bundlesi laskeutuu nopeasti, vähentäen hakijoiden toiminta-aikaikkunaa. Katso Jiton dokumentaatiosta
-[Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount) saadaksesi lisätietoja sopivien tippien asettamisesta.
+- **Aseta sopivat tipit ja prioriteettipalkkiot.** Ruuhkautumisen aikana korkeammat tipit ja prioriteettipalkkiot lisäävät todennäköisyyttä, että transaktiosi/bundlesi laskeutuu nopeasti, pienentäen hakijoiden toimintaikkunaa. Katso Jiton dokumentaatio
+[Tip-määristä](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount) saadaksesi lisätietoja sopivien tippien asettamisesta.
 
-- **Optimoi laskentayksiköiden käyttö.** Jokaisessa lohkossa on rajallinen määrä laskentayksiköitä (ja tileillä on rajallinen määrä laskentayksiköitä lohkoa kohden). Maksimoidaksesi todennäköisyyden, että transaktiosi/bundlesi sisällytetään lohkoon, sinun tulisi optimoida laskentayksiköiden käyttö. Katso lisätiedot
-[Solanan laskentayksiköiden käytön optimointioppaasta](/developers/cookbook/transactions/optimize-compute).
+- **Optimoi laskentayksikköjen käyttö.** Jokaisella lohkolla on rajoitettu määrä laskentayksiköitä käytettävissä (ja tileillä on rajoitettu määrä laskentayksiköitä käytettävissä per lohko). Varmistaaksesi, että transaktiosi/bundlesi sisällyttämisen todennäköisyys lohkoon on maksimoitu, sinun tulisi optimoida laskentayksikköjen käyttösi. Katso
+[Kuinka optimoida laskentayksikköjen käyttö Solanassa](/developers/cookbook/transactions/optimize-compute)
+-opas yksityiskohtia varten.
 
-### DontFront-kohtaiset ohjeet
+### DontFront-kohtaiset suositukset
 
-1. **Merkitse dontfront-tili vain luku -tilaan.** Kirjoitettavaksi merkitseminen toimii, mutta vain luku -tila
+1. **Merkitse dontfront-tili vain luku -tilaan.** Kirjoitettava merkintä toimii, mutta vain luku -tila
    [optimoi laskeutumisnopeuden](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation).
 
-2. **Käytä sovelluksessa yksilöllistä dontfront-pubkey-avainta.** Mikä tahansa `jitodontfront`-alkuinen pubkey toimii. Yksilöllisen variantin käyttö (esim.
-   `jitodontfront111111111111111111111111111123`) mahdollistaa käytön erottamisen sovelluskohtaisesti ketjun tietoja tarkasteltaessa.
+2. **Käytä yksilöllistä dontfront-pubkey-avainta per sovellus.** Mikä tahansa `jitodontfront`-etuliitteellä alkava pubkey toimii. Yksilöllisen variantin käyttö (esim.
+   `jitodontfront111111111111111111111111111123`) antaa sinulle mahdollisuuden erottaa käyttö sovelluskohtaisesti onchain-dataa tarkastellessa.
 
-3. **DontFront tukee Address Lookup Tableseja.** Dontfront-tili voidaan sisällyttää ALT:n kautta. Älä kuitenkaan käytä ALT:eja tippitileille.
+3. **DontFront tukee Address Lookup Tableja.** Dontfront-tili voidaan sisällyttää ALT:n kautta. Älä kuitenkaan käytä ALT:eja tip-tileille.
 
 ## Rajoitukset
 
-- **Vain lohkomoottori.** DontFront on Jito-lohkoomoottorin toteuttama. Transaktiot, jotka lähetetään suoraan validatoreille (Jiton ohittaen), eivät ole suojattuja.
+- **Vain lohkomoottori.** DontFront on Jito-lohkomoottorin pakottama.
+  Suoraan validatoreille lähetetyt transaktiot (Jiton ohittaen) eivät ole suojattuja.
 
-- **Ei takuu.** Jiton dokumentaatiosta: _"Tämä ominaisuus voi auttaa vähentämään sandwich-hyökkäyksiä, mutta ei takaa sitä, eikä se ole ratkaisu kaikkiin transaktioiden järjestykseen liittyviin vaihteluihin, mukaan lukien kolmansien osapuolten suorittama järjestely."_
+- **Ei takuu.** Jiton dokumentaatiosta: _"Tämä ominaisuus voi auttaa vähentämään sandwich-hyökkäyksiä, mutta ei takaa sitä, eikä se ole ratkaisu kaikkiin transaktioiden järjestyksen vaihteluihin, mukaan lukien kolmansien osapuolten suorittama järjestely."_
 
-- **Vain Mainnet/Testnet.** Tämä on Jito-lohkoomoottorin ominaisuus. Se ei toimi devnetissä tai localhostissa.
+- **Vain Mainnet/Testnet.** Tämä on Jito-lohkomoottorin ominaisuus. Se ei toimi devnetissä tai localhostissa.
 
 ## Viitteet
 
-- [Jito Docs: Sandwich Mitigation](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
-- [Jito Docs: sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
-- [Jito Docs: sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
-- [Jito Docs: Tip Accounts](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)
-- [Jito Docs: Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)
+- [Jito-dokumentaatio: Sandwich-lieventäminen](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
+- [Jito-dokumentaatio: sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
+- [Jito-dokumentaatio: sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+- [Jito-dokumentaatio: Tip-tilit](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)
+- [Jito-dokumentaatio: Tip-määrät](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)
 - [Tip Floor API](https://bundles.jito.wtf/api/v1/bundles/tip_floor)
-- [@solana/kit on GitHub](https://github.com/anza-xyz/kit)
-- [solana-sdk on crates.io](https://crates.io/crates/solana-sdk)
+- [@solana/kit GitHubissa](https://github.com/anza-xyz/kit)
+- [solana-sdk crates.io:ssa](https://crates.io/crates/solana-sdk)

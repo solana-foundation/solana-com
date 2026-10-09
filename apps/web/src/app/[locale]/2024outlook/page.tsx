@@ -2,6 +2,7 @@ import { Outlook2024Page } from "./outlook-2024";
 import { getIndexMetadata } from "@/app/metadata";
 import { getTranslations } from "next-intl/server";
 import { META, SWITCHBACK } from "../../../data/2024outlook";
+import { ArchiveNotice } from "@/components/archive-notice";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -9,6 +10,7 @@ export const revalidate = 60;
 
 export default async function Page(_props: Props) {
   const t = await getTranslations("2024outlook");
+  const archiveT = await getTranslations("archiveNotice");
 
   const translations = {
     heroEyebrow: t("hero.eyebrow"),
@@ -45,7 +47,18 @@ export default async function Page(_props: Props) {
     buttonsWatch: t("buttons.watch"),
   };
 
-  return <Outlook2024Page translations={translations} />;
+  return (
+    <>
+      <ArchiveNotice
+        label={archiveT("label")}
+        period="January 2024"
+        description={archiveT("outlook2024")}
+        href="/reports"
+        linkLabel={archiveT("reportsLink")}
+      />
+      <Outlook2024Page translations={translations} />
+    </>
+  );
 }
 
 export async function generateMetadata({ params }: Props) {
@@ -58,6 +71,7 @@ export async function generateMetadata({ params }: Props) {
   });
   return {
     ...base,
+    robots: { index: false, follow: true },
     openGraph: {
       ...base.openGraph,
       images: [META.seoImage],

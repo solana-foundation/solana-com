@@ -1,4 +1,11 @@
-import { Quantico } from "next/font/google";
+import { Comic_Neue, Quantico } from "next/font/google";
+
+export const summerSchoolTitle = Comic_Neue({
+  subsets: ["latin"],
+  variable: "--font-summer-school-title",
+  display: "swap",
+  weight: ["400", "700"],
+});
 
 // This variable is deliberately attached only by the Summer School route.
 // Keeping it here (rather than the app layout) prevents the zine type system

@@ -5,6 +5,16 @@ import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { MarkdownEmbed } from "@@/src/components/shared/MarkdownRenderer/components/MarkdownEmbed";
+import { VideoChapterList } from "@@/src/components/shared/VideoChapterList";
+import { ProjectCardGrid } from "@@/src/components/shared/ProjectCardGrid";
+import {
+  CourseHero,
+  CourseList,
+  SectionHeading,
+} from "@@/src/components/shared/CourseList";
+import { CourseFacts } from "@@/src/components/shared/CourseFacts";
+import { NextUp } from "@@/src/components/shared/NextUp";
+import { VideoWithChapters } from "@@/src/components/shared/VideoWithChapters";
 import { Code } from "@@/src/app/components/code/code";
 import { WithMentions, MentionLink } from "@@/src/app/components/code/mentions";
 import { WithNotes } from "@@/src/app/components/code/notes";
@@ -38,6 +48,14 @@ export const mdxComponents = {
   ...defaultMdxComponents,
   Callout,
   Embed: MarkdownEmbed,
+  VideoChapterList,
+  ProjectCardGrid,
+  CourseHero,
+  CourseList,
+  SectionHeading,
+  CourseFacts,
+  NextUp,
+  VideoWithChapters,
   Steps,
   Step,
   Accordion,
@@ -134,7 +152,7 @@ function ThemedDiagram({
   const lightSrc = src.replace(/\.svg$/, "-light.svg");
 
   return (
-    <figure className={`not-prose mt-5 mb-8 ${className}`}>
+    <span className={`not-prose mt-5 mb-8 block ${className}`}>
       <img
         {...props}
         src={lightSrc}
@@ -152,11 +170,11 @@ function ThemedDiagram({
         loading="lazy"
       />
       {showCaption && alt ? (
-        <figcaption className="mt-2 text-center text-sm text-fd-muted-foreground">
+        <span className="mt-2 block text-center text-sm text-fd-muted-foreground">
           {alt}
-        </figcaption>
+        </span>
       ) : null}
-    </figure>
+    </span>
   );
 }
 
