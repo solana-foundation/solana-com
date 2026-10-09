@@ -181,7 +181,16 @@ export default async function PostPage({
             </div>
 
             <h1 className="w-full mb-10 text-4xl md:text-5xl font-bold tracking-tight text-left">
-              {title}
+              {isChangelogPost && /^Solana Changelog:\s*.+$/i.test(title) ? (
+                <>
+                  <span className="block">Solana Changelog</span>
+                  <span className="mt-2 block">
+                    {title.replace(/^Solana Changelog:\s*/i, "")}
+                  </span>
+                </>
+              ) : (
+                title
+              )}
             </h1>
 
             {post.heroImage && (
