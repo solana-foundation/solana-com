@@ -5,7 +5,6 @@ import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import SectionHeadline from "@/components/SectionHeadline";
 import SponsorArtwork from "@/components/SponsorArtwork";
-import { SPONSOR_FORM_HREF } from "@/content/links";
 import { sponsorMarqueeRows, type SponsorMarqueeRow } from "@/content/sponsors";
 import { resolveSponsorLogo, type ResolvedSponsorLogo } from "@/lib/sponsors";
 
@@ -159,22 +158,13 @@ export default function SponsorsSection() {
             eyebrow={t("eyebrow")}
             headline={t("headline")}
           >
-            <div className="flex w-full flex-col items-center justify-center gap-xs md:w-auto md:flex-row">
-              <Button
-                arrow
-                className="w-full md:w-auto"
-                href={SPONSOR_FORM_HREF}
-                label={t("contactCta")}
-                variant="primary"
-              />
-              <Button
-                className="w-full md:w-auto"
-                href="/sponsors"
-                iconRight={<ArrowRightIcon />}
-                label={t("sponsorsCta")}
-                variant="secondary"
-              />
-            </div>
+            <Button
+              className="w-full md:w-auto"
+              href="/sponsors"
+              iconRight={<ArrowRightIcon />}
+              label={t("sponsorsCta")}
+              variant="primary"
+            />
           </SectionHeadline>
         </div>
 
