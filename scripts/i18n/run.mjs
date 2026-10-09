@@ -17,6 +17,8 @@ const config = JSON.parse(
 );
 const cliVersion = process.env.LINGO_CLI_VERSION ?? "1.16.0";
 const cliBin = process.env.LINGO_CLI_BIN;
+// Forced pushes overwrite every target of a source, so keep recovery narrow.
+const maxForcedSources = 20;
 const appScopes = new Set([
   "accelerate",
   "breakpoint",
@@ -157,6 +159,24 @@ function verifyTargetCoverage(scope, missingOnly = false) {
   ]);
 }
 
+function staleJsonSources(scope) {
+  const result = spawnSync(
+    "node",
+    [
+      "./scripts/i18n/verify-target-coverage.mjs",
+      scope,
+      "--stale-json-sources",
+    ],
+    { cwd: rootDir, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] },
+  );
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+
+  return JSON.parse(result.stdout);
+}
+
 async function main() {
   loadEnvironment();
   const scope = parseScope();
@@ -196,6 +216,23 @@ async function main() {
   if (scope === "all" && verifyTargetCoverage("all", true) !== 0) {
     console.log("Backfilling missing target files across the full config.");
     runLingo(["push", "--backfill-missing", "--wait"]);
+  }
+
+  // The server skips targets whose source hash it has already translated,
+  // even when the committed target never received that output. Force only
+  // those sources so the cache cannot keep returning stale JSON.
+  const staleSources = staleJsonSources(scope);
+  if (staleSources.length > maxForcedSources) {
+    console.error(
+      `Refusing to force-retranslate ${staleSources.length} sources (limit ${maxForcedSources}); run a scoped push manually.`,
+    );
+    process.exit(1);
+  }
+  if (staleSources.length > 0) {
+    console.log(
+      `Force-retranslating ${staleSources.length} source(s) with incomplete JSON targets.`,
+    );
+    runLingo(["push", ...staleSources, "--force", "--yes", "--wait"]);
   }
 
   runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs", scope]);
