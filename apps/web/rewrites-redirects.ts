@@ -918,6 +918,11 @@ export default {
       localeDestination: "/sitemap.xml",
     },
     { source: "/news/tag/:path*", destination: "/news" },
+    {
+      source: "/news/solana-changelog-agave-v4-1-0-rpc-2-0-and-alpenglow",
+      destination: "/news/solana-changelog-july-2-2026",
+      permanent: true,
+    },
     // /upgrades is now the source of truth for network upgrade status;
     // this hub post is retired.
     {
