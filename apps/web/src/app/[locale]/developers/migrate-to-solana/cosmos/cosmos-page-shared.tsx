@@ -92,7 +92,7 @@ export function AnimatedHeroSection({
                   className={[
                     "inline-flex items-center px-6 py-3 rounded-full text-sm font-brand font-semibold no-underline transition-opacity hover:opacity-90",
                     btn.hierarchy === "primary"
-                      ? "tw-bg-nd-cta tw-text-nd-on-cta-high-em-text"
+                      ? "bg-nd-cta text-nd-on-cta-high-em-text"
                       : "border border-white/30 text-white bg-transparent",
                   ].join(" ")}
                 >
@@ -109,8 +109,8 @@ export function AnimatedHeroSection({
 
 export function SectionDivider() {
   return (
-    <div className="tw-max-w-screen-xl tw-mx-auto tw-px-4 sm:tw-px-6 lg:tw-px-8 tw-my-12">
-      <div className="tw-border-t tw-border-white/10" />
+    <div className="mx-auto my-12 max-w-screen-xl px-4 sm:px-6 lg:px-8">
+      <div className="border-t border-white/10" />
     </div>
   );
 }

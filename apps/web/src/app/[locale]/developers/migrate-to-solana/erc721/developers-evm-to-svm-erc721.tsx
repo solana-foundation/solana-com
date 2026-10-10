@@ -9,7 +9,7 @@ import {
   Hero,
   HtmlParser,
   Section,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   BLOCK_STYLES,
@@ -97,56 +97,56 @@ export function DevelopersEvmToSvmErc721Page() {
             },
           }}
         >
-          <div key="copy-0" className="tw-html_parser">
+          <div key="copy-0" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "intro",
               styleKey: "spacingWithMargins",
             })}
           </div>
-          <div key="copy-1" className="tw-html_parser">
+          <div key="copy-1" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "tokenProgram",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-2" className="tw-html_parser">
+          <div key="copy-2" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "mintAddresses",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-3" className="tw-html_parser">
+          <div key="copy-3" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "approvalFlow",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-4" className="tw-html_parser">
+          <div key="copy-4" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "tokenProgramIntro",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-5">{renderCodeBlock(0)}</div>
-          <div key="copy-6" className="tw-html_parser">
+          <div key="copy-6" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "tokenProgramSummary",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-7" className="tw-html_parser">
+          <div key="copy-7" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "metadata",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-8" className="tw-html_parser">
+          <div key="copy-8" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "tradeoffs",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-9" className="tw-html_parser">
+          <div key="copy-9" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "comparisonIntro",
               styleKey: "spacing",
@@ -156,102 +156,102 @@ export function DevelopersEvmToSvmErc721Page() {
             key="table-10"
             responsiveStyles={BLOCK_STYLES.tableWrapper}
           >
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <HtmlParser
                 rawHtml={t.raw("contentEditor.blocks.comparisonTable")}
               />
             </div>
           </ResponsiveBox>
-          <div key="copy-11" className="tw-html_parser">
+          <div key="copy-11" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "mintGuide",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-12" className="tw-html_parser">
+          <div key="copy-12" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "howToIntro",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-13" className="tw-html_parser">
+          <div key="copy-13" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "howToName",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-14">{renderCodeBlock(1)}</div>
-          <div key="copy-15" className="tw-html_parser">
+          <div key="copy-15" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "nameDescription",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-16">{renderCodeBlock(2)}</div>
-          <div key="copy-17" className="tw-html_parser">
+          <div key="copy-17" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "howToSymbol",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-18">{renderCodeBlock(3)}</div>
-          <div key="copy-19" className="tw-html_parser">
+          <div key="copy-19" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "symbolDescription",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-20">{renderCodeBlock(4)}</div>
-          <div key="copy-21" className="tw-html_parser">
+          <div key="copy-21" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "howToTokenUri",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-22">{renderCodeBlock(5)}</div>
-          <div key="copy-23" className="tw-html_parser">
+          <div key="copy-23" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "tokenUriDescription",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-24">{renderCodeBlock(6)}</div>
-          <div key="copy-25" className="tw-html_parser">
+          <div key="copy-25" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "howToOwnerOf",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-26">{renderCodeBlock(7)}</div>
-          <div key="copy-27" className="tw-html_parser">
+          <div key="copy-27" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "ownerOfDescription",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-28">{renderCodeBlock(8)}</div>
-          <div key="copy-29" className="tw-html_parser">
+          <div key="copy-29" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "howToTransferFrom",
               styleKey: "spacingWithOffset",
             })}
           </div>
           <div key="code-30">{renderCodeBlock(9)}</div>
-          <div key="copy-31" className="tw-html_parser">
+          <div key="copy-31" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "transferFromIntro",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-32">{renderCodeBlock(10)}</div>
-          <div key="copy-33" className="tw-html_parser">
+          <div key="copy-33" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "transferFromAta",
               styleKey: "spacing",
             })}
           </div>
           <div key="code-34">{renderCodeBlock(11)}</div>
-          <div key="copy-35" className="tw-html_parser">
+          <div key="copy-35" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "exploreMore",
               styleKey: "spacing",

@@ -9,7 +9,7 @@ import {
   Hero,
   Stats,
   Switchback,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import {
   CARD_DECK_CARDS,
   CARD_DECK_COLUMNS,
@@ -110,8 +110,6 @@ export function DevelopersPaymentsPage() {
           desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
           cards={featureHighlightCards}
           buttons={[]}
-          // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
-          valueOf={() => false}
         />
       </ResponsiveBox>
       <ResponsiveBox responsiveStyles={blockSpacing}>

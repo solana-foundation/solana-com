@@ -5,7 +5,7 @@ import {
   CardDeck,
   ConversionPanel,
   Stats,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import { CONVERSION_PANEL_IMAGES } from "@/data/solutions/index";
 import { ResponsiveBox } from "@/component-library/responsive-box";

@@ -9,7 +9,7 @@ import {
   Hero,
   HtmlParser,
   Section,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   BLOCK_STYLES,
@@ -59,12 +59,16 @@ export function DevelopersEvmToSvmEip2612Page() {
             },
           }}
         >
-          <div key="copy-0" className="tw-html_parser">
+          <div key="copy-0" className="min-w-0 max-w-full overflow-x-auto">
             <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacingWithMargins}>
               <p>{t("contentEditor.intro")}</p>
             </ResponsiveBox>
           </div>
-          <div id="key-characteristics" key="copy-1" className="tw-html_parser">
+          <div
+            id="key-characteristics"
+            key="copy-1"
+            className="min-w-0 max-w-full overflow-x-auto"
+          >
             <h3>
               <strong>{t("contentEditor.keyCharacteristics.title")}</strong>
             </h3>
@@ -92,7 +96,7 @@ export function DevelopersEvmToSvmEip2612Page() {
           <div
             id="why-eip-2612-is-unnecessary-on-solana"
             key="copy-2"
-            className="tw-html_parser"
+            className="min-w-0 max-w-full overflow-x-auto"
           >
             <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
               <h2>
@@ -104,7 +108,7 @@ export function DevelopersEvmToSvmEip2612Page() {
           <div
             id="token-approval-model"
             key="copy-3"
-            className="tw-html_parser"
+            className="min-w-0 max-w-full overflow-x-auto"
           >
             <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacingNoBottom}>
               <h3>
@@ -116,7 +120,7 @@ export function DevelopersEvmToSvmEip2612Page() {
           <div
             id="fee-payer-(gas-delegation)-model"
             key="copy-4"
-            className="tw-html_parser"
+            className="min-w-0 max-w-full overflow-x-auto"
           >
             <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
               <h3>
@@ -128,7 +132,7 @@ export function DevelopersEvmToSvmEip2612Page() {
           <div
             id="how-to-do-eip-2612-on-solana"
             key="copy-5"
-            className="tw-html_parser"
+            className="min-w-0 max-w-full overflow-x-auto"
           >
             <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
               <h2>
@@ -140,7 +144,7 @@ export function DevelopersEvmToSvmEip2612Page() {
           <div
             id="1.-owner-pays-the-fee-(self-sponsored-transfer)"
             key="copy-6"
-            className="tw-html_parser"
+            className="min-w-0 max-w-full overflow-x-auto"
           >
             <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
               <h3>
@@ -162,7 +166,7 @@ export function DevelopersEvmToSvmEip2612Page() {
           <div
             id="2.-third-party-pays-the-fee-(relayed-transfer)"
             key="copy-8"
-            className="tw-html_parser"
+            className="min-w-0 max-w-full overflow-x-auto"
           >
             <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
               <h3>

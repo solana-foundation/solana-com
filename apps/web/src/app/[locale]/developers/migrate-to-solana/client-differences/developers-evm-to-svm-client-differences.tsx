@@ -8,7 +8,7 @@ import {
   Hero,
   HtmlParser,
   Section,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   NAV_BUTTONS,
@@ -147,7 +147,7 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
             },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             {renderTable(executionClientsTable)}
           </div>
         </ResponsiveBox>
@@ -165,7 +165,7 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
             },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             {renderTable(consensusClientsTable)}
           </div>
         </ResponsiveBox>
@@ -183,7 +183,7 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
             },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             {renderTable(solanaClientsTable)}
           </div>
         </ResponsiveBox>
@@ -207,7 +207,7 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
             small: { display: "flex" },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             {nodeTypeSummary.sections.map((section) => (
               <div key={section.title}>
                 <p>
@@ -235,7 +235,7 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
             small: { display: "none" },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             {renderTable(nodeComparisonTable)}
           </div>
         </ResponsiveBox>
@@ -248,7 +248,7 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
           <div id="summary">
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <h2>
                 <strong>{summary.title}</strong>
               </h2>

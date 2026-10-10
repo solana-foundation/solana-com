@@ -6,7 +6,7 @@ import {
   HtmlParser,
   Section,
   Switchback,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { useTranslations } from "next-intl";
 import {

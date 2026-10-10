@@ -8,7 +8,7 @@ import {
   Hero,
   HtmlParser,
   Section,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   NAV_BUTTONS,
@@ -147,7 +147,9 @@ export function DevelopersEvmToSvmConsensusPage() {
             },
           }}
         >
-          <div className="tw-html_parser">{renderTable(comparisonTable)}</div>
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            {renderTable(comparisonTable)}
+          </div>
         </ResponsiveBox>
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>

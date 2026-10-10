@@ -9,7 +9,7 @@ import {
   Hero,
   Stats,
   Switchback,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import {
   CARD_DECK_PRIMARY_CARDS,
   CARD_DECK_PRIMARY_COLUMNS,
@@ -159,8 +159,6 @@ export function DevelopersNftsPage() {
         desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
         cards={featureHighlightCards}
         buttons={featureHighlightButtons}
-        // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
-        valueOf={() => false}
       />
       <Heading
         eyebrow={t("headings.earlyMovers.eyebrow")}

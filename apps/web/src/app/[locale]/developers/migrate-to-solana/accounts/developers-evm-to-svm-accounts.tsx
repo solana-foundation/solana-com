@@ -2,12 +2,7 @@
 
 import { Columns } from "@/component-library/columns";
 import { ResponsiveBox } from "@/component-library/responsive-box";
-import {
-  CardDeck,
-  Heading,
-  Hero,
-  Section,
-} from "@solana-foundation/solana-lib";
+import { CardDeck, Heading, Hero, Section } from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   NAV_BUTTONS,
@@ -145,7 +140,7 @@ export function DevelopersEvmToSvmAccountsPage() {
             })}
           </ResponsiveBox>
           <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <p>{t("intro")}</p>
             </div>
           </ResponsiveBox>
@@ -153,7 +148,7 @@ export function DevelopersEvmToSvmAccountsPage() {
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
           <div id="account-ethereum">
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <h3>
                 <strong>{accountEthereum.title}</strong>
               </h3>
@@ -182,7 +177,7 @@ export function DevelopersEvmToSvmAccountsPage() {
             },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             <table style={{ width: "100%" }}>
               <thead>
                 <tr>
@@ -209,7 +204,7 @@ export function DevelopersEvmToSvmAccountsPage() {
         </ResponsiveBox>
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             {contractAccount.paragraphs.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
@@ -223,7 +218,7 @@ export function DevelopersEvmToSvmAccountsPage() {
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
           <div id="account-solana">
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <h3>
                 <strong>{accountSolana.title}</strong>
               </h3>
@@ -243,7 +238,7 @@ export function DevelopersEvmToSvmAccountsPage() {
             },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             <table style={{ width: "100%" }}>
               <thead>
                 <tr>
@@ -270,7 +265,7 @@ export function DevelopersEvmToSvmAccountsPage() {
         </ResponsiveBox>
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             {solanaAccountsNote.paragraphs.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
@@ -297,7 +292,7 @@ export function DevelopersEvmToSvmAccountsPage() {
             },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             <table style={{ width: "100%" }}>
               <thead>
                 <tr>
@@ -330,7 +325,7 @@ export function DevelopersEvmToSvmAccountsPage() {
             small: { display: "flex" },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             {accountMappingSmall.sections.map((section) => (
               <div key={section.title}>
                 <p>
@@ -358,7 +353,7 @@ export function DevelopersEvmToSvmAccountsPage() {
             small: { display: "none" },
           }}
         >
-          <div className="tw-html_parser">
+          <div className="min-w-0 max-w-full overflow-x-auto">
             <table style={{ width: "100%" }}>
               <tbody>
                 {accountMappingTable.rows.map((row, index) => (
@@ -377,7 +372,7 @@ export function DevelopersEvmToSvmAccountsPage() {
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
           <div id="account-abstraction">
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <h2>
                 <strong>{accountAbstraction.title}</strong>
               </h2>
@@ -403,7 +398,7 @@ export function DevelopersEvmToSvmAccountsPage() {
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
           <div id="account-abstraction-solana">
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <h3>
                 <strong>{accountAbstractionSolana.title}</strong>
               </h3>
@@ -414,7 +409,7 @@ export function DevelopersEvmToSvmAccountsPage() {
 
         <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
           <div id="summary">
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <h3>{summary.title}</h3>
               <ul>
                 {summary.items.map((item) => (

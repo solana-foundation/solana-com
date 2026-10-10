@@ -1,6 +1,6 @@
 "use client";
 
-import { Section, Switchback } from "@solana-foundation/solana-lib";
+import { Section, Switchback } from "@workspace/ui/landing";
 import { SWITCHBACK } from "@/data/community/report-2024-newsletter-sign-up";
 
 interface CommunityReport2024NewsletterSignUpPageProps {

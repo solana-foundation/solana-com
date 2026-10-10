@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Container } from "@/component-library/container";
-import { FeatureHighlight } from "@solana-foundation/solana-lib";
+import { FeatureHighlight } from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   CHAIN_SELECTOR,
@@ -18,29 +18,6 @@ import {
   AnimatedHeroSection,
   SectionDivider,
 } from "./cosmos/cosmos-page-shared";
-
-// `FeatureHighlightProps` is unusable upstream (broken `VariantProps`
-// inference), so this alias constrains the props this page actually passes.
-const FeatureHighlightComponent = FeatureHighlight as React.FC<{
-  headingAs?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-  eyebrow?: string;
-  headline?: string;
-  body?: string;
-  cards?: Array<{
-    feature?: string;
-    body?: string;
-    eyebrow?: string;
-    color?: string;
-    stat?: { value?: { statType?: string }; description?: string };
-    button?: {
-      label?: string;
-      hierarchy?: string;
-      size?: string;
-      url?: string;
-    };
-  }>;
-  buttons?: never[];
-}>;
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -126,9 +103,9 @@ export function DevelopersChainMigrationPage() {
       <ResponsiveBox responsiveStyles={blockSpacing}>
         <div
           id="choose-your-chain"
-          className="chain-selector-override tw-scroll-mt-24"
+          className="scroll-mt-24 xl:[&_section]:!px-0 [&_section]:!py-20 [&_[data-slot=feature-card]]:!min-h-[220px] [&_[data-slot=feature-card]]:!p-8 [&_[data-slot=feature-card]_h3]:!text-[2rem] [&_[data-slot=feature-card]_h3]:!leading-[1.2] [&_[data-slot=feature-card]_a]:!rounded-full [&_[data-slot=feature-card]_a]:!border-white/30 [&_[data-slot=feature-card]_a]:!bg-transparent [&_[data-slot=feature-card]_a]:!px-6 [&_[data-slot=feature-card]_a]:!py-3 [&_[data-slot=feature-card]_a]:!text-sm [&_[data-slot=feature-card]_a]:!font-semibold [&_[data-slot=feature-card]_a]:!normal-case [&_[data-slot=feature-card]_a]:!tracking-normal [&_h2]:!text-[32px] md:[&_h2]:!text-[40px] xl:[&_h2]:!text-[64px]"
         >
-          <FeatureHighlightComponent
+          <FeatureHighlight
             headingAs={CHAIN_SELECTOR.headingAs}
             eyebrow=""
             headline={t("chainSelector.headline")}
@@ -140,63 +117,6 @@ export function DevelopersChainMigrationPage() {
       </ResponsiveBox>
 
       <SectionDivider />
-
-      {/* oxlint-disable-next-line react/no-unknown-property -- styled-jsx requires the `jsx` and `global` boolean attributes */}
-      <style jsx global>{`
-        /* Only strip horizontal gutters once max-w-screen-xl centering
-           provides its own; below that the section's default responsive
-           padding keeps content off the screen edge. */
-        @media (min-width: 1280px) {
-          .chain-selector-override section,
-          .chain-selector-override section > div {
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-          }
-        }
-        .chain-selector-override section {
-          padding-top: 80px !important;
-          padding-bottom: 80px !important;
-        }
-        .chain-selector-override .tw-glass-card {
-          min-height: 220px !important;
-          padding: 2rem !important;
-        }
-        .chain-selector-override .tw-glass-card h3 {
-          font-size: 2rem !important;
-          line-height: 1.2 !important;
-        }
-        .chain-selector-override .tw-glass-card a,
-        .chain-selector-override .tw-glass-card button {
-          text-transform: none !important;
-          letter-spacing: normal !important;
-          border-color: rgba(255, 255, 255, 0.3) !important;
-          font-size: 0.875rem !important;
-          padding: 0.75rem 1.5rem !important;
-          border-radius: 9999px !important;
-          font-weight: 600 !important;
-          background: transparent !important;
-          color: white !important;
-        }
-        .chain-selector-override h2 {
-          font-size: 32px !important;
-          line-height: 1.25 !important;
-          letter-spacing: -1.28px !important;
-        }
-        @media (min-width: 768px) {
-          .chain-selector-override h2 {
-            font-size: 40px !important;
-            line-height: 1.1 !important;
-            letter-spacing: -1.6px !important;
-          }
-        }
-        @media (min-width: 1280px) {
-          .chain-selector-override h2 {
-            font-size: 64px !important;
-            line-height: 1.125 !important;
-            letter-spacing: -2.56px !important;
-          }
-        }
-      `}</style>
 
       {/* Resources — community-style section */}
       <section
