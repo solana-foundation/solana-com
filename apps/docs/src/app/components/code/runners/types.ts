@@ -6,7 +6,7 @@ export type RunnerContext = {
   code: string;
   /** The tab's language, e.g. `ts`, `rust`, `py`. */
   language: string;
-  /** The tab's title, e.g. `Kit`, `Legacy`, `Rust`, `Python`. */
+  /** The tab's title, e.g. `Kit`, `Web3.js v3`, `Rust`, `Python`, `Web3.js (legacy)`. */
   title: string;
 };
 
