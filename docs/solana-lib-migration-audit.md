@@ -121,8 +121,9 @@ rather than treating this inventory as verification.
 - UI, web, and docs lint and type checks passed; both web and docs production
   builds passed. The web build generated all 110 static pages and the docs build
   generated all 572 static pages.
-- Web Vitest: 57 files and 432 tests passed, including newsletter states,
-  cross-app link behavior, and YouTube host validation added for this migration.
+- Web Vitest: 58 files and 433 tests passed, including newsletter states,
+  cross-app links, YouTube host validation, and JSX guide anchors added for this
+  migration.
 - Chromium checked desktop (1440 px) and mobile (390 px) versions of token
   extensions, ERC20 guide, terms, ramps, and docs. Each route returned HTTP 200
   with one H1, no page errors, and no document overflow. The terms text matched
@@ -133,6 +134,9 @@ rather than treating this inventory as verification.
   next control moves the scroll position; the ERC20 table of contents produces
   14 links and code copy writes the block to the clipboard. The newsletter tests
   cover invalid email, success, and a failed request.
+- EIP-2612 and ERC-4626 guides returned HTTP 200 at desktop/mobile widths with
+  seven and 12 table of contents links respectively. Every link had a target,
+  JSX lists rendered with disc markers, and neither page overflowed.
 - Production measurements informed the final hero style: token extensions at
   1440 px and 390 px uses the same H1 bounding box and font size in local and
   production renders. The screenshots above retain broader visual reference.
