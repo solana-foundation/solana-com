@@ -407,7 +407,12 @@ export function ConversionPanel({
             className="-z-10 hidden object-cover md:block"
           />
         )}
-        <div className="flex flex-col gap-5">
+        <div
+          className={cn(
+            "flex flex-col gap-5",
+            variant === "inline-centered" && "lg:gap-10",
+          )}
+        >
           {showLogos && !!logos?.length && (
             <div className="mb-5 hidden flex-wrap justify-center gap-12 md:flex">
               {logos.map(
@@ -430,16 +435,27 @@ export function ConversionPanel({
               className={cn(
                 "font-brand text-4xl font-bold leading-tight tracking-tight md:text-[56px]",
                 variant === "inline-centered" &&
-                  "border-b border-[#667085] pb-5 md:text-center",
+                  "border-b border-[#667085] pb-5 text-center md:text-left lg:leading-[60px]",
               )}
             >
               {heading}
             </h2>
           )}
-          {body && (
-            <p className="text-lg leading-relaxed text-[#ABABBA] md:text-xl">
-              {body}
-            </p>
+          {variant === "inline-centered" ? (
+            <div className="flex flex-col gap-5 md:flex-row md:items-start">
+              {body && (
+                <p className="min-w-0 flex-1 text-lg leading-7 text-[#ABABBA] lg:text-2xl lg:leading-7">
+                  {body}
+                </p>
+              )}
+              <ActionList buttons={visibleButtons} className="shrink-0" />
+            </div>
+          ) : (
+            body && (
+              <p className="text-lg leading-relaxed text-[#ABABBA] md:text-xl">
+                {body}
+              </p>
+            )
           )}
           {newsLetter && formId && (
             <LandingNewsletter
@@ -450,10 +466,12 @@ export function ConversionPanel({
               successMessage={successMessage}
             />
           )}
-          <ActionList
-            buttons={visibleButtons}
-            className={cn(variant === "centered" && "justify-center")}
-          />
+          {variant !== "inline-centered" && (
+            <ActionList
+              buttons={visibleButtons}
+              className={cn(variant === "centered" && "justify-center")}
+            />
+          )}
         </div>
         {!!visibleItems?.length && (
           <div className="flex flex-col items-start gap-4">

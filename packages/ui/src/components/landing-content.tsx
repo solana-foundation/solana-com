@@ -430,8 +430,13 @@ export function YoutubeVideo({ url }: { url?: string }) {
   let videoId: string | null = null;
   try {
     const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+      return null;
     if (parsed.hostname === "youtu.be") videoId = parsed.pathname.slice(1);
-    if (parsed.hostname.endsWith("youtube.com"))
+    if (
+      parsed.hostname === "youtube.com" ||
+      parsed.hostname === "www.youtube.com"
+    )
       videoId = parsed.searchParams.get("v");
   } catch {
     return null;

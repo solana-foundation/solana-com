@@ -93,7 +93,7 @@ export function ActionButton({
   const classes = cn(
     "inline-flex w-fit items-center justify-center gap-3 rounded-full font-brand-mono text-xs uppercase tracking-[0.08em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#CA9FF5] disabled:pointer-events-none disabled:opacity-50",
     size === "sm" && "px-3 py-1.5",
-    size === "md" && "px-4 py-2.5",
+    size === "md" && "px-4 py-[9px] text-sm leading-[18px]",
     size === "lg" && "w-full px-[18px] py-[13px] text-base leading-6 sm:w-fit",
     size === "xl" && "px-6 py-5",
     (hierarchy === "primary" || hierarchy === "purpleGradient") &&

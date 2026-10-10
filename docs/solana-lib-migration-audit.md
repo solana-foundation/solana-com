@@ -121,8 +121,8 @@ rather than treating this inventory as verification.
 - UI, web, and docs lint and type checks passed; both web and docs production
   builds passed. The web build generated all 110 static pages and the docs build
   generated all 572 static pages.
-- Web Vitest: 56 files and 430 tests passed, including the newsletter states and
-  cross-app link regression tests added for this migration.
+- Web Vitest: 57 files and 432 tests passed, including newsletter states,
+  cross-app link behavior, and YouTube host validation added for this migration.
 - Chromium checked desktop (1440 px) and mobile (390 px) versions of token
   extensions, ERC20 guide, terms, ramps, and docs. Each route returned HTTP 200
   with one H1, no page errors, and no document overflow. The terms text matched
