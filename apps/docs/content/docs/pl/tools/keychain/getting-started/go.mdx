@@ -1,0 +1,485 @@
+---
+title: Go
+description: Instalacja i użycie solana-keychain w aplikacjach Go
+---
+
+Wersja 2.0.0 to pierwsze stabilne wydanie modułów Go, więc nie ma czego
+migrować. [Przewodnik migracji do wersji 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)
+omawia ten sam podział możliwości dla Rusta i TypeScriptu.
+
+## Instalacja
+
+Każdy backend jest osobnym modułem Go, dzięki czemu Twoja kompilacja i graf modułów zawierają
+tylko te backendy, które importujesz:
+
+```shell
+go get github.com/solana-foundation/solana-keychain/go/core/v2                # Interfaces, errors, helpers
+go get github.com/solana-foundation/solana-keychain/go/signers/memory/v2      # Local keypair signer
+go get github.com/solana-foundation/solana-keychain/go/signers/vault/v2       # HashiCorp Vault
+go get github.com/solana-foundation/solana-keychain/go/signers/awskms/v2      # AWS KMS
+go get github.com/solana-foundation/solana-keychain/go/signers/gcpkms/v2      # GCP KMS
+go get github.com/solana-foundation/solana-keychain/go/signers/privy/v2       # Privy
+go get github.com/solana-foundation/solana-keychain/go/signers/turnkey/v2     # Turnkey
+go get github.com/solana-foundation/solana-keychain/go/signers/fireblocks/v2  # Fireblocks
+go get github.com/solana-foundation/solana-keychain/go/signers/cdp/v2         # Coinbase Developer Platform
+go get github.com/solana-foundation/solana-keychain/go/signers/crossmint/v2   # Crossmint
+go get github.com/solana-foundation/solana-keychain/go/signers/dfns/v2        # Dfns
+go get github.com/solana-foundation/solana-keychain/go/signers/openfort/v2    # Openfort
+go get github.com/solana-foundation/solana-keychain/go/signers/para/v2        # Para
+go get github.com/solana-foundation/solana-keychain/go/signers/utila/v2       # Utila
+go get github.com/solana-foundation/solana-keychain/go/signers/fordefi/v2     # Fordefi
+```
+
+Moduły są oznaczane tagami `go/<module>/v2.0.0` (na przykład
+`go/signers/memory/v2.0.0`). Każdy moduł wymaga Go 1.25.0, z wyjątkiem `gcpkms`,
+który wymaga Go 1.25.8 ze względu na dolną granicę ustaloną przez `google.golang.org/api`.
+Ledger jest dostępny wyłącznie w Rust i nie ma modułu Go.
+
+### Transakcje solana-go v2 i v1
+
+Moduły są zbudowane na
+[`github.com/solana-foundation/solana-go/v2`](https://github.com/solana-foundation/solana-go)
+v2.0.0 i przyjmują jego `*solana.Transaction`. Obsługiwane są transakcje legacy, v0 oraz v1
+(`solana.MessageVersionV1`), z wyjątkiem Fireblocks
+z `UseProgramCall: true`, który akceptuje wyłącznie transakcje legacy i v0.
+
+## Podstawowe użycie
+
+Każdy signer implementuje bazowy
+[interfejs `core.SolanaSigner`](https://pkg.go.dev/github.com/solana-foundation/solana-keychain/go/core/v2#SolanaSigner)
+(`Pubkey`, `SignMessage`, `IsAvailable`). Metody przyjmują `context.Context` i są
+blokujące. Każdy backend implementuje ponadto dokładnie jeden interfejs możliwości:
+
+- `core.TransactionSigner`: `SignTransaction` podpisuje Twoją transakcję w postaci, w jakiej została przekazana.
+- `core.ModifyingSigner`: `ModifyAndSignTransaction` pozwala dostawcy przepisać
+  transakcję, a następnie ją podpisuje.
+- `core.SendingSigner`: `SignAndSendTransaction` powoduje, że dostawca podpisuje
+  i rozgłasza transakcję.
+
+Każdy pakiet backendu udostępnia strukturę `Config` oraz konstruktor `New`:
+
+```go
+import (
+	"context"
+	"fmt"
+
+	"github.com/solana-foundation/solana-go/v2"
+	"github.com/solana-foundation/solana-keychain/go/core/v2"
+	"github.com/solana-foundation/solana-keychain/go/signers/memory/v2"
+)
+
+func signWithKeychain(ctx context.Context, tx *solana.Transaction) error {
+	signer, err := memory.New(memory.Config{PrivateKeyPath: "/path/to/id.json"})
+	if err != nil {
+		return err
+	}
+
+	if !signer.IsAvailable(ctx) {
+		return core.NewSignerError(core.CodeNotAvailable, "signer offline")
+	}
+
+	result, err := signer.SignTransaction(ctx, tx)
+	if err != nil {
+		return err
+	}
+	fmt.Println("signature:", result.Signature)
+	fmt.Println("complete:", result.IsComplete())
+	// result.EncodedTransaction is the base64 wire transaction
+	return nil
+}
+```
+
+`SignTransaction` i `ModifyAndSignTransaction` zwracają
+`core.SignedTransaction` (`EncodedTransaction`, `Signature`, `Completeness`).
+Zdalne backendy HTTP akceptują opcjonalne `HTTPClient` i `HTTPClientConfig`
+(limity czasu). Domyślny klient wymusza HTTPS; podanie własnego klienta omija to zabezpieczenie,
+a odpowiedzialność za jego bezpieczeństwo spoczywa na Tobie.
+
+### Możliwości signerów
+
+Backend, który nie może podpisać transakcji, w ogóle nie ma metody `SignTransaction`,
+dlatego możliwość ta jest faktem znanym w czasie kompilacji dla typów konkretnych
+i asercją typu dla `core.SolanaSigner`:
+
+| Backend                                                                         | Możliwość          | `SignMessage`                  |
+| ------------------------------------------------------------------------------- | ------------------- | ------------------------------ |
+| memory, vault, privy, turnkey, awskms, gcpkms, fireblocks, dfns, para, openfort | `TransactionSigner` | Tak                            |
+| cdp                                                                             | `TransactionSigner` | Tylko ładunki UTF-8            |
+| utila                                                                           | `TransactionSigner` | Kończy się błędem `CodeSigningFailed` |
+| fordefi black box (`fordefi.BlackBoxSigner`)                                    | `TransactionSigner` | Tak                            |
+| fordefi native manual (`fordefi.NativeManualSigner`)                            | `ModifyingSigner`   | Tak                            |
+| fordefi native auto (`fordefi.NativeAutoSigner`)                                | `SendingSigner`     | Tak                            |
+| crossmint                                                                       | `SendingSigner`     | Kończy się błędem `CodeSigningFailed` |
+
+```go
+switch s := signer.(type) {
+case core.SendingSigner:
+	sig, err := s.SignAndSendTransaction(ctx, tx)
+case core.ModifyingSigner:
+	signed, err := s.ModifyAndSignTransaction(ctx, tx)
+case core.TransactionSigner:
+	signed, err := s.SignTransaction(ctx, tx)
+}
+```
+
+### Inicjalizacja
+
+Nie ma osobnego kroku `Init`. Privy, Fireblocks, Dfns, Crossmint, Para,
+Openfort i Utila ustalają adres portfela wewnątrz `New`, dlatego ich
+konstruktory przyjmują `context.Context`. Zawsze twórz signery przez `New`:
+signer Crossmint, Para lub Utila o wartości zerowej kończy się błędem `CodeNotInitialized`,
+zamiast podpisywać dla zerowego adresu.
+
+### Podpisywanie i wysyłanie dowolnym signerem
+
+`core.SignAndSendTransaction` umieszcza transakcję w łańcuchu niezależnie od
+rodzaju signera. `SendingSigner` rozgłasza transakcję przez swojego dostawcę i ignoruje funkcję wysyłania;
+każdy inny rodzaj tylko podpisuje, a Twoja funkcja rozgłasza wynik w base64,
+który w przypadku `ModifyingSigner` jest transakcją przepisaną przez jego dostawcę.
+Core nie ma zależności od RPC:
+
+```go
+import "github.com/solana-foundation/solana-go/v2/rpc"
+
+client := rpc.New("https://api.devnet.solana.com")
+
+sig, err := core.SignAndSendTransaction(ctx, signer, tx,
+	func(ctx context.Context, encoded string) (solana.Signature, error) {
+		return client.SendEncodedTransaction(ctx, encoded)
+	})
+```
+
+### Podpisywanie wsadowe
+
+Podpisywanie wsadowe jest udostępnione jako samodzielne funkcje pomocnicze, działające współbieżnie, z opcjonalnym
+opóźnieniem między żądaniami dla API z limitami zapytań:
+
+```go
+sigs, err := core.SignMessages(ctx, signer, [][]byte{msg1, msg2}, core.BatchOptions{
+	MaxConcurrency: 4, // 0 = unbounded
+	RequestDelay:   50 * time.Millisecond,
+})
+
+signed, err := core.SignTransactions(ctx, signer, txs, core.BatchOptions{})
+```
+
+`core.SignTransactions` przyjmuje `core.TransactionSigner`, więc
+signery zarządzające rozgłaszaniem (Crossmint, Fordefi native auto) oraz Fordefi native
+manual nie mogą być przetwarzane wsadowo; wywołuj je dla jednej transakcji naraz. Signer,
+którego wywołania tworzą pracę po stronie dostawcy (Fireblocks z `UseProgramCall`),
+zgłasza to przez `core.BatchServerSideEffects`, a wtedy wsad jest wykonywany
+sekwencyjnie.
+
+## Konfiguracja backendów
+
+### Memory
+
+Podaj dokładnie jedno z: `PrivateKey` (surowe bajty), `PrivateKeyString` (base58 lub
+tablica bajtów `[1,2,...]`) albo `PrivateKeyPath` (plik keypair Solana CLI):
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/memory/v2"
+
+signer, err := memory.New(memory.Config{
+	PrivateKeyPath: "/path/to/id.json",
+})
+```
+
+Go nie oferuje niezawodnego sposobu zerowania pamięci: garbage collector może kopiować
+i zachowywać bajty klucza (keypairy w pamięci oraz klucze, które Crossmint i Openfort wyprowadzają
+lokalnie) aż do momentu zwolnienia. Podczas korzystania z backendów z kluczami lokalnymi traktuj całą pamięć procesu jako wrażliwą.
+
+### HashiCorp Vault
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/vault/v2"
+
+signer, err := vault.New(vault.Config{
+	VaultAddr: "https://vault.example.com:8200",
+	Token:     "hvs.xxxxx",
+	KeyName:   "my-solana-key",
+	Pubkey:    "base58_public_key",
+})
+```
+
+### AWS KMS
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/awskms/v2"
+
+signer, err := awskms.New(ctx, awskms.Config{
+	KeyID:     "alias/my-solana-key",
+	PublicKey: "base58_public_key",
+	Region:    "us-east-1", // optional
+})
+```
+
+### GCP KMS
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/gcpkms/v2"
+
+signer, err := gcpkms.New(ctx, gcpkms.Config{
+	KeyName:   "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+	PublicKey: "base58_public_key",
+})
+if err != nil {
+	return err
+}
+defer signer.Close()
+```
+
+### Privy
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/privy/v2"
+
+signer, err := privy.New(ctx, privy.Config{
+	AppID:     "app_id",
+	AppSecret: "app_secret",
+	WalletID:  "wallet_id",
+})
+```
+
+### Turnkey
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/turnkey/v2"
+
+signer, err := turnkey.New(turnkey.Config{
+	APIPublicKey:   "api_public_key",
+	APIPrivateKey:  "api_private_key",
+	OrganizationID: "org_id",
+	PrivateKeyID:   "private_key_id",
+	PublicKey:      "base58_public_key",
+})
+```
+
+### Fireblocks
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/fireblocks/v2"
+
+signer, err := fireblocks.New(ctx, fireblocks.Config{
+	APIKey:         "api_key",
+	PrivateKeyPEM:  "-----BEGIN RSA PRIVATE KEY-----\n...",
+	VaultAccountID: "0",
+	AssetID:        "SOL",  // or "SOL_TEST" for devnet
+	UseProgramCall: false, // true signs via sign-only PROGRAM_CALL (legacy/v0, hot wallet)
+})
+```
+
+### CDP (Coinbase Developer Platform)
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/cdp/v2"
+
+signer, err := cdp.New(cdp.Config{
+	APIKeyID:     "api_key_id",
+	APIKeySecret: "api_key_secret", // base64 Ed25519
+	WalletSecret: "wallet_secret",  // base64 PKCS#8 DER
+	Address:      "base58_address",
+	Network:      cdp.NetworkMainnet, // or cdp.NetworkDevnet; required for address lookup tables
+})
+```
+
+`SignMessage` w CDP akceptuje wyłącznie ładunki UTF-8.
+
+### Crossmint
+
+Crossmint tylko wysyła: jego API wykonuje każdą zatwierdzoną transakcję
+po stronie serwera, więc `*crossmint.Signer` ma `SignAndSendTransaction`, ale nie ma
+`SignTransaction`. Twoja transakcja nigdy nie jest modyfikowana; zwrócony podpis
+identyfikuje transakcję, którą Crossmint zapisał w łańcuchu, a która może różnić się od Twojej, jeśli
+Crossmint sponsoruje opłaty gas.
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/crossmint/v2"
+
+signer, err := crossmint.New(ctx, crossmint.Config{
+	APIKey:        "api_key",
+	WalletLocator: "wallet_locator",
+	SignerSecret:  "", // optional xmsk1_ secret: auto-approves what Crossmint presents
+})
+
+sig, err := signer.SignAndSendTransaction(ctx, tx)
+```
+
+### Dfns
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/dfns/v2"
+
+signer, err := dfns.New(ctx, dfns.Config{
+	AuthToken:     "auth_token",
+	CredID:        "cred_id",
+	PrivateKeyPEM: "-----BEGIN EC PRIVATE KEY-----\n...",
+	WalletID:      "wallet_id",
+})
+```
+
+### Openfort
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/openfort/v2"
+
+signer, err := openfort.New(ctx, openfort.Config{
+	SecretKey:    "sk_live_...",
+	AccountID:    "acc_...",
+	WalletSecret: "wallet_secret", // base64 PKCS#8 DER or PEM
+})
+```
+
+### Para
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/para/v2"
+
+signer, err := para.New(ctx, para.Config{
+	APIKey:   "sk_...",
+	WalletID: "wallet_id",
+})
+```
+
+### Utila
+
+Utila tylko podpisuje transakcje; `SignMessage` kończy się błędem, a podpisaną
+transakcję rozgłaszasz samodzielnie.
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/utila/v2"
+
+signer, err := utila.New(ctx, utila.Config{
+	ServiceAccountEmail:         "sa@example.com",
+	ServiceAccountPrivateKeyPEM: "-----BEGIN PRIVATE KEY-----\n...",
+	VaultID:                     "vault_id",
+	WalletID:                    "wallet_id",
+	Network:                     "networks/solana-devnet",
+})
+```
+
+### Fordefi
+
+Fordefi występuje w trzech typach signerów, ustalanych podczas tworzenia przez `Config.Chain` i
+`Config.PushMode`. Wszystkie trzy podpisują wiadomości:
+
+| Config                                          | Typ                          | Punkt wejścia                |
+| ----------------------------------------------- | ----------------------------- | -------------------------- |
+| `Chain` nieustawione                                   | `*fordefi.BlackBoxSigner`     | `SignTransaction`          |
+| `Chain` ustawione, `PushMode` nieustawione lub `PushModeAuto` | `*fordefi.NativeAutoSigner`   | `SignAndSendTransaction`   |
+| `Chain` ustawione, `PushMode: PushModeManual`         | `*fordefi.NativeManualSigner` | `ModifyAndSignTransaction` |
+
+`fordefi.New` wybiera wariant na podstawie konfiguracji i zwraca `core.SolanaSigner`;
+`fordefi.NewBlackBox`, `fordefi.NewNativeAuto` i `fordefi.NewNativeManual`
+zwracają typ konkretny i odrzucają konfiguracje pozostałych trybów. Żądania API są
+uwierzytelniane podpisem żądania ECDSA P-256: podaj dokładnie jedno z:
+`PrivateKeyPEM` albo `RequestSigner`, aby przechowywać ten klucz w KMS/HSM.
+
+**Tryb native auto**: Fordefi może zastąpić blockhash i opłaty, a następnie podpisuje i
+rozgłasza transakcję. Akceptuje wyłącznie niepodpisaną transakcję, w której jedynym wymaganym
+podpisującym jest vault.
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/fordefi/v2"
+
+signer, err := fordefi.NewNativeAuto(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_PUBLIC_KEY"), // Solana vault address (base58)
+	PrivateKeyPEM: string(pemBytes),
+	Chain:         fordefi.ChainSolanaDevnet, // or fordefi.ChainSolanaMainnet
+	Fee: &fordefi.Fee{
+		Type:          fordefi.FeeTypePriority,
+		PriorityLevel: fordefi.PriorityMedium,
+	},
+})
+
+sig, err := signer.SignAndSendTransaction(ctx, tx)
+```
+
+**Tryb native manual**: ustaw `PushMode: fordefi.PushModeManual`. Fordefi przepisuje
+wiadomość (recent blockhash, instrukcje opłat Compute Budget) i podpisuje ją
+bez rozgłaszania. `ModifyAndSignTransaction` zastępuje `tx`
+transakcją podpisaną przez Fordefi: zawsze kontynuuj od niej. Fordefi musi być płatnikiem
+opłaty i musi podpisać przed każdym innym wymaganym podpisującym, ponieważ przepisanie unieważnia
+istniejące podpisy. Przepisanie nie jest porównywane z oryginałem (diff), więc sprawdź wynik przed
+rozgłoszeniem.
+
+```go
+signer, err := fordefi.NewNativeManual(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_PUBLIC_KEY"),
+	PrivateKeyPEM: string(pemBytes),
+	Chain:         fordefi.ChainSolanaDevnet,
+	PushMode:      fordefi.PushModeManual,
+})
+
+signed, err := signer.ModifyAndSignTransaction(ctx, tx)
+```
+
+**Tryb black box**: pozostaw `Chain` nieustawione. Fordefi podpisuje dokładnie te bajty wiadomości,
+które mu przekażesz, i nie rozgłasza ich. Używaj tego trybu z vaultem Fordefi black box.
+
+```go
+signer, err := fordefi.NewBlackBox(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_BB_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_BB_PUBLIC_KEY"),
+	PrivateKeyPEM: string(pemBytes),
+})
+```
+
+## Dlaczego nie ma pakietu zbiorczego
+
+Rust ma enum `Signer`, a TypeScript ma `createKeychainSigner`; Go
+celowo nie ma żadnego z nich. Go nie eliminuje martwego kodu przez przełącznik
+dyspozycji w czasie wykonania, więc pakiet zbiorczy wciągałby SDK dostawców wszystkich backendów (AWS, GCP
+i pozostałych) do kompilacji każdego użytkownika. Selektorem jest import potrzebnego
+pakietu backendu. Aby wybrać backend w czasie wykonania, napisz przełącznik we własnym
+kodzie, obejmujący tylko obsługiwane przez Ciebie backendy, a wynik przechowuj jako
+`core.SolanaSigner`.
+
+## Obsługa błędów
+
+Każdy błąd jest typu `*core.SignerError` ze stabilnym `Code` (`CodeConfigError`,
+`CodeHTTPError`, `CodeRemoteAPIError`, `CodeSigningFailed`,
+`CodeNotInitialized`, `CodeBroadcastUnconfirmed` i inne). `Error()` zwraca
+tylko stały komunikat dla danego kodu, nigdy materiał klucza ani surowe odpowiedzi dostawców.
+Dopasowuj za pomocą `errors.As`, `errors.Is(err, &core.SignerError{Code: ...})` lub
+`core.CodeOf(err)`.
+
+W Crossmint i Fordefi w trybie native auto niepowodzenie nie oznacza, że nic nie
+trafiło do łańcucha. Gdy dostawca mógł zaakceptować transakcję, kodem jest
+`core.CodeBroadcastUnconfirmed` (`"SIGNER_BROADCAST_UNCONFIRMED"`).
+`ProviderTxID` jest ustawiane, gdy utworzenie zostało zaakceptowane, a `IdempotencyKey` zawiera
+klucz wyprowadzony z wiadomości. Ponowne wysłanie identycznej bajt po bajcie transakcji jest
+bezpieczne; przebudowana transakcja (na przykład z nowym blockhash) to nowy transfer.
+`core.SignAndSendTransaction` zgłasza ten kod również wtedy, gdy Twoja funkcja wysyłania
+zawiedzie, z podpisem płatnika opłaty w `TransactionSignature`. Fireblocks
+PROGRAM_CALL tylko podpisuje i nie wysyła klucza; zgłasza ten kod wyłącznie wtedy, gdy
+sprawdzenie stanu pokaże, że Fireblocks mimo to rozgłosił transakcję.
+
+```go
+sig, err := core.SignAndSendTransaction(ctx, signer, tx, send)
+var se *core.SignerError
+if errors.As(err, &se) && se.Code == core.CodeBroadcastUnconfirmed {
+	// Reconcile se.ProviderTxID, se.IdempotencyKey or se.TransactionSignature
+	// with the provider before retrying.
+}
+```
+
+Zobacz
+[model bezpieczeństwa](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md),
+aby dowiedzieć się, co gwarantuje każdy rodzaj podpisywania,
+[README dla Go](https://github.com/solana-foundation/solana-keychain/blob/main/go/README.md),
+aby poznać pełną listę modułów, oraz
+[pkg.go.dev](https://pkg.go.dev/github.com/solana-foundation/solana-keychain/go/core/v2)
+jako dokumentację API.
+
+## Dodawanie własnych signerów
+
+Zaimplementuj `core.SolanaSigner` oraz dokładnie jeden interfejs możliwości i nie dodawaj żadnej
+metody, której Twój backend nie może obsłużyć: wywołujący wykrywają możliwości przez asercję typu.
+Zobacz [przewodnik dodawania signerów](/docs/tools/keychain/adding-signers), aby zintegrować
+dodatkowe usługi zarządzania kluczami.

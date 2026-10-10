@@ -1,0 +1,241 @@
+---
+title: Anchor-tapahtumat
+description:
+  Määritä, lähetä, dekoodaa, tilaa, versioi ja testaa Anchor-tapahtumia. Mukana ohjeita lokien katkeamiseen ja CPI-tapahtumiin.
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+Anchor-tapahtumat ovat tyypitettyjä, Borsh-serialisoituja tietueita, jotka sisältyvät ohjelman IDL-kuvaukseen.
+Niiden avulla asiakasohjelmat voivat tulkita ohjelman toimintaa jäsentämättä ihmisluettavia
+lokiviestejä.
+
+Tapahtumat sopivat indeksointiin ja ilmoituksiin, mutta ne eivät ole ohjelman
+tilaa. Tallenna tilille kaikki arvot, jotka ohjelman täytyy lukea myöhemmin uudelleen, ja kohtele
+tapahtumia onnistuneesta transaktiosta johdettuna tietueena.
+
+## Määritä ja lähetä tapahtuma
+
+Lisää structiin `#[event]` ja kutsu `emit!` sen jälkeen, kun tilan muutos on onnistunut.
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+`emit!` kirjoittaa tapahtuman tavut Solanan `sol_log_data`-syscallilla. Transaktiolokit
+näyttävät tuloksen muodossa `Program data: <base64>`. Koodattu arvo alkaa
+tapahtuman discriminatorilla, jota seuraavat sen Borsh-serialisoidut kentät.
+
+Pidä tapahtumat tiiviinä. Suuret merkkijonot ja vektorit kuluttavat laskentaa, kasvattavat
+transaktion metadataa ja ovat alttiimpia lokien katkeamiselle.
+
+## Valitse loki- ja CPI-tapahtumien välillä
+
+Anchor tukee kahta lähetystapaa:
+
+| Tapa        | Tallennuspaikka                  | Kompromissi                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | Program data -lokit                 | Yksinkertaisempi ja halvempi, mutta lokit voivat katketa         |
+| `emit_cpi!` | CPI-kutsun sisäinen instruction data | Kestävämpi metadata, mutta vaatii lisätilejä ja laskentaa |
+
+Jos haluat käyttää CPI-tapahtumia, ota käyttöön Anchorin `event-cpi`-ominaisuus:
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+Merkitse sitten instruktion tilistruct `#[event_cpi]`-attribuutilla ja lähetä tapahtuma
+käsittelijästä, jonka kontekstimuuttujan nimi on `ctx`:
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+`#[event_cpi]` lisää allekirjoitetun self-CPI-kutsun tarvitsemat event authority- ja nykyisen
+ohjelman program account -tilit. CPI-tapahtumia ei voi vastaanottaa Anchorin
+lokitapahtumatilauksen kautta; hae sen sijaan transaktio ja dekoodaa vastaava
+sisäinen instruktio.
+
+<Callout type="info" title="Käytä pääkirjaa lähteenä">
+  RPC-palveluntarjoajat voivat katkaista ohjelmalokeja. Jos tapahtuman puuttuminen vaikuttaisi
+  saldoihin, käyttöoikeuksiin tai muuhun oikeellisuuden kannalta kriittiseen työnkulkuun, johda
+  tulos ohjelman tileistä tai transaktion instruction data -tiedoista. Käytä tapahtumia
+  tehostamaan indeksointia, älä ainoana tilan tallenteena.
+</Callout>
+
+## Tilaa TypeScriptillä
+
+Anchorin nykyinen TypeScript-asiakasohjelmisto on `@anchor-lang/core`. Ohjelman IDL:stä luotu `Program`-instanssi
+voi dekoodata vastaavat lokitapahtumat ja toimittaa
+ne RPC:n lokitilauksen kautta:
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+Takaisinkutsu saa dekoodatut tapahtumatiedot, slot-arvon ja transaktion
+allekirjoituksen. Tilaukset kattavat vain ne lokit, jotka toimitetaan yhteyden ollessa
+aktiivinen. Tallenna käsitellyt allekirjoitukset ja täydennä puuttuvat transaktiot yhteyden
+taukoamisen jälkeen, jos kuluttaja tarvitsee täydellisen historian.
+
+## Dekoodaa haettujen transaktioiden lokit
+
+Täydennyshakuja ja kertaluonteista tarkastelua varten hae transaktio ja välitä jokainen
+`Program data:` -sisältö tapahtumakooderille:
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+Yksi transaktio voi kutsua useita ohjelmia. Tuotantokäyttöön tarkoitetussa jäsentimessä seuraa
+`Program <address> invoke`- ja `success`-lokirajoja tai käytä Anchorin tapahtumajäsennintä,
+jotta toisen ohjelman `Program data:` -merkintää ei dekoodata omaksesi.
+Epäonnistuneet transaktiot voivat säilyttää lokit ja sisäiset instruktiot ennen virhettä
+tehdystä työstä, joten hylkää aina transaktion metadata, jossa `err` ei ole null,
+ennen kummankin tapahtumamuodon indeksointia. Anchorin lokitilaus tekee tämän tarkistuksen
+ennen tapahtuman takaisinkutsun toimittamista.
+
+`emit_cpi!`-tapahtumalle etsi self-CPI-kutsu kohdasta `meta.innerInstructions`,
+varmista, että sen ohjelmatunnus on sinun ohjelmasi, ja dekoodaa sen instruction data base58-muodosta.
+Varmista Anchorin [`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3) ennen minkään tavun poistamista:
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+Sekä ohjelmatunnuksen että tagin tarkistaminen estää tavallisen self-CPI-kutsun
+mieltämisen tapahtumaksi.
+
+## Tapahtumaskeemojen versiointi
+
+Oletuksena Anchor johtaa 8-tavuisen tapahtuman discriminatorin tapahtuman nimestä.
+Anchor tukee myös eksplisiittistä discriminatoria
+`#[event(discriminator = ...)]`-attribuutilla. Discriminatorien on pysyttävä yksilöllisinä
+ohjelmassa ja vakaina jokaiselle asiakasohjelmalle, joka dekoodaa tapahtuman.
+
+Lähetetyn structin kenttien muuttaminen muuttaa sen Borsh-rakennetta. Yhteensopimattoman
+skeemamuutoksen yhteydessä määritä uusi tapahtuma, kuten `PaymentRecordedV2`, sen sijaan että
+muuttaisit `PaymentRecorded`-tapahtumaa huomaamatta. Jatka vanhan tapahtuman lähettämistä
+migraatioaikana, jos olemassa olevat indeksoijat tarvitsevat sitä edelleen.
+
+Kehittyvälle datalle suosi kiinteän levyisiä kenttiä ja tunnisteita, joiden avulla
+indeksoija voi hakea monipuolisempaa tilidataa erikseen. Julkaise päivitetty IDL ennen ohjelman
+päivitystä tai sen yhteydessä, jotta kuluttajat voivat dekoodata uuden tapahtuman heti.
+
+## Tapahtumien testaus
+
+Testaa dekoodattua sopimusta, älä base64-merkkijonoa. Rekisteröi kuuntelija ennen
+instruktion lähettämistä, varmista dekoodatut kentät ja transaktion allekirjoitus
+ja poista kuuntelija aina lopuksi:
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+Testaa myös, että indeksoija ohittaa epäonnistuneiden transaktioiden metadataan jääneet
+tapahtumatavut, ja lisää testiaineisto jokaiselle tuetulle tapahtumaversiolle. Jos käytät
+`emit_cpi!`-kutsua, testaa dekoodaus kohdasta `innerInstructions`, koska lokikuuntelijat eivät
+saa näitä tapahtumia suoraan.
+
+## Lisälukemista
+
+- [Anchorin tapahtumadokumentaatio](https://www.anchor-lang.com/docs/features/events)
+- [Anchorin TypeScript-asiakasohjelmisto](https://www.anchor-lang.com/docs/clients/typescript)
+- [Anchorin tapahtumamakron lähdekoodi](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

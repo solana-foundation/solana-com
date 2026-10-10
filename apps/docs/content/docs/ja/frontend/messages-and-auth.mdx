@@ -1,0 +1,347 @@
+---
+title: メッセージと認証
+h1: メッセージに署名してユーザーを認証する
+description:
+  Solanaウォレットでメッセージに署名し、ユーザーの認証、同意の記録、オフチェーンアクションの承認を行う方法を解説します。オフチェーンメッセージ署名を使用し、未対応のウォレット向けのフォールバックも用意しています。
+---
+
+メッセージへの署名は、ユーザーがウォレットを管理していることを証明するものです。トランザクションも手数料もネットワーク呼び出しも必要ありません。アプリは署名済みメッセージを使って、ユーザーのサインイン、利用規約への同意の記録、ウォレットと既存アカウントの紐付け、注文などオフチェーンで行われるアクションの承認を行います。
+
+Solanaウォレットがメッセージに署名する方法は2つあります。
+
+- **オフチェーンメッセージ**(`solana:signOffchainMessage`)は、オフチェーンメッセージ署名(OCMS)の[仕様](https://docs.anza.xyz/proposals/off-chain-message-signing)で定義された標準フォーマットでテキストをラップします。このフォーマットはトランザクションと取り違えられることがなく、署名が必要なアカウントを明示します。また、ハードウェアウォレットが署名するのもこのフォーマットです。
+- **Rawメッセージ**(`solana:signMessage`)は、アプリが渡したバイト列をそのまま署名します。プレフィックスも署名者の宣言もありません。ほとんどのソフトウェアウォレットが対応していますが、そのバイト列がトランザクションではなくメッセージであることを示すものは何もありません。
+
+ウォレットが対応している場合はオフチェーンメッセージを使い、対応していない場合はRawメッセージにフォールバックします。このガイドの以降の説明ではサインインを例にしていますが、署名と検証の手順はどのメッセージにも共通です。
+
+## メッセージフォーマットの選び方
+
+|                           | オフチェーンメッセージ     | Rawメッセージ   | トランザクション                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| ウォレット機能            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| ハードウェアウォレットの対応   | デバイスによる     | 非対応            | 対応                           |
+| ユーザーが内容を読めるか      | はい                   | ソフトウェアのみ | デバイスによる             |
+| 必要な署名者の宣言 | あり                   | なし            | あり                           |
+| RPC呼び出しと手数料        | なし                  | なし          | ブロックハッシュ取得、送信、手数料、承認待ち |
+
+### なぜトランザクションではないのか
+
+以前は、ハードウェアウォレットには読み取り可能なメッセージに署名する手段がありませんでした。そのため多くのアプリは、代わりに何も行わないトランザクション(no-op)への署名をユーザーに求めていました。この方法でも動作しますが、レイテンシー、コスト、リスクが増えてしまいます。
+
+- **ネットワーク手数料。** トランザクションは、何も実行しない場合でも手数料がかかります。
+- **複数のRPC呼び出し。** アプリはブロックハッシュを取得し、シミュレーションと送信を行い、その後承認状況をポーリングします。
+- **レイテンシーの増加。** これらの呼び出しはそれぞれ往復の通信となり、ユーザーがサインインするまでの時間が延びます。
+- **内容が読めない。** ユーザーが承認するのはトランザクションのバイト列であり、同意する内容を示した文面ではありません。
+- **行動面のリスク。** ログインのためだけにトランザクションへの署名を求めると、ユーザーが有害なトランザクションにだまされて署名してしまいやすくなります。
+
+オフチェーンメッセージなら、これらはすべて不要です。通信が発生するのは、自社のサーバーとの間だけです。
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## ウォレットが署名する内容
+
+オフチェーンメッセージは、固定の署名ドメイン `\xffsolana offchain` で始まります。有効なトランザクションがこのバイト列で始まることはないため、署名済みメッセージがトランザクションとして使われることはありません。フォーマットのバージョン1では、続いて必要な署名者の一覧と、UTF-8テキストとしてのメッセージ本文が含まれます。長さの上限はありません。
+
+ウォレットはこれらのバイト列を構築して署名し、署名とともに返します。レガシーのバージョン0を含むフォーマット全体については、[仕様](https://docs.anza.xyz/proposals/off-chain-message-signing)を参照してください。
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## サインイン方法の選び方
+
+オフチェーンメッセージにまだ対応していないウォレットもあります。署名を要求する前に、接続中のアカウントの機能を確認し、機能が存在しない場合はフォールバックしてください。
+
+1. アカウントがメッセージバージョン1で `solana:signOffchainMessage` に対応している場合は、オフチェーンメッセージに署名します。
+2. 対応していない場合は、同じチャレンジを `solana:signMessage` で署名します。ほとんどのソフトウェアウォレットが対応しています。
+3. メッセージ署名に対応していないハードウェアウォレットのユーザーには、「ハードウェアウォレットを使用中」のトグルなど、明示的にオプトインできる手段を用意し、代わりにサインイン用トランザクションに署名してもらいます。この方法をデフォルトにはしないでください。
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## ブラウザでメッセージに署名する
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    Kitと併せて、Wallet Standardのパッケージをインストールします。
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    これらのヘルパーは `UiWalletAccount` を受け取ります。たとえば、[Reactガイド](/docs/frontend/react-hooks)の `useConnectedWallet` が返す `account` です。
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `@solana/wallet-adapter` の `useWallet` は、接続中のアカウントが `solana:signOffchainMessage` に対応している場合にのみ `signOffchainMessage` を公開します。接続中のアカウントを必要な署名者としてバージョン1のメッセージに署名し、ウォレットがバージョン1に署名できない場合は `WalletNotReadyError` で reject されます。
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // Server logic
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    `publicKey.verifySignature` は、ブラウザ上で署名済みバイト列に対して署名を検証します。サーバー側では、そのバイト列が自分で発行したチャレンジであることを別途確認する必要があります。`signOffchainMessage` が `undefined` の場合は、同じフックの `signMessage` にフォールバックしてください。
+
+  </Tab>
+</Tabs>
+
+`signOffchainMessage` は、ウォレットが署名した完全なバイト列である `signedOffchainMessage` と `signature` を返します。両方をBase64エンコードし、ウォレットアドレスとともにサーバーへ送信します。
+
+小さな画面でも読みやすいチャレンジを作成してください。アプリ名とドメインを記載し、署名によって何が行われるかを説明し、サーバーが発行した使い捨てのnonceと発行時刻を含めます。
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## サーバーで署名を検証する
+
+検証はローカルでの署名チェックであり、RPC接続は不要です。ウォレットが署名したバイト列をデコードし、発行したチャレンジと一致することを確認してから、署名を検証します。
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+`assertOffchainMessageV1Equal` は、内容または署名者が想定と異なる場合にエラーをスローします。`verifyOffchainMessageEnvelope` は、署名が存在しない、または無効な場合にエラーをスローします。`expectedMessage` は、クライアントから返送されたコピーを信用せず、サーバー上でnonceをキーにして取得してください。検証に成功したらnonceを消費し、同じ署名で二度サインインできないようにします。
+
+### Rawメッセージを検証する
+
+`signMessage` の署名はチャレンジのバイト列を直接対象としているため、クライアントが送信するのは署名とウォレットアドレスだけで済みます。発行したチャレンジに対して検証してください。
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+nonceのルールは同じです。`expectedMessage` をnonceで取得し、検証に成功したら消費します。
+
+<Callout type="info">
+  `@solana/kit` は、これらのヘルパーを `@solana/offchain-messages` から再エクスポートしています。サーバーがKitに依存していない場合は、単体のパッケージを使用してください。
+</Callout>
+
+## Sign In With Solana
+
+[Sign In With Solana](https://github.com/phantom/sign-in-with-solana)(SIWS)は、チャレンジそのものを標準化します。アプリは `domain`、`statement`、`nonce`、`issuedAt` などの構造化されたフィールドをウォレットの `solana:signIn` 機能に渡します。ウォレットはそれらを標準メッセージに整形し、必要に応じて接続を行い、1ステップで署名します。
+
+`solana:signIn` のバージョン `1.1.0` では、`useOffchainMessage` オプションが追加されています。`useOffchainMessage: { messageVersion: 1 }` を渡すと、ウォレットはSIWSのテキストを、署名アカウントのみを必要な署名者とするバージョン1のオフチェーンメッセージでラップします。ハードウェアウォレットでも表示と署名が可能で、出力には `signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }` が含まれます。バージョン `1.0.0` を公開しているウォレットはこのオプションを認識しないため、先に機能のバージョンを確認し、該当する場合は指定しないでください。
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    `solana:signIn` はアカウント機能ではなくウォレット機能であるため、これらのヘルパーは `UiWallet` を受け取ります。
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` は、選択中のウォレットが `solana:signIn` に対応している場合に `signIn` を、バージョン `1.1.0` を公開している場合に `supportsSignInWithOffchainMessage` を公開します。対応していないウォレットに `useOffchainMessage` を渡すと、`WalletSignInError` で reject されます。
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    `verifySignIn` は、署名済みメッセージが入力のすべてのフィールドを再現していること、および署名アカウントによる有効な署名が付いていることを確認します。ウォレットが通常のSIWSテキストに署名した場合でも、オフチェーンメッセージに署名した場合でも同様です。同じチェックをサーバーでも実行するには、Reactに依存しない `@solana/wallet-adapter/core` からインポートしてください。
+
+  </Tab>
+</Tabs>
+
+入力はサーバー側で、使い捨ての `nonce` と `issuedAt` の時刻を含めて構築し、nonceをキーにしてコピーを保持します。サインインの検証に成功したら、nonceを消費します。
+
+Wallet Adapterを使わない場合、`@solana/wallet-standard-util` の `verifySignIn` は通常のSIWS出力のみを検証します。`signedMessageFormat` がオフチェーンメッセージを示している場合、`signedMessage` は、内容がSIWSテキストであるオフチェーンメッセージです。保存しておいた入力と署名アドレスから、`@solana/wallet-standard-util` の `createSignInMessageText` を使って期待されるテキストを再構築し、[サーバーで署名を検証する](#verify-the-signature-on-your-server)と同様に、他のオフチェーンメッセージと同じ方法で検証します。Kitでのこのフローについては、[`@solana/offchain-messages` のREADME](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message)を参照してください。
+
+## ウォレット開発者向け
+
+ウォレットは、`@solana/wallet-standard-features` の Wallet Standard 機能 `solana:signOffchainMessage` を実装することで対応できます。
+
+- `version: "1.0.0"` を報告し、署名可能なメッセージバージョンを `supportedMessageVersions` に列挙します。現時点では `[1]` です。
+- `requiredSigners` からバージョン1のプリアンブルを構築します。この際、`requiredSigners` はソートし、重複がないか確認してください。アカウントが必須署名者に含まれていない場合は、リクエストを拒否してください。
+- 署名の前に、ハードウェアデバイス上も含め、メッセージのテキストをユーザーに全文表示してください。
+- 署名した正確なバイト列を `signedOffchainMessage` として、Ed25519 の `signature` とともに返してください。
+- オフチェーンの Sign In With Solana に対応するには、`solana:signIn` に対して `version: "1.1.0"` を報告します。入力に `useOffchainMessage` が含まれている場合は、SIWS のテキストをバージョン1のオフチェーンメッセージとして署名し、そのバイト列を `signedMessage` として返したうえで、`signedMessageFormat` を設定してください。
+- `solana:signMessage` のサポートは引き続き維持してください。この機能に変更はなく、アプリがフォールバックとして引き続き使用します。

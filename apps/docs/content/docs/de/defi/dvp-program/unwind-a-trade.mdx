@@ -1,0 +1,270 @@
+---
+title: Einen Trade rückabwickeln
+description:
+  Mit Reclaim ein Leg zurückholen, mit Cancel oder Reject einen Trade rückabwickeln und mit Recover eine Einzahlung zurückholen, die nach dem Abschluss des Trades eingegangen ist.
+seoTitle: Einen DvP-Trade auf Solana rückabwickeln
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+Vier Anweisungen geben Gelder zurück, ohne den Trade abzuwickeln: Reclaim, Cancel und Reject,
+solange der Trade offen ist, sowie Recover für eine Einzahlung, die eingeht, nachdem er
+geschlossen wurde. Keine davon prüft den Ablaufzeitpunkt. Ein eingefrorenes Escrow oder ein geänderter Mint kann
+dennoch ein Leg blockieren, wie die Hinweise am Ende beschreiben.
+
+| Anweisung  | Signer               | Umfang                         | Trade danach |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` oder `user_b` | Das eigene Leg des Signers          | Weiterhin offen       |
+| `CancelDvp`  | Settlement Authority | Beide Legs                     | Geschlossen           |
+| `RejectDvp`  | `user_a` oder `user_b` | Beide Legs                     | Geschlossen           |
+| `RecoverDvp` | `user_a` oder `user_b` | Das Leg des Signers, nach dem Abschluss | Bereits geschlossen   |
+
+In jedem Fall wird das Escrow vollständig an die Partei des Legs geleert:
+Escrow A an das token account von `user_a` für `mint_a`, Escrow B an das von `user_b` für
+`mint_b`, unabhängig davon, wer es finanziert hat. Der Memo-program account wird für Rückerstattungs-Konten
+angegeben, die ein Memo erfordern.
+
+Diese Seite setzt die vorherigen Schritte fort: Der Client und die Signer aus
+[Trade erstellen](/docs/defi/dvp-program/create-a-trade), `userAAtaA` und
+`userBAtaB` aus [Legs finanzieren](/docs/defi/dvp-program/fund-the-legs) sowie
+`MEMO_PROGRAM_ID` und `authority` aus
+[Trade abwickeln](/docs/defi/dvp-program/settle-the-trade) werden übernommen.
+
+## Ein Leg zurückholen
+
+Reclaim gibt das Leg des Signers zurück und lässt den Trade offen, sodass das Leg erneut
+finanziert werden kann. Verwende es, wenn das Problem beim Leg der Gegenpartei liegt; Cancel und
+Reject schließen den gesamten Trade.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Cancel oder Reject
+
+Cancel wird von der Settlement Authority signiert, Reject von einer der beiden Parteien. Beide
+erstatten zurück, was jedes Escrow enthält, an die Partei des Legs und schließen den Datensatz sowie
+beide Escrows, wobei die rent der geschlossenen Konten an den Signer geht. Die beiden
+Anweisungen verwenden dieselben Konten; nur der Signer unterscheidet sich.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Die Rückerstattungs-Konten (`userAAtaA`, `userBAtaB`) müssen für jedes Leg existieren, das
+ein Guthaben enthält; ein nicht initialisiertes Rückerstattungs-Konto lässt die Token-Überweisung fehlschlagen und
+macht die Anweisung rückgängig. Ein Leg, das nie finanziert wurde, benötigt keine Überweisung und
+toleriert ein fehlendes Konto.
+
+## Eine verspätete Einzahlung zurückholen
+
+Settle, Cancel und Reject schließen beide Escrow-token accounts, sodass eine einfache
+Überweisung an ein geschlossenes Escrow fehlschlägt. Eine Einzahlung landet nach dem Abschluss nur dann, wenn
+zuvor etwas das Escrow neu erstellt, zum Beispiel eine Finanzierungstransaktion, die
+vor der Überweisung eine create-idempotent-Anweisung für ein associated token account enthält
+und noch unterwegs war, als die Gegenpartei Reject gesendet hat. Die Tokens liegen dann
+in einem Escrow, dessen Trade nicht mehr existiert: Der Datensatz ist weg, daher kann Reclaim
+ihn nicht finden, und der Nonce-Tombstone verhindert, dass ein neuer Trade an derselben Adresse
+erstellt wird und die Einzahlung abfängt.
+
+Um `RecoverDvp` zu verwenden, übergibt die Partei des Legs die ursprünglichen seed-Eingaben
+(Settlement Authority, beide Parteien, beide Mints, Nonce). Das Programm leitet die
+Datensatzadresse erneut ab, verlangt dessen Tombstone als Nachweis, dass der Trade existierte, leert
+das Escrow in das eigene token account des Signers und schließt es, wobei die
+Escrow-rent an den Signer zurückgeht. Das Leg des Signers wird dadurch bestimmt, welche Partei signiert:
+`mint_a` für `user_a`, `mint_b` für `user_b`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Die Wiederherstellung hängt davon ab, dass die Partei die Erstellungsparameter aufbewahrt. Ein System, das
+Trades finanziert, speichert die seed-Eingaben zu jeder Order, bis der Trade geschlossen wurde und die
+Escrow-Guthaben als leer bestätigt sind.
+
+## Hinweise
+
+- **Eingefrorene Legs.** Bei einem Mint mit Zugriffsbeschränkung blockiert ein eingefrorenes Escrow die Token-Überweisung,
+  die diese Anweisungen ausführen, bis die Freeze Authority es wieder freigibt. Siehe die
+  [Übersicht](/docs/defi/dvp-program#mint-configuration-constraints).
+- **Mint-Änderungen nach der Erstellung.** Die Rückabwicklungspfade überspringen die Prüfungen von Erweiterungen und
+  Mint Authority, damit die programmeigenen Prüfungen eine Wiederherstellung nicht blockieren. Die
+  eigenen Regeln des Token Program gelten weiterhin. Ein Mint kann nur bei einem Supply von null geschlossen werden,
+  er kann sich also nicht ändern, solange ein Guthaben im Escrow liegt. Ein Mint, der geschlossen
+  und als NonTransferable oder mit einer Transfergebühr neu erstellt wurde, bevor eine verspätete Einzahlung
+  eingeht, kann diese Einzahlung jedoch unbewegbar oder gebührenpflichtig machen. Das ist die
+  Abhängigkeit von der Mint Authority, die unter
+  [unterstützte Tokens](/docs/defi/dvp-program#supported-tokens) aufgeführt ist.
+
+## Nächste Schritte
+
+- [DvP-Programm](/docs/defi/dvp-program): die Übersicht, die unterstützten Tokens und
+  die Einschränkungen der Mint-Konfiguration
+- [Delivery vs Payment (DvP) mit Delegation](/docs/tokenization/dvp): derselbe
+  Austausch über delegierte Berechtigung, ohne Programm

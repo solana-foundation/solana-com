@@ -1,0 +1,553 @@
+---
+title: Python
+description: Cài đặt và sử dụng solana-keychain trong các ứng dụng Python
+---
+
+Phiên bản 2.0 là bản phát hành ổn định đầu tiên của gói Python. 
+[Hướng dẫn di chuyển lên 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)
+bao gồm các dạng ký (signing shape) dùng chung với Rust và TypeScript.
+
+## Cài đặt
+
+Cài đặt gói cơ sở, cộng thêm một extra cho mỗi backend cần phụ thuộc của nhà cung cấp:
+
+```shell
+pip install solana-keychain                # memory, vault and para
+pip install 'solana-keychain[aws-kms]'     # AWS KMS (boto3)
+pip install 'solana-keychain[gcp-kms]'     # GCP KMS (google-cloud-kms)
+pip install 'solana-keychain[privy]'       # Privy
+pip install 'solana-keychain[turnkey]'     # Turnkey
+pip install 'solana-keychain[fireblocks]'  # Fireblocks
+pip install 'solana-keychain[cdp]'         # Coinbase Developer Platform
+pip install 'solana-keychain[crossmint]'   # Crossmint
+pip install 'solana-keychain[dfns]'        # Dfns
+pip install 'solana-keychain[openfort]'    # Openfort
+pip install 'solana-keychain[utila]'       # Utila
+pip install 'solana-keychain[fordefi]'     # Fordefi
+
+# Several at once
+pip install 'solana-keychain[aws-kms,privy]'
+```
+
+Yêu cầu Python 3.10 trở lên. Các giao dịch là đối tượng
+[`solders`](https://pypi.org/project/solders/) `VersionedTransaction`;
+thông điệp legacy, v0 và v1 đều được chấp nhận, ngoại trừ Fireblocks với
+`use_program_call=True`, chỉ chấp nhận legacy và v0.
+
+Memory, Vault và Para có thể import từ gốc của gói. Mọi backend khác
+được import từ submodule riêng của nó (ví dụ `solana_keychain.aws_kms`), và
+nếu import mà thiếu extra tương ứng sẽ phát sinh `ImportError` nêu tên extra cần
+cài đặt. Ledger chỉ hỗ trợ trên Rust.
+
+## Cách dùng cơ bản
+
+Mỗi backend có một dataclass cấu hình và một factory bất đồng bộ `create_<backend>_signer`
+trả về signer sẵn sàng sử dụng. Mọi phương thức ký đều là coroutine:
+
+```python
+import asyncio
+
+from solana_keychain import MemorySigner
+from solders.transaction import VersionedTransaction
+
+
+async def sign(transaction: VersionedTransaction) -> str:
+    signer = MemorySigner.from_private_key_file("/path/to/id.json")
+    print("Signing with:", signer.pubkey)
+
+    # Check availability (useful for remote signers)
+    if not await signer.is_available():
+        raise RuntimeError("Signer offline")
+
+    result = await signer.sign_transaction(transaction)
+    print("Signature:", result.signature)
+    print("Fully signed:", result.is_complete)
+    return result.encoded_transaction  # base64 wire transaction
+```
+
+`sign_transaction` trả về một `SignedTransaction` gồm `encoded_transaction`,
+`signature`, `is_complete` và `transaction`. `transaction` là giao dịch đã ký
+chính thức: hãy tiếp tục làm việc với nó, đặc biệt với signer có chỉnh sửa, vì
+kết quả của nó là một đối tượng khác với đối tượng bạn đã truyền vào.
+
+### Factory hợp nhất
+
+`create_keychain_signer` nhận tên backend và dataclass cấu hình của backend đó,
+và import backend theo kiểu lazy, nên bạn chỉ cần cài đặt các extra mình dùng:
+
+```python
+from solana_keychain import create_keychain_signer
+from solana_keychain.privy import PrivySignerConfig
+
+signer = await create_keychain_signer(
+    "privy",
+    PrivySignerConfig(
+        app_id="your-app-id",
+        app_secret="your-app-secret",
+        wallet_id="your-wallet-id",
+    ),
+)
+```
+
+Các tên được liệt kê trong `SUPPORTED_BACKENDS`: `aws-kms`, `cdp`, `crossmint`,
+`dfns`, `fireblocks`, `fordefi`, `gcp-kms`, `memory`, `openfort`, `para`,
+`privy`, `turnkey`, `utila` và `vault`. Tên không xác định, hoặc cấu hình thuộc
+sai lớp, sẽ phát sinh `SignerError` với `SignerErrorCode.CONFIG_ERROR`. Factory
+được khai báo kiểu trả về là `SolanaSigner` cơ sở, vì vậy hãy thu hẹp kiểu bằng
+`isinstance` trước khi ký (xem [Khả năng của Signer](#signer-capabilities)).
+
+### Máy khách HTTP từ xa
+
+Các backend HTTP từ xa chấp nhận tham số tùy chọn `http_client` (một `httpx.AsyncClient`)
+để dùng TLS hoặc proxy tùy chỉnh. Khi không đặt, mỗi yêu cầu dùng một client dùng một lần
+với thời gian chờ 60 giây, bắt buộc HTTPS trên URL gốc, và từ chối
+chuyển hướng.
+
+## Khả năng của Signer
+
+Mọi backend đều kế thừa ABC `SolanaSigner` (`pubkey`, `sign_message`,
+`is_available`) cộng với đúng một lớp khả năng:
+
+- `TransactionSigner`: `sign_transaction(tx)` ký giao dịch của bạn tại chỗ
+  và trả về một `SignedTransaction`. Bạn tự phát sóng (broadcast) giao dịch.
+- `ModifyingSigner`: `modify_and_sign_transaction(tx)` cho phép nhà cung cấp viết lại
+  giao dịch, rồi ký mà không phát sóng. Đối tượng của bạn được giữ nguyên;
+  hãy tiếp tục từ `SignedTransaction.transaction` được trả về.
+- `SendingSigner`: `sign_and_send_transaction(tx)` ký và phát sóng thông qua
+  nhà cung cấp, rồi trả về `Signature` của giao dịch đã được ghi nhận. Giao dịch của bạn
+  không bao giờ bị thay đổi.
+
+| Backend                                                                           | Lớp khả năng    | `sign_message`                                  |
+| --------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------- |
+| memory, vault, privy, turnkey, aws-kms, fireblocks, gcp-kms, dfns, para, openfort | `TransactionSigner` | Có                                             |
+| cdp                                                                               | `TransactionSigner` | Chỉ payload UTF-8, nếu không sẽ báo `SERIALIZATION_ERROR` |
+| utila                                                                             | `TransactionSigner` | Phát sinh `SIGNING_FAILED`                         |
+| fordefi black box (`FordefiBlackBoxSigner`)                                       | `TransactionSigner` | Có                                             |
+| fordefi native manual (`FordefiNativeManualSigner`)                               | `ModifyingSigner`   | Có                                             |
+| fordefi native auto (`FordefiNativeAutoSigner`)                                   | `SendingSigner`     | Có                                             |
+| crossmint                                                                         | `SendingSigner`     | Phát sinh `SIGNING_FAILED`                         |
+
+Thu hẹp kiểu bằng `isinstance`. Tất cả các lớp khả năng đều được export từ gốc của gói:
+
+```python
+from solana_keychain import ModifyingSigner, SendingSigner, TransactionSigner
+
+if isinstance(signer, SendingSigner):
+    signature = await signer.sign_and_send_transaction(transaction)
+elif isinstance(signer, ModifyingSigner):
+    result = await signer.modify_and_sign_transaction(transaction)
+elif isinstance(signer, TransactionSigner):
+    result = await signer.sign_transaction(transaction)
+```
+
+### Khởi tạo
+
+Các factory `create_*` và `create_keychain_signer` tự thực hiện mọi bước thiết lập cần thiết
+cho bạn. Nếu bạn khởi tạo trực tiếp lớp signer Privy, Fireblocks, Dfns, Crossmint, Para, Openfort hoặc
+Utila, hãy gọi `await signer.init()` trước khi dùng. Cho đến lúc đó,
+`pubkey` và mọi lệnh ký đều phát sinh `SignerErrorCode.NOT_INITIALIZED`.
+
+## Cấu hình backend
+
+### Memory
+
+Tạo từ tệp keypair của Solana CLI, chuỗi base58 hoặc `"[1,2,...]"`, byte thô,
+hoặc một `Keypair` của `solders`:
+
+```python
+from solana_keychain import MemorySigner, MemorySignerConfig, create_memory_signer
+from solders.keypair import Keypair
+
+signer = MemorySigner.from_private_key_file("/path/to/id.json")
+signer = MemorySigner.from_private_key_string("base58_private_key")
+signer = MemorySigner.from_bytes(secret_key_bytes)  # 64 or 32 bytes
+signer = await create_memory_signer(MemorySignerConfig(keypair=Keypair()))
+```
+
+Khóa nằm trong bộ nhớ của tiến trình, và Python không thể xóa sạch (zeroize) nó. Hãy dùng backend này
+cho phát triển và kiểm thử.
+
+### HashiCorp Vault
+
+Khóa phải là khóa ed25519 trong transit engine. HTTP thuần chỉ được chấp nhận
+đối với địa chỉ loopback, dành cho `vault server -dev`:
+
+```python
+from solana_keychain import VaultSignerConfig, create_vault_signer
+
+signer = await create_vault_signer(
+    VaultSignerConfig(
+        api_base_url="https://vault.example.com:8200",
+        token="hvs.xxxxx",
+        key_name="my-solana-key",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### AWS KMS
+
+`key_id` là key ID, ARN hoặc alias của khóa `ECC_NIST_EDWARDS25519`. Hãy truyền một
+`client` boto3 KMS dựng sẵn để dùng thông tin xác thực hoặc endpoint tùy chỉnh; khi đó `region`
+sẽ bị bỏ qua:
+
+```python
+from solana_keychain.aws_kms import AwsKmsSignerConfig, create_aws_kms_signer
+
+signer = await create_aws_kms_signer(
+    AwsKmsSignerConfig(
+        key_id="alias/my-solana-key",
+        public_key="base58_public_key",
+        region="us-east-1",  # optional, defaults to the AWS config chain
+    )
+)
+```
+
+### GCP KMS
+
+Phiên bản khóa phải là khóa `EC_SIGN_ED25519`. `client` có thể nhận tùy chọn một
+`KeyManagementServiceAsyncClient` dựng sẵn:
+
+```python
+from solana_keychain.gcp_kms import GcpKmsSignerConfig, create_gcp_kms_signer
+
+signer = await create_gcp_kms_signer(
+    GcpKmsSignerConfig(
+        key_name="projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Privy
+
+```python
+from solana_keychain.privy import PrivySignerConfig, create_privy_signer
+
+signer = await create_privy_signer(
+    PrivySignerConfig(
+        app_id="app_id",
+        app_secret="app_secret",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+Các ví được bảo vệ bằng khóa ủy quyền nhận một `PrivyAuthorizationConfig` làm
+`authorization_context`.
+
+### Turnkey
+
+```python
+from solana_keychain.turnkey import TurnkeySignerConfig, create_turnkey_signer
+
+signer = await create_turnkey_signer(
+    TurnkeySignerConfig(
+        api_public_key="api_public_key",    # hex P-256
+        api_private_key="api_private_key",  # hex P-256
+        organization_id="org_id",
+        private_key_id="private_key_id",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Fireblocks
+
+```python
+from solana_keychain.fireblocks import FireblocksSignerConfig, create_fireblocks_signer
+
+signer = await create_fireblocks_signer(
+    FireblocksSignerConfig(
+        api_key="api_key",
+        private_key_pem="-----BEGIN RSA PRIVATE KEY-----\n...",
+        vault_account_id="0",
+        asset_id="SOL",  # or "SOL_TEST" for devnet
+    )
+)
+```
+
+`use_program_call=True` ký bằng thao tác PROGRAM_CALL thay vì RAW. Giao dịch
+được gửi ở chế độ chỉ ký, nên Fireblocks không viết lại cũng không phát sóng
+giao dịch, và bạn phát sóng như thường lệ. Chế độ này yêu cầu hot wallet và phải được
+Fireblocks bật cho workspace của bạn.
+
+### CDP (Coinbase Developer Platform)
+
+```python
+from solana_keychain.cdp import CdpSignerConfig, create_cdp_signer
+
+signer = await create_cdp_signer(
+    CdpSignerConfig(
+        api_key_id="api_key_id",
+        api_key_secret="api_key_secret",
+        wallet_secret="wallet_secret",
+        address="base58_address",
+        network="solana",  # or "solana-devnet"; required for address lookup tables
+    )
+)
+```
+
+### Crossmint
+
+```python
+from solana_keychain.crossmint import CrossmintSignerConfig, create_crossmint_signer
+
+signer = await create_crossmint_signer(
+    CrossmintSignerConfig(
+        api_key="api_key",
+        wallet_locator="wallet_locator",
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+Crossmint chỉ hỗ trợ gửi. API của nó luôn thực thi giao dịch đã được phê duyệt
+phía máy chủ và tài trợ phí gas, nên `CrossmintSigner` là một `SendingSigner` và
+`sign_message` phát sinh `SIGNING_FAILED`. Chữ ký được trả về xác định
+giao dịch mà Crossmint đã ghi nhận, có thể khác với giao dịch của bạn. Việc đặt
+`signer_secret` (một khóa bí mật delegated-signer dạng `xmsk1_...`) sẽ phê duyệt giao dịch
+tự động, đồng nghĩa với việc ủy quyền cho Crossmint quyết định những gì được phê duyệt.
+
+### Dfns
+
+```python
+from solana_keychain.dfns import DfnsSignerConfig, create_dfns_signer
+
+signer = await create_dfns_signer(
+    DfnsSignerConfig(
+        auth_token="auth_token",
+        cred_id="cred_id",
+        private_key_pem="-----BEGIN EC PRIVATE KEY-----\n...",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+### Openfort
+
+```python
+from solana_keychain.openfort import OpenfortSignerConfig, create_openfort_signer
+
+signer = await create_openfort_signer(
+    OpenfortSignerConfig(
+        secret_key="sk_...",
+        account_id="acc_...",
+        wallet_secret="wallet_secret",
+    )
+)
+```
+
+### Para
+
+```python
+from solana_keychain import ParaSignerConfig, create_para_signer
+
+signer = await create_para_signer(
+    ParaSignerConfig(
+        api_key="sk_...",
+        wallet_id="wallet_uuid",
+    )
+)
+```
+
+### Utila
+
+Utila chỉ ký giao dịch; `sign_message` phát sinh `SIGNING_FAILED`.
+
+```python
+from solana_keychain.utila import UtilaSignerConfig, create_utila_signer
+
+signer = await create_utila_signer(
+    UtilaSignerConfig(
+        service_account_email="sa@example.com",
+        service_account_private_key_pem="-----BEGIN PRIVATE KEY-----\n...",
+        vault_id="vault_id",
+        wallet_id="wallet_id",
+        network="networks/solana-devnet",
+    )
+)
+```
+
+### Fordefi
+
+Fordefi có ba chế độ ký, được cố định khi khởi tạo bởi `chain` và
+`push_mode`. `create_fordefi_signer` chọn lớp phù hợp, mỗi lớp từ chối một
+cấu hình dành cho lớp khác, và cả ba đều ký được thông điệp:
+
+| Chế độ          | Cấu hình                                     | Lớp                       | Phương thức                        |
+| ------------- | ------------------------------------------ | --------------------------- | ----------------------------- |
+| Black box     | `chain` không đặt                              | `FordefiBlackBoxSigner`     | `sign_transaction`            |
+| Native auto   | `chain` được đặt, `push_mode` không đặt hoặc `"auto"` | `FordefiNativeAutoSigner`   | `sign_and_send_transaction`   |
+| Native manual | `chain` được đặt, `push_mode="manual"`          | `FordefiNativeManualSigner` | `modify_and_sign_transaction` |
+
+Các yêu cầu API được xác thực bằng chữ ký yêu cầu ECDSA P-256: cung cấp
+khóa dưới dạng `private_key_pem`, hoặc giữ nó trong KMS/HSM bằng cách truyền một lớp con
+`FordefiRequestSigner` làm `request_signer`.
+
+**Chế độ Native auto**: đặt `chain` (`"solana_devnet"` hoặc `"solana_mainnet"`), và
+Fordefi có thể thay thế blockhash và phí, sau đó tự ký và phát sóng
+giao dịch. Chế độ này chỉ chấp nhận giao dịch chưa ký mà người ký bắt buộc duy nhất
+là vault. `fee` được chuyển nguyên văn đến Fordefi:
+
+```python
+import os
+
+from solana_keychain.fordefi import FordefiSignerConfig, create_fordefi_signer
+
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],  # vault address (base58)
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        fee={"type": "custom", "priority_fee": "1000"},  # optional
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+**Chế độ Native manual**: đặt `chain` và `push_mode="manual"`. Fordefi viết lại
+thông điệp (blockhash gần nhất, các lệnh phí Compute Budget) và ký nó,
+nhưng không phát sóng. Giao dịch được trả về sẽ thay thế giao dịch bạn đã gửi,
+vì vậy hãy luôn tiếp tục từ `result.transaction`. Fordefi phải là bên trả phí (fee payer) và
+phải ký trước mọi người ký bắt buộc khác: giao dịch đã có sẵn
+chữ ký vẫn được chấp nhận, nhưng việc viết lại sẽ làm chúng mất hiệu lực. Bản viết lại không được so sánh khác biệt (diff),
+nên hãy kiểm tra kết quả trước khi phát sóng, và phát sóng kịp thời, vì Fordefi
+không trả về chiều cao hết hạn của blockhash mới.
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        push_mode="manual",
+    )
+)
+
+result = await signer.modify_and_sign_transaction(transaction)
+...  # inspect result.transaction, then add any remaining signatures
+```
+
+Phát sóng giao dịch đã kiểm tra như trong [Ký và gửi](#sign-and-send), và
+đối soát trước khi thử lại nếu việc gửi thất bại.
+
+**Chế độ Black box**: bỏ qua `chain`. Fordefi ký đúng các byte thông điệp của bạn và
+không phát sóng. Hãy dùng chế độ này với vault black box của Fordefi.
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_BB_VAULT_ID"],
+        public_key=os.environ["FORDEFI_BB_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+    )
+)
+```
+
+## Ký và gửi
+
+`sign_and_send_transaction` đưa một giao dịch lên chuỗi bất kể dạng của signer.
+`SendingSigner` phát sóng thông qua nhà cung cấp và hàm gửi của bạn
+sẽ không bao giờ được gọi. `TransactionSigner` hoặc `ModifyingSigner` thực hiện ký, và hàm gửi
+của bạn phát sóng kết quả được mã hóa base64 (gói này không có RPC client):
+
+```python
+import httpx
+from solana_keychain import sign_and_send_transaction
+from solders.signature import Signature
+
+
+async def send(encoded: str) -> Signature:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.devnet.solana.com",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sendTransaction",
+                "params": [encoded, {"encoding": "base64"}],
+            },
+        )
+    return Signature.from_string(response.json()["result"])
+
+
+signature = await sign_and_send_transaction(signer, transaction, send)
+```
+
+Signer chỉ ký mà không có hàm gửi sẽ phát sinh `CONFIG_ERROR`, và giao dịch
+vẫn thiếu chữ ký sau khi ký sẽ phát sinh `SIGNING_FAILED`.
+
+## Xử lý lỗi
+
+Mọi lỗi đều là một `SignerError` với `code` ổn định từ `SignerErrorCode`:
+`BROADCAST_UNCONFIRMED`, `CONFIG_ERROR`, `EXPECTED_SOLANA_SIGNER`, `HTTP_ERROR`,
+`INVALID_PRIVATE_KEY`, `INVALID_PUBLIC_KEY`, `IO_ERROR`, `NOT_AVAILABLE`,
+`NOT_INITIALIZED`, `OTHER`, `PARSING_ERROR`, `REMOTE_API_ERROR`,
+`SERIALIZATION_ERROR` và `SIGNING_FAILED`. Hãy so khớp theo `code`, không theo thông báo:
+`str()` và `repr()` chỉ chứa một thông báo chung cố định, không bao giờ chứa dữ liệu khóa hoặc
+phản hồi thô của nhà cung cấp. `status_code` và `provider_error_code` được đặt khi
+lỗi đến từ phản hồi của nhà cung cấp.
+
+`SignerErrorCode.BROADCAST_UNCONFIRMED` (`"SIGNER_BROADCAST_UNCONFIRMED"`) nghĩa là
+giao dịch có thể đã được ghi nhận:
+
+- Với Crossmint và Fordefi native auto, `provider_transaction_id` được đặt khi
+  yêu cầu tạo đã được chấp nhận, và `idempotency_key` mang khóa được suy ra từ
+  thông điệp mà yêu cầu tạo đã được gửi đi cùng. Gửi lại giao dịch giống hệt từng byte
+  là an toàn; giao dịch được dựng lại (ví dụ với blockhash mới) là một lần
+  chuyển mới.
+- Từ `sign_and_send_transaction`, một hàm gửi bị lỗi sẽ phát sinh lỗi này với
+  `transaction_signature` được đặt thành chữ ký của giao dịch đã hoàn tất.
+- Fireblocks chỉ phát sinh lỗi này nếu một lần thăm dò (poll) cho thấy Fireblocks đã phát sóng một
+  giao dịch `use_program_call` dù nó được gửi ở chế độ chỉ ký.
+
+```python
+from solana_keychain import SignerError, SignerErrorCode
+
+try:
+    signature = await sign_and_send_transaction(signer, transaction, send)
+except SignerError as error:
+    if error.code is SignerErrorCode.BROADCAST_UNCONFIRMED:
+        reconcile(
+            error.provider_transaction_id,
+            error.idempotency_key,
+            error.transaction_signature,
+        )
+    raise
+```
+
+Một lệnh gọi bị hủy sẽ phát sinh lại `asyncio.CancelledError`, vốn không mang trường nào. Để
+khôi phục id mà nhà cung cấp đã chấp nhận trước khi hủy, hãy truyền một
+`PendingTransactionId()` (từ `solana_keychain.core`) làm `pending_transaction_id` trong cấu hình Crossmint hoặc
+Fordefi native auto, và đọc `.get()` sau khi
+hủy. Hãy đối soát với nhà cung cấp trước khi thử lại.
+
+Keychain xác thực bước ký (signing hop), không xác thực giao dịch làm gì: chữ ký
+do nhà cung cấp trả về được xác minh ed25519 với thông điệp được tính cục bộ
+trước khi được đính kèm. Python không thể xóa sạch bộ đệm khóa, vì vậy với các
+backend dùng khóa cục bộ (Memory, cùng các khóa API và PEM nằm trong cấu hình backend từ xa),
+hãy coi toàn bộ bộ nhớ tiến trình là nhạy cảm. Xem
+[mô hình bảo mật](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+để biết mỗi dạng ký đảm bảo những gì.
+
+## Thêm signer tùy chỉnh
+
+Kế thừa (subclass) một lớp khả năng (capability class) phù hợp với backend của bạn (`TransactionSigner`,
+`ModifyingSigner` hoặc `SendingSigner`) từ `solana_keychain.core`. Xem
+[hướng dẫn Thêm Signer](/docs/tools/keychain/adding-signers) để tích hợp
+các dịch vụ quản lý khóa bổ sung.
+
+## Tài nguyên
+
+- [README của Python](https://github.com/solana-foundation/solana-keychain/blob/main/python/README.md)
+- [`solana-keychain` trên PyPI](https://pypi.org/project/solana-keychain/)
+- [Mô hình bảo mật](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+- [Chuyển đổi sang phiên bản 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)

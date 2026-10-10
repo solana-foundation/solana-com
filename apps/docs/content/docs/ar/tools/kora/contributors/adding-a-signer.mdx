@@ -270,12 +270,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### اختبارات التكامل
 
-تستخدم Kora مشغل اختبارات موحد (`tests/src/bin/test_runner.rs`) يدير جميع مراحل
-اختبار التكامل بما في ذلك اختبارات TypeScript. لإضافة اختبارات لموقعك الجديد:
+كل مرحلة تكامل هي هدف `[[test]]` مستقل في `tests/Cargo.toml`. يقوم كل
+هدف بتشغيل surfnet مضمّن بالإضافة إلى عقدة Kora عبر `harness_context`،
+ويبدأ من الصفر. تحتفظ Kora بالإعدادات في حالة عامة على مستوى العملية، لذا فإن الموقِّع الجديد
+يحتاج إلى هدف جديد بدلاً من وحدة جديدة داخل هدف موجود.
 
-#### 1. إضافة إعدادات الاختبار
+#### 1. إضافة ملف تجهيز للموقِّع
 
-أنشئ ملف إعدادات موقع جديد في `tests/src/common/fixtures/` لخدمتك:
+أنشئ إعدادات الموقِّع في `tests/src/common/fixtures/`:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -290,46 +292,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. إضافة مرحلة الاختبار إلى مشغل الاختبارات
+#### 2. إضافة هدف اختبار
 
-قم بتحديث `tests/src/test_runner/test_cases.toml` لتضمين مرحلة اختبار لموقعك:
+سجّل المرحلة في `tests/Cargo.toml`:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+ثم أنشئ `tests/your_service/main.rs`. فهو يوجّه الأداة إلى ملف التجهيز الخاص بك
+ويجب أن يحتوي على اختبار `#[tokio::test]` واحد على الأقل يختبر الموقِّع:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+أضف اختبار `signTransaction` أيضًا حتى يتم تشغيل مسار التوقيع الخاص بالموقِّع، وليس فقط
+البحث عن المفتاح. يُعد `tests/multi_signer/` مثالًا كاملًا يمكنك النسخ منه.
 
 #### 3. تشغيل الاختبارات
 
-تأكد من إعداد بيئتك:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-قم بتشغيل الاختبارات باستخدام مشغل الاختبارات الموحد:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## متطلبات التوثيق
@@ -392,7 +414,7 @@ YOUR_SERVICE_WALLET_ID="your_wallet_id" \```
 - [ ] تم تصدير بنية الإعداد في `mod.rs`
 - [ ] (اختياري) تمت إضافة طريقة بناء النموذج الاختباري في `config_mock.rs`
 - [ ] يتم تجميع الكود دون تحذيرات
-- [ ] جميع الاختبارات ناجحة (`make test` و `make test-integration`)
+- [ ] جميع الاختبارات ناجحة (`just test`)
 - [ ] تمت إضافة التوثيق وفقاً لـ
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] تم إنشاء ملفات الإعداد النموذجية (`.toml` و `.env.example`)

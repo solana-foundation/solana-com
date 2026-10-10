@@ -1,0 +1,77 @@
+---
+title: 部分签名
+description:
+  构建一条不可变的 Solana 交易消息,从各个独立签名者处收集签名,验证并合并后提交交易。
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+部分签名允许多方在不同时间或不同设备上对同一笔交易进行签名。协调者负责构建消息,每个必需的签名者对完全相同的序列化消息字节进行签名,协调者在提交前验证并合并这些签名。
+
+<Callout type="warn" title="签名授权的是字节,而非意图">
+  更改手续费支付者、blockhash、指令顺序、账户列表或任何 instruction data,都会生成不同的消息,并使已收集的所有签名失效。
+</Callout>
+
+## 部分签名流程
+
+1. 就交易指令以及由谁支付手续费达成一致。
+2. 设置交易有效期和手续费支付者。
+3. 仅序列化一次消息,并将这些字节视为不可变。
+4. 将消息字节和便于人工阅读的摘要分发给每个签名者。
+5. 针对相同的消息字节,收集并验证每个 Ed25519 签名。
+6. 将签名附加到对应的必需签名者地址。
+7. 确认所有必需的签名均已具备且有效,然后提交。
+
+## 完整示例
+
+下面的手续费支付者和 SOL 发送者各自独立签名。协调者验证两个签名,将其合并,并提交完成签名的交易。
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+该示例使用原始 Ed25519 签名,以明确协调者与各签名者之间的边界。只要签署的是完全相同的消息字节,钱包、硬件设备、托管服务或离线签名者都可以替代任一本地 keypair。
+
+## 签名前冻结消息
+
+每个签名都覆盖序列化后的交易消息。该消息包含以下全部内容:
+
+- 手续费支付者
+- 最近的 blockhash 或持久 nonce
+- 每个程序和账户地址
+- 账户的签名者和可写权限
+- 指令顺序和 instruction data
+
+请先构建这些字段,仅序列化一次消息,并将该字节数组分发给每个签名者。建议将消息的摘要与每个签名请求一并存储,这样协调者就可以拒绝针对其他消息返回的签名。
+
+不要反序列化消息、修改后又期望之前收集的签名仍然有效。即使是看似属于运维层面的更改,例如替换已过期的 blockhash 或更改手续费支付者,也需要所有签名者重新签名。
+
+## 协调手续费支付者
+
+手续费支付者始终是必需的签名者,并且必须在冻结消息之前确定。请确认该账户有足够的 SOL 来支付基础手续费和任何优先费用。如果由赞助方或后端支付手续费,请在收集用户签名之前就将该地址放入消息中;之后再添加赞助方会改变已签名的字节。
+
+协调者应验证传入的签名属于列为必需签名者的地址。切勿接受任意公钥并将其追加到交易中。
+
+## 管理交易有效期
+
+使用最近 blockhash 的交易仅在其 blockhash 仍处于 validator 的最近 blockhash 队列中时才有效。在启动多方签名流程之前,请估算所有签名者能否在 `lastValidBlockHeight` 之前完成响应。
+
+如果 blockhash 已过期,请使用新的 blockhash 构建新消息,并重新收集所有签名。对于可能耗时更长或包含离线签名者的工作流,请使用[持久 nonce](/docs/core/transactions/durable-nonces)。持久 nonce 可避开最近 blockhash 的时间窗口,但推进或以其他方式消耗该 nonce 仍会使待处理的交易失效。
+
+## 提交前验证
+
+对于每个返回的签名:
+
+1. 使用冻结的消息字节和预期签名者的公钥验证该签名。
+2. 将其附加到交易签名数组中该签名者对应的位置。
+3. 验证组装后的交易对每个必需签名者都具有有效签名。
+4. 提交序列化后的交易,不要重新构建其消息。
+
+提交后,请使用已签名消息中包含的相同有效期信息进行确认。如果确认结果显示 blockhash 已过期或 nonce 已被消耗,请不要使用修改后的交易重试,而应重新启动签名流程。

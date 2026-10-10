@@ -1,0 +1,242 @@
+---
+title: Zdarzenia Anchor
+description:
+  Definiuj, emituj, dekoduj, subskrybuj, wersjonuj i testuj zdarzenia Anchor, wraz ze wskazówkami dotyczącymi obcinania logów i zdarzeń CPI.
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+Zdarzenia Anchor to typowane rekordy serializowane w formacie Borsh, uwzględnione w IDL programu.
+Pozwalają klientom interpretować aktywność programu bez parsowania czytelnych dla człowieka
+comunikatów logów.
+
+Zdarzenia są przydatne do indeksowania i powiadomień, ale nie stanowią stanu
+programu. Każdą wartość, którą program musi odczytać ponownie, przechowuj na koncie, a
+zdarzenia traktuj jako rekord pochodzący z udanej transakcji.
+
+## Definiowanie i emitowanie zdarzenia
+
+Dodaj `#[event]` do struktury i wywołaj `emit!` po pomyślnej zmianie stanu.
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+`emit!` zapisuje bajty zdarzenia za pomocą wywołania systemowego Solany `sol_log_data`. Logi transakcji
+pokazują wynik jako `Program data: <base64>`. Zakodowana wartość zaczyna się od
+dyskryminatora zdarzenia, po którym następują jego pola serializowane w formacie Borsh.
+
+Twórz zdarzenia o wąskim zakresie. Duże ciągi znaków i wektory zużywają jednostki obliczeniowe, zwiększają
+metadane transakcji i są bardziej narażone na obcinanie logów.
+
+## Wybór między zdarzeniami logowanymi a zdarzeniami CPI
+
+Anchor obsługuje dwie ścieżki emisji:
+
+| Ścieżka        | Miejsce przechowywania                  | Kompromis                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | Logi danych programu                 | Prostsza i tańsza, ale logi mogą zostać obcięte         |
+| `emit_cpi!` | Dane wewnętrznej instrukcji z wywołania CPI | Trwalsze metadane, ale wymaga dodatkowych kont i jednostek obliczeniowych |
+
+Aby używać zdarzeń CPI, włącz funkcję `event-cpi` w Anchor:
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+Następnie oznacz strukturę kont instrukcji atrybutem `#[event_cpi]` i emituj
+zdarzenie z handlera, którego zmienna kontekstu nazywa się `ctx`:
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+`#[event_cpi]` dodaje konto event authority oraz konto bieżącego programu wymagane przez
+podpisane wywołanie CPI do samego siebie. Zdarzeń CPI nie można odbierać przez subskrypcję zdarzeń logów
+w Anchor; zamiast tego pobierz transakcję i zdekoduj pasującą wewnętrzną
+instrukcję.
+
+<Callout type="info" title="Traktuj księgę główną jako źródło prawdy">
+  Dostawcy RPC mogą obcinać logi programu. Jeśli pominięcie zdarzenia wpłynęłoby na
+  salda, uprawnienia lub inny proces krytyczny dla poprawności, wyprowadź
+  wynik z kont programu lub z danych instrukcji transakcji. Używaj zdarzeń, aby
+  usprawnić indeksowanie, a nie jako jedynego zapisu stanu.
+</Callout>
+
+## Subskrypcja w TypeScript
+
+Aktualny klient Anchor dla TypeScript to `@anchor-lang/core`. Instancja `Program`
+utworzona na podstawie IDL programu może dekodować pasujące zdarzenia z logów i dostarczać
+je przez subskrypcję logów RPC:
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+Callback otrzymuje zdekodowane dane zdarzenia, slot oraz sygnaturę
+transakcji. Subskrypcje obejmują tylko logi dostarczone, gdy połączenie jest
+aktywne. Zapisuj przetworzone sygnatury i uzupełniaj pominięte transakcje po
+rozłączeniu, jeśli konsument potrzebuje pełnej historii.
+
+## Dekodowanie pobranych logów transakcji
+
+W przypadku uzupełniania danych i jednorazowej inspekcji pobierz transakcję i przekaż każdy
+ładunek `Program data:` do kodera zdarzeń:
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+Transakcja może wywoływać kilka programów. W parserze produkcyjnym śledź
+granice logów `Program <address> invoke` i `success` albo użyj parsera zdarzeń Anchor,
+aby wpis `Program data:` innego programu nie został zdekodowany jako Twój.
+Nieudane transakcje mogą zachować logi i wewnętrzne instrukcje z operacji wykonanych
+przed wystąpieniem błędu, dlatego zawsze odrzucaj metadane transakcji z niepustym `err`
+przed zindeksowaniem którejkolwiek postaci zdarzenia. Subskrypcja logów Anchor wykonuje tę kontrolę
+przed dostarczeniem callbacka zdarzenia.
+
+W przypadku zdarzenia `emit_cpi!` znajdź wywołanie CPI do samego siebie w `meta.innerInstructions`,
+potwierdź, że jego identyfikator programu to Twój program, i zdekoduj z base58 jego instruction data.
+Zanim usuniesz jakiekolwiek bajty, zweryfikuj
+[`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3) z Anchor:
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+Sprawdzenie zarówno identyfikatora programu, jak i tagu zapobiega pomyleniu zwykłego wywołania CPI do samego siebie
+ze zdarzeniem.
+
+## Wersjonowanie schematów zdarzeń
+
+Domyślnie Anchor wyprowadza 8-bajtowy dyskryminator zdarzenia z nazwy zdarzenia.
+Anchor obsługuje też jawny dyskryminator za pomocą
+`#[event(discriminator = ...)]`. Dyskryminatory muszą pozostać unikalne w obrębie
+programu i stabilne dla każdego klienta dekodującego zdarzenie.
+
+Zmiana pól emitowanej struktury zmienia jej układ w formacie Borsh. W przypadku zmiany schematu
+łamiącej zgodność zdefiniuj nowe zdarzenie, na przykład `PaymentRecordedV2`, zamiast
+cichej modyfikacji `PaymentRecorded`. Emituj dalej stare zdarzenie w okresie
+migracji, jeśli istniejące indeksery nadal od niego zależą.
+
+W przypadku danych podlegających ewolucji preferuj pola o stałej szerokości oraz identyfikatory, które pozwalają
+indekserowi osobno pobrać bogatsze dane konta. Opublikuj zaktualizowany IDL przed aktualizacją programu lub
+razem z nią, aby konsumenci mogli od razu dekodować nowe zdarzenie.
+
+## Testowanie zdarzeń
+
+Testuj zdekodowany kontrakt, a nie ciąg base64. Zarejestruj nasłuchiwanie przed
+wysłaniem instrukcji, sprawdź zdekodowane pola i sygnaturę transakcji
+oraz zawsze usuwaj nasłuchiwanie:
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+Przetestuj również, czy indekser ignoruje bajty zdarzeń zachowane w metadanych nieudanych transakcji,
+i dodaj fixture dla każdej obsługiwanej wersji zdarzenia. Jeśli używasz
+`emit_cpi!`, przetestuj dekodowanie z `innerInstructions`, ponieważ nasłuchiwanie logów nie
+otrzymuje tych zdarzeń bezpośrednio.
+
+## Dalsza lektura
+
+- [Dokumentacja zdarzeń Anchor](https://www.anchor-lang.com/docs/features/events)
+- [Klient Anchor dla TypeScript](https://www.anchor-lang.com/docs/clients/typescript)
+- [Kod źródłowy makra zdarzeń Anchor](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

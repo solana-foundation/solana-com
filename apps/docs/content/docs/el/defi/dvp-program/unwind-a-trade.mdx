@@ -1,0 +1,270 @@
+---
+title: Αναίρεση μιας συναλλαγής
+description:
+  Πάρτε πίσω ένα σκέλος με το Reclaim, αναιρέστε μια συναλλαγή με το Cancel ή το Reject και ανακτήστε μια κατάθεση που έφτασε μετά το κλείσιμο της συναλλαγής με το Recover.
+seoTitle: Αναίρεση συναλλαγής DvP στο Solana
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+Τέσσερις εντολές επιστρέφουν κεφάλαια χωρίς διακανονισμό: οι Reclaim, Cancel και Reject
+όσο η συναλλαγή είναι ανοιχτή, και η Recover για μια κατάθεση που φτάνει αφού η
+συναλλαγή έχει κλείσει. Καμία τους δεν ελέγχει τη λήξη. Ένα παγωμένο escrow ή ένα
+mint που άλλαξε μπορεί και πάλι να κρατά ένα σκέλος, όπως περιγράφουν οι σημειώσεις στο τέλος.
+
+| Εντολή  | Υπογράφων               | Εύρος                         | Συναλλαγή στη συνέχεια |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` ή `user_b` | Το δικό του σκέλος του υπογράφοντος          | Παραμένει ανοιχτή       |
+| `CancelDvp`  | Αρχή διακανονισμού | Και τα δύο σκέλη                     | Κλειστή           |
+| `RejectDvp`  | `user_a` ή `user_b` | Και τα δύο σκέλη                     | Κλειστή           |
+| `RecoverDvp` | `user_a` ή `user_b` | Το σκέλος του υπογράφοντος, μετά το κλείσιμο | Ήδη κλειστή   |
+
+Σε κάθε περίπτωση, το escrow αδειάζει ό,τι κρατά προς το μέρος του σκέλους:
+το escrow A στο token account του `user_a` για το `mint_a`, το escrow B στο token account του `user_b` για το
+`mint_b`, ανεξάρτητα από το ποιος το χρηματοδότησε. Το memo program account παρέχεται για τους λογαριασμούς
+επιστροφής που απαιτούν memo.
+
+Αυτή η σελίδα συνεχίζει από τα προηγούμενα βήματα: ο client και οι υπογράφοντες από την ενότητα
+[δημιουργία συναλλαγής](/docs/defi/dvp-program/create-a-trade), τα `userAAtaA` και
+`userBAtaB` από την ενότητα [χρηματοδότηση των σκελών](/docs/defi/dvp-program/fund-the-legs), και τα
+`MEMO_PROGRAM_ID` και `authority` από την ενότητα
+[διακανονισμός της συναλλαγής](/docs/defi/dvp-program/settle-the-trade) μεταφέρονται εδώ.
+
+## Ανάκτηση ενός σκέλους
+
+Η Reclaim επιστρέφει το σκέλος του υπογράφοντος και αφήνει τη συναλλαγή ανοιχτή, ώστε το σκέλος
+να μπορεί να χρηματοδοτηθεί ξανά. Χρησιμοποιήστε την όταν το πρόβλημα βρίσκεται στο σκέλος του
+αντισυμβαλλομένου· οι Cancel και Reject κλείνουν ολόκληρη τη συναλλαγή.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Ακύρωση ή απόρριψη
+
+Η Cancel υπογράφεται από την αρχή διακανονισμού και η Reject από οποιοδήποτε από τα δύο μέρη. Και οι δύο
+επιστρέφουν ό,τι κρατά κάθε escrow στο μέρος του αντίστοιχου σκέλους και κλείνουν την εγγραφή και
+τα δύο escrow, με το rent των κλειστών λογαριασμών να πηγαίνει στον υπογράφοντα. Οι δύο
+εντολές δέχονται τους ίδιους λογαριασμούς· διαφέρει μόνο ο υπογράφων.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Οι λογαριασμοί επιστροφής (`userAAtaA`, `userBAtaB`) πρέπει να υπάρχουν για κάθε σκέλος που κρατά
+υπόλοιπο· ένας μη αρχικοποιημένος λογαριασμός επιστροφής κάνει τη μεταφορά token να αποτύχει και
+αναιρεί την εντολή. Ένα σκέλος που δεν χρηματοδοτήθηκε ποτέ δεν χρειάζεται μεταφορά και
+ανέχεται έναν λογαριασμό που λείπει.
+
+## Ανάκτηση μιας καθυστερημένης κατάθεσης
+
+Οι Settle, Cancel και Reject κλείνουν και τα δύο escrow token account, οπότε μια απλή
+μεταφορά σε ένα κλειστό escrow αποτυγχάνει. Μια κατάθεση φτάνει μετά το κλείσιμο μόνο αν
+κάτι δημιουργήσει πρώτα ξανά το escrow, για παράδειγμα μια συναλλαγή χρηματοδότησης που
+περιλαμβάνει μια εντολή create-idempotent associated token account πριν από τη
+μεταφορά και βρισκόταν σε εξέλιξη όταν ο αντισυμβαλλόμενος έστειλε Reject. Τα tokens τότε
+βρίσκονται σε ένα escrow του οποίου η συναλλαγή δεν υπάρχει πια: η εγγραφή έχει διαγραφεί, άρα η Reclaim
+δεν μπορεί να τη βρει, και το nonce tombstone εμποδίζει τη δημιουργία νέας συναλλαγής
+στην ίδια διεύθυνση που θα καταλάμβανε την κατάθεση.
+
+Για να χρησιμοποιήσει την `RecoverDvp`, το μέρος του σκέλους παρέχει τις αρχικές εισόδους seed
+(αρχή διακανονισμού, και τα δύο μέρη, και τα δύο mints, nonce). Το πρόγραμμα υπολογίζει ξανά
+τη διεύθυνση της εγγραφής, απαιτεί το tombstone της ως απόδειξη ότι η συναλλαγή υπήρξε, αδειάζει
+το escrow στο δικό του token account του υπογράφοντος και το κλείνει, επιστρέφοντας το
+rent του escrow στον υπογράφοντα. Το σκέλος του υπογράφοντος επιλέγεται από το ποιο μέρος υπογράφει:
+`mint_a` για τον `user_a`, `mint_b` για τον `user_b`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Η ανάκτηση εξαρτάται από το αν το μέρος διατηρεί τις παραμέτρους δημιουργίας. Ένα σύστημα που χρηματοδοτεί
+συναλλαγές αποθηκεύει τις εισόδους seed μαζί με κάθε εντολή μέχρι να κλείσει η συναλλαγή και να
+επιβεβαιωθεί ότι τα υπόλοιπα των escrow είναι άδεια.
+
+## Σημειώσεις
+
+- **Παγωμένα σκέλη.** Σε ένα mint με περιορισμούς (gated), ένα παγωμένο escrow εμποδίζει τη μεταφορά token
+  που εκτελούν αυτές οι εντολές, μέχρι η αρχή πάγωσης (freeze authority) να το ξεπαγώσει. Δείτε την
+  [επισκόπηση](/docs/defi/dvp-program#mint-configuration-constraints).
+- **Αλλαγές του mint μετά τη δημιουργία.** Οι διαδρομές αναίρεσης παραλείπουν τους ελέγχους επεκτάσεων και
+  mint authority, ώστε οι έλεγχοι του ίδιου του προγράμματος να μην εμποδίζουν μια ανάκτηση. Οι
+  κανόνες του ίδιου του token program εξακολουθούν να ισχύουν. Ένα mint μπορεί να κλείσει μόνο όταν η προσφορά είναι μηδέν,
+  επομένως δεν μπορεί να αλλάξει όσο υπάρχει υπόλοιπο στο escrow, όμως ένα mint που έχει κλείσει
+  και δημιουργηθεί ξανά ως NonTransferable ή με τέλος μεταφοράς (transfer fee) πριν φτάσει μια καθυστερημένη κατάθεση
+  μπορεί να κάνει αυτή την κατάθεση αδύνατο να μετακινηθεί ή επιβαρυμένη με τέλος. Αυτή είναι η
+  εξάρτηση από το mint authority που αναφέρεται στα
+  [υποστηριζόμενα tokens](/docs/defi/dvp-program#supported-tokens).
+
+## Επόμενα βήματα
+
+- [Πρόγραμμα DvP](/docs/defi/dvp-program): η επισκόπηση, τα υποστηριζόμενα tokens και
+  οι περιορισμοί διαμόρφωσης του mint
+- [Delivery vs Payment (DvP) με χρήση ανάθεσης](/docs/tokenization/dvp): η ίδια
+  ανταλλαγή μέσω εξουσιοδοτημένης αρχής, χωρίς πρόγραμμα

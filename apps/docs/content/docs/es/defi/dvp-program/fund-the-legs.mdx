@@ -1,0 +1,241 @@
+---
+title: Fondear los tramos
+description:
+  Verifica los términos almacenados de una operación DvP y luego fondea un tramo con un simple TransferChecked a su cuenta de escrow.
+seoTitle: Fondear una operación DvP en Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Fondear un tramo consiste en un simple `TransferChecked` al escrow del tramo, por lo que cualquier wallet o sistema de
+custodia que pueda enviar una transferencia de tokens puede fondearlo. Solo la lectura del
+registro de la operación antes de fondear requiere el cliente DvP. El programa comprueba los
+saldos del escrow únicamente en la liquidación; nada verifica la transferencia cuando llega,
+por lo que cada parte lee el registro de la operación antes de transferir.
+
+Esta página continúa desde
+[crear una operación](/docs/defi/dvp-program/create-a-trade); el cliente y los firmantes
+se mantienen.
+
+## Verifica los términos
+
+Crear un registro no requiere permisos, y las direcciones de escrow se derivan únicamente del
+registro y del mint, nunca de los términos. Por tanto, una transferencia a un escrow puede
+llegar asociada a términos que nunca acordaste, incluidos destinos de liquidación que
+redirigen los fondos de tu contraparte a una tercera dirección.
+Antes de fondear, lee la cuenta `SwapDvp` y compárala con la operación acordada.
+
+`verifySwapDvp` en TypeScript y `verify::decode_swap_dvp_account` en Rust
+confirman que la cuenta pertenece al programa DvP, ocupa exactamente 458 bytes y
+se encuentra en la dirección que derivan sus propios campos (`fetchSwapDvpChecked` realiza solo
+las dos primeras comprobaciones). Los lectores simples `fetchSwapDvp` y `decodeSwapDvp`
+no realizan ninguna de ellas. Las comprobaciones de partes, importes, fechas y destinos
+las realiza quien llama frente a la operación acordada.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Si el registro lo creó tu contraparte o la autoridad de liquidación,
+compara cada campo con los términos que acordaste fuera de la cadena. Si lo creaste
+tú mismo, esta lectura confirma que llegó tal como lo enviaste.
+
+## Transfiere al escrow
+
+Fondea el tramo exactamente con el importe acordado. El programa limita la liquidación a
+`amount_x` y devuelve cualquier excedente a la parte del tramo, por lo que el excedente no se pierde,
+pero añade una segunda transferencia en la liquidación y puede fallar con algunos transfer
+hooks (consulta las notas más abajo).
+
+Usa `TransferChecked`, no un `Transfer` sin verificación. Los mints de Token-2022 con
+extensiones que dependen de la mint account, como Pausable, rechazan una transferencia
+que no la incluya, y un mint con un transfer hook requiere que las cuentas del hook se
+resuelvan y se añadan igual que en cualquier otra transferencia de ese
+token.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    La parte del tramo de activo, firmando como `userASigner`, fondea el escrow A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    La parte del tramo de efectivo hace lo mismo con el escrow B usando `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` y `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    La parte del tramo de efectivo construye la misma instrucción para el escrow B con `mint_b`,
+    `user_b` y `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Una transferencia de fondeo vista en [`confirmed`](/docs/rpc#configuring-state-commitment)
+aún puede ser reemplazada. El programa lee el saldo del escrow onchain en la
+liquidación, así que un Settle enviado frente a una transferencia de fondeo que no llegó falla
+con `LegNotFunded` y no se mueve nada; el costo es un Settle fallido y un reintento.
+Considera un tramo como fondeado cuando su transferencia esté `finalized`.
+
+## Notas
+
+- **Tramos de wrapped SOL.** El programa lee el saldo de un escrow nativo tras
+  sincronizarlo, por lo que se contabilizan los lamports enviados a un escrow de wrapped SOL mediante una
+  transferencia del sistema. Nunca envíes SOL a un escrow de ningún otro mint: el programa no puede
+  devolverlo y va a parar a quien cierre la cuenta.
+- **Mints con restricciones.** En un mint con Default Account State congelado, el escrow se
+  crea congelado y la transferencia falla hasta que el emisor lo descongele o lo admita. La
+  [descripción general](/docs/defi/dvp-program#mint-configuration-constraints) explica
+  la interacción con Token ACL.
+- **Transfer hooks.** Fondea los escrows con hook exactamente con el importe acordado. Si
+  un excedente obliga a un reembolso en la liquidación, el reembolso reutiliza las cuentas del hook del tramo
+  con un destino y un importe distintos, lo que algunos hooks rechazan. La
+  recuperación consiste en Reclaim, volver a fondear con el importe exacto y liquidar de nuevo.
+- **Fondeo tras el vencimiento.** Nada impide una transferencia después de `expiry_timestamp`. Esta
+  llega, la liquidación ya no es posible y la parte del tramo la recupera con
+  Reclaim mientras la operación esté abierta o con Recover después de que se cierre. Consulta
+  [deshacer una operación](/docs/defi/dvp-program/unwind-a-trade).
+- **Quién fondea primero.** El programa no establece un orden entre los dos tramos. El orden es
+  cosa de las partes; cualquiera de ellas puede reclamar su propio tramo en cualquier momento
+  antes de la liquidación, a menos que una autoridad del mint (congelación, pausa o transfer hook)
+  bloquee el escrow.
+
+## Próximos pasos
+
+- [Liquidar la operación](/docs/defi/dvp-program/settle-the-trade): la autoridad
+  de liquidación intercambia ambos tramos en una sola transacción
+- [Deshacer una operación](/docs/defi/dvp-program/unwind-a-trade): recuperar un tramo
+  fondeado cuando la operación no se liquida

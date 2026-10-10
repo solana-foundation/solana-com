@@ -1,0 +1,109 @@
+---
+title: Ký một phần
+description:
+  Xây dựng một message giao dịch Solana bất biến, thu thập chữ ký từ các bên ký độc lập, xác minh và gộp chúng lại, rồi gửi giao dịch.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+Ký một phần cho phép nhiều bên cùng ký một giao dịch vào các thời điểm
+khác nhau hoặc trên các thiết bị khác nhau. Bên điều phối xây dựng message, mỗi
+bên ký bắt buộc ký đúng các byte của message đã được serialize, còn bên điều phối
+sẽ xác minh và gộp các chữ ký trước khi gửi.
+
+<Callout type="warn" title="Chữ ký xác thực các byte, không phải ý định">
+  Việc thay đổi người trả phí, blockhash, thứ tự instruction, danh sách tài khoản hoặc bất kỳ
+  instruction data nào đều tạo ra một message khác và làm mọi chữ ký
+  đã thu thập trước đó mất hiệu lực.
+</Callout>
+
+## Quy trình ký một phần
+
+1. Thống nhất các instruction của giao dịch và bên sẽ trả phí.
+2. Thiết lập thời hạn hiệu lực của giao dịch và người trả phí.
+3. Serialize message một lần duy nhất. Coi các byte đó là bất biến.
+4. Phân phối các byte của message cùng bản tóm tắt dễ đọc cho từng bên ký.
+5. Thu thập và xác minh từng chữ ký Ed25519 dựa trên cùng các byte của message.
+6. Gắn các chữ ký vào địa chỉ của bên ký bắt buộc tương ứng.
+7. Xác nhận mọi chữ ký bắt buộc đều có mặt và hợp lệ, sau đó gửi giao dịch.
+
+## Ví dụ hoàn chỉnh
+
+Người trả phí và người gửi SOL dưới đây ký một cách độc lập. Bên điều phối xác minh
+cả hai chữ ký, gộp chúng lại và gửi giao dịch đã hoàn chỉnh.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+Ví dụ này sử dụng chữ ký Ed25519 thô để làm rõ ranh giới giữa
+bên điều phối và từng bên ký. Ví, thiết bị phần cứng, dịch vụ lưu ký
+hoặc bên ký ngoại tuyến đều có thể thay thế keypair cục bộ, miễn là họ ký
+đúng các byte message như nhau.
+
+## Cố định message trước khi ký
+
+Mỗi chữ ký bao phủ toàn bộ message giao dịch đã được serialize. Message bao gồm
+tất cả những thành phần sau:
+
+- người trả phí
+- blockhash gần đây hoặc durable nonce
+- địa chỉ của mọi chương trình và tài khoản
+- quyền ký và quyền ghi của tài khoản
+- thứ tự instruction và instruction data
+
+Hãy xây dựng các trường này trước, serialize message một lần, rồi phân phối mảng byte đó
+cho mọi bên ký. Nên lưu một bản digest của message cùng với
+mỗi yêu cầu ký để bên điều phối có thể từ chối chữ ký được trả về cho
+một message khác.
+
+Đừng deserialize một message, chỉnh sửa nó rồi mong các chữ ký đã thu thập trước đó
+vẫn còn hợp lệ. Ngay cả một thay đổi tưởng như mang tính vận hành, chẳng hạn
+thay blockhash đã hết hạn hoặc đổi người trả phí, cũng yêu cầu mọi bên ký
+phải ký lại.
+
+## Điều phối người trả phí
+
+Người trả phí luôn là bên ký bắt buộc và phải được chọn trước khi message
+được cố định. Hãy xác nhận tài khoản có đủ SOL cho phí cơ bản và mọi
+phí ưu tiên. Nếu một bên bảo trợ hoặc backend sẽ trả phí, hãy đưa địa chỉ đó vào
+message trước khi thu thập chữ ký của người dùng; việc thêm bên bảo trợ sau đó sẽ làm thay đổi
+các byte đã ký.
+
+Bên điều phối nên xác minh rằng chữ ký nhận được thuộc về một địa chỉ
+nằm trong danh sách bên ký bắt buộc. Tuyệt đối không chấp nhận một khóa công khai bất kỳ rồi gắn nó
+vào giao dịch.
+
+## Quản lý thời hạn hiệu lực của giao dịch
+
+Giao dịch dùng blockhash gần đây chỉ hợp lệ khi blockhash của nó vẫn còn trong
+hàng đợi blockhash gần đây của validator. Trước khi bắt đầu quy trình ký nhiều bên,
+hãy ước tính xem tất cả các bên ký có thể phản hồi trước `lastValidBlockHeight` hay không.
+
+Nếu blockhash hết hạn, hãy xây dựng một message mới với blockhash mới và thu thập
+lại toàn bộ chữ ký. Đối với các quy trình có thể kéo dài hơn hoặc có bên ký
+ngoại tuyến, hãy dùng [durable nonce](/docs/core/transactions/durable-nonces). Durable nonce
+tránh được khung thời gian của blockhash gần đây, nhưng việc tăng hoặc tiêu thụ nonce đó
+bằng cách khác vẫn làm giao dịch đang chờ mất hiệu lực.
+
+## Xác minh trước khi gửi
+
+Với mỗi chữ ký được trả về:
+
+1. Xác minh chữ ký dựa trên các byte message đã cố định và khóa công khai
+   của bên ký dự kiến.
+2. Gắn nó vào vị trí của bên ký đó trong mảng chữ ký của giao dịch.
+3. Xác minh giao dịch đã lắp ráp có chữ ký hợp lệ cho mọi bên ký
+   bắt buộc.
+4. Gửi giao dịch đã serialize mà không xây dựng lại message của nó.
+
+Sau khi gửi, hãy xác nhận bằng chính thông tin về thời hạn hiệu lực đã được đưa
+vào message đã ký. Nếu kết quả xác nhận báo blockhash đã hết hạn hoặc nonce đã bị tiêu thụ,
+đừng thử lại với giao dịch đã chỉnh sửa; hãy bắt đầu lại quy trình ký.

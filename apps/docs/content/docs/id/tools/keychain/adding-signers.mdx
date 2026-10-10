@@ -11,28 +11,51 @@ Dengan menambahkan implementasi penanda tangan Anda, Anda akan memungkinkan
 pengembang menggunakan layanan Anda untuk penandatanganan transaksi Solana yang
 aman melalui antarmuka terpadu.
 
-_Menggunakan LLM? Lihat
-[Skill Menambahkan Penanda Tangan](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer)._
+Keychain menjaga implementasi Rust, TypeScript, Python, dan Go-nya tetap setara.
+PR yang mencakup keempatnya sangat diutamakan. Jika Anda hanya dapat berkontribusi
+pada satu, tidak masalah, tetapi harap ketahui bahwa implementasi lainnya akan diwajibkan sebelum signer dirilis
+dalam sebuah rilis.
+
+_Menggunakan Claude Code? [skill `add-signer-ci`](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer-ci)
+di repo ini
+menyiapkan workflow CI untuk signer baru yang dikontribusikan melalui PR fork._
 
 ## Ikhtisar Arsitektur
 
-Pustaka ini menggunakan arsitektur berbasis trait di mana semua penanda tangan
-mengimplementasikan trait `SolanaSigner` yang didefinisikan dalam
-`src/traits.rs`. Pustaka ini juga menyediakan enum `Signer` terpadu yang
-membungkus semua implementasi, memungkinkan pemilihan backend penandatanganan
-saat runtime sambil mempertahankan API yang konsisten.
+Library ini menggunakan arsitektur berbasis trait yang didefinisikan di `src/traits.rs`. Setiap
+signer mengimplementasikan trait dasar `SolanaSigner` (`pubkey`, `sign_message`,
+`is_available`) ditambah tepat satu trait kapabilitas yang sesuai dengan bentuk provider:
+
+- `TransactionSigner` (`sign_transaction`): provider menandatangani byte
+  dari pemanggil dan pemanggil yang melakukan broadcast. Sebagian besar backend.
+- `ModifyingSigner` (`modify_and_sign_transaction`): provider menulis ulang
+  transaksi, lalu menandatanganinya tanpa melakukan broadcast.
+- `SendingSigner` (`sign_and_send_transaction`): provider menandatangani dan
+  melakukan broadcast di sisi server.
+
+Library ini juga menyediakan enum `Signer` terpadu yang membungkus semua
+implementasi, sehingga memungkinkan pemilihan backend penandatanganan saat runtime. Enum ini hanya
+mengimplementasikan trait dasar; kapabilitas diakses melalui `as_transaction_signer()`,
+`as_modifying_signer()`, dan `as_sending_signer()`.
 
 ## Daftar Periksa Integrasi Cepat
 
 - Buat modul penanda tangan Anda dengan implementasi
-- Implementasikan trait `SolanaSigner` (3 metode async + `pubkey()`)
-- Tambahkan flag fitur di `Cargo.toml`
-- Perbarui enum `Signer` di `src/lib.rs` (4 arm match)
-- Perbarui gerbang cfg impl reqwest `From` di `src/error.rs` (jika penanda
-  tangan Anda menggunakan reqwest)
+- Implementasikan trait dasar `SolanaSigner` (`pubkey`, `sign_message`,
+  `is_available`) ditambah satu trait kapabilitas yang sesuai dengan bentuk provider Anda
+  (biasanya `TransactionSigner`)
+- Tambahkan feature flag di `Cargo.toml`, termasuk penanda internal `_remote` jika
+  signer Anda menggunakan reqwest
+- Perbarui enum `Signer` di `src/lib.rs` (varian, arm `dispatch_signer!`, dan
+  arm di accessor kapabilitas yang sesuai dengan bentuk Anda)
 - Terapkan HTTPS dan konfigurasi timeout pada klien HTTP
-- Tambahkan pengujian komprehensif
+- Tandatangani byte pesan dan verifikasi signature yang dikembalikan sebelum melampirkannya
+- Tambahkan unit test yang komprehensif (berbasis wiremock, di modul Anda)
+- Tambahkan file integration test dan perbarui `.env.example`
+- Tambahkan implementasi TypeScript, Python, dan Go
 - Perbarui dokumentasi
+- Pembaruan workflow CI (koordinasikan dengan maintainer, lihat
+  [Pembaruan Workflow CI](#ci-workflow-updates-fork-prs))
 - Kirim PR
 
 ## Langkah 1: Buat Modul Penanda Tangan Anda
@@ -53,8 +76,8 @@ Di `src/your_service/mod.rs`, definisikan struct penanda tangan Anda:
 ```rust
 //! YourService API signer integration
 
+use crate::sdk_adapter::{Pubkey, Signature, VersionedTransaction};
 use crate::{error::SignerError, traits::SolanaSigner};
-use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
 use std::str::FromStr;
 
 /// YourService-based signer using YourService's API
@@ -135,15 +158,15 @@ impl YourServiceSigner {
             .send()
             .await?;
 
-        // Use generic error messages — never expose raw API response text
+        // Use generic error messages: never expose raw API response text
         if !response.status().is_success() {
             let status = response.status().as_u16();
-            return Err(SignerError::RemoteApiError(format!(
+            return Err(SignerError::remote_api(format!(
                 "YourService API returned status {status}"
             )));
         }
 
-        // Parse response — always use map_err, never .expect() or .unwrap()
+        // Parse response: always use map_err, never .expect() or .unwrap()
         let response_data: SignResponse = response
             .json()
             .await
@@ -161,18 +184,22 @@ impl YourServiceSigner {
 }
 ```
 
-## Langkah 4: Implementasikan Trait SolanaSigner
+## Langkah 4: Implementasikan Trait Signer
 
-Trait ini memiliki 3 metode async (`sign_transaction`, `sign_message`,
-`is_available`) ditambah `pubkey()`. Perhatikan bahwa `sign_transaction`
-mengembalikan `SignTransactionResult` — enum bertanda yang menunjukkan apakah
-transaksi ditandatangani sepenuhnya atau ditandatangani sebagian.
+Trait dasar `SolanaSigner` memiliki 2 metode async (`sign_message`,
+`is_available`) ditambah `pubkey()`. Penandatanganan transaksi ditempatkan di trait kapabilitas;
+sebagian besar provider mengimplementasikan `TransactionSigner`, yang `sign_transaction`-nya mengembalikan
+`SignTransactionResult` (enum bertag yang menandai transaksi telah ditandatangani sepenuhnya atau
+sebagian).
 
-Gunakan helper `TransactionUtil` bersama untuk penandatanganan dan serialisasi.
+Tandatangani byte pesan, jangan seluruh transaksi wire, dan verifikasi
+signature provider terhadap byte tersebut sebelum melampirkannya. Gunakan helper
+`TransactionUtil` bersama untuk penandatanganan dan serialisasi.
 
 ```rust
+use crate::signature_util::verify_or_reject;
+use crate::traits::{SignTransactionResult, TransactionSigner};
 use crate::transaction_util::TransactionUtil;
-use crate::traits::SignTransactionResult;
 
 #[async_trait::async_trait]
 impl SolanaSigner for YourServiceSigner {
@@ -180,28 +207,10 @@ impl SolanaSigner for YourServiceSigner {
         self.public_key
     }
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
-        let tx_bytes = bincode::serialize(tx)
-            .map_err(|e| SignerError::SerializationError(format!("Failed to serialize: {e}")))?;
-
-        let signature = self.sign(&tx_bytes).await?;
-
-        // Add the signature at the correct position
-        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
-
-        // Serialize and classify as Complete or Partial
-        let serialized = TransactionUtil::serialize_transaction(tx)?;
-        Ok(TransactionUtil::classify_signed_transaction(
-            tx,
-            (serialized, signature),
-        ))
-    }
-
     async fn sign_message(&self, message: &[u8]) -> Result<Signature, SignerError> {
-        self.sign(message).await
+        let signature = self.sign(message).await?;
+        verify_or_reject(&signature, &self.public_key, message)?;
+        Ok(signature)
     }
 
     async fn is_available(&self) -> bool {
@@ -214,7 +223,32 @@ impl SolanaSigner for YourServiceSigner {
             .unwrap_or(false)
     }
 }
+
+#[async_trait::async_trait]
+impl TransactionSigner for YourServiceSigner {
+    async fn sign_transaction(
+        &self,
+        tx: &mut VersionedTransaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        let message = tx.message.serialize();
+        let signature = self.sign(&message).await?;
+        verify_or_reject(&signature, &self.public_key, &message)?;
+
+        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
+        let serialized = TransactionUtil::serialize_transaction(tx)?;
+        Ok(TransactionUtil::classify_signed_transaction(
+            tx,
+            (serialized, signature),
+        ))
+    }
+}
 ```
+
+Jika provider Anda menulis ulang transaksi sebelum menandatangani, implementasikan
+`ModifyingSigner` sebagai gantinya dan ganti transaksi pemanggil secara menyeluruh dengan
+byte dari provider. Jika provider melakukan broadcast di sisi server, implementasikan `SendingSigner`
+dan biarkan transaksi pemanggil tidak tersentuh. Jangan pernah mengimplementasikan kapabilitas yang tidak dapat
+dilayani oleh provider Anda.
 
 ## Langkah 5: Tambahkan Tipe API (Opsional)
 
@@ -237,24 +271,28 @@ pub struct SignResponse {
 
 ## Langkah 6: Tambahkan Feature Flag
 
-Perbarui `Cargo.toml` untuk menambahkan signer Anda sebagai fitur opsional:
+Perbarui `Cargo.toml` untuk menambahkan signer Anda sebagai fitur opsional. Backend remote
+menyertakan penanda internal `_remote`, yang mengatur impl `From<reqwest::Error>`
+di `src/error.rs`; tanpa itu, `?` pada panggilan reqwest tidak akan dikompilasi jika hanya
+fitur Anda yang diaktifkan.
 
 ```toml
 [features]
-default = ["memory"]
+default = ["memory", "sdk-v2"]
 memory = []
-vault = ["dep:reqwest", "dep:vaultrs", "dep:base64"]
-privy = ["dep:reqwest", "dep:base64"]
-turnkey = ["dep:reqwest", "dep:base64", "dep:p256", "dep:hex", "dep:chrono"]
-your_service = ["dep:reqwest", "dep:base64"]  # Add your feature
-all = ["memory", "vault", "privy", "turnkey", "your_service"]  # Update all
+vault = ["dep:reqwest", "_remote"]
+privy = ["dep:reqwest", "dep:p256", "_remote"]
+your_service = ["dep:reqwest", "_remote"]  # Add your feature
+all = ["memory", "vault", "privy", "...", "your_service"]  # Update all
 ```
 
 ## Langkah 7: Perbarui Enum Signer
 
-Tambahkan signer Anda ke `src/lib.rs`. Anda memerlukan 4 match arm dalam
-implementasi `SolanaSigner`: `pubkey`, `sign_transaction`, `sign_message`, dan
-`is_available`.
+Tambahkan signer Anda ke `src/lib.rs`. Impl dasar `SolanaSigner` melakukan dispatch melalui
+makro `dispatch_signer!`, jadi tambahkan satu arm di sana. Akses kapabilitas berada di
+accessor `as_transaction_signer()`, `as_modifying_signer()`, dan `as_sending_signer()`:
+tambahkan arm `Some(s)` ke accessor yang sesuai dengan trait kapabilitas Anda (dan,
+untuk backend sending atau modifying, arm `None` di `as_transaction_signer()`).
 
 ```rust
 // Add feature-gated module
@@ -296,51 +334,29 @@ impl Signer {
     }
 }
 
-// Update trait implementation — 4 match arms
-#[async_trait::async_trait]
-impl SolanaSigner for Signer {
-    fn pubkey(&self) -> sdk_adapter::Pubkey {
-        match self {
+// Update the dispatch macro: the base SolanaSigner impl uses it for
+// pubkey, sign_message and is_available
+macro_rules! dispatch_signer {
+    ($self:ident, $signer:pat => $body:expr) => {
+        match $self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.pubkey(),
+            Signer::YourService($signer) => $body,
         }
-    }
+    };
+}
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut sdk_adapter::Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
+// Add your arm to the capability accessor matching your shape
+impl Signer {
+    pub fn as_transaction_signer(&self) -> Option<&dyn TransactionSigner> {
         match self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_transaction(tx).await,
-        }
-    }
-
-    async fn sign_message(
-        &self,
-        message: &[u8],
-    ) -> Result<sdk_adapter::Signature, SignerError> {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_message(message).await,
-        }
-    }
-
-    async fn is_available(&self) -> bool {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.is_available().await,
+            Signer::YourService(s) => Some(s),
         }
     }
 }
 ```
-
-Jika signer Anda menggunakan `reqwest`, tambahkan fitur Anda ke gate
-`#[cfg(any(...))]` pada implementasi `From<reqwest::Error>` di `src/error.rs`.
 
 ## Langkah 8: Tambahkan Pengujian Komprehensif
 
@@ -425,19 +441,59 @@ mod tests {
 }
 ```
 
-## Langkah 9: Perbarui Dokumentasi
+Cakup juga kegagalan verifikasi signature: respons mock yang signature-nya
+tidak lolos verifikasi harus mengembalikan error.
+
+## Langkah 9: Tambahkan Integration Test
+
+Buat `rust/src/tests/test_<name>_integration.rs`. Integration test dijalankan
+terhadap API layanan yang sebenarnya (bukan wiremock) dan dibatasi oleh fitur
+`integration-tests`. Setiap file memerlukan:
+
+- Deklarasi `pub const` untuk nama variabel env
+- Helper `get_signer()` yang membaca variabel env melalui `dotenvy`
+- Tiga fungsi test: `test_<name>_sign_message`,
+  `test_<name>_sign_transaction`, dan `test_<name>_is_available`
+- Feature gate: `#[cfg(feature = "your_service")]` pada modul dan
+  `#[cfg(feature = "integration-tests")]` pada setiap test
+
+Lihat `rust/src/tests/test_para_integration.rs` untuk referensi lengkap, dan
+deklarasikan modul Anda di `rust/src/tests/mod.rs`:
+
+```rust
+pub mod test_your_service_integration;
+```
+
+## Langkah 10: Perbarui Variabel Lingkungan
+
+Perbarui `.env.example` di root dengan variabel env signer Anda, mengikuti
+pola yang ada:
+
+```bash
+# YourService Configuration (for SIGNER_TYPE=your_service)
+YOUR_SERVICE_API_KEY=your-api-key
+YOUR_SERVICE_WALLET_ID=your-wallet-id
+# YOUR_SERVICE_API_BASE_URL=https://api.yourservice.com/v1  # Optional, defaults to this
+```
+
+Cantumkan variabel yang wajib terlebih dahulu dengan nilai placeholder dan variabel opsional dijadikan komentar
+dengan nilai defaultnya. Setiap variabel env yang digunakan dalam integration test harus muncul di
+`.env.example`, dan suite TypeScript, Python, dan Go menggunakan nama yang sama.
+
+## Langkah 11: Perbarui Dokumentasi
 
 Tambahkan signer Anda ke tabel backend yang didukung di README.md:
 
-| Backend         | Kasus Penggunaan                                  | Feature Flag   |
-| --------------- | ------------------------------------------------- | -------------- |
-| **Memory**      | Keypair lokal, pengembangan, pengujian            | `memory`       |
+| Backend         | Kasus Penggunaan                                       | Feature Flag   |
+| --------------- | ---------------------------------------------- | -------------- |
+| **Memory**      | Keypair lokal, pengembangan, pengujian           | `memory`       |
 | **Vault**       | Manajemen kunci enterprise dengan HashiCorp Vault | `vault`        |
-| **Privy**       | Dompet tertanam dengan infrastruktur Privy        | `privy`        |
-| **Turnkey**     | Manajemen kunci non-custodial melalui Turnkey     | `turnkey`      |
-| **YourService** | Deskripsi singkat layanan Anda                    | `your_service` |
+| **Privy**       | Dompet tertanam dengan infrastruktur Privy     | `privy`        |
+| **Turnkey**     | Manajemen kunci non-custodial melalui Turnkey       | `turnkey`      |
+| **YourService** | Deskripsi singkat layanan Anda              | `your_service` |
 
-Tambahkan contoh penggunaan:
+Tambahkan juga backend Anda ke tabel kapabilitas signer di README setiap
+bahasa. Tambahkan contoh penggunaan:
 
 ```rust
 use solana_keychain::{Signer, SolanaSigner};
@@ -460,47 +516,161 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Menguji Integrasi Anda
 
-Jalankan pengujian untuk fitur Anda:
+Gunakan recipe `just` daripada `cargo` mentah. Fitur SDK (`sdk-v2`,
+`sdk-v3`, `sdk-v4`) bersifat saling eksklusif, sehingga `cargo test --all-features`
+gagal.
 
 ```bash
-# Test only your signer
-cargo test --features your_service
+# Unit tests across the sdk-v2, sdk-v3 and sdk-v4 matrices
+just rust-test
 
-# Test with all features
-cargo test --all-features
+# Live integration tests (require credentials in .env)
+just rust-test-integration
 ```
+
+## Pembaruan Workflow CI (PR Fork)
+
+CI adalah proses dua fase. Koordinasikan dengan maintainer untuk menyiapkan `main` sebelum
+PR Anda dapat diuji: mereka memperbarui `fork-external-live-manual.yml`, menambahkan variabel env
+ke `ci.yml`, dan mengonfigurasi GitHub Secrets.
+
+PR Anda harus menyertakan perubahan Fase 2 berikut bersama kode signer Anda:
+
+- **`ci.yml`**: tambahkan fitur Rust Anda ke matriks `backend` (sebelum `all`) dan
+  fungsi integration test Anda ke matriks `test`
+- **`typescript-ci.yml`**: tambahkan paket Anda ke matriks unit dan integration test,
+  lalu tambahkan variabel env ke langkah integration test
+- **`typescript-publish.yml`**: tambahkan paket Anda ke `PUBLISH_PACKAGES`, array
+  `packages` GitHub Release, dan tabel ringkasan
+- **`python-ci.yml`**: tambahkan backend ke gating `CI_SIGNER_*` di
+  `resolve-signers` dan ke matriks integrasi
+- **`go-ci.yml`**: tambahkan backend ke gating `CI_SIGNER_*` dan ke
+  `moduleBySigner`
 
 ## Signer TypeScript
 
 Jika Anda juga menambahkan paket signer TypeScript, buat di
 `typescript/packages/your-signer/`. Pola kunci:
 
-- Fungsi factory `createYourSigner()` mengembalikan `SolanaSigner<TAddress>`
+- Fungsi factory `createYourSigner()` mengembalikan
+  `SolanaTransactionSigner<TAddress> & SolanaMessageSigner<TAddress>`; jadikan
+  kelas signer bersifat internal dan ekspor hanya factory beserta tipe konfigurasinya
 - Ekspor interface config (`YourSignerConfig`)
-- Terapkan HTTPS pada field config `apiBaseUrl`
-- Bersihkan teks error API remote dengan `sanitizeRemoteErrorResponse()` dari
+- Jika backend Anda tidak dapat menandatangani pesan, hilangkan `SolanaMessageSigner` dan jangan ekspos metode
+  `signMessages` sama sekali: Kit mengklasifikasikan signer berdasarkan keberadaan metode, sehingga
+  stub yang melempar error akan salah mengklasifikasikan signer
+- Terapkan HTTPS pada field konfigurasi `apiBaseUrl` dengan `assertHttpsUrl()` dari
   `@solana/keychain-core`
-- Lindungi dari JSON yang salah format dengan optional chaining dan try/catch
+- Lakukan panggilan remote melalui `fetchSignerJson()` dari `@solana/keychain-core`,
+  yang menangani pemetaan error, sanitasi respons, penolakan redirect, dan
+  timeout default
+- Sanitasi teks error API remote lainnya dengan `sanitizeRemoteErrorResponse()`
+  dari `@solana/keychain-core`
 - Gunakan `throwSignerError(SignerErrorCode.*, { cause, message })` dari
   `@solana/keychain-core`
+- Hormati `config?.abortSignal` di setiap metode penandatanganan, dengan meneruskannya ke
+  `fetchSignerJson()` dan `signBatchStaggered()`
+- Validasi `requestDelayMs` dengan `validateRequestDelayMs()` dan lakukan batch dengan
+  `signBatchStaggered()`
 - Tambahkan JSDoc `@throws` ke fungsi factory yang mencantumkan kode error
+- Deklarasikan paket `@solana/*` sebagai peer dependency pada `>=8.1.0`
+- Unit test dengan vitest dan `fetch` yang di-mock; integration test dengan
+  `runSignerIntegrationTest` dari `@solana/keychain-test-utils`
+
+### Sending Signer
+
+Jika provider Anda menulis ulang transaksi atau melakukan broadcast di sisi server,
+signature-nya tidak dapat diterapkan pada transaksi pemanggil, sehingga harus berupa
+`SolanaSendingSigner` dan bukan `SolanaTransactionSigner`:
+
+- Implementasikan `signAndSendTransactions()` dan **jangan** ekspos `signTransactions`
+  (maupun `signMessages`, kecuali backend benar-benar menandatangani pesan)
+- Hormati `config?.abortSignal`. Setelah provider menerima permintaan create, laporkan
+  setiap kegagalan (termasuk abort) sebagai `BROADCAST_UNCONFIRMED` dengan menyertakan
+  id transaksi provider, dengan alasan abort disimpan sebagai `cause`
+- Tambahkan overload `createKeychainSigner` bertipe yang mengembalikan tipe sending-signer Anda
+- Kecualikan backend Anda dari `KeychainKitPluginConfig` di
+  `typescript/packages/kit-plugin/src/keychain-plugin.ts`, karena sending
+  signer tidak dapat berfungsi sebagai `payer` atau `identity` klien Kit
+- Pastikan dalam unit test bahwa `isTransactionPartialSigner()` bernilai false dan
+  `isTransactionSendingSigner()` bernilai true untuk instance Anda
 
 ### Perbarui Paket Umbrella
 
-Perbarui `typescript/packages/keychain/` — 6 file yang perlu dimodifikasi:
+Perbarui `typescript/packages/keychain/` (7 file yang perlu diubah):
 
-1. `src/types.ts` — Tambahkan `YourSignerConfig` ke discriminated union
+1. `src/types.ts`: Tambahkan `YourSignerConfig` ke union terdiskriminasi
    `KeychainSignerConfig`
-2. `src/create-keychain-signer.ts` — Impor factory, tambahkan case switch
-3. `src/resolve-address.ts` — Tambahkan ke case switch fast-path atau fetch-path
-4. `src/index.ts` — Tambahkan tipe config, namespace, fungsi factory, dan ekspor
-   class
-5. `package.json` — Tambahkan dependensi
-   `@solana/keychain-your-signer: "workspace:*"`
-6. `tsconfig.json` — Tambahkan referensi `{ "path": "../your-signer" }`
+2. `src/create-keychain-signer.ts`: Tambahkan switch case (setiap paket backend
+   dimuat dengan `import()` dinamis)
+3. `src/resolve-address.ts`: Tambahkan ke switch case fast-path atau fetch-path
+4. `src/index.ts`: Tambahkan ekspor tipe konfigurasi, namespace, dan fungsi factory
+5. `package.json`: Tambahkan dependensi `@solana/keychain-your-signer: "workspace:*"`
+6. `tsconfig.json`: Tambahkan referensi `{ "path": "../your-signer" }`
+7. `typescript/scripts/test-treeshake-umbrella.mjs`: Tambahkan paket Anda ke
+   `SIGNER_MARKERS` dan factory Anda ke `FACTORIES`
 
-Pernyataan switch memiliki pemeriksaan `never` yang menyeluruh — TypeScript akan
-error jika Anda menambahkan ke union tetapi melewatkan suatu case.
+Pernyataan switch memiliki pemeriksaan `never` yang menyeluruh, sehingga TypeScript akan menampilkan error
+jika Anda menambahkan ke union tetapi melewatkan sebuah case. Jalankan `just ts-treeshake` setelahnya:
+setiap paket dan umbrella harus tetap dapat di-tree-shake.
+
+## Signer Python
+
+Buat modul di `python/src/solana_keychain/your_signer/` (`__init__.py`
+ditambah `signer.py`). Pola utama:
+
+- Buat subclass `SolanaSigner` dari `solana_keychain.core` (properti `pubkey`,
+  `async sign_message()`, `async is_available()`) ditambah tepat satu class
+  kapabilitas: `TransactionSigner` (`async sign_transaction()`), `ModifyingSigner`
+  (`async modify_and_sign_transaction()`) atau `SendingSigner`
+  (`async sign_and_send_transaction()`)
+- Ekspor factory `async create_your_signer()` yang meng-await `init()` ketika
+  backend me-resolve alamatnya secara remote; sebelum init, penandatanganan memunculkan
+  `SignerErrorCode.NOT_INITIALIZED`
+- Ekspor dataclass konfigurasi (`YourSignerConfig`) dengan secret yang ditandai
+  `field(repr=False)`
+- Terapkan HTTPS pada field base-URL dengan `assert_https_url()`, dan arahkan setiap
+  permintaan melalui `fetch_signer_json()`
+- Verifikasi signature provider sebelum mengembalikannya; gunakan
+  `signed_message_bytes()` untuk byte yang dicakup signature, jangan pernah menggunakan prefiks
+  versi buatan sendiri
+- Daftarkan backend di `_BACKENDS` pada
+  `python/src/solana_keychain/keychain.py`
+- Jika backend memerlukan SDK provider, lindungi impor tersebut dengan guard, munculkan `ImportError`
+  yang menyebutkan `pip install 'solana-keychain[your-signer]'`, deklarasikan extra di
+  `python/pyproject.toml`, dan jangan pernah mengimpor backend secara eager dari root
+  paket
+- Unit test dengan pytest: `respx` untuk backend HTTP, stub client untuk backend
+  SDK, serta pemeriksaan bahwa tidak ada secret yang muncul di `str()` atau `repr()` dari
+  error yang di-raise
+- Tambahkan factory `make_your_signer()` ke
+  `python/tests/integration/test_live_signers.py` dan daftarkan di
+  `_MESSAGE_CAPABLE` (atau `_TRANSACTION_ONLY` untuk backend tanpa
+  `sign_message`)
+
+## Go Signer
+
+Setiap backend Go adalah modulnya sendiri, di `go/signers/yoursigner/` dengan path modul
+`github.com/solana-foundation/solana-keychain/go/signers/yoursigner/v2`. Lihat
+`go/signers/para/` sebagai referensi. Pola utama:
+
+- Implementasikan `core.SolanaSigner` (`Pubkey()`, `SignMessage(ctx, message)`,
+  `IsAvailable(ctx)`) ditambah tepat satu interface capability:
+  `core.TransactionSigner`, `core.ModifyingSigner`, atau `core.SendingSigner`.
+  Capability dideteksi melalui type assertion, sehingga backend yang tidak dapat menandatangani
+  transaksi tidak boleh memiliki method `SignTransaction` sama sekali
+- Ekspor struct `Config` dan constructor `New` (`New(ctx, cfg)` ketika
+  backend menyelesaikan alamatnya secara remote; sebelum itu, kembalikan
+  `core.NewNotInitializedError`)
+- Bangun HTTP client dengan `core.NewHTTPClient` atau `core.ResolveHTTPClient`, dan
+  validasi base URL dengan `core.NormalizeHTTPSBaseURL`
+- Tandatangani transaksi dengan `core.SignTransactionWith`, yang menandatangani byte
+  pesan dan melampirkan tanda tangan; verifikasi tanda tangan provider dengan
+  `core.VerifySignature`
+- Kembalikan error dengan `core.NewSignerError` / `core.WrapSignerError` dan kode
+  yang stabil seperti `core.CodeSigningFailed`
+- Unit test dengan `httptest`; integration test di `integration_test.go` di balik
+  tag `//go:build integration`
 
 ## Daftar Periksa Pengajuan
 
@@ -511,40 +681,70 @@ Sebelum mengajukan PR Anda:
 - Kode diformat/linting lulus (`just fmt`)
 - Tidak ada nilai hardcoded atau secrets dalam kode
 - Pesan error bersifat generik (tanpa teks respons API mentah)
+- Tidak ada `.expect()` atau `.unwrap()` pada respons API yang tidak tepercaya
 - HTTPS diterapkan pada HTTP client remote
 - Timeout HTTP dikonfigurasi melalui `HttpClientConfig`
-- Mengikuti konvensi penamaan Rust (snake_case)
-- Ditambahkan ke tabel backend yang didukung di README.md
+- Tanda tangan yang dikembalikan diverifikasi terhadap byte pesan yang dihitung secara lokal
+- Mengikuti konvensi penamaan (snake_case untuk Rust dan Python, camelCase untuk
+  TypeScript)
+- Integration test ditambahkan dan `.env.example` diperbarui
+- Implementasi TypeScript, Python, dan Go disertakan (atau direncanakan bersama
+  maintainer)
+- Umbrella package diperbarui (umbrella TypeScript, `_BACKENDS` Python)
+- Perubahan CI disertakan
+- Ditambahkan ke tabel backend yang didukung dan tabel kapabilitas signer di README.md
 
 ## Tips Implementasi
 
 ### Penanganan Error
 
-Selalu gunakan varian `SignerError` yang ada. Jangan pernah menggunakan
-`.expect()` atau `.unwrap()` pada respons API yang tidak dipercaya:
+Selalu gunakan varian `SignerError` yang sudah ada. Baik `Display` maupun `Debug` pada
+`SignerError` di-redact, jadi jaga pesan tetap generik dan jangan pernah menyertakan data mentah
+respons API. Jangan pernah menggunakan `.expect()` atau `.unwrap()` pada respons API yang tidak tepercaya:
 
 ```rust
-// Good — uses existing error types with generic messages
-return Err(SignerError::RemoteApiError(
-    format!("YourService API returned status {}", status)
-));
+// Good: uses the constructor with a generic message
+return Err(SignerError::remote_api(format!(
+    "YourService API returned status {status}"
+)));
 
-// Good — converts from standard errors
+// Good: converts from standard errors
 let bytes = base64::decode(data)
     .map_err(|e| SignerError::SerializationError(format!("Failed to decode: {e}")))?;
 ```
 
-### Praktik Terbaik Keamanan
+### Persyaratan Keamanan
 
-- Jangan pernah mencatat data sensitif (private key, API secrets)
-- Gunakan impl `Debug` yang menyembunyikan field sensitif
-- Validasi semua input (public key, signature)
-- Gunakan HTTPS untuk semua panggilan API remote (diterapkan melalui
-  `https_only(true)`)
-- Konfigurasi request dan connect timeout melalui `HttpClientConfig`
-- Jangan pernah mengekspos teks error API remote mentah dalam pesan error
-- Gunakan `Option<Pubkey>` (bukan `Pubkey::default()`) untuk field public key
-  sebelum `init()`
+Ini bukan sekadar saran: konsumen memilih backend berdasarkan hal-hal ini. Jika
+provider Anda membuat salah satunya mustahil dipenuhi, sampaikan hal itu di PR dan di
+`docs/SECURITY_MODEL.md` milik repositori.
+
+- **Verifikasi apa yang ditandatangani provider.** Hitung byte pesan secara lokal dan
+  verifikasi tanda tangan yang dikembalikan terhadap byte tersebut pada posisi yang diwajibkan signer Anda
+  sebelum melampirkannya. Tanda tangan yang tidak lolos verifikasi harus gagal, jangan pernah
+  dilampirkan.
+- **Nyatakan apakah provider melakukan broadcast.** Jika provider mengeksekusi di sisi server,
+  implementasikan bentuk sending dan kembalikan tanda tangan yang mengidentifikasi
+  transaksi yang sudah masuk. Jika provider tidak memiliki endpoint khusus sign, jadikan
+  backend hanya-sending daripada mengirim secara diam-diam di belakang pemanggil.
+- **Jangan pernah membiarkan pemanggil memegang transaksi yang tidak dicakup oleh tanda tangan.**
+  Provider yang menulis ulang transaksi menandatangani byte miliknya sendiri: biarkan
+  transaksi pemanggil tidak tersentuh (kasus broadcast-managed), atau gunakan
+  bentuk modifying dan ganti seluruhnya dengan byte dari provider.
+- **Laporkan ketidakpastian broadcast apa adanya.** Kegagalan setelah pengiriman mungkin tetap
+  berhasil masuk. Tampilkan `BROADCAST_UNCONFIRMED` alih-alih error generik,
+  sertakan ID transaksi provider setiap kali Anda memilikinya, dan kirim
+  idempotency key yang diturunkan dari pesan pada setiap create agar pengiriman ulang dengan byte identik
+  aman.
+- **Jangan pernah menandatangani sebelum init.** Gunakan `Option<Pubkey>` (bukan `Pubkey::default()`) untuk
+  kunci publik sebelum `init()`, dan gagalkan dengan error konfigurasi jika penandatanganan
+  dicoba lebih dulu.
+- Jangan pernah mencatat log data sensitif (kunci privat, secret API, respons API mentah), dan
+  gunakan impl `Debug` yang menyembunyikan field sensitif
+- Terapkan HTTPS (`https_only(true)`, dibatasi dengan `#[cfg(not(test))]` untuk
+  wiremock) dan konfigurasikan timeout request dan koneksi melalui `HttpClientConfig`
+  (default: 30s/5s)
+- Zeroize material kunci perantara dengan `zeroize::Zeroizing<Vec<u8>>`
 
 ### Pengujian dengan Mock
 
@@ -573,13 +773,17 @@ mod tests {
 ## Mendapatkan Bantuan
 
 - Tinjau implementasi signer yang sudah ada untuk mempelajari pola-polanya:
-  - `src/memory/mod.rs` — Sederhana, sinkron
-  - `src/para/mod.rs` — Memerlukan inisialisasi (gunakan sebagai pola untuk
-    signer baru)
-  - `src/turnkey/mod.rs` — Penanganan signature yang kompleks
-  - `src/vault/mod.rs` — Library klien eksternal
-- File-file kunci: `src/traits.rs` (definisi trait), `src/transaction_util.rs`
-  (helper bersama), `src/http_client_config.rs` (konfigurasi timeout)
+  - `src/memory/mod.rs`: Sederhana, sinkron
+  - `src/privy/mod.rs`: Memerlukan inisialisasi
+  - `src/turnkey/mod.rs`: Penanganan tanda tangan yang kompleks
+  - `src/vault/mod.rs`: Library client eksternal
+  - `typescript/packages/para/`, `python/src/solana_keychain/para/` dan
+    `go/signers/para/`: referensi lengkap dalam bahasa lainnya
+- File utama: `src/traits.rs` (definisi trait), `src/transaction_util.rs` dan
+  `src/signature_util.rs` (helper bersama), `src/http_client_config.rs` (konfigurasi
+  timeout)
+- Panduan lengkap repositori:
+  [docs/ADDING_SIGNERS.md](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - Buka issue untuk diskusi desain sebelum memulai pengerjaan
 
 ## Contoh Struktur PR
@@ -592,9 +796,13 @@ Adds support for YourService as a signing backend.
 - [X] Code compiles without warnings (`just build`)
 - [X] Code is formatted/linting passes (`just fmt`)
 - [X] Add comprehensive tests with wiremock - All tests pass (`just test`)
-- [X] Implemented SolanaSigner trait for YourServiceSigner
+- [X] Implemented SolanaSigner and TransactionSigner for YourServiceSigner
 - [X] Added feature flag 'your_service'
 - [X] HTTPS enforced, HTTP timeouts configured
+- [X] Returned signatures verified before attaching
+- [X] Added integration tests and updated .env.example
+- [X] TypeScript, Python and Go implementations included
+- [X] CI Phase 2 changes included
 - [X] Added to README.md supported backends table
 
 Closes #1337

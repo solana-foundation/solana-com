@@ -1,6 +1,7 @@
 ---
 title: Koraへの新しい署名者の追加
-description: このガイドは、鍵管理ソリューションをKoraに統合したいウォレットサービスプロバイダー向けです。Koraに署名者を追加することで、ノードオペレーターが安全なトランザクション署名にあなたのサービスを使用できるようになります。
+description:
+  このガイドは、鍵管理ソリューションをKoraに統合したいウォレットサービスプロバイダー向けです。Koraに署名者を追加することで、ノードオペレーターが安全なトランザクション署名にあなたのサービスを使用できるようになります。
 ---
 
 ## アーキテクチャ概要
@@ -257,11 +258,11 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### 統合テスト
 
-Koraは、TypeScriptテストを含むすべての統合テストフェーズを管理する統一テストランナー(`tests/src/bin/test_runner.rs`)を使用しています。新しい署名者のテストを追加するには:
+各統合フェーズは、`tests/Cargo.toml` 内の独立した `[[test]]` ターゲットです。すべてのターゲットは、`harness_context` を通じて組み込みの surfnet と Kora ノードを起動し、ゼロから初期化されます。Kora は設定をプロセスグローバルな状態として保持するため、新しい署名者(signer)を追加する場合は、既存のターゲット内に新しいモジュールを追加するのではなく、新しいターゲットを作成する必要があります。
 
-#### 1. テスト設定の追加
+#### 1. Signer フィクスチャを追加する
 
-サービス用の新しい署名者設定ファイルを`tests/src/common/fixtures/`に作成します:
+`tests/src/common/fixtures/` に署名者(signer)の設定を作成します。
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -276,46 +277,64 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. テストランナーへのテストフェーズの追加
+#### 2. テストターゲットを追加する
 
-`tests/src/test_runner/test_cases.toml`を更新して、署名者のテストフェーズを含めます:
+`tests/Cargo.toml` にフェーズを登録します。
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+次に、`tests/your_service/main.rs` を作成します。このファイルでは、ハーネスがあなたのフィクスチャを参照するように設定し、署名者を実際に動作させる `#[tokio::test]` を少なくとも1つ含める必要があります。
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+キー検索だけでなく、署名者の署名処理も実行されるように、`signTransaction` のテストも追加してください。`tests/multi_signer/` に、そのままコピーして使える完全なサンプルがあります。
 
 #### 3. テストの実行
 
-環境が設定されていることを確認してください:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-統一テストランナーを使用してテストを実行します:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## ドキュメント要件
@@ -377,7 +396,7 @@ YOUR_SERVICE_WALLET_ID="your_wallet_id" \```
 - [ ] `mod.rs`に設定構造体をエクスポートした
 - [ ] （任意）`config_mock.rs`にテストモックビルダーメソッドを追加した
 - [ ] コードが警告なしにコンパイルされる
-- [ ] すべてのテストが通過する（`make test`および`make test-integration`）
+- [ ] すべてのテストが成功する(`just test`)
 - [ ] ドキュメントが以下のガイドラインに従って追加されている
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] サンプル設定ファイルが作成されている（`.toml`および`.env.example`）

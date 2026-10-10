@@ -23,19 +23,20 @@ Invocation (CPI)。铸币账户存储 hook 程序的地址，任何发送该代�
 和 [Transfer Hook 扩展指南](/docs/tokens/extensions/transfer-hook) 开始；
 本指南专注于客户端需要做什么，才能正确发送、接收和模拟启用 hook 的代币转账。
 
-与大多数其他 Token-2022 扩展不同，transfer hook 在账户层面并非可选项。如果铸币账户配置了 transfer hook，则**该代币的每次转账都需要 hook 的额外账户**，无论您的产品是否使用 hook 的逻辑。未能解析这些账户的客户端将完全无法发送该代币；转账指令会在链上失败，而不会静默跳过 hook。适用于此的完整函数可在下方
-[发送 transfer-hook 代币](#sending-a-transfer-hook-token)中找到，同时涵盖
-Kit 和 Web3.js 两种方式。
+与大多数其他 Token-2022 扩展不同,转账钩子(transfer hook)在账户层面并不是可选的。如果某个 mint 配置了转账钩子,**该代币的每一笔转账都需要提供钩子的额外账户**,无论你的产品是否使用钩子的逻辑。如果客户端没有解析这些账户,就根本无法发送该代币;转账指令会在链上失败,而不会悄悄跳过钩子。可直接放入你的发送流程的完整函数,请参见下方的
+[发送带转账钩子的代币](#sending-a-transfer-hook-token),涵盖 Kit、web3.js v3 和旧版 web3.js。
 
 ### 资源
 
 - [Transfer Hook 接口参考](https://www.solana-program.com/docs/transfer-hook-interface)
 - [扩展 Rust 代码](https://github.com/solana-program/token-2022/tree/main/program/src/extension/transfer_hook)
 - [`@solana-program/token-2022` JS 客户端](https://github.com/solana-program/token-2022/tree/main/clients/js)
-  基于 Kit 的客户端，推荐用于新集成。通过 `getTransferCheckedWithTransferHookInstructionAsync` 原生支持 transfer hook 解析，以及底层辅助函数 `resolveExtraAccountMetasForExecute` /
-  `findExtraAccountMetaListPda`。
+  基于 Kit 的客户端,推荐用于新的集成,也是 web3.js v3 代码所使用的客户端。通过
+  `getTransferCheckedWithTransferHookInstructionAsync` 提供原生的转账钩子解析,并附带更底层的
+  `resolveExtraAccountMetasForExecute` / `findExtraAccountMetaListPda` 辅助函数。
 - [`@solana/spl-token` JS 客户端](https://github.com/solana-program/token-2022/tree/main/clients/js-legacy)
-  适用于已废弃的 `@solana/web3.js` 库的旧版客户端。为仍在使用 web3.js 的团队提供相同功能（扩展检测、额外账户解析，以及高级辅助函数 `createTransferCheckedWithTransferHookInstruction`）。
+  适用于 `@solana/web3.js` v1 的旧版客户端。功能范围相同(扩展检测、额外账户解析,以及高级辅助函数
+  `createTransferCheckedWithTransferHookInstruction`),适合仍使用旧版 web3.js 的团队。
 - [Transfer Hook 扩展指南](/docs/tokens/extensions/transfer-hook)
   （编写 hook 程序，了解发行方配置的背景信息）
 
@@ -44,9 +45,12 @@ Kit 和 Web3.js 两种方式。
 - Transfer hook 铸币账户存储一个 **hook 程序地址**。每次转账都会向该程序发起 CPI，而 CPI 需要标准转账账户之外的额外账户。
 - hook 所需的额外账户列在链上的 **`ExtraAccountMetaList`** 账户中，该账户是由 hook 程序和铸币账户派生的 PDA。客户端读取此账户以确定需要附加到转账指令的账户。
 - **解析并非可选。** 如果额外账户缺失或已过时，转账指令将在链上失败。不存在任何可静默发送代币而绕过 hook 的回退机制。
-- **Kit（`@solana-program/token-2022`）和 Web3.js（`@solana/spl-token`）均可端到端发送启用 hook 的转账** — 请参阅 [发送 transfer-hook 代币](#sending-a-transfer-hook-token) 下的完整函数。两者均原生解析 `ExtraAccountMetaList`：Kit 通过
-`getTransferCheckedWithTransferHookInstructionAsync`，Web3.js 通过
-`createTransferCheckedWithTransferHookInstruction`。
+- **Kit、web3.js v3 和旧版 web3.js 都可以端到端地发送启用钩子的转账**——请参见
+  [发送带转账钩子的代币](#sending-a-transfer-hook-token)下的完整函数。它们都能原生解析
+  `ExtraAccountMetaList`:Kit 和 web3.js v3 通过
+  `@solana-program/token-2022` 的
+  `getTransferCheckedWithTransferHookInstructionAsync`,旧版 web3.js 则通过
+  `@solana/spl-token` 的 `createTransferCheckedWithTransferHookInstruction`。
 - **发送前务必进行模拟。** hook 程序可以因其定义的任意条件（白名单检查、暂停状态、缺少委托）导致转账失败，且如果发行方更新了 hook，额外账户集合也可能发生变化。在用户签名前进行模拟，可以提前发现这两类问题。
 - hook 执行会增加计算单元消耗，对于需要预先注资或预先授权的附属账户（如委托费用账户、用户尚未初始化的计数器 PDA）的 hook，在首次转账成功前可能需要额外的设置交易。
 
@@ -60,7 +64,7 @@ Kit 和 Web3.js 两种方式。
 
 ## 发送 transfer-hook 代币
 
-每次启用 hook 的转账必须完成四件事：检测铸币账户是否配置了 transfer hook、解析 hook 的 CPI 所需的额外账户、进行模拟，最后才发送。下面两个函数都完整执行这四步，可直接替换到您应用中当前构建 Token-2022 转账的位置。
+每一笔启用钩子的转账都必须完成四件事:检测 mint 是否带有转账钩子、解析钩子 CPI 所需的额外账户、进行模拟,然后才发送。下面的每个函数都完成了这四步,可直接放入你的应用中目前构建 Token-2022 转账的位置。
 
 ### Kit
 
@@ -174,9 +178,95 @@ export async function sendTokenTransfer({
 
 ### Web3.js
 
-旧版 `@solana/spl-token` 客户端原生解析所有内容，无需任何桥接。
+两代 web3.js 都能原生解析所有内容。在 v3 上,继续使用 `Connection` 来构建和发送交易,并将一个 Kit RPC(默认由 `connection.rpcEndpoint` 创建)传给 `@solana-program/token-2022` 的
+`getTransferCheckedWithTransferHookInstructionAsync`,该函数返回的指令可被 v3 的 `Transaction` 直接接受。在旧版 web3.js 上,`@solana/spl-token` 的 `createTransferCheckedWithTransferHookInstruction` 实现了相同的功能。
 
-```ts title="send-transfer-hook-token.ts"
+<CodeTabs>
+
+```ts !! title="Web3.js v3"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import { createSolanaRpc, type GetAccountInfoApi, type Rpc } from "@solana/kit";
+import { getTransferCheckedWithTransferHookInstructionAsync } from "@solana-program/token-2022";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction directly.
+ */
+export async function sendTokenTransfer({
+  connection,
+  rpc = createSolanaRpc(connection.rpcEndpoint),
+  payer,
+  source,
+  mint,
+  destination,
+  owner,
+  amount,
+  decimals
+}: {
+  connection: Connection;
+  // Kit RPC used to resolve the transfer hook's extra accounts. Defaults to one
+  // for `connection.rpcEndpoint`; pass your own if `connection` relies on custom
+  // headers, `fetch`, or `fetchMiddleware`, since those aren't carried over.
+  rpc?: Rpc<GetAccountInfoApi>;
+  payer: Keypair; // Fee payer; can be the same signer as `owner`.
+  source: PublicKey;
+  mint: PublicKey;
+  destination: PublicKey;
+  owner: Keypair; // Authority over the source token account.
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Build the transfer instruction. When the mint has a transfer hook this
+  // fetches it, resolves the ExtraAccountMetaList, and appends the accounts the
+  // hook's CPI needs; when it doesn't, you get a plain transferChecked. Because
+  // it re-fetches the mint on every call, don't cache the result across sends
+  // -- the hook program and its extra accounts can both change.
+  const instruction = await getTransferCheckedWithTransferHookInstructionAsync(
+    { rpc },
+    {
+      source: source.toBase58(),
+      mint: mint.toBase58(),
+      destination: destination.toBase58(),
+      authority: owner,
+      amount,
+      decimals
+    }
+  );
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+  const transaction = new Transaction({
+    feePayer: payer.publicKey,
+    blockhash,
+    lastValidBlockHeight
+  }).add(instruction);
+
+  // 2. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Simulating without signers runs the
+  // transaction unsigned, which catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await connection.simulateTransaction(transaction);
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 3. Sign and send only after a successful simulation.
+  return sendAndConfirmTransaction(connection, transaction, [payer, owner]);
+}
+```
+
+```ts !! title="Web3.js (legacy)"
 import {
   Connection,
   PublicKey,
@@ -279,9 +369,11 @@ export async function sendTokenTransfer({
 }
 ```
 
+</CodeTabs>
+
 ## 检测扩展
 
-上述两个函数在每次发送时都会重新获取铸币账户并检查 hook：Web3.js 通过 `getMint` 显式检查，Kit 则在 `getTransferCheckedWithTransferHookInstructionAsync` 内部完成，该函数在解析任何内容之前会先获取铸币账户。
+上述三个函数在每次发送时都会重新获取 mint 并检查是否带有钩子:旧版 web3.js 通过 `getMint` 显式获取,Kit 和 web3.js v3 则在 `getTransferCheckedWithTransferHookInstructionAsync` 内部完成,该函数会在解析任何内容之前先获取 mint。
 
 <Callout type="info">
   铸币账户上的 hook 程序地址可由铸币账户的 transfer hook 授权方（`UpdateTransferHook`）更新，其所需的额外账户也可以独立变更（`UpdateExtraAccountMetaList`）。不要将这两个值缓存超过单次转账流程；当用户发起新的发送操作时，请重新获取。
@@ -294,7 +386,7 @@ export async function sendTokenTransfer({
 每次启用 hook 的转账都需要标准的四个转账账户（来源账户、铸币账户、目标账户、所有者/授权方），以及该铸币账户的 `ExtraAccountMetaList` 账户所指定的其他账户。该列表是由 hook 程序派生的 PDA：
 
 ```ts title="derive-extra-account-meta-list.ts"
-// Kit (@solana-program/token-2022)
+// Kit and web3.js v3 with @solana-program/token-2022
 import { findExtraAccountMetaListPda } from "@solana-program/token-2022";
 
 const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
@@ -302,7 +394,7 @@ const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
   { programAddress: transferHook.programId }
 );
 
-// Web3.js (@solana/spl-token)
+// Web3.js (legacy) with @solana/spl-token
 import { getExtraAccountMetaAddress } from "@solana/spl-token";
 
 const extraAccountMetaListPda = getExtraAccountMetaAddress(
@@ -317,7 +409,7 @@ const extraAccountMetaListPda = getExtraAccountMetaAddress(
 
 如果您自行组装指令而非使用上述函数，两个客户端都暴露了这些函数所基于的底层组件。
 
-**Kit（`@solana-program/token-2022`）**
+**使用 `@solana-program/token-2022` 的 Kit 和 web3.js v3**
 
 - `findExtraAccountMetaListPda({ mint }, { programAddress })`：派生 `ExtraAccountMetaList` 验证账户的 PDA。
 - `getExtraAccountMetasDecoder().decode(accountData)`：将原始验证账户数据解析为 `ExtraAccountMeta` 条目列表。
@@ -326,7 +418,7 @@ const extraAccountMetaListPda = getExtraAccountMetaAddress(
 - `resolveExtraAccountMetasForExecute({ rpc, transferHookProgramAddress, source, mint, destination, owner, amount })`：
   解析所有条目并返回需要附加的元数据——额外账户、hook 程序和验证账户。由于 Kit 指令是不可变的，它返回元数据供您展开附加到指令上，而不是就地修改指令。
 
-**Web3.js（`@solana/spl-token`）**
+**使用 `@solana/spl-token` 的 Web3.js(旧版)**
 
 - `getExtraAccountMetas(account)`：将原始 `ExtraAccountMetaList` 账户数据解码为 `ExtraAccountMeta` 条目列表。
 - `resolveExtraAccountMeta(connection, meta, previousMetas, instructionData, hookProgramId)`：
@@ -336,7 +428,7 @@ const extraAccountMetaListPda = getExtraAccountMetaAddress(
 
 ## 发送前模拟
 
-上述两个函数中的模拟步骤至关重要：有两类问题只有在执行时才会暴露。
+上述函数中的模拟步骤正是其重要性所在:有两类问题只会在执行时才会暴露出来。
 
 - **hook 拒绝了转账。** hook 程序可以编码任意条件（白名单、暂停的铸币账户、单次转账上限），如果条件不满足，则整个指令（包括来源和目标）都会失败。不存在部分成功的情况：被拒绝的 hook 调用会导致整个转账被拒绝。
 - **额外账户已过时。** 如果发行方在您的客户端最后一次缓存数据之后、用户发起发送之前，更改了 hook 程序或更新了 `ExtraAccountMetaList`，则基于旧数据解析会产生错误的账户，转账将因账户验证错误而失败，而非 hook 逻辑错误。

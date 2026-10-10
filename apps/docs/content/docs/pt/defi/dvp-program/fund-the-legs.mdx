@@ -1,0 +1,242 @@
+---
+title: Financie as pernas
+description:
+  Verifique os termos armazenados de uma operação DvP e, em seguida, financie uma perna com um simples TransferChecked para a sua conta de escrow.
+seoTitle: Financie uma operação DvP na Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+O financiamento é um simples `TransferChecked` para o escrow da perna, de modo que qualquer carteira ou
+sistema de custódia capaz de enviar uma transferência de token pode financiar uma perna. Apenas a leitura
+do registro da operação antes do financiamento exige o cliente DvP. O programa verifica os
+saldos do escrow somente na liquidação; nada verifica a transferência quando ela chega,
+portanto cada parte lê o registro da operação antes de transferir.
+
+Esta página dá continuidade a
+[criar uma operação](/docs/defi/dvp-program/create-a-trade); o cliente e os signatários
+são reaproveitados.
+
+## Verifique os termos
+
+Criar um registro não exige permissão, e os endereços de escrow são derivados apenas do
+registro e do mint, nunca dos termos. Uma transferência para um escrow pode,
+portanto, chegar vinculada a termos com os quais você nunca concordou, incluindo destinos de liquidação
+que redirecionam os recursos da sua contraparte para um terceiro endereço.
+Antes de financiar, leia a conta `SwapDvp` e confira-a com a operação
+acordada.
+
+`verifySwapDvp` em TypeScript e `verify::decode_swap_dvp_account` em Rust
+confirmam que a conta pertence ao programa DvP, tem exatamente 458 bytes e
+está no endereço derivado dos seus próprios campos (`fetchSwapDvpChecked` executa apenas
+as duas primeiras verificações). Os leitores simples `fetchSwapDvp` e `decodeSwapDvp`
+não executam nenhuma delas. As verificações de partes, valores, prazos e destinos são
+feitas pelo chamador em relação à operação acordada.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Se o registro foi criado pela sua contraparte ou pela autoridade de liquidação,
+compare cada campo com os termos que você acordou fora do ledger. Se você mesmo o criou,
+esta leitura confirma que ele chegou como enviado.
+
+## Transfira para o escrow
+
+Financie a perna exatamente com o valor acordado. O programa limita a liquidação a
+`amount_x` e devolve qualquer excedente à parte da perna, de modo que o excedente não se perde,
+mas isso adiciona uma segunda transferência na liquidação e pode falhar com alguns transfer
+hooks (veja as notas abaixo).
+
+Use `TransferChecked`, não um `Transfer` sem verificação. Mints do Token-2022 com
+extensões que dependem do mint account, como Pausable, rejeitam uma transferência
+que não o informe, e um mint com transfer hook exige que as contas do hook
+sejam resolvidas e anexadas da mesma forma que em qualquer outra transferência desse
+token.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    A parte da perna de ativo, assinando como `userASigner`, financia o escrow A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    A parte da perna de caixa faz o mesmo para o escrow B com `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` e `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    A parte da perna de caixa monta a mesma instrução para o escrow B com `mint_b`,
+    `user_b` e `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Uma transferência de financiamento vista como [`confirmed`](/docs/rpc#configuring-state-commitment)
+ainda pode ser substituída. O programa lê o saldo do escrow onchain na
+liquidação, portanto uma Settle enviada com base em uma transferência de financiamento que não foi efetivada falha
+com `LegNotFunded` e nada é movimentado; o custo é uma Settle com falha e uma nova tentativa.
+Considere uma perna como financiada quando sua transferência estiver `finalized`.
+
+## Notas
+
+- **Pernas em wrapped SOL.** O programa lê o saldo de um escrow nativo após
+  sincronizá-lo, de modo que os lamports enviados a um escrow de wrapped SOL por uma transferência do sistema
+  são contabilizados. Nunca envie SOL para um escrow de qualquer outro mint: o programa não consegue
+  devolvê-lo, e ele vai para quem fechar a conta.
+- **Mints com restrição.** Em um mint com Default Account State frozen, o escrow é
+  criado congelado e a transferência falha até que o emissor o descongele ou o autorize. A
+  [visão geral](/docs/defi/dvp-program#mint-configuration-constraints) descreve
+  a interação com o Token ACL.
+- **Transfer hooks.** Financie escrows com hook exatamente com o valor acordado. Se
+  um excedente exigir um reembolso na liquidação, o reembolso reutiliza as contas de hook
+  da perna com um destino e um valor diferentes, o que alguns hooks rejeitam. A
+  recuperação consiste em Reclaim, refinanciar com o valor exato e liquidar novamente.
+- **Financiamento após o vencimento.** Nada impede uma transferência após `expiry_timestamp`. Ela
+  chega, a liquidação deixa de ser possível, e a parte da perna a recupera com
+  Reclaim enquanto a operação está aberta ou com Recover depois que ela é encerrada. Veja
+  [desfazer uma operação](/docs/defi/dvp-program/unwind-a-trade).
+- **Quem financia primeiro.** O programa não define a sequência das duas pernas. A ordem é
+  uma questão entre as partes; qualquer lado pode reaver a própria perna a qualquer momento
+  antes da liquidação, a menos que uma autoridade do mint (freeze, pause ou transfer hook)
+  bloqueie o escrow.
+
+## Próximos passos
+
+- [Liquidar a operação](/docs/defi/dvp-program/settle-the-trade): a autoridade de
+  liquidação troca as duas pernas em uma única transação
+- [Desfazer uma operação](/docs/defi/dvp-program/unwind-a-trade): recuperar uma perna
+  financiada quando a operação não é liquidada

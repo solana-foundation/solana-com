@@ -1,0 +1,435 @@
+---
+title: Повідомлення та автентифікація
+h1: Підписання повідомлень та автентифікація користувачів
+description:
+  Підписуйте повідомлення гаманцем Solana, щоб автентифікувати користувачів, фіксувати згоду або авторизувати офчейн-дії. Використовуйте підписання офчейн-повідомлень із запасним варіантом для гаманців, які його ще не підтримують.
+---
+
+Підписання повідомлення доводить, що користувач керує гаманцем, без транзакції,
+комісії чи мережевого виклику. Застосунки використовують підписані повідомлення,
+щоб авторизувати користувачів, зафіксувати згоду з умовами, прив’язати гаманець
+до наявного облікового запису або авторизувати офчейн-дію, наприклад розміщення
+замовлення.
+
+Гаманці Solana підписують повідомлення двома способами:
+
+- **Офчейн-повідомлення** (`solana:signOffchainMessage`) обгортають ваш текст у
+  стандартний формат, визначений у [специфікації](https://docs.anza.xyz/proposals/off-chain-message-signing) підписання офчейн-повідомлень (OCMS).
+  Цей формат ніколи не можна сплутати з транзакцією, він вказує облікові записи,
+  які мають його підписати, і саме його підписують апаратні гаманці.
+- **Необроблені повідомлення** (`solana:signMessage`) підписують рівно ті байти,
+  які передає ваш застосунок, без префікса й без оголошених підписантів. Їх
+  підтримує більшість програмних гаманців, але ніщо в самих байтах не показує, що
+  це повідомлення, а не транзакція.
+
+Використовуйте офчейн-повідомлення там, де гаманець їх підтримує, а де не
+підтримує — переходьте на необроблені повідомлення. Далі в цьому посібнику як
+приклад розглядається вхід в обліковий запис, але ті самі кроки підписання й
+перевірки застосовуються до будь-якого повідомлення.
+
+## Вибір формату повідомлення
+
+|                           | Офчейн-повідомлення     | Необроблене повідомлення   | Транзакція                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| Функція гаманця            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| Підтримка апаратних гаманців   | Залежить від пристрою     | Ні            | Так                           |
+| Зрозуміле для користувача      | Так                   | Лише в програмних гаманцях | Залежить від пристрою             |
+| Оголошує обов’язкових підписантів | Так                   | Ні            | Так                           |
+| RPC-виклики та комісії        | Немає                  | Немає          | Blockhash, надсилання, комісія, підтвердження |
+
+### Чому не транзакція?
+
+Раніше апаратні гаманці не мали способу підписати зрозуміле повідомлення. Багато
+застосунків просили таких користувачів підписати натомість порожню транзакцію.
+Це працює, але додає затримку, витрати та ризик:
+
+- **Мережеві комісії.** Транзакція сплачує комісію, навіть якщо нічого не робить.
+- **Кілька RPC-викликів.** Ваш застосунок отримує blockhash, виконує симуляцію,
+  надсилає транзакцію, а потім опитує мережу для підтвердження.
+- **Додаткова затримка.** Кожен із цих викликів — це окремий обмін із мережею до
+  того, як користувач увійде.
+- **Нічого зрозумілого.** Користувач схвалює байти транзакції, а не опис того,
+  з чим він погоджується.
+- **Поведінковий ризик.** Якщо просити користувачів підписувати транзакцію лише
+  для входу, їх легше обманом змусити підписати шкідливу.
+
+Офчейн-повідомлення все це оминає. Єдиний обмін — із вашим власним сервером.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## Що підписує гаманець
+
+Офчейн-повідомлення починається з фіксованого домену підпису, `\xffsolana offchain`.
+Жодна коректна транзакція не починається з цих байтів, тож підписане повідомлення
+ніколи не можна використати як транзакцію. Далі версія 1 формату перелічує
+обов’язкових підписантів і містить повідомлення як текст UTF-8 без обмеження довжини.
+
+Гаманець формує ці байти, підписує їх і повертає разом з підписом.
+[Специфікація](https://docs.anza.xyz/proposals/off-chain-message-signing)
+описує повний формат, зокрема застарілу версію 0.
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## Вибір способу входу
+
+Не кожен гаманець уже підтримує офчейн-повідомлення. Перш ніж запитувати підпис,
+перевірте можливості підключеного облікового запису, а якщо потрібної можливості
+немає — використайте запасний варіант:
+
+1. Якщо обліковий запис підтримує `solana:signOffchainMessage` з версією
+   повідомлення 1, підпишіть офчейн-повідомлення.
+2. В іншому разі підпишіть той самий challenge через `solana:signMessage`.
+   Його підтримує більшість програмних гаманців.
+3. Користувачам апаратних гаманців без підтримки повідомлень надайте явний вибір,
+   наприклад перемикач «Я використовую апаратний гаманець», який замість цього
+   підписує транзакцію входу. Не спрямовуйте їх цим шляхом за замовчуванням.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## Підписання повідомлення в браузері
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    Установіть пакети Wallet Standard разом із Kit:
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    Ці допоміжні функції приймають `UiWalletAccount`, наприклад `account`, який
+    повертає `useConnectedWallet` у [посібнику з React](/docs/frontend/react-hooks):
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` з `@solana/wallet-adapter` надає `signOffchainMessage` лише тоді, коли
+    підключений обліковий запис підтримує `solana:signOffchainMessage`. Він підписує
+    повідомлення версії 1, де підключений обліковий запис є обов’язковим підписантом,
+    і відхиляється з помилкою `WalletNotReadyError`, якщо гаманець не може підписати версію 1:
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // Server logic
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    `publicKey.verifySignature` перевіряє підпис щодо підписаних байтів у браузері.
+    Ваш сервер усе одно має підтвердити, що ці байти — це challenge-повідомлення,
+    яке він видав. Якщо `signOffchainMessage` має значення `undefined`, перейдіть на
+    `signMessage` з того самого хука.
+
+  </Tab>
+</Tabs>
+
+`signOffchainMessage` повертає `signedOffchainMessage` — повні байти, які
+підписав гаманець, — і `signature`. Закодуйте обидва значення в Base64 і надішліть
+їх на свій сервер разом з адресою гаманця.
+
+Сформулюйте challenge-повідомлення так, щоб його було зручно читати на малому
+екрані. Вкажіть назву застосунку й домен, поясніть, що означає підпис, і додайте
+одноразовий nonce та час видачі з вашого сервера:
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## Перевірка підпису на сервері
+
+Перевірка підпису відбувається локально й не потребує RPC-з’єднання. Декодуйте
+байти, які підписав гаманець, переконайтеся, що вони збігаються з challenge-повідомленням,
+яке ви видали, а потім перевірте підпис:
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+`assertOffchainMessageV1Equal` викидає помилку, якщо вміст або підписанти
+відрізняються від очікуваних. `verifyOffchainMessageEnvelope` викидає помилку,
+якщо підпис відсутній або недійсний. Шукайте `expectedMessage` за nonce на своєму
+сервері, а не довіряйте копії, яку повертає клієнт. Використайте nonce, щойно
+підпис пройде перевірку, щоб один і той самий підпис не можна було застосувати
+для входу двічі.
+
+### Перевірка необробленого повідомлення
+
+Підпис `signMessage` охоплює байти challenge-повідомлення безпосередньо, тож
+клієнту достатньо надіслати підпис і адресу гаманця. Перевірте його щодо
+challenge-повідомлення, яке ви видали:
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+Діють ті самі правила щодо nonce: шукайте `expectedMessage` за nonce і
+використайте його, щойно підпис пройде перевірку.
+
+<Callout type="info">
+  `@solana/kit` реекспортує ці допоміжні функції з `@solana/offchain-messages`.
+  Використовуйте окремий пакет, якщо ваш сервер не залежить від Kit.
+</Callout>
+
+## Sign In With Solana
+
+[Sign In With Solana](https://github.com/phantom/sign-in-with-solana) (SIWS)
+стандартизує саме challenge-повідомлення. Ваш застосунок передає структуровані
+поля, як-от `domain`, `statement`, `nonce` та `issuedAt`, до функції `solana:signIn`
+гаманця. Гаманець форматує їх у стандартне повідомлення, за потреби підключається
+і підписує його за один крок.
+
+Версія `1.1.0` функції `solana:signIn` додає параметр `useOffchainMessage`. Якщо
+передати `useOffchainMessage: { messageVersion: 1 }`, гаманець обгортає текст SIWS
+в офчейн-повідомлення версії 1, де підписувальний обліковий запис є єдиним
+обов’язковим підписантом. Апаратні гаманці можуть його відобразити й підписати, а
+у виводі буде `signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }`.
+Гаманці, що оголошують версію `1.0.0`, цього параметра не знають, тож спершу
+перевірте версію функції, а інакше не передавайте його.
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    `solana:signIn` — це функція гаманця, а не облікового запису, тож ці допоміжні
+    функції приймають `UiWallet`:
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` надає `signIn`, коли вибраний гаманець підтримує `solana:signIn`, і
+    `supportsSignInWithOffchainMessage`, коли він оголошує версію `1.1.0`. Якщо
+    передати `useOffchainMessage` гаманцю, який його не підтримує, виклик
+    відхиляється з помилкою `WalletSignInError`:
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    `verifySignIn` перевіряє, що підписане повідомлення відтворює кожне поле вхідних
+    даних і містить дійсний підпис від підписувального облікового запису, незалежно від
+    того, чи гаманець підписав звичайний текст SIWS, чи офчейн-повідомлення. Виконайте
+    ту саму перевірку на сервері, імпортувавши її з `@solana/wallet-adapter/core`, який
+    не залежить від React.
+
+  </Tab>
+</Tabs>
+
+Сформуйте вхідні дані на сервері з одноразовим `nonce` і часом `issuedAt` та
+зберігайте копію за ключем nonce. Використайте nonce, щойно вхід пройде перевірку.
+
+Без Wallet Adapter `verifySignIn` з `@solana/wallet-standard-util` перевіряє лише
+звичайний вивід SIWS. Коли `signedMessageFormat` повідомляє про офчейн-повідомлення,
+`signedMessage` є офчейн-повідомленням, вміст якого — текст SIWS. Відновіть
+очікуваний текст зі збережених вхідних даних і адреси підписанта за допомогою
+`createSignInMessageText` з `@solana/wallet-standard-util`, а потім перевірте його
+як будь-яке інше офчейн-повідомлення, як описано в розділі
+[Перевірка підпису на сервері](#verify-the-signature-on-your-server). Цей процес у Kit описано в
+[README `@solana/offchain-messages`](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message).
+
+## Для гаманців
+
+Гаманці додають підтримку, реалізуючи функцію Wallet Standard
+`solana:signOffchainMessage` з `@solana/wallet-standard-features`:
+
+- Повідомте `version: "1.0.0"` і перелічіть версії повідомлень, які ви можете
+  підписувати, у `supportedMessageVersions`. Наразі це `[1]`.
+- Сформуйте преамбулу версії 1 на основі `requiredSigners`, який ви відсортуєте та перевірите
+  на дублікати. Відхиліть запит, якщо акаунт не входить до числа обов’язкових
+  підписантів.
+- Перед підписанням повністю показуйте користувачеві текст повідомлення, зокрема
+  й на апаратних пристроях.
+- Поверніть точні байти, які ви підписали, як `signedOffchainMessage` разом із
+  підписом Ed25519 `signature`.
+- Щоб підтримувати офчейн Sign In With Solana, повідомляйте `version: "1.1.0"` для
+  `solana:signIn`. Якщо вхідні дані містять `useOffchainMessage`, підпишіть текст SIWS
+  як офчейн-повідомлення версії 1, поверніть його байти як `signedMessage`
+  і задайте `signedMessageFormat`.
+- Надалі підтримуйте `solana:signMessage`. Він не змінився, і застосунки досі використовують
+  його як резервний варіант.

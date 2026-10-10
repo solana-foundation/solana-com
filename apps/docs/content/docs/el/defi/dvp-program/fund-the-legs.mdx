@@ -1,0 +1,244 @@
+---
+title: Χρηματοδότηση των σκελών
+description:
+  Επαληθεύστε τους αποθηκευμένους όρους μιας συναλλαγής DvP και, στη συνέχεια, χρηματοδοτήστε ένα σκέλος με μια απλή εντολή TransferChecked προς τον λογαριασμό escrow του.
+seoTitle: Χρηματοδότηση συναλλαγής DvP στο Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Η χρηματοδότηση είναι μια απλή `TransferChecked` προς το escrow του σκέλους, οπότε
+κάθε πορτοφόλι ή σύστημα φύλαξης που μπορεί να στείλει μεταφορά token μπορεί να
+χρηματοδοτήσει ένα σκέλος. Μόνο η ανάγνωση της εγγραφής της συναλλαγής πριν από
+τη χρηματοδότηση απαιτεί τον πελάτη DvP. Το πρόγραμμα ελέγχει τα υπόλοιπα των
+escrow μόνο κατά τον διακανονισμό· τίποτα δεν ελέγχει τη μεταφορά όταν αυτή
+εκτελείται, γι' αυτό κάθε συμβαλλόμενος διαβάζει την εγγραφή της συναλλαγής πριν
+κάνει τη μεταφορά.
+
+Αυτή η σελίδα συνεχίζει από το
+[δημιουργία συναλλαγής](/docs/defi/dvp-program/create-a-trade)· ο πελάτης και οι υπογράφοντες
+μεταφέρονται όπως είναι.
+
+## Επαλήθευση των όρων
+
+Η δημιουργία μιας εγγραφής δεν απαιτεί άδεια, και οι διευθύνσεις escrow προκύπτουν
+από την εγγραφή και το mint μόνο, ποτέ από τους όρους. Μια μεταφορά προς ένα escrow
+μπορεί επομένως να εκτελεστεί βάσει όρων που δεν έχετε ποτέ συμφωνήσει, συμπεριλαμβανομένων
+προορισμών διακανονισμού που ανακατευθύνουν τα έσοδα του αντισυμβαλλομένου σας σε μια τρίτη διεύθυνση.
+Πριν από τη χρηματοδότηση, διαβάστε τον λογαριασμό `SwapDvp` και ελέγξτε τον με βάση τη
+συμφωνημένη συναλλαγή.
+
+Οι `verifySwapDvp` στο TypeScript και `verify::decode_swap_dvp_account` στη Rust
+επιβεβαιώνουν ότι ο λογαριασμός ανήκει στο πρόγραμμα DvP, έχει μέγεθος ακριβώς 458 byte και
+βρίσκεται στη διεύθυνση που προκύπτει από τα δικά του πεδία (η `fetchSwapDvpChecked` εκτελεί
+μόνο τους δύο πρώτους ελέγχους). Οι απλές συναρτήσεις ανάγνωσης `fetchSwapDvp` και `decodeSwapDvp`
+δεν εκτελούν κανέναν από αυτούς τους ελέγχους. Οι έλεγχοι για τα μέρη, τα ποσά, τους χρόνους και τους προορισμούς
+γίνονται από τον καλούντα με βάση τη συμφωνημένη συναλλαγή.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Αν η εγγραφή δημιουργήθηκε από τον αντισυμβαλλόμενό σας ή από την αρχή διακανονισμού,
+συγκρίνετε κάθε πεδίο με τους όρους που συμφωνήσατε εκτός καθολικού. Αν τη δημιουργήσατε
+εσείς, αυτή η ανάγνωση επιβεβαιώνει ότι καταχωρίστηκε όπως στάλθηκε.
+
+## Μεταφορά στο escrow
+
+Χρηματοδοτήστε το σκέλος με ακριβώς το συμφωνημένο ποσό. Το πρόγραμμα περιορίζει τον διακανονισμό στο
+`amount_x` και επιστρέφει οποιοδήποτε πλεόνασμα στον συμβαλλόμενο του σκέλους, οπότε ένα πλεόνασμα δεν χάνεται,
+αλλά προσθέτει μια δεύτερη μεταφορά κατά τον διακανονισμό και μπορεί να αποτύχει σε ορισμένα transfer
+hooks (δείτε τις σημειώσεις παρακάτω).
+
+Χρησιμοποιήστε `TransferChecked`, όχι μη ελεγχόμενη `Transfer`. Τα mint του Token-2022 με
+επεκτάσεις που εξαρτώνται από το mint account, όπως το Pausable, απορρίπτουν μια μεταφορά
+που δεν το παρέχει, και ένα mint με transfer hook απαιτεί οι λογαριασμοί του hook να
+επιλύονται και να προστίθενται με τον ίδιο τρόπο όπως σε οποιαδήποτε άλλη μεταφορά αυτού του
+token.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    Ο συμβαλλόμενος του σκέλους περιουσιακού στοιχείου, υπογράφοντας ως `userASigner`, χρηματοδοτεί το escrow A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    Ο συμβαλλόμενος του σκέλους μετρητών κάνει το ίδιο για το escrow B με `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` και `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    Ο συμβαλλόμενος του σκέλους μετρητών δημιουργεί την ίδια εντολή για το escrow B με `mint_b`,
+    `user_b` και `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Μια μεταφορά χρηματοδότησης που εμφανίζεται ως [`confirmed`](/docs/rpc#configuring-state-commitment)
+μπορεί και πάλι να αντικατασταθεί. Το πρόγραμμα διαβάζει το υπόλοιπο του escrow on-chain κατά
+τον διακανονισμό, οπότε μια Settle που στέλνεται με βάση μεταφορά χρηματοδότησης που δεν καταχωρίστηκε αποτυγχάνει
+με `LegNotFunded` και τίποτα δεν μετακινείται· το κόστος είναι μια αποτυχημένη Settle και μια επανάληψη.
+Θεωρήστε ένα σκέλος χρηματοδοτημένο όταν η μεταφορά του είναι `finalized`.
+
+## Σημειώσεις
+
+- **Σκέλη wrapped SOL.** Το πρόγραμμα διαβάζει το υπόλοιπο ενός native escrow αφού το
+  συγχρονίσει, οπότε τα lamport που στέλνονται σε ένα escrow wrapped-SOL με μεταφορά συστήματος
+  υπολογίζονται. Μην στέλνετε ποτέ SOL σε escrow για οποιοδήποτε άλλο mint: το πρόγραμμα δεν μπορεί να
+  το επιστρέψει, και καταλήγει σε όποιον κλείσει τον λογαριασμό.
+- **Mint με περιορισμούς.** Σε ένα mint με Default Account State frozen, το escrow
+  δημιουργείται παγωμένο και η μεταφορά αποτυγχάνει μέχρι ο εκδότης να το ξεπαγώσει ή να το εγκρίνει.
+  Η [επισκόπηση](/docs/defi/dvp-program#mint-configuration-constraints) περιγράφει
+  την αλληλεπίδραση με το Token ACL.
+- **Transfer hooks.** Χρηματοδοτήστε τα escrow με hook με ακριβώς το συμφωνημένο ποσό. Αν
+  ένα πλεόνασμα επιβάλλει επιστροφή χρημάτων κατά τον διακανονισμό, η επιστροφή επαναχρησιμοποιεί τους λογαριασμούς hook του σκέλους
+  με διαφορετικό προορισμό και ποσό, κάτι που ορισμένα hooks απορρίπτουν. Η
+  ανάκτηση γίνεται με Reclaim, νέα χρηματοδότηση με το ακριβές ποσό και νέο διακανονισμό.
+- **Χρηματοδότηση μετά τη λήξη.** Τίποτα δεν εμποδίζει μια μεταφορά μετά το `expiry_timestamp`. Η μεταφορά
+  εκτελείται, ο διακανονισμός δεν είναι πλέον δυνατός, και ο συμβαλλόμενος του σκέλους την ανακτά με
+  Reclaim όσο η συναλλαγή είναι ανοιχτή ή με Recover αφού κλείσει. Δείτε
+  [αναίρεση συναλλαγής](/docs/defi/dvp-program/unwind-a-trade).
+- **Ποιος χρηματοδοτεί πρώτος.** Το πρόγραμμα δεν καθορίζει σειρά για τα δύο σκέλη. Η σειρά είναι
+  θέμα των συμβαλλομένων· κάθε πλευρά μπορεί να ανακτήσει το δικό της σκέλος οποιαδήποτε στιγμή
+  πριν από τον διακανονισμό, εκτός αν μια αρχή του mint (freeze, pause ή transfer hook)
+  μπλοκάρει το escrow.
+
+## Επόμενα βήματα
+
+- [Διακανονισμός της συναλλαγής](/docs/defi/dvp-program/settle-the-trade): η αρχή
+  διακανονισμού ανταλλάσσει και τα δύο σκέλη σε μία συναλλαγή
+- [Αναίρεση συναλλαγής](/docs/defi/dvp-program/unwind-a-trade): ανάκτηση ενός χρηματοδοτημένου
+  σκέλους όταν η συναλλαγή δεν διακανονίζεται

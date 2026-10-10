@@ -3,6 +3,9 @@ title: TypeScript
 description: Asenna ja käytä @solana/keychain -kirjastoa TypeScript-sovelluksissa
 ---
 
+Päivitätkö versiosta 1.x? Katso
+[2.0-siirtymäopas](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md).
+
 ## Asennus
 
 Asenna kattopaketti tai yksittäiset allekirjoittajat tarpeen mukaan:
@@ -32,6 +35,10 @@ pnpm add @solana/keychain-fordefi     # Fordefi
 pnpm add @solana/keychain-kit-plugin
 ```
 
+Vaatii `@solana/kit`-kirjaston version 8.1 tai uudemman. v1-transaktioita
+(`createTransactionMessage({ version: 1 })`) tuetaan, paitsi Fireblocksin kanssa
+asetuksella `useProgramCall: true`, joka hyväksyy vain legacy- ja v0-transaktiot.
+
 ## Peruskäyttö
 
 ### Yhtenäinen Factory (Suositeltu sovelluksille, jotka haluavat tukea useita allekirjoittajia)
@@ -41,7 +48,7 @@ minkä tahansa backendin:
 
 ```typescript
 import { createKeychainSigner } from "@solana/keychain";
-import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers ≥ 6.5
+import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers >= 8.1
 
 const signer = await createKeychainSigner({
   backend: "privy",
@@ -72,10 +79,13 @@ const signer = await createPrivySigner({
 
 ### Käyttö transaktiviestien kanssa
 
-Kaikki allekirjoittajat toteuttavat `SolanaSigner` -rajapinnan, joka on
-yhteensopiva `@solana/kit`- ja `@solana/signers`-metodien kanssa:
+Jokainen taustajärjestelmä paitsi Crossmint ja Fordefin natiivitila palauttaa
+`SolanaTransactionSigner`-allekirjoittajan, joka on Kitin `TransactionPartialSigner` ja toimii
+alla olevien `@solana/signers`-kirjaston osittaisten allekirjoittajien apufunktioiden kanssa. Hallitun lähetyksen
+taustajärjestelmät on käsitelty osiossa [Allekirjoittajan ominaisuudet](#signer-capabilities).
 
 ```typescript
+import type { SolanaTransactionSigner } from "@solana/keychain-core";
 import { signTransactionMessageWithSigners } from "@solana/signers";
 import {
   createTransactionMessage,
@@ -83,7 +93,7 @@ import {
   pipe
 } from "@solana/kit";
 
-async function signWithKeychain(signer: SolanaSigner) {
+async function signWithKeychain(signer: SolanaTransactionSigner) {
   // Check availability (useful for remote signers)
   if (!(await signer.isAvailable())) {
     throw new Error("Signer offline");
@@ -93,13 +103,29 @@ async function signWithKeychain(signer: SolanaSigner) {
   const transaction = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayerSigner(signer, tx)
-    // ... add instructions
+    // ... set a lifetime and add instructions
   );
 
   // Sign with the standard signers API
   const signedTx = await signTransactionMessageWithSigners(transaction);
   return signedTx;
 }
+```
+
+### Allekirjoita ja lähetä millä tahansa allekirjoittajalla
+
+`signAndSendTransaction` kirjastosta `@solana/keychain-core` vie transaktion
+ketjuun allekirjoittajan tyypistä riippumatta. Lähettävät allekirjoittajat lähettävät transaktion
+omalla palveluntarjoajallaan; kaikki muut tyypit käyttävät antamaasi `sendTransaction`-funktiota (core ei
+riipu RPC:stä):
+
+```typescript
+import { signAndSendTransaction } from "@solana/keychain-core";
+
+const signature = await signAndSendTransaction(signer, transaction, {
+  sendTransaction: (tx) =>
+    sendAndConfirmTransaction(tx, { commitment: "confirmed" })
+});
 ```
 
 ### Käyttö Kit-asiakkaan kanssa (keychainSigner-laajennus)
@@ -122,13 +148,16 @@ const client = await createClient().use(
   })
 );
 
-client.payer; // SolanaSigner — also a Kit TransactionSigner
+client.payer; // SolanaTransactionSigner, also a Kit TransactionPartialSigner
 client.identity; // same signer instance
 ```
 
-Laajennus hyväksyy saman taustapalvelu-merkityn konfiguraation kuin
-`createKeychainSigner`, ja vain käytetty taustapalvelu sisällytetään pakettiin
-(taustapalvelupaketit ladataan dynaamisella `import()`:lla).
+Laajennus hyväksyy saman taustajärjestelmällä merkityn konfiguraation kuin `createKeychainSigner`,
+paitsi Crossmintin ja Fordefin natiivitilan (`chain` asetettu). Nämä taustajärjestelmät kirjoittavat
+transaktion uudelleen palvelinpuolella, joten ne eivät voi toimia asiakkaan `payer`- tai
+`identity`-roolissa; laajennus hylkää ne sekä käännösvaiheessa että ajon aikana. Vain
+se taustajärjestelmä, jolle kutsu ohjataan, sisällytetään pakettiin (taustajärjestelmäpaketit ladataan dynaamisella
+`import()`-kutsulla).
 
 Käytä `keychainPayer`- tai `keychainIdentity`-toimintoa asettaaksesi vain yhden
 roolin ja yhdistääksesi useita taustapalveluita yhdellä asiakkaalla:
@@ -141,19 +170,19 @@ const client = await createClient()
   .use(
     keychainPayer({
       backend: "memory",
-      privateKeyPath: "~/.config/solana/id.json"
+      privateKeyPath: `${process.env.HOME}/.config/solana/id.json`
     })
   )
   .use(keychainIdentity({ backend: "turnkey", ...turnkeyConfig }));
 ```
 
-Onko sinulla jo `SolanaSigner`? Jokainen avainnimikettu allekirjoittaja on
-kelvollinen Kit-`TransactionSigner`, joten voit asentaa olemassa olevan
-allekirjoittajan
-[`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)-laajennuksella
-sijasta (`pnpm add @solana/kit-plugin-signer`):
+Onko sinulla jo `SolanaTransactionSigner`? Se on kelvollinen Kitin
+`TransactionPartialSigner`, joten voit asentaa sen sen sijaan
+laajennuksella [`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)
+(`pnpm add @solana/kit-plugin-signer`):
 
 ```typescript
+import { createClient } from "@solana/kit";
 import { signer } from "@solana/kit-plugin-signer";
 import { createKeychainSigner } from "@solana/keychain";
 
@@ -164,7 +193,36 @@ const mySigner = await createKeychainSigner({
 const client = createClient().use(signer(mySigner));
 ```
 
+### Peruutus ja vahvistamattomat lähetykset
+
+`signTransactions`, `modifyAndSignTransactions`, `signAndSendTransactions` ja
+`signMessages` hyväksyvät kaikki toisena argumenttinaan `{ abortSignal }`. Keskeyttäminen
+lopettaa odottamisen, mutta se ei kumoa työtä, jonka palveluntarjoaja on jo hyväksynyt.
+
+Crossmintin ja Fordefin natiivin auto-tilan kohdalla virhe ei tarkoita, ettei mitään
+olisi tapahtunut. Kun palveluntarjoaja on voinut hyväksyä transaktion, virhekoodi on
+`SignerErrorCode.BROADCAST_UNCONFIRMED` (`"SIGNER_BROADCAST_UNCONFIRMED"`).
+`context.providerTransactionId` asetetaan, kun luonti hyväksyttiin, ja
+`context.idempotencyKey` sisältää viestistä johdetun avaimen. Täsmälleen samana
+tavujonona olevan transaktion uudelleenlähetys on turvallista; uudelleen rakennettu transaktio (esimerkiksi uudella
+blockhashilla) on uusi siirto. Kirjaston `@solana/keychain-core` funktiot `providerMayHaveAccepted(error)` ja
+`providerStatus(error)` auttavat luokittelemaan virheen.
+Tarkista tilanne palveluntarjoajalta ennen uudelleenyritystä.
+
 ## Taustapalvelun konfiguraatio
+
+### Muisti
+
+Anna täsmälleen yksi seuraavista: `keyPair`, `privateKey`, `privateKeyString` tai
+`privateKeyPath`:
+
+```typescript
+import { createMemorySigner } from "@solana/keychain-memory";
+
+const signer = await createMemorySigner({
+  privateKeyPath: "/path/to/id.json"
+});
+```
 
 ### HashiCorp Vault
 
@@ -188,6 +246,18 @@ const signer = createAwsKmsSigner({
   keyId: "alias/my-solana-key",
   publicKey: "base58_public_key",
   region: "us-east-1" // optional
+});
+```
+
+### GCP KMS
+
+```typescript
+import { createGcpKmsSigner } from "@solana/keychain-gcp-kms";
+
+const signer = createGcpKmsSigner({
+  keyName:
+    "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+  publicKey: "base58_public_key"
 });
 ```
 
@@ -236,10 +306,11 @@ const signer = await createFireblocksSigner({
 import { createCdpSigner } from "@solana/keychain-cdp";
 
 const signer = await createCdpSigner({
-  apiKeyId: "api_key_id",
-  apiKeySecret: "api_key_secret",
-  walletSecret: "wallet_secret",
-  address: "base58_address"
+  cdpApiKeyId: "api_key_id",
+  cdpApiKeySecret: "api_key_secret",
+  cdpWalletSecret: "wallet_secret",
+  address: "base58_address",
+  network: "solana" // or "solana-devnet"; required for address lookup tables
 });
 ```
 
@@ -254,6 +325,17 @@ const signer = await createCrossmintSigner({
 });
 ```
 
+Crossmint on vain lähettävä. Sen API suorittaa hyväksytyn transaktion aina
+palvelinpuolella ja sponsoroi gas-maksun, joten allekirjoittaja tarjoaa vain
+`signAndSendTransactions()`-metodin: siinä ei ole `signTransactions()`- tai `signMessages()`-metodia,
+eikä sitä voi asentaa `@solana/keychain-kit-plugin`-laajennuksella. Palautettu
+allekirjoitus tunnistaa transaktion, jonka Crossmint vei ketjuun.
+
+```typescript
+const [signature] = await signer.signAndSendTransactions([transaction]);
+// or: await signAndSendTransactionMessageWithSigners(transactionMessage);
+```
+
 ### Dfns
 
 ```typescript
@@ -263,8 +345,19 @@ const signer = await createDfnsSigner({
   authToken: "auth_token",
   credId: "cred_id",
   privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\n...",
-  appId: "app_id",
   walletId: "wallet_id"
+});
+```
+
+### Openfort
+
+```typescript
+import { createOpenfortSigner } from "@solana/keychain-openfort";
+
+const signer = await createOpenfortSigner({
+  secretKey: "sk_...",
+  walletSecret: "wallet_secret",
+  accountId: "account_id"
 });
 ```
 
@@ -279,11 +372,44 @@ const signer = await createParaSigner({
 });
 ```
 
+### Utila
+
+Utila allekirjoittaa vain transaktioita; siinä ei ole `signMessages()`-metodia.
+
+```typescript
+import { createUtilaSigner } from "@solana/keychain-utila";
+
+const signer = await createUtilaSigner({
+  serviceAccountEmail: "sa@example.com",
+  serviceAccountPrivateKeyPem: "-----BEGIN PRIVATE KEY-----\n...",
+  vaultId: "vault_id",
+  walletId: "wallet_id",
+  network: "networks/solana-devnet"
+});
+```
+
 ### Fordefi
 
-Fordefillä on kaksi allekirjoitustilaa, jotka valitaan sen mukaan, välitätkö `chain`-parametrin. API-pyynnöt todennetaan ECDSA P-256 -pyyntöallekirjoituksella — anna allekirjoitusavain `privateKeyPem`-muodossa tai säilytä se KMS/HSM-järjestelmässä välittämällä `requestSigner`.
+Fordefilla on kolme allekirjoitustilaa, jotka määräytyvät luontihetkellä `chain`- ja
+`pushMode`-asetusten mukaan. Jokainen tila tarjoaa täsmälleen yhden transaktiometodin, ja kaikki kolme allekirjoittavat
+viestejä:
 
-**Natiivi Solana-tila** (suositellaan ketjussa tapahtuvaan käyttöön): aseta `chain`, ja Fordefi allekirjoittaa sekä lähettää transaktion itse. Koska Fordefi saattaa korvata lohkohashin tai maksut ennen allekirjoitusta, allekirjoittaja on Kitin `TransactionSendingSigner` — käytä sitä `signAndSendTransactionMessageWithSigners`-funktion kanssa, ei yllä näytetyn osittaisen allekirjoittajan kulun kanssa.
+| Tila          | Konfiguraatio                                      | Tyyppi                        | Metodi                        |
+| ------------- | ------------------------------------------- | --------------------------- | ----------------------------- |
+| Musta laatikko     | `chain` asettamatta                               | `FordefiBlackBoxSigner`     | `signTransactions()`          |
+| Natiivi auto   | `chain` asetettu, `pushMode` puuttuu tai on `"auto"` | `FordefiNativeSigner`       | `signAndSendTransactions()`   |
+| Natiivi manuaalinen | `chain` asetettu, `pushMode: "manual"`           | `FordefiNativeManualSigner` | `modifyAndSignTransactions()` |
+
+API-pyynnöt todennetaan ECDSA P-256 -pyyntöallekirjoituksella: anna
+allekirjoitusavain arvona `privateKeyPem` tai säilytä se KMS:ssä/HSM:ssä antamalla
+`requestSigner`.
+
+**Natiivi auto-tila** (suositeltu ketjussa käytettäväksi): aseta `chain`, jolloin Fordefi
+allekirjoittaa ja lähettää transaktion itse. Koska Fordefi voi vaihtaa
+blockhashin tai maksut ennen allekirjoitusta, allekirjoittaja on Kitin
+`TransactionSendingSigner`: käytä sitä funktiolla
+`signAndSendTransactionMessageWithSigners`, älä yllä esitetyllä osittaisen allekirjoittajan kululla. Natiivi auto-tila hyväksyy vain allekirjoittamattoman transaktion, jonka ainoa vaadittu
+allekirjoittaja on vault, eikä sitä voi käyttää `@solana/keychain-kit-plugin`-laajennuksen kanssa.
 
 ```typescript
 import { createFordefiSigner } from "@solana/keychain-fordefi";
@@ -303,6 +429,32 @@ const signature =
   await signAndSendTransactionMessageWithSigners(transactionMessage);
 ```
 
+**Natiivi manuaalinen tila**: aseta `chain` ja `pushMode: "manual"`. Fordefi kirjoittaa
+viestin uudelleen (tuore blockhash, Compute Budget -maksuohjeet) ja allekirjoittaa sen,
+mutta ei lähetä sitä. `modifyAndSignTransactions()` palauttaa transaktion,
+jonka Fordefi allekirjoitti ja joka korvaa lähettämäsi: jatka aina
+palautetusta transaktiosta. Fordefin on oltava maksujen maksaja, ja sen on allekirjoitettava ennen muita
+vaadittuja allekirjoittajia. Uudelleenkirjoituksesta ei muodosteta diffiä, joten tarkista tulos ennen
+lähettämistä.
+
+```typescript
+import { createFordefiSigner } from "@solana/keychain-fordefi";
+import { readFileSync } from "node:fs";
+
+const signer = await createFordefiSigner({
+  accessToken: process.env.FORDEFI_ACCESS_TOKEN!,
+  vaultId: process.env.FORDEFI_VAULT_ID!,
+  publicKey: process.env.FORDEFI_PUBLIC_KEY!,
+  privateKeyPem: readFileSync("./secret/private.pem", "utf8"),
+  chain: "solana_devnet",
+  pushMode: "manual"
+});
+
+const [signedTransaction] = await signer.modifyAndSignTransactions([
+  transaction
+]);
+```
+
 **Musta laatikko -tila**: jätä `chain` pois. Fordefi allekirjoittaa raakatavut eikä lähetä transaktiota; kokoa ja lähetä transaktio itse. Käytä tätä Fordefin musta laatikko -holvin kanssa.
 
 ```typescript
@@ -317,60 +469,89 @@ const signer = await createFordefiSigner({
 });
 ```
 
-## SolanaSigner-rajapinta
+## Allekirjoittajan ominaisuudet
 
-`SolanaSigner`-rajapinta laajentaa `@solana/signers`-tyyppejä täyden
-yhteensopivuuden varmistamiseksi:
+`@solana/keychain-core` määrittelee yhden rajapinnan jokaista Kitin allekirjoittajatyyppiä varten. Jokainen lisää
+`isAvailable(): Promise<boolean>` vastaavaan `@solana/signers`-rajapintaan:
+
+- `SolanaTransactionSigner` (Kitin `TransactionPartialSigner`): palauttaa allekirjoitukset
+  omistamallesi transaktiolle.
+- `SolanaModifyingSigner` (Kitin `TransactionModifyingSigner`): kirjoittaa
+  transaktion uudelleen, allekirjoittaa sen ja palauttaa uuden transaktion lähettämättä sitä.
+- `SolanaSendingSigner` (Kitin `TransactionSendingSigner`): allekirjoittaa ja lähettää
+  palveluntarjoajansa kautta.
+- `SolanaMessageSigner` (Kitin `MessagePartialSigner`): allekirjoittaa ketjun ulkopuolisia viestejä.
+  Tämä on erillinen transaktiotyypeistä.
+
+`SolanaSigner` on kolmen transaktiotyypin yhdiste. Jokaisen tehtaan
+paluutyyppi nimeää taustajärjestelmänsä tarkan tyypin. Kun konfiguraatio tiedetään vasta
+ajon aikana, rajaa tyyppiä funktioilla `isSolanaTransactionSigner`, `isSolanaModifyingSigner`,
+`isSolanaSendingSigner` tai `isSolanaMessageSigner`. `signerCapabilities(signer)`
+palauttaa kaikki neljä kerralla.
+
+| Taustajärjestelmä                                                                                                     | Tyyppi                                           |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| memory, vault, aws-kms, gcp-kms, privy, turnkey, fireblocks, cdp, dfns, para, openfort, fordefi (musta laatikko) | `SolanaTransactionSigner & SolanaMessageSigner` |
+| utila                                                                                                       | `SolanaTransactionSigner` (ei viestien allekirjoitusta)  |
+| fordefi (natiivi manuaalinen)                                                                                     | `SolanaModifyingSigner & SolanaMessageSigner`   |
+| fordefi (natiivi auto)                                                                                       | `SolanaSendingSigner & SolanaMessageSigner`     |
+| crossmint                                                                                                   | `SolanaSendingSigner` (ei viestien allekirjoitusta)      |
 
 ```typescript
-interface SolanaSigner<TAddress extends string = string>
-  extends TransactionPartialSigner<TAddress>, MessagePartialSigner<TAddress> {
-  // Public key address
-  readonly address: Address<TAddress>;
+import {
+  isSolanaSendingSigner,
+  isSolanaTransactionSigner
+} from "@solana/keychain-core";
 
-  // Health check for remote signers
-  isAvailable(): Promise<boolean>;
-
-  // Sign messages (@solana/kit compatible)
-  signMessages(
-    messages: readonly SignableMessage[]
-  ): Promise<readonly SignatureDictionary[]>;
-
-  // Sign transactions (@solana/kit compatible)
-  signTransactions(
-    transactions: readonly Transaction[]
-  ): Promise<readonly SignatureDictionary[]>;
+if (isSolanaSendingSigner(signer)) {
+  await signer.signAndSendTransactions([transaction]);
+} else if (isSolanaTransactionSigner(signer)) {
+  await signer.signTransactions([transaction]);
 }
 ```
 
 ## Mukautettujen allekirjoittajien rakentaminen
 
-Toteuta `SolanaSigner`-rajapinta mukautettujen allekirjoittajien luomiseksi:
+Toteuta ne ominaisuusrajapinnat, joita taustajärjestelmäsi tukee:
 
 ```typescript
-import { SolanaSigner } from "@solana/keychain-core";
+import type {
+  SolanaMessageSigner,
+  SolanaTransactionSigner
+} from "@solana/keychain-core";
 import type { Address } from "@solana/addresses";
+import type {
+  MessagePartialSignerConfig,
+  SignableMessage,
+  TransactionPartialSignerConfig
+} from "@solana/signers";
+import type { Transaction } from "@solana/transactions";
 
-class MyCustomSigner implements SolanaSigner {
-  readonly address: Address;
-
-  constructor(address: Address) {
-    this.address = address;
-  }
+class MyCustomSigner implements SolanaTransactionSigner, SolanaMessageSigner {
+  constructor(readonly address: Address) {}
 
   async isAvailable(): Promise<boolean> {
     return await myBackend.healthCheck();
   }
 
-  async signMessages(messages) {
-    return await myBackend.signMessages(messages);
+  async signMessages(
+    messages: readonly SignableMessage[],
+    config?: MessagePartialSignerConfig
+  ) {
+    return await myBackend.signMessages(messages, config?.abortSignal);
   }
 
-  async signTransactions(transactions) {
-    return await myBackend.signTransactions(transactions);
+  async signTransactions(
+    transactions: readonly Transaction[],
+    config?: TransactionPartialSignerConfig
+  ) {
+    return await myBackend.signTransactions(transactions, config?.abortSignal);
   }
 }
 ```
+
+Toteuta vain se, mitä taustajärjestelmäsi tukee. Kit luokittelee allekirjoittajat sen mukaan, mitkä
+metodit niillä on, joten älä koskaan lisää metodia, joka vain heittää virheen.
 
 Katso [Allekirjoittajien lisääminen -opas](/docs/tools/keychain/adding-signers)
 lisätäksesi uusia avainten hallintapalveluita.

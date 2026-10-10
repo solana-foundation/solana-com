@@ -51,10 +51,9 @@ pengamat publik, bukan anonimitas.
   `@solana-program/token-2022` (JS) maupun `spl-token-client` (Rust) menyediakan
   helper tingkat tinggi yang membangun bukti dan mengurutkan transaksi untuk
   Anda.
-- Confidential transfer saat ini mencakup beberapa transaksi dependen karena
-  ukuran bukti melebihi batas ukuran transaksi saat ini. Perubahan yang akan
-  datang (format transaksi v1, hadir bersama Agave v4.2) meningkatkan batas
-  tersebut dan diharapkan memungkinkan confidential transfer dieksekusi dalam
+- Transfer rahasia secara historis mencakup beberapa transaksi yang saling bergantung
+  karena bukti (proof) melebihi batas ukuran transaksi. Format transaksi v1
+  menaikkan batas tersebut, sehingga transfer rahasia dapat dieksekusi dalam
   satu transaksi onchain.
 - Dompet yang tidak menambahkan dukungan apa pun tetap dapat berfungsi: dompet
   menampilkan saldo publik dan transfer standar tetap berjalan. Dana
@@ -63,11 +62,11 @@ pengamat publik, bukan anonimitas.
 
 ## Istilah
 
-- **ElGamal keypair**: keypair kunci publik per-akun yang digunakan untuk
-  mengenkripsi saldo dan membangun bukti ZK. Kunci publik disimpan di akun.
-- **Kunci AES**: kunci simetris per-akun yang digunakan untuk mengenkripsi
-  "saldo tersedia yang dapat didekripsi" sehingga pemilik dapat membaca saldo
-  tersedia mereka dalam waktu konstan, tanpa memecahkan logaritma diskret.
+- **Keypair ElGamal**: keypair kunci publik milik pemilik yang digunakan untuk mengenkripsi saldo
+  dan membangun bukti ZK. Kunci publik disimpan pada setiap akun yang telah dikonfigurasi.
+- **Kunci AES**: kunci simetris milik pemilik yang digunakan untuk mengenkripsi "saldo
+  tersedia yang dapat didekripsi" agar pemilik dapat membaca saldo tersedianya dalam
+  waktu konstan, tanpa harus menyelesaikan logaritma diskret.
 - **Saldo tertunda**: saldo terenkripsi dari dana yang diterima melalui setoran
   atau transfer masuk yang belum diterapkan. Tidak dapat dibelanjakan secara
   langsung.
@@ -111,13 +110,12 @@ membuat dan menyimpan kunci-kunci tersebut adalah pilihan integrasi. Beberapa
 opsi umum:
 
 - **Turunkan dari tanda tangan wallet (default yang direkomendasikan).** Pemilik
-  menandatangani pesan yang bersifat kanonik dan dipisahkan per domain, lalu
-  kunci diturunkan dari tanda tangan tersebut, sehingga dapat direproduksi hanya
-  dari wallet dan Anda tidak perlu menyimpannya. seed bersifat deterministik per
-  akun: helper JS di bawah mengikatnya ke pasangan `(owner, mint)`, sementara
-  contoh Rust menggunakan seed dari alamat token account (untuk associated token
-  account keduanya setara, karena alamat tersebut diturunkan dari pemilik dan
-  mint).
+  menandatangani pesan kanonis yang dipisahkan per domain, lalu kunci diturunkan dari
+  tanda tangan tersebut, sehingga dapat direproduksi hanya dari wallet dan Anda tidak perlu
+  menyimpannya. Penurunan standar mengikat kunci hanya pada wallet utama
+  dan sama sekali tidak menggunakan seed, sehingga klien tidak dapat secara tidak sengaja menurunkan
+  kunci yang berbeda: satu wallet dipetakan ke satu keypair ElGamal dan satu kunci AES di semua mint
+  dan token account.
 - **Turunkan dari material kunci independen.** Untuk passkey, secure enclave,
   atau pengaturan MPC, turunkan kunci dari output WebAuthn PRF atau material
   kunci input lainnya sehingga kunci rahasia tidak terikat pada kunci
@@ -133,43 +131,35 @@ direkomendasikan:
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  Kunci rahasia adalah kunci dekripsi. Perlakukan permintaan untuk
-  menandatangani pesan derivasi seperti membuka tampilan privat saldo pengguna.
-  Lebih disarankan untuk menurunkan kunci saat dibutuhkan daripada menyimpannya;
-  jika Anda menyimpannya (misalnya dalam layanan kustodial), lindungi dengan
-  keamanan yang sama ketatnya seperti kunci penandatanganan.
+  Kunci rahasia adalah kunci dekripsi. Perlakukan permintaan untuk menandatangani pesan
+  penurunan seperti membuka akses ke tampilan pribadi saldo pengguna. Lebih baik menurunkannya
+  sesuai kebutuhan daripada menyimpannya; jika Anda tetap menyimpannya (misalnya di layanan
+  kustodian), lindungi dengan tingkat ketelitian yang sama seperti kunci penandatanganan. Wallet sebaiknya
+  menampilkan tanda tangan ini melalui alur penurunan khusus dan menolak permintaan
+  signMessage generik untuk pesan yang diawali dengan `solana-conf-bal/v1`, karena
+  tanda tangan tersebut merupakan materi kunci masukan untuk kunci dekripsi pengguna.
 </Callout>
 
 Helper derivasi mengembalikan material kunci yang telah diserialisasi. Helper
@@ -184,10 +174,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## Membuat dan mengonfigurasi akun
@@ -335,14 +325,12 @@ Transfer rahasia memerlukan tiga bukti zero-knowledge yang dibuat di sisi klien:
 - **Bukti rentang** bahwa jumlah dan saldo tersisa pengirim adalah bilangan
   bulat non-negatif yang valid, yang mencegah penciptaan nilai dari ketiadaan.
 
-Bukti-bukti ini lebih besar dari batas ukuran transaksi saat ini yang
-mengizinkan penyisipan secara inline, sehingga pola yang umum digunakan adalah
-membuat **akun state konteks bukti**, memverifikasi setiap bukti ke dalamnya,
-merujuknya dari instruksi transfer, lalu menutupnya untuk mengambil kembali
-rent. Proses ini mencakup beberapa transaksi yang saling bergantung. Format
-transaksi v1 (hadir bersama Agave v4.2) meningkatkan batas ukuran dan diharapkan
-memungkinkan transfer rahasia berjalan dalam satu transaksi onchain, yang akan
-menyederhanakan alur ini.
+Bukti-bukti ini lebih besar daripada yang diizinkan batas ukuran transaksi legacy dan v0
+secara inline, sehingga pola yang umum digunakan adalah membuat **akun proof context state**,
+memverifikasi setiap bukti ke dalamnya, mereferensikannya dari instruksi transfer, lalu
+menutupnya untuk mengklaim kembali rent. Proses itu mencakup beberapa transaksi yang saling bergantung. Format
+transaksi v1 menaikkan batas tersebut, sehingga transfer rahasia dapat berjalan
+dalam satu transaksi onchain dan menyederhanakan alur ini.
 
 Anda tidak perlu menyusun bukti-bukti secara manual. Kedua klien menyediakan
 helper tingkat tinggi yang membangun bukti dan menghasilkan instruksi untuk
@@ -517,11 +505,13 @@ auditor, sehingga sebagai integrator Anda tidak perlu melakukan sesuatu yang
 istimewa di jalur pengiriman selain meneruskan kunci auditor dari konfigurasi
 mint (helper tingkat tinggi membacanya untuk Anda).
 
-Jika produk Anda adalah auditor (misalnya penerbit yang diregulasi atau penyedia
-kepatuhan), Anda mendekripsi jumlah transfer dengan kunci rahasia auditor dengan
-cara yang sama seperti pemilik mendekripsi saldo mereka sendiri. Pemilik juga
-dapat berbagi kunci per-akun mereka secara selektif dengan pihak tertentu tanpa
-mengeksposnya secara publik.
+Jika produk Anda berperan sebagai auditor (misalnya penerbit yang diregulasi atau penyedia
+kepatuhan), Anda mendekripsi jumlah transfer dengan kunci rahasia auditor dengan cara yang sama
+seperti pemilik mendekripsi saldonya sendiri. Pemilik juga dapat membagikan
+kuncinya secara selektif kepada pihak tertentu tanpa mengungkapkannya ke publik — meskipun pada
+penurunan standar yang terikat pada wallet, kunci yang sama mencakup semua saldo rahasia
+milik pemilik, sehingga membagikannya akan mengungkap setiap akun rahasia, bukan
+hanya satu.
 
 ### Pemantauan transaksi (KYT)
 
@@ -617,4 +607,4 @@ dapat diamati, bukan model keseluruhannya:
 | Pemeriksaan alamat dan grafik   | Periksa pengirim, penerima, mint, dan pemilik serta jalankan analisis grafik pihak lawan; ini tetap bersifat publik.            | **P0**   |
 | Lacak deposit/penarikan publik | Pantau jumlah deposit dan penarikan teks jelas sebagai titik masuk dan keluar yang dapat diamati dari pool rahasia. | **P0**   |
 | Visibilitas jumlah kunci auditor | Untuk mint yang mengaktifkan auditor, dekripsi jumlah transfer menggunakan kunci auditor untuk mendukung deteksi berbasis jumlah.     | **P1**   |
-| Intake pengungkapan selektif   | Dukung pengungkapan jumlah yang dibagikan oleh pengguna atau penerbit melalui kunci per-akun.                                      | **P2**   |
+| Intake pengungkapan selektif   | Mendukung pengungkapan jumlah yang dibagikan oleh pengguna atau penerbit melalui kunci milik pemilik.                                      | **P2**   |

@@ -1,7 +1,7 @@
 ---
 title: 生产环境最佳实践
 description:
-  在生产环境中安全运营 Keychain 签名后端——职责分离、密钥轮换、最小权限访问、可用性、传输安全、监控与审计。
+  在生产环境中安全运行 Keychain 签名后端，涵盖职责分离、密钥轮换、最小权限访问、可用性、传输安全、监控与审计。
 related:
   - /docs/tools/keychain/choosing-a-backend
   - /docs/tools/production-readiness
@@ -20,15 +20,44 @@ Keychain 对签名后端进行了抽象，但在生产环境中运营签名器�
 
 ## 授予最小权限访问
 
-将每个后端的凭证权限限制在签名所需的最低范围内。对于 AWS KMS，即针对特定密钥的 `kms:Sign` 和 `kms:DescribeKey`；优先使用 IAM 角色而非静态凭证。同样的原则也适用于 Vault 策略和托管钱包 API 密钥。
+将每个后端的凭证权限限制在签名所需的最低范围。对于 AWS KMS，
+即针对特定密钥授予 `kms:Sign`、`kms:DescribeKey` 和 `kms:GetPublicKey` 权限
+（可用性检查会用到后两项）；优先使用 IAM 角色而非静态
+凭证。同样的原则也适用于 Vault 策略和托管钱包 API
+密钥。
 
 ## 规划可用性
 
-远程后端依赖网络服务。在依赖签名器之前请调用 `isAvailable()`，对瞬时故障应用带退避的重试策略，并为服务中断定义降级路径。Keychain 对远程后端强制使用 HTTPS，并应用默认请求超时。
+远程后端依赖网络服务。在依赖某个签名器之前，请先检查其可用性
+（TypeScript 中使用 `isAvailable()`，Rust 和 Python 中使用 `is_available()`，
+Go 中使用 `IsAvailable(ctx)`），对仅签名的失败请求采用退避策略进行重试，并为服务中断定义
+回退路径。请勿盲目重试会广播交易的后端
+（Crossmint、Fordefi 原生自动模式）：请参阅
+[处理未确认的广播](#handle-unconfirmed-broadcasts)。Keychain
+会强制要求已配置的基础 URL 使用 HTTPS，拒绝重定向，并应用默认的
+请求超时设置。
+
+## 处理未确认的广播
+
+Crossmint 和 Fordefi 原生自动模式在服务端完成签名和广播，因此
+调用失败并不意味着交易没有上链。当服务商可能已接受
+该交易时，Keychain 会报告 `BROADCAST_UNCONFIRMED`
+（Rust 中为 `SignerError::BroadcastUnconfirmed`）。如果创建请求已被接受，该错误会携带服务商的
+交易 ID；同时始终会携带发起创建请求时所使用的
+幂等键，该幂等键由消息派生而来。
+
+- 请先使用交易 ID 与服务商进行对账，再执行其他
+  操作。
+- 重新发送字节完全相同的交易是安全的：幂等键
+  会对其进行去重。
+- 重新构建交易（例如使用新的 blockhash）会生成新的键，
+  因此会产生一笔新的转账。
 
 ## 保护密钥与传输安全
 
-- 所有远程后端均通过 HTTPS 通信；非 HTTPS 端点将被拒绝。
+- 远程后端强制要求已配置的基础 URL 使用 HTTPS，并拒绝重定向。
+  唯一的例外是 Vault，它在回环地址上接受纯 HTTP，因此本地的
+  `vault server -dev` 可以正常工作。
 - 请通过密钥管理器或环境变量提供 API 密钥、令牌和凭证——切勿硬编码或将其提交至源代码控制。
 - Keychain 会对错误响应进行脱敏处理，避免将密钥泄露至日志中；请确保您自己的日志记录不包含原始凭证和密钥材料。
 
@@ -36,3 +65,20 @@ Keychain 对签名后端进行了抽象，但在生产环境中运营签名器�
 
 追踪签名成功率、延迟和失败次数，并对异常峰值发出告警——请参阅
 [生产就绪性](/docs/tools/production-readiness#monitoring)中的指标。启用提供方侧审计日志（KMS、Vault 或托管方），并与您的应用程序提交的交易进行核对。
+
+## 了解 Keychain 的检查范围
+
+- Keychain 验证的是签名环节，而不是您的交易：它不提供模拟、
+  不检查交易内容，也没有策略引擎。请在您的应用程序中或
+  服务商的策略控制中落实这些检查。
+- Fordefi 原生手动模式会在签名前重写交易（blockhash、Compute Budget
+  费用指令）。请基于其返回的交易继续操作，
+  而不是您提交的那一笔，并且要在任何其他签名器之前运行它。
+- Rust 会对中间密钥缓冲区进行清零；Python 和 Go 则无法做到。在这些语言中使用 Memory
+  后端时，请将整个进程内存视为敏感数据。
+- 使用 Ledger 时，设备屏幕是了解待签名内容的唯一可信来源。请勿在生产环境中为 `solana_remote_wallet` 启用 `unsafe-debug` 功能或
+  `TRACE` 日志，因为两者都会记录设备和交易
+  详情。
+
+完整说明请参阅
+[安全模型](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)。

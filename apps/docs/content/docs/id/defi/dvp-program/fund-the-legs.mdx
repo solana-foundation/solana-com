@@ -1,0 +1,219 @@
+---
+title: Danai Kedua Leg
+description:
+  Verifikasi ketentuan perdagangan DvP yang tersimpan, lalu danai sebuah leg dengan TransferChecked biasa ke akun escrow-nya.
+seoTitle: Mendanai Perdagangan DvP di Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Pendanaan hanyalah `TransferChecked` biasa ke escrow leg, sehingga dompet atau sistem kustodian apa pun yang dapat mengirim transfer token dapat mendanai sebuah leg. Hanya pembacaan catatan perdagangan sebelum pendanaan yang memerlukan klien DvP. Program memeriksa saldo escrow hanya saat penyelesaian; tidak ada yang memeriksa transfer saat transfer itu masuk, sehingga setiap pihak membaca catatan perdagangan sebelum mentransfer.
+
+Halaman ini melanjutkan dari
+[membuat perdagangan](/docs/defi/dvp-program/create-a-trade); klien dan penanda tangan
+tetap sama.
+
+## Verifikasi ketentuan
+
+Pembuatan catatan bersifat tanpa izin (permissionless), dan alamat escrow diturunkan hanya dari catatan dan mint, tidak pernah dari ketentuan. Karena itu, transfer ke escrow dapat masuk untuk ketentuan yang tidak pernah Anda setujui, termasuk tujuan penyelesaian yang mengalihkan hasil milik pihak lawan Anda ke alamat ketiga. Sebelum mendanai, baca akun `SwapDvp` dan periksa terhadap perdagangan yang disepakati.
+
+`verifySwapDvp` di TypeScript dan `verify::decode_swap_dvp_account` di Rust memastikan bahwa akun dimiliki oleh program DvP, berukuran tepat 458 byte, dan berada di alamat yang diturunkan dari field-nya sendiri (`fetchSwapDvpChecked` hanya melakukan dua pemeriksaan pertama). Pembaca `fetchSwapDvp` dan `decodeSwapDvp` biasa tidak melakukan satu pun pemeriksaan ini. Pemeriksaan atas para pihak, jumlah, waktu, dan tujuan dilakukan oleh pemanggil terhadap perdagangan yang disepakati.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Jika catatan dibuat oleh pihak lawan Anda atau otoritas penyelesaian, bandingkan setiap field dengan ketentuan yang Anda sepakati di luar ledger. Jika Anda sendiri yang membuatnya, pembacaan ini memastikan catatan tersebut masuk sebagaimana dikirim.
+
+## Transfer ke escrow
+
+Danai leg dengan jumlah yang persis sesuai kesepakatan. Program membatasi penyelesaian hingga `amount_x` dan mengembalikan kelebihan ke pihak leg tersebut, sehingga kelebihan tidak hilang, tetapi hal itu menambah transfer kedua saat penyelesaian dan dapat gagal pada beberapa transfer hook (lihat catatan di bawah).
+
+Gunakan `TransferChecked`, bukan `Transfer` tanpa pemeriksaan. Mint Token-2022 dengan ekstensi yang bergantung pada mint account, seperti Pausable, akan menolak transfer yang tidak menyertakannya, dan mint dengan transfer hook memerlukan akun-akun hook diselesaikan dan ditambahkan dengan cara yang sama seperti pada transfer token lainnya.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    Pihak leg aset, yang menandatangani sebagai `userASigner`, mendanai escrow A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    Pihak leg kas melakukan hal yang sama untuk escrow B dengan `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB`, dan `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    Pihak leg kas membuat instruksi yang sama untuk escrow B dengan `mint_b`,
+    `user_b`, dan `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Transfer pendanaan yang terlihat pada status [`confirmed`](/docs/rpc#configuring-state-commitment)
+masih dapat digantikan. Program membaca saldo escrow secara onchain saat
+penyelesaian, sehingga Settle yang dikirim terhadap transfer pendanaan yang tidak masuk akan gagal
+dengan `LegNotFunded` dan tidak ada yang berpindah; biayanya adalah Settle yang gagal dan percobaan ulang.
+Anggap sebuah leg telah didanai ketika transfernya berstatus `finalized`.
+
+## Catatan
+
+- **Leg wrapped SOL.** Program membaca saldo escrow native setelah
+  menyinkronkannya, sehingga lamport yang dikirim ke escrow wrapped-SOL melalui transfer sistem
+  ikut dihitung. Jangan pernah mengirim SOL ke escrow untuk mint lain: program tidak dapat
+  mengembalikannya, dan dana itu menjadi milik siapa pun yang menutup akun tersebut.
+- **Mint dengan pembatasan.** Pada mint dengan Default Account State frozen, escrow
+  dibuat dalam keadaan frozen dan transfer gagal hingga penerbit membukanya (thaw) atau mengizinkannya.
+  [Ikhtisar](/docs/defi/dvp-program#mint-configuration-constraints) menjelaskan
+  interaksinya dengan Token ACL.
+- **Transfer hook.** Danai escrow yang memiliki hook dengan jumlah yang persis sesuai kesepakatan. Jika
+  kelebihan memaksa pengembalian dana saat penyelesaian, pengembalian tersebut memakai ulang akun hook leg
+  dengan tujuan dan jumlah yang berbeda, yang ditolak oleh beberapa hook. Pemulihannya
+  adalah Reclaim, danai ulang dengan jumlah yang tepat, lalu lakukan penyelesaian lagi.
+- **Pendanaan setelah kedaluwarsa.** Tidak ada yang mencegah transfer setelah `expiry_timestamp`. Transfer
+  itu masuk, penyelesaian tidak lagi dapat dilakukan, dan pihak leg memulihkannya dengan
+  Reclaim selagi perdagangan masih terbuka atau Recover setelah perdagangan ditutup. Lihat
+  [membatalkan perdagangan](/docs/defi/dvp-program/unwind-a-trade).
+- **Siapa yang mendanai lebih dulu.** Program tidak mengurutkan kedua leg. Urutannya
+  diserahkan kepada para pihak; masing-masing pihak dapat mengambil kembali leg miliknya kapan saja
+  sebelum penyelesaian, kecuali otoritas mint (freeze, pause, atau transfer hook)
+  memblokir escrow.
+
+## Langkah berikutnya
+
+- [Selesaikan perdagangan](/docs/defi/dvp-program/settle-the-trade): otoritas
+  penyelesaian menukar kedua leg dalam satu transaksi
+- [Batalkan perdagangan](/docs/defi/dvp-program/unwind-a-trade): memulihkan leg
+  yang sudah didanai ketika perdagangan tidak diselesaikan

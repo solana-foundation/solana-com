@@ -1,0 +1,242 @@
+---
+title: Alimenter les jambes
+description:
+  Vérifiez les conditions enregistrées d'une transaction DvP, puis alimentez une jambe avec un simple TransferChecked vers son compte séquestre.
+seoTitle: Alimenter une transaction DvP sur Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+L'alimentation d'une jambe est un simple `TransferChecked` vers le séquestre de la jambe : n'importe quel portefeuille ou système de
+custody capable d'envoyer un transfert de jeton peut donc l'effectuer. Seule la lecture de
+l'enregistrement de la transaction avant l'alimentation nécessite le client DvP. Le programme ne vérifie
+les soldes des séquestres qu'au règlement ; rien ne contrôle le transfert à son arrivée,
+donc chaque partie lit l'enregistrement de la transaction avant de transférer.
+
+Cette page fait suite à
+[la création d'une transaction](/docs/defi/dvp-program/create-a-trade) ; le client et les signataires
+sont repris tels quels.
+
+## Vérifier les conditions
+
+La création d'un enregistrement est sans permission, et les adresses des séquestres sont dérivées de
+l'enregistrement et du mint uniquement, jamais des conditions. Un transfert vers un séquestre peut
+donc aboutir sur des conditions que vous n'avez jamais acceptées, y compris des destinations
+de règlement qui redirigent le produit de votre contrepartie vers une tierce adresse.
+Avant d'alimenter, lisez le compte `SwapDvp` et comparez-le à la
+transaction convenue.
+
+`verifySwapDvp` en TypeScript et `verify::decode_swap_dvp_account` en Rust
+confirment que le compte appartient au programme DvP, fait exactement 458 octets et
+se trouve à l'adresse que dérivent ses propres champs (`fetchSwapDvpChecked` n'effectue que
+les deux premières vérifications). Les lecteurs simples `fetchSwapDvp` et `decodeSwapDvp`
+n'en effectuent aucune. Les vérifications portant sur les parties, les montants, les délais et les destinations sont
+effectuées par l'appelant par rapport à la transaction convenue.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Si l'enregistrement a été créé par votre contrepartie ou par l'autorité de règlement,
+comparez chaque champ aux conditions convenues hors registre. Si vous l'avez créé
+vous-même, cette lecture confirme qu'il a bien été enregistré tel qu'envoyé.
+
+## Transférer vers le séquestre
+
+Alimentez la jambe exactement au montant convenu. Le programme plafonne le règlement à
+`amount_x` et renvoie tout excédent à la partie de la jambe ; un excédent n'est donc pas perdu,
+mais il ajoute un second transfert au règlement et peut échouer avec certains hooks de
+transfert (voir les notes ci-dessous).
+
+Utilisez `TransferChecked`, et non un `Transfer` non vérifié. Les mints Token-2022 dotés
+d'extensions qui dépendent du mint account, comme Pausable, rejettent un transfert
+qui ne le fournit pas, et un mint avec un hook de transfert exige que les comptes du hook
+soient résolus et ajoutés de la même manière que pour tout autre transfert de ce
+jeton.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    La partie de la jambe d'actif, signant en tant que `userASigner`, alimente le séquestre A :
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    La partie de la jambe de liquidités fait de même pour le séquestre B avec `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` et `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    La partie de la jambe de liquidités construit la même instruction pour le séquestre B avec `mint_b`,
+    `user_b` et `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Un transfert d'alimentation observé au niveau [`confirmed`](/docs/rpc#configuring-state-commitment)
+peut encore être remplacé. Le programme lit le solde du séquestre onchain
+au règlement ; un Settle envoyé alors qu'un transfert d'alimentation n'a pas abouti échoue
+avec `LegNotFunded` et rien ne bouge ; le coût est un Settle échoué et une nouvelle tentative.
+Considérez une jambe comme alimentée lorsque son transfert est `finalized`.
+
+## Notes
+
+- **Jambes en SOL encapsulé.** Le programme lit le solde d'un séquestre natif après
+  l'avoir synchronisé ; les lamports envoyés à un séquestre de SOL encapsulé par un transfert système sont
+  donc comptabilisés. N'envoyez jamais de SOL à un séquestre d'un autre mint : le programme ne peut pas
+  le restituer, et il revient à celui qui ferme le compte.
+- **Mints à accès restreint.** Sur un mint dont l'état de compte par défaut (Default Account State) est gelé, le séquestre est
+  créé gelé et le transfert échoue tant que l'émetteur ne le dégèle pas ou ne l'admet pas. La
+  [vue d'ensemble](/docs/defi/dvp-program#mint-configuration-constraints) décrit
+  l'interaction avec Token ACL.
+- **Hooks de transfert.** Alimentez les séquestres dotés de hooks exactement au montant convenu. Si
+  un excédent impose un remboursement au règlement, ce remboursement réutilise les comptes du hook de la jambe
+  avec une destination et un montant différents, ce que certains hooks rejettent. La
+  solution consiste à effectuer un Reclaim, à réalimenter au montant exact, puis à régler de nouveau.
+- **Alimentation après expiration.** Rien n'empêche un transfert après `expiry_timestamp`. Il
+  aboutit, le règlement n'est plus possible, et la partie de la jambe le récupère avec
+  Reclaim tant que la transaction est ouverte, ou avec Recover après sa clôture. Voir
+  [annuler une transaction](/docs/defi/dvp-program/unwind-a-trade).
+- **Qui alimente en premier.** Le programme ne séquence pas les deux jambes. L'ordre
+  est laissé aux parties ; chaque côté peut récupérer sa propre jambe à tout moment
+  avant le règlement, sauf si une autorité du mint (gel, pause ou hook de transfert)
+  bloque le séquestre.
+
+## Étapes suivantes
+
+- [Régler la transaction](/docs/defi/dvp-program/settle-the-trade) : l'autorité de
+  règlement échange les deux jambes en une seule transaction
+- [Annuler une transaction](/docs/defi/dvp-program/unwind-a-trade) : récupérer une jambe
+  alimentée lorsque la transaction n'est pas réglée

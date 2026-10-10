@@ -11,29 +11,51 @@ entegre etmek isteyen cüzdan hizmet sağlayıcıları ve geliştiriciler içind
 üzerinden güvenli Solana işlem imzalama için hizmetinizi kullanmasını
 sağlayacaksınız.
 
-_Bir LLM mi kullanıyorsunuz?
-[İmzalayıcı Ekleme Becerisi](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer)'ne
-göz atın._
+Keychain; Rust, TypeScript, Python ve Go implementasyonlarını eşdeğer düzeyde tutar.
+Dördünü de içeren PR'lar kesinlikle tercih edilir. Yalnızca birine katkıda bulunabiliyorsanız
+sorun değil, ancak imzalayıcı bir sürümde yayınlanmadan önce diğerlerinin de
+gerekli olacağını unutmayın.
+
+_Claude Code mu kullanıyorsunuz? Deponun
+[`add-signer-ci` skill'i](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer-ci),
+fork PR'ı aracılığıyla katkıda bulunulan yeni bir imzalayıcı için CI iş akışlarını kurar._
 
 ## Mimari Genel Bakış
 
-Kütüphane, tüm imzalayıcıların `src/traits.rs` içinde tanımlanan `SolanaSigner`
-trait'ini implemente ettiği trait tabanlı bir mimari kullanır. Kütüphane ayrıca
-tüm implementasyonları sarmalayan birleşik bir `Signer` enum'u sağlar ve tutarlı
-bir API'yi korurken imzalama arka uçlarının çalışma zamanında seçilmesine olanak
-tanır.
+Kütüphane, `src/traits.rs` içinde tanımlanan trait tabanlı bir mimari kullanır. Her
+imzalayıcı, `SolanaSigner` temel trait'ini (`pubkey`, `sign_message`,
+`is_available`) ve sağlayıcının yapısına uyan tam olarak bir yetenek trait'ini uygular:
+
+- `TransactionSigner` (`sign_transaction`): sağlayıcı, çağıranın baytlarını
+  imzalar ve yayını çağıran yapar. Çoğu backend böyledir.
+- `ModifyingSigner` (`modify_and_sign_transaction`): sağlayıcı işlemi yeniden
+  yazar, ardından yayınlamadan imzalar.
+- `SendingSigner` (`sign_and_send_transaction`): sağlayıcı sunucu tarafında
+  imzalar ve yayınlar.
+
+Kütüphane ayrıca tüm implementasyonları saran birleşik bir `Signer` enum'u sunar;
+bu sayede imzalama backend'i çalışma zamanında seçilebilir. Yalnızca temel trait'i
+uygular; yeteneklere `as_transaction_signer()`, `as_modifying_signer()` ve
+`as_sending_signer()` üzerinden ulaşılır.
 
 ## Hızlı Entegrasyon Kontrol Listesi
 
 - İmplementasyonunuzla birlikte imzalayıcı modülünüzü oluşturun
-- `SolanaSigner` trait'ini implemente edin (3 async metod + `pubkey()`)
-- `Cargo.toml` içinde bir özellik bayrağı ekleyin
-- `src/lib.rs` içindeki `Signer` enum'unu güncelleyin (4 match kolu)
-- `src/error.rs` reqwest `From` impl cfg gate'ini güncelleyin (eğer
-  imzalayıcınız reqwest kullanıyorsa)
+- `SolanaSigner` temel trait'ini (`pubkey`, `sign_message`,
+  `is_available`) ve sağlayıcınızın yapısına uyan yetenek trait'ini uygulayın
+  (genellikle `TransactionSigner`)
+- `Cargo.toml` içine bir feature flag ekleyin; imzalayıcınız reqwest kullanıyorsa
+  dahili `_remote` işaretçisini de ekleyin
+- `src/lib.rs` içindeki `Signer` enum'unu güncelleyin (variant, `dispatch_signer!`
+  kolu ve yetenek erişimcisinde yapınıza uyan bir kol)
 - HTTP istemcilerinde HTTPS'i zorunlu kılın ve zaman aşımlarını yapılandırın
-- Kapsamlı testler ekleyin
+- Mesaj baytlarını imzalayın ve döndürülen imzayı eklemeden önce doğrulayın
+- Kapsamlı birim testleri ekleyin (wiremock tabanlı, kendi modülünüzde)
+- Bir entegrasyon testi dosyası ekleyin ve `.env.example` dosyasını güncelleyin
+- TypeScript, Python ve Go implementasyonlarını ekleyin
 - Dokümantasyonu güncelleyin
+- CI iş akışı güncellemeleri (bakımcılarla koordinasyon sağlayın, bkz.
+  [CI İş Akışı Güncellemeleri](#ci-workflow-updates-fork-prs))
 - PR gönderin
 
 ## Adım 1: İmzalayıcı Modülünüzü Oluşturun
@@ -54,8 +76,8 @@ src/
 ```rust
 //! YourService API signer integration
 
+use crate::sdk_adapter::{Pubkey, Signature, VersionedTransaction};
 use crate::{error::SignerError, traits::SolanaSigner};
-use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
 use std::str::FromStr;
 
 /// YourService-based signer using YourService's API
@@ -137,15 +159,15 @@ impl YourServiceSigner {
             .send()
             .await?;
 
-        // Use generic error messages — never expose raw API response text
+        // Use generic error messages: never expose raw API response text
         if !response.status().is_success() {
             let status = response.status().as_u16();
-            return Err(SignerError::RemoteApiError(format!(
+            return Err(SignerError::remote_api(format!(
                 "YourService API returned status {status}"
             )));
         }
 
-        // Parse response — always use map_err, never .expect() or .unwrap()
+        // Parse response: always use map_err, never .expect() or .unwrap()
         let response_data: SignResponse = response
             .json()
             .await
@@ -163,19 +185,22 @@ impl YourServiceSigner {
 }
 ```
 
-## Adım 4: SolanaSigner Trait'ini İmplemente Edin
+## Adım 4: İmzalayıcı Trait'lerini Uygulayın
 
-Trait'in 3 async metodu (`sign_transaction`, `sign_message`, `is_available`)
-artı `pubkey()` vardır. `sign_transaction` metodunun `SignTransactionResult`
-döndürdüğüne dikkat edin — bu, işlemin tamamen imzalanmış mı yoksa kısmen
-imzalanmış mı olduğunu gösteren etiketli bir enum'dur.
+`SolanaSigner` temel trait'i, `pubkey()` yanında 2 asenkron metot (`sign_message`,
+`is_available`) içerir. İşlem imzalama bir yetenek trait'inde yer alır;
+çoğu sağlayıcı `TransactionSigner` trait'ini uygular. Bu trait'in `sign_transaction`
+metodu, `SignTransactionResult` döndürür (işlemin tamamen veya kısmen imzalandığını
+belirten etiketli bir enum).
 
-İmzalama ve serileştirme için paylaşılan `TransactionUtil` yardımcılarını
-kullanın.
+Tüm wire işlemini değil, mesaj baytlarını imzalayın ve eklemeden önce sağlayıcının
+imzasını bu baytlara karşı doğrulayın. İmzalama ve serileştirme için ortak
+`TransactionUtil` yardımcılarını kullanın.
 
 ```rust
+use crate::signature_util::verify_or_reject;
+use crate::traits::{SignTransactionResult, TransactionSigner};
 use crate::transaction_util::TransactionUtil;
-use crate::traits::SignTransactionResult;
 
 #[async_trait::async_trait]
 impl SolanaSigner for YourServiceSigner {
@@ -183,28 +208,10 @@ impl SolanaSigner for YourServiceSigner {
         self.public_key
     }
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
-        let tx_bytes = bincode::serialize(tx)
-            .map_err(|e| SignerError::SerializationError(format!("Failed to serialize: {e}")))?;
-
-        let signature = self.sign(&tx_bytes).await?;
-
-        // Add the signature at the correct position
-        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
-
-        // Serialize and classify as Complete or Partial
-        let serialized = TransactionUtil::serialize_transaction(tx)?;
-        Ok(TransactionUtil::classify_signed_transaction(
-            tx,
-            (serialized, signature),
-        ))
-    }
-
     async fn sign_message(&self, message: &[u8]) -> Result<Signature, SignerError> {
-        self.sign(message).await
+        let signature = self.sign(message).await?;
+        verify_or_reject(&signature, &self.public_key, message)?;
+        Ok(signature)
     }
 
     async fn is_available(&self) -> bool {
@@ -217,7 +224,32 @@ impl SolanaSigner for YourServiceSigner {
             .unwrap_or(false)
     }
 }
+
+#[async_trait::async_trait]
+impl TransactionSigner for YourServiceSigner {
+    async fn sign_transaction(
+        &self,
+        tx: &mut VersionedTransaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        let message = tx.message.serialize();
+        let signature = self.sign(&message).await?;
+        verify_or_reject(&signature, &self.public_key, &message)?;
+
+        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
+        let serialized = TransactionUtil::serialize_transaction(tx)?;
+        Ok(TransactionUtil::classify_signed_transaction(
+            tx,
+            (serialized, signature),
+        ))
+    }
+}
 ```
+
+Sağlayıcınız işlemi imzalamadan önce yeniden yazıyorsa bunun yerine
+`ModifyingSigner` uygulayın ve çağıranın işlemini sağlayıcının baytlarıyla
+tümüyle değiştirin. Sağlayıcı sunucu tarafında yayın yapıyorsa `SendingSigner`
+uygulayın ve çağıranın işlemine dokunmayın. Sağlayıcınızın karşılayamayacağı bir
+yeteneği asla uygulamayın.
 
 ## Adım 5: API Türlerini Ekleyin (İsteğe Bağlı)
 
@@ -240,25 +272,29 @@ pub struct SignResponse {
 
 ## Adım 6: Özellik Bayrağı Ekleyin
 
-İmzalayıcınızı isteğe bağlı bir özellik olarak eklemek için `Cargo.toml`
-dosyasını güncelleyin:
+İmzalayıcınızı isteğe bağlı bir feature olarak eklemek için `Cargo.toml` dosyasını
+güncelleyin. Uzak backend'ler, `src/error.rs` içindeki `From<reqwest::Error>`
+impl'ini kontrol eden dahili `_remote` işaretçisini içerir; bu işaretçi olmadan,
+yalnızca feature'ınız etkinken reqwest çağrılarındaki `?` derlenmez.
 
 ```toml
 [features]
-default = ["memory"]
+default = ["memory", "sdk-v2"]
 memory = []
-vault = ["dep:reqwest", "dep:vaultrs", "dep:base64"]
-privy = ["dep:reqwest", "dep:base64"]
-turnkey = ["dep:reqwest", "dep:base64", "dep:p256", "dep:hex", "dep:chrono"]
-your_service = ["dep:reqwest", "dep:base64"]  # Add your feature
-all = ["memory", "vault", "privy", "turnkey", "your_service"]  # Update all
+vault = ["dep:reqwest", "_remote"]
+privy = ["dep:reqwest", "dep:p256", "_remote"]
+your_service = ["dep:reqwest", "_remote"]  # Add your feature
+all = ["memory", "vault", "privy", "...", "your_service"]  # Update all
 ```
 
 ## Adım 7: Signer Enum'unu Güncelleyin
 
-İmzalayıcınızı `src/lib.rs` içine ekleyin. `SolanaSigner` impl'inde 4 eşleştirme
-koluna ihtiyacınız var: `pubkey`, `sign_transaction`, `sign_message` ve
-`is_available`.
+İmzalayıcınızı `src/lib.rs` dosyasına ekleyin. Temel `SolanaSigner` impl'i,
+`dispatch_signer!` makrosu üzerinden yönlendirme yapar; bu yüzden oraya bir kol
+ekleyin. Yetenek erişimi `as_transaction_signer()`, `as_modifying_signer()` ve
+`as_sending_signer()` erişimcilerinde bulunur: yetenek trait'inize uyan erişimciye
+bir `Some(s)` kolu ekleyin (ve gönderen ya da değiştiren bir backend için
+`as_transaction_signer()` içine bir `None` kolu ekleyin).
 
 ```rust
 // Add feature-gated module
@@ -300,52 +336,29 @@ impl Signer {
     }
 }
 
-// Update trait implementation — 4 match arms
-#[async_trait::async_trait]
-impl SolanaSigner for Signer {
-    fn pubkey(&self) -> sdk_adapter::Pubkey {
-        match self {
+// Update the dispatch macro: the base SolanaSigner impl uses it for
+// pubkey, sign_message and is_available
+macro_rules! dispatch_signer {
+    ($self:ident, $signer:pat => $body:expr) => {
+        match $self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.pubkey(),
+            Signer::YourService($signer) => $body,
         }
-    }
+    };
+}
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut sdk_adapter::Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
+// Add your arm to the capability accessor matching your shape
+impl Signer {
+    pub fn as_transaction_signer(&self) -> Option<&dyn TransactionSigner> {
         match self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_transaction(tx).await,
-        }
-    }
-
-    async fn sign_message(
-        &self,
-        message: &[u8],
-    ) -> Result<sdk_adapter::Signature, SignerError> {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_message(message).await,
-        }
-    }
-
-    async fn is_available(&self) -> bool {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.is_available().await,
+            Signer::YourService(s) => Some(s),
         }
     }
 }
 ```
-
-İmzalayıcınız `reqwest` kullanıyorsa, `src/error.rs` içindeki
-`From<reqwest::Error>` impl'i üzerindeki `#[cfg(any(...))]` kapısına
-özelliğinizi ekleyin.
 
 ## Adım 8: Kapsamlı Testler Ekleyin
 
@@ -430,19 +443,60 @@ mod tests {
 }
 ```
 
-## Adım 9: Belgeleri Güncelleyin
+İmza doğrulama hatasını da test edin: imzası doğrulanmayan sahte (mock) bir yanıt
+hata döndürmelidir.
+
+## Adım 9: Entegrasyon Testleri Ekleyin
+
+`rust/src/tests/test_<name>_integration.rs` dosyasını oluşturun. Entegrasyon
+testleri gerçek servis API'sine karşı çalışır (wiremock değil) ve
+`integration-tests` feature'ının arkasında yer alır. Her dosyada şunlar bulunmalıdır:
+
+- Ortam değişkeni adları için `pub const` bildirimleri
+- Ortam değişkenlerini `dotenvy` ile okuyan bir `get_signer()` yardımcısı
+- Üç test fonksiyonu: `test_<name>_sign_message`,
+  `test_<name>_sign_transaction` ve `test_<name>_is_available`
+- Feature kapıları: modül üzerinde `#[cfg(feature = "your_service")]` ve her test
+  üzerinde `#[cfg(feature = "integration-tests")]`
+
+Eksiksiz bir referans için `rust/src/tests/test_para_integration.rs` dosyasına
+bakın ve modülünüzü `rust/src/tests/mod.rs` içinde bildirin:
+
+```rust
+pub mod test_your_service_integration;
+```
+
+## Adım 10: Ortam Değişkenlerini Güncelleyin
+
+Kök dizindeki `.env.example` dosyasını, mevcut düzeni izleyerek imzalayıcınızın
+ortam değişkenleriyle güncelleyin:
+
+```bash
+# YourService Configuration (for SIGNER_TYPE=your_service)
+YOUR_SERVICE_API_KEY=your-api-key
+YOUR_SERVICE_WALLET_ID=your-wallet-id
+# YOUR_SERVICE_API_BASE_URL=https://api.yourservice.com/v1  # Optional, defaults to this
+```
+
+Zorunlu değişkenleri yer tutucu değerlerle en başa yazın; isteğe bağlı
+değişkenleri ise varsayılan değerleriyle birlikte yorum satırı olarak bırakın.
+Entegrasyon testlerinde kullanılan her ortam değişkeni `.env.example` içinde yer
+almalıdır; TypeScript, Python ve Go test paketleri de aynı adları kullanır.
+
+## Adım 11: Dokümantasyonu Güncelleyin
 
 README.md içindeki desteklenen arka uçlar tablosuna imzalayıcınızı ekleyin:
 
-| Arka Uç         | Kullanım Durumu                                 | Özellik Bayrağı |
-| --------------- | ----------------------------------------------- | --------------- |
-| **Memory**      | Yerel keypair'ler, geliştirme, test             | `memory`        |
-| **Vault**       | HashiCorp Vault ile kurumsal anahtar yönetimi   | `vault`         |
-| **Privy**       | Privy altyapısı ile gömülü cüzdanlar            | `privy`         |
-| **Turnkey**     | Turnkey aracılığıyla emanetsiz anahtar yönetimi | `turnkey`       |
-| **YourService** | Hizmetinizin kısa açıklaması                    | `your_service`  |
+| Arka Uç         | Kullanım Durumu                                       | Özellik Bayrağı   |
+| --------------- | ---------------------------------------------- | -------------- |
+| **Memory**      | Yerel keypair'ler, geliştirme, test           | `memory`       |
+| **Vault**       | HashiCorp Vault ile kurumsal anahtar yönetimi | `vault`        |
+| **Privy**       | Privy altyapısı ile gömülü cüzdanlar     | `privy`        |
+| **Turnkey**     | Turnkey aracılığıyla emanetsiz anahtar yönetimi       | `turnkey`      |
+| **YourService** | Hizmetinizin kısa açıklaması              | `your_service` |
 
-Kullanım örneği ekleyin:
+Ayrıca backend'inizi her dilin README dosyasındaki imzalayıcı yetenekleri tablosuna
+ekleyin. Bir kullanım örneği ekleyin:
 
 ```rust
 use solana_keychain::{Signer, SolanaSigner};
@@ -465,48 +519,165 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Entegrasyonunuzu Test Etme
 
-Özelliğiniz için testleri çalıştırın:
+Ham `cargo` yerine `just` tariflerini kullanın. SDK feature'ları (`sdk-v2`,
+`sdk-v3`, `sdk-v4`) birbirini dışladığı için `cargo test --all-features`
+başarısız olur.
 
 ```bash
-# Test only your signer
-cargo test --features your_service
+# Unit tests across the sdk-v2, sdk-v3 and sdk-v4 matrices
+just rust-test
 
-# Test with all features
-cargo test --all-features
+# Live integration tests (require credentials in .env)
+just rust-test-integration
 ```
+
+## CI İş Akışı Güncellemeleri (Fork PR'ları)
+
+CI iki aşamalı bir süreçtir. PR'ınız test edilmeden önce `main` dalını hazırlamak
+için bakımcılarla koordinasyon sağlayın: onlar `fork-external-live-manual.yml`
+dosyasını günceller, `ci.yml` dosyasına ortam değişkenlerini ekler ve GitHub
+Secrets'ı yapılandırır.
+
+PR'ınız, imzalayıcı kodunuzla birlikte şu 2. Aşama değişikliklerini içermelidir:
+
+- **`ci.yml`**: Rust feature'ınızı `backend` matrisine (`all`'dan önce) ve
+  entegrasyon test fonksiyonunuzu `test` matrisine ekleyin
+- **`typescript-ci.yml`**: paketinizi birim ve entegrasyon test matrislerine ekleyin
+  ve ortam değişkenlerini entegrasyon testi adımına ekleyin
+- **`typescript-publish.yml`**: paketinizi `PUBLISH_PACKAGES`, GitHub Release
+  `packages` dizisi ve özet tablosuna ekleyin
+- **`python-ci.yml`**: backend'i `resolve-signers` içindeki `CI_SIGNER_*`
+  kapısına ve entegrasyon matrisine ekleyin
+- **`go-ci.yml`**: backend'i `CI_SIGNER_*` kapısına ve `moduleBySigner` içine
+  ekleyin
 
 ## TypeScript İmzalayıcı
 
 Ayrıca bir TypeScript imzalayıcı paketi ekliyorsanız, bunu
 `typescript/packages/your-signer/` konumunda oluşturun. Temel desenler:
 
-- Fabrika fonksiyonu `createYourSigner()`, `SolanaSigner<TAddress>` döndürür
+- `createYourSigner()` fabrika fonksiyonu
+  `SolanaTransactionSigner<TAddress> & SolanaMessageSigner<TAddress>` döndürür;
+  imzalayıcı sınıfını dahili tutun ve yalnızca fabrikayı ve yapılandırma tipini
+  dışa aktarın
 - Yapılandırma arayüzünü dışa aktar (`YourSignerConfig`)
-- `apiBaseUrl` yapılandırma alanlarında HTTPS'i zorunlu kıl
-- `@solana/keychain-core` paketinden `sanitizeRemoteErrorResponse()` ile uzak
-  API hata metnini temizle
-- İsteğe bağlı zincirleme ve try/catch ile hatalı biçimlendirilmiş JSON'a karşı
-  koruma sağla
+- Backend'iniz mesaj imzalayamıyorsa `SolanaMessageSigner` kullanmayın ve hiçbir
+  `signMessages` metodu sunmayın: Kit, imzalayıcıları metodun varlığına göre
+  sınıflandırır; bu yüzden hata fırlatan bir stub imzalayıcıyı yanlış sınıflandırır
+- `apiBaseUrl` yapılandırma alanlarında HTTPS'i `@solana/keychain-core` içindeki
+  `assertHttpsUrl()` ile zorunlu kılın
+- Uzak çağrıları `@solana/keychain-core` içindeki `fetchSignerJson()` ile yapın;
+  hata eşlemesi, yanıt temizleme, yönlendirme reddi ve varsayılan zaman aşımını
+  bu fonksiyon yönetir
+- Diğer tüm uzak API hata metinlerini `@solana/keychain-core` içindeki
+  `sanitizeRemoteErrorResponse()` ile temizleyin
 - `@solana/keychain-core` paketinden
   `throwSignerError(SignerErrorCode.*, { cause, message })` kullan
+- Her imzalama metodunda `config?.abortSignal` değerine uyun ve bunu
+  `fetchSignerJson()` ile `signBatchStaggered()` fonksiyonlarına iletin
+- `requestDelayMs` değerini `validateRequestDelayMs()` ile doğrulayın ve toplu
+  işlemleri `signBatchStaggered()` ile yapın
 - Hata kodlarını listeleyen fabrika fonksiyonlarına `@throws` JSDoc ekle
+- `@solana/*` paketlerini `>=8.1.0` sürümüyle peer dependency olarak bildirin
+- vitest ve sahte (mock) `fetch` ile birim testleri; `@solana/keychain-test-utils`
+  içindeki `runSignerIntegrationTest` ile entegrasyon testleri
+
+### Gönderen İmzalayıcılar
+
+Sağlayıcınız işlemi yeniden yazıyorsa veya sunucu tarafında yayınlıyorsa imzası
+çağıranın işlemine uygulanamaz; bu nedenle `SolanaTransactionSigner` yerine
+`SolanaSendingSigner` olmalıdır:
+
+- `signAndSendTransactions()` metodunu uygulayın ve `signTransactions` metodunu
+  **sunmayın** (backend gerçekten mesaj imzalamıyorsa `signMessages` metodunu da
+  sunmayın)
+- `config?.abortSignal` değerine uyun. Sağlayıcı oluşturma isteğini kabul ettikten
+  sonra, her hatayı (iptal dahil) sağlayıcı işlem kimliğini taşıyan
+  `BROADCAST_UNCONFIRMED` olarak bildirin ve iptal nedenini `cause` olarak saklayın
+- Gönderen imzalayıcı tipinizi döndüren tipli bir `createKeychainSigner` overload'ı
+  ekleyin
+- Backend'inizi `typescript/packages/kit-plugin/src/keychain-plugin.ts` içindeki
+  `KeychainKitPluginConfig` dışında bırakın; çünkü gönderen bir imzalayıcı, Kit
+  istemcisinde `payer` veya `identity` olarak kullanılamaz
+- Birim testlerinde, örnekleriniz için `isTransactionPartialSigner()` değerinin
+  false, `isTransactionSendingSigner()` değerinin true olduğunu doğrulayın
 
 ### Şemsiye Paketini Güncelle
 
-`typescript/packages/keychain/` paketini güncelle — Değiştirilecek 6 dosya:
+`typescript/packages/keychain/` dizinini güncelleyin (değiştirilecek 7 dosya):
 
-1. `src/types.ts` — `KeychainSignerConfig` ayrıştırılmış birleşimine
-   `YourSignerConfig` ekle
-2. `src/create-keychain-signer.ts` — Fabrikayı içe aktar, switch case ekle
-3. `src/resolve-address.ts` — Hızlı yol veya fetch yolu switch case'ine ekle
-4. `src/index.ts` — Yapılandırma türü, ad alanı, fabrika fonksiyonu ve sınıf
-   dışa aktarımlarını ekle
-5. `package.json` — `@solana/keychain-your-signer: "workspace:*"` bağımlılığını
-   ekle
-6. `tsconfig.json` — `{ "path": "../your-signer" }` referansını ekle
+1. `src/types.ts`: `YourSignerConfig` tipini `KeychainSignerConfig`
+   ayrımlı birleşim tipine (discriminated union) ekleyin
+2. `src/create-keychain-signer.ts`: switch case'i ekleyin (her backend paketi
+   dinamik bir `import()` ile yüklenir)
+3. `src/resolve-address.ts`: Hızlı yol (fast-path) veya getirme yolu (fetch-path)
+   switch case'ine ekleyin
+4. `src/index.ts`: Yapılandırma tipini, namespace'i ve fabrika fonksiyonu
+   dışa aktarımlarını ekleyin
+5. `package.json`: `@solana/keychain-your-signer: "workspace:*"` bağımlılığını ekleyin
+6. `tsconfig.json`: `{ "path": "../your-signer" }` referansını ekleyin
+7. `typescript/scripts/test-treeshake-umbrella.mjs`: Paketinizi `SIGNER_MARKERS`
+   içine ve fabrikanızı `FACTORIES` içine ekleyin
 
-Switch ifadeleri kapsamlı `never` kontrollerine sahiptir — Birleşime ekleme
-yapıp bir case'i kaçırırsanız TypeScript hata verecektir.
+Switch ifadelerinde kapsamlı `never` kontrolleri vardır; bu yüzden birleşim tipine
+ekleme yapıp bir case'i atlarsanız TypeScript hata verir. Ardından `just ts-treeshake`
+çalıştırın: her paket ve umbrella paketi tree-shake edilebilir kalmalıdır.
+
+## Python İmzalayıcısı
+
+Modülü `python/src/solana_keychain/your_signer/` dizininde oluşturun (`__init__.py`
+ve `signer.py`). Temel kalıplar:
+
+- `solana_keychain.core` içinden `SolanaSigner` sınıfını alt sınıflayın (`pubkey`
+  özelliği, `async sign_message()`, `async is_available()`) ve tam olarak bir yetenek
+  sınıfı ekleyin: `TransactionSigner` (`async sign_transaction()`), `ModifyingSigner`
+  (`async modify_and_sign_transaction()`) veya `SendingSigner`
+  (`async sign_and_send_transaction()`)
+- Backend adresini uzaktan çözümlüyorsa `init()` çağrısını bekleyen (await) bir
+  `async create_your_signer()` fabrikası dışa aktarın; init öncesinde imzalama
+  `SignerErrorCode.NOT_INITIALIZED` hatası verir
+- Gizli bilgileri `field(repr=False)` ile işaretlenmiş bir yapılandırma dataclass'ı
+  (`YourSignerConfig`) dışa aktarın
+- Temel URL alanlarında HTTPS'i `assert_https_url()` ile zorunlu kılın ve her isteği
+  `fetch_signer_json()` üzerinden yönlendirin
+- Sağlayıcının imzasını döndürmeden önce doğrulayın; bir imzanın kapsadığı baytlar
+  için `signed_message_bytes()` kullanın, elle yazılmış bir sürüm öneki asla
+  kullanmayın
+- Backend'i `python/src/solana_keychain/keychain.py` içindeki `_BACKENDS` içine
+  kaydedin
+- Arka uç bir sağlayıcı SDK'sına ihtiyaç duyuyorsa, içe aktarmayı koruma altına alın,
+  `pip install 'solana-keychain[your-signer]'` komutunu belirten bir `ImportError`
+  fırlatın, ekstrayı `python/pyproject.toml` içinde tanımlayın ve arka ucu paket
+  kökünden asla erken (eager) biçimde içe aktarmayın
+- pytest ile birim testleri: HTTP arka uçları için `respx`, SDK arka uçları için
+  sahte (stub) istemciler ve fırlatılan hataların `str()` veya `repr()` çıktısında
+  hiçbir gizli bilginin görünmediğini doğrulayan bir kontrol
+- `python/tests/integration/test_live_signers.py` dosyasına bir `make_your_signer()`
+  fabrika fonksiyonu ekleyin ve bunu `_MESSAGE_CAPABLE` içine kaydedin
+  (`sign_message` desteği olmayan arka uçlar için `_TRANSACTION_ONLY`)
+
+## Go Signer
+
+Her Go arka ucu kendi modülüdür; `go/signers/yoursigner/` dizininde yer alır ve modül yolu
+`github.com/solana-foundation/solana-keychain/go/signers/yoursigner/v2` şeklindedir. Referans için
+`go/signers/para/` dizinine bakın. Temel kalıplar:
+
+- `core.SolanaSigner` arayüzünü (`Pubkey()`, `SignMessage(ctx, message)`,
+  `IsAvailable(ctx)`) ve ek olarak tam olarak bir yetenek arayüzünü uygulayın:
+  `core.TransactionSigner`, `core.ModifyingSigner` veya `core.SendingSigner`.
+  Yetenek, tür doğrulaması (type assertion) ile tespit edilir; dolayısıyla bir
+  işlemi imzalayamayan arka uçta `SignTransaction` metodu hiç bulunmamalıdır
+- Bir `Config` struct'ı ve bir `New` yapıcısı dışa aktarın (arka uç adresini uzaktan
+  çözümlüyorsa `New(ctx, cfg)`; bu işlemden önce `core.NewNotInitializedError`
+  döndürün)
+- HTTP istemcilerini `core.NewHTTPClient` veya `core.ResolveHTTPClient` ile oluşturun
+  ve temel URL'leri `core.NormalizeHTTPSBaseURL` ile doğrulayın
+- İşlemleri, mesaj baytlarını imzalayıp imzayı ekleyen `core.SignTransactionWith` ile
+  imzalayın; sağlayıcı imzalarını `core.VerifySignature` ile doğrulayın
+- Hataları `core.NewSignerError` / `core.WrapSignerError` ve `core.CodeSigningFailed`
+  gibi kararlı kodlarla döndürün
+- Birim testleri `httptest` ile; entegrasyon testleri ise `integration_test.go`
+  içinde, `//go:build integration` etiketinin arkasında yazılır
 
 ## Gönderim Kontrol Listesi
 
@@ -517,40 +688,72 @@ PR'ınızı göndermeden önce:
 - Kod biçimlendirilmiş/linting geçiyor (`just fmt`)
 - Kodda sabit kodlanmış değerler veya gizli bilgiler yok
 - Hata mesajları geneldir (ham API yanıt metni yok)
+- Güvenilmeyen API yanıtları üzerinde `.expect()` veya `.unwrap()` kullanılmaz
 - Uzak HTTP istemcilerinde HTTPS zorunlu kılınmış
 - HTTP zaman aşımları `HttpClientConfig` üzerinden yapılandırılmış
-- Rust adlandırma kurallarına uyuyor (snake_case)
-- README.md desteklenen arka uçlar tablosuna eklendi
+- Dönen imzalar, yerel olarak hesaplanan mesaj baytlarına karşı doğrulanır
+- Adlandırma kurallarına uyar (Rust ve Python için snake_case, TypeScript için
+  camelCase)
+- Entegrasyon testleri eklendi ve `.env.example` güncellendi
+- TypeScript, Python ve Go uygulamaları dahil edildi (veya bakımcılarla birlikte
+  planlandı)
+- Çatı paketler güncellendi (TypeScript çatı paketi, Python `_BACKENDS`)
+- CI değişiklikleri dahil edildi
+- README.md içindeki desteklenen arka uçlar ve signer yetenekleri tablolarına eklendi
 
 ## Uygulama İpuçları
 
 ### Hata Yönetimi
 
-Her zaman mevcut `SignerError` varyantlarını kullanın. Güvenilmeyen API
-yanıtlarında asla `.expect()` veya `.unwrap()` kullanmayın:
+Her zaman mevcut `SignerError` varyantlarını kullanın. `SignerError` üzerindeki hem
+`Display` hem de `Debug` çıktıları gizlenmiştir (redacted); bu nedenle mesajları genel
+tutun ve ham API yanıt verilerini asla eklemeyin. Güvenilmeyen API yanıtları üzerinde
+hiçbir zaman `.expect()` veya `.unwrap()` kullanmayın:
 
 ```rust
-// Good — uses existing error types with generic messages
-return Err(SignerError::RemoteApiError(
-    format!("YourService API returned status {}", status)
-));
+// Good: uses the constructor with a generic message
+return Err(SignerError::remote_api(format!(
+    "YourService API returned status {status}"
+)));
 
-// Good — converts from standard errors
+// Good: converts from standard errors
 let bytes = base64::decode(data)
     .map_err(|e| SignerError::SerializationError(format!("Failed to decode: {e}")))?;
 ```
 
-### Güvenlik En İyi Uygulamaları
+### Güvenlik Gereksinimleri
 
-- Hassas verileri asla kaydetmeyin (özel anahtarlar, API gizli bilgileri)
-- Hassas alanları gizleyen `Debug` uygulaması kullanın
-- Tüm girdileri doğrulayın (genel anahtarlar, imzalar)
-- Tüm uzak API çağrıları için HTTPS kullanın (`https_only(true)` ile zorunlu
-  kılınmıştır)
-- İstek ve bağlantı zaman aşımlarını `HttpClientConfig` üzerinden yapılandırın
-- Hata mesajlarında ham uzak API hata metnini asla ifşa etmeyin
-- `init()` öncesinde genel anahtar alanı için (`Pubkey::default()` değil)
-  `Option<Pubkey>` kullanın
+Bunlar öneri değildir: kullanıcılar bir arka ucu bu gereksinimlere güvenerek seçer.
+Sağlayıcınız bunlardan birini imkânsız kılıyorsa, bunu PR'da ve deponun
+`docs/SECURITY_MODEL.md` dosyasında belirtin.
+
+- **Sağlayıcının neyi imzaladığını doğrulayın.** Mesaj baytlarını yerel olarak hesaplayın
+  ve dönen imzayı eklemeden önce, signer'ınızın gerektirdiği konumda bu baytlara karşı
+  doğrulayın. Doğrulanmayan bir imza başarısız sayılmalıdır, asla eklenmemelidir.
+- **Sağlayıcının yayın (broadcast) yapıp yapmadığını belirtin.** Sağlayıcı işlemi
+  sunucu tarafında yürütüyorsa, gönderme (sending) yapısını uygulayın ve gerçekleşen
+  işlemi tanımlayan imzayı döndürün. Sağlayıcının yalnızca imzalama yapan bir uç
+  noktası yoksa, çağıranın haberi olmadan gönderim yapmak yerine arka ucu yalnızca
+  gönderen (sending-only) olarak tasarlayın.
+- **Çağıranı, imzanın kapsamadığı bir işlemle asla baş başa bırakmayın.**
+  İşlemi yeniden yazan bir sağlayıcı kendi baytlarını imzalar: ya çağıranın işlemine
+  dokunmayın (yayının sağlayıcı tarafından yönetildiği durum), ya da değiştiren
+  (modifying) yapıyı kullanın ve işlemi tamamen sağlayıcının baytlarıyla değiştirin.
+- **Yayın belirsizliğini olduğu gibi bildirin.** Gönderimden sonra oluşan bir hata,
+  işlemin yine de zincire ulaşmış olduğu anlamına gelebilir. Genel bir hata yerine
+  `BROADCAST_UNCONFIRMED` döndürün, elinizde olduğunda sağlayıcı işlem kimliğini
+  (transaction id) ekleyin ve her oluşturma isteğinde mesajdan türetilmiş bir
+  idempotency anahtarı gönderin; böylece baytları birebir aynı olan yeniden gönderim
+  güvenli olur.
+- **Başlatmadan önce asla imzalamayın.** `init()` öncesinde açık anahtar için
+  (`Pubkey::default()` yerine) `Option<Pubkey>` kullanın ve önce imzalama
+  denenirse bir yapılandırma hatasıyla başarısız olun.
+- Hassas verileri (özel anahtarlar, API gizli anahtarları, ham API yanıtları) asla
+  loglamayın ve hassas alanları gizleyen bir `Debug` implementasyonu kullanın
+- HTTPS kullanımını zorunlu kılın (`https_only(true)`, wiremock için
+  `#[cfg(not(test))]` ile koşullandırılmış) ve istek ile bağlantı zaman aşımlarını
+  `HttpClientConfig` üzerinden yapılandırın (varsayılanlar: 30sn/5sn)
+- Ara anahtar materyalini `zeroize::Zeroizing<Vec<u8>>` ile sıfırlayın
 
 ### Mock'larla Test Etme
 
@@ -579,14 +782,17 @@ mod tests {
 ## Yardım Alma
 
 - Mevcut imzalayıcı uygulamalarını desenler için inceleyin:
-  - `src/memory/mod.rs` — Basit, senkron
-  - `src/para/mod.rs` — Başlatma gerektirir (yeni imzalayıcılar için desen
-    olarak kullanın)
-  - `src/turnkey/mod.rs` — Karmaşık imza işleme
-  - `src/vault/mod.rs` — Harici istemci kütüphanesi
-- Temel dosyalar: `src/traits.rs` (trait tanımı), `src/transaction_util.rs`
-  (paylaşılan yardımcılar), `src/http_client_config.rs` (zaman aşımı
-  yapılandırması)
+  - `src/memory/mod.rs`: Basit, eşzamanlı (synchronous)
+  - `src/privy/mod.rs`: Başlatma gerektirir
+  - `src/turnkey/mod.rs`: Karmaşık imza işleme
+  - `src/vault/mod.rs`: Harici istemci kütüphanesi
+  - `typescript/packages/para/`, `python/src/solana_keychain/para/` ve
+    `go/signers/para/`: diğer dillerdeki eksiksiz referanslar
+- Önemli dosyalar: `src/traits.rs` (trait tanımları), `src/transaction_util.rs` ve
+  `src/signature_util.rs` (ortak yardımcılar), `src/http_client_config.rs` (zaman
+  aşımı yapılandırması)
+- Tam depo kılavuzu:
+  [docs/ADDING_SIGNERS.md](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - Çalışmaya başlamadan önce tasarım tartışmaları için bir issue açın
 
 ## Örnek PR Yapısı
@@ -599,9 +805,13 @@ Adds support for YourService as a signing backend.
 - [X] Code compiles without warnings (`just build`)
 - [X] Code is formatted/linting passes (`just fmt`)
 - [X] Add comprehensive tests with wiremock - All tests pass (`just test`)
-- [X] Implemented SolanaSigner trait for YourServiceSigner
+- [X] Implemented SolanaSigner and TransactionSigner for YourServiceSigner
 - [X] Added feature flag 'your_service'
 - [X] HTTPS enforced, HTTP timeouts configured
+- [X] Returned signatures verified before attaching
+- [X] Added integration tests and updated .env.example
+- [X] TypeScript, Python and Go implementations included
+- [X] CI Phase 2 changes included
 - [X] Added to README.md supported backends table
 
 Closes #1337

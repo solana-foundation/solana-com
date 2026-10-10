@@ -3,6 +3,9 @@ title: TypeScript
 description: تثبيت واستخدام @solana/keychain في تطبيقات TypeScript
 ---
 
+هل تقوم بالترقية من الإصدار 1.x؟ راجع
+[دليل الانتقال إلى الإصدار 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md).
+
 ## التثبيت
 
 قم بتثبيت الحزمة الشاملة أو الموقعين الفرديين حسب الحاجة:
@@ -32,6 +35,10 @@ pnpm add @solana/keychain-fordefi     # Fordefi
 pnpm add @solana/keychain-kit-plugin
 ```
 
+يتطلب `@solana/kit` الإصدار 8.1 أو أحدث. معاملات v1
+(`createTransactionMessage({ version: 1 })`) مدعومة، باستثناء Fireblocks
+مع `useProgramCall: true`، التي تقبل المعاملات القديمة (legacy) ومعاملات v0 فقط.
+
 ## الاستخدام الأساسي
 
 ### المصنع الموحد (موصى به للتطبيقات التي ترغب في دعم موقعين متعددين)
@@ -40,7 +47,7 @@ pnpm add @solana/keychain-kit-plugin
 
 ```typescript
 import { createKeychainSigner } from "@solana/keychain";
-import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers ≥ 6.5
+import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers >= 8.1
 
 const signer = await createKeychainSigner({
   backend: "privy",
@@ -70,10 +77,13 @@ const signer = await createPrivySigner({
 
 ### الاستخدام مع رسائل المعاملات
 
-جميع الموقعين يطبقون واجهة `SolanaSigner`، والتي تتوافق مع `@solana/kit` و
-`@solana/signers`:
+كل واجهة خلفية باستثناء Crossmint ووضع Fordefi الأصلي (native) تُرجع
+`SolanaTransactionSigner`، وهو `TransactionPartialSigner` من Kit ويعمل
+مع أدوات التوقيع الجزئي في `@solana/signers` الموضحة أدناه. أما الواجهات الخلفية ذات البث المُدار
+فمشروحة في [إمكانيات المُوقِّع](#signer-capabilities).
 
 ```typescript
+import type { SolanaTransactionSigner } from "@solana/keychain-core";
 import { signTransactionMessageWithSigners } from "@solana/signers";
 import {
   createTransactionMessage,
@@ -81,7 +91,7 @@ import {
   pipe
 } from "@solana/kit";
 
-async function signWithKeychain(signer: SolanaSigner) {
+async function signWithKeychain(signer: SolanaTransactionSigner) {
   // Check availability (useful for remote signers)
   if (!(await signer.isAvailable())) {
     throw new Error("Signer offline");
@@ -91,13 +101,29 @@ async function signWithKeychain(signer: SolanaSigner) {
   const transaction = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayerSigner(signer, tx)
-    // ... add instructions
+    // ... set a lifetime and add instructions
   );
 
   // Sign with the standard signers API
   const signedTx = await signTransactionMessageWithSigners(transaction);
   return signedTx;
 }
+```
+
+### التوقيع والإرسال باستخدام أي مُوقِّع
+
+تعمل الدالة `signAndSendTransaction` من `@solana/keychain-core` على إيصال المعاملة إلى
+السلسلة أيًا كان شكل المُوقِّع. تبثّ المُوقِّعات المُرسِلة (sending) المعاملة عبر
+مزوّدها؛ أما كل شكل آخر فيستخدم الدالة `sendTransaction` التي تمررها أنت (فالنواة لا تعتمد على
+أي RPC):
+
+```typescript
+import { signAndSendTransaction } from "@solana/keychain-core";
+
+const signature = await signAndSendTransaction(signer, transaction, {
+  sendTransaction: (tx) =>
+    sendAndConfirmTransaction(tx, { commitment: "confirmed" })
+});
 ```
 
 ### الاستخدام مع عميل Kit (إضافة keychainSigner)
@@ -119,13 +145,16 @@ const client = await createClient().use(
   })
 );
 
-client.payer; // SolanaSigner — also a Kit TransactionSigner
+client.payer; // SolanaTransactionSigner, also a Kit TransactionPartialSigner
 client.identity; // same signer instance
 ```
 
-تقبل الإضافة نفس الإعدادات المُعلَّمة بالخلفية كما هو الحال في
-`createKeychainSigner`، ولا يتم تضمين سوى الخلفية التي يُوجَّه إليها الطلب
-(تُحمَّل حزم الخلفية عبر `import()` الديناميكي).
+تقبل الإضافة نفس إعدادات الواجهة الخلفية الموسومة التي يقبلها `createKeychainSigner`،
+باستثناء Crossmint ووضع Fordefi الأصلي (مع تعيين `chain`). تعيد هذه الواجهات الخلفية كتابة
+المعاملة على جانب الخادم، لذا لا يمكنها العمل كـ `payer` أو
+`identity` للعميل؛ وترفضها الإضافة وقت التجميع ووقت التشغيل. لا تُضمَّن سوى
+الواجهة الخلفية التي يتم التوجيه إليها (تُحمَّل حزم الواجهات الخلفية عبر
+`import()` الديناميكي).
 
 استخدم `keychainPayer` أو `keychainIdentity` لتعيين دور واحد فقط، ومزج الخلفيات
 على عميل واحد:
@@ -138,18 +167,19 @@ const client = await createClient()
   .use(
     keychainPayer({
       backend: "memory",
-      privateKeyPath: "~/.config/solana/id.json"
+      privateKeyPath: `${process.env.HOME}/.config/solana/id.json`
     })
   )
   .use(keychainIdentity({ backend: "turnkey", ...turnkeyConfig }));
 ```
 
-هل لديك `SolanaSigner` بالفعل؟ كل موقّع سلسلة مفاتيح هو `TransactionSigner` صالح
-لـ Kit، لذا يمكنك تثبيت موقّع موجود باستخدام
+هل لديك بالفعل `SolanaTransactionSigner`؟ إنه `TransactionPartialSigner` صالح من Kit،
+لذا يمكنك تثبيته باستخدام
 [`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)
-عوضًا عن ذلك (`pnpm add @solana/kit-plugin-signer`):
+بدلًا من ذلك (`pnpm add @solana/kit-plugin-signer`):
 
 ```typescript
+import { createClient } from "@solana/kit";
 import { signer } from "@solana/kit-plugin-signer";
 import { createKeychainSigner } from "@solana/keychain";
 
@@ -160,7 +190,36 @@ const mySigner = await createKeychainSigner({
 const client = createClient().use(signer(mySigner));
 ```
 
+### الإلغاء وعمليات البث غير المؤكدة
+
+تقبل الدوال `signTransactions` و`modifyAndSignTransactions` و`signAndSendTransactions` و
+`signMessages` جميعها `{ abortSignal }` كوسيط ثانٍ. يؤدي الإلغاء إلى
+التوقف عن الانتظار، لكنه لا يتراجع عن عمل قبله المزوّد بالفعل.
+
+في وضع Crossmint ووضع Fordefi الأصلي التلقائي (native auto)، لا يعني الفشل أن شيئًا
+لم يصل إلى الشبكة. عندما يكون المزوّد قد قبل المعاملة، يكون رمز الخطأ
+`SignerErrorCode.BROADCAST_UNCONFIRMED` (`"SIGNER_BROADCAST_UNCONFIRMED"`).
+يتم تعيين `context.providerTransactionId` عند قبول عملية الإنشاء، ويحمل
+`context.idempotencyKey` المفتاح المشتق من الرسالة. إعادة إرسال
+المعاملة المطابقة بايتًا ببايت آمنة؛ أما المعاملة المُعاد بناؤها (على سبيل المثال بـ
+blockhash جديد) فهي تحويل جديد. تساعد `providerMayHaveAccepted(error)` و
+`providerStatus(error)` من `@solana/keychain-core` في تصنيف الخطأ.
+قم بالمطابقة مع المزوّد قبل إعادة المحاولة.
+
 ## إعداد الخلفية
+
+### الذاكرة
+
+قدّم واحدًا فقط من `keyPair` أو `privateKey` أو `privateKeyString` أو
+`privateKeyPath`:
+
+```typescript
+import { createMemorySigner } from "@solana/keychain-memory";
+
+const signer = await createMemorySigner({
+  privateKeyPath: "/path/to/id.json"
+});
+```
 
 ### HashiCorp Vault
 
@@ -184,6 +243,18 @@ const signer = createAwsKmsSigner({
   keyId: "alias/my-solana-key",
   publicKey: "base58_public_key",
   region: "us-east-1" // optional
+});
+```
+
+### GCP KMS
+
+```typescript
+import { createGcpKmsSigner } from "@solana/keychain-gcp-kms";
+
+const signer = createGcpKmsSigner({
+  keyName:
+    "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+  publicKey: "base58_public_key"
 });
 ```
 
@@ -232,10 +303,11 @@ const signer = await createFireblocksSigner({
 import { createCdpSigner } from "@solana/keychain-cdp";
 
 const signer = await createCdpSigner({
-  apiKeyId: "api_key_id",
-  apiKeySecret: "api_key_secret",
-  walletSecret: "wallet_secret",
-  address: "base58_address"
+  cdpApiKeyId: "api_key_id",
+  cdpApiKeySecret: "api_key_secret",
+  cdpWalletSecret: "wallet_secret",
+  address: "base58_address",
+  network: "solana" // or "solana-devnet"; required for address lookup tables
 });
 ```
 
@@ -250,6 +322,17 @@ const signer = await createCrossmintSigner({
 });
 ```
 
+Crossmint للإرسال فقط. تنفّذ واجهته البرمجية دائمًا المعاملة المعتمدة
+على جانب الخادم وتتحمل رسوم الغاز، لذا يوفّر المُوقِّع فقط
+`signAndSendTransactions()`: فليس لديه `signTransactions()` ولا `signMessages()`،
+ولا يمكن تثبيته باستخدام `@solana/keychain-kit-plugin`. يحدد التوقيع
+المُرجَع المعاملة التي أرسلتها Crossmint إلى الشبكة.
+
+```typescript
+const [signature] = await signer.signAndSendTransactions([transaction]);
+// or: await signAndSendTransactionMessageWithSigners(transactionMessage);
+```
+
 ### Dfns
 
 ```typescript
@@ -259,8 +342,19 @@ const signer = await createDfnsSigner({
   authToken: "auth_token",
   credId: "cred_id",
   privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\n...",
-  appId: "app_id",
   walletId: "wallet_id"
+});
+```
+
+### Openfort
+
+```typescript
+import { createOpenfortSigner } from "@solana/keychain-openfort";
+
+const signer = await createOpenfortSigner({
+  secretKey: "sk_...",
+  walletSecret: "wallet_secret",
+  accountId: "account_id"
 });
 ```
 
@@ -275,11 +369,45 @@ const signer = await createParaSigner({
 });
 ```
 
+### Utila
+
+يوقّع Utila المعاملات فقط؛ وليس لديه `signMessages()`.
+
+```typescript
+import { createUtilaSigner } from "@solana/keychain-utila";
+
+const signer = await createUtilaSigner({
+  serviceAccountEmail: "sa@example.com",
+  serviceAccountPrivateKeyPem: "-----BEGIN PRIVATE KEY-----\n...",
+  vaultId: "vault_id",
+  walletId: "wallet_id",
+  network: "networks/solana-devnet"
+});
+```
+
 ### Fordefi
 
-يمتلك Fordefi وضعَين للتوقيع، يُحدَّد أيهما باستخدام المعامل `chain` من عدمه. تتم مصادقة طلبات API بتوقيع طلب ECDSA P-256 — قدِّم مفتاح التوقيع عبر `privateKeyPem`، أو احتفظ به في KMS/HSM بتمرير `requestSigner`.
+لدى Fordefi ثلاثة أوضاع للتوقيع، تُحدَّد عند الإنشاء بواسطة `chain` و
+`pushMode`. يوفّر كل وضع طريقة معاملات واحدة بالضبط، وتوقّع الأوضاع الثلاثة جميعها
+الرسائل:
 
-**وضع سولانا الأصلي** (موصى به للاستخدام على السلسلة): عيِّن `chain`، وسيتولى Fordefi توقيع المعاملة وبثّها بنفسه. نظرًا لأن Fordefi قد يستبدل blockhash أو الرسوم قبل التوقيع، فإن الموقِّع هو `TransactionSendingSigner` من Kit — استخدمه مع `signAndSendTransactionMessageWithSigners`، لا مع تدفق الموقِّع الجزئي المبيَّن أعلاه.
+| الوضع          | الإعداد                                      | النوع                        | الطريقة                        |
+| ------------- | ------------------------------------------- | --------------------------- | ----------------------------- |
+| الصندوق الأسود (Black box)     | `chain` غير معيّن                               | `FordefiBlackBoxSigner`     | `signTransactions()`          |
+| الأصلي التلقائي (Native auto)   | `chain` معيّن، و`pushMode` محذوف أو `"auto"` | `FordefiNativeSigner`       | `signAndSendTransactions()`   |
+| الأصلي اليدوي (Native manual) | `chain` معيّن، و`pushMode: "manual"`           | `FordefiNativeManualSigner` | `modifyAndSignTransactions()` |
+
+تتم مصادقة طلبات API بتوقيع طلب ECDSA P-256: قدّم
+مفتاح التوقيع باسم `privateKeyPem`، أو احتفظ به في KMS/HSM عبر تمرير
+`requestSigner`.
+
+**الوضع الأصلي التلقائي (Native auto)** (موصى به للاستخدام على السلسلة): عيّن `chain`، وسيقوم Fordefi
+بتوقيع المعاملة وبثّها بنفسه. ولأن Fordefi قد يستبدل
+blockhash أو الرسوم قبل التوقيع، فإن المُوقِّع هو
+`TransactionSendingSigner` من Kit: استخدمه مع
+`signAndSendTransactionMessageWithSigners`، وليس مع مسار التوقيع الجزئي الموضح
+أعلاه. لا يقبل الوضع الأصلي التلقائي سوى معاملة غير موقّعة يكون الموقّع الوحيد المطلوب فيها
+هو المحفظة (vault)، ولا يمكن استخدامه مع `@solana/keychain-kit-plugin`.
 
 ```typescript
 import { createFordefiSigner } from "@solana/keychain-fordefi";
@@ -299,6 +427,32 @@ const signature =
   await signAndSendTransactionMessageWithSigners(transactionMessage);
 ```
 
+**الوضع الأصلي اليدوي (Native manual)**: عيّن `chain` و`pushMode: "manual"`. يعيد Fordefi كتابة
+الرسالة (blockhash حديث، وتعليمات رسوم Compute Budget) ويوقّعها،
+لكنه لا يبثّها. تُرجع `modifyAndSignTransactions()` المعاملة التي
+وقّعها Fordefi، والتي تحل محل المعاملة التي أرسلتها: تابع دائمًا من
+المعاملة المُرجَعة. يجب أن يكون Fordefi هو دافع الرسوم (fee payer) ويجب أن يوقّع قبل أي
+موقّع مطلوب آخر. لا تُعرض الفروقات في إعادة الكتابة، لذا افحص النتيجة قبل
+البث.
+
+```typescript
+import { createFordefiSigner } from "@solana/keychain-fordefi";
+import { readFileSync } from "node:fs";
+
+const signer = await createFordefiSigner({
+  accessToken: process.env.FORDEFI_ACCESS_TOKEN!,
+  vaultId: process.env.FORDEFI_VAULT_ID!,
+  publicKey: process.env.FORDEFI_PUBLIC_KEY!,
+  privateKeyPem: readFileSync("./secret/private.pem", "utf8"),
+  chain: "solana_devnet",
+  pushMode: "manual"
+});
+
+const [signedTransaction] = await signer.modifyAndSignTransactions([
+  transaction
+]);
+```
+
 **وضع الصندوق الأسود**: أغفِل `chain`. يوقِّع Fordefi البايتات الخام دون بثّها؛ وعليك أنت تجميع المعاملة وإرسالها. استخدم هذا الوضع مع خزنة الصندوق الأسود في Fordefi.
 
 ```typescript
@@ -313,59 +467,89 @@ const signer = await createFordefiSigner({
 });
 ```
 
-## واجهة SolanaSigner
+## إمكانيات المُوقِّع
 
-تمتد واجهة `SolanaSigner` لتشمل أنواع `@solana/signers` لضمان التوافق الكامل:
+تعرّف `@solana/keychain-core` واجهة واحدة لكل شكل من أشكال مُوقِّع Kit. تضيف كل واحدة
+الدالة `isAvailable(): Promise<boolean>` إلى واجهة `@solana/signers` المقابلة:
+
+- `SolanaTransactionSigner` (‏`TransactionPartialSigner` من Kit): تُرجع التوقيعات
+  لمعاملة تملكها.
+- `SolanaModifyingSigner` (‏`TransactionModifyingSigner` من Kit): تعيد كتابة
+  المعاملة، وتوقّعها، وتُرجع المعاملة الجديدة دون بثّها.
+- `SolanaSendingSigner` (‏`TransactionSendingSigner` من Kit): توقّع وتبثّ
+  عبر مزوّدها.
+- `SolanaMessageSigner` (‏`MessagePartialSigner` من Kit): توقّع الرسائل خارج السلسلة.
+  وهي منفصلة عن أشكال المعاملات.
+
+`SolanaSigner` هو اتحاد (union) أشكال المعاملات الثلاثة. يحدد نوع الإرجاع لكل مصنع (factory)
+الشكل الدقيق لواجهته الخلفية. عندما لا يكون الإعداد معروفًا إلا
+وقت التشغيل، استخدم التضييق عبر `isSolanaTransactionSigner` أو `isSolanaModifyingSigner` أو
+`isSolanaSendingSigner` أو `isSolanaMessageSigner`. تُبلغ `signerCapabilities(signer)`
+عن الأربعة جميعها دفعة واحدة.
+
+| الواجهة الخلفية                                                                                                     | الشكل                                           |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| memory, vault, aws-kms, gcp-kms, privy, turnkey, fireblocks, cdp, dfns, para, openfort, fordefi (الصندوق الأسود) | `SolanaTransactionSigner & SolanaMessageSigner` |
+| utila                                                                                                       | `SolanaTransactionSigner` (دون توقيع الرسائل)  |
+| fordefi (الأصلي اليدوي)                                                                                     | `SolanaModifyingSigner & SolanaMessageSigner`   |
+| fordefi (الأصلي التلقائي)                                                                                       | `SolanaSendingSigner & SolanaMessageSigner`     |
+| crossmint                                                                                                   | `SolanaSendingSigner` (دون توقيع الرسائل)      |
 
 ```typescript
-interface SolanaSigner<TAddress extends string = string>
-  extends TransactionPartialSigner<TAddress>, MessagePartialSigner<TAddress> {
-  // Public key address
-  readonly address: Address<TAddress>;
+import {
+  isSolanaSendingSigner,
+  isSolanaTransactionSigner
+} from "@solana/keychain-core";
 
-  // Health check for remote signers
-  isAvailable(): Promise<boolean>;
-
-  // Sign messages (@solana/kit compatible)
-  signMessages(
-    messages: readonly SignableMessage[]
-  ): Promise<readonly SignatureDictionary[]>;
-
-  // Sign transactions (@solana/kit compatible)
-  signTransactions(
-    transactions: readonly Transaction[]
-  ): Promise<readonly SignatureDictionary[]>;
+if (isSolanaSendingSigner(signer)) {
+  await signer.signAndSendTransactions([transaction]);
+} else if (isSolanaTransactionSigner(signer)) {
+  await signer.signTransactions([transaction]);
 }
 ```
 
 ## بناء موقّعين مخصصين
 
-نفّذ واجهة `SolanaSigner` لإنشاء موقّعين مخصصين:
+نفّذ واجهات الإمكانيات التي تدعمها واجهتك الخلفية:
 
 ```typescript
-import { SolanaSigner } from "@solana/keychain-core";
+import type {
+  SolanaMessageSigner,
+  SolanaTransactionSigner
+} from "@solana/keychain-core";
 import type { Address } from "@solana/addresses";
+import type {
+  MessagePartialSignerConfig,
+  SignableMessage,
+  TransactionPartialSignerConfig
+} from "@solana/signers";
+import type { Transaction } from "@solana/transactions";
 
-class MyCustomSigner implements SolanaSigner {
-  readonly address: Address;
-
-  constructor(address: Address) {
-    this.address = address;
-  }
+class MyCustomSigner implements SolanaTransactionSigner, SolanaMessageSigner {
+  constructor(readonly address: Address) {}
 
   async isAvailable(): Promise<boolean> {
     return await myBackend.healthCheck();
   }
 
-  async signMessages(messages) {
-    return await myBackend.signMessages(messages);
+  async signMessages(
+    messages: readonly SignableMessage[],
+    config?: MessagePartialSignerConfig
+  ) {
+    return await myBackend.signMessages(messages, config?.abortSignal);
   }
 
-  async signTransactions(transactions) {
-    return await myBackend.signTransactions(transactions);
+  async signTransactions(
+    transactions: readonly Transaction[],
+    config?: TransactionPartialSignerConfig
+  ) {
+    return await myBackend.signTransactions(transactions, config?.abortSignal);
   }
 }
 ```
+
+نفّذ فقط ما تدعمه واجهتك الخلفية. يصنّف Kit المُوقِّعين بحسب الطرق
+الموجودة، لذا لا تضف أبدًا طريقة تكتفي برمي خطأ.
 
 راجع [دليل إضافة الموقّعين](/docs/tools/keychain/adding-signers) لدمج خدمات
 إدارة المفاتيح الإضافية.

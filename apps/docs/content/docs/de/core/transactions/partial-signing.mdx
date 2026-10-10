@@ -1,0 +1,109 @@
+---
+title: Partial Signing
+description:
+  Erstelle eine unveränderliche Solana-Transaktionsnachricht, sammle deren Signaturen von unabhängigen Signern, verifiziere und führe sie zusammen und sende dann die Transaktion ab.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+Mit Partial Signing können mehrere Parteien dieselbe Transaktion zu unterschiedlichen
+Zeiten oder auf verschiedenen Geräten signieren. Ein Coordinator erstellt die Nachricht, jeder erforderliche
+Signer signiert exakt die serialisierten Nachrichtenbytes, und der Coordinator verifiziert
+und führt die Signaturen vor dem Absenden zusammen.
+
+<Callout type="warn" title="Signaturen autorisieren Bytes, keine Absichten">
+  Wenn du den Fee Payer, den Blockhash, die Reihenfolge der Anweisungen, die Liste der Konten oder
+  instruction data änderst, entsteht eine andere Nachricht, und alle bereits
+  gesammelten Signaturen werden ungültig.
+</Callout>
+
+## Ablauf des Partial Signing
+
+1. Einigt euch auf die Anweisungen der Transaktion und darauf, wer die Fee zahlt.
+2. Lege die Gültigkeitsdauer der Transaktion und den Fee Payer fest.
+3. Serialisiere die Nachricht einmal. Behandle diese Bytes als unveränderlich.
+4. Verteile die Nachrichtenbytes und eine für Menschen lesbare Zusammenfassung an jeden Signer.
+5. Sammle jede Ed25519-Signatur und verifiziere sie anhand derselben Nachrichtenbytes.
+6. Ordne die Signaturen den Adressen der jeweils erforderlichen Signer zu.
+7. Bestätige, dass jede erforderliche Signatur vorhanden und gültig ist, und sende die Transaktion dann ab.
+
+## Vollständiges Beispiel
+
+Der Fee Payer und der SOL-Sender unten signieren unabhängig voneinander. Der Coordinator verifiziert
+beide Signaturen, führt sie zusammen und sendet die fertige Transaktion ab.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+Das Beispiel verwendet rohes Ed25519-Signieren, um die Grenze zwischen
+Coordinator und jedem Signer deutlich zu machen. Ein Wallet, ein Hardwaregerät, ein Custody-Dienst
+oder ein Offline-Signer kann jedes lokale keypair ersetzen, sofern er exakt
+dieselben Nachrichtenbytes signiert.
+
+## Die Nachricht vor dem Signieren einfrieren
+
+Jede Signatur deckt die serialisierte Transaktionsnachricht ab. Die Nachricht enthält
+Folgendes:
+
+- den Fee Payer
+- den aktuellen Blockhash oder die Durable Nonce
+- die Adressen aller Programme und Konten
+- die Signer- und Schreibberechtigungen der Konten
+- die Reihenfolge der Anweisungen und die instruction data
+
+Erstelle zuerst diese Felder, serialisiere die Nachricht einmal und verteile dieses Byte-Array
+an jeden Signer. Es ist sinnvoll, zu jeder Signieranfrage einen Digest der Nachricht
+zu speichern, damit der Coordinator eine Signatur ablehnen kann, die für eine
+andere Nachricht zurückgegeben wurde.
+
+Deserialisiere eine Nachricht nicht, um sie zu ändern, und erwarte dann nicht, dass zuvor gesammelte
+Signaturen gültig bleiben. Selbst eine scheinbar operative Änderung, etwa das
+Ersetzen eines abgelaufenen Blockhashs oder das Ändern des Fee Payers, erfordert, dass jeder Signer
+erneut signiert.
+
+## Den Fee Payer koordinieren
+
+Der Fee Payer ist immer ein erforderlicher Signer und muss festgelegt werden, bevor die Nachricht
+eingefroren wird. Stelle sicher, dass der Fee Payer über genügend SOL für die Basis-Fee und jede
+priority fee verfügt. Wenn ein Sponsor oder ein Backend die Fee zahlt, trage diese Adresse in die
+Nachricht ein, bevor du die Signatur des Nutzers einholst; wird der Sponsor später hinzugefügt, ändern sich
+die signierten Bytes.
+
+Der Coordinator sollte prüfen, ob eine eingehende Signatur zu einer Adresse gehört,
+die als erforderlicher Signer aufgeführt ist. Akzeptiere niemals einen beliebigen öffentlichen Schlüssel und hänge ihn
+an die Transaktion an.
+
+## Gültigkeitsdauer der Transaktion verwalten
+
+Eine Transaktion mit recent blockhash ist nur gültig, solange ihr Blockhash in der
+Queue der letzten Blockhashes der Validatoren verbleibt. Schätze vor dem Start eines Signierablaufs mit mehreren Parteien
+ab, ob alle Signer vor `lastValidBlockHeight` antworten können.
+
+Läuft der Blockhash ab, erstelle eine neue Nachricht mit einem frischen Blockhash und sammle
+alle Signaturen erneut. Für Workflows, die länger dauern oder Offline-Signer enthalten könnten,
+verwende eine [Durable Nonce](/docs/core/transactions/durable-nonces). Eine
+Durable Nonce umgeht das Zeitfenster des recent blockhash, aber das Vorrücken oder anderweitige
+Verbrauchen dieser Nonce macht die ausstehende Transaktion trotzdem ungültig.
+
+## Vor dem Absenden verifizieren
+
+Für jede zurückgegebene Signatur:
+
+1. Verifiziere die Signatur anhand der eingefrorenen Nachrichtenbytes und des öffentlichen Schlüssels
+   des erwarteten Signers.
+2. Füge sie in den slot dieses Signers im Signatur-Array der Transaktion ein.
+3. Prüfe, dass die zusammengesetzte Transaktion gültige Signaturen für jeden erforderlichen
+   Signer enthält.
+4. Sende die serialisierte Transaktion ab, ohne ihre Nachricht neu zu erstellen.
+
+Bestätige nach dem Absenden mit denselben Informationen zur Gültigkeitsdauer, die in der
+signierten Nachricht enthalten waren. Meldet die Bestätigung einen abgelaufenen Blockhash oder eine verbrauchte
+Nonce, versuche es nicht erneut mit einer geänderten Transaktion; starte den Signierablauf neu.

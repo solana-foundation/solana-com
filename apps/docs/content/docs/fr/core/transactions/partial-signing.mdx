@@ -1,0 +1,109 @@
+---
+title: Signature partielle
+description:
+  Construisez un message de transaction Solana immuable, collectez ses signatures auprès de signataires indépendants, vérifiez-les et fusionnez-les, puis soumettez la transaction.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+La signature partielle permet à plusieurs parties de signer la même transaction à des moments différents
+ou sur des appareils différents. Un coordinateur construit le message, chaque signataire
+requis signe les octets exacts du message sérialisé, et le coordinateur vérifie
+et fusionne les signatures avant la soumission.
+
+<Callout type="warn" title="Les signatures autorisent des octets, pas une intention">
+  Modifier le payeur des frais, le blockhash, l'ordre des instructions, la liste des comptes ou toute
+  instruction data produit un message différent et invalide toutes les signatures
+  déjà collectées.
+</Callout>
+
+## Flux de signature partielle
+
+1. Convenez des instructions de la transaction et de la personne qui paiera les frais.
+2. Définissez la durée de vie de la transaction et le payeur des frais.
+3. Sérialisez le message une seule fois. Considérez ces octets comme immuables.
+4. Distribuez les octets du message et un résumé lisible par un humain à chaque signataire.
+5. Collectez et vérifiez chaque signature Ed25519 par rapport aux mêmes octets du message.
+6. Associez les signatures aux adresses des signataires requis correspondants.
+7. Vérifiez que chaque signature requise est présente et valide, puis soumettez la transaction.
+
+## Exemple complet
+
+Le payeur des frais et l'expéditeur de SOL ci-dessous signent indépendamment. Le coordinateur vérifie
+les deux signatures, les fusionne, puis soumet la transaction complétée.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+L'exemple utilise une signature Ed25519 brute afin de rendre explicite la frontière entre le
+coordinateur et chaque signataire. Un portefeuille, un appareil matériel, un service de
+garde ou un signataire hors ligne peut remplacer n'importe quel keypair local, à condition qu'il signe
+exactement les mêmes octets du message.
+
+## Figer le message avant la signature
+
+Chaque signature couvre le message de transaction sérialisé. Le message comprend
+tous les éléments suivants :
+
+- le payeur des frais
+- le blockhash récent ou le nonce durable
+- chaque adresse de programme et de compte
+- les permissions de signataire et d'écriture des comptes
+- l'ordre des instructions et l'instruction data
+
+Construisez d'abord ces champs, sérialisez le message une seule fois, puis distribuez ce tableau
+d'octets à chaque signataire. Il est utile de conserver un condensat (digest) du message avec
+chaque demande de signature afin que le coordinateur puisse rejeter une signature renvoyée pour un
+message différent.
+
+Ne désérialisez pas un message pour le modifier en espérant que les signatures
+déjà collectées restent valides. Même une modification qui semble opérationnelle, comme
+le remplacement d'un blockhash expiré ou le changement du payeur des frais, exige que chaque signataire
+signe à nouveau.
+
+## Coordonner le payeur des frais
+
+Le payeur des frais est toujours un signataire requis et doit être choisi avant que le message
+ne soit figé. Vérifiez que le compte dispose de suffisamment de SOL pour couvrir les frais de base et les éventuels
+frais de priorité. Si un sponsor ou un backend paiera les frais, placez cette adresse dans le
+message avant de collecter la signature de l'utilisateur ; ajouter le sponsor plus tard modifie
+les octets signés.
+
+Le coordinateur doit vérifier qu'une signature entrante appartient à une adresse
+figurant parmi les signataires requis. N'acceptez jamais une clé publique arbitraire pour l'ajouter
+à la transaction.
+
+## Gérer la durée de vie de la transaction
+
+Une transaction à blockhash récent n'est valide que tant que son blockhash reste dans la file des blockhashs récents
+du validator. Avant de lancer un flux de signature multipartite,
+estimez si tous les signataires peuvent répondre avant `lastValidBlockHeight`.
+
+Si le blockhash expire, construisez un nouveau message avec un blockhash récent et collectez
+à nouveau toutes les signatures. Pour les flux de travail qui peuvent durer plus longtemps ou inclure des
+signataires hors ligne, utilisez un [nonce durable](/docs/core/transactions/durable-nonces). Un
+nonce durable évite la fenêtre du blockhash récent, mais le faire avancer ou le consommer d'une autre manière
+invalide tout de même la transaction en attente.
+
+## Vérifier avant la soumission
+
+Pour chaque signature renvoyée :
+
+1. Vérifiez la signature par rapport aux octets du message figé et à la clé publique du
+   signataire attendu.
+2. Associez-la à l'emplacement de ce signataire dans le tableau de signatures de la transaction.
+3. Vérifiez que la transaction assemblée contient des signatures valides pour chaque
+   signataire requis.
+4. Soumettez la transaction sérialisée sans reconstruire son message.
+
+Après la soumission, confirmez en utilisant les mêmes informations de durée de vie que celles incluses
+dans le message signé. Si la confirmation signale un blockhash expiré ou un nonce
+consommé, ne réessayez pas avec une transaction modifiée ; relancez le flux de signature.

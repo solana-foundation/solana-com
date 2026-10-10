@@ -34,15 +34,13 @@ description:
 - 若要**显示**机密余额，您需要所有者的密钥。推荐的方式是从所有者的钱包派生密钥，使用 AES 密钥快速解密可用余额，并在需要时使用 ElGamal 密钥解密待处理金额。
 - 若要**机密发送**，您需要在客户端生成零知识证明（等式证明、密文有效性证明、范围证明），通常将其存放在临时**证明上下文状态账户**中，然后提交转账。`@solana-program/token-2022`（JS）和
   `spl-token-client`（Rust）均提供高层级辅助工具，可自动构建证明并按顺序执行交易。
-- 机密转账目前需要跨越多笔相互依赖的交易，因为证明超出了当前的交易大小限制。即将推出的更新（交易格式 v1，随 Agave
-  v4.2 发布）将提高该限制，预计可让机密转账在单笔链上交易中完成。
+- 机密转账过去往往需要跨越多笔相互依赖的交易，因为证明的大小超过了交易大小限制。交易 v1 格式提高了该限制，使机密转账可以在单笔链上交易中完成。
 - 未添加任何支持的钱包仍可正常运行：它将显示公开余额，标准转账也可继续使用。只要拥有所有者密钥，任何支持机密功能的客户端均可访问机密资金。
 
 ## 术语
 
-- **ElGamal
-  keypair**：每个账户的公钥 keypair，用于加密余额并构建零知识证明。公钥存储在账户上。
-- **AES 密钥**：每个账户的对称密钥，用于加密"可解密的可用余额"，使所有者能够在常数时间内读取其可用余额，而无需求解离散对数。
+- **ElGamal keypair**：所有者的公钥密码学 keypair，用于加密余额并构建零知识（ZK）证明。公钥存储在每个已配置的账户上。
+- **AES 密钥**：所有者的对称密钥，用于加密“可解密可用余额”，使所有者无需求解离散对数，即可在常数时间内读取自己的可用余额。
 - **待处理余额**：通过存款或转入但尚未应用的资金的加密余额。不能直接用于支出。
 - **可用余额**：可用于转账或提现的加密余额。
 - **应用**：将待处理余额转移至可用余额的步骤。
@@ -72,11 +70,7 @@ description:
 keypair**，以及用于快速余额解密的
 **AES 密钥**。如何生成和存储这些密钥是集成时的选择。以下是几种常见方案：
 
-- **从钱包签名派生（推荐默认方式）。**
-  所有者对一条规范的、域分隔的消息进行签名，密钥从该签名派生，因此仅凭钱包即可重现，无需单独存储。seed 按账户确定性生成：下方的 JS 辅助工具将其绑定到
-  `(owner, mint)` 对，而 Rust 示例则从 token
-  account 地址作为 seed（对于 associated token
-  account，两者等价，因为该地址本身由所有者和铸币地址派生）。
+- **通过钱包签名派生（推荐的默认方式）。** 所有者对一条规范的、带域隔离的消息进行签名，密钥由该签名派生，因此仅凭钱包即可重现，无需另行存储。标准派生方式只将密钥绑定到主钱包，完全不使用种子，因此客户端不会意外派生出不同的密钥：在所有 mint 和 token account 中，一个钱包只对应一个 ElGamal keypair 和一个 AES 密钥。
 - **从独立密钥材料派生。** 对于 passkeys、安全飞地或 MPC 方案，可从 WebAuthn
   PRF 输出或其他输入密钥材料派生密钥，使机密密钥不与账户的签名密钥绑定。`@solana/zk-sdk`
   为此提供了 `ConfidentialKeys.fromIkm` 和 `ConfidentialKeys.fromPrf`。
@@ -88,39 +82,29 @@ keypair**，以及用于快速余额解密的
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  机密密钥是解密密钥。请将签署派生消息的请求视同解锁用户余额的私密视图。建议按需派生而非持久存储；如确需存储（例如在托管服务中），请以与签名密钥同等级别的严格措施加以保护。
+  机密密钥就是解密密钥。请将签署派生消息的请求视为解锁用户余额的私密视图。优先按需派生，而不是存储；如果确实需要存储（例如在托管服务中），请以与签名密钥同等严格的标准加以保护。钱包应通过专门的派生流程提供此签名，并拒绝对以 `solana-conf-bal/v1` 开头的消息执行通用的 signMessage 请求，因为该签名是用户解密密钥的输入密钥材料。
 </Callout>
 
 派生辅助函数返回序列化的密钥材料。高级操作辅助函数（稍后展示）接受 WASM
@@ -133,10 +117,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## 创建和配置账户
@@ -264,8 +248,7 @@ token
 - **密文有效性证明**：证明转账金额密文在源密钥、目标密钥及（如已设置）审计员密钥下格式正确。
 - **范围证明**：证明转账金额及发送方剩余余额为有效的非负整数，从而防止凭空增发价值。
 
-这些证明比当前交易大小限制所允许的内联大小更大，因此通常的做法是创建**证明上下文状态账户**，将每个证明验证到其中，从转账指令中引用它们，然后关闭这些账户以回收 rent。这需要跨越几笔相互依赖的交易。交易格式 v1（随 Agave
-v4.2 一同发布）提高了大小限制，预计可让机密转账在单笔链上交易中完成，从而简化此流程。
+这些证明的体积超出了 legacy 和 v0 交易大小限制所允许的内联范围，因此通常的做法是创建**证明上下文状态账户**，将每个证明验证到这些账户中，在转账指令中引用它们，然后关闭这些账户以回收 rent。这需要跨越多笔相互依赖的交易。交易 v1 格式提高了该限制，使机密转账可以在单笔链上交易中完成，并简化了这一流程。
 
 您无需手动组装证明。两个客户端都提供了高级辅助工具，可自动构建证明并生成待提交的指令：
 
@@ -408,7 +391,7 @@ for (const ix of instructions) {
 铸币账户可配置一个**全局审计员** ElGamal
 pubkey。设置后，每笔机密转账必须包含以审计员密钥加密的金额，以便持有审计员私钥的一方能够解密该铸币账户下所有转账金额。有效性证明涵盖审计员密文，因此作为集成方，您在发送路径上无需做任何特殊处理，只需从铸币账户配置中传入审计员密钥即可（高级封装函数会自动读取）。
 
-如果您的产品充当审计员角色（例如受监管的发行方或合规服务提供商），您可以使用审计员私钥解密转账金额，方式与账户所有者解密自身余额相同。账户所有者也可以选择性地将各自的账户密钥分享给特定方，而无需公开披露。
+如果您的产品本身就是审计方（例如受监管的发行方或合规服务提供商），您可以使用审计方私钥解密转账金额，方式与所有者解密自己的余额相同。所有者也可以有选择地与特定方共享其密钥，而无需公开——不过在标准的钱包绑定派生方式下，同一组密钥涵盖该所有者的全部机密余额，因此共享密钥会披露所有机密账户，而不仅仅是其中一个。
 
 ### 交易监控（KYT）
 
@@ -490,4 +473,4 @@ pubkey。设置后，每笔机密转账必须包含以审计员密钥加密的�
 | 地址与图谱筛查   | 筛查发送方、接收方、铸造方和所有者，并进行交易对手图谱分析；这些信息保持公开。            | **P0**   |
 | 追踪公开存取款 | 监控明文存款和取款金额，作为机密池可观察的资金进出节点。 | **P0**   |
 | 审计密钥金额可见性 | 对于启用审计方的铸造操作，使用审计密钥解密转账金额，以支持基于金额的检测。     | **P1**   |
-| 选择性披露接入   | 支持用户或发行方通过每账户密钥共享的金额披露信息。                                      | **P2**   |
+| 选择性披露接入   | 支持处理用户或发行方通过所有者密钥共享的金额披露。                                      | **P2**   |

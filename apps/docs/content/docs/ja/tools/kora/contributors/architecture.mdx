@@ -1,0 +1,91 @@
+---
+title: アーキテクチャ
+description:
+  リクエストがKoraノードをどのように通過するか、そして各ステージがcrate内のどこにあるかを解説します。最初の変更を加える前に、まずここから始めてください。
+---
+
+Koraは3つのcrateで構成されたRustワークスペースです。
+
+- `kora-lib` はコアロジックとRPCサーバーを保持し、
+- `kora-cli` はオペレーターが実行する `kora` バイナリをビルドし、
+- `kora-deploy` は専用のプログラムデプロイツールで、個別にバージョン管理されています。
+特に記載がない限り、以下はすべて `crates/lib/src` 内にあります。
+
+## リクエストのライフサイクル
+
+以下の図は、Koraを通過するトランザクションの全体的なフローを示しています。
+コールパスを理解することは、Koraノードの設定や
+新機能の追加において重要です。
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## 各ステージの所在
+
+| 図中のステージ | ソース                               | エントリーポイント                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| ゲートウェイ              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| ディスパッチ             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| メソッドごとのロジック     | `rpc_server/method/`                 | JSON-RPCメソッドごとに1ファイル          |
+| 検証           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| プラグイン              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| 署名              | `signer/`                            | `solana-keychain` crateがバックエンドを担当 |
+
+このほかに知っておくべきファイルが2つあります。`config.rs` は `kora.toml` のスキーマ全体を定義し、
+`state.rs` はデシリアライズされた設定をプロセスグローバルな状態として保持します。
+
+### RPCサーバーを読む
+
+`rpc.rs` は薄いディスパッチ層で、JSON-RPCエンドポイントごとに1メソッドが対応しており、
+API全体を把握する最も手早い方法です。各メソッドのロジックは
+`rpc_server/method/` 配下の個別ファイルにあります。`sign_transaction.rs` を最初から最後まで読んでください。
+他の署名メソッドはそのバリエーションです。
+
+### バリデーターを読む
+
+`transaction_validator.rs` と `transaction/instruction_util.rs` には、
+トランザクションとinstructionsを検証するロジックがあります。加えて、fee-payer-policyの
+安全性プロパティテストは、ゲート対象のプログラムごとに1ファイルずつ
+`validator/transaction_validator/fee_payer_policy_props/` 配下にあります。
+
+## 知っておくべき規約
+
+**デフォルトの検証。** `[validation.fee_payer_policy]` 配下のすべてのフラグは
+デフォルトで `false` であり、ポリシー構造体には `#[serde(default)]` が付与されています。
+この組み合わせは意図的なものです。新たにゲート対象となるinstructionを追加しても
+既存オペレーターの設定が壊れてはならず、また誤って許可されるのではなく
+拒否として扱われなければなりません。フラグを追加する際は、この両方を維持してください。
+
+**検証するのは解決済みトランザクションであり、生のトランザクションではありません。** 生の
+`VersionedTransaction` は静的なアカウントキーしか公開しないため、そこからV0トランザクションを
+検証または料金計算すると、ルックアップテーブルのアカウントが黙ってスキップされ、
+過少請求になります。`VersionedTransactionResolved::from_transaction` はそれらの
+アドレスを事前に解決するため、下流のすべてのステージは解決済みの型を受け取ります。
+
+## トランザクションプラグインの追加
+
+プラグインは `plugin/mod.rs` の `TransactionPlugin` トレイトを実装します。このトレイトには2つの
+メソッドがあります。`validate` は署名フロー中にトランザクションごとに実行され、
+`validate_config` は起動時に1回だけ実行されて、オペレーター向けのエラーと警告を返します。
+`PluginExecutionContext` は、4つの署名メソッドのうちどれがそのプラグインを呼び出したかを伝えます。
+
+`TransactionPluginRunner::from_config` は、`config.rs` で定義された `TransactionPluginType` に対して
+マッチを行います。新しい組み込みプラグインを追加するには、そこに新しいバリアントを加え、
+ランナーに新しいmatchアームを追加します。現在同梱されているプラグインは `gas_swap` と
+`deploy_authority` の2つです。
+
+## テスト
+
+Koraは設定をプロセスグローバルな状態で保持するため、`tests/` ではフェーズごとに1つの
+`[[test]]` ターゲットを宣言しており、各ターゲットは専用の組み込みsurfnetとKoraノードを
+ゼロから起動してシードします。バイナリごとに設定は1つです。新しいフェーズには、既存のモジュール内に
+モジュールを追加するのではなく、新しいターゲットが必要です。
+
+```bash
+cargo test -p tests --test <target>
+```
+
+それ以外はすべて `justfile` 経由で構成されています。コマンドを手作業で
+組み立て直すのではなく、そちらを読んでください。

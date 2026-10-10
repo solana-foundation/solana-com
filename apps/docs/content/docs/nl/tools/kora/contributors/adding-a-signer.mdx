@@ -275,14 +275,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Integratietests
 
-Kora gebruikt een uniforme testrunner (`tests/src/bin/test_runner.rs`) die alle
-integratietestfases beheert, inclusief TypeScript-tests. Om tests toe te voegen
-voor je nieuwe signer:
+Elke integratiefase is een eigen `[[test]]`-target in `tests/Cargo.toml`. Elk
+target start via `harness_context` een ingebedde surfnet plus een Kora-node op, volledig
+vanaf nul opgezet. Kora bewaart de configuratie in een procesbrede globale status, dus een nieuwe
+signer vereist een nieuw target in plaats van een nieuwe module in een bestaand target.
 
-#### 1. Testconfiguratie Toevoegen
+#### 1. Een signer-fixture toevoegen
 
-Maak een nieuw signerconfiguratibestand aan in `tests/src/common/fixtures/` voor
-je service:
+Maak een signer-configuratie aan in `tests/src/common/fixtures/`:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -297,47 +297,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Testfase Toevoegen aan Test Runner
+#### 2. Een testtarget toevoegen
 
-Werk `tests/src/test_runner/test_cases.toml` bij om een testfase voor je signer
-op te nemen:
+Registreer de fase in `tests/Cargo.toml`:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Maak vervolgens `tests/your_service/main.rs` aan. Dit bestand laat de harness naar jouw fixture
+verwijzen en moet minstens één `#[tokio::test]` bevatten die de signer test:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+Voeg ook een `signTransaction`-test toe, zodat het ondertekeningspad van de signer wordt uitgevoerd en niet alleen
+de sleutelopzoeking. `tests/multi_signer/` is een volledig voorbeeld om te kopiëren.
 
 #### 3. Tests Uitvoeren
 
-Zorg ervoor dat je omgeving is ingesteld:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Voer tests uit met de uniforme testrunner:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Documentatievereisten
@@ -401,7 +420,7 @@ Voeg je service toe aan de validator-lijst in de hoofd-README.
 - [ ] Configuratiestruct geëxporteerd in `mod.rs`
 - [ ] (Optioneel) Testmock-bouwmethode toegevoegd in `config_mock.rs`
 - [ ] Code compileert zonder waarschuwingen
-- [ ] Alle tests slagen (`make test` en `make test-integration`)
+- [ ] Alle tests slagen (`just test`)
 - [ ] Documentatie toegevoegd conform
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] Voorbeeldconfiguratiebestanden aangemaakt (`.toml` en `.env.example`)

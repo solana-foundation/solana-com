@@ -56,11 +56,10 @@ Anonymität.
   Transfer. Sowohl `@solana-program/token-2022` (JS) als auch `spl-token-client`
   (Rust) bieten übergeordnete Helfer, die die Beweise erstellen und die
   Transaktionen für Sie sequenzieren.
-- Vertrauliche Transfers umfassen derzeit einige abhängige Transaktionen, da die
-  Beweise das aktuelle Transaktionsgrößenlimit überschreiten. Eine bevorstehende
-  Änderung (Transaktionsformat v1, eingeführt mit Agave v4.2) erhöht dieses
-  Limit und soll es ermöglichen, einen vertraulichen Transfer in einer einzigen
-  Onchain-Transaktion auszuführen.
+- Vertrauliche Transfers erstreckten sich bisher über mehrere voneinander abhängige Transaktionen,
+  weil die Proofs das Transaktionsgrößenlimit überschritten. Das Transaktionsformat v1
+  hebt dieses Limit an, sodass ein vertraulicher Transfer in einer
+  einzigen Onchain-Transaktion ausgeführt werden kann.
 - Eine Wallet, die keine Unterstützung hinzufügt, funktioniert weiterhin: Sie
   zeigt das öffentliche Guthaben an und Standard-Transfers bleiben
   funktionsfähig. Vertrauliche Mittel bleiben jedem vertraulichkeitsfähigen
@@ -68,13 +67,11 @@ Anonymität.
 
 ## Begriffe
 
-- **ElGamal keypair**: ein pro-Konten keypair mit öffentlichem Schlüssel zur
-  Verschlüsselung von Guthaben und zur Erstellung von ZK-Beweisen. Der
-  öffentliche Schlüssel wird im Konten gespeichert.
-- **AES-Schlüssel**: ein symmetrischer Schlüssel pro Konten zur Verschlüsselung
-  des "entschlüsselbaren verfügbaren Guthabens", damit der Inhaber sein
-  verfügbares Guthaben in konstanter Zeit lesen kann, ohne einen diskreten
-  Logarithmus zu lösen.
+- **ElGamal keypair**: das Public-Key-keypair des Eigentümers, das zum Verschlüsseln von Guthaben
+  und zum Erstellen von ZK-Proofs verwendet wird. Der Public Key wird in jedem konfigurierten Konto gespeichert.
+- **AES-Schlüssel**: der symmetrische Schlüssel des Eigentümers, mit dem das „decryptable
+  available balance“ verschlüsselt wird, damit der Eigentümer sein verfügbares Guthaben in konstanter
+  Zeit lesen kann, ohne einen diskreten Logarithmus lösen zu müssen.
 - **Ausstehendes Guthaben**: verschlüsseltes Guthaben aus Einzahlungen oder
   eingehenden Überweisungen, das noch nicht angewendet wurde. Kann nicht direkt
   ausgegeben werden.
@@ -119,14 +116,13 @@ Verschlüsselung und Beweise sowie einen **AES-Schlüssel** für die schnelle
 Entschlüsselung des Guthabens. Wie Sie diese Schlüssel erzeugen und speichern,
 ist eine Integrationsentscheidung. Einige gängige Optionen:
 
-- **Aus einer Wallet-Signatur ableiten (empfohlene Standardmethode).** Der
-  Inhaber signiert eine kanonische, domain-separierte Nachricht, und die
-  Schlüssel werden aus dieser Signatur abgeleitet, sodass sie allein aus der
-  Wallet reproduzierbar sind und nicht gespeichert werden müssen. Der seed ist
-  deterministisch pro Konten: Die JS-Hilfsfunktionen unten binden ihn an das
-  `(owner, mint)`-Paar, während das Rust-Beispiel aus der token account-Adresse
-  seeded wird (bei einem associated token account sind diese äquivalent, da
-  diese Adresse selbst aus dem Inhaber und dem Mint abgeleitet wird).
+- **Ableitung aus einer Wallet-Signatur (empfohlener Standard).** Der Eigentümer signiert eine
+  kanonische, domänengetrennte Nachricht, und die Schlüssel werden aus dieser
+  Signatur abgeleitet. Dadurch sind sie allein aus der Wallet reproduzierbar, und Sie müssen
+  sie nicht speichern. Die Standardableitung bindet die Schlüssel ausschließlich an die Haupt-Wallet
+  und verwendet überhaupt keinen seed, sodass Clients nicht versehentlich unterschiedliche
+  Schlüssel ableiten können: Eine Wallet entspricht einem ElGamal keypair und einem AES-Schlüssel für alle Mints
+  und token accounts.
 - **Aus unabhängigem Schlüsselmaterial ableiten.** Für Passkeys, sichere
   Enklaven oder MPC-Setups leiten Sie die Schlüssel aus einem
   WebAuthn-PRF-Output oder anderem Eingabeschlüsselmaterial ab, sodass die
@@ -143,44 +139,35 @@ empfohlenen Pfad:
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  Vertrauliche Schlüssel sind Entschlüsselungsschlüssel. Behandeln Sie eine
-  Anfrage zum Signieren der Ableitungsnachricht wie das Entsperren einer
-  privaten Ansicht der Guthaben des Nutzers. Bevorzugen Sie die bedarfsweise
-  Ableitung gegenüber der Speicherung; wenn Sie sie doch speichern (z. B. in
-  einem Custodial-Dienst), schützen Sie sie mit derselben Sorgfalt wie
-  Signaturschlüssel.
+  Vertrauliche Schlüssel sind Entschlüsselungsschlüssel. Behandeln Sie eine Anfrage zum Signieren der Ableitungsnachricht
+  wie das Freischalten einer privaten Ansicht der Guthaben des Nutzers. Leiten Sie die Schlüssel lieber bei Bedarf ab,
+  statt sie zu speichern. Falls Sie sie dennoch speichern (zum Beispiel in einem Custodial-
+  Dienst), schützen Sie sie mit derselben Sorgfalt wie Signaturschlüssel. Wallets sollten
+  diese Signatur über einen dedizierten Ableitungsablauf bereitstellen und generische
+  signMessage-Anfragen für Nachrichten, die mit `solana-conf-bal/v1` beginnen, ablehnen, da
+  diese Signatur das Eingabeschlüsselmaterial für die Entschlüsselungsschlüssel des Nutzers ist.
 </Callout>
 
 Die Ableitungshilfsfunktionen geben serialisiertes Schlüsselmaterial zurück. Die
@@ -195,10 +182,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## Konten erstellen und konfigurieren
@@ -359,15 +346,12 @@ Client generiert werden:
   Senders gültige nicht-negative ganze Zahlen sind – was verhindert, dass Wert
   aus dem Nichts erzeugt wird.
 
-Diese Beweise sind größer als das heutige Transaktionsgrößenlimit für
-Inline-Daten erlaubt. Daher ist das übliche Muster,
-**Proof-Kontext-Zustandskonten** zu erstellen, jeden Beweis darin zu
-verifizieren, sie aus der Transfer-Anweisung heraus zu referenzieren und sie
-anschließend zu schließen, um rent zurückzufordern. Dies umfasst einige
-abhängige Transaktionen. Das Transaktionsformat v1 (wird mit Agave v4.2
-eingeführt) erhöht das Größenlimit und soll es ermöglichen, einen vertraulichen
-Transfer in einer einzigen Onchain-Transaktion durchzuführen, was diesen Ablauf
-vereinfachen wird.
+Diese Proofs sind größer, als das Transaktionsgrößenlimit von Legacy und v0 inline
+erlaubt. Üblicherweise erstellt man daher **Proof-Context-State-Konten**,
+verifiziert jeden Proof darin, referenziert sie in der Transfer-Anweisung und schließt
+sie anschließend, um rent zurückzufordern. Das erstreckt sich über mehrere voneinander abhängige Transaktionen. Das
+Transaktionsformat v1 hebt dieses Limit an, sodass ein vertraulicher Transfer in
+einer einzigen Onchain-Transaktion ausgeführt werden kann, und vereinfacht diesen Ablauf.
 
 Sie müssen die Beweise nicht manuell zusammenstellen. Beide Clients bieten einen
 übergeordneten Helfer, der die Beweise erstellt und die einzureichenden
@@ -551,11 +535,13 @@ dem Sendepfad nichts Besonderes tun müssen, außer den Prüferschlüssel aus de
 Mint-Konfiguration zu übergeben (die High-Level-Hilfsfunktionen lesen ihn für
 Sie aus).
 
-Wenn Ihr Produkt der Prüfer ist (zum Beispiel ein regulierter Emittent oder ein
-Compliance-Anbieter), entschlüsseln Sie Überweisungsbeträge mit dem geheimen
-Prüferschlüssel auf dieselbe Weise, wie ein Inhaber sein eigenes Guthaben
-entschlüsselt. Inhaber können außerdem ihre kontenspezifischen Schlüssel
-selektiv mit einer bestimmten Partei teilen, ohne sie öffentlich preiszugeben.
+Wenn Ihr Produkt der Auditor ist (zum Beispiel ein regulierter Emittent oder ein Compliance-
+Anbieter), entschlüsseln Sie Transferbeträge mit dem geheimen Schlüssel des Auditors auf dieselbe Weise,
+wie ein Eigentümer sein eigenes Guthaben entschlüsselt. Eigentümer können ihre
+Schlüssel auch gezielt mit einer bestimmten Partei teilen, ohne sie öffentlich preiszugeben –
+wobei bei der standardmäßigen, an die Wallet gebundenen Ableitung dieselben Schlüssel alle vertraulichen
+Guthaben des Eigentümers abdecken. Das Teilen der Schlüssel legt daher jedes vertrauliche Konto offen, nicht
+nur eines.
 
 ### Transaktionsüberwachung (KYT)
 
@@ -654,4 +640,4 @@ was beobachtbar ist, nicht jedoch das Gesamtmodell:
 | Adressen- und Graph-Screening   | Überprüfung von Absendern, Empfängern, Mints und Eigentümern sowie Durchführung einer Gegenpartei-Graph-Analyse; diese bleiben öffentlich.            | **P0**   |
 | Öffentliche Ein-/Auszahlungen verfolgen | Überwachung von Klartext-Ein- und Auszahlungsbeträgen als beobachtbare Ein- und Ausstiegspunkte des vertraulichen Pools. | **P0**   |
 | Betragssichtbarkeit per Prüfschlüssel | Bei Mints mit aktiviertem Prüfschlüssel werden Transferbeträge mithilfe des Prüfschlüssels entschlüsselt, um betragsbasierte Erkennung zu unterstützen.     | **P1**   |
-| Selektive Offenlegung   | Unterstützung von Betragsoffenlegungen, die von Nutzern oder Emittenten über kontospezifische Schlüssel geteilt werden.                                      | **P2**   |
+| Selektive Offenlegung   | Unterstützt Betragsoffenlegungen, die Nutzer oder Emittenten über die Schlüssel des Eigentümers teilen.                                      | **P2**   |

@@ -11,30 +11,51 @@ möchten. Durch das Hinzufügen Ihrer Signer-Implementierung ermöglichen Sie
 Entwicklern, Ihren Dienst für die sichere Signierung von Solana-Transaktionen
 über eine einheitliche Schnittstelle zu nutzen.
 
-_Verwenden Sie ein LLM? Schauen Sie sich die
-[Skill zum Hinzufügen von Signern](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer)
-an._
+Keychain hält seine Implementierungen in Rust, TypeScript, Python und Go auf demselben Stand.
+PRs, die alle vier enthalten, werden ausdrücklich bevorzugt. Wenn du nur eine
+beitragen kannst, ist das in Ordnung, aber rechne damit, dass die anderen erforderlich sind, bevor der Signer
+in einem Release ausgeliefert wird.
+
+_Nutzt du Claude Code? Der
+[`add-signer-ci`-Skill](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer-ci)
+des Repos richtet die CI-Workflows für einen neuen Signer ein, der über einen Fork-PR beigesteuert wird._
 
 ## Architekturübersicht
 
-Die Bibliothek verwendet eine Trait-basierte Architektur, bei der alle Signer
-das in `src/traits.rs` definierte `SolanaSigner`-Trait implementieren. Die
-Bibliothek bietet außerdem ein einheitliches `Signer`-Enum, das alle
-Implementierungen umschließt und eine Laufzeitauswahl der Signatur-Backends
-ermöglicht, während eine konsistente API beibehalten wird.
+Die Bibliothek nutzt eine Trait-basierte Architektur, die in `src/traits.rs` definiert ist. Jeder
+Signer implementiert den Basis-Trait `SolanaSigner` (`pubkey`, `sign_message`,
+`is_available`) plus genau einen Capability-Trait, der zur Struktur des Providers passt:
+
+- `TransactionSigner` (`sign_transaction`): Der Provider signiert die Bytes des Aufrufers
+  und der Aufrufer sendet sie per Broadcast. Die meisten Backends.
+- `ModifyingSigner` (`modify_and_sign_transaction`): Der Provider schreibt die
+  Transaktion um und signiert sie anschließend, ohne sie per Broadcast zu senden.
+- `SendingSigner` (`sign_and_send_transaction`): Der Provider signiert und
+  sendet serverseitig per Broadcast.
+
+Die Bibliothek bietet außerdem ein einheitliches `Signer`-Enum, das alle
+Implementierungen umschließt und die Auswahl von Signing-Backends zur Laufzeit ermöglicht. Es implementiert
+nur den Basis-Trait; auf Capabilities greift man über `as_transaction_signer()`,
+`as_modifying_signer()` und `as_sending_signer()` zu.
 
 ## Schnelle Integrationscheckliste
 
 - Erstellen Sie Ihr Signer-Modul mit Implementierung
-- Implementieren Sie das `SolanaSigner`-Trait (3 asynchrone Methoden +
-  `pubkey()`)
-- Fügen Sie ein Feature-Flag in `Cargo.toml` hinzu
-- Aktualisieren Sie das `Signer`-Enum in `src/lib.rs` (4 match-Zweige)
-- Aktualisieren Sie `src/error.rs` reqwest `From` impl cfg gate (falls Ihr
-  Signer reqwest verwendet)
+- Implementiere den Basis-Trait `SolanaSigner` (`pubkey`, `sign_message`,
+  `is_available`) plus den einen Capability-Trait, der zur Struktur deines Providers passt
+  (in der Regel `TransactionSigner`)
+- Füge in `Cargo.toml` ein Feature-Flag hinzu, einschließlich des internen `_remote`-Markers,
+  falls dein Signer reqwest verwendet
+- Aktualisiere das `Signer`-Enum in `src/lib.rs` (Variante, `dispatch_signer!`-Arm und
+  ein Arm im Capability-Accessor, der zu deiner Struktur passt)
 - Erzwingen Sie HTTPS und konfigurieren Sie Timeouts für HTTP-Clients
-- Fügen Sie umfassende Tests hinzu
+- Signiere die Nachrichten-Bytes und verifiziere die zurückgegebene Signatur, bevor du sie anfügst
+- Füge umfassende Unit-Tests hinzu (auf Basis von wiremock, in deinem Modul)
+- Füge eine Integrationstestdatei hinzu und aktualisiere `.env.example`
+- Füge die Implementierungen in TypeScript, Python und Go hinzu
 - Aktualisieren Sie die Dokumentation
+- Aktualisierungen der CI-Workflows (stimme dich mit den Maintainern ab, siehe
+  [CI-Workflow-Updates](#ci-workflow-updates-fork-prs))
 - Reichen Sie einen PR ein
 
 ## Schritt 1: Erstellen Sie Ihr Signer-Modul
@@ -55,8 +76,8 @@ Definieren Sie in `src/your_service/mod.rs` Ihre Signer-Struktur:
 ```rust
 //! YourService API signer integration
 
+use crate::sdk_adapter::{Pubkey, Signature, VersionedTransaction};
 use crate::{error::SignerError, traits::SolanaSigner};
-use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
 use std::str::FromStr;
 
 /// YourService-based signer using YourService's API
@@ -138,15 +159,15 @@ impl YourServiceSigner {
             .send()
             .await?;
 
-        // Use generic error messages — never expose raw API response text
+        // Use generic error messages: never expose raw API response text
         if !response.status().is_success() {
             let status = response.status().as_u16();
-            return Err(SignerError::RemoteApiError(format!(
+            return Err(SignerError::remote_api(format!(
                 "YourService API returned status {status}"
             )));
         }
 
-        // Parse response — always use map_err, never .expect() or .unwrap()
+        // Parse response: always use map_err, never .expect() or .unwrap()
         let response_data: SignResponse = response
             .json()
             .await
@@ -164,19 +185,22 @@ impl YourServiceSigner {
 }
 ```
 
-## Schritt 4: Implementieren Sie das SolanaSigner-Trait
+## Schritt 4: Die Signer-Traits implementieren
 
-Das Trait hat 3 asynchrone Methoden (`sign_transaction`, `sign_message`,
-`is_available`) plus `pubkey()`. Beachten Sie, dass `sign_transaction`
-`SignTransactionResult` zurückgibt – ein getaggtes Enum, das angibt, ob die
-Transaktion vollständig oder teilweise signiert ist.
+Der Basis-Trait `SolanaSigner` hat 2 asynchrone Methoden (`sign_message`,
+`is_available`) plus `pubkey()`. Das Signieren von Transaktionen gehört in einen Capability-Trait;
+die meisten Provider implementieren `TransactionSigner`, dessen `sign_transaction` ein
+`SignTransactionResult` zurückgibt (ein getaggtes Enum, das die Transaktion als vollständig oder
+teilweise signiert kennzeichnet).
 
-Verwenden Sie die gemeinsamen `TransactionUtil`-Hilfsfunktionen zum Signieren
-und Serialisieren.
+Signiere die Nachrichten-Bytes, niemals die gesamte Wire-Transaktion, und verifiziere die
+Signatur des Providers dagegen, bevor du sie anfügst. Verwende die gemeinsamen
+`TransactionUtil`-Helfer für Signierung und Serialisierung.
 
 ```rust
+use crate::signature_util::verify_or_reject;
+use crate::traits::{SignTransactionResult, TransactionSigner};
 use crate::transaction_util::TransactionUtil;
-use crate::traits::SignTransactionResult;
 
 #[async_trait::async_trait]
 impl SolanaSigner for YourServiceSigner {
@@ -184,28 +208,10 @@ impl SolanaSigner for YourServiceSigner {
         self.public_key
     }
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
-        let tx_bytes = bincode::serialize(tx)
-            .map_err(|e| SignerError::SerializationError(format!("Failed to serialize: {e}")))?;
-
-        let signature = self.sign(&tx_bytes).await?;
-
-        // Add the signature at the correct position
-        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
-
-        // Serialize and classify as Complete or Partial
-        let serialized = TransactionUtil::serialize_transaction(tx)?;
-        Ok(TransactionUtil::classify_signed_transaction(
-            tx,
-            (serialized, signature),
-        ))
-    }
-
     async fn sign_message(&self, message: &[u8]) -> Result<Signature, SignerError> {
-        self.sign(message).await
+        let signature = self.sign(message).await?;
+        verify_or_reject(&signature, &self.public_key, message)?;
+        Ok(signature)
     }
 
     async fn is_available(&self) -> bool {
@@ -218,7 +224,32 @@ impl SolanaSigner for YourServiceSigner {
             .unwrap_or(false)
     }
 }
+
+#[async_trait::async_trait]
+impl TransactionSigner for YourServiceSigner {
+    async fn sign_transaction(
+        &self,
+        tx: &mut VersionedTransaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        let message = tx.message.serialize();
+        let signature = self.sign(&message).await?;
+        verify_or_reject(&signature, &self.public_key, &message)?;
+
+        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
+        let serialized = TransactionUtil::serialize_transaction(tx)?;
+        Ok(TransactionUtil::classify_signed_transaction(
+            tx,
+            (serialized, signature),
+        ))
+    }
+}
 ```
+
+Wenn dein Provider die Transaktion vor dem Signieren umschreibt, implementiere stattdessen
+`ModifyingSigner` und ersetze die Transaktion des Aufrufers komplett durch
+die Bytes des Providers. Wenn er serverseitig sendet, implementiere `SendingSigner`
+und lasse die Transaktion des Aufrufers unangetastet. Implementiere niemals eine Capability, die dein
+Provider nicht bereitstellen kann.
 
 ## Schritt 5: API-Typen hinzufügen (Optional)
 
@@ -242,25 +273,28 @@ pub struct SignResponse {
 
 ## Schritt 6: Feature-Flag hinzufügen
 
-Aktualisieren Sie `Cargo.toml`, um Ihren Signer als optionales Feature
-hinzuzufügen:
+Aktualisiere `Cargo.toml`, um deinen Signer als optionales Feature hinzuzufügen. Remote-Backends
+enthalten den internen `_remote`-Marker, der die `From<reqwest::Error>`-Impl
+in `src/error.rs` freischaltet; ohne ihn lässt sich `?` bei reqwest-Aufrufen nicht kompilieren, wenn nur
+dein Feature aktiviert ist.
 
 ```toml
 [features]
-default = ["memory"]
+default = ["memory", "sdk-v2"]
 memory = []
-vault = ["dep:reqwest", "dep:vaultrs", "dep:base64"]
-privy = ["dep:reqwest", "dep:base64"]
-turnkey = ["dep:reqwest", "dep:base64", "dep:p256", "dep:hex", "dep:chrono"]
-your_service = ["dep:reqwest", "dep:base64"]  # Add your feature
-all = ["memory", "vault", "privy", "turnkey", "your_service"]  # Update all
+vault = ["dep:reqwest", "_remote"]
+privy = ["dep:reqwest", "dep:p256", "_remote"]
+your_service = ["dep:reqwest", "_remote"]  # Add your feature
+all = ["memory", "vault", "privy", "...", "your_service"]  # Update all
 ```
 
 ## Schritt 7: Signer-Enum aktualisieren
 
-Fügen Sie Ihren Signer zu `src/lib.rs` hinzu. Sie benötigen 4 Match-Arme in der
-`SolanaSigner`-Implementierung: `pubkey`, `sign_transaction`, `sign_message` und
-`is_available`.
+Füge deinen Signer zu `src/lib.rs` hinzu. Die Basis-Impl von `SolanaSigner` delegiert über
+das Makro `dispatch_signer!`, daher musst du dort einen Arm ergänzen. Der Zugriff auf Capabilities erfolgt über die Accessoren
+`as_transaction_signer()`, `as_modifying_signer()` und `as_sending_signer()`:
+Ergänze einen `Some(s)`-Arm in dem Accessor, der zu deinem Capability-Trait passt (und,
+bei einem sendenden oder modifizierenden Backend, einen `None`-Arm in `as_transaction_signer()`).
 
 ```rust
 // Add feature-gated module
@@ -302,52 +336,29 @@ impl Signer {
     }
 }
 
-// Update trait implementation — 4 match arms
-#[async_trait::async_trait]
-impl SolanaSigner for Signer {
-    fn pubkey(&self) -> sdk_adapter::Pubkey {
-        match self {
+// Update the dispatch macro: the base SolanaSigner impl uses it for
+// pubkey, sign_message and is_available
+macro_rules! dispatch_signer {
+    ($self:ident, $signer:pat => $body:expr) => {
+        match $self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.pubkey(),
+            Signer::YourService($signer) => $body,
         }
-    }
+    };
+}
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut sdk_adapter::Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
+// Add your arm to the capability accessor matching your shape
+impl Signer {
+    pub fn as_transaction_signer(&self) -> Option<&dyn TransactionSigner> {
         match self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_transaction(tx).await,
-        }
-    }
-
-    async fn sign_message(
-        &self,
-        message: &[u8],
-    ) -> Result<sdk_adapter::Signature, SignerError> {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_message(message).await,
-        }
-    }
-
-    async fn is_available(&self) -> bool {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.is_available().await,
+            Signer::YourService(s) => Some(s),
         }
     }
 }
 ```
-
-Wenn Ihr Signer `reqwest` verwendet, fügen Sie Ihr Feature dem
-`#[cfg(any(...))]`-Gate bei der `From<reqwest::Error>`-Implementierung in
-`src/error.rs` hinzu.
 
 ## Schritt 8: Umfassende Tests hinzufügen
 
@@ -432,20 +443,60 @@ mod tests {
 }
 ```
 
-## Schritt 9: Dokumentation aktualisieren
+Decke auch den Fehlerfall bei der Signaturverifizierung ab: Eine gemockte Antwort, deren Signatur
+nicht verifiziert werden kann, muss einen Fehler zurückgeben.
+
+## Schritt 9: Integrationstests hinzufügen
+
+Erstelle `rust/src/tests/test_<name>_integration.rs`. Integrationstests laufen
+gegen die echte Service-API (nicht gegen wiremock) und sind durch das Feature
+`integration-tests` abgesichert. Jede Datei benötigt:
+
+- `pub const`-Deklarationen für die Namen von Umgebungsvariablen
+- Einen `get_signer()`-Helfer, der Umgebungsvariablen über `dotenvy` liest
+- Drei Testfunktionen: `test_<name>_sign_message`,
+  `test_<name>_sign_transaction` und `test_<name>_is_available`
+- Feature-Gates: `#[cfg(feature = "your_service")]` auf dem Modul und
+  `#[cfg(feature = "integration-tests")]` auf jedem Test
+
+Eine vollständige Referenz findest du in `rust/src/tests/test_para_integration.rs`. Deklariere dann dein Modul
+in `rust/src/tests/mod.rs`:
+
+```rust
+pub mod test_your_service_integration;
+```
+
+## Schritt 10: Umgebungsvariablen aktualisieren
+
+Aktualisiere die `.env.example` im Root-Verzeichnis mit den Umgebungsvariablen deines Signers und folge dabei dem
+bestehenden Muster:
+
+```bash
+# YourService Configuration (for SIGNER_TYPE=your_service)
+YOUR_SERVICE_API_KEY=your-api-key
+YOUR_SERVICE_WALLET_ID=your-wallet-id
+# YOUR_SERVICE_API_BASE_URL=https://api.yourservice.com/v1  # Optional, defaults to this
+```
+
+Führe erforderliche Variablen zuerst mit Platzhalterwerten auf und optionale Variablen auskommentiert
+mit ihren Standardwerten. Jede in Integrationstests verwendete Umgebungsvariable muss in
+`.env.example` vorkommen, und die TypeScript-, Python- und Go-Suiten verwenden dieselben Namen.
+
+## Schritt 11: Dokumentation aktualisieren
 
 Fügen Sie Ihren Signer zur Tabelle der unterstützten Backends in der README.md
 hinzu:
 
-| Backend        | Anwendungsfall                                     | Feature-Flag   |
-| -------------- | -------------------------------------------------- | -------------- |
-| **Memory**     | Lokale Schlüsselpaare, Entwicklung, Testing        | `memory`       |
-| **Vault**      | Enterprise-Schlüsselverwaltung mit HashiCorp Vault | `vault`        |
-| **Privy**      | Eingebettete Wallets mit Privy-Infrastruktur       | `privy`        |
-| **Turnkey**    | Nicht-verwaltete Schlüsselverwaltung über Turnkey  | `turnkey`      |
-| **IhrService** | Kurze Beschreibung Ihres Dienstes                  | `your_service` |
+| Backend         | Anwendungsfall                                       | Feature-Flag   |
+| --------------- | ---------------------------------------------- | -------------- |
+| **Memory**      | Lokale Schlüsselpaare, Entwicklung, Testing           | `memory`       |
+| **Vault**       | Enterprise-Schlüsselverwaltung mit HashiCorp Vault | `vault`        |
+| **Privy**       | Eingebettete Wallets mit Privy-Infrastruktur     | `privy`        |
+| **Turnkey**     | Nicht-verwaltete Schlüsselverwaltung über Turnkey       | `turnkey`      |
+| **IhrService** | Kurze Beschreibung Ihres Dienstes              | `your_service` |
 
-Fügen Sie ein Verwendungsbeispiel hinzu:
+Füge dein Backend außerdem zur Tabelle der Signer-Capabilities in der README jeder Sprache hinzu.
+Füge ein Anwendungsbeispiel hinzu:
 
 ```rust
 use solana_keychain::{Signer, SolanaSigner};
@@ -468,48 +519,160 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Testen Ihrer Integration
 
-Führen Sie Tests für Ihr Feature aus:
+Verwende die `just`-Recipes statt des rohen `cargo`. Die SDK-Features (`sdk-v2`,
+`sdk-v3`, `sdk-v4`) schließen sich gegenseitig aus, daher schlägt `cargo test --all-features`
+fehl.
 
 ```bash
-# Test only your signer
-cargo test --features your_service
+# Unit tests across the sdk-v2, sdk-v3 and sdk-v4 matrices
+just rust-test
 
-# Test with all features
-cargo test --all-features
+# Live integration tests (require credentials in .env)
+just rust-test-integration
 ```
+
+## CI-Workflow-Updates (Fork-PRs)
+
+CI ist ein zweistufiger Prozess. Stimme dich mit den Maintainern ab, um `main` vorzubereiten, bevor
+dein PR getestet werden kann: Sie aktualisieren `fork-external-live-manual.yml`, fügen Umgebungsvariablen
+zu `ci.yml` hinzu und konfigurieren GitHub Secrets.
+
+Dein PR muss diese Änderungen der Phase 2 zusammen mit deinem Signer-Code enthalten:
+
+- **`ci.yml`**: Füge dein Rust-Feature zur `backend`-Matrix hinzu (vor `all`) und
+  deine Integrationstestfunktion zur `test`-Matrix
+- **`typescript-ci.yml`**: Füge dein Paket zu den Unit- und Integrationstest-Matrizen hinzu
+  und ergänze Umgebungsvariablen im Integrationstest-Schritt
+- **`typescript-publish.yml`**: Füge dein Paket zu `PUBLISH_PACKAGES`, zum
+  `packages`-Array des GitHub Release und zur Übersichtstabelle hinzu
+- **`python-ci.yml`**: Füge das Backend zum `CI_SIGNER_*`-Gating in
+  `resolve-signers` und zur Integrationsmatrix hinzu
+- **`go-ci.yml`**: Füge das Backend zum `CI_SIGNER_*`-Gating und zu
+  `moduleBySigner` hinzu
 
 ## TypeScript-Signer
 
 Wenn Sie auch ein TypeScript-Signer-Paket hinzufügen, erstellen Sie es unter
 `typescript/packages/your-signer/`. Wichtige Muster:
 
-- Factory-Funktion `createYourSigner()` gibt `SolanaSigner<TAddress>` zurück
+- Die Factory-Funktion `createYourSigner()` gibt
+  `SolanaTransactionSigner<TAddress> & SolanaMessageSigner<TAddress>` zurück; halte die
+  Signer-Klasse intern und exportiere nur die Factory und ihren Config-Typ
 - Config-Interface exportieren (`YourSignerConfig`)
-- HTTPS auf `apiBaseUrl` Config-Feldern erzwingen
-- Fehlertext der Remote-API mit `sanitizeRemoteErrorResponse()` aus
-  `@solana/keychain-core` bereinigen
-- Gegen fehlerhaftes JSON mit Optional Chaining und try/catch absichern
+- Wenn dein Backend keine Nachrichten signieren kann, lasse `SolanaMessageSigner` weg und stelle überhaupt keine
+  `signMessages`-Methode bereit: Kit klassifiziert Signer anhand des Vorhandenseins von Methoden, daher würde ein
+  werfender Stub den Signer falsch klassifizieren
+- Erzwinge HTTPS bei `apiBaseUrl`-Konfigurationsfeldern mit `assertHttpsUrl()` aus
+  `@solana/keychain-core`
+- Führe Remote-Aufrufe über `fetchSignerJson()` aus `@solana/keychain-core` aus;
+  es übernimmt Fehler-Mapping, Bereinigung von Antworten, Ablehnung von Redirects und das
+  Standard-Timeout
+- Bereinige jeden anderen Fehlertext der Remote-API mit `sanitizeRemoteErrorResponse()`
+  aus `@solana/keychain-core`
 - `throwSignerError(SignerErrorCode.*, { cause, message })` aus
   `@solana/keychain-core` verwenden
+- Berücksichtige `config?.abortSignal` in jeder Signiermethode und reiche es an
+  `fetchSignerJson()` und `signBatchStaggered()` weiter
+- Validiere `requestDelayMs` mit `validateRequestDelayMs()` und verarbeite Batches mit
+  `signBatchStaggered()`
 - `@throws` JSDoc zu Factory-Funktionen hinzufügen, die Fehlercodes auflisten
+- Deklariere `@solana/*`-Pakete als Peer-Abhängigkeiten mit `>=8.1.0`
+- Unit-Tests mit vitest und gemocktem `fetch`; Integrationstests mit
+  `runSignerIntegrationTest` aus `@solana/keychain-test-utils`
+
+### Sendende Signer
+
+Wenn dein Provider die Transaktion umschreibt oder serverseitig sendet, kann seine
+Signatur nicht auf die Transaktion des Aufrufers angewendet werden, daher muss es ein
+`SolanaSendingSigner` statt eines `SolanaTransactionSigner` sein:
+
+- Implementiere `signAndSendTransactions()` und stelle **kein** `signTransactions` bereit
+  (und auch kein `signMessages`, es sei denn, das Backend signiert tatsächlich Nachrichten)
+- Berücksichtige `config?.abortSignal`. Sobald der Provider das Create akzeptiert hat, melde
+  jeden Fehler (einschließlich eines Abbruchs) als `BROADCAST_UNCONFIRMED` mit der
+  Transaktions-ID des Providers, wobei der Abbruchgrund als `cause` erhalten bleibt
+- Füge eine typisierte `createKeychainSigner`-Überladung hinzu, die deinen Sending-Signer-Typ zurückgibt
+- Schließe dein Backend aus `KeychainKitPluginConfig` in
+  `typescript/packages/kit-plugin/src/keychain-plugin.ts` aus, da ein sendender
+  Signer nicht als `payer` oder `identity` eines Kit-Clients dienen kann
+- Prüfe in Unit-Tests, dass `isTransactionPartialSigner()` für deine Instanzen false und
+  `isTransactionSendingSigner()` true ist
 
 ### Umbrella-Paket aktualisieren
 
-`typescript/packages/keychain/` aktualisieren — 6 zu modifizierende Dateien:
+Aktualisiere `typescript/packages/keychain/` (7 zu ändernde Dateien):
 
-1. `src/types.ts` — `YourSignerConfig` zur `KeychainSignerConfig`
-   diskriminierten Union hinzufügen
-2. `src/create-keychain-signer.ts` — Factory importieren, Switch-Case hinzufügen
-3. `src/resolve-address.ts` — Zum Fast-Path- oder Fetch-Path-Switch-Case
-   hinzufügen
-4. `src/index.ts` — Config-Typ, Namespace, Factory-Funktion und Klassen-Exporte
-   hinzufügen
-5. `package.json` — `@solana/keychain-your-signer: "workspace:*"` Abhängigkeit
-   hinzufügen
-6. `tsconfig.json` — `{ "path": "../your-signer" }` Referenz hinzufügen
+1. `src/types.ts`: Füge `YourSignerConfig` zur diskriminierten Union
+   `KeychainSignerConfig` hinzu
+2. `src/create-keychain-signer.ts`: Füge den Switch-Case hinzu (jedes Backend-Paket wird
+   mit einem dynamischen `import()` geladen)
+3. `src/resolve-address.ts`: Ergänze den Switch-Case für den Fast-Path oder den Fetch-Path
+4. `src/index.ts`: Ergänze die Exporte für Config-Typ, Namespace und Factory-Funktion
+5. `package.json`: Füge die Abhängigkeit `@solana/keychain-your-signer: "workspace:*"` hinzu
+6. `tsconfig.json`: Füge die Referenz `{ "path": "../your-signer" }` hinzu
+7. `typescript/scripts/test-treeshake-umbrella.mjs`: Füge dein Paket zu
+   `SIGNER_MARKERS` und deine Factory zu `FACTORIES` hinzu
 
-Die Switch-Anweisungen haben vollständige `never` Prüfungen — TypeScript wirft
-einen Fehler, wenn Sie zur Union hinzufügen, aber einen Case verpassen.
+Die Switch-Statements enthalten erschöpfende `never`-Prüfungen, daher gibt TypeScript einen Fehler aus,
+wenn du die Union erweiterst, aber einen Case vergisst. Führe danach `just ts-treeshake` aus:
+Jedes Paket und das Umbrella-Paket müssen tree-shakable bleiben.
+
+## Python-Signer
+
+Erstelle das Modul unter `python/src/solana_keychain/your_signer/` (`__init__.py`
+plus `signer.py`). Wichtige Muster:
+
+- Leite von `SolanaSigner` aus `solana_keychain.core` ab (`pubkey`-Property,
+  `async sign_message()`, `async is_available()`) plus genau eine Capability-
+  Klasse: `TransactionSigner` (`async sign_transaction()`), `ModifyingSigner`
+  (`async modify_and_sign_transaction()`) oder `SendingSigner`
+  (`async sign_and_send_transaction()`)
+- Exportiere eine `async create_your_signer()`-Factory, die `init()` abwartet, wenn das
+  Backend seine Adresse remote auflöst; vor dem Init löst das Signieren
+  `SignerErrorCode.NOT_INITIALIZED` aus
+- Exportiere eine Config-Dataclass (`YourSignerConfig`), in der Secrets mit
+  `field(repr=False)` markiert sind
+- Erzwinge HTTPS bei Base-URL-Feldern mit `assert_https_url()` und leite jede
+  Anfrage über `fetch_signer_json()`
+- Verifiziere die Signatur des Providers, bevor du sie zurückgibst; verwende
+  `signed_message_bytes()` für die Bytes, die eine Signatur abdeckt, niemals ein selbstgebautes
+  Versionspräfix
+- Registriere das Backend in `_BACKENDS` in
+  `python/src/solana_keychain/keychain.py`
+- Wenn das Backend ein Provider-SDK benötigt, schütze den Import per Guard, löse einen `ImportError` aus,
+  der `pip install 'solana-keychain[your-signer]'` nennt, deklariere das Extra in
+  `python/pyproject.toml` und importiere das Backend niemals eager aus dem Package-Root
+- Unit-Tests mit pytest: `respx` für HTTP-Backends, Stub-Clients für SDK-Backends
+  und eine Prüfung, dass in `str()` oder `repr()` von ausgelösten Fehlern kein Secret
+  auftaucht
+- Füge eine Factory `make_your_signer()` zu
+  `python/tests/integration/test_live_signers.py` hinzu und registriere sie in
+  `_MESSAGE_CAPABLE` (oder in `_TRANSACTION_ONLY` für Backends ohne
+  `sign_message`)
+
+## Go Signer
+
+Jedes Go-Backend ist ein eigenes Modul unter `go/signers/yoursigner/` mit dem Modulpfad
+`github.com/solana-foundation/solana-keychain/go/signers/yoursigner/v2`. Als Referenz siehe
+`go/signers/para/`. Wichtige Muster:
+
+- Implementiere `core.SolanaSigner` (`Pubkey()`, `SignMessage(ctx, message)`,
+  `IsAvailable(ctx)`) plus genau ein Capability-Interface:
+  `core.TransactionSigner`, `core.ModifyingSigner` oder `core.SendingSigner`.
+  Die Capability wird per Type Assertion erkannt, daher darf ein Backend, das keine
+  Transaktion signieren kann, überhaupt keine `SignTransaction`-Methode besitzen
+- Exportiere eine `Config`-Struct und einen `New`-Konstruktor (`New(ctx, cfg)`, wenn das
+  Backend seine Adresse remote auflöst; bis dahin gib
+  `core.NewNotInitializedError` zurück)
+- Erstelle HTTP-Clients mit `core.NewHTTPClient` oder `core.ResolveHTTPClient` und
+  validiere Basis-URLs mit `core.NormalizeHTTPSBaseURL`
+- Signiere Transaktionen mit `core.SignTransactionWith`, das die Message-Bytes signiert
+  und die Signatur anhängt; verifiziere Signaturen des Providers mit
+  `core.VerifySignature`
+- Gib Fehler mit `core.NewSignerError` / `core.WrapSignerError` und stabilen
+  Codes wie `core.CodeSigningFailed` zurück
+- Unit-Tests mit `httptest`; Integrationstests in `integration_test.go` hinter
+  dem Tag `//go:build integration`
 
 ## Checkliste für die Einreichung
 
@@ -520,40 +683,70 @@ Vor dem Einreichen Ihres PRs:
 - Code ist formatiert/Linting besteht (`just fmt`)
 - Keine hartcodierten Werte oder Secrets im Code
 - Fehlermeldungen sind generisch (kein roher API-Antworttext)
+- Kein `.expect()` oder `.unwrap()` bei nicht vertrauenswürdigen API-Antworten
 - HTTPS auf Remote-HTTP-Clients erzwungen
 - HTTP-Timeouts über `HttpClientConfig` konfiguriert
-- Folgt Rust-Namenskonventionen (snake_case)
-- Zur README.md Tabelle unterstützter Backends hinzugefügt
+- Zurückgegebene Signaturen werden gegen lokal berechnete Message-Bytes verifiziert
+- Hält Namenskonventionen ein (snake_case für Rust und Python, camelCase für
+  TypeScript)
+- Integrationstests hinzugefügt und `.env.example` aktualisiert
+- TypeScript-, Python- und Go-Implementierungen enthalten (oder mit den
+  Maintainern geplant)
+- Umbrella-Pakete aktualisiert (TypeScript-Umbrella, Python `_BACKENDS`)
+- CI-Änderungen enthalten
+- Zu den Tabellen der unterstützten Backends und der Signer-Capabilities in README.md hinzugefügt
 
 ## Implementierungstipps
 
 ### Fehlerbehandlung
 
-Verwenden Sie immer die vorhandenen `SignerError` Varianten. Verwenden Sie
-niemals `.expect()` oder `.unwrap()` bei nicht vertrauenswürdigen API-Antworten:
+Verwende immer die vorhandenen `SignerError`-Varianten. Sowohl `Display` als auch `Debug` von
+`SignerError` sind maskiert, halte Meldungen daher allgemein und nimm niemals rohe API-
+Antwortdaten auf. Verwende niemals `.expect()` oder `.unwrap()` bei nicht vertrauenswürdigen API-Antworten:
 
 ```rust
-// Good — uses existing error types with generic messages
-return Err(SignerError::RemoteApiError(
-    format!("YourService API returned status {}", status)
-));
+// Good: uses the constructor with a generic message
+return Err(SignerError::remote_api(format!(
+    "YourService API returned status {status}"
+)));
 
-// Good — converts from standard errors
+// Good: converts from standard errors
 let bytes = base64::decode(data)
     .map_err(|e| SignerError::SerializationError(format!("Failed to decode: {e}")))?;
 ```
 
-### Best Practices für Sicherheit
+### Sicherheitsanforderungen
 
-- Niemals sensible Daten loggen (private Keys, API-Secrets)
-- `Debug` Implementierung verwenden, die sensible Felder verbirgt
-- Alle Eingaben validieren (öffentliche Keys, Signaturen)
-- HTTPS für alle Remote-API-Aufrufe verwenden (erzwungen über
-  `https_only(true)`)
-- Request- und Connect-Timeouts über `HttpClientConfig` konfigurieren
-- Niemals rohen Remote-API-Fehlertext in Fehlermeldungen offenlegen
-- `Option<Pubkey>` (nicht `Pubkey::default()`) für das Public-Key-Feld vor
-  `init()` verwenden
+Das sind keine Empfehlungen: Konsumenten wählen ein Backend aufgrund dieser Zusicherungen. Macht
+dein Provider eine davon unmöglich, sag das im PR und in der `docs/SECURITY_MODEL.md`
+des Repos.
+
+- **Verifiziere, was der Provider signiert hat.** Berechne die Message-Bytes lokal und
+  verifiziere die zurückgegebene Signatur dagegen an der von deinem Signer geforderten Position,
+  bevor du sie anhängst. Eine Signatur, die sich nicht verifizieren lässt, muss fehlschlagen und
+  darf nie angehängt werden.
+- **Gib an, ob der Provider den Broadcast übernimmt.** Wenn er serverseitig ausführt,
+  implementiere die Sending-Variante und gib die Signatur zurück, die die gelandete Transaktion
+  identifiziert. Hat der Provider keinen Sign-only-Endpunkt, mache das Backend
+  sending-only, statt hinter dem Rücken des Aufrufers zu senden.
+- **Lass den Aufrufer nie mit einer Transaktion zurück, die die Signatur nicht abdeckt.**
+  Ein Provider, der die Transaktion umschreibt, signiert seine eigenen Bytes: Entweder lässt du die
+  Transaktion des Aufrufers unverändert (der Fall mit providerverwaltetem Broadcast), oder du nutzt die
+  Modifying-Variante und ersetzt sie vollständig durch die Bytes des Providers.
+- **Melde Broadcast-Unsicherheit als solche.** Ein Fehler nach dem Absenden kann trotzdem
+  gelandet sein. Gib `BROADCAST_UNCONFIRMED` statt eines generischen Fehlers aus,
+  übergib die Transaktions-ID des Providers, sobald du eine hast, und sende bei jedem Create
+  einen aus der Message abgeleiteten Idempotency-Key, damit ein byte-identisches erneutes Senden
+  sicher ist.
+- **Niemals vor init signieren.** Verwende `Option<Pubkey>` (nicht `Pubkey::default()`) für
+  den öffentlichen Schlüssel vor `init()` und brich mit einem Konfigurationsfehler ab, wenn
+  zuvor ein Signiervorgang versucht wird.
+- Protokolliere niemals sensible Daten (private Schlüssel, API-Secrets, rohe API-Antworten) und
+  verwende eine `Debug`-Implementierung, die sensible Felder verbirgt
+- Erzwinge HTTPS (`https_only(true)`, für wiremock mit `#[cfg(not(test))]` abgesichert) und
+  konfiguriere Request- und Connect-Timeouts über `HttpClientConfig`
+  (Standardwerte: 30 s/5 s)
+- Überschreibe zwischenzeitliches Schlüsselmaterial mit `zeroize::Zeroizing<Vec<u8>>` mit Nullen
 
 ### Testen mit Mocks
 
@@ -582,14 +775,17 @@ mod tests {
 ## Hilfe erhalten
 
 - Überprüfen Sie vorhandene Signer-Implementierungen auf Muster:
-  - `src/memory/mod.rs` — Einfach, synchron
-  - `src/para/mod.rs` — Erfordert Initialisierung (als Vorlage für neue Signer
-    verwenden)
-  - `src/turnkey/mod.rs` — Komplexe Signaturverarbeitung
-  - `src/vault/mod.rs` — Externe Client-Bibliothek
-- Wichtige Dateien: `src/traits.rs` (Trait-Definition),
-  `src/transaction_util.rs` (gemeinsame Hilfsfunktionen),
-  `src/http_client_config.rs` (Timeout-Konfiguration)
+  - `src/memory/mod.rs`: Einfach, synchron
+  - `src/privy/mod.rs`: Erfordert Initialisierung
+  - `src/turnkey/mod.rs`: Komplexe Signaturverarbeitung
+  - `src/vault/mod.rs`: Externe Client-Bibliothek
+  - `typescript/packages/para/`, `python/src/solana_keychain/para/` und
+    `go/signers/para/`: vollständige Referenzen in den anderen Sprachen
+- Wichtige Dateien: `src/traits.rs` (Trait-Definitionen), `src/transaction_util.rs` und
+  `src/signature_util.rs` (gemeinsame Helfer), `src/http_client_config.rs` (Timeout-
+  Konfiguration)
+- Die vollständige Repository-Anleitung:
+  [docs/ADDING_SIGNERS.md](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - Eröffnen Sie ein Issue für Design-Diskussionen, bevor Sie mit der Arbeit
   beginnen
 
@@ -603,9 +799,13 @@ Adds support for YourService as a signing backend.
 - [X] Code compiles without warnings (`just build`)
 - [X] Code is formatted/linting passes (`just fmt`)
 - [X] Add comprehensive tests with wiremock - All tests pass (`just test`)
-- [X] Implemented SolanaSigner trait for YourServiceSigner
+- [X] Implemented SolanaSigner and TransactionSigner for YourServiceSigner
 - [X] Added feature flag 'your_service'
 - [X] HTTPS enforced, HTTP timeouts configured
+- [X] Returned signatures verified before attaching
+- [X] Added integration tests and updated .env.example
+- [X] TypeScript, Python and Go implementations included
+- [X] CI Phase 2 changes included
 - [X] Added to README.md supported backends table
 
 Closes #1337

@@ -1,0 +1,194 @@
+---
+title: Nạp tiền cho các vế giao dịch
+description:
+  Xác minh các điều khoản đã lưu của một giao dịch DvP, sau đó nạp tiền cho một vế bằng lệnh TransferChecked thông thường vào tài khoản escrow của vế đó.
+seoTitle: Nạp tiền cho giao dịch DvP trên Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Việc nạp tiền chỉ là một lệnh `TransferChecked` thông thường vào escrow của vế giao dịch, nên bất kỳ ví hoặc hệ thống lưu ký nào có thể gửi chuyển token đều có thể nạp tiền cho một vế. Chỉ bước đọc bản ghi giao dịch trước khi nạp mới cần đến DvP client. Chương trình chỉ kiểm tra số dư escrow tại thời điểm quyết toán; không có gì kiểm tra lệnh chuyển khi nó được ghi nhận, vì vậy mỗi bên cần đọc bản ghi giao dịch trước khi chuyển.
+
+Trang này tiếp nối phần [tạo giao dịch](/docs/defi/dvp-program/create-a-trade); client và các signer được dùng tiếp từ phần đó.
+
+## Xác minh các điều khoản
+
+Việc tạo bản ghi không cần cấp quyền, và địa chỉ escrow chỉ được suy ra từ bản ghi và mint, không bao giờ từ các điều khoản. Do đó, một lệnh chuyển vào escrow có thể được ghi nhận theo những điều khoản mà bạn chưa từng đồng ý, bao gồm cả các đích quyết toán chuyển hướng số tiền của đối tác bạn sang một địa chỉ thứ ba. Trước khi nạp tiền, hãy đọc tài khoản `SwapDvp` và đối chiếu với giao dịch đã thỏa thuận.
+
+`verifySwapDvp` trong TypeScript và `verify::decode_swap_dvp_account` trong Rust xác nhận rằng tài khoản thuộc sở hữu của chương trình DvP, có kích thước đúng 458 byte, và nằm tại địa chỉ được suy ra từ chính các trường của nó (`fetchSwapDvpChecked` chỉ thực hiện hai kiểm tra đầu tiên). Các hàm đọc thông thường `fetchSwapDvp` và `decodeSwapDvp` không thực hiện kiểm tra nào trong số này. Việc kiểm tra các bên, số lượng, thời gian và đích đến do người gọi tự thực hiện, đối chiếu với giao dịch đã thỏa thuận.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Nếu bản ghi do đối tác hoặc cơ quan quyết toán tạo ra, hãy so sánh từng trường với các điều khoản bạn đã thỏa thuận ngoài sổ cái. Nếu bạn tự tạo, bước đọc này xác nhận rằng bản ghi đã được ghi nhận đúng như đã gửi.
+
+## Chuyển vào escrow
+
+Hãy nạp tiền cho vế giao dịch đúng bằng số lượng đã thỏa thuận. Chương trình giới hạn quyết toán ở `amount_x` và trả mọi phần dư về cho bên của vế đó, nên phần dư không bị mất, nhưng nó sẽ thêm một lệnh chuyển thứ hai khi quyết toán và có thể thất bại với một số transfer hook (xem phần ghi chú bên dưới).
+
+Hãy dùng `TransferChecked`, không dùng `Transfer` không kiểm tra. Các mint Token-2022 có extension phụ thuộc vào mint account, chẳng hạn Pausable, sẽ từ chối lệnh chuyển không cung cấp mint account, và mint có transfer hook cần các tài khoản của hook được phân giải và thêm vào theo cách giống như mọi lệnh chuyển khác của token đó.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    Bên của vế tài sản, ký bằng `userASigner`, nạp tiền cho escrow A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    Bên của vế tiền mặt thực hiện tương tự cho escrow B với `userBAtaB`, `mintB`, `userBSigner`, `t.amountB` và `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    Bên của vế tiền mặt xây dựng cùng một lệnh cho escrow B với `mint_b`, `user_b` và `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Một lệnh chuyển nạp tiền ở mức [`confirmed`](/docs/rpc#configuring-state-commitment) vẫn có thể bị thay thế. Chương trình đọc số dư escrow onchain tại thời điểm quyết toán, nên một lệnh Settle được gửi dựa trên lệnh chuyển nạp tiền chưa được ghi nhận sẽ thất bại với `LegNotFunded` và không có gì bị di chuyển; cái giá phải trả là một lệnh Settle thất bại và phải thử lại. Chỉ coi một vế là đã được nạp tiền khi lệnh chuyển của nó ở trạng thái `finalized`.
+
+## Ghi chú
+
+- **Các vế wrapped SOL.** Chương trình đọc số dư của escrow native sau khi đồng bộ, nên các lamport được gửi đến escrow wrapped-SOL bằng lệnh chuyển của system đều được tính. Tuyệt đối không gửi SOL vào escrow của bất kỳ mint nào khác: chương trình không thể trả lại, và số SOL đó sẽ thuộc về bất kỳ ai đóng tài khoản.
+- **Các mint có kiểm soát truy cập.** Với mint có Default Account State là frozen, escrow được tạo ở trạng thái bị đóng băng và lệnh chuyển sẽ thất bại cho đến khi đơn vị phát hành mở băng hoặc cho phép. Phần [tổng quan](/docs/defi/dvp-program#mint-configuration-constraints) mô tả sự tương tác với Token ACL.
+- **Transfer hook.** Hãy nạp tiền cho các escrow có hook đúng bằng số lượng đã thỏa thuận. Nếu phần dư buộc phải hoàn trả khi quyết toán, lệnh hoàn trả sẽ dùng lại các tài khoản hook của vế đó với đích đến và số lượng khác, điều mà một số hook sẽ từ chối. Cách khắc phục là Reclaim, nạp lại đúng số lượng, rồi quyết toán lần nữa.
+- **Nạp tiền sau khi hết hạn.** Không có gì ngăn một lệnh chuyển sau `expiry_timestamp`. Lệnh chuyển vẫn được ghi nhận, nhưng không thể quyết toán nữa, và bên của vế đó thu hồi số tiền bằng Reclaim khi giao dịch còn mở hoặc Recover sau khi giao dịch đóng. Xem [hoàn tác giao dịch](/docs/defi/dvp-program/unwind-a-trade).
+- **Ai nạp tiền trước.** Chương trình không sắp xếp thứ tự của hai vế. Thứ tự do các bên tự quyết định; mỗi bên có thể thu hồi vế của mình bất kỳ lúc nào trước khi quyết toán, trừ khi mint authority (đóng băng, tạm dừng hoặc transfer hook) chặn escrow.
+
+## Các bước tiếp theo
+
+- [Quyết toán giao dịch](/docs/defi/dvp-program/settle-the-trade): cơ quan quyết toán hoán đổi cả hai vế trong một giao dịch
+- [Hoàn tác giao dịch](/docs/defi/dvp-program/unwind-a-trade): thu hồi một vế đã nạp tiền khi giao dịch không được quyết toán

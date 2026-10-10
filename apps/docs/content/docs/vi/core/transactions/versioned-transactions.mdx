@@ -24,10 +24,10 @@ Solana hỗ trợ ba định dạng giao dịch: **legacy**, **v0** và **v1**. 
 cách tham chiếu tài khoản và nguồn gốc của các giới hạn tài nguyên.
 
 <Callout type="warn" title="Trạng thái kích hoạt của v1">
-  [Định dạng v1](https://solana.com/upgrades/larger-transaction-sizes) chưa
-  được kích hoạt trên bất kỳ cluster nào. Việc kích hoạt dự kiến cùng với Agave v4.2.
-  `solana-test-validator` 4.2+ cho phép bạn kiểm thử giao dịch v1 cục bộ.
-  Các ứng dụng hiện tại nên xem lại [chuẩn bị cho v1](#preparing-for-v1).
+  [Định dạng v1](https://solana.com/upgrades/larger-transaction-sizes) hiện đang
+  hoạt động trên mainnet, devnet và testnet. Việc đọc giao dịch là một thay đổi
+  gây lỗi tương thích: các client không chọn tham gia sẽ bị lỗi khi gặp giao dịch v1. Các ứng dụng hiện có
+  nên xem [chuẩn bị cho v1](#preparing-for-v1).
 </Callout>
 
 ## So sánh định dạng
@@ -132,6 +132,20 @@ tĩnh: các tra cứu có thể ghi đứng trước các tra cứu chỉ đọc
   là người ký.
 </Callout>
 
+### Tạo và sử dụng address lookup table
+
+Ví dụ này tạo một lookup table, thêm một địa chỉ vào đó, rồi dùng bảng này để
+biên dịch và gửi một giao dịch v0.
+
+```ts !! title="Versioned transaction with an ALT" file=packages/docs-examples/cookbook/transactions/versioned-transaction-alt/legacy.ts#region=versioned-transaction-alt
+
+```
+
+Chỉ các tài khoản không phải signer mới có thể được tải từ lookup table. Tài khoản trả phí và
+tất cả signer bắt buộc vẫn nằm trong danh sách tài khoản tĩnh của message. Ngoài ra, một địa chỉ
+cũng không thể được tra cứu trong cùng slot mà nó được thêm vào, vì vậy ví dụ này
+chờ đến slot đã được xác nhận tiếp theo rồi mới biên dịch message v0.
+
 ### Giới hạn tài nguyên trong v0
 
 Không thay đổi so với legacy: các lệnh ComputeBudget, với các giá trị mặc định tương tự khi bị bỏ qua.
@@ -221,11 +235,45 @@ làm tròn kích thước dữ liệu lên trang 32 KiB tiếp theo để có bi
 chi phí block tính theo các trang 32 KiB, vì vậy biên độ dự phòng dưới ranh giới trang tiếp theo là
 miễn phí).
 
+### Xây dựng giao dịch v1
+
+Một message v1 được lắp ráp qua cùng một pipeline như message legacy hoặc v0. Điểm
+khác biệt là `setTransactionMessageConfig`: các giới hạn tài nguyên là thuộc tính
+của message, nên danh sách instruction chỉ chứa các instruction của chương trình.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=build
+
+```
+
+</CodeTabs>
+
+Kit cũng cung cấp một setter cho từng trường cấu hình —
+`setTransactionMessagePriorityFeeLamports`,
+`setTransactionMessageComputeUnitLimit`,
+`setTransactionMessageLoadedAccountsDataSizeLimit` và
+`setTransactionMessageHeapSize` — để thiết lập từng giá trị một.
+
+### Xác định kích thước giới hạn bằng mô phỏng
+
+Thay vì đoán hai giới hạn bắt buộc, hãy đo chúng. Mô phỏng chạy
+với cả hai giới hạn được nâng lên mức tối đa của runtime, nên nó không thể thất bại do thiếu
+tài nguyên đang được đo. Con số trả về là chi phí chính xác của một lần
+chạy mô phỏng, vì vậy hãy cộng thêm một khoảng dự phòng trước khi dựa vào nó.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/estimate-kit.ts#region=estimate
+
+```
+
+</CodeTabs>
+
 ## Chuẩn bị cho v1
 
-v1 thay đổi cách **đọc** giao dịch, không chỉ cách gửi chúng. Khi v1 được kích hoạt,
-bất kỳ client nào gọi `getTransaction` hoặc `getBlock` mà không chọn tham gia sẽ
-bắt đầu thất bại trên các giao dịch v1:
+v1 thay đổi cách **đọc** giao dịch, không chỉ cách gửi. Bất kỳ client nào
+gọi `getTransaction` hoặc `getBlock` mà không chọn tham gia sẽ bị lỗi với các giao dịch v1:
 
 - Truyền `maxSupportedTransactionVersion: 1` — **số nguyên** JSON là `1`, không phải
   chuỗi `"1"` — cho [`getTransaction`](/docs/rpc/http/gettransaction) và
@@ -240,10 +288,10 @@ bắt đầu thất bại trên các giao dịch v1:
   bị tụt lại từ slot v1 đầu tiên trở đi.
 - `getSignaturesForAddress` không bao giờ kiểm tra nội dung giao dịch, vì vậy các chữ ký v1
   được liệt kê bình thường.
-- Các phản hồi đã chọn tham gia bao gồm đối tượng `transactionConfig` trong thông điệp cho các giao dịch v1
-  (hoàn toàn vắng mặt với legacy và v0). Các pipeline dẫn xuất
-  phí ưu tiên hoặc giới hạn tính toán bằng cách quét tìm lệnh ComputeBudget
-  sẽ âm thầm báo cáo **không** cho mọi giao dịch v1.
+- Các phản hồi đã chọn tham gia sẽ bao gồm một đối tượng `transactionConfig` trong message đối với giao dịch
+  v1 (hoàn toàn không có đối với legacy và v0). Các pipeline suy ra
+  phí ưu tiên hoặc giới hạn compute bằng cách quét các instruction ComputeBudget
+  sẽ báo cáo **không** cho mọi giao dịch v1 mà không có cảnh báo nào.
 - Sử dụng `encoding: 'base64'` khi bạn giải mã giao dịch phía client, và cho
   `sendTransaction`/`simulateTransaction` với các giao dịch vượt quá 1.232 byte —
   mã hóa base58 vẫn bị giới hạn ở kích thước cũ.
@@ -251,6 +299,22 @@ bắt đầu thất bại trên các giao dịch v1:
   thế hệ Agave 4.2.x, hoặc web3.js v3. web3.js v1 đọc v1 từ phiên bản 1.99.0
   trở đi, nhưng không thể xây dựng hoặc gửi v1.
 
-Để xem hướng dẫn di chuyển đầy đủ — bao gồm hỗ trợ thư viện client, phát hiện phiên bản streaming
-(Geyser/gRPC) và hành vi mô phỏng — hãy xem
-[trang nâng cấp định dạng giao dịch v1](https://solana.com/upgrades/larger-transaction-sizes).
+### Đọc một giao dịch v1
+
+Việc chọn tham gia dùng số nguyên JSON `1`. Giải mã các byte trả về sẽ cho ra
+phiên bản và cấu hình, nơi chứa các giới hạn tài nguyên — quét danh sách
+instruction để tìm các instruction ComputeBudget sẽ không thấy gì.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=read
+
+```
+
+</CodeTabs>
+
+Để xem hướng dẫn di chuyển đầy đủ — bao gồm hỗ trợ thư viện client, phát hiện phiên bản
+streaming (Geyser/gRPC) và hành vi mô phỏng — hãy xem
+[trang nâng cấp Transaction Format v1](https://solana.com/upgrades/larger-transaction-sizes).
+Các ví dụ có thể chạy được bằng TypeScript, Rust, Python và Go nằm tại
+[solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples).

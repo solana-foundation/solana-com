@@ -1,0 +1,91 @@
+---
+title: Mimari
+description:
+  Bir isteğin Kora düğümünde nasıl ilerlediği ve her aşamanın crate içinde nerede bulunduğu. İlk değişikliğinizi yapmadan önce buradan başlayın.
+---
+
+Kora, üç crate'ten oluşan bir Rust çalışma alanıdır:
+
+- `kora-lib` çekirdek mantığı ve RPC sunucusunu barındırır,
+- `kora-cli` operatörlerin çalıştırdığı `kora` ikili dosyasını derler ve
+- `kora-deploy` ayrı olarak sürümlenen, özelleşmiş bir program dağıtım aracıdır.
+  Aksi belirtilmedikçe aşağıdaki her şey `crates/lib/src` içinde yer alır.
+
+## İstek yaşam döngüsü
+
+Aşağıdaki diyagram, bir işlemin Kora içindeki genel akışını gösterir.
+Çağrı yolunu anlamak, bir Kora düğümünü yapılandırmak ve yeni özellikler
+eklemek için önemlidir.
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## Her aşama nerede yer alır
+
+| Diyagramdaki aşama | Kaynak                               | Giriş noktası                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| Ağ geçidi              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| Yönlendirme             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| Yönteme özgü mantık     | `rpc_server/method/`                 | her JSON-RPC yöntemi için bir dosya          |
+| Doğrulama           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| Eklentiler              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| İmzalama              | `signer/`                            | `solana-keychain` crate'i tarafından desteklenir |
+
+Bilmeniz gereken iki dosya daha var: `config.rs` tüm `kora.toml` şemasını tanımlar,
+`state.rs` ise ayrıştırılmış yapılandırmayı süreç genelindeki durumda tutar.
+
+### RPC sunucusunu okuma
+
+`rpc.rs`, her JSON-RPC uç noktası için bir yöntem içeren ince bir yönlendirme katmanıdır
+ve API'nin tamamını görmenin en hızlı yoludur. Her yöntemin mantığı,
+`rpc_server/method/` altındaki kendi dosyasında yer alır. `sign_transaction.rs` dosyasını baştan sona okuyun; diğer imzalama
+yöntemleri bunun varyasyonlarıdır.
+
+### Doğrulayıcıyı okuma
+
+`transaction_validator.rs` ve `transaction/instruction_util.rs`, işlemleri ve talimatları
+doğrulama mantığını içerir. Ayrıca, kısıtlanan her program için bir dosya olacak şekilde
+`validator/transaction_validator/fee_payer_policy_props/` altında bulunan ücret ödeyen politikası
+güvenlik özelliği testleri de burada yer alır.
+
+## Bilmeye değer kurallar
+
+**Varsayılan doğrulama.** `[validation.fee_payer_policy]` altındaki her bayrak
+varsayılan olarak `false` değerindedir ve politika yapıları `#[serde(default)]` taşır. Bu
+ikili bilinçli bir tercihtir: yeni kısıtlanan bir talimat eklemek mevcut bir
+operatörün yapılandırmasını bozmamalı ve yanlışlıkla izin verilmesi yerine reddedilmesiyle sonuçlanmalıdır.
+Bir bayrak eklerken ikisini de koruyun.
+
+**Ham işlemi değil, çözümlenmiş işlemi doğrulayın.** Ham
+`VersionedTransaction` yalnızca statik hesap anahtarlarını sunar; bu nedenle bir V0 işlemini bundan
+yola çıkarak doğrulamak veya fiyatlandırmak, arama tablosu hesaplarını sessizce atlar ve
+eksik ücret hesaplanmasına yol açar. `VersionedTransactionResolved::from_transaction` bu
+adresleri en başta çözümler; bu yüzden sonraki her aşama çözümlenmiş türü alır.
+
+## İşlem eklentisi ekleme
+
+Eklentiler, `plugin/mod.rs` içindeki `TransactionPlugin` trait'ini uygular. İki
+yöntemi vardır: `validate`, imzalama akışları sırasında her işlem için çalışır; `validate_config`
+ise başlangıçta bir kez çalışır ve operatör için hataları ve uyarıları döndürür.
+`PluginExecutionContext`, eklentiye dört imzalama yönteminden hangisinin onu çağırdığını bildirir.
+
+`TransactionPluginRunner::from_config`, `config.rs` içinde tanımlı `TransactionPluginType`
+değerleri üzerinde eşleştirme yapar. Yeni bir yerleşik eklenti, orada yeni bir varyant ve çalıştırıcıda yeni bir
+match kolu demektir. Şu anda birlikte gelen iki eklenti `gas_swap` ve
+`deploy_authority`'dir.
+
+## Test etme
+
+Kora yapılandırmayı süreç genelindeki durumda tuttuğu için `tests/` her aşama başına bir
+`[[test]]` hedefi tanımlar ve her hedef kendi gömülü surfnet'ini ve
+Kora düğümünü sıfırdan başlatır. Her ikili dosya için tek yapılandırma: yeni bir aşama, mevcut bir modüle yeni modül eklemeyi değil,
+yeni bir hedef eklemeyi gerektirir.
+
+```bash
+cargo test -p tests --test <target>
+```
+
+Geri kalan her şey `justfile` üzerinden bağlanır. Komutları elle yeniden
+oluşturmak yerine onu okuyun.

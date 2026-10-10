@@ -1,0 +1,89 @@
+---
+title: 아키텍처
+description:
+  요청이 Kora 노드를 거쳐 처리되는 과정과 각 단계가 크레이트의 어디에 있는지 설명합니다. 첫 변경 작업을 하기 전에 이 문서부터 읽어 보세요.
+---
+
+Kora는 세 개의 크레이트로 구성된 Rust 워크스페이스입니다.
+
+- `kora-lib`는 핵심 로직과 RPC 서버를 담고 있고,
+- `kora-cli`는 운영자가 실행하는 `kora` 바이너리를 빌드하며,
+- `kora-deploy`는 별도로 버전 관리되는 프로그램 배포 전용 도구입니다.
+  별도 표기가 없는 한 아래의 모든 내용은 `crates/lib/src`에 있습니다.
+
+## 요청 라이프사이클
+
+아래 다이어그램은 Kora를 거치는 트랜잭션의 전반적인 흐름을 보여줍니다.
+호출 경로를 이해하는 것은 Kora 노드를 구성하고 새로운 기능을 추가하는 데
+중요합니다.
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## 각 단계의 위치
+
+| 다이어그램의 단계 | 소스                               | 진입점                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| 게이트웨이              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| 디스패치             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| 메서드별 로직     | `rpc_server/method/`                 | JSON-RPC 메서드당 파일 하나          |
+| 검증           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| 플러그인              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| 서명              | `signer/`                            | `solana-keychain` 크레이트 기반 |
+
+알아 두어야 할 파일이 두 개 더 있습니다. `config.rs`는 `kora.toml` 스키마 전체를 정의하고,
+`state.rs`는 역직렬화된 설정을 프로세스 전역 상태로 보관합니다.
+
+### RPC 서버 살펴보기
+
+`rpc.rs`는 JSON-RPC 엔드포인트마다 메서드 하나씩을 두는 얇은 디스패치 계층으로,
+전체 API를 가장 빠르게 파악할 수 있는 곳입니다. 각 메서드의 로직은
+`rpc_server/method/` 아래의 별도 파일에 있습니다. `sign_transaction.rs`를
+처음부터 끝까지 읽어 보세요. 다른 서명 메서드는 이를 변형한 것입니다.
+
+### 검증기 살펴보기
+
+`transaction_validator.rs`와 `transaction/instruction_util.rs`에는 트랜잭션과
+명령어를 검증하는 로직이 있습니다. 또한 fee-payer-policy 안전성 속성 테스트는
+`validator/transaction_validator/fee_payer_policy_props/` 아래에 게이트 대상
+프로그램당 파일 하나씩 위치합니다.
+
+## 알아 두면 좋은 규칙
+
+**기본 검증.** `[validation.fee_payer_policy]` 아래의 모든 플래그는
+기본값이 `false`이며, 정책 구조체에는 `#[serde(default)]`가 붙어 있습니다. 이 조합은
+의도된 것입니다. 새로 게이트된 명령어를 추가하더라도 기존 운영자의 설정이 깨져서는 안 되고,
+실수로 허용되는 것이 아니라 거부로 처리되어야 합니다. 플래그를 추가할 때는 두 가지를 모두 유지하세요.
+
+**원시 트랜잭션이 아니라 해석된(resolved) 트랜잭션을 검증하세요.** 원시
+`VersionedTransaction`은 정적 계정 키만 노출하므로, 이를 바탕으로 V0 트랜잭션을 검증하거나
+가격을 산정하면 조회 테이블(lookup table) 계정이 조용히 누락되어 수수료가 과소 청구됩니다.
+`VersionedTransactionResolved::from_transaction`은 이러한 주소를 미리 해석해 두며,
+그래서 이후의 모든 단계가 해석된 타입을 받습니다.
+
+## 트랜잭션 플러그인 추가하기
+
+플러그인은 `plugin/mod.rs`의 `TransactionPlugin` 트레이트를 구현합니다. 이 트레이트에는 두 가지
+메서드가 있습니다. `validate`는 서명 흐름 중 트랜잭션마다 실행되고,
+`validate_config`는 시작 시 한 번 실행되어 운영자에게 오류와 경고를 반환합니다.
+`PluginExecutionContext`는 네 가지 서명 메서드 중 어느 것이 플러그인을 호출했는지 알려 줍니다.
+
+`TransactionPluginRunner::from_config`는 `config.rs`에 정의된 `TransactionPluginType`에 대해
+매칭을 수행합니다. 새 내장 플러그인을 추가하려면 해당 enum에 새 variant를 추가하고
+러너에 새 match arm을 추가하면 됩니다. 현재 제공되는 플러그인은 `gas_swap`과
+`deploy_authority` 두 가지입니다.
+
+## 테스트
+
+Kora는 설정을 프로세스 전역 상태로 유지하므로, `tests/`에서는 단계마다 `[[test]]` 타겟을 하나씩 선언하며,
+각 타겟은 처음부터 시드된 자체 임베디드 surfnet과 Kora 노드를 부팅합니다. 바이너리당 설정은 하나입니다.
+새 단계가 필요하면 기존 타겟에 모듈을 추가하지 말고 새 타겟을 추가하세요.
+
+```bash
+cargo test -p tests --test <target>
+```
+
+그 외의 모든 것은 `justfile`로 연결되어 있습니다. 명령어를 직접 다시 구성하지 말고
+해당 파일을 참고하세요.

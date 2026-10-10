@@ -53,22 +53,19 @@ publicznych obserwatorów, ale nie anonimowość.
   Zarówno `@solana-program/token-2022` (JS), jak i `spl-token-client` (Rust)
   zapewniają pomocniki wysokiego poziomu, które budują dowody i sekwencjonują
   transakcje za Ciebie.
-- Poufne transfery obejmują obecnie kilka zależnych transakcji, ponieważ dowody
-  przekraczają obecny limit rozmiaru transakcji. Nadchodząca zmiana (format
-  transakcji v1, wdrażana wraz z Agave v4.2) podnosi ten limit i ma umożliwić
-  wykonanie poufnego transferu w ramach jednej transakcji onchain.
+- Transfery poufne historycznie obejmowały kilka zależnych transakcji,
+  ponieważ dowody przekraczały limit rozmiaru transakcji. Format transakcji v1
+  podnosi ten limit, co pozwala wykonać transfer poufny w jednej transakcji
+  onchain.
 - Portfel bez żadnego wsparcia nadal działa: wyświetla publiczne saldo i
   standardowe transfery działają normalnie. Poufne środki pozostają dostępne dla
   każdego klienta obsługującego poufność, który posiada klucze właściciela.
 
 ## Terminy
 
-- **ElGamal keypair**: per-konto keypair klucza publicznego używany do
-  szyfrowania sald i budowania dowodów ZK. Klucz publiczny jest przechowywany na
-  koncie.
-- **Klucz AES**: per-konto klucz symetryczny używany do szyfrowania
-  "odszyfrowanego dostępnego salda", dzięki czemu właściciel może odczytać swoje
-  dostępne saldo w stałym czasie, bez rozwiązywania dyskretnego logarytmu.
+- **ElGamal keypair**: keypair właściciela (klucz publiczny i prywatny) używany do szyfrowania sald
+  i tworzenia dowodów ZK. Klucz publiczny jest przechowywany na każdym skonfigurowanym koncie.
+- **Klucz AES**: symetryczny klucz właściciela używany do szyfrowania „salda dostępnego możliwego do odszyfrowania”, dzięki czemu właściciel może odczytać swoje dostępne saldo w stałym czasie, bez rozwiązywania logarytmu dyskretnego.
 - **Saldo oczekujące**: zaszyfrowane saldo środków otrzymanych poprzez depozyty
   lub przychodzące przelewy, które nie zostały jeszcze zastosowane. Nie można go
   bezpośrednio wydać.
@@ -111,14 +108,13 @@ dowodów oraz **klucza AES** do szybkiego odszyfrowywania salda. Sposób
 generowania i przechowywania tych kluczy jest kwestią integracji. Kilka typowych
 opcji:
 
-- **Wyprowadzenie z podpisu portfela (zalecane domyślnie).** Właściciel
-  podpisuje kanoniczny, domenowo separowany komunikat, a klucze są wyprowadzane
-  z tego podpisu — są więc odtwarzalne wyłącznie na podstawie portfela i nie
-  trzeba ich przechowywać. seed jest deterministyczny dla każdego konta:
-  poniższe helpery JS wiążą go z parą keypair `(owner, mint)`, natomiast
-  przykład w Rust używa adresu token account jako seed (dla associated token
-  account są one równoważne, ponieważ adres ten jest sam w sobie wyprowadzany z
-  właściciela i mint).
+- **Wyprowadzanie z podpisu portfela (zalecane domyślnie).** Właściciel podpisuje
+  kanoniczną wiadomość z separacją domeny, a klucze są wyprowadzane z tego
+  podpisu, dzięki czemu można je odtworzyć wyłącznie na podstawie portfela i nie
+  trzeba ich przechowywać. Standardowa derywacja wiąże klucze wyłącznie z głównym
+  portfelem i w ogóle nie przyjmuje seed, więc klienci nie mogą przypadkowo
+  wyprowadzić różnych kluczy: jeden portfel odpowiada jednemu ElGamal keypair
+  i jednemu kluczowi AES dla wszystkich mintów i token accounts.
 - **Wyprowadzenie z niezależnego materiału klucza.** W przypadku kluczy dostępu,
   bezpiecznych enklaw lub konfiguracji MPC wyprowadź klucze z wyjścia WebAuthn
   PRF lub innego wejściowego materiału klucza, aby poufne klucze nie były
@@ -133,43 +129,37 @@ Klient `@solana-program/token-2022` dostarcza helpery dla zalecanej ścieżki:
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  Klucze poufne są kluczami deszyfrującymi. Traktuj żądanie podpisania
-  komunikatu wyprowadzającego jak odblokowanie prywatnego podglądu sald
-  użytkownika. Preferuj wyprowadzanie kluczy na żądanie zamiast ich
-  przechowywania; jeśli je przechowujesz (np. w usłudze powierniczej), chroń je
-  z taką samą starannością jak klucze podpisujące.
+  Klucze poufne są kluczami deszyfrującymi. Traktuj prośbę o podpisanie wiadomości
+  derywacji jak odblokowanie prywatnego wglądu w salda użytkownika. Lepiej
+  wyprowadzać klucze na żądanie, niż je przechowywać; jeśli jednak je
+  przechowujesz (na przykład w usłudze powierniczej), chroń je równie
+  rygorystycznie jak klucze podpisujące. Portfele powinny udostępniać ten podpis
+  w ramach dedykowanego przepływu derywacji i odrzucać ogólne żądania
+  signMessage dotyczące wiadomości zaczynających się od `solana-conf-bal/v1`,
+  ponieważ ten podpis stanowi wejściowy materiał kluczowy dla kluczy
+  deszyfrujących użytkownika.
 </Callout>
 
 Pomocnicze funkcje derywacji zwracają zserializowany materiał klucza. Pomocnicze
@@ -183,10 +173,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## Tworzenie i konfigurowanie kont
@@ -338,13 +328,12 @@ klienta:
   poprawnymi nieujemnymi liczbami całkowitymi, co zapobiega tworzeniu wartości z
   niczego.
 
-Te dowody są większe niż pozwala na to aktualny limit rozmiaru transakcji dla
-danych inline, dlatego zwykłym wzorcem jest tworzenie **kont stanu kontekstu
-dowodu**, weryfikowanie każdego dowodu w nich, odwoływanie się do nich z
-instrukcji transferu, a następnie zamykanie ich w celu odzyskania rent. Obejmuje
-to kilka zależnych transakcji. Format transakcji v1 (wdrażany wraz z Agave v4.2)
-podnosi limit rozmiaru i ma umożliwić przeprowadzenie poufnego transferu w
-ramach jednej transakcji onchain, co uprości ten przepływ.
+Te dowody są większe, niż pozwala na to limit rozmiaru transakcji legacy i v0
+w wariancie inline, więc typowy wzorzec polega na utworzeniu **kont stanu kontekstu dowodu**,
+zweryfikowaniu w nich każdego dowodu, odwołaniu się do nich z instrukcji
+transferu, a następnie zamknięciu ich w celu odzyskania rent. Obejmuje to kilka
+zależnych transakcji. Format transakcji v1 podnosi ten limit, co pozwala wykonać
+transfer poufny w jednej transakcji onchain i upraszcza ten przepływ.
 
 Nie musisz samodzielnie składać dowodów. Oba klienty udostępniają
 wysokoopoziomowy helper, który buduje dowody i generuje instrukcje do
@@ -518,11 +507,13 @@ audytora, więc jako integrator nie musisz robić niczego szczególnego po stron
 wysyłania — wystarczy przekazać klucz audytora z konfiguracji minta
 (wysokopoziomowe narzędzia pomocnicze odczytują go automatycznie).
 
-Jeśli Twój produkt pełni rolę audytora (na przykład regulowany emitent lub
-dostawca usług zgodności), odszyfruj kwoty transferów za pomocą tajnego klucza
-audytora w taki sam sposób, w jaki właściciel odszyfrowuje własne saldo.
-Właściciele mogą również selektywnie udostępniać swoje klucze per-konto
-określonej stronie bez ich publicznego ujawniania.
+Jeśli Twoim produktem jest audytor (na przykład regulowany emitent lub dostawca
+usług compliance), odszyfrowujesz kwoty transferów kluczem tajnym audytora tak
+samo, jak właściciel odszyfrowuje własne saldo. Właściciele mogą także
+selektywnie udostępniać swoje klucze wybranej stronie bez ujawniania ich
+publicznie — jednak przy standardowej derywacji powiązanej z portfelem te same
+klucze obejmują wszystkie poufne salda właściciela, więc ich udostępnienie
+ujawnia każde konto poufne, a nie tylko jedno.
 
 ### Monitorowanie transakcji (KYT)
 
@@ -618,4 +609,4 @@ zmieniają to, co jest obserwowalne, a nie ogólny model:
 | Screening adresów i grafów   | Weryfikacja nadawców, odbiorców, emitentów i właścicieli oraz analiza grafu kontrahentów; dane pozostają publiczne.            | **P0**   |
 | Śledzenie publicznych wpłat/wypłat | Monitorowanie jawnych kwot wpłat i wypłat jako obserwowalnych punktów wejścia i wyjścia z puli poufnej. | **P0**   |
 | Widoczność kwot dla audytora | W przypadku mintów z włączonym kluczem audytora, deszyfrowanie kwot transferów przy użyciu klucza audytora w celu wykrywania na podstawie kwot.     | **P1**   |
-| Przyjmowanie selektywnych ujawnień   | Obsługa ujawnień kwot udostępnianych przez użytkowników lub emitentów za pomocą kluczy per konto.                                      | **P2**   |
+| Przyjmowanie selektywnych ujawnień   | Obsługa ujawnień kwot udostępnianych przez użytkowników lub emitentów za pomocą kluczy właściciela.                                      | **P2**   |

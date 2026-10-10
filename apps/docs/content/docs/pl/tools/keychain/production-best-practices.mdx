@@ -1,7 +1,7 @@
 ---
 title: Najlepsze praktyki produkcyjne
 description:
-  Bezpieczna obsługa backendów podpisujących Keychain w środowisku produkcyjnym — separacja obowiązków, rotacja kluczy, dostęp z minimalnymi uprawnieniami, dostępność, bezpieczeństwo transportu, monitorowanie i audyt.
+  "Bezpieczna obsługa backendów podpisywania Keychain w środowisku produkcyjnym: rozdział obowiązków, rotacja kluczy, dostęp zgodny z zasadą najmniejszych uprawnień, dostępność, bezpieczeństwo transportu, monitorowanie i audyt."
 related:
   - /docs/tools/keychain/choosing-a-backend
   - /docs/tools/production-readiness
@@ -29,21 +29,43 @@ używane w sieci mainnet.
 
 ## Przyznawaj dostęp z minimalnymi uprawnienieniami
 
-Ogranicz poświadczenia każdego backendu do minimum niezbędnego do podpisywania. W przypadku AWS KMS
-są to `kms:Sign` i `kms:DescribeKey` dla konkretnego klucza; preferuj role IAM
-zamiast statycznych poświadczeń. Stosuj tę samą zasadę do polityk Vault i zarządzanych
-kluczy API portfela.
+Ogranicz poświadczenia każdego backendu do minimum potrzebnego do podpisywania. W przypadku AWS KMS
+są to `kms:Sign`, `kms:DescribeKey` i `kms:GetPublicKey` dla konkretnego klucza
+(sprawdzanie dostępności korzysta z dwóch ostatnich); preferuj role IAM zamiast statycznych
+poświadczeń. Zastosuj tę samą zasadę do polityk Vault i kluczy API zarządzanych
+portfeli.
 
 ## Planuj dostępność
 
-Zdalne backendy zależą od usługi sieciowej. Wywołaj `isAvailable()` przed poleganiem
-na sygnatariuszu, stosuj ponawianie prób z opóźnieniem przy przejściowych błędach i zdefiniuj
-ścieżkę awaryjną na wypadek awarii. Keychain wymusza HTTPS dla zdalnych backendów i
-stosuje domyślny limit czasu żądania.
+Zdalne backendy zależą od usługi sieciowej. Sprawdź dostępność, zanim zaczniesz polegać
+na podpisującym (`isAvailable()` w TypeScript, `is_available()` w Rust i Pythonie,
+`IsAvailable(ctx)` w Go), ponawiaj próby po błędach w backendach tylko podpisujących, stosując backoff, i zdefiniuj
+awaryjną ścieżkę na wypadek przerw w działaniu. Nie ponawiaj bezrefleksyjnie prób w backendzie rozgłaszającym
+(Crossmint, natywny tryb auto Fordefi): zobacz
+[Obsługa niepotwierdzonych rozgłoszeń](#handle-unconfirmed-broadcasts). Keychain
+wymusza HTTPS dla skonfigurowanych bazowych adresów URL, odrzuca przekierowania i stosuje domyślny
+limit czasu żądania.
+
+## Obsługa niepotwierdzonych rozgłoszeń
+
+Crossmint i natywny tryb auto Fordefi podpisują i rozgłaszają transakcje po stronie serwera, więc
+nieudane wywołanie nie oznacza, że transakcja nie dotarła do sieci. Gdy dostawca mógł przyjąć
+transakcję, Keychain zgłasza `BROADCAST_UNCONFIRMED`
+(`SignerError::BroadcastUnconfirmed` w Rust). Błąd zawiera identyfikator transakcji
+dostawcy, jeśli utworzenie zostało przyjęte, oraz zawsze klucz idempotentności,
+z którym wysłano żądanie utworzenia, wyprowadzony z wiadomości.
+
+- Zanim zrobisz cokolwiek innego, uzgodnij stan z dostawcą, używając identyfikatora transakcji.
+- Ponowne wysłanie identycznej bajt po bajcie transakcji jest bezpieczne: klucz idempotentności
+  deduplikuje ją.
+- Przebudowanie transakcji (na przykład z nowym blockhashem) tworzy nowy klucz
+  i tym samym nowy transfer.
 
 ## Chroń sekrety i transport
 
-- Wszystkie zdalne backendy komunikują się przez HTTPS; punkty końcowe inne niż HTTPS są odrzucane.
+- Zdalne backendy wymuszają HTTPS dla skonfigurowanych bazowych adresów URL i odrzucają przekierowania.
+  Jedynym wyjątkiem jest Vault, który akceptuje zwykły HTTP na interfejsie loopback, dzięki czemu lokalne
+  `vault server -dev` działa.
 - Dostarczaj klucze API, tokeny i poświadczenia z menedżera sekretów lub zmiennych
   środowiskowych — nigdy nie koduj ich na stałe ani nie umieszczaj w kontroli wersji.
 - Keychain oczyszcza odpowiedzi błędów, aby uniknąć wycieków sekretów do logów; dbaj o to,
@@ -56,3 +78,20 @@ zapoznaj się z metrykami w
 [Production Readiness](/docs/tools/production-readiness#monitoring). Włącz
 logi audytu po stronie dostawcy (KMS, Vault lub powiernik) i uzgadniaj je z
 transakcjami przesyłanymi przez Twoją aplikację.
+
+## Co sprawdza Keychain
+
+- Keychain weryfikuje etap podpisywania, a nie samą transakcję: nie ma
+  symulacji, sprawdzania zawartości transakcji ani silnika polityk. Egzekwuj to
+  w swojej aplikacji lub w mechanizmach polityk dostawcy.
+- Natywny tryb manualny Fordefi przepisuje transakcję (blockhash, instrukcje opłat
+  Compute Budget) przed jej podpisaniem. Kontynuuj od zwróconej transakcji,
+  a nie tej, którą przesłałeś, i uruchom ją przed jakimkolwiek innym podpisującym.
+- Rust zeruje pośrednie bufory kluczy; Python i Go tego nie potrafią. Przy backendzie Memory
+  w tych językach traktuj całą pamięć procesu jako wrażliwą.
+- W przypadku Ledgera ekran urządzenia jest jedynym wiarygodnym opisem tego, co
+  jest podpisywane. Nie włączaj funkcji `unsafe-debug` ani logowania `TRACE` dla
+  `solana_remote_wallet` w środowisku produkcyjnym, ponieważ oba zapisują w logach szczegóły urządzenia i transakcji.
+
+Pełny obraz znajdziesz w
+[modelu bezpieczeństwa](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md).

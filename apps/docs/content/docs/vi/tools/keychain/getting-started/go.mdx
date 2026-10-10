@@ -1,0 +1,486 @@
+---
+title: Go
+description: Cài đặt và sử dụng solana-keychain trong các ứng dụng Go
+---
+
+2.0.0 là bản phát hành ổn định đầu tiên của các module Go, vì vậy không có gì cần
+migrate. [Hướng dẫn migrate lên 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)
+đề cập đến cách phân tách capability tương tự cho Rust và TypeScript.
+
+## Cài đặt
+
+Mỗi backend là một Go module riêng, nên bản build và đồ thị module của bạn chỉ
+chứa các backend mà bạn import:
+
+```shell
+go get github.com/solana-foundation/solana-keychain/go/core/v2                # Interfaces, errors, helpers
+go get github.com/solana-foundation/solana-keychain/go/signers/memory/v2      # Local keypair signer
+go get github.com/solana-foundation/solana-keychain/go/signers/vault/v2       # HashiCorp Vault
+go get github.com/solana-foundation/solana-keychain/go/signers/awskms/v2      # AWS KMS
+go get github.com/solana-foundation/solana-keychain/go/signers/gcpkms/v2      # GCP KMS
+go get github.com/solana-foundation/solana-keychain/go/signers/privy/v2       # Privy
+go get github.com/solana-foundation/solana-keychain/go/signers/turnkey/v2     # Turnkey
+go get github.com/solana-foundation/solana-keychain/go/signers/fireblocks/v2  # Fireblocks
+go get github.com/solana-foundation/solana-keychain/go/signers/cdp/v2         # Coinbase Developer Platform
+go get github.com/solana-foundation/solana-keychain/go/signers/crossmint/v2   # Crossmint
+go get github.com/solana-foundation/solana-keychain/go/signers/dfns/v2        # Dfns
+go get github.com/solana-foundation/solana-keychain/go/signers/openfort/v2    # Openfort
+go get github.com/solana-foundation/solana-keychain/go/signers/para/v2        # Para
+go get github.com/solana-foundation/solana-keychain/go/signers/utila/v2       # Utila
+go get github.com/solana-foundation/solana-keychain/go/signers/fordefi/v2     # Fordefi
+```
+
+Các module được gắn tag `go/<module>/v2.0.0` (ví dụ
+`go/signers/memory/v2.0.0`). Mọi module đều yêu cầu Go 1.25.0, ngoại trừ `gcpkms`,
+yêu cầu Go 1.25.8 do mức tối thiểu mà `google.golang.org/api` đặt ra.
+Ledger chỉ có trên Rust và không có Go module.
+
+### Giao dịch solana-go v2 và v1
+
+Các module được xây dựng trên
+[`github.com/solana-foundation/solana-go/v2`](https://github.com/solana-foundation/solana-go)
+v2.0.0 và nhận `*solana.Transaction` của nó. Các giao dịch legacy, v0 và v1
+(`solana.MessageVersionV1`) đều được hỗ trợ, ngoại trừ Fireblocks với
+`UseProgramCall: true`, chỉ chấp nhận legacy và v0.
+
+## Cách sử dụng cơ bản
+
+Mọi signer đều triển khai
+[interface `core.SolanaSigner`](https://pkg.go.dev/github.com/solana-foundation/solana-keychain/go/core/v2#SolanaSigner) cơ sở
+(`Pubkey`, `SignMessage`, `IsAvailable`). Các phương thức nhận một `context.Context` và
+chặn (block). Mỗi backend cũng triển khai đúng một interface capability:
+
+- `core.TransactionSigner`: `SignTransaction` ký giao dịch của bạn đúng như được cung cấp.
+- `core.ModifyingSigner`: `ModifyAndSignTransaction` cho phép nhà cung cấp ghi lại
+  giao dịch, sau đó ký nó.
+- `core.SendingSigner`: `SignAndSendTransaction` để nhà cung cấp ký và
+  broadcast giao dịch.
+
+Mỗi package backend cung cấp một struct `Config` và một constructor `New`:
+
+```go
+import (
+	"context"
+	"fmt"
+
+	"github.com/solana-foundation/solana-go/v2"
+	"github.com/solana-foundation/solana-keychain/go/core/v2"
+	"github.com/solana-foundation/solana-keychain/go/signers/memory/v2"
+)
+
+func signWithKeychain(ctx context.Context, tx *solana.Transaction) error {
+	signer, err := memory.New(memory.Config{PrivateKeyPath: "/path/to/id.json"})
+	if err != nil {
+		return err
+	}
+
+	if !signer.IsAvailable(ctx) {
+		return core.NewSignerError(core.CodeNotAvailable, "signer offline")
+	}
+
+	result, err := signer.SignTransaction(ctx, tx)
+	if err != nil {
+		return err
+	}
+	fmt.Println("signature:", result.Signature)
+	fmt.Println("complete:", result.IsComplete())
+	// result.EncodedTransaction is the base64 wire transaction
+	return nil
+}
+```
+
+`SignTransaction` và `ModifyAndSignTransaction` trả về một
+`core.SignedTransaction` (`EncodedTransaction`, `Signature`, `Completeness`).
+Các backend HTTP từ xa chấp nhận `HTTPClient` và `HTTPClientConfig` tùy chọn
+(timeout). Client mặc định bắt buộc dùng HTTPS; nếu bạn tự cung cấp client thì điều đó sẽ bị bỏ qua,
+và bạn tự chịu trách nhiệm về mức độ bảo mật của nó.
+
+### Capability của Signer
+
+Một backend không thể ký giao dịch sẽ hoàn toàn không có phương thức `SignTransaction`,
+vì vậy capability là một thực tế tại thời điểm biên dịch đối với các kiểu cụ thể và là một
+type assertion đối với `core.SolanaSigner`:
+
+| Backend                                                                         | Capability          | `SignMessage`                  |
+| ------------------------------------------------------------------------------- | ------------------- | ------------------------------ |
+| memory, vault, privy, turnkey, awskms, gcpkms, fireblocks, dfns, para, openfort | `TransactionSigner` | Có                            |
+| cdp                                                                             | `TransactionSigner` | Chỉ payload UTF-8            |
+| utila                                                                           | `TransactionSigner` | Thất bại với `CodeSigningFailed` |
+| fordefi black box (`fordefi.BlackBoxSigner`)                                    | `TransactionSigner` | Có                            |
+| fordefi native manual (`fordefi.NativeManualSigner`)                            | `ModifyingSigner`   | Có                            |
+| fordefi native auto (`fordefi.NativeAutoSigner`)                                | `SendingSigner`     | Có                            |
+| crossmint                                                                       | `SendingSigner`     | Thất bại với `CodeSigningFailed` |
+
+```go
+switch s := signer.(type) {
+case core.SendingSigner:
+	sig, err := s.SignAndSendTransaction(ctx, tx)
+case core.ModifyingSigner:
+	signed, err := s.ModifyAndSignTransaction(ctx, tx)
+case core.TransactionSigner:
+	signed, err := s.SignTransaction(ctx, tx)
+}
+```
+
+### Khởi tạo
+
+Không có bước `Init` riêng. Privy, Fireblocks, Dfns, Crossmint, Para,
+Openfort và Utila xác định địa chỉ ví bên trong `New`, đó là lý do các
+constructor của chúng nhận một `context.Context`. Luôn tạo signer thông qua `New`: một
+signer Crossmint, Para hoặc Utila ở giá trị zero sẽ thất bại với `CodeNotInitialized`
+thay vì ký cho địa chỉ zero.
+
+### Ký và gửi với bất kỳ Signer nào
+
+`core.SignAndSendTransaction` đưa một giao dịch lên chain bất kể hình thức của
+signer. Một `SendingSigner` broadcast thông qua nhà cung cấp của nó và bỏ qua hàm
+gửi; mọi hình thức khác sẽ ký và hàm của bạn broadcast kết quả base64,
+với `ModifyingSigner` thì đó là giao dịch mà nhà cung cấp đã ghi lại.
+Core không phụ thuộc vào RPC:
+
+```go
+import "github.com/solana-foundation/solana-go/v2/rpc"
+
+client := rpc.New("https://api.devnet.solana.com")
+
+sig, err := core.SignAndSendTransaction(ctx, signer, tx,
+	func(ctx context.Context, encoded string) (solana.Signature, error) {
+		return client.SendEncodedTransaction(ctx, encoded)
+	})
+```
+
+### Ký hàng loạt
+
+Ký hàng loạt được cung cấp dưới dạng các helper độc lập, chạy đồng thời với độ trễ
+tùy chọn giữa mỗi yêu cầu dành cho các API bị giới hạn tốc độ:
+
+```go
+sigs, err := core.SignMessages(ctx, signer, [][]byte{msg1, msg2}, core.BatchOptions{
+	MaxConcurrency: 4, // 0 = unbounded
+	RequestDelay:   50 * time.Millisecond,
+})
+
+signed, err := core.SignTransactions(ctx, signer, txs, core.BatchOptions{})
+```
+
+`core.SignTransactions` nhận một `core.TransactionSigner`, vì vậy các
+signer do broadcast quản lý (Crossmint, Fordefi native auto) và Fordefi native
+manual không thể được xử lý hàng loạt qua nó; hãy gọi từng giao dịch một. Một
+signer mà các lệnh gọi của nó tạo ra công việc phía nhà cung cấp (Fireblocks với `UseProgramCall`)
+sẽ báo cáo điều đó thông qua `core.BatchServerSideEffects`, và khi đó lô sẽ chạy
+tuần tự.
+
+## Cấu hình Backend
+
+### Memory
+
+Cung cấp đúng một trong các tùy chọn `PrivateKey` (byte thô), `PrivateKeyString` (base58 hoặc
+mảng byte `[1,2,...]`) hoặc `PrivateKeyPath` (tệp keypair của Solana CLI):
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/memory/v2"
+
+signer, err := memory.New(memory.Config{
+	PrivateKeyPath: "/path/to/id.json",
+})
+```
+
+Go không có cách đáng tin cậy để xóa trắng bộ nhớ: bộ thu gom rác có thể sao chép và
+giữ lại các byte khóa (keypair trong memory, cùng các khóa mà Crossmint và Openfort tạo ra
+cục bộ) cho đến khi được thu gom. Hãy coi toàn bộ bộ nhớ của tiến trình là nhạy cảm khi
+sử dụng các backend khóa cục bộ.
+
+### HashiCorp Vault
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/vault/v2"
+
+signer, err := vault.New(vault.Config{
+	VaultAddr: "https://vault.example.com:8200",
+	Token:     "hvs.xxxxx",
+	KeyName:   "my-solana-key",
+	Pubkey:    "base58_public_key",
+})
+```
+
+### AWS KMS
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/awskms/v2"
+
+signer, err := awskms.New(ctx, awskms.Config{
+	KeyID:     "alias/my-solana-key",
+	PublicKey: "base58_public_key",
+	Region:    "us-east-1", // optional
+})
+```
+
+### GCP KMS
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/gcpkms/v2"
+
+signer, err := gcpkms.New(ctx, gcpkms.Config{
+	KeyName:   "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+	PublicKey: "base58_public_key",
+})
+if err != nil {
+	return err
+}
+defer signer.Close()
+```
+
+### Privy
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/privy/v2"
+
+signer, err := privy.New(ctx, privy.Config{
+	AppID:     "app_id",
+	AppSecret: "app_secret",
+	WalletID:  "wallet_id",
+})
+```
+
+### Turnkey
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/turnkey/v2"
+
+signer, err := turnkey.New(turnkey.Config{
+	APIPublicKey:   "api_public_key",
+	APIPrivateKey:  "api_private_key",
+	OrganizationID: "org_id",
+	PrivateKeyID:   "private_key_id",
+	PublicKey:      "base58_public_key",
+})
+```
+
+### Fireblocks
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/fireblocks/v2"
+
+signer, err := fireblocks.New(ctx, fireblocks.Config{
+	APIKey:         "api_key",
+	PrivateKeyPEM:  "-----BEGIN RSA PRIVATE KEY-----\n...",
+	VaultAccountID: "0",
+	AssetID:        "SOL",  // or "SOL_TEST" for devnet
+	UseProgramCall: false, // true signs via sign-only PROGRAM_CALL (legacy/v0, hot wallet)
+})
+```
+
+### CDP (Coinbase Developer Platform)
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/cdp/v2"
+
+signer, err := cdp.New(cdp.Config{
+	APIKeyID:     "api_key_id",
+	APIKeySecret: "api_key_secret", // base64 Ed25519
+	WalletSecret: "wallet_secret",  // base64 PKCS#8 DER
+	Address:      "base58_address",
+	Network:      cdp.NetworkMainnet, // or cdp.NetworkDevnet; required for address lookup tables
+})
+```
+
+`SignMessage` của CDP chỉ chấp nhận payload UTF-8.
+
+### Crossmint
+
+Crossmint chỉ hỗ trợ gửi: API của nó thực thi mọi giao dịch đã được phê duyệt
+ở phía máy chủ, vì vậy `*crossmint.Signer` có `SignAndSendTransaction` và không có
+`SignTransaction`. Giao dịch của bạn không bao giờ bị sửa đổi; chữ ký được trả về
+xác định giao dịch mà Crossmint đã đưa lên chain, có thể khác với giao dịch của bạn nếu
+Crossmint tài trợ phí gas.
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/crossmint/v2"
+
+signer, err := crossmint.New(ctx, crossmint.Config{
+	APIKey:        "api_key",
+	WalletLocator: "wallet_locator",
+	SignerSecret:  "", // optional xmsk1_ secret: auto-approves what Crossmint presents
+})
+
+sig, err := signer.SignAndSendTransaction(ctx, tx)
+```
+
+### Dfns
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/dfns/v2"
+
+signer, err := dfns.New(ctx, dfns.Config{
+	AuthToken:     "auth_token",
+	CredID:        "cred_id",
+	PrivateKeyPEM: "-----BEGIN EC PRIVATE KEY-----\n...",
+	WalletID:      "wallet_id",
+})
+```
+
+### Openfort
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/openfort/v2"
+
+signer, err := openfort.New(ctx, openfort.Config{
+	SecretKey:    "sk_live_...",
+	AccountID:    "acc_...",
+	WalletSecret: "wallet_secret", // base64 PKCS#8 DER or PEM
+})
+```
+
+### Para
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/para/v2"
+
+signer, err := para.New(ctx, para.Config{
+	APIKey:   "sk_...",
+	WalletID: "wallet_id",
+})
+```
+
+### Utila
+
+Utila chỉ ký giao dịch; `SignMessage` sẽ thất bại, và bạn tự broadcast giao dịch
+đã ký.
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/utila/v2"
+
+signer, err := utila.New(ctx, utila.Config{
+	ServiceAccountEmail:         "sa@example.com",
+	ServiceAccountPrivateKeyPEM: "-----BEGIN PRIVATE KEY-----\n...",
+	VaultID:                     "vault_id",
+	WalletID:                    "wallet_id",
+	Network:                     "networks/solana-devnet",
+})
+```
+
+### Fordefi
+
+Fordefi có ba loại signer, được cố định khi khởi tạo bởi `Config.Chain` và
+`Config.PushMode`. Cả ba đều ký được message:
+
+| Config                                          | Kiểu                          | Điểm vào                |
+| ----------------------------------------------- | ----------------------------- | -------------------------- |
+| `Chain` không đặt                                   | `*fordefi.BlackBoxSigner`     | `SignTransaction`          |
+| `Chain` được đặt, `PushMode` không đặt hoặc `PushModeAuto` | `*fordefi.NativeAutoSigner`   | `SignAndSendTransaction`   |
+| `Chain` được đặt, `PushMode: PushModeManual`         | `*fordefi.NativeManualSigner` | `ModifyAndSignTransaction` |
+
+`fordefi.New` điều phối dựa trên config và trả về một `core.SolanaSigner`;
+`fordefi.NewBlackBox`, `fordefi.NewNativeAuto` và `fordefi.NewNativeManual`
+trả về kiểu cụ thể và từ chối config của các chế độ khác. Các yêu cầu API được
+xác thực bằng chữ ký yêu cầu ECDSA P-256: cung cấp đúng một trong
+`PrivateKeyPEM`, hoặc một `RequestSigner` để giữ khóa đó trong KMS/HSM.
+
+**Chế độ native auto**: Fordefi có thể thay thế blockhash và phí, sau đó ký và
+broadcast. Chế độ này chỉ chấp nhận giao dịch chưa ký mà signer bắt buộc duy nhất
+là vault.
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/fordefi/v2"
+
+signer, err := fordefi.NewNativeAuto(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_PUBLIC_KEY"), // Solana vault address (base58)
+	PrivateKeyPEM: string(pemBytes),
+	Chain:         fordefi.ChainSolanaDevnet, // or fordefi.ChainSolanaMainnet
+	Fee: &fordefi.Fee{
+		Type:          fordefi.FeeTypePriority,
+		PriorityLevel: fordefi.PriorityMedium,
+	},
+})
+
+sig, err := signer.SignAndSendTransaction(ctx, tx)
+```
+
+**Chế độ native manual**: đặt `PushMode: fordefi.PushModeManual`. Fordefi ghi lại
+message (recent blockhash, các instruction phí Compute Budget) và ký nó
+mà không broadcast. `ModifyAndSignTransaction` thay thế `tx` bằng
+giao dịch mà Fordefi đã ký: hãy luôn tiếp tục từ giao dịch đó. Fordefi phải là bên
+trả phí và phải ký trước bất kỳ signer bắt buộc nào khác, vì việc ghi lại sẽ vô hiệu hóa
+các chữ ký hiện có. Việc ghi lại không được so sánh khác biệt (diff), vì vậy hãy kiểm tra kết quả trước khi
+broadcast.
+
+```go
+signer, err := fordefi.NewNativeManual(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_PUBLIC_KEY"),
+	PrivateKeyPEM: string(pemBytes),
+	Chain:         fordefi.ChainSolanaDevnet,
+	PushMode:      fordefi.PushModeManual,
+})
+
+signed, err := signer.ModifyAndSignTransaction(ctx, tx)
+```
+
+**Chế độ black box**: để `Chain` không đặt. Fordefi ký đúng các byte message của bạn
+và không broadcast. Hãy dùng chế độ này với vault black box của Fordefi.
+
+```go
+signer, err := fordefi.NewBlackBox(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_BB_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_BB_PUBLIC_KEY"),
+	PrivateKeyPEM: string(pemBytes),
+})
+```
+
+## Vì sao không có Umbrella Package
+
+Rust có enum `Signer` và TypeScript có `createKeychainSigner`; Go
+chủ ý không có cả hai. Go không loại bỏ dead code xuyên qua một câu lệnh switch điều phối
+lúc chạy, vì vậy một umbrella sẽ buộc SDK nhà cung cấp của mọi backend (AWS, GCP
+và các backend còn lại) vào bản build của mọi consumer. Việc import package backend mà bạn
+cần chính là cách chọn. Để chọn backend lúc chạy, hãy viết switch trong code của bạn
+chỉ trên các backend bạn hỗ trợ, và giữ kết quả dưới dạng một
+`core.SolanaSigner`.
+
+## Xử lý lỗi
+
+Mọi lỗi đều là một `*core.SignerError` với `Code` ổn định (`CodeConfigError`,
+`CodeHTTPError`, `CodeRemoteAPIError`, `CodeSigningFailed`,
+`CodeNotInitialized`, `CodeBroadcastUnconfirmed` và các mã khác). `Error()` chỉ trả về
+một thông báo cố định cho mỗi mã, không bao giờ chứa key material hay phản hồi thô của nhà cung cấp.
+Đối chiếu bằng `errors.As`, `errors.Is(err, &core.SignerError{Code: ...})` hoặc
+`core.CodeOf(err)`.
+
+Với Crossmint và chế độ native auto của Fordefi, một lỗi không có nghĩa là chưa có gì
+được đưa lên chain. Khi nhà cung cấp có thể đã chấp nhận giao dịch, mã sẽ là
+`core.CodeBroadcastUnconfirmed` (`"SIGNER_BROADCAST_UNCONFIRMED"`).
+`ProviderTxID` được đặt khi yêu cầu tạo đã được chấp nhận, và `IdempotencyKey` mang
+khóa được dẫn xuất từ message. Gửi lại giao dịch giống hệt từng byte là
+an toàn; một giao dịch được dựng lại (ví dụ với blockhash mới) là một lần chuyển mới.
+`core.SignAndSendTransaction` cũng báo cáo mã này khi hàm gửi của bạn
+thất bại, kèm chữ ký của bên trả phí trong `TransactionSignature`. Fireblocks
+PROGRAM_CALL chỉ ký và không gửi khóa; nó chỉ báo cáo mã này khi một lần
+poll cho thấy Fireblocks đã broadcast.
+
+```go
+sig, err := core.SignAndSendTransaction(ctx, signer, tx, send)
+var se *core.SignerError
+if errors.As(err, &se) && se.Code == core.CodeBroadcastUnconfirmed {
+	// Reconcile se.ProviderTxID, se.IdempotencyKey or se.TransactionSignature
+	// with the provider before retrying.
+}
+```
+
+Xem
+[mô hình bảo mật](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+để biết mỗi hình thức ký đảm bảo điều gì,
+[Go README](https://github.com/solana-foundation/solana-keychain/blob/main/go/README.md)
+để xem danh sách module đầy đủ, và
+[pkg.go.dev](https://pkg.go.dev/github.com/solana-foundation/solana-keychain/go/core/v2)
+để tham khảo API.
+
+## Thêm Signer tùy chỉnh
+
+Triển khai `core.SolanaSigner` cộng với đúng một interface capability, và đừng thêm
+phương thức nào mà backend của bạn không thể đảm bảo: bên gọi phát hiện capability bằng type assertion.
+Xem [hướng dẫn Thêm Signer](/docs/tools/keychain/adding-signers) để tích hợp
+các dịch vụ quản lý khóa bổ sung.

@@ -1,0 +1,227 @@
+---
+title: 撤销交易
+description:
+  使用 Reclaim 取回一侧交易腿，使用 Cancel 或 Reject 撤销交易，并使用 Recover 找回交易关闭后才到账的存款。
+seoTitle: 在 Solana 上撤销 DvP 交易
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+有四条指令可以在不结算的情况下退还资金：交易未关闭时可使用 Reclaim、Cancel 和 Reject，交易关闭后到账的存款则使用 Recover。这些指令都不会检查到期时间。冻结的托管账户或被更改的 mint 仍可能锁住某一侧交易腿，详见文末说明。
+
+| 指令  | 签名者               | 作用范围                         | 之后的交易状态 |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` 或 `user_b` | 签名者自己的交易腿          | 仍处于开放状态       |
+| `CancelDvp`  | 结算授权方 | 双方交易腿                     | 已关闭           |
+| `RejectDvp`  | `user_a` 或 `user_b` | 双方交易腿                     | 已关闭           |
+| `RecoverDvp` | `user_a` 或 `user_b` | 关闭后，签名者的交易腿 | 此前已关闭   |
+
+在每种情况下，托管账户中的全部余额都会退还给该交易腿所属的一方：托管 A 退至 `user_a` 用于 `mint_a` 的 token account，托管 B 退至 `user_b` 用于 `mint_b` 的 token account，无论由谁出资。对于要求附带备注的退款账户，需要提供 memo program account。
+
+本页承接前面的步骤：沿用[创建交易](/docs/defi/dvp-program/create-a-trade)中的客户端和签名者、[为交易腿注资](/docs/defi/dvp-program/fund-the-legs)中的 `userAAtaA` 和 `userBAtaB`，以及[结算交易](/docs/defi/dvp-program/settle-the-trade)中的 `MEMO_PROGRAM_ID` 和 `authority`。
+
+## 取回一侧交易腿
+
+Reclaim 会退还签名者的交易腿并保持交易开放，因此该交易腿之后可以重新注资。当问题出在对手方的交易腿上时，请使用它；Cancel 和 Reject 则会关闭整笔交易。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## 取消或拒绝
+
+Cancel 由结算授权方签名，Reject 由任一交易方签名。两者都会把每个托管账户中的余额退还给对应交易腿所属的一方，并关闭交易记录和两个托管账户，关闭账户所释放的 rent 归签名者所有。这两条指令使用相同的账户，只有签名者不同。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+凡是持有余额的交易腿，其退款账户（`userAAtaA`、`userBAtaB`）都必须已存在；未初始化的退款账户会导致代币转账失败，并使指令回滚。从未注资的交易腿无需转账，因此允许账户缺失。
+
+## 找回延迟到账的存款
+
+Settle、Cancel 和 Reject 都会关闭两个托管 token account，因此直接向已关闭的托管账户转账会失败。只有在有操作先重新创建了托管账户的情况下，存款才会在关闭之后到账，例如：某笔注资交易在转账之前包含一条幂等创建 associated token account 的指令，并且在对手方发送 Reject 时仍在途中。此时代币会留在一个所属交易已不存在的托管账户中：交易记录已消失，所以 Reclaim 无法找到它，而 nonce 墓碑标记则会阻止在同一地址上创建新交易并截取这笔存款。
+
+要使用 `RecoverDvp`，交易腿所属的一方需提供最初的 seed 输入（结算授权方、双方交易方、两个 mint 以及 nonce）。程序会重新推导交易记录地址，要求其墓碑标记作为该交易曾经存在的证明，把托管账户中的余额转入签名者自己的 token account 并关闭该托管账户，同时把托管账户的 rent 退还给签名者。签名者对应的交易腿由签名方决定：`user_a` 对应 `mint_a`，`user_b` 对应 `mint_b`。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+能否恢复取决于交易方是否保留了创建参数。为交易注资的系统应为每笔订单保存 seed 输入，直到交易关闭且已确认托管账户余额为空。
+
+## 说明
+
+- **冻结的交易腿。** 对于受限的 mint，被冻结的托管账户会阻止这些指令执行代币转账，直到冻结权限方解冻为止。请参阅[概览](/docs/defi/dvp-program#mint-configuration-constraints)。
+- **创建后 mint 发生变更。** 撤销路径会跳过扩展和 mint 权限检查，以免程序自身的检查阻碍恢复。token program 自身的规则仍然适用。mint 只有在供应量为零时才能关闭，因此托管账户中存有余额时它不会发生变化；但如果某个 mint 在延迟存款到账之前被关闭，并重新创建为 NonTransferable 或带有转账手续费的 mint，则这笔存款可能无法转移或需要扣除手续费。这就是[支持的代币](/docs/defi/dvp-program#supported-tokens)中列出的 mint 权限依赖。
+
+## 后续步骤
+
+- [DvP 程序](/docs/defi/dvp-program)：概览、支持的代币以及 mint 配置约束
+- [使用委托实现券款对付（DvP）](/docs/tokenization/dvp)：通过委托授权完成相同的交换，无需程序

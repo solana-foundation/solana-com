@@ -28,30 +28,29 @@ y la [guía de la extensión Transfer Hook](/docs/tokens/extensions/transfer-hoo
 esta guía se centra en lo que un cliente necesita hacer para enviar, recibir y simular
 transferencias de un token con hook habilitado de forma correcta.
 
-A diferencia de la mayoría de las otras extensiones de Token-2022, un transfer hook no es opcional a nivel de
-cuenta. Si un mint tiene un transfer hook configurado, **cada transferencia de
-ese token requiere las cuentas adicionales del hook**, independientemente de si tu producto
-hace algo con la lógica del hook. Un cliente que no resuelve esas
+A diferencia de la mayoría de las demás extensiones de Token-2022, un transfer hook no es opcional a nivel de
+cuenta. Si un mint tiene configurado un transfer hook, **cada transferencia de
+ese token requiere las cuentas adicionales del hook**, independientemente de que tu producto
+haga algo con la lógica del hook o no. Un cliente que no resuelva esas
 cuentas no puede enviar el token en absoluto; la instrucción de transferencia falla onchain, no
-omite el hook silenciosamente. Las funciones completas para añadir a tu flujo de envío
-se encuentran en
-[Enviar un token con transfer hook](#sending-a-transfer-hook-token) más abajo, tanto para
-Kit como para Web3.js.
+omite el hook silenciosamente. Las funciones completas que debes incorporar a tu flujo de envío para esto se encuentran en
+[Envío de un token con transfer hook](#sending-a-transfer-hook-token) más abajo, para Kit,
+web3.js v3 y web3.js legacy.
 
 ### Recursos
 
 - [Referencia de Transfer Hook Interface](https://www.solana-program.com/docs/transfer-hook-interface)
 - [Código Rust de la extensión](https://github.com/solana-program/token-2022/tree/main/program/src/extension/transfer_hook)
 - [Cliente JS `@solana-program/token-2022`](https://github.com/solana-program/token-2022/tree/main/clients/js)
-  el cliente basado en Kit, recomendado para nuevas integraciones. Resolución nativa de transfer hook
-  mediante `getTransferCheckedWithTransferHookInstructionAsync` y los helpers de más bajo nivel
-  `resolveExtraAccountMetasForExecute` /
-  `findExtraAccountMetaListPda`.
+  el cliente basado en Kit, recomendado para nuevas integraciones y el que utiliza el código de web3.js
+  v3. Resolución nativa de transfer hooks mediante
+  `getTransferCheckedWithTransferHookInstructionAsync` junto con los helpers de más bajo nivel
+  `resolveExtraAccountMetasForExecute` / `findExtraAccountMetaListPda`.
 - [Cliente JS `@solana/spl-token`](https://github.com/solana-program/token-2022/tree/main/clients/js-legacy)
-  el cliente legado para la biblioteca `@solana/web3.js` obsoleta. Cubre el
-  mismo terreno (detección de extensiones, resolución de cuentas adicionales, el helper de alto nivel
-  `createTransferCheckedWithTransferHookInstruction`) para los equipos que aún usan
-  web3.js.
+  el cliente legacy para `@solana/web3.js` v1. Cubre lo mismo (detección de
+  extensiones, resolución de cuentas adicionales, el helper de alto nivel
+  `createTransferCheckedWithTransferHookInstruction`) para equipos que usan
+  web3.js legacy.
 - [Guía de la extensión Transfer Hook](/docs/tokens/extensions/transfer-hook)
   (escritura de un programa hook, como contexto sobre lo que configuran los emisores)
 
@@ -67,12 +66,13 @@ Kit como para Web3.js.
 - **La resolución no es opcional.** Si las cuentas adicionales faltan o están desactualizadas, la
   instrucción de transferencia falla onchain. No existe ningún mecanismo alternativo que envíe
   el token de forma silenciosa sin el hook.
-- **Tanto Kit (`@solana-program/token-2022`) como Web3.js (`@solana/spl-token`)
-  pueden enviar una transferencia con hook habilitado de extremo a extremo** — consulta las funciones completas
-  en [Enviar un token con transfer hook](#sending-a-transfer-hook-token). Cada uno
-  resuelve el `ExtraAccountMetaList` de forma nativa: Kit mediante
-  `getTransferCheckedWithTransferHookInstructionAsync`, Web3.js mediante
-  `createTransferCheckedWithTransferHookInstruction`.
+- **Kit, web3.js v3 y web3.js legacy pueden enviar una transferencia con hook habilitado
+  de extremo a extremo**: consulta las funciones completas en
+  [Envío de un token con transfer hook](#sending-a-transfer-hook-token). Cada una resuelve
+  la `ExtraAccountMetaList` de forma nativa: Kit y web3.js v3 mediante
+  `getTransferCheckedWithTransferHookInstructionAsync` de `@solana-program/token-2022`,
+  y web3.js legacy mediante `createTransferCheckedWithTransferHookInstruction` de
+  `@solana/spl-token`.
 - **Simula siempre antes de enviar.** Un programa hook puede rechazar la transferencia por
   cualquier razón que defina (una lista de permitidos, un estado pausado, una delegación faltante),
   y el conjunto de cuentas adicionales puede cambiar si el emisor actualiza
@@ -102,9 +102,9 @@ Kit como para Web3.js.
 ## Enviar un token con transfer hook
 
 Toda transferencia con hook habilitado debe hacer cuatro cosas: detectar que el mint tiene un
-transfer hook, resolver las cuentas adicionales que necesita el CPI del hook, simular y
-luego enviar. Ambas funciones a continuación realizan las cuatro y están diseñadas para insertarse
-donde tu app construye actualmente una transferencia de Token-2022.
+transfer hook, resolver las cuentas adicionales que necesita la CPI del hook, simular y
+solo entonces enviar. Cada función que aparece a continuación hace las cuatro y está pensada para incorporarse
+allí donde tu aplicación construya actualmente una transferencia de Token-2022.
 
 ### Kit
 
@@ -226,9 +226,100 @@ export async function sendTokenTransfer({
 
 ### Web3.js
 
-El cliente legado `@solana/spl-token` resuelve todo de forma nativa — no se requiere ninguna integración adicional.
+Ambas generaciones de web3.js resuelven todo de forma nativa. En v3, sigue usando
+`Connection` para construir y enviar, y pasa un RPC de Kit (por defecto uno creado a partir de
+`connection.rpcEndpoint`) a
+`getTransferCheckedWithTransferHookInstructionAsync` de `@solana-program/token-2022`, que devuelve una
+instrucción que una `Transaction` de v3 acepta directamente. En web3.js legacy,
+`createTransferCheckedWithTransferHookInstruction` de `@solana/spl-token` cubre
+lo mismo.
 
-```ts title="send-transfer-hook-token.ts"
+<CodeTabs>
+
+```ts !! title="Web3.js v3"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  sendAndConfirmTransaction
+} from "@solana/web3.js";
+import { createSolanaRpc, type GetAccountInfoApi, type Rpc } from "@solana/kit";
+import { getTransferCheckedWithTransferHookInstructionAsync } from "@solana-program/token-2022";
+
+/**
+ * Builds, simulates, and sends a Token-2022 transfer, resolving transfer
+ * hook extra accounts when the mint requires them. Drop this in wherever
+ * your app currently builds a Token-2022 transfer instruction directly.
+ */
+export async function sendTokenTransfer({
+  connection,
+  rpc = createSolanaRpc(connection.rpcEndpoint),
+  payer,
+  source,
+  mint,
+  destination,
+  owner,
+  amount,
+  decimals
+}: {
+  connection: Connection;
+  // Kit RPC used to resolve the transfer hook's extra accounts. Defaults to one
+  // for `connection.rpcEndpoint`; pass your own if `connection` relies on custom
+  // headers, `fetch`, or `fetchMiddleware`, since those aren't carried over.
+  rpc?: Rpc<GetAccountInfoApi>;
+  payer: Keypair; // Fee payer; can be the same signer as `owner`.
+  source: PublicKey;
+  mint: PublicKey;
+  destination: PublicKey;
+  owner: Keypair; // Authority over the source token account.
+  amount: bigint;
+  decimals: number;
+}) {
+  // 1. Build the transfer instruction. When the mint has a transfer hook this
+  // fetches it, resolves the ExtraAccountMetaList, and appends the accounts the
+  // hook's CPI needs; when it doesn't, you get a plain transferChecked. Because
+  // it re-fetches the mint on every call, don't cache the result across sends
+  // -- the hook program and its extra accounts can both change.
+  const instruction = await getTransferCheckedWithTransferHookInstructionAsync(
+    { rpc },
+    {
+      source: source.toBase58(),
+      mint: mint.toBase58(),
+      destination: destination.toBase58(),
+      authority: owner,
+      amount,
+      decimals
+    }
+  );
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+  const transaction = new Transaction({
+    feePayer: payer.publicKey,
+    blockhash,
+    lastValidBlockHeight
+  }).add(instruction);
+
+  // 2. Simulate before signing, so the user is never prompted to authorize a
+  // transfer the hook would reject. Simulating without signers runs the
+  // transaction unsigned, which catches a hook rejecting the transfer (an
+  // allowlist check, a paused mint, ...) or a stale ExtraAccountMetaList before
+  // anyone signs or pays a fee.
+  const simulation = await connection.simulateTransaction(transaction);
+  if (simulation.value.err) {
+    throw new Error(
+      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
+        simulation.value.logs?.join("\n")
+    );
+  }
+
+  // 3. Sign and send only after a successful simulation.
+  return sendAndConfirmTransaction(connection, transaction, [payer, owner]);
+}
+```
+
+```ts !! title="Web3.js (legacy)"
 import {
   Connection,
   PublicKey,
@@ -331,12 +422,14 @@ export async function sendTokenTransfer({
 }
 ```
 
+</CodeTabs>
+
 ## Detectar la extensión
 
-Ambas funciones anteriores vuelven a obtener el mint y verifican el hook en cada envío:
-Web3.js explícitamente mediante `getMint`, Kit internamente en
+Las tres funciones anteriores vuelven a obtener el mint y comprueban el hook en cada
+envío: web3.js legacy de forma explícita mediante `getMint`, y Kit y web3.js v3 dentro de
 `getTransferCheckedWithTransferHookInstructionAsync`, que obtiene el mint
-antes de resolver cualquier cosa.
+antes de resolver cualquier otra cosa.
 
 <Callout type="info">
   La dirección del programa hook en el mint puede ser actualizada por la autoridad de transfer hook del mint
@@ -358,7 +451,7 @@ mint, destino, propietario/autoridad) más lo que especifique la cuenta `ExtraAc
 para ese mint. La lista es una PDA derivada del programa hook:
 
 ```ts title="derive-extra-account-meta-list.ts"
-// Kit (@solana-program/token-2022)
+// Kit and web3.js v3 with @solana-program/token-2022
 import { findExtraAccountMetaListPda } from "@solana-program/token-2022";
 
 const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
@@ -366,7 +459,7 @@ const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
   { programAddress: transferHook.programId }
 );
 
-// Web3.js (@solana/spl-token)
+// Web3.js (legacy) with @solana/spl-token
 import { getExtraAccountMetaAddress } from "@solana/spl-token";
 
 const extraAccountMetaListPda = getExtraAccountMetaAddress(
@@ -387,7 +480,7 @@ la resolución es asíncrona y puede requerir más de un round trip.
 Si estás ensamblando la instrucción tú mismo en lugar de usar las funciones
 anteriores, ambos clientes exponen las piezas de más bajo nivel sobre las que se construyen esas funciones.
 
-**Kit (`@solana-program/token-2022`)**
+**Kit y web3.js v3 con `@solana-program/token-2022`**
 
 - `findExtraAccountMetaListPda({ mint }, { programAddress })`: deriva la
   PDA de la cuenta de validación `ExtraAccountMetaList`.
@@ -402,7 +495,7 @@ anteriores, ambos clientes exponen las piezas de más bajo nivel sobre las que s
   devuelve los metas para que los distribuyas en la instrucción en lugar de
   mutarla directamente.
 
-**Web3.js (`@solana/spl-token`)**
+**Web3.js (legacy) con `@solana/spl-token`**
 
 - `getExtraAccountMetas(account)`: decodifica los datos sin procesar de la cuenta `ExtraAccountMetaList`
   en una lista de entradas `ExtraAccountMeta`.
@@ -414,8 +507,8 @@ anteriores, ambos clientes exponen las piezas de más bajo nivel sobre las que s
 
 ## Simular antes de enviar
 
-El paso de simulación en ambas funciones anteriores es la razón por la que esto importa: dos cosas pueden salir
-mal y solo se manifiestan en el momento de la ejecución.
+El paso de simulación de las funciones anteriores es la razón por la que esto importa: pueden
+surgir dos problemas que solo aparecen en el momento de la ejecución.
 
 - **El hook rechaza la transferencia.** Un programa hook puede codificar condiciones arbitrarias
   (una lista de permitidos, un mint pausado, un límite por transferencia) y hace fallar

@@ -1,0 +1,90 @@
+---
+title: 架构
+description:
+  请求如何在 Kora 节点中流转,以及每个阶段在 crate 中的位置。在做出第一次修改之前,请先从这里开始。
+---
+
+Kora 是一个包含三个 crate 的 Rust 工作区:
+
+- `kora-lib` 包含核心逻辑和 RPC 服务器,
+- `kora-cli` 构建运维人员运行的 `kora` 二进制文件,以及
+- `kora-deploy` 是一个专用的程序部署工具,单独进行版本管理。
+  除非另有说明,以下内容均位于 `crates/lib/src` 中。
+
+## 请求生命周期
+
+下图展示了交易在 Kora 中流转的总体流程。
+了解调用路径对于配置 Kora 节点和添加
+新功能至关重要。
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## 各阶段所在位置
+
+| 图中的阶段 | 源码                               | 入口点                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| 网关              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| 分发             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| 各方法的逻辑     | `rpc_server/method/`                 | 每个 JSON-RPC 方法对应一个文件          |
+| 验证           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| 插件              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| 签名              | `signer/`                            | 由 `solana-keychain` crate 提供支持 |
+
+还有两个文件需要了解:`config.rs` 定义了完整的 `kora.toml` 模式,
+`state.rs` 则将反序列化后的配置保存在进程全局状态中。
+
+### 阅读 RPC 服务器
+
+`rpc.rs` 是一个轻量的分发层,每个 JSON-RPC 端点对应一个方法,
+也是了解整个 API 的最快途径。每个方法的逻辑位于
+`rpc_server/method/` 下各自的文件中。请从头到尾阅读 `sign_transaction.rs`;其他签名
+方法都是它的变体。
+
+### 阅读验证器
+
+`transaction_validator.rs` 和 `transaction/instruction_util.rs` 包含
+验证交易和指令的逻辑。此外还有 fee-payer-policy
+安全属性测试,每个受控程序对应一个文件,位于
+`validator/transaction_validator/fee_payer_policy_props/` 下。
+
+## 值得了解的约定
+
+**默认验证。** `[validation.fee_payer_policy]` 下的每个标志
+默认均为 `false`,且策略结构体带有 `#[serde(default)]`。这种
+搭配是有意为之:新增受控指令不得破坏现有运维人员的配置,
+并且必须表现为拒绝,而不是意外放行。添加标志时请同时保留这两点。
+
+**验证解析后的交易,而不是原始交易。** 原始的
+`VersionedTransaction` 只暴露静态账户密钥,因此基于它来验证或
+计价 V0 交易,会悄悄跳过查找表账户,导致收费不足。
+`VersionedTransactionResolved::from_transaction` 会提前解析这些
+地址,这也是为什么下游每个阶段都接收解析后的类型。
+
+## 添加交易插件
+
+插件需要实现 `plugin/mod.rs` 中的 `TransactionPlugin` trait。它有两个
+方法:`validate` 在签名流程中针对每笔交易运行,而
+`validate_config` 在启动时运行一次,并向运维人员返回错误和警告。
+`PluginExecutionContext` 会告知插件是四种签名方法中的哪一种调用了它。
+
+`TransactionPluginRunner::from_config` 会对 `config.rs` 中定义的
+`TransactionPluginType` 进行匹配。新增内置插件,就是在那里新增一个变体,
+并在 runner 中新增一个匹配分支。目前内置的两个插件是 `gas_swap` 和
+`deploy_authority`。
+
+## 测试
+
+Kora 将配置保存在进程全局状态中,因此 `tests/` 为每个阶段声明一个
+`[[test]]` 目标,每个目标都会启动各自内嵌的 surfnet 以及
+Kora 节点,并从零开始初始化数据。每个二进制文件一份配置:新增阶段需要新增目标,
+而不是在现有目标中新增模块。
+
+```bash
+cargo test -p tests --test <target>
+```
+
+其余一切都通过 `justfile` 串联起来。请阅读该文件,而不要
+手动拼凑命令。

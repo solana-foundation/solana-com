@@ -273,14 +273,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Kiểm Tra Tích Hợp
 
-Kora sử dụng trình chạy kiểm tra thống nhất (`tests/src/bin/test_runner.rs`) để
-quản lý tất cả các giai đoạn kiểm tra tích hợp bao gồm kiểm tra TypeScript. Để
-thêm kiểm tra cho trình ký mới của bạn:
+Mỗi giai đoạn tích hợp là một target `[[test]]` riêng trong `tests/Cargo.toml`. Mỗi
+target khởi động một surfnet nhúng cùng một node Kora thông qua `harness_context`,
+với dữ liệu được khởi tạo từ đầu. Kora lưu cấu hình trong trạng thái toàn cục của tiến trình, vì vậy một signer
+mới cần một target mới thay vì một module mới trong target hiện có.
 
-#### 1. Thêm Cấu Hình Kiểm Tra
+#### 1. Thêm Signer Fixture
 
-Tạo tệp cấu hình trình ký mới trong `tests/src/common/fixtures/` cho dịch vụ của
-bạn:
+Tạo cấu hình signer trong `tests/src/common/fixtures/`:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -295,47 +295,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Thêm Giai Đoạn Kiểm Tra vào Trình Chạy Kiểm Tra
+#### 2. Thêm Test Target
 
-Cập nhật `tests/src/test_runner/test_cases.toml` để bao gồm giai đoạn kiểm tra
-cho trình ký của bạn:
+Đăng ký giai đoạn trong `tests/Cargo.toml`:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Sau đó tạo `tests/your_service/main.rs`. Tệp này trỏ harness đến fixture của bạn
+và phải chứa ít nhất một `#[tokio::test]` để kiểm tra signer:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+Hãy thêm cả một test `signTransaction` để luồng ký của signer cũng được chạy, chứ không chỉ
+tra cứu khóa. `tests/multi_signer/` là một ví dụ hoàn chỉnh để bạn tham khảo.
 
 #### 3. Chạy Kiểm Tra
 
-Đảm bảo môi trường của bạn đã được thiết lập:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Chạy kiểm tra bằng trình chạy kiểm tra thống nhất:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Yêu Cầu Tài Liệu
@@ -399,7 +418,7 @@ Thêm dịch vụ của bạn vào danh sách signer trong README chính.
 - [ ] Đã xuất struct cấu hình trong `mod.rs`
 - [ ] (Tùy chọn) Đã thêm phương thức builder mock trong `config_mock.rs`
 - [ ] Code biên dịch không có cảnh báo
-- [ ] Tất cả các bài kiểm tra đều qua (`make test` và `make test-integration`)
+- [ ] Tất cả các test đều thành công (`just test`)
 - [ ] Đã thêm tài liệu theo hướng dẫn
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] Đã tạo các file cấu hình mẫu (`.toml` và `.env.example`)

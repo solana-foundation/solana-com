@@ -24,10 +24,10 @@ formaat wordt hieronder beschreven aan de hand van dezelfde drie onderdelen: hoe
 op de wire worden ingedeeld, hoe accounts worden gerefereerd en waar de resourcelimieten vandaan komen.
 
 <Callout type="warn" title="v1-activeringsstatus">
-  Het [v1-formaat](https://solana.com/upgrades/larger-transaction-sizes) is nog niet
-  actief op enig cluster. Activering is gepland met Agave v4.2.
-  `solana-test-validator` 4.2+ stelt je in staat v1-transacties lokaal te testen.
-  Bestaande apps dienen [voorbereiden op v1](#preparing-for-v1) te bekijken.
+  Het [v1-formaat](https://solana.com/upgrades/larger-transaction-sizes) is
+  actief op mainnet, devnet en testnet. Het lezen van transacties is een brekende
+  wijziging: clients die zich er niet voor aanmelden, falen bij v1-transacties. Bestaande apps
+  moeten [voorbereiden op v1](#preparing-for-v1) doornemen.
 </Callout>
 
 ## Formaatoverzicht
@@ -130,6 +130,20 @@ statische accounts: schrijfbare opzoekingen komen vóór alleen-lezen opzoekinge
   ondertekenaars zijn.
 </Callout>
 
+### Een address lookup table maken en gebruiken
+
+Dit voorbeeld maakt een lookup table aan, voegt een adres toe en gebruikt de tabel om
+een v0-transactie te compileren en te verzenden.
+
+```ts !! title="Versioned transaction with an ALT" file=packages/docs-examples/cookbook/transactions/versioned-transaction-alt/legacy.ts#region=versioned-transaction-alt
+
+```
+
+Alleen accounts die geen ondertekenaar zijn, kunnen uit een lookup table worden geladen. De fee payer en
+elke vereiste ondertekenaar blijven in de statische accountlijst van het bericht. Een adres
+kan ook niet worden opgezocht in dezelfde slot waarin het is toegevoegd, dus wacht het voorbeeld
+op de volgende bevestigde slot voordat het v0-bericht wordt gecompileerd.
+
 ### Resourcelimieten in v0
 
 Ongewijzigd ten opzichte van legacy: ComputeBudget-instructies, met dezelfde standaardwaarden wanneer ze worden weggelaten.
@@ -147,7 +161,7 @@ plaats van de instructielijst te scannen en te deserialiseren.
 | Veld                  | Grootte         | Beschrijving                                                                        |
 | ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
 | `0x81`                 | 1 byte       | Versieprefix-byte — de eerste byte van de transactie                            |
-| `header`               | 3 bytes      | MessageHeader (zelfde als legacy)                                                     |
+| `header`               | 3 bytes      | MessageHeader (hetzelfde als legacy)                                                     |
 | `config_mask`          | 4 bytes      | `u32` LE-bitmasker dat aangeeft welke configuratiewaarden aanwezig zijn                           |
 | `recent_blockhash`     | 32 bytes     | Levensduurspecificatie                                                                 |
 | `num_instructions`     | 1 byte       | Teller met vaste breedte, max. 64                                                          |
@@ -211,11 +225,45 @@ instellen, anders mislukt je transactie.
 
 De aanbevolen aanpak is om eenmalig te simuleren met beide limieten gemaximaliseerd, vervolgens de teruggegeven `unitsConsumed` en `loadedAccountsDataSize` terug te schrijven naar de configuratie, waarbij de datagrootte naar boven wordt afgerond naar de volgende 32 KiB-pagina voor marge (het blokkostenmodel rekent in 32 KiB-pagina's, dus marge onder de volgende paginagrens is gratis).
 
+### Een v1-transactie bouwen
+
+Een v1-bericht wordt samengesteld via dezelfde pipeline als een legacy- of v0-bericht. Het
+verschil is `setTransactionMessageConfig`: de resourcelimieten zijn een eigenschap
+van het bericht, dus de instructielijst bevat alleen de programma-instructies.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=build
+
+```
+
+</CodeTabs>
+
+Kit biedt ook een setter per configuratieveld —
+`setTransactionMessagePriorityFeeLamports`,
+`setTransactionMessageComputeUnitLimit`,
+`setTransactionMessageLoadedAccountsDataSizeLimit` en
+`setTransactionMessageHeapSize` — om ze één voor één in te stellen.
+
+### De limieten bepalen met behulp van simulatie
+
+Gok de twee verplichte limieten niet, maar meet ze. De simulatie draait
+met beide limieten verhoogd tot het maximum van de runtime, zodat ze niet kan mislukken door gebrek aan
+de resources die ze meet. Het geretourneerde getal is de exacte kostprijs van één
+gesimuleerde run, dus voeg een marge toe voordat je erop vertrouwt.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/estimate-kit.ts#region=estimate
+
+```
+
+</CodeTabs>
+
 ## Voorbereiden op v1
 
-v1 verandert het **lezen** van transacties, niet alleen het verzenden ervan. Wanneer v1 actief wordt,
-zal elke client die `getTransaction` of `getBlock` aanroept zonder in te schrijven
-falen op v1-transacties:
+v1 verandert het **lezen** van transacties, niet alleen het verzenden ervan. Elke client die
+`getTransaction` of `getBlock` aanroept zonder zich aan te melden, faalt bij v1-transacties:
 
 - Geef `maxSupportedTransactionVersion: 1` door — het JSON-**geheel getal** `1`, niet de
   string `"1"` — aan [`getTransaction`](/docs/rpc/http/gettransaction) en
@@ -230,10 +278,10 @@ falen op v1-transacties:
   achteropraakt vanaf de eerste v1-slot.
 - `getSignaturesForAddress` inspecteert nooit transactie-inhoud, dus v1-handtekeningen
   worden normaal weergegeven.
-- Ingeschreven responses bevatten een `transactionConfig`-object in het bericht voor v1-
-  transacties (volledig afwezig voor legacy en v0). Pipelines die prioriteitstoeslagen of
-  limieten voor rekeneenheden afleiden door te scannen op ComputeBudget-instructies
-  rapporteren stilzwijgend **nul** voor elke v1-transactie.
+- Antwoorden met opt-in bevatten voor v1-transacties een `transactionConfig`-object in het bericht
+  (bij legacy en v0 volledig afwezig). Pipelines die prioriteitsfees of compute-limieten
+  afleiden door te zoeken naar ComputeBudget-instructies, rapporteren
+  stilzwijgend **nul** voor elke v1-transactie.
 - Gebruik `encoding: 'base64'` wanneer je transacties aan clientzijde decodeert, en voor
   `sendTransaction`/`simulateTransaction` met transacties groter dan 1.232 bytes —
   base58-codering blijft beperkt tot de oude grootte.
@@ -241,6 +289,22 @@ falen op v1-transacties:
   4.2.x-generatie Rust-crates, of web3.js v3. web3.js v1 leest v1 vanaf 1.99.0
   en hoger, maar kan het niet bouwen of verzenden.
 
-Voor de volledige migratiegids — inclusief ondersteuning voor clientbibliotheken, streaming
-(Geyser/gRPC) versiedetectie en simulatiegedrag — zie de
-[upgradepagina voor transactieformaat v1](https://solana.com/upgrades/larger-transaction-sizes).
+### Een v1-transactie lezen
+
+Aanmelden gebeurt met het JSON-geheel getal `1`. Het decoderen van de geretourneerde bytes levert de
+versie en de configuratie op, en daar staan de resourcelimieten — zoeken in de
+instructielijst naar ComputeBudget-instructies levert niets op.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=read
+
+```
+
+</CodeTabs>
+
+Voor de volledige migratiehandleiding — inclusief ondersteuning door clientbibliotheken, versiedetectie bij streaming
+(Geyser/gRPC) en simulatiegedrag — zie de
+[upgradepagina voor Transaction Format v1](https://solana.com/upgrades/larger-transaction-sizes).
+Uitvoerbare voorbeelden in TypeScript, Rust, Python en Go vind je in
+[solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples).

@@ -3,6 +3,9 @@ title: TypeScript
 description: Installer et utiliser @solana/keychain dans des applications TypeScript
 ---
 
+Vous migrez depuis la version 1.x ? Consultez le
+[guide de migration vers la 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md).
+
 ## Installation
 
 Installez le package global ou des signataires individuels selon vos besoins :
@@ -32,6 +35,10 @@ pnpm add @solana/keychain-fordefi     # Fordefi
 pnpm add @solana/keychain-kit-plugin
 ```
 
+Nécessite `@solana/kit` 8.1 ou version ultérieure. Les transactions v1
+(`createTransactionMessage({ version: 1 })`) sont prises en charge, sauf par Fireblocks
+avec `useProgramCall: true`, qui n'accepte que les transactions legacy et v0.
+
 ## Utilisation de base
 
 ### Factory unifiée (Recommandée pour les applications souhaitant prendre en charge plusieurs signataires)
@@ -41,7 +48,7 @@ n'importe quel backend :
 
 ```typescript
 import { createKeychainSigner } from "@solana/keychain";
-import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers ≥ 6.5
+import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers >= 8.1
 
 const signer = await createKeychainSigner({
   backend: "privy",
@@ -72,10 +79,12 @@ const signer = await createPrivySigner({
 
 ### Utilisation avec les messages de transaction
 
-Tous les signataires implémentent l'interface `SolanaSigner`, qui est compatible
-avec `@solana/kit` et `@solana/signers` :
+Tous les backends, à l'exception de Crossmint et du mode natif de Fordefi, renvoient un
+`SolanaTransactionSigner`, qui est un `TransactionPartialSigner` de Kit et fonctionne
+avec les utilitaires de signataire partiel de `@solana/signers` présentés ci-dessous. Les backends à diffusion gérée sont décrits dans [Capacités des signataires](#signer-capabilities).
 
 ```typescript
+import type { SolanaTransactionSigner } from "@solana/keychain-core";
 import { signTransactionMessageWithSigners } from "@solana/signers";
 import {
   createTransactionMessage,
@@ -83,7 +92,7 @@ import {
   pipe
 } from "@solana/kit";
 
-async function signWithKeychain(signer: SolanaSigner) {
+async function signWithKeychain(signer: SolanaTransactionSigner) {
   // Check availability (useful for remote signers)
   if (!(await signer.isAvailable())) {
     throw new Error("Signer offline");
@@ -93,13 +102,29 @@ async function signWithKeychain(signer: SolanaSigner) {
   const transaction = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayerSigner(signer, tx)
-    // ... add instructions
+    // ... set a lifetime and add instructions
   );
 
   // Sign with the standard signers API
   const signedTx = await signTransactionMessageWithSigners(transaction);
   return signedTx;
 }
+```
+
+### Signer et envoyer avec n'importe quel signataire
+
+`signAndSendTransaction` de `@solana/keychain-core` permet d'inscrire une transaction sur
+la chaîne, quelle que soit la forme du signataire. Les signataires d'envoi diffusent via leur
+fournisseur ; toutes les autres formes utilisent la fonction `sendTransaction` que vous transmettez (le core n'a aucune
+dépendance RPC) :
+
+```typescript
+import { signAndSendTransaction } from "@solana/keychain-core";
+
+const signature = await signAndSendTransaction(signer, transaction, {
+  sendTransaction: (tx) =>
+    sendAndConfirmTransaction(tx, { commitment: "confirmed" })
+});
 ```
 
 ### Utilisation avec un client Kit (plugin keychainSigner)
@@ -122,13 +147,16 @@ const client = await createClient().use(
   })
 );
 
-client.payer; // SolanaSigner — also a Kit TransactionSigner
+client.payer; // SolanaTransactionSigner, also a Kit TransactionPartialSigner
 client.identity; // same signer instance
 ```
 
-Le plugin accepte la même configuration avec balise backend que
-`createKeychainSigner`, et seul le backend vers lequel il distribue est inclus
-dans le bundle (les packages backend se chargent via `import()` dynamique).
+Le plugin accepte la même configuration étiquetée par backend que `createKeychainSigner`,
+sauf pour Crossmint et le mode natif de Fordefi (`chain` défini). Ces backends réécrivent
+la transaction côté serveur ; ils ne peuvent donc pas jouer le rôle de `payer` ou
+d'`identity` client, et le plugin les rejette à la compilation comme à l'exécution. Seul le
+backend vers lequel il redirige est inclus dans le bundle (les packages de backend sont chargés via
+`import()` dynamique).
 
 Utilisez `keychainPayer` ou `keychainIdentity` pour définir un seul rôle, et
 combinez des backends sur un même client :
@@ -141,18 +169,19 @@ const client = await createClient()
   .use(
     keychainPayer({
       backend: "memory",
-      privateKeyPath: "~/.config/solana/id.json"
+      privateKeyPath: `${process.env.HOME}/.config/solana/id.json`
     })
   )
   .use(keychainIdentity({ backend: "turnkey", ...turnkeyConfig }));
 ```
 
-Vous avez déjà un `SolanaSigner` ? Chaque signataire de trousseau est un Kit
-`TransactionSigner` valide, vous pouvez donc en installer un existant avec
+Vous disposez déjà d'un `SolanaTransactionSigner` ? C'est un
+`TransactionPartialSigner` Kit valide, vous pouvez donc l'installer avec
 [`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)
 à la place (`pnpm add @solana/kit-plugin-signer`) :
 
 ```typescript
+import { createClient } from "@solana/kit";
 import { signer } from "@solana/kit-plugin-signer";
 import { createKeychainSigner } from "@solana/keychain";
 
@@ -163,7 +192,36 @@ const mySigner = await createKeychainSigner({
 const client = createClient().use(signer(mySigner));
 ```
 
+### Annulation et diffusions non confirmées
+
+`signTransactions`, `modifyAndSignTransactions`, `signAndSendTransactions` et
+`signMessages` acceptent tous `{ abortSignal }` comme second argument. L'annulation
+arrête l'attente ; elle n'annule pas le travail déjà accepté par un fournisseur.
+
+En mode natif automatique de Crossmint et de Fordefi, un échec ne signifie pas que rien
+n'a été enregistré. Lorsque le fournisseur a pu accepter la transaction, le code d'erreur est
+`SignerErrorCode.BROADCAST_UNCONFIRMED` (`"SIGNER_BROADCAST_UNCONFIRMED"`).
+`context.providerTransactionId` est défini lorsque la création a été acceptée, et
+`context.idempotencyKey` contient la clé dérivée du message. Renvoyer la
+transaction strictement identique octet pour octet est sans risque ; une transaction reconstruite (par exemple avec un nouveau
+blockhash) constitue un nouveau transfert. `providerMayHaveAccepted(error)` et
+`providerStatus(error)` de `@solana/keychain-core` aident à classifier l'erreur.
+Effectuez un rapprochement avec le fournisseur avant de réessayer.
+
 ## Configuration du backend
+
+### Mémoire
+
+Fournissez exactement un de ces champs : `keyPair`, `privateKey`, `privateKeyString` ou
+`privateKeyPath` :
+
+```typescript
+import { createMemorySigner } from "@solana/keychain-memory";
+
+const signer = await createMemorySigner({
+  privateKeyPath: "/path/to/id.json"
+});
+```
 
 ### HashiCorp Vault
 
@@ -187,6 +245,18 @@ const signer = createAwsKmsSigner({
   keyId: "alias/my-solana-key",
   publicKey: "base58_public_key",
   region: "us-east-1" // optional
+});
+```
+
+### GCP KMS
+
+```typescript
+import { createGcpKmsSigner } from "@solana/keychain-gcp-kms";
+
+const signer = createGcpKmsSigner({
+  keyName:
+    "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+  publicKey: "base58_public_key"
 });
 ```
 
@@ -235,10 +305,11 @@ const signer = await createFireblocksSigner({
 import { createCdpSigner } from "@solana/keychain-cdp";
 
 const signer = await createCdpSigner({
-  apiKeyId: "api_key_id",
-  apiKeySecret: "api_key_secret",
-  walletSecret: "wallet_secret",
-  address: "base58_address"
+  cdpApiKeyId: "api_key_id",
+  cdpApiKeySecret: "api_key_secret",
+  cdpWalletSecret: "wallet_secret",
+  address: "base58_address",
+  network: "solana" // or "solana-devnet"; required for address lookup tables
 });
 ```
 
@@ -253,6 +324,17 @@ const signer = await createCrossmintSigner({
 });
 ```
 
+Crossmint est uniquement orienté envoi. Son API exécute toujours une transaction approuvée
+côté serveur et prend en charge les frais de gas, de sorte que le signataire n'expose que
+`signAndSendTransactions()` : il n'a ni `signTransactions()` ni `signMessages()`,
+et il ne peut pas être installé avec `@solana/keychain-kit-plugin`. La signature
+renvoyée identifie la transaction enregistrée par Crossmint.
+
+```typescript
+const [signature] = await signer.signAndSendTransactions([transaction]);
+// or: await signAndSendTransactionMessageWithSigners(transactionMessage);
+```
+
 ### Dfns
 
 ```typescript
@@ -262,8 +344,19 @@ const signer = await createDfnsSigner({
   authToken: "auth_token",
   credId: "cred_id",
   privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\n...",
-  appId: "app_id",
   walletId: "wallet_id"
+});
+```
+
+### Openfort
+
+```typescript
+import { createOpenfortSigner } from "@solana/keychain-openfort";
+
+const signer = await createOpenfortSigner({
+  secretKey: "sk_...",
+  walletSecret: "wallet_secret",
+  accountId: "account_id"
 });
 ```
 
@@ -278,11 +371,45 @@ const signer = await createParaSigner({
 });
 ```
 
+### Utila
+
+Utila signe uniquement les transactions ; il n'a pas de `signMessages()`.
+
+```typescript
+import { createUtilaSigner } from "@solana/keychain-utila";
+
+const signer = await createUtilaSigner({
+  serviceAccountEmail: "sa@example.com",
+  serviceAccountPrivateKeyPem: "-----BEGIN PRIVATE KEY-----\n...",
+  vaultId: "vault_id",
+  walletId: "wallet_id",
+  network: "networks/solana-devnet"
+});
+```
+
 ### Fordefi
 
-Fordefi propose deux modes de signature, selon que vous passez `chain` ou non. Les requêtes API sont authentifiées avec une signature de requête ECDSA P-256 — fournissez la clé de signature via `privateKeyPem`, ou conservez-la dans un KMS/HSM en passant un `requestSigner`.
+Fordefi propose trois modes de signature, fixés à la construction par `chain` et
+`pushMode`. Chaque mode expose exactement une méthode de transaction, et les trois signent
+des messages :
 
-**Mode Solana natif** (recommandé pour une utilisation on-chain) : définissez `chain`, et Fordefi signe et diffuse la transaction lui-même. Étant donné que Fordefi peut remplacer le blockhash ou les frais avant la signature, le signataire est un `TransactionSendingSigner` Kit — utilisez-le avec `signAndSendTransactionMessageWithSigners`, et non avec le flux de signataire partiel présenté ci-dessus.
+| Mode          | Configuration                                      | Type                        | Méthode                        |
+| ------------- | ------------------------------------------- | --------------------------- | ----------------------------- |
+| Boîte noire     | `chain` non défini                               | `FordefiBlackBoxSigner`     | `signTransactions()`          |
+| Natif automatique   | `chain` défini, `pushMode` omis ou `"auto"` | `FordefiNativeSigner`       | `signAndSendTransactions()`   |
+| Natif manuel | `chain` défini, `pushMode: "manual"`           | `FordefiNativeManualSigner` | `modifyAndSignTransactions()` |
+
+Les requêtes API sont authentifiées par une signature de requête ECDSA P-256 : fournissez la
+clé de signature via `privateKeyPem`, ou conservez-la dans un KMS/HSM en transmettant un
+`requestSigner`.
+
+**Mode natif automatique** (recommandé pour une utilisation on-chain) : définissez `chain`, et Fordefi
+signe et diffuse lui-même la transaction. Comme Fordefi peut remplacer le
+blockhash ou les frais avant la signature, le signataire est un
+`TransactionSendingSigner` Kit : utilisez-le avec
+`signAndSendTransactionMessageWithSigners`, et non avec le flux de signataire partiel présenté
+ci-dessus. Le mode natif automatique n'accepte qu'une transaction non signée dont le seul
+signataire requis est le vault, et il ne peut pas être utilisé avec `@solana/keychain-kit-plugin`.
 
 ```typescript
 import { createFordefiSigner } from "@solana/keychain-fordefi";
@@ -302,6 +429,32 @@ const signature =
   await signAndSendTransactionMessageWithSigners(transactionMessage);
 ```
 
+**Mode natif manuel** : définissez `chain` et `pushMode: "manual"`. Fordefi réécrit
+le message (blockhash récent, instructions de frais Compute Budget) et le signe,
+mais ne le diffuse pas. `modifyAndSignTransactions()` renvoie la transaction
+que Fordefi a signée, qui remplace celle que vous avez soumise : poursuivez toujours à partir de la
+transaction renvoyée. Fordefi doit être le payeur des frais et doit signer avant tout
+autre signataire requis. La réécriture n'est pas comparée (diff) ; inspectez donc le résultat avant
+de diffuser.
+
+```typescript
+import { createFordefiSigner } from "@solana/keychain-fordefi";
+import { readFileSync } from "node:fs";
+
+const signer = await createFordefiSigner({
+  accessToken: process.env.FORDEFI_ACCESS_TOKEN!,
+  vaultId: process.env.FORDEFI_VAULT_ID!,
+  publicKey: process.env.FORDEFI_PUBLIC_KEY!,
+  privateKeyPem: readFileSync("./secret/private.pem", "utf8"),
+  chain: "solana_devnet",
+  pushMode: "manual"
+});
+
+const [signedTransaction] = await signer.modifyAndSignTransactions([
+  transaction
+]);
+```
+
 **Mode boîte noire** : omettez `chain`. Fordefi signe les octets bruts et ne diffuse pas la transaction ; vous assemblez et soumettez la transaction vous-même. Utilisez ce mode avec un coffre Fordefi en mode boîte noire.
 
 ```typescript
@@ -316,61 +469,89 @@ const signer = await createFordefiSigner({
 });
 ```
 
-## Interface SolanaSigner
+## Capacités des signataires
 
-L'interface `SolanaSigner` étend les types `@solana/signers` pour une
-compatibilité complète :
+`@solana/keychain-core` définit une interface par forme de signataire Kit. Chacune ajoute
+`isAvailable(): Promise<boolean>` à l'interface correspondante de `@solana/signers` :
+
+- `SolanaTransactionSigner` (`TransactionPartialSigner` de Kit) : renvoie les signatures
+  d'une transaction dont vous êtes propriétaire.
+- `SolanaModifyingSigner` (`TransactionModifyingSigner` de Kit) : réécrit la
+  transaction, la signe et renvoie la nouvelle transaction sans la diffuser.
+- `SolanaSendingSigner` (`TransactionSendingSigner` de Kit) : signe et diffuse
+  via son fournisseur.
+- `SolanaMessageSigner` (`MessagePartialSigner` de Kit) : signe des messages hors chaîne.
+  Cette forme est distincte des formes de transaction.
+
+`SolanaSigner` est l'union des trois formes de transaction. Le type de retour de chaque
+fabrique indique la forme exacte de son backend. Lorsque la configuration n'est connue qu'à
+l'exécution, restreignez le type avec `isSolanaTransactionSigner`, `isSolanaModifyingSigner`,
+`isSolanaSendingSigner` ou `isSolanaMessageSigner`. `signerCapabilities(signer)`
+renvoie les quatre en une seule fois.
+
+| Backend                                                                                                     | Forme                                           |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| memory, vault, aws-kms, gcp-kms, privy, turnkey, fireblocks, cdp, dfns, para, openfort, fordefi (boîte noire) | `SolanaTransactionSigner & SolanaMessageSigner` |
+| utila                                                                                                       | `SolanaTransactionSigner` (sans signature de message)  |
+| fordefi (natif manuel)                                                                                     | `SolanaModifyingSigner & SolanaMessageSigner`   |
+| fordefi (natif automatique)                                                                                       | `SolanaSendingSigner & SolanaMessageSigner`     |
+| crossmint                                                                                                   | `SolanaSendingSigner` (sans signature de message)      |
 
 ```typescript
-interface SolanaSigner<TAddress extends string = string>
-  extends TransactionPartialSigner<TAddress>, MessagePartialSigner<TAddress> {
-  // Public key address
-  readonly address: Address<TAddress>;
+import {
+  isSolanaSendingSigner,
+  isSolanaTransactionSigner
+} from "@solana/keychain-core";
 
-  // Health check for remote signers
-  isAvailable(): Promise<boolean>;
-
-  // Sign messages (@solana/kit compatible)
-  signMessages(
-    messages: readonly SignableMessage[]
-  ): Promise<readonly SignatureDictionary[]>;
-
-  // Sign transactions (@solana/kit compatible)
-  signTransactions(
-    transactions: readonly Transaction[]
-  ): Promise<readonly SignatureDictionary[]>;
+if (isSolanaSendingSigner(signer)) {
+  await signer.signAndSendTransactions([transaction]);
+} else if (isSolanaTransactionSigner(signer)) {
+  await signer.signTransactions([transaction]);
 }
 ```
 
 ## Création de signataires personnalisés
 
-Implémentez l'interface `SolanaSigner` pour créer des signataires personnalisés
-:
+Implémentez les interfaces de capacités prises en charge par votre backend :
 
 ```typescript
-import { SolanaSigner } from "@solana/keychain-core";
+import type {
+  SolanaMessageSigner,
+  SolanaTransactionSigner
+} from "@solana/keychain-core";
 import type { Address } from "@solana/addresses";
+import type {
+  MessagePartialSignerConfig,
+  SignableMessage,
+  TransactionPartialSignerConfig
+} from "@solana/signers";
+import type { Transaction } from "@solana/transactions";
 
-class MyCustomSigner implements SolanaSigner {
-  readonly address: Address;
-
-  constructor(address: Address) {
-    this.address = address;
-  }
+class MyCustomSigner implements SolanaTransactionSigner, SolanaMessageSigner {
+  constructor(readonly address: Address) {}
 
   async isAvailable(): Promise<boolean> {
     return await myBackend.healthCheck();
   }
 
-  async signMessages(messages) {
-    return await myBackend.signMessages(messages);
+  async signMessages(
+    messages: readonly SignableMessage[],
+    config?: MessagePartialSignerConfig
+  ) {
+    return await myBackend.signMessages(messages, config?.abortSignal);
   }
 
-  async signTransactions(transactions) {
-    return await myBackend.signTransactions(transactions);
+  async signTransactions(
+    transactions: readonly Transaction[],
+    config?: TransactionPartialSignerConfig
+  ) {
+    return await myBackend.signTransactions(transactions, config?.abortSignal);
   }
 }
 ```
+
+N'implémentez que ce que votre backend prend en charge. Kit classe les signataires selon les
+méthodes qui existent ; n'ajoutez donc jamais une méthode qui se contente de lever une erreur.
 
 Consultez le [guide d'ajout de signataires](/docs/tools/keychain/adding-signers)
 pour intégrer des services de gestion de clés supplémentaires.

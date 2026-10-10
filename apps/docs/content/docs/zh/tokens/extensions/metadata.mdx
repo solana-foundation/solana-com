@@ -553,11 +553,9 @@ await client.sendTransaction([
 | _rs`process_update_authority`_                  | 验证当前更新权限，然后就地轮换或清除元数据权限。                                     | [源代码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/token_metadata/processor.rs#L162-L187) |
 | _rs`process_emit`_                              | 从铸币中读取序列化的 _rs`TokenMetadata`_，并将请求的片段写入返回数据。                               | [源代码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/token_metadata/processor.rs#L190-L203) |
 
-### Typescript
+### Kit
 
-下面的 `Kit` 示例直接使用生成的指令。使用 `@solana/web3.js`、`@solana/spl-token` 和 `@solana/spl-token-metadata` 的旧版示例仅供参考。旧版示例将 `maxSupportedTransactionVersion` 上限设为 `0`，因为 web3.js v1 无法反序列化 [v1 交易](/docs/core/transactions/versioned-transactions#v1-message-format)。
-
-#### Kit
+这些示例直接使用生成的 Token-2022 指令。
 
 <CodeTabs storage="token-ts-kit" flags="r">
 
@@ -750,48 +748,54 @@ console.dir(
 
 </CodeTabs>
 
-#### Web3.js
+### Web3.js v3
 
-<CodeTabs storage="token-ts-legacy" flags="r">
+这些示例使用基于类的 `@solana/web3.js` v3 API 以及
+`@solana-program` 指令构建器。
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
 
 ```ts !! title="Instructions"
 import {
   Connection,
   Keypair,
   LAMPORTS_PER_SOL,
+  PublicKey,
   sendAndConfirmTransaction,
   SystemProgram,
   Transaction
 } from "@solana/web3.js";
 import {
-  createInitializeMetadataPointerInstruction,
-  createInitializeMintInstruction,
-  createUpdateMetadataPointerInstruction,
-  ExtensionType,
-  getMetadataPointerState,
-  getMint,
-  getMintLen,
-  getTokenMetadata,
-  LENGTH_SIZE,
-  TOKEN_2022_PROGRAM_ID,
-  TYPE_SIZE
-} from "@solana/spl-token";
+  addDecoderSizePrefix,
+  getAddressDecoder,
+  getBase64Encoder,
+  getMapDecoder,
+  getOptionDecoder,
+  getStructDecoder,
+  getU32Decoder,
+  getUtf8Decoder,
+  unwrapOption
+} from "@solana/kit";
 import {
-  createInitializeInstruction,
-  createEmitInstruction,
-  createRemoveKeyInstruction,
-  unpack as unpackTokenMetadata,
-  createUpdateAuthorityInstruction,
-  createUpdateFieldInstruction,
-  pack,
-  type TokenMetadata
-} from "@solana/spl-token-metadata";
+  getEmitTokenMetadataInstruction,
+  getInitializeMetadataPointerInstruction,
+  getInitializeMint2Instruction,
+  getInitializeTokenMetadataInstruction,
+  getMintDecoder,
+  getMintSize,
+  getRemoveTokenMetadataKeyInstruction,
+  getUpdateMetadataPointerInstruction,
+  getUpdateTokenMetadataFieldInstruction,
+  getUpdateTokenMetadataUpdateAuthorityInstruction,
+  tokenMetadataField,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
 const connection = new Connection("http://localhost:8899", "confirmed");
 const latestBlockhash = await connection.getLatestBlockhash();
 
-const feePayer = Keypair.generate();
-const mint = Keypair.generate();
+const feePayer = await Keypair.generate();
+const mint = await Keypair.generate();
 
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
@@ -803,19 +807,28 @@ await connection.confirmTransaction({
   signature: airdropSignature
 });
 
-const maxMetadata: TokenMetadata = {
-  updateAuthority: feePayer.publicKey,
-  mint: mint.publicKey,
-  name: "Example Token v2",
-  symbol: "EXMPL",
-  uri: "https://example.com/token.json",
-  additionalMetadata: [["description", "Metadata stored on mint account"]]
+const metadataPointerExtension = {
+  __kind: "MetadataPointer" as const,
+  authority: feePayer.publicKey.toBase58(),
+  metadataAddress: mint.publicKey.toBase58()
 };
 
-const mintSpace = getMintLen([ExtensionType.MetadataPointer]);
-const metadataSpace = TYPE_SIZE + LENGTH_SIZE + pack(maxMetadata).length;
+const mintSpace = getMintSize([metadataPointerExtension]);
 const mintRent = await connection.getMinimumBalanceForRentExemption(
-  mintSpace + metadataSpace
+  getMintSize([
+    metadataPointerExtension,
+    {
+      __kind: "TokenMetadata",
+      updateAuthority: feePayer.publicKey.toBase58(),
+      mint: mint.publicKey.toBase58(),
+      name: "Example Token v2",
+      symbol: "EXMPL",
+      uri: "https://example.com/token.json",
+      additionalMetadata: new Map([
+        ["description", "Metadata stored on mint account"]
+      ])
+    }
+  ])
 );
 
 await sendAndConfirmTransaction(
@@ -827,40 +840,36 @@ await sendAndConfirmTransaction(
       newAccountPubkey: mint.publicKey, // New mint account to create.
       lamports: mintRent, // Lamports funding the mint account rent.
       space: mintSpace, // Account size in bytes for the mint plus MetadataPointer.
-      programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+      programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+    }),
+    // !mark(1:5)
+    getInitializeMetadataPointerInstruction({
+      mint: mint.publicKey, // Mint account that stores the MetadataPointer extension.
+      authority: feePayer.publicKey.toBase58(), // Authority allowed to update the metadata pointer later.
+      metadataAddress: mint.publicKey.toBase58() // Account address that stores the metadata.
     }),
     // !mark(1:6)
-    createInitializeMetadataPointerInstruction(
-      mint.publicKey, // Mint account that stores the MetadataPointer extension.
-      feePayer.publicKey, // Authority allowed to update the metadata pointer later.
-      mint.publicKey, // Account address that stores the metadata.
-      TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
-    ),
-    // !mark(1:7)
-    createInitializeMintInstruction(
-      mint.publicKey, // Mint account to initialize.
-      0, // Number of decimals for the token.
-      feePayer.publicKey, // Authority allowed to mint new tokens.
-      feePayer.publicKey, // Authority allowed to freeze token accounts.
-      TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
-    ),
-    // !mark(1:10)
-    createInitializeInstruction({
-      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the mint and metadata.
+    getInitializeMint2Instruction({
+      mint: mint.publicKey, // Mint account to initialize.
+      decimals: 0, // Number of decimals for the token.
+      mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+      freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+    }),
+    // !mark(1:9)
+    getInitializeTokenMetadataInstruction({
       metadata: mint.publicKey, // Mint account that stores the metadata.
       updateAuthority: feePayer.publicKey, // Authority allowed to update metadata later.
       mint: mint.publicKey, // Mint that the metadata describes.
-      mintAuthority: feePayer.publicKey, // Signer authorizing metadata initialization for the mint.
+      mintAuthority: feePayer, // Signer authorizing metadata initialization for the mint.
       name: "Example Token", // Token name stored in metadata.
       symbol: "EXMPL", // Token symbol stored in metadata.
       uri: "https://example.com/token.json" // URI pointing to off-chain JSON metadata.
     }),
-    // !mark(1:7)
-    createUpdateFieldInstruction({
-      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
+    // !mark(1:6)
+    getUpdateTokenMetadataFieldInstruction({
       metadata: mint.publicKey, // Mint account that stores the metadata.
-      updateAuthority: feePayer.publicKey, // Authority allowed to update metadata fields.
-      field: "description", // Custom metadata field to add.
+      updateAuthority: feePayer, // Authority allowed to update metadata fields.
+      field: tokenMetadataField("Key", ["description"]), // Custom metadata field to add.
       value: "Metadata stored on mint account" // Value stored for the custom metadata field.
     })
   ),
@@ -868,12 +877,18 @@ await sendAndConfirmTransaction(
   { commitment: "confirmed" }
 );
 
-const initialTokenMetadata = await getTokenMetadata(
-  connection,
-  mint.publicKey,
-  "confirmed",
-  TOKEN_2022_PROGRAM_ID
-);
+const readTokenMetadata = async () => {
+  const mintAccountInfo = await connection.getAccountInfo(
+    mint.publicKey,
+    "confirmed"
+  );
+  const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+  return (unwrapOption(mintAccount.extensions) ?? []).find(
+    (extension) => extension.__kind === "TokenMetadata"
+  );
+};
+
+const initialTokenMetadata = await readTokenMetadata();
 
 console.log(
   JSON.stringify(
@@ -881,7 +896,7 @@ console.log(
       mint: mint.publicKey,
       tokenMetadata: initialTokenMetadata
     },
-    null,
+    (_, value) => (value instanceof Map ? Object.fromEntries(value) : value),
     2
   )
 );
@@ -889,40 +904,33 @@ console.log(
 const updateMetadataSignature = await sendAndConfirmTransaction(
   connection,
   new Transaction().add(
-    // !mark(1:7)
-    createUpdateFieldInstruction({
-      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
+    // !mark(1:6)
+    getUpdateTokenMetadataFieldInstruction({
       metadata: mint.publicKey, // Mint account that stores the metadata.
-      updateAuthority: feePayer.publicKey, // Authority allowed to update metadata fields.
-      field: "name", // Base metadata field to update.
+      updateAuthority: feePayer, // Authority allowed to update metadata fields.
+      field: tokenMetadataField("Name"), // Base metadata field to update.
       value: "Example Token v2" // Updated value for the token name.
     }),
-    // !mark(1:7)
-    createUpdateMetadataPointerInstruction(
-      mint.publicKey, // Mint account that stores the MetadataPointer extension.
-      feePayer.publicKey, // Authority allowed to update the metadata pointer.
-      mint.publicKey, // Account address that stores the metadata.
-      [], // Additional signer accounts required by the instruction.
-      TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
-    ),
-    // !mark(1:7)
-    createRemoveKeyInstruction({
-      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
-      metadata: mint.publicKey, // Mint account that stores the metadata.
-      updateAuthority: feePayer.publicKey, // Authority allowed to remove custom metadata.
-      key: "description", // Custom metadata key to remove.
-      idempotent: false // Fail if the custom metadata key does not exist.
+    // !mark(1:5)
+    getUpdateMetadataPointerInstruction({
+      mint: mint.publicKey, // Mint account that stores the MetadataPointer extension.
+      metadataPointerAuthority: feePayer, // Authority allowed to update the metadata pointer.
+      metadataAddress: mint.publicKey.toBase58() // Account address that stores the metadata.
     }),
     // !mark(1:6)
-    createUpdateAuthorityInstruction({
-      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
+    getRemoveTokenMetadataKeyInstruction({
       metadata: mint.publicKey, // Mint account that stores the metadata.
-      oldAuthority: feePayer.publicKey, // Current authority allowed to change the update authority.
-      newAuthority: null // Clear the update authority so metadata can no longer be changed.
+      updateAuthority: feePayer, // Authority allowed to remove custom metadata.
+      key: "description" // Custom metadata key to remove.
     }),
-    // !mark(1:4)
-    createEmitInstruction({
-      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
+    // !mark(1:5)
+    getUpdateTokenMetadataUpdateAuthorityInstruction({
+      metadata: mint.publicKey, // Mint account that stores the metadata.
+      updateAuthority: feePayer, // Current authority allowed to change the update authority.
+      newUpdateAuthority: null // Clear the update authority so metadata can no longer be changed.
+    }),
+    // !mark(1:3)
+    getEmitTokenMetadataInstruction({
       metadata: mint.publicKey // Mint account that stores the metadata to emit.
     })
   ),
@@ -930,34 +938,42 @@ const updateMetadataSignature = await sendAndConfirmTransaction(
   { commitment: "confirmed" }
 );
 
-const updateMetadataTransaction = (await connection.getTransaction(
+const updateMetadataTransaction = await connection.getTransaction(
   updateMetadataSignature,
   {
     maxSupportedTransactionVersion: 0
   }
-)) as any;
+);
 const emittedDataBase64 =
   updateMetadataTransaction?.meta?.returnData?.data?.[0];
 if (!emittedDataBase64) {
   throw new Error("Expected token metadata return data");
 }
-const emittedTokenMetadata = unpackTokenMetadata(
-  Buffer.from(emittedDataBase64, "base64")
+const stringDecoder = addDecoderSizePrefix(getUtf8Decoder(), getU32Decoder());
+const tokenMetadataDecoder = getStructDecoder([
+  [
+    "updateAuthority",
+    getOptionDecoder(getAddressDecoder(), { prefix: null, noneValue: "zeroes" })
+  ],
+  ["mint", getAddressDecoder()],
+  ["name", stringDecoder],
+  ["symbol", stringDecoder],
+  ["uri", stringDecoder],
+  ["additionalMetadata", getMapDecoder(stringDecoder, stringDecoder)]
+]);
+const emittedTokenMetadata = tokenMetadataDecoder.decode(
+  getBase64Encoder().encode(emittedDataBase64)
 );
 
-const mintAccount = await getMint(
-  connection,
+const mintAccountInfo = await connection.getAccountInfo(
   mint.publicKey,
-  "confirmed",
-  TOKEN_2022_PROGRAM_ID
+  "confirmed"
 );
-const metadataPointer = getMetadataPointerState(mintAccount);
-const tokenMetadata = await getTokenMetadata(
-  connection,
-  mint.publicKey,
-  "confirmed",
-  TOKEN_2022_PROGRAM_ID
+const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+const metadataPointer = (unwrapOption(mintAccount.extensions) ?? []).find(
+  (extension) => extension.__kind === "MetadataPointer"
 );
+const tokenMetadata = await readTokenMetadata();
 
 console.log(
   JSON.stringify(
@@ -967,7 +983,7 @@ console.log(
       tokenMetadata,
       emittedTokenMetadata
     },
-    null,
+    (_, value) => (value instanceof Map ? Object.fromEntries(value) : value),
     2
   )
 );
@@ -1196,6 +1212,234 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+```
+
+</CodeTabs>
+
+### Web3.js（旧版）
+
+这些示例使用旧版 `@solana/web3.js`，并配合 `@solana/spl-token` 和
+`@solana/spl-token-metadata`。
+
+<CodeTabs storage="token-ts-legacy" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction
+} from "@solana/web3.js";
+import {
+  createInitializeMetadataPointerInstruction,
+  createInitializeMintInstruction,
+  createUpdateMetadataPointerInstruction,
+  ExtensionType,
+  getMetadataPointerState,
+  getMint,
+  getMintLen,
+  getTokenMetadata,
+  LENGTH_SIZE,
+  TOKEN_2022_PROGRAM_ID,
+  TYPE_SIZE
+} from "@solana/spl-token";
+import {
+  createInitializeInstruction,
+  createEmitInstruction,
+  createRemoveKeyInstruction,
+  unpack as unpackTokenMetadata,
+  createUpdateAuthorityInstruction,
+  createUpdateFieldInstruction,
+  pack,
+  type TokenMetadata
+} from "@solana/spl-token-metadata";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+const mint = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const maxMetadata: TokenMetadata = {
+  updateAuthority: feePayer.publicKey,
+  mint: mint.publicKey,
+  name: "Example Token v2",
+  symbol: "EXMPL",
+  uri: "https://example.com/token.json",
+  additionalMetadata: [["description", "Metadata stored on mint account"]]
+};
+
+const mintSpace = getMintLen([ExtensionType.MetadataPointer]);
+const metadataSpace = TYPE_SIZE + LENGTH_SIZE + pack(maxMetadata).length;
+const mintRent = await connection.getMinimumBalanceForRentExemption(
+  mintSpace + metadataSpace
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:7)
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: mint.publicKey, // New mint account to create.
+      lamports: mintRent, // Lamports funding the mint account rent.
+      space: mintSpace, // Account size in bytes for the mint plus MetadataPointer.
+      programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+    }),
+    // !mark(1:6)
+    createInitializeMetadataPointerInstruction(
+      mint.publicKey, // Mint account that stores the MetadataPointer extension.
+      feePayer.publicKey, // Authority allowed to update the metadata pointer later.
+      mint.publicKey, // Account address that stores the metadata.
+      TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+    ),
+    // !mark(1:7)
+    createInitializeMintInstruction(
+      mint.publicKey, // Mint account to initialize.
+      0, // Number of decimals for the token.
+      feePayer.publicKey, // Authority allowed to mint new tokens.
+      feePayer.publicKey, // Authority allowed to freeze token accounts.
+      TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+    ),
+    // !mark(1:10)
+    createInitializeInstruction({
+      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the mint and metadata.
+      metadata: mint.publicKey, // Mint account that stores the metadata.
+      updateAuthority: feePayer.publicKey, // Authority allowed to update metadata later.
+      mint: mint.publicKey, // Mint that the metadata describes.
+      mintAuthority: feePayer.publicKey, // Signer authorizing metadata initialization for the mint.
+      name: "Example Token", // Token name stored in metadata.
+      symbol: "EXMPL", // Token symbol stored in metadata.
+      uri: "https://example.com/token.json" // URI pointing to off-chain JSON metadata.
+    }),
+    // !mark(1:7)
+    createUpdateFieldInstruction({
+      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
+      metadata: mint.publicKey, // Mint account that stores the metadata.
+      updateAuthority: feePayer.publicKey, // Authority allowed to update metadata fields.
+      field: "description", // Custom metadata field to add.
+      value: "Metadata stored on mint account" // Value stored for the custom metadata field.
+    })
+  ),
+  [feePayer, mint],
+  { commitment: "confirmed" }
+);
+
+const initialTokenMetadata = await getTokenMetadata(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+
+console.log(
+  JSON.stringify(
+    {
+      mint: mint.publicKey,
+      tokenMetadata: initialTokenMetadata
+    },
+    null,
+    2
+  )
+);
+
+const updateMetadataSignature = await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:7)
+    createUpdateFieldInstruction({
+      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
+      metadata: mint.publicKey, // Mint account that stores the metadata.
+      updateAuthority: feePayer.publicKey, // Authority allowed to update metadata fields.
+      field: "name", // Base metadata field to update.
+      value: "Example Token v2" // Updated value for the token name.
+    }),
+    // !mark(1:7)
+    createUpdateMetadataPointerInstruction(
+      mint.publicKey, // Mint account that stores the MetadataPointer extension.
+      feePayer.publicKey, // Authority allowed to update the metadata pointer.
+      mint.publicKey, // Account address that stores the metadata.
+      [], // Additional signer accounts required by the instruction.
+      TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+    ),
+    // !mark(1:7)
+    createRemoveKeyInstruction({
+      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
+      metadata: mint.publicKey, // Mint account that stores the metadata.
+      updateAuthority: feePayer.publicKey, // Authority allowed to remove custom metadata.
+      key: "description", // Custom metadata key to remove.
+      idempotent: false // Fail if the custom metadata key does not exist.
+    }),
+    // !mark(1:6)
+    createUpdateAuthorityInstruction({
+      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
+      metadata: mint.publicKey, // Mint account that stores the metadata.
+      oldAuthority: feePayer.publicKey, // Current authority allowed to change the update authority.
+      newAuthority: null // Clear the update authority so metadata can no longer be changed.
+    }),
+    // !mark(1:4)
+    createEmitInstruction({
+      programId: TOKEN_2022_PROGRAM_ID, // Program that owns the metadata.
+      metadata: mint.publicKey // Mint account that stores the metadata to emit.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const updateMetadataTransaction = (await connection.getTransaction(
+  updateMetadataSignature,
+  {
+    maxSupportedTransactionVersion: 0
+  }
+)) as any;
+const emittedDataBase64 =
+  updateMetadataTransaction?.meta?.returnData?.data?.[0];
+if (!emittedDataBase64) {
+  throw new Error("Expected token metadata return data");
+}
+const emittedTokenMetadata = unpackTokenMetadata(
+  Buffer.from(emittedDataBase64, "base64")
+);
+
+const mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+const metadataPointer = getMetadataPointerState(mintAccount);
+const tokenMetadata = await getTokenMetadata(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+
+console.log(
+  JSON.stringify(
+    {
+      mint: mint.publicKey,
+      metadataPointer,
+      tokenMetadata,
+      emittedTokenMetadata
+    },
+    null,
+    2
+  )
+);
 ```
 
 </CodeTabs>

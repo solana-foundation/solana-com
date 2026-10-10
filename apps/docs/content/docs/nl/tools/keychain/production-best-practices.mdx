@@ -1,7 +1,7 @@
 ---
 title: Best practices voor productie
 description:
-  Beheer Keychain-ondertekeningsbackends veilig in productie — scheiding van taken, sleutelrotatie, minimale toegangsrechten, beschikbaarheid, transportbeveiliging, monitoring en audit.
+  Beheer Keychain-ondertekeningsbackends veilig in productie, met aandacht voor functiescheiding, sleutelrotatie, toegang met minimale rechten, beschikbaarheid, transportbeveiliging, monitoring en audit.
 related:
   - /docs/tools/keychain/choosing-a-backend
   - /docs/tools/production-readiness
@@ -30,20 +30,42 @@ mainnet.
 ## Verleen minimale toegangsrechten
 
 Beperk de inloggegevens van elke backend tot het minimum dat nodig is om te ondertekenen. Voor AWS KMS
-is dat `kms:Sign` en `kms:DescribeKey` op de specifieke sleutel; geef de voorkeur aan IAM-rollen
-boven statische inloggegevens. Pas hetzelfde principe toe op Vault-beleid en beheerde
-wallet-API-sleutels.
+zijn dat `kms:Sign`, `kms:DescribeKey` en `kms:GetPublicKey` op de specifieke sleutel
+(de beschikbaarheidscontrole gebruikt de laatste twee); geef de voorkeur aan IAM-rollen boven statische
+inloggegevens. Pas hetzelfde principe toe op Vault-beleid en API-sleutels van beheerde wallets.
 
 ## Plan voor beschikbaarheid
 
-Externe backends zijn afhankelijk van een netwerkservice. Roep `isAvailable()` aan voordat u op een
-ondertekenaar vertrouwt, pas nieuwe pogingen toe met backoff bij tijdelijke fouten, en definieer een
-terugvalpad voor storingen. Keychain dwingt HTTPS af voor externe backends en
-past een standaard time-out voor verzoeken toe.
+Remote backends zijn afhankelijk van een netwerkservice. Controleer de beschikbaarheid voordat je
+vertrouwt op een signer (`isAvailable()` in TypeScript, `is_available()` in Rust en Python,
+`IsAvailable(ctx)` in Go), probeer mislukte aanvragen die alleen ondertekenen opnieuw met backoff, en definieer een
+terugvaloptie voor storingen. Probeer een backend die ook uitzendt (broadcast) niet blindelings opnieuw
+(Crossmint, Fordefi native auto mode): zie
+[Onbevestigde broadcasts afhandelen](#handle-unconfirmed-broadcasts). Keychain
+dwingt HTTPS af voor geconfigureerde basis-URL's, weigert redirects en past een standaard
+time-out voor aanvragen toe.
+
+## Onbevestigde broadcasts afhandelen
+
+Crossmint en Fordefi native auto mode ondertekenen en verzenden (broadcast) aan de serverzijde, dus een
+mislukte aanroep betekent niet dat er niets is aangekomen. Als de provider de transactie
+mogelijk heeft geaccepteerd, meldt Keychain `BROADCAST_UNCONFIRMED`
+(`SignerError::BroadcastUnconfirmed` in Rust). De fout bevat de transactie-id van de provider wanneer het aanmaken
+is geaccepteerd, en bevat altijd de idempotentiesleutel
+waaronder het aanmaken is verstuurd, afgeleid van het bericht.
+
+- Stem eerst af met de provider aan de hand van de transactie-id voordat je iets
+  anders doet.
+- Het opnieuw verzenden van de byte-identieke transactie is veilig: de idempotentiesleutel
+  ontdubbelt deze.
+- Het opnieuw opbouwen van de transactie (bijvoorbeeld met een nieuwe blockhash) levert een nieuwe sleutel
+  op en dus een nieuwe overdracht.
 
 ## Bescherm geheimen en transport
 
-- Alle externe backends communiceren via HTTPS; niet-HTTPS-eindpunten worden geweigerd.
+- Remote backends dwingen HTTPS af voor geconfigureerde basis-URL's en weigeren redirects.
+  De enige uitzondering is Vault, dat gewoon HTTP accepteert op loopback, zodat een lokale
+  `vault server -dev` werkt.
 - Verstrek API-sleutels, tokens en inloggegevens vanuit een geheimenbeheerder of omgevingsvariabelen —
   codeer ze nooit hard of leg ze vast in versiebeheer.
 - Keychain zuivert foutreacties om te voorkomen dat geheimen in logs terechtkomen; houd
@@ -55,3 +77,22 @@ Volg het slagingspercentage, de latentie en het aantal mislukkingen van ondertek
 zie de statistieken in
 [Productiegereedheid](/docs/tools/production-readiness#monitoring). Schakel auditlogs aan de providerzijde in (KMS, Vault of bewaarder) en vergelijk deze met
 de transacties die uw applicatie indient.
+
+## Weet wat Keychain controleert
+
+- Keychain valideert de ondertekeningsstap, niet je transactie: er is geen
+  simulatie, geen controle van de transactie-inhoud en geen policy-engine. Handhaaf dit
+  in je applicatie of via de beleidsinstellingen van de provider.
+- Fordefi native manual mode herschrijft de transactie (blockhash, Compute Budget-
+  feeinstructies) voordat deze wordt ondertekend. Ga verder met de transactie die wordt teruggegeven,
+  nooit met degene die je hebt ingediend, en voer deze uit vóór elke andere signer.
+- Rust nult tussenliggende sleutelbuffers (zeroize); Python en Go kunnen dat niet. Behandel bij de Memory-
+  backend in die talen het volledige procesgeheugen als gevoelig.
+- Bij Ledger is het apparaatscherm de enige betrouwbare beschrijving van wat er
+  wordt ondertekend. Schakel de feature `unsafe-debug` of `TRACE`-logging voor
+  `solana_remote_wallet` in productie niet in, aangezien beide details van apparaat en transactie
+  loggen.
+
+Bekijk het
+[beveiligingsmodel](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+voor het volledige plaatje.

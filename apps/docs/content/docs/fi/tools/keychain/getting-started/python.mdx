@@ -1,0 +1,461 @@
+---
+title: Python
+description: Asenna ja käytä solana-keychainia Python-sovelluksissa
+---
+
+Versio 2.0 on Python-paketin ensimmäinen vakaa julkaisu. [2.0-siirtymäopas](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md) käsittelee allekirjoitusmuodot, jotka paketti jakaa Rustin ja TypeScriptin kanssa.
+
+## Asennus
+
+Asenna peruspaketti sekä yksi lisäosa jokaista sellaista taustajärjestelmää kohden, joka tarvitsee palveluntarjoajan riippuvuuden:
+
+```shell
+pip install solana-keychain                # memory, vault and para
+pip install 'solana-keychain[aws-kms]'     # AWS KMS (boto3)
+pip install 'solana-keychain[gcp-kms]'     # GCP KMS (google-cloud-kms)
+pip install 'solana-keychain[privy]'       # Privy
+pip install 'solana-keychain[turnkey]'     # Turnkey
+pip install 'solana-keychain[fireblocks]'  # Fireblocks
+pip install 'solana-keychain[cdp]'         # Coinbase Developer Platform
+pip install 'solana-keychain[crossmint]'   # Crossmint
+pip install 'solana-keychain[dfns]'        # Dfns
+pip install 'solana-keychain[openfort]'    # Openfort
+pip install 'solana-keychain[utila]'       # Utila
+pip install 'solana-keychain[fordefi]'     # Fordefi
+
+# Several at once
+pip install 'solana-keychain[aws-kms,privy]'
+```
+
+Vaatii Python 3.10:n tai uudemman. Transaktiot ovat [`solders`](https://pypi.org/project/solders/)-kirjaston `VersionedTransaction`-olioita; legacy-, v0- ja v1-viestit hyväksytään kaikki, paitsi Fireblocksissa asetuksella `use_program_call=True`, joka hyväksyy vain legacy- ja v0-viestit.
+
+Memory, Vault ja Para voi tuoda paketin juuresta. Jokainen muu taustajärjestelmä tuodaan omasta alimoduulistaan (esimerkiksi `solana_keychain.aws_kms`), ja jos sellaisen tuo ilman sen lisäosaa, syntyy `ImportError`, joka nimeää asennettavan lisäosan. Ledger on vain Rustille.
+
+## Peruskäyttö
+
+Jokaisella taustajärjestelmällä on konfiguraation dataclass ja asynkroninen `create_<backend>_signer`-tehdasfunktio, joka palauttaa käyttövalmiin allekirjoittajan. Kaikki allekirjoitusmetodit ovat korutiineja:
+
+```python
+import asyncio
+
+from solana_keychain import MemorySigner
+from solders.transaction import VersionedTransaction
+
+
+async def sign(transaction: VersionedTransaction) -> str:
+    signer = MemorySigner.from_private_key_file("/path/to/id.json")
+    print("Signing with:", signer.pubkey)
+
+    # Check availability (useful for remote signers)
+    if not await signer.is_available():
+        raise RuntimeError("Signer offline")
+
+    result = await signer.sign_transaction(transaction)
+    print("Signature:", result.signature)
+    print("Fully signed:", result.is_complete)
+    return result.encoded_transaction  # base64 wire transaction
+```
+
+`sign_transaction` palauttaa `SignedTransaction`-olion, jossa on kentät `encoded_transaction`, `signature`, `is_complete` ja `transaction`. `transaction` on ensisijainen allekirjoitettu transaktio: jatka siitä, erityisesti muokkaavan allekirjoittajan kanssa, jonka tulos on eri olio kuin se, jonka välitit sisään.
+
+### Yhtenäinen tehdasfunktio
+
+`create_keychain_signer` ottaa vastaan taustajärjestelmän nimen ja kyseisen taustajärjestelmän konfiguraation dataclassin ja tuo taustajärjestelmän laiskasti, joten vain käyttämäsi lisäosat on asennettava:
+
+```python
+from solana_keychain import create_keychain_signer
+from solana_keychain.privy import PrivySignerConfig
+
+signer = await create_keychain_signer(
+    "privy",
+    PrivySignerConfig(
+        app_id="your-app-id",
+        app_secret="your-app-secret",
+        wallet_id="your-wallet-id",
+    ),
+)
+```
+
+Nimet on lueteltu `SUPPORTED_BACKENDS`-vakiossa: `aws-kms`, `cdp`, `crossmint`, `dfns`, `fireblocks`, `fordefi`, `gcp-kms`, `memory`, `openfort`, `para`, `privy`, `turnkey`, `utila` ja `vault`. Tuntematon nimi tai väräntyyppinen konfiguraatio aiheuttaa `SignerError`-virheen koodilla `SignerErrorCode.CONFIG_ERROR`. Tehdasfunktion palautustyypiksi on määritelty perusluokka `SolanaSigner`, joten rajaa tyyppi `isinstance`-tarkistuksella ennen allekirjoittamista (katso [Allekirjoittajan ominaisuudet](#signer-capabilities)).
+
+### Etä-HTTP-asiakkaat
+
+Etä-HTTP-taustajärjestelmät hyväksyvät valinnaisen `http_client`-parametrin (`httpx.AsyncClient`) mukautettua TLS:ää tai välityspalvelimia varten. Kun sitä ei ole asetettu, jokainen pyyntö käyttää kertakäyttöistä asiakasta, jonka aikakatkaisu on 60 sekuntia, perus-URL-osoitteessa pakotetaan HTTPS ja uudelleenohjaukset hylätään.
+
+## Allekirjoittajan ominaisuudet
+
+Jokainen taustajärjestelmä periytyy `SolanaSigner`-ABC-luokasta (`pubkey`, `sign_message`, `is_available`) sekä täsmälleen yhdestä ominaisuusluokasta:
+
+- `TransactionSigner`: `sign_transaction(tx)` allekirjoittaa transaktiosi paikan päällä ja palauttaa `SignedTransaction`-olion. Lähetät sen itse verkkoon.
+- `ModifyingSigner`: `modify_and_sign_transaction(tx)` antaa palveluntarjoajan kirjoittaa transaktion uudelleen ja allekirjoittaa sen lähettämättä sitä verkkoon. Oma oliosi jää koskemattomaksi; jatka palautetusta `SignedTransaction.transaction`-oliosta.
+- `SendingSigner`: `sign_and_send_transaction(tx)` allekirjoittaa ja lähettää transaktion palveluntarjoajan kautta ja palauttaa perille päätyneen transaktion `Signature`-arvon. Transaktiotasi ei koskaan muuteta.
+
+| Taustajärjestelmä                                                                           | Ominaisuusluokka    | `sign_message`                                  |
+| --------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------- |
+| memory, vault, privy, turnkey, aws-kms, fireblocks, gcp-kms, dfns, para, openfort | `TransactionSigner` | Kyllä                                             |
+| cdp                                                                               | `TransactionSigner` | Vain UTF-8-sisältö, muuten `SERIALIZATION_ERROR` |
+| utila                                                                             | `TransactionSigner` | Aiheuttaa `SIGNING_FAILED`-virheen                         |
+| fordefi black box (`FordefiBlackBoxSigner`)                                       | `TransactionSigner` | Kyllä                                             |
+| fordefi native manual (`FordefiNativeManualSigner`)                               | `ModifyingSigner`   | Kyllä                                             |
+| fordefi native auto (`FordefiNativeAutoSigner`)                                   | `SendingSigner`     | Kyllä                                             |
+| crossmint                                                                         | `SendingSigner`     | Aiheuttaa `SIGNING_FAILED`-virheen                         |
+
+Rajaa tyyppi `isinstance`-tarkistuksella. Kaikki ominaisuusluokat viedään paketin juuresta:
+
+```python
+from solana_keychain import ModifyingSigner, SendingSigner, TransactionSigner
+
+if isinstance(signer, SendingSigner):
+    signature = await signer.sign_and_send_transaction(transaction)
+elif isinstance(signer, ModifyingSigner):
+    result = await signer.modify_and_sign_transaction(transaction)
+elif isinstance(signer, TransactionSigner):
+    result = await signer.sign_transaction(transaction)
+```
+
+### Alustus
+
+`create_*`-tehdasfunktiot ja `create_keychain_signer` tekevät tarvittavan alustuksen puolestasi. Jos luot Privy-, Fireblocks-, Dfns-, Crossmint-, Para-, Openfort- tai Utila-allekirjoittajaluokan suoraan, suorita `await signer.init()` ennen käyttöä. Siihen asti `pubkey` ja jokainen allekirjoituskutsu aiheuttavat `SignerErrorCode.NOT_INITIALIZED` -virheen.
+
+## Taustajärjestelmien konfigurointi
+
+### Memory
+
+Muodosta Solana CLI:n keypair-tiedostosta, base58- tai `"[1,2,...]"`-merkkijonosta, raakatavuista tai `solders`-kirjaston `Keypair`-oliosta:
+
+```python
+from solana_keychain import MemorySigner, MemorySignerConfig, create_memory_signer
+from solders.keypair import Keypair
+
+signer = MemorySigner.from_private_key_file("/path/to/id.json")
+signer = MemorySigner.from_private_key_string("base58_private_key")
+signer = MemorySigner.from_bytes(secret_key_bytes)  # 64 or 32 bytes
+signer = await create_memory_signer(MemorySignerConfig(keypair=Keypair()))
+```
+
+Avain on prosessin muistissa, eikä Python pysty nollaamaan sitä. Käytä tätä taustajärjestelmää kehitykseen ja testaukseen.
+
+### HashiCorp Vault
+
+Avaimen on oltava ed25519-avain transit-moottorissa. Pelkkä HTTP hyväksytään vain loopback-osoitteelle, komennolle `vault server -dev`:
+
+```python
+from solana_keychain import VaultSignerConfig, create_vault_signer
+
+signer = await create_vault_signer(
+    VaultSignerConfig(
+        api_base_url="https://vault.example.com:8200",
+        token="hvs.xxxxx",
+        key_name="my-solana-key",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### AWS KMS
+
+`key_id` on `ECC_NIST_EDWARDS25519`-avaimen tunnus, ARN tai alias. Välitä valmiiksi luotu boto3 KMS -`client` mukautettuja tunnistetietoja tai päätepisteitä varten; `region` jätetään tällöin huomiotta:
+
+```python
+from solana_keychain.aws_kms import AwsKmsSignerConfig, create_aws_kms_signer
+
+signer = await create_aws_kms_signer(
+    AwsKmsSignerConfig(
+        key_id="alias/my-solana-key",
+        public_key="base58_public_key",
+        region="us-east-1",  # optional, defaults to the AWS config chain
+    )
+)
+```
+
+### GCP KMS
+
+Avainversion on oltava `EC_SIGN_ED25519`-avain. `client` voi valinnaisesti ottaa valmiiksi luodun `KeyManagementServiceAsyncClient`-olion:
+
+```python
+from solana_keychain.gcp_kms import GcpKmsSignerConfig, create_gcp_kms_signer
+
+signer = await create_gcp_kms_signer(
+    GcpKmsSignerConfig(
+        key_name="projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Privy
+
+```python
+from solana_keychain.privy import PrivySignerConfig, create_privy_signer
+
+signer = await create_privy_signer(
+    PrivySignerConfig(
+        app_id="app_id",
+        app_secret="app_secret",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+Valtuutusavaimella suojatut lompakot ottavat `PrivyAuthorizationConfig`-olion parametrina `authorization_context`.
+
+### Turnkey
+
+```python
+from solana_keychain.turnkey import TurnkeySignerConfig, create_turnkey_signer
+
+signer = await create_turnkey_signer(
+    TurnkeySignerConfig(
+        api_public_key="api_public_key",    # hex P-256
+        api_private_key="api_private_key",  # hex P-256
+        organization_id="org_id",
+        private_key_id="private_key_id",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Fireblocks
+
+```python
+from solana_keychain.fireblocks import FireblocksSignerConfig, create_fireblocks_signer
+
+signer = await create_fireblocks_signer(
+    FireblocksSignerConfig(
+        api_key="api_key",
+        private_key_pem="-----BEGIN RSA PRIVATE KEY-----\n...",
+        vault_account_id="0",
+        asset_id="SOL",  # or "SOL_TEST" for devnet
+    )
+)
+```
+
+`use_program_call=True` allekirjoittaa PROGRAM_CALL-operaatiolla RAW:n sijaan. Se lähetetään vain allekirjoitettavaksi, joten Fireblocks ei muokkaa eikä lähetä transaktiota verkkoon, ja lähetät sen itse tavalliseen tapaan. Se vaatii hot wallet -lompakon, ja Fireblocksin on otettava se käyttöön työtilassasi.
+
+### CDP (Coinbase Developer Platform)
+
+```python
+from solana_keychain.cdp import CdpSignerConfig, create_cdp_signer
+
+signer = await create_cdp_signer(
+    CdpSignerConfig(
+        api_key_id="api_key_id",
+        api_key_secret="api_key_secret",
+        wallet_secret="wallet_secret",
+        address="base58_address",
+        network="solana",  # or "solana-devnet"; required for address lookup tables
+    )
+)
+```
+
+### Crossmint
+
+```python
+from solana_keychain.crossmint import CrossmintSignerConfig, create_crossmint_signer
+
+signer = await create_crossmint_signer(
+    CrossmintSignerConfig(
+        api_key="api_key",
+        wallet_locator="wallet_locator",
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+Crossmint on vain lähettävä. Sen API suorittaa hyväksytyn transaktion aina palvelinpuolella ja kattaa gas-maksut, joten `CrossmintSigner` on `SendingSigner` ja `sign_message` aiheuttaa `SIGNING_FAILED`-virheen. Palautettu allekirjoitus tunnistaa transaktion, jonka Crossmint sai perille, ja se voi poiketa omastasi. Asetus `signer_secret` (`xmsk1_...`-delegoidun allekirjoittajan salaisuus) hyväksyy transaktiot automaattisesti, jolloin hyväksyttävien transaktioiden valinta delegoidaan Crossmintille.
+
+### Dfns
+
+```python
+from solana_keychain.dfns import DfnsSignerConfig, create_dfns_signer
+
+signer = await create_dfns_signer(
+    DfnsSignerConfig(
+        auth_token="auth_token",
+        cred_id="cred_id",
+        private_key_pem="-----BEGIN EC PRIVATE KEY-----\n...",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+### Openfort
+
+```python
+from solana_keychain.openfort import OpenfortSignerConfig, create_openfort_signer
+
+signer = await create_openfort_signer(
+    OpenfortSignerConfig(
+        secret_key="sk_...",
+        account_id="acc_...",
+        wallet_secret="wallet_secret",
+    )
+)
+```
+
+### Para
+
+```python
+from solana_keychain import ParaSignerConfig, create_para_signer
+
+signer = await create_para_signer(
+    ParaSignerConfig(
+        api_key="sk_...",
+        wallet_id="wallet_uuid",
+    )
+)
+```
+
+### Utila
+
+Utila vain allekirjoittaa transaktioita; `sign_message` aiheuttaa `SIGNING_FAILED`-virheen.
+
+```python
+from solana_keychain.utila import UtilaSignerConfig, create_utila_signer
+
+signer = await create_utila_signer(
+    UtilaSignerConfig(
+        service_account_email="sa@example.com",
+        service_account_private_key_pem="-----BEGIN PRIVATE KEY-----\n...",
+        vault_id="vault_id",
+        wallet_id="wallet_id",
+        network="networks/solana-devnet",
+    )
+)
+```
+
+### Fordefi
+
+Fordefillä on kolme allekirjoitustilaa, jotka määräytyvät luontihetkellä parametreilla `chain` ja `push_mode`. `create_fordefi_signer` valitsee luokan, jokainen luokka hylkää toiselle tarkoitetun konfiguraation, ja kaikki kolme allekirjoittavat viestejä:
+
+| Tila          | Konfiguraatio                                     | Luokka                       | Metodi                        |
+| ------------- | ------------------------------------------ | --------------------------- | ----------------------------- |
+| Black box     | `chain` asettamatta                              | `FordefiBlackBoxSigner`     | `sign_transaction`            |
+| Native auto   | `chain` asetettu, `push_mode` asettamatta tai `"auto"` | `FordefiNativeAutoSigner`   | `sign_and_send_transaction`   |
+| Native manual | `chain` asetettu, `push_mode="manual"`          | `FordefiNativeManualSigner` | `modify_and_sign_transaction` |
+
+API-pyynnöt todennetaan ECDSA P-256 -pyyntöallekirjoituksella: anna avain parametrina `private_key_pem` tai säilytä se KMS/HSM-järjestelmässä välittämällä `FordefiRequestSigner`-aliluokka parametrina `request_signer`.
+
+**Native auto -tila**: aseta `chain` (`"solana_devnet"` tai `"solana_mainnet"`), jolloin Fordefi voi vaihtaa blockhashin ja maksut sekä allekirjoittaa ja lähettää transaktion itse. Se hyväksyy vain allekirjoittamattoman transaktion, jonka ainoa vaadittu allekirjoittaja on vault. `fee` välitetään Fordefille sellaisenaan:
+
+```python
+import os
+
+from solana_keychain.fordefi import FordefiSignerConfig, create_fordefi_signer
+
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],  # vault address (base58)
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        fee={"type": "custom", "priority_fee": "1000"},  # optional
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+**Native manual -tila**: aseta `chain` ja `push_mode="manual"`. Fordefi kirjoittaa viestin uudelleen (tuore blockhash, Compute Budget -maksuohjeet) ja allekirjoittaa sen, mutta ei lähetä sitä verkkoon. Palautettu transaktio korvaa lähettämäsi, joten jatka aina kohdasta `result.transaction`. Fordefin on oltava maksun suorittaja (fee payer), ja sen on allekirjoitettava ennen muita vaadittuja allekirjoittajia: transaktio, jolla on jo allekirjoituksia, hyväksytään, mutta uudelleenkirjoitus mitätöi ne. Uudelleenkirjoituksesta ei tehdä diffiä, joten tarkista tulos ennen lähettämistä verkkoon ja lähetä viipymättä, sillä Fordefi ei palauta uuden blockhashin vanhenemiskorkeutta.
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        push_mode="manual",
+    )
+)
+
+result = await signer.modify_and_sign_transaction(transaction)
+...  # inspect result.transaction, then add any remaining signatures
+```
+
+Lähetä tarkistettu transaktio verkkoon kuten kohdassa [Allekirjoita ja lähetä](#sign-and-send), ja täsmäytä tila ennen uudelleenyritystä, jos lähetys epäonnistuu.
+
+**Black box -tila**: jätä `chain` pois. Fordefi allekirjoittaa täsmälleen antamasi viestitavut eikä lähetä niitä verkkoon. Käytä tätä Fordefi black box -vaultin kanssa.
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_BB_VAULT_ID"],
+        public_key=os.environ["FORDEFI_BB_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+    )
+)
+```
+
+## Allekirjoita ja lähetä
+
+`sign_and_send_transaction` saa transaktion ketjuun allekirjoittajan muodosta riippumatta. `SendingSigner` lähettää palveluntarjoajansa kautta, eikä lähetysfunktiotasi kutsuta koskaan. `TransactionSigner` tai `ModifyingSigner` allekirjoittaa, ja lähetysfunktiosi lähettää base64-koodatun tuloksen (paketissa ei ole RPC-asiakasta):
+
+```python
+import httpx
+from solana_keychain import sign_and_send_transaction
+from solders.signature import Signature
+
+
+async def send(encoded: str) -> Signature:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.devnet.solana.com",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sendTransaction",
+                "params": [encoded, {"encoding": "base64"}],
+            },
+        )
+    return Signature.from_string(response.json()["result"])
+
+
+signature = await sign_and_send_transaction(signer, transaction, send)
+```
+
+Vain allekirjoittava allekirjoittaja ilman lähetysfunktiota aiheuttaa `CONFIG_ERROR`-virheen, ja transaktio, josta puuttuu yhä allekirjoituksia allekirjoittamisen jälkeen, aiheuttaa `SIGNING_FAILED`-virheen.
+
+## Virheenkäsittely
+
+Jokainen virhe on `SignerError`, jolla on vakaa `code` arvoista `SignerErrorCode`: `BROADCAST_UNCONFIRMED`, `CONFIG_ERROR`, `EXPECTED_SOLANA_SIGNER`, `HTTP_ERROR`, `INVALID_PRIVATE_KEY`, `INVALID_PUBLIC_KEY`, `IO_ERROR`, `NOT_AVAILABLE`, `NOT_INITIALIZED`, `OTHER`, `PARSING_ERROR`, `REMOTE_API_ERROR`, `SERIALIZATION_ERROR` ja `SIGNING_FAILED`. Vertaa `code`-arvoon, älä viestiin: `str()` ja `repr()` sisältävät vain kiinteän yleisen viestin, eivät koskaan avainmateriaalia tai palveluntarjoajan raakavastauksia. `status_code` ja `provider_error_code` asetetaan, kun virhe johtui palveluntarjoajan vastauksesta.
+
+`SignerErrorCode.BROADCAST_UNCONFIRMED` (`"SIGNER_BROADCAST_UNCONFIRMED"`) tarkoittaa, että transaktio on saattanut mennä perille:
+
+- Crossmintissa ja Fordefin native auto -tilassa `provider_transaction_id` asetetaan, kun luonti on hyväksytty, ja `idempotency_key` sisältää viestistä johdetun avaimen, jolla luonti lähetettiin. Täsmälleen samanlaisen transaktion uudelleenlähetys on turvallista; uudelleenrakennettu (esimerkiksi uudella blockhashilla) on uusi siirto.
+- `sign_and_send_transaction` nostaa sen, kun lähetysfunktio epäonnistuu, ja `transaction_signature` on asetettu valmiin transaktion allekirjoitukseen.
+- Fireblocks nostaa sen vain, jos kysely osoittaa Fireblocksin lähettäneen `use_program_call`-transaktion verkkoon, vaikka se lähetettiin vain allekirjoitettavaksi.
+
+```python
+from solana_keychain import SignerError, SignerErrorCode
+
+try:
+    signature = await sign_and_send_transaction(signer, transaction, send)
+except SignerError as error:
+    if error.code is SignerErrorCode.BROADCAST_UNCONFIRMED:
+        reconcile(
+            error.provider_transaction_id,
+            error.idempotency_key,
+            error.transaction_signature,
+        )
+    raise
+```
+
+Peruutettu kutsu nostaa uudelleen `asyncio.CancelledError`-poikkeuksen, jossa ei ole kenttiä. Jos haluat palauttaa tunnuksen, jonka palveluntarjoaja hyväksyi ennen peruutusta, välitä `PendingTransactionId()` (paketista `solana_keychain.core`) Crossmintin tai Fordefin native auto -konfiguraation `pending_transaction_id`-parametrina ja lue `.get()` peruutuksen jälkeen. Täsmäytä tila palveluntarjoajan kanssa ennen uudelleenyritystä.
+
+Keychain validoi allekirjoitusvaiheen, ei sitä, mitä transaktio tekee: palveluntarjoajan palauttama allekirjoitus ed25519-varmennetaan paikallisesti lasketusta viestistä ennen kuin se liitetään. Python ei pysty nollaamaan avainpuskureita, joten paikallisten avainten taustajärjestelmissä (Memory sekä etätaustajärjestelmien konfiguraatioissa olevat API-avaimet ja PEM-tiedostot) koko prosessin muisti tulee käsitellä arkaluonteisena. Katso [tietoturvamalli](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md), josta selviää, mitä kukin allekirjoitusmuoto takaa.
+
+## Mukautettujen allekirjoittajien lisääminen
+
+Periytä luokka `TransactionSigner`, `ModifyingSigner` tai `SendingSigner` (se, joka vastaa taustajärjestelmääsi) moduulista `solana_keychain.core`. Katso lisätietoja muiden avainhallintapalveluiden integroimisesta [Allekirjoittajien lisääminen -oppaasta](/docs/tools/keychain/adding-signers).
+
+## Resurssit
+
+- [Pythonin README](https://github.com/solana-foundation/solana-keychain/blob/main/python/README.md)
+- [`solana-keychain` PyPI:ssä](https://pypi.org/project/solana-keychain/)
+- [Tietoturvamalli](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+- [Siirtyminen versioon 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)

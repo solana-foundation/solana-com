@@ -1,0 +1,109 @@
+---
+title: Penandatanganan Parsial
+description:
+  Bangun satu pesan transaksi Solana yang tidak dapat diubah, kumpulkan tanda tangannya dari penanda tangan independen, verifikasi dan gabungkan, lalu kirim transaksinya.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+Penandatanganan parsial memungkinkan beberapa pihak menandatangani transaksi yang sama pada
+waktu yang berbeda atau di perangkat yang berbeda. Koordinator membangun pesan, setiap
+penanda tangan yang diperlukan menandatangani byte pesan yang telah diserialisasi secara persis, dan koordinator memverifikasi
+serta menggabungkan tanda tangan tersebut sebelum pengiriman.
+
+<Callout type="warn" title="Tanda tangan mengotorisasi byte, bukan maksud">
+  Mengubah fee payer, blockhash, urutan instruksi, daftar akun, atau instruction data apa pun
+  akan menghasilkan pesan yang berbeda dan membatalkan semua tanda tangan
+  yang telah dikumpulkan.
+</Callout>
+
+## Alur penandatanganan parsial
+
+1. Sepakati instruksi transaksi dan siapa yang akan membayar biaya.
+2. Tetapkan masa berlaku transaksi dan fee payer.
+3. Serialisasikan pesan sekali saja. Perlakukan byte tersebut sebagai data yang tidak dapat diubah.
+4. Distribusikan byte pesan beserta ringkasan yang mudah dibaca manusia kepada setiap penanda tangan.
+5. Kumpulkan dan verifikasi setiap tanda tangan Ed25519 terhadap byte pesan yang sama.
+6. Lampirkan tanda tangan ke alamat penanda tangan yang diwajibkan.
+7. Pastikan setiap tanda tangan yang diperlukan tersedia dan valid, lalu kirim.
+
+## Contoh lengkap
+
+Fee payer dan pengirim SOL di bawah ini menandatangani secara independen. Koordinator memverifikasi
+kedua tanda tangan, menggabungkannya, dan mengirim transaksi yang telah lengkap.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+Contoh ini menggunakan penandatanganan Ed25519 mentah untuk membuat batas antara
+koordinator dan setiap penanda tangan menjadi eksplisit. Dompet, perangkat keras, layanan
+custody, atau penanda tangan offline dapat menggantikan salah satu keypair lokal selama menandatangani
+byte pesan yang persis sama.
+
+## Bekukan pesan sebelum menandatangani
+
+Setiap tanda tangan mencakup pesan transaksi yang telah diserialisasi. Pesan tersebut mencakup
+semua hal berikut:
+
+- fee payer
+- blockhash terbaru atau durable nonce
+- setiap alamat program dan akun
+- izin penanda tangan akun dan izin writable
+- urutan instruksi dan instruction data
+
+Bangun semua kolom ini terlebih dahulu, serialisasikan pesan sekali saja, dan distribusikan array byte
+tersebut ke setiap penanda tangan. Sebaiknya simpan digest pesan bersama
+setiap permintaan penandatanganan agar koordinator dapat menolak tanda tangan yang dikembalikan untuk
+pesan yang berbeda.
+
+Jangan mendeserialisasi pesan, mengubahnya, lalu berharap tanda tangan yang telah dikumpulkan
+tetap valid. Bahkan perubahan yang tampak operasional, seperti
+mengganti blockhash yang kedaluwarsa atau mengubah fee payer, mengharuskan setiap penanda tangan
+untuk menandatangani ulang.
+
+## Koordinasikan fee payer
+
+Fee payer selalu menjadi penanda tangan yang diwajibkan dan harus dipilih sebelum pesan
+dibekukan. Pastikan akun tersebut memiliki SOL yang cukup untuk biaya dasar dan biaya
+prioritas apa pun. Jika sponsor atau backend akan membayar biaya, masukkan alamat tersebut ke dalam
+pesan sebelum mengumpulkan tanda tangan pengguna; menambahkan sponsor di kemudian hari akan mengubah
+byte yang ditandatangani.
+
+Koordinator harus memverifikasi bahwa tanda tangan yang masuk berasal dari alamat yang
+tercantum sebagai penanda tangan yang diwajibkan. Jangan pernah menerima public key sembarang lalu menambahkannya
+ke transaksi.
+
+## Kelola masa berlaku transaksi
+
+Transaksi dengan blockhash terbaru hanya valid selama blockhash-nya masih berada dalam
+antrean blockhash terbaru milik validator. Sebelum memulai alur penandatanganan multipihak,
+perkirakan apakah semua penanda tangan dapat merespons sebelum `lastValidBlockHeight`.
+
+Jika blockhash kedaluwarsa, bangun pesan baru dengan blockhash baru dan kumpulkan
+semua tanda tangan lagi. Untuk alur kerja yang mungkin memakan waktu lebih lama atau melibatkan penanda tangan
+offline, gunakan [durable nonce](/docs/core/transactions/durable-nonces). Durable nonce
+menghindari jendela blockhash terbaru, tetapi memajukan atau menggunakan
+nonce tersebut tetap akan membatalkan transaksi yang tertunda.
+
+## Verifikasi sebelum pengiriman
+
+Untuk setiap tanda tangan yang dikembalikan:
+
+1. Verifikasi tanda tangan terhadap byte pesan yang telah dibekukan dan public key
+   penanda tangan yang diharapkan.
+2. Lampirkan ke slot penanda tangan tersebut dalam array tanda tangan transaksi.
+3. Verifikasi bahwa transaksi yang telah dirakit memiliki tanda tangan valid untuk setiap
+   penanda tangan yang diwajibkan.
+4. Kirim transaksi yang telah diserialisasi tanpa membangun ulang pesannya.
+
+Setelah pengiriman, lakukan konfirmasi menggunakan informasi masa berlaku yang sama seperti yang disertakan
+dalam pesan yang ditandatangani. Jika konfirmasi melaporkan blockhash yang kedaluwarsa atau nonce yang telah digunakan,
+jangan coba lagi dengan transaksi yang dimodifikasi; mulai ulang alur penandatanganan.

@@ -1,7 +1,7 @@
 ---
 title: Best Practices für den Produktionsbetrieb
 description:
-  Keychain-Signing-Backends sicher im Produktionsbetrieb betreiben – Aufgabentrennung, Schlüsselrotation, Zugriff nach dem Prinzip der minimalen Rechte, Verfügbarkeit, Transportsicherheit, Überwachung und Audit.
+  "Betreiben Sie Keychain-Signing-Backends sicher in der Produktion: Aufgabentrennung, Schlüsselrotation, Zugriff nach dem Prinzip der minimalen Rechte, Verfügbarkeit, Transportsicherheit, Monitoring und Audit."
 related:
   - /docs/tools/keychain/choosing-a-backend
   - /docs/tools/production-readiness
@@ -21,15 +21,43 @@ Bei Solana ist der Signing-Schlüssel _die_ Kontenadresse, daher erzeugt das Rot
 
 ## Zugriff nach dem Prinzip der minimalen Rechte vergeben
 
-Beschränken Sie die Anmeldedaten jedes Backends auf das Minimum, das zum Signieren erforderlich ist. Für AWS KMS sind das `kms:Sign` und `kms:DescribeKey` für den spezifischen Schlüssel; bevorzugen Sie IAM-Rollen gegenüber statischen Anmeldedaten. Wenden Sie dasselbe Prinzip auf Vault-Richtlinien und verwaltete Wallet-API-Schlüssel an.
+Beschränken Sie die Zugangsdaten jedes Backends auf das Minimum, das zum Signieren nötig ist. Für AWS KMS
+sind das `kms:Sign`, `kms:DescribeKey` und `kms:GetPublicKey` für den jeweiligen Schlüssel
+(die Verfügbarkeitsprüfung nutzt die letzten beiden); bevorzugen Sie IAM-Rollen gegenüber statischen
+Zugangsdaten. Wenden Sie dasselbe Prinzip auf Vault-Richtlinien und API-Schlüssel verwalteter Wallets an.
 
 ## Verfügbarkeit einplanen
 
-Remote-Backends sind auf einen Netzwerkdienst angewiesen. Rufen Sie `isAvailable()` auf, bevor Sie sich auf einen Signer verlassen, wenden Sie Wiederholungsversuche mit Backoff bei vorübergehenden Fehlern an und definieren Sie einen Fallback-Pfad für Ausfälle. Keychain erzwingt HTTPS für Remote-Backends und wendet einen Standard-Anfrage-Timeout an.
+Remote-Backends hängen von einem Netzwerkdienst ab. Prüfen Sie die Verfügbarkeit, bevor Sie sich
+auf einen Signer verlassen (`isAvailable()` in TypeScript, `is_available()` in Rust und Python,
+`IsAvailable(ctx)` in Go), wiederholen Sie fehlgeschlagene reine Signiervorgänge mit Backoff und definieren Sie einen
+Fallback-Pfad für Ausfälle. Wiederholen Sie bei einem Backend, das auch sendet (Broadcasting), Vorgänge nicht blind
+(Crossmint, Fordefi im nativen Auto-Modus): siehe
+[Unbestätigte Broadcasts behandeln](#handle-unconfirmed-broadcasts). Keychain
+erzwingt HTTPS für konfigurierte Basis-URLs, lehnt Weiterleitungen ab und wendet ein standardmäßiges
+Anfrage-Timeout an.
+
+## Unbestätigte Broadcasts behandeln
+
+Crossmint und Fordefi im nativen Auto-Modus signieren und senden serverseitig. Ein
+fehlgeschlagener Aufruf bedeutet daher nicht, dass nichts angekommen ist. Wenn der Anbieter die
+Transaktion möglicherweise angenommen hat, meldet Keychain `BROADCAST_UNCONFIRMED`
+(`SignerError::BroadcastUnconfirmed` in Rust). Der Fehler enthält die Transaktions-ID des Anbieters,
+sofern die Erstellung akzeptiert wurde, und immer den Idempotenzschlüssel,
+unter dem die Erstellung abgesendet wurde, abgeleitet aus der Nachricht.
+
+- Gleichen Sie den Status zunächst anhand der Transaktions-ID mit dem Anbieter ab, bevor Sie
+  irgendetwas anderes tun.
+- Das erneute Senden der byte-identischen Transaktion ist sicher: Der Idempotenzschlüssel
+  dedupliziert sie.
+- Wird die Transaktion neu aufgebaut (z. B. mit einem neuen Blockhash), entsteht ein neuer Schlüssel
+  und damit eine neue Überweisung.
 
 ## Geheimnisse und Transport schützen
 
-- Alle Remote-Backends kommunizieren über HTTPS; Nicht-HTTPS-Endpunkte werden abgelehnt.
+- Remote-Backends erzwingen HTTPS für konfigurierte Basis-URLs und lehnen Weiterleitungen ab.
+  Die einzige Ausnahme ist Vault, das einfaches HTTP auf Loopback akzeptiert, sodass ein lokaler
+  `vault server -dev` funktioniert.
 - Stellen Sie API-Schlüssel, Tokens und Anmeldedaten über einen Secret-Manager oder Umgebungsvariablen bereit – codieren Sie diese niemals fest oder übertragen Sie sie in die Quellcodeverwaltung.
 - Keychain bereinigt Fehlerantworten, um zu verhindern, dass Geheimnisse in Logs gelangen; halten Sie Ihre eigenen Logs frei von rohen Anmeldedaten und Schlüsselmaterial.
 
@@ -38,3 +66,21 @@ Remote-Backends sind auf einen Netzwerkdienst angewiesen. Rufen Sie `isAvailable
 Verfolgen Sie Signing-Erfolgsrate, Latenz und Fehleranzahl und richten Sie Alarme bei Spitzen ein –
 siehe die Metriken in
 [Production Readiness](/docs/tools/production-readiness#monitoring). Aktivieren Sie anbieterseitige Audit-Logs (KMS, Vault oder Verwahrstelle) und gleichen Sie diese mit den Transaktionen ab, die Ihre Anwendung einreicht.
+
+## Wissen, was Keychain prüft
+
+- Keychain validiert den Signierschritt, nicht Ihre Transaktion: Es gibt keine
+  Simulation, keine Prüfung des Transaktionsinhalts und keine Policy-Engine. Setzen Sie diese Kontrollen
+  in Ihrer Anwendung oder in den Richtlinien-Kontrollen des Anbieters durch.
+- Fordefi im nativen manuellen Modus schreibt die Transaktion um (Blockhash, Compute-Budget-
+  Gebühren-Anweisungen), bevor sie signiert wird. Machen Sie mit der zurückgegebenen Transaktion weiter,
+  niemals mit der von Ihnen übermittelten, und führen Sie sie vor jedem anderen Signer aus.
+- Rust überschreibt Zwischenspeicher für Schlüssel mit Nullen (Zeroizing); Python und Go können das nicht. Betrachten Sie bei Verwendung des Memory-
+  Backends in diesen Sprachen den gesamten Prozessspeicher als sensibel.
+- Bei Ledger ist der Bildschirm des Geräts die einzige vertrauenswürdige Beschreibung dessen, was
+  signiert wird. Aktivieren Sie in der Produktion weder das Feature `unsafe-debug` noch das `TRACE`-Logging für
+  `solana_remote_wallet`, da beide Geräte- und Transaktionsdetails protokollieren.
+
+Weitere Informationen finden Sie im
+[Sicherheitsmodell](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+für das Gesamtbild.

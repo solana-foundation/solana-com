@@ -1,0 +1,91 @@
+---
+title: Architectuur
+description:
+  Hoe een verzoek door een Kora-node reist en waar in de crate elke fase zich bevindt. Begin hier voordat je je eerste wijziging doorvoert.
+---
+
+Kora is een Rust-workspace met drie crates:
+
+- `kora-lib` bevat de kernlogica en de RPC-server,
+- `kora-cli` bouwt de `kora`-binary die operators draaien, en
+- `kora-deploy` is een gespecialiseerde tool voor het deployen van programma's, met een eigen versiebeheer.
+  Alles hieronder bevindt zich in `crates/lib/src`, tenzij anders vermeld.
+
+## De levenscyclus van een verzoek
+
+Het onderstaande diagram toont de algemene route van een transactie door Kora.
+Het begrijpen van het aanroeppad is belangrijk voor het configureren van een Kora-node en het toevoegen van
+nieuwe functies.
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## Waar elke fase zich bevindt
+
+| Fase in het diagram | Bron                               | Entrypoint                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| Gateway              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| Dispatch             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| Logica per methode     | `rpc_server/method/`                 | één bestand per JSON-RPC-methode          |
+| Validatie           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| Plugins              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| Ondertekenen              | `signer/`                            | ondersteund door de `solana-keychain`-crate |
+
+Nog twee bestanden om te kennen: `config.rs` definieert het volledige `kora.toml`-schema, en
+`state.rs` bevat de gedeserialiseerde configuratie in een procesglobale state.
+
+### De RPC-server lezen
+
+`rpc.rs` is een dunne dispatchlaag, met één methode per JSON-RPC-endpoint, en de
+snelste manier om de hele API te overzien. De logica van elke methode staat in een eigen bestand onder
+`rpc_server/method/`. Lees `sign_transaction.rs` van begin tot eind; de andere ondertekeningsmethoden
+zijn variaties daarop.
+
+### De validator lezen
+
+`transaction_validator.rs` en `transaction/instruction_util.rs` bevatten de logica voor het
+valideren van transacties en instructies. Daarnaast zijn er de property-tests voor de veiligheid van het fee-payer-beleid,
+die per afgeschermd programma in één bestand staan onder
+`validator/transaction_validator/fee_payer_policy_props/`.
+
+## Handige conventies om te kennen
+
+**Standaardvalidatie.** Elke vlag onder `[validation.fee_payer_policy]`
+staat standaard op `false`, en de beleidsstructs dragen `#[serde(default)]`. Die
+combinatie is bewust: het toevoegen van een nieuw afgeschermde instructie mag de configuratie van een
+bestaande operator niet breken, en moet resulteren in een weigering in plaats van een
+onbedoelde toestemming. Behoud beide wanneer je een vlag toevoegt.
+
+**Valideer de resolved transactie, nooit de ruwe.** De ruwe
+`VersionedTransaction` bevat alleen statische accountsleutels, dus het valideren of prijzen van een V0-transactie op basis daarvan slaat stilzwijgend lookup-table-accounts over en
+berekent te weinig. `VersionedTransactionResolved::from_transaction` lost die
+adressen vooraf op, en daarom werkt elke latere fase met het resolved type.
+
+## Een transactieplugin toevoegen
+
+Plugins implementeren de `TransactionPlugin`-trait in `plugin/mod.rs`. Die heeft twee
+methoden: `validate` draait per transactie tijdens de ondertekeningsflows, en
+`validate_config` draait eenmalig bij het opstarten en geeft fouten en waarschuwingen terug aan de
+operator. Een `PluginExecutionContext` geeft de plugin aan welke van de vier ondertekeningsmethoden
+hem heeft aangeroepen.
+
+`TransactionPluginRunner::from_config` matcht op `TransactionPluginType`,
+gedefinieerd in `config.rs`. Een nieuwe ingebouwde plugin is een nieuwe variant daar plus een nieuwe
+match-arm in de runner. De twee plugins die nu worden meegeleverd, zijn `gas_swap` en
+`deploy_authority`.
+
+## Testen
+
+Kora bewaart de configuratie in procesglobale state, dus `tests/` declareert één
+`[[test]]`-target per fase, en elke target start zijn eigen embedded surfnet plus
+Kora-node, volledig from scratch geseed. Eén configuratie per binary: een nieuwe fase heeft een nieuwe
+target nodig, geen nieuwe module in een bestaande.
+
+```bash
+cargo test -p tests --test <target>
+```
+
+Al het andere loopt via de `justfile`. Lees die in plaats van
+commando's handmatig te reconstrueren.

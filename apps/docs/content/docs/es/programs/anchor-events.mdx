@@ -1,0 +1,241 @@
+---
+title: Eventos de Anchor
+description:
+  Define, emite, decodifica, suscríbete, versiona y prueba eventos de Anchor, con orientación sobre el truncamiento de logs y los eventos CPI.
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+Los eventos de Anchor son registros tipados y serializados con Borsh que se incluyen en el IDL de un programa.
+Permiten que los clientes interpreten la actividad del programa sin analizar los mensajes
+de log legibles para humanos.
+
+Los eventos son útiles para la indexación y las notificaciones, pero no son el estado
+del programa. Guarda en una cuenta cualquier valor que el programa deba volver a leer, y trata
+los eventos como un registro derivado de una transacción exitosa.
+
+## Define y emite un evento
+
+Añade `#[event]` a un struct y llama a `emit!` después de que el cambio de estado se haya realizado correctamente.
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+`emit!` escribe los bytes del evento con la syscall `sol_log_data` de Solana. Los logs de la transacción
+muestran el resultado como `Program data: <base64>`. El valor codificado comienza con
+el discriminador del evento, seguido de sus campos serializados con Borsh.
+
+Mantén los eventos concisos. Las cadenas de texto y los vectores grandes consumen cómputo, aumentan
+los metadatos de la transacción y tienen más probabilidades de verse afectados por el truncamiento de logs.
+
+## Elige entre eventos de log y eventos CPI
+
+Anchor admite dos vías de emisión:
+
+| Vía        | Ubicación de almacenamiento                  | Compromiso                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | Logs de datos del programa                 | Más simple y económico, pero los logs pueden truncarse         |
+| `emit_cpi!` | Inner instruction data de una CPI | Metadatos más duraderos, con cuentas y cómputo adicionales |
+
+Para usar eventos CPI, habilita la característica `event-cpi` de Anchor:
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+Después, anota el struct de cuentas de la instrucción con `#[event_cpi]` y emite
+desde un handler cuya variable de contexto se llame `ctx`:
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+`#[event_cpi]` añade la autoridad de eventos y la program account del programa actual, requeridas por
+la self-CPI firmada. Los eventos CPI no pueden consumirse mediante la suscripción a eventos de log
+de Anchor; en su lugar, obtén la transacción y decodifica la inner instruction
+correspondiente.
+
+<Callout type="info" title="Usa el ledger como fuente de verdad">
+  Los proveedores de RPC pueden truncar los logs del programa. Si perder un evento afectara
+  a los saldos, a los permisos o a otro flujo de trabajo crítico para la corrección, obtén el
+  resultado a partir de las cuentas del programa o de la instruction data de la transacción. Usa los eventos para
+  que la indexación sea eficiente, no como único registro del estado.
+</Callout>
+
+## Suscríbete desde TypeScript
+
+El cliente actual de Anchor para TypeScript es `@anchor-lang/core`. Una instancia de `Program`
+creada a partir del IDL del programa puede decodificar los eventos de log correspondientes y entregarlos
+mediante la suscripción a logs del RPC:
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+El callback recibe los datos del evento decodificados, el slot y la firma de la
+transacción. Las suscripciones solo cubren los logs entregados mientras la conexión está
+activa. Guarda las firmas procesadas y recupera las transacciones perdidas después de una
+desconexión si el consumidor necesita el historial completo.
+
+## Decodifica los logs de transacciones obtenidas
+
+Para rellenar datos históricos y para inspecciones puntuales, obtén una transacción y pasa cada
+payload de `Program data:` al codificador de eventos:
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+Una transacción puede invocar varios programas. En un parser para producción, sigue los
+límites `Program <address> invoke` y `success` de los logs, o usa el parser de eventos de Anchor,
+para que la entrada `Program data:` de otro programa no se decodifique como si fuera tuya.
+Las transacciones fallidas pueden conservar logs e inner instructions del trabajo completado
+antes del error, así que rechaza siempre los metadatos de transacciones con un `err` no nulo
+antes de indexar cualquiera de las dos formas de evento. La suscripción a logs de Anchor realiza esta comprobación
+antes de entregar un callback de evento.
+
+Para un evento `emit_cpi!`, localiza la self-CPI en `meta.innerInstructions`,
+confirma que su ID de programa es el de tu programa y decodifica su instruction data desde base58. Antes de eliminar cualquier byte, verifica el
+[`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3) de Anchor:
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+Comprobar tanto el ID del programa como la etiqueta evita que una self-CPI ordinaria se
+confunda con un evento.
+
+## Versiona los esquemas de eventos
+
+De forma predeterminada, Anchor deriva un discriminador de evento de 8 bytes a partir del nombre del evento.
+Anchor también admite un discriminador explícito mediante
+`#[event(discriminator = ...)]`. Los discriminadores deben seguir siendo únicos dentro del
+programa y estables para todos los clientes que decodifican el evento.
+
+Cambiar los campos de un struct emitido cambia su diseño Borsh. Para un cambio de esquema
+que rompa la compatibilidad, define un evento nuevo como `PaymentRecordedV2` en lugar de
+modificar silenciosamente `PaymentRecorded`. Sigue emitiendo el evento anterior durante una
+ventana de migración mientras los indexadores existentes aún dependan de él.
+
+Para datos que evolucionarán, prefiere campos de ancho fijo e identificadores que permitan a un
+indexador obtener por separado datos de cuenta más completos. Publica el IDL actualizado antes de la actualización del programa o
+junto con ella, para que los consumidores puedan decodificar el nuevo evento de inmediato.
+
+## Prueba los eventos
+
+Prueba el contrato decodificado, no la cadena base64. Registra el listener antes de
+enviar la instrucción, comprueba los campos decodificados y la firma de la transacción,
+y elimina siempre el listener:
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+Prueba también que el indexador ignore los bytes de eventos conservados en los metadatos de
+transacciones fallidas, y añade un fixture para cada versión de evento admitida. Si usas
+`emit_cpi!`, prueba la decodificación desde `innerInstructions`, porque los listeners de logs no
+reciben esos eventos directamente.
+
+## Lecturas adicionales
+
+- [Documentación de eventos de Anchor](https://www.anchor-lang.com/docs/features/events)
+- [Cliente de Anchor para TypeScript](https://www.anchor-lang.com/docs/clients/typescript)
+- [Código fuente de la macro de eventos de Anchor](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

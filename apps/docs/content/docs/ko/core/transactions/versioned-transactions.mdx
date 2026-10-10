@@ -19,7 +19,7 @@ related:
 Solana는 **레거시**, **v0**, **v1**의 세 가지 트랜잭션 형식을 지원합니다. 각 형식은 동일한 세 가지 측면으로 설명됩니다: 와이어에서의 바이트 배치 방식, 계정 참조 방식, 리소스 한도의 출처.
 
 <Callout type="warn" title="v1 활성화 상태">
-  [v1 형식](https://solana.com/upgrades/larger-transaction-sizes)은 아직 어떤 클러스터에서도 활성화되지 않았습니다. 활성화는 Agave v4.2를 목표로 합니다. `solana-test-validator` 4.2 이상에서 v1 트랜잭션을 로컬에서 테스트할 수 있습니다. 기존 앱은 [v1 준비하기](#preparing-for-v1)를 검토하세요.
+  [v1 형식](https://solana.com/upgrades/larger-transaction-sizes)은 메인넷, 데브넷, 테스트넷에서 활성화되어 있습니다. 트랜잭션 읽기는 호환성을 깨는 변경 사항입니다. v1에 옵트인하지 않은 클라이언트는 v1 트랜잭션에서 실패합니다. 기존 앱은 [v1 준비하기](#preparing-for-v1)를 검토하세요.
 </Callout>
 
 ## 형식 비교
@@ -105,6 +105,16 @@ ALT는 최대 256개의 공개 키를 저장하는 온체인 계정입니다. AL
   서명자가 될 수 없습니다.
 </Callout>
 
+### 주소 룩업 테이블 생성 및 사용
+
+이 예제는 룩업 테이블을 생성하고 주소를 추가한 다음, 해당 테이블을 사용해 v0 트랜잭션을 컴파일하고 전송합니다.
+
+```ts !! title="Versioned transaction with an ALT" file=packages/docs-examples/cookbook/transactions/versioned-transaction-alt/legacy.ts#region=versioned-transaction-alt
+
+```
+
+룩업 테이블에서는 서명자가 아닌 계정만 불러올 수 있습니다. 수수료 지불자와 필요한 모든 서명자는 메시지의 정적 계정 목록에 그대로 남습니다. 또한 주소는 추가된 것과 같은 slot에서는 조회할 수 없으므로, 이 예제에서는 v0 메시지를 컴파일하기 전에 다음 확정(confirmed) slot까지 기다립니다.
+
 ### v0의 리소스 한도
 
 레거시와 동일: ComputeBudget 명령어를 사용하며, 생략 시 동일한 기본값이 적용됩니다.
@@ -118,7 +128,7 @@ v1은 크기 제한을 4,096바이트로 높이고 **트랜잭션 설정**을 �
 | 필드                  | 크기         | 설명                                                                        |
 | ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
 | `0x81`                 | 1바이트       | 버전 접두사 바이트 — 트랜잭션의 첫 번째 바이트                            |
-| `header`               | 3바이트      | MessageHeader (레거시와 동일)                                                     |
+| `header`               | 3바이트      | MessageHeader(레거시와 동일)                                                     |
 | `config_mask`          | 4바이트      | 어떤 설정 값이 존재하는지 표시하는 `u32` LE 비트마스크                           |
 | `recent_blockhash`     | 32바이트     | 수명 지정자                                                                 |
 | `num_instructions`     | 1바이트       | 고정 너비 카운트, 최대 64                                                          |
@@ -169,16 +179,54 @@ v1 트랜잭션은 ComputeBudget 명령어를 거부하지 않습니다 — 설�
 
 권장하는 방법은 두 한도를 모두 최대값으로 설정하여 한 번 시뮬레이션한 후, 반환된 `unitsConsumed`와 `loadedAccountsDataSize`를 설정에 다시 기록하는 것입니다. 데이터 크기는 여유 공간 확보를 위해 다음 32 KiB 페이지 경계까지 올림합니다 (블록 비용 모델은 32 KiB 페이지 단위로 청구하므로, 다음 페이지 경계 이전의 여유 공간은 무료입니다).
 
+### v1 트랜잭션 빌드하기
+
+v1 메시지는 레거시 또는 v0 메시지와 동일한 파이프라인으로 조립됩니다. 차이점은 `setTransactionMessageConfig`입니다. 리소스 제한이 메시지의 속성이므로, 명령어 목록에는 프로그램 명령어만 들어갑니다.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=build
+
+```
+
+</CodeTabs>
+
+Kit은 config 필드별 setter도 제공합니다. `setTransactionMessagePriorityFeeLamports`, `setTransactionMessageComputeUnitLimit`, `setTransactionMessageLoadedAccountsDataSizeLimit`, `setTransactionMessageHeapSize`를 사용하면 필드를 하나씩 설정할 수 있습니다.
+
+### 시뮬레이션으로 제한값 산정하기
+
+필수 제한 두 가지를 추측하지 말고 직접 측정하세요. 시뮬레이션은 두 제한을 모두 런타임 최댓값으로 올려 실행하므로, 측정 대상인 리소스가 부족해서 실패하는 일은 없습니다. 반환된 수치는 시뮬레이션 1회 실행의 정확한 비용이므로, 사용하기 전에 여유분을 더하세요.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/estimate-kit.ts#region=estimate
+
+```
+
+</CodeTabs>
+
 ## v1 준비하기
 
-v1은 트랜잭션 전송뿐만 아니라 **읽기** 방식도 변경합니다. v1이 활성화되면, 옵트인 없이 `getTransaction` 또는 `getBlock`을 호출하는 클라이언트는 v1 트랜잭션에서 실패하기 시작합니다:
+v1은 트랜잭션 전송뿐 아니라 **읽기** 방식도 바꿉니다. 옵트인하지 않고 `getTransaction` 또는 `getBlock`을 호출하는 모든 클라이언트는 v1 트랜잭션에서 실패합니다:
 
 - [`getTransaction`](/docs/rpc/http/gettransaction) 및 [`getBlock`](/docs/rpc/http/getblock)에 `maxSupportedTransactionVersion: 1` — 문자열 `"1"`이 아닌 JSON **정수** `1` — 을 전달하세요. `0`을 전달하면 매개변수를 생략한 것과 마찬가지로 v1 트랜잭션에서 실패하므로, v0 출시 당시에 업데이트된 코드베이스도 값을 변경해야 합니다.
 - `getTransaction`은 v1 트랜잭션에서 오류 `-32015`로 실패하며, v1 트랜잭션 하나가 동일한 오류로 **전체** `getBlock` 응답을 실패시킵니다 — 부분 결과는 없습니다.
 - [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe)는 `block: null`을 반환하고 진행을 멈추므로, 이를 빈 블록으로 읽는 소비자는 첫 번째 v1 slot부터 조용히 뒤처지게 됩니다.
 - `getSignaturesForAddress`는 트랜잭션 본문을 검사하지 않으므로, v1 서명은 정상적으로 나열됩니다.
-- 옵트인된 응답에는 v1 트랜잭션의 메시지에 `transactionConfig` 객체가 포함됩니다 (레거시 및 v0에서는 완전히 없음). ComputeBudget 명령어를 스캔하여 우선순위 수수료나 컴퓨트 한도를 도출하는 파이프라인은 모든 v1 트랜잭션에 대해 **0**을 조용히 보고하게 됩니다.
+- 옵트인한 응답에는 v1 트랜잭션의 경우 메시지에 `transactionConfig` 객체가 포함됩니다(레거시와 v0에는 아예 없습니다). ComputeBudget 명령어를 스캔해 우선순위 수수료나 컴퓨트 제한을 구하는 파이프라인은 모든 v1 트랜잭션에 대해 아무런 오류 없이 **0**을 보고합니다.
 - 클라이언트 측에서 트랜잭션을 디코딩할 때, 그리고 1,232바이트를 초과하는 트랜잭션에 `sendTransaction`/`simulateTransaction`을 사용할 때는 `encoding: 'base64'`를 사용하세요 — base58 인코딩은 여전히 이전 크기 한도에 묶여 있습니다.
 - 클라이언트 라이브러리 지원은 최신 버전이 필요합니다: `@solana/kit` 8.0 이상, Agave 4.2.x 세대 Rust 크레이트, 또는 web3.js v3. web3.js v1은 1.99.0부터 v1을 읽을 수 있지만, 빌드하거나 전송할 수는 없습니다.
 
-클라이언트 라이브러리 지원, 스트리밍(Geyser/gRPC) 버전 감지, 시뮬레이션 동작을 포함한 전체 마이그레이션 가이드는 [트랜잭션 형식 v1 업그레이드 페이지](https://solana.com/upgrades/larger-transaction-sizes)를 참조하세요.
+### v1 트랜잭션 읽기
+
+옵트인하려면 JSON 정수 `1`을 사용합니다. 반환된 바이트를 디코딩하면 버전과 config를 얻을 수 있으며, 리소스 제한은 바로 여기에 들어 있습니다. 명령어 목록에서 ComputeBudget 명령어를 스캔해서는 아무것도 찾을 수 없습니다.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=read
+
+```
+
+</CodeTabs>
+
+클라이언트 라이브러리 지원, 스트리밍(Geyser/gRPC) 버전 감지, 시뮬레이션 동작을 포함한 전체 마이그레이션 가이드는 [트랜잭션 형식 v1 업그레이드 페이지](https://solana.com/upgrades/larger-transaction-sizes)를 참조하세요. TypeScript, Rust, Python, Go로 작성된 실행 가능한 예제는 [solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples)에서 확인할 수 있습니다.

@@ -1,7 +1,7 @@
 ---
 title: Üretim ortamı için en iyi uygulamalar
 description:
-  Keychain imzalama arka uçlarını üretim ortamında güvenli şekilde işletin — görev ayrımı, anahtar rotasyonu, en az ayrıcalıklı erişim, kullanılabilirlik, aktarım güvenliği, izleme ve denetim.
+  "Keychain imzalama arka uçlarını üretim ortamında güvenle işletin: görev ayrımı, anahtar rotasyonu, en az ayrıcalık erişimi, kullanılabilirlik, aktarım güvenliği, izleme ve denetim konularını kapsar."
 related:
   - /docs/tools/keychain/choosing-a-backend
   - /docs/tools/production-readiness
@@ -19,18 +19,56 @@ Solana'da imzalama anahtarı aynı zamanda hesap adresidir; dolayısıyla bir an
 
 ## En az ayrıcalıklı erişim sağlayın
 
-Her arka ucun kimlik bilgilerini yalnızca imzalamak için gereken en düşük düzeyle sınırlayın. AWS KMS için bu, belirli anahtar üzerinde `kms:Sign` ve `kms:DescribeKey` izinleridir; statik kimlik bilgileri yerine IAM rollerini tercih edin. Aynı ilkeyi Vault politikalarına ve yönetilen cüzdan API anahtarlarına da uygulayın.
+Her arka ucun kimlik bilgilerini imzalamak için gereken minimum düzeyle sınırlandırın. AWS KMS için bu, belirli anahtar üzerinde `kms:Sign`, `kms:DescribeKey` ve `kms:GetPublicKey` izinleridir
+(kullanılabilirlik kontrolü son ikisini kullanır); statik kimlik bilgileri yerine IAM rollerini tercih edin. Aynı ilkeyi Vault politikalarına ve yönetilen cüzdan API
+anahtarlarına da uygulayın.
 
 ## Kullanılabilirliği planlayın
 
-Uzak arka uçlar bir ağ servisine bağlıdır. Bir imzalayıcıya güvenmeden önce `isAvailable()` çağırın, geçici hatalarda geri çekilmeli yeniden denemeler uygulayın ve kesintiler için bir geri dönüş yolu tanımlayın. Keychain, uzak arka uçlar için HTTPS'yi zorunlu kılar ve varsayılan bir istek zaman aşımı uygular.
+Uzak arka uçlar bir ağ hizmetine bağımlıdır. Bir imzalayıcıya güvenmeden önce kullanılabilirliğini kontrol edin (TypeScript'te `isAvailable()`, Rust ve Python'da `is_available()`,
+Go'da `IsAvailable(ctx)`), yalnızca imzalama yapan arka uçlardaki hataları geri çekilme (backoff) ile yeniden deneyin ve kesintiler için bir yedek yol tanımlayın. Yayın yapan bir arka ucu (Crossmint, Fordefi native auto modu) körü körüne yeniden denemeyin: bkz.
+[Onaylanmamış yayınları yönetme](#handle-unconfirmed-broadcasts). Keychain,
+yapılandırılmış temel URL'lerde HTTPS'i zorunlu kılar, yönlendirmeleri reddeder ve varsayılan bir
+istek zaman aşımı uygular.
+
+## Onaylanmamış yayınları yönetme
+
+Crossmint ve Fordefi native auto modu, imzalama ve yayınlamayı sunucu tarafında yapar; bu nedenle
+başarısız bir çağrı, hiçbir şeyin ağa ulaşmadığı anlamına gelmez. Sağlayıcı işlemi kabul etmiş olabilirse Keychain `BROADCAST_UNCONFIRMED` hatasını bildirir
+(Rust'ta `SignerError::BroadcastUnconfirmed`). Hata, oluşturma isteği kabul edildiğinde sağlayıcının
+işlem kimliğini taşır ve her zaman, oluşturma isteğinin mesajdan türetilen idempotency
+anahtarını da içerir.
+
+- Başka bir şey yapmadan önce, işlem kimliğini kullanarak sağlayıcıyla mutabakat sağlayın.
+- Bayt bayt aynı işlemi yeniden göndermek güvenlidir: idempotency anahtarı
+  tekrarı engeller.
+- İşlemi yeniden oluşturmak (örneğin yeni bir blockhash ile) yeni bir anahtar
+  ve dolayısıyla yeni bir transfer üretir.
 
 ## Gizli bilgileri ve aktarımı koruyun
 
-- Tüm uzak arka uçlar HTTPS üzerinden iletişim kurar; HTTPS olmayan uç noktalar reddedilir.
+- Uzak arka uçlar, yapılandırılmış temel URL'lerde HTTPS'i zorunlu kılar ve yönlendirmeleri reddeder.
+  Tek istisna Vault'tur; loopback üzerinde düz HTTP'yi kabul eder, böylece yerel bir
+  `vault server -dev` çalışır.
 - API anahtarlarını, token'ları ve kimlik bilgilerini bir gizli bilgi yöneticisinden veya ortam değişkenlerinden sağlayın — bunları hiçbir zaman doğrudan koda gömmeyIn veya kaynak denetimine işlemeyin.
 - Keychain, hata yanıtlarını gizli bilgilerin günlüklere sızmasını önlemek amacıyla arındırır; kendi günlüklerinizi ham kimlik bilgileri ve anahtar materyalinden uzak tutun.
 
 ## İmzalamayı izleyin ve denetleyin
 
 İmzalama başarı oranını, gecikmeyi ve hata sayısını takip edin, ani artışlarda uyarı alın — bkz. [Üretime Hazırlık](/docs/tools/production-readiness#monitoring) içindeki metrikler. Sağlayıcı tarafı denetim günlüklerini (KMS, Vault veya saklama sağlayıcısı) etkinleştirin ve bunları uygulamanızın gönderdiği işlemlerle karşılaştırın.
+
+## Keychain'in neleri kontrol ettiğini bilin
+
+- Keychain, işleminizi değil imzalama adımını doğrular: simülasyon, işlem içeriği kontrolü ve politika motoru yoktur. Bunları
+  uygulamanızda veya sağlayıcının politika denetimlerinde uygulayın.
+- Fordefi native manual modu, işlemi imzalamadan önce yeniden yazar (blockhash, Compute Budget
+  ücret talimatları). Gönderdiğiniz işlemden değil, döndürülen işlemden devam edin
+  ve bunu diğer tüm imzalayıcılardan önce çalıştırın.
+- Rust ara anahtar arabelleklerini sıfırlar; Python ve Go bunu yapamaz. Bu dillerde Memory
+  arka ucunu kullanırken tüm işlem belleğini hassas kabul edin.
+- Ledger ile, imzalanan işlemin güvenilir tek tanımı cihaz ekranıdır. Üretimde `unsafe-debug` özelliğini veya `solana_remote_wallet` için `TRACE` günlüklemesini etkinleştirmeyin,
+  çünkü ikisi de cihaz ve işlem ayrıntılarını günlüğe kaydeder.
+
+Tüm resim için
+[güvenlik modeline](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+bakın.

@@ -1,0 +1,438 @@
+---
+title: Viestit ja todennus
+h1: Allekirjoita viestejä ja todenna käyttäjiä
+description:
+  Allekirjoita viestejä Solana-lompakolla käyttäjien todentamiseksi, suostumuksen tallentamiseksi tai ketjun ulkopuolisten toimintojen valtuuttamiseksi. Käytössä on ketjun ulkopuolinen viestien allekirjoitus ja varamenetelmä lompakoille, jotka eivät vielä tue sitä.
+---
+
+Viestin allekirjoittaminen todistaa, että käyttäjä hallitsee lompakkoa ilman
+transaktiota, maksua tai verkkokutsua. Sovellukset käyttävät allekirjoitettuja
+viestejä käyttäjien kirjaamiseen sisään, ehtojen hyväksymisen tallentamiseen,
+lompakon yhdistämiseen olemassa olevaan tiliin tai ketjun ulkopuolella
+tapahtuvan toiminnon, kuten tilauksen tekemisen, valtuuttamiseen.
+
+Solana-lompakot allekirjoittavat viestejä kahdella tavalla:
+
+- **Ketjun ulkopuoliset viestit** (`solana:signOffchainMessage`) kietovat tekstisi
+  vakiomuotoon, joka on määritelty ketjun ulkopuolisten viestien allekirjoituksen
+  (OCMS) [määrittelyssä](https://docs.anza.xyz/proposals/off-chain-message-signing).
+  Muotoa ei voi koskaan sekoittaa transaktioon, se nimeää tilit, joiden on
+  allekirjoitettava viesti, ja se on muoto, jonka laitteistolompakot allekirjoittavat.
+- **Raakaviestit** (`solana:signMessage`) allekirjoittavat täsmälleen ne tavut,
+  jotka sovelluksesi välittää, ilman etuliitettä ja ilman ilmoitettuja
+  allekirjoittajia. Useimmat ohjelmistolompakot tukevat niitä, mutta tavuissa ei
+  ole mitään, mikä erottaisi ne transaktiosta.
+
+Käytä ketjun ulkopuolisia viestejä, kun lompakko tukee niitä, ja palaa
+raakaviesteihin, kun se ei tue. Tämä opas käyttää esimerkkinä sisäänkirjautumista,
+mutta samat allekirjoitus- ja vahvistusvaiheet pätevät mihin tahansa viestiin.
+
+## Valitse viestin muoto
+
+|                           | Ketjun ulkopuolinen viesti     | Raakaviesti   | Transaktio                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| Lompakon ominaisuus            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| Laitteistolompakon tuki   | Riippuu laitteesta     | Ei            | Kyllä                           |
+| Käyttäjän luettavissa      | Kyllä                   | Vain ohjelmistolompakoissa | Riippuu laitteesta             |
+| Ilmoittaa vaaditut allekirjoittajat | Kyllä                   | Ei            | Kyllä                           |
+| RPC-kutsut ja maksut        | Ei yhtään                  | Ei yhtään          | Blockhash, lähetys, maksu, vahvistus |
+
+### Miksei transaktio?
+
+Laitteistolompakoilla ei ennen ollut keinoa allekirjoittaa luettavaa viestiä.
+Monet sovellukset pyysivät näitä käyttäjiä allekirjoittamaan sen sijaan tyhjän
+transaktion. Se toimii, mutta lisää viivettä, kustannuksia ja riskejä:
+
+- **Verkkomaksut.** Transaktiosta maksetaan maksu, vaikka se ei tekisi mitään.
+- **Useita RPC-kutsuja.** Sovelluksesi hakee blockhashin, simuloi, lähettää ja
+  kyselee sitten vahvistusta.
+- **Lisäviivettä.** Jokainen näistä kutsuista on edestakainen matka ennen kuin
+  käyttäjä on kirjautunut sisään.
+- **Mitään ei voi lukea.** Käyttäjä hyväksyy transaktion tavut, ei selitystä siitä,
+  mihin hän on suostumassa.
+- **Käyttäytymisriski.** Kun käyttäjiä pyydetään allekirjoittamaan transaktio
+  pelkästään kirjautumista varten, heidät on helpompi huijata allekirjoittamaan
+  haitallinen transaktio.
+
+Ketjun ulkopuolinen viesti ohittaa kaiken tämän. Ainoa edestakainen matka on
+oman palvelimesi luo.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## Mitä lompakko allekirjoittaa
+
+Ketjun ulkopuolinen viesti alkaa kiinteällä allekirjoitusdomainilla `\xffsolana offchain`.
+Mikään kelvollinen transaktio ei ala näillä tavuilla, joten allekirjoitettua viestiä
+ei voi koskaan käyttää transaktiona. Formaatin versio 1 luettelee tämän jälkeen
+vaaditut allekirjoittajat ja sisältää viestin UTF-8-tekstinä ilman pituusrajaa.
+
+Lompakko muodostaa nämä tavut, allekirjoittaa ne ja palauttaa ne allekirjoituksen
+mukana. [Määrittely](https://docs.anza.xyz/proposals/off-chain-message-signing)
+kattaa koko formaatin, mukaan lukien vanhan version 0.
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## Valitse kirjautumistapa
+
+Kaikki lompakot eivät vielä tue ketjun ulkopuolisia viestejä. Tarkista yhdistetyn
+tilin ominaisuudet ennen allekirjoituksen pyytämistä ja käytä varamenetelmää,
+jos ominaisuus puuttuu:
+
+1. Jos tili tukee `solana:signOffchainMessage`-ominaisuutta viestiversiolla 1,
+   allekirjoita ketjun ulkopuolinen viesti.
+2. Muussa tapauksessa allekirjoita sama haaste `solana:signMessage`-ominaisuudella.
+   Useimmat ohjelmistolompakot tukevat sitä.
+3. Tarjoa laitteistolompakon käyttäjille, joiden lompakko ei tue viestejä, erillinen
+   käyttäjän itse valitsema vaihtoehto, kuten "Käytän laitteistolompakkoa" -kytkin,
+   joka allekirjoittaa sen sijaan kirjautumistransaktion. Älä ohjaa heitä tälle
+   polulle oletuksena.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## Allekirjoita viesti selaimessa
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    Asenna Wallet Standard -paketit Kitin rinnalle:
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    Nämä apufunktiot ottavat parametrina `UiWalletAccount`-tilin, kuten `account`-arvon,
+    jonka `useConnectedWallet` palauttaa [React-oppaassa](/docs/frontend/react-hooks):
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `@solana/wallet-adapter`-paketin `useWallet` tarjoaa `signOffchainMessage`-funktion vain,
+    kun yhdistetty tili tukee `solana:signOffchainMessage`-ominaisuutta. Se allekirjoittaa
+    version 1 viestin yhdistetyllä tilillä vaadittuna allekirjoittajana ja hylkää
+    kutsun `WalletNotReadyError`-virheellä, jos lompakko ei voi allekirjoittaa versiota 1:
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // Palvelinlogiikka
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    `publicKey.verifySignature` tarkistaa allekirjoituksen allekirjoitettuja tavuja
+    vasten selaimessa. Palvelimesi on silti varmistettava, että nämä tavut vastaavat
+    sen antamaa haastetta. Kun `signOffchainMessage` on `undefined`, käytä varamenetelmänä
+    saman hookin `signMessage`-funktiota.
+
+  </Tab>
+</Tabs>
+
+`signOffchainMessage` palauttaa arvot `signedOffchainMessage`, eli täydet tavut,
+jotka lompakko allekirjoitti, sekä `signature`. Koodaa molemmat Base64-muotoon ja
+lähetä ne palvelimellesi lompakon osoitteen kanssa.
+
+Kirjoita haaste siten, että se on helppolukuinen pienellä näytöllä. Mainitse
+sovelluksesi ja verkkotunnus, kerro mitä allekirjoittaminen tekee, ja sisällytä
+kertakäyttöinen nonce sekä palvelimeltasi saatu myöntöaika:
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## Vahvista allekirjoitus palvelimellasi
+
+Vahvistus on paikallinen allekirjoituksen tarkistus, eikä se vaadi RPC-yhteyttä.
+Pura lompakon allekirjoittamat tavut, varmista että ne vastaavat antamaasi
+haastetta, ja tarkista sitten allekirjoitus:
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+`assertOffchainMessageV1Equal` heittää virheen, jos sisältö tai allekirjoittajat
+poikkeavat odotetusta. `verifyOffchainMessageEnvelope` heittää virheen, jos
+allekirjoitus puuttuu tai on virheellinen. Hae `expectedMessage` noncen perusteella
+palvelimeltasi sen sijaan, että luottaisit kopioon, jonka asiakas lähettää takaisin.
+Kuluta nonce heti, kun vahvistus onnistuu, jotta samalla allekirjoituksella ei voi
+kirjautua sisään kahdesti.
+
+### Vahvista raakaviesti
+
+`signMessage`-allekirjoitus kattaa haastetavut suoraan, joten asiakkaan tarvitsee
+lähettää vain allekirjoitus ja lompakon osoite. Tarkista se antamaasi haastetta
+vasten:
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+Samat nonce-säännöt pätevät: hae `expectedMessage` noncen perusteella ja kuluta se,
+kun vahvistus onnistuu.
+
+<Callout type="info">
+  `@solana/kit` re-eksporttaa nämä apufunktiot paketista `@solana/offchain-messages`.
+  Käytä erillistä pakettia, jos palvelimesi ei riipu Kitistä.
+</Callout>
+
+## Sign In With Solana
+
+[Sign In With Solana](https://github.com/phantom/sign-in-with-solana) (SIWS)
+standardoi itse haasteen. Sovelluksesi välittää jäsennellyt kentät, kuten
+`domain`, `statement`, `nonce` ja `issuedAt`, lompakon `solana:signIn`-ominaisuudelle.
+Lompakko muotoilee ne standardiviestiksi, muodostaa yhteyden tarvittaessa ja
+allekirjoittaa viestin yhdellä kertaa.
+
+`solana:signIn`-ominaisuuden versio `1.1.0` lisää `useOffchainMessage`-asetuksen.
+Kun välität arvon `useOffchainMessage: { messageVersion: 1 }`, lompakko kietoo
+SIWS-tekstin version 1 ketjun ulkopuoliseen viestiin, jossa allekirjoittava tili
+on ainoa vaadittu allekirjoittaja. Laitteistolompakot voivat näyttää ja allekirjoittaa
+sen, ja tulosteessa on `signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }`.
+Lompakot, jotka ilmoittavat version `1.0.0`, eivät tunne asetusta, joten tarkista
+ensin ominaisuuden versio ja jätä asetus muuten pois.
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    `solana:signIn` on lompakon ominaisuus, ei tilin ominaisuus, joten nämä
+    apufunktiot ottavat parametrina `UiWallet`-lompakon:
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` tarjoaa `signIn`-funktion, kun valittu lompakko tukee
+    `solana:signIn`-ominaisuutta, ja `supportsSignInWithOffchainMessage`-arvon, kun
+    lompakko ilmoittaa version `1.1.0`. Jos `useOffchainMessage` välitetään lompakolle,
+    joka ei tue sitä, kutsu hylätään `WalletSignInError`-virheellä:
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    `verifySignIn` tarkistaa, että allekirjoitettu viesti toistaa syötteen jokaisen
+    kentän ja sisältää allekirjoittavan tilin kelvollisen allekirjoituksen, riippumatta
+    siitä, allekirjoittiko lompakko pelkän SIWS-tekstin vai ketjun ulkopuolisen viestin.
+    Suorita sama tarkistus palvelimellasi tuomalla se paketista
+    `@solana/wallet-adapter/core`, jolla ei ole React-riippuvuutta.
+
+  </Tab>
+</Tabs>
+
+Muodosta syöte palvelimellasi kertakäyttöisellä `nonce`-arvolla ja `issuedAt`-ajalla
+ja säilytä kopio noncen mukaan avainnettuna. Kuluta nonce, kun kirjautuminen on
+vahvistettu.
+
+Ilman Wallet Adapteria `@solana/wallet-standard-util`-paketin `verifySignIn`
+tarkistaa vain pelkän SIWS-tulosteen. Kun `signedMessageFormat` ilmoittaa ketjun
+ulkopuolisen viestin, `signedMessage` on ketjun ulkopuolinen viesti, jonka sisältö
+on SIWS-teksti. Muodosta odotettu teksti uudelleen tallennetusta syötteestä ja
+allekirjoittavasta osoitteesta `@solana/wallet-standard-util`-paketin
+`createSignInMessageText`-funktiolla ja vahvista se kuten mikä tahansa muu ketjun
+ulkopuolinen viesti, kuten kohdassa
+[Vahvista allekirjoitus palvelimellasi](#verify-the-signature-on-your-server). Tiedosto
+[`@solana/offchain-messages` README](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message)
+käsittelee tätä kulkua Kitissä.
+
+## Lompakoille
+
+Lompakot lisäävät tuen toteuttamalla `solana:signOffchainMessage` Wallet Standard
+ -ominaisuuden paketista `@solana/wallet-standard-features`:
+
+- Ilmoita `version: "1.0.0"` ja listaa allekirjoitettavissa olevat viestiversiot
+  kohdassa `supportedMessageVersions`. Tällä hetkellä se on `[1]`.
+- Muodosta version 1 johdanto (preamble) `requiredSigners`-kentästä, jonka lajittelet ja tarkistat
+  päällekkäisyyksien varalta. Hylkää pyyntö, jos tili ei ole yksi vaadituista
+  allekirjoittajista.
+- Näytä viestin teksti käyttäjälle kokonaisuudessaan ennen allekirjoittamista, myös
+  laitteistolompakoissa.
+- Palauta täsmälleen allekirjoittamasi tavut arvona `signedOffchainMessage` yhdessä
+  Ed25519-allekirjoituksen `signature` kanssa.
+- Jos haluat tukea ketjun ulkopuolista Sign In With Solana -kirjautumista, ilmoita `solana:signIn`-toiminnolle `version: "1.1.0"`. Kun syöte sisältää kentän `useOffchainMessage`, allekirjoita SIWS-teksti version 1 ketjun ulkopuolisena viestinä, palauta sen tavut arvona `signedMessage` ja aseta `signedMessageFormat`.
+- Jatka `solana:signMessage`-toiminnon tukemista. Se ei ole muuttunut, ja sovellukset käyttävät sitä edelleen
+  varavaihtoehtona.

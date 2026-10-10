@@ -1,0 +1,289 @@
+---
+title: Створення угоди
+description:
+  Налаштуйте клієнти програми DvP, виведіть запис угоди та два її ескроу-акаунти й зафіксуйте умови угоди за допомогою CreateDvp.
+seoTitle: Створення угоди DvP у Solana
+url: /docs/defi/dvp-program/create-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program
+related:
+  - /docs/defi/dvp-program/fund-the-legs
+---
+
+`CreateDvp` фіксує умови угоди та створює два ескроу-акаунти, які
+сторони поповнюватимуть. Токени він не переміщує. Надіслати його може будь-хто, тож запис
+може надійти від контрагента, оператора розрахункового органу або третьої сторони,
+а кожен інший учасник перевіряє збережені умови, перш ніж діяти на їхній підставі (див.
+[поповнення частин угоди](/docs/defi/dvp-program/fund-the-legs)).
+
+У фрагментах коду використовується згенерований клієнт напряму, із заповнювачами замість адрес,
+щоб було видно задіяні акаунти та підписантів. Вони націлені на devnet, де
+програма розгорнута за тією самою адресою, що й у mainnet-beta.
+
+## Встановлення
+
+Станом на 2 жовтня 2026 року для клієнтів DvP не опубліковано жодного пакета. Обидва
+генеруються з IDL програми в репозиторії та використовуються з вихідного коду.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```bash
+    git clone https://github.com/solana-foundation/dvp.git
+    cd dvp && git checkout df9919ed02c25a93620e7f6820107c9050ce3b92
+    pnpm install && pnpm generate-clients && pnpm build
+    # The client is clients/typescript/src; copy or link it into your project as ./dvp
+    pnpm add @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token-2022 @solana-program/memo
+    ```
+  </Tab>
+
+  <Tab value="Rust">
+    ```bash
+    git clone https://github.com/solana-foundation/dvp.git
+    cd dvp && git checkout df9919ed02c25a93620e7f6820107c9050ce3b92
+    pnpm install && pnpm generate-clients
+    # The client is clients/rust; add it to your Cargo.toml as a path dependency
+    ```
+
+    ```toml
+    [dependencies]
+    dvp-swap-program-client = { path = "<clone>/clients/rust", features = ["fetch"] }
+    solana-pubkey = { version = "2.2", features = ["curve25519"] }
+    solana-instruction = "2.2"
+    solana-client = "2.2"
+    solana-commitment-config = "2.2"
+    spl-token-2022-interface = "1"
+    spl-associated-token-account-client = "2"
+    rand = "0.8"
+    ```
+
+  </Tab>
+</Tabs>
+
+Ці сторінки написано для коміту `df9919e`, із `@solana/kit` 8 у
+TypeScript та крейтами `solana-*` 2.x у Rust.
+
+Фрагменти коду на кожній сторінці кроку є наступними один за одним: кожна сторінка використовує клієнт, підписантів
+та адреси, визначені на попередніх сторінках. `payerSigner`, `userASigner`,
+`userBSigner` та `authoritySigner` — це `TransactionSigner` для платника
+rent, двох сторін і розрахункового органу, наприклад отримані з
+`createKeyPairSignerFromBytes`. Фрагменти Rust лише будують інструкції, а підписання
+та надсилання залишають на розсуд викликача.
+
+## Виведення адрес
+
+Запис угоди — це program-derived address, виведена з розрахункового органу,
+двох сторін, двох mint-адрес і nonce. Кожен ескроу — це associated
+token account запису для одного з mint. Обидва виведення не потребують доступу до мережі.
+
+Використовуйте випадковий 64-бітний nonce для кожної угоди. Оскільки створення не потребує дозволів,
+передбачуваний nonce дає змогу третій стороні зайняти адресу, яку мала
+використати угода. Передавайте nonce та суми як `bigint` у TypeScript; згенерований
+клієнт відхиляє `number`.
+
+Перед запуском замініть кожен заповнювач `..._HERE` на справжню адресу.
+`address()` перевіряє base58 і викидає помилку на заповнювачі, а `pubkey!` не
+компілюється.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { address, createClient } from "@solana/kit";
+    import { solanaRpc } from "@solana/kit-plugin-rpc";
+    import { signer } from "@solana/kit-plugin-signer";
+    import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+    import { findSwapDvpEscrowAta, findSwapDvpPda } from "./dvp";
+
+    const client = createClient()
+      .use(signer(payerSigner))
+      .use(
+        solanaRpc({
+          rpcUrl: "https://api.devnet.solana.com",
+          rpcSubscriptionsUrl: "wss://api.devnet.solana.com",
+        }),
+      );
+
+    const settlementAuthority = address("SETTLEMENT_AUTHORITY_ADDRESS_HERE");
+    const userA = address("ASSET_LEG_PARTY_ADDRESS_HERE");
+    const userB = address("CASH_LEG_PARTY_ADDRESS_HERE");
+    const mintA = address("ASSET_MINT_ADDRESS_HERE");
+    const mintB = address("CASH_MINT_ADDRESS_HERE");
+    const tokenProgramA = TOKEN_2022_PROGRAM_ADDRESS;
+    const tokenProgramB = TOKEN_2022_PROGRAM_ADDRESS;
+
+    // A fresh random nonce per trade, as a bigint.
+    const nonce = new DataView(
+      crypto.getRandomValues(new Uint8Array(8)).buffer,
+    ).getBigUint64(0);
+
+    const [swapDvp] = await findSwapDvpPda({
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+    const [escrowA] = await findSwapDvpEscrowAta({
+      swapDvp,
+      mint: mintA,
+      tokenProgram: tokenProgramA,
+    });
+    const [escrowB] = await findSwapDvpEscrowAta({
+      swapDvp,
+      mint: mintB,
+      tokenProgram: tokenProgramB,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::{find_swap_dvp_address, find_swap_dvp_escrow_ata};
+    use solana_pubkey::{pubkey, Pubkey};
+
+    const TOKEN_2022_PROGRAM_ID: Pubkey = pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+
+    let settlement_authority: Pubkey = pubkey!("SETTLEMENT_AUTHORITY_ADDRESS_HERE");
+    let user_a: Pubkey = pubkey!("ASSET_LEG_PARTY_ADDRESS_HERE");
+    let user_b: Pubkey = pubkey!("CASH_LEG_PARTY_ADDRESS_HERE");
+    let mint_a: Pubkey = pubkey!("ASSET_MINT_ADDRESS_HERE");
+    let mint_b: Pubkey = pubkey!("CASH_MINT_ADDRESS_HERE");
+    let token_program_a = TOKEN_2022_PROGRAM_ID;
+    let token_program_b = TOKEN_2022_PROGRAM_ID;
+
+    // A fresh random nonce per trade.
+    let nonce: u64 = rand::random();
+
+    let (swap_dvp, _bump) = find_swap_dvp_address(
+        &settlement_authority, &user_a, &user_b, &mint_a, &mint_b, nonce,
+    );
+    let escrow_a = find_swap_dvp_escrow_ata(&swap_dvp, &mint_a, &token_program_a);
+    let escrow_b = find_swap_dvp_escrow_ata(&swap_dvp, &mint_b, &token_program_b);
+    ```
+
+  </Tab>
+</Tabs>
+
+## Фіксація умов
+
+`CreateDvp` приймає дві суми в базових одиницях, строк дії, nonce та чотири
+необов'язкові поля: непрозоре посилання розміром до 64 байтів, адресу призначення розрахунку
+для кожної зі сторін і найранніший час розрахунку (див. «Примітки»). Адреса призначення —
+це місце, куди потрапляють надходження цієї сторони під час розрахунку, наприклад депозитний гаманець
+кастодіана; за замовчуванням це власна адреса сторони, і після створення
+запису її не можна змінити. Повернення коштів і відшкодування завжди надходять на власний token account
+сторони для mint цієї частини угоди, а не на адресу призначення, хоч би хто поповнив ескроу.
+
+Платник сплачує rent для запису, tombstone для nonce та обох ескроу.
+При закритті цей rent отримує той, хто підписує інструкцію закриття, а не
+платник. Tombstone ніколи не закривається, тож кожна угода залишає невеликий постійний
+баланс. Плануючи бюджет SOL для платника, обчислюйте суми rent за допомогою
+методу RPC `getMinimumBalanceForRentExemption`, а не прописуйте їх жорстко.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCreateDvpInstruction } from "./dvp";
+
+    const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
+
+    const createInstruction = getCreateDvpInstruction({
+      payer: payerSigner,
+      swapDvp,
+      nonceTombstone: (
+        await getProgramDerivedAddress({
+          programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+          seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+        })
+      )[0],
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      tokenProgramA,
+      tokenProgramB,
+      amountA: 1_000_000_000n, // 1,000 units of a 6-decimal asset
+      amountB: 998_500_000n, // 998.50 units of a 6-decimal cash token
+      expiryTimestamp: nowSeconds + 60n * 60n * 24n, // one day
+      nonce,
+      refString: "ORDER-2026-10-02-0001",
+      userASettlementDestination: null, // defaults to userA
+      userBSettlementDestination: null, // defaults to userB
+      earliestSettlementTimestamp: null,
+    });
+
+    const { context } = await client.sendTransaction([createInstruction]);
+    console.log("Trade record:", swapDvp, "signature:", context.signature);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::CreateDvpBuilder;
+    use dvp_swap_program_client::DVP_SWAP_PROGRAM_ID;
+
+    let payer: Pubkey = pubkey!("PAYER_ADDRESS_HERE");
+    let (nonce_tombstone, _) =
+        Pubkey::find_program_address(&[b"nonce", swap_dvp.as_ref()], &DVP_SWAP_PROGRAM_ID);
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+
+    let create_ix = CreateDvpBuilder::new()
+        .payer(payer)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .amount_a(1_000_000_000) // 1,000 units of a 6-decimal asset
+        .amount_b(998_500_000) // 998.50 units of a 6-decimal cash token
+        .expiry_timestamp(now_seconds + 60 * 60 * 24) // one day
+        .nonce(nonce)
+        .ref_string("ORDER-2026-10-02-0001".to_string())
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Для фрагмента TypeScript потрібні `getProgramDerivedAddress` і `getAddressEncoder`
+з `@solana/kit`, а також `DVP_SWAP_PROGRAM_PROGRAM_ADDRESS` із клієнта в
+області видимості. Білдер Rust залишає system program та associated token program
+зі значеннями за замовчуванням.
+
+## Примітки
+
+- **Строк дії.** Лише Settle перевіряє строк дії. Reclaim, Cancel і Reject працюють
+  і після його завершення, а депозит, що надійшов після завершення строку, може бути повернений
+  стороною цієї частини угоди. Строк дії може становити щонайбільше один рік після створення.
+- **Час — це мережевий час.** Програма зчитує ончейн-годинник, який може
+  відрізнятися від реального часу, іноді на десятки секунд, і може стрибати
+  вперед. Залишайте запас між завершенням строку дії та запланованим часом розрахунку,
+  уникайте поповнення чи розрахунку поблизу будь-якої з меж і не покладайтеся на строк дії
+  для забезпечення дедлайну з точністю до секунди. У README програми радять закладати
+  приблизно хвилину розбіжності.
+- **Найраніший розрахунок.** Необов'язково. Якщо задано, Settle відхиляється до цього часу,
+  і він не може бути пізнішим за строк дії.
+- **Перевірки під час створення.** Створення завершується помилкою `PartyNotSignerCapable`, якщо сторона
+  не є акаунтом, що належить system program (це виключає мультипідпис SPL Token),
+  а також `SettlementDestinationIsSwapDvp`, `SelfDvp`, `SameMint`, `ZeroAmount`,
+  `SettlementAuthorityIsParty` або `ExpiryNotInFuture`. Повний перелік наведено в
+  [таблиці помилок](/docs/defi/dvp-program#errors).
+
+## Наступні кроки
+
+- [Поповнення частин угоди](/docs/defi/dvp-program/fund-the-legs): кожна сторона переказує
+  свою частину в ескроу угоди

@@ -11,29 +11,51 @@ haluavat integroida uusia avaintenhallintaratkaisuja
 mahdollistat kehittäjille palvelusi käytön turvalliseen Solana-transaktioiden
 allekirjoitukseen yhtenäisen rajapinnan kautta.
 
-_Käytätkö LLM:ää? Tutustu
-[Adding Signers Skill](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer)
--taitoon._
+Keychain pitää Rust-, TypeScript-, Python- ja Go-toteutuksensa tasavertaisina.
+PR:t, jotka sisältävät kaikki neljä, ovat erittäin toivottuja. Jos voit tehdä vain
+yhden, se käy, mutta odota, että muutkin vaaditaan ennen kuin signer julkaistaan
+versiossa.
+
+_Käytätkö Claude Codea? Repositorion
+[`add-signer-ci`-skill](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer-ci)
+määrittää CI-työnkulut forkki-PR:n kautta lisätylle uudelle signerille._
 
 ## Arkkitehtuurin yleiskatsaus
 
-Kirjasto käyttää trait-pohjaista arkkitehtuuria, jossa kaikki allekirjoittajat
-toteuttavat `SolanaSigner`-traitin, joka on määritelty
-`src/traits.rs`-tiedostossa. Kirjasto tarjoaa myös yhtenäisen `Signer`-enumin,
-joka kapseloi kaikki toteutukset mahdollistaen allekirjoitustaustaosien
-ajonaikaisen valinnan säilyttäen samalla yhtenäisen API:n.
+Kirjasto käyttää trait-pohjaista arkkitehtuuria, joka on määritelty tiedostossa `src/traits.rs`. Jokainen
+signer toteuttaa `SolanaSigner`-perustraitin (`pubkey`, `sign_message`,
+`is_available`) sekä täsmälleen yhden palveluntarjoajan rakennetta vastaavan capability-traitin:
+
+- `TransactionSigner` (`sign_transaction`): palveluntarjoaja allekirjoittaa kutsujan
+  tavut ja kutsuja lähettää ne verkkoon. Useimmat taustajärjestelmät.
+- `ModifyingSigner` (`modify_and_sign_transaction`): palveluntarjoaja muokkaa
+  transaktiota ja allekirjoittaa sen lähettämättä sitä verkkoon.
+- `SendingSigner` (`sign_and_send_transaction`): palveluntarjoaja allekirjoittaa ja
+  lähettää transaktion verkkoon palvelinpuolella.
+
+Kirjasto tarjoaa myös yhtenäisen `Signer`-enumin, joka kietoo sisäänsä kaikki
+toteutukset ja mahdollistaa allekirjoitustaustajärjestelmän valinnan ajon aikana. Se toteuttaa
+vain perustraitin; capability-ominaisuuksiin päästään käsiksi funktioilla `as_transaction_signer()`,
+`as_modifying_signer()` ja `as_sending_signer()`.
 
 ## Pikaintegroinnin tarkistuslista
 
 - Luo allekirjoittajamoduulisi toteutuksineen
-- Toteuta `SolanaSigner`-trait (3 async-metodia + `pubkey()`)
-- Lisää ominaisuuslippu `Cargo.toml`-tiedostoon
-- Päivitä `Signer`-enum `src/lib.rs`-tiedostossa (4 match-haaraa)
-- Päivitä `src/error.rs` reqwest `From` -toteutuksen cfg-portti (jos
-  allekirjoittajasi käyttää reqwestiä)
+- Toteuta `SolanaSigner`-perustraiti (`pubkey`, `sign_message`,
+  `is_available`) sekä yksi palveluntarjoajasi rakennetta vastaava capability-traiti
+  (yleensä `TransactionSigner`)
+- Lisää feature flag tiedostoon `Cargo.toml`, mukaan lukien sisäinen `_remote`-merkki,
+  jos signerisi käyttää reqwestiä
+- Päivitä `Signer`-enum tiedostossa `src/lib.rs` (variantti, `dispatch_signer!`-haara ja
+  haara capability-accessorissa, joka vastaa rakennettasi)
 - Pakota HTTPS ja konfiguroi HTTP-asiakkaiden aikakatkaisut
-- Lisää kattavat testit
+- Allekirjoita viestin tavut ja tarkista palautettu allekirjoitus ennen sen liittämistä
+- Lisää kattavat yksikkötestit (wiremock-pohjaiset, omassa moduulissasi)
+- Lisää integraatiotestitiedosto ja päivitä `.env.example`
+- Lisää TypeScript-, Python- ja Go-toteutukset
 - Päivitä dokumentaatio
+- CI-työnkulun päivitykset (sovi ylläpitäjien kanssa, katso
+  [CI-työnkulun päivitykset](#ci-workflow-updates-fork-prs))
 - Lähetä PR
 
 ## Vaihe 1: Luo allekirjoittajamoduulisi
@@ -54,8 +76,8 @@ Määritä `src/your_service/mod.rs`-tiedostossa allekirjoittaja-struct:
 ```rust
 //! YourService API signer integration
 
+use crate::sdk_adapter::{Pubkey, Signature, VersionedTransaction};
 use crate::{error::SignerError, traits::SolanaSigner};
-use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
 use std::str::FromStr;
 
 /// YourService-based signer using YourService's API
@@ -137,15 +159,15 @@ impl YourServiceSigner {
             .send()
             .await?;
 
-        // Use generic error messages — never expose raw API response text
+        // Use generic error messages: never expose raw API response text
         if !response.status().is_success() {
             let status = response.status().as_u16();
-            return Err(SignerError::RemoteApiError(format!(
+            return Err(SignerError::remote_api(format!(
                 "YourService API returned status {status}"
             )));
         }
 
-        // Parse response — always use map_err, never .expect() or .unwrap()
+        // Parse response: always use map_err, never .expect() or .unwrap()
         let response_data: SignResponse = response
             .json()
             .await
@@ -163,19 +185,22 @@ impl YourServiceSigner {
 }
 ```
 
-## Vaihe 4: Toteuta SolanaSigner-trait
+## Vaihe 4: Toteuta Signer-traitit
 
-Traitissa on 3 async-metodia (`sign_transaction`, `sign_message`,
-`is_available`) sekä `pubkey()`. Huomaa, että `sign_transaction` palauttaa
-`SignTransactionResult`-tyypin — merkityn enumin, joka ilmaisee, onko transaktio
-täysin allekirjoitettu vai osittain allekirjoitettu.
+`SolanaSigner`-perustraitilla on 2 asynkronista metodia (`sign_message`,
+`is_available`) sekä `pubkey()`. Transaktioiden allekirjoitus kuuluu capability-traitiin;
+useimmat palveluntarjoajat toteuttavat `TransactionSigner`-traitin, jonka `sign_transaction` palauttaa
+`SignTransactionResult`-arvon (tagged enum, joka merkitsee transaktion täysin tai
+osittain allekirjoitetuksi).
 
-Käytä jaettuja `TransactionUtil`-apufunktioita allekirjoitukseen ja
-sarjallistamiseen.
+Allekirjoita viestin tavut, älä koskaan koko wire-transaktiota, ja tarkista
+palveluntarjoajan allekirjoitus niitä vasten ennen sen liittämistä. Käytä jaettuja
+`TransactionUtil`-apufunktioita allekirjoitukseen ja serialisointiin.
 
 ```rust
+use crate::signature_util::verify_or_reject;
+use crate::traits::{SignTransactionResult, TransactionSigner};
 use crate::transaction_util::TransactionUtil;
-use crate::traits::SignTransactionResult;
 
 #[async_trait::async_trait]
 impl SolanaSigner for YourServiceSigner {
@@ -183,28 +208,10 @@ impl SolanaSigner for YourServiceSigner {
         self.public_key
     }
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
-        let tx_bytes = bincode::serialize(tx)
-            .map_err(|e| SignerError::SerializationError(format!("Failed to serialize: {e}")))?;
-
-        let signature = self.sign(&tx_bytes).await?;
-
-        // Add the signature at the correct position
-        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
-
-        // Serialize and classify as Complete or Partial
-        let serialized = TransactionUtil::serialize_transaction(tx)?;
-        Ok(TransactionUtil::classify_signed_transaction(
-            tx,
-            (serialized, signature),
-        ))
-    }
-
     async fn sign_message(&self, message: &[u8]) -> Result<Signature, SignerError> {
-        self.sign(message).await
+        let signature = self.sign(message).await?;
+        verify_or_reject(&signature, &self.public_key, message)?;
+        Ok(signature)
     }
 
     async fn is_available(&self) -> bool {
@@ -217,7 +224,32 @@ impl SolanaSigner for YourServiceSigner {
             .unwrap_or(false)
     }
 }
+
+#[async_trait::async_trait]
+impl TransactionSigner for YourServiceSigner {
+    async fn sign_transaction(
+        &self,
+        tx: &mut VersionedTransaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        let message = tx.message.serialize();
+        let signature = self.sign(&message).await?;
+        verify_or_reject(&signature, &self.public_key, &message)?;
+
+        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
+        let serialized = TransactionUtil::serialize_transaction(tx)?;
+        Ok(TransactionUtil::classify_signed_transaction(
+            tx,
+            (serialized, signature),
+        ))
+    }
+}
 ```
+
+Jos palveluntarjoajasi muokkaa transaktiota ennen allekirjoitusta, toteuta sen sijaan
+`ModifyingSigner` ja korvaa kutsujan transaktio kokonaan
+palveluntarjoajan tavuilla. Jos se lähettää transaktion verkkoon palvelinpuolella, toteuta `SendingSigner`
+ja jätä kutsujan transaktio koskematta. Älä koskaan toteuta capabilityä, jota
+palveluntarjoajasi ei pysty tarjoamaan.
 
 ## Vaihe 5: Lisää API-tyypit (valinnainen)
 
@@ -240,24 +272,28 @@ pub struct SignResponse {
 
 ## Vaihe 6: Lisää ominaisuuslippu
 
-Päivitä `Cargo.toml` lisätäksesi allekirjoittajasi valinnaisena ominaisuutena:
+Päivitä `Cargo.toml` lisätäksesi signerisi valinnaiseksi featureksi. Etätaustajärjestelmät
+sisältävät sisäisen `_remote`-merkin, joka ohjaa `From<reqwest::Error>`-
+toteutusta tiedostossa `src/error.rs`; ilman sitä `?` reqwest-kutsuissa ei käänny, kun vain
+sinun featurasi on käytössä.
 
 ```toml
 [features]
-default = ["memory"]
+default = ["memory", "sdk-v2"]
 memory = []
-vault = ["dep:reqwest", "dep:vaultrs", "dep:base64"]
-privy = ["dep:reqwest", "dep:base64"]
-turnkey = ["dep:reqwest", "dep:base64", "dep:p256", "dep:hex", "dep:chrono"]
-your_service = ["dep:reqwest", "dep:base64"]  # Add your feature
-all = ["memory", "vault", "privy", "turnkey", "your_service"]  # Update all
+vault = ["dep:reqwest", "_remote"]
+privy = ["dep:reqwest", "dep:p256", "_remote"]
+your_service = ["dep:reqwest", "_remote"]  # Add your feature
+all = ["memory", "vault", "privy", "...", "your_service"]  # Update all
 ```
 
 ## Vaihe 7: Päivitä allekirjoittaja-enum
 
-Lisää allekirjoittajasi kohteeseen `src/lib.rs`. Tarvitset 4 match-haaraa
-`SolanaSigner`-toteutuksessa: `pubkey`, `sign_transaction`, `sign_message` ja
-`is_available`.
+Lisää signerisi tiedostoon `src/lib.rs`. Perus-`SolanaSigner`-toteutus välittää kutsut
+`dispatch_signer!`-makron kautta, joten lisää sinne yksi haara. Capability-käyttö sijaitsee
+accessoreissa `as_transaction_signer()`, `as_modifying_signer()` ja `as_sending_signer()`:
+lisää `Some(s)`-haara sille, joka vastaa capability-traitiasi (ja
+lähettävälle tai muokkaavalle taustajärjestelmälle `None`-haara funktioon `as_transaction_signer()`).
 
 ```rust
 // Add feature-gated module
@@ -299,52 +335,29 @@ impl Signer {
     }
 }
 
-// Update trait implementation — 4 match arms
-#[async_trait::async_trait]
-impl SolanaSigner for Signer {
-    fn pubkey(&self) -> sdk_adapter::Pubkey {
-        match self {
+// Update the dispatch macro: the base SolanaSigner impl uses it for
+// pubkey, sign_message and is_available
+macro_rules! dispatch_signer {
+    ($self:ident, $signer:pat => $body:expr) => {
+        match $self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.pubkey(),
+            Signer::YourService($signer) => $body,
         }
-    }
+    };
+}
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut sdk_adapter::Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
+// Add your arm to the capability accessor matching your shape
+impl Signer {
+    pub fn as_transaction_signer(&self) -> Option<&dyn TransactionSigner> {
         match self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_transaction(tx).await,
-        }
-    }
-
-    async fn sign_message(
-        &self,
-        message: &[u8],
-    ) -> Result<sdk_adapter::Signature, SignerError> {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_message(message).await,
-        }
-    }
-
-    async fn is_available(&self) -> bool {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.is_available().await,
+            Signer::YourService(s) => Some(s),
         }
     }
 }
 ```
-
-Jos allekirjoittajasi käyttää `reqwest`-komentoa, lisää ominaisuutesi
-`#[cfg(any(...))]`-porttiin `From<reqwest::Error>`-toteutuksessa kohteessa
-`src/error.rs`.
 
 ## Vaihe 8: Lisää kattavat testit
 
@@ -429,20 +442,60 @@ mod tests {
 }
 ```
 
-## Vaihe 9: Päivitä dokumentaatio
+Kata myös allekirjoituksen todennuksen epäonnistuminen: mockatun vastauksen, jonka allekirjoitus
+ei täsmää, on palautettava virhe.
+
+## Vaihe 9: Lisää integraatiotestit
+
+Luo `rust/src/tests/test_<name>_integration.rs`. Integraatiotestit ajetaan
+oikeaa palvelun API:a vasten (ei wiremockia), ja ne on rajattu
+`integration-tests`-featuren taakse. Jokainen tiedosto tarvitsee:
+
+- `pub const` -määrittelyt ympäristömuuttujien nimille
+- `get_signer()`-apufunktion, joka lukee ympäristömuuttujat `dotenvy`:n avulla
+- Kolme testifunktiota: `test_<name>_sign_message`,
+  `test_<name>_sign_transaction` ja `test_<name>_is_available`
+- Feature-rajaukset: `#[cfg(feature = "your_service")]` moduulissa ja
+  `#[cfg(feature = "integration-tests")]` jokaisessa testissä
+
+Katso täydellinen esimerkki tiedostosta `rust/src/tests/test_para_integration.rs` ja
+esittele moduulisi tiedostossa `rust/src/tests/mod.rs`:
+
+```rust
+pub mod test_your_service_integration;
+```
+
+## Vaihe 10: Päivitä ympäristömuuttujat
+
+Päivitä juuren `.env.example` signerisi ympäristömuuttujilla noudattaen
+olemassa olevaa mallia:
+
+```bash
+# YourService Configuration (for SIGNER_TYPE=your_service)
+YOUR_SERVICE_API_KEY=your-api-key
+YOUR_SERVICE_WALLET_ID=your-wallet-id
+# YOUR_SERVICE_API_BASE_URL=https://api.yourservice.com/v1  # Optional, defaults to this
+```
+
+Listaa pakolliset muuttujat ensin paikkamerkkiarvoilla ja valinnaiset muuttujat kommentoituna
+oletusarvoineen. Jokaisen integraatiotesteissä käytetyn ympäristömuuttujan on oltava
+tiedostossa `.env.example`, ja TypeScript-, Python- ja Go-testisarjat käyttävät samoja nimiä.
+
+## Vaihe 11: Päivitä dokumentaatio
 
 Lisää allekirjoittajasi tuettujen taustajärjestelmien taulukkoon
 README.md-tiedostossa:
 
-| Taustajärjestelmä | Käyttötarkoitus                                           | Ominaisuuslippu |
-| ----------------- | --------------------------------------------------------- | --------------- |
-| **Memory**        | Paikalliset avainparit, kehitys, testaus                  | `memory`        |
-| **Vault**         | Yritystason avainten hallinta HashiCorp Vaultilla         | `vault`         |
-| **Privy**         | Upotetut lompakot Privy-infrastruktuurilla                | `privy`         |
-| **Turnkey**       | Ei-säilytettävä avainten hallinta Turnkey-palvelun kautta | `turnkey`       |
-| **YourService**   | Lyhyt kuvaus palvelustasi                                 | `your_service`  |
+| Taustajärjestelmä         | Käyttötarkoitus                                       | Ominaisuuslippu   |
+| --------------- | ---------------------------------------------- | -------------- |
+| **Memory**      | Paikalliset avainparit, kehitys, testaus           | `memory`       |
+| **Vault**       | Yritystason avainten hallinta HashiCorp Vaultilla | `vault`        |
+| **Privy**       | Upotetut lompakot Privy-infrastruktuurilla     | `privy`        |
+| **Turnkey**     | Ei-säilytettävä avainten hallinta Turnkey-palvelun kautta       | `turnkey`      |
+| **YourService** | Lyhyt kuvaus palvelustasi              | `your_service` |
 
-Lisää käyttöesimerkki:
+Lisää taustajärjestelmäsi myös jokaisen kielen README-tiedoston
+signer-capability-taulukkoon. Lisää käyttöesimerkki:
 
 ```rust
 use solana_keychain::{Signer, SolanaSigner};
@@ -465,47 +518,161 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Integraation testaaminen
 
-Suorita testit ominaisuudellesi:
+Käytä `just`-reseptejä raa'an `cargon` sijaan. SDK-featuret (`sdk-v2`,
+`sdk-v3`, `sdk-v4`) sulkevat toisensa pois, joten `cargo test --all-features`
+epäonnistuu.
 
 ```bash
-# Test only your signer
-cargo test --features your_service
+# Unit tests across the sdk-v2, sdk-v3 and sdk-v4 matrices
+just rust-test
 
-# Test with all features
-cargo test --all-features
+# Live integration tests (require credentials in .env)
+just rust-test-integration
 ```
+
+## CI-työnkulun päivitykset (forkki-PR:t)
+
+CI on kaksivaiheinen prosessi. Sovi ylläpitäjien kanssa `main`-haaran valmistelusta, ennen kuin
+PR:äsi voidaan testata: he päivittävät `fork-external-live-manual.yml`-tiedoston, lisäävät ympäristömuuttujat
+tiedostoon `ci.yml` ja määrittävät GitHub Secretsit.
+
+PR:säsi on sisällettävä nämä vaiheen 2 muutokset signer-koodisi rinnalla:
+
+- **`ci.yml`**: lisää Rust-featuresi `backend`-matriisiin (ennen `all`-arvoa) ja
+  integraatiotestifunktiosi `test`-matriisiin
+- **`typescript-ci.yml`**: lisää pakettisi yksikkö- ja integraatiotestimatriiseihin
+  ja lisää ympäristömuuttujat integraatiotestivaiheeseen
+- **`typescript-publish.yml`**: lisää pakettisi `PUBLISH_PACKAGES`-arvoon,
+  GitHub Releasen `packages`-taulukkoon ja yhteenvetotaulukkoon
+- **`python-ci.yml`**: lisää taustajärjestelmä `CI_SIGNER_*`-rajaukseen kohdassa
+  `resolve-signers` ja integraatiomatriisiin
+- **`go-ci.yml`**: lisää taustajärjestelmä `CI_SIGNER_*`-rajaukseen ja
+  `moduleBySigner`-rakenteeseen
 
 ## TypeScript-allekirjoittaja
 
 Jos lisäät myös TypeScript-allekirjoittajapaketin, luo se sijaintiin
 `typescript/packages/your-signer/`. Keskeiset mallit:
 
-- Tehdas-funktio `createYourSigner()` palauttaa `SolanaSigner<TAddress>`
+- Factory-funktio `createYourSigner()` palauttaa
+  `SolanaTransactionSigner<TAddress> & SolanaMessageSigner<TAddress>`; pidä
+  signer-luokka sisäisenä ja exporttaa vain factory ja sen config-tyyppi
 - Vie config-rajapinta (`YourSignerConfig`)
-- Pakota HTTPS `apiBaseUrl` config-kentissä
-- Puhdista etä-API:n virheteksti käyttäen `sanitizeRemoteErrorResponse()`
-  moduulista `@solana/keychain-core`
-- Suojaudu virheelliseltä JSON:lta valinnaisen ketjutuksen ja try/catch:n avulla
+- Jos taustajärjestelmäsi ei voi allekirjoittaa viestejä, jätä `SolanaMessageSigner` pois ja älä tarjoa
+  `signMessages`-metodia lainkaan: Kit luokittelee signerit metodin olemassaolon perusteella, joten
+  virheen heittävä stub luokittelisi signerin väärin
+- Pakota HTTPS `apiBaseUrl`-konfiguraatiokentissä funktiolla `assertHttpsUrl()` paketista
+  `@solana/keychain-core`
+- Tee etäkutsut funktiolla `fetchSignerJson()` paketista `@solana/keychain-core`,
+  joka hoitaa virheiden mappauksen, vastausten puhdistuksen, uudelleenohjausten hylkäämisen ja
+  oletusaikakatkaisun
+- Puhdista kaikki muu etä-API:n virheteksti funktiolla `sanitizeRemoteErrorResponse()`
+  paketista `@solana/keychain-core`
 - Käytä `throwSignerError(SignerErrorCode.*, { cause, message })` moduulista
   `@solana/keychain-core`
+- Huomioi `config?.abortSignal` jokaisessa allekirjoitusmetodissa ja välitä se
+  funktioille `fetchSignerJson()` ja `signBatchStaggered()`
+- Validoi `requestDelayMs` funktiolla `validateRequestDelayMs()` ja eräajo
+  funktiolla `signBatchStaggered()`
 - Lisää `@throws` JSDoc tehdas-funktioihin listaten virhekoodit
+- Määritä `@solana/*`-paketit peer-riippuvuuksiksi versiosta `>=8.1.0`
+- Yksikkötestit vitestillä ja mockatulla `fetch`illä; integraatiotestit funktiolla
+  `runSignerIntegrationTest` paketista `@solana/keychain-test-utils`
+
+### Lähettävät signerit
+
+Jos palveluntarjoajasi muokkaa transaktiota tai lähettää sen verkkoon palvelinpuolella, sen
+allekirjoitusta ei voi soveltaa kutsujan transaktioon, joten sen on oltava
+`SolanaSendingSigner` eikä `SolanaTransactionSigner`:
+
+- Toteuta `signAndSendTransactions()` äläkä tarjoa **yhtään** `signTransactions`-metodia
+  (eikä `signMessages`-metodia, ellei taustajärjestelmä todella allekirjoita viestejä)
+- Huomioi `config?.abortSignal`. Kun palveluntarjoaja on hyväksynyt luontipyynnön, raportoi
+  kaikki virheet (myös keskeytys) arvolla `BROADCAST_UNCONFIRMED`, joka sisältää
+  palveluntarjoajan transaktiotunnisteen, ja säilytä keskeytyksen syy `cause`-kentässä
+- Lisää tyypitetty `createKeychainSigner`-overload, joka palauttaa lähettävän signer-tyyppisi
+- Sulje taustajärjestelmäsi pois tyypistä `KeychainKitPluginConfig` tiedostossa
+  `typescript/packages/kit-plugin/src/keychain-plugin.ts`, koska lähettävä
+  signer ei voi toimia Kit-clientin `payer`ina tai `identity`nä
+- Varmista yksikkötesteissä, että `isTransactionPartialSigner()` on false ja
+  `isTransactionSendingSigner()` on true instansseillesi
 
 ### Päivitä Kattopaketti
 
-Päivitä `typescript/packages/keychain/` — 6 tiedostoa muokattavana:
+Päivitä `typescript/packages/keychain/` (7 muokattavaa tiedostoa):
 
-1. `src/types.ts` — Lisää `YourSignerConfig` `KeychainSignerConfig` erottelevaan
-   unioniin
-2. `src/create-keychain-signer.ts` — Tuo tehdas, lisää switch-case
-3. `src/resolve-address.ts` — Lisää nopean polun tai haun polun switch-caseen
-4. `src/index.ts` — Lisää config-tyyppi, nimiavaruus, tehdas-funktio ja
-   luokkavientiä
-5. `package.json` — Lisää `@solana/keychain-your-signer: "workspace:*"`
-   riippuvuus
-6. `tsconfig.json` — Lisää `{ "path": "../your-signer" }` viite
+1. `src/types.ts`: Lisää `YourSignerConfig` `KeychainSignerConfig`-
+   discriminated unioniin
+2. `src/create-keychain-signer.ts`: Lisää switch-case (jokainen taustajärjestelmäpaketti
+   ladataan dynaamisella `import()`-kutsulla)
+3. `src/resolve-address.ts`: Lisää fast-path- tai fetch-path-switch-caseen
+4. `src/index.ts`: Lisää config-tyypin, namespacen ja factory-funktion exportit
+5. `package.json`: Lisää riippuvuus `@solana/keychain-your-signer: "workspace:*"`
+6. `tsconfig.json`: Lisää viittaus `{ "path": "../your-signer" }`
+7. `typescript/scripts/test-treeshake-umbrella.mjs`: Lisää pakettisi
+   arvoon `SIGNER_MARKERS` ja factorysi arvoon `FACTORIES`
 
-Switch-lauseilla on tyhjentävät `never` tarkistukset — TypeScript antaa virheen,
-jos lisäät unioniin mutta unohdat casen.
+Switch-lauseissa on tyhjentävät `never`-tarkistukset, joten TypeScript antaa virheen,
+jos lisäät unioniin mutta unohdat casen. Aja sen jälkeen `just ts-treeshake`:
+jokaisen paketin ja umbrella-paketin on pysyttävä tree-shakattavina.
+
+## Python-signer
+
+Luo moduuli polkuun `python/src/solana_keychain/your_signer/` (`__init__.py`
+sekä `signer.py`). Keskeiset mallit:
+
+- Periytä `SolanaSigner` paketista `solana_keychain.core` (`pubkey`-property,
+  `async sign_message()`, `async is_available()`) sekä täsmälleen yksi capability-
+  luokka: `TransactionSigner` (`async sign_transaction()`), `ModifyingSigner`
+  (`async modify_and_sign_transaction()`) tai `SendingSigner`
+  (`async sign_and_send_transaction()`)
+- Exporttaa `async create_your_signer()` -factory, joka awaitaa `init()`-kutsun, kun
+  taustajärjestelmä selvittää osoitteensa etänä; ennen initiä allekirjoitus nostaa
+  virheen `SignerErrorCode.NOT_INITIALIZED`
+- Exporttaa config-dataclass (`YourSignerConfig`), jossa salaisuudet on merkitty
+  `field(repr=False)`
+- Pakota HTTPS base-URL-kentissä funktiolla `assert_https_url()` ja ohjaa jokainen
+  pyyntö funktion `fetch_signer_json()` kautta
+- Tarkista palveluntarjoajan allekirjoitus ennen sen palauttamista; käytä
+  funktiota `signed_message_bytes()` allekirjoituksen kattamille tavuille, älä koskaan käsin rakennettua
+  versioetuliitettä
+- Rekisteröi taustajärjestelmä `_BACKENDS`-rakenteeseen tiedostossa
+  `python/src/solana_keychain/keychain.py`
+- Jos taustajärjestelmä tarvitsee palveluntarjoajan SDK:n, suojaa import, nosta `ImportError`,
+  jossa mainitaan `pip install 'solana-keychain[your-signer]'`, esittele lisäosa
+  (extra) tiedostossa `python/pyproject.toml` äläkä koskaan tuo taustajärjestelmää
+  ennakkoon paketin juuresta
+- Yksikkötestit pytestillä: `respx` HTTP-taustajärjestelmille, stub-asiakkaat SDK-pohjaisille
+  taustajärjestelmille sekä tarkistus, ettei mikään salaisuus näy heitettyjen
+  virheiden `str()`- tai `repr()`-tulosteessa
+- Lisää `make_your_signer()`-tehdasfunktio tiedostoon
+  `python/tests/integration/test_live_signers.py` ja rekisteröi se kohtaan
+  `_MESSAGE_CAPABLE` (tai `_TRANSACTION_ONLY`, jos taustajärjestelmällä ei ole
+  `sign_message`-toimintoa)
+
+## Go-allekirjoittaja
+
+Jokainen Go-taustajärjestelmä on oma moduulinsa polussa `go/signers/yoursigner/`, ja sen moduulipolku on
+`github.com/solana-foundation/solana-keychain/go/signers/yoursigner/v2`. Katso
+viitteeksi `go/signers/para/`. Keskeiset mallit:
+
+- Toteuta `core.SolanaSigner` (`Pubkey()`, `SignMessage(ctx, message)`,
+  `IsAvailable(ctx)`) sekä täsmälleen yksi ominaisuusrajapinta:
+  `core.TransactionSigner`, `core.ModifyingSigner` tai `core.SendingSigner`.
+  Ominaisuus tunnistetaan tyyppivarmistuksella (type assertion), joten taustajärjestelmällä, joka ei voi allekirjoittaa
+  transaktiota, ei saa olla lainkaan `SignTransaction`-metodia
+- Julkaise `Config`-struct ja `New`-konstruktori (`New(ctx, cfg)`, kun
+  taustajärjestelmä selvittää osoitteensa etänä; sitä ennen palauta
+  `core.NewNotInitializedError`)
+- Rakenna HTTP-asiakkaat funktiolla `core.NewHTTPClient` tai `core.ResolveHTTPClient` ja
+  validoi perus-URL-osoitteet funktiolla `core.NormalizeHTTPSBaseURL`
+- Allekirjoita transaktiot funktiolla `core.SignTransactionWith`, joka allekirjoittaa viestin
+  tavut ja liittää allekirjoituksen; varmenna palveluntarjoajan allekirjoitukset funktiolla
+  `core.VerifySignature`
+- Palauta virheet funktioilla `core.NewSignerError` / `core.WrapSignerError` ja vakailla
+  koodeilla, kuten `core.CodeSigningFailed`
+- Yksikkötestit `httptest`-paketilla; integraatiotestit tiedostossa `integration_test.go`
+  `//go:build integration` -tagin takana
 
 ## Lähetyksen Tarkistuslista
 
@@ -516,41 +683,70 @@ Ennen PR:n lähettämistä:
 - Koodi on muotoiltu/linting menee läpi (`just fmt`)
 - Ei kovakoodattuja arvoja tai salaisuuksia koodissa
 - Virheilmoitukset ovat yleisiä (ei raakaa API-vastaustekstiä)
+- Ei `.expect()`- tai `.unwrap()`-kutsuja epäluotettaviin API-vastauksiin
 - HTTPS pakotettu etä-HTTP-asiakkaissa
 - HTTP-aikakatkaisut määritetty `HttpClientConfig` kautta
-- Noudattaa Rustin nimeämiskäytäntöjä (snake_case)
-- Lisätty README.md:n tuettujen backendsien taulukkoon
+- Palautetut allekirjoitukset varmennettu paikallisesti laskettuja viestin tavuja vasten
+- Noudattaa nimeämiskäytäntöjä (snake_case Rustille ja Pythonille, camelCase
+  TypeScriptille)
+- Integraatiotestit lisätty ja `.env.example` päivitetty
+- TypeScript-, Python- ja Go-toteutukset mukana (tai suunniteltu yhdessä
+  ylläpitäjien kanssa)
+- Kattopaketit päivitetty (TypeScript-kattopaketti, Pythonin `_BACKENDS`)
+- CI-muutokset mukana
+- Lisätty README.md-tiedoston tuettujen taustajärjestelmien ja allekirjoittajaominaisuuksien taulukoihin
 
 ## Toteutusvinkkejä
 
 ### Virheenkäsittely
 
-Käytä aina olemassa olevia `SignerError` variantteja. Älä koskaan käytä
-`.expect()` tai `.unwrap()` epäluotettavissa API-vastauksissa:
+Käytä aina olemassa olevia `SignerError`-variantteja. Sekä `Display` että `Debug`
+`SignerError`-tyypissä on häivytetty (redacted), joten pidä viestit yleisluontoisina äläkä koskaan sisällytä raakaa API-
+vastausdataa. Älä koskaan käytä `.expect()`- tai `.unwrap()`-kutsuja epäluotettaviin API-vastauksiin:
 
 ```rust
-// Good — uses existing error types with generic messages
-return Err(SignerError::RemoteApiError(
-    format!("YourService API returned status {}", status)
-));
+// Good: uses the constructor with a generic message
+return Err(SignerError::remote_api(format!(
+    "YourService API returned status {status}"
+)));
 
-// Good — converts from standard errors
+// Good: converts from standard errors
 let bytes = base64::decode(data)
     .map_err(|e| SignerError::SerializationError(format!("Failed to decode: {e}")))?;
 ```
 
-### Turvallisuuden Parhaat Käytännöt
+### Tietoturvavaatimukset
 
-- Älä koskaan lokita arkaluonteisia tietoja (yksityiset avaimet,
-  API-salaisuudet)
-- Käytä `Debug` toteutusta, joka piilottaa arkaluonteiset kentät
-- Validoi kaikki syötteet (julkiset avaimet, allekirjoitukset)
-- Käytä HTTPS:ää kaikissa etä-API-kutsuissa (pakotettu `https_only(true)`
-  kautta)
-- Määritä pyynnön ja yhteyden aikakatkaisut `HttpClientConfig` kautta
-- Älä koskaan paljasta raakaa etä-API:n virhetekstiä virheilmoituksissa
-- Käytä `Option<Pubkey>` (ei `Pubkey::default()`) julkisen avaimen kentälle
-  ennen `init()`
+Nämä eivät ole ehdotuksia: käyttäjät valitsevat taustajärjestelmän niiden perusteella. Jos
+palveluntarjoajasi tekee jommankumman mahdottomaksi, kerro siitä PR:ssä ja repositorion
+tiedostossa `docs/SECURITY_MODEL.md`.
+
+- **Varmenna, mitä palveluntarjoaja allekirjoitti.** Laske viestin tavut paikallisesti ja
+  varmenna palautettu allekirjoitus niitä vasten allekirjoittajasi vaatimassa
+  kohdassa ennen sen liittämistä. Allekirjoitus, joka ei täsmää, on hylättävä, eikä sitä saa
+  koskaan liittää.
+- **Ilmoita, lähettääkö palveluntarjoaja transaktion verkkoon.** Jos se suorittaa transaktion palvelinpuolella,
+  toteuta lähettävä (sending) muoto ja palauta allekirjoitus, joka yksilöi
+  vahvistetun transaktion. Jos palveluntarjoajalla ei ole pelkkää allekirjoitusta tarjoavaa rajapintaa, tee
+  taustajärjestelmästä vain lähettävä sen sijaan, että lähetät transaktion kutsujan tietämättä.
+- **Älä koskaan jätä kutsujalle transaktiota, jota allekirjoitus ei kata.**
+  Palveluntarjoaja, joka kirjoittaa transaktion uudelleen, allekirjoittaa omat tavunsa: jätä joko
+  kutsujan transaktio koskemattomaksi (verkkoonlähetyksen hallinnoima tapaus) tai käytä
+  muokkaavaa (modifying) muotoa ja korvaa se kokonaan palveluntarjoajan tavuilla.
+- **Ilmoita verkkoonlähetyksen epävarmuus sellaisenaan.** Lähetyksen jälkeinen virhe on voinut silti
+  mennä läpi. Nosta esiin `BROADCAST_UNCONFIRMED` yleisen virheen sijaan,
+  liitä mukaan palveluntarjoajan transaktiotunniste aina kun sellainen on, ja lähetä
+  viestistä johdettu idempotenssiavain jokaisen luontikutsun yhteydessä, jotta tavu tavulta
+  identtinen uudelleenlähetys on turvallinen.
+- **Älä koskaan allekirjoita ennen alustusta.** Käytä tyyppiä `Option<Pubkey>` (ei `Pubkey::default()`)
+  julkiselle avaimelle ennen `init()`-kutsua ja palauta konfiguraatiovirhe, jos allekirjoitusta
+  yritetään ensin.
+- Älä koskaan kirjaa arkaluonteisia tietoja (yksityisiä avaimia, API-salaisuuksia, raakoja API-vastauksia) lokiin, ja
+  käytä `Debug`-toteutusta, joka piilottaa arkaluonteiset kentät
+- Pakota HTTPS (`https_only(true)`, rajattu ehdolla `#[cfg(not(test))]`
+  wiremockia varten) ja määritä pyyntöjen ja yhteyden aikakatkaisut `HttpClientConfig`-konfiguraation kautta
+  (oletukset: 30 s / 5 s)
+- Nollaa avainmateriaalin välivaiheet käyttämällä `zeroize::Zeroizing<Vec<u8>>`
 
 ### Testaus mock-objekteilla
 
@@ -579,14 +775,17 @@ mod tests {
 ## Avun saaminen
 
 - Tutustu olemassa oleviin allekirjoittajatoteutuksiin malleiksi:
-  - `src/memory/mod.rs` — Yksinkertainen, synkroninen
-  - `src/para/mod.rs` — Vaatii alustuksen (käytä mallina uusille
-    allekirjoittajille)
-  - `src/turnkey/mod.rs` — Monimutkainen allekirjoituskäsittely
-  - `src/vault/mod.rs` — Ulkoinen asiakaskirjasto
-- Keskeiset tiedostot: `src/traits.rs` (trait-määrittely),
-  `src/transaction_util.rs` (jaetut apufunktiot), `src/http_client_config.rs`
-  (aikakatkaisu-asetukset)
+  - `src/memory/mod.rs`: Yksinkertainen, synkroninen
+  - `src/privy/mod.rs`: Vaatii alustuksen
+  - `src/turnkey/mod.rs`: Monimutkainen allekirjoitusten käsittely
+  - `src/vault/mod.rs`: Ulkoinen asiakaskirjasto
+  - `typescript/packages/para/`, `python/src/solana_keychain/para/` ja
+    `go/signers/para/`: täydelliset viitetoteutukset muilla kielillä
+- Keskeiset tiedostot: `src/traits.rs` (trait-määritelmät), `src/transaction_util.rs` ja
+  `src/signature_util.rs` (jaetut apufunktiot), `src/http_client_config.rs` (aikakatkaisujen
+  konfiguraatio)
+- Repositorion täydellinen opas:
+  [docs/ADDING_SIGNERS.md](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - Avaa issue suunnittelukeskusteluja varten ennen työn aloittamista
 
 ## Esimerkki PR-rakenteesta
@@ -599,9 +798,13 @@ Adds support for YourService as a signing backend.
 - [X] Code compiles without warnings (`just build`)
 - [X] Code is formatted/linting passes (`just fmt`)
 - [X] Add comprehensive tests with wiremock - All tests pass (`just test`)
-- [X] Implemented SolanaSigner trait for YourServiceSigner
+- [X] Implemented SolanaSigner and TransactionSigner for YourServiceSigner
 - [X] Added feature flag 'your_service'
 - [X] HTTPS enforced, HTTP timeouts configured
+- [X] Returned signatures verified before attaching
+- [X] Added integration tests and updated .env.example
+- [X] TypeScript, Python and Go implementations included
+- [X] CI Phase 2 changes included
 - [X] Added to README.md supported backends table
 
 Closes #1337

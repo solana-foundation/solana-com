@@ -1,0 +1,436 @@
+---
+title: Μηνύματα & έλεγχος ταυτότητας
+h1: Υπογραφή μηνυμάτων & έλεγχος ταυτότητας χρηστών
+description:
+  Υπογράψτε μηνύματα με ένα πορτοφόλι Solana για να πιστοποιήσετε χρήστες, να καταγράψετε συναίνεση ή να εξουσιοδοτήσετε ενέργειες εκτός αλυσίδας, χρησιμοποιώντας υπογραφή μηνυμάτων εκτός αλυσίδας με εναλλακτική λύση για πορτοφόλια που δεν την υποστηρίζουν ακόμη.
+---
+
+Η υπογραφή ενός μηνύματος αποδεικνύει ότι ο χρήστης ελέγχει ένα πορτοφόλι, χωρίς συναλλαγή,
+χωρίς χρέωση και χωρίς κλήση στο δίκτυο. Οι εφαρμογές χρησιμοποιούν υπογεγραμμένα μηνύματα για να συνδέουν τους χρήστες, να καταγράφουν ότι
+ο χρήστης αποδέχτηκε όρους, να συνδέουν ένα πορτοφόλι με υπάρχοντα λογαριασμό ή να εξουσιοδοτούν μια
+ενέργεια που γίνεται εκτός αλυσίδας, όπως η υποβολή μιας παραγγελίας.
+
+Τα πορτοφόλια Solana υπογράφουν μηνύματα με δύο τρόπους:
+
+- **Μηνύματα εκτός αλυσίδας** (`solana:signOffchainMessage`): περιτυλίγουν το κείμενό σας σε μια
+  τυπική μορφή, η οποία ορίζεται από την [προδιαγραφή](https://docs.anza.xyz/proposals/off-chain-message-signing) υπογραφής μηνυμάτων εκτός αλυσίδας (off-chain message signing, OCMS).
+  Η μορφή αυτή δεν μπορεί ποτέ να εκληφθεί ως συναλλαγή, ονομάζει τους λογαριασμούς που
+  πρέπει να την υπογράψουν και είναι η μορφή που υπογράφουν τα πορτοφόλια υλικού.
+- **Ακατέργαστα μηνύματα** (`solana:signMessage`): υπογράφουν ακριβώς τα byte που περνά η εφαρμογή σας,
+  χωρίς πρόθεμα και χωρίς δηλωμένους υπογράφοντες. Τα περισσότερα πορτοφόλια λογισμικού τα υποστηρίζουν,
+  αλλά τίποτα στα byte δεν τα χαρακτηρίζει ως μήνυμα και όχι ως
+  συναλλαγή.
+
+Χρησιμοποιήστε μηνύματα εκτός αλυσίδας όπου το πορτοφόλι τα υποστηρίζει και καταφύγετε σε ακατέργαστα
+μηνύματα όπου δεν τα υποστηρίζει. Ο υπόλοιπος οδηγός χρησιμοποιεί τη σύνδεση ως πρακτικό
+παράδειγμα, αλλά τα ίδια βήματα υπογραφής και επαλήθευσης ισχύουν για οποιοδήποτε μήνυμα.
+
+## Επιλέξτε μορφή μηνύματος
+
+|                           | Μήνυμα εκτός αλυσίδας     | Ακατέργαστο μήνυμα   | Συναλλαγή                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| Λειτουργία πορτοφολιού            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| Υποστήριξη πορτοφολιών υλικού   | Εξαρτάται από τη συσκευή     | Όχι            | Ναι                           |
+| Αναγνώσιμο για τον χρήστη      | Ναι                   | Μόνο σε λογισμικό | Εξαρτάται από τη συσκευή             |
+| Δηλώνει τους απαιτούμενους υπογράφοντες | Ναι                   | Όχι            | Ναι                           |
+| Κλήσεις RPC και χρεώσεις        | Καμία                  | Καμία          | Blockhash, αποστολή, χρέωση, επιβεβαίωση |
+
+### Γιατί όχι μια συναλλαγή;
+
+Παλαιότερα, τα πορτοφόλια υλικού δεν είχαν τρόπο να υπογράψουν ένα αναγνώσιμο μήνυμα. Πολλές εφαρμογές
+ζητούσαν από αυτούς τους χρήστες να υπογράψουν μια συναλλαγή χωρίς ουσιαστική ενέργεια. Αυτό λειτουργεί, αλλά
+προσθέτει καθυστέρηση, κόστος και κίνδυνο:
+
+- **Χρεώσεις δικτύου.** Μια συναλλαγή πληρώνει χρέωση, ακόμη και όταν δεν κάνει τίποτα.
+- **Πολλαπλές κλήσεις RPC.** Η εφαρμογή σας ανακτά ένα blockhash, προσομοιώνει, στέλνει και
+  έπειτα ελέγχει διαρκώς για επιβεβαίωση.
+- **Πρόσθετη καθυστέρηση.** Κάθε μία από αυτές τις κλήσεις είναι μια μετάβαση μετ' επιστροφής πριν ο χρήστης
+  συνδεθεί.
+- **Τίποτα αναγνώσιμο.** Ο χρήστης εγκρίνει τα byte μιας συναλλαγής, όχι μια δήλωση για το
+  τι συμφωνεί να κάνει.
+- **Συμπεριφορικός κίνδυνος.** Αν ζητάτε από τους χρήστες να υπογράψουν μια συναλλαγή μόνο και μόνο για να συνδεθούν, γίνονται
+  πιο εύκολα στόχος εξαπάτησης ώστε να υπογράψουν μια επιβλαβή συναλλαγή.
+
+Ένα μήνυμα εκτός αλυσίδας τα παρακάμπτει όλα αυτά. Η μόνη μετάβαση μετ' επιστροφής είναι προς τον δικό σας
+διακομιστή.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## Τι υπογράφει το πορτοφόλι
+
+Ένα μήνυμα εκτός αλυσίδας ξεκινά με ένα σταθερό πεδίο υπογραφής, `\xffsolana offchain`.
+Καμία έγκυρη συναλλαγή δεν ξεκινά με αυτά τα byte, επομένως ένα υπογεγραμμένο μήνυμα δεν μπορεί ποτέ να
+χρησιμοποιηθεί ως συναλλαγή. Η έκδοση 1 της μορφής απαριθμεί στη συνέχεια τους απαιτούμενους υπογράφοντες
+και μεταφέρει το μήνυμα ως κείμενο UTF-8, χωρίς όριο μήκους.
+
+Το πορτοφόλι δημιουργεί αυτά τα byte, τα υπογράφει και τα επιστρέφει μαζί με την
+υπογραφή. Η
+[προδιαγραφή](https://docs.anza.xyz/proposals/off-chain-message-signing)
+καλύπτει ολόκληρη τη μορφή, συμπεριλαμβανομένης της παλαιότερης έκδοσης 0.
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## Επιλέξτε μέθοδο σύνδεσης
+
+Δεν υποστηρίζουν ακόμη όλα τα πορτοφόλια μηνύματα εκτός αλυσίδας. Ελέγξτε τις λειτουργίες του συνδεδεμένου λογαριασμού
+πριν ζητήσετε υπογραφή και καταφύγετε σε εναλλακτική λύση όταν η λειτουργία
+λείπει:
+
+1. Αν ο λογαριασμός υποστηρίζει το `solana:signOffchainMessage` με έκδοση μηνύματος 1,
+   υπογράψτε ένα μήνυμα εκτός αλυσίδας.
+2. Διαφορετικά, υπογράψτε την ίδια πρόκληση με το `solana:signMessage`. Τα περισσότερα πορτοφόλια
+   λογισμικού το υποστηρίζουν.
+3. Δώστε στους χρήστες πορτοφολιών υλικού χωρίς υποστήριξη μηνυμάτων μια ρητή επιλογή συμμετοχής, όπως
+   έναν διακόπτη "Χρησιμοποιώ πορτοφόλι υλικού", που υπογράφει αντί γι' αυτό μια συναλλαγή σύνδεσης.
+   Μην τους κατευθύνετε σε αυτή τη διαδρομή από προεπιλογή.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## Υπογραφή μηνύματος στο πρόγραμμα περιήγησης
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    Εγκαταστήστε τα πακέτα Wallet Standard μαζί με το Kit:
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    Αυτές οι βοηθητικές συναρτήσεις δέχονται ένα `UiWalletAccount`, όπως το `account` που επιστρέφει το
+    `useConnectedWallet` στον [οδηγό React](/docs/frontend/react-hooks):
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    Το `useWallet` από το `@solana/wallet-adapter` εκθέτει το `signOffchainMessage` μόνο
+    όταν ο συνδεδεμένος λογαριασμός υποστηρίζει το `solana:signOffchainMessage`. Υπογράφει ένα
+    μήνυμα έκδοσης 1 με τον συνδεδεμένο λογαριασμό ως απαιτούμενο υπογράφοντα και
+    απορρίπτει με `WalletNotReadyError` αν το πορτοφόλι δεν μπορεί να υπογράψει την έκδοση 1:
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // Server logic
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    Το `publicKey.verifySignature` ελέγχει την υπογραφή σε σχέση με τα υπογεγραμμένα byte
+    στο πρόγραμμα περιήγησης. Ο διακομιστής σας πρέπει και πάλι να επιβεβαιώσει ότι αυτά τα byte είναι η
+    πρόκληση που εξέδωσε. Όταν το `signOffchainMessage` είναι `undefined`, καταφύγετε
+    στο `signMessage` από το ίδιο hook.
+
+  </Tab>
+</Tabs>
+
+Το `signOffchainMessage` επιστρέφει το `signedOffchainMessage`, τα πλήρη byte που υπέγραψε
+το πορτοφόλι, και το `signature`. Κωδικοποιήστε και τα δύο σε Base64 και στείλτε τα στον διακομιστή σας μαζί με
+τη διεύθυνση του πορτοφολιού.
+
+Γράψτε την πρόκληση έτσι ώστε να διαβάζεται εύκολα σε μικρή οθόνη. Αναφέρετε την εφαρμογή και
+τον τομέα σας, εξηγήστε τι κάνει η υπογραφή και συμπεριλάβετε ένα nonce μίας χρήσης και την ώρα έκδοσης
+από τον διακομιστή σας:
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## Επαλήθευση της υπογραφής στον διακομιστή σας
+
+Η επαλήθευση είναι ένας τοπικός έλεγχος υπογραφής και δεν χρειάζεται σύνδεση RPC. Αποκωδικοποιήστε τα
+byte που υπέγραψε το πορτοφόλι, επιβεβαιώστε ότι ταιριάζουν με την πρόκληση που εκδώσατε και έπειτα ελέγξτε
+την υπογραφή:
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+Το `assertOffchainMessageV1Equal` προκαλεί σφάλμα αν το περιεχόμενο ή οι υπογράφοντες διαφέρουν από
+αυτά που περιμένατε. Το `verifyOffchainMessageEnvelope` προκαλεί σφάλμα αν η υπογραφή
+λείπει ή δεν είναι έγκυρη. Αναζητήστε το `expectedMessage` με βάση το nonce στον διακομιστή σας αντί να
+εμπιστεύεστε το αντίγραφο που στέλνει πίσω ο πελάτης. Καταναλώστε το nonce μόλις
+επαληθευτεί, ώστε η ίδια υπογραφή να μην μπορεί να χρησιμοποιηθεί για σύνδεση δύο φορές.
+
+### Επαλήθευση ακατέργαστου μηνύματος
+
+Μια υπογραφή `signMessage` καλύπτει απευθείας τα byte της πρόκλησης, επομένως ο πελάτης
+χρειάζεται να στείλει μόνο την υπογραφή και τη διεύθυνση του πορτοφολιού. Ελέγξτε την σε σχέση με την
+πρόκληση που εκδώσατε:
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+Ισχύουν οι ίδιοι κανόνες για το nonce: αναζητήστε το `expectedMessage` με βάση το nonce και καταναλώστε το
+μόλις επαληθευτεί.
+
+<Callout type="info">
+  Το `@solana/kit` επανεξάγει αυτές τις βοηθητικές συναρτήσεις από το `@solana/offchain-messages`. Χρησιμοποιήστε
+  το αυτόνομο πακέτο αν ο διακομιστής σας δεν εξαρτάται από το Kit.
+</Callout>
+
+## Sign In With Solana
+
+Το [Sign In With Solana](https://github.com/phantom/sign-in-with-solana) (SIWS)
+τυποποιεί την ίδια την πρόκληση. Η εφαρμογή σας περνά δομημένα πεδία, όπως
+`domain`, `statement`, `nonce` και `issuedAt`, στη λειτουργία `solana:signIn`
+του πορτοφολιού. Το πορτοφόλι τα μορφοποιεί σε ένα τυπικό μήνυμα, συνδέεται αν χρειάζεται
+και το υπογράφει σε ένα βήμα.
+
+Η έκδοση `1.1.0` του `solana:signIn` προσθέτει την επιλογή `useOffchainMessage`. Όταν
+περάσετε `useOffchainMessage: { messageVersion: 1 }`, το πορτοφόλι περιτυλίγει το κείμενο SIWS
+σε ένα μήνυμα εκτός αλυσίδας έκδοσης 1 με τον λογαριασμό υπογραφής ως τον μοναδικό απαιτούμενο
+υπογράφοντα. Τα πορτοφόλια υλικού μπορούν να το εμφανίσουν και να το υπογράψουν, και το αποτέλεσμα αναφέρει
+`signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }`. Τα πορτοφόλια
+που δηλώνουν έκδοση `1.0.0` δεν γνωρίζουν την επιλογή, οπότε ελέγξτε πρώτα την έκδοση της λειτουργίας
+και παραλείψτε την σε αυτή την περίπτωση.
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    Το `solana:signIn` είναι λειτουργία πορτοφολιού, όχι λογαριασμού, επομένως αυτές οι
+    βοηθητικές συναρτήσεις δέχονται ένα `UiWallet`:
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    Το `useWallet` εκθέτει το `signIn` όταν το επιλεγμένο πορτοφόλι υποστηρίζει το
+    `solana:signIn`, και το `supportsSignInWithOffchainMessage` όταν δηλώνει
+    έκδοση `1.1.0`. Αν περάσετε το `useOffchainMessage` σε πορτοφόλι που δεν το
+    υποστηρίζει, θα απορριφθεί με `WalletSignInError`:
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    Το `verifySignIn` ελέγχει ότι το υπογεγραμμένο μήνυμα αναπαράγει κάθε πεδίο της
+    εισόδου και φέρει έγκυρη υπογραφή από τον λογαριασμό υπογραφής, είτε το
+    πορτοφόλι υπέγραψε απλό κείμενο SIWS είτε μήνυμα εκτός αλυσίδας. Εκτελέστε τον ίδιο έλεγχο στον
+    διακομιστή σας εισάγοντάς το από το `@solana/wallet-adapter/core`, που δεν έχει
+    εξάρτηση από το React.
+
+  </Tab>
+</Tabs>
+
+Δημιουργήστε την είσοδο στον διακομιστή σας, με ένα `nonce` μίας χρήσης και μια ώρα `issuedAt`,
+και κρατήστε ένα αντίγραφο με κλειδί το nonce. Καταναλώστε το nonce μόλις η σύνδεση
+επαληθευτεί.
+
+Χωρίς το Wallet Adapter, το `verifySignIn` από το `@solana/wallet-standard-util`
+ελέγχει μόνο απλό αποτέλεσμα SIWS. Όταν το `signedMessageFormat` αναφέρει μήνυμα εκτός αλυσίδας,
+το `signedMessage` είναι ένα μήνυμα εκτός αλυσίδας του οποίου το περιεχόμενο είναι το κείμενο SIWS.
+Ξαναδημιουργήστε το αναμενόμενο κείμενο από την αποθηκευμένη είσοδο και τη διεύθυνση υπογραφής με
+το `createSignInMessageText` από το `@solana/wallet-standard-util` και έπειτα επαληθεύστε το
+όπως οποιοδήποτε άλλο μήνυμα εκτός αλυσίδας, όπως στην ενότητα
+[Επαλήθευση της υπογραφής στον διακομιστή σας](#verify-the-signature-on-your-server). Το
+[README του `@solana/offchain-messages`](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message)
+καλύπτει αυτή τη ροή στο Kit.
+
+## Για πορτοφόλια
+
+Τα πορτοφόλια προσθέτουν υποστήριξη υλοποιώντας τη λειτουργία Wallet Standard `solana:signOffchainMessage`
+από το `@solana/wallet-standard-features`:
+
+- Αναφέρετε `version: "1.0.0"` και απαριθμήστε τις εκδόσεις μηνυμάτων που μπορείτε να υπογράψετε στο
+  `supportedMessageVersions`. Σήμερα, αυτό είναι `[1]`.
+- Δημιουργήστε το preamble έκδοσης 1 από το `requiredSigners`, το οποίο ταξινομείτε και ελέγχετε
+  για διπλότυπα. Απορρίψτε το αίτημα αν ο λογαριασμός δεν είναι ένας από τους απαιτούμενους
+  υπογράφοντες.
+- Εμφανίστε το κείμενο του μηνύματος στον χρήστη ολόκληρο πριν από την υπογραφή, ακόμη και σε
+  συσκευές hardware.
+- Επιστρέψτε τα ακριβή bytes που υπογράψατε ως `signedOffchainMessage`, μαζί με την
+  υπογραφή Ed25519 `signature`.
+- Για να υποστηρίξετε το off-chain Sign In With Solana, αναφέρετε `version: "1.1.0"` για
+  το `solana:signIn`. Όταν η είσοδος περιλαμβάνει το `useOffchainMessage`, υπογράψτε το κείμενο SIWS
+  ως off-chain μήνυμα έκδοσης 1, επιστρέψτε τα bytes του ως `signedMessage`
+  και ορίστε το `signedMessageFormat`.
+- Συνεχίστε να υποστηρίζετε το `solana:signMessage`. Παραμένει αμετάβλητο και οι εφαρμογές εξακολουθούν να το
+  χρησιμοποιούν ως εναλλακτική λύση.

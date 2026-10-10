@@ -1,0 +1,217 @@
+---
+title: Die Legs finanzieren
+description:
+  Prüfe die gespeicherten Konditionen eines DvP-Trades und finanziere dann Legs mit einem einfachen TransferChecked in ihre Escrow-Konten.
+seoTitle: Einen DvP-Trade auf Solana finanzieren
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Die Finanzierung erfolgt per einfachem `TransferChecked` in das Escrow des Legs, sodass jede Wallet und jedes Custody-System, das einen Token-Transfer senden kann, ein Leg finanzieren kann. Nur das Lesen des Trade-Datensatzes vor der Finanzierung erfordert den DvP-Client. Das Programm prüft die Escrow-Salden erst bei der Abwicklung; nichts prüft den Transfer, wenn er eintrifft, daher liest jede Partei den Trade-Datensatz, bevor sie überweist.
+
+Diese Seite setzt die Anleitung zum
+[Erstellen eines Trades](/docs/defi/dvp-program/create-a-trade) fort; Client und Signer
+werden übernommen.
+
+## Die Konditionen prüfen
+
+Das Erstellen eines Datensatzes ist permissionless, und die Escrow-Adressen leiten sich allein aus dem Datensatz und dem Mint ab, nie aus den Konditionen. Ein Transfer in ein Escrow kann daher gegen Konditionen landen, denen du nie zugestimmt hast, einschließlich Abwicklungszielen, die die Erlöse deiner Gegenpartei an eine dritte Adresse umleiten. Lies vor der Finanzierung die `SwapDvp`-Konten aus und prüfe sie anhand des vereinbarten Trades.
+
+`verifySwapDvp` in TypeScript und `verify::decode_swap_dvp_account` in Rust bestätigen, dass die Konten dem DvP-Programm gehören, genau 458 Byte groß sind und an der Adresse liegen, die sich aus ihren eigenen Feldern ableitet (`fetchSwapDvpChecked` führt nur die ersten beiden Prüfungen durch). Die einfachen Reader `fetchSwapDvp` und `decodeSwapDvp` führen keine dieser Prüfungen durch. Die Prüfungen von Parteien, Beträgen, Zeiten und Zielen übernimmt der Aufrufer anhand des vereinbarten Trades.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Wurde der Datensatz von deiner Gegenpartei oder der Abwicklungsstelle erstellt, vergleiche jedes Feld mit den Konditionen, die ihr off-ledger vereinbart habt. Hast du ihn selbst erstellt, bestätigt dieses Lesen, dass er wie gesendet angekommen ist.
+
+## In das Escrow überweisen
+
+Finanziere das Leg mit genau dem vereinbarten Betrag. Das Programm begrenzt die Abwicklung auf `amount_x` und gibt jeden Überschuss an die Partei des Legs zurück. Ein Überschuss geht also nicht verloren, erfordert bei der Abwicklung aber einen zweiten Transfer und kann bei manchen Transfer Hooks fehlschlagen (siehe die Hinweise unten).
+
+Verwende `TransferChecked`, nicht ein ungeprüftes `Transfer`. Token-2022-Mints mit Erweiterungen, die vom mint account abhängen, wie Pausable, lehnen einen Transfer ab, der ihn nicht angibt, und ein Mint mit Transfer Hook benötigt die aufgelösten und angehängten Konten des Hooks, genau wie bei jedem anderen Transfer dieses Tokens.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    Die Partei des Asset-Legs finanziert Escrow A und signiert als `userASigner`:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    Die Partei des Cash-Legs macht dasselbe für Escrow B mit `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` und `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    Die Partei des Cash-Legs erstellt dieselbe Anweisung für Escrow B mit `mint_b`,
+    `user_b` und `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Ein Funding-Transfer, der bei [`confirmed`](/docs/rpc#configuring-state-commitment)
+zu sehen ist, kann noch ersetzt werden. Das Programm liest das Escrow-Guthaben bei der Abwicklung onchain, daher schlägt ein Settle, das gegen einen nicht eingetroffenen Funding-Transfer gesendet wird, mit `LegNotFunded` fehl und nichts wird bewegt; die Kosten sind ein fehlgeschlagenes Settle und ein erneuter Versuch.
+Betrachte ein Leg als finanziert, wenn sein Transfer `finalized` ist.
+
+## Hinweise
+
+- **Wrapped-SOL-Legs.** Das Programm liest das Guthaben eines nativen Escrows nach dessen
+  Synchronisierung, sodass Lamports, die per System-Transfer an ein Wrapped-SOL-Escrow gesendet werden,
+  mitgezählt werden. Sende niemals SOL an ein Escrow für einen anderen Mint: Das Programm kann es nicht
+  zurückgeben, und es geht an diejenige Person, die die Konten schließt.
+- **Gated Mints.** Bei einem Mint mit eingefrorenem Default Account State wird das Escrow
+  eingefroren erstellt, und der Transfer schlägt fehl, bis der Emittent es freigibt oder zulässt. Die
+  [Übersicht](/docs/defi/dvp-program#mint-configuration-constraints) beschreibt
+  das Zusammenspiel mit Token ACL.
+- **Transfer Hooks.** Finanziere Escrows mit Hook immer mit genau dem vereinbarten Betrag. Erzwingt
+  ein Überschuss bei der Abwicklung eine Rückerstattung, verwendet diese die Hook-Konten des Legs
+  mit einem anderen Ziel und Betrag, was manche Hooks ablehnen. Die
+  Wiederherstellung besteht aus Reclaim, erneuter Finanzierung mit dem exakten Betrag und erneuter Abwicklung.
+- **Finanzierung nach Ablauf.** Nichts verhindert einen Transfer nach `expiry_timestamp`. Er
+  kommt an, die Abwicklung ist jedoch nicht mehr möglich, und die Partei des Legs holt ihn mit
+  Reclaim zurück, solange der Trade offen ist, oder mit Recover, nachdem er geschlossen wurde. Siehe
+  [Einen Trade rückabwickeln](/docs/defi/dvp-program/unwind-a-trade).
+- **Wer zuerst finanziert.** Das Programm legt keine Reihenfolge der beiden Legs fest. Die Reihenfolge
+  ist Sache der Parteien; jede Seite kann ihr eigenes Leg jederzeit vor der Abwicklung zurückfordern,
+  es sei denn, eine Mint-Autorität (Freeze, Pause oder Transfer Hook)
+  blockiert das Escrow.
+
+## Nächste Schritte
+
+- [Den Trade abwickeln](/docs/defi/dvp-program/settle-the-trade): Die Abwicklungsstelle
+  tauscht beide Legs in einer Transaktion aus
+- [Einen Trade rückabwickeln](/docs/defi/dvp-program/unwind-a-trade): ein finanziertes
+  Leg zurückholen, wenn der Trade nicht abgewickelt wird

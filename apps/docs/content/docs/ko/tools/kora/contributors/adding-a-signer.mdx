@@ -272,14 +272,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### 통합 테스트
 
-Kora는 TypeScript 테스트를 포함한 모든 통합 테스트 단계를 관리하는 통합 테스트
-러너(`tests/src/bin/test_runner.rs`)를 사용합니다. 새로운 서명자를 위한 테스트를
-추가하려면:
+각 통합 단계는 `tests/Cargo.toml`에 자체 `[[test]]` 타깃으로 정의됩니다. 모든
+타깃은 `harness_context`를 통해 내장 surfnet과 Kora 노드를 처음부터 새로 시드하여
+부팅합니다. Kora는 설정을 프로세스 전역 상태로 유지하므로, 새로운 서명자(signer)를 추가하려면
+기존 타깃에 모듈을 추가하는 대신 새 타깃이 필요합니다.
 
-#### 1. 테스트 구성 추가
+#### 1. 서명자 픽스처 추가하기
 
-서비스를 위한 새로운 서명자 구성 파일을 `tests/src/common/fixtures/`에
-생성하세요:
+`tests/src/common/fixtures/`에 서명자 설정을 생성합니다:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -294,47 +294,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. 테스트 러너에 테스트 단계 추가
+#### 2. 테스트 타깃 추가하기
 
-`tests/src/test_runner/test_cases.toml`를 업데이트하여 서명자를 위한 테스트
-단계를 포함하세요:
+`tests/Cargo.toml`에 해당 단계를 등록합니다:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+그런 다음 `tests/your_service/main.rs`를 생성합니다. 이 파일은 하니스가 사용자의 픽스처를 가리키도록 하며,
+서명자를 실행하는 `#[tokio::test]`를 하나 이상 포함해야 합니다:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+키 조회뿐만 아니라 서명자의 서명 경로까지 실행되도록 `signTransaction` 테스트도 함께 추가하세요.
+`tests/multi_signer/`는 참고하여 복사할 수 있는 완전한 예제입니다.
 
 #### 3. 테스트 실행
 
-환경이 설정되어 있는지 확인하세요:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-통합 테스트 러너를 사용하여 테스트를 실행하세요:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## 문서 요구사항
@@ -396,7 +415,7 @@ YOUR_SERVICE_WALLET_ID="your_wallet_id" \```
 - [ ] `mod.rs`에 구성 구조체 내보내기 완료
 - [ ] (선택 사항) `config_mock.rs`에 테스트 모의 빌더 메서드 추가됨
 - [ ] 경고 없이 코드 컴파일됨
-- [ ] 모든 테스트 통과 (`make test` 및 `make test-integration`)
+- [ ] 모든 테스트가 통과합니다(`just test`)
 - [ ] 다음을 따르는 문서 추가됨
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] 예제 구성 파일 생성됨 (`.toml` 및 `.env.example`)

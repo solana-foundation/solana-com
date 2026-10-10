@@ -1,0 +1,463 @@
+---
+title: Python
+description: Python 애플리케이션에서 solana-keychain 설치 및 사용하기
+---
+
+버전 2.0은 Python 패키지의 첫 번째 안정 릴리스입니다. [2.0 마이그레이션 가이드](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)에서 Rust 및 TypeScript와 공유하는 서명 형태를 다룹니다.
+
+## 설치
+
+기본 패키지를 설치하고, 제공자 의존성이 필요한 백엔드마다 extra를 하나씩 추가로 설치하세요.
+
+```shell
+pip install solana-keychain                # memory, vault and para
+pip install 'solana-keychain[aws-kms]'     # AWS KMS (boto3)
+pip install 'solana-keychain[gcp-kms]'     # GCP KMS (google-cloud-kms)
+pip install 'solana-keychain[privy]'       # Privy
+pip install 'solana-keychain[turnkey]'     # Turnkey
+pip install 'solana-keychain[fireblocks]'  # Fireblocks
+pip install 'solana-keychain[cdp]'         # Coinbase Developer Platform
+pip install 'solana-keychain[crossmint]'   # Crossmint
+pip install 'solana-keychain[dfns]'        # Dfns
+pip install 'solana-keychain[openfort]'    # Openfort
+pip install 'solana-keychain[utila]'       # Utila
+pip install 'solana-keychain[fordefi]'     # Fordefi
+
+# Several at once
+pip install 'solana-keychain[aws-kms,privy]'
+```
+
+Python 3.10 이상이 필요합니다. 트랜잭션은 [`solders`](https://pypi.org/project/solders/)의 `VersionedTransaction` 객체입니다. legacy, v0, v1 메시지가 모두 허용되지만, `use_program_call=True`를 사용하는 Fireblocks는 legacy와 v0만 허용합니다.
+
+Memory, Vault, Para는 패키지 루트에서 임포트할 수 있습니다. 그 외 모든 백엔드는 각자의 서브모듈(예: `solana_keychain.aws_kms`)에서 임포트하며, extra 없이 임포트하면 설치해야 할 extra의 이름이 담긴 `ImportError`가 발생합니다. Ledger는 Rust 전용입니다.
+
+## 기본 사용법
+
+모든 백엔드에는 구성 데이터클래스와, 바로 사용할 수 있는 서명자를 반환하는 비동기 `create_<backend>_signer` 팩토리가 있습니다. 모든 서명 메서드는 코루틴입니다.
+
+```python
+import asyncio
+
+from solana_keychain import MemorySigner
+from solders.transaction import VersionedTransaction
+
+
+async def sign(transaction: VersionedTransaction) -> str:
+    signer = MemorySigner.from_private_key_file("/path/to/id.json")
+    print("Signing with:", signer.pubkey)
+
+    # Check availability (useful for remote signers)
+    if not await signer.is_available():
+        raise RuntimeError("Signer offline")
+
+    result = await signer.sign_transaction(transaction)
+    print("Signature:", result.signature)
+    print("Fully signed:", result.is_complete)
+    return result.encoded_transaction  # base64 wire transaction
+```
+
+`sign_transaction`은 `encoded_transaction`, `signature`, `is_complete`, `transaction`을 포함한 `SignedTransaction`을 반환합니다. `transaction`은 신뢰할 수 있는 서명된 트랜잭션입니다. 특히 수정형 서명자를 사용할 때는 결과가 전달한 객체와 다른 객체이므로, 이 값을 기준으로 이어서 작업하세요.
+
+### 통합 팩토리
+
+`create_keychain_signer`는 백엔드 이름과 해당 백엔드의 구성 데이터클래스를 받아 백엔드를 지연 임포트하므로, 사용하는 extra만 설치하면 됩니다.
+
+```python
+from solana_keychain import create_keychain_signer
+from solana_keychain.privy import PrivySignerConfig
+
+signer = await create_keychain_signer(
+    "privy",
+    PrivySignerConfig(
+        app_id="your-app-id",
+        app_secret="your-app-secret",
+        wallet_id="your-wallet-id",
+    ),
+)
+```
+
+사용 가능한 이름은 `SUPPORTED_BACKENDS`에 나열되어 있습니다: `aws-kms`, `cdp`, `crossmint`, `dfns`, `fireblocks`, `fordefi`, `gcp-kms`, `memory`, `openfort`, `para`, `privy`, `turnkey`, `utila`, `vault`. 알 수 없는 이름이나 잘못된 클래스의 구성을 전달하면 `SignerErrorCode.CONFIG_ERROR`와 함께 `SignerError`가 발생합니다. 팩토리는 기본 `SolanaSigner`를 반환하는 것으로 타입이 지정되어 있으므로, 서명하기 전에 `isinstance`로 타입을 좁혀야 합니다([서명자 기능](#signer-capabilities) 참조).
+
+### 원격 HTTP 클라이언트
+
+원격 HTTP 백엔드는 사용자 지정 TLS나 프록시를 위해 선택적으로 `http_client`(`httpx.AsyncClient`)를 받습니다. 설정하지 않으면 각 요청은 60초 타임아웃의 일회용 클라이언트를 사용하며, 기본 URL에는 HTTPS가 강제되고 리디렉션은 거부됩니다.
+
+## 서명자 기능
+
+모든 백엔드는 `SolanaSigner` ABC(`pubkey`, `sign_message`, `is_available`)를 상속하고, 정확히 하나의 기능 클래스를 추가로 구현합니다.
+
+- `TransactionSigner`: `sign_transaction(tx)`는 전달한 트랜잭션에 직접 서명하고 `SignedTransaction`을 반환합니다. 브로드캐스트는 사용자가 직접 수행합니다.
+- `ModifyingSigner`: `modify_and_sign_transaction(tx)`는 제공자가 트랜잭션을 재작성하도록 한 뒤, 브로드캐스트 없이 서명합니다. 전달한 객체는 그대로 유지되므로, 반환된 `SignedTransaction.transaction`을 기준으로 이어서 작업하세요.
+- `SendingSigner`: `sign_and_send_transaction(tx)`는 제공자를 통해 서명하고 브로드캐스트한 뒤, 실제로 반영된 트랜잭션의 `Signature`를 반환합니다. 전달한 트랜잭션은 절대 변경되지 않습니다.
+
+| 백엔드                                                                           | 기능 클래스    | `sign_message`                                  |
+| --------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------- |
+| memory, vault, privy, turnkey, aws-kms, fireblocks, gcp-kms, dfns, para, openfort | `TransactionSigner` | 예                                             |
+| cdp                                                                               | `TransactionSigner` | UTF-8 페이로드만 지원하며, 그 외에는 `SERIALIZATION_ERROR` 발생 |
+| utila                                                                             | `TransactionSigner` | `SIGNING_FAILED` 발생                         |
+| fordefi 블랙박스 (`FordefiBlackBoxSigner`)                                       | `TransactionSigner` | 예                                             |
+| fordefi 네이티브 수동 (`FordefiNativeManualSigner`)                               | `ModifyingSigner`   | 예                                             |
+| fordefi 네이티브 자동 (`FordefiNativeAutoSigner`)                                   | `SendingSigner`     | 예                                             |
+| crossmint                                                                         | `SendingSigner`     | `SIGNING_FAILED` 발생                         |
+
+`isinstance`로 타입을 좁히세요. 모든 기능 클래스는 패키지 루트에서 내보내집니다.
+
+```python
+from solana_keychain import ModifyingSigner, SendingSigner, TransactionSigner
+
+if isinstance(signer, SendingSigner):
+    signature = await signer.sign_and_send_transaction(transaction)
+elif isinstance(signer, ModifyingSigner):
+    result = await signer.modify_and_sign_transaction(transaction)
+elif isinstance(signer, TransactionSigner):
+    result = await signer.sign_transaction(transaction)
+```
+
+### 초기화
+
+`create_*` 팩토리와 `create_keychain_signer`는 필요한 설정을 자동으로 처리합니다. Privy, Fireblocks, Dfns, Crossmint, Para, Openfort 또는 Utila 서명자 클래스를 직접 생성하는 경우, 사용하기 전에 `await signer.init()`을 호출해야 합니다. 그전까지는 `pubkey`와 모든 서명 호출에서 `SignerErrorCode.NOT_INITIALIZED`가 발생합니다.
+
+## 백엔드 구성
+
+### Memory
+
+Solana CLI keypair 파일, base58 또는 `"[1,2,...]"` 문자열, 원시 바이트, 또는 `solders`의 `Keypair`로 생성할 수 있습니다.
+
+```python
+from solana_keychain import MemorySigner, MemorySignerConfig, create_memory_signer
+from solders.keypair import Keypair
+
+signer = MemorySigner.from_private_key_file("/path/to/id.json")
+signer = MemorySigner.from_private_key_string("base58_private_key")
+signer = MemorySigner.from_bytes(secret_key_bytes)  # 64 or 32 bytes
+signer = await create_memory_signer(MemorySignerConfig(keypair=Keypair()))
+```
+
+키는 프로세스 메모리에 존재하며, Python에서는 이를 제로화할 수 없습니다. 이 백엔드는 개발 및 테스트용으로만 사용하세요.
+
+### HashiCorp Vault
+
+키는 transit 엔진의 ed25519 키여야 합니다. 일반 HTTP는 `vault server -dev`를 위한 루프백 주소에서만 허용됩니다.
+
+```python
+from solana_keychain import VaultSignerConfig, create_vault_signer
+
+signer = await create_vault_signer(
+    VaultSignerConfig(
+        api_base_url="https://vault.example.com:8200",
+        token="hvs.xxxxx",
+        key_name="my-solana-key",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### AWS KMS
+
+`key_id`는 `ECC_NIST_EDWARDS25519` 키의 키 ID, ARN 또는 별칭입니다. 사용자 지정 자격 증명이나 엔드포인트가 필요하면 미리 만든 boto3 KMS `client`를 전달하세요. 이 경우 `region`은 무시됩니다.
+
+```python
+from solana_keychain.aws_kms import AwsKmsSignerConfig, create_aws_kms_signer
+
+signer = await create_aws_kms_signer(
+    AwsKmsSignerConfig(
+        key_id="alias/my-solana-key",
+        public_key="base58_public_key",
+        region="us-east-1",  # optional, defaults to the AWS config chain
+    )
+)
+```
+
+### GCP KMS
+
+키 버전은 `EC_SIGN_ED25519` 키여야 합니다. `client`에는 선택적으로 미리 만든 `KeyManagementServiceAsyncClient`를 전달할 수 있습니다.
+
+```python
+from solana_keychain.gcp_kms import GcpKmsSignerConfig, create_gcp_kms_signer
+
+signer = await create_gcp_kms_signer(
+    GcpKmsSignerConfig(
+        key_name="projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Privy
+
+```python
+from solana_keychain.privy import PrivySignerConfig, create_privy_signer
+
+signer = await create_privy_signer(
+    PrivySignerConfig(
+        app_id="app_id",
+        app_secret="app_secret",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+인증 키로 보호되는 지갑은 `authorization_context`로 `PrivyAuthorizationConfig`를 받습니다.
+
+### Turnkey
+
+```python
+from solana_keychain.turnkey import TurnkeySignerConfig, create_turnkey_signer
+
+signer = await create_turnkey_signer(
+    TurnkeySignerConfig(
+        api_public_key="api_public_key",    # hex P-256
+        api_private_key="api_private_key",  # hex P-256
+        organization_id="org_id",
+        private_key_id="private_key_id",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Fireblocks
+
+```python
+from solana_keychain.fireblocks import FireblocksSignerConfig, create_fireblocks_signer
+
+signer = await create_fireblocks_signer(
+    FireblocksSignerConfig(
+        api_key="api_key",
+        private_key_pem="-----BEGIN RSA PRIVATE KEY-----\n...",
+        vault_account_id="0",
+        asset_id="SOL",  # or "SOL_TEST" for devnet
+    )
+)
+```
+
+`use_program_call=True`는 RAW 대신 PROGRAM_CALL 작업으로 서명합니다. 서명 전용으로 전송되므로 Fireblocks는 트랜잭션을 재작성하거나 브로드캐스트하지 않으며, 브로드캐스트는 평소처럼 사용자가 수행합니다. 핫 월렛이 필요하며, Fireblocks에서 워크스페이스에 대해 활성화해야 합니다.
+
+### CDP (Coinbase Developer Platform)
+
+```python
+from solana_keychain.cdp import CdpSignerConfig, create_cdp_signer
+
+signer = await create_cdp_signer(
+    CdpSignerConfig(
+        api_key_id="api_key_id",
+        api_key_secret="api_key_secret",
+        wallet_secret="wallet_secret",
+        address="base58_address",
+        network="solana",  # or "solana-devnet"; required for address lookup tables
+    )
+)
+```
+
+### Crossmint
+
+```python
+from solana_keychain.crossmint import CrossmintSignerConfig, create_crossmint_signer
+
+signer = await create_crossmint_signer(
+    CrossmintSignerConfig(
+        api_key="api_key",
+        wallet_locator="wallet_locator",
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+Crossmint는 전송 전용입니다. Crossmint API는 승인된 트랜잭션을 항상 서버 측에서 실행하고 가스비를 대납하므로, `CrossmintSigner`는 `SendingSigner`이며 `sign_message`는 `SIGNING_FAILED`를 발생시킵니다. 반환된 서명은 Crossmint가 실제로 반영한 트랜잭션을 식별하며, 이는 사용자가 보낸 트랜잭션과 다를 수 있습니다. `signer_secret`(`xmsk1_...` 형식의 위임 서명자 시크릿)을 설정하면 트랜잭션이 자동으로 승인되며, 이는 무엇을 승인할지에 대한 결정을 Crossmint에 위임하는 것입니다.
+
+### Dfns
+
+```python
+from solana_keychain.dfns import DfnsSignerConfig, create_dfns_signer
+
+signer = await create_dfns_signer(
+    DfnsSignerConfig(
+        auth_token="auth_token",
+        cred_id="cred_id",
+        private_key_pem="-----BEGIN EC PRIVATE KEY-----\n...",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+### Openfort
+
+```python
+from solana_keychain.openfort import OpenfortSignerConfig, create_openfort_signer
+
+signer = await create_openfort_signer(
+    OpenfortSignerConfig(
+        secret_key="sk_...",
+        account_id="acc_...",
+        wallet_secret="wallet_secret",
+    )
+)
+```
+
+### Para
+
+```python
+from solana_keychain import ParaSignerConfig, create_para_signer
+
+signer = await create_para_signer(
+    ParaSignerConfig(
+        api_key="sk_...",
+        wallet_id="wallet_uuid",
+    )
+)
+```
+
+### Utila
+
+Utila는 트랜잭션 서명만 지원하며, `sign_message`는 `SIGNING_FAILED`를 발생시킵니다.
+
+```python
+from solana_keychain.utila import UtilaSignerConfig, create_utila_signer
+
+signer = await create_utila_signer(
+    UtilaSignerConfig(
+        service_account_email="sa@example.com",
+        service_account_private_key_pem="-----BEGIN PRIVATE KEY-----\n...",
+        vault_id="vault_id",
+        wallet_id="wallet_id",
+        network="networks/solana-devnet",
+    )
+)
+```
+
+### Fordefi
+
+Fordefi에는 세 가지 서명 모드가 있으며, 생성 시점에 `chain`과 `push_mode`로 결정됩니다. `create_fordefi_signer`가 클래스를 선택하고, 각 클래스는 다른 모드용 구성을 거부하며, 세 가지 모두 메시지 서명을 지원합니다.
+
+| 모드          | 구성                                     | 클래스                       | 메서드                        |
+| ------------- | ------------------------------------------ | --------------------------- | ----------------------------- |
+| 블랙박스     | `chain` 미설정                              | `FordefiBlackBoxSigner`     | `sign_transaction`            |
+| 네이티브 자동   | `chain` 설정, `push_mode` 미설정 또는 `"auto"` | `FordefiNativeAutoSigner`   | `sign_and_send_transaction`   |
+| 네이티브 수동 | `chain` 설정, `push_mode="manual"`          | `FordefiNativeManualSigner` | `modify_and_sign_transaction` |
+
+API 요청은 ECDSA P-256 요청 서명으로 인증됩니다. 키를 `private_key_pem`으로 제공하거나, `FordefiRequestSigner` 서브클래스를 `request_signer`로 전달하여 KMS/HSM에 보관할 수 있습니다.
+
+**네이티브 자동 모드**: `chain`(`"solana_devnet"` 또는 `"solana_mainnet"`)을 설정하면, Fordefi가 블록해시와 수수료를 교체할 수 있으며 트랜잭션에 서명한 뒤 직접 브로드캐스트합니다. 유일하게 필요한 서명자가 볼트인 서명되지 않은 트랜잭션만 허용합니다. `fee`는 Fordefi에 그대로 전달됩니다.
+
+```python
+import os
+
+from solana_keychain.fordefi import FordefiSignerConfig, create_fordefi_signer
+
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],  # vault address (base58)
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        fee={"type": "custom", "priority_fee": "1000"},  # optional
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+**네이티브 수동 모드**: `chain`과 `push_mode="manual"`을 설정합니다. Fordefi는 메시지(최근 블록해시, Compute Budget 수수료 명령어)를 재작성하고 서명하지만 브로드캐스트하지는 않습니다. 반환된 트랜잭션이 제출한 트랜잭션을 대체하므로, 항상 `result.transaction`을 기준으로 이어서 작업하세요. Fordefi가 수수료 지불자여야 하며 다른 필수 서명자보다 먼저 서명해야 합니다. 이미 서명이 포함된 트랜잭션도 허용되지만, 재작성 시 해당 서명은 무효가 됩니다. 재작성 내용은 diff로 제공되지 않으므로 브로드캐스트하기 전에 결과를 검사하고, Fordefi가 새 블록해시의 만료 높이를 반환하지 않으므로 신속하게 브로드캐스트하세요.
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        push_mode="manual",
+    )
+)
+
+result = await signer.modify_and_sign_transaction(transaction)
+...  # inspect result.transaction, then add any remaining signatures
+```
+
+검사를 마친 트랜잭션은 [서명 및 전송](#sign-and-send)에서처럼 브로드캐스트하고, 전송에 실패하면 재시도하기 전에 상태를 확인하여 정합성을 맞추세요.
+
+**블랙박스 모드**: `chain`을 생략합니다. Fordefi는 사용자가 보낸 메시지 바이트 그대로 서명하며 브로드캐스트하지 않습니다. Fordefi 블랙박스 볼트와 함께 사용하세요.
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_BB_VAULT_ID"],
+        public_key=os.environ["FORDEFI_BB_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+    )
+)
+```
+
+## 서명 및 전송
+
+`sign_and_send_transaction`은 서명자의 형태와 관계없이 트랜잭션을 온체인에 반영합니다. `SendingSigner`는 제공자를 통해 브로드캐스트하며 사용자의 전송 함수는 호출되지 않습니다. `TransactionSigner` 또는 `ModifyingSigner`는 서명만 수행하고, 사용자의 전송 함수가 base64로 인코딩된 결과를 브로드캐스트합니다(이 패키지에는 RPC 클라이언트가 없습니다).
+
+```python
+import httpx
+from solana_keychain import sign_and_send_transaction
+from solders.signature import Signature
+
+
+async def send(encoded: str) -> Signature:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.devnet.solana.com",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sendTransaction",
+                "params": [encoded, {"encoding": "base64"}],
+            },
+        )
+    return Signature.from_string(response.json()["result"])
+
+
+signature = await sign_and_send_transaction(signer, transaction, send)
+```
+
+전송 함수가 없는 서명 전용 서명자는 `CONFIG_ERROR`를 발생시키며, 서명 후에도 서명이 누락된 트랜잭션은 `SIGNING_FAILED`를 발생시킵니다.
+
+## 오류 처리
+
+모든 실패는 `SignerErrorCode`의 고정된 `code`를 가진 `SignerError`로 나타납니다: `BROADCAST_UNCONFIRMED`, `CONFIG_ERROR`, `EXPECTED_SOLANA_SIGNER`, `HTTP_ERROR`, `INVALID_PRIVATE_KEY`, `INVALID_PUBLIC_KEY`, `IO_ERROR`, `NOT_AVAILABLE`, `NOT_INITIALIZED`, `OTHER`, `PARSING_ERROR`, `REMOTE_API_ERROR`, `SERIALIZATION_ERROR`, `SIGNING_FAILED`. 메시지가 아닌 `code`로 분기하세요. `str()`과 `repr()`에는 고정된 일반 메시지만 담기며, 키 자료나 제공자의 원본 응답은 절대 포함되지 않습니다. `status_code`와 `provider_error_code`는 실패가 제공자 응답에서 비롯된 경우에 설정됩니다.
+
+`SignerErrorCode.BROADCAST_UNCONFIRMED`(`"SIGNER_BROADCAST_UNCONFIRMED"`)는 트랜잭션이 이미 반영되었을 수 있음을 의미합니다.
+
+- Crossmint와 Fordefi 네이티브 자동 모드에서는 생성 요청이 수락되었을 때 `provider_transaction_id`가 설정되며, `idempotency_key`에는 생성 요청이 전송될 때 사용된, 메시지에서 파생된 키가 담깁니다. 바이트 단위로 동일한 트랜잭션을 다시 보내는 것은 안전하지만, 다시 구성한 트랜잭션(예: 새 블록해시 사용)은 새로운 전송으로 처리됩니다.
+- `sign_and_send_transaction`에서 전송 함수가 실패하면, 완료된 트랜잭션의 서명이 `transaction_signature`에 설정된 상태로 이 오류가 발생합니다.
+- Fireblocks는 서명 전용으로 전송한 `use_program_call` 트랜잭션을 Fireblocks가 브로드캐스트한 것으로 폴링 결과에서 확인된 경우에만 이 오류를 발생시킵니다.
+
+```python
+from solana_keychain import SignerError, SignerErrorCode
+
+try:
+    signature = await sign_and_send_transaction(signer, transaction, send)
+except SignerError as error:
+    if error.code is SignerErrorCode.BROADCAST_UNCONFIRMED:
+        reconcile(
+            error.provider_transaction_id,
+            error.idempotency_key,
+            error.transaction_signature,
+        )
+    raise
+```
+
+취소된 호출은 어떤 필드도 담지 않은 `asyncio.CancelledError`를 다시 발생시킵니다. 취소 전에 제공자가 수락한 ID를 복구하려면, `solana_keychain.core`의 `PendingTransactionId()`를 Crossmint 또는 Fordefi 네이티브 자동 구성의 `pending_transaction_id`로 전달하고, 취소 후에 `.get()`을 읽으세요. 재시도하기 전에 제공자와 상태를 맞추세요.
+
+Keychain은 트랜잭션이 수행하는 동작이 아니라 서명 구간을 검증합니다. 제공자가 반환한 서명은 첨부되기 전에 로컬에서 계산한 메시지를 기준으로 ed25519 검증을 거칩니다. Python은 키 버퍼를 제로화할 수 없으므로, 로컬 키 백엔드(Memory, 그리고 원격 백엔드 구성에 보관된 API 키와 PEM)를 사용할 때는 프로세스 메모리 전체를 민감한 영역으로 취급하세요. 각 서명 형태가 보장하는 내용은 [보안 모델](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)을 참조하세요.
+
+## 사용자 지정 서명자 추가
+
+백엔드에 맞는 기능 클래스(`TransactionSigner`,
+`ModifyingSigner` 또는 `SendingSigner`) 중 하나를 `solana_keychain.core`에서 서브클래싱하세요. 추가 키 관리 서비스를 통합하려면
+[서명자 추가 가이드](/docs/tools/keychain/adding-signers)를 참고하세요.
+
+## 리소스
+
+- [Python README](https://github.com/solana-foundation/solana-keychain/blob/main/python/README.md)
+- [PyPI의 `solana-keychain`](https://pypi.org/project/solana-keychain/)
+- [보안 모델](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+- [2.0으로 마이그레이션](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)

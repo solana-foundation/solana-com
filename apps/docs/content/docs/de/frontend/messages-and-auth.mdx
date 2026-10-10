@@ -1,0 +1,421 @@
+---
+title: Nachrichten & Authentifizierung
+h1: Nachrichten signieren & Nutzer authentifizieren
+description:
+  Signiere Nachrichten mit einer Solana-Wallet, um Nutzer zu authentifizieren, Zustimmungen festzuhalten oder Off-Chain-Aktionen zu autorisieren – mithilfe von Off-Chain-Nachrichtensignierung mit einem Fallback für Wallets, die sie noch nicht unterstützen.
+---
+
+Das Signieren einer Nachricht beweist, dass ein Nutzer eine Wallet kontrolliert – ohne Transaktion, ohne Fee und ohne Netzwerkaufruf. Apps verwenden signierte Nachrichten, um Nutzer anzumelden, festzuhalten, dass ein Nutzer Bedingungen akzeptiert hat, eine Wallet mit bestehenden Konten zu verknüpfen oder eine Off-Chain-Aktion wie das Aufgeben einer Bestellung zu autorisieren.
+
+Solana-Wallets signieren Nachrichten auf zwei Arten:
+
+- **Off-Chain-Nachrichten** (`solana:signOffchainMessage`) verpacken deinen Text in ein Standardformat, das in der
+  [Spezifikation](https://docs.anza.xyz/proposals/off-chain-message-signing) zur Off-Chain-Nachrichtensignierung (OCMS) definiert ist.
+  Das Format kann nie mit einer Transaktion verwechselt werden, benennt die Konten, die es signieren müssen, und ist das Format, das Hardware-Wallets signieren.
+- **Rohe Nachrichten** (`solana:signMessage`) signieren genau die Bytes, die deine App übergibt, ohne Präfix und ohne deklarierte Signer. Die meisten Software-Wallets unterstützen sie, aber nichts in den Bytes kennzeichnet sie als Nachricht statt als Transaktion.
+
+Verwende Off-Chain-Nachrichten, wo die Wallet sie unterstützt, und weiche auf rohe Nachrichten aus, wo nicht. Der Rest dieser Anleitung nutzt die Anmeldung als durchgängiges Beispiel, aber dieselben Schritte zum Signieren und Verifizieren gelten für jede Nachricht.
+
+## Nachrichtenformat wählen
+
+|                           | Off-Chain-Nachricht     | Rohe Nachricht   | Transaktion                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| Wallet-Funktion            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| Unterstützung durch Hardware-Wallets   | Geräteabhängig     | Nein            | Ja                           |
+| Für Nutzer lesbar      | Ja                   | Nur Software | Geräteabhängig             |
+| Deklariert erforderliche Signer | Ja                   | Nein            | Ja                           |
+| RPC-Aufrufe und Fee        | Keine                  | Keine          | Blockhash, Senden, Fee, Bestätigen |
+
+### Warum keine Transaktion?
+
+Hardware-Wallets konnten früher keine lesbare Nachricht signieren. Viele Apps griffen darauf zurück, diese Nutzer stattdessen eine No-Op-Transaktion signieren zu lassen. Das funktioniert, bringt aber Latenz, Kosten und Risiken mit sich:
+
+- **Netzwerk-Fee.** Eine Transaktion zahlt eine Fee, selbst wenn sie nichts bewirkt.
+- **Mehrere RPC-Aufrufe.** Deine App ruft einen Blockhash ab, simuliert, sendet
+  und fragt dann wiederholt die Bestätigung ab.
+- **Zusätzliche Latenz.** Jeder dieser Aufrufe ist ein Roundtrip, bevor der Nutzer
+  angemeldet ist.
+- **Nichts Lesbares.** Der Nutzer genehmigt Transaktionsbytes, keine Erklärung
+  dessen, wozu er zustimmt.
+- **Verhaltensrisiko.** Wenn Nutzer eine Transaktion nur zum Anmelden signieren sollen,
+  lassen sie sich leichter dazu verleiten, eine schädliche zu signieren.
+
+Eine Off-Chain-Nachricht umgeht all das. Der einzige Roundtrip geht zu deinem
+eigenen Server.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## Was die Wallet signiert
+
+Eine Off-Chain-Nachricht beginnt mit einer festen Signierdomäne, `\xffsolana offchain`.
+Keine gültige Transaktion beginnt mit diesen Bytes, daher kann eine signierte Nachricht nie
+als Transaktion verwendet werden. Version 1 des Formats listet dann die erforderlichen Signer auf
+und enthält die Nachricht als UTF-8-Text ohne Längenbegrenzung.
+
+Die Wallet erstellt diese Bytes, signiert sie und gibt sie zusammen mit der
+Signatur zurück. Die
+[Spezifikation](https://docs.anza.xyz/proposals/off-chain-message-signing)
+behandelt das vollständige Format, einschließlich der älteren Version 0.
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## Anmeldemethode wählen
+
+Noch nicht jede Wallet unterstützt Off-Chain-Nachrichten. Prüfe die Funktionen der verbundenen Konten, bevor du eine Signatur anforderst, und weiche aus, wenn die Funktion fehlt:
+
+1. Unterstützen die Konten `solana:signOffchainMessage` mit Nachrichtenversion 1,
+   signiere eine Off-Chain-Nachricht.
+2. Andernfalls signiere dieselbe Challenge mit `solana:signMessage`. Die meisten Software-Wallets
+   unterstützen es.
+3. Gib Hardware-Wallet-Nutzern ohne Nachrichtenunterstützung eine explizite Opt-in-Option, etwa
+   einen Schalter „Ich verwende eine Hardware-Wallet“, die stattdessen eine Anmeldetransaktion
+   signiert. Leite sie nicht standardmäßig auf diesen Weg.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## Eine Nachricht im Browser signieren
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    Installiere die Wallet-Standard-Pakete zusammen mit Kit:
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    Diese Helfer erwarten einen `UiWalletAccount`, etwa den `account`, den
+    `useConnectedWallet` im [React-Leitfaden](/docs/frontend/react-hooks) zurückgibt:
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` aus `@solana/wallet-adapter` stellt `signOffchainMessage` nur bereit,
+    wenn die verbundenen Konten `solana:signOffchainMessage` unterstützen. Es signiert eine
+    Nachricht der Version 1, wobei die verbundenen Konten der erforderliche Signer sind, und
+    lehnt mit `WalletNotReadyError` ab, wenn die Wallet Version 1 nicht signieren kann:
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // Server logic
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    `publicKey.verifySignature` prüft die Signatur im Browser anhand der signierten
+    Bytes. Dein Server muss weiterhin bestätigen, dass diese Bytes die von ihm
+    ausgestellte Challenge sind. Ist `signOffchainMessage` `undefined`, weiche auf
+    `signMessage` aus demselben Hook aus.
+
+  </Tab>
+</Tabs>
+
+`signOffchainMessage` gibt `signedOffchainMessage`, die vollständigen von der Wallet
+signierten Bytes, und `signature` zurück. Kodiere beide mit Base64 und sende sie zusammen mit
+der Wallet-Adresse an deinen Server.
+
+Formuliere die Challenge so, dass sie auf einem kleinen Bildschirm gut lesbar ist. Nenne deine App
+und Domain, erkläre, was das Signieren bewirkt, und füge eine einmalig verwendbare Nonce sowie einen Ausstellungszeitpunkt
+von deinem Server hinzu:
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## Die Signatur auf deinem Server verifizieren
+
+Die Verifizierung ist eine lokale Signaturprüfung und benötigt keine RPC-Verbindung. Dekodiere die
+von der Wallet signierten Bytes, bestätige, dass sie mit der ausgestellten Challenge übereinstimmen, und prüfe dann
+die Signatur:
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+`assertOffchainMessageV1Equal` wirft einen Fehler, wenn sich Inhalt oder Signer von den Erwartungen unterscheiden. `verifyOffchainMessageEnvelope` wirft einen Fehler, wenn die Signatur
+fehlt oder ungültig ist. Suche `expectedMessage` auf deinem Server anhand der Nonce heraus, statt
+der vom Client zurückgesendeten Kopie zu vertrauen. Verbrauche die Nonce, sobald die Verifizierung
+erfolgreich ist, damit dieselbe Signatur nicht zweimal zur Anmeldung dient.
+
+### Eine rohe Nachricht verifizieren
+
+Eine `signMessage`-Signatur deckt die Challenge-Bytes direkt ab, daher muss der Client
+nur die Signatur und die Wallet-Adresse senden. Prüfe sie gegen die
+ausgestellte Challenge:
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+Es gelten dieselben Nonce-Regeln: Suche `expectedMessage` anhand der Nonce heraus und verbrauche sie,
+sobald die Verifizierung erfolgreich ist.
+
+<Callout type="info">
+  `@solana/kit` re-exportiert diese Helfer aus `@solana/offchain-messages`. Verwende
+  das eigenständige Paket, wenn dein Server nicht von Kit abhängt.
+</Callout>
+
+## Sign In With Solana
+
+[Sign In With Solana](https://github.com/phantom/sign-in-with-solana) (SIWS)
+standardisiert die Challenge selbst. Deine App übergibt strukturierte Felder wie
+`domain`, `statement`, `nonce` und `issuedAt` an die Funktion `solana:signIn` der Wallet.
+Die Wallet formatiert sie zu einer Standardnachricht, stellt bei Bedarf eine Verbindung her
+und signiert sie in einem Schritt.
+
+Version `1.1.0` von `solana:signIn` fügt die Option `useOffchainMessage` hinzu. Wenn du
+`useOffchainMessage: { messageVersion: 1 }` übergibst, verpackt die Wallet den SIWS-Text
+in eine Off-Chain-Nachricht der Version 1, wobei die signierenden Konten die einzigen erforderlichen
+Signer sind. Hardware-Wallets können sie anzeigen und signieren, und die Ausgabe meldet
+`signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }`. Wallets,
+die Version `1.0.0` angeben, kennen die Option nicht; prüfe daher zuerst die Funktionsversion
+und lasse sie andernfalls weg.
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    `solana:signIn` ist eine Wallet-Funktion, keine Konten-Funktion, daher erwarten diese
+    Helfer ein `UiWallet`:
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` stellt `signIn` bereit, wenn die ausgewählte Wallet
+    `solana:signIn` unterstützt, und `supportsSignInWithOffchainMessage`, wenn sie
+    Version `1.1.0` angibt. Wird `useOffchainMessage` an eine Wallet übergeben, die dies nicht
+    unterstützt, wird mit `WalletSignInError` abgelehnt:
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    `verifySignIn` prüft, ob die signierte Nachricht jedes Feld der Eingabe reproduziert
+    und eine gültige Signatur der signierenden Konten trägt, unabhängig davon, ob die
+    Wallet reinen SIWS-Text oder eine Off-Chain-Nachricht signiert hat. Führe dieselbe Prüfung auf
+    deinem Server aus, indem du sie aus `@solana/wallet-adapter/core` importierst, das keine
+    React-Abhängigkeit hat.
+
+  </Tab>
+</Tabs>
+
+Erstelle die Eingabe auf deinem Server mit einer einmalig verwendbaren `nonce` und einem `issuedAt`-Zeitpunkt
+und bewahre eine nach der Nonce indizierte Kopie auf. Verbrauche die Nonce, sobald die Anmeldung
+verifiziert ist.
+
+Ohne Wallet Adapter prüft `verifySignIn` aus `@solana/wallet-standard-util`
+nur reine SIWS-Ausgaben. Meldet `signedMessageFormat` eine Off-Chain-Nachricht, ist `signedMessage` eine Off-Chain-Nachricht, deren Inhalt der SIWS-Text ist.
+Rekonstruiere den erwarteten Text aus deiner gespeicherten Eingabe und der Signieradresse mit
+`createSignInMessageText` aus `@solana/wallet-standard-util` und verifiziere ihn dann
+wie jede andere Off-Chain-Nachricht, wie unter
+[Die Signatur auf deinem Server verifizieren](#verify-the-signature-on-your-server). Die
+[`@solana/offchain-messages`-README](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message)
+behandelt diesen Ablauf in Kit.
+
+## Für Wallets
+
+Wallets fügen Unterstützung hinzu, indem sie die Wallet-Standard-Funktion `solana:signOffchainMessage`
+aus `@solana/wallet-standard-features` implementieren:
+
+- Gib `version: "1.0.0"` an und liste die Nachrichtenversionen, die du signieren kannst, in
+  `supportedMessageVersions` auf. Derzeit ist das `[1]`.
+- Erstelle die Version-1-Präambel aus `requiredSigners`, die du sortierst und auf
+  Duplikate prüfst. Lehne die Anfrage ab, wenn die Konten nicht zu den
+  erforderlichen Signer gehören.
+- Zeige dem Nutzer den Nachrichtentext vor dem Signieren vollständig an, auch auf
+  Hardware-Geräten.
+- Gib die exakten Bytes, die du signiert hast, als `signedOffchainMessage`
+  zurück, zusammen mit der Ed25519-`signature`.
+- Um Off-Chain-Sign-In-With-Solana zu unterstützen, melde `version: "1.1.0"` für
+  `solana:signIn`. Wenn die Eingabe `useOffchainMessage` enthält, signiere den
+  SIWS-Text als Off-Chain-Nachricht der Version 1, gib deren Bytes als
+  `signedMessage` zurück und setze `signedMessageFormat`.
+- Unterstütze weiterhin `solana:signMessage`. Es bleibt unverändert, und Apps
+  nutzen es weiterhin als Fallback.

@@ -1,0 +1,201 @@
+---
+title: Bacakları Fonlama
+description:
+  Bir DvP işleminin kayıtlı koşullarını doğrulayın, ardından düz bir TransferChecked ile bir bacağı escrow hesabına fonlayın.
+seoTitle: Solana'da DvP İşlemini Fonlama
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Fonlama, bacağın escrow hesabına yapılan düz bir `TransferChecked` işlemidir; dolayısıyla token transferi gönderebilen herhangi bir cüzdan veya saklama sistemi bir bacağı fonlayabilir. Yalnızca fonlamadan önce işlem kaydını okumak için DvP istemcisi gerekir. Program escrow bakiyelerini yalnızca takas anında kontrol eder; transfer gerçekleştiğinde hiçbir şey onu denetlemez, bu yüzden her taraf transfer etmeden önce işlem kaydını okur.
+
+Bu sayfa [işlem oluşturma](/docs/defi/dvp-program/create-a-trade) bölümünden devam eder; istemci ve imzalayanlar aynen kullanılır.
+
+## Koşulları doğrulayın
+
+Kayıt oluşturmak izin gerektirmez ve escrow adresleri yalnızca kayıttan ve mint'ten türetilir, koşullardan asla türetilmez. Bu nedenle bir escrow'a yapılan transfer, hiç kabul etmediğiniz koşullara karşı gerçekleşebilir; buna karşı tarafınızın gelirlerini üçüncü bir adrese yönlendiren takas hedefleri de dahildir. Fonlamadan önce `SwapDvp` hesabını okuyun ve üzerinde anlaşılan işlemle karşılaştırın.
+
+TypeScript'teki `verifySwapDvp` ve Rust'taki `verify::decode_swap_dvp_account`, hesabın DvP programına ait olduğunu, tam olarak 458 bayt olduğunu ve kendi alanlarından türetilen adreste bulunduğunu doğrular (`fetchSwapDvpChecked` yalnızca ilk iki kontrolü yapar). Düz `fetchSwapDvp` ve `decodeSwapDvp` okuyucuları bunların hiçbirini kontrol etmez. Taraflara, tutarlara, zamanlara ve hedeflere ilişkin kontrolleri, üzerinde anlaşılan işleme göre çağıran taraf yapar.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Kaydı karşı tarafınız veya takas yetkilisi oluşturduysa, her alanı defter dışında anlaştığınız koşullarla karşılaştırın. Kaydı kendiniz oluşturduysanız, bu okuma kaydın gönderdiğiniz şekilde işlendiğini doğrular.
+
+## Escrow'a transfer yapın
+
+Bacağı tam olarak üzerinde anlaşılan tutarda fonlayın. Program takası `amount_x` ile sınırlar ve fazlalığı bacağın tarafına iade eder; dolayısıyla fazlalık kaybolmaz, ancak takas sırasında ikinci bir transfer ekler ve bazı transfer hook'larında başarısız olabilir (aşağıdaki notlara bakın).
+
+Denetimsiz `Transfer` yerine `TransferChecked` kullanın. Pausable gibi mint account'a bağımlı uzantılara sahip Token-2022 mint'leri, bunu sağlamayan transferleri reddeder; transfer hook'lu bir mint ise, o token'ın diğer her transferinde olduğu gibi hook'un hesaplarının çözümlenip eklenmesini gerektirir.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    Varlık bacağının tarafı, `userASigner` olarak imzalayarak escrow A'yı fonlar:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    Nakit bacağının tarafı, escrow B için aynısını `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` ve `{ programAddress: tokenProgramB }` ile yapar.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    Nakit bacağının tarafı, escrow B için `mint_b`,
+    `user_b` ve `trade.amount_b` ile aynı talimatı oluşturur.
+
+  </Tab>
+</Tabs>
+
+[`confirmed`](/docs/rpc#configuring-state-commitment) aşamasında görülen bir fonlama transferi yine de geçersiz kılınabilir. Program, takas anında escrow bakiyesini zincir üzerinde okur; bu nedenle gerçekleşmemiş bir fonlama transferine karşı gönderilen Settle işlemi `LegNotFunded` hatasıyla başarısız olur ve hiçbir şey hareket etmez; maliyeti başarısız bir Settle ve yeniden denemedir. Bir bacağı, transferi `finalized` olduğunda fonlanmış kabul edin.
+
+## Notlar
+
+- **Wrapped SOL bacakları.** Program, yerel bir escrow'un bakiyesini senkronize ettikten sonra okur; bu nedenle wrapped SOL escrow'una sistem transferiyle gönderilen lamport'lar sayılır. Başka herhangi bir mint'in escrow'una asla SOL göndermeyin: program bunu iade edemez ve hesabı kapatan kişiye gider.
+- **Kısıtlı mint'ler.** Default Account State değeri frozen olan bir mint'te escrow dondurulmuş olarak oluşturulur ve ihraççı dondurmayı kaldırana veya hesabı kabul edene kadar transfer başarısız olur.
+  [Genel bakış](/docs/defi/dvp-program#mint-configuration-constraints), Token ACL ile etkileşimi
+  açıklar.
+- **Transfer hook'ları.** Hook içeren escrow'ları tam olarak üzerinde anlaşılan tutarda fonlayın. Bir fazlalık takas sırasında iade gerektirirse, iade işlemi bacağın hook hesaplarını farklı bir hedef ve tutarla yeniden kullanır; bazı hook'lar bunu reddeder. Çözüm yolu şudur: Reclaim yapın, tam tutarla yeniden fonlayın ve tekrar takas edin.
+- **Vade sonrasında fonlama.** `expiry_timestamp` sonrasında bir transferi hiçbir şey engellemez. Transfer gerçekleşir, ancak takas artık mümkün değildir ve bacağın tarafı onu, işlem açıkken Reclaim, kapandıktan sonra Recover ile geri alır. Bkz.
+  [bir işlemi geri alma](/docs/defi/dvp-program/unwind-a-trade).
+- **Önce kim fonlar.** Program iki bacağı sıralamaz. Sıra tarafların kendi meselesidir; bir mint yetkilisi (freeze, pause veya transfer hook) escrow'u engellemediği sürece, her iki taraf da takastan önce istediği zaman kendi bacağını geri alabilir.
+
+## Sonraki adımlar
+
+- [İşlemi takas edin](/docs/defi/dvp-program/settle-the-trade): takas
+  yetkilisi her iki bacağı tek bir işlemde değiştirir
+- [İşlemi geri alın](/docs/defi/dvp-program/unwind-a-trade): işlem takas edilmediğinde
+  fonlanmış bir bacağı kurtarma

@@ -9,48 +9,64 @@ description: 在 Rust 应用程序中安装和使用 solana-keychain
 
 ```toml title="Cargo.toml"
 [dependencies]
-# Memory signer only (default)
-solana-keychain = "1.2"
+# Memory signer only (default, Solana SDK 2.x)
+solana-keychain = "2.0"
 
-# Or specify backends explicitly
-solana-keychain = { version = "1.2", default-features = false, features = ["vault", "aws_kms"] }
+# Or specify backends explicitly (pick exactly one SDK feature)
+solana-keychain = { version = "2.0", default-features = false, features = ["vault", "aws_kms", "sdk-v2"] }
 
-# All backends
-solana-keychain = { version = "1.2", features = ["all"] }
+# All remote backends on the Solana 4.x SDK line
+solana-keychain = { version = "2.0", default-features = false, features = ["all", "sdk-v4"] }
 ```
+
+从 1.x 升级?请参阅
+[迁移到 2.0 指南](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)。
 
 ### 功能标志
 
-| 功能      | 描述                     |
-| ------------ | ------------------------------- |
-| `memory`     | 本地 keypair 签名（默认） |
-| `vault`      | HashiCorp Vault Transit 引擎  |
-| `aws_kms`    | AWS KMS（Ed25519）            |
-| `gcp_kms`    | GCP Cloud KMS（Ed25519）      |
-| `privy`      | Privy 嵌入式钱包          |
-| `turnkey`    | Turnkey API                     |
-| `fireblocks` | Fireblocks MPC                  |
-| `cdp`        | Coinbase 开发者平台     |
-| `crossmint`  | Crossmint 托管钱包       |
-| `dfns`       | Dfns 钱包基础设施      |
-| `openfort`   | Openfort 嵌入式钱包       |
-| `para`       | Para MPC 钱包                |
-| `utila`      | Utila MPC 托管               |
-| `fordefi`    | Fordefi MPC 托管             |
-| `all`        | 启用所有后端             |
+| 功能        | 描述                                                           |
+| -------------- | --------------------------------------------------------------------- |
+| `memory`       | 本地 keypair 签名（默认）                                       |
+| `vault`        | HashiCorp Vault Transit 引擎                                        |
+| `aws_kms`      | AWS KMS（Ed25519）                                                  |
+| `gcp_kms`      | GCP Cloud KMS（Ed25519）                                            |
+| `privy`        | Privy 嵌入式钱包                                                |
+| `turnkey`      | Turnkey API                                                           |
+| `fireblocks`   | Fireblocks MPC                                                        |
+| `cdp`          | Coinbase 开发者平台                                           |
+| `crossmint`    | Crossmint 托管钱包                                             |
+| `dfns`         | Dfns 钱包基础设施                                            |
+| `openfort`     | Openfort 嵌入式钱包                                             |
+| `para`         | Para MPC 钱包                                                      |
+| `utila`        | Utila MPC 托管                                                     |
+| `fordefi`      | Fordefi MPC 托管                                                   |
+| `ledger`       | 通过 USB-HID 连接的 Ledger 硬件钱包(仅限 Rust,需手动启用,不包含在 `all` 中) |
+| `all`          | 启用除 `ledger` 之外的所有后端                                  |
+| `sdk-v2`       | Solana SDK 2.x(默认)                                              |
+| `sdk-v3`       | Solana SDK 3.x                                                        |
+| `sdk-v4`       | Solana SDK 4.x(v1 交易所必需)                         |
+| `unsafe-debug` | 记录完整的提供商错误响应;切勿在生产环境中启用        |
+
+`sdk-v2`、`sdk-v3` 和 `sdk-v4` 必须且只能启用其中一个。
 
 ## 基本用法
 
-所有签名器都实现了
-[`SolanaSigner` trait](https://github.com/solana-foundation/solana-keychain/blob/main/rust/src/traits.rs)：
+所有签名器都实现了基础的
+[`SolanaSigner` trait](https://github.com/solana-foundation/solana-keychain/blob/main/rust/src/traits.rs)
+(`pubkey`、`sign_message`、`is_available`)。每个后端还会实现且仅实现
+一个能力 trait:
+
+- `TransactionSigner`:按原样对您的交易进行签名。
+- `ModifyingSigner`:提供商会先重写交易,然后再签名。
+- `SendingSigner`:提供商负责签名并广播交易。
 
 ```rust
-use solana_keychain::{SolanaSigner, Signer, SignerError, SignTransactionResult};
-use solana_sdk::transaction::Transaction;
+use solana_keychain::{SignerError, SolanaSigner, TransactionSigner};
+use solana_sdk::transaction::VersionedTransaction;
 
 async fn sign_transaction(
-    signer: &impl SolanaSigner,
-    tx: &mut Transaction,
+    signer: &impl TransactionSigner,
+    tx: &mut VersionedTransaction,
 ) -> Result<(), SignerError> {
     // Get the signer's public key
     let pubkey = signer.pubkey();
@@ -61,7 +77,7 @@ async fn sign_transaction(
         return Err(SignerError::NotAvailable("Signer offline".into()));
     }
 
-    // Sign the transaction — returns Complete or Partial
+    // Sign the transaction: returns Complete or Partial
     let result = signer.sign_transaction(tx).await?;
     let (base64_tx, signature) = result.into_signed_transaction();
     println!("Signature: {}", signature);
@@ -69,6 +85,25 @@ async fn sign_transaction(
     Ok(())
 }
 ```
+
+使用 `.into()` 转换旧版 `Transaction`。旧版交易和 v0 交易适用于
+所有 SDK 功能;v1 交易需要 `sdk-v4`。
+
+### 签名器能力
+
+| 后端                              | 能力 trait    | `sign_message`                  |
+| ------------------------------------ | ------------------- | ------------------------------- |
+| Crossmint                            | `SendingSigner`     | 不支持                   |
+| Fordefi 原生自动模式                  | `SendingSigner`     | 是                             |
+| Fordefi 原生手动模式                | `ModifyingSigner`   | 是                             |
+| Utila                                | `TransactionSigner` | 不支持                   |
+| CDP                                  | `TransactionSigner` | 仅支持 UTF-8 载荷             |
+| Ledger                               | `TransactionSigner` | 是,通过链下信封实现 |
+| 其他所有后端(包括 Fordefi 黑盒模式) | `TransactionSigner` | 是                             |
+
+`Signer::from_*` 构造函数会自动为您运行 `init()`。如果您直接构造
+Privy、Fireblocks、Dfns、Crossmint、Para、Openfort 或 Utila 签名器类型,
+请在使用前调用 `init().await`。
 
 ## 后端配置
 
@@ -82,8 +117,8 @@ use solana_keychain::Signer;
 // From base58 private key
 let signer = Signer::from_memory("base58_private_key")?;
 
-// From JSON file path
-let signer = Signer::from_memory("/path/to/keypair.json")?;
+// From JSON keypair file path
+let signer = Signer::from_memory_file("/path/to/keypair.json")?;
 
 // From byte array string
 let signer = Signer::from_memory("[1,2,3,...]")?;
@@ -162,7 +197,12 @@ let config = FireblocksSignerConfig {
     api_key: "api_key".to_string(),
     private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\n...".to_string(),
     vault_account_id: "0".to_string(),
-    asset_id: "SOL".to_string(), // or "SOL_TEST" for devnet
+    asset_id: Some("SOL".to_string()), // None defaults to "SOL"; "SOL_TEST" for devnet
+    api_base_url: None,
+    poll_interval_ms: None,
+    max_poll_attempts: None,
+    use_program_call: None, // Some(true) signs via PROGRAM_CALL (sign-only, legacy/v0, hot wallet)
+    http_client_config: None,
 };
 
 let signer = Signer::from_fireblocks(config).await?;
@@ -186,20 +226,28 @@ let signer = Signer::from_gcp_kms(
 用于 Coinbase 托管钱包签名：
 
 ```rust
-use solana_keychain::Signer;
+use solana_keychain::{Signer, CdpSignerConfig, CDP_NETWORK_MAINNET};
 
-let signer = Signer::from_cdp(
-    "api_key_id".to_string(),     // CDP API key ID
-    "api_key_secret".to_string(), // CDP API private key (base64 Ed25519)
-    "wallet_secret".to_string(),  // CDP wallet secret (base64 PKCS#8 DER)
-    "base58_address".to_string(), // Solana account address
-    None,                         // Default HTTP timeouts
-)?;
+let signer = Signer::from_cdp(CdpSignerConfig {
+    api_key_id: "api_key_id".to_string(),           // CDP API key ID
+    api_key_secret: "api_key_secret".to_string(),   // CDP API private key (base64 Ed25519)
+    wallet_secret: "wallet_secret".to_string(),     // CDP wallet secret (base64 PKCS#8 DER)
+    address: "base58_address".to_string(),          // Solana account address
+    network: Some(CDP_NETWORK_MAINNET.to_string()), // Required to sign transactions with address lookup tables
+    api_base_url: None,
+    http_client_config: None,                       // Default HTTP timeouts
+})?;
 ```
+
+CDP 的 `sign_message` 仅接受 UTF-8 载荷。
 
 ### Crossmint
 
-用于 Crossmint 托管钱包签名：
+Crossmint 仅支持发送:其 API 会在服务端执行每一笔已批准的交易,
+因此不存在仅签名的路径,`sign_message` 会失败。请调用
+`sign_and_send_transaction`,它不会改动您的交易,并会返回
+实际上链交易的签名。如果 Crossmint 代付 gas,该交易可能
+与您的交易不同。
 
 ```rust
 use solana_keychain::{Signer, CrossmintSignerConfig};
@@ -215,6 +263,12 @@ let config = CrossmintSignerConfig {
 };
 
 let signer = Signer::from_crossmint(config).await?;
+
+let signature = signer
+    .as_sending_signer()
+    .expect("Crossmint is a sending signer")
+    .sign_and_send_transaction(&tx)
+    .await?;
 ```
 
 ### Dfns
@@ -228,7 +282,6 @@ let config = DfnsSignerConfig {
     auth_token: "auth_token".to_string(),
     cred_id: "cred_id".to_string(),
     private_key_pem: "-----BEGIN EC PRIVATE KEY-----\n...".to_string(),
-    app_id: "app_id".to_string(),
     wallet_id: "wallet_id".to_string(),
     api_base_url: None,
     http_client_config: None,
@@ -251,34 +304,109 @@ let signer = Signer::from_para(
 ).await?;
 ```
 
+### Openfort
+
+用于 Openfort 后端钱包签名:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_openfort(
+    "sk_live_...".to_string(),   // Openfort secret key
+    "acc_...".to_string(),       // Account ID
+    "wallet_secret".to_string(), // Wallet secret (base64 PKCS#8 DER or PEM)
+    None,                        // Default HTTP timeouts
+).await?;
+```
+
+### Utila
+
+用于 Utila MPC 托管签名。不支持 `sign_message`,且您需要
+自行广播已签名的交易。
+
+```rust
+use solana_keychain::{Signer, UtilaSignerConfig};
+
+let signer = Signer::from_utila(UtilaSignerConfig {
+    service_account_email: "sa@example.com".to_string(),
+    service_account_private_key_pem: "-----BEGIN PRIVATE KEY-----\n...".to_string(),
+    vault_id: "vault_id".to_string(),
+    wallet_id: "wallet_id".to_string(),
+    network: "networks/solana-devnet".to_string(),
+    api_base_url: None,
+    poll_interval_ms: None,
+    max_poll_attempts: None,
+    designated_signers: None,
+    http_client_config: None,
+}).await?;
+```
+
 ### Fordefi
 
-用于 Fordefi MPC 托管签名。API 请求通过从 `private_key_pem` 解析的 ECDSA P-256 请求签名进行身份验证；若需将该密钥保存在 KMS/HSM 中，请实现 `FordefiRequestSigner` 并使用 `Signer::from_fordefi_with_signer`。
+用于 Fordefi MPC 托管签名。API 请求通过 ECDSA
+P-256 请求签名进行身份验证。请在 `private_key_pem` 或
+`request_signer`(一个 `Arc<dyn FordefiRequestSigner>`,用于将该密钥保存在
+KMS/HSM 中)之中提供且仅提供一个。
 
-Fordefi 有两种签名模式。设置 `chain` 以启用**原生 Solana 模式**，在该模式下，Fordefi 可能会替换区块哈希或手续费，并自行广播交易。将 `chain` 保留为 `None` 则启用**黑盒模式**，在该模式下，Fordefi 对原始字节进行签名，由您自行广播交易。
+Fordefi 提供三种签名器类型,由 `chain` 和
+`push_mode` 在构造时确定:
+
+| `chain`    | `push_mode`      | 类型                        | 能力          | 行为                                                           |
+| ---------- | ---------------- | --------------------------- | ------------------- | ------------------------------------------------------------------ |
+| `None`     | 任意              | `FordefiBlackBoxSigner`     | `TransactionSigner` | 对原始字节签名;由您广播                                     |
+| `Some(..)` | `None` 或 `Auto` | `FordefiNativeAutoSigner`   | `SendingSigner`     | Fordefi 可能会重写 blockhash 和手续费,并负责签名和广播   |
+| `Some(..)` | `Manual`         | `FordefiNativeManualSigner` | `ModifyingSigner`   | Fordefi 负责重写并签名;由您广播返回的交易 |
+
+原生手动模式会用 Fordefi 签名后的交易替换您的交易。
+请基于该交易继续操作,切勿使用您自己构建的交易。它必须在其他
+必需的签名器之前运行。
 
 ```rust
 use solana_keychain::{
-    Signer, FordefiSignerConfig, SolanaChainUniqueId, FordefiSolanaFee, FordefiPriorityLevel,
+    Signer, FordefiSignerConfig, FordefiPushMode, SolanaChainUniqueId, FordefiSolanaFee,
+    FordefiPriorityLevel,
 };
 
 let config = FordefiSignerConfig {
     access_token: "api_token".to_string(),
     vault_id: "vault_uuid".to_string(),
-    private_key_pem: std::fs::read_to_string("./secret/private.pem")?,
-    public_key: "base58_public_key".to_string(), // Solana vault address
+    private_key_pem: Some(std::fs::read_to_string("./secret/private.pem")?),
+    request_signer: None,                           // Or Some(Arc::new(your_kms_signer))
+    public_key: "base58_public_key".to_string(),    // Solana vault address
     chain: Some(SolanaChainUniqueId::SolanaDevnet), // None for black box mode
     fee: Some(FordefiSolanaFee::Priority {
         priority_level: FordefiPriorityLevel::Medium,
     }),
+    push_mode: Some(FordefiPushMode::Auto),         // Manual: sign without broadcasting
     api_base_url: None,       // Default: https://api.fordefi.com
     poll_interval_ms: None,   // Default: 2000
     max_poll_attempts: None,  // Default: 50
     http_client_config: None, // Default HTTP timeouts
 };
 
-let signer = Signer::from_fordefi(config)?;
+let signer = Signer::from_fordefi(config).await?;
 ```
+
+### Ledger
+
+用于通过 USB-HID 进行硬件钱包签名(仅限 Rust)。需要启用 `ledger`
+功能,设备需已解锁并运行 Solana 应用;在 Linux 上还需配置 Ledger 的 udev
+规则。Ledger 未包含在当前审计范围内;请参阅
+[审计状态](https://github.com/solana-foundation/solana-keychain/blob/main/audits/AUDIT_STATUS.md)。
+
+```rust
+use solana_keychain::{LedgerConfig, Signer};
+
+let signer = Signer::from_ledger(LedgerConfig {
+    confirm_pubkey_on_device: true,
+    ..LedgerConfig::default()
+})
+.await?;
+```
+
+`sign_message` 签名的是包裹您载荷的链下信封,而非原始
+字节;如需验证,请使用 `solana_keychain::ledger::ledger_offchain_envelope` 重新构建。无人值守使用时,请设置 `auto_open_app: false`。若在
+设备上拒绝提示,则会返回 `SignerError::UserRejected`。
 
 ## 统一签名器枚举
 
@@ -300,6 +428,35 @@ async fn get_signer(backend: &str) -> Result<Signer, SignerError> {
 let signer = get_signer("kms").await?;
 let pubkey = signer.pubkey();
 ```
+
+`Signer` 仅实现了 `SolanaSigner`。请通过
+`as_transaction_signer()`、`as_modifying_signer()` 或 `as_sending_signer()` 获取相应能力,
+当后端不具备该形态时,这些方法会返回 `None`:
+
+```rust
+if let Some(transaction_signer) = signer.as_transaction_signer() {
+    let result = transaction_signer.sign_transaction(&mut tx).await?;
+}
+```
+
+或者让 `sign_and_send` 按后端自动路由。该 crate 不含 RPC 客户端,因此
+广播逻辑需由您提供;对于发送型后端,该闭包永远不会被调用:
+
+```rust
+let signature = signer
+    .sign_and_send(&mut tx, |encoded| async move { broadcast(encoded).await })
+    .await?;
+```
+
+## 错误处理
+
+`SignerError::BroadcastUnconfirmed { provider_tx_id, idempotency_key, transaction_signature, .. }`
+(来自 Crossmint、Fordefi 原生自动模式,或失败的 `sign_and_send` 闭包)
+表示交易可能已经上链。请勿盲目重试:请先核对
+`provider_tx_id` 或 `transaction_signature`,或仅重新发送
+字节完全相同的交易。对 `SignerError` 进行穷尽式 `match` 时需要包含此分支。
+有关每种签名形态所提供的保证,请参阅
+[安全模型](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)。
 
 ## 添加自定义签名器
 

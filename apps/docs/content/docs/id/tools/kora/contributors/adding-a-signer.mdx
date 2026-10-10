@@ -279,14 +279,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Pengujian Integrasi
 
-Kora menggunakan test runner terpadu (`tests/src/bin/test_runner.rs`) yang
-mengelola semua fase pengujian integrasi termasuk pengujian TypeScript. Untuk
-menambahkan pengujian untuk penanda tangan baru Anda:
+Setiap fase integrasi merupakan target `[[test]]` tersendiri di `tests/Cargo.toml`. Setiap
+target menjalankan surfnet tertanam beserta node Kora melalui `harness_context`,
+dengan data awal dibuat dari nol. Kora menyimpan konfigurasi dalam state global proses, sehingga signer baru
+membutuhkan target baru, bukan modul baru di dalam target yang sudah ada.
 
-#### 1. Tambahkan Konfigurasi Pengujian
+#### 1. Tambahkan Fixture Signer
 
-Buat file konfigurasi penanda tangan baru di `tests/src/common/fixtures/` untuk
-layanan Anda:
+Buat konfigurasi signer di `tests/src/common/fixtures/`:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -301,47 +301,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Tambahkan Fase Pengujian ke Test Runner
+#### 2. Tambahkan Target Pengujian
 
-Perbarui `tests/src/test_runner/test_cases.toml` untuk menyertakan fase
-pengujian untuk penanda tangan Anda:
+Daftarkan fase tersebut di `tests/Cargo.toml`:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Kemudian buat `tests/your_service/main.rs`. File ini mengarahkan harness ke fixture Anda
+dan harus berisi setidaknya satu `#[tokio::test]` yang menguji signer:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+Tambahkan juga pengujian `signTransaction` agar jalur penandatanganan milik signer ikut dijalankan, bukan hanya
+pencarian kunci. `tests/multi_signer/` adalah contoh lengkap yang dapat Anda salin.
 
 #### 3. Menjalankan Pengujian
 
-Pastikan lingkungan Anda telah diatur:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Jalankan pengujian menggunakan test runner terpadu:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Persyaratan Dokumentasi
@@ -404,7 +423,7 @@ Tambahkan layanan Anda ke daftar penanda tangan di README utama.
 - [ ] Mengekspor struct konfigurasi di `mod.rs`
 - [ ] (Opsional) Menambahkan metode builder mock pengujian di `config_mock.rs`
 - [ ] Kode dikompilasi tanpa peringatan
-- [ ] Semua pengujian lulus (`make test` dan `make test-integration`)
+- [ ] Semua pengujian lulus (`just test`)
 - [ ] Dokumentasi ditambahkan mengikuti
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] File konfigurasi contoh dibuat (`.toml` dan `.env.example`)

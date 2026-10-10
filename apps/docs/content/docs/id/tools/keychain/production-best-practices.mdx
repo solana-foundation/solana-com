@@ -1,7 +1,7 @@
 ---
 title: Praktik terbaik produksi
 description:
-  Operasikan backend penandatanganan Keychain dengan aman di produksi — pemisahan tugas, rotasi kunci, akses hak istimewa minimal, ketersediaan, keamanan transportasi, pemantauan, dan audit.
+  Operasikan backend penandatanganan Keychain dengan aman di lingkungan produksi, mencakup pemisahan tugas, rotasi kunci, akses dengan hak istimewa minimum, ketersediaan, keamanan transport, pemantauan, dan audit.
 related:
   - /docs/tools/keychain/choosing-a-backend
   - /docs/tools/production-readiness
@@ -26,21 +26,44 @@ mainnet.
 
 ## Berikan akses hak istimewa minimal
 
-Batasi kredensial setiap backend pada yang paling minimum yang diperlukan untuk menandatangani. Untuk AWS KMS,
-yaitu `kms:Sign` dan `kms:DescribeKey` pada kunci tertentu; utamakan peran IAM
-dibanding kredensial statis. Terapkan prinsip yang sama pada kebijakan Vault dan kunci API
-dompet terkelola.
+Batasi kredensial setiap backend hanya sebatas yang diperlukan untuk menandatangani. Untuk AWS KMS,
+itu adalah `kms:Sign`, `kms:DescribeKey`, dan `kms:GetPublicKey` pada kunci spesifik tersebut
+(pemeriksaan ketersediaan menggunakan dua izin terakhir); utamakan peran IAM daripada
+kredensial statis. Terapkan prinsip yang sama pada kebijakan Vault dan kunci API
+wallet terkelola.
 
 ## Rencanakan ketersediaan
 
-Backend jarak jauh bergantung pada layanan jaringan. Panggil `isAvailable()` sebelum mengandalkan
-penanda tangan, terapkan percobaan ulang dengan backoff pada kegagalan sementara, dan tentukan
-alur fallback untuk pemadaman. Keychain memberlakukan HTTPS untuk backend jarak jauh dan
-menerapkan batas waktu permintaan default.
+Backend jarak jauh bergantung pada layanan jaringan. Periksa ketersediaan sebelum mengandalkan
+sebuah signer (`isAvailable()` di TypeScript, `is_available()` di Rust dan Python,
+`IsAvailable(ctx)` di Go), coba ulang kegagalan pada backend yang hanya menandatangani dengan backoff, dan tentukan
+jalur cadangan untuk saat terjadi gangguan. Jangan mencoba ulang secara membabi buta pada backend yang melakukan broadcast
+(Crossmint, mode otomatis native Fordefi): lihat
+[Menangani broadcast yang belum terkonfirmasi](#handle-unconfirmed-broadcasts). Keychain
+memberlakukan HTTPS pada base URL yang dikonfigurasi, menolak pengalihan (redirect), dan menerapkan
+timeout permintaan default.
+
+## Menangani broadcast yang belum terkonfirmasi
+
+Crossmint dan mode otomatis native Fordefi menandatangani sekaligus melakukan broadcast di sisi server, sehingga
+panggilan yang gagal tidak berarti tidak ada yang masuk. Ketika penyedia mungkin telah menerima
+transaksi, Keychain melaporkan `BROADCAST_UNCONFIRMED`
+(`SignerError::BroadcastUnconfirmed` di Rust). Error ini membawa ID transaksi
+penyedia jika permintaan pembuatan diterima, dan selalu membawa kunci
+idempotensi yang digunakan saat permintaan pembuatan dikirim, yang diturunkan dari pesan.
+
+- Lakukan rekonsiliasi dengan penyedia menggunakan ID transaksi sebelum melakukan hal
+  lain.
+- Mengirim ulang transaksi yang identik byte demi byte aman dilakukan: kunci idempotensi
+  mencegah duplikasi.
+- Membangun ulang transaksi (misalnya dengan blockhash baru) menghasilkan kunci baru
+  dan karena itu transfer baru.
 
 ## Lindungi rahasia dan transportasi
 
-- Semua backend jarak jauh berkomunikasi melalui HTTPS; endpoint non-HTTPS akan ditolak.
+- Backend jarak jauh memberlakukan HTTPS pada base URL yang dikonfigurasi dan menolak pengalihan (redirect).
+  Satu-satunya pengecualian adalah Vault, yang menerima HTTP biasa pada loopback sehingga
+  `vault server -dev` lokal dapat berfungsi.
 - Sediakan kunci API, token, dan kredensial dari pengelola rahasia atau variabel
   lingkungan — jangan pernah menyandikannya secara langsung atau menyimpannya ke kontrol sumber.
 - Keychain membersihkan respons kesalahan untuk menghindari kebocoran rahasia ke log; jaga
@@ -53,3 +76,21 @@ lihat metrik di
 [Kesiapan Produksi](/docs/tools/production-readiness#monitoring). Aktifkan
 log audit sisi penyedia (KMS, Vault, atau kustodian) dan rekonsiliasi dengan
 transaksi yang diajukan aplikasi Anda.
+
+## Ketahui apa yang diperiksa Keychain
+
+- Keychain memvalidasi tahap penandatanganan, bukan transaksi Anda: tidak ada
+  simulasi, tidak ada pemeriksaan isi transaksi, dan tidak ada mesin kebijakan. Terapkan hal tersebut
+  di aplikasi Anda atau pada kontrol kebijakan penyedia.
+- Mode manual native Fordefi menulis ulang transaksi (blockhash, instruksi biaya Compute Budget)
+  sebelum menandatanganinya. Lanjutkan dari transaksi yang dikembalikannya,
+  bukan yang Anda kirimkan, dan jalankan sebelum signer lainnya.
+- Rust melakukan zeroize pada buffer kunci perantara; Python dan Go tidak dapat melakukannya. Dengan backend Memory
+  pada bahasa-bahasa tersebut, perlakukan seluruh memori proses sebagai data sensitif.
+- Dengan Ledger, layar perangkat adalah satu-satunya deskripsi yang dapat dipercaya tentang apa yang
+  sedang ditandatangani. Jangan aktifkan fitur `unsafe-debug` atau logging `TRACE` untuk
+  `solana_remote_wallet` di lingkungan produksi, karena keduanya mencatat detail perangkat dan transaksi.
+
+Lihat
+[model keamanan](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+untuk gambaran lengkapnya.

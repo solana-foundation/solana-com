@@ -142,13 +142,9 @@ Program.
 | _rs`process_create_associated_token_account`_ | Выводит адрес ATA и использует _rs`create_pda_account`_ плюс CPI к выбранной токен программе для инициализации токен аккаунта. Когда выбранной программой является Token Extensions Program, процессор ATA также инициализирует расширение неизменяемого владельца. | [Исходный код](https://github.com/solana-program/associated-token-account/blob/program%40v8.0.0/program/src/processor.rs#L64-L161)    |
 | _rs`create_pda_account`_                      | Вспомогательная функция, используемая _rs`process_create_associated_token_account`_ для создания PDA аккаунта через CPI в System Program.                                                                                                                                         | [Исходный код](https://github.com/solana-program/associated-token-account/blob/program%40v8.0.0/program/src/tools/account.rs#L14-L70) |
 
-### Typescript
+### Kit
 
-Примеры `Kit` ниже демонстрируют рекомендуемый подход с использованием
-`@solana/kit`. Устаревшие примеры с использованием `@solana/web3.js` включены
-для справки.
-
-#### Kit
+В этих примерах используется `@solana/kit`.
 
 <CodeTabs storage="token-ts-kit" flags="r">
 
@@ -288,25 +284,37 @@ console.log("\nTransaction Signature:", result.context.signature);
 ```
 
 </CodeTabs>
-#### Web3.js
 
-<CodeTabs storage="token-ts-legacy" flags="r">
+### Web3.js v3
+
+В этих примерах используется классовый API `@solana/web3.js` v3 с
+конструкторами инструкций `@solana-program`.
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
 
 ```ts !! title="Helper Function"
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
-  createAssociatedTokenAccount,
-  createMint,
-  getAccount,
-  TOKEN_PROGRAM_ID
-} from "@solana/spl-token";
+  Connection,
+  Keypair,
+  PublicKey,
+  sendAndConfirmTransaction,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstructionAsync,
+  getCreateMintInstructionPlan,
+  getTokenDecoder,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
 
-// !collapse(1:28) collapsed
+// !collapse(1:43) collapsed
 // Setup: create a mint before creating the associated token account.
 const connection = new Connection("http://localhost:8899", "confirmed");
 const latestBlockhash = await connection.getLatestBlockhash();
 
-const feePayer = Keypair.generate();
+const feePayer = await Keypair.generate();
 
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
@@ -318,72 +326,93 @@ await connection.confirmTransaction({
   signature: airdropSignature
 });
 
-const mintPubkey = await createMint(
+const mint = await Keypair.generate();
+
+await sendAndConfirmTransaction(
   connection,
-  feePayer,
-  feePayer.publicKey,
-  feePayer.publicKey,
-  2,
-  Keypair.generate(),
-  {
-    commitment: "confirmed"
-  },
-  TOKEN_PROGRAM_ID
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    await getCreateMintInstructionPlan(
+      {
+        getMinimumBalance: (space: number) =>
+          connection.getMinimumBalanceForRentExemption(space)
+      },
+      {
+        payer: feePayer,
+        newMint: mint,
+        decimals: 2,
+        mintAuthority: feePayer.publicKey.toBase58(),
+        freezeAuthority: feePayer.publicKey.toBase58()
+      }
+    )
+  ),
+  [feePayer, mint]
 );
 
-// !mark(1:10)
-const associatedTokenAccount = await createAssociatedTokenAccount(
-  connection, // Connection to the local validator.
-  feePayer, // Account funding account creation.
-  mintPubkey, // Mint for the token this account holds.
-  feePayer.publicKey, // Account that owns the token account.
-  {
-    commitment: "confirmed" // Confirmation options for the transaction.
-  },
-  TOKEN_PROGRAM_ID // Token program to invoke.
-);
+const createBlockhash = await connection.getLatestBlockhash();
 
-const tokenAccountData = await getAccount(
+const result = await sendAndConfirmTransaction(
   connection,
-  associatedTokenAccount,
-  "confirmed",
-  TOKEN_PROGRAM_ID
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: createBlockhash.blockhash,
+    lastValidBlockHeight: createBlockhash.lastValidBlockHeight
+  }).add(
+    // !mark(1:5)
+    await getCreateAssociatedTokenIdempotentInstructionAsync({
+      payer: feePayer, // Account funding account creation.
+      owner: feePayer.publicKey, // Account that owns the token account.
+      mint: mint.publicKey // Mint for the token this account holds.
+    })
+  ),
+  [feePayer]
 );
 
-console.log("Mint Address:", mintPubkey.toBase58());
-console.log(
-  "\nAssociated Token Account Address:",
-  associatedTokenAccount.toBase58()
+const [associatedTokenAccount] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: feePayer.publicKey.toBase58(),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
+const tokenAccountInfo = await connection.getAccountInfo(
+  new PublicKey(associatedTokenAccount)
 );
+const tokenAccountData = getTokenDecoder().decode(tokenAccountInfo!.data);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("\nAssociated Token Account Address:", associatedTokenAccount);
 console.log("Associated Token Account:", tokenAccountData);
+console.log("\nTransaction Signature:", result);
 ```
 
 ```ts !! title="Instructions"
 import {
   Connection,
   Keypair,
+  PublicKey,
   sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction,
-  createInitializeMintInstruction,
-  getAccount,
-  getAssociatedTokenAddressSync,
-  getMinimumBalanceForRentExemptMint,
-  MINT_SIZE,
-  TOKEN_PROGRAM_ID
-} from "@solana/spl-token";
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstruction,
+  getInitializeMint2Instruction,
+  getMintSize,
+  getTokenDecoder,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
 
 // !collapse(1:50) collapsed
 // Setup: create a mint before creating the associated token account.
 const connection = new Connection("http://localhost:8899", "confirmed");
 const latestBlockhash = await connection.getLatestBlockhash();
 
-const feePayer = Keypair.generate();
+const feePayer = await Keypair.generate();
 
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
@@ -395,8 +424,10 @@ await connection.confirmTransaction({
   signature: airdropSignature
 });
 
-const mint = Keypair.generate();
-const mintRent = await getMinimumBalanceForRentExemptMint(connection);
+const mint = await Keypair.generate();
+const space = getMintSize();
+const mintRent = await connection.getMinimumBalanceForRentExemption(space);
+
 await sendAndConfirmTransaction(
   connection,
   new Transaction({
@@ -407,61 +438,52 @@ await sendAndConfirmTransaction(
     SystemProgram.createAccount({
       fromPubkey: feePayer.publicKey,
       newAccountPubkey: mint.publicKey,
-      space: MINT_SIZE,
+      space,
       lamports: mintRent,
-      programId: TOKEN_PROGRAM_ID
+      programId: new PublicKey(TOKEN_PROGRAM_ADDRESS)
     }),
-    createInitializeMintInstruction(
-      mint.publicKey,
-      2,
-      feePayer.publicKey,
-      feePayer.publicKey,
-      TOKEN_PROGRAM_ID
-    )
+    getInitializeMint2Instruction({
+      mint: mint.publicKey,
+      decimals: 2,
+      mintAuthority: feePayer.publicKey.toBase58(),
+      freezeAuthority: feePayer.publicKey.toBase58()
+    })
   ),
   [feePayer, mint]
 );
 
-const associatedTokenAccount = getAssociatedTokenAddressSync(
-  mint.publicKey,
-  feePayer.publicKey,
-  false, // allowOwnerOffCurve
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
+const [associatedTokenAccount] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: feePayer.publicKey.toBase58(),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+const createBlockhash = await connection.getLatestBlockhash();
 
 const result = await sendAndConfirmTransaction(
   connection,
   new Transaction({
     feePayer: feePayer.publicKey,
-    blockhash: latestBlockhash.blockhash,
-    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+    blockhash: createBlockhash.blockhash,
+    lastValidBlockHeight: createBlockhash.lastValidBlockHeight
   }).add(
-    // !mark(1:8)
-    createAssociatedTokenAccountInstruction(
-      feePayer.publicKey, // Account funding account creation.
-      associatedTokenAccount, // Associated token account to create.
-      feePayer.publicKey, // Account that owns the token account.
-      mint.publicKey, // Mint for the token this account holds.
-      TOKEN_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    )
+    // !mark(1:6)
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer, // Account funding account creation.
+      ata: associatedTokenAccount, // Associated token account to create.
+      owner: feePayer.publicKey, // Account that owns the token account.
+      mint: mint.publicKey // Mint for the token this account holds.
+    })
   ),
   [feePayer]
 );
 
-const tokenAccountData = await getAccount(
-  connection,
-  associatedTokenAccount,
-  "confirmed",
-  TOKEN_PROGRAM_ID
+const tokenAccountInfo = await connection.getAccountInfo(
+  new PublicKey(associatedTokenAccount)
 );
+const tokenAccountData = getTokenDecoder().decode(tokenAccountInfo!.data);
 
 console.log("Mint Address:", mint.publicKey.toBase58());
-console.log(
-  "\nAssociated Token Account Address:",
-  associatedTokenAccount.toBase58()
-);
+console.log("\nAssociated Token Account Address:", associatedTokenAccount);
 console.log("Associated Token Account:", tokenAccountData);
 console.log("\nTransaction Signature:", result);
 ```
@@ -659,6 +681,188 @@ if __name__ == "__main__":
 
 </CodeTabs>
 
+### Web3.js (устаревшая версия)
+
+В этих примерах используется устаревшая версия `@solana/web3.js` 1.x с `@solana/spl-token`.
+
+<CodeTabs storage="token-ts-legacy" flags="r">
+
+```ts !! title="Helper Function"
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  createAssociatedTokenAccount,
+  createMint,
+  getAccount,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// !collapse(1:28) collapsed
+// Setup: create a mint before creating the associated token account.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mintPubkey = await createMint(
+  connection,
+  feePayer,
+  feePayer.publicKey,
+  feePayer.publicKey,
+  2,
+  Keypair.generate(),
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+// !mark(1:10)
+const associatedTokenAccount = await createAssociatedTokenAccount(
+  connection, // Connection to the local validator.
+  feePayer, // Account funding account creation.
+  mintPubkey, // Mint for the token this account holds.
+  feePayer.publicKey, // Account that owns the token account.
+  {
+    commitment: "confirmed" // Confirmation options for the transaction.
+  },
+  TOKEN_PROGRAM_ID // Token program to invoke.
+);
+
+const tokenAccountData = await getAccount(
+  connection,
+  associatedTokenAccount,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+
+console.log("Mint Address:", mintPubkey.toBase58());
+console.log(
+  "\nAssociated Token Account Address:",
+  associatedTokenAccount.toBase58()
+);
+console.log("Associated Token Account:", tokenAccountData);
+```
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  createInitializeMintInstruction,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  getMinimumBalanceForRentExemptMint,
+  MINT_SIZE,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// !collapse(1:50) collapsed
+// Setup: create a mint before creating the associated token account.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mint = Keypair.generate();
+const mintRent = await getMinimumBalanceForRentExemptMint(connection);
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space: MINT_SIZE,
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID
+    }),
+    createInitializeMintInstruction(
+      mint.publicKey,
+      2,
+      feePayer.publicKey,
+      feePayer.publicKey,
+      TOKEN_PROGRAM_ID
+    )
+  ),
+  [feePayer, mint]
+);
+
+const associatedTokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  feePayer.publicKey,
+  false, // allowOwnerOffCurve
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+const result = await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    // !mark(1:8)
+    createAssociatedTokenAccountInstruction(
+      feePayer.publicKey, // Account funding account creation.
+      associatedTokenAccount, // Associated token account to create.
+      feePayer.publicKey, // Account that owns the token account.
+      mint.publicKey, // Mint for the token this account holds.
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    )
+  ),
+  [feePayer]
+);
+
+const tokenAccountData = await getAccount(
+  connection,
+  associatedTokenAccount,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log(
+  "\nAssociated Token Account Address:",
+  associatedTokenAccount.toBase58()
+);
+console.log("Associated Token Account:", tokenAccountData);
+console.log("\nTransaction Signature:", result);
+```
+
+</CodeTabs>
+
 ## Как создать токен-аккаунт
 
 Создание токен-аккаунта требует двух инструкций:
@@ -699,12 +903,9 @@ if __name__ == "__main__":
 | _rs`process_initialize_account2`_ | Публичный обработчик для _rs`InitializeAccount2`_.                                                                                       | [Исходный код](https://github.com/solana-program/token/blob/program%40v9.0.0/program/src/processor.rs#L152-L160)     | [Исходный код](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/processor.rs#L242-L246)     |
 | _rs`process_initialize_account3`_ | Публичный обработчик для _rs`InitializeAccount3`_.                                                                                       | [Исходный код](https://github.com/solana-program/token/blob/program%40v9.0.0/program/src/processor.rs#L162-L170)     | [Исходный код](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/processor.rs#L248-L252)     |
 
-### Typescript
+### Kit
 
-Примеры ниже демонстрируют рекомендуемый подход с использованием `Kit`.
-Устаревшие примеры с использованием `@solana/kit` включены для справки.
-
-#### Kit
+В этих примерах используется `@solana/kit`.
 
 <CodeTabs storage="token-ts-kit" flags="r">
 
@@ -858,100 +1059,38 @@ console.log("\nTransaction Signature:", result.context.signature);
 
 </CodeTabs>
 
-#### Web3.js
+### Web3.js v3
 
-<CodeTabs storage="token-ts-legacy" flags="r">
+В этих примерах используется классовый API `@solana/web3.js` v3 с
+конструкторами инструкций `@solana-program`.
 
-```ts !! title="Helper Function"
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import {
-  createAccount,
-  createMint,
-  getAccount,
-  TOKEN_PROGRAM_ID
-} from "@solana/spl-token";
-
-// !collapse(1:28) collapsed
-// Setup: create a mint before creating the token account.
-const connection = new Connection("http://localhost:8899", "confirmed");
-const latestBlockhash = await connection.getLatestBlockhash();
-
-const feePayer = Keypair.generate();
-
-const airdropSignature = await connection.requestAirdrop(
-  feePayer.publicKey,
-  LAMPORTS_PER_SOL
-);
-await connection.confirmTransaction({
-  blockhash: latestBlockhash.blockhash,
-  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-  signature: airdropSignature
-});
-
-const mintPubkey = await createMint(
-  connection,
-  feePayer,
-  feePayer.publicKey,
-  feePayer.publicKey,
-  2,
-  Keypair.generate(),
-  {
-    commitment: "confirmed"
-  },
-  TOKEN_PROGRAM_ID
-);
-
-// !mark(1:11)
-const tokenAccount = await createAccount(
-  connection, // Connection to the local validator.
-  feePayer, // Account paying transaction fees.
-  mintPubkey, // Mint for the token this account holds.
-  feePayer.publicKey, // Account that owns the token account.
-  Keypair.generate(), // New token account to create.
-  {
-    commitment: "confirmed" // Confirmation options for the transaction.
-  },
-  TOKEN_PROGRAM_ID // Token program to invoke.
-);
-
-const tokenAccountData = await getAccount(
-  connection,
-  tokenAccount,
-  "confirmed",
-  TOKEN_PROGRAM_ID
-);
-
-console.log("Mint Address:", mintPubkey.toBase58());
-console.log("\nToken Account Address:", tokenAccount.toBase58());
-console.log("Token Account:", tokenAccountData);
-```
+<CodeTabs storage="token-ts-web3v3" flags="r">
 
 ```ts !! title="Instructions"
 import {
   Connection,
   Keypair,
+  PublicKey,
   sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import {
-  createInitializeMintInstruction,
-  createInitializeAccountInstruction,
-  ACCOUNT_SIZE,
-  getAccount,
-  getMinimumBalanceForRentExemptAccount,
-  getMinimumBalanceForRentExemptMint,
-  MINT_SIZE,
-  TOKEN_PROGRAM_ID
-} from "@solana/spl-token";
+  getInitializeAccountInstruction,
+  getInitializeMint2Instruction,
+  getMintSize,
+  getTokenDecoder,
+  getTokenSize,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
 
-// !collapse(1:46) collapsed
+// !collapse(1:49) collapsed
 // Setup: create a mint before creating the token account.
 const connection = new Connection("http://localhost:8899", "confirmed");
 const latestBlockhash = await connection.getLatestBlockhash();
 
-const feePayer = Keypair.generate();
+const feePayer = await Keypair.generate();
 
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
@@ -963,8 +1102,10 @@ await connection.confirmTransaction({
   signature: airdropSignature
 });
 
-const mint = Keypair.generate();
-const mintRent = await getMinimumBalanceForRentExemptMint(connection);
+const mint = await Keypair.generate();
+const mintSpace = getMintSize();
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
+
 await sendAndConfirmTransaction(
   connection,
   new Transaction({
@@ -975,56 +1116,54 @@ await sendAndConfirmTransaction(
     SystemProgram.createAccount({
       fromPubkey: feePayer.publicKey,
       newAccountPubkey: mint.publicKey,
-      space: MINT_SIZE,
+      space: mintSpace,
       lamports: mintRent,
-      programId: TOKEN_PROGRAM_ID
+      programId: new PublicKey(TOKEN_PROGRAM_ADDRESS)
     }),
-    createInitializeMintInstruction(
-      mint.publicKey,
-      2,
-      feePayer.publicKey,
-      feePayer.publicKey,
-      TOKEN_PROGRAM_ID
-    )
+    getInitializeMint2Instruction({
+      mint: mint.publicKey,
+      decimals: 2,
+      mintAuthority: feePayer.publicKey.toBase58(),
+      freezeAuthority: feePayer.publicKey.toBase58()
+    })
   ),
   [feePayer, mint]
 );
 
-const tokenAccount = Keypair.generate();
+const tokenAccount = await Keypair.generate();
+const tokenAccountSpace = getTokenSize();
 const tokenAccountRent =
-  await getMinimumBalanceForRentExemptAccount(connection);
+  await connection.getMinimumBalanceForRentExemption(tokenAccountSpace);
+const createBlockhash = await connection.getLatestBlockhash();
 
 const result = await sendAndConfirmTransaction(
   connection,
   new Transaction({
     feePayer: feePayer.publicKey,
-    blockhash: latestBlockhash.blockhash,
-    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+    blockhash: createBlockhash.blockhash,
+    lastValidBlockHeight: createBlockhash.lastValidBlockHeight
   }).add(
-    // !mark(1:13)
+    // !mark(1:12)
     SystemProgram.createAccount({
       fromPubkey: feePayer.publicKey, // Account funding account creation.
       newAccountPubkey: tokenAccount.publicKey, // New token account to create.
-      space: ACCOUNT_SIZE, // Account size in bytes.
+      space: tokenAccountSpace, // Account size in bytes.
       lamports: tokenAccountRent, // Lamports funding the new account rent.
-      programId: TOKEN_PROGRAM_ID // Program that owns the new account.
+      programId: new PublicKey(TOKEN_PROGRAM_ADDRESS) // Program that owns the new account.
     }),
-    createInitializeAccountInstruction(
-      tokenAccount.publicKey, // Token account to initialize.
-      mint.publicKey, // Mint for the token this account holds.
-      feePayer.publicKey, // Account that owns the token account.
-      TOKEN_PROGRAM_ID
-    )
+    getInitializeAccountInstruction({
+      account: tokenAccount.publicKey, // Token account to initialize.
+      mint: mint.publicKey, // Mint for the token this account holds.
+      owner: feePayer.publicKey // Account that owns the token account.
+    })
   ),
   [feePayer, tokenAccount]
 );
 
-const tokenAccountData = await getAccount(
-  connection,
-  tokenAccount.publicKey,
-  "confirmed",
-  TOKEN_PROGRAM_ID
+const tokenAccountInfo = await connection.getAccountInfo(
+  tokenAccount.publicKey
 );
+const tokenAccountData = getTokenDecoder().decode(tokenAccountInfo!.data);
 
 console.log("Mint Address:", mint.publicKey.toBase58());
 console.log("\nToken Account Address:", tokenAccount.publicKey.toBase58());
@@ -1238,6 +1377,184 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+```
+
+</CodeTabs>
+
+### Web3.js (устаревшая версия)
+
+В этих примерах используется устаревшая версия `@solana/web3.js` 1.x с `@solana/spl-token`.
+
+<CodeTabs storage="token-ts-legacy" flags="r">
+
+```ts !! title="Helper Function"
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import {
+  createAccount,
+  createMint,
+  getAccount,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// !collapse(1:28) collapsed
+// Setup: create a mint before creating the token account.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mintPubkey = await createMint(
+  connection,
+  feePayer,
+  feePayer.publicKey,
+  feePayer.publicKey,
+  2,
+  Keypair.generate(),
+  {
+    commitment: "confirmed"
+  },
+  TOKEN_PROGRAM_ID
+);
+
+// !mark(1:11)
+const tokenAccount = await createAccount(
+  connection, // Connection to the local validator.
+  feePayer, // Account paying transaction fees.
+  mintPubkey, // Mint for the token this account holds.
+  feePayer.publicKey, // Account that owns the token account.
+  Keypair.generate(), // New token account to create.
+  {
+    commitment: "confirmed" // Confirmation options for the transaction.
+  },
+  TOKEN_PROGRAM_ID // Token program to invoke.
+);
+
+const tokenAccountData = await getAccount(
+  connection,
+  tokenAccount,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+
+console.log("Mint Address:", mintPubkey.toBase58());
+console.log("\nToken Account Address:", tokenAccount.toBase58());
+console.log("Token Account:", tokenAccountData);
+```
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  createInitializeMintInstruction,
+  createInitializeAccountInstruction,
+  ACCOUNT_SIZE,
+  getAccount,
+  getMinimumBalanceForRentExemptAccount,
+  getMinimumBalanceForRentExemptMint,
+  MINT_SIZE,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+// !collapse(1:46) collapsed
+// Setup: create a mint before creating the token account.
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mint = Keypair.generate();
+const mintRent = await getMinimumBalanceForRentExemptMint(connection);
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space: MINT_SIZE,
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID
+    }),
+    createInitializeMintInstruction(
+      mint.publicKey,
+      2,
+      feePayer.publicKey,
+      feePayer.publicKey,
+      TOKEN_PROGRAM_ID
+    )
+  ),
+  [feePayer, mint]
+);
+
+const tokenAccount = Keypair.generate();
+const tokenAccountRent =
+  await getMinimumBalanceForRentExemptAccount(connection);
+
+const result = await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    // !mark(1:13)
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: tokenAccount.publicKey, // New token account to create.
+      space: ACCOUNT_SIZE, // Account size in bytes.
+      lamports: tokenAccountRent, // Lamports funding the new account rent.
+      programId: TOKEN_PROGRAM_ID // Program that owns the new account.
+    }),
+    createInitializeAccountInstruction(
+      tokenAccount.publicKey, // Token account to initialize.
+      mint.publicKey, // Mint for the token this account holds.
+      feePayer.publicKey, // Account that owns the token account.
+      TOKEN_PROGRAM_ID
+    )
+  ),
+  [feePayer, tokenAccount]
+);
+
+const tokenAccountData = await getAccount(
+  connection,
+  tokenAccount.publicKey,
+  "confirmed",
+  TOKEN_PROGRAM_ID
+);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("\nToken Account Address:", tokenAccount.publicKey.toBase58());
+console.log("Token Account:", tokenAccountData);
+console.log("\nTransaction Signature:", result);
 ```
 
 </CodeTabs>

@@ -1,0 +1,439 @@
+---
+title: Wiadomości i uwierzytelnianie
+h1: Podpisywanie wiadomości i uwierzytelnianie użytkowników
+description:
+  Podpisuj wiadomości portfelem Solana, aby uwierzytelniać użytkowników, rejestrować zgodę lub autoryzować działania off-chain, korzystając z podpisywania wiadomości off-chain z rozwiązaniem zapasowym dla portfeli, które jeszcze go nie obsługują.
+---
+
+Podpisanie wiadomości potwierdza, że użytkownik kontroluje portfel – bez transakcji, bez opłaty i bez wywołania sieciowego. Aplikacje używają podpisanych wiadomości, aby logować użytkowników, rejestrować akceptację regulaminu, łączyć portfel z istniejącym kontem lub autoryzować działanie wykonywane off-chain, na przykład złożenie zamówienia.
+
+Portfele Solana podpisują wiadomości na dwa sposoby:
+
+- **Wiadomości off-chain** (`solana:signOffchainMessage`) opakowują Twój tekst
+  w standardowy format zdefiniowany w [specyfikacji](https://docs.anza.xyz/proposals/off-chain-message-signing)
+  podpisywania wiadomości off-chain (OCMS).
+  Tego formatu nie da się pomylić z transakcją, wskazuje on konta, które muszą
+  go podpisać, i jest to format podpisywany przez portfele sprzętowe.
+- **Wiadomości surowe** (`solana:signMessage`) podpisują dokładnie te bajty,
+  które przekaże aplikacja, bez prefiksu i bez zadeklarowanych podpisujących.
+  Obsługuje je większość portfeli programowych, ale nic w tych bajtach nie
+  wskazuje, że jest to wiadomość, a nie transakcja.
+
+Używaj wiadomości off-chain tam, gdzie portfel je obsługuje, a tam, gdzie nie
+obsługuje – wiadomości surowych. W dalszej części przewodnika jako przykład
+posłuży logowanie, ale te same kroki podpisywania i weryfikacji dotyczą każdej
+wiadomości.
+
+## Wybierz format wiadomości
+
+|                           | Wiadomość off-chain     | Wiadomość surowa   | Transakcja                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| Funkcja portfela            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| Obsługa portfeli sprzętowych   | Zależy od urządzenia     | Nie            | Tak                           |
+| Czytelna dla użytkownika      | Tak                   | Tylko w portfelach programowych | Zależy od urządzenia             |
+| Deklaruje wymaganych podpisujących | Tak                   | Nie            | Tak                           |
+| Wywołania RPC i opłaty        | Brak                  | Brak          | Blockhash, wysłanie, opłata, potwierdzenie |
+
+### Dlaczego nie transakcja?
+
+Portfele sprzętowe nie miały wcześniej możliwości podpisania czytelnej
+wiadomości. Wiele aplikacji prosiło więc ich użytkowników o podpisanie
+transakcji niewykonującej żadnych operacji (no-op). Działa to, ale zwiększa
+opóźnienia, koszty i ryzyko:
+
+- **Opłaty sieciowe.** Transakcja wiąże się z opłatą, nawet gdy nic nie robi.
+- **Wiele wywołań RPC.** Aplikacja pobiera blockhash, symuluje, wysyła, a potem
+  odpytuje sieć o potwierdzenie.
+- **Dodatkowe opóźnienie.** Każde z tych wywołań to osobna wymiana z siecią,
+  zanim użytkownik zostanie zalogowany.
+- **Nic czytelnego.** Użytkownik zatwierdza bajty transakcji, a nie oświadczenie
+  o tym, na co się zgadza.
+- **Ryzyko behawioralne.** Proszenie użytkowników o podpisanie transakcji tylko
+  po to, by się zalogowali, ułatwia nakłonienie ich do podpisania szkodliwej.
+
+Wiadomość off-chain pomija to wszystko. Jedyna wymiana danych odbywa się z
+Twoim własnym serwerem.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## Co podpisuje portfel
+
+Wiadomość off-chain zaczyna się od stałej domeny podpisu, `\xffsolana offchain`.
+Żadna prawidłowa transakcja nie zaczyna się od tych bajtów, więc podpisana
+wiadomość nigdy nie może zostać użyta jako transakcja. Wersja 1 formatu zawiera
+następnie listę wymaganych podpisujących i przenosi wiadomość jako tekst UTF-8,
+bez limitu długości.
+
+Portfel buduje te bajty, podpisuje je i zwraca razem z podpisem.
+[Specyfikacja](https://docs.anza.xyz/proposals/off-chain-message-signing)
+opisuje pełny format, w tym starszą wersję 0.
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## Wybierz metodę logowania
+
+Nie każdy portfel obsługuje już wiadomości off-chain. Przed poproszeniem o
+podpis sprawdź funkcje podłączonego konta, a gdy funkcji brakuje, użyj
+rozwiązania zapasowego:
+
+1. Jeśli konto obsługuje `solana:signOffchainMessage` z wiadomością w wersji 1,
+   podpisz wiadomość off-chain.
+2. W przeciwnym razie podpisz to samo wyzwanie za pomocą `solana:signMessage`.
+   Obsługuje je większość portfeli programowych.
+3. Użytkownikom portfeli sprzętowych bez obsługi wiadomości daj wyraźną opcję
+   dobrowolną, na przykład przełącznik „Używam portfela sprzętowego”, która
+   zamiast tego podpisuje transakcję logowania. Nie kieruj ich na tę ścieżkę
+   domyślnie.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## Podpisz wiadomość w przeglądarce
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    Zainstaluj pakiety Wallet Standard razem z Kit:
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    Te funkcje pomocnicze przyjmują `UiWalletAccount`, na przykład `account`
+    zwracane przez `useConnectedWallet` w [przewodniku po React](/docs/frontend/react-hooks):
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` z `@solana/wallet-adapter` udostępnia `signOffchainMessage` tylko
+    wtedy, gdy podłączone konto obsługuje `solana:signOffchainMessage`. Podpisuje
+    wiadomość w wersji 1, w której wymaganym podpisującym jest podłączone konto,
+    i kończy się odrzuceniem z `WalletNotReadyError`, jeśli portfel nie potrafi
+    podpisać wersji 1:
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // Server logic
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    `publicKey.verifySignature` sprawdza w przeglądarce podpis względem
+    podpisanych bajtów. Serwer nadal musi potwierdzić, że te bajty są
+    wyzwaniem, które sam wystawił. Gdy `signOffchainMessage` ma wartość
+    `undefined`, użyj zapasowo `signMessage` z tego samego hooka.
+
+  </Tab>
+</Tabs>
+
+`signOffchainMessage` zwraca `signedOffchainMessage` – pełne bajty podpisane
+przez portfel – oraz `signature`. Zakoduj oba w Base64 i wyślij je na serwer
+razem z adresem portfela.
+
+Napisz wyzwanie tak, aby dobrze wyglądało na małym ekranie. Podaj nazwę
+aplikacji i domenę, opisz, do czego służy podpis, i dołącz jednorazowy nonce
+oraz czas wystawienia pochodzące z Twojego serwera:
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## Zweryfikuj podpis na serwerze
+
+Weryfikacja to lokalne sprawdzenie podpisu i nie wymaga połączenia RPC.
+Zdekoduj bajty podpisane przez portfel, upewnij się, że odpowiadają wyzwaniu,
+które wystawiłeś, a następnie sprawdź podpis:
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+`assertOffchainMessageV1Equal` zgłasza błąd, jeśli treść lub podpisujący różnią
+się od oczekiwanych. `verifyOffchainMessageEnvelope` zgłasza błąd, jeśli podpisu
+brakuje lub jest nieprawidłowy. Wyszukuj `expectedMessage` po nonce na serwerze,
+zamiast ufać kopii odsyłanej przez klienta. Zużyj nonce po pomyślnej
+weryfikacji, aby ten sam podpis nie mógł posłużyć do zalogowania dwa razy.
+
+### Zweryfikuj wiadomość surową
+
+Podpis `signMessage` obejmuje bezpośrednio bajty wyzwania, więc klient musi
+wysłać tylko podpis i adres portfela. Sprawdź go względem wystawionego przez
+siebie wyzwania:
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+Obowiązują te same zasady dotyczące nonce: wyszukaj `expectedMessage` po nonce
+i zużyj go po pomyślnej weryfikacji.
+
+<Callout type="info">
+  `@solana/kit` reeksportuje te funkcje pomocnicze z `@solana/offchain-messages`.
+  Użyj samodzielnego pakietu, jeśli Twój serwer nie zależy od Kit.
+</Callout>
+
+## Sign In With Solana
+
+[Sign In With Solana](https://github.com/phantom/sign-in-with-solana) (SIWS)
+standaryzuje samo wyzwanie. Aplikacja przekazuje ustrukturyzowane pola, takie jak
+`domain`, `statement`, `nonce` i `issuedAt`, do funkcji `solana:signIn` portfela.
+Portfel formatuje je w standardową wiadomość, w razie potrzeby nawiązuje
+połączenie i podpisuje ją w jednym kroku.
+
+Wersja `1.1.0` funkcji `solana:signIn` dodaje opcję `useOffchainMessage`. Gdy
+przekażesz `useOffchainMessage: { messageVersion: 1 }`, portfel opakowuje tekst
+SIWS w wiadomość off-chain w wersji 1, w której jedynym wymaganym podpisującym
+jest konto podpisujące. Portfele sprzętowe mogą ją wyświetlić i podpisać, a wynik
+zawiera `signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }`.
+Portfele deklarujące wersję `1.0.0` nie znają tej opcji, więc najpierw sprawdź
+wersję funkcji, a w przeciwnym razie pomiń opcję.
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    `solana:signIn` jest funkcją portfela, a nie konta, więc te funkcje
+    pomocnicze przyjmują `UiWallet`:
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` udostępnia `signIn`, gdy wybrany portfel obsługuje
+    `solana:signIn`, oraz `supportsSignInWithOffchainMessage`, gdy deklaruje
+    wersję `1.1.0`. Przekazanie `useOffchainMessage` do portfela, który tego nie
+    obsługuje, kończy się odrzuceniem z `WalletSignInError`:
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    `verifySignIn` sprawdza, czy podpisana wiadomość odtwarza każde pole danych
+    wejściowych i zawiera prawidłowy podpis konta podpisującego, niezależnie od
+    tego, czy portfel podpisał zwykły tekst SIWS, czy wiadomość off-chain. To
+    samo sprawdzenie uruchomisz na serwerze, importując tę funkcję z
+    `@solana/wallet-adapter/core`, który nie ma zależności od React.
+
+  </Tab>
+</Tabs>
+
+Zbuduj dane wejściowe na serwerze, z jednorazowym `nonce` i czasem `issuedAt`,
+i zachowaj kopię powiązaną z nonce. Zużyj nonce po pomyślnej weryfikacji
+logowania.
+
+Bez Wallet Adapter `verifySignIn` z `@solana/wallet-standard-util` sprawdza
+wyłącznie zwykłe wyniki SIWS. Gdy `signedMessageFormat` wskazuje wiadomość
+off-chain, `signedMessage` jest wiadomością off-chain, której treścią jest tekst
+SIWS. Odtwórz oczekiwany tekst na podstawie zapisanych danych wejściowych i
+adresu podpisującego za pomocą `createSignInMessageText` z
+`@solana/wallet-standard-util`, a następnie zweryfikuj go jak każdą inną
+wiadomość off-chain, tak jak w sekcji
+[Zweryfikuj podpis na serwerze](#verify-the-signature-on-your-server).
+[README `@solana/offchain-messages`](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message)
+opisuje ten przepływ w Kit.
+
+## Dla portfeli
+
+Portfele dodają obsługę, implementując funkcję Wallet Standard
+`solana:signOffchainMessage` z `@solana/wallet-standard-features`:
+
+- Zgłoś `version: "1.0.0"` i wymień w `supportedMessageVersions` wersje
+  wiadomości, które potrafisz podpisać. Obecnie jest to `[1]`.
+- Zbuduj preambułę wersji 1 na podstawie `requiredSigners`, które sortujesz i sprawdzasz
+  pod kątem duplikatów. Odrzuć żądanie, jeśli konto nie należy do wymaganych
+  sygnatariuszy.
+- Wyświetl użytkownikowi pełną treść wiadomości przed podpisaniem, także na
+  urządzeniach sprzętowych.
+- Zwróć dokładne bajty, które podpisałeś, jako `signedOffchainMessage` wraz z
+  podpisem Ed25519 w polu `signature`.
+- Aby obsługiwać off-chain Sign In With Solana, zgłaszaj `version: "1.1.0"` dla
+  `solana:signIn`. Gdy dane wejściowe zawierają `useOffchainMessage`, podpisz tekst SIWS
+  jako wiadomość off-chain w wersji 1, zwróć jej bajty jako `signedMessage`
+  i ustaw `signedMessageFormat`.
+- Nadal obsługuj `solana:signMessage`. Ta metoda pozostaje bez zmian, a aplikacje wciąż
+  używają jej jako rozwiązania awaryjnego.

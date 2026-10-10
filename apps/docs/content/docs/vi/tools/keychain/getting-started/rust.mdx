@@ -9,48 +9,64 @@ Thêm `solana-keychain` vào `Cargo.toml` của bạn với chỉ những backen
 
 ```toml title="Cargo.toml"
 [dependencies]
-# Memory signer only (default)
-solana-keychain = "1.2"
+# Memory signer only (default, Solana SDK 2.x)
+solana-keychain = "2.0"
 
-# Or specify backends explicitly
-solana-keychain = { version = "1.2", default-features = false, features = ["vault", "aws_kms"] }
+# Or specify backends explicitly (pick exactly one SDK feature)
+solana-keychain = { version = "2.0", default-features = false, features = ["vault", "aws_kms", "sdk-v2"] }
 
-# All backends
-solana-keychain = { version = "1.2", features = ["all"] }
+# All remote backends on the Solana 4.x SDK line
+solana-keychain = { version = "2.0", default-features = false, features = ["all", "sdk-v4"] }
 ```
+
+Nâng cấp từ 1.x? Xem
+[hướng dẫn di chuyển sang 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md).
 
 ### Cờ Tính năng
 
-| Tính năng      | Mô tả                     |
-| ------------ | ------------------------------- |
-| `memory`     | Ký keypair cục bộ (mặc định) |
-| `vault`      | HashiCorp Vault Transit engine  |
-| `aws_kms`    | AWS KMS với Ed25519            |
-| `gcp_kms`    | GCP Cloud KMS với Ed25519      |
-| `privy`      | Ví nhúng Privy          |
-| `turnkey`    | Turnkey API                     |
-| `fireblocks` | Fireblocks MPC                  |
-| `cdp`        | Coinbase Developer Platform     |
-| `crossmint`  | Ví được quản lý bởi Crossmint       |
-| `dfns`       | Cơ sở hạ tầng ví Dfns      |
-| `openfort`   | Ví nhúng Openfort       |
-| `para`       | Ví MPC Para                |
-| `utila`      | Lưu ký MPC Utila               |
-| `fordefi`    | Lưu ký MPC Fordefi             |
-| `all`        | Bật tất cả các backend             |
+| Tính năng        | Mô tả                                                           |
+| -------------- | --------------------------------------------------------------------- |
+| `memory`       | Ký keypair cục bộ (mặc định)                                       |
+| `vault`        | HashiCorp Vault Transit engine                                        |
+| `aws_kms`      | AWS KMS với Ed25519                                                  |
+| `gcp_kms`      | GCP Cloud KMS với Ed25519                                            |
+| `privy`        | Ví nhúng Privy                                                |
+| `turnkey`      | Turnkey API                                                           |
+| `fireblocks`   | Fireblocks MPC                                                        |
+| `cdp`          | Coinbase Developer Platform                                           |
+| `crossmint`    | Ví được quản lý bởi Crossmint                                             |
+| `dfns`         | Cơ sở hạ tầng ví Dfns                                            |
+| `openfort`     | Ví nhúng Openfort                                             |
+| `para`         | Ví MPC Para                                                      |
+| `utila`        | Lưu ký MPC Utila                                                     |
+| `fordefi`      | Lưu ký MPC Fordefi                                                   |
+| `ledger`       | Ví phần cứng Ledger qua USB-HID (chỉ dành cho Rust, tùy chọn bật, không nằm trong `all`) |
+| `all`          | Bật mọi backend ngoại trừ `ledger`                                  |
+| `sdk-v2`       | Solana SDK 2.x (mặc định)                                              |
+| `sdk-v3`       | Solana SDK 3.x                                                        |
+| `sdk-v4`       | Solana SDK 4.x (bắt buộc đối với giao dịch v1)                         |
+| `unsafe-debug` | Ghi log toàn bộ phản hồi lỗi từ nhà cung cấp; không bao giờ bật trong môi trường production        |
+
+Phải bật đúng một trong các tính năng `sdk-v2`, `sdk-v3` và `sdk-v4`.
 
 ## Cách sử dụng Cơ bản
 
-Tất cả các signer đều triển khai
-[trait `SolanaSigner`](https://github.com/solana-foundation/solana-keychain/blob/main/rust/src/traits.rs):
+Tất cả signer đều triển khai
+[trait `SolanaSigner`](https://github.com/solana-foundation/solana-keychain/blob/main/rust/src/traits.rs)
+cơ sở (`pubkey`, `sign_message`, `is_available`). Mỗi backend cũng triển khai đúng
+một trait khả năng:
+
+- `TransactionSigner`: ký giao dịch của bạn nguyên trạng.
+- `ModifyingSigner`: nhà cung cấp viết lại giao dịch, sau đó ký.
+- `SendingSigner`: nhà cung cấp ký và phát sóng giao dịch.
 
 ```rust
-use solana_keychain::{SolanaSigner, Signer, SignerError, SignTransactionResult};
-use solana_sdk::transaction::Transaction;
+use solana_keychain::{SignerError, SolanaSigner, TransactionSigner};
+use solana_sdk::transaction::VersionedTransaction;
 
 async fn sign_transaction(
-    signer: &impl SolanaSigner,
-    tx: &mut Transaction,
+    signer: &impl TransactionSigner,
+    tx: &mut VersionedTransaction,
 ) -> Result<(), SignerError> {
     // Get the signer's public key
     let pubkey = signer.pubkey();
@@ -61,7 +77,7 @@ async fn sign_transaction(
         return Err(SignerError::NotAvailable("Signer offline".into()));
     }
 
-    // Sign the transaction — returns Complete or Partial
+    // Sign the transaction: returns Complete or Partial
     let result = signer.sign_transaction(tx).await?;
     let (base64_tx, signature) = result.into_signed_transaction();
     println!("Signature: {}", signature);
@@ -69,6 +85,25 @@ async fn sign_transaction(
     Ok(())
 }
 ```
+
+Chuyển đổi `Transaction` legacy bằng `.into()`. Giao dịch legacy và v0 hoạt động
+trên mọi tính năng SDK; giao dịch v1 yêu cầu `sdk-v4`.
+
+### Khả năng của Signer
+
+| Backend                              | Trait khả năng    | `sign_message`                  |
+| ------------------------------------ | ------------------- | ------------------------------- |
+| Crossmint                            | `SendingSigner`     | Không được hỗ trợ                   |
+| Fordefi native auto                  | `SendingSigner`     | Có                             |
+| Fordefi native manual                | `ModifyingSigner`   | Có                             |
+| Utila                                | `TransactionSigner` | Không được hỗ trợ                   |
+| CDP                                  | `TransactionSigner` | Chỉ payload UTF-8             |
+| Ledger                               | `TransactionSigner` | Có, thông qua một envelope off-chain |
+| Tất cả các backend khác (bao gồm Fordefi black box) | `TransactionSigner` | Có                             |
+
+Các hàm khởi tạo `Signer::from_*` sẽ tự chạy `init()` cho bạn. Nếu bạn khởi tạo trực tiếp
+các kiểu signer Privy, Fireblocks, Dfns, Crossmint, Para, Openfort hoặc Utila,
+hãy gọi `init().await` trước khi sử dụng.
 
 ## Cấu hình Backend
 
@@ -82,8 +117,8 @@ use solana_keychain::Signer;
 // From base58 private key
 let signer = Signer::from_memory("base58_private_key")?;
 
-// From JSON file path
-let signer = Signer::from_memory("/path/to/keypair.json")?;
+// From JSON keypair file path
+let signer = Signer::from_memory_file("/path/to/keypair.json")?;
 
 // From byte array string
 let signer = Signer::from_memory("[1,2,3,...]")?;
@@ -162,7 +197,12 @@ let config = FireblocksSignerConfig {
     api_key: "api_key".to_string(),
     private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\n...".to_string(),
     vault_account_id: "0".to_string(),
-    asset_id: "SOL".to_string(), // or "SOL_TEST" for devnet
+    asset_id: Some("SOL".to_string()), // None defaults to "SOL"; "SOL_TEST" for devnet
+    api_base_url: None,
+    poll_interval_ms: None,
+    max_poll_attempts: None,
+    use_program_call: None, // Some(true) signs via PROGRAM_CALL (sign-only, legacy/v0, hot wallet)
+    http_client_config: None,
 };
 
 let signer = Signer::from_fireblocks(config).await?;
@@ -186,20 +226,28 @@ let signer = Signer::from_gcp_kms(
 Để ký ví được quản lý bởi Coinbase:
 
 ```rust
-use solana_keychain::Signer;
+use solana_keychain::{Signer, CdpSignerConfig, CDP_NETWORK_MAINNET};
 
-let signer = Signer::from_cdp(
-    "api_key_id".to_string(),     // CDP API key ID
-    "api_key_secret".to_string(), // CDP API private key (base64 Ed25519)
-    "wallet_secret".to_string(),  // CDP wallet secret (base64 PKCS#8 DER)
-    "base58_address".to_string(), // Solana account address
-    None,                         // Default HTTP timeouts
-)?;
+let signer = Signer::from_cdp(CdpSignerConfig {
+    api_key_id: "api_key_id".to_string(),           // CDP API key ID
+    api_key_secret: "api_key_secret".to_string(),   // CDP API private key (base64 Ed25519)
+    wallet_secret: "wallet_secret".to_string(),     // CDP wallet secret (base64 PKCS#8 DER)
+    address: "base58_address".to_string(),          // Solana account address
+    network: Some(CDP_NETWORK_MAINNET.to_string()), // Required to sign transactions with address lookup tables
+    api_base_url: None,
+    http_client_config: None,                       // Default HTTP timeouts
+})?;
 ```
+
+`sign_message` của CDP chỉ chấp nhận payload UTF-8.
 
 ### Crossmint
 
-Để ký ví được quản lý bởi Crossmint:
+Crossmint chỉ hỗ trợ gửi: API của Crossmint thực thi mọi giao dịch đã được phê duyệt
+phía máy chủ, nên không có luồng chỉ ký, và `sign_message` sẽ thất bại. Hãy gọi
+`sign_and_send_transaction`; hàm này giữ nguyên giao dịch của bạn và trả về
+chữ ký của giao dịch đã được ghi nhận. Giao dịch đó có thể khác với giao dịch
+của bạn nếu Crossmint tài trợ phí gas.
 
 ```rust
 use solana_keychain::{Signer, CrossmintSignerConfig};
@@ -215,6 +263,12 @@ let config = CrossmintSignerConfig {
 };
 
 let signer = Signer::from_crossmint(config).await?;
+
+let signature = signer
+    .as_sending_signer()
+    .expect("Crossmint is a sending signer")
+    .sign_and_send_transaction(&tx)
+    .await?;
 ```
 
 ### Dfns
@@ -228,7 +282,6 @@ let config = DfnsSignerConfig {
     auth_token: "auth_token".to_string(),
     cred_id: "cred_id".to_string(),
     private_key_pem: "-----BEGIN EC PRIVATE KEY-----\n...".to_string(),
-    app_id: "app_id".to_string(),
     wallet_id: "wallet_id".to_string(),
     api_base_url: None,
     http_client_config: None,
@@ -251,34 +304,110 @@ let signer = Signer::from_para(
 ).await?;
 ```
 
+### Openfort
+
+Dùng để ký bằng ví backend của Openfort:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_openfort(
+    "sk_live_...".to_string(),   // Openfort secret key
+    "acc_...".to_string(),       // Account ID
+    "wallet_secret".to_string(), // Wallet secret (base64 PKCS#8 DER or PEM)
+    None,                        // Default HTTP timeouts
+).await?;
+```
+
+### Utila
+
+Dùng để ký với dịch vụ lưu ký MPC của Utila. `sign_message` không được hỗ trợ, và bạn
+tự phát sóng giao dịch đã ký.
+
+```rust
+use solana_keychain::{Signer, UtilaSignerConfig};
+
+let signer = Signer::from_utila(UtilaSignerConfig {
+    service_account_email: "sa@example.com".to_string(),
+    service_account_private_key_pem: "-----BEGIN PRIVATE KEY-----\n...".to_string(),
+    vault_id: "vault_id".to_string(),
+    wallet_id: "wallet_id".to_string(),
+    network: "networks/solana-devnet".to_string(),
+    api_base_url: None,
+    poll_interval_ms: None,
+    max_poll_attempts: None,
+    designated_signers: None,
+    http_client_config: None,
+}).await?;
+```
+
 ### Fordefi
 
-Dùng để ký với lưu ký MPC Fordefi. Các yêu cầu API được xác thực bằng chữ ký yêu cầu ECDSA P-256 được phân tích cú pháp từ `private_key_pem`; để giữ khóa đó trong KMS/HSM, hãy triển khai `FordefiRequestSigner` và sử dụng `Signer::from_fordefi_with_signer`.
+Dùng để ký với dịch vụ lưu ký MPC của Fordefi. Các yêu cầu API được xác thực bằng chữ ký yêu cầu
+ECDSA P-256. Hãy cung cấp đúng một trong hai: `private_key_pem`, hoặc
+`request_signer` (một `Arc<dyn FordefiRequestSigner>`, dùng để giữ khóa đó trong
+KMS/HSM).
 
-Fordefi có hai chế độ ký. Đặt `chain` cho **chế độ Solana gốc**, trong đó Fordefi có thể thay thế blockhash hoặc phí và tự phát sóng giao dịch. Để `chain` là `None` cho **chế độ hộp đen**, trong đó Fordefi ký các byte thô và bạn tự phát sóng giao dịch.
+Fordefi có ba kiểu signer, được cố định khi khởi tạo bởi `chain` và
+`push_mode`:
+
+| `chain`    | `push_mode`      | Kiểu                        | Khả năng          | Hành vi                                                           |
+| ---------- | ---------------- | --------------------------- | ------------------- | ------------------------------------------------------------------ |
+| `None`     | bất kỳ              | `FordefiBlackBoxSigner`     | `TransactionSigner` | Ký trên raw bytes; bạn tự phát sóng                                     |
+| `Some(..)` | `None` hoặc `Auto` | `FordefiNativeAutoSigner`   | `SendingSigner`     | Fordefi có thể viết lại blockhash và phí, rồi ký và phát sóng   |
+| `Some(..)` | `Manual`         | `FordefiNativeManualSigner` | `ModifyingSigner`   | Fordefi viết lại và ký; bạn tự phát sóng giao dịch được trả về |
+
+Chế độ native manual thay thế giao dịch của bạn bằng giao dịch mà Fordefi đã ký.
+Hãy tiếp tục từ giao dịch đó, không bao giờ dùng giao dịch bạn đã tạo. Chế độ này phải chạy trước mọi
+signer bắt buộc khác.
 
 ```rust
 use solana_keychain::{
-    Signer, FordefiSignerConfig, SolanaChainUniqueId, FordefiSolanaFee, FordefiPriorityLevel,
+    Signer, FordefiSignerConfig, FordefiPushMode, SolanaChainUniqueId, FordefiSolanaFee,
+    FordefiPriorityLevel,
 };
 
 let config = FordefiSignerConfig {
     access_token: "api_token".to_string(),
     vault_id: "vault_uuid".to_string(),
-    private_key_pem: std::fs::read_to_string("./secret/private.pem")?,
-    public_key: "base58_public_key".to_string(), // Solana vault address
+    private_key_pem: Some(std::fs::read_to_string("./secret/private.pem")?),
+    request_signer: None,                           // Or Some(Arc::new(your_kms_signer))
+    public_key: "base58_public_key".to_string(),    // Solana vault address
     chain: Some(SolanaChainUniqueId::SolanaDevnet), // None for black box mode
     fee: Some(FordefiSolanaFee::Priority {
         priority_level: FordefiPriorityLevel::Medium,
     }),
+    push_mode: Some(FordefiPushMode::Auto),         // Manual: sign without broadcasting
     api_base_url: None,       // Default: https://api.fordefi.com
     poll_interval_ms: None,   // Default: 2000
     max_poll_attempts: None,  // Default: 50
     http_client_config: None, // Default HTTP timeouts
 };
 
-let signer = Signer::from_fordefi(config)?;
+let signer = Signer::from_fordefi(config).await?;
 ```
+
+### Ledger
+
+Dùng để ký bằng ví phần cứng qua USB-HID (chỉ dành cho Rust). Yêu cầu tính năng `ledger`,
+một thiết bị đã mở khóa đang chạy ứng dụng Solana và, trên Linux, các quy tắc udev của Ledger.
+Ledger chưa nằm trong phạm vi của đợt kiểm toán hiện tại; xem
+[trạng thái kiểm toán](https://github.com/solana-foundation/solana-keychain/blob/main/audits/AUDIT_STATUS.md).
+
+```rust
+use solana_keychain::{LedgerConfig, Signer};
+
+let signer = Signer::from_ledger(LedgerConfig {
+    confirm_pubkey_on_device: true,
+    ..LedgerConfig::default()
+})
+.await?;
+```
+
+`sign_message` ký một envelope off-chain bao bọc payload của bạn, chứ không phải raw
+bytes; hãy dựng lại envelope bằng `solana_keychain::ledger::ledger_offchain_envelope` để
+xác minh. Đặt `auto_open_app: false` khi sử dụng không cần giám sát. Nếu từ chối lời nhắc trên
+thiết bị, hàm sẽ trả về `SignerError::UserRejected`.
 
 ## Enum Signer Thống Nhất
 
@@ -300,6 +429,36 @@ async fn get_signer(backend: &str) -> Result<Signer, SignerError> {
 let signer = get_signer("kms").await?;
 let pubkey = signer.pubkey();
 ```
+
+`Signer` chỉ triển khai `SolanaSigner`. Hãy truy cập một khả năng thông qua
+`as_transaction_signer()`, `as_modifying_signer()` hoặc `as_sending_signer()`,
+các hàm này trả về `None` khi backend không có dạng đó:
+
+```rust
+if let Some(transaction_signer) = signer.as_transaction_signer() {
+    let result = transaction_signer.sign_transaction(&mut tx).await?;
+}
+```
+
+Hoặc để `sign_and_send` tự định tuyến theo backend. Crate này không có RPC client, nên bạn
+tự cung cấp phần phát sóng; với backend dạng sending, closure sẽ không bao giờ được gọi:
+
+```rust
+let signature = signer
+    .sign_and_send(&mut tx, |encoded| async move { broadcast(encoded).await })
+    .await?;
+```
+
+## Xử lý lỗi
+
+`SignerError::BroadcastUnconfirmed { provider_tx_id, idempotency_key, transaction_signature, .. }`
+(từ Crossmint, Fordefi native auto, hoặc một closure `sign_and_send` bị lỗi)
+nghĩa là giao dịch có thể đã được ghi nhận. Đừng thử lại một cách mù quáng: hãy đối chiếu
+`provider_tx_id` hoặc `transaction_signature` trước, hoặc chỉ gửi lại
+giao dịch giống hệt từng byte. Các câu lệnh `match` đầy đủ trên `SignerError` cần có nhánh này.
+Xem
+[mô hình bảo mật](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+để biết mỗi dạng ký đảm bảo điều gì.
 
 ## Thêm Signer Tùy Chỉnh
 

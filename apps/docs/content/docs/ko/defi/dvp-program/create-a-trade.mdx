@@ -1,0 +1,285 @@
+---
+title: 거래 생성하기
+description:
+  DvP 프로그램 클라이언트를 설정하고, 거래 레코드와 두 개의 에스크로 계정을 파생한 뒤, CreateDvp로 거래 조건을 기록합니다.
+seoTitle: Solana에서 DvP 거래 생성하기
+url: /docs/defi/dvp-program/create-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program
+related:
+  - /docs/defi/dvp-program/fund-the-legs
+---
+
+`CreateDvp`는 거래 조건을 기록하고 당사자들이 자금을 예치할 두 개의 에스크로 계정을 생성합니다.
+토큰은 전혀 이동하지 않습니다. 누구나 이 명령을 전송할 수 있으므로, 레코드는
+거래 상대방, 정산 권한자(settlement authority)의 운영자 또는 제3자가 생성할 수 있으며,
+다른 모든 참여자는 저장된 조건을 신뢰하고 진행하기 전에 직접 검증해야 합니다
+([레그에 자금 예치하기](/docs/defi/dvp-program/fund-the-legs) 참조).
+
+이 예제들은 생성된 클라이언트를 플레이스홀더 주소와 함께 직접 사용하므로,
+관련된 계정과 서명자를 그대로 확인할 수 있습니다. 대상은 devnet이며,
+프로그램은 mainnet-beta와 동일한 주소에 배포되어 있습니다.
+
+## 설치
+
+2026년 10월 2일 기준으로 DvP 클라이언트용으로 게시된 패키지는 없습니다. 두 클라이언트 모두
+저장소에 있는 프로그램의 IDL로부터 생성되며, 소스에서 직접 사용합니다.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```bash
+    git clone https://github.com/solana-foundation/dvp.git
+    cd dvp && git checkout df9919ed02c25a93620e7f6820107c9050ce3b92
+    pnpm install && pnpm generate-clients && pnpm build
+    # The client is clients/typescript/src; copy or link it into your project as ./dvp
+    pnpm add @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token-2022 @solana-program/memo
+    ```
+  </Tab>
+
+  <Tab value="Rust">
+    ```bash
+    git clone https://github.com/solana-foundation/dvp.git
+    cd dvp && git checkout df9919ed02c25a93620e7f6820107c9050ce3b92
+    pnpm install && pnpm generate-clients
+    # The client is clients/rust; add it to your Cargo.toml as a path dependency
+    ```
+
+    ```toml
+    [dependencies]
+    dvp-swap-program-client = { path = "<clone>/clients/rust", features = ["fetch"] }
+    solana-pubkey = { version = "2.2", features = ["curve25519"] }
+    solana-instruction = "2.2"
+    solana-client = "2.2"
+    solana-commitment-config = "2.2"
+    spl-token-2022-interface = "1"
+    spl-associated-token-account-client = "2"
+    rand = "0.8"
+    ```
+
+  </Tab>
+</Tabs>
+
+이 페이지들은 커밋 `df9919e`를 기준으로 작성되었으며, TypeScript에서는 `@solana/kit` 8,
+Rust에서는 `solana-*` 2.x 크레이트를 사용합니다.
+
+모든 단계 페이지의 예제는 서로 이어집니다. 각 페이지는 앞선 페이지에서 정의한 클라이언트,
+서명자, 주소를 사용합니다. `payerSigner`, `userASigner`, `userBSigner`,
+`authoritySigner`는 각각 rent 지불자, 두 당사자, 정산 권한자를 위한
+`TransactionSigner`이며, 예를 들어 `createKeyPairSignerFromBytes`로 만들 수 있습니다.
+Rust 예제는 instruction을 구성만 하고, 서명과 전송은 호출자에게 맡깁니다.
+
+## 주소 파생하기
+
+거래 레코드는 정산 권한자, 두 당사자, 두 mint, 그리고 nonce를 기반으로 한
+Program Derived Address입니다. 각 에스크로는 해당 레코드가 소유한, 각 mint에 대한
+associated token account입니다. 두 파생 모두 네트워크 접근이 필요하지 않습니다.
+
+모든 거래마다 무작위 64비트 nonce를 사용하세요. 생성은 권한 제한이 없으므로, 예측 가능한
+nonce를 사용하면 제3자가 거래에 사용될 예정이던 주소를 선점할 수 있습니다. TypeScript에서는
+nonce와 금액을 `bigint`로 전달해야 하며, 생성된 클라이언트는 `number`를 거부합니다.
+
+실행하기 전에 각 `..._HERE` 플레이스홀더를 실제 주소로 교체하세요.
+`address()`는 base58을 검증하며 플레이스홀더에서 예외를 발생시키고, `pubkey!`는
+컴파일에 실패합니다.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { address, createClient } from "@solana/kit";
+    import { solanaRpc } from "@solana/kit-plugin-rpc";
+    import { signer } from "@solana/kit-plugin-signer";
+    import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+    import { findSwapDvpEscrowAta, findSwapDvpPda } from "./dvp";
+
+    const client = createClient()
+      .use(signer(payerSigner))
+      .use(
+        solanaRpc({
+          rpcUrl: "https://api.devnet.solana.com",
+          rpcSubscriptionsUrl: "wss://api.devnet.solana.com",
+        }),
+      );
+
+    const settlementAuthority = address("SETTLEMENT_AUTHORITY_ADDRESS_HERE");
+    const userA = address("ASSET_LEG_PARTY_ADDRESS_HERE");
+    const userB = address("CASH_LEG_PARTY_ADDRESS_HERE");
+    const mintA = address("ASSET_MINT_ADDRESS_HERE");
+    const mintB = address("CASH_MINT_ADDRESS_HERE");
+    const tokenProgramA = TOKEN_2022_PROGRAM_ADDRESS;
+    const tokenProgramB = TOKEN_2022_PROGRAM_ADDRESS;
+
+    // A fresh random nonce per trade, as a bigint.
+    const nonce = new DataView(
+      crypto.getRandomValues(new Uint8Array(8)).buffer,
+    ).getBigUint64(0);
+
+    const [swapDvp] = await findSwapDvpPda({
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+    const [escrowA] = await findSwapDvpEscrowAta({
+      swapDvp,
+      mint: mintA,
+      tokenProgram: tokenProgramA,
+    });
+    const [escrowB] = await findSwapDvpEscrowAta({
+      swapDvp,
+      mint: mintB,
+      tokenProgram: tokenProgramB,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::{find_swap_dvp_address, find_swap_dvp_escrow_ata};
+    use solana_pubkey::{pubkey, Pubkey};
+
+    const TOKEN_2022_PROGRAM_ID: Pubkey = pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+
+    let settlement_authority: Pubkey = pubkey!("SETTLEMENT_AUTHORITY_ADDRESS_HERE");
+    let user_a: Pubkey = pubkey!("ASSET_LEG_PARTY_ADDRESS_HERE");
+    let user_b: Pubkey = pubkey!("CASH_LEG_PARTY_ADDRESS_HERE");
+    let mint_a: Pubkey = pubkey!("ASSET_MINT_ADDRESS_HERE");
+    let mint_b: Pubkey = pubkey!("CASH_MINT_ADDRESS_HERE");
+    let token_program_a = TOKEN_2022_PROGRAM_ID;
+    let token_program_b = TOKEN_2022_PROGRAM_ID;
+
+    // A fresh random nonce per trade.
+    let nonce: u64 = rand::random();
+
+    let (swap_dvp, _bump) = find_swap_dvp_address(
+        &settlement_authority, &user_a, &user_b, &mint_a, &mint_b, nonce,
+    );
+    let escrow_a = find_swap_dvp_escrow_ata(&swap_dvp, &mint_a, &token_program_a);
+    let escrow_b = find_swap_dvp_escrow_ata(&swap_dvp, &mint_b, &token_program_b);
+    ```
+
+  </Tab>
+</Tabs>
+
+## 거래 조건 기록하기
+
+`CreateDvp`는 기본 단위로 표현된 두 금액, 만료 시각, nonce, 그리고 네 개의 선택 필드를 받습니다.
+선택 필드는 최대 64바이트의 불투명 참조값, 각 당사자별 정산 목적지, 그리고 가장 이른 정산 시각입니다
+(참고 사항 참조). 정산 목적지는 정산 시 해당 당사자의 대금이 도착하는 곳으로,
+예를 들어 수탁 기관의 입금 지갑입니다. 기본값은 당사자 본인의 주소이며, 레코드가 생성된 후에는
+변경할 수 없습니다. 환불과 회수는 에스크로에 누가 자금을 넣었든 항상 해당 레그의 mint에 대한
+당사자 본인의 token account로 전송되며, 정산 목적지로는 절대 전송되지 않습니다.
+
+지불자는 레코드, nonce 툼스톤, 그리고 두 에스크로의 rent를 부담합니다.
+종료 시 해당 rent는 지불자에게 돌아가지 않고, 종료 instruction에 서명한 주체에게 지급됩니다.
+툼스톤은 종료되지 않으므로 거래마다 소량의 잔액이 영구적으로 남습니다.
+지불자의 SOL 예산을 산정할 때는 rent 금액을 하드코딩하지 말고
+`getMinimumBalanceForRentExemption` RPC 메서드로 파생하세요.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCreateDvpInstruction } from "./dvp";
+
+    const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
+
+    const createInstruction = getCreateDvpInstruction({
+      payer: payerSigner,
+      swapDvp,
+      nonceTombstone: (
+        await getProgramDerivedAddress({
+          programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+          seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+        })
+      )[0],
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      tokenProgramA,
+      tokenProgramB,
+      amountA: 1_000_000_000n, // 1,000 units of a 6-decimal asset
+      amountB: 998_500_000n, // 998.50 units of a 6-decimal cash token
+      expiryTimestamp: nowSeconds + 60n * 60n * 24n, // one day
+      nonce,
+      refString: "ORDER-2026-10-02-0001",
+      userASettlementDestination: null, // defaults to userA
+      userBSettlementDestination: null, // defaults to userB
+      earliestSettlementTimestamp: null,
+    });
+
+    const { context } = await client.sendTransaction([createInstruction]);
+    console.log("Trade record:", swapDvp, "signature:", context.signature);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::CreateDvpBuilder;
+    use dvp_swap_program_client::DVP_SWAP_PROGRAM_ID;
+
+    let payer: Pubkey = pubkey!("PAYER_ADDRESS_HERE");
+    let (nonce_tombstone, _) =
+        Pubkey::find_program_address(&[b"nonce", swap_dvp.as_ref()], &DVP_SWAP_PROGRAM_ID);
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+
+    let create_ix = CreateDvpBuilder::new()
+        .payer(payer)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .amount_a(1_000_000_000) // 1,000 units of a 6-decimal asset
+        .amount_b(998_500_000) // 998.50 units of a 6-decimal cash token
+        .expiry_timestamp(now_seconds + 60 * 60 * 24) // one day
+        .nonce(nonce)
+        .ref_string("ORDER-2026-10-02-0001".to_string())
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+TypeScript 예제를 실행하려면 `@solana/kit`의 `getProgramDerivedAddress`와
+`getAddressEncoder`, 그리고 클라이언트의 `DVP_SWAP_PROGRAM_PROGRAM_ADDRESS`가
+스코프에 있어야 합니다. Rust 빌더는 System Program과 Associated Token Program을
+기본값으로 둡니다.
+
+## 참고 사항
+
+- **만료.** 만료 시각은 Settle에서만 확인합니다. Reclaim, Cancel, Reject는
+  만료 후에도 동작하며, 만료 후에 도착한 입금은 해당 레그의 당사자가
+  회수할 수 있습니다. 만료 시각은 생성 시점으로부터 최대 1년까지 설정할 수 있습니다.
+- **시간은 네트워크 시간입니다.** 프로그램은 온체인 시계를 읽는데, 이 시계는 실제 시간과
+  차이가 날 수 있으며 때로는 수십 초에 달하고, 앞으로 점프할 수도 있습니다. 만료 시각과 의도한
+  정산 시각 사이에 여유를 두고, 어느 한쪽 경계에 가까운 시점에 자금을 예치하거나 정산하지 마세요.
+  또한 초 단위의 마감 시한을 강제하는 용도로 만료 시각에 의존하지 마세요.
+  프로그램 README는 약 1분 정도의 오차를 감안할 것을 권장합니다.
+- **가장 이른 정산 시각.** 선택 사항입니다. 설정하면 그 시각 이전의 Settle은 거부되며,
+  만료 시각보다 늦을 수 없습니다.
+- **생성 시 검사.** 당사자가 System Program이 소유한 계정이 아니면 Create는
+  `PartyNotSignerCapable`로 실패합니다(이로 인해 SPL Token 멀티시그는 사용할 수 없습니다).
+  그 외에도 `SettlementDestinationIsSwapDvp`, `SelfDvp`, `SameMint`, `ZeroAmount`,
+  `SettlementAuthorityIsParty`, `ExpiryNotInFuture`로 실패할 수 있습니다. 전체 목록은
+  [오류 표](/docs/defi/dvp-program#errors)에서 확인할 수 있습니다.
+
+## 다음 단계
+
+- [레그에 자금 예치하기](/docs/defi/dvp-program/fund-the-legs): 각 당사자가
+  자신의 레그를 거래의 에스크로로 전송합니다
