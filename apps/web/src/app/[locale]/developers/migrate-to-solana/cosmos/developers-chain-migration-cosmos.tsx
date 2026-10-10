@@ -34,18 +34,11 @@ function PathCard({
   ctaUrl: string;
 }) {
   return (
-    <div
-      className="tw-glass-card flex flex-col gap-4 p-8 rounded-xl"
-      style={{
-        background: "rgba(0,0,0,0.5)",
-        backdropFilter: "blur(12px)",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}
-    >
-      <p className="tw-eyebrow text-sky-400 text-xs font-mono uppercase tracking-widest mb-0">
+    <div className="flex flex-col gap-4 rounded-xl border border-white/[0.08] bg-black/50 p-8 backdrop-blur-xl">
+      <p className="mb-0 font-mono text-xs uppercase tracking-widest text-sky-400">
         {eyebrow}
       </p>
-      <h2 className="tw-text-display-xs md:tw-text-display-md font-medium text-white pl-3 border-l-2 border-purple-500 mb-0">
+      <h2 className="mb-0 border-l-2 border-purple-500 pl-3 text-2xl font-medium text-white md:text-4xl">
         {heading}
       </h2>
       <div>

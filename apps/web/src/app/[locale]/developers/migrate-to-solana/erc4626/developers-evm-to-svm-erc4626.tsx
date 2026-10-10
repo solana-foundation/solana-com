@@ -9,7 +9,7 @@ import {
   Hero,
   HtmlParser,
   Section,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   BLOCK_STYLES,
@@ -150,13 +150,13 @@ export function DevelopersEvmToSvmErc4626Page() {
             },
           }}
         >
-          <div key="copy-0" className="tw-html_parser">
+          <div key="copy-0" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacingWithMargins",
               children: <p>{t("contentEditor.intro")}</p>,
             })}
           </div>
-          <div key="copy-1" className="tw-html_parser">
+          <div key="copy-1" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: (
@@ -196,7 +196,7 @@ export function DevelopersEvmToSvmErc4626Page() {
               ),
             })}
           </div>
-          <div key="copy-2" className="tw-html_parser">
+          <div key="copy-2" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: (
@@ -211,13 +211,13 @@ export function DevelopersEvmToSvmErc4626Page() {
             })}
           </div>
           <div key="code-3">{renderCodeBlock(0)}</div>
-          <div key="copy-4" className="tw-html_parser">
+          <div key="copy-4" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: <p>{t("contentEditor.deploymentFeel")}</p>,
             })}
           </div>
-          <div key="copy-5" className="tw-html_parser">
+          <div key="copy-5" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacingNoBottom",
               children: (
@@ -228,7 +228,7 @@ export function DevelopersEvmToSvmErc4626Page() {
               ),
             })}
           </div>
-          <div key="copy-6" className="tw-html_parser">
+          <div key="copy-6" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: (
@@ -241,7 +241,7 @@ export function DevelopersEvmToSvmErc4626Page() {
               ),
             })}
           </div>
-          <div key="copy-7" className="tw-html_parser">
+          <div key="copy-7" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: (
@@ -252,7 +252,7 @@ export function DevelopersEvmToSvmErc4626Page() {
               ),
             })}
           </div>
-          <div key="copy-8" className="tw-html_parser">
+          <div key="copy-8" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: (
@@ -295,7 +295,7 @@ export function DevelopersEvmToSvmErc4626Page() {
               ),
             })}
           </div>
-          <div key="copy-9" className="tw-html_parser">
+          <div key="copy-9" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: (
@@ -313,7 +313,7 @@ export function DevelopersEvmToSvmErc4626Page() {
             })}
           </div>
           <div key="code-10">{renderCodeBlock(1)}</div>
-          <div key="copy-11" className="tw-html_parser">
+          <div key="copy-11" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: (
@@ -332,15 +332,17 @@ export function DevelopersEvmToSvmErc4626Page() {
             key="table-12"
             responsiveStyles={BLOCK_STYLES.tableWrapper}
           >
-            <div className="tw-html_parser">{renderConceptualMapTable()}</div>
+            <div className="min-w-0 max-w-full overflow-x-auto">
+              {renderConceptualMapTable()}
+            </div>
           </ResponsiveBox>
-          <div key="copy-13" className="tw-html_parser">
+          <div key="copy-13" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: <p>{t("contentEditor.oneTxSummary")}</p>,
             })}
           </div>
-          <div key="copy-14" className="tw-html_parser">
+          <div key="copy-14" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: (
@@ -378,7 +380,7 @@ export function DevelopersEvmToSvmErc4626Page() {
               ),
             })}
           </div>
-          <div key="copy-15" className="tw-html_parser">
+          <div key="copy-15" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: (
@@ -388,7 +390,7 @@ export function DevelopersEvmToSvmErc4626Page() {
               ),
             })}
           </div>
-          <div key="copy-16" className="tw-html_parser">
+          <div key="copy-16" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               styleKey: "spacing",
               children: <p>{t("contentEditor.writeProgram.body")}</p>,

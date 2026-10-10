@@ -9,7 +9,7 @@ import {
   Hero,
   Slider,
   Stats,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   CARD_DECK_CARDS,
@@ -105,8 +105,6 @@ export function DevelopersDaoPage() {
         headline={t("featureHighlight.headline")}
         body={t("featureHighlight.body")}
         cards={featureHighlightCards}
-        // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
-        valueOf={() => false}
       />
 
       <Heading

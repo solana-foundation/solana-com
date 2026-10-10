@@ -93,7 +93,7 @@ export const RUNBOOK_SECTIONS = [
       <p>On Solana, a <a href="/docs/core/programs">program</a> is executable onchain code, an <a href="/docs/core/accounts">account</a> is the durable state that programs read and write, and a <a href="/docs/core/transactions">transaction</a> is the signed bundle of instructions that asks programs to do work. If that model fits your product and operations, the migration has a stronger foundation.</p>
       <h3>Architecture differences: Cosmos app chains vs Solana</h3>
       <p>Use this mapping when you are translating operational responsibilities and state architecture, not just contract code.</p>
-      <div class="tw-overflow-x-auto">
+      <div class="overflow-x-auto">
         <table>
           <thead>
             <tr>
@@ -302,7 +302,7 @@ pub struct ClaimStatus {
         <li>Support operations get simpler because each failed claim is tied to a specific leaf, proof, and recipient address.</li>
       </ul>
       <h3>Unclaimed token policy</h3>
-      <div class="tw-overflow-x-auto">
+      <div class="overflow-x-auto">
         <table>
           <thead>
             <tr>
@@ -454,7 +454,7 @@ pub struct VestingSchedule {
       <h2>8. Phase 5: Governance Migration</h2>
       <p><a href="https://realms.today" target="_blank" rel="noreferrer">Realms</a> is the main DAO and treasury-management interface for Solana. It sits on top of <a href="https://github.com/solana-labs/solana-program-library/tree/master/governance" target="_blank" rel="noreferrer">SPL Governance</a>, the Solana governance program, and gives you proposal workflows, voting configuration, DAO treasuries, and governed execution for actions such as treasury transfers and <a href="/docs/core/programs/program-deployment">program upgrades</a>.</p>
       <p>If your Cosmos chain used on-chain governance for signaling, treasury control, or upgrade approval, the closest Solana-native destination is usually a Realm plus one or more governed treasuries. The migration is not one-to-one: Cosmos governance controls chain state, while Solana governance usually controls assets, program authorities, and operational workflows.</p>
-      <div class="tw-overflow-x-auto">
+      <div class="overflow-x-auto">
         <table>
           <thead>
             <tr>
@@ -497,7 +497,7 @@ pub struct VestingSchedule {
       <h2>9. Phase 6: User Migration &amp; Communication</h2>
       <h3>Communication plan</h3>
       <p>This is the plan you drafted during <a href="#planning-announcement">planning and announcement</a>, now running against real dates. Day 0 is the public announcement.</p>
-      <div class="tw-overflow-x-auto">
+      <div class="overflow-x-auto">
         <table>
           <thead>
             <tr>
