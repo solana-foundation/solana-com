@@ -15,6 +15,9 @@ describe("ContentEditor", () => {
         <div>
           <h2>Savings and fees</h2>
         </div>
+        <div>
+          <h2>{"Can <script> run?"}</h2>
+        </div>
       </ContentEditor>,
     );
 
@@ -29,5 +32,8 @@ describe("ContentEditor", () => {
     expect(
       screen.getByRole("heading", { name: "Savings and fees" }),
     ).toHaveAttribute("id", "savings-and-fees");
+    expect(
+      screen.getByRole("link", { name: "Can <script> run?" }),
+    ).toHaveAttribute("href", "#can-script-run");
   });
 });

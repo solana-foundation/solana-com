@@ -7,7 +7,6 @@ import {
   Section,
   type ActionButtonProps,
 } from "./landing-shared";
-import { headingId } from "./landing-rich-text";
 
 interface CallToAction {
   eyebrow?: string;
@@ -46,7 +45,13 @@ export function ContentEditor({
             return ancestor.id;
           }
 
-          const base = headingId(element.textContent || "") || "section";
+          const base =
+            (element.textContent || "")
+              .normalize("NFKD")
+              .toLowerCase()
+              .replace(/[\u0300-\u036f]/g, "")
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-|-$/g, "") || "section";
           let id = base;
           let suffix = 2;
           while (document.getElementById(id)) id = `${base}-${suffix++}`;
@@ -80,7 +85,7 @@ export function ContentEditor({
                 {headings.map((heading) => (
                   <li key={heading.id}>
                     <a
-                      href={`#${heading.id}`}
+                      href={`#${encodeURIComponent(heading.id)}`}
                       className="font-brand-mono text-sm uppercase text-[#ABABBA] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#CA9FF5]"
                     >
                       {heading.title}
