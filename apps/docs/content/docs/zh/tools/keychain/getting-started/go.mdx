@@ -1,0 +1,411 @@
+---
+title: Go
+description: 在 Go 应用程序中安装并使用 solana-keychain
+---
+
+2.0.0 是 Go 模块的首个稳定版本,因此无需迁移。
+[2.0 迁移指南](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)
+介绍了 Rust 和 TypeScript 中同样的能力拆分。
+
+## 安装
+
+每个后端都是独立的 Go 模块,因此你的构建和模块依赖图中只会包含你导入的后端:
+
+```shell
+go get github.com/solana-foundation/solana-keychain/go/core/v2                # Interfaces, errors, helpers
+go get github.com/solana-foundation/solana-keychain/go/signers/memory/v2      # Local keypair signer
+go get github.com/solana-foundation/solana-keychain/go/signers/vault/v2       # HashiCorp Vault
+go get github.com/solana-foundation/solana-keychain/go/signers/awskms/v2      # AWS KMS
+go get github.com/solana-foundation/solana-keychain/go/signers/gcpkms/v2      # GCP KMS
+go get github.com/solana-foundation/solana-keychain/go/signers/privy/v2       # Privy
+go get github.com/solana-foundation/solana-keychain/go/signers/turnkey/v2     # Turnkey
+go get github.com/solana-foundation/solana-keychain/go/signers/fireblocks/v2  # Fireblocks
+go get github.com/solana-foundation/solana-keychain/go/signers/cdp/v2         # Coinbase Developer Platform
+go get github.com/solana-foundation/solana-keychain/go/signers/crossmint/v2   # Crossmint
+go get github.com/solana-foundation/solana-keychain/go/signers/dfns/v2        # Dfns
+go get github.com/solana-foundation/solana-keychain/go/signers/openfort/v2    # Openfort
+go get github.com/solana-foundation/solana-keychain/go/signers/para/v2        # Para
+go get github.com/solana-foundation/solana-keychain/go/signers/utila/v2       # Utila
+go get github.com/solana-foundation/solana-keychain/go/signers/fordefi/v2     # Fordefi
+```
+
+模块的标签格式为 `go/<module>/v2.0.0`(例如 `go/signers/memory/v2.0.0`)。所有模块都要求 Go 1.25.0,但 `gcpkms` 除外,由于 `google.golang.org/api` 设定了最低版本,它要求 Go 1.25.8。Ledger 仅支持 Rust,没有对应的 Go 模块。
+
+### solana-go v2 与 v1 交易
+
+这些模块基于
+[`github.com/solana-foundation/solana-go/v2`](https://github.com/solana-foundation/solana-go)
+v2.0.0 构建,并使用其 `*solana.Transaction`。支持 Legacy、v0 和 v1(`solana.MessageVersionV1`)交易,但启用 `UseProgramCall: true` 的 Fireblocks 除外,它仅接受 Legacy 和 v0。
+
+## 基本用法
+
+所有签名器都实现了基础的
+[`core.SolanaSigner` 接口](https://pkg.go.dev/github.com/solana-foundation/solana-keychain/go/core/v2#SolanaSigner)
+(`Pubkey`、`SignMessage`、`IsAvailable`)。这些方法接收 `context.Context` 参数,并且是阻塞式的。每个后端还会恰好实现一个能力接口:
+
+- `core.TransactionSigner`:`SignTransaction` 按原样对你的交易进行签名。
+- `core.ModifyingSigner`:`ModifyAndSignTransaction` 允许服务提供方重写交易,然后再签名。
+- `core.SendingSigner`:`SignAndSendTransaction` 由服务提供方负责签名并广播交易。
+
+每个后端包都会暴露一个 `Config` 结构体和一个 `New` 构造函数:
+
+```go
+import (
+	"context"
+	"fmt"
+
+	"github.com/solana-foundation/solana-go/v2"
+	"github.com/solana-foundation/solana-keychain/go/core/v2"
+	"github.com/solana-foundation/solana-keychain/go/signers/memory/v2"
+)
+
+func signWithKeychain(ctx context.Context, tx *solana.Transaction) error {
+	signer, err := memory.New(memory.Config{PrivateKeyPath: "/path/to/id.json"})
+	if err != nil {
+		return err
+	}
+
+	if !signer.IsAvailable(ctx) {
+		return core.NewSignerError(core.CodeNotAvailable, "signer offline")
+	}
+
+	result, err := signer.SignTransaction(ctx, tx)
+	if err != nil {
+		return err
+	}
+	fmt.Println("signature:", result.Signature)
+	fmt.Println("complete:", result.IsComplete())
+	// result.EncodedTransaction is the base64 wire transaction
+	return nil
+}
+```
+
+`SignTransaction` 和 `ModifyAndSignTransaction` 返回 `core.SignedTransaction`(`EncodedTransaction`、`Signature`、`Completeness`)。远程 HTTP 后端接受可选的 `HTTPClient` 和 `HTTPClientConfig`(超时设置)。默认客户端强制使用 HTTPS;如果自行提供客户端,则会绕过这一限制,其安全性由你自己负责。
+
+### 签名器能力
+
+无法对交易签名的后端根本不会带有 `SignTransaction` 方法,因此对于具体类型,能力在编译期即可确定;对于 `core.SolanaSigner`,则通过类型断言来判断:
+
+| 后端                                                                         | 能力          | `SignMessage`                  |
+| ------------------------------------------------------------------------------- | ------------------- | ------------------------------ |
+| memory, vault, privy, turnkey, awskms, gcpkms, fireblocks, dfns, para, openfort | `TransactionSigner` | 支持                            |
+| cdp                                                                             | `TransactionSigner` | 仅支持 UTF-8 数据            |
+| utila                                                                           | `TransactionSigner` | 失败,返回 `CodeSigningFailed` |
+| fordefi black box (`fordefi.BlackBoxSigner`)                                    | `TransactionSigner` | 支持                            |
+| fordefi native manual (`fordefi.NativeManualSigner`)                            | `ModifyingSigner`   | 支持                            |
+| fordefi native auto (`fordefi.NativeAutoSigner`)                                | `SendingSigner`     | 支持                            |
+| crossmint                                                                       | `SendingSigner`     | 失败,返回 `CodeSigningFailed` |
+
+```go
+switch s := signer.(type) {
+case core.SendingSigner:
+	sig, err := s.SignAndSendTransaction(ctx, tx)
+case core.ModifyingSigner:
+	signed, err := s.ModifyAndSignTransaction(ctx, tx)
+case core.TransactionSigner:
+	signed, err := s.SignTransaction(ctx, tx)
+}
+```
+
+### 初始化
+
+没有单独的 `Init` 步骤。Privy、Fireblocks、Dfns、Crossmint、Para、Openfort 和 Utila 会在 `New` 内部解析钱包地址,因此它们的构造函数需要接收 `context.Context`。请始终通过 `New` 构建签名器:零值的 Crossmint、Para 或 Utila 签名器会返回 `CodeNotInitialized` 错误,而不是为零地址签名。
+
+### 使用任意签名器签名并发送
+
+无论签名器是哪种形态,`core.SignAndSendTransaction` 都能将交易提交上链。`SendingSigner` 通过其服务提供方广播,并忽略发送函数;其他形态则只负责签名,由你的函数广播 base64 结果,对于 `ModifyingSigner` 来说,该结果就是其服务提供方重写后的交易。Core 不依赖任何 RPC:
+
+```go
+import "github.com/solana-foundation/solana-go/v2/rpc"
+
+client := rpc.New("https://api.devnet.solana.com")
+
+sig, err := core.SignAndSendTransaction(ctx, signer, tx,
+	func(ctx context.Context, encoded string) (solana.Signature, error) {
+		return client.SendEncodedTransaction(ctx, encoded)
+	})
+```
+
+### 批量签名
+
+批量签名以独立的辅助函数形式提供,并发执行,并可为有速率限制的 API 设置可选的逐请求错峰间隔:
+
+```go
+sigs, err := core.SignMessages(ctx, signer, [][]byte{msg1, msg2}, core.BatchOptions{
+	MaxConcurrency: 4, // 0 = unbounded
+	RequestDelay:   50 * time.Millisecond,
+})
+
+signed, err := core.SignTransactions(ctx, signer, txs, core.BatchOptions{})
+```
+
+`core.SignTransactions` 接收 `core.TransactionSigner`,因此由服务端管理广播的签名器(Crossmint、Fordefi native auto)以及 Fordefi native manual 无法通过它进行批量处理,请逐笔交易单独调用。如果某个签名器的调用会在服务提供方一侧产生任务(例如启用 `UseProgramCall` 的 Fireblocks),它会通过 `core.BatchServerSideEffects` 上报,此时批量处理将改为顺序执行。
+
+## 后端配置
+
+### Memory
+
+`PrivateKey`(原始字节)、`PrivateKeyString`(base58 或 `[1,2,...]` 字节数组)、`PrivateKeyPath`(Solana CLI keypair 文件)三者请恰好提供其中一个:
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/memory/v2"
+
+signer, err := memory.New(memory.Config{
+	PrivateKeyPath: "/path/to/id.json",
+})
+```
+
+Go 没有可靠的方式来清零内存:垃圾回收器可能会复制并保留密钥字节(包括 memory keypair,以及 Crossmint 和 Openfort 在本地派生的密钥),直到被回收。使用本地密钥后端时,请将整个进程内存视为敏感数据。
+
+### HashiCorp Vault
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/vault/v2"
+
+signer, err := vault.New(vault.Config{
+	VaultAddr: "https://vault.example.com:8200",
+	Token:     "hvs.xxxxx",
+	KeyName:   "my-solana-key",
+	Pubkey:    "base58_public_key",
+})
+```
+
+### AWS KMS
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/awskms/v2"
+
+signer, err := awskms.New(ctx, awskms.Config{
+	KeyID:     "alias/my-solana-key",
+	PublicKey: "base58_public_key",
+	Region:    "us-east-1", // optional
+})
+```
+
+### GCP KMS
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/gcpkms/v2"
+
+signer, err := gcpkms.New(ctx, gcpkms.Config{
+	KeyName:   "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+	PublicKey: "base58_public_key",
+})
+if err != nil {
+	return err
+}
+defer signer.Close()
+```
+
+### Privy
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/privy/v2"
+
+signer, err := privy.New(ctx, privy.Config{
+	AppID:     "app_id",
+	AppSecret: "app_secret",
+	WalletID:  "wallet_id",
+})
+```
+
+### Turnkey
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/turnkey/v2"
+
+signer, err := turnkey.New(turnkey.Config{
+	APIPublicKey:   "api_public_key",
+	APIPrivateKey:  "api_private_key",
+	OrganizationID: "org_id",
+	PrivateKeyID:   "private_key_id",
+	PublicKey:      "base58_public_key",
+})
+```
+
+### Fireblocks
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/fireblocks/v2"
+
+signer, err := fireblocks.New(ctx, fireblocks.Config{
+	APIKey:         "api_key",
+	PrivateKeyPEM:  "-----BEGIN RSA PRIVATE KEY-----\n...",
+	VaultAccountID: "0",
+	AssetID:        "SOL",  // or "SOL_TEST" for devnet
+	UseProgramCall: false, // true signs via sign-only PROGRAM_CALL (legacy/v0, hot wallet)
+})
+```
+
+### CDP(Coinbase Developer Platform)
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/cdp/v2"
+
+signer, err := cdp.New(cdp.Config{
+	APIKeyID:     "api_key_id",
+	APIKeySecret: "api_key_secret", // base64 Ed25519
+	WalletSecret: "wallet_secret",  // base64 PKCS#8 DER
+	Address:      "base58_address",
+	Network:      cdp.NetworkMainnet, // or cdp.NetworkDevnet; required for address lookup tables
+})
+```
+
+CDP 的 `SignMessage` 仅接受 UTF-8 数据。
+
+### Crossmint
+
+Crossmint 仅支持发送:其 API 会在服务端执行每一笔已批准的交易,因此 `*crossmint.Signer` 只有 `SignAndSendTransaction`,没有 `SignTransaction`。你的交易不会被修改;返回的签名标识的是 Crossmint 实际上链的交易,如果 Crossmint 代付 gas,该交易可能与你的交易不同。
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/crossmint/v2"
+
+signer, err := crossmint.New(ctx, crossmint.Config{
+	APIKey:        "api_key",
+	WalletLocator: "wallet_locator",
+	SignerSecret:  "", // optional xmsk1_ secret: auto-approves what Crossmint presents
+})
+
+sig, err := signer.SignAndSendTransaction(ctx, tx)
+```
+
+### Dfns
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/dfns/v2"
+
+signer, err := dfns.New(ctx, dfns.Config{
+	AuthToken:     "auth_token",
+	CredID:        "cred_id",
+	PrivateKeyPEM: "-----BEGIN EC PRIVATE KEY-----\n...",
+	WalletID:      "wallet_id",
+})
+```
+
+### Openfort
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/openfort/v2"
+
+signer, err := openfort.New(ctx, openfort.Config{
+	SecretKey:    "sk_live_...",
+	AccountID:    "acc_...",
+	WalletSecret: "wallet_secret", // base64 PKCS#8 DER or PEM
+})
+```
+
+### Para
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/para/v2"
+
+signer, err := para.New(ctx, para.Config{
+	APIKey:   "sk_...",
+	WalletID: "wallet_id",
+})
+```
+
+### Utila
+
+Utila 仅对交易签名;`SignMessage` 会失败,已签名的交易需要你自行广播。
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/utila/v2"
+
+signer, err := utila.New(ctx, utila.Config{
+	ServiceAccountEmail:         "sa@example.com",
+	ServiceAccountPrivateKeyPEM: "-----BEGIN PRIVATE KEY-----\n...",
+	VaultID:                     "vault_id",
+	WalletID:                    "wallet_id",
+	Network:                     "networks/solana-devnet",
+})
+```
+
+### Fordefi
+
+Fordefi 提供三种签名器类型,在构造时由 `Config.Chain` 和 `Config.PushMode` 决定。三者都支持消息签名:
+
+| Config                                          | 类型                          | 入口方法                |
+| ----------------------------------------------- | ----------------------------- | -------------------------- |
+| 未设置 `Chain`                                   | `*fordefi.BlackBoxSigner`     | `SignTransaction`          |
+| 已设置 `Chain`,`PushMode` 未设置或为 `PushModeAuto` | `*fordefi.NativeAutoSigner`   | `SignAndSendTransaction`   |
+| 已设置 `Chain`,`PushMode: PushModeManual`         | `*fordefi.NativeManualSigner` | `ModifyAndSignTransaction` |
+
+`fordefi.New` 会根据配置进行分派并返回 `core.SolanaSigner`;`fordefi.NewBlackBox`、`fordefi.NewNativeAuto` 和 `fordefi.NewNativeManual` 返回具体类型,并拒绝其他模式的配置。API 请求使用 ECDSA P-256 请求签名进行身份验证:请恰好提供 `PrivateKeyPEM` 或 `RequestSigner` 之一,后者可将该密钥保存在 KMS/HSM 中。
+
+**Native auto 模式**:Fordefi 可能会替换 blockhash 和手续费,然后签名并广播。它只接受唯一必需签名者为该 vault 的未签名交易。
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/fordefi/v2"
+
+signer, err := fordefi.NewNativeAuto(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_PUBLIC_KEY"), // Solana vault address (base58)
+	PrivateKeyPEM: string(pemBytes),
+	Chain:         fordefi.ChainSolanaDevnet, // or fordefi.ChainSolanaMainnet
+	Fee: &fordefi.Fee{
+		Type:          fordefi.FeeTypePriority,
+		PriorityLevel: fordefi.PriorityMedium,
+	},
+})
+
+sig, err := signer.SignAndSendTransaction(ctx, tx)
+```
+
+**Native manual 模式**:设置 `PushMode: fordefi.PushModeManual`。Fordefi 会重写消息(最新 blockhash、Compute Budget 手续费指令)并签名,但不广播。`ModifyAndSignTransaction` 会用 Fordefi 签名后的交易替换 `tx`:后续请始终基于它继续处理。Fordefi 必须是手续费支付方,并且必须先于其他必需签名者签名,因为重写会使已有签名失效。重写内容不会生成差异对比,因此广播前请自行检查结果。
+
+```go
+signer, err := fordefi.NewNativeManual(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_PUBLIC_KEY"),
+	PrivateKeyPEM: string(pemBytes),
+	Chain:         fordefi.ChainSolanaDevnet,
+	PushMode:      fordefi.PushModeManual,
+})
+
+signed, err := signer.ModifyAndSignTransaction(ctx, tx)
+```
+
+**Black box 模式**:不设置 `Chain`。Fordefi 会对你提供的消息字节原样签名,并且不广播。请将其与 Fordefi black box vault 搭配使用。
+
+```go
+signer, err := fordefi.NewBlackBox(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_BB_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_BB_PUBLIC_KEY"),
+	PrivateKeyPEM: string(pemBytes),
+})
+```
+
+## 为什么没有统一入口包
+
+Rust 有 `Signer` 枚举,TypeScript 有 `createKeychainSigner`;Go 则有意两者都不提供。Go 不会跨运行时分派的 switch 语句消除死代码,因此统一入口包会把每个后端的厂商 SDK(AWS、GCP 等)都带入每个使用者的构建中。导入你所需的后端包本身就是选择器。如果要在运行时选择后端,请在你自己的代码中仅针对所支持的后端编写 switch,并将结果保存为 `core.SolanaSigner`。
+
+## 错误处理
+
+每个错误都是带有稳定 `Code` 的 `*core.SignerError`(`CodeConfigError`、`CodeHTTPError`、`CodeRemoteAPIError`、`CodeSigningFailed`、`CodeNotInitialized`、`CodeBroadcastUnconfirmed` 等)。`Error()` 只会针对每个错误码返回固定消息,绝不包含密钥材料或服务提供方的原始响应。可使用 `errors.As`、`errors.Is(err, &core.SignerError{Code: ...})` 或 `core.CodeOf(err)` 进行匹配。
+
+对于 Crossmint 和 Fordefi native auto 模式,失败并不意味着交易一定没有上链。当服务提供方可能已接受该交易时,错误码为 `core.CodeBroadcastUnconfirmed`(`"SIGNER_BROADCAST_UNCONFIRMED"`)。如果创建请求已被接受,则会设置 `ProviderTxID`,同时 `IdempotencyKey` 携带由消息派生的密钥。重新发送字节完全相同的交易是安全的;而重新构建的交易(例如使用了新的 blockhash)则属于一笔新的转账。当你的发送函数失败时,`core.SignAndSendTransaction` 也会报告此错误码,并在 `TransactionSignature` 中附上手续费支付方的签名。Fireblocks PROGRAM_CALL 仅签名且不发送密钥;只有轮询显示 Fireblocks 仍然进行了广播时,才会报告此错误码。
+
+```go
+sig, err := core.SignAndSendTransaction(ctx, signer, tx, send)
+var se *core.SignerError
+if errors.As(err, &se) && se.Code == core.CodeBroadcastUnconfirmed {
+	// Reconcile se.ProviderTxID, se.IdempotencyKey or se.TransactionSignature
+	// with the provider before retrying.
+}
+```
+
+有关各种签名形态的保证,请参阅
+[安全模型](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+;完整模块列表请参阅
+[Go README](https://github.com/solana-foundation/solana-keychain/blob/main/go/README.md)
+;API 参考请参阅
+[pkg.go.dev](https://pkg.go.dev/github.com/solana-foundation/solana-keychain/go/core/v2)
+。
+
+## 添加自定义签名器
+
+请实现 `core.SolanaSigner` 以及恰好一个能力接口,并且不要添加你的后端无法支持的方法:调用方通过类型断言来检测能力。要集成更多密钥管理服务,请参阅[添加签名器指南](/docs/tools/keychain/adding-signers)。

@@ -1,0 +1,227 @@
+---
+title: 取引を巻き戻す
+description:
+  Reclaim でレッグを取り戻し、Cancel または Reject で取引を巻き戻し、取引のクローズ後に着金した入金は Recover で回収します。
+seoTitle: Solana で DvP 取引を巻き戻す
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+決済せずに資金を返却する instructions は4つあります。取引が未クローズの間に使う Reclaim、Cancel、Reject と、クローズ後に届いた入金のための Recover です。いずれも有効期限はチェックしません。末尾の注意事項で説明するとおり、凍結されたエスクローや変更されたミントによって、レッグが引き続き保持される場合があります。
+
+| Instruction  | 署名者               | 範囲                         | 実行後の取引 |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` または `user_b` | 署名者自身のレッグ          | 未クローズのまま       |
+| `CancelDvp`  | 決済権限者 | 両方のレッグ                     | クローズ済み           |
+| `RejectDvp`  | `user_a` または `user_b` | 両方のレッグ                     | クローズ済み           |
+| `RecoverDvp` | `user_a` または `user_b` | 署名者のレッグ(クローズ後) | すでにクローズ済み   |
+
+いずれの場合も、エスクローに保持されているものはすべて、そのレッグの当事者に払い戻されます。エスクロー A は `user_a` の `mint_a` 用 token account に、エスクロー B は `user_b` の `mint_b` 用 token account に、誰が入金したかにかかわらず返却されます。メモが必須の返金先アカウントに備えて、メモ program account が指定されます。
+
+このページは前のステップの続きです。[取引を作成する](/docs/defi/dvp-program/create-a-trade)のクライアントと署名者、[レッグに入金する](/docs/defi/dvp-program/fund-the-legs)の `userAAtaA` と `userBAtaB`、[取引を決済する](/docs/defi/dvp-program/settle-the-trade)の `MEMO_PROGRAM_ID` と `authority` を引き続き使用します。
+
+## レッグを取り戻す
+
+Reclaim は署名者のレッグを返却し、取引は未クローズのままなので、そのレッグに再度入金できます。問題が相手方のレッグにある場合に使用します。Cancel と Reject は取引全体をクローズします。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Cancel または Reject
+
+Cancel は決済権限者が、Reject はいずれかの当事者が署名します。どちらも各エスクローの保持分をレッグの当事者に払い戻し、レコードと両方のエスクローをクローズします。クローズされたアカウントの rent は署名者に渡ります。2つの instructions は同じアカウントを取り、異なるのは署名者だけです。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+残高のあるレッグについては、返金先アカウント(`userAAtaA`、`userBAtaB`)が存在していなければなりません。未初期化の返金先アカウントではトークン転送が失敗し、instruction は巻き戻されます。一度も入金されていないレッグは転送が不要なため、アカウントが存在しなくても問題ありません。
+
+## 遅れて届いた入金を回収する
+
+Settle、Cancel、Reject はいずれも両方のエスクロー token account をクローズするため、クローズ済みのエスクローへの通常の転送は失敗します。クローズ後に入金が着金するのは、先に何かがエスクローを再作成した場合に限られます。たとえば、転送の前に create-idempotent の associated token account instruction を含む入金トランザクションが、相手方が Reject を送信した時点で処理中だった場合です。この場合、トークンは対応する取引がもう存在しないエスクローに留まります。レコードは消えているため Reclaim では見つけられず、nonce の tombstone により、同じアドレスに新しい取引が作成されて入金が横取りされることも防がれます。
+
+`RecoverDvp` を使うには、レッグの当事者が元の seed の入力値(決済権限者、双方の当事者、両方のミント、nonce)を指定します。プログラムはレコードのアドレスを再導出し、取引が存在した証拠としてその tombstone を要求し、エスクローの残高を署名者自身の token account に移して、エスクローをクローズし、エスクローの rent を署名者に返します。署名者のレッグは、どちらの当事者が署名するかで決まります。`user_a` なら `mint_a`、`user_b` なら `mint_b` です。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+回収できるかどうかは、当事者が作成パラメータを保管しているかにかかっています。取引に入金するシステムは、取引がクローズされ、エスクロー残高が空であることが確認されるまで、各注文とともに seed の入力値を保存しておきます。
+
+## 注意事項
+
+- **凍結されたレッグ。** ゲート付きミントでは、凍結されたエスクローは、freeze authority が凍結を解除するまで、これらの instructions が行うトークン転送をブロックします。[概要](/docs/defi/dvp-program#mint-configuration-constraints)を参照してください。
+- **作成後のミント変更。** 巻き戻しの経路では、プログラム自身のチェックが回収を妨げないよう、拡張機能とミント権限のチェックを省略しています。token program 自体のルールは引き続き適用されます。ミントはサプライがゼロの場合にのみクローズできるため、エスクローに残高がある間は変更できません。しかし、遅れた入金が着金する前にミントがクローズされ、NonTransferable または転送手数料付きで再作成された場合、その入金は移動不能になるか、手数料がかかる可能性があります。これは[対応トークン](/docs/defi/dvp-program#supported-tokens)に記載されているミント権限への依存です。
+
+## 次のステップ
+
+- [DvP プログラム](/docs/defi/dvp-program):概要、対応トークン、ミント設定の制約
+- [委任を使った Delivery vs Payment(DvP)](/docs/tokenization/dvp):プログラムを使わず、委任された権限によって行う同じ交換

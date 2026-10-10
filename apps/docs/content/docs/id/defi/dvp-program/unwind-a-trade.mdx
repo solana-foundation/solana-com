@@ -1,0 +1,270 @@
+---
+title: Urungkan Trade
+description:
+  Tarik kembali sebuah leg dengan Reclaim, urungkan trade dengan Cancel atau Reject, dan pulihkan deposit yang masuk setelah trade ditutup dengan Recover.
+seoTitle: Urungkan Trade DvP di Solana
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+Empat instruksi mengembalikan dana tanpa melakukan settlement: Reclaim, Cancel, dan Reject
+saat trade masih terbuka, serta Recover untuk deposit yang masuk setelah trade
+ditutup. Tidak satu pun dari instruksi ini memeriksa masa berlaku. Escrow yang dibekukan atau mint yang berubah
+tetap dapat menahan sebuah leg, seperti dijelaskan pada catatan di bagian akhir.
+
+| Instruksi  | Penanda tangan               | Cakupan                         | Trade setelahnya |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` atau `user_b` | Leg milik penanda tangan sendiri          | Tetap terbuka       |
+| `CancelDvp`  | Otoritas settlement | Kedua leg                     | Ditutup           |
+| `RejectDvp`  | `user_a` atau `user_b` | Kedua leg                     | Ditutup           |
+| `RecoverDvp` | `user_a` atau `user_b` | Leg penanda tangan, setelah ditutup | Sudah ditutup   |
+
+Dalam setiap kasus, escrow dikosongkan dan seluruh isinya dikembalikan kepada pihak pemilik leg:
+escrow A ke token account milik `user_a` untuk `mint_a`, escrow B ke token account milik `user_b` untuk
+`mint_b`, siapa pun yang mendanainya. Memo program account disertakan untuk
+refund account yang memerlukan memo.
+
+Halaman ini melanjutkan langkah-langkah sebelumnya: client dan signer dari
+[membuat trade](/docs/defi/dvp-program/create-a-trade), `userAAtaA` dan
+`userBAtaB` dari [mendanai leg](/docs/defi/dvp-program/fund-the-legs), serta
+`MEMO_PROGRAM_ID` dan `authority` dari
+[menyelesaikan trade](/docs/defi/dvp-program/settle-the-trade) tetap digunakan.
+
+## Klaim kembali sebuah leg
+
+Reclaim mengembalikan leg milik penanda tangan dan membiarkan trade tetap terbuka, sehingga leg tersebut dapat
+didanai kembali. Gunakan instruksi ini ketika masalah ada pada leg pihak lawan; Cancel dan
+Reject menutup seluruh trade.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Cancel atau Reject
+
+Cancel ditandatangani oleh otoritas settlement dan Reject oleh salah satu pihak. Keduanya
+mengembalikan seluruh isi setiap escrow kepada pihak pemilik leg, lalu menutup record dan
+kedua escrow, dengan rent dari akun yang ditutup diberikan kepada penanda tangan. Kedua
+instruksi ini menggunakan akun yang sama; hanya penanda tangannya yang berbeda.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Refund account (`userAAtaA`, `userBAtaB`) harus sudah ada untuk setiap leg yang memiliki
+saldo; refund account yang belum diinisialisasi akan membuat transfer token gagal dan
+membatalkan instruksi. Leg yang tidak pernah didanai tidak memerlukan transfer dan
+toleran terhadap akun yang tidak ada.
+
+## Pulihkan deposit yang terlambat
+
+Settle, Cancel, dan Reject semuanya menutup kedua escrow token account, sehingga transfer
+biasa ke escrow yang sudah ditutup akan gagal. Deposit hanya dapat masuk setelah penutupan jika
+ada sesuatu yang membuat ulang escrow terlebih dahulu, misalnya transaksi pendanaan yang
+menyertakan instruksi create-idempotent associated token account sebelum
+transfer dan masih berjalan ketika pihak lawan mengirim Reject. Token tersebut kemudian
+berada di escrow yang trade-nya sudah tidak ada: record-nya sudah hilang, sehingga Reclaim
+tidak dapat menemukannya, dan nonce tombstone mencegah trade baru dibuat
+di alamat yang sama dan mengambil deposit tersebut.
+
+Untuk menggunakan `RecoverDvp`, pihak pemilik leg menyediakan input seed asli
+(otoritas settlement, kedua pihak, kedua mint, nonce). Program menurunkan ulang
+alamat record, mensyaratkan tombstone-nya sebagai bukti bahwa trade tersebut pernah ada, mengosongkan
+escrow ke token account milik penanda tangan sendiri, lalu menutupnya, dan mengembalikan
+rent escrow kepada penanda tangan. Leg penanda tangan ditentukan berdasarkan pihak yang menandatangani:
+`mint_a` untuk `user_a`, `mint_b` untuk `user_b`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Pemulihan bergantung pada pihak yang menyimpan parameter pembuatan. Sistem yang mendanai
+trade menyimpan input seed bersama setiap order hingga trade ditutup dan
+saldo escrow dikonfirmasi kosong.
+
+## Catatan
+
+- **Leg yang dibekukan.** Pada mint dengan akses terbatas, escrow yang dibekukan memblokir transfer token
+  yang dilakukan instruksi-instruksi ini hingga freeze authority membukanya kembali. Lihat
+  [ikhtisar](/docs/defi/dvp-program#mint-configuration-constraints).
+- **Perubahan mint setelah pembuatan.** Jalur pengurungan melewati pemeriksaan ekstensi dan
+  mint authority agar pemeriksaan program sendiri tidak menghalangi pemulihan. Aturan
+  token program sendiri tetap berlaku. Mint hanya dapat ditutup saat suplainya nol,
+  sehingga tidak dapat berubah selama masih ada saldo di escrow, tetapi mint yang ditutup
+  dan dibuat ulang sebagai NonTransferable atau dengan biaya transfer sebelum deposit terlambat
+  masuk dapat membuat deposit tersebut tidak dapat dipindahkan atau dikenai biaya. Itulah
+  ketergantungan pada mint authority yang tercantum di bawah
+  [token yang didukung](/docs/defi/dvp-program#supported-tokens).
+
+## Langkah berikutnya
+
+- [Program DvP](/docs/defi/dvp-program): ikhtisar, token yang didukung, dan
+  batasan konfigurasi mint
+- [Delivery vs Payment (DvP) menggunakan delegasi](/docs/tokenization/dvp): pertukaran yang sama
+  melalui otoritas yang didelegasikan, tanpa program

@@ -1,0 +1,239 @@
+---
+title: Συμβάντα Anchor
+description:
+  Ορίστε, εκπέμψτε, αποκωδικοποιήστε, παρακολουθήστε, εκδοχοποιήστε και δοκιμάστε συμβάντα Anchor, με οδηγίες για την περικοπή των logs και τα συμβάντα CPI.
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+Τα συμβάντα Anchor είναι τυποποιημένες εγγραφές σειριοποιημένες με Borsh, οι οποίες περιλαμβάνονται στο IDL ενός προγράμματος.
+Επιτρέπουν στους clients να ερμηνεύουν τη δραστηριότητα του προγράμματος χωρίς να αναλύουν
+μηνύματα logs αναγνώσιμα από τον άνθρωπο.
+
+Τα συμβάντα είναι χρήσιμα για την ευρετηρίαση και τις ειδοποιήσεις, αλλά δεν αποτελούν
+κατάσταση του προγράμματος. Αποθηκεύστε σε έναν λογαριασμό κάθε τιμή που το πρόγραμμα πρέπει να διαβάσει ξανά και αντιμετωπίστε
+τα συμβάντα ως εγγραφή που προκύπτει από μια επιτυχημένη συναλλαγή.
+
+## Ορισμός και εκπομπή ενός συμβάντος
+
+Προσθέστε το `#[event]` σε ένα struct και καλέστε το `emit!` αφού ολοκληρωθεί επιτυχώς η αλλαγή κατάστασης.
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+Το `emit!` γράφει τα bytes του συμβάντος με το syscall `sol_log_data` του Solana. Τα logs της συναλλαγής
+εμφανίζουν το αποτέλεσμα ως `Program data: <base64>`. Η κωδικοποιημένη τιμή ξεκινά με
+τον discriminator του συμβάντος, ακολουθούμενο από τα πεδία του σειριοποιημένα με Borsh.
+
+Διατηρήστε τα συμβάντα συγκεντρωμένα. Τα μεγάλα strings και vectors καταναλώνουν υπολογιστικούς πόρους, αυξάνουν
+τα μεταδεδομένα της συναλλαγής και είναι πιο πιθανό να επηρεαστούν από την περικοπή των logs.
+
+## Επιλογή μεταξύ συμβάντων log και CPI
+
+Το Anchor υποστηρίζει δύο διαδρομές εκπομπής:
+
+| Διαδρομή        | Τοποθεσία αποθήκευσης                  | Συμβιβασμός                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | Logs δεδομένων προγράμματος                 | Απλούστερο και φθηνότερο, αλλά τα logs μπορεί να περικοπούν         |
+| `emit_cpi!` | Inner instruction data από ένα CPI | Πιο ανθεκτικά μεταδεδομένα, με επιπλέον λογαριασμούς και υπολογιστικό κόστος |
+
+Για να χρησιμοποιήσετε συμβάντα CPI, ενεργοποιήστε το χαρακτηριστικό `event-cpi` του Anchor:
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+Στη συνέχεια, σημειώστε το struct των λογαριασμών της εντολής με `#[event_cpi]` και εκπέμψτε
+από έναν handler του οποίου η μεταβλητή context ονομάζεται `ctx`:
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+Το `#[event_cpi]` προσθέτει τους λογαριασμούς event authority και του τρέχοντος προγράμματος που απαιτούνται από
+το υπογεγραμμένο self-CPI. Τα συμβάντα CPI δεν μπορούν να καταναλωθούν μέσω της
+συνδρομής συμβάντων log του Anchor· αντί γι' αυτό, ανακτήστε τη συναλλαγή και αποκωδικοποιήστε την αντίστοιχη inner instruction.
+
+<Callout type="info" title="Χρησιμοποιήστε το ledger ως πηγή">
+  Οι πάροχοι RPC μπορεί να περικόψουν τα logs του προγράμματος. Αν η απώλεια ενός συμβάντος θα επηρέαζε
+  υπόλοιπα, δικαιώματα ή άλλη ροή εργασίας κρίσιμη για την ορθότητα, εξάγετε
+  το αποτέλεσμα από τους λογαριασμούς του προγράμματος ή από τα instruction data της συναλλαγής. Χρησιμοποιήστε τα συμβάντα για να
+  κάνετε την ευρετηρίαση αποδοτική, όχι ως τη μοναδική εγγραφή της κατάστασης.
+</Callout>
+
+## Συνδρομή από την TypeScript
+
+Ο τρέχων client του Anchor για TypeScript είναι το `@anchor-lang/core`. Ένα στιγμιότυπο `Program`
+που δημιουργείται από το IDL του προγράμματος μπορεί να αποκωδικοποιεί τα αντίστοιχα συμβάντα log και να τα παραδίδει
+μέσω της συνδρομής logs του RPC:
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+Το callback λαμβάνει τα αποκωδικοποιημένα δεδομένα του συμβάντος, το slot και την
+υπογραφή της συναλλαγής. Οι συνδρομές καλύπτουν μόνο τα logs που παραδίδονται ενόσω η σύνδεση είναι
+ενεργή. Αποθηκεύστε μόνιμα τις υπογραφές που έχουν υποστεί επεξεργασία και συμπληρώστε τις συναλλαγές που χάθηκαν μετά από
+αποσύνδεση, αν ο καταναλωτής χρειάζεται πλήρες ιστορικό.
+
+## Αποκωδικοποίηση των logs ανακτημένων συναλλαγών
+
+Για συμπληρώσεις (backfills) και εφάπαξ έλεγχο, ανακτήστε μια συναλλαγή και περάστε κάθε
+περιεχόμενο `Program data:` στον κωδικοποιητή συμβάντων:
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+Μια συναλλαγή μπορεί να καλέσει πολλά προγράμματα. Για έναν parser παραγωγής, παρακολουθήστε τα
+όρια των logs `Program <address> invoke` και `success` ή χρησιμοποιήστε τον event parser του Anchor, ώστε μια εγγραφή `Program data:` άλλου προγράμματος να μην αποκωδικοποιηθεί ως δική σας.
+Οι αποτυχημένες συναλλαγές μπορεί να διατηρούν logs και inner instructions από εργασίες που ολοκληρώθηκαν
+πριν από το σφάλμα, γι' αυτό απορρίπτετε πάντα τα μεταδεδομένα συναλλαγής με μη μηδενικό `err`
+πριν από την ευρετηρίαση οποιασδήποτε μορφής συμβάντος. Η συνδρομή logs του Anchor κάνει αυτόν τον έλεγχο
+πριν από την παράδοση ενός callback συμβάντος.
+
+Για ένα συμβάν `emit_cpi!`, εντοπίστε το self-CPI στο `meta.innerInstructions`,
+επιβεβαιώστε ότι το program ID του είναι το πρόγραμμά σας και αποκωδικοποιήστε σε base58 τα instruction data του.
+Πριν αφαιρέσετε οποιαδήποτε bytes, επαληθεύστε το
+[`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3) του Anchor:
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+Ο έλεγχος τόσο του program ID όσο και του tag αποτρέπει ένα συνηθισμένο self-CPI από το να
+εκληφθεί λανθασμένα ως συμβάν.
+
+## Εκδοχοποίηση σχημάτων συμβάντων
+
+Από προεπιλογή, το Anchor παράγει έναν discriminator συμβάντος 8 bytes από το όνομα του συμβάντος.
+Το Anchor υποστηρίζει επίσης έναν ρητό discriminator μέσω του
+`#[event(discriminator = ...)]`. Οι discriminators πρέπει να παραμένουν μοναδικοί εντός του
+προγράμματος και σταθεροί για κάθε client που αποκωδικοποιεί το συμβάν.
+
+Η αλλαγή των πεδίων ενός εκπεμπόμενου struct αλλάζει τη διάταξή του σε Borsh. Για μια ριζική
+αλλαγή σχήματος, ορίστε ένα νέο συμβάν, όπως το `PaymentRecordedV2`, αντί να αλλάξετε
+αθόρυβα το `PaymentRecorded`. Συνεχίστε να εκπέμπετε το παλιό συμβάν κατά τη διάρκεια ενός
+παραθύρου μετάβασης, όσο οι υπάρχοντες indexers εξακολουθούν να εξαρτώνται από αυτό.
+
+Για δεδομένα που εξελίσσονται, προτιμήστε πεδία σταθερού πλάτους και αναγνωριστικά που επιτρέπουν σε έναν
+indexer να ανακτά ξεχωριστά πλουσιότερα δεδομένα λογαριασμού. Δημοσιεύστε το ενημερωμένο IDL πριν ή
+μαζί με την αναβάθμιση του προγράμματος, ώστε οι καταναλωτές να μπορούν να αποκωδικοποιούν αμέσως το νέο συμβάν.
+
+## Δοκιμή συμβάντων
+
+Δοκιμάστε το αποκωδικοποιημένο συμβόλαιο, όχι το string base64. Καταχωρίστε τον listener πριν
+στείλετε την εντολή, ελέγξτε τα αποκωδικοποιημένα πεδία και την υπογραφή της συναλλαγής
+και αφαιρείτε πάντα τον listener:
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+Δοκιμάστε επίσης ότι ο indexer αγνοεί τα bytes συμβάντων που διατηρούνται στα μεταδεδομένα αποτυχημένων συναλλαγών, και προσθέστε ένα fixture για κάθε υποστηριζόμενη έκδοση συμβάντος. Αν χρησιμοποιείτε
+`emit_cpi!`, δοκιμάστε την αποκωδικοποίηση από τα `innerInstructions`, επειδή οι listeners των logs δεν
+λαμβάνουν απευθείας αυτά τα συμβάντα.
+
+## Περαιτέρω ανάγνωση
+
+- [Τεκμηρίωση συμβάντων Anchor](https://www.anchor-lang.com/docs/features/events)
+- [Client Anchor για TypeScript](https://www.anchor-lang.com/docs/clients/typescript)
+- [Πηγαίος κώδικας του event macro του Anchor](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

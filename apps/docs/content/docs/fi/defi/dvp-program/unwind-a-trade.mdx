@@ -1,0 +1,271 @@
+---
+title: Kaupan purkaminen
+description:
+  Ota osuus takaisin Reclaim-instruktiolla, pura kauppa Cancel- tai Reject-instruktiolla ja palauta kaupan sulkeutumisen jälkeen saapunut talletus Recover-instruktiolla.
+seoTitle: DvP-kaupan purkaminen Solanassa
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+Neljä instruktiota palauttaa varat ilman selvitystä: Reclaim, Cancel ja Reject
+kaupan ollessa avoinna sekä Recover talletukselle, joka saapuu kaupan
+sulkeutumisen jälkeen. Mikään niistä ei tarkista erääntymistä. Jäädytetty escrow
+tai muuttunut mint voi silti pitää osuuden jumissa, kuten lopun huomautuksissa kuvataan.
+
+| Instruktio  | Allekirjoittaja               | Laajuus                         | Kauppa jälkeenpäin |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` tai `user_b` | Allekirjoittajan oma osuus          | Yhä avoinna       |
+| `CancelDvp`  | Selvitysvaltuutettu | Molemmat osuudet                     | Suljettu           |
+| `RejectDvp`  | `user_a` tai `user_b` | Molemmat osuudet                     | Suljettu           |
+| `RecoverDvp` | `user_a` tai `user_b` | Allekirjoittajan osuus sulkemisen jälkeen | Jo suljettu   |
+
+Kussakin tapauksessa escrow tyhjennetään osuuden osapuolelle sen sisältämästä
+määrästä riippumatta: escrow A `user_a`:n token account -tilille tokenille
+`mint_a` ja escrow B `user_b`:n token account -tilille tokenille `mint_b`,
+riippumatta siitä, kuka sen rahoitti. Memo program account annetaan
+palautustileille, jotka vaativat memon.
+
+Tämä sivu jatkuu aiempien vaiheiden pohjalta: client ja allekirjoittajat kohdasta
+[kaupan luominen](/docs/defi/dvp-program/create-a-trade), `userAAtaA` ja
+`userBAtaB` kohdasta [osuuksien rahoittaminen](/docs/defi/dvp-program/fund-the-legs) sekä
+`MEMO_PROGRAM_ID` ja `authority` kohdasta
+[kaupan selvittäminen](/docs/defi/dvp-program/settle-the-trade) siirtyvät mukaan.
+
+## Ota osuus takaisin
+
+Reclaim palauttaa allekirjoittajan osuuden ja jättää kaupan avoimeksi, jolloin osuus voidaan
+rahoittaa uudelleen. Käytä sitä, kun ongelma on vastapuolen osuudessa; Cancel ja
+Reject sulkevat koko kaupan.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Cancel tai Reject
+
+Cancel allekirjoitetaan selvitysvaltuutetulla ja Reject jommallakummalla osapuolella. Molemmat
+palauttavat kunkin escrow-tilin sisältämän määrän osuuden osapuolelle ja sulkevat tietueen sekä
+molemmat escrow-tilit, ja suljettujen tilien rent menee allekirjoittajalle. Nämä kaksi
+instruktiota käyttävät samoja tilejä; vain allekirjoittaja on eri.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Palautustilien (`userAAtaA`, `userBAtaB`) on oltava olemassa jokaiselle osuudelle, jossa on
+saldoa; alustamaton palautustili saa token-siirron epäonnistumaan ja
+peruu instruktion. Osuus, jota ei koskaan rahoitettu, ei tarvitse siirtoa ja
+sietää puuttuvan tilin.
+
+## Myöhästyneen talletuksen palauttaminen
+
+Settle, Cancel ja Reject sulkevat kaikki molemmat escrow token account -tilit, joten pelkkä
+siirto suljettuun escrow-tiliin epäonnistuu. Talletus päätyy perille sulkemisen jälkeen vain, jos
+jokin luo escrow-tilin ensin uudelleen, esimerkiksi rahoitustransaktio, joka
+sisältää create-idempotent associated token account -instruktion ennen
+siirtoa ja oli vielä käsiteltävänä, kun vastapuoli lähetti Reject-instruktion. Tokenit
+jäävät silloin escrow-tilille, jonka kauppaa ei enää ole: tietue on poissa, joten Reclaim
+ei löydä sitä, ja nonce-tombstone estää luomasta uutta kauppaa
+samaan osoitteeseen ja sieppaamasta talletusta.
+
+Käyttääksesi `RecoverDvp`-instruktiota osuuden osapuoli antaa alkuperäiset seed-syötteet
+(selvitysvaltuutettu, molemmat osapuolet, molemmat mintit, nonce). Ohjelma johtaa
+tietueen osoitteen uudelleen, vaatii sen tombstonen todisteeksi kaupan olemassaolosta, tyhjentää
+escrow-tilin allekirjoittajan omalle token account -tilille ja sulkee sen palauttaen
+escrow-tilin rentin allekirjoittajalle. Allekirjoittajan osuus määräytyy sen mukaan, kumpi osapuoli allekirjoittaa:
+`mint_a` `user_a`:lle, `mint_b` `user_b`:lle.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Palautus edellyttää, että osapuoli säilyttää luontiparametrit. Kauppoja rahoittava järjestelmä
+tallentaa seed-syötteet jokaisen toimeksiannon mukana, kunnes kauppa on suljettu ja
+escrow-saldojen on vahvistettu olevan tyhjiä.
+
+## Huomautuksia
+
+- **Jäädytetyt osuudet.** Gated-mintillä jäädytetty escrow estää näiden instruktioiden suorittaman
+  token-siirron, kunnes freeze authority sulattaa sen. Katso
+  [yleiskatsaus](/docs/defi/dvp-program#mint-configuration-constraints).
+- **Mint-muutokset luonnin jälkeen.** Purkupolut ohittavat laajennus- ja
+  mint authority -tarkistukset, jotta ohjelman omat tarkistukset eivät estä palautusta.
+  Token program -ohjelman omat säännöt silti pätevät. Mintin voi sulkea vain, kun sen
+  kokonaismäärä on nolla, joten se ei voi muuttua escrow-tilillä olevan saldon aikana. Jos mint
+  kuitenkin suljetaan ja luodaan uudelleen NonTransferable-tyyppisenä tai siirtomaksulla ennen myöhästyneen
+  talletuksen saapumista, talletus voi muuttua siirtokelvottomaksi tai maksulliseksi. Tämä on
+  mint authority -riippuvuus, joka on lueteltu kohdassa
+  [tuetut tokenit](/docs/defi/dvp-program#supported-tokens).
+
+## Seuraavat vaiheet
+
+- [DvP-ohjelma](/docs/defi/dvp-program): yleiskatsaus, tuetut tokenit ja
+  mintin määritysrajoitteet
+- [Delivery vs Payment (DvP) delegoinnin avulla](/docs/tokenization/dvp): sama
+  vaihto delegoidun valtuuden kautta ilman ohjelmaa

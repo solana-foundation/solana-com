@@ -1,0 +1,347 @@
+---
+title: 消息与身份验证
+h1: 签名消息并验证用户身份
+description:
+  使用 Solana 钱包对消息进行签名,以验证用户身份、记录用户同意或授权链下操作。本文采用链下消息签名,并为尚不支持该功能的钱包提供回退方案。
+---
+
+对消息签名可以证明用户控制着某个钱包,无需交易、无需手续费,也无需任何网络调用。应用可以借助已签名的消息让用户登录、记录用户已接受条款、将钱包关联到现有账户,或授权某项链下操作(例如下单)。
+
+Solana 钱包有两种消息签名方式:
+
+- **链下消息**(`solana:signOffchainMessage`)会将你的文本封装为标准格式,该格式由链下消息签名(OCMS)[规范](https://docs.anza.xyz/proposals/off-chain-message-signing)定义。该格式绝不会被误认为交易,会指明必须签名的账户,也是硬件钱包所签名的格式。
+- **原始消息**(`solana:signMessage`)会对你的应用传入的字节原样签名,没有前缀,也不声明签名者。大多数软件钱包都支持这种方式,但字节本身并不能表明它是消息而非交易。
+
+钱包支持链下消息时优先使用链下消息,不支持时再回退到原始消息。本指南以登录为示例展开说明,但相同的签名和验证步骤适用于任何消息。
+
+## 选择消息格式
+
+|                           | 链下消息     | 原始消息   | 交易                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| 钱包功能            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| 硬件钱包支持   | 取决于设备     | 否            | 是                           |
+| 用户可读      | 是                   | 仅限软件钱包 | 取决于设备             |
+| 声明必需的签名者 | 是                   | 否            | 是                           |
+| RPC 调用和手续费        | 无                  | 无          | Blockhash、发送、手续费、确认 |
+
+### 为什么不用交易?
+
+过去,硬件钱包无法对可读消息进行签名,许多应用转而要求这些用户签名一笔空操作交易。这种做法可行,但会增加延迟、成本和风险:
+
+- **网络手续费。** 交易需要支付手续费,即使它什么也不做。
+- **多次 RPC 调用。** 你的应用需要获取 blockhash、模拟交易、发送交易,然后轮询确认结果。
+- **额外延迟。** 在用户登录之前,每一次调用都是一次往返。
+- **内容不可读。** 用户批准的是交易字节,而不是对其所同意内容的明确说明。
+- **行为风险。** 仅为登录就要求用户签名交易,会让他们更容易被诱骗去签署恶意交易。
+
+链下消息可以省去以上所有环节,唯一的往返只发生在你自己的服务器上。
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## 钱包签名的内容
+
+链下消息以固定的签名域 `\xffsolana offchain` 开头。任何有效的交易都不会以这些字节开头,因此已签名的消息绝不可能被用作交易。格式的版本 1 随后会列出必需的签名者,并以 UTF-8 文本形式承载消息,且没有长度上限。
+
+钱包会构建这些字节、对其签名,并将其与签名一同返回。完整格式(包括旧版本 0)请参阅[规范](https://docs.anza.xyz/proposals/off-chain-message-signing)。
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## 选择登录方式
+
+目前并非所有钱包都支持链下消息。请求签名之前,先检查已连接账户的功能,若缺少该功能则进行回退:
+
+1. 如果账户支持消息版本为 1 的 `solana:signOffchainMessage`,就对链下消息签名。
+2. 否则,使用 `solana:signMessage` 对同一个质询签名。大多数软件钱包都支持该方式。
+3. 对于不支持消息签名的硬件钱包用户,提供明确的自愿选择入口(例如“我正在使用硬件钱包”开关),改为签名一笔登录交易。不要默认将用户引导到这条路径。
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## 在浏览器中签名消息
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    在安装 Kit 的同时安装 Wallet Standard 相关包:
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    这些辅助函数接收 `UiWalletAccount`,例如 [React 指南](/docs/frontend/react-hooks)中 `useConnectedWallet` 返回的 `account`:
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    仅当已连接账户支持 `solana:signOffchainMessage` 时,`@solana/wallet-adapter` 中的 `useWallet` 才会提供 `signOffchainMessage`。它会以已连接账户作为必需签名者,对版本 1 的消息进行签名;如果钱包无法签名版本 1,则会以 `WalletNotReadyError` 拒绝:
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // 服务器端逻辑
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    `publicKey.verifySignature` 会在浏览器中根据已签名的字节校验签名。你的服务器仍需确认这些字节就是它所签发的质询。当 `signOffchainMessage` 为 `undefined` 时,回退到同一个 hook 中的 `signMessage`。
+
+  </Tab>
+</Tabs>
+
+`signOffchainMessage` 会返回 `signedOffchainMessage`(钱包所签名的完整字节)和 `signature`。将两者进行 Base64 编码,并连同钱包地址一起发送到你的服务器。
+
+撰写质询时,要确保它在小屏幕上也易于阅读。写明你的应用名称和域名,说明签名的作用,并包含来自你服务器的一次性 nonce 和签发时间:
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## 在服务器上验证签名
+
+验证只是本地的签名校验,无需 RPC 连接。解码钱包所签名的字节,确认它们与你签发的质询一致,然后校验签名:
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+如果内容或签名者与预期不符,`assertOffchainMessageV1Equal` 会抛出错误;如果签名缺失或无效,`verifyOffchainMessageEnvelope` 会抛出错误。请在服务器上根据 nonce 查找 `expectedMessage`,而不是信任客户端回传的副本。验证通过后立即消耗该 nonce,这样同一个签名就不能用于重复登录。
+
+### 验证原始消息
+
+`signMessage` 的签名直接覆盖质询字节,因此客户端只需发送签名和钱包地址。将其与你签发的质询进行比对:
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+同样适用 nonce 规则:根据 nonce 查找 `expectedMessage`,并在验证通过后将其消耗。
+
+<Callout type="info">
+  `@solana/kit` 从 `@solana/offchain-messages` 重新导出了这些辅助函数。如果你的服务器不依赖 Kit,请使用独立的包。
+</Callout>
+
+## Sign In With Solana
+
+[Sign In With Solana](https://github.com/phantom/sign-in-with-solana)(SIWS)将质询本身标准化。你的应用将 `domain`、`statement`、`nonce` 和 `issuedAt` 等结构化字段传给钱包的 `solana:signIn` 功能,钱包会将其格式化为标准消息,在需要时完成连接,并一步完成签名。
+
+`solana:signIn` 的 `1.1.0` 版本新增了 `useOffchainMessage` 选项。当你传入 `useOffchainMessage: { messageVersion: 1 }` 时,钱包会将 SIWS 文本封装为版本 1 的链下消息,并以签名账户作为唯一的必需签名者。硬件钱包可以显示并签名该消息,输出中会报告 `signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }`。声明版本为 `1.0.0` 的钱包不识别该选项,因此请先检查功能版本,否则就省略此选项。
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    `solana:signIn` 是钱包功能而非账户功能,因此这些辅助函数接收 `UiWallet`:
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    当所选钱包支持 `solana:signIn` 时,`useWallet` 会提供 `signIn`;当钱包声明版本为 `1.1.0` 时,会提供 `supportsSignInWithOffchainMessage`。向不支持该选项的钱包传入 `useOffchainMessage` 会以 `WalletSignInError` 拒绝:
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    无论钱包签名的是纯 SIWS 文本还是链下消息,`verifySignIn` 都会检查已签名的消息是否还原了输入的每个字段,并带有来自签名账户的有效签名。你也可以在服务器上通过从 `@solana/wallet-adapter/core` 导入它来执行同样的检查,该模块不依赖 React。
+
+  </Tab>
+</Tabs>
+
+在服务器上构建输入,包含一次性 `nonce` 和 `issuedAt` 时间,并保留一份以 nonce 为键的副本。登录验证通过后立即消耗该 nonce。
+
+如果不使用 Wallet Adapter,`@solana/wallet-standard-util` 中的 `verifySignIn` 只会检查纯 SIWS 输出。当 `signedMessageFormat` 报告为链下消息时,`signedMessage` 是一条内容为 SIWS 文本的链下消息。请使用 `@solana/wallet-standard-util` 中的 `createSignInMessageText`,根据你存储的输入和签名地址重新构建预期文本,然后像验证其他链下消息一样进行验证,详见[在服务器上验证签名](#verify-the-signature-on-your-server)。[`@solana/offchain-messages` README](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message) 介绍了 Kit 中的这一流程。
+
+## 面向钱包开发者
+
+钱包通过实现 `@solana/wallet-standard-features` 中的 `solana:signOffchainMessage` Wallet Standard 功能来添加支持:
+
+- 报告 `version: "1.0.0"`,并在 `supportedMessageVersions` 中列出你能够签名的消息版本。目前为 `[1]`。
+- 根据 `requiredSigners` 构建版本 1 的前导部分(preamble),需对其排序并检查是否有重复项。如果该账户不在必需签名者之列,则拒绝该请求。
+- 在签名之前,向用户完整显示消息文本,硬件设备上也不例外。
+- 将您所签名的确切字节作为 `signedOffchainMessage` 返回,同时返回 Ed25519 `signature`。
+- 要支持链下 Sign In With Solana,请为 `solana:signIn` 报告 `version: "1.1.0"`。当输入中包含 `useOffchainMessage` 时,请将 SIWS 文本作为版本 1 的链下消息进行签名,将其字节作为 `signedMessage` 返回,并设置 `signedMessageFormat`。
+- 请继续支持 `solana:signMessage`。它保持不变,应用仍将其用作后备方案。

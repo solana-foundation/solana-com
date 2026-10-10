@@ -55,11 +55,10 @@ pas l'anonymat.
   le transfert. `@solana-program/token-2022` (JS) et `spl-token-client` (Rust)
   fournissent tous deux des helpers de haut niveau qui construisent les preuves
   et séquencent les transactions pour vous.
-- Les transferts confidentiels s'étendent actuellement sur quelques transactions
-  dépendantes car les preuves dépassent la limite de taille de transaction
-  actuelle. Une prochaine évolution (format de transaction v1, introduit avec
-  Agave v4.2) relève cette limite et devrait permettre à un transfert
-  confidentiel de s'exécuter en une seule transaction onchain.
+- Les transferts confidentiels ont historiquement nécessité plusieurs transactions dépendantes,
+  car les preuves dépassaient la limite de taille des transactions. Le format de transaction v1
+  relève cette limite, ce qui permet d'exécuter un transfert confidentiel en une
+  seule transaction onchain.
 - Un portefeuille sans prise en charge spécifique continue de fonctionner : il
   affiche le solde public et les transferts standard restent opérationnels. Les
   fonds confidentiels restent accessibles à tout client compatible avec la
@@ -67,12 +66,11 @@ pas l'anonymat.
 
 ## Termes
 
-- **ElGamal keypair** : keypair de clé publique par compte utilisé pour chiffrer
-  les soldes et construire des preuves ZK. La clé publique est stockée sur le
-  compte.
-- **Clé AES** : clé symétrique par compte utilisée pour chiffrer le « solde
-  disponible déchiffrable » afin que le propriétaire puisse lire son solde
-  disponible en temps constant, sans résoudre un logarithme discret.
+- **ElGamal keypair** : la keypair à clé publique du propriétaire, utilisée pour chiffrer les soldes
+  et construire les preuves ZK. La clé publique est stockée sur chaque compte configuré.
+- **Clé AES** : la clé symétrique du propriétaire, utilisée pour chiffrer le « solde disponible
+  déchiffrable » afin que le propriétaire puisse lire son solde disponible en temps
+  constant, sans résoudre de logarithme discret.
 - **Solde en attente** : solde chiffré des fonds reçus via des dépôts ou des
   transferts entrants qui n'ont pas encore été appliqués. Ne peut pas être
   dépensé directement.
@@ -116,15 +114,13 @@ chiffrement et les preuves, et une **clé AES** pour le déchiffrement rapide du
 solde. La façon dont vous générez et stockez ces clés est un choix
 d'intégration. Voici quelques options courantes :
 
-- **Dériver d'une signature de portefeuille (recommandé par défaut).** Le
-  propriétaire signe un message canonique à séparation de domaine, et les clés
-  sont dérivées de cette signature, de sorte qu'elles sont reproductibles à
-  partir du portefeuille seul et que vous n'avez pas à les stocker. Le seed est
-  déterministe par compte : les helpers JS ci-dessous le lient à la paire
-  `(owner, mint)`, tandis que l'exemple Rust utilise comme seed l'adresse du
-  token account (pour un associated token account, ces adresses sont
-  équivalentes, car cette adresse est elle-même dérivée du propriétaire et du
-  mint).
+- **Dériver à partir d'une signature de portefeuille (option par défaut recommandée).** Le propriétaire signe un
+  message canonique, séparé par domaine, et les clés sont dérivées de cette
+  signature : elles sont donc reproductibles à partir du seul portefeuille et vous n'avez pas
+  besoin de les stocker. La dérivation standard lie les clés au portefeuille principal uniquement
+  et n'utilise aucune seed, de sorte que les clients ne peuvent pas dériver par erreur des clés
+  différentes : un portefeuille correspond à une ElGamal keypair et à une clé AES pour tous les mints
+  et tous les token accounts.
 - **Dériver à partir d'un matériel de clé indépendant.** Pour les passkeys, les
   enclaves sécurisées ou les configurations MPC, dérivez les clés à partir d'une
   sortie WebAuthn PRF ou d'un autre matériel de clé d'entrée, afin que les clés
@@ -141,43 +137,35 @@ recommandé :
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  Les clés confidentielles sont des clés de déchiffrement. Traitez une demande
-  de signature du message de dérivation comme le déverrouillage d'une vue privée
-  des soldes de l'utilisateur. Privilégiez la dérivation à la demande plutôt que
-  leur stockage ; si vous les stockez (par exemple dans un service de garde),
-  protégez-les avec la même rigueur que les clés de signature.
+  Les clés confidentielles sont des clés de déchiffrement. Traitez une demande de signature du message
+  de dérivation comme le déverrouillage d'une vue privée des soldes de l'utilisateur. Privilégiez la dérivation
+  à la demande plutôt que le stockage ; si vous les stockez (par exemple dans un service de garde),
+  protégez-les avec la même rigueur que des clés de signature. Les portefeuilles doivent
+  exposer cette signature via un flux de dérivation dédié et refuser les requêtes génériques
+  signMessage pour les messages commençant par `solana-conf-bal/v1`, car
+  cette signature constitue le matériel de clé d'entrée des clés de déchiffrement de l'utilisateur.
 </Callout>
 
 Les helpers de dérivation retournent du matériel de clé sérialisé. Les helpers
@@ -192,10 +180,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## Création et configuration des comptes
@@ -355,14 +343,12 @@ connaissance générées côté client :
   l'expéditeur sont des entiers non négatifs valides, ce qui empêche la création
   de valeur ex nihilo.
 
-Ces preuves sont plus volumineuses que ce que la limite de taille de transaction
-actuelle autorise en ligne, aussi le schéma habituel consiste à créer des
-**comptes d'état de contexte de preuve**, à y vérifier chaque preuve, à les
-référencer depuis l'instruction de transfert, puis à les fermer pour récupérer
-le rent. Cela s'étend sur quelques transactions dépendantes. Le format de
-transaction v1 (introduit avec Agave v4.2) relève la limite de taille et devrait
-permettre à un transfert confidentiel de s'exécuter en une seule transaction
-onchain, ce qui simplifiera ce flux.
+Ces preuves sont trop volumineuses pour tenir en ligne dans les limites de taille des transactions legacy et v0,
+donc le schéma habituel consiste à créer des **comptes d'état de contexte de preuve**,
+à y vérifier chaque preuve, à les référencer depuis l'instruction de transfert, puis à
+les fermer pour récupérer la rent. Cela s'étend sur plusieurs transactions dépendantes. Le
+format de transaction v1 relève cette limite, ce qui permet d'exécuter un transfert confidentiel
+dans une seule transaction onchain et simplifie ce flux.
 
 Vous n'avez pas à assembler les preuves manuellement. Les deux clients
 fournissent un assistant de haut niveau qui construit les preuves et génère les
@@ -546,11 +532,13 @@ qu'intégrateur, vous n'avez rien de particulier à faire côté envoi, si ce n'
 transmettre la clé de l'auditeur depuis la configuration de l'émetteur (les
 assistants de haut niveau la lisent pour vous).
 
-Si votre produit est l'auditeur (par exemple un émetteur réglementé ou un
-fournisseur de conformité), vous déchiffrez les montants des transferts avec la
-clé secrète de l'auditeur de la même façon qu'un propriétaire déchiffre son
-propre solde. Les propriétaires peuvent également partager sélectivement leurs
-clés par compte avec une partie spécifique sans les exposer publiquement.
+Si votre produit est l'auditeur (par exemple un émetteur régulé ou un fournisseur de
+conformité), vous déchiffrez les montants des transferts avec la clé secrète de l'auditeur de la même manière
+qu'un propriétaire déchiffre son propre solde. Les propriétaires peuvent également partager sélectivement leurs
+clés avec une partie spécifique sans les exposer publiquement — mais avec la dérivation
+standard liée au portefeuille, les mêmes clés couvrent tous les soldes confidentiels du propriétaire ;
+les partager divulgue donc tous les comptes confidentiels, et pas seulement
+un.
 
 ### Surveillance des transactions (KYT)
 
@@ -653,4 +641,4 @@ observable, mais pas le modèle global :
 | Analyse des adresses et des graphes   | Analyser les expéditeurs, destinataires, émetteurs et propriétaires, et effectuer une analyse du graphe des contreparties ; ces données restent publiques.            | **P0**   |
 | Suivi des dépôts/retraits publics | Surveiller les montants de dépôts et de retraits en clair en tant que points d'entrée et de sortie observables du pool confidentiel. | **P0**   |
 | Visibilité des montants par clé d'auditeur | Pour les émissions avec clé d'auditeur activée, déchiffrer les montants des transferts à l'aide de la clé d'auditeur pour faciliter la détection basée sur les montants.     | **P1**   |
-| Intégration des divulgations sélectives   | Prendre en charge les divulgations de montants partagées par les utilisateurs ou les émetteurs via des clés par compte.                                      | **P2**   |
+| Intégration des divulgations sélectives   | Prendre en charge les divulgations de montants partagées par les utilisateurs ou les émetteurs via les clés du propriétaire.                                      | **P2**   |

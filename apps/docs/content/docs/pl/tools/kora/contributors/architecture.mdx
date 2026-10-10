@@ -1,0 +1,92 @@
+---
+title: Architektura
+description:
+  Jak żądanie przechodzi przez węzeł Kora i gdzie w crate'ach znajduje się każdy etap. Zacznij tutaj, zanim wprowadzisz swoją pierwszą zmianę.
+---
+
+Kora to workspace Rusta składający się z trzech crate'ów:
+
+- `kora-lib` zawiera główną logikę oraz serwer RPC,
+- `kora-cli` buduje plik binarny `kora`, który uruchamiają operatorzy, a
+- `kora-deploy` to wyspecjalizowane narzędzie do wdrażania programów, wersjonowane osobno.
+  Wszystko poniżej znajduje się w `crates/lib/src`, o ile nie zaznaczono inaczej.
+
+## Cykl życia żądania
+
+Poniższy diagram przedstawia ogólny przepływ transakcji przez Korę.
+Zrozumienie ścieżki wywołań jest ważne przy konfigurowaniu węzła Kora i dodawaniu
+nowych funkcji.
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## Gdzie znajduje się każdy etap
+
+| Etap na diagramie | Źródło                               | Punkt wejścia                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| Brama (Gateway)              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| Dyspozytor (Dispatch)             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| Logika poszczególnych metod     | `rpc_server/method/`                 | jeden plik na każdą metodę JSON-RPC          |
+| Walidacja           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| Wtyczki              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| Podpisywanie              | `signer/`                            | oparte na crate `solana-keychain` |
+
+Warto znać jeszcze dwa pliki: `config.rs` definiuje cały schemat `kora.toml`, a
+`state.rs` przechowuje zdeserializowaną konfigurację w stanie globalnym procesu.
+
+### Czytanie kodu serwera RPC
+
+`rpc.rs` to cienka warstwa dyspozytora — jedna metoda na każdy endpoint JSON-RPC — i
+najszybszy sposób, by poznać całe API. Logika każdej metody znajduje się we własnym pliku w
+`rpc_server/method/`. Przeczytaj `sign_transaction.rs` od początku do końca; pozostałe metody
+podpisywania są jego wariacjami.
+
+### Czytanie kodu walidatora
+
+`transaction_validator.rs` i `transaction/instruction_util.rs` zawierają logikę
+walidacji transakcji i instrukcji. Dodatkowo znajdują się tam testy właściwości
+bezpieczeństwa polityki fee payera, które mieszczą się po jednym pliku na każdy objęty bramką program w
+`validator/transaction_validator/fee_payer_policy_props/`.
+
+## Warto znać konwencje
+
+**Domyślna walidacja.** Każda flaga w `[validation.fee_payer_policy]`
+domyślnie ma wartość `false`, a struktury polityki mają atrybut `#[serde(default)]`. To
+połączenie jest celowe: dodanie nowej objętej bramką instrukcji nie może zepsuć
+konfiguracji istniejącego operatora i musi skutkować odmową, a nie
+przypadkowym zezwoleniem. Zachowaj oba te elementy, dodając flagę.
+
+**Waliduj transakcję po rozwiązaniu adresów, nigdy surową.** Surowa
+struktura `VersionedTransaction` udostępnia tylko statyczne klucze kont, więc walidacja lub
+wycena transakcji V0 na jej podstawie po cichu pomija konta z tabel wyszukiwania (lookup tables) i
+nalicza zbyt niskie opłaty. `VersionedTransactionResolved::from_transaction` rozwiązuje te
+adresy na początku, dlatego każdy kolejny etap przyjmuje typ rozwiązany.
+
+## Dodawanie wtyczki transakcji
+
+Wtyczki implementują trait `TransactionPlugin` w `plugin/mod.rs`. Ma on dwie
+metody: `validate` uruchamiana dla każdej transakcji podczas przepływów podpisywania oraz
+`validate_config` uruchamiana raz przy starcie, która zwraca operatorowi błędy i ostrzeżenia.
+`PluginExecutionContext` informuje wtyczkę, która z czterech metod podpisywania
+ją wywołała.
+
+`TransactionPluginRunner::from_config` dopasowuje wartość `TransactionPluginType`,
+zdefiniowaną w `config.rs`. Nowa wbudowana wtyczka to nowy wariant w tym miejscu oraz nowe
+ramię `match` w runnerze. Obecnie dostarczane są dwie wtyczki: `gas_swap` i
+`deploy_authority`.
+
+## Testowanie
+
+Kora przechowuje konfigurację w stanie globalnym procesu, więc `tests/` deklaruje jeden
+cel `[[test]]` na każdą fazę, a każdy cel uruchamia własny wbudowany surfnet oraz
+węzeł Kora, inicjowane od zera. Jedna konfiguracja na plik binarny: nowa faza wymaga nowego
+celu, a nie nowego modułu w istniejącym.
+
+```bash
+cargo test -p tests --test <target>
+```
+
+Cała reszta jest podpięta przez `justfile`. Przeczytaj go zamiast
+odtwarzać polecenia ręcznie.

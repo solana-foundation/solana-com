@@ -53,11 +53,10 @@ waarnemers, maar geen anonimiteit.
   indient. Zowel `@solana-program/token-2022` (JS) als `spl-token-client` (Rust)
   bieden geavanceerde hulpfuncties die de bewijzen opbouwen en de transacties
   voor u in volgorde plaatsen.
-- Vertrouwelijke overdrachten beslaan momenteel enkele afhankelijke transacties
-  omdat de bewijzen de huidige transactiegroottелимiet overschrijden. Een
-  aanstaande wijziging (transactieformaat v1, geïntroduceerd met Agave v4.2)
-  verhoogt die limiet en zal naar verwachting een vertrouwelijke overdracht in
-  één enkele onchain-transactie mogelijk maken.
+- Vertrouwelijke overdrachten besloegen tot nu toe meerdere afhankelijke transacties,
+  omdat de proofs de limiet voor de transactiegrootte overschreden. Het transactie-v1-
+  formaat verhoogt die limiet, waardoor een vertrouwelijke overdracht in één
+  onchain-transactie kan worden uitgevoerd.
 - Een wallet zonder enige ondersteuning werkt nog steeds: het toont het openbare
   saldo en standaardoverdrachten blijven functioneren. Vertrouwelijke fondsen
   blijven toegankelijk voor elke vertrouwelijkheidsbewuste client met de
@@ -65,13 +64,11 @@ waarnemers, maar geen anonimiteit.
 
 ## Termen
 
-- **ElGamal keypair**: per-account publieke-sleutel keypair gebruikt om saldi te
-  versleutelen en ZK-bewijzen te bouwen. De publieke sleutel wordt opgeslagen op
-  het account.
-- **AES-sleutel**: per-account symmetrische sleutel gebruikt om het
-  "ontsleutelbare beschikbare saldo" te versleutelen, zodat de eigenaar zijn
-  beschikbare saldo in constante tijd kan lezen zonder een discrete logaritme op
-  te lossen.
+- **ElGamal keypair**: het keypair met publieke sleutel van de eigenaar, dat wordt gebruikt om saldo's te versleutelen
+  en ZK-proofs op te bouwen. De publieke sleutel wordt opgeslagen op elk geconfigureerd account.
+- **AES-sleutel**: de symmetrische sleutel van de eigenaar, die wordt gebruikt om het "ontsleutelbare
+  beschikbare saldo" te versleutelen, zodat de eigenaar zijn beschikbare saldo in constante
+  tijd kan uitlezen, zonder een discreet logaritmeprobleem op te lossen.
 - **Openstaand saldo**: versleuteld saldo van ontvangen middelen via stortingen
   of inkomende overdrachten die nog niet zijn verwerkt. Kan niet direct worden
   besteed.
@@ -116,14 +113,13 @@ versleuteling en bewijzen, en een **AES-sleutel** voor snelle saldodecodering.
 Hoe u deze sleutels aanmaakt en opslaat, is een integratiekeuze. Een paar
 veelgebruikte opties:
 
-- **Afleiden van een wallethandtekening (aanbevolen standaard).** De eigenaar
-  ondertekent een canoniek, domein-gescheiden bericht en de sleutels worden
-  afgeleid van die handtekening, zodat ze reproduceerbaar zijn vanuit de wallet
-  alleen en u ze niet hoeft op te slaan. De seed is deterministisch per account:
-  de onderstaande JS-helpers koppelen het aan het `(owner, mint)`-paar, terwijl
-  het Rust-voorbeeld seeds van het token account-adres (voor een associated
-  token account zijn deze equivalent, omdat dat adres zelf is afgeleid van de
-  eigenaar en de mint).
+- **Leid de sleutels af uit een wallethandtekening (aanbevolen standaard).** De eigenaar ondertekent een
+  canoniek, domeingescheiden bericht en de sleutels worden afgeleid uit die
+  handtekening. Ze zijn dus reproduceerbaar vanuit alleen de wallet en je hoeft ze niet
+  op te slaan. De standaardafleiding koppelt de sleutels alleen aan de hoofdwallet
+  en gebruikt helemaal geen seed, zodat clients niet per ongeluk verschillende
+  sleutels kunnen afleiden: één wallet komt overeen met één ElGamal keypair en één AES-sleutel voor alle mints
+  en token accounts.
 - **Afleiden van onafhankelijk sleutelmateriaal.** Voor passkeys, beveiligde
   enclaves of MPC-setups kunt u de sleutels afleiden van een WebAuthn
   PRF-uitvoer of ander invoersleutelmateriaal, zodat de vertrouwelijke sleutels
@@ -140,44 +136,35 @@ aanbevolen pad:
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  Vertrouwelijke sleutels zijn decryptiesleutels. Behandel een verzoek om het
-  afleidingsbericht te ondertekenen als het ontgrendelen van een privéweergave
-  van de saldi van de gebruiker. Leid ze bij voorkeur op aanvraag af in plaats
-  van ze op te slaan; als u ze toch opslaat (bijvoorbeeld in een custodiale
-  service), bescherm ze dan met dezelfde zorgvuldigheid als
-  ondertekeningssleutels.
+  Vertrouwelijke sleutels zijn decryptiesleutels. Behandel een verzoek om het afleidingsbericht te ondertekenen
+  alsof je een privéoverzicht van de saldo's van de gebruiker ontgrendelt. Leid sleutels bij voorkeur
+  op aanvraag af in plaats van ze op te slaan; als je ze toch opslaat (bijvoorbeeld in een custodial
+  service), bescherm ze dan met dezelfde striktheid als ondertekeningssleutels. Wallets zouden
+  deze handtekening via een speciale afleidingsflow moeten aanbieden en generieke
+  signMessage-verzoeken moeten weigeren voor berichten die beginnen met `solana-conf-bal/v1`, omdat
+  die handtekening het invoersleutelmateriaal is voor de decryptiesleutels van de gebruiker.
 </Callout>
 
 De afleiding-helpers retourneren geserialiseerd sleutelmateriaal. De
@@ -192,10 +179,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## Accounts aanmaken en configureren
@@ -352,14 +339,12 @@ client worden gegenereerd:
   geldige niet-negatieve gehele getallen zijn, wat voorkomt dat er waarde uit
   het niets wordt gecreëerd.
 
-Deze bewijzen zijn groter dan de huidige transactiegroottelimiet toestaat voor
-inline gebruik, dus het gebruikelijke patroon is om **proof context state
-accounts** aan te maken, elk bewijs daarin te verifiëren, ernaar te verwijzen
-vanuit de overdrachtsinstructie en ze vervolgens te sluiten om rent terug te
-vorderen. Dit beslaat een aantal afhankelijke transacties. Transactieformaat v1
-(geïntroduceerd met Agave v4.2) verhoogt de groottelimiet en zal naar
-verwachting een vertrouwelijke overdracht in één enkele onchain-transactie
-mogelijk maken, wat deze flow zal vereenvoudigen.
+Deze proofs zijn groter dan de limiet voor de transactiegrootte van legacy en v0 inline toestaat,
+dus het gebruikelijke patroon is om **proof context state accounts** aan te maken,
+elke proof daarin te verifiëren, ernaar te verwijzen vanuit de overdrachtsinstructie en ze vervolgens
+te sluiten om rent terug te krijgen. Dat beslaat meerdere afhankelijke transacties. Het
+transactie-v1-formaat verhoogt die limiet, waardoor een vertrouwelijke overdracht in één
+onchain-transactie kan worden uitgevoerd en deze flow eenvoudiger wordt.
 
 U hoeft de bewijzen niet handmatig samen te stellen. Beide clients bieden een
 high-level helper die de bewijzen opbouwt en de in te dienen instructies
@@ -540,11 +525,12 @@ geldigsheidsbewijs dekt de auditorciphertext, dus als integrator hoef je niets
 speciaals te doen op het verzendpad buiten het doorgeven van de auditorsleutel
 uit de mintconfiguratie (de high-level helpers lezen deze voor je uit).
 
-Als jouw product de auditor is (bijvoorbeeld een gereguleerde uitgever of een
-complianceprovider), ontsleutel je overdrachtsbedragen met de geheime
-auditorsleutel op dezelfde manier als een eigenaar zijn eigen saldo ontsleutelt.
-Eigenaars kunnen ook selectief hun per-account sleutels delen met een specifieke
-partij zonder deze publiekelijk bloot te stellen.
+Als jouw product de auditor is (bijvoorbeeld een gereguleerde uitgever of een compliance-
+aanbieder), ontsleutel je overdrachtsbedragen met de geheime sleutel van de auditor op dezelfde manier
+zoals een eigenaar zijn eigen saldo ontsleutelt. Eigenaren kunnen hun sleutels ook selectief delen
+met een specifieke partij zonder ze openbaar te maken. Onder de standaard, aan de wallet gebonden afleiding
+dekken dezelfde sleutels echter alle vertrouwelijke saldo's van de eigenaar, dus het delen ervan maakt elk vertrouwelijk account bekend, niet
+slechts één.
 
 ### Transactiemonitoring (KYT)
 
@@ -640,4 +626,4 @@ overdrachten wat observeerbaar is, niet het algehele model:
 | Adres- en grafiekscreening   | Screen verzenders, ontvangers, minters en eigenaren en voer tegenpartij-grafiekanalyse uit; deze blijven openbaar.            | **P0**   |
 | Openbare stortingen/opnames bijhouden | Monitor stortings- en opnamebedragen in leesbare tekst als zichtbare in- en uitstapmomenten van de vertrouwelijke pool. | **P0**   |
 | Bedragzichtbaarheid via auditsleutel | Voor mints met auditorfunctie: decodeer overdrachtsbedragen via de auditsleutel ter ondersteuning van bedraggebaseerde detectie.     | **P1**   |
-| Inname van selectieve openbaarmaking   | Ondersteun bedragopenbaarmaking gedeeld door gebruikers of uitgevers via sleutels per account.                                      | **P2**   |
+| Inname van selectieve openbaarmaking   | Ondersteun onthullingen van bedragen die gebruikers of uitgevers delen via de sleutels van de eigenaar.                                      | **P2**   |

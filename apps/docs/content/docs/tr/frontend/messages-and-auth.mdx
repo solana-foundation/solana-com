@@ -1,0 +1,347 @@
+---
+title: Mesajlar ve Kimlik Doğrulama
+h1: Mesajları İmzalayın ve Kullanıcıların Kimliğini Doğrulayın
+description:
+  Kullanıcıların kimliğini doğrulamak, onay kaydetmek veya zincir dışı işlemleri yetkilendirmek için bir Solana cüzdanıyla mesaj imzalayın. Zincir dışı mesaj imzalamayı kullanın ve bunu henüz desteklemeyen cüzdanlar için bir yedek yöntem sağlayın.
+---
+
+Bir mesajı imzalamak, kullanıcının bir cüzdanı kontrol ettiğini kanıtlar; işlem, ücret ya da ağ çağrısı gerekmez. Uygulamalar imzalı mesajları kullanıcıların oturum açması, kullanıcının şartları kabul ettiğinin kaydedilmesi, bir cüzdanın mevcut bir hesaba bağlanması veya sipariş verme gibi zincir dışında gerçekleşen bir eylemin yetkilendirilmesi için kullanır.
+
+Solana cüzdanları mesajları iki şekilde imzalar:
+
+- **Zincir dışı mesajlar** (`solana:signOffchainMessage`), metninizi zincir dışı mesaj imzalama (OCMS) [spesifikasyonunda](https://docs.anza.xyz/proposals/off-chain-message-signing) tanımlanan standart bir biçimde sarmalar. Bu biçim hiçbir zaman bir işlemle karıştırılamaz, mesajı imzalaması gereken hesapları belirtir ve donanım cüzdanlarının imzaladığı biçimdir.
+- **Ham mesajlar** (`solana:signMessage`), uygulamanızın ilettiği baytları önek eklemeden ve imzalayanları belirtmeden olduğu gibi imzalar. Çoğu yazılım cüzdanı bunları destekler, ancak baytlarda bunların bir işlem değil de mesaj olduğunu gösteren hiçbir şey yoktur.
+
+Cüzdanın desteklediği yerlerde zincir dışı mesajları kullanın, desteklemediği yerlerde ham mesajlara geri dönün. Bu kılavuzun geri kalanı örnek olarak oturum açmayı kullanır, ancak aynı imzalama ve doğrulama adımları her tür mesaj için geçerlidir.
+
+## Bir mesaj biçimi seçin
+
+|                           | Zincir dışı mesaj     | Ham mesaj   | İşlem                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| Cüzdan özelliği            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| Donanım cüzdanı desteği   | Cihaza bağlı     | Hayır            | Evet                           |
+| Kullanıcı tarafından okunabilir      | Evet                   | Yalnızca yazılım cüzdanlarında | Cihaza bağlı             |
+| Gerekli imzalayanları belirtir | Evet                   | Hayır            | Evet                           |
+| RPC çağrıları ve ücretler        | Yok                  | Yok          | Blockhash, gönderme, ücret, onay |
+
+### Neden işlem değil?
+
+Donanım cüzdanlarının eskiden okunabilir bir mesajı imzalamanın bir yolu yoktu. Birçok uygulama, bu kullanıcılardan bunun yerine hiçbir şey yapmayan bir işlem imzalamalarını istemeye başvurdu. Bu işe yarar, ancak gecikme, maliyet ve risk ekler:
+
+- **Ağ ücretleri.** Bir işlem, hiçbir şey yapmasa bile ücret öder.
+- **Birden fazla RPC çağrısı.** Uygulamanız bir blockhash alır, simülasyon yapar, gönderir ve ardından onay için yoklama yapar.
+- **Ek gecikme.** Bu çağrıların her biri, kullanıcı oturum açmadan önce bir gidiş-dönüş demektir.
+- **Okunabilir hiçbir şey yok.** Kullanıcı, neyi kabul ettiğini belirten bir ifadeyi değil, işlem baytlarını onaylar.
+- **Davranışsal risk.** Kullanıcılardan yalnızca oturum açmak için bir işlem imzalamalarını istemek, onları zararlı bir işlemi imzalamaya kandırmayı kolaylaştırır.
+
+Zincir dışı bir mesaj bunların hepsini atlar. Tek gidiş-dönüş kendi sunucunuzadır.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## Cüzdan neyi imzalar?
+
+Zincir dışı bir mesaj, sabit bir imzalama alanıyla başlar: `\xffsolana offchain`. Geçerli hiçbir işlem bu baytlarla başlamaz, bu nedenle imzalanmış bir mesaj hiçbir zaman işlem olarak kullanılamaz. Biçimin 1. sürümü ardından gerekli imzalayanları listeler ve mesajı uzunluk sınırı olmadan UTF-8 metni olarak taşır.
+
+Cüzdan bu baytları oluşturur, imzalar ve imzayla birlikte geri döndürür. [Spesifikasyon](https://docs.anza.xyz/proposals/off-chain-message-signing), eski 0. sürüm dahil biçimin tamamını kapsar.
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## Bir oturum açma yöntemi seçin
+
+Her cüzdan henüz zincir dışı mesajları desteklemez. İmza istemeden önce bağlı hesabın özelliklerini kontrol edin ve özellik yoksa yedek yönteme geçin:
+
+1. Hesap, mesaj sürümü 1 ile `solana:signOffchainMessage` özelliğini destekliyorsa zincir dışı bir mesaj imzalayın.
+2. Aksi takdirde, aynı meydan okumayı (challenge) `solana:signMessage` ile imzalayın. Çoğu yazılım cüzdanı bunu destekler.
+3. Mesaj desteği olmayan donanım cüzdanı kullanıcılarına, bunun yerine bir oturum açma işlemi imzalayan, örneğin "Donanım cüzdanı kullanıyorum" anahtarı gibi açık bir katılım seçeneği sunun. Onları varsayılan olarak bu yola yönlendirmeyin.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## Tarayıcıda mesaj imzalama
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    Wallet Standard paketlerini Kit ile birlikte yükleyin:
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    Bu yardımcılar, [React kılavuzundaki](/docs/frontend/react-hooks) `useConnectedWallet` tarafından döndürülen `account` gibi bir `UiWalletAccount` alır:
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `@solana/wallet-adapter` içindeki `useWallet`, `signOffchainMessage` işlevini yalnızca bağlı hesap `solana:signOffchainMessage` özelliğini desteklediğinde sunar. Bağlı hesabı gerekli imzalayan olarak belirterek 1. sürüm bir mesajı imzalar ve cüzdan 1. sürümü imzalayamıyorsa `WalletNotReadyError` ile reddedilir:
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // Server logic
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    `publicKey.verifySignature`, imzayı tarayıcıda imzalanan baytlara karşı kontrol eder. Sunucunuzun yine de bu baytların kendi verdiği meydan okuma (challenge) olduğunu doğrulaması gerekir. `signOffchainMessage` `undefined` olduğunda, aynı hook'taki `signMessage` işlevine geri dönün.
+
+  </Tab>
+</Tabs>
+
+`signOffchainMessage`, cüzdanın imzaladığı baytların tamamı olan `signedOffchainMessage` ile `signature` değerini döndürür. Her ikisini de Base64 olarak kodlayın ve cüzdan adresiyle birlikte sunucunuza gönderin.
+
+Meydan okuma metnini küçük ekranlarda iyi okunacak şekilde yazın. Uygulamanızın ve alan adınızın adını belirtin, imzalamanın ne yaptığını söyleyin ve sunucunuzdan gelen tek kullanımlık bir nonce ile bir düzenlenme zamanı ekleyin:
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## İmzayı sunucunuzda doğrulayın
+
+Doğrulama, yerel bir imza kontrolüdür ve RPC bağlantısı gerektirmez. Cüzdanın imzaladığı baytları çözün, bunların verdiğiniz meydan okumayla eşleştiğini doğrulayın, ardından imzayı kontrol edin:
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+`assertOffchainMessageV1Equal`, içerik veya imzalayanlar beklediğinizden farklıysa hata fırlatır. `verifyOffchainMessageEnvelope`, imza eksik veya geçersizse hata fırlatır. `expectedMessage` değerini, istemcinin geri gönderdiği kopyaya güvenmek yerine sunucunuzda nonce ile arayın. Doğrulama başarılı olunca nonce'u tüketin; böylece aynı imza iki kez oturum açamaz.
+
+### Ham mesajı doğrulayın
+
+Bir `signMessage` imzası meydan okuma baytlarını doğrudan kapsar, bu nedenle istemcinin yalnızca imzayı ve cüzdan adresini göndermesi yeterlidir. İmzayı verdiğiniz meydan okumaya karşı kontrol edin:
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+Aynı nonce kuralları geçerlidir: `expectedMessage` değerini nonce ile arayın ve doğrulama başarılı olunca nonce'u tüketin.
+
+<Callout type="info">
+  `@solana/kit`, bu yardımcıları `@solana/offchain-messages` paketinden yeniden dışa aktarır. Sunucunuz Kit'e bağımlı değilse bağımsız paketi kullanın.
+</Callout>
+
+## Sign In With Solana
+
+[Sign In With Solana](https://github.com/phantom/sign-in-with-solana) (SIWS), meydan okuma metnini standartlaştırır. Uygulamanız `domain`, `statement`, `nonce` ve `issuedAt` gibi yapılandırılmış alanları cüzdanın `solana:signIn` özelliğine iletir. Cüzdan bunları standart bir mesaj biçiminde düzenler, gerekirse bağlanır ve tek adımda imzalar.
+
+`solana:signIn` özelliğinin `1.1.0` sürümü bir `useOffchainMessage` seçeneği ekler. `useOffchainMessage: { messageVersion: 1 }` ilettiğinizde cüzdan, SIWS metnini imzalayan hesabın tek gerekli imzalayan olduğu 1. sürüm bir zincir dışı mesajın içine sarar. Donanım cüzdanları bunu görüntüleyip imzalayabilir ve çıktı `signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }` bilgisini bildirir. `1.0.0` sürümünü bildiren cüzdanlar bu seçeneği tanımaz; bu yüzden önce özellik sürümünü kontrol edin, aksi halde seçeneği atlayın.
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    `solana:signIn` bir hesap özelliği değil, cüzdan özelliğidir; bu yüzden bu yardımcılar bir `UiWallet` alır:
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet`, seçili cüzdan `solana:signIn` özelliğini desteklediğinde `signIn` işlevini, `1.1.0` sürümünü bildirdiğinde ise `supportsSignInWithOffchainMessage` değerini sunar. `useOffchainMessage` seçeneğini bunu desteklemeyen bir cüzdana iletmek `WalletSignInError` ile reddedilir:
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    `verifySignIn`, imzalanan mesajın girdideki her alanı yeniden ürettiğini ve imzalayan hesaptan geçerli bir imza taşıdığını kontrol eder; cüzdan düz SIWS metnini de imzalamış olsa, zincir dışı bir mesajı da imzalamış olsa bu böyledir. Aynı kontrolü sunucunuzda, React bağımlılığı olmayan `@solana/wallet-adapter/core` paketinden içe aktararak çalıştırın.
+
+  </Tab>
+</Tabs>
+
+Girdiyi sunucunuzda, tek kullanımlık bir `nonce` ve bir `issuedAt` zamanıyla oluşturun ve nonce'a göre anahtarlanmış bir kopyasını saklayın. Oturum açma doğrulandığında nonce'u tüketin.
+
+Wallet Adapter olmadan, `@solana/wallet-standard-util` paketindeki `verifySignIn` yalnızca düz SIWS çıktısını kontrol eder. `signedMessageFormat` bir zincir dışı mesaj bildirdiğinde, `signedMessage` içeriği SIWS metni olan bir zincir dışı mesajdır. Beklenen metni, saklanan girdinizden ve imzalayan adresten `@solana/wallet-standard-util` paketindeki `createSignInMessageText` ile yeniden oluşturun, ardından [İmzayı sunucunuzda doğrulayın](#verify-the-signature-on-your-server) bölümündeki gibi diğer tüm zincir dışı mesajlar gibi doğrulayın. [`@solana/offchain-messages` README](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message) dosyası bu akışı Kit içinde ele alır.
+
+## Cüzdanlar için
+
+Cüzdanlar, `@solana/wallet-standard-features` paketindeki `solana:signOffchainMessage` Wallet Standard özelliğini uygulayarak destek ekler:
+
+- `version: "1.0.0"` bildirin ve imzalayabildiğiniz mesaj sürümlerini `supportedMessageVersions` içinde listeleyin. Bugün bu değer `[1]` olmalıdır.
+- Sürüm 1 preamble'ını, sıraladığınız ve yinelenenleri kontrol ettiğiniz `requiredSigners` değerinden oluşturun. Hesap, gerekli imzalayanlardan biri değilse isteği reddedin.
+- İmzalamadan önce mesaj metnini, donanım cihazlarında da dahil olmak üzere, kullanıcıya eksiksiz olarak gösterin.
+- İmzaladığınız baytların aynısını, Ed25519 `signature` ile birlikte `signedOffchainMessage` olarak döndürün.
+- Zincir dışı Sign In With Solana desteği sunmak için `solana:signIn` özelliğinde `version: "1.1.0"` bildirin. Girdi `useOffchainMessage` içerdiğinde, SIWS metnini sürüm 1 zincir dışı mesaj olarak imzalayın, baytlarını `signedMessage` olarak döndürün ve `signedMessageFormat` değerini ayarlayın.
+- `solana:signMessage` desteğini sürdürün. Bu özellik değişmedi ve uygulamalar onu hâlâ yedek yöntem olarak kullanıyor.

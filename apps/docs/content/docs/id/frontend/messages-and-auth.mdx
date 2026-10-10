@@ -1,0 +1,435 @@
+---
+title: Pesan & Autentikasi
+h1: Tanda Tangani Pesan & Autentikasi Pengguna
+description:
+  Tanda tangani pesan dengan dompet Solana untuk mengautentikasi pengguna, mencatat persetujuan, atau mengotorisasi tindakan off-chain, menggunakan penandatanganan pesan off-chain dengan fallback untuk dompet yang belum mendukungnya.
+---
+
+Menandatangani pesan membuktikan bahwa pengguna mengendalikan sebuah dompet, tanpa transaksi, tanpa
+biaya, dan tanpa panggilan jaringan. Aplikasi menggunakan pesan bertanda tangan untuk memasukkan pengguna (sign in), mencatat bahwa
+pengguna telah menyetujui ketentuan, menautkan dompet ke akun yang sudah ada, atau mengotorisasi
+tindakan yang terjadi secara off-chain, seperti membuat pesanan.
+
+Dompet Solana menandatangani pesan dengan dua cara:
+
+- **Pesan off-chain** (`solana:signOffchainMessage`) membungkus teks Anda dalam
+  format standar, yang didefinisikan oleh [spesifikasi](https://docs.anza.xyz/proposals/off-chain-message-signing)
+  penandatanganan pesan off-chain (OCMS).
+  Format ini tidak akan pernah bisa disalahartikan sebagai transaksi, menyebutkan akun yang
+  harus menandatanganinya, dan merupakan format yang ditandatangani oleh hardware wallet.
+- **Pesan mentah** (`solana:signMessage`) menandatangani persis byte yang diteruskan aplikasi Anda,
+  tanpa prefiks dan tanpa penanda tangan yang dideklarasikan. Sebagian besar software wallet mendukungnya,
+  tetapi tidak ada apa pun dalam byte tersebut yang menandainya sebagai pesan, bukan
+  transaksi.
+
+Gunakan pesan off-chain jika dompet mendukungnya, dan beralihlah ke pesan
+mentah jika tidak. Sisa panduan ini menggunakan sign-in sebagai contoh kasus,
+tetapi langkah penandatanganan dan verifikasi yang sama berlaku untuk pesan apa pun.
+
+## Pilih format pesan
+
+|                           | Pesan off-chain     | Pesan mentah   | Transaksi                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| Fitur dompet            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| Dukungan hardware wallet   | Tergantung perangkat     | Tidak            | Ya                           |
+| Dapat dibaca pengguna      | Ya                   | Hanya software | Tergantung perangkat             |
+| Mendeklarasikan penanda tangan yang diperlukan | Ya                   | Tidak            | Ya                           |
+| Panggilan RPC dan biaya        | Tidak ada                  | Tidak ada          | Blockhash, kirim, biaya, konfirmasi |
+
+### Mengapa bukan transaksi?
+
+Dahulu hardware wallet tidak punya cara untuk menandatangani pesan yang dapat dibaca. Banyak aplikasi
+terpaksa meminta pengguna ini menandatangani transaksi no-op sebagai gantinya. Cara ini berhasil, tetapi
+menambah latensi, biaya, dan risiko:
+
+- **Biaya jaringan.** Transaksi membayar biaya, bahkan ketika tidak melakukan apa pun.
+- **Banyak panggilan RPC.** Aplikasi Anda mengambil blockhash, mensimulasikan, mengirim, lalu
+  melakukan polling untuk konfirmasi.
+- **Latensi tambahan.** Setiap panggilan tersebut adalah satu putaran bolak-balik sebelum pengguna
+  berhasil masuk.
+- **Tidak ada yang dapat dibaca.** Pengguna menyetujui byte transaksi, bukan pernyataan tentang
+  apa yang mereka setujui.
+- **Risiko perilaku.** Meminta pengguna menandatangani transaksi hanya untuk login membuat
+  mereka lebih mudah ditipu untuk menandatangani transaksi yang berbahaya.
+
+Pesan off-chain melewati semua itu. Satu-satunya putaran bolak-balik hanyalah ke server
+Anda sendiri.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## Apa yang ditandatangani dompet
+
+Pesan off-chain diawali dengan domain penandatanganan tetap, `\xffsolana offchain`.
+Tidak ada transaksi valid yang diawali dengan byte tersebut, sehingga pesan yang sudah ditandatangani tidak akan pernah
+dapat digunakan sebagai transaksi. Format versi 1 kemudian mencantumkan penanda tangan yang diperlukan
+dan membawa pesan sebagai teks UTF-8, tanpa batas panjang.
+
+Dompet menyusun byte ini, menandatanganinya, dan mengembalikannya bersama
+tanda tangan. [Spesifikasi](https://docs.anza.xyz/proposals/off-chain-message-signing)
+membahas format lengkap, termasuk versi 0 yang lama.
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## Pilih metode sign-in
+
+Belum semua dompet mendukung pesan off-chain. Periksa fitur
+akun yang terhubung sebelum meminta tanda tangan, dan gunakan fallback jika fitur
+tersebut tidak tersedia:
+
+1. Jika akun mendukung `solana:signOffchainMessage` dengan pesan versi 1,
+   tanda tangani pesan off-chain.
+2. Jika tidak, tanda tangani challenge yang sama dengan `solana:signMessage`. Sebagian besar software
+   wallet mendukungnya.
+3. Berikan pengguna hardware wallet yang tidak mendukung pesan opsi opt-in yang eksplisit, seperti
+   tombol "Saya menggunakan hardware wallet", yang menandatangani transaksi sign-in
+   sebagai gantinya. Jangan mengarahkan mereka ke jalur ini secara default.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## Tanda tangani pesan di browser
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    Instal paket Wallet Standard bersama Kit:
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    Helper ini menerima `UiWalletAccount`, seperti `account` yang dikembalikan oleh
+    `useConnectedWallet` di [panduan React](/docs/frontend/react-hooks):
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` dari `@solana/wallet-adapter` mengekspos `signOffchainMessage` hanya
+    ketika akun yang terhubung mendukung `solana:signOffchainMessage`. Fungsi ini menandatangani
+    pesan versi 1 dengan akun yang terhubung sebagai penanda tangan yang diperlukan, dan
+    menolak dengan `WalletNotReadyError` jika dompet tidak dapat menandatangani versi 1:
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // Server logic
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    `publicKey.verifySignature` memeriksa tanda tangan terhadap byte yang ditandatangani
+    di browser. Server Anda tetap perlu memastikan bahwa byte tersebut adalah
+    challenge yang diterbitkannya. Jika `signOffchainMessage` bernilai `undefined`, gunakan fallback
+    ke `signMessage` dari hook yang sama.
+
+  </Tab>
+</Tabs>
+
+`signOffchainMessage` mengembalikan `signedOffchainMessage`, yaitu byte lengkap yang ditandatangani
+oleh dompet, dan `signature`. Encode keduanya dengan Base64 lalu kirim ke server Anda bersama
+alamat dompet.
+
+Tulis challenge agar mudah dibaca di layar kecil. Sebutkan aplikasi dan
+domain Anda, jelaskan apa yang dilakukan penandatanganan, dan sertakan nonce sekali pakai serta waktu penerbitan
+dari server Anda:
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## Verifikasi tanda tangan di server Anda
+
+Verifikasi adalah pemeriksaan tanda tangan secara lokal dan tidak memerlukan koneksi RPC. Dekode
+byte yang ditandatangani dompet, pastikan byte tersebut cocok dengan challenge yang Anda terbitkan, lalu periksa
+tanda tangannya:
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+`assertOffchainMessageV1Equal` melempar error jika konten atau penanda tangan berbeda dari
+yang Anda harapkan. `verifyOffchainMessageEnvelope` melempar error jika tanda tangan
+tidak ada atau tidak valid. Cari `expectedMessage` berdasarkan nonce di server Anda, jangan
+percayai salinan yang dikirim kembali oleh klien. Gunakan nonce sekali setelah
+verifikasi berhasil, sehingga tanda tangan yang sama tidak dapat digunakan untuk sign-in dua kali.
+
+### Verifikasi pesan mentah
+
+Tanda tangan `signMessage` mencakup byte challenge secara langsung, sehingga klien
+hanya perlu mengirim tanda tangan dan alamat dompet. Periksa terhadap
+challenge yang Anda terbitkan:
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+Aturan nonce yang sama berlaku: cari `expectedMessage` berdasarkan nonce dan gunakan nonce tersebut
+sekali setelah verifikasi berhasil.
+
+<Callout type="info">
+  `@solana/kit` mengekspor ulang helper ini dari `@solana/offchain-messages`. Gunakan
+  paket mandiri jika server Anda tidak bergantung pada Kit.
+</Callout>
+
+## Sign In With Solana
+
+[Sign In With Solana](https://github.com/phantom/sign-in-with-solana) (SIWS)
+menstandarkan challenge itu sendiri. Aplikasi Anda meneruskan bidang terstruktur, seperti
+`domain`, `statement`, `nonce`, dan `issuedAt`, ke fitur `solana:signIn`
+pada dompet. Dompet memformatnya menjadi pesan standar, terhubung jika diperlukan,
+dan menandatanganinya dalam satu langkah.
+
+Versi `1.1.0` dari `solana:signIn` menambahkan opsi `useOffchainMessage`. Ketika Anda
+meneruskan `useOffchainMessage: { messageVersion: 1 }`, dompet membungkus teks SIWS
+dalam pesan off-chain versi 1 dengan akun penandatangan sebagai satu-satunya penanda tangan
+yang diperlukan. Hardware wallet dapat menampilkan dan menandatanganinya, dan outputnya melaporkan
+`signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }`. Dompet
+yang mengiklankan versi `1.0.0` tidak mengenal opsi ini, jadi periksa versi fitur
+terlebih dahulu dan hilangkan opsi tersebut jika tidak didukung.
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    `solana:signIn` adalah fitur dompet, bukan fitur akun, sehingga helper ini
+    menerima `UiWallet`:
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` mengekspos `signIn` ketika dompet yang dipilih mendukung
+    `solana:signIn`, dan `supportsSignInWithOffchainMessage` ketika dompet mengiklankan
+    versi `1.1.0`. Meneruskan `useOffchainMessage` ke dompet yang tidak
+    mendukungnya akan ditolak dengan `WalletSignInError`:
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    `verifySignIn` memeriksa bahwa pesan yang ditandatangani mereproduksi setiap bidang dari
+    input dan membawa tanda tangan valid dari akun penandatangan, baik
+    dompet menandatangani teks SIWS biasa maupun pesan off-chain. Jalankan pemeriksaan yang sama di
+    server Anda dengan mengimpornya dari `@solana/wallet-adapter/core`, yang tidak memiliki
+    dependensi React.
+
+  </Tab>
+</Tabs>
+
+Susun input di server Anda, dengan `nonce` sekali pakai dan waktu `issuedAt`,
+lalu simpan salinannya dengan nonce sebagai kunci. Gunakan nonce setelah sign-in
+berhasil diverifikasi.
+
+Tanpa Wallet Adapter, `verifySignIn` dari `@solana/wallet-standard-util`
+hanya memeriksa output SIWS biasa. Ketika `signedMessageFormat` melaporkan pesan
+off-chain, `signedMessage` adalah pesan off-chain yang kontennya adalah teks SIWS.
+Susun ulang teks yang diharapkan dari input tersimpan dan alamat penandatangan dengan
+`createSignInMessageText` dari `@solana/wallet-standard-util`, lalu verifikasi
+seperti pesan off-chain lainnya, sebagaimana di
+[Verifikasi tanda tangan di server Anda](#verify-the-signature-on-your-server). [README `@solana/offchain-messages`](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message)
+membahas alur ini di Kit.
+
+## Untuk dompet
+
+Dompet menambahkan dukungan dengan mengimplementasikan fitur Wallet
+Standard `solana:signOffchainMessage` dari `@solana/wallet-standard-features`:
+
+- Laporkan `version: "1.0.0"` dan cantumkan versi pesan yang dapat Anda tandatangani di
+  `supportedMessageVersions`. Saat ini, nilainya adalah `[1]`.
+- Bangun preamble versi 1 dari `requiredSigners`, yang Anda urutkan dan periksa
+  apakah ada duplikat. Tolak permintaan jika akun tersebut bukan salah satu penandatangan
+  yang diwajibkan.
+- Tampilkan teks pesan kepada pengguna secara lengkap sebelum penandatanganan, termasuk di
+  perangkat keras.
+- Kembalikan byte persis yang Anda tandatangani sebagai `signedOffchainMessage`, beserta
+  `signature` Ed25519.
+- Untuk mendukung Sign In With Solana secara off-chain, laporkan `version: "1.1.0"` untuk
+  `solana:signIn`. Jika input menyertakan `useOffchainMessage`, tandatangani teks SIWS
+  sebagai pesan off-chain versi 1, kembalikan byte-nya sebagai `signedMessage`,
+  lalu atur `signedMessageFormat`.
+- Tetap dukung `solana:signMessage`. Fungsi ini tidak berubah, dan aplikasi masih menggunakannya
+  sebagai fallback.

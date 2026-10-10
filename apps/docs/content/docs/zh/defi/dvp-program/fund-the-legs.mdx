@@ -1,0 +1,194 @@
+---
+title: 为交易腿注资
+description:
+  先验证 DvP 交易中已存储的条款,再通过向托管账户执行一次普通的 TransferChecked 为某一交易腿注资。
+seoTitle: 在 Solana 上为 DvP 交易注资
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+注资就是向交易腿的托管账户执行一次普通的 `TransferChecked`,因此任何能够发送代币转账的钱包或托管系统都可以为交易腿注资。只有在注资前读取交易记录这一步需要用到 DvP 客户端。程序仅在结算时检查托管账户余额;转账到账时不会进行任何检查,因此各方应在转账前先读取交易记录。
+
+本页承接[创建交易](/docs/defi/dvp-program/create-a-trade)一节,客户端和签名者沿用上文设置。
+
+## 验证条款
+
+创建交易记录无需许可,而且托管账户地址仅由交易记录和代币 mint 推导而来,与条款内容无关。因此,转入托管账户的资金可能对应着你从未同意过的条款,其中包括将对手方所得款项重定向到第三方地址的结算目标地址。注资之前,请读取 `SwapDvp` 账户,并将其与已约定的交易逐项核对。
+
+TypeScript 中的 `verifySwapDvp` 和 Rust 中的 `verify::decode_swap_dvp_account` 会确认:该账户归 DvP 程序所有、大小恰好为 458 字节,并且位于其自身字段所推导出的地址上(`fetchSwapDvpChecked` 仅执行前两项检查)。普通的 `fetchSwapDvp` 和 `decodeSwapDvp` 读取方法则不执行上述任何检查。对当事方、金额、时间和目标地址的检查,须由调用方对照已约定的交易自行完成。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+如果交易记录由你的对手方或结算授权方创建,请将每个字段与你们在链下约定的条款逐一比对。如果是你自己创建的,这次读取则用于确认记录已按发送内容落地。
+
+## 向托管账户转账
+
+请按约定金额足额注资。程序会将结算金额限制为 `amount_x`,并把多余部分退还给该交易腿的当事方,因此多转的部分不会丢失,但这会在结算时多出一笔转账,并且可能因某些转账钩子(transfer hook)而失败(见下方注意事项)。
+
+请使用 `TransferChecked`,而不是未经检查的 `Transfer`。对于带有依赖 mint account 的扩展(例如 Pausable)的 Token-2022 mint,如果转账时未提供该账户,转账会被拒绝;而带有转账钩子的 mint,则需要像对该代币的其他任何转账一样,解析钩子所需的账户并将其追加到指令中。
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    资产腿的当事方以 `userASigner` 身份签名,为托管账户 A 注资:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    资金腿的当事方以同样的方式为托管账户 B 注资,使用 `userBAtaB`、`mintB`、`userBSigner`、`t.amountB` 和 `{ programAddress: tokenProgramB }`。
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    资金腿的当事方使用 `mint_b`、`user_b` 和 `trade.amount_b`,为托管账户 B 构建相同的指令。
+
+  </Tab>
+</Tabs>
+
+在 [`confirmed`](/docs/rpc#configuring-state-commitment) 级别看到的注资转账仍有可能被取代。程序在结算时会读取链上的托管账户余额,因此如果针对一笔未成功落地的注资转账发送了 Settle,交易会以 `LegNotFunded` 失败,且不会有任何资金变动;代价仅是一次失败的 Settle 以及随后的重试。请在转账达到 `finalized` 时,再将该交易腿视为已注资。
+
+## 注意事项
+
+- **Wrapped SOL 交易腿。** 程序在同步原生托管账户后才读取其余额,因此通过系统转账发送到 wrapped SOL 托管账户的 lamports 会被计入。切勿向任何其他 mint 的托管账户发送 SOL:程序无法将其退回,这些 SOL 将归关闭该账户的人所有。
+- **受限 mint。** 对于默认账户状态为冻结(Default Account State frozen)的 mint,托管账户创建后即处于冻结状态,转账会失败,直到发行方解冻或准许该账户。[概述](/docs/defi/dvp-program#mint-configuration-constraints)中介绍了与 Token ACL 的交互方式。
+- **转账钩子。** 对带有钩子的托管账户,请按约定金额足额注资。如果多余部分导致结算时需要退款,退款会复用该交易腿的钩子账户,但目标地址和金额不同,某些钩子会拒绝这样的转账。补救办法是:执行 Reclaim,按准确金额重新注资,然后再次结算。
+- **到期后注资。** 没有任何机制会阻止在 `expiry_timestamp` 之后的转账。转账会成功落地,但已无法再结算,该交易腿的当事方可在交易未关闭时通过 Reclaim 取回资金,或在交易关闭后通过 Recover 取回。请参阅[撤销交易](/docs/defi/dvp-program/unwind-a-trade)。
+- **谁先注资。** 程序不会对两条交易腿的注资顺序进行排序。顺序由各方自行商定;在结算之前,任何一方都可以随时取回自己的那条交易腿,除非 mint 权限方(冻结、暂停或转账钩子)阻止了该托管账户。
+
+## 后续步骤
+
+- [结算交易](/docs/defi/dvp-program/settle-the-trade):结算授权方在一笔交易中交换两条交易腿
+- [撤销交易](/docs/defi/dvp-program/unwind-a-trade):交易未能结算时,取回已注资的交易腿

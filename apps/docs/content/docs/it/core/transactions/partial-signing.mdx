@@ -1,0 +1,109 @@
+---
+title: Firma parziale
+description:
+  Crea un unico messaggio di transazione Solana immutabile, raccogli le firme da firmatari indipendenti, verificale e uniscile, quindi invia la transazione.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+La firma parziale consente a più parti di firmare la stessa transazione in momenti
+diversi o su dispositivi diversi. Un coordinatore crea il messaggio, ogni firmatario
+richiesto firma i byte esatti del messaggio serializzato, e il coordinatore verifica
+e unisce le firme prima dell'invio.
+
+<Callout type="warn" title="Le firme autorizzano dei byte, non un'intenzione">
+  Modificare il fee payer, il blockhash, l'ordine delle istruzioni, l'elenco degli account o qualsiasi
+  instruction data produce un messaggio diverso e invalida tutte le firme
+  già raccolte.
+</Callout>
+
+## Flusso della firma parziale
+
+1. Concordare le istruzioni della transazione e chi pagherà la commissione.
+2. Impostare la durata di validità della transazione e il fee payer.
+3. Serializzare il messaggio una sola volta. Trattare quei byte come immutabili.
+4. Distribuire i byte del messaggio e un riepilogo leggibile a ogni firmatario.
+5. Raccogliere e verificare ogni firma Ed25519 rispetto agli stessi byte del messaggio.
+6. Associare le firme agli indirizzi dei firmatari richiesti.
+7. Verificare che ogni firma richiesta sia presente e valida, quindi inviare.
+
+## Esempio completo
+
+Il fee payer e il mittente di SOL qui sotto firmano in modo indipendente. Il coordinatore verifica
+entrambe le firme, le unisce e invia la transazione completata.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+L'esempio utilizza la firma Ed25519 grezza per rendere esplicito il confine tra il
+coordinatore e ciascun firmatario. Un wallet, un dispositivo hardware, un servizio
+di custodia o un firmatario offline possono sostituire qualsiasi keypair locale, purché firmino
+esattamente gli stessi byte del messaggio.
+
+## Blocca il messaggio prima di firmare
+
+Ogni firma copre il messaggio di transazione serializzato. Il messaggio include
+tutti i seguenti elementi:
+
+- il fee payer
+- il blockhash recente o il durable nonce
+- gli indirizzi di ogni programma e account
+- i permessi di firma e di scrittura degli account
+- l'ordine delle istruzioni e le instruction data
+
+Crea prima questi campi, serializza il messaggio una sola volta e distribuisci quell'array
+di byte a ogni firmatario. È utile conservare un digest del messaggio insieme a
+ogni richiesta di firma, in modo che il coordinatore possa rifiutare una firma restituita per un
+messaggio diverso.
+
+Non deserializzare un messaggio, modificarlo e aspettarsi che le firme
+raccolte in precedenza restino valide. Anche una modifica che sembra operativa, come
+la sostituzione di un blockhash scaduto o il cambio del fee payer, richiede che ogni firmatario
+firmi di nuovo.
+
+## Coordina il fee payer
+
+Il fee payer è sempre un firmatario obbligatorio e deve essere scelto prima che il messaggio
+venga bloccato. Verifica che l'account abbia SOL sufficienti per la commissione base e per qualsiasi
+commissione di priorità. Se uno sponsor o un backend pagherà la commissione, inserisci quell'indirizzo nel
+messaggio prima di raccogliere la firma dell'utente: aggiungere lo sponsor in un secondo momento modifica
+i byte firmati.
+
+Il coordinatore deve verificare che una firma in arrivo appartenga a un indirizzo
+elencato tra i firmatari richiesti. Non accettare mai una chiave pubblica arbitraria e non aggiungerla
+alla transazione.
+
+## Gestisci la durata della transazione
+
+Una transazione con blockhash recente è valida solo finché il suo blockhash rimane nella coda dei
+blockhash recenti del validator. Prima di avviare un flusso di firma con più parti,
+stima se tutti i firmatari possono rispondere prima di `lastValidBlockHeight`.
+
+Se il blockhash scade, crea un nuovo messaggio con un blockhash aggiornato e raccogli
+nuovamente tutte le firme. Per i flussi di lavoro che potrebbero richiedere più tempo o includere firmatari
+offline, usa un [durable nonce](/docs/core/transactions/durable-nonces). Un
+durable nonce evita la finestra del blockhash recente, ma far avanzare o consumare in altro modo
+quel nonce invalida comunque la transazione in sospeso.
+
+## Verifica prima dell'invio
+
+Per ogni firma restituita:
+
+1. Verifica la firma rispetto ai byte del messaggio bloccato e alla chiave pubblica
+   del firmatario previsto.
+2. Associala alla posizione di quel firmatario nell'array delle firme della transazione.
+3. Verifica che la transazione assemblata abbia firme valide per ogni firmatario
+   richiesto.
+4. Invia la transazione serializzata senza ricostruirne il messaggio.
+
+Dopo l'invio, conferma utilizzando le stesse informazioni sulla durata che erano incluse
+nel messaggio firmato. Se la conferma segnala un blockhash scaduto o un nonce
+consumato, non riprovare con una transazione modificata: riavvia il flusso di firma.

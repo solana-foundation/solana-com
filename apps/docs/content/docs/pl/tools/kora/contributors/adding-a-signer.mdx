@@ -279,14 +279,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Testy integracyjne
 
-Kora wykorzystuje zunifikowany runner testów (`tests/src/bin/test_runner.rs`),
-który zarządza wszystkimi fazami testów integracyjnych, w tym testami
-TypeScript. Aby dodać testy dla nowego signera:
+Każda faza integracji to osobny target `[[test]]` w `tests/Cargo.toml`. Każdy
+target uruchamia wbudowany surfnet oraz węzeł Kora przez `harness_context`,
+zainicjowany od zera. Kora przechowuje konfigurację w stanie globalnym procesu, więc nowy
+signer wymaga nowego targetu, a nie nowego modułu w istniejącym.
 
-#### 1. Dodaj konfigurację testów
+#### 1. Dodaj fixture signera
 
-Utwórz nowy plik konfiguracyjny signera w `tests/src/common/fixtures/` dla
-swojej usługi:
+Utwórz konfigurację signera w `tests/src/common/fixtures/`:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -301,47 +301,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Dodaj fazę testową do runnera testów
+#### 2. Dodaj target testowy
 
-Zaktualizuj `tests/src/test_runner/test_cases.toml`, aby uwzględnić fazę testową
-dla Twojego signera:
+Zarejestruj fazę w `tests/Cargo.toml`:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Następnie utwórz `tests/your_service/main.rs`. Plik wskazuje harnessowi Twój fixture
+i musi zawierać co najmniej jeden test `#[tokio::test]`, który sprawdza signera:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+Dodaj również test `signTransaction`, aby uruchomić ścieżkę podpisywania signera, a nie tylko
+wyszukiwanie klucza. Kompletny przykład do skopiowania znajdziesz w `tests/multi_signer/`.
 
 #### 3. Uruchamianie testów
 
-Upewnij się, że Twoje środowisko jest skonfigurowane:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Uruchom testy przy użyciu zunifikowanego runnera testów:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Wymagania dotyczące dokumentacji
@@ -406,7 +425,7 @@ Dodaj swoją usługę do listy signerów w głównym pliku README.
 - [ ] (Opcjonalnie) Dodano metodę konstruktora testowego mocka w
       `config_mock.rs`
 - [ ] Kod kompiluje się bez ostrzeżeń
-- [ ] Wszystkie testy przechodzą (`make test` i `make test-integration`)
+- [ ] Wszystkie testy przechodzą (`just test`)
 - [ ] Dokumentacja dodana zgodnie z
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] Utworzono przykładowe pliki konfiguracyjne (`.toml` i `.env.example`)

@@ -1,0 +1,241 @@
+---
+title: أحداث Anchor
+description:
+  تعريف أحداث Anchor وإصدارها وفك ترميزها والاشتراك فيها وإدارة إصداراتها واختبارها، مع إرشادات حول اقتطاع السجلات وأحداث CPI.
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+أحداث Anchor هي سجلات محددة الأنواع ومُسلسَلة بصيغة Borsh، وتُضمَّن في IDL الخاص بالبرنامج.
+تتيح هذه الأحداث للعملاء تفسير نشاط البرنامج دون الحاجة إلى تحليل رسائل
+السجل المقروءة للبشر.
+
+الأحداث مفيدة للفهرسة والإشعارات، لكنها ليست جزءًا من حالة البرنامج.
+خزّن أي قيمة يحتاج البرنامج إلى قراءتها مرة أخرى في حساب، وتعامل مع
+الأحداث على أنها سجل مشتق من معاملة ناجحة.
+
+## تعريف حدث وإصداره
+
+أضف `#[event]` إلى بنية struct، ثم استدعِ `emit!` بعد نجاح تغيير الحالة.
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+يكتب `emit!` بايتات الحدث باستخدام استدعاء النظام `sol_log_data` في سولانا. تعرض
+سجلات المعاملة النتيجة على شكل `Program data: <base64>`. تبدأ القيمة المرمّزة
+بمعرّف الحدث (discriminator) متبوعًا بحقوله المُسلسَلة بصيغة Borsh.
+
+اجعل الأحداث مركّزة. فالسلاسل النصية والمتجهات الكبيرة تستهلك موارد الحوسبة،
+وتزيد من حجم البيانات الوصفية للمعاملة، وهي أكثر عرضة للتأثر باقتطاع السجلات.
+
+## الاختيار بين أحداث السجل وأحداث CPI
+
+يدعم Anchor مسارين لإصدار الأحداث:
+
+| المسار        | موقع التخزين                  | المفاضلة                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | سجلات بيانات البرنامج                 | أبسط وأقل تكلفة، لكن قد تُقتطع السجلات         |
+| `emit_cpi!` | instruction data الداخلية من استدعاء CPI | بيانات وصفية أكثر متانة، مع حسابات وموارد حوسبة إضافية |
+
+لاستخدام أحداث CPI، فعّل الميزة `event-cpi` في Anchor:
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+ثم أضف الوسم `#[event_cpi]` إلى بنية حسابات التعليمة، وأصدِر الحدث
+من معالج يكون اسم متغير السياق فيه `ctx`:
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+يضيف `#[event_cpi]` حساب event authority وحساب program account الحالي المطلوبين
+لاستدعاء CPI الذاتي الموقّع. لا يمكن استهلاك أحداث CPI عبر اشتراك أحداث
+السجل في Anchor؛ بل اجلب المعاملة وفك ترميز التعليمة الداخلية المطابقة بدلًا من ذلك.
+
+<Callout type="info" title="اعتمد دفتر الأستاذ كمصدر">
+  قد يقتطع مزوّدو RPC سجلات البرنامج. إذا كان فقدان حدث ما سيؤثر على
+  الأرصدة أو الصلاحيات أو أي سير عمل آخر يعتمد عليه الصواب، فاستخرج
+  النتيجة من حسابات البرنامج أو من instruction data الخاصة بالمعاملة. استخدم الأحداث
+  لجعل الفهرسة أكثر كفاءة، وليس بوصفها السجل الوحيد للحالة.
+</Callout>
+
+## الاشتراك من TypeScript
+
+عميل Anchor الحالي للغة TypeScript هو `@anchor-lang/core`. يمكن لنسخة `Program`
+منشأة من IDL الخاص بالبرنامج فك ترميز أحداث السجل المطابقة وتسليمها
+عبر اشتراك سجلات RPC:
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+تستقبل دالة رد النداء بيانات الحدث بعد فك ترميزها، وslot، وتوقيع
+المعاملة. تغطي الاشتراكات فقط السجلات المُسلَّمة أثناء نشاط الاتصال.
+احفظ التواقيع التي تمت معالجتها واستعِد المعاملات الفائتة بعد انقطاع
+الاتصال إذا كان المستهلك يحتاج إلى سجل كامل.
+
+## فك ترميز سجلات المعاملات المجلوبة
+
+لاستعادة البيانات الفائتة والفحص لمرة واحدة، اجلب المعاملة ومرّر كل حمولة
+`Program data:` إلى مرمّز الأحداث:
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+قد تستدعي المعاملة الواحدة عدة برامج. بالنسبة إلى محلل يُستخدم في بيئة الإنتاج، تتبّع
+حدود سجلات `Program <address> invoke` و`success` أو استخدم محلل أحداث Anchor
+حتى لا يُفك ترميز مدخل `Program data:` الخاص ببرنامج آخر على أنه يخص برنامجك.
+قد تحتفظ المعاملات الفاشلة بالسجلات والتعليمات الداخلية الناتجة عن أعمال اكتملت
+قبل حدوث الخطأ، لذا ارفض دائمًا البيانات الوصفية للمعاملة التي تحتوي على `err` غير فارغ
+قبل فهرسة أي من شكلَي الحدث. يجري اشتراك السجلات في Anchor هذا الفحص
+قبل تسليم دالة رد النداء الخاصة بالحدث.
+
+بالنسبة إلى حدث `emit_cpi!`، حدّد موقع استدعاء CPI الذاتي في `meta.innerInstructions`،
+وتأكد من أن معرّف البرنامج فيه هو برنامجك، ثم فك ترميز instruction data الخاصة به بصيغة base58.
+قبل إزالة أي بايتات، تحقق من
+[`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3) الخاص بـ Anchor:
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+يمنع التحقق من معرّف البرنامج والوسم معًا اعتبار استدعاء CPI ذاتي عادي
+حدثًا عن طريق الخطأ.
+
+## إدارة إصدارات مخططات الأحداث
+
+افتراضيًا، يشتق Anchor معرّف حدث (discriminator) من 8 بايتات انطلاقًا من اسم الحدث.
+كما يدعم Anchor تحديد معرّف صريح من خلال
+`#[event(discriminator = ...)]`. يجب أن تظل المعرّفات فريدة داخل
+البرنامج وثابتة لكل عميل يفك ترميز الحدث.
+
+يؤدي تغيير حقول بنية مُصدَرة إلى تغيير تخطيط Borsh الخاص بها. عند إجراء تغيير
+جوهري في المخطط، عرّف حدثًا جديدًا مثل `PaymentRecordedV2` بدلًا من
+تغيير `PaymentRecorded` بصمت. واصل إصدار الحدث القديم خلال فترة
+الترحيل ما دامت المفهرسات الحالية لا تزال تعتمد عليه.
+
+بالنسبة إلى البيانات القابلة للتطور، فضّل الحقول ذات العرض الثابت والمعرّفات التي تتيح
+للمفهرس جلب بيانات الحساب الأغنى بشكل منفصل. انشر IDL المحدَّث قبل ترقية
+البرنامج أو معها حتى يتمكن المستهلكون من فك ترميز الحدث الجديد فورًا.
+
+## اختبار الأحداث
+
+اختبر العقد بعد فك ترميزه، وليس سلسلة base64. سجّل المستمع قبل
+إرسال التعليمة، وتحقق من الحقول التي فُكّ ترميزها ومن توقيع المعاملة،
+واحرص دائمًا على إزالة المستمع:
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+اختبر أيضًا أن المفهرس يتجاهل بايتات الأحداث المحتفظ بها في البيانات الوصفية
+للمعاملات الفاشلة، وأضف بيانات اختبار ثابتة لكل إصدار مدعوم من الأحداث. إذا كنت تستخدم
+`emit_cpi!`، فاختبر فك الترميز من `innerInstructions` لأن مستمعي السجلات لا
+يستقبلون تلك الأحداث مباشرةً.
+
+## قراءات إضافية
+
+- [وثائق أحداث Anchor](https://www.anchor-lang.com/docs/features/events)
+- [عميل Anchor للغة TypeScript](https://www.anchor-lang.com/docs/clients/typescript)
+- [المصدر البرمجي لماكرو أحداث Anchor](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

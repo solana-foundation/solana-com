@@ -54,11 +54,10 @@ garantisce riservatezza dagli osservatori pubblici, non anonimato.
   trasferimento. Sia `@solana-program/token-2022` (JS) che `spl-token-client`
   (Rust) forniscono helper di alto livello che costruiscono le prove e
   sequenziano le transazioni automaticamente.
-- I trasferimenti riservati attualmente si estendono su alcune transazioni
-  dipendenti perché le prove superano il limite attuale di dimensione delle
-  transazioni. Una modifica in arrivo (formato di transazione v1, incluso con
-  Agave v4.2) aumenta tale limite e dovrebbe consentire l'esecuzione di un
-  trasferimento riservato in una singola transazione onchain.
+- Storicamente i trasferimenti confidenziali si sono articolati in più transazioni dipendenti,
+  perché le prove superavano il limite di dimensione della transazione. Il formato
+  transaction v1 alza tale limite, consentendo di eseguire un trasferimento confidenziale in
+  un'unica transazione onchain.
 - Un wallet che non aggiunge alcun supporto funziona comunque: mostra il saldo
   pubblico e i trasferimenti standard continuano a funzionare. I fondi riservati
   rimangono accessibili a qualsiasi client compatibile con il trasferimento
@@ -66,13 +65,11 @@ garantisce riservatezza dagli osservatori pubblici, non anonimato.
 
 ## Termini
 
-- **ElGamal keypair**: keypair a chiave pubblica per account, utilizzato per
-  cifrare i saldi e costruire prove ZK. La chiave pubblica è memorizzata
-  sull'account.
-- **Chiave AES**: chiave simmetrica per account utilizzata per cifrare il "saldo
-  disponibile decifrabile", in modo che il proprietario possa leggere il proprio
-  saldo disponibile in tempo costante, senza dover risolvere un logaritmo
-  discreto.
+- **ElGamal keypair**: la keypair a chiave pubblica del proprietario, usata per cifrare i saldi
+  e costruire le prove ZK. La chiave pubblica è memorizzata in ogni account configurato.
+- **Chiave AES**: la chiave simmetrica del proprietario, usata per cifrare il "saldo
+  disponibile decifrabile" in modo che il proprietario possa leggere il proprio saldo disponibile in tempo
+  costante, senza dover risolvere un logaritmo discreto.
 - **Saldo in sospeso**: saldo cifrato dei fondi ricevuti tramite depositi o
   trasferimenti in entrata che non sono ancora stati applicati. Non può essere
   speso direttamente.
@@ -116,14 +113,13 @@ crittografia e le prove, e una **chiave AES** per la decrittazione rapida del
 saldo. Il modo in cui si producono e si conservano queste chiavi è una scelta di
 integrazione. Alcune opzioni comuni:
 
-- **Derivare da una firma del wallet (impostazione predefinita consigliata).**
-  Il proprietario firma un messaggio canonico con separazione di dominio e le
-  chiavi vengono derivate da quella firma, quindi sono riproducibili dal solo
-  wallet e non è necessario conservarle. Il seed è deterministico per account:
-  gli helper JS di seguito lo associano alla coppia `(owner, mint)`, mentre
-  l'esempio Rust utilizza come seed l'indirizzo del token account (per un
-  associated token account questi sono equivalenti, poiché quell'indirizzo è a
-  sua volta derivato dal proprietario e dal mint).
+- **Derivazione da una firma del wallet (impostazione predefinita consigliata).** Il proprietario firma un
+  messaggio canonico, con separazione di dominio, e le chiavi vengono derivate da quella
+  firma: sono quindi riproducibili a partire dal solo wallet e non occorre
+  archiviarle. La derivazione standard lega le chiavi solo al wallet principale
+  e non richiede alcun seed, quindi i client non possono derivare per errore chiavi
+  diverse: un wallet corrisponde a una ElGamal keypair e a una chiave AES per tutti i mint
+  e i token account.
 - **Derivare da materiale di chiave indipendente.** Per passkey, enclave sicure
   o configurazioni MPC, derivare le chiavi da un output WebAuthn PRF o da altro
   materiale di chiave in modo che le chiavi riservate non siano legate alla
@@ -139,43 +135,35 @@ consigliato:
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  Le chiavi riservate sono chiavi di decrittazione. Tratta una richiesta di
-  firma del messaggio di derivazione come se si stesse sbloccando una
-  visualizzazione privata dei saldi dell'utente. Preferisci derivarle su
-  richiesta anziché conservarle; se le conservi (ad esempio in un servizio
-  custodiale), proteggile con lo stesso rigore riservato alle chiavi di firma.
+  Le chiavi confidenziali sono chiavi di decifratura. Trattate la richiesta di firmare il messaggio di
+  derivazione come lo sblocco di una vista privata dei saldi dell'utente. È preferibile derivarle
+  on demand anziché archiviarle; se le archiviate (ad esempio in un servizio
+  custodial), proteggetele con lo stesso rigore delle chiavi di firma. I wallet dovrebbero
+  esporre questa firma tramite un flusso di derivazione dedicato e rifiutare le richieste
+  generiche di signMessage per messaggi che iniziano con `solana-conf-bal/v1`, poiché
+  tale firma è il materiale di chiave di input per le chiavi di decifratura dell'utente.
 </Callout>
 
 Gli helper di derivazione restituiscono materiale chiave serializzato. Gli
@@ -190,10 +178,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## Creazione e configurazione degli account
@@ -347,14 +335,12 @@ client:
 - **Prova di intervallo** che l'importo e il saldo residuo del mittente siano
   interi non negativi validi, il che impedisce la creazione di valore dal nulla.
 
-Queste prove sono più grandi di quanto consenta il limite attuale della
-dimensione delle transazioni inline, quindi il pattern comune è creare **account
-di stato del contesto di prova**, verificare ciascuna prova in essi,
-referenziarli dall'istruzione di trasferimento, quindi chiuderli per recuperare
-il rent. Questo si estende su alcune transazioni dipendenti. Il formato di
-transazione v1 (in arrivo con Agave v4.2) aumenta il limite di dimensione e
-dovrebbe consentire l'esecuzione di un trasferimento riservato in una singola
-transazione onchain, il che semplificherà questo flusso.
+Queste prove sono più grandi di quanto consentano inline i limiti di dimensione delle transazioni legacy e v0,
+quindi il pattern abituale è creare dei **proof context state account**,
+verificare ciascuna prova al loro interno, farvi riferimento dall'istruzione di trasferimento e poi
+chiuderli per recuperare la rent. Questo richiede più transazioni dipendenti. Il
+formato transaction v1 alza tale limite, consentendo di eseguire un trasferimento confidenziale
+in un'unica transazione onchain e semplificando questo flusso.
 
 Non è necessario assemblare le prove manualmente. Entrambi i client forniscono
 un helper di alto livello che costruisce le prove e produce le istruzioni da
@@ -534,11 +520,13 @@ integratore non devi fare nulla di speciale nel percorso di invio oltre a
 passare la chiave del revisore dalla configurazione del mint (gli helper di alto
 livello la leggono automaticamente).
 
-Se il tuo prodotto è il revisore (ad esempio un emittente regolamentato o un
-fornitore di conformità), decifri gli importi dei trasferimenti con la chiave
-segreta del revisore nello stesso modo in cui un titolare decifra il proprio
-saldo. I titolari possono anche condividere selettivamente le proprie chiavi
-per-account con una parte specifica senza esporle pubblicamente.
+Se il vostro prodotto è l'auditor (ad esempio un emittente regolamentato o un fornitore di
+servizi di compliance), decifrate gli importi dei trasferimenti con la chiave segreta dell'auditor, allo stesso modo
+in cui un proprietario decifra il proprio saldo. I proprietari possono inoltre condividere selettivamente le
+loro chiavi con una parte specifica senza esporle pubblicamente, anche se con la
+derivazione standard legata al wallet le stesse chiavi coprono tutti i saldi confidenziali del proprietario,
+quindi condividerle rivela ogni account confidenziale, non
+soltanto uno.
 
 ### Monitoraggio delle transazioni (KYT)
 
@@ -637,4 +625,4 @@ modificano ciò che è osservabile, non il modello complessivo:
 | Screening di indirizzi e grafi   | Analizza mittenti, destinatari, emittenti e proprietari ed esegui un'analisi del grafo delle controparti; questi rimangono pubblici.            | **P0**   |
 | Monitoraggio depositi/prelievi pubblici | Monitora gli importi di deposito e prelievo in chiaro come punti di ingresso e uscita osservabili del pool riservato. | **P0**   |
 | Visibilità degli importi tramite chiave revisore | Per i mint con chiave revisore abilitata, decifra gli importi dei trasferimenti utilizzando la chiave revisore per supportare il rilevamento basato sugli importi.     | **P1**   |
-| Acquisizione tramite divulgazione selettiva   | Supporta le divulgazioni degli importi condivise da utenti o emittenti tramite chiavi per account.                                      | **P2**   |
+| Acquisizione tramite divulgazione selettiva   | Supportare la divulgazione degli importi condivisa da utenti o emittenti tramite le chiavi del proprietario.                                      | **P2**   |

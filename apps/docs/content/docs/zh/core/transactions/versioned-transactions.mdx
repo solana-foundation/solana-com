@@ -19,7 +19,7 @@ related:
 Solana 支持三种交易格式：**legacy**、**v0** 和 **v1**。以下将分别从三个方面介绍每种格式：字节在网络上的布局方式、账户的引用方式，以及资源限制的来源。
 
 <Callout type="warn" title="v1 激活状态">
-  [v1 格式](https://solana.com/upgrades/larger-transaction-sizes)目前尚未在任何集群上激活。计划随 Agave v4.2 一同激活。`solana-test-validator` 4.2+ 版本支持在本地测试 v1 交易。现有应用请查阅[为 v1 做准备](#preparing-for-v1)。
+  [v1 格式](https://solana.com/upgrades/larger-transaction-sizes)已在 mainnet、devnet 和 testnet 上启用。读取交易属于破坏性变更:未选择启用的客户端在处理 v1 交易时会失败。现有应用应查看[v1 迁移准备](#preparing-for-v1)。
 </Callout>
 
 ## 格式对比
@@ -98,6 +98,16 @@ ALT 是一个链上账户,最多可存储 256 个公钥。通过引用 ALT,交�
   解析账户只能是可写或只读（非签名者）；不能作为签名者。
 </Callout>
 
+### 创建并使用地址查找表
+
+此示例会创建一个查找表,向其中添加一个地址,并使用该表编译并发送 v0 交易。
+
+```ts !! title="Versioned transaction with an ALT" file=packages/docs-examples/cookbook/transactions/versioned-transaction-alt/legacy.ts#region=versioned-transaction-alt
+
+```
+
+只有非签名者账户才能从查找表中加载。手续费支付者和所有必需的签名者仍保留在消息的静态账户列表中。此外,地址不能在其被添加的同一个 slot 中被查找,因此示例会等待下一个已确认的 slot,然后再编译 v0 消息。
+
 ### v0 中的资源限制
 
 与 legacy 相同：使用 ComputeBudget 指令，省略时采用相同的默认值。
@@ -111,7 +121,7 @@ v1 将大小限制提升至 4,096 字节，并围绕**交易配置**对消息结
 | 字段                  | 大小         | 描述                                                                        |
 | ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
 | `0x81`                 | 1 字节       | 版本前缀字节 — 交易的第一个字节                            |
-| `header`               | 3 字节      | MessageHeader（与 legacy 相同）                                                     |
+| `header`               | 3 字节      | 消息头（与传统相同）                                                     |
 | `config_mask`          | 4 字节      | `u32` 小端位掩码，标记哪些配置值存在                           |
 | `recent_blockhash`     | 32 字节     | 生命周期指定符                                                                 |
 | `num_instructions`     | 1 字节       | 固定宽度计数，最大 64                                                          |
@@ -162,16 +172,54 @@ v1 交易不会拒绝 ComputeBudget 指令 — 它会**忽略**这些指令的�
 
 推荐做法是：先以两个限制均设为最大值进行一次模拟，然后将返回的 `unitsConsumed` 和 `loadedAccountsDataSize` 写回配置中，并将数据大小向上取整到下一个 32 KiB 页边界以留出余量（区块费用模型按 32 KiB 页计费，因此低于下一个页边界的余量是免费的）。
 
+### 构建 v1 交易
+
+v1 消息的组装流程与 legacy 或 v0 消息相同。区别在于 `setTransactionMessageConfig`:资源限制是消息本身的属性,因此指令列表中只包含程序指令。
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=build
+
+```
+
+</CodeTabs>
+
+Kit 还为每个配置字段提供了单独的 setter——`setTransactionMessagePriorityFeeLamports`、`setTransactionMessageComputeUnitLimit`、`setTransactionMessageLoadedAccountsDataSizeLimit` 和 `setTransactionMessageHeapSize`——可用于逐个进行设置。
+
+### 通过模拟确定限制大小
+
+与其猜测这两个必填限制,不如实际测量。模拟运行时会将两项限制都提高到运行时允许的最大值,因此不会因被测量的资源不足而失败。返回的数值是单次模拟运行的精确消耗,所以在依赖它之前请先加上一定的余量。
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/estimate-kit.ts#region=estimate
+
+```
+
+</CodeTabs>
+
 ## 为 v1 做准备
 
-v1 不仅影响交易的**发送**，也影响交易的**读取**。当 v1 激活后，任何未选择支持的客户端在调用 `getTransaction` 或 `getBlock` 时，将开始在 v1 交易上报错：
+v1 改变的是**读取**交易的方式,而不仅仅是发送。任何调用 `getTransaction` 或 `getBlock` 却未选择启用的客户端,在处理 v1 交易时都会失败:
 
 - 向 [`getTransaction`](/docs/rpc/http/gettransaction) 和 [`getBlock`](/docs/rpc/http/getblock) 传入 `maxSupportedTransactionVersion: 1` — JSON **整数** `1`，而非字符串 `"1"`。传入 `0` 与省略该参数的效果相同，同样会在 v1 交易上失败，因此在 v0 推出期间已更新的代码库仍需修改此值。
 - `getTransaction` 在处理 v1 交易时将返回错误 `-32015`，且一笔 v1 交易将导致整个 `getBlock` 响应失败并返回相同错误 — 不会有部分结果。
 - [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe) 将发出 `block: null` 并停止推进，因此将其解读为空区块的消费者将从第一个 v1 slot 起静默落后。
 - `getSignaturesForAddress` 从不检查交易体，因此 v1 签名可正常列出。
-- 选择支持后，响应中将在 v1 交易的消息里包含一个 `transactionConfig` 对象（legacy 和 v0 交易中完全不存在该对象）。通过扫描 ComputeBudget 指令来推算优先费或计算单元限制的处理流程，将对每笔 v1 交易静默报告**零值**。
+- 选择启用后,v1 交易的响应会在消息中包含 `transactionConfig` 对象(legacy 和 v0 交易则完全没有该对象)。通过扫描 ComputeBudget 指令来推算优先费用或计算限制的数据管道,对每一笔 v1 交易都会静默地报告为**零**。
 - 在客户端解码交易时请使用 `encoding: 'base64'`，对于超过 1,232 字节的交易在使用 `sendTransaction`/`simulateTransaction` 时也应如此 — base58 编码仍受旧大小限制约束。
 - 客户端库支持需要较新版本：`@solana/kit` 8.0+、Agave 4.2.x 世代的 Rust crate，或 web3.js v3。web3.js v1 从 1.99.0 起支持读取 v1，但无法构建或发送 v1 交易。
 
-完整迁移指南 — 包括客户端库支持、流式（Geyser/gRPC）版本检测及模拟行为 — 请参阅[交易格式 v1 升级页面](https://solana.com/upgrades/larger-transaction-sizes)。
+### 读取 v1 交易
+
+选择启用需要传入 JSON 整数 `1`。解码返回的字节即可得到版本和配置,而资源限制正存放在配置中——在指令列表中扫描 ComputeBudget 指令将一无所获。
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=read
+
+```
+
+</CodeTabs>
+
+如需完整的迁移指南——包括客户端库支持、流式传输(Geyser/gRPC)版本检测以及模拟行为——请参阅[交易格式 v1 升级页面](https://solana.com/upgrades/larger-transaction-sizes)。可运行的 TypeScript、Rust、Python 和 Go 示例位于[solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples)。

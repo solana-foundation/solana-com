@@ -1,31 +1,39 @@
 ---
 title: 添加新签名器
-description: 钱包服务提供商集成新密钥管理解决方案的指南
+description:
+  钱包服务提供商集成新密钥管理解决方案的指南
 ---
 
 本指南面向希望将新密钥管理解决方案集成到 `solana-keychain`
 库中的钱包服务提供商和开发者。通过添加您的签名器实现，您将使开发者能够通过统一接口使用您的服务进行安全的 Solana 交易签名。
 
-_正在使用大语言模型？请查看
-[添加签名器技能](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer)。_
+Keychain 的 Rust、TypeScript、Python 和 Go 实现保持功能对等。我们强烈建议 PR 同时包含这四种语言的实现。如果你只能贡献其中一种,也没有问题,但在该签名器随版本发布之前,其余几种实现也需要补齐。
+
+_正在使用 Claude Code?仓库中的 [`add-signer-ci` skill](https://github.com/solana-foundation/solana-keychain/tree/main/.claude/skills/add-signer-ci) 可以为通过 fork PR 贡献的新签名器配置 CI 工作流。_
 
 ## 架构概述
 
-本库采用基于 trait 的架构，所有签名器都实现 `src/traits.rs` 中定义的
-`SolanaSigner` trait。该库还提供了一个统一的 `Signer`
-枚举来封装所有实现，允许在运行时选择签名后端，同时保持一致的 API。
+该库采用基于 trait 的架构,定义在 `src/traits.rs` 中。每个签名器都需要实现 `SolanaSigner` 基础 trait(`pubkey`、`sign_message`、`is_available`),外加且仅加一个与服务提供方形态相匹配的能力 trait:
+
+- `TransactionSigner`(`sign_transaction`):服务提供方对调用方提供的字节进行签名,由调用方负责广播。适用于大多数后端。
+- `ModifyingSigner`(`modify_and_sign_transaction`):服务提供方先改写交易,再对其签名,但不进行广播。
+- `SendingSigner`(`sign_and_send_transaction`):服务提供方在服务端完成签名并广播。
+
+该库还提供了一个统一的 `Signer` 枚举,封装了所有实现,支持在运行时选择签名后端。它只实现基础 trait;各项能力需通过 `as_transaction_signer()`、`as_modifying_signer()` 和 `as_sending_signer()` 获取。
 
 ## 快速集成检查清单
 
 - 创建您的签名器模块及其实现
-- 实现 `SolanaSigner` trait（3 个异步方法 + `pubkey()`）
-- 在 `Cargo.toml` 中添加特性标志
-- 更新 `src/lib.rs` 中的 `Signer` 枚举（4 个匹配分支）
-- 更新 `src/error.rs` reqwest `From`
-  实现的 cfg 门控（如果您的签名器使用 reqwest）
+- 实现 `SolanaSigner` 基础 trait(`pubkey`、`sign_message`、`is_available`),外加一个与服务提供方形态相匹配的能力 trait(通常是 `TransactionSigner`)
+- 在 `Cargo.toml` 中添加 feature 标志;如果你的签名器使用 reqwest,还需加入内部的 `_remote` 标记
+- 更新 `src/lib.rs` 中的 `Signer` 枚举(变体、`dispatch_signer!` 分支,以及与你的形态相匹配的能力访问器中的分支)
 - 强制使用 HTTPS 并在 HTTP 客户端上配置超时
-- 添加全面的测试
+- 对消息字节进行签名,并在附加签名之前验证返回的签名
+- 添加全面的单元测试(基于 wiremock,放在你的模块中)
+- 添加集成测试文件,并更新 `.env.example`
+- 添加 TypeScript、Python 和 Go 实现
 - 更新文档
+- 更新 CI 工作流(请与维护者协调,参见 [CI 工作流更新](#ci-workflow-updates-fork-prs))
 - 提交 PR
 
 ## 第一步：创建您的签名器模块
@@ -46,8 +54,8 @@ src/
 ```rust
 //! YourService API signer integration
 
+use crate::sdk_adapter::{Pubkey, Signature, VersionedTransaction};
 use crate::{error::SignerError, traits::SolanaSigner};
-use solana_sdk::{pubkey::Pubkey, signature::Signature, transaction::Transaction};
 use std::str::FromStr;
 
 /// YourService-based signer using YourService's API
@@ -128,15 +136,15 @@ impl YourServiceSigner {
             .send()
             .await?;
 
-        // Use generic error messages — never expose raw API response text
+        // Use generic error messages: never expose raw API response text
         if !response.status().is_success() {
             let status = response.status().as_u16();
-            return Err(SignerError::RemoteApiError(format!(
+            return Err(SignerError::remote_api(format!(
                 "YourService API returned status {status}"
             )));
         }
 
-        // Parse response — always use map_err, never .expect() or .unwrap()
+        // Parse response: always use map_err, never .expect() or .unwrap()
         let response_data: SignResponse = response
             .json()
             .await
@@ -154,17 +162,16 @@ impl YourServiceSigner {
 }
 ```
 
-## 第四步：实现 SolanaSigner Trait
+## 第 4 步:实现签名器 Trait
 
-该 trait 包含 3 个异步方法（`sign_transaction`、`sign_message`、`is_available`）以及
-`pubkey()`。请注意，`sign_transaction` 返回 `SignTransactionResult`
-—— 这是一个标记枚举，指示交易是完全签名还是部分签名。
+`SolanaSigner` 基础 trait 包含 2 个异步方法(`sign_message`、`is_available`)以及 `pubkey()`。交易签名放在能力 trait 中;大多数服务提供方实现 `TransactionSigner`,其 `sign_transaction` 返回 `SignTransactionResult`(一个带标签的枚举,用于标记交易为完全签名或部分签名)。
 
-使用共享的 `TransactionUtil` 辅助函数进行签名和序列化。
+请对消息字节进行签名,而不是对整个传输格式的交易签名,并在附加签名之前,针对这些字节验证服务提供方返回的签名。签名和序列化请使用共享的 `TransactionUtil` 辅助函数。
 
 ```rust
+use crate::signature_util::verify_or_reject;
+use crate::traits::{SignTransactionResult, TransactionSigner};
 use crate::transaction_util::TransactionUtil;
-use crate::traits::SignTransactionResult;
 
 #[async_trait::async_trait]
 impl SolanaSigner for YourServiceSigner {
@@ -172,28 +179,10 @@ impl SolanaSigner for YourServiceSigner {
         self.public_key
     }
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
-        let tx_bytes = bincode::serialize(tx)
-            .map_err(|e| SignerError::SerializationError(format!("Failed to serialize: {e}")))?;
-
-        let signature = self.sign(&tx_bytes).await?;
-
-        // Add the signature at the correct position
-        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
-
-        // Serialize and classify as Complete or Partial
-        let serialized = TransactionUtil::serialize_transaction(tx)?;
-        Ok(TransactionUtil::classify_signed_transaction(
-            tx,
-            (serialized, signature),
-        ))
-    }
-
     async fn sign_message(&self, message: &[u8]) -> Result<Signature, SignerError> {
-        self.sign(message).await
+        let signature = self.sign(message).await?;
+        verify_or_reject(&signature, &self.public_key, message)?;
+        Ok(signature)
     }
 
     async fn is_available(&self) -> bool {
@@ -206,7 +195,28 @@ impl SolanaSigner for YourServiceSigner {
             .unwrap_or(false)
     }
 }
+
+#[async_trait::async_trait]
+impl TransactionSigner for YourServiceSigner {
+    async fn sign_transaction(
+        &self,
+        tx: &mut VersionedTransaction,
+    ) -> Result<SignTransactionResult, SignerError> {
+        let message = tx.message.serialize();
+        let signature = self.sign(&message).await?;
+        verify_or_reject(&signature, &self.public_key, &message)?;
+
+        TransactionUtil::add_signature_to_transaction(tx, &self.public_key, signature)?;
+        let serialized = TransactionUtil::serialize_transaction(tx)?;
+        Ok(TransactionUtil::classify_signed_transaction(
+            tx,
+            (serialized, signature),
+        ))
+    }
+}
 ```
+
+如果你的服务提供方在签名前会改写交易,请改为实现 `ModifyingSigner`,并用服务提供方返回的字节整体替换调用方的交易。如果它在服务端广播交易,请实现 `SendingSigner`,并保持调用方的交易不变。切勿实现服务提供方无法提供的能力。
 
 ## 步骤 5：添加 API 类型（可选）
 
@@ -229,24 +239,21 @@ pub struct SignResponse {
 
 ## 步骤 6：添加特性标志
 
-更新 `Cargo.toml` 以将你的签名器添加为可选特性：
+更新 `Cargo.toml`,将你的签名器添加为可选 feature。远程后端需要包含内部的 `_remote` 标记,它用于控制 `src/error.rs` 中 `From<reqwest::Error>` 的实现;如果没有该标记,在仅启用你的 feature 时,对 reqwest 调用使用 `?` 将无法编译。
 
 ```toml
 [features]
-default = ["memory"]
+default = ["memory", "sdk-v2"]
 memory = []
-vault = ["dep:reqwest", "dep:vaultrs", "dep:base64"]
-privy = ["dep:reqwest", "dep:base64"]
-turnkey = ["dep:reqwest", "dep:base64", "dep:p256", "dep:hex", "dep:chrono"]
-your_service = ["dep:reqwest", "dep:base64"]  # Add your feature
-all = ["memory", "vault", "privy", "turnkey", "your_service"]  # Update all
+vault = ["dep:reqwest", "_remote"]
+privy = ["dep:reqwest", "dep:p256", "_remote"]
+your_service = ["dep:reqwest", "_remote"]  # Add your feature
+all = ["memory", "vault", "privy", "...", "your_service"]  # Update all
 ```
 
 ## 步骤 7：更新签名器枚举
 
-将你的签名器添加到 `src/lib.rs`。你需要在 `SolanaSigner`
-impl 中添加 4 个匹配分支：`pubkey`、`sign_transaction`、`sign_message` 和
-`is_available`。
+将你的签名器添加到 `src/lib.rs` 中。基础的 `SolanaSigner` 实现通过 `dispatch_signer!` 宏进行分发,因此需要在那里添加一个分支。能力访问位于 `as_transaction_signer()`、`as_modifying_signer()` 和 `as_sending_signer()` 这几个访问器中:在与你的能力 trait 相匹配的访问器中添加一个 `Some(s)` 分支(对于发送型或改写型后端,还需要在 `as_transaction_signer()` 中添加一个 `None` 分支)。
 
 ```rust
 // Add feature-gated module
@@ -288,51 +295,29 @@ impl Signer {
     }
 }
 
-// Update trait implementation — 4 match arms
-#[async_trait::async_trait]
-impl SolanaSigner for Signer {
-    fn pubkey(&self) -> sdk_adapter::Pubkey {
-        match self {
+// Update the dispatch macro: the base SolanaSigner impl uses it for
+// pubkey, sign_message and is_available
+macro_rules! dispatch_signer {
+    ($self:ident, $signer:pat => $body:expr) => {
+        match $self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.pubkey(),
+            Signer::YourService($signer) => $body,
         }
-    }
+    };
+}
 
-    async fn sign_transaction(
-        &self,
-        tx: &mut sdk_adapter::Transaction,
-    ) -> Result<SignTransactionResult, SignerError> {
+// Add your arm to the capability accessor matching your shape
+impl Signer {
+    pub fn as_transaction_signer(&self) -> Option<&dyn TransactionSigner> {
         match self {
             // ... existing variants
             #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_transaction(tx).await,
-        }
-    }
-
-    async fn sign_message(
-        &self,
-        message: &[u8],
-    ) -> Result<sdk_adapter::Signature, SignerError> {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.sign_message(message).await,
-        }
-    }
-
-    async fn is_available(&self) -> bool {
-        match self {
-            // ... existing variants
-            #[cfg(feature = "your_service")]
-            Signer::YourService(s) => s.is_available().await,
+            Signer::YourService(s) => Some(s),
         }
     }
 }
 ```
-
-如果你的签名器使用 `reqwest`，请在 `src/error.rs` 中的 `From<reqwest::Error>`
-impl 上将你的特性添加到 `#[cfg(any(...))]` 门控中。
 
 ## 步骤 8：添加全面的测试
 
@@ -417,19 +402,49 @@ mod tests {
 }
 ```
 
-## 步骤 9：更新文档
+还需要覆盖签名验证失败的情况:当模拟响应中的签名无法通过验证时,必须返回错误。
+
+## 第 9 步:添加集成测试
+
+创建 `rust/src/tests/test_<name>_integration.rs`。集成测试针对真实的服务 API 运行(而非 wiremock),并由 `integration-tests` feature 控制。每个文件需要包含:
+
+- 用于环境变量名称的 `pub const` 声明
+- 一个通过 `dotenvy` 读取环境变量的 `get_signer()` 辅助函数
+- 三个测试函数:`test_<name>_sign_message`、`test_<name>_sign_transaction` 和 `test_<name>_is_available`
+- Feature 开关:模块上使用 `#[cfg(feature = "your_service")]`,每个测试上使用 `#[cfg(feature = "integration-tests")]`
+
+完整的参考示例请见 `rust/src/tests/test_para_integration.rs`,并在 `rust/src/tests/mod.rs` 中声明你的模块:
+
+```rust
+pub mod test_your_service_integration;
+```
+
+## 第 10 步:更新环境变量
+
+按照现有模式,将你的签名器所需的环境变量更新到根目录的 `.env.example` 中:
+
+```bash
+# YourService Configuration (for SIGNER_TYPE=your_service)
+YOUR_SERVICE_API_KEY=your-api-key
+YOUR_SERVICE_WALLET_ID=your-wallet-id
+# YOUR_SERVICE_API_BASE_URL=https://api.yourservice.com/v1  # Optional, defaults to this
+```
+
+先列出必需的变量并填入占位值,可选变量则以注释形式给出并附上默认值。集成测试中用到的每个环境变量都必须出现在 `.env.example` 中,TypeScript、Python 和 Go 的测试套件使用相同的变量名。
+
+## 第 11 步:更新文档
 
 在 README.md 的支持后端表格中添加你的签名器：
 
-| 后端            | 使用场景                              | 特性标志       |
-| --------------- | ------------------------------------- | -------------- |
-| **Memory**      | 本地密钥对、开发、测试                | `memory`       |
+| 后端         | 使用场景                                       | 特性标志   |
+| --------------- | ---------------------------------------------- | -------------- |
+| **Memory**      | 本地密钥对、开发、测试           | `memory`       |
 | **Vault**       | 使用 HashiCorp Vault 的企业级密钥管理 | `vault`        |
-| **Privy**       | 基于 Privy 基础设施的嵌入式钱包       | `privy`        |
-| **Turnkey**     | 通过 Turnkey 的非托管密钥管理         | `turnkey`      |
-| **YourService** | 你的服务的简要描述                    | `your_service` |
+| **Privy**       | 基于 Privy 基础设施的嵌入式钱包     | `privy`        |
+| **Turnkey**     | 通过 Turnkey 的非托管密钥管理       | `turnkey`      |
+| **YourService** | 你的服务的简要描述              | `your_service` |
 
-添加使用示例：
+同时,请将你的后端添加到各语言 README 中的签名器能力表里,并添加一个使用示例:
 
 ```rust
 use solana_keychain::{Signer, SolanaSigner};
@@ -452,45 +467,111 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## 测试你的集成
 
-为你的特性运行测试：
+请使用 `just` 配方,而不是直接使用 `cargo`。SDK feature(`sdk-v2`、`sdk-v3`、`sdk-v4`)互斥,因此 `cargo test --all-features` 会失败。
 
 ```bash
-# Test only your signer
-cargo test --features your_service
+# Unit tests across the sdk-v2, sdk-v3 and sdk-v4 matrices
+just rust-test
 
-# Test with all features
-cargo test --all-features
+# Live integration tests (require credentials in .env)
+just rust-test-integration
 ```
+
+## CI 工作流更新(Fork PR)
+
+CI 分为两个阶段。在你的 PR 能够被测试之前,请与维护者协调,先准备好 `main` 分支:他们会更新 `fork-external-live-manual.yml`,在 `ci.yml` 中添加环境变量,并配置 GitHub Secrets。
+
+你的 PR 必须在签名器代码之外,一并包含以下第 2 阶段的更改:
+
+- **`ci.yml`**:将你的 Rust feature 添加到 `backend` 矩阵中(位于 `all` 之前),并将你的集成测试函数添加到 `test` 矩阵中
+- **`typescript-ci.yml`**:将你的包添加到单元测试和集成测试矩阵中,并在集成测试步骤中添加环境变量
+- **`typescript-publish.yml`**:将你的包添加到 `PUBLISH_PACKAGES`、GitHub Release 的 `packages` 数组以及汇总表中
+- **`python-ci.yml`**:将该后端添加到 `resolve-signers` 中的 `CI_SIGNER_*` 开关以及集成矩阵中
+- **`go-ci.yml`**:将该后端添加到 `CI_SIGNER_*` 开关以及 `moduleBySigner` 中
 
 ## TypeScript 签名器
 
 如果你还要添加 TypeScript 签名器包，请在 `typescript/packages/your-signer/`
 创建它。关键模式：
 
-- 工厂函数 `createYourSigner()` 返回 `SolanaSigner<TAddress>`
+- 工厂函数 `createYourSigner()` 返回 `SolanaTransactionSigner<TAddress> & SolanaMessageSigner<TAddress>`;签名器类保持为内部使用,仅导出工厂函数及其配置类型
 - 导出配置接口（`YourSignerConfig`）
-- 在 `apiBaseUrl` 配置字段上强制使用 HTTPS
-- 使用 `@solana/keychain-core` 中的 `sanitizeRemoteErrorResponse()`
-  清理远程 API 错误文本
-- 使用可选链和 try/catch 防止格式错误的 JSON
+- 如果你的后端无法对消息签名,请省略 `SolanaMessageSigner`,并且完全不要暴露 `signMessages` 方法:Kit 通过方法是否存在来对签名器分类,因此抛出异常的占位实现会导致签名器被错误分类
+- 使用 `@solana/keychain-core` 中的 `assertHttpsUrl()` 对 `apiBaseUrl` 配置字段强制使用 HTTPS
+- 通过 `@solana/keychain-core` 中的 `fetchSignerJson()` 发起远程调用,它负责错误映射、响应清理、拒绝重定向以及默认超时
+- 使用 `@solana/keychain-core` 中的 `sanitizeRemoteErrorResponse()` 清理其他任何远程 API 错误文本
 - 使用 `@solana/keychain-core` 中的
   `throwSignerError(SignerErrorCode.*, { cause, message })`
+- 在每个签名方法中遵循 `config?.abortSignal`,并将其传递给 `fetchSignerJson()` 和 `signBatchStaggered()`
+- 使用 `validateRequestDelayMs()` 校验 `requestDelayMs`,并使用 `signBatchStaggered()` 进行批量处理
 - 向工厂函数添加 `@throws` JSDoc，列出错误代码
+- 将 `@solana/*` 包声明为 peer 依赖,版本为 `>=8.1.0`
+- 使用 vitest 和模拟的 `fetch` 编写单元测试;使用 `@solana/keychain-test-utils` 中的 `runSignerIntegrationTest` 编写集成测试
+
+### 发送型签名器
+
+如果你的服务提供方会改写交易或在服务端广播交易,其签名就无法应用到调用方的交易上,因此它必须是 `SolanaSendingSigner`,而不是 `SolanaTransactionSigner`:
+
+- 实现 `signAndSendTransactions()`,并且**不要**暴露 `signTransactions`(也不要暴露 `signMessages`,除非该后端确实支持消息签名)
+- 遵循 `config?.abortSignal`。一旦服务提供方接受了创建请求,任何失败(包括中止)都应报告为携带服务提供方交易 ID 的 `BROADCAST_UNCONFIRMED`,并将中止原因保留为 `cause`
+- 添加一个带类型的 `createKeychainSigner` 重载,返回你的发送型签名器类型
+- 在 `typescript/packages/kit-plugin/src/keychain-plugin.ts` 中,将你的后端从 `KeychainKitPluginConfig` 中排除,因为发送型签名器无法用作 Kit 客户端的 `payer` 或 `identity`
+- 在单元测试中断言:对你的实例而言,`isTransactionPartialSigner()` 为 false,`isTransactionSendingSigner()` 为 true
 
 ### 更新总包
 
-更新 `typescript/packages/keychain/` — 需要修改 6 个文件：
+更新 `typescript/packages/keychain/`(需修改 7 个文件):
 
-1. `src/types.ts` — 将 `YourSignerConfig` 添加到 `KeychainSignerConfig`
-   可辨识联合类型
-2. `src/create-keychain-signer.ts` — 导入工厂函数，添加 switch case 分支
-3. `src/resolve-address.ts` — 添加到快速路径或获取路径的 switch case 分支
-4. `src/index.ts` — 添加配置类型、命名空间、工厂函数和类导出
-5. `package.json` — 添加 `@solana/keychain-your-signer: "workspace:*"` 依赖项
-6. `tsconfig.json` — 添加 `{ "path": "../your-signer" }` 引用
+1. `src/types.ts`:将 `YourSignerConfig` 添加到 `KeychainSignerConfig` 可辨识联合类型中
+2. `src/create-keychain-signer.ts`:添加 switch 分支(每个后端包都通过动态 `import()` 加载)
+3. `src/resolve-address.ts`:添加到快速路径或获取路径的 switch 分支中
+4. `src/index.ts`:添加配置类型、命名空间和工厂函数的导出
+5. `package.json`:添加 `@solana/keychain-your-signer: "workspace:*"` 依赖
+6. `tsconfig.json`:添加 `{ "path": "../your-signer" }` 引用
+7. `typescript/scripts/test-treeshake-umbrella.mjs`:将你的包添加到 `SIGNER_MARKERS`,并将你的工厂函数添加到 `FACTORIES`
 
-switch 语句具有详尽的 `never`
-检查 — 如果您添加到联合类型但遗漏了某个 case 分支，TypeScript 将报错。
+switch 语句带有穷尽的 `never` 检查,因此如果你向联合类型中添加了成员却遗漏了某个分支,TypeScript 会报错。之后请运行 `just ts-treeshake`:每个包以及总包都必须保持可 tree-shaking。
+
+## Python 签名器
+
+在 `python/src/solana_keychain/your_signer/` 下创建模块(`__init__.py` 和 `signer.py`)。关键模式:
+
+- 从 `solana_keychain.core` 继承 `SolanaSigner`(`pubkey` 属性、`async sign_message()`、`async is_available()`),外加且仅加一个能力类:`TransactionSigner`(`async sign_transaction()`)、`ModifyingSigner`(`async modify_and_sign_transaction()`)或 `SendingSigner`(`async sign_and_send_transaction()`)
+- 导出一个 `async create_your_signer()` 工厂函数;当后端需要远程解析其地址时,该函数会 await `init()`;在初始化之前,签名会抛出 `SignerErrorCode.NOT_INITIALIZED`
+- 导出一个配置 dataclass(`YourSignerConfig`),其中的密钥字段标记为 `field(repr=False)`
+- 使用 `assert_https_url()` 对基础 URL 字段强制使用 HTTPS,并让每个请求都经由 `fetch_signer_json()` 发出
+- 在返回服务提供方的签名之前先进行验证;使用 `signed_message_bytes()` 获取签名所覆盖的字节,切勿手写版本前缀
+- 在 `python/src/solana_keychain/keychain.py` 的 `_BACKENDS` 中注册该后端
+- 如果后端需要提供商 SDK,请对导入加以保护,抛出 `ImportError`
+  并给出 `pip install 'solana-keychain[your-signer]'` 的提示,在
+  `python/pyproject.toml` 中声明该 extra,且绝不要从包的根目录
+  提前导入该后端
+- 使用 pytest 编写单元测试:HTTP 后端使用 `respx`,SDK 后端使用桩客户端(stub client),并检查抛出错误的 `str()` 或 `repr()` 中不会出现任何密钥
+- 在
+  `python/tests/integration/test_live_signers.py` 中添加 `make_your_signer()` 工厂函数,并将其注册到
+  `_MESSAGE_CAPABLE`(对于不支持
+  `sign_message` 的后端,则注册到 `_TRANSACTION_ONLY`)
+
+## Go 签名器
+
+每个 Go 后端都是独立的模块,位于 `go/signers/yoursigner/`,模块路径为
+`github.com/solana-foundation/solana-keychain/go/signers/yoursigner/v2`。可参考
+`go/signers/para/`。关键模式:
+
+- 实现 `core.SolanaSigner`(`Pubkey()`、`SignMessage(ctx, message)`、
+  `IsAvailable(ctx)`),并且仅实现一个能力接口:
+  `core.TransactionSigner`、`core.ModifyingSigner` 或 `core.SendingSigner`。
+  能力通过类型断言来检测,因此无法签署交易的后端
+  根本不能带有 `SignTransaction` 方法
+- 导出 `Config` 结构体和 `New` 构造函数(当后端需要远程解析其地址时,使用 `New(ctx, cfg)`;在此之前,返回
+  `core.NewNotInitializedError`)
+- 使用 `core.NewHTTPClient` 或 `core.ResolveHTTPClient` 构建 HTTP 客户端,并使用 `core.NormalizeHTTPSBaseURL`
+  校验基础 URL
+- 使用 `core.SignTransactionWith` 签署交易,它会对消息字节进行签名并附加签名;使用
+  `core.VerifySignature` 验证提供商返回的签名
+- 使用 `core.NewSignerError` / `core.WrapSignerError` 以及稳定的错误码(例如 `core.CodeSigningFailed`)返回错误
+- 使用 `httptest` 编写单元测试;集成测试放在 `integration_test.go` 中,并置于
+  `//go:build integration` 标签之后
 
 ## 提交检查清单
 
@@ -501,38 +582,64 @@ switch 语句具有详尽的 `never`
 - 代码格式化/代码检查通过（`just fmt`）
 - 代码中无硬编码值或密钥
 - 错误消息是通用的（不含原始 API 响应文本）
+- 不对不受信任的 API 响应使用 `.expect()` 或 `.unwrap()`
 - 在远程 HTTP 客户端上强制使用 HTTPS
 - 通过 `HttpClientConfig` 配置 HTTP 超时
-- 遵循 Rust 命名约定（snake_case）
-- 已添加到 README.md 支持的后端表格中
+- 返回的签名已根据本地计算的消息字节进行验证
+- 遵循命名规范(Rust 和 Python 使用 snake_case,TypeScript 使用 camelCase)
+- 已添加集成测试并更新 `.env.example`
+- 包含 TypeScript、Python 和 Go 实现(或已与维护者商定计划)
+- 已更新聚合包(TypeScript 聚合包、Python `_BACKENDS`)
+- 包含 CI 变更
+- 已添加到 README.md 的受支持后端表和签名器能力表中
 
 ## 实现提示
 
 ### 错误处理
 
-始终使用现有的 `SignerError` 变体。永远不要对不受信任的 API 响应使用 `.expect()`
-或 `.unwrap()`：
+请始终使用现有的 `SignerError` 变体。`SignerError` 的 `Display` 和 `Debug` 输出均已做脱敏处理,因此请保持错误消息通用,切勿包含原始 API
+响应数据。切勿对不受信任的 API 响应使用 `.expect()` 或 `.unwrap()`:
 
 ```rust
-// Good — uses existing error types with generic messages
-return Err(SignerError::RemoteApiError(
-    format!("YourService API returned status {}", status)
-));
+// Good: uses the constructor with a generic message
+return Err(SignerError::remote_api(format!(
+    "YourService API returned status {status}"
+)));
 
-// Good — converts from standard errors
+// Good: converts from standard errors
 let bytes = base64::decode(data)
     .map_err(|e| SignerError::SerializationError(format!("Failed to decode: {e}")))?;
 ```
 
-### 安全最佳实践
+### 安全要求
 
-- 永远不要记录敏感数据（私钥、API 密钥）
-- 使用隐藏敏感字段的 `Debug` 实现
-- 验证所有输入（公钥、签名）
-- 对所有远程 API 调用使用 HTTPS（通过 `https_only(true)` 强制执行）
-- 通过 `HttpClientConfig` 配置请求和连接超时
-- 永远不要在错误消息中暴露原始远程 API 错误文本
-- 在 `init()` 之前对公钥字段使用 `Option<Pubkey>`（而不是 `Pubkey::default()`）
+这些并非建议:使用方正是基于这些要求来选择后端的。如果
+您的提供商无法满足其中某一项,请在 PR 以及仓库的
+`docs/SECURITY_MODEL.md` 中说明。
+
+- **验证提供商签署的内容。** 在本地计算消息字节,并在附加签名之前,针对您的签名器所要求的位置,
+  用这些字节验证返回的签名。验证未通过的签名必须视为失败,绝不能
+  附加。
+- **声明提供商是否会广播交易。** 如果提供商在服务端执行交易,
+  请实现发送形态,并返回可标识已上链交易的签名。如果提供商没有仅签名的端点,
+  请将该后端设为仅发送,而不是在调用方不知情的情况下提交交易。
+- **绝不要让调用方持有签名未覆盖的交易。**
+  会改写交易的提供商签署的是其自身的字节:要么保持
+  调用方的交易不变(由广播托管的情形),要么采用修改形态,
+  并用提供商的字节整体替换原交易。
+- **如实报告广播的不确定性。** 提交之后发生的失败,交易仍可能
+  已经上链。请抛出 `BROADCAST_UNCONFIRMED`,而不是通用错误;
+  只要持有提供商的交易 ID,就应一并携带;并且在每次创建时发送由消息派生的幂等键,
+  这样字节完全相同的重发才是
+  安全的。
+- **初始化之前绝不签名。** 在 `init()` 之前,公钥应使用 `Option<Pubkey>`(而非 `Pubkey::default()`),
+  如果过早尝试签名,则返回配置错误。
+- 切勿记录敏感数据(私钥、API 密钥、原始 API 响应),
+  并使用会隐藏敏感字段的 `Debug` 实现
+- 强制使用 HTTPS(`https_only(true)`,并为 wiremock 使用 `#[cfg(not(test))]` 进行条件编译),
+  同时通过 `HttpClientConfig` 配置请求超时和连接超时
+  (默认值:30s/5s)
+- 使用 `zeroize::Zeroizing<Vec<u8>>` 对中间密钥材料进行清零
 
 ### 使用模拟进行测试
 
@@ -560,11 +667,17 @@ mod tests {
 ## 获取帮助
 
 - 查看现有的签名器实现以了解模式:
-  - `src/memory/mod.rs` — 简单、同步
-  - `src/para/mod.rs` — 需要初始化(用作新签名器的模式)
-  - `src/turnkey/mod.rs` — 复杂的签名处理
-  - `src/vault/mod.rs` — 外部客户端库
-- 关键文件:`src/traits.rs`(特征定义)、`src/transaction_util.rs`(共享辅助函数)、`src/http_client_config.rs`(超时配置)
+  - `src/memory/mod.rs`:简单、同步
+  - `src/privy/mod.rs`:需要初始化
+  - `src/turnkey/mod.rs`:复杂的签名处理
+  - `src/vault/mod.rs`:外部客户端库
+  - `typescript/packages/para/`、`python/src/solana_keychain/para/` 和
+    `go/signers/para/`:其他语言中的完整参考实现
+- 关键文件:`src/traits.rs`(trait 定义)、`src/transaction_util.rs` 和
+  `src/signature_util.rs`(共享辅助函数)、`src/http_client_config.rs`(超时
+  配置)
+- 完整的仓库指南:
+  [docs/ADDING_SIGNERS.md](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - 在开始工作之前,请提交 issue 进行设计讨论
 
 ## PR 结构示例
@@ -577,9 +690,13 @@ Adds support for YourService as a signing backend.
 - [X] Code compiles without warnings (`just build`)
 - [X] Code is formatted/linting passes (`just fmt`)
 - [X] Add comprehensive tests with wiremock - All tests pass (`just test`)
-- [X] Implemented SolanaSigner trait for YourServiceSigner
+- [X] Implemented SolanaSigner and TransactionSigner for YourServiceSigner
 - [X] Added feature flag 'your_service'
 - [X] HTTPS enforced, HTTP timeouts configured
+- [X] Returned signatures verified before attaching
+- [X] Added integration tests and updated .env.example
+- [X] TypeScript, Python and Go implementations included
+- [X] CI Phase 2 changes included
 - [X] Added to README.md supported backends table
 
 Closes #1337

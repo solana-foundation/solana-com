@@ -34,15 +34,13 @@ Confidential Balances拡張機能を使用すると、Token-2022のミントは�
   accountは、**公開残高**に加えて、暗号化された**ペンディング**残高と**利用可能**残高を保持しています。トークンは公開状態と機密状態の間を自由に移動できます。
 - 機密残高を**表示**するにはオーナーの鍵が必要です。推奨されるアプローチは、オーナーのウォレットから鍵を導出し、AES鍵で利用可能残高を復号（高速）し、必要に応じてElGamal鍵でペンディング金額を復号することです。
 - **機密送金**を行うには、クライアント側でZK証明（等価性、暗号文の有効性、範囲）を生成し、通常は一時的な**プルーフコンテキスト状態アカウント**に配置してから送金を送信します。`@solana-program/token-2022`（JS）と`spl-token-client`（Rust）はどちらも、証明を構築してトランザクションをシーケンスする高レベルのヘルパーを提供しています。
-- 機密転送は、証明が現在のトランザクションサイズ制限を超えるため、現在は複数の依存トランザクションにまたがっています。近日公開予定の変更（トランザクションフォーマットv1、Agave
-  v4.2とともにリリース予定）によりこの制限が引き上げられ、機密転送が単一のオンチェーントランザクションで実行できるようになる見込みです。
+- 機密転送は、これまでプルーフがトランザクションサイズの上限を超えていたため、互いに依存する複数のトランザクションにまたがっていました。トランザクション v1 形式ではこの上限が引き上げられ、機密転送を単一のオンチェーントランザクションで実行できるようになります。
 - サポートを追加しないウォレットも引き続き機能します。公開残高が表示され、標準的な送金も機能し続けます。機密資金は、オーナーの鍵を持つConfidential対応クライアントからいつでもアクセスできます。
 
 ## 用語
 
-- **ElGamal
-  keypair**: 残高を暗号化し、ZKプルーフを構築するために使用される、アカウントごとの公開鍵keypair。公開鍵はアカウントに保存されます。
-- **AESキー**: 「復号可能な利用可能残高」を暗号化するために使用される、アカウントごとの対称鍵。これにより、オーナーは離散対数を解くことなく、定数時間で利用可能残高を確認できます。
+- **ElGamal keypair**:所有者の公開鍵 keypair で、残高の暗号化とZKプルーフの生成に使用します。公開鍵は、設定済みの各アカウントに保存されます。
+- **AESキー**:所有者の対称鍵で、「復号可能な利用可能残高」の暗号化に使用します。これにより、所有者は離散対数を解くことなく、一定時間で利用可能残高を読み取れます。
 - **保留中残高**: 入金または受信した送金によって受け取った資金の暗号化残高で、まだ適用されていないもの。直接使用することはできません。
 - **利用可能残高**: 送金または出金が可能な暗号化残高。
 - **適用（Apply）**: 保留中残高を利用可能残高に移行するステップ。
@@ -70,10 +68,7 @@ Confidential Balances拡張機能を使用すると、Token-2022のミントは�
 各コンフィデンシャルアカウントは2つの鍵を使用します。暗号化とプルーフのための**ElGamal
 keypair**と、残高の高速復号化のための**AESキー**です。これらの鍵の生成と保管方法はインテグレーション側の選択に委ねられています。一般的なオプションをいくつか示します：
 
-- **ウォレット署名からの導出（推奨デフォルト）。**
-  オーナーが正規のドメイン分離メッセージに署名し、その署名から鍵が導出されます。これによりウォレット単体から再現可能となり、保管の必要がありません。seedはアカウントごとに決定論的です。以下のJSヘルパーでは`(owner, mint)`ペアにバインドされ、Rustサンプルではtoken
-  accountアドレスをseedとして使用します（associated token
-  accountの場合、そのアドレス自体がオーナーとミントから導出されるため、これらは同等です）。
+- **ウォレット署名から導出(推奨のデフォルト)。** 所有者が正規化されたドメイン分離メッセージに署名し、その署名からキーを導出します。そのため、ウォレットだけでキーを再現でき、保存する必要はありません。標準の導出ではキーはメインウォレットのみに紐づき、シードは一切使用しないため、クライアントが誤って異なるキーを導出してしまうことはありません。1つのウォレットが、すべてのミントおよび token account を通じて、1つの ElGamal keypair と1つのAESキーに対応します。
 - **独立した鍵素材からの導出。**
   パスキー、セキュアエンクレーブ、またはMPCセットアップの場合、WebAuthn
   PRFの出力やその他の入力鍵素材からコンフィデンシャルキーを導出することで、アカウントの署名鍵に依存しない構成が可能です。`@solana/zk-sdk`はこのために`ConfidentialKeys.fromIkm`と`ConfidentialKeys.fromPrf`を公開しています。
@@ -85,39 +80,29 @@ keypair**と、残高の高速復号化のための**AESキー**です。これ�
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  コンフィデンシャルキーは復号化キーです。導出メッセージへの署名リクエストは、ユーザーの残高のプライベートビューを解除するものとして取り扱ってください。保管するよりもオンデマンドでの導出を優先してください。やむを得ず保管する場合（例：カストディアルサービス）は、署名鍵と同等の厳格な保護を施してください。
+  機密キーは復号鍵です。導出メッセージへの署名リクエストは、ユーザーの残高を非公開で閲覧できる状態を解除する操作として扱ってください。キーを保存するよりも、必要に応じて導出することを推奨します。(カストディアルサービスなどで)保存する場合は、署名鍵と同等の厳格さで保護してください。ウォレットはこの署名を専用の導出フローで提供し、`solana-conf-bal/v1` で始まるメッセージに対する汎用の signMessage リクエストは拒否してください。この署名が、ユーザーの復号鍵の元となる鍵素材になるためです。
 </Callout>
 
 導出ヘルパーはシリアライズされた鍵素材を返します。高レベルの操作ヘルパー（後述）はWASMの
@@ -131,10 +116,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## アカウントの作成と設定
@@ -260,8 +245,7 @@ token
 - **暗号文有効性証明**：送金額の暗号文が、送信元・送信先・（設定されている場合は）監査者の鍵のもとで正しく形成されていることを証明する。
 - **範囲証明**：金額および送信者の残余残高が有効な非負整数であることを証明するもので、これにより無から価値が生み出されることを防ぐ。
 
-これらの証明は、現在のトランザクションサイズ制限ではインラインに含めることができないため、通常のパターンとしては、**証明コンテキストステートアカウント**を作成し、各証明をそこへ検証し、転送instructionsからそれらを参照した後、rentを回収するためにアカウントを閉じます。この処理は複数の依存トランザクションにまたがります。トランザクションフォーマット v1（Agave
-v4.2 とともにリリース予定）はサイズ制限を引き上げ、コンフィデンシャル転送を単一のオンチェーントランザクションで実行できるようになる見込みで、このフローが簡略化されます。
+これらのプルーフは、レガシーおよびv0のトランザクションサイズ上限ではインラインに収まらないほど大きいため、通常は **プルーフコンテキスト状態アカウント** を作成し、各プルーフを検証してそこに格納し、transfer instruction から参照した後、それらをクローズして rent を回収します。この方法では、互いに依存する複数のトランザクションにまたがります。トランザクション v1 形式ではこの上限が引き上げられ、機密転送を単一のオンチェーントランザクションで実行できるため、このフローが簡素化されます。
 
 証明を手動で組み立てる必要はありません。両クライアントとも、証明を構築して送信するinstructionsを生成する高レベルのヘルパーを提供しています：
 
@@ -405,7 +389,7 @@ for (const ix of instructions) {
 ミントは**グローバル監査人** ElGamal
 pubkeyを設定できます。設定されている場合、すべての秘密転送には監査人キーで暗号化された金額を含める必要があり、監査人の秘密鍵の保持者はそのミントのすべての転送金額を復号化できます。有効性証明は監査人の暗号文をカバーしているため、インテグレーターとして送信パスで特別な操作を行う必要はなく、ミント設定から監査人キーを渡すだけで済みます（高レベルのヘルパーが自動的に読み取ります）。
 
-あなたのプロダクトが監査人である場合（例：規制を受けた発行者やコンプライアンスプロバイダー）、監査人の秘密鍵を使用して転送金額を復号化する方法は、所有者が自身の残高を復号化する方法と同じです。所有者はまた、アカウントごとのキーを公開することなく、特定の相手に選択的に共有することもできます。
+プロダクトが監査人の役割を担う場合(例:規制対象の発行者やコンプライアンスプロバイダー)、所有者が自身の残高を復号するのと同じ方法で、監査人の秘密鍵を使って転送金額を復号します。所有者は、特定の相手にのみ自分のキーを選択的に共有することもでき、公開する必要はありません。ただし、標準のウォレット紐づけ型の導出では、同じキーが所有者のすべての機密残高を対象とするため、キーを共有すると1つだけでなく、すべての機密アカウントが開示されることになります。
 
 ### トランザクションモニタリング（KYT）
 
@@ -487,4 +471,4 @@ KYT（トランザクション把握）およびAMLプロバイダーにとっ�
 | アドレスおよびグラフスクリーニング   | 送信者、受信者、ミント、オーナーをスクリーニングし、カウンターパーティグラフ分析を実行します。これらは公開されたままになります。            | **P0**   |
 | 公開デポジット/ウィズドローの追跡 | コンフィデンシャルプールの観測可能な入出金ポイントとして、平文のデポジットおよびウィズドロー金額を監視します。 | **P0**   |
 | 監査者キーによる金額の可視化 | 監査者が有効化されたミントに対して、監査者キーを使用して送金金額を復号化し、金額ベースの検知をサポートします。     | **P1**   |
-| セレクティブディスクロージャーの受付   | アカウントごとのキーを通じてユーザーまたは発行者が共有する金額開示をサポートします。                                      | **P2**   |
+| セレクティブディスクロージャーの受付   | ユーザーや発行者が所有者のキーを通じて共有した金額の開示をサポートします。                                      | **P2**   |

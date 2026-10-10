@@ -10,48 +10,64 @@ nodig hebt:
 
 ```toml title="Cargo.toml"
 [dependencies]
-# Memory signer only (default)
-solana-keychain = "1.2"
+# Memory signer only (default, Solana SDK 2.x)
+solana-keychain = "2.0"
 
-# Or specify backends explicitly
-solana-keychain = { version = "1.2", default-features = false, features = ["vault", "aws_kms"] }
+# Or specify backends explicitly (pick exactly one SDK feature)
+solana-keychain = { version = "2.0", default-features = false, features = ["vault", "aws_kms", "sdk-v2"] }
 
-# All backends
-solana-keychain = { version = "1.2", features = ["all"] }
+# All remote backends on the Solana 4.x SDK line
+solana-keychain = { version = "2.0", default-features = false, features = ["all", "sdk-v4"] }
 ```
+
+Upgrade je van 1.x? Zie de
+[migratiegids voor 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md).
 
 ### Feature Flags
 
-| Functie      | Beschrijving                     |
-| ------------ | ------------------------------- |
-| `memory`     | Lokale keypair ondertekening (standaard) |
-| `vault`      | HashiCorp Vault Transit engine  |
-| `aws_kms`    | AWS KMS met Ed25519            |
-| `gcp_kms`    | GCP Cloud KMS met Ed25519      |
-| `privy`      | Privy embedded wallets          |
-| `turnkey`    | Turnkey API                     |
-| `fireblocks` | Fireblocks MPC                  |
-| `cdp`        | Coinbase Developer Platform     |
-| `crossmint`  | Crossmint beheerde wallets       |
-| `dfns`       | Dfns wallet-infrastructuur      |
-| `openfort`   | Openfort embedded wallets       |
-| `para`       | Para MPC-wallets                |
-| `utila`      | Utila MPC-bewaring               |
-| `fordefi`    | Fordefi MPC-bewaring             |
-| `all`        | Alle backends inschakelen             |
+| Functie        | Beschrijving                                                           |
+| -------------- | --------------------------------------------------------------------- |
+| `memory`       | Lokale keypair ondertekening (standaard)                                       |
+| `vault`        | HashiCorp Vault Transit engine                                        |
+| `aws_kms`      | AWS KMS met Ed25519                                                  |
+| `gcp_kms`      | GCP Cloud KMS met Ed25519                                            |
+| `privy`        | Privy embedded wallets                                                |
+| `turnkey`      | Turnkey API                                                           |
+| `fireblocks`   | Fireblocks MPC                                                        |
+| `cdp`          | Coinbase Developer Platform                                           |
+| `crossmint`    | Crossmint beheerde wallets                                             |
+| `dfns`         | Dfns wallet-infrastructuur                                            |
+| `openfort`     | Openfort embedded wallets                                             |
+| `para`         | Para MPC-wallets                                                      |
+| `utila`        | Utila MPC-bewaring                                                     |
+| `fordefi`      | Fordefi MPC-bewaring                                                   |
+| `ledger`       | Ledger-hardwarewallet via USB-HID (alleen Rust, opt-in, niet in `all`) |
+| `all`          | Schakel elke backend in behalve `ledger`                                  |
+| `sdk-v2`       | Solana SDK 2.x (standaard)                                              |
+| `sdk-v3`       | Solana SDK 3.x                                                        |
+| `sdk-v4`       | Solana SDK 4.x (vereist voor v1-transacties)                         |
+| `unsafe-debug` | Logt volledige foutresponses van providers; schakel dit nooit in op productie        |
+
+Precies één van `sdk-v2`, `sdk-v3` en `sdk-v4` moet zijn ingeschakeld.
 
 ## Basisgebruik
 
-Alle signers implementeren de
-[`SolanaSigner` trait](https://github.com/solana-foundation/solana-keychain/blob/main/rust/src/traits.rs):
+Alle signers implementeren de basis-
+[`SolanaSigner`-trait](https://github.com/solana-foundation/solana-keychain/blob/main/rust/src/traits.rs)
+(`pubkey`, `sign_message`, `is_available`). Elke backend implementeert bovendien precies
+één capability-trait:
+
+- `TransactionSigner`: ondertekent je transactie zoals aangeleverd.
+- `ModifyingSigner`: de provider herschrijft de transactie en ondertekent deze vervolgens.
+- `SendingSigner`: de provider ondertekent de transactie en verzendt deze.
 
 ```rust
-use solana_keychain::{SolanaSigner, Signer, SignerError, SignTransactionResult};
-use solana_sdk::transaction::Transaction;
+use solana_keychain::{SignerError, SolanaSigner, TransactionSigner};
+use solana_sdk::transaction::VersionedTransaction;
 
 async fn sign_transaction(
-    signer: &impl SolanaSigner,
-    tx: &mut Transaction,
+    signer: &impl TransactionSigner,
+    tx: &mut VersionedTransaction,
 ) -> Result<(), SignerError> {
     // Get the signer's public key
     let pubkey = signer.pubkey();
@@ -62,7 +78,7 @@ async fn sign_transaction(
         return Err(SignerError::NotAvailable("Signer offline".into()));
     }
 
-    // Sign the transaction — returns Complete or Partial
+    // Sign the transaction: returns Complete or Partial
     let result = signer.sign_transaction(tx).await?;
     let (base64_tx, signature) = result.into_signed_transaction();
     println!("Signature: {}", signature);
@@ -70,6 +86,25 @@ async fn sign_transaction(
     Ok(())
 }
 ```
+
+Converteer een legacy-`Transaction` met `.into()`. Legacy- en v0-transacties werken
+met elke SDK-feature; v1-transacties vereisen `sdk-v4`.
+
+### Signer-capabilities
+
+| Backend                              | Capability-trait    | `sign_message`                  |
+| ------------------------------------ | ------------------- | ------------------------------- |
+| Crossmint                            | `SendingSigner`     | Niet ondersteund                   |
+| Fordefi native auto                  | `SendingSigner`     | Ja                             |
+| Fordefi native manual                | `ModifyingSigner`   | Ja                             |
+| Utila                                | `TransactionSigner` | Niet ondersteund                   |
+| CDP                                  | `TransactionSigner` | Alleen UTF-8-payloads             |
+| Ledger                               | `TransactionSigner` | Ja, via een off-chain envelope |
+| Alle overige (incl. Fordefi black box) | `TransactionSigner` | Ja                             |
+
+De `Signer::from_*`-constructors voeren `init()` voor je uit. Als je de signertypen van
+Privy, Fireblocks, Dfns, Crossmint, Para, Openfort of Utila
+rechtstreeks aanmaakt, roep dan vóór gebruik `init().await` aan.
 
 ## Backend-configuratie
 
@@ -83,8 +118,8 @@ use solana_keychain::Signer;
 // From base58 private key
 let signer = Signer::from_memory("base58_private_key")?;
 
-// From JSON file path
-let signer = Signer::from_memory("/path/to/keypair.json")?;
+// From JSON keypair file path
+let signer = Signer::from_memory_file("/path/to/keypair.json")?;
 
 // From byte array string
 let signer = Signer::from_memory("[1,2,3,...]")?;
@@ -163,7 +198,12 @@ let config = FireblocksSignerConfig {
     api_key: "api_key".to_string(),
     private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\n...".to_string(),
     vault_account_id: "0".to_string(),
-    asset_id: "SOL".to_string(), // or "SOL_TEST" for devnet
+    asset_id: Some("SOL".to_string()), // None defaults to "SOL"; "SOL_TEST" for devnet
+    api_base_url: None,
+    poll_interval_ms: None,
+    max_poll_attempts: None,
+    use_program_call: None, // Some(true) signs via PROGRAM_CALL (sign-only, legacy/v0, hot wallet)
+    http_client_config: None,
 };
 
 let signer = Signer::from_fireblocks(config).await?;
@@ -187,20 +227,28 @@ let signer = Signer::from_gcp_kms(
 Voor ondertekening met door Coinbase beheerde wallets:
 
 ```rust
-use solana_keychain::Signer;
+use solana_keychain::{Signer, CdpSignerConfig, CDP_NETWORK_MAINNET};
 
-let signer = Signer::from_cdp(
-    "api_key_id".to_string(),     // CDP API key ID
-    "api_key_secret".to_string(), // CDP API private key (base64 Ed25519)
-    "wallet_secret".to_string(),  // CDP wallet secret (base64 PKCS#8 DER)
-    "base58_address".to_string(), // Solana account address
-    None,                         // Default HTTP timeouts
-)?;
+let signer = Signer::from_cdp(CdpSignerConfig {
+    api_key_id: "api_key_id".to_string(),           // CDP API key ID
+    api_key_secret: "api_key_secret".to_string(),   // CDP API private key (base64 Ed25519)
+    wallet_secret: "wallet_secret".to_string(),     // CDP wallet secret (base64 PKCS#8 DER)
+    address: "base58_address".to_string(),          // Solana account address
+    network: Some(CDP_NETWORK_MAINNET.to_string()), // Required to sign transactions with address lookup tables
+    api_base_url: None,
+    http_client_config: None,                       // Default HTTP timeouts
+})?;
 ```
+
+`sign_message` van CDP accepteert alleen UTF-8-payloads.
 
 ### Crossmint
 
-Voor ondertekening met door Crossmint beheerde wallets:
+Crossmint is alleen-verzenden: de API voert elke goedgekeurde transactie
+serverzijdig uit, dus er is geen sign-only-pad en `sign_message` mislukt. Roep
+`sign_and_send_transaction` aan; die laat je transactie ongemoeid en retourneert
+de handtekening van de transactie die daadwerkelijk is verwerkt. Die transactie kan afwijken van
+de jouwe als Crossmint de gas sponsort.
 
 ```rust
 use solana_keychain::{Signer, CrossmintSignerConfig};
@@ -216,6 +264,12 @@ let config = CrossmintSignerConfig {
 };
 
 let signer = Signer::from_crossmint(config).await?;
+
+let signature = signer
+    .as_sending_signer()
+    .expect("Crossmint is a sending signer")
+    .sign_and_send_transaction(&tx)
+    .await?;
 ```
 
 ### Dfns
@@ -229,7 +283,6 @@ let config = DfnsSignerConfig {
     auth_token: "auth_token".to_string(),
     cred_id: "cred_id".to_string(),
     private_key_pem: "-----BEGIN EC PRIVATE KEY-----\n...".to_string(),
-    app_id: "app_id".to_string(),
     wallet_id: "wallet_id".to_string(),
     api_base_url: None,
     http_client_config: None,
@@ -252,40 +305,110 @@ let signer = Signer::from_para(
 ).await?;
 ```
 
+### Openfort
+
+Voor ondertekening met een Openfort-backendwallet:
+
+```rust
+use solana_keychain::Signer;
+
+let signer = Signer::from_openfort(
+    "sk_live_...".to_string(),   // Openfort secret key
+    "acc_...".to_string(),       // Account ID
+    "wallet_secret".to_string(), // Wallet secret (base64 PKCS#8 DER or PEM)
+    None,                        // Default HTTP timeouts
+).await?;
+```
+
+### Utila
+
+Voor ondertekening via Utila MPC-custody. `sign_message` wordt niet ondersteund en je
+verzendt de ondertekende transactie zelf.
+
+```rust
+use solana_keychain::{Signer, UtilaSignerConfig};
+
+let signer = Signer::from_utila(UtilaSignerConfig {
+    service_account_email: "sa@example.com".to_string(),
+    service_account_private_key_pem: "-----BEGIN PRIVATE KEY-----\n...".to_string(),
+    vault_id: "vault_id".to_string(),
+    wallet_id: "wallet_id".to_string(),
+    network: "networks/solana-devnet".to_string(),
+    api_base_url: None,
+    poll_interval_ms: None,
+    max_poll_attempts: None,
+    designated_signers: None,
+    http_client_config: None,
+}).await?;
+```
+
 ### Fordefi
 
-Voor Fordefi MPC-bewaring ondertekening. API-verzoeken worden geverifieerd met een ECDSA
-P-256 verzoekhandtekening afgeleid uit `private_key_pem`; om die sleutel in een
-KMS/HSM te bewaren, implementeer `FordefiRequestSigner` en gebruik
-`Signer::from_fordefi_with_signer`.
+Voor ondertekening via Fordefi MPC-custody. API-verzoeken worden geauthenticeerd met een ECDSA
+P-256-verzoekhandtekening. Geef precies één van `private_key_pem` of
+`request_signer` op (een `Arc<dyn FordefiRequestSigner>`, bedoeld om die sleutel in een
+KMS/HSM te bewaren).
 
-Fordefi heeft twee ondertekeningsmodi. Stel `chain` in voor de **native Solana-modus**, waarbij
-Fordefi de blockhash of kosten kan vervangen en de transactie zelf uitzendt.
-Laat `chain` op `None` staan voor de **black box-modus**, waarbij Fordefi ruwe bytes ondertekent
-en u de transactie zelf uitzendt.
+Fordefi is er in drie signertypen, die bij het aanmaken worden vastgelegd door `chain` en
+`push_mode`:
+
+| `chain`    | `push_mode`      | Type                        | Capability          | Gedrag                                                           |
+| ---------- | ---------------- | --------------------------- | ------------------- | ------------------------------------------------------------------ |
+| `None`     | elke              | `FordefiBlackBoxSigner`     | `TransactionSigner` | Ondertekent ruwe bytes; jij verzendt                                     |
+| `Some(..)` | `None` of `Auto` | `FordefiNativeAutoSigner`   | `SendingSigner`     | Fordefi kan de blockhash en de fees herschrijven, ondertekent en verzendt   |
+| `Some(..)` | `Manual`         | `FordefiNativeManualSigner` | `ModifyingSigner`   | Fordefi herschrijft en ondertekent; jij verzendt de geretourneerde transactie |
+
+De native manual-modus vervangt je transactie door de transactie die Fordefi heeft ondertekend.
+Ga verder met die transactie, nooit met de transactie die je zelf hebt opgebouwd. Deze moet vóór elke andere
+vereiste signer worden uitgevoerd.
 
 ```rust
 use solana_keychain::{
-    Signer, FordefiSignerConfig, SolanaChainUniqueId, FordefiSolanaFee, FordefiPriorityLevel,
+    Signer, FordefiSignerConfig, FordefiPushMode, SolanaChainUniqueId, FordefiSolanaFee,
+    FordefiPriorityLevel,
 };
 
 let config = FordefiSignerConfig {
     access_token: "api_token".to_string(),
     vault_id: "vault_uuid".to_string(),
-    private_key_pem: std::fs::read_to_string("./secret/private.pem")?,
-    public_key: "base58_public_key".to_string(), // Solana vault address
+    private_key_pem: Some(std::fs::read_to_string("./secret/private.pem")?),
+    request_signer: None,                           // Or Some(Arc::new(your_kms_signer))
+    public_key: "base58_public_key".to_string(),    // Solana vault address
     chain: Some(SolanaChainUniqueId::SolanaDevnet), // None for black box mode
     fee: Some(FordefiSolanaFee::Priority {
         priority_level: FordefiPriorityLevel::Medium,
     }),
+    push_mode: Some(FordefiPushMode::Auto),         // Manual: sign without broadcasting
     api_base_url: None,       // Default: https://api.fordefi.com
     poll_interval_ms: None,   // Default: 2000
     max_poll_attempts: None,  // Default: 50
     http_client_config: None, // Default HTTP timeouts
 };
 
-let signer = Signer::from_fordefi(config)?;
+let signer = Signer::from_fordefi(config).await?;
 ```
+
+### Ledger
+
+Voor ondertekening met een hardwarewallet via USB-HID (alleen Rust). Vereist de `ledger`-
+feature, een ontgrendeld apparaat met de Solana-app en, op Linux, de udev-regels
+van Ledger. Ledger valt niet onder de huidige audit; zie de
+[auditstatus](https://github.com/solana-foundation/solana-keychain/blob/main/audits/AUDIT_STATUS.md).
+
+```rust
+use solana_keychain::{LedgerConfig, Signer};
+
+let signer = Signer::from_ledger(LedgerConfig {
+    confirm_pubkey_on_device: true,
+    ..LedgerConfig::default()
+})
+.await?;
+```
+
+`sign_message` ondertekent een off-chain envelope waarin je payload is verpakt, niet de ruwe
+bytes; bouw deze opnieuw op met `solana_keychain::ledger::ledger_offchain_envelope` om
+te verifiëren. Stel `auto_open_app: false` in voor onbeheerd gebruik. Een op het
+apparaat geweigerde prompt retourneert `SignerError::UserRejected`.
 
 ## Uniform Signer Enum
 
@@ -307,6 +430,36 @@ async fn get_signer(backend: &str) -> Result<Signer, SignerError> {
 let signer = get_signer("kms").await?;
 let pubkey = signer.pubkey();
 ```
+
+`Signer` implementeert alleen `SolanaSigner`. Je benadert een capability via
+`as_transaction_signer()`, `as_modifying_signer()` of `as_sending_signer()`,
+die `None` retourneren wanneer de backend die vorm niet heeft:
+
+```rust
+if let Some(transaction_signer) = signer.as_transaction_signer() {
+    let result = transaction_signer.sign_transaction(&mut tx).await?;
+}
+```
+
+Of laat `sign_and_send` op basis van de backend routeren. De crate heeft geen RPC-client, dus jij
+levert de broadcast aan; bij een sending-backend wordt de closure nooit aangeroepen:
+
+```rust
+let signature = signer
+    .sign_and_send(&mut tx, |encoded| async move { broadcast(encoded).await })
+    .await?;
+```
+
+## Foutafhandeling
+
+`SignerError::BroadcastUnconfirmed { provider_tx_id, idempotency_key, transaction_signature, .. }`
+(van Crossmint, Fordefi native auto of een falende `sign_and_send`-closure)
+betekent dat de transactie mogelijk is verwerkt. Probeer niet blindelings opnieuw: controleer eerst
+`provider_tx_id` of `transaction_signature`, of verstuur uitsluitend de
+byte-identieke transactie opnieuw. Exhaustieve `match`-expressies op `SignerError` hebben deze arm nodig.
+Zie het
+[beveiligingsmodel](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+voor wat elke ondertekeningsvorm garandeert.
 
 ## Aangepaste Signers Toevoegen
 

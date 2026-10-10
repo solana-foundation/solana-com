@@ -1,0 +1,199 @@
+---
+title: Anchor 事件
+description:
+  定义、触发、解码、订阅、版本管理并测试 Anchor 事件，同时提供日志截断和 CPI 事件的使用指南。
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+Anchor 事件是带类型、采用 Borsh 序列化的记录，包含在程序的 IDL 中。客户端无需解析人类可读的日志消息，即可解读程序的活动。
+
+事件适用于索引和通知，但它们不是程序状态。程序需要再次读取的任何值都应存储在账户中，而事件只应被视为由成功交易衍生出的记录。
+
+## 定义并触发事件
+
+为结构体添加 `#[event]`，并在状态变更成功后调用 `emit!`。
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+`emit!` 通过 Solana 的 `sol_log_data` 系统调用写入事件字节。交易日志会将结果显示为 `Program data: <base64>`。编码后的值以事件鉴别器开头，后面是经 Borsh 序列化的字段。
+
+保持事件精简。较大的字符串和向量会消耗计算资源，增加交易元数据，并且更容易受到日志截断的影响。
+
+## 在日志事件和 CPI 事件之间选择
+
+Anchor 支持两种触发路径：
+
+| 路径        | 存储位置                  | 权衡取舍                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | 程序数据日志                 | 更简单、成本更低，但日志可能被截断         |
+| `emit_cpi!` | 来自 CPI 的内部指令 instruction data | 元数据更持久，但需要额外的账户和计算资源 |
+
+要使用 CPI 事件，请启用 Anchor 的 `event-cpi` 功能：
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+然后使用 `#[event_cpi]` 标注指令的账户结构体，并在上下文变量名为 `ctx` 的处理函数中触发事件：
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+`#[event_cpi]` 会添加已签名的自身 CPI 所需的 event authority 账户和当前 program account。CPI 事件无法通过 Anchor 的日志事件订阅来获取；请改为获取交易并解码匹配的内部指令。
+
+<Callout type="info" title="以账本作为数据源">
+  RPC 提供商可能会截断程序日志。如果遗漏某个事件会影响余额、权限或其他对正确性至关重要的工作流，请从程序账户或交易的 instruction data 中推导结果。使用事件是为了让索引更高效，而不是将其作为状态的唯一记录。
+</Callout>
+
+## 通过 TypeScript 订阅
+
+当前的 Anchor TypeScript 客户端是 `@anchor-lang/core`。由程序 IDL 创建的 `Program` 实例可以解码匹配的日志事件，并通过 RPC 日志订阅将其传递出来：
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+回调会接收解码后的事件数据、slot 以及交易签名。订阅仅覆盖连接处于活动状态期间推送的日志。如果消费方需要完整的历史记录，请持久化已处理的签名，并在断开连接后回填遗漏的交易。
+
+## 解码已获取的交易日志
+
+对于回填和一次性检查，可以获取交易，并将每个 `Program data:` 载荷传递给事件编码器：
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+一笔交易可能会调用多个程序。对于生产环境的解析器，请跟踪 `Program <address> invoke` 和 `success` 日志边界，或使用 Anchor 的事件解析器，以免将其他程序的 `Program data:` 条目误当作你的程序事件来解码。失败的交易可能会保留错误发生之前已完成操作所产生的日志和内部指令，因此在为任何一种事件形式建立索引之前，务必拒绝 `err` 非空的交易元数据。Anchor 的日志订阅会在触发事件回调之前执行此检查。
+
+对于 `emit_cpi!` 事件，请在 `meta.innerInstructions` 中找到自身 CPI，确认其程序 ID 是你的程序，并对其 instruction data 进行 base58 解码。在剥离任何字节之前，请先验证 Anchor 的 [`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3)：
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+同时检查程序 ID 和标签，可以避免将普通的自身 CPI 误认为事件。
+
+## 事件模式的版本管理
+
+默认情况下，Anchor 会根据事件名称派生出 8 字节的事件鉴别器。Anchor 也支持通过 `#[event(discriminator = ...)]` 显式指定鉴别器。鉴别器在程序内必须保持唯一，并且对每个解码该事件的客户端都必须保持稳定。
+
+更改已触发结构体的字段会改变其 Borsh 布局。对于破坏性的模式变更，请定义一个新事件（例如 `PaymentRecordedV2`），而不是悄悄修改 `PaymentRecorded`。如果现有索引器仍依赖旧事件，请在迁移期内继续触发旧事件。
+
+对于需要演进的数据，建议使用定宽字段和标识符，以便索引器单独获取更丰富的账户数据。请在程序升级之前或同时发布更新后的 IDL，以便消费方能立即解码新事件。
+
+## 测试事件
+
+测试解码后的约定内容，而不是 base64 字符串。请在发送指令之前注册监听器，断言解码后的字段和交易签名，并且务必移除监听器：
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+此外，还要测试索引器是否会忽略保留在失败交易元数据中的事件字节，并为每个受支持的事件版本添加测试夹具。如果使用 `emit_cpi!`，请测试从 `innerInstructions` 中解码，因为日志监听器不会直接接收这些事件。
+
+## 延伸阅读
+
+- [Anchor 事件文档](https://www.anchor-lang.com/docs/features/events)
+- [Anchor TypeScript 客户端](https://www.anchor-lang.com/docs/clients/typescript)
+- [Anchor 事件宏源码](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

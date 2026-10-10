@@ -19,7 +19,7 @@ related:
 Solanaは3つのトランザクションフォーマットをサポートしています：**legacy**、**v0**、**v1**。それぞれについて、ワイヤー上のバイト配置、アカウントの参照方法、リソース制限の出所という3つの観点から説明します。
 
 <Callout type="warn" title="v1の有効化状況">
-  [v1フォーマット](https://solana.com/upgrades/larger-transaction-sizes)はまだどのクラスターでも有効化されていません。有効化はAgave v4.2で予定されています。`solana-test-validator` 4.2以降を使用すると、v1トランザクションをローカルでテストできます。既存のアプリは[v1への移行準備](#preparing-for-v1)を確認してください。
+  [v1フォーマット](https://solana.com/upgrades/larger-transaction-sizes)は、mainnet、devnet、testnetで有効です。トランザクションの読み取りには破壊的変更があります。オプトインしていないクライアントは、v1トランザクションの取得に失敗します。既存のアプリは[v1への準備](#preparing-for-v1)を確認してください。
 </Callout>
 
 ## フォーマット比較
@@ -97,6 +97,16 @@ ALTは最大256個の公開鍵を保存するオンチェーンアカウント�
   アドレスルックアップテーブルは、オンワイヤトランザクションでアカウントがどのように参照されるかにのみ影響します。実行時には、ランタイムがすべてのインデックスを完全なアカウントアドレスに解決します。ALTで解決されたアカウントは書き込み可能または読み取り専用(非署名者)のみ可能で、署名者にはなれません。
 </Callout>
 
+### アドレスルックアップテーブルの作成と使用
+
+この例では、ルックアップテーブルを作成してアドレスを追加し、そのテーブルを使ってv0トランザクションをコンパイルして送信します。
+
+```ts !! title="Versioned transaction with an ALT" file=packages/docs-examples/cookbook/transactions/versioned-transaction-alt/legacy.ts#region=versioned-transaction-alt
+
+```
+
+ルックアップテーブルから読み込めるのは、署名者ではないアカウントのみです。手数料支払者と必要なすべての署名者は、メッセージの静的アカウントリストに残ります。また、アドレスは追加されたのと同じ slot ではルックアップできないため、この例では、v0メッセージをコンパイルする前に次の confirmed な slot を待ちます。
+
 ### v0のリソース制限
 
 legacyから変更なし：ComputeBudget instructions、省略時のデフォルト値も同様。
@@ -110,7 +120,7 @@ v1はサイズ制限を4,096バイトに引き上げ、**トランザクショ�
 | フィールド                  | サイズ         | 説明                                                                        |
 | ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
 | `0x81`                 | 1バイト       | バージョンプレフィックスバイト — トランザクションの最初のバイト                            |
-| `header`               | 3バイト      | MessageHeader（legacyと同様）                                                     |
+| `header`               | 3バイト      | MessageHeader（レガシーと同じ）                                                     |
 | `config_mask`          | 4バイト      | どの設定値が存在するかを示す`u32` LEビットマスク                           |
 | `recent_blockhash`     | 32バイト     | 有効期限指定子                                                                 |
 | `num_instructions`     | 1バイト       | 固定幅カウント、最大64                                                          |
@@ -161,16 +171,54 @@ v1トランザクションはComputeBudget instructionsを拒否しません —
 
 推奨されるアプローチは、両方の制限を最大値にして一度シミュレーションを実行し、返された`unitsConsumed`と`loadedAccountsDataSize`を設定に書き戻すことです。データサイズは余裕を持たせるために次の32 KiBページに切り上げてください（ブロックコストモデルは32 KiBページ単位で課金されるため、次のページ境界未満の余裕はコストがかかりません）。
 
+### v1トランザクションの構築
+
+v1メッセージは、レガシーやv0のメッセージと同じパイプラインで組み立てます。違いは `setTransactionMessageConfig` です。リソース制限はメッセージのプロパティであるため、instructionのリストにはプログラムのinstructionsだけが含まれます。
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=build
+
+```
+
+</CodeTabs>
+
+Kitには、設定フィールドごとのセッターも用意されています — `setTransactionMessagePriorityFeeLamports`、`setTransactionMessageComputeUnitLimit`、`setTransactionMessageLoadedAccountsDataSizeLimit`、`setTransactionMessageHeapSize` — 1つずつ設定したい場合に使用できます。
+
+### シミュレーションによる制限値の見積もり
+
+2つの必須制限値を推測で決めるのではなく、実際に測定しましょう。シミュレーションは両方の制限をランタイムの最大値に引き上げて実行するため、測定対象のリソース不足で失敗することはありません。返される数値は、1回のシミュレーション実行にかかった正確なコストです。そのまま使用せず、余裕を持たせた値を加えてください。
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/estimate-kit.ts#region=estimate
+
+```
+
+</CodeTabs>
+
 ## v1への移行準備
 
-v1はトランザクションの**読み取り**も変更します。送信だけではありません。v1が有効化されると、オプトインせずに`getTransaction`や`getBlock`を呼び出すクライアントはv1トランザクションで失敗し始めます：
+v1では、送信だけでなくトランザクションの**読み取り**も変わります。オプトインせずに `getTransaction` や `getBlock` を呼び出すクライアントは、v1トランザクションで失敗します:
 
 - [`getTransaction`](/docs/rpc/http/gettransaction)および[`getBlock`](/docs/rpc/http/getblock)に`maxSupportedTransactionVersion: 1` — 文字列`"1"`ではなくJSON**整数**の`1` — を渡してください。`0`を渡すとパラメーターを省略した場合と同様にv1トランザクションで失敗します。v0のロールアウト時にコードベースを更新していても、値を変更する必要があります。
 - `getTransaction`はv1トランザクションに対してエラー`-32015`で失敗し、`getBlock`レスポンスに1つでもv1トランザクションがあると、同じエラーでレスポンス**全体**が失敗します — 部分的な結果は返されません。
 - [`blockSubscribe`](/docs/rpc/websocket/blocksubscribe)は`block: null`を返して進行を停止するため、これを空のブロックとして読み取るコンシューマーは最初のv1 slot以降から静かに遅延します。
 - `getSignaturesForAddress`はトランザクション本体を検査しないため、v1のシグネチャは通常通り一覧表示されます。
-- オプトイン済みのレスポンスには、v1トランザクションのメッセージに`transactionConfig`オブジェクトが含まれます（legacyおよびv0では完全に省略されます）。ComputeBudget instructionsをスキャンして優先手数料やコンピュート制限を導出するパイプラインは、すべてのv1トランザクションに対して**ゼロ**を静かに報告します。
+- オプトインしたレスポンスでは、v1トランザクションのメッセージに `transactionConfig` オブジェクトが含まれます(legacyとv0では一切含まれません)。ComputeBudgetのinstructionsをスキャンして優先手数料やコンピュート制限を導出しているパイプラインは、すべてのv1トランザクションで**ゼロ**と報告してしまい、エラーにも気づけません。
 - クライアント側でトランザクションをデコードする場合、および1,232バイトを超えるトランザクションの`sendTransaction`/`simulateTransaction`には`encoding: 'base64'`を使用してください — base58エンコーディングは旧来のサイズ上限のままです。
 - クライアントライブラリのサポートには最新バージョンが必要です：`@solana/kit` 8.0以降、Agave 4.2.x世代のRustクレート、またはweb3.js v3。web3.js v1は1.99.0以降でv1を読み取れますが、構築または送信はできません。
 
-クライアントライブラリのサポート、ストリーミング（Geyser/gRPC）のバージョン検出、シミュレーション動作を含む完全な移行ガイドについては、[トランザクションフォーマットv1アップグレードページ](https://solana.com/upgrades/larger-transaction-sizes)を参照してください。
+### v1トランザクションの読み取り
+
+オプトインするには、JSON整数の `1` を指定します。返されたバイト列をデコードするとバージョンと設定が得られ、リソース制限はその設定の中にあります。instructionのリストをスキャンしてComputeBudgetのinstructionsを探しても、何も見つかりません。
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=read
+
+```
+
+</CodeTabs>
+
+クライアントライブラリのサポート、ストリーミング(Geyser/gRPC)でのバージョン検出、シミュレーションの動作を含む完全な移行ガイドについては、[Transaction Format v1 アップグレードページ](https://solana.com/upgrades/larger-transaction-sizes)をご覧ください。TypeScript、Rust、Python、Goの実行可能なサンプルは、[solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples)にあります。

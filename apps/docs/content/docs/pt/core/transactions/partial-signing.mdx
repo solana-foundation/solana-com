@@ -1,0 +1,109 @@
+---
+title: Assinatura parcial
+description:
+  Crie uma única mensagem de transação Solana imutável, colete as assinaturas de signatários independentes, verifique-as e combine-as, e então envie a transação.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+A assinatura parcial permite que várias partes assinem a mesma transação em momentos
+diferentes ou em dispositivos diferentes. Um coordenador cria a mensagem, cada signatário
+necessário assina os bytes exatos da mensagem serializada, e o coordenador verifica
+e combina as assinaturas antes do envio.
+
+<Callout type="warn" title="As assinaturas autorizam bytes, não intenções">
+  Alterar o pagador da taxa, o blockhash, a ordem das instruções, a lista de contas ou qualquer
+  instruction data produz uma mensagem diferente e invalida todas as assinaturas
+  já coletadas.
+</Callout>
+
+## Fluxo de assinatura parcial
+
+1. Defina as instruções da transação e quem pagará a taxa.
+2. Defina o tempo de vida da transação e o pagador da taxa.
+3. Serialize a mensagem uma única vez. Trate esses bytes como imutáveis.
+4. Distribua os bytes da mensagem e um resumo legível por humanos a cada signatário.
+5. Colete e verifique cada assinatura Ed25519 em relação aos mesmos bytes da mensagem.
+6. Anexe as assinaturas aos respectivos endereços de signatários necessários.
+7. Confirme que todas as assinaturas necessárias estão presentes e são válidas e, em seguida, envie.
+
+## Exemplo completo
+
+O pagador da taxa e o remetente de SOL abaixo assinam de forma independente. O coordenador verifica
+as duas assinaturas, combina-as e envia a transação concluída.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+O exemplo usa assinatura Ed25519 bruta para tornar explícita a fronteira entre o
+coordenador e cada signatário. Uma carteira, um dispositivo de hardware, um serviço de
+custódia ou um signatário offline pode substituir qualquer keypair local, desde que assine
+exatamente os mesmos bytes da mensagem.
+
+## Congele a mensagem antes de assinar
+
+Cada assinatura abrange a mensagem de transação serializada. A mensagem inclui
+tudo o que se segue:
+
+- o pagador da taxa
+- o blockhash recente ou o nonce durável
+- todos os endereços de programas e contas
+- as permissões de signatário e de escrita das contas
+- a ordem das instruções e a instruction data
+
+Crie primeiro estes campos, serialize a mensagem uma única vez e distribua esse array de
+bytes a cada signatário. É útil armazenar um digest da mensagem junto a
+cada solicitação de assinatura, para que o coordenador possa rejeitar uma assinatura devolvida para
+uma mensagem diferente.
+
+Não desserialize uma mensagem, altere-a e espere que as assinaturas coletadas
+anteriormente continuem válidas. Mesmo uma alteração que pareça operacional, como
+substituir um blockhash expirado ou alterar o pagador da taxa, exige que todos os signatários
+assinem novamente.
+
+## Coordene o pagador da taxa
+
+O pagador da taxa é sempre um signatário necessário e deve ser escolhido antes de a mensagem
+ser congelada. Confirme que a conta tem SOL suficiente para a taxa base e para qualquer
+taxa de prioridade. Se um patrocinador ou um backend pagar a taxa, coloque esse endereço na
+mensagem antes de coletar a assinatura do usuário; adicionar o patrocinador depois altera
+os bytes assinados.
+
+O coordenador deve verificar se uma assinatura recebida pertence a um endereço
+listado como signatário necessário. Nunca aceite uma chave pública arbitrária e a anexe
+à transação.
+
+## Gerencie o tempo de vida da transação
+
+Uma transação com blockhash recente só é válida enquanto seu blockhash permanecer na
+fila de blockhashes recentes do validator. Antes de iniciar um fluxo de assinatura com várias partes,
+estime se todos os signatários conseguem responder antes de `lastValidBlockHeight`.
+
+Se o blockhash expirar, crie uma nova mensagem com um blockhash novo e colete
+novamente todas as assinaturas. Para fluxos de trabalho que podem demorar mais ou incluir
+signatários offline, use um [nonce durável](/docs/core/transactions/durable-nonces). Um
+nonce durável evita a janela do blockhash recente, mas avançar ou consumir de qualquer outra forma
+esse nonce ainda invalida a transação pendente.
+
+## Verifique antes do envio
+
+Para cada assinatura devolvida:
+
+1. Verifique a assinatura em relação aos bytes da mensagem congelada e à chave pública
+   esperada do signatário.
+2. Anexe-a ao slot desse signatário no array de assinaturas da transação.
+3. Verifique se a transação montada tem assinaturas válidas para todos os signatários
+   necessários.
+4. Envie a transação serializada sem reconstruir a sua mensagem.
+
+Após o envio, confirme usando as mesmas informações de tempo de vida que foram incluídas
+na mensagem assinada. Se a confirmação indicar um blockhash expirado ou um nonce
+consumido, não tente novamente com uma transação modificada; reinicie o fluxo de assinatura.

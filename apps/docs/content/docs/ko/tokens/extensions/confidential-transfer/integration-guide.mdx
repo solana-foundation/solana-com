@@ -41,21 +41,20 @@ description:
   범위)을 생성하고, 일반적으로 임시 **증명 컨텍스트 상태 계정**에 배치한 다음
   전송을 제출합니다. `@solana-program/token-2022`(JS)와 `spl-token-client`(Rust)
   모두 증명을 구성하고 트랜잭션 순서를 처리하는 고수준 헬퍼를 제공합니다.
-- 기밀 전송은 현재 여러 개의 종속 트랜잭션에 걸쳐 이루어집니다. 증명이 현재의
-  트랜잭션 크기 제한을 초과하기 때문입니다. 곧 도입될 변경 사항(Agave v4.2와
-  함께 출시되는 트랜잭션 포맷 v1)으로 이 제한이 높아져 기밀 전송을 단일 온체인
-  트랜잭션으로 실행할 수 있을 것으로 기대됩니다.
+- 기밀 전송은 증명이 트랜잭션 크기 제한을 초과했기 때문에 지금까지 서로 의존하는
+  여러 트랜잭션에 걸쳐 처리되었습니다. 트랜잭션 v1 형식은 이 제한을 높여 주며,
+  이를 통해 기밀 전송을 단일 온체인 트랜잭션으로 실행할 수 있습니다.
 - 지원을 전혀 추가하지 않은 지갑도 작동은 합니다. 공개 잔액이 표시되고 일반
   전송은 계속 작동합니다. 기밀 자금은 소유자의 키를 보유한 기밀 인식
   클라이언트라면 어디서든 접근할 수 있습니다.
 
 ## 용어
 
-- **ElGamal keypair**: 잔액을 암호화하고 ZK 증명을 구성하는 데 사용되는 계정별
-  공개 키 keypair입니다. 공개 키는 계정에 저장됩니다.
-- **AES 키**: 소유자가 이산 로그를 풀지 않고도 일정한 시간 내에 사용 가능한
-  잔액을 읽을 수 있도록 "복호화 가능한 사용 가능 잔액"을 암호화하는 데 사용되는
-  계정별 대칭 키입니다.
+- **ElGamal keypair**: 소유자의 공개 키 방식 keypair로, 잔액을 암호화하고
+  ZK 증명을 생성하는 데 사용됩니다. 공개 키는 구성된 각 계정에 저장됩니다.
+- **AES 키**: 소유자의 대칭 키로, "복호화 가능한 가용 잔액"을 암호화하는 데
+  사용됩니다. 이를 통해 소유자는 이산 로그를 풀지 않고도 일정한 시간 안에 자신의
+  가용 잔액을 읽을 수 있습니다.
 - **대기 중인 잔액(Pending balance)**: 입금 또는 수신 전송을 통해 받은 자금의
   암호화된 잔액으로, 아직 적용되지 않은 상태입니다. 직접 사용할 수 없습니다.
 - **사용 가능한 잔액(Available balance)**: 전송하거나 출금할 수 있는 암호화된
@@ -93,12 +92,12 @@ description:
 keypair**와 빠른 잔액 복호화를 위한 **AES 키**. 이러한 키를 생성하고 저장하는
 방법은 통합 방식에 따라 선택할 수 있습니다. 일반적인 옵션은 다음과 같습니다:
 
-- **지갑 서명에서 파생 (권장 기본값).** 소유자가 표준화된 도메인 분리 메시지에
-  서명하면, 해당 서명으로부터 키가 파생됩니다. 따라서 지갑만으로도 키를 재현할
-  수 있으며 별도로 저장할 필요가 없습니다. seed는 계정별로 결정론적입니다:
-  아래의 JS 헬퍼는 이를 `(owner, mint)` 쌍에 바인딩하며, Rust 예제는 token
-  account 주소를 seed로 사용합니다 (associated token account의 경우 해당 주소
-  자체가 소유자와 민트로부터 파생되므로 동일합니다).
+- **지갑 서명에서 파생(권장 기본값).** 소유자가 정규화되고 도메인이 분리된
+  메시지에 서명하면 그 서명으로부터 키가 파생됩니다. 따라서 지갑만 있으면 키를
+  재현할 수 있으므로 별도로 저장할 필요가 없습니다. 표준 파생 방식은 키를 메인
+  지갑에만 바인딩하며 시드를 전혀 사용하지 않으므로, 클라이언트가 실수로 서로
+  다른 키를 파생할 수 없습니다. 즉, 하나의 지갑은 모든 민트와 token account에
+  걸쳐 하나의 ElGamal keypair 및 하나의 AES 키에 대응됩니다.
 - **독립적인 키 재료에서 파생.** 패스키, 보안 엔클레이브, 또는 MPC 설정의 경우,
   WebAuthn PRF 출력 또는 기타 입력 키 재료로부터 키를 파생하여 기밀 키가 계정의
   서명 키에 종속되지 않도록 합니다. `@solana/zk-sdk`는 이를 위해
@@ -111,42 +110,35 @@ keypair**와 빠른 잔액 복호화를 위한 **AES 키**. 이러한 키를 생
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  기밀 키는 복호화 키입니다. 파생 메시지에 서명하는 요청은 사용자 잔액에 대한
-  개인 열람 권한을 부여하는 것과 같으므로 신중하게 처리하십시오. 키는
-  저장하기보다 필요 시 파생하는 방식을 권장합니다. 저장이 필요한 경우(예:
-  커스터디얼 서비스), 서명 키와 동일한 수준의 엄격한 보호 조치를 적용하십시오.
+  기밀 키는 복호화 키입니다. 파생 메시지에 서명하라는 요청은 사용자 잔액의 비공개
+  보기를 잠금 해제하는 것과 같다고 생각해야 합니다. 키를 저장하기보다는 필요할 때
+  파생하는 방식을 권장하며, 부득이하게 저장하는 경우(예: 수탁 서비스)에는 서명 키와
+  동일한 수준으로 엄격하게 보호해야 합니다. 지갑은 전용 파생 플로우를 통해 이 서명을
+  제공해야 하며, 해당 서명이 사용자 복호화 키의 입력 키 재료가 되므로
+  `solana-conf-bal/v1`로 시작하는 메시지에 대한 일반 signMessage 요청은
+  거부해야 합니다.
 </Callout>
 
 파생 헬퍼는 직렬화된 키 자료를 반환합니다. 고수준 작업 헬퍼(이후에 설명)는 WASM
@@ -160,10 +152,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## 계정 생성 및 구성
@@ -307,12 +299,12 @@ token
 - **범위 증명**: 금액과 발신자의 남은 잔액이 유효한 음이 아닌 정수임을 증명하며,
   이는 무에서 가치를 발행하는 것을 방지합니다.
 
-이러한 증명들은 현재의 트랜잭션 크기 제한을 초과하여 인라인으로 포함할 수
-없으므로, 일반적인 패턴은 **증명 컨텍스트 상태 계정**을 생성하고, 각 증명을 해당
-계정에 검증한 후, 이전 명령어에서 이를 참조하고, 계정을 닫아 rent를 회수하는
-것입니다. 이 과정은 여러 종속 트랜잭션에 걸쳐 진행됩니다. 트랜잭션 형식 v1(Agave
-v4.2와 함께 출시 예정)은 크기 제한을 높이며, 기밀 이전을 단일 온체인
-트랜잭션으로 실행할 수 있게 되어 이 흐름이 단순화될 것으로 기대됩니다.
+이러한 증명은 레거시 및 v0 트랜잭션 크기 제한 내에서는 인라인으로 담기에 너무
+크기 때문에, 일반적으로 **증명 컨텍스트 상태 계정**을 생성하고, 각 증명을 해당
+계정에 검증한 뒤, 전송 명령어에서 이를 참조하고, 마지막으로 계정을 닫아 rent를
+회수하는 패턴을 사용합니다. 이 과정은 서로 의존하는 여러 트랜잭션에 걸쳐 진행됩니다.
+트랜잭션 v1 형식은 이 제한을 높여 주며, 이를 통해 기밀 전송을 단일 온체인
+트랜잭션으로 실행할 수 있고 이 플로우도 단순해집니다.
 
 증명을 직접 조합할 필요는 없습니다. 두 클라이언트 모두 증명을 빌드하고 제출할
 명령어를 생성하는 고수준 헬퍼를 제공합니다:
@@ -479,10 +471,12 @@ for (const ix of instructions) {
 없이 민트 설정에서 감사인 키를 전달하기만 하면 됩니다(상위 수준 헬퍼가 이를
 자동으로 읽습니다).
 
-귀사의 제품이 감사인(예: 규제 발행사 또는 컴플라이언스 제공자)인 경우, 소유자가
-자신의 잔액을 복호화하는 것과 동일한 방식으로 감사인 비밀키를 사용해 전송 금액을
-복호화할 수 있습니다. 소유자는 계정별 키를 공개적으로 노출하지 않고 특정
-당사자에게 선택적으로 공유할 수도 있습니다.
+제품이 감사자 역할을 하는 경우(예: 규제 대상 발행자 또는 컴플라이언스
+제공업체), 소유자가 자신의 잔액을 복호화하는 것과 같은 방식으로 감사자 비밀 키를
+사용해 전송 금액을 복호화합니다. 또한 소유자는 키를 공개하지 않고도 특정 당사자와
+선택적으로 공유할 수 있습니다. 다만 표준 지갑 바인딩 파생 방식에서는 동일한 키가
+소유자의 모든 기밀 잔액을 포괄하므로, 키를 공유하면 하나의 계정이 아니라 모든 기밀
+계정이 공개됩니다.
 
 ### 트랜잭션 모니터링 (KYT)
 
@@ -574,4 +568,4 @@ for (const ix of instructions) {
 | 주소 및 그래프 스크리닝   | 송신자, 수신자, 발행자 및 소유자를 스크리닝하고 거래 상대방 그래프 분석을 실행합니다. 이 정보는 공개 상태로 유지됩니다.            | **P0**   |
 | 공개 입출금 추적 | 기밀 풀의 관찰 가능한 진입 및 출구 지점으로서 평문 입금 및 출금 금액을 모니터링합니다. | **P0**   |
 | 감사자 키를 통한 금액 가시성 | 감사자가 활성화된 발행의 경우, 금액 기반 탐지를 지원하기 위해 감사자 키를 사용하여 전송 금액을 복호화합니다.     | **P1**   |
-| 선택적 공개 접수   | 계정별 키를 통해 사용자 또는 발행자가 공유한 금액 공개를 지원합니다.                                      | **P2**   |
+| 선택적 공개 접수   | 소유자의 키를 통해 사용자 또는 발행자가 공유한 금액 공개를 지원합니다.                                      | **P2**   |

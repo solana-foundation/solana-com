@@ -283,15 +283,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Δοκιμές Ενσωμάτωσης
 
-Το Kora χρησιμοποιεί ενοποιημένο εκτελεστή δοκιμών
-(`tests/src/bin/test_runner.rs`) που διαχειρίζεται όλες τις φάσεις δοκιμών
-ενσωμάτωσης συμπεριλαμβανομένων των δοκιμών TypeScript. Για να προσθέσετε
-δοκιμές για τον νέο υπογράφοντά σας:
+Κάθε φάση ολοκλήρωσης αποτελεί το δικό της target `[[test]]` στο `tests/Cargo.toml`. Κάθε
+target εκκινεί ένα ενσωματωμένο surfnet μαζί με έναν κόμβο Kora μέσω του `harness_context`,
+ξεκινώντας από το μηδέν. Το Kora διατηρεί τη διαμόρφωση σε καθολική κατάσταση διεργασίας, οπότε ένας νέος signer
+χρειάζεται ένα νέο target και όχι μια νέα ενότητα σε ένα υπάρχον.
 
-#### 1. Προσθήκη Διαμόρφωσης Δοκιμών
+#### 1. Προσθήκη ενός Signer Fixture
 
-Δημιουργήστε ένα νέο αρχείο διαμόρφωσης υπογράφοντα στο
-`tests/src/common/fixtures/` για την υπηρεσία σας:
+Δημιουργήστε μια διαμόρφωση signer στο `tests/src/common/fixtures/`:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -306,47 +305,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Προσθήκη Φάσης Δοκιμών στον Εκτελεστή Δοκιμών
+#### 2. Προσθήκη ενός Test Target
 
-Ενημερώστε το `tests/src/test_runner/test_cases.toml` ώστε να περιλαμβάνει μια
-φάση δοκιμών για τον υπογράφοντά σας:
+Καταχωρίστε τη φάση στο `tests/Cargo.toml`:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Στη συνέχεια, δημιουργήστε το `tests/your_service/main.rs`. Κατευθύνει το harness στο fixture σας
+και πρέπει να περιέχει τουλάχιστον ένα `#[tokio::test]` που δοκιμάζει τον signer:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+Προσθέστε επίσης ένα τεστ `signTransaction`, ώστε να εκτελείται η διαδρομή υπογραφής του signer και όχι μόνο
+η αναζήτηση κλειδιού. Το `tests/multi_signer/` είναι ένα πλήρες παράδειγμα για αντιγραφή.
 
 #### 3. Εκτέλεση Δοκιμών
 
-Βεβαιωθείτε ότι το περιβάλλον σας είναι ρυθμισμένο:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Εκτελέστε τις δοκιμές χρησιμοποιώντας τον ενοποιημένο εκτελεστή δοκιμών:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Απαιτήσεις Τεκμηρίωσης
@@ -410,7 +428,7 @@ YOUR_SERVICE_WALLET_ID="your_wallet_id" \```
 - [ ] Εξήχθη το struct διαμόρφωσης στο `mod.rs`
 - [ ] (Προαιρετικό) Προστέθηκε μέθοδος mock builder δοκιμής στο `config_mock.rs`
 - [ ] Ο κώδικας μεταγλωττίζεται χωρίς προειδοποιήσεις
-- [ ] Όλες οι δοκιμές περνούν (`make test` και `make test-integration`)
+- [ ] Όλα τα τεστ περνούν (`just test`)
 - [ ] Προστέθηκε τεκμηρίωση σύμφωνα με
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] Δημιουργήθηκαν παραδείγματα αρχείων διαμόρφωσης (`.toml` και

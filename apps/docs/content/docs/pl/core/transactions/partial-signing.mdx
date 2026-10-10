@@ -1,0 +1,110 @@
+---
+title: Częściowe podpisywanie
+description:
+  Zbuduj jedną niezmienną wiadomość transakcji Solana, zbierz jej podpisy od niezależnych podpisujących, zweryfikuj je i scal, a następnie wyślij transakcję.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+Częściowe podpisywanie pozwala wielu stronom podpisać tę samą transakcję w różnym
+czasie lub na różnych urządzeniach. Koordynator buduje wiadomość, każdy wymagany
+podpisujący podpisuje dokładnie te same zserializowane bajty wiadomości, a koordynator
+weryfikuje i scala podpisy przed wysłaniem.
+
+<Callout type="warn" title="Podpisy autoryzują bajty, a nie intencje">
+  Zmiana płatnika opłaty, blockhasha, kolejności instrukcji, listy kont lub dowolnych
+  danych instrukcji (instruction data) tworzy inną wiadomość i unieważnia wszystkie
+  zebrane już podpisy.
+</Callout>
+
+## Przebieg częściowego podpisywania
+
+1. Ustalcie instrukcje transakcji i to, kto zapłaci opłatę.
+2. Ustaw czas ważności transakcji i płatnika opłaty.
+3. Zserializuj wiadomość tylko raz. Traktuj te bajty jako niezmienne.
+4. Prześlij bajty wiadomości oraz czytelne dla człowieka podsumowanie każdemu podpisującemu.
+5. Zbierz i zweryfikuj każdy podpis Ed25519 względem tych samych bajtów wiadomości.
+6. Przypisz podpisy do adresów wymaganych podpisujących.
+7. Upewnij się, że każdy wymagany podpis jest obecny i prawidłowy, a następnie wyślij transakcję.
+
+## Kompletny przykład
+
+Płatnik opłaty i nadawca SOL poniżej podpisują niezależnie. Koordynator weryfikuje
+oba podpisy, scala je i wysyła gotową transakcję.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+Przykład wykorzystuje surowe podpisywanie Ed25519, aby wyraźnie pokazać granicę
+między koordynatorem a każdym podpisującym. Portfel, urządzenie sprzętowe, usługa
+przechowywania kluczy lub podpisujący offline mogą zastąpić dowolny lokalny keypair,
+o ile podpisują dokładnie te same bajty wiadomości.
+
+## Zamroź wiadomość przed podpisaniem
+
+Każdy podpis obejmuje zserializowaną wiadomość transakcji. Wiadomość zawiera
+wszystkie poniższe elementy:
+
+- płatnika opłaty
+- ostatni blockhash lub durable nonce
+- adres każdego programu i konta
+- uprawnienia kont do podpisywania i zapisu
+- kolejność instrukcji i instruction data
+
+Najpierw zbuduj te pola, zserializuj wiadomość tylko raz i przekaż tę tablicę bajtów
+każdemu podpisującemu. Warto przechowywać skrót (digest) wiadomości razem z każdym
+żądaniem podpisu, aby koordynator mógł odrzucić podpis zwrócony dla innej wiadomości.
+
+Nie deserializuj wiadomości, nie zmieniaj jej i nie oczekuj, że wcześniej zebrane
+podpisy pozostaną ważne. Nawet zmiana pozornie operacyjna, taka jak wymiana wygasłego
+blockhasha lub zmiana płatnika opłaty, wymaga ponownego podpisania przez każdego
+podpisującego.
+
+## Ustal płatnika opłaty
+
+Płatnik opłaty jest zawsze wymaganym podpisującym i musi zostać wybrany przed
+zamrożeniem wiadomości. Upewnij się, że konto ma wystarczającą ilość SOL na opłatę
+podstawową i ewentualną opłatę priorytetową. Jeśli opłatę pokryje sponsor lub
+backend, umieść jego adres w wiadomości przed zebraniem podpisu użytkownika;
+dodanie sponsora później zmienia podpisywane bajty.
+
+Koordynator powinien sprawdzić, czy przychodzący podpis należy do adresu
+wymienionego jako wymagany podpisujący. Nigdy nie akceptuj dowolnego klucza
+publicznego i nie dołączaj go do transakcji.
+
+## Zarządzaj czasem ważności transakcji
+
+Transakcja z ostatnim blockhashem jest ważna tylko dopóki jej blockhash pozostaje w
+kolejce ostatnich blockhashy węzła validator. Przed rozpoczęciem wieloosobowego
+przepływu podpisywania oszacuj, czy wszyscy podpisujący zdążą odpowiedzieć przed
+`lastValidBlockHeight`.
+
+Jeśli blockhash wygaśnie, zbuduj nową wiadomość ze świeżym blockhashem i zbierz
+wszystkie podpisy ponownie. W przypadku przepływów, które mogą trwać dłużej lub
+obejmować podpisujących offline, użyj [trwałego nonce (durable nonce)](/docs/core/transactions/durable-nonces).
+Trwały nonce eliminuje okno ostatniego blockhasha, ale jego przesunięcie lub inne
+zużycie nadal unieważnia oczekującą transakcję.
+
+## Zweryfikuj przed wysłaniem
+
+Dla każdego zwróconego podpisu:
+
+1. Zweryfikuj podpis względem zamrożonych bajtów wiadomości i oczekiwanego klucza
+   publicznego podpisującego.
+2. Przypisz go do pozycji tego podpisującego w tablicy podpisów transakcji.
+3. Sprawdź, czy złożona transakcja zawiera prawidłowe podpisy wszystkich wymaganych
+   podpisujących.
+4. Wyślij zserializowaną transakcję bez ponownego budowania jej wiadomości.
+
+Po wysłaniu potwierdź transakcję, używając tych samych informacji o czasie ważności,
+które zawarto w podpisanej wiadomości. Jeśli potwierdzenie zgłasza wygasły blockhash
+lub zużyty nonce, nie ponawiaj próby ze zmodyfikowaną transakcją; rozpocznij proces
+podpisywania od nowa.

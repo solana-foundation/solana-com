@@ -1,0 +1,240 @@
+---
+title: Sự kiện Anchor
+description:
+  Cách định nghĩa, phát, giải mã, đăng ký theo dõi, quản lý phiên bản và kiểm thử các sự kiện Anchor, kèm hướng dẫn về việc cắt bớt log và sự kiện CPI.
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+Sự kiện Anchor là các bản ghi có kiểu dữ liệu, được tuần tự hóa bằng Borsh và được đưa vào IDL của chương trình.
+Chúng cho phép client diễn giải hoạt động của chương trình mà không cần phân tích các
+thông điệp log dạng văn bản dễ đọc.
+
+Sự kiện hữu ích cho việc lập chỉ mục và gửi thông báo, nhưng chúng không phải là trạng thái của chương trình.
+Hãy lưu mọi giá trị mà chương trình cần đọc lại vào một account, và coi
+sự kiện là bản ghi được tạo ra từ một giao dịch thành công.
+
+## Định nghĩa và phát một sự kiện
+
+Thêm `#[event]` vào một struct và gọi `emit!` sau khi việc thay đổi trạng thái thành công.
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+`emit!` ghi các byte của sự kiện bằng syscall `sol_log_data` của Solana. Log của giao dịch
+hiển thị kết quả dưới dạng `Program data: <base64>`. Giá trị được mã hóa bắt đầu bằng
+discriminator của sự kiện, theo sau là các trường đã được tuần tự hóa bằng Borsh.
+
+Hãy giữ sự kiện gọn và tập trung. Các chuỗi và vector lớn tiêu tốn compute, làm tăng
+metadata của giao dịch, và dễ bị ảnh hưởng hơn bởi việc cắt bớt log.
+
+## Chọn giữa sự kiện log và sự kiện CPI
+
+Anchor hỗ trợ hai cách phát sự kiện:
+
+| Cách thức        | Nơi lưu trữ                  | Đánh đổi                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | Log dữ liệu chương trình                 | Đơn giản và rẻ hơn, nhưng log có thể bị cắt bớt         |
+| `emit_cpi!` | Instruction data bên trong từ một CPI | Metadata bền vững hơn, nhưng cần thêm account và compute |
+
+Để sử dụng sự kiện CPI, hãy bật tính năng `event-cpi` của Anchor:
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+Sau đó, chú thích struct account của instruction bằng `#[event_cpi]` và phát sự kiện
+từ một handler có biến context được đặt tên là `ctx`:
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+`#[event_cpi]` thêm event authority và các account của chương trình hiện tại được yêu cầu bởi
+self-CPI có chữ ký. Sự kiện CPI không thể được xử lý thông qua cơ chế đăng ký theo dõi sự kiện log
+của Anchor; thay vào đó, hãy lấy giao dịch và giải mã inner instruction
+tương ứng.
+
+<Callout type="info" title="Dùng sổ cái làm nguồn dữ liệu gốc">
+  Các nhà cung cấp RPC có thể cắt bớt log của chương trình. Nếu việc bỏ lỡ một sự kiện sẽ ảnh hưởng đến
+  số dư, quyền hạn hoặc một quy trình khác đòi hỏi tính chính xác cao, hãy suy ra
+  kết quả từ các account của chương trình hoặc instruction data của giao dịch. Hãy dùng sự kiện để
+  việc lập chỉ mục hiệu quả hơn, chứ không phải là bản ghi duy nhất của trạng thái.
+</Callout>
+
+## Đăng ký theo dõi từ TypeScript
+
+Client TypeScript hiện tại của Anchor là `@anchor-lang/core`. Một đối tượng `Program`
+được tạo từ IDL của chương trình có thể giải mã các sự kiện log phù hợp và chuyển
+chúng qua cơ chế đăng ký log của RPC:
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+Callback nhận dữ liệu sự kiện đã được giải mã, slot và chữ ký giao dịch.
+Các đăng ký chỉ bao gồm những log được gửi trong khi kết nối đang hoạt động. Hãy lưu lại các chữ ký đã xử lý và bổ sung các giao dịch bị bỏ lỡ sau khi
+mất kết nối nếu bên tiêu thụ cần lịch sử đầy đủ.
+
+## Giải mã log của giao dịch đã lấy về
+
+Để bổ sung dữ liệu cũ và kiểm tra một lần, hãy lấy một giao dịch và truyền từng
+payload `Program data:` cho bộ mã hóa sự kiện:
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+Một giao dịch có thể gọi nhiều chương trình. Với trình phân tích dùng trong môi trường production, hãy theo dõi các
+ranh giới log `Program <address> invoke` và `success`, hoặc dùng trình phân tích sự kiện của Anchor
+để một mục `Program data:` của chương trình khác không bị giải mã nhầm thành của bạn.
+Các giao dịch thất bại có thể vẫn giữ lại log và inner instruction từ phần việc đã hoàn thành
+trước khi xảy ra lỗi, vì vậy hãy luôn loại bỏ metadata giao dịch có `err` khác null
+trước khi lập chỉ mục cho cả hai dạng sự kiện. Cơ chế đăng ký log của Anchor thực hiện bước kiểm tra này
+trước khi gọi callback sự kiện.
+
+Với một sự kiện `emit_cpi!`, hãy xác định self-CPI trong `meta.innerInstructions`,
+xác nhận rằng program ID của nó là chương trình của bạn, và giải mã base58 instruction
+data của nó. Trước khi loại bỏ bất kỳ byte nào, hãy xác minh
+[`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3) của Anchor:
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+Việc kiểm tra cả program ID và tag giúp tránh nhầm lẫn một self-CPI thông thường
+thành một sự kiện.
+
+## Quản lý phiên bản schema của sự kiện
+
+Theo mặc định, Anchor tạo discriminator 8 byte của sự kiện từ tên sự kiện.
+Anchor cũng hỗ trợ discriminator tường minh thông qua
+`#[event(discriminator = ...)]`. Các discriminator phải luôn là duy nhất trong
+chương trình và ổn định đối với mọi client giải mã sự kiện.
+
+Việc thay đổi các trường của struct được phát sẽ làm thay đổi bố cục Borsh của nó. Với một thay đổi
+schema gây phá vỡ tương thích, hãy định nghĩa một sự kiện mới như `PaymentRecordedV2` thay vì
+lặng lẽ thay đổi `PaymentRecorded`. Hãy tiếp tục phát sự kiện cũ trong giai đoạn
+chuyển đổi khi các indexer hiện có vẫn còn phụ thuộc vào nó.
+
+Với dữ liệu có thể tiến hóa, hãy ưu tiên các trường có độ rộng cố định và các mã định danh cho phép
+indexer lấy dữ liệu account chi tiết hơn một cách riêng biệt. Hãy công bố IDL đã cập nhật trước hoặc
+cùng lúc với việc nâng cấp chương trình để các bên tiêu thụ có thể giải mã sự kiện mới ngay lập tức.
+
+## Kiểm thử sự kiện
+
+Hãy kiểm thử hợp đồng dữ liệu đã giải mã, chứ không phải chuỗi base64. Đăng ký listener trước khi
+gửi instruction, kiểm tra các trường đã giải mã và chữ ký giao dịch,
+và luôn gỡ bỏ listener:
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+Ngoài ra, hãy kiểm thử rằng indexer bỏ qua các byte sự kiện còn lưu trong metadata của giao dịch thất bại, và thêm một fixture cho mọi phiên bản sự kiện được hỗ trợ. Nếu bạn dùng
+`emit_cpi!`, hãy kiểm thử việc giải mã từ `innerInstructions` vì các log listener không
+nhận trực tiếp những sự kiện đó.
+
+## Đọc thêm
+
+- [Tài liệu về sự kiện của Anchor](https://www.anchor-lang.com/docs/features/events)
+- [Client TypeScript của Anchor](https://www.anchor-lang.com/docs/clients/typescript)
+- [Mã nguồn macro sự kiện của Anchor](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

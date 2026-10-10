@@ -1,0 +1,92 @@
+---
+title: Architettura
+description:
+  Come una richiesta attraversa un nodo Kora e in quale punto del crate risiede ciascuna fase. Parti da qui prima di apportare la tua prima modifica.
+---
+
+Kora è un workspace Rust composto da tre crate:
+
+- `kora-lib` contiene la logica di base e il server RPC,
+- `kora-cli` compila il binario `kora` eseguito dagli operatori, e
+- `kora-deploy` è uno strumento specializzato per il deployment dei programmi, con versioning separato.
+  Tutto ciò che segue si trova in `crates/lib/src`, salvo diversa indicazione.
+
+## Il ciclo di vita della richiesta
+
+Il diagramma seguente illustra il flusso generale di una transazione attraverso Kora.
+Comprendere il percorso delle chiamate è importante per configurare un nodo Kora e aggiungere
+nuove funzionalità.
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## Dove risiede ciascuna fase
+
+| Fase nel diagramma | Sorgente                               | Punto di ingresso                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| Gateway              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| Dispatch             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| Logica per singolo metodo     | `rpc_server/method/`                 | un file per ogni metodo JSON-RPC          |
+| Validazione           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| Plugin              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| Firma              | `signer/`                            | basato sul crate `solana-keychain` |
+
+Altri due file da conoscere: `config.rs` definisce l'intero schema di `kora.toml`, e
+`state.rs` conserva la configurazione deserializzata nello stato globale del processo.
+
+### Leggere il server RPC
+
+`rpc.rs` è un sottile livello di dispatch, con un metodo per ogni endpoint JSON-RPC, e
+il modo più rapido per vedere l'intera API. La logica di ciascun metodo si trova nel proprio file in
+`rpc_server/method/`. Leggi `sign_transaction.rs` dall'inizio alla fine; gli altri metodi
+di firma ne sono variazioni.
+
+### Leggere il validator
+
+`transaction_validator.rs` e `transaction/instruction_util.rs` contengono la logica per
+validare transazioni e istruzioni. Inoltre, i test di proprietà di sicurezza della fee-payer-policy,
+che risiedono in un file per ogni programma controllato sotto
+`validator/transaction_validator/fee_payer_policy_props/`.
+
+## Convenzioni da conoscere
+
+**Validazione predefinita.** Ogni flag sotto `[validation.fee_payer_policy]`
+ha come valore predefinito `false`, e le struct della policy riportano `#[serde(default)]`. Questo
+abbinamento è voluto: aggiungere un'istruzione appena controllata non deve compromettere la
+configurazione di un operatore esistente, e deve tradursi in un rifiuto anziché in un
+permesso accidentale. Mantieni entrambi quando aggiungi un flag.
+
+**Valida la transazione risolta, mai quella grezza.** La
+`VersionedTransaction` grezza espone solo le chiavi di account statiche, quindi validare o
+calcolare il prezzo di una transazione V0 a partire da essa ignora silenziosamente gli account delle lookup table e
+addebita meno del dovuto. `VersionedTransactionResolved::from_transaction` risolve questi
+indirizzi in anticipo, ed è per questo che ogni fase a valle accetta il tipo risolto.
+
+## Aggiungere un plugin di transazione
+
+I plugin implementano il trait `TransactionPlugin` in `plugin/mod.rs`. Ha due
+metodi: `validate` viene eseguito per ogni transazione durante i flussi di firma, e
+`validate_config` viene eseguito una sola volta all'avvio e restituisce errori e avvisi per
+l'operatore. Un `PluginExecutionContext` indica al plugin quale dei quattro metodi
+di firma lo ha invocato.
+
+`TransactionPluginRunner::from_config` esegue il match su `TransactionPluginType`,
+definito in `config.rs`. Un nuovo plugin integrato corrisponde a una nuova variante in quel punto più un nuovo
+ramo di match nel runner. I due plugin attualmente inclusi sono `gas_swap` e
+`deploy_authority`.
+
+## Test
+
+Kora mantiene la configurazione nello stato globale del processo, quindi `tests/` dichiara un
+target `[[test]]` per ogni fase, e ciascun target avvia il proprio surfnet incorporato e il
+nodo Kora, inizializzati da zero. Una configurazione per binario: una nuova fase richiede un nuovo
+target, non un nuovo modulo in uno esistente.
+
+```bash
+cargo test -p tests --test <target>
+```
+
+Tutto il resto è collegato tramite il `justfile`. Leggi quello anziché
+ricostruire i comandi a mano.

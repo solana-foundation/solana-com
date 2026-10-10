@@ -283,14 +283,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Tests d'intégration
 
-Kora utilise un exécuteur de tests unifié (`tests/src/bin/test_runner.rs`) qui
-gère toutes les phases de tests d'intégration, y compris les tests TypeScript.
-Pour ajouter des tests pour votre nouveau signataire :
+Chaque phase d'intégration est sa propre cible `[[test]]` dans `tests/Cargo.toml`. Chaque
+cible démarre un surfnet embarqué ainsi qu'un nœud Kora via `harness_context`,
+initialisé à partir de zéro. Kora conserve sa configuration dans un état global au niveau du processus : un nouveau signataire
+nécessite donc une nouvelle cible plutôt qu'un nouveau module dans une cible existante.
 
-#### 1. Ajouter la configuration de test
+#### 1. Ajouter une fixture de signataire
 
-Créez un nouveau fichier de configuration de signataire dans
-`tests/src/common/fixtures/` pour votre service :
+Créez une configuration de signataire dans `tests/src/common/fixtures/` :
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -305,47 +305,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Ajouter une phase de test à l'exécuteur de tests
+#### 2. Ajouter une cible de test
 
-Mettez à jour `tests/src/test_runner/test_cases.toml` pour inclure une phase de
-test pour votre signataire :
+Enregistrez la phase dans `tests/Cargo.toml` :
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Créez ensuite `tests/your_service/main.rs`. Ce fichier indique au harness votre fixture
+et doit contenir au moins un `#[tokio::test]` qui exerce le signataire :
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+Ajoutez également un test `signTransaction` afin que le chemin de signature du signataire soit exécuté, et pas seulement
+la recherche de clé. `tests/multi_signer/` est un exemple complet dont vous pouvez vous inspirer.
 
 #### 3. Exécution des tests
 
-Assurez-vous que votre environnement est configuré :
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Exécutez les tests à l'aide de l'exécuteur de tests unifié :
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Exigences de documentation
@@ -410,7 +429,7 @@ Ajoutez votre service à la liste des signataires dans le README principal.
 - [ ] (Optionnel) Méthode de construction de mock de test ajoutée dans
       `config_mock.rs`
 - [ ] Le code compile sans avertissements
-- [ ] Tous les tests passent (`make test` et `make test-integration`)
+- [ ] Tous les tests réussissent (`just test`)
 - [ ] Documentation ajoutée conformément à
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] Fichiers de configuration d'exemple créés (`.toml` et `.env.example`)

@@ -1,0 +1,244 @@
+---
+title: Rahoita jalat
+description:
+  Tarkista DvP-kaupan tallennetut ehdot ja rahoita sitten jalka pelkällä TransferChecked-siirrolla sen escrow-tilille.
+seoTitle: DvP-kaupan rahoittaminen Solanalla
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Rahoitus on pelkkä `TransferChecked`-siirto jalan escrow-tilille, joten mikä
+tahansa lompakko tai säilytysjärjestelmä, joka pystyy lähettämään token-siirron,
+voi rahoittaa jalan. Vain kaupan tietueen lukeminen ennen rahoitusta vaatii
+DvP-asiakasohjelman. Ohjelma tarkistaa escrow-saldot vasta selvityksessä;
+mikään ei tarkista siirtoa sen saapuessa, joten kunkin osapuolen on luettava
+kaupan tietue ennen siirtämistä.
+
+Tämä sivu jatkuu kohdasta
+[kaupan luominen](/docs/defi/dvp-program/create-a-trade); asiakasohjelma ja allekirjoittajat
+siirtyvät mukana.
+
+## Tarkista ehdot
+
+Tietueen luominen on lupaa vaatimatonta, ja escrow-osoitteet johdetaan
+pelkästään tietueesta ja mintistä, eivät koskaan ehdoista. Siirto escrow-tilille
+voi siksi kohdistua ehtoihin, joista et ole koskaan sopinut, mukaan lukien
+selvityskohteet, jotka ohjaavat vastapuolesi tuotot kolmanteen osoitteeseen.
+Lue ennen rahoitusta `SwapDvp`-tili ja tarkista se sovittua kauppaa vasten.
+
+`verifySwapDvp` TypeScriptissä ja `verify::decode_swap_dvp_account` Rustissa
+varmistavat, että tilin omistaa DvP-ohjelma, että sen koko on täsmälleen 458
+tavua ja että se sijaitsee osoitteessa, jonka sen omat kentät määrittävät
+(`fetchSwapDvpChecked` tekee vain kaksi ensimmäistä tarkistusta). Pelkät
+`fetchSwapDvp`- ja `decodeSwapDvp`-lukijat eivät tee mitään näistä
+tarkistuksista. Osapuolia, määriä, aikoja ja kohteita koskevat tarkistukset
+kutsuja tekee itse sovittua kauppaa vasten.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Jos vastapuolesi tai selvitysviranomainen loi tietueen, vertaa jokaista kenttää
+ehtoihin, joista sovitte kirjanpidon ulkopuolella. Jos loit sen itse, tämä luku
+vahvistaa, että se tallentui lähetetyssä muodossa.
+
+## Siirrä varat escrow-tilille
+
+Rahoita jalka täsmälleen sovitulla määrällä. Ohjelma rajaa selvityksen
+arvoon `amount_x` ja palauttaa ylijäämän jalan osapuolelle, joten ylijäämä ei
+katoa, mutta se lisää selvitykseen toisen siirron ja voi epäonnistua joidenkin
+transfer hookien kanssa (katso huomautukset alla).
+
+Käytä `TransferChecked`-siirtoa, älä tarkistamatonta `Transfer`-siirtoa.
+Token-2022-mintit, joiden laajennukset riippuvat mint account -tilistä, kuten
+Pausable, hylkäävät siirron, joka ei sisällä sitä, ja mint, jolla on transfer
+hook, vaatii hookin tilien selvittämisen ja liittämisen samalla tavalla kuin
+mille tahansa muulle kyseisen tokenin siirrolle.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    Omaisuusjalan osapuoli rahoittaa escrow A:n allekirjoittajana `userASigner`:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    Käteisjalan osapuoli tekee saman escrow B:lle käyttäen arvoja `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` ja `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    Käteisjalan osapuoli rakentaa saman instruktion escrow B:lle arvoilla `mint_b`,
+    `user_b` ja `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Rahoitussiirto, joka näkyy tilassa [`confirmed`](/docs/rpc#configuring-state-commitment),
+voidaan silti korvata. Ohjelma lukee escrow-saldon ketjussa
+selvityshetkellä, joten Settle-instruktio, joka lähetetään sellaisen rahoitussiirron perusteella,
+joka ei toteutunut, epäonnistuu virheeseen `LegNotFunded` eikä mitään siirry;
+hintana on epäonnistunut Settle ja uusi yritys. Katso jalka rahoitetuksi vasta,
+kun sen siirto on tilassa `finalized`.
+
+## Huomautukset
+
+- **Wrapped SOL -jalat.** Ohjelma lukee natiivin escrow-tilin saldon
+  synkronoinnin jälkeen, joten järjestelmäsiirrolla wrapped-SOL-escrow-tilille lähetetyt
+  lamports lasketaan mukaan. Älä koskaan lähetä SOL-tokeneita minkään muun mintin
+  escrow-tilille: ohjelma ei pysty palauttamaan niitä, ja ne päätyvät sille, joka sulkee tilin.
+- **Rajoitetut mintit.** Mintillä, jonka Default Account State on frozen,
+  escrow luodaan jäädytettynä ja siirto epäonnistuu, kunnes liikkeeseenlaskija
+  sulattaa tai hyväksyy sen. [Yleiskatsaus](/docs/defi/dvp-program#mint-configuration-constraints)
+  kuvaa yhteistoiminnan Token ACL:n kanssa.
+- **Transfer hookit.** Rahoita hookilliset escrow-tilit täsmälleen sovitulla
+  määrällä. Jos ylijäämä pakottaa palautuksen selvityksessä, palautus käyttää uudelleen
+  jalan hook-tilejä eri kohteella ja määrällä, minkä jotkin hookit hylkäävät.
+  Korjaus on Reclaim, rahoitus uudelleen täsmälleen oikealla määrällä ja uusi selvitys.
+- **Rahoitus erääntymisen jälkeen.** Mikään ei estä siirtoa `expiry_timestamp`-ajan
+  jälkeen. Se menee perille, selvitys ei ole enää mahdollinen, ja jalan osapuoli
+  saa sen takaisin Reclaim-instruktiolla kaupan ollessa avoin tai Recover-instruktiolla sen sulkeuduttua. Katso
+  [kaupan purkaminen](/docs/defi/dvp-program/unwind-a-trade).
+- **Kuka rahoittaa ensin.** Ohjelma ei järjestä kahta jalkaa jonoon. Järjestys
+  on osapuolten asia; kumpikin osapuoli voi lunastaa oman jalkansa takaisin milloin
+  tahansa ennen selvitystä, ellei mint-viranomainen (jäädytys, keskeytys tai transfer hook)
+  estä escrow-tiliä.
+
+## Seuraavat vaiheet
+
+- [Selvitä kauppa](/docs/defi/dvp-program/settle-the-trade): selvitysviranomainen
+  vaihtaa molemmat jalat yhdessä transaktiossa
+- [Pura kauppa](/docs/defi/dvp-program/unwind-a-trade): rahoitetun
+  jalan palauttaminen, kun kauppa ei selviä

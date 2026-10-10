@@ -1,0 +1,486 @@
+---
+title: Go
+description: Instal dan gunakan solana-keychain di aplikasi Go
+---
+
+2.0.0 adalah rilis stabil pertama modul Go, jadi tidak ada yang perlu
+dimigrasikan. [Panduan migrasi 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)
+membahas pemisahan kapabilitas yang sama untuk Rust dan TypeScript.
+
+## Instalasi
+
+Setiap backend merupakan modul Go tersendiri, sehingga build dan graf modul Anda
+hanya berisi backend yang Anda impor:
+
+```shell
+go get github.com/solana-foundation/solana-keychain/go/core/v2                # Interfaces, errors, helpers
+go get github.com/solana-foundation/solana-keychain/go/signers/memory/v2      # Local keypair signer
+go get github.com/solana-foundation/solana-keychain/go/signers/vault/v2       # HashiCorp Vault
+go get github.com/solana-foundation/solana-keychain/go/signers/awskms/v2      # AWS KMS
+go get github.com/solana-foundation/solana-keychain/go/signers/gcpkms/v2      # GCP KMS
+go get github.com/solana-foundation/solana-keychain/go/signers/privy/v2       # Privy
+go get github.com/solana-foundation/solana-keychain/go/signers/turnkey/v2     # Turnkey
+go get github.com/solana-foundation/solana-keychain/go/signers/fireblocks/v2  # Fireblocks
+go get github.com/solana-foundation/solana-keychain/go/signers/cdp/v2         # Coinbase Developer Platform
+go get github.com/solana-foundation/solana-keychain/go/signers/crossmint/v2   # Crossmint
+go get github.com/solana-foundation/solana-keychain/go/signers/dfns/v2        # Dfns
+go get github.com/solana-foundation/solana-keychain/go/signers/openfort/v2    # Openfort
+go get github.com/solana-foundation/solana-keychain/go/signers/para/v2        # Para
+go get github.com/solana-foundation/solana-keychain/go/signers/utila/v2       # Utila
+go get github.com/solana-foundation/solana-keychain/go/signers/fordefi/v2     # Fordefi
+```
+
+Modul diberi tag `go/<module>/v2.0.0` (misalnya
+`go/signers/memory/v2.0.0`). Setiap modul membutuhkan Go 1.25.0, kecuali `gcpkms`,
+yang membutuhkan Go 1.25.8 karena batas minimum yang ditetapkan oleh `google.golang.org/api`.
+Ledger hanya tersedia untuk Rust dan tidak memiliki modul Go.
+
+### Transaksi solana-go v2 dan v1
+
+Modul-modul ini dibangun di atas
+[`github.com/solana-foundation/solana-go/v2`](https://github.com/solana-foundation/solana-go)
+v2.0.0 dan menerima `*solana.Transaction`-nya. Transaksi legacy, v0, dan v1
+(`solana.MessageVersionV1`) didukung, kecuali oleh Fireblocks
+dengan `UseProgramCall: true`, yang hanya menerima legacy dan v0.
+
+## Penggunaan Dasar
+
+Setiap signer mengimplementasikan
+[antarmuka `core.SolanaSigner`](https://pkg.go.dev/github.com/solana-foundation/solana-keychain/go/core/v2#SolanaSigner)
+dasar (`Pubkey`, `SignMessage`, `IsAvailable`). Method menerima `context.Context` dan
+bersifat blocking. Setiap backend juga mengimplementasikan tepat satu antarmuka kapabilitas:
+
+- `core.TransactionSigner`: `SignTransaction` menandatangani transaksi Anda apa adanya.
+- `core.ModifyingSigner`: `ModifyAndSignTransaction` memungkinkan provider menulis ulang
+  transaksi, lalu menandatanganinya.
+- `core.SendingSigner`: `SignAndSendTransaction` meminta provider menandatangani dan
+  menyiarkannya.
+
+Setiap paket backend menyediakan struct `Config` dan konstruktor `New`:
+
+```go
+import (
+	"context"
+	"fmt"
+
+	"github.com/solana-foundation/solana-go/v2"
+	"github.com/solana-foundation/solana-keychain/go/core/v2"
+	"github.com/solana-foundation/solana-keychain/go/signers/memory/v2"
+)
+
+func signWithKeychain(ctx context.Context, tx *solana.Transaction) error {
+	signer, err := memory.New(memory.Config{PrivateKeyPath: "/path/to/id.json"})
+	if err != nil {
+		return err
+	}
+
+	if !signer.IsAvailable(ctx) {
+		return core.NewSignerError(core.CodeNotAvailable, "signer offline")
+	}
+
+	result, err := signer.SignTransaction(ctx, tx)
+	if err != nil {
+		return err
+	}
+	fmt.Println("signature:", result.Signature)
+	fmt.Println("complete:", result.IsComplete())
+	// result.EncodedTransaction is the base64 wire transaction
+	return nil
+}
+```
+
+`SignTransaction` dan `ModifyAndSignTransaction` mengembalikan
+`core.SignedTransaction` (`EncodedTransaction`, `Signature`, `Completeness`).
+Backend HTTP jarak jauh menerima `HTTPClient` dan `HTTPClientConfig` opsional
+(timeout). Klien default menerapkan HTTPS; jika Anda menyediakan klien sendiri, pembatasan itu dilewati,
+dan keamanannya menjadi tanggung jawab Anda.
+
+### Kapabilitas Signer
+
+Backend yang tidak dapat menandatangani transaksi sama sekali tidak memiliki method `SignTransaction`,
+jadi kapabilitas merupakan fakta saat kompilasi untuk tipe konkret dan berupa type
+assertion untuk `core.SolanaSigner`:
+
+| Backend                                                                         | Kapabilitas          | `SignMessage`                  |
+| ------------------------------------------------------------------------------- | ------------------- | ------------------------------ |
+| memory, vault, privy, turnkey, awskms, gcpkms, fireblocks, dfns, para, openfort | `TransactionSigner` | Ya                            |
+| cdp                                                                             | `TransactionSigner` | Hanya payload UTF-8            |
+| utila                                                                           | `TransactionSigner` | Gagal dengan `CodeSigningFailed` |
+| fordefi black box (`fordefi.BlackBoxSigner`)                                    | `TransactionSigner` | Ya                            |
+| fordefi native manual (`fordefi.NativeManualSigner`)                            | `ModifyingSigner`   | Ya                            |
+| fordefi native auto (`fordefi.NativeAutoSigner`)                                | `SendingSigner`     | Ya                            |
+| crossmint                                                                       | `SendingSigner`     | Gagal dengan `CodeSigningFailed` |
+
+```go
+switch s := signer.(type) {
+case core.SendingSigner:
+	sig, err := s.SignAndSendTransaction(ctx, tx)
+case core.ModifyingSigner:
+	signed, err := s.ModifyAndSignTransaction(ctx, tx)
+case core.TransactionSigner:
+	signed, err := s.SignTransaction(ctx, tx)
+}
+```
+
+### Inisialisasi
+
+Tidak ada langkah `Init` terpisah. Privy, Fireblocks, Dfns, Crossmint, Para,
+Openfort, dan Utila menentukan alamat wallet di dalam `New`, itulah sebabnya
+konstruktor mereka menerima `context.Context`. Selalu buat signer melalui `New`: signer
+Crossmint, Para, atau Utila dengan zero-value akan gagal dengan `CodeNotInitialized`
+alih-alih menandatangani untuk alamat nol.
+
+### Tanda Tangan dan Kirim dengan Signer Apa Pun
+
+`core.SignAndSendTransaction` membawa transaksi ke on-chain apa pun bentuk signer-nya.
+`SendingSigner` menyiarkan melalui providernya dan mengabaikan fungsi kirim;
+setiap bentuk lainnya menandatangani dan fungsi Anda menyiarkan hasil base64-nya,
+yang untuk `ModifyingSigner` adalah transaksi yang ditulis ulang oleh providernya.
+Core tidak memiliki dependensi RPC:
+
+```go
+import "github.com/solana-foundation/solana-go/v2/rpc"
+
+client := rpc.New("https://api.devnet.solana.com")
+
+sig, err := core.SignAndSendTransaction(ctx, signer, tx,
+	func(ctx context.Context, encoded string) (solana.Signature, error) {
+		return client.SendEncodedTransaction(ctx, encoded)
+	})
+```
+
+### Penandatanganan Batch
+
+Penandatanganan batch disediakan sebagai helper bebas, berjalan secara konkuren dengan
+jeda opsional per permintaan untuk API yang dibatasi laju:
+
+```go
+sigs, err := core.SignMessages(ctx, signer, [][]byte{msg1, msg2}, core.BatchOptions{
+	MaxConcurrency: 4, // 0 = unbounded
+	RequestDelay:   50 * time.Millisecond,
+})
+
+signed, err := core.SignTransactions(ctx, signer, txs, core.BatchOptions{})
+```
+
+`core.SignTransactions` menerima `core.TransactionSigner`, sehingga
+signer yang disiarkan secara terkelola (Crossmint, Fordefi native auto) dan Fordefi native
+manual tidak dapat di-batch melaluinya; panggil satu transaksi per satu kali. Signer
+yang panggilannya menciptakan pekerjaan di sisi provider (Fireblocks dengan `UseProgramCall`)
+melaporkannya melalui `core.BatchServerSideEffects`, dan batch kemudian berjalan
+secara berurutan.
+
+## Konfigurasi Backend
+
+### Memory
+
+Berikan tepat satu dari `PrivateKey` (byte mentah), `PrivateKeyString` (base58 atau
+array byte `[1,2,...]`) atau `PrivateKeyPath` (file keypair Solana CLI):
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/memory/v2"
+
+signer, err := memory.New(memory.Config{
+	PrivateKeyPath: "/path/to/id.json",
+})
+```
+
+Go tidak menyediakan cara yang andal untuk menimpa memori dengan nol: garbage collector dapat menyalin dan
+menyimpan byte kunci (keypair memory, serta kunci yang diturunkan Crossmint dan Openfort
+secara lokal) hingga proses pengumpulan. Perlakukan seluruh memori proses sebagai data sensitif saat
+menggunakan backend kunci lokal.
+
+### HashiCorp Vault
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/vault/v2"
+
+signer, err := vault.New(vault.Config{
+	VaultAddr: "https://vault.example.com:8200",
+	Token:     "hvs.xxxxx",
+	KeyName:   "my-solana-key",
+	Pubkey:    "base58_public_key",
+})
+```
+
+### AWS KMS
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/awskms/v2"
+
+signer, err := awskms.New(ctx, awskms.Config{
+	KeyID:     "alias/my-solana-key",
+	PublicKey: "base58_public_key",
+	Region:    "us-east-1", // optional
+})
+```
+
+### GCP KMS
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/gcpkms/v2"
+
+signer, err := gcpkms.New(ctx, gcpkms.Config{
+	KeyName:   "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+	PublicKey: "base58_public_key",
+})
+if err != nil {
+	return err
+}
+defer signer.Close()
+```
+
+### Privy
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/privy/v2"
+
+signer, err := privy.New(ctx, privy.Config{
+	AppID:     "app_id",
+	AppSecret: "app_secret",
+	WalletID:  "wallet_id",
+})
+```
+
+### Turnkey
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/turnkey/v2"
+
+signer, err := turnkey.New(turnkey.Config{
+	APIPublicKey:   "api_public_key",
+	APIPrivateKey:  "api_private_key",
+	OrganizationID: "org_id",
+	PrivateKeyID:   "private_key_id",
+	PublicKey:      "base58_public_key",
+})
+```
+
+### Fireblocks
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/fireblocks/v2"
+
+signer, err := fireblocks.New(ctx, fireblocks.Config{
+	APIKey:         "api_key",
+	PrivateKeyPEM:  "-----BEGIN RSA PRIVATE KEY-----\n...",
+	VaultAccountID: "0",
+	AssetID:        "SOL",  // or "SOL_TEST" for devnet
+	UseProgramCall: false, // true signs via sign-only PROGRAM_CALL (legacy/v0, hot wallet)
+})
+```
+
+### CDP (Coinbase Developer Platform)
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/cdp/v2"
+
+signer, err := cdp.New(cdp.Config{
+	APIKeyID:     "api_key_id",
+	APIKeySecret: "api_key_secret", // base64 Ed25519
+	WalletSecret: "wallet_secret",  // base64 PKCS#8 DER
+	Address:      "base58_address",
+	Network:      cdp.NetworkMainnet, // or cdp.NetworkDevnet; required for address lookup tables
+})
+```
+
+`SignMessage` milik CDP hanya menerima payload UTF-8.
+
+### Crossmint
+
+Crossmint hanya mengirim: API-nya mengeksekusi setiap transaksi yang disetujui
+di sisi server, sehingga `*crossmint.Signer` memiliki `SignAndSendTransaction` dan tidak ada
+`SignTransaction`. Transaksi Anda tidak pernah dimodifikasi; signature yang dikembalikan
+mengidentifikasi transaksi yang didaratkan Crossmint, yang bisa berbeda dari transaksi Anda jika
+Crossmint mensponsori gas.
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/crossmint/v2"
+
+signer, err := crossmint.New(ctx, crossmint.Config{
+	APIKey:        "api_key",
+	WalletLocator: "wallet_locator",
+	SignerSecret:  "", // optional xmsk1_ secret: auto-approves what Crossmint presents
+})
+
+sig, err := signer.SignAndSendTransaction(ctx, tx)
+```
+
+### Dfns
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/dfns/v2"
+
+signer, err := dfns.New(ctx, dfns.Config{
+	AuthToken:     "auth_token",
+	CredID:        "cred_id",
+	PrivateKeyPEM: "-----BEGIN EC PRIVATE KEY-----\n...",
+	WalletID:      "wallet_id",
+})
+```
+
+### Openfort
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/openfort/v2"
+
+signer, err := openfort.New(ctx, openfort.Config{
+	SecretKey:    "sk_live_...",
+	AccountID:    "acc_...",
+	WalletSecret: "wallet_secret", // base64 PKCS#8 DER or PEM
+})
+```
+
+### Para
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/para/v2"
+
+signer, err := para.New(ctx, para.Config{
+	APIKey:   "sk_...",
+	WalletID: "wallet_id",
+})
+```
+
+### Utila
+
+Utila hanya menandatangani transaksi; `SignMessage` gagal, dan Anda menyiarkan transaksi
+yang telah ditandatangani itu sendiri.
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/utila/v2"
+
+signer, err := utila.New(ctx, utila.Config{
+	ServiceAccountEmail:         "sa@example.com",
+	ServiceAccountPrivateKeyPEM: "-----BEGIN PRIVATE KEY-----\n...",
+	VaultID:                     "vault_id",
+	WalletID:                    "wallet_id",
+	Network:                     "networks/solana-devnet",
+})
+```
+
+### Fordefi
+
+Fordefi hadir dalam tiga tipe signer, yang ditetapkan saat konstruksi oleh `Config.Chain` dan
+`Config.PushMode`. Ketiganya menandatangani pesan:
+
+| Config                                          | Tipe                          | Titik masuk                |
+| ----------------------------------------------- | ----------------------------- | -------------------------- |
+| `Chain` tidak diatur                                   | `*fordefi.BlackBoxSigner`     | `SignTransaction`          |
+| `Chain` diatur, `PushMode` tidak diatur atau `PushModeAuto` | `*fordefi.NativeAutoSigner`   | `SignAndSendTransaction`   |
+| `Chain` diatur, `PushMode: PushModeManual`         | `*fordefi.NativeManualSigner` | `ModifyAndSignTransaction` |
+
+`fordefi.New` menentukan jalur berdasarkan config dan mengembalikan `core.SolanaSigner`;
+`fordefi.NewBlackBox`, `fordefi.NewNativeAuto`, dan `fordefi.NewNativeManual`
+mengembalikan tipe konkret dan menolak config mode lainnya. Permintaan API
+otentikasi dengan signature permintaan ECDSA P-256: berikan tepat satu dari
+`PrivateKeyPEM`, atau `RequestSigner` untuk menyimpan kunci tersebut di KMS/HSM.
+
+**Mode native auto**: Fordefi dapat mengganti blockhash dan biaya, lalu menandatangani dan
+menyiarkan. Mode ini hanya menerima transaksi yang belum ditandatangani dan satu-satunya signer wajibnya
+adalah vault.
+
+```go
+import "github.com/solana-foundation/solana-keychain/go/signers/fordefi/v2"
+
+signer, err := fordefi.NewNativeAuto(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_PUBLIC_KEY"), // Solana vault address (base58)
+	PrivateKeyPEM: string(pemBytes),
+	Chain:         fordefi.ChainSolanaDevnet, // or fordefi.ChainSolanaMainnet
+	Fee: &fordefi.Fee{
+		Type:          fordefi.FeeTypePriority,
+		PriorityLevel: fordefi.PriorityMedium,
+	},
+})
+
+sig, err := signer.SignAndSendTransaction(ctx, tx)
+```
+
+**Mode native manual**: atur `PushMode: fordefi.PushModeManual`. Fordefi menulis ulang
+pesan (recent blockhash, instruksi biaya Compute Budget) dan menandatanganinya
+tanpa menyiarkan. `ModifyAndSignTransaction` mengganti `tx` dengan
+transaksi yang ditandatangani Fordefi: selalu lanjutkan dari transaksi tersebut. Fordefi harus menjadi
+fee payer dan harus menandatangani sebelum signer wajib lainnya, karena penulisan ulang membatalkan
+signature yang ada. Penulisan ulang tidak di-diff, jadi periksa hasilnya sebelum
+menyiarkan.
+
+```go
+signer, err := fordefi.NewNativeManual(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_PUBLIC_KEY"),
+	PrivateKeyPEM: string(pemBytes),
+	Chain:         fordefi.ChainSolanaDevnet,
+	PushMode:      fordefi.PushModeManual,
+})
+
+signed, err := signer.ModifyAndSignTransaction(ctx, tx)
+```
+
+**Mode black box**: biarkan `Chain` tidak diatur. Fordefi menandatangani byte pesan Anda secara persis
+dan tidak menyiarkan. Gunakan ini dengan vault black box Fordefi.
+
+```go
+signer, err := fordefi.NewBlackBox(ctx, fordefi.Config{
+	AccessToken:   os.Getenv("FORDEFI_ACCESS_TOKEN"),
+	VaultID:       os.Getenv("FORDEFI_BB_VAULT_ID"),
+	PublicKey:     os.Getenv("FORDEFI_BB_PUBLIC_KEY"),
+	PrivateKeyPEM: string(pemBytes),
+})
+```
+
+## Mengapa Tidak Ada Paket Payung
+
+Rust memiliki enum `Signer` dan TypeScript memiliki `createKeychainSigner`; Go
+sengaja tidak memiliki keduanya. Go tidak menghapus dead code lintas switch dispatch
+runtime, sehingga paket payung akan memaksa SDK vendor setiap backend (AWS, GCP,
+dan lainnya) masuk ke build setiap konsumen. Mengimpor paket backend yang
+Anda butuhkan adalah pemilihnya. Untuk memilih backend saat runtime, tulis switch di kode
+Anda sendiri hanya untuk backend yang Anda dukung, dan simpan hasilnya sebagai
+`core.SolanaSigner`.
+
+## Penanganan Error
+
+Setiap error adalah `*core.SignerError` dengan `Code` yang stabil (`CodeConfigError`,
+`CodeHTTPError`, `CodeRemoteAPIError`, `CodeSigningFailed`,
+`CodeNotInitialized`, `CodeBroadcastUnconfirmed`, dan lainnya). `Error()` hanya mengembalikan
+pesan tetap per kode, tidak pernah material kunci atau respons mentah provider.
+Cocokkan dengan `errors.As`, `errors.Is(err, &core.SignerError{Code: ...})`, atau
+`core.CodeOf(err)`.
+
+Pada Crossmint dan mode native auto Fordefi, kegagalan tidak berarti tidak ada yang
+mendarat. Ketika provider mungkin telah menerima transaksi, kodenya adalah
+`core.CodeBroadcastUnconfirmed` (`"SIGNER_BROADCAST_UNCONFIRMED"`).
+`ProviderTxID` diisi ketika pembuatan transaksi diterima, dan `IdempotencyKey` membawa
+kunci yang diturunkan dari pesan. Mengirim ulang transaksi yang identik byte demi byte
+aman; transaksi yang dibangun ulang (misalnya dengan blockhash baru) merupakan transfer baru.
+`core.SignAndSendTransaction` juga melaporkan kode ini ketika fungsi kirim Anda
+gagal, dengan signature fee payer di `TransactionSignature`. PROGRAM_CALL
+Fireblocks hanya menandatangani dan tidak mengirim kunci; kode ini dilaporkan hanya ketika
+polling menunjukkan Fireblocks tetap menyiarkan.
+
+```go
+sig, err := core.SignAndSendTransaction(ctx, signer, tx, send)
+var se *core.SignerError
+if errors.As(err, &se) && se.Code == core.CodeBroadcastUnconfirmed {
+	// Reconcile se.ProviderTxID, se.IdempotencyKey or se.TransactionSignature
+	// with the provider before retrying.
+}
+```
+
+Lihat
+[model keamanan](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+untuk mengetahui apa yang dijamin oleh setiap bentuk penandatanganan,
+[README Go](https://github.com/solana-foundation/solana-keychain/blob/main/go/README.md)
+untuk daftar modul lengkap, dan
+[pkg.go.dev](https://pkg.go.dev/github.com/solana-foundation/solana-keychain/go/core/v2)
+untuk referensi API.
+
+## Menambahkan Signer Kustom
+
+Implementasikan `core.SolanaSigner` ditambah tepat satu antarmuka kapabilitas, dan jangan menambahkan
+method yang tidak dapat dipenuhi backend Anda: pemanggil mendeteksi kapabilitas melalui type assertion.
+Lihat [panduan Menambahkan Signer](/docs/tools/keychain/adding-signers) untuk mengintegrasikan
+layanan manajemen kunci tambahan.

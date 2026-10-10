@@ -1,0 +1,219 @@
+---
+title: Фондирование ног сделки
+description:
+  Проверьте сохранённые условия сделки DvP, затем профинансируйте ногу обычным TransferChecked в её эскроу-аккаунт.
+seoTitle: Фондирование сделки DvP в Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Фондирование — это обычный `TransferChecked` в эскроу ноги, поэтому профинансировать ногу может любой кошелёк или кастодиальная система, способная отправить перевод токенов. Клиент DvP нужен только для чтения записи сделки перед фондированием. Программа проверяет балансы эскроу только при расчёте; при поступлении перевода никакой проверки не происходит, поэтому каждая сторона читает запись сделки до перевода.
+
+Эта страница продолжает раздел
+[создание сделки](/docs/defi/dvp-program/create-a-trade); клиент и подписанты
+сохраняются.
+
+## Проверьте условия
+
+Создание записи не требует разрешений, а адреса эскроу выводятся только из записи и минта, но никогда не из условий. Поэтому перевод в эскроу может попасть под условия, с которыми вы не соглашались, в том числе под адреса расчёта, перенаправляющие средства вашего контрагента на третий адрес. Перед фондированием прочитайте аккаунт `SwapDvp` и сверьте его с согласованной сделкой.
+
+`verifySwapDvp` в TypeScript и `verify::decode_swap_dvp_account` в Rust подтверждают, что аккаунт принадлежит программе DvP, имеет ровно 458 байт и находится по адресу, который выводится из его собственных полей (`fetchSwapDvpChecked` выполняет только первые две проверки). Обычные считыватели `fetchSwapDvp` и `decodeSwapDvp` не выполняют ни одной из них. Проверки сторон, сумм, времени и адресов назначения вызывающий код выполняет самостоятельно, сверяясь с согласованной сделкой.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Если запись создана вашим контрагентом или расчётным органом, сравните каждое поле с условиями, согласованными вне реестра. Если вы создали её сами, это чтение подтверждает, что она записана так, как была отправлена.
+
+## Перевод в эскроу
+
+Фондируйте ногу точно на согласованную сумму. Программа ограничивает расчёт значением `amount_x` и возвращает любой излишек стороне ноги, так что излишек не теряется, но он добавляет второй перевод при расчёте и может завершиться ошибкой для некоторых transfer hooks (см. примечания ниже).
+
+Используйте `TransferChecked`, а не непроверяемый `Transfer`. Минты Token-2022 с расширениями, зависящими от mint account, такими как Pausable, отклоняют перевод, в котором он не передан, а минт с transfer hook требует, чтобы аккаунты хука были определены и добавлены так же, как и для любого другого перевода этого токена.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    Сторона ноги с активом, подписывая как `userASigner`, фондирует эскроу A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    Сторона денежной ноги делает то же самое для эскроу B с `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` и `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    Сторона денежной ноги формирует ту же инструкцию для эскроу B с `mint_b`,
+    `user_b` и `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Перевод для фондирования, виденный на уровне [`confirmed`](/docs/rpc#configuring-state-commitment),
+всё ещё может быть отменён. Программа читает баланс эскроу ончейн
+при расчёте, поэтому Settle, отправленный при отсутствии поступившего перевода для фондирования, завершится
+с ошибкой `LegNotFunded`, и ничего не переместится; цена — неудавшийся Settle и повторная попытка.
+Считайте ногу профинансированной, когда её перевод имеет статус `finalized`.
+
+## Примечания
+
+- **Ноги с wrapped SOL.** Программа читает баланс нативного эскроу после
+  его синхронизации, поэтому lamports, отправленные в эскроу wrapped SOL системным переводом,
+  учитываются. Никогда не отправляйте SOL в эскроу для любого другого минта: программа не может
+  вернуть его, и он достаётся тому, кто закроет аккаунт.
+- **Минты с ограничениями.** Для минта с замороженным Default Account State эскроу
+  создаётся замороженным, и перевод завершается ошибкой, пока эмитент не разморозит его или не допустит. В
+  [обзоре](/docs/defi/dvp-program#mint-configuration-constraints) описано
+  взаимодействие с Token ACL.
+- **Transfer hooks.** Фондируйте эскроу с хуками точно на согласованную сумму. Если
+  излишек вынуждает сделать возврат при расчёте, возврат повторно использует аккаунты хука ноги
+  с другим получателем и суммой, что некоторые хуки отклоняют. Восстановление:
+  Reclaim, повторное фондирование на точную сумму и новый расчёт.
+- **Фондирование после истечения срока.** Ничто не мешает переводу после `expiry_timestamp`. Он
+  поступает, расчёт уже невозможен, и сторона ноги возвращает средства через
+  Reclaim, пока сделка открыта, или через Recover после её закрытия. См.
+  [отмену сделки](/docs/defi/dvp-program/unwind-a-trade).
+- **Кто фондирует первым.** Программа не задаёт очерёдность двух ног. Порядок — это
+  вопрос договорённости сторон; любая сторона может вернуть свою ногу в любой момент
+  до расчёта, если только mint authority (заморозка, пауза или transfer hook)
+  не блокирует эскроу.
+
+## Следующие шаги
+
+- [Расчёт по сделке](/docs/defi/dvp-program/settle-the-trade): расчётный
+  орган обменивает обе ноги в одной транзакции
+- [Отмена сделки](/docs/defi/dvp-program/unwind-a-trade): возврат профинансированной
+  ноги, если сделка не рассчитана

@@ -1,0 +1,562 @@
+---
+title: Python
+description: Установка и использование solana-keychain в приложениях на Python
+---
+
+Версия 2.0 — первый стабильный релиз пакета для Python. В
+[руководстве по миграции на 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)
+описаны форматы подписи, общие с Rust и TypeScript.
+
+## Установка
+
+Установите базовый пакет и по одному extra для каждого бэкенда, которому
+нужна зависимость от провайдера:
+
+```shell
+pip install solana-keychain                # memory, vault and para
+pip install 'solana-keychain[aws-kms]'     # AWS KMS (boto3)
+pip install 'solana-keychain[gcp-kms]'     # GCP KMS (google-cloud-kms)
+pip install 'solana-keychain[privy]'       # Privy
+pip install 'solana-keychain[turnkey]'     # Turnkey
+pip install 'solana-keychain[fireblocks]'  # Fireblocks
+pip install 'solana-keychain[cdp]'         # Coinbase Developer Platform
+pip install 'solana-keychain[crossmint]'   # Crossmint
+pip install 'solana-keychain[dfns]'        # Dfns
+pip install 'solana-keychain[openfort]'    # Openfort
+pip install 'solana-keychain[utila]'       # Utila
+pip install 'solana-keychain[fordefi]'     # Fordefi
+
+# Several at once
+pip install 'solana-keychain[aws-kms,privy]'
+```
+
+Требуется Python 3.10 или новее. Транзакции — это объекты
+[`solders`](https://pypi.org/project/solders/) `VersionedTransaction`;
+принимаются сообщения legacy, v0 и v1, за исключением Fireblocks с
+`use_program_call=True`: он принимает только legacy и v0.
+
+Memory, Vault и Para можно импортировать из корня пакета. Все остальные бэкенды
+импортируются из собственных подмодулей (например, `solana_keychain.aws_kms`), а
+импорт без соответствующего extra вызывает `ImportError` с указанием extra,
+который нужно установить. Ledger поддерживается только в Rust.
+
+## Базовое использование
+
+У каждого бэкенда есть конфигурационный dataclass и асинхронная фабрика
+`create_<backend>_signer`, которая возвращает готовый к использованию подписант.
+Все методы подписи — корутины:
+
+```python
+import asyncio
+
+from solana_keychain import MemorySigner
+from solders.transaction import VersionedTransaction
+
+
+async def sign(transaction: VersionedTransaction) -> str:
+    signer = MemorySigner.from_private_key_file("/path/to/id.json")
+    print("Signing with:", signer.pubkey)
+
+    # Check availability (useful for remote signers)
+    if not await signer.is_available():
+        raise RuntimeError("Signer offline")
+
+    result = await signer.sign_transaction(transaction)
+    print("Signature:", result.signature)
+    print("Fully signed:", result.is_complete)
+    return result.encoded_transaction  # base64 wire transaction
+```
+
+`sign_transaction` возвращает `SignedTransaction` с полями `encoded_transaction`,
+`signature`, `is_complete` и `transaction`. `transaction` — это авторитетная
+подписанная транзакция: продолжайте работу именно с ней, особенно при
+использовании модифицирующего подписанта, результат которого — другой объект,
+а не тот, что вы передали.
+
+### Единая фабрика
+
+`create_keychain_signer` принимает имя бэкенда и dataclass конфигурации этого
+бэкенда и импортирует бэкенд лениво, поэтому устанавливать нужно только те
+extras, которые вы используете:
+
+```python
+from solana_keychain import create_keychain_signer
+from solana_keychain.privy import PrivySignerConfig
+
+signer = await create_keychain_signer(
+    "privy",
+    PrivySignerConfig(
+        app_id="your-app-id",
+        app_secret="your-app-secret",
+        wallet_id="your-wallet-id",
+    ),
+)
+```
+
+Имена перечислены в `SUPPORTED_BACKENDS`: `aws-kms`, `cdp`, `crossmint`,
+`dfns`, `fireblocks`, `fordefi`, `gcp-kms`, `memory`, `openfort`, `para`,
+`privy`, `turnkey`, `utila` и `vault`. Неизвестное имя или конфигурация
+неверного класса вызывает `SignerError` с `SignerErrorCode.CONFIG_ERROR`.
+Фабрика типизирована как возвращающая базовый `SolanaSigner`, поэтому перед
+подписью сузьте тип с помощью `isinstance` (см. [Возможности подписантов](#signer-capabilities)).
+
+### Удалённые HTTP-клиенты
+
+Удалённые HTTP-бэкенды принимают необязательный `http_client` (`httpx.AsyncClient`)
+для настройки TLS или прокси. Если он не задан, каждый запрос использует
+одноразовый клиент с тайм-аутом 60 секунд, обязательным HTTPS для базового URL
+и отклонением редиректов.
+
+## Возможности подписантов
+
+Каждый бэкенд наследует абстрактный класс `SolanaSigner` (`pubkey`, `sign_message`,
+`is_available`) и ровно один класс возможностей:
+
+- `TransactionSigner`: `sign_transaction(tx)` подписывает вашу транзакцию на месте
+  и возвращает `SignedTransaction`. Отправляете её вы.
+- `ModifyingSigner`: `modify_and_sign_transaction(tx)` позволяет провайдеру
+  переписать транзакцию, затем подписывает её без отправки. Ваш объект остаётся
+  нетронутым; продолжайте работу с возвращённым `SignedTransaction.transaction`.
+- `SendingSigner`: `sign_and_send_transaction(tx)` подписывает и отправляет
+  транзакцию через провайдера и возвращает `Signature` транзакции, которая попала
+  в сеть. Ваша транзакция никогда не изменяется.
+
+| Бэкенд                                                                           | Класс возможностей    | `sign_message`                                  |
+| --------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------- |
+| memory, vault, privy, turnkey, aws-kms, fireblocks, gcp-kms, dfns, para, openfort | `TransactionSigner` | Да                                             |
+| cdp                                                                               | `TransactionSigner` | Только данные в UTF-8, иначе `SERIALIZATION_ERROR` |
+| utila                                                                             | `TransactionSigner` | Вызывает `SIGNING_FAILED`                         |
+| fordefi black box (`FordefiBlackBoxSigner`)                                       | `TransactionSigner` | Да                                             |
+| fordefi native manual (`FordefiNativeManualSigner`)                               | `ModifyingSigner`   | Да                                             |
+| fordefi native auto (`FordefiNativeAutoSigner`)                                   | `SendingSigner`     | Да                                             |
+| crossmint                                                                         | `SendingSigner`     | Вызывает `SIGNING_FAILED`                         |
+
+Сужайте тип с помощью `isinstance`. Все классы возможностей экспортируются из
+корня пакета:
+
+```python
+from solana_keychain import ModifyingSigner, SendingSigner, TransactionSigner
+
+if isinstance(signer, SendingSigner):
+    signature = await signer.sign_and_send_transaction(transaction)
+elif isinstance(signer, ModifyingSigner):
+    result = await signer.modify_and_sign_transaction(transaction)
+elif isinstance(signer, TransactionSigner):
+    result = await signer.sign_transaction(transaction)
+```
+
+### Инициализация
+
+Фабрики `create_*` и `create_keychain_signer` выполняют всю необходимую настройку
+за вас. Если вы создаёте класс подписанта Privy, Fireblocks, Dfns, Crossmint, Para,
+Openfort или Utila напрямую, перед использованием вызовите `await signer.init()`.
+До этого `pubkey` и любой вызов подписи вызывают `SignerErrorCode.NOT_INITIALIZED`.
+
+## Конфигурация бэкендов
+
+### Memory
+
+Создаётся из файла keypair Solana CLI, строки в base58 или `"[1,2,...]"`, «сырых»
+байтов или `Keypair` из `solders`:
+
+```python
+from solana_keychain import MemorySigner, MemorySignerConfig, create_memory_signer
+from solders.keypair import Keypair
+
+signer = MemorySigner.from_private_key_file("/path/to/id.json")
+signer = MemorySigner.from_private_key_string("base58_private_key")
+signer = MemorySigner.from_bytes(secret_key_bytes)  # 64 or 32 bytes
+signer = await create_memory_signer(MemorySignerConfig(keypair=Keypair()))
+```
+
+Ключ хранится в памяти процесса, и Python не может его обнулить. Используйте этот
+бэкенд для разработки и тестирования.
+
+### HashiCorp Vault
+
+Ключ должен быть ключом ed25519 в transit-движке. Обычный HTTP допускается
+только для loopback-адреса, для `vault server -dev`:
+
+```python
+from solana_keychain import VaultSignerConfig, create_vault_signer
+
+signer = await create_vault_signer(
+    VaultSignerConfig(
+        api_base_url="https://vault.example.com:8200",
+        token="hvs.xxxxx",
+        key_name="my-solana-key",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### AWS KMS
+
+`key_id` — это ID ключа, ARN или алиас ключа `ECC_NIST_EDWARDS25519`. Передайте
+готовый клиент boto3 KMS `client` для своих учётных данных или эндпоинтов;
+тогда `region` игнорируется:
+
+```python
+from solana_keychain.aws_kms import AwsKmsSignerConfig, create_aws_kms_signer
+
+signer = await create_aws_kms_signer(
+    AwsKmsSignerConfig(
+        key_id="alias/my-solana-key",
+        public_key="base58_public_key",
+        region="us-east-1",  # optional, defaults to the AWS config chain
+    )
+)
+```
+
+### GCP KMS
+
+Версия ключа должна быть ключом `EC_SIGN_ED25519`. `client` может принимать
+готовый `KeyManagementServiceAsyncClient`:
+
+```python
+from solana_keychain.gcp_kms import GcpKmsSignerConfig, create_gcp_kms_signer
+
+signer = await create_gcp_kms_signer(
+    GcpKmsSignerConfig(
+        key_name="projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Privy
+
+```python
+from solana_keychain.privy import PrivySignerConfig, create_privy_signer
+
+signer = await create_privy_signer(
+    PrivySignerConfig(
+        app_id="app_id",
+        app_secret="app_secret",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+Кошельки, защищённые ключом авторизации, принимают `PrivyAuthorizationConfig` в
+качестве `authorization_context`.
+
+### Turnkey
+
+```python
+from solana_keychain.turnkey import TurnkeySignerConfig, create_turnkey_signer
+
+signer = await create_turnkey_signer(
+    TurnkeySignerConfig(
+        api_public_key="api_public_key",    # hex P-256
+        api_private_key="api_private_key",  # hex P-256
+        organization_id="org_id",
+        private_key_id="private_key_id",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Fireblocks
+
+```python
+from solana_keychain.fireblocks import FireblocksSignerConfig, create_fireblocks_signer
+
+signer = await create_fireblocks_signer(
+    FireblocksSignerConfig(
+        api_key="api_key",
+        private_key_pem="-----BEGIN RSA PRIVATE KEY-----\n...",
+        vault_account_id="0",
+        asset_id="SOL",  # or "SOL_TEST" for devnet
+    )
+)
+```
+
+`use_program_call=True` подписывает операцией PROGRAM_CALL вместо RAW. Она
+отправляется в режиме «только подпись», поэтому Fireblocks не переписывает и не
+отправляет транзакцию, а вы отправляете её как обычно. Требуется hot-кошелёк, и
+Fireblocks должен включить эту возможность для вашего рабочего пространства.
+
+### CDP (Coinbase Developer Platform)
+
+```python
+from solana_keychain.cdp import CdpSignerConfig, create_cdp_signer
+
+signer = await create_cdp_signer(
+    CdpSignerConfig(
+        api_key_id="api_key_id",
+        api_key_secret="api_key_secret",
+        wallet_secret="wallet_secret",
+        address="base58_address",
+        network="solana",  # or "solana-devnet"; required for address lookup tables
+    )
+)
+```
+
+### Crossmint
+
+```python
+from solana_keychain.crossmint import CrossmintSignerConfig, create_crossmint_signer
+
+signer = await create_crossmint_signer(
+    CrossmintSignerConfig(
+        api_key="api_key",
+        wallet_locator="wallet_locator",
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+Crossmint работает только на отправку. Его API всегда выполняет одобренную
+транзакцию на стороне сервера и оплачивает газ, поэтому `CrossmintSigner` — это
+`SendingSigner`, а `sign_message` вызывает `SIGNING_FAILED`. Возвращённая подпись
+идентифицирует транзакцию, которую отправил Crossmint, и она может отличаться от
+вашей. Установка `signer_secret` (секрет делегированного подписанта `xmsk1_...`)
+одобряет транзакции автоматически, тем самым делегируя Crossmint выбор того, что
+одобрять.
+
+### Dfns
+
+```python
+from solana_keychain.dfns import DfnsSignerConfig, create_dfns_signer
+
+signer = await create_dfns_signer(
+    DfnsSignerConfig(
+        auth_token="auth_token",
+        cred_id="cred_id",
+        private_key_pem="-----BEGIN EC PRIVATE KEY-----\n...",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+### Openfort
+
+```python
+from solana_keychain.openfort import OpenfortSignerConfig, create_openfort_signer
+
+signer = await create_openfort_signer(
+    OpenfortSignerConfig(
+        secret_key="sk_...",
+        account_id="acc_...",
+        wallet_secret="wallet_secret",
+    )
+)
+```
+
+### Para
+
+```python
+from solana_keychain import ParaSignerConfig, create_para_signer
+
+signer = await create_para_signer(
+    ParaSignerConfig(
+        api_key="sk_...",
+        wallet_id="wallet_uuid",
+    )
+)
+```
+
+### Utila
+
+Utila только подписывает транзакции; `sign_message` вызывает `SIGNING_FAILED`.
+
+```python
+from solana_keychain.utila import UtilaSignerConfig, create_utila_signer
+
+signer = await create_utila_signer(
+    UtilaSignerConfig(
+        service_account_email="sa@example.com",
+        service_account_private_key_pem="-----BEGIN PRIVATE KEY-----\n...",
+        vault_id="vault_id",
+        wallet_id="wallet_id",
+        network="networks/solana-devnet",
+    )
+)
+```
+
+### Fordefi
+
+У Fordefi три режима подписи, которые фиксируются при создании через `chain` и
+`push_mode`. `create_fordefi_signer` выбирает класс, каждый класс отклоняет
+конфигурацию, предназначенную для другого, и все три подписывают сообщения:
+
+| Режим          | Конфигурация                                     | Класс                       | Метод                        |
+| ------------- | ------------------------------------------ | --------------------------- | ----------------------------- |
+| Black box     | `chain` не задан                              | `FordefiBlackBoxSigner`     | `sign_transaction`            |
+| Native auto   | `chain` задан, `push_mode` не задан или `"auto"` | `FordefiNativeAutoSigner`   | `sign_and_send_transaction`   |
+| Native manual | `chain` задан, `push_mode="manual"`          | `FordefiNativeManualSigner` | `modify_and_sign_transaction` |
+
+API-запросы аутентифицируются подписью запроса ECDSA P-256: передайте ключ как
+`private_key_pem` или храните его в KMS/HSM, передав подкласс
+`FordefiRequestSigner` как `request_signer`.
+
+**Режим native auto**: задайте `chain` (`"solana_devnet"` или `"solana_mainnet"`),
+и Fordefi может заменить blockhash и комиссии, а затем сам подписывает и
+отправляет транзакцию. Принимается только неподписанная транзакция, единственный
+обязательный подписант которой — хранилище (vault). `fee` передаётся в Fordefi без
+изменений:
+
+```python
+import os
+
+from solana_keychain.fordefi import FordefiSignerConfig, create_fordefi_signer
+
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],  # vault address (base58)
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        fee={"type": "custom", "priority_fee": "1000"},  # optional
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+**Режим native manual**: задайте `chain` и `push_mode="manual"`. Fordefi переписывает
+сообщение (recent blockhash, инструкции комиссии Compute Budget) и подписывает его,
+но не отправляет. Возвращённая транзакция заменяет ту, которую вы передали,
+поэтому всегда продолжайте работу с `result.transaction`. Fordefi должен быть
+плательщиком комиссии и должен подписывать раньше любого другого обязательного
+подписанта: транзакция, уже содержащая подписи, принимается, но перезапись их
+аннулирует. Перезапись не сопровождается diff, поэтому проверьте результат перед
+отправкой и отправляйте оперативно, так как Fordefi не возвращает высоту истечения
+срока действия нового blockhash.
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        push_mode="manual",
+    )
+)
+
+result = await signer.modify_and_sign_transaction(transaction)
+...  # inspect result.transaction, then add any remaining signatures
+```
+
+Отправьте проверенную транзакцию, как описано в разделе [Подпись и отправка](#sign-and-send),
+и при сбое отправки выполните сверку перед повторной попыткой.
+
+**Режим black box**: не указывайте `chain`. Fordefi подписывает точные байты вашего
+сообщения и не отправляет их. Используйте его с хранилищем Fordefi black box.
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_BB_VAULT_ID"],
+        public_key=os.environ["FORDEFI_BB_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+    )
+)
+```
+
+## Подпись и отправка
+
+`sign_and_send_transaction` доставляет транзакцию в сеть независимо от типа
+подписанта. `SendingSigner` отправляет её через своего провайдера, и ваша функция
+отправки не вызывается. `TransactionSigner` или `ModifyingSigner` подписывает, а ваша
+функция отправки передаёт в сеть результат в кодировке base64 (в пакете нет
+RPC-клиента):
+
+```python
+import httpx
+from solana_keychain import sign_and_send_transaction
+from solders.signature import Signature
+
+
+async def send(encoded: str) -> Signature:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.devnet.solana.com",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sendTransaction",
+                "params": [encoded, {"encoding": "base64"}],
+            },
+        )
+    return Signature.from_string(response.json()["result"])
+
+
+signature = await sign_and_send_transaction(signer, transaction, send)
+```
+
+Подписант, умеющий только подписывать, без функции отправки вызывает
+`CONFIG_ERROR`, а транзакция, в которой после подписания по-прежнему не хватает
+подписей, вызывает `SIGNING_FAILED`.
+
+## Обработка ошибок
+
+Каждый сбой — это `SignerError` со стабильным `code` из `SignerErrorCode`:
+`BROADCAST_UNCONFIRMED`, `CONFIG_ERROR`, `EXPECTED_SOLANA_SIGNER`, `HTTP_ERROR`,
+`INVALID_PRIVATE_KEY`, `INVALID_PUBLIC_KEY`, `IO_ERROR`, `NOT_AVAILABLE`,
+`NOT_INITIALIZED`, `OTHER`, `PARSING_ERROR`, `REMOTE_API_ERROR`,
+`SERIALIZATION_ERROR` и `SIGNING_FAILED`. Ориентируйтесь на `code`, а не на сообщение:
+`str()` и `repr()` содержат только фиксированное общее сообщение, но никогда — ключевой
+материал или необработанные ответы провайдера. `status_code` и `provider_error_code`
+устанавливаются, когда сбой вызван ответом провайдера.
+
+`SignerErrorCode.BROADCAST_UNCONFIRMED` (`"SIGNER_BROADCAST_UNCONFIRMED"`) означает,
+что транзакция, возможно, попала в сеть:
+
+- В Crossmint и Fordefi native auto `provider_transaction_id` устанавливается, когда
+  создание было принято, а `idempotency_key` содержит ключ, выведенный из сообщения,
+  с которым ушёл запрос на создание. Повторная отправка побайтово идентичной
+  транзакции безопасна; пересобранная (например, с новым blockhash) — это новый
+  перевод.
+- Из `sign_and_send_transaction` эту ошибку вызывает сбой функции отправки, при этом
+  `transaction_signature` содержит подпись завершённой транзакции.
+- Fireblocks вызывает её, только если опрос показывает, что Fireblocks отправил
+  транзакцию `use_program_call`, хотя она была отправлена в режиме «только подпись».
+
+```python
+from solana_keychain import SignerError, SignerErrorCode
+
+try:
+    signature = await sign_and_send_transaction(signer, transaction, send)
+except SignerError as error:
+    if error.code is SignerErrorCode.BROADCAST_UNCONFIRMED:
+        reconcile(
+            error.provider_transaction_id,
+            error.idempotency_key,
+            error.transaction_signature,
+        )
+    raise
+```
+
+Отменённый вызов повторно вызывает `asyncio.CancelledError`, у которого нет полей.
+Чтобы восстановить id, принятый провайдером до отмены, передайте
+`PendingTransactionId()` (из `solana_keychain.core`) как `pending_transaction_id` в
+конфигурации Crossmint или Fordefi native auto и прочитайте `.get()` после отмены.
+Перед повторной попыткой выполните сверку с провайдером.
+
+Keychain проверяет этап подписи, а не то, что делает транзакция: подпись,
+возвращённая провайдером, перед присоединением проверяется по ed25519 относительно
+локально вычисленного сообщения. Python не может обнулять буферы ключей, поэтому при
+использовании бэкендов с локальным ключом (Memory, а также API-ключи и PEM в
+конфигурациях удалённых бэкендов) считайте всю память процесса конфиденциальной.
+О том, что гарантирует каждый формат подписи, см. в
+[модели безопасности](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md).
+
+## Добавление собственных подписантов
+
+Создайте подкласс того класса возможностей, которому соответствует ваш бэкенд (`TransactionSigner`,
+`ModifyingSigner` или `SendingSigner`), из `solana_keychain.core`. Чтобы интегрировать
+дополнительные сервисы управления ключами, см. [руководство по добавлению подписантов](/docs/tools/keychain/adding-signers).
+
+## Ресурсы
+
+- [README для Python](https://github.com/solana-foundation/solana-keychain/blob/main/python/README.md)
+- [`solana-keychain` на PyPI](https://pypi.org/project/solana-keychain/)
+- [Модель безопасности](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+- [Переход на версию 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)

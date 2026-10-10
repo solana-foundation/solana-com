@@ -1,11 +1,14 @@
 ---
 title: TypeScript
-description: Cài đặt và sử dụng @solana/keychain trong ứng dụng TypeScript
+description: Cài đặt và sử dụng @solana/keychain trong các ứng dụng TypeScript
 ---
+
+Nâng cấp từ phiên bản 1.x? Xem
+[hướng dẫn di chuyển lên 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md).
 
 ## Cài đặt
 
-Cài đặt gói umbrella hoặc các signer riêng lẻ tùy theo nhu cầu:
+Cài đặt gói tổng hợp (umbrella package) hoặc từng signer riêng lẻ tùy nhu cầu:
 
 ```shell
 # Umbrella package (includes all signers)
@@ -26,20 +29,25 @@ pnpm add @solana/keychain-dfns        # Dfns
 pnpm add @solana/keychain-openfort    # Openfort
 pnpm add @solana/keychain-para        # Para
 pnpm add @solana/keychain-utila       # Utila
+pnpm add @solana/keychain-fordefi     # Fordefi
 
 # Kit client plugins (keychainSigner / keychainPayer / keychainIdentity)
 pnpm add @solana/keychain-kit-plugin
 ```
 
+Yêu cầu `@solana/kit` 8.1 trở lên. Các giao dịch v1
+(`createTransactionMessage({ version: 1 })`) được hỗ trợ, ngoại trừ Fireblocks
+với `useProgramCall: true`, chỉ chấp nhận giao dịch legacy và v0.
+
 ## Cách sử dụng cơ bản
 
-### Unified Factory (Khuyến nghị cho các ứng dụng muốn hỗ trợ nhiều signer)
+### Factory hợp nhất (Khuyến nghị cho các ứng dụng muốn hỗ trợ nhiều signer)
 
-Sử dụng `createKeychainSigner` với config phân biệt để tạo bất kỳ backend nào:
+Sử dụng `createKeychainSigner` với một cấu hình phân biệt (discriminated config) để tạo bất kỳ backend nào:
 
 ```typescript
 import { createKeychainSigner } from "@solana/keychain";
-import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers ≥ 6.5
+import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers >= 8.1
 
 const signer = await createKeychainSigner({
   backend: "privy",
@@ -55,7 +63,7 @@ const signedTx = await signTransactionWithSigners(
 );
 ```
 
-Hoặc cài đặt gói signer riêng lẻ để giảm kích thước dependencies:
+Hoặc cài đặt từng gói signer riêng lẻ để giảm dung lượng phụ thuộc:
 
 ```typescript
 import { createPrivySigner } from "@solana/keychain-privy";
@@ -67,12 +75,15 @@ const signer = await createPrivySigner({
 });
 ```
 
-### Sử dụng với Transaction Messages
+### Sử dụng với Transaction Message
 
-Tất cả các signer đều implement interface `SolanaSigner`, tương thích với
-`@solana/kit` và `@solana/signers`:
+Mọi backend, trừ Crossmint và chế độ native của Fordefi, đều trả về một
+`SolanaTransactionSigner`, vốn là một `TransactionPartialSigner` của Kit và hoạt động
+cùng các hàm hỗ trợ partial-signer của `@solana/signers` bên dưới. Các backend
+tự động broadcast được đề cập trong [Signer Capabilities](#signer-capabilities).
 
 ```typescript
+import type { SolanaTransactionSigner } from "@solana/keychain-core";
 import { signTransactionMessageWithSigners } from "@solana/signers";
 import {
   createTransactionMessage,
@@ -80,7 +91,7 @@ import {
   pipe
 } from "@solana/kit";
 
-async function signWithKeychain(signer: SolanaSigner) {
+async function signWithKeychain(signer: SolanaTransactionSigner) {
   // Check availability (useful for remote signers)
   if (!(await signer.isAvailable())) {
     throw new Error("Signer offline");
@@ -90,7 +101,7 @@ async function signWithKeychain(signer: SolanaSigner) {
   const transaction = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayerSigner(signer, tx)
-    // ... add instructions
+    // ... set a lifetime and add instructions
   );
 
   // Sign with the standard signers API
@@ -99,11 +110,27 @@ async function signWithKeychain(signer: SolanaSigner) {
 }
 ```
 
+### Ký và gửi với bất kỳ Signer nào
+
+`signAndSendTransaction` từ `@solana/keychain-core` đưa giao dịch lên
+chain bất kể signer có dạng nào. Các sending signer broadcast thông qua
+provider của chúng; mọi dạng khác sẽ dùng hàm `sendTransaction` mà bạn truyền vào (core không
+phụ thuộc vào RPC):
+
+```typescript
+import { signAndSendTransaction } from "@solana/keychain-core";
+
+const signature = await signAndSendTransaction(signer, transaction, {
+  sendTransaction: (tx) =>
+    sendAndConfirmTransaction(tx, { commitment: "confirmed" })
+});
+```
+
 ### Sử dụng với Kit Client (plugin keychainSigner)
 
-`@solana/keychain-kit-plugin` cài đặt một keychain signer trực tiếp trên
-[Kit client](https://github.com/anza-xyz/kit), kết nối nó như `payer` và
-`identity` để bạn bỏ qua bước thiết lập thủ công `pipe` như trên:
+`@solana/keychain-kit-plugin` cài đặt trực tiếp một keychain signer vào
+[Kit client](https://github.com/anza-xyz/kit), thiết lập nó làm `payer` và
+`identity` để bạn bỏ qua bước thiết lập `pipe` thủ công như đã trình bày ở trên:
 
 ```typescript
 import { createClient } from "@solana/kit";
@@ -118,16 +145,19 @@ const client = await createClient().use(
   })
 );
 
-client.payer; // SolanaSigner — also a Kit TransactionSigner
+client.payer; // SolanaTransactionSigner, also a Kit TransactionPartialSigner
 client.identity; // same signer instance
 ```
 
-Plugin này chấp nhận cùng cấu hình backend-tagged như `createKeychainSigner`, và
-chỉ backend mà nó điều phối tới mới được đóng gói (các gói backend được tải qua
+Plugin chấp nhận cùng cấu hình gắn thẻ backend như `createKeychainSigner`,
+trừ Crossmint và chế độ native của Fordefi (đã đặt `chain`). Các backend đó viết lại
+giao dịch ở phía máy chủ, nên không thể đóng vai trò `payer` hoặc
+`identity` của client; plugin sẽ từ chối chúng ở cả thời điểm biên dịch lẫn thời gian chạy. Chỉ
+backend được điều phối tới mới được đóng gói (các gói backend được tải qua
 `import()` động).
 
-Dùng `keychainPayer` hoặc `keychainIdentity` để chỉ thiết lập một vai trò, và
-kết hợp nhiều backend trên một client duy nhất:
+Dùng `keychainPayer` hoặc `keychainIdentity` để chỉ thiết lập một vai trò, và kết hợp các backend
+trên cùng một client:
 
 ```typescript
 import { createClient } from "@solana/kit";
@@ -137,18 +167,19 @@ const client = await createClient()
   .use(
     keychainPayer({
       backend: "memory",
-      privateKeyPath: "~/.config/solana/id.json"
+      privateKeyPath: `${process.env.HOME}/.config/solana/id.json`
     })
   )
   .use(keychainIdentity({ backend: "turnkey", ...turnkeyConfig }));
 ```
 
-Đã có sẵn `SolanaSigner`? Mọi keychain signer đều là một Kit `TransactionSigner`
-hợp lệ, vì vậy bạn có thể cài đặt một signer hiện có bằng
+Đã có sẵn một `SolanaTransactionSigner`? Nó là một `TransactionPartialSigner`
+hợp lệ của Kit, nên bạn có thể cài đặt nó bằng
 [`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)
 thay thế (`pnpm add @solana/kit-plugin-signer`):
 
 ```typescript
+import { createClient } from "@solana/kit";
 import { signer } from "@solana/kit-plugin-signer";
 import { createKeychainSigner } from "@solana/keychain";
 
@@ -159,7 +190,36 @@ const mySigner = await createKeychainSigner({
 const client = createClient().use(signer(mySigner));
 ```
 
+### Hủy bỏ và các Broadcast chưa được xác nhận
+
+`signTransactions`, `modifyAndSignTransactions`, `signAndSendTransactions` và
+`signMessages` đều nhận `{ abortSignal }` làm đối số thứ hai. Việc hủy bỏ
+chỉ dừng việc chờ đợi; nó không hoàn tác công việc mà provider đã chấp nhận.
+
+Với chế độ native auto của Crossmint và Fordefi, lỗi không có nghĩa là chưa có gì
+được ghi nhận. Khi provider có thể đã chấp nhận giao dịch, mã lỗi là
+`SignerErrorCode.BROADCAST_UNCONFIRMED` (`"SIGNER_BROADCAST_UNCONFIRMED"`).
+`context.providerTransactionId` được đặt khi yêu cầu tạo đã được chấp nhận, và
+`context.idempotencyKey` mang khóa được sinh ra từ message. Gửi lại giao dịch
+giống hệt từng byte là an toàn; một giao dịch được dựng lại (ví dụ với blockhash
+mới) sẽ là một lần chuyển mới. `providerMayHaveAccepted(error)` và
+`providerStatus(error)` từ `@solana/keychain-core` giúp phân loại lỗi.
+Hãy đối chiếu với provider trước khi thử lại.
+
 ## Cấu hình Backend
+
+### Memory
+
+Cung cấp chính xác một trong các tùy chọn `keyPair`, `privateKey`, `privateKeyString` hoặc
+`privateKeyPath`:
+
+```typescript
+import { createMemorySigner } from "@solana/keychain-memory";
+
+const signer = await createMemorySigner({
+  privateKeyPath: "/path/to/id.json"
+});
+```
 
 ### HashiCorp Vault
 
@@ -183,6 +243,18 @@ const signer = createAwsKmsSigner({
   keyId: "alias/my-solana-key",
   publicKey: "base58_public_key",
   region: "us-east-1" // optional
+});
+```
+
+### GCP KMS
+
+```typescript
+import { createGcpKmsSigner } from "@solana/keychain-gcp-kms";
+
+const signer = createGcpKmsSigner({
+  keyName:
+    "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+  publicKey: "base58_public_key"
 });
 ```
 
@@ -225,16 +297,17 @@ const signer = await createFireblocksSigner({
 });
 ```
 
-### CDP (Nền tảng Nhà phát triển Coinbase)
+### CDP (Coinbase Developer Platform)
 
 ```typescript
 import { createCdpSigner } from "@solana/keychain-cdp";
 
 const signer = await createCdpSigner({
-  apiKeyId: "api_key_id",
-  apiKeySecret: "api_key_secret",
-  walletSecret: "wallet_secret",
-  address: "base58_address"
+  cdpApiKeyId: "api_key_id",
+  cdpApiKeySecret: "api_key_secret",
+  cdpWalletSecret: "wallet_secret",
+  address: "base58_address",
+  network: "solana" // or "solana-devnet"; required for address lookup tables
 });
 ```
 
@@ -249,6 +322,17 @@ const signer = await createCrossmintSigner({
 });
 ```
 
+Crossmint chỉ hỗ trợ gửi giao dịch. API của Crossmint luôn thực thi giao dịch đã được phê duyệt
+trên máy chủ và tài trợ phí gas, nên signer chỉ cung cấp
+`signAndSendTransactions()`: không có `signTransactions()` hay `signMessages()`,
+và không thể cài đặt bằng `@solana/keychain-kit-plugin`. Chữ ký được trả về
+xác định giao dịch mà Crossmint đã ghi nhận trên chain.
+
+```typescript
+const [signature] = await signer.signAndSendTransactions([transaction]);
+// or: await signAndSendTransactionMessageWithSigners(transactionMessage);
+```
+
 ### Dfns
 
 ```typescript
@@ -258,8 +342,19 @@ const signer = await createDfnsSigner({
   authToken: "auth_token",
   credId: "cred_id",
   privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\n...",
-  appId: "app_id",
   walletId: "wallet_id"
+});
+```
+
+### Openfort
+
+```typescript
+import { createOpenfortSigner } from "@solana/keychain-openfort";
+
+const signer = await createOpenfortSigner({
+  secretKey: "sk_...",
+  walletSecret: "wallet_secret",
+  accountId: "account_id"
 });
 ```
 
@@ -274,61 +369,189 @@ const signer = await createParaSigner({
 });
 ```
 
-## Giao Diện SolanaSigner
+### Utila
 
-Giao diện `SolanaSigner` mở rộng các kiểu `@solana/signers` để đảm bảo khả năng
-tương thích đầy đủ:
+Utila chỉ ký giao dịch; không có `signMessages()`.
 
 ```typescript
-interface SolanaSigner<TAddress extends string = string>
-  extends TransactionPartialSigner<TAddress>,
-    MessagePartialSigner<TAddress> {
-  // Public key address
-  readonly address: Address<TAddress>;
+import { createUtilaSigner } from "@solana/keychain-utila";
 
-  // Health check for remote signers
-  isAvailable(): Promise<boolean>;
+const signer = await createUtilaSigner({
+  serviceAccountEmail: "sa@example.com",
+  serviceAccountPrivateKeyPem: "-----BEGIN PRIVATE KEY-----\n...",
+  vaultId: "vault_id",
+  walletId: "wallet_id",
+  network: "networks/solana-devnet"
+});
+```
 
-  // Sign messages (@solana/kit compatible)
-  signMessages(
-    messages: readonly SignableMessage[]
-  ): Promise<readonly SignatureDictionary[]>;
+### Fordefi
 
-  // Sign transactions (@solana/kit compatible)
-  signTransactions(
-    transactions: readonly Transaction[]
-  ): Promise<readonly SignatureDictionary[]>;
+Fordefi có ba chế độ ký, được cố định khi khởi tạo bởi `chain` và
+`pushMode`. Mỗi chế độ cung cấp đúng một phương thức giao dịch, và cả ba đều ký
+message:
+
+| Chế độ          | Cấu hình                                      | Kiểu                        | Phương thức                        |
+| ------------- | ------------------------------------------- | --------------------------- | ----------------------------- |
+| Black box     | `chain` không được đặt                               | `FordefiBlackBoxSigner`     | `signTransactions()`          |
+| Native auto   | `chain` được đặt, `pushMode` bị bỏ qua hoặc là `"auto"` | `FordefiNativeSigner`       | `signAndSendTransactions()`   |
+| Native manual | `chain` được đặt, `pushMode: "manual"`           | `FordefiNativeManualSigner` | `modifyAndSignTransactions()` |
+
+Các yêu cầu API được xác thực bằng chữ ký yêu cầu ECDSA P-256: cung cấp
+khóa ký dưới dạng `privateKeyPem`, hoặc lưu nó trong KMS/HSM bằng cách truyền
+`requestSigner`.
+
+**Chế độ native auto** (khuyến nghị cho việc sử dụng on-chain): đặt `chain`, và Fordefi
+sẽ tự ký và broadcast giao dịch. Vì Fordefi có thể thay thế
+blockhash hoặc phí trước khi ký, signer là một `TransactionSendingSigner` của Kit:
+hãy dùng nó với
+`signAndSendTransactionMessageWithSigners`, không dùng luồng partial-signer đã trình bày
+ở trên. Chế độ native auto chỉ chấp nhận giao dịch chưa ký mà signer bắt buộc duy nhất
+là vault, và không thể dùng với `@solana/keychain-kit-plugin`.
+
+```typescript
+import { createFordefiSigner } from "@solana/keychain-fordefi";
+import { signAndSendTransactionMessageWithSigners } from "@solana/signers";
+import { readFileSync } from "node:fs";
+
+const signer = await createFordefiSigner({
+  accessToken: process.env.FORDEFI_ACCESS_TOKEN!,
+  vaultId: process.env.FORDEFI_VAULT_ID!,
+  publicKey: process.env.FORDEFI_PUBLIC_KEY!, // Solana vault address (base58)
+  privateKeyPem: readFileSync("./secret/private.pem", "utf8"),
+  chain: "solana_devnet", // or "solana_mainnet"
+  fee: { type: "custom", priority_fee: "1000" } // optional
+});
+
+const signature =
+  await signAndSendTransactionMessageWithSigners(transactionMessage);
+```
+
+**Chế độ native manual**: đặt `chain` và `pushMode: "manual"`. Fordefi viết lại
+message (blockhash gần nhất, các instruction phí Compute Budget) và ký nó,
+nhưng không broadcast. `modifyAndSignTransactions()` trả về giao dịch
+mà Fordefi đã ký, giao dịch này thay thế giao dịch bạn đã gửi: luôn tiếp tục từ
+giao dịch được trả về. Fordefi phải là bên trả phí (fee payer) và phải ký trước mọi
+signer bắt buộc khác. Phần được viết lại không có diff, vì vậy hãy kiểm tra kết quả trước khi
+broadcast.
+
+```typescript
+import { createFordefiSigner } from "@solana/keychain-fordefi";
+import { readFileSync } from "node:fs";
+
+const signer = await createFordefiSigner({
+  accessToken: process.env.FORDEFI_ACCESS_TOKEN!,
+  vaultId: process.env.FORDEFI_VAULT_ID!,
+  publicKey: process.env.FORDEFI_PUBLIC_KEY!,
+  privateKeyPem: readFileSync("./secret/private.pem", "utf8"),
+  chain: "solana_devnet",
+  pushMode: "manual"
+});
+
+const [signedTransaction] = await signer.modifyAndSignTransactions([
+  transaction
+]);
+```
+
+**Chế độ black box**: bỏ qua `chain`. Fordefi ký các byte thô và không
+broadcast; bạn tự lắp ráp và gửi giao dịch. Hãy dùng chế độ này với
+vault black box của Fordefi.
+
+```typescript
+import { createFordefiSigner } from "@solana/keychain-fordefi";
+import { readFileSync } from "node:fs";
+
+const signer = await createFordefiSigner({
+  accessToken: process.env.FORDEFI_ACCESS_TOKEN!,
+  vaultId: process.env.FORDEFI_BB_VAULT_ID!,
+  publicKey: process.env.FORDEFI_BB_PUBLIC_KEY!,
+  privateKeyPem: readFileSync("./secret/private.pem", "utf8")
+});
+```
+
+## Signer Capabilities
+
+`@solana/keychain-core` định nghĩa một interface cho mỗi dạng signer của Kit. Mỗi interface bổ sung
+`isAvailable(): Promise<boolean>` vào interface `@solana/signers` tương ứng:
+
+- `SolanaTransactionSigner` (`TransactionPartialSigner` của Kit): trả về các chữ ký
+  cho một giao dịch mà bạn sở hữu.
+- `SolanaModifyingSigner` (`TransactionModifyingSigner` của Kit): viết lại
+  giao dịch, ký nó, và trả về giao dịch mới mà không broadcast.
+- `SolanaSendingSigner` (`TransactionSendingSigner` của Kit): ký và broadcast
+  thông qua provider của nó.
+- `SolanaMessageSigner` (`MessagePartialSigner` của Kit): ký các message off-chain.
+  Dạng này tách biệt với các dạng giao dịch.
+
+`SolanaSigner` là union của ba dạng giao dịch. Kiểu trả về của mỗi factory
+chỉ rõ dạng chính xác của backend tương ứng. Khi cấu hình chỉ được biết tại
+thời gian chạy, hãy thu hẹp kiểu bằng `isSolanaTransactionSigner`, `isSolanaModifyingSigner`,
+`isSolanaSendingSigner` hoặc `isSolanaMessageSigner`. `signerCapabilities(signer)`
+trả về cả bốn cùng lúc.
+
+| Backend                                                                                                     | Dạng                                           |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| memory, vault, aws-kms, gcp-kms, privy, turnkey, fireblocks, cdp, dfns, para, openfort, fordefi (black box) | `SolanaTransactionSigner & SolanaMessageSigner` |
+| utila                                                                                                       | `SolanaTransactionSigner` (không ký message)  |
+| fordefi (native manual)                                                                                     | `SolanaModifyingSigner & SolanaMessageSigner`   |
+| fordefi (native auto)                                                                                       | `SolanaSendingSigner & SolanaMessageSigner`     |
+| crossmint                                                                                                   | `SolanaSendingSigner` (không ký message)      |
+
+```typescript
+import {
+  isSolanaSendingSigner,
+  isSolanaTransactionSigner
+} from "@solana/keychain-core";
+
+if (isSolanaSendingSigner(signer)) {
+  await signer.signAndSendTransactions([transaction]);
+} else if (isSolanaTransactionSigner(signer)) {
+  await signer.signTransactions([transaction]);
 }
 ```
 
-## Xây Dựng Trình Ký Tùy Chỉnh
+## Xây dựng Signer tùy chỉnh
 
-Triển khai giao diện `SolanaSigner` để tạo các trình ký tùy chỉnh:
+Triển khai các interface capability mà backend của bạn hỗ trợ:
 
 ```typescript
-import { SolanaSigner } from "@solana/keychain-core";
+import type {
+  SolanaMessageSigner,
+  SolanaTransactionSigner
+} from "@solana/keychain-core";
 import type { Address } from "@solana/addresses";
+import type {
+  MessagePartialSignerConfig,
+  SignableMessage,
+  TransactionPartialSignerConfig
+} from "@solana/signers";
+import type { Transaction } from "@solana/transactions";
 
-class MyCustomSigner implements SolanaSigner {
-  readonly address: Address;
-
-  constructor(address: Address) {
-    this.address = address;
-  }
+class MyCustomSigner implements SolanaTransactionSigner, SolanaMessageSigner {
+  constructor(readonly address: Address) {}
 
   async isAvailable(): Promise<boolean> {
     return await myBackend.healthCheck();
   }
 
-  async signMessages(messages) {
-    return await myBackend.signMessages(messages);
+  async signMessages(
+    messages: readonly SignableMessage[],
+    config?: MessagePartialSignerConfig
+  ) {
+    return await myBackend.signMessages(messages, config?.abortSignal);
   }
 
-  async signTransactions(transactions) {
-    return await myBackend.signTransactions(transactions);
+  async signTransactions(
+    transactions: readonly Transaction[],
+    config?: TransactionPartialSignerConfig
+  ) {
+    return await myBackend.signTransactions(transactions, config?.abortSignal);
   }
 }
 ```
 
-Xem [Hướng dẫn Thêm Trình Ký](/docs/tools/keychain/adding-signers) để tích hợp
-các dịch vụ quản lý khóa bổ sung.
+Chỉ triển khai những gì backend của bạn hỗ trợ. Kit phân loại signer dựa trên các
+phương thức hiện có, vì vậy đừng bao giờ thêm một phương thức chỉ để ném lỗi.
+
+Xem [hướng dẫn Thêm Signer](/docs/tools/keychain/adding-signers) để tích hợp
+các dịch vụ quản lý khóa khác.

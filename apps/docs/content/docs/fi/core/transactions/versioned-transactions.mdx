@@ -24,10 +24,10 @@ näistä kuvataan alla samalla kolmiosaisella rakenteella: miten tavut järjeste
 siirtomuodossa, miten tileihin viitataan ja mistä resurssirajat tulevat.
 
 <Callout type="warn" title="v1-aktivointitila">
-  [v1-formaatti](https://solana.com/upgrades/larger-transaction-sizes) ei ole
-  vielä aktiivinen millään klusterilla. Aktivointi on kohdennettu Agave v4.2:een.
-  `solana-test-validator` 4.2+ mahdollistaa v1-transaktioiden testaamisen paikallisesti.
-  Olemassa olevien sovellusten tulisi tutustua [v1:een valmistautumiseen](#preparing-for-v1).
+  [v1-muoto](https://solana.com/upgrades/larger-transaction-sizes) on
+  käytössä mainnetissa, devnetissä ja testnetissä. Transaktioiden lukeminen on yhteensopivuutta rikkova
+  muutos: asiakkaat, jotka eivät ota sitä käyttöön, epäonnistuvat v1-transaktioissa. Olemassa olevien sovellusten
+  tulisi tutustua kohtaan [v1:een valmistautuminen](#preparing-for-v1).
 </Callout>
 
 ## Formaattien vertailu
@@ -119,6 +119,20 @@ tilit: kirjoitettavat haut tulevat ennen vain luku -oikeudella olevia hakuja.
   eivät voi olla allekirjoittajia.
 </Callout>
 
+### Osoitehakutaulun luominen ja käyttäminen
+
+Tämä esimerkki luo hakutaulun, lisää siihen osoitteen ja käyttää taulua
+v0-transaktion kokoamiseen ja lähettämiseen.
+
+```ts !! title="Versioned transaction with an ALT" file=packages/docs-examples/cookbook/transactions/versioned-transaction-alt/legacy.ts#region=versioned-transaction-alt
+
+```
+
+Hakutaulusta voi ladata vain muita kuin allekirjoittajatilejä. Maksujen maksaja ja
+jokainen vaadittu allekirjoittaja pysyvät viestin staattisessa tililuettelossa. Osoitetta
+ei myöskään voi hakea samassa slotissa, jossa se lisättiin, joten esimerkki
+odottaa seuraavaa vahvistettua slotia ennen v0-viestin kokoamista.
+
 ### Resurssirajat v0:ssa
 
 Sama kuin legacyssä: ComputeBudget-ohjeet, samoilla oletusarvoilla kun ne jätetään pois.
@@ -132,7 +146,7 @@ v1 nostaa kokorajaksi 4 096 tavua ja rakentaa viestin uudelleen **transaktioaset
 | Kenttä                  | Koko         | Kuvaus                                                                        |
 | ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
 | `0x81`                 | 1 tavu       | Versioliitetavu — transaktion ensimmäinen tavu                            |
-| `header`               | 3 tavua      | MessageHeader (sama kuin legacyssä)                                                     |
+| `header`               | 3 tavua      | MessageHeader (sama kuin perinteinen)                                                     |
 | `config_mask`          | 4 tavua      | `u32` LE -bittipeite, joka merkitsee läsnä olevat asetusarvot                           |
 | `recent_blockhash`     | 32 tavua     | Elinajan määrittäjä                                                                 |
 | `num_instructions`     | 1 tavu       | Kiinteälevyinen laskuri, enintään 64                                                          |
@@ -187,9 +201,45 @@ Tärkein käyttäytymismuutos lähettäjille: toisin kuin legacy- ja v0-formaate
 
 Suositeltava lähestymistapa on simuloida kerran molemmilla rajoilla maksimoituina, kirjoittaa sitten palautetut `unitsConsumed`- ja `loadedAccountsDataSize`-arvot asetuksiin pyöristäen datatietojen koko ylöspäin seuraavaan 32 KiB:n sivuun pelivaraa varten (lohkon kustannusmalli laskee 32 KiB:n sivuissa, joten varaa seuraavaan sivurajaan asti ei lasketa).
 
+### v1-transaktion rakentaminen
+
+v1-viesti kootaan samalla putkella kuin legacy- tai v0-viesti. Ero on
+`setTransactionMessageConfig`-funktiossa: resurssirajat ovat viestin ominaisuus,
+joten käskylista sisältää vain ohjelman käskyt.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=build
+
+```
+
+</CodeTabs>
+
+Kit tarjoaa myös erillisen asetusfunktion jokaiselle konfiguraatiokentälle —
+`setTransactionMessagePriorityFeeLamports`,
+`setTransactionMessageComputeUnitLimit`,
+`setTransactionMessageLoadedAccountsDataSizeLimit` ja
+`setTransactionMessageHeapSize` — joilla ne voi asettaa yksi kerrallaan.
+
+### Rajojen mitoittaminen simulaation avulla
+
+Älä arvaile kahta pakollista rajaa, vaan mittaa ne. Simulaatio suoritetaan
+siten, että molemmat rajat on nostettu ajonaikaiseen enimmäisarvoonsa, joten se ei voi epäonnistua
+mitattavien resurssien puutteeseen. Palautettu luku on yhden
+simuloidun ajon tarkka kustannus, joten lisää siihen varmuusmarginaali, ennen kuin luotat siihen.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/estimate-kit.ts#region=estimate
+
+```
+
+</CodeTabs>
+
 ## V1:een valmistautuminen
 
-V1 muuttaa transaktioiden **lukemista**, ei pelkästään lähettämistä. Kun v1 aktivoituu, jokainen asiakas, joka kutsuu `getTransaction`- tai `getBlock`-funktiota ilman siihen osallistumista, alkaa epäonnistua v1-transaktioiden kohdalla:
+v1 muuttaa transaktioiden **lukemista**, ei pelkästään niiden lähettämistä. Jokainen asiakas, joka
+kutsuu `getTransaction`- tai `getBlock`-funktiota ilman käyttöönottoa, epäonnistuu v1-transaktioissa:
 
 - Välitä `maxSupportedTransactionVersion: 1` — JSON-**kokonaisluku** `1`, ei
   merkkijono `"1"` — kohteille [`getTransaction`](/docs/rpc/http/gettransaction) ja
@@ -204,9 +254,9 @@ V1 muuttaa transaktioiden **lukemista**, ei pelkästään lähettämistä. Kun v
   hiljaisesti jälkeen ensimmäisestä v1 slot:sta alkaen.
 - `getSignaturesForAddress` ei koskaan tutki transaktioiden sisältöä, joten v1-allekirjoitukset
   näkyvät normaalisti.
-- Osallistuneet vastaukset sisältävät `transactionConfig`-objektin viestissä v1-transaktioille
-  (puuttuu kokonaan legacy- ja v0-transaktioilta). Putkilinjat, jotka johtavat
-  prioriteettimaksut tai laskentarajat etsimällä ComputeBudget-ohjeita,
+- Käyttöönoton tehneiden vastaukset sisältävät v1-transaktioiden viestissä `transactionConfig`-objektin
+  (legacy- ja v0-transaktioista se puuttuu kokonaan). Putkistot, jotka johtavat
+  prioriteettimaksut tai laskentarajat ComputeBudget-käskyjä etsimällä,
   raportoivat hiljaisesti **nollan** jokaiselle v1-transaktiolle.
 - Käytä `encoding: 'base64'` dekoodatessasi transaktioita asiakaspuolella sekä
   `sendTransaction`-/`simulateTransaction`-kutsuissa yli 1 232 tavun transaktioille —
@@ -215,6 +265,22 @@ V1 muuttaa transaktioiden **lukemista**, ei pelkästään lähettämistä. Kun v
   4.2.x-sukupolven Rust-paketit tai web3.js v3. web3.js v1 lukee v1:tä versiosta 1.99.0
   eteenpäin, mutta ei pysty rakentamaan tai lähettämään sitä.
 
-Täydellinen siirtymäopas — mukaan lukien asiakaskirjastotuki, suoratoiston
-(Geyser/gRPC) versiotunnistus ja simulointikäyttäytyminen — löytyy
+### v1-transaktion lukeminen
+
+Käyttöönotto tapahtuu JSON-kokonaisluvulla `1`. Palautettujen tavujen dekoodaus antaa
+version ja konfiguraation, jossa resurssirajat sijaitsevat — käskylistan
+skannaaminen ComputeBudget-käskyjen varalta ei löydä mitään.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=read
+
+```
+
+</CodeTabs>
+
+Täydellisen migraatio-oppaan — mukaan lukien asiakaskirjastojen tuki, striimauksen
+(Geyser/gRPC) versiontunnistus ja simulaation toiminta — löydät
 [Transaction Format v1 -päivityssivulta](https://solana.com/upgrades/larger-transaction-sizes).
+Suoritettavia esimerkkejä TypeScriptillä, Rustilla, Pythonilla ja Gollla löytyy osoitteesta
+[solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples).

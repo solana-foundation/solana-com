@@ -278,14 +278,11 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Entegrasyon Testleri
 
-Kora, TypeScript testleri de dahil olmak üzere tüm entegrasyon test aşamalarını
-yöneten birleşik bir test çalıştırıcısı (`tests/src/bin/test_runner.rs`)
-kullanır. Yeni imzalayıcınız için testler eklemek üzere:
+Her entegrasyon aşaması, `tests/Cargo.toml` içinde kendi `[[test]]` hedefidir. Her hedef, `harness_context` aracılığıyla gömülü bir surfnet ve bir Kora düğümünü sıfırdan hazırlanmış verilerle başlatır. Kora yapılandırmayı süreç genelindeki global durumda tuttuğu için, yeni bir imzalayıcı mevcut bir hedefe yeni modül eklemek yerine yeni bir hedef gerektirir.
 
-#### 1. Test Yapılandırması Ekleme
+#### 1. Bir İmzalayıcı Fixture'ı Ekleyin
 
-Hizmetiniz için `tests/src/common/fixtures/` içinde yeni bir imzalayıcı
-yapılandırma dosyası oluşturun:
+`tests/src/common/fixtures/` içinde bir imzalayıcı yapılandırması oluşturun:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -300,47 +297,65 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Test Çalıştırıcısına Test Aşaması Ekleme
+#### 2. Bir Test Hedefi Ekleyin
 
-İmzalayıcınız için bir test aşaması eklemek üzere
-`tests/src/test_runner/test_cases.toml` dosyasını güncelleyin:
+Aşamayı `tests/Cargo.toml` içine kaydedin:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Ardından `tests/your_service/main.rs` dosyasını oluşturun. Bu dosya, harness'ı fixture'ınıza yönlendirir
+ve imzalayıcıyı çalıştıran en az bir `#[tokio::test]` içermelidir:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+İmzalayıcının yalnızca anahtar aramasının değil, imzalama yolunun da çalışması için bir `signTransaction` testi de ekleyin. `tests/multi_signer/` kopyalayabileceğiniz eksiksiz bir örnektir.
 
 #### 3. Testleri Çalıştırma
 
-Ortamınızın hazır olduğundan emin olun:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Birleşik test çalıştırıcısını kullanarak testleri çalıştırın:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Dokümantasyon Gereksinimleri
@@ -403,7 +418,7 @@ Servisinizi ana README'nin imzalayan listesine ekleyin.
 - [ ] Yapılandırma yapısı `mod.rs` içinde dışa aktarıldı
 - [ ] (İsteğe bağlı) `config_mock.rs` içinde test mock builder metodu eklendi
 - [ ] Kod uyarısız derleniyor
-- [ ] Tüm testler geçiyor (`make test` ve `make test-integration`)
+- [ ] Tüm testler başarıyla geçiyor (`just test`)
 - [ ] Belgeler şu kılavuza uygun olarak eklendi:
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] Örnek yapılandırma dosyaları oluşturuldu (`.toml` ve `.env.example`)

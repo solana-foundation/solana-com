@@ -1,0 +1,270 @@
+---
+title: Desfazer um trade
+description:
+  Retire uma perna com Reclaim, desfaça um trade com Cancel ou Reject e recupere com Recover um depósito que chegou depois do encerramento do trade.
+seoTitle: Desfazer um trade DvP na Solana
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+Quatro instruções devolvem fundos sem liquidar: Reclaim, Cancel e Reject
+enquanto o trade está aberto, e Recover para um depósito que chega depois de o
+trade ter sido encerrado. Nenhuma delas verifica a expiração. Um escrow congelado ou um mint alterado
+ainda pode reter uma perna, como descrevem as notas no final.
+
+| Instrução  | Signatário               | Escopo                         | Trade depois |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` ou `user_b` | A perna do próprio signatário          | Ainda aberto       |
+| `CancelDvp`  | Autoridade de liquidação | Ambas as pernas                     | Encerrado           |
+| `RejectDvp`  | `user_a` ou `user_b` | Ambas as pernas                     | Encerrado           |
+| `RecoverDvp` | `user_a` ou `user_b` | A perna do signatário, após o encerramento | Já encerrado   |
+
+Em cada caso, o escrow é esvaziado e tudo o que ele contém é enviado à parte da perna:
+o escrow A para a token account de `user_a` para `mint_a`, o escrow B para a de `user_b` para
+`mint_b`, independentemente de quem o financiou. A program account de memo é fornecida para
+contas de reembolso que exijam um memo.
+
+Esta página continua a partir dos passos anteriores: o cliente e os signatários de
+[criar um trade](/docs/defi/dvp-program/create-a-trade), `userAAtaA` e
+`userBAtaB` de [financiar as pernas](/docs/defi/dvp-program/fund-the-legs), e
+`MEMO_PROGRAM_ID` e `authority` de
+[liquidar o trade](/docs/defi/dvp-program/settle-the-trade) são reaproveitados.
+
+## Reclaim de uma perna
+
+Reclaim devolve a perna do signatário e deixa o trade aberto, de modo que a perna possa
+ser financiada novamente. Use-o quando o problema estiver na perna da contraparte; Cancel e
+Reject encerram o trade inteiro.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Cancel ou Reject
+
+Cancel é assinado pela autoridade de liquidação e Reject por qualquer uma das partes. Ambos
+reembolsam à parte da perna tudo o que cada escrow contém e encerram o registo e
+ambos os escrows, sendo o rent das contas encerradas enviado ao signatário. As duas
+instruções recebem as mesmas contas; só muda o signatário.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+As contas de reembolso (`userAAtaA`, `userBAtaB`) devem existir para qualquer perna que tenha
+saldo; uma conta de reembolso não inicializada faz a transferência de tokens falhar e
+reverte a instrução. Uma perna que nunca foi financiada não precisa de transferência e
+tolera a ausência da conta.
+
+## Recuperar um depósito tardio com Recover
+
+Settle, Cancel e Reject encerram ambas as token accounts de escrow, portanto uma simples
+transferência para um escrow encerrado falha. Um depósito só chega depois do encerramento se
+algo recriar primeiro o escrow, por exemplo uma transação de financiamento que
+inclua uma instrução create-idempotent de associated token account antes da
+transferência e que estava em curso quando a contraparte enviou Reject. Os tokens ficam
+então num escrow cujo trade já não existe: o registo desapareceu, por isso Reclaim
+não o consegue encontrar, e o tombstone do nonce impede que um novo trade seja criado
+no mesmo endereço e capture o depósito.
+
+Para usar `RecoverDvp`, a parte da perna fornece as entradas de seed originais
+(autoridade de liquidação, ambas as partes, ambos os mints, nonce). O programa volta a derivar
+o endereço do registo, exige o respetivo tombstone como prova de que o trade existiu, esvazia
+o escrow para a token account do próprio signatário e encerra-o, devolvendo o
+rent do escrow ao signatário. A perna do signatário é escolhida conforme a parte que assina:
+`mint_a` para `user_a`, `mint_b` para `user_b`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+A recuperação depende de a parte guardar os parâmetros de criação. Um sistema que financia
+trades armazena as entradas de seed junto de cada ordem até o trade ter sido encerrado e os
+saldos dos escrows terem sido confirmados como vazios.
+
+## Notas
+
+- **Pernas congeladas.** Num mint com restrições, um escrow congelado bloqueia a transferência de tokens
+  que estas instruções realizam até que a freeze authority o descongele. Consulte a
+  [visão geral](/docs/defi/dvp-program#mint-configuration-constraints).
+- **Alterações no mint após a criação.** Os caminhos de reversão ignoram as verificações de extensões e
+  de mint authority para que as verificações do próprio programa não bloqueiem uma recuperação. As
+  regras do próprio Token Program continuam a aplicar-se. Um mint só pode ser encerrado com supply
+  zero, portanto não pode mudar enquanto houver saldo no escrow, mas um mint encerrado
+  e recriado como NonTransferable ou com uma taxa de transferência antes de um depósito tardio
+  chegar pode tornar esse depósito imovível ou sujeito a taxas. Essa é a
+  dependência da mint authority indicada em
+  [tokens suportados](/docs/defi/dvp-program#supported-tokens).
+
+## Próximos passos
+
+- [Programa DvP](/docs/defi/dvp-program): a visão geral, os tokens suportados e
+  as restrições de configuração do mint
+- [Delivery vs Payment (DvP) usando delegação](/docs/tokenization/dvp): a mesma
+  troca por meio de autoridade delegada, sem um programa

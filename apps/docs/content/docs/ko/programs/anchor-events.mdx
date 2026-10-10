@@ -1,0 +1,235 @@
+---
+title: Anchor 이벤트
+description:
+  Anchor 이벤트를 정의, 발생, 디코딩, 구독, 버전 관리, 테스트하는 방법과 로그 잘림 및 CPI 이벤트에 대한 가이드를 제공합니다.
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+Anchor 이벤트는 프로그램의 IDL에 포함되는, 타입이 지정되고 Borsh로 직렬화된 레코드입니다.
+이를 통해 클라이언트는 사람이 읽을 수 있는 로그 메시지를 파싱하지 않고도
+프로그램 활동을 해석할 수 있습니다.
+
+이벤트는 인덱싱과 알림에 유용하지만 프로그램 상태는 아닙니다. 프로그램이 다시 읽어야 하는
+값은 계정에 저장하고, 이벤트는 성공한 트랜잭션에서 파생된 기록으로 취급하세요.
+
+## 이벤트 정의 및 발생시키기
+
+구조체에 `#[event]`를 추가하고, 상태 변경이 성공한 뒤에 `emit!`을 호출하세요.
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+`emit!`은 Solana의 `sol_log_data` 시스콜을 사용해 이벤트 바이트를 기록합니다. 트랜잭션
+로그에는 그 결과가 `Program data: <base64>`로 표시됩니다. 인코딩된 값은 이벤트
+discriminator로 시작하며, 그 뒤에 Borsh로 직렬화된 필드가 이어집니다.
+
+이벤트는 간결하게 유지하세요. 큰 문자열과 벡터는 컴퓨트를 소모하고 트랜잭션 메타데이터를
+늘리며, 로그 잘림의 영향을 받을 가능성도 더 높습니다.
+
+## 로그 이벤트와 CPI 이벤트 중 선택하기
+
+Anchor는 두 가지 발생 경로를 지원합니다.
+
+| 경로        | 저장 위치                  | 장단점                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | Program data 로그                 | 더 단순하고 저렴하지만 로그가 잘릴 수 있음         |
+| `emit_cpi!` | CPI의 내부 instruction data | 더 안정적인 메타데이터를 제공하지만 추가 계정과 컴퓨트가 필요함 |
+
+CPI 이벤트를 사용하려면 Anchor의 `event-cpi` 기능을 활성화하세요.
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+그런 다음 인스트럭션의 accounts 구조체에 `#[event_cpi]`를 붙이고, 컨텍스트 변수 이름이
+`ctx`인 핸들러에서 이벤트를 발생시키세요.
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+`#[event_cpi]`는 서명된 self-CPI에 필요한 event authority와 현재 program account를
+추가합니다. CPI 이벤트는 Anchor의 로그 이벤트 구독으로는 수신할 수 없습니다. 대신
+트랜잭션을 가져와 일치하는 내부 인스트럭션을 디코딩하세요.
+
+<Callout type="info" title="원장을 기준 데이터로 사용하세요">
+  RPC 제공자는 프로그램 로그를 잘라낼 수 있습니다. 이벤트를 놓치면 잔액, 권한 또는 정확성이
+  중요한 다른 워크플로에 영향을 줄 수 있다면, program account 또는 트랜잭션 instruction data에서
+  결과를 도출하세요. 이벤트는 인덱싱을 효율적으로 만들기 위해 사용하고, 상태의 유일한
+  기록으로 사용하지 마세요.
+</Callout>
+
+## TypeScript에서 구독하기
+
+현재 Anchor TypeScript 클라이언트는 `@anchor-lang/core`입니다. 프로그램 IDL로 생성한
+`Program` 인스턴스는 일치하는 로그 이벤트를 디코딩하여 RPC 로그 구독을 통해
+전달할 수 있습니다.
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+콜백은 디코딩된 이벤트 데이터, slot, 트랜잭션 서명을 받습니다. 구독은 연결이 활성 상태인 동안
+전달된 로그만 다룹니다. 소비자가 전체 기록을 필요로 한다면 처리한 서명을 저장해 두고,
+연결이 끊긴 후 놓친 트랜잭션을 백필하세요.
+
+## 가져온 트랜잭션 로그 디코딩하기
+
+백필이나 일회성 점검을 위해서는 트랜잭션을 가져온 뒤 각 `Program data:` 페이로드를
+이벤트 코더에 전달하세요.
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+하나의 트랜잭션이 여러 프로그램을 호출할 수 있습니다. 프로덕션 파서에서는
+`Program <address> invoke` 및 `success` 로그 경계를 추적하거나 Anchor의 이벤트 파서를
+사용하여, 다른 프로그램의 `Program data:` 항목이 사용자의 이벤트로 디코딩되지 않도록 하세요.
+실패한 트랜잭션에도 오류 이전에 완료된 작업의 로그와 내부 인스트럭션이 남아 있을 수 있으므로,
+어느 형태의 이벤트든 인덱싱하기 전에 `err`가 null이 아닌 트랜잭션 메타데이터는 항상 거부하세요.
+Anchor의 로그 구독은 이벤트 콜백을 전달하기 전에 이 검사를 수행합니다.
+
+`emit_cpi!` 이벤트의 경우 `meta.innerInstructions`에서 self-CPI를 찾고, 해당 프로그램
+ID가 사용자의 프로그램인지 확인한 다음 해당 instruction data를 base58 디코딩하세요.
+바이트를 제거하기 전에 Anchor의
+[`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3)를 확인하세요.
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+프로그램 ID와 태그를 모두 확인하면 일반적인 self-CPI가 이벤트로 오인되는 것을 방지할 수 있습니다.
+
+## 이벤트 스키마 버전 관리
+
+기본적으로 Anchor는 이벤트 이름에서 8바이트 이벤트 discriminator를 도출합니다.
+Anchor는 `#[event(discriminator = ...)]`를 통한 명시적 discriminator도 지원합니다.
+discriminator는 프로그램 내에서 고유해야 하며, 이벤트를 디코딩하는 모든 클라이언트에 대해
+안정적으로 유지되어야 합니다.
+
+발생시키는 구조체의 필드를 변경하면 Borsh 레이아웃이 바뀝니다. 호환되지 않는 스키마
+변경이라면 `PaymentRecorded`를 조용히 바꾸지 말고 `PaymentRecordedV2` 같은 새 이벤트를
+정의하세요. 기존 인덱서가 여전히 의존하고 있다면 마이그레이션 기간 동안 이전 이벤트도
+계속 발생시키세요.
+
+확장 가능한 데이터에는 고정 폭 필드와, 인덱서가 더 풍부한 계정 데이터를 별도로 가져올 수 있게
+해주는 식별자를 사용하는 것이 좋습니다. 소비자가 새 이벤트를 즉시 디코딩할 수 있도록
+업데이트된 IDL은 프로그램 업그레이드 전이나 업그레이드와 함께 게시하세요.
+
+## 이벤트 테스트
+
+base64 문자열이 아니라 디코딩된 계약(contract)을 테스트하세요. 인스트럭션을 전송하기 전에
+리스너를 등록하고, 디코딩된 필드와 트랜잭션 서명을 검증하며, 리스너는 항상 제거하세요.
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+또한 인덱서가 실패한 트랜잭션 메타데이터에 남아 있는 이벤트 바이트를 무시하는지 테스트하고,
+지원하는 모든 이벤트 버전에 대한 픽스처를 추가하세요. `emit_cpi!`를 사용한다면 로그 리스너는
+해당 이벤트를 직접 받지 못하므로 `innerInstructions`에서의 디코딩을 테스트하세요.
+
+## 추가 자료
+
+- [Anchor 이벤트 문서](https://www.anchor-lang.com/docs/features/events)
+- [Anchor TypeScript 클라이언트](https://www.anchor-lang.com/docs/clients/typescript)
+- [Anchor 이벤트 매크로 소스](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

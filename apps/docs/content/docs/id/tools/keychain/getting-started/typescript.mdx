@@ -3,6 +3,9 @@ title: TypeScript
 description: Instal dan gunakan @solana/keychain dalam aplikasi TypeScript
 ---
 
+Upgrade dari 1.x? Lihat
+[panduan migrasi 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md).
+
 ## Instalasi
 
 Instal paket lengkap atau penanda tangan individual sesuai kebutuhan:
@@ -32,6 +35,10 @@ pnpm add @solana/keychain-fordefi     # Fordefi
 pnpm add @solana/keychain-kit-plugin
 ```
 
+Memerlukan `@solana/kit` 8.1 atau yang lebih baru. Transaksi v1
+(`createTransactionMessage({ version: 1 })`) didukung, kecuali oleh Fireblocks
+dengan `useProgramCall: true`, yang hanya menerima legacy dan v0.
+
 ## Penggunaan Dasar
 
 ### Factory Terpadu (Direkomendasikan untuk aplikasi yang ingin mendukung beberapa penanda tangan)
@@ -41,7 +48,7 @@ backend apa pun:
 
 ```typescript
 import { createKeychainSigner } from "@solana/keychain";
-import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers ≥ 6.5
+import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers >= 8.1
 
 const signer = await createKeychainSigner({
   backend: "privy",
@@ -72,10 +79,13 @@ const signer = await createPrivySigner({
 
 ### Menggunakan dengan Pesan Transaksi
 
-Semua penanda tangan mengimplementasikan antarmuka `SolanaSigner`, yang
-kompatibel dengan `@solana/kit` dan `@solana/signers`:
+Setiap backend kecuali Crossmint dan mode native Fordefi mengembalikan
+`SolanaTransactionSigner`, yaitu `TransactionPartialSigner` Kit dan dapat digunakan
+dengan helper partial-signer `@solana/signers` di bawah ini. Backend dengan
+managed-broadcast dibahas di [Kemampuan Signer](#signer-capabilities).
 
 ```typescript
+import type { SolanaTransactionSigner } from "@solana/keychain-core";
 import { signTransactionMessageWithSigners } from "@solana/signers";
 import {
   createTransactionMessage,
@@ -83,7 +93,7 @@ import {
   pipe
 } from "@solana/kit";
 
-async function signWithKeychain(signer: SolanaSigner) {
+async function signWithKeychain(signer: SolanaTransactionSigner) {
   // Check availability (useful for remote signers)
   if (!(await signer.isAvailable())) {
     throw new Error("Signer offline");
@@ -93,13 +103,29 @@ async function signWithKeychain(signer: SolanaSigner) {
   const transaction = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayerSigner(signer, tx)
-    // ... add instructions
+    // ... set a lifetime and add instructions
   );
 
   // Sign with the standard signers API
   const signedTx = await signTransactionMessageWithSigners(transaction);
   return signedTx;
 }
+```
+
+### Tandatangani dan Kirim dengan Signer Apa Pun
+
+`signAndSendTransaction` dari `@solana/keychain-core` mengirimkan transaksi ke
+onchain apa pun bentuk signer-nya. Sending signer melakukan broadcast melalui
+provider-nya; bentuk lainnya menggunakan `sendTransaction` yang Anda berikan (core tidak memiliki
+dependensi RPC):
+
+```typescript
+import { signAndSendTransaction } from "@solana/keychain-core";
+
+const signature = await signAndSendTransaction(signer, transaction, {
+  sendTransaction: (tx) =>
+    sendAndConfirmTransaction(tx, { commitment: "confirmed" })
+});
 ```
 
 ### Menggunakan dengan Kit Client (plugin keychainSigner)
@@ -122,13 +148,16 @@ const client = await createClient().use(
   })
 );
 
-client.payer; // SolanaSigner — also a Kit TransactionSigner
+client.payer; // SolanaTransactionSigner, also a Kit TransactionPartialSigner
 client.identity; // same signer instance
 ```
 
-Plugin ini menerima konfigurasi berlabel backend yang sama seperti
-`createKeychainSigner`, dan hanya backend yang didispatch yang dibundel (paket
-backend dimuat melalui `import()` dinamis).
+Plugin menerima konfigurasi bertag backend yang sama seperti `createKeychainSigner`,
+kecuali Crossmint dan mode native Fordefi (`chain` diatur). Backend tersebut menulis ulang
+transaksi di sisi server, sehingga tidak dapat berperan sebagai `payer` atau
+`identity` klien; plugin menolaknya saat kompilasi maupun saat runtime. Hanya
+backend yang dituju yang dibundel (paket backend dimuat melalui
+`import()` dinamis).
 
 Gunakan `keychainPayer` atau `keychainIdentity` untuk menetapkan satu peran
 saja, dan gabungkan backend pada satu client:
@@ -141,19 +170,19 @@ const client = await createClient()
   .use(
     keychainPayer({
       backend: "memory",
-      privateKeyPath: "~/.config/solana/id.json"
+      privateKeyPath: `${process.env.HOME}/.config/solana/id.json`
     })
   )
   .use(keychainIdentity({ backend: "turnkey", ...turnkeyConfig }));
 ```
 
-Sudah memiliki `SolanaSigner`? Setiap keychain signer adalah Kit
-`TransactionSigner` yang valid, sehingga Anda dapat menginstal yang sudah ada
-dengan
+Sudah memiliki `SolanaTransactionSigner`? Itu adalah `TransactionPartialSigner`
+Kit yang valid, sehingga Anda dapat memasangnya dengan
 [`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)
 sebagai gantinya (`pnpm add @solana/kit-plugin-signer`):
 
 ```typescript
+import { createClient } from "@solana/kit";
 import { signer } from "@solana/kit-plugin-signer";
 import { createKeychainSigner } from "@solana/keychain";
 
@@ -164,7 +193,36 @@ const mySigner = await createKeychainSigner({
 const client = createClient().use(signer(mySigner));
 ```
 
+### Pembatalan dan Broadcast yang Belum Terkonfirmasi
+
+`signTransactions`, `modifyAndSignTransactions`, `signAndSendTransactions`, dan
+`signMessages` semuanya menerima `{ abortSignal }` sebagai argumen kedua. Membatalkan
+hanya menghentikan penantian; ini tidak membatalkan pekerjaan yang sudah diterima provider.
+
+Pada mode auto native Crossmint dan Fordefi, kegagalan tidak berarti tidak ada
+yang masuk. Jika provider mungkin sudah menerima transaksi, kode errornya adalah
+`SignerErrorCode.BROADCAST_UNCONFIRMED` (`"SIGNER_BROADCAST_UNCONFIRMED"`).
+`context.providerTransactionId` diatur ketika permintaan pembuatan diterima, dan
+`context.idempotencyKey` membawa kunci yang diturunkan dari pesan. Mengirim ulang
+transaksi yang identik byte demi byte aman dilakukan; transaksi yang dibangun ulang (misalnya dengan
+blockhash baru) adalah transfer baru. `providerMayHaveAccepted(error)` dan
+`providerStatus(error)` dari `@solana/keychain-core` membantu mengklasifikasikan error.
+Lakukan rekonsiliasi dengan provider sebelum mencoba lagi.
+
 ## Konfigurasi Backend
+
+### Memory
+
+Berikan tepat satu dari `keyPair`, `privateKey`, `privateKeyString`, atau
+`privateKeyPath`:
+
+```typescript
+import { createMemorySigner } from "@solana/keychain-memory";
+
+const signer = await createMemorySigner({
+  privateKeyPath: "/path/to/id.json"
+});
+```
 
 ### HashiCorp Vault
 
@@ -188,6 +246,18 @@ const signer = createAwsKmsSigner({
   keyId: "alias/my-solana-key",
   publicKey: "base58_public_key",
   region: "us-east-1" // optional
+});
+```
+
+### GCP KMS
+
+```typescript
+import { createGcpKmsSigner } from "@solana/keychain-gcp-kms";
+
+const signer = createGcpKmsSigner({
+  keyName:
+    "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+  publicKey: "base58_public_key"
 });
 ```
 
@@ -236,10 +306,11 @@ const signer = await createFireblocksSigner({
 import { createCdpSigner } from "@solana/keychain-cdp";
 
 const signer = await createCdpSigner({
-  apiKeyId: "api_key_id",
-  apiKeySecret: "api_key_secret",
-  walletSecret: "wallet_secret",
-  address: "base58_address"
+  cdpApiKeyId: "api_key_id",
+  cdpApiKeySecret: "api_key_secret",
+  cdpWalletSecret: "wallet_secret",
+  address: "base58_address",
+  network: "solana" // or "solana-devnet"; required for address lookup tables
 });
 ```
 
@@ -254,6 +325,17 @@ const signer = await createCrossmintSigner({
 });
 ```
 
+Crossmint hanya mendukung pengiriman. API-nya selalu mengeksekusi transaksi yang disetujui
+di sisi server dan menanggung gas, sehingga signer hanya menyediakan
+`signAndSendTransactions()`: tidak ada `signTransactions()` atau `signMessages()`,
+dan tidak dapat dipasang dengan `@solana/keychain-kit-plugin`. Signature yang
+dikembalikan mengidentifikasi transaksi yang didaratkan Crossmint.
+
+```typescript
+const [signature] = await signer.signAndSendTransactions([transaction]);
+// or: await signAndSendTransactionMessageWithSigners(transactionMessage);
+```
+
 ### Dfns
 
 ```typescript
@@ -263,8 +345,19 @@ const signer = await createDfnsSigner({
   authToken: "auth_token",
   credId: "cred_id",
   privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\n...",
-  appId: "app_id",
   walletId: "wallet_id"
+});
+```
+
+### Openfort
+
+```typescript
+import { createOpenfortSigner } from "@solana/keychain-openfort";
+
+const signer = await createOpenfortSigner({
+  secretKey: "sk_...",
+  walletSecret: "wallet_secret",
+  accountId: "account_id"
 });
 ```
 
@@ -279,11 +372,45 @@ const signer = await createParaSigner({
 });
 ```
 
+### Utila
+
+Utila hanya menandatangani transaksi; tidak ada `signMessages()`.
+
+```typescript
+import { createUtilaSigner } from "@solana/keychain-utila";
+
+const signer = await createUtilaSigner({
+  serviceAccountEmail: "sa@example.com",
+  serviceAccountPrivateKeyPem: "-----BEGIN PRIVATE KEY-----\n...",
+  vaultId: "vault_id",
+  walletId: "wallet_id",
+  network: "networks/solana-devnet"
+});
+```
+
 ### Fordefi
 
-Fordefi memiliki dua mode penandatanganan, dipilih berdasarkan apakah Anda meneruskan `chain`. Permintaan API diautentikasi dengan tanda tangan permintaan ECDSA P-256 — berikan kunci penandatanganan sebagai `privateKeyPem`, atau simpan di KMS/HSM dengan meneruskan `requestSigner`.
+Fordefi memiliki tiga mode penandatanganan, yang ditetapkan saat konstruksi oleh `chain` dan
+`pushMode`. Setiap mode menyediakan tepat satu metode transaksi, dan ketiganya menandatangani
+pesan:
 
-**Mode Solana Native** (direkomendasikan untuk penggunaan on-chain): atur `chain`, dan Fordefi menandatangani serta menyiarkan transaksi itu sendiri. Karena Fordefi mungkin mengganti blockhash atau biaya sebelum penandatanganan, penanda tangan adalah Kit `TransactionSendingSigner` — gunakan bersama `signAndSendTransactionMessageWithSigners`, bukan alur partial-signer seperti yang ditunjukkan di atas.
+| Mode          | Konfigurasi                                      | Tipe                        | Metode                        |
+| ------------- | ------------------------------------------- | --------------------------- | ----------------------------- |
+| Black box     | `chain` tidak diatur                               | `FordefiBlackBoxSigner`     | `signTransactions()`          |
+| Native auto   | `chain` diatur, `pushMode` dihilangkan atau `"auto"` | `FordefiNativeSigner`       | `signAndSendTransactions()`   |
+| Native manual | `chain` diatur, `pushMode: "manual"`           | `FordefiNativeManualSigner` | `modifyAndSignTransactions()` |
+
+Permintaan API diautentikasi dengan tanda tangan permintaan ECDSA P-256: berikan
+kunci penandatanganan sebagai `privateKeyPem`, atau simpan di KMS/HSM dengan memberikan
+`requestSigner`.
+
+**Mode native auto** (direkomendasikan untuk penggunaan onchain): atur `chain`, dan Fordefi
+menandatangani serta melakukan broadcast transaksi sendiri. Karena Fordefi dapat mengganti
+blockhash atau biaya sebelum menandatangani, signer-nya adalah `TransactionSendingSigner`
+Kit: gunakan dengan
+`signAndSendTransactionMessageWithSigners`, bukan alur partial-signer yang ditampilkan
+di atas. Mode native auto hanya menerima transaksi yang belum ditandatangani dan satu-satunya
+signer yang diperlukan adalah vault, dan tidak dapat digunakan dengan `@solana/keychain-kit-plugin`.
 
 ```typescript
 import { createFordefiSigner } from "@solana/keychain-fordefi";
@@ -303,6 +430,32 @@ const signature =
   await signAndSendTransactionMessageWithSigners(transactionMessage);
 ```
 
+**Mode native manual**: atur `chain` dan `pushMode: "manual"`. Fordefi menulis ulang
+pesan (blockhash terbaru, instruksi biaya Compute Budget) dan menandatanganinya,
+tetapi tidak melakukan broadcast. `modifyAndSignTransactions()` mengembalikan transaksi yang
+ditandatangani Fordefi, yang menggantikan transaksi yang Anda kirimkan: selalu lanjutkan dari
+transaksi yang dikembalikan. Fordefi harus menjadi pembayar biaya dan harus menandatangani sebelum
+signer lain yang diperlukan. Penulisan ulang tidak di-diff, jadi periksa hasilnya sebelum
+melakukan broadcast.
+
+```typescript
+import { createFordefiSigner } from "@solana/keychain-fordefi";
+import { readFileSync } from "node:fs";
+
+const signer = await createFordefiSigner({
+  accessToken: process.env.FORDEFI_ACCESS_TOKEN!,
+  vaultId: process.env.FORDEFI_VAULT_ID!,
+  publicKey: process.env.FORDEFI_PUBLIC_KEY!,
+  privateKeyPem: readFileSync("./secret/private.pem", "utf8"),
+  chain: "solana_devnet",
+  pushMode: "manual"
+});
+
+const [signedTransaction] = await signer.modifyAndSignTransactions([
+  transaction
+]);
+```
+
 **Mode black box**: hilangkan `chain`. Fordefi menandatangani byte mentah dan tidak menyiarkan; Anda merakit dan mengirimkan transaksi sendiri. Gunakan ini dengan vault black box Fordefi.
 
 ```typescript
@@ -317,60 +470,89 @@ const signer = await createFordefiSigner({
 });
 ```
 
-## Antarmuka SolanaSigner
+## Kemampuan Signer
 
-Antarmuka `SolanaSigner` memperluas tipe `@solana/signers` untuk kompatibilitas
-penuh:
+`@solana/keychain-core` mendefinisikan satu interface untuk setiap bentuk signer Kit. Masing-masing menambahkan
+`isAvailable(): Promise<boolean>` ke interface `@solana/signers` yang sesuai:
+
+- `SolanaTransactionSigner` (`TransactionPartialSigner` Kit): mengembalikan signature
+  untuk transaksi yang Anda miliki.
+- `SolanaModifyingSigner` (`TransactionModifyingSigner` Kit): menulis ulang
+  transaksi, menandatanganinya, dan mengembalikan transaksi baru tanpa melakukan broadcast.
+- `SolanaSendingSigner` (`TransactionSendingSigner` Kit): menandatangani dan melakukan broadcast
+  melalui provider-nya.
+- `SolanaMessageSigner` (`MessagePartialSigner` Kit): menandatangani pesan offchain.
+  Ini terpisah dari bentuk-bentuk transaksi.
+
+`SolanaSigner` adalah gabungan (union) dari ketiga bentuk transaksi. Tipe kembalian setiap factory
+menyebutkan bentuk persis dari backend-nya. Ketika konfigurasi baru diketahui saat
+runtime, persempit dengan `isSolanaTransactionSigner`, `isSolanaModifyingSigner`,
+`isSolanaSendingSigner`, atau `isSolanaMessageSigner`. `signerCapabilities(signer)`
+melaporkan keempatnya sekaligus.
+
+| Backend                                                                                                     | Bentuk                                           |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| memory, vault, aws-kms, gcp-kms, privy, turnkey, fireblocks, cdp, dfns, para, openfort, fordefi (black box) | `SolanaTransactionSigner & SolanaMessageSigner` |
+| utila                                                                                                       | `SolanaTransactionSigner` (tanpa penandatanganan pesan)  |
+| fordefi (native manual)                                                                                     | `SolanaModifyingSigner & SolanaMessageSigner`   |
+| fordefi (native auto)                                                                                       | `SolanaSendingSigner & SolanaMessageSigner`     |
+| crossmint                                                                                                   | `SolanaSendingSigner` (tanpa penandatanganan pesan)      |
 
 ```typescript
-interface SolanaSigner<TAddress extends string = string>
-  extends TransactionPartialSigner<TAddress>, MessagePartialSigner<TAddress> {
-  // Public key address
-  readonly address: Address<TAddress>;
+import {
+  isSolanaSendingSigner,
+  isSolanaTransactionSigner
+} from "@solana/keychain-core";
 
-  // Health check for remote signers
-  isAvailable(): Promise<boolean>;
-
-  // Sign messages (@solana/kit compatible)
-  signMessages(
-    messages: readonly SignableMessage[]
-  ): Promise<readonly SignatureDictionary[]>;
-
-  // Sign transactions (@solana/kit compatible)
-  signTransactions(
-    transactions: readonly Transaction[]
-  ): Promise<readonly SignatureDictionary[]>;
+if (isSolanaSendingSigner(signer)) {
+  await signer.signAndSendTransactions([transaction]);
+} else if (isSolanaTransactionSigner(signer)) {
+  await signer.signTransactions([transaction]);
 }
 ```
 
 ## Membangun Signer Kustom
 
-Implementasikan antarmuka `SolanaSigner` untuk membuat signer kustom:
+Implementasikan interface kemampuan yang didukung backend Anda:
 
 ```typescript
-import { SolanaSigner } from "@solana/keychain-core";
+import type {
+  SolanaMessageSigner,
+  SolanaTransactionSigner
+} from "@solana/keychain-core";
 import type { Address } from "@solana/addresses";
+import type {
+  MessagePartialSignerConfig,
+  SignableMessage,
+  TransactionPartialSignerConfig
+} from "@solana/signers";
+import type { Transaction } from "@solana/transactions";
 
-class MyCustomSigner implements SolanaSigner {
-  readonly address: Address;
-
-  constructor(address: Address) {
-    this.address = address;
-  }
+class MyCustomSigner implements SolanaTransactionSigner, SolanaMessageSigner {
+  constructor(readonly address: Address) {}
 
   async isAvailable(): Promise<boolean> {
     return await myBackend.healthCheck();
   }
 
-  async signMessages(messages) {
-    return await myBackend.signMessages(messages);
+  async signMessages(
+    messages: readonly SignableMessage[],
+    config?: MessagePartialSignerConfig
+  ) {
+    return await myBackend.signMessages(messages, config?.abortSignal);
   }
 
-  async signTransactions(transactions) {
-    return await myBackend.signTransactions(transactions);
+  async signTransactions(
+    transactions: readonly Transaction[],
+    config?: TransactionPartialSignerConfig
+  ) {
+    return await myBackend.signTransactions(transactions, config?.abortSignal);
   }
 }
 ```
+
+Implementasikan hanya yang didukung backend Anda. Kit mengklasifikasikan signer berdasarkan metode
+yang ada, jadi jangan pernah menambahkan metode yang hanya melempar error.
 
 Lihat [panduan Menambahkan Signer](/docs/tools/keychain/adding-signers) untuk
 mengintegrasikan layanan manajemen kunci tambahan.

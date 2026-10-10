@@ -48,10 +48,7 @@ durum, kamuya açık gözlemcilere karşı gizlilik sağlar; anonim kimlik deği
   gönderilir. Hem `@solana-program/token-2022` (JS) hem de `spl-token-client`
   (Rust), ispatları oluşturan ve işlemleri sizin adınıza sıralayan üst düzey
   yardımcılar sunar.
-- Gizli transferler şu anda birkaç bağımlı işleme yayılmaktadır; çünkü ispatlar
-  mevcut işlem boyutu sınırını aşmaktadır. Yaklaşan bir değişiklik (işlem biçimi
-  v1, Agave v4.2 ile geliyor) bu sınırı yükseltecek ve gizli bir transferin tek
-  bir zincir üstü işlemde gerçekleştirilmesine olanak tanıması beklenmektedir.
+- Gizli transferler, kanıtlar işlem boyutu sınırını aştığı için geçmişte birbirine bağımlı birkaç işleme yayılıyordu. Transaction v1 formatı bu sınırı yükselterek gizli bir transferin tek bir onchain işlemde yürütülmesini sağlar.
 - Hiçbir destek eklemeyen bir cüzdan yine de çalışır: genel bakiyeyi gösterir ve
   standart transferler işlevini korur. Gizli fonlar, sahibin anahtarlarına sahip
   gizlilik-bilinçli herhangi bir istemci tarafından erişilebilir olmaya devam
@@ -59,11 +56,8 @@ durum, kamuya açık gözlemcilere karşı gizlilik sağlar; anonim kimlik deği
 
 ## Terimler
 
-- **ElGamal keypair**: bakiyeleri şifrelemek ve ZK kanıtları oluşturmak için
-  hesap başına kullanılan açık anahtarlı keypair. Açık anahtar hesapta saklanır.
-- **AES anahtarı**: "çözümlenebilir kullanılabilir bakiye"yi şifrelemek için
-  hesap başına kullanılan simetrik anahtar; bu sayede hesap sahibi, ayrık
-  logaritma çözmeksizin kullanılabilir bakiyesini sabit sürede okuyabilir.
+- **ElGamal keypair**: sahibin bakiyeleri şifrelemek ve ZK kanıtları oluşturmak için kullandığı açık anahtarlı keypair. Açık anahtar, yapılandırılmış her hesapta saklanır.
+- **AES anahtarı**: sahibin "çözülebilir kullanılabilir bakiyeyi" şifrelemek için kullandığı simetrik anahtar. Böylece sahip, ayrık logaritma çözmeden kullanılabilir bakiyesini sabit sürede okuyabilir.
 - **Bekleyen bakiye**: yatırımlar veya gelen transferler aracılığıyla alınan ve
   henüz uygulanmamış fonların şifrelenmiş bakiyesi. Doğrudan harcanamazlar.
 - **Kullanılabilir bakiye**: transfer edilebilen veya çekilebilen şifrelenmiş
@@ -105,13 +99,7 @@ Her gizli hesap iki anahtar kullanır: şifreleme ve kanıtlar için bir **ElGam
 keypair** ve hızlı bakiye şifre çözümü için bir **AES anahtarı**. Bu anahtarları
 nasıl üretip sakladığınız bir entegrasyon tercihidir. Birkaç yaygın seçenek:
 
-- **Bir cüzdan imzasından türet (önerilen varsayılan).** Sahibi kanonik,
-  alan-ayrılmış bir mesajı imzalar ve anahtarlar bu imzadan türetilir; böylece
-  yalnızca cüzdandan yeniden üretilebilirler ve saklamanız gerekmez. seed, hesap
-  başına deterministiktir: aşağıdaki JS yardımcıları onu `(owner, mint)` çiftine
-  bağlarken, Rust örneği token account adresinden seed alır (associated token
-  account için bu adres sahibinden ve mint'ten türetildiğinden bunlar
-  eşdeğerdir).
+- **Bir cüzdan imzasından türetin (önerilen varsayılan).** Sahip, kanonik ve alan ayrımlı (domain-separated) bir mesajı imzalar ve anahtarlar bu imzadan türetilir. Böylece anahtarlar yalnızca cüzdandan yeniden üretilebilir ve bunları saklamanız gerekmez. Standart türetme, anahtarları yalnızca ana cüzdana bağlar ve hiç seed almaz; bu nedenle istemciler yanlışlıkla farklı anahtarlar türetemez: bir cüzdan, tüm mint'ler ve token account'lar genelinde tek bir ElGamal keypair ve tek bir AES anahtarına karşılık gelir.
 - **Bağımsız anahtar materyalinden türet.** Passkey'ler, güvenli çevreler veya
   MPC kurulumları için, gizli anahtarların hesabın imzalama anahtarına bağlı
   olmaması amacıyla anahtarları bir WebAuthn PRF çıktısından veya başka bir
@@ -127,43 +115,29 @@ gelir:
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
-  Gizli anahtarlar, şifre çözme anahtarlarıdır. Türetme mesajını imzalama
-  isteğini, kullanıcının bakiyelerinin özel görünümünün kilidini açmak gibi
-  değerlendirin. Bunları saklamak yerine ihtiyaç anında türetmeyi tercih edin;
-  eğer saklıyorsanız (örneğin bir emanet hizmetinde), imzalama anahtarlarıyla
-  aynı titizlikle koruyun.
+  Gizli anahtarlar, şifre çözme anahtarlarıdır. Türetme mesajını imzalama isteğine, kullanıcının bakiyelerinin özel bir görünümünün kilidini açmak gibi davranın. Anahtarları saklamak yerine ihtiyaç anında türetmeyi tercih edin. Yine de saklıyorsanız (örneğin bir saklama hizmetinde), imzalama anahtarlarıyla aynı titizlikle koruyun. Cüzdanlar bu imzayı özel bir türetme akışı üzerinden sunmalı ve `solana-conf-bal/v1` ile başlayan mesajlar için genel signMessage isteklerini reddetmelidir; çünkü bu imza, kullanıcının şifre çözme anahtarları için girdi anahtar materyalidir.
 </Callout>
 
 Türetme yardımcıları serileştirilmiş anahtar materyali döndürür. Üst düzey işlem
@@ -178,10 +152,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## Hesap oluşturma ve yapılandırma
@@ -333,14 +307,7 @@ gerektirir:
   olmayan tam sayılar olduğunu kanıtlar; bu, ince havadan değer yaratılmasını
   önleyen unsurdur.
 
-Bu kanıtlar, günümüzdeki işlem boyutu sınırının satır içi olarak izin
-verdiğinden daha büyüktür; bu nedenle yaygın kalıp, **kanıt bağlamı durum
-hesapları** oluşturmak, her kanıtı bunlara doğrulamak, transfer talimatından
-bunlara referans vermek ve ardından rent'i geri almak için bunları kapatmaktır.
-Bu işlem birkaç bağımlı işleme yayılır. İşlem formatı v1 (Agave v4.2 ile
-kullanıma sunulacak), boyut sınırını artırır ve gizli bir transferin tek bir
-zincir üstü işlemde çalışmasına olanak tanıyarak bu akışı basitleştirmesi
-beklenmektedir.
+Bu kanıtlar, eski (legacy) ve v0 işlem boyutu sınırının satır içi olarak izin verdiğinden daha büyüktür. Bu nedenle olağan yöntem, **proof context state account'ları** oluşturmak, her kanıtı bunlara doğrulamak, transfer talimatında bunlara referans vermek ve ardından rent'i geri almak için kapatmaktır. Bu da birbirine bağımlı birkaç işleme yayılır. Transaction v1 formatı bu sınırı yükselterek gizli bir transferin tek bir onchain işlemde çalışmasını sağlar ve bu akışı basitleştirir.
 
 Kanıtları elle oluşturmanız gerekmez. Her iki istemci de kanıtları oluşturan ve
 göndermek için talimatlar üreten üst düzey bir yardımcı sağlar:
@@ -516,11 +483,7 @@ metnini kapsadığından, bir entegratör olarak gönderim yolunda mint
 yapılandırmasından denetçi anahtarını iletmek dışında özel bir şey yapmanız
 gerekmez (üst düzey yardımcılar bunu sizin için okur).
 
-Ürününüz denetçi ise (örneğin düzenlenmiş bir ihraççı veya uyumluluk
-sağlayıcısı), transfer tutarlarının şifresini denetçi gizli anahtarıyla
-çözersiniz; bu, bir hesap sahibinin kendi bakiyesinin şifresini çözmesiyle aynı
-yöntemdir. Hesap sahipleri ayrıca hesap başına anahtarlarını herkese açık hale
-getirmeden belirli bir tarafla seçici olarak paylaşabilir.
+Ürününüz denetçiyse (örneğin düzenlemeye tabi bir ihraççı veya uyumluluk sağlayıcısı), transfer tutarlarının şifresini, bir sahibin kendi bakiyesinin şifresini çözdüğü şekilde, denetçi gizli anahtarıyla çözersiniz. Sahipler ayrıca anahtarlarını herkese açık hale getirmeden belirli bir tarafla seçici olarak paylaşabilir. Ancak standart cüzdana bağlı türetmede aynı anahtarlar sahibin tüm gizli bakiyelerini kapsadığı için, bunları paylaşmak yalnızca bir hesabı değil, tüm gizli hesapları ifşa eder.
 
 ### İşlem izleme (KYT)
 
@@ -617,4 +580,4 @@ olanı değiştirir; genel modeli değil:
 | Adres ve grafik taraması   | Gönderenleri, alıcıları, mint'leri ve sahipleri tarayın; karşı taraf grafik analizini çalıştırın; bunlar herkese açık kalır.            | **P0**   |
 | Genel para yatırma/çekme takibi | Gizli havuzun gözlemlenebilir giriş ve çıkış noktaları olarak açık metin para yatırma ve çekme tutarlarını izleyin. | **P0**   |
 | Denetçi anahtarıyla tutar görünürlüğü | Denetçi özellikli mint'ler için, tutar tabanlı tespiti desteklemek amacıyla denetçi anahtarı kullanılarak transfer tutarlarının şifresi çözülür.     | **P1**   |
-| Seçici açıklama alımı   | Kullanıcılar veya ihraççılar tarafından hesap başına anahtarlar aracılığıyla paylaşılan tutar açıklamalarını destekleyin.                                      | **P2**   |
+| Seçici açıklama alımı   | Kullanıcıların veya ihraççıların, sahip anahtarları aracılığıyla paylaştığı tutar açıklamalarını destekleyin.                                      | **P2**   |

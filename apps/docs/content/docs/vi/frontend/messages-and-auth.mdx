@@ -1,0 +1,433 @@
+---
+title: Thông điệp & Xác thực
+h1: Ký thông điệp & Xác thực người dùng
+description:
+  Ký thông điệp bằng ví Solana để xác thực người dùng, ghi nhận sự đồng ý hoặc ủy quyền các hành động off-chain, sử dụng tính năng ký thông điệp off-chain kèm phương án dự phòng cho các ví chưa hỗ trợ.
+---
+
+Việc ký một thông điệp chứng minh rằng người dùng kiểm soát một ví, mà không cần giao dịch, không mất
+phí và không cần gọi mạng. Các ứng dụng dùng thông điệp đã ký để đăng nhập cho người dùng, ghi nhận
+rằng người dùng đã chấp nhận điều khoản, liên kết ví với một tài khoản hiện có, hoặc ủy quyền một
+hành động diễn ra off-chain, chẳng hạn như đặt lệnh.
+
+Ví Solana ký thông điệp theo hai cách:
+
+- **Thông điệp off-chain** (`solana:signOffchainMessage`) bọc văn bản của bạn trong một
+  định dạng chuẩn, được định nghĩa bởi [đặc tả](https://docs.anza.xyz/proposals/off-chain-message-signing) ký thông điệp off-chain (OCMS).
+  Định dạng này không bao giờ bị nhầm với một giao dịch, nêu rõ các tài khoản
+  phải ký, và là định dạng mà ví cứng ký.
+- **Thông điệp thô** (`solana:signMessage`) ký chính xác các byte mà ứng dụng của bạn truyền
+  vào, không có tiền tố và không khai báo người ký. Hầu hết các ví phần mềm đều hỗ trợ
+  loại này, nhưng không có gì trong các byte cho biết đó là thông điệp chứ không phải
+  giao dịch.
+
+Hãy dùng thông điệp off-chain khi ví hỗ trợ, và chuyển sang thông điệp thô
+khi ví không hỗ trợ. Phần còn lại của hướng dẫn này dùng đăng nhập làm ví dụ minh họa,
+nhưng các bước ký và xác minh tương tự áp dụng cho mọi thông điệp.
+
+## Chọn định dạng thông điệp
+
+|                           | Thông điệp off-chain     | Thông điệp thô   | Giao dịch                   |
+| ------------------------- | --------------------- | ------------- | ----------------------------- |
+| Tính năng của ví            | `signOffchainMessage` | `signMessage` | `signTransaction`             |
+| Hỗ trợ ví cứng   | Tùy thuộc thiết bị     | Không            | Có                           |
+| Người dùng có thể đọc được      | Có                   | Chỉ trên ví phần mềm | Tùy thuộc thiết bị             |
+| Khai báo người ký bắt buộc | Có                   | Không            | Có                           |
+| Lệnh gọi RPC và phí        | Không có                  | Không có          | Blockhash, gửi, phí, xác nhận |
+
+### Tại sao không dùng giao dịch?
+
+Trước đây, ví cứng không có cách nào để ký một thông điệp có thể đọc được. Nhiều ứng dụng
+phải yêu cầu những người dùng này ký một giao dịch không làm gì cả (no-op). Cách này hoạt động được, nhưng
+nó làm tăng độ trễ, chi phí và rủi ro:
+
+- **Phí mạng.** Một giao dịch phải trả phí, ngay cả khi nó không làm gì.
+- **Nhiều lệnh gọi RPC.** Ứng dụng của bạn phải lấy blockhash, mô phỏng, gửi, rồi
+  liên tục kiểm tra để chờ xác nhận.
+- **Độ trễ tăng thêm.** Mỗi lệnh gọi đó là một lượt đi về trước khi người dùng
+  được đăng nhập.
+- **Không có gì đọc được.** Người dùng phê duyệt các byte của giao dịch, chứ không phải một nội dung nêu rõ
+  họ đang đồng ý với điều gì.
+- **Rủi ro hành vi.** Việc yêu cầu người dùng ký một giao dịch chỉ để đăng nhập khiến
+  họ dễ bị lừa ký một giao dịch có hại hơn.
+
+Thông điệp off-chain loại bỏ tất cả những điều đó. Lượt đi về duy nhất là tới máy chủ của chính bạn.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-comparison.svg"
+  alt="A sign-in transaction fetches a blockhash, signs, simulates, sends, and polls for confirmation before the server can verify it. An off-chain message goes from a server challenge to a wallet signature to a server-side check, with no RPC calls and no fee."
+/>
+
+## Những gì ví ký
+
+Một thông điệp off-chain bắt đầu bằng một miền ký cố định, `\xffsolana offchain`.
+Không có giao dịch hợp lệ nào bắt đầu bằng các byte này, vì vậy một thông điệp đã ký không bao giờ có thể
+được dùng như một giao dịch. Phiên bản 1 của định dạng sau đó liệt kê các người ký bắt buộc
+và mang thông điệp dưới dạng văn bản UTF-8, không giới hạn độ dài.
+
+Ví tạo ra các byte này, ký chúng và trả về cùng với
+chữ ký. [Đặc tả](https://docs.anza.xyz/proposals/off-chain-message-signing)
+bao gồm toàn bộ định dạng, kể cả phiên bản 0 cũ.
+
+<DocsDiagram
+  src="/assets/docs/frontend/offchain-message-layout.svg"
+  alt="A version 1 off-chain message is a 16-byte signing domain, a version byte, a signer count, each signer's 32-byte public key in sorted order, and the UTF-8 content. The envelope prefixes it with a signature count and one 64-byte signature per signer."
+/>
+
+## Chọn phương thức đăng nhập
+
+Không phải ví nào cũng hỗ trợ thông điệp off-chain. Hãy kiểm tra các tính năng của tài khoản
+đã kết nối trước khi yêu cầu chữ ký, và chuyển sang phương án dự phòng khi thiếu
+tính năng đó:
+
+1. Nếu tài khoản hỗ trợ `solana:signOffchainMessage` với thông điệp phiên bản 1,
+   hãy ký một thông điệp off-chain.
+2. Nếu không, hãy ký cùng challenge đó bằng `solana:signMessage`. Hầu hết các ví
+   phần mềm đều hỗ trợ.
+3. Hãy cho người dùng ví cứng không hỗ trợ thông điệp một lựa chọn chủ động rõ ràng, chẳng hạn
+   như công tắc "Tôi đang dùng ví cứng", để ký một giao dịch đăng nhập
+   thay thế. Đừng mặc định đưa họ vào hướng này.
+
+<DocsDiagram
+  src="/assets/docs/frontend/sign-in-decision.svg"
+  alt="When a wallet connects, check whether its account supports solana:signOffchainMessage version 1. If it does, sign an off-chain message. If not, sign a raw message with solana:signMessage, and let hardware wallet users opt into signing a sign-in transaction."
+/>
+
+## Ký thông điệp trong trình duyệt
+
+<Tabs items={["Wallet Standard (Kit)", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard (Kit)">
+    Cài đặt các gói Wallet Standard cùng với Kit:
+
+    ```terminal
+    $ npm install @solana/kit @solana/wallet-standard-features @wallet-standard/ui @wallet-standard/ui-features @wallet-standard/ui-registry
+    ```
+
+    Các hàm hỗ trợ này nhận một `UiWalletAccount`, chẳng hạn như `account` được trả về bởi
+    `useConnectedWallet` trong [hướng dẫn React](/docs/frontend/react-hooks):
+
+    ```ts title="offchain-message.ts"
+    import {
+      SolanaSignOffchainMessage,
+      type SolanaSignOffchainMessageFeature
+    } from "@solana/wallet-standard-features";
+    import type { UiWalletAccount } from "@wallet-standard/ui";
+    import { getWalletAccountFeature } from "@wallet-standard/ui-features";
+    import { getWalletAccountForUiWalletAccount } from "@wallet-standard/ui-registry";
+
+    type OffchainMessageFeature =
+      SolanaSignOffchainMessageFeature[typeof SolanaSignOffchainMessage];
+
+    export function supportsOffchainMessages(account: UiWalletAccount) {
+      if (!account.features.includes(SolanaSignOffchainMessage)) return false;
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      return feature.supportedMessageVersions.includes(1);
+    }
+
+    export async function signOffchainMessage(
+      account: UiWalletAccount,
+      message: string
+    ) {
+      const feature = getWalletAccountFeature(
+        account,
+        SolanaSignOffchainMessage
+      ) as OffchainMessageFeature;
+      const [output] = await feature.signOffchainMessage({
+        messageVersion: 1,
+        account: getWalletAccountForUiWalletAccount(account),
+        message,
+        requiredSigners: [account.publicKey]
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` từ `@solana/wallet-adapter` chỉ cung cấp `signOffchainMessage`
+    khi tài khoản đã kết nối hỗ trợ `solana:signOffchainMessage`. Hàm này ký một
+    thông điệp phiên bản 1 với tài khoản đã kết nối là người ký bắt buộc, và
+    từ chối với `WalletNotReadyError` nếu ví không thể ký phiên bản 1:
+
+    ```terminal
+    $ npm install @solana/web3.js@3 @solana/wallet-adapter
+    ```
+
+    ```tsx title="SignOffchainMessage.tsx"
+    "use client";
+
+    import { useWallet } from "@solana/wallet-adapter";
+
+    export function SignOffchainMessage({ challenge }: { challenge: string }) {
+      const { publicKey, signOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!publicKey || !signOffchainMessage) return;
+        const { signature, signedOffchainMessage } =
+          await signOffchainMessage(challenge);
+        const valid = await publicKey.verifySignature(
+          signature,
+          signedOffchainMessage
+        );
+        // Server logic
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signOffchainMessage}>
+          Sign in
+        </button>
+      );
+    }
+    ```
+
+    `publicKey.verifySignature` kiểm tra chữ ký so với các byte đã ký
+    ngay trong trình duyệt. Máy chủ của bạn vẫn cần xác nhận rằng các byte đó là
+    challenge mà nó đã phát hành. Khi `signOffchainMessage` là `undefined`, hãy chuyển sang
+    dùng `signMessage` từ cùng hook này.
+
+  </Tab>
+</Tabs>
+
+`signOffchainMessage` trả về `signedOffchainMessage`, toàn bộ các byte mà ví
+đã ký, và `signature`. Hãy mã hóa cả hai bằng Base64 và gửi chúng đến máy chủ của bạn cùng với
+địa chỉ ví.
+
+Hãy viết challenge sao cho dễ đọc trên màn hình nhỏ. Nêu tên ứng dụng và
+tên miền của bạn, cho biết việc ký làm gì, và đưa vào một nonce dùng một lần cùng thời điểm phát hành
+từ máy chủ của bạn:
+
+```text
+swap.app wants you to sign in with your Solana account.
+
+Signing in costs nothing and does not submit a transaction.
+
+Nonce: 8f3a1c9e
+Issued at: 2026-09-29T17:04:00Z
+```
+
+## Xác minh chữ ký trên máy chủ của bạn
+
+Việc xác minh là kiểm tra chữ ký cục bộ và không cần kết nối RPC. Hãy giải mã các
+byte mà ví đã ký, xác nhận chúng khớp với challenge bạn đã phát hành, rồi kiểm tra
+chữ ký:
+
+```ts title="verify-sign-in.ts"
+import {
+  address,
+  assertOffchainMessageV1Equal,
+  getBase64Encoder,
+  getOffchainMessageDecoder,
+  verifyOffchainMessageEnvelope,
+  type OffchainMessageBytes,
+  type SignatureBytes
+} from "@solana/kit";
+
+export async function verifySignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signedOffchainMessage: string;
+  signature: string;
+}) {
+  const signer = address(input.walletAddress);
+  const base64 = getBase64Encoder();
+  const content = base64.encode(
+    input.signedOffchainMessage
+  ) as OffchainMessageBytes;
+  const signature = base64.encode(input.signature) as SignatureBytes;
+
+  const received = getOffchainMessageDecoder().decode(content);
+  if (received.version !== 1) {
+    throw new Error(`Expected a v1 message, got v${received.version}`);
+  }
+  assertOffchainMessageV1Equal(received, {
+    version: 1,
+    requiredSignatories: [{ address: signer }],
+    content: input.expectedMessage
+  });
+
+  await verifyOffchainMessageEnvelope({
+    content,
+    signatures: { [signer]: signature }
+  });
+}
+```
+
+`assertOffchainMessageV1Equal` sẽ báo lỗi nếu nội dung hoặc người ký khác với
+những gì bạn mong đợi. `verifyOffchainMessageEnvelope` sẽ báo lỗi nếu chữ ký bị
+thiếu hoặc không hợp lệ. Hãy tra cứu `expectedMessage` theo nonce trên máy chủ của bạn thay vì
+tin vào bản sao mà client gửi lại. Hãy tiêu thụ nonce ngay khi nó được
+xác minh, để cùng một chữ ký không thể đăng nhập hai lần.
+
+### Xác minh thông điệp thô
+
+Chữ ký `signMessage` bao phủ trực tiếp các byte của challenge, vì vậy client
+chỉ cần gửi chữ ký và địa chỉ ví. Hãy kiểm tra nó so với
+challenge bạn đã phát hành:
+
+```ts title="verify-raw-sign-in.ts"
+import {
+  address,
+  getBase64Encoder,
+  getPublicKeyFromAddress,
+  getUtf8Encoder,
+  signatureBytes,
+  verifySignature
+} from "@solana/kit";
+
+export async function verifyRawSignIn(input: {
+  walletAddress: string;
+  expectedMessage: string;
+  signature: string;
+}) {
+  const publicKey = await getPublicKeyFromAddress(address(input.walletAddress));
+  const signature = signatureBytes(getBase64Encoder().encode(input.signature));
+  const message = getUtf8Encoder().encode(input.expectedMessage);
+  if (!(await verifySignature(publicKey, signature, message))) {
+    throw new Error("Invalid signature");
+  }
+}
+```
+
+Các quy tắc về nonce vẫn áp dụng: tra cứu `expectedMessage` theo nonce và tiêu thụ nó
+ngay khi được xác minh.
+
+<Callout type="info">
+  `@solana/kit` xuất lại các hàm hỗ trợ này từ `@solana/offchain-messages`. Hãy dùng
+  gói độc lập nếu máy chủ của bạn không phụ thuộc vào Kit.
+</Callout>
+
+## Sign In With Solana
+
+[Sign In With Solana](https://github.com/phantom/sign-in-with-solana) (SIWS)
+chuẩn hóa chính challenge. Ứng dụng của bạn truyền các trường có cấu trúc, chẳng hạn như
+`domain`, `statement`, `nonce` và `issuedAt`, đến tính năng `solana:signIn` của ví.
+Ví định dạng chúng thành một thông điệp chuẩn, kết nối nếu cần,
+và ký chỉ trong một bước.
+
+Phiên bản `1.1.0` của `solana:signIn` bổ sung tùy chọn `useOffchainMessage`. Khi bạn
+truyền `useOffchainMessage: { messageVersion: 1 }`, ví sẽ bọc văn bản SIWS
+trong một thông điệp off-chain phiên bản 1 với tài khoản ký là người ký bắt buộc duy nhất.
+Ví cứng có thể hiển thị và ký thông điệp này, và kết quả đầu ra báo
+`signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 }`. Các ví
+công bố phiên bản `1.0.0` không biết tùy chọn này, vì vậy hãy kiểm tra phiên bản
+tính năng trước và bỏ qua tùy chọn nếu không hỗ trợ.
+
+<Tabs items={["Wallet Standard", "Wallet Adapter"]}>
+  <Tab value="Wallet Standard">
+    `solana:signIn` là tính năng của ví, không phải tính năng của tài khoản, vì vậy các
+    hàm hỗ trợ này nhận một `UiWallet`:
+
+    ```ts title="sign-in.ts"
+    import {
+      SolanaSignIn,
+      type SolanaSignInFeature,
+      type SolanaSignInInput
+    } from "@solana/wallet-standard-features";
+    import type { UiWallet } from "@wallet-standard/ui";
+    import { getWalletFeature } from "@wallet-standard/ui-features";
+
+    type SignInFeature = SolanaSignInFeature[typeof SolanaSignIn];
+
+    export function supportsOffchainSignIn(wallet: UiWallet) {
+      if (!wallet.features.includes(SolanaSignIn)) return false;
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      return feature.version === "1.1.0";
+    }
+
+    export async function signIn(wallet: UiWallet, input: SolanaSignInInput) {
+      const feature = getWalletFeature(wallet, SolanaSignIn) as SignInFeature;
+      const [output] = await feature.signIn({
+        ...input,
+        ...(supportsOffchainSignIn(wallet) && {
+          useOffchainMessage: { messageVersion: 1 }
+        })
+      });
+      return output;
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Wallet Adapter">
+    `useWallet` cung cấp `signIn` khi ví được chọn hỗ trợ
+    `solana:signIn`, và `supportsSignInWithOffchainMessage` khi ví công bố
+    phiên bản `1.1.0`. Việc truyền `useOffchainMessage` cho ví không
+    hỗ trợ sẽ bị từ chối với `WalletSignInError`:
+
+    ```tsx title="SignIn.tsx"
+    "use client";
+
+    import {
+      useWallet,
+      verifySignIn,
+      type SolanaSignInInput
+    } from "@solana/wallet-adapter";
+
+    export function SignIn({ input }: { input: SolanaSignInInput }) {
+      const { signIn, supportsSignInWithOffchainMessage } = useWallet();
+
+      const onClick = async () => {
+        if (!signIn) return;
+        const output = await signIn({
+          ...input,
+          ...(supportsSignInWithOffchainMessage && {
+            useOffchainMessage: { messageVersion: 1 }
+          })
+        });
+        const valid = await verifySignIn(input, output);
+      };
+
+      return (
+        <button onClick={onClick} disabled={!signIn}>
+          Sign in with Solana
+        </button>
+      );
+    }
+    ```
+
+    `verifySignIn` kiểm tra rằng thông điệp đã ký tái tạo mọi trường của
+    đầu vào và mang chữ ký hợp lệ từ tài khoản ký, dù
+    ví đã ký văn bản SIWS thuần hay một thông điệp off-chain. Hãy chạy cùng phép kiểm tra này trên
+    máy chủ của bạn bằng cách nhập nó từ `@solana/wallet-adapter/core`, gói không có
+    phụ thuộc React.
+
+  </Tab>
+</Tabs>
+
+Hãy xây dựng đầu vào trên máy chủ của bạn, với một `nonce` dùng một lần và thời điểm `issuedAt`,
+và lưu một bản sao được đánh khóa theo nonce. Hãy tiêu thụ nonce ngay khi việc đăng nhập
+được xác minh.
+
+Nếu không dùng Wallet Adapter, `verifySignIn` từ `@solana/wallet-standard-util`
+chỉ kiểm tra đầu ra SIWS thuần. Khi `signedMessageFormat` báo là thông điệp
+off-chain, `signedMessage` là một thông điệp off-chain có nội dung là văn bản SIWS.
+Hãy dựng lại văn bản mong đợi từ đầu vào đã lưu và địa chỉ ký bằng
+`createSignInMessageText` từ `@solana/wallet-standard-util`, rồi xác minh nó
+như mọi thông điệp off-chain khác, như trong
+[Xác minh chữ ký trên máy chủ của bạn](#verify-the-signature-on-your-server). [README của `@solana/offchain-messages`](https://github.com/anza-xyz/kit/tree/main/packages/offchain-messages#verifying-a-signed-offchain-message)
+mô tả quy trình này trong Kit.
+
+## Dành cho ví
+
+Ví bổ sung hỗ trợ bằng cách triển khai tính năng Wallet Standard `solana:signOffchainMessage`
+từ `@solana/wallet-standard-features`:
+
+- Báo cáo `version: "1.0.0"` và liệt kê các phiên bản thông điệp mà bạn có thể ký trong
+  `supportedMessageVersions`. Hiện nay, đó là `[1]`.
+- Xây dựng phần mở đầu (preamble) phiên bản 1 từ `requiredSigners`, đồng thời sắp xếp và kiểm tra
+  các mục trùng lặp. Từ chối yêu cầu nếu tài khoản không nằm trong danh sách
+  người ký bắt buộc.
+- Hiển thị đầy đủ nội dung thông điệp cho người dùng trước khi ký, kể cả trên
+  các thiết bị phần cứng.
+- Trả về chính xác các byte bạn đã ký dưới dạng `signedOffchainMessage`, cùng với
+  `signature` Ed25519.
+- Để hỗ trợ Sign In With Solana ngoài chuỗi (off-chain), hãy báo cáo `version: "1.1.0"` cho
+  `solana:signIn`. Khi đầu vào có `useOffchainMessage`, hãy ký văn bản SIWS
+  dưới dạng thông điệp off-chain phiên bản 1, trả về các byte của nó dưới dạng `signedMessage`,
+  và thiết lập `signedMessageFormat`.
+- Tiếp tục hỗ trợ `solana:signMessage`. Phương thức này không thay đổi, và các ứng dụng vẫn dùng
+  nó như một giải pháp dự phòng.

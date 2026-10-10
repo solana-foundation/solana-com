@@ -3,6 +3,9 @@ title: TypeScript
 description: 在 TypeScript 应用程序中安装和使用 @solana/keychain
 ---
 
+从 1.x 升级?请参阅
+[2.0 迁移指南](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)。
+
 ## 安装
 
 根据需要安装伞形包或单独的签名器：
@@ -32,6 +35,9 @@ pnpm add @solana/keychain-fordefi     # Fordefi
 pnpm add @solana/keychain-kit-plugin
 ```
 
+需要 `@solana/kit` 8.1 或更高版本。支持 v1 交易
+(`createTransactionMessage({ version: 1 })`),但使用 `useProgramCall: true` 的 Fireblocks 除外,它仅接受旧版交易和 v0 交易。
+
 ## 基本用法
 
 ### 统一工厂（推荐用于希望支持多个签名器的应用程序）
@@ -40,7 +46,7 @@ pnpm add @solana/keychain-kit-plugin
 
 ```typescript
 import { createKeychainSigner } from "@solana/keychain";
-import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers ≥ 6.5
+import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers >= 8.1
 
 const signer = await createKeychainSigner({
   backend: "privy",
@@ -70,10 +76,13 @@ const signer = await createPrivySigner({
 
 ### 与交易消息配合使用
 
-所有签名器都实现了 `SolanaSigner` 接口，该接口与 `@solana/kit` 和
-`@solana/signers` 兼容：
+除 Crossmint 和 Fordefi 原生模式外,所有后端都会返回
+`SolanaTransactionSigner`,它是 Kit 的 `TransactionPartialSigner`,可与下文
+`@solana/signers` 的部分签名器辅助函数配合使用。托管广播型后端请参阅
+[签名器能力](#signer-capabilities)。
 
 ```typescript
+import type { SolanaTransactionSigner } from "@solana/keychain-core";
 import { signTransactionMessageWithSigners } from "@solana/signers";
 import {
   createTransactionMessage,
@@ -81,7 +90,7 @@ import {
   pipe
 } from "@solana/kit";
 
-async function signWithKeychain(signer: SolanaSigner) {
+async function signWithKeychain(signer: SolanaTransactionSigner) {
   // Check availability (useful for remote signers)
   if (!(await signer.isAvailable())) {
     throw new Error("Signer offline");
@@ -91,13 +100,26 @@ async function signWithKeychain(signer: SolanaSigner) {
   const transaction = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayerSigner(signer, tx)
-    // ... add instructions
+    // ... set a lifetime and add instructions
   );
 
   // Sign with the standard signers API
   const signedTx = await signTransactionMessageWithSigners(transaction);
   return signedTx;
 }
+```
+
+### 使用任意签名器签名并发送
+
+无论签名器是何种形态,`@solana/keychain-core` 中的 `signAndSendTransaction` 都能将交易发送上链。发送型签名器通过其提供商进行广播;其他所有形态则使用你传入的 `sendTransaction`(core 不依赖 RPC):
+
+```typescript
+import { signAndSendTransaction } from "@solana/keychain-core";
+
+const signature = await signAndSendTransaction(signer, transaction, {
+  sendTransaction: (tx) =>
+    sendAndConfirmTransaction(tx, { commitment: "confirmed" })
+});
 ```
 
 ### 与 Kit 客户端配合使用（keychainSigner 插件）
@@ -119,13 +141,11 @@ const client = await createClient().use(
   })
 );
 
-client.payer; // SolanaSigner — also a Kit TransactionSigner
+client.payer; // SolanaTransactionSigner, also a Kit TransactionPartialSigner
 client.identity; // same signer instance
 ```
 
-该插件与 `createKeychainSigner`
-接受相同的带后端标签的配置，且仅打包其调度目标后端（后端包通过动态 `import()`
-加载）。
+该插件接受与 `createKeychainSigner` 相同的带后端标记的配置,但 Crossmint 和 Fordefi 原生模式(已设置 `chain`)除外。这些后端会在服务端重写交易,因此无法充当客户端的 `payer` 或 `identity`;插件会在编译时和运行时拒绝它们。只有被分派到的后端才会被打包(后端包通过动态 `import()` 加载)。
 
 使用 `keychainPayer` 或 `keychainIdentity`
 仅设置单一角色，并在同一客户端上混用多个后端：
@@ -138,18 +158,19 @@ const client = await createClient()
   .use(
     keychainPayer({
       backend: "memory",
-      privateKeyPath: "~/.config/solana/id.json"
+      privateKeyPath: `${process.env.HOME}/.config/solana/id.json`
     })
   )
   .use(keychainIdentity({ backend: "turnkey", ...turnkeyConfig }));
 ```
 
-已有 `SolanaSigner`？每个密钥链签名器都是有效的 Kit
-`TransactionSigner`，因此您可以改用
+已经有 `SolanaTransactionSigner` 了?它是有效的 Kit
+`TransactionPartialSigner`,因此你可以改用
 [`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)
-安装已有的签名器（`pnpm add @solana/kit-plugin-signer`）：
+来安装它(`pnpm add @solana/kit-plugin-signer`):
 
 ```typescript
+import { createClient } from "@solana/kit";
 import { signer } from "@solana/kit-plugin-signer";
 import { createKeychainSigner } from "@solana/keychain";
 
@@ -160,7 +181,31 @@ const mySigner = await createKeychainSigner({
 const client = createClient().use(signer(mySigner));
 ```
 
+### 取消操作与未确认的广播
+
+`signTransactions`、`modifyAndSignTransactions`、`signAndSendTransactions` 和
+`signMessages` 都接受 `{ abortSignal }` 作为第二个参数。中止只会停止等待,并不会撤销提供商已经接受的操作。
+
+在 Crossmint 和 Fordefi 原生自动模式下,失败并不意味着交易没有上链。当提供商可能已接受该交易时,错误码为
+`SignerErrorCode.BROADCAST_UNCONFIRMED`(`"SIGNER_BROADCAST_UNCONFIRMED"`)。
+如果创建请求已被接受,则会设置 `context.providerTransactionId`,而 `context.idempotencyKey` 携带由消息派生的密钥。重新发送字节完全相同的交易是安全的;而重新构建的交易(例如使用了新的区块哈希)则属于一笔新的转账。`@solana/keychain-core` 中的 `providerMayHaveAccepted(error)` 和
+`providerStatus(error)` 有助于对错误进行分类。
+重试之前,请先与提供商核对。
+
 ## 后端配置
+
+### 内存
+
+请在 `keyPair`、`privateKey`、`privateKeyString` 或
+`privateKeyPath` 中恰好提供一个:
+
+```typescript
+import { createMemorySigner } from "@solana/keychain-memory";
+
+const signer = await createMemorySigner({
+  privateKeyPath: "/path/to/id.json"
+});
+```
 
 ### HashiCorp Vault
 
@@ -184,6 +229,18 @@ const signer = createAwsKmsSigner({
   keyId: "alias/my-solana-key",
   publicKey: "base58_public_key",
   region: "us-east-1" // optional
+});
+```
+
+### GCP KMS
+
+```typescript
+import { createGcpKmsSigner } from "@solana/keychain-gcp-kms";
+
+const signer = createGcpKmsSigner({
+  keyName:
+    "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+  publicKey: "base58_public_key"
 });
 ```
 
@@ -232,10 +289,11 @@ const signer = await createFireblocksSigner({
 import { createCdpSigner } from "@solana/keychain-cdp";
 
 const signer = await createCdpSigner({
-  apiKeyId: "api_key_id",
-  apiKeySecret: "api_key_secret",
-  walletSecret: "wallet_secret",
-  address: "base58_address"
+  cdpApiKeyId: "api_key_id",
+  cdpApiKeySecret: "api_key_secret",
+  cdpWalletSecret: "wallet_secret",
+  address: "base58_address",
+  network: "solana" // or "solana-devnet"; required for address lookup tables
 });
 ```
 
@@ -250,6 +308,15 @@ const signer = await createCrossmintSigner({
 });
 ```
 
+Crossmint 仅支持发送。其 API 始终在服务端执行已批准的交易并代付 Gas 费用,因此该签名器仅暴露
+`signAndSendTransactions()`:它没有 `signTransactions()` 或 `signMessages()`,
+也无法通过 `@solana/keychain-kit-plugin` 安装。返回的签名用于标识 Crossmint 实际上链的交易。
+
+```typescript
+const [signature] = await signer.signAndSendTransactions([transaction]);
+// or: await signAndSendTransactionMessageWithSigners(transactionMessage);
+```
+
 ### Dfns
 
 ```typescript
@@ -259,8 +326,19 @@ const signer = await createDfnsSigner({
   authToken: "auth_token",
   credId: "cred_id",
   privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\n...",
-  appId: "app_id",
   walletId: "wallet_id"
+});
+```
+
+### Openfort
+
+```typescript
+import { createOpenfortSigner } from "@solana/keychain-openfort";
+
+const signer = await createOpenfortSigner({
+  secretKey: "sk_...",
+  walletSecret: "wallet_secret",
+  accountId: "account_id"
 });
 ```
 
@@ -275,11 +353,40 @@ const signer = await createParaSigner({
 });
 ```
 
+### Utila
+
+Utila 仅对交易签名,没有 `signMessages()`。
+
+```typescript
+import { createUtilaSigner } from "@solana/keychain-utila";
+
+const signer = await createUtilaSigner({
+  serviceAccountEmail: "sa@example.com",
+  serviceAccountPrivateKeyPem: "-----BEGIN PRIVATE KEY-----\n...",
+  vaultId: "vault_id",
+  walletId: "wallet_id",
+  network: "networks/solana-devnet"
+});
+```
+
 ### Fordefi
 
-Fordefi 有两种签名模式，通过是否传入 `chain` 来选择。API 请求使用 ECDSA P-256 请求签名进行身份验证——可通过 `privateKeyPem` 提供签名密钥，或通过传入 `requestSigner` 将其保存在 KMS/HSM 中。
+Fordefi 有三种签名模式,在构造时由 `chain` 和
+`pushMode` 决定。每种模式恰好暴露一个交易方法,且三种模式都支持消息签名:
 
-**原生 Solana 模式**（推荐用于链上操作）：设置 `chain`，Fordefi 将自行签名并广播交易。由于 Fordefi 在签名前可能会替换区块哈希或手续费，因此签名者为 Kit 的 `TransactionSendingSigner`——请与 `signAndSendTransactionMessageWithSigners` 配合使用，而非上述的部分签名者流程。
+| 模式          | 配置                                      | 类型                        | 方法                        |
+| ------------- | ------------------------------------------- | --------------------------- | ----------------------------- |
+| 黑盒     | 未设置 `chain`                               | `FordefiBlackBoxSigner`     | `signTransactions()`          |
+| 原生自动   | 已设置 `chain`,`pushMode` 省略或为 `"auto"` | `FordefiNativeSigner`       | `signAndSendTransactions()`   |
+| 原生手动 | 已设置 `chain`,`pushMode: "manual"`           | `FordefiNativeManualSigner` | `modifyAndSignTransactions()` |
+
+API 请求通过 ECDSA P-256 请求签名进行身份验证:将签名密钥作为 `privateKeyPem` 提供,或通过传入
+`requestSigner` 将其保存在 KMS/HSM 中。
+
+**原生自动模式**(推荐用于链上场景):设置 `chain` 后,Fordefi
+会自行签名并广播交易。由于 Fordefi 可能在签名前替换区块哈希或费用,该签名器是 Kit 的
+`TransactionSendingSigner`:请将其与
+`signAndSendTransactionMessageWithSigners` 配合使用,而不要使用上文所示的部分签名器流程。原生自动模式只接受未签名且唯一必需签名者为该金库的交易,并且不能与 `@solana/keychain-kit-plugin` 一起使用。
 
 ```typescript
 import { createFordefiSigner } from "@solana/keychain-fordefi";
@@ -299,6 +406,29 @@ const signature =
   await signAndSendTransactionMessageWithSigners(transactionMessage);
 ```
 
+**原生手动模式**:设置 `chain` 和 `pushMode: "manual"`。Fordefi 会重写消息(最新区块哈希、Compute Budget 费用指令)并对其签名,
+但不会广播。`modifyAndSignTransactions()` 返回
+Fordefi 签名后的交易,它会替换你提交的交易:请务必以返回的交易为准继续后续操作。Fordefi 必须是费用支付方,并且必须先于任何
+其他必需签名者签名。重写内容不会生成差异对比,因此请在广播前检查结果。
+
+```typescript
+import { createFordefiSigner } from "@solana/keychain-fordefi";
+import { readFileSync } from "node:fs";
+
+const signer = await createFordefiSigner({
+  accessToken: process.env.FORDEFI_ACCESS_TOKEN!,
+  vaultId: process.env.FORDEFI_VAULT_ID!,
+  publicKey: process.env.FORDEFI_PUBLIC_KEY!,
+  privateKeyPem: readFileSync("./secret/private.pem", "utf8"),
+  chain: "solana_devnet",
+  pushMode: "manual"
+});
+
+const [signedTransaction] = await signer.modifyAndSignTransactions([
+  transaction
+]);
+```
+
 **黑盒模式**：省略 `chain`。Fordefi 对原始字节进行签名，不负责广播；您需自行组装并提交交易。请将此模式与 Fordefi 黑盒保险库配合使用。
 
 ```typescript
@@ -313,58 +443,82 @@ const signer = await createFordefiSigner({
 });
 ```
 
-## SolanaSigner 接口
+## 签名器能力
 
-`SolanaSigner` 接口扩展了 `@solana/signers` 类型以实现完整兼容性：
+`@solana/keychain-core` 为每种 Kit 签名器形态定义了一个接口。每个接口都在对应的 `@solana/signers` 接口基础上增加了
+`isAvailable(): Promise<boolean>`:
+
+- `SolanaTransactionSigner`(Kit `TransactionPartialSigner`):为你所拥有的交易返回签名。
+- `SolanaModifyingSigner`(Kit `TransactionModifyingSigner`):重写交易并签名,然后返回新交易,但不进行广播。
+- `SolanaSendingSigner`(Kit `TransactionSendingSigner`):通过其提供商签名并广播。
+- `SolanaMessageSigner`(Kit `MessagePartialSigner`):对链下消息签名。
+它与上述交易形态相互独立。
+
+`SolanaSigner` 是这三种交易形态的联合类型。每个工厂函数的返回类型都会指明其后端的确切形态。当配置仅在运行时才能确定时,可使用 `isSolanaTransactionSigner`、`isSolanaModifyingSigner`、
+`isSolanaSendingSigner` 或 `isSolanaMessageSigner` 进行类型收窄。`signerCapabilities(signer)`
+会一次性报告全部四种能力。
+
+| 后端                                                                                                     | 形态                                           |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| memory, vault, aws-kms, gcp-kms, privy, turnkey, fireblocks, cdp, dfns, para, openfort, fordefi(黑盒) | `SolanaTransactionSigner & SolanaMessageSigner` |
+| utila                                                                                                       | `SolanaTransactionSigner`(不支持消息签名)  |
+| fordefi(原生手动)                                                                                     | `SolanaModifyingSigner & SolanaMessageSigner`   |
+| fordefi(原生自动)                                                                                       | `SolanaSendingSigner & SolanaMessageSigner`     |
+| crossmint                                                                                                   | `SolanaSendingSigner`(不支持消息签名)      |
 
 ```typescript
-interface SolanaSigner<TAddress extends string = string>
-  extends TransactionPartialSigner<TAddress>, MessagePartialSigner<TAddress> {
-  // Public key address
-  readonly address: Address<TAddress>;
+import {
+  isSolanaSendingSigner,
+  isSolanaTransactionSigner
+} from "@solana/keychain-core";
 
-  // Health check for remote signers
-  isAvailable(): Promise<boolean>;
-
-  // Sign messages (@solana/kit compatible)
-  signMessages(
-    messages: readonly SignableMessage[]
-  ): Promise<readonly SignatureDictionary[]>;
-
-  // Sign transactions (@solana/kit compatible)
-  signTransactions(
-    transactions: readonly Transaction[]
-  ): Promise<readonly SignatureDictionary[]>;
+if (isSolanaSendingSigner(signer)) {
+  await signer.signAndSendTransactions([transaction]);
+} else if (isSolanaTransactionSigner(signer)) {
+  await signer.signTransactions([transaction]);
 }
 ```
 
 ## 构建自定义签名器
 
-实现 `SolanaSigner` 接口以创建自定义签名器：
+请实现你的后端所支持的能力接口:
 
 ```typescript
-import { SolanaSigner } from "@solana/keychain-core";
+import type {
+  SolanaMessageSigner,
+  SolanaTransactionSigner
+} from "@solana/keychain-core";
 import type { Address } from "@solana/addresses";
+import type {
+  MessagePartialSignerConfig,
+  SignableMessage,
+  TransactionPartialSignerConfig
+} from "@solana/signers";
+import type { Transaction } from "@solana/transactions";
 
-class MyCustomSigner implements SolanaSigner {
-  readonly address: Address;
-
-  constructor(address: Address) {
-    this.address = address;
-  }
+class MyCustomSigner implements SolanaTransactionSigner, SolanaMessageSigner {
+  constructor(readonly address: Address) {}
 
   async isAvailable(): Promise<boolean> {
     return await myBackend.healthCheck();
   }
 
-  async signMessages(messages) {
-    return await myBackend.signMessages(messages);
+  async signMessages(
+    messages: readonly SignableMessage[],
+    config?: MessagePartialSignerConfig
+  ) {
+    return await myBackend.signMessages(messages, config?.abortSignal);
   }
 
-  async signTransactions(transactions) {
-    return await myBackend.signTransactions(transactions);
+  async signTransactions(
+    transactions: readonly Transaction[],
+    config?: TransactionPartialSignerConfig
+  ) {
+    return await myBackend.signTransactions(transactions, config?.abortSignal);
   }
 }
 ```
+
+只实现你的后端所支持的部分。Kit 根据方法是否存在来对签名器进行分类,因此切勿添加仅抛出错误的方法。
 
 请参阅[添加签名器指南](/docs/tools/keychain/adding-signers)，以集成额外的密钥管理服务。

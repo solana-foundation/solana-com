@@ -3,6 +3,9 @@ title: TypeScript
 description: TypeScriptアプリケーションで@solana/keychainをインストールして使用する
 ---
 
+1.xからアップグレードしますか？
+[2.0移行ガイド](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)をご覧ください。
+
 ## インストール
 
 必要に応じて、統合パッケージまたは個別の署名者をインストールします：
@@ -32,6 +35,10 @@ pnpm add @solana/keychain-fordefi     # Fordefi
 pnpm add @solana/keychain-kit-plugin
 ```
 
+`@solana/kit` 8.1以降が必要です。v1トランザクション
+(`createTransactionMessage({ version: 1 })`)はサポートされていますが、
+`useProgramCall: true` を指定したFireblocksは例外で、レガシーとv0のみを受け付けます。
+
 ## 基本的な使い方
 
 ### 統合ファクトリ（複数の署名者をサポートしたいアプリに推奨）
@@ -40,7 +47,7 @@ pnpm add @solana/keychain-kit-plugin
 
 ```typescript
 import { createKeychainSigner } from "@solana/keychain";
-import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers ≥ 6.5
+import { signTransactionWithSigners } from "@solana/signers"; // requires @solana/signers >= 8.1
 
 const signer = await createKeychainSigner({
   backend: "privy",
@@ -70,9 +77,13 @@ const signer = await createPrivySigner({
 
 ### トランザクションメッセージでの使用
 
-すべての署名者は`SolanaSigner`インターフェースを実装しており、`@solana/kit`および`@solana/signers`と互換性があります：
+CrossmintとFordefiネイティブモードを除くすべてのバックエンドは
+`SolanaTransactionSigner` を返します。これはKitの `TransactionPartialSigner` であり、
+以下の `@solana/signers` の部分署名ヘルパーで使用できます。マネージドブロードキャスト型の
+バックエンドについては[Signerの機能](#signer-capabilities)で説明しています。
 
 ```typescript
+import type { SolanaTransactionSigner } from "@solana/keychain-core";
 import { signTransactionMessageWithSigners } from "@solana/signers";
 import {
   createTransactionMessage,
@@ -80,7 +91,7 @@ import {
   pipe
 } from "@solana/kit";
 
-async function signWithKeychain(signer: SolanaSigner) {
+async function signWithKeychain(signer: SolanaTransactionSigner) {
   // Check availability (useful for remote signers)
   if (!(await signer.isAvailable())) {
     throw new Error("Signer offline");
@@ -90,13 +101,28 @@ async function signWithKeychain(signer: SolanaSigner) {
   const transaction = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayerSigner(signer, tx)
-    // ... add instructions
+    // ... set a lifetime and add instructions
   );
 
   // Sign with the standard signers API
   const signedTx = await signTransactionMessageWithSigners(transaction);
   return signedTx;
 }
+```
+
+### 任意のSignerで署名して送信
+
+`@solana/keychain-core` の `signAndSendTransaction` は、Signerの種類にかかわらず
+トランザクションをオンチェーンに送信します。送信型Signerはプロバイダー経由でブロードキャストし、
+それ以外の種類では渡された `sendTransaction` が使用されます(coreはRPCに依存しません):
+
+```typescript
+import { signAndSendTransaction } from "@solana/keychain-core";
+
+const signature = await signAndSendTransaction(signer, transaction, {
+  sendTransaction: (tx) =>
+    sendAndConfirmTransaction(tx, { commitment: "confirmed" })
+});
 ```
 
 ### Kit クライアントでの使用方法（keychainSigner プラグイン）
@@ -119,13 +145,16 @@ const client = await createClient().use(
   })
 );
 
-client.payer; // SolanaSigner — also a Kit TransactionSigner
+client.payer; // SolanaTransactionSigner, also a Kit TransactionPartialSigner
 client.identity; // same signer instance
 ```
 
-このプラグインは `createKeychainSigner`
-と同じバックエンドタグ付き設定を受け付け、ディスパッチ先のバックエンドのみがバンドルされます（バックエンドパッケージは動的な
-`import()` 経由で読み込まれます）。
+プラグインは `createKeychainSigner` と同じバックエンドタグ付き設定を受け付けますが、
+CrossmintとFordefiネイティブモード(`chain` を設定した場合)は除きます。これらのバックエンドは
+トランザクションをサーバー側で書き換えるため、クライアントの `payer` や
+`identity` として機能できず、プラグインはコンパイル時と実行時の両方でこれらを拒否します。
+バンドルされるのは、ディスパッチ先のバックエンドのみです(バックエンドパッケージは動的な
+`import()` で読み込まれます)。
 
 `keychainPayer` または `keychainIdentity`
 を使用して単一のロールのみを設定し、単一クライアント上で複数のバックエンドを混在させることができます：
@@ -138,17 +167,19 @@ const client = await createClient()
   .use(
     keychainPayer({
       backend: "memory",
-      privateKeyPath: "~/.config/solana/id.json"
+      privateKeyPath: `${process.env.HOME}/.config/solana/id.json`
     })
   )
   .use(keychainIdentity({ backend: "turnkey", ...turnkeyConfig }));
 ```
 
-既に `SolanaSigner` をお持ちですか？すべてのキーチェーン署名者は有効な Kit の
-`TransactionSigner` であるため、代わりに
-[`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)を使用して既存のものをインストールできます（`pnpm add @solana/kit-plugin-signer`）：
+すでに `SolanaTransactionSigner` をお持ちですか？それは有効なKitの
+`TransactionPartialSigner` なので、代わりに
+[`@solana/kit-plugin-signer`](https://github.com/anza-xyz/kit-plugins/tree/main/packages/kit-plugin-signer)
+でインストールできます(`pnpm add @solana/kit-plugin-signer`):
 
 ```typescript
+import { createClient } from "@solana/kit";
 import { signer } from "@solana/kit-plugin-signer";
 import { createKeychainSigner } from "@solana/keychain";
 
@@ -159,7 +190,36 @@ const mySigner = await createKeychainSigner({
 const client = createClient().use(signer(mySigner));
 ```
 
+### キャンセルと未確認のブロードキャスト
+
+`signTransactions`、`modifyAndSignTransactions`、`signAndSendTransactions`、
+`signMessages` はいずれも、第2引数に `{ abortSignal }` を受け付けます。中断すると
+待機は停止しますが、プロバイダーがすでに受け付けた処理は取り消されません。
+
+CrossmintおよびFordefiネイティブ自動モードでは、失敗したからといって何も反映されていないとは限りません。
+プロバイダーがトランザクションを受け付けた可能性がある場合、エラーコードは
+`SignerErrorCode.BROADCAST_UNCONFIRMED`(`"SIGNER_BROADCAST_UNCONFIRMED"`)になります。
+作成リクエストが受理された場合は `context.providerTransactionId` が設定され、
+`context.idempotencyKey` にはメッセージから導出されたキーが格納されます。バイト単位で同一の
+トランザクションを再送しても安全ですが、再構築したもの(たとえば新しい
+ブロックハッシュを使用したもの)は新しい送金として扱われます。`@solana/keychain-core` の
+`providerMayHaveAccepted(error)` と `providerStatus(error)` は、エラーの分類に役立ちます。
+再試行する前に、プロバイダー側の状態と照合してください。
+
 ## バックエンド設定
+
+### メモリ
+
+`keyPair`、`privateKey`、`privateKeyString`、`privateKeyPath` のうち、
+いずれか1つだけを指定してください:
+
+```typescript
+import { createMemorySigner } from "@solana/keychain-memory";
+
+const signer = await createMemorySigner({
+  privateKeyPath: "/path/to/id.json"
+});
+```
 
 ### HashiCorp Vault
 
@@ -183,6 +243,18 @@ const signer = createAwsKmsSigner({
   keyId: "alias/my-solana-key",
   publicKey: "base58_public_key",
   region: "us-east-1" // optional
+});
+```
+
+### GCP KMS
+
+```typescript
+import { createGcpKmsSigner } from "@solana/keychain-gcp-kms";
+
+const signer = createGcpKmsSigner({
+  keyName:
+    "projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+  publicKey: "base58_public_key"
 });
 ```
 
@@ -231,10 +303,11 @@ const signer = await createFireblocksSigner({
 import { createCdpSigner } from "@solana/keychain-cdp";
 
 const signer = await createCdpSigner({
-  apiKeyId: "api_key_id",
-  apiKeySecret: "api_key_secret",
-  walletSecret: "wallet_secret",
-  address: "base58_address"
+  cdpApiKeyId: "api_key_id",
+  cdpApiKeySecret: "api_key_secret",
+  cdpWalletSecret: "wallet_secret",
+  address: "base58_address",
+  network: "solana" // or "solana-devnet"; required for address lookup tables
 });
 ```
 
@@ -249,6 +322,16 @@ const signer = await createCrossmintSigner({
 });
 ```
 
+Crossmintは送信専用です。そのAPIは承認済みトランザクションを常にサーバー側で実行し、ガス代をスポンサーするため、
+Signerが公開するのは `signAndSendTransactions()` のみです。`signTransactions()` や `signMessages()` はなく、
+`@solana/keychain-kit-plugin` ではインストールできません。返される署名は、
+Crossmintが反映したトランザクションを示します。
+
+```typescript
+const [signature] = await signer.signAndSendTransactions([transaction]);
+// or: await signAndSendTransactionMessageWithSigners(transactionMessage);
+```
+
 ### Dfns
 
 ```typescript
@@ -258,8 +341,19 @@ const signer = await createDfnsSigner({
   authToken: "auth_token",
   credId: "cred_id",
   privateKeyPem: "-----BEGIN EC PRIVATE KEY-----\n...",
-  appId: "app_id",
   walletId: "wallet_id"
+});
+```
+
+### Openfort
+
+```typescript
+import { createOpenfortSigner } from "@solana/keychain-openfort";
+
+const signer = await createOpenfortSigner({
+  secretKey: "sk_...",
+  walletSecret: "wallet_secret",
+  accountId: "account_id"
 });
 ```
 
@@ -274,11 +368,43 @@ const signer = await createParaSigner({
 });
 ```
 
+### Utila
+
+Utilaはトランザクションへの署名のみに対応しており、`signMessages()` はありません。
+
+```typescript
+import { createUtilaSigner } from "@solana/keychain-utila";
+
+const signer = await createUtilaSigner({
+  serviceAccountEmail: "sa@example.com",
+  serviceAccountPrivateKeyPem: "-----BEGIN PRIVATE KEY-----\n...",
+  vaultId: "vault_id",
+  walletId: "wallet_id",
+  network: "networks/solana-devnet"
+});
+```
+
 ### Fordefi
 
-Fordefiには2つの署名モードがあり、`chain`を渡すかどうかによって選択されます。APIリクエストはECDSA P-256リクエスト署名で認証されます。署名キーは`privateKeyPem`として指定するか、`requestSigner`を渡すことでKMS/HSMに保持することができます。
+Fordefiには3つの署名モードがあり、`chain` と `pushMode` によって構築時に固定されます。
+各モードが公開するトランザクションメソッドはそれぞれ1つだけで、3つともメッセージに署名できます:
 
-**ネイティブSolanaモード**（オンチェーン利用に推奨）：`chain`を設定すると、Fordefiがトランザクションの署名とブロードキャストを行います。Fordefiは署名前にブロックハッシュや手数料を置き換える場合があるため、このサイナーはKitの`TransactionSendingSigner`です。上記の部分署名フローではなく、`signAndSendTransactionMessageWithSigners`と組み合わせて使用してください。
+| モード          | 設定                                      | 型                        | メソッド                        |
+| ------------- | ------------------------------------------- | --------------------------- | ----------------------------- |
+| ブラックボックス     | `chain` 未設定                               | `FordefiBlackBoxSigner`     | `signTransactions()`          |
+| ネイティブ自動   | `chain` 設定済み、`pushMode` 省略または `"auto"` | `FordefiNativeSigner`       | `signAndSendTransactions()`   |
+| ネイティブ手動 | `chain` 設定済み、`pushMode: "manual"`           | `FordefiNativeManualSigner` | `modifyAndSignTransactions()` |
+
+APIリクエストはECDSA P-256のリクエスト署名で認証されます。署名鍵を
+`privateKeyPem` として指定するか、`requestSigner` を渡してKMS/HSMで鍵を管理してください。
+
+**ネイティブ自動モード**(オンチェーンでの利用に推奨): `chain` を設定すると、Fordefiが
+トランザクションへの署名とブロードキャストを自ら行います。Fordefiは署名前にブロックハッシュや手数料を
+置き換える場合があるため、SignerはKitの
+`TransactionSendingSigner` となります。上記の部分署名フローではなく、
+`signAndSendTransactionMessageWithSigners` と組み合わせて使用してください。ネイティブ自動モードが受け付けるのは、
+必要な署名者がVaultのみである未署名トランザクションだけで、
+`@solana/keychain-kit-plugin` では使用できません。
 
 ```typescript
 import { createFordefiSigner } from "@solana/keychain-fordefi";
@@ -298,6 +424,31 @@ const signature =
   await signAndSendTransactionMessageWithSigners(transactionMessage);
 ```
 
+**ネイティブ手動モード**: `chain` と `pushMode: "manual"` を設定します。Fordefiはメッセージ
+(最新のブロックハッシュ、Compute Budgetの手数料instructions)を書き換えて署名しますが、
+ブロードキャストは行いません。`modifyAndSignTransactions()` は、Fordefiが署名したトランザクションを返し、
+それは送信したものと置き換わります。必ず返されたトランザクションから続行してください。Fordefiは手数料支払者である必要があり、
+ほかの必要な署名者より先に署名しなければなりません。書き換え内容の差分は取得されないため、
+ブロードキャストする前に結果を確認してください。
+
+```typescript
+import { createFordefiSigner } from "@solana/keychain-fordefi";
+import { readFileSync } from "node:fs";
+
+const signer = await createFordefiSigner({
+  accessToken: process.env.FORDEFI_ACCESS_TOKEN!,
+  vaultId: process.env.FORDEFI_VAULT_ID!,
+  publicKey: process.env.FORDEFI_PUBLIC_KEY!,
+  privateKeyPem: readFileSync("./secret/private.pem", "utf8"),
+  chain: "solana_devnet",
+  pushMode: "manual"
+});
+
+const [signedTransaction] = await signer.modifyAndSignTransactions([
+  transaction
+]);
+```
+
 **ブラックボックスモード**：`chain`を省略します。Fordefiは生のバイト列に署名しますが、ブロードキャストは行いません。トランザクションのアセンブルと送信はご自身で行ってください。このモードはFordefiのブラックボックスボールトと組み合わせて使用します。
 
 ```typescript
@@ -312,59 +463,88 @@ const signer = await createFordefiSigner({
 });
 ```
 
-## SolanaSigner インターフェース
+## Signerの機能
 
-`SolanaSigner` インターフェースは、完全な互換性のために `@solana/signers`
-型を拡張します：
+`@solana/keychain-core` は、Kitの各Signerの種類ごとにインターフェースを1つ定義しています。それぞれが、対応する
+`@solana/signers` インターフェースに `isAvailable(): Promise<boolean>` を追加します:
+
+- `SolanaTransactionSigner`(Kitの `TransactionPartialSigner`): 自身が所有するトランザクションに対する署名を
+  返します。
+- `SolanaModifyingSigner`(Kitの `TransactionModifyingSigner`): トランザクションを書き換えて署名し、
+  ブロードキャストせずに新しいトランザクションを返します。
+- `SolanaSendingSigner`(Kitの `TransactionSendingSigner`): プロバイダー経由で署名と
+  ブロードキャストを行います。
+- `SolanaMessageSigner`(Kitの `MessagePartialSigner`): オフチェーンメッセージに署名します。
+  トランザクションの種類とは別のものです。
+
+`SolanaSigner` は、3つのトランザクションの種類のユニオン型です。各ファクトリの
+戻り値の型は、そのバックエンド固有のシェイプを示します。設定が実行時にしか分からない場合は、
+`isSolanaTransactionSigner`、`isSolanaModifyingSigner`、
+`isSolanaSendingSigner`、`isSolanaMessageSigner` で型を絞り込みます。`signerCapabilities(signer)` は
+4つすべてをまとめて返します。
+
+| バックエンド                                                                                                     | シェイプ                                           |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| memory, vault, aws-kms, gcp-kms, privy, turnkey, fireblocks, cdp, dfns, para, openfort, fordefi (black box) | `SolanaTransactionSigner & SolanaMessageSigner` |
+| utila                                                                                                       | `SolanaTransactionSigner`(メッセージ署名なし)  |
+| fordefi (native manual)                                                                                     | `SolanaModifyingSigner & SolanaMessageSigner`   |
+| fordefi (native auto)                                                                                       | `SolanaSendingSigner & SolanaMessageSigner`     |
+| crossmint                                                                                                   | `SolanaSendingSigner`(メッセージ署名なし)      |
 
 ```typescript
-interface SolanaSigner<TAddress extends string = string>
-  extends TransactionPartialSigner<TAddress>, MessagePartialSigner<TAddress> {
-  // Public key address
-  readonly address: Address<TAddress>;
+import {
+  isSolanaSendingSigner,
+  isSolanaTransactionSigner
+} from "@solana/keychain-core";
 
-  // Health check for remote signers
-  isAvailable(): Promise<boolean>;
-
-  // Sign messages (@solana/kit compatible)
-  signMessages(
-    messages: readonly SignableMessage[]
-  ): Promise<readonly SignatureDictionary[]>;
-
-  // Sign transactions (@solana/kit compatible)
-  signTransactions(
-    transactions: readonly Transaction[]
-  ): Promise<readonly SignatureDictionary[]>;
+if (isSolanaSendingSigner(signer)) {
+  await signer.signAndSendTransactions([transaction]);
+} else if (isSolanaTransactionSigner(signer)) {
+  await signer.signTransactions([transaction]);
 }
 ```
 
 ## カスタム署名者の構築
 
-`SolanaSigner` インターフェースを実装してカスタム署名者を作成します：
+お使いのバックエンドが対応するケイパビリティインターフェースを実装してください:
 
 ```typescript
-import { SolanaSigner } from "@solana/keychain-core";
+import type {
+  SolanaMessageSigner,
+  SolanaTransactionSigner
+} from "@solana/keychain-core";
 import type { Address } from "@solana/addresses";
+import type {
+  MessagePartialSignerConfig,
+  SignableMessage,
+  TransactionPartialSignerConfig
+} from "@solana/signers";
+import type { Transaction } from "@solana/transactions";
 
-class MyCustomSigner implements SolanaSigner {
-  readonly address: Address;
-
-  constructor(address: Address) {
-    this.address = address;
-  }
+class MyCustomSigner implements SolanaTransactionSigner, SolanaMessageSigner {
+  constructor(readonly address: Address) {}
 
   async isAvailable(): Promise<boolean> {
     return await myBackend.healthCheck();
   }
 
-  async signMessages(messages) {
-    return await myBackend.signMessages(messages);
+  async signMessages(
+    messages: readonly SignableMessage[],
+    config?: MessagePartialSignerConfig
+  ) {
+    return await myBackend.signMessages(messages, config?.abortSignal);
   }
 
-  async signTransactions(transactions) {
-    return await myBackend.signTransactions(transactions);
+  async signTransactions(
+    transactions: readonly Transaction[],
+    config?: TransactionPartialSignerConfig
+  ) {
+    return await myBackend.signTransactions(transactions, config?.abortSignal);
   }
 }
 ```
+
+バックエンドが対応している機能だけを実装してください。Kitはどのメソッドが存在するかでSignerを分類するため、
+単に例外をスローするだけのメソッドは決して追加しないでください。
 
 追加の鍵管理サービスを統合するには、[署名者の追加ガイド](/docs/tools/keychain/adding-signers)を参照してください。

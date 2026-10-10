@@ -1,0 +1,92 @@
+---
+title: Arquitetura
+description:
+  Como uma requisição percorre um nó Kora e onde cada etapa fica no crate. Comece por aqui antes de fazer sua primeira alteração.
+---
+
+Kora é um workspace Rust com três crates:
+
+- `kora-lib` contém a lógica central e o servidor RPC,
+- `kora-cli` compila o binário `kora` executado pelos operadores, e
+- `kora-deploy` é uma ferramenta especializada de implantação de programas, com versionamento próprio.
+  Tudo abaixo está em `crates/lib/src`, salvo indicação em contrário.
+
+## O ciclo de vida da requisição
+
+O diagrama abaixo mostra o fluxo geral de uma transação através do Kora.
+Entender o caminho das chamadas é importante para configurar um nó Kora e adicionar
+novos recursos.
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## Onde fica cada etapa
+
+| Etapa no diagrama | Código-fonte                               | Ponto de entrada                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| Gateway              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| Despacho             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| Lógica por método     | `rpc_server/method/`                 | um arquivo por método JSON-RPC          |
+| Validação           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| Plugins              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| Assinatura              | `signer/`                            | baseada no crate `solana-keychain` |
+
+Mais dois arquivos que vale conhecer: `config.rs` define todo o esquema do `kora.toml`, e
+`state.rs` mantém a configuração desserializada em um estado global do processo.
+
+### Lendo o servidor RPC
+
+`rpc.rs` é uma camada de despacho enxuta, com um método por endpoint JSON-RPC, e a
+forma mais rápida de ver toda a API. A lógica de cada método fica em seu próprio arquivo em
+`rpc_server/method/`. Leia `sign_transaction.rs` do início ao fim; os demais métodos
+de assinatura são variações dele.
+
+### Lendo o validador
+
+`transaction_validator.rs` e `transaction/instruction_util.rs` contêm a lógica de
+validação de transações e instruções. Além disso, há os testes de propriedades de segurança da
+fee-payer-policy, que ficam em um arquivo por programa controlado em
+`validator/transaction_validator/fee_payer_policy_props/`.
+
+## Convenções que vale conhecer
+
+**Validação padrão.** Toda flag em `[validation.fee_payer_policy]`
+tem `false` como valor padrão, e as structs de política carregam `#[serde(default)]`. Esse
+par é deliberado: adicionar uma instrução recém-controlada não deve quebrar a configuração de
+um operador existente, e deve resultar em uma negação, e não em uma permissão
+acidental. Preserve ambos ao adicionar uma flag.
+
+**Valide a transação resolvida, nunca a bruta.** A
+`VersionedTransaction` bruta expõe apenas chaves de conta estáticas, então validar ou
+precificar uma transação V0 a partir dela ignora silenciosamente as contas de lookup table e
+cobra a menos. `VersionedTransactionResolved::from_transaction` resolve esses
+endereços logo no início, e é por isso que todas as etapas seguintes recebem o tipo resolvido.
+
+## Adicionando um plugin de transação
+
+Os plugins implementam a trait `TransactionPlugin` em `plugin/mod.rs`. Ela tem dois
+métodos: `validate` é executado por transação durante os fluxos de assinatura, e
+`validate_config` é executado uma vez na inicialização e retorna erros e avisos para o
+operador. Um `PluginExecutionContext` informa ao plugin qual dos quatro métodos de assinatura
+o invocou.
+
+`TransactionPluginRunner::from_config` faz a correspondência com `TransactionPluginType`,
+definido em `config.rs`. Um novo plugin integrado consiste em uma nova variante ali, mais um novo
+braço de match no runner. Os dois plugins distribuídos atualmente são `gas_swap` e
+`deploy_authority`.
+
+## Testes
+
+O Kora mantém a configuração em estado global do processo, então `tests/` declara um
+target `[[test]]` por fase, e cada target inicializa seu próprio surfnet embarcado junto com um
+nó Kora, preparado do zero. Uma configuração por binário: uma nova fase exige um novo
+target, e não um novo módulo em um já existente.
+
+```bash
+cargo test -p tests --test <target>
+```
+
+Todo o resto é conectado por meio do `justfile`. Leia-o em vez de
+reconstruir os comandos manualmente.

@@ -279,14 +279,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Integraatiotestit
 
-Kora käyttää yhtenäistä testiajuria (`tests/src/bin/test_runner.rs`), joka
-hallinnoi kaikkia integraatiotestauksen vaiheita, mukaan lukien
-TypeScript-testit. Lisätäksesi testit uudelle allekirjoittajallesi:
+Jokainen integraatiovaihe on oma `[[test]]`-kohteensa tiedostossa `tests/Cargo.toml`. Jokainen
+kohde käynnistää upotetun surfnetin ja Kora-solmun `harness_context`:in kautta,
+alustettuna tyhjästä. Kora säilyttää konfiguraation prosessikohtaisessa globaalissa tilassa, joten uusi
+allekirjoittaja tarvitsee uuden kohteen eikä uutta moduulia olemassa olevaan kohteeseen.
 
-#### 1. Lisää testikonfiguraatio
+#### 1. Lisää allekirjoittajan testiaineisto
 
-Luo uusi allekirjoittajan konfiguraatiotiedosto palveluasi varten kohteeseen
-`tests/src/common/fixtures/`:
+Luo allekirjoittajan konfiguraatio hakemistoon `tests/src/common/fixtures/`:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -301,47 +301,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Lisää testivaihe testiajuriin
+#### 2. Lisää testikohde
 
-Päivitä `tests/src/test_runner/test_cases.toml` sisältämään testivaihe
-allekirjoittajallesi:
+Rekisteröi vaihe tiedostossa `tests/Cargo.toml`:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Luo sitten `tests/your_service/main.rs`. Se osoittaa testikehyksen aineistoosi
+ja sen on sisällettävä vähintään yksi `#[tokio::test]`, joka testaa allekirjoittajaa:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+Lisää myös `signTransaction`-testi, jotta allekirjoittajan allekirjoituspolku tulee ajettua eikä pelkästään
+avaimen haku. `tests/multi_signer/` on täydellinen esimerkki, jota voit käyttää mallina.
 
 #### 3. Testien suorittaminen
 
-Varmista, että ympäristösi on määritetty:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Suorita testit yhtenäisellä testiajurilla:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Dokumentointivaatimukset
@@ -405,7 +424,7 @@ Lisää palvelusi pääasiallisen README:n validator-listaan.
 - [ ] (Valinnainen) Lisätty testimallin rakentajametodi kohteessa
       `config_mock.rs`
 - [ ] Koodi kääntyy ilman varoituksia
-- [ ] Kaikki testit läpäistään (`make test` ja `make test-integration`)
+- [ ] Kaikki testit läpäistään (`just test`)
 - [ ] Dokumentaatio lisätty ohjeiden mukaisesti
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] Esimerkkikonfiguraatiotiedostot luotu (`.toml` ja `.env.example`)

@@ -269,11 +269,11 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### 集成测试
 
-Kora 使用统一的测试运行器（`tests/src/bin/test_runner.rs`）来管理所有集成测试阶段，包括 TypeScript 测试。为您的新签名器添加测试：
+每个集成阶段都是 `tests/Cargo.toml` 中独立的 `[[test]]` 目标。每个目标都会通过 `harness_context` 启动一个嵌入式 surfnet 和一个 Kora 节点,并从零开始初始化。Kora 将配置保存在进程全局状态中,因此新增签名者需要新增一个目标,而不是在现有目标中添加新模块。
 
-#### 1. 添加测试配置
+#### 1. 添加签名者固件
 
-在 `tests/src/common/fixtures/` 中为您的服务创建新的签名器配置文件：
+在 `tests/src/common/fixtures/` 中创建签名者配置:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -288,46 +288,64 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. 将测试阶段添加到测试运行器
+#### 2. 添加测试目标
 
-更新 `tests/src/test_runner/test_cases.toml` 以包含您的签名器的测试阶段：
+在 `tests/Cargo.toml` 中注册该阶段:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+然后创建 `tests/your_service/main.rs`。它会让测试框架指向你的固件,并且必须至少包含一个用于测试该签名者的 `#[tokio::test]`:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+同时还要添加一个 `signTransaction` 测试,以便运行签名者的签名路径,而不仅仅是密钥查找。可以参考完整示例 `tests/multi_signer/` 进行复制。
 
 #### 3. 运行测试
 
-确保您的环境已设置：
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-使用统一的测试运行器运行测试：
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## 文档要求
@@ -390,7 +408,7 @@ YOUR_SERVICE_WALLET_ID="your_wallet_id" \```
 - [ ] 已在 `mod.rs` 中导出配置结构体
 - [ ] （可选）已在 `config_mock.rs` 中添加测试 mock 构建方法
 - [ ] 代码编译无警告
-- [ ] 所有测试通过（`make test` 和 `make test-integration`）
+- [ ] 所有测试均通过(`just test`)
 - [ ] 已按照以下文档添加说明文档
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] 已创建示例配置文件（`.toml` 和 `.env.example`）

@@ -1,0 +1,109 @@
+---
+title: Firma parcial
+description:
+  Crea un único mensaje de transacción inmutable de Solana, recopila sus firmas de firmantes independientes, verifícalas y combínalas, y luego envía la transacción.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+La firma parcial permite que varias partes firmen la misma transacción en momentos
+distintos o en dispositivos diferentes. Un coordinador crea el mensaje, cada firmante
+requerido firma los bytes exactos del mensaje serializado, y el coordinador verifica
+y combina las firmas antes del envío.
+
+<Callout type="warn" title="Las firmas autorizan bytes, no intenciones">
+  Cambiar el pagador de la comisión, el blockhash, el orden de las instrucciones, la lista de cuentas o cualquier
+  instruction data genera un mensaje distinto e invalida todas las firmas
+  ya recopiladas.
+</Callout>
+
+## Flujo de firma parcial
+
+1. Acordar las instrucciones de la transacción y quién pagará la comisión.
+2. Definir la vigencia de la transacción y el pagador de la comisión.
+3. Serializar el mensaje una sola vez. Tratar esos bytes como inmutables.
+4. Distribuir los bytes del mensaje y un resumen legible a cada firmante.
+5. Recopilar y verificar cada firma Ed25519 con los mismos bytes del mensaje.
+6. Adjuntar las firmas a las direcciones de los firmantes requeridos correspondientes.
+7. Confirmar que todas las firmas requeridas están presentes y son válidas, y luego enviar.
+
+## Ejemplo completo
+
+El pagador de la comisión y el remitente de SOL que aparecen a continuación firman de forma independiente. El coordinador verifica
+ambas firmas, las combina y envía la transacción completada.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+El ejemplo utiliza firma Ed25519 sin procesar para dejar explícito el límite entre el
+coordinador y cada firmante. Una billetera, un dispositivo de hardware, un servicio
+de custodia o un firmante sin conexión pueden sustituir cualquiera de los keypair locales siempre que firmen
+exactamente los mismos bytes del mensaje.
+
+## Congela el mensaje antes de firmar
+
+Cada firma cubre el mensaje de transacción serializado. El mensaje incluye
+todo lo siguiente:
+
+- el pagador de la comisión
+- el blockhash reciente o el nonce duradero
+- las direcciones de todos los programas y cuentas
+- los permisos de firmante y de escritura de las cuentas
+- el orden de las instrucciones y las instruction data
+
+Define primero estos campos, serializa el mensaje una sola vez y distribuye ese arreglo
+de bytes a cada firmante. Resulta útil guardar un resumen (digest) del mensaje junto con
+cada solicitud de firma para que el coordinador pueda rechazar una firma devuelta para
+un mensaje diferente.
+
+No deserialices un mensaje, lo modifiques y esperes que las firmas recopiladas
+previamente sigan siendo válidas. Incluso un cambio que parezca operativo, como
+reemplazar un blockhash vencido o cambiar el pagador de la comisión, obliga a que todos los firmantes
+vuelvan a firmar.
+
+## Coordina el pagador de la comisión
+
+El pagador de la comisión es siempre un firmante requerido y debe elegirse antes de congelar
+el mensaje. Confirma que la cuenta tenga suficiente SOL para la comisión base y cualquier
+comisión de prioridad. Si un patrocinador o un backend pagará la comisión, incluye esa dirección en el
+mensaje antes de recopilar la firma del usuario; añadir al patrocinador después modifica
+los bytes firmados.
+
+El coordinador debe verificar que una firma entrante pertenezca a una dirección
+incluida como firmante requerido. Nunca aceptes una clave pública arbitraria ni la añadas
+a la transacción.
+
+## Gestiona la vigencia de la transacción
+
+Una transacción con blockhash reciente solo es válida mientras su blockhash permanezca en la
+cola de blockhashes recientes del validator. Antes de iniciar un flujo de firma entre varias partes,
+estima si todos los firmantes pueden responder antes de `lastValidBlockHeight`.
+
+Si el blockhash vence, crea un mensaje nuevo con un blockhash reciente y recopila
+todas las firmas de nuevo. Para flujos de trabajo que pueden tardar más o que incluyen firmantes
+sin conexión, usa un [nonce duradero](/docs/core/transactions/durable-nonces). Un
+nonce duradero evita la ventana del blockhash reciente, pero avanzar o consumir de otro modo
+ese nonce igualmente invalida la transacción pendiente.
+
+## Verifica antes del envío
+
+Para cada firma devuelta:
+
+1. Verifica la firma con los bytes del mensaje congelado y la clave pública del
+   firmante esperado.
+2. Adjúntala a la posición de ese firmante en el arreglo de firmas de la transacción.
+3. Verifica que la transacción ensamblada tenga firmas válidas de todos los
+   firmantes requeridos.
+4. Envía la transacción serializada sin reconstruir su mensaje.
+
+Después del envío, confirma usando la misma información de vigencia que se incluyó
+en el mensaje firmado. Si la confirmación indica un blockhash vencido o un
+nonce consumido, no reintentes con una transacción modificada; reinicia el flujo de firma.

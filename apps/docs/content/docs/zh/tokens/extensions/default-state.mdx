@@ -396,20 +396,17 @@ await client.sendTransaction([
 
 ### 源码参考
 
-| 项目                                             | 描述                                                               | 源码                                                                                                                                             |
-| ------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| _rs`DefaultAccountState`_                        | 存储新代币账户应继承状态的铸币扩展。                               | [源码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/default_account_state/mod.rs#L16-L21)         |
-| _rs`DefaultAccountStateInstruction::Initialize`_ | 在 _rs`InitializeMint`_ 之前初始化铸币账户默认代币账户状态的指令。 | [源码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/default_account_state/instruction.rs#L20-L36) |
-| _rs`DefaultAccountStateInstruction::Update`_     | 允许冻结权限更改未来代币账户默认状态的指令。                       | [源码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/default_account_state/instruction.rs#L37-L53) |
+| 项目                                             | 描述                                                                                         | 源码                                                                                                                                             |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| _rs`DefaultAccountState`_                        | 存储新代币账户应继承状态的铸币扩展。                             | [源码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/default_account_state/mod.rs#L16-L21)         |
+| _rs`DefaultAccountStateInstruction::Initialize`_ | 在 _rs`InitializeMint`_ 之前初始化铸币账户默认代币账户状态的指令。    | [源码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/default_account_state/instruction.rs#L20-L36) |
+| _rs`DefaultAccountStateInstruction::Update`_     | 允许冻结权限更改未来代币账户默认状态的指令。      | [源码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/interface/src/extension/default_account_state/instruction.rs#L37-L53) |
 | _rs`process_initialize_default_account_state`_   | 将初始默认状态写入未初始化铸币账户的处理器逻辑。                   | [源码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/default_account_state/processor.rs#L29-L40)     |
-| _rs`process_update_default_account_state`_       | 在更改铸币账户存储的默认状态之前验证冻结权限的处理器逻辑。         | [源码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/default_account_state/processor.rs#L43-L74)     |
+| _rs`process_update_default_account_state`_       | 在更改铸币账户存储的默认状态之前验证冻结权限的处理器逻辑。 | [源码](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/default_account_state/processor.rs#L43-L74)     |
 
-### Typescript
+### Kit
 
-下面的 `Kit` 示例直接使用生成的指令。包含使用 `@solana/web3.js` 和
-`@solana/spl-token` 的旧版示例以供参考。
-
-#### Kit
+这些示例直接使用生成的 Token-2022 指令。
 
 <CodeTabs storage="token-ts-kit" flags="r">
 
@@ -546,7 +543,371 @@ console.log(
 
 </CodeTabs>
 
-#### Web3.js
+### Web3.js v3
+
+这些示例使用基于类的 `@solana/web3.js` v3 API 以及
+`@solana-program` 指令构建器。
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
+import {
+  AccountState,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstruction,
+  getInitializeDefaultAccountStateInstruction,
+  getInitializeMint2Instruction,
+  getMintDecoder,
+  getMintSize,
+  getTokenDecoder,
+  getUpdateDefaultAccountStateInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = await Keypair.generate();
+
+const getTokenAccountStateLabel = (state: AccountState) => AccountState[state];
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mint = await Keypair.generate();
+const mintLength = getMintSize([
+  { __kind: "DefaultAccountState", state: AccountState.Frozen }
+]);
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
+
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new mint account.
+  newAccountPubkey: mint.publicKey, // New mint account to create.
+  space: mintLength, // Account size in bytes for the mint plus DefaultAccountState.
+  lamports: mintRent, // Lamports funding the mint account rent.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+});
+
+// !mark(1:5)
+const initializeDefaultStateInstruction =
+  getInitializeDefaultAccountStateInstruction({
+    mint: mint.publicKey, // Mint account that stores the DefaultAccountState extension.
+    state: AccountState.Frozen // Default state assigned to new token accounts.
+  });
+
+const initializeMintInstruction = getInitializeMint2Instruction({
+  mint: mint.publicKey, // Mint account to initialize.
+  decimals: 0, // Number of decimals for the token.
+  mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+  freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    createMintAccountInstruction,
+    initializeDefaultStateInstruction,
+    initializeMintInstruction
+  ),
+  [feePayer, mint]
+);
+
+const [tokenAccount] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: feePayer.publicKey.toBase58(),
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer, // Account funding the associated token account creation.
+      ata: tokenAccount, // Associated token account address to create.
+      owner: feePayer.publicKey, // Owner of the token account.
+      mint: mint.publicKey // Mint for the associated token account.
+    })
+  ),
+  [feePayer],
+  {
+    commitment: "confirmed"
+  }
+);
+
+const readDefaultAccountState = async () => {
+  const mintAccountInfo = await connection.getAccountInfo(
+    mint.publicKey,
+    "confirmed"
+  );
+  const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+  return (unwrapOption(mintAccount.extensions) ?? []).find(
+    (extension) => extension.__kind === "DefaultAccountState"
+  );
+};
+
+const readTokenAccountState = async () => {
+  const tokenAccountInfo = await connection.getAccountInfo(
+    new PublicKey(tokenAccount),
+    "confirmed"
+  );
+  return getTokenDecoder().decode(tokenAccountInfo!.data).state;
+};
+
+const tokenAccountStateBeforeUpdate = await readTokenAccountState();
+const defaultAccountStateBeforeUpdate = await readDefaultAccountState();
+
+// !mark(1:5)
+const updateDefaultStateInstruction = getUpdateDefaultAccountStateInstruction({
+  mint: mint.publicKey, // Mint account that stores the DefaultAccountState extension.
+  state: AccountState.Initialized, // New default state assigned to later token accounts.
+  freezeAuthority: feePayer // Freeze authority authorized to update the default state.
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(updateDefaultStateInstruction),
+  [feePayer],
+  {
+    commitment: "confirmed"
+  }
+);
+
+const tokenAccountStateAfterUpdate = await readTokenAccountState();
+const defaultAccountStateAfterUpdate = await readDefaultAccountState();
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log(
+  "Default Account State Before Update:",
+  defaultAccountStateBeforeUpdate
+);
+console.log(
+  "Token Account State Before Update:",
+  getTokenAccountStateLabel(tokenAccountStateBeforeUpdate)
+);
+console.log(
+  "Default Account State After Update:",
+  defaultAccountStateAfterUpdate
+);
+console.log(
+  "Token Account State After Update:",
+  getTokenAccountStateLabel(tokenAccountStateAfterUpdate)
+);
+```
+
+</CodeTabs>
+
+### Rust
+
+<CodeTabs storage="token-rs" flags="r">
+
+```rust !! title="Rust"
+use anyhow::Result;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+use solana_system_interface::instruction::create_account;
+use spl_associated_token_account_interface::{
+    address::get_associated_token_address_with_program_id,
+    instruction::create_associated_token_account,
+};
+use spl_token_2022_interface::{
+    extension::{
+        default_account_state::{
+            instruction::{initialize_default_account_state, update_default_account_state},
+            DefaultAccountState,
+        },
+        BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+    },
+    instruction::initialize_mint,
+    state::{Account, AccountState, Mint},
+    ID as TOKEN_2022_PROGRAM_ID,
+};
+
+fn get_account_state_label(state: AccountState) -> &'static str {
+    match state {
+        AccountState::Frozen => "Frozen",
+        AccountState::Initialized => "Initialized",
+        AccountState::Uninitialized => "Uninitialized",
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let client = RpcClient::new_with_commitment(
+        String::from("http://localhost:8899"),
+        CommitmentConfig::confirmed(),
+    );
+    let fee_payer = Keypair::new();
+
+    let airdrop_signature = client
+        .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
+        .await?;
+
+    loop {
+        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
+        if confirmed {
+            break;
+        }
+    }
+
+    let mint = Keypair::new();
+
+    let mint_space =
+        ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::DefaultAccountState])?;
+
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(mint_space)
+        .await?;
+
+    let create_mint_account_instruction = create_account(
+        &fee_payer.pubkey(),    // Account funding the new mint account.
+        &mint.pubkey(),         // New mint account to create.
+        mint_rent,              // Lamports funding the mint account rent.
+        mint_space as u64,      // Account size in bytes for the mint plus DefaultAccountState.
+        &TOKEN_2022_PROGRAM_ID, // Program that owns the mint account.
+    );
+
+    // !mark(1:5)
+    let initialize_default_account_state_instruction = initialize_default_account_state(
+        &TOKEN_2022_PROGRAM_ID, // Token program that owns the mint.
+        &mint.pubkey(), // Mint account that stores the DefaultAccountState extension.
+        &AccountState::Frozen, // Default state assigned to new token accounts.
+    )?;
+
+    let initialize_mint_instruction = initialize_mint(
+        &TOKEN_2022_PROGRAM_ID,    // Program that owns the mint account.
+        &mint.pubkey(),            // Mint account to initialize.
+        &fee_payer.pubkey(),       // Authority allowed to mint new tokens.
+        Some(&fee_payer.pubkey()), // Authority allowed to freeze token accounts.
+        0,                         // Number of decimals for the token.
+    )?;
+
+    let create_mint_transaction = Transaction::new_signed_with_payer(
+        &[
+            create_mint_account_instruction,
+            initialize_default_account_state_instruction,
+            initialize_mint_instruction,
+        ],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer, &mint],
+        client.get_latest_blockhash().await?,
+    );
+
+    client
+        .send_and_confirm_transaction(&create_mint_transaction)
+        .await?;
+
+    let token_account = get_associated_token_address_with_program_id(
+        &fee_payer.pubkey(),
+        &mint.pubkey(),
+        &TOKEN_2022_PROGRAM_ID,
+    );
+
+    let create_token_account_transaction = Transaction::new_signed_with_payer(
+        &[create_associated_token_account(
+            &fee_payer.pubkey(), // Account funding the associated token account creation.
+            &fee_payer.pubkey(), // Owner of the token account.
+            &mint.pubkey(), // Mint for the associated token account.
+            &TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+        )],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        client.get_latest_blockhash().await?,
+    );
+
+    client
+        .send_and_confirm_transaction(&create_token_account_transaction)
+        .await?;
+
+    let token_account_data_before_update = client.get_account(&token_account).await?;
+    let token_account_state_before_update =
+        StateWithExtensions::<Account>::unpack(&token_account_data_before_update.data)?;
+    let mint_account_before_update = client.get_account(&mint.pubkey()).await?;
+    let mint_state_before_update =
+        StateWithExtensions::<Mint>::unpack(&mint_account_before_update.data)?;
+    let default_account_state_before_update = mint_state_before_update
+        .get_extension::<DefaultAccountState>()?;
+
+    // !mark(1:6)
+    let update_default_account_state_instruction = update_default_account_state(
+        &TOKEN_2022_PROGRAM_ID, // Token program that owns the mint.
+        &mint.pubkey(), // Mint account that stores the DefaultAccountState extension.
+        &fee_payer.pubkey(), // Freeze authority authorized to update the default state.
+        &[&fee_payer.pubkey()], // Additional multisig signers.
+        &AccountState::Initialized, // New default state assigned to later token accounts.
+    )?;
+
+    let update_default_account_state_transaction = Transaction::new_signed_with_payer(
+        &[update_default_account_state_instruction],
+        Some(&fee_payer.pubkey()),
+        &[&fee_payer],
+        client.get_latest_blockhash().await?,
+    );
+
+    client
+        .send_and_confirm_transaction(&update_default_account_state_transaction)
+        .await?;
+
+    let token_account_data_after_update = client.get_account(&token_account).await?;
+    let token_account_state_after_update =
+        StateWithExtensions::<Account>::unpack(&token_account_data_after_update.data)?;
+    let mint_account_after_update = client.get_account(&mint.pubkey()).await?;
+    let mint_state_after_update =
+        StateWithExtensions::<Mint>::unpack(&mint_account_after_update.data)?;
+    let default_account_state_after_update =
+        mint_state_after_update.get_extension::<DefaultAccountState>()?;
+
+    println!("Mint Address: {}", mint.pubkey());
+    println!(
+        "Default Account State Before Update: {:?}",
+        default_account_state_before_update
+    );
+    println!(
+        "Token Account State Before Update: {}",
+        get_account_state_label(token_account_state_before_update.base.state)
+    );
+    println!(
+        "Default Account State After Update: {:?}",
+        default_account_state_after_update
+    );
+    println!(
+        "Token Account State After Update: {}",
+        get_account_state_label(token_account_state_after_update.base.state)
+    );
+
+    Ok(())
+}
+```
+
+</CodeTabs>
+
+### Web3.js（旧版）
+
+这些示例使用旧版 `@solana/web3.js` 和 `@solana/spl-token`。
 
 <CodeTabs storage="token-ts-legacy" flags="r">
 
@@ -737,194 +1098,6 @@ console.log(
   "Token Account State After Update:",
   getTokenAccountStateLabel(tokenAccountAfterUpdate)
 );
-```
-
-</CodeTabs>
-
-### Rust
-
-<CodeTabs storage="token-rs" flags="r">
-
-```rust !! title="Rust"
-use anyhow::Result;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_commitment_config::CommitmentConfig;
-use solana_sdk::{
-    signature::{Keypair, Signer},
-    transaction::Transaction,
-};
-use solana_system_interface::instruction::create_account;
-use spl_associated_token_account_interface::{
-    address::get_associated_token_address_with_program_id,
-    instruction::create_associated_token_account,
-};
-use spl_token_2022_interface::{
-    extension::{
-        default_account_state::{
-            instruction::{initialize_default_account_state, update_default_account_state},
-            DefaultAccountState,
-        },
-        BaseStateWithExtensions, ExtensionType, StateWithExtensions,
-    },
-    instruction::initialize_mint,
-    state::{Account, AccountState, Mint},
-    ID as TOKEN_2022_PROGRAM_ID,
-};
-
-fn get_account_state_label(state: AccountState) -> &'static str {
-    match state {
-        AccountState::Frozen => "Frozen",
-        AccountState::Initialized => "Initialized",
-        AccountState::Uninitialized => "Uninitialized",
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    let client = RpcClient::new_with_commitment(
-        String::from("http://localhost:8899"),
-        CommitmentConfig::confirmed(),
-    );
-    let fee_payer = Keypair::new();
-
-    let airdrop_signature = client
-        .request_airdrop(&fee_payer.pubkey(), 5_000_000_000)
-        .await?;
-
-    loop {
-        let confirmed = client.confirm_transaction(&airdrop_signature).await?;
-        if confirmed {
-            break;
-        }
-    }
-
-    let mint = Keypair::new();
-
-    let mint_space =
-        ExtensionType::try_calculate_account_len::<Mint>(&[ExtensionType::DefaultAccountState])?;
-
-    let mint_rent = client
-        .get_minimum_balance_for_rent_exemption(mint_space)
-        .await?;
-
-    let create_mint_account_instruction = create_account(
-        &fee_payer.pubkey(),    // Account funding the new mint account.
-        &mint.pubkey(),         // New mint account to create.
-        mint_rent,              // Lamports funding the mint account rent.
-        mint_space as u64,      // Account size in bytes for the mint plus DefaultAccountState.
-        &TOKEN_2022_PROGRAM_ID, // Program that owns the mint account.
-    );
-
-    // !mark(1:5)
-    let initialize_default_account_state_instruction = initialize_default_account_state(
-        &TOKEN_2022_PROGRAM_ID, // Token program that owns the mint.
-        &mint.pubkey(), // Mint account that stores the DefaultAccountState extension.
-        &AccountState::Frozen, // Default state assigned to new token accounts.
-    )?;
-
-    let initialize_mint_instruction = initialize_mint(
-        &TOKEN_2022_PROGRAM_ID,    // Program that owns the mint account.
-        &mint.pubkey(),            // Mint account to initialize.
-        &fee_payer.pubkey(),       // Authority allowed to mint new tokens.
-        Some(&fee_payer.pubkey()), // Authority allowed to freeze token accounts.
-        0,                         // Number of decimals for the token.
-    )?;
-
-    let create_mint_transaction = Transaction::new_signed_with_payer(
-        &[
-            create_mint_account_instruction,
-            initialize_default_account_state_instruction,
-            initialize_mint_instruction,
-        ],
-        Some(&fee_payer.pubkey()),
-        &[&fee_payer, &mint],
-        client.get_latest_blockhash().await?,
-    );
-
-    client
-        .send_and_confirm_transaction(&create_mint_transaction)
-        .await?;
-
-    let token_account = get_associated_token_address_with_program_id(
-        &fee_payer.pubkey(),
-        &mint.pubkey(),
-        &TOKEN_2022_PROGRAM_ID,
-    );
-
-    let create_token_account_transaction = Transaction::new_signed_with_payer(
-        &[create_associated_token_account(
-            &fee_payer.pubkey(), // Account funding the associated token account creation.
-            &fee_payer.pubkey(), // Owner of the token account.
-            &mint.pubkey(), // Mint for the associated token account.
-            &TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
-        )],
-        Some(&fee_payer.pubkey()),
-        &[&fee_payer],
-        client.get_latest_blockhash().await?,
-    );
-
-    client
-        .send_and_confirm_transaction(&create_token_account_transaction)
-        .await?;
-
-    let token_account_data_before_update = client.get_account(&token_account).await?;
-    let token_account_state_before_update =
-        StateWithExtensions::<Account>::unpack(&token_account_data_before_update.data)?;
-    let mint_account_before_update = client.get_account(&mint.pubkey()).await?;
-    let mint_state_before_update =
-        StateWithExtensions::<Mint>::unpack(&mint_account_before_update.data)?;
-    let default_account_state_before_update = mint_state_before_update
-        .get_extension::<DefaultAccountState>()?;
-
-    // !mark(1:6)
-    let update_default_account_state_instruction = update_default_account_state(
-        &TOKEN_2022_PROGRAM_ID, // Token program that owns the mint.
-        &mint.pubkey(), // Mint account that stores the DefaultAccountState extension.
-        &fee_payer.pubkey(), // Freeze authority authorized to update the default state.
-        &[&fee_payer.pubkey()], // Additional multisig signers.
-        &AccountState::Initialized, // New default state assigned to later token accounts.
-    )?;
-
-    let update_default_account_state_transaction = Transaction::new_signed_with_payer(
-        &[update_default_account_state_instruction],
-        Some(&fee_payer.pubkey()),
-        &[&fee_payer],
-        client.get_latest_blockhash().await?,
-    );
-
-    client
-        .send_and_confirm_transaction(&update_default_account_state_transaction)
-        .await?;
-
-    let token_account_data_after_update = client.get_account(&token_account).await?;
-    let token_account_state_after_update =
-        StateWithExtensions::<Account>::unpack(&token_account_data_after_update.data)?;
-    let mint_account_after_update = client.get_account(&mint.pubkey()).await?;
-    let mint_state_after_update =
-        StateWithExtensions::<Mint>::unpack(&mint_account_after_update.data)?;
-    let default_account_state_after_update =
-        mint_state_after_update.get_extension::<DefaultAccountState>()?;
-
-    println!("Mint Address: {}", mint.pubkey());
-    println!(
-        "Default Account State Before Update: {:?}",
-        default_account_state_before_update
-    );
-    println!(
-        "Token Account State Before Update: {}",
-        get_account_state_label(token_account_state_before_update.base.state)
-    );
-    println!(
-        "Default Account State After Update: {:?}",
-        default_account_state_after_update
-    );
-    println!(
-        "Token Account State After Update: {}",
-        get_account_state_label(token_account_state_after_update.base.state)
-    );
-
-    Ok(())
-}
 ```
 
 </CodeTabs>
