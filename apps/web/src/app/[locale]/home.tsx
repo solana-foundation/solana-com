@@ -34,6 +34,7 @@ import { TachometerAlt } from "@boxicons/react/TachometerAlt";
 import { PostItem } from "@/types/media";
 import { fetchLatestPosts } from "@/lib/media/post";
 import { useEffect, useState, useMemo } from "react";
+import { useLocale } from "next-intl";
 
 const TransactionsStat = dynamic(
   () =>
@@ -49,7 +50,7 @@ const HERO_BANNERS = [
   {
     bannerEyebrow: "Samsung Wallet + Solana",
     bannerDescription:
-      "Cross-border USDC transfers are coming to U.S. Galaxy devices in late October.",
+      "Samsung Wallet partners with Solana to bring cross-border USDC transfers to Galaxy devices.",
     bannerImgSrc: "/src/img/index/samsung-wallet-promo.webp",
     bannerHref: "/news/samsung-wallet",
     bannerLabel: "Read the announcement",
@@ -139,8 +140,13 @@ export function HomePage({
   news,
   activeCampaign,
 }: HomePageProps) {
+  const locale = useLocale();
   const [newsFallback, setNewsFallback] = useState<PostItem[] | null>(null);
   const [heroBanner, setHeroBanner] = useState<HeroBanner>(DEFAULT_HERO_BANNER);
+  const bannerHref =
+    locale !== "en" && heroBanner.bannerHref.startsWith("/")
+      ? `/${locale}${heroBanner.bannerHref}`
+      : heroBanner.bannerHref;
 
   useEffect(() => {
     setHeroBanner(getRandomHeroBanner());
@@ -201,6 +207,7 @@ export function HomePage({
           title={translations.heroTitle}
           subtitle={translations.heroSubtitle}
           {...heroBanner}
+          bannerHref={bannerHref}
           cta={translations.heroCta}
           bgJsonFilePath="/src/img/index/hero-bg.json"
           bgImageSrc="/src/img/index/hero-bg.webp"
