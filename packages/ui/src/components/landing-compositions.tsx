@@ -385,6 +385,7 @@ export function ConversionPanel({
         "relative py-16 lg:py-24",
         variant === "offset" && "lg:py-[72px]",
       )}
+      wrapperClass={variant === "offset" ? "overflow-x-clip" : undefined}
     >
       <div
         className={cn(
