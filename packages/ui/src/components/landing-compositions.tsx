@@ -393,7 +393,7 @@ export function ConversionPanel({
           variant === "centered" &&
             "items-center gap-10 border-0 text-center md:p-16",
           variant === "offset" &&
-            "lg:mx-0 lg:max-w-[590px] lg:overflow-visible",
+            "lg:mx-0 lg:max-w-[590px] lg:overflow-visible lg:isolation-auto",
           variant === "inline-centered" &&
             "md:grid md:grid-cols-[minmax(0,3.35fr)_minmax(0,1fr)]",
         )}
@@ -506,7 +506,7 @@ export function ConversionPanel({
                 alt={desktopImage.alt || ""}
                 width={800}
                 height={600}
-                className="hidden h-auto lg:absolute lg:left-[88%] lg:top-0 lg:block lg:w-[808px] lg:max-w-none"
+                className="-z-10 hidden h-auto lg:absolute lg:left-[88%] lg:-top-[72px] lg:block lg:w-[808px] lg:max-w-none"
               />
             )}
           </>
