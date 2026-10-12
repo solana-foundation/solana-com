@@ -380,13 +380,19 @@ export function ConversionPanel({
     (button): button is ActionButtonProps => !!button,
   );
   return (
-    <Section className="relative py-16 lg:py-24">
+    <Section
+      className={cn(
+        "relative py-16 lg:py-24",
+        variant === "offset" && "lg:py-[72px]",
+      )}
+    >
       <div
         className={cn(
           "relative isolate mx-auto flex flex-col gap-8 overflow-hidden rounded-2xl border-b border-[#14F195] bg-[#1b1622] px-4 py-6 shadow-[0_12px_22px_-16px_#14F195] md:p-8",
           variant === "centered" &&
             "items-center gap-10 border-0 text-center md:p-16",
-          variant === "offset" && "lg:max-w-[75%]",
+          variant === "offset" &&
+            "lg:mx-0 lg:max-w-[590px] lg:overflow-visible",
           variant === "inline-centered" &&
             "md:grid md:grid-cols-[minmax(0,3.35fr)_minmax(0,1fr)]",
         )}
@@ -434,6 +440,8 @@ export function ConversionPanel({
             <h2
               className={cn(
                 "font-brand text-4xl font-bold leading-tight tracking-tight md:text-[56px]",
+                variant === "offset" &&
+                  "text-[28px] leading-[33px] md:leading-[60px]",
                 variant === "inline-centered" &&
                   "border-b border-[#667085] pb-5 text-center md:text-left lg:leading-[60px]",
               )}
@@ -497,7 +505,7 @@ export function ConversionPanel({
                 alt={desktopImage.alt || ""}
                 width={800}
                 height={600}
-                className="hidden h-auto lg:block"
+                className="hidden h-auto lg:absolute lg:left-[88%] lg:top-0 lg:block lg:w-[808px] lg:max-w-none"
               />
             )}
           </>

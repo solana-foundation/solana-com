@@ -366,8 +366,20 @@ export function Quote({ quote, eyebrow, image, author }: QuoteProps) {
     <Section className="flex gap-12">
       <blockquote className="flex flex-1 flex-col gap-6">
         {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-        <p className="max-w-4xl text-4xl font-medium leading-tight md:text-5xl xl:text-6xl">
-          “{quote}”
+        <p className="-ml-3 flex font-medium text-[28px] leading-[33px] md:-ml-5 md:text-[42px] md:leading-[46px] lg:-ml-7 lg:text-[56px] lg:leading-[60px] lg:tracking-[-0.02em]">
+          <span>“</span>
+          <span className="max-w-4xl">
+            {quote.split(/\{%([\s\S]*?)%\}/g).map((part, index) =>
+              index % 2 === 1 ? (
+                <span key={index} className="text-[#67E3F9]">
+                  {part}
+                </span>
+              ) : (
+                part
+              ),
+            )}
+            ”
+          </span>
         </p>
         {author && <Attribution author={author} />}
       </blockquote>
@@ -384,9 +396,17 @@ export function Quote({ quote, eyebrow, image, author }: QuoteProps) {
   );
 }
 
-function Attribution({ author }: { author: LandingPerson }) {
+function Attribution({
+  author,
+  className,
+}: {
+  author: LandingPerson;
+  className?: string;
+}) {
   return (
-    <figcaption className="flex flex-wrap gap-x-2 text-sm text-[#ABABBA]">
+    <figcaption
+      className={cn("flex flex-wrap gap-x-2 text-sm text-[#ABABBA]", className)}
+    >
       <strong className="text-white">{author.name}</strong>
       {author.role && <span>{author.role}</span>}
       {author.company && <span>— {author.company}</span>}
@@ -415,11 +435,11 @@ export function RichTextQuote({
           {quote && (
             <HtmlParser
               rawHtml={quote}
-              classes="text-3xl leading-tight md:text-4xl"
+              classes="text-[28px] leading-[33px] [&_p]:!my-0 [&_p]:!mb-2"
             />
           )}
         </blockquote>
-        {author && <Attribution author={author} />}
+        {author && <Attribution author={author} className="mt-8" />}
       </div>
     </figure>
   );
