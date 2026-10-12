@@ -25,8 +25,64 @@ const categoryIds = new Set<string>(
 );
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 const MAX_BODY_BYTES = 2_048;
+const REJECTION_LOG_SAMPLE_RATE = 0.01;
 
 class RequestBodyTooLargeError extends Error {}
+
+function errorCode(value: unknown) {
+  if (!value || typeof value !== "object" || !("code" in value)) return null;
+  const code = value.code;
+  return typeof code === "string" && /^[A-Z0-9_]{1,40}$/.test(code)
+    ? code
+    : null;
+}
+
+function failureResponse(
+  method: "GET" | "POST",
+  status: number,
+  reason: string,
+  message: string,
+  options: { cause?: unknown; retryAfter?: number } = {},
+) {
+  const cause = options.cause;
+  const nestedCause = cause instanceof Error ? cause.cause : undefined;
+  const entry = {
+    event: "awards_nominations_failure",
+    method,
+    status,
+    reason,
+    ...(status < 500 ? { sampleRate: REJECTION_LOG_SAMPLE_RATE } : {}),
+    ...(cause !== undefined
+      ? {
+          errorName: cause instanceof Error ? cause.name : typeof cause,
+          errorCode: errorCode(cause),
+          causeName:
+            nestedCause instanceof Error ? nestedCause.name : undefined,
+          causeCode: errorCode(nestedCause),
+        }
+      : {}),
+  };
+
+  // Vercel records every response status. Sample expected rejections so
+  // invalid traffic cannot flood function logs; always log server failures.
+  // Avoid logging request bodies, usernames, cookies, or IPs.
+  const line = JSON.stringify(entry);
+  if (status >= 500) console.error(line);
+  else if (Math.random() < REJECTION_LOG_SAMPLE_RATE) console.log(line);
+
+  return NextResponse.json(
+    { error: message },
+    {
+      status,
+      headers: {
+        ...NO_STORE_HEADERS,
+        ...(options.retryAfter
+          ? { "Retry-After": String(options.retryAfter) }
+          : {}),
+      },
+    },
+  );
+}
 
 async function parseJsonBody(request: NextRequest): Promise<unknown> {
   if (!request.body) throw new SyntaxError("Request body is missing.");
@@ -81,10 +137,12 @@ export async function GET(request: NextRequest) {
       ballotId = cookie.ballotId;
     }
   } catch (error) {
-    console.error("Unable to initialize awards ballot", error);
-    return NextResponse.json(
-      { error: "Nominations are temporarily unavailable." },
-      { status: 503, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "GET",
+      503,
+      "ballot_initialization_failed",
+      "Nominations are temporarily unavailable.",
+      { cause: error },
     );
   }
 
@@ -123,31 +181,39 @@ export async function GET(request: NextRequest) {
       );
     return response;
   } catch (error) {
-    console.error("Unable to fetch awards nominations", error);
-    return NextResponse.json(
-      { error: "Unable to load nominations." },
-      { status: 503, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "GET",
+      503,
+      "load_failed",
+      "Unable to load nominations.",
+      { cause: error },
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   if (!hasSameOrigin(request))
-    return NextResponse.json(
-      { error: "This nomination request was not accepted." },
-      { status: 403, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      403,
+      "origin_rejected",
+      "This nomination request was not accepted.",
     );
   if (!request.headers.get("content-type")?.startsWith("application/json")) {
-    return NextResponse.json(
-      { error: "Invalid request format." },
-      { status: 415, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      415,
+      "invalid_content_type",
+      "Invalid request format.",
     );
   }
   const contentLength = Number(request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-    return NextResponse.json(
-      { error: "Request is too large." },
-      { status: 413, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      413,
+      "body_too_large",
+      "Request is too large.",
     );
   }
 
@@ -155,45 +221,58 @@ export async function POST(request: NextRequest) {
   try {
     ballotId = readAwardsBallot(request);
   } catch (error) {
-    console.error("Unable to validate awards ballot", error);
-    return NextResponse.json(
-      { error: "Nominations are temporarily unavailable." },
-      { status: 503, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      503,
+      "ballot_validation_failed",
+      "Nominations are temporarily unavailable.",
+      { cause: error },
     );
   }
   if (!ballotId) {
-    return NextResponse.json(
-      { error: "Please refresh the page before submitting a nomination." },
-      { status: 400, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      400,
+      "ballot_missing",
+      "Please refresh the page before submitting a nomination.",
     );
   }
 
   try {
     const campaignStatus = getAwardsCampaignStatus();
     if (campaignStatus !== "open") {
-      return NextResponse.json(
-        { error: campaignMessage(campaignStatus) },
-        { status: 403, headers: NO_STORE_HEADERS },
+      return failureResponse(
+        "POST",
+        403,
+        `campaign_${campaignStatus}`,
+        campaignMessage(campaignStatus) ?? "Nominations are unavailable.",
       );
     }
     if (await enforceSubmissionRateLimit(request)) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again shortly." },
-        { status: 429, headers: { ...NO_STORE_HEADERS, "Retry-After": "60" } },
+      return failureResponse(
+        "POST",
+        429,
+        "rate_limited",
+        "Too many requests. Please try again shortly.",
+        { retryAfter: 60 },
       );
     }
     const botCheck = await checkBotId();
     if (botCheck.isBot) {
-      return NextResponse.json(
-        { error: "We could not verify this nomination. Please try again." },
-        { status: 403, headers: NO_STORE_HEADERS },
+      return failureResponse(
+        "POST",
+        403,
+        "bot_rejected",
+        "We could not verify this nomination. Please try again.",
       );
     }
   } catch (error) {
-    console.error("Unable to verify awards nomination request", error);
-    return NextResponse.json(
-      { error: "Nominations are temporarily unavailable." },
-      { status: 503, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      503,
+      "verification_failed",
+      "Nominations are temporarily unavailable.",
+      { cause: error },
     );
   }
 
@@ -202,42 +281,41 @@ export async function POST(request: NextRequest) {
     body = await parseJsonBody(request);
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {
-      return NextResponse.json(
-        { error: "Request is too large." },
-        { status: 413, headers: NO_STORE_HEADERS },
+      return failureResponse(
+        "POST",
+        413,
+        "body_too_large",
+        "Request is too large.",
       );
     }
-    return NextResponse.json(
-      { error: "Invalid JSON body." },
-      { status: 400, headers: NO_STORE_HEADERS },
-    );
+    return failureResponse("POST", 400, "invalid_json", "Invalid JSON body.");
   }
 
   if (!isRecord(body)) {
-    return NextResponse.json(
-      { error: "Invalid JSON body." },
-      { status: 400, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      400,
+      "invalid_json_shape",
+      "Invalid JSON body.",
     );
   }
-
-  if (body.website)
-    return NextResponse.json({ ok: true }, { headers: NO_STORE_HEADERS });
 
   const categoryId =
     typeof body.categoryId === "string" ? body.categoryId : null;
   const twitterHandle = handle(body.twitterHandle);
   if (!categoryId || !categoryIds.has(categoryId))
-    return NextResponse.json(
-      { error: "Unknown award category." },
-      { status: 400, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      400,
+      "invalid_category",
+      "Unknown award category.",
     );
   if (!twitterHandle)
-    return NextResponse.json(
-      {
-        error:
-          "Check the spelling and enter a valid X username (up to 15 letters, numbers, or underscores).",
-      },
-      { status: 400, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      400,
+      "invalid_username",
+      "Check the spelling and enter a valid X username (up to 15 letters, numbers, or underscores).",
     );
 
   try {
@@ -297,10 +375,12 @@ export async function POST(request: NextRequest) {
       { headers: NO_STORE_HEADERS },
     );
   } catch (error) {
-    console.error("Unable to save awards nomination", error);
-    return NextResponse.json(
-      { error: "Unable to save nomination." },
-      { status: 503, headers: NO_STORE_HEADERS },
+    return failureResponse(
+      "POST",
+      503,
+      "save_failed",
+      "Unable to save nomination.",
+      { cause: error },
     );
   }
 }

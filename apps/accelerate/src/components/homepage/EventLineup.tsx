@@ -22,7 +22,7 @@ export function EventLineup({ futureOnly = false }: EventLineupProps) {
 
     return {
       image: getImagePath(stop.image),
-      city: stop.city,
+      city: t(`eventLineup.events.${stop.city.toLowerCase()}.city`),
       subtitle: eventCopy.subtitle,
       dateLocation: eventCopy.dateLocation,
       href:

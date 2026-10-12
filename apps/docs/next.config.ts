@@ -181,20 +181,20 @@ const nextConfig: NextConfig = {
         source: "/docs/payments/production-readiness",
         destination: "/docs/tools/production-readiness",
       },
-      {
-        source: "/:locale/docs/payments/production-readiness",
-        destination: "/:locale/docs/tools/production-readiness",
-      },
     ];
 
-    return movedRoutes.flatMap(({ source, destination }) => [
-      { source, destination, permanent: true },
-      {
-        source: `${source}.md`,
-        destination: `${destination}.md`,
+    return movedRoutes.flatMap(({ source, destination }) =>
+      [
+        [source, destination],
+        [`${source}.md`, `${destination}.md`],
+        [`/:locale${source}`, `/:locale${destination}`],
+        [`/:locale${source}.md`, `/:locale${destination}.md`],
+      ].map(([source, destination]) => ({
+        source,
+        destination,
         permanent: true,
-      },
-    ]);
+      })),
+    );
   },
 
   async rewrites() {

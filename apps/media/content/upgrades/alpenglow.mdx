@@ -17,6 +17,9 @@ metrics:
     label: Faster finality than TowerBFT
   - value: 20% + 20%
     label: Malicious plus offline stake tolerated
+additionalResources:
+  - label: "Video: Alpenglow: The Biggest Change to Solana's Core Protocol"
+    url: https://www.youtube.com/watch?v=2RlNav7GiUY
 categories:
   - category: upgrades
 tags:
@@ -25,7 +28,7 @@ tags:
 
 # Alpenglow
 
-**Updated September 2026** • Solana Foundation
+**Updated October 2026** • Solana Foundation
 
 Alpenglow is Solana's next consensus upgrade. Consensus is how the validators
 that run Solana agree on the order of transactions and on when a transaction
@@ -33,8 +36,10 @@ can no longer be reversed. Today that takes about 12.8 seconds. Alpenglow
 targets roughly 150 milliseconds.
 
 For most people the effect is simple: transactions settle almost immediately,
-and wallets and apps keep working as they do today. The rest of this page is
-for developers and operators who need to know what changes underneath.
+and wallets and apps keep working as they do today. For an overview, watch
+[Alpenglow: The Biggest Change to Solana's Core Protocol](https://www.youtube.com/watch?v=2RlNav7GiUY) on the Solana
+YouTube channel. The rest of this page is for developers and operators who need
+to know what changes underneath.
 
 Under the hood, Solana's current consensus,
 [TowerBFT](https://docs.anza.xyz/implemented-proposals/tower-bft), has
@@ -57,9 +62,9 @@ Alpenglow rolls out in two phases:
   a later release once Votor is adopted, and is not yet scheduled.
 
 The 150ms is how long a transaction takes to become final, not how often
-blocks are produced. Block time is being cut separately, by
-[reduced slot times](/upgrades/reduced-slot-times), from 400ms to 200ms in
-stages.
+blocks are produced. Block time was cut separately, by
+[reduced slot times](/upgrades/reduced-slot-times), from 400ms to 200ms in four
+stages that completed in October 2026.
 
 If you build on Solana, transaction execution does not change. Block
 production, streaming, and finality do:
@@ -71,6 +76,17 @@ production, streaming, and finality do:
 - Proof of History no longer paces block production, so tick entries leave the
   shred stream and the `Clock` sysvar's timestamp gets a new source.
 
+If you run a validator, you must do two things before Alpenglow activates:
+
+1. **Run an Agave-based client:** Agave, Jito-Solana, or Harmonic Salsa, on a
+   release built on Agave 4.3.0. Firedancer and Frankendancer are not supported
+   during the migration
+   ([details](#breaking-change-run-an-agave-based-client)).
+2. **Hold at least 0.8 SOL in your vote account, above its rent-exempt
+   minimum.** That balance pays the Validator Admission Ticket (VAT) fee. If the fee is not paid, your validator
+   does not produce blocks in the next epoch
+   ([details](#breaking-change-your-vote-account-pays-the-vat-fee)).
+
 Start with the [migration checklist](#migration-checklist) for your role, then
 the [breaking changes in detail](#breaking-changes-in-detail). The
 [technical details](#technical-details) cover [Phase 1: Votor](#phase-1-votor),
@@ -79,13 +95,13 @@ including [slots, blocks, and banks](#slots-blocks-and-banks) and
 the [community cluster](#alpenglow-community-cluster); and the
 [SIMDs](#alpenglow-simds).
 
-|                                  |                                                                                                          |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Expected Mainnet Activation Date | Q3 2026, on Anza's [v4.3 release schedule](https://github.com/anza-xyz/agave/wiki/v4.3-Release-Schedule) |
-| Devnet Activation                | Q3 2026                                                                                                  |
-| Breaking Change?                 | Yes                                                                                                      |
-| Indexing Changes Required?       | Yes                                                                                                      |
-| Feature Gate                     | `A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS`                                                           |
+|                                  |                                                      |
+| -------------------------------- | ---------------------------------------------------- |
+| Expected Mainnet Activation Date | October 2026                                         |
+| Devnet Activation                | Activated epoch 1167 at 19:30 UTC September 25, 2026 |
+| Breaking Change?                 | Yes                                                  |
+| Indexing Changes Required?       | Yes                                                  |
+| Feature Gate                     | `A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS`       |
 
 Current feature gate activation status:
 
@@ -93,14 +109,16 @@ Current feature gate activation status:
 
 **Breaking Changes:**
 
-| If your app                                    | When                                                                        | What you have to do                                                                                                                                                                   |
-| ---------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Streams** data through Geyser / gRPC         | Agave 4.3 adds `bank_id`; multiple banks per slot become more common in 4.4 | Stop assuming one block per slot. Buffer per `(slot, bank_id)` and promote a single bank once it is confirmed. [Learn more](#breaking-change-one-slot-can-contain-more-than-one-bank) |
-| **Merges** streams from more than one provider | As soon as you consume `bank_id`                                            | `bank_id` is a node-local counter. Reconcile across connections on the blockhash, never on `bank_id`. [Learn more](#breaking-change-merging-streams-from-multiple-providers)          |
-| **Reads** at the `confirmed` commitment        | Nothing at activation; `confirmed` is removed in a later release            | `confirmed` and `finalized` become the same thing. Move to `finalized` only after Alpenglow is live. [Learn more](#commitment-levels-confirmed-and-finalized-converge)                |
-| **Counts or parses** transactions in a block   | At activation                                                               | Vote transactions leave the block entirely. Re-baseline any metric that counted them. [Learn more](#breaking-change-vote-transactions-leave-the-block)                                |
-| **Reads time** from ticks in shreds or entries | At activation                                                               | PoH is gone, and tick entries go with it. Take block boundaries from block meta and the block footer instead. [Learn more](#breaking-change-ticks-leave-the-ledger)                   |
-| **Reads** `Clock.unix_timestamp` in a program  | At activation                                                               | The timestamp is no longer the stake-weighted median of vote timestamps. Re-check any logic tuned to the old behavior. [Learn more](#the-clock-sysvar-has-a-new-source)               |
+| If your app                                    | When                                                                        | What you have to do                                                                                                                                                                                               |
+| ---------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Streams** data through Geyser / gRPC         | Agave 4.3 adds `bank_id`; multiple banks per slot become more common in 4.4 | Stop assuming one block per slot. Buffer per `(slot, bank_id)` and promote a single bank once it is confirmed. [Learn more](#breaking-change-one-slot-can-contain-more-than-one-bank)                             |
+| **Merges** streams from more than one provider | As soon as you consume `bank_id`                                            | `bank_id` is a node-local counter. Reconcile across connections on the blockhash, never on `bank_id`. [Learn more](#breaking-change-merging-streams-from-multiple-providers)                                      |
+| **Reads** at the `confirmed` commitment        | Nothing at activation; `confirmed` is removed in a later release            | `confirmed` and `finalized` become the same thing. Move to `finalized` only after Alpenglow is live. [Learn more](#commitment-levels-confirmed-and-finalized-converge)                                            |
+| **Counts or parses** transactions in a block   | At activation                                                               | Vote transactions leave the block entirely. Re-baseline any metric that counted them. [Learn more](#breaking-change-vote-transactions-leave-the-block)                                                            |
+| **Reads time** from ticks in shreds or entries | At activation                                                               | PoH is gone, and tick entries go with it. Take block boundaries from block meta and the block footer instead. [Learn more](#breaking-change-ticks-leave-the-ledger)                                               |
+| **Reads** `Clock.unix_timestamp` in a program  | At activation                                                               | The timestamp is no longer the stake-weighted median of vote timestamps. Re-check any logic tuned to the old behavior. [Learn more](#the-clock-sysvar-has-a-new-source)                                           |
+| **Runs** Firedancer or Frankendancer           | Before activation                                                           | Neither is supported during the migration. Switch to Agave, Jito-Solana, or Harmonic Salsa on a release built on Agave 4.3.0. [Learn more](#breaking-change-run-an-agave-based-client)                            |
+| **Runs** a voting validator                    | Before activation, then every epoch                                         | Keep at least 0.8 SOL above the rent-exempt minimum in the vote account to pay the VAT fee, or the validator produces no blocks the next epoch. [Learn more](#breaking-change-your-vote-account-pays-the-vat-fee) |
 
 Sending transactions and running onchain programs are not affected. Alpenglow
 changes consensus, not execution; the SVM, transaction formats, and fee
@@ -216,26 +234,23 @@ Test against the [Alpenglow community cluster](#alpenglow-community-cluster).
 
 </Audience>
 
-<Audience title="For Validator Operators" summary="Register a BLS pubkey, then upgrade to Agave 4.3.">
+<Audience title="For Validator Operators" summary="Before activation, run an Agave-based client and hold at least 0.8 SOL above rent-exempt in your vote account.">
 
 Anza's own
 [Alpenglow operator changes](https://docs.anza.xyz/consensus/alpenglow#operator-changes)
 are the authoritative checklist. In short:
 
-- Register a BLS pubkey on your vote account if you have not already. The
-  Validator Admission Ticket (SIMD-0357) activated on mainnet July 22, 2026, and
-  operators without a registered BLS pubkey are excluded from the admitted
-  validator set and stop participating in consensus. See
-  [BLS Pubkeys and the Validator Admission Ticket](/upgrades/bls-pubkey-vat).
-- Upgrade to Agave 4.3 on Anza's
-  [v4.3 release schedule](https://github.com/anza-xyz/agave/wiki/v4.3-Release-Schedule).
-- Confirm the cluster's consensus state with `solana alpenglow-genesis-info`
-  ([details](#checking-whether-alpenglow-is-active)).
-- Budget for the loss of vote transaction traffic in any capacity planning that
-  assumed it, and expect vote costs to move off the ledger entirely.
-- If you run a hot spare alongside your primary, make sure only one of them is
-  ever active. Accidental double block production is the most common source of
-  equivocation on mainnet today.
+**Before Alpenglow activates, you must:**
+
+- Run an Agave-based client: Agave, Jito-Solana, or Harmonic Salsa, on a
+  release built on Agave 4.3.0. Firedancer and Frankendancer are not supported
+  during the migration
+  ([details](#breaking-change-run-an-agave-based-client)).
+- Hold at least 0.8 SOL in your **vote account**, above its rent-exempt
+  minimum, and not in your identity account.
+  The balance pays the VAT fee. If the fee is not paid, your validator does not
+  produce blocks in the next epoch
+  ([details](#breaking-change-your-vote-account-pays-the-vat-fee)).
 
 </Audience>
 
@@ -247,6 +262,53 @@ Each change below, and how to tell when the switch has happened. The mechanics
 behind them are in the [technical details](#technical-details).
 
 <AudienceGroup>
+<Audience title="For Validator Operators" summary="Run Agave, Jito-Solana, or Harmonic Salsa, and hold at least 0.8 SOL above rent-exempt in your vote account before activation.">
+
+### Breaking Change: Run an Agave-Based Client
+
+Alpenglow ships in Agave 4.3.0. At activation your validator must run one of
+the clients built on Agave:
+
+- Agave
+- Jito-Solana
+- Harmonic Salsa
+
+Use a release of that client built on Agave 4.3.0. Firedancer and
+Frankendancer are not supported during the migration. If your validator runs
+either, switch before activation, and give yourself time to run the new client
+in production before the feature gate flips. The feature gate status
+near the top of this page shows whether it has activated.
+
+### Breaking Change: Your Vote Account Pays the VAT Fee
+
+Under TowerBFT, voting costs about 1 SOL per epoch in vote transaction fees,
+paid from your validator's identity account. Under Alpenglow, votes are not
+transactions, so those fees go away. In their place, the
+[Validator Admission Ticket](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0357-alpenglow_validator_admission_ticket.md)
+(VAT, SIMD-0357) charges each voting validator a flat **0.8 SOL per epoch**. The
+fee comes out of the **vote account** and is burned. The 0.8 SOL is in
+addition to the vote account's rent-exempt minimum.
+
+If your vote account cannot pay the fee, your validator does not produce blocks
+in the next epoch, and you lose the block rewards those slots would have earned.
+
+**What to do:**
+
+1. **Check the balance** of your vote account:
+   `solana balance <VOTE_ACCOUNT_ADDRESS>`.
+2. **Top it up to at least 0.8 SOL above the rent-exempt minimum before
+   activation:**
+   `solana transfer <VOTE_ACCOUNT_ADDRESS> <AMOUNT>`.
+3. **Keep it funded every epoch.** The fee is charged each epoch, not once. If
+   you sweep the vote account with `solana withdraw-from-vote-account`, leave
+   enough behind for the next fee.
+
+Do not fund your identity account for this. It paid vote fees under TowerBFT,
+but the VAT fee is taken only from the vote account. The fee mechanics are in
+[BLS Pubkeys and the Validator Admission Ticket](/upgrades/bls-pubkey-vat).
+
+</Audience>
+
 <Audience title="For Streaming Consumers" summary="One slot can now carry more than one candidate block. Buffer per (slot, bank_id) and keep only the bank that reaches Confirmed.">
 
 ### Breaking Change: One Slot Can Contain More Than One Bank
@@ -763,7 +825,9 @@ SIMD-0357) activated on mainnet July 22, 2026. Validator operators who have not
 registered a BLS pubkey on-chain are now excluded from the VAT admitted
 validator set and stop participating in consensus. This admission gating is
 enforced by the VAT feature gate; it does not turn on Alpenglow consensus
-itself, which activates separately in Agave 4.3. See
+itself, which activates separately in Agave 4.3. Once Alpenglow activates, VAT
+also charges each voting validator 0.8 SOL per epoch from its vote account
+([details](#breaking-change-your-vote-account-pays-the-vat-fee)). See
 [BLS Pubkeys and the Validator Admission Ticket](/upgrades/bls-pubkey-vat) for
 the registration steps and current activation status.
 
@@ -773,6 +837,6 @@ Alpenglow is Solana's first major consensus replacement since TowerBFT. It chang
 
 Votor is the first phase of the rollout, replacing vote transactions with direct validator votes and aggregate certificates and reducing finality from roughly 12.8 seconds to a target of around 150ms. Rotor will follow in a later phase to replace Turbine's block propagation mechanism.
 
-For most application developers, the upgrade requires no migration. The main changes affect validators and infrastructure that consumes block, voting, or finality data.
+For most application developers, the upgrade requires no migration. The main changes affect validators and infrastructure that consumes block, voting, or finality data. Validator operators have two hard requirements before activation: run an Agave-based client (Agave, Jito-Solana, or Harmonic Salsa), and hold at least 0.8 SOL above the rent-exempt minimum in the vote account to pay the VAT fee. Firedancer and Frankendancer are not supported during the migration.
 
 **Learn more:** [Solana Upgrades](/upgrades)

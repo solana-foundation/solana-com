@@ -1,3 +1,4 @@
+import "@workspace/ui/scrollbar.css";
 import "@/app/globals.css";
 import "@/scss/index.scss";
 

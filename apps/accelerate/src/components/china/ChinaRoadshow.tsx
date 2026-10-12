@@ -351,7 +351,7 @@ function StopCard({ stop }: { stop: ChinaStop }) {
   return (
     <EventCard
       image={getImagePath(stop.image)}
-      city={stop.city}
+      city={t(`cities.${stopKey}`)}
       subtitle={t("subtitle")}
       dateLocation={t(`stops.${stopKey}`)}
       href={stop.registrationUrl}

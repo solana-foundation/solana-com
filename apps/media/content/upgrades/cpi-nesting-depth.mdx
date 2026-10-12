@@ -1,0 +1,136 @@
+---
+title: Deeper CPI Nesting
+description: >-
+  SIMD-0268 raises Solana's maximum cross-program invocation depth from 4 to 8
+  nested calls for every transaction format, giving developers more room to
+  compose programs in one atomic transaction.
+subtitle: Programs can call each other 8 levels deep, up from 4
+publishedAt: 2026-10-09T00:00:00.000Z
+status: published
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+metrics:
+  - value: "4 → 8"
+    label: Maximum nested CPI calls
+  - value: All formats
+    label: Applies to legacy, v0, and v1 transactions
+  - value: "No"
+    label: Breaking change for existing programs
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Deeper CPI Nesting
+
+October 2026 • Solana Foundation
+
+A cross-program invocation, or CPI, lets one Solana program call another during
+the same transaction. The called program can make its own CPI, forming a chain.
+Today that chain stops at 4 calls. After this change it can reach 8.
+
+This benefits composability, such as complex DeFi interactions where a wallet
+calls an app that calls a router that calls several liquidity programs, and it
+enables tooling that wraps other programs, such as the offline signing programs
+replacing durable nonces (see
+[Durable Nonce Deprecation](/upgrades/durable-nonce-deprecation)). The limit is
+runtime-wide and applies to legacy, v0, and v1 transactions alike. A separate
+change raises the number of accounts a v1 transaction can name; see
+[More Accounts per Transaction](/upgrades/v1-account-limit).
+
+|                                  |                                                                                                                                    |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Expected Mainnet Activation Date | After Agave 4.4; date to be determined                                                                                             |
+| Devnet Activation                | Not activated. Already active by default on `solana-test-validator`, see below                                                     |
+| Breaking Change?                 | No                                                                                                                                 |
+| Indexing Changes Required?       | Yes, for tools that hardcode a stack depth of 5                                                                                    |
+| Feature Gate                     | `6TkHkRmP7JZy1fdM6fg5uXn76wChQBWGokHBJzrLB3mj`                                                                                     |
+| Proposal                         | [SIMD-0268](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0268-raise-cpi-nesting-limit.md) |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="6TkHkRmP7JZy1fdM6fg5uXn76wChQBWGokHBJzrLB3mj" />
+
+## Test It Locally
+
+The gate has been in Agave since 4.2, and `solana-test-validator` activates
+every known feature gate by default. With Agave CLI 4.2 or later, the 8-call
+limit is already live on a local validator:
+
+```bash
+# All known feature gates, including this one, are active by default
+solana-test-validator
+
+# Reproduce mainnet behavior by deactivating the gate
+solana-test-validator --deactivate-feature 6TkHkRmP7JZy1fdM6fg5uXn76wChQBWGokHBJzrLB3mj
+
+# Anchor starts the same validator, so `anchor test` runs with the new limit
+anchor test
+```
+
+## Does This Affect Me?
+
+<AudienceGroup>
+<Audience title="For Users" summary="No action needed.">
+
+Nothing changes about how you use wallets or applications. Transactions, fees,
+and confirmation times stay the same.
+
+</Audience>
+
+<Audience title="For Developers" summary="Nothing breaks onchain. Update dependencies that hardcode the old limit, and check logic that branches on stack height.">
+
+Existing programs keep working. A program that asserts
+`sol_get_stack_height() == TRANSACTION_LEVEL_STACK_HEIGHT` behaves exactly as
+before; the change raises the ceiling, not how stack height is reported.
+
+| If you                                       | Breaking? | What you have to do                                                                                                                    |
+| -------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Call** other programs from your program    | No        | Nothing. After activation you can nest up to 8 levels deep instead of 4.                                                               |
+| **Wrap** other programs, e.g. a smart wallet | No        | Nothing. Programs you call gain back the depth your wrapper consumes.                                                                  |
+| **Branch** on stack height in your program   | Check     | Logic that treats height 5 as the deepest possible call, or rejects anything above it, needs a second look.                            |
+| **Index, decode, or simulate** transactions  | **Yes**   | Update dependencies. Indexing frameworks and local test tools pin the stack depth; Carbon hardcodes `MAX_INSTRUCTION_STACK_DEPTH = 5`. |
+
+Most apps will need a dependency update somewhere in their stack, even if their
+own code never touches the limit. Tools pinned to the old constant may truncate
+or reject inner instructions nested deeper than 5.
+
+One security note: a deeper chain means more programs sit between the user's
+signature and the final effect. Wallet simulation should show the full
+inner-instruction tree, so make sure that view isn't capped at depth 5. Solana's
+reentrancy rule is unchanged: a program may call itself directly (A → A), but
+cannot be re-entered through another program (A → B → A). Deeper chains do not
+relax that; see
+[CPI execution](https://solana.com/docs/core/cpi/cpi-execution).
+
+</Audience>
+
+<Audience title="For Validator Operators" summary="No configuration changes. Run the release as usual.">
+
+The limit lives in the runtime behind a feature gate. There is nothing to
+configure.
+
+</Audience>
+</AudienceGroup>
+
+## Technical Details
+
+[SIMD-0268](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0268-raise-cpi-nesting-limit.md)
+raises the maximum number of nested CPI calls from 4 to 8. The top-level
+instruction is stack height 1, so the maximum total stack height rises from 5
+to 9: eight nested program calls instead of four. When the gate activates,
+Agave uses `MAX_INSTRUCTION_STACK_DEPTH_SIMD_0268` (9) instead of
+`MAX_INSTRUCTION_STACK_DEPTH` (5).
+
+The SIMD specifies that the gate should only be activated after
+[SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md),
+Stricter ABI and Runtime Constraints, which is still under review.
+
+## About This Upgrade
+
+Raising the limit to 8 lets protocols stay modular instead of merging layers to
+fit under it, with no change to how existing transactions execute.
+
+**Learn more:** [Solana Upgrades](/upgrades)

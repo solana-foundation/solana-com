@@ -21,6 +21,7 @@ type EventHeaderProps = {
   agendaPath: string | null;
   logoImage: string;
   logoAlt: string;
+  logoHomePath?: string;
   showSpeakersNav?: boolean;
   showCta?: boolean;
   ctaLabel?: string;
@@ -87,6 +88,7 @@ export function EventHeader({
   agendaPath,
   logoImage,
   logoAlt,
+  logoHomePath = "/accelerate",
   showSpeakersNav = true,
   // Accelerate events that have concluded should remain navigational archives,
   // rather than presenting an unavailable ticket flow.
@@ -134,7 +136,7 @@ export function EventHeader({
   const logoHeight = isHero ? "lg:h-[100px]" : "lg:h-[80px]";
   const headerContent = (
     <>
-      <Link href="/accelerate" className="flex items-center">
+      <Link href={logoHomePath} className="flex items-center">
         <Image
           src={getImagePath(logoImage)}
           alt={logoAlt}

@@ -66,12 +66,35 @@ additional details on how files are structured, see the
 
 ## Cookbook code examples
 
-The Kit, Legacy, Rust, and Python snippets shown on cookbook pages live in
+The Kit, web3.js, Rust, and Python snippets shown on cookbook pages live in
 `packages/docs-examples`, not inline in the MDX. Tests in that package run
 against a local surfpool on every PR, so an SDK rename or signature change shows
 up as a red CI run rather than rotted documentation.
 
-### TypeScript (Kit / Legacy)
+### TypeScript (Kit / web3.js v3 / web3.js legacy)
+
+A TypeScript example comes in up to three flavours, one file each:
+
+| File        | Library                     | Tab title          |
+| ----------- | --------------------------- | ------------------ |
+| `kit.ts`    | `@solana/kit` (recommended) | `Kit`              |
+| `web3v3.ts` | `@solana/web3.js` 3.x       | `Web3.js v3`       |
+| `legacy.ts` | `@solana/web3.js` 1.x       | `Web3.js (legacy)` |
+
+Order tabs `Kit` → `Web3.js v3` → `Rust` → `Web3.js (legacy)`; the legacy tab
+always goes last. Tab selection persists in localStorage by tab title, so use
+these titles verbatim. Token pages use one section per language instead, in the
+order `### Kit`, `### Web3.js v3`, `### Rust`, `### Python`,
+`### Web3.js (legacy)`; the TypeScript sections use the storage keys
+`token-ts-kit`, `token-ts-web3v3`, and `token-ts-legacy`.
+
+Both web3.js majors are installed side by side, which pnpm only allows under
+distinct names, so example sources import the aliases `@solana/web3.js-v3` and
+`@solana/web3.js-legacy`. Both are rewritten back to `@solana/web3.js` when the
+snippet is inlined into a page
+(`apps/docs/src/lib/remark-web3js-specifier.mjs`), so readers see the real
+package name. `@solana/spl-token` depends on legacy web3.js and resolves to it
+automatically; v3 token examples use the `@solana-program/*` clients instead.
 
 1. Put the runnable file under
    `packages/docs-examples/cookbook/<section>/<page>/` (e.g. `kit.ts`).
@@ -114,7 +137,7 @@ Python snippets follow the same layout, one file per rendered block:
 1. Put the snippet in
    `packages/docs-examples/cookbook/<section>/<page>/python.py` — or
    `<variant>-python.py` when the page has more than one runnable block,
-   matching its Kit/Legacy siblings.
+   matching its TypeScript siblings.
 2. Wrap the rendered region in `# #region <name>` / `# #endregion <name>`,
    reusing the region name the other tabs on that block use.
 3. Point the fence at it:

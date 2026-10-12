@@ -90,7 +90,6 @@ export default function AwardsNominations() {
   const [editing, setEditing] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [campaignStatus, setCampaignStatus] = useState<CampaignStatus>();
-  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const activeCategory = awardCategories[activeIndex]!;
   const activeCategoryCopy = t.raw(
@@ -176,18 +175,23 @@ export default function AwardsNominations() {
         body: JSON.stringify({
           categoryId: activeCategory.id,
           twitterHandle: normalized,
-          website,
         }),
       });
-      const data = (await response.json()) as {
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
         nomination?: {
           category: string;
           twitterHandle: string;
           submittedAt: string;
         };
-      };
-      if (!response.ok || !data.nomination) {
-        setError(t("nominations.errors.save"));
+      } | null;
+      if (!response.ok || !data?.nomination) {
+        setError(
+          data?.error ||
+            (response.status === 429
+              ? "Too many requests. Please try again shortly."
+              : t("nominations.errors.save")),
+        );
         return;
       }
       const next = {
@@ -490,16 +494,6 @@ export default function AwardsNominations() {
                     }}
                   >
                     <div className="flex flex-col gap-s md:flex-row md:items-end md:justify-between">
-                      <input
-                        aria-hidden="true"
-                        autoComplete="off"
-                        className="sr-only"
-                        name="website"
-                        onChange={(event) => setWebsite(event.target.value)}
-                        tabIndex={-1}
-                        type="text"
-                        value={website}
-                      />
                       <div className="w-full md:max-w-[520px]">
                         <label
                           className="mb-2xs block font-mono text-button-small uppercase"

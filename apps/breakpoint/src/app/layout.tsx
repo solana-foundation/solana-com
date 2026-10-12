@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "@workspace/ui/scrollbar.css";
 import "@/app/globals.css";
 import { config, publicAssetPath } from "@/config";
 import GTMTrackingSnippet from "@/components/GTMTrackingSnippet";

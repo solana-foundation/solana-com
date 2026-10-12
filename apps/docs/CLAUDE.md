@@ -33,7 +33,8 @@ apps/docs/
 │   │       ├── learn/             # General learning content
 │   │       └── docs/
 │   │           ├── (main)/       # Core documentation
-│   │           └── rpc/          # RPC API reference
+│   │           ├── rpc/          # RPC API reference
+│   │           └── video-guides/ # Video tutorials
 │   ├── components/               # React components
 │   ├── constants/                # App constants
 │   ├── hooks/                    # Custom React hooks
@@ -96,6 +97,8 @@ Content is organized using Fumadocs conventions:
    - Client libraries (JavaScript, Rust, Python)
    - RPC API reference
    - Staking documentation
+   - Video tutorials (`/docs/video-guides/*`, from
+     `content/docs/{locale}/video-guides/`)
 
 2. **Cookbook** (`/developers/cookbook/*`) - Code recipes
    - Accounts management
@@ -158,6 +161,8 @@ documentation pages. Inkeep feedback uses a server action under
 - Memory allocation: 4096MB for builds
 - Sentry integration for error tracking
 - Fumadocs MDX processing runs on postinstall
+- Moved docs routes need redirects for both the page and its `.md` variant in
+  `next.config.ts` because the web app forwards raw Markdown requests.
 
 ## Content Conventions
 

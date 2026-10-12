@@ -441,7 +441,7 @@ export function AlpenglowDashboard() {
             label="Observed network throughput"
             value={formatNumber(transactionRate, 1)}
             unit={transactionRate === null ? undefined : "tx/s"}
-            description="The latest transaction rate calculated from the two newest exporter samples, including user and consensus transactions."
+            description="The successful network transaction rate from finalized epoch data over a rolling 30-second window, including user and consensus transactions."
             interpretation="Compare this with user transactions per block. A lower total alone does not suggest that user capacity or performance declined."
           />
           <UserMetricCard
@@ -454,7 +454,7 @@ export function AlpenglowDashboard() {
                   : "Unavailable"
             }
             unit={nonVoteTransactions === null ? undefined : "tx/block"}
-            description="The non-vote transaction count in the latest finalized block—a close proxy for user activity."
+            description="The non-vote transaction count in the latest sampled finalized block—a close proxy for user activity. Blocks are sampled every 10 seconds."
             interpretation="This should remain stable through the switch even as Tower vote transactions leave blocks."
           />
           <UserMetricCard
@@ -467,7 +467,7 @@ export function AlpenglowDashboard() {
                   : "Unavailable"
             }
             unit={towerVoteShare === null ? undefined : "% of block tx"}
-            description="The share of transactions in the latest finalized block used by Tower votes rather than non-vote activity."
+            description="The share of transactions in the latest sampled finalized block used by Tower votes rather than non-vote activity. Blocks are sampled every 10 seconds."
             interpretation="This should approach zero after Alpenglow activates. Its decline is expected consensus overhead leaving the transaction stream."
           />
           <UserMetricCard
@@ -509,13 +509,13 @@ export function AlpenglowDashboard() {
             />
             <MetricChart
               title="Transaction throughput"
-              description="Total transactions per second over a rolling one-minute window, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
+              description="Successful network transactions per second from finalized epoch data over a rolling one-minute window, including user and Tower vote transactions. Read it with block composition: an activation-related drop reflects vote traffic disappearing."
               series={detail.charts.transactionsPerSecond}
               unit="transactions per second"
             />
             <MetricChart
               title="Block transaction composition"
-              description="Average vote and non-vote transactions across all finalized blocks in a rolling 30-second window. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
+              description="Average vote and non-vote transactions across finalized blocks sampled every 10 seconds, calculated over a rolling 30-second window. The vote line should approach zero after activation; the non-vote line is the closest view of user activity."
               series={detail.charts.blockTransactions}
               unit="transactions per block"
             />
