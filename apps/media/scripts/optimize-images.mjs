@@ -26,7 +26,7 @@ const repoRoot = process.env.INIT_CWD
   : process.cwd();
 
 const toPosix = (value) => value.split(path.sep).join("/");
-const escapeMarkdownUrl = (value) => value.replace(/[()]/g, "\\$&");
+const escapeMarkdownUrl = (value) => value.replace(/[\\()]/g, "\\$&");
 
 function resolveInputPath(inputPath) {
   const candidates = [
