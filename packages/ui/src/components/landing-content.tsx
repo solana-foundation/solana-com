@@ -369,7 +369,7 @@ export function Quote({ quote, eyebrow, image, author }: QuoteProps) {
         <p className="-ml-3 flex font-medium text-[28px] leading-[33px] md:-ml-5 md:text-[42px] md:leading-[46px] lg:-ml-7 lg:text-[56px] lg:leading-[60px] lg:tracking-[-0.02em]">
           <span>“</span>
           <span className="max-w-4xl">
-            {quote.split(/\{%([\s\S]*?)%\}/g).map((part, index) =>
+            {quote.split(/\{%|%\}/).map((part, index) =>
               index % 2 === 1 ? (
                 <span key={index} className="text-[#67E3F9]">
                   {part}
