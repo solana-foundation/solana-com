@@ -47,12 +47,12 @@ const TransactionsStat = dynamic(
 
 const HERO_BANNERS = [
   {
-    bannerEyebrow: "200ms: Monitoring the situation",
+    bannerEyebrow: "Samsung Wallet + Solana",
     bannerDescription:
-      "Watch Solana’s measured path to 200ms with live slot-time and network metrics.",
-    bannerImgSrc: "/src/img/index/slot-200ms-promo.webp",
-    bannerHref: "/200ms",
-    bannerLabel: "Open live monitor",
+      "Cross-border USDC transfers are coming to U.S. Galaxy devices in late October.",
+    bannerImgSrc: "/src/img/index/samsung-wallet-promo.webp",
+    bannerHref: "/news/samsung-wallet",
+    bannerLabel: "Read the announcement",
   },
   {
     bannerEyebrow: "Breakpoint 2026",
