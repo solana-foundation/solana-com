@@ -163,6 +163,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     url: "https://github.com/pnp-protocol/solana-skill/tree/54d164c1f1182a0674c9e57b24a82cf18e60e500",
     category: DEFI,
   },
+  {
+    slug: "unrent-skill",
+    title: "UNRENT Skill",
+    description:
+      "Reclaim overpaid rent from Solana token accounts after SIMD-0437: scan a wallet, build unsigned reclaim transactions, sign and submit via MCP. Non-custodial.",
+    url: "https://github.com/unrentsol/unrent-skill/tree/v1.0.0/skills/unrent",
+    category: DEFI,
+  },
 
   // ── AI Coding Skills – Infrastructure ───────────────────────────────
   {
