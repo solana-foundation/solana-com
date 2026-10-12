@@ -316,20 +316,14 @@ export function ArtBaselPage({ translations }: ArtBaselPageProps) {
         />
       </ResponsiveBox>
 
-      <ResponsiveBox
-        responsiveStyles={{
-          large: { marginBottom: "-150px", zIndex: 2 },
-          medium: { marginBottom: "-100px" },
-          small: { marginBottom: "-83px" },
-        }}
-      >
+      <div className="relative z-[2] -mb-[50px] md:-mb-[100px] xl:-mb-[150px]">
         <CardDeck
           cards={
             cardDeckCards as React.ComponentProps<typeof CardDeck>["cards"]
           }
           numCols={CARD_DECK_COLUMNS}
         />
-      </ResponsiveBox>
+      </div>
 
       <ConversionPanel
         heading={translations.contactPanelHeading}
