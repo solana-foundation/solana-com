@@ -168,7 +168,7 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     title: "UNRENT Skill",
     description:
       "Reclaim overpaid rent from Solana token accounts after SIMD-0437: scan a wallet, build unsigned reclaim transactions, sign and submit via MCP. Non-custodial.",
-    url: "https://github.com/unrentsol/unrent-skill/tree/v1.0.0/skills/unrent",
+    url: "https://github.com/unrentsol/unrent-skill/tree/6dc57b6f6bb96b4dc23849909bba1c038b25c8c3/skills/unrent",
     category: DEFI,
   },
 
