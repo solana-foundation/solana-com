@@ -506,7 +506,7 @@ export function ConversionPanel({
                 alt={desktopImage.alt || ""}
                 width={800}
                 height={600}
-                className="-z-10 hidden h-auto lg:absolute lg:left-[88%] lg:-top-[72px] lg:block lg:w-[808px] lg:max-w-none"
+                className="-z-10 hidden h-auto lg:absolute lg:left-[calc(100vw_-_759px)] lg:-top-[72px] lg:block lg:w-[808px] lg:max-w-none xl:left-[521px]"
               />
             )}
           </>

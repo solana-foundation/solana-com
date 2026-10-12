@@ -303,18 +303,20 @@ export function ArtBaselPage({ translations }: ArtBaselPageProps) {
         />
       </ResponsiveBox>
 
-      <ResponsiveBox
-        responsiveStyles={{
-          large: { paddingTop: "84px", marginBottom: "-72px" },
-        }}
-      >
-        <Heading
-          variant="centered"
-          eyebrow={translations.whySolanaEyebrow}
-          headline={translations.whySolanaHeadline}
-          body={translations.whySolanaBody}
-        />
-      </ResponsiveBox>
+      <div className="relative z-[1]">
+        <ResponsiveBox
+          responsiveStyles={{
+            large: { paddingTop: "84px", marginBottom: "-72px" },
+          }}
+        >
+          <Heading
+            variant="centered"
+            eyebrow={translations.whySolanaEyebrow}
+            headline={translations.whySolanaHeadline}
+            body={translations.whySolanaBody}
+          />
+        </ResponsiveBox>
+      </div>
 
       <div className="relative z-[2] -mb-[50px] md:-mb-[100px] xl:-mb-[150px]">
         <CardDeck
