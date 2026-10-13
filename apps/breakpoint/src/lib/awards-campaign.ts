@@ -2,15 +2,16 @@ export type AwardsCampaignStatus = "open" | "not_started" | "closed";
 export type AwardsVotingStatus = "not_started" | "open" | "closed";
 
 export const defaultVotingWindow = {
-  opensAt: "2026-11-03T00:00:00Z",
+  opensAt: "2026-10-13T00:00:00Z",
   closesAt: "2026-11-10T00:00:00Z",
 } as const;
 
 export const defaultNominationsWindow = {
+  opensAt: null,
   closesAt: defaultVotingWindow.opensAt,
 } as const;
 
-function parseDate(value: string | undefined, name: string) {
+function parseDate(value: string | null, name: string) {
   if (!value) return null;
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value)) {
     throw new Error(`${name} must be a UTC ISO-8601 date.`);
@@ -23,26 +24,14 @@ function parseDate(value: string | undefined, name: string) {
 }
 
 function nominationsCloseAt() {
-  return parseDate(
-    process.env.AWARDS_NOMINATIONS_CLOSES_AT ||
-      process.env.AWARDS_VOTING_OPENS_AT ||
-      defaultNominationsWindow.closesAt,
-    "AWARDS_NOMINATIONS_CLOSES_AT",
-  );
+  return parseDate(defaultNominationsWindow.closesAt, "nominations close");
 }
 
 export function getAwardsVotingStatus(now = new Date()): AwardsVotingStatus {
-  const opensAt = parseDate(
-    process.env.AWARDS_VOTING_OPENS_AT || defaultVotingWindow.opensAt,
-    "AWARDS_VOTING_OPENS_AT",
-  );
-  const closesAt = parseDate(
-    process.env.AWARDS_VOTING_CLOSES_AT || defaultVotingWindow.closesAt,
-    "AWARDS_VOTING_CLOSES_AT",
-  );
+  const opensAt = parseDate(defaultVotingWindow.opensAt, "voting opens");
+  const closesAt = parseDate(defaultVotingWindow.closesAt, "voting closes");
   const nominationsClose = nominationsCloseAt();
 
-  // If no separate nomination deadline is set, voting starts as nominations close.
   if (!nominationsClose || !opensAt || !closesAt) return "not_started";
   if (opensAt < nominationsClose || closesAt <= opensAt) {
     throw new Error(
@@ -58,8 +47,8 @@ export function getAwardsCampaignStatus(
   now = new Date(),
 ): AwardsCampaignStatus {
   const opensAt = parseDate(
-    process.env.AWARDS_NOMINATIONS_OPENS_AT,
-    "AWARDS_NOMINATIONS_OPENS_AT",
+    defaultNominationsWindow.opensAt,
+    "nominations open",
   );
   const closesAt = nominationsCloseAt();
 

@@ -6,40 +6,12 @@ import {
   getAwardsVotingStatus,
 } from "@/lib/awards-campaign";
 
-const originalEnvironment = { ...process.env };
-
 afterEach(() => {
   vi.unstubAllEnvs();
-  process.env = { ...originalEnvironment };
 });
 
 describe("awards campaign", () => {
-  it("is open when no campaign window is configured", () => {
-    expect(getAwardsCampaignStatus(new Date("2026-09-10T00:00:00Z"))).toBe(
-      "open",
-    );
-  });
-
-  it("enforces the configured opening and closing times", () => {
-    vi.stubEnv("AWARDS_NOMINATIONS_OPENS_AT", "2026-09-11T00:00:00Z");
-    vi.stubEnv("AWARDS_NOMINATIONS_CLOSES_AT", "2026-09-12T00:00:00Z");
-
-    expect(getAwardsCampaignStatus(new Date("2026-09-10T23:59:59Z"))).toBe(
-      "not_started",
-    );
-    expect(getAwardsCampaignStatus(new Date("2026-09-11T12:00:00Z"))).toBe(
-      "open",
-    );
-    expect(getAwardsCampaignStatus(new Date("2026-09-12T00:00:00Z"))).toBe(
-      "closed",
-    );
-  });
-
-  it("provides a clear closed message", () => {
-    expect(campaignMessage("closed")).toMatch(/closed/i);
-  });
-
-  it("closes nominations when voting opens without a separate nomination deadline", () => {
+  it("keeps nominations open until voting begins", () => {
     const opening = new Date(defaultVotingWindow.opensAt);
     const beforeOpening = new Date(opening.getTime() - 1);
 
@@ -49,40 +21,26 @@ describe("awards campaign", () => {
     expect(getAwardsVotingStatus(opening)).toBe("open");
   });
 
-  it("uses a configured voting opening as the nomination cutoff", () => {
-    vi.stubEnv("AWARDS_VOTING_OPENS_AT", "2026-10-14T00:00:00Z");
-    vi.stubEnv("AWARDS_VOTING_CLOSES_AT", "2026-10-20T00:00:00Z");
+  it("closes voting at the configured end", () => {
+    const closing = new Date(defaultVotingWindow.closesAt);
+    const beforeClosing = new Date(closing.getTime() - 1);
 
-    expect(getAwardsCampaignStatus(new Date("2026-10-13T23:59:59Z"))).toBe(
-      "open",
-    );
-    expect(getAwardsCampaignStatus(new Date("2026-10-14T00:00:00Z"))).toBe(
-      "closed",
-    );
-    expect(getAwardsVotingStatus(new Date("2026-10-14T00:00:00Z"))).toBe(
-      "open",
-    );
+    expect(getAwardsVotingStatus(beforeClosing)).toBe("open");
+    expect(getAwardsVotingStatus(closing)).toBe("closed");
   });
 
-  it("enforces voting boundaries after nominations close", () => {
-    vi.stubEnv("AWARDS_NOMINATIONS_CLOSES_AT", "2026-10-13T00:00:00Z");
-    vi.stubEnv("AWARDS_VOTING_OPENS_AT", "2026-10-14T00:00:00Z");
-    vi.stubEnv("AWARDS_VOTING_CLOSES_AT", "2026-10-20T00:00:00Z");
-    expect(getAwardsVotingStatus(new Date("2026-10-13T23:59:59Z"))).toBe(
-      "not_started",
-    );
-    expect(getAwardsVotingStatus(new Date("2026-10-14T00:00:00Z"))).toBe(
-      "open",
-    );
-    expect(getAwardsVotingStatus(new Date("2026-10-20T00:00:00Z"))).toBe(
-      "closed",
-    );
+  it("ignores legacy date environment variables", () => {
+    vi.stubEnv("AWARDS_NOMINATIONS_OPENS_AT", "2027-01-01T00:00:00Z");
+    vi.stubEnv("AWARDS_NOMINATIONS_CLOSES_AT", "2027-01-02T00:00:00Z");
+    vi.stubEnv("AWARDS_VOTING_OPENS_AT", "2027-01-03T00:00:00Z");
+    vi.stubEnv("AWARDS_VOTING_CLOSES_AT", "2027-01-04T00:00:00Z");
+
+    const opening = new Date(defaultVotingWindow.opensAt);
+    expect(getAwardsCampaignStatus(opening)).toBe("closed");
+    expect(getAwardsVotingStatus(opening)).toBe("open");
   });
 
-  it("rejects windows that overlap nominations", () => {
-    vi.stubEnv("AWARDS_NOMINATIONS_CLOSES_AT", "2026-10-13T00:00:00Z");
-    vi.stubEnv("AWARDS_VOTING_OPENS_AT", "2026-10-12T00:00:00Z");
-    vi.stubEnv("AWARDS_VOTING_CLOSES_AT", "2026-10-20T00:00:00Z");
-    expect(() => getAwardsVotingStatus()).toThrow(/after nominations close/);
+  it("provides a clear closed message", () => {
+    expect(campaignMessage("closed")).toMatch(/closed/i);
   });
 });

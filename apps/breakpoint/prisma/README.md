@@ -80,12 +80,11 @@ least two distinct finalists with display names and X handles. The route rejects
 votes until the complete roster passes validation. Do not derive ballot options
 from live nomination counts.
 
-The initial UTC voting window is November 3, 2026 at 00:00 through November 10,
-2026 at 00:00. Set `AWARDS_VOTING_OPENS_AT` and `AWARDS_VOTING_CLOSES_AT` to
-override those defaults. `defaultNominationsWindow` closes nominations at the
-voting opening time unless `AWARDS_NOMINATIONS_CLOSES_AT` sets an earlier
-cutoff. Voting cannot open before nominations close, and closing must follow
-opening. Submitted votes are final.
+Set the UTC voting opening and closing times in `defaultVotingWindow` in
+`src/lib/awards-campaign.ts`. Set the nominations opening time in
+`defaultNominationsWindow`; its closing time follows the voting opening time.
+Voting cannot open before nominations close, and closing must follow opening.
+Submitted votes are final.
 
 Before enabling the window in Production, verify the migration against the
 target database and smoke test `/breakpoint/awards`,
@@ -104,9 +103,9 @@ Production and Preview:
   pseudonymous network identifier for fraud review. New records do not store raw
   IP addresses.
 
-Configure `AWARDS_NOMINATIONS_OPENS_AT` and `AWARDS_NOMINATIONS_CLOSES_AT` as
-ISO-8601 UTC timestamps before opening the campaign. The API enforces those
-boundaries even when clients have an existing ballot.
+Review the nomination and voting dates in `src/lib/awards-campaign.ts` before
+opening the campaign. The API enforces those boundaries even when clients have
+an existing ballot.
 
 The `solana-com-breakpoint-2` Vercel project also needs WAF rate-limit rules
 named `Limit Community Awards submission bursts`,
