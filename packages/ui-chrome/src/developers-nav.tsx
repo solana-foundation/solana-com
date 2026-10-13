@@ -20,7 +20,7 @@ function NavLink(props: ComponentProps<typeof Link>) {
   return (
     <Link
       {...props}
-      className="!no-underline !text-[#848895] inline-block rounded-md px-[10px] py-[2px] !border border-transparent hover:!text-white light:hover:!text-gray-900 mr-[5px] last:mr-0"
+      className="!no-underline !text-[#848895] inline-block shrink-0 rounded-md px-[10px] py-[2px] !border border-transparent hover:!text-white light:hover:!text-gray-900 mr-[5px] last:mr-0"
     />
   );
 }
@@ -38,13 +38,13 @@ export function DevelopersNav({
   return (
     <div
       data-developers-nav
-      className="relative z-[1] text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[#ababbc] border-t border-b border-[rgba(255,255,255,0.05)] light:!bg-[rgba(255,255,255,0.95)] light:text-[#7f8391] light:border-[rgba(0,0,0,0.05)]"
+      className="sticky top-14 z-40 text-[0.85em] bg-[rgb(18_18_18/95%)] transition-colors duration-300 ease-in-out text-[#ababbc] border-t border-b border-[rgba(255,255,255,0.05)] light:!bg-[rgba(255,255,255,0.95)] light:text-[#7f8391] light:border-[rgba(0,0,0,0.05)]"
     >
       <div
         className={`mx-auto w-full max-w-[1440px] px-4 sm:px-5 xl:px-6 ${containerClassName}`}
       >
-        <div className="py-2 text-[17px] font-light">
-          <div className="flex items-center">
+        <div className="flex h-[46px] items-center text-[17px] font-light">
+          <div className="flex min-w-0 items-center">
             {showSidebarToggleSlot ? (
               <div
                 id={DOCS_SIDEBAR_TOGGLE_SLOT_ID}
@@ -55,7 +55,7 @@ export function DevelopersNav({
                 </span>
               </div>
             ) : null}
-            <nav className="flex flex-wrap items-center">
+            <nav className="flex min-w-0 items-center overflow-x-auto whitespace-nowrap">
               <NavLink
                 partiallyActive
                 to="/docs"
