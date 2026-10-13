@@ -1,5 +1,6 @@
 import { Pulse as Activity } from "@boxicons/react/Pulse";
 import { ArrowLeftRight } from "@boxicons/react/ArrowLeftRight";
+import { Bank } from "@boxicons/react/Bank";
 import { DollarCircle as CircleDollarSign } from "@boxicons/react/DollarCircle";
 import { NetworkChart as Network } from "@boxicons/react/NetworkChart";
 import { Broadcast as RadioTower } from "@boxicons/react/Broadcast";
@@ -11,6 +12,7 @@ export const tabOptions = [
   { labelKey: "tabs.network.label", value: "network" },
   { labelKey: "tabs.stablecoins.label", value: "stablecoins" },
   { labelKey: "tabs.defi.label", value: "defi" },
+  { labelKey: "tabs.lending.label", value: "lending" },
   { labelKey: "tabs.rpc.label", value: "rpc" },
   { labelKey: "tabs.senders.label", value: "senders" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
@@ -20,6 +22,7 @@ export const tabIcons: Record<DashboardTab, typeof Activity> = {
   network: Network,
   stablecoins: CircleDollarSign,
   defi: ArrowLeftRight,
+  lending: Bank,
   rpc: RadioTower,
   senders: Send,
 };

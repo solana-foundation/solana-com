@@ -332,6 +332,7 @@ export type DashboardTab =
   | "overview"
   | "network"
   | "defi"
+  | "lending"
   | "rpc"
   | "senders";
 export type Aggregation = "avg" | "sum";
@@ -899,6 +900,42 @@ export const chartDefinitions = [
           "Unique Solana DEX swap initiators; no bot filter applied.",
       },
     ],
+  },
+  {
+    id: "lending-total-deposits",
+    tab: "lending",
+    title: "Total Deposits",
+    valueLabel: "USD",
+    metrics: ["Total Deposits"],
+    aggregation: "avg",
+    seriesField: "provider",
+  },
+  {
+    id: "lending-total-borrowed",
+    tab: "lending",
+    title: "Total Borrowed",
+    valueLabel: "USD",
+    metrics: ["Total Borrowed"],
+    aggregation: "avg",
+    seriesField: "provider",
+  },
+  {
+    id: "lending-utilization-rate",
+    tab: "lending",
+    title: "Utilization Rate",
+    valueLabel: "Percent",
+    metrics: ["Utilization Rate"],
+    aggregation: "avg",
+    seriesField: "provider",
+  },
+  {
+    id: "lending-protocol-count",
+    tab: "lending",
+    title: "Protocol Count",
+    valueLabel: "Count",
+    metrics: ["Protocol Count"],
+    aggregation: "avg",
+    seriesField: "provider",
   },
   {
     id: "rpc-error-rate",

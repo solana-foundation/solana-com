@@ -98,6 +98,7 @@ export function parseTab(value: string | null): DashboardTab {
   return value === "network" ||
     value === "stablecoins" ||
     value === "defi" ||
+    value === "lending" ||
     value === "rpc" ||
     value === "senders"
     ? value
