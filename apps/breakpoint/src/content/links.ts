@@ -4,8 +4,6 @@ export const DEVELOPER_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-devapp";
 export const STUDENT_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-studentapp?typeform-source=www.google.com";
-export const SPONSOR_FORM_HREF =
-  "https://solanafoundation.typeform.com/bp26sponsorform";
 export const PRESS_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-press";
 export const CONTENT_CREATOR_APPLICATION_HREF =

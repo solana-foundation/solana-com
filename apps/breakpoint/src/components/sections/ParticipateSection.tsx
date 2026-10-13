@@ -6,19 +6,13 @@ import {
   APPLY_TO_SPEAK_HREF,
   CONTENT_CREATOR_APPLICATION_HREF,
   PRESS_APPLICATION_HREF,
-  SPONSOR_FORM_HREF,
 } from "@/content/links";
 
 const PARTICIPATE_ACTIONS = [
   {
-    href: SPONSOR_FORM_HREF,
-    key: "sponsor",
-    variant: "primary",
-  },
-  {
     href: APPLY_TO_SPEAK_HREF,
     key: "speaker",
-    variant: "secondary",
+    variant: "primary",
   },
   {
     href: PRESS_APPLICATION_HREF,
@@ -32,7 +26,7 @@ const PARTICIPATE_ACTIONS = [
   },
 ] satisfies {
   href: string;
-  key: "creator" | "press" | "speaker" | "sponsor";
+  key: "creator" | "press" | "speaker";
   label?: string;
   variant: "primary" | "secondary";
 }[];

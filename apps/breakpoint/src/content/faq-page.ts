@@ -1,6 +1,5 @@
 import {
   APPLY_TO_SPEAK_HREF,
-  SPONSOR_FORM_HREF,
   TICKET_TRANSFER_HREF,
   VISA_CHECK_HREF,
 } from "@/content/links";
@@ -43,14 +42,6 @@ export const faqPageSections = [
         answer: "",
         answerHref: APPLY_TO_SPEAK_HREF,
         answerLinkLabel: "Apply to speak",
-      },
-      {
-        id: "general-sponsor",
-        question: "How can I sponsor Breakpoint?",
-        answer:
-          "If you're interested in sponsoring Breakpoint, submit your details",
-        answerHref: SPONSOR_FORM_HREF,
-        answerLinkLabel: "here",
       },
       {
         id: "general-press",
@@ -174,7 +165,6 @@ const homepageFaqItemIds = [
   "tickets-included",
   "tickets-refundable",
   "general-speaking",
-  "general-sponsor",
 ] as const;
 
 function getFaqItemsById(ids: readonly string[]): FAQPageItem[] {
