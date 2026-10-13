@@ -25,7 +25,7 @@ export function SolutionsAiPage() {
           subtitle={t("ai-solution.hero.subtitle")}
           bgJsonFilePath="/src/img/solutions/ai/hero-bg.json"
           extraCta={t("ai-solution.hero.extraCta")}
-          extraCtaHref="https://x.com/knimkar/status/1863719025500623344"
+          extraCtaHref="https://solana.com/news/solana-ai-the-democratization-layer"
         />
 
         <Divider />
