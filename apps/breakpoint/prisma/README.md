@@ -82,10 +82,10 @@ from live nomination counts.
 
 The initial UTC voting window is November 3, 2026 at 00:00 through November 10,
 2026 at 00:00. Set `AWARDS_VOTING_OPENS_AT` and `AWARDS_VOTING_CLOSES_AT` to
-override those defaults. Voting must open no earlier than
-`AWARDS_NOMINATIONS_CLOSES_AT`, and closing must follow opening. Without a
-configured nominations close time, voting stays closed. Submitted votes are
-final.
+override those defaults. `defaultNominationsWindow` closes nominations at the
+voting opening time unless `AWARDS_NOMINATIONS_CLOSES_AT` sets an earlier
+cutoff. Voting cannot open before nominations close, and closing must follow
+opening. Submitted votes are final.
 
 Before enabling the window in Production, verify the migration against the
 target database and smoke test `/breakpoint/awards`,
