@@ -48,6 +48,11 @@ const projects: readonly Project[] = [
   { image: "project-11.webp", name: "Backr" },
   { image: "project-12.webp", name: "Polaris Oracle" },
   { image: "project-13.webp", name: "Ashlar" },
+  {
+    image: "project-julyfi.webp",
+    name: "JulyFi",
+    href: "https://github.com/Magouo/JulyFi",
+  },
 ] as const;
 
 export function StudentProjects() {
@@ -103,8 +108,11 @@ export function StudentProjects() {
       />
 
       <div className={styles.projectEditorialCollage}>
-        {projects.map(({ image, name, href }) => (
-          <figure key={image} className={styles.projectEditorialShot}>
+        {projects.map(({ image, name, href }, index) => (
+          <figure
+            key={image}
+            className={`${styles.projectEditorialShot} ${index >= projects.length - 2 ? "col-span-6! col-start-auto!" : ""}`}
+          >
             <span className={styles.projectEditorialImage}>
               {href ? (
                 <a
