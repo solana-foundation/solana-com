@@ -977,6 +977,7 @@ export const chartDefinitions = [
     metrics: ["Total Deposits"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: levelPeriodViews,
   },
   {
     id: "lending-total-borrowed",
@@ -986,6 +987,7 @@ export const chartDefinitions = [
     metrics: ["Total Borrowed"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: levelPeriodViews,
   },
   {
     id: "lending-utilization-rate",
@@ -995,6 +997,7 @@ export const chartDefinitions = [
     metrics: ["Utilization Rate"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: averagePeriodViews,
   },
   {
     id: "lending-protocol-count",
@@ -1004,6 +1007,7 @@ export const chartDefinitions = [
     metrics: ["Protocol Count"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: levelPeriodViews,
   },
   {
     id: "rpc-error-rate",
