@@ -21,7 +21,11 @@ const projects: readonly Project[] = [
     name: "Auron",
     href: "https://auron-mocha.vercel.app/",
   },
-  { image: "project-03.webp", name: "P-Loop" },
+  {
+    image: "project-03.webp",
+    name: "JulyFi",
+    href: "https://github.com/Magouo/JulyFi",
+  },
   { image: "project-04.webp", name: "ZKGate" },
   { image: "project-05.webp", name: "ZKGate" },
   {
@@ -48,11 +52,6 @@ const projects: readonly Project[] = [
   { image: "project-11.webp", name: "Backr" },
   { image: "project-12.webp", name: "Polaris Oracle" },
   { image: "project-13.webp", name: "Ashlar" },
-  {
-    image: "project-julyfi.webp",
-    name: "JulyFi",
-    href: "https://github.com/Magouo/JulyFi",
-  },
 ] as const;
 
 export function StudentProjects() {
@@ -108,11 +107,8 @@ export function StudentProjects() {
       />
 
       <div className={styles.projectEditorialCollage}>
-        {projects.map(({ image, name, href }, index) => (
-          <figure
-            key={image}
-            className={`${styles.projectEditorialShot} ${index >= projects.length - 2 ? "col-span-6! col-start-auto!" : ""} ${index === projects.length - 1 ? "max-[641px]:col-span-12!" : ""}`}
-          >
+        {projects.map(({ image, name, href }) => (
+          <figure key={image} className={styles.projectEditorialShot}>
             <span className={styles.projectEditorialImage}>
               {href ? (
                 <a
