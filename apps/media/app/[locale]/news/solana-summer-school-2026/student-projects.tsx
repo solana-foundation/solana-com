@@ -111,7 +111,7 @@ export function StudentProjects() {
         {projects.map(({ image, name, href }, index) => (
           <figure
             key={image}
-            className={`${styles.projectEditorialShot} ${index >= projects.length - 2 ? "col-span-6! col-start-auto!" : ""}`}
+            className={`${styles.projectEditorialShot} ${index >= projects.length - 2 ? "col-span-6! col-start-auto!" : ""} ${index === projects.length - 1 ? "max-[641px]:col-span-12!" : ""}`}
           >
             <span className={styles.projectEditorialImage}>
               {href ? (
