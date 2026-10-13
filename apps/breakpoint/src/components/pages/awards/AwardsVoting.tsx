@@ -27,6 +27,7 @@ export default function AwardsVoting({
   const [selection, setSelection] = useState("");
   const [status, setStatus] = useState(initialStatus);
   const [sessionReady, setSessionReady] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const category = awardCategories[activeIndex]!;
@@ -57,7 +58,7 @@ export default function AwardsVoting({
         setStatus(data.votingStatus);
         setSessionReady(true);
       } catch {
-        if (!cancelled) setError(t("voting.errors.load"));
+        if (!cancelled) setLoadFailed(true);
       }
     };
     void load();
@@ -157,6 +158,11 @@ export default function AwardsVoting({
                     ? t("voting.status.notStarted")
                     : t("voting.status.open")}
             </p>
+            {loadFailed && (
+              <p className="mt-s text-sm text-core-pink" role="alert">
+                {t("voting.errors.load")}
+              </p>
+            )}
           </div>
         </header>
 
@@ -237,9 +243,9 @@ export default function AwardsVoting({
               </nav>
             </aside>
             <div className="md:col-span-10 md:col-start-7">
-              <article className="border border-stroke-primary bg-background-secondary">
-                <div className="h-2 bg-core-purple" />
-                <div className="p-s md:p-l">
+              <article className="flex h-[642px] flex-col overflow-hidden border border-stroke-primary bg-background-secondary md:h-[634px]">
+                <div className="h-2 shrink-0 bg-core-purple" />
+                <div className="h-[320px] shrink-0 overflow-y-auto p-s md:px-l md:py-m">
                   <p className="font-mono text-button-small uppercase text-core-purple">
                     {activeIndex + 1} / {awardCategories.length}
                   </p>
@@ -248,7 +254,7 @@ export default function AwardsVoting({
                     {copy.description}
                   </p>
                 </div>
-                <div className="border-t border-stroke-primary p-s md:p-l">
+                <div className="min-h-0 flex-1 overflow-y-auto border-t border-stroke-primary p-xs md:px-l">
                   {vote ? (
                     <div
                       className="bg-core-purple p-s text-black"
@@ -277,23 +283,19 @@ export default function AwardsVoting({
                         void submit();
                       }}
                     >
-                      <fieldset
-                        disabled={
-                          !sessionReady || submitting || status !== "open"
-                        }
-                      >
+                      <fieldset disabled={submitting || status !== "open"}>
                         <legend className="font-mono text-button-small uppercase text-text-secondary">
                           {t("voting.chooseFinalist")}
                         </legend>
-                        <div className="mt-s grid gap-2xs">
+                        <div className="mt-xs grid grid-cols-2 gap-2xs">
                           {finalistList.map((finalist) => (
                             <label
-                              className={`flex cursor-pointer items-center gap-s border p-s focus-within:outline focus-within:outline-1 focus-within:outline-offset-2 focus-within:outline-core-purple ${selection === finalist.twitterHandle ? "border-core-purple bg-neutral-800" : "border-stroke-primary hover:bg-neutral-800"}`}
+                              className={`flex cursor-pointer items-center gap-2xs border p-2xs focus-within:border-core-purple focus-within:outline-none ${selection === finalist.twitterHandle ? "border-core-purple bg-neutral-800" : "border-stroke-primary hover:bg-neutral-800"}`}
                               key={finalist.twitterHandle}
                             >
                               <input
                                 checked={selection === finalist.twitterHandle}
-                                className="accent-core-purple"
+                                className="accent-core-purple focus-visible:outline-none"
                                 name="finalist"
                                 onChange={() =>
                                   setSelection(finalist.twitterHandle)
@@ -318,7 +320,7 @@ export default function AwardsVoting({
                           ))}
                         </div>
                         <Button
-                          className="mt-s"
+                          className="mt-xs"
                           disabled={
                             !selection ||
                             !sessionReady ||

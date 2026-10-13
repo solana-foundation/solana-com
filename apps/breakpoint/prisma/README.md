@@ -80,6 +80,11 @@ least two distinct finalists with display names and X handles. The route rejects
 votes until the complete roster passes validation. Do not derive ballot options
 from live nomination counts.
 
+For local development, `src/content/awards-finalists.ts` has a clearly labeled
+mock finalist map with four candidates in each of the 12 categories. Only
+development mode uses this map; Production and Preview still require the
+reviewed `approvedFinalists` roster.
+
 Set the UTC voting opening and closing times in `defaultVotingWindow` in
 `src/lib/awards-campaign.ts`. Set the nominations opening time in
 `defaultNominationsWindow`; its closing time follows the voting opening time.

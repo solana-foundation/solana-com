@@ -1,9 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { awardCategories } from "@/content/awards";
 import {
+  approvedFinalists,
   findApprovedFinalist,
+  getApprovedFinalists,
+  mockFinalists,
   validateFinalistRoster,
 } from "@/content/awards-finalists";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const completeRoster = awardCategories.map(({ id }) => ({
   categoryId: id,
@@ -14,6 +21,20 @@ const completeRoster = awardCategories.map(({ id }) => ({
 }));
 
 describe("approved awards finalists", () => {
+  it("uses the complete mock roster only in development", () => {
+    expect(validateFinalistRoster(mockFinalists)).toBe(true);
+    expect(mockFinalists.every(({ finalists }) => finalists.length === 4)).toBe(
+      true,
+    );
+    expect(approvedFinalists).toEqual([]);
+
+    vi.stubEnv("NODE_ENV", "development");
+    expect(getApprovedFinalists()).toBe(mockFinalists);
+
+    vi.stubEnv("NODE_ENV", "production");
+    expect(getApprovedFinalists()).toBeNull();
+  });
+
   it("requires all current categories", () => {
     expect(validateFinalistRoster(completeRoster)).toBe(true);
     expect(validateFinalistRoster(completeRoster.slice(1))).toBe(false);
