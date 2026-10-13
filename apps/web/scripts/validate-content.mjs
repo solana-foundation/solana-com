@@ -10,6 +10,7 @@ const webRoot = path.resolve(
 const repoRoot = path.resolve(webRoot, "../..");
 const auditedFiles = [
   "src/data/developers/defi.ts",
+  "src/data/developers/payments.ts",
   "src/data/pyusd.ts",
   "src/data/solutions/financial-institutions.ts",
 ];
@@ -25,6 +26,13 @@ const requiredExports = {
     "SECURITY_ITEMS",
     "READING",
     "COMMUNITY_LINKS",
+  ],
+  "src/data/developers/payments.ts": [
+    "HERO_LINKS",
+    "PAYMENT_PATHS",
+    "BUILD_OPTIONS",
+    "RELATED_LINKS",
+    "PRODUCTION_LINK",
   ],
   "src/data/pyusd.ts": [
     "HERO_BUTTONS",
