@@ -3,7 +3,8 @@
 import { motion } from "motion/react";
 import { InfoCircle as Info } from "@boxicons/react/InfoCircle";
 import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
+import { trackAnalyticsEvent } from "@solana-com/ui-chrome/analytics";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import {
   Tooltip,
@@ -14,8 +15,14 @@ import {
 } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/components/utils";
 import {
+  applyPeriodView,
+  getPeriodTimeGranularity,
+  getPeriodViewOptions,
+} from "./chart-period";
+import {
   getRpcTimeframeOption,
   type ChartDefinition,
+  type ChartPeriodView,
   type DashboardTab,
   type MetricRow,
   type ProviderName,
@@ -26,10 +33,12 @@ import {
   kpiCount,
   tabIndicatorSpring,
 } from "./dashboard-constants";
+import { FilterSelect } from "./dashboard-controls";
 import {
   formatPercent,
   getChartCaption,
   getChartTitle,
+  getPeriodViewCaption,
   getTabContent,
   getValueLabel,
 } from "./dashboard-copy";
@@ -95,6 +104,7 @@ export function ChartGrid({
   isLoading,
   isRefreshing,
   isConnectedToPrevious,
+  rangeDays,
   rows,
   rpcTimeframe,
   selectedProviders,
@@ -105,6 +115,7 @@ export function ChartGrid({
   isConnectedToPrevious: boolean;
   isLoading: boolean;
   isRefreshing: boolean;
+  rangeDays: number;
   rows: MetricRow[];
   rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
@@ -148,6 +159,7 @@ export function ChartGrid({
                 index={index}
                 isRefreshing={isRefreshing}
                 key={chart.id}
+                rangeDays={rangeDays}
                 rows={rows}
                 rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
@@ -163,6 +175,7 @@ function ChartCard({
   className,
   index,
   isRefreshing,
+  rangeDays,
   rows,
   rpcTimeframe,
   selectedProviders,
@@ -171,20 +184,37 @@ function ChartCard({
   className?: string;
   index: number;
   isRefreshing: boolean;
+  rangeDays: number;
   rows: MetricRow[];
   rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
 }) {
   const t = useTranslations("dataDashboard");
-  const series = useMemo(
+  const [selectedPeriodView, setSelectedPeriodView] =
+    useState<ChartPeriodView>("daily");
+  const periodViewOptions = getPeriodViewOptions(chart, rangeDays);
+  // Falls back to daily while the selected view is unavailable (e.g. monthly
+  // on a 30D range) and restores it once the option returns.
+  const periodView = periodViewOptions.includes(selectedPeriodView)
+    ? selectedPeriodView
+    : "daily";
+  const dailySeries = useMemo(
     () => buildSeries(chart, rows, selectedProviders),
     [chart, rows, selectedProviders],
+  );
+  const series = useMemo(
+    () =>
+      chart.periodViews
+        ? applyPeriodView(dailySeries, periodView, chart.periodViews.rollup)
+        : dailySeries,
+    [chart.periodViews, dailySeries, periodView],
   );
   const valueLabel = getValueLabel(t, chart.valueLabel);
   const title = getChartTitle(t, chart);
   const caption = getChartCaption(t, chart, {
     timeframe: getRpcTimeframeOption(rpcTimeframe).label,
   });
+  const periodCaption = getPeriodViewCaption(t, chart, periodView, rangeDays);
   const resolvedChartHeight =
     chart.visualization === "bar"
       ? Math.max(chartHeight, series.length * 56)
@@ -202,15 +232,37 @@ function ChartCard({
           <h2 className="m-0 min-w-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
             {title}
           </h2>
-          <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
-            {valueLabel}
-          </span>
+          <div className="flex shrink-0 items-center gap-3">
+            {periodViewOptions.length > 1 ? (
+              <FilterSelect
+                ariaLabel={t("periodViews.ariaLabel", { metric: title })}
+                label=""
+                onChange={(nextView) => {
+                  setSelectedPeriodView(nextView);
+                  trackPeriodViewChange(chart, nextView);
+                }}
+                options={periodViewOptions.map((option) => ({
+                  label: t(`periodViews.${option}`),
+                  value: option,
+                }))}
+                value={periodView}
+              />
+            ) : null}
+            <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
+              {valueLabel}
+            </span>
+          </div>
         </div>
-        {caption ? (
-          <p className="m-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
-            {caption}
-          </p>
-        ) : null}
+        {[caption, periodCaption].map((text) =>
+          text ? (
+            <p
+              className="m-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70"
+              key={text}
+            >
+              {text}
+            </p>
+          ) : null,
+        )}
       </div>
 
       <ChartWatermarkFrame height={resolvedChartHeight}>
@@ -227,7 +279,7 @@ function ChartCard({
               height={resolvedChartHeight}
               scaleType={chart.scale}
               series={series}
-              timeGranularity={chart.timeGranularity}
+              timeGranularity={getPeriodTimeGranularity(chart, periodView)}
               valueLabel={chart.valueLabel}
             />
           )
@@ -242,6 +294,19 @@ function ChartCard({
       {isRefreshing ? <ChartRefreshingOverlay /> : null}
     </article>
   );
+}
+
+function trackPeriodViewChange(
+  chart: ChartDefinition,
+  periodView: ChartPeriodView,
+) {
+  trackAnalyticsEvent("select_content", {
+    app_name: "web",
+    content_type: "data_chart_view",
+    content_id: chart.id,
+    content_name: periodView,
+    placement: "solana_data_dashboard",
+  });
 }
 
 function ChartWatermarkFrame({
