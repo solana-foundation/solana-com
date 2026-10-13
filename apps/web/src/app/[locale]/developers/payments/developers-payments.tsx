@@ -8,6 +8,7 @@ import {
   PAYMENT_PATHS,
   PRODUCTION_LINK,
   RELATED_LINKS,
+  SHOPIFY_LINKS,
 } from "@/data/developers/payments";
 
 const container = "mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10";
@@ -92,7 +93,7 @@ export async function DevelopersPaymentsPage({ locale }: { locale: string }) {
 
       <section
         id="payment-paths"
-        className={`${container} py-20 md:py-28 xl:py-32`}
+        className={`${container} scroll-mt-28 py-20 md:py-28 xl:py-32`}
       >
         <header className="mb-10 max-w-3xl md:mb-14">
           <p className={`${eyebrow} mb-4`}>{t("paths.eyebrow")}</p>
@@ -162,6 +163,64 @@ export async function DevelopersPaymentsPage({ locale }: { locale: string }) {
                 </a>
               </article>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-white/15 bg-[#0c0b12]">
+        <div
+          className={`${container} grid gap-10 py-20 md:py-28 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] xl:items-center xl:gap-20 xl:py-32`}
+        >
+          <div>
+            <p className={`${eyebrow} mb-4`}>{t("shopify.eyebrow")}</p>
+            <h2 className="m-0 max-w-2xl font-brand text-4xl font-medium leading-[1.08] tracking-[-0.04em] md:text-6xl">
+              {t("shopify.title")}
+            </h2>
+            <p className="mb-0 mt-5 max-w-xl text-lg leading-relaxed text-nd-mid-em-text md:text-xl">
+              {t("shopify.body")}
+            </p>
+            <div className="mt-8 flex flex-wrap gap-x-7 gap-y-4">
+              {SHOPIFY_LINKS.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-2 text-base font-medium text-white no-underline hover:text-nd-highlight-green ${focus}`}
+                >
+                  {t(`shopify.links.${link.id}`)}
+                  <ArrowUpRight
+                    aria-hidden
+                    className="!size-5 text-nd-highlight-green"
+                  />
+                </a>
+              ))}
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-[28px] border border-[#a989f5]/35 bg-[radial-gradient(ellipse_90%_80%_at_100%_0%,rgba(153,69,255,0.18),transparent_75%)] p-6 md:p-9">
+            <div className="flex flex-wrap items-center gap-3 font-brand text-2xl font-medium tracking-[-0.025em] md:text-3xl">
+              <span>Shopify</span>
+              <ArrowRight
+                aria-hidden
+                className="!size-6 text-nd-highlight-green"
+              />
+              <span>Solana Pay</span>
+            </div>
+            <div className="mt-8 border-t border-white/20">
+              {(["checkout", "assets"] as const).map((detail) => (
+                <div
+                  key={detail}
+                  className="grid gap-2 border-b border-white/20 py-5 md:grid-cols-[140px_1fr] md:gap-5"
+                >
+                  <h3 className="m-0 font-brand text-lg font-medium text-white">
+                    {t(`shopify.details.${detail}.title`)}
+                  </h3>
+                  <p className="m-0 text-base leading-relaxed text-nd-mid-em-text">
+                    {t(`shopify.details.${detail}.body`)}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

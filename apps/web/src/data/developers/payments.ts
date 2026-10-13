@@ -20,6 +20,11 @@ export const BUILD_OPTIONS = [
   { id: "custom", href: "/docs/payments/interacting-with-solana" },
 ] as const;
 
+export const SHOPIFY_LINKS = [
+  { id: "app", href: "https://apps.shopify.com/solana-pay-helio" },
+  { id: "guide", href: "https://docs.hel.io/docs/solana-pay-shopify-plugin" },
+] as const;
+
 export const RELATED_LINKS = [
   { id: "commerce", href: "/solutions/commerce-tooling" },
   { id: "platform", href: "/solutions/sdp" },

@@ -31,6 +31,7 @@ const requiredExports = {
     "HERO_LINKS",
     "PAYMENT_PATHS",
     "BUILD_OPTIONS",
+    "SHOPIFY_LINKS",
     "RELATED_LINKS",
     "PRODUCTION_LINK",
   ],
