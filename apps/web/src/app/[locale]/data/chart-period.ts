@@ -1,7 +1,53 @@
-import type { ChartPeriodView, PeriodRollup } from "./data-config";
-import type { ChartSeries, SeriesPoint } from "./time-series-chart";
+import type {
+  ChartDefinition,
+  ChartPeriodView,
+  PeriodRollup,
+} from "./data-config";
+import type {
+  ChartSeries,
+  SeriesPoint,
+  TimeGranularity,
+} from "./time-series-chart";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Dropdown options for a chart, in display order. Empty when the chart has no
+ * `periodViews` config or renders as a bar chart.
+ */
+export function getPeriodViewOptions(
+  chart: ChartDefinition,
+  rangeDays: number,
+): ChartPeriodView[] {
+  if (!chart.periodViews || chart.visualization === "bar") {
+    return [];
+  }
+
+  const views = chart.periodViews.views;
+  const options = (["weekly", "monthly", "cumulative"] as const).filter(
+    (view) =>
+      views.includes(view) &&
+      // A 30D range only spans one or two months.
+      (view !== "monthly" || rangeDays > 30),
+  );
+
+  return options.length > 0 ? ["daily", ...options] : [];
+}
+
+export function getPeriodTimeGranularity(
+  chart: ChartDefinition,
+  periodView: ChartPeriodView,
+): TimeGranularity | undefined {
+  if (periodView === "weekly") {
+    return "week";
+  }
+
+  if (periodView === "monthly") {
+    return "month";
+  }
+
+  return chart.timeGranularity;
+}
 
 /**
  * Re-buckets daily series into the selected period view. Runs per series, so

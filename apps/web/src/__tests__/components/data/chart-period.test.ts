@@ -3,9 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   applyPeriodView,
   getPeriodStart,
+  getPeriodViewOptions,
 } from "@/app/[locale]/data/chart-period";
-import type { ChartDefinition } from "@/app/[locale]/data/data-config";
-import { getPeriodViewOptions } from "@/app/[locale]/data/solana-data-dashboard";
+import {
+  averagePeriodViews,
+  chartDefinitions,
+  flowPeriodViews,
+  levelPeriodViews,
+  type ChartDefinition,
+} from "@/app/[locale]/data/data-config";
 import type { ChartSeries } from "@/app/[locale]/data/time-series-chart";
 
 // Sun 2026-09-27 through Tue 2026-10-06, valued 1..10.
@@ -164,26 +170,56 @@ describe("getPeriodViewOptions", () => {
 
   it("offers cumulative only when configured", () => {
     expect(
-      getPeriodViewOptions(
-        { ...baseChart, periodViews: { rollup: "sum", cumulative: true } },
-        90,
-      ),
+      getPeriodViewOptions({ ...baseChart, periodViews: flowPeriodViews }, 90),
     ).toEqual(["daily", "weekly", "monthly", "cumulative"]);
     expect(
+      getPeriodViewOptions({ ...baseChart, periodViews: levelPeriodViews }, 90),
+    ).toEqual(["daily", "weekly", "monthly"]);
+    expect(
       getPeriodViewOptions(
-        { ...baseChart, periodViews: { rollup: "last" } },
+        { ...baseChart, periodViews: averagePeriodViews },
         90,
       ),
     ).toEqual(["daily", "weekly", "monthly"]);
   });
 
-  it("hides monthly on the 30D range", () => {
+  it("offers only the views a chart lists, in display order", () => {
     expect(
       getPeriodViewOptions(
-        { ...baseChart, periodViews: { rollup: "sum", cumulative: true } },
-        30,
+        { ...baseChart, periodViews: { rollup: "avg", views: ["weekly"] } },
+        90,
+      ),
+    ).toEqual(["daily", "weekly"]);
+    expect(
+      getPeriodViewOptions(
+        {
+          ...baseChart,
+          periodViews: { rollup: "sum", views: ["cumulative", "weekly"] },
+        },
+        90,
       ),
     ).toEqual(["daily", "weekly", "cumulative"]);
+  });
+
+  it("hides monthly on the 30D range", () => {
+    expect(
+      getPeriodViewOptions({ ...baseChart, periodViews: flowPeriodViews }, 30),
+    ).toEqual(["daily", "weekly", "cumulative"]);
+  });
+
+  it("has no dropdown when nothing besides daily is left", () => {
+    expect(
+      getPeriodViewOptions(
+        { ...baseChart, periodViews: { rollup: "last", views: ["monthly"] } },
+        30,
+      ),
+    ).toEqual([]);
+    expect(
+      getPeriodViewOptions(
+        { ...baseChart, periodViews: { rollup: "avg", views: [] } },
+        90,
+      ),
+    ).toEqual([]);
   });
 
   it("has no options for bar charts", () => {
@@ -191,11 +227,35 @@ describe("getPeriodViewOptions", () => {
       getPeriodViewOptions(
         {
           ...baseChart,
-          periodViews: { rollup: "avg" },
+          periodViews: averagePeriodViews,
           visualization: "bar",
         },
         90,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("chartDefinitions period views", () => {
+  const charts: readonly ChartDefinition[] = chartDefinitions;
+
+  it("only offers cumulative on charts that sum", () => {
+    const invalid = charts
+      .filter(
+        (chart) =>
+          chart.periodViews?.views.includes("cumulative") &&
+          chart.periodViews.rollup !== "sum",
+      )
+      .map((chart) => chart.id);
+
+    expect(invalid).toEqual([]);
+  });
+
+  it("keeps hourly live-infrastructure charts daily-only", () => {
+    const invalid = charts
+      .filter((chart) => chart.timeGranularity === "hour" && chart.periodViews)
+      .map((chart) => chart.id);
+
+    expect(invalid).toEqual([]);
   });
 });
