@@ -200,7 +200,7 @@ export async function DevelopersPaymentsPage({ locale }: { locale: string }) {
             <p className="mb-0 mt-8 max-w-xl border-l-2 border-nd-highlight-green pl-4 text-sm leading-relaxed text-nd-mid-em-text">
               {t("shopify.alternative.body")}{" "}
               <a
-                href={SHOPIFY_PAYMENTS_LINK}
+                href={SHOPIFY_PAYMENTS_LINK.href}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`text-white underline decoration-nd-highlight-green underline-offset-4 hover:text-nd-highlight-green ${focus}`}
