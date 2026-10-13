@@ -7,6 +7,10 @@ const SUBMIT_RATE_LIMIT_IDS = [
   "breakpoint-awards-submit-burst",
   "breakpoint-awards-submit-hourly",
 ] as const;
+const VOTE_RATE_LIMIT_IDS = [
+  "breakpoint-awards-vote-burst",
+  "breakpoint-awards-vote-hourly",
+] as const;
 
 function hashSecret() {
   return (
@@ -34,10 +38,10 @@ export function hashIp(ip: string | null) {
   return createHmac("sha256", key).update(ip).digest("base64url");
 }
 
-export async function enforceSubmissionRateLimit(request: NextRequest) {
+async function enforceRateLimit(request: NextRequest, ids: readonly string[]) {
   if (process.env.NODE_ENV !== "production") return false;
 
-  for (const id of SUBMIT_RATE_LIMIT_IDS) {
+  for (const id of ids) {
     const result = await checkRateLimit(id, { request });
     if (result.error === "not-found") {
       throw new Error(`Vercel WAF rate limit '${id}' is not configured.`);
@@ -45,6 +49,14 @@ export async function enforceSubmissionRateLimit(request: NextRequest) {
     if (result.rateLimited) return true;
   }
   return false;
+}
+
+export function enforceSubmissionRateLimit(request: NextRequest) {
+  return enforceRateLimit(request, SUBMIT_RATE_LIMIT_IDS);
+}
+
+export function enforceVotingRateLimit(request: NextRequest) {
+  return enforceRateLimit(request, VOTE_RATE_LIMIT_IDS);
 }
 
 export function hasSameOrigin(request: NextRequest) {
