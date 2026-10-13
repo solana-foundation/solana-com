@@ -8,7 +8,7 @@ import {
   Heading,
   Hero,
   HtmlParser,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import {
@@ -50,7 +50,7 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
   }) => {
     const html = contentBlocks[index];
     const content = (
-      <div className="tw-html_parser" id={id}>
+      <div className="min-w-0 max-w-full overflow-x-auto" id={id}>
         <HtmlParser rawHtml={html} />
       </div>
     );
@@ -74,7 +74,7 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
     styleKey?: keyof typeof BLOCK_STYLES;
   }) => {
     const content = (
-      <div className="tw-html_parser">
+      <div className="min-w-0 max-w-full overflow-x-auto">
         <HtmlParser rawHtml={html} />
       </div>
     );
