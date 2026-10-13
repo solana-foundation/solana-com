@@ -16,8 +16,10 @@ const eyebrow =
 const focus =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nd-highlight-green";
 
-export async function DevelopersPaymentsPage() {
+export async function DevelopersPaymentsPage({ locale }: { locale: string }) {
   const t = await getTranslations("developers-payments");
+  const docsHref = (href: string) =>
+    locale === "en" ? href : `/${locale}${href}`;
 
   return (
     <main className="overflow-hidden bg-black text-white">
@@ -38,13 +40,13 @@ export async function DevelopersPaymentsPage() {
               {t("hero.body")}
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href={HERO_LINKS[0].href}
+              <a
+                href={docsHref(HERO_LINKS[0].href)}
                 className={`inline-flex items-center gap-3 rounded-full bg-white px-6 py-3.5 text-base font-medium text-black no-underline transition-colors hover:bg-white/85 hover:text-black ${focus}`}
               >
                 {t("hero.primaryCta")}
                 <ArrowRight aria-hidden className="!size-5" />
-              </Link>
+              </a>
               <Link
                 href={HERO_LINKS[1].href}
                 className={`inline-flex items-center gap-3 rounded-full border border-white/30 px-6 py-3.5 text-base font-medium text-white no-underline transition-colors hover:border-white hover:text-white ${focus}`}
@@ -103,9 +105,9 @@ export async function DevelopersPaymentsPage() {
         </header>
         <div className="grid gap-3 md:grid-cols-2">
           {PAYMENT_PATHS.map((path) => (
-            <Link
+            <a
               key={path.id}
-              href={path.href}
+              href={docsHref(path.href)}
               className={`group flex min-h-52 flex-col justify-between rounded-2xl border border-white/15 bg-white/[0.035] p-6 text-white no-underline transition-colors hover:border-nd-highlight-green/70 hover:bg-white/[0.07] hover:text-white md:p-8 ${focus}`}
             >
               <div className="flex items-start justify-between gap-4">
@@ -120,7 +122,7 @@ export async function DevelopersPaymentsPage() {
               <p className="mb-0 mt-6 max-w-lg text-base leading-relaxed text-nd-mid-em-text md:text-lg">
                 {t(`paths.items.${path.id}.body`)}
               </p>
-            </Link>
+            </a>
           ))}
         </div>
       </section>
@@ -148,8 +150,8 @@ export async function DevelopersPaymentsPage() {
                 <p className="mb-6 mt-4 flex-1 text-base leading-relaxed text-nd-mid-em-text">
                   {t(`build.items.${option.id}.body`)}
                 </p>
-                <Link
-                  href={option.href}
+                <a
+                  href={docsHref(option.href)}
                   className={`inline-flex w-fit items-center gap-2 text-base font-medium text-white no-underline hover:text-nd-highlight-green ${focus}`}
                 >
                   {t(`build.items.${option.id}.cta`)}
@@ -157,7 +159,7 @@ export async function DevelopersPaymentsPage() {
                     aria-hidden
                     className="!size-5 text-nd-highlight-green"
                   />
-                </Link>
+                </a>
               </article>
             ))}
           </div>
@@ -213,8 +215,8 @@ export async function DevelopersPaymentsPage() {
               {t("production.body")}
             </p>
           </div>
-          <Link
-            href={PRODUCTION_LINK.href}
+          <a
+            href={docsHref(PRODUCTION_LINK.href)}
             className={`inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-white/30 px-6 py-3.5 text-base font-medium text-white no-underline hover:border-white hover:text-white ${focus}`}
           >
             {t("production.cta")}
@@ -222,7 +224,7 @@ export async function DevelopersPaymentsPage() {
               aria-hidden
               className="!size-5 text-nd-highlight-green"
             />
-          </Link>
+          </a>
         </div>
       </section>
     </main>
