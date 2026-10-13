@@ -5,22 +5,27 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/inference.svg",
     key: "inference",
+    href: "https://inference.net/",
   },
   {
     src: "/src/img/logos-eco/nous-research.webp",
     key: "nousResearch",
+    href: "https://nousresearch.com/nous-psyche",
   },
   {
     src: "/src/img/logos-eco/grass.webp",
     key: "grass",
+    href: "https://www.grass.io/",
   },
   {
     src: "/src/img/logos-eco/gradient.svg",
     key: "gradient",
+    href: "https://gradient.network/",
   },
   {
     src: "/src/img/logos-eco/elizaos.svg",
     key: "eliza",
+    href: "https://elizaos.ai/",
   },
 ];
 
@@ -81,12 +86,28 @@ export const PRODUCTS = [
     href: "https://mcp.solana.com",
   },
   {
+    key: "1",
+    href: "/x402",
+    external: false,
+  },
+  {
     key: "2",
     href: "https://github.com/sendaifun/solana-agent-kit",
   },
   {
-    key: "1",
-    href: "https://www.crossmint.com/solutions/ai-agents",
+    key: "3",
+    href: "/agent-registry",
+    external: false,
+  },
+  {
+    key: "4",
+    href: "/skills",
+    external: false,
+  },
+  {
+    key: "5",
+    href: "/payment-channels",
+    external: false,
   },
 ];
 
