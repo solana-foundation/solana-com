@@ -17,6 +17,7 @@ export const BUILD_OPTIONS = [
     href: "/docs/tools/commerce-kit/quickstart/payment-button",
   },
   { id: "solanaPay", href: "/docs/payments/accept-payments/solana-pay" },
+  { id: "paySh", href: "/docs/payments/pay-sh" },
   { id: "custom", href: "/docs/payments/interacting-with-solana" },
 ] as const;
 
@@ -24,6 +25,9 @@ export const SHOPIFY_LINKS = [
   { id: "app", href: "https://apps.shopify.com/solana-pay-helio" },
   { id: "guide", href: "https://docs.hel.io/docs/solana-pay-shopify-plugin" },
 ] as const;
+
+export const SHOPIFY_PAYMENTS_LINK =
+  "https://help.shopify.com/en/manual/payments/shopify-payments/local-payment-methods/usdc-payments";
 
 export const RELATED_LINKS = [
   { id: "commerce", href: "/solutions/commerce-tooling" },

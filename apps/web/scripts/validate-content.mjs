@@ -32,6 +32,7 @@ const requiredExports = {
     "PAYMENT_PATHS",
     "BUILD_OPTIONS",
     "SHOPIFY_LINKS",
+    "SHOPIFY_PAYMENTS_LINK",
     "RELATED_LINKS",
     "PRODUCTION_LINK",
   ],

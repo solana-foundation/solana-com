@@ -9,6 +9,7 @@ import {
   PRODUCTION_LINK,
   RELATED_LINKS,
   SHOPIFY_LINKS,
+  SHOPIFY_PAYMENTS_LINK,
 } from "@/data/developers/payments";
 
 const container = "mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10";
@@ -139,11 +140,11 @@ export async function DevelopersPaymentsPage({ locale }: { locale: string }) {
               {t("build.body")}
             </p>
           </header>
-          <div className="grid border-t border-white/20 lg:grid-cols-3">
+          <div className="grid border-t border-white/20 md:grid-cols-2">
             {BUILD_OPTIONS.map((option) => (
               <article
                 key={option.id}
-                className="flex flex-col border-b border-white/20 py-8 lg:border-r lg:px-7 lg:first:pl-0 lg:last:border-r-0 lg:last:pr-0"
+                className="flex flex-col border-b border-white/20 py-8 md:odd:border-r md:odd:pr-8 md:even:pl-8"
               >
                 <h3 className="m-0 font-brand text-2xl font-medium tracking-[-0.025em]">
                   {t(`build.items.${option.id}.title`)}
@@ -196,6 +197,17 @@ export async function DevelopersPaymentsPage({ locale }: { locale: string }) {
                 </a>
               ))}
             </div>
+            <p className="mb-0 mt-8 max-w-xl border-l-2 border-nd-highlight-green pl-4 text-sm leading-relaxed text-nd-mid-em-text">
+              {t("shopify.alternative.body")}{" "}
+              <a
+                href={SHOPIFY_PAYMENTS_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`text-white underline decoration-nd-highlight-green underline-offset-4 hover:text-nd-highlight-green ${focus}`}
+              >
+                {t("shopify.alternative.link")}
+              </a>
+            </p>
           </div>
           <div className="overflow-hidden rounded-[28px] border border-[#a989f5]/35 bg-[radial-gradient(ellipse_90%_80%_at_100%_0%,rgba(153,69,255,0.18),transparent_75%)] p-6 md:p-9">
             <div className="flex flex-wrap items-center gap-3 font-brand text-2xl font-medium tracking-[-0.025em] md:text-3xl">
@@ -207,19 +219,21 @@ export async function DevelopersPaymentsPage({ locale }: { locale: string }) {
               <span>Solana Pay</span>
             </div>
             <div className="mt-8 border-t border-white/20">
-              {(["checkout", "assets"] as const).map((detail) => (
-                <div
-                  key={detail}
-                  className="grid gap-2 border-b border-white/20 py-5 md:grid-cols-[140px_1fr] md:gap-5"
-                >
-                  <h3 className="m-0 font-brand text-lg font-medium text-white">
-                    {t(`shopify.details.${detail}.title`)}
-                  </h3>
-                  <p className="m-0 text-base leading-relaxed text-nd-mid-em-text">
-                    {t(`shopify.details.${detail}.body`)}
-                  </p>
-                </div>
-              ))}
+              {(["setup", "settlement", "operations"] as const).map(
+                (detail) => (
+                  <div
+                    key={detail}
+                    className="grid gap-2 border-b border-white/20 py-5 md:grid-cols-[140px_1fr] md:gap-5"
+                  >
+                    <h3 className="m-0 font-brand text-lg font-medium text-white">
+                      {t(`shopify.details.${detail}.title`)}
+                    </h3>
+                    <p className="m-0 text-base leading-relaxed text-nd-mid-em-text">
+                      {t(`shopify.details.${detail}.body`)}
+                    </p>
+                  </div>
+                ),
+              )}
             </div>
           </div>
         </div>
