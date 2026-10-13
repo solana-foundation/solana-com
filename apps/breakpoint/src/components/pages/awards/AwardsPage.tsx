@@ -22,8 +22,10 @@ const AWARDS_MARQUEE_KEYS = [
 export default async function AwardsPage({ locale }: { locale: string }) {
   const t = await getTranslations({ locale, namespace: "breakpoint" });
   const nominationsStatus = getAwardsCampaignStatus();
-  const votingStatus = getAwardsVotingStatus();
   const nominationsActive = nominationsStatus !== "closed";
+  const votingStatus = nominationsActive
+    ? "not_started"
+    : getAwardsVotingStatus();
   const finalists = getApprovedFinalists();
   const heroCta = nominationsActive
     ? t("awards.hero.cta")

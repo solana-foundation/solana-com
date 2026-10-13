@@ -50,6 +50,18 @@ describe("approved awards finalists", () => {
         ...completeRoster.slice(1),
       ]),
     ).toBe(false);
+    expect(
+      validateFinalistRoster([
+        {
+          ...completeRoster[0]!,
+          finalists: [
+            { name: "Mixed case", twitterHandle: "@Candidate_One" },
+            completeRoster[0]!.finalists[1]!,
+          ],
+        },
+        ...completeRoster.slice(1),
+      ]),
+    ).toBe(false);
   });
 
   it("only accepts a finalist in the matching category", () => {

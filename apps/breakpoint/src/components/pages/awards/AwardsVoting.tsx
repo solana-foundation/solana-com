@@ -149,10 +149,10 @@ export default function AwardsVoting({
               className="mt-s font-mono text-button-small text-core-purple"
               role="status"
             >
-              {!finalists
-                ? t("voting.status.finalistsPending")
-                : status === "closed"
-                  ? t("voting.status.closed")
+              {status === "closed"
+                ? t("voting.status.closed")
+                : !finalists
+                  ? t("voting.status.finalistsPending")
                   : status === "not_started"
                     ? t("voting.status.notStarted")
                     : t("voting.status.open")}

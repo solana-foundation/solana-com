@@ -25,7 +25,7 @@ export function validateFinalistRoster(roster: FinalistCategory[]) {
     if (finalists.length < 2) return false;
     const seenHandles = new Set<string>();
     for (const finalist of finalists) {
-      const handle = finalist.twitterHandle.toLowerCase();
+      const handle = finalist.twitterHandle;
       if (
         !finalist.name.trim() ||
         !/^@[a-z0-9_]{1,15}$/.test(handle) ||
