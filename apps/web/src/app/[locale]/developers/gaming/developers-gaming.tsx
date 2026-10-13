@@ -9,7 +9,7 @@ import {
   Quote,
   Switchback,
   SwitchbackChain,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import {
   COMMUNITY_HEADING,
   COMMUNITY_PANEL,
@@ -132,8 +132,6 @@ export function DevelopersGamingPage() {
           desktopBackground={FEATURE_HIGHLIGHT.desktopBackground}
           cards={featureHighlightCards}
           buttons={featureHighlightButtons}
-          // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
-          valueOf={() => false}
         />
       </ResponsiveBox>
 

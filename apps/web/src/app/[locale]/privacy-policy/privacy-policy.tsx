@@ -1,6 +1,6 @@
 "use client";
 
-import { Hero, Section } from "@solana-foundation/solana-lib";
+import { Hero, Section } from "@workspace/ui/landing";
 import ReactMarkdown from "react-markdown";
 
 interface PrivacyPolicyPageProps {

@@ -8,7 +8,7 @@ import {
   Hero,
   HtmlParser,
   Section,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   BLOCK_STYLES,
@@ -80,37 +80,37 @@ export function DevelopersEvmToSvmErc4337Page() {
             },
           }}
         >
-          <div key="copy-0" className="tw-html_parser">
+          <div key="copy-0" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "intro",
               styleKey: "spacingWithMargins",
             })}
           </div>
-          <div key="copy-1" className="tw-html_parser">
+          <div key="copy-1" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "solanaSolved",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-2" className="tw-html_parser">
+          <div key="copy-2" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "allAccounts",
               styleKey: "spacing",
             })}
           </div>
-          <div key="copy-3" className="tw-html_parser">
+          <div key="copy-3" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "programsExecutable",
               styleKey: "spacingNoBottom",
             })}
           </div>
-          <div key="copy-4" className="tw-html_parser">
+          <div key="copy-4" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({ contentKey: "pdasCore", styleKey: "spacing" })}
           </div>
-          <div key="copy-5" className="tw-html_parser">
+          <div key="copy-5" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({ contentKey: "cpiSupport", styleKey: "spacing" })}
           </div>
-          <div key="copy-6" className="tw-html_parser">
+          <div key="copy-6" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "comparisonIntro",
               styleKey: "spacing",
@@ -120,13 +120,13 @@ export function DevelopersEvmToSvmErc4337Page() {
             key="table-7"
             responsiveStyles={BLOCK_STYLES.tableWrapper}
           >
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <HtmlParser
                 rawHtml={t.raw("contentEditor.blocks.comparisonTable")}
               />
             </div>
           </ResponsiveBox>
-          <div key="copy-8" className="tw-html_parser">
+          <div key="copy-8" className="min-w-0 max-w-full overflow-x-auto">
             {renderCopyBlock({
               contentKey: "comparisonOutro",
               styleKey: "spacing",
