@@ -25,5 +25,100 @@ tags:
 
 # Relevant Charts
 
+<Figure src="/uploads/posts/geo-aware-leader-schedule/01d_radius_schedule_mechanics.png" alt="geo-aware schedule mechanism">
+  Left: the founder radius at \sigma=10\\% and the locations compatible with it. Centre: compatible leaders accumulate in the bin until \gamma=10. Right: the full bin is shuffled and emitted contiguously.
+</Figure>
+
+<Figure src="/uploads/posts/geo-aware-leader-schedule/00_unconstrained_handoff_gain_full.png" alt="Mean handoff gain across all synthetic networks in the simulations, for every parameter selection.">
+  Mean handoff gain across all synthetic networks in the simulations, for every parameter selection.
+</Figure>
+
+<Figure src="/uploads/posts/geo-aware-leader-schedule/12d_pareto_handoff_persistence_all_gamma_full.png" alt="Mean handoff gain against mean excess geographic persistence">
+  Mean handoff gain \Delta H against mean excess geographic persistence D\_G, across synthetic networks. Every simulated (\sigma,\gamma) is shown, colored by \sigma and sized by \gamma. The black line is the Pareto frontier at \sigma=10\\%; the star marks its knee, computed for \gamma\leq50.
+</Figure>
+
+# Introduction
+
+Solana’s leader schedule is what decides which validators are entitled to produce a slot.
+
+The current schedule assigns windows of 4 consecutive slots to each validator every epoch. The selection criteria are based on validators’ stake.
+
+Despite being costly to attack, a random schedule carries a well-known issue: it ignores where validators are located. Two consecutive leaders can sit in the same data center or on opposite sides of the planet. In the second case, the handoff (passage from one leader to the other) costs tens of milliseconds of pure propagation delay.
+
+[SIMD-0675](https://github.com/solana-foundation/solana-improvement-documents/pull/675) proposes a geo-aware leader schedule. In order to preserve some of the good properties of the random scheduler, the core extraction mechanism is not replaced. It takes the same random schedule as input and only changes the order. Every validator keeps exactly the same number of leader windows it would have had.
+
+The reordering depends on two parameters (see Fig. 1):
+
+* **$\sigma$ (**`STAKE_FLOOR`**):** For every location we compute a radius $r(\sigma)$: the smallest distance that contains at least a fraction $\sigma$ of the total stake. Dense areas get small radii, isolated validators get large ones. Two leaders are compatible when their distance is within the larger of their two radii
+* **$\gamma$ (**`RUN_LENGTH`**):** We go through the random schedule in order. Each leader joins a compatible open bin, chosen at random, or opens a new one. When a bin reaches $\gamma$ leaders, it is shuffled and written to the final schedule as one contiguous block.
+
+<Figure src="/uploads/posts/geo-aware-leader-schedule/01d_radius_schedule_mechanics.png" alt="geo-aware schedule mechanism">
+  **Fig. 1:** Left: the founder radius at \sigma=10\\% and the locations compatible with it. Centre: compatible leaders accumulate in the bin until \gamma=10. Right: the full bin is shuffled and emitted contiguously.
+</Figure>
+
+The idea is simple: consecutive leaders become geographically close, so the handoff becomes shorter. But this comes at a price: the final ordering is moving away from the random leader schedule.
+
+The goal of this analysis is to quantify the trade-off between latency gain and attack surface expansion, eventually providing a guide for parameter selection. Precisely, we try to answer the question: How much latency do we gain for a given choice of $(\sigma,\gamma)$, and how far does the schedule move from random to get it?
+
+The analysis is structured to first present all the metrics employed. In the second part we use the observed behaviour to provide sensible values for these parameters.
+
+Relevant SIMDs are
+
+* [**SIMD-0674: Validator Location Registration**](https://github.com/solana-foundation/solana-improvement-documents/pull/674)
+* [**SIMD-0675: Geo-Aware Leader Schedule**](https://github.com/solana-foundation/solana-improvement-documents/pull/675)
+
+# The Parameter Selection Tradeoffs
+
+Network state is constantly changing. Stake can redistribute, nodes can move around, new coalitions can form. Thus, we can’t study how parameters affect today’s network, but we need to add perturbations.
+
+In this analysis, we keep the 124 locations where Solana validators run today, grouped in six macroregions, and generate 6,250 synthetic networks on top of them by redistributing nodes and stake with different levels of concentration (see Appendix A).
+
+Due to the absence of evidence of other sites ready to host Solana nodes today, we add no new locations to the simulation pipeline. The geography therefore stays as unbalanced as it is now.
+
+All conclusions are conditional on this geography. If new locations become available in the smaller regions, or stake moves significantly across regions, they should be revisited.
+
+## Handoff Gain
+
+In order to measure the latency improvement, we employ the handoff $H$ for a schedule $S$ defined as the average latency between consecutive leaders,
+
+<Latex formula="H(S)=\frac{1}{W-1}\sum_{t=1}^{W-1}l_{L_t,L_{t+1}}," />
+
+where $W$ is the total number of leader windows in the simulations (108,000 here), $L\_t$ is the leader of window $t$, and $l\_\{i,j}$ is the estimated latency between leader $i$ and leader $j$. We estimate it from distance only: $l\_\{i,j}=1.5\\,d\_\{i,j}/(200\ \text\{km/ms})$, i.e. signals travel in fiber at about two thirds of the speed of light along a path 50% longer than the great-circle distance.
+
+The gain over random is
+
+<Latex formula="\Delta H = H(S_\text{random})-H(S_\text{radius})," />
+
+so positive values mean the geo-aware schedule is faster than random.
+
+<Figure src="/uploads/posts/geo-aware-leader-schedule/00_unconstrained_handoff_gain_full.png" alt="Mean handoff gain across all synthetic networks in the simulations">
+  **Fig. 2:** Mean handoff gain across all synthetic networks in the simulations, for every parameter selection.
+</Figure>
+
+Figure 2 shows two clear trends. The gain grows with $\gamma$ and shrinks with $\sigma$. At $\sigma=10\\%$, it goes from 15.8 ms at $\gamma=2$ to 33.9 ms at $\gamma=50$. At fixed $\gamma$, moving from $\sigma=2\\%$ to $\sigma=20\\%$ costs roughly a third of the gain.
+
+This behaviour is expected by the nature of the parameters:
+
+* A smaller $\sigma$ means smaller radii, so leaders in the same bin are closer to each other
+* In a block of $\gamma$ leaders, $\gamma-1$ handoffs are between compatible leaders and only the last one jumps to the next bin. The share of long jumps is then roughly $1/\gamma$.
+
+It is interesting to observe that, the second point explains why the gain saturates. Going from $\gamma$ to $\gamma+1$ only removes a small share of the long jumps, and that share keeps shrinking. At $\sigma=10\\%$, $\gamma=3$ already gives 65% of the gain observed at $\gamma=50$, $\gamma=5$ gives 79%, and $\gamma=10$ gives 91%. Beyond $\gamma\approx10$, each additional leader per bin buys very little latency.
+
+## Geographic Persistence
+
+The purpose of a geo-aware schedule is to group leader from the same area. Inevitably, this means that the network stays longer in one macroregion. If that region has a problem, such as an outage at a large provider, local censorship or a regional network partition, the network is exposed to it for longer than under random.
+
+This is clearly lowering the resilience of the network. Thus, we need to measure the “loss” we get when we change the parameters.
+
+We measure the probability that $k$ consecutive leader windows all fall in the same macroregion,
+
+<Latex formula="p_k^G(S)=P(G(L_t)=\cdots=G(L_{t+k-1}))\,," />
+
+where G(L) is the macroregion of the leader L. We measure excess cumulative geographic persistence relative to random as
+
+<Latex formula="D_G=\sum_{k=1}^{W}\left[p_k^G(S_\text{radius})-p_k^G(S_\text{random})\right]." />
+
+
+
 
 
