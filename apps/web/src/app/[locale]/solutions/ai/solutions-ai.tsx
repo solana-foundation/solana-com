@@ -53,6 +53,7 @@ export function SolutionsAiPage() {
           translationBase="ai-solution.projects"
           logos={LOGOS}
           bgSrc="/src/img/solutions/ai/ecosystem-bg.webp"
+          hideStats
         />
 
         <Divider />
