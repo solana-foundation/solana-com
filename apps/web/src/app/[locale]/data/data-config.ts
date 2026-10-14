@@ -722,7 +722,6 @@ export const chartDefinitions = [
     metrics: ["Stablecoin Count"],
     aggregation: "avg",
     seriesField: "provider",
-    periodViews: levelPeriodViews,
   },
   {
     id: "transaction-count",
@@ -742,7 +741,6 @@ export const chartDefinitions = [
     metrics: ["SOL Price"],
     aggregation: "avg",
     seriesField: "provider",
-    periodViews: averagePeriodViews,
   },
   {
     id: "avg-cost-units",
@@ -752,7 +750,6 @@ export const chartDefinitions = [
     metrics: ["Compute Units"],
     aggregation: "avg",
     seriesField: "provider",
-    periodViews: averagePeriodViews,
   },
   {
     id: "daily-fees",
@@ -871,7 +868,6 @@ export const chartDefinitions = [
     metrics: ["Top 3 ASN Share"],
     aggregation: "avg",
     seriesField: "provider",
-    periodViews: averagePeriodViews,
   },
   {
     id: "sol-price-network",
@@ -881,7 +877,6 @@ export const chartDefinitions = [
     metrics: ["SOL Price (Network)"],
     aggregation: "avg",
     seriesField: "provider",
-    periodViews: averagePeriodViews,
   },
   {
     id: "dex-volume",
@@ -934,7 +929,6 @@ export const chartDefinitions = [
     metrics: ["DEX Count"],
     aggregation: "avg",
     seriesField: "provider",
-    periodViews: levelPeriodViews,
     methodology: [
       {
         provider: "Allium",
@@ -997,7 +991,6 @@ export const chartDefinitions = [
     metrics: ["Utilization Rate"],
     aggregation: "avg",
     seriesField: "provider",
-    periodViews: averagePeriodViews,
   },
   {
     id: "lending-protocol-count",
@@ -1007,7 +1000,6 @@ export const chartDefinitions = [
     metrics: ["Protocol Count"],
     aggregation: "avg",
     seriesField: "provider",
-    periodViews: levelPeriodViews,
   },
   {
     id: "rpc-error-rate",
