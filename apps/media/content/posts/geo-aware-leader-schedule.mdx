@@ -1,6 +1,19 @@
 ---
 title: Geo-Aware Leader Schedule
 status: draft
+description: >-
+  This study evaluates SIMD-0675, a geo-aware leader schedule for Solana. It
+  reorders the stake-weighted random schedule so that consecutive leaders are
+  geographically close, which cuts handoff latency. No validator’s number of
+  leader windows changes. Two parameters are tuned: STAKE_FLOOR (σ), the stake
+  fraction that sets each location’s compatibility radius, and RUN_LENGTH (γ),
+  the size of the contiguous blocks of compatible leaders. They are tested on
+  6,250 synthetic Monte Carlo networks built on today’s 124 validator locations.
+  The handoff gain levels off quickly as γ grows, while the risks keep rising:
+  leaders concentrating in one region, and validators declaring fake locations.
+  The study recommends σ ≈ 10%, the highest value that keeps Asia’s bins local,
+  and γ between 3 and 7 (about 29 ms mean gain over random at γ = 7). These
+  conclusions depend on today’s geography.
 author: umberto-natale
 publishedAt: 2026-10-14T15:05:00.000Z
 categories:
@@ -117,6 +130,85 @@ We measure the probability that $k$ consecutive leader windows all fall in the s
 where G(L) is the macroregion of the leader L. We measure excess cumulative geographic persistence relative to random as
 
 <Latex formula="D_G=\sum_{k=1}^{W}\left[p_k^G(S_\text{radius})-p_k^G(S_\text{random})\right]." />
+
+For each $k$, the starting position is uniform over the $W-k+1$ valid positions. $D\_G$ sums excess homogeneus-block probabilities across lengths. It measures cumulative geographical persistence.
+
+It is worth mentioning that, $D\_G$ also provides a proxy for additional time spent consecutively in the same macroregion. For $k\ll W$, and for suffciently larger $W$, the residual same-region duration can be expressed as
+
+<Latex formula="\Delta T_{res}\sim \tau D_G\,," />
+
+where \tau=0.8s represents the duration of one leader window. Consequently, D\_G is expressed in leader windows, and multiplying it by 0.8s gives a time-scaled persistence measure. Throughout the text and figures, references to additional windows or seconds of geographic persistence use this approximate interpretation.
+
+<Figure src="/uploads/posts/geo-aware-leader-schedule/02b_macroregion_persistence_distance_full.png" alt="mean excess persistence as a function of the window length">
+  **Fig. 3:** Left: mean excess persistence p\_k^\{radius}-p\_k^\{random} as a function of the window length k (in leader windows). Right: D\_G, MC mean with 5th–95th percentiles across synthetic networks.
+</Figure>
+
+The excess peaks at short horizons, a few windows, and then decays. Two things control it.
+
+* It is clear that $\gamma$ is the dominant factor\*\*.\*\* Larger bins mean longer same-region blocks, so both the peak and the tail grow. With $\gamma=2$ the excess is gone after about 20 windows; with $\gamma=50$ it lasts for a few hundred
+* Moving $\sigma$ reduces the excess of geographic persistence\*\*.\*\* This is because a larger $\sigma$ gives larger radii, so bins mix more locations and more regions. At $\gamma=50$, $D\_G$ goes from about 61 windows at $\sigma=2\\%$ to about 23 at $\sigma=20\\%$, and the spread across networks shrinks as well.
+
+This is the first trade-off. For the handoff, smaller $\sigma$ and larger $\gamma$ are better. For persistence, both are worse. Larger bins buy latency with longer stays in one region, and smaller radii make those stays more likely.
+
+## Regional Occupancy
+
+Persistence counts uninterrupted runs. A single leader from another region breaks a run, even if the network then goes back to the same region. To capture how concentrated the schedule is over a whole interval, we look at the share of the most represented macroregion in a window of $\ell$ consecutive leader windows
+
+<Latex formula="M_\ell(t)=\max_r \frac{1}{\ell}\sum_{u=t}^{t+\ell-1}\mathbf{1}\left\{G_u=r\right\}\,." />
+
+Under random, every interval contains each region roughly in proportion to its stake. A curve shifted to the right of random means that intervals are more often dominated by one region.
+
+We use four horizons: 38, 375, 1,125 and 2,250 leader windows. With 200 ms slots these are about 30 seconds, 5 minutes, 15 minutes and 30 minutes.
+
+<Figure src="/uploads/posts/geo-aware-leader-schedule/10_rolling_region_occupancy_cdf_full.png" alt="CDF of the largest regional share over rolling intervals">
+  **Fig. 4:** CDF of the largest regional share M\_\ell over rolling intervals of \ell leader windows, for random (dashed) and selected (\sigma,\gamma).
+</Figure>
+
+The main message of Fig. 4 is that concentration is a short-horizon effect.
+
+* At 38 windows (\~30 s) the differences are large. With $\gamma=2$ the schedule is indistinguishable from random. With $\gamma=10$ the curves move clearly to the right. With $\gamma=50$ a large fraction of intervals is dominated by a single region, for every $\sigma$. At $\sigma=10\\%$, the mean excess of $M\_\ell$ over random is 0.5 percentage points at $\gamma=3$, 5.9 at $\gamma=10$ and 29.5 at $\gamma=50$.
+* At 2,250 windows (\~30 min) all configurations mostly overlap with random.
+
+This follows from how the schedule is built. The leader multiset is preserved and bins are flushed roughly in the order they fill. A leader is moved only by the time it takes its bin to fill. Over long horizons the regional composition is therefore the same as random; what changes is how regions are arranged inside the interval. Instead of being mixed, they alternate in blocks.
+
+<Figure src="/uploads/posts/geo-aware-leader-schedule/10c_fixed_sigma_rolling_region_occupancy_30_seconds_full.png" alt="Regional share over 38 leader windows by macroregion.">
+  **Fig. 5:** Regional share over 38 leader windows at \sigma=10\\%, by macroregion.
+</Figure>
+
+Figure 5 shows who is affected over short horizons. In Europe and North America, larger $\gamma$ makes intervals more extreme: with $\gamma=50$ about a quarter of the 38-window intervals contain no European leader, and roughly the same share contains only European leaders. Asia changes the most in relative terms. Under random, only about 7% of these intervals have no Asian leader; this rises to about 40% at $\gamma=10$ and above 70% at $\gamma=50$. Africa, Oceania and South America barely move. Their leaders mostly end up in bins founded in other regions (see the spillover section), so they are spread out rather than grouped.
+
+The trade-off is the same as for persistence, but sharper. Short-horizon concentration grows quickly with $\gamma$, while most of the latency gain is already reached at small $\gamma$.
+
+## Cross-Region Spillover
+
+The radius is defined by stake, not by geography. If a macroregion holds less than a fraction $\sigma$ of the total stake, the radius of its locations has to reach outside the region to collect enough stake. Its bins then mix local and foreign leaders.
+
+For bins founded in macroregion $r$, we measure the share of slots that belong to leaders from other regions,
+
+<Latex formula="X_r=\frac{\text{external slot in $r$-founded bins}}{\text{total slots in $r$-founded bins}}\,." />
+
+The founder is always local, so $X\_r$ cannot exceed $1-1/\gamma$.
+
+Spillover is not a risk with respect to random: a random block mixes regions even more. It tells us instead where the geo-aware schedule actually works. A region with high spillover gets little of the latency gain, and its leaders are spread inside other regions' bins.
+
+<Figure src="/uploads/posts/geo-aware-leader-schedule/05_actual_bin_spillover_full.png" alt="External slot share in bins founded in each macroregion">
+  **Fig. 6:** External slot share in bins founded in each macroregion, against the ratio between regional stake S\_r and \sigma. Each point is one region in one synthetic network. Dashed line: S\_r=\sigma.
+</Figure>
+
+Figure 6 shows that one quantity explains spillover: the ratio $S\_r/\sigma$. All regions collapse onto the same curve.
+
+* When **$S\_r>\sigma$**, bins are almost self-contained. Spillover stays mostly below 10% and decreases as the ratio grows.
+* When **$S\_r\<\sigma$**, spillover rises steeply and quickly reaches its mechanical maximum. Bins founded in the region are filled almost entirely by foreign leaders.
+
+The transition is sharp and sits at $S\_r=\sigma$. This is the reason for an upper bound on $\sigma$: any region with less stake than $\sigma$ is effectively excluded from local bins.
+
+
+
+
+
+
+
+
 
 
 
