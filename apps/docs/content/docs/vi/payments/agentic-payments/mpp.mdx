@@ -1,0 +1,172 @@
+---
+title: Machine Payments Protocol trên Solana
+seoTitle: Thanh toán Agentic MPP trên Solana
+description:
+  Sử dụng thử thách (challenge), thông tin xác thực (credential) và biên nhận (receipt) của Machine Payments Protocol cho các khoản thanh toán một lần hoặc phiên thanh toán theo mức sử dụng trên Solana.
+---
+
+[Machine Payments Protocol (MPP)](https://mpp.dev/) áp dụng ngữ nghĩa xác thực HTTP cho thanh toán. Máy chủ gửi thử thách đối với một yêu cầu chưa thanh toán, máy khách trả về thông tin xác thực thanh toán, và máy chủ trả về biên nhận sau khi chấp nhận khoản thanh toán.
+
+MPP tách biệt ba mối quan tâm:
+
+- Một **intent** (ý định) mô tả tương tác thương mại, chẳng hạn như một lần
+  `charge` hoặc một `session` tính phí theo mức sử dụng.
+- Một **phương thức thanh toán** mô tả cách giá trị được chuyển đi. Phương thức Solana hỗ trợ
+  SOL gốc và các token SPL cho các khoản charge.
+- Một **transport** HTTP mang các thử thách, thông tin xác thực, biên nhận và lỗi.
+
+MPP được công bố dưới dạng một tập hợp Internet-Draft. Hãy coi
+[các đặc tả hiện hành](https://paymentauth.org/) là nguồn tham chiếu chính thức và
+lưu ý rằng các chi tiết có thể thay đổi khi các bản nháp vẫn đang được hoàn thiện.
+
+## Trao đổi HTTP
+
+MPP sử dụng các trường xác thực HTTP tiêu chuẩn thay vì các header
+thanh toán riêng của giao thức:
+
+| Thông điệp                 | Biểu diễn HTTP                                         |
+| ----------------------- | ----------------------------------------------------------- |
+| Thử thách thanh toán       | `402 Payment Required` với `WWW-Authenticate: Payment ...` |
+| Thông tin xác thực thanh toán      | Yêu cầu được gửi lại với `Authorization: Payment ...`           |
+| Biên nhận thành công      | Phản hồi tài nguyên với `Payment-Receipt: ...`               |
+| Chi tiết thanh toán không hợp lệ | Nội dung Problem Details sử dụng `application/problem+json`       |
+
+```mermaid title="MPP Charge Flow"
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Solana
+    Client->>Server: GET /report
+    Server-->>Client: 402 + WWW-Authenticate: Payment
+    Note over Client: Validate terms and authorize payment
+    Client->>Server: GET /report + Authorization: Payment
+    Server->>Server: Verify challenge binding and transaction
+    Server->>Solana: Broadcast signed transfer
+    Solana-->>Server: Confirmed transaction
+    Server-->>Client: 200 + report + Payment-Receipt
+```
+
+Một thử thách bao gồm ID do máy chủ tạo, realm, phương thức, intent, yêu cầu thanh toán đã mã hóa và thời hạn. Thông tin xác thực lặp lại thử thách và bổ sung bằng chứng thanh toán riêng của phương thức. Máy chủ phải xác minh cả hai phần; một giao dịch chuyển tiền hợp lệ nhưng thuộc về một thử thách khác thì không được mở khóa tài nguyên.
+
+## Các khoản charge một lần trên Solana
+
+Intent `charge` của Solana hỗ trợ hai loại thông tin xác thực:
+
+- **Chế độ pull** sử dụng một giao dịch đã ký. Máy khách ký giao dịch chuyển tiền và
+  gửi giao dịch đến máy chủ. Máy chủ xác minh, có thể thêm chữ ký của
+  người trả phí (fee-payer), phát sóng, xác nhận và trả về chữ ký giao dịch
+  trong biên nhận.
+- **Chế độ push** sử dụng chữ ký giao dịch. Máy khách phát sóng giao dịch trước, sau đó
+  gửi chữ ký đã được xác nhận đến máy chủ. Máy chủ truy xuất và xác minh
+  giao dịch trước khi trả về tài nguyên.
+
+Chế độ pull cho phép máy chủ tài trợ phí giao dịch và có logic thử lại phía máy chủ.
+Chế độ push hữu ích khi ví yêu cầu máy khách tự gửi
+giao dịch của mình, nhưng không thể sử dụng tính năng máy chủ tài trợ phí.
+
+Để biết các trường chuẩn tắc và quy tắc xác minh, xem
+[đặc tả charge của Solana](https://paymentauth.org/draft-solana-charge-00.html).
+
+## Thêm khoản charge MPP vào API Express
+
+Solana Pay Kit cung cấp một tích hợp TypeScript hiện hành cho MPP và x402.
+Cài đặt nó cùng với Express:
+
+```bash
+pnpm add @solana/pay-kit @solana/kit@^6.9.0 express
+pnpm add --save-dev @types/express tsx
+```
+
+Ví dụ đơn giản nhất này sử dụng môi trường sandbox Surfpool được lưu trữ và người nhận demo công khai của gói. Ví dụ chỉ dành cho phát triển cục bộ:
+
+```ts filename=server.ts
+import express from "express";
+import { createPayKit, usd } from "@solana/pay-kit";
+
+const pay = await createPayKit({
+  accept: ["mpp"],
+  rpcUrl: "https://402.surfnet.dev:8899"
+});
+
+const app = express();
+
+app.get("/report", pay.express(usd("0.01")), (_req, res) => {
+  res.json({ report: "Paid report" });
+});
+
+app.listen(4567, () => {
+  console.log("Paid API listening on http://127.0.0.1:4567");
+});
+```
+
+Chạy nó và so sánh một yêu cầu chưa thanh toán với một yêu cầu có thanh toán:
+
+```bash
+pnpm tsx server.ts
+curl -i http://127.0.0.1:4567/report
+pay --sandbox curl http://127.0.0.1:4567/report
+```
+
+Trình xử lý route chỉ chạy sau khi middleware chấp nhận khoản thanh toán.
+
+<Callout type="warn" title="Hãy thay thế mọi giá trị mặc định của sandbox trong môi trường production">
+  Cấu hình rõ ràng mạng, người nhận là merchant, RPC chuyên dụng, khóa bí mật
+  ràng buộc thử thách ổn định, trình ký production và kho lưu trữ chống phát lại bền vững. Tuyệt đối không
+  chuyển các khoản thanh toán thực đến trình ký demo của gói.
+</Callout>
+
+## Phiên thanh toán theo mức sử dụng
+
+Hãy dùng `session` của Solana MPP khi máy khách thực hiện nhiều khoản thanh toán nhỏ có liên quan với nhau.
+Một session mở kênh thanh toán onchain với mức ký quỹ tối đa, sau đó dùng
+các voucher đã ký tích lũy khi mức sử dụng tăng lên. Máy chủ có thể xác minh voucher
+offchain và quyết toán số tiền cao nhất đã được chấp nhận sau đó.
+
+Cách này hữu ích cho suy luận tính phí theo token, tải xuống tính phí theo byte, dữ liệu trực tiếp
+và các lệnh gọi công cụ lặp lại. Nó không giống với việc gửi một khoản
+thanh toán onchain riêng cho mỗi sự kiện.
+
+```mermaid title="MPP Session Lifecycle"
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Solana
+    Client->>Server: Request + session support
+    Server-->>Client: 402 + capped session challenge
+    Client->>Solana: Open channel and deposit maximum
+    Solana-->>Server: Channel confirmed
+    loop Metered usage
+        Client->>Server: Request + increasing signed voucher
+        Server-->>Client: Resource + receipt
+    end
+    Server->>Solana: Settle highest accepted voucher
+    Solana-->>Client: Return unused deposit when closed
+```
+
+Hãy gọi session là **thanh toán theo phiên**, **kênh thanh toán** hoặc **ủy quyền lặp lại có giới hạn**. Chỉ gọi là thanh toán dạng luồng (streamed payment) khi dịch vụ và hợp đồng thanh toán thực sự đo lường một luồng mức sử dụng.
+
+## Xác minh trong môi trường production
+
+Với mỗi khoản charge trên Solana, máy chủ phải xác minh tối thiểu:
+
+- Thử thách là xác thực, chưa hết hạn, gắn với yêu cầu này và dành cho
+  realm này.
+- Giao dịch sử dụng đúng mạng, tài sản hoặc mint, người nhận, số tiền
+  và Token Program như mong đợi.
+- Mọi lệnh của người trả phí (fee-payer) hoặc associated token account đều được
+  cho phép một cách tường minh và không thể rút cạn trình ký của máy chủ.
+- Giao dịch đã thành công ở mức commitment yêu cầu.
+- Chữ ký giao dịch chưa bị sử dụng trước đó.
+- Việc kiểm tra phát lại và thao tác tiêu thụ là nguyên tử trên tất cả các phiên bản máy chủ.
+
+Với session, hãy lưu trữ bền vững trạng thái kênh, số tiền tích lũy đã chấp nhận và
+mốc quyết toán trong một kho lưu trữ dùng chung. Hãy ghi lại cách máy khách thu hồi số tiền
+chưa sử dụng nếu máy chủ không khả dụng.
+
+## Tài nguyên liên quan
+
+- [Các đặc tả MPP](https://paymentauth.org/)
+- [Tài liệu giao thức MPP](https://mpp.dev/protocol)
+- [Solana Pay Kit](https://github.com/solana-foundation/pay-kit)
+- [Tổng quan về thanh toán agentic](/docs/payments/agentic-payments)
+- [Mức độ sẵn sàng cho production](/docs/tools/production-readiness)

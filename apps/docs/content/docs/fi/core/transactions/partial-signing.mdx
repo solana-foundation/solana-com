@@ -1,0 +1,109 @@
+---
+title: Osittainen allekirjoitus
+description:
+  Muodosta yksi muuttumaton Solana-transaktioviesti, kerää sen allekirjoitukset toisistaan riippumattomilta allekirjoittajilta, tarkista ja yhdistä ne ja lähetä sitten transaktio.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+Osittaisen allekirjoituksen avulla useat osapuolet voivat allekirjoittaa saman transaktion eri
+aikoina tai eri laitteilla. Koordinaattori muodostaa viestin, jokainen vaadittu
+allekirjoittaja allekirjoittaa täsmälleen samat serialisoidut viestitavut, ja koordinaattori tarkistaa
+ja yhdistää allekirjoitukset ennen lähettämistä.
+
+<Callout type="warn" title="Allekirjoitukset vahvistavat tavut, eivät tarkoitusta">
+  Jos muutat fee payeria, blockhashia, instructionien järjestystä, tilien luetteloa tai mitä tahansa
+  instruction data -tietoa, syntyy eri viesti, ja kaikki jo kerätyt allekirjoitukset
+  mitätöityvät.
+</Callout>
+
+## Osittaisen allekirjoituksen kulku
+
+1. Sopikaa transaktion instructioneista ja siitä, kuka maksaa kulun.
+2. Määritä transaktion voimassaoloaika ja fee payer.
+3. Serialisoi viesti vain kerran. Käsittele näitä tavuja muuttumattomina.
+4. Jaa viestitavut ja ihmisen luettavissa oleva yhteenveto jokaiselle allekirjoittajalle.
+5. Kerää jokainen Ed25519-allekirjoitus ja tarkista se samoja viestitavuja vasten.
+6. Liitä allekirjoitukset niihin vaadittuihin allekirjoittajaosoitteisiin, joille ne kuuluvat.
+7. Varmista, että jokainen vaadittu allekirjoitus on olemassa ja kelvollinen, ja lähetä sitten.
+
+## Täydellinen esimerkki
+
+Alla fee payer ja SOL-lähettäjä allekirjoittavat itsenäisesti. Koordinaattori tarkistaa
+molemmat allekirjoitukset, yhdistää ne ja lähettää valmiin transaktion.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+Esimerkissä käytetään raakaa Ed25519-allekirjoitusta, jotta koordinaattorin ja kunkin
+allekirjoittajan välinen raja on selkeä. Lompakko, laitteistolaite, säilytyspalvelu
+tai offline-allekirjoittaja voi korvata kummankin paikallisen keypairin, kunhan se allekirjoittaa
+täsmälleen samat viestitavut.
+
+## Lukitse viesti ennen allekirjoitusta
+
+Jokainen allekirjoitus kattaa serialisoidun transaktioviestin. Viesti sisältää
+seuraavat asiat:
+
+- fee payerin
+- tuoreen blockhashin tai durable noncen
+- jokaisen ohjelman ja tilin osoitteen
+- tilien allekirjoittaja- ja kirjoitusoikeudet
+- instructionien järjestyksen ja instruction data -tiedon
+
+Muodosta nämä kentät ensin, serialisoi viesti kerran ja jaa tämä tavutaulukko
+jokaiselle allekirjoittajalle. On hyödyllistä tallentaa viestin tiiviste jokaisen
+allekirjoituspyynnön yhteyteen, jotta koordinaattori voi hylätä allekirjoituksen, joka on palautettu
+eri viestille.
+
+Älä pura viestiä, muuta sitä ja oleta aiemmin kerättyjen
+allekirjoitusten pysyvän voimassa. Jopa operatiiviselta vaikuttava muutos, kuten
+vanhentuneen blockhashin vaihtaminen tai fee payerin muuttaminen, edellyttää, että jokainen allekirjoittaja
+allekirjoittaa uudelleen.
+
+## Koordinoi fee payer
+
+Fee payer on aina vaadittu allekirjoittaja, ja se on valittava ennen kuin viesti
+lukitaan. Varmista, että tilillä on riittävästi SOL-tokeneita perusmaksuun ja mahdolliseen
+prioriteettimaksuun. Jos sponsori tai taustajärjestelmä maksaa kulun, lisää kyseinen osoite
+viestiin ennen käyttäjän allekirjoituksen keräämistä; sponsorin lisääminen myöhemmin muuttaa
+allekirjoitettuja tavuja.
+
+Koordinaattorin tulee varmistaa, että saapuva allekirjoitus kuuluu osoitteelle, joka
+on lueteltu vaadituksi allekirjoittajaksi. Älä koskaan hyväksy mielivaltaista julkista avainta ja liitä sitä
+transaktioon.
+
+## Hallitse transaktion voimassaoloaikaa
+
+Tuoretta blockhashia käyttävä transaktio on voimassa vain niin kauan kuin sen blockhash pysyy
+validatorin tuoreiden blockhashien jonossa. Ennen usean osapuolen allekirjoituskulun aloittamista
+arvioi, ehtivätkö kaikki allekirjoittajat vastata ennen arvoa `lastValidBlockHeight`.
+
+Jos blockhash vanhenee, muodosta uusi viesti tuoreella blockhashilla ja kerää
+kaikki allekirjoitukset uudelleen. Työnkuluissa, jotka voivat kestää pidempään tai sisältää offline-
+allekirjoittajia, käytä [pysyvää noncea](/docs/core/transactions/durable-nonces). Pysyvä
+nonce välttää tuoreen blockhashin aikaikkunan, mutta noncen eteneminen tai muu
+kuluttaminen mitätöi silti odottavan transaktion.
+
+## Tarkista ennen lähettämistä
+
+Jokaiselle palautetulle allekirjoitukselle:
+
+1. Tarkista allekirjoitus lukittuja viestitavuja ja odotetun
+   allekirjoittajan julkista avainta vasten.
+2. Liitä se kyseisen allekirjoittajan paikkaan transaktion allekirjoitustaulukossa.
+3. Varmista, että koottu transaktio sisältää kelvolliset allekirjoitukset jokaiselta vaadittulta
+   allekirjoittajalta.
+4. Lähetä serialisoitu transaktio muodostamatta sen viestiä uudelleen.
+
+Lähettämisen jälkeen vahvista tila käyttäen samoja voimassaoloaikatietoja, jotka sisältyivät
+allekirjoitettuun viestiin. Jos vahvistus ilmoittaa vanhentuneesta blockhashista tai käytetystä
+noncesta, älä yritä uudelleen muokatulla transaktiolla; aloita allekirjoituskulku alusta.

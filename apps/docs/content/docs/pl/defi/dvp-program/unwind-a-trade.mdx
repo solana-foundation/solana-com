@@ -1,0 +1,273 @@
+---
+title: Wycofanie transakcji
+description:
+  Odbierz swoją część transakcji za pomocą Reclaim, wycofaj całą transakcję przez Cancel lub Reject i odzyskaj depozyt, który wpłynął po zamknięciu transakcji, za pomocą Recover.
+seoTitle: Wycofanie transakcji DvP na Solanie
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+Cztery instrukcje zwracają środki bez rozliczenia: Reclaim, Cancel i Reject,
+gdy transakcja jest otwarta, oraz Recover dla depozytu, który wpłynął po jej
+zamknięciu. Żadna z nich nie sprawdza terminu wygaśnięcia. Zamrożony escrow lub
+zmieniony mint nadal może zablokować część transakcji, jak opisano w uwagach na końcu.
+
+| Instrukcja  | Podpisujący               | Zakres                         | Transakcja po wykonaniu |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` lub `user_b` | Własna część podpisującego          | Nadal otwarta       |
+| `CancelDvp`  | Organ rozliczeniowy | Obie części                     | Zamknięta           |
+| `RejectDvp`  | `user_a` lub `user_b` | Obie części                     | Zamknięta           |
+| `RecoverDvp` | `user_a` lub `user_b` | Część podpisującego, po zamknięciu | Już zamknięta   |
+
+W każdym przypadku z escrow zostaje wypłacone wszystko, co zawiera, na rzecz
+strony danej części: escrow A trafia na token account użytkownika `user_a` dla
+`mint_a`, a escrow B na token account użytkownika `user_b` dla `mint_b`,
+niezależnie od tego, kto go sfinansował. Memo program account jest przekazywany
+dla kont zwrotu, które wymagają memo.
+
+Ta strona jest kontynuacją wcześniejszych kroków: klient i podpisujący z
+[tworzenia transakcji](/docs/defi/dvp-program/create-a-trade), `userAAtaA` i
+`userBAtaB` z [finansowania części transakcji](/docs/defi/dvp-program/fund-the-legs) oraz
+`MEMO_PROGRAM_ID` i `authority` z
+[rozliczania transakcji](/docs/defi/dvp-program/settle-the-trade) są używani dalej.
+
+## Odbieranie swojej części (Reclaim)
+
+Reclaim zwraca część podpisującego i pozostawia transakcję otwartą, więc część
+można sfinansować ponownie. Użyj go, gdy problem dotyczy części kontrahenta;
+Cancel i Reject zamykają całą transakcję.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Anulowanie lub odrzucenie
+
+Cancel jest podpisywane przez organ rozliczeniowy, a Reject przez dowolną ze
+stron. Obie instrukcje zwracają stronie danej części wszystko, co zawiera każdy
+escrow, oraz zamykają rekord i oba escrow, a rent z zamkniętych kont trafia do
+podpisującego. Obie instrukcje przyjmują te same konta; różni się tylko
+podpisujący.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Konta zwrotu (`userAAtaA`, `userBAtaB`) muszą istnieć dla każdej części, która
+zawiera saldo; niezainicjowane konto zwrotu powoduje niepowodzenie transferu
+tokenów i cofnięcie instrukcji. Część, która nigdy nie została sfinansowana, nie
+wymaga transferu i toleruje brakujące konto.
+
+## Odzyskiwanie spóźnionego depozytu
+
+Settle, Cancel i Reject zamykają oba escrow token account, więc zwykły transfer
+do zamkniętego escrow kończy się niepowodzeniem. Depozyt może wpłynąć po
+zamknięciu tylko wtedy, gdy coś wcześniej odtworzy escrow, na przykład transakcja
+finansująca, która przed transferem zawiera instrukcję create-idempotent
+associated token account i była w toku, gdy kontrahent wysłał Reject. Tokeny
+trafiają wtedy do escrow, którego transakcja już nie istnieje: rekord zniknął,
+więc Reclaim nie może go znaleźć, a nonce tombstone uniemożliwia utworzenie nowej
+transakcji pod tym samym adresem i przechwycenie depozytu.
+
+Aby użyć `RecoverDvp`, strona danej części podaje oryginalne dane wejściowe seed
+(organ rozliczeniowy, obie strony, oba mint, nonce). Program ponownie wyprowadza
+adres rekordu, wymaga jego tombstone jako dowodu, że transakcja istniała,
+opróżnia escrow na własny token account podpisującego i zamyka go, zwracając
+rent z escrow podpisującemu. Część podpisującego jest wybierana według tego, kto
+podpisuje: `mint_a` dla `user_a`, `mint_b` dla `user_b`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Odzyskanie zależy od tego, czy strona zachowała parametry utworzenia. System,
+który finansuje transakcje, przechowuje dane wejściowe seed przy każdym
+zleceniu, dopóki transakcja nie zostanie zamknięta, a salda escrow nie zostaną
+potwierdzone jako puste.
+
+## Uwagi
+
+- **Zamrożone części.** W przypadku mint z ograniczeniami zamrożony escrow blokuje
+  transfer tokenów wykonywany przez te instrukcje, dopóki freeze authority go nie
+  odblokuje. Zobacz [przegląd](/docs/defi/dvp-program#mint-configuration-constraints).
+- **Zmiany mint po utworzeniu.** Ścieżki wycofania pomijają kontrole rozszerzeń i
+  mint authority, aby własne kontrole programu nie blokowały odzyskania środków.
+  Reguły samego token program nadal obowiązują. Mint można zamknąć tylko przy
+  zerowej podaży, więc nie może się zmienić, dopóki w escrow jest saldo, ale mint
+  zamknięty i odtworzony jako NonTransferable lub z opłatą transferową, zanim
+  wpłynie spóźniony depozyt, może sprawić, że ten depozyt będzie niemożliwy do
+  przeniesienia lub obciążony opłatą. To zależność od mint authority wymieniona w
+  sekcji [obsługiwane tokeny](/docs/defi/dvp-program#supported-tokens).
+
+## Kolejne kroki
+
+- [Program DvP](/docs/defi/dvp-program): przegląd, obsługiwane tokeny oraz
+  ograniczenia konfiguracji mint
+- [Delivery vs Payment (DvP) z użyciem delegowania](/docs/tokenization/dvp): ta sama
+  wymiana przez delegowane uprawnienia, bez programu

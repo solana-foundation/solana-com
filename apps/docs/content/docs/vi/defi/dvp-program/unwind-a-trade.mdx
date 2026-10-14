@@ -1,0 +1,270 @@
+---
+title: Hoàn tác giao dịch
+description:
+  Lấy lại một leg bằng Reclaim, hoàn tác giao dịch bằng Cancel hoặc Reject, và thu hồi khoản nạp đến sau khi giao dịch đã đóng bằng Recover.
+seoTitle: Hoàn tác giao dịch DvP trên Solana
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+Bốn instruction hoàn trả tiền mà không thực hiện thanh toán: Reclaim, Cancel và Reject
+khi giao dịch còn mở, và Recover cho khoản nạp đến sau khi giao dịch đã
+đóng. Không instruction nào kiểm tra thời hạn hết hạn. Escrow bị đóng băng hoặc mint bị thay đổi
+vẫn có thể giữ lại một leg, như các lưu ý ở cuối trang mô tả.
+
+| Instruction  | Bên ký               | Phạm vi                         | Giao dịch sau đó |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` hoặc `user_b` | Leg của chính bên ký          | Vẫn mở       |
+| `CancelDvp`  | Thẩm quyền thanh toán | Cả hai leg                     | Đã đóng           |
+| `RejectDvp`  | `user_a` hoặc `user_b` | Cả hai leg                     | Đã đóng           |
+| `RecoverDvp` | `user_a` hoặc `user_b` | Leg của bên ký, sau khi đóng | Đã đóng từ trước   |
+
+Trong mọi trường hợp, escrow được rút toàn bộ số dư đang giữ về bên sở hữu leg đó:
+escrow A về token account của `user_a` cho `mint_a`, escrow B về token account của `user_b` cho
+`mint_b`, bất kể ai đã nạp tiền. Memo program account được cung cấp cho các
+tài khoản hoàn tiền yêu cầu memo.
+
+Trang này tiếp nối các bước trước: client và các bên ký từ
+[tạo giao dịch](/docs/defi/dvp-program/create-a-trade), `userAAtaA` và
+`userBAtaB` từ [nạp tiền cho các leg](/docs/defi/dvp-program/fund-the-legs), cùng
+`MEMO_PROGRAM_ID` và `authority` từ
+[thanh toán giao dịch](/docs/defi/dvp-program/settle-the-trade) đều được dùng tiếp.
+
+## Reclaim một leg
+
+Reclaim trả lại leg của bên ký và giữ giao dịch ở trạng thái mở, nên leg đó có thể
+được nạp lại. Hãy dùng khi vấn đề nằm ở leg của đối tác; Cancel và
+Reject sẽ đóng toàn bộ giao dịch.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Cancel hoặc Reject
+
+Cancel do thẩm quyền thanh toán ký, còn Reject do một trong hai bên ký. Cả hai
+đều hoàn trả số dư mà mỗi escrow đang giữ về bên sở hữu leg, đồng thời đóng bản ghi và
+cả hai escrow, với rent của các tài khoản đã đóng được chuyển cho bên ký. Hai
+instruction này dùng cùng các tài khoản; chỉ khác bên ký.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Các tài khoản hoàn tiền (`userAAtaA`, `userBAtaB`) phải tồn tại với bất kỳ leg nào đang có
+số dư; tài khoản hoàn tiền chưa được khởi tạo sẽ khiến việc chuyển token thất bại và
+hoàn nguyên instruction. Leg chưa từng được nạp tiền không cần chuyển khoản và
+vẫn chấp nhận tài khoản bị thiếu.
+
+## Thu hồi khoản nạp đến muộn
+
+Settle, Cancel và Reject đều đóng cả hai escrow token account, nên một
+lệnh chuyển thông thường vào escrow đã đóng sẽ thất bại. Khoản nạp chỉ đến được sau khi đóng nếu
+có điều gì đó tạo lại escrow trước, ví dụ một giao dịch nạp tiền
+bao gồm instruction create-idempotent associated token account trước
+lệnh chuyển và vẫn đang được xử lý khi đối tác gửi Reject. Khi đó các token
+nằm trong một escrow mà giao dịch của nó không còn tồn tại: bản ghi đã mất, nên Reclaim
+không thể tìm thấy, còn nonce tombstone ngăn một giao dịch mới được tạo
+tại cùng địa chỉ và chiếm lấy khoản nạp.
+
+Để dùng `RecoverDvp`, bên sở hữu leg cung cấp các đầu vào seed ban đầu
+(thẩm quyền thanh toán, cả hai bên, cả hai mint, nonce). Chương trình tính lại
+địa chỉ bản ghi, yêu cầu tombstone của nó làm bằng chứng giao dịch đã tồn tại, rút toàn bộ
+escrow về token account của chính bên ký, rồi đóng nó, trả lại
+rent của escrow cho bên ký. Leg của bên ký được xác định theo bên nào ký:
+`mint_a` cho `user_a`, `mint_b` cho `user_b`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Việc thu hồi phụ thuộc vào việc bên sở hữu lưu giữ các tham số tạo giao dịch. Một hệ thống nạp tiền cho
+các giao dịch sẽ lưu các đầu vào seed cùng với mỗi lệnh cho đến khi giao dịch đã đóng và
+số dư escrow đã được xác nhận là rỗng.
+
+## Lưu ý
+
+- **Leg bị đóng băng.** Trên mint có kiểm soát, escrow bị đóng băng sẽ chặn việc chuyển token
+  mà các instruction này thực hiện cho đến khi freeze authority gỡ băng. Xem
+  [tổng quan](/docs/defi/dvp-program#mint-configuration-constraints).
+- **Thay đổi mint sau khi tạo.** Các đường hoàn tác bỏ qua việc kiểm tra extension và
+  mint authority để các kiểm tra của chương trình không chặn việc thu hồi. Các quy tắc
+  của token program vẫn được áp dụng. Mint chỉ có thể bị đóng khi nguồn cung
+  bằng 0, nên nó không thể thay đổi khi vẫn còn số dư trong escrow, nhưng một mint được đóng
+  và tạo lại dưới dạng NonTransferable hoặc có phí chuyển trước khi một khoản nạp đến muộn
+  xuất hiện có thể khiến khoản nạp đó không thể di chuyển hoặc bị tính phí. Đó là
+  sự phụ thuộc vào mint authority được liệt kê trong
+  [các token được hỗ trợ](/docs/defi/dvp-program#supported-tokens).
+
+## Các bước tiếp theo
+
+- [Chương trình DvP](/docs/defi/dvp-program): tổng quan, các token được hỗ trợ và
+  các ràng buộc cấu hình mint
+- [Delivery vs Payment (DvP) sử dụng ủy quyền](/docs/tokenization/dvp): cùng một
+  giao dịch trao đổi thông qua thẩm quyền được ủy quyền, không cần chương trình

@@ -1,0 +1,267 @@
+---
+title: Bir Alım Satımı Geri Alma
+description:
+  Reclaim ile bir bacağı geri alın, Cancel veya Reject ile alım satımı geri sarın, alım satım kapandıktan sonra gelen bir depozitoyu da Recover ile kurtarın.
+seoTitle: Solana'da DvP Alım Satımını Geri Alma
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+Dört instruction, fonları takas etmeden iade eder: alım satım açıkken Reclaim, Cancel ve Reject;
+alım satım kapandıktan sonra gelen bir depozito için ise Recover. Hiçbiri son kullanma süresini
+denetlemez. Dondurulmuş bir escrow ya da değiştirilmiş bir mint, sondaki notlarda
+anlatıldığı gibi yine de bir bacağı tutabilir.
+
+| Instruction  | İmzalayan               | Kapsam                         | Sonrasında alım satım |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` veya `user_b` | İmzalayanın kendi bacağı          | Hâlâ açık       |
+| `CancelDvp`  | Takas yetkilisi | Her iki bacak                     | Kapalı           |
+| `RejectDvp`  | `user_a` veya `user_b` | Her iki bacak                     | Kapalı           |
+| `RecoverDvp` | `user_a` veya `user_b` | İmzalayanın bacağı, kapanıştan sonra | Zaten kapalı   |
+
+Her durumda escrow, içinde ne varsa bacağın tarafına boşaltılır:
+escrow A, `mint_a` için `user_a`'nın token account'una; escrow B, `mint_b` için
+`user_b`'nin token account'una, escrow'u kim fonlamış olursa olsun. İade hesapları memo
+gerektiriyorsa memo program account'u sağlanır.
+
+Bu sayfa önceki adımların devamıdır: [alım satım oluşturma](/docs/defi/dvp-program/create-a-trade) adımındaki client ve imzalayanlar,
+[bacakları fonlama](/docs/defi/dvp-program/fund-the-legs) adımındaki `userAAtaA` ve
+`userBAtaB`, [alım satımı takas etme](/docs/defi/dvp-program/settle-the-trade) adımındaki
+`MEMO_PROGRAM_ID` ve `authority` burada da geçerlidir.
+
+## Bir bacağı geri alma (Reclaim)
+
+Reclaim, imzalayanın bacağını iade eder ve alım satımı açık bırakır; böylece bacak
+tekrar fonlanabilir. Sorun karşı tarafın bacağındaysa bunu kullanın; Cancel ve
+Reject ise alım satımın tamamını kapatır.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## Cancel veya Reject
+
+Cancel takas yetkilisi tarafından, Reject ise taraflardan biri tarafından imzalanır. İkisi de
+her escrow'da ne varsa bacağın tarafına iade eder, kaydı ve her iki escrow'u kapatır;
+kapatılan hesapların rent'i imzalayana gider. İki instruction da aynı hesapları alır;
+yalnızca imzalayan farklıdır.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Bakiye tutan her bacak için iade hesapları (`userAAtaA`, `userBAtaB`) mevcut olmalıdır;
+başlatılmamış bir iade hesabı token transferinin başarısız olmasına ve instruction'ın
+geri alınmasına neden olur. Hiç fonlanmamış bir bacak için transfer gerekmez ve
+eksik bir hesap sorun çıkarmaz.
+
+## Geç gelen bir depozitoyu kurtarma (Recover)
+
+Settle, Cancel ve Reject, her iki escrow token account'unu da kapatır; bu yüzden kapalı bir
+escrow'a yapılan düz bir transfer başarısız olur. Bir depozito, kapanıştan sonra yalnızca
+escrow'u önce bir şey yeniden oluşturursa gelebilir; örneğin transferden önce
+create-idempotent associated token account instruction'ı içeren ve karşı taraf Reject
+gönderdiği sırada yoldaki bir fonlama işlemi. Bu durumda token'lar, alım satımı artık var olmayan
+bir escrow'da kalır: kayıt silinmiştir, bu yüzden Reclaim onu bulamaz; nonce tombstone'u ise
+aynı adreste yeni bir alım satım oluşturulup depozitonun ele geçirilmesini engeller.
+
+`RecoverDvp`'yi kullanmak için bacağın tarafı orijinal seed girdilerini sağlar
+(takas yetkilisi, her iki taraf, her iki mint, nonce). Program kayıt adresini yeniden türetir,
+alım satımın var olduğunun kanıtı olarak tombstone'unu şart koşar, escrow'u imzalayanın
+kendi token account'una boşaltır ve kapatır; escrow rent'i de imzalayana döner.
+İmzalayanın bacağı, hangi tarafın imzaladığına göre belirlenir:
+`user_a` için `mint_a`, `user_b` için `mint_b`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+Kurtarma, tarafın oluşturma parametrelerini saklamasına bağlıdır. Alım satımları fonlayan bir sistem,
+alım satım kapanana ve escrow bakiyelerinin boş olduğu doğrulanana kadar her emir için seed
+girdilerini saklar.
+
+## Notlar
+
+- **Dondurulmuş bacaklar.** Kapılı (gated) bir mint'te dondurulmuş bir escrow, bu instruction'ların
+  gerçekleştirdiği token transferini freeze authority dondurmayı kaldırana kadar engeller.
+  [Genel bakış](/docs/defi/dvp-program#mint-configuration-constraints) bölümüne bakın.
+- **Oluşturma sonrası mint değişiklikleri.** Geri alma yolları, programın kendi kontrolleri
+  kurtarmayı engellemesin diye extension ve mint-authority kontrollerini atlar. token program'ın
+  kendi kuralları yine geçerlidir. Bir mint yalnızca sıfır arzda kapatılabilir; bu yüzden
+  escrow'da bakiye dururken değişemez, ancak geç gelen bir depozito inmeden önce kapatılıp
+  NonTransferable olarak ya da transfer ücretiyle yeniden oluşturulan bir mint, o depozitoyu
+  taşınamaz veya ücretli hale getirebilir. Bu, [desteklenen token'lar](/docs/defi/dvp-program#supported-tokens)
+  altında listelenen mint-authority bağımlılığıdır.
+
+## Sonraki adımlar
+
+- [DvP programı](/docs/defi/dvp-program): genel bakış, desteklenen token'lar ve
+  mint yapılandırma kısıtlamaları
+- [Delegasyon kullanarak Delivery vs Payment (DvP)](/docs/tokenization/dvp): aynı
+  değişim, program olmadan, devredilmiş yetki üzerinden

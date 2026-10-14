@@ -1,0 +1,146 @@
+---
+title: Machine Payments Protocol w Solanie
+seoTitle: Płatności agentowe MPP w Solanie
+description:
+  Używaj wyzwań, poświadczeń i potwierdzeń Machine Payments Protocol do jednorazowych opłat lub rozliczanych według zużycia sesji płatności w Solanie.
+---
+
+[Machine Payments Protocol (MPP)](https://mpp.dev/) stosuje semantykę uwierzytelniania HTTP do płatności. Serwer wysyła wyzwanie w odpowiedzi na nieopłacone żądanie, klient zwraca poświadczenie płatności, a serwer po zaakceptowaniu płatności zwraca potwierdzenie.
+
+MPP rozdziela trzy kwestie:
+
+- **Intencja** (ang. *intent*) opisuje interakcję handlową, na przykład jednorazową opłatę (`charge`) lub rozliczaną według zużycia sesję (`session`).
+- **Metoda płatności** opisuje sposób przepływu wartości. Metoda dla Solany obsługuje w przypadku opłat natywny token SOL oraz tokeny SPL.
+- **Warstwa transportowa** HTTP przenosi wyzwania, poświadczenia, potwierdzenia i błędy.
+
+MPP jest publikowany jako zestaw dokumentów Internet-Draft. Traktuj [aktualne specyfikacje](https://paymentauth.org/) jako źródło prawdy i miej na uwadze, że szczegóły mogą się zmieniać, dopóki prace nad wersjami roboczymi trwają.
+
+## Wymiana HTTP
+
+MPP używa standardowych pól uwierzytelniania HTTP zamiast nagłówków płatności specyficznych dla protokołu:
+
+| Komunikat                 | Reprezentacja HTTP                                         |
+| ----------------------- | ----------------------------------------------------------- |
+| Wyzwanie płatności       | `402 Payment Required` z `WWW-Authenticate: Payment ...` |
+| Poświadczenie płatności      | Ponowione żądanie z `Authorization: Payment ...`           |
+| Potwierdzenie udanej płatności      | Odpowiedź z zasobem i `Payment-Receipt: ...`               |
+| Nieprawidłowe dane płatności | Treść Problem Details w formacie `application/problem+json`       |
+
+```mermaid title="MPP Charge Flow"
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Solana
+    Client->>Server: GET /report
+    Server-->>Client: 402 + WWW-Authenticate: Payment
+    Note over Client: Validate terms and authorize payment
+    Client->>Server: GET /report + Authorization: Payment
+    Server->>Server: Verify challenge binding and transaction
+    Server->>Solana: Broadcast signed transfer
+    Solana-->>Server: Confirmed transaction
+    Server-->>Client: 200 + report + Payment-Receipt
+```
+
+Wyzwanie zawiera identyfikator wygenerowany przez serwer, dziedzinę (realm), metodę, intencję, zakodowane żądanie płatności oraz termin ważności. Poświadczenie powtarza wyzwanie i dodaje dowód płatności właściwy dla danej metody. Serwer musi zweryfikować oba elementy; prawidłowy transfer powiązany z innym wyzwaniem nie może odblokować zasobu.
+
+## Jednorazowe opłaty w Solanie
+
+Intencja `charge` w Solanie obsługuje dwa typy poświadczeń:
+
+- **Tryb pull** używa podpisanej transakcji. Klient podpisuje transfer i wysyła transakcję do serwera. Serwer weryfikuje ją, opcjonalnie dodaje podpis płatnika opłat (fee payer), rozgłasza transakcję, potwierdza ją i zwraca sygnaturę transakcji w potwierdzeniu.
+- **Tryb push** używa sygnatury transakcji. Klient najpierw rozgłasza transakcję, a następnie wysyła potwierdzoną sygnaturę do serwera. Serwer pobiera transakcję i weryfikuje ją przed zwróceniem zasobu.
+
+Tryb pull umożliwia pokrywanie opłat transakcyjnych przez serwer oraz logikę ponawiania prób po stronie serwera. Tryb push jest przydatny, gdy portfel wymaga, aby klient samodzielnie przesłał swoją transakcję, ale nie pozwala na sponsorowanie opłat przez serwer.
+
+Informacje o polach normatywnych i regułach weryfikacji znajdziesz w [specyfikacji opłat Solana charge](https://paymentauth.org/draft-solana-charge-00.html).
+
+## Dodawanie opłaty MPP do API Express
+
+Solana Pay Kit zapewnia aktualną integrację TypeScript dla MPP i x402. Zainstaluj go razem z Express:
+
+```bash
+pnpm add @solana/pay-kit @solana/kit@^6.9.0 express
+pnpm add --save-dev @types/express tsx
+```
+
+Ten najprostszy przykład korzysta z hostowanego środowiska testowego Surfpool oraz publicznego demonstracyjnego odbiorcy z pakietu. Służy wyłącznie do lokalnego programowania:
+
+```ts filename=server.ts
+import express from "express";
+import { createPayKit, usd } from "@solana/pay-kit";
+
+const pay = await createPayKit({
+  accept: ["mpp"],
+  rpcUrl: "https://402.surfnet.dev:8899"
+});
+
+const app = express();
+
+app.get("/report", pay.express(usd("0.01")), (_req, res) => {
+  res.json({ report: "Paid report" });
+});
+
+app.listen(4567, () => {
+  console.log("Paid API listening on http://127.0.0.1:4567");
+});
+```
+
+Uruchom go i porównaj żądanie nieopłacone z żądaniem obsługującym płatności:
+
+```bash
+pnpm tsx server.ts
+curl -i http://127.0.0.1:4567/report
+pay --sandbox curl http://127.0.0.1:4567/report
+```
+
+Handler trasy jest uruchamiany dopiero po zaakceptowaniu płatności przez middleware.
+
+<Callout type="warn" title="Zastąp w środowisku produkcyjnym wszystkie domyślne ustawienia sandboxa">
+  Skonfiguruj jawnie sieć, odbiorcę po stronie sprzedawcy, dedykowany RPC, stabilny sekret powiązania wyzwań, produkcyjnego podpisującego oraz trwały magazyn zapobiegający ponownemu użyciu (replay). Nigdy nie kieruj prawdziwych płatności do demonstracyjnego podpisującego z pakietu.
+</Callout>
+
+## Sesje rozliczane według zużycia
+
+Użyj sesji (`session`) Solana MPP, gdy klient będzie wykonywać wiele małych, powiązanych ze sobą płatności. Sesja otwiera kanał płatności onchain z maksymalnym depozytem, a następnie wraz ze wzrostem zużycia korzysta ze skumulowanych podpisanych voucherów. Serwer może weryfikować vouchery offchain i rozliczyć najwyższą zaakceptowaną kwotę później.
+
+Jest to przydatne w przypadku inferencji rozliczanej według tokenów, pobierań rozliczanych według bajtów, danych na żywo i powtarzanych wywołań narzędzi. To nie to samo, co wysyłanie osobnej płatności onchain za każde zdarzenie.
+
+```mermaid title="MPP Session Lifecycle"
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Solana
+    Client->>Server: Request + session support
+    Server-->>Client: 402 + capped session challenge
+    Client->>Solana: Open channel and deposit maximum
+    Solana-->>Server: Channel confirmed
+    loop Metered usage
+        Client->>Server: Request + increasing signed voucher
+        Server-->>Client: Resource + receipt
+    end
+    Server->>Solana: Settle highest accepted voucher
+    Solana-->>Client: Return unused deposit when closed
+```
+
+Sesję nazywaj **płatnością sesyjną**, **kanałem płatności** lub **ograniczoną, powtarzalną autoryzacją**. Określenia „płatność strumieniowa” używaj tylko wtedy, gdy usługa i umowa płatnicza faktycznie rozliczają strumień zużycia.
+
+## Weryfikacja w środowisku produkcyjnym
+
+Przy każdej opłacie w Solanie serwer musi zweryfikować co najmniej, że:
+
+- wyzwanie jest autentyczne, nie wygasło, jest powiązane z tym żądaniem i przeznaczone dla tej dziedziny (realm).
+- transakcja używa oczekiwanej sieci, aktywa lub mint, odbiorcy, kwoty oraz Token Program.
+- wszelkie instrukcje płatnika opłat lub associated token account są jawnie dozwolone i nie mogą opróżnić konta podpisującego serwera.
+- transakcja zakończyła się powodzeniem na wymaganym poziomie commitment.
+- sygnatura transakcji nie została jeszcze wykorzystana.
+- sprawdzenie ponownego użycia (replay) i operacja jego zużycia są atomowe we wszystkich instancjach serwera.
+
+W przypadku sesji zapisuj też w współdzielonym magazynie stan kanału, zaakceptowaną kwotę skumulowaną oraz znacznik rozliczenia (settlement watermark). Udokumentuj, w jaki sposób klienci odzyskują niewykorzystane środki, jeśli serwer stanie się niedostępny.
+
+## Powiązane zasoby
+
+- [Specyfikacje MPP](https://paymentauth.org/)
+- [Dokumentacja protokołu MPP](https://mpp.dev/protocol)
+- [Solana Pay Kit](https://github.com/solana-foundation/pay-kit)
+- [Przegląd płatności agentowych](/docs/payments/agentic-payments)
+- [Gotowość produkcyjna](/docs/tools/production-readiness)

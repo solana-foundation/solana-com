@@ -1,0 +1,240 @@
+---
+title: Події Anchor
+description:
+  Визначайте, емітуйте, декодуйте події Anchor, підписуйтеся на них, керуйте їхніми версіями та тестуйте їх. Також тут є поради щодо усічення логів і CPI-подій.
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+Події Anchor — це типізовані записи, серіалізовані за допомогою Borsh, які входять до IDL програми.
+Вони дають клієнтам змогу інтерпретувати активність програми без розбору зрозумілих людині повідомлень
+логів.
+
+Події корисні для індексування та сповіщень, але вони не є станом програми. Зберігайте
+в акаунті будь-яке значення, яке програма має прочитати знову, а події розглядайте
+як запис, отриманий із успішної транзакції.
+
+## Визначення та емісія події
+
+Додайте `#[event]` до структури та викличте `emit!` після успішної зміни стану.
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+`emit!` записує байти події за допомогою системного виклику Solana `sol_log_data`. Логи
+транзакції показують результат як `Program data: <base64>`. Закодоване значення починається
+з дискримінатора події, за яким ідуть її поля, серіалізовані за допомогою Borsh.
+
+Робіть події компактними. Великі рядки та вектори споживають обчислювальні ресурси, збільшують
+метадані транзакції та з більшою ймовірністю постраждають від усічення логів.
+
+## Вибір між подіями в логах і CPI-подіями
+
+Anchor підтримує два шляхи емісії:
+
+| Шлях        | Місце зберігання                  | Компроміс                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | Логи даних програми                 | Простіше й дешевше, але логи можуть усікатися         |
+| `emit_cpi!` | instruction data внутрішньої інструкції з CPI | Довговічніші метадані, але потрібні додаткові акаунти та обчислювальні ресурси |
+
+Щоб використовувати CPI-події, увімкніть функцію `event-cpi` в Anchor:
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+Потім додайте анотацію `#[event_cpi]` до структури акаунтів інструкції та емітуйте
+з обробника, змінна контексту якого має назву `ctx`:
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+`#[event_cpi]` додає акаунти event authority та program account поточної програми, потрібні для
+підписаного self-CPI. CPI-події не можна отримувати через підписку на події логів
+Anchor; натомість отримайте транзакцію та декодуйте відповідну внутрішню
+інструкцію.
+
+<Callout type="info" title="Використовуйте реєстр (ledger) як джерело істини">
+  RPC-провайдери можуть усікати логи програм. Якщо пропуск події вплине
+  на баланси, дозволи чи інший критично важливий для коректності процес, виводьте
+  результат з акаунтів програми або з instruction data транзакції. Використовуйте події, щоб
+  зробити індексування ефективним, а не як єдиний запис стану.
+</Callout>
+
+## Підписка з TypeScript
+
+Актуальний клієнт Anchor для TypeScript — `@anchor-lang/core`. Екземпляр `Program`,
+створений на основі IDL програми, може декодувати відповідні події логів і доставляти
+їх через підписку на логи RPC:
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+Колбек отримує декодовані дані події, slot і підпис транзакції. Підписки охоплюють лише
+логи, доставлені, поки з'єднання активне. Зберігайте оброблені підписи та після
+розриву з'єднання донаповнюйте пропущені транзакції, якщо споживачеві потрібна повна історія.
+
+## Декодування логів отриманої транзакції
+
+Для бекфілів та разової перевірки отримайте транзакцію та передайте кожен
+пейлоад `Program data:` кодеру подій:
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+Транзакція може викликати кілька програм. Для промислового парсера відстежуйте межі логів
+`Program <address> invoke` і `success` або використовуйте парсер подій Anchor, щоб запис
+`Program data:` іншої програми не декодувався як ваш.
+Невдалі транзакції можуть зберігати логи та внутрішні інструкції від роботи, виконаної
+до помилки, тому завжди відхиляйте метадані транзакції з ненульовим `err`
+перед індексуванням будь-якої з форм події. Підписка на логи Anchor виконує цю перевірку
+перед доставкою колбека події.
+
+Для події `emit_cpi!` знайдіть self-CPI у `meta.innerInstructions`,
+переконайтеся, що його ID програми — це ваша програма, і декодуйте його instruction data з base58. Перед вилученням
+будь-яких байтів перевірте [`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3) Anchor:
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+Перевірка і ID програми, і тега запобігає тому, щоб звичайний self-CPI було
+помилково сприйнято за подію.
+
+## Версіонування схем подій
+
+За замовчуванням Anchor виводить 8-байтовий дискримінатор події з її назви.
+Anchor також підтримує явний дискримінатор через
+`#[event(discriminator = ...)]`. Дискримінатори мають залишатися унікальними в межах
+програми та стабільними для кожного клієнта, що декодує подію.
+
+Зміна полів емітованої структури змінює її розкладку Borsh. Для несумісної зміни
+схеми визначайте нову подію, наприклад `PaymentRecordedV2`, замість того щоб
+непомітно змінювати `PaymentRecorded`. Продовжуйте емітувати стару подію протягом
+вікна міграції, якщо наявні індексатори досі від неї залежать.
+
+Для даних, що еволюціонують, віддавайте перевагу полям фіксованої ширини та ідентифікаторам, які дозволяють
+індексатору окремо отримувати розширені дані акаунтів. Публікуйте оновлений IDL до оновлення програми або
+разом із ним, щоб споживачі могли одразу декодувати нову подію.
+
+## Тестування подій
+
+Тестуйте декодований контракт, а не рядок base64. Зареєструйте слухача до
+надсилання інструкції, перевіряйте декодовані поля та підпис транзакції
+і завжди видаляйте слухача:
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+Також перевіряйте, що індексатор ігнорує байти подій, збережені в метаданих невдалих транзакцій,
+і додайте фікстуру для кожної підтримуваної версії події. Якщо ви використовуєте
+`emit_cpi!`, тестуйте декодування з `innerInstructions`, оскільки слухачі логів не
+отримують ці події напряму.
+
+## Додаткові матеріали
+
+- [Документація Anchor щодо подій](https://www.anchor-lang.com/docs/features/events)
+- [Клієнт Anchor для TypeScript](https://www.anchor-lang.com/docs/clients/typescript)
+- [Вихідний код макросу подій Anchor](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

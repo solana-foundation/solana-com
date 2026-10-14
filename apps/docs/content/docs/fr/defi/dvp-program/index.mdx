@@ -1,0 +1,375 @@
+---
+title: Programme Livraison contre paiement (DvP)
+description:
+  Le programme DvP de la Solana Foundation conserve une jambe actif et une jambe espèces dans un séquestre détenu par le programme, jusqu'à ce qu'une autorité de règlement désignée dans l'échange règle les deux en une seule transaction. Couvre l'ID du programme, les rôles, la structure des comptes, les erreurs, les tokens pris en charge et des guides pas à pas en TypeScript et en Rust.
+seoTitle: Programme DvP Solana pour une livraison contre paiement atomique
+url: /docs/defi/dvp-program
+type: reference
+related:
+  - /docs/defi/dvp-program/create-a-trade
+  - /docs/tokenization/dvp
+  - /docs/tokenization/token-acl
+---
+
+Le programme DvP est le programme standard de livraison contre paiement sur
+Solana. Il est maintenu par la Solana Foundation et audité par Cantina. Deux
+parties conviennent d'un échange, chacune envoie sa jambe vers un compte
+séquestre par un simple transfert de tokens, et une autorité de règlement règle
+les deux jambes en une seule transaction : soit les deux s'exécutent, soit
+aucune. L'autorité de règlement est une troisième adresse désignée dans
+l'échange, comme la plateforme ou l'agent qui l'a organisé. Aucune des parties
+n'écrit ni ne déploie de programme, et un wallet ou un dépositaire capable
+d'envoyer un transfert de tokens standard (`TransferChecked`) peut alimenter une
+jambe sans aucune intégration propre au DvP. Jusqu'au règlement, chaque partie
+peut récupérer sa propre jambe ou dénouer l'échange.
+
+<Callout type="warn" title="Lisez l'enregistrement avant d'agir">
+
+La création d'un enregistrement d'échange est sans permission : un
+enregistrement ne prouve donc pas l'accord des parties. Chaque partie lit les
+conditions stockées avant d'alimenter sa jambe, et l'autorité de règlement avant
+de régler (voir
+[vérification](#verification-before-funding-and-settlement)).
+
+</Callout>
+
+## Fonctionnement
+
+Chaque échange reçoit un enregistrement détenu par le programme et deux comptes
+séquestres, un par jambe. La partie de la jambe actif (`user_a`) et la partie de
+la jambe espèces (`user_b`) alimentent chacune une jambe en transférant des
+tokens vers le compte séquestre correspondant. L'autorité de règlement est le
+seul signataire pouvant régler. Le règlement transfère le montant convenu de
+chaque jambe à l'autre partie, restitue tout excédent à la partie propriétaire
+de la jambe, puis ferme l'enregistrement et les deux séquestres. L'atomicité
+vient des [transactions](/docs/core/transactions) Solana : les deux transferts
+font partie d'une même transaction, donc soit les deux prennent effet, soit
+aucun.
+
+Chaque remboursement, récupération et restitution d'excédent est versé à
+l'associated token account de la partie : celui de `user_a` pour `mint_a`, celui
+de `user_b` pour `mint_b`. Un dépositaire ou un système de trésorerie peut
+alimenter une jambe depuis son propre compte, mais tout ce qui est restitué
+arrive sur le compte de la partie, et non chez le dépositaire. Chaque échange
+laisse également un compte marqueur permanent (voir [État](#state)).
+
+## Guides
+
+Les pages pas à pas conduisent un échange de sa création à son règlement, avec
+du TypeScript et du Rust pour chaque instruction.
+
+<Cards>
+  <Card title="Créer un échange" href="/docs/defi/dvp-program/create-a-trade">
+    Installez les clients et enregistrez les conditions de l'échange avec CreateDvp
+  </Card>
+  <Card title="Alimenter les jambes" href="/docs/defi/dvp-program/fund-the-legs">
+    Vérifiez les conditions stockées, puis alimentez chaque jambe par un simple transfert
+  </Card>
+  <Card title="Régler l'échange" href="/docs/defi/dvp-program/settle-the-trade">
+    Réglez les deux jambes en une seule transaction en tant qu'autorité de règlement
+  </Card>
+  <Card title="Dénouer un échange" href="/docs/defi/dvp-program/unwind-a-trade">
+    Récupérez une jambe, annulez ou rejetez l'échange, et récupérez les dépôts tardifs
+  </Card>
+</Cards>
+
+Une [démo sur devnet](https://solana.com/delivery-vs-payment/demo) exécute un
+échange de bout en bout : elle crée l'échange, alimente les deux séquestres par
+des transferts de tokens standard, puis règle les deux jambes en une seule
+transaction.
+
+## Choisir entre le programme et la délégation
+
+[La livraison contre paiement (DvP) par délégation](/docs/tokenization/dvp) règle le
+même échange sans programme : chaque partie délègue sa position à un agent de
+règlement, qui déplace les deux jambes en une seule transaction.
+
+- **Le programme** ne nécessite aucune délégation : la limite d'un seul délégué
+  par token account ne s'applique donc pas, et l'autorité de règlement ne peut
+  pas détourner le produit de l'échange. Chaque échange dépend d'un programme
+  évolutif et de son autorité de mise à jour.
+- **Le modèle de délégation** n'a aucune dépendance à un programme et fonctionne
+  avec les mints qui utilisent Scaled UI Amount. Le programme rejette ces mints,
+  ce qui exclut tout mint créé à partir du modèle `tokenized-security` de Mosaic
+  (voir [contraintes de configuration du mint](#mint-configuration-constraints)).
+
+## Rôles
+
+Le programme est symétrique. Dans son interface, les deux parties sont `user_a`,
+qui livre `mint_a`, et `user_b`, qui livre `mint_b`. Le README et les clients
+générés appellent `mint_a` la jambe actif et `mint_b` la jambe espèces, et ces
+pages suivent cette convention, mais rien dans le programme n'exige que la
+jambe espèces soit un instrument de trésorerie. Deux actifs, ou deux
+stablecoins, se règlent de la même façon.
+
+| Rôle                 | Qui                               | Signe                                              | Remarques                                                                                                                                                                                                     |
+| -------------------- | --------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Partie de la jambe actif      | `user_a`, livre `mint_a`       | Son propre transfert d'alimentation ; Reclaim, Reject, Recover | Un wallet keypair, ou un wallet intelligent basé sur un PDA, tel qu'un coffre multisig. Un compte multisig SPL Token ou un program account ne peut pas être une partie : Create échoue avec `PartyNotSignerCapable`                   |
+| Partie de la jambe espèces       | `user_b`, livre `mint_b`       | Son propre transfert d'alimentation ; Reclaim, Reject, Recover | Même exigence                                                                                                                                                                                          |
+| Autorité de règlement | Une troisième adresse désignée à la création | Settle, Cancel                                     | Le seul signataire pouvant régler. Elle ne peut pas détourner le produit de l'échange, fixé à la création. Elle reçoit le rent des comptes fermés lorsqu'elle règle ou annule                                         |
+| Payeur du rent           | Quiconque signe `CreateDvp`         | Create                                             | Finance le rent (le dépôt en SOL qui maintient un compte ouvert) pour l'enregistrement, la nonce tombstone et les deux séquestres. N'est pas enregistré comme bénéficiaire du rent : le rent des comptes fermés revient à celui qui clôt l'échange |
+
+## ID du programme
+
+```text
+dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq
+```
+
+| Cluster      | Programme                                       | Autorité de mise à jour                              | Dernier slot de déploiement |
+| ------------ | --------------------------------------------- | ---------------------------------------------- | ------------------ |
+| mainnet-beta | `dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq` | `DXtFpbPjcn2hxPnw79x1Pfoj35vXh5AsWBkS37YnXMVv` | 452 058 374        |
+| devnet       | `dvp34bdbcEm4f4FCUjGV4mDAkDshaQR4LkK8fdcsyZq` | `5EX1zFeJWj4rGYZv432WnYw8CbaSUeTdxPx4r573UgYU` | 479 376 863        |
+
+Le programme est évolutif sur les deux clusters. Les chiffres ci-dessus sont
+ceux que `solana program show` a renvoyés le 2 octobre 2026 ; exécutez la même
+commande pour obtenir les valeurs actuelles. Le build devnet est plus ancien que
+le commit sur lequel reposent les pages pas à pas (voir
+[Installation](/docs/defi/dvp-program/create-a-trade#install)), avec le même ensemble d'instructions et d'erreurs.
+
+## Cycle de vie
+
+```mermaid
+flowchart TD
+  C["CreateDvp<br/>permissionless, rent payer signs"] --> FA["Asset-leg party funds escrow A<br/>plain TransferChecked"]
+  C --> FB["Cash-leg party funds escrow B<br/>plain TransferChecked"]
+  FA --> G{Both legs hold<br/>the agreed amounts}
+  FB --> G
+  G -->|settlement authority| S["SettleDvp<br/>cash to A, asset to B,<br/>surplus refunded, accounts closed"]
+  G -->|settlement authority| X["CancelDvp<br/>both legs refunded, accounts closed"]
+  G -->|either party| R["RejectDvp<br/>both legs refunded, accounts closed"]
+  FA -.->|asset-leg party, while open| L["ReclaimDvp<br/>own leg back, trade stays open"]
+  S -.->|escrow recreated and funded after close| V["RecoverDvp<br/>party drains the recreated escrow"]
+```
+
+Un échange est ouvert depuis `CreateDvp` jusqu'à ce que Settle, Cancel ou Reject
+le ferme. L'alimentation n'a pas d'instruction propre : une jambe est
+alimentée lorsque son compte séquestre contient au moins le montant convenu.
+Reclaim s'applique à une seule jambe et laisse l'échange ouvert : un problème
+sur une jambe n'oblige donc pas l'autre partie à annuler tout l'échange.
+
+## État
+
+Chaque échange possède un compte `SwapDvp` de 458 octets, détenu par le
+programme. Son adresse est dérivée de l'autorité de règlement, des deux parties,
+des deux mints et d'un nonce (les seeds
+`["dvp", settlement_authority, user_a, user_b, mint_a, mint_b, nonce]`). Les
+montants et les horaires sont stockés dans le compte et n'influencent pas
+l'adresse, ce qui explique pourquoi il faut les lire plutôt que les déduire. Un
+petit compte marqueur, la nonce tombstone située à `["nonce", swap_dvp]`, est
+créé avec l'échange et n'est jamais fermé : chaque combinaison de parties, de
+mints, d'autorité et de nonce ne peut donc servir qu'à un seul échange.
+
+```mermaid
+flowchart TD
+  R["SwapDvp record, 458 bytes<br/>PDA seeds: #quot;dvp#quot;, settlement_authority, user_a, user_b, mint_a, mint_b, nonce"]
+  R -->|token account owner| EA["Escrow A<br/>Associated token account of the trade record for mint_a"]
+  R -->|token account owner| EB["Escrow B<br/>Associated token account of the trade record for mint_b"]
+  R -.->|created with the trade| N["Nonce tombstone<br/>Seeds: #quot;nonce#quot;, SwapDvp address<br/>Holds no data; never closed"]
+```
+
+| Champ                                  | Type          | Signification                                                                                                 |
+| -------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------- |
+| `bump`                                 | `u8`          | Bump du PDA                                                                                                |
+| `user_a`, `user_b`                     | `Pubkey`      | Les deux parties                                                                                         |
+| `mint_a`, `mint_b`                     | `Pubkey`      | Les mints de la jambe actif et de la jambe espèces                                                                        |
+| `settlement_authority`                 | `Pubkey`      | Le seul signataire pouvant régler ou annuler                                                               |
+| `token_program_a`, `token_program_b`   | `Pubkey`      | Le token program qui détient chaque mint ; un échange peut combiner des jambes SPL Token et Token-2022                    |
+| `amount_a`, `amount_b`                 | `u64`         | Le montant convenu de chaque jambe, dans la plus petite unité du mint (unités de base)                                 |
+| `expiry_timestamp`                     | `i64`         | Après cet horaire réseau (l'horloge onchain), Settle est rejeté. Reclaim, Cancel et Reject fonctionnent toujours |
+| `nonce`                                | `u64`         | Distingue les échanges qui partagent les autres seeds. À usage unique                                             |
+| `ref_string`                           | `[u8; 64]`    | Une référence client opaque, complétée par des zéros ; le programme ne la lit jamais                                     |
+| `user_a_settlement_destination`        | `Pubkey`      | Reçoit la jambe espèces lors de Settle ; `user_a` par défaut                                                   |
+| `user_b_settlement_destination`        | `Pubkey`      | Reçoit la jambe actif lors de Settle ; `user_b` par défaut                                                  |
+| `mint_a_authority`, `mint_b_authority` | `Pubkey`      | Les autorités de mint capturées à la création ; Settle échoue si l'une d'elles a changé                           |
+| `earliest_settlement_timestamp`        | `Option<i64>` | S'il est défini, Settle est rejeté avant cet horaire réseau                                                     |
+
+La liste des champs est tirée de l'IDL du programme au commit indiqué dans
+[Créer un échange](/docs/defi/dvp-program/create-a-trade#install).
+
+## Instructions
+
+| Instruction  | Signataire               | Effet                                                                                                                                                              |
+| ------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CreateDvp`  | Tout payeur            | Crée l'enregistrement `SwapDvp`, sa nonce tombstone et les deux comptes séquestres. Ne déplace aucun token                                                                        |
+| `ReclaimDvp` | `user_a` ou `user_b` | Restitue au signataire sa propre jambe depuis le séquestre. L'échange reste ouvert et la jambe peut être alimentée à nouveau                                                                      |
+| `SettleDvp`  | Autorité de règlement | Transfère `amount_a` vers la destination de `user_b` et `amount_b` vers la destination de `user_a`, restitue tout excédent à la partie de la jambe, ferme l'enregistrement et les deux séquestres |
+| `CancelDvp`  | Autorité de règlement | Rembourse à `user_a` ce que contient le séquestre A et à `user_b` ce que contient le séquestre B, puis ferme l'enregistrement et les deux séquestres                                                            |
+| `RejectDvp`  | `user_a` ou `user_b` | Même effet que Cancel, signé par une partie                                                                                                                            |
+| `RecoverDvp` | `user_a` ou `user_b` | Une fois l'échange clos : vide un séquestre recréé vers le token account du signataire, puis le ferme. Couvre un dépôt arrivé après Settle, Cancel ou Reject  |
+
+Chaque remboursement est versé à l'associated token account de la partie pour le
+mint de cette jambe, quel que soit celui qui a alimenté le séquestre.
+
+Les comptes et arguments de chaque instruction figurent sur la page de l'étape correspondante.
+
+## Erreurs
+
+| Code | Erreur                            | Quand                                                                                                   |
+| ---- | -------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 0    | `SignerNotParty`                 | Reclaim, Reject ou Recover signé par une adresse qui n'est ni `user_a` ni `user_b`                      |
+| 1    | `DvpExpired`                     | Settle après `expiry_timestamp`                                                                        |
+| 2    | `SettlementAuthorityMismatch`    | Settle ou Cancel signé par une adresse autre que l'autorité de règlement                              |
+| 3    | `SettlementTooEarly`             | Settle avant `earliest_settlement_timestamp`                                                          |
+| 4    | `LegNotFunded`                   | Settle alors qu'un séquestre contient moins que son montant convenu                                               |
+| 5    | `ExpiryNotInFuture`              | Create avec une expiration égale ou antérieure à l'horaire réseau actuel                                            |
+| 6    | `EarliestAfterExpiry`            | Create avec un horaire de règlement au plus tôt postérieur à l'expiration                                               |
+| 7    | `SelfDvp`                        | Create avec `user_a` identique à `user_b`                                                                 |
+| 8    | `SameMint`                       | Create avec `mint_a` identique à `mint_b`                                                                 |
+| 9    | `ZeroAmount`                     | Create avec un montant nul sur l'une des jambes                                                                |
+| 10   | `BlockedMintExtension`           | Create ou Settle avec un mint qui utilise TransferFee, InterestBearing, ScaledUiAmount ou NonTransferable |
+| 11   | `SettlementAuthorityIsParty`     | Create avec une autorité de règlement identique à l'une des parties                                                  |
+| 12   | `SettlementAuthorityExecutable`  | Create avec une autorité de règlement exécutable                                                         |
+| 13   | `NonceAlreadyUsed`               | Create réutilisant un `(seeds, nonce)` qui possède déjà une tombstone                                         |
+| 14   | `ExpiryTooFarInFuture`           | Create avec une expiration à plus d'un an                                                         |
+| 15   | `RefStringTooLong`               | Create avec une référence de plus de 64 octets                                                           |
+| 16   | `DvpStillOpen`                   | Recover alors que l'échange est encore ouvert ; utilisez Reclaim                                                     |
+| 17   | `DvpNeverCreated`                | Récupérer avec des seeds sans tombstone                                                              |
+| 18   | `EscrowPreloadedWithLamports`    | Create lorsqu'un escrow non natif détient des lamports au-delà de son minimum d'exemption de rent                           |
+| 19   | `SettlementDestinationIsSwapDvp` | Create avec une destination de règlement identique à l'enregistrement de la transaction                                         |
+| 20   | `SwapDvpPreloadedWithLamports`   | Create lorsque l'adresse de l'enregistrement détient des lamports au-delà de sa réserve de rent                                   |
+| 21   | `RecipientAtaMismatch`           | Un token account de destinataire ou de remboursement n'appartient plus au wallet et au mint attendus                  |
+| 22   | `PartyNotSignerCapable`          | Create avec une partie qui n'est pas un compte non exécutable détenu par le système                                 |
+| 23   | `MintAuthorityChanged`           | Settle lorsque l'autorité de mint d'une jambe diffère de la valeur capturée à la création                         |
+
+## Événements et indexation
+
+Le programme n'émet aucun événement on-chain. Un indexeur ou un système de réconciliation lit
+l'état du compte `SwapDvp` et les soldes de tokens des deux escrows, et utilise
+`ref_string` pour mettre en correspondance une transaction avec son ordre hors chaîne. Comme l'enregistrement
+est fermé au règlement, un système qui a besoin des conditions après coup les stocke
+lorsqu'il les lit, ou les reconstitue à partir de la transaction qui a créé
+la transaction.
+
+## Tokens pris en charge
+
+Une transaction peut associer une jambe SPL Token à une jambe Token-2022 ; chaque jambe porte
+son propre token program. Les jambes en wrapped SOL sont prises en charge.
+
+| Extension Token-2022 sur le mint d'une jambe                                                     | Comportement du programme                                                  |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| TransferFee, InterestBearing, ScaledUiAmount, NonTransferable                            | Rejeté à Create et Settle avec `BlockedMintExtension`         |
+| PermanentDelegate, Pausable, DefaultAccountState, une autorité de gel, MintCloseAuthority | Accepté ; chaque autorité peut agir sur les tokens placés sous escrow           |
+| ConfidentialTransfer                                                                     | Accepté ; les montants de cette jambe sont publics                          |
+| TransferHook                                                                             | Pris en charge, jusqu'à 32 comptes supplémentaires par jambe                        |
+| MemoTransfer sur un compte de destination ou de remboursement                                          | Accepté ; le programme émet le mémo requis avant le transfert |
+
+Des frais de transfert laisseraient la partie réceptrice en deçà du montant convenu.
+Interest Bearing et Scaled UI Amount ne modifient pas les montants bruts, mais leur taux
+ou multiplicateur peut changer entre la création et le règlement d'une transaction, ce qui modifie
+l'affichage des montants convenus. NonTransferable bloquerait les deux jambes.
+
+Les autorités acceptées peuvent déplacer, geler ou suspendre les tokens sous escrow pendant
+toute la durée de la transaction (voir ci-dessous). L'escrow ne peut pas être configuré pour recevoir
+des transferts confidentiels, de sorte que les montants placés sous escrow et réglés sur une jambe
+confidentielle sont publics.
+
+Pour un mint avec hook, le client résout les comptes supplémentaires du hook et les ajoute
+à Settle, Cancel, Reject, Reclaim et Recover. Le plafond de 32 par jambe
+inclut le programme du hook et son compte de validation. Si l'autorité du hook
+agrandit la liste de comptes du hook au-delà de ce plafond, tous les transferts de cette jambe
+échouent, y compris Reclaim, Cancel, Reject et Recover, jusqu'à ce que l'autorité
+annule la modification. La limite de comptes par transaction peut s'appliquer avant le plafond par jambe lorsque
+les deux jambes comportent des hooks.
+
+Lorsqu'un compte de destination ou de remboursement exige des mémos, le programme appelle le programme Memo
+avant le transfert, c'est pourquoi chaque instruction qui retire des tokens
+de l'escrow prend un compte `memo_program`.
+
+### Contraintes de configuration du mint
+
+**Scaled UI Amount.** Le modèle `tokenized-security` de
+[Mosaic](https://github.com/solana-foundation/mosaic), la boîte à outils d'émission de la Solana Foundation,
+ajoute toujours Scaled UI Amount ; le programme n'accepte donc pas un
+mint créé à partir de ce modèle comme jambe. Un mint destiné à ce programme peut
+être créé sans l'extension (voir
+[Token Extensions](/docs/tokens/extensions)) ;
+[le DvP avec délégation](/docs/tokenization/dvp) se règle via une autorité
+déléguée et n'applique pas cette vérification.
+
+**Mints gelés par défaut.** L'escrow de chaque transaction est un associated token account
+détenu par une program-derived address nouvelle pour cette transaction. Sur un mint dont
+Default Account State est défini sur gelé, l'escrow est créé gelé, et un transfert de
+financement vers celui-ci échoue tant qu'il n'est pas dégelé. Avec
+[Token ACL](/docs/tokenization/token-acl), cela signifie que l'émetteur ou son agent
+de transfert admet l'escrow de la transaction avant le financement : soit en ajoutant l'adresse de
+l'enregistrement de la transaction (le propriétaire de l'escrow) à la liste d'autorisation, de sorte que n'importe qui puisse dégeler
+l'escrow lorsque la configuration Token ACL du mint active le dégel sans permission, soit en
+faisant dégeler directement l'escrow par l'autorité de gel. Un escrow gelé bloque aussi
+Settle, Reclaim, Cancel, Reject et Recover sur cette jambe ; l'autorité de gel
+— et, sur un mint avec hook, l'autorité du hook — est donc une partie de confiance pendant toute la durée
+de la transaction. Le cas de l'escrow gelé est décrit ici et n'est pas exercé
+dans les extraits devnet.
+
+## Limites
+
+- Pas de mise en correspondance, de découverte des prix ni de carnet d'ordres. Les parties conviennent des conditions
+  hors du registre, et l'une d'elles les enregistre.
+- Pas de compensation, et uniquement bilatéral : un enregistrement correspond à une transaction entre deux parties.
+- Pas d'exécution partielle. Settle déplace exactement le montant convenu de chaque jambe et
+  renvoie tout excédent à la partie de la jambe.
+- Pas de jambe hors registre. Les deux jambes sont des token accounts sur Solana ; une jambe en espèces sur
+  des circuits existants se règle séparément et fait l'objet d'une réconciliation.
+- Pas de contrôle d'éligibilité, de liste d'autorisation ni de KYC. Ce sont les contrôles propres au mint qui font respecter
+  l'éligibilité des détenteurs.
+- Pas de règlement automatique. L'autorité de règlement doit signer.
+- Pas d'événements, et pas de frais de protocole en dehors des frais de transaction et du rent.
+
+Le programme supprime le risque de principal entre les deux parties : aucune jambe ne bouge
+si l'autre ne bouge pas. Il ne supprime pas le risque de crédit de l'émetteur ni le risque de remboursement sur l'un ou l'autre
+token, la capacité de l'autorité de gel, de pause ou de délégué permanent d'un mint à
+agir sur les tokens sous escrow (voir [tokens pris en charge](#supported-tokens)), ni la
+dépendance à la disponibilité de l'autorité de règlement pour signer.
+
+## Vérification avant le financement et le règlement
+
+`CreateDvp` est sans permission : seul le payeur signe, pas les parties ni
+l'autorité de règlement. N'importe qui peut donc créer un enregistrement désignant n'importe
+quelles parties et conditions. Avant le financement, puis de nouveau avant le règlement, lisez le
+compte `SwapDvp` et vérifiez que :
+
+1. Le compte appartient au programme DvP et fait exactement 458 octets. Un compte
+   qui n'appartient pas au programme peut être rempli d'octets qui se décodent comme
+   un véritable enregistrement.
+2. `user_a`, `user_b`, `mint_a`, `mint_b` et `settlement_authority` correspondent à la
+   transaction convenue.
+3. `amount_a`, `amount_b`, `expiry_timestamp` et
+   `earliest_settlement_timestamp` correspondent aux conditions convenues.
+4. Les deux destinations de règlement sont les adresses convenues. Un enregistrement falsifié peut
+   rediriger les fonds.
+
+[Financer les jambes](/docs/defi/dvp-program/fund-the-legs#verify-the-terms) répertorie les
+lecteurs avec vérification des clients générés et montre la vérification en code.
+
+Considérez une transaction comme réglée lorsque la transaction Settle atteint
+[`finalized`](/docs/rpc#configuring-state-commitment). Il s'agit d'un niveau
+d'engagement du réseau ; la question de savoir s'il marque aussi le caractère définitif du règlement à des fins juridiques
+dépend des accords entre les parties et des régimes applicables.
+
+## Gestion des versions
+
+Le compte `SwapDvp` ne comporte aucun champ de version. Sa structure est fixée à 458 octets
+(`SwapDvp::LEN`), et les lecteurs avec vérification rejettent tout compte d'une autre longueur.
+L'IDL porte sa propre version, `0.1.0` au 2 octobre 2026.
+
+Le programme est évolutif sur les deux clusters (voir [ID du programme](#program-id)). Un
+enregistrement de transaction n'existe que jusqu'à ce qu'elle soit réglée, annulée ou rejetée ; consultez donc
+le dépôt pour savoir comment une mise à niveau traite les transactions ouvertes, et régénérez les clients
+à partir de l'IDL de la version déployée.
+
+## Dépôt et audit
+
+Le code source, l'IDL, les clients générés et les tests se trouvent dans
+[`solana-foundation/dvp`](https://github.com/solana-foundation/dvp) sous licence
+MIT. Le programme est un programme Pinocchio `no_std` ; les clients sont
+générés à partir de l'IDL avec Codama. Les signalements de vulnérabilités passent par le lien
+d'avis de sécurité du dépôt, conformément à son `SECURITY.md`.
+
+Le programme a été audité par
+[Cantina](https://cantina.xyz/portfolio/fe870bb4-d96d-4902-8aec-9dfcfa2d6a79).
+
+## Voir aussi
+
+- [Livraison contre paiement (DvP) avec délégation](/docs/tokenization/dvp) : le
+  modèle de délégation sans programme
+- [Token ACL](/docs/tokenization/token-acl) : comment un mint avec contrôle d'accès interagit avec les
+  comptes d'escrow

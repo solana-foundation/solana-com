@@ -1,0 +1,242 @@
+---
+title: Finanzia i leg
+description:
+  Verifica i termini memorizzati di uno scambio DvP, poi finanzia un leg con un semplice TransferChecked verso il relativo account di escrow.
+seoTitle: Finanziare uno scambio DvP su Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Il finanziamento è un semplice `TransferChecked` verso l'escrow del leg, quindi qualsiasi wallet o
+sistema di custodia in grado di inviare un trasferimento di token può finanziare un leg. Solo la lettura del
+record dello scambio prima del finanziamento richiede il client DvP. Il programma controlla
+i saldi dell'escrow solo al momento del settlement; nulla verifica il trasferimento quando arriva,
+quindi ogni parte legge il record dello scambio prima di trasferire.
+
+Questa pagina prosegue da
+[creare uno scambio](/docs/defi/dvp-program/create-a-trade); il client e i firmatari
+vengono mantenuti.
+
+## Verifica i termini
+
+La creazione di un record non richiede permessi, e gli indirizzi di escrow derivano solo
+dal record e dal mint, mai dai termini. Un trasferimento verso un escrow può
+quindi arrivare a fronte di termini che non hai mai concordato, incluse destinazioni di settlement
+che reindirizzano i proventi della tua controparte verso un terzo indirizzo.
+Prima di finanziare, leggi l'account `SwapDvp` e confrontalo con lo scambio
+concordato.
+
+`verifySwapDvp` in TypeScript e `verify::decode_swap_dvp_account` in Rust
+confermano che l'account appartenga al programma DvP, sia esattamente di 458 byte e
+si trovi all'indirizzo derivato dai propri campi (`fetchSwapDvpChecked` esegue solo
+le prime due verifiche). I lettori semplici `fetchSwapDvp` e `decodeSwapDvp`
+non eseguono nessuna di queste verifiche. I controlli su parti, importi, tempi e destinazioni vengono
+eseguiti dal chiamante rispetto allo scambio concordato.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Se il record è stato creato dalla tua controparte o dall'autorità di settlement,
+confronta ogni campo con i termini concordati al di fuori del ledger. Se lo hai creato
+tu stesso, questa lettura conferma che sia arrivato come inviato.
+
+## Trasferisci nell'escrow
+
+Finanzia il leg esattamente con l'importo concordato. Il programma limita il settlement a
+`amount_x` e restituisce l'eventuale eccedenza alla parte del leg, quindi l'eccedenza non va persa,
+ma aggiunge un secondo trasferimento al settlement e può fallire con alcuni transfer
+hook (vedi le note qui sotto).
+
+Usa `TransferChecked`, non un `Transfer` non verificato. I mint Token-2022 con
+estensioni che dipendono dal mint account, come Pausable, rifiutano un trasferimento
+che non lo fornisce, e un mint con un transfer hook richiede che gli account
+dell'hook vengano risolti e aggiunti allo stesso modo di qualsiasi altro trasferimento di quel
+token.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    La parte del leg dell'asset, firmando come `userASigner`, finanzia l'escrow A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    La parte del leg in contanti fa lo stesso per l'escrow B con `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` e `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    La parte del leg in contanti costruisce la stessa istruzione per l'escrow B con `mint_b`,
+    `user_b` e `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Un trasferimento di finanziamento visto a livello [`confirmed`](/docs/rpc#configuring-state-commitment)
+può comunque essere sostituito. Il programma legge il saldo dell'escrow on-chain al
+momento del settlement, quindi un Settle inviato a fronte di un trasferimento di finanziamento non arrivato a destinazione fallisce
+con `LegNotFunded` e nulla si muove; il costo è un Settle fallito e un nuovo tentativo.
+Considera un leg come finanziato solo quando il suo trasferimento è `finalized`.
+
+## Note
+
+- **Leg con SOL wrapped.** Il programma legge il saldo di un escrow nativo dopo
+  averlo sincronizzato, quindi i lamport inviati a un escrow di SOL wrapped tramite un trasferimento di sistema vengono
+  conteggiati. Non inviare mai SOL a un escrow per qualsiasi altro mint: il programma non può
+  restituirli, e vanno a chiunque chiuda l'account.
+- **Mint con restrizioni.** Su un mint con Default Account State impostato su frozen, l'escrow viene
+  creato congelato e il trasferimento fallisce finché l'emittente non lo sblocca o non lo ammette. La
+  [panoramica](/docs/defi/dvp-program#mint-configuration-constraints) descrive
+  l'interazione con Token ACL.
+- **Transfer hook.** Finanzia gli escrow con hook esattamente con l'importo concordato. Se
+  un'eccedenza rende necessario un rimborso al settlement, il rimborso riutilizza gli account dell'hook
+  del leg con una destinazione e un importo diversi, cosa che alcuni hook rifiutano. Il
+  recupero consiste in Reclaim, nuovo finanziamento con l'importo esatto e nuovo settlement.
+- **Finanziamento oltre la scadenza.** Nulla impedisce un trasferimento dopo `expiry_timestamp`. Il trasferimento
+  arriva, il settlement non è più possibile e la parte del leg lo recupera con
+  Reclaim finché lo scambio è aperto o con Recover dopo la sua chiusura. Vedi
+  [annullare uno scambio](/docs/defi/dvp-program/unwind-a-trade).
+- **Chi finanzia per primo.** Il programma non stabilisce una sequenza tra i due leg. L'ordine è
+  una questione tra le parti; ciascuna parte può recuperare il proprio leg in qualsiasi momento
+  prima del settlement, a meno che una mint authority (freeze, pause o transfer hook)
+  non blocchi l'escrow.
+
+## Passaggi successivi
+
+- [Esegui il settlement dello scambio](/docs/defi/dvp-program/settle-the-trade): l'autorità di settlement
+  scambia entrambi i leg in un'unica transazione
+- [Annulla uno scambio](/docs/defi/dvp-program/unwind-a-trade): recuperare un leg
+  finanziato quando lo scambio non viene regolato

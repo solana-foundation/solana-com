@@ -1,0 +1,234 @@
+---
+title: تمويل الشقّين
+description:
+  تحقق من الشروط المخزَّنة لصفقة DvP، ثم موّل أحد الشقّين عبر TransferChecked عادي إلى حساب الضمان الخاص به.
+seoTitle: تمويل صفقة DvP على سولانا
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+التمويل عبارة عن `TransferChecked` عادي إلى حساب ضمان الشق، لذا يمكن لأي محفظة أو نظام حفظ
+قادر على إرسال تحويل رمز أن يموّل شقًا. وحدها قراءة سجل الصفقة قبل التمويل
+تتطلب عميل DvP. لا يتحقق البرنامج من أرصدة حسابات الضمان إلا عند التسوية؛
+ولا شيء يتحقق من التحويل لحظة وصوله، لذا يقرأ كل طرف سجل الصفقة قبل التحويل.
+
+تتابع هذه الصفحة من
+[إنشاء صفقة](/docs/defi/dvp-program/create-a-trade)؛ إذ ينتقل العميل
+والموقّعون كما هم.
+
+## التحقق من الشروط
+
+إنشاء السجل لا يتطلب أي إذن، وتُشتق عناوين حسابات الضمان من السجل ومن mint
+فقط، ولا تُشتق أبدًا من الشروط. لذا قد يصل تحويل إلى حساب ضمان مقابل شروط
+لم توافق عليها قط، ومنها وجهات تسوية تعيد توجيه عائدات الطرف المقابل إلى
+عنوان ثالث. قبل التمويل، اقرأ حساب `SwapDvp` وقارنه بالصفقة المتفق عليها.
+
+يتحقق كل من `verifySwapDvp` في TypeScript و`verify::decode_swap_dvp_account` في Rust
+من أن الحساب مملوك لبرنامج DvP، وأن حجمه 458 بايت بالضبط، وأنه يقع في
+العنوان الذي تشتقه حقوله نفسها (أما `fetchSwapDvpChecked` فيُجري أول فحصين
+فقط). أما القارئان العاديان `fetchSwapDvp` و`decodeSwapDvp` فلا يُجريان أيًّا
+من هذه الفحوص. وتقع على عاتق المستدعي مهمة فحص الأطراف والمبالغ والأوقات
+والوجهات مقارنةً بالصفقة المتفق عليها.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+إذا أنشأ الطرف المقابل السجل أو جهة التسوية، فقارن كل حقل بالشروط التي اتفقتم
+عليها خارج السجل. أما إذا أنشأته بنفسك، فتؤكد هذه القراءة أنه وصل كما أُرسل.
+
+## التحويل إلى حساب الضمان
+
+موّل الشق بالمبلغ المتفق عليه تمامًا. يحصر البرنامج التسوية عند `amount_x`
+ويعيد أي فائض إلى طرف الشق، لذا لا يضيع الفائض، لكنه يضيف تحويلًا ثانيًا عند
+التسوية وقد يفشل مع بعض خطافات التحويل (انظر الملاحظات أدناه).
+
+استخدم `TransferChecked` لا `Transfer` غير المُتحقَّق منه. ترفض عملات mint في
+Token-2022 التي لها امتدادات تعتمد على mint account، مثل Pausable، أي تحويل لا
+يوفّره، ويحتاج mint ذو خطاف تحويل إلى حلّ حسابات الخطاف وإلحاقها بالطريقة
+نفسها المتّبعة في أي تحويل آخر لذلك الرمز.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    يموّل الطرف صاحب شق الأصل، بتوقيعه بصفته `userASigner`، حساب الضمان A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    يفعل طرف شق النقد الأمر نفسه مع حساب الضمان B باستخدام `userBAtaB` و`mintB`
+    و`userBSigner` و`t.amountB` و`{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    يبني طرف شق النقد التعليمة نفسها لحساب الضمان B باستخدام `mint_b`
+    و`user_b` و`trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+قد يُستبدَل لاحقًا تحويل تمويل شوهد عند [`confirmed`](/docs/rpc#configuring-state-commitment).
+يقرأ البرنامج رصيد حساب الضمان على السلسلة عند التسوية، لذا فإن إرسال Settle
+مقابل تحويل تمويل لم يصل يفشل مع الخطأ `LegNotFunded` ولا يتحرك شيء؛ وتكلفة ذلك
+هي فشل Settle وإعادة المحاولة. اعتبر الشق ممولًا عندما يصبح تحويله `finalized`.
+
+## ملاحظات
+
+- **شقوق SOL الملفوف.** يقرأ البرنامج رصيد حساب الضمان الأصلي بعد مزامنته، لذا
+  تُحتسب lamports المرسلة إلى حساب ضمان SOL الملفوف عبر تحويل النظام. لا ترسل SOL
+  أبدًا إلى حساب ضمان لأي mint آخر: لا يستطيع البرنامج إعادتها، وتذهب إلى من
+  يغلق الحساب.
+- **عملات mint المقيّدة.** في mint حالة الحساب الافتراضية فيه مجمّدة (Default Account State frozen)،
+  يُنشأ حساب الضمان مجمّدًا ويفشل التحويل إلى أن يفكّ المُصدر تجميده أو يسمح به.
+  تصف [النظرة العامة](/docs/defi/dvp-program#mint-configuration-constraints)
+  التفاعل مع Token ACL.
+- **خطافات التحويل.** موّل حسابات الضمان ذات الخطافات بالمبلغ المتفق عليه تمامًا.
+  إذا فرض الفائض استرداد مبلغ عند التسوية، فإن الاسترداد يعيد استخدام حسابات
+  الخطاف الخاصة بالشق مع وجهة ومبلغ مختلفين، وهو ما ترفضه بعض الخطافات. والحل
+  هو Reclaim، ثم إعادة التمويل بالمبلغ الدقيق، ثم التسوية مرة أخرى.
+- **التمويل بعد انتهاء الصلاحية.** لا شيء يمنع التحويل بعد `expiry_timestamp`.
+  يصل التحويل ولا تعود التسوية ممكنة، ويستردّه طرف الشق عبر Reclaim ما دامت
+  الصفقة مفتوحة أو عبر Recover بعد إغلاقها. انظر
+  [فك صفقة](/docs/defi/dvp-program/unwind-a-trade).
+- **من يموّل أولًا.** لا يرتّب البرنامج الشقّين في تسلسل. الترتيب شأن يعود
+  للأطراف؛ ويمكن لأي جانب استرداد شقه في أي وقت قبل التسوية، ما لم تمنع سلطة
+  mint (التجميد أو الإيقاف المؤقت أو خطاف التحويل) حساب الضمان.
+
+## الخطوات التالية
+
+- [تسوية الصفقة](/docs/defi/dvp-program/settle-the-trade): تبادل جهة التسوية
+  الشقّين معًا في معاملة واحدة
+- [فك صفقة](/docs/defi/dvp-program/unwind-a-trade): استرداد شق ممول
+  عندما لا تتم تسوية الصفقة

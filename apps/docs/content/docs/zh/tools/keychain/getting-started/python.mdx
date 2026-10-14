@@ -1,0 +1,461 @@
+---
+title: Python
+description: 在 Python 应用中安装并使用 solana-keychain
+---
+
+2.0 版本是 Python 包的首个稳定版本。[2.0 迁移指南](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)介绍了它与 Rust 和 TypeScript 共有的签名形态。
+
+## 安装
+
+安装基础包,并为每个需要提供商依赖的后端额外安装一个对应的 extra:
+
+```shell
+pip install solana-keychain                # memory, vault and para
+pip install 'solana-keychain[aws-kms]'     # AWS KMS (boto3)
+pip install 'solana-keychain[gcp-kms]'     # GCP KMS (google-cloud-kms)
+pip install 'solana-keychain[privy]'       # Privy
+pip install 'solana-keychain[turnkey]'     # Turnkey
+pip install 'solana-keychain[fireblocks]'  # Fireblocks
+pip install 'solana-keychain[cdp]'         # Coinbase Developer Platform
+pip install 'solana-keychain[crossmint]'   # Crossmint
+pip install 'solana-keychain[dfns]'        # Dfns
+pip install 'solana-keychain[openfort]'    # Openfort
+pip install 'solana-keychain[utila]'       # Utila
+pip install 'solana-keychain[fordefi]'     # Fordefi
+
+# Several at once
+pip install 'solana-keychain[aws-kms,privy]'
+```
+
+需要 Python 3.10 或更高版本。交易为 [`solders`](https://pypi.org/project/solders/) 的 `VersionedTransaction` 对象;legacy、v0 和 v1 消息均可接受,但使用 `use_program_call=True` 的 Fireblocks 除外,它仅接受 legacy 和 v0。
+
+Memory、Vault 和 Para 可直接从包的根目录导入。其他所有后端都需从各自的子模块导入(例如 `solana_keychain.aws_kms`);若在未安装对应 extra 的情况下导入,会抛出 `ImportError`,并指明需要安装的 extra。Ledger 仅支持 Rust。
+
+## 基本用法
+
+每个后端都有一个配置 dataclass 和一个异步的 `create_<backend>_signer` 工厂函数,返回可直接使用的签名器。所有签名方法都是协程:
+
+```python
+import asyncio
+
+from solana_keychain import MemorySigner
+from solders.transaction import VersionedTransaction
+
+
+async def sign(transaction: VersionedTransaction) -> str:
+    signer = MemorySigner.from_private_key_file("/path/to/id.json")
+    print("Signing with:", signer.pubkey)
+
+    # Check availability (useful for remote signers)
+    if not await signer.is_available():
+        raise RuntimeError("Signer offline")
+
+    result = await signer.sign_transaction(transaction)
+    print("Signature:", result.signature)
+    print("Fully signed:", result.is_complete)
+    return result.encoded_transaction  # base64 wire transaction
+```
+
+`sign_transaction` 返回一个 `SignedTransaction`,包含 `encoded_transaction`、`signature`、`is_complete` 和 `transaction`。其中 `transaction` 是权威的已签名交易:后续操作请基于它继续,对于会修改交易的签名器尤其如此,因为其结果与您传入的对象并不是同一个对象。
+
+### 统一工厂
+
+`create_keychain_signer` 接收后端名称及该后端的配置 dataclass,并以懒加载方式导入后端,因此只需安装您用到的 extra:
+
+```python
+from solana_keychain import create_keychain_signer
+from solana_keychain.privy import PrivySignerConfig
+
+signer = await create_keychain_signer(
+    "privy",
+    PrivySignerConfig(
+        app_id="your-app-id",
+        app_secret="your-app-secret",
+        wallet_id="your-wallet-id",
+    ),
+)
+```
+
+支持的名称列在 `SUPPORTED_BACKENDS` 中:`aws-kms`、`cdp`、`crossmint`、`dfns`、`fireblocks`、`fordefi`、`gcp-kms`、`memory`、`openfort`、`para`、`privy`、`turnkey`、`utila` 和 `vault`。如果名称未知,或配置的类不匹配,将抛出带有 `SignerErrorCode.CONFIG_ERROR` 的 `SignerError`。该工厂的返回类型标注为基类 `SolanaSigner`,因此在签名前请先用 `isinstance` 收窄类型(参见[签名器能力](#signer-capabilities))。
+
+### 远程 HTTP 客户端
+
+远程 HTTP 后端接受一个可选的 `http_client`(`httpx.AsyncClient`),用于自定义 TLS 或代理。未设置时,每个请求都会使用一次性客户端,超时时间为 60 秒,基础 URL 强制使用 HTTPS,并拒绝重定向。
+
+## 签名器能力
+
+每个后端都继承 `SolanaSigner` 抽象基类(`pubkey`、`sign_message`、`is_available`),外加且仅加一个能力类:
+
+- `TransactionSigner`:`sign_transaction(tx)` 就地对您的交易签名,并返回 `SignedTransaction`。由您自行广播。
+- `ModifyingSigner`:`modify_and_sign_transaction(tx)` 允许提供商改写交易,然后签名但不广播。您的对象保持不变;请基于返回的 `SignedTransaction.transaction` 继续操作。
+- `SendingSigner`:`sign_and_send_transaction(tx)` 通过提供商签名并广播,返回最终上链交易的 `Signature`。您的交易不会被修改。
+
+| 后端                                                                           | 能力类    | `sign_message`                                  |
+| --------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------- |
+| memory, vault, privy, turnkey, aws-kms, fireblocks, gcp-kms, dfns, para, openfort | `TransactionSigner` | 支持                                             |
+| cdp                                                                               | `TransactionSigner` | 仅支持 UTF-8 载荷,否则抛出 `SERIALIZATION_ERROR` |
+| utila                                                                             | `TransactionSigner` | 抛出 `SIGNING_FAILED`                         |
+| fordefi 黑盒模式(`FordefiBlackBoxSigner`)                                       | `TransactionSigner` | 支持                                             |
+| fordefi 原生手动模式(`FordefiNativeManualSigner`)                               | `ModifyingSigner`   | 支持                                             |
+| fordefi 原生自动模式(`FordefiNativeAutoSigner`)                                   | `SendingSigner`     | 支持                                             |
+| crossmint                                                                         | `SendingSigner`     | 抛出 `SIGNING_FAILED`                         |
+
+使用 `isinstance` 收窄类型。所有能力类均可从包的根目录导出:
+
+```python
+from solana_keychain import ModifyingSigner, SendingSigner, TransactionSigner
+
+if isinstance(signer, SendingSigner):
+    signature = await signer.sign_and_send_transaction(transaction)
+elif isinstance(signer, ModifyingSigner):
+    result = await signer.modify_and_sign_transaction(transaction)
+elif isinstance(signer, TransactionSigner):
+    result = await signer.sign_transaction(transaction)
+```
+
+### 初始化
+
+`create_*` 工厂函数和 `create_keychain_signer` 会为您完成所有必要的设置。如果您直接构造 Privy、Fireblocks、Dfns、Crossmint、Para、Openfort 或 Utila 签名器类,请在使用前先执行 `await signer.init()`。在此之前,`pubkey` 和所有签名调用都会抛出 `SignerErrorCode.NOT_INITIALIZED`。
+
+## 后端配置
+
+### Memory
+
+可通过 Solana CLI keypair 文件、base58 或 `"[1,2,...]"` 字符串、原始字节,或 `solders` 的 `Keypair` 来构建:
+
+```python
+from solana_keychain import MemorySigner, MemorySignerConfig, create_memory_signer
+from solders.keypair import Keypair
+
+signer = MemorySigner.from_private_key_file("/path/to/id.json")
+signer = MemorySigner.from_private_key_string("base58_private_key")
+signer = MemorySigner.from_bytes(secret_key_bytes)  # 64 or 32 bytes
+signer = await create_memory_signer(MemorySignerConfig(keypair=Keypair()))
+```
+
+密钥保存在进程内存中,而 Python 无法将其清零。此后端仅适用于开发和测试。
+
+### HashiCorp Vault
+
+密钥必须是 transit 引擎中的 ed25519 密钥。仅当地址为回环地址(用于 `vault server -dev`)时才接受纯 HTTP:
+
+```python
+from solana_keychain import VaultSignerConfig, create_vault_signer
+
+signer = await create_vault_signer(
+    VaultSignerConfig(
+        api_base_url="https://vault.example.com:8200",
+        token="hvs.xxxxx",
+        key_name="my-solana-key",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### AWS KMS
+
+`key_id` 是 `ECC_NIST_EDWARDS25519` 密钥的密钥 ID、ARN 或别名。如需自定义凭证或端点,可传入预先构建的 boto3 KMS `client`,此时 `region` 将被忽略:
+
+```python
+from solana_keychain.aws_kms import AwsKmsSignerConfig, create_aws_kms_signer
+
+signer = await create_aws_kms_signer(
+    AwsKmsSignerConfig(
+        key_id="alias/my-solana-key",
+        public_key="base58_public_key",
+        region="us-east-1",  # optional, defaults to the AWS config chain
+    )
+)
+```
+
+### GCP KMS
+
+密钥版本必须是 `EC_SIGN_ED25519` 密钥。`client` 可选地接受预先构建的 `KeyManagementServiceAsyncClient`:
+
+```python
+from solana_keychain.gcp_kms import GcpKmsSignerConfig, create_gcp_kms_signer
+
+signer = await create_gcp_kms_signer(
+    GcpKmsSignerConfig(
+        key_name="projects/my-project/locations/us-east1/keyRings/my-ring/cryptoKeys/my-key/cryptoKeyVersions/1",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Privy
+
+```python
+from solana_keychain.privy import PrivySignerConfig, create_privy_signer
+
+signer = await create_privy_signer(
+    PrivySignerConfig(
+        app_id="app_id",
+        app_secret="app_secret",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+受授权密钥保护的钱包需将 `PrivyAuthorizationConfig` 作为 `authorization_context` 传入。
+
+### Turnkey
+
+```python
+from solana_keychain.turnkey import TurnkeySignerConfig, create_turnkey_signer
+
+signer = await create_turnkey_signer(
+    TurnkeySignerConfig(
+        api_public_key="api_public_key",    # hex P-256
+        api_private_key="api_private_key",  # hex P-256
+        organization_id="org_id",
+        private_key_id="private_key_id",
+        public_key="base58_public_key",
+    )
+)
+```
+
+### Fireblocks
+
+```python
+from solana_keychain.fireblocks import FireblocksSignerConfig, create_fireblocks_signer
+
+signer = await create_fireblocks_signer(
+    FireblocksSignerConfig(
+        api_key="api_key",
+        private_key_pem="-----BEGIN RSA PRIVATE KEY-----\n...",
+        vault_account_id="0",
+        asset_id="SOL",  # or "SOL_TEST" for devnet
+    )
+)
+```
+
+`use_program_call=True` 使用 PROGRAM_CALL 操作而非 RAW 进行签名。该请求以仅签名方式发送,因此 Fireblocks 既不会改写也不会广播交易,您照常自行广播即可。它需要热钱包,并且必须由 Fireblocks 为您的工作区启用。
+
+### CDP (Coinbase Developer Platform)
+
+```python
+from solana_keychain.cdp import CdpSignerConfig, create_cdp_signer
+
+signer = await create_cdp_signer(
+    CdpSignerConfig(
+        api_key_id="api_key_id",
+        api_key_secret="api_key_secret",
+        wallet_secret="wallet_secret",
+        address="base58_address",
+        network="solana",  # or "solana-devnet"; required for address lookup tables
+    )
+)
+```
+
+### Crossmint
+
+```python
+from solana_keychain.crossmint import CrossmintSignerConfig, create_crossmint_signer
+
+signer = await create_crossmint_signer(
+    CrossmintSignerConfig(
+        api_key="api_key",
+        wallet_locator="wallet_locator",
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+Crossmint 仅支持发送。其 API 始终在服务端执行已批准的交易并代付 gas,因此 `CrossmintSigner` 是一个 `SendingSigner`,而 `sign_message` 会抛出 `SIGNING_FAILED`。返回的签名对应的是 Crossmint 最终上链的交易,可能与您提交的不同。设置 `signer_secret`(即 `xmsk1_...` 委托签名器密钥)会自动批准交易,这意味着将批准哪些内容的决定权委托给了 Crossmint。
+
+### Dfns
+
+```python
+from solana_keychain.dfns import DfnsSignerConfig, create_dfns_signer
+
+signer = await create_dfns_signer(
+    DfnsSignerConfig(
+        auth_token="auth_token",
+        cred_id="cred_id",
+        private_key_pem="-----BEGIN EC PRIVATE KEY-----\n...",
+        wallet_id="wallet_id",
+    )
+)
+```
+
+### Openfort
+
+```python
+from solana_keychain.openfort import OpenfortSignerConfig, create_openfort_signer
+
+signer = await create_openfort_signer(
+    OpenfortSignerConfig(
+        secret_key="sk_...",
+        account_id="acc_...",
+        wallet_secret="wallet_secret",
+    )
+)
+```
+
+### Para
+
+```python
+from solana_keychain import ParaSignerConfig, create_para_signer
+
+signer = await create_para_signer(
+    ParaSignerConfig(
+        api_key="sk_...",
+        wallet_id="wallet_uuid",
+    )
+)
+```
+
+### Utila
+
+Utila 仅支持交易签名;`sign_message` 会抛出 `SIGNING_FAILED`。
+
+```python
+from solana_keychain.utila import UtilaSignerConfig, create_utila_signer
+
+signer = await create_utila_signer(
+    UtilaSignerConfig(
+        service_account_email="sa@example.com",
+        service_account_private_key_pem="-----BEGIN PRIVATE KEY-----\n...",
+        vault_id="vault_id",
+        wallet_id="wallet_id",
+        network="networks/solana-devnet",
+    )
+)
+```
+
+### Fordefi
+
+Fordefi 有三种签名模式,由 `chain` 和 `push_mode` 在构造时确定。`create_fordefi_signer` 会选择对应的类,每个类都会拒绝为其他模式准备的配置,并且这三种模式都支持消息签名:
+
+| 模式          | 配置                                     | 类                       | 方法                        |
+| ------------- | ------------------------------------------ | --------------------------- | ----------------------------- |
+| 黑盒     | 未设置 `chain`                              | `FordefiBlackBoxSigner`     | `sign_transaction`            |
+| 原生自动   | 已设置 `chain`,`push_mode` 未设置或为 `"auto"` | `FordefiNativeAutoSigner`   | `sign_and_send_transaction`   |
+| 原生手动 | 已设置 `chain`,`push_mode="manual"`          | `FordefiNativeManualSigner` | `modify_and_sign_transaction` |
+
+API 请求通过 ECDSA P-256 请求签名进行身份验证:可将密钥以 `private_key_pem` 提供,或将其保存在 KMS/HSM 中,并通过 `request_signer` 传入 `FordefiRequestSigner` 的子类。
+
+**原生自动模式**:设置 `chain`(`"solana_devnet"` 或 `"solana_mainnet"`),Fordefi 可能会替换区块哈希和手续费,然后自行签名并广播交易。它只接受未签名、且唯一必需签名者为保险库的交易。`fee` 会原样传递给 Fordefi:
+
+```python
+import os
+
+from solana_keychain.fordefi import FordefiSignerConfig, create_fordefi_signer
+
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],  # vault address (base58)
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        fee={"type": "custom", "priority_fee": "1000"},  # optional
+    )
+)
+
+signature = await signer.sign_and_send_transaction(transaction)
+```
+
+**原生手动模式**:设置 `chain` 和 `push_mode="manual"`。Fordefi 会改写消息(最新区块哈希、Compute Budget 手续费指令)并签名,但不会广播。返回的交易会取代您提交的交易,因此请务必基于 `result.transaction` 继续操作。Fordefi 必须是手续费支付方,并且必须先于其他任何必需签名者签名:已带有签名的交易虽会被接受,但改写会使这些签名失效。改写内容不会生成差异对比,因此请在广播前检查结果,并尽快广播,因为 Fordefi 不会返回新区块哈希的过期高度。
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_VAULT_ID"],
+        public_key=os.environ["FORDEFI_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+        chain="solana_devnet",
+        push_mode="manual",
+    )
+)
+
+result = await signer.modify_and_sign_transaction(transaction)
+...  # inspect result.transaction, then add any remaining signatures
+```
+
+按照[签名并发送](#sign-and-send)中的方式广播经过检查的交易;如果发送失败,请先核对状态,再决定是否重试。
+
+**黑盒模式**:省略 `chain`。Fordefi 会对您提供的原始消息字节进行签名,且不会广播。请将其与 Fordefi 黑盒保险库配合使用。
+
+```python
+signer = await create_fordefi_signer(
+    FordefiSignerConfig(
+        access_token=os.environ["FORDEFI_ACCESS_TOKEN"],
+        vault_id=os.environ["FORDEFI_BB_VAULT_ID"],
+        public_key=os.environ["FORDEFI_BB_PUBLIC_KEY"],
+        private_key_pem=open("./secret/private.pem").read(),
+    )
+)
+```
+
+## 签名并发送
+
+无论签名器是哪种形态,`sign_and_send_transaction` 都能让交易上链。`SendingSigner` 通过其提供商广播,不会调用您的发送函数。`TransactionSigner` 或 `ModifyingSigner` 负责签名,再由您的发送函数广播经 base64 编码的结果(本包不含 RPC 客户端):
+
+```python
+import httpx
+from solana_keychain import sign_and_send_transaction
+from solders.signature import Signature
+
+
+async def send(encoded: str) -> Signature:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.devnet.solana.com",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sendTransaction",
+                "params": [encoded, {"encoding": "base64"}],
+            },
+        )
+    return Signature.from_string(response.json()["result"])
+
+
+signature = await sign_and_send_transaction(signer, transaction, send)
+```
+
+仅支持签名且未提供发送函数的签名器会抛出 `CONFIG_ERROR`;签名后仍缺少签名的交易会抛出 `SIGNING_FAILED`。
+
+## 错误处理
+
+每个失败都是一个 `SignerError`,带有来自 `SignerErrorCode` 的稳定 `code`:`BROADCAST_UNCONFIRMED`、`CONFIG_ERROR`、`EXPECTED_SOLANA_SIGNER`、`HTTP_ERROR`、`INVALID_PRIVATE_KEY`、`INVALID_PUBLIC_KEY`、`IO_ERROR`、`NOT_AVAILABLE`、`NOT_INITIALIZED`、`OTHER`、`PARSING_ERROR`、`REMOTE_API_ERROR`、`SERIALIZATION_ERROR` 和 `SIGNING_FAILED`。请根据 `code` 而非消息内容进行匹配:`str()` 和 `repr()` 只包含固定的通用消息,绝不会包含密钥材料或提供商的原始响应。当失败源自提供商的响应时,会设置 `status_code` 和 `provider_error_code`。
+
+`SignerErrorCode.BROADCAST_UNCONFIRMED`(`"SIGNER_BROADCAST_UNCONFIRMED"`)表示交易可能已经上链:
+
+- 在 Crossmint 和 Fordefi 原生自动模式下,创建请求被接受时会设置 `provider_transaction_id`,`idempotency_key` 则携带根据消息派生、创建请求所使用的密钥。重新发送字节完全相同的交易是安全的;重新构建的交易(例如使用了新的区块哈希)则会被视为一笔新的转账。
+- 来自 `sign_and_send_transaction` 时,发送函数失败会抛出该错误,并将 `transaction_signature` 设置为已完成交易的签名。
+- 只有在轮询显示 Fireblocks 广播了本应仅签名发送的 `use_program_call` 交易时,Fireblocks 才会抛出该错误。
+
+```python
+from solana_keychain import SignerError, SignerErrorCode
+
+try:
+    signature = await sign_and_send_transaction(signer, transaction, send)
+except SignerError as error:
+    if error.code is SignerErrorCode.BROADCAST_UNCONFIRMED:
+        reconcile(
+            error.provider_transaction_id,
+            error.idempotency_key,
+            error.transaction_signature,
+        )
+    raise
+```
+
+被取消的调用会重新抛出 `asyncio.CancelledError`,它不携带任何字段。若要找回提供商在取消之前已接受的 ID,请将一个 `PendingTransactionId()`(来自 `solana_keychain.core`)作为 Crossmint 或 Fordefi 原生自动配置的 `pending_transaction_id` 传入,并在取消后读取 `.get()`。重试之前,请先与提供商核对状态。
+
+Keychain 验证的是签名这一环节,而非交易本身的行为:提供商返回的签名在附加之前,会针对本地计算的消息进行 ed25519 验证。Python 无法将密钥缓冲区清零,因此对于本地密钥后端(Memory,以及远程后端配置中保存的 API 密钥和 PEM),应将整个进程内存视为敏感数据。各种签名形态分别提供哪些保证,请参阅[安全模型](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)。
+
+## 添加自定义签名器
+
+请从 `solana_keychain.core` 中继承与您的后端相匹配的那一个能力类(`TransactionSigner`、`ModifyingSigner` 或 `SendingSigner`)。如需集成其他密钥管理服务,请参阅[添加签名器指南](/docs/tools/keychain/adding-signers)。
+
+## 资源
+
+- [Python README](https://github.com/solana-foundation/solana-keychain/blob/main/python/README.md)
+- [PyPI 上的 `solana-keychain`](https://pypi.org/project/solana-keychain/)
+- [安全模型](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+- [迁移到 2.0](https://github.com/solana-foundation/solana-keychain/blob/main/docs/MIGRATING_V2.md)

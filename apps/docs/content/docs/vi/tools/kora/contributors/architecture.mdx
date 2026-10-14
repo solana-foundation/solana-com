@@ -1,0 +1,91 @@
+---
+title: Kiến trúc
+description:
+  Cách một yêu cầu đi qua một node Kora và vị trí của từng giai đoạn trong crate. Hãy bắt đầu từ đây trước khi thực hiện thay đổi đầu tiên của bạn.
+---
+
+Kora là một Rust workspace gồm ba crate:
+
+- `kora-lib` chứa logic cốt lõi và máy chủ RPC,
+- `kora-cli` xây dựng binary `kora` mà các operator chạy, và
+- `kora-deploy` là một công cụ triển khai chương trình chuyên dụng, được đánh phiên bản riêng.
+  Mọi thứ bên dưới đều nằm trong `crates/lib/src` trừ khi có ghi chú khác.
+
+## Vòng đời của một yêu cầu
+
+Sơ đồ bên dưới mô tả luồng chung của một giao dịch đi qua Kora.
+Việc hiểu rõ đường đi của lời gọi là rất quan trọng để cấu hình một node Kora và thêm
+tính năng mới.
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## Vị trí của từng giai đoạn
+
+| Giai đoạn trong sơ đồ | Mã nguồn                               | Điểm vào                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| Gateway              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| Điều phối             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| Logic cho từng phương thức     | `rpc_server/method/`                 | mỗi phương thức JSON-RPC một tệp          |
+| Xác thực           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| Plugin              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| Ký              | `signer/`                            | được hỗ trợ bởi crate `solana-keychain` |
+
+Còn hai tệp nữa cần biết: `config.rs` định nghĩa toàn bộ schema của `kora.toml`, và
+`state.rs` lưu cấu hình đã được giải tuần tự hóa trong trạng thái toàn cục của tiến trình.
+
+### Đọc hiểu máy chủ RPC
+
+`rpc.rs` là một lớp điều phối mỏng, mỗi endpoint JSON-RPC có một phương thức, và là
+cách nhanh nhất để nắm toàn bộ API. Logic của từng phương thức nằm trong tệp riêng dưới
+`rpc_server/method/`. Hãy đọc kỹ `sign_transaction.rs` từ đầu đến cuối; các phương thức
+ký khác đều là biến thể của nó.
+
+### Đọc hiểu phần xác thực
+
+`transaction_validator.rs` và `transaction/instruction_util.rs` chứa logic để
+xác thực giao dịch và instruction. Ngoài ra còn có các bài kiểm thử thuộc tính
+an toàn của fee-payer-policy, mỗi chương trình bị kiểm soát có một tệp riêng nằm trong
+`validator/transaction_validator/fee_payer_policy_props/`.
+
+## Những quy ước đáng biết
+
+**Xác thực mặc định.** Mọi cờ dưới `[validation.fee_payer_policy]`
+đều mặc định là `false`, và các struct chính sách đều mang `#[serde(default)]`. Việc
+kết hợp này là có chủ đích: thêm một instruction mới bị kiểm soát không được làm hỏng
+cấu hình hiện có của operator, và nó phải bị từ chối thay vì vô tình được cho phép.
+Hãy giữ nguyên cả hai khi bạn thêm một cờ.
+
+**Hãy xác thực giao dịch đã được phân giải, đừng bao giờ xác thực giao dịch thô.** `VersionedTransaction` thô
+chỉ chứa các account key tĩnh, nên nếu xác thực hoặc tính phí một giao dịch V0 từ nó thì sẽ âm thầm bỏ qua các tài khoản trong lookup table
+và tính thiếu phí. `VersionedTransactionResolved::from_transaction` phân giải trước những
+địa chỉ đó, đó là lý do mọi giai đoạn phía sau đều nhận kiểu đã được phân giải.
+
+## Thêm một plugin giao dịch
+
+Plugin triển khai trait `TransactionPlugin` trong `plugin/mod.rs`. Trait này có hai
+phương thức: `validate` chạy cho mỗi giao dịch trong các luồng ký, còn
+`validate_config` chạy một lần khi khởi động và trả về lỗi cùng cảnh báo cho
+operator. `PluginExecutionContext` cho plugin biết phương thức nào trong bốn phương thức ký
+đã gọi nó.
+
+`TransactionPluginRunner::from_config` so khớp theo `TransactionPluginType`,
+được định nghĩa trong `config.rs`. Một plugin tích hợp mới là một variant mới ở đó cộng với một
+nhánh match mới trong runner. Hai plugin hiện có sẵn là `gas_swap` và
+`deploy_authority`.
+
+## Kiểm thử
+
+Kora lưu cấu hình trong trạng thái toàn cục của tiến trình, vì vậy `tests/` khai báo một mục tiêu
+`[[test]]` cho mỗi giai đoạn, và mỗi mục tiêu tự khởi động surfnet nhúng riêng cùng một
+node Kora, được khởi tạo từ đầu. Mỗi binary một cấu hình: một giai đoạn mới cần một
+mục tiêu mới, chứ không phải một module mới trong mục tiêu hiện có.
+
+```bash
+cargo test -p tests --test <target>
+```
+
+Mọi thứ còn lại được kết nối thông qua `justfile`. Hãy đọc tệp đó thay vì
+tự dựng lại các lệnh bằng tay.
