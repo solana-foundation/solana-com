@@ -11,8 +11,16 @@ import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/ai";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import {
+  LatestNews,
+  type NewsItem,
+} from "@/components/solutions/latest-news.v2";
 
-export function SolutionsAiPage() {
+type SolutionsAiPageProps = {
+  news: NewsItem[];
+};
+
+export function SolutionsAiPage({ news }: SolutionsAiPageProps) {
   const t = useTranslations();
 
   return (
@@ -74,6 +82,8 @@ export function SolutionsAiPage() {
           subtitle={t("ai-solution.videoPlayer.subtitle")}
           videos={VIDEOS(t)}
         />
+
+        <LatestNews title={t("ai-solution.news.title")} items={news} />
       </div>
 
       <VideoPlayerModal />
