@@ -99,6 +99,12 @@ const platinumSponsors = [
     width: 666.06,
     height: 173.85,
   },
+  {
+    companyId: "grayscale",
+    logoVariant: { id: "logo-light" },
+    width: 1050,
+    height: 170,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -340,6 +346,19 @@ const goldSponsors = [
     logoVariant: { id: "logo-horizontal-dark" },
     width: 1652.4,
     height: 528.214,
+  },
+  {
+    companyId: "ika",
+    logoVariant: { id: "wordmark-light" },
+    width: 96,
+    height: 48,
+  },
+  {
+    companyId: "cow",
+    displayName: "CoW",
+    logoVariant: { id: "logo-light" },
+    width: 1325,
+    height: 400,
   },
 ] satisfies SponsorLogo[];
 
