@@ -6,7 +6,7 @@ import { EventCard } from "./EventCard";
 import { CarouselArrow } from "./CarouselArrow";
 import { useHorizontalCarousel } from "./useHorizontalCarousel";
 import { getImagePath } from "@/config";
-import { chinaStops } from "@/data/china-stops";
+import { chinaLineupStops } from "@/data/china-stops";
 import { useTranslations } from "@workspace/i18n/client";
 
 interface EventLineupProps {
@@ -15,7 +15,7 @@ interface EventLineupProps {
 
 export function EventLineup({ futureOnly = false }: EventLineupProps) {
   const t = useTranslations("accelerate.homepage");
-  const chinaEvents = chinaStops.map((stop) => {
+  const chinaEvents = chinaLineupStops.map((stop) => {
     const eventCopy = t.raw(
       `eventLineup.events.${stop.city.toLowerCase()}`,
     ) as { subtitle: string; dateLocation: string };
@@ -25,9 +25,8 @@ export function EventLineup({ futureOnly = false }: EventLineupProps) {
       city: t(`eventLineup.events.${stop.city.toLowerCase()}.city`),
       subtitle: eventCopy.subtitle,
       dateLocation: eventCopy.dateLocation,
-      href:
-        stop.city === "Shanghai" ? "/accelerate/china" : stop.registrationUrl,
-      external: stop.city !== "Shanghai",
+      href: stop.registrationUrl,
+      external: true,
       active: true,
     };
   });
