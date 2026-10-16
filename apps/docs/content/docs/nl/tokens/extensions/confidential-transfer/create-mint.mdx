@@ -117,7 +117,7 @@ use solana_keypair::Keypair;
 use solana_signer::Signer;
 use solana_system_interface::instruction as system_instruction;
 use solana_transaction::Transaction;
-use solana_zk_sdk::encryption::elgamal::ElGamalKeypair;
+use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 use solana_zk_sdk_pod::encryption::elgamal::PodElGamalPubkey;
 use spl_token_2022::{
     extension::{
@@ -134,7 +134,7 @@ fn main() -> Result<()> {
         CommitmentConfig::confirmed(),
     );
 
-    let payer = load_keypair()?;
+    let payer = load_keypair(".config/solana/id.json")?;
     let mint = Keypair::new();
     let decimals: u8 = 2;
 
@@ -145,8 +145,13 @@ fn main() -> Result<()> {
     let rent = rpc_client.get_minimum_balance_for_rent_exemption(space)?;
 
     // The auditor ElGamal key lets the issuer decrypt transfer amounts for
-    // compliance. Persist this key. Pass `None` to create a mint with no auditor.
-    let auditor = ElGamalKeypair::new_rand();
+    // compliance. Pass `None` to create a mint with no auditor. Derive it from
+    // the auditor's own wallet (`solana-keygen new -o
+    // ~/.config/solana/auditor.json`); in production the auditor sends the
+    // public key alone.
+    let auditor_wallet = load_keypair(".config/solana/auditor.json")?;
+    let (auditor, _auditor_aes_key) = derive_confidential_keys(&auditor_wallet)
+        .map_err(|e| anyhow::anyhow!("derive auditor keys: {e}"))?;
     let auditor_pubkey: PodElGamalPubkey = (*auditor.pubkey()).into();
 
     let create_account_ix = system_instruction::create_account(
@@ -187,10 +192,10 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn load_keypair() -> Result<Keypair> {
+fn load_keypair(relative_path: &str) -> Result<Keypair> {
     let keypair_path = dirs::home_dir()
         .context("could not find home directory")?
-        .join(".config/solana/id.json");
+        .join(relative_path);
     let bytes: Vec<u8> = serde_json::from_reader(std::fs::File::open(keypair_path)?)?;
     let mut secret = [0u8; 32];
     secret.copy_from_slice(&bytes[0..32]);
@@ -233,13 +238,19 @@ serde_json = "1.0"
 <CodeTabs>
 
 ```ts !! title="index.ts"
-// !collapse(1:8) collapsed
+// !collapse(1:14) collapsed
 // Imports: dependencies used by this example.
 import { getCreateMintInstructionPlan } from "@solana-program/token-2022";
-import { deriveElGamalKeypairForOwnerMint } from "@solana-program/token-2022/confidential";
-import { createClient, generateKeyPairSigner, some } from "@solana/kit";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
+import {
+  createClient,
+  createKeyPairSignerFromBytes,
+  generateKeyPairSigner,
+  some
+} from "@solana/kit";
 import { solanaRpc } from "@solana/kit-plugin-rpc";
 import { signerFromFile } from "@solana/kit-plugin-signer";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -255,12 +266,19 @@ const payer = client.payer;
 const mint = await generateKeyPairSigner();
 
 // The auditor ElGamal key lets the issuer decrypt transfer amounts for
-// compliance. Persist it; omit `auditorElgamalPubkey` to create a mint with no
-// auditor.
-const auditor = await deriveElGamalKeypairForOwnerMint({
-  signer: payer,
-  owner: payer.address,
-  mint: mint.address
+// compliance. Omit `auditorElgamalPubkey` to create a mint with no auditor.
+// Derive it from the auditor's own wallet (`solana-keygen new -o
+// ~/.config/solana/auditor.json`); in production the auditor sends the
+// public key alone.
+const auditorSigner = await createKeyPairSignerFromBytes(
+  new Uint8Array(
+    JSON.parse(
+      await readFile(join(homedir(), ".config/solana/auditor.json"), "utf8")
+    )
+  )
+);
+const { elgamalKeypair: auditor } = await deriveConfidentialKeys({
+  signer: auditorSigner
 });
 
 const plan = getCreateMintInstructionPlan({
