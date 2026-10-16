@@ -22,6 +22,7 @@ const MARKDOWN_PREFIXES = [
 const MARKDOWN_API_PREFIX = "/api/markdown";
 const SOLANA_SITE_ORIGIN = "https://solana.com";
 const DOCS_VERCEL_HOST = "solana-com-docs.vercel.app";
+const ASK_UI_PREVIEW_PATH = "/ask-ui-preview";
 
 function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
@@ -98,6 +99,10 @@ export default async function middleware(
       new URL(`${pathname}${req.nextUrl.search}`, SOLANA_SITE_ORIGIN),
       308,
     );
+  }
+
+  if (pathname === ASK_UI_PREVIEW_PATH) {
+    return NextResponse.next();
   }
 
   if (

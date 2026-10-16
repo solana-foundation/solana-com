@@ -4,9 +4,11 @@ import { PostHogProvider as PHProvider, usePostHog } from "posthog-js/react";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
+  ASK_SOLANA_ANALYTICS_EVENT,
   COOKIE_CONSENT_EVENT,
   getBrowserStorage,
   readCookieConsent,
+  type AskSolanaAnalyticsDetail,
   type CookieConsentValue,
 } from "@solana-com/ui-chrome";
 
@@ -88,9 +90,32 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   return (
     <PHProvider client={posthog}>
       <SuspendedPostHogPageView />
+      <AskSolanaAnalyticsBridge />
       {children}
     </PHProvider>
   );
+}
+
+/**
+ * Forwards Ask Solana widget events (dispatched as DOM CustomEvents by
+ * @solana-com/ui-chrome, which has no PostHog dependency) to PostHog.
+ */
+function AskSolanaAnalyticsBridge() {
+  const posthog = usePostHog();
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<AskSolanaAnalyticsDetail>).detail;
+      if (detail?.event && posthog) {
+        posthog.capture(detail.event, detail.properties);
+      }
+    };
+    window.addEventListener(ASK_SOLANA_ANALYTICS_EVENT, handler);
+    return () =>
+      window.removeEventListener(ASK_SOLANA_ANALYTICS_EVENT, handler);
+  }, [posthog]);
+
+  return null;
 }
 
 function PostHogPageView() {

@@ -34,6 +34,8 @@ export async function MainDocsPage({
       href={page.url}
       markdown={markdown}
       isRoot={slug.length === 0}
+      // The Ask Solana hero landing lives at /docs/ai-assistant.
+      isAskLanding={slug.join("/") === "ai-assistant"}
     >
       <MDX components={mdxComponents} />
       {page.data.index ? (
