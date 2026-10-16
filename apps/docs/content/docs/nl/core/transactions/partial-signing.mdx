@@ -1,0 +1,109 @@
+---
+title: Gedeeltelijk ondertekenen
+description:
+  Bouw één onveranderlijk Solana-transactiebericht, verzamel de handtekeningen van onafhankelijke ondertekenaars, controleer en voeg ze samen en dien daarna de transactie in.
+url: /docs/core/transactions/partial-signing
+type: guide
+prerequisites:
+  - /docs/core/transactions
+  - /docs/core/transactions/transaction-structure
+related:
+  - /docs/core/transactions/signing-in-production
+  - /docs/core/transactions/durable-nonces
+  - /docs/core/transactions/versioned-transactions
+---
+
+Met gedeeltelijk ondertekenen kunnen meerdere partijen dezelfde transactie op verschillende
+tijdstippen of op verschillende apparaten ondertekenen. Een coördinator bouwt het bericht, elke vereiste
+ondertekenaar ondertekent exact de geserialiseerde berichtbytes, en de coördinator controleert
+en voegt de handtekeningen samen vóór het indienen.
+
+<Callout type="warn" title="Handtekeningen autoriseren bytes, geen intentie">
+  Als je de fee payer, de blockhash, de volgorde van instructies, de accountlijst of enige
+  instruction data wijzigt, ontstaat er een ander bericht en worden alle al
+  verzamelde handtekeningen ongeldig.
+</Callout>
+
+## Verloop van gedeeltelijk ondertekenen
+
+1. Kom de transactie-instructies overeen en bepaal wie de transactiekosten betaalt.
+2. Stel de geldigheidsduur van de transactie en de fee payer in.
+3. Serialiseer het bericht één keer. Behandel die bytes als onveranderlijk.
+4. Verstuur de berichtbytes en een voor mensen leesbare samenvatting naar elke ondertekenaar.
+5. Verzamel elke Ed25519-handtekening en controleer die aan de hand van dezelfde berichtbytes.
+6. Koppel de handtekeningen aan de adressen van de vereiste ondertekenaars.
+7. Controleer of elke vereiste handtekening aanwezig en geldig is en dien de transactie dan in.
+
+## Volledig voorbeeld
+
+De fee payer en de SOL-afzender hieronder ondertekenen onafhankelijk van elkaar. De coördinator controleert
+beide handtekeningen, voegt ze samen en dient de voltooide transactie in.
+
+```ts !! title="Collect and merge signatures" file=packages/docs-examples/cookbook/transactions/partial-signing/legacy.ts#region=partial-signing
+
+```
+
+Het voorbeeld gebruikt ruwe Ed25519-ondertekening om de grens tussen de
+coördinator en elke ondertekenaar expliciet te maken. Een wallet, hardwareapparaat, custody-
+dienst of offline ondertekenaar kan elk van de lokale keypair-onderdelen vervangen, zolang het
+exact dezelfde berichtbytes ondertekent.
+
+## Zet het bericht vast vóór het ondertekenen
+
+Elke handtekening dekt het geserialiseerde transactiebericht. Het bericht bevat
+alle onderstaande onderdelen:
+
+- de fee payer
+- de recente blockhash of durable nonce
+- elk programma- en accountadres
+- ondertekenaars van accounts en schrijfrechten
+- de volgorde van instructies en de instruction data
+
+Stel eerst deze velden samen, serialiseer het bericht één keer en verspreid die bytearray
+onder alle ondertekenaars. Het is handig om bij elk ondertekeningsverzoek een digest van het bericht
+te bewaren, zodat de coördinator een handtekening kan weigeren die is teruggestuurd voor een
+ander bericht.
+
+Deserialiseer een bericht niet om het te wijzigen en verwacht niet dat eerder verzamelde
+handtekeningen geldig blijven. Zelfs een wijziging die operationeel lijkt, zoals het
+vervangen van een verlopen blockhash of het wijzigen van de fee payer, vereist dat elke ondertekenaar
+opnieuw ondertekent.
+
+## De fee payer afstemmen
+
+De fee payer is altijd een vereiste ondertekenaar en moet worden gekozen voordat het bericht
+wordt vastgezet. Controleer of het account genoeg SOL heeft voor de basisvergoeding en eventuele
+prioriteitsvergoeding. Als een sponsor of backend de kosten betaalt, zet dan dat adres in het
+bericht voordat je de handtekening van de gebruiker verzamelt; als je de sponsor later toevoegt, veranderen
+de ondertekende bytes.
+
+De coördinator moet controleren of een binnenkomende handtekening bij een adres hoort
+dat als vereiste ondertekenaar is vermeld. Accepteer nooit zomaar een willekeurige publieke sleutel en voeg die toe
+aan de transactie.
+
+## De geldigheidsduur van de transactie beheren
+
+Een transactie met een recente blockhash is alleen geldig zolang de blockhash in de wachtrij met recente blockhashes
+van de validator staat. Schat voordat je een ondertekeningsproces met meerdere partijen start in
+of alle ondertekenaars kunnen reageren vóór `lastValidBlockHeight`.
+
+Als de blockhash verloopt, bouw je een nieuw bericht met een nieuwe blockhash en verzamel je
+alle handtekeningen opnieuw. Gebruik voor workflows die langer kunnen duren of offline
+ondertekenaars omvatten een [durable nonce](/docs/core/transactions/durable-nonces). Een
+durable nonce omzeilt het venster van de recente blockhash, maar als je die nonce vooruitzet of anderszins
+verbruikt, wordt de openstaande transactie alsnog ongeldig.
+
+## Controleren vóór het indienen
+
+Voor elke teruggestuurde handtekening:
+
+1. Controleer de handtekening aan de hand van de vastgezette berichtbytes en de publieke sleutel van de
+   verwachte ondertekenaar.
+2. Koppel de handtekening aan de slot van die ondertekenaar in de handtekeningarray van de transactie.
+3. Controleer of de samengestelde transactie geldige handtekeningen heeft van elke vereiste
+   ondertekenaar.
+4. Dien de geserialiseerde transactie in zonder het bericht opnieuw op te bouwen.
+
+Bevestig na het indienen met dezelfde geldigheidsinformatie die in het
+ondertekende bericht was opgenomen. Als de bevestiging meldt dat de blockhash is verlopen of de
+nonce is verbruikt, probeer het dan niet opnieuw met een aangepaste transactie; start het ondertekeningsproces opnieuw.

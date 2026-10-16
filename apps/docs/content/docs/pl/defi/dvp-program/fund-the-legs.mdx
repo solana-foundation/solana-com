@@ -1,0 +1,242 @@
+---
+title: Zasil strony transakcji
+description:
+  Zweryfikuj zapisane warunki transakcji DvP, a następnie zasil jedną ze stron zwykłym TransferChecked na jej konto escrow.
+seoTitle: Zasilanie transakcji DvP na Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Zasilenie to zwykły `TransferChecked` na escrow danej strony, więc każdy portfel lub system
+kustodialny, który potrafi wysłać transfer tokenów, może zasilić stronę transakcji. Klienta DvP wymaga tylko odczyt
+rekordu transakcji przed zasileniem. Program sprawdza salda
+escrow dopiero podczas rozliczenia; nic nie weryfikuje transferu w chwili jego zaksięgowania,
+dlatego każda ze stron odczytuje rekord transakcji przed wykonaniem transferu.
+
+Ta strona jest kontynuacją części
+[tworzenie transakcji](/docs/defi/dvp-program/create-a-trade); klient i podpisujący
+są ci sami.
+
+## Zweryfikuj warunki
+
+Utworzenie rekordu nie wymaga uprawnień, a adresy escrow wynikają
+wyłącznie z rekordu i mint, nigdy z warunków. Transfer na escrow może
+więc zostać zaksięgowany przy warunkach, na które nigdy się nie zgodziłeś, w tym przy docelowych adresach rozliczenia,
+które przekierowują środki twojego kontrahenta na trzeci adres.
+Przed zasileniem odczytaj konto `SwapDvp` i porównaj je z uzgodnioną
+transakcją.
+
+`verifySwapDvp` w TypeScript i `verify::decode_swap_dvp_account` w Rust
+potwierdzają, że konto należy do programu DvP, ma dokładnie 458 bajtów i
+znajduje się pod adresem wyprowadzonym z jego własnych pól (`fetchSwapDvpChecked` wykonuje
+tylko dwie pierwsze kontrole). Zwykłe funkcje odczytu `fetchSwapDvp` i `decodeSwapDvp`
+nie wykonują żadnej z nich. Kontrole stron, kwot, terminów i adresów docelowych
+wykonuje wywołujący, porównując je z uzgodnioną transakcją.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Jeśli rekord utworzył twój kontrahent lub organ rozliczający,
+porównaj każde pole z warunkami uzgodnionymi poza księgą. Jeśli utworzyłeś
+go samodzielnie, ten odczyt potwierdza, że został zaksięgowany tak, jak go wysłano.
+
+## Transfer na escrow
+
+Zasil stronę transakcji dokładnie uzgodnioną kwotą. Program ogranicza rozliczenie do
+`amount_x` i zwraca nadwyżkę stronie, do której należy dana strona transakcji, więc nadwyżka nie przepada,
+ale wymaga drugiego transferu podczas rozliczenia i może się nie powieść przy niektórych
+hookach transferu (zobacz uwagi poniżej).
+
+Użyj `TransferChecked`, a nie niesprawdzanego `Transfer`. Mint Token-2022 z
+rozszerzeniami zależnymi od konta mint, takimi jak Pausable, odrzucają transfer,
+który go nie zawiera, a mint z hookiem transferu wymaga, aby konta
+hooka zostały rozwiązane i dołączone tak samo jak przy każdym innym transferze tego
+tokena.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    Strona aktywa, podpisująca jako `userASigner`, zasila escrow A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    Strona gotówkowa robi to samo dla escrow B, używając `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` oraz `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    Strona gotówkowa buduje tę samą instrukcję dla escrow B, używając `mint_b`,
+    `user_b` i `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Transfer zasilający widoczny ze statusem [`confirmed`](/docs/rpc#configuring-state-commitment)
+nadal może zostać unieważniony. Program odczytuje saldo escrow onchain podczas
+rozliczenia, więc Settle wysłany dla transferu zasilającego, który nie został zaksięgowany, kończy się niepowodzeniem
+z błędem `LegNotFunded` i nic się nie przemieszcza; kosztem jest nieudany Settle i ponowna próba.
+Uznaj stronę transakcji za zasiloną dopiero, gdy jej transfer ma status `finalized`.
+
+## Uwagi
+
+- **Strony z wrapped SOL.** Program odczytuje saldo natywnego escrow po jego
+  synchronizacji, więc lamport przesłane na escrow wrapped SOL przelewem systemowym są
+  wliczane. Nigdy nie wysyłaj SOL na escrow dla żadnego innego mint: program nie może
+  ich zwrócić, a trafią one do osoby, która zamknie konto.
+- **Mint z ograniczeniami.** W przypadku mint z Default Account State ustawionym na frozen escrow jest
+  tworzony jako zamrożony, a transfer kończy się niepowodzeniem, dopóki emitent go nie odblokuje lub nie dopuści. W
+  [przeglądzie](/docs/defi/dvp-program#mint-configuration-constraints) opisano
+  współdziałanie z Token ACL.
+- **Hooki transferu.** Zasilaj escrow z hookami dokładnie uzgodnioną kwotą. Jeśli
+  nadwyżka wymusza zwrot podczas rozliczenia, zwrot ponownie wykorzystuje konta hooka danej strony
+  z innym miejscem docelowym i kwotą, co niektóre hooki odrzucają. Rozwiązaniem
+  jest Reclaim, ponowne zasilenie dokładną kwotą i ponowne rozliczenie.
+- **Zasilenie po wygaśnięciu.** Nic nie blokuje transferu po `expiry_timestamp`. Zostaje
+  zaksięgowany, rozliczenie nie jest już możliwe, a strona, do której należy dana strona transakcji, odzyskuje środki przez
+  Reclaim, gdy transakcja jest otwarta, lub Recover po jej zamknięciu. Zobacz
+  [wycofanie transakcji](/docs/defi/dvp-program/unwind-a-trade).
+- **Kto zasila pierwszy.** Program nie ustala kolejności obu stron. Kolejność
+  to kwestia uzgodnienia między stronami; każda ze stron może odzyskać swoją część w dowolnym momencie
+  przed rozliczeniem, chyba że autorytet mint (freeze, pause lub hook transferu)
+  blokuje escrow.
+
+## Następne kroki
+
+- [Rozlicz transakcję](/docs/defi/dvp-program/settle-the-trade): organ rozliczający
+  wymienia obie strony w jednej transakcji
+- [Wycofaj transakcję](/docs/defi/dvp-program/unwind-a-trade): odzyskiwanie zasilonej
+  strony, gdy transakcja nie zostaje rozliczona
