@@ -7,10 +7,11 @@ import { usePathname } from "@workspace/i18n/routing";
 import { Link } from "./link";
 import { HeaderList } from "./header-list";
 import { DevelopersNav } from "./developers-nav";
-import { InkeepSearchBar } from "./inkeep-searchbar";
+import { AskSolanaSearchBar } from "./ask-solana/ask-solana-searchbar";
 import { LanguageSelector } from "./language-selector";
 import { MobileMenu } from "./mobile-menu";
 import { shouldShowDevelopersNav } from "./developer-routes";
+import { AskSolanaButton } from "./ask-solana/ask-solana-button";
 
 import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/icons/moon.inline.svg";
@@ -27,6 +28,9 @@ function Header({
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
   const showSecondaryDevelopersNav = shouldShowDevelopersNav(pathname);
+
+  // The standalone Ask Solana chat page (/docs/ask) renders without site chrome.
+  if (pathname === "/docs/ask") return null;
 
   return (
     <>
@@ -60,7 +64,8 @@ function Header({
 
               {/* Desktop Search and Language */}
               <div className="flex items-center gap-3">
-                <InkeepSearchBar />
+                <AskSolanaSearchBar className="hidden md:block" />
+                <AskSolanaButton variant="inline" className="md:hidden" />
                 {showLanguage && (
                   <div className="relative items-center hidden xl:flex">
                     <LanguageSelector />

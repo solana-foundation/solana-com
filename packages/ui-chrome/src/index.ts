@@ -19,6 +19,22 @@ export { Header } from "./header";
 export { ThemeProvider } from "./theme-provider";
 export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
+export {
+  AskSolanaButton,
+  RobotIcon as VectorRobotIcon,
+} from "./ask-solana/ask-solana-button";
+export { AskSolanaChatView } from "./ask-solana/chat-view";
+export type { AskSolanaChatStatus } from "./ask-solana/chat-view";
+export { AskSolanaSearchBar } from "./ask-solana/ask-solana-searchbar";
+export { AskSolanaModalHost } from "./ask-solana/modal";
+export { openAskSolana } from "./ask-solana/store";
+export { openAskSolanaWidget } from "./ask-solana/widget-store";
+export * from "./ask-solana/vector";
+export {
+  ASK_SOLANA_ANALYTICS_EVENT,
+  trackAskSolana,
+} from "./ask-solana/analytics";
+export type { AskSolanaAnalyticsDetail } from "./ask-solana/analytics";
 export { NewsletterModal } from "./newsletter-modal";
 export { CookieConsentBanner } from "./cookie-consent-banner";
 export { GoogleAnalyticsTag } from "./google-analytics-tag";

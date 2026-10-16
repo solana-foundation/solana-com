@@ -8,6 +8,7 @@ import RedditIcon from "./assets/reddit.inline.svg";
 import GithubIcon from "./assets/github.inline.svg";
 import SolanaFoundationLogo from "./assets/logotype-foundation.inline.svg";
 import { useTranslations } from "next-intl";
+import { usePathname } from "@workspace/i18n/routing";
 import { LanguageSelector } from "./language-selector";
 import { Link, InlineLink } from "./link";
 import SolanaBgSvg from "./assets/solana-bg.svg";
@@ -199,7 +200,11 @@ const MetaLink = ({ link }: { link: FooterLink }) => {
 };
 
 export const Footer = ({ className = "" }) => {
+  const pathname = usePathname();
   const t = useTranslations();
+
+  // The standalone Ask Solana chat page (/docs/ask) renders without site chrome.
+  if (pathname === "/docs/ask") return null;
 
   return (
     <div
