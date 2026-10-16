@@ -1,4 +1,8 @@
-import type { ChartDefinition, DashboardTab } from "./data-config";
+import type {
+  ChartDefinition,
+  ChartPeriodView,
+  DashboardTab,
+} from "./data-config";
 import type { DashboardTranslator } from "./dashboard-types";
 
 export function formatPercent(value: number, locale: string) {
@@ -43,6 +47,22 @@ export function getChartCaption(
   const captionKey = `charts.${chart.id}.caption`;
 
   return t.has(captionKey) ? t(captionKey, values) : undefined;
+}
+
+/** Explains how a non-daily view is calculated, e.g. "Weekly total". */
+export function getPeriodViewCaption(
+  t: DashboardTranslator,
+  chart: ChartDefinition,
+  periodView: ChartPeriodView,
+  rangeDays: number,
+) {
+  if (!chart.periodViews || periodView === "daily") {
+    return undefined;
+  }
+
+  return periodView === "cumulative"
+    ? t("periodViews.captions.cumulative", { days: rangeDays })
+    : t(`periodViews.captions.${periodView}.${chart.periodViews.rollup}`);
 }
 
 export function getValueLabel(t: DashboardTranslator, valueLabel: string) {
