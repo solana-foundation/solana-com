@@ -83,6 +83,31 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  async redirects() {
+    return [
+      {
+        source: "/china/agenda",
+        destination: "/china",
+        permanent: true,
+      },
+      {
+        source: "/accelerate/china/agenda",
+        destination: "/accelerate/china",
+        permanent: true,
+      },
+      {
+        source: "/:locale/china/agenda",
+        destination: "/:locale/china",
+        permanent: true,
+      },
+      {
+        source: "/:locale/accelerate/china/agenda",
+        destination: "/:locale/accelerate/china",
+        permanent: true,
+      },
+    ];
+  },
+
   async rewrites() {
     return {
       beforeFiles: [

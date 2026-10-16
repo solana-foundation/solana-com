@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { AgendaBanner } from "@/components";
 import { ChinaFooter, ChinaRoadshow } from "@/components/china/ChinaRoadshow";
 import {
   Highlights,
@@ -76,11 +75,6 @@ export default async function ChinaPage({ params }: PageProps) {
         }}
       />
       <ChinaRoadshow />
-      <AgendaBanner
-        agendaPath="/accelerate/china/agenda"
-        eventName={chinaT("city")}
-        variant="cta"
-      />
       <Highlights />
       <VideoCarousel
         heading={chinaT("videoHeading")}

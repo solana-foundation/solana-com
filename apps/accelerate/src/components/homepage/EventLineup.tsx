@@ -15,22 +15,23 @@ interface EventLineupProps {
 
 export function EventLineup({ futureOnly = false }: EventLineupProps) {
   const t = useTranslations("accelerate.homepage");
-  const chinaEvents = chinaStops.map((stop) => {
-    const eventCopy = t.raw(
-      `eventLineup.events.${stop.city.toLowerCase()}`,
-    ) as { subtitle: string; dateLocation: string };
+  const chinaEvents = chinaStops
+    .filter((stop) => stop.city !== "Shanghai")
+    .map((stop) => {
+      const eventCopy = t.raw(
+        `eventLineup.events.${stop.city.toLowerCase()}`,
+      ) as { subtitle: string; dateLocation: string };
 
-    return {
-      image: getImagePath(stop.image),
-      city: t(`eventLineup.events.${stop.city.toLowerCase()}.city`),
-      subtitle: eventCopy.subtitle,
-      dateLocation: eventCopy.dateLocation,
-      href:
-        stop.city === "Shanghai" ? "/accelerate/china" : stop.registrationUrl,
-      external: stop.city !== "Shanghai",
-      active: true,
-    };
-  });
+      return {
+        image: getImagePath(stop.image),
+        city: t(`eventLineup.events.${stop.city.toLowerCase()}.city`),
+        subtitle: eventCopy.subtitle,
+        dateLocation: eventCopy.dateLocation,
+        href: stop.registrationUrl,
+        external: true,
+        active: true,
+      };
+    });
   const events = [
     ...chinaEvents,
     {
