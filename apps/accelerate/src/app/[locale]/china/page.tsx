@@ -11,7 +11,7 @@ import { getImagePath } from "@/config";
 import { getPageMetadata } from "../../metadata";
 import { buildEventStructuredData } from "../../seo";
 import { getTranslations } from "@workspace/i18n/server";
-import { chinaStops } from "@/data/china-stops";
+import { chinaLineupStops } from "@/data/china-stops";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -56,7 +56,7 @@ export default async function ChinaPage({ params }: PageProps) {
       <SeoJsonLd
         data={{
           "@context": "https://schema.org",
-          "@graph": chinaStops.map((stop) =>
+          "@graph": chinaLineupStops.map((stop) =>
             buildEventStructuredData(
               {
                 name: `Solana Accelerate ${stop.city}`,

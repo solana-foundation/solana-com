@@ -6,7 +6,7 @@ import { EventCard } from "./EventCard";
 import { CarouselArrow } from "./CarouselArrow";
 import { useHorizontalCarousel } from "./useHorizontalCarousel";
 import { getImagePath } from "@/config";
-import { chinaStops } from "@/data/china-stops";
+import { chinaLineupStops } from "@/data/china-stops";
 import { useTranslations } from "@workspace/i18n/client";
 
 interface EventLineupProps {
@@ -15,23 +15,21 @@ interface EventLineupProps {
 
 export function EventLineup({ futureOnly = false }: EventLineupProps) {
   const t = useTranslations("accelerate.homepage");
-  const chinaEvents = chinaStops
-    .filter((stop) => stop.city !== "Shanghai")
-    .map((stop) => {
-      const eventCopy = t.raw(
-        `eventLineup.events.${stop.city.toLowerCase()}`,
-      ) as { subtitle: string; dateLocation: string };
+  const chinaEvents = chinaLineupStops.map((stop) => {
+    const eventCopy = t.raw(
+      `eventLineup.events.${stop.city.toLowerCase()}`,
+    ) as { subtitle: string; dateLocation: string };
 
-      return {
-        image: getImagePath(stop.image),
-        city: t(`eventLineup.events.${stop.city.toLowerCase()}.city`),
-        subtitle: eventCopy.subtitle,
-        dateLocation: eventCopy.dateLocation,
-        href: stop.registrationUrl,
-        external: true,
-        active: true,
-      };
-    });
+    return {
+      image: getImagePath(stop.image),
+      city: t(`eventLineup.events.${stop.city.toLowerCase()}.city`),
+      subtitle: eventCopy.subtitle,
+      dateLocation: eventCopy.dateLocation,
+      href: stop.registrationUrl,
+      external: true,
+      active: true,
+    };
+  });
   const events = [
     ...chinaEvents,
     {
