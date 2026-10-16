@@ -131,3 +131,10 @@ export const VIDEOS = (
     badge: VideoBadge.Podcast,
   },
 ];
+
+export const LATEST_NEWS_QUERY = {
+  tags: ["ai"],
+  limit: 6,
+  fallbackImage: "/src/img/solutions/ai/og-image.webp",
+  fallbackImageAspectRatio: "1200 / 630",
+};
