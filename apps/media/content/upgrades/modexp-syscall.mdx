@@ -1,0 +1,165 @@
+---
+title: Big Integer ModExp Syscall
+description: >-
+  SIMD-0529 adds a sol_big_mod_exp syscall computing modular exponentiation on
+  operands up to 512 bytes, making RSA verification, accumulators, and VDFs
+  practical onchain for the first time.
+subtitle: Modular exponentiation for RSA-sized integers, natively
+publishedAt: 2026-09-27T00:00:00.000Z
+status: published
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+order: 8
+metrics:
+  - value: "512"
+    label: Max operand bytes, covering 4096-bit RSA
+  - value: EIP-198
+    label: Compute model the metering follows
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Big Integer ModExp Syscall
+
+Q4 2026 • Solana Foundation
+
+Modular exponentiation — `result = (base ^ exponent) mod modulus` — is the
+arithmetic underneath RSA, cryptographic accumulators, some verifiable delay
+functions, and a good deal of number-theoretic cryptography. On Solana today it
+is effectively unavailable: implementing it in sBPF for a 2048-bit modulus costs
+far more compute than a transaction can spend.
+[SIMD-0529](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0529-big-integer-modexp-syscall.md)
+adds `sol_big_mod_exp`, which does the same arithmetic in the validator using an
+audited bigint library and charges for it by size.
+
+Ethereum exposes this operation as the ModExp precompile specified in
+[EIP-198](https://eips.ethereum.org/EIPS/eip-198). This syscall computes the
+same function and borrows its cost model, but takes a Solana syscall interface
+rather than the EVM precompile ABI — and it rejects even moduli, so it is not
+input-domain compatible with every EIP-198 call.
+
+|                                  |                                                  |
+| -------------------------------- | ------------------------------------------------ |
+| Expected Mainnet Activation Date | Agave 4.4, feature activation from November 2026 |
+| Devnet Activation                | To be determined                                 |
+| Breaking Change?                 | No — additive, behind a feature gate             |
+| Indexing Changes Required?       | No                                               |
+| Feature Gate                     | `expH2ppKPW2ANEdEmAjfhSEcnBQJfmoX4FjuNpe9ttg`    |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="expH2ppKPW2ANEdEmAjfhSEcnBQJfmoX4FjuNpe9ttg" />
+
+SIMD-0529 is at Idea status in the SIMD repository and its compute constants are
+explicitly marked preliminary. Both are noted where they matter below.
+
+## Technical Details
+
+### Interface
+
+The syscall takes a pointer to a parameter struct and a pointer to the output
+buffer. Base, exponent, and modulus are byte slices encoded as **little-endian**
+unsigned integers, and the result is written into caller-provided VM memory.
+
+The choice of a struct over EIP-198's packed input buffer is deliberate.
+EIP-198 uses 32-byte length prefixes, treats calldata as infinitely
+right-padded with zeros, and ignores excess bytes. That is a poor fit for a
+Solana syscall, which should use explicit VM memory ranges and fail
+deterministically on an invalid access rather than silently padding.
+
+### Size Limits
+
+```rust
+pub const BIG_MOD_EXP_MAX_BYTES: u64 = 512;
+```
+
+`base_len`, `exponent_len`, and `modulus_len` must each be 512 bytes or fewer,
+and so must the implied result length. 512 bytes covers a 4096-bit RSA modulus,
+which is the practical ceiling for the use cases driving the proposal, and keeps
+the first version inside a predictable compute envelope. Larger operands are
+left to a later SIMD after benchmarking.
+
+Two edge cases are specified rather than left implicit: zero-length `base` and
+`exponent` are valid and mean the integer `0`, while `modulus_len` must be
+greater than zero.
+
+### Compute Metering
+
+Cost is charged **before** the arithmetic runs, and follows EIP-198's operation
+complexity model adapted to compute units. There are two paths:
+
+| Path              | When                    | Cost                                                             |
+| ----------------- | ----------------------- | ---------------------------------------------------------------- |
+| Modular reduction | decoded exponent is `1` | base CU + reduction complexity over `base_len` and `modulus_len` |
+| General ModExp    | otherwise               | base CU + multiplication complexity × effective exponent length  |
+
+The exponent-`1` branch exists because reduction is a genuinely different and
+cheaper operation than exponentiation, and it is a use case in its own right:
+a program needing to reduce a large integer modulo another can call this syscall
+with exponent `1` rather than reaching for general exponentiation. The branch
+must be selected on the **decoded exponent value**, not on the adjusted or
+effective exponent length, because the minimum exponent length inflates small
+exponents on the general path.
+
+The draft constants are:
+
+```rust
+pub const BIG_MOD_EXP_BASE_CU: u64 = 422;
+pub const BIG_MOD_EXP_CU_DIVISOR: u64 = 189;
+pub const BIG_MOD_EXP_MIN_EXPONENT_LENGTH: u64 = 75;
+pub const BIG_MOD_EXP_MOD_REDUCTION_COMPLEXITY_FACTOR: u64 = 15;
+```
+
+**These are preliminary.** They come from early EIP-198 cost-sweep benchmarks
+and the SIMD requires them to be finalized from implementation benchmarks before
+activation. Do not size a program's compute budget against these numbers yet;
+read the proposal for the final values.
+
+Two of them exist to correct EIP-198's formula rather than to follow it.
+`BIG_MOD_EXP_BASE_CU` covers syscall overhead that pure arithmetic complexity
+does not represent. `BIG_MOD_EXP_MIN_EXPONENT_LENGTH` covers fixed-exponent
+cases — including the common RSA exponent 65537 — whose real runtime is not well
+described by a very small adjusted exponent length.
+
+### What It Unblocks
+
+**RSA verification.** A program verifies an RSA signature by calling
+`sol_big_mod_exp` with exponent 65537. The syscall does the arithmetic; the
+program remains responsible for hashing, padding checks, key validation, and
+domain separation. A dedicated RSA syscall was considered and rejected precisely
+to avoid baking padding schemes and key sizes into the runtime.
+
+**Cross-ecosystem proofs.** Programs verifying Ethereum-oriented proofs,
+signatures, or attestations can reuse the same arithmetic assumptions and adapt
+only the call interface.
+
+**Accumulators and VDFs.** Both rest on repeated modular exponentiation over
+large moduli, which has not been affordable onchain.
+
+### Security Considerations
+
+The stated main risk is **underpricing**. Modular exponentiation has
+input-dependent cost that moves with base size, modulus size, exponent length,
+and exponent density, so a cost formula that is accurate on average can be wrong
+on an adversarially chosen input. This is why the constants must be benchmarked
+across validator implementations before activation rather than shipped as
+drafted, and why the 512-byte bound exists in the first version.
+
+## About This Upgrade
+
+`sol_big_mod_exp` is the second of two cryptographic syscalls in Agave 4.4,
+alongside the [SHA-512 syscall](/upgrades/sha512-syscall), and it follows the
+curve operations added in Agave 4.0
+([new cryptography schemes](/upgrades/new-cryptography)). The pattern is
+consistent: take a primitive that is well specified, widely needed, and
+prohibitively expensive in sBPF, and move it into the validator where it can be
+metered by size instead of by instruction count.
+
+What makes this one notable is reach. RSA is the signature scheme of the
+non-blockchain world — certificates, identity documents, enterprise PKI — and
+until now Solana programs could not verify it at any practical cost.
+
+**Learn more:** [Solana Upgrades](/upgrades)

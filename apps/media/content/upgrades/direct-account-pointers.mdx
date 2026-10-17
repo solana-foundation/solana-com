@@ -1,0 +1,154 @@
+---
+title: Direct Account Pointers in Program Input
+description: >-
+  SIMD-0449 serializes one pointer per instruction account into the program
+  input, so an entrypoint no longer parses the accounts section to find them.
+  Entrypoint cost becomes constant — 11 CUs whether the instruction has one
+  account or sixty-four.
+subtitle: A constant-cost entrypoint, no matter how many accounts
+publishedAt: 2026-09-27T00:00:00.000Z
+status: published
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+order: 3
+metrics:
+  - value: "11"
+    label: CUs to parse accounts, at any account count
+  - value: "-493"
+    label: CUs saved on a 64-account instruction
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Direct Account Pointers in Program Input
+
+Q4 2026 • Solana Foundation
+
+Before a Solana program runs a single line of its own logic, its entrypoint has
+to find its accounts. In ABIv1 the accounts arrive as a packed section of the
+serialized input, and the only way to get a slice of accounts out of it is to
+walk the section and compute each boundary. That walk is most of what an
+entrypoint costs, and it gets more expensive with every account the instruction
+touches.
+
+The boundaries are not a mystery to the VM — it computed them when it built the
+input in the first place.
+[SIMD-0449](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0449-direct-account-pointers-in-program-input.md)
+writes them into the input directly, as one 64-bit pointer per instruction
+account. The entrypoint reads the pointers instead of deriving them, and its
+cost stops depending on the account count.
+
+|                                  |                                                  |
+| -------------------------------- | ------------------------------------------------ |
+| Expected Mainnet Activation Date | Agave 4.4, feature activation from November 2026 |
+| Devnet Activation                | To be determined                                 |
+| Breaking Change?                 | No — appended after existing input parameters    |
+| Indexing Changes Required?       | No                                               |
+| Feature Gate                     | `ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK`    |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="ptr9umikaeAS7ZBBp2fsfRhie16F1V2jCKA2y6gXNAK" />
+
+## Technical Details
+
+### The Cost It Removes
+
+Measured with Pinocchio's entrypoint against a program with an empty instruction
+processor, so the numbers are the parsing cost and nothing else:
+
+| Accounts | Today | After | Saved |
+| -------- | ----- | ----- | ----- |
+| 1        | 17    | 11    | -6    |
+| 2        | 17    | 11    | -6    |
+| 3        | 37    | 11    | -26   |
+| 4        | 45    | 11    | -34   |
+| 8        | 78    | 11    | -67   |
+| 16       | 143   | 11    | -132  |
+| 32       | 261   | 11    | -250  |
+| 64       | 504   | 11    | -493  |
+
+The shape is the point. Today the cost grows with the account count; after the
+change it is 11 CUs flat. An instruction touching 64 accounts — the runtime
+maximum — currently spends 504 CUs before its own logic starts.
+
+### Input Layout
+
+The pointer slice is appended after everything that is there today:
+
+```text
+- 8 bytes: number of accounts (little-endian)
+- <variable>: accounts section
+- 8 bytes: length of instruction data (little-endian)
+- <variable>: instruction data bytes
+- 32 bytes: program ID
+- 0-7 bytes: padding to align the offset to 8 bytes
+- [u64; <number of accounts>]: slice of account pointers
+```
+
+Each pointer is the little-endian `u64` address of the first byte of that
+account's information, and every pointer must be a valid address inside the
+input section. These are the same addresses an entrypoint computes today — the
+change is that it is handed them instead of deriving them.
+
+**Duplicated accounts carry the same pointer value.** If an instruction names
+the same account twice, both entries point at the same account information.
+
+The slice is provided to all ABIv1 programs, under every loader except Loader
+v1, whether or not the program reads it.
+
+### Deriving the Slice Without Parsing
+
+Combined with
+[SIMD-0321](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0321-vm-r2-instruction-data-pointer.md),
+which gives programs a direct pointer to the instruction data in `r2`, an
+entrypoint can locate everything it needs arithmetically:
+
+- read the number of accounts from `r1`
+- read the instruction data length from `r2 - 8`
+- `program_id` is 32 bytes at `r2 + <instruction data length>`
+- `accounts` is `<number of accounts>` entries at
+  `r2 + <instruction data length> + 32 + padding`
+- `instruction_data` is `<instruction data length>` bytes at `r2`
+
+No iteration over the accounts section at any point, which is why the cost is
+constant.
+
+### Why This and Not ABIv2
+
+ABIv2 proposes a new serialization layout that also supplies an accounts slice
+and also avoids parsing the accounts section. SIMD-0449 was preferred as the
+nearer-term change: it is simpler, and it is fully backward compatible with
+ABIv1 rather than requiring programs to move to a new ABI.
+
+### Compatibility
+
+The change is additive in the most literal sense — the new data sits after the
+program ID, past where any current program reads. No program today reads input
+parameters beyond the program ID, so nothing existing can observe the
+difference, and the SIMD notes this is also why the change introduces no
+security concerns: there is no data here that programs were previously denied.
+
+Programs get the benefit by updating to an SDK version whose entrypoint uses the
+pointers. Until then they keep parsing the accounts section and keep paying for
+it, with no breakage either way.
+
+## About This Upgrade
+
+This is a change with no downside to weigh. The VM already knew the account
+boundaries, the entrypoint was recomputing them, and the recomputation was the
+dominant cost of getting a program started. Writing them down costs a few bytes
+of input and saves up to 493 compute units per instruction.
+
+The benefit lands hardest where compute is tightest: programs that touch many
+accounts in one instruction, and CPI-heavy call paths where the entrypoint cost
+is paid again at every level. It arrives alongside
+[account data direct mapping](/upgrades/account-data-direct-mapping) and the
+[virtual address space adjustments](/upgrades/virtual-address-space), which
+together make Agave 4.4 the release where program input handling gets
+substantially cheaper.
+
+**Learn more:** [Solana Upgrades](/upgrades)

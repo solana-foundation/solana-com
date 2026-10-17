@@ -1,0 +1,162 @@
+---
+title: Virtual Address Space Adjustments
+description: >-
+  SIMD-0460 is the address-translation half of SIMD-0219, split out to de-risk
+  deployment. It tightens memory access rules for account payloads and
+  deactivates stack frame gaps globally, compacting the stack address space by
+  a factor of two.
+subtitle: Tighter memory rules, and the end of stack frame gaps
+publishedAt: 2026-09-27T00:00:00.000Z
+status: published
+author: solana-foundation
+stage: in_development
+release: agave-4-4
+order: 5
+metrics:
+  - value: 2x
+    label: Stack address space compaction
+  - value: 4 KiB
+    label: SBPFv0 stack frame bump, down from 8 KiB
+categories:
+  - category: upgrades
+tags:
+  - tag: announcements
+---
+
+# Virtual Address Space Adjustments
+
+Q4 2026 • Solana Foundation
+
+[SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md)
+set out to remove pitfalls from the program ABI and runtime, and to make
+[account data direct mapping](/upgrades/account-data-direct-mapping) possible.
+It was large enough that Agave and Firedancer core developers agreed to split it
+across two feature gates so the earlier parts could ship even if the later parts
+slipped.
+[SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md)
+is the second half: address translation, memory mappings, reallocation and
+resizing, zeroing, and the definition of empty address space.
+
+It also carries one change that is not inherited from SIMD-0219. The unaligned
+address translation this half requires costs a little performance, so stack
+frame gaps — already identified as a drag on address translation generally — are
+being deactivated globally to pay for it.
+
+|                                  |                                                         |
+| -------------------------------- | ------------------------------------------------------- |
+| Expected Mainnet Activation Date | Agave 4.4, feature activation from November 2026        |
+| Devnet Activation                | To be determined                                        |
+| Breaking Change?                 | Yes, for programs depending on the stack address layout |
+| Indexing Changes Required?       | No                                                      |
+| Feature Gate                     | `7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz`           |
+
+Current feature gate activation status:
+
+<FeatureActivationStatus featureAddress="7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz" />
+
+SIMD-0460 states that splitting SIMD-0219 should have no impact on dApp
+developers or validators, and that an experiment to gauge the impact of the
+stack frame gap removal was running at the time of writing. The gap removal is
+the part with real exposure, and it is covered below.
+
+## Technical Details
+
+### Memory Access Rules Inherited From SIMD-0219
+
+**Accesses spanning two memory mapping regions are access violations.** An
+operation that touches more than one region — a `memcpy` syscall across a
+boundary, for instance — must be split by the caller into one access per region.
+It is no longer something that happens to work.
+
+For writable account payload owned by the executing program:
+
+| Condition                                                        | Result                               |
+| ---------------------------------------------------------------- | ------------------------------------ |
+| Access exceeds the maximum account length                        | `InstructionError::InvalidRealloc`   |
+| Access exceeds the transaction's remaining account growth budget | `InstructionError::InvalidRealloc`   |
+| Access is beyond the current length but within both budgets      | Account is zero-extended to cover it |
+
+For reads of account payload:
+
+| Condition                                  | Result                                  |
+| ------------------------------------------ | --------------------------------------- |
+| Access beyond the account's current length | `InstructionError::AccountDataTooSmall` |
+
+For writes of account payload:
+
+| Condition                                     | Result                                          |
+| --------------------------------------------- | ----------------------------------------------- |
+| Account is not flagged writable               | `InstructionError::ReadonlyDataModified`        |
+| Account is not owned by the executing program | `InstructionError::ExternalAccountDataModified` |
+
+These are the checks that copy-and-compare made unnecessary. Under direct
+mapping a read past the end of a payload reaches real memory rather than
+reserved padding, so it has to be rejected rather than tolerated.
+
+### Stack Frame Gaps Are Removed
+
+Solana's stack has historically interleaved mapped frames with unmapped gaps.
+The gaps go away — for every program, including existing SBPFv0 programs, which
+until now kept them while newer SBPF versions did not.
+
+The total mapped bytes do not change. The stack is compacted by a factor of two
+and becomes one contiguous range at lower addresses:
+
+| Address range              | Before | After  |
+| -------------------------- | ------ | ------ |
+| `0x200000000..0x200001000` | mapped | mapped |
+| `0x200001000..0x200002000` | ---    | mapped |
+| `0x200002000..0x200003000` | mapped | mapped |
+| `0x200003000..0x200004000` | ---    | ---    |
+| `0x200004000..0x200006000` | mapped | ---    |
+| `0x200005000..0x200007000` | ---    | ---    |
+
+In SBPFv0, the stack frame bump on `call` and `callx` drops from 8 KiB to 4 KiB.
+SBPFv3 already uses 4 KiB.
+
+### What Can Break
+
+The SIMD names three patterns, all in the same family — programs that depend on
+where things sit in the stack rather than on the stack simply working:
+
+- **Absolute addressing** into the stack.
+- **Relative addressing across stack frames**, which the gaps previously made
+  predictable in a particular way.
+- **Relying on a bug**, specifically an access that reached over a stack frame
+  boundary and previously landed in a gap.
+
+The third is the dangerous one. An access that overran a frame boundary
+previously hit an unmapped gap. With the gaps removed, that address is now
+mapped — it is the next frame. The access no longer faults; it reads or writes
+live data belonging to another frame. A latent out-of-bounds bug that used to
+announce itself becomes a silent data corruption.
+
+If a program does its own stack arithmetic, or was written against a particular
+stack layout, re-verify it against a validator with the gate enabled rather than
+assuming the address space is where it was.
+
+### Why Split SIMD-0219 at All
+
+Two reasons, both stated in the proposal. Deployment risk: splitting lets the
+earlier, less invasive half ship on its own schedule rather than waiting for the
+whole proposal. And progress: the later parts needed more time, and blocking the
+earlier parts behind them helped no one.
+
+The stack frame gap removal joined this half specifically because the unaligned
+address translation it requires is slightly slower, and removing the gaps buys
+back more than that costs.
+
+## About This Upgrade
+
+SIMD-0460 is infrastructure. Nothing in it is a feature a developer would ask
+for; it is the set of rules that makes
+[account data direct mapping](/upgrades/account-data-direct-mapping) safe, plus
+a performance change to offset its own cost.
+
+The part to take seriously is the stack frame gaps. Removing them is invisible
+to a correct program and consequential for an incorrect one, and the failure
+mode moves in the wrong direction — from a fault that stops execution to a
+silent write into an adjacent frame. Programs doing manual stack arithmetic are
+worth re-testing before the gate activates rather than after.
+
+**Learn more:** [Solana Upgrades](/upgrades)
