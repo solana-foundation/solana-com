@@ -54,11 +54,6 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
       question: t("faq.items.q3.question"),
       answer: t("faq.items.q3.answer"),
     },
-    {
-      question: t("faq.items.q4.question"),
-      answer: "",
-      answerLinkLabel: t("faq.items.q4.answerLinkLabel"),
-    },
   ];
 
   const eventNode: JsonLd = {
@@ -123,11 +118,7 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
       name: asPlainTextMessage(item.question),
       acceptedAnswer: {
         "@type": "Answer",
-        text: asPlainTextMessage(
-          [item.answer, item.answerLinkLabel && `${item.answerLinkLabel}.`]
-            .filter((part) => part?.trim().length)
-            .join(" "),
-        ),
+        text: asPlainTextMessage(item.answer),
       },
     })),
   };
