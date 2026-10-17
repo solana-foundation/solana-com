@@ -54,6 +54,10 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
       question: t("faq.items.q3.question"),
       answer: t("faq.items.q3.answer"),
     },
+    {
+      question: t("faq.items.q4.question"),
+      answer: t("faq.items.q4.answer"),
+    },
   ];
 
   const eventNode: JsonLd = {

@@ -33,6 +33,12 @@ export const faqPageSections = [
           "Breakpoint 2026 will take place at Olympia Convention Centre in London.",
       },
       {
+        id: "general-speaking",
+        question: "How can I apply to speak at Breakpoint?",
+        answer:
+          "Speaker applications are now closed. We have an amazing line up locked in for Breakpoint.",
+      },
+      {
         id: "general-press",
         question: "How can I apply for press or content creator access?",
         answer:
@@ -153,6 +159,7 @@ const homepageFaqItemIds = [
   "general-location",
   "tickets-included",
   "tickets-refundable",
+  "general-speaking",
 ] as const;
 
 function getFaqItemsById(ids: readonly string[]): FAQPageItem[] {

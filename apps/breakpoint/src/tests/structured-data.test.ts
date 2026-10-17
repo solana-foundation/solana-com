@@ -42,12 +42,15 @@ describe("buildBreakpointJsonLd", () => {
     const data = await buildBreakpointJsonLd("en");
     const graph = data["@graph"] as Array<{
       "@type": string;
-      mainEntity?: Array<{ name: string }>;
+      mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }>;
     }>;
     const faq = graph.find((node) => node["@type"] === "FAQPage");
 
     expect(faq?.mainEntity?.map((item) => item.name)).toEqual(
       Object.values(messages.breakpoint.faq.items).map((item) => item.question),
+    );
+    expect(faq?.mainEntity?.map((item) => item.acceptedAnswer.text)).toEqual(
+      Object.values(messages.breakpoint.faq.items).map((item) => item.answer),
     );
   });
 });

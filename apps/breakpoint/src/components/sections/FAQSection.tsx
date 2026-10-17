@@ -23,6 +23,11 @@ export default function FAQSection() {
       question: t("faq.items.q3.question"),
       answer: t("faq.items.q3.answer"),
     },
+    {
+      id: "q4",
+      question: t("faq.items.q4.question"),
+      answer: t("faq.items.q4.answer"),
+    },
   ];
   const firstItemId = items[0]?.id ?? null;
   const [openItemId, setOpenItemId] = useState<string | null>(firstItemId);
