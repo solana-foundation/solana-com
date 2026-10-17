@@ -31,10 +31,5 @@ export default async function LocaleSpeakersPage({
     namespace: "breakpoint.pages",
   });
 
-  return (
-    <SpeakersPage
-      applyToSpeakLabel={t("speakers.cta")}
-      title={t("speakers.title")}
-    />
-  );
+  return <SpeakersPage title={t("speakers.title")} />;
 }

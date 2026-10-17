@@ -3,15 +3,12 @@ import SpeakersList from "@/components/pages/speakers/SpeakersList";
 import SubpageHero from "@/components/SubpageHero";
 import { getAirtableSpeakers } from "@/content/speakers/airtable";
 import Footer from "@/components/sections/Footer";
-import { APPLY_TO_SPEAK_HREF } from "@/content/links";
 
 type SpeakersPageProps = {
-  applyToSpeakLabel?: string;
   title?: string;
 };
 
 export default async function SpeakersPage({
-  applyToSpeakLabel = "Apply to speak",
   title = "Speakers",
 }: SpeakersPageProps = {}) {
   const airtableSpeakers = await getAirtableSpeakers();
@@ -27,14 +24,7 @@ export default async function SpeakersPage({
         showMenuButton: true,
       }}
     >
-      <SubpageHero
-        heroImage="speakers"
-        title={title}
-        cta={{
-          href: APPLY_TO_SPEAK_HREF,
-          label: applyToSpeakLabel,
-        }}
-      />
+      <SubpageHero heroImage="speakers" title={title} />
       <SpeakersList speakers={speakers} />
       <Footer backgroundColor="green" />
     </PageShell>

@@ -1,8 +1,4 @@
-import {
-  APPLY_TO_SPEAK_HREF,
-  TICKET_TRANSFER_HREF,
-  VISA_CHECK_HREF,
-} from "@/content/links";
+import { TICKET_TRANSFER_HREF, VISA_CHECK_HREF } from "@/content/links";
 
 export type FAQPageItem = {
   id: string;
@@ -35,13 +31,6 @@ export const faqPageSections = [
         question: "Where is Breakpoint located this year?",
         answer:
           "Breakpoint 2026 will take place at Olympia Convention Centre in London.",
-      },
-      {
-        id: "general-speaking",
-        question: "How can I apply to speak at Breakpoint?",
-        answer: "",
-        answerHref: APPLY_TO_SPEAK_HREF,
-        answerLinkLabel: "Apply to speak",
       },
       {
         id: "general-press",
@@ -164,7 +153,6 @@ const homepageFaqItemIds = [
   "general-location",
   "tickets-included",
   "tickets-refundable",
-  "general-speaking",
 ] as const;
 
 function getFaqItemsById(ids: readonly string[]): FAQPageItem[] {

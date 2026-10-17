@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import Accordion from "@/components/Accordion";
 import FAQAnswer from "@/components/FAQAnswer";
-import { APPLY_TO_SPEAK_HREF } from "@/content/links";
 
 export default function FAQSection() {
   const t = useTranslations("breakpoint");
@@ -23,13 +22,6 @@ export default function FAQSection() {
       id: "q3",
       question: t("faq.items.q3.question"),
       answer: t("faq.items.q3.answer"),
-    },
-    {
-      id: "q4",
-      question: t("faq.items.q4.question"),
-      answer: "",
-      answerHref: APPLY_TO_SPEAK_HREF,
-      answerLinkLabel: t("faq.items.q4.answerLinkLabel"),
     },
   ];
   const firstItemId = items[0]?.id ?? null;
