@@ -9,20 +9,21 @@ subtitle: Validators stop copying account data, and programs lose a few unsafe s
 publishedAt: 2026-10-14T00:00:00.000Z
 status: published
 author: solana-foundation
-stage: in_development
-release: agave-4-4
+stage: pending_activation
 metrics:
   - value: "4 → 0"
-    label: Account data copy paths per instruction
+    label: Possible account data copy paths
   - value: "2"
-    label: Feature gates, activated one epoch apart
+    label: Feature gates still inactive on mainnet; the first carries the breaking changes
   - value: Loud
-    label: Failures return an instruction error, not wrong data
+    label: Account data violations return a named error, not wrong data
 additionalResources:
   - label: SIMD-0460 — Virtual Address Space Adjustments
     url: https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md
   - label: SIMD-0219 — Stricter ABI and Runtime Constraints
     url: https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md
+  - label: Agave Feature Gate Tracker
+    url: https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule
 categories:
   - category: upgrades
 tags:
@@ -41,45 +42,61 @@ the copies: the program reads and writes the account's data in place.
 That only works if the runtime knows exactly which bytes a program touches.
 Today a program can read past the end of an account, write to a read-only
 account as long as it restores the original value, or reach across memory
-regions, and nobody notices. Direct mapping makes the runtime check every
-access, and a program that breaks the rules now fails with an instruction error.
+regions (the separate address ranges the virtual machine gives the program's
+read-only data, the stack, the heap, the instruction input, and each account's
+data), and nobody notices. Direct mapping makes the runtime check every access,
+and a program that breaks the rules now fails with an instruction error.
 
-Most programs never trigger one of these errors. This article is for the ones
-that might.
+The rules come from
+[SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md),
+which Anza and Firedancer later split in two. The first half, the rules for
+pointers passed to CPI syscalls, has been live on mainnet since June 2026. This
+article covers the second half, which ships as two feature gates: the stricter
+memory rules, and direct mapping itself. Most programs never trigger one of the
+new errors
+([SIMD-0219, Impact](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md#impact)).
+This article is for the ones that might.
 
-- **Users:** Nothing changes.
+- **Users:** Nothing to do. An app whose program breaks the rules can start
+  failing; its team has to fix it.
 - **Developers whose programs follow the rules:** Nothing changes. Test on
   devnet or testnet to confirm.
 - **Developers whose programs read, write, or resize account data in unusual
   ways, or rely on stack layout:** Some transactions that succeed today will
   fail. Test now. See [Does This Affect Me?](#does-this-affect-me).
-- **Validator operators:** Run an Agave or Firedancer release that includes both
-  gates. There is nothing to configure.
+- **Validator operators:** Nothing to do. Every release at or above the current
+  mainnet minimum already contains both gates.
 
-|                                  |                                                                                                                                                                                                                                                                                               |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Expected Mainnet Activation Date | To be determined. Track the [Anza roadmap board](https://github.com/orgs/anza-xyz/projects/9/views/1)                                                                                                                                                                                         |
-| Devnet Activation                | Both gates are active. `7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz` activated at the start of epoch 1073 on May 19, 2026 at approximately 21:58 UTC; the second gate followed one epoch later.                                                                                               |
-| Testnet Activation               | Both gates are active. `7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz` activated on May 12, 2026 at approximately 16:09 UTC; the second gate followed one epoch later.                                                                                                                          |
-| Breaking Change?                 | Yes, for programs that access memory outside the rules below. Loud failure only.                                                                                                                                                                                                              |
-| Indexing Changes Required?       | No. Compute units consumed can differ slightly for programs with out-of-bounds stack accesses.                                                                                                                                                                                                |
-| Feature Gates                    | `7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz` (virtual address space adjustments), `CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE` (account data direct mapping)                                                                                                                               |
-| Proposals                        | [SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md), [SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md) |
+|                                  |                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Expected Mainnet Activation Date | To be determined. Both gates are listed under "Pending Mainnet Beta Activation" on Anza's [Feature Gate Tracker Schedule](https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule); track that page for the mainnet epoch.                                                                                                                                                              |
+| Devnet Activation                | Both gates are active on devnet and testnet. On devnet the first gate activated at the start of epoch 1073 on May 19, 2026 at approximately 21:58 UTC, and the second at the start of epoch 1074 on May 21. On testnet the first gate activated at the start of epoch 957 on May 12, 2026 at approximately 16:09 UTC, and the second at the start of epoch 958 on May 14.                            |
+| Breaking Change?                 | Yes, for programs that access memory outside the rules below. Account data violations fail with a named error; the stack layout change can alter behavior without one.                                                                                                                                                                                                                               |
+| Indexing Changes Required?       | No                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Feature Gates                    | [`7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz`](https://explorer.solana.com/address/7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz/feature-gate) (virtual address space adjustments), [`CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE`](https://explorer.solana.com/address/CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE/feature-gate) (account data direct mapping)                                     |
+| Proposals                        | [SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md), split from [SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md). The second gate has no SIMD of its own; see [Three Gates](#three-gates-two-still-pending). |
 
-Current feature gate activation status, for the gate that introduces the
+Current activation status of the first gate, the one that introduces the
 stricter rules:
 
 <FeatureActivationStatus featureAddress="7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz" />
 
+Status of the second gate, which switches on direct mapping itself:
+
+<FeatureActivationStatus featureAddress="CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE" />
+
 **Breaking Changes:**
 
-| If your program                                           | When                   | What you have to do                                                                                                           |
-| --------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Reads** past the end of an account's data               | First gate, on mainnet | Check lengths before reading. Expect `AccountDataTooSmall`. [Learn more](#breaking-change-account-data-access-is-now-checked) |
-| **Writes** to a read-only or foreign-owned account        | First gate, on mainnet | Remove the write, even if it restores the original value. [Learn more](#breaking-change-account-data-access-is-now-checked)   |
-| **Resizes** an account past the limit or with `realloc`   | First gate, on mainnet | Move to `resize` and stay within the growth budget. [Learn more](#breaking-change-account-data-access-is-now-checked)         |
-| **Copies** memory across region boundaries in one access  | First gate, on mainnet | Split the access, one per region. [Learn more](#breaking-change-accesses-cannot-span-memory-regions)                          |
-| **Depends** on the stack layout or overruns a stack frame | First gate, on mainnet | Remove absolute addressing and out-of-bounds stack accesses. [Learn more](#breaking-change-stack-frame-gaps-are-removed)      |
+All five rows arrive with the first gate. They are already enforced on devnet
+and testnet; the mainnet date is to be determined.
+
+| If your program                                           | When                    | What you have to do                                                                                                                                                                                     |
+| --------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Reads** past the end of an account's data               | First gate; mainnet TBD | Check `data_len()` before casting or reading. Expect `AccountDataTooSmall`, or `InvalidRealloc` if the account is writable and yours. [Learn more](#breaking-change-account-data-access-is-now-checked) |
+| **Writes** to a read-only or foreign-owned account        | First gate; mainnet TBD | Remove the write, even if it restores the original value. [Learn more](#breaking-change-account-data-access-is-now-checked)                                                                             |
+| **Resizes** an account past the limits or with `realloc`  | First gate; mainnet TBD | Move to `resize` and stay within the growth limits. [Learn more](#breaking-change-account-data-access-is-now-checked)                                                                                   |
+| **Copies** memory across region boundaries in one access  | First gate; mainnet TBD | Split the access, one per region. [Learn more](#breaking-change-accesses-cannot-span-memory-regions)                                                                                                    |
+| **Depends** on the stack layout or overruns a stack frame | First gate; mainnet TBD | Remove absolute addressing and out-of-bounds stack accesses. This one can fail silently. [Learn more](#breaking-change-stack-frame-gaps-are-removed)                                                    |
 
 ## Test It Before Mainnet
 
@@ -90,36 +107,47 @@ runs under the new rules today. To check the status of a gate on any cluster:
 solana feature status 7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz --url mainnet-beta
 ```
 
-While the gate is pending, the row reads like this:
+While the gate is inactive on mainnet, the row reads like this:
 
 ```text
-Feature                                      | Status   | Activation Slot | Description
-7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz  | inactive | NA              | SIMD-0460: Virtual Address Space Adjustments
+Feature                                      | Status                  | Activation Slot | Description
+7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz  | inactive                | NA              | SIMD-0460: Virtual Address Space Adjustments
 ```
+
+On devnet the same command shows `active since epoch 1073` with activation slot
+`463536000`, and on testnet `active since epoch 957` with slot `407900256`.
 
 `solana-test-validator` activates every feature gate its build knows about, so
-the new rules are on by default locally. To compare behavior, switch the gate
-off:
+the new rules are on by default locally. To compare behavior, start a fresh
+ledger with both gates switched off:
 
 ```bash
-# All known gates are active by default, including this one
+# All known gates are active by default, including both of these
 solana-test-validator
 
-# Reproduce mainnet behavior by deactivating the first gate
-solana-test-validator --deactivate-feature 7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz
+# Reproduce mainnet behavior by deactivating both gates. The flag only applies
+# when the ledger is created, so add --reset if you already ran the command above.
+solana-test-validator --reset --deactivate-feature 7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE
 ```
+
+If the output includes `--deactivate-feature argument ignored, ledger already
+exists`, the gates are still on; rerun with `--reset`.
 
 To check how a real mainnet transaction would behave, paste its signature into
 [SVM Scope](https://svmscope.vercel.app/), a community tool that replays a
-transaction with the feature enabled and disabled and shows both results. A
-transaction that succeeds with the feature off and errors with it on points at a
-program that needs a fix.
+transaction from the last 30 days in an embedded SVM under mainnet's current
+feature set. Note the replay result, then open its Features panel, switch on the
+gate it lists as "direct mapping" (`7Vgieh…`), and replay again under the new
+rules. A transaction that succeeds with the gate off and errors with it on
+points at a program that needs a fix.
 
-Anza also replays mainnet traffic continuously with the gate on and off and
-records every transaction whose result differs, grouped by program. The list has
-been shrinking as teams ship fixes, but it only covers traffic seen so far.
-Programs that run rarely can still be missing, so test your own program rather
-than waiting to be listed.
+Anza has replayed mainnet traffic with the gate on and off and contacted the
+teams whose programs diverge
+([SIMD-0219, Impact](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md#impact)),
+and a further impact experiment is running
+([SIMD-0460, Impact](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md#impact)).
+That replay only covers traffic it has seen, so a program that runs rarely can
+still be missing. Test your own program rather than waiting to be contacted.
 
 ## Does This Affect Me?
 
@@ -127,77 +155,58 @@ than waiting to be listed.
 <Audience title="For Users" summary="No action needed.">
 
 Wallets, balances, fees, and confirmation times are unaffected. If an app you
-use is on the list of programs that still diverge, a transaction that worked
+use runs a program that still breaks these rules, a transaction that worked
 yesterday can fail after activation. The app team needs to fix it. Your funds
 are not at risk: a failed transaction changes no account state, and you pay only
 the usual fee.
 
 </Audience>
 
-<Audience title="For Developers" summary="Most programs need nothing. If you read, write, or resize account data by hand, or use unsafe code, test on devnet now.">
+<Audience title="For Developers" summary="Most programs need nothing. If you read, write, or resize account data by hand, use unsafe code, or reassign Anchor accounts via CPI, test now and redeploy fixes before mainnet activation.">
 
 Existing programs that stay inside their accounts keep working. The programs most
 likely to be affected use `unsafe` code, hand-rolled account parsing, raw
-pointers, custom entrypoints, or older SDK and framework versions.
+pointers, custom entrypoints, an SDK older than `solana-account-info` 2.3.0
+(which has no `resize`), or an Anchor build without the fix described below.
 
-| If your program                                                      | Breaking? | What you have to do                                                                                           |
-| -------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------- |
-| **Uses** safe SDK or framework code and well-formed accounts         | No        | Nothing. Run your test suite against devnet to confirm.                                                       |
-| **Casts** account data to a fixed-size struct without a length check | **Yes**   | Check `data_len()` before the cast. A short account now fails with `AccountDataTooSmall`.                     |
-| **Writes** to an account after closing it or assigning it away       | **Yes**   | Stop writing once the program no longer owns the account. This includes serialization in framework exit code. |
-| **Writes** a read-only account, then restores the value              | **Yes**   | Remove the write. The restore no longer hides it.                                                             |
-| **Resizes** accounts with the deprecated `realloc`                   | **Yes**   | Switch to `resize` and stay within the per-transaction growth budget.                                         |
-| **Reads** or **writes** with one `memcpy` across two regions         | **Yes**   | Split the copy into one access per region.                                                                    |
-| **Relies** on stack layout or overruns a stack frame                 | **Yes**   | Remove absolute stack addressing and out-of-bounds stack accesses.                                            |
-| **Indexes, decodes, or simulates** transactions                      | No        | Nothing. Account state and results are unchanged for compliant programs.                                      |
+| If your program                                                                      | Breaking? | What you have to do                                                                                                       |
+| ------------------------------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Uses** safe SDK or framework code and well-formed accounts                         | No        | Nothing. Run your test suite against devnet to confirm.                                                                   |
+| **Indexes, decodes, or simulates** transactions                                      | No        | Nothing. Account state and results are unchanged for compliant programs.                                                  |
+| **Parses** account bytes by hand, uses `unsafe` or raw pointers, or resizes accounts | Check     | Each pattern that breaks, and what to do about it, is in the Breaking Changes table above; every row links to its detail. |
 
-Anchor's bounds-checked account handling avoids most of the above, but one
-pattern needs attention. Anchor's exit code used to re-serialize an account after the instruction even if
-the program had closed it or handed it to another program, which now fails with
-`ExternalAccountDataModified`. A merged Anchor change,
-[otter-sec/anchor#5011](https://github.com/otter-sec/anchor/pull/5011), skips
-re-serialization when the account is no longer owned by the program. Upgrade to
-an Anchor release that includes it and rebuild.
+Native and Pinocchio programs that parse account bytes themselves have to write
+these bounds checks themselves.
 
-Native and Pinocchio programs that parse account bytes themselves carry the most
-risk, because the bounds checks are theirs to write.
+**If you maintain a program:**
 
-</Audience>
-
-<Audience title="For Validator Operators" summary="Upgrade to a release that contains both gates. No configuration changes.">
-
-Agave and Firedancer implement the change behind the two feature gates. There is
-nothing to configure. Account data copies disappear from the hot path once the
-second gate activates, so expect less memory traffic per instruction, not a
-different outcome. The runtime still produces identical account state for every
-program that follows the rules.
-
-</Audience>
-</AudienceGroup>
-
-## Migration Checklist
-
-<AudienceGroup>
-<Audience title="For Users" summary="Nothing to do.">
-
-No action. If an app fails after activation, report it to the app team rather
-than retrying; it will fail the same way until they ship a fix. See
-[Does This Affect Me?](#does-this-affect-me).
-
-</Audience>
-
-<Audience title="For Developers" summary="Run your tests on devnet, fix any access errors below, and redeploy before mainnet activation.">
-
-**If you maintain a program** ([details](#breaking-changes-in-detail)):
-
-- Deploy your current build to devnet or testnet and run your full test suite.
-- Run your recent mainnet transactions through [SVM Scope](https://svmscope.vercel.app/).
-- Search your code for `unsafe`, raw pointer casts, `realloc`, and manual
-  `AccountInfo` construction.
-- Upgrade Anchor to a release that includes
-  [otter-sec/anchor#5011](https://github.com/otter-sec/anchor/pull/5011).
+- Follow [Test It Before Mainnet](#test-it-before-mainnet): run your test suite
+  against `solana-test-validator`, then against devnet or testnet, and replay
+  recent mainnet transactions in SVM Scope with the gate on. A green suite only
+  covers the paths it exercises, so include close, resize, and CPI paths.
+- Search your code for `unsafe`, raw pointer casts, and `realloc`, and check
+  each hit against [Breaking Changes in Detail](#breaking-changes-in-detail).
 - Redeploy fixes before the mainnet gate. Immutable programs cannot be fixed in
   place, so deploy a new program and migrate users.
+
+**If you use Anchor:**
+
+Anchor's account types check lengths and ownership for you, but one pattern
+needs attention. Anchor's generated exit code re-serializes every mutable typed
+account after your handler returns, even if the instruction handed that account
+to another program, for example through a CPI that reassigns its owner. Under
+the new rules that write fails with `ExternalAccountDataModified`. Accounts
+closed with Anchor's `close` constraint are not affected; Anchor has skipped
+those for years.
+
+Anchor PR [#5011](https://github.com/otter-sec/anchor/pull/5011) stops writing
+to an account whose owner changed during the instruction: unchanged data passes,
+and a pending change fails with Anchor's own `AccountOwnedByWrongProgram` rather
+than being lost. As of October 2026 the change is merged on Anchor's `master`
+branch but is not in a tagged release; neither v1.2.1 nor v2.0.0-rc.2 contains
+it. Until a release ships it, declare an account you reassign to another program
+in the same instruction as `UncheckedAccount` or `AccountInfo` rather than a
+mutable `Account`. Once a release includes #5011, upgrade to it and rebuild.
 
 **If you use another team's program:**
 
@@ -206,109 +215,158 @@ than retrying; it will fail the same way until they ship a fix. See
 
 </Audience>
 
-<Audience title="For Validator Operators" summary="Upgrade to a release that includes both gates before activation.">
+<Audience title="For Validator Operators" summary="Nothing to do. Stay on a release at or above the mainnet minimum version; both gates are already in it.">
 
-- Run the Agave or Firedancer release that Solana Foundation announces for
-  mainnet.
-- Check gate status with `solana feature status`.
+Agave and Firedancer implement the change behind the two feature gates, and the
+code has shipped: Agave since
+[v4.0.0-beta.0](https://github.com/anza-xyz/agave/releases/tag/v4.0.0-beta.0)
+(March 2026) and Firedancer since
+[v26.08.0](https://github.com/firedancer-io/firedancer/releases/tag/v26.08.0),
+both at or below the mainnet minimum versions listed on the
+[Feature Gate Tracker](https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule).
+There is nothing to configure. Account data copies disappear once the second
+gate activates, so expect less memory traffic per instruction, not a different
+outcome; the runtime still produces identical account state for every program
+that follows the rules. Watch the tracker for the activation epoch, and check
+gate status with `solana feature status`.
 
 </Audience>
 </AudienceGroup>
 
 ## Breaking Changes in Detail
 
-<AudienceGroup>
-<Audience title="For Developers" summary="Five access patterns that used to pass now fail. Every one fails loudly with a named error.">
-
-All of these failures are loud. The instruction returns an error, the
+Account data violations are loud. The instruction returns an error, the
 transaction fails, and no account state changes. A program cannot catch the
 error in a CPI caller and carry on, because the failure aborts the transaction.
-A failed transaction still pays the usual fee. None of these changes silently
-returns wrong data.
+A failed transaction still pays the usual fee. The stack layout change is the
+exception: it can alter a program's behavior without any error, as described in
+the third section below.
 
 ### Breaking Change: Account Data Access Is Now Checked
 
-Every read or write to an account's data region is validated against the
-account's real length, owner, and writable flag. Before direct mapping, a bad
-access went unnoticed as long as it stayed inside the reserved address space, or
-as long as a write was undone before the program returned.
+Every read is checked against the account's current length, and every write
+against the account's owner and writable flag and, when it reaches past the
+end, against the resize limits. Before direct mapping, a bad access went
+unnoticed as long as it stayed inside the reserved address space, or as long
+as a write was undone before the program returned.
 
-| The access                                       | The error                                       |
-| ------------------------------------------------ | ----------------------------------------------- |
-| A read past the account's current length         | `InstructionError::AccountDataTooSmall`         |
-| A write to an account not flagged writable       | `InstructionError::ReadonlyDataModified`        |
-| A write to an account the program does not own   | `InstructionError::ExternalAccountDataModified` |
-| A write past the maximum length or growth budget | `InstructionError::InvalidRealloc`              |
+| The access                                                                                        | The error                                       | In the logs                                               |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| A read past the current length of a read-only account, or of an account your program does not own | `InstructionError::AccountDataTooSmall`         | `account data too small for instruction`                  |
+| A read past the current length of a writable account your program owns                            | `InstructionError::InvalidRealloc`              | `Failed to reallocate account data`                       |
+| A write to an account not flagged writable                                                        | `InstructionError::ReadonlyDataModified`        | `instruction modified data of a read-only account`        |
+| A write to an account your program does not own                                                   | `InstructionError::ExternalAccountDataModified` | `instruction modified data of an account it does not own` |
+| A write past the maximum account size or the growth limits                                        | `InstructionError::InvalidRealloc`              | `Failed to reallocate account data`                       |
 
-Search for these exact names in transaction logs and simulation results. A typical
-case: a program casts account bytes to a fixed-size struct and the account is
-shorter than the struct.
+The `InstructionError::` prefix never appears in output. The `err` field of a
+simulation or `getTransaction` result carries the bare variant name, for example
+`{"InstructionError": [0, "AccountDataTooSmall"]}`. Log messages, including the
+output of `solana logs` and `solana confirm -v`, print the sentence form, for
+example `Program <id> failed: account data too small for instruction`.
 
-The wrong-but-tempting fix is to write the original value back or to guard only
-the final result. The runtime checks the write itself, so restoring the value
-does not help. Remove the write.
+Reads never grow an account. Writes can: a write past the current length of a
+writable account your program owns does not fail while it stays inside the
+growth limits, meaning the 10 KiB an instruction may add to an account, the
+10 MiB maximum account size, and the cap on total growth within one
+transaction. The runtime treats it as a resize and zero-extends the account, so
+you get no error. An access that reaches past that 10 KiB padding, or into
+memory that belongs to no account, fails as a generic access violation, logged
+as `Program <id> failed: Access violation ...` and reported as
+`ProgramFailedToComplete`.
 
-Programs that resize with the deprecated SDK `realloc` should move to `resize`.
-The old function reads from uninitialized memory before writing, which direct
-mapping cannot allow.
+A typical case: a program casts account bytes to a fixed-size struct and the
+account is shorter than the struct. Check `data_len()` first.
+
+Two tempting fixes do not work. Catching the error in the calling program fails
+because the error aborts the whole transaction. Restoring the original bytes
+after the write fails because the runtime checks the write itself, not the final
+value. Remove the write.
+
+Programs that call `AccountInfo::realloc(len, false)` should move to
+`AccountInfo::resize`. `realloc` was deprecated in `solana-account-info` 2.3.0
+and removed in 3.0.0. With `zero_init = false` it grows the length without
+writing the new bytes, so the first read of them is a read past the account's
+real length and fails with `InvalidRealloc`. `resize` always zero-fills.
 
 ### Breaking Change: Accesses Cannot Span Memory Regions
 
 A single load, store, or syscall that crosses from one memory region into the
-next is now an access violation. Regions include the stack, heap, input data, and
-each account's data. A `memcpy` that used to work because two regions happened to
-sit next to each other must be split into one access per region.
+next is now an access violation. Regions include the program's read-only data,
+the stack, the heap, and, inside the input area, each account's metadata, each
+account's data, and the instruction data. A `memcpy` that used to work because
+two regions happened to sit next to each other must be split into one access per
+region.
 
-Safe Rust slices cannot cross regions, so this mainly affects `unsafe` code and
-hand-written syscall calls.
+Slices handed out by the SDK stay inside one region, so this mainly affects
+`unsafe` code and hand-written syscall calls.
 
 ### Breaking Change: Stack Frame Gaps Are Removed
 
 [SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md)
 removes the unmapped gaps between stack frames for every program, including
-sBPF v0 programs that still had them. The stack becomes one contiguous range at
-lower addresses, and the frame bump on `call` and `callx` drops from 8 KiB to
-4 KiB. The total mapped stack size does not change.
+programs compiled for sBPFv0, the oldest bytecode version, which still had
+them. The stack becomes one contiguous range at lower addresses, and for sBPFv0
+programs the amount the stack pointer moves on each `call` or `callx` (indirect
+call) drops from 8 KiB to 4 KiB, which sBPFv3 already uses. The total mapped
+stack size does not change.
 
 Programs that use absolute stack addresses, compute addresses across frames, or
-depend on an out-of-bounds access stopping at a frame boundary can break. The
-usual symptom is an access violation, and a program that was already overrunning
-a frame can show slightly different compute unit consumption with the same
-account state and results. If you see a small, unexplained CU change and nothing
-else, check for a stack overrun.
+depend on an out-of-bounds access stopping at a frame boundary can break, and
+this is the one change in this upgrade that does not always error. An access
+that lands outside the new, smaller stack range, such as an absolute address
+into the old upper half, fails with an access violation. An access that lands
+inside it does not: an overrun past a frame boundary that used to hit an
+unmapped gap now silently reads or writes the neighbouring frame, and an
+absolute or cross-frame address that worked before now points at a different
+frame's bytes. The program keeps running with different data and no error.
 
-### Breaking Change: CPI Account Pointers Must Come From the Runtime
+Anza's replay has seen one program consume slightly fewer compute units with the
+first gate on and no other difference; the suspected cause is an out-of-bounds
+stack access. Treat an unexplained compute unit change as a reason to check for
+a stack overrun, and test stack-heavy `unsafe` code on devnet rather than
+waiting for an error.
+
+## Three Gates, Two Still Pending
 
 [SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md)
-requires the `AccountInfo` structures a program passes to a CPI to live on the
-stack or heap, and requires `key`, `owner`, `lamports`, and `data` pointers to
-point at what the runtime originally serialized. A violation raises
-`SyscallError::InvalidPointer`. Programs built with the standard SDKs already
-comply. Programs that forge their own `AccountInfo`, or reuse one that points
-somewhere else, do not.
+was split into two proposals so each half could ship on its own. The first,
+[SIMD-0459](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0459-syscall-parameter-address-restrictions.md),
+covers the pointers a program passes to syscalls: the `AccountInfo` structures
+handed to a CPI must live on the stack or heap, and their `key`, `owner`,
+`lamports`, and `data` pointers must point at what the runtime originally
+serialized. A violation fails with `InvalidPointer`, logged as
+`Invalid account info pointer`. Agave ships it as the gate
+[`EDGMC5kxFxGk4ixsNkGt8bW7QL5hDMXnbwaZvYMwNfzF`](https://explorer.solana.com/address/EDGMC5kxFxGk4ixsNkGt8bW7QL5hDMXnbwaZvYMwNfzF/feature-gate),
+which has been active on mainnet since the start of epoch 995 on June 30, 2026
+at approximately 08:09 UTC. It is not controlled by the two gates in this
+article, so deactivating `7Vgieh…` locally does not switch it off. If your
+program CPIs successfully on mainnet today, it already complies.
 
-</Audience>
-</AudienceGroup>
-
-## Why Two Feature Gates
-
-Anza and Firedancer split the work in two to lower the risk of each step.
+The second half,
+[SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md),
+is this upgrade's first gate. Direct mapping itself is a separate feature gate
+with no SIMD of its own; Agave separated it from the behavior checks in
+[anza-xyz/agave#7113](https://github.com/anza-xyz/agave/pull/7113) so the checks
+could be deployed and fuzzed before the copies go away. Two gates remain:
 
 1. **`7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz`** tightens address
    translation and memory access, and removes stack frame gaps. This is the
    gate that can break programs.
 2. **`CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE`** turns on direct mapping
-   itself. By then every program that passes the first gate already behaves in a
-   way that maps cleanly, so this step should produce no new failures.
+   itself. The first gate already enforces every access rule in this article;
+   the second changes how account data reaches the program, not which accesses
+   are allowed, so it is not expected to produce new failures.
 
-On devnet and testnet the two gates activated one epoch apart. If your program
-passes on a cluster with the first gate active, you are covered for the second.
+On devnet and testnet the two gates activated one epoch apart, and both are
+active now, so a passing test there covers both. A replay that enables only the
+first gate exercises the access rules but not the mapping itself; treat a pass
+there as an expectation, not a guarantee, and confirm on devnet or testnet.
 
 ## Technical Details
 
 ### Four Copies Become Zero
 
-Today an instruction copies account data four times:
+Today an instruction can copy account data four times:
 
 | Copy            | Direction                  |
 | --------------- | -------------------------- |
@@ -319,38 +377,40 @@ Today an instruction copies account data four times:
 
 The validator also compares the data on the way back to find what changed.
 Direct mapping points the virtual machine's memory at the account's data, so
-none of these copies or comparisons are needed. Every CPI benefits, and so does
-every instruction with large accounts.
+none of these copies or comparisons are needed. Instructions that make CPIs or
+touch large accounts save the most, because that is where the copies were.
 
-### What Direct Mapping Unlocks
+### What Waits for Direct Mapping
 
-Other changes build on direct mapping and wait for it:
+One change waits for direct mapping:
+[SIMD-0268](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0268-raise-cpi-nesting-limit.md)
+raises the CPI nesting depth from 4 to 8 and specifies activation after
+SIMD-0219. Its gate is inactive on every cluster. See
+[Deeper CPI Nesting](/upgrades/cpi-nesting-depth).
 
-- [SIMD-0268](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0268-raise-cpi-nesting-limit.md)
-  raises the CPI nesting depth from 4 to 8 and specifies activation after
-  SIMD-0219. See [Deeper CPI Nesting](/upgrades/cpi-nesting-depth).
-- [SIMD-0166](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0166-dynamic-stack-frames.md)
-  introduces dynamic stack frames, which the Agave team has tracked as depending
-  on direct mapping.
-- [SIMD-0339](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0339-increase-cpi-account-info-limit.md)
-  raises the maximum number of account infos in a CPI from 64 to 255 and meters
-  them.
+Dynamic stack frames went the other way: they shipped first.
+[SIMD-0166](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0166-dynamic-stack-frames.md)
+has been live on mainnet since epoch 809 (June 2025) for sBPFv1 and later, and
+it removed stack frame gaps for those versions because, in its words, they were
+"incompatible with direct mapping". SIMD-0460 finishes that for sBPFv0
+programs.
 
 ### Related SIMDs
 
-| SIMD                                                                                                                                                | Title                                    | Why it matters here                                                        |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------- |
-| [SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md)     | Stricter ABI and Runtime Constraints     | The original proposal. Defines the access checks and the four copy paths.  |
-| [SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md)        | Virtual Address Space Adjustments        | Split from SIMD-0219. Covers the first gate and removes stack frame gaps.  |
-| [SIMD-0321](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0321-vm-r2-instruction-data-pointer.md)           | VM Register 2 Instruction Data Pointer   | Gives programs a pointer to instruction data without parsing the accounts. |
-| [SIMD-0449](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0449-direct-account-pointers-in-program-input.md) | Direct Account Pointers in Program Input | Serializes account pointers so the entrypoint skips parsing.               |
-| [SIMD-0339](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0339-increase-cpi-account-info-limit.md)          | Increase CPI Account Infos Limit         | Raises the CPI account info limit from 64 to 255.                          |
-| [SIMD-0268](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0268-raise-cpi-nesting-limit.md)                  | Raise CPI Nesting Limit                  | Doubles CPI depth after direct mapping is live.                            |
-| [SIMD-0166](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0166-dynamic-stack-frames.md)                     | Dynamic Stack Frames                     | Dynamic stack frames, discussed as a follow-up to direct mapping.          |
+| SIMD                                                                                                                                              | Title                                  | Why it matters here                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md)   | Stricter ABI and Runtime Constraints   | The original proposal. Defines the access checks and the four copy paths. Superseded by SIMD-0459 and SIMD-0460.                                                             |
+| [SIMD-0459](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0459-syscall-parameter-address-restrictions.md) | Syscall Parameter Address Restrictions | The first half split from SIMD-0219. Carries the CPI pointer rules behind `EDGMC5kxFxGk4ixsNkGt8bW7QL5hDMXnbwaZvYMwNfzF`, active on mainnet since epoch 995 (June 30, 2026). |
+| [SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md)      | Virtual Address Space Adjustments      | The second half. Specifies `7Vgieh…`, the first of the two remaining gates, and removes stack frame gaps.                                                                    |
+| [SIMD-0268](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0268-raise-cpi-nesting-limit.md)                | Raise CPI Nesting Limit                | Doubles CPI depth after direct mapping is live.                                                                                                                              |
+| [SIMD-0166](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0166-dynamic-stack-frames.md)                   | SBPF Dynamic stack frames              | Dynamic stack frames for sBPFv1 and later, live on mainnet since epoch 809 (June 2025). It required removing stack frame gaps, which SIMD-0460 finishes for sBPFv0 programs. |
 
-SIMD-0219 and SIMD-0460 are still in review. A merged proposal, a release, and a
-gate activation are separate events, so check each SIMD and the gate status
-before relying on any behavior described here.
+SIMD-0460 is still in review and does not yet list its feature key; the gate
+address comes from Agave's feature set, where `solana feature status` describes
+it as `SIMD-0460: Virtual Address Space Adjustments`. SIMD-0219 is superseded
+by SIMD-0459 and SIMD-0460. A merged proposal, a release, and a gate activation
+are separate events, so check the gate status before relying on any behavior
+described here.
 
 ### Why Not Keep Both Behaviors
 
@@ -359,13 +419,5 @@ point of the change is that no copy exists. The old model hid out-of-bounds
 reads and temporary writes by operating on a private copy. With the data mapped
 in place, a stray write would change the real account. The runtime can only
 protect the account by checking every access, so it fails the instruction.
-
-## About This Upgrade
-
-Direct mapping removes the largest remaining copy cost in the program runtime,
-and it replaces silent memory mistakes with named errors that a developer can
-search for and fix. It also clears the way for deeper CPI nesting and dynamic
-stack frames. Test your programs on devnet today; the only way to be caught out
-on mainnet is not to have looked.
 
 **Learn more:** [Solana Upgrades](/upgrades)
