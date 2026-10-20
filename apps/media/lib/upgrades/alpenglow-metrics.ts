@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import {
   ALPENGLOW_MAINNET_ACTIVATION_EPOCH,
   ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS,
+  ALPENGLOW_MAINNET_FEATURE_ADDRESS,
   type AlpenglowActivationEstimate,
   ALPENGLOW_DASHBOARD_NETWORKS,
   ALPENGLOW_DASHBOARD_RANGES,
@@ -394,6 +395,34 @@ async function activationTimingRpc(method: string, params: unknown[]) {
   return payload.result;
 }
 
+const FEATURE_PROGRAM_ADDRESS = "Feature111111111111111111111111111111111111";
+
+/** Returns the slot at which the Alpenglow feature gate activated, or null while it is inactive. */
+async function loadFeatureActivationSlot(): Promise<number | null> {
+  const result = await activationTimingRpc("getAccountInfo", [
+    ALPENGLOW_MAINNET_FEATURE_ADDRESS,
+    { commitment: "confirmed", encoding: "base64" },
+  ]);
+  if (!isRecord(result)) throw new Error("Invalid feature account response");
+  if (result.value === null) return null;
+  const account = result.value;
+  if (
+    !isRecord(account) ||
+    account.owner !== FEATURE_PROGRAM_ADDRESS ||
+    !Array.isArray(account.data) ||
+    typeof account.data[0] !== "string"
+  )
+    throw new Error("Invalid feature account");
+  // Feature accounts store a bincode `Option<u64>` activation slot.
+  const data = Buffer.from(account.data[0], "base64");
+  if (data[0] === 0) return null;
+  if (data[0] !== 1 || data.length < 9)
+    throw new Error("Invalid feature account data");
+  const slot = Number(data.readBigUInt64LE(1));
+  if (!Number.isSafeInteger(slot)) throw new Error("Invalid activation slot");
+  return slot;
+}
+
 async function loadActivationEstimate() {
   try {
     const [epochResult, samplesResult] = await Promise.allSettled([
@@ -412,7 +441,9 @@ async function loadActivationEstimate() {
       epoch.slotIndex < 0 ||
       typeof epoch.slotsInEpoch !== "number" ||
       !Number.isSafeInteger(epoch.slotsInEpoch) ||
-      epoch.slotsInEpoch <= epoch.slotIndex
+      epoch.slotsInEpoch <= epoch.slotIndex ||
+      typeof epoch.absoluteSlot !== "number" ||
+      !Number.isSafeInteger(epoch.absoluteSlot)
     )
       throw new Error("Invalid epoch progress");
 
@@ -420,10 +451,32 @@ async function loadActivationEstimate() {
     const featureSlotsRemaining =
       (ALPENGLOW_MAINNET_ACTIVATION_EPOCH - epoch.epoch) * epoch.slotsInEpoch -
       epoch.slotIndex;
-    const consensusSlotsRemaining =
+    let consensusSlotsRemaining =
       featureSlotsRemaining + ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS;
-    const featureActivated = featureSlotsRemaining <= 0;
-    const consensusActivated = consensusSlotsRemaining <= 0;
+    const featureEpochReached = featureSlotsRemaining <= 0;
+    const warnings: string[] = [];
+    let featureActivated = false;
+    if (featureEpochReached) {
+      try {
+        const activationSlot = await loadFeatureActivationSlot();
+        if (activationSlot === null) {
+          warnings.push(
+            `Feature ${ALPENGLOW_MAINNET_FEATURE_ADDRESS} is not active yet`,
+          );
+        } else {
+          featureActivated = true;
+          consensusSlotsRemaining =
+            activationSlot +
+            ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS -
+            epoch.absoluteSlot;
+        }
+      } catch (error) {
+        warnings.push(
+          `Feature activation status is unavailable: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      }
+    }
+    const consensusActivated = featureActivated && consensusSlotsRemaining <= 0;
     const estimate: AlpenglowActivationEstimate = {
       currentEpoch: epoch.epoch,
       featureActivated,
@@ -431,7 +484,9 @@ async function loadActivationEstimate() {
       estimatedFeatureActivationAt: null,
       estimatedConsensusActivationAt: null,
     };
-    if (consensusActivated) return { estimate, warnings: [] };
+    // Past the scheduled epoch, an unconfirmed feature gate has no predictable activation time.
+    if (consensusActivated || (featureEpochReached && !featureActivated))
+      return { estimate, warnings };
     try {
       if (samplesResult.status === "rejected") throw samplesResult.reason;
       const samples = samplesResult.value;
@@ -461,7 +516,7 @@ async function loadActivationEstimate() {
           currentEpoch: epoch.epoch,
           featureActivated,
           consensusActivated,
-          estimatedFeatureActivationAt: featureActivated
+          estimatedFeatureActivationAt: featureEpochReached
             ? null
             : new Date(
                 observedAt + featureSlotsRemaining * millisecondsPerSlot,
@@ -470,12 +525,13 @@ async function loadActivationEstimate() {
             observedAt + consensusSlotsRemaining * millisecondsPerSlot,
           ).toISOString(),
         },
-        warnings: [],
+        warnings,
       };
     } catch (error) {
       return {
         estimate,
         warnings: [
+          ...warnings,
           `Activation countdown is unavailable: ${error instanceof Error ? error.message : "unknown error"}`,
         ],
       };
@@ -807,7 +863,9 @@ export async function getAlpenglowActivationData(
   return {
     ...activation,
     activationEstimate: timing.estimate,
+    // The slot-based estimate only fills in when the genesis certificate RPC cannot answer.
     alpenglowActive:
+      activation.alpenglowActive === null &&
       timing.estimate?.consensusActivated === true
         ? true
         : activation.alpenglowActive,

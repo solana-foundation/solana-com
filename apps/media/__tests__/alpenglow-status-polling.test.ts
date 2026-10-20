@@ -8,23 +8,44 @@ vi.mock("next/cache", () => ({ unstable_cache: (load: unknown) => load }));
 
 afterEach(() => vi.unstubAllGlobals());
 
-it("keeps inferred activation fresh and polls until certificate details arrive", async () => {
+it("keeps inferred activation fresh during a certificate RPC outage and polls until certificate details arrive", async () => {
   let certificateAvailable = false;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: unknown, options: RequestInit) => {
       const { method } = JSON.parse(String(options.body)) as { method: string };
       if (method === "getAgGenesisCert") {
+        return certificateAvailable
+          ? Response.json({
+              result: {
+                block: { slot: 459_653_000 },
+                signature: { bitmap: [3] },
+              },
+            })
+          : new Response(null, { status: 503 });
+      }
+      if (method === "getAccountInfo") {
+        const data = Buffer.alloc(9);
+        data[0] = 1;
+        data.writeBigUInt64LE(459_648_000n, 1);
         return Response.json({
-          result: certificateAvailable
-            ? { block: { slot: 459_653_000 }, signature: { bitmap: [3] } }
-            : null,
+          result: {
+            value: {
+              owner: "Feature111111111111111111111111111111111111",
+              data: [data.toString("base64"), "base64"],
+            },
+          },
         });
       }
       return Response.json({
         result:
           method === "getEpochInfo"
-            ? { epoch: 1064, slotIndex: 5_000, slotsInEpoch: 432_000 }
+            ? {
+                epoch: 1064,
+                slotIndex: 5_000,
+                slotsInEpoch: 432_000,
+                absoluteSlot: 459_653_000,
+              }
             : [],
       });
     }),

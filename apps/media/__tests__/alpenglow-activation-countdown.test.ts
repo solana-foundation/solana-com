@@ -28,25 +28,58 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+const SLOTS_PER_EPOCH = 432_000;
+const SCHEDULED_ACTIVATION_SLOT = 1064 * SLOTS_PER_EPOCH;
+
+function featureAccount(activatedAt: number | null) {
+  const data = Buffer.alloc(activatedAt === null ? 1 : 9);
+  if (activatedAt !== null) {
+    data[0] = 1;
+    data.writeBigUInt64LE(BigInt(activatedAt), 1);
+  }
+  return {
+    owner: "Feature111111111111111111111111111111111111",
+    data: [data.toString("base64"), "base64"],
+  };
+}
+
 function mockRpc(
   epoch = 1063,
   failTiming = false,
   slotIndex = 431_000,
   failSamples = false,
+  {
+    genesisCert,
+    featureActivatedAt = SCHEDULED_ACTIVATION_SLOT,
+  }: { genesisCert?: null; featureActivatedAt?: number | null } = {},
 ) {
   const fetchMock = vi.fn(async (_url: unknown, options: RequestInit) => {
     const { method } = JSON.parse(String(options.body)) as { method: string };
     if (method === "getAgGenesisCert") {
-      return Response.json({
-        error: { code: -32601, message: "Method not found" },
-      });
+      return genesisCert === null
+        ? Response.json({ result: null })
+        : Response.json({
+            error: { code: -32601, message: "Method not found" },
+          });
     }
     if (failTiming || (failSamples && method === "getRecentPerformanceSamples"))
       return new Response(null, { status: 503 });
+    if (method === "getAccountInfo")
+      return Response.json({
+        result: {
+          context: { slot: 0 },
+          value: featureAccount(featureActivatedAt),
+        },
+      });
     return Response.json({
       result:
         method === "getEpochInfo"
-          ? { epoch, slotIndex, slotsInEpoch: 432_000 }
+          ? {
+              epoch,
+              slotIndex,
+              slotsInEpoch: SLOTS_PER_EPOCH,
+              absoluteSlot: epoch * SLOTS_PER_EPOCH + slotIndex,
+            }
           : [
               { numSlots: 100, samplePeriodSecs: 60 },
               { numSlots: 200, samplePeriodSecs: 60 },
@@ -148,6 +181,31 @@ describe("Mainnet activation countdown", () => {
     expect(data.alpenglowActive).toBe(true);
   });
 
+  it("keeps Alpenglow inactive past the consensus delay when the genesis certificate RPC reports none", async () => {
+    mockRpc(1064, false, 5_000, false, { genesisCert: null });
+    const { getAlpenglowActivationData } =
+      await import("@/lib/upgrades/alpenglow-metrics");
+    const data = await getAlpenglowActivationData("mainnet");
+    expect(data.activationEstimate?.consensusActivated).toBe(true);
+    expect(data.alpenglowActive).toBe(false);
+  });
+
+  it("does not report activation when the feature gate was postponed past the scheduled epoch", async () => {
+    mockRpc(1064, false, 5_000, false, { featureActivatedAt: null });
+    const { getAlpenglowActivationData } =
+      await import("@/lib/upgrades/alpenglow-metrics");
+    const data = await getAlpenglowActivationData("mainnet");
+    expect(data.activationEstimate).toEqual({
+      currentEpoch: 1064,
+      featureActivated: false,
+      consensusActivated: false,
+      estimatedFeatureActivationAt: null,
+      estimatedConsensusActivationAt: null,
+    });
+    expect(data.alpenglowActive).toBeNull();
+    expect(data.warnings[0]).toContain("is not active yet");
+  });
+
   it("preserves feature activation when only performance samples fail", async () => {
     mockRpc(1064, false, 0, true);
     const { getAlpenglowActivationData } =
@@ -184,7 +242,7 @@ describe("Mainnet activation countdown", () => {
     const refreshed = await getAlpenglowActivationData("mainnet");
     expect(refreshed.alpenglowActive).toBe(true);
     expect(refreshed.activationEstimate?.consensusActivated).toBe(true);
-    expect(refreshRpc).toHaveBeenCalledTimes(3);
+    expect(refreshRpc).toHaveBeenCalledTimes(4);
   });
 
   it("expires the local snapshot based on its original fetch time", async () => {
