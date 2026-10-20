@@ -3,6 +3,7 @@ import { awardCategories } from "@/content/awards";
 export type AwardFinalist = {
   name: string;
   twitterHandle: string;
+  profileImage: string;
   description?: string;
 };
 
@@ -13,92 +14,92 @@ export type FinalistCategory = {
 
 type AwardCategoryId = (typeof awardCategories)[number]["id"];
 
-// Development-only ballot placeholders. Never add these to approvedFinalists.
-export const mockFinalistsByCategory = {
+function finalist(name: string, twitterHandle: string): AwardFinalist {
+  return {
+    name,
+    twitterHandle,
+    profileImage: `/assets/awards/finalists/${twitterHandle.slice(1)}.webp`,
+  };
+}
+
+export const approvedFinalistsByCategory = {
   "solana-artist": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_01" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_02" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_25" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_26" },
+    finalist("degen poet", "@solanapoet"),
+    finalist("Grizz", "@grizzle_art"),
+    finalist("Pondy", "@ponderman_"),
+    finalist("Sirius Crocodile", "@siriuscrocodile"),
   ],
   "solana-content-creator": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_03" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_04" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_27" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_28" },
+    finalist("nikkideyy", "@nikkideyy"),
+    finalist("frisk", "@friskk"),
+    finalist("Easy", "@notsoeasymoney"),
+    finalist("fabiano.sol", "@fabianosolana"),
   ],
   "solana-trader": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_05" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_06" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_29" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_30" },
+    finalist("Cryo Palmar", "@cryopalmar"),
+    finalist("Ansem", "@blknoiz06"),
+    finalist("Lochie", "@lochie_sol"),
+    finalist("MINHxDYNASTY", "@minhxdynasty"),
   ],
   "solana-streamer": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_07" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_08" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_31" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_32" },
+    finalist("ThreadGuy", "@threadguy"),
+    finalist("Crime", "@crimexbt"),
+    finalist("Ansem", "@blknoiz06"),
+    finalist("Easy", "@notsoeasymoney"),
   ],
   "solana-ambassador": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_09" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_10" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_33" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_34" },
+    finalist("Solana Sensei", "@solanasensei"),
+    finalist("Alex Scott", "@afscott"),
+    finalist("Fluffy", "@fluffyonchain"),
+    finalist("Evey", "@eveynft"),
   ],
   "meme-lord": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_11" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_12" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_35" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_36" },
+    finalist("Doqo", "@doqo_sol"),
+    finalist("Wirelyss", "@wirelyss"),
+    finalist("chase", "@therealchaseeb"),
+    finalist("cloudz", "@cloudz"),
   ],
   "solana-nft-community": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_13" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_14" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_37" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_38" },
+    finalist("MonkeDAO", "@monkedao"),
+    finalist("Claynosaurz", "@claynosaurz"),
+    finalist("Galactic Geckos", "@galacticgeckosg"),
+    finalist("mallow", "@mallowdotart"),
   ],
   "solana-meme-community": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_15" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_16" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_39" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_40" },
+    finalist("Luminaries", "@luminaries"),
+    finalist("Solana Ecosystem Call", "@ecosystemcall"),
+    finalist("Stonk", "@launchonsf"),
+    finalist("clawpump", "@clawpumptech"),
   ],
   superteam: [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_17" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_18" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_41" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_42" },
+    finalist("Superteam Thailand", "@superteamth"),
+    finalist("Superteam Canada", "@superteamcan"),
+    finalist("Superteam Malaysia", "@superteammy"),
+    finalist("Superteam UK", "@superteamuk"),
   ],
   "seeker-dapp": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_19" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_20" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_43" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_44" },
+    finalist("SP3ND", "@sp3nddotshop"),
+    finalist("MattleFun", "@mattlefun"),
+    finalist("Rosentica", "@rosentica"),
+    finalist("Gib.Work", "@gib_work"),
   ],
   "collab-of-the-year": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_21" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_22" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_45" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_46" },
+    finalist("Claynosaurz", "@claynosaurz"),
+    finalist("raposa.", "@raposacoffeeco"),
+    finalist("Nomu", "@nomustores"),
+    finalist("WSOP", "@wsop"),
   ],
   "campaign-of-the-year": [
-    { name: "Mock finalist A", twitterHandle: "@mock_bp26_23" },
-    { name: "Mock finalist B", twitterHandle: "@mock_bp26_24" },
-    { name: "Mock finalist C", twitterHandle: "@mock_bp26_47" },
-    { name: "Mock finalist D", twitterHandle: "@mock_bp26_48" },
+    finalist("Solana Ecosystem Call", "@ecosystemcall"),
+    finalist("world", "@world_xyz"),
+    finalist("Frontier Traders", "@joinfrontier"),
+    finalist("Jurassic Finance", "@jurassicfi"),
   ],
 } satisfies Record<AwardCategoryId, AwardFinalist[]>;
 
-export const mockFinalists: FinalistCategory[] = awardCategories.map(
-  ({ id }) => ({
-    categoryId: id,
-    finalists: mockFinalistsByCategory[id],
-  }),
+export const approvedFinalists: FinalistCategory[] = awardCategories.map(
+  ({ id }) => ({ categoryId: id, finalists: approvedFinalistsByCategory[id] }),
 );
-
-// Add the awards owner's reviewed finalist map here when it is available.
-// Production voting stays unavailable until every category is approved.
-export const approvedFinalists: FinalistCategory[] = [];
 
 export function validateFinalistRoster(roster: FinalistCategory[]) {
   const categories = new Set<string>(awardCategories.map(({ id }) => id));
@@ -107,13 +108,15 @@ export function validateFinalistRoster(roster: FinalistCategory[]) {
     if (!categories.has(categoryId) || seenCategories.has(categoryId))
       return false;
     seenCategories.add(categoryId);
-    if (finalists.length < 2) return false;
+    if (finalists.length !== 4) return false;
     const seenHandles = new Set<string>();
-    for (const finalist of finalists) {
-      const handle = finalist.twitterHandle;
+    for (const item of finalists) {
+      const handle = item.twitterHandle;
       if (
-        !finalist.name.trim() ||
+        !item.name.trim() ||
         !/^@[a-z0-9_]{1,15}$/.test(handle) ||
+        item.profileImage !==
+          `/assets/awards/finalists/${handle.slice(1)}.webp` ||
         seenHandles.has(handle)
       ) {
         return false;
@@ -125,12 +128,8 @@ export function validateFinalistRoster(roster: FinalistCategory[]) {
 }
 
 export function getApprovedFinalists() {
-  const roster =
-    process.env.NODE_ENV === "development" && approvedFinalists.length === 0
-      ? mockFinalists
-      : approvedFinalists;
-  if (!validateFinalistRoster(roster)) return null;
-  return roster;
+  if (!validateFinalistRoster(approvedFinalists)) return null;
+  return approvedFinalists;
 }
 
 export function findApprovedFinalist(
@@ -140,7 +139,5 @@ export function findApprovedFinalist(
 ) {
   return roster
     ?.find((entry) => entry.categoryId === categoryId)
-    ?.finalists.find(
-      (finalist) => finalist.twitterHandle.toLowerCase() === handle,
-    );
+    ?.finalists.find((item) => item.twitterHandle.toLowerCase() === handle);
 }

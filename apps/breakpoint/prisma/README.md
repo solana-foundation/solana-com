@@ -74,16 +74,13 @@ Voting shares the nominations ballot cookie and `awards_users` table. The
 immutable vote per user and category. Preview builds do not migrate databases,
 so deploy this migration to the preview database before exercising vote writes.
 
-After nominations close, the awards owner must approve and add every finalist to
-`src/content/awards-finalists.ts`. Each of the 12 current category IDs needs at
-least two distinct finalists with display names and X handles. The route rejects
-votes until the complete roster passes validation. Do not derive ballot options
-from live nomination counts.
-
-For local development, `src/content/awards-finalists.ts` has a clearly labeled
-mock finalist map with four candidates in each of the 12 categories. Only
-development mode uses this map; Production and Preview still require the
-reviewed `approvedFinalists` roster.
+The reviewed ballot is defined in `src/content/awards-finalists.ts`. Each of the
+12 category IDs has four distinct finalists with display names, X handles, and
+local profile images in `public/assets/awards/finalists`. The route rejects
+votes if the roster is incomplete. Update the ballot map and its images together
+when the awards owner changes a finalist. Do not derive ballot options from live
+nomination counts. Profile images were retrieved from the finalists' public X
+profiles on October 20, 2026.
 
 Set the UTC voting opening and closing times in `defaultVotingWindow` in
 `src/lib/awards-campaign.ts`. Set the nominations opening time in

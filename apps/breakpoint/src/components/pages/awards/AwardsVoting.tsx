@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle } from "@boxicons/react/CheckCircle";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
+import { publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
 import type { FinalistCategory } from "@/content/awards-finalists";
 import type { AwardsVotingStatus } from "@/lib/awards-campaign";
@@ -254,7 +255,7 @@ export default function AwardsVoting({
                     {copy.description}
                   </p>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto border-t border-stroke-primary p-xs md:px-l">
+                <div className="min-h-0 flex-1 overflow-y-auto border-t border-stroke-primary p-3xs md:px-l md:py-xs">
                   {vote ? (
                     <div
                       className="bg-core-purple p-s text-black"
@@ -287,10 +288,10 @@ export default function AwardsVoting({
                         <legend className="font-mono text-button-small uppercase text-text-secondary">
                           {t("voting.chooseFinalist")}
                         </legend>
-                        <div className="mt-xs grid grid-cols-2 gap-2xs">
+                        <div className="mt-3xs grid grid-cols-1 gap-4xs md:mt-xs md:grid-cols-2 md:gap-2xs">
                           {finalistList.map((finalist) => (
                             <label
-                              className={`flex cursor-pointer items-center gap-2xs border p-2xs focus-within:border-core-purple focus-within:outline-none ${selection === finalist.twitterHandle ? "border-core-purple bg-neutral-800" : "border-stroke-primary hover:bg-neutral-800"}`}
+                              className={`flex min-w-0 cursor-pointer items-center gap-3xs border p-4xs focus-within:border-core-purple focus-within:outline-none md:gap-2xs md:p-2xs ${selection === finalist.twitterHandle ? "border-core-purple bg-neutral-800" : "border-stroke-primary hover:bg-neutral-800"}`}
                               key={finalist.twitterHandle}
                             >
                               <input
@@ -303,7 +304,15 @@ export default function AwardsVoting({
                                 type="radio"
                                 value={finalist.twitterHandle}
                               />
-                              <span>
+                              <img
+                                alt=""
+                                className="size-10 shrink-0 rounded-full object-cover md:size-12"
+                                height={48}
+                                loading="lazy"
+                                src={publicAssetPath(finalist.profileImage)}
+                                width={48}
+                              />
+                              <span className="min-w-0">
                                 <span className="block font-bold">
                                   {finalist.name}
                                 </span>
@@ -320,7 +329,7 @@ export default function AwardsVoting({
                           ))}
                         </div>
                         <Button
-                          className="mt-xs"
+                          className="mt-3xs md:mt-xs"
                           disabled={
                             !selection ||
                             !sessionReady ||
