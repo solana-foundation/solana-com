@@ -78,7 +78,7 @@ function ActivationCountdown({
       ? "Estimate unavailable"
       : remainingSeconds === 0
         ? "Updating estimate…"
-        : `${Math.floor(remainingSeconds / 86_400)}d ${Math.floor((remainingSeconds % 86_400) / 3_600)}h ${Math.floor((remainingSeconds % 3_600) / 60)}m ${remainingSeconds % 60}s`;
+        : `${remainingSeconds >= 86_400 ? `${Math.floor(remainingSeconds / 86_400)}d ` : ""}${Math.floor((remainingSeconds % 86_400) / 3_600)}h ${Math.floor((remainingSeconds % 3_600) / 60)}m ${remainingSeconds % 60}s`;
 
   return (
     <div className="bg-black/85 p-5">
