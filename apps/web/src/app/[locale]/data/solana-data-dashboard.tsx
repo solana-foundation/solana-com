@@ -241,6 +241,22 @@ export function SolanaDataDashboard() {
             <p className="nd-body-m text-nd-mid-em-text mt-3 max-w-[560px]">
               {t("header.description")}
             </p>
+            {isLiveInfrastructureTab ? null : (
+              <p className="nd-body-s text-nd-mid-em-text/80 mt-3 pt-1 max-w-[560px]">
+                {t.rich("header.disclaimer", {
+                  link: (chunks) => (
+                    <a
+                      className="text-nd-high-em-text underline underline-offset-2"
+                      href={backfillRequestsUrl}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {chunks}
+                    </a>
+                  ),
+                })}
+              </p>
+            )}
           </div>
         </header>
 
