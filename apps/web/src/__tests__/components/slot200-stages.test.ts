@@ -113,18 +113,18 @@ describe("the slot-time rollout", () => {
     expect(isActivationWindow(rollout, 1037)).toBe(true);
   });
 
-  it("targets the 200ms transition at the start of epoch 1053", () => {
+  it("targets the 200ms transition at the epoch 1064 migration boundary", () => {
     const rollout = rolloutState(250, 250);
 
-    expect(FINAL_TRANSITION_EPOCH).toBe(1053);
-    expect(SLOT_200_TRANSITION_TARGET).toBe(454_896_000);
+    expect(FINAL_TRANSITION_EPOCH).toBe(1064);
+    expect(SLOT_200_TRANSITION_TARGET).toBe(459_653_000);
     expect(rollout).toMatchObject({
       from: 250,
       to: 200,
-      targetEpoch: 1053,
+      targetEpoch: 1064,
     });
-    expect(isActivationWindow(rollout, 1052)).toBe(false);
-    expect(isActivationWindow(rollout, 1053)).toBe(true);
+    expect(isActivationWindow(rollout, 1063)).toBe(false);
+    expect(isActivationWindow(rollout, 1064)).toBe(true);
   });
 
   it("keeps the rollout complete at the terminal 200ms step", () => {

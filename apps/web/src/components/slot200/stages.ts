@@ -10,9 +10,15 @@ export const STEPS = [400, 350, 300, 250, 200] as const;
 type Step = (typeof STEPS)[number];
 
 export const SLOTS_PER_EPOCH = 432_000;
-export const FINAL_TRANSITION_EPOCH = 1_053;
+export const FINAL_TRANSITION_EPOCH = 1_064;
+/**
+ * Epoch 1064 starts at slot 459,648,000. The Alpenglow migration boundary is
+ * 5,000 slots later: TowerBFT keeps running through that window, and the
+ * handoff the hero reports begins at slot 459,653,000.
+ */
+const MIGRATION_BOUNDARY_SLOT_OFFSET = 5_000;
 export const SLOT_200_TRANSITION_TARGET =
-  FINAL_TRANSITION_EPOCH * SLOTS_PER_EPOCH;
+  FINAL_TRANSITION_EPOCH * SLOTS_PER_EPOCH + MIGRATION_BOUNDARY_SLOT_OFFSET;
 
 /**
  * The target epoch is when each timing reduction takes effect, not when its

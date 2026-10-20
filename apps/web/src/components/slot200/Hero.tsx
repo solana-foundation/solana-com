@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
+import { defaultLocale } from "@workspace/i18n/config";
 import {
   STEPS,
   FINAL_TRANSITION_EPOCH,
@@ -37,6 +38,10 @@ function fmtEta(ms: number): string {
 export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
   const t = useTranslations("slot200.hero");
   const locale = useLocale();
+  const dashboardHref =
+    locale === defaultLocale
+      ? "/upgrades/alpenglow/dashboard"
+      : `/${locale}/upgrades/alpenglow/dashboard`;
   const nf = React.useMemo(() => new Intl.NumberFormat(locale), [locale]);
   const [soundOn, setSoundOn] = React.useState(false);
   const audioRef = React.useRef<HeartbeatAudio | null>(null);
@@ -232,6 +237,9 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
           <button type="button" className="s2-soundbtn" onClick={toggleSound}>
             {soundOn ? t("soundOn") : t("soundOff")}
           </button>
+          <a className="s2-dashbtn" href={dashboardHref}>
+            {t("dashboard")}
+          </a>
           <a
             className="s2-sharebtn"
             href={shareHref}
