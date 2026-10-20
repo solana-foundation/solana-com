@@ -60,4 +60,39 @@ describe("AlpenglowDashboardStats", () => {
     );
     expect(screen.queryByText("500 tx/s")).not.toBeInTheDocument();
   });
+
+  it("labels empty and partial dashboard responses accurately", async () => {
+    const payload = {
+      network: "mainnet",
+      generatedAt: new Date().toISOString(),
+      latestFinalityLatencySeconds: null,
+      transactionsPerSecond: null,
+      nonVoteTransactionsPerBlock: null,
+      voteTransactionsPerBlock: null,
+      totalTransactionsPerBlock: null,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => payload }),
+    );
+
+    const { unmount } = render(<AlpenglowDashboardStats />);
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("unavailable"),
+    );
+    unmount();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...payload, transactionsPerSecond: 0 }),
+      }),
+    );
+    render(<AlpenglowDashboardStats />);
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("partial"),
+    );
+    expect(screen.getByText("0 tx/s")).toBeInTheDocument();
+  });
 });

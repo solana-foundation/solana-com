@@ -111,6 +111,20 @@ export function AlpenglowDashboardStats() {
       ? (data.voteTransactionsPerBlock / totalBlockTransactions) * 100
       : null;
   const finality = data?.latestFinalityLatencySeconds;
+  const availableCount = [
+    finality,
+    data?.transactionsPerSecond,
+    data?.nonVoteTransactionsPerBlock,
+    voteShare,
+  ].filter((value) => value != null).length;
+  const status =
+    unavailable || (data && availableCount === 0)
+      ? t("unavailable")
+      : !data
+        ? t("loading")
+        : availableCount < 4
+          ? t("partial")
+          : t("status");
   const stats = [
     {
       label: t("finality"),
@@ -147,7 +161,7 @@ export function AlpenglowDashboardStats() {
       aria-label={t("ariaLabel")}
     >
       <span className="text-[#14f195]">{t("source")}</span>
-      <span role="status">{unavailable ? t("unavailable") : t("status")}</span>
+      <span role="status">{status}</span>
       {stats.map(({ label, value }) => (
         <span
           key={label}
