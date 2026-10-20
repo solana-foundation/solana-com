@@ -4,6 +4,7 @@ import {
   SLOT_200_TRANSITION_TARGET,
   isActivationWindow,
   rolloutState,
+  slotsUntilTransition,
 } from "@/components/slot200/stages";
 
 describe("the slot-time rollout", () => {
@@ -115,6 +116,7 @@ describe("the slot-time rollout", () => {
 
   it("targets the 200ms transition at the epoch 1064 migration boundary", () => {
     const rollout = rolloutState(250, 250);
+    const epochStart = 1064 * 432_000;
 
     expect(FINAL_TRANSITION_EPOCH).toBe(1064);
     expect(SLOT_200_TRANSITION_TARGET).toBe(459_653_000);
@@ -123,8 +125,20 @@ describe("the slot-time rollout", () => {
       to: 200,
       targetEpoch: 1064,
     });
-    expect(isActivationWindow(rollout, 1063)).toBe(false);
-    expect(isActivationWindow(rollout, 1064)).toBe(true);
+    expect(slotsUntilTransition(200, epochStart - 1)).toBe(5_001);
+    expect(slotsUntilTransition(200, epochStart)).toBe(5_000);
+    expect(slotsUntilTransition(200, SLOT_200_TRANSITION_TARGET - 1)).toBe(1);
+    expect(slotsUntilTransition(200, SLOT_200_TRANSITION_TARGET)).toBeNull();
+    expect(isActivationWindow(rollout, 1063, epochStart - 1)).toBe(false);
+    expect(isActivationWindow(rollout, 1064, epochStart)).toBe(false);
+    expect(
+      isActivationWindow(rollout, 1064, SLOT_200_TRANSITION_TARGET - 1),
+    ).toBe(false);
+    expect(isActivationWindow(rollout, 1064, SLOT_200_TRANSITION_TARGET)).toBe(
+      true,
+    );
+    // Epoch alone must not open the window before the slot feed arrives.
+    expect(isActivationWindow(rollout, 1064)).toBe(false);
   });
 
   it("keeps the rollout complete at the terminal 200ms step", () => {

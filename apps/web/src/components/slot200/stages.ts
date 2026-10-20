@@ -33,6 +33,31 @@ export const CONFIRMED_EPOCHS: Partial<Record<number, number>> = {
   200: FINAL_TRANSITION_EPOCH,
 };
 
+/**
+ * Absolute slot the hero counts down to for a confirmed reduction. Earlier
+ * SIMD-0525 steps land at the epoch boundary; the final 200 ms step follows
+ * the Alpenglow dashboard and waits for the migration-boundary offset.
+ */
+export function transitionTargetSlot(step: number): number | null {
+  const epoch = CONFIRMED_EPOCHS[step];
+  if (epoch === undefined) return null;
+  if (step === 200) return SLOT_200_TRANSITION_TARGET;
+  return epoch * SLOTS_PER_EPOCH;
+}
+
+/** Slots remaining until a confirmed transition target, or null once reached. */
+export function slotsUntilTransition(
+  step: number | null,
+  absoluteSlot: number | null | undefined,
+): number | null {
+  if (step === null || absoluteSlot === null || absoluteSlot === undefined)
+    return null;
+  const target = transitionTargetSlot(step);
+  if (target === null) return null;
+  const remaining = target - absoluteSlot;
+  return remaining > 0 ? remaining : null;
+}
+
 export type FlipPhase = "pre" | "flipping" | "flipped";
 
 export interface RolloutState {
@@ -129,20 +154,29 @@ export function rolloutState(
 }
 
 /**
- * A scheduled epoch has started, but mainnet timing has not yet provided
+ * A scheduled transition has started, but mainnet timing has not yet provided
  * enough evidence to call the reduction in progress. Keeping this separate
  * from `pre` prevents the hero from falling back to an "unscheduled" state
- * in the short gap between an epoch boundary and the measured flip.
+ * in the short gap between the target slot and the measured flip.
+ *
+ * For 200 ms, the target is the Alpenglow migration boundary (5,000 slots
+ * after epoch 1064 starts), not the epoch boundary itself. Earlier steps
+ * still open at their confirmed epoch boundaries.
  */
 export function isActivationWindow(
-  rollout: Pick<RolloutState, "phase" | "targetEpoch">,
+  rollout: Pick<RolloutState, "phase" | "to" | "targetEpoch">,
   epoch: number | null,
   slot?: number,
   epochEndSlot?: number | null,
 ): boolean {
+  if (rollout.phase !== "pre" || rollout.targetEpoch === null) return false;
+
+  if (rollout.to === 200) {
+    return slot !== undefined && slot >= SLOT_200_TRANSITION_TARGET;
+  }
+
   const targetHasStarted =
     epoch !== null &&
-    rollout.targetEpoch !== null &&
     (epoch >= rollout.targetEpoch ||
       (epoch === rollout.targetEpoch - 1 &&
         epochEndSlot !== null &&
@@ -150,7 +184,7 @@ export function isActivationWindow(
         slot !== undefined &&
         slot >= epochEndSlot));
 
-  return rollout.phase === "pre" && targetHasStarted;
+  return targetHasStarted;
 }
 
 /** Percent more blocks per second after a from→to step (e.g. 14.3). */

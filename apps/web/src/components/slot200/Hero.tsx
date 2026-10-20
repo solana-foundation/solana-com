@@ -6,12 +6,12 @@ import { defaultLocale } from "@workspace/i18n/config";
 import {
   STEPS,
   FINAL_TRANSITION_EPOCH,
-  SLOTS_PER_EPOCH,
   SLOT_200_TRANSITION_TARGET,
   isActivationWindow,
   nextStep,
   pctFaster,
   rolloutState,
+  slotsUntilTransition,
 } from "./stages";
 import { HeartbeatAudio } from "./heartbeatAudio";
 import type { FeedState, SlotEvent } from "./useSlotFeed";
@@ -88,20 +88,12 @@ export const Hero = React.memo(function Hero({ feed, subscribe }: HeroProps) {
       ? Math.max(targetEpoch, feed.epoch)
       : targetEpoch;
 
-  // Count down to a confirmed epoch, drained by real slots.
+  // Count down to a confirmed absolute slot, drained by real slots. For the
+  // final 200 ms step this is the Alpenglow migration boundary, not the
+  // epoch-1064 start.
   const slotsLeft =
-    targetEpoch !== null &&
-    feed.epoch !== null &&
-    feed.epochEndSlot &&
-    feed.slot &&
-    targetEpoch > feed.epoch &&
-    !activationPending
-      ? Math.max(
-          0,
-          feed.epochEndSlot +
-            (targetEpoch - feed.epoch - 1) * SLOTS_PER_EPOCH -
-            feed.slot,
-        )
+    to !== null && feed.slot && !activationPending
+      ? slotsUntilTransition(to, feed.slot)
       : null;
   const finalMinute = slotsLeft !== null && slotsLeft > 0 && slotsLeft <= 150;
   const eta =

@@ -61,10 +61,11 @@ and new speeds:
 The final 250ms → 200ms transition is scheduled for the start of epoch 1064.
 Mainnet's `getEpochSchedule` reports 432,000 slots per epoch, so epoch 1064
 starts at slot `459,648,000` (`1064 × 432,000`). The migration boundary is 5,000
-slots later, at slot `459,653,000`, and that is the slot the hero shows. The
-hero uses the epoch schedule for its countdown and keeps the corresponding slot
-visible through activation and measurement. The heartbeat and history charts
-include a highlighted 200ms guide.
+slots later, at slot `459,653,000`, and that is the slot the hero counts down to
+and shows — matching the Alpenglow dashboard's consensus-activation delay. The
+hero drains that absolute slot with the live feed and keeps it visible through
+activation and measurement. The heartbeat and history charts include a
+highlighted 200ms guide.
 
 These midpoint thresholds provide a jitter guard. A normal 400ms network can
 measure slightly above nominal, so a brief dip in the one-minute average should
@@ -142,10 +143,10 @@ After settling, the holding state reports 3 of 4 steps live.
 
 The final transition is scheduled for the start of epoch 1064. Its migration
 boundary is slot `459,653,000` (5,000 slots after the epoch starts at
-`459,648,000`). The hero counts down to epoch 1064, then waits for mainnet
-measurements before showing the 200ms timing. Its settled message says that the
-rollout is complete. Once the stable average settles below 225ms, the hero
-shows:
+`459,648,000`). The hero counts down through that 5,000-slot window to the
+migration boundary, then waits for mainnet measurements before showing the 200ms
+timing. Its settled message says that the rollout is complete. Once the stable
+average settles below 225ms, the hero shows:
 
 > Genesis shipped 400ms. Solana runs 200 — the rollout is complete.
 
