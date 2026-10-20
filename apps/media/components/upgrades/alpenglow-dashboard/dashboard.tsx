@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { MetricChart } from "./metric-chart";
 import { MetricInfo } from "./metric-info";
 import { useDashboardPoller } from "./use-dashboard-poller";
+import { STATUS_POLL_INTERVAL_MS, statusPollInterval } from "./status-polling";
 import {
   ALPENGLOW_MAINNET_ACTIVATION_EPOCH,
   ALPENGLOW_MAINNET_FEATURE_ADDRESS,
@@ -31,17 +32,9 @@ const RANGE_LABELS: Record<AlpenglowDashboardRange, string> = {
   "7d": "7 days",
 };
 
-const STATUS_POLL_INTERVAL_MS = 2_000;
 const STATUS_MAX_BACKOFF_MS = 60_000;
 const LIVE_POLL_INTERVAL_MS = 1_000;
 const DETAIL_POLL_INTERVAL_MS = 8_000;
-
-function statusPollInterval(
-  data: AlpenglowDashboardActivationData,
-): number | null {
-  if (data.alpenglowActive === true) return null;
-  return STATUS_POLL_INTERVAL_MS;
-}
 
 function formatNumber(value: number | null, maximumFractionDigits = 0) {
   if (value === null) return "Unavailable";

@@ -1,12 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("next/cache", () => ({ unstable_cache: (load: unknown) => load }));
+const { cachedSnapshots } = vi.hoisted(() => ({
+  cachedSnapshots: new Map<string, unknown>(),
+}));
+vi.mock("next/cache", () => ({
+  unstable_cache:
+    (load: (...args: unknown[]) => Promise<unknown>, keys: string[]) =>
+    (...args: unknown[]) =>
+      cachedSnapshots.has(keys.join(":"))
+        ? Promise.resolve(cachedSnapshots.get(keys.join(":")))
+        : load(...args),
+}));
 
 const now = new Date("2026-10-19T00:00:00Z");
 
 beforeEach(() => {
   vi.resetModules();
+  cachedSnapshots.clear();
   vi.useFakeTimers();
   vi.setSystemTime(now);
 });
@@ -14,9 +25,15 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
-function mockRpc(epoch = 1063, failTiming = false, slotIndex = 431_000) {
+function mockRpc(
+  epoch = 1063,
+  failTiming = false,
+  slotIndex = 431_000,
+  failSamples = false,
+) {
   const fetchMock = vi.fn(async (_url: unknown, options: RequestInit) => {
     const { method } = JSON.parse(String(options.body)) as { method: string };
     if (method === "getAgGenesisCert") {
@@ -24,7 +41,8 @@ function mockRpc(epoch = 1063, failTiming = false, slotIndex = 431_000) {
         error: { code: -32601, message: "Method not found" },
       });
     }
-    if (failTiming) return new Response(null, { status: 503 });
+    if (failTiming || (failSamples && method === "getRecentPerformanceSamples"))
+      return new Response(null, { status: 503 });
     return Response.json({
       result:
         method === "getEpochInfo"
@@ -128,6 +146,64 @@ describe("Mainnet activation countdown", () => {
     expect(data.activationEstimate?.consensusActivated).toBe(true);
     expect(data.activationEstimate?.estimatedConsensusActivationAt).toBeNull();
     expect(data.alpenglowActive).toBe(true);
+  });
+
+  it("preserves feature activation when only performance samples fail", async () => {
+    mockRpc(1064, false, 0, true);
+    const { getAlpenglowActivationData } =
+      await import("@/lib/upgrades/alpenglow-metrics");
+    const data = await getAlpenglowActivationData("mainnet");
+    expect(data.activationEstimate?.featureActivated).toBe(true);
+    expect(data.activationEstimate?.consensusActivated).toBe(false);
+    expect(data.activationEstimate?.estimatedConsensusActivationAt).toBeNull();
+    expect(data.warnings[0]).toContain("Activation countdown is unavailable");
+  });
+
+  it("reports consensus activation when only performance samples fail", async () => {
+    mockRpc(1064, false, 5_000, true);
+    const { getAlpenglowActivationData } =
+      await import("@/lib/upgrades/alpenglow-metrics");
+    const data = await getAlpenglowActivationData("mainnet");
+    expect(data.alpenglowActive).toBe(true);
+    expect(data.activationEstimate?.consensusActivated).toBe(true);
+  });
+
+  it("refreshes stale shared-cache estimates after a quiet period", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    mockRpc();
+    const { getAlpenglowActivationData } =
+      await import("@/lib/upgrades/alpenglow-metrics");
+    const initial = await getAlpenglowActivationData("mainnet");
+    cachedSnapshots.set("alpenglow-activation-estimate-v3", {
+      generatedAt: now.toISOString(),
+      estimate: initial.activationEstimate,
+      warnings: [],
+    });
+    vi.advanceTimersByTime(3_600_000);
+    const refreshRpc = mockRpc(1064, false, 5_000);
+    const refreshed = await getAlpenglowActivationData("mainnet");
+    expect(refreshed.alpenglowActive).toBe(true);
+    expect(refreshed.activationEstimate?.consensusActivated).toBe(true);
+    expect(refreshRpc).toHaveBeenCalledTimes(3);
+  });
+
+  it("expires the local snapshot based on its original fetch time", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const fetchMock = mockRpc();
+    const { getAlpenglowActivationData } =
+      await import("@/lib/upgrades/alpenglow-metrics");
+    const initial = await getAlpenglowActivationData("mainnet");
+    cachedSnapshots.set("alpenglow-activation-estimate-v3", {
+      generatedAt: new Date(now.getTime() + 50_000).toISOString(),
+      estimate: initial.activationEstimate,
+      warnings: [],
+    });
+    vi.advanceTimersByTime(100_000);
+    await getAlpenglowActivationData("mainnet");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    vi.advanceTimersByTime(11_000);
+    await getAlpenglowActivationData("mainnet");
+    expect(fetchMock).toHaveBeenCalledTimes(7);
   });
 
   it("does not request timing for other networks", async () => {

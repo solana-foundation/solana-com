@@ -371,10 +371,9 @@ async function loadAlpenglowActivationData(
 }
 
 const ACTIVATION_ESTIMATE_CACHE_MS = 60_000;
-let activationEstimateRequest: Promise<{
-  estimate: AlpenglowActivationEstimate | null;
-  warnings: string[];
-}> | null = null;
+let activationEstimateRequest: ReturnType<
+  typeof loadActivationEstimateSnapshot
+> | null = null;
 let activationEstimateExpiresAt = 0;
 
 async function activationTimingRpc(method: string, params: unknown[]) {
@@ -397,10 +396,12 @@ async function activationTimingRpc(method: string, params: unknown[]) {
 
 async function loadActivationEstimate() {
   try {
-    const [epoch, samples] = await Promise.all([
+    const [epochResult, samplesResult] = await Promise.allSettled([
       activationTimingRpc("getEpochInfo", [{ commitment: "confirmed" }]),
       activationTimingRpc("getRecentPerformanceSamples", [60]),
     ]);
+    if (epochResult.status === "rejected") throw epochResult.reason;
+    const epoch = epochResult.value;
     if (
       !isRecord(epoch) ||
       typeof epoch.epoch !== "number" ||
@@ -423,54 +424,62 @@ async function loadActivationEstimate() {
       featureSlotsRemaining + ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS;
     const featureActivated = featureSlotsRemaining <= 0;
     const consensusActivated = consensusSlotsRemaining <= 0;
-    if (consensusActivated) {
+    const estimate: AlpenglowActivationEstimate = {
+      currentEpoch: epoch.epoch,
+      featureActivated,
+      consensusActivated,
+      estimatedFeatureActivationAt: null,
+      estimatedConsensusActivationAt: null,
+    };
+    if (consensusActivated) return { estimate, warnings: [] };
+    try {
+      if (samplesResult.status === "rejected") throw samplesResult.reason;
+      const samples = samplesResult.value;
+      if (!Array.isArray(samples))
+        throw new Error("Invalid performance samples");
+      let slots = 0;
+      let seconds = 0;
+      for (const sample of samples) {
+        if (
+          isRecord(sample) &&
+          typeof sample.numSlots === "number" &&
+          Number.isSafeInteger(sample.numSlots) &&
+          sample.numSlots > 0 &&
+          typeof sample.samplePeriodSecs === "number" &&
+          Number.isFinite(sample.samplePeriodSecs) &&
+          sample.samplePeriodSecs > 0
+        ) {
+          slots += sample.numSlots;
+          seconds += sample.samplePeriodSecs;
+        }
+      }
+      if (slots === 0) throw new Error("No usable performance samples");
+      const observedAt = Date.now();
+      const millisecondsPerSlot = (seconds / slots) * 1_000;
       return {
         estimate: {
           currentEpoch: epoch.epoch,
           featureActivated,
           consensusActivated,
-          estimatedFeatureActivationAt: null,
-          estimatedConsensusActivationAt: null,
+          estimatedFeatureActivationAt: featureActivated
+            ? null
+            : new Date(
+                observedAt + featureSlotsRemaining * millisecondsPerSlot,
+              ).toISOString(),
+          estimatedConsensusActivationAt: new Date(
+            observedAt + consensusSlotsRemaining * millisecondsPerSlot,
+          ).toISOString(),
         },
         warnings: [],
       };
+    } catch (error) {
+      return {
+        estimate,
+        warnings: [
+          `Activation countdown is unavailable: ${error instanceof Error ? error.message : "unknown error"}`,
+        ],
+      };
     }
-    if (!Array.isArray(samples)) throw new Error("Invalid performance samples");
-    let slots = 0;
-    let seconds = 0;
-    for (const sample of samples) {
-      if (
-        isRecord(sample) &&
-        typeof sample.numSlots === "number" &&
-        Number.isSafeInteger(sample.numSlots) &&
-        sample.numSlots > 0 &&
-        typeof sample.samplePeriodSecs === "number" &&
-        Number.isFinite(sample.samplePeriodSecs) &&
-        sample.samplePeriodSecs > 0
-      ) {
-        slots += sample.numSlots;
-        seconds += sample.samplePeriodSecs;
-      }
-    }
-    if (slots === 0) throw new Error("No usable performance samples");
-    const observedAt = Date.now();
-    const millisecondsPerSlot = (seconds / slots) * 1_000;
-    return {
-      estimate: {
-        currentEpoch: epoch.epoch,
-        featureActivated,
-        consensusActivated,
-        estimatedFeatureActivationAt: featureActivated
-          ? null
-          : new Date(
-              observedAt + featureSlotsRemaining * millisecondsPerSlot,
-            ).toISOString(),
-        estimatedConsensusActivationAt: new Date(
-          observedAt + consensusSlotsRemaining * millisecondsPerSlot,
-        ).toISOString(),
-      },
-      warnings: [],
-    };
   } catch (error) {
     return {
       estimate: null,
@@ -481,19 +490,50 @@ async function loadActivationEstimate() {
   }
 }
 
+async function loadActivationEstimateSnapshot() {
+  return {
+    ...(await loadActivationEstimate()),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+const activationEstimateLoads = new Map<
+  string,
+  ReturnType<typeof loadActivationEstimateSnapshot>
+>();
+
+function uncachedActivationEstimate() {
+  return coalesce(
+    activationEstimateLoads,
+    "mainnet",
+    loadActivationEstimateSnapshot,
+  );
+}
+
 const cachedActivationEstimate = unstable_cache(
-  loadActivationEstimate,
-  ["alpenglow-activation-estimate-v2"],
+  uncachedActivationEstimate,
+  ["alpenglow-activation-estimate-v3"],
   { revalidate: ACTIVATION_ESTIMATE_CACHE_MS / 1_000 },
 );
+
+async function freshActivationEstimate() {
+  let snapshot = IS_PRODUCTION
+    ? await cachedActivationEstimate()
+    : await uncachedActivationEstimate();
+  // Next's cache can serve stale data while revalidating after a quiet period.
+  if (exceedsMaximumAge(snapshot.generatedAt, ACTIVATION_ESTIMATE_CACHE_MS)) {
+    snapshot = await uncachedActivationEstimate();
+  }
+  activationEstimateExpiresAt =
+    Date.parse(snapshot.generatedAt) + ACTIVATION_ESTIMATE_CACHE_MS;
+  return snapshot;
+}
 
 function getActivationEstimate() {
   // Share both successful and failed lookups across status polls and concurrent visitors.
   if (!activationEstimateRequest || Date.now() >= activationEstimateExpiresAt) {
     activationEstimateExpiresAt = Date.now() + ACTIVATION_ESTIMATE_CACHE_MS;
-    activationEstimateRequest = IS_PRODUCTION
-      ? cachedActivationEstimate()
-      : loadActivationEstimate();
+    activationEstimateRequest = freshActivationEstimate();
   }
   return activationEstimateRequest;
 }
