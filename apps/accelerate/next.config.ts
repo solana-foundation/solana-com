@@ -2,8 +2,10 @@ import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
 import { withSentryConfig } from "@sentry/nextjs";
 import { createNextIntlPlugin } from "@workspace/i18n/plugin";
+import { locales } from "@workspace/i18n/config";
 
 const prefix = "/accelerate-assets";
+const localePattern = locales.join("|");
 const nextConfig: NextConfig = {
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   reactStrictMode: true,
@@ -86,23 +88,43 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/china/agenda",
-        destination: "/china",
+        source: "/china",
+        destination: "/accelerate",
         permanent: true,
       },
       {
-        source: "/accelerate/china/agenda",
-        destination: "/accelerate/china",
+        source: "/china/:path*",
+        destination: "/accelerate",
         permanent: true,
       },
       {
-        source: "/:locale/china/agenda",
-        destination: "/:locale/china",
+        source: "/accelerate/china",
+        destination: "/accelerate",
         permanent: true,
       },
       {
-        source: "/:locale/accelerate/china/agenda",
-        destination: "/:locale/accelerate/china",
+        source: "/accelerate/china/:path*",
+        destination: "/accelerate",
+        permanent: true,
+      },
+      {
+        source: `/:locale(${localePattern})/china`,
+        destination: "/:locale/accelerate",
+        permanent: true,
+      },
+      {
+        source: `/:locale(${localePattern})/china/:path*`,
+        destination: "/:locale/accelerate",
+        permanent: true,
+      },
+      {
+        source: `/:locale(${localePattern})/accelerate/china`,
+        destination: "/:locale/accelerate",
+        permanent: true,
+      },
+      {
+        source: `/:locale(${localePattern})/accelerate/china/:path*`,
+        destination: "/:locale/accelerate",
         permanent: true,
       },
     ];
