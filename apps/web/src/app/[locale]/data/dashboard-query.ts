@@ -69,7 +69,9 @@ export function canLinkToChart(chart: ChartDefinition) {
 
 /** The chart a `#chart-id` link points at, if the hash names a linkable chart. */
 export function getLinkedChart(hash: string): ChartDefinition | undefined {
-  const chartId = decodeURIComponent(hash.replace(/^#/, ""));
+  // Chart IDs are plain a-z, 0-9, and "-", so the hash is compared as-is.
+  // Decoding it would throw on malformed input like "#%E0%A4%A".
+  const chartId = hash.replace(/^#/, "");
 
   return chartId
     ? (chartDefinitions as readonly ChartDefinition[]).find(

@@ -50,6 +50,19 @@ describe("getLinkedChart", () => {
     expect(getLinkedChart("#not-a-chart")).toBeUndefined();
   });
 
+  it("doesn't throw on malformed percent-encoding", () => {
+    expect(() => getLinkedChart("#%E0%A4%A")).not.toThrow();
+    expect(getLinkedChart("#%E0%A4%A")).toBeUndefined();
+  });
+
+  it("relies on chart IDs being URL-safe, so hashes need no decoding", () => {
+    const unsafe = charts
+      .map((item) => item.id)
+      .filter((id) => !/^[a-z0-9-]+$/.test(id));
+
+    expect(unsafe).toEqual([]);
+  });
+
   it("ignores RPC and Tx Senders charts", () => {
     expect(getLinkedChart("#rpc-p95-latency")).toBeUndefined();
     expect(getLinkedChart("#sender-transactions-over-time")).toBeUndefined();
