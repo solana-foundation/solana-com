@@ -17,6 +17,7 @@ import type {
   FinalFormCanvasHandle,
 } from "./FinalFormCanvas";
 import type { AlpenglowEvent, StreamStatus } from "./types";
+import { AlpenglowDashboardStats } from "./AlpenglowDashboardStats";
 
 const FinalFormCanvas = dynamic(
   () => import("./FinalFormCanvas").then((module) => module.FinalFormCanvas),
@@ -24,22 +25,12 @@ const FinalFormCanvas = dynamic(
 );
 
 type FinalityMode = "legacy" | "alpenglow";
-type RpcTelemetry = {
-  confirmedSlot: number;
-  latestBlockTransactions: number;
-  nonVoteTps: number;
-};
 const EMPTY_TELEMETRY: ArtworkTelemetry = {
   holding: 0,
   rendered: 0,
   finalizedBlocks: 0,
   currentFinalityMs: 0,
   medianFinalityMs: 0,
-};
-const EMPTY_RPC_TELEMETRY: RpcTelemetry = {
-  confirmedSlot: 0,
-  latestBlockTransactions: 0,
-  nonVoteTps: 0,
 };
 const MAX_BUFFERED_CANVAS_EVENTS = 10_000;
 
@@ -87,10 +78,7 @@ export default function FinalFormExperience({
     useState(false);
   const [visualizerIsActive, setVisualizerIsActive] = useState(false);
   const [telemetry, setTelemetry] = useState(EMPTY_TELEMETRY);
-  const [rpcTelemetry, setRpcTelemetry] = useState(EMPTY_RPC_TELEMETRY);
-  const [tps, setTps] = useState(0);
   const [status, setStatus] = useState<StreamStatus["status"]>("connecting");
-  const number = new Intl.NumberFormat(locale);
 
   const handleTelemetry = useCallback(
     (value: ArtworkTelemetry) => setTelemetry(value),
@@ -155,19 +143,6 @@ export default function FinalFormExperience({
       try {
         const event = JSON.parse(message.data) as AlpenglowEvent;
         if (event.type === "stream_status") setStatus(event.status);
-        if (event.type === "performance_sample") {
-          setTps(Math.round(event.totalTps));
-          setRpcTelemetry((current) => ({
-            ...current,
-            nonVoteTps: Math.round(event.nonVoteTps ?? 0),
-          }));
-        }
-        if (event.type === "block_confirmed")
-          setRpcTelemetry((current) => ({
-            ...current,
-            confirmedSlot: event.slot,
-            latestBlockTransactions: event.transactionCount,
-          }));
         if (
           event.type === "block_confirmed" &&
           Array.isArray(event.transactionSignatures)
@@ -205,7 +180,9 @@ export default function FinalFormExperience({
   function formatDuration(ms: number) {
     if (!ms) return "—";
     return ms < 1_000
-      ? t("duration.milliseconds", { value: number.format(Math.round(ms)) })
+      ? t("duration.milliseconds", {
+          value: new Intl.NumberFormat(locale).format(Math.round(ms)),
+        })
       : t("duration.seconds", {
           value: new Intl.NumberFormat(locale, {
             minimumFractionDigits: 1,
@@ -310,41 +287,7 @@ export default function FinalFormExperience({
             </div>
           </div>
         </div>
-        <p
-          className={`ff-rpc-line${useInteractiveVisualizer ? "" : " is-static"}`}
-          aria-label={t("aria.liveRpcData")}
-        >
-          <span className="ff-rpc-label">RPC</span>
-          <span>{statusLabel}</span>
-          <span>
-            <strong>{tps ? number.format(tps) : "—"}</strong>{" "}
-            {t("liveData.totalTps")}
-          </span>
-          <span>
-            <strong>
-              {rpcTelemetry.nonVoteTps
-                ? number.format(rpcTelemetry.nonVoteTps)
-                : "—"}
-            </strong>{" "}
-            {t("liveData.nonVoteTps")}
-          </span>
-          <span>
-            {t("liveData.slot")}{" "}
-            <strong>
-              {rpcTelemetry.confirmedSlot
-                ? number.format(rpcTelemetry.confirmedSlot)
-                : "—"}
-            </strong>
-          </span>
-          <span>
-            <strong>
-              {rpcTelemetry.latestBlockTransactions
-                ? number.format(rpcTelemetry.latestBlockTransactions)
-                : "—"}
-            </strong>{" "}
-            {t("liveData.transactionsInLatestBlock")}
-          </span>
-        </p>
+        <AlpenglowDashboardStats />
       </section>
       <p className="ff-note">{t("visualizerNote")}</p>
       <section className="ff-shift" aria-labelledby="ff-shift-title">

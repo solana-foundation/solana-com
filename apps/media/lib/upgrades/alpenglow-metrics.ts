@@ -2,6 +2,10 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import {
+  ALPENGLOW_MAINNET_ACTIVATION_EPOCH,
+  ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS,
+  ALPENGLOW_MAINNET_FEATURE_ADDRESS,
+  type AlpenglowActivationEstimate,
   ALPENGLOW_DASHBOARD_NETWORKS,
   ALPENGLOW_DASHBOARD_RANGES,
   type AlpenglowDashboardActivationData,
@@ -258,6 +262,7 @@ function unsupportedActivationData(
   return {
     generatedAt: new Date().toISOString(),
     network,
+    activationEstimate: null,
     alpenglowRpcSupported: false,
     alpenglowActive: null,
     genesisSlot: null,
@@ -312,6 +317,7 @@ async function loadAlpenglowActivationData(
       return {
         generatedAt: new Date().toISOString(),
         network,
+        activationEstimate: null,
         alpenglowRpcSupported: true,
         alpenglowActive: false,
         genesisSlot: null,
@@ -343,6 +349,7 @@ async function loadAlpenglowActivationData(
     return {
       generatedAt: new Date().toISOString(),
       network,
+      activationEstimate: null,
       alpenglowRpcSupported: true,
       alpenglowActive: true,
       genesisSlot: slot,
@@ -354,6 +361,7 @@ async function loadAlpenglowActivationData(
     return {
       generatedAt: new Date().toISOString(),
       network,
+      activationEstimate: null,
       alpenglowRpcSupported: null,
       alpenglowActive: null,
       genesisSlot: null,
@@ -361,6 +369,229 @@ async function loadAlpenglowActivationData(
       warnings: [`Alpenglow activation status is unavailable: ${reason}`],
     };
   }
+}
+
+const ACTIVATION_ESTIMATE_CACHE_MS = 60_000;
+let activationEstimateRequest: ReturnType<
+  typeof loadActivationEstimateSnapshot
+> | null = null;
+let activationEstimateExpiresAt = 0;
+
+async function activationTimingRpc(method: string, params: unknown[]) {
+  const response = await fetch(rpcUrl("mainnet"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: method, method, params }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new Error(`Solana RPC returned HTTP ${response.status}`);
+  }
+  const payload: unknown = await response.json();
+  if (!isRecord(payload)) throw new Error("Invalid activation timing response");
+  const error = rpcError(payload);
+  if (error) throw new Error(error.message);
+  return payload.result;
+}
+
+const FEATURE_PROGRAM_ADDRESS = "Feature111111111111111111111111111111111111";
+
+/** Returns the slot at which the Alpenglow feature gate activated, or null while it is inactive. */
+async function loadFeatureActivationSlot(): Promise<number | null> {
+  const result = await activationTimingRpc("getAccountInfo", [
+    ALPENGLOW_MAINNET_FEATURE_ADDRESS,
+    { commitment: "confirmed", encoding: "base64" },
+  ]);
+  if (!isRecord(result)) throw new Error("Invalid feature account response");
+  if (result.value === null) return null;
+  const account = result.value;
+  if (
+    !isRecord(account) ||
+    account.owner !== FEATURE_PROGRAM_ADDRESS ||
+    !Array.isArray(account.data) ||
+    typeof account.data[0] !== "string"
+  )
+    throw new Error("Invalid feature account");
+  // Feature accounts store a bincode `Option<u64>` activation slot.
+  const data = Buffer.from(account.data[0], "base64");
+  if (data[0] === 0) return null;
+  if (data[0] !== 1 || data.length < 9)
+    throw new Error("Invalid feature account data");
+  const slot = Number(data.readBigUInt64LE(1));
+  if (!Number.isSafeInteger(slot)) throw new Error("Invalid activation slot");
+  return slot;
+}
+
+async function loadActivationEstimate() {
+  try {
+    const [epochResult, samplesResult] = await Promise.allSettled([
+      activationTimingRpc("getEpochInfo", [{ commitment: "confirmed" }]),
+      activationTimingRpc("getRecentPerformanceSamples", [60]),
+    ]);
+    if (epochResult.status === "rejected") throw epochResult.reason;
+    const epoch = epochResult.value;
+    if (
+      !isRecord(epoch) ||
+      typeof epoch.epoch !== "number" ||
+      !Number.isSafeInteger(epoch.epoch) ||
+      epoch.epoch < 0 ||
+      typeof epoch.slotIndex !== "number" ||
+      !Number.isSafeInteger(epoch.slotIndex) ||
+      epoch.slotIndex < 0 ||
+      typeof epoch.slotsInEpoch !== "number" ||
+      !Number.isSafeInteger(epoch.slotsInEpoch) ||
+      epoch.slotsInEpoch <= epoch.slotIndex ||
+      typeof epoch.absoluteSlot !== "number" ||
+      !Number.isSafeInteger(epoch.absoluteSlot)
+    )
+      throw new Error("Invalid epoch progress");
+
+    // Mainnet has completed epoch warmup, so future epochs have the same slot count.
+    const featureSlotsRemaining =
+      (ALPENGLOW_MAINNET_ACTIVATION_EPOCH - epoch.epoch) * epoch.slotsInEpoch -
+      epoch.slotIndex;
+    let consensusSlotsRemaining =
+      featureSlotsRemaining + ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS;
+    const featureEpochReached = featureSlotsRemaining <= 0;
+    const warnings: string[] = [];
+    let featureActivated = false;
+    if (featureEpochReached) {
+      try {
+        const activationSlot = await loadFeatureActivationSlot();
+        if (activationSlot === null) {
+          warnings.push(
+            `Feature ${ALPENGLOW_MAINNET_FEATURE_ADDRESS} is not active yet`,
+          );
+        } else {
+          featureActivated = true;
+          consensusSlotsRemaining =
+            activationSlot +
+            ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS -
+            epoch.absoluteSlot;
+        }
+      } catch (error) {
+        warnings.push(
+          `Feature activation status is unavailable: ${error instanceof Error ? error.message : "unknown error"}`,
+        );
+      }
+    }
+    const consensusActivated = featureActivated && consensusSlotsRemaining <= 0;
+    const estimate: AlpenglowActivationEstimate = {
+      currentEpoch: epoch.epoch,
+      featureActivated,
+      consensusActivated,
+      estimatedFeatureActivationAt: null,
+      estimatedConsensusActivationAt: null,
+    };
+    // Past the scheduled epoch, an unconfirmed feature gate has no predictable activation time.
+    if (consensusActivated || (featureEpochReached && !featureActivated))
+      return { estimate, warnings };
+    try {
+      if (samplesResult.status === "rejected") throw samplesResult.reason;
+      const samples = samplesResult.value;
+      if (!Array.isArray(samples))
+        throw new Error("Invalid performance samples");
+      let slots = 0;
+      let seconds = 0;
+      for (const sample of samples) {
+        if (
+          isRecord(sample) &&
+          typeof sample.numSlots === "number" &&
+          Number.isSafeInteger(sample.numSlots) &&
+          sample.numSlots > 0 &&
+          typeof sample.samplePeriodSecs === "number" &&
+          Number.isFinite(sample.samplePeriodSecs) &&
+          sample.samplePeriodSecs > 0
+        ) {
+          slots += sample.numSlots;
+          seconds += sample.samplePeriodSecs;
+        }
+      }
+      if (slots === 0) throw new Error("No usable performance samples");
+      const observedAt = Date.now();
+      const millisecondsPerSlot = (seconds / slots) * 1_000;
+      return {
+        estimate: {
+          currentEpoch: epoch.epoch,
+          featureActivated,
+          consensusActivated,
+          estimatedFeatureActivationAt: featureEpochReached
+            ? null
+            : new Date(
+                observedAt + featureSlotsRemaining * millisecondsPerSlot,
+              ).toISOString(),
+          estimatedConsensusActivationAt: new Date(
+            observedAt + consensusSlotsRemaining * millisecondsPerSlot,
+          ).toISOString(),
+        },
+        warnings,
+      };
+    } catch (error) {
+      return {
+        estimate,
+        warnings: [
+          ...warnings,
+          `Activation countdown is unavailable: ${error instanceof Error ? error.message : "unknown error"}`,
+        ],
+      };
+    }
+  } catch (error) {
+    return {
+      estimate: null,
+      warnings: [
+        `Activation countdown is unavailable: ${error instanceof Error ? error.message : "unknown error"}`,
+      ],
+    };
+  }
+}
+
+async function loadActivationEstimateSnapshot() {
+  return {
+    ...(await loadActivationEstimate()),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+const activationEstimateLoads = new Map<
+  string,
+  ReturnType<typeof loadActivationEstimateSnapshot>
+>();
+
+function uncachedActivationEstimate() {
+  return coalesce(
+    activationEstimateLoads,
+    "mainnet",
+    loadActivationEstimateSnapshot,
+  );
+}
+
+const cachedActivationEstimate = unstable_cache(
+  uncachedActivationEstimate,
+  ["alpenglow-activation-estimate-v3"],
+  { revalidate: ACTIVATION_ESTIMATE_CACHE_MS / 1_000 },
+);
+
+async function freshActivationEstimate() {
+  let snapshot = IS_PRODUCTION
+    ? await cachedActivationEstimate()
+    : await uncachedActivationEstimate();
+  // Next's cache can serve stale data while revalidating after a quiet period.
+  if (exceedsMaximumAge(snapshot.generatedAt, ACTIVATION_ESTIMATE_CACHE_MS)) {
+    snapshot = await uncachedActivationEstimate();
+  }
+  activationEstimateExpiresAt =
+    Date.parse(snapshot.generatedAt) + ACTIVATION_ESTIMATE_CACHE_MS;
+  return snapshot;
+}
+
+function getActivationEstimate() {
+  // Share both successful and failed lookups across status polls and concurrent visitors.
+  if (!activationEstimateRequest || Date.now() >= activationEstimateExpiresAt) {
+    activationEstimateExpiresAt = Date.now() + ACTIVATION_ESTIMATE_CACHE_MS;
+    activationEstimateRequest = freshActivationEstimate();
+  }
+  return activationEstimateRequest;
 }
 
 function finiteNumber(value: string | undefined): number | null {
@@ -620,12 +851,26 @@ export function isAlpenglowDashboardNetwork(
 }
 
 /** Loads the canonical Alpenglow activation snapshot for a cluster. */
-export function getAlpenglowActivationData(
+export async function getAlpenglowActivationData(
   network: AlpenglowDashboardNetwork,
 ): Promise<AlpenglowDashboardActivationData> {
-  return IS_PRODUCTION
+  const activation = await (IS_PRODUCTION
     ? cachedActivationData(network)
-    : uncachedActivationData(network);
+    : uncachedActivationData(network));
+  if (network !== "mainnet" || activation.alpenglowActive === true)
+    return activation;
+  const timing = await getActivationEstimate();
+  return {
+    ...activation,
+    activationEstimate: timing.estimate,
+    // The slot-based estimate only fills in when the genesis certificate RPC cannot answer.
+    alpenglowActive:
+      activation.alpenglowActive === null &&
+      timing.estimate?.consensusActivated === true
+        ? true
+        : activation.alpenglowActive,
+    warnings: [...activation.warnings, ...timing.warnings],
+  };
 }
 
 /** Loads fast-changing finality and throughput values for a cluster. */

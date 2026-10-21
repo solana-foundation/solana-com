@@ -813,6 +813,16 @@ export default {
 
   redirects: withLocaleRedirects([
     {
+      source: "/accelerate/china",
+      destination: "/accelerate",
+      permanent: true,
+    },
+    {
+      source: "/accelerate/china/:path*",
+      destination: "/accelerate",
+      permanent: true,
+    },
+    {
       source:
         "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.png",
       destination:
