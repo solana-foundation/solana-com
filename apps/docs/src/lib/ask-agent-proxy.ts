@@ -34,7 +34,7 @@ function askAgentBaseUrl(): string {
 }
 
 function askProxySecret(): string | null {
-  const secret = process.env.ASK_PROXY_SECRET?.trim();
+  const secret = process.env.ASK_SOLANA_PROXY_SECRET?.trim();
   return secret ? secret : null;
 }
 
@@ -94,7 +94,7 @@ export async function proxyAskRequest(
   const proxySecret = askProxySecret();
   if (!proxySecret) {
     const response = Response.json(
-      { error: "ASK_PROXY_SECRET is not configured" },
+      { error: "ASK_SOLANA_PROXY_SECRET is not configured" },
       { status: 503 },
     );
     appendServerTiming(response.headers, [
