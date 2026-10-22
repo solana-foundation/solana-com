@@ -21,6 +21,7 @@ const DATA_TOPIC_KEYS = [
   "stablecoins",
   "defi",
   "lending",
+  "perps",
   "rpc",
   "senders",
 ] as const;
