@@ -4,10 +4,9 @@ import { useState } from "react";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import {
   AskSolanaChatView,
-  openAskSolanaWidget,
+  trackAskSolana,
   type AskSolanaChatStatus,
 } from "@solana-com/ui-chrome";
-import { useRouter } from "@workspace/i18n/routing";
 import styles from "./ask-vector-hero.module.css";
 
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], display: "swap" });
@@ -36,7 +35,6 @@ export function AskVectorHero({
 }: {
   onChatActiveChange?: (_isActive: boolean) => void;
 }) {
-  const router = useRouter();
   const [query, setQuery] = useState("");
   const [chatStatus, setChatStatus] = useState<AskSolanaChatStatus>("idle");
   const [chatSeed, setChatSeed] = useState<{
@@ -54,16 +52,17 @@ export function AskVectorHero({
     onChatActiveChange?.(true);
   };
 
-  // Enter on the hero ask bar sends the question to the Vector side panel and
-  // takes the page to /docs; the launcher there picks the question up (its
-  // header button can pop the chat out to a full-screen tab).
-  const openChatInSidePanel = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
+  // Full-screen view in a new tab, re-asking the question there (same hand-off
+  // as the side panel's pop-out button).
+  const openInNewTab = () => {
+    if (!chatSeed) return;
 
-    openAskSolanaWidget(trimmed);
-    setQuery("");
-    router.push("/docs");
+    trackAskSolana("docs_ai_widget_fullscreen", { source: "hero" });
+    window.open(
+      `/docs/ask?q=${encodeURIComponent(chatSeed.query)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
   const closeChat = () => {
@@ -131,13 +130,22 @@ export function AskVectorHero({
                     {CHAT_STATUS_LABELS[chatStatus]}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className={styles.chatBack}
-                  onClick={closeChat}
-                >
-                  Back to docs
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    className="shrink-0 cursor-pointer rounded-lg border border-white/10 bg-transparent px-2.5 py-1.5 text-xs font-semibold text-[#d6d6df] transition-colors hover:border-white/20 hover:bg-white/5 hover:text-white"
+                    onClick={openInNewTab}
+                  >
+                    Open in new tab ↗
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.chatBack}
+                    onClick={closeChat}
+                  >
+                    Back to docs
+                  </button>
+                </div>
               </div>
               <div className={styles.chatBody}>
                 <AskSolanaChatView
@@ -162,7 +170,7 @@ export function AskVectorHero({
                 className={styles.askBar}
                 onSubmit={(e) => {
                   e.preventDefault();
-                  openChatInSidePanel(query);
+                  startChat(query);
                 }}
               >
                 <span className={styles.askInner}>
