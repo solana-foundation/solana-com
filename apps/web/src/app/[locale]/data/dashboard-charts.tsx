@@ -1,9 +1,11 @@
 "use client";
 
 import { motion } from "motion/react";
+import { Check } from "@boxicons/react/Check";
 import { InfoCircle as Info } from "@boxicons/react/InfoCircle";
+import { Link as LinkIcon } from "@boxicons/react/Link";
 import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { trackAnalyticsEvent } from "@solana-com/ui-chrome/analytics";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import {
@@ -34,6 +36,7 @@ import {
   tabIndicatorSpring,
 } from "./dashboard-constants";
 import { FilterSelect } from "./dashboard-controls";
+import { canLinkToChart, getChartLinkUrl } from "./dashboard-query";
 import {
   formatPercent,
   getChartCaption,
@@ -223,15 +226,21 @@ function ChartCard({
   return (
     <article
       className={cn(
-        "relative p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5",
+        "group relative p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5",
         className,
       )}
+      id={chart.id}
     >
       <div className="grid gap-1.5">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="m-0 min-w-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
-            {title}
-          </h2>
+          <div className="flex min-w-0 items-start gap-1.5">
+            <h2 className="m-0 min-w-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
+              {title}
+            </h2>
+            {canLinkToChart(chart) ? (
+              <ChartLinkButton chart={chart} title={title} />
+            ) : null}
+          </div>
           <div className="flex shrink-0 items-center gap-3">
             {periodViewOptions.length > 1 ? (
               <FilterSelect
@@ -293,6 +302,73 @@ function ChartCard({
       {chart.visualization === "bar" ? null : <ChartOrdinal index={index} />}
       {isRefreshing ? <ChartRefreshingOverlay /> : null}
     </article>
+  );
+}
+
+/**
+ * Copies a direct link to the chart (its tab plus `#chart-id`). Shown on hover
+ * on larger screens and always on small ones, where there's no hover.
+ */
+function ChartLinkButton({
+  chart,
+  title,
+}: {
+  chart: ChartDefinition;
+  title: string;
+}) {
+  const t = useTranslations("dataDashboard");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setCopied(false), 2000);
+
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        getChartLinkUrl(
+          chart,
+          window.location.origin,
+          window.location.pathname,
+          window.location.search,
+        ),
+      );
+      setCopied(true);
+    } catch {
+      // Clipboard access can be denied; the link is still reachable by hand.
+    }
+  };
+
+  return (
+    <button
+      aria-label={t("chartLink.copy", { metric: title })}
+      className={cn(
+        "inline-flex h-[25px] xl:h-[30px] shrink-0 items-center gap-1 px-1 text-nd-mid-em-text transition-[color,opacity] hover:text-nd-high-em-text focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-nd-primary",
+        copied
+          ? "text-nd-high-em-text"
+          : "md:opacity-0 md:group-hover:opacity-100",
+      )}
+      onClick={copyLink}
+      type="button"
+    >
+      {copied ? (
+        <Check aria-hidden className="size-4" />
+      ) : (
+        <LinkIcon aria-hidden className="size-4" />
+      )}
+      <span
+        className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase"
+        role="status"
+      >
+        {copied ? t("chartLink.copied") : null}
+      </span>
+    </button>
   );
 }
 
