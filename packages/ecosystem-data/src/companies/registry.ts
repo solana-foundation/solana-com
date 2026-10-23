@@ -90,6 +90,7 @@ import { phoenix } from "./records/phoenix";
 import { pipeNetwork } from "./records/pipe-network";
 import { playSolana } from "./records/play-solana";
 import { pyth } from "./records/pyth";
+import { purgefi } from "./records/purgefi";
 import { quicknode } from "./records/quicknode";
 import { raiku } from "./records/raiku";
 import { rain } from "./records/rain";
@@ -232,6 +233,7 @@ export const companies = [
   pipeNetwork,
   playSolana,
   pyth,
+  purgefi,
   quicknode,
   raiku,
   rain,
