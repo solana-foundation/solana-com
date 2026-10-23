@@ -333,6 +333,7 @@ export type DashboardTab =
   | "network"
   | "defi"
   | "lending"
+  | "perps"
   | "rpc"
   | "senders";
 export type Aggregation = "avg" | "sum";
@@ -998,6 +999,55 @@ export const chartDefinitions = [
     title: "Protocol Count",
     valueLabel: "Count",
     metrics: ["Protocol Count"],
+    aggregation: "avg",
+    seriesField: "provider",
+  },
+  {
+    id: "perps-trading-volume",
+    tab: "perps",
+    title: "Trading Volume",
+    valueLabel: "USD",
+    metrics: ["Trading Volume"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: flowPeriodViews,
+  },
+  {
+    id: "perps-open-interest",
+    tab: "perps",
+    title: "Total Open Interest",
+    valueLabel: "USD",
+    metrics: ["Total Open Interest"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: levelPeriodViews,
+  },
+  {
+    id: "perps-transactions",
+    tab: "perps",
+    title: "Transactions",
+    valueLabel: "Count",
+    metrics: ["Transactions"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: flowPeriodViews,
+  },
+  {
+    id: "perps-traders",
+    tab: "perps",
+    title: "Traders",
+    valueLabel: "Count",
+    metrics: ["Traders"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: averagePeriodViews,
+  },
+  {
+    id: "perps-venue-count",
+    tab: "perps",
+    title: "Venue Count",
+    valueLabel: "Count",
+    metrics: ["Venue Count"],
     aggregation: "avg",
     seriesField: "provider",
   },
