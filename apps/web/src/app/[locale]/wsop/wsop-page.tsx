@@ -828,7 +828,7 @@ export function WsopPage() {
                 >
                   <div
                     className={
-                      "relative flex min-h-72 flex-col items-center justify-center overflow-hidden border-b border-b-[var(--wsop-border)] bg-[radial-gradient(_circle_at_50%_64%,_rgba(85,_233,_171,_0.26),_transparent_38%_),_linear-gradient(145deg,_rgba(202,_159,_245,_0.2),_transparent_48%),_#121116] before:absolute before:z-[1] before:inset-3 before:border before:border-[var(--wsop-border)] before:rounded-xl before:content-[''] before:pointer-events-none sm:min-h-full sm:border-r sm:border-r-[var(--wsop-border)] sm:border-b-0"
+                      "relative flex min-h-72 flex-col items-center justify-center overflow-hidden border-b border-b-[var(--wsop-border)] bg-[#121116] bg-[radial-gradient(_circle_at_50%_64%,_rgba(85,_233,_171,_0.26),_transparent_38%),linear-gradient(145deg,_rgba(202,_159,_245,_0.2),_transparent_48%)] before:absolute before:z-[1] before:inset-3 before:border before:border-[var(--wsop-border)] before:rounded-xl before:content-[''] before:pointer-events-none sm:min-h-full sm:border-r sm:border-r-[var(--wsop-border)] sm:border-b-0"
                     }
                   >
                     <Image
@@ -1110,7 +1110,7 @@ export function WsopPage() {
         </section>
         <section
           className={
-            "[&_a:focus-visible]:outline [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-[var(--wsop-accent)] [&_a:focus-visible]:outline-offset-[4px] [&_h2]:max-w-[14ch] [&_h2]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:tracking-[-0.04em] [&_h2]:leading-[1.125] py-[clamp(4rem,calc(10vw+2rem),10rem)] px-5 border-t border-t-[var(--wsop-border)] bg-[radial-gradient(_circle_at_82%_24%,_rgba(85,_233,_171,_0.16),_transparent_30%_),_radial-gradient(_circle_at_18%_85%,_rgba(202,_159,_245,_0.18),_transparent_34%_),_#000] md:px-8 lg:py-[clamp(6rem,_7vw,_7.5rem)] xl:px-[2.5rem]"
+            "[&_a:focus-visible]:outline [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-[var(--wsop-accent)] [&_a:focus-visible]:outline-offset-[4px] [&_h2]:max-w-[14ch] [&_h2]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:tracking-[-0.04em] [&_h2]:leading-[1.125] py-[clamp(4rem,calc(10vw+2rem),10rem)] px-5 border-t border-t-[var(--wsop-border)] bg-black bg-[radial-gradient(_circle_at_82%_24%,_rgba(85,_233,_171,_0.16),_transparent_30%),radial-gradient(_circle_at_18%_85%,_rgba(202,_159,_245,_0.18),_transparent_34%)] md:px-8 lg:py-[clamp(6rem,_7vw,_7.5rem)] xl:px-[2.5rem]"
           }
           aria-labelledby="get-started-heading"
         >
