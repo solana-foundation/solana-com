@@ -45,7 +45,7 @@ const sectionTitleClass =
 const sectionDescriptionClass =
   "max-w-[36rem] text-[var(--wsop-muted)] text-[clamp(1.125rem,3.125vw,1.5rem)] tracking-[-0.02em] leading-[1.45] md:leading-[1.33]";
 const buttonClass =
-  "inline-flex min-h-12 items-center justify-between gap-5 pt-2 pr-2 pb-2 pl-5 border-0 rounded-full bg-white text-black cursor-pointer text-base font-medium tracking-[-0.01em] leading-tight [&_svg]:w-8 [&_svg]:h-8 [&_svg]:p-2 [&_svg]:rounded-full [&_svg]:bg-black [&_svg]:text-white [&_svg]:stroke-[2.5] [&_svg]:transition-transform [&_svg]:duration-180 [&_svg]:ease-wsop [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] hover:bg-[rgba(255,_255,_255,_0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-accent)] focus-visible:outline-offset-[4px] md:text-lg motion-reduce:[&_svg]:transition-none motion-reduce:[&:hover_svg]:transform-none";
+  "inline-flex min-h-12 items-center justify-between gap-5 pt-2 pr-2 pb-2 pl-5 border-0 rounded-full bg-white text-black cursor-pointer text-[1rem] font-medium tracking-[-0.01em] leading-tight [&_svg]:w-8 [&_svg]:h-8 [&_svg]:p-2 [&_svg]:rounded-full [&_svg]:bg-black [&_svg]:text-white [&_svg]:stroke-[2.5] [&_svg]:transition-transform [&_svg]:duration-180 [&_svg]:ease-wsop [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] hover:bg-[rgba(255,_255,_255,_0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-accent)] focus-visible:outline-offset-[4px] md:text-[1.125rem] motion-reduce:[&_svg]:transition-none motion-reduce:[&:hover_svg]:transform-none";
 
 type Icon = typeof Spade;
 
