@@ -99,7 +99,7 @@ export default function ParadiseScene({
         depthWrite: false,
         uniforms: { uTime: { value: 0 } },
         vertexShader: `varying vec3 vDir; void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-        fragmentShader: `varying vec3 vDir;uniform float uTime;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}void main(){vec3 d=normalize(vDir);float h=smoothstep(-.05,.8,d.y);vec3 col=mix(vec3(.933,.976,.992),vec3(.486,.784,.933),h);vec3 sun=normalize(vec3(.55,.32,-1.));float disc=smoothstep(.9992,.9998,dot(d,sun));float glow=pow(max(dot(d,sun),0.),30.);col+=vec3(1.,.96,.82)*(disc*.8+glow*.22);float cloud=noise(d.xz*7.+vec2(uTime*.004,0.))*0.65+noise(d.xz*15.+vec2(uTime*.007,0.))*.35;col+=vec3(1.)*smoothstep(.59,.78,cloud)*.075*smoothstep(.0,.22,d.y);gl_FragColor=vec4(col,1.);}`,
+        fragmentShader: `varying vec3 vDir;uniform float uTime;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}void main(){vec3 d=normalize(vDir);float h=smoothstep(-.05,.8,d.y);vec3 col=mix(vec3(.933,.976,.992),vec3(.486,.784,.933),h);vec3 sun=normalize(vec3(.55,.32,-1.));float disc=smoothstep(.99975,.99995,dot(d,sun));float glow=pow(max(dot(d,sun),0.),30.);col+=vec3(1.,.96,.82)*(disc*.45+glow*.033);float cloud=noise(d.xz*7.+vec2(uTime*.004,0.))*0.65+noise(d.xz*15.+vec2(uTime*.007,0.))*.35;col+=vec3(1.)*smoothstep(.59,.78,cloud)*.075*smoothstep(.0,.22,d.y);gl_FragColor=vec4(col,1.);}`,
       }),
     );
     scene.add(sky);
@@ -113,31 +113,39 @@ export default function ParadiseScene({
     water.rotation.x = -Math.PI / 2;
     water.position.y = -0.12;
     scene.add(water);
-    scene.add(new THREE.HemisphereLight(0xdff4ff, 0x2a8caa, 0.9));
+    scene.add(new THREE.HemisphereLight(0xdff4ff, 0x2a8caa, 1.3));
     const light = new THREE.DirectionalLight(0xfff4dc, 1.6);
     light.position.set(5, 6, -8);
     scene.add(light);
+    const frontKey = new THREE.DirectionalLight(0xffffff, 2.2);
+    frontKey.position.set(2.5, 4, 7);
+    scene.add(frontKey);
     const { face, side } = chipTextures();
     const sideMat = new THREE.MeshStandardMaterial({
       map: side,
+      emissive: 0x1b5f73,
+      emissiveIntensity: 0.8,
       roughness: 0.45,
       metalness: 0.05,
     });
-    const faceMat = new THREE.MeshStandardMaterial({
+    const faceMat = new THREE.MeshBasicMaterial({
       map: face,
-      roughness: 0.45,
-      metalness: 0.05,
+      toneMapped: false,
     });
     const chipGeometry = new THREE.CylinderGeometry(0.62, 0.62, 0.13, 64);
     const stack = new THREE.Group();
+    const tilt = new THREE.Group();
+    const spin = new THREE.Group();
     for (let i = 0; i < 3; i++) {
       const chip = new THREE.Mesh(chipGeometry, [sideMat, faceMat, faceMat]);
-      chip.position.set((i - 1) * 0.035, i * 0.13, (i % 2) * 0.03);
+      chip.position.set((i - 1) * 0.035, (i - 1) * 0.13, (i % 2) * 0.03);
       chip.rotation.y = i * 0.18;
-      stack.add(chip);
+      spin.add(chip);
     }
-    stack.rotation.x = -Math.PI / 10;
-    stack.rotation.z = Math.PI / 15;
+    tilt.rotation.x = 0.5;
+    tilt.rotation.z = -0.15;
+    tilt.add(spin);
+    stack.add(tilt);
     scene.add(stack);
     const shadowCanvas = document.createElement("canvas");
     shadowCanvas.width = shadowCanvas.height = 256;
@@ -172,6 +180,40 @@ export default function ParadiseScene({
     const finePointer =
       window.matchMedia("(pointer: fine)").matches && !reduced;
     const clock = new THREE.Clock();
+    const screenPoint = new THREE.Vector3();
+    const viewDirection = new THREE.Vector3();
+    const cameraForward = new THREE.Vector3();
+    const stackDistance = 3.5;
+    const placeStack = () => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (!w || !h) return;
+      const [screenX, screenY, widthFraction] =
+        w >= 1024
+          ? [0.74, 0.58, 0.22]
+          : w >= 768
+            ? [0.78, 0.7, 0.26]
+            : [0.74, 0.86, 0.34];
+      screenPoint.set(screenX * 2 - 1, 1 - screenY * 2, 0.5).unproject(camera);
+      viewDirection.copy(screenPoint).sub(camera.position).normalize();
+      camera.getWorldDirection(cameraForward);
+      stack.position
+        .copy(camera.position)
+        .addScaledVector(
+          viewDirection,
+          stackDistance / viewDirection.dot(cameraForward),
+        );
+      const visibleWidth =
+        2 *
+        stackDistance *
+        Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) *
+        (w / h);
+      const scale = (widthFraction * visibleWidth) / 1.24;
+      stack.scale.setScalar(scale);
+      shadow.position.x = stack.position.x;
+      shadow.position.z = stack.position.z;
+      shadow.scale.setScalar(scale);
+    };
     const resize = () => {
       const w = container.clientWidth,
         h = container.clientHeight;
@@ -179,34 +221,20 @@ export default function ParadiseScene({
       renderer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      const pos =
-        w >= 1024
-          ? [2.6, 1.05, -1.5, 1]
-          : w >= 768
-            ? [1.7, 1.25, -2.2, 0.8]
-            : [0.9, 1.75, -3, 0.6];
-      stack.position.set(pos[0], pos[1], pos[2]);
-      stack.scale.setScalar(pos[3]);
-      shadow.position.x = pos[0];
-      shadow.position.z = pos[2];
+      placeStack();
     };
     const render = (time: number) => {
       sky.material.uniforms.uTime.value = time;
       waterMaterial.uniforms.uTime.value = time;
-      stack.rotation.y = (time * Math.PI) / 20;
-      stack.position.y =
-        (container.clientWidth >= 1024
-          ? 1.05
-          : container.clientWidth >= 768
-            ? 1.25
-            : 1.75) +
-        Math.sin((time * Math.PI) / 3) * 0.06;
+      spin.rotation.y = (time * Math.PI) / 20;
+      spin.position.y = Math.sin((time * Math.PI) / 3) * 0.06;
       shadowMaterial.opacity = 0.68 - Math.sin((time * Math.PI) / 3) * 0.08;
       currentX += (targetX - currentX) * 0.04;
       currentY += (targetY - currentY) * 0.04;
       camera.position.x = currentX;
       camera.position.y = 1.4 + currentY;
       camera.lookAt(0, 0.9, -10);
+      placeStack();
       renderer.render(scene, camera);
       if (!ready) {
         ready = true;
