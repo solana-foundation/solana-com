@@ -531,7 +531,7 @@ export const providerColors: Record<string, string> = {
   FluxRPC: "#F2C14E",
   Helius: "#E84125",
   Jito: "#A78BFA",
-  QuickNode: "#6CFF75",
+  Quicknode: "#6CFF75",
   RWA: "#A1B9E3",
   Stakewiz: "#f6b486",
   Stellium: "#FB7185",
@@ -555,8 +555,9 @@ const providerAliases: Record<string, ProviderName> = {
   fluxrpc: "FluxRPC",
   helius: "Helius",
   jito: "Jito",
-  Quicknode: "QuickNode",
-  quicknode: "QuickNode",
+  Quicknode: "Quicknode",
+  QuickNode: "Quicknode",
+  quicknode: "Quicknode",
   stellium: "Stellium",
   temporal: "Temporal",
   triton: "Triton",
@@ -1073,7 +1074,7 @@ export const chartDefinitions = [
           "Errored rpc_requests_total divided by successful and errored requests for the selected filters. Skipped outcomes are neutral. Hover the chart for error types.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Errored rpc_requests_total divided by successful and errored requests for the selected filters. Skipped outcomes are neutral. Hover the chart for error types.",
       },
@@ -1107,7 +1108,7 @@ export const chartDefinitions = [
           "Prometheus rate over 5 minutes for the selected RPC method, region, and infrastructure filter.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Prometheus rate over 5 minutes for the selected RPC method, region, and infrastructure filter.",
       },
@@ -1140,7 +1141,7 @@ export const chartDefinitions = [
           "Prometheus histogram p50 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Prometheus histogram p50 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
@@ -1173,7 +1174,7 @@ export const chartDefinitions = [
           "Prometheus histogram p95 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Prometheus histogram p95 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
@@ -1206,7 +1207,7 @@ export const chartDefinitions = [
           "Prometheus histogram p99 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Prometheus histogram p99 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
