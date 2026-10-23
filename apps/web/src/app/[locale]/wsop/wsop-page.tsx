@@ -576,10 +576,10 @@ export function WsopPage() {
             <div className="absolute inset-0 bg-[linear-gradient(180deg,#a9def3_0%,#e6f7fd_40%,#bfeaf5_47%,#58c3d9_60%,#1f95b8_78%,#0b5f80_100%)]" />
             <ParadiseScene className="absolute inset-0 size-full" />
           </motion.div>
-          <div className="absolute inset-0 z-[-2] bg-[linear-gradient(90deg,rgba(4,40,58,0.92),rgba(4,40,58,0.85)),linear-gradient(0deg,rgba(4,40,58,0.7),transparent_45%)] md:bg-[linear-gradient(90deg,rgba(4,40,58,0.82),rgba(4,40,58,0.35)_55%,transparent_80%),linear-gradient(0deg,rgba(4,40,58,0.7),transparent_45%)]" />
+          <div className="absolute inset-0 z-[-2] bg-[linear-gradient(180deg,rgba(4,40,58,0.9)_0%,rgba(4,40,58,0.85)_65%,rgba(4,40,58,0.12)_72%,rgba(4,40,58,0.18)_100%)] md:bg-[linear-gradient(90deg,rgba(4,40,58,0.82),rgba(4,40,58,0.35)_55%,transparent_80%),linear-gradient(0deg,rgba(4,40,58,0.7),transparent_45%)]" />
           <motion.div
             className={
-              "flex justify-between gap-8 border-b border-white/20 bg-[rgba(4,40,58,0.35)] px-5 py-4 font-[family-name:var(--wsop-font-label)] text-[0.7rem] font-medium leading-[1.4] tracking-[0.08em] text-white/80 uppercase backdrop-blur-md md:px-8 xl:px-[max(2.5rem,calc((100vw-1440px)/2+2.5rem))] max-[767px]:[&>p:last-child]:hidden"
+              "flex justify-between gap-8 border-b border-white/20 bg-[rgba(4,40,58,0.82)] px-5 py-4 font-[family-name:var(--wsop-font-label)] text-[0.7rem] font-medium leading-[1.4] tracking-[0.08em] text-white/80 uppercase backdrop-blur-md md:px-8 xl:px-[max(2.5rem,calc((100vw-1440px)/2+2.5rem))] max-[767px]:[&>p:last-child]:hidden"
             }
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
