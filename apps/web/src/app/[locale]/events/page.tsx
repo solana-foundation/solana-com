@@ -22,7 +22,7 @@ type Props = { params: Promise<{ locale: string }> };
 // Luma responses remain cached to avoid refetching every request.
 export const revalidate = 0;
 
-const EVENTS_REVALIDATE_SECONDS = 86400;
+const EVENTS_REVALIDATE_SECONDS = 1800;
 
 // Private Luma events are not included in the calendar API response.
 const staticEvents: CalendarEvent[] = [
