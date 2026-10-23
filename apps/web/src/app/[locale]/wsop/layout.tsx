@@ -1,12 +1,6 @@
 import type { ReactNode } from "react";
 import { Anton } from "next/font/google";
 import "./wsop.css";
-import {
-  ArchivedCampaignLayout,
-  archivedCampaignMetadata,
-} from "@/components/archived-campaign-layout";
-
-export const metadata = archivedCampaignMetadata;
 
 const anton = Anton({
   weight: "400",
@@ -17,8 +11,9 @@ const anton = Anton({
 
 export default function WsopLayout({ children }: { children: ReactNode }) {
   return (
-    <ArchivedCampaignLayout period="2026" noticeKey="wsop">
-      <div className={`wsop-page ${anton.variable}`}>{children}</div>
-    </ArchivedCampaignLayout>
+    /* Paradise accent replaces the Vegas green */
+    <div className={`wsop-page [--wsop-green:#7fd8f0] ${anton.variable}`}>
+      {children}
+    </div>
   );
 }
