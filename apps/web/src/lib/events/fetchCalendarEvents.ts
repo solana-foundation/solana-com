@@ -164,7 +164,9 @@ export async function fetchCalendarEvents(
 ): Promise<CalendarEvent[]> {
   if (!process.env.LUMA_PRIVATE_API_KEY) {
     console.warn("LUMA_PRIVATE_API_KEY is not set. Using public calendar.");
-    return fetchPublicCalendarEvents(calendarId, requestOptions.revalidate);
+    return options.period === "past"
+      ? []
+      : fetchPublicCalendarEvents(calendarId, requestOptions.revalidate);
   }
 
   let allEvents: CalendarEvent[] = [];
@@ -227,10 +229,13 @@ export async function fetchCalendarEvents(
   }
 
   if (apiFailed && allEvents.length === 0) {
-    allEvents = await fetchPublicCalendarEvents(
-      calendarId,
-      requestOptions.revalidate,
-    );
+    allEvents =
+      options.period === "past"
+        ? []
+        : await fetchPublicCalendarEvents(
+            calendarId,
+            requestOptions.revalidate,
+          );
   }
 
   // Append static signup form events before overrides so they can be customized here too

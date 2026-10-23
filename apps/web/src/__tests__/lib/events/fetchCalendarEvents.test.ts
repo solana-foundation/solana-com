@@ -126,4 +126,17 @@ describe("events calendar", () => {
     );
     expect(fetchMock.mock.calls[1][1].next).toEqual({ revalidate: 1800 });
   });
+
+  it("does not use upcoming public events for a past-event request", async () => {
+    vi.stubEnv("LUMA_PRIVATE_API_KEY", "test-key");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response("rate limited", { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const events = await fetchCalendarEvents("cal-test", { period: "past" });
+
+    expect(events).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
