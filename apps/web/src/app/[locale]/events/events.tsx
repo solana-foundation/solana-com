@@ -6,15 +6,18 @@ import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import EventsHeroSection from "@/components/events/EventsHeroSection";
 import EventsDetailSection from "@/components/events/EventsDetailSection";
 import EventsList from "@/components/events/EventsList";
+import EventsNewsFeed from "@/components/events/EventsNewsFeed";
 import Link, { InlineLink } from "@/utils/Link";
 import { Reveal } from "@/components/events/EventsMotion";
 import type { CalendarEvent } from "@/lib/events/fetchCalendarEvents";
+import type { PostItem } from "@/types/media";
 
 interface EventsLandingPageProps {
   events: CalendarEvent[];
   communityEvents: CalendarEvent[];
   featuredEvent: CalendarEvent | null;
   usEvents: CalendarEvent[];
+  newsPosts: PostItem[];
   translations: {
     usHeading: string;
     usDescription: string;
@@ -30,6 +33,7 @@ export function EventsLandingPage({
   communityEvents,
   featuredEvent,
   usEvents,
+  newsPosts,
   translations,
 }: EventsLandingPageProps) {
   const t = useTranslations();
@@ -122,6 +126,8 @@ export function EventsLandingPage({
             />
           </div>
         </section>
+
+        <EventsNewsFeed posts={newsPosts} />
 
         <section className="container border-t border-white/10 py-14">
           <TextLink to="/events/archive">{translations.archive}</TextLink>

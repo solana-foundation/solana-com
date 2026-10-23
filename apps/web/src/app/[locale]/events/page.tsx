@@ -15,6 +15,7 @@ import {
   fetchCalendarEvents,
   isUpcomingEvent,
 } from "@/lib/events/fetchCalendarEvents";
+import { fetchEventsNews } from "@/lib/media/events-news";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -72,6 +73,7 @@ export default async function Page({ params }: Props) {
     usEvents,
     communityEvents,
     breakpointSideEvents,
+    newsPosts,
     t,
   ] = await Promise.all([
     params,
@@ -121,6 +123,7 @@ export default async function Page({ params }: Props) {
       { period: "future" },
       { revalidate: EVENTS_REVALIDATE_SECONDS, fetchAllPages: true },
     ),
+    fetchEventsNews(),
     getTranslations(),
   ]);
 
@@ -184,6 +187,7 @@ export default async function Page({ params }: Props) {
         communityEvents={sortedCommunity}
         featuredEvent={featuredEvent}
         usEvents={upcomingUsEvents}
+        newsPosts={newsPosts}
         translations={translations}
       />
     </>
