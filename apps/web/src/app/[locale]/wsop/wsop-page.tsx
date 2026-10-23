@@ -476,14 +476,14 @@ export function WsopPage() {
           <motion.div
             className="wsop-hero__image-motion"
             style={reduceMotion ? undefined : { y: heroParallax }}
-            initial={{ opacity: 0, scale: 1.04 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={{ scale: 1.04 }}
+            animate={{ scale: 1 }}
             transition={{ duration: 0.9, ease: EASE }}
           >
             <div className="absolute inset-0 bg-[linear-gradient(180deg,#a9def3_0%,#e6f7fd_40%,#bfeaf5_47%,#58c3d9_60%,#1f95b8_78%,#0b5f80_100%)]" />
             <ParadiseScene className="absolute inset-0 size-full" />
           </motion.div>
-          <div className="absolute inset-0 z-[-2] bg-[linear-gradient(90deg,rgba(4,40,58,0.9),rgba(4,40,58,0.72)),linear-gradient(0deg,rgba(4,40,58,0.7),transparent_45%)] md:bg-[linear-gradient(90deg,rgba(4,40,58,0.82),rgba(4,40,58,0.35)_55%,transparent_80%),linear-gradient(0deg,rgba(4,40,58,0.7),transparent_45%)]" />
+          <div className="absolute inset-0 z-[-2] bg-[linear-gradient(90deg,rgba(4,40,58,0.92),rgba(4,40,58,0.85)),linear-gradient(0deg,rgba(4,40,58,0.7),transparent_45%)] md:bg-[linear-gradient(90deg,rgba(4,40,58,0.82),rgba(4,40,58,0.35)_55%,transparent_80%),linear-gradient(0deg,rgba(4,40,58,0.7),transparent_45%)]" />
           <motion.div
             className="wsop-hero__topline !border-white/20 !bg-[rgba(4,40,58,0.35)] !text-white/80 backdrop-blur-md"
             initial={{ opacity: 0 }}
